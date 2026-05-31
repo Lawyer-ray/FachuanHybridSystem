@@ -103,7 +103,6 @@ _EVIDENCE_NAMES = frozenset(
     }
 )
 
-
 def __getattr__(name: str) -> Any:
     if name in _EVIDENCE_NAMES:
         _mod = _importlib.import_module("apps.evidence.models")

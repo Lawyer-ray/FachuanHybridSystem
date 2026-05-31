@@ -15,7 +15,6 @@ from apps.litigation_ai.placeholders.spec import LitigationPlaceholderKeys
 
 logger = logging.getLogger(__name__)
 
-
 @PlaceholderRegistry.register
 class CaseLawyerService(BasePlaceholderService):
     """案件律师占位符服务"""

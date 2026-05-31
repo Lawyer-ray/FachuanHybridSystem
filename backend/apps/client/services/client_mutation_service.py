@@ -7,7 +7,6 @@ from typing import TYPE_CHECKING, Any
 
 from django.core.exceptions import ValidationError
 from django.db import transaction
-from django.utils.translation import gettext_lazy as _
 
 from apps.client.models import Client
 from apps.core.exceptions import ForbiddenError, ValidationException
@@ -22,7 +21,6 @@ if TYPE_CHECKING:
     from .client_query_service import ClientQueryService
 
 logger = logging.getLogger("apps.client")
-
 
 class ClientMutationService:
     _VALID_CLIENT_TYPES: list[str] = [Client.NATURAL, Client.LEGAL, Client.NON_LEGAL_ORG]
@@ -99,7 +97,7 @@ class ClientMutationService:
             client.full_clean()
         except ValidationError as e:
             raise ValidationException(
-                message=_("验证失败"),
+                message="验证失败",
                 code="VALIDATION_ERROR",
                 errors=e.message_dict,
             ) from e
@@ -184,41 +182,41 @@ class ClientMutationService:
     def _validate_create_data(self, data: dict[str, Any]) -> None:
         if not data.get("name"):
             raise ValidationException(
-                message=_("客户名称不能为空"), code="INVALID_NAME", errors={"name": _("客户名称不能为空")}
+                message="客户名称不能为空", code="INVALID_NAME", errors={"name": "客户名称不能为空"}
             )
 
         if data.get("client_type") not in self._VALID_CLIENT_TYPES:
             raise ValidationException(
-                message=_("无效的客户类型"),
+                message="无效的客户类型",
                 code="INVALID_CLIENT_TYPE",
-                errors={"client_type": _("无效的客户类型")},
+                errors={"client_type": "无效的客户类型"},
             )
 
         if data.get("client_type") == Client.LEGAL and not data.get("legal_representative"):
             raise ValidationException(
-                message=_("法人客户必须填写法定代表人"),
+                message="法人客户必须填写法定代表人",
                 code="MISSING_LEGAL_REPRESENTATIVE",
-                errors={"legal_representative": _("法人客户必须填写法定代表人")},
+                errors={"legal_representative": "法人客户必须填写法定代表人"},
             )
 
     def _validate_update_data(self, client: Client, data: dict[str, Any]) -> None:
         if "name" in data and not data["name"]:
             raise ValidationException(
-                message=_("客户名称不能为空"), code="INVALID_NAME", errors={"name": _("客户名称不能为空")}
+                message="客户名称不能为空", code="INVALID_NAME", errors={"name": "客户名称不能为空"}
             )
 
         if "client_type" in data and data["client_type"] not in self._VALID_CLIENT_TYPES:
             raise ValidationException(
-                message=_("无效的客户类型"),
+                message="无效的客户类型",
                 code="INVALID_CLIENT_TYPE",
-                errors={"client_type": _("无效的客户类型")},
+                errors={"client_type": "无效的客户类型"},
             )
 
         client_type = data.get("client_type", client.client_type)
         legal_rep = data.get("legal_representative", client.legal_representative)
         if client_type == Client.LEGAL and not legal_rep:
             raise ValidationException(
-                message=_("法人客户必须填写法定代表人"),
+                message="法人客户必须填写法定代表人",
                 code="MISSING_LEGAL_REPRESENTATIVE",
-                errors={"legal_representative": _("法人客户必须填写法定代表人")},
+                errors={"legal_representative": "法人客户必须填写法定代表人"},
             )

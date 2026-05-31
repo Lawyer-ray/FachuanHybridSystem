@@ -43,7 +43,6 @@ CROSS_EXAM_PROMPT = """你是一位资深诉讼律师。请对以下对方证据
 
 只返回JSON，不要其他内容。"""
 
-
 class EvidenceAIService:
     """证据 AI 辅助服务"""
 

@@ -11,12 +11,10 @@ from apps.core.llm.structured_output import json_schema_instructions, parse_mode
 
 logger = logging.getLogger(__name__)
 
-
 class DocumentTypeParseResult(BaseModel):
     document_type: str = Field(default="")
     confidence: float = Field(default=0.0)
     notes: str = Field(default="")
-
 
 class DocumentTypeParseChain:
     def __init__(self, model: str | None = None) -> None:

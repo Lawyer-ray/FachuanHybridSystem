@@ -12,7 +12,6 @@ from typing import Any
 # API 响应数据类 (来自法院一张网 API)
 # ============================================================
 
-
 @dataclass
 class DocumentRecord:
     """
@@ -102,7 +101,6 @@ class DocumentRecord:
             "zhxgsj": self.zhxgsj,
         }
 
-
 @dataclass
 class DocumentDetail:
     """
@@ -150,7 +148,6 @@ class DocumentDetail:
             "dt_cjsj": self.dt_cjsj,
         }
 
-
 @dataclass
 class DocumentListResponse:
     """
@@ -193,11 +190,9 @@ class DocumentListResponse:
             "documents": [doc.to_dict() for doc in self.documents],
         }
 
-
 # ============================================================
 # 原有数据类 (Playwright 方式使用)
 # ============================================================
-
 
 @dataclass
 class DocumentDeliveryRecord:
@@ -240,7 +235,6 @@ class DocumentDeliveryRecord:
             delivery_event_id=data.get("delivery_event_id", ""),
         )
 
-
 @dataclass
 class DocumentQueryResult:
     """文书查询结果"""
@@ -251,7 +245,6 @@ class DocumentQueryResult:
     failed_count: int  # 处理失败数
     case_log_ids: list[int]  # 创建的案件日志 ID 列表
     errors: list[str]  # 错误信息列表
-
 
 @dataclass
 class DocumentProcessResult:

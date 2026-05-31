@@ -1,4 +1,3 @@
-{% load i18n %}
 <!-- 收费与财务标签页 -->
 <div x-show="activeTab === 'finance'" x-cloak x-transition>
 
@@ -8,29 +7,29 @@
         <div class="info-card" style="margin-bottom: 0;">
             <div class="card-header">
                 <span class="card-icon">💰</span>
-                <h3 class="card-title">{% trans "收费条款" %}</h3>
+                <h3 class="card-title">{</h3>
             </div>
             <dl class="info-list">
                 <div class="info-item">
-                    <dt>{% trans "收费模式" %}</dt>
+                    <dt>{</dt>
                     <dd><span class="fee-mode-tag fee-mode-{{ contract.fee_mode|lower }}">{{ contract.get_fee_mode_display }}</span></dd>
                 </div>
                 {% if contract.fee_mode == 'FIXED' or contract.fee_mode == 'SEMI_RISK' %}
                 <div class="info-item">
-                    <dt>{% if contract.fee_mode == 'FIXED' %}{% trans "固定律师费" %}{% else %}{% trans "前期律师费" %}{% endif %}</dt>
-                    <dd class="amount">{% if contract.fixed_amount %}¥{{ contract.fixed_amount|floatformat:2 }}{% else %}{% trans "未设置" %}{% endif %}</dd>
+                    <dt>{% if contract.fee_mode == 'FIXED' %}{{% else %}{{% endif %}</dt>
+                    <dd class="amount">{% if contract.fixed_amount %}¥{{ contract.fixed_amount|floatformat:2 }}{% else %}{{% endif %}</dd>
                 </div>
                 {% endif %}
                 {% if contract.fee_mode == 'SEMI_RISK' or contract.fee_mode == 'FULL_RISK' %}
                 <div class="info-item">
-                    <dt>{% trans "风险比例" %}</dt>
-                    <dd>{% if contract.risk_rate %}{{ contract.risk_rate }}%{% else %}{% trans "未设置" %}{% endif %}</dd>
+                    <dt>{</dt>
+                    <dd>{% if contract.risk_rate %}{{ contract.risk_rate }}%{% else %}{{% endif %}</dd>
                 </div>
                 {% endif %}
             </dl>
             {% if contract.fee_mode == 'CUSTOM' and contract.custom_terms %}
             <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #e5e7eb;">
-                <div style="font-size: 12px; color: #6b7280; margin-bottom: 4px;">{% trans "自定义收费条款" %}</div>
+                <div style="font-size: 12px; color: #6b7280; margin-bottom: 4px;">{</div>
                 <div style="font-size: 13px; color: #1a1a1a; white-space: pre-wrap;">{{ contract.custom_terms }}</div>
             </div>
             {% endif %}
@@ -40,21 +39,21 @@
         <div class="info-card" style="margin-bottom: 0;">
             <div class="card-header">
                 <span class="card-icon">📈</span>
-                <h3 class="card-title">{% trans "律师费收款进度" %}</h3>
+                <h3 class="card-title">{</h3>
             </div>
 
             <!-- 收款进度 -->
             <div style="margin-bottom: 16px;">
-                <div style="font-size: 12px; color: #6b7280; font-weight: 600; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.05em;">{% trans "收款" %}</div>
+                <div style="font-size: 12px; color: #6b7280; font-weight: 600; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.05em;">{</div>
                 {% if payment_progress.progress_percent is not None %}
                 <div class="progress-summary">
                     <div class="progress-amounts">
                         <div class="progress-amount-item">
-                            <label>{% trans "应收" %}</label>
+                            <label>{</label>
                             <span class="progress-value">¥{{ payment_progress.total_amount|floatformat:2 }}</span>
                         </div>
                         <div class="progress-amount-item">
-                            <label>{% trans "已收" %}</label>
+                            <label>{</label>
                             <span class="progress-value amount">¥{{ payment_progress.received_amount|floatformat:2 }}</span>
                         </div>
                     </div>
@@ -64,32 +63,32 @@
                         </div>
                         <div class="progress-info">
                             <span class="progress-percent">{{ payment_progress.progress_percent }}%</span>
-                            {% if payment_progress.is_completed %}<span class="progress-completed-badge">{% trans "已收齐" %}</span>{% endif %}
+                            {% if payment_progress.is_completed %}<span class="progress-completed-badge">{</span>{% endif %}
                         </div>
                     </div>
                 </div>
                 {% else %}
                 <div class="progress-amounts">
                     <div class="progress-amount-item">
-                        <label>{% trans "已收" %}</label>
+                        <label>{</label>
                         <span class="progress-value amount">¥{{ payment_progress.received_amount|floatformat:2 }}</span>
                     </div>
                 </div>
-                <p class="progress-hint">{% trans "当前收费模式无固定应收金额" %}</p>
+                <p class="progress-hint">{</p>
                 {% endif %}
             </div>
 
             <!-- 开票进度 -->
             <div style="padding-top: 14px; border-top: 1px solid #e5e7eb;">
-                <div style="font-size: 12px; color: #6b7280; font-weight: 600; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.05em;">{% trans "开票" %}</div>
+                <div style="font-size: 12px; color: #6b7280; font-weight: 600; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.05em;">{</div>
                 {% if invoice_summary %}
                 <div class="invoice-amounts" style="margin-bottom: 8px;">
                     <div class="invoice-amount-item">
-                        <label>{% trans "已开票" %}</label>
+                        <label>{</label>
                         <span class="invoice-value invoiced">¥{{ invoice_summary.invoiced_amount|floatformat:2 }}</span>
                     </div>
                     <div class="invoice-amount-item">
-                        <label>{% trans "未开票" %}</label>
+                        <label>{</label>
                         <span class="invoice-value {% if invoice_summary.has_pending %}pending{% endif %}">¥{{ invoice_summary.uninvoiced_amount|floatformat:2 }}</span>
                     </div>
                 </div>
@@ -100,12 +99,12 @@
                     <div class="invoice-info">
                         <span class="invoice-percent">{{ invoice_summary.invoice_percent }}%</span>
                         {% if invoice_summary.has_pending %}
-                        <span class="invoice-pending-badge">{% trans "待开票" %} ¥{{ invoice_summary.uninvoiced_amount|floatformat:2 }}</span>
+                        <span class="invoice-pending-badge">{ ¥{{ invoice_summary.uninvoiced_amount|floatformat:2 }}</span>
                         {% endif %}
                     </div>
                 </div>
                 {% else %}
-                <p class="empty-state" style="margin: 0;">{% trans "暂无开票数据" %}</p>
+                <p class="empty-state" style="margin: 0;">{</p>
                 {% endif %}
             </div>
         </div>
@@ -115,9 +114,9 @@
     <div class="info-card" style="margin-top: 20px;">
         <div class="card-header">
             <span class="card-icon">📋</span>
-            <h3 class="card-title">{% trans "律师费收款记录" %}</h3>
+            <h3 class="card-title">{</h3>
             {% if payments %}
-            <span style="margin-left: auto; font-size: 12px; color: #6b7280;">{{ payments|length }} {% trans "笔" %} · {% trans "累计" %} ¥{{ total_payment_amount|floatformat:2|default:"0.00" }}</span>
+            <span style="margin-left: auto; font-size: 12px; color: #6b7280;">{{ payments|length }} { · { ¥{{ total_payment_amount|floatformat:2|default:"0.00" }}</span>
             {% endif %}
         </div>
         {% if payments %}
@@ -146,7 +145,7 @@
             {% endfor %}
         </div>
         {% else %}
-        <p class="empty-state">{% trans "暂无收款记录" %}</p>
+        <p class="empty-state">{</p>
         {% endif %}
     </div>
 
@@ -154,11 +153,11 @@
     <div class="info-card" style="margin-top: 20px;">
         <div class="card-header">
             <span class="card-icon">💵</span>
-            <h3 class="card-title">{% trans "客户回款" %}</h3>
+            <h3 class="card-title">{</h3>
             {% if client_payments %}
             <span style="margin-left: auto; font-size: 12px; color: #6b7280;">
-                {{ client_payments|length }} {% trans "笔" %} ·
-                {% trans "累计" %} ¥{{ total_client_payment|floatformat:2 }}
+                {{ client_payments|length }} { ·
+                { ¥{{ total_client_payment|floatformat:2 }}
             </span>
             {% endif %}
         </div>
@@ -174,7 +173,7 @@
                 </span>
                 {% endif %}
                 {% if payment.image_path %}
-                <a href="{{ media_url }}{{ payment.image_path }}" target="_blank" rel="noopener noreferrer" style="font-size: 12px; color: #2563eb; text-decoration: underline;">📎 {% trans "查看凭证" %}</a>
+                <a href="{{ media_url }}{{ payment.image_path }}" target="_blank" rel="noopener noreferrer" style="font-size: 12px; color: #2563eb; text-decoration: underline;">📎 {</a>
                 {% endif %}
                 {% if payment.note %}
                 <span class="payment-note">{{ payment.note }}</span>
@@ -183,7 +182,7 @@
             {% endfor %}
         </div>
         {% else %}
-        <p class="empty-state">{% trans "暂无客户回款记录" %}</p>
+        <p class="empty-state">{</p>
         {% endif %}
     </div>
 

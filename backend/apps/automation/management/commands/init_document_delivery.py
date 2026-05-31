@@ -16,7 +16,6 @@ from django.core.management.base import BaseCommand
 
 logger = logging.getLogger("apps.automation")
 
-
 class Command(BaseCommand):
     help = "初始化文书送达系统的 Django Q 调度"
 

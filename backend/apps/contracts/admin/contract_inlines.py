@@ -5,7 +5,6 @@ from typing import TYPE_CHECKING, ClassVar
 from django import forms
 from django.contrib import admin
 from django.http import HttpRequest
-from django.utils.translation import gettext_lazy as _
 
 from apps.contracts.models import (
     ContractAssignment,
@@ -28,12 +27,11 @@ else:
         BaseStackedInline = admin.StackedInline
         BaseTabularInline = admin.TabularInline
 
-
 class FinalizedMaterialAdminForm(forms.ModelForm[FinalizedMaterial]):
     file = forms.FileField(
         required=False,
-        label=_("上传文件"),
-        help_text=_("仅支持 PDF，最大 20MB"),
+        label="上传文件",
+        help_text="仅支持 PDF，最大 20MB",
     )
 
     class Meta:
@@ -55,7 +53,6 @@ class FinalizedMaterialAdminForm(forms.ModelForm[FinalizedMaterial]):
             instance.save()
         return instance
 
-
 class FinalizedMaterialInline(BaseTabularInline):
     model = FinalizedMaterial
     form = FinalizedMaterialAdminForm
@@ -64,7 +61,7 @@ class FinalizedMaterialInline(BaseTabularInline):
     readonly_fields: ClassVar = ("filename_link", "uploaded_at")
     classes = ("collapse",)
 
-    @admin.display(description=_("原始文件名"))
+    @admin.display(description="原始文件名")
     def filename_link(self, obj: FinalizedMaterial) -> str:
         from django.utils.html import format_html
 
@@ -82,7 +79,6 @@ class FinalizedMaterialInline(BaseTabularInline):
     class Media:
         css = {"all": ("contracts/css/finalized_material_inline.css",)}
 
-
 class ContractPartyInline(BaseTabularInline):
     model = ContractParty
     extra = 1
@@ -93,13 +89,11 @@ class ContractPartyInline(BaseTabularInline):
     class Media:
         js = ("contracts/js/party_role_auto.js",)
 
-
 class ContractAssignmentInline(BaseTabularInline):
     model = ContractAssignment
     extra = 1
     fields = ("lawyer", "is_primary", "order")
     autocomplete_fields: ClassVar = ["lawyer"]
-
 
 class SupplementaryAgreementPartyInline(BaseTabularInline):
     """补充协议当事人内联（嵌套在补充协议中）"""
@@ -109,7 +103,6 @@ class SupplementaryAgreementPartyInline(BaseTabularInline):
     fields = ("client", "role")
     autocomplete_fields: ClassVar = ["client"]
 
-
 class SupplementaryAgreementInline(BaseStackedInline):
     """补充协议内联（在合同中）"""
 
@@ -118,7 +111,6 @@ class SupplementaryAgreementInline(BaseStackedInline):
     fields = ("name",)
     show_change_link = True
     classes = ("collapse",)
-
 
 # 如果支持嵌套 Admin，添加当事人内联到补充协议
 if BaseStackedInline is not admin.StackedInline:

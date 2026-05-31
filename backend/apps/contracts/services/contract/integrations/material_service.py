@@ -10,7 +10,6 @@ from apps.core.services import storage_service as storage
 
 logger = logging.getLogger(__name__)
 
-
 class MaterialService:
     def save_material_file(self, uploaded_file: Any, contract_id: int) -> tuple[str, str]:
         """

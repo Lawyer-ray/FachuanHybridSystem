@@ -6,7 +6,7 @@ import logging
 from typing import Any
 
 from django.utils import timezone
-from django.utils.translation import gettext_lazy as _
+
 from ninja import Router
 
 from apps.core.exceptions import NotFoundError, ValidationException
@@ -18,7 +18,6 @@ from .download_response_factory import build_download_response
 logger = logging.getLogger("apps.documents.api")
 router = Router(auth=JWTOrSessionAuth())
 
-
 @router.post("/cases/{case_id}/templates/{template_id}/download")
 @rate_limit_from_settings("EXPORT", by_user=True)
 def download_case_template(request: Any, case_id: int, template_id: int) -> Any:
@@ -29,17 +28,17 @@ def download_case_template(request: Any, case_id: int, template_id: int) -> Any:
 
     case = get_case_or_none(case_id)
     if not case:
-        raise NotFoundError(message=_("案件不存在"), code="CASE_NOT_FOUND", errors={"case_id": str(case_id)})
+        raise NotFoundError(message="案件不存在", code="CASE_NOT_FOUND", errors={"case_id": str(case_id)})
 
     template = get_active_template_or_none(template_id)
     if not template:
         raise NotFoundError(
-            message=_("模板不存在"), code="TEMPLATE_NOT_FOUND", errors={"template_id": str(template_id)}
+            message="模板不存在", code="TEMPLATE_NOT_FOUND", errors={"template_id": str(template_id)}
         )
 
     file_path = template.get_file_location()
     if not file_path:
-        raise ValidationException(message=_("模板文件路径为空"), code="TEMPLATE_FILE_EMPTY", errors={})
+        raise ValidationException(message="模板文件路径为空", code="TEMPLATE_FILE_EMPTY", errors={})
 
     context = EnhancedContextBuilder().build_context({"case": case, "case_id": case.id})
     content = DocxRenderer().render(file_path, context)

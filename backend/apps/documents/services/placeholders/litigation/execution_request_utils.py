@@ -37,7 +37,6 @@ FULLWIDTH_TRANSLATION = str.maketrans(
     }
 )
 
-
 def parse_decimal(raw: str | None) -> Decimal | None:
     if raw is None:
         return None
@@ -49,7 +48,6 @@ def parse_decimal(raw: str | None) -> Decimal | None:
     except (InvalidOperation, ValueError):
         return None
 
-
 def safe_decimal(value: Any) -> Decimal:
     if value is None:
         return Decimal("0")
@@ -60,7 +58,6 @@ def safe_decimal(value: Any) -> Decimal:
     except (InvalidOperation, ValueError):
         return Decimal("0")
 
-
 def format_amount(amount: Decimal | None) -> str:
     if amount is None:
         return "0"
@@ -69,13 +66,11 @@ def format_amount(amount: Decimal | None) -> str:
         return str(int(quantized))
     return format(quantized.normalize(), "f")
 
-
 def build_date(year: str, month: str, day: str) -> date | None:
     try:
         return date(int(year), int(month), int(day))
     except ValueError:
         return None
-
 
 def parse_amount_value(raw_amount: str | None, unit_marker: str | None = None) -> Decimal | None:
     amount = parse_decimal(raw_amount)
@@ -84,7 +79,6 @@ def parse_amount_value(raw_amount: str | None, unit_marker: str | None = None) -
     if unit_marker and "万" in unit_marker:
         return amount * Decimal("10000")
     return amount
-
 
 def parse_multiplier_value(raw: str | None) -> Decimal | None:
     value = parse_decimal(raw)
@@ -116,7 +110,6 @@ def parse_multiplier_value(raw: str | None) -> Decimal | None:
         return Decimal(str(tens * 10 + ones))
     return None
 
-
 def extract_sentence(text: str, start: int, end: int) -> str:
     delimiters = ("。", "；", "\n")
     left = 0
@@ -137,7 +130,6 @@ def extract_sentence(text: str, start: int, end: int) -> str:
 
     return text[left:right].strip()
 
-
 def normalize_text(text: str) -> str:
     normalized = text.translate(FULLWIDTH_TRANSLATION)
     normalized = re.sub(r" ", " ", normalized)
@@ -145,18 +137,15 @@ def normalize_text(text: str) -> str:
     normalized = re.sub(r"\n+", "\n", normalized)
     return normalized
 
-
 def normalize_year_days(value: int | None) -> int:
     if value in VALID_YEAR_DAYS:
         return int(value)
     return 360
 
-
 def normalize_date_inclusion(value: str | None) -> str:
     if value in VALID_DATE_INCLUSION:
         return str(value)
     return "both"
-
 
 def to_docx_hard_breaks(text: str) -> str:
     if not text:

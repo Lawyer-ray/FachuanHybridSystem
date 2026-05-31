@@ -12,7 +12,6 @@ from apps.story_viz.services.wiring import get_story_animation_job_service
 
 router = Router(tags=["故事可视化"])
 
-
 class StoryAnimationStatusOut(BaseModel):
     id: str
     title: str
@@ -32,7 +31,6 @@ class StoryAnimationStatusOut(BaseModel):
     facts_count: int
     parties_count: int
     relationships_count: int
-
 
 def _build_status_out(payload: dict[str, object]) -> StoryAnimationStatusOut:
     """从 payload 构建强类型输出，确保 mypy 类型安全."""
@@ -57,13 +55,11 @@ def _build_status_out(payload: dict[str, object]) -> StoryAnimationStatusOut:
         relationships_count=int(cast(int, payload.get("relationships_count", 0))),
     )
 
-
 @router.get("/animations/{animation_id}", response=StoryAnimationStatusOut)
 def get_story_animation_status(request: Any, animation_id: UUID) -> StoryAnimationStatusOut:
     animation = get_story_animation_job_service().get_animation(animation_id=animation_id)
     payload = get_story_animation_job_service().build_status_payload(animation=animation)
     return _build_status_out(payload)
-
 
 @router.post("/animations/{animation_id}/retry", response=StoryAnimationStatusOut)
 def retry_story_animation(request: Any, animation_id: UUID) -> StoryAnimationStatusOut:
@@ -71,13 +67,11 @@ def retry_story_animation(request: Any, animation_id: UUID) -> StoryAnimationSta
     payload = get_story_animation_job_service().build_status_payload(animation=animation)
     return _build_status_out(payload)
 
-
 @router.post("/animations/{animation_id}/cancel", response=StoryAnimationStatusOut)
 def cancel_story_animation(request: Any, animation_id: UUID) -> StoryAnimationStatusOut:
     animation = get_story_animation_job_service().request_cancel(animation_id=animation_id)
     payload = get_story_animation_job_service().build_status_payload(animation=animation)
     return _build_status_out(payload)
-
 
 @router.get("/animations/{animation_id}/preview")
 def preview_story_animation(request: Any, animation_id: UUID) -> HttpResponse:
@@ -86,13 +80,11 @@ def preview_story_animation(request: Any, animation_id: UUID) -> HttpResponse:
         return HttpResponse("任务未完成，暂时无法预览。", status=409, content_type="text/plain; charset=utf-8")
     return HttpResponse(animation.animation_html, content_type="text/html; charset=utf-8")
 
-
 class StageDetailOut(BaseModel):
     name: str
     label: str
     status: str
     summary: dict[str, Any]
-
 
 class StoryAnimationDetailOut(StoryAnimationStatusOut):
     stages: list[StageDetailOut]
@@ -101,7 +93,6 @@ class StoryAnimationDetailOut(StoryAnimationStatusOut):
     render_summary: dict[str, Any]
     has_html: bool
     suggested_questions: list[str]
-
 
 def _build_detail_out(payload: dict[str, object]) -> StoryAnimationDetailOut:
     stages_raw = payload.get("stages", [])
@@ -133,22 +124,18 @@ def _build_detail_out(payload: dict[str, object]) -> StoryAnimationDetailOut:
         suggested_questions=list(payload.get("suggested_questions", []) or []),  # type: ignore[call-overload]
     )
 
-
 @router.get("/animations/{animation_id}/detail", response=StoryAnimationDetailOut)
 def get_story_animation_detail(request: Any, animation_id: UUID) -> StoryAnimationDetailOut:
     animation = get_story_animation_job_service().get_animation(animation_id=animation_id)
     payload = get_story_animation_job_service().build_detail_payload(animation=animation)
     return _build_detail_out(payload)
 
-
 class AskRequest(BaseModel):
     question: str
     model: str | None = None
 
-
 class AskResponse(BaseModel):
     answer: str
-
 
 @router.post("/animations/{animation_id}/ask", response=AskResponse)
 def ask_story_animation(request: Any, animation_id: UUID, payload: AskRequest) -> AskResponse:
@@ -159,16 +146,13 @@ def ask_story_animation(request: Any, animation_id: UUID, payload: AskRequest) -
     )
     return AskResponse(answer=answer)
 
-
 class ModelItemOut(BaseModel):
     id: str
     name: str
     backend: str
 
-
 class ModelListOut(BaseModel):
     models: list[ModelItemOut]
-
 
 @router.get("/animations/models", response=ModelListOut)
 def list_models(request: Any) -> ModelListOut:

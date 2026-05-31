@@ -12,7 +12,6 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from django.db.models import QuerySet
 
-
 class CaseQuerySetManager:
     """案件查询集管理器"""
 
@@ -41,7 +40,6 @@ class CaseQuerySetManager:
     def with_extra_prefetch(cls, *extra: str) -> QuerySet[Any, Any]:
         """返回带额外预加载的查询集"""
         return cls.with_standard_prefetch().prefetch_related(*extra)
-
 
 class ContractQuerySetManager:
     """合同查询集管理器"""

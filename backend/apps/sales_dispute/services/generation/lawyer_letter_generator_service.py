@@ -11,8 +11,6 @@ from importlib import import_module
 from pathlib import Path
 from typing import Any
 
-from django.utils.translation import gettext_lazy as _
-
 from apps.core.exceptions import ValidationException
 from apps.documents.storage import get_docx_templates_root
 
@@ -20,14 +18,12 @@ logger = logging.getLogger(__name__)
 
 TEMPLATE_DIR: Path = Path(str(get_docx_templates_root() / "2-案件材料" / "3-催收材料"))
 
-
 class LetterTone(str, Enum):
     """律师函语气枚举"""
 
     MILD = "mild"
     FIRM = "firm"
     ULTIMATUM = "ultimatum"
-
 
 TONE_TEMPLATE_MAP: dict[LetterTone, str] = {
     LetterTone.MILD: "律师函-温和版.docx",
@@ -40,7 +36,6 @@ _TONE_DISPLAY: dict[LetterTone, str] = {
     LetterTone.FIRM: "强硬版",
     LetterTone.ULTIMATUM: "最后通牒",
 }
-
 
 @dataclass(frozen=True)
 class LawyerLetterParams:
@@ -55,14 +50,12 @@ class LawyerLetterParams:
     contract_no: str = ""
     deadline_days: int = 7
 
-
 @dataclass(frozen=True)
 class GeneratedDocument:
     """生成文档结果"""
 
     filename: str
     content: bytes
-
 
 class LawyerLetterGeneratorService:
     """律师函生成服务"""
@@ -85,7 +78,7 @@ class LawyerLetterGeneratorService:
 
         if not template_path.exists():
             raise ValidationException(
-                message=_("模板文件不存在：%(path)s") % {"path": str(template_path)},
+                message="模板文件不存在：%(path)s" % {"path": str(template_path)},
                 code="TEMPLATE_NOT_FOUND",
             )
 
@@ -103,7 +96,7 @@ class LawyerLetterGeneratorService:
                 record=record,
                 action_type="lawyer_letter",
                 action_date=date.today(),
-                description=str(_("生成律师函（%(tone)s）") % {"tone": tone_display}),
+                description=str("生成律师函（%(tone)s）" % {"tone": tone_display}),
                 document_type=f"律师函-{tone_display}",
                 document_filename=filename,
             )

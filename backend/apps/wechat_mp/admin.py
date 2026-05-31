@@ -10,7 +10,6 @@ from apps.wechat_mp.models import PublishTask, PublishTaskStatus, WeChatAccount
 
 logger = logging.getLogger(__name__)
 
-
 @admin.register(WeChatAccount)
 class WeChatAccountAdmin(admin.ModelAdmin):
     list_display = ["name", "mp_url", "is_active", "created_at"]
@@ -23,7 +22,6 @@ class WeChatAccountAdmin(admin.ModelAdmin):
         if not obj.created_by:
             obj.created_by = request.user
         super().save_model(request, obj, form, change)
-
 
 @admin.register(PublishTask)
 class PublishTaskAdmin(admin.ModelAdmin):

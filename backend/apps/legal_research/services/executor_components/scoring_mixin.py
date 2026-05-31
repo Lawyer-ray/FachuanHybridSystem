@@ -14,7 +14,6 @@ from apps.legal_research.services.sources import CaseDetail
 
 logger = logging.getLogger(__name__)
 
-
 class ExecutorScoringMixin:
     SCORE_RETRY_ATTEMPTS = 3
     BORDERLINE_RECHECK_GAP = 0.08

@@ -17,26 +17,22 @@ from apps.core.security.auth import JWTOrSessionAuth
 
 router = Router(tags=["证据管理"], auth=JWTOrSessionAuth())
 
-
 def _get_evidence_service() -> Any:
     """工厂函数获取证据服务"""
     from apps.evidence.services.wiring import get_evidence_service
 
     return get_evidence_service()
 
-
 class ReorderItemsRequest(Schema):
     """重新排序请求"""
 
     item_ids: list[int]
-
 
 class ReorderItemsResponse(Schema):
     """重新排序响应"""
 
     success: bool
     message: str = ""
-
 
 @router.post(
     "/evidence-lists/{list_id}/reorder",

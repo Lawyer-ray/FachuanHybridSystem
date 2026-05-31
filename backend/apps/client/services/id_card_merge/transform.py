@@ -6,7 +6,6 @@ import cv2
 import numpy as np
 from numpy.typing import NDArray
 
-
 def perspective_transform(
     image: NDArray[np.uint8],
     corners: NDArray[np.float32],

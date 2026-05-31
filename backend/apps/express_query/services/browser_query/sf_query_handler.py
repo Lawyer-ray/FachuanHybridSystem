@@ -16,7 +16,6 @@ logger = logging.getLogger("apps.express_query")
 SF_HOME_URL: Final[str] = "https://www.sf-express.com/"
 SF_QUERY_URL: Final[str] = "https://www.sf-express.com/chn/sc/waybill/list"
 
-
 async def query_sf(page: Page, tracking_number: str) -> None:
     await page.goto(SF_HOME_URL, wait_until="networkidle")
     await asyncio.sleep(2)
@@ -52,7 +51,6 @@ async def query_sf(page: Page, tracking_number: str) -> None:
 
     await _open_sf_waybill_detail(page, tracking_number)
 
-
 async def _wait_for_sf_login(page: Page) -> None:
     from .browser_utils import has_any_visible
 
@@ -68,7 +66,6 @@ async def _wait_for_sf_login(page: Page) -> None:
         if user_visible or not login_visible:
             return
         await asyncio.sleep(2)
-
 
 async def _dismiss_sf_overlays(page: Page) -> None:
     close_selectors = [
@@ -183,7 +180,6 @@ async def _dismiss_sf_overlays(page: Page) -> None:
 
         if not closed_any:
             break
-
 
 async def _open_sf_waybill_detail(page: Page, tracking_number: str) -> None:
     logger.info("Opening SF waybill detail: %s", tracking_number)

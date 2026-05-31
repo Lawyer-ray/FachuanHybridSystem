@@ -4,7 +4,6 @@ from pathlib import PurePosixPath
 
 from django.db import migrations
 
-
 def backfill_original_filename(apps, schema_editor):
     """Set original_filename from the stored file path for existing attachments."""
     CaseLogAttachment = apps.get_model("cases", "CaseLogAttachment")
@@ -16,7 +15,6 @@ def backfill_original_filename(apps, schema_editor):
             updated += 1
     if updated:
         print(f"  Backfilled original_filename for {updated} attachments")
-
 
 class Migration(migrations.Migration):
 

@@ -6,14 +6,11 @@ import logging
 from dataclasses import dataclass
 from typing import Any
 
-from django.utils.translation import gettext_lazy as _
-
 from apps.core.exceptions import ValidationException
 
 logger = logging.getLogger(__name__)
 
 __all__: list[str] = ["ExportLayout"]
-
 
 @dataclass(frozen=True)
 class ExportLayout:
@@ -42,7 +39,7 @@ class ExportLayout:
         header_text: str = raw_header if raw_header else default_header_text
 
         if images_per_page not in (1, 2):
-            raise ValidationException(_("仅支持 1 张/页 或 2 张/页"))
+            raise ValidationException("仅支持 1 张/页 或 2 张/页")
 
         return cls(
             images_per_page=images_per_page,

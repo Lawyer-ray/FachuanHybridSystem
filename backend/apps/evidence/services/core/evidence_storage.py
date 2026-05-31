@@ -7,7 +7,6 @@ import re
 from django.core.files.storage import FileSystemStorage
 from django.utils.deconstruct import deconstructible
 
-
 @deconstructible
 class EvidenceFileStorage(FileSystemStorage):
     """
@@ -41,7 +40,6 @@ class EvidenceFileStorage(FileSystemStorage):
             clean_name = "unnamed"
 
         return clean_name
-
 
 # 创建存储实例
 evidence_file_storage = EvidenceFileStorage()

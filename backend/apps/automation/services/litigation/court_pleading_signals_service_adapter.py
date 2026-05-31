@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from apps.core.dto import CourtPleadingSignalsDTO
 
-
 class CourtPleadingSignalsServiceAdapter:
     def __init__(self, *, model: str | None = None) -> None:
         from apps.automation.services.litigation.court_pleading_signals_service import CourtPleadingSignalsService

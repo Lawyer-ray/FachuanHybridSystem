@@ -10,7 +10,6 @@ from apps.documents.models import FolderTemplate
 from apps.documents.services.folder_template.id_service import FolderTemplateIdService
 from apps.documents.services.folder_template.repair_service import FolderTemplateStructureIdRepairService
 
-
 class Command(BaseCommand):
     help: str = "修复文件夹模板中的重复 ID 问题"
 

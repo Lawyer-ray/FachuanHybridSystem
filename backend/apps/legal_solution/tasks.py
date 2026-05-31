@@ -10,7 +10,6 @@ logger = logging.getLogger(__name__)
 _RESEARCH_POLL_INTERVAL = 10  # 秒
 _RESEARCH_TIMEOUT = 600  # 10分钟
 
-
 def run_solution_task(task_id: int) -> dict[str, Any]:
     """django-q 异步任务主入口：检索 → 生成方案 → 组装 HTML。"""
     os.environ.setdefault("DJANGO_ALLOW_ASYNC_UNSAFE", "true")

@@ -14,7 +14,6 @@ logger = logging.getLogger("apps.oa_filing.jtn")
 
 _COOKIE_PATH = Path.home() / ".fachuan" / "jtn_cookies.json"
 
-
 class SsoLoginMixin:
     """SSO 扫码登录 + Cookie 管理。"""
 

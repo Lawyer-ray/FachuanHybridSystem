@@ -23,7 +23,6 @@ from .filing_models import ClientInfo, _gender_from_id_number
 
 logger = logging.getLogger("apps.oa_filing.jtn")
 
-
 class PlaywrightHelpersMixin:
     """Playwright 表单操作工具 mixin。"""
 

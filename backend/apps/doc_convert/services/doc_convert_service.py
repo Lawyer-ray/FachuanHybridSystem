@@ -21,7 +21,6 @@ ALLOWED_EXTENSIONS: list[str] = [".docx", ".doc", ".pdf"]
 MAX_FILE_SIZE_MB: int = 20
 MAX_FILE_SIZE_BYTES: int = MAX_FILE_SIZE_MB * 1024 * 1024
 
-
 class DocConvertService:
     """要素式转换业务逻辑层。"""
 

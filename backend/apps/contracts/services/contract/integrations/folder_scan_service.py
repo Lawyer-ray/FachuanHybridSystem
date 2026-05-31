@@ -12,7 +12,6 @@ from uuid import UUID
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import transaction
 from django.utils import timezone
-from django.utils.translation import gettext_lazy as _
 
 from apps.contracts.models import (
     Contract,
@@ -37,7 +36,6 @@ from .material_service import MaterialService
 from .quality_card_detector import has_quality_card_on_last_page
 
 logger = logging.getLogger(__name__)
-
 
 class ContractFolderScanService:
     """合同自动捕获扫描、轮询、确认导入服务。"""
@@ -76,7 +74,7 @@ class ContractFolderScanService:
                 if existing_subfolder == scan_scope["scan_subfolder"]:
                     return existing
                 raise ValidationException(
-                    message=_("已有进行中的扫描任务，请等待完成或使用\u201c重新扫描\u201d"),
+                    message="已有进行中的扫描任务，请等待完成或使用\u201c重新扫描\u201d",
                     errors={"session_id": str(existing.id)},
                 )
 
@@ -159,7 +157,7 @@ class ContractFolderScanService:
         try:
             return ContractFolderScanSession.objects.get(id=session_id, contract_id=contract_id)
         except ContractFolderScanSession.DoesNotExist:
-            raise NotFoundError(_("扫描会话不存在")) from None
+            raise NotFoundError("扫描会话不存在") from None
 
     def get_latest_session(self, *, contract_id: int) -> ContractFolderScanSession | None:
         """返回合同最新的扫描会话，没有则返回 None。"""
@@ -198,9 +196,9 @@ class ContractFolderScanService:
     ) -> dict[str, Any]:
         session = self.get_session(contract_id=contract_id, session_id=session_id)
         if session.status == ContractFolderScanStatus.IMPORTED:
-            raise ValidationException(message=_("该扫描已导入，请重新扫描"), errors={"status": session.status})
+            raise ValidationException(message="该扫描已导入，请重新扫描", errors={"status": session.status})
         if session.status != ContractFolderScanStatus.COMPLETED:
-            raise ValidationException(message=_("扫描尚未完成"), errors={"status": session.status})
+            raise ValidationException(message="扫描尚未完成", errors={"status": session.status})
 
         payload = dict(session.result_payload or {})
         candidates = payload.get("candidates") or []
@@ -214,7 +212,7 @@ class ContractFolderScanService:
 
             source_path = str(item.get("source_path") or "").strip()
             if not source_path or source_path not in candidate_map:
-                raise ValidationException(message=_("候选文件不存在"), errors={"source_path": source_path})
+                raise ValidationException(message="候选文件不存在", errors={"source_path": source_path})
 
             category = str(item.get("category") or "archive_document").strip()
             if category not in {
@@ -232,7 +230,7 @@ class ContractFolderScanService:
 
             file_path = Path(source_path)
             if not file_path.exists() or not file_path.is_file():
-                raise ValidationException(message=_("源文件不存在"), errors={"source_path": source_path})
+                raise ValidationException(message="源文件不存在", errors={"source_path": source_path})
 
             # docx → PDF 转换
             actual_file_path = file_path
@@ -492,16 +490,16 @@ class ContractFolderScanService:
     def _ensure_contract_exists(self, contract_id: int) -> None:
         if Contract.objects.filter(id=contract_id).exists():
             return
-        raise NotFoundError(_("合同不存在"))
+        raise NotFoundError("合同不存在")
 
     def _get_accessible_binding(self, contract_id: int) -> ContractFolderBinding:
         binding = ContractFolderBinding.objects.filter(contract_id=contract_id).first()
         if not binding:
-            raise ValidationException(message=_("未绑定文件夹"), errors={"contract_id": contract_id})
+            raise ValidationException(message="未绑定文件夹", errors={"contract_id": contract_id})
 
         folder = Path(binding.folder_path)
         if not folder.exists() or not folder.is_dir():
-            raise ValidationException(message=_("绑定文件夹不可访问"), errors={"folder_path": binding.folder_path})
+            raise ValidationException(message="绑定文件夹不可访问", errors={"folder_path": binding.folder_path})
 
         return binding
 
@@ -518,12 +516,12 @@ class ContractFolderScanService:
             scan_path = (root / normalized_subfolder).resolve()
             if not self._is_within_root(root, scan_path):
                 raise ValidationException(
-                    message=_("扫描子文件夹越界"),
+                    message="扫描子文件夹越界",
                     errors={"scan_subfolder": normalized_subfolder},
                 )
             if not scan_path.exists() or not scan_path.is_dir():
                 raise ValidationException(
-                    message=_("扫描子文件夹不可访问"),
+                    message="扫描子文件夹不可访问",
                     errors={"scan_subfolder": normalized_subfolder},
                 )
 
@@ -538,13 +536,13 @@ class ContractFolderScanService:
         if not raw:
             return ""
         if raw.startswith("/") or raw.startswith("~") or re.match(r"^[A-Za-z]:/", raw):
-            raise ValidationException(message=_("扫描子文件夹必须使用相对路径"), errors={"scan_subfolder": raw})
+            raise ValidationException(message="扫描子文件夹必须使用相对路径", errors={"scan_subfolder": raw})
 
         parts = [part for part in raw.split("/") if part not in {"", "."}]
         if not parts:
             return ""
         if any(part == ".." for part in parts):
-            raise ValidationException(message=_("扫描子文件夹路径非法"), errors={"scan_subfolder": raw})
+            raise ValidationException(message="扫描子文件夹路径非法", errors={"scan_subfolder": raw})
         return "/".join(parts)
 
     def _is_within_root(self, root: Path, target: Path) -> bool:
@@ -862,11 +860,9 @@ class ContractFolderScanService:
             else:
                 candidate["already_imported"] = False
 
-
 def run_contract_folder_scan_task(session_id: str) -> None:
     """Django-Q 任务入口。"""
     ContractFolderScanService().run_scan_task(session_id=session_id)
-
 
 def _normalize_docx_name(filename: str) -> str:
     """标准化文件名用于关键词匹配。"""

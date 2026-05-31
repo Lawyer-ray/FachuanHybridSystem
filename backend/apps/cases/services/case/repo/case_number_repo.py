@@ -4,7 +4,6 @@ from collections.abc import Iterable
 
 from apps.cases.models import CaseNumber
 
-
 class CaseNumberRepo:
     def get_primary_case_number(self, case_id: int) -> str | None:
         return CaseNumber.objects.filter(case_id=case_id).order_by("id").values_list("number", flat=True).first()

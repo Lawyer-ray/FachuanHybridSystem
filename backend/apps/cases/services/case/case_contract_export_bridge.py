@@ -24,16 +24,13 @@ _CASE_ADMIN_CONTRACT_FILE_PREFETCHES: tuple[str, ...] = (
 if TYPE_CHECKING:
     from apps.contracts.models import Contract
 
-
 def get_case_admin_contract_export_prefetches() -> tuple[str, ...]:
     """返回 CaseAdmin 导出合同时需要的 prefetch 路径。"""
     return _CASE_ADMIN_CONTRACT_EXPORT_PREFETCHES
 
-
 def get_case_admin_contract_file_prefetches() -> tuple[str, ...]:
     """返回 CaseAdmin 收集合同文件路径时需要的 prefetch 路径。"""
     return _CASE_ADMIN_CONTRACT_FILE_PREFETCHES
-
 
 def serialize_contract_for_case_export(contract: Contract) -> dict[str, object]:
     """在 Case 导出场景中序列化关联合同。"""
@@ -41,7 +38,6 @@ def serialize_contract_for_case_export(contract: Contract) -> dict[str, object]:
     from apps.contracts.services.contract.integrations import serialize_contract_obj
 
     return serialize_contract_obj(contract, case_serializer=serialize_case_obj)
-
 
 def collect_contract_file_paths_for_case_export(
     contract: Contract,

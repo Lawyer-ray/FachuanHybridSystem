@@ -9,7 +9,6 @@ import apps.oa_filing.services.oa_scripts.jtn.case_import.http_client as jtn_htt
 import apps.oa_filing.services.oa_scripts.jtn.case_import.playwright_browser as jtn_playwright_browser
 from apps.oa_filing.services.oa_scripts.jtn.case_import import CaseListFormState, JtnCaseImportScript
 
-
 def test_login_prefers_cached_http_cookies(monkeypatch: pytest.MonkeyPatch) -> None:
     script = JtnCaseImportScript(account="example", password="example", headless=True)
 
@@ -36,7 +35,6 @@ def test_login_prefers_cached_http_cookies(monkeypatch: pytest.MonkeyPatch) -> N
     assert len(fake_context.cookie_batches) == 1
     names = {item["name"] for item in fake_context.cookie_batches[0]}
     assert names == {"ASP.NET_SessionId", "CSRFToken"}
-
 
 def test_http_login_disables_env_proxy(monkeypatch: pytest.MonkeyPatch) -> None:
     script = JtnCaseImportScript(account="example", password="example", headless=True)
@@ -79,7 +77,6 @@ def test_http_login_disables_env_proxy(monkeypatch: pytest.MonkeyPatch) -> None:
     assert captured["trust_env"] is False
     assert cookies == {"ASP.NET_SessionId": "cookie-1"}
 
-
 def test_name_search_http_session_disables_env_proxy(monkeypatch: pytest.MonkeyPatch) -> None:
     script = JtnCaseImportScript(account="example", password="example", headless=True)
     captured: dict[str, Any] = {}
@@ -104,7 +101,6 @@ def test_name_search_http_session_disables_env_proxy(monkeypatch: pytest.MonkeyP
 
     assert captured["trust_env"] is False
 
-
 def test_is_login_failed_response_detects_login_form_page() -> None:
     script = JtnCaseImportScript(account="example", password="example", headless=True)
     response = httpx.Response(
@@ -114,7 +110,6 @@ def test_is_login_failed_response_detects_login_form_page() -> None:
     )
 
     assert script._is_login_failed_response(response) is True
-
 
 def test_is_login_failed_response_accepts_logout_success_page() -> None:
     script = JtnCaseImportScript(account="example", password="example", headless=True)

@@ -1,5 +1,4 @@
 {% extends "admin/base_site.html" %}
-{% load i18n %}
 
 {% block title %}PDF 拆解{% endblock %}
 
@@ -50,9 +49,9 @@
 
 {% block breadcrumbs %}
 <div class="breadcrumbs">
-    <a href="{% url 'admin:index' %}">{% trans "首页" %}</a>
-    &rsaquo; <a href="{% url 'admin:app_list' app_label='pdf_splitting' %}">{% trans "PDF 拆解" %}</a>
-    &rsaquo; {% trans "新建任务" %}
+    <a href="{% url 'admin:index' %}">{</a>
+    &rsaquo; <a href="{% url 'admin:app_list' app_label='pdf_splitting' %}">{</a>
+    &rsaquo; {
 </div>
 {% endblock %}
 
@@ -60,94 +59,94 @@
 <div class="ps-workbench">
     <div class="ps-card">
         <div class="ps-card-head">
-            <h1>{% trans "PDF 拆解" %}</h1>
-            <p>{% trans "用于拆解 merged PDF。支持内容识别拆分和纯按页拆分；创建任务后会进入任务详情页查看处理进度。" %}</p>
+            <h1>{</h1>
+            <p>{</p>
         </div>
 
         <form id="pdfSplitForm" class="ps-form">
             <div class="ps-tip">
-                {% trans "内容识别拆分：按规则识别材料段后导出；按页拆分：每一页直接拆成独立 PDF 并自动打包 ZIP，不做内容分析。" %}
+                {
             </div>
 
             <div class="ps-field">
-                <label>{% trans "材料来源（统一入口）" %}</label>
+                <label>{</label>
                 <div id="sourceDropzone" class="ps-source-box">
                     <input type="file" id="splitFile" name="file" accept=".pdf" hidden>
-                    <div class="ps-drop-title">{% trans "拖拽 PDF 到此处，或点击按钮选择文件" %}</div>
-                    <button type="button" id="filePickerBtn" class="ps-file-btn">{% trans "选择文件" %}</button>
-                    <div id="selectedFile" class="ps-selected-file is-empty">{% trans "当前未选择文件" %}</div>
+                    <div class="ps-drop-title">{</div>
+                    <button type="button" id="filePickerBtn" class="ps-file-btn">{</button>
+                    <div id="selectedFile" class="ps-selected-file is-empty">{</div>
                 </div>
-                <div class="ps-help">{% trans "仅支持上传 PDF（可拖拽）。上传文件最大 150MB，最多 300 页。" %}</div>
+                <div class="ps-help">{</div>
             </div>
 
             <div class="ps-field">
-                <label>{% trans "拆分模式" %}</label>
-                <div class="ps-radio-grid" role="radiogroup" aria-label="{% trans '拆分模式' %}">
+                <label>{</label>
+                <div class="ps-radio-grid" role="radiogroup" aria-label="{">
                     <div class="ps-radio-card">
                         <input type="radio" id="splitModeContent" name="split_mode" value="content_analysis">
                         <label class="ps-radio-label" for="splitModeContent">
-                            <span class="ps-radio-title">{% trans "内容识别拆分" %}</span>
-                            <span class="ps-radio-desc">{% trans "关键词规则 + OCR/AI 辅助识别材料段" %}</span>
+                            <span class="ps-radio-title">{</span>
+                            <span class="ps-radio-desc">{</span>
                         </label>
                     </div>
                     <div class="ps-radio-card">
                         <input type="radio" id="splitModePage" name="split_mode" value="page_split">
                         <label class="ps-radio-label" for="splitModePage">
-                            <span class="ps-radio-title">{% trans "按页拆分（纯拆分）" %}</span>
-                            <span class="ps-radio-desc">{% trans "每页拆成独立 PDF，自动打包下载" %}</span>
+                            <span class="ps-radio-title">{</span>
+                            <span class="ps-radio-desc">{</span>
                         </label>
                     </div>
                     <div class="ps-radio-card">
                         <input type="radio" id="splitModeManual" name="split_mode" value="manual_split" checked>
                         <label class="ps-radio-label" for="splitModeManual">
-                            <span class="ps-radio-title">{% trans "手动拆分" %}</span>
-                            <span class="ps-radio-desc">{% trans "PDF.js 可视化操作，自行指定范围和命名" %}</span>
+                            <span class="ps-radio-title">{</span>
+                            <span class="ps-radio-desc">{</span>
                         </label>
                     </div>
                 </div>
-                <div class="ps-help">{% trans "手动拆分无需 OCR，在页面内可视化操作，直接导出。" %}</div>
+                <div class="ps-help">{</div>
             </div>
 
             <div class="ps-field">
-                <label>{% trans "模板" %}</label>
-                <div class="ps-static-field">{% trans "立案材料模板 v1" %}</div>
+                <label>{</label>
+                <div class="ps-static-field">{</div>
                 <input type="hidden" id="templateKey" name="template_key" value="filing_materials_v1">
             </div>
 
             <div class="ps-field" id="ocrProfileField">
-                <label>{% trans "OCR 档位" %}</label>
-                <div class="ps-radio-grid" role="radiogroup" aria-label="{% trans 'OCR 档位' %}">
+                <label>{</label>
+                <div class="ps-radio-grid" role="radiogroup" aria-label="{">
                     <div class="ps-radio-card">
                         <input type="radio" id="ocrProfileFast" name="ocr_profile" value="fast">
                         <label class="ps-radio-label" for="ocrProfileFast">
                             <span class="ps-radio-title">fast</span>
-                            <span class="ps-radio-desc">{% trans "优先速度" %}</span>
+                            <span class="ps-radio-desc">{</span>
                         </label>
                     </div>
                     <div class="ps-radio-card">
                         <input type="radio" id="ocrProfileBalanced" name="ocr_profile" value="balanced" checked>
                         <label class="ps-radio-label" for="ocrProfileBalanced">
                             <span class="ps-radio-title">balanced</span>
-                            <span class="ps-radio-desc">{% trans "默认，速度/精度均衡" %}</span>
+                            <span class="ps-radio-desc">{</span>
                         </label>
                     </div>
                     <div class="ps-radio-card">
                         <input type="radio" id="ocrProfileAccurate" name="ocr_profile" value="accurate">
                         <label class="ps-radio-label" for="ocrProfileAccurate">
                             <span class="ps-radio-title">accurate</span>
-                            <span class="ps-radio-desc">{% trans "优先精度" %}</span>
+                            <span class="ps-radio-desc">{</span>
                         </label>
                     </div>
                 </div>
-                <div class="ps-help">{% trans "fast 使用更低分辨率和轻量模型；accurate 使用更高分辨率和高精度模型。"%}</div>
+                <div class="ps-help">{</div>
             </div>
 
             <div id="splitError" class="ps-error"></div>
 
             <div class="ps-actions">
-                <button type="submit" class="ps-btn ps-btn-primary">{% trans "创建拆解任务" %}</button>
-                <a class="ps-btn ps-btn-secondary" href="/admin/pdf_splitting/pdfsplitjob/">{% trans "查看任务列表" %}</a>
-                <span id="splitLoading" class="ps-loading">{% trans "正在创建任务..." %}</span>
+                <button type="submit" class="ps-btn ps-btn-primary">{</button>
+                <a class="ps-btn ps-btn-secondary" href="/admin/pdf_splitting/pdfsplitjob/">{</a>
+                <span id="splitLoading" class="ps-loading">{</span>
             </div>
         </form>
     </div>

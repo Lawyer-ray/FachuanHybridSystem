@@ -10,7 +10,6 @@ logger = logging.getLogger("apps.message_hub")
 TASK_FUNC = "apps.message_hub.tasks.sync_all_sources"
 TASK_NAME = "message_hub:sync_all_sources"
 
-
 def _is_expected_sync_error(exc: Exception) -> bool:
     """判断是否为可预期的网络/环境/运行时异常，避免刷整段堆栈。"""
     if isinstance(exc, (socket.gaierror, TimeoutError, ConnectionError)):
@@ -33,7 +32,6 @@ def _is_expected_sync_error(exc: Exception) -> bool:
     )
     return any(token in msg for token in expected_tokens)
 
-
 def sync_source_by_id(source_id: int) -> None:
     """同步单个消息来源，供 django-q async_task 调用。"""
     import os
@@ -47,7 +45,6 @@ def sync_source_by_id(source_id: int) -> None:
     fetcher = get_fetcher(source.source_type)
     count = fetcher.fetch_new_messages(source)
     logger.info("同步完成: source=%s, 新消息=%d", source.display_name, count)
-
 
 def sync_all_sources(*_args: object) -> None:
     """轮询所有启用的消息来源，拉取新消息。由 django-q2 定时调用。"""
@@ -72,7 +69,6 @@ def sync_all_sources(*_args: object) -> None:
             else:
                 logger.exception("同步失败: source=%s", source.display_name)
 
-
 def _register_schedule() -> None:
     """注册定时任务（每30分钟）。"""
     try:
@@ -88,6 +84,5 @@ def _register_schedule() -> None:
             logger.info("已注册定时任务: %s", TASK_NAME)
     except Exception:
         logger.debug("定时任务注册跳过（未就绪）")
-
 
 _register_schedule()

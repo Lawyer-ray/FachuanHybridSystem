@@ -22,7 +22,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger("apps.core")
 
-
 def _ensure_browsers_installed() -> None:
     """检测 Playwright 浏览器是否已安装，缺失时自动下载。
 
@@ -44,7 +43,6 @@ def _ensure_browsers_installed() -> None:
     if not any(d.name.startswith("chromium") for d in cache_dir.iterdir() if d.is_dir()):
         _run_playwright_install()
 
-
 def _run_playwright_install() -> None:
     """执行 playwright install chromium。"""
     logger.info("Playwright 浏览器缺失，自动安装中...")
@@ -53,7 +51,6 @@ def _run_playwright_install() -> None:
         stdout=subprocess.DEVNULL,
     )
     logger.info("Playwright 浏览器安装完成")
-
 
 def _launch_with_retry[T](factory: Callable[[], T], *, max_attempts: int = 2) -> T:
     """尝试启动浏览器，遇到 Executable 不存在时自动安装后重试。"""
@@ -66,7 +63,6 @@ def _launch_with_retry[T](factory: Callable[[], T], *, max_attempts: int = 2) ->
             logger.warning("浏览器可执行文件缺失，自动安装后重试 (attempt %d/%d)", attempt, max_attempts)
             _run_playwright_install()
     raise RuntimeError("unreachable")
-
 
 @contextmanager
 def launch_browser(
@@ -149,7 +145,6 @@ def launch_browser(
         raise
     finally:
         _cleanup(page, context, browser, playwright, profile)
-
 
 def _cleanup(
     page: Page | None,

@@ -12,8 +12,6 @@ Requirements: 2.1, 2.2, 5.1, 5.2, 5.5
 import logging
 from typing import TYPE_CHECKING, Optional
 
-from django.utils.translation import gettext_lazy as _
-
 from apps.automation.models import CourtSMS, CourtSMSStatus
 from apps.core.dto.chat import MultiPlatformNotificationResult
 
@@ -24,7 +22,6 @@ if TYPE_CHECKING:
     from apps.automation.services.sms.sms_notification_service import SMSNotificationService
 
 logger = logging.getLogger("apps.automation")
-
 
 class SMSNotifyingStage(BaseSMSStage):
     """
@@ -126,7 +123,7 @@ class SMSNotifyingStage(BaseSMSStage):
             sms.status = CourtSMSStatus.FAILED
             error_detail = "; ".join(f"{r.platform}: {r.error}" for r in result.attempts if not r.success)
             sms.error_message = (
-                f"案件群聊通知发送失败: {error_detail}" if error_detail else str(_("案件群聊通知发送失败"))
+                f"案件群聊通知发送失败: {error_detail}" if error_detail else str("案件群聊通知发送失败")
             )
             logger.error(f"案件群聊通知发送失败，短信标记为失败: SMS ID={sms.id}")
 
@@ -138,7 +135,6 @@ class SMSNotifyingStage(BaseSMSStage):
         sms.error_message = f"案件群聊通知发送失败: {error_msg}"
         sms.save()
         logger.error(f"案件群聊通知发送失败: SMS ID={sms.id}, 错误: {error_msg}")
-
 
 def create_sms_notifying_stage(
     notification_service: Optional["SMSNotificationService"] = None,

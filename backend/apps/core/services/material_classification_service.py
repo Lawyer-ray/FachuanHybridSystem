@@ -11,7 +11,6 @@ from apps.core.services.wiring import get_llm_service
 
 logger = logging.getLogger(__name__)
 
-
 class MaterialClassificationService:
     """为自动捕获场景提供合同/案件材料分类建议。"""
 

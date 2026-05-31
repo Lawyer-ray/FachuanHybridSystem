@@ -16,7 +16,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger("apps.automation")
 
-
 class TestService:
     """
     测试服务

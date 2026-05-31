@@ -4,12 +4,9 @@ from __future__ import annotations
 
 from typing import Any
 
-from django.utils.translation import gettext_lazy as _
-
 from apps.cases.models import CaseLogVersion
 
 from .case_log_query_service import CaseLogQueryService
-
 
 class CaseLogVersionService:
     def __init__(self, query_service: CaseLogQueryService | None = None) -> None:
@@ -32,7 +29,7 @@ class CaseLogVersionService:
                 org_access=org_access,
                 perm_open_access=perm_open_access,
                 case=log.case,
-                message=_("无权限访问此日志版本"),
+                message="无权限访问此日志版本",
             )
 
         return list(CaseLogVersion.objects.filter(log_id=log_id).select_related("actor").order_by("-version_at"))

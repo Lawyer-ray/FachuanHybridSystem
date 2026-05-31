@@ -1,12 +1,11 @@
 {% extends "admin/base_site.html" %}
-{% load i18n %}
 
 {% block title %}MCP 调试工作台{% endblock %}
 
 {% block breadcrumbs %}
 <div class="breadcrumbs">
-    <a href="{% url 'admin:index' %}">{% trans "首页" %}</a>
-    &rsaquo; <a href="{% url 'admin:app_list' app_label='enterprise_data' %}">{% trans "企业数据查询" %}</a>
+    <a href="{% url 'admin:index' %}">{</a>
+    &rsaquo; <a href="{% url 'admin:app_list' app_label='enterprise_data' %}">{</a>
     &rsaquo; MCP 调试工作台
 </div>
 {% endblock %}
@@ -148,7 +147,7 @@
         </div>
         <form method="get" class="mcp-toolbar" style="margin-top: 12px;">
             <div class="mcp-field">
-                <label for="provider">{% trans "Provider" %}</label><br />
+                <label for="provider">{</label><br />
                 <select name="provider" id="provider" style="min-width: 220px;">
                     {% for provider in providers %}
                     <option value="{{ provider.name }}" {% if provider.name == selected_provider %}selected{% endif %}>
@@ -157,7 +156,7 @@
                     {% endfor %}
                 </select>
             </div>
-            <button type="submit" class="mcp-btn">{% trans "加载工具列表" %}</button>
+            <button type="submit" class="mcp-btn">{</button>
         </form>
     </div>
 
@@ -200,7 +199,7 @@
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="3" class="mcp-small">{% trans "暂无可用工具" %}</td>
+                        <td colspan="3" class="mcp-small">{</td>
                     </tr>
                     {% endfor %}
                 </tbody>

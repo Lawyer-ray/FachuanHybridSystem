@@ -9,11 +9,9 @@ from apps.story_viz.services.job_service import StoryAnimationJobService
 from apps.story_viz.services.preprocess_service import JudgmentPreprocessService
 from apps.story_viz.services.svg_fragment_generator_service import SvgFragmentGeneratorService
 
-
 class _FakeResp:
     def __init__(self, content: str) -> None:
         self.content = content
-
 
 class _FakeLLMService:
     def __init__(self, content: str) -> None:
@@ -21,7 +19,6 @@ class _FakeLLMService:
 
     def chat(self, **_: object) -> _FakeResp:
         return _FakeResp(self._content)
-
 
 def test_preprocess_service_trims_and_builds_stable_hash() -> None:
     service = JudgmentPreprocessService()
@@ -34,7 +31,6 @@ def test_preprocess_service_trims_and_builds_stable_hash() -> None:
     assert len(result1.source_hash) == 64
     assert result1.source_hash == result2.source_hash
 
-
 def test_svg_fragment_generator_filters_unsafe_payload() -> None:
     unsafe_payload = '{"fragments": [{"name": "bad", "svg": "<script>alert(1)</script>"}]}'
     service = SvgFragmentGeneratorService(llm_service=_FakeLLMService(unsafe_payload))
@@ -45,7 +41,6 @@ def test_svg_fragment_generator_filters_unsafe_payload() -> None:
     assert "fragments" in payload
     assert payload["fragments"]
     assert all("<script" not in item["svg"].lower() for item in payload["fragments"])
-
 
 def test_job_service_completed_payload_contains_preview_url() -> None:
     animation = SimpleNamespace(
@@ -70,7 +65,6 @@ def test_job_service_completed_payload_contains_preview_url() -> None:
 
     assert payload["preview_url"].endswith("/api/v1/story-viz/animations/abc/preview")
     assert payload["status"] == "completed"
-
 
 def test_preview_api_returns_409_when_not_completed(monkeypatch: pytest.MonkeyPatch) -> None:
     fake_animation = SimpleNamespace(status="processing", animation_html="")

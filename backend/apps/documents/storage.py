@@ -20,12 +20,10 @@ USER_CUSTOM_TEMPLATE_DIR = "0-用户自定义模板"
 PRIVATE_DOCX_ROOT_SETTING: Final[str] = "DOCUMENTS_PRIVATE_DOCX_TEMPLATES_ROOT"
 _PRIVATE_DOCX_ROOT_DEFAULT_SENTINEL: Final[str] = "__DOCX_PRIVATE_ROOT_NOT_SET__"
 
-
 def get_public_docx_templates_root() -> Path:
     """获取仓库内公用 docx_templates 根目录。"""
     base_path = Path(str(settings.BASE_DIR)).parent / "apps" / "documents" / "docx_templates"  # type: ignore[misc]
     return Path(str(base_path))
-
 
 def get_configured_private_docx_templates_root() -> str:
     """获取私有模板根目录配置值（优先系统配置，其次环境变量）。"""
@@ -50,7 +48,6 @@ def get_configured_private_docx_templates_root() -> str:
 
     return configured
 
-
 def get_private_docx_templates_root() -> Path | None:
     """获取可选私有 docx_templates 根目录（未配置则为 None）。"""
     configured = get_configured_private_docx_templates_root()
@@ -58,11 +55,9 @@ def get_private_docx_templates_root() -> Path | None:
         return None
     return Path(configured).expanduser()  # type: ignore[no-any-return]
 
-
 def get_docx_templates_source() -> str:
     """返回当前活动模板来源：public/private。"""
     return "private" if get_private_docx_templates_root() else "public"
-
 
 def get_docx_templates_root() -> Path:
     """获取当前活动 docx_templates 根目录。"""
@@ -70,7 +65,6 @@ def get_docx_templates_root() -> Path:
     if private_root is not None:
         return private_root
     return get_public_docx_templates_root()
-
 
 def resolve_docx_template_path(file_path: str) -> Path:
     """解析模板路径（支持绝对路径和相对活动根目录路径）。"""
@@ -88,7 +82,6 @@ def resolve_docx_template_path(file_path: str) -> Path:
         raise ValueError("模板路径越界，必须位于当前 docx_templates 根目录内") from exc
 
     return resolved  # type: ignore[no-any-return]
-
 
 @deconstructible
 class DocumentTemplateStorage(FileSystemStorage):
@@ -158,10 +151,8 @@ class DocumentTemplateStorage(FileSystemStorage):
         """返回文件大小"""
         return int((self.docx_templates_root / name).stat().st_size)
 
-
 # 创建存储实例
 document_template_storage = DocumentTemplateStorage()
-
 
 def list_docx_templates_files() -> list[tuple[str, str]]:
     """

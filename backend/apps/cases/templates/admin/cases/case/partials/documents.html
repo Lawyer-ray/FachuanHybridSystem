@@ -1,29 +1,28 @@
-{% load i18n %}
 <div class="info-grid two-columns">
 
     <!-- 快速文档生成 -->
     <div class="info-card full-width">
         <div class="card-header">
             <span class="card-icon">⚡</span>
-            <h3 class="card-title">{% trans "快速文档生成" %}</h3>
+            <h3 class="card-title">{</h3>
         </div>
         <div class="card-content">
             <!-- 授权委托材料 -->
             <div class="action-group">
-                <h4 class="action-group-title">{% trans "授权委托材料" %}</h4>
+                <h4 class="action-group-title">{</h4>
                 <div x-data="authorizationMaterialsApp({
                     apiBasePath: '/api/v1/documents',
                     caseId: {{ case.pk }},
                     legalEntitiesJson: '{{ our_legal_entities_json|default:"[]"|escapejs }}',
                     ourPartiesJson: '{{ our_parties_json|default:"[]"|escapejs }}'
                 })">
-                    <span :title="hasOurParties ? '' : '{% trans "没有我方当事人，无法生成全套委托材料" %}'">
+                    <span :title="hasOurParties ? '' : '{'">
                         <button type="button"
                                 class="btn btn-primary"
                                 :class="(!hasOurParties || isDownloading) ? 'btn-disabled' : ''"
                                 :disabled="!hasOurParties || isDownloading"
                                 @click="downloadFullAuthorizationPackage()">
-                            {% trans "全套委托材料" %}
+                            {
                         </button>
                     </span>
 
@@ -33,7 +32,7 @@
                                 :class="(!hasLegalEntities || isDownloading) ? 'btn-disabled' : ''"
                                 :disabled="!hasLegalEntities || isDownloading"
                                 @click="handleLegalRepCertificateClick()">
-                            {% trans "法定代表人身份证明书" %}
+                            {
                         </button>
                     </span>
 
@@ -42,16 +41,16 @@
                             :class="isDownloading ? 'btn-disabled' : ''"
                             :disabled="isDownloading"
                             @click="downloadAuthorityLetter()">
-                        {% trans "所函" %}
+                        {
                     </button>
 
-                    <span :title="hasOurParties ? '' : '{% trans "没有我方当事人，无法生成授权委托书" %}'">
+                    <span :title="hasOurParties ? '' : '{'">
                         <button type="button"
                                 class="btn btn-primary"
                                 :class="(!hasOurParties || isDownloading) ? 'btn-disabled' : ''"
                                 :disabled="!hasOurParties || isDownloading"
                                 @click="handlePowerOfAttorneyClick()">
-                            {% trans "授权委托书" %}
+                            {
                         </button>
                     </span>
 
@@ -77,11 +76,11 @@
                              x-show="isEntityDialogOpen"
                              x-cloak
                              class="litigation-dialog">
-                            <h3>{% trans "选择法人" %}</h3>
+                            <h3>{</h3>
                             <div class="auth-entity-toolbar">
                                 <label class="auth-entity-select-all">
                                     <input type="checkbox" @change="toggleAllEntities($event)" :checked="isAllSelected()">
-                                    <span>{% trans "全选" %}</span>
+                                    <span>{</span>
                                 </label>
                             </div>
                             <div class="auth-entity-list">
@@ -94,10 +93,10 @@
                             </div>
                             <div x-show="errorMessage" x-text="errorMessage" class="litigation-error"></div>
                             <div class="litigation-dialog-buttons">
-                                <button type="button" @click="closeEntityDialog()" :disabled="isDownloading" class="btn-cancel">{% trans "取消" %}</button>
+                                <button type="button" @click="closeEntityDialog()" :disabled="isDownloading" class="btn-cancel">{</button>
                                 <button type="button" @click="downloadSelectedLegalRepCertificates()" :disabled="isDownloading || selectedEntityIds.length === 0" class="btn-generate">
-                                    <span x-show="!isDownloading">{% trans "生成并下载" %}</span>
-                                    <span x-show="isDownloading">{% trans "生成中..." %}</span>
+                                    <span x-show="!isDownloading">{</span>
+                                    <span x-show="isDownloading">{</span>
                                 </button>
                             </div>
                         </div>
@@ -108,25 +107,25 @@
                              x-show="isPoaDialogOpen"
                              x-cloak
                              class="litigation-dialog">
-                            <h3>{% trans "授权委托书" %}</h3>
+                            <h3>{</h3>
                             <div class="litigation-types-grid">
                                 <div :class="poaMode === 'individual' ? 'litigation-type-option selected' : 'litigation-type-option'"
                                      @click="selectPoaMode('individual')">
-                                    <span class="type-label">{% trans "单独授权" %}</span>
+                                    <span class="type-label">{</span>
                                 </div>
                                 <div :class="poaMode === 'combined' ? 'litigation-type-option selected' : 'litigation-type-option'"
                                      @click="selectPoaMode('combined')">
-                                    <span class="type-label">{% trans "合并授权" %}</span>
+                                    <span class="type-label">{</span>
                                 </div>
                             </div>
                             <div x-show="poaMode === 'combined'" class="muted" style="margin-bottom: 16px;">
-                                {% trans "将对所有我方当事人合并授权，无需选择。" %}
+                                {
                             </div>
                             <div x-show="poaMode === 'individual'">
                                 <div class="auth-entity-toolbar">
                                     <label class="auth-entity-select-all">
                                         <input type="checkbox" @change="toggleAllOurParties($event)" :checked="isAllOurPartiesSelected()">
-                                        <span>{% trans "全选" %}</span>
+                                        <span>{</span>
                                     </label>
                                 </div>
                                 <div class="auth-entity-list">
@@ -141,12 +140,12 @@
                             </div>
                             <div x-show="errorMessage" x-text="errorMessage" class="litigation-error"></div>
                             <div class="litigation-dialog-buttons">
-                                <button type="button" @click="closePoaDialog()" :disabled="isDownloading" class="btn-cancel">{% trans "取消" %}</button>
+                                <button type="button" @click="closePoaDialog()" :disabled="isDownloading" class="btn-cancel">{</button>
                                 <button type="button" @click="confirmPowerOfAttorney()"
                                         :disabled="isDownloading || !poaMode || (poaMode === 'individual' && selectedOurPartyIds.length === 0)"
                                         class="btn-generate">
-                                    <span x-show="!isDownloading">{% trans "生成并下载" %}</span>
-                                    <span x-show="isDownloading">{% trans "生成中..." %}</span>
+                                    <span x-show="!isDownloading">{</span>
+                                    <span x-show="isDownloading">{</span>
                                 </button>
                             </div>
                         </div>
@@ -156,21 +155,21 @@
 
             <!-- 文件夹生成 -->
             <div class="action-group">
-                <h4 class="action-group-title">{% trans "文件夹生成" %}</h4>
+                <h4 class="action-group-title">{</h4>
                 <div class="action-item" x-data="caseFolderGenApp({{ case.pk }})" style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
                     {% if can_generate_folder %}
                     <span style="display: inline-flex; border-radius: 8px; overflow: hidden;">
                         <button type="button" class="btn btn-primary" :class="(!unlocked || generating) && 'btn-disabled'" :disabled="!unlocked || generating" @click="generate()" style="border-radius: 8px 0 0 8px; margin: 0; border: none;">
-                            <span x-show="!generating">{% trans "生成文件夹" %}</span>
+                            <span x-show="!generating">{</span>
                             <span x-show="generating" x-cloak class="spinner-wrap"><span class="spinner"></span></span>
                         </button>
-                        <button type="button" @click="unlocked = !unlocked" :title="unlocked ? '{% trans "点击锁定" %}' : '{% trans "点击解锁后才能生成" %}'" :style="'border-radius:0 8px 8px 0;margin:0;border:none;padding:4px 10px;cursor:pointer;display:flex;align-items:center;' + (unlocked ? 'background:#2563eb;color:#fff' : 'background:#d1d5db;color:#6b7280')">
+                        <button type="button" @click="unlocked = !unlocked" :title="unlocked ? '{' : '{'" :style="'border-radius:0 8px 8px 0;margin:0;border:none;padding:4px 10px;cursor:pointer;display:flex;align-items:center;' + (unlocked ? 'background:#2563eb;color:#fff' : 'background:#d1d5db;color:#6b7280')">
                             <span x-html="lockIcon"></span>
                         </button>
                     </span>
                     {% else %}
                     <button type="button" class="btn btn-primary btn-disabled" disabled title="{{ folder_disabled_reason|default:'无匹配的文件夹模板' }}">
-                        {% trans "生成文件夹" %}
+                        {
                     </button>
                     {% endif %}
                 </div>
@@ -207,11 +206,11 @@
                                 }
                                 a.download = filename;
                                 a.click();
-                                this._showToast('{% trans "文件夹已下载" %}', 'success');
+                                this._showToast('{', 'success');
                             } else {
                                 const d = await r.json();
                                 if (d.success) this._showToast(d.message, 'success');
-                                else this._showToast(d.message || '{% trans "生成失败" %}', 'error');
+                                else this._showToast(d.message || '{', 'error');
                             }
                         } catch(e) {
                             this._showToast(e.message, 'error');
@@ -244,13 +243,13 @@
          x-data="caseTemplateDownloadApp({{ case.pk }})">
         <div class="card-header">
             <span class="card-icon">📋</span>
-            <h3 class="card-title">{% trans "模板与绑定配置" %}</h3>
+            <h3 class="card-title">{</h3>
         </div>
         <div style="display: flex; flex-direction: column; gap: 16px;">
             <!-- 文件模板 -->
             <div style="padding: 12px; background: #f9fafb; border-radius: 6px; border-left: 3px solid #3b82f6;">
                 <div style="font-size: 12px; color: #6b7280; font-weight: 600; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.05em;">
-                    <span style="margin-right: 6px;">📄</span>{% trans "文件模板" %}
+                    <span style="margin-right: 6px;">📄</span>{
                 </div>
                 <div style="font-size: 14px; color: #1f2937;">
                     {% if grouped_case_file_templates_for_display %}
@@ -276,7 +275,7 @@
                             {% endfor %}
                         </div>
                     {% else %}
-                        <span style="color: #9ca3af;">{% if case_file_templates_missing_reason %}{{ case_file_templates_missing_reason }}{% else %}{% trans "无匹配模板" %}{% endif %}</span>
+                        <span style="color: #9ca3af;">{% if case_file_templates_missing_reason %}{{ case_file_templates_missing_reason }}{% else %}{{% endif %}</span>
                     {% endif %}
                 </div>
             </div>
@@ -286,7 +285,7 @@
                 <!-- 文件夹模板 -->
                 <div style="padding: 12px; background: #f9fafb; border-radius: 6px; border-left: 3px solid #10b981;">
                     <div style="font-size: 12px; color: #6b7280; font-weight: 600; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.05em;">
-                        <span style="margin-right: 6px;">📁</span>{% trans "文件夹模板" %}
+                        <span style="margin-right: 6px;">📁</span>{
                     </div>
                     <div style="font-size: 14px; color: #1f2937;">
                         {% if matched_folder_templates_list %}
@@ -294,7 +293,7 @@
                                 <a href="{% url 'admin:documents_foldertemplate_change' template.id %}" target="_blank" style="color: #059669; text-decoration: none; border-bottom: 1px solid #6ee7b7; margin-right: 12px; padding-bottom: 1px; transition: all 0.2s;">{{ template.name }}</a>{% if not forloop.last %}<span style="color: #d1d5db; margin-right: 12px;">|</span>{% endif %}
                             {% endfor %}
                         {% else %}
-                            <span style="color: #9ca3af;">{% trans "无匹配模板" %}</span>
+                            <span style="color: #9ca3af;">{</span>
                         {% endif %}
                     </div>
                 </div>
@@ -302,16 +301,16 @@
                 <!-- 文件夹绑定 -->
                 <div style="padding: 12px; background: #f9fafb; border-radius: 6px; border-left: 3px solid #f59e0b;">
                     <div style="font-size: 12px; color: #6b7280; font-weight: 600; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.05em;">
-                        <span style="margin-right: 6px;">📁</span>{% trans "文件夹绑定" %}
+                        <span style="margin-right: 6px;">📁</span>{
                     </div>
                     <div style="font-size: 14px; color: #1f2937;">
                         {% if case.folder_binding %}
                             <div style="display: flex; align-items: center; gap: 8px;">
-                                <span style="color: #059669;">✓ {% trans "已绑定" %}</span>
+                                <span style="color: #059669;">✓ {</span>
                                 <span style="color: #6b7280; font-size: 13px; word-break: break-all;">{{ case.folder_binding.folder_path }}</span>
                             </div>
                         {% else %}
-                            <span style="color: #9ca3af;">{% trans "未绑定文件夹" %}</span>
+                            <span style="color: #9ca3af;">{</span>
                         {% endif %}
                     </div>
                 </div>
@@ -372,7 +371,7 @@
          x-data="{ expanded: {% if case.evidence_lists.exists %}true{% else %}false{% endif %} }">
         <div class="card-header" @click="expanded = !expanded" style="cursor: pointer;">
             <span class="card-icon">📑</span>
-            <h3 class="card-title">{% trans "证据清单" %}</h3>
+            <h3 class="card-title">{</h3>
             <svg :class="expanded ? 'rotate-180' : ''" style="width:16px;height:16px;margin-left:auto;transition:transform 0.2s;" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
             </svg>
@@ -382,11 +381,11 @@
                 <div class="evidence-actions" style="margin-bottom: 16px;">
                     <a href="{% url 'admin:documents_evidencelist_add' %}?case={{ case.pk }}"
                        class="btn btn-primary">
-                        + {% trans "新建证据清单" %}
+                        + {
                     </a>
                     <a href="{% url 'admin:documents_evidencelist_changelist' %}?case__id__exact={{ case.pk }}"
                        class="btn btn-secondary">
-                        {% trans "查看全部" %}
+                        {
                     </a>
                 </div>
 
@@ -400,45 +399,45 @@
                                     {{ evidence_list.title }}
                                 </a>
                             </h3>
-                            <span class="evidence-order">{% trans "第" %} {{ evidence_list.order }} {% trans "份" %}</span>
+                            <span class="evidence-order">{ {{ evidence_list.order }} {</span>
                         </div>
 
                         <div class="evidence-meta">
                             <span class="meta-item">
-                                <strong>{% trans "证据数量" %}：</strong>{{ evidence_list.items.count }}
+                                <strong>{：</strong>{{ evidence_list.items.count }}
                             </span>
                             <span class="meta-item">
-                                <strong>{% trans "总页数" %}：</strong>{{ evidence_list.total_pages }}
+                                <strong>{：</strong>{{ evidence_list.total_pages }}
                             </span>
                             <span class="meta-item">
-                                <strong>{% trans "页码范围" %}：</strong>{{ evidence_list.page_range_display }}
+                                <strong>{：</strong>{{ evidence_list.page_range_display }}
                             </span>
                             <span class="meta-item">
-                                <strong>{% trans "导出版本" %}：</strong>V{{ evidence_list.export_version }}
+                                <strong>{：</strong>V{{ evidence_list.export_version }}
                             </span>
                         </div>
 
                         <div class="evidence-status">
                             {% if evidence_list.merged_pdf %}
-                            <span class="status-badge status-success">✓ {% trans "已合并" %}</span>
+                            <span class="status-badge status-success">✓ {</span>
                             {% else %}
-                            <span class="status-badge status-pending">{% trans "未合并" %}</span>
+                            <span class="status-badge status-pending">{</span>
                             {% endif %}
                         </div>
 
                         <div class="evidence-actions">
                             <a href="{% url 'admin:documents_evidencelist_merge' evidence_list.pk %}"
                                class="btn btn-sm btn-secondary">
-                                {% trans "合并PDF" %}
+                                {
                             </a>
                             <a href="{% url 'admin:documents_evidencelist_export_list' evidence_list.pk %}"
                                class="btn btn-sm btn-secondary">
-                                {% trans "导出清单" %}
+                                {
                             </a>
                             {% if evidence_list.merged_pdf %}
                             <a href="{% url 'admin:documents_evidencelist_download_pdf' evidence_list.pk %}"
                                class="btn btn-sm btn-primary">
-                                {% trans "下载PDF" %}
+                                {
                             </a>
                             {% endif %}
                         </div>

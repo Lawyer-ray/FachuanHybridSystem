@@ -12,7 +12,6 @@ from ..wiring import (
     get_supplementary_agreement_generation_service,
 )
 
-
 class ContractAdminDocumentService:
     def generate_contract_document(self, contract_id: int) -> dict[str, Any]:
         service = get_contract_generation_service()

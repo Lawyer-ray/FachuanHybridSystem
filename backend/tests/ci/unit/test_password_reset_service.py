@@ -11,7 +11,6 @@ from django.utils.http import urlsafe_base64_encode
 from apps.organization.models import Lawyer
 from apps.organization.services.auth.password_reset_service import PasswordResetService, password_reset_token_generator
 
-
 class PasswordResetServiceTest(TestCase):
     """密码重置服务测试"""
 

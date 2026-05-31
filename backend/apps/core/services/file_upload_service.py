@@ -33,7 +33,6 @@ ALLOWED_MIME_TYPES: frozenset[str] = frozenset(
 # 文件大小限制（字节）
 MAX_FILE_SIZE: int = 20 * 1024 * 1024  # 20MB
 
-
 class FileUploadService:
     """文件上传服务"""
 

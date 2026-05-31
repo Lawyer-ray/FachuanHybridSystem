@@ -5,7 +5,6 @@ from django.utils import timezone
 
 from apps.legal_solution.models import SolutionTask
 
-
 class HtmlRenderer:
     def render(self, task: SolutionTask) -> str:
         sections = list(task.sections.order_by("order"))

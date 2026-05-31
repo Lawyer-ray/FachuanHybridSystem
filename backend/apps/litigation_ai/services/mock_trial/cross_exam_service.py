@@ -11,7 +11,6 @@ from apps.litigation_ai.services.session.context_service import LitigationContex
 
 logger = logging.getLogger("apps.litigation_ai")
 
-
 class CrossExamService:
     """质证模拟：逐份证据进行三性质证."""
 

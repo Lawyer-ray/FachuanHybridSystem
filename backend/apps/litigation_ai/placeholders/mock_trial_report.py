@@ -6,7 +6,6 @@ from typing import Any
 
 from apps.documents.services.placeholders import BasePlaceholderService, PlaceholderRegistry
 
-
 @PlaceholderRegistry.register
 class MockTrialReportPlaceholderService(BasePlaceholderService):
     """模拟庭审报告占位符服务."""

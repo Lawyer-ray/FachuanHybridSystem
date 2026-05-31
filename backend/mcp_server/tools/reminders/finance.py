@@ -6,7 +6,6 @@ from typing import Any
 
 from mcp_server.client import client
 
-
 def list_payments(
     contract_id: int | None = None,
     payment_type: str | None = None,
@@ -18,7 +17,6 @@ def list_payments(
     if payment_type:
         params["payment_type"] = payment_type
     return client.get("/contracts/finance/payments", params=params)  # type: ignore[return-value]
-
 
 def get_finance_stats() -> dict[str, Any]:
     """获取财务统计概览，包含总收款、待收款、本月收款等汇总数据。"""

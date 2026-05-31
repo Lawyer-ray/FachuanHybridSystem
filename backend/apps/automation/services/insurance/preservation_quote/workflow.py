@@ -4,8 +4,6 @@ import logging
 import time
 from typing import Any, cast
 
-from django.utils.translation import gettext_lazy as _
-
 from apps.automation.models import QuoteStatus
 from apps.automation.services.insurance.court_insurance_client import CourtInsuranceClient
 from apps.automation.services.insurance.exceptions import ValidationError
@@ -15,7 +13,6 @@ from .repo import PreservationQuoteRepository
 from .token_provider import BaoquanTokenProvider
 
 logger = logging.getLogger("apps.automation")
-
 
 class PreservationQuoteWorkflow:
     def __init__(
@@ -69,7 +66,7 @@ class PreservationQuoteWorkflow:
 
             error_message: str | None = None
             if success_count == 0:
-                error_message = str(_("所有保险公司查询均失败"))
+                error_message = str("所有保险公司查询均失败")
 
             await self.repo.finalize_quote(
                 quote=quote,

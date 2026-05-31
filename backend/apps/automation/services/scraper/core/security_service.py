@@ -12,13 +12,11 @@ from apps.core.interfaces import ISecurityService
 
 logger = logging.getLogger("apps.automation")
 
-
 def get_config(key: str, default: str | None = None) -> str | None:
     """获取系统配置值（可被测试 monkeypatch）"""
     from apps.core.services.system_config_service import SystemConfigService
 
     return SystemConfigService().get_value(key, default or "")
-
 
 class SecurityService:
     """安全服务"""
@@ -163,7 +161,6 @@ class SecurityService:
 
         return decrypted
 
-
 class SecurityServiceAdapter(ISecurityService):
     """
     安全服务适配器
@@ -221,6 +218,5 @@ class SecurityServiceAdapter(ISecurityService):
     def decrypt_config_internal(self, config: dict[str, Any]) -> dict[str, Any]:
         """解密配置中的敏感字段（内部接口，无权限检查）"""
         return self.service.decrypt_config(config)
-
 
 # 注意：不再使用全局单例，请通过 ServiceLocator.get_security_service() 获取服务实例

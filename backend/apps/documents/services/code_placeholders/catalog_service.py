@@ -11,7 +11,6 @@ from .registry import CodePlaceholderDefinition, CodePlaceholderRegistry
 
 logger = logging.getLogger(__name__)
 
-
 class CodePlaceholderCatalogService:
     _KEY_PATTERN = re.compile(r"^[\w\u4e00-\u9fff][\w\u4e00-\u9fff\.\(\)]*$")
 
@@ -148,7 +147,6 @@ class CodePlaceholderCatalogService:
     def _looks_like_template_placeholder(self, key: str) -> bool:
         return any("\u4e00" <= ch <= "\u9fff" for ch in key)
 
-
 class _ContextDictKeyVisitor(ast.NodeVisitor):
     def __init__(self) -> None:
         self.keys: set[str] = set()
@@ -169,7 +167,6 @@ class _ContextDictKeyVisitor(ast.NodeVisitor):
                 if isinstance(k, ast.Constant) and isinstance(k.value, str):
                     self.keys.add(k.value)
 
-
 @lru_cache(maxsize=1)
 def _scan_placeholder_spec_files(apps_root: Path) -> list[CodePlaceholderDefinition]:
     result: list[CodePlaceholderDefinition] = []
@@ -181,7 +178,6 @@ def _scan_placeholder_spec_files(apps_root: Path) -> list[CodePlaceholderDefinit
     for definition in result:
         dedup.setdefault(definition.key, definition)
     return list(dedup.values())
-
 
 def _extract_definitions_from_spec(spec_path: Path) -> list[CodePlaceholderDefinition]:
     try:
@@ -215,13 +211,11 @@ def _extract_definitions_from_spec(spec_path: Path) -> list[CodePlaceholderDefin
                 )
     return definitions
 
-
 def _spec_metadata(spec_path: Path) -> tuple[str, str, str]:
     app_name = spec_path.parts[-3] if len(spec_path.parts) >= 3 else "unknown"
     if app_name == "litigation_ai":
         return "诉讼文书", "litigation", "诉讼文书生成上下文占位符"
     return f"{app_name} 占位符", app_name, "从 placeholders/spec.py 自动发现的占位符键"
-
 
 def _extract_string_assignment(stmt: ast.stmt) -> str | None:
     if not isinstance(stmt, ast.Assign) or not stmt.targets:

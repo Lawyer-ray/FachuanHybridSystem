@@ -2,7 +2,6 @@
 
 from .field import ConfigField
 
-
 def register_chat_configs(registry: dict[str, ConfigField]) -> None:
     # 飞书
     registry["chat_platforms.feishu.app_id"] = ConfigField(

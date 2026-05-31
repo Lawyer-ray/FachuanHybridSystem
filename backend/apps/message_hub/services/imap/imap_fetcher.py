@@ -26,7 +26,6 @@ logger = logging.getLogger("apps.message_hub")
 IMAP_PORT = 993
 BODY_TEXT_MAX = 2000  # 正文纯文本最大存储字符数
 
-
 def _decode_header_value(raw: str | None) -> str:
     if not raw:
         return ""
@@ -38,7 +37,6 @@ def _decode_header_value(raw: str | None) -> str:
         else:
             result.append(part)
     return "".join(result)
-
 
 def _extract_body(msg: Message) -> tuple[str, str]:
     """提取纯文本和 HTML 正文。"""
@@ -68,7 +66,6 @@ def _extract_body(msg: Message) -> tuple[str, str]:
                 text = decoded[:BODY_TEXT_MAX]
     return text, html
 
-
 def _build_local_attachment_path(source_id: int, message_id: str, part_index: int, filename: str) -> Path:
     from django.conf import settings
 
@@ -76,7 +73,6 @@ def _build_local_attachment_path(source_id: int, message_id: str, part_index: in
     save_dir = Path(settings.MEDIA_ROOT) / "message_hub" / "imap" / str(source_id) / message_id
     save_dir.mkdir(parents=True, exist_ok=True)
     return save_dir / f"{part_index}_{safe_name}"
-
 
 def _extract_attachments(msg: Message, source_id: int, message_id: str) -> list[dict[str, Any]]:
     """提取附件元信息，并将附件持久化到本地。"""
@@ -102,7 +98,6 @@ def _extract_attachments(msg: Message, source_id: int, message_id: str) -> list[
             }
         )
     return attachments
-
 
 class ImapFetcher(MessageFetcher):
     def _connect(self, source: MessageSource) -> imaplib.IMAP4_SSL:
@@ -279,7 +274,6 @@ class ImapFetcher(MessageFetcher):
             except Exception:
                 pass
 
-
 def _extract_imap_host(url_or_name: str) -> str:
     """从 URL 或站点名称中提取 IMAP 主机名。"""
     from urllib.parse import urlparse
@@ -295,7 +289,6 @@ def _extract_imap_host(url_or_name: str) -> str:
 
     fallback = parsed.path.split("/", 1)[0].strip().lower()
     return fallback
-
 
 def _build_imap_host_candidates(config_host: str, url_or_name: str) -> list[str]:
     """构建 IMAP 主机候选列表（按优先级）。"""
@@ -330,7 +323,6 @@ def _build_imap_host_candidates(config_host: str, url_or_name: str) -> list[str]
 
     return candidates
 
-
 def _looks_like_valid_host(host: str) -> bool:
     """基础 IMAP 主机名校验。"""
     candidate = host.strip().lower()
@@ -341,7 +333,6 @@ def _looks_like_valid_host(host: str) -> bool:
     if candidate.startswith(".") or candidate.endswith("."):
         return False
     return True
-
 
 def _parse_date(date_str: str) -> datetime | None:
     from email.utils import parsedate_to_datetime
@@ -354,13 +345,11 @@ def _parse_date(date_str: str) -> datetime | None:
     except Exception:
         return None
 
-
 def _mark_success(source: MessageSource) -> None:
     source.last_sync_at = timezone.now()
     source.last_sync_status = SyncStatus.SUCCESS
     source.last_sync_error = ""
     source.save(update_fields=["last_sync_at", "last_sync_status", "last_sync_error", "last_synced_uid"])
-
 
 def _mark_failed(source: MessageSource, error: str) -> None:
     source.last_sync_at = timezone.now()
@@ -368,11 +357,9 @@ def _mark_failed(source: MessageSource, error: str) -> None:
     source.last_sync_error = error[:1000]
     source.save(update_fields=["last_sync_at", "last_sync_status", "last_sync_error"])
 
-
 def _parse_filter_lines(text: str) -> list[str]:
     """将多行文本解析为小写关键词列表，忽略空行。"""
     return [line.strip().lower() for line in text.splitlines() if line.strip()]
-
 
 def _sender_allowed(sender: str, source: MessageSource) -> bool:
     """根据白名单/黑名单判断发件人是否允许同步。"""

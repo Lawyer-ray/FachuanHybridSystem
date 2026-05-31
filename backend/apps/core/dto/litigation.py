@@ -2,7 +2,6 @@
 
 from dataclasses import dataclass
 
-
 @dataclass(frozen=True)
 class CourtPleadingSignalsDTO:
     has_complaint: bool = False

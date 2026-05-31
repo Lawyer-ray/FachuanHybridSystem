@@ -14,7 +14,6 @@ from apps.core.interfaces import IMonitorService
 
 logger = logging.getLogger("apps.automation")
 
-
 class MonitorService:
     """任务监控服务"""
 
@@ -186,7 +185,6 @@ class MonitorService:
         #         "text": {"content": f"{title}\n{message}"}
         #     })
 
-
 class MonitorServiceAdapter(IMonitorService):
     """
     监控服务适配器
@@ -236,6 +234,5 @@ class MonitorServiceAdapter(IMonitorService):
     def send_alert_internal(self, title: str, message: str, level: str = "warning") -> None:
         """发送告警（内部接口，无权限检查）"""
         self.service.send_alert(title, message, level)
-
 
 # 注意：不再使用全局单例，请通过 ServiceLocator.get_monitor_service() 获取服务实例

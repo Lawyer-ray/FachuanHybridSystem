@@ -8,7 +8,6 @@ import pytest
 
 from apps.message_hub.services.court.court_fetcher import _run_callable_with_timeout
 
-
 class TestRunCallableWithTimeout:
     """验证 Token 登录超时控制不会阻塞 worker。"""
 

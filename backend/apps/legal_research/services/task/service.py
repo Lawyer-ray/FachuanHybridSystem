@@ -23,10 +23,8 @@ from apps.legal_research.services.task.state_sync import sync_failed_queue_state
 
 logger = logging.getLogger(__name__)
 
-
 def _get_account_credential_model() -> Any:
     return django_apps.get_model("organization", "AccountCredential")
-
 
 class LegalResearchTaskService:
     _WEIKE_URL_KEYWORD = "wkinfo.com.cn"

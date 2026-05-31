@@ -17,7 +17,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger("apps.automation")
 
-
 def _safe_save_task(task: ScraperTask) -> None:
     """
     安全地保存任务状态
@@ -34,7 +33,6 @@ def _safe_save_task(task: ScraperTask) -> None:
     except Exception as e:
         logger.warning("保存任务状态时出错: %s", e, exc_info=True)
 
-
 def is_playwright_available() -> bool:
     """检查 Playwright 是否已安装且可用"""
     try:
@@ -43,7 +41,6 @@ def is_playwright_available() -> bool:
         return True
     except ImportError:
         return False
-
 
 class BaseScraper:
     """

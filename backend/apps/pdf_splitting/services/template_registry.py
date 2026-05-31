@@ -4,7 +4,6 @@ from dataclasses import dataclass
 
 from apps.pdf_splitting.models import PdfSplitSegmentType
 
-
 @dataclass(frozen=True)
 class SegmentTemplateRule:
     segment_type: str
@@ -15,14 +14,12 @@ class SegmentTemplateRule:
     negative_keywords: tuple[str, ...] = ()
     continuation_keywords: tuple[str, ...] = ()
 
-
 @dataclass(frozen=True)
 class TemplateDefinition:
     key: str
     version: str
     label: str
     rules: tuple[SegmentTemplateRule, ...]
-
 
 FILING_MATERIALS_V1 = TemplateDefinition(
     key="filing_materials_v1",
@@ -95,10 +92,8 @@ FILING_MATERIALS_V1 = TemplateDefinition(
 
 _REGISTRY = {FILING_MATERIALS_V1.key: FILING_MATERIALS_V1}
 
-
 def get_template_definition(template_key: str) -> TemplateDefinition:
     return _REGISTRY.get(template_key, FILING_MATERIALS_V1)
-
 
 def get_segment_label(segment_type: str) -> str:
     for template in _REGISTRY.values():
@@ -108,7 +103,6 @@ def get_segment_label(segment_type: str) -> str:
     if segment_type == PdfSplitSegmentType.UNRECOGNIZED:
         return "未识别材料"
     return segment_type
-
 
 def get_default_filename(segment_type: str) -> str:
     for template in _REGISTRY.values():

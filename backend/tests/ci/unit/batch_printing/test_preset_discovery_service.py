@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from apps.batch_printing.services.preset.preset_discovery_service import PresetDiscoveryService
 
-
 class TestPresetDiscoveryService:
     """验证 macOS 打印预置解析兼容不同 plist 结构。"""
 

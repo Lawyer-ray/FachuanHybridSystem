@@ -4,7 +4,6 @@ import logging
 from typing import Any, cast
 
 import httpx
-from django.utils.translation import gettext_lazy as _
 
 from apps.automation.utils.logging_mixins.common import sanitize_url
 from apps.core.exceptions import NetworkError
@@ -12,7 +11,6 @@ from apps.core.exceptions import NetworkError
 from .court_document_api_exceptions import ApiResponseError, CourtApiError, TokenExpiredError
 
 logger = logging.getLogger("apps.automation")
-
 
 class CourtDocumentHttpClient:
     def __init__(self, *, timeout_seconds: float) -> None:
@@ -25,7 +23,7 @@ class CourtDocumentHttpClient:
                 response = client.post(url, headers=headers, json=json_data)
 
             if response.status_code == 401:
-                raise TokenExpiredError(message=str(_("Token 已过期或无效")), errors={"status_code": 401})
+                raise TokenExpiredError(message=str("Token 已过期或无效"), errors={"status_code": 401})
 
             if response.status_code >= 400:
                 raise ApiResponseError(

@@ -19,7 +19,6 @@ _CDP_URL: Final[str] = f"http://127.0.0.1:{_CDP_PORT}"
 _browser_context: BrowserContext | None = None
 _chrome_process: Any = None
 
-
 async def close_browser() -> None:
     global _browser_context, _chrome_process
     if _browser_context is not None:
@@ -32,7 +31,6 @@ async def close_browser() -> None:
         kill_chrome(_chrome_process)
         _chrome_process = None
     logger.info("Browser closed")
-
 
 async def disconnect_playwright() -> None:
     """
@@ -54,7 +52,6 @@ async def disconnect_playwright() -> None:
             pass
         _browser_context = None
     logger.info("Playwright disconnected (Chrome still running for reuse)")
-
 
 async def ensure_browser() -> BrowserContext:
     """
@@ -120,7 +117,6 @@ async def ensure_browser() -> BrowserContext:
         f"Cannot connect via CDP ({_CDP_URL}) after launching Chrome. Check if Chrome is installed correctly."
     )
 
-
 async def _try_cdp_connect(
     pw: Any,
     retries: int = 1,
@@ -135,7 +131,6 @@ async def _try_cdp_connect(
             if attempt < retries - 1:
                 await asyncio.sleep(delay)
     return None
-
 
 def _launch_chrome_via_util() -> None:
     """Auto-launch Chrome with remote debugging port enabled."""

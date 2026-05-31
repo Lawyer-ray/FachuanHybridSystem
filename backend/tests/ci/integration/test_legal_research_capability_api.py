@@ -10,7 +10,6 @@ from apps.legal_research.schemas.legal_research_schemas import (
     AgentSearchResponseV1,
 )
 
-
 @pytest.mark.django_db
 def test_capability_search_endpoint_returns_contract_and_passes_idempotency_key(
     authenticated_client,
@@ -60,7 +59,6 @@ def test_capability_search_endpoint_returns_contract_and_passes_idempotency_key(
     assert data["status"] == "ok"
     assert "query_trace" in data
     assert captured["idempotency_key"] == "idem-capability-001"
-
 
 @pytest.mark.django_db
 def test_capability_search_mcp_endpoint_returns_wrapper_contract(

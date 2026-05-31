@@ -10,18 +10,15 @@ from apps.cases.services.case.case_admin_export_bridge import (
     get_case_admin_file_prefetches,
 )
 
-
 def test_get_case_admin_export_prefetches_returns_nonempty_tuple() -> None:
     result = get_case_admin_export_prefetches()
     assert isinstance(result, tuple)
     assert len(result) > 0
 
-
 def test_get_case_admin_file_prefetches_returns_nonempty_tuple() -> None:
     result = get_case_admin_file_prefetches()
     assert isinstance(result, tuple)
     assert len(result) > 0
-
 
 def test_collect_case_file_paths_for_export_collects_identity_docs() -> None:
     identity_doc = MagicMock()
@@ -57,7 +54,6 @@ def test_collect_case_file_paths_for_export_collects_identity_docs() -> None:
     assert "id_doc.pdf" in collected
     assert "clue_attach.pdf" in collected
     assert "log_attach.pdf" in collected
-
 
 def test_collect_case_file_paths_for_export_skips_log_attachment_without_file() -> None:
     client = MagicMock()

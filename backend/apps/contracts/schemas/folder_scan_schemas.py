@@ -4,33 +4,27 @@ from __future__ import annotations
 
 from ninja import Schema
 
-
 class ContractFolderScanStartIn(Schema):
     rescan: bool = False
     scan_subfolder: str = ""
-
 
 class ContractFolderScanStartOut(Schema):
     session_id: str
     status: str
     task_id: str = ""
 
-
 class ContractFolderScanSubfolderOptionOut(Schema):
     relative_path: str
     display_name: str
-
 
 class ContractFolderScanSubfolderListOut(Schema):
     root_path: str
     subfolders: list[ContractFolderScanSubfolderOptionOut]
 
-
 class ContractFolderScanSummaryOut(Schema):
     total_files: int = 0
     deduped_files: int = 0
     classified_files: int = 0
-
 
 class ContractFolderScanCandidateOut(Schema):
     source_path: str
@@ -51,16 +45,13 @@ class ContractFolderScanCandidateOut(Schema):
     skip_reason: str = ""
     already_imported: bool = False
 
-
 class ArchiveItemOptionOut(Schema):
     code: str
     name: str
 
-
 class WorkLogSuggestionOut(Schema):
     date: str
     content: str
-
 
 class ContractFolderScanStatusOut(Schema):
     session_id: str
@@ -74,7 +65,6 @@ class ContractFolderScanStatusOut(Schema):
     archive_item_options: list[ArchiveItemOptionOut] = []
     work_log_suggestions: list[WorkLogSuggestionOut] = []
 
-
 class ContractFolderScanConfirmItemIn(Schema):
     source_path: str
     selected: bool = True
@@ -82,17 +72,14 @@ class ContractFolderScanConfirmItemIn(Schema):
     archive_item_code: str = ""
     is_docx: bool = False
 
-
 class ContractFolderScanConfirmIn(Schema):
     items: list[ContractFolderScanConfirmItemIn]
     work_log_suggestions: list[WorkLogSuggestionOut] = []
-
 
 class ContractFolderScanConfirmOut(Schema):
     session_id: str
     status: str
     imported_count: int
-
 
 __all__ = [
     "ContractFolderScanStartIn",

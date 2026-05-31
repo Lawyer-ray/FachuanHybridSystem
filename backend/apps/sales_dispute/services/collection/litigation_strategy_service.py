@@ -16,7 +16,6 @@ PRESERVATION_THRESHOLD: Decimal = Decimal("50000")
 SMALL_CLAIMS_RATIO: Decimal = Decimal("0.3")
 SUMMARY_THRESHOLD: Decimal = Decimal("500000")
 
-
 @dataclass(frozen=True)
 class StrategyParams:
     """策略推荐参数"""
@@ -26,7 +25,6 @@ class StrategyParams:
     solvency_rating: str
     local_avg_salary: Decimal | None
     willing_to_mediate: bool
-
 
 @dataclass(frozen=True)
 class StrategyResult:
@@ -38,7 +36,6 @@ class StrategyResult:
     applicable_conditions: str
     suggest_preservation: bool
     preservation_reason: str
-
 
 class LitigationStrategyService:
     """起诉策略推荐服务"""

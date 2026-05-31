@@ -10,7 +10,6 @@ from apps.workbench.tasks.parsing import build_case_info, chunk_text, merge_chun
 
 # ─── chunk_text ──────────────────────────────────────────────────────────────
 
-
 class TestChunkText:
     def test_short_text_returns_single_chunk(self) -> None:
         text = "短文本"
@@ -39,9 +38,7 @@ class TestChunkText:
         assert len(result) == 2
         assert "\n\n" in result[0]
 
-
 # ─── parse_llm_result ────────────────────────────────────────────────────────
-
 
 class TestParseLlmResult:
     def test_json_structured_output(self) -> None:
@@ -95,9 +92,7 @@ class TestParseLlmResult:
         result = parse_llm_result(text, "bad.json")
         assert result["parse_method"] == "regex"
 
-
 # ─── build_case_info ─────────────────────────────────────────────────────────
-
 
 class TestBuildCaseInfo:
     def test_full_metadata(self) -> None:
@@ -122,9 +117,7 @@ class TestBuildCaseInfo:
         assert "案号" in result
         assert "审理法院" not in result
 
-
 # ─── merge_chunk_results ─────────────────────────────────────────────────────
-
 
 class TestMergeChunkResults:
     def test_single_chunk_returns_as_is(self) -> None:

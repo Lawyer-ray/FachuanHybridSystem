@@ -7,8 +7,6 @@ import logging
 from functools import lru_cache
 from typing import TYPE_CHECKING, Any, ClassVar, cast
 
-from django.utils.translation import gettext_lazy as _
-
 from apps.core.exceptions import ValidationException
 from apps.core.utils.path import Path
 
@@ -16,7 +14,6 @@ logger = logging.getLogger("apps.cases")
 
 if TYPE_CHECKING:
     from apps.core.protocols import ICauseCourtQueryService
-
 
 class CauseCourtDataCache:
     def __init__(self, data_dir: Path) -> None:
@@ -33,7 +30,7 @@ class CauseCourtDataCache:
                     extra={"action": "load_json_file", "file_name": filename, "file_path": str(file_path)},
                 )
                 raise ValidationException(
-                    message=_("数据文件不存在: %(name)s") % {"name": filename},
+                    message="数据文件不存在: %(name)s" % {"name": filename},
                     code="FILE_NOT_FOUND",
                     errors={"filename": filename},
                 )
@@ -61,7 +58,7 @@ class CauseCourtDataCache:
                 extra={"action": "load_json_file", "file_name": filename, "error": str(e)},
             )
             raise ValidationException(
-                message=_("数据文件格式错误: %(name)s") % {"name": filename},
+                message="数据文件格式错误: %(name)s" % {"name": filename},
                 code="JSON_PARSE_ERROR",
                 errors={"filename": filename, "error": str(e)},
             ) from e
@@ -73,11 +70,10 @@ class CauseCourtDataCache:
                 extra={"action": "load_json_file", "file_name": filename, "error": str(e)},
             )
             raise ValidationException(
-                message=_("加载数据文件失败: %(name)s") % {"name": filename},
+                message="加载数据文件失败: %(name)s" % {"name": filename},
                 code="FILE_LOAD_ERROR",
                 errors={"filename": filename, "error": str(e)},
             ) from e
-
 
 class CauseCourtDataParser:
     def flatten_tree(self, data: dict[str, Any], result: list[dict[str, Any]] | None = None) -> list[dict[str, Any]]:
@@ -118,7 +114,6 @@ class CauseCourtDataParser:
         matching_items.sort(key=sort_key)
         return matching_items
 
-
 class CauseCourtDbProvider:
     def __init__(self, *, cause_court_query_service: ICauseCourtQueryService) -> None:
         self.cause_court_query_service = cause_court_query_service
@@ -151,7 +146,6 @@ class CauseCourtDbProvider:
 
     def list_causes_by_parent(self, parent_id: int | None) -> list[dict[str, Any]]:
         return self.cause_court_query_service.list_causes_by_parent_internal(parent_id)
-
 
 class CauseCourtJsonProvider:
     def __init__(
@@ -277,7 +271,6 @@ class CauseCourtJsonProvider:
             logger.exception("search_courts_from_json_failed", extra={"query": query})
             raise
 
-
 class CauseCourtDataService:
     """
     案由和法院数据服务
@@ -372,7 +365,7 @@ class CauseCourtDataService:
                 },
             )
             raise ValidationException(
-                message=_("无效的案件类型: %(type)s") % {"type": case_type},
+                message="无效的案件类型: %(type)s" % {"type": case_type},
                 code="INVALID_CASE_TYPE",
                 errors={"case_type": case_type, "valid_types": list(self.CASE_TYPE_FILE_MAP.keys())},
             )

@@ -5,12 +5,9 @@ from __future__ import annotations
 import logging
 from typing import Any, cast
 
-from django.utils.translation import gettext_lazy as _
-
 from apps.core.exceptions import ValidationException
 
 logger = logging.getLogger(__name__)
-
 
 class ChatNameBuilder:
     def __init__(self, *, config_service: Any | None = None) -> None:
@@ -27,13 +24,13 @@ class ChatNameBuilder:
     def build(self, *, case: Any) -> str:
         if not case:
             raise ValidationException(
-                message=_("案件对象不能为空"), code="INVALID_CASE", errors={"case": str(_("案件对象为必填项"))}
+                message="案件对象不能为空", code="INVALID_CASE", errors={"case": str("案件对象为必填项")}
             )
         if not getattr(case, "name", None):
             raise ValidationException(
-                message=_("案件名称不能为空"),
+                message="案件名称不能为空",
                 code="INVALID_CASE_NAME",
-                errors={"case_name": str(_("案件名称为必填项"))},
+                errors={"case_name": str("案件名称为必填项")},
             )
 
         stage_display: str | None = None

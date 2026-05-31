@@ -5,7 +5,6 @@ from __future__ import annotations
 from django.conf import settings
 from django.db import models
 
-
 class ToolFavorite(models.Model):
     """记录用户在「其他工具」中收藏的具体工具（模型级别）。"""
 

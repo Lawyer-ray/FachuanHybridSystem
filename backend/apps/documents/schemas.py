@@ -16,7 +16,6 @@ from .models import DocumentTemplate, DocumentTemplateType, FolderTemplate, Fold
 # 文件夹模板 Schemas
 # ============================================================
 
-
 class FolderTemplateIn(Schema):
     """文件夹模板创建输入"""
 
@@ -29,7 +28,6 @@ class FolderTemplateIn(Schema):
     is_default: bool = False
     is_active: bool = True
 
-
 class FolderTemplateUpdate(Schema):
     """文件夹模板更新输入"""
 
@@ -41,7 +39,6 @@ class FolderTemplateUpdate(Schema):
     structure: dict[str, Any] | None = None
     is_default: bool | None = None
     is_active: bool | None = None
-
 
 class FolderTemplateOut(ModelSchema):
     """文件夹模板输出"""
@@ -83,11 +80,9 @@ class FolderTemplateOut(ModelSchema):
     def resolve_contract_types_display(obj: FolderTemplate) -> str:
         return str(obj.contract_types_display)
 
-
 # ============================================================
 # 文书模板 Schemas
 # ============================================================
-
 
 class DocumentTemplateIn(Schema):
     """文书模板创建输入"""
@@ -103,7 +98,6 @@ class DocumentTemplateIn(Schema):
     contract_types: list[str] = []
     is_active: bool = True
 
-
 class DocumentTemplateUpdate(Schema):
     """文书模板更新输入"""
 
@@ -118,7 +112,6 @@ class DocumentTemplateUpdate(Schema):
     contract_types: list[str] | None = None
     is_active: bool | None = None
 
-
 class FolderBindingOut(Schema):
     """文件夹绑定输出"""
 
@@ -128,7 +121,6 @@ class FolderBindingOut(Schema):
     folder_node_id: str
     folder_node_path: str
     is_active: bool
-
 
 class DocumentTemplateOut(ModelSchema):
     """文书模板输出"""
@@ -192,11 +184,9 @@ class DocumentTemplateOut(ModelSchema):
             for binding in obj.folder_bindings.all()
         ]
 
-
 # ============================================================
 # 替换词 Schemas
 # ============================================================
-
 
 class PlaceholderIn(Schema):
     """替换词创建输入"""
@@ -207,7 +197,6 @@ class PlaceholderIn(Schema):
     description: str = ""
     is_active: bool = True
 
-
 class PlaceholderUpdate(Schema):
     """替换词更新输入"""
 
@@ -216,7 +205,6 @@ class PlaceholderUpdate(Schema):
     example_value: str | None = None
     description: str | None = None
     is_active: bool | None = None
-
 
 class PlaceholderOut(ModelSchema):
     """替换词输出"""
@@ -232,24 +220,20 @@ class PlaceholderOut(ModelSchema):
             "is_active",
         ]
 
-
 class PlaceholderPreviewOut(Schema):
     contract_id: int
     values: dict[str, Any]
     missing_keys: list[str] = []
 
-
 # ============================================================
 # 枚举选项 Schemas
 # ============================================================
-
 
 class EnumOptionOut(Schema):
     """枚举选项输出"""
 
     value: str
     label: str
-
 
 class DocumentEnumsOut(Schema):
     """文书系统枚举选项输出"""

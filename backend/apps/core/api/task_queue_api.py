@@ -10,12 +10,10 @@ from ninja import Router, Schema
 
 router = Router()
 
-
 def _fmt_dt(dt: datetime | None) -> str | None:
     if dt is None:
         return None
     return dt.strftime("%Y-%m-%d %H:%M:%S")
-
 
 class QueuedTaskOut(Schema):
     id: str
@@ -23,7 +21,6 @@ class QueuedTaskOut(Schema):
     func: str
     group: str | None = None
     created_at: str | None = None
-
 
 class TaskOut(Schema):
     id: str
@@ -36,7 +33,6 @@ class TaskOut(Schema):
     success: bool
     result: str | None = None
 
-
 class ScheduleOut(Schema):
     id: int
     name: str
@@ -46,7 +42,6 @@ class ScheduleOut(Schema):
     next_run: str | None = None
     last_run: str | None = None
     success: bool | None = None
-
 
 @router.get("/queued", response=list[QueuedTaskOut])
 def list_queued(request: HttpRequest) -> Any:
@@ -64,7 +59,6 @@ def list_queued(request: HttpRequest) -> Any:
         )
         for item in items
     ]
-
 
 @router.get("/completed", response=list[TaskOut])
 def list_completed(request: HttpRequest) -> Any:
@@ -87,7 +81,6 @@ def list_completed(request: HttpRequest) -> Any:
         for t in tasks
     ]
 
-
 @router.get("/failed", response=list[TaskOut])
 def list_failed(request: HttpRequest) -> Any:
     """获取失败的任务"""
@@ -108,7 +101,6 @@ def list_failed(request: HttpRequest) -> Any:
         )
         for t in tasks
     ]
-
 
 @router.get("/scheduled", response=list[ScheduleOut])
 def list_scheduled(request: HttpRequest) -> Any:
@@ -138,7 +130,6 @@ def list_scheduled(request: HttpRequest) -> Any:
         for s in schedules
     ]
 
-
 @router.delete("/tasks/{task_id}")
 def delete_task(request: HttpRequest, task_id: str) -> dict[str, Any]:
     """删除已完成或失败的任务"""
@@ -147,7 +138,6 @@ def delete_task(request: HttpRequest, task_id: str) -> dict[str, Any]:
     deleted = _delete_task(task_id)
     return {"deleted": deleted}
 
-
 @router.delete("/schedules/{schedule_id}")
 def delete_schedule(request: HttpRequest, schedule_id: int) -> dict[str, Any]:
     """删除定时调度"""
@@ -155,7 +145,6 @@ def delete_schedule(request: HttpRequest, schedule_id: int) -> dict[str, Any]:
 
     deleted = _delete_schedule(schedule_id)
     return {"deleted": deleted}
-
 
 @router.post("/tasks/{task_id}/resubmit")
 def resubmit_task(request: HttpRequest, task_id: str) -> dict[str, Any]:

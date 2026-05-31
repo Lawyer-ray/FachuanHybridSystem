@@ -14,7 +14,6 @@ _WEIKE_SITE_FILTER = (
     | Q(url__icontains="wkinfo.com.cn")
 )
 
-
 @admin.register(ContentTask)
 class ContentTaskAdmin(admin.ModelAdmin):
     list_display = ["id", "mode", "keyword", "voice", "status", "progress", "created_at"]
@@ -65,14 +64,12 @@ class ContentTaskAdmin(admin.ModelAdmin):
                 return qs.none()
         return qs.order_by("-last_login_success_at", "-login_success_count", "login_failure_count", "-id")
 
-
 @admin.register(GeneratedArticle)
 class GeneratedArticleAdmin(admin.ModelAdmin):
     list_display = ["id", "task", "title", "review_status", "llm_model", "created_at"]
     list_filter = ["review_status"]
     search_fields = ["title", "content"]
     readonly_fields = ["llm_model", "token_usage", "created_at", "updated_at"]
-
 
 @admin.register(PodcastEpisode)
 class PodcastEpisodeAdmin(admin.ModelAdmin):

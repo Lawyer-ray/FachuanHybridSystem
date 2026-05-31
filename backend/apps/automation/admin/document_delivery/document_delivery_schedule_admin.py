@@ -19,12 +19,10 @@ from django.urls import path, reverse
 from django.utils import timezone
 from django.utils.html import format_html
 from django.utils.safestring import SafeString
-from django.utils.translation import gettext_lazy as _
 
 from apps.automation.models import DocumentDeliverySchedule
 
 logger = logging.getLogger("apps.automation")
-
 
 def _get_document_delivery_schedule_service() -> Any:
     """获取文书送达定时任务服务实例（工厂函数）"""
@@ -33,7 +31,6 @@ def _get_document_delivery_schedule_service() -> Any:
     )
 
     return DocumentDeliveryScheduleService()
-
 
 @admin.register(DocumentDeliverySchedule)
 class DocumentDeliveryScheduleAdmin(admin.ModelAdmin):
@@ -82,22 +79,22 @@ class DocumentDeliveryScheduleAdmin(admin.ModelAdmin):
 
     fieldsets = (
         (
-            _("基本信息"),
+            "基本信息",
             {"fields": ("id", "credential", "is_active")},
         ),
         (
-            _("调度配置"),
+            "调度配置",
             {
                 "fields": ("runs_per_day", "hour_interval", "cutoff_hours"),
                 "description": "配置定时任务的运行频率和时间范围",
             },
         ),
         (
-            _("运行状态"),
+            "运行状态",
             {"fields": ("last_run_at", "next_run_at", "manual_trigger_button")},
         ),
         (
-            _("时间戳"),
+            "时间戳",
             {"fields": ("created_at", "updated_at"), "classes": ("collapse",)},
         ),
     )
@@ -120,7 +117,7 @@ class DocumentDeliveryScheduleAdmin(admin.ModelAdmin):
         ]
         return custom_urls + urls
 
-    @admin.display(description=_("账号凭证"))
+    @admin.display(description="账号凭证")
     def credential_display(self, obj: DocumentDeliverySchedule) -> SafeString | str:
         """账号凭证显示"""
         if obj.credential:
@@ -130,7 +127,7 @@ class DocumentDeliveryScheduleAdmin(admin.ModelAdmin):
             )
         return "-"
 
-    @admin.display(description=_("状态"))
+    @admin.display(description="状态")
     def status_display(self, obj: DocumentDeliverySchedule) -> SafeString:
         """状态显示（带颜色）"""
         if obj.is_active:
@@ -138,7 +135,7 @@ class DocumentDeliveryScheduleAdmin(admin.ModelAdmin):
         else:
             return format_html('<span style="color: red; font-weight: bold;">{}</span>', "✗ 禁用")
 
-    @admin.display(description=_("上次运行"))
+    @admin.display(description="上次运行")
     def last_run_display(self, obj: DocumentDeliverySchedule) -> SafeString:
         """上次运行时间显示"""
         if obj.last_run_at:
@@ -168,7 +165,7 @@ class DocumentDeliveryScheduleAdmin(admin.ModelAdmin):
             )
         return format_html('<span style="color: gray;">{}</span>', "从未运行")
 
-    @admin.display(description=_("下次运行"))
+    @admin.display(description="下次运行")
     def next_run_display(self, obj: DocumentDeliverySchedule) -> SafeString:
         """下次运行时间显示"""
         if not obj.is_active:
@@ -209,7 +206,7 @@ class DocumentDeliveryScheduleAdmin(admin.ModelAdmin):
             )
         return format_html('<span style="color: gray;">{}</span>', "未设置")
 
-    @admin.display(description=_("操作"))
+    @admin.display(description="操作")
     def manual_trigger_button(self, obj: DocumentDeliverySchedule) -> SafeString | str:
         """手动触发按钮"""
         if obj.id and obj.credential:
@@ -223,7 +220,7 @@ class DocumentDeliveryScheduleAdmin(admin.ModelAdmin):
             )
         return "-"
 
-    @admin.action(description=_("🚀 手动触发选中的查询任务"))
+    @admin.action(description="🚀 手动触发选中的查询任务")
     def trigger_manual_query_action(self, request: HttpRequest, queryset: QuerySet[DocumentDeliverySchedule]) -> None:
         """手动触发查询操作（异步执行，不阻塞 Admin）"""
         service = _get_document_delivery_schedule_service()
@@ -252,14 +249,14 @@ class DocumentDeliveryScheduleAdmin(admin.ModelAdmin):
         if error_count > 0:
             messages.error(request, f"触发失败 {error_count} 个任务（无账号凭证）")
 
-    @admin.action(description=_("✓ 启用选中的定时任务"))
+    @admin.action(description="✓ 启用选中的定时任务")
     def activate_schedules_action(self, request: HttpRequest, queryset: QuerySet[DocumentDeliverySchedule]) -> None:
         """启用定时任务操作"""
         updated = queryset.update(is_active=True)
         messages.success(request, _(f"成功启用 {updated} 个定时任务"))
         logger.info(f"管理员批量启用定时任务: Count={updated}, User={request.user}")
 
-    @admin.action(description=_("✗ 禁用选中的定时任务"))
+    @admin.action(description="✗ 禁用选中的定时任务")
     def deactivate_schedules_action(self, request: HttpRequest, queryset: QuerySet[DocumentDeliverySchedule]) -> None:
         """禁用定时任务操作"""
         updated = queryset.update(is_active=False)

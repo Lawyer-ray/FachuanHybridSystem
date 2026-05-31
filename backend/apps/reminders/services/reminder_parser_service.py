@@ -12,8 +12,6 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
-from django.utils.translation import gettext_lazy as _
-
 logger = logging.getLogger(__name__)
 
 # ---- 日期正则 ----
@@ -73,7 +71,6 @@ REMINDER_TYPE_LABELS: dict[str, str] = {
     "other": "其他",
 }
 
-
 @dataclass
 class ParsedReminder:
     """解析出的提醒条目。"""
@@ -84,14 +81,12 @@ class ParsedReminder:
     due_at: str  # ISO 8601 格式: YYYY-MM-DDTHH:MM
     source_text: str  # 原始匹配文本片段
 
-
 def _infer_reminder_type(text: str) -> str:
     """根据关键词推断提醒类型。"""
     for keyword, reminder_type in KEYWORD_TYPE_MAP:
         if keyword in text:
             return reminder_type
     return DEFAULT_REMINDER_TYPE
-
 
 def _parse_date(date_str: str) -> datetime | None:
     """解析日期字符串。
@@ -133,7 +128,6 @@ def _parse_date(date_str: str) -> datetime | None:
             pass
 
     return None
-
 
 def _extract_time_near_date(text: str, date_end: int) -> tuple[int, int] | None:
     """在日期之后提取时间信息。
@@ -186,7 +180,6 @@ def _extract_time_near_date(text: str, date_end: int) -> tuple[int, int] | None:
 
     return None
 
-
 def _extract_sentence(text: str, start: int, end: int, context_radius: int = 30) -> str:
     """从文本中提取日期所在的句子片段。"""
     # 向前后扩展到句子边界
@@ -206,7 +199,6 @@ def _extract_sentence(text: str, start: int, end: int, context_radius: int = 30)
             break
 
     return text[sent_start:sent_end].strip()
-
 
 def parse_reminders_from_text(text: str) -> list[ParsedReminder]:
     """从文本中解析出提醒事项。
@@ -285,7 +277,6 @@ def parse_reminders_from_text(text: str) -> list[ParsedReminder]:
 
     logger.info("从文本中解析出 %d 条提醒", len(results))
     return results
-
 
 def _generate_content(sentence: str, type_label: str, dt: datetime) -> str:
     """生成提醒事项内容描述。"""

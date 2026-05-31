@@ -15,7 +15,6 @@ _cached_media_root: Path | None = None
 _cached_media_root_str: str | None = None
 _cached_media_url: str | None = None
 
-
 def _get_media_root() -> tuple[Path, str, str]:
     """获取缓存的 MEDIA_ROOT 相关值。"""
     global _cached_media_root, _cached_media_root_str, _cached_media_url
@@ -24,7 +23,6 @@ def _get_media_root() -> tuple[Path, str, str]:
         _cached_media_root_str = str(_cached_media_root)
         _cached_media_url = settings.MEDIA_URL
     return _cached_media_root, _cached_media_root_str or "", _cached_media_url or ""
-
 
 @lru_cache(maxsize=1024)
 def resolve_media_url(file_path: str) -> str | None:

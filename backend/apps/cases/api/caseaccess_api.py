@@ -21,7 +21,6 @@ from apps.core.dto.request_context import extract_request_context
 
 router = Router()
 
-
 def _get_case_access_service() -> Any:
     """
     工厂函数：创建 CaseAccessService 实例
@@ -31,7 +30,6 @@ def _get_case_access_service() -> Any:
     from apps.cases.services.case.case_access_service import CaseAccessService
 
     return CaseAccessService()
-
 
 @router.get("/grants", response=list[CaseAccessGrantOut])
 def list_grants(
@@ -51,7 +49,6 @@ def list_grants(
         ),
     )
 
-
 @router.post("/grants", response=CaseAccessGrantOut)
 def create_grant(request: HttpRequest, payload: CaseAccessGrantIn) -> CaseAccessGrantOut:
     service = _get_case_access_service()
@@ -65,7 +62,6 @@ def create_grant(request: HttpRequest, payload: CaseAccessGrantIn) -> CaseAccess
             user=ctx.user,
         ),
     )
-
 
 @router.get("/grants/{grant_id}", response=CaseAccessGrantOut)
 def get_grant(request: HttpRequest, grant_id: int) -> CaseAccessGrantOut:
@@ -81,7 +77,6 @@ def get_grant(request: HttpRequest, grant_id: int) -> CaseAccessGrantOut:
             perm_open_access=ctx.perm_open_access,
         ),
     )
-
 
 @router.put("/grants/{grant_id}", response=CaseAccessGrantOut)
 def update_grant(request: HttpRequest, grant_id: int, payload: CaseAccessGrantUpdate) -> CaseAccessGrantOut:
@@ -99,7 +94,6 @@ def update_grant(request: HttpRequest, grant_id: int, payload: CaseAccessGrantUp
             perm_open_access=ctx.perm_open_access,
         ),
     )
-
 
 @router.delete("/grants/{grant_id}")
 def delete_grant(request: HttpRequest, grant_id: int) -> Any:

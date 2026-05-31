@@ -18,7 +18,6 @@ from apps.automation.services.token.performance_monitor import performance_monit
 
 logger = logging.getLogger(__name__)
 
-
 class Command(BaseCommand):
     help = "Token获取服务性能优化和维护"
 

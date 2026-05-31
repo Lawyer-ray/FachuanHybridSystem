@@ -16,11 +16,9 @@ from apps.contracts.services.payment.contract_finance_service import ContractFin
 
 router = Router()
 
-
 def _get_finance_service() -> ContractFinanceService:
     """工厂函数：创建 ContractFinanceService 实例"""
     return ContractFinanceService()
-
 
 @router.get("/finance/stats", response=FinanceStatsOut)
 def finance_stats(

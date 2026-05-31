@@ -25,7 +25,6 @@ router = Router()
 # 保持小于默认 retry(1200) 以降低重复执行风险。
 CASE_IMPORT_TASK_TIMEOUT_SECONDS = int(os.environ.get("OA_CASE_IMPORT_TASK_TIMEOUT_SECONDS", "1100") or "1100")
 
-
 @router.post("/case-import", response=CaseImportSessionOut)
 def trigger_case_import(request: HttpRequest) -> Any:
     """触发从OA导入案件（预览模式）。
@@ -91,7 +90,6 @@ def trigger_case_import(request: HttpRequest) -> Any:
 
     return session
 
-
 @router.get("/case-import/{session_id}", response=CaseImportSessionOut)
 def get_case_import_session(request: HttpRequest, session_id: int) -> Any:
     """查询案件导入会话状态。"""
@@ -103,7 +101,6 @@ def get_case_import_session(request: HttpRequest, session_id: int) -> Any:
 
         raise Http404("会话不存在")
     return session
-
 
 @router.post("/case-import/{session_id}/execute")
 def execute_case_import(request: HttpRequest, session_id: int) -> HttpResponse:
@@ -159,7 +156,6 @@ def execute_case_import(request: HttpRequest, session_id: int) -> HttpResponse:
         }
     )
 
-
 @router.get("/case-import/{session_id}/preview")
 def get_case_import_preview(request: HttpRequest, session_id: int) -> JsonResponse:
     """获取案件导入预览结果。"""
@@ -195,7 +191,6 @@ def get_case_import_preview(request: HttpRequest, session_id: int) -> JsonRespon
     )
 
     return JsonResponse(response.model_dump())
-
 
 @router.post("/case-import/{session_id}/batch-create")
 def batch_create_cases(request: HttpRequest, session_id: int) -> Any:

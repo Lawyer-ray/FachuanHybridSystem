@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from django.utils.translation import gettext_lazy as _
-
 CASE_LOG_ALLOWED_EXTENSIONS = {
     ".pdf",
     ".doc",
@@ -19,12 +17,10 @@ CASE_LOG_ALLOWED_EXTENSIONS = {
 
 CASE_LOG_MAX_FILE_SIZE = 50 * 1024 * 1024
 
-
 def _basename(filename: str) -> str:
     name = str(filename or "")
     name = name.replace("\\", "/")
     return name.split("/")[-1]
-
 
 def get_file_extension_lower(filename: str) -> str:
     base = _basename(filename).strip()
@@ -34,15 +30,13 @@ def get_file_extension_lower(filename: str) -> str:
         return ""
     return "." + base.rsplit(".", 1)[-1].lower()
 
-
 def validate_case_log_attachment(filename: str, size: int | None) -> tuple[bool, str | None]:
     ext = get_file_extension_lower(filename)
     if ext not in CASE_LOG_ALLOWED_EXTENSIONS:
-        return False, str(_("不支持的文件类型"))
+        return False, str("不支持的文件类型")
     if size and size > CASE_LOG_MAX_FILE_SIZE:
-        return False, str(_("文件大小超过50MB限制"))
+        return False, str("文件大小超过50MB限制")
     return True, None
-
 
 def fix_sqlite_orphan_contract_fk() -> None:
     """SQLite 不强制 FK 约束，删除案件前清理孤立的 contract_id 引用。"""
@@ -58,7 +52,6 @@ def fix_sqlite_orphan_contract_fk() -> None:
                   AND contract_id NOT IN (SELECT id FROM contracts_contract)
                 """
             )
-
 
 def normalize_case_number(number: str, ensure_hao: bool = False) -> str:
     if not number:

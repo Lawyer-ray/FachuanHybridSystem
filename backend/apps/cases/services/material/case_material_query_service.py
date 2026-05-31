@@ -18,7 +18,6 @@ from apps.cases.models import (
     CaseParty,
 )
 
-
 class CaseMaterialQueryService:
     def __init__(self, case_service: Any | None = None) -> None:
         self._case_service = case_service

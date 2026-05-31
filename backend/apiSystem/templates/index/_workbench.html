@@ -1,11 +1,10 @@
-{% load i18n %}
     <!-- 工作台 AI Copilot 介绍 -->
     <section class="workbench-section" id="workbench">
         <div class="workbench-container">
             <div class="section-header reveal">
-                <span class="section-tag">🤖 {% trans "AI 工作台" %}</span>
-                <h2 class="section-title">{% trans "批量并发分析，类案研究从此高效" %}</h2>
-                <p class="section-desc">{% trans "一次派出 100 个 AI 并发分析 100 份判决，省去律师数周的类案研究时间" %}</p>
+                <span class="section-tag">🤖 {</span>
+                <h2 class="section-title">{</h2>
+                <p class="section-desc">{</p>
             </div>
 
             <div class="workbench-demo" id="workbenchDemo">
@@ -14,7 +13,7 @@
                     <div class="wb-batch-header">
                         <div class="wb-batch-title">
                             <span class="wb-batch-icon">⚡</span>
-                            {% trans "批量分析任务" %}
+                            {
                         </div>
                         <span class="wb-batch-count" id="wbBatchCount">0/100</span>
                     </div>
@@ -22,15 +21,15 @@
                     <div class="wb-batch-stats" id="wbBatchStats">
                         <div class="wb-stat-item">
                             <span class="wb-stat-num" id="wbStatDone">0</span>
-                            <span class="wb-stat-label">{% trans "已完成" %}</span>
+                            <span class="wb-stat-label">{</span>
                         </div>
                         <div class="wb-stat-item">
                             <span class="wb-stat-num" id="wbStatRunning">0</span>
-                            <span class="wb-stat-label">{% trans "进行中" %}</span>
+                            <span class="wb-stat-label">{</span>
                         </div>
                         <div class="wb-stat-item">
                             <span class="wb-stat-num" id="wbStatPending">100</span>
-                            <span class="wb-stat-label">{% trans "队列中" %}</span>
+                            <span class="wb-stat-label">{</span>
                         </div>
                     </div>
 
@@ -39,12 +38,12 @@
                         <div class="wb-progress-bar" id="wbProgressBar">
                             <div class="wb-progress-fill" id="wbProgressFill"></div>
                         </div>
-                        <div class="wb-progress-text" id="wbProgressText">{% trans "等待开始..." %}</div>
+                        <div class="wb-progress-text" id="wbProgressText">{</div>
                     </div>
 
                     <!-- 实时日志 -->
                     <div class="wb-log-area" id="wbLogArea">
-                        <div class="wb-log-line" id="wbLog1">▸ {% trans "任务已提交，正在分配 AI 实例..." %}</div>
+                        <div class="wb-log-line" id="wbLog1">▸ {</div>
                         <div class="wb-log-line" id="wbLog2"></div>
                         <div class="wb-log-line" id="wbLog3"></div>
                         <div class="wb-log-line" id="wbLog4"></div>
@@ -56,18 +55,18 @@
                 <!-- 右侧：AI 并发网格 -->
                 <div class="wb-ai-grid-container" id="wbAiGridContainer">
                     <div class="wb-grid-header">
-                        <span class="wb-grid-title">{% trans "AI 并发矩阵" %}</span>
-                        <span class="wb-grid-subtitle">{% trans "100 个 AI 实例同时工作中" %}</span>
+                        <span class="wb-grid-title">{</span>
+                        <span class="wb-grid-subtitle">{</span>
                     </div>
                     <div class="wb-ai-grid" id="wbAiGrid">
                         <!-- 6x8 的 AI 实例网格，由 JS 动态生成 -->
                     </div>
-                    <div class="wb-grid-more">+ {% trans "更多 AI 实例工作中..." %}</div>
+                    <div class="wb-grid-more">+ {</div>
                     <!-- 分析结果预览 -->
                     <div class="wb-result-preview" id="wbResultPreview">
                         <div class="wb-result-header">
                             <span class="wb-result-icon">📊</span>
-                            <span class="wb-result-title">{% trans "实时分析摘要" %}</span>
+                            <span class="wb-result-title">{</span>
                         </div>
                         <div class="wb-result-content" id="wbResultContent">
                             <div class="wb-result-item" id="wbResult1"></div>
@@ -82,23 +81,23 @@
             <div class="workbench-highlights" id="wbHighlights">
                 <div class="wb-highlight-card reveal" id="wbHighlight1">
                     <div class="wb-highlight-icon">⚡</div>
-                    <h3 class="wb-highlight-title">{% trans "100 并发" %}</h3>
-                    <p class="wb-highlight-desc">{% trans "一次派出 100 个 AI 实例，同时分析 100 份判决书，数周工作压缩到分钟级" %}</p>
+                    <h3 class="wb-highlight-title">{</h3>
+                    <p class="wb-highlight-desc">{</p>
                 </div>
                 <div class="wb-highlight-card reveal" id="wbHighlight2">
                     <div class="wb-highlight-icon">📚</div>
-                    <h3 class="wb-highlight-title">{% trans "类案研究" %}</h3>
-                    <p class="wb-highlight-desc">{% trans "自动提取裁判要旨、争议焦点、赔偿标准，生成类案研究报告" %}</p>
+                    <h3 class="wb-highlight-title">{</h3>
+                    <p class="wb-highlight-desc">{</p>
                 </div>
                 <div class="wb-highlight-card reveal" id="wbHighlight3">
                     <div class="wb-highlight-icon">📊</div>
-                    <h3 class="wb-highlight-title">{% trans "智能聚合" %}</h3>
-                    <p class="wb-highlight-desc">{% trans "100 份判决自动聚合分析，发现裁判规律、地域差异、法官倾向" %}</p>
+                    <h3 class="wb-highlight-title">{</h3>
+                    <p class="wb-highlight-desc">{</p>
                 </div>
                 <div class="wb-highlight-card reveal" id="wbHighlight4">
                     <div class="wb-highlight-icon">📋</div>
-                    <h3 class="wb-highlight-title">{% trans "一键导出" %}</h3>
-                    <p class="wb-highlight-desc">{% trans "分析结果导出为 Markdown/Word，直接用于案件研讨和代理词撰写" %}</p>
+                    <h3 class="wb-highlight-title">{</h3>
+                    <p class="wb-highlight-desc">{</p>
                 </div>
             </div>
         </div>

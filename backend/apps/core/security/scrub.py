@@ -60,13 +60,11 @@ _KEY_PREFIX_TOKENS = {
 _CAMEL_BOUNDARY = re.compile(r"([a-z0-9])([A-Z])")
 _TOKEN_SPLIT = re.compile(r"[^a-z0-9]+")
 
-
 def _mask_match(match: re.Match[str]) -> str:
     groups = match.groups()
     if len(groups) == 2:
         return groups[0] + mask_secret(groups[1])
     return mask_secret(groups[0])
-
 
 def is_sensitive_key_name(name: str) -> bool:
     normalized = _CAMEL_BOUNDARY.sub(r"\1_\2", str(name or "")).lower().strip()
@@ -90,21 +88,17 @@ def is_sensitive_key_name(name: str) -> bool:
             return True
     return False
 
-
 def looks_like_token(value: str) -> bool:
     return any(p.match(value) for p in _LIKELY_TOKEN_PATTERNS)
-
 
 def mask_value_for_key(key: str, value: Any) -> Any:
     if isinstance(value, str):
         return mask_secret(value)
     return value
 
-
 def fingerprint_sha256(value: str) -> str:
     v = (value or "").encode("utf-8")
     return hashlib.sha256(v).hexdigest()
-
 
 def mask_secret(secret: str) -> str:
     s = str(secret)
@@ -112,13 +106,11 @@ def mask_secret(secret: str) -> str:
         return "***"
     return s[:2] + "***" + s[-2:]
 
-
 def scrub_text(text: str) -> str:
     value = text
     for pattern in _PATTERNS:
         value = pattern.sub(_mask_match, value)
     return value
-
 
 def scrub_obj(obj: Any, *, key_hint: str = "", depth: int = 0) -> Any:
     if depth >= 6:
@@ -149,7 +141,6 @@ def scrub_obj(obj: Any, *, key_hint: str = "", depth: int = 0) -> Any:
         return tuple(scrub_obj(v, key_hint=key_hint, depth=depth + 1) for v in obj)
 
     return obj
-
 
 def scrub_for_storage(value: Any) -> Any:
     return scrub_obj(value, key_hint="", depth=0)

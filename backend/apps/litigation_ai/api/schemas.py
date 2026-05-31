@@ -5,10 +5,8 @@ from typing import Any
 
 from ninja import Schema
 
-
 class CreateSessionRequest(Schema):
     case_id: int
-
 
 class SessionResponse(Schema):
     session_id: str
@@ -19,11 +17,9 @@ class SessionResponse(Schema):
     created_at: datetime
     updated_at: datetime
 
-
 class SessionListResponse(Schema):
     count: int
     results: list[dict[str, Any]]
-
 
 class MessageResponse(Schema):
     id: int
@@ -31,7 +27,6 @@ class MessageResponse(Schema):
     content: str
     metadata: dict[str, Any]
     created_at: datetime
-
 
 class SessionDetailResponse(Schema):
     session_id: str
@@ -44,21 +39,17 @@ class SessionDetailResponse(Schema):
     messages: list[MessageResponse]
     recommended_types: list[str]
 
-
 class MessageListResponse(Schema):
     messages: list[MessageResponse]
     total: int
     limit: int
     offset: int
 
-
 class UpdateSessionStatusRequest(Schema):
     status: str
 
-
 class GenerateDocumentRequest(Schema):
     template_id: int | None = None
-
 
 class GenerateDocumentResponse(Schema):
     task_id: int
@@ -66,7 +57,6 @@ class GenerateDocumentResponse(Schema):
     document_url: str | None = None
     status: str
     created_at: datetime
-
 
 class ErrorResponse(Schema):
     message: str

@@ -13,7 +13,6 @@ from django.dispatch import receiver
 
 logger = logging.getLogger("apps.organization")
 
-
 @receiver(post_delete, sender="organization.Lawyer", dispatch_uid="cleanup_lawyer_license_pdf")
 def _cleanup_lawyer_license_pdf(sender: Any, instance: Any, **kwargs: Any) -> None:
     """删除 Lawyer 时清理执业证 PDF 物理文件。"""
@@ -29,7 +28,6 @@ def _cleanup_lawyer_license_pdf(sender: Any, instance: Any, **kwargs: Any) -> No
                 "清理律师执业证文件失败",
                 extra={"lawyer_id": instance.pk},
             )
-
 
 @receiver(post_delete, sender="organization.Lawyer", dispatch_uid="cleanup_lawyer_avatar")
 def _cleanup_lawyer_avatar(sender: Any, instance: Any, **kwargs: Any) -> None:

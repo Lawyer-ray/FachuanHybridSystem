@@ -10,14 +10,12 @@ import logging
 from typing import Any
 
 from django.utils.html import format_html, format_html_join
-from django.utils.translation import gettext_lazy as _
 
 from apps.core.exceptions import NotFoundError
 from apps.core.utils.path import Path
 from apps.documents.models.choices import DocumentTemplateType, LegalStatusMatchMode
 
 logger = logging.getLogger(__name__)
-
 
 class DocumentTemplateAdminService:
     """文书模板Admin服务"""
@@ -108,7 +106,7 @@ class DocumentTemplateAdminService:
         sources = sum([bool(existing_file), bool(uploaded_file), bool(file_path and file_path.strip())])
         if sources > 1:
             result["is_valid"] = False
-            result["error"] = _("只能选择一种文件来源:从模板库选择、上传新文件、或手动输入路径")
+            result["error"] = "只能选择一种文件来源:从模板库选择、上传新文件、或手动输入路径"
             return result
         if existing_file:
             result["cleaned_data"]["file_path"] = existing_file
@@ -118,7 +116,7 @@ class DocumentTemplateAdminService:
         has_existing_file = is_editing and (instance.file or instance.file_path)
         if not has_file_source and (not has_existing_file):
             result["is_valid"] = False
-            result["error"] = _("必须选择一种文件来源")
+            result["error"] = "必须选择一种文件来源"
         return result
 
     def validate_template_type(
@@ -154,7 +152,7 @@ class DocumentTemplateAdminService:
         if template_type == DocumentTemplateType.CONTRACT:
             if not contract_sub_type:
                 result["is_valid"] = False
-                result["errors"]["contract_sub_type"] = _("选择合同文书模板时,必须选择合同子类型")
+                result["errors"]["contract_sub_type"] = "选择合同文书模板时,必须选择合同子类型"
             result["case_sub_type"] = None
             result["archive_sub_type"] = None
         elif template_type == DocumentTemplateType.CASE:
@@ -165,13 +163,13 @@ class DocumentTemplateAdminService:
             )
             if should_require_case_sub_type and (not case_sub_type):
                 result["is_valid"] = False
-                result["errors"]["case_sub_type"] = _("选择案件文书模板时,必须选择案件文件子类型")
+                result["errors"]["case_sub_type"] = "选择案件文书模板时,必须选择案件文件子类型"
         elif template_type == DocumentTemplateType.ARCHIVE:
             result["contract_sub_type"] = None
             result["case_sub_type"] = None
             if not archive_sub_type:
                 result["is_valid"] = False
-                result["errors"]["archive_sub_type"] = _("选择归档文件模板时,必须选择归档文件子类型")
+                result["errors"]["archive_sub_type"] = "选择归档文件模板时,必须选择归档文件子类型"
         return result
 
     def prepare_save_data(
@@ -245,7 +243,7 @@ class DocumentTemplateAdminService:
     def render_placeholders_table(self, placeholders: list[str], undefined: set[str]) -> str:
         """渲染占位符表格HTML"""
         if not placeholders:
-            return str(_("未找到占位符"))
+            return str("未找到占位符")
         rows = []
         for placeholder in placeholders:
             if placeholder in undefined:
@@ -397,14 +395,14 @@ class DocumentTemplateAdminService:
         file_location: str = template.get_file_location()
         if not file_location:
             raise NotFoundError(
-                message=_("文件不存在"),
+                message="文件不存在",
                 code="TEMPLATE_FILE_NOT_FOUND",
             )
 
         file_path = Path(file_location)
         if not file_path.exists():
             raise NotFoundError(
-                message=_("文件不存在"),
+                message="文件不存在",
                 code="TEMPLATE_FILE_NOT_FOUND",
             )
 

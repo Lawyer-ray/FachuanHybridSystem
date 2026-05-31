@@ -14,7 +14,6 @@ from django.conf import settings
 from django.contrib import admin
 from django.http import HttpResponseRedirect
 from django.utils.html import format_html
-from django.utils.translation import gettext_lazy as _
 
 from apps.core.interfaces import ServiceLocator
 from apps.core.models.enums import LegalStatus
@@ -40,20 +39,17 @@ from apps.documents.storage import (
 
 logger = logging.getLogger(__name__)
 
-
 def _get_template_service() -> Any:
     """工厂函数获取模板服务"""
     from apps.documents.services.template.template_service import DocumentTemplateService
 
     return DocumentTemplateService()
 
-
 def _get_admin_service() -> Any:
     """工厂函数获取Admin服务"""
     from apps.documents.services.template.document_template.admin_service import DocumentTemplateAdminService
 
     return DocumentTemplateAdminService()
-
 
 def _to_django_relative_path(path: Path) -> str:
     """将绝对路径尽量转换为相对 Django 服务目录（backend）的路径。"""
@@ -63,7 +59,6 @@ def _to_django_relative_path(path: Path) -> str:
         return target.relative_to(backend_root).as_posix()
     except ValueError:
         return Path(str(target)).as_posix()
-
 
 def _normalize_private_docx_root(raw_value: str) -> str:
     """标准化私有模板根目录输入（支持绝对路径或相对 backend 路径）。"""
@@ -79,14 +74,12 @@ def _normalize_private_docx_root(raw_value: str) -> str:
         candidate = candidate.resolve()
 
     if not candidate.exists() or not candidate.is_dir():
-        raise ValueError(str(_("模板根目录不存在或不是文件夹")))
+        raise ValueError(str("模板根目录不存在或不是文件夹"))
 
     return str(candidate)
 
-
 def _get_system_config_service() -> Any:
     return ServiceLocator.get_system_config_service()
-
 
 class DocumentTemplateFolderBindingInline(admin.TabularInline):
     """文书模板文件夹绑定内联"""
@@ -101,7 +94,6 @@ class DocumentTemplateFolderBindingInline(admin.TabularInline):
         css = {LegalStatusMatchMode.ALL: ("documents/css/folder_binding_inline.css",)}
         js = ("admin/js/jquery.init.js", "documents/js/folder_binding_inline.js")
 
-
 class DocumentTemplateForm(forms.ModelForm):
     """文书模板表单,包含模板类型和适用范围选择(与文件夹模板保持一致)"""
 
@@ -109,8 +101,8 @@ class DocumentTemplateForm(forms.ModelForm):
     template_type = forms.ChoiceField(
         choices=DocumentTemplateType.choices,
         widget=forms.RadioSelect,
-        label=_("模板类型"),
-        help_text=_("选择此模板用于合同、案件还是归档"),
+        label="模板类型",
+        help_text="选择此模板用于合同、案件还是归档",
     )
 
     # 合同子类型单选(仅合同模板时显示)
@@ -118,24 +110,24 @@ class DocumentTemplateForm(forms.ModelForm):
         choices=[("", "请选择")] + [(c.value, c.label) for c in DocumentContractSubType],
         widget=forms.RadioSelect,
         required=False,
-        label=_("合同子类型"),
-        help_text=_("仅在选择'合同文书模板'时有效,必须选择合同模板或补充协议模板"),
+        label="合同子类型",
+        help_text="仅在选择'合同文书模板'时有效,必须选择合同模板或补充协议模板",
     )
 
     case_sub_type = forms.ChoiceField(
         choices=[("", "请选择")] + [(c.value, c.label) for c in DocumentCaseFileSubType],
         widget=forms.RadioSelect,
         required=False,
-        label=_("案件文件子类型"),
-        help_text=_("仅在选择'案件文书模板'时有效,可选择诉状材料、证据材料、授权委托材料等"),
+        label="案件文件子类型",
+        help_text="仅在选择'案件文书模板'时有效,可选择诉状材料、证据材料、授权委托材料等",
     )
 
     archive_sub_type = forms.ChoiceField(
         choices=[("", "请选择")] + [(c.value, c.label) for c in DocumentArchiveSubType],
         widget=forms.RadioSelect,
         required=False,
-        label=_("归档文件子类型"),
-        help_text=_("仅在选择'归档文件模板'时有效,可选择案卷封面、结案归档登记表等"),
+        label="归档文件子类型",
+        help_text="仅在选择'归档文件模板'时有效,可选择案卷封面、结案归档登记表等",
     )
 
     # 合同类型多选(仅合同模板时显示)
@@ -143,8 +135,8 @@ class DocumentTemplateForm(forms.ModelForm):
         choices=[(c.value, c.label) for c in DocumentContractType],
         widget=forms.CheckboxSelectMultiple,
         required=False,
-        label=_("合同类型"),
-        help_text=_("仅在选择'合同文书模板'时有效,可多选"),
+        label="合同类型",
+        help_text="仅在选择'合同文书模板'时有效,可多选",
     )
 
     # 案件类型多选(仅案件模板时显示)
@@ -152,8 +144,8 @@ class DocumentTemplateForm(forms.ModelForm):
         choices=[(c.value, c.label) for c in DocumentCaseType],
         widget=forms.CheckboxSelectMultiple,
         required=False,
-        label=_("案件类型"),
-        help_text=_("仅在选择'案件文书模板'时有效,可多选"),
+        label="案件类型",
+        help_text="仅在选择'案件文书模板'时有效,可多选",
     )
 
     # 案件阶段单选(仅案件模板时显示)
@@ -161,8 +153,8 @@ class DocumentTemplateForm(forms.ModelForm):
         choices=[("", "请选择")] + [(c.value, c.label) for c in DocumentCaseStage],
         widget=forms.Select,
         required=False,
-        label=_("案件阶段"),
-        help_text=_("仅在选择'案件文书模板'时有效,单选"),
+        label="案件阶段",
+        help_text="仅在选择'案件文书模板'时有效,单选",
     )
 
     # 我方诉讼地位多选(仅案件模板时显示)
@@ -170,8 +162,8 @@ class DocumentTemplateForm(forms.ModelForm):
         choices=LegalStatus.choices,
         widget=forms.CheckboxSelectMultiple,
         required=False,
-        label=_("我方诉讼地位"),
-        help_text=_("可单选或多选;不选表示匹配任意诉讼地位"),
+        label="我方诉讼地位",
+        help_text="可单选或多选;不选表示匹配任意诉讼地位",
     )
 
     # 诉讼地位匹配模式单选(仅案件模板时显示)
@@ -180,14 +172,14 @@ class DocumentTemplateForm(forms.ModelForm):
         widget=forms.RadioSelect,
         required=False,
         initial=LegalStatusMatchMode.ANY,
-        label=_("诉讼地位匹配模式"),
+        label="诉讼地位匹配模式",
     )
 
     # 适用机构(案件模板时显示)
     applicable_institutions_field = forms.CharField(
         required=False,
-        label=_("适用机构"),
-        help_text=_("输入机构名称后回车添加,支持搜索法院名称"),
+        label="适用机构",
+        help_text="输入机构名称后回车添加,支持搜索法院名称",
         widget=forms.Textarea(
             attrs={
                 "id": "id_applicable_institutions_field",
@@ -201,8 +193,8 @@ class DocumentTemplateForm(forms.ModelForm):
     existing_file = forms.ChoiceField(
         choices=[],
         required=False,
-        label=_("从模板库选择"),
-        help_text=_("从 docx_templates 目录中选择已有的模板文件(不会复制文件)"),
+        label="从模板库选择",
+        help_text="从 docx_templates 目录中选择已有的模板文件(不会复制文件)",
     )
 
     class Meta:
@@ -312,7 +304,7 @@ class DocumentTemplateForm(forms.ModelForm):
         cleaned_data["archive_sub_type"] = type_result["archive_sub_type"]
 
         if template_type == DocumentTemplateType.CASE and not case_stage_field:
-            self.add_error("case_stage_field", _("请选择案件阶段"))
+            self.add_error("case_stage_field", "请选择案件阶段")
 
         return cleaned_data
 
@@ -363,7 +355,6 @@ class DocumentTemplateForm(forms.ModelForm):
             instance.save()
         return instance
 
-
 @admin.register(DocumentTemplate)
 class DocumentTemplateAdmin(admin.ModelAdmin):
     """
@@ -405,14 +396,14 @@ class DocumentTemplateAdmin(admin.ModelAdmin):
     fieldsets = (
         (None, {"fields": ("name",)}),
         (
-            _("模板类型"),
+            "模板类型",
             {
                 "fields": ("template_type", "contract_sub_type", "case_sub_type", "archive_sub_type"),
-                "description": _("先选择模板类型(合同/案件/归档),再选择对应的子类型"),
+                "description": "先选择模板类型(合同/案件/归档),再选择对应的子类型",
             },
         ),
         (
-            _("适用范围"),
+            "适用范围",
             {
                 "fields": (
                     "contract_types_field",
@@ -422,36 +413,34 @@ class DocumentTemplateAdmin(admin.ModelAdmin):
                     "legal_status_match_mode",
                     "applicable_institutions_field",
                 ),
-                "description": _("根据模板类型选择相应的适用范围"),
+                "description": "根据模板类型选择相应的适用范围",
             },
         ),
         (
-            _("文件"),
+            "文件",
             {
                 "fields": ("current_file_display", "existing_file", "file", "file_path"),
-                "description": _(
-                    "三选一:从模板库选择已有文件(不复制)、上传新文件(复制到用户自定义模板目录)、或手动输入路径"
-                ),
+                "description": "三选一:从模板库选择已有文件(不复制)、上传新文件(复制到用户自定义模板目录)、或手动输入路径",
             },
         ),
         (
-            _("替换词预览"),
+            "替换词预览",
             {
                 "fields": ("placeholder_preview",),
             },
         ),
         (
-            _("占位符信息"),
+            "占位符信息",
             {
                 "fields": ("placeholders_display", "undefined_placeholders_display"),
                 "classes": ("collapse",),
-                "description": _("模板中使用的占位符列表"),
+                "description": "模板中使用的占位符列表",
             },
         ),
     )
 
     # 编辑时追加「状态」fieldset
-    _edit_fieldsets = (_("状态"), {"fields": ("is_active",)})
+    _edit_fieldsets = ("状态", {"fields": ("is_active",)})
 
     inlines = [DocumentTemplateFolderBindingInline]
 
@@ -723,7 +712,7 @@ class DocumentTemplateAdmin(admin.ModelAdmin):
             result = init_service.initialize_default_templates()
         except Exception as exc:
             logger.exception("初始化默认模板失败")
-            messages.error(request, _("初始化失败：%(error)s") % {"error": str(exc)})
+            messages.error(request, "初始化失败：%(error)s" % {"error": str(exc)})
             return HttpResponseRedirect(reverse("admin:documents_documenttemplate_changelist"))
 
         if not result.get("success", True):
@@ -734,9 +723,7 @@ class DocumentTemplateAdmin(admin.ModelAdmin):
 
             messages.error(
                 request,
-                _(
-                    "初始化失败：缺少 %(count)s 个模板文件，请先补齐当前模板根目录下对应 docx 文件。当前目录：%(root)s。缺失示例：%(files)s"
-                )
+                "初始化失败：缺少 %(count)s 个模板文件，请先补齐当前模板根目录下对应 docx 文件。当前目录：%(root)s。缺失示例：%(files)s"
                 % {"count": len(missing_files), "root": get_docx_templates_root(), "files": preview_files or "-"},
             )
             return HttpResponseRedirect(reverse("admin:documents_documenttemplate_changelist"))
@@ -762,7 +749,7 @@ class DocumentTemplateAdmin(admin.ModelAdmin):
         from django.urls import reverse
 
         if request.method != "POST":
-            messages.error(request, _("仅支持 POST 请求"))
+            messages.error(request, "仅支持 POST 请求")
             return HttpResponseRedirect(reverse("admin:documents_documenttemplate_changelist"))
 
         raw_value = str(request.POST.get("private_docx_root", "") or "")
@@ -781,13 +768,13 @@ class DocumentTemplateAdmin(admin.ModelAdmin):
             return HttpResponseRedirect(reverse("admin:documents_documenttemplate_changelist"))
         except Exception as exc:
             logger.exception("更新模板根目录失败")
-            messages.error(request, _("更新失败：%(error)s") % {"error": str(exc)})
+            messages.error(request, "更新失败：%(error)s" % {"error": str(exc)})
             return HttpResponseRedirect(reverse("admin:documents_documenttemplate_changelist"))
 
         if normalized:
-            messages.success(request, _("模板根目录已更新为：%(path)s") % {"path": normalized})
+            messages.success(request, "模板根目录已更新为：%(path)s" % {"path": normalized})
         else:
-            messages.success(request, _("已切换为公用模板目录"))
+            messages.success(request, "已切换为公用模板目录")
 
         return HttpResponseRedirect(reverse("admin:documents_documenttemplate_changelist"))
 
@@ -795,7 +782,7 @@ class DocumentTemplateAdmin(admin.ModelAdmin):
         from django.urls import reverse
 
         source = get_docx_templates_source()
-        source_label = _("私有模板目录") if source == "private" else _("公用模板目录")
+        source_label = "私有模板目录" if source == "private" else "公用模板目录"
         private_root_input = get_configured_private_docx_templates_root()
         return {
             "docx_templates_source": source,
@@ -863,22 +850,22 @@ class DocumentTemplateAdmin(admin.ModelAdmin):
         extra_context["smart_fill_llm_models"] = self._build_llm_model_choices()
         return super().changeform_view(request, object_id=object_id, form_url=form_url, extra_context=extra_context)
 
-    @admin.display(description=_("模板类型"))
+    @admin.display(description="模板类型")
     def template_type_display(self, obj: DocumentTemplate) -> str:
         """显示模板类型"""
         return obj.template_type_display
 
-    @admin.display(description=_("合同类型"))
+    @admin.display(description="合同类型")
     def contract_types_display(self, obj: DocumentTemplate) -> str:
         """显示合同类型"""
         return obj.contract_types_display
 
-    @admin.display(description=_("案件类型"))
+    @admin.display(description="案件类型")
     def case_types_display(self, obj: DocumentTemplate) -> str:
         """显示案件类型"""
         return obj.case_types_display
 
-    @admin.display(description=_("案件阶段"))
+    @admin.display(description="案件阶段")
     def case_stage_display(self, obj: DocumentTemplate) -> str:
         """显示案件阶段"""
         stages = obj.case_stages or []
@@ -887,11 +874,11 @@ class DocumentTemplateAdmin(admin.ModelAdmin):
         stage_label = dict(DocumentCaseStage.choices).get(stages[0], stages[0])
         return str(stage_label)
 
-    @admin.display(description=_("当前文件"))
+    @admin.display(description="当前文件")
     def current_file_display(self, obj: DocumentTemplate) -> Any:
         """显示当前文件(只读,不可点击)"""
         if not obj.pk:
-            return _("新建模板,请上传文件")
+            return "新建模板,请上传文件"
         if obj.file:
             absolute_path = obj.file.path if hasattr(obj.file, "path") else str(obj.file)
             return format_html('<span style="color: #2e7d32;" title="{}">📄 {}</span>', absolute_path, obj.file.name)
@@ -901,7 +888,7 @@ class DocumentTemplateAdmin(admin.ModelAdmin):
             )
         return format_html('<span style="color: #c62828;">{}</span>', "⚠️ 未设置文件")
 
-    @admin.display(description=_("替换词预览"))
+    @admin.display(description="替换词预览")
     def placeholder_preview(self, obj: DocumentTemplate) -> Any:
         """渲染替换词预览容器（由前端 JS 动态填充）"""
         from django.utils.safestring import mark_safe
@@ -913,7 +900,7 @@ class DocumentTemplateAdmin(admin.ModelAdmin):
             '<p class="placeholder-preview-hint">点击替换词可复制到剪贴板。仅在保存模板后，替换词状态才会被持久记录。</p>'
         )
 
-    @admin.display(description=_("文件位置"))
+    @admin.display(description="文件位置")
     def file_location_display(self, obj: DocumentTemplate) -> Any:
         """显示文件位置,可点击下载"""
         from django.urls import reverse
@@ -937,7 +924,7 @@ class DocumentTemplateAdmin(admin.ModelAdmin):
             )
         return format_html('<span style="color: #999;">{}</span>', "未设置")
 
-    @admin.display(description=_("占位符"))
+    @admin.display(description="占位符")
     def placeholder_count_display(self, obj: DocumentTemplate) -> Any:
         """显示占位符数量"""
         try:
@@ -967,11 +954,11 @@ class DocumentTemplateAdmin(admin.ModelAdmin):
             logger.error("提取占位符失败 - 模板ID: %s, 错误: %s", obj.id, e, exc_info=True)
             return format_html('<span style="color: #c62828;" title="{}">错误</span>', str(e))
 
-    @admin.display(description=_("占位符列表"))
+    @admin.display(description="占位符列表")
     def placeholders_display(self, obj: DocumentTemplate) -> Any:
         """显示占位符列表"""
         if not obj.pk:
-            return _("保存后可查看占位符")
+            return "保存后可查看占位符"
 
         try:
             service = _get_template_service()
@@ -984,11 +971,11 @@ class DocumentTemplateAdmin(admin.ModelAdmin):
             logger.exception("操作失败")
             return format_html('<span style="color: #c62828;">提取失败: {}</span>', str(e))
 
-    @admin.display(description=_("未定义占位符"))
+    @admin.display(description="未定义占位符")
     def undefined_placeholders_display(self, obj: DocumentTemplate) -> Any:
         """显示未定义的占位符(高亮警告)"""
         if not obj.pk:
-            return _("保存后可查看")
+            return "保存后可查看"
 
         try:
             service = _get_template_service()
@@ -1004,26 +991,26 @@ class DocumentTemplateAdmin(admin.ModelAdmin):
         """批量启用模板"""
         service = _get_admin_service()
         updated: int = service.batch_activate(queryset)
-        self.message_user(request, _("已启用 %(count)d 个模板") % {"count": updated})
+        self.message_user(request, "已启用 %(count)d 个模板" % {"count": updated})
 
     def deactivate_templates(self, request: Any, queryset: Any) -> None:
         """批量禁用模板"""
         service = _get_admin_service()
         updated: int = service.batch_deactivate(queryset)
-        self.message_user(request, _("已禁用 %(count)d 个模板") % {"count": updated})
+        self.message_user(request, "已禁用 %(count)d 个模板" % {"count": updated})
 
-    @admin.action(description=_("刷新占位符信息"))
+    @admin.action(description="刷新占位符信息")
     def refresh_placeholders(self, request: Any, queryset: Any) -> None:
         """刷新占位符信息(触发重新解析)"""
         count = queryset.count()
-        self.message_user(request, _("已刷新 %(count)d 个模板的占位符信息") % {"count": count})
+        self.message_user(request, "已刷新 %(count)d 个模板的占位符信息" % {"count": count})
 
-    @admin.action(description=_("复制选中的模板"))
+    @admin.action(description="复制选中的模板")
     def duplicate_templates(self, request: Any, queryset: Any) -> None:
         """批量复制文书模板"""
         admin_service = _get_admin_service()
         count = admin_service.batch_duplicate_templates(queryset)
-        self.message_user(request, _("已复制 %(count)d 个模板") % {"count": count})
+        self.message_user(request, "已复制 %(count)d 个模板" % {"count": count})
 
     def save_model(self, request: Any, obj: DocumentTemplate, form: Any, change: bool) -> None:
         """保存模型时的额外处理"""

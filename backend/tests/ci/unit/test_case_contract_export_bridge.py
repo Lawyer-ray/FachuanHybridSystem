@@ -11,18 +11,15 @@ from apps.cases.services.case.case_contract_export_bridge import (
     serialize_contract_for_case_export,
 )
 
-
 def test_get_case_admin_contract_export_prefetches_returns_nonempty_tuple() -> None:
     result = get_case_admin_contract_export_prefetches()
     assert isinstance(result, tuple)
     assert len(result) > 0
 
-
 def test_get_case_admin_contract_file_prefetches_returns_nonempty_tuple() -> None:
     result = get_case_admin_contract_file_prefetches()
     assert isinstance(result, tuple)
     assert len(result) > 0
-
 
 def test_collect_contract_file_paths_for_case_export_collects_all_paths() -> None:
     material = MagicMock()
@@ -54,7 +51,6 @@ def test_collect_contract_file_paths_for_case_export_collects_all_paths() -> Non
     assert "material.pdf" in collected
     assert "id.pdf" in collected
     assert "clue.pdf" in collected
-
 
 def test_serialize_contract_for_case_export_calls_serializer() -> None:
     contract = MagicMock()

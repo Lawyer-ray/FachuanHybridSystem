@@ -11,7 +11,6 @@ from apps.documents.services.placeholders.registry import PlaceholderRegistry
 
 logger = logging.getLogger(__name__)
 
-
 @PlaceholderRegistry.register
 class PowerOfAttorneyPlaceholderService(BasePlaceholderService):
     name: str = "power_of_attorney_placeholder_service"

@@ -19,12 +19,10 @@ router = Router()
 # Helpers
 # ---------------------------------------------------------------------------
 
-
 def _get_base_queryset() -> Any:
     from apps.message_hub.services.inbox_query import get_base_queryset
 
     return get_base_queryset()
-
 
 def _get_message_or_404(pk: int) -> InboxMessage:
     from apps.message_hub.services.inbox_query import get_message_or_none
@@ -34,11 +32,9 @@ def _get_message_or_404(pk: int) -> InboxMessage:
         raise NotFoundError(f"消息 {pk} 不存在")
     return msg
 
-
 # ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
-
 
 @router.get("/messages", response=list[InboxMessageOut])
 def list_messages(
@@ -61,12 +57,10 @@ def list_messages(
 
     return qs
 
-
 @router.get("/messages/{message_id}", response=InboxMessageDetailOut)
 def get_message(request: HttpRequest, message_id: int) -> Any:
     """收件箱消息详情。"""
     return _get_message_or_404(message_id)
-
 
 @router.get("/messages/{message_id}/attachments/{part_index}/download")
 def download_attachment(
@@ -78,7 +72,6 @@ def download_attachment(
     msg = _get_message_or_404(message_id)
     return _serve_attachment(msg, part_index, inline=False)
 
-
 @router.get("/messages/{message_id}/attachments/{part_index}/preview")
 def preview_attachment(
     request: HttpRequest,
@@ -89,10 +82,8 @@ def preview_attachment(
     msg = _get_message_or_404(message_id)
     return _serve_attachment(msg, part_index, inline=True)
 
-
 class RenameAttachmentIn(Schema):
     custom_filename: str = ""
-
 
 @router.post("/messages/{message_id}/attachments/{part_index}/rename")
 def rename_attachment(
@@ -132,7 +123,6 @@ def rename_attachment(
         "effective_filename": effective,
     }
 
-
 def _resolve_download_filename(msg: InboxMessage, part_index: int, fallback: str) -> str:
     for att in msg.attachments_meta or []:
         if int(att.get("part_index", -1)) != part_index:
@@ -144,7 +134,6 @@ def _resolve_download_filename(msg: InboxMessage, part_index: int, fallback: str
         if original_name:
             return original_name
     return fallback
-
 
 def _serve_attachment(msg: InboxMessage, part_index: int, *, inline: bool) -> FileResponse:
     """通过 fetcher 按需下载并返回附件。"""

@@ -27,7 +27,6 @@ logger = logging.getLogger(__name__)
 _QUEUED_MESSAGE = "任务已提交队列，等待执行"
 _CREATE_PENDING_MESSAGE = "任务已创建，等待提交"
 
-
 class ContentOpsTaskService:
     """ContentTask 的业务操作。"""
 

@@ -6,7 +6,6 @@ from typing import Any, cast
 
 from apps.contracts.models import Contract
 
-
 class ContractListAssembler:
     def enrich(self, contracts: list[Contract]) -> None:
         if not contracts:

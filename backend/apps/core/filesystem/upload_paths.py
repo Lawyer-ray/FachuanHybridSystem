@@ -20,14 +20,12 @@ from typing import Any
 
 from django.db.models.fields.files import FieldFile
 
-
 def _sanitize(filename: str) -> str:
     """清理文件名，去除危险字符，保留中文。"""
     name = filename.replace("\\", "/").rsplit("/", 1)[-1]
     name = re.sub(r"[^0-9A-Za-z一-鿿._-]+", "_", name)
     name = re.sub(r"_+", "_", name).strip("_")
     return name or "file"
-
 
 class DatedUUIDPath:
     """生成 `{entity}/YYYY/MM/{uuid_hex}{ext}` 路径。
@@ -52,7 +50,6 @@ class DatedUUIDPath:
             {},
         )
 
-
 class DatedOriginalPath:
     """生成 `{entity}/YYYY/MM/{sanitized_name}` 路径。
 
@@ -73,7 +70,6 @@ class DatedOriginalPath:
             (self.entity,),
             {},
         )
-
 
 class EntityIdPath:
     """生成 `{entity}/{instance_id}/{sanitized_name}` 路径。
@@ -96,7 +92,6 @@ class EntityIdPath:
             (self.entity, self.id_attr),
             {},
         )
-
 
 class EntitySubPath:
     """生成固定路径 `{entity}/{sub}/`。

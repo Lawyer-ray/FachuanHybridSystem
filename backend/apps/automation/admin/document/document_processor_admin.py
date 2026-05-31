@@ -16,14 +16,12 @@ from django.urls import path, reverse
 from apps.automation.models import AutomationTool
 from apps.automation.services.document.document_processing import process_uploaded_document
 
-
 class DocumentProcessorForm(forms.Form):
     """文档处理工具表单"""
 
     upload = forms.FileField(required=True, help_text="支持PDF、DOCX和图片文件（JPG、PNG、BMP、TIFF等）")
     limit = forms.IntegerField(required=False, help_text="文字提取限制（留空使用默认值1500字）")
     preview_page = forms.IntegerField(required=False, min_value=1, help_text="PDF预览页码（留空使用默认值第1页）")
-
 
 # @admin.register(AutomationTool)  # 隐藏文档处理模块，不在Django后台显示
 class DocumentProcessorAdmin(admin.ModelAdmin):

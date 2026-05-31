@@ -22,7 +22,6 @@ _ARCHIVE_TEMPLATE_FILES: dict[str, str] = {
     "case_summary": "7-办案小结.docx",
 }
 
-
 def get_template_path(template_subtype: str, contract: Contract | None = None) -> Path | None:
     """获取归档模板文件的完整路径。
 
@@ -50,7 +49,6 @@ def get_template_path(template_subtype: str, contract: Contract | None = None) -
 
     logger.warning("归档模板文件不存在: %s", template_path)
     return None
-
 
 def _get_template_path_from_db(template_subtype: str, contract: Contract | None) -> Path | None:
     """从 DocumentTemplate 数据库查找匹配的归档模板路径。"""

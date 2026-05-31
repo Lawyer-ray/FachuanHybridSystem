@@ -13,7 +13,6 @@ if TYPE_CHECKING:
     from .client_dto_assembler import ClientDtoAssembler, ClientRelatedDtoAssembler
     from .client_internal_query_service import ClientInternalQueryService
 
-
 class ClientServiceAdapter(IClientService):
     def __init__(
         self,

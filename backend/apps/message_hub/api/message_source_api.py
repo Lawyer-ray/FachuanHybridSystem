@@ -13,9 +13,7 @@ from apps.message_hub.models import MessageSource, SyncStatus
 
 router = Router()
 
-
 # ── Schemas ──────────────────────────────────────────────
-
 
 class MessageSourceOut(Schema):
     id: int
@@ -54,7 +52,6 @@ class MessageSourceOut(Schema):
     def resolve_created_at(obj: MessageSource) -> str:
         return obj.created_at.isoformat() if obj.created_at else ""
 
-
 class MessageSourceCreateIn(Schema):
     display_name: str
     source_type: str = "imap"
@@ -67,7 +64,6 @@ class MessageSourceCreateIn(Schema):
     sender_whitelist: str = ""
     sender_blacklist: str = ""
 
-
 class MessageSourceUpdateIn(Schema):
     display_name: str | None = None
     is_enabled: bool | None = None
@@ -78,16 +74,13 @@ class MessageSourceUpdateIn(Schema):
     sender_whitelist: str | None = None
     sender_blacklist: str | None = None
 
-
 # ── Endpoints ────────────────────────────────────────────
-
 
 @router.get("/sources", response=list[MessageSourceOut])
 def list_sources(request: Any) -> list[MessageSource]:
     from ..services.inbox_query import list_sources as _list_sources
 
     return _list_sources()
-
 
 @router.get("/sources/{source_id}", response=MessageSourceOut)
 def get_source(request: Any, source_id: int) -> MessageSource:
@@ -99,7 +92,6 @@ def get_source(request: Any, source_id: int) -> MessageSource:
 
         raise Http404("消息来源不存在")
     return source
-
 
 @router.post("/sources", response={201: MessageSourceOut})
 def create_source(request: Any, payload: MessageSourceCreateIn) -> tuple[int, MessageSource]:
@@ -125,7 +117,6 @@ def create_source(request: Any, payload: MessageSourceCreateIn) -> tuple[int, Me
     source = create_source(**kwargs)
     return 201, source
 
-
 @router.put("/sources/{source_id}", response=MessageSourceOut)
 def update_source(request: Any, source_id: int, payload: MessageSourceUpdateIn) -> MessageSource:
     source = get_object_or_404(MessageSource, pk=source_id)
@@ -134,20 +125,17 @@ def update_source(request: Any, source_id: int, payload: MessageSourceUpdateIn) 
     source.save()
     return source
 
-
 @router.delete("/sources/{source_id}", response={204: None})
 def delete_source(request: Any, source_id: int) -> tuple[int, None]:
     source = get_object_or_404(MessageSource, pk=source_id)
     source.delete()
     return 204, None
 
-
 @router.post("/sources/{source_id}/sync")
 def sync_source(request: Any, source_id: int) -> dict[str, Any]:
     get_object_or_404(MessageSource, pk=source_id)
     submit_task("apps.message_hub.tasks.sync_source_by_id", source_id)
     return {"success": True, "message": "同步任务已提交"}
-
 
 @router.post("/sources/sync-all")
 def sync_all_sources(request: Any) -> dict[str, Any]:

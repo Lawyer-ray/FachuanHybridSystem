@@ -14,7 +14,6 @@ if TYPE_CHECKING:
 
     from .case_party_query_service import CasePartyQueryService
 
-
 class CasePartyQueryFacade(DjangoPermsMixin):
     def __init__(
         self,

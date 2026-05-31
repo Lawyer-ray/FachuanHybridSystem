@@ -7,7 +7,6 @@ from typing import Any
 from apps.core.exceptions import ForbiddenError
 from apps.organization.models import LawFirm, Lawyer, Team
 
-
 class OrganizationAccessPolicy:
     # ── helpers ──────────────────────────────────────────────────────────────
 

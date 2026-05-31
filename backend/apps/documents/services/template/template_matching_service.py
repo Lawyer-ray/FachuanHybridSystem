@@ -6,7 +6,6 @@ import logging
 from typing import Any, cast
 
 from django.core.cache import cache
-from django.utils.translation import gettext_lazy as _
 
 from apps.core.exceptions import ValidationException
 from apps.core.infrastructure import CacheKeys, CacheTimeout
@@ -20,7 +19,6 @@ from apps.documents.models.document_template import DocumentTemplate
 from apps.documents.models.folder_template import FolderTemplate
 
 logger = logging.getLogger(__name__)
-
 
 class TemplateMatchingService:
     _MISSING_SENTINEL = "__documents_template_matching_missing__"
@@ -103,7 +101,7 @@ class TemplateMatchingService:
             from apps.documents.services.template.contract_template.query_service import ContractTemplateQueryService
 
             if not case_type:
-                raise ValidationException(message=_("案件类型不能为空"), code="INVALID_CASE_TYPE")
+                raise ValidationException(message="案件类型不能为空", code="INVALID_CASE_TYPE")
 
             result = ContractTemplateQueryService().list_matching_template_summaries(case_type)
             cache.set(cache_key, result, CacheTimeout.get_long())
@@ -126,7 +124,7 @@ class TemplateMatchingService:
             return cast(list[dict[str, Any]], cached)
         try:
             if not template_type:
-                raise ValidationException(message=_("模板类型不能为空"), code="INVALID_TEMPLATE_TYPE")
+                raise ValidationException(message="模板类型不能为空", code="INVALID_TEMPLATE_TYPE")
 
             templates = FolderTemplate.objects.filter(template_type=template_type, is_active=True)
 
@@ -147,7 +145,7 @@ class TemplateMatchingService:
     def check_has_matching_templates(self, case_type: str) -> dict[str, bool]:
 
         if not case_type:
-            raise ValidationException(message=_("案件类型不能为空"), code="INVALID_CASE_TYPE")
+            raise ValidationException(message="案件类型不能为空", code="INVALID_CASE_TYPE")
 
         folder_templates = self.find_matching_folder_templates(FolderTemplateType.CONTRACT, case_type)
         document_templates = self.find_matching_contract_templates(case_type)

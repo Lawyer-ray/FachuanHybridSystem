@@ -10,11 +10,9 @@ __all__ = [
     "get_ocr_configs",
 ]
 
-
 def get_court_sms_configs() -> list[dict[str, Any]]:
     """获取法院短信与文书送达配置项"""
     return []
-
 
 def get_ai_configs() -> list[dict[str, Any]]:
     """获取 AI 配置项（仅保留用户必须配置的项，其余由代码默认值兜底）"""
@@ -63,7 +61,6 @@ def get_ai_configs() -> list[dict[str, Any]]:
         },
     ]
 
-
 def get_scraper_configs() -> list[dict[str, Any]]:
     """获取爬虫配置项（仅保留用户必须配置的项）"""
     return [
@@ -77,7 +74,6 @@ def get_scraper_configs() -> list[dict[str, Any]]:
         },
     ]
 
-
 def get_enterprise_data_configs() -> list[dict[str, Any]]:
     """获取企业数据配置项（仅保留用户必须配置的项）"""
     return [
@@ -89,7 +85,6 @@ def get_enterprise_data_configs() -> list[dict[str, Any]]:
             "is_secret": True,
         },
     ]
-
 
 def get_ocr_configs() -> list[dict[str, Any]]:
     """获取 OCR 服务配置项"""

@@ -12,19 +12,16 @@ from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
 from django.middleware.csrf import get_token
 from django.urls import URLPattern, path, reverse
 from django.utils.html import escape
-from django.utils.translation import gettext_lazy as _
 
 from apps.automation.models import NamerTool, ScraperTask, ScraperTaskType
-
 
 class QuickDownloadTool(NamerTool):
     class Meta:
         proxy = True
         managed = False
         app_label = "automation"
-        verbose_name = _("快速下载文书")
-        verbose_name_plural = _("快速下载文书")
-
+        verbose_name = "快速下载文书"
+        verbose_name_plural = "快速下载文书"
 
 # @admin.register(QuickDownloadTool)  # 隐藏快速下载页面，保留功能代码
 class QuickDownloadAdmin(admin.ModelAdmin):

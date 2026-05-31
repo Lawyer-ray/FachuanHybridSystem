@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from typing import Any
 
-
 class GuaranteeDialogPropertyClueMixin:
     """gTwo 财产线索对话框填写与重试。"""
 

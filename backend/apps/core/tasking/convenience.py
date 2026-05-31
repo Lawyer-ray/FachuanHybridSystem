@@ -16,13 +16,11 @@ from .submission import TaskSubmissionService
 # 模块级单例
 _submission_service: TaskSubmissionService | None = None
 
-
 def _get_submission_service() -> TaskSubmissionService:
     global _submission_service
     if _submission_service is None:
         _submission_service = TaskSubmissionService()
     return _submission_service
-
 
 def submit_task(
     target: str,
@@ -62,6 +60,5 @@ def submit_task(
         hook=hook,
         context=context,
     )
-
 
 __all__ = ["TaskSubmissionService", "submit_task"]

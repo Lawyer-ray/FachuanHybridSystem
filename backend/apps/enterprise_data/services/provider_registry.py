@@ -22,7 +22,6 @@ from apps.enterprise_data.services.types import (
 _MULTI_VALUE_SPLIT_PATTERN = re.compile(r"[\r\n,;]+")
 logger = logging.getLogger(__name__)
 
-
 class EnterpriseProviderRegistry:
     """从 SystemConfig 读取 provider 配置并创建实例。"""
 

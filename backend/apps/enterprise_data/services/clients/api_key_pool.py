@@ -11,7 +11,6 @@ _PREFERRED_KEY_CACHE_TTL_SECONDS = 30 * 24 * 60 * 60
 _AUTH_BLOCK_TTL_SECONDS = 60 * 60
 _RATE_LIMIT_BLOCK_TTL_SECONDS = 2 * 60
 
-
 class McpApiKeyPool:
     """为同一 provider 管理多个 API Key 的优先级与短期熔断。"""
 

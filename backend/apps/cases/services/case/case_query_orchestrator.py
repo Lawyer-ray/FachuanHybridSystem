@@ -14,7 +14,6 @@ if TYPE_CHECKING:
 
 from .repo import CaseAccessRepo, CaseAssignmentRepo, CaseNumberRepo, CasePartyRepo, CaseRepo, CaseSearchRepo
 
-
 class CaseNumberQueryOrchestrator:
     def __init__(
         self,
@@ -40,7 +39,6 @@ class CaseNumberQueryOrchestrator:
     def search_cases_by_case_number(self, case_number: str) -> Any:
         return self.case_search_repo.search_cases_by_case_number(case_number)
 
-
 class CasePartyQueryOrchestrator:
     def __init__(
         self,
@@ -57,7 +55,6 @@ class CasePartyQueryOrchestrator:
 
     def get_case_party_names(self, case_id: int) -> list[str]:
         return self.case_party_aggregation_service.get_case_party_names(case_id)
-
 
 class CaseAccessQueryOrchestrator:
     def __init__(
@@ -81,7 +78,6 @@ class CaseAccessQueryOrchestrator:
 
     def get_primary_lawyer_names_by_case_ids(self, case_ids: list[int]) -> dict[int, str | None]:
         return self.case_assignment_aggregation_service.get_primary_lawyer_names_by_case_ids(case_ids)
-
 
 class CaseQueryOrchestrator:
     def __init__(

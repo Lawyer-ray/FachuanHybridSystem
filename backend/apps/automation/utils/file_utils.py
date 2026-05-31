@@ -10,7 +10,6 @@ from typing import Any
 
 logger = logging.getLogger("apps.automation")
 
-
 class FileUtils:
     """文件处理相关工具方法"""
 

@@ -1,5 +1,4 @@
 {% extends "admin/base_site.html" %}
-{% load i18n %}
 
 {% block extrastyle %}
 {{ block.super }}
@@ -464,20 +463,20 @@
   <section class="hero-panel">
     <div class="hero-content">
       <div class="hero-copy">
-        <div class="hero-badge">{% trans "统一工具导航" %}</div>
-        <h2 class="hero-title">{% trans "更快找到工具，更快进入具体功能" %}</h2>
+        <div class="hero-badge">{</div>
+        <h2 class="hero-title">{</h2>
         <p class="hero-desc">
-          {% trans "这里汇总了已从左侧菜单收纳的工具应用。你可以直接进入应用首页，也可以点击下方二级菜单标签，跳过中间层级直达目标功能。" %}
+          {
         </p>
       </div>
 
       <div class="hero-stats">
         <div class="stat-card">
-          <span class="stat-label">{% trans "收纳应用" %}</span>
+          <span class="stat-label">{</span>
           <span class="stat-value">{{ sections|length }}</span>
         </div>
         <div class="stat-card">
-          <span class="stat-label">{% trans "访问方式" %}</span>
+          <span class="stat-label">{</span>
           <span class="stat-value">2</span>
         </div>
       </div>
@@ -486,18 +485,18 @@
 
   <div class="toolbar">
     <label class="search-box">
-      <span class="sr-only">{% trans "搜索工具" %}</span>
+      <span class="sr-only">{</span>
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         <circle cx="11" cy="11" r="8"></circle>
         <path d="m21 21-4.3-4.3"></path>
       </svg>
-      <input type="text" x-model="query" placeholder="{% trans '搜索应用名或二级菜单，如：发票、律师、法院…' %}">
+      <input type="text" x-model="query" placeholder="{">
     </label>
 
     <div class="toolbar-tips">
-      <span class="tip-chip">{% trans "支持搜索应用" %}</span>
-      <span class="tip-chip">{% trans "支持直达二级菜单" %}</span>
-      <span class="tip-chip">{% trans "保留原始权限控制" %}</span>
+      <span class="tip-chip">{</span>
+      <span class="tip-chip">{</span>
+      <span class="tip-chip">{</span>
 
     </div>
   </div>
@@ -516,11 +515,11 @@
               <span>{{ section.name }}</span>
             </a>
             <div class="tool-meta">
-              <span class="meta-pill">{% blocktrans with count=section.children|length %}{{ count }} 个入口{% endblocktrans %}</span>
-              <span class="meta-pill">{% trans "可直达" %}</span>
+              <span class="meta-pill">{{{ count }} 个入口{</span>
+              <span class="meta-pill">{</span>
             </div>
           </div>
-          <a class="enter-link" href="{{ section.url }}">{% trans "进入应用" %}</a>
+          <a class="enter-link" href="{{ section.url }}">{</a>
         </div>
 
         <div class="children-list">
@@ -530,7 +529,7 @@
                 class="fav-btn{% if child.url in fav_urls %} is-fav{% endif %}"
                 data-url="{{ child.url }}"
                 data-name="{{ child.name }}"
-                title="{% if child.url in fav_urls %}{% trans '取消收藏' %}{% else %}{% trans '收藏到侧边栏' %}{% endif %}"
+                title="{% if child.url in fav_urls %}{{% else %}{{% endif %}"
                 onclick="toggleFav(this)"
               >
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14">
@@ -540,17 +539,17 @@
               <a class="child-link" href="{{ child.url }}">{{ child.name }}</a>
             </span>
           {% empty %}
-            <a class="child-link" href="{{ section.url }}">{% trans "应用首页" %}</a>
+            <a class="child-link" href="{{ section.url }}">{</a>
           {% endfor %}
         </div>
       </section>
     {% empty %}
-      <div class="empty-state">{% trans "暂无可用工具。" %}</div>
+      <div class="empty-state">{</div>
     {% endfor %}
   </div>
 
   <div class="empty-state" x-cloak x-show="query.trim() && !Array.from($el.parentElement.querySelectorAll('.tool-card')).some(card => getComputedStyle(card).display !== 'none')">
-    {% trans "没有找到匹配的应用或二级菜单，请换个关键词试试。" %}
+    {
   </div>
 </div>
 

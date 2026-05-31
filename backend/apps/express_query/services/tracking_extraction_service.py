@@ -11,13 +11,11 @@ from apps.express_query.models import ExpressCarrierType
 
 logger = logging.getLogger("apps.express_query")
 
-
 @dataclass(frozen=True)
 class TrackingExtractionResult:
     carrier_type: str
     tracking_number: str
     ocr_text: str
-
 
 class TrackingExtractionService:
     _sf_pattern = re.compile(r"(?<![A-Z0-9])SF\d{10,20}(?![A-Z0-9])", re.IGNORECASE)

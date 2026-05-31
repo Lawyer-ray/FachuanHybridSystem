@@ -21,7 +21,6 @@ EMS_AGREEMENT_MODAL_XPATH: Final[str] = "//*[@id='app']/div[2]"
 EMS_AGREEMENT_LAST_CLAUSE_XPATH: Final[str] = "//*[@id='app']/div[2]/div/div[2]/div/div[1]/div[1]/ul/li[5]/div/p"
 EMS_AGREEMENT_ACCEPT_BUTTON_XPATH: Final[str] = "//*[@id='app']/div[2]/div/div[2]/div/div[1]/div[2]/div[3]/button[2]"
 
-
 async def is_ems_dialog_visible(page: Page) -> bool:
     """检测 EMS 登录弹窗是否正在显示。"""
     # 方法1: el-dialog.scan 容器可见
@@ -46,7 +45,6 @@ async def is_ems_dialog_visible(page: Page) -> bool:
     except Exception:
         pass
     return False
-
 
 async def ems_click_login_button(page: Page) -> bool:
     """点击 EMS 页面的「登录/注册」按钮。返回是否点击成功。"""
@@ -86,7 +84,6 @@ async def ems_click_login_button(page: Page) -> bool:
     except Exception:
         return False
 
-
 async def wait_for_ems_login(
     page: Page,
     *,
@@ -110,7 +107,6 @@ async def wait_for_ems_login(
         if user_visible or not login_visible:
             return
         await asyncio.sleep(2)
-
 
 async def ems_handle_agreement_and_wait(context: BrowserContext, page: Page, timeout_seconds: int = 300) -> None:
     """
@@ -235,7 +231,6 @@ async def ems_handle_agreement_and_wait(context: BrowserContext, page: Page, tim
 
     raise TimeoutError("EMS login timed out after %ds" % timeout_seconds)
 
-
 async def _ems_ensure_agreement_checked(page: Page) -> bool:
     """勾选"登录即代表您已同意"协议（仅精确 XPath，避免误点）。"""
     exact_checkbox = page.locator(f"xpath={EMS_LOGIN_AGREE_CHECKBOX_XPATH}")
@@ -281,7 +276,6 @@ async def _ems_ensure_agreement_checked(page: Page) -> bool:
         pass
     return False
 
-
 async def _ems_scroll_agreement_and_accept(agreement_page: Page) -> bool:
     """尝试点击协议确认按钮，若不可点击则提示用户手动操作。"""
     accept_btn = agreement_page.locator(f"xpath={EMS_AGREEMENT_ACCEPT_BUTTON_XPATH}")
@@ -289,7 +283,6 @@ async def _ems_scroll_agreement_and_accept(agreement_page: Page) -> bool:
         return True
     logger.info("  Please scroll to bottom and click '我已阅读并同意' manually")
     return True
-
 
 async def _ems_open_last_agreement_and_accept(context: BrowserContext, page: Page) -> bool:
     """点击最后一个协议链接 → 滚动到底部 → 点击确认按钮。"""
@@ -340,7 +333,6 @@ async def _ems_open_last_agreement_and_accept(context: BrowserContext, page: Pag
             pass
 
     return accepted
-
 
 async def _ems_try_agreement_checkbox(page: Page) -> bool:
     """尝试多种策略点击 EMS 协议 checkbox。返回是否点击成功。"""
@@ -404,7 +396,6 @@ async def _ems_try_agreement_checkbox(page: Page) -> bool:
 
     return False
 
-
 async def _ems_accept_agreement_on_page(agreement_page: Page) -> None:
     """在协议页面上点最后一个条款 + 点确认按钮。"""
     last_clause_selectors: list[str] = [
@@ -436,7 +427,6 @@ async def _ems_accept_agreement_on_page(agreement_page: Page) -> None:
         except Exception:
             continue
     logger.warning("Accept button not found on agreement page")
-
 
 async def is_ems_login_window(page: Page, body_text: str) -> bool:
     """判断页面是否为 EMS 登录/扫码窗口。"""

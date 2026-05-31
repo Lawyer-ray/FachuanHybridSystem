@@ -5,7 +5,6 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-
 @dataclass
 class ChatResult:
     """群聊操作结果"""
@@ -17,7 +16,6 @@ class ChatResult:
     error_code: str | None = None
     raw_response: dict[str, Any] | None = None
 
-
 @dataclass
 class MessageContent:
     """消息内容"""
@@ -25,7 +23,6 @@ class MessageContent:
     title: str
     text: str
     file_path: str | None = None
-
 
 @dataclass
 class PlatformNotificationResult:
@@ -39,7 +36,6 @@ class PlatformNotificationResult:
     sent_file_count: int = 0
     error: str | None = None
     provider_summary: str | None = None
-
 
 @dataclass
 class MultiPlatformNotificationResult:

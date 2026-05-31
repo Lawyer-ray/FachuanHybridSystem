@@ -16,7 +16,6 @@ from apps.legal_research.schemas import AgentSearchRequestV1
 from apps.legal_research.services.capability.service import LegalResearchCapabilityService
 from apps.organization.models import AccountCredential
 
-
 def _build_credential(*, lawyer) -> AccountCredential:
     return AccountCredential.objects.create(
         lawyer=lawyer,
@@ -25,7 +24,6 @@ def _build_credential(*, lawyer) -> AccountCredential:
         account="capability-account",
         password="capability-password",  # pragma: allowlist secret
     )
-
 
 @pytest.mark.django_db
 def test_capability_search_returns_structured_response_and_idempotent_cache(
@@ -110,7 +108,6 @@ def test_capability_search_returns_structured_response_and_idempotent_cache(
         task_id=task.id, interface_name="capability_direct_call", success=True
     ).exists()
 
-
 @pytest.mark.django_db
 def test_capability_search_applies_hard_filters(monkeypatch: pytest.MonkeyPatch, lawyer) -> None:
     cache.clear()
@@ -168,7 +165,6 @@ def test_capability_search_applies_hard_filters(monkeypatch: pytest.MonkeyPatch,
     assert response.results[0].doc_id == "DOC-HARD-1"
     assert "constraint_unsatisfied" in response.degradation_flags
 
-
 @pytest.mark.django_db
 def test_capability_search_rejects_idempotency_conflict(monkeypatch: pytest.MonkeyPatch, lawyer) -> None:
     cache.clear()
@@ -202,7 +198,6 @@ def test_capability_search_rejects_idempotency_conflict(monkeypatch: pytest.Monk
     with pytest.raises(ConflictError, match="Idempotency-Key"):
         service.search(payload=payload_b, user=lawyer, idempotency_key="idem-key-conflict")
 
-
 @pytest.mark.django_db
 def test_capability_search_timeout_raises_504_exception(monkeypatch: pytest.MonkeyPatch, lawyer) -> None:
     cache.clear()
@@ -224,7 +219,6 @@ def test_capability_search_timeout_raises_504_exception(monkeypatch: pytest.Monk
 
     with pytest.raises(RecognitionTimeoutError, match="超时"):
         service.search(payload=payload, user=lawyer, idempotency_key="")
-
 
 @pytest.mark.django_db
 def test_capability_search_extracts_four_snippet_sections(monkeypatch: pytest.MonkeyPatch, lawyer) -> None:
@@ -286,7 +280,6 @@ def test_capability_search_extracts_four_snippet_sections(monkeypatch: pytest.Mo
     assert "查明" in snippets.findings
     assert "本院认为" in snippets.reasoning
     assert "判决如下" in snippets.holdings
-
 
 @pytest.mark.django_db
 def test_capability_search_intent_profile_changes_ranking(monkeypatch: pytest.MonkeyPatch, lawyer) -> None:
@@ -369,7 +362,6 @@ def test_capability_search_intent_profile_changes_ranking(monkeypatch: pytest.Mo
     assert similar_response.results[0].doc_id == "DOC-INTENT-A"
     assert same_court_response.results[0].doc_id == "DOC-INTENT-B"
 
-
 @pytest.mark.django_db
 def test_capability_search_returns_busy_when_concurrency_limited(monkeypatch: pytest.MonkeyPatch, lawyer) -> None:
     cache.clear()
@@ -402,7 +394,6 @@ def test_capability_search_returns_busy_when_concurrency_limited(monkeypatch: py
         success=False,
         error_code="LEGAL_RESEARCH_CAPABILITY_BUSY",
     ).exists()
-
 
 @pytest.mark.django_db
 def test_capability_search_returns_degraded_when_failure_circuit_open(monkeypatch: pytest.MonkeyPatch, lawyer) -> None:

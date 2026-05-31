@@ -7,7 +7,6 @@ from typing import Any
 
 logger = logging.getLogger("apps.document_recognition")
 
-
 def execute_document_recognition_task(task_id: int) -> dict[str, Any] | None:
     """Execute one document recognition task in Django-Q worker."""
     from django.utils import timezone
@@ -68,7 +67,6 @@ def execute_document_recognition_task(task_id: int) -> dict[str, Any] | None:
         task.save(update_fields=["status", "error_message", "finished_at"])
 
         return {"task_id": task_id, "status": "failed", "error": str(exc)}
-
 
 def _send_recognition_notification(task: Any, result: Any) -> None:
     """Send recognition notification after successful binding."""

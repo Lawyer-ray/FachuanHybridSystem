@@ -10,7 +10,6 @@ from typing import Any
 
 from apps.core.exceptions import APIError, AuthenticationError, ExternalServiceError, NetworkError
 
-
 class LLMError(ExternalServiceError):
     """
     LLM 错误基类
@@ -24,7 +23,6 @@ class LLMError(ExternalServiceError):
         self, message: str = "LLM 服务错误", code: str | None = None, errors: dict[str, Any] | None = None
     ) -> None:
         super().__init__(message=message, code=code or "LLM_ERROR", errors=errors)
-
 
 class LLMNetworkError(LLMError, NetworkError):
     """
@@ -42,7 +40,6 @@ class LLMNetworkError(LLMError, NetworkError):
         self, message: str = "LLM 网络连接失败", code: str | None = None, errors: dict[str, Any] | None = None
     ) -> None:
         super().__init__(message=message, code=code or "LLM_NETWORK_ERROR", errors=errors)
-
 
 class LLMAPIError(LLMError, APIError):
     """
@@ -69,7 +66,6 @@ class LLMAPIError(LLMError, APIError):
         super().__init__(message=message, code=code or "LLM_API_ERROR", errors=errors)
         self.status_code = status_code
 
-
 class LLMAuthenticationError(LLMError, AuthenticationError):
     """
     LLM 认证错误
@@ -94,11 +90,9 @@ class LLMAuthenticationError(LLMError, AuthenticationError):
             errors=errors or {"api_key": "请检查 SILICONFLOW.API_KEY 配置"},
         )
 
-
 class LLMBackendUnavailableError(LLMAPIError):
     def __init__(self, message: str = "所有 LLM 后端均不可用", errors: dict[str, Any] | None = None) -> None:
         super().__init__(message=message, code="LLM_ALL_BACKENDS_UNAVAILABLE", errors=errors)
-
 
 class LLMTimeoutError(LLMError):
     """

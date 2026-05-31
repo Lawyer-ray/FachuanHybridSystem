@@ -13,7 +13,6 @@ from apps.preservation_date.models import PreservationDateTool
 
 logger = logging.getLogger("apps.preservation_date")
 
-
 @admin.register(PreservationDateTool)
 class PreservationDateAdmin(admin.ModelAdmin):
     """Admin entry for preservation date recognition test page."""

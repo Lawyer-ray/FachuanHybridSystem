@@ -5,12 +5,10 @@ from uuid import UUID
 
 from ninja import Schema
 
-
 class JobSubmitOut(Schema):
     job_id: str
     status: str
     total_files: int
-
 
 class ItemOut(Schema):
     id: UUID
@@ -18,7 +16,6 @@ class ItemOut(Schema):
     status: str
     error: str
     duration_ms: float | None = None
-
 
 class JobOut(Schema):
     id: UUID
@@ -32,20 +29,16 @@ class JobOut(Schema):
     created_at: datetime | None = None
     finished_at: datetime | None = None
 
-
 class JobProgressOut(Schema):
     job: JobOut
     items: list[ItemOut]
-
 
 class HealthOut(Schema):
     libreoffice_available: bool
     libreoffice_path: str | None = None
 
-
 class SaveToDirIn(Schema):
     target_dir: str
-
 
 class SaveToDirOut(Schema):
     saved_files: list[str]

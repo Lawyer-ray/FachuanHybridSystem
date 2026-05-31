@@ -15,7 +15,6 @@ from apps.litigation_ai.placeholders.spec import LitigationPlaceholderKeys
 
 logger = logging.getLogger("apps.documents.generation")
 
-
 class LitigationContextBuilder:
     def __init__(self, enhanced_context_builder: EnhancedContextBuilder | None = None) -> None:
         self._enhanced_context_builder = enhanced_context_builder

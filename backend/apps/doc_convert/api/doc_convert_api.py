@@ -20,11 +20,9 @@ logger = logging.getLogger(__name__)
 
 router = Router()
 
-
 # ──────────────────────────────────────────────
 # Schema
 # ──────────────────────────────────────────────
-
 
 class MbidItem(Schema):
     """单个文书类型。"""
@@ -32,30 +30,25 @@ class MbidItem(Schema):
     mbid: str
     name: str
 
-
 class MbidCategoryOut(Schema):
     """文书类型分类。"""
 
     category: str
     items: list[MbidItem]
 
-
 class MbidListResponse(Schema):
     """文书类型列表响应。"""
 
     categories: list[MbidCategoryOut]
 
-
 # ──────────────────────────────────────────────
 # 工厂函数
 # ──────────────────────────────────────────────
-
 
 def _check_znszj_enabled() -> None:
     """检查 ZNSZJ_ENABLED 配置，未启用时抛出 403。"""
     if not getattr(settings, "ZNSZJ_ENABLED", False):
         raise ZnszjDisabledError()
-
 
 def _get_doc_convert_service() -> DocConvertService:
     """获取 DocConvertService 实例。"""
@@ -63,7 +56,6 @@ def _get_doc_convert_service() -> DocConvertService:
     if client is None:
         raise ZnszjNotConfiguredError()
     return DocConvertService(znszj_client=client)
-
 
 def _build_mbid_list_response(grouped: dict[str, list[MbidDefinition]]) -> MbidListResponse:
     """将分组数据转换为响应 Schema。"""
@@ -76,11 +68,9 @@ def _build_mbid_list_response(grouped: dict[str, list[MbidDefinition]]) -> MbidL
     ]
     return MbidListResponse(categories=categories)
 
-
 # ──────────────────────────────────────────────
 # 端点
 # ──────────────────────────────────────────────
-
 
 @router.get("/mbid-list", response=MbidListResponse, summary="获取支持的文书类型列表")
 def get_mbid_list(request: HttpRequest) -> Any:
@@ -93,7 +83,6 @@ def get_mbid_list(request: HttpRequest) -> Any:
 
     grouped = get_mbid_by_category()
     return _build_mbid_list_response(grouped)
-
 
 @router.post("/convert", summary="传统文书转要素式文书")
 def convert_document(

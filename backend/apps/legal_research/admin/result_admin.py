@@ -7,7 +7,6 @@ from django.contrib import admin
 from apps.legal_research.models import LegalResearchResult
 from apps.legal_research.services.task.feedback_loop import LegalResearchFeedbackLoopService
 
-
 @admin.register(LegalResearchResult)
 class LegalResearchResultAdmin(admin.ModelAdmin):
     list_display: ClassVar[list[str]] = [

@@ -13,7 +13,6 @@ from .path_validator import FolderPathValidator
 
 logger = logging.getLogger("apps")
 
-
 class FolderFilesystemService:
     def __init__(self, validator: FolderPathValidator | None = None) -> None:
         self._validator = validator

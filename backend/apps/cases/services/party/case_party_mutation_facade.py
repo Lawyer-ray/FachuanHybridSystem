@@ -13,7 +13,6 @@ if TYPE_CHECKING:
     from .case_party_mutation_service import CasePartyMutationService
     from .case_party_query_service import CasePartyQueryService
 
-
 class CasePartyMutationFacade(DjangoPermsMixin):
     def __init__(
         self,

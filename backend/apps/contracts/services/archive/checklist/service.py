@@ -11,7 +11,6 @@ from ..constants import ChecklistItem
 from . import case_material_sync as sync_mod
 from . import checklist_query as query_mod
 
-
 class ArchiveChecklistService:
     """归档检查清单服务"""
 

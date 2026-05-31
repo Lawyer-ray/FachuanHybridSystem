@@ -15,7 +15,6 @@ from django.db.models import Count, QuerySet
 
 logger: logging.Logger = logging.getLogger(__name__)
 
-
 class MatchingService:
     """模板匹配与推荐"""
 

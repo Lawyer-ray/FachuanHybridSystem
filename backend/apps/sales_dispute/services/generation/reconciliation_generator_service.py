@@ -10,8 +10,6 @@ from importlib import import_module
 from pathlib import Path
 from typing import Any
 
-from django.utils.translation import gettext_lazy as _
-
 from apps.core.exceptions import ValidationException
 from apps.documents.storage import get_docx_templates_root
 
@@ -22,7 +20,6 @@ logger = logging.getLogger(__name__)
 TEMPLATE_DIR: Path = Path(str(get_docx_templates_root() / "2-案件材料" / "3-催收材料"))
 TEMPLATE_FILE = "对账函.docx"
 
-
 @dataclass(frozen=True)
 class TransactionItem:
     """交易明细项"""
@@ -30,7 +27,6 @@ class TransactionItem:
     transaction_date: date
     description: str
     amount: Decimal
-
 
 @dataclass(frozen=True)
 class ReconciliationParams:
@@ -42,7 +38,6 @@ class ReconciliationParams:
     transactions: list[TransactionItem]
     paid_amount: Decimal
     outstanding_amount: Decimal
-
 
 class ReconciliationGeneratorService:
     """对账函生成服务"""
@@ -63,7 +58,7 @@ class ReconciliationGeneratorService:
 
         if not template_path.exists():
             raise ValidationException(
-                message=_("模板文件不存在：%(path)s") % {"path": str(template_path)},
+                message="模板文件不存在：%(path)s" % {"path": str(template_path)},
                 code="TEMPLATE_NOT_FOUND",
             )
 
@@ -80,7 +75,7 @@ class ReconciliationGeneratorService:
                 record=record,
                 action_type="written_collection",
                 action_date=date.today(),
-                description=str(_("生成对账函")),
+                description=str("生成对账函"),
                 document_type="对账函",
                 document_filename=filename,
             )

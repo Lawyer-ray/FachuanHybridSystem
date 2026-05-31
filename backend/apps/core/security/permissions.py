@@ -12,7 +12,6 @@ from typing import Any
 
 from apps.core.exceptions import AuthenticationError, PermissionDenied
 
-
 @dataclass(frozen=True)
 class AccessContext:
     """访问上下文，封装权限检查所需的用户和权限信息。"""
@@ -20,7 +19,6 @@ class AccessContext:
     user: Any | None
     org_access: dict[str, Any] | None
     perm_open_access: bool
-
 
 class PermissionMixin:
     """权限检查混入类，提供统一的权限判断方法。"""

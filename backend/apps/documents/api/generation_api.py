@@ -9,7 +9,6 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from django.utils.translation import gettext_lazy as _
 from ninja import Router, Schema
 
 from apps.core.exceptions import ValidationException
@@ -21,12 +20,10 @@ from .download_response_factory import build_download_response
 logger = logging.getLogger("apps.documents.api")
 router = Router(auth=JWTOrSessionAuth())
 
-
 class ArchiveOverridesPayload(Schema):
     """归档文书占位符覆盖值请求体"""
 
     overrides: dict[str, str] = {}
-
 
 def _require_contract_access(request: Any, contract_id: int) -> None:
     from apps.core.security.access_context import get_request_access_context
@@ -34,7 +31,6 @@ def _require_contract_access(request: Any, contract_id: int) -> None:
 
     ctx = get_request_access_context(request)
     get_contract_service().ensure_contract_access_ctx(contract_id=contract_id, ctx=ctx)
-
 
 def _get_folder_generation_service() -> Any:
     """工厂函数:获取 FolderGenerationService 实例"""
@@ -46,20 +42,17 @@ def _get_folder_generation_service() -> Any:
         folder_binding_service=get_contract_folder_binding_service(),
     )
 
-
 def _get_supplementary_agreement_service() -> Any:
     """工厂函数:获取 SupplementaryAgreementGenerationService 实例"""
     from apps.documents.services.infrastructure.wiring import get_supplementary_agreement_generation_service
 
     return get_supplementary_agreement_generation_service()
 
-
 def _get_contract_generation_service() -> Any:
     """工厂函数:获取 ContractGenerationService 实例"""
     from apps.documents.services.infrastructure.wiring import get_contract_generation_service
 
     return get_contract_generation_service()
-
 
 @router.get("/contracts/{contract_id}/preview")
 def preview_contract_context(request: Any, contract_id: int) -> Any:
@@ -69,7 +62,6 @@ def preview_contract_context(request: Any, contract_id: int) -> Any:
     rows = service.get_preview_context(contract_id)
     return {"success": True, "data": rows}
 
-
 @router.get("/contracts/{contract_id}/supplementary-agreements/{agreement_id}/preview")
 def preview_supplementary_agreement_context(request: Any, contract_id: int, agreement_id: int) -> Any:
     """补充协议占位符预览"""
@@ -77,7 +69,6 @@ def preview_supplementary_agreement_context(request: Any, contract_id: int, agre
     service = _get_supplementary_agreement_service()
     rows = service.get_preview_context(contract_id, agreement_id)
     return {"success": True, "data": rows}
-
 
 @router.get("/contracts/{contract_id}/archive-preview")
 def preview_archive_context(request: Any, contract_id: int, template_subtype: str = "") -> Any:
@@ -96,7 +87,6 @@ def preview_archive_context(request: Any, contract_id: int, template_subtype: st
 
     gen_service = ArchiveGenerationService()
     return gen_service.preview_archive_template(contract_id, template_subtype)
-
 
 @router.get("/contracts/{contract_id}/archive-placeholder-overrides")
 def get_archive_overrides(request: Any, contract_id: int, template_subtype: str = "") -> Any:
@@ -122,7 +112,6 @@ def get_archive_overrides(request: Any, contract_id: int, template_subtype: str 
             "has_overrides": bool(override_obj and override_obj.overrides),
         },
     }
-
 
 @router.post("/contracts/{contract_id}/archive-placeholder-overrides")
 def save_archive_overrides(
@@ -153,7 +142,6 @@ def save_archive_overrides(
 
     return {"success": True, "data": {"overrides": obj.overrides}}
 
-
 @router.delete("/contracts/{contract_id}/archive-placeholder-overrides")
 def delete_archive_overrides(request: Any, contract_id: int, template_subtype: str = "") -> Any:
     """删除归档文书占位符覆盖值（放弃修改）
@@ -172,7 +160,6 @@ def delete_archive_overrides(request: Any, contract_id: int, template_subtype: s
     deleted_count = delete_override(contract_id, template_subtype)
 
     return {"success": True, "data": {"deleted": deleted_count > 0}}
-
 
 @router.get("/contracts/{contract_id}/download")
 @rate_limit_from_settings("EXPORT", by_user=True)
@@ -199,7 +186,7 @@ def download_contract_document(request: Any, contract_id: int, split_fee: bool =
     if error:
         logger.warning("生成合同文档失败: %s", error, extra={"contract_id": contract_id, "error": error})
         raise ValidationException(
-            message=_("生成合同文档失败"), code="CONTRACT_GENERATION_FAILED", errors={"detail": error}
+            message="生成合同文档失败", code="CONTRACT_GENERATION_FAILED", errors={"detail": error}
         )
 
     if saved_path:
@@ -228,7 +215,6 @@ def download_contract_document(request: Any, contract_id: int, split_fee: bool =
 
     return response
 
-
 @router.get("/contracts/{contract_id}/folder/download")
 @rate_limit_from_settings("EXPORT", by_user=True)
 def download_contract_folder(request: Any, contract_id: int) -> Any:
@@ -252,7 +238,7 @@ def download_contract_folder(request: Any, contract_id: int) -> Any:
     if error:
         logger.warning("生成合同文件夹失败: %s", error, extra={"contract_id": contract_id, "error": error})
         raise ValidationException(
-            message=_("生成合同文件夹失败"), code="FOLDER_GENERATION_FAILED", errors={"detail": error}
+            message="生成合同文件夹失败", code="FOLDER_GENERATION_FAILED", errors={"detail": error}
         )
 
     if extract_path:
@@ -272,7 +258,6 @@ def download_contract_folder(request: Any, contract_id: int) -> Any:
     logger.info("合同文件夹下载成功", extra={"contract_id": contract_id, "zip_filename": zip_filename})
 
     return response
-
 
 @router.get("/contracts/{contract_id}/supplementary-agreements/{agreement_id}/download")
 @rate_limit_from_settings("EXPORT", by_user=True)
@@ -304,7 +289,7 @@ def download_supplementary_agreement(request: Any, contract_id: int, agreement_i
             extra={"contract_id": contract_id, "agreement_id": agreement_id, "error": error},
         )
         raise ValidationException(
-            message=_("生成补充协议失败"), code="AGREEMENT_GENERATION_FAILED", errors={"detail": error}
+            message="生成补充协议失败", code="AGREEMENT_GENERATION_FAILED", errors={"detail": error}
         )
 
     if saved_path:

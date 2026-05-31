@@ -14,7 +14,6 @@ from django.core.management.base import BaseCommand, CommandError
 
 logger = logging.getLogger(__name__)
 
-
 def _parse_headers(headers_kv: list[str]) -> dict[str, str]:
     """解析 Key:Value 格式的 header 列表"""
     headers: dict[str, str] = {}
@@ -25,7 +24,6 @@ def _parse_headers(headers_kv: list[str]) -> dict[str, str]:
         headers[k.strip()] = v.strip()
     return headers
 
-
 def _parse_json_body(json_body: str | None) -> Any:
     """解析 JSON 请求体"""
     if not json_body:
@@ -34,7 +32,6 @@ def _parse_json_body(json_body: str | None) -> Any:
         return json.loads(json_body)
     except json.JSONDecodeError:
         raise CommandError("--json 必须是合法 JSON 字符串") from None
-
 
 class Command(BaseCommand):
     def add_arguments(self, parser: Any) -> None:
@@ -84,7 +81,6 @@ class Command(BaseCommand):
             )
 
         asyncio.run(run())
-
 
 def _build_report(url: Any, method: Any, total: Any, concurrency: Any, statuses: Any, timings: Any) -> dict[str, Any]:
     """构建基准测试报告"""

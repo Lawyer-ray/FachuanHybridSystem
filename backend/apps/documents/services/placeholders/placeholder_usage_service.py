@@ -28,7 +28,6 @@ except Exception:
 
     _DocxDocument = None  # type: ignore[assignment]
 
-
 class PlaceholderUsageService:
     _PLACEHOLDER_PATTERN = re.compile(r"\{\{\s*(.*?)\s*\}\}")
     _CACHE_KEY_PREFIX = "documents:placeholder_usage:"

@@ -7,7 +7,6 @@ from apps.legal_research.admin.task_admin import LegalResearchTaskAdmin
 from apps.legal_research.models import LegalResearchTask, LegalResearchTaskEvent
 from apps.organization.models import AccountCredential
 
-
 @pytest.mark.django_db
 def test_private_api_stage_metrics_includes_capability_metrics(lawyer) -> None:
     credential = AccountCredential.objects.create(

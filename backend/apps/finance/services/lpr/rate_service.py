@@ -11,15 +11,12 @@ from datetime import date
 from decimal import Decimal
 from typing import TYPE_CHECKING, NamedTuple
 
-from django.utils.translation import gettext_lazy as _
-
 from apps.core.exceptions import ValidationException
 
 if TYPE_CHECKING:
     from apps.finance.models.lpr_rate import LPRRate
 
 logger = logging.getLogger(__name__)
-
 
 class RateSegment(NamedTuple):
     """LPR利率分段区间."""
@@ -28,7 +25,6 @@ class RateSegment(NamedTuple):
     end: date
     rate_1y: Decimal
     rate_5y: Decimal
-
 
 @dataclass
 class PrincipalPeriod:
@@ -45,7 +41,6 @@ class PrincipalPeriod:
     start_date: date
     end_date: date
     principal: Decimal
-
 
 class LPRRateService:
     """LPR利率查询服务."""
@@ -69,7 +64,7 @@ class LPRRateService:
         rate = LPRRate.objects.filter(effective_date__lte=query_date).order_by("-effective_date").first()
         if rate is None:
             raise ValidationException(
-                message=_("缺少 %(date)s 之前的LPR利率数据") % {"date": query_date},
+                message="缺少 %(date)s 之前的LPR利率数据" % {"date": query_date},
                 code="LPR_RATE_NOT_FOUND",
             )
         return rate
@@ -118,7 +113,7 @@ class LPRRateService:
 
         if not rates:
             raise ValidationException(
-                message=_("缺少 %(start)s 至 %(end)s 期间的LPR利率数据") % {"start": start_date, "end": end_date},
+                message="缺少 %(start)s 至 %(end)s 期间的LPR利率数据" % {"start": start_date, "end": end_date},
                 code="LPR_RATE_NOT_FOUND",
             )
 
@@ -145,7 +140,7 @@ class LPRRateService:
 
         if not segments:
             raise ValidationException(
-                message=_("缺少 %(start)s 至 %(end)s 期间的LPR利率数据") % {"start": start_date, "end": end_date},
+                message="缺少 %(start)s 至 %(end)s 期间的LPR利率数据" % {"start": start_date, "end": end_date},
                 code="LPR_RATE_NOT_FOUND",
             )
 
@@ -165,7 +160,7 @@ class LPRRateService:
         rate = LPRRate.objects.first()
         if rate is None:
             raise ValidationException(
-                message=_("系统中没有LPR利率数据"),
+                message="系统中没有LPR利率数据",
                 code="LPR_RATE_NOT_FOUND",
             )
         return rate

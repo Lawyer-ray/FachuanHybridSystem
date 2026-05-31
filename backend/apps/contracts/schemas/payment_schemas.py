@@ -13,7 +13,6 @@ from ninja import ModelSchema, Schema
 from apps.contracts.models import ContractPayment, InvoiceStatus
 from apps.core.api.schemas import SchemaMixin
 
-
 class ContractPaymentIn(Schema):
     contract_id: int
     amount: float
@@ -22,7 +21,6 @@ class ContractPaymentIn(Schema):
     invoiced_amount: float | None = 0
     note: str | None = None
     confirm: bool = False
-
 
 class ContractPaymentOut(ModelSchema, SchemaMixin):
     invoice_status_label: str
@@ -53,7 +51,6 @@ class ContractPaymentOut(ModelSchema, SchemaMixin):
     def resolve_updated_at(obj: ContractPayment) -> Any:
         return SchemaMixin._resolve_datetime(getattr(obj, "updated_at", None))
 
-
 class ContractPaymentUpdate(Schema):
     amount: float | None = None
     received_at: str | None = None
@@ -62,13 +59,11 @@ class ContractPaymentUpdate(Schema):
     note: str | None = None
     confirm: bool = False
 
-
 class FinanceStatsItem(Schema):
     contract_id: int
     total_received: float
     total_invoiced: float
     unpaid_amount: float | None
-
 
 class FinanceStatsOut(Schema):
     items: list[FinanceStatsItem]

@@ -3,7 +3,6 @@
 from dataclasses import dataclass
 from typing import Any
 
-
 @dataclass
 class LoginAttemptResult:
     success: bool
@@ -22,7 +21,6 @@ class LoginAttemptResult:
             "attempt_duration": self.attempt_duration,
             "retry_count": self.retry_count,
         }
-
 
 @dataclass
 class TokenAcquisitionResult:

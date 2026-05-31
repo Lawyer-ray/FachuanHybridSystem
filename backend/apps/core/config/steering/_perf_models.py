@@ -8,7 +8,6 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
 
-
 class AlertLevel(Enum):
     """告警级别"""
 
@@ -16,7 +15,6 @@ class AlertLevel(Enum):
     WARNING = "warning"
     ERROR = "error"
     CRITICAL = "critical"
-
 
 @dataclass
 class PerformanceMetric:
@@ -27,7 +25,6 @@ class PerformanceMetric:
     unit: str
     timestamp: float
     metadata: dict[str, Any] = field(default_factory=dict)
-
 
 @dataclass
 class PerformanceAlert:
@@ -40,7 +37,6 @@ class PerformanceAlert:
     actual_value: float
     timestamp: float
     metadata: dict[str, Any] = field(default_factory=dict)
-
 
 @dataclass
 class LoadingPerformanceData:
@@ -55,7 +51,6 @@ class LoadingPerformanceData:
     cache_hit: bool = False
     file_size_bytes: int = 0
     memory_usage_mb: float = 0.0
-
 
 class PerformanceThresholds:
     """性能阈值配置"""

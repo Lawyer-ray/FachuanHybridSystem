@@ -1,7 +1,7 @@
 {% extends "admin/base_site.html" %}
 {% load i18n static %}
 
-{% block title %}{% trans "批量添加案件日志" %}{% endblock %}
+{% block title %}{{% endblock %}
 
 {% block extrastyle %}
 {{ block.super }}
@@ -174,20 +174,20 @@
 
 {% block breadcrumbs %}
 <div class="breadcrumbs">
-    <a href="{% url 'admin:index' %}">{% trans "首页" %}</a>
-    &rsaquo; <a href="{% url 'admin:cases_caselog_changelist' %}">{% trans "案件日志" %}</a>
-    &rsaquo; {% trans "批量添加日志" %}
+    <a href="{% url 'admin:index' %}">{</a>
+    &rsaquo; <a href="{% url 'admin:cases_caselog_changelist' %}">{</a>
+    &rsaquo; {
 </div>
 {% endblock %}
 
 {% block content %}
 <div class="batch-page" x-data="batchAddApp()" x-init="init()">
     <section class="batch-hero">
-        <p>{% trans "选择一个合同，为该合同下的多个案件同时添加相同的日志内容；或通过关键词搜索案件，支持多次搜索累积。" %}</p>
+        <p>{</p>
         <div class="batch-hero-tips">
-            <span class="tip-pill">{% trans "1. 选择模式" %}</span>
-            <span class="tip-pill">{% trans "2. 选择案件" %}</span>
-            <span class="tip-pill">{% trans "3. 填写日志并提交" %}</span>
+            <span class="tip-pill">{</span>
+            <span class="tip-pill">{</span>
+            <span class="tip-pill">{</span>
         </div>
     </section>
 
@@ -196,20 +196,20 @@
 
     {# ── 第一步：选择模式 ── #}
     <section class="batch-section">
-        <h2><span class="step-num">1</span>{% trans "选择案件来源" %}</h2>
+        <h2><span class="step-num">1</span>{</h2>
         <div class="mode-tabs">
             <button type="button" class="mode-tab" :class="mode === 'contract' && 'active'"
-                    @click="switchMode('contract')">{% trans "按合同选择" %}</button>
+                    @click="switchMode('contract')">{</button>
             <button type="button" class="mode-tab" :class="mode === 'search' && 'active'"
-                    @click="switchMode('search')">{% trans "按关键词搜索" %}</button>
+                    @click="switchMode('search')">{</button>
         </div>
 
         {# 合同选择 #}
         <template x-if="mode === 'contract'">
             <div class="form-row">
-                <label for="contract-select">{% trans "关联合同" %}</label>
+                <label for="contract-select">{</label>
                 <select id="contract-select" x-model="selectedContractId" @change="onContractChange()">
-                    <option value="">{% trans "-- 请选择合同 --" %}</option>
+                    <option value="">{</option>
                     <template x-for="c in contracts" :key="c[0]">
                         <option :value="c[0]" x-text="c[1]"></option>
                     </template>
@@ -222,23 +222,23 @@
             <div>
                 <div class="search-row">
                     <input type="text" x-model="searchQuery" @keydown.enter="doSearch()"
-                           placeholder="{% trans '输入案件名称、当事人姓名、案号等关键词...' %}">
+                           placeholder="{">
                     <button type="button" class="btn-search" :disabled="searchLoading || !searchQuery.trim()" @click="doSearch()">
-                        <span x-show="!searchLoading">{% trans "搜索" %}</span>
-                        <span x-show="searchLoading">{% trans "搜索中..." %}</span>
+                        <span x-show="!searchLoading">{</span>
+                        <span x-show="searchLoading">{</span>
                     </button>
                 </div>
                 <template x-if="searchLoading">
-                    <p style="color:#6b7280; font-size:13px; margin-top:10px;">{% trans "搜索中..." %}</p>
+                    <p style="color:#6b7280; font-size:13px; margin-top:10px;">{</p>
                 </template>
                 <template x-if="!searchLoading && searchResults.length > 0">
                     <div class="search-results" style="margin-top: 12px;">
                         <table class="case-table">
                             <thead>
                                 <tr>
-                                    <th>{% trans "案件名称" %}</th>
-                                    <th>{% trans "状态" %}</th>
-                                    <th>{% trans "开始日期" %}</th>
+                                    <th>{</th>
+                                    <th>{</th>
+                                    <th>{</th>
                                     <th style="width: 80px;"></th>
                                 </tr>
                             </thead>
@@ -257,10 +257,10 @@
                                         <td x-text="c.start_date || '-'"></td>
                                         <td>
                                             <template x-if="isInPool(c.id)">
-                                                <span class="tag-added">{% trans "已添加" %}</span>
+                                                <span class="tag-added">{</span>
                                             </template>
                                             <template x-if="!isInPool(c.id)">
-                                                <button type="button" class="btn-add" @click="addCase(c)">{% trans "添加" %}</button>
+                                                <button type="button" class="btn-add" @click="addCase(c)">{</button>
                                             </template>
                                         </td>
                                     </tr>
@@ -270,7 +270,7 @@
                     </div>
                 </template>
                 <template x-if="!searchLoading && searchResults.length === 0 && searchDone">
-                    <p class="batch-empty-hint" style="margin-top: 10px;">{% trans "未找到匹配的案件。" %}</p>
+                    <p class="batch-empty-hint" style="margin-top: 10px;">{</p>
                 </template>
             </div>
         </template>
@@ -279,7 +279,7 @@
     {# ── 第二步：已选案件池 ── #}
     <section class="batch-section" x-show="selectedCases.length > 0" x-cloak>
         <h2>
-            <span class="step-num">2</span>{% trans "已选案件" %}
+            <span class="step-num">2</span>{
             <span class="selected-count" style="margin-left: auto;" x-text="selectedCases.length + ' 个案件'"></span>
         </h2>
 
@@ -289,7 +289,7 @@
                 <div class="select-all-row">
                     <label>
                         <input type="checkbox" :checked="allChecked" @change="toggleAll()">
-                        {% trans "全选当前合同案件" %}
+                        {
                     </label>
                     <span class="selected-count" x-text="selectedCases.length + ' 个案件已选'"></span>
                 </div>
@@ -297,9 +297,9 @@
                     <thead>
                         <tr>
                             <th class="cb-cell"></th>
-                            <th>{% trans "案件名称" %}</th>
-                            <th>{% trans "状态" %}</th>
-                            <th>{% trans "开始日期" %}</th>
+                            <th>{</th>
+                            <th>{</th>
+                            <th>{</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -333,8 +333,8 @@
                 <table class="pool-table">
                     <thead>
                         <tr>
-                            <th>{% trans "案件名称" %}</th>
-                            <th>{% trans "状态" %}</th>
+                            <th>{</th>
+                            <th>{</th>
                             <th style="width: 80px;"></th>
                         </tr>
                     </thead>
@@ -351,7 +351,7 @@
                                           x-text="statusLabel(c.status)"></span>
                                 </td>
                                 <td>
-                                    <button type="button" class="btn-remove" @click="removeCase(c.id)">{% trans "移除" %}</button>
+                                    <button type="button" class="btn-remove" @click="removeCase(c.id)">{</button>
                                 </td>
                             </tr>
                         </template>
@@ -363,16 +363,16 @@
 
     {# ── 第三步：填写日志 ── #}
     <section class="batch-section" x-show="selectedCases.length > 0" x-cloak>
-        <h2><span class="step-num">3</span>{% trans "填写日志内容" %}</h2>
+        <h2><span class="step-num">3</span>{</h2>
         <div class="form-row">
-            <label for="log-content">{% trans "日志内容" %}</label>
+            <label for="log-content">{</label>
             <textarea id="log-content" rows="6" x-model="content"
-                      placeholder="{% trans '请输入要批量写入的日志内容...' %}"></textarea>
+                      placeholder="{"></textarea>
         </div>
         <div class="batch-footer">
             <button type="button" class="btn-submit" :disabled="!canSubmit || submitting" @click="submit()">
-                <span x-show="!submitting">{% trans "提交批量日志" %}</span>
-                <span x-show="submitting">{% trans "提交中..." %}</span>
+                <span x-show="!submitting">{</span>
+                <span x-show="submitting">{</span>
             </button>
             <span class="btn-submit-hint" x-show="selectedCases.length > 0 && content.trim()"
                   x-text="'即将为 ' + selectedCases.length + ' 个案件创建日志'"></span>
@@ -434,8 +434,8 @@ function batchAddApp() {
         },
 
         statusLabel(s) {
-            if (s === 'active') return '{% trans "进行中" %}';
-            if (s === 'closed') return '{% trans "已归档" %}';
+            if (s === 'active') return '{';
+            if (s === 'closed') return '{';
             return s;
         },
 
@@ -464,10 +464,10 @@ function batchAddApp() {
                 if (data.success) {
                     this.contractCases = data.cases;
                 } else {
-                    this.message = { level: 'error', text: data.message || '{% trans "加载案件失败" %}' };
+                    this.message = { level: 'error', text: data.message || '{' };
                 }
             } catch(e) {
-                this.message = { level: 'error', text: '{% trans "网络错误" %}' };
+                this.message = { level: 'error', text: '{' };
             } finally {
                 this.casesLoading = false;
             }
@@ -512,11 +512,11 @@ function batchAddApp() {
                 if (data.success) {
                     this.searchResults = data.cases;
                 } else {
-                    this.message = { level: 'error', text: data.message || '{% trans "搜索失败" %}' };
+                    this.message = { level: 'error', text: data.message || '{' };
                     this.searchResults = [];
                 }
             } catch(e) {
-                this.message = { level: 'error', text: '{% trans "网络错误" %}' };
+                this.message = { level: 'error', text: '{' };
                 this.searchResults = [];
             } finally {
                 this.searchLoading = false;
@@ -555,16 +555,16 @@ function batchAddApp() {
                 });
                 const data = await resp.json();
                 if (data.success) {
-                    this.message = { level: 'success', text: '{% trans "成功为 " %}' + data.created_count + '{% trans " 个案件创建了日志" %}' };
+                    this.message = { level: 'success', text: '{' + data.created_count + '{' };
                     this.selectedCases = [];
                     this.content = '';
                     this.searchResults = [];
                     this.searchDone = false;
                 } else {
-                    this.message = { level: 'error', text: data.message || '{% trans "提交失败" %}' };
+                    this.message = { level: 'error', text: data.message || '{' };
                 }
             } catch(e) {
-                this.message = { level: 'error', text: '{% trans "网络错误" %}' };
+                this.message = { level: 'error', text: '{' };
             } finally {
                 this.submitting = false;
             }

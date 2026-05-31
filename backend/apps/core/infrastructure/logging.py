@@ -14,7 +14,6 @@ import re
 import sys
 from typing import Any, ClassVar
 
-
 def _safe_get_config(key: str, default: Any = None) -> Any:
     """安全获取配置，避免循环导入"""
     try:
@@ -23,7 +22,6 @@ def _safe_get_config(key: str, default: Any = None) -> Any:
         return get_config(key, default)
     except (ImportError, AttributeError, KeyError):
         return default
-
 
 def _is_docker_environment() -> bool:
     """
@@ -57,7 +55,6 @@ def _is_docker_environment() -> bool:
 
     return False
 
-
 class RequestContextFilter(logging.Filter):
     """自动注入 request_id / trace_id / span_id / task_name 到 LogRecord"""
 
@@ -70,7 +67,6 @@ class RequestContextFilter(logging.Filter):
         record.span_id = span_id or ""
         record.task_name = get_task_name() or ""
         return True
-
 
 class SensitiveDataFilter(logging.Filter):
     """敏感数据过滤器，自动脱敏日志中的敏感信息"""
@@ -155,7 +151,6 @@ class SensitiveDataFilter(logging.Filter):
 
         return True
 
-
 class JsonFormatter:
     """JSON 格式化器，用于结构化日志输出"""
 
@@ -238,7 +233,6 @@ class JsonFormatter:
             log_data["exception"] = "".join(traceback.format_exception(*record.exc_info))
 
         return self.json.dumps(log_data, ensure_ascii=False)
-
 
 def get_logging_config(base_dir: Any, debug: bool = True) -> dict[str, Any]:
     """

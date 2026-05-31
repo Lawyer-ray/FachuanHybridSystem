@@ -1,12 +1,11 @@
 {% extends "admin/base_site.html" %}
-{% load i18n %}
 
 {% block breadcrumbs %}
 <div class="breadcrumbs">
-    <a href="{% url 'admin:index' %}">{% trans "首页" %}</a>
-    &rsaquo; <a href="{% url 'admin:app_list' app_label='reminders' %}">{% trans "提醒" %}</a>
-    &rsaquo; <a href="{{ changelist_url }}">{% trans "重要日期提醒" %}</a>
-    &rsaquo; {% trans "日历" %}
+    <a href="{% url 'admin:index' %}">{</a>
+    &rsaquo; <a href="{% url 'admin:app_list' app_label='reminders' %}">{</a>
+    &rsaquo; <a href="{{ changelist_url }}">{</a>
+    &rsaquo; {
 </div>
 {% endblock %}
 
@@ -684,20 +683,20 @@
 <div id="content-main">
     <div class="reminder-calendar-toolbar">
         <div class="reminder-calendar-nav">
-            <a href="{{ prev_url }}" class="button">{% trans "上一月" %}</a>
-            <a href="{{ today_url }}" class="button">{% trans "回到本月" %}</a>
-            <a href="{{ next_url }}" class="button">{% trans "下一月" %}</a>
+            <a href="{{ prev_url }}" class="button">{</a>
+            <a href="{{ today_url }}" class="button">{</a>
+            <a href="{{ next_url }}" class="button">{</a>
             <span class="reminder-calendar-title">{{ month_title }}</span>
         </div>
 
         <div class="reminder-calendar-actions">
-            <button type="button" class="reminder-action-btn import-btn" id="btn-calendar-import" title="{% trans '从外部日历导入或同步本机日历事件' %}">
+            <button type="button" class="reminder-action-btn import-btn" id="btn-calendar-import" title="{">
                 <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="12" height="11" rx="2"/><path d="M2 7h12M6 1v4M10 1v4M8 9v4M6 11l2 2 2-2"/></svg>
-                {% trans "导入/同步" %}
+                {
             </button>
-            <a class="reminder-action-btn export-btn" id="btn-calendar-export" title="{% trans '导出为 .ics 文件' %}">
+            <a class="reminder-action-btn export-btn" id="btn-calendar-export" title="{">
                 <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="12" height="11" rx="2"/><path d="M2 7h12M6 1v4M10 1v4M8 13V9M6 11l2-2 2 2"/></svg>
-                {% trans "导出" %}
+                {
             </a>
         </div>
     </div>
@@ -707,9 +706,9 @@
         <input type="hidden" name="month" value="{{ current_month }}">
 
         <div class="reminder-calendar-field">
-            <label for="id_reminder_type">{% trans "提醒类型" %}</label>
+            <label for="id_reminder_type">{</label>
             <select id="id_reminder_type" name="reminder_type">
-                <option value="">{% trans "全部" %}</option>
+                <option value="">{</option>
                 {% for item in reminder_type_options %}
                 <option value="{{ item.value }}" {% if selected_type == item.value %}selected{% endif %}>{{ item.label }}</option>
                 {% endfor %}
@@ -717,30 +716,30 @@
         </div>
 
         <div class="reminder-calendar-field">
-            <label for="id_scope">{% trans "关联对象" %}</label>
+            <label for="id_scope">{</label>
             <select id="id_scope" name="scope">
-                <option value="all" {% if selected_scope == "all" %}selected{% endif %}>{% trans "全部" %}</option>
-                <option value="contract" {% if selected_scope == "contract" %}selected{% endif %}>{% trans "仅合同" %}</option>
-                <option value="case" {% if selected_scope == "case" %}selected{% endif %}>{% trans "仅案件" %}</option>
-                <option value="case_log" {% if selected_scope == "case_log" %}selected{% endif %}>{% trans "仅案件日志" %}</option>
+                <option value="all" {% if selected_scope == "all" %}selected{% endif %}>{</option>
+                <option value="contract" {% if selected_scope == "contract" %}selected{% endif %}>{</option>
+                <option value="case" {% if selected_scope == "case" %}selected{% endif %}>{</option>
+                <option value="case_log" {% if selected_scope == "case_log" %}selected{% endif %}>{</option>
             </select>
         </div>
 
         <div class="reminder-calendar-field">
-            <label for="id_status">{% trans "状态" %}</label>
+            <label for="id_status">{</label>
             <select id="id_status" name="status">
-                <option value="all" {% if selected_status == "all" %}selected{% endif %}>{% trans "全部" %}</option>
-                <option value="upcoming" {% if selected_status == "upcoming" %}selected{% endif %}>{% trans "未到期" %}</option>
-                <option value="overdue" {% if selected_status == "overdue" %}selected{% endif %}>{% trans "已逾期" %}</option>
+                <option value="all" {% if selected_status == "all" %}selected{% endif %}>{</option>
+                <option value="upcoming" {% if selected_status == "upcoming" %}selected{% endif %}>{</option>
+                <option value="overdue" {% if selected_status == "overdue" %}selected{% endif %}>{</option>
             </select>
         </div>
 
         <div>
-            <button type="submit" class="reminder-filter-btn">{% trans "筛选" %}</button>
+            <button type="submit" class="reminder-filter-btn">{</button>
         </div>
     </form>
 
-    <div class="reminder-create-tip">{% trans "点击日期或 + 快速新增；点击提醒卡片查看详情" %}</div>
+    <div class="reminder-create-tip">{</div>
 
     <div class="reminder-calendar-grid">
         <div class="reminder-calendar-weekdays">
@@ -756,9 +755,9 @@
                 <div class="reminder-calendar-day-head">
                     <span class="reminder-day-num">{{ day.day }}</span>
                     <div>
-                        {% if day.items %}<span class="reminder-day-count">{{ day.items|length }} {% trans "条" %}</span>{% endif %}
+                        {% if day.items %}<span class="reminder-day-count">{{ day.items|length }} {</span>{% endif %}
                         {% if day.in_month %}
-                        <button type="button" class="reminder-add-btn" data-add-date="{{ day.date|date:'Y-m-d' }}" title="{% trans '新增提醒' %}">+</button>
+                        <button type="button" class="reminder-add-btn" data-add-date="{{ day.date|date:'Y-m-d' }}" title="{">+</button>
                         {% endif %}
                     </div>
                 </div>
@@ -793,11 +792,11 @@
                     </button>
                     {% endfor %}
                     {% if day.items|length > 3 %}
-                    <span class="reminder-day-count">{% blocktrans with count=day.items|length %}共 {{ count }} 条{% endblocktrans %}</span>
+                    <span class="reminder-day-count">{共 {{ count }} 条{</span>
                     {% endif %}
                 </div>
                 {% elif day.in_month %}
-                <span class="reminder-empty">{% trans "无提醒" %}</span>
+                <span class="reminder-empty">{</span>
                 {% endif %}
             </div>
             {% endfor %}
@@ -808,19 +807,19 @@
 
 <div id="reminder-create-modal" class="reminder-modal" aria-hidden="true">
     <div class="reminder-modal-card">
-        <h3 class="reminder-modal-title">{% trans "新增重要日期提醒" %}</h3>
+        <h3 class="reminder-modal-title">{</h3>
         <form method="post" action="{{ calendar_create_url }}">
             {% csrf_token %}
             <input type="hidden" name="return_url" value="{{ current_calendar_url }}">
 
             <div class="reminder-modal-grid">
                 <div class="reminder-modal-field full">
-                    <label for="id_modal_content">{% trans "提醒事项" %}</label>
+                    <label for="id_modal_content">{</label>
                     <input id="id_modal_content" name="content" type="text" maxlength="255" required>
                 </div>
 
                 <div class="reminder-modal-field">
-                    <label for="id_modal_type">{% trans "提醒类型" %}</label>
+                    <label for="id_modal_type">{</label>
                     <select id="id_modal_type" name="reminder_type" required>
                         {% for item in reminder_type_options %}
                         <option value="{{ item.value }}">{{ item.label }}</option>
@@ -831,35 +830,35 @@
                 <input id="id_modal_target_type" name="target_type" type="hidden" value="">
 
                 <div class="reminder-modal-field full">
-                    <label for="id_modal_target_keyword">{% trans "搜索并选择关联对象" %}</label>
+                    <label for="id_modal_target_keyword">{</label>
                     <div class="reminder-combobox" id="id_modal_target_combobox">
                         <input
                             id="id_modal_target_keyword"
                             type="text"
                             autocomplete="off"
-                            placeholder="{% trans '输入关键字并从下拉候选中选择' %}"
+                            placeholder="{"
                         >
                         <div id="id_modal_target_options" class="reminder-target-dropdown" role="listbox"></div>
                     </div>
                     <input id="id_modal_target_id" name="target_id" type="hidden" value="">
-                    <small>{% trans "可留空作为独立提醒；如需关联，直接输入关键字进行混合搜索并选择。" %}</small>
+                    <small>{</small>
                     <div id="id_modal_target_hint" class="reminder-target-hint"></div>
                 </div>
 
                 <div class="reminder-modal-field">
-                    <label for="id_modal_due_date">{% trans "日期" %}</label>
+                    <label for="id_modal_due_date">{</label>
                     <input id="id_modal_due_date" name="due_date" type="date" required>
                 </div>
 
                 <div class="reminder-modal-field">
-                    <label for="id_modal_due_time">{% trans "时间" %}</label>
+                    <label for="id_modal_due_time">{</label>
                     <input id="id_modal_due_time" name="due_time" type="time" step="60" value="09:00" required>
                 </div>
             </div>
 
             <div class="reminder-modal-actions">
-                <button type="button" class="reminder-btn-secondary" id="reminder-modal-cancel">{% trans "取消" %}</button>
-                <button type="submit" class="reminder-btn-primary">{% trans "保存" %}</button>
+                <button type="button" class="reminder-btn-secondary" id="reminder-modal-cancel">{</button>
+                <button type="submit" class="reminder-btn-primary">{</button>
             </div>
         </form>
     </div>
@@ -867,87 +866,87 @@
 
 <div id="reminder-detail-modal" class="reminder-modal" aria-hidden="true">
     <div class="reminder-modal-card">
-        <h3 class="reminder-modal-title">{% trans "提醒详情" %}</h3>
+        <h3 class="reminder-modal-title">{</h3>
         <div class="reminder-detail-item">
-            <div class="reminder-detail-key">{% trans "提醒事项" %}</div>
+            <div class="reminder-detail-key">{</div>
             <div class="reminder-detail-value" id="detail-title"></div>
         </div>
         <div class="reminder-detail-item">
-            <div class="reminder-detail-key">{% trans "提醒类型" %}</div>
+            <div class="reminder-detail-key">{</div>
             <div class="reminder-detail-value" id="detail-type"></div>
         </div>
         <div class="reminder-detail-item">
-            <div class="reminder-detail-key">{% trans "到期时间" %}</div>
+            <div class="reminder-detail-key">{</div>
             <div class="reminder-detail-value" id="detail-due"></div>
         </div>
         <div class="reminder-detail-item" id="detail-lawyer-item" style="display:none">
-            <div class="reminder-detail-key">{% trans "律师" %}</div>
+            <div class="reminder-detail-key">{</div>
             <div class="reminder-detail-value" id="detail-lawyer"></div>
         </div>
         <div class="reminder-detail-item" id="detail-courtroom-item" style="display:none">
-            <div class="reminder-detail-key">{% trans "开庭地点" %}</div>
+            <div class="reminder-detail-key">{</div>
             <div class="reminder-detail-value" id="detail-courtroom"></div>
         </div>
         <div class="reminder-detail-item" id="detail-location-item" style="display:none">
-            <div class="reminder-detail-key">{% trans "地点" %}</div>
+            <div class="reminder-detail-key">{</div>
             <div class="reminder-detail-value" id="detail-location"></div>
         </div>
         <div class="reminder-detail-item">
-            <div class="reminder-detail-key">{% trans "关联对象" %}</div>
+            <div class="reminder-detail-key">{</div>
             <div class="reminder-detail-value" id="detail-target"></div>
         </div>
         <div class="reminder-modal-actions">
-            <button type="button" class="reminder-btn-secondary" id="reminder-detail-close">{% trans "关闭" %}</button>
-            <a class="reminder-btn-primary" id="detail-open-link" href="#">{% trans "详情" %}</a>
+            <button type="button" class="reminder-btn-secondary" id="reminder-detail-close">{</button>
+            <a class="reminder-btn-primary" id="detail-open-link" href="#">{</a>
         </div>
     </div>
 </div>
 
 <div id="reminder-sync-modal" class="reminder-modal" aria-hidden="true">
     <div class="reminder-modal-card" style="width:min(640px,calc(100vw - 24px))">
-        <h3 class="reminder-modal-title">{% trans "导入日历事件" %}</h3>
+        <h3 class="reminder-modal-title">{</h3>
 
         <div class="reminder-sync-tabs" id="sync-tabs">
-            <button type="button" class="reminder-sync-tab active" data-tab="ics_file">{% trans "上传文件" %}</button>
-            <button type="button" class="reminder-sync-tab" data-tab="ics_url">{% trans "URL 导入" %}</button>
-            <button type="button" class="reminder-sync-tab" data-tab="local" id="sync-tab-local">{% trans "同步本机" %}</button>
+            <button type="button" class="reminder-sync-tab active" data-tab="ics_file">{</button>
+            <button type="button" class="reminder-sync-tab" data-tab="ics_url">{</button>
+            <button type="button" class="reminder-sync-tab" data-tab="local" id="sync-tab-local">{</button>
         </div>
 
         <div class="reminder-sync-panel active" id="panel-ics_file">
             <div class="reminder-dropzone" id="sync-dropzone">
                 <div class="reminder-dropzone-icon">📅</div>
-                <div class="reminder-dropzone-text">{% trans "点击或拖拽 .ics 文件到此处" %}</div>
+                <div class="reminder-dropzone-text">{</div>
                 <input type="file" id="sync-file-input" accept=".ics" style="display:none">
             </div>
         </div>
 
         <div class="reminder-sync-panel" id="panel-ics_url">
-            <input type="text" class="reminder-url-input" id="sync-url-input" placeholder="{% trans '粘贴 .ics 订阅地址，如 Google Calendar 私有链接' %}">
-            <div class="reminder-url-hint">{% trans "支持 Google Calendar、Outlook.com 等提供的 .ics 私有链接，仅限 https 协议" %}</div>
+            <input type="text" class="reminder-url-input" id="sync-url-input" placeholder="{">
+            <div class="reminder-url-hint">{</div>
         </div>
 
         <div class="reminder-sync-panel" id="panel-local">
             <div class="reminder-sync-provider-info" id="sync-local-info">
-                {% trans "正在检测本机日历…" %}
+                {
             </div>
             <div id="sync-local-date-range" style="display:none;margin-top:12px;">
                 <div style="display:flex;gap:10px;align-items:end;">
                     <div style="flex:1;">
-                        <label style="font-size:12px;font-weight:700;color:#334155;display:block;margin-bottom:4px;">{% trans "开始日期" %}</label>
+                        <label style="font-size:12px;font-weight:700;color:#334155;display:block;margin-bottom:4px;">{</label>
                         <input type="date" id="sync-start-date" class="reminder-url-input" style="min-height:34px;">
                     </div>
                     <div style="flex:1;">
-                        <label style="font-size:12px;font-weight:700;color:#334155;display:block;margin-bottom:4px;">{% trans "结束日期" %}</label>
+                        <label style="font-size:12px;font-weight:700;color:#334155;display:block;margin-bottom:4px;">{</label>
                         <input type="date" id="sync-end-date" class="reminder-url-input" style="min-height:34px;">
                     </div>
                 </div>
-                <div style="font-size:11px;color:#64748b;margin-top:4px;">{% trans "默认同步最近3个月至未来6个月的事件" %}</div>
+                <div style="font-size:11px;color:#64748b;margin-top:4px;">{</div>
 
                 <div id="sync-calendar-selector" style="display:none;margin-top:10px;">
-                    <div style="font-size:12px;font-weight:700;color:#334155;margin-bottom:6px;">{% trans "选择要同步的日历" %}</div>
+                    <div style="font-size:12px;font-weight:700;color:#334155;margin-bottom:6px;">{</div>
                     <div id="sync-calendar-list" style="display:flex;flex-wrap:wrap;gap:6px;border:1px solid #e2e8f0;border-radius:8px;padding:8px;"></div>
                     <div style="margin-top:8px;display:flex;justify-content:flex-end;">
-                        <button type="button" id="sync-clear-btn" style="padding:5px 10px;border:1px solid #fecaca;background:#fef2f2;color:#991b1b;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;transition:all 0.15s;">{% trans "清空已同步日历" %}</button>
+                        <button type="button" id="sync-clear-btn" style="padding:5px 10px;border:1px solid #fecaca;background:#fef2f2;color:#991b1b;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;transition:all 0.15s;">{</button>
                     </div>
                 </div>
             </div>
@@ -955,26 +954,26 @@
 
         <div id="sync-preview-area" style="display:none">
             <div class="reminder-preview-list" id="sync-preview-list">
-                <div class="reminder-preview-empty">{% trans "暂无事件" %}</div>
+                <div class="reminder-preview-empty">{</div>
             </div>
             <div class="reminder-sync-footer">
                 <div class="reminder-sync-count" id="sync-count"></div>
                 <div class="reminder-sync-actions">
-                    <button type="button" class="reminder-btn-secondary" id="sync-cancel-btn">{% trans "取消" %}</button>
-                    <button type="button" class="reminder-btn-primary" id="sync-import-btn">{% trans "确认导入" %}</button>
+                    <button type="button" class="reminder-btn-secondary" id="sync-cancel-btn">{</button>
+                    <button type="button" class="reminder-btn-primary" id="sync-import-btn">{</button>
                 </div>
             </div>
         </div>
 
         <div id="sync-loading" style="display:none;text-align:center;padding:24px;">
-            <div style="font-size:14px;color:#64748b;">{% trans "正在解析日历事件…" %}</div>
+            <div style="font-size:14px;color:#64748b;">{</div>
         </div>
 
         <div id="sync-result" style="display:none"></div>
 
         <div id="sync-actions-initial" class="reminder-modal-actions" style="margin-top:14px;">
-            <button type="button" class="reminder-btn-secondary" id="sync-close-btn">{% trans "关闭" %}</button>
-            <button type="button" class="reminder-btn-primary" id="sync-preview-btn">{% trans "预览事件" %}</button>
+            <button type="button" class="reminder-btn-secondary" id="sync-close-btn">{</button>
+            <button type="button" class="reminder-btn-primary" id="sync-preview-btn">{</button>
         </div>
     </div>
 </div>
@@ -1342,7 +1341,7 @@
                     if (isDefaultExcluded) {
                         const tag = document.createElement('span');
                         tag.className = 'sync-calendar-chip-tag';
-                        tag.textContent = '{% trans "节假日" %}';
+                        tag.textContent = '{';
                         chip.appendChild(tag);
                     }
                     chip.addEventListener('click', () => {
@@ -1677,14 +1676,14 @@
         }
 
         syncImportBtn.disabled = true;
-        syncImportBtn.textContent = '{% trans "处理中…" %}';
+        syncImportBtn.textContent = '{';
 
         const formData = new FormData();
         formData.append('events', JSON.stringify(selected));
 
         if (!syncImportUrl) {
             syncImportBtn.disabled = false;
-            syncImportBtn.textContent = '{% trans "确认导入/同步" %}';
+            syncImportBtn.textContent = '{';
             alert('日历同步服务未就绪，请刷新页面重试');
             return;
         }
@@ -1699,17 +1698,17 @@
                 syncPreviewArea.style.display = 'none';
                 syncResult.style.display = '';
                 syncResult.className = 'reminder-sync-result';
-                syncResult.textContent = '{% trans "导入/同步完成！" %}' + '{% trans "成功" %} ' + String(data.created) + ' {% trans "条" %}，{% trans "跳过" %} ' + String(data.skipped) + ' {% trans "条" %}';
+                syncResult.textContent = '{' + '{ ' + String(data.created) + ' {，{ ' + String(data.skipped) + ' {';
                 if (data.created > 0) {
                     setTimeout(() => { window.location.reload(); }, 1200);
                 }
             })
             .catch(() => {
-                alert('{% trans "操作失败，请重试" %}');
+                alert('{');
             })
             .finally(() => {
                 syncImportBtn.disabled = false;
-                syncImportBtn.textContent = '{% trans "确认导入/同步" %}';
+                syncImportBtn.textContent = '{';
             });
     });
 
@@ -1734,7 +1733,7 @@
     const syncClearBtn = document.getElementById('sync-clear-btn');
     if (syncClearBtn) {
         syncClearBtn.addEventListener('click', () => {
-            if (!confirm('{% trans "确定要清空所有从本机日历同步的提醒吗？此操作不可恢复。" %}')) return;
+            if (!confirm('{')) return;
             if (!syncProvidersUrl) { alert('日历同步服务未就绪，请刷新页面重试'); return; }
             const clearUrl = syncProvidersUrl.replace('/sync/providers/', '/sync/clear/');
             fetch(clearUrl, {
@@ -1747,12 +1746,12 @@
                     if (data.error) {
                         alert(data.error);
                     } else {
-                        alert('{% trans "已清空" %} ' + String(data.deleted) + ' {% trans "条同步提醒" %}');
+                        alert('{ ' + String(data.deleted) + ' {');
                         window.location.reload();
                     }
                 })
                 .catch(() => {
-                    alert('{% trans "操作失败，请重试" %}');
+                    alert('{');
                 });
         });
     }

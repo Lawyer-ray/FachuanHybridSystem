@@ -8,12 +8,10 @@ from __future__ import annotations
 
 from typing import Any
 
-
 def submit_q_task(func: str, *args: Any, task_name: str | None = None, **kwargs: Any) -> str:
     from apps.core.tasking import submit_task
 
     return submit_task(func, *args, task_name=task_name, kwargs=kwargs if kwargs else None)
-
 
 def get_q_task_status(task_id: str) -> dict[str, Any]:
     from apps.core.tasking import TaskQueryService

@@ -8,7 +8,6 @@ from typing import Any, cast
 
 from .context import TaskContext, get_current_request_id
 
-
 class TaskSubmissionService:
     def submit(
         self,

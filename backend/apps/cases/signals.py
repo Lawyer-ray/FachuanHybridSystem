@@ -14,7 +14,6 @@ from django.dispatch import receiver
 
 logger = logging.getLogger(__name__)
 
-
 @receiver(post_delete, sender="cases.CaseLogAttachment")
 def _cleanup_log_attachment_file(sender: Any, instance: Any, **kwargs: Any) -> None:
     """删除 CaseLogAttachment 时清理物理文件。"""
@@ -30,7 +29,6 @@ def _cleanup_log_attachment_file(sender: Any, instance: Any, **kwargs: Any) -> N
                 "清理日志附件物理文件失败",
                 extra={"attachment_id": instance.pk},
             )
-
 
 @receiver(post_delete, sender="cases.CaseNumber")
 def _cleanup_case_number_document_file(sender: Any, instance: Any, **kwargs: Any) -> None:

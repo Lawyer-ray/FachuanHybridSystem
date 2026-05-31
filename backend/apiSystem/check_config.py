@@ -6,17 +6,14 @@ from apps.core.models import SystemConfig
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 logger = logging.getLogger(__name__)
 
-
 _SENSITIVE_KEY_RE = re.compile(
     r"(token|secret|password|passwd|api[_-]?key|authorization|bearer|cookie|session|private)",
     re.IGNORECASE,
 )
 _LIKELY_TOKEN_RE = re.compile(r"^[A-Za-z0-9_\-\.=]{24,}$")
 
-
 def _is_sensitive_key(key: str) -> bool:
     return bool(_SENSITIVE_KEY_RE.search(key or ""))
-
 
 def _safe_preview(key: str, value: str | None, *, max_len: int = 30) -> str:
     if value is None:
@@ -29,12 +26,10 @@ def _safe_preview(key: str, value: str | None, *, max_len: int = 30) -> str:
         return value
     return f"{value[:max_len]}..."
 
-
 def _print_section(title: str) -> None:
     logger.info("=" * 60)
     logger.info(title)
     logger.info("=" * 60)
-
 
 _print_section("数据库中的 SILICON 相关配置：")
 silicon_configs = SystemConfig.objects.filter(key__icontains="SILICON")

@@ -15,7 +15,6 @@ from .repo import CaseAssignmentRepo
 if TYPE_CHECKING:
     from apps.core.security.access_context import AccessContext
 
-
 class CaseAccessPolicy(OrgAllowedLawyersMixin):
     def __init__(self, case_assignment_repo: CaseAssignmentRepo | None = None) -> None:
         self._case_assignment_repo = case_assignment_repo

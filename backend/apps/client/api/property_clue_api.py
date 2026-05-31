@@ -18,13 +18,11 @@ from apps.client.schemas import (
 
 router = Router(tags=["财产线索"])
 
-
 def _get_property_clue_service() -> Any:
     """工厂函数：创建 PropertyClueService 实例（延迟导入）"""
     from apps.client.services.property_clue_service import PropertyClueService
 
     return PropertyClueService()
-
 
 @router.post("/clients/{client_id}/property-clues", response=PropertyClueOut)
 def create_property_clue(request: Any, client_id: int, payload: PropertyClueIn) -> Any:
@@ -45,7 +43,6 @@ def create_property_clue(request: Any, client_id: int, payload: PropertyClueIn) 
 
     return clue
 
-
 @router.get("/clients/{client_id}/property-clues", response=list[PropertyClueOut])
 def list_property_clues(request: Any, client_id: int) -> Any:
     """
@@ -65,7 +62,6 @@ def list_property_clues(request: Any, client_id: int) -> Any:
 
     return list(clues)
 
-
 @router.get("/property-clues/content-template", response=ContentTemplateOut)
 def get_content_template(request: Any, clue_type: str) -> ContentTemplateOut:
     """
@@ -81,7 +77,6 @@ def get_content_template(request: Any, clue_type: str) -> ContentTemplateOut:
     template = _get_property_clue_service().get_content_template(clue_type)
 
     return ContentTemplateOut(clue_type=clue_type, template=template)
-
 
 @router.get("/property-clues/{clue_id}", response=PropertyClueOut)
 def get_property_clue(request: Any, clue_id: int) -> Any:
@@ -101,7 +96,6 @@ def get_property_clue(request: Any, clue_id: int) -> Any:
     clue = service.get_clue(clue_id=clue_id, user=user)
 
     return clue
-
 
 @router.put("/property-clues/{clue_id}", response=PropertyClueOut)
 def update_property_clue(request: Any, clue_id: int, payload: PropertyClueUpdateIn) -> Any:
@@ -125,7 +119,6 @@ def update_property_clue(request: Any, clue_id: int, payload: PropertyClueUpdate
 
     return clue
 
-
 @router.delete("/property-clues/{clue_id}", response={204: None})
 def delete_property_clue(request: Any, clue_id: int) -> Any:
     """
@@ -145,7 +138,6 @@ def delete_property_clue(request: Any, clue_id: int) -> Any:
 
     return Status(204, None)
 
-
 @router.post("/property-clues/{clue_id}/attachments", response=PropertyClueAttachmentOut)
 def upload_attachment(
     request: Any,
@@ -156,7 +148,6 @@ def upload_attachment(
     service = _get_property_clue_service()
     user = getattr(request, "auth", None) or getattr(request, "user", None)
     return service.add_attachment_from_upload(clue_id=clue_id, uploaded_file=file, user=user)
-
 
 @router.delete("/property-clue-attachments/{attachment_id}", response={204: None})
 def delete_attachment(request: Any, attachment_id: int) -> Any:

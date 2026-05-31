@@ -9,7 +9,6 @@ from ninja import Router
 
 router = Router()
 
-
 @router.get("/status")
 def get_court_status(request: HttpRequest) -> Any:
     """查询法院自动化插件可用状态。"""

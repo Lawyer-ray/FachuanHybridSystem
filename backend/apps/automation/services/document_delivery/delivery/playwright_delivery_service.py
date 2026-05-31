@@ -18,7 +18,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger("apps.automation")
 
-
 class PlaywrightDeliveryService:
     """Playwright 方式文书投递服务"""
 

@@ -11,7 +11,6 @@ from django.conf import settings
 from django.core.files.storage import FileSystemStorage
 from django.utils.deconstruct import deconstructible
 
-
 @deconstructible
 class EvidenceFileStorage(FileSystemStorage):
     def deconstruct(self) -> tuple[str, list[object], dict[str, object]]:
@@ -54,10 +53,8 @@ class EvidenceFileStorage(FileSystemStorage):
 
         return str(path.parent / (stem + ext))
 
-
 def get_evidence_storage() -> EvidenceFileStorage:
     """获取证据文件存储实例"""
     return EvidenceFileStorage(location=os.path.join(settings.MEDIA_ROOT, "evidence"), base_url="/media/evidence/")
-
 
 evidence_file_storage = get_evidence_storage()

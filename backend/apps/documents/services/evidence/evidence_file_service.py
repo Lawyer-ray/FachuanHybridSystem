@@ -7,13 +7,11 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar, cast
 
 from django.db import transaction
-from django.utils.translation import gettext_lazy as _
 
 from apps.core.exceptions import ValidationException
 
 if TYPE_CHECKING:
     from apps.evidence.models import EvidenceItem
-
 
 class EvidenceFileService:
     SUPPORTED_FORMATS: ClassVar = [".pdf", ".doc", ".docx", ".jpg", ".jpeg", ".png", ".gif", ".bmp"]
@@ -27,7 +25,7 @@ class EvidenceFileService:
         ext = Path(file_name).suffix.lower()
         if ext not in self.SUPPORTED_FORMATS:
             raise ValidationException(
-                message=_("不支持的文件格式"),
+                message="不支持的文件格式",
                 code="UNSUPPORTED_FILE_FORMAT",
                 errors={
                     "file": f"不支持 {ext} 格式",
@@ -37,7 +35,7 @@ class EvidenceFileService:
 
         if file_size > self.MAX_FILE_SIZE:
             raise ValidationException(
-                message=_("文件过大"),
+                message="文件过大",
                 code="FILE_TOO_LARGE",
                 errors={
                     "file": f"文件大小 {file_size / (1024 * 1024):.1f}MB 超过限制 50MB",

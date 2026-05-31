@@ -13,7 +13,6 @@ from apps.legal_solution.services.solution_generator import SolutionGenerator
 
 logger = logging.getLogger(__name__)
 
-
 class SolutionTaskService:
     CREATE_PENDING_MESSAGE = "任务已创建，等待调度"
     QUEUED_MESSAGE = "任务已提交到队列"

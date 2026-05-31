@@ -52,7 +52,6 @@ _KEYWORDS: dict[str, list[str]] = {
     ],
 }
 
-
 @dataclass
 class ClassifiedImage:
     """分类后的图片"""
@@ -67,14 +66,12 @@ class ClassifiedImage:
     image_data: str = ""  # base64
     rotation: int = 0
 
-
 @dataclass
 class ClassifyResult:
     """分类结果"""
 
     images: list[ClassifiedImage] = field(default_factory=list)
     errors: list[str] = field(default_factory=list)
-
 
 class ClassifierService:
     """图片 OCR + 关键词分类"""

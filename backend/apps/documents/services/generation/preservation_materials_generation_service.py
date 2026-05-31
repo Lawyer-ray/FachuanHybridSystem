@@ -12,7 +12,7 @@ import zipfile
 from typing import Any, cast
 
 from django.utils import timezone
-from django.utils.translation import gettext_lazy as _
+
 from docxtpl import DocxTemplate
 
 from apps.core.exceptions import NotFoundError, ValidationException
@@ -25,7 +25,6 @@ from apps.documents.services.placeholders.fallback import build_docx_render_cont
 logger = logging.getLogger("apps.documents.generation")
 FUNCTION_CODE_PRESERVATION_APPLICATION = "preservation_application"
 FUNCTION_CODE_DELAY_DELIVERY_APPLICATION = "delay_delivery_application"
-
 
 class PreservationMaterialsGenerationService:
     """财产保全材料生成服务"""
@@ -95,7 +94,7 @@ class PreservationMaterialsGenerationService:
         template_path = self._get_template_path_by_function_code(case_id, FUNCTION_CODE_PRESERVATION_APPLICATION)
         if not template_path:
             raise NotFoundError(
-                message=_("未找到财产保全申请书模板"),
+                message="未找到财产保全申请书模板",
                 code="TEMPLATE_NOT_FOUND",
                 errors={"function_code": FUNCTION_CODE_PRESERVATION_APPLICATION},
             )
@@ -120,7 +119,7 @@ class PreservationMaterialsGenerationService:
         template_path = self._get_template_path_by_function_code(case_id, FUNCTION_CODE_DELAY_DELIVERY_APPLICATION)
         if not template_path:
             raise NotFoundError(
-                message=_("未找到暂缓送达申请书模板"),
+                message="未找到暂缓送达申请书模板",
                 code="TEMPLATE_NOT_FOUND",
                 errors={"function_code": FUNCTION_CODE_DELAY_DELIVERY_APPLICATION},
             )
@@ -145,7 +144,7 @@ class PreservationMaterialsGenerationService:
         respondents = self._get_respondents(case_id)
         if not respondents:
             raise ValidationException(
-                message=_("案件没有被申请人,无法生成财产保全材料"),
+                message="案件没有被申请人,无法生成财产保全材料",
                 code="NO_RESPONDENTS",
                 errors={"case_id": str(case_id)},
             )
@@ -214,7 +213,7 @@ class PreservationMaterialsGenerationService:
         case_service = get_case_service()
         case = case_service.get_case_model_internal(case_id)
         if not case:
-            raise NotFoundError(message=_("案件不存在"), code="CASE_NOT_FOUND", errors={"case_id": str(case_id)})
+            raise NotFoundError(message="案件不存在", code="CASE_NOT_FOUND", errors={"case_id": str(case_id)})
         return case
 
     def _get_respondents(self, case_id: int) -> list[Any]:
@@ -295,7 +294,7 @@ class PreservationMaterialsGenerationService:
         """渲染模板"""
         if not template_path.exists():
             raise ValidationException(
-                message=_("模板文件不存在: %(p)s") % {"p": template_path},
+                message="模板文件不存在: %(p)s" % {"p": template_path},
                 code="TEMPLATE_NOT_FOUND",
                 errors={"template_path": str(template_path)},
             )
@@ -312,7 +311,7 @@ class PreservationMaterialsGenerationService:
         except Exception as e:
             logger.error("模板渲染失败", exc_info=True, extra={"template_path": str(template_path), "error": str(e)})
             raise ValidationException(
-                message=_("模板渲染失败: %(e)s") % {"e": e}, code="TEMPLATE_RENDER_ERROR", errors={"error": str(e)}
+                message="模板渲染失败: %(e)s" % {"e": e}, code="TEMPLATE_RENDER_ERROR", errors={"error": str(e)}
             ) from e
 
     def _build_filename(self, template_name: str, case: Any) -> str:

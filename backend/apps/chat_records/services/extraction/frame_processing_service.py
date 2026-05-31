@@ -23,7 +23,6 @@ logger = logging.getLogger("apps.chat_records")
 # Type alias for the reorder callback
 ReorderCallback = Callable[[int], None]
 
-
 class FrameProcessingService:
     """帧处理服务：封装抽帧流程中的去重、ffmpeg 调度、截图写入等逻辑。"""
 

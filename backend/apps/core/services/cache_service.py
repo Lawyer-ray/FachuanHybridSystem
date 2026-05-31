@@ -19,7 +19,6 @@ logger = logging.getLogger(__name__)
 
 F = TypeVar("F", bound=Callable[..., Any])
 
-
 def cached(key_template: str, timeout: int | None = None) -> Callable[[F], F]:
     """
     缓存装饰器
@@ -71,7 +70,6 @@ def cached(key_template: str, timeout: int | None = None) -> Callable[[F], F]:
         return wrapper  # type: ignore[return-value]
 
     return decorator
-
 
 def invalidate_cache(key: str) -> None:
     """

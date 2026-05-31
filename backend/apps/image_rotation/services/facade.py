@@ -14,7 +14,6 @@ from .transform import clean_image, resize_to_paper_size
 
 logger = logging.getLogger("apps.image_rotation")
 
-
 class ImageRotationService:
     SUPPORTED_FORMATS: ClassVar = {"jpeg", "jpg", "png"}
     MAX_FILE_SIZE = 20 * 1024 * 1024

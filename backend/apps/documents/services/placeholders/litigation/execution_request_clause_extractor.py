@@ -15,10 +15,8 @@ from .execution_request_utils import (
     parse_multiplier_value,
 )
 
-
 def has_double_interest_clause(main_text: str) -> bool:
     return bool(re.search(r"加倍支付\s*迟\s*延履行期间(?:的)?债务利息", main_text))
-
 
 def extract_supplementary_liability_text(main_text: str) -> str:
     for sentence in re.split(r"[。；\n]", main_text):
@@ -46,7 +44,6 @@ def extract_supplementary_liability_text(main_text: str) -> str:
                 return text
     return ""
 
-
 def extract_joint_liability_text(main_text: str) -> str:
     for sentence in re.split(r"[。；\n]", main_text):
         text = sentence.strip()
@@ -62,7 +59,6 @@ def extract_joint_liability_text(main_text: str) -> str:
         if any(k in text for k in ("债务", "清偿", "本判决第一项", "判决第一项")):
             return text
     return ""
-
 
 def extract_priority_execution_texts(main_text: str) -> list[str]:
     results: list[str] = []
@@ -80,7 +76,6 @@ def extract_priority_execution_texts(main_text: str) -> list[str]:
         if text not in results:
             results.append(text)
     return results
-
 
 def extract_manual_review_clauses(main_text: str, *, recognized_texts: list[str]) -> list[str]:
     clauses = extract_numbered_clauses(main_text)
@@ -110,7 +105,6 @@ def extract_manual_review_clauses(main_text: str, *, recognized_texts: list[str]
             results.append(text.rstrip("。；"))
     return results
 
-
 def extract_numbered_clauses(main_text: str) -> list[str]:
     marker_pattern = re.compile(r"(?:^|(?<=[。；\n]))\s*([一二三四五六七八九十\d]+[、.])")
     markers = list(marker_pattern.finditer(main_text))
@@ -125,7 +119,6 @@ def extract_numbered_clauses(main_text: str) -> list[str]:
         if clause:
             clauses.append(clause)
     return clauses
-
 
 def extract_original_segmented_interest_expression(*, main_text: str, overdue_label: str) -> str:
     label = (overdue_label or "").strip()
@@ -142,7 +135,6 @@ def extract_original_segmented_interest_expression(*, main_text: str, overdue_la
             continue
         return text
     return ""
-
 
 def parse_overdue_interest_rules(main_text: str) -> list[OverdueInterestRule]:
     from .execution_request_interest import parse_interest_params
@@ -210,7 +202,6 @@ def parse_overdue_interest_rules(main_text: str) -> list[OverdueInterestRule]:
         rules.append(OverdueInterestRule(params=params, segments=segments, source_text=clause))
 
     return rules
-
 
 def _parse_dual_phase_overdue_interest_rules(clause: str) -> list[OverdueInterestRule]:
     compact = clause.replace(" ", "")
@@ -310,7 +301,6 @@ def _parse_dual_phase_overdue_interest_rules(clause: str) -> list[OverdueInteres
 
     return rules
 
-
 def parse_interest_segments(main_text: str) -> list[InterestSegment]:
     segment_pattern = re.compile(
         rf"以[^，,；。\n]{{0,30}}?{AMOUNT_WITH_UNIT_PATTERN}\s*为(?:基数|本金)\s*"
@@ -397,7 +387,6 @@ def parse_interest_segments(main_text: str) -> list[InterestSegment]:
                 segments.append(candidate)
 
     return sorted(segments, key=lambda s: (s.start_date, s.end_date or date.max))
-
 
 def _extract_shared_segment_end_date(main_text: str) -> date | None:
     shared_date_match = re.search(

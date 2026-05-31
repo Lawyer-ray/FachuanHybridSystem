@@ -10,17 +10,14 @@ from django import forms
 from django.contrib import admin
 from django.http import HttpRequest
 from django.utils.html import format_html
-from django.utils.translation import gettext_lazy as _
 
 from apps.core.exceptions import NotFoundError
 from apps.documents.models import DocumentTemplateFolderBinding, FolderTemplate
-
 
 def _get_folder_template_admin_service() -> Any:
     from ..services import FolderTemplateAdminService
 
     return FolderTemplateAdminService()
-
 
 class FolderNodeChoiceField(forms.ChoiceField):
     """动态加载文件夹节点的选择字段"""
@@ -29,13 +26,12 @@ class FolderNodeChoiceField(forms.ChoiceField):
         kwargs.setdefault("choices", [("", "---------")])
         super().__init__(*args, **kwargs)
 
-
 class DocumentTemplateFolderBindingForm(forms.ModelForm[DocumentTemplateFolderBinding]):
     """文书模板文件夹绑定表单"""
 
     folder_node_id = FolderNodeChoiceField(
-        label=_("目标文件夹"),
-        help_text=_("选择文书生成后存放的文件夹位置"),
+        label="目标文件夹",
+        help_text="选择文书生成后存放的文件夹位置",
     )
 
     class Meta:
@@ -83,7 +79,6 @@ class DocumentTemplateFolderBindingForm(forms.ModelForm[DocumentTemplateFolderBi
                 new_prefix = f"{display_name} / "
                 self._extract_nodes(sub_children, choices, new_prefix)
 
-
 @admin.register(DocumentTemplateFolderBinding)
 class DocumentTemplateFolderBindingAdmin(admin.ModelAdmin):
     """文书模板文件夹绑定管理"""
@@ -120,15 +115,15 @@ class DocumentTemplateFolderBindingAdmin(admin.ModelAdmin):
     fieldsets = (
         (None, {"fields": ("document_template", "folder_template", "folder_node_id")}),
         (
-            _("位置信息"),
+            "位置信息",
             {
                 "fields": ("folder_node_path",),
                 "classes": ("collapse",),
             },
         ),
-        (_("设置"), {"fields": ("is_active",)}),
+        ("设置", {"fields": ("is_active",)}),
         (
-            _("时间信息"),
+            "时间信息",
             {
                 "fields": ("created_at", "updated_at"),
                 "classes": ("collapse",),
@@ -139,7 +134,7 @@ class DocumentTemplateFolderBindingAdmin(admin.ModelAdmin):
     class Media:
         js: ClassVar[tuple[str, ...]] = ("documents/js/folder_binding_admin.js",)
 
-    @admin.display(description=_("文件夹路径"))
+    @admin.display(description="文件夹路径")
     def folder_path_display(self, obj: DocumentTemplateFolderBinding) -> Any:
         """显示文件夹路径"""
         if obj.folder_node_path:

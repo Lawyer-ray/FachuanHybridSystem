@@ -6,7 +6,6 @@ from pathlib import Path
 
 import fitz
 
-
 class ExportUtils:
     """PDF 片段导出与文件名去重工具。"""
 

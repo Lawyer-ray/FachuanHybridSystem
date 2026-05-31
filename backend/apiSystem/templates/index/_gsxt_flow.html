@@ -1,11 +1,10 @@
-{% load i18n %}
     <!-- 企业信用报告自动获取 — 终端风格 -->
     <section class="gsxt-section" id="gsxt-flow">
         <div class="gsxt-container">
             <div class="section-header reveal">
-                <span class="section-tag">🏢 {% trans "企业信用报告" %}</span>
-                <h2 class="section-title">{% trans "企业信用报告 · 全流程半自动化" %}</h2>
-                <p class="section-desc">{% trans "Playwright 自动登录→搜索→申请，用户只需完成 3 次验证码，报告通过邮件自动回收" %}</p>
+                <span class="section-tag">🏢 {</span>
+                <h2 class="section-title">{</h2>
+                <p class="section-desc">{</p>
             </div>
 
             <div class="gsxt-theater reveal" id="gsxtTheater">
@@ -25,43 +24,43 @@
                 <div class="gsxt-timeline" id="gsxtTimeline">
                     <div class="gsxt-tl-node" data-idx="0">
                         <span class="gsxt-tl-pip auto"><span class="gsxt-tl-num">1</span></span>
-                        <span class="gsxt-tl-label">{% trans "打开登录页" %}<i class="gsxt-tl-badge auto">AUTO</i></span>
+                        <span class="gsxt-tl-label">{<i class="gsxt-tl-badge auto">AUTO</i></span>
                     </div>
                     <div class="gsxt-tl-node" data-idx="1">
                         <span class="gsxt-tl-pip auto"><span class="gsxt-tl-num">2</span></span>
-                        <span class="gsxt-tl-label">{% trans "填写账号" %}<i class="gsxt-tl-badge auto">AUTO</i></span>
+                        <span class="gsxt-tl-label">{<i class="gsxt-tl-badge auto">AUTO</i></span>
                     </div>
                     <div class="gsxt-tl-node" data-idx="2">
                         <span class="gsxt-tl-pip manual"><span class="gsxt-tl-num">3</span></span>
-                        <span class="gsxt-tl-label">{% trans "验证码 ①" %}<i class="gsxt-tl-badge manual">手动</i></span>
+                        <span class="gsxt-tl-label">{<i class="gsxt-tl-badge manual">手动</i></span>
                     </div>
                     <div class="gsxt-tl-node" data-idx="3">
                         <span class="gsxt-tl-pip auto"><span class="gsxt-tl-num">4</span></span>
-                        <span class="gsxt-tl-label">{% trans "搜索企业" %}<i class="gsxt-tl-badge auto">AUTO</i></span>
+                        <span class="gsxt-tl-label">{<i class="gsxt-tl-badge auto">AUTO</i></span>
                     </div>
                     <div class="gsxt-tl-node" data-idx="4">
                         <span class="gsxt-tl-pip manual"><span class="gsxt-tl-num">5</span></span>
-                        <span class="gsxt-tl-label">{% trans "验证码 ②" %}<i class="gsxt-tl-badge manual">手动</i></span>
+                        <span class="gsxt-tl-label">{<i class="gsxt-tl-badge manual">手动</i></span>
                     </div>
                     <div class="gsxt-tl-node" data-idx="5">
                         <span class="gsxt-tl-pip auto"><span class="gsxt-tl-num">6</span></span>
-                        <span class="gsxt-tl-label">{% trans "进入详情" %}<i class="gsxt-tl-badge auto">AUTO</i></span>
+                        <span class="gsxt-tl-label">{<i class="gsxt-tl-badge auto">AUTO</i></span>
                     </div>
                     <div class="gsxt-tl-node" data-idx="6">
                         <span class="gsxt-tl-pip auto"><span class="gsxt-tl-num">7</span></span>
-                        <span class="gsxt-tl-label">{% trans "申请报告" %}<i class="gsxt-tl-badge auto">AUTO</i></span>
+                        <span class="gsxt-tl-label">{<i class="gsxt-tl-badge auto">AUTO</i></span>
                     </div>
                     <div class="gsxt-tl-node" data-idx="7">
                         <span class="gsxt-tl-pip manual"><span class="gsxt-tl-num">8</span></span>
-                        <span class="gsxt-tl-label">{% trans "验证码 ③" %}<i class="gsxt-tl-badge manual">手动</i></span>
+                        <span class="gsxt-tl-label">{<i class="gsxt-tl-badge manual">手动</i></span>
                     </div>
                     <div class="gsxt-tl-node" data-idx="8">
                         <span class="gsxt-tl-pip auto"><span class="gsxt-tl-num">9</span></span>
-                        <span class="gsxt-tl-label">{% trans "邮件轮询" %}<i class="gsxt-tl-badge auto">AUTO</i></span>
+                        <span class="gsxt-tl-label">{<i class="gsxt-tl-badge auto">AUTO</i></span>
                     </div>
                     <div class="gsxt-tl-node" data-idx="9">
                         <span class="gsxt-tl-pip auto"><span class="gsxt-tl-num">✓</span></span>
-                        <span class="gsxt-tl-label">{% trans "完成" %}</span>
+                        <span class="gsxt-tl-label">{</span>
                     </div>
                 </div>
 
@@ -69,23 +68,23 @@
                 <div class="gsxt-status-panel">
                     <div class="gsxt-sp-header">
                         <span class="gsxt-sp-indicator" id="gsxtIndicator"></span>
-                        <span id="gsxtSpTitle">{% trans "等待启动" %}</span>
+                        <span id="gsxtSpTitle">{</span>
                     </div>
                     <div class="gsxt-sp-cards">
                         <div class="gsxt-sp-card" id="gsxtCardTarget">
-                            <div class="gsxt-sp-card-label">{% trans "目标企业" %}</div>
+                            <div class="gsxt-sp-card-label">{</div>
                             <div class="gsxt-sp-card-value">小米科技有限责任公司</div>
                         </div>
                         <div class="gsxt-sp-card" id="gsxtCardCode">
-                            <div class="gsxt-sp-card-label">{% trans "信用代码" %}</div>
+                            <div class="gsxt-sp-card-label">{</div>
                             <div class="gsxt-sp-card-value" style="font-family:monospace;">91110108551385082Q</div>
                         </div>
                         <div class="gsxt-sp-card" id="gsxtCardPhase">
-                            <div class="gsxt-sp-card-label">{% trans "当前阶段" %}</div>
+                            <div class="gsxt-sp-card-label">{</div>
                             <div class="gsxt-sp-card-value" id="gsxtPhaseText">—</div>
                         </div>
                         <div class="gsxt-sp-card" id="gsxtCardEmail">
-                            <div class="gsxt-sp-card-label">{% trans "邮件状态" %}</div>
+                            <div class="gsxt-sp-card-label">{</div>
                             <div class="gsxt-sp-card-value" id="gsxtEmailText">—</div>
                         </div>
                     </div>
@@ -94,7 +93,7 @@
                         <div class="gsxt-sp-result-icon">📄</div>
                         <div>
                             <div class="gsxt-sp-result-title">小米科技有限责任公司报告.pdf</div>
-                            <div class="gsxt-sp-result-sub">{% trans "已保存为营业执照文档" %}</div>
+                            <div class="gsxt-sp-result-sub">{</div>
                         </div>
                     </div>
                 </div>
@@ -103,15 +102,15 @@
             <!-- 图例 + 控制 -->
             <div class="gsxt-footer">
                 <div class="gsxt-legend">
-                    <span><span class="gsxt-legend-dot auto"></span>{% trans "自动执行" %}</span>
-                    <span><span class="gsxt-legend-dot manual"></span>{% trans "需手动验证码" %}</span>
+                    <span><span class="gsxt-legend-dot auto"></span>{</span>
+                    <span><span class="gsxt-legend-dot manual"></span>{</span>
                 </div>
                 <div class="gsxt-controls">
                     <button class="flow-btn flow-btn-play" id="gsxtPlayBtn" onclick="startGsxtAnimation()">
-                        <span>▶</span> {% trans "播放演示" %}
+                        <span>▶</span> {
                     </button>
                     <button class="flow-btn flow-btn-reset" id="gsxtResetBtn" onclick="resetGsxtAnimation()">
-                        <span>↺</span> {% trans "重置" %}
+                        <span>↺</span> {
                     </button>
                 </div>
             </div>
@@ -410,16 +409,16 @@
     <script>
     (function() {
         const STEPS = [
-            { log: ['[INFO] page.goto("https://gsxt.gov.cn/login")', '[INFO] 等待登录页加载...'], cls: 'info', phase: '{% trans "打开登录页" %}', delay: 800 },
-            { log: ['[INFO] 填写账号: huang****@163.com', '[INFO] 填写密码: ********'], cls: 'info', phase: '{% trans "填写账号密码" %}', delay: 700 },
-            { log: ['[WAIT] ⏳ 等待用户完成极验验证码...', '[USER] 🖱️ 用户拖动滑块...', '[OK]   ✅ 验证码通过'], cls: 'warn', phase: '{% trans "等待验证码 ①" %}', indicator: 'waiting', delay: 2000 },
-            { log: ['[INFO] #keyword.fill("小米科技有限责任公司")', '[INFO] #btn_query.click()', '[INFO] 等待搜索结果...'], cls: 'info', phase: '{% trans "搜索企业" %}', delay: 900 },
-            { log: ['[WAIT] ⏳ 等待用户完成搜索验证码...', '[USER] 🖱️ 用户点击验证图片...', '[OK]   ✅ 验证码通过'], cls: 'warn', phase: '{% trans "等待验证码 ②" %}', indicator: 'waiting', delay: 2000 },
-            { log: ['[INFO] 找到搜索结果，点击进入详情', '[INFO] page.goto("shiming.gsxt.gov.cn/...")'], cls: 'info', phase: '{% trans "进入详情页" %}', delay: 800 },
-            { log: ['[INFO] #btn_send_pdf.click()', '[INFO] 弹出发送对话框', '[INFO] sendPdf() — 发送报告至邮箱'], cls: 'accent', phase: '{% trans "申请报告" %}', email: '{% trans "等待发送..." %}', delay: 900 },
-            { log: ['[WAIT] ⏳ 等待用户完成极验验证码...', '[USER] 🖱️ 用户完成拼图...', '[OK]   ✅ 报告已发送至邮箱'], cls: 'warn', phase: '{% trans "等待验证码 ③" %}', indicator: 'waiting', delay: 2000 },
-            { log: ['[INFO] Schedule.ONCE — 60s 后轮询邮箱', '[INFO] IMAP imap.163.com:993 连接中...', '[INFO] ID command sent (Coremail)', '[INFO] 扫描文件夹: &TwFOGk,hdShP4WBv-', '[OK]   📧 找到附件: 小米科技有限责任公司报告.pdf'], cls: 'ok', phase: '{% trans "IMAP 轮询" %}', email: '{% trans "收到报告邮件 ✅" %}', delay: 1500 },
-            { log: ['[OK]   📄 保存为营业执照文档', '[OK]   ✅ GsxtReportTask 状态 → success', '[OK]   🎉 任务完成'], cls: 'ok', phase: '{% trans "归档完成" %}', email: '{% trans "已归档" %}', delay: 800 },
+            { log: ['[INFO] page.goto("https://gsxt.gov.cn/login")', '[INFO] 等待登录页加载...'], cls: 'info', phase: '{', delay: 800 },
+            { log: ['[INFO] 填写账号: huang****@163.com', '[INFO] 填写密码: ********'], cls: 'info', phase: '{', delay: 700 },
+            { log: ['[WAIT] ⏳ 等待用户完成极验验证码...', '[USER] 🖱️ 用户拖动滑块...', '[OK]   ✅ 验证码通过'], cls: 'warn', phase: '{', indicator: 'waiting', delay: 2000 },
+            { log: ['[INFO] #keyword.fill("小米科技有限责任公司")', '[INFO] #btn_query.click()', '[INFO] 等待搜索结果...'], cls: 'info', phase: '{', delay: 900 },
+            { log: ['[WAIT] ⏳ 等待用户完成搜索验证码...', '[USER] 🖱️ 用户点击验证图片...', '[OK]   ✅ 验证码通过'], cls: 'warn', phase: '{', indicator: 'waiting', delay: 2000 },
+            { log: ['[INFO] 找到搜索结果，点击进入详情', '[INFO] page.goto("shiming.gsxt.gov.cn/...")'], cls: 'info', phase: '{', delay: 800 },
+            { log: ['[INFO] #btn_send_pdf.click()', '[INFO] 弹出发送对话框', '[INFO] sendPdf() — 发送报告至邮箱'], cls: 'accent', phase: '{', email: '{', delay: 900 },
+            { log: ['[WAIT] ⏳ 等待用户完成极验验证码...', '[USER] 🖱️ 用户完成拼图...', '[OK]   ✅ 报告已发送至邮箱'], cls: 'warn', phase: '{', indicator: 'waiting', delay: 2000 },
+            { log: ['[INFO] Schedule.ONCE — 60s 后轮询邮箱', '[INFO] IMAP imap.163.com:993 连接中...', '[INFO] ID command sent (Coremail)', '[INFO] 扫描文件夹: &TwFOGk,hdShP4WBv-', '[OK]   📧 找到附件: 小米科技有限责任公司报告.pdf'], cls: 'ok', phase: '{', email: '{', delay: 1500 },
+            { log: ['[OK]   📄 保存为营业执照文档', '[OK]   ✅ GsxtReportTask 状态 → success', '[OK]   🎉 任务完成'], cls: 'ok', phase: '{', email: '{', delay: 800 },
         ];
 
         let timer = null;
@@ -446,14 +445,14 @@
             document.getElementById('gsxtPlayBtn').disabled = true;
             const indicator = document.getElementById('gsxtIndicator');
             indicator.classList.add('running');
-            document.getElementById('gsxtSpTitle').textContent = '{% trans "执行中" %}';
+            document.getElementById('gsxtSpTitle').textContent = '{';
 
             let i = 0;
             function tick() {
                 if (i >= STEPS.length) {
                     indicator.classList.remove('running', 'waiting');
                     indicator.classList.add('done');
-                    document.getElementById('gsxtSpTitle').textContent = '{% trans "全部完成" %}';
+                    document.getElementById('gsxtSpTitle').textContent = '{';
                     document.getElementById('gsxtResult').classList.add('show');
                     document.getElementById('gsxtPlayBtn').disabled = false;
                     return;
@@ -507,7 +506,7 @@
             nodes.forEach(n => n.classList.remove('reached', 'active'));
             // reset panel
             document.getElementById('gsxtIndicator').className = 'gsxt-sp-indicator';
-            document.getElementById('gsxtSpTitle').textContent = '{% trans "等待启动" %}';
+            document.getElementById('gsxtSpTitle').textContent = '{';
             document.getElementById('gsxtPhaseText').textContent = '—';
             document.getElementById('gsxtEmailText').textContent = '—';
             document.getElementById('gsxtResult').classList.remove('show');

@@ -28,7 +28,6 @@ from .sales_dispute_api_factories import (
 
 router = Router()
 
-
 @router.post("/calculate-interest", response=InterestCalcResponse)
 def calculate_interest(
     request: HttpRequest,
@@ -89,7 +88,6 @@ def calculate_interest(
         warnings=result.warnings,
     )
 
-
 @router.post("/calculate-cost", response=CostBenefitResponse)
 def calculate_cost(
     request: HttpRequest,
@@ -126,7 +124,6 @@ def calculate_cost(
         risk_warning=result.risk_warning,
     )
 
-
 @router.get("/lpr-rates", response=list[LPRRateResponse])
 def list_lpr_rates(request: HttpRequest) -> list[LPRRateResponse]:
     """获取LPR利率历史数据"""
@@ -141,7 +138,6 @@ def list_lpr_rates(request: HttpRequest) -> list[LPRRateResponse]:
         )
         for rate in rates
     ]
-
 
 @router.post("/calculate-limitation", response=LimitationResponse)
 def calculate_limitation(

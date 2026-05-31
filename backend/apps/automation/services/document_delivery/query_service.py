@@ -24,7 +24,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger("apps.automation")
 
-
 class DocumentQueryService:
     """文书查询服务 - 负责查询逻辑"""
 

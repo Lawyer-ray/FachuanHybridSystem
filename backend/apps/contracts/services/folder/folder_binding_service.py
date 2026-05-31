@@ -21,7 +21,6 @@ from .contract_subdir_path_resolver import ContractSubdirPathResolver
 
 logger = logging.getLogger("apps.contracts")
 
-
 class FolderBindingService(FolderBindingCrudService):
     """
     文件夹绑定服务

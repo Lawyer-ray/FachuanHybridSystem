@@ -6,15 +6,15 @@
         contractId: {{ contract.pk }},
         hasFolderBinding: {% if folder_binding %}true{% else %}false{% endif %},
         texts: {
-            scanningFolder: '{% trans "正在扫描文件夹" %}',
-            classifying: '{% trans "正在 AI 分类" %}',
-            completed: '{% trans "扫描完成" %}',
-            failed: '{% trans "扫描失败" %}',
-            importFailed: '{% trans "导入失败，请稍后重试" %}',
-            needBindFolder: '{% trans "请先在「文档与提醒」中绑定文件夹" %}',
-            needSelectSubfolder: '{% trans "请选择要扫描的子文件夹" %}',
-            noSubfolderOptions: '{% trans "当前目录下没有可选子文件夹，将扫描全部内容" %}',
-            loadSubfoldersFailed: '{% trans "加载子文件夹失败" %}'
+            scanningFolder: '{',
+            classifying: '{',
+            completed: '{',
+            failed: '{',
+            importFailed: '{',
+            needBindFolder: '{',
+            needSelectSubfolder: '{',
+            noSubfolderOptions: '{',
+            loadSubfoldersFailed: '{'
         }
      })">
 
@@ -23,18 +23,18 @@
     <div class="archive-checklist" x-data="archiveChecklistApp({{ archive_checklist.compact_archive|yesno:'true,false' }}, {{ archive_checklist.items|to_json }})">
         <div class="ac-header">
             <div class="ac-title-row">
-                <h3 class="ac-title">{% trans "归档检查清单" %}</h3>
+                <h3 class="ac-title">{</h3>
                 <span class="ac-category-badge">{{ archive_checklist.archive_category_label }}</span>
                 <span class="ac-title-actions">
                     <button type="button" class="ac-compact-toggle"
-                            :title="expandedCodes.size > 0 ? '{% trans "收起全部子项" %}' : '{% trans "展开全部子项" %}'"
+                            :title="expandedCodes.size > 0 ? '{' : '{'"
                             @click="toggleAllExpand()">
                         <svg x-show="expandedCodes.size > 0" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 10 8 6 12 10"/></svg>
                         <svg x-show="expandedCodes.size === 0" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 6 8 10 12 6"/></svg>
                     </button>
                     <button type="button" class="ac-compact-toggle"
                             :class="{ 'is-active': compactMode }"
-                            :title="compactMode ? '{% trans "显示全部" %}' : '{% trans "精简视图" %}'"
+                            :title="compactMode ? '{' : '{'"
                             @click="toggleCompactMode()">
                         <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
                             <rect x="2" y="2" width="12" height="12" rx="2"/>
@@ -43,7 +43,7 @@
                         </svg>
                     </button>
                     <button type="button" class="ac-compact-toggle ac-clear-all-btn"
-                            title="{% trans '清空全部材料' %}"
+                            title="{"
                             onclick="clearAllArchiveMaterials({{ contract.pk }})">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/></svg>
                     </button>
@@ -56,7 +56,7 @@
                 <span class="ac-progress-text">
                     {{ archive_checklist.completed_count }}/{{ archive_checklist.total_count }}
                     {% if archive_checklist.required_completed_count < archive_checklist.required_total_count %}
-                    <span class="ac-required-hint">({% trans "必需项" %}: {{ archive_checklist.required_completed_count }}/{{ archive_checklist.required_total_count }})</span>
+                    <span class="ac-required-hint">({: {{ archive_checklist.required_completed_count }}/{{ archive_checklist.required_total_count }})</span>
                     {% endif %}
                 </span>
             </div>
@@ -66,23 +66,23 @@
             <button type="button" class="btn btn-primary btn-sm"
                     onclick="generateArchiveDocs({{ contract.pk }})"
                     {% if not folder_binding %}disabled
-                    title="{% trans '请先在「文档与提醒」中绑定文件夹' %}"{% endif %}>
-                {% trans "生成归档文件夹" %}
+                    title="{"{% endif %}>
+                {
             </button>
             <span class="ac-toolbar-spacer"></span>
             <button type="button" class="btn btn-outline-secondary btn-sm"
                     @click="openModal()"
                     :disabled="!hasFolderBinding"
-                    :title="!hasFolderBinding ? texts.needBindFolder : ''">{% trans "从合同文件夹同步" %}</button>
+                    :title="!hasFolderBinding ? texts.needBindFolder : ''">{</button>
             <button type="button" class="btn btn-outline-secondary btn-sm" onclick="syncCaseMaterials({{ contract.pk }})">
-                {% trans "从案件材料同步" %}
+                {
             </button>
             <button type="button" class="btn btn-outline-info btn-sm" onclick="learnArchiveRules({{ contract.pk }})">
-                {% trans "学习分类规则" %}
+                {
             </button>
             {% if can_archive %}
             <button type="button" class="btn btn-warning btn-sm ac-btn-archive" onclick="confirmArchive({{ contract.pk }})">
-                {% trans "确认归档" %}
+                {
             </button>
             {% endif %}
         </div>
@@ -112,44 +112,44 @@
                     {% endif %}
                     <span class="ac-item-status">
                         {% if item.template %}
-                            <span class="ac-badge ac-badge-generate" title="{% trans '可自动生成' %}">⚡</span>
+                            <span class="ac-badge ac-badge-generate" title="{">⚡</span>
                         {% elif item.completed %}
                             <span class="ac-badge ac-badge-done">✓</span>
                         {% elif item.auto_detect == 'supervision_card' %}
                             <button type="button" class="ac-badge ac-badge-detect ac-badge-action"
-                                    title="{% trans '点击检测监督卡' %}"
+                                    title="{"
                                     onclick="detectSupervisionCard({{ contract.pk }})">🔍</button>
                         {% elif item.has_case_material %}
-                            <span class="ac-badge ac-badge-sync" title="{% trans '可从案件材料同步' %}">📋</span>
+                            <span class="ac-badge ac-badge-sync" title="{">📋</span>
                         {% elif item.source == 'case' %}
-                            <span class="ac-badge ac-badge-sync-dim" title="{% trans '案件材料' %}">📋</span>
+                            <span class="ac-badge ac-badge-sync-dim" title="{">📋</span>
                         {% elif item.required %}
-                            <span class="ac-badge ac-badge-required" title="{% trans '必需' %}">!</span>
+                            <span class="ac-badge ac-badge-required" title="{">!</span>
                         {% else %}
-                            <span class="ac-badge ac-badge-optional" title="{% trans '可选' %}">-</span>
+                            <span class="ac-badge ac-badge-optional" title="{">-</span>
                         {% endif %}
                     </span>
                     <span class="ac-item-actions" @click.stop>
                         {% if item.template %}
-                        <button type="button" class="ac-btn-icon" title="{% trans '预览替换词' %}"
+                        <button type="button" class="ac-btn-icon" title="{"
                                 onclick="previewArchiveTemplate({{ contract.pk }}, '{{ item.template }}', '{{ item.name }}')">
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                         </button>
-                        <button type="button" class="ac-btn-icon" title="{% trans '下载材料' %}"
+                        <button type="button" class="ac-btn-icon" title="{"
                                 onclick="downloadArchiveItem({{ contract.pk }}, '{{ item.code }}', '{{ item.name }}')">
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                         </button>
                         {% else %}
-                        <button type="button" class="ac-btn-icon ac-btn-icon--upload" title="{% trans '上传文件' %}"
+                        <button type="button" class="ac-btn-icon ac-btn-icon--upload" title="{"
                                 onclick="uploadArchiveItem({{ contract.pk }}, '{{ item.code }}')">
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
                         </button>
                         {% if item.completed %}
-                        <button type="button" class="ac-btn-icon" title="{% trans '在浏览器中预览' %}"
+                        <button type="button" class="ac-btn-icon" title="{"
                                 onclick="previewArchiveItem({{ contract.pk }}, '{{ item.code }}')">
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
                         </button>
-                        <button type="button" class="ac-btn-icon" title="{% trans '下载材料' %}"
+                        <button type="button" class="ac-btn-icon" title="{"
                                 onclick="downloadArchiveItem({{ contract.pk }}, '{{ item.code }}', '{{ item.name }}')">
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                         </button>
@@ -171,13 +171,13 @@
                              draggable="true"
                              @dragstart="onDragStart($event, {{ mat.id }}, '{{ item.code }}')"
                              @dragend="onDragEnd($event)">
-                            <span class="ac-subitem-drag" title="{% trans '拖拽排序' %}">⠿</span>
+                            <span class="ac-subitem-drag" title="{">⠿</span>
                             <span class="ac-subitem-name">{{ mat.original_filename }}</span>
                             <span class="ac-subitem-label ac-subitem-label--{{ mat.category }}">{{ mat.source_label }}</span>
                             <span class="ac-subitem-actions">
-                                <button type="button" class="ac-btn-icon" title="{% trans '预览' %}"
+                                <button type="button" class="ac-btn-icon" title="{"
                                         onclick="previewArchiveMaterial({{ contract.pk }}, {{ mat.id }})"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
-                                <button type="button" class="ac-btn-icon ac-btn-icon--danger" title="{% trans '删除' %}"
+                                <button type="button" class="ac-btn-icon ac-btn-icon--danger" title="{"
                                         onclick="deleteArchiveMaterial({{ contract.pk }}, {{ mat.id }}, '{{ mat.original_filename }}')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg></button>
                             </span>
                         </div>
@@ -193,7 +193,7 @@
         <div class="ac-move-menu" x-show="moveMenuVisible" x-cloak
              :style="'position:fixed;top:' + moveMenuY + 'px;left:' + moveMenuX + 'px'"
              @click.away="moveMenuVisible = false">
-            <div class="ac-move-menu-title">{% trans "移动到" %}</div>
+            <div class="ac-move-menu-title">{</div>
             {% for item in archive_checklist.items %}
             <button type="button" class="ac-move-menu-item"
                     :class="{ 'is-current': moveMenuSourceCode === '{{ item.code }}' }"

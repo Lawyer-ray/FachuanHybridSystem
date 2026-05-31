@@ -8,7 +8,6 @@ from typing import TYPE_CHECKING, Callable, Final, NotRequired, Protocol, TypedD
 
 from django.db import transaction
 from django.utils.dateparse import parse_datetime
-from django.utils.translation import gettext_lazy as _
 
 from apps.core.exceptions import ValidationException
 
@@ -21,17 +20,14 @@ if TYPE_CHECKING:
 
 ImportData = dict[str, object]
 
-
 class ContractPartyImportPayload(TypedDict):
     role: NotRequired[str]
     client: NotRequired[ImportData]
-
 
 class ContractAssignmentImportPayload(TypedDict):
     lawyer: NotRequired[ImportData]
     is_primary: NotRequired[bool]
     order: NotRequired[int]
-
 
 class FinalizedMaterialImportPayload(TypedDict):
     file_path: NotRequired[str]
@@ -39,16 +35,13 @@ class FinalizedMaterialImportPayload(TypedDict):
     category: NotRequired[str]
     remark: NotRequired[str]
 
-
 class SupplementaryAgreementPartyImportPayload(TypedDict):
     role: NotRequired[str]
     client: NotRequired[ImportData]
 
-
 class SupplementaryAgreementImportPayload(TypedDict):
     name: NotRequired[str]
     parties: NotRequired[list[SupplementaryAgreementPartyImportPayload]]
-
 
 class InvoiceImportPayload(TypedDict):
     file_path: NotRequired[str]
@@ -61,7 +54,6 @@ class InvoiceImportPayload(TypedDict):
     tax_amount: NotRequired[object]
     total_amount: NotRequired[object]
 
-
 class PaymentImportPayload(TypedDict):
     amount: NotRequired[object]
     received_at: NotRequired[object]
@@ -70,13 +62,11 @@ class PaymentImportPayload(TypedDict):
     note: NotRequired[str | None]
     invoices: NotRequired[list[InvoiceImportPayload]]
 
-
 class FinanceLogImportPayload(TypedDict):
     action: NotRequired[str]
     actor: NotRequired[ImportData]
     level: NotRequired[str]
     payload: NotRequired[dict[str, object]]
-
 
 class ContractReminderImportPayload(TypedDict):
     reminder_type: NotRequired[str]
@@ -84,12 +74,10 @@ class ContractReminderImportPayload(TypedDict):
     due_at: NotRequired[str | datetime | None]
     metadata: NotRequired[dict[str, object]]
 
-
 class ClientPaymentRecordImportPayload(TypedDict):
     amount: NotRequired[object]
     image_path: NotRequired[str | None]
     note: NotRequired[str]
-
 
 class ContractImportPayload(TypedDict):
     name: NotRequired[str]
@@ -115,20 +103,16 @@ class ContractImportPayload(TypedDict):
     client_payment_records: NotRequired[list[ClientPaymentRecordImportPayload]]
     cases: NotRequired[list[CaseImportPayload]]
 
-
 if TYPE_CHECKING:
     CaseImportCallback = Callable[[CaseImportPayload, "Contract"], "Case | None"]
 else:
     CaseImportCallback = Callable[[ImportData, "Contract"], "Case | None"]
 
-
 class ClientResolverProtocol(Protocol):
     def resolve_with_attachments(self, data: ImportData) -> Client: ...
 
-
 class LawyerResolverProtocol(Protocol):
     def resolve(self, data: ImportData) -> Lawyer | None: ...
-
 
 logger = logging.getLogger("apps.contracts")
 
@@ -147,7 +131,6 @@ _CONTRACT_FIELDS: Final[tuple[str, ...]] = (
     "representation_stages",
     "filing_number",
 )
-
 
 def _parse_contract_reminders_for_create(
     reminder_data_list: list[ContractReminderImportPayload],
@@ -171,7 +154,6 @@ def _parse_contract_reminders_for_create(
             }
         )
     return reminders
-
 
 class ContractImportService:
     """按 filing_number get_or_create Contract，级联创建 Client 和 Lawyer。"""
@@ -198,7 +180,7 @@ class ContractImportService:
         from apps.contracts.models import Contract, ContractAssignment, ContractParty
 
         if not data.get("name"):
-            raise ValidationException(message=_("合同名称不能为空"), code="INVALID_CONTRACT_DATA")
+            raise ValidationException(message="合同名称不能为空", code="INVALID_CONTRACT_DATA")
 
         filing_number: str | None = data.get("filing_number") or None
         if filing_number:
@@ -352,7 +334,6 @@ class ContractImportService:
                 self._case_import_fn(case_data, contract)
 
         return contract
-
 
 def build_contract_import_service_for_admin() -> ContractImportService:
     """构建 admin 导入使用的 ContractImportService（包含循环依赖绑定）。"""

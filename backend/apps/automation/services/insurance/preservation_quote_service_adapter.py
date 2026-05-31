@@ -11,7 +11,6 @@ from apps.automation.services.insurance.preservation_quote_service import Preser
 from apps.automation.services.scraper.core.token_service import TokenService
 from apps.core.interfaces import IAutoTokenAcquisitionService, IPreservationQuoteService, ServiceLocator
 
-
 class PreservationQuoteServiceAdapter(IPreservationQuoteService):
     """
     财产保险询价服务适配器
@@ -236,7 +235,6 @@ class PreservationQuoteServiceAdapter(IPreservationQuoteService):
     ) -> dict[str, Any]:
         """获取询价记录列表（内部接口，无权限检查）"""
         return self.list_quotes(status, limit, offset, page, page_size)
-
 
 class EnhancedPreservationQuoteService(PreservationQuoteService):
     """

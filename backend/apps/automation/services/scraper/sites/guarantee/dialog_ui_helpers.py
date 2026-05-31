@@ -7,7 +7,6 @@ from typing import Any
 
 logger = logging.getLogger("apps.automation")
 
-
 class GuaranteeDialogUIHelpersMixin:
     """gTwo 对话框的通用 UI 交互辅助方法。"""
 

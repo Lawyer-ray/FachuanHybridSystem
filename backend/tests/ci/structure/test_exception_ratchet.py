@@ -20,7 +20,6 @@ EXCEPT_EXCEPTION_RATCHET = 1550
 
 _APPS_ROOT = Path(__file__).resolve().parents[3] / "apps"
 
-
 def _count_except_exception() -> int:
     """Count all ``except Exception`` occurrences under apps/."""
     count = 0
@@ -31,7 +30,6 @@ def _count_except_exception() -> int:
         text = py_file.read_text(encoding="utf-8", errors="ignore")
         count += len(pattern.findall(text))
     return count
-
 
 def test_except_exception_count_does_not_exceed_ratchet() -> None:
     """The number of ``except Exception`` must not grow beyond the ratchet baseline."""

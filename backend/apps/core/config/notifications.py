@@ -11,7 +11,6 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
-
 class ConfigChangeListener(ABC):
     @abstractmethod
     def on_config_changed(self, key: str, old_value: Any, new_value: Any) -> None: ...
@@ -22,7 +21,6 @@ class ConfigChangeListener(ABC):
 
     def on_config_reloaded(self) -> None: ...
 
-
 @dataclass
 class ConfigChangeEvent:
     key: str
@@ -30,7 +28,6 @@ class ConfigChangeEvent:
     new_value: Any
     change_type: str
     timestamp: float = field(default_factory=time.time)
-
 
 class ConfigNotificationManager:
     def __init__(self) -> None:

@@ -15,7 +15,6 @@ from apps.core.interfaces import IAutomationService
 
 logger = logging.getLogger("apps.automation")
 
-
 class AutomationServiceAdapter(IAutomationService):
     """
     自动化服务适配器

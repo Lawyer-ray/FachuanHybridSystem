@@ -5,7 +5,6 @@ from __future__ import annotations
 from apps.core.interfaces import ICaseService
 from apps.organization.models import Lawyer
 
-
 class OrgAccessComputationService:
     def __init__(self, *, case_service: ICaseService) -> None:
         self._case_service = case_service

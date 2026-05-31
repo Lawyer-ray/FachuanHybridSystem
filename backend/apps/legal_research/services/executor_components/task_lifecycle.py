@@ -15,7 +15,6 @@ logger = logging.getLogger(__name__)
 _ORM_FALLBACK_EXECUTOR = ThreadPoolExecutor(max_workers=1, thread_name_prefix="legal-research-orm")
 _T = TypeVar("_T")
 
-
 class ExecutorTaskLifecycleMixin:
     @staticmethod
     def _run_orm_safely(operation: Callable[[], _T]) -> _T:

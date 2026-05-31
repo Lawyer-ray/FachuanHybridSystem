@@ -9,7 +9,6 @@ from .automation_mixin import _ServiceLocatorStub
 if TYPE_CHECKING:
     from apps.core.protocols import IReviewService
 
-
 class ContractReviewServiceLocatorMixin(_ServiceLocatorStub):
     """合同审查服务定位器 Mixin"""
 

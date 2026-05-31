@@ -12,7 +12,6 @@ from .external import RecognitionTimeoutError, ServiceUnavailableError
 
 __all__: list[str] = ["AutomationExceptions"]
 
-
 class AutomationExceptions:
     """Automation模块标准化异常工具类"""
 

@@ -27,7 +27,6 @@ _ARCHIVE_TYPE_MAPPING: dict[str, str] = {
     "advisor": "常年法律顾问",
 }
 
-
 @PlaceholderRegistry.register
 class ArchiveContractTypeService(BasePlaceholderService):
     """归档合同类型服务"""

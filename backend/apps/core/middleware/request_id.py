@@ -16,7 +16,6 @@ from apps.core.infrastructure.tracing import get_current_trace_ids
 
 logger = logging.getLogger(__name__)
 
-
 class RequestIdMiddleware:
     def __init__(self, get_response: Callable[[HttpRequest], HttpResponse]) -> None:
         self.get_response = get_response

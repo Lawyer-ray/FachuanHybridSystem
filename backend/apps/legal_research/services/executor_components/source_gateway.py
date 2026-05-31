@@ -10,7 +10,6 @@ from apps.legal_research.services.sources import CaseDetail
 
 logger = logging.getLogger(__name__)
 
-
 class ExecutorSourceGatewayMixin:
     SEARCH_RETRY_ATTEMPTS: int
     DETAIL_RETRY_ATTEMPTS: int

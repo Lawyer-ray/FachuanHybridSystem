@@ -8,7 +8,6 @@ import logging
 import time
 from typing import Any
 
-from django.utils.translation import gettext_lazy as _
 from ninja import Router, Schema
 
 from apps.core.exceptions import ValidationException
@@ -18,13 +17,11 @@ from apps.core.security.auth import JWTOrSessionAuth
 logger = logging.getLogger("apps.documents.api")
 router = Router(auth=JWTOrSessionAuth())
 
-
 def _get_litigation_generation_service() -> Any:
     """工厂函数:创建 LitigationGenerationService 实例"""
     from apps.documents.services.generation.litigation_generation_service import LitigationGenerationService
 
     return LitigationGenerationService()
-
 
 class ComplaintRequest(Schema):
     """起诉状生成请求"""
@@ -36,7 +33,6 @@ class ComplaintRequest(Schema):
     facts_and_reasons: str
     case_id: int | None = None
 
-
 class DefenseRequest(Schema):
     """答辩状生成请求"""
 
@@ -46,7 +42,6 @@ class DefenseRequest(Schema):
     defense_opinion: str
     defense_reasons: str
     case_id: int | None = None
-
 
 @router.post("/litigation/complaint/generate", response=dict[str, Any])
 def generate_complaint(request: Any, data: ComplaintRequest) -> Any:
@@ -82,7 +77,6 @@ def generate_complaint(request: Any, data: ComplaintRequest) -> Any:
     )
     return {"success": True, "data": result.model_dump(), "duration_ms": duration_ms}
 
-
 @router.post("/litigation/defense/generate", response=dict[str, Any])
 def generate_defense(request: Any, data: DefenseRequest) -> Any:
     """
@@ -116,13 +110,11 @@ def generate_defense(request: Any, data: DefenseRequest) -> Any:
     )
     return {"success": True, "data": result.model_dump(), "duration_ms": duration_ms}
 
-
 @router.get("/cases/{case_id}/litigation/{litigation_type}/preview")
 def preview_litigation_context(request: Any, case_id: int, litigation_type: str) -> Any:
     service = _get_litigation_generation_service()
     context = service.get_preview_context(case_id, litigation_type)
     return {"success": True, "data": context}
-
 
 @router.post("/cases/{case_id}/litigation/{litigation_type}/download")
 @rate_limit_from_settings("EXPORT", by_user=True)
@@ -149,7 +141,7 @@ def download_litigation_document(request: Any, case_id: int, litigation_type: st
         filename, doc_bytes = service.generate_defense_document(case_id)
     else:
         raise ValidationException(
-            message=_("不支持的诉讼类型: %(t)s") % {"t": litigation_type}, code="INVALID_LITIGATION_TYPE"
+            message="不支持的诉讼类型: %(t)s" % {"t": litigation_type}, code="INVALID_LITIGATION_TYPE"
         )
 
     duration_ms = int((time.time() - start_time) * 1000)

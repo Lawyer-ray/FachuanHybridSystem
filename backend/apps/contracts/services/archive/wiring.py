@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from .checklist import ArchiveChecklistService
 
-
 def build_archive_checklist_service() -> ArchiveChecklistService:
     """构建归档检查清单服务实例"""
     return ArchiveChecklistService()

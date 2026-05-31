@@ -20,16 +20,13 @@ from typing import TYPE_CHECKING, Any
 
 logger = logging.getLogger(__name__)
 
-
 def _get_system_config_service() -> "SystemConfigService":
     from apps.core.services.system_config_service import SystemConfigService
 
     return SystemConfigService()
 
-
 if TYPE_CHECKING:
     from apps.core.services.system_config_service import SystemConfigService
-
 
 class RetryErrorType(Enum):
     """重试错误类型枚举"""
@@ -41,7 +38,6 @@ class RetryErrorType(Enum):
     VALIDATION_ERROR = "validation_error"
     UNKNOWN_ERROR = "unknown_error"
 
-
 class RetryStrategy(Enum):
     """重试策略枚举"""
 
@@ -49,7 +45,6 @@ class RetryStrategy(Enum):
     FIXED_DELAY = "fixed_delay"
     EXPONENTIAL_BACKOFF = "exponential_backoff"
     LINEAR_BACKOFF = "linear_backoff"
-
 
 @dataclass
 class RetryAttempt:
@@ -72,7 +67,6 @@ class RetryAttempt:
             "success": self.success,
         }
 
-
 @dataclass
 class ErrorStrategyConfig:
     """单个错误类型的重试策略配置"""
@@ -82,7 +76,6 @@ class ErrorStrategyConfig:
     base_delay: float
     backoff_factor: float
     max_delay: float
-
 
 class RetryConfig:
     """重试配置类
@@ -211,7 +204,6 @@ class RetryConfig:
 
     def get_timeout_seconds(self) -> float:
         return self.timeout_seconds
-
 
 class RetryManager:
     """重试管理器

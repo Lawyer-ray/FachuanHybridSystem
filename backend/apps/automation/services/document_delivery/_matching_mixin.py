@@ -7,8 +7,6 @@ from datetime import date
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from django.utils.translation import gettext_lazy as _
-
 from .data_classes import DocumentDeliveryRecord
 
 if TYPE_CHECKING:
@@ -20,7 +18,6 @@ if TYPE_CHECKING:
 from abc import abstractmethod
 
 logger = logging.getLogger("apps.automation")
-
 
 class DocumentDeliveryMatchingMixin:
     """案件匹配、重命名、通知相关方法"""
@@ -303,7 +300,7 @@ class DocumentDeliveryMatchingMixin:
                         logger.info(f"通知发送成功: SMS ID={sms.id}")
                     else:
                         sms.status = CourtSMSStatus.FAILED
-                        sms.error_message = str(_("通知发送失败"))
+                        sms.error_message = str("通知发送失败")
                         logger.warning(f"通知发送失败: SMS ID={sms.id}")
 
                     sms.save()

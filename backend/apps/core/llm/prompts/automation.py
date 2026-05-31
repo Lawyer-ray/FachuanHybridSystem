@@ -66,6 +66,5 @@ AUTOMATION_EXECUTION_INFO_EXTRACT = CodePromptTemplate(
     variables=["text"],
 )
 
-
 PromptManager.register(AUTOMATION_SUMMONS_INFO_EXTRACT)
 PromptManager.register(AUTOMATION_EXECUTION_INFO_EXTRACT)

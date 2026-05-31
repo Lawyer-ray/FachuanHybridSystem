@@ -16,7 +16,6 @@ from ..types import FeeAmountResult
 
 logger = logging.getLogger("apps.fee_notice")
 
-
 # 费用名称映射
 FEE_NAME_MAPPING: dict[str, str] = {
     "案件受理费": "acceptance_fee",
@@ -31,7 +30,6 @@ FEE_NAME_MAPPING: dict[str, str] = {
 
 # 所有费用名称关键词
 FEE_KEYWORDS: list[str] = list(FEE_NAME_MAPPING.keys())
-
 
 class FeeAmountExtractor:
     """费用金额提取器"""

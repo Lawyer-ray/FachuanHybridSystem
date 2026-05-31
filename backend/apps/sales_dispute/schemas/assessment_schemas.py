@@ -10,7 +10,6 @@ from datetime import date
 
 from ninja import Schema
 
-
 class EvidenceItemSchema(Schema):
     """证据条目"""
 
@@ -18,13 +17,11 @@ class EvidenceItemSchema(Schema):
     has_evidence: bool
     quality_score: int
 
-
 class InterruptionEventSchema(Schema):
     """时效中断事由"""
 
     event_type: str
     event_date: date
-
 
 class AssessmentRequest(Schema):
     """综合评估请求"""
@@ -48,7 +45,6 @@ class AssessmentRequest(Schema):
     principal_due_date: date | None = None
     remarks: str = ""
 
-
 class EvidenceItemResponse(Schema):
     """证据评分明细响应"""
 
@@ -57,7 +53,6 @@ class EvidenceItemResponse(Schema):
     quality_score: int
     weight: float
     weighted_score: float
-
 
 class JurisdictionResponseSchema(Schema):
     """管辖权分析响应"""
@@ -73,7 +68,6 @@ class JurisdictionResponseSchema(Schema):
     alternative_court: str
     legal_basis: str
 
-
 class StrategyResponseSchema(Schema):
     """策略推荐响应"""
 
@@ -84,7 +78,6 @@ class StrategyResponseSchema(Schema):
     suggest_preservation: bool
     preservation_reason: str
 
-
 class LimitationResponse(Schema):
     """时效计算响应"""
 
@@ -94,7 +87,6 @@ class LimitationResponse(Schema):
     base_date: date
     risk_warning: str
     guarantee_expiry_date: date | None = None
-
 
 class AssessmentResponse(Schema):
     """综合评估响应"""
@@ -117,7 +109,6 @@ class AssessmentResponse(Schema):
     strategy: StrategyResponseSchema
     remarks: str
 
-
 class LimitationRequest(Schema):
     """时效计算请求"""
 
@@ -125,7 +116,6 @@ class LimitationRequest(Schema):
     interruptions: list[InterruptionEventSchema]
     guarantee_debtor: bool = False
     principal_due_date: date | None = None
-
 
 class JurisdictionRequest(Schema):
     """管辖权分析请求"""
@@ -136,7 +126,6 @@ class JurisdictionRequest(Schema):
     invalid_reason: str = ""
     plaintiff_location: str = ""
     defendant_location: str = ""
-
 
 class StrategyRequest(Schema):
     """策略推荐请求"""

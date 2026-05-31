@@ -15,8 +15,6 @@ from datetime import date
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 
-from django.utils.translation import gettext_lazy as _
-
 from apps.core.exceptions import NotFoundError, ValidationException
 from apps.core.models.enums import CaseType
 from apps.core.services.filename_template_service import FilenameTemplateService
@@ -27,7 +25,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-
 @dataclass
 class DocumentPlacement:
     """文书放置配置"""
@@ -35,7 +32,6 @@ class DocumentPlacement:
     document_template: DocumentTemplate
     folder_path: str  # 相对于根目录的路径
     file_name: str  # 生成的文件名
-
 
 class FolderGenerationService:
     """
@@ -304,7 +300,7 @@ class FolderGenerationService:
         folder_template = self.find_matching_folder_template(contract.case_type)
         if not folder_template:
             raise ValidationException(
-                message=_("请先配置文件夹模板"),
+                message="请先配置文件夹模板",
                 code="NO_FOLDER_TEMPLATE",
                 errors={"case_type": f"合同类型 {contract.case_type} 没有匹配的文件夹模板"},
             )

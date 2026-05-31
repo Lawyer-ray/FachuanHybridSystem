@@ -9,7 +9,6 @@ from .court_document_api_exceptions import ApiResponseError
 
 logger = logging.getLogger("apps.automation")
 
-
 class CourtDocumentResponseParser:
     def parse_document_list(self, response_json: dict[str, Any]) -> DocumentListResponse:
         code = response_json.get("code")

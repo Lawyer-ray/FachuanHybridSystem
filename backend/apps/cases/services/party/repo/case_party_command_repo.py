@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from apps.cases.models import Case, CaseParty
 
-
 class CasePartyCommandRepo:
     def get_case(self, case_id: int) -> Case | None:
         return Case.objects.select_related("contract").filter(id=case_id).first()

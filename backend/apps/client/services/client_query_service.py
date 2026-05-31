@@ -12,7 +12,6 @@ if TYPE_CHECKING:
 
     from .query import ClientBatchQueryService, ClientGetQueryService, ClientListQueryService
 
-
 class ClientQueryService:
     def __init__(
         self,

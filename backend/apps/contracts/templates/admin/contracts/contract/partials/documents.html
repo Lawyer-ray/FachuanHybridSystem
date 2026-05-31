@@ -1,4 +1,3 @@
-{% load i18n %}
 <!-- 文档与提醒标签页 -->
 <div x-show="activeTab === 'documents'" x-cloak x-transition>
     <div class="info-grid two-columns">
@@ -6,13 +5,13 @@
         <div class="info-card">
             <div class="card-header">
                 <span class="card-icon">📋</span>
-                <h3 class="card-title">{% trans "匹配的模板" %}</h3>
+                <h3 class="card-title">{</h3>
             </div>
             <div style="display: flex; flex-direction: column; gap: 16px;">
                 <!-- 文件模板 -->
                 <div style="padding: 12px; background: #f9fafb; border-radius: 6px; border-left: 3px solid #3b82f6;">
                     <div style="font-size: 12px; color: #6b7280; font-weight: 600; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.05em;">
-                        <span style="margin-right: 6px;">📄</span>{% trans "文件模板" %}
+                        <span style="margin-right: 6px;">📄</span>{
                     </div>
                     <div style="font-size: 14px; color: #1f2937;">
                         {% if contract_templates_list %}
@@ -28,7 +27,7 @@
                 <!-- 文件夹模板 -->
                 <div style="padding: 12px; background: #f9fafb; border-radius: 6px; border-left: 3px solid #10b981;">
                     <div style="font-size: 12px; color: #6b7280; font-weight: 600; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.05em;">
-                        <span style="margin-right: 6px;">📁</span>{% trans "文件夹模板" %}
+                        <span style="margin-right: 6px;">📁</span>{
                     </div>
                     <div style="font-size: 14px; color: #1f2937;">
                         {% if folder_templates_list %}
@@ -47,7 +46,7 @@
         <div class="info-card">
             <div class="card-header">
                 <span class="card-icon">📝</span>
-                <h3 class="card-title">{% trans "补充协议" %}</h3>
+                <h3 class="card-title">{</h3>
             </div>
             {% if supplementary_agreements %}
             <div class="agreement-list">
@@ -59,7 +58,7 @@
                 {% endfor %}
             </div>
             {% else %}
-            <p class="empty-state">{% trans "暂无补充协议" %}</p>
+            <p class="empty-state">{</p>
             {% endif %}
         </div>
 
@@ -67,7 +66,7 @@
         <div class="info-card">
             <div class="card-header">
                 <span class="card-icon">🔔</span>
-                <h3 class="card-title">{% trans "重要日期提醒" %}</h3>
+                <h3 class="card-title">{</h3>
             </div>
             {% if reminders %}
             <div class="reminder-list">
@@ -76,15 +75,15 @@
                     <span class="reminder-type">{{ reminder.reminder_type_label|default:reminder.reminder_type }}</span>
                     <span class="reminder-content">{{ reminder.content }}</span>
                     <span class="reminder-due-date">
-                        {% if reminder.due_at < today %}<span class="overdue-badge">{% trans "已过期" %}</span>
-                        {% elif reminder.due_at <= soon_due_date %}<span class="soon-badge">{% trans "即将到期" %}</span>{% endif %}
+                        {% if reminder.due_at < today %}<span class="overdue-badge">{</span>
+                        {% elif reminder.due_at <= soon_due_date %}<span class="soon-badge">{</span>{% endif %}
                         {{ reminder.due_at|date:"Y-m-d H:i" }}
                     </span>
                 </div>
                 {% endfor %}
             </div>
             {% else %}
-            <p class="empty-state">{% trans "暂无重要日期提醒" %}</p>
+            <p class="empty-state">{</p>
             {% endif %}
         </div>
 
@@ -92,16 +91,16 @@
         <div class="info-card">
             <div class="card-header">
                 <span class="card-icon">📁</span>
-                <h3 class="card-title">{% trans "文件夹绑定" %}</h3>
+                <h3 class="card-title">{</h3>
             </div>
             {% if folder_binding %}
             <div class="folder-binding-info">
                 <div class="binding-status">
                     <span class="status-icon">✓</span>
-                    <span class="status-text">{% trans "已绑定" %}</span>
+                    <span class="status-text">{</span>
                 </div>
                 <div class="folder-path">
-                    <label>{% trans "文件夹路径" %}</label>
+                    <label>{</label>
                     <span class="path-value">{{ folder_binding.folder_path }}</span>
                 </div>
             </div>
@@ -109,7 +108,7 @@
             <div class="folder-binding-info">
                 <div class="binding-status unbound">
                     <span class="status-icon">✗</span>
-                    <span class="status-text">{% trans "未绑定" %}</span>
+                    <span class="status-text">{</span>
                 </div>
             </div>
             {% endif %}
@@ -119,7 +118,7 @@
         <div class="info-card">
             <div class="card-header">
                 <span class="card-icon">⚡</span>
-                <h3 class="card-title">{% trans "文档生成" %}</h3>
+                <h3 class="card-title">{</h3>
             </div>
             <div class="document-actions">
                 <div class="action-item">
@@ -128,27 +127,27 @@
                         <button type="button" class="btn-action btn-split-main"
                                 @click="generateContract()"
                                 :disabled="generating">
-                            <span class="action-text">{% trans "生成合同" %}</span>
+                            <span class="action-text">{</span>
                             <span class="action-loading" x-show="generatingType === 'contract'" x-cloak><span class="spinner"></span></span>
                         </button>
                         {% if related_cases|length >= 2 and contract.fixed_amount and contract.fixed_amount > 0 %}
                         <button type="button" class="btn-action btn-split-side btn-split-toggle"
                                 :class="splitFee ? 'btn-split-toggle-on' : 'btn-split-toggle-off'"
                                 @click.stop="splitFee = !splitFee"
-                                :title="splitFee ? '{% trans "已启用拆分律师费，点击关闭" %}' : '{% trans "已关闭拆分律师费，点击启用" %}'">
-                            <span style="font-size:12px;white-space:nowrap;" x-text="splitFee ? '{% trans "拆分律师费 ✓" %}' : '{% trans "拆分律师费" %}'"></span>
+                                :title="splitFee ? '{' : '{'">
+                            <span style="font-size:12px;white-space:nowrap;" x-text="splitFee ? '{' : '{'"></span>
                         </button>
                         {% endif %}
                         <button type="button" class="btn-action btn-split-side"
                                 @click.stop="previewContract()"
                                 :disabled="generating"
-                                title="{% trans '预览替换词' %}">
+                                title="{">
                             <span style="display:flex"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
                         </button>
                     </div>
                     {% else %}
-                    <button type="button" class="btn-action btn-disabled" disabled title="{% trans '无匹配的合同模板' %}">
-                        <span class="action-text">{% trans "生成合同" %}</span>
+                    <button type="button" class="btn-action btn-disabled" disabled title="{">
+                        <span class="action-text">{</span>
                     </button>
                     {% endif %}
                 </div>
@@ -159,18 +158,18 @@
                         <button type="button" class="btn-action btn-split-main"
                                 @click="showAgreementDialog = true"
                                 :disabled="generating">
-                            <span class="action-text">{% trans "生成补充协议" %}</span>
+                            <span class="action-text">{</span>
                         </button>
                         <button type="button" class="btn-action btn-split-side"
                                 @click.stop="openAgreementPreviewDialog()"
                                 :disabled="generating"
-                                title="{% trans '预览替换词' %}">
+                                title="{">
                             <span style="display:flex"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></span>
                         </button>
                     </div>
                     {% else %}
-                    <button type="button" class="btn-action btn-disabled" disabled title="{% trans "暂无补充协议" %}">
-                        <span class="action-text">{% trans "生成补充协议" %}</span>
+                    <button type="button" class="btn-action btn-disabled" disabled title="{">
+                        <span class="action-text">{</span>
                     </button>
                     {% endif %}
                 </div>
@@ -183,18 +182,18 @@
                                 :class="(!folderUnlocked || generating) && 'btn-disabled'"
                                 :disabled="!folderUnlocked || generating"
                                 style="border-radius: 8px 0 0 8px; margin: 0; border: none;">
-                            <span class="action-text" x-show="generatingType !== 'folder'">{% trans "生成文件夹" %}</span>
+                            <span class="action-text" x-show="generatingType !== 'folder'">{</span>
                             <span class="action-loading" x-show="generatingType === 'folder'" x-cloak><span class="spinner"></span></span>
                         </button>
                         <button type="button" @click="folderUnlocked = !folderUnlocked"
-                                :title="folderUnlocked ? '{% trans "点击锁定" %}' : '{% trans "点击解锁后才能生成" %}'"
+                                :title="folderUnlocked ? '{' : '{'"
                                 :style="'border-radius:0 8px 8px 0;margin:0;border:none;padding:4px 10px;cursor:pointer;display:flex;align-items:center;' + (folderUnlocked ? 'background:#2563eb;color:#fff' : 'background:#d1d5db;color:#6b7280')">
                             <span x-html="folderLockIcon"></span>
                         </button>
                     </span>
                     {% else %}
-                    <button type="button" class="btn-action btn-disabled" disabled title="{% trans '无匹配的文件夹模板' %}">
-                        <span class="action-text">{% trans "生成文件夹" %}</span>
+                    <button type="button" class="btn-action btn-disabled" disabled title="{">
+                        <span class="action-text">{</span>
                     </button>
                     {% endif %}
                 </div>

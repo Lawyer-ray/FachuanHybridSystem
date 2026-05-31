@@ -11,7 +11,6 @@ from typing import Any
 
 logger = logging.getLogger("apps.litigation_ai")
 
-
 class EvidenceDigestService:
     """
     证据摘要服务

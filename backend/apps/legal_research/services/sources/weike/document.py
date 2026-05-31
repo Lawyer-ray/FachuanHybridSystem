@@ -14,7 +14,6 @@ from .types import WeikeCaseDetail, WeikeSearchItem, WeikeSession
 
 logger = logging.getLogger(__name__)
 
-
 class WeikeDocumentMixin:
     _request_get_with_retry: Callable[..., Any]
     _request_post_json_with_retry: Callable[..., Any]

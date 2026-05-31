@@ -27,7 +27,6 @@ if typing.TYPE_CHECKING:
 
 logger = logging.getLogger("apps.story_viz")
 
-
 class StoryAnimationJobService:
     @transaction.atomic
     def create_from_admin(

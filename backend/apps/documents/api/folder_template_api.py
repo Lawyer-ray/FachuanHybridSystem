@@ -18,13 +18,11 @@ from apps.documents.schemas import FolderTemplateIn, FolderTemplateOut, FolderTe
 logger = logging.getLogger("apps.documents.api")
 router = Router(auth=JWTOrSessionAuth())
 
-
 def _get_folder_template_service() -> Any:
     """工厂函数:创建 FolderTemplateService 实例"""
     from apps.core.dependencies.documents_query import build_folder_template_service
 
     return build_folder_template_service()
-
 
 @router.get("/folder-templates", response=list[FolderTemplateOut])
 def list_folder_templates(
@@ -44,13 +42,11 @@ def list_folder_templates(
         is_active=is_active,
     )
 
-
 @router.get("/folder-templates/{template_id}", response=FolderTemplateOut)
 def get_folder_template(request: Any, template_id: int) -> Any:
     """获取文件夹模板详情"""
     service = _get_folder_template_service()
     return service.get_template_by_id(template_id)
-
 
 @router.post("/folder-templates", response=FolderTemplateOut)
 def create_folder_template(request: Any, payload: FolderTemplateIn) -> Any:
@@ -60,7 +56,6 @@ def create_folder_template(request: Any, payload: FolderTemplateIn) -> Any:
     logger.info("创建文件夹模板: %s (ID: %s)", template.name, template.id)
     return template
 
-
 @router.put("/folder-templates/{template_id}", response=FolderTemplateOut)
 def update_folder_template(request: Any, template_id: int, payload: FolderTemplateUpdate) -> Any:
     """更新文件夹模板"""
@@ -69,14 +64,12 @@ def update_folder_template(request: Any, template_id: int, payload: FolderTempla
     logger.info("更新文件夹模板: %s (ID: %s)", template.name, template.id)
     return template
 
-
 @router.delete("/folder-templates/{template_id}", response=dict[str, Any])
 def delete_folder_template(request: Any, template_id: int) -> Any:
     """删除文件夹模板(软删除)"""
     service = _get_folder_template_service()
     service.delete_template(template_id)
     return {"success": True, "message": "文件夹模板已删除"}
-
 
 @router.post("/folder-templates/{template_id}/validate", response=dict[str, Any])
 def validate_folder_structure(request: Any, template_id: int) -> Any:

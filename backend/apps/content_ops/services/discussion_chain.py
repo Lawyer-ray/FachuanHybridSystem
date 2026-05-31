@@ -36,17 +36,14 @@ _SYSTEM_PROMPT = """\
 }
 """
 
-
 class DiscussionTurnResult(BaseModel):
     speaker: str = Field(description="说话人名称，必须与输入的角色名完全一致")
     text: str = Field(description="该轮对话内容，50-200字")
-
 
 class DiscussionResult(BaseModel):
     title: str = Field(description="播客标题，吸引眼球")
     topic: str = Field(description="讨论主题概述，50字以内")
     turns: list[DiscussionTurnResult] = Field(description="对话轮次列表，15-25轮")
-
 
 @dataclass
 class DiscussionOutput:
@@ -55,7 +52,6 @@ class DiscussionOutput:
     turns: list[dict[str, str]]
     model: str
     token_usage: dict[str, int]
-
 
 class DiscussionGenerationChain:
     """将案件事实改写为多人播客讨论脚本。"""

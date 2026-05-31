@@ -16,11 +16,9 @@ from apps.core.dto.request_context import extract_request_context
 
 router = Router()
 
-
 def _get_caselog_service() -> CaseLogService:
     """工厂函数：创建 CaseLogService 实例"""
     return CaseLogService()
-
 
 @router.get("/logs", response=list[CaseLogOut])
 def list_logs(request: HttpRequest, case_id: int | None = None) -> list[CaseLogOut]:
@@ -37,7 +35,6 @@ def list_logs(request: HttpRequest, case_id: int | None = None) -> list[CaseLogO
             perm_open_access=ctx.perm_open_access,
         ),
     )
-
 
 @router.post("/logs", response=CaseLogOut)
 def create_log(request: HttpRequest, payload: CaseLogIn) -> CaseLogOut:
@@ -56,7 +53,6 @@ def create_log(request: HttpRequest, payload: CaseLogIn) -> CaseLogOut:
         ),
     )
 
-
 @router.get("/logs/{log_id}", response=CaseLogOut)
 def get_log(request: HttpRequest, log_id: int) -> CaseLogOut:
     """获取单个日志"""
@@ -72,7 +68,6 @@ def get_log(request: HttpRequest, log_id: int) -> CaseLogOut:
             perm_open_access=ctx.perm_open_access,
         ),
     )
-
 
 @router.put("/logs/{log_id}", response=CaseLogOut)
 def update_log(request: HttpRequest, log_id: int, payload: CaseLogUpdate) -> CaseLogOut:
@@ -93,7 +88,6 @@ def update_log(request: HttpRequest, log_id: int, payload: CaseLogUpdate) -> Cas
         ),
     )
 
-
 @router.delete("/logs/{log_id}")
 def delete_log(request: HttpRequest, log_id: int) -> Any:
     """删除日志"""
@@ -106,7 +100,6 @@ def delete_log(request: HttpRequest, log_id: int) -> Any:
         org_access=ctx.org_access,
         perm_open_access=ctx.perm_open_access,
     )
-
 
 @router.post("/logs/{log_id}/attachments")
 def upload_log_attachments(request: HttpRequest, log_id: int) -> Any:

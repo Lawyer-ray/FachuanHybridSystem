@@ -1,15 +1,14 @@
-{% load i18n %}
 <!-- 一张网立案标签页 -->
 <div x-data="courtFilingApp()">
     <div class="info-grid">
         <div class="info-card" style="grid-column: 1 / -1;">
             <div class="card-header">
                 <span class="card-icon">🏛️</span>
-                <h3 class="card-title">{% translate "法院一张网在线立案" %}</h3>
+                <h3 class="card-title">{</h3>
             </div>
 
             <div x-show="loading" style="text-align: center; padding: 24px;">
-                <span class="spinner"></span> {% translate "加载中..." %}
+                <span class="spinner"></span> {
             </div>
 
             <div x-show="!loading">
@@ -17,31 +16,31 @@
                 <div style="background: #f8fafc; border-radius: 8px; padding: 16px; margin-bottom: 16px;">
                     <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; font-size: 13px;">
                         <div>
-                            <span style="color: #6b7280;">{% translate "案由" %}：</span>
+                            <span style="color: #6b7280;">{：</span>
                             <span style="font-weight: 500;" x-text="caseInfo.cause_of_action || '-'"></span>
                         </div>
                         <div>
-                            <span style="color: #6b7280;">{% translate "管辖法院" %}：</span>
-                            <span style="font-weight: 500;" x-text="caseInfo.court_name || '{% trans "未设置" %}'"></span>
+                            <span style="color: #6b7280;">{：</span>
+                            <span style="font-weight: 500;" x-text="caseInfo.court_name || '{'"></span>
                         </div>
                         <div>
-                            <span style="color: #6b7280;">{% translate "标的额" %}：</span>
+                            <span style="color: #6b7280;">{：</span>
                             <span style="font-weight: 500;" x-text="caseInfo.target_amount ? '¥' + caseInfo.target_amount : '-'"></span>
                         </div>
                     </div>
                     <div style="margin-top: 10px; font-size: 12px; color: #475569;">
-                        <span style="color: #6b7280;">{% translate "立案类型" %}：</span>
-                        <span x-text="caseInfo.suggested_filing_type === 'execution' ? '{% trans "申请执行" %}' : '{% trans "民事一审" %}'"></span>
+                        <span style="color: #6b7280;">{：</span>
+                        <span x-text="caseInfo.suggested_filing_type === 'execution' ? '{' : '{'"></span>
                     </div>
                     <div style="margin-top: 10px; font-size: 12px; color: #475569; display: flex; align-items: center; gap: 14px;">
-                        <span style="color: #6b7280;">{% translate "立案引擎" %}：</span>
+                        <span style="color: #6b7280;">{：</span>
                         <label x-show="caseInfo.has_http_plugin" style="display: inline-flex; align-items: center; gap: 6px; cursor: pointer;">
                             <input type="radio" name="filing_engine" value="api" x-model="filingEngine" :disabled="executing">
-                            <span>HTTP主链路（{% translate "默认" %}）</span>
+                            <span>HTTP主链路（{）</span>
                         </label>
                         <label style="display: inline-flex; align-items: center; gap: 6px; cursor: pointer;">
                             <input type="radio" name="filing_engine" value="playwright" x-model="filingEngine" :disabled="executing">
-                            <span x-text="caseInfo.has_http_plugin ? 'Playwright' : 'Playwright（{% translate "默认" %}）'"></span>
+                            <span x-text="caseInfo.has_http_plugin ? 'Playwright' : 'Playwright（{）'"></span>
                         </label>
                     </div>
                 </div>
@@ -52,20 +51,20 @@
                             :class="{ 'btn-disabled': executing || !caseInfo.court_name || !caseInfo.our_party_is_plaintiff_side || !caseInfo.has_court_credential }"
                             :disabled="executing || !caseInfo.court_name || !caseInfo.our_party_is_plaintiff_side || !caseInfo.has_court_credential"
                             @click="executeCourtFiling()">
-                        <span x-show="!executing">🚀 {% translate "开始一张网立案" %}</span>
-                        <span x-show="executing"><span class="spinner"></span> {% translate "执行中..." %}</span>
+                        <span x-show="!executing">🚀 {</span>
+                        <span x-show="executing"><span class="spinner"></span> {</span>
                     </button>
                     <span x-show="!caseInfo.court_name"
                           style="margin-left: 12px; font-size: 12px; color: #dc2626;">
-                        {% translate "请先设置管辖法院（案件管辖机关）" %}
+                        {
                     </span>
                     <span x-show="caseInfo.court_name && !caseInfo.our_party_is_plaintiff_side"
                           style="margin-left: 12px; font-size: 12px; color: #dc2626;">
-                        {% translate "我方当事人为被告/被申请人，无需立案" %}
+                        {
                     </span>
                     <span x-show="caseInfo.court_name && caseInfo.our_party_is_plaintiff_side && !caseInfo.has_court_credential"
                           style="margin-left: 12px; font-size: 12px; color: #dc2626;">
-                        {% translate "您没有一张网账号密码，请先在律师管理中添加" %}
+                        {
                     </span>
                 </div>
 

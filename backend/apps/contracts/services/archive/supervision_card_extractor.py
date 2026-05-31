@@ -25,7 +25,6 @@ _SUPERVISION_CARD_KEYWORDS: tuple[str, ...] = (
     "办案服务质量监督卡",
 )
 
-
 class SupervisionCardExtractor:
     """办案服务质量监督卡自动检测与剥离服务"""
 

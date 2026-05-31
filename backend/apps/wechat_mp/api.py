@@ -14,12 +14,10 @@ from apps.wechat_mp.tasks import execute_publish_task
 
 router = Router()
 
-
 @router.get("/accounts", response=list[WeChatAccountOut])
 def list_accounts(request: HttpRequest) -> Any:
     """获取公众号账号列表"""
     return WeChatAccount.objects.filter(is_active=True)
-
 
 @router.post("/publish", response=PublishTaskOut)
 def create_publish_task(request: HttpRequest, payload: PublishTaskCreate) -> Any:
@@ -49,12 +47,10 @@ def create_publish_task(request: HttpRequest, payload: PublishTaskCreate) -> Any
 
     return task
 
-
 @router.get("/tasks", response=list[PublishTaskOut])
 def list_tasks(request: HttpRequest) -> Any:
     """获取发布任务列表"""
     return PublishTask.objects.all().order_by("-created_at")[:100]
-
 
 @router.get("/tasks/{task_id}", response=PublishTaskOut)
 def get_task(request: HttpRequest, task_id: int) -> Any:

@@ -8,11 +8,9 @@ import pytest
 
 from apps.workbench.tasks.registry import TaskRegistry
 
-
 @pytest.fixture
 def registry() -> TaskRegistry:
     return TaskRegistry()
-
 
 class TestTaskRegistry:
     def test_register_and_get(self, registry) -> None:

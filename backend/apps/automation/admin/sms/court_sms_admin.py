@@ -31,7 +31,6 @@ from apps.automation.services.sms.court_sms_document_reference_service import Co
 from .court_sms_admin_actions import CourtSMSAdminActions
 from .court_sms_admin_base import CourtSMSAdminBase
 
-
 @admin.register(CourtSMS)
 class CourtSMSAdmin(CourtSMSAdminActions, CourtSMSAdminBase):
     """法院短信管理（组合 Base + Actions）"""

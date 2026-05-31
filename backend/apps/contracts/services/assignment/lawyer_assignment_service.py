@@ -9,7 +9,6 @@ import logging
 from typing import TYPE_CHECKING
 
 from django.db import transaction
-from django.utils.translation import gettext_lazy as _
 
 from apps.contracts.models import Contract, ContractAssignment
 from apps.core.exceptions import NotFoundError, ValidationException
@@ -19,7 +18,6 @@ if TYPE_CHECKING:
     from apps.core.interfaces import ILawyerService
 
 logger = logging.getLogger("apps.contracts")
-
 
 class LawyerAssignmentService:
     """
@@ -79,14 +77,14 @@ class LawyerAssignmentService:
         # 验证 lawyer_ids 非空
         if not lawyer_ids:
             raise ValidationException(
-                _("至少需要指派一个律师"), code="EMPTY_LAWYER_IDS", errors={"lawyer_ids": _("至少需要指派一个律师")}
+                "至少需要指派一个律师", code="EMPTY_LAWYER_IDS", errors={"lawyer_ids": "至少需要指派一个律师"}
             )
 
         # 验证合同存在
         try:
             contract = Contract.objects.get(id=contract_id)
         except Contract.DoesNotExist:
-            raise NotFoundError(_("合同 %(id)s 不存在") % {"id": contract_id}) from None
+            raise NotFoundError("合同 %(id)s 不存在" % {"id": contract_id}) from None
 
         # 验证所有律师存在且有效
         lawyer_dtos = self.lawyer_service.get_lawyers_by_ids(lawyer_ids)
@@ -96,9 +94,9 @@ class LawyerAssignmentService:
         if missing_ids:
             ids_str = ", ".join(map(str, missing_ids))
             raise ValidationException(
-                _("律师不存在: %(ids)s") % {"ids": ids_str},
+                "律师不存在: %(ids)s" % {"ids": ids_str},
                 code="LAWYER_NOT_FOUND",
-                errors={"lawyer_ids": _("律师不存在: %(ids)s") % {"ids": ids_str}},
+                errors={"lawyer_ids": "律师不存在: %(ids)s" % {"ids": ids_str}},
             )
 
         # 验证律师是否有效(is_active=True)
@@ -106,9 +104,9 @@ class LawyerAssignmentService:
         if inactive_lawyers:
             ids_str = ", ".join(map(str, inactive_lawyers))
             raise ValidationException(
-                _("律师已停用: %(ids)s") % {"ids": ids_str},
+                "律师已停用: %(ids)s" % {"ids": ids_str},
                 code="LAWYER_INACTIVE",
-                errors={"lawyer_ids": _("律师已停用: %(ids)s") % {"ids": ids_str}},
+                errors={"lawyer_ids": "律师已停用: %(ids)s" % {"ids": ids_str}},
             )
 
         # 删除现有指派
@@ -162,22 +160,22 @@ class LawyerAssignmentService:
         try:
             contract = Contract.objects.get(id=contract_id)
         except Contract.DoesNotExist:
-            raise NotFoundError(_("合同 %(id)s 不存在") % {"id": contract_id}) from None
+            raise NotFoundError("合同 %(id)s 不存在" % {"id": contract_id}) from None
 
         # 验证律师存在且有效
         lawyer_dto = self.lawyer_service.get_lawyer(lawyer_id)
         if not lawyer_dto:
             raise ValidationException(
-                _("律师 %(id)s 不存在") % {"id": lawyer_id},
+                "律师 %(id)s 不存在" % {"id": lawyer_id},
                 code="LAWYER_NOT_FOUND",
-                errors={"lawyer_id": _("律师 %(id)s 不存在") % {"id": lawyer_id}},
+                errors={"lawyer_id": "律师 %(id)s 不存在" % {"id": lawyer_id}},
             )
 
         if not lawyer_dto.is_active:
             raise ValidationException(
-                _("律师 %(id)s 已停用") % {"id": lawyer_id},
+                "律师 %(id)s 已停用" % {"id": lawyer_id},
                 code="LAWYER_INACTIVE",
-                errors={"lawyer_id": _("律师 %(id)s 已停用") % {"id": lawyer_id}},
+                errors={"lawyer_id": "律师 %(id)s 已停用" % {"id": lawyer_id}},
             )
 
         # 将所有指派的 is_primary 设为 False
@@ -219,7 +217,7 @@ class LawyerAssignmentService:
         """
         # 验证合同存在
         if not Contract.objects.filter(id=contract_id).exists():
-            raise NotFoundError(_("合同 %(id)s 不存在") % {"id": contract_id})
+            raise NotFoundError("合同 %(id)s 不存在" % {"id": contract_id})
 
         # 查询主办律师
         assignment = (
@@ -248,7 +246,7 @@ class LawyerAssignmentService:
         try:
             Contract.objects.get(id=contract_id)
         except Contract.DoesNotExist:
-            raise NotFoundError(_("合同 %(id)s 不存在") % {"id": contract_id}) from None
+            raise NotFoundError("合同 %(id)s 不存在" % {"id": contract_id}) from None
 
         # 查询所有指派(已按 Meta.ordering 排序)
         assignments = ContractAssignment.objects.filter(contract_id=contract_id).select_related("lawyer")

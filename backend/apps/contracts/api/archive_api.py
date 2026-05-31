@@ -8,7 +8,7 @@ from typing import Any
 
 from django.conf import settings as django_settings
 from django.http import HttpRequest, HttpResponse
-from django.utils.translation import gettext_lazy as _
+
 from ninja import Router, Schema
 
 from apps.contracts.services.archive.checklist.checklist_query import get_checklist_with_status
@@ -16,26 +16,20 @@ from apps.contracts.services.archive.checklist.checklist_query import get_checkl
 logger = logging.getLogger("apps.contracts.api")
 router = Router()
 
-
 # ── Schemas ──
-
 
 class ReorderIn(Schema):
     orders: dict[str, list[int]]
 
-
 class MoveIn(Schema):
     target_code: str
-
 
 class SuccessOut(Schema):
     success: bool = True
 
-
 class ClearAllOut(Schema):
     success: bool = True
     deleted_count: int = 0
-
 
 class GenerateArchiveFolderOut(Schema):
     """生成归档文件夹输出"""
@@ -45,13 +39,11 @@ class GenerateArchiveFolderOut(Schema):
     archive_dir: str = ""
     errors: list[str] = []
 
-
 class ToggleCompactOut(Schema):
     """精简视图切换输出"""
 
     success: bool = True
     compact_archive: bool = False
-
 
 class ChecklistItemOut(Schema):
     """检查清单项输出"""
@@ -67,7 +59,6 @@ class ChecklistItemOut(Schema):
     materials: list[dict[str, Any]] = []
     has_case_material: bool = False
 
-
 class ChecklistOut(Schema):
     """检查清单输出"""
 
@@ -81,20 +72,17 @@ class ChecklistOut(Schema):
     required_total_count: int = 0
     completion_percentage: float = 0.0
 
-
 class UploadArchiveItemOut(Schema):
     """上传归档材料输出"""
 
     id: int = 0
     filename: str = ""
 
-
 class ConfirmArchiveOut(Schema):
     """确认归档输出"""
 
     success: bool = True
     message: str = ""
-
 
 class SyncCaseMaterialsOut(Schema):
     """同步案件材料输出"""
@@ -103,14 +91,12 @@ class SyncCaseMaterialsOut(Schema):
     synced_count: int = 0
     message: str = ""
 
-
 class ScaleToA4Out(Schema):
     """A4缩放输出"""
 
     success: bool = True
     scaled_count: int = 0
     message: str = ""
-
 
 class LearnRulesOut(Schema):
     """学习分类规则输出"""
@@ -121,9 +107,7 @@ class LearnRulesOut(Schema):
     skipped: int = 0
     message: str = ""
 
-
 # ── Endpoints ──
-
 
 @router.post("/archive/learn-rules", response=LearnRulesOut)
 def learn_archive_rules(request: HttpRequest) -> Any:
@@ -143,7 +127,6 @@ def learn_archive_rules(request: HttpRequest) -> Any:
     except (OSError, RuntimeError, ValueError) as exc:
         logger.exception("archive_learning_failed")
         return LearnRulesOut(success=False, message=str(exc))
-
 
 @router.get("/{contract_id}/archive/download-item/{archive_item_code}")
 def download_archive_item(request: HttpRequest, contract_id: int, archive_item_code: str) -> Any:
@@ -170,7 +153,6 @@ def download_archive_item(request: HttpRequest, contract_id: int, archive_item_c
     response["Content-Disposition"] = f"{disposition}; filename*=UTF-8''{encoded_filename}"
     return response
 
-
 @router.get("/{contract_id}/archive/checklist", response=ChecklistOut)
 def get_archive_checklist(request: HttpRequest, contract_id: int) -> Any:
     """获取合同的归档检查清单及各项完成状态"""
@@ -183,7 +165,6 @@ def get_archive_checklist(request: HttpRequest, contract_id: int) -> Any:
     result = get_checklist_with_status(contract)
     result["archive_category_label"] = str(result["archive_category_label"])
     return ChecklistOut(**result)
-
 
 @router.post("/{contract_id}/archive/generate-folder", response=GenerateArchiveFolderOut)
 def generate_archive_folder(request: HttpRequest, contract_id: int) -> Any:
@@ -225,7 +206,6 @@ def generate_archive_folder(request: HttpRequest, contract_id: int) -> Any:
         errors=result.get("errors", []),
     )
 
-
 @router.post("/{contract_id}/archive/toggle-compact", response=ToggleCompactOut)
 def toggle_compact_archive(request: HttpRequest, contract_id: int) -> Any:
     """切换精简视图状态"""
@@ -243,7 +223,6 @@ def toggle_compact_archive(request: HttpRequest, contract_id: int) -> Any:
         contract.compact_archive,
     )
     return ToggleCompactOut(success=True, compact_archive=contract.compact_archive)
-
 
 @router.post("/{contract_id}/archive/sync-case-materials", response=SyncCaseMaterialsOut)
 def sync_case_materials(request: HttpRequest, contract_id: int) -> Any:
@@ -265,7 +244,6 @@ def sync_case_materials(request: HttpRequest, contract_id: int) -> Any:
         synced_count=synced_count,
         message=f"同步完成，{synced_count} 个文件",
     )
-
 
 @router.post("/{contract_id}/archive/reset-and-resync", response=SyncCaseMaterialsOut)
 def reset_and_resync_case_materials(request: HttpRequest, contract_id: int) -> Any:
@@ -289,7 +267,6 @@ def reset_and_resync_case_materials(request: HttpRequest, contract_id: int) -> A
         message=f"重置并重新同步完成，{synced_count} 个文件",
     )
 
-
 @router.post("/{contract_id}/archive/scale-to-a4", response=ScaleToA4Out)
 def scale_to_a4(request: HttpRequest, contract_id: int) -> Any:
     """将所有非A4尺寸的PDF页面缩放为A4大小"""
@@ -309,7 +286,6 @@ def scale_to_a4(request: HttpRequest, contract_id: int) -> Any:
         scaled_count=result.get("scaled_count", 0),
         message=result.get("message", ""),
     )
-
 
 @router.post("/{contract_id}/archive/confirm", response=ConfirmArchiveOut)
 def confirm_archive(request: HttpRequest, contract_id: int) -> Any:
@@ -331,7 +307,6 @@ def confirm_archive(request: HttpRequest, contract_id: int) -> Any:
 
     logger.info("合同已归档: contract_id=%s", contract_id)
     return ConfirmArchiveOut(success=True, message="归档确认成功")
-
 
 @router.post("/{contract_id}/archive/upload", response=UploadArchiveItemOut)
 def upload_archive_item(request: HttpRequest, contract_id: int) -> Any:
@@ -365,7 +340,6 @@ def upload_archive_item(request: HttpRequest, contract_id: int) -> Any:
 
     return UploadArchiveItemOut(id=material.id, filename=material.original_filename)
 
-
 @router.delete("/{contract_id}/archive/materials/{material_id}", response=SuccessOut)
 def delete_archive_material(request: HttpRequest, contract_id: int, material_id: int) -> Any:
     """删除归档材料"""
@@ -380,7 +354,6 @@ def delete_archive_material(request: HttpRequest, contract_id: int, material_id:
     logger.info("已删除归档材料: material_id=%s, contract_id=%s", material_id, contract_id)
     return SuccessOut()
 
-
 @router.post("/{contract_id}/archive/reorder", response=SuccessOut)
 def reorder_archive_materials(request: HttpRequest, contract_id: int, body: ReorderIn) -> Any:
     """按归档清单项分组排序子项"""
@@ -390,7 +363,6 @@ def reorder_archive_materials(request: HttpRequest, contract_id: int, body: Reor
 
     logger.info("归档材料排序已保存: contract_id=%s", contract_id)
     return SuccessOut()
-
 
 @router.post("/{contract_id}/archive/materials/{material_id}/move", response=SuccessOut)
 def move_archive_material(request: HttpRequest, contract_id: int, material_id: int, body: MoveIn) -> Any:
@@ -413,7 +385,6 @@ def move_archive_material(request: HttpRequest, contract_id: int, material_id: i
         contract_id,
     )
     return SuccessOut()
-
 
 @router.get("/{contract_id}/archive/materials/{material_id}/preview")
 def preview_archive_material(request: HttpRequest, contract_id: int, material_id: int) -> Any:
@@ -451,7 +422,6 @@ def preview_archive_material(request: HttpRequest, contract_id: int, material_id
     encoded_filename = urllib.parse.quote(material.original_filename.encode("utf-8"))
     response["Content-Disposition"] = f"inline; filename*=UTF-8''{encoded_filename}"
     return response
-
 
 @router.post("/{contract_id}/archive/clear-all", response=ClearAllOut)
 def clear_all_archive_materials(request: HttpRequest, contract_id: int) -> Any:

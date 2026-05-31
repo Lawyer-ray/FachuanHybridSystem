@@ -11,7 +11,6 @@ from .scorers import (
     token_overlap_score,
 )
 
-
 def split_paragraphs(content_text: str, *, passage_max_chars: int) -> list[str]:
     text = focus_content_after_fact_marker(content_text)
     if not text:
@@ -28,7 +27,6 @@ def split_paragraphs(content_text: str, *, passage_max_chars: int) -> list[str]:
             break
     return out
 
-
 def dedupe_passages(passages: list[str]) -> list[str]:
     out: list[str] = []
     seen: set[str] = set()
@@ -40,13 +38,11 @@ def dedupe_passages(passages: list[str]) -> list[str]:
         out.append(passage)
     return out
 
-
 def compose_passage_excerpt(*, passages: list[str], preview_max_chars: int) -> str:
     if not passages:
         return ""
     clipped = [p[:preview_max_chars] for p in passages]
     return "\n---\n".join(f"[片段{i + 1}] {text}" for i, text in enumerate(clipped))
-
 
 def select_relevant_passages(
     *,
@@ -77,7 +73,6 @@ def select_relevant_passages(
     if not top:
         return []
     return dedupe_passages(top)
-
 
 def passage_alignment_score(
     *,

@@ -16,7 +16,6 @@ _BACKEND_LABELS = {
     "openai_compatible": "OpenAI 兼容",
 }
 
-
 def verify_siliconflow_connectivity(*, model: str | None) -> None:
     """Validate LLM connectivity and optional model availability before queueing a task.
 
@@ -63,7 +62,6 @@ def verify_siliconflow_connectivity(*, model: str | None) -> None:
     # SiliconFlow: 检查连通性 + 模型可用性
     _check_siliconflow(base_url, api_key, selected_model)
 
-
 def _check_siliconflow(base_url: str, api_key: str, model: str) -> None:
     try:
         response = httpx.get(
@@ -97,7 +95,6 @@ def _check_siliconflow(base_url: str, api_key: str, model: str) -> None:
     if available_models and model not in available_models:
         raise ValidationException(f"所选模型不可用: {model}")
 
-
 def _check_openai_compatible(base_url: str, api_key: str) -> None:
     try:
         response = httpx.get(
@@ -113,7 +110,6 @@ def _check_openai_compatible(base_url: str, api_key: str) -> None:
         raise ValidationException("OpenAI 兼容后端鉴权失败，请检查 API Key。")
     if response.status_code != 200:
         raise ValidationException(f"OpenAI 兼容后端服务不可用 (HTTP {response.status_code})。")
-
 
 def _check_ollama(base_url: str, model: str) -> None:
     try:

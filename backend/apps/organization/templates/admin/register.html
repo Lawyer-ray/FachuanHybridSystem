@@ -1,10 +1,9 @@
 <!DOCTYPE html>
-{% load i18n %}
 <html lang="zh-hans">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% trans "用户注册" %} | {% trans "法穿AI Copilot" %}</title>
+    <title>{ | {</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Noto+Sans+SC:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
@@ -556,27 +555,27 @@
         <div class="form-panel">
             <div class="form-wrapper">
                 <div class="form-header">
-                    <h2>{% trans "创建账号" %}</h2>
-                    <p>{% trans "加入法穿AI Copilot" %}</p>
+                    <h2>{</h2>
+                    <p>{</p>
                     {% if is_first_user %}
-                    <div class="first-user-badge">🎉 {% trans "您将成为第一个用户，自动获得管理员权限" %}</div>
+                    <div class="first-user-badge">🎉 {</div>
                     {% else %}
-                    <div class="approval-badge">⏳ {% trans "注册后需等待管理员开通权限" %}</div>
+                    <div class="approval-badge">⏳ {</div>
                     {% endif %}
                 </div>
 
                 {% if show_auto_register %}
                 <div class="quick-experience">
-                    <h4>🚀 {% trans "快速体验" %}</h4>
-                    <p>{% trans "首次使用？一键创建默认超级管理员，立即可用。" %}</p>
+                    <h4>🚀 {</h4>
+                    <p>{</p>
                     <div class="admin-credentials">
-                        <div class="cred-row"><span>{% trans "账号" %}</span><code>法穿</code></div>
-                        <div class="cred-row"><span>{% trans "密码" %}</span><code>1234qwer</code></div>
+                        <div class="cred-row"><span>{</span><code>法穿</code></div>
+                        <div class="cred-row"><span>{</span><code>1234qwer</code></div>
                     </div>
                     <form method="post" action="">
                         {% csrf_token %}
                         <input type="hidden" name="action" value="auto_register">
-                        <button type="submit" class="btn-gold">{% trans "自动注册默认管理员" %}</button>
+                        <button type="submit" class="btn-gold">{</button>
                     </form>
                 </div>
                 {% endif %}
@@ -602,16 +601,16 @@
                                 <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
                                 <circle cx="12" cy="7" r="4"/>
                             </svg>
-                            <input type="text" name="{{ field.html_name }}" id="{{ field.id_for_label }}" class="form-input" placeholder="{% trans '请输入中文姓名' %}" style="padding-left:36px;" value="{{ field.value|default:'' }}" {% if field.field.required %}required{% endif %}>
+                            <input type="text" name="{{ field.html_name }}" id="{{ field.id_for_label }}" class="form-input" placeholder="{" style="padding-left:36px;" value="{{ field.value|default:'' }}" {% if field.field.required %}required{% endif %}>
                         </div>
-                        <p class="chinese-hint">⚠️ {% trans "只能输入中文" %}</p>
+                        <p class="chinese-hint">⚠️ {</p>
                         {% elif field.name == 'password1' %}
                         <div class="input-wrapper">
                             <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                 <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
                                 <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
                             </svg>
-                            <input type="password" name="{{ field.html_name }}" id="{{ field.id_for_label }}" class="form-input" placeholder="{% trans '至少8位，含字母和数字' %}" style="padding-left:36px;padding-right:38px;" oninput="checkStrength(this.value)" {% if field.field.required %}required{% endif %}>
+                            <input type="password" name="{{ field.html_name }}" id="{{ field.id_for_label }}" class="form-input" placeholder="{" style="padding-left:36px;padding-right:38px;" oninput="checkStrength(this.value)" {% if field.field.required %}required{% endif %}>
                             <button type="button" class="password-toggle" onclick="togglePwd('{{ field.id_for_label }}', this)">
                                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                     <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
@@ -631,7 +630,7 @@
                             <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                 <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
                             </svg>
-                            <input type="password" name="{{ field.html_name }}" id="{{ field.id_for_label }}" class="form-input" placeholder="{% trans '请再次输入密码' %}" style="padding-left:36px;" {% if field.field.required %}required{% endif %}>
+                            <input type="password" name="{{ field.html_name }}" id="{{ field.id_for_label }}" class="form-input" placeholder="{" style="padding-left:36px;" {% if field.field.required %}required{% endif %}>
                         </div>
                         {% else %}
                         <div class="input-wrapper">
@@ -648,11 +647,11 @@
                     </div>
                     {% endfor %}
 
-                    <button type="submit" class="btn-primary">{% trans "注册" %}</button>
+                    <button type="submit" class="btn-primary">{</button>
                 </form>
 
                 <div class="form-footer">
-                    {% trans "已有账号？" %}<a href="{% url 'admin:login' %}">{% trans "返回登录" %}</a>
+                    {<a href="{% url 'admin:login' %}">{</a>
                 </div>
             </div>
         </div>

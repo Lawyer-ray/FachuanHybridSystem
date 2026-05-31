@@ -16,7 +16,6 @@ from .sso_handler import JtnSsoHandlerMixin
 
 logger = logging.getLogger("apps.oa_filing.jtn_case_import")
 
-
 class JtnCaseImportScript(
     JtnHttpClientMixin,
     JtnSsoHandlerMixin,

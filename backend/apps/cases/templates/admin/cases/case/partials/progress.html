@@ -1,18 +1,17 @@
-{% load i18n %}
 <div class="info-grid" x-data="emailFolderImportApp()">
     <!-- 案件日志卡片 -->
     <div class="info-card full-width">
         <div class="card-header">
             <span class="card-icon">📝</span>
-            <h3 class="card-title">{% trans "案件日志" %}</h3>
+            <h3 class="card-title">{</h3>
             <div class="card-header-actions">
                 <button type="button" class="email-import-btn"
                         :disabled="importLoading"
                         @click="openImportDialog"
-                        title="{% trans '从文件夹同步日志' %}">
+                        title="{">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                    <span x-show="!importLoading">{% trans "从文件夹同步" %}</span>
-                    <span x-show="importLoading">{% trans "导入中..." %}</span>
+                    <span x-show="!importLoading">{</span>
+                    <span x-show="importLoading">{</span>
                 </button>
             </div>
         </div>
@@ -27,7 +26,7 @@
                             <span class="timeline-actor">{{ log.actor.real_name }}</span>
                             <span class="timeline-time">{{ log.created_at|date:"Y-m-d H:i" }}</span>
                             {% if user.is_superuser %}
-                            <button type="button" class="log-delete-btn" title="{% trans '删除日志' %}"
+                            <button type="button" class="log-delete-btn" title="{"
                                     onclick="deleteCaseLog({{ log.pk }}, this)">
                                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
                             </button>
@@ -48,7 +47,7 @@
                         {% endif %}
                         {% if log.attachments.exists %}
                         <div class="timeline-attachments">
-                            <span class="attachments-label">{% trans "附件" %}：</span>
+                            <span class="attachments-label">{：</span>
                             {% for attachment in log.attachments.all %}
                             <a href="{{ attachment.file.url }}" target="_blank" class="attachment-link">
                                 {{ attachment.file.name|cut:"case_logs/" }}
@@ -61,7 +60,7 @@
                 {% endfor %}
             </div>
             {% else %}
-            <p class="empty-state">{% trans "暂无案件日志" %}</p>
+            <p class="empty-state">{</p>
             {% endif %}
         </div>
     </div>
@@ -72,23 +71,23 @@
          style="display:none;">
         <div class="email-import-modal-backdrop" @click="showDialog = false"></div>
         <div class="email-import-modal-content">
-            <h3>{% trans "从文件夹同步" %}</h3>
+            <h3>{</h3>
             <!-- 无绑定 -->
             <template x-if="!hasFolderBinding">
-                <p class="email-import-empty">{% trans "案件未绑定文件夹，请先绑定案件文件夹。" %}</p>
+                <p class="email-import-empty">{</p>
             </template>
             <!-- 有绑定但无邮件子目录 -->
             <template x-if="hasFolderBinding && subfolders.length === 0 && !loadingSubfolders">
-                <p class="email-import-empty">{% trans '案件文件夹下没有子文件夹。' %}</p>
+                <p class="email-import-empty">{</p>
             </template>
             <!-- 加载中 -->
             <template x-if="loadingSubfolders">
-                <p class="email-import-empty">{% trans "加载中..." %}</p>
+                <p class="email-import-empty">{</p>
             </template>
             <!-- 选择子目录 -->
             <template x-if="subfolders.length > 0">
                 <div>
-                    <p class="email-import-hint">{% trans "选择要导入的子文件夹（仅第一层级）：" %}</p>
+                    <p class="email-import-hint">{</p>
                     <div class="email-import-subfolder-list">
                         <template x-for="sf in subfolders" :key="sf.relative_path">
                             <label class="email-import-subfolder-item">
@@ -99,12 +98,12 @@
                         </template>
                     </div>
                     <div class="email-import-modal-actions">
-                        <button type="button" class="button" @click="showDialog = false">{% trans "取消" %}</button>
+                        <button type="button" class="button" @click="showDialog = false">{</button>
                         <button type="button" class="button default"
                                 :disabled="!selectedSubfolder || importLoading"
                                 @click="doImport">
-                            <span x-show="!importLoading">{% trans "导入" %}</span>
-                            <span x-show="importLoading">{% trans "导入中..." %}</span>
+                            <span x-show="!importLoading">{</span>
+                            <span x-show="importLoading">{</span>
                         </button>
                     </div>
                 </div>
@@ -113,7 +112,7 @@
             <template x-if="importResult">
                 <div class="email-import-result">
                     <p x-text="importResult"></p>
-                    <button type="button" class="button default" @click="closeAndRefresh">{% trans "确定" %}</button>
+                    <button type="button" class="button default" @click="closeAndRefresh">{</button>
                 </div>
             </template>
         </div>
@@ -123,7 +122,7 @@
     <div class="info-card full-width">
         <div class="card-header">
             <span class="card-icon">💬</span>
-            <h3 class="card-title">{% trans "案件群聊" %}</h3>
+            <h3 class="card-title">{</h3>
         </div>
         <div class="card-content">
             {% if case.chats.exists %}
@@ -133,13 +132,13 @@
                     <span class="chat-platform">{{ chat.get_platform_display }}</span>
                     <span class="chat-name">{{ chat.name }}</span>
                     <span class="chat-status {% if chat.is_active %}active{% else %}inactive{% endif %}">
-                        {% if chat.is_active %}{% trans "有效" %}{% else %}{% trans "已失效" %}{% endif %}
+                        {% if chat.is_active %}{{% else %}{{% endif %}
                     </span>
                 </li>
                 {% endfor %}
             </ul>
             {% else %}
-            <p class="empty-state">{% trans "暂无关联群聊" %}</p>
+            <p class="empty-state">{</p>
             {% endif %}
         </div>
     </div>
@@ -265,12 +264,12 @@ function emailFolderImportApp() {
                 });
                 var data = await resp.json();
                 if (data.success) {
-                    this.importResult = data.message || '{% trans "导入完成" %}';
+                    this.importResult = data.message || '{';
                 } else {
-                    this.importResult = data.error || '{% trans "导入失败" %}';
+                    this.importResult = data.error || '{';
                 }
             } catch (err) {
-                this.importResult = '{% trans "请求失败" %}: ' + (err.message || '');
+                this.importResult = '{: ' + (err.message || '');
             } finally {
                 this.importLoading = false;
             }
@@ -286,7 +285,7 @@ function emailFolderImportApp() {
 }
 
 function deleteCaseLog(logId, btnEl) {
-    if (!confirm('{% trans "确认删除该日志？日志和附件将同时删除，不可恢复。" %}')) return;
+    if (!confirm('{')) return;
     btnEl.disabled = true;
     fetch('/api/v1/cases/logs/' + logId + '/', {
         method: 'DELETE',
@@ -297,11 +296,11 @@ function deleteCaseLog(logId, btnEl) {
             var item = btnEl.closest('.timeline-item');
             if (item) item.remove();
         } else {
-            alert(data.error || '{% trans "删除失败" %}');
+            alert(data.error || '{');
             btnEl.disabled = false;
         }
     }).catch(function(err) {
-        alert('{% trans "请求失败" %}: ' + (err.message || ''));
+        alert('{: ' + (err.message || ''));
         btnEl.disabled = false;
     });
 }

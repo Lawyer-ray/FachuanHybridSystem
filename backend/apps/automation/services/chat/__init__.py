@@ -21,7 +21,6 @@
 from .base import ChatProvider, ChatResult, MessageContent
 from .factory import ChatProviderFactory
 
-
 # 自动注册群聊提供者
 def _register_providers() -> None:
     """自动注册所有可用的群聊提供者"""
@@ -77,7 +76,6 @@ def _register_providers() -> None:
 
         logger = logging.getLogger(__name__)
         logger.warning(f"无法导入 Telegram 群聊提供者: {e!s}")
-
 
 # 模块导入时自动注册提供者（避免重复注册）
 _register_providers()

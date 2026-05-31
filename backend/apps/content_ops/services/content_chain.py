@@ -31,12 +31,10 @@ _SYSTEM_PROMPT = """\
 请严格按照 JSON 格式输出，使用英文 key：{"title": "...", "content": "...", "summary": "..."}
 """
 
-
 class NarrativeResult(BaseModel):
     title: str = Field(description="文章标题，吸引眼球，适合街坊邻居阅读")
     content: str = Field(description="叙事风格的案件故事正文，800-1500字")
     summary: str = Field(default="", description="一句话摘要，50字以内")
-
 
 @dataclass
 class ContentResult:
@@ -45,7 +43,6 @@ class ContentResult:
     summary: str
     model: str
     token_usage: dict[str, int]
-
 
 class ContentGenerationChain:
     """将裁判文书事实改写为叙事风格的故事文章。"""

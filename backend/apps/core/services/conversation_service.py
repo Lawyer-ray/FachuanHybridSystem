@@ -12,30 +12,24 @@ from typing import Any
 from django.db import models
 from django.utils import timezone
 
-
 @dataclass
 class _HumanMessage:
     content: str
-
 
 @dataclass
 class _AIMessage:
     content: str
 
-
 @dataclass
 class _SystemMessage:
     content: str
-
 
 HumanMessage = _HumanMessage
 AIMessage = _AIMessage
 SystemMessage = _SystemMessage
 
-
 from apps.core.models import ConversationHistory
 from apps.core.repositories.conversation_repository import ConversationHistoryRepository
-
 
 class _SimpleChatMemory:
     def __init__(self, max_messages: int) -> None:
@@ -59,7 +53,6 @@ class _SimpleChatMemory:
     def clear(self) -> None:
         self.messages = []
 
-
 class _SimpleConversationBufferWindowMemory:
     def __init__(self, k: int, return_messages: bool, memory_key: str) -> None:
         self.k = k
@@ -69,7 +62,6 @@ class _SimpleConversationBufferWindowMemory:
 
     def clear(self) -> None:
         self.chat_memory.clear()
-
 
 class ConversationService:
     """

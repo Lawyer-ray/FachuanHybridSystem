@@ -10,7 +10,6 @@ from django.db.models import QuerySet
 
 from apps.core.models.conversation import ConversationHistory
 
-
 class ConversationHistoryRepository:
     """对话历史数据访问层"""
 

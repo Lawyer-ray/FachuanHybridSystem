@@ -10,7 +10,6 @@ from django.utils import timezone
 from apps.legal_research.models import LegalResearchResult, LegalResearchTask
 from apps.legal_research.services.sources import CaseDetail
 
-
 class ExecutorResultPersistenceMixin:
     CONTENT_EXCERPT_MAX_CHARS = 12000
 

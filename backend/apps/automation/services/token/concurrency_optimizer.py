@@ -15,7 +15,6 @@ from apps.core.exceptions import TokenAcquisitionTimeoutError
 
 logger = logging.getLogger(__name__)
 
-
 @dataclass
 class ConcurrencyConfig:
     """并发控制配置"""
@@ -28,7 +27,6 @@ class ConcurrencyConfig:
     queue_timeout: float = 60.0  # 队列等待超时时间（秒）
     resource_check_interval: float = 1.0  # 资源检查间隔（秒）
 
-
 @dataclass
 class ResourceUsage:
     """资源使用情况"""
@@ -37,7 +35,6 @@ class ResourceUsage:
     site_acquisitions: dict[str, int] = field(default_factory=dict)
     account_acquisitions: dict[str, int] = field(default_factory=dict)
     active_locks: set[str] = field(default_factory=set)
-
 
 @dataclass
 class _WaitEntry:
@@ -48,7 +45,6 @@ class _WaitEntry:
     account: str
     enqueued_at: float
     event: asyncio.Event
-
 
 class ConcurrencyOptimizer:
     """
@@ -337,7 +333,6 @@ class ConcurrencyOptimizer:
             self._locks.pop(lock_key, None)
         if expired_locks:
             logger.debug("清理了 %d 个过期锁", len(expired_locks))
-
 
 # 全局并发优化器实例
 concurrency_optimizer = ConcurrencyOptimizer()

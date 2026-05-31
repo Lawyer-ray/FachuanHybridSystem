@@ -9,7 +9,6 @@ from collections.abc import Callable, Iterable, Mapping
 from django.conf import settings
 from django.http import HttpRequest, HttpResponse
 
-
 class SecurityHeadersMiddleware:
     """按路径设置 Content-Security-Policy 响应头的中间件"""
 
@@ -41,7 +40,6 @@ class SecurityHeadersMiddleware:
             response["Content-Security-Policy"] = csp
         if csp_ro:
             response["Content-Security-Policy-Report-Only"] = csp_ro
-
 
 class PermissionsPolicyMiddleware:
     """设置 Permissions-Policy 响应头的中间件"""
@@ -83,7 +81,6 @@ class PermissionsPolicyMiddleware:
         if value in {"self", "src", "*"}:
             return str(value)
         return f'"{value}"'
-
 
 class ServiceLocatorScopeMiddleware:
     """

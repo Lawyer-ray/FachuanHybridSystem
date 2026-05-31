@@ -7,13 +7,11 @@ from django.contrib import admin
 from apps.cases.admin.base_admin import BaseModelAdmin, BaseStackedInline, BaseTabularInline
 from apps.sales_dispute.models import CaseAssessment, EvidenceScore, JurisdictionAnalysis, LitigationStrategy
 
-
 class EvidenceScoreInline(BaseTabularInline):
     """证据评分明细 Inline"""
 
     model = EvidenceScore
     extra = 0
-
 
 class JurisdictionAnalysisInline(BaseStackedInline):
     """管辖权分析 Inline"""
@@ -22,14 +20,12 @@ class JurisdictionAnalysisInline(BaseStackedInline):
     extra = 0
     max_num = 1
 
-
 class LitigationStrategyInline(BaseStackedInline):
     """起诉策略推荐 Inline"""
 
     model = LitigationStrategy
     extra = 0
     max_num = 1
-
 
 @admin.register(CaseAssessment)
 class CaseAssessmentAdmin(BaseModelAdmin):

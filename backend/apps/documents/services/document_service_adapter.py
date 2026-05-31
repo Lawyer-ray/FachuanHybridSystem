@@ -12,7 +12,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-
 class DocumentServiceAdapter:
     """
     文档服务适配器

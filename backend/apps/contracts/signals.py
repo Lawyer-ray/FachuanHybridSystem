@@ -16,7 +16,6 @@ from django.dispatch import receiver
 
 logger = logging.getLogger("apps.contracts")
 
-
 @receiver(post_delete, sender="contracts.FinalizedMaterial")
 def _cleanup_finalized_material_file(sender: Any, instance: Any, **kwargs: Any) -> None:
     """删除 FinalizedMaterial 时清理物理文件。"""
@@ -37,7 +36,6 @@ def _cleanup_finalized_material_file(sender: Any, instance: Any, **kwargs: Any) 
             extra={"material_id": instance.pk, "file_path": file_path},
         )
 
-
 @receiver(post_delete, sender="contracts.Invoice")
 def _cleanup_invoice_file(sender: Any, instance: Any, **kwargs: Any) -> None:
     """删除 Invoice 时清理物理文件。"""
@@ -57,7 +55,6 @@ def _cleanup_invoice_file(sender: Any, instance: Any, **kwargs: Any) -> None:
             "post_delete: 清理发票文件失败",
             extra={"invoice_id": instance.pk, "file_path": file_path},
         )
-
 
 @receiver(post_delete, sender="contracts.ClientPaymentRecord")
 def _cleanup_client_payment_image(sender: Any, instance: Any, **kwargs: Any) -> None:

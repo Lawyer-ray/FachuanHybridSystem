@@ -7,7 +7,6 @@ from django.db import transaction
 from apps.client.models import Client
 from apps.client.services.client_identity_doc_service import ClientIdentityDocService
 
-
 class ClientJsonImportPersister:
     def __init__(self, identity_doc_service: ClientIdentityDocService | None = None) -> None:
         self._identity_doc_service = identity_doc_service

@@ -11,7 +11,6 @@ from django.conf import settings
 
 logger = logging.getLogger(__name__)
 
-
 def get_config_value(key: str, default: Any | None = None, fallback_settings_key: str | None = None) -> Any:
     """
     获取配置值的通用函数
@@ -43,7 +42,6 @@ def get_config_value(key: str, default: Any | None = None, fallback_settings_key
 
     return default
 
-
 def get_nested_config_value(config_dict: dict[str, Any], key: str, default: Any = None) -> Any:
     """
     从嵌套字典中获取配置值
@@ -57,7 +55,6 @@ def get_nested_config_value(config_dict: dict[str, Any], key: str, default: Any 
         配置值
     """
     return config_dict.get(key, default)
-
 
 def get_feishu_category_configs() -> dict[str, Any]:
     """
@@ -76,7 +73,6 @@ def get_feishu_category_configs() -> dict[str, Any]:
         logger.debug(f"从 SystemConfig 批量获取飞书配置失败: {e}")
         return {}
 
-
 def get_wechat_work_category_configs() -> dict[str, Any]:
     """
     批量获取企业微信分类配置
@@ -93,7 +89,6 @@ def get_wechat_work_category_configs() -> dict[str, Any]:
     except Exception as e:
         logger.debug(f"从 SystemConfig 批量获取企业微信配置失败: {e}")
         return {}
-
 
 def get_dingtalk_category_configs() -> dict[str, Any]:
     """
@@ -112,7 +107,6 @@ def get_dingtalk_category_configs() -> dict[str, Any]:
         logger.debug(f"从 SystemConfig 批量获取钉钉配置失败: {e}")
         return {}
 
-
 def get_telegram_category_configs() -> dict[str, Any]:
     """
     批量获取 Telegram 分类配置
@@ -129,7 +123,6 @@ def get_telegram_category_configs() -> dict[str, Any]:
     except Exception as e:
         logger.debug(f"从 SystemConfig 批量获取 Telegram 配置失败: {e}")
         return {}
-
 
 def get_system_config_value(key: str, default: Any = None) -> Any:
     """
@@ -150,7 +143,6 @@ def get_system_config_value(key: str, default: Any = None) -> Any:
     except Exception as e:
         logger.debug(f"从 SystemConfig 获取配置 {key} 失败: {e}")
         return default
-
 
 def get_feishu_config(key: str, default: Any = None) -> Any:
     """
@@ -187,7 +179,6 @@ def get_feishu_config(key: str, default: Any = None) -> Any:
     old_key = f"FEISHU_{key.upper()}"
     return court_sms_config.get(old_key, default)
 
-
 def get_document_processing_config(key: str, default: Any = None) -> Any:
     """
     获取文档处理配置的便捷函数
@@ -215,7 +206,6 @@ def get_document_processing_config(key: str, default: Any = None) -> Any:
     # 回退到传统配置
     doc_config = getattr(settings, "DOCUMENT_PROCESSING", {})
     return doc_config.get(key.upper(), default)
-
 
 def get_case_chat_config(key: str, default: Any = None) -> Any:
     """
@@ -245,7 +235,6 @@ def get_case_chat_config(key: str, default: Any = None) -> Any:
     case_chat_config = getattr(settings, "CASE_CHAT", {})
     return case_chat_config.get(key.upper(), default)
 
-
 def get_court_sms_config(key: str, default: Any = None) -> Any:
     """
     获取法院短信配置的便捷函数
@@ -274,7 +263,6 @@ def get_court_sms_config(key: str, default: Any = None) -> Any:
     court_sms_config = getattr(settings, "COURT_SMS_PROCESSING", {})
     return court_sms_config.get(key.upper(), default)
 
-
 def is_config_manager_available() -> bool:
     """
     检查统一配置管理器是否可用
@@ -283,7 +271,6 @@ def is_config_manager_available() -> bool:
         bool: 是否可用
     """
     return getattr(settings, "CONFIG_MANAGER_AVAILABLE", False)
-
 
 def get_config_manager() -> Any:
     """
@@ -295,7 +282,6 @@ def get_config_manager() -> Any:
     if is_config_manager_available():
         return getattr(settings, "UNIFIED_CONFIG_MANAGER", None)
     return None
-
 
 def register_config_change_listener(
     listener: Any, key_filter: str | None = None, prefix_filter: str | None = None
@@ -313,7 +299,6 @@ def register_config_change_listener(
         config_manager.add_listener(listener, key_filter, prefix_filter)
     else:
         logger.warning("配置管理器不可用，无法注册监听器")
-
 
 def migrate_legacy_config_access(legacy_settings_key: str, unified_config_key: str, default: Any = None) -> Any:
     """

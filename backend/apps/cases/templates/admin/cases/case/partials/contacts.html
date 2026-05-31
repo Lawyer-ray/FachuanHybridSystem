@@ -1,10 +1,9 @@
-{% load i18n %}
 <div class="info-card full-width" x-data="contactsApp()">
     <div class="card-header">
         <span class="card-icon">👥</span>
-        <h3 class="card-title">{% trans "案件工作人员" %}</h3>
+        <h3 class="card-title">{</h3>
         <button type="button" class="btn btn-sm btn-primary" @click="showAddDialog = true">
-            + {% trans "添加工作人员" %}
+            + {
         </button>
     </div>
     <div class="card-content">
@@ -13,14 +12,14 @@
             <table class="data-table">
                 <thead>
                     <tr>
-                        <th>{% trans "姓名" %}</th>
-                        <th>{% trans "角色" %}</th>
-                        <th>{% trans "电话" %}</th>
-                        <th>{% trans "收件地址" %}</th>
-                        <th>{% trans "所属阶段" %}</th>
-                        <th>{% trans "主管机关" %}</th>
-                        <th>{% trans "备注" %}</th>
-                        <th>{% trans "操作" %}</th>
+                        <th>{</th>
+                        <th>{</th>
+                        <th>{</th>
+                        <th>{</th>
+                        <th>{</th>
+                        <th>{</th>
+                        <th>{</th>
+                        <th>{</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -36,7 +35,7 @@
                         <td>
                             <button type="button" class="btn btn-sm btn-danger"
                                     @click="deleteContact({{ contact.id }})">
-                                {% trans "删除" %}
+                                {
                             </button>
                         </td>
                     </tr>
@@ -45,20 +44,20 @@
             </table>
         </div>
         {% else %}
-        <p class="empty-state">{% trans "暂无工作人员信息" %}</p>
+        <p class="empty-state">{</p>
         {% endif %}
     </div>
 
     <!-- 添加工作人员对话框 -->
     <div x-show="showAddDialog" x-transition class="modal-overlay" @click.self="showAddDialog = false">
         <div class="modal-content">
-            <h3>{% trans "添加工作人员" %}</h3>
+            <h3>{</h3>
             <form @submit.prevent="addContact()">
                 <div class="form-group">
-                    <label>{% trans "搜索已有工作人员" %}</label>
+                    <label>{</label>
                     <div class="staff-search-wrapper">
                         <input type="text" class="form-control"
-                               placeholder="{% trans "输入姓名搜索历史工作人员..." %}"
+                               placeholder="{"
                                x-model="searchQuery"
                                @input="searchContacts()"
                                @focus="searchResults.length && (showSearchDropdown = true)"
@@ -78,56 +77,56 @@
                     </div>
                 </div>
                 <div class="form-group">
-                    <label>{% trans "姓名" %} *</label>
+                    <label>{ *</label>
                     <input type="text" x-model="form.name" required class="form-control">
                 </div>
                 <div class="form-group">
-                    <label>{% trans "角色" %} *</label>
+                    <label>{ *</label>
                     <select x-model="form.role" required class="form-control">
-                        <option value="">{% trans "请选择" %}</option>
+                        <option value="">{</option>
                         {% for value, label in contact_role_choices %}
                         <option value="{{ value }}">{{ label }}</option>
                         {% endfor %}
                     </select>
                 </div>
                 <div class="form-group">
-                    <label>{% trans "电话" %}</label>
+                    <label>{</label>
                     <input type="text" x-model="form.phone" class="form-control">
                 </div>
                 <div class="form-group">
-                    <label>{% trans "收件地址" %}</label>
+                    <label>{</label>
                     <input type="text" x-model="form.address" class="form-control">
                 </div>
                 <div class="form-group">
-                    <label>{% trans "所属阶段" %}</label>
+                    <label>{</label>
                     <select x-model="form.stage" class="form-control">
-                        <option value="">{% trans "默认（当前阶段）" %}</option>
+                        <option value="">{</option>
                         {% for value, label in case_stage_choices %}
                         <option value="{{ value }}">{{ label }}</option>
                         {% endfor %}
                     </select>
                 </div>
                 <div class="form-group">
-                    <label>{% trans "主管机关" %}</label>
+                    <label>{</label>
                     <select x-model="form.authority_id" class="form-control">
-                        <option value="">{% trans "无" %}</option>
+                        <option value="">{</option>
                         {% for auth in case.supervising_authorities.all %}
                         <option value="{{ auth.id }}">{{ auth.get_authority_type_display }} - {{ auth.name }}</option>
                         {% endfor %}
                     </select>
                 </div>
                 <div class="form-group">
-                    <label>{% trans "备注" %}</label>
+                    <label>{</label>
                     <input type="text" x-model="form.note" class="form-control"
-                           placeholder="{% trans "如：派出法庭名称等" %}">
+                           placeholder="{">
                 </div>
                 <div class="form-actions">
                     <button type="button" class="btn btn-secondary" @click="showAddDialog = false">
-                        {% trans "取消" %}
+                        {
                     </button>
                     <button type="submit" class="btn btn-primary" :disabled="submitting">
-                        <span x-show="submitting">{% trans "保存中..." %}</span>
-                        <span x-show="!submitting">{% trans "保存" %}</span>
+                        <span x-show="submitting">{</span>
+                        <span x-show="!submitting">{</span>
                     </button>
                 </div>
             </form>
@@ -231,16 +230,16 @@ function contactsApp() {
                     window.location.reload();
                 } else {
                     const err = await resp.json();
-                    alert(err.detail || '{% trans "保存失败" %}');
+                    alert(err.detail || '{');
                 }
             } catch (e) {
-                alert('{% trans "网络错误" %}');
+                alert('{');
             } finally {
                 this.submitting = false;
             }
         },
         async deleteContact(id) {
-            if (!confirm('{% trans "确定删除此工作人员？" %}')) return;
+            if (!confirm('{')) return;
             try {
                 const resp = await fetch(`/api/v1/contacts/contacts/${id}`, {
                     method: 'DELETE',
@@ -250,7 +249,7 @@ function contactsApp() {
                     window.location.reload();
                 }
             } catch (e) {
-                alert('{% trans "删除失败" %}');
+                alert('{');
             }
         },
     };

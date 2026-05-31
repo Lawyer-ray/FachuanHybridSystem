@@ -14,7 +14,6 @@ from django.core.management.base import BaseCommand
 
 from apps.documents.services.template.folder_template.admin_service import FolderTemplateAdminService
 
-
 class Command(BaseCommand):
     help: str = "初始化默认文件夹模板"
 

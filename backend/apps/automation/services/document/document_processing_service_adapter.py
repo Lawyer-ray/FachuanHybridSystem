@@ -8,7 +8,6 @@ from typing import Any
 
 from apps.core.interfaces import IDocumentProcessingService
 
-
 class DocumentProcessingServiceAdapter(IDocumentProcessingService):
     """
     文档处理服务适配器

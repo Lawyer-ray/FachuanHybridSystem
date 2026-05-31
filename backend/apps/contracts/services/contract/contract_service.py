@@ -24,7 +24,6 @@ if TYPE_CHECKING:
     from .domain import ContractAccessPolicy
     from .query import ContractQueryFacade, ContractQueryService, SupplementaryAgreementQueryService
 
-
 class ContractService(ContractServiceQueryMixin):
     """合同服务 — 封装合同相关的所有业务逻辑。"""
 

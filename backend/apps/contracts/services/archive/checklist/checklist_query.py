@@ -20,7 +20,6 @@ from .material_mapping import (
 
 logger = logging.getLogger("apps.contracts.archive")
 
-
 def get_checklist_with_status(contract: Contract) -> dict[str, Any]:
     """获取合同的归档检查清单及各项完成状态。"""
     archive_category = get_archive_category(contract.case_type)
@@ -118,18 +117,15 @@ def get_checklist_with_status(contract: Contract) -> dict[str, Any]:
         "completion_percentage": round(completed_count / total_count * 100, 1) if total_count > 0 else 0,
     }
 
-
 def get_template_items(archive_category: str) -> list[ChecklistItem]:
     """获取指定归档分类中需要模板生成的清单项。"""
     checklist_items = ARCHIVE_CHECKLIST.get(archive_category, [])
     return [item for item in checklist_items if item["template"] is not None]
 
-
 def get_auto_detect_items(archive_category: str) -> list[ChecklistItem]:
     """获取指定归档分类中支持自动检测的清单项。"""
     checklist_items = ARCHIVE_CHECKLIST.get(archive_category, [])
     return [item for item in checklist_items if item["auto_detect"] is not None]
-
 
 def find_code_by_source(archive_category: str, source: str) -> str | None:
     """根据 source 类型找到对应的检查清单 code。"""
@@ -139,7 +135,6 @@ def find_code_by_source(archive_category: str, source: str) -> str | None:
             return item["code"]
     return None
 
-
 def find_code_by_name(archive_category: str, name_keyword: str) -> str | None:
     """根据名称关键词找到对应的检查清单 code。"""
     checklist_items = ARCHIVE_CHECKLIST.get(archive_category, [])
@@ -147,7 +142,6 @@ def find_code_by_name(archive_category: str, name_keyword: str) -> str | None:
         if name_keyword in item["name"]:
             return item["code"]
     return None
-
 
 def _apply_subitem_order(code_to_material_details: dict[str, list[dict[str, Any]]]) -> None:
     """对有排序规则的清单项，按关键词顺序重排子项（仅影响 order=0 的材料）。"""
@@ -172,7 +166,6 @@ def _apply_subitem_order(code_to_material_details: dict[str, list[dict[str, Any]
         unordered_mats.sort(key=_sort_key)
         code_to_material_details[code] = ordered_mats + unordered_mats
 
-
 def _get_source_label(category: str) -> str:
     """根据材料分类返回来源标签。"""
     label_map: dict[str, str] = {
@@ -186,7 +179,6 @@ def _get_source_label(category: str) -> str:
         MaterialCategory.ARCHIVE_UPLOAD: "手动上传",
     }
     return label_map.get(category, "手动上传")
-
 
 def _get_source(category: str) -> str:
     """根据材料分类返回来源类型（contract/case/upload/scan/auto）。"""

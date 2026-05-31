@@ -2,7 +2,6 @@
 
 from typing import Any
 
-
 class TemplateMatcher:
     def match_contract_template(self, case_type: str) -> Any:
         from django.db.models import Q

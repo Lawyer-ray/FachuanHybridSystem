@@ -1,5 +1,4 @@
 {% extends "admin/base.html" %}
-{% load i18n %}
 {% load static %}
 
 {% block title %}{% if subtitle %}{{ subtitle }} | {% endif %}{{ title }} | {{ site_title|default:_('Django site admin') }}{% endblock %}
@@ -208,7 +207,7 @@
     </h1>
     <div x-data="{ open: false }" style="display:inline-block;position:relative;">
         <button @click="open = !open" type="button" style="background:transparent;border:none;color:rgba(255,255,255,0.78);padding:0 2px;cursor:pointer;font-size:12px;font-weight:500;letter-spacing:0.2px;">
-            {% trans "语言" %} · {{ LANGUAGE_CODE|upper }}
+            { · {{ LANGUAGE_CODE|upper }}
         </button>
         <div x-show="open" @click.away="open = false" x-cloak
              style="position:absolute;left:0;top:110%;background:#fff;border:1px solid #ddd;border-radius:4px;box-shadow:0 2px 8px rgba(0,0,0,0.15);min-width:120px;z-index:9999;">
@@ -229,19 +228,19 @@
 {% endblock %}
 
 {% block userlinks %}
-<a href="{% url 'admin:message_hub_inboxmessage_changelist' %}">{% trans "收件箱" %}</a> /
-<a href="{% url 'admin:message_hub_messagesource_changelist' %}">{% trans "消息来源" %}</a> /
-<a href="{% url 'admin:cases_caselog_changelist' %}">{% trans "日志" %}</a> /
-<a href="{% url 'admin:documents_documenttemplate_changelist' %}">{% trans "文件模板" %}</a> /
-<a href="{% url 'admin:core_systemconfig_changelist' %}">{% trans "系统配置" %}</a> /
-<a href="{% url 'admin:app_list' 'django_q' %}">{% trans "Task" %}</a> /
+<a href="{% url 'admin:message_hub_inboxmessage_changelist' %}">{</a> /
+<a href="{% url 'admin:message_hub_messagesource_changelist' %}">{</a> /
+<a href="{% url 'admin:cases_caselog_changelist' %}">{</a> /
+<a href="{% url 'admin:documents_documenttemplate_changelist' %}">{</a> /
+<a href="{% url 'admin:core_systemconfig_changelist' %}">{</a> /
+<a href="{% url 'admin:app_list' 'django_q' %}">{</a> /
 <form action="{% url 'admin:logout' %}" method="post" style="display:inline; margin:0;">
     {% csrf_token %}
     <button
         type="submit"
         style="background:none;border:none;padding:0;margin:0;color:var(--header-link-color, #81d4fa);cursor:pointer;font:inherit;text-decoration:none;"
     >
-        {% translate '注销' %}
+        {
     </button>
 </form>
 {% endblock %}

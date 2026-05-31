@@ -16,7 +16,6 @@ logger = logging.getLogger("apps.express_query")
 EMS_HOME_URL: Final[str] = "https://www.11183.com.cn/"
 EMS_QUERY_URL: Final[str] = "https://www.11183.com.cn/?to=%2Fquery_express_delivery"
 
-
 async def query_ems(page: Page, tracking_number: str) -> None:
     """
     EMS 查询主流程：
@@ -112,7 +111,6 @@ async def query_ems(page: Page, tracking_number: str) -> None:
 
     await _open_ems_waybill_detail(page, tracking_number)
 
-
 async def _dismiss_ems_overlays(page: Page) -> None:
     close_selectors = [
         "button:has-text('知道了')",
@@ -192,7 +190,6 @@ async def _dismiss_ems_overlays(page: Page) -> None:
 
         if not closed_any:
             break
-
 
 async def _open_ems_waybill_detail(page: Page, tracking_number: str) -> None:
     """
@@ -296,7 +293,6 @@ async def _open_ems_waybill_detail(page: Page, tracking_number: str) -> None:
     # ---- 阶段2：展开全部物流轨迹 ----
     # EMS 详情页默认只显示部分轨迹，需要点击"展开全部"等按钮才能显示完整轨迹
     await _ems_expand_all_tracking(page)
-
 
 async def _ems_expand_all_tracking(page: Page) -> None:
     """

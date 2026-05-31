@@ -21,7 +21,6 @@ router = Router(tags=["图片旋转"])
 _ALLOWED_IMAGE_TYPES = frozenset({"image/jpeg", "image/png", "image/webp", "image/tiff"})
 _MAX_UPLOAD_SIZE = 20 * 1024 * 1024  # 20MB
 
-
 def _validate_image_file(file_obj: UploadedFile) -> None:
     """验证上传的图片文件类型和大小。"""
     content_type = getattr(file_obj, "content_type", "") or ""
@@ -40,28 +39,23 @@ def _validate_image_file(file_obj: UploadedFile) -> None:
             code="FILE_TOO_LARGE",
         )
 
-
 def _body(request: HttpRequest) -> dict[str, Any]:
     return cast(dict[str, Any], json.loads(request.body or b"{}"))
-
 
 def _get_pdf_service() -> Any:
     from apps.image_rotation.services.pdf_extraction_service import PDFExtractionService
 
     return PDFExtractionService()
 
-
 def _get_rotation_service() -> Any:
     from apps.image_rotation.services.facade import ImageRotationService
 
     return ImageRotationService()
 
-
 def _get_rename_service() -> Any:
     from apps.image_rotation.services.auto_rename_service import AutoRenameService
 
     return AutoRenameService()
-
 
 @router.post("/extract-pdf-fast")
 @rate_limit_from_settings("UPLOAD", by_user=True)
@@ -77,7 +71,6 @@ def extract_pdf_fast(request: HttpRequest) -> dict[str, Any]:
         logger.error("extract_pdf_fast 失败: %s", exc, exc_info=True)
         return {"success": False, "message": str(exc)}
 
-
 @router.post("/detect-page-orientation")
 def detect_page_orientation(request: HttpRequest) -> dict[str, Any]:
     payload = _body(request)
@@ -89,7 +82,6 @@ def detect_page_orientation(request: HttpRequest) -> dict[str, Any]:
     except Exception as exc:
         logger.error("detect_page_orientation 失败: %s", exc, exc_info=True)
         return {"rotation": 0, "confidence": 0}
-
 
 @router.post("/detect-orientation")
 def detect_orientation(request: HttpRequest) -> dict[str, Any]:
@@ -114,7 +106,6 @@ def detect_orientation(request: HttpRequest) -> dict[str, Any]:
             logger.error("detect_orientation 失败: %s", exc, exc_info=True)
             results.append({"filename": img.get("filename", ""), "rotation": 0, "confidence": 0, "ocr_text": ""})
     return {"success": True, "results": results}
-
 
 @router.post("/suggest-rename")
 @rate_limit_from_settings("LLM", by_user=True)
@@ -158,7 +149,6 @@ def suggest_rename(request: HttpRequest) -> dict[str, Any]:
         logger.error("suggest_rename 失败: %s", exc, exc_info=True)
         return {"success": False, "message": str(exc), "suggestions": []}
 
-
 @router.post("/export-pdf")
 @rate_limit_from_settings("EXPORT", by_user=True)
 def export_pdf(request: HttpRequest) -> dict[str, Any]:
@@ -177,7 +167,6 @@ def export_pdf(request: HttpRequest) -> dict[str, Any]:
         except Exception as exc:
             logger.error("export_pdf 失败: %s", exc, exc_info=True)
             return {"success": False, "message": str(exc)}
-
 
 def _handle_multipart_export_pdf(request: HttpRequest) -> dict[str, Any]:
     """处理 multipart/form-data 格式的 PDF 导出请求"""
@@ -209,7 +198,6 @@ def _handle_multipart_export_pdf(request: HttpRequest) -> dict[str, Any]:
         logger.error("multipart export-pdf 失败: %s", exc, exc_info=True)
         return {"success": False, "message": str(exc)}
 
-
 @router.post("/export")
 @rate_limit_from_settings("EXPORT", by_user=True)
 def export_images(request: HttpRequest) -> dict[str, Any]:
@@ -229,7 +217,6 @@ def export_images(request: HttpRequest) -> dict[str, Any]:
         except Exception as exc:
             logger.error("export_images 失败: %s", exc, exc_info=True)
             return {"success": False, "message": str(exc)}
-
 
 def _handle_multipart_export(request: HttpRequest) -> dict[str, Any]:
     """处理 multipart/form-data 格式的导出请求"""

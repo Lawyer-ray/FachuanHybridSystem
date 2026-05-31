@@ -51,7 +51,6 @@ OCR 文本:
 5. 只返回 JSON，不要其他内容
 """
 
-
 @dataclass
 class LineItem:
     """对账单明细行"""
@@ -59,7 +58,6 @@ class LineItem:
     date: str | None = None
     amount: float | None = None
     description: str = ""
-
 
 @dataclass
 class StatementInfo:
@@ -73,7 +71,6 @@ class StatementInfo:
     ocr_text: str = ""
     image_data: str = ""
 
-
 @dataclass
 class DeliveryNote:
     """出库单信息"""
@@ -86,7 +83,6 @@ class DeliveryNote:
     match_status: str = STATUS_UNMATCHED
     remark: str = ""
 
-
 @dataclass
 class MonthGroup:
     """按月归档的结果"""
@@ -97,7 +93,6 @@ class MonthGroup:
     deliveries: list[DeliveryNote] = field(default_factory=list)
     issues: list[str] = field(default_factory=list)
 
-
 @dataclass
 class ReconcileResult:
     """比对结果"""
@@ -107,7 +102,6 @@ class ReconcileResult:
     receipts: list[dict[str, Any]] = field(default_factory=list)
     others: list[dict[str, Any]] = field(default_factory=list)
     unmatched_deliveries: list[DeliveryNote] = field(default_factory=list)
-
 
 class ReconcilerService:
     """对账单解析 + 交叉比对"""

@@ -13,7 +13,6 @@ from apps.contracts.models import Contract
 from . import document_generator as doc_gen
 from . import download_handler, folder_builder, pdf_utils, template_finder
 
-
 class ArchiveGenerationService:
     """归档文书批量生成服务"""
 

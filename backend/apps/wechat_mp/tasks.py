@@ -12,7 +12,6 @@ from apps.wechat_mp.services.publisher import PublishError, WeChatPublisher
 
 logger = logging.getLogger("apps.wechat_mp")
 
-
 def execute_publish_task(task_id: int) -> None:
     """执行公众号文章发布任务。
 

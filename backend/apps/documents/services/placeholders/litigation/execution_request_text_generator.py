@@ -8,7 +8,6 @@ from decimal import Decimal
 from .execution_request_models import InterestSegment, ParsedAmounts, ParsedInterestParams
 from .execution_request_utils import format_amount
 
-
 def generate_request_text(
     *,
     full_case_number: str,
@@ -98,7 +97,6 @@ def generate_request_text(
 
     return "\n".join(lines)
 
-
 def build_fee_desc(amounts: ParsedAmounts) -> str:
     parts: list[str] = []
     if amounts.litigation_fee > 0:
@@ -112,7 +110,6 @@ def build_fee_desc(amounts: ParsedAmounts) -> str:
     if amounts.guarantee_fee > 0:
         parts.append(f"财产保全担保费{format_amount(amounts.guarantee_fee)}元")
     return "、".join(parts)
-
 
 def build_interest_segment_desc(segments: list[InterestSegment]) -> str:
     desc_parts: list[str] = []

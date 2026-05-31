@@ -14,9 +14,7 @@ CHUNK_SIZE = 15000  # 长文档分段大小
 CHUNK_OVERLAP = 2000  # 分段重叠字符数
 CHUNK_THRESHOLD = 20000  # 超过此长度触发分段
 
-
 # ─── 结构化输出模型 ──────────────────────────────────────────────────────────
-
 
 class CaseAnalysisResult(BaseModel):
     """LLM 分析结果的结构化输出"""
@@ -29,7 +27,6 @@ class CaseAnalysisResult(BaseModel):
     is_relevant: bool = True
     conclusion: str = ""
     analysis: str = ""
-
 
 # ─── 系统提示词 ──────────────────────────────────────────────────────────────
 

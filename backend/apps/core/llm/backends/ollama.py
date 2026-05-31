@@ -30,7 +30,6 @@ from .ollama_protocol import build_ollama_chat_payload, parse_ollama_chat_respon
 
 logger = logging.getLogger("apps.core.llm.backends.ollama")
 
-
 class OllamaBackend(HttpxErrorMixin):
     """
     Ollama LLM 后端
@@ -758,7 +757,6 @@ class OllamaBackend(HttpxErrorMixin):
             self._availability_checked = True
             self._availability_result = False
             return False
-
 
 if TYPE_CHECKING:
     _backend: ILLMBackend = OllamaBackend()  # type: ignore[assignment]

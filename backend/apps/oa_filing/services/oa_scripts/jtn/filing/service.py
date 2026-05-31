@@ -15,7 +15,6 @@ from .sso_login import SsoLoginMixin
 
 logger = logging.getLogger("apps.oa_filing.jtn")
 
-
 class JtnFilingScript(SsoLoginMixin, PlaywrightFilingMixin, PlaywrightHelpersMixin, HttpFilingMixin):
     """金诚同达 OA 立案自动化。"""
 

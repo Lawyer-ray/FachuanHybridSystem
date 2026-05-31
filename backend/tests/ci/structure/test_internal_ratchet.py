@@ -20,7 +20,6 @@ _INTERNAL_CALL_RATCHET = 544
 
 _APPS_ROOT = Path(__file__).resolve().parents[3] / "apps"
 
-
 def _count_internal_calls() -> int:
     """Count all ``_internal(`` occurrences under apps/."""
     count = 0
@@ -31,7 +30,6 @@ def _count_internal_calls() -> int:
         text = py_file.read_text(encoding="utf-8", errors="ignore")
         count += len(pattern.findall(text))
     return count
-
 
 def test_internal_call_count_does_not_exceed_ratchet() -> None:
     """The number of _internal() calls must not grow beyond the ratchet baseline."""

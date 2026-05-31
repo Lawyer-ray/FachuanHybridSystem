@@ -17,7 +17,6 @@ from apps.organization.models import Lawyer
 
 logger = logging.getLogger(__name__)
 
-
 class CustomPasswordResetTokenGenerator(_BaseTokenGenerator):
     """自定义密码重置 Token 生成器"""
 
@@ -27,9 +26,7 @@ class CustomPasswordResetTokenGenerator(_BaseTokenGenerator):
         login_timestamp = "" if user.last_login is None else user.last_login.replace(microsecond=0, tzinfo=None)
         return f"{user.pk}{user.password}{timestamp}{login_timestamp}"
 
-
 password_reset_token_generator = CustomPasswordResetTokenGenerator()
-
 
 class PasswordResetService:
     """密码重置服务"""

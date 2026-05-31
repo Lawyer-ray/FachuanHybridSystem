@@ -6,7 +6,6 @@ from django.db.models import Case, IntegerField, Q, QuerySet, Value, When
 
 from apps.core.models import CauseOfAction, Court
 
-
 class CauseCourtRepository:
     """案由和法院数据访问层"""
 

@@ -7,7 +7,6 @@ from typing import Any
 
 from django.http import HttpRequest
 
-
 def tool_favorites(request: HttpRequest) -> dict[str, Any]:
     """向所有 admin 模板注入用户工具收藏 URL 列表（JSON）。"""
     # 仅对已登录用户注入

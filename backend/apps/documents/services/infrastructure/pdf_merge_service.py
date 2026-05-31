@@ -10,13 +10,11 @@ from typing import Any, ClassVar, cast
 
 from django.core.files.base import ContentFile
 from django.utils import timezone
-from django.utils.translation import gettext_lazy as _
 
 from apps.core.exceptions import BusinessException, ValidationException
 from apps.documents.models import EvidenceList
 from apps.documents.services.infrastructure.pdf_merge_utils import add_page_numbers as add_page_numbers_util
 from apps.documents.services.infrastructure.pdf_merge_utils import convert_docx_to_pdf, convert_image_to_pdf
-
 
 class PDFMergeValidator:
     SUPPORTED_FORMATS: ClassVar = [".pdf", ".doc", ".docx", ".jpg", ".jpeg", ".png", ".gif", ".bmp"]
@@ -27,7 +25,7 @@ class PDFMergeValidator:
         items = evidence_list.items.filter(file__isnull=False).exclude(file="").order_by("order")
         if not items.exists():
             raise ValidationException(
-                message=_("证据清单没有任何文件"),
+                message="证据清单没有任何文件",
                 code="NO_FILES_TO_MERGE",
                 errors={"evidence_list_id": int(evidence_list.pk)},
             )
@@ -40,7 +38,6 @@ class PDFMergeValidator:
                 code="UNSUPPORTED_FILE_FORMAT",
                 errors={"file_path": file_path, "extension": ext},
             )
-
 
 class PDFMergeWorkflow:
     def __init__(self, validator: PDFMergeValidator | None = None) -> None:
@@ -149,7 +146,6 @@ class PDFMergeWorkflow:
         from apps.documents.services.infrastructure.pdf_utils import get_pdf_page_count
 
         return get_pdf_page_count(pdf_input, default=0)
-
 
 class PDFMergeService:
     def __init__(self, workflow: PDFMergeWorkflow | None = None) -> None:

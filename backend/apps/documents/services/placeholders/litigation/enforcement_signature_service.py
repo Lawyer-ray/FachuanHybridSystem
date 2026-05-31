@@ -13,13 +13,11 @@ from apps.litigation_ai.placeholders.spec import LitigationPlaceholderKeys
 
 logger = logging.getLogger(__name__)
 
-
 class EnforcementSignatureKeys:
     """强制执行申请书签名盖章占位符键"""
 
     ENFORCEMENT_SIGNATURE = "强制执行申请书签名盖章信息"
     ENFORCEMENT_SIGNATURE_PARTY = "强制执行申请书申请人签章"
-
 
 @PlaceholderRegistry.register
 class EnforcementSignatureService(BasePlaceholderService):

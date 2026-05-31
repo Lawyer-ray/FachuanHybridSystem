@@ -6,12 +6,10 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any, Protocol
 
-
 class TaskQueue(Protocol):
     def enqueue(
         self, func_path: str | Callable[..., Any], *args: Any, task_name: str | None = None, **kwargs: Any
     ) -> str: ...
-
 
 @dataclass(frozen=True)
 class DjangoQTaskQueue:

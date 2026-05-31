@@ -15,7 +15,6 @@ from .dialog_ui_helpers import GuaranteeDialogUIHelpersMixin
 
 logger = logging.getLogger("apps.automation")
 
-
 class GuaranteeDialogMixin(
     GuaranteeDialogFieldFillingMixin,
     GuaranteeDialogPlaywrightFillMixin,

@@ -27,7 +27,6 @@ from apps.enterprise_data.services.types import (
 _SAMPLE_CACHE_TTL_SECONDS = 24 * 60 * 60
 _MAX_SAMPLE_JSON_CHARS = 12000
 
-
 class McpWorkbenchService:
     """供 Admin 调试页面使用的 MCP 工具编排服务。"""
 

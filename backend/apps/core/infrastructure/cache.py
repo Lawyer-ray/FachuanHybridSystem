@@ -10,7 +10,6 @@ from __future__ import annotations
 import os
 from typing import Any
 
-
 def _safe_get_config(key: str, default: Any | None = None) -> Any:
     """安全获取配置,避免循环导入"""
     try:
@@ -19,7 +18,6 @@ def _safe_get_config(key: str, default: Any | None = None) -> Any:
         return get_config(key, default)
     except (ImportError, AttributeError, KeyError):
         return default
-
 
 def _hash_key_component(value: str) -> str:
     import hashlib
@@ -30,7 +28,6 @@ def _hash_key_component(value: str) -> str:
     v = (value or "").strip().encode("utf-8")
     secret = (getattr(settings, "SECRET_KEY", "") or "").encode("utf-8")
     return hmac.new(secret, v, hashlib.sha256).hexdigest()[:32]
-
 
 def _normalize_key_component(value: str, *, max_len: int = 64) -> str:
     import re
@@ -51,7 +48,6 @@ def _normalize_key_component(value: str, *, max_len: int = 64) -> str:
         cleaned = cleaned[:max_len].rstrip("-._") or "x"
 
     return f"{cleaned}-{_hash_key_component(raw)}"
-
 
 def get_cache_config() -> dict[str, Any]:
     """
@@ -89,7 +85,6 @@ def get_cache_config() -> dict[str, Any]:
             "TIMEOUT": default_timeout,
         }
     }
-
 
 # 缓存 key 常量
 class CacheKeys:
@@ -208,7 +203,6 @@ class CacheKeys:
     def documents_matching_version_folder_templates(cls) -> str:
         return cls.DOCUMENTS_MATCHING_VERSION_FOLDER_TEMPLATES
 
-
 # 缓存超时时间(秒)
 _DEFAULT_TIMEOUTS: dict[str, int] = {
     "SHORT": 60,
@@ -216,7 +210,6 @@ _DEFAULT_TIMEOUTS: dict[str, int] = {
     "LONG": 3600,
     "DAY": 86400,
 }
-
 
 class _CacheTimeoutMeta(type):
     _cache: dict[str, int] = {}
@@ -231,7 +224,6 @@ class _CacheTimeoutMeta(type):
             cls._cache[name] = value
             return value
         return super().__getattribute__(name)  # type: ignore[no-any-return]  # metaclass __getattribute__ 返回 Any
-
 
 class CacheTimeout(metaclass=_CacheTimeoutMeta):
     """缓存超时时间定义"""
@@ -281,7 +273,6 @@ class CacheTimeout(metaclass=_CacheTimeoutMeta):
     LONG = 3600
     DAY = 86400
 
-
 def invalidate_user_access_context(user_id: int, *, org_access: bool = True, case_grants: bool = True) -> None:
     from django.core.cache import cache
 
@@ -292,7 +283,6 @@ def invalidate_user_access_context(user_id: int, *, org_access: bool = True, cas
         keys.append(CacheKeys.case_access_grants(user_id))
     if keys:
         cache.delete_many(keys)
-
 
 def invalidate_users_access_context(user_ids: list[int], *, org_access: bool = True, case_grants: bool = True) -> None:
     from django.core.cache import cache
@@ -306,9 +296,7 @@ def invalidate_users_access_context(user_ids: list[int], *, org_access: bool = T
     if keys:
         cache.delete_many(keys)
 
-
 _version_bump_lock: Any = None
-
 
 def _get_version_bump_lock() -> Any:
     global _version_bump_lock
@@ -317,7 +305,6 @@ def _get_version_bump_lock() -> Any:
 
         _version_bump_lock = threading.Lock()
     return _version_bump_lock
-
 
 def bump_cache_version(key: str, *, timeout: int) -> int:
     from django.core.cache import cache
@@ -332,12 +319,10 @@ def bump_cache_version(key: str, *, timeout: int) -> int:
             cache.set(key, new_val, timeout=timeout)
             return new_val
 
-
 def delete_cache_key(key: str) -> None:
     from django.core.cache import cache
 
     cache.delete(key)
-
 
 import logging
 

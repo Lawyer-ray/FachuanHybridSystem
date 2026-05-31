@@ -11,7 +11,6 @@ from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import UploadedFile
 from django.db.models import Sum
 from django.utils import timezone
-from django.utils.translation import gettext as _
 
 from apps.automation.services.ocr.ocr_service import OCRService
 from apps.automation.services.ocr.pdf_text_extractor import PDFTextExtractor
@@ -26,7 +25,6 @@ from apps.invoice_recognition.models import (
 from .invoice_parser import InvoiceParser, ParsedInvoice
 
 logger = logging.getLogger(__name__)
-
 
 class InvoiceRecognitionService:
     """发票识别核心服务：任务管理、文件处理、OCR 调用、解析、去重、统计。"""
@@ -48,11 +46,11 @@ class InvoiceRecognitionService:
         name: str = file.name or ""
         ext = Path(name).suffix.lower()
         if ext not in self.ALLOWED_EXTENSIONS:
-            raise ValidationError(_("不支持的文件格式：%(ext)s，仅允许 PDF、JPG、JPEG、PNG。") % {"ext": ext})
+            raise ValidationError("不支持的文件格式：%(ext)s，仅允许 PDF、JPG、JPEG、PNG。" % {"ext": ext})
         size: int = file.size or 0
         if size > self.MAX_FILE_SIZE:
             raise ValidationError(
-                _("文件大小超过限制（最大 20 MB），当前文件大小：%(size).1f MB。") % {"size": size / 1024 / 1024}
+                "文件大小超过限制（最大 20 MB），当前文件大小：%(size).1f MB。" % {"size": size / 1024 / 1024}
             )
 
     def _save_file(self, task_id: int, file: UploadedFile) -> tuple[Path, str]:

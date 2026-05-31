@@ -18,7 +18,6 @@ router = Router()
 # 保持小于默认 retry(1200) 以降低重复执行风险。
 CLIENT_IMPORT_TASK_TIMEOUT_SECONDS = int(os.environ.get("OA_CLIENT_IMPORT_TASK_TIMEOUT_SECONDS", "1100") or "1100")
 
-
 @router.post("/client-import", response=ClientImportSessionOut)
 def trigger_client_import(request: HttpRequest) -> Any:
     """触发从OA导入客户。"""
@@ -83,7 +82,6 @@ def trigger_client_import(request: HttpRequest) -> Any:
     logger.info("创建客户导入会话: session_id=%d headless=%s limit=%s", session.id, headless, limit)
     return session
 
-
 @router.get("/client-import/{session_id}", response=ClientImportSessionOut)
 def get_client_import_session(request: HttpRequest, session_id: int) -> Any:
     """查询客户导入会话状态。"""
@@ -95,7 +93,6 @@ def get_client_import_session(request: HttpRequest, session_id: int) -> Any:
 
         raise Http404("会话不存在")
     return session
-
 
 @router.post("/client-import/{session_id}/batch-create")
 def batch_create_clients(request: HttpRequest, session_id: int) -> dict[str, Any]:
@@ -204,7 +201,6 @@ def batch_create_clients(request: HttpRequest, session_id: int) -> dict[str, Any
             "errors": errors[:10],  # 最多返回10个错误
         }
     )
-
 
 def _enrich_enterprise_data(company_name: str) -> dict[str, Any] | None:
     """调用企业数据API补全企业信息。"""

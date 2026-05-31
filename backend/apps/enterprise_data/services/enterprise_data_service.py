@@ -30,7 +30,6 @@ logger = logging.getLogger(__name__)
 _BIDDING_SEARCH_TYPES = {1, 2, 3}
 _BIDDING_BID_TYPES = {1, 2, 4}
 
-
 class EnterpriseDataService:
     """对上游 provider 输出统一的查询协议。"""
 

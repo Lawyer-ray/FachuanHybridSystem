@@ -2,7 +2,6 @@
 
 from .types import ConversationStep
 
-
 class FlowStateMachine:
     def parse_step(self, step_value: str | None) -> ConversationStep:
         if not step_value:

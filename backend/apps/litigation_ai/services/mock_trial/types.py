@@ -4,7 +4,6 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
 
-
 class MockTrialStep(str, Enum):
     """模拟庭审步骤."""
 
@@ -31,13 +30,11 @@ class MockTrialStep(str, Enum):
     MEDIATION = "mt_mediation"  # 法庭调解
     COURT_SUMMARY = "mt_court_summary"  # 法官总结/宣判
 
-
 class TrialLevel(str, Enum):
     """审级."""
 
     FIRST = "first"  # 一审
     SECOND = "second"  # 二审
-
 
 @dataclass
 class MockTrialContext:
@@ -49,7 +46,6 @@ class MockTrialContext:
     current_step: MockTrialStep
     mode: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
-
 
 @dataclass
 class AdversarialConfig:

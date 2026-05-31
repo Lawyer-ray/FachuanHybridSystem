@@ -14,7 +14,6 @@ from decimal import Decimal
 from typing import Any, cast
 
 import httpx
-from django.utils.translation import gettext_lazy as _
 
 from apps.core.config import get_config
 from apps.core.exceptions import APIError, NetworkError, TokenError
@@ -24,7 +23,6 @@ from ._insurance_http_mixin import InsuranceHttpMixin
 
 logger = logging.getLogger("apps.automation")
 
-
 @dataclass
 class InsuranceCompany:
     """保险公司信息"""
@@ -32,7 +30,6 @@ class InsuranceCompany:
     c_id: str
     c_code: str
     c_name: str
-
 
 @dataclass
 class PremiumResult:
@@ -44,7 +41,6 @@ class PremiumResult:
     error_message: str | None
     response_data: dict[str, Any] | None
     request_info: dict[str, Any] | None = None  # 请求信息（用于调试）
-
 
 class CourtInsuranceClient(InsuranceHttpMixin):
     """
@@ -494,7 +490,7 @@ class CourtInsuranceClient(InsuranceHttpMixin):
                 company=company,
                 premium=None,
                 status="failed",
-                error_message=str(_("响应中未找到费率数据")),
+                error_message=str("响应中未找到费率数据"),
                 response_data=data,
                 request_info=request_info,
             )

@@ -5,7 +5,6 @@ from typing import Any
 
 logger = logging.getLogger("apps.litigation_ai")
 
-
 class EvidenceTextExtractionService:
     def extract_chunks(self, file_path: str, max_pages: int | None = None) -> list[dict[str, Any]]:
         import fitz

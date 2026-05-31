@@ -7,12 +7,10 @@ from typing import Any
 
 from django.db import transaction
 from django.db.models import Max
-from django.utils.translation import gettext_lazy as _
 
 from apps.core.exceptions import ValidationException
 from apps.core.exceptions.error_catalog import case_not_found
 from apps.evidence.models import LIST_TYPE_ORDER, LIST_TYPE_PREVIOUS, EvidenceItem, EvidenceList, ListType
-
 
 class EvidenceMutationService:
     @transaction.atomic
@@ -39,7 +37,7 @@ class EvidenceMutationService:
 
         if not title or not title.strip():
             raise ValidationException(
-                message=_("证据清单标题不能为空"),
+                message="证据清单标题不能为空",
                 code="EVIDENCE_LIST_TITLE_EMPTY",
                 errors={"title": "标题不能为空"},
             )
@@ -94,7 +92,7 @@ class EvidenceMutationService:
         if title is not None:
             if not title or not title.strip():
                 raise ValidationException(
-                    message=_("证据清单标题不能为空"),
+                    message="证据清单标题不能为空",
                     code="EVIDENCE_LIST_TITLE_EMPTY",
                     errors={"title": "标题不能为空"},
                 )
@@ -132,14 +130,14 @@ class EvidenceMutationService:
     def create_evidence_item(self, *, evidence_list: EvidenceList, name: str, purpose: str) -> EvidenceItem:
         if not name or not name.strip():
             raise ValidationException(
-                message=_("证据名称不能为空"),
+                message="证据名称不能为空",
                 code="EVIDENCE_ITEM_NAME_EMPTY",
                 errors={"name": "证据名称不能为空"},
             )
 
         if not purpose or not purpose.strip():
             raise ValidationException(
-                message=_("证明内容不能为空"),
+                message="证明内容不能为空",
                 code="EVIDENCE_ITEM_PURPOSE_EMPTY",
                 errors={"purpose": "证明内容不能为空"},
             )
@@ -161,7 +159,7 @@ class EvidenceMutationService:
         if name is not None:
             if not name or not name.strip():
                 raise ValidationException(
-                    message=_("证据名称不能为空"),
+                    message="证据名称不能为空",
                     code="EVIDENCE_ITEM_NAME_EMPTY",
                     errors={"name": "证据名称不能为空"},
                 )
@@ -170,7 +168,7 @@ class EvidenceMutationService:
         if purpose is not None:
             if not purpose or not purpose.strip():
                 raise ValidationException(
-                    message=_("证明内容不能为空"),
+                    message="证明内容不能为空",
                     code="EVIDENCE_ITEM_PURPOSE_EMPTY",
                     errors={"purpose": "证明内容不能为空"},
                 )
@@ -209,7 +207,7 @@ class EvidenceMutationService:
 
         if existing_ids != provided_ids:
             raise ValidationException(
-                message=_("提供的明细 ID 列表与实际不符"),
+                message="提供的明细 ID 列表与实际不符",
                 code="INVALID_ITEM_IDS",
                 errors={
                     "missing": list(existing_ids - provided_ids),

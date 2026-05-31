@@ -11,7 +11,6 @@ from apps.core.interfaces import IValidatorService
 
 logger = logging.getLogger("apps.automation")
 
-
 class ValidatorService:
     """数据校验服务"""
 
@@ -112,7 +111,6 @@ class ValidatorService:
         """
         return cast(list[Any], self.text_utils.extract_case_numbers(text))
 
-
 class ValidatorServiceAdapter(IValidatorService):
     """
     验证服务适配器
@@ -170,6 +168,5 @@ class ValidatorServiceAdapter(IValidatorService):
     def extract_case_numbers_internal(self, text: str) -> list[Any]:
         """从文本中提取所有案号（内部接口，无权限检查）"""
         return self.service.extract_case_numbers(text)
-
 
 # 注意：不再使用全局单例，请通过 ServiceLocator.get_validator_service() 获取服务实例

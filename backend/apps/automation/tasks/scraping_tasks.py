@@ -11,7 +11,6 @@ from typing import Any
 
 logger = logging.getLogger("apps.automation")
 
-
 def _run_coroutine_sync[T](coro: Coroutine[Any, Any, T]) -> T:
     """
     在同步上下文中安全执行协程。
@@ -38,7 +37,6 @@ def _run_coroutine_sync[T](coro: Coroutine[Any, Any, T]) -> T:
     thread.join()
     return future.result()
 
-
 def _get_scraper_map() -> dict[str, type[Any]]:
     """
     延迟加载爬虫类映射，避免循环导入
@@ -50,7 +48,6 @@ def _get_scraper_map() -> dict[str, type[Any]]:
         ScraperTaskType.COURT_DOCUMENT: CourtDocumentScraper,
         ScraperTaskType.COURT_FILING: CourtFilingScraper,
     }
-
 
 def check_stuck_tasks() -> None:
     """
@@ -65,7 +62,6 @@ def check_stuck_tasks() -> None:
         monitor_service.send_alert(
             "任务超时告警", f"发现 {len(stuck_tasks)} 个任务执行超时（>30分钟）", level="warning"
         )
-
 
 def execute_scraper_task(task_id: int, **kwargs: Any) -> None:
     """
@@ -144,7 +140,6 @@ def execute_scraper_task(task_id: int, **kwargs: Any) -> None:
                 next_run_time,
             )
 
-
 def process_pending_tasks() -> int:
     """
     处理所有待处理的任务
@@ -179,7 +174,6 @@ def process_pending_tasks() -> int:
     logger.info("共提交 %s/%s 个任务到队列", submitted, count)
     return submitted
 
-
 def reset_running_tasks() -> int:
     """
     重置所有 running 状态的任务为 pending
@@ -199,7 +193,6 @@ def reset_running_tasks() -> int:
     running_tasks.update(status=ScraperTaskStatus.PENDING)
     logger.info("已重置 %s 个任务", count)
     return count
-
 
 def startup_check() -> dict[str, int]:
     """
@@ -221,7 +214,6 @@ def startup_check() -> dict[str, int]:
     logger.info("=" * 60)
 
     return {"reset_count": reset_count, "pending_count": pending_count}
-
 
 def execute_preservation_quote_task(quote_id: int) -> dict[str, Any]:
     """

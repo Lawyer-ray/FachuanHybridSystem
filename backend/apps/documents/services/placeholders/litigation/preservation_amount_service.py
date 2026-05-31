@@ -13,7 +13,6 @@ from apps.documents.services.placeholders import BasePlaceholderService, Placeho
 
 logger = logging.getLogger(__name__)
 
-
 @PlaceholderRegistry.register
 class PreservationAmountService(BasePlaceholderService):
     """财产保全申请书保全金额服务"""

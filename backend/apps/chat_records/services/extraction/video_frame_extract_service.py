@@ -23,12 +23,10 @@ from apps.core.infrastructure.subprocess_runner import SubprocessRunner
 
 logger = logging.getLogger(__name__)
 
-
 @dataclass(frozen=True)
 class FFProbeInfo:
     duration_seconds: float
     time_base_seconds: float | None = None
-
 
 class VideoFrameExtractService:
     def _is_path_under_dir(self, path: str, root: str) -> bool:

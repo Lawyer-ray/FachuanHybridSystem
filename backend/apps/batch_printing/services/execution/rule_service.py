@@ -7,7 +7,6 @@ from django.db.models import Q
 from apps.batch_printing.models import PrintKeywordRule, PrintPresetSnapshot
 from apps.core.exceptions import NotFoundError, ValidationException
 
-
 class RuleService:
     def list_rules(
         self,

@@ -9,7 +9,6 @@ from typing import Any
 
 from apps.documents.models import FolderTemplate
 
-
 class FolderTemplateIdService:
     def collect_structure_ids(self, structure: dict[str, Any]) -> list[str]:
         ids: list[str] = []

@@ -14,7 +14,6 @@ from apps.documents.services.placeholders.registry import PlaceholderRegistry
 
 logger = logging.getLogger(__name__)
 
-
 class _ArchiveMaterialsRichText:
     """结案归档材料文本，支持 docxtpl 硬换行渲染和预览文本显示。
 
@@ -49,7 +48,6 @@ class _ArchiveMaterialsRichText:
         """返回纯文本"""
         return self.plain_text
 
-
 def unwrap_archive_rich_text(context: dict[str, Any]) -> dict[str, Any]:
     """将 context 中的 _ArchiveMaterialsRichText 替换为 docxtpl.Listing 实例。
 
@@ -61,7 +59,6 @@ def unwrap_archive_rich_text(context: dict[str, Any]) -> dict[str, Any]:
         if isinstance(value, _ArchiveMaterialsRichText):
             result[key] = value.to_listing()
     return result
-
 
 @PlaceholderRegistry.register
 class ArchivePlaceholderService(BasePlaceholderService):

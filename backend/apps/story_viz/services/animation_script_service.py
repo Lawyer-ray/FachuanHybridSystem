@@ -8,7 +8,6 @@ from apps.story_viz.schemas import AnimationScript, ComparisonItem, ExtractedFac
 
 logger = logging.getLogger("apps.story_viz")
 
-
 class AnimationScriptService:
     def __init__(self, *, llm_service: Any, model: str | None = None) -> None:
         self._llm_service = llm_service

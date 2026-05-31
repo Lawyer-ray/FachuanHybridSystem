@@ -9,7 +9,7 @@ from django.contrib import admin
 from django.db.models import QuerySet
 from django.http import HttpRequest
 from django.utils.html import format_html
-from django.utils.translation import gettext_lazy as _
+
 from simple_history.admin import SimpleHistoryAdmin
 
 from apps.contracts.models import ClientPaymentRecord
@@ -24,14 +24,13 @@ else:
     except ImportError:
         BaseTabularInline = admin.TabularInline  # type: ignore[assignment,misc]
 
-
 class ClientPaymentRecordAdminForm(forms.ModelForm[ClientPaymentRecord]):
     """客户回款记录表单"""
 
     image = forms.ImageField(
         required=False,
-        label=_("上传凭证图片"),
-        help_text=_("支持 JPG、PNG、JPEG，最大 10MB"),
+        label="上传凭证图片",
+        help_text="支持 JPG、PNG、JPEG，最大 10MB",
     )
 
     class Meta:
@@ -78,7 +77,7 @@ class ClientPaymentRecordAdminForm(forms.ModelForm[ClientPaymentRecord]):
         # 验证案件归属
         if contract and case:
             if case.contract_id != contract.id:
-                raise forms.ValidationError(_("所选案件不属于该合同"))
+                raise forms.ValidationError("所选案件不属于该合同")
 
         return cleaned_data
 
@@ -105,13 +104,12 @@ class ClientPaymentRecordAdminForm(forms.ModelForm[ClientPaymentRecord]):
 
         return instance
 
-
 class ClientPaymentRecordInline(BaseTabularInline[ClientPaymentRecord, ClientPaymentRecord]):
     model = ClientPaymentRecord
     extra = 0
     fields = ("case", "amount", "note")
-    verbose_name = _("客户回款")
-    verbose_name_plural = _("客户回款")
+    verbose_name = "客户回款"
+    verbose_name_plural = "客户回款"
     autocomplete_fields: ClassVar = ["case"]
 
     def get_formset(self, request: HttpRequest, obj: Any = None, **kwargs: Any) -> Any:
@@ -139,7 +137,6 @@ class ClientPaymentRecordInline(BaseTabularInline[ClientPaymentRecord, ClientPay
     class Media:
         css = {"all": ("contracts/css/client_payment_inline.css",)}
 
-
 @admin.register(ClientPaymentRecord)
 class ClientPaymentRecordAdmin(admin.ModelAdmin):
     """客户回款记录 Admin"""
@@ -158,13 +155,13 @@ class ClientPaymentRecordAdmin(admin.ModelAdmin):
             },
         ),
         (
-            _("凭证图片"),
+            "凭证图片",
             {
                 "fields": ("image", "image_preview"),
             },
         ),
         (
-            _("系统信息"),
+            "系统信息",
             {
                 "fields": ("created_at",),
             },
@@ -175,7 +172,7 @@ class ClientPaymentRecordAdmin(admin.ModelAdmin):
         """优化查询"""
         return super().get_queryset(request).select_related("contract", "case")
 
-    @admin.display(description=_("图片预览"))
+    @admin.display(description="图片预览")
     def image_preview(self, obj: ClientPaymentRecord) -> str:
         """展示图片预览"""
         if not obj.pk or not obj.image_path:

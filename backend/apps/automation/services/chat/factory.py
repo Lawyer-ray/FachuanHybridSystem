@@ -29,7 +29,6 @@ from .base import ChatProvider
 
 logger = logging.getLogger(__name__)
 
-
 class ChatProviderFactory:
     """群聊提供者工厂类
 

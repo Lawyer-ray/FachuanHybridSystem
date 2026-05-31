@@ -10,7 +10,6 @@ from apps.documents.models import (
     FolderTemplateType,
 )
 
-
 class DocumentTemplateBindingService:
     def calculate_folder_path(self, folder_template: FolderTemplate, folder_node_id: str) -> str:
         """

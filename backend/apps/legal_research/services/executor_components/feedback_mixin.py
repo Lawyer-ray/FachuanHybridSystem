@@ -7,7 +7,6 @@ from typing import Any
 
 from apps.legal_research.services.sources import CaseDetail
 
-
 class ExecutorFeedbackMixin:
     FEEDBACK_QUERY_LIMIT = 2
     FEEDBACK_MIN_TERMS = 3

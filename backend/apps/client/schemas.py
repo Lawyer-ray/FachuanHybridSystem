@@ -12,7 +12,6 @@ from apps.core.api.schemas import SchemaMixin
 
 from .models import Client, ClientIdentityDoc
 
-
 class ClientIdentityDocOut(Schema):
     """客户证件文档输出 Schema"""
 
@@ -21,7 +20,6 @@ class ClientIdentityDocOut(Schema):
     file_path: str
     uploaded_at: datetime
     media_url: str | None = None
-
 
 class IdentityDocDetailOut(Schema):
     """证件文档详情输出 Schema"""
@@ -32,7 +30,6 @@ class IdentityDocDetailOut(Schema):
     file_path: str
     uploaded_at: datetime
     media_url: str | None = None
-
 
 class ClientOut(ModelSchema, SchemaMixin):
     """客户输出 Schema"""
@@ -72,12 +69,10 @@ class ClientOut(ModelSchema, SchemaMixin):
             for item in items
         ]
 
-
 class OACredentialCheckOut(Schema):
     """检查 OA 凭证结果"""
 
     has_credential: bool
-
 
 class ClientIn(Schema):
     """客户创建输入 Schema"""
@@ -91,7 +86,6 @@ class ClientIn(Schema):
     legal_representative: str | None = None
     legal_representative_id_number: str | None = None
 
-
 class ClientUpdateIn(Schema):
     """客户更新输入 Schema"""
 
@@ -104,9 +98,7 @@ class ClientUpdateIn(Schema):
     legal_representative: str | None = None
     legal_representative_id_number: str | None = None
 
-
 # ==================== Enterprise Prefill Schemas ====================
-
 
 class EnterpriseCompanyCandidateOut(Schema):
     """企业搜索候选项。"""
@@ -119,7 +111,6 @@ class EnterpriseCompanyCandidateOut(Schema):
     registered_capital: str = ""
     phone: str = ""
 
-
 class EnterpriseCompanySearchOut(Schema):
     """企业搜索结果。"""
 
@@ -128,13 +119,11 @@ class EnterpriseCompanySearchOut(Schema):
     items: list[EnterpriseCompanyCandidateOut]
     total: int
 
-
 class EnterpriseDuplicateClientOut(Schema):
     """已存在的当事人信息。"""
 
     id: int
     name: str
-
 
 class EnterpriseClientPrefillDataOut(Schema):
     """企业信息映射后的当事人预填字段。"""
@@ -145,7 +134,6 @@ class EnterpriseClientPrefillDataOut(Schema):
     legal_representative: str = ""
     address: str = ""
     phone: str = ""
-
 
 class EnterpriseCompanyProfileOut(Schema):
     """企业基础档案。"""
@@ -161,7 +149,6 @@ class EnterpriseCompanyProfileOut(Schema):
     business_scope: str = ""
     phone: str = ""
 
-
 class EnterpriseClientPrefillOut(Schema):
     """企业信息预填结果。"""
 
@@ -170,9 +157,7 @@ class EnterpriseClientPrefillOut(Schema):
     profile: EnterpriseCompanyProfileOut
     existing_client: EnterpriseDuplicateClientOut | None = None
 
-
 # ==================== PropertyClue Schemas ====================
-
 
 class PropertyClueAttachmentOut(Schema):
     """财产线索附件输出 Schema"""
@@ -187,20 +172,17 @@ class PropertyClueAttachmentOut(Schema):
     def resolve_media_url(obj: Any) -> str | None:
         return obj.media_url if hasattr(obj, "media_url") else None
 
-
 class PropertyClueIn(Schema):
     """财产线索创建输入 Schema"""
 
     clue_type: str = "bank"
     content: str | None = None
 
-
 class PropertyClueUpdateIn(Schema):
     """财产线索更新输入 Schema"""
 
     clue_type: str | None = None
     content: str | None = None
-
 
 class PropertyClueOut(Schema):
     """财产线索输出 Schema"""
@@ -235,13 +217,11 @@ class PropertyClueOut(Schema):
             for item in obj.attachments.all()
         ]
 
-
 class ContentTemplateOut(Schema):
     """内容模板输出 Schema"""
 
     clue_type: str
     template: str
-
 
 class IdentityRecognizeOut(Schema):
     """证件识别输出 Schema"""
@@ -251,7 +231,6 @@ class IdentityRecognizeOut(Schema):
     extracted_data: dict[str, str | None]
     confidence: float
     error: str | None = None
-
 
 class RelatedCaseOut(Schema):
     """关联案件输出 Schema"""
@@ -263,7 +242,6 @@ class RelatedCaseOut(Schema):
     current_stage: str | None = None
     legal_status: str | None = None
 
-
 class RelatedContractOut(Schema):
     """关联合同输出 Schema"""
 
@@ -272,7 +250,6 @@ class RelatedContractOut(Schema):
     case_type: str | None = None
     status: str | None = None
     role: str | None = None
-
 
 class RelatedItemsOut(Schema):
     """关联案件和合同输出 Schema"""

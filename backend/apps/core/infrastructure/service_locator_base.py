@@ -9,7 +9,6 @@ from typing import Any, ClassVar, TypeVar, cast
 
 T = TypeVar("T")
 
-
 class BaseServiceLocator:
     _services: ClassVar[dict[str, Any]] = {}
     _scope: ContextVar[dict[str, Any] | None] = ContextVar("service_locator_scope", default=None)

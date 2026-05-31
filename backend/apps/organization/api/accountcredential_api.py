@@ -13,14 +13,11 @@ from apps.organization.services import AccountCredentialService
 
 router = Router(auth=JWTOrSessionAuth())
 
-
 def _get_credential_service() -> AccountCredentialService:
     """工厂函数：获取账号凭证服务实例"""
     return AccountCredentialService()
 
-
 _credential_service = _get_credential_service()
-
 
 @router.get("/credentials", response=list[AccountCredentialOut])
 def list_credentials(
@@ -36,11 +33,9 @@ def list_credentials(
         )
     )
 
-
 @router.get("/credentials/{cred_id}", response=AccountCredentialOut)
 def get_credential(request: HttpRequest, cred_id: int) -> AccountCredentialOut:
     return _credential_service.get_credential(cred_id, user=get_request_user(request))  # type: ignore[return-value]
-
 
 @router.post("/credentials", response=AccountCredentialOut)
 def create_credential(request: HttpRequest, payload: AccountCredentialIn) -> AccountCredentialOut:
@@ -53,7 +48,6 @@ def create_credential(request: HttpRequest, payload: AccountCredentialIn) -> Acc
     )
     credential = _credential_service.create_credential(data=dto, user=get_request_user(request))
     return AccountCredentialOut.from_orm(credential)
-
 
 @router.put("/credentials/{cred_id}", response=AccountCredentialOut)
 def update_credential(request: HttpRequest, cred_id: int, payload: AccountCredentialUpdateIn) -> AccountCredentialOut:
@@ -69,7 +63,6 @@ def update_credential(request: HttpRequest, cred_id: int, payload: AccountCreden
         user=get_request_user(request),
     )
     return AccountCredentialOut.from_orm(credential)
-
 
 @router.delete("/credentials/{cred_id}")
 def delete_credential(request: HttpRequest, cred_id: int) -> dict[str, bool]:

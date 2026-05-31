@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from typing import Any, Protocol
 
-
 class FileValidatorPort(Protocol):
     """文件验证服务端口。
 

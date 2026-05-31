@@ -15,7 +15,6 @@ if TYPE_CHECKING:
     from apps.contracts.models import Contract
     from apps.core.security.access_context import AccessContext
 
-
 class ContractAccessPolicy(OrgAllowedLawyersMixin):
     def __init__(self, contract_access_repo: ContractAccessRepo | None = None) -> None:
         self._contract_access_repo = contract_access_repo

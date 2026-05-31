@@ -5,7 +5,6 @@ from uuid import UUID
 
 from ninja import Schema
 
-
 class ConfirmPartyIn(Schema):
     represented_party: Literal["party_a", "party_b", "party_c", "party_d"]
     reviewer_name: str = ""
@@ -15,13 +14,11 @@ class ConfirmPartyIn(Schema):
     party_c: str = ""
     party_d: str = ""
 
-
 class TaskCreatedOut(Schema):
     task_id: UUID
     status: str
     contract_title: str | None = None
     parties: dict[str, str] = {}
-
 
 class TaskStatusOut(Schema):
     task_id: UUID

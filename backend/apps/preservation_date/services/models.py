@@ -10,10 +10,8 @@ from typing import Any
 本模块定义了财产保全日期识别所需的所有数据类.
 """
 
-
 from dataclasses import dataclass, field
 from datetime import datetime
-
 
 @dataclass
 class PreservationMeasure:
@@ -42,7 +40,6 @@ class PreservationMeasure:
     pending_note: str | None = None  # 轮候说明
     raw_text: str | None = None  # 原始文本
 
-
 @dataclass
 class ReminderData:
     """
@@ -61,7 +58,6 @@ class ReminderData:
     content: str = ""
     due_at: datetime | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
-
 
 @dataclass
 class PreservationExtractionResult:

@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from typing import Any, Protocol, runtime_checkable
 
-
 @runtime_checkable
 class CaseSearchItem(Protocol):
     doc_id_raw: str
@@ -11,7 +10,6 @@ class CaseSearchItem(Protocol):
     title_hint: str
     search_id: str
     module: str
-
 
 @runtime_checkable
 class CaseDetail(Protocol):
@@ -27,11 +25,9 @@ class CaseDetail(Protocol):
     case_digest: str
     content_text: str
 
-
 @runtime_checkable
 class CaseSourceSession(Protocol):
     def close(self) -> None: ...
-
 
 @runtime_checkable
 class CaseSourceClient(Protocol):

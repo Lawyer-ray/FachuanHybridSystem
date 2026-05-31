@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from typing import Any, cast
 
-
 class TemplateContextBuilder:
     def __init__(self, *, enhanced_builder: Any | None = None) -> None:
         self._enhanced_builder = enhanced_builder

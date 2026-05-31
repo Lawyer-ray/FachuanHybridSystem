@@ -8,7 +8,6 @@ from typing import Any, Protocol
 
 from apps.core.dto import CaseDTO, CasePartyDTO, CaseSearchResultDTO, CaseTemplateBindingDTO
 
-
 class ICaseService(Protocol):
     """
     案件服务接口
@@ -436,7 +435,6 @@ class ICaseService(Protocol):
         """
         ...
 
-
 class ICaseSearchService(Protocol):
     """
     案件搜索服务接口
@@ -461,7 +459,6 @@ class ICaseSearchService(Protocol):
             匹配的案件搜索结果 DTO 列表
         """
         ...
-
 
 class ICaseNumberService(Protocol):
     """
@@ -525,10 +522,8 @@ class ICaseNumberService(Protocol):
         """
         ...
 
-
 class ICaseFilingNumberService(Protocol):
     def generate_case_filing_number_internal(self, case_id: int, case_type: str, created_year: int) -> str: ...
-
 
 class ICaseLogService(Protocol):
     """
@@ -688,7 +683,6 @@ class ICaseLogService(Protocol):
             ValidationException: 文件验证失败
         """
         ...
-
 
 class ILitigationFeeCalculatorService(Protocol):
     def calculate_all_fees(

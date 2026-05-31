@@ -9,16 +9,13 @@ if TYPE_CHECKING:
     from apps.cases.models import Case, CaseLog
     from apps.client.models import Client
 
-
 ReminderPayload = dict[str, object]
 SerializedPayload = dict[str, object]
-
 
 def _serialize_client(client: Client) -> SerializedPayload:
     from apps.client.services.client_export_serializer_service import serialize_client_obj
 
     return cast(SerializedPayload, serialize_client_obj(client))
-
 
 def _export_case_log_reminders_map(logs: list[CaseLog]) -> dict[int, list[ReminderPayload]]:
     log_ids = [int(log.id) for log in logs if getattr(log, "id", None)]
@@ -32,7 +29,6 @@ def _export_case_log_reminders_map(logs: list[CaseLog]) -> dict[int, list[Remind
         dict[int, list[ReminderPayload]],
         reminder_service.export_case_log_reminders_batch_internal(case_log_ids=log_ids),
     )
-
 
 def _serialize_exported_reminders(reminders: list[ReminderPayload]) -> list[SerializedPayload]:
     result: list[SerializedPayload] = []
@@ -57,7 +53,6 @@ def _serialize_exported_reminders(reminders: list[ReminderPayload]) -> list[Seri
             }
         )
     return result
-
 
 def serialize_case_obj(obj: Case) -> SerializedPayload:
     """将单个 Case 实例序列化为 dict。"""

@@ -17,7 +17,6 @@ from .base import BackendConfig, ILLMBackend, LLMResponse, LLMStreamChunk, LLMUs
 
 logger = logging.getLogger("apps.core.llm.backends.siliconflow")
 
-
 class SiliconFlowBackend:
     """
     SiliconFlow LLM 后端
@@ -367,7 +366,6 @@ class SiliconFlowBackend:
             logger.debug("SiliconFlow 后端不可用:默认模型未配置")
             return False
         return True
-
 
 if TYPE_CHECKING:
     _backend: ILLMBackend = SiliconFlowBackend()  # type: ignore[assignment]

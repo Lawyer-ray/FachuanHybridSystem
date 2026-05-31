@@ -17,7 +17,6 @@ from apps.core.interfaces import AccountCredentialDTO, IBrowserService, LoginAtt
 
 logger = logging.getLogger(__name__)
 
-
 @dataclass
 class RetryConfig:
     """重试配置"""
@@ -27,7 +26,6 @@ class RetryConfig:
     network_retry_delay_base: float = 1.0  # 指数退避基础延迟（秒）
     captcha_retry_delay: float = 2.0  # 验证码重试延迟（秒）
     login_timeout: float = 60.0  # 登录超时时间（秒）
-
 
 class AutoLoginService:
     """

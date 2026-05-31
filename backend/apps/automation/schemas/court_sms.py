@@ -14,7 +14,6 @@ from pydantic import BaseModel, Field, field_validator
 
 from apps.automation.services.sms.court_sms_document_reference_service import CourtSMSDocumentReferenceService
 
-
 @dataclass
 class SMSParseResult:
     """短信解析结果"""
@@ -24,7 +23,6 @@ class SMSParseResult:
     case_numbers: list[str]
     party_names: list[str]
     has_valid_download_link: bool
-
 
 class CourtSMSSubmitIn(BaseModel):
     """提交法院短信请求"""
@@ -42,7 +40,6 @@ class CourtSMSSubmitIn(BaseModel):
             raise ValueError("短信内容不能为空")
         return v.strip()
 
-
 class CourtSMSSubmitOut(BaseModel):
     """提交法院短信响应"""
 
@@ -53,7 +50,6 @@ class CourtSMSSubmitOut(BaseModel):
         json_schema_extra: ClassVar = {
             "example": {"success": True, "data": {"id": 123, "status": "pending", "created_at": "2025-12-14T10:30:05Z"}}
         }
-
 
 class CourtSMSDetailOut(BaseModel):
     """短信处理详情响应"""
@@ -140,7 +136,6 @@ class CourtSMSDetailOut(BaseModel):
         from_attributes: bool = True
         json_encoders: ClassVar = {datetime: lambda v: v.isoformat() if v is not None else None}
 
-
 class CourtSMSListOut(BaseModel):
     """短信列表项响应"""
 
@@ -174,24 +169,20 @@ class CourtSMSListOut(BaseModel):
         from_attributes: bool = True
         json_encoders: ClassVar = {datetime: lambda v: v.isoformat() if v is not None else None}
 
-
 class CourtSMSBatchDeleteIn(BaseModel):
     """批量删除短信请求"""
 
     ids: list[int] = Field(..., min_length=1, description="要删除的短信ID列表")
-
 
 class CourtSMSBatchDeleteOut(BaseModel):
     """批量删除短信响应"""
 
     deleted: int = Field(..., description="删除数量")
 
-
 class CourtSMSAssignCaseIn(BaseModel):
     """手动指定案件请求"""
 
     case_id: int = Field(..., gt=0, description="案件ID", json_schema_extra={"example": 456})
-
 
 class CourtSMSAssignCaseOut(BaseModel):
     """手动指定案件响应"""

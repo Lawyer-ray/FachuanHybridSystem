@@ -11,14 +11,12 @@ from apps.core.llm.structured_output import clean_text, parse_json_content
 
 logger = logging.getLogger("apps.litigation_ai")
 
-
 @dataclass
 class DraftResult:
     display_text: str
     draft: dict[str, str]
     model: str
     token_usage: dict[str, int]
-
 
 class LitigationDraftChain:
     def __init__(self, model: str | None = None) -> None:

@@ -8,7 +8,6 @@ from typing import TYPE_CHECKING, Any
 
 from django.db.models import Sum
 from django.utils import timezone
-from django.utils.translation import gettext_lazy as _
 
 from apps.contracts.models import Contract
 from apps.contracts.models.finalized_material import MaterialCategory
@@ -24,7 +23,6 @@ if TYPE_CHECKING:
     from .contract_admin_query_service import ContractAdminQueryService
 
 logger = logging.getLogger("apps.contracts")
-
 
 class ContractAdminService:
     """
@@ -192,22 +190,22 @@ class ContractAdminService:
 
         try:
             contract_template_display = self.display_service.get_matched_document_template(contract)
-            has_contract_template = contract_template_display not in [str(_("无匹配模板")), str(_("查询失败"))]
+            has_contract_template = contract_template_display not in [str("无匹配模板"), str("查询失败")]
             contract_templates_list = self.display_service.get_matched_document_templates_list(contract)
         except Exception as exc:
             logger.error("检查合同 %s 的文书模板失败: %s", contract.pk, exc, exc_info=True)
             has_contract_template = False
-            contract_template_display = str(_("查询失败"))
+            contract_template_display = str("查询失败")
             contract_templates_list = []
 
         try:
             folder_template_display = self.display_service.get_matched_folder_templates(contract)
-            has_folder_template = folder_template_display not in [str(_("无匹配模板")), str(_("查询失败"))]
+            has_folder_template = folder_template_display not in [str("无匹配模板"), str("查询失败")]
             folder_templates_list = self.display_service.get_matched_folder_templates_list(contract)
         except Exception as exc:
             logger.error("检查合同 %s 的文件夹模板失败: %s", contract.pk, exc, exc_info=True)
             has_folder_template = False
-            folder_template_display = str(_("查询失败"))
+            folder_template_display = str("查询失败")
             folder_templates_list = []
 
         payment_progress = self.progress_service.get_payment_progress(contract)

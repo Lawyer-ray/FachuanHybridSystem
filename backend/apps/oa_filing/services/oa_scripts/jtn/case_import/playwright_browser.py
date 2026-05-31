@@ -10,7 +10,7 @@ from typing import Any, Generator
 from urllib.parse import urlparse
 
 import httpx
-from django.utils.translation import gettext_lazy as _
+
 from playwright.sync_api import Browser, BrowserContext, Frame, Page, Playwright, sync_playwright
 
 from .. import html_parser
@@ -28,7 +28,6 @@ from .http_client import (
 )
 
 logger = logging.getLogger("apps.oa_filing.jtn_case_import")
-
 
 class JtnPlaywrightBrowserMixin:
     """Playwright 导航 + IMS 表单 + 搜索链路。"""
@@ -300,7 +299,7 @@ class JtnPlaywrightBrowserMixin:
                 target_frame = self._find_visible_frame_for_selector(selector=selector, timeout_ms=15_000)
 
             if target_frame is None:
-                raise RuntimeError(str(_("案件列表页搜索输入框未就绪，请完成登录后重试")))
+                raise RuntimeError(str("案件列表页搜索输入框未就绪，请完成登录后重试"))
 
         time.sleep(_MEDIUM_WAIT)
         logger.info("已进入案件列表页面")
@@ -513,7 +512,7 @@ class JtnPlaywrightBrowserMixin:
 
             time.sleep(1)
 
-        raise RuntimeError(str(_("等待扫码登录超时，请完成扫码后重试")))
+        raise RuntimeError(str("等待扫码登录超时，请完成扫码后重试"))
 
     # ------------------------------------------------------------------
     # 案件搜索（Playwright）

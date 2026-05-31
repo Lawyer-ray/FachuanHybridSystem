@@ -1,7 +1,6 @@
 {% extends "admin/base_site.html" %}
-{% load i18n %}
 
-{% block title %}{% trans "快递查询" %}{% endblock %}
+{% block title %}{{% endblock %}
 
 {% block extrastyle %}
 {{ block.super }}
@@ -91,9 +90,9 @@
 
 {% block breadcrumbs %}
 <div class="breadcrumbs">
-    <a href="{% url 'admin:index' %}">{% trans "首页" %}</a>
-    &rsaquo; <a href="{% url 'admin:app_list' app_label='express_query' %}">{% trans "快递查询" %}</a>
-    &rsaquo; {% trans "创建任务" %}
+    <a href="{% url 'admin:index' %}">{</a>
+    &rsaquo; <a href="{% url 'admin:app_list' app_label='express_query' %}">{</a>
+    &rsaquo; {
 </div>
 {% endblock %}
 
@@ -101,19 +100,19 @@
 <div class="eq-workbench">
   <div class="eq-card">
     <div class="eq-card-head">
-      <h1>{% trans "快递查询" %}</h1>
-      <p>{% trans "支持<strong>顺丰</strong>和<strong>EMS</strong>两种快递平台的运单查询，可选择上传文件自动识别，或手动输入运单号。" %}</p>
+      <h1>{</h1>
+      <p>{</p>
     </div>
 
     <!-- 登录提示 -->
     <div class="eq-tip" style="background: #fff3cd; border-left: 4px solid #ffc107; margin-bottom: 0;">
-      ⚠️ {% trans "查询需要浏览器已登录对应快递平台（顺丰/EMS）。若未登录，系统会自动弹出登录窗口/二维码，请<strong>自行完成扫码或验证码登录</strong>。查询过程约需 10~30 秒，请耐心等待。" %}
+      ⚠️ {
     </div>
 
     <!-- Tab 切换 -->
     <div class="eq-tabs" role="tablist">
-      <button type="button" class="eq-tab is-active" data-target="panel-upload" role="tab" aria-selected="true">📄 {% trans "上传文件识别" %}</button>
-      <button type="button" class="eq-tab" data-target="panel-manual" role="tab" aria-selected="false">⌨️ {% trans "手动输入运单号" %}</button>
+      <button type="button" class="eq-tab is-active" data-target="panel-upload" role="tab" aria-selected="true">📄 {</button>
+      <button type="button" class="eq-tab" data-target="panel-manual" role="tab" aria-selected="false">⌨️ {</button>
     </div>
 
     <!-- 上传文件面板 -->
@@ -122,28 +121,28 @@
 
       <div class="eq-form-body is-active" id="panel-upload">
         <div class="eq-tip">
-          {% trans "支持格式：PDF、PNG、JPG、JPEG、WEBP。上传后将自动入队处理，可在任务列表查看识别状态、查询链接和结果 PDF。" %}
+          {
         </div>
 
         <div class="eq-field">
-          <label for="id-title-upload">{% trans "任务名称（可选）" %}</label>
-          <input id="id-title-upload" name="title" type="text" placeholder="{% trans '例如：张三-顺丰单号查询' %}" />
+          <label for="id-title-upload">{</label>
+          <input id="id-title-upload" name="title" type="text" placeholder="{" />
         </div>
 
         <div class="eq-field">
-          <label>{% trans "上传文件" %}</label>
+          <label>{</label>
           <div id="drop-zone" class="eq-drop-box">
             <input id="id_waybill_file" name="waybill_file" type="file" accept=".pdf,.png,.jpg,.jpeg,.webp" hidden required data-panel="upload"/>
-            <div class="eq-drop-title">{% trans "拖拽文件到这里，或点击按钮选择文件" %}</div>
-            <button type="button" id="file-picker-btn" class="eq-file-btn">{% trans "选择文件" %}</button>
-            <div id="selected-file" class="eq-selected-file is-empty">{% trans "当前未选择文件" %}</div>
-            <p class="eq-help">{% trans "建议上传清晰的邮单首页；若是 PDF，将自动提取第一页做识别。" %}</p>
+            <div class="eq-drop-title">{</div>
+            <button type="button" id="file-picker-btn" class="eq-file-btn">{</button>
+            <div id="selected-file" class="eq-selected-file is-empty">{</div>
+            <p class="eq-help">{</p>
           </div>
         </div>
 
         <div class="eq-actions">
-          <button type="submit" class="eq-btn eq-btn-primary">{% trans "上传并创建任务" %}</button>
-          <a href="{{ task_list_url }}" class="eq-btn eq-btn-secondary">{% trans "查看任务列表" %}</a>
+          <button type="submit" class="eq-btn eq-btn-primary">{</button>
+          <a href="{{ task_list_url }}" class="eq-btn eq-btn-secondary">{</a>
         </div>
       </div>
     </form>
@@ -154,44 +153,44 @@
 
       <div class="eq-form-body" id="panel-manual">
         <div class="eq-tip">
-          {% trans "目前仅支持<strong>顺丰</strong>（SF开头）和<strong>EMS</strong>（纯数字）两种快递平台。输入运单号后系统将直接进入查询队列。" %}
+          {
         </div>
 
         <div class="eq-field">
-          <label for="id-title-manual">{% trans "任务名称（可选）" %}</label>
-          <input id="id-title-manual" name="title" type="text" placeholder="{% trans '例如：EMS-9876543210987' %}" />
+          <label for="id-title-manual">{</label>
+          <input id="id-title-manual" name="title" type="text" placeholder="{" />
         </div>
 
         <div class="eq-field">
-          <label>{% trans "选择承运商" %}</label>
+          <label>{</label>
           <div class="eq-carrier-group">
             <label class="eq-carrier-label is-checked" data-value="sf">
               <input type="radio" name="carrier_type" value="sf" hidden checked/>
               <div class="eq-carrier-icon">📦</div>
-              <div class="eq-carrier-name">{% trans "顺丰速运" %}</div>
-              <div class="eq-carrier-hint">{% trans "SF + 10~20 位数字" %}<br/>SF1234567890123</div>
+              <div class="eq-carrier-name">{</div>
+              <div class="eq-carrier-hint">{<br/>SF1234567890123</div>
             </label>
             <label class="eq-carrier-label" data-value="ems">
               <input type="radio" name="carrier_type" value="ems" hidden/>
               <div class="eq-carrier-icon">📮</div>
-              <div class="eq-carrier-name">{% trans "中国邮政 EMS" %}</div>
-              <div class="eq-carrier-hint">{% trans "13 位纯数字" %}<br/>9876543210987</div>
+              <div class="eq-carrier-name">{</div>
+              <div class="eq-carrier-hint">{<br/>9876543210987</div>
             </label>
           </div>
         </div>
 
         <div class="eq-field">
-          <label for="id_tracking_number">{% trans "运单号" %}</label>
+          <label for="id_tracking_number">{</label>
           <input id="id_tracking_number" name="tracking_number" type="text"
-                 placeholder="{% trans '请输入运单号...' %}"
+                 placeholder="{"
                  pattern="[A-Za-z0-9]+"
                  autocomplete="off"/>
           <div class="eq-error-msg" id="tracking-error"></div>
         </div>
 
         <div class="eq-actions">
-          <button type="submit" class="eq-btn eq-btn-primary">{% trans "创建查询任务" %}</button>
-          <a href="{{ task_list_url }}" class="eq-btn eq-btn-secondary">{% trans "查看任务列表" %}</a>
+          <button type="submit" class="eq-btn eq-btn-primary">{</button>
+          <a href="{{ task_list_url }}" class="eq-btn eq-btn-secondary">{</a>
         </div>
       </div>
     </form>
@@ -307,7 +306,7 @@
           hideError();
           return true;
         }
-        showError('{% trans "顺丰单号格式应为：SF 开头 + 10~20 位数字（如 SF1234567890123）" %}');
+        showError('{');
         return false;
       } else {
         // 13位纯数字
@@ -315,7 +314,7 @@
           hideError();
           return true;
         }
-        showError('{% trans "EMS 单号应为 13 位纯数字（如 9876543210987）" %}');
+        showError('{');
         return false;
       }
     }

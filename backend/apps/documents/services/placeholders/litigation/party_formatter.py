@@ -11,7 +11,6 @@ from apps.core.utils.id_card_utils import IdCardUtils
 
 logger = logging.getLogger(__name__)
 
-
 class PartyFormatter:
     """当事人格式化工具类"""
 

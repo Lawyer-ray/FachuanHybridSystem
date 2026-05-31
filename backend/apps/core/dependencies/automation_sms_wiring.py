@@ -7,7 +7,6 @@ from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from apps.core.protocols import ICourtSMSService
 
-
 def build_court_sms_service_with_deps(
     *,
     case_service: Any,
@@ -74,42 +73,35 @@ def build_court_sms_service_with_deps(
         case_number_service=case_number_service,
     )
 
-
 def build_sms_case_service() -> Any:
     from apps.core.infrastructure.service_locator import ServiceLocator
 
     return ServiceLocator.get_case_service()
-
 
 def build_sms_client_service() -> Any:
     from apps.core.infrastructure.service_locator import ServiceLocator
 
     return ServiceLocator.get_client_service()
 
-
 def build_sms_lawyer_service() -> Any:
     from apps.core.infrastructure.service_locator import ServiceLocator
 
     return ServiceLocator.get_lawyer_service()
-
 
 def build_sms_case_chat_service() -> Any:
     from apps.core.infrastructure.service_locator import ServiceLocator
 
     return ServiceLocator.get_case_chat_service()
 
-
 def build_sms_case_log_service() -> Any:
     from apps.core.infrastructure.service_locator import ServiceLocator
 
     return ServiceLocator.get_caselog_service()
 
-
 def build_sms_document_processing_service() -> Any:
     from apps.core.infrastructure.service_locator import ServiceLocator
 
     return ServiceLocator.get_document_processing_service()
-
 
 def build_sms_case_number_service() -> Any:
     from apps.core.infrastructure.service_locator import ServiceLocator

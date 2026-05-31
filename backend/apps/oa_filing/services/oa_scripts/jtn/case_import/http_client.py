@@ -35,7 +35,6 @@ _SHORT_WAIT = 0.5
 _MEDIUM_WAIT = 1.5
 _AJAX_WAIT = 2.0
 
-
 class JtnHttpClientMixin:
     """HTTP 登录会话 + HTTP 查询链路。"""
 

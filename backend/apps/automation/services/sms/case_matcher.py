@@ -21,7 +21,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger("apps.automation")
 
-
 class CaseMatcher:
     """案件匹配服务"""
 
@@ -535,7 +534,6 @@ class CaseMatcher:
             if case not in closed_cases:
                 closed_cases.add(case)
                 logger.warning(f"发现已结案案件（当事人匹配）: {case.name}")
-
 
 def _get_case_matcher() -> CaseMatcher:
     """工厂函数：获取案件匹配服务实例"""

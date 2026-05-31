@@ -11,7 +11,6 @@ import httpx
 
 logger = logging.getLogger("apps.core.httpx_clients")
 
-
 def _httpx_event_hooks() -> dict[str, list[Callable[..., Any]]] | None:
     enabled = os.environ.get("DJANGO_HTTPX_METRICS", "").lower() in ("true", "1", "yes")
     if not enabled:
@@ -43,7 +42,6 @@ def _httpx_event_hooks() -> dict[str, list[Callable[..., Any]]] | None:
 
     return {"request": [_on_request], "response": [_on_response]}
 
-
 @lru_cache(maxsize=1)
 def get_sync_http_client() -> httpx.Client:
     event_hooks = _httpx_event_hooks()
@@ -54,7 +52,6 @@ def get_sync_http_client() -> httpx.Client:
         event_hooks=event_hooks,
     )
 
-
 @lru_cache(maxsize=1)
 def get_async_http_client() -> httpx.AsyncClient:
     event_hooks = _httpx_event_hooks()
@@ -64,7 +61,6 @@ def get_async_http_client() -> httpx.AsyncClient:
         follow_redirects=True,
         event_hooks=event_hooks,
     )
-
 
 async def aclose_http_clients() -> None:
     """关闭 HTTP 客户端连接"""

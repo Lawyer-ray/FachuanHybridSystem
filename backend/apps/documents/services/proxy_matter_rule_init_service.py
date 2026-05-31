@@ -6,7 +6,6 @@ from django.db import transaction
 
 from apps.documents.models import ProxyMatterRule
 
-
 class ProxyMatterRuleSeed(TypedDict):
     case_types: list[str]
     case_type: str | None
@@ -16,7 +15,6 @@ class ProxyMatterRuleSeed(TypedDict):
     items_text: str
     priority: int
     is_active: bool
-
 
 DEFAULT_PROXY_MATTER_RULES: tuple[ProxyMatterRuleSeed, ...] = (
     {
@@ -70,7 +68,6 @@ DEFAULT_PROXY_MATTER_RULES: tuple[ProxyMatterRuleSeed, ...] = (
         "is_active": True,
     },
 )
-
 
 class ProxyMatterRuleInitService:
     """初始化代理事项规则默认数据。"""

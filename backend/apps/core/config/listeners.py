@@ -11,7 +11,6 @@ from .manager import ConfigChangeListener
 
 logger = logging.getLogger(__name__)
 
-
 class ConfigChangeLogger(ConfigChangeListener):
     """配置变更日志监听器"""
 
@@ -106,7 +105,6 @@ class ConfigChangeLogger(ConfigChangeListener):
         else:
             return str_value[:3] + "***" + str_value[-2:]
 
-
 class ConfigValidationListener(ConfigChangeListener):
     """配置验证监听器"""
 
@@ -167,7 +165,6 @@ class ConfigValidationListener(ConfigChangeListener):
 
         elif key.endswith(".port") and (not isinstance(value, int) or not (1 <= value <= 65535)):
             raise ValueError(f"端口配置必须是1-65535之间的整数，当前值: {value}")
-
 
 class ConfigSecurityListener(ConfigChangeListener):
     """配置安全监听器"""

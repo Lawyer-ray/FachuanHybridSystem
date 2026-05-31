@@ -15,18 +15,15 @@ from .download_response_factory import build_download_response
 logger = logging.getLogger("apps.documents.api")
 router = Router(auth=JWTOrSessionAuth())
 
-
 def _get_authorization_material_generation_service() -> Any:
     from apps.documents.services.generation.composition import build_authorization_material_generation_service
 
     return build_authorization_material_generation_service()
 
-
 def _get_folder_binding_service() -> Any:
     from apps.core.interfaces import ServiceLocator
 
     return ServiceLocator.get_contract_folder_binding_service()
-
 
 def _require_case_contract(request: Any, case_id: int) -> Any:
     """获取案件绑定的合同 ID，无合同则返回 None。"""
@@ -36,7 +33,6 @@ def _require_case_contract(request: Any, case_id: int) -> Any:
     if not case:
         return None
     return case
-
 
 def _save_or_download(
     contract_id: int | None,
@@ -71,10 +67,8 @@ def _save_or_download(
 
     return build_download_response(content=content, filename=filename, content_type=content_type)
 
-
 class CombinedPowerOfAttorneyIn(Schema):
     client_ids: list[int]
-
 
 @router.post("/cases/{case_id}/authorization/letter/download")
 @rate_limit_from_settings("EXPORT", by_user=True)
@@ -94,7 +88,6 @@ def download_authority_letter(request: Any, case_id: int) -> Any:
         content_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         subdir_key="contract_documents",
     )
-
 
 @router.post("/cases/{case_id}/authorization/legal-rep-certificate/{client_id}/download")
 @rate_limit_from_settings("EXPORT", by_user=True)
@@ -118,7 +111,6 @@ def download_legal_rep_certificate(request: Any, case_id: int, client_id: int) -
         subdir_key="contract_documents",
     )
 
-
 @router.post("/cases/{case_id}/authorization/power-of-attorney/combined/download")
 @rate_limit_from_settings("EXPORT", by_user=True)
 def download_power_of_attorney_combined(request: Any, case_id: int, payload: CombinedPowerOfAttorneyIn) -> Any:
@@ -140,7 +132,6 @@ def download_power_of_attorney_combined(request: Any, case_id: int, payload: Com
         content_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         subdir_key="contract_documents",
     )
-
 
 @router.post("/cases/{case_id}/authorization/package/download")
 @rate_limit_from_settings("EXPORT", by_user=True)
@@ -170,7 +161,6 @@ def download_authorization_package(request: Any, case_id: int) -> Any:
             }
 
     return build_download_response(content=content, filename=filename, content_type="application/zip")
-
 
 @router.post("/cases/{case_id}/authorization/power-of-attorney/{client_id}/download")
 @rate_limit_from_settings("EXPORT", by_user=True)

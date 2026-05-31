@@ -11,7 +11,6 @@ from apps.contracts.models import Contract
 if TYPE_CHECKING:
     from apps.core.security import AccessContext
 
-
 class ContractServiceQueryMixin:
     query_service: Any
     query_facade: Any

@@ -4,7 +4,6 @@ from typing import Any, ClassVar
 
 from apps.core.repositories import CauseCourtRepository
 
-
 class CauseCourtQueryService:
     CASE_TYPE_DB_MAP: ClassVar[dict[str, list[str]]] = {
         "civil": ["civil"],

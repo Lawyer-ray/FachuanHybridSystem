@@ -23,7 +23,6 @@ from .base_court_scraper import BaseCourtDocumentScraper
 
 logger = logging.getLogger("apps.automation")
 
-
 class JysdCourtScraper(BaseCourtDocumentScraper):
     """简易送达 (jysd.10102368.com) 文书下载爬虫"""
 

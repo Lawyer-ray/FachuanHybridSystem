@@ -9,7 +9,6 @@ if TYPE_CHECKING:
     from apps.invoice_recognition.services.invoice_recognition_service import InvoiceRecognitionService
     from apps.invoice_recognition.services.quick_recognition_service import QuickRecognitionService
 
-
 def get_invoice_recognition_service() -> InvoiceRecognitionService:
     from apps.automation.services.ocr.ocr_service import OCRService
     from apps.automation.services.ocr.pdf_text_extractor import PDFTextExtractor
@@ -22,12 +21,10 @@ def get_invoice_recognition_service() -> InvoiceRecognitionService:
         parser=InvoiceParser(),
     )
 
-
 def get_invoice_download_service() -> InvoiceDownloadService:
     from apps.invoice_recognition.services.invoice_download_service import InvoiceDownloadService
 
     return InvoiceDownloadService()
-
 
 def get_quick_recognition_service() -> QuickRecognitionService:
     from apps.automation.services.ocr.ocr_service import OCRService

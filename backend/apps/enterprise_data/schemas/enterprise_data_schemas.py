@@ -6,7 +6,6 @@ from typing import Any
 
 from ninja import Field, Schema
 
-
 class EnterpriseDataMetaOut(Schema):
     provider: str
     transport: str
@@ -15,7 +14,6 @@ class EnterpriseDataMetaOut(Schema):
     tool: str
     capability: str
     cached: bool = False
-
 
 class ProviderInfoOut(Schema):
     name: str
@@ -26,10 +24,8 @@ class ProviderInfoOut(Schema):
     tools: list[str] = Field(default_factory=list)
     note: str = ""
 
-
 class EnterpriseProvidersOut(Schema):
     items: list[ProviderInfoOut]
-
 
 class CompanySummaryOut(Schema):
     company_id: str
@@ -38,7 +34,6 @@ class CompanySummaryOut(Schema):
     status: str = ""
     establish_date: str = ""
     registered_capital: str = ""
-
 
 class CompanyProfileOut(Schema):
     company_id: str
@@ -51,7 +46,6 @@ class CompanyProfileOut(Schema):
     address: str = ""
     business_scope: str = ""
 
-
 class CompanyRiskItemOut(Schema):
     risk_type: str = ""
     title: str = ""
@@ -59,7 +53,6 @@ class CompanyRiskItemOut(Schema):
     amount: str = ""
     publish_date: str = ""
     source: str = ""
-
 
 class BiddingItemOut(Schema):
     title: str = ""
@@ -70,7 +63,6 @@ class BiddingItemOut(Schema):
     region: str = ""
     source: str = ""
     link: str = ""
-
 
 class EnterpriseQueryOut(Schema):
     query: dict[str, Any]

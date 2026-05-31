@@ -4,10 +4,7 @@ from __future__ import annotations
 
 from typing import Any, cast
 
-from django.utils.translation import gettext_lazy as _
-
 from apps.core.interfaces import ICaseLogService
-
 
 class CaseLogServiceAdapter(ICaseLogService):
     """
@@ -164,7 +161,7 @@ class CaseLogServiceAdapter(ICaseLogService):
         try:
             Case.objects.get(id=case_id)
         except Case.DoesNotExist:
-            raise NotFoundError(_("案件 %(case_id)s 不存在") % {"case_id": case_id}) from None
+            raise NotFoundError("案件 %(case_id)s 不存在" % {"case_id": case_id}) from None
 
         log = CaseLog.objects.create(
             case_id=case_id,

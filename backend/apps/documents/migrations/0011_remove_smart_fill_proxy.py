@@ -2,7 +2,6 @@
 
 from django.db import migrations
 
-
 class Migration(migrations.Migration):
     dependencies = [
         ("documents", "0010_add_smart_fill_proxy"),

@@ -14,13 +14,11 @@ from apps.contracts.models import ContractParty, PartyRole
 
 from .client_schemas import ClientOut
 
-
 class ContractPartyIn(Schema):
     """合同当事人输入"""
 
     client_id: int
     role: str = PartyRole.PRINCIPAL
-
 
 class ContractPartyOut(ModelSchema):
     client_detail: ClientOut
@@ -37,7 +35,6 @@ class ContractPartyOut(ModelSchema):
     @staticmethod
     def resolve_role_label(obj: ContractParty) -> str:
         return obj.get_role_display() if obj.role else ""
-
 
 class ContractPartySourceOut(Schema):
     """合同当事人(含来源)输出 Schema

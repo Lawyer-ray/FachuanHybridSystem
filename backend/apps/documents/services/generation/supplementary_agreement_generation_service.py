@@ -19,7 +19,6 @@ if TYPE_CHECKING:
     from apps.documents.models import DocumentTemplate
 logger = logging.getLogger(__name__)
 
-
 class SupplementaryAgreementGenerationService:
     """
     补充协议生成服务

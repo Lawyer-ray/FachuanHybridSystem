@@ -14,7 +14,6 @@ from decimal import Decimal, InvalidOperation
 from typing import TYPE_CHECKING, Any
 
 from django.db import transaction
-from django.utils.translation import gettext_lazy as _
 
 from apps.core.exceptions import BusinessException
 
@@ -26,7 +25,6 @@ logger = logging.getLogger(__name__)
 # LPR数据源URL（中国银行，结构稳定无反爬）
 LPR_DATA_URL = "https://www.boc.cn/fimarkets/lilv/fd32/201310/t20131031_2591219.html"
 
-
 @dataclass
 class LPRData:
     """LPR数据结构."""
@@ -34,7 +32,6 @@ class LPRData:
     effective_date: date
     rate_1y: Decimal
     rate_5y: Decimal
-
 
 class LPRSyncService:
     """LPR数据同步服务.
@@ -61,7 +58,7 @@ class LPRSyncService:
             raise BusinessException(message=_(f"获取LPR数据失败: {e}"), code="LPR_SYNC_FAILED")
 
         if not lpr_data_list:
-            raise BusinessException(message=_("无法从央行官网获取LPR数据，未找到有效数据"), code="LPR_SYNC_FAILED")
+            raise BusinessException(message="无法从央行官网获取LPR数据，未找到有效数据", code="LPR_SYNC_FAILED")
 
         return self._save_lpr_data(lpr_data_list)
 

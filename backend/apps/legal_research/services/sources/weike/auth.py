@@ -9,7 +9,6 @@ from .types import WeikeSession
 
 logger = logging.getLogger(__name__)
 
-
 class WeikeAuthMixin:
     LAW_LOGIN_BUTTON_SELECTOR = "button.wk-banner-action-bar-item.wkb-btn-green:has-text('登录')"
     LAW_LOGIN_MODAL_USERNAME_SELECTOR = "#login-username"

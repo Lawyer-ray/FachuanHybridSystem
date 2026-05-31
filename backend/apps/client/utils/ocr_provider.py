@@ -2,7 +2,6 @@
 
 from typing import Any
 
-
 def get_ocr_engine(use_v5: bool = True) -> Any:
     """获取 OCR 引擎实例.
 

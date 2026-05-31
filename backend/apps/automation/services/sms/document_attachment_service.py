@@ -23,7 +23,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger("apps.automation")
 
-
 class DocumentAttachmentService:
     """文书附件服务 - 处理文书路径获取、重命名、添加附件"""
 

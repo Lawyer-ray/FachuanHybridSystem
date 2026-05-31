@@ -7,7 +7,6 @@ from django.apps import apps as django_apps
 
 logger = logging.getLogger(__name__)
 
-
 def autodiscover_code_placeholders() -> list[str]:
     imported: list[str] = []
 

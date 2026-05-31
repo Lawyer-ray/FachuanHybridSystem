@@ -8,15 +8,12 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from django.utils.translation import gettext_lazy as _
-
 from apps.core.exceptions import BusinessException, NotFoundError
 from apps.core.interfaces import ICaseChatService
 
 from .case_chat_service import CaseChatService
 
 logger = logging.getLogger(__name__)
-
 
 class CaseChatServiceAdapter(ICaseChatService):
     """
@@ -85,7 +82,7 @@ class CaseChatServiceAdapter(ICaseChatService):
                 e,
                 extra={"action": "send_message_to_case_chat", "case_id": case_id, "error": str(e)},
             )
-            raise BusinessException(message=_("发送消息时发生系统错误"), code="SYSTEM_ERROR") from e
+            raise BusinessException(message="发送消息时发生系统错误", code="SYSTEM_ERROR") from e
 
     def get_case_chat_id(self, case_id: int) -> Any:
         """
@@ -112,7 +109,7 @@ class CaseChatServiceAdapter(ICaseChatService):
 
         except Exception as e:
             logger.exception("get_case_chat_id_failed", extra={"action": "get_case_chat_id", "case_id": case_id})
-            raise BusinessException(message=_("获取案件群聊ID时发生系统错误"), code="SYSTEM_ERROR") from e
+            raise BusinessException(message="获取案件群聊ID时发生系统错误", code="SYSTEM_ERROR") from e
 
     def get_or_create_chat(self, case_id: int, platform: Any = None) -> Any:
         """
@@ -158,7 +155,7 @@ class CaseChatServiceAdapter(ICaseChatService):
                 e,
                 extra={"action": "get_or_create_chat", "case_id": case_id, "error": str(e)},
             )
-            raise BusinessException(message=_("获取或创建群聊时发生系统错误"), code="SYSTEM_ERROR") from e
+            raise BusinessException(message="获取或创建群聊时发生系统错误", code="SYSTEM_ERROR") from e
 
     def send_document_notification(
         self,
@@ -234,4 +231,4 @@ class CaseChatServiceAdapter(ICaseChatService):
                 e,
                 extra={"action": "send_document_notification", "case_id": case_id, "error": str(e)},
             )
-            raise BusinessException(message=_("发送文书通知时发生系统错误"), code="SYSTEM_ERROR") from e
+            raise BusinessException(message="发送文书通知时发生系统错误", code="SYSTEM_ERROR") from e

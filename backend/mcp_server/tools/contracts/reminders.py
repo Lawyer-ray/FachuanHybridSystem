@@ -6,7 +6,6 @@ from typing import Any
 
 from mcp_server.client import client
 
-
 def list_reminders(
     reminder_type: str | None = None,
     is_done: bool | None = None,
@@ -18,7 +17,6 @@ def list_reminders(
     if is_done is not None:
         params["is_done"] = is_done
     return client.get("/reminders/list", params=params)  # type: ignore[return-value]
-
 
 def create_reminder(
     reminder_type: str,

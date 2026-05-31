@@ -9,7 +9,6 @@ import logging
 
 from django.db import transaction
 from django.db.models import QuerySet
-from django.utils.translation import gettext_lazy as _
 
 from apps.core.exceptions import NotFoundError, PermissionDenied, ValidationException
 from apps.organization.dtos import TeamUpsertDTO
@@ -17,7 +16,6 @@ from apps.organization.models import LawFirm, Lawyer, Team, TeamType
 from apps.organization.services.access.organization_access_policy import OrganizationAccessPolicy
 
 logger = logging.getLogger("apps.organization")
-
 
 class TeamService:
     def __init__(self) -> None:
@@ -51,10 +49,10 @@ class TeamService:
         team = Team.objects.select_related("law_firm").filter(id=team_id).first()
 
         if team is None:
-            raise NotFoundError(message=_("团队不存在"), code="TEAM_NOT_FOUND")
+            raise NotFoundError(message="团队不存在", code="TEAM_NOT_FOUND")
 
         if user is not None and not self._access_policy.can_read_team(user, team):
-            raise PermissionDenied(message=_("无权限访问该团队"), code="PERMISSION_DENIED")
+            raise PermissionDenied(message="无权限访问该团队", code="PERMISSION_DENIED")
 
         return team
 
@@ -72,13 +70,13 @@ class TeamService:
                 user.id if user else None,
                 extra={"user_id": user.id if user else None, "action": "create_team"},
             )
-            raise PermissionDenied(message=_("无权限创建团队"), code="PERMISSION_DENIED")
+            raise PermissionDenied(message="无权限创建团队", code="PERMISSION_DENIED")
 
         self._validate_team_type(data.team_type)
 
         law_firm = LawFirm.objects.filter(id=data.law_firm_id).first()
         if law_firm is None:
-            raise NotFoundError(message=_("律所不存在"), code="LAWFIRM_NOT_FOUND")
+            raise NotFoundError(message="律所不存在", code="LAWFIRM_NOT_FOUND")
 
         team = Team.objects.create(name=data.name, team_type=data.team_type, law_firm=law_firm)
 
@@ -105,13 +103,13 @@ class TeamService:
                 team_id,
                 extra={"user_id": user.id if user else None, "team_id": team_id, "action": "update_team"},
             )
-            raise PermissionDenied(message=_("无权限更新该团队"), code="PERMISSION_DENIED")
+            raise PermissionDenied(message="无权限更新该团队", code="PERMISSION_DENIED")
 
         self._validate_team_type(data.team_type)
 
         law_firm = LawFirm.objects.filter(id=data.law_firm_id).first()
         if law_firm is None:
-            raise NotFoundError(message=_("律所不存在"), code="LAWFIRM_NOT_FOUND")
+            raise NotFoundError(message="律所不存在", code="LAWFIRM_NOT_FOUND")
 
         team.name = data.name
         team.team_type = data.team_type
@@ -140,7 +138,7 @@ class TeamService:
                 team_id,
                 extra={"user_id": user.id if user else None, "team_id": team_id, "action": "delete_team"},
             )
-            raise PermissionDenied(message=_("无权限删除该团队"), code="PERMISSION_DENIED")
+            raise PermissionDenied(message="无权限删除该团队", code="PERMISSION_DENIED")
 
         team.delete()
 
@@ -151,7 +149,7 @@ class TeamService:
     def _validate_team_type(self, team_type: str) -> None:
         if team_type not in TeamType.values:
             raise ValidationException(
-                message=_("非法团队类型"),
+                message="非法团队类型",
                 code="INVALID_TEAM_TYPE",
-                errors={"team_type": str(_("团队类型必须是 %(valid_types)s 之一")) % {"valid_types": TeamType.values}},
+                errors={"team_type": str("团队类型必须是 %(valid_types)s 之一") % {"valid_types": TeamType.values}},
             )

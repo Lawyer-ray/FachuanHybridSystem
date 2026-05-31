@@ -10,7 +10,6 @@ from apps.core.tasking import submit_task
 
 logger = logging.getLogger("apps.automation")
 
-
 class SMSDownloadMixin:
     """负责下载任务创建和等待状态检查"""
 

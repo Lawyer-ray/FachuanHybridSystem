@@ -7,7 +7,6 @@ from PIL import Image
 
 logger = logging.getLogger(__name__)
 
-
 def remove_exif_orientation(image: Image.Image, *, exif_orientation_tag: int) -> Image.Image:
     try:
         exif = image.getexif()
@@ -27,7 +26,6 @@ def remove_exif_orientation(image: Image.Image, *, exif_orientation_tag: int) ->
     except Exception as e:
         logger.warning(f"移除 EXIF 方向标签失败: {e}")
         return image
-
 
 def clean_image(image_data: bytes, *, img_format: str, exif_orientation_tag: int) -> bytes:
     img: Image.Image = Image.open(io.BytesIO(image_data))
@@ -64,7 +62,6 @@ def clean_image(image_data: bytes, *, img_format: str, exif_orientation_tag: int
 
     return output.getvalue()
 
-
 def resize_to_paper_size(
     image_bytes: bytes,
     *,
@@ -99,7 +96,6 @@ def resize_to_paper_size(
     output = io.BytesIO()
     background.save(output, format="JPEG", quality=85)
     return output.getvalue()
-
 
 def rotate_image_for_output(image_data: bytes, *, rotation: int, img_format: str) -> bytes:
     if rotation not in (0, 90, 180, 270):

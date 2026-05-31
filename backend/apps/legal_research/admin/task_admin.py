@@ -12,7 +12,6 @@ from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
 from django.urls import path, reverse
 from django.utils import timezone
 from django.utils.html import format_html, format_html_join
-from django.utils.translation import gettext_lazy as _
 
 from apps.core.interfaces import ServiceLocator
 from apps.core.llm.config import LLMConfig
@@ -27,9 +26,7 @@ from apps.legal_research.services.task.state_sync import sync_failed_queue_state
 
 # mypy: ignore-errors
 
-
 logger = logging.getLogger(__name__)
-
 
 @admin.register(LegalResearchTask)
 class LegalResearchTaskAdmin(admin.ModelAdmin):
@@ -161,7 +158,7 @@ class LegalResearchTaskAdmin(admin.ModelAdmin):
                     if is_fallback:
                         messages.warning(
                             request,
-                            _("LLM 模型列表获取失败：%(error)s，当前显示默认模型列表")
+                            "LLM 模型列表获取失败：%(error)s，当前显示默认模型列表"
                             % {"error": error_message},
                         )
             return form
@@ -188,7 +185,7 @@ class LegalResearchTaskAdmin(admin.ModelAdmin):
         if is_fallback:
             messages.warning(
                 request,
-                _("LLM 模型列表获取失败：%(error)s，当前显示默认模型列表") % {"error": error_message},
+                "LLM 模型列表获取失败：%(error)s，当前显示默认模型列表" % {"error": error_message},
             )
         self._attach_keyword_cleaner(form)
         return form

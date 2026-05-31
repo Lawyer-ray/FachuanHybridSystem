@@ -3,8 +3,6 @@ from __future__ import annotations
 from typing import Any, ClassVar
 
 from django.db import models
-from django.utils.translation import gettext_lazy as _
-
 
 class OAConfig(models.Model):
     """OA系统配置"""
@@ -14,31 +12,31 @@ class OAConfig(models.Model):
     site_name: str = models.CharField(  # type: ignore[assignment]
         max_length=255,
         unique=True,
-        verbose_name=_("凭证站点名称"),
-        help_text=_("与账号密码管理中的「网站名称」一致，用于自动匹配凭证"),
+        verbose_name="凭证站点名称",
+        help_text="与账号密码管理中的「网站名称」一致，用于自动匹配凭证",
     )
     is_enabled: bool = models.BooleanField(  # type: ignore[assignment]
         default=True,
-        verbose_name=_("是否启用"),
+        verbose_name="是否启用",
     )
     field_mapping: Any = models.JSONField(
         default=dict,
         blank=True,
-        verbose_name=_("字段映射规则"),
-        help_text=_("本系统字段到OA表单字段的映射"),
+        verbose_name="字段映射规则",
+        help_text="本系统字段到OA表单字段的映射",
     )
     created_at: Any = models.DateTimeField(
         auto_now_add=True,
-        verbose_name=_("创建时间"),
+        verbose_name="创建时间",
     )
     updated_at: Any = models.DateTimeField(
         auto_now=True,
-        verbose_name=_("更新时间"),
+        verbose_name="更新时间",
     )
 
     class Meta:
-        verbose_name = _("OA系统配置")
-        verbose_name_plural = _("OA系统配置")
+        verbose_name = "OA系统配置"
+        verbose_name_plural = "OA系统配置"
         indexes: ClassVar = [
             models.Index(fields=["is_enabled"]),
         ]

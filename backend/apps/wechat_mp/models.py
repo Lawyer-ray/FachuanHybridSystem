@@ -5,10 +5,8 @@ from typing import ClassVar
 
 from django.conf import settings
 from django.db import models
-from django.utils.translation import gettext_lazy as _
 
 from apps.core.filesystem.upload_paths import DatedUUIDPath
-
 
 class WeChatAccount(models.Model):
     """公众号账号配置"""
@@ -36,20 +34,17 @@ class WeChatAccount(models.Model):
     def __str__(self) -> str:
         return self.name
 
-
 class PublishTaskStatus(models.TextChoices):
-    PENDING = "pending", _("待处理")
-    LOGGING_IN = "logging_in", _("登录中")
-    EDITING = "editing", _("编辑中")
-    PUBLISHING = "publishing", _("发布中")
-    SUCCESS = "success", _("成功")
-    FAILED = "failed", _("失败")
-
+    PENDING = "pending", "待处理"
+    LOGGING_IN = "logging_in", "登录中"
+    EDITING = "editing", "编辑中"
+    PUBLISHING = "publishing", "发布中"
+    SUCCESS = "success", "成功"
+    FAILED = "failed", "失败"
 
 class FormatMethod(models.TextChoices):
-    RULE = "rule", _("规则排版")
-    LLM = "llm", _("AI 排版")
-
+    RULE = "rule", "规则排版"
+    LLM = "llm", "AI 排版"
 
 class PublishTask(models.Model):
     """公众号文章发布任务"""

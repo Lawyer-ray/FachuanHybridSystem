@@ -7,7 +7,6 @@ from asgiref.sync import sync_to_async
 
 logger = logging.getLogger("apps.litigation_ai")
 
-
 class JudgePerspectiveService:
     """法官视角分析：调用 LLM 生成结构化报告."""
 

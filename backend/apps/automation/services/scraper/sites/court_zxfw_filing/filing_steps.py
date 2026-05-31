@@ -7,13 +7,11 @@ import re
 from pathlib import Path
 from typing import Any
 
-from django.utils.translation import gettext_lazy as _
 from playwright.sync_api import Page
 
 from .form_utils import FormUtilsMixin
 
 logger = logging.getLogger("apps.automation")
-
 
 class FilingStepsMixin(FormUtilsMixin):
     """立案步骤 Mixin，需要子类提供 self.page 和类常量。"""
@@ -25,7 +23,7 @@ class FilingStepsMixin(FormUtilsMixin):
 
     def _open_case_type_page(self, case_type: str, province_code: str = "440000") -> None:
         """设置省份并从案件类型页点击指定类型（打开新tab）"""
-        logger.info(str(_("导航到%s立案页")), case_type)
+        logger.info(str("导航到%s立案页"), case_type)
 
         self.page.goto(self.CASE_TYPE_URL, timeout=60000, wait_until="domcontentloaded")
         self.page.get_by_text(case_type, exact=True).wait_for(state="visible", timeout=30000)
@@ -47,7 +45,7 @@ class FilingStepsMixin(FormUtilsMixin):
         self.page = new_page
         self._random_wait(2, 3)
 
-        logger.info(str(_("已打开%s立案页: %s")), case_type, self.page.url)
+        logger.info(str("已打开%s立案页: %s"), case_type, self.page.url)
 
     def _step1_select_court(self, court_name: str) -> None:
         """搜索并选择受理法院、选择申请人类型。
@@ -57,7 +55,7 @@ class FilingStepsMixin(FormUtilsMixin):
         策略1: 直接在页面查找 checklist-text 元素
         策略2: 城市选择 + 法院列表
         """
-        logger.info(str(_("步骤1: 选择受理法院 - %s")), court_name)
+        logger.info(str("步骤1: 选择受理法院 - %s"), court_name)
 
         court_selected = False
 
@@ -87,7 +85,7 @@ class FilingStepsMixin(FormUtilsMixin):
         self._random_wait(1, 2)
 
         self._handle_popups()
-        logger.info(str(_("步骤1完成: 已选择法院 %s")), court_name)
+        logger.info(str("步骤1完成: 已选择法院 %s"), court_name)
 
     def _try_search_court(self, court_name: str) -> bool:
         """策略0: 通过搜索框搜索法院"""
@@ -172,7 +170,7 @@ class FilingStepsMixin(FormUtilsMixin):
 
     def _step2_read_notice(self, *, has_prepared_doc: bool = True) -> None:
         """勾选阅读须知，处理弹窗，选择立案方式"""
-        logger.info(str(_("步骤2: 阅读须知")))
+        logger.info(str("步骤2: 阅读须知"))
 
         self.page.get_by_text("已阅读同意立案须知内容").click()
         self._random_wait(0.5, 1)
@@ -187,11 +185,11 @@ class FilingStepsMixin(FormUtilsMixin):
             self.page.locator(".fd-name:has-text('已准备诉状')").click()
             self._random_wait(1, 2)
 
-        logger.info(str(_("步骤2完成: 须知已确认")))
+        logger.info(str("步骤2完成: 须知已确认"))
 
     def _step3_select_cause(self, cause_of_action: str) -> None:
         """搜索并选择案由，选择后验证结果"""
-        logger.info(str(_("步骤3: 选择案由 - %s")), cause_of_action)
+        logger.info(str("步骤3: 选择案由 - %s"), cause_of_action)
 
         self.page.get_by_text("请选择", exact=True).first.click()
         self._random_wait(1, 2)
@@ -223,11 +221,11 @@ class FilingStepsMixin(FormUtilsMixin):
         self.page.locator("uni-button:has-text('下一步')").click()
         self._random_wait(1, 2)
 
-        logger.info(str(_("步骤3完成: 已选择案由 %s")), cause_of_action)
+        logger.info(str("步骤3完成: 已选择案由 %s"), cause_of_action)
 
     def _step_exec_select_basis(self, case_data: dict[str, Any]) -> None:
         """申请执行特有：选择执行依据类别和原审案号"""
-        logger.info(str(_("步骤(执行): 选择执行依据")))
+        logger.info(str("步骤(执行): 选择执行依据"))
 
         basis_type = case_data.get("execution_basis_type", "民商")
         original_case_number = case_data.get("original_case_number", "")
@@ -279,11 +277,11 @@ class FilingStepsMixin(FormUtilsMixin):
             self._dismiss_popup_by_text("确定")
         self._random_wait(3, 5)
 
-        logger.info(str(_("执行依据选择完成: %s, %s")), basis_type, original_case_number)
+        logger.info(str("执行依据选择完成: %s, %s"), basis_type, original_case_number)
 
     def _step4_upload_materials(self, materials: dict[str, list[tuple[str, str]]], *, is_execution: bool) -> None:
         """上传诉讼材料"""
-        logger.info(str(_("步骤4: 上传诉讼材料")))
+        logger.info(str("步骤4: 上传诉讼材料"))
 
         self.page.evaluate(
             """() => {
@@ -386,7 +384,7 @@ class FilingStepsMixin(FormUtilsMixin):
             pass
         self._random_wait(2, 3)
 
-        logger.info(str(_("步骤4完成: 材料已上传")))
+        logger.info(str("步骤4完成: 材料已上传"))
 
     def _infer_upload_slot_by_text(self, *, container_text: str, is_execution: bool) -> str | None:
         normalized_text = "".join(str(container_text or "").split()).lower()

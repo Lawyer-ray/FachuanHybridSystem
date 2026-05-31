@@ -12,7 +12,6 @@ from apps.documents.services.placeholders.registry import PlaceholderRegistry
 
 logger = logging.getLogger(__name__)
 
-
 @PlaceholderRegistry.register
 class EnhancedOpposingPartyService(BasePlaceholderService):
     """增强版对方当事人服务"""

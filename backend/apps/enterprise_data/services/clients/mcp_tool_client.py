@@ -27,7 +27,6 @@ _TRANSPORT_SSE = "sse"
 _ResultT = TypeVar("_ResultT")
 _TRANSPORT_UNHEALTHY_TTL_SECONDS = 10 * 60
 
-
 class McpToolClient:
     """对外提供同步调用接口，内部使用 MCP Python SDK 异步客户端。"""
 

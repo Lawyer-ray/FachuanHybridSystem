@@ -7,11 +7,9 @@ from typing import Annotated, Any
 
 from pydantic import BaseModel, Field
 
-
 def _merge_messages(left: Sequence[dict[str, Any]], right: Sequence[dict[str, Any]]) -> list[dict[str, Any]]:
     """合并消息列表,用于状态更新。"""
     return [*left, *right]
-
 
 class LitigationAgentState(BaseModel):
     """诉讼文书生成 Agent 状态。"""

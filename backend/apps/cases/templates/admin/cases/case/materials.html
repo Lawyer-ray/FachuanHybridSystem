@@ -10,11 +10,11 @@
 
 {% block breadcrumbs %}
 <div class="breadcrumbs">
-    <a href="{% url 'admin:index' %}">{% translate 'Home' %}</a>
+    <a href="{% url 'admin:index' %}">{</a>
     › <a href="{% url 'admin:app_list' app_label=opts.app_label %}">{{ opts.app_config.verbose_name }}</a>
     › <a href="{% url 'admin:cases_case_changelist' %}">{{ opts.verbose_name_plural|capfirst }}</a>
     › <a href="{{ detail_url }}">{{ case.name }}</a>
-    › {% trans "上传/绑定材料" %}
+    › {
 </div>
 {% endblock %}
 
@@ -32,35 +32,35 @@
         scanSessionId: '{{ scan_session_id|default:''|escapejs }}',
         defaultCategory: '{{ default_category|default:''|escapejs }}',
         scanTexts: {
-            scanningFolder: '{% trans "正在扫描文件夹" %}',
-            extractingText: '{% trans "正在提取文本" %}',
-            classifying: '{% trans "正在材料分类" %}',
-            completed: '{% trans "扫描完成" %}',
-            failed: '{% trans "扫描失败" %}',
-            noBinding: '{% trans "未绑定文件夹" %}',
-            folderInaccessible: '{% trans "绑定文件夹不可访问" %}',
-            noPdf: '{% trans "未找到可导入的 PDF" %}',
-            aiUnavailable: '{% trans "AI 分类不可用，请手动确认" %}',
-            loadSubfoldersFailed: '{% trans "加载子文件夹失败" %}',
-            needSelectSubfolder: '{% trans "请选择要扫描的子文件夹" %}',
-            noSubfolderOptions: '{% trans "当前目录下没有可选子文件夹，将扫描全部内容" %}',
-            recognitionDisabled: '{% trans "已关闭 OCR 与智能识别，仅按文件名/路径关键词预分类" %}',
-            importFailed: '{% trans "导入失败，请稍后重试" %}'
+            scanningFolder: '{',
+            extractingText: '{',
+            classifying: '{',
+            completed: '{',
+            failed: '{',
+            noBinding: '{',
+            folderInaccessible: '{',
+            noPdf: '{',
+            aiUnavailable: '{',
+            loadSubfoldersFailed: '{',
+            needSelectSubfolder: '{',
+            noSubfolderOptions: '{',
+            recognitionDisabled: '{',
+            importFailed: '{'
         }
      })"
      x-init="init()">
 
     <header class="materials-manage-header">
         <div>
-            <h1 class="materials-manage-title">{% trans "上传/绑定材料" %}：{{ case.name }}</h1>
+            <h1 class="materials-manage-title">{：{{ case.name }}</h1>
             <div class="materials-manage-subtitle">
-                <a href="{{ detail_url }}">← {% trans "返回案件详情" %}</a>
+                <a href="{{ detail_url }}">← {</a>
             </div>
         </div>
 
         <div class="materials-manage-actions">
             <button type="button" class="button default" :disabled="isSaving || isScanning || isStaging" @click="save()">
-                <span x-text="isSaving ? '{% trans "保存中..." %}' : '{% trans "保存" %}'">{% trans "保存" %}</span>
+                <span x-text="isSaving ? '{' : '{'">{</span>
             </button>
         </div>
     </header>
@@ -70,18 +70,18 @@
     <section class="cm-card cm-scan-card">
         <div class="cm-card-header cm-scan-header">
             <div>
-                <div class="cm-card-title">{% trans "从绑定文件夹捕获" %}</div>
-                <div class="cm-card-subtitle">{% trans "扫描绑定目录中的 PDF。扫描完成后直接点击右上角“保存”，系统会自动导入并完成材料绑定。" %}</div>
+                <div class="cm-card-title">{</div>
+                <div class="cm-card-subtitle">{</div>
             </div>
             <div class="cm-actions">
                 <button type="button"
                         class="button default"
                         :disabled="isScanning"
-                        @click="startFolderScan(false)">{% trans "开始扫描" %}</button>
+                        @click="startFolderScan(false)">{</button>
                 <button type="button"
                         class="button"
                         :disabled="isScanning"
-                        @click="startFolderScan(true)">{% trans "重新扫描" %}</button>
+                        @click="startFolderScan(true)">{</button>
             </div>
         </div>
 
@@ -93,10 +93,10 @@
 
         <div class="cm-scan-options">
             <div class="cm-scan-option-row">
-                <span class="cm-label">{% trans "扫描范围" %}</span>
+                <span class="cm-label">{</span>
                 <label class="cm-radio-inline">
                     <input type="radio" name="cm-scan-scope-mode" value="all" x-model="scanScopeMode" />
-                    <span>{% trans "全部文件夹" %}</span>
+                    <span>{</span>
                 </label>
                 <label class="cm-radio-inline">
                     <input type="radio"
@@ -104,32 +104,32 @@
                            value="subfolder"
                            :disabled="!scanSubfolderOptions.length || isLoadingScanSubfolders"
                            x-model="scanScopeMode" />
-                    <span>{% trans "指定子文件夹" %}</span>
+                    <span>{</span>
                 </label>
             </div>
             <div class="cm-scan-option-row" x-show="scanScopeMode === 'subfolder'">
-                <label class="cm-label" for="cm-scan-subfolder-select">{% trans "子文件夹" %}</label>
+                <label class="cm-label" for="cm-scan-subfolder-select">{</label>
                 <select id="cm-scan-subfolder-select"
                         x-model="scanSubfolder"
                         :disabled="isLoadingScanSubfolders || !scanSubfolderOptions.length">
-                    <option value="">{% trans "请选择子文件夹" %}</option>
+                    <option value="">{</option>
                     <template x-for="item in scanSubfolderOptions" :key="item.relative_path">
                         <option :value="item.relative_path" x-text="item.display_name"></option>
                     </template>
                 </select>
             </div>
             <div class="cm-scan-tip" x-show="scanRootPath">
-                <span>{% trans "扫描根目录" %}：</span>
+                <span>{：</span>
                 <code x-text="scanRootPath"></code>
             </div>
             <div class="cm-scan-option-row">
                 <label class="cm-check">
                     <input id="cm-scan-enable-recognition" type="checkbox" x-model="scanEnableRecognition" />
-                    <span>{% trans "启用 OCR/PDF 识别与智能分类（较慢）" %}</span>
+                    <span>{</span>
                 </label>
             </div>
             <div class="cm-scan-tip" x-show="!scanEnableRecognition">
-                {% trans "默认关闭识别，仅按文件名与路径关键词规则预分类，可显著提升扫描速度。" %}
+                {
             </div>
         </div>
 
@@ -140,29 +140,29 @@
             <div class="cm-progress-text">
                 <span x-text="`${scanProgress}%`"></span>
                 <span x-show="scanSummary.total_files">
-                    {% trans "总文件" %}: <span x-text="scanSummary.total_files"></span>
+                    {: <span x-text="scanSummary.total_files"></span>
                 </span>
             </div>
         </div>
 
         <div class="cm-scan-empty" x-show="!isScanning && scanSessionId && !scanCandidates.length">
-            {% trans "未找到可导入的 PDF" %}
+            {
         </div>
 
         <div class="cm-scan-list" x-show="scanCandidates.length">
             <div class="cm-scan-meta">
-                <span>{% trans "候选文件" %}: <strong x-text="scanCandidates.length"></strong></span>
-                <span>{% trans "已选择" %}: <strong x-text="selectedScanCount"></strong></span>
+                <span>{: <strong x-text="scanCandidates.length"></strong></span>
+                <span>{: <strong x-text="selectedScanCount"></strong></span>
             </div>
             <div class="cm-scan-table-wrap">
                 <table class="cm-scan-table">
                     <thead>
                         <tr>
-                            <th style="width: 52px;">{% trans "保存" %}</th>
-                            <th>{% trans "文件" %}</th>
-                            <th style="width: 140px;">{% trans "材料大类" %}</th>
-                            <th style="width: 160px;">{% trans "方向/主管机关" %}</th>
-                            <th style="width: 200px;">{% trans "类型提示" %}</th>
+                            <th style="width: 52px;">{</th>
+                            <th>{</th>
+                            <th style="width: 140px;">{</th>
+                            <th style="width: 160px;">{</th>
+                            <th style="width: 200px;">{</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -179,22 +179,22 @@
                                 </td>
                                 <td>
                                     <select x-model="candidate.category" @change="onScanCandidateCategoryChange(candidate)">
-                                        <option value="">{% trans "请选择" %}</option>
-                                        <option value="party">{% trans "当事人材料" %}</option>
-                                        <option value="non_party">{% trans "非当事人材料" %}</option>
+                                        <option value="">{</option>
+                                        <option value="party">{</option>
+                                        <option value="non_party">{</option>
                                     </select>
                                 </td>
                                 <td>
                                     <template x-if="candidate.category === 'party'">
                                         <select x-model="candidate.side">
-                                            <option value="">{% trans "请选择" %}</option>
-                                            <option value="our">{% trans "我方" %}</option>
-                                            <option value="opponent">{% trans "对方" %}</option>
+                                            <option value="">{</option>
+                                            <option value="our">{</option>
+                                            <option value="opponent">{</option>
                                         </select>
                                     </template>
                                     <template x-if="candidate.category === 'non_party'">
                                         <select x-model="candidate.supervising_authority_id">
-                                            <option value="">{% trans "请选择" %}</option>
+                                            <option value="">{</option>
                                             <template x-for="auth in supervisingAuthorities" :key="auth.id">
                                                 <option :value="String(auth.id)" :selected="String(candidate.supervising_authority_id) === String(auth.id)" x-text="authTitle(auth)"></option>
                                             </template>
@@ -202,7 +202,7 @@
                                     </template>
                                 </td>
                                 <td>
-                                    <input type="text" x-model.trim="candidate.type_name_hint" placeholder="{% trans '类型名称提示' %}" />
+                                    <input type="text" x-model.trim="candidate.type_name_hint" placeholder="{" />
                                 </td>
                             </tr>
                         </template>
@@ -215,15 +215,15 @@
     <div class="materials-manage-top">
         <section class="cm-card">
             <div class="cm-card-header">
-                <div class="cm-card-title">{% trans "上传" %}</div>
+                <div class="cm-card-title">{</div>
             </div>
 
             <div class="cm-upload-controls">
                 <div class="cm-control">
-                    <span class="cm-label">{% trans "上传大类" %}</span>
+                    <span class="cm-label">{</span>
                     <select class="cm-select" x-model="uploadCategory">
-                        <option value="party">{% trans "当事人材料" %}</option>
-                        <option value="non_party">{% trans "非当事人材料" %}</option>
+                        <option value="party">{</option>
+                        <option value="non_party">{</option>
                     </select>
                 </div>
 
@@ -235,7 +235,7 @@
                             x-show="pendingFiles.length || isUploading"
                             style="display: none;"
                             >
-                        <span x-text="($data.uploadButtonText || '{% trans "上传" %}')">{% trans "上传" %}</span>
+                        <span x-text="($data.uploadButtonText || '{')">{</span>
                     </button>
                 </div>
             </div>
@@ -252,7 +252,7 @@
                         <path fill="currentColor" d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z"/>
                     </svg>
                     <div class="cm-dropzone-title">
-                        <span x-text="($data.dropzoneTitle || '{% trans "拖拽文件到这里" %}')">{% trans "拖拽文件到这里" %}</span>
+                        <span x-text="($data.dropzoneTitle || '{')">{</span>
                     </div>
                     <div class="cm-dropzone-desc" x-show="dropzoneDesc">
                         <span x-text="dropzoneDesc"></span>
@@ -282,31 +282,31 @@
 
         <section class="cm-card">
             <div class="cm-card-header">
-                <div class="cm-card-title">{% trans "筛选" %}</div>
+                <div class="cm-card-title">{</div>
             </div>
 
             <div class="cm-filters">
                 <div class="cm-filters-row">
-                    <input type="text" class="cm-input cm-input--wide" placeholder="{% trans "搜索文件名" %}" x-model.trim="searchKeyword" />
+                    <input type="text" class="cm-input cm-input--wide" placeholder="{" x-model.trim="searchKeyword" />
 
                     <select class="cm-select" x-model="filterCategory" @change="onFilterCategoryChange()">
-                        <option value="all">{% trans "全部" %}</option>
-                        <option value="unclassified">{% trans "未分类" %}</option>
-                        <option value="party">{% trans "当事人材料" %}</option>
-                        <option value="non_party">{% trans "非当事人材料" %}</option>
+                        <option value="all">{</option>
+                        <option value="unclassified">{</option>
+                        <option value="party">{</option>
+                        <option value="non_party">{</option>
                     </select>
 
                     <template x-if="filterCategory === 'party'">
                         <select class="cm-select" x-model="filterSide">
-                            <option value="">{% trans "全部方向" %}</option>
-                            <option value="our">{% trans "我方" %}</option>
-                            <option value="opponent">{% trans "对方" %}</option>
+                            <option value="">{</option>
+                            <option value="our">{</option>
+                            <option value="opponent">{</option>
                         </select>
                     </template>
 
                     <template x-if="filterCategory === 'non_party'">
                         <select class="cm-select" x-model="filterAuthorityId">
-                            <option value="">{% trans "全部主管机关" %}</option>
+                            <option value="">{</option>
                             <template x-for="auth in supervisingAuthorities" :key="auth.id">
                                 <option :value="String(auth.id)" x-text="authTitle(auth)"></option>
                             </template>
@@ -320,20 +320,20 @@
                                 class="cm-pill"
                                 :class="{ active: filterCategory === 'unclassified' }"
                                 @click="filterCategory = (filterCategory === 'unclassified' ? 'all' : 'unclassified'); onFilterCategoryChange()">
-                            {% trans "未分类" %}
+                            {
                         </button>
                         <button type="button" class="cm-pill" :class="{ active: onlyUnfinished }" @click="onlyUnfinished = !onlyUnfinished">
-                            {% trans "未完成" %}
+                            {
                         </button>
                         <button type="button" class="cm-pill" :class="{ active: onlyUnbound }" @click="onlyUnbound = !onlyUnbound">
-                            {% trans "未绑定" %}
+                            {
                         </button>
                     </div>
 
                     <div class="cm-filters-actions">
-                        <button type="button" class="button" @click="resetFilters()">{% trans "清空" %}</button>
+                        <button type="button" class="button" @click="resetFilters()">{</button>
                         <div class="cm-count">
-                            {% trans "显示" %} <strong x-text="filteredRows.length"></strong> / <span x-text="rows.length"></span>
+                            { <strong x-text="filteredRows.length"></strong> / <span x-text="rows.length"></span>
                         </div>
                     </div>
                 </div>
@@ -342,15 +342,15 @@
             <!-- 统计信息填充空白 -->
             <div class="cm-stats">
                 <div class="cm-stat-item">
-                    <span class="cm-stat-label">{% trans "已绑定" %}</span>
+                    <span class="cm-stat-label">{</span>
                     <span class="cm-stat-value cm-stat-value--success" x-text="rows.filter(r => r.isBound).length">0</span>
                 </div>
                 <div class="cm-stat-item">
-                    <span class="cm-stat-label">{% trans "未绑定" %}</span>
+                    <span class="cm-stat-label">{</span>
                     <span class="cm-stat-value cm-stat-value--danger" x-text="rows.filter(r => !r.isBound).length">0</span>
                 </div>
                 <div class="cm-stat-item">
-                    <span class="cm-stat-label">{% trans "未完成" %}</span>
+                    <span class="cm-stat-label">{</span>
                     <span class="cm-stat-value cm-stat-value--warn" x-text="rows.filter(r => isRowUnfinished(r)).length">0</span>
                 </div>
             </div>
@@ -369,15 +369,15 @@
                                    x-ref="selectAllBox"
                                    x-effect="$refs.selectAllBox.indeterminate = partiallyFilteredSelected"
                             />
-                            <span>{% trans "全选" %}</span>
+                            <span>{</span>
                         </label>
                     </th>
-                    <th style="width: 260px;">{% trans "文件" %}</th>
-                    <th style="width: 140px;">{% trans "上传时间" %}</th>
-                    <th style="width: 140px;">{% trans "材料大类" %}</th>
-                    <th style="width: 220px;">{% trans "方向/主管机关" %}</th>
-                    <th style="width: 240px;">{% trans "当事人（可选）" %}</th>
-                    <th>{% trans "类型名称" %}</th>
+                    <th style="width: 260px;">{</th>
+                    <th style="width: 140px;">{</th>
+                    <th style="width: 140px;">{</th>
+                    <th style="width: 220px;">{</th>
+                    <th style="width: 240px;">{</th>
+                    <th>{</th>
                 </tr>
             </thead>
             <tbody>
@@ -395,22 +395,22 @@
                         <td x-text="row.uploadedAtDisplay"></td>
                         <td>
                             <select x-model="row.category" @change="onCategoryChange(row, $event)">
-                                <option value="">{% trans "未分类" %}</option>
-                                <option value="party">{% trans "当事人材料" %}</option>
-                                <option value="non_party">{% trans "非当事人材料" %}</option>
+                                <option value="">{</option>
+                                <option value="party">{</option>
+                                <option value="non_party">{</option>
                             </select>
                         </td>
                         <td>
                             <template x-if="row.category === 'party'">
                                 <select x-model="row.side" @change="onSideChange(row, $event)">
-                                    <option value="">{% trans "请选择" %}</option>
-                                    <option value="our">{% trans "我方当事人材料" %}</option>
-                                    <option value="opponent">{% trans "对方当事人材料" %}</option>
+                                    <option value="">{</option>
+                                    <option value="our">{</option>
+                                    <option value="opponent">{</option>
                                 </select>
                             </template>
                             <template x-if="row.category === 'non_party'">
                                 <select x-model="row.supervisingAuthorityId" @change="onAuthorityChange(row, $event)">
-                                    <option value="">{% trans "请选择" %}</option>
+                                    <option value="">{</option>
                                     <template x-for="auth in supervisingAuthorities" :key="auth.id">
                                         <option :value="String(auth.id)" :selected="String(row.supervisingAuthorityId) === String(auth.id)" x-text="authTitle(auth)"></option>
                                     </template>
@@ -429,13 +429,13 @@
                         <td>
                             <div class="type-cell" x-show="row.category">
                                 <select :value="row.typeSelect" @change="row.typeSelect = $event.target.value; onTypeSelect(row, $event)">
-                                    <option value="">{% trans "请选择" %}</option>
+                                    <option value="">{</option>
                                     <template x-for="t in typeOptions(row)" :key="t.id">
                                         <option :value="String(t.id)" :selected="row.typeSelect === String(t.id)" x-text="t.name"></option>
                                     </template>
-                                    <option value="__custom__" :selected="row.typeSelect === '__custom__'">{% trans "自定义..." %}</option>
+                                    <option value="__custom__" :selected="row.typeSelect === '__custom__'">{</option>
                                 </select>
-                                <input x-show="row.typeSelect === '__custom__'" type="text" placeholder="{% trans "输入类型名称" %}" x-model="row.customTypeName" @input="onCustomTypeNameChange(row)" />
+                                <input x-show="row.typeSelect === '__custom__'" type="text" placeholder="{" x-model="row.customTypeName" @input="onCustomTypeNameChange(row)" />
                             </div>
                         </td>
                     </tr>

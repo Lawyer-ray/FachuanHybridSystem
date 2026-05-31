@@ -6,7 +6,6 @@ from typing import Any
 
 from mcp_server.client import client
 
-
 def extract_pdf_pages(
     filename: str,
     data_base64: str,
@@ -17,7 +16,6 @@ def extract_pdf_pages(
         json={"filename": filename, "data": data_base64},
     )
 
-
 def detect_orientation(
     images: list[dict[str, str]],
 ) -> dict[str, Any]:
@@ -26,7 +24,6 @@ def detect_orientation(
         "/image-rotation/detect-orientation",
         json={"images": images},
     )
-
 
 def suggest_rename(
     items: list[dict[str, str]],

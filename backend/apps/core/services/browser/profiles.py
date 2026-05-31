@@ -14,7 +14,6 @@ from typing import Any
 
 logger = logging.getLogger("apps.core")
 
-
 @dataclass
 class BrowserProfile:
     """浏览器配置档案。
@@ -121,7 +120,6 @@ class BrowserProfile:
             args["proxy"] = {"server": self.proxy}
         return args
 
-
 # 预定义配置档案
 _PROFILES: dict[str, BrowserProfile] = {
     "default": BrowserProfile(name="default"),
@@ -149,7 +147,6 @@ _PROFILES: dict[str, BrowserProfile] = {
     ),
 }
 
-
 def get_profile(name: str = "default") -> BrowserProfile:
     """获取配置档案。
 
@@ -173,7 +170,6 @@ def get_profile(name: str = "default") -> BrowserProfile:
 
     return profile
 
-
 def _apply_headless_override(profile: BrowserProfile) -> BrowserProfile:
     """检查 SystemConfig PLAYWRIGHT_HEADED，覆盖 headless 设置。"""
     import dataclasses
@@ -192,7 +188,6 @@ def _apply_headless_override(profile: BrowserProfile) -> BrowserProfile:
         pass
 
     return profile
-
 
 def register_profile(profile: BrowserProfile) -> None:
     """注册自定义配置档案。"""

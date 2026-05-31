@@ -4,7 +4,6 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-
 class PerformanceMetricsOut(BaseModel):
     """性能指标输出Schema"""
 
@@ -21,7 +20,6 @@ class PerformanceMetricsOut(BaseModel):
     concurrent_acquisitions: int = Field(..., description="当前并发获取数")
     cache_hit_rate: float = Field(..., description="缓存命中率(百分比)")
 
-
 class StatisticsReportOut(BaseModel):
     """统计报告输出Schema"""
 
@@ -33,14 +31,12 @@ class StatisticsReportOut(BaseModel):
     daily_trend: list[dict[str, Any]] = Field(..., description="每日趋势")
     real_time_metrics: dict[str, Any] = Field(..., description="实时指标")
 
-
 class AlertSchema(BaseModel):
     """告警信息Schema"""
 
     type: str = Field(..., description="告警类型")
     message: str = Field(..., description="告警消息")
     severity: str = Field(..., description="严重程度")
-
 
 class HealthCheckOut(BaseModel):
     """健康检查输出Schema"""
@@ -50,7 +46,6 @@ class HealthCheckOut(BaseModel):
     metrics: dict[str, Any] = Field(..., description="性能指标")
     alerts: list[AlertSchema] = Field(..., description="告警列表")
     thresholds: dict[str, Any] = Field(..., description="告警阈值")
-
 
 class ResourceUsageOut(BaseModel):
     """资源使用情况输出Schema"""

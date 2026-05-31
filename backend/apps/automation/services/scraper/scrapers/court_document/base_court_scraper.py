@@ -25,7 +25,6 @@ logger = logging.getLogger("apps.automation")
 DEBUG_MODE = getattr(settings, "DEBUG", False)  # 跟随 Django DEBUG 设置
 PAUSE_ON_ERROR = False  # 设置为 True 在错误时暂停(需要手动继续)
 
-
 class BaseCourtDocumentScraper(BaseScraper):
     """
     法院文书下载爬虫基类

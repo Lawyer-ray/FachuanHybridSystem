@@ -12,7 +12,6 @@ from .calendar_providers import CalendarEvent, get_available_providers, get_prov
 
 logger = logging.getLogger(__name__)
 
-
 class CalendarSyncService:
     """Handle importing external calendar events into the Reminder system."""
 

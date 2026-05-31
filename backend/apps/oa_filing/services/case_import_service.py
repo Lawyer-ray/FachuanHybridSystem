@@ -27,7 +27,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger("apps.oa_filing.case_import_service")
 
-
 # ============================================================
 # 数据结构
 # ============================================================
@@ -41,7 +40,6 @@ class CasePreviewResult:
     customer_names: list[str] | None = None
     error_message: str = ""
 
-
 @dataclass
 class CaseImportResult:
     """单条案件导入结果。"""
@@ -52,7 +50,6 @@ class CaseImportResult:
     message: str = ""
     customer_ids: list[int] | None = None
     conflict_warnings: list[str] | None = None
-
 
 # ============================================================
 # 服务类

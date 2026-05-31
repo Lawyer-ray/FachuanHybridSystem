@@ -20,7 +20,6 @@ from apps.core.security import get_request_access_context
 logger = logging.getLogger("apps.cases.api")
 router = Router()
 
-
 def _get_folder_binding_service() -> Any:
     """工厂函数:获取案件文件夹绑定服务"""
     from apps.cases.services import CaseFolderBindingService
@@ -38,7 +37,6 @@ def _get_folder_binding_service() -> Any:
             client_service=build_client_service(),
         ),
     )
-
 
 @router.post("/{case_id}/folder-binding", response=CaseFolderBindingResponseSchema)
 def create_folder_binding(request: HttpRequest, case_id: int, data: CaseFolderBindingCreateSchema) -> Any:
@@ -67,7 +65,6 @@ def create_folder_binding(request: HttpRequest, case_id: int, data: CaseFolderBi
         is_accessible=is_accessible,
         display_path=display_path,
     )
-
 
 @router.get("/{case_id}/folder-binding", response=CaseFolderBindingResponseSchema | None)
 def get_folder_binding(request: HttpRequest, case_id: int) -> CaseFolderBindingResponseSchema | None:
@@ -98,7 +95,6 @@ def get_folder_binding(request: HttpRequest, case_id: int) -> CaseFolderBindingR
         path_auto_repaired=contract_auto_repaired,
     )
 
-
 @router.delete("/{case_id}/folder-binding")
 def delete_folder_binding(request: HttpRequest, case_id: int) -> dict[str, bool | str]:
     """删除案件文件夹绑定"""
@@ -119,7 +115,6 @@ def delete_folder_binding(request: HttpRequest, case_id: int) -> dict[str, bool 
 
     return {"success": success, "message": "文件夹绑定删除成功" if success else "未找到绑定记录"}
 
-
 @router.get("/{case_id}/contract-folder-path", response=ContractFolderPathSchema)
 def get_contract_folder_path(request: HttpRequest, case_id: int) -> ContractFolderPathSchema:
     """获取案件关联合同的文件夹路径"""
@@ -139,7 +134,6 @@ def get_contract_folder_path(request: HttpRequest, case_id: int) -> ContractFold
     )
 
     return ContractFolderPathSchema(folder_path=folder_path)
-
 
 @router.get("/folder-browse", response=FolderBrowseResponseSchema)
 def browse_folders(request: HttpRequest, path: str | None = None, include_hidden: bool = False) -> Any:

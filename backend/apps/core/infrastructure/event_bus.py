@@ -6,7 +6,6 @@ from collections import defaultdict
 from collections.abc import Callable
 from typing import Any
 
-
 class EventBus:
     """In-process event bus used by legacy checkpoints."""
 

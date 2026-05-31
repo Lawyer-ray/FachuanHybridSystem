@@ -7,7 +7,6 @@ from typing import Any
 from apps.core.exceptions import ValidationException
 from apps.enterprise_data.services.types import ProviderConfig, ProviderResponse
 
-
 class QichachaMcpProvider:
     """企查查 provider 骨架。
 

@@ -5,7 +5,6 @@
 from dataclasses import dataclass
 from typing import Any
 
-
 @dataclass
 class ExtractionResult:
     """证件信息提取结果"""
@@ -16,12 +15,10 @@ class ExtractionResult:
     confidence: float  # 置信度 (0-1)
     extraction_method: str  # 提取方式
 
-
 class OCRExtractionError(Exception):
     """OCR 文字提取失败异常"""
 
     pass
-
 
 class OllamaExtractionError(Exception):
     """Ollama 信息提取失败异常"""

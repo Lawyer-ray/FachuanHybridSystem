@@ -5,7 +5,6 @@ from __future__ import annotations
 from typing import Any, cast
 
 from django.db.models import QuerySet
-from django.utils.translation import gettext_lazy as _
 
 from apps.cases.models import Case, CaseAccessGrant
 from apps.core.exceptions import ConflictError, ForbiddenError, NotFoundError
@@ -14,7 +13,6 @@ from apps.core.interfaces import ICaseService
 from apps.core.security import AccessContext, DjangoPermsMixin
 
 from .wiring import get_case_service
-
 
 class CaseAccessService(DjangoPermsMixin):
     """
@@ -74,7 +72,7 @@ class CaseAccessService(DjangoPermsMixin):
             return qs
         user_id = self.get_user_id(ctx.user)
         if grantee_id is not None and grantee_id != user_id:
-            raise ForbiddenError(_("无权限查看他人授权记录"))
+            raise ForbiddenError("无权限查看他人授权记录")
         return qs.filter(grantee_id=user_id)
 
     def get_grant(
@@ -100,7 +98,7 @@ class CaseAccessService(DjangoPermsMixin):
         try:
             grant = CaseAccessGrant.objects.select_related("grantee", "case").get(id=grant_id)
         except CaseAccessGrant.DoesNotExist:
-            raise NotFoundError(_("授权 %(id)s 不存在") % {"id": grant_id}) from None
+            raise NotFoundError("授权 %(id)s 不存在" % {"id": grant_id}) from None
         ctx = access_ctx or AccessContext(user=user, org_access=org_access, perm_open_access=perm_open_access)
         if ctx.perm_open_access:
             return grant
@@ -108,7 +106,7 @@ class CaseAccessService(DjangoPermsMixin):
         if self.is_authenticated_user(ctx.user) or self.is_superuser(ctx.user):
             return grant
         if grant.grantee_id != self.get_user_id(ctx.user):
-            raise ForbiddenError(_("无权限查看该授权记录"))
+            raise ForbiddenError("无权限查看该授权记录")
         return grant
 
     def create_grant(self, case_id: int, grantee_id: int, user: Any | None = None) -> CaseAccessGrant:
@@ -126,9 +124,9 @@ class CaseAccessService(DjangoPermsMixin):
         """
         self.ensure_admin(user)
         if not Case.objects.filter(id=case_id).exists():
-            raise NotFoundError(_("案件 %(id)s 不存在") % {"id": case_id})
+            raise NotFoundError("案件 %(id)s 不存在" % {"id": case_id})
         if CaseAccessGrant.objects.filter(case_id=case_id, grantee_id=grantee_id).exists():
-            raise ConflictError(_("该用户已有此案件的访问权限"))
+            raise ConflictError("该用户已有此案件的访问权限")
         grant = CaseAccessGrant.objects.create(case_id=case_id, grantee_id=grantee_id)
         invalidate_user_access_context(grantee_id)
         return grant
@@ -217,7 +215,7 @@ class CaseAccessService(DjangoPermsMixin):
         """
         self.ensure_authenticated(user)
         if not (self.is_authenticated_user(user) or self.is_superuser(user)) and self.get_user_id(user) != user_id:
-            raise ForbiddenError(_("无权限查看他人授权记录"))
+            raise ForbiddenError("无权限查看他人授权记录")
         return CaseAccessGrant.objects.filter(grantee_id=user_id).select_related("case")
 
     def get_accessible_case_ids(self, user_id: int, user: Any | None = None) -> set[int]:
@@ -231,7 +229,7 @@ class CaseAccessService(DjangoPermsMixin):
         """
         self.ensure_authenticated(user)
         if not (self.is_authenticated_user(user) or self.is_superuser(user)) and self.get_user_id(user) != user_id:
-            raise ForbiddenError(_("无权限查看他人可访问案件"))
+            raise ForbiddenError("无权限查看他人可访问案件")
         return set(CaseAccessGrant.objects.filter(grantee_id=user_id).values_list("case_id", flat=True))
 
     def grant_access(self, case_id: int, grantee_id: int, user: Any | None = None) -> CaseAccessGrant:
@@ -265,7 +263,7 @@ class CaseAccessService(DjangoPermsMixin):
         try:
             grant = CaseAccessGrant.objects.get(case_id=case_id, grantee_id=grantee_id)
         except CaseAccessGrant.DoesNotExist:
-            raise NotFoundError(_("授权记录不存在")) from None
+            raise NotFoundError("授权记录不存在") from None
         grant.delete()
         invalidate_user_access_context(grantee_id)
         return True
@@ -301,7 +299,7 @@ class CaseAccessService(DjangoPermsMixin):
         """
         self.ensure_admin(user)
         if not Case.objects.filter(id=case_id).exists():
-            raise NotFoundError(_("案件 %(id)s 不存在") % {"id": case_id})
+            raise NotFoundError("案件 %(id)s 不存在" % {"id": case_id})
         existing = set(
             CaseAccessGrant.objects.filter(case_id=case_id, grantee_id__in=grantee_ids).values_list(
                 "grantee_id", flat=True

@@ -17,7 +17,6 @@ from .data_classes import DocumentDeliveryRecord, DocumentProcessResult
 
 logger = logging.getLogger("apps.automation")
 
-
 class DocumentDeliveryDownloadingMixin:
     """文件下载相关方法"""
 

@@ -2,7 +2,6 @@
 
 from typing import Any, Protocol
 
-
 class ICauseCourtQueryService(Protocol):
     def has_active_causes_internal(self) -> bool: ...
 

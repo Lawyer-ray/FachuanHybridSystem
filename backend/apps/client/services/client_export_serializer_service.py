@@ -4,13 +4,11 @@ from __future__ import annotations
 
 from typing import Any
 
-
 class ClientExportSerializerService:
     """Service facade for client export serialization."""
 
     def serialize_client_obj(self, obj: Any) -> dict[str, Any]:
         return serialize_client_obj(obj)
-
 
 def serialize_client_obj(obj: Any) -> dict[str, Any]:
     """Serialize a Client-like object for export."""

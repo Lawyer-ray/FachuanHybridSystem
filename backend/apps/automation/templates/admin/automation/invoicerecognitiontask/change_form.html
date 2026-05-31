@@ -17,7 +17,7 @@
     </template>
 
     <!-- 文件上传区域 -->
-    <div class="ir-section-title">{% trans "上传发票文件" %}</div>
+    <div class="ir-section-title">{</div>
     <div
         class="ir-upload-zone"
         :class="{ dragging: dragging }"
@@ -27,8 +27,8 @@
         @click="$refs.fileInput.click()"
     >
         <div class="upload-icon">📄</div>
-        <p>{% trans "拖拽文件到此处，或点击选择文件" %}</p>
-        <p class="upload-hint">{% trans "支持 PDF、JPG、JPEG、PNG，单文件最大 20MB，可多选" %}</p>
+        <p>{</p>
+        <p class="upload-hint">{</p>
         <input
             type="file"
             x-ref="fileInput"
@@ -42,7 +42,7 @@
     <!-- 上传进度条 -->
     <div x-show="uploading" style="margin-bottom: 16px;">
         <div style="font-size: 0.875rem; color: #555; margin-bottom: 4px;">
-            {% trans "上传中" %}... <span x-text="uploadProgress + '%'"></span>
+            {... <span x-text="uploadProgress + '%'"></span>
         </div>
         <div class="ir-progress-bar">
             <div class="ir-progress-fill" :style="'width: ' + uploadProgress + '%'"></div>
@@ -53,20 +53,20 @@
     <template x-if="groups.length > 0 || duplicates.length > 0">
         <div>
             <div class="ir-section-title" style="display:flex;align-items:center;justify-content:space-between;">
-                <span>{% trans "识别结果" %}</span>
+                <span>{</span>
                 <div style="display:flex;gap:8px;">
                     <button type="button" class="btn-merge-toggle btn-jtn" @click="applyJtnGzGroups()" x-show="groups.length > 0">
-                        {% trans "智能分组" %}
+                        {
                     </button>
                     <button type="button" class="btn-merge-toggle" @click="showMergePanel = !showMergePanel" x-show="mergedGroups.length > 1">
-                        ⚙️ {% trans "合并分组" %}
+                        ⚙️ {
                     </button>
                 </div>
             </div>
 
             <!-- 合并分组面板 -->
             <div class="ir-merge-panel" x-show="showMergePanel" x-transition>
-                <div class="ir-merge-hint">{% trans "将多个项目名称拖入同一合并组，统计时将合并计算。" %}</div>
+                <div class="ir-merge-hint">{</div>
                 <div class="ir-merge-groups">
                     <template x-for="(mg, mgIdx) in mergedGroups" :key="mg.id || mgIdx">
                         <div class="ir-merge-group"
@@ -74,7 +74,7 @@
                              @drop.prevent="dropToMergeGroup(mgIdx)"
                              :class="{ 'drag-over': dragOverMergeGroup === mgIdx }">
                             <div class="ir-merge-group-header">
-                                <input type="text" class="ir-merge-group-name" x-model="mg.name" placeholder="{% trans '合并组名称' %}">
+                                <input type="text" class="ir-merge-group-name" x-model="mg.name" placeholder="{">
                                 <button type="button" class="ir-merge-remove-btn" @click="removeMergeGroup(mgIdx)" x-show="mergedGroups.length > 1">✕</button>
                             </div>
                             <div class="ir-merge-tags">
@@ -86,14 +86,14 @@
                                         <span class="ir-merge-tag-remove" @click.stop="removeKeyFromGroup(mgIdx, kIdx)">×</span>
                                     </span>
                                 </template>
-                                <span class="ir-merge-drop-hint" x-show="mg.keys.length === 0">{% trans "拖入项目名称" %}</span>
+                                <span class="ir-merge-drop-hint" x-show="mg.keys.length === 0">{</span>
                             </div>
                             <div class="ir-merge-group-total">
                                 合计：¥<span x-text="getMergeGroupTotal(mg).toFixed(2)"></span>
                             </div>
                         </div>
                     </template>
-                    <button type="button" class="ir-merge-add-btn" @click="addMergeGroup()">+ {% trans "新增合并组" %}</button>
+                    <button type="button" class="ir-merge-add-btn" @click="addMergeGroup()">+ {</button>
                 </div>
             </div>
 
@@ -108,7 +108,7 @@
                             </template>
                         </div>
                         <div class="category-stats">
-                            <span><span x-text="group.records.length"></span> {% trans "张" %}</span>
+                            <span><span x-text="group.records.length"></span> {</span>
                             <span class="category-subtotal">¥<span x-text="group.subtotal.toFixed(2)"></span></span>
                             <span class="toggle-icon" :class="{ open: openGroups[group.key] }">▼</span>
                         </div>
@@ -117,13 +117,13 @@
                         <table class="ir-invoice-table">
                             <thead>
                                 <tr>
-                                    <th>{% trans "原始文件名" %}</th>
-                                    <th>{% trans "项目名称" %}</th>
-                                    <th>{% trans "发票号码" %}</th>
-                                    <th>{% trans "开票日期" %}</th>
-                                    <th>{% trans "价税合计" %}</th>
-                                    <th>{% trans "状态" %}</th>
-                                    <th>{% trans "操作" %}</th>
+                                    <th>{</th>
+                                    <th>{</th>
+                                    <th>{</th>
+                                    <th>{</th>
+                                    <th>{</th>
+                                    <th>{</th>
+                                    <th>{</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -143,15 +143,15 @@
                                             <span class="ir-record-status" :class="record.status" x-text="recordStatusLabel(record.status)"></span>
                                         </td>
                                         <td>
-                                            <button type="button" class="button" style="padding: 3px 10px; font-size: 0.8rem;" @click.stop="downloadSingle(record.id)">{% trans "下载" %}</button>
+                                            <button type="button" class="button" style="padding: 3px 10px; font-size: 0.8rem;" @click.stop="downloadSingle(record.id)">{</button>
                                         </td>
                                     </tr>
                                 </template>
                             </tbody>
                         </table>
                         <div class="ir-category-download">
-                            <button type="button" class="btn-download btn-pdf" @click.stop="downloadCategory(group.category, 'pdf')">📄 {% trans "下载 PDF" %}</button>
-                            <button type="button" class="btn-download btn-zip" @click.stop="downloadCategory(group.category, 'zip')">🗜 {% trans "下载 ZIP" %}</button>
+                            <button type="button" class="btn-download btn-pdf" @click.stop="downloadCategory(group.category, 'pdf')">📄 {</button>
+                            <button type="button" class="btn-download btn-zip" @click.stop="downloadCategory(group.category, 'zip')">🗜 {</button>
                         </div>
                     </div>
                 </div>
@@ -159,17 +159,17 @@
 
             <div class="ir-duplicate-section" x-show="duplicates.length > 0">
                 <div class="ir-duplicate-header">
-                    ⚠️ {% trans "重复发票" %}（<span x-text="duplicates.length"></span>{% trans "张" %}，合计 ¥<span x-text="duplicateTotal.toFixed(2)"></span>）
+                    ⚠️ {（<span x-text="duplicates.length"></span>{，合计 ¥<span x-text="duplicateTotal.toFixed(2)"></span>）
                 </div>
                 <table class="ir-invoice-table">
                     <thead>
                         <tr>
-                            <th>{% trans "原始文件名" %}</th>
-                            <th>{% trans "项目名称" %}</th>
-                            <th>{% trans "发票号码" %}</th>
-                            <th>{% trans "开票日期" %}</th>
-                            <th>{% trans "价税合计" %}</th>
-                            <th>{% trans "重复原因" %}</th>
+                            <th>{</th>
+                            <th>{</th>
+                            <th>{</th>
+                            <th>{</th>
+                            <th>{</th>
+                            <th>{</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -193,21 +193,21 @@
             </div>
 
             <div class="ir-total-section">
-                <span class="total-label">{% trans "非重复发票总金额" %}</span>
+                <span class="total-label">{</span>
                 <span class="total-amount">¥<span x-text="parseFloat(total || 0).toFixed(2)"></span></span>
                 <span class="total-amount-cn" x-text="numberToChinese(total)"></span>
             </div>
 
-            <div class="ir-section-title">{% trans "下载全部发票" %}</div>
+            <div class="ir-section-title">{</div>
             <div class="ir-download-btns">
-                <button type="button" class="btn-download btn-pdf" @click="downloadAll('pdf')">📄 {% trans "下载全部 PDF" %}</button>
-                <button type="button" class="btn-download btn-zip" @click="downloadAll('zip')">🗜 {% trans "下载全部 ZIP" %}</button>
+                <button type="button" class="btn-download btn-pdf" @click="downloadAll('pdf')">📄 {</button>
+                <button type="button" class="btn-download btn-zip" @click="downloadAll('zip')">🗜 {</button>
             </div>
         </div>
     </template>
 
     <template x-if="groups.length === 0 && duplicates.length === 0 && !uploading">
-        <div class="ir-empty-state">{% trans "暂无发票记录，请上传发票文件开始识别" %}</div>
+        <div class="ir-empty-state">{</div>
     </template>
 
 </div>
@@ -270,19 +270,19 @@ function invoiceApp() {
 
         statusLabel() {
             const labels = {
-                'pending': '{% trans "待处理" %}',
-                'processing': '{% trans "处理中" %}',
-                'completed': '{% trans "已完成" %}',
-                'failed': '{% trans "失败" %}',
+                'pending': '{',
+                'processing': '{',
+                'completed': '{',
+                'failed': '{',
             };
             return labels[this.taskStatus] || this.taskStatus;
         },
 
         recordStatusLabel(status) {
             const labels = {
-                'pending': '{% trans "待识别" %}',
-                'success': '{% trans "识别成功" %}',
-                'failed': '{% trans "识别失败" %}',
+                'pending': '{',
+                'success': '{',
+                'failed': '{',
             };
             return labels[status] || status;
         },
@@ -324,14 +324,14 @@ function invoiceApp() {
                 });
                 const data = await resp.json();
                 this.uploadProgress = 90;
-                if (!resp.ok) throw new Error(data.detail || '{% trans "上传失败" %}');
+                if (!resp.ok) throw new Error(data.detail || '{');
                 this.uploadProgress = 100;
-                this.uploadMessage = '{% trans "上传成功，正在识别..." %}';
+                this.uploadMessage = '{';
                 this.uploadMessageType = 'success';
                 await this.loadStatus();
                 this.startPolling();
             } catch(e) {
-                this.uploadMessage = '{% trans "上传失败" %}: ' + e.message;
+                this.uploadMessage = '{: ' + e.message;
                 this.uploadMessageType = 'error';
             } finally {
                 this.uploading = false;
@@ -359,7 +359,7 @@ function invoiceApp() {
                     this.rebuildGroups();
                 }
             } catch(e) {
-                console.error('{% trans "加载状态失败" %}', e);
+                console.error('{', e);
             }
         },
 

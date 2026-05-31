@@ -3,7 +3,6 @@
 import re
 from typing import Any, ClassVar
 
-
 class PartyCandidateExtractor:
     _RECEIVER_PATTERN = re.compile(r"】\s*([^,,]{2,50})[,,]")
     _COMPANY_PATTERN = re.compile(r"[\u4e00-\u9fa5]{2,30}(?:有限责任公司|股份有限公司|有限公司|集团|企业)")

@@ -7,15 +7,12 @@ from datetime import date
 
 from apps.core.services.filename_template_service import FilenameTemplateService
 
-
 def _today_compact() -> str:
     return date.today().strftime("%Y%m%d")
-
 
 def _normalize_version(version: str) -> str:
     """将 'V1' 或 'V1.0' 等格式转为纯数字 '1'"""
     return re.sub(r"^V", "", version, flags=re.IGNORECASE)
-
 
 def contract_docx_filename(*, template_name: str, contract_name: str, version: str = "V1") -> str:
     template_prefix = re.sub(r"\.(docx?|doc)$", "", template_name or "合同", flags=re.IGNORECASE)
@@ -29,7 +26,6 @@ def contract_docx_filename(*, template_name: str, contract_name: str, version: s
         )
         + ".docx"
     )
-
 
 def supplementary_agreement_docx_filename(*, agreement_name: str, contract_name: str, version: str = "V1") -> str:
     agreement_display = agreement_name or "补充协议"

@@ -4,10 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from django.utils.translation import gettext_lazy as _
-
 from .base import CaseFolderBinding, Schema, SchemaMixin, field_validator
-
 
 class CaseFolderBindingCreateSchema(Schema):
     folder_path: str
@@ -16,9 +13,8 @@ class CaseFolderBindingCreateSchema(Schema):
     @classmethod
     def validate_folder_path(cls, v: Any) -> Any:
         if not v or not v.strip():
-            raise ValueError(str(_("文件夹路径不能为空")))
+            raise ValueError(str("文件夹路径不能为空"))
         return v.strip()
-
 
 class CaseFolderBindingResponseSchema(Schema):
     id: int
@@ -51,15 +47,12 @@ class CaseFolderBindingResponseSchema(Schema):
             path_auto_repaired=path_auto_repaired,
         )
 
-
 class FolderBrowseEntrySchema(Schema):
     name: str
     path: str
 
-
 class ContractFolderPathSchema(Schema):
     folder_path: str | None = None
-
 
 class FolderBrowseResponseSchema(Schema):
     browsable: bool
@@ -67,7 +60,6 @@ class FolderBrowseResponseSchema(Schema):
     path: str | None = None
     parent_path: str | None = None
     entries: list[FolderBrowseEntrySchema]
-
 
 __all__: list[str] = [
     "CaseFolderBindingCreateSchema",

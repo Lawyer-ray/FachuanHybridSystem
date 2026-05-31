@@ -22,7 +22,6 @@ logger = logging.getLogger("apps.image_rotation")
 
 RETRY_CONFIDENCE_THRESHOLD = 0.6
 
-
 @dataclass
 class OCRResult:
     """OCR 识别结果"""
@@ -31,7 +30,6 @@ class OCRResult:
     text_blocks: list[str]
     scores: list[float]
     overall_confidence: float
-
 
 class RenameOCRChannel:
     """重命名专用高精度 OCR 通道"""

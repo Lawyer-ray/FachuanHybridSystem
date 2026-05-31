@@ -4,7 +4,6 @@ from django.db.models import Q, QuerySet
 
 from apps.client.models import Client
 
-
 class ClientQueryBuilder:
     def build_queryset(
         self,

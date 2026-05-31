@@ -3,7 +3,6 @@
 from collections.abc import AsyncIterator, Iterator
 from typing import Any, Protocol
 
-
 class ILLMService(Protocol):
     def chat(
         self,

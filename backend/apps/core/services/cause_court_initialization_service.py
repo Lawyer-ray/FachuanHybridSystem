@@ -24,7 +24,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-
 @dataclass
 class InitializationResult:
     """初始化结果
@@ -82,7 +81,6 @@ class InitializationResult:
             "errors": self.errors,
             "warnings": self.warnings,
         }
-
 
 class CauseCourtInitializationService:
     """案由法院数据初始化服务

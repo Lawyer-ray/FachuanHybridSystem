@@ -12,7 +12,6 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
-
 class TaskRegistry:
     """管理活跃 asyncio 任务引用的注册表"""
 
@@ -39,7 +38,6 @@ class TaskRegistry:
     def get(self, job_id: str) -> asyncio.Task[None] | None:
         """获取活跃任务引用"""
         return self._tasks.get(job_id)
-
 
 # 模块级单例
 task_registry = TaskRegistry()

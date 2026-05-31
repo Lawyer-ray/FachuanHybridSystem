@@ -11,7 +11,6 @@ from ..query import ContractQueryFacade, ContractQueryService
 if TYPE_CHECKING:
     from apps.core.protocols import ICaseService, ILawyerService
 
-
 def build_contract_service(*, case_service: ICaseService, lawyer_service: ILawyerService) -> ContractService:
     from apps.contracts.services.assignment.lawyer_assignment_service import LawyerAssignmentService
 

@@ -2,7 +2,6 @@
 
 from django.db import migrations, models
 
-
 SQL = """
 DO $$
 BEGIN
@@ -29,7 +28,6 @@ BEGIN
     END IF;
 END $$;
 """
-
 
 class Migration(migrations.Migration):
 

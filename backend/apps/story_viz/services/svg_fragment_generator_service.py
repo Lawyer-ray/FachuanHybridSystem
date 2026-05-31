@@ -10,15 +10,12 @@ from apps.story_viz.schemas import AnimationScript
 
 logger = logging.getLogger("apps.story_viz")
 
-
 class SvgFragmentItem(BaseModel):
     name: str = Field(default="")
     svg: str = Field(default="")
 
-
 class SvgFragmentBundle(BaseModel):
     fragments: list[SvgFragmentItem] = Field(default_factory=list)
-
 
 class SvgFragmentGeneratorService:
     def __init__(self, *, llm_service: Any, model: str | None = None) -> None:

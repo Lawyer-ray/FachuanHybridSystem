@@ -12,7 +12,6 @@ from django.core.files.base import File
 from django.core.management.base import BaseCommand, CommandParser
 from django.db.models.fields.files import FieldFile
 
-
 class Command(BaseCommand):
     help = "扫描 MEDIA_ROOT 下没有数据库引用的孤儿文件"
 

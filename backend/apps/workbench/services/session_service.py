@@ -7,7 +7,6 @@ from typing import Any
 
 from django.core.cache import cache
 from django.db.models import Count, F, OuterRef, Subquery
-from django.utils.translation import gettext_lazy as _
 
 from apps.core.exceptions import NotFoundError, ValidationException
 from apps.core.security.permissions import AccessContext, PermissionMixin
@@ -15,7 +14,6 @@ from apps.core.security.permissions import AccessContext, PermissionMixin
 from ..models import WorkbenchMessage, WorkbenchSession
 
 logger = logging.getLogger(__name__)
-
 
 def _calc_message_bytes(
     content: str = "",
@@ -29,7 +27,6 @@ def _calc_message_bytes(
     total += len(str(tool_output or {}).encode("utf-8"))
     total += len(str(metadata or {}).encode("utf-8"))
     return total
-
 
 class WorkbenchSessionService(PermissionMixin):
     """工作台会话管理服务"""
@@ -170,7 +167,7 @@ class WorkbenchSessionService(PermissionMixin):
         try:
             return WorkbenchSession.objects.get(id=session_id, user=user)
         except WorkbenchSession.DoesNotExist:
-            raise NotFoundError(_("会话不存在")) from None
+            raise NotFoundError("会话不存在") from None
 
     @staticmethod
     def _invalidate_session_cache(user: Any) -> None:

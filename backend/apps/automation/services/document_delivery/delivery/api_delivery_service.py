@@ -22,7 +22,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger("apps.automation")
 
-
 class ApiDeliveryService:
     """API 方式文书投递服务"""
 

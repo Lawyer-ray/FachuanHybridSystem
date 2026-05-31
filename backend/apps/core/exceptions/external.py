@@ -27,7 +27,6 @@ __all__: list[str] = [
     "ImapConnectionError",
 ]
 
-
 class ExternalServiceError(BusinessException):
     """
     外部服务错误
@@ -43,7 +42,6 @@ class ExternalServiceError(BusinessException):
         self, message: str | Promise = "外部服务错误", code: str | None = None, errors: dict[str, Any] | None = None
     ) -> None:
         super().__init__(message=message, code=code or "EXTERNAL_SERVICE_ERROR", errors=errors)
-
 
 class ServiceUnavailableError(ExternalServiceError):
     """
@@ -70,7 +68,6 @@ class ServiceUnavailableError(ExternalServiceError):
         super().__init__(message=message, code=code or "SERVICE_UNAVAILABLE", errors=errors)
         self.service_name = service_name
 
-
 class RecognitionTimeoutError(ExternalServiceError):
     """
     识别超时异常
@@ -96,7 +93,6 @@ class RecognitionTimeoutError(ExternalServiceError):
         super().__init__(message=message, code=code or "RECOGNITION_TIMEOUT", errors=errors)
         self.timeout_seconds = timeout_seconds
 
-
 class TokenError(BusinessException):
     """
     Token 错误
@@ -113,7 +109,6 @@ class TokenError(BusinessException):
         self, message: str | Promise = "Token 错误", code: str | None = None, errors: dict[str, Any] | None = None
     ) -> None:
         super().__init__(message=message, code=code or "TOKEN_ERROR", errors=errors)
-
 
 class APIError(ExternalServiceError):
     """
@@ -132,7 +127,6 @@ class APIError(ExternalServiceError):
     ) -> None:
         super().__init__(message=message, code=code or "API_ERROR", errors=errors)
 
-
 class NetworkError(ExternalServiceError):
     """
     网络错误
@@ -149,7 +143,6 @@ class NetworkError(ExternalServiceError):
         self, message: str | Promise = "网络错误", code: str | None = None, errors: dict[str, Any] | None = None
     ) -> None:
         super().__init__(message=message, code=code or "NETWORK_ERROR", errors=errors)
-
 
 class AutoTokenAcquisitionError(ExternalServiceError):
     """
@@ -169,7 +162,6 @@ class AutoTokenAcquisitionError(ExternalServiceError):
         errors: dict[str, Any] | None = None,
     ) -> None:
         super().__init__(message=message, code=code or "AUTO_TOKEN_ACQUISITION_ERROR", errors=errors)
-
 
 class LoginFailedError(AutoTokenAcquisitionError):
     """
@@ -193,7 +185,6 @@ class LoginFailedError(AutoTokenAcquisitionError):
         super().__init__(message=message, code=code or "LOGIN_FAILED", errors=errors)
         self.attempts = attempts or []
 
-
 class NoAvailableAccountError(AutoTokenAcquisitionError):
     """
     无可用账号异常
@@ -211,7 +202,6 @@ class NoAvailableAccountError(AutoTokenAcquisitionError):
     ) -> None:
         super().__init__(message=message, code=code or "NO_AVAILABLE_ACCOUNT", errors=errors)
 
-
 class TokenAcquisitionTimeoutError(AutoTokenAcquisitionError):
     """
     Token获取超时异常
@@ -227,7 +217,6 @@ class TokenAcquisitionTimeoutError(AutoTokenAcquisitionError):
         self, message: str | Promise = "Token获取超时", code: str | None = None, errors: dict[str, Any] | None = None
     ) -> None:
         super().__init__(message=message, code=code or "TOKEN_ACQUISITION_TIMEOUT", errors=errors)
-
 
 class CaptchaRecognitionError(ExternalServiceError):
     """
@@ -245,7 +234,6 @@ class CaptchaRecognitionError(ExternalServiceError):
         self, message: str | Promise = "验证码识别失败", code: str | None = None, errors: dict[str, Any] | None = None
     ) -> None:
         super().__init__(message=message, code=code or "CAPTCHA_RECOGNITION_ERROR", errors=errors)
-
 
 class BrowserAutomationError(ExternalServiceError):
     """
@@ -272,7 +260,6 @@ class BrowserAutomationError(ExternalServiceError):
             errors["url"] = url
         super().__init__(message=message, code=code or "BROWSER_AUTOMATION_ERROR", errors=errors)
         self.url = url
-
 
 class ImapConnectionError(ExternalServiceError):
     """

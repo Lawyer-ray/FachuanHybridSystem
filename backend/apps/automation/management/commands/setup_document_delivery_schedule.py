@@ -16,7 +16,6 @@ from django.core.management.base import BaseCommand, CommandParser
 
 logger = logging.getLogger("apps.automation")
 
-
 class Command(BaseCommand):
     help = "设置文书送达定时任务的 Django Q 调度"
 

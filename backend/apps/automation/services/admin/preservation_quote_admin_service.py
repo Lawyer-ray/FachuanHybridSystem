@@ -12,12 +12,10 @@ from typing import Any
 from django.db import transaction
 from django.db.models import Avg, Count, Max, Min, Q
 from django.utils import timezone
-from django.utils.translation import gettext_lazy as _
 
 from apps.automation.models import InsuranceQuote, PreservationQuote, QuoteItemStatus, QuoteStatus
 from apps.core.exceptions import BusinessException, NotFoundError, ValidationException
 from apps.core.interfaces import ServiceLocator
-
 
 class PreservationQuoteAdminService:
     """
@@ -56,7 +54,7 @@ class PreservationQuoteAdminService:
         """
         if not quote_ids:
             raise ValidationException(
-                message=_("没有选中任何询价任务"),
+                message="没有选中任何询价任务",
                 code="NO_QUOTES_SELECTED",
                 errors={},
             )
@@ -69,7 +67,7 @@ class PreservationQuoteAdminService:
 
             if not executable_quotes.exists():
                 raise ValidationException(
-                    message=_("没有找到可执行的询价任务"),
+                    message="没有找到可执行的询价任务",
                     code="NO_EXECUTABLE_QUOTES",
                     errors={},
                 )
@@ -125,7 +123,7 @@ class PreservationQuoteAdminService:
                 exc_info=True,
             )
             raise BusinessException(
-                message=_("批量执行询价任务失败"),
+                message="批量执行询价任务失败",
                 code="EXECUTE_QUOTES_FAILED",
                 errors={},
             ) from e
@@ -189,7 +187,7 @@ class PreservationQuoteAdminService:
                 exc_info=True,
             )
             raise BusinessException(
-                message=_("重试失败询价任务失败"),
+                message="重试失败询价任务失败",
                 code="RETRY_FAILED_QUOTES_FAILED",
                 errors={},
             ) from e
@@ -319,7 +317,7 @@ class PreservationQuoteAdminService:
                 "获取询价统计数据失败", extra={"action": "get_quote_statistics", "error": str(e)}, exc_info=True
             )
             raise BusinessException(
-                message=_("获取询价统计数据失败"),
+                message="获取询价统计数据失败",
                 code="GET_QUOTE_STATS_FAILED",
                 errors={},
             ) from e
@@ -341,7 +339,7 @@ class PreservationQuoteAdminService:
         """
         if not quote_configs:
             raise ValidationException(
-                message=_("没有提供询价配置"),
+                message="没有提供询价配置",
                 code="NO_QUOTE_CONFIGS",
                 errors={},
             )
@@ -355,7 +353,7 @@ class PreservationQuoteAdminService:
                     # 验证必需字段
                     if "preserve_amount" not in config:
                         raise ValidationException(
-                            message=_("缺少保全金额"),
+                            message="缺少保全金额",
                             code="MISSING_PRESERVE_AMOUNT",
                             errors={},
                         )
@@ -363,7 +361,7 @@ class PreservationQuoteAdminService:
                     preserve_amount = Decimal(str(config["preserve_amount"]))
                     if preserve_amount <= 0:
                         raise ValidationException(
-                            message=_("保全金额必须大于0"),
+                            message="保全金额必须大于0",
                             code="INVALID_PRESERVE_AMOUNT",
                             errors={"preserve_amount": preserve_amount},
                         )
@@ -397,7 +395,7 @@ class PreservationQuoteAdminService:
                 "批量创建询价任务失败", extra={"action": "batch_create_quotes", "error": str(e)}, exc_info=True
             )
             raise BusinessException(
-                message=_("批量创建询价任务失败"), code="BATCH_CREATE_QUOTES_FAILED", errors={"error": str(e)}
+                message="批量创建询价任务失败", code="BATCH_CREATE_QUOTES_FAILED", errors={"error": str(e)}
             ) from e
 
     def run_single_quote(self, quote_id: int) -> dict[str, Any]:
@@ -442,7 +440,7 @@ class PreservationQuoteAdminService:
 
         except PreservationQuote.DoesNotExist as e:
             raise NotFoundError(
-                message=_("询价任务不存在"), code="QUOTE_NOT_FOUND", errors={"quote_id": quote_id}
+                message="询价任务不存在", code="QUOTE_NOT_FOUND", errors={"quote_id": quote_id}
             ) from e
         """
         获取询价结果对比分析
@@ -463,7 +461,7 @@ class PreservationQuoteAdminService:
                 quote = PreservationQuote.objects.get(id=quote_id)
             except PreservationQuote.DoesNotExist as e:
                 raise NotFoundError(
-                    message=_("询价任务不存在"), code="QUOTE_NOT_FOUND", errors={"quote_id": quote_id}
+                    message="询价任务不存在", code="QUOTE_NOT_FOUND", errors={"quote_id": quote_id}
                 ) from e
 
             # 获取所有成功的报价
@@ -542,5 +540,5 @@ class PreservationQuoteAdminService:
                 exc_info=True,
             )
             raise BusinessException(
-                message=_("获取询价对比分析失败"), code="GET_QUOTE_COMPARISON_FAILED", errors={"error": str(e)}
+                message="获取询价对比分析失败", code="GET_QUOTE_COMPARISON_FAILED", errors={"error": str(e)}
             ) from e

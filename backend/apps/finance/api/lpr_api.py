@@ -29,7 +29,6 @@ logger = logging.getLogger(__name__)
 
 router = Router(tags=["LPR利率"])
 
-
 @router.get("/rates", response=LPRRateListResponse, auth=JWTOrSessionAuth())
 def list_lpr_rates(
     request: HttpRequest,
@@ -71,7 +70,6 @@ def list_lpr_rates(
         total=total,
     )
 
-
 @router.get("/rates/latest", response=LPRRateSchema, auth=JWTOrSessionAuth())
 def get_latest_lpr_rate(request: HttpRequest) -> LPRRateSchema:
     """获取最新LPR利率.
@@ -101,7 +99,6 @@ def get_latest_lpr_rate(request: HttpRequest) -> LPRRateSchema:
         created_at=rate.created_at.isoformat(),
         updated_at=rate.updated_at.isoformat(),
     )
-
 
 @router.post("/sync", response=LPRSyncResponse, auth=JWTOrSessionAuth())
 def sync_lpr_rates(
@@ -151,7 +148,6 @@ def sync_lpr_rates(
             message=f"同步失败: {e!s}",
         )
 
-
 @router.get("/sync/status", response=LPRSyncStatusResponse, auth=JWTOrSessionAuth())
 def get_sync_status(request: HttpRequest) -> LPRSyncStatusResponse:
     """获取LPR同步状态.
@@ -173,7 +169,6 @@ def get_sync_status(request: HttpRequest) -> LPRSyncStatusResponse:
         auto_synced_records=status.get("auto_synced_records", 0),
         manual_records=status.get("manual_records", 0),
     )
-
 
 @router.post("/calculate", response=InterestCalculateResponse, auth=JWTOrSessionAuth())
 def calculate_interest(

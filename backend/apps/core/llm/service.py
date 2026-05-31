@@ -18,7 +18,6 @@ from .streaming import astream_with_fallback, stream_with_fallback
 
 logger = logging.getLogger("apps.core.llm.service")
 
-
 class LLMService:
     """
     统一 LLM 服务
@@ -310,10 +309,8 @@ class LLMService:
         """
         return self._get_backend(name)
 
-
 # 模块级单例(延迟初始化)
 _llm_service: LLMService | None = None
-
 
 def get_llm_service() -> LLMService:
     global _llm_service

@@ -8,13 +8,11 @@ from django.http import HttpRequest
 
 from apps.core.exceptions import PermissionDenied
 
-
 def get_request_user(request: HttpRequest) -> Any | None:
     user = getattr(request, "user", None)
     if user and getattr(user, "is_authenticated", False):
         return user
     return getattr(request, "auth", None)
-
 
 def is_admin_user(user: Any | None) -> bool:
     return bool(
@@ -23,7 +21,6 @@ def is_admin_user(user: Any | None) -> bool:
             getattr(user, "is_admin", False) or getattr(user, "is_superuser", False) or getattr(user, "is_staff", False)
         )
     )
-
 
 def ensure_admin_request(
     request: HttpRequest,

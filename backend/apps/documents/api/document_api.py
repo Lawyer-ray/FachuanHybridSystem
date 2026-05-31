@@ -9,7 +9,6 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from django.utils.translation import gettext_lazy as _
 from ninja import Router
 
 from apps.core.api.schema_utils import schema_to_update_dict
@@ -21,11 +20,9 @@ from apps.documents.storage import list_docx_templates_files
 logger = logging.getLogger("apps.documents.api")
 router = Router(auth=JWTOrSessionAuth())
 
-
 def _get_template_service() -> DocumentTemplateService:
     """工厂函数:创建 DocumentTemplateService 实例"""
     return DocumentTemplateService()
-
 
 @router.get("/templates", response=list[DocumentTemplateOut])
 def list_document_templates(
@@ -47,20 +44,17 @@ def list_document_templates(
     )
     return templates
 
-
 @router.get("/templates/library-files", response=list[dict[str, str]])
 def list_template_library_files(request: Any) -> Any:
     """列出模板库中可用的 docx 文件（用于前端下拉选择）"""
     files = list_docx_templates_files()
     return [{"path": path, "name": name} for path, name in files]
 
-
 @router.get("/templates/{template_id}", response=DocumentTemplateOut)
 def get_document_template(request: Any, template_id: int) -> Any:
     """获取文件模板详情"""
     service = _get_template_service()
     return service.get_template_by_id(template_id)
-
 
 @router.post("/templates", response=DocumentTemplateOut)
 def create_document_template(request: Any, payload: DocumentTemplateIn) -> Any:
@@ -70,7 +64,6 @@ def create_document_template(request: Any, payload: DocumentTemplateIn) -> Any:
     logger.info("创建文件模板: %s (ID: %s)", template.name, template.id)
     return template
 
-
 @router.put("/templates/{template_id}", response=DocumentTemplateOut)
 def update_document_template(request: Any, template_id: int, payload: DocumentTemplateUpdate) -> Any:
     """更新文件模板"""
@@ -79,14 +72,12 @@ def update_document_template(request: Any, template_id: int, payload: DocumentTe
     logger.info("更新文件模板: %s (ID: %s)", template.name, template.id)
     return template
 
-
 @router.delete("/templates/{template_id}", response=dict[str, Any])
 def delete_document_template(request: Any, template_id: int) -> Any:
     """删除文件模板(软删除)"""
     service = _get_template_service()
     service.delete_template(template_id)
-    return {"success": True, "message": _("文件模板已删除")}
-
+    return {"success": True, "message": "文件模板已删除"}
 
 @router.get("/templates/{template_id}/placeholders", response=list[str])
 def extract_template_placeholders(request: Any, template_id: int) -> Any:
@@ -94,7 +85,6 @@ def extract_template_placeholders(request: Any, template_id: int) -> Any:
     service = _get_template_service()
     template = service.get_template_by_id(template_id)
     return service.extract_placeholders(template)
-
 
 @router.get("/templates/{template_id}/undefined-placeholders", response=list[str])
 def get_undefined_placeholders(request: Any, template_id: int) -> Any:

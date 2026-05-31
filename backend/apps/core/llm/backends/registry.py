@@ -12,10 +12,8 @@ _BACKEND_IMPORT_PATHS: dict[str, str] = {
     "openai_compatible": "apps.core.llm.backends.openai_compatible:OpenAICompatibleBackend",
 }
 
-
 def register_backend(*, name: str, import_path: str) -> None:
     _BACKEND_IMPORT_PATHS[name] = import_path
-
 
 def get_backend_class(name: str) -> type[ILLMBackend]:
     import_path = _BACKEND_IMPORT_PATHS.get(name)

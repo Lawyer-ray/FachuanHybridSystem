@@ -13,7 +13,6 @@ from dataclasses import dataclass
 
 logger = logging.getLogger("apps.image_rotation")
 
-
 @dataclass
 class FilterResult:
     """过滤结果"""
@@ -21,7 +20,6 @@ class FilterResult:
     texts: list[str]
     scores: list[float]
     overall_confidence: float
-
 
 class ConfidenceFilter:
     """置信度过滤器 - 过滤低置信度文本块"""

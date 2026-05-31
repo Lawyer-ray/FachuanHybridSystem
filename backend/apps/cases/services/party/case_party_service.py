@@ -15,7 +15,6 @@ if TYPE_CHECKING:
     from .case_party_mutation_facade import CasePartyMutationFacade
     from .case_party_query_facade import CasePartyQueryFacade
 
-
 class CasePartyService:
     def __init__(
         self,

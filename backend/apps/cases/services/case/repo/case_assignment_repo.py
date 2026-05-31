@@ -4,7 +4,6 @@ from collections.abc import Iterable
 
 from apps.cases.models import CaseAssignment
 
-
 class CaseAssignmentRepo:
     def check_case_access(self, case_id: int, user_id: int) -> bool:
         return CaseAssignment.objects.filter(case_id=case_id, lawyer_id=user_id).exists()

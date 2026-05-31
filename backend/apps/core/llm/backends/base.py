@@ -10,7 +10,6 @@ from collections.abc import AsyncIterator, Iterator
 from dataclasses import dataclass, field
 from typing import Any, Protocol, runtime_checkable
 
-
 @dataclass
 class LLMResponse:
     """
@@ -38,13 +37,11 @@ class LLMResponse:
     duration_ms: float
     backend: str = ""
 
-
 @dataclass
 class LLMUsage:
     prompt_tokens: int = 0
     completion_tokens: int = 0
     total_tokens: int = 0
-
 
 @dataclass
 class LLMStreamChunk:
@@ -52,7 +49,6 @@ class LLMStreamChunk:
     usage: LLMUsage | None = None
     model: str = ""
     backend: str = ""
-
 
 @dataclass
 class BackendConfig:
@@ -81,7 +77,6 @@ class BackendConfig:
     timeout: int = 60
     embedding_model: str | None = None
     extra_options: dict[str, Any] = field(default_factory=dict)
-
 
 @runtime_checkable
 class ILLMBackend(Protocol):

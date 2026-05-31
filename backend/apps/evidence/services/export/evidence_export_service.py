@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from django.utils import timezone
-from django.utils.translation import gettext_lazy as _
+
 from docx import Document
 from docx.document import Document as DocumentType
 from docx.enum.table import WD_TABLE_ALIGNMENT
@@ -22,7 +22,6 @@ from apps.evidence.models import EvidenceItem, EvidenceList
 
 if TYPE_CHECKING:
     from apps.core.interfaces import IEvidenceListPlaceholderService
-
 
 class EvidenceExportService:
     """
@@ -89,7 +88,7 @@ class EvidenceExportService:
         template_path = template.get_file_location()
         if not template_path:
             raise NotFoundError(
-                message=_("模板文件不存在"),
+                message="模板文件不存在",
                 code="TEMPLATE_FILE_NOT_FOUND",
                 errors={"template": f"模板 {template_id} 的文件路径为空"},
             )
@@ -99,7 +98,7 @@ class EvidenceExportService:
 
         if not Path(template_path).exists():
             raise NotFoundError(
-                message=_("模板文件不存在"),
+                message="模板文件不存在",
                 code="TEMPLATE_FILE_NOT_FOUND",
                 errors={"template": f"模板 {template_id} 的文件不存在: {template_path}"},
             )
@@ -112,7 +111,7 @@ class EvidenceExportService:
             import traceback
 
             raise ValidationException(
-                message=_("获取占位符上下文失败"),
+                message="获取占位符上下文失败",
                 code="TEMPLATE_RENDER_ERROR",
                 errors={"context": f"获取占位符数据时发生错误: {e!s}\n{traceback.format_exc()}"},
             ) from e
@@ -133,7 +132,7 @@ class EvidenceExportService:
             import traceback
 
             raise ValidationException(
-                message=_("模板渲染失败"),
+                message="模板渲染失败",
                 code="TEMPLATE_RENDER_ERROR",
                 errors={"template": f"渲染模板时发生错误: {e!s}\n{traceback.format_exc()}"},
             ) from e
@@ -173,7 +172,7 @@ class EvidenceExportService:
             )
         except DocumentTemplate.DoesNotExist:
             raise NotFoundError(
-                message=_("模板不存在"),
+                message="模板不存在",
                 code="TEMPLATE_NOT_FOUND",
                 errors={"template_id": f"ID 为 {template_id} 的模板不存在或已禁用"},
             ) from None
@@ -291,7 +290,7 @@ class EvidenceExportService:
             return EvidenceList.objects.select_related("case").get(id=list_id)
         except EvidenceList.DoesNotExist:
             raise NotFoundError(
-                message=_("证据清单不存在"),
+                message="证据清单不存在",
                 code="EVIDENCE_LIST_NOT_FOUND",
                 errors={"list_id": f"ID 为 {list_id} 的证据清单不存在"},
             ) from None

@@ -9,13 +9,11 @@ import pytest
 
 from apps.contracts.services.contract.admin.workflows.clone_workflow import ContractCloneWorkflow, plus_one_year_due_at
 
-
 def _make_workflow() -> tuple[ContractCloneWorkflow, MagicMock]:
     reminder_service = MagicMock()
     reminder_service.export_contract_reminders_internal.return_value = []
     workflow = ContractCloneWorkflow(reminder_service=reminder_service)
     return workflow, reminder_service
-
 
 def _make_contract(*, parties: list[MagicMock], assignments: list[MagicMock], agreements: list[MagicMock]) -> MagicMock:
     contract = MagicMock()
@@ -25,12 +23,10 @@ def _make_contract(*, parties: list[MagicMock], assignments: list[MagicMock], ag
     contract.supplementary_agreements.all.return_value = agreements
     return contract
 
-
 def _make_target_contract() -> MagicMock:
     contract = MagicMock()
     contract.id = 2
     return contract
-
 
 # ── 完整流程 ──────────────────────────────────────────────────────────────────
 
@@ -70,7 +66,6 @@ def test_clone_related_data_full_flow() -> None:
     MockAgreement.objects.bulk_create.assert_called_once()
     MockAgreementParty.objects.bulk_create.assert_called_once()
 
-
 # ── 无补充协议（提前 return）────────────────────────────────────────────────
 
 def test_clone_related_data_no_agreements_skips_agreement_bulk_create() -> None:
@@ -89,7 +84,6 @@ def test_clone_related_data_no_agreements_skips_agreement_bulk_create() -> None:
 
     MockAgreement.objects.bulk_create.assert_not_called()
     MockAgreementParty.objects.bulk_create.assert_not_called()
-
 
 # ── due_at_transform 参数 ────────────────────────────────────────────────────
 
@@ -112,7 +106,6 @@ def test_clone_related_data_applies_due_at_transform() -> None:
     transform.assert_called_once_with(datetime.date(2025, 1, 1))
     reminder_service.create_contract_reminders_internal.assert_called_once()
 
-
 # ── plus_one_year_due_at ─────────────────────────────────────────────────────
 
 def test_plus_one_year_due_at_adds_one_year() -> None:
@@ -120,10 +113,8 @@ def test_plus_one_year_due_at_adds_one_year() -> None:
     result = plus_one_year_due_at(d)
     assert result == datetime.date(2025, 3, 15)
 
-
 def test_plus_one_year_due_at_none_returns_none() -> None:
     assert plus_one_year_due_at(None) is None
-
 
 def test_plus_one_year_due_at_falsy_returns_none() -> None:
     assert plus_one_year_due_at("") is None

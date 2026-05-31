@@ -12,7 +12,6 @@ from ..constants import ARCHIVE_CHECKLIST, CASE_MATERIAL_KEYWORD_MAPPING
 
 logger = logging.getLogger("apps.contracts.archive")
 
-
 def map_contract_materials(
     archive_category: str,
     materials: list[FinalizedMaterial],
@@ -38,7 +37,6 @@ def map_contract_materials(
             result.setdefault(invoice_code, []).append(m.id)
 
     return result
-
 
 def map_case_authorization_materials(
     contract: Contract,
@@ -76,7 +74,6 @@ def map_case_authorization_materials(
 
     return result
 
-
 def map_supervision_card_materials(
     archive_category: str,
     materials: list[FinalizedMaterial],
@@ -101,7 +98,6 @@ def map_supervision_card_materials(
             result.setdefault(supervision_code, []).append(m.id)
 
     return result
-
 
 def find_case_material_match_codes(
     contract: Contract,
@@ -131,7 +127,6 @@ def find_case_material_match_codes(
         logger.warning("查询案件材料匹配失败: %s", e)
         return set()
 
-
 def match_type_name_to_code(
     type_name: str,
     keyword_map: dict[str, list[str]],
@@ -144,7 +139,6 @@ def match_type_name_to_code(
             if keyword in type_name:
                 return code
     return None
-
 
 def fill_material_details_from_ids(
     code_to_material_details: dict[str, list[dict[str, Any]]],

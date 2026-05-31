@@ -11,7 +11,6 @@ from apps.core.interfaces import ServiceLocator
 
 logger = logging.getLogger(__name__)
 
-
 class ExecutorQueryMixin:
     LEGAL_SYNONYM_GROUPS: tuple[tuple[str, ...], ...] = (
         ("买卖合同纠纷", "买卖合同", "货物买卖纠纷"),

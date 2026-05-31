@@ -12,7 +12,6 @@ from typing import Any, cast
 from ._perf_collector import PerformanceDataCollector
 from ._perf_models import LoadingPerformanceData, PerformanceThresholds
 
-
 class PerformanceAnalyzer:
     """性能分析器"""
 

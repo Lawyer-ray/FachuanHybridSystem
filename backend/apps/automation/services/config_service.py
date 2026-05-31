@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from typing import Any
 
-
 class AutomationConfigService:
     def get_automation_config(self) -> dict[str, Any]:
         from apps.core.llm.config import LLMConfig

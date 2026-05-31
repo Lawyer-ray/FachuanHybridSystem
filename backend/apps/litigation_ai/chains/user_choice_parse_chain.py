@@ -11,7 +11,6 @@ from .goal_schemas import UserChoiceResult
 
 logger = logging.getLogger("apps.litigation_ai")
 
-
 class UserChoiceParseChain:
     def __init__(self, model: str | None = None) -> None:
         self._model = model

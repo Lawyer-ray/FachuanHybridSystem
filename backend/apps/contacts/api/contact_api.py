@@ -12,12 +12,10 @@ from apps.core.dto.request_context import extract_request_context
 
 router = Router()
 
-
 def _get_contact_service() -> Any:
     from apps.contacts.services.contact_service import CaseContactService
 
     return CaseContactService()
-
 
 @router.get("/contacts", response=list[CaseContactOut])
 def list_contacts(request: HttpRequest, case_id: int | None = None, stage: str | None = None) -> list[CaseContactOut]:
@@ -28,7 +26,6 @@ def list_contacts(request: HttpRequest, case_id: int | None = None, stage: str |
         service.list_contacts(case_id=case_id, stage=stage, user=ctx.user),
     )
 
-
 @router.post("/contacts", response=CaseContactOut)
 def create_contact(request: HttpRequest, payload: CaseContactIn) -> CaseContactOut:
     service = _get_contact_service()
@@ -38,7 +35,6 @@ def create_contact(request: HttpRequest, payload: CaseContactIn) -> CaseContactO
         CaseContactOut,
         service.create_contact(case_id=payload.case_id, data=data, user=ctx.user),
     )
-
 
 @router.get("/contacts/search", response=list[CaseContactSearchResult])
 def search_contacts(
@@ -54,13 +50,11 @@ def search_contacts(
         service.search_contacts_public(q=q, court=court, role=role, limit=limit),
     )
 
-
 @router.get("/contacts/{contact_id}", response=CaseContactOut)
 def get_contact(request: HttpRequest, contact_id: int) -> CaseContactOut:
     service = _get_contact_service()
     ctx = extract_request_context(request)
     return cast(CaseContactOut, service.get_contact(contact_id=contact_id, user=ctx.user))
-
 
 @router.put("/contacts/{contact_id}", response=CaseContactOut)
 def update_contact(request: HttpRequest, contact_id: int, payload: CaseContactUpdate) -> CaseContactOut:
@@ -71,7 +65,6 @@ def update_contact(request: HttpRequest, contact_id: int, payload: CaseContactUp
         CaseContactOut,
         service.update_contact(contact_id=contact_id, data=data, user=ctx.user),
     )
-
 
 @router.delete("/contacts/{contact_id}")
 def delete_contact(request: HttpRequest, contact_id: int) -> Any:

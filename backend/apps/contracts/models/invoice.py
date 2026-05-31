@@ -5,10 +5,8 @@ from __future__ import annotations
 from typing import ClassVar
 
 from django.db import models
-from django.utils.translation import gettext_lazy as _
 
 from .payment import ContractPayment
-
 
 class Invoice(models.Model):
     """与某条 ContractPayment 关联的发票文件。"""
@@ -19,51 +17,51 @@ class Invoice(models.Model):
         ContractPayment,
         on_delete=models.CASCADE,
         related_name="invoices",
-        verbose_name=_("收款记录"),
+        verbose_name="收款记录",
     )
-    file_path = models.CharField(max_length=500, verbose_name=_("文件路径"))
-    original_filename = models.CharField(max_length=255, verbose_name=_("原始文件名"))
-    remark = models.TextField(blank=True, default="", verbose_name=_("备注"))
+    file_path = models.CharField(max_length=500, verbose_name="文件路径")
+    original_filename = models.CharField(max_length=255, verbose_name="原始文件名")
+    remark = models.TextField(blank=True, default="", verbose_name="备注")
     content_hash = models.CharField(
         max_length=64,
         blank=True,
         default="",
-        verbose_name=_("内容哈希"),
-        help_text=_("SHA-256, 用于去重"),
+        verbose_name="内容哈希",
+        help_text="SHA-256, 用于去重",
         db_index=True,
     )
-    uploaded_at = models.DateTimeField(auto_now_add=True, verbose_name=_("上传时间"))
+    uploaded_at = models.DateTimeField(auto_now_add=True, verbose_name="上传时间")
 
     # 发票识别结果字段（可选）
-    invoice_code = models.CharField(max_length=20, blank=True, default="", verbose_name=_("发票代码"))
-    invoice_number = models.CharField(max_length=20, blank=True, default="", verbose_name=_("发票号码"))
-    invoice_date = models.DateField(null=True, blank=True, verbose_name=_("开票日期"))
+    invoice_code = models.CharField(max_length=20, blank=True, default="", verbose_name="发票代码")
+    invoice_number = models.CharField(max_length=20, blank=True, default="", verbose_name="发票号码")
+    invoice_date = models.DateField(null=True, blank=True, verbose_name="开票日期")
     amount = models.DecimalField(
         max_digits=14,
         decimal_places=2,
         null=True,
         blank=True,
-        verbose_name=_("金额"),
+        verbose_name="金额",
     )
     tax_amount = models.DecimalField(
         max_digits=14,
         decimal_places=2,
         null=True,
         blank=True,
-        verbose_name=_("税额"),
+        verbose_name="税额",
     )
     total_amount = models.DecimalField(
         max_digits=14,
         decimal_places=2,
         null=True,
         blank=True,
-        verbose_name=_("价税合计"),
+        verbose_name="价税合计",
     )
 
     class Meta:
         ordering: ClassVar = ["-uploaded_at"]
-        verbose_name = _("发票")
-        verbose_name_plural = _("发票")
+        verbose_name = "发票"
+        verbose_name_plural = "发票"
         indexes: ClassVar = [
             models.Index(fields=["payment", "-uploaded_at"]),
         ]

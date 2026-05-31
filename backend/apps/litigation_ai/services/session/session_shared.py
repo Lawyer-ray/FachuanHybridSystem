@@ -8,10 +8,8 @@ from __future__ import annotations
 定义 SessionDTO 和 MessageDTO,供 session_lifecycle_service 和 session_message_service 共享.
 """
 
-
 from dataclasses import dataclass
 from typing import Any
-
 
 @dataclass
 class SessionDTO:
@@ -25,7 +23,6 @@ class SessionDTO:
     metadata: dict[str, Any]
     created_at: Any
     updated_at: Any
-
 
 @dataclass
 class MessageDTO:

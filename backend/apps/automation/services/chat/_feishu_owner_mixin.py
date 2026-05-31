@@ -6,7 +6,6 @@ import logging
 from typing import TYPE_CHECKING, Any, cast
 
 import httpx
-from django.utils.translation import gettext_lazy as _
 
 from apps.core.exceptions import (
     ChatCreationException,
@@ -27,7 +26,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-
 class FeishuOwnerMixin:
     """负责飞书群主验证、查询和重试逻辑"""
 
@@ -46,7 +44,7 @@ class FeishuOwnerMixin:
         """获取群聊详细信息"""
         if not self.is_available():
             raise ConfigurationException(
-                message=_("飞书配置不完整，无法获取群聊信息"), platform="feishu", missing_config="APP_ID, APP_SECRET"
+                message="飞书配置不完整，无法获取群聊信息", platform="feishu", missing_config="APP_ID, APP_SECRET"
             )
 
         try:
@@ -79,7 +77,7 @@ class FeishuOwnerMixin:
                 success=True,
                 chat_id=chat_id,
                 chat_name=chat_name,
-                message=str(_("获取群聊信息成功")),
+                message=str("获取群聊信息成功"),
                 raw_response=data,
             )
 
@@ -132,7 +130,7 @@ class FeishuOwnerMixin:
         """获取群聊群主信息"""
         if not self.is_available():
             raise ConfigurationException(
-                message=_("飞书配置不完整，无法获取群聊群主信息"),
+                message="飞书配置不完整，无法获取群聊群主信息",
                 platform="feishu",
                 missing_config="APP_ID, APP_SECRET",
             )

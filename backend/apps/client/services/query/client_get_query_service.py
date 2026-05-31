@@ -2,12 +2,9 @@
 
 from typing import Any
 
-from django.utils.translation import gettext_lazy as _
-
 from apps.client.models import Client
 from apps.client.services.client_internal_query_service import ClientInternalQueryService
 from apps.core.exceptions import NotFoundError
-
 
 class ClientGetQueryService:
     def __init__(self, internal_query_service: ClientInternalQueryService | None = None) -> None:
@@ -22,5 +19,5 @@ class ClientGetQueryService:
     def get_client(self, *, client_id: int, user: Any | None = None) -> Client:
         client = self.internal_query_service.get_client(client_id=client_id)
         if not client:
-            raise NotFoundError(message=_("客户不存在"), code="CLIENT_NOT_FOUND")
+            raise NotFoundError(message="客户不存在", code="CLIENT_NOT_FOUND")
         return client

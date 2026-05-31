@@ -8,7 +8,6 @@ from numpy.typing import NDArray
 
 from .validation import order_corners
 
-
 def detect_id_card_corners(
     image: NDArray[np.uint8],
     *,
@@ -43,7 +42,6 @@ def detect_id_card_corners(
     )
     return ordered_corners
 
-
 def _compute_edges(image: NDArray[np.uint8]) -> NDArray[np.uint8]:
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     blurred = cv2.GaussianBlur(gray, (5, 5), 0)
@@ -53,7 +51,6 @@ def _compute_edges(image: NDArray[np.uint8]) -> NDArray[np.uint8]:
     edges = cv2.Canny(blurred, lower_threshold, upper_threshold)
     kernel = np.ones((3, 3), np.uint8)
     return cast(NDArray[np.uint8], cv2.dilate(edges, kernel, iterations=1))
-
 
 def _find_best_contour(contours: Any, image_area: int, id_card_aspect_ratio: float) -> Any:
     min_area = image_area * 0.05

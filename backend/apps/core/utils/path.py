@@ -10,7 +10,6 @@ from collections.abc import Iterator
 _pathlib = importlib.import_module("pathlib")
 _BasePath = _pathlib.WindowsPath if os.name == "nt" else _pathlib.PosixPath
 
-
 class Path(_BasePath):  # type: ignore[misc, valid-type]
     def abspath(self) -> str:
         return str(self.resolve())
@@ -59,6 +58,5 @@ class Path(_BasePath):  # type: ignore[misc, valid-type]
 
     def dirs(self, pattern: str = "*") -> list[Path]:
         return [Path(str(p)) for p in self.glob(pattern) if Path(str(p)).is_dir()]
-
 
 __all__: list[str] = ["Path"]

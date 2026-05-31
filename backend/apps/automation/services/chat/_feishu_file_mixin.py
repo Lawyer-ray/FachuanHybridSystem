@@ -7,14 +7,12 @@ from pathlib import Path
 from typing import Any
 
 import httpx
-from django.utils.translation import gettext_lazy as _
 
 from apps.core.exceptions import ConfigurationException, MessageSendException
 
 from .base import ChatResult
 
 logger = logging.getLogger(__name__)
-
 
 class FeishuFileMixin:
     """负责飞书文件上传和文件消息发送"""
@@ -36,7 +34,7 @@ class FeishuFileMixin:
         """发送文件到群聊"""
         if not self.is_available():
             raise ConfigurationException(
-                message=_("飞书配置不完整，无法发送文件"), platform="feishu", missing_config="APP_ID, APP_SECRET"
+                message="飞书配置不完整，无法发送文件", platform="feishu", missing_config="APP_ID, APP_SECRET"
             )
 
         if not Path(file_path).exists():
@@ -122,7 +120,7 @@ class FeishuFileMixin:
 
             if not file_key:
                 raise MessageSendException(
-                    message=_("API响应中缺少文件key"), platform="feishu", errors={"api_response": resp_data}
+                    message="API响应中缺少文件key", platform="feishu", errors={"api_response": resp_data}
                 )
 
             logger.debug(f"成功上传文件到飞书: {file_name} (key: {file_key})")

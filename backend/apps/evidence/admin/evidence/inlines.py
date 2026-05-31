@@ -7,10 +7,8 @@ from typing import Any, ClassVar
 from django.contrib import admin
 from django.db.models import QuerySet
 from django.http import HttpRequest
-from django.utils.translation import gettext_lazy as _
 
 from apps.evidence.models import EvidenceItem
-
 
 class EvidenceItemInline(admin.TabularInline[EvidenceItem, EvidenceItem]):
     model = EvidenceItem
@@ -32,14 +30,14 @@ class EvidenceItemInline(admin.TabularInline[EvidenceItem, EvidenceItem]):
     def get_queryset(self, request: HttpRequest) -> QuerySet[EvidenceItem, EvidenceItem]:
         return super().get_queryset(request)
 
-    @admin.display(description=_("序号"))
+    @admin.display(description="序号")
     def global_order_display(self, obj: EvidenceItem) -> Any:
         if not obj.pk:
             return "-"
         evidence_list = obj.evidence_list
         return evidence_list.start_order + obj.order - 1
 
-    @admin.display(description=_("页码范围"))
+    @admin.display(description="页码范围")
     def page_range_display(self, obj: EvidenceItem) -> Any:
         if obj.pk:
             return obj.page_range_display
@@ -48,6 +46,5 @@ class EvidenceItemInline(admin.TabularInline[EvidenceItem, EvidenceItem]):
     class Media:
         css: ClassVar[dict[str, tuple[str, ...]]] = {"all": ("evidence/css/evidence_inline.css",)}
         js: ClassVar[tuple[str, ...]] = ("evidence/js/evidence_sortable.js",)
-
 
 __all__: list[str] = ["EvidenceItemInline"]

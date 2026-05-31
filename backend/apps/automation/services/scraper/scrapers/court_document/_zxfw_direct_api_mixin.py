@@ -11,7 +11,6 @@ from urllib.parse import parse_qs, urlparse
 
 logger = logging.getLogger("apps.automation")
 
-
 class ZxfwDirectApiMixin:
     """直接调用 API 下载文书（无需浏览器）"""
 

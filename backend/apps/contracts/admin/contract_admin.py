@@ -10,7 +10,6 @@ from django.db.models import Prefetch
 from django.http import HttpRequest, JsonResponse
 from django.template.response import TemplateResponse
 from django.utils import timezone
-from django.utils.translation import gettext_lazy as _
 
 logger = logging.getLogger(__name__)
 
@@ -58,14 +57,12 @@ else:
     except ImportError:
         BaseModelAdmin = admin.ModelAdmin
 
-
 def serialize_contract_obj(obj: Any) -> dict[str, Any]:
     """将单个 Contract 实例序列化为 dict（供 ContractAdmin 和 CaseAdmin 共用）。"""
     from apps.contracts.services.contract.integrations import serialize_contract_obj as serialize_contract_obj_service
 
     result: dict[str, Any] = serialize_contract_obj_service(obj)
     return result
-
 
 @admin.register(Contract)
 class ContractAdmin(
@@ -81,7 +78,7 @@ class ContractAdmin(
             choices=CaseStage.choices,
             required=False,
             widget=forms.SelectMultiple,
-            label=_("代理阶段"),
+            label="代理阶段",
         )
 
         class Meta:
@@ -132,40 +129,40 @@ class ContractAdmin(
     )
     fieldsets = (
         (
-            _("基本信息"),
+            "基本信息",
             {
                 "fields": ("name", "case_type", "status", "specified_date", "start_date", "end_date"),
             },
         ),
         (
-            _("收费信息"),
+            "收费信息",
             {
                 "fields": ("fee_mode", "fixed_amount", "risk_rate", "custom_terms"),
             },
         ),
         (
-            _("建档信息"),
+            "建档信息",
             {
                 "fields": ("is_filed", "filing_number"),
                 "classes": ("collapse",),
             },
         ),
         (
-            _("代理阶段"),
+            "代理阶段",
             {
                 "fields": ("representation_stages",),
                 "classes": ("collapse",),
             },
         ),
         (
-            _("律所OA信息"),
+            "律所OA信息",
             {
                 "fields": ("law_firm_oa_url", "law_firm_oa_case_number"),
                 "classes": ("collapse",),
             },
         ),
         (
-            _("归档设置"),
+            "归档设置",
             {
                 "fields": ("compact_archive",),
                 "classes": ("collapse",),
@@ -191,7 +188,7 @@ class ContractAdmin(
     change_form_template = "admin/contracts/contract/change_form.html"
     change_list_template = "admin/contracts/contract/change_list.html"
 
-    @admin.action(description=_("批量归档选中合同"))
+    @admin.action(description="批量归档选中合同")
     def archive_selected_contracts(self, request: HttpRequest, queryset: Any) -> None:
         from apps.core.interfaces import ServiceLocator
 
@@ -204,9 +201,9 @@ class ContractAdmin(
             if closed:
                 logger.info("批量归档: 合同 %s 自动结案 %d 个关联案件", contract.id, closed)
             updated += 1
-        self.message_user(request, _("已归档 %(count)d 个合同") % {"count": updated})
+        self.message_user(request, "已归档 %(count)d 个合同" % {"count": updated})
 
-    @admin.action(description=_("批量建档选中合同"))
+    @admin.action(description="批量建档选中合同")
     def file_selected_contracts(self, request: HttpRequest, queryset: Any) -> None:
         from apps.contracts.admin.wiring_admin import get_contract_admin_service
 
@@ -219,7 +216,7 @@ class ContractAdmin(
                 contract.is_filed = True
                 contract.save(update_fields=["is_filed", "filing_number"])
                 updated += 1
-        self.message_user(request, _("已建档 %(count)d 个合同") % {"count": updated})
+        self.message_user(request, "已建档 %(count)d 个合同" % {"count": updated})
 
     def changelist_view(self, request: HttpRequest, extra_context: dict[str, Any] | None = None) -> Any:
         from django.http import HttpResponseRedirect
@@ -329,7 +326,7 @@ class ContractAdmin(
         context = self.admin_site.each_context(request)
         context.update(
             {
-                "title": _("合同批量绑定文件夹"),
+                "title": "合同批量绑定文件夹",
                 "opts": self.model._meta,
                 "cards": service.list_unbound_case_type_cards(),
                 "batch_folder_binding_config": {
@@ -354,7 +351,7 @@ class ContractAdmin(
         context = self.admin_site.each_context(request)
         context.update(
             {
-                "title": _("合同OA信息同步"),
+                "title": "合同OA信息同步",
                 "opts": self.model._meta,
                 "oa_sync_initial_contracts": service.list_missing_oa_contracts(),
                 "oa_sync_config": {
@@ -377,7 +374,7 @@ class ContractAdmin(
         context = self.admin_site.each_context(request)
         context.update(
             {
-                "title": _("从金诚同达OA导入案件"),
+                "title": "从金诚同达OA导入案件",
                 "opts": self.model._meta,
             }
         )
@@ -385,9 +382,9 @@ class ContractAdmin(
 
     def oa_sync_start_view(self, request: HttpRequest) -> JsonResponse:
         if request.method != "POST":
-            return JsonResponse({"success": False, "message": _("Method not allowed")}, status=405)
+            return JsonResponse({"success": False, "message": "Method not allowed"}, status=405)
         if not self.has_change_permission(request):
-            return JsonResponse({"success": False, "message": _("Permission denied")}, status=403)
+            return JsonResponse({"success": False, "message": "Permission denied"}, status=403)
 
         from apps.contracts.admin.wiring_admin import get_contract_oa_sync_service
 
@@ -398,7 +395,7 @@ class ContractAdmin(
             return JsonResponse(
                 {
                     "success": True,
-                    "message": _("同步任务已启动"),
+                    "message": "同步任务已启动",
                     "session_id": int(session.id),
                 }
             )
@@ -408,20 +405,20 @@ class ContractAdmin(
 
     def oa_sync_save_view(self, request: HttpRequest) -> JsonResponse:
         if request.method != "POST":
-            return JsonResponse({"success": False, "message": _("Method not allowed")}, status=405)
+            return JsonResponse({"success": False, "message": "Method not allowed"}, status=405)
         if not self.has_change_permission(request):
-            return JsonResponse({"success": False, "message": _("Permission denied")}, status=403)
+            return JsonResponse({"success": False, "message": "Permission denied"}, status=403)
 
         from apps.contracts.admin.wiring_admin import get_contract_oa_sync_service
 
         payload = self._parse_json_payload(request)
         entries = payload.get("entries")
         if not isinstance(entries, list):
-            return JsonResponse({"success": False, "message": _("参数格式错误")}, status=400)
+            return JsonResponse({"success": False, "message": "参数格式错误"}, status=400)
 
         try:
             result = get_contract_oa_sync_service().save_manual_contract_oa_fields(updates=entries)
-            message = _("保存成功") if result.get("error_count", 0) == 0 else _("部分保存成功，请检查错误项")
+            message = "保存成功" if result.get("error_count", 0) == 0 else "部分保存成功，请检查错误项"
             return JsonResponse({"success": True, "message": message, **result})
         except Exception as exc:
             logger.exception("contract_oa_sync_save_failed")
@@ -429,31 +426,31 @@ class ContractAdmin(
 
     def oa_sync_status_view(self, request: HttpRequest, session_id: int) -> JsonResponse:
         if request.method != "GET":
-            return JsonResponse({"success": False, "message": _("Method not allowed")}, status=405)
+            return JsonResponse({"success": False, "message": "Method not allowed"}, status=405)
         if not self.has_view_permission(request):
-            return JsonResponse({"success": False, "message": _("Permission denied")}, status=403)
+            return JsonResponse({"success": False, "message": "Permission denied"}, status=403)
 
         from apps.contracts.admin.wiring_admin import get_contract_oa_sync_service
 
         service = get_contract_oa_sync_service()
         session = service.get_session(session_id=session_id)
         if session is None:
-            return JsonResponse({"success": False, "message": _("会话不存在")}, status=404)
+            return JsonResponse({"success": False, "message": "会话不存在"}, status=404)
 
         return JsonResponse({"success": True, **service.build_status_payload(session=session)})
 
     def batch_folder_binding_preview_view(self, request: HttpRequest) -> JsonResponse:
         if request.method != "POST":
-            return JsonResponse({"success": False, "message": _("Method not allowed")}, status=405)
+            return JsonResponse({"success": False, "message": "Method not allowed"}, status=405)
         if not self.has_change_permission(request):
-            return JsonResponse({"success": False, "message": _("Permission denied")}, status=403)
+            return JsonResponse({"success": False, "message": "Permission denied"}, status=403)
 
         from apps.contracts.admin.wiring_admin import get_contract_batch_folder_binding_service
 
         payload = self._parse_json_payload(request)
         case_type_roots = payload.get("case_type_roots")
         if not isinstance(case_type_roots, list):
-            return JsonResponse({"success": False, "message": _("参数格式错误")}, status=400)
+            return JsonResponse({"success": False, "message": "参数格式错误"}, status=400)
 
         try:
             data = get_contract_batch_folder_binding_service().preview(case_type_roots=case_type_roots)
@@ -464,9 +461,9 @@ class ContractAdmin(
 
     def batch_folder_binding_save_view(self, request: HttpRequest) -> JsonResponse:
         if request.method != "POST":
-            return JsonResponse({"success": False, "message": _("Method not allowed")}, status=405)
+            return JsonResponse({"success": False, "message": "Method not allowed"}, status=405)
         if not self.has_change_permission(request):
-            return JsonResponse({"success": False, "message": _("Permission denied")}, status=403)
+            return JsonResponse({"success": False, "message": "Permission denied"}, status=403)
 
         from apps.contracts.admin.wiring_admin import get_contract_batch_folder_binding_service
 
@@ -474,7 +471,7 @@ class ContractAdmin(
         case_type_roots = payload.get("case_type_roots")
         contract_selections = payload.get("contract_selections")
         if not isinstance(case_type_roots, list) or not isinstance(contract_selections, list):
-            return JsonResponse({"success": False, "message": _("参数格式错误")}, status=400)
+            return JsonResponse({"success": False, "message": "参数格式错误"}, status=400)
 
         try:
             result = get_contract_batch_folder_binding_service().save(
@@ -488,9 +485,9 @@ class ContractAdmin(
 
     def batch_folder_binding_open_folder_view(self, request: HttpRequest) -> JsonResponse:
         if request.method != "POST":
-            return JsonResponse({"success": False, "message": _("Method not allowed")}, status=405)
+            return JsonResponse({"success": False, "message": "Method not allowed"}, status=405)
         if not self.has_change_permission(request):
-            return JsonResponse({"success": False, "message": _("Permission denied")}, status=403)
+            return JsonResponse({"success": False, "message": "Permission denied"}, status=403)
 
         from apps.contracts.admin.wiring_admin import get_contract_batch_folder_binding_service
 
@@ -498,11 +495,11 @@ class ContractAdmin(
         root_path = str(payload.get("root_path") or "").strip()
         folder_path = str(payload.get("folder_path") or "").strip()
         if not root_path or not folder_path:
-            return JsonResponse({"success": False, "message": _("缺少路径参数")}, status=400)
+            return JsonResponse({"success": False, "message": "缺少路径参数"}, status=400)
 
         try:
             get_contract_batch_folder_binding_service().open_folder(root_path=root_path, folder_path=folder_path)
-            return JsonResponse({"success": True, "message": _("已打开文件夹")})
+            return JsonResponse({"success": True, "message": "已打开文件夹"})
         except Exception as exc:
             logger.exception("contract_batch_folder_binding_open_folder_failed")
             return JsonResponse({"success": False, "message": str(exc)}, status=400)

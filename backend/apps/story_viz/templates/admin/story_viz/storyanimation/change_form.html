@@ -1,5 +1,4 @@
 {% extends "admin/change_form.html" %}
-{% load i18n %}
 
 {% block after_field_sets %}
 {{ block.super }}
@@ -113,34 +112,34 @@
 <div class="sv-wrap">
   <!-- Panel 1: Status & Pipeline -->
   <div class="sv-panel">
-    <div class="sv-panel-head">{% trans "任务状态" %}</div>
+    <div class="sv-panel-head">{</div>
     <div class="sv-panel-body">
       <div class="sv-status-row">
         <span id="svPill" class="sv-pill sv-st-pending">-</span>
-        <span><strong>{% trans "阶段" %}：</strong><span id="svStage">-</span></span>
-        <span><strong>{% trans "耗时" %}：</strong><span id="svDuration">-</span></span>
-        <span><strong>{% trans "任务ID" %}：</strong><span id="svTaskId">-</span></span>
+        <span><strong>{：</strong><span id="svStage">-</span></span>
+        <span><strong>{：</strong><span id="svDuration">-</span></span>
+        <span><strong>{：</strong><span id="svTaskId">-</span></span>
       </div>
       <div class="sv-pipeline" id="svPipeline"></div>
       <div class="sv-progress-track"><div id="svProgressBar" class="sv-progress-bar"></div></div>
       <div class="sv-progress-text"><span id="svProgress">0%</span></div>
       <div id="svError" class="sv-error-box"></div>
       <div class="sv-actions">
-        <button type="button" id="svRefreshBtn" class="sv-btn">{% trans "刷新状态" %}</button>
-        <button type="button" id="svRetryBtn" class="sv-btn">{% trans "重新生成" %}</button>
-        <button type="button" id="svCancelBtn" class="sv-btn">{% trans "取消任务" %}</button>
+        <button type="button" id="svRefreshBtn" class="sv-btn">{</button>
+        <button type="button" id="svRetryBtn" class="sv-btn">{</button>
+        <button type="button" id="svCancelBtn" class="sv-btn">{</button>
       </div>
     </div>
   </div>
 
   <!-- Panel 2: Stage Data (tabbed) -->
   <div class="sv-panel" id="svDataPanel">
-    <div class="sv-panel-head">{% trans "阶段数据" %}</div>
+    <div class="sv-panel-head">{</div>
     <div class="sv-panel-body">
       <div class="sv-tabs" id="svTabs">
-        <button type="button" class="sv-tab active" data-tab="facts">{% trans "提取事实" %}</button>
-        <button type="button" class="sv-tab" data-tab="script">{% trans "编排脚本" %}</button>
-        <button type="button" class="sv-tab" data-tab="render">{% trans "渲染布局" %}</button>
+        <button type="button" class="sv-tab active" data-tab="facts">{</button>
+        <button type="button" class="sv-tab" data-tab="script">{</button>
+        <button type="button" class="sv-tab" data-tab="render">{</button>
       </div>
       <div class="sv-tab-content active" id="svTabFacts"></div>
       <div class="sv-tab-content" id="svTabScript"></div>
@@ -151,10 +150,10 @@
   <!-- Panel 3: Preview -->
   <div class="sv-panel" id="svPreviewPanel" style="display:none">
     <div class="sv-panel-head">
-      {% trans "动画预览" %}
+      {
       <span style="display:flex;gap:6px">
-        <button type="button" id="svFullscreenBtn" class="sv-btn-sm">{% trans "全屏" %}</button>
-        <a id="svPreviewLink" href="#" target="_blank" class="sv-btn-sm">{% trans "新窗口打开" %}</a>
+        <button type="button" id="svFullscreenBtn" class="sv-btn-sm">{</button>
+        <a id="svPreviewLink" href="#" target="_blank" class="sv-btn-sm">{</a>
       </span>
     </div>
     <div style="padding:0">
@@ -164,20 +163,20 @@
 
   <!-- Panel 4: Q&A -->
   <div class="sv-panel sv-qa-panel" id="svQaPanel">
-    <div class="sv-panel-head">{% trans "案件问答" %}</div>
+    <div class="sv-panel-head">{</div>
     <div id="svSuggestedQuestions" class="sv-suggested-questions" style="display:none"></div>
     <div id="svQaLog" class="sv-qa-log">
-      <div class="sv-qa-empty">{% trans "在此向 AI 提问关于本案的问题" %}</div>
+      <div class="sv-qa-empty">{</div>
     </div>
     <div class="sv-qa-model-row">
-      <span>{% trans "模型" %}：</span>
+      <span>{：</span>
       <select id="svQaModel">
-        <option value="">{% trans "使用默认模型" %}</option>
+        <option value="">{</option>
       </select>
     </div>
     <div class="sv-qa-input-row">
-      <textarea id="svQaInput" class="sv-qa-input" rows="1" placeholder="{% trans '输入问题，Enter 发送，Shift+Enter 换行' %}"></textarea>
-      <button type="button" id="svQaSend" class="sv-qa-send">{% trans "发送" %}</button>
+      <textarea id="svQaInput" class="sv-qa-input" rows="1" placeholder="{"></textarea>
+      <button type="button" id="svQaSend" class="sv-qa-send">{</button>
     </div>
   </div>
 </div>
@@ -392,7 +391,7 @@
     if (!parties.length && !events.length && !rels.length) {
       const empty = document.createElement('div');
       empty.className = 'sv-empty';
-      empty.textContent = '{% trans "此阶段尚未完成" %}';
+      empty.textContent = '{';
       els.tabFacts.appendChild(empty);
       return;
     }
@@ -427,7 +426,7 @@
     if (!hl.length && !an.length && !tnc && !rnc && !ec) {
       const empty = document.createElement('div');
       empty.className = 'sv-empty';
-      empty.textContent = '{% trans "此阶段尚未完成" %}';
+      empty.textContent = '{';
       els.tabScript.appendChild(empty);
       return;
     }
@@ -476,7 +475,7 @@
     if (!nc && !ec) {
       const empty = document.createElement('div');
       empty.className = 'sv-empty';
-      empty.textContent = '{% trans "此阶段尚未完成" %}';
+      empty.textContent = '{';
       els.tabRender.appendChild(empty);
       return;
     }
@@ -639,7 +638,7 @@
     autoResizeInput();
 
     appendQaMessage('q', question);
-    const thinkingBubble = appendQaMessage('a', '{% trans "正在思考中..." %}', 'sv-qa-thinking');
+    const thinkingBubble = appendQaMessage('a', '{', 'sv-qa-thinking');
 
     try {
       const body = {question: question};
@@ -655,10 +654,10 @@
       const data = await resp.json();
 
       if (!resp.ok) {
-        thinkingBubble.textContent = data?.detail || data?.message || '{% trans "请求失败" %}';
+        thinkingBubble.textContent = data?.detail || data?.message || '{';
         thinkingBubble.className = 'sv-qa-bubble sv-qa-error';
       } else {
-        thinkingBubble.textContent = data.answer || '{% trans "无回答" %}';
+        thinkingBubble.textContent = data.answer || '{';
         thinkingBubble.className = 'sv-qa-bubble';
       }
     } catch(e) {

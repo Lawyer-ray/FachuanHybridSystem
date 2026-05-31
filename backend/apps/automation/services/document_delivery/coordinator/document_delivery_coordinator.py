@@ -29,7 +29,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger("apps.automation")
 
-
 class DocumentDeliveryCoordinator:
     """
     文书送达查询协调器

@@ -11,7 +11,6 @@ from ._registry_performance import register_performance_configs
 from ._registry_services import register_service_configs
 from .field import ConfigField
 
-
 def create_config_registry() -> dict[str, ConfigField]:
     """
     创建完整的配置模式注册表
@@ -27,10 +26,8 @@ def create_config_registry() -> dict[str, ConfigField]:
     register_feature_configs(registry)
     return registry
 
-
 # 全局配置注册表实例
 CONFIG_REGISTRY = create_config_registry()
-
 
 def get_config_field(key: str) -> ConfigField:
     """获取配置字段定义"""
@@ -38,26 +35,21 @@ def get_config_field(key: str) -> ConfigField:
         raise KeyError(f"配置字段 '{key}' 不存在")
     return CONFIG_REGISTRY[key]
 
-
 def get_all_config_fields() -> dict[str, ConfigField]:
     """获取所有配置字段定义"""
     return CONFIG_REGISTRY.copy()
-
 
 def get_config_fields_by_category(category: str) -> dict[str, ConfigField]:
     """按类别获取配置字段定义"""
     return {key: field for key, field in CONFIG_REGISTRY.items() if key.startswith(f"{category}.")}
 
-
 def get_sensitive_config_fields() -> dict[str, ConfigField]:
     """获取所有敏感配置字段定义"""
     return {key: field for key, field in CONFIG_REGISTRY.items() if field.sensitive}
 
-
 def get_required_config_fields() -> dict[str, ConfigField]:
     """获取所有必需配置字段定义"""
     return {key: field for key, field in CONFIG_REGISTRY.items() if field.required}
-
 
 def validate_registry_consistency() -> None:
     """
@@ -83,7 +75,6 @@ def validate_registry_consistency() -> None:
 
     if errors:
         raise ValueError("配置注册表不一致:\n" + "\n".join(errors))
-
 
 # 在模块加载时验证注册表一致性
 validate_registry_consistency()

@@ -15,7 +15,7 @@ import math
 from typing import Any
 
 from django.http import HttpRequest
-from django.utils.translation import gettext_lazy as _
+
 from ninja import Router
 from ninja_jwt.authentication import JWTAuth
 
@@ -32,12 +32,10 @@ logger = logging.getLogger("apps.automation")
 # 创建路由器，使用 JWT 认证
 router = Router(tags=["财产保全询价"], auth=JWTAuth())
 
-
 def _get_preservation_quote_service() -> Any:
     from apps.core.dependencies import build_preservation_quote_service
 
     return build_preservation_quote_service()
-
 
 @router.post("/preservation-quotes", response=PreservationQuoteSchema)
 def create_preservation_quote(request: HttpRequest, data: PreservationQuoteCreateSchema) -> PreservationQuoteSchema:
@@ -72,7 +70,6 @@ def create_preservation_quote(request: HttpRequest, data: PreservationQuoteCreat
 
     # 返回响应
     return PreservationQuoteSchema.from_model(quote)
-
 
 @router.get("/preservation-quotes", response=QuoteListSchema)
 def list_preservation_quotes(
@@ -129,7 +126,6 @@ def list_preservation_quotes(
         items=items,
     )
 
-
 @router.get("/preservation-quotes/{quote_id}", response=PreservationQuoteSchema)
 def get_preservation_quote(request: HttpRequest, quote_id: int) -> PreservationQuoteSchema:
     """
@@ -154,7 +150,6 @@ def get_preservation_quote(request: HttpRequest, quote_id: int) -> PreservationQ
 
     # 返回响应
     return PreservationQuoteSchema.from_model(quote)
-
 
 @router.post("/preservation-quotes/{quote_id}/execute", response=QuoteExecuteResponseSchema)
 async def execute_preservation_quote(request: HttpRequest, quote_id: int) -> QuoteExecuteResponseSchema:
@@ -195,11 +190,10 @@ async def execute_preservation_quote(request: HttpRequest, quote_id: int) -> Quo
     # 返回响应
     return QuoteExecuteResponseSchema(
         success=True,
-        message=_("询价任务执行完成，成功 %(success)d 个，失败 %(failed)d 个")
+        message="询价任务执行完成，成功 %(success)d 个，失败 %(failed)d 个"
         % {"success": result["success_count"], "failed": result["failed_count"]},
         data=PreservationQuoteSchema.from_model(quote),
     )
-
 
 @router.post("/preservation-quotes/{quote_id}/retry", response=QuoteExecuteResponseSchema)
 async def retry_preservation_quote(request: HttpRequest, quote_id: int) -> QuoteExecuteResponseSchema:
@@ -239,7 +233,7 @@ async def retry_preservation_quote(request: HttpRequest, quote_id: int) -> Quote
     # 返回响应
     return QuoteExecuteResponseSchema(
         success=True,
-        message=_("重试询价任务完成，成功 %(success)d 个，失败 %(failed)d 个")
+        message="重试询价任务完成，成功 %(success)d 个，失败 %(failed)d 个"
         % {"success": result["success_count"], "failed": result["failed_count"]},
         data=PreservationQuoteSchema.from_model(quote),
     )

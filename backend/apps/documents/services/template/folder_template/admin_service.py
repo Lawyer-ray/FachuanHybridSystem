@@ -7,7 +7,6 @@ from typing import Any
 
 from django.db import transaction
 from django.utils.safestring import mark_safe
-from django.utils.translation import gettext_lazy as _
 
 from apps.core.exceptions import NotFoundError
 from apps.documents.models import FolderTemplate
@@ -16,7 +15,6 @@ from apps.documents.models.choices import FolderTemplateType, LegalStatusMatchMo
 from ..folder_service import FolderTemplateService
 
 logger = logging.getLogger("apps.documents.services.folder_template_admin_service")
-
 
 class FolderTemplateAdminService:
     """文件夹模板Admin服务"""
@@ -356,7 +354,7 @@ class FolderTemplateAdminService:
             template = FolderTemplate.objects.get(pk=pk)
         except FolderTemplate.DoesNotExist:
             raise NotFoundError(
-                message=_("模板不存在"),
+                message="模板不存在",
                 code="FOLDER_TEMPLATE_NOT_FOUND",
                 errors={"pk": pk},
             )
@@ -408,7 +406,7 @@ class FolderTemplateAdminService:
             return FolderTemplate.objects.get(pk=pk)
         except FolderTemplate.DoesNotExist:
             raise NotFoundError(
-                message=_("模板不存在"),
+                message="模板不存在",
                 code="FOLDER_TEMPLATE_NOT_FOUND",
                 errors={"pk": pk},
             )

@@ -7,7 +7,7 @@
         {% csrf_token %}
         <input type="file" name="json_file" id="json-import-input" accept=".zip">
     </form>
-    <a href="#" class="addlink" onclick="document.getElementById('json-import-input').click();return false;">{% trans "导入" %}</a>
+    <a href="#" class="addlink" onclick="document.getElementById('json-import-input').click();return false;">{</a>
     <script>
         document.getElementById('json-import-input').addEventListener('change', function(){
             if(this.files.length) document.getElementById('json-import-form').submit();
@@ -22,7 +22,7 @@
             <line x1="8" y1="10" x2="16" y2="10"/>
             <line x1="8" y1="14" x2="12" y2="14"/>
         </svg>
-        {% trans "诉讼费计算器" %}
+        {
     </a>
 </li>
 {{ block.super }}

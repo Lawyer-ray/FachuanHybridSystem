@@ -25,7 +25,6 @@ logger = logging.getLogger("apps.automation")
 
 __all__ = ["DocumentQueryMixin"]
 
-
 class DocumentQueryMixin:
     """文书查询与分页 Mixin"""
 

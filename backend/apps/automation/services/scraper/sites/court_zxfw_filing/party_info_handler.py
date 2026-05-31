@@ -6,13 +6,11 @@ import logging
 import re
 from typing import Any
 
-from django.utils.translation import gettext_lazy as _
 from playwright.sync_api import Page
 
 from .form_utils import FormUtilsMixin
 
 logger = logging.getLogger("apps.automation")
-
 
 class PartyInfoHandlerMixin(FormUtilsMixin):
     """当事人信息填写 Mixin，需要子类提供 self.page。"""
@@ -28,13 +26,13 @@ class PartyInfoHandlerMixin(FormUtilsMixin):
         section_map: dict[str, str] | None = None,
     ) -> None:
         """完善案件信息：当事人、代理人，以及民事一审的标的金额"""
-        logger.info(str(_("步骤: 完善案件信息")))
+        logger.info(str("步骤: 完善案件信息"))
 
         # 等待页面主体表单区域加载，确认已进入步骤5
         try:
             self.page.locator(".uni-section").first.wait_for(state="visible", timeout=15000)
         except Exception:
-            raise ValueError(str(_("完善信息页面未加载，请检查前面步骤（材料上传等）是否已完成")))
+            raise ValueError(str("完善信息页面未加载，请检查前面步骤（材料上传等）是否已完成"))
 
         # 清除一张网自动识别的当事人（避免与后续手动添加的冲突）
         self._clear_auto_recognized_parties()
@@ -116,7 +114,7 @@ class PartyInfoHandlerMixin(FormUtilsMixin):
 
         self._complete_agent_info(case_data)
 
-        logger.info(str(_("完善案件信息: 当事人和代理人已填写")))
+        logger.info(str("完善案件信息: 当事人和代理人已填写"))
 
     def _clear_auto_recognized_parties(self) -> None:
         """清除一张网自动识别的当事人信息。
@@ -301,7 +299,7 @@ class PartyInfoHandlerMixin(FormUtilsMixin):
         phone: str = "",
     ) -> bool:
         """申请执行：从原审诉讼参与人中引入当事人"""
-        logger.info(str(_("引入原审参与人: %s → %s")), name, section_title)
+        logger.info(str("引入原审参与人: %s → %s"), name, section_title)
 
         section = self.page.locator(f".uni-section:has(.uni-section__content-title:has-text('{section_title}'))").first
         try:
@@ -543,7 +541,7 @@ class PartyInfoHandlerMixin(FormUtilsMixin):
 
     def _fill_execution_target_info(self, case_data: dict[str, Any]) -> None:
         """申请执行特有：填写执行理由、执行请求、执行标的类型"""
-        logger.info(str(_("填写执行标的信息")))
+        logger.info(str("填写执行标的信息"))
 
         section = self.page.locator(".uni-section:has(.uni-section__content-title:has-text('执行标的信息'))").first
         section.scroll_into_view_if_needed()
@@ -564,7 +562,7 @@ class PartyInfoHandlerMixin(FormUtilsMixin):
             label.first.click()
             self._random_wait(0.3, 0.5)
 
-        logger.info(str(_("执行标的信息填写完成")))
+        logger.info(str("执行标的信息填写完成"))
 
     @staticmethod
     def _is_mobile_phone(value: str) -> bool:

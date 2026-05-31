@@ -2,15 +2,12 @@
 
 from __future__ import annotations
 
-from django.utils.translation import gettext_lazy as _
-
 """
 会话生命周期服务
 
 负责会话的创建、查询、更新状态、删除等生命周期管理.
 从 LitigationConversationSessionService 中拆分出来.
 """
-
 
 import logging
 from typing import Any
@@ -23,7 +20,6 @@ from ..wiring import get_case_service, get_conversation_history_service, get_cou
 from .session_shared import SessionDTO
 
 logger = logging.getLogger("apps.litigation_ai")
-
 
 class SessionLifecycleService:
     """会话生命周期服务 - 管理会话的创建、查询、状态更新和删除"""
@@ -54,7 +50,7 @@ class SessionLifecycleService:
         session = self.session_repo.get_session_with_case_sync(session_id)
         if not session:
             raise NotFoundError(
-                message=_("会话不存在"),
+                message="会话不存在",
                 code="SESSION_NOT_FOUND",
                 errors={"session_id": f"会话 {session_id} 不存在"},
             )
@@ -69,7 +65,7 @@ class SessionLifecycleService:
         session = self.session_repo.get_session_sync(session_id)
         if not session:
             raise NotFoundError(
-                message=_("会话不存在"),
+                message="会话不存在",
                 code="SESSION_NOT_FOUND",
                 errors={"session_id": f"会话 {session_id} 不存在"},
             )
@@ -77,7 +73,7 @@ class SessionLifecycleService:
         valid_statuses = [choice[0] for choice in SessionStatus.choices]
         if status not in valid_statuses:
             raise ValidationException(
-                message=_("无效的状态"),
+                message="无效的状态",
                 code="INVALID_STATUS",
                 errors={"status": f"状态必须是 {valid_statuses} 之一"},
             )
@@ -95,7 +91,7 @@ class SessionLifecycleService:
         case = self.case_service.get_case_internal(case_id)
         if not case:
             raise NotFoundError(
-                message=_("案件不存在"),
+                message="案件不存在",
                 code="CASE_NOT_FOUND",
                 errors={"case_id": f"ID 为 {case_id} 的案件不存在"},
             )
@@ -182,13 +178,13 @@ class SessionLifecycleService:
         session = self.session_repo.get_session_for_update_sync(session_id)
         if not session:
             raise NotFoundError(
-                message=_("会话不存在"),
+                message="会话不存在",
                 code="SESSION_NOT_FOUND",
                 errors={"session_id": f"会话 {session_id} 不存在"},
             )
 
         if user and session.user_id != user.id:
-            raise PermissionDenied(message=_("无权限删除此会话"), code="PERMISSION_DENIED")
+            raise PermissionDenied(message="无权限删除此会话", code="PERMISSION_DENIED")
 
         from django.db import IntegrityError, connection
 

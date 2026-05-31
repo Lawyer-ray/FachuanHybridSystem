@@ -9,7 +9,6 @@ from django.conf import settings
 
 from apps.automation.models import CourtSMS
 
-
 @dataclass(frozen=True)
 class CourtSMSDocumentReference:
     """法院短信文书引用信息。"""
@@ -19,7 +18,6 @@ class CourtSMSDocumentReference:
     source: str
     court_document_id: int | None = None
     download_status_display: str | None = None
-
 
 class CourtSMSDocumentReferenceService:
     """聚合 CourtSMS 文书引用（多来源 + 去重）。"""

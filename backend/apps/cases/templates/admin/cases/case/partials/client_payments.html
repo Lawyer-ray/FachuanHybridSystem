@@ -1,10 +1,9 @@
-{% load i18n %}
 <div x-data="clientPaymentsApp()" x-init="init()">
     <!-- 累计金额 -->
     <div style="display:flex; align-items:center; gap:12px; margin-bottom:16px;">
-        <h3 style="margin:0; font-size:15px; color:#1f2937;">{% trans "客户回款" %}</h3>
+        <h3 style="margin:0; font-size:15px; color:#1f2937;">{</h3>
         <span style="font-size:13px; color:#6b7280;">
-            {{ client_payments|length }} {% trans "笔" %} · {% trans "累计" %} ¥{{ total_client_payment|floatformat:2 }}
+            {{ client_payments|length }} { · { ¥{{ total_client_payment|floatformat:2 }}
         </span>
     </div>
 
@@ -19,10 +18,10 @@
         <table style="width:100%; border-collapse:collapse; font-size:13px;">
             <thead>
                 <tr>
-                    <th style="text-align:left; padding:8px; background:#f9fafb; border-bottom:2px solid #e5e7eb; color:#374151;">{% trans "日期" %}</th>
-                    <th style="text-align:right; padding:8px; background:#f9fafb; border-bottom:2px solid #e5e7eb; color:#374151;">{% trans "金额" %}</th>
-                    <th style="text-align:left; padding:8px; background:#f9fafb; border-bottom:2px solid #e5e7eb; color:#374151;">{% trans "备注" %}</th>
-                    <th style="text-align:left; padding:8px; background:#f9fafb; border-bottom:2px solid #e5e7eb; color:#374151;">{% trans "凭证" %}</th>
+                    <th style="text-align:left; padding:8px; background:#f9fafb; border-bottom:2px solid #e5e7eb; color:#374151;">{</th>
+                    <th style="text-align:right; padding:8px; background:#f9fafb; border-bottom:2px solid #e5e7eb; color:#374151;">{</th>
+                    <th style="text-align:left; padding:8px; background:#f9fafb; border-bottom:2px solid #e5e7eb; color:#374151;">{</th>
+                    <th style="text-align:left; padding:8px; background:#f9fafb; border-bottom:2px solid #e5e7eb; color:#374151;">{</th>
                     <th style="width:60px;"></th>
                 </tr>
             </thead>
@@ -35,7 +34,7 @@
                         <td style="padding:8px; border-bottom:1px solid #f3f4f6; color:#6b7280;" x-text="p.note || '-'"></td>
                         <td style="padding:8px; border-bottom:1px solid #f3f4f6;">
                             <template x-if="p.image_path">
-                                <a :href="mediaUrl + p.image_path" target="_blank" style="color:#2563eb;">{% trans "查看" %}</a>
+                                <a :href="mediaUrl + p.image_path" target="_blank" style="color:#2563eb;">{</a>
                             </template>
                             <template x-if="!p.image_path">
                                 <span style="color:#9ca3af;">-</span>
@@ -44,7 +43,7 @@
                         <td style="padding:8px; border-bottom:1px solid #f3f4f6; text-align:center;">
                             <button type="button" @click="deletePayment(p.id)"
                                     style="background:none; border:none; color:#dc2626; cursor:pointer; font-size:12px;">
-                                {% trans "删除" %}
+                                {
                             </button>
                         </td>
                     </tr>
@@ -53,31 +52,31 @@
         </table>
     </template>
     <template x-if="payments.length === 0">
-        <p style="color:#9ca3af; font-size:13px; padding:16px 0; text-align:center;">{% trans "暂无客户回款记录。" %}</p>
+        <p style="color:#9ca3af; font-size:13px; padding:16px 0; text-align:center;">{</p>
     </template>
 
     <!-- 添加回款表单 -->
     <div style="margin-top:16px; padding:14px; background:#f9fafb; border:1px solid #e5e7eb; border-radius:8px;">
-        <h4 style="margin:0 0 10px; font-size:13px; color:#374151;">{% trans "添加回款" %}</h4>
+        <h4 style="margin:0 0 10px; font-size:13px; color:#374151;">{</h4>
         <div style="display:flex; gap:8px; align-items:flex-end; flex-wrap:wrap;">
             <div>
-                <label style="display:block; font-size:12px; color:#6b7280; margin-bottom:2px;">{% trans "金额" %}</label>
+                <label style="display:block; font-size:12px; color:#6b7280; margin-bottom:2px;">{</label>
                 <input type="number" step="0.01" x-model="newAmount"
                        style="width:120px; padding:6px 8px; border:1px solid #d0d5dd; border-radius:4px; font-size:13px;"
-                       placeholder="{% trans '0.00' %}">
+                       placeholder="{">
             </div>
             <div style="flex:1; min-width:160px;">
-                <label style="display:block; font-size:12px; color:#6b7280; margin-bottom:2px;">{% trans "备注" %}</label>
+                <label style="display:block; font-size:12px; color:#6b7280; margin-bottom:2px;">{</label>
                 <input type="text" x-model="newNote"
                        style="width:100%; padding:6px 8px; border:1px solid #d0d5dd; border-radius:4px; font-size:13px;"
-                       placeholder="{% trans '可选' %}">
+                       placeholder="{">
             </div>
             <button type="button" @click="addPayment()"
                     :disabled="!newAmount || adding"
                     style="padding:6px 16px; border:none; border-radius:4px; background:#2563eb; color:#fff; font-size:13px; font-weight:600; cursor:pointer; white-space:nowrap;"
                     :class="(!newAmount || adding) ? 'opacity-50 cursor-not-allowed' : ''">
-                <span x-show="!adding">{% trans "添加" %}</span>
-                <span x-show="adding">{% trans "添加中..." %}</span>
+                <span x-show="!adding">{</span>
+                <span x-show="adding">{</span>
             </button>
         </div>
     </div>
@@ -128,22 +127,22 @@ function clientPaymentsApp() {
                 });
                 const data = await resp.json();
                 if (data.success) {
-                    this.message = { level: 'success', text: '{% trans "添加成功" %}' };
+                    this.message = { level: 'success', text: '{' };
                     this.newAmount = '';
                     this.newNote = '';
                     await this.loadPayments();
                 } else {
-                    this.message = { level: 'error', text: data.message || '{% trans "添加失败" %}' };
+                    this.message = { level: 'error', text: data.message || '{' };
                 }
             } catch(e) {
-                this.message = { level: 'error', text: '{% trans "网络错误" %}' };
+                this.message = { level: 'error', text: '{' };
             } finally {
                 this.adding = false;
             }
         },
 
         async deletePayment(id) {
-            if (!confirm('{% trans "确定删除这条回款记录？" %}')) return;
+            if (!confirm('{')) return;
             try {
                 const resp = await fetch(this.deleteUrlBase + id + '/delete/', {
                     method: 'POST',
@@ -154,10 +153,10 @@ function clientPaymentsApp() {
                 if (data.success) {
                     await this.loadPayments();
                 } else {
-                    this.message = { level: 'error', text: data.message || '{% trans "删除失败" %}' };
+                    this.message = { level: 'error', text: data.message || '{' };
                 }
             } catch(e) {
-                this.message = { level: 'error', text: '{% trans "网络错误" %}' };
+                this.message = { level: 'error', text: '{' };
             }
         },
 

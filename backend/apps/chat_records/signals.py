@@ -14,7 +14,6 @@ from .models import ChatRecordExportTask, ChatRecordRecording, ChatRecordScreens
 
 logger = logging.getLogger("apps.chat_records")
 
-
 def _safe_prune_empty_parents(file_path: str | None) -> None:
     if not file_path:
         return
@@ -49,7 +48,6 @@ def _safe_prune_empty_parents(file_path: str | None) -> None:
             break
         cur = cur.parent
 
-
 def _delete_field_file(field_file: Any) -> None:
     if not field_file:
         return
@@ -68,7 +66,6 @@ def _delete_field_file(field_file: Any) -> None:
         return
     _safe_prune_empty_parents(old_path)
 
-
 def _delete_field_file_by_name(old_name: str | None) -> None:
     """根据 FieldFile 存储的文件名字符串删除物理文件（供 django-lifecycle @hook 使用）"""
     if not old_name:
@@ -84,16 +81,13 @@ def _delete_field_file_by_name(old_name: str | None) -> None:
     except Exception:
         logger.debug("删除旧文件失败: %s", old_name)
 
-
 @receiver(post_delete, sender=ChatRecordRecording)
 def _delete_recording_file(sender: Any, instance: ChatRecordRecording, **kwargs: Any) -> None:
     _delete_field_file(getattr(instance, "video", None))
 
-
 @receiver(post_delete, sender=ChatRecordScreenshot)
 def _delete_screenshot_file(sender: Any, instance: ChatRecordScreenshot, **kwargs: Any) -> None:
     _delete_field_file(getattr(instance, "image", None))
-
 
 @receiver(post_delete, sender=ChatRecordExportTask)
 def _delete_export_file(sender: Any, instance: ChatRecordExportTask, **kwargs: Any) -> None:

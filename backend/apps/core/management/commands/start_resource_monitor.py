@@ -14,7 +14,6 @@ from apps.core.infrastructure import resource_monitor
 
 logger = logging.getLogger(__name__)
 
-
 class Command(BaseCommand):
     """启动资源监控服务的管理命令"""
 

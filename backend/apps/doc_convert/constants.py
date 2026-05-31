@@ -4,14 +4,12 @@ from __future__ import annotations
 
 from typing import TypedDict
 
-
 class MbidDefinition(TypedDict):
     """文书类型定义。"""
 
     mbid: str
     name: str
     category: str
-
 
 MBID_DEFINITIONS: list[MbidDefinition] = [
     # 起诉状
@@ -85,11 +83,9 @@ MBID_DEFINITIONS: list[MbidDefinition] = [
     {"mbid": "xzfysqsdw", "name": "行政复议申请书（单位）", "category": "其他"},
 ]
 
-
 def get_mbid_set() -> set[str]:
     """返回所有有效的 mbid 集合。"""
     return {item["mbid"] for item in MBID_DEFINITIONS}
-
 
 def get_mbid_by_category() -> dict[str, list[MbidDefinition]]:
     """按类别分组返回 mbid 定义。"""

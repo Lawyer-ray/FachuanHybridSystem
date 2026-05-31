@@ -5,7 +5,6 @@ from __future__ import annotations
 import re
 from typing import Any
 
-
 class FolderTemplateValidationService:
     INVALID_CHARS = r'[/\\:*?"<>|]'
     INVALID_CHARS_PATTERN = re.compile(INVALID_CHARS)

@@ -4,14 +4,11 @@ from __future__ import annotations
 
 from typing import Any, ClassVar
 
-from django.utils.translation import gettext_lazy as _
-
 from apps.contracts.models import Contract
 from apps.core.exceptions import NotFoundError
 from apps.core.models.enums import CaseType
 
 from ..wiring import get_case_service
-
 
 class ContractAdminQueryService:
     CASE_ALLOWED_TYPES: ClassVar = {
@@ -45,7 +42,7 @@ class ContractAdminQueryService:
                 .get(pk=contract_id)
             )
         except Contract.DoesNotExist as exc:
-            raise NotFoundError(_("合同 %(id)s 不存在") % {"id": contract_id}) from exc
+            raise NotFoundError("合同 %(id)s 不存在" % {"id": contract_id}) from exc
 
     def get_related_cases(self, contract_id: int) -> list[dict[str, Any]]:
         case_service = get_case_service()
@@ -66,8 +63,8 @@ class ContractAdminQueryService:
                 "name": case.name,
                 "status": case.status,
                 "status_display": status_map.get(case.status, case.status),
-                "cause_of_action": case.cause_of_action or _("未设置"),
-                "primary_lawyer": case_primary_lawyer_map.get(case.id) or _("未指派"),
+                "cause_of_action": case.cause_of_action or "未设置",
+                "primary_lawyer": case_primary_lawyer_map.get(case.id) or "未指派",
                 "case_number": case_number_map.get(case.id) or "",
                 "detail_url": f"/admin/cases/case/{case.id}/detail/",
             }

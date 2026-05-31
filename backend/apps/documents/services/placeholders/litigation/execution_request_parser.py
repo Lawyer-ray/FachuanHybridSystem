@@ -8,7 +8,6 @@ from decimal import ROUND_HALF_UP, Decimal
 from .execution_request_models import FeeItem, ParsedAmounts
 from .execution_request_utils import AMOUNT_WITH_UNIT_PATTERN, extract_sentence, parse_amount_value, parse_decimal
 
-
 def parse_confirmed_amounts(main_text: str) -> ParsedAmounts:
     amounts = ParsedAmounts()
 
@@ -82,7 +81,6 @@ def parse_confirmed_amounts(main_text: str) -> ParsedAmounts:
 
     return amounts
 
-
 def parse_fee_items(main_text: str) -> list[FeeItem]:
     patterns: list[tuple[str, str, re.Pattern[str]]] = [
         (
@@ -121,7 +119,6 @@ def parse_fee_items(main_text: str) -> list[FeeItem]:
 
     apply_split_burden_adjustment(fee_items)
     return fee_items
-
 
 def apply_split_burden_adjustment(fee_items: list[FeeItem]) -> None:
     """处理"原告负担X + 被告负担Y并迳付原告"的费用分摊句式。"""
@@ -192,7 +189,6 @@ def apply_split_burden_adjustment(fee_items: list[FeeItem]) -> None:
                 assigned += fee_items[i].amount
             fee_items[key_indices[-1]].amount = max(new_total - assigned, Decimal("0"))
 
-
 def extract_party_burden_amount(sentence: str, *, parties: tuple[str, ...]) -> Decimal | None:
     party_pattern = "|".join(re.escape(p) for p in parties if p)
     if not party_pattern:
@@ -202,7 +198,6 @@ def extract_party_burden_amount(sentence: str, *, parties: tuple[str, ...]) -> D
     if not match:
         return None
     return parse_amount_value(match.group(1), match.group(2))
-
 
 def should_include_fee(*, sentence: str, key: str) -> tuple[bool, str]:
     # 律师费/担保费通常为"应向原告支付的款项构成部分"，默认纳入

@@ -10,7 +10,6 @@ from django.utils.html import format_html
 from apps.story_viz.models import StoryAnimation, StoryAnimationStatus
 from apps.story_viz.services.wiring import get_story_animation_job_service
 
-
 @admin.register(StoryAnimation)
 class StoryAnimationAdmin(admin.ModelAdmin):
     change_form_template = "admin/story_viz/storyanimation/change_form.html"

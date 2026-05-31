@@ -6,14 +6,12 @@ from pathlib import Path
 from typing import Any
 
 import httpx
-from django.utils.translation import gettext_lazy as _
 
 from apps.core.exceptions import ConfigurationException, MessageSendException
 
 from .base import ChatResult
 
 logger = logging.getLogger(__name__)
-
 
 class WeChatWorkFileMixin:
     """负责企业微信文件上传和文件消息发送"""
@@ -30,7 +28,7 @@ class WeChatWorkFileMixin:
         """发送文件到群聊（上传临时素材 -> 发送文件消息）"""
         if not self.is_available():
             raise ConfigurationException(
-                message=_("企业微信配置不完整，无法发送文件"),
+                message="企业微信配置不完整，无法发送文件",
                 platform="wechat_work",
                 missing_config="CORP_ID, AGENT_ID, SECRET",
             )
@@ -89,7 +87,7 @@ class WeChatWorkFileMixin:
 
             if not media_id:
                 raise MessageSendException(
-                    message=_("API 响应中缺少 media_id"),
+                    message="API 响应中缺少 media_id",
                     platform="wechat_work",
                     errors={"api_response": resp_data},
                 )

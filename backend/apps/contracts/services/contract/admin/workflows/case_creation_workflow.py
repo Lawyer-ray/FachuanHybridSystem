@@ -7,7 +7,6 @@ from typing import Any
 from apps.contracts.models import Contract
 from apps.core.interfaces import CaseDTO
 
-
 class ContractCaseCreationWorkflow:
     def __init__(self, *, case_service: Any) -> None:
         self.case_service = case_service

@@ -17,10 +17,8 @@ from apps.organization.models import Lawyer
 
 _SEQUENCE = count(1)
 
-
 def _token(prefix: str) -> str:
     return f"{prefix}-{next(_SEQUENCE)}"
-
 
 def LawyerFactory(**kwargs: Any) -> Lawyer:
     username = str(kwargs.pop("username", _token("lawyer")))
@@ -31,7 +29,6 @@ def LawyerFactory(**kwargs: Any) -> Lawyer:
     defaults.update(kwargs)
     return Lawyer.objects.create(**defaults)
 
-
 def ContractFactory(**kwargs: Any) -> Contract:
     defaults: dict[str, Any] = {
         "name": _token("contract"),
@@ -39,7 +36,6 @@ def ContractFactory(**kwargs: Any) -> Contract:
     }
     defaults.update(kwargs)
     return Contract.objects.create(**defaults)
-
 
 def CaseFactory(**kwargs: Any) -> Case:
     contract = kwargs.pop("contract", None) or ContractFactory()
@@ -50,7 +46,6 @@ def CaseFactory(**kwargs: Any) -> Case:
     }
     defaults.update(kwargs)
     return Case.objects.create(**defaults)
-
 
 def CaseLogFactory(**kwargs: Any) -> CaseLog:
     case = kwargs.pop("case", None) or CaseFactory()
@@ -63,7 +58,6 @@ def CaseLogFactory(**kwargs: Any) -> CaseLog:
     defaults.update(kwargs)
     return CaseLog.objects.create(**defaults)
 
-
 def ClientFactory(**kwargs: Any) -> Client:
     client_type = str(kwargs.get("client_type", Client.LEGAL))
     defaults: dict[str, Any] = {
@@ -74,7 +68,6 @@ def ClientFactory(**kwargs: Any) -> Client:
         defaults["legal_representative"] = "Test Representative"
     defaults.update(kwargs)
     return Client.objects.create(**defaults)
-
 
 def ClientIdentityDocFactory(**kwargs: Any) -> ClientIdentityDoc:
     client = kwargs.pop("client", None) or ClientFactory()
@@ -90,7 +83,6 @@ def ClientIdentityDocFactory(**kwargs: Any) -> ClientIdentityDoc:
     }
     defaults.update(kwargs)
     return ClientIdentityDoc.objects.create(**defaults)
-
 
 __all__ = [
     "CaseFactory",

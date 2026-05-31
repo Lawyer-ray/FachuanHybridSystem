@@ -11,7 +11,6 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any, ClassVar
 
 from django.db import transaction
-from django.utils.translation import gettext_lazy as _
 
 from apps.core.exceptions import ValidationException
 
@@ -35,7 +34,6 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 CASE_LOG_API_REMINDER_SOURCE = "case_log_api"
-
 
 class ReminderServiceAdapter(ReminderService):
     """提醒服务适配器，继承 ReminderService 提供 API 方法，同时实现 IReminderService 供其他模块调用。"""
@@ -172,7 +170,7 @@ class ReminderServiceAdapter(ReminderService):
         self, *, case_log_id: int, metadata_source: str | None = None
     ) -> Reminder | None:
         """按 metadata_source 查找匹配的提醒记录，优先匹配 source 标记。"""
-        validate_positive_id(case_log_id, field_name=_("案件日志ID"))
+        validate_positive_id(case_log_id, field_name="案件日志ID")
         reminders = list(Reminder.objects.filter(case_log_id=case_log_id).order_by("-due_at", "-id"))
         if not reminders:
             return None
@@ -208,9 +206,9 @@ class ReminderServiceAdapter(ReminderService):
     @transaction.atomic
     def create_contract_reminders_internal(self, *, contract_id: int, reminders: list[dict[str, Any]]) -> int:
         """内部方法：批量创建合同提醒。"""
-        normalized_contract_id = normalize_target_id(contract_id, field_name=_("合同ID"))
+        normalized_contract_id = normalize_target_id(contract_id, field_name="合同ID")
         if normalized_contract_id is None:
-            raise ValidationException(_("合同ID 不能为空"))
+            raise ValidationException("合同ID 不能为空")
         if not reminders:
             return 0
 
@@ -255,9 +253,9 @@ class ReminderServiceAdapter(ReminderService):
     @transaction.atomic
     def create_case_log_reminders_internal(self, *, case_log_id: int, reminders: list[dict[str, Any]]) -> int:
         """内部方法：批量创建案件日志提醒。"""
-        normalized_case_log_id = normalize_target_id(case_log_id, field_name=_("案件日志ID"))
+        normalized_case_log_id = normalize_target_id(case_log_id, field_name="案件日志ID")
         if normalized_case_log_id is None:
-            raise ValidationException(_("案件日志ID 不能为空"))
+            raise ValidationException("案件日志ID 不能为空")
         if not reminders:
             return 0
 
@@ -301,7 +299,7 @@ class ReminderServiceAdapter(ReminderService):
 
     def export_contract_reminders_internal(self, *, contract_id: int) -> list[dict[str, Any]]:
         """内部方法：导出合同直接关联的提醒数据。"""
-        validate_positive_id(contract_id, field_name=_("合同ID"))
+        validate_positive_id(contract_id, field_name="合同ID")
         rows = list(
             Reminder.objects.filter(contract_id=contract_id, case_log_id__isnull=True)
             .order_by("due_at", "id")
@@ -311,7 +309,7 @@ class ReminderServiceAdapter(ReminderService):
 
     def export_case_log_reminders_internal(self, *, case_log_id: int) -> list[dict[str, Any]]:
         """内部方法：导出案件日志关联的提醒数据。"""
-        validate_positive_id(case_log_id, field_name=_("案件日志ID"))
+        validate_positive_id(case_log_id, field_name="案件日志ID")
         rows = list(
             Reminder.objects.filter(case_log_id=case_log_id)
             .order_by("due_at", "id")
@@ -327,7 +325,7 @@ class ReminderServiceAdapter(ReminderService):
         normalized_ids: list[int] = []
         seen_ids: set[int] = set()
         for case_log_id in case_log_ids:
-            validate_positive_id(case_log_id, field_name=_("案件日志ID"))
+            validate_positive_id(case_log_id, field_name="案件日志ID")
             if case_log_id in seen_ids:
                 continue
             seen_ids.add(case_log_id)
@@ -355,7 +353,7 @@ class ReminderServiceAdapter(ReminderService):
 
     def get_latest_case_log_reminder_internal(self, *, case_log_id: int) -> dict[str, Any] | None:
         """内部方法：获取案件日志最近一条提醒。"""
-        validate_positive_id(case_log_id, field_name=_("案件日志ID"))
+        validate_positive_id(case_log_id, field_name="案件日志ID")
         row = (
             Reminder.objects.filter(case_log_id=case_log_id)
             .order_by("-due_at", "-id")

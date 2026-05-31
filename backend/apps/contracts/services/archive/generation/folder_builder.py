@@ -24,7 +24,6 @@ _ARCHIVE_CATALOG_CODES: dict[str, str] = {
     "criminal": "cr_3",
 }
 
-
 def generate_archive_folder(contract: Contract) -> dict[str, Any]:
     """生成归档文件夹到合同绑定的文件夹根目录。
 
@@ -144,7 +143,6 @@ def generate_archive_folder(contract: Contract) -> dict[str, Any]:
         "doc_results": doc_results,
     }
 
-
 def _write_template_doc_to_folder(
     contract: Contract,
     template_subtype: str,
@@ -190,7 +188,6 @@ def _write_template_doc_to_folder(
 
     dest_docx = archive_dir / f"{base_name}.docx"
     dest_docx.write_bytes(docx_path.read_bytes())
-
 
 def _compile_final_archive_pdf(
     contract: Contract,

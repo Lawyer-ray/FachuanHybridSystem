@@ -8,7 +8,6 @@ from django.contrib import messages
 from django.db.models import QuerySet
 from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
 from django.urls import reverse
-from django.utils.translation import gettext_lazy as _
 
 from apps.cases.models import Case
 from apps.core.exceptions import ChatProviderException
@@ -18,22 +17,21 @@ from .service import CaseAdminServiceMixin
 
 logger = logging.getLogger(__name__)
 
-
 class CaseAdminActionsMixin(CaseAdminServiceMixin):
     def response_change(self, request: HttpRequest, obj: Case) -> HttpResponse:
         if "_save_and_duplicate" in request.POST:
             try:
                 service = self._get_case_admin_service()
                 new_case = service.duplicate_case(obj.pk)
-                messages.success(request, _("已复制案件,正在编辑新案件: %s") % new_case.name)
+                messages.success(request, "已复制案件,正在编辑新案件: %s" % new_case.name)
                 return HttpResponseRedirect(reverse("admin:cases_case_change", args=[new_case.pk]))
             except Exception as e:
                 logger.exception("操作失败")
-                messages.error(request, _("复制失败: %s") % str(e))
+                messages.error(request, "复制失败: %s" % str(e))
                 return HttpResponseRedirect(request.path)
 
         if "_save" in request.POST:
-            messages.success(request, _("案件「%s」已保存") % obj.name)
+            messages.success(request, "案件「%s」已保存" % obj.name)
             return HttpResponseRedirect(reverse("admin:cases_case_detail", args=[obj.pk]))
 
         if "_continue" in request.POST:
@@ -53,7 +51,7 @@ class CaseAdminActionsMixin(CaseAdminServiceMixin):
                 if existing_chat:
                     messages.warning(
                         request,
-                        _("案件 %(case)s 已存在飞书群聊: %(chat)s") % {"case": case.name, "chat": existing_chat.name},
+                        "案件 %(case)s 已存在飞书群聊: %(chat)s" % {"case": case.name, "chat": existing_chat.name},
                     )
                     continue
 
@@ -62,48 +60,47 @@ class CaseAdminActionsMixin(CaseAdminServiceMixin):
 
                 messages.success(
                     request,
-                    _("成功为案件 %(case)s 创建飞书群聊: %(chat)s") % {"case": case.name, "chat": chat.name},
+                    "成功为案件 %(case)s 创建飞书群聊: %(chat)s" % {"case": case.name, "chat": chat.name},
                 )
 
             except ChatProviderException as e:
                 error_count += 1
                 messages.error(
                     request,
-                    _("为案件 %(case)s 创建飞书群聊失败: %(error)s") % {"case": case.name, "error": str(e)},
+                    "为案件 %(case)s 创建飞书群聊失败: %(error)s" % {"case": case.name, "error": str(e)},
                 )
             except Exception as e:
                 logger.exception("操作失败")
                 error_count += 1
                 messages.error(
                     request,
-                    _("为案件 %(case)s 创建群聊时发生未知错误: %(error)s") % {"case": case.name, "error": str(e)},
+                    "为案件 %(case)s 创建群聊时发生未知错误: %(error)s" % {"case": case.name, "error": str(e)},
                 )
 
         if success_count > 0:
-            messages.success(request, _("总计成功创建 %d 个飞书群聊") % success_count)
+            messages.success(request, "总计成功创建 %d 个飞书群聊" % success_count)
 
         if error_count > 0:
-            messages.error(request, _("总计 %d 个案件创建群聊失败") % error_count)
+            messages.error(request, "总计 %d 个案件创建群聊失败" % error_count)
 
-    create_feishu_chat_for_selected_cases.short_description = _("为选中案件创建飞书群聊")  # type: ignore[attr-defined]
+    create_feishu_chat_for_selected_cases.short_description = "为选中案件创建飞书群聊"  # type: ignore[attr-defined]
 
     def mark_as_closed(self, request: HttpRequest, queryset: QuerySet[Case, Case]) -> None:
         updated = queryset.filter(status=CaseStatus.ACTIVE).update(status=CaseStatus.CLOSED)
         if updated:
-            messages.success(request, _("已将 %d 个案件标记为已结案") % updated)
+            messages.success(request, "已将 %d 个案件标记为已结案" % updated)
         else:
-            messages.info(request, _("选中的案件均已结案，无需更新"))
+            messages.info(request, "选中的案件均已结案，无需更新")
 
-    mark_as_closed.short_description = _("标记为已结案")  # type: ignore[attr-defined]
+    mark_as_closed.short_description = "标记为已结案"  # type: ignore[attr-defined]
 
     def mark_as_active(self, request: HttpRequest, queryset: QuerySet[Case, Case]) -> None:
         updated = queryset.filter(status=CaseStatus.CLOSED).update(status=CaseStatus.ACTIVE)
         if updated:
-            messages.success(request, _("已将 %d 个案件恢复为在办") % updated)
+            messages.success(request, "已将 %d 个案件恢复为在办" % updated)
         else:
-            messages.info(request, _("选中的案件均在办，无需更新"))
+            messages.info(request, "选中的案件均在办，无需更新")
 
-    mark_as_active.short_description = _("恢复为在办")  # type: ignore[attr-defined]
-
+    mark_as_active.short_description = "恢复为在办"  # type: ignore[attr-defined]
 
 __all__: list[str] = ["CaseAdminActionsMixin"]

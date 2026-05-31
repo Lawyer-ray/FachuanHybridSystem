@@ -10,13 +10,11 @@ from .validator import ClientJsonImportValidator
 
 logger = logging.getLogger("apps.client")
 
-
 @dataclass
 class ClientJsonImportResult:
     success: bool
     client_id: int | None = None
     error_message: str | None = None
-
 
 class ClientJsonImporter:
     def __init__(

@@ -12,7 +12,6 @@ from .goal_schemas import GoalIntakeResult
 
 logger = logging.getLogger("apps.litigation_ai")
 
-
 class LitigationGoalIntakeChain:
     def __init__(self, model: str | None = None) -> None:
         self._model = model

@@ -26,7 +26,6 @@ _HEADERS = {
 _last_requests: list[float] = []
 _RATE_LIMIT = 20
 
-
 def _rate_limit() -> None:
     now = time.monotonic()
     _last_requests[:] = [t for t in _last_requests if now - t < 60]
@@ -36,13 +35,11 @@ def _rate_limit() -> None:
             time.sleep(wait)
     _last_requests.append(time.monotonic())
 
-
 @dataclass
 class _SearchResult:
     title: str
     url: str
     snippet: str
-
 
 def _parse_results(html: str, max_results: int) -> list[_SearchResult]:
     """从搜狗搜索结果页面解析出搜索结果"""
@@ -70,7 +67,6 @@ def _parse_results(html: str, max_results: int) -> list[_SearchResult]:
             results.append(_SearchResult(title=title, url=url, snippet=snippet))
 
     return results
-
 
 def _do_search(query: str, max_results: int, region: str) -> str:
     """同步执行搜索（在线程池中运行）"""
@@ -103,7 +99,6 @@ def _do_search(query: str, max_results: int, region: str) -> str:
         lines.append("")
 
     return "\n".join(lines)
-
 
 async def web_search(
     query: str,

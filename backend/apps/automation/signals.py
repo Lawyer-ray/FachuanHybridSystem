@@ -14,7 +14,6 @@ from django.dispatch import receiver
 
 logger = logging.getLogger("apps.automation")
 
-
 @receiver(post_delete, dispatch_uid="cleanup_court_document_local_file")
 def cleanup_court_document_local_file(sender: type, **kwargs: Any) -> None:
     """
@@ -47,7 +46,6 @@ def cleanup_court_document_local_file(sender: type, **kwargs: Any) -> None:
                 "清理法院文书物理文件失败",
                 extra={"file_path": str(file_path), "error": str(exc)},
             )
-
 
 @receiver(post_delete, dispatch_uid="cleanup_gsxt_report_task_file")
 def cleanup_gsxt_report_task_file(sender: type, **kwargs: Any) -> None:

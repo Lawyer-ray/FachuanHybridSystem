@@ -3,7 +3,6 @@
 from datetime import datetime
 from typing import Any
 
-from django.utils.translation import gettext_lazy as _
 from ninja import Schema
 from pydantic import Field, field_validator, model_validator
 
@@ -12,21 +11,18 @@ from apps.core.api.schemas import SchemaMixin
 from .models import Reminder, ReminderType
 from .services.validators import _CONTENT_MAX_LENGTH
 
-
 def _validate_positive_id(value: int | None) -> int | None:
     if value is not None and (isinstance(value, bool) or value <= 0):
-        raise ValueError(_("ID 必须为正整数"))
+        raise ValueError("ID 必须为正整数")
     return value
-
 
 def _validate_content_not_blank(value: str | None) -> str | None:
     if value is None:
         return None
     normalized = value.strip()
     if not normalized:
-        raise ValueError(_("提醒事项不能为空"))
+        raise ValueError("提醒事项不能为空")
     return normalized
-
 
 class ReminderIn(Schema):
     contract_id: int | None = None
@@ -44,9 +40,8 @@ class ReminderIn(Schema):
     def validate_binding_exclusivity(self) -> "ReminderIn":
         selected_count = sum(target_id is not None for target_id in (self.contract_id, self.case_id, self.case_log_id))
         if selected_count > 1:
-            raise ValueError(_("合同、案件、案件日志最多只能绑定一个"))
+            raise ValueError("合同、案件、案件日志最多只能绑定一个")
         return self
-
 
 class ReminderUpdate(Schema):
     contract_id: int | None = None
@@ -59,7 +54,6 @@ class ReminderUpdate(Schema):
 
     _validate_ids = field_validator("contract_id", "case_id", "case_log_id")(_validate_positive_id)
     _validate_content = field_validator("content")(_validate_content_not_blank)
-
 
 class ReminderOut(SchemaMixin, Schema):
     id: int
@@ -102,7 +96,6 @@ class ReminderOut(SchemaMixin, Schema):
     def resolve_updated_at(obj: Reminder) -> str:
         return SchemaMixin._resolve_datetime_iso(obj.updated_at) or ""
 
-
 class ParsedReminderOut(Schema):
     """从文本解析出的提醒条目。"""
 
@@ -112,21 +105,17 @@ class ParsedReminderOut(Schema):
     due_at: str
     source_text: str
 
-
 class ParseReminderIn(Schema):
     """解析提醒请求。"""
 
     text: str
 
-
 class ReminderTypeItem(Schema):
     value: str
     label: str
 
-
 def list_reminder_types() -> list[ReminderTypeItem]:
     return [ReminderTypeItem(value=value, label=str(label)) for value, label in ReminderType.choices]
-
 
 class TargetOptionItem(Schema):
     id: int
@@ -134,12 +123,10 @@ class TargetOptionItem(Schema):
     target_type: str
     target_type_label: str
 
-
 class TargetOptionGroup(Schema):
     key: str
     label: str
     items: list[TargetOptionItem]
-
 
 class TargetOptionsOut(Schema):
     items: list[TargetOptionItem]

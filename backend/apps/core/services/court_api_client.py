@@ -10,12 +10,10 @@ from dataclasses import dataclass, field
 from typing import Any, ClassVar, cast
 
 import httpx
-from django.utils.translation import gettext_lazy as _
 
 from apps.core.exceptions import ValidationException
 
 logger = logging.getLogger(__name__)
-
 
 @dataclass
 class CauseItem:
@@ -28,7 +26,6 @@ class CauseItem:
     parent_code: str | None = None
     children: list["CauseItem"] = field(default_factory=list)
 
-
 @dataclass
 class CourtItem:
     """法院数据项"""
@@ -39,7 +36,6 @@ class CourtItem:
     province: str = ""
     parent_code: str | None = None
     children: list["CourtItem"] = field(default_factory=list)
-
 
 class CourtApiClient:
     """法院 API 客户端
@@ -239,7 +235,7 @@ class CourtApiClient:
 
                     if not self._is_valid_response(data):
                         raise ValidationException(
-                            message=_("法院 API 响应格式无效"),
+                            message="法院 API 响应格式无效",
                             errors={"response": data},
                         )
 
@@ -250,7 +246,7 @@ class CourtApiClient:
                     logger.warning(f"法院 API 请求超时,第 {attempt + 1} 次重试")
                     if attempt == self.MAX_RETRIES - 1:
                         raise ValidationException(
-                            message=_("法院 API 请求超时"),
+                            message="法院 API 请求超时",
                             errors={"url": self.COURT_API_URL},
                         ) from None
                     import asyncio
@@ -274,7 +270,7 @@ class CourtApiClient:
                         errors={"url": self.COURT_API_URL},
                     ) from e
 
-        raise ValidationException(message=_("法院 API 请求失败"))
+        raise ValidationException(message="法院 API 请求失败")
 
     def _is_valid_response(self, data: dict[str, Any]) -> bool:
         """验证 API 响应是否有效"""

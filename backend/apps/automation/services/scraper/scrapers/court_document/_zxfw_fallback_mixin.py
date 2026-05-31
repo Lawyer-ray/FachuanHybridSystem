@@ -11,7 +11,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger("apps.automation")
 
-
 class ZxfwFallbackMixin:
     """传统页面点击回退下载方法"""
 
@@ -143,7 +142,7 @@ class ZxfwFallbackMixin:
             "回退方式下载完成",
             extra={
                 "operation_type": "fallback_download_summary",
-                "timestamp": __import__("time").time(),
+                "timestamp": __import_"time".time(),
                 "total_count": doc_count,
                 "success_count": success_count,
                 "failed_count": failed_count,

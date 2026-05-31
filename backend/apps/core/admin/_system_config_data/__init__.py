@@ -17,7 +17,6 @@ from ._service_configs import (
 
 __all__ = ["get_default_configs", "get_env_mappings"]
 
-
 def get_default_configs() -> list[dict[str, Any]]:
     """获取默认配置项列表 - 包含核心必需配置"""
     configs = (

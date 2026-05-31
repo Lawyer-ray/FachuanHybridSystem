@@ -15,7 +15,6 @@ from apps.core.exceptions import BusinessException
 
 logger = logging.getLogger(__name__)
 
-
 def convert_image_to_pdf(image_path: str) -> str:
     try:
         from PIL import Image
@@ -60,7 +59,6 @@ def convert_image_to_pdf(image_path: str) -> str:
             errors={"image_path": image_path, "error": str(e)},
         ) from e
 
-
 def _find_libreoffice() -> str | None:
     """查找本机 LibreOffice 可执行文件路径"""
     import platform
@@ -94,7 +92,6 @@ def _find_libreoffice() -> str | None:
                 return p
 
     return None
-
 
 def _convert_via_libreoffice(docx_path: str) -> str | None:
     """使用 LibreOffice headless 模式转换 docx → pdf（最高质量）"""
@@ -151,7 +148,6 @@ def _convert_via_libreoffice(docx_path: str) -> str | None:
         import shutil as shutil_mod
 
         shutil_mod.rmtree(output_dir, ignore_errors=True)
-
 
 def convert_docx_to_pdf(docx_path: str) -> str:
     try:
@@ -221,7 +217,6 @@ def convert_docx_to_pdf(docx_path: str) -> str:
             code="DOCX_CONVERSION_FAILED",
             errors={"docx_path": docx_path, "error": str(e)},
         ) from e
-
 
 def add_page_numbers(pdf_input: io.BytesIO, start_page: int = 1) -> bytes:
     try:

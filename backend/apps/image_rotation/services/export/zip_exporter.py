@@ -9,7 +9,6 @@ from apps.image_rotation.services import storage
 
 logger = logging.getLogger("apps.image_rotation")
 
-
 def generate_zip(*, processed_images: list[tuple[str, bytes, str]], output_dir: Path) -> str:
     zip_filename = storage.build_zip_filename()
     zip_path = output_dir / zip_filename
@@ -33,7 +32,6 @@ def generate_zip(*, processed_images: list[tuple[str, bytes, str]], output_dir: 
         if zip_path.exists():
             zip_path.unlink()
         raise
-
 
 def _get_unique_filename(filename: str, used_names: dict[str, int]) -> str:
     if not filename:

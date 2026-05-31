@@ -24,12 +24,10 @@ from apps.legal_research.models import (
 from apps.legal_research.services.similarity.tuning_config import LegalResearchTuningConfig
 from apps.legal_research.services.task.executor import LegalResearchExecutor
 
-
 @dataclass(frozen=True)
 class CredentialRef:
     id: int
     lawyer_id: int
-
 
 class Command(BaseCommand):
     help = "回放法律检索标注样本并输出 precision/recall/F1 基线报告"

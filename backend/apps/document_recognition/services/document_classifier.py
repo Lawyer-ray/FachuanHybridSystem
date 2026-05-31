@@ -10,8 +10,6 @@ import json
 import logging
 from typing import Any, cast
 
-from django.utils.translation import gettext_lazy as _
-
 from apps.core.exceptions import RecognitionTimeoutError, ServiceUnavailableError
 from apps.core.interfaces import ServiceLocator
 from apps.core.llm.config import LLMConfig
@@ -21,16 +19,13 @@ from .data_classes import DocumentType
 
 logger = logging.getLogger("apps.document_recognition")
 
-
 def get_ollama_model() -> str:
     """兼容旧测试与调用方：保留模块级配置读取入口。"""
     return LLMConfig.get_ollama_model()
 
-
 def get_ollama_base_url() -> str:
     """兼容旧测试与调用方：保留模块级配置读取入口。"""
     return LLMConfig.get_ollama_base_url()
-
 
 def chat(
     *,
@@ -51,7 +46,6 @@ def chat(
         **kwargs,
     )
     return {"message": {"content": llm_response.content}}
-
 
 class DocumentClassifier:
     """
@@ -157,7 +151,7 @@ class DocumentClassifier:
                 extra={"action": "classify", "error_type": "connection_error", "error": str(e)},
             )
             raise ServiceUnavailableError(
-                message=_("AI 服务暂时不可用，请稍后重试"),
+                message="AI 服务暂时不可用，请稍后重试",
                 code="OLLAMA_SERVICE_UNAVAILABLE",
                 errors={"service": "Ollama 服务连接失败"},
                 service_name="Ollama",
@@ -167,7 +161,7 @@ class DocumentClassifier:
                 f"文书分类超时: {e}", extra={"action": "classify", "error_type": "timeout_error", "error": str(e)}
             )
             raise RecognitionTimeoutError(
-                message=_("文书分类超时，请重试"), code="CLASSIFICATION_TIMEOUT", errors={"timeout": "AI 分类超时"}
+                message="文书分类超时，请重试", code="CLASSIFICATION_TIMEOUT", errors={"timeout": "AI 分类超时"}
             ) from e
         except Exception as e:
             logger.error(

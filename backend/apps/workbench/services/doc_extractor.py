@@ -23,7 +23,6 @@ logger = logging.getLogger(__name__)
 
 MAX_TEXT_LENGTH = 100000  # 上限保护，长文档由 tasks.py 分段处理
 
-
 class DocTextExtractor:
     """文档文本提取器"""
 

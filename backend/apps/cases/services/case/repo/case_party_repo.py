@@ -6,7 +6,6 @@ from django.db.models import Q
 
 from apps.cases.models import Case, CaseParty
 
-
 class CasePartyRepo:
     def list_party_names_by_case(self, case_id: int) -> list[str]:
         party_names = (

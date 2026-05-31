@@ -7,7 +7,6 @@ from typing import Any
 
 from mcp_server.client import client
 
-
 def create_research_task(
     credential_id: int,
     keyword: str,
@@ -32,7 +31,6 @@ def create_research_task(
         payload["llm_model"] = llm_model
     return client.post("/legal-research/tasks", json=payload)  # type: ignore[return-value]
 
-
 def capability_search(
     credential_id: int,
     facts: str,
@@ -55,16 +53,13 @@ def capability_search(
     }
     return client.post("/legal-research/capability/search/mcp", json=payload)  # type: ignore[return-value]
 
-
 def get_research_task(task_id: int) -> dict[str, Any]:
     """查询类案检索任务状态和进度。status: pending/running/completed/failed。"""
     return client.get(f"/legal-research/tasks/{task_id}")  # type: ignore[return-value]
 
-
 def list_research_results(task_id: int) -> list[dict[str, Any]]:
     """获取检索任务的结果列表，包含相似度评分、案件摘要等。"""
     return client.get(f"/legal-research/tasks/{task_id}/results")  # type: ignore[return-value]
-
 
 def download_research_result(task_id: int, result_id: int) -> dict[str, Any]:
     """下载单个检索结果的 PDF 文件。返回 {filename, content_type, data_base64}。"""
@@ -76,7 +71,6 @@ def download_research_result(task_id: int, result_id: int) -> dict[str, Any]:
         "content_type": content_type,
         "data_base64": base64.b64encode(content).decode(),
     }
-
 
 def download_all_research_results(task_id: int) -> dict[str, Any]:
     """下载检索任务所有结果的 ZIP 压缩包。返回 {filename, content_type, data_base64}。"""

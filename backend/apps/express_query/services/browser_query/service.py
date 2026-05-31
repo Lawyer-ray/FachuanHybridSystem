@@ -18,7 +18,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger("apps.express_query")
 
-
 class ExpressBrowserQueryService:
     @staticmethod
     async def close_browser() -> None:

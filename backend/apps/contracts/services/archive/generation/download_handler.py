@@ -16,7 +16,6 @@ from .document_generator import generate_single_archive_document
 
 logger = logging.getLogger("apps.contracts.archive")
 
-
 def download_archive_item(
     contract: Contract,
     archive_item_code: str,
@@ -32,7 +31,6 @@ def download_archive_item(
 
     return _download_uploaded_item(contract, archive_item_code)
 
-
 def _find_checklist_item(contract: Contract, archive_item_code: str) -> ChecklistItem | None:
     """查找检查清单中指定编号的项。"""
     archive_category = get_archive_category(contract.case_type)
@@ -41,7 +39,6 @@ def _find_checklist_item(contract: Contract, archive_item_code: str) -> Checklis
         if item["code"] == archive_item_code:
             return item
     return None
-
 
 def _download_template_item(
     contract: Contract,
@@ -63,7 +60,6 @@ def _download_template_item(
         }
 
     return {"error": "生成失败：无文件内容"}
-
 
 def _download_uploaded_item(
     contract: Contract,
@@ -112,7 +108,6 @@ def _download_uploaded_item(
 
     return _merge_materials_to_pdf(materials, archive_item_code)
 
-
 def _apply_subitem_sort(
     materials: list[FinalizedMaterial],
     archive_item_code: str,
@@ -140,7 +135,6 @@ def _apply_subitem_sort(
     unordered_mats.sort(key=_sort_key)
     return ordered_mats + unordered_mats
 
-
 def _is_item_by_name(contract: Contract, archive_item_code: str, name_keyword: str) -> bool:
     """判断 archive_item_code 对应的检查项名称是否包含指定关键词。"""
     archive_category = get_archive_category(contract.case_type)
@@ -149,7 +143,6 @@ def _is_item_by_name(contract: Contract, archive_item_code: str, name_keyword: s
         if item["code"] == archive_item_code and name_keyword in item.get("name", ""):
             return True
     return False
-
 
 def _read_material_file(material: FinalizedMaterial) -> dict[str, Any]:
     """读取单个材料文件的内容。"""
@@ -176,7 +169,6 @@ def _read_material_file(material: FinalizedMaterial) -> dict[str, Any]:
         "filename": material.original_filename,
         "content_type": content_type,
     }
-
 
 def _merge_materials_to_pdf(
     materials: list[FinalizedMaterial],

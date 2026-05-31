@@ -13,18 +13,15 @@ from apps.core.infrastructure.throttling import rate_limit_from_settings
 logger = logging.getLogger(__name__)
 router = Router()
 
-
 def _get_review_service() -> Any:
     from apps.contract_review.services.wiring import get_review_service
 
     return get_review_service()
 
-
 def _get_model_list_service() -> Any:
     from apps.core.llm.model_list_service import ModelListService
 
     return ModelListService()
-
 
 def _check_task_access(task: Any, user: Any) -> bool:
     """检查用户是否有权限访问任务"""
@@ -35,7 +32,6 @@ def _check_task_access(task: Any, user: Any) -> bool:
         return True
     # 普通用户只能访问自己的任务
     return task.user_id == user.id
-
 
 @router.post("/upload", response=TaskCreatedOut)
 @rate_limit_from_settings("TASK", by_user=True)
@@ -57,7 +53,6 @@ def upload_contract(
         "contract_title": task.contract_title or None,
         "parties": parties,
     }
-
 
 @router.post("/{task_id}/confirm-party", response=TaskStatusOut)
 def confirm_party(
@@ -94,7 +89,6 @@ def confirm_party(
         "output_filename": None,
     }
 
-
 @router.get("/{task_id}/status", response=TaskStatusOut)
 def get_task_status(request: HttpRequest, task_id: UUID) -> dict[str, Any]:
     svc = _get_review_service()
@@ -112,7 +106,6 @@ def get_task_status(request: HttpRequest, task_id: UUID) -> dict[str, Any]:
         "output_filename": output_filename,
     }
 
-
 @router.get("/{task_id}/download")
 @rate_limit_from_settings("EXPORT", by_user=True)
 def download_result(request: HttpRequest, task_id: UUID) -> FileResponse:
@@ -126,7 +119,6 @@ def download_result(request: HttpRequest, task_id: UUID) -> FileResponse:
     path = svc.get_result_file(task_id)
     return FileResponse(path.open("rb"), as_attachment=True, filename=path.name)
 
-
 @router.get("/{task_id}/download-original")
 @rate_limit_from_settings("EXPORT", by_user=True)
 def download_original(request: HttpRequest, task_id: UUID) -> FileResponse:
@@ -139,7 +131,6 @@ def download_original(request: HttpRequest, task_id: UUID) -> FileResponse:
         return HttpResponseForbidden("无权下载此文件")
     path = svc.get_original_file(task_id)
     return FileResponse(path.open("rb"), as_attachment=True, filename=path.name)
-
 
 @router.get("/models")
 def get_models(request: HttpRequest) -> dict[str, Any]:

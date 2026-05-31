@@ -16,7 +16,6 @@ from apps.litigation_ai.placeholders.spec import LitigationPlaceholderKeys
 
 logger = logging.getLogger(__name__)
 
-
 @PlaceholderRegistry.register
 class EnforcementCaseNumberService(BasePlaceholderService):
     """强制执行申请书执行依据案号服务"""
@@ -78,7 +77,6 @@ class EnforcementCaseNumberService(BasePlaceholderService):
         logger.warning("未找到案号信息: case_id=%s", case_id)
         return ""
 
-
 @PlaceholderRegistry.register
 class EnforcementCourtService(BasePlaceholderService):
     """强制执行申请书管辖法院服务"""
@@ -122,7 +120,6 @@ class EnforcementCourtService(BasePlaceholderService):
         logger.warning("未找到管辖法院信息: case_id=%s", case_id)
         return ""
 
-
 @PlaceholderRegistry.register
 class EnforcementEffectiveDateService(BasePlaceholderService):
     """强制执行申请书判决生效日期服务"""
@@ -164,7 +161,6 @@ class EnforcementEffectiveDateService(BasePlaceholderService):
 
         logger.warning("未找到判决生效日期: case_id=%s", case_id)
         return ""
-
 
 @PlaceholderRegistry.register
 class EnforcementTargetAmountService(BasePlaceholderService):
@@ -209,7 +205,6 @@ class EnforcementTargetAmountService(BasePlaceholderService):
 
         logger.warning("未找到涉案金额: case_id=%s", case_id)
         return ""
-
 
 @PlaceholderRegistry.register
 class EnforcementCauseOfActionService(BasePlaceholderService):

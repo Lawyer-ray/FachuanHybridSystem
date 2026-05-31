@@ -10,7 +10,6 @@ from typing import Any
 
 from apps.core.interfaces import ICaseNumberService
 
-
 class CaseNumberServiceAdapter(ICaseNumberService):
     """
     案号服务适配器

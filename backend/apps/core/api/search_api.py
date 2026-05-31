@@ -9,12 +9,10 @@ from ninja import Router, Schema
 
 router = Router()
 
-
 class SearchResultItem(Schema):
     id: int
     title: str
     subtitle: str = ""
-
 
 class GlobalSearchResult(Schema):
     clients: list[SearchResultItem] = []
@@ -23,7 +21,6 @@ class GlobalSearchResult(Schema):
     inbox: list[SearchResultItem] = []
     court_sms: list[SearchResultItem] = []
     contacts: list[SearchResultItem] = []
-
 
 @router.get("", response=GlobalSearchResult)
 def global_search(request: HttpRequest, q: str = "", limit: int = 5) -> dict[str, Any]:

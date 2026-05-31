@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from django.utils.translation import gettext_lazy as _
-
 """
 财产保全日期识别服务
 
@@ -12,7 +10,6 @@ from django.utils.translation import gettext_lazy as _
 
 Requirements: 1.5, 1.6, 2.1, 6.1, 6.2, 6.4
 """
-
 
 import json
 import logging
@@ -33,7 +30,6 @@ if TYPE_CHECKING:
     from apps.document_recognition.services import TextExtractionService
 
 logger = logging.getLogger("apps.preservation_date")
-
 
 class PreservationDateExtractionService:
     """
@@ -299,7 +295,7 @@ class PreservationDateExtractionService:
         )
 
         if not response or not response.content:
-            raise ValidationException(message=_("大模型调用失败"), code="LLM_ERROR", errors={})
+            raise ValidationException(message="大模型调用失败", code="LLM_ERROR", errors={})
 
         model_used = f"{response.backend}/{response.model}" if hasattr(response, "backend") else response.model
         logger.info(f"使用模型: {model_used}")

@@ -31,12 +31,10 @@ logger = logging.getLogger("apps.automation")
 
 _SESSION_UPDATE_EXECUTOR = ThreadPoolExecutor(max_workers=1, thread_name_prefix="court-filing-session")
 
-
 def _get_organization_service() -> Any:
     from apps.core.dependencies import build_organization_service
 
     return build_organization_service()
-
 
 def _resolve_court_name(authority_name: str) -> str | None:
     """将管辖机关名称解析为完整法院名称
@@ -54,20 +52,17 @@ def _resolve_court_name(authority_name: str) -> str | None:
 
     return f"{authority_name}人民法院"
 
-
 def _normalize_filing_type(*, requested_filing_type: str | None, case: Any, parties: list[Any]) -> str:
     requested = str(requested_filing_type or "").strip().lower()
     if requested in _VALID_FILING_TYPES:
         return requested
     return _infer_filing_type(case=case, parties=parties)
 
-
 def _normalize_filing_engine(requested_engine: str | None) -> str:
     requested = str(requested_engine or "").strip().lower()
     if requested in _VALID_FILING_ENGINES:
         return requested
     return _FILING_ENGINE_API
-
 
 def _infer_filing_type(*, case: Any, parties: list[Any]) -> str:
     """自动推断立案类型：执行优先，默认民事。"""
@@ -90,7 +85,6 @@ def _infer_filing_type(*, case: Any, parties: list[Any]) -> str:
 
     return _FILING_TYPE_CIVIL
 
-
 def _resolve_original_case_number(case: Any) -> str:
     """解析执行依据案号：优先生效案号，其次第一条案号。"""
     case_numbers = getattr(case, "case_numbers", None)
@@ -105,7 +99,6 @@ def _resolve_original_case_number(case: Any) -> str:
     if fallback_number:
         return str(fallback_number).strip()
     return ""
-
 
 def _build_party_payloads(
     parties: list[Any],
@@ -148,11 +141,9 @@ def _build_party_payloads(
 
     return plaintiffs, defendants, third_parties
 
-
 def _to_valid_mobile(value: str) -> str:
     digits = re.sub(r"\D+", "", str(value or ""))
     return digits if re.fullmatch(r"1\d{10}", digits) else ""
-
 
 def _apply_execution_party_fallbacks(*, plaintiffs: list[dict[str, Any]], agents: list[dict[str, Any]]) -> None:
     fallback_phone = ""
@@ -173,7 +164,6 @@ def _apply_execution_party_fallbacks(*, plaintiffs: list[dict[str, Any]], agents
         phone = _to_valid_mobile(str(plaintiff.get("phone", "") or ""))
         if not phone and fallback_phone:
             plaintiff["phone"] = fallback_phone
-
 
 def _build_agent_payloads(*, case: Any, requester_id: int | None, parties: list[Any]) -> list[dict[str, Any]]:
     from apps.organization.models import Lawyer
@@ -233,7 +223,6 @@ def _build_agent_payloads(*, case: Any, requester_id: int | None, parties: list[
 
     return agents
 
-
 def _build_execution_reason_text(*, case: Any, original_case_number: str) -> str:
     cause_text = str(getattr(case, "cause_of_action", "") or "").strip()
     case_number_text = original_case_number or "相关"
@@ -241,7 +230,6 @@ def _build_execution_reason_text(*, case: Any, original_case_number: str) -> str
     if cause_text:
         reason = f"被执行人未履行{case_number_text}生效法律文书确定的{cause_text}相关义务。"
     return reason
-
 
 def _build_execution_request_text(*, case: Any) -> str:
     from apps.litigation_ai.placeholders.spec import LitigationPlaceholderKeys
@@ -270,10 +258,8 @@ def _build_execution_request_text(*, case: Any) -> str:
     ]
     return "\n".join(fallback_lines).strip()
 
-
 def _normalize_text(value: str) -> str:
     return _TEXT_NORMALIZE_PATTERN.sub("", str(value or "").strip().lower())
-
 
 def _score_slot_for_signal(
     *, signal: str, strong: tuple[str, ...], weak: tuple[str, ...], exclude: tuple[str, ...]
@@ -292,7 +278,6 @@ def _score_slot_for_signal(
         if _normalize_text(keyword) in signal:
             score -= 6
     return score
-
 
 def _build_material_slot_signals(*, material: Any, file_path: Path) -> tuple[list[str], list[str]]:
     """构建材料匹配信号，返回 (主信号列表, 辅信号列表)。
@@ -335,7 +320,6 @@ def _build_material_slot_signals(*, material: Any, file_path: Path) -> tuple[lis
             _append_secondary(str(getattr(attachment_log, "content", "") or ""))
 
     return primary_signals, secondary_signals
-
 
 def _score_slot_deduplicated(
     *,
@@ -388,7 +372,6 @@ def _score_slot_deduplicated(
 
     return score
 
-
 def _match_slot(*, material: Any, file_path: Path, filing_type: str) -> str:
     rules_by_slot = _SLOT_RULES.get(filing_type) or _SLOT_RULES[_FILING_TYPE_CIVIL]
     default_slot = _DEFAULT_SLOT_BY_FILING_TYPE.get(filing_type, "5")
@@ -429,7 +412,6 @@ def _match_slot(*, material: Any, file_path: Path, filing_type: str) -> str:
         return "5"
 
     return default_slot
-
 
 def _build_materials_map(*, case: Any, filing_type: str) -> dict[str, list[tuple[str, str]]]:
     from django.db.models import Q
@@ -487,7 +469,6 @@ def _build_materials_map(*, case: Any, filing_type: str) -> dict[str, list[tuple
 
     return materials_map
 
-
 def _build_session_status_payload(*, task: Any) -> dict[str, Any]:
     from apps.automation.models import ScraperTaskStatus
 
@@ -522,7 +503,6 @@ def _build_session_status_payload(*, task: Any) -> dict[str, Any]:
     if timing:
         payload["timing"] = timing
     return payload
-
 
 def _update_session_task(
     *,
@@ -570,7 +550,6 @@ def _update_session_task(
         return
 
     _SESSION_UPDATE_EXECUTOR.submit(_do_update)
-
 
 def _run_filing(
     account: str,

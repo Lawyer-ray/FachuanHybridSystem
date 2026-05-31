@@ -14,18 +14,15 @@ if TYPE_CHECKING:
         ISystemConfigService,
     )
 
-
 def build_system_config_service() -> ISystemConfigService:
     from apps.core.services import SystemConfigService
 
     return SystemConfigService()
 
-
 def build_business_config_service() -> IBusinessConfigService:
     from apps.core.services import BusinessConfigService
 
     return BusinessConfigService()
-
 
 def build_llm_service() -> ILLMService:
     from apps.core.llm.config import LLMConfig
@@ -40,12 +37,10 @@ def build_llm_service() -> ILLMService:
         ),
     )
 
-
 def build_conversation_history_service() -> IConversationHistoryService:
     from apps.core.services.conversation_history_service import ConversationHistoryService
 
     return ConversationHistoryService()
-
 
 def build_cause_court_query_service() -> ICauseCourtQueryService:
     from apps.core.protocols import ICauseCourtQueryService
@@ -53,24 +48,20 @@ def build_cause_court_query_service() -> ICauseCourtQueryService:
 
     return cast(ICauseCourtQueryService, CauseCourtQueryService())
 
-
 def build_baoquan_token_service() -> IBaoquanTokenService:
     from apps.core.services.court_tokens.baoquan_token_service import BaoquanTokenService
 
     return BaoquanTokenService()
-
 
 def build_task_submission_service() -> Any:
     from apps.core.tasking import TaskSubmissionService
 
     return TaskSubmissionService()
 
-
 def build_task_scheduler() -> Any:
     from apps.core.tasking import DjangoQTaskScheduler
 
     return DjangoQTaskScheduler()
-
 
 def build_system_update_service() -> Any:
     from apps.core.services.system_update_service import SystemUpdateService

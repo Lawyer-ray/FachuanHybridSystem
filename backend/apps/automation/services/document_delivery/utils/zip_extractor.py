@@ -6,7 +6,6 @@ import tempfile
 from apps.core.filesystem import FolderFilesystemService
 from apps.core.utils.path import Path
 
-
 def extract_zip_if_needed(file_path: str) -> list[str] | None | None:
     if not file_path.lower().endswith(".zip"):
         return None

@@ -13,7 +13,6 @@ from apps.fee_notice.models import FeeNoticeTool
 
 logger = logging.getLogger("apps.fee_notice")
 
-
 @admin.register(FeeNoticeTool)
 class FeeNoticeAdmin(admin.ModelAdmin):
     """Admin entry for fee notice recognition test page."""

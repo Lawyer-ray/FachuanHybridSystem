@@ -12,7 +12,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger("apps.automation")
 
-
 class ZxfwInterceptMixin:
     """Playwright API 拦截下载方法"""
 

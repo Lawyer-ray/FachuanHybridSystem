@@ -11,7 +11,6 @@ from django.conf import settings
 
 logger = logging.getLogger(__name__)
 
-
 @dataclass(frozen=True)
 class TaskRunContext:
     started_monotonic: float
@@ -40,7 +39,6 @@ class TaskRunContext:
     def is_past_soft_deadline(self) -> bool:
         return time.monotonic() > float(self.soft_deadline_monotonic)
 
-
 class CancellationToken:
     def __init__(self, should_cancel: Callable[[], bool]) -> None:
         self._should_cancel = should_cancel
@@ -50,7 +48,6 @@ class CancellationToken:
             return bool(self._should_cancel())
         except (TypeError, AttributeError):
             return False
-
 
 class ProgressReporter:
     def __init__(

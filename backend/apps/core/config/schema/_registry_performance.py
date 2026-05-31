@@ -2,7 +2,6 @@
 
 from .field import ConfigField
 
-
 def register_performance_configs(registry: dict[str, ConfigField]) -> None:
     # 限流
     registry["performance.rate_limit.default_requests"] = ConfigField(

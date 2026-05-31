@@ -16,7 +16,6 @@ from apps.documents.api.download_response_factory import build_download_response
 logger = logging.getLogger("apps.cases.api")
 router = Router()
 
-
 @router.post("/{case_id}/generate-folder")
 def generate_case_folder(request: HttpRequest, case_id: int) -> Any:
     """

@@ -2,7 +2,6 @@
 
 from dataclasses import dataclass
 
-
 @dataclass
 class ReminderDTO:
     id: int
@@ -12,7 +11,6 @@ class ReminderDTO:
     contract_id: int | None = None
     case_id: int | None = None
     created_at: str | None = None
-
 
 @dataclass
 class ReminderTypeDTO:

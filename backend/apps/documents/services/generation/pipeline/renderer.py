@@ -5,7 +5,6 @@ from typing import Any
 
 from apps.documents.services.placeholders.fallback import build_docx_render_context
 
-
 class DocxRenderer:
     def render(self, template_path: str, context: dict[str, Any]) -> bytes:
         from docxtpl import DocxTemplate

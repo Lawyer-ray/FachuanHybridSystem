@@ -8,7 +8,6 @@ from typing import Any
 
 from django.db import transaction
 from django.utils import timezone
-from django.utils.translation import gettext_lazy as _
 
 from apps.chat_records.models import ChatRecordExportTask, ExportStatus, ExportType
 from apps.core.exceptions import NotFoundError, ValidationException
@@ -18,7 +17,6 @@ from ..core.access_policy import ensure_can_access_project
 from ..core.project_service import ProjectService
 
 logger = logging.getLogger(__name__)
-
 
 class ExportTaskService:
     def __init__(self, *, task_submission_service: TaskSubmissionService, project_service: ProjectService) -> None:
@@ -49,7 +47,7 @@ class ExportTaskService:
             progress=0,
             current=0,
             total=0,
-            message=str(_("准备导出")),
+            message=str("准备导出"),
         )
         return task
 
@@ -69,7 +67,7 @@ class ExportTaskService:
             started_at=timezone.now(),
             finished_at=None,
             error="",
-            message=str(_("任务已提交")),
+            message=str("任务已提交"),
             progress=0,
             current=0,
             total=0,

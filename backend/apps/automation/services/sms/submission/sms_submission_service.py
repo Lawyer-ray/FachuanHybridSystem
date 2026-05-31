@@ -14,7 +14,6 @@ from typing import TYPE_CHECKING, Optional
 
 from django.db import transaction
 from django.utils import timezone
-from django.utils.translation import gettext_lazy as _
 
 from apps.automation.models import CourtSMS, CourtSMSStatus
 from apps.core.exceptions import NotFoundError, ValidationException
@@ -24,7 +23,6 @@ if TYPE_CHECKING:
     from apps.core.interfaces import ICaseService, ILawyerService
 
 logger = logging.getLogger("apps.automation")
-
 
 class SMSSubmissionService:
     """
@@ -91,7 +89,7 @@ class SMSSubmissionService:
         """
         if not content or not content.strip():
             raise ValidationException(
-                message=_("短信内容不能为空"), code="EMPTY_SMS_CONTENT", errors={"content": "短信内容不能为空"}
+                message="短信内容不能为空", code="EMPTY_SMS_CONTENT", errors={"content": "短信内容不能为空"}
             )
 
         if received_at is None:
@@ -169,7 +167,7 @@ class SMSSubmissionService:
                 logger.info(f"案件绑定创建成功，进入重命名阶段: SMS ID={sms_id}")
             else:
                 sms.status = CourtSMSStatus.FAILED
-                sms.error_message = str(_("创建案件绑定失败"))
+                sms.error_message = str("创建案件绑定失败")
                 sms.save()
                 logger.error(f"案件绑定创建失败: SMS ID={sms_id}")
                 return sms

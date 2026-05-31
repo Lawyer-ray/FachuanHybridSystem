@@ -24,17 +24,14 @@ from apps.core.utils.path import Path
 
 logger = logging.getLogger(__name__)
 
-
 def smoke_q_task(a: int, b: int) -> int:
     return a + b
-
 
 class _DummyAutoNamerService:
     def process_document_for_naming(
         self, uploaded_file: Any, prompt: Any, model: Any, limit: Any | None = None, preview_page: Any | None = None
     ) -> None:
         return {"text": "ok", "ollama_response": {"filename": uploaded_file.name}, "error": None}  # type: ignore[return-value]
-
 
 class _DummyDocumentProcessorService:
     class _Result:
@@ -49,7 +46,6 @@ class _DummyDocumentProcessorService:
         self, uploaded_file: Any, limit: Any | None = None, preview_page: Any | None = None
     ) -> None:
         return self._Result(getattr(uploaded_file, "name", "unknown"))  # type: ignore[return-value]
-
 
 class Command(BaseCommand):
     def add_arguments(self, parser: Any) -> None:

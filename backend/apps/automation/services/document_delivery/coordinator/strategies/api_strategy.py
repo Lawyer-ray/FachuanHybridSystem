@@ -10,7 +10,6 @@ from apps.automation.utils.logging import AutomationLogger
 
 logger = logging.getLogger(__name__)
 
-
 class DocumentDeliveryApiStrategy:
     def __init__(self, *, token_service: Any, api_service: Any) -> None:
         self.token_service = token_service

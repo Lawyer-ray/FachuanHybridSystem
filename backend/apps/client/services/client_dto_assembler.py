@@ -10,7 +10,6 @@ from apps.core.interfaces import ClientDTO
 if TYPE_CHECKING:
     from apps.client.models import Client, ClientIdentityDoc, PropertyClue
 
-
 class ClientDtoAssembler:
     """当事人基础 DTO 组装。"""
 
@@ -24,7 +23,6 @@ class ClientDtoAssembler:
             address=client.address,
             is_our_client=client.is_our_client,
         )
-
 
 class ClientRelatedDtoAssembler:
     """当事人关联对象 DTO 组装。"""

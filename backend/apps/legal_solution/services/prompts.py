@@ -57,7 +57,6 @@ _SECTION_PROMPTS: dict[str, str] = {
     ),
 }
 
-
 def build_section_prompt(
     *,
     section_type: str,

@@ -2,7 +2,6 @@ from typing import cast
 
 """Data repository layer."""
 
-
 class CourtSmsRepo:
     def find_completed_sms_id_by_case_number(self, case_number: str) -> int | None:
         from apps.automation.models import CourtSMS, CourtSMSStatus

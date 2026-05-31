@@ -6,7 +6,6 @@ from typing import TYPE_CHECKING, Any
 
 from django.contrib import admin
 from django.http import HttpRequest
-from django.utils.translation import gettext_lazy as _
 
 from apps.contracts.models import ClientPaymentRecord
 
@@ -20,13 +19,12 @@ else:
     except ImportError:
         BaseTabularInline = admin.TabularInline  # type: ignore[assignment,misc]
 
-
 class CaseClientPaymentInline(BaseTabularInline[ClientPaymentRecord, ClientPaymentRecord]):
     model = ClientPaymentRecord
     extra = 0
     fields = ("amount", "note")
-    verbose_name = _("客户回款")
-    verbose_name_plural = _("客户回款")
+    verbose_name = "客户回款"
+    verbose_name_plural = "客户回款"
     can_delete = True
 
     def get_formset(self, request: HttpRequest, obj: Any = None, **kwargs: Any) -> Any:

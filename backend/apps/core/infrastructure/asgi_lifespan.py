@@ -8,9 +8,7 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
-
 Hook = Callable[[], Awaitable[None]]
-
 
 class LifespanApp:
     def __init__(self, *, on_startup: Hook | None = None, on_shutdown: Hook | None = None) -> None:

@@ -19,7 +19,6 @@ logger = logging.getLogger(__name__)
 # 学习规则代码文件路径（与 archive_classifier.py 同目录）
 _LEARNED_RULES_PATH = Path(__file__).parent.parent / "contract" / "integrations" / "_learned_rules.py"
 
-
 class ArchiveLearningService:
     """归档分类学习服务。
 
@@ -263,11 +262,9 @@ class ArchiveLearningService:
         lines.append("")
         return "\n".join(lines)
 
-
 # ============================================================
 # 模块级辅助函数
 # ============================================================
-
 
 def extract_keywords(filename: str) -> list[str]:
     """从文件名中提取关键词。
@@ -319,7 +316,6 @@ def extract_keywords(filename: str) -> list[str]:
                 keywords.append(stripped_kw)
 
     return keywords
-
 
 # 文书类型关键词白名单（模块级常量，避免每次调用重复创建）
 _DOCUMENT_KEYWORDS: tuple[str, ...] = (
@@ -383,7 +379,6 @@ _DOCUMENT_KEYWORDS: tuple[str, ...] = (
     "意见",
 )
 
-
 def _contains_document_keyword(text: str) -> bool:
     """判断文本是否包含文书类型关键词（白名单机制）。
 
@@ -391,7 +386,6 @@ def _contains_document_keyword(text: str) -> bool:
     例如："案卷封面" ✓（含"封面"），"张福裕案件" ✗（不含文书关键词）
     """
     return any(kw in text for kw in _DOCUMENT_KEYWORDS)
-
 
 def _strip_non_keyword_parts(text: str) -> str:
     """脱壳：从关键词中剥离前后粘着的非文书内容，只保留文书关键词部分。
@@ -444,7 +438,6 @@ def _strip_non_keyword_parts(text: str) -> str:
 
     # 无粘着 → 保留原文（合法复合文书名）
     return text
-
 
 def _is_non_keyword_attachment(text: str) -> bool:
     """判断文本是否为非文书关键词的粘着内容（疑似人名/公司名）。

@@ -18,7 +18,6 @@ logger = logging.getLogger(__name__)
 
 _ILLEGAL_CHARS_RE = re.compile(r'[\\/:*?"<>|]')
 
-
 class InvoiceDownloadService:
     """发票下载服务：单张/类目/全部，支持 PDF 合并和 ZIP 压缩。"""
 

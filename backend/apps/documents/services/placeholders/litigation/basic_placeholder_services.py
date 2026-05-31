@@ -10,7 +10,6 @@ from apps.litigation_ai.placeholders.spec import LitigationPlaceholderKeys
 
 logger = logging.getLogger(__name__)
 
-
 @PlaceholderRegistry.register
 class LitigationDatePlaceholderService(BasePlaceholderService):
     name: str = "litigation_date_placeholder_service"
@@ -29,7 +28,6 @@ class LitigationDatePlaceholderService(BasePlaceholderService):
         if not case_id:
             return {}
         return {LitigationPlaceholderKeys.DATE: self.case_details_accessor.get_formatted_date(case_id=case_id)}
-
 
 class _LitigationPartyNameBase(BasePlaceholderService):
     legal_status: str = ""
@@ -55,7 +53,6 @@ class _LitigationPartyNameBase(BasePlaceholderService):
             return {}
         return {self.placeholder_key: self._get_first_party_name(case_id=case_id, legal_status=self.legal_status)}
 
-
 @PlaceholderRegistry.register
 class LitigationPlaintiffNamePlaceholderService(_LitigationPartyNameBase):
     name: str = "litigation_plaintiff_name_placeholder_service"
@@ -65,7 +62,6 @@ class LitigationPlaintiffNamePlaceholderService(_LitigationPartyNameBase):
     placeholder_key = LitigationPlaceholderKeys.PLAINTIFF
     placeholder_keys: ClassVar = [LitigationPlaceholderKeys.PLAINTIFF]
     legal_status = LegalStatus.PLAINTIFF
-
 
 @PlaceholderRegistry.register
 class LitigationDefendantNamePlaceholderService(_LitigationPartyNameBase):
@@ -77,7 +73,6 @@ class LitigationDefendantNamePlaceholderService(_LitigationPartyNameBase):
     placeholder_keys: ClassVar = [LitigationPlaceholderKeys.DEFENDANT]
     legal_status = LegalStatus.DEFENDANT
 
-
 @PlaceholderRegistry.register
 class LitigationRespondentNamePlaceholderService(_LitigationPartyNameBase):
     name: str = "litigation_respondent_name_placeholder_service"
@@ -87,7 +82,6 @@ class LitigationRespondentNamePlaceholderService(_LitigationPartyNameBase):
     placeholder_key = LitigationPlaceholderKeys.RESPONDENT
     placeholder_keys: ClassVar = [LitigationPlaceholderKeys.RESPONDENT]
     legal_status = LegalStatus.DEFENDANT
-
 
 @PlaceholderRegistry.register
 class LitigationCauseOfActionPlaceholderService(BasePlaceholderService):

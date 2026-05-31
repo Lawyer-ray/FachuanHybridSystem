@@ -15,7 +15,6 @@ from django.conf import settings
 
 logger = logging.getLogger("apps.core.tasking.cleanup")
 
-
 def cleanup_temp_files(max_age_hours: int = 24) -> dict[str, Any]:
     """Remove files older than *max_age_hours* from ``MEDIA_ROOT/tmp/``.
 
@@ -47,7 +46,6 @@ def cleanup_temp_files(max_age_hours: int = 24) -> dict[str, Any]:
     logger.info("Cleaned tmp/: removed=%d failed=%d max_age_hours=%d", removed, failed, max_age_hours)
     return {"removed": removed, "failed": failed, "skipped": False}
 
-
 def cleanup_export_files(max_age_days: int = 7) -> dict[str, Any]:
     """Remove files older than *max_age_days* from ``MEDIA_ROOT/exports/``.
 
@@ -78,7 +76,6 @@ def cleanup_export_files(max_age_days: int = 7) -> dict[str, Any]:
 
     logger.info("Cleaned exports/: removed=%d failed=%d max_age_days=%d", removed, failed, max_age_days)
     return {"removed": removed, "failed": failed, "skipped": False}
-
 
 def check_disk_space(warning_pct: float = 85.0, critical_pct: float = 95.0) -> dict[str, Any]:
     """Check disk usage of the volume containing MEDIA_ROOT.
@@ -116,11 +113,9 @@ def check_disk_space(warning_pct: float = 85.0, critical_pct: float = 95.0) -> d
         "path": media_root,
     }
 
-
 # ---------------------------------------------------------------------------
 # 定时任务调度注册
 # ---------------------------------------------------------------------------
-
 
 def _register_schedules() -> None:
     """注册文件清理和磁盘监控定时任务。"""
@@ -139,6 +134,5 @@ def _register_schedules() -> None:
                 logger.info("已注册定时任务: %s", name)
     except Exception:
         logger.debug("定时任务注册跳过（未就绪）")
-
 
 _register_schedules()

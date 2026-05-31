@@ -17,7 +17,6 @@ logger = logging.getLogger(__name__)
 
 __all__ = ["HealthChecker"]
 
-
 class HealthChecker:
     """健康检查器"""
 

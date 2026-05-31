@@ -9,7 +9,6 @@ from apps.core.dto import CaseTemplateBindingDTO
 
 logger = logging.getLogger("apps.cases")
 
-
 class CaseTemplateBindingQueryService:
     def get_case_template_binding_internal(self, case_id: int) -> CaseTemplateBindingDTO | None:
         try:

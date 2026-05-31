@@ -20,13 +20,11 @@ _PRESET_METADATA_PREFIX = "com.apple.print."
 _PRESET_SETTINGS_KEY = "com.apple.print.preset.settings"
 _PRESET_ID_KEY = "com.apple.print.preset.id"
 
-
 @dataclass
 class PresetRecord:
     printer_name: str
     preset_name: str
     raw_settings: dict[str, Any]
-
 
 class PresetDiscoveryService:
     preferences_dir = Path.home() / "Library" / "Preferences"

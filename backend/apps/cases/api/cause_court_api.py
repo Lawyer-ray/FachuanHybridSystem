@@ -14,13 +14,12 @@ from __future__ import annotations
 from typing import Any
 
 from django.http import HttpRequest
-from django.utils.translation import gettext_lazy as _
+
 from ninja import Router, Schema
 
 from apps.core.exceptions import NotFoundError
 
 router = Router()
-
 
 class CauseSchema(Schema):
     """案由数据 Schema"""
@@ -29,7 +28,6 @@ class CauseSchema(Schema):
     name: str
     code: str | None = None
     raw_name: str | None = None
-
 
 class CauseTreeNodeSchema(Schema):
     """案由树节点 Schema"""
@@ -42,13 +40,11 @@ class CauseTreeNodeSchema(Schema):
     has_children: bool
     full_path: str
 
-
 class CourtSchema(Schema):
     """法院数据 Schema"""
 
     id: str
     name: str
-
 
 def _get_cause_court_data_service() -> Any:
     """
@@ -59,7 +55,6 @@ def _get_cause_court_data_service() -> Any:
     from apps.cases.services import CauseCourtDataService
 
     return CauseCourtDataService()
-
 
 @router.get("/causes-data", response=list[CauseSchema])
 def get_causes(
@@ -79,7 +74,6 @@ def get_causes(
     else:
         return []
 
-
 @router.get("/causes-tree", response=list[CauseTreeNodeSchema])
 def get_causes_tree(request: HttpRequest, parent_id: int | None = None) -> Any:
     """
@@ -89,7 +83,6 @@ def get_causes_tree(request: HttpRequest, parent_id: int | None = None) -> Any:
     """
     service = _get_cause_court_data_service()
     return service.get_causes_by_parent(parent_id=parent_id)
-
 
 @router.get("/cause/{cause_id}")
 def get_cause_by_id(request: HttpRequest, cause_id: int) -> Any:
@@ -101,9 +94,8 @@ def get_cause_by_id(request: HttpRequest, cause_id: int) -> Any:
     service = _get_cause_court_data_service()
     result = service.get_cause_by_id(cause_id)
     if result is None:
-        raise NotFoundError(message=_("案由不存在"), code="CAUSE_NOT_FOUND")
+        raise NotFoundError(message="案由不存在", code="CAUSE_NOT_FOUND")
     return result
-
 
 @router.get("/courts-data", response=list[CourtSchema])
 def get_courts(request: HttpRequest, search: str | None = None, limit: int | None = 50) -> Any:

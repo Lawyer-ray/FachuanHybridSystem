@@ -12,13 +12,11 @@ from typing import Any
 from django.db.models import QuerySet
 from ninja import Schema
 
-
 class PageParams(Schema):
     """通用分页请求参数"""
 
     page: int = 1
     page_size: int = 20
-
 
 class PaginatedOut(Schema):
     """通用分页响应 Schema
@@ -39,7 +37,6 @@ class PaginatedOut(Schema):
     page: int
     page_size: int
     total_pages: int
-
 
 def paginate_queryset(
     qs: QuerySet,

@@ -12,7 +12,6 @@ from ninja import Schema
 
 from apps.core.api.schemas import SchemaMixin
 
-
 class LawyerOut(Schema):
     id: int
     username: str
@@ -49,7 +48,6 @@ class LawyerOut(Schema):
             law_firm=getattr(dto, "law_firm_id", None),
             law_firm_name=getattr(dto, "law_firm_name", None),
         )
-
 
 class CaseOut(SchemaMixin, Schema):
     id: int

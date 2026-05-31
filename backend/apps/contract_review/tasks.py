@@ -17,7 +17,6 @@ from apps.contract_review.models.review_task import ReviewTask, TaskStatus
 
 logger = logging.getLogger(__name__)
 
-
 def process_review(task_id_str: str) -> None:
     """
     异步执行审查流水线（由 Django-Q2 调用）
@@ -27,7 +26,6 @@ def process_review(task_id_str: str) -> None:
     from apps.contract_review.services.review.review_service import process_review as _process_review
 
     _process_review(task_id_str)
-
 
 def cleanup_old_files(days: int = 30) -> dict[str, int]:
     """

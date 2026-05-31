@@ -10,14 +10,12 @@ from ..exceptions import ExtractionError
 
 logger = logging.getLogger(__name__)
 
-
 @dataclass
 class ExtractionResult:
     """提取结果，包含段落文本和索引映射"""
 
     paragraphs: list[str]
     index_map: list[int]  # index_map[filtered_idx] = original_idx in doc.paragraphs
-
 
 class ContentExtractor:
     """合同内容提取器"""

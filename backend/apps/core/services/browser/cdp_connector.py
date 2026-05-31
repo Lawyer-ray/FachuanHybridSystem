@@ -19,7 +19,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger("apps.core")
 
-
 @asynccontextmanager
 async def connect_cdp_browser(
     profile: BrowserProfile,
@@ -78,7 +77,6 @@ async def connect_cdp_browser(
                 pass
             logger.debug("CDP context 已关闭")
 
-
 @asynccontextmanager
 async def connect_cdp_page(
     profile: BrowserProfile,
@@ -96,7 +94,6 @@ async def connect_cdp_page(
         else:
             page = await context.new_page()
         yield page, context
-
 
 def _extract_port(cdp_url: str) -> int:
     """从 CDP URL 中提取端口号。"""

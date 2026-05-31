@@ -23,7 +23,6 @@ from .models import (
 
 logger = logging.getLogger(__name__)
 
-
 def _get_audit_log_service() -> Any:
     """工厂函数：延迟导入并实例化 TemplateAuditLogService。"""
     try:
@@ -34,7 +33,6 @@ def _get_audit_log_service() -> Any:
         logger.debug("TemplateAuditLogService 不可用，跳过审计日志")
         return None
 
-
 def _get_content_type(model_class: type[Any]) -> str | None:
     """获取模型对应的 content_type 字符串"""
     mapping = {
@@ -43,7 +41,6 @@ def _get_content_type(model_class: type[Any]) -> str | None:
         Placeholder: "placeholder",
     }
     return mapping.get(model_class)
-
 
 def _get_tracked_fields(model_class: type[Any]) -> list[str]:
     """获取需要追踪的字段列表"""
@@ -66,7 +63,6 @@ def _get_tracked_fields(model_class: type[Any]) -> list[str]:
 
     return common_fields + specific_fields.get(model_class, [])
 
-
 def _serialize_value(value: Any) -> Any:
     """序列化字段值为可存储格式"""
     if value is None:
@@ -76,7 +72,6 @@ def _serialize_value(value: Any) -> Any:
     if hasattr(value, "name"):
         return str(value.name)
     return str(value)
-
 
 def _get_changes_from_lifecycle(instance: Any, model_class: type[Any]) -> dict[str, dict[str, Any]]:
     """利用 django-lifecycle 的 initial_value() 对比变更内容（替代 threading.local 模式）"""
@@ -101,7 +96,6 @@ def _get_changes_from_lifecycle(instance: Any, model_class: type[Any]) -> dict[s
 
     return changes
 
-
 def _get_changes(old_instance: Any, new_instance: Any, model_class: type[Any]) -> dict[str, dict[str, Any]]:
     """比较新旧实例,获取变更内容（兼容旧调用）"""
     changes: dict[str, Any] = {}
@@ -122,7 +116,6 @@ def _get_changes(old_instance: Any, new_instance: Any, model_class: type[Any]) -
 
     return changes
 
-
 def _create_audit_log(instance: Any, action: str, changes: dict[str, Any] | None = None, is_new: bool = False) -> None:
     """创建审计日志记录"""
     model_class = instance.__class__
@@ -136,7 +129,6 @@ def _create_audit_log(instance: Any, action: str, changes: dict[str, Any] | None
         return
 
     svc.create_audit_log(content_type, instance.pk, str(instance)[:500], action, changes or {})
-
 
 def _invalidate_template_matching_cache(sender: type[Any]) -> None:
     """根据 sender 类型递增对应的版本号缓存，使模板匹配缓存失效"""
@@ -156,11 +148,9 @@ def _invalidate_template_matching_cache(sender: type[Any]) -> None:
     except Exception as e:
         logger.warning("清除模板匹配缓存失败: %s", e)
 
-
 # ============================================================
 # Post-delete signals - 记录删除 & 物理文件清理
 # ============================================================
-
 
 @receiver(post_delete, sender=FolderTemplate)
 @receiver(post_delete, sender=DocumentTemplate)
@@ -172,11 +162,9 @@ def log_delete(sender: type[Any], instance: Any, **kwargs: Any) -> None:
     # 使模板匹配缓存失效（替代 Model 层的 delete() override）
     _invalidate_template_matching_cache(sender)
 
-
 # ============================================================
 # Post-delete signals - 物理文件清理
 # ============================================================
-
 
 def _delete_charfield_file(file_path_str: str | None) -> None:
     """删除 CharField 中存储的文件路径对应的物理文件"""
@@ -192,7 +180,6 @@ def _delete_charfield_file(file_path_str: str | None) -> None:
         except OSError as exc:
             logger.error("清理文档物理文件失败", extra={"file_path": str(file_path), "error": str(exc)})
 
-
 def _delete_file_field(field_file: Any) -> None:
     """删除 FileField 对应的物理文件"""
     if field_file:
@@ -201,7 +188,6 @@ def _delete_file_field(field_file: Any) -> None:
             logger.info("已清理文档 FileField 物理文件", extra={"file_path": str(field_file)})
         except Exception:
             logger.exception("清理文档 FileField 失败")
-
 
 @receiver(post_delete, dispatch_uid="cleanup_document_template_files")
 def cleanup_document_template_files(sender: type[Any], instance: Any, **kwargs: object) -> None:
@@ -213,13 +199,11 @@ def cleanup_document_template_files(sender: type[Any], instance: Any, **kwargs: 
     if sender is DocumentTemplate and instance.file:
         _delete_file_field(instance.file)
 
-
 @receiver(post_delete, dispatch_uid="cleanup_generation_task_result")
 def cleanup_generation_task_result(sender: type[Any], instance: Any, **kwargs: object) -> None:
     """GenerationTask.result_file (FileField): 文书生成结果文件"""
     if sender is GenerationTask:
         _delete_file_field(instance.result_file)
-
 
 @receiver(post_delete, dispatch_uid="cleanup_external_template_file")
 def cleanup_external_template_file(sender: type[Any], instance: Any, **kwargs: object) -> None:
@@ -227,13 +211,11 @@ def cleanup_external_template_file(sender: type[Any], instance: Any, **kwargs: o
     if sender is ExternalTemplate:
         _delete_charfield_file(instance.file_path)
 
-
 @receiver(post_delete, dispatch_uid="cleanup_fill_record_file")
 def cleanup_fill_record_file(sender: type[Any], instance: Any, **kwargs: object) -> None:
     """FillRecord.file_path (CharField): 填充生成的文件，存于 MEDIA_ROOT 下"""
     if sender is FillRecord:
         _delete_charfield_file(instance.file_path)
-
 
 @receiver(post_delete, dispatch_uid="cleanup_batch_fill_task_zip")
 def cleanup_batch_fill_task_zip(sender: type[Any], instance: Any, **kwargs: object) -> None:

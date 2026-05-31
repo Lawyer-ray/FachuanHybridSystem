@@ -9,7 +9,6 @@ from django.db.models import Q, QuerySet
 from apps.cases.models import Case, CaseNumber
 from apps.cases.utils import normalize_case_number
 
-
 class CaseSearchQueryBuilder:
     def build_case_id_query_by_case_number(self, case_number: str) -> list[Any]:
         if not case_number:

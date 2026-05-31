@@ -9,8 +9,6 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Callable
 
-from django.utils.translation import gettext_lazy as _
-
 from apps.core.exceptions import ValidationException
 from apps.document_recognition.services.text_extraction_service import TextExtractionService
 
@@ -20,13 +18,11 @@ logger = logging.getLogger(__name__)
 
 ProgressCallback = Callable[[str, int, str | None], None]
 
-
 @dataclass(frozen=True)
 class _VersionInfo:
     base_name: str
     version_token: str
     version_rank: int
-
 
 class BoundFolderScanService:
     """扫描绑定目录中的 PDF，并生成分类建议。"""
@@ -84,7 +80,7 @@ class BoundFolderScanService:
         root = Path(folder_path).expanduser()
         if not root.exists() or not root.is_dir():
             raise ValidationException(
-                message=_("绑定文件夹不可访问"),
+                message="绑定文件夹不可访问",
                 code="FOLDER_NOT_ACCESSIBLE",
                 errors={"folder_path": str(root)},
             )
@@ -219,7 +215,7 @@ class BoundFolderScanService:
             return candidate
 
         raise ValidationException(
-            message=_("不支持的扫描领域"), code="UNSUPPORTED_SCAN_DOMAIN", errors={"domain": domain}
+            message="不支持的扫描领域", code="UNSUPPORTED_SCAN_DOMAIN", errors={"domain": domain}
         )
 
     @staticmethod

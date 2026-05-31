@@ -4,20 +4,17 @@ from __future__ import annotations
 
 from typing import Protocol, runtime_checkable
 
-
 @runtime_checkable
 class ContractTargetQueryPort(Protocol):
     """Query contract target existence for reminder binding."""
 
     def exists(self, contract_id: int) -> bool: ...
 
-
 @runtime_checkable
 class CaseTargetQueryPort(Protocol):
     """Query case target existence for reminder binding."""
 
     def exists(self, case_id: int) -> bool: ...
-
 
 @runtime_checkable
 class CaseLogTargetQueryPort(Protocol):

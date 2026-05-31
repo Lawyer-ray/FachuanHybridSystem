@@ -11,7 +11,6 @@ from apps.core.exceptions.error_catalog import case_not_found
 
 from .types import LitigationCaseDetails
 
-
 class LitigationCaseDetailsAccessor:
     def __init__(self, case_service: Any | None = None) -> None:
         self._case_service = case_service

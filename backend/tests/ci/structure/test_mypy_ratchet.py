@@ -21,14 +21,12 @@ MYPY_IGNORE_ERRORS_RATCHET = 108
 
 _MYPY_INI = Path(__file__).resolve().parents[3] / "mypy.ini"
 
-
 def _count_ignore_errors() -> int:
     """Count ``ignore_errors = True`` entries in mypy.ini."""
     if not _MYPY_INI.exists():
         return 0
     text = _MYPY_INI.read_text(encoding="utf-8")
     return len(re.findall(r"ignore_errors\s*=\s*True", text))
-
 
 def test_mypy_ignore_errors_count_does_not_exceed_ratchet() -> None:
     """The number of ``ignore_errors = True`` entries must not grow beyond the ratchet baseline."""

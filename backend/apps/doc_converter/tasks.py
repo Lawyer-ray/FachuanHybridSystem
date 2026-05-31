@@ -21,7 +21,6 @@ from apps.doc_converter.services.storage import DocConverterStorage
 
 logger = logging.getLogger("apps.doc_converter")
 
-
 def run_conversion_job(job_id: str) -> None:
     """Django Q2 入口"""
     job_uuid = UUID(job_id)
@@ -157,7 +156,6 @@ def run_conversion_job(job_id: str) -> None:
         )
         # 任务失败，清理上传的源文件和中间产物
         storage.cleanup()
-
 
 def _create_zip(storage: DocConverterStorage, name_map: dict[str, str] | None = None) -> None:
     """将 output_dir 中的 docx 文件打包为 ZIP。

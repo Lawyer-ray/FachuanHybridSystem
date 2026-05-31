@@ -8,7 +8,6 @@ from apps.core.exceptions import TokenError
 
 logger = logging.getLogger(__name__)
 
-
 class BaoquanTokenService:
     COURT_SITE_NAME = "court_zxfw"
     BAOQUAN_SITE_NAME = "court_baoquan"

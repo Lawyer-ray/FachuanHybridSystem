@@ -13,7 +13,6 @@ from apps.documents.services.placeholders.registry import PlaceholderRegistry
 logger = logging.getLogger(__name__)
 _NATURAL_CLIENT_TYPE = "natural"
 
-
 @PlaceholderRegistry.register
 class PrincipalInfoService(BasePlaceholderService):
     """委托人信息服务"""

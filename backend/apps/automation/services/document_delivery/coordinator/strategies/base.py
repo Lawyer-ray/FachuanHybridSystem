@@ -5,7 +5,6 @@ from typing import Protocol
 
 from apps.automation.services.document_delivery.data_classes import DocumentQueryResult
 
-
 class DocumentDeliveryQueryStrategy(Protocol):
     def query_and_download(
         self,

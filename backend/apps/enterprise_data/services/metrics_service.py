@@ -18,7 +18,6 @@ from apps.enterprise_data.services.types import (
 
 logger = logging.getLogger(__name__)
 
-
 class EnterpriseDataMetricsService:
     """基于缓存的窗口指标聚合器。"""
 

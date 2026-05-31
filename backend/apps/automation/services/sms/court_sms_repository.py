@@ -5,7 +5,6 @@ from typing import Any
 from apps.automation.models import CourtSMS
 from apps.core.exceptions import NotFoundError
 
-
 class CourtSMSRepository:
     def get_by_id(self, *, sms_id: int) -> Any:
         sms = CourtSMS.objects.filter(id=sms_id).first()

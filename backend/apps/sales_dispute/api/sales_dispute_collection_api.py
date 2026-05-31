@@ -33,7 +33,6 @@ from .sales_dispute_api_factories import (
 
 router = Router()
 
-
 @router.post("/collection/start", response=CollectionRecordResponse)
 def start_collection(
     request: HttpRequest,
@@ -58,7 +57,6 @@ def start_collection(
         is_overdue=result.is_overdue,
         remarks=result.remarks,
     )
-
 
 @router.post("/collection/{record_id}/advance", response=CollectionRecordResponse)
 def advance_collection(
@@ -85,7 +83,6 @@ def advance_collection(
         remarks=result.remarks,
     )
 
-
 @router.get("/collection/reminders", response=list[ReminderItemSchema])
 def get_reminders(
     request: HttpRequest,
@@ -107,9 +104,7 @@ def get_reminders(
         for item in items
     ]
 
-
 # NOTE: generate-* 路由必须在 {case_id} 路由之前注册，避免路径参数抢先匹配
-
 
 @router.post("/collection/generate-lawyer-letter")
 def generate_lawyer_letter(
@@ -139,7 +134,6 @@ def generate_lawyer_letter(
     )
     response["Content-Disposition"] = f'attachment; filename="{doc.filename}"'
     return response
-
 
 @router.post("/collection/generate-reconciliation")
 def generate_reconciliation(
@@ -179,7 +173,6 @@ def generate_reconciliation(
     )
     response["Content-Disposition"] = f'attachment; filename="{doc.filename}"'
     return response
-
 
 @router.post("/collection/generate-settlement")
 def generate_settlement(
@@ -226,7 +219,6 @@ def generate_settlement(
     )
     response["Content-Disposition"] = f'attachment; filename="{doc.filename}"'
     return response
-
 
 @router.post("/collection/generate-execution-doc")
 def generate_execution_doc(
@@ -310,7 +302,6 @@ def generate_execution_doc(
     )
     response["Content-Disposition"] = f'attachment; filename="{doc.filename}"'
     return response
-
 
 @router.get("/collection/{case_id}", response=CollectionDetailResponse)
 def get_collection(

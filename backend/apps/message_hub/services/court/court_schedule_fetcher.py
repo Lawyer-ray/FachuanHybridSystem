@@ -10,7 +10,6 @@ from typing import TYPE_CHECKING, Any
 
 import httpx
 from django.utils import timezone
-from django.utils.translation import gettext_lazy as _
 
 from apps.message_hub.models import SyncStatus
 from apps.message_hub.services.base import MessageFetcher
@@ -30,7 +29,6 @@ logger = logging.getLogger("apps.message_hub")
 _ZHRL_API_URL = "https://zxfw.court.gov.cn/yzw/yzw-zxfw-xxfw/api/v1/zhrl/list"
 _PAGE_SIZE = 20
 
-
 @dataclass(frozen=True)
 class ParsedHearing:
     """解析后的庭审记录 DTO。"""
@@ -42,7 +40,6 @@ class ParsedHearing:
     match_strategy: str  # "exact" | "party" | "none"
     metadata: dict[str, Any] = field(default_factory=dict)
 
-
 def _parse_datetime(s: str) -> datetime:
     """解析 API 返回的时间字符串，格式: '2026-05-29 16:30'。"""
     try:
@@ -51,13 +48,11 @@ def _parse_datetime(s: str) -> datetime:
     except (ValueError, TypeError):
         return timezone.now()
 
-
 # ---------------------------------------------------------------------------
 # rcbt 分词 — 提取当事人名称
 # ---------------------------------------------------------------------------
 
 _CASE_SUFFIX = "一案"
-
 
 def _extract_party_names(rcbt: str) -> list[str]:
     """
@@ -107,7 +102,6 @@ def _extract_party_names(rcbt: str) -> list[str]:
 
     return names
 
-
 def _extract_name_from_segment(segment: str) -> list[str]:
     """
     从可能混有案由的片段中提取当事人名称。
@@ -135,7 +129,6 @@ def _extract_name_from_segment(segment: str) -> list[str]:
         return [segment]
 
     return []
-
 
 def _strip_case_cause_suffix(text: str) -> str:
     """
@@ -189,7 +182,6 @@ def _strip_case_cause_suffix(text: str) -> str:
                 return stripped
     return text
 
-
 # 常见案由关键词（用于过滤噪声片段）
 _CASE_CAUSE_KEYWORDS = (
     "纠纷",
@@ -224,7 +216,6 @@ _CASE_CAUSE_KEYWORDS = (
     "破产",
     "海事",
 )
-
 
 def _is_valid_party_name(name: str) -> bool:
     """判断是否为有效的当事人名称（过滤案由噪声）。"""
@@ -266,16 +257,13 @@ def _is_valid_party_name(name: str) -> bool:
             return True
     return False
 
-
 def _split_by_comma(text: str) -> list[str]:
     """以全角或半角逗号分割文本。"""
     return text.replace("，", ",").split(",")
 
-
 # ---------------------------------------------------------------------------
 # 案件关联策略
 # ---------------------------------------------------------------------------
-
 
 def _find_case_id(record: dict[str, Any]) -> tuple[int | None, str]:
     """
@@ -303,7 +291,6 @@ def _find_case_id(record: dict[str, Any]) -> tuple[int | None, str]:
     # S3: 不关联
     return None, "none"
 
-
 def _match_by_case_number(ah: str) -> int | None:
     """S1: 用正式案号精确匹配 CaseNumber.number → Case。"""
     from apps.cases.models import CaseNumber
@@ -312,7 +299,6 @@ def _match_by_case_number(ah: str) -> int | None:
     if cn and cn.case and cn.case.pk:
         return int(cn.case.pk)
     return None
-
 
 def _match_by_party_names(party_names: list[str]) -> int | None:
     """
@@ -347,11 +333,9 @@ def _match_by_party_names(party_names: list[str]) -> int | None:
         return intersection.pop()
     return None
 
-
 # ---------------------------------------------------------------------------
 # Fetcher 主体
 # ---------------------------------------------------------------------------
-
 
 class CourtScheduleFetcher(MessageFetcher):
     """一张网（zxfw.court.gov.cn）庭审日程拉取器。"""
@@ -456,7 +440,7 @@ class CourtScheduleFetcher(MessageFetcher):
 
         bh = record.get("bh", "")
         kssj = record.get("kssj", "")
-        rcbt = record.get("rcbt", "") or _("(无标题)")
+        rcbt = record.get("rcbt", "") or "(无标题)"
 
         if not kssj:
             logger.warning("一张网庭审日程: 跳过无时间的记录 bh=%s", bh)

@@ -7,7 +7,6 @@ from typing import Any
 
 from django.db import connection, transaction
 from django.db.utils import OperationalError
-from django.utils.translation import gettext_lazy as _
 
 from apps.cases.models import Case, CaseFilingNumberSequence
 from apps.core.exceptions import ConflictError, ValidationException
@@ -15,27 +14,26 @@ from apps.core.models.enums import SimpleCaseType
 
 logger = logging.getLogger("apps.cases")
 
-
 class CaseFilingNumberService:
     def generate_case_filing_number_internal(self, case_id: int, case_type: str, created_year: int) -> str:
         try:
             if not case_type:
                 raise ValidationException(
-                    message=_("案件类型不能为空"),
+                    message="案件类型不能为空",
                     code="INVALID_CASE_TYPE",
-                    errors={"case_type": str(_("案件类型不能为空"))},
+                    errors={"case_type": str("案件类型不能为空")},
                 )
 
             if not (1900 <= created_year <= 2100):
                 raise ValidationException(
-                    message=_("年份格式无效"),
+                    message="年份格式无效",
                     code="INVALID_YEAR",
                     errors={"created_year": f"年份 {created_year} 超出有效范围"},
                 )
 
             if not Case.objects.filter(id=case_id).exists():
                 raise ValidationException(
-                    message=_("案件不存在"),
+                    message="案件不存在",
                     code="CASE_NOT_FOUND",
                     errors={"case_id": f"ID 为 {case_id} 的案件不存在"},
                 )
@@ -49,7 +47,7 @@ class CaseFilingNumberService:
                         extra={"case_id": case_id, "migration": "cases.0009_case_filing_number_sequence"},
                     )
                     raise ConflictError(
-                        message=_("建档编号生成失败(数据库未迁移)"),
+                        message="建档编号生成失败(数据库未迁移)",
                         code="FILING_NUMBER_MIGRATION_REQUIRED",
                         errors={
                             "detail": str(
@@ -86,7 +84,7 @@ class CaseFilingNumberService:
                 exc_info=True,
             )
             raise ConflictError(
-                message=_("建档编号生成失败"),
+                message="建档编号生成失败",
                 code="FILING_NUMBER_GENERATION_FAILED",
                 errors={"detail": str(e)},
             ) from e

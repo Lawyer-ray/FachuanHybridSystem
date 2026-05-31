@@ -7,7 +7,6 @@ from pathlib import Path
 import pytest
 from django.core.management import call_command
 
-
 @pytest.mark.django_db
 def test_smoke_check_validates_upload_contract(tmp_path: Path) -> None:
     db_path = tmp_path / "ci_smoke.sqlite3"

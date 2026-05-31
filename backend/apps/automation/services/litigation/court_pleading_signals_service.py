@@ -9,7 +9,6 @@ from .dtos import CourtPleadingSignals
 
 logger = logging.getLogger("apps.automation")
 
-
 class CourtPleadingSignalsService:
     def __init__(self, model: str | None = None) -> None:
         self._model = model

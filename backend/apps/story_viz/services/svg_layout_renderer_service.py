@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from apps.story_viz.schemas import AnimationScript
 
-
 class SvgLayoutRendererService:
     def render(self, *, script: AnimationScript, viz_type: str) -> dict[str, object]:
         if viz_type == "relationship":

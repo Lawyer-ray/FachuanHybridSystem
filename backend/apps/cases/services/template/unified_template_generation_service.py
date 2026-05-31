@@ -12,14 +12,11 @@ from __future__ import annotations
 import logging
 from typing import Any, cast
 
-from django.utils.translation import gettext_lazy as _
-
 from apps.core.exceptions import NotFoundError, ValidationException
 
 from .wiring import get_case_service
 
 logger = logging.getLogger("apps.cases.services")
-
 
 class UnifiedTemplateGenerationService:
     """
@@ -93,9 +90,9 @@ class UnifiedTemplateGenerationService:
         # 验证参数:必须提供 template_id 或 function_code
         if template_id is None and not function_code:
             raise ValidationException(
-                message=_("必须提供 template_id 或 function_code"),
+                message="必须提供 template_id 或 function_code",
                 code="INVALID_PARAMS",
-                errors={"params": str(_("必须提供 template_id 或 function_code"))},
+                errors={"params": str("必须提供 template_id 或 function_code")},
             )
 
         # 获取案件
@@ -157,9 +154,9 @@ class UnifiedTemplateGenerationService:
         """
         if template_id is None and not function_code:
             raise ValidationException(
-                message=_("必须提供 template_id 或 function_code"),
+                message="必须提供 template_id 或 function_code",
                 code="INVALID_PARAMS",
-                errors={"params": str(_("必须提供 template_id 或 function_code"))},
+                errors={"params": str("必须提供 template_id 或 function_code")},
             )
 
         return self._resolver.get_template_info(template_id=template_id, function_code=function_code)
@@ -178,6 +175,6 @@ class UnifiedTemplateGenerationService:
         case = case_service.get_case_model_internal(case_id)
         if not case:
             raise NotFoundError(
-                message=_("案件不存在"), code="CASE_NOT_FOUND", errors={"case_id": f"ID 为 {case_id} 的案件不存在"}
+                message="案件不存在", code="CASE_NOT_FOUND", errors={"case_id": f"ID 为 {case_id} 的案件不存在"}
             )
         return case

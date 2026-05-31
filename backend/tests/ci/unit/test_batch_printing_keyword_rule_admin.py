@@ -8,7 +8,6 @@ from django.utils import timezone
 from apps.batch_printing.admin.batch_printing_admin import PrintKeywordRuleAdmin
 from apps.batch_printing.models import PrintKeywordRule, PrintPresetSnapshot
 
-
 @pytest.mark.django_db
 def test_print_keyword_rule_admin_form_hides_manual_printer_field() -> None:
     admin = PrintKeywordRuleAdmin(PrintKeywordRule, AdminSite())
@@ -20,7 +19,6 @@ def test_print_keyword_rule_admin_form_hides_manual_printer_field() -> None:
     assert "printer_name" not in form_class.base_fields
     assert "preset_snapshot" in form.fields
     assert "自动取该预置所属打印机" in (form.fields["preset_snapshot"].help_text or "")
-
 
 @pytest.mark.django_db
 def test_print_keyword_rule_admin_save_model_syncs_printer_name_from_preset() -> None:

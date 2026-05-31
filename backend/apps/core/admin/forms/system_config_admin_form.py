@@ -12,7 +12,6 @@ from apps.core.security.secret_codec import SecretCodec
 
 _MULTI_KEY_CONFIGS = {"TIANYANCHA_MCP_API_KEY", "OLLAMA_MODEL"}
 
-
 class SystemConfigAdminForm(forms.ModelForm):
     class Meta:
         model = SystemConfig

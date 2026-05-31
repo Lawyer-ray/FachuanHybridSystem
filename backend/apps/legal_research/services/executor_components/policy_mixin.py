@@ -6,7 +6,6 @@ from dataclasses import dataclass
 
 from apps.legal_research.services.similarity.tuning_config import LegalResearchTuningConfig
 
-
 @dataclass(frozen=True)
 class DualReviewPolicy:
     enabled: bool
@@ -17,14 +16,12 @@ class DualReviewPolicy:
     gap_tolerance: float
     required_min: float
 
-
 @dataclass(frozen=True)
 class AdaptiveThresholdPolicy:
     enabled: bool
     floor: float
     step: float
     scan_interval: int
-
 
 class ExecutorPolicyMixin:
     CANDIDATE_BATCH_SIZE = 100

@@ -17,18 +17,15 @@ from apps.automation.services.scraper.test_service import TestService
 
 logger = logging.getLogger("apps.automation")
 
-
 def _get_test_service() -> Any:
     """工厂函数：创建测试服务实例"""
     return TestService()
-
 
 def _get_organization_service() -> Any:
     """工厂函数：创建组织服务实例"""
     from apps.core.dependencies.business_organization import build_organization_service
 
     return build_organization_service()
-
 
 @admin.register(TestCourt)
 class TestCourtAdmin(admin.ModelAdmin):

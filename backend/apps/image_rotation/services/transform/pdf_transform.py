@@ -7,7 +7,6 @@ from PIL import Image
 
 logger = logging.getLogger(__name__)
 
-
 def apply_rotation_for_pdf(image_bytes: bytes, rotation: int) -> bytes:
     if rotation not in (0, 90, 180, 270):
         rotation = 0
@@ -39,7 +38,6 @@ def apply_rotation_for_pdf(image_bytes: bytes, rotation: int) -> bytes:
     except Exception as e:
         logger.warning(f"图片旋转失败,使用原始图片: {e}")
         return image_bytes
-
 
 def _ensure_rgb(img: Image.Image) -> Image.Image:
     if img.mode in ("RGBA", "P"):

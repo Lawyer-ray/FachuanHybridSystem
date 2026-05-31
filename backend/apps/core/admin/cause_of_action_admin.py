@@ -14,7 +14,6 @@ from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
 from django.urls import URLPattern, path, reverse
 from django.utils.html import format_html
 from django.utils.safestring import SafeString
-from django.utils.translation import gettext_lazy as _
 
 from apps.core.models import CauseOfAction
 
@@ -23,13 +22,11 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-
 def _get_initialization_service() -> CauseCourtInitializationService:
     """工厂函数:创建初始化服务实例"""
     from apps.core.services.cause_court_initialization_service import CauseCourtInitializationService
 
     return CauseCourtInitializationService()
-
 
 @admin.register(CauseOfAction)
 class CauseOfActionAdmin(admin.ModelAdmin):
@@ -74,7 +71,7 @@ class CauseOfActionAdmin(admin.ModelAdmin):
 
     fieldsets: ClassVar[tuple[Any, ...]] = (
         (
-            _("基本信息"),
+            "基本信息",
             {
                 "fields": (
                     "code",
@@ -86,7 +83,7 @@ class CauseOfActionAdmin(admin.ModelAdmin):
             },
         ),
         (
-            _("状态"),
+            "状态",
             {
                 "fields": (
                     "is_active",
@@ -97,7 +94,7 @@ class CauseOfActionAdmin(admin.ModelAdmin):
             },
         ),
         (
-            _("时间信息"),
+            "时间信息",
             {
                 "fields": (
                     "created_at",
@@ -114,7 +111,7 @@ class CauseOfActionAdmin(admin.ModelAdmin):
 
     change_list_template = "admin/core/causeofaction/change_list.html"
 
-    @admin.display(description=_("案件类型"), ordering="case_type")
+    @admin.display(description="案件类型", ordering="case_type")
     def case_type_display(self, obj: CauseOfAction) -> SafeString:
         """带颜色的案件类型显示"""
         color_map: dict[str, str] = {
@@ -130,7 +127,7 @@ class CauseOfActionAdmin(admin.ModelAdmin):
             obj.get_case_type_display(),
         )
 
-    @admin.display(description=_("上级案由"))
+    @admin.display(description="上级案由")
     def parent_display(self, obj: CauseOfAction) -> SafeString:
         """显示父级案由"""
         if obj.parent:
@@ -141,7 +138,7 @@ class CauseOfActionAdmin(admin.ModelAdmin):
             )
         return format_html('<span style="color: #999;">{}</span>', "—")
 
-    @admin.display(description=_("状态"))
+    @admin.display(description="状态")
     def status_display(self, obj: CauseOfAction) -> SafeString:
         """状态显示"""
         if obj.is_deprecated:

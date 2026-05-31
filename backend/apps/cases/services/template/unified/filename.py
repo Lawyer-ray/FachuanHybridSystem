@@ -8,15 +8,12 @@ from typing import Protocol
 
 from django.utils import timezone
 
-
 class DateProvider(Protocol):
     def today_yyyymmdd(self) -> str: ...
-
 
 class DjangoLocalDateProvider:
     def today_yyyymmdd(self) -> str:
         return timezone.localtime().strftime("%Y%m%d")
-
 
 @dataclass(frozen=True)
 class FilenameInputs:
@@ -26,7 +23,6 @@ class FilenameInputs:
     function_code: str | None
     mode: str | None
     our_party_count: int
-
 
 class FilenamePolicy:
     def __init__(self, *, date_provider: DateProvider | None = None) -> None:

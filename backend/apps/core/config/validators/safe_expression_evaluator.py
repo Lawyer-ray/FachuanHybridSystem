@@ -25,7 +25,6 @@ _CMP_OPS: dict[type[ast.cmpop], str] = {
     ast.IsNot: "is_not",
 }
 
-
 class SafeExpressionEvaluator:
     """基于 AST 白名单的安全表达式求值器。"""
 
@@ -101,13 +100,11 @@ class SafeExpressionEvaluator:
     def _eval_dict(self, node: ast.Dict) -> dict[Any, Any]:
         return {self._eval(k): self._eval(v) for k, v in zip(node.keys, node.values, strict=False) if k is not None}
 
-
 def _apply_cmp(op: ast.cmpop, left: Any, right: Any) -> bool:
     op_key = type(op)
     if op_key not in _CMP_OPS:
         raise ValueError(f"不支持的比较运算符: {op_key.__name__}")
     return _CMP_FUNCS[op_key](left, right)
-
 
 _CMP_FUNCS: dict[type[ast.cmpop], Callable[[Any, Any], bool]] = {
     ast.Eq: lambda l, r: l == r,
@@ -121,7 +118,6 @@ _CMP_FUNCS: dict[type[ast.cmpop], Callable[[Any, Any], bool]] = {
     ast.Is: lambda l, r: l is r,
     ast.IsNot: lambda l, r: l is not r,
 }
-
 
 def safe_eval(expr: str, context: dict[str, Any]) -> Any:
     """便捷函数：对给定上下文安全求值表达式。"""

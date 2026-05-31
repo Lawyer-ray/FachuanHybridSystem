@@ -13,7 +13,6 @@ from uuid import UUID
 
 from django.core.files.base import ContentFile
 from django.utils import timezone
-from django.utils.translation import gettext as _
 
 from apps.core.exceptions import NotFoundError, ValidationException
 from apps.core.security.permissions import AccessContext, PermissionMixin
@@ -24,14 +23,12 @@ logger = logging.getLogger(__name__)
 
 _EXCEL_EXTS = {".xls", ".xlsx"}
 
-
 def _is_excel(filename: str) -> bool:
     """判断文件是否为 Excel 格式"""
     if not filename or "." not in filename:
         return False
     ext = "." + filename.rsplit(".", 1)[-1].lower()
     return ext in _EXCEL_EXTS
-
 
 def _split_excel_rows(uploaded_file: Any) -> list[tuple[str, str]]:
     """将 Excel 文件拆分为多行文本
@@ -97,7 +94,6 @@ def _split_excel_rows(uploaded_file: Any) -> list[tuple[str, str]]:
     logger.info("Excel 拆分完成: %s → %d 行", uploaded_file.name, len(results))
     return results
 
-
 class BatchAnalysisService(PermissionMixin):
     """批量分析任务服务"""
 
@@ -106,12 +102,12 @@ class BatchAnalysisService(PermissionMixin):
     def validate_files(self, files: list[Any]) -> None:
         """校验上传文件"""
         if not files:
-            raise ValidationException(_("请上传至少一个文件"))
+            raise ValidationException("请上传至少一个文件")
         for f in files:
             ext = f".{f.name.rsplit('.', 1)[-1].lower()}" if f.name and "." in f.name else ""
             if ext not in self.ALLOWED_EXTENSIONS:
                 raise ValidationException(
-                    _("不支持的文件格式: %(name)s") % {"name": f.name},
+                    "不支持的文件格式: %(name)s" % {"name": f.name},
                     errors={"file": "支持 .doc、.docx、.xls、.xlsx"},
                 )
 
@@ -120,7 +116,7 @@ class BatchAnalysisService(PermissionMixin):
         try:
             return BatchJob.objects.get(id=job_id)
         except BatchJob.DoesNotExist:
-            raise NotFoundError(_("任务不存在")) from None
+            raise NotFoundError("任务不存在") from None
 
     def create_job(
         self,

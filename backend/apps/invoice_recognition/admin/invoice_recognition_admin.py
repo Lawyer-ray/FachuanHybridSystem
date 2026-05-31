@@ -10,12 +10,10 @@ from django.contrib import admin
 from django.http import HttpRequest, HttpResponse
 from django.utils.html import format_html
 from django.utils.safestring import SafeString
-from django.utils.translation import gettext_lazy as _
 
 from apps.invoice_recognition.models import InvoiceRecognitionTask, InvoiceRecognitionTaskStatus
 
 logger = logging.getLogger("apps.invoice_recognition")
-
 
 @admin.register(InvoiceRecognitionTask)
 class InvoiceRecognitionTaskAdmin(admin.ModelAdmin):
@@ -102,21 +100,21 @@ class InvoiceRecognitionTaskAdmin(admin.ModelAdmin):
             InvoiceRecognitionTaskStatus.FAILED: "red",
         }
         label_map: dict[str, str] = {
-            InvoiceRecognitionTaskStatus.PENDING: str(_("待处理")),
-            InvoiceRecognitionTaskStatus.PROCESSING: str(_("处理中")),
-            InvoiceRecognitionTaskStatus.COMPLETED: str(_("已完成")),
-            InvoiceRecognitionTaskStatus.FAILED: str(_("失败")),
+            InvoiceRecognitionTaskStatus.PENDING: str("待处理"),
+            InvoiceRecognitionTaskStatus.PROCESSING: str("处理中"),
+            InvoiceRecognitionTaskStatus.COMPLETED: str("已完成"),
+            InvoiceRecognitionTaskStatus.FAILED: str("失败"),
         }
         color = color_map.get(obj.status, "gray")
         label = label_map.get(obj.status, obj.status)
         return format_html('<span style="color: {}; font-weight: bold;">{}</span>', color, label)
 
-    status_display.short_description = _("状态")  # type: ignore[attr-defined]
+    status_display.short_description = "状态"  # type: ignore[attr-defined]
 
     def record_count(self, obj: InvoiceRecognitionTask) -> int:
         return int(obj.records.count())
 
-    record_count.short_description = _("发票数量")  # type: ignore[attr-defined]
+    record_count.short_description = "发票数量"  # type: ignore[attr-defined]
 
     def total_amount_display(self, obj: InvoiceRecognitionTask) -> str:
         try:
@@ -126,7 +124,7 @@ class InvoiceRecognitionTaskAdmin(admin.ModelAdmin):
             logger.error("获取总金额失败: task_id=%s, error=%s", obj.id, exc)
             return "-"
 
-    total_amount_display.short_description = _("非重复总金额")  # type: ignore[attr-defined]
+    total_amount_display.short_description = "非重复总金额"  # type: ignore[attr-defined]
 
     def _get_service(self) -> Any:
         from apps.invoice_recognition.services.wiring import get_invoice_recognition_service

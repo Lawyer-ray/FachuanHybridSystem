@@ -5,7 +5,6 @@ from typing import Any, ClassVar
 from apps.documents.services.placeholders.base import BasePlaceholderService
 from apps.documents.services.placeholders.registry import PlaceholderRegistry
 
-
 @PlaceholderRegistry.register
 class LegalRepCertificatePlaceholderService(BasePlaceholderService):
     name: str = "legal_rep_certificate_placeholder_service"

@@ -4,7 +4,6 @@ import zipfile
 from io import BytesIO
 from typing import Any
 
-
 class ZipPackager:
     def create(self, folder_structure: dict[str, Any], documents: list[tuple[str, bytes, str]]) -> bytes:
         zip_buffer = BytesIO()

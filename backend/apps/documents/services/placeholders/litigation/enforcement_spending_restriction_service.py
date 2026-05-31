@@ -11,7 +11,6 @@ from apps.litigation_ai.placeholders.spec import LitigationPlaceholderKeys
 
 logger = logging.getLogger(__name__)
 
-
 @PlaceholderRegistry.register
 class EnforcementSpendingRestrictionRequestService(BasePlaceholderService):
     """生成强制执行申请书中的“限制高消费事项”占位符."""

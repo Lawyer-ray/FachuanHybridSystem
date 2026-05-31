@@ -7,7 +7,6 @@ from typing import Any
 
 logger = logging.getLogger("apps.evidence")
 
-
 def merge_evidence_pdf_task(list_id: int) -> Any:
     from apps.evidence.services.mutation.evidence_merge_usecase import EvidenceMergeUseCase
 
@@ -15,7 +14,6 @@ def merge_evidence_pdf_task(list_id: int) -> Any:
     result = EvidenceMergeUseCase().merge(list_id=list_id)
     logger.info("merge_evidence_pdf_task_done", extra={"list_id": list_id, "status": result.get("status")})
     return result
-
 
 def ocr_evidence_item_task(item_id: int) -> None:
     """异步 OCR 提取证据文件文本"""

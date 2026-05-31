@@ -11,7 +11,6 @@ from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import mm
 from reportlab.pdfgen import canvas
 
-
 def generate_a4_pdf(
     front_image: NDArray[np.uint8],
     back_image: NDArray[np.uint8],

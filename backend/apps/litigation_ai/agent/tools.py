@@ -15,7 +15,6 @@ from pydantic import BaseModel, Field
 
 logger = logging.getLogger("apps.litigation_ai")
 
-
 class _SimpleTool:
     def __init__(self, func: Any, args_schema: type[BaseModel] | None = None) -> None:
         update_wrapper(self, func)
@@ -48,31 +47,26 @@ class _SimpleTool:
     def __call__(self, *args: Any, **kwargs: Any) -> Any:
         return self._func(*args, **kwargs)
 
-
 def tool(*, args_schema: type[BaseModel] | None = None) -> Any:
     def _decorator(func: Any) -> _SimpleTool:
         return _SimpleTool(func=func, args_schema=args_schema)
 
     return _decorator
 
-
 # ============================================================
 # 工具输入模型定义
 # ============================================================
-
 
 class GetCaseInfoInput(BaseModel):
     """get_case_info 工具输入"""
 
     case_id: int = Field(description="案件 ID")
 
-
 class GetEvidenceListInput(BaseModel):
     """get_evidence_list 工具输入"""
 
     case_id: int = Field(description="案件 ID")
     ownership: str | None = Field(default=None, description="证据归属过滤: 'our'(我方), 'opponent'(对方), None(全部)")
-
 
 class SearchEvidenceInput(BaseModel):
     """search_evidence 工具输入"""
@@ -81,12 +75,10 @@ class SearchEvidenceInput(BaseModel):
     evidence_item_ids: list[int] = Field(description="要检索的证据项 ID 列表")
     top_k: int = Field(default=5, description="返回结果数量")
 
-
 class GetRecommendedDocumentTypesInput(BaseModel):
     """get_recommended_document_types 工具输入"""
 
     case_id: int = Field(description="案件 ID")
-
 
 class GenerateDraftInput(BaseModel):
     """generate_draft 工具输入"""
@@ -100,11 +92,9 @@ class GenerateDraftInput(BaseModel):
     litigation_goal: str = Field(description="诉讼目标描述")
     evidence_context: str = Field(description="证据上下文摘要")
 
-
 # ============================================================
 # 工具定义
 # ============================================================
-
 
 @tool(args_schema=GetCaseInfoInput)
 def get_case_info(case_id: int) -> dict[str, Any]:
@@ -132,7 +122,6 @@ def get_case_info(case_id: int) -> dict[str, Any]:
     except Exception as e:
         logger.error("get_case_info 工具执行失败", extra={"case_id": case_id, "error": str(e)})
         return {"error": f"获取案件信息失败: {e!s}"}
-
 
 @tool(args_schema=GetEvidenceListInput)
 def get_evidence_list(
@@ -164,7 +153,6 @@ def get_evidence_list(
     except Exception as e:
         logger.error("get_evidence_list 工具执行失败", extra={"case_id": case_id, "error": str(e)})
         return [{"error": f"获取证据列表失败: {e!s}"}]
-
 
 @tool(args_schema=SearchEvidenceInput)
 def search_evidence(
@@ -210,7 +198,6 @@ def search_evidence(
         logger.error("search_evidence 工具执行失败", extra={"query": query[:50], "error": str(e)})
         return [{"error": f"证据检索失败: {e!s}"}]
 
-
 @tool(args_schema=GetRecommendedDocumentTypesInput)
 def get_recommended_document_types(case_id: int) -> list[str]:
     """
@@ -238,7 +225,6 @@ def get_recommended_document_types(case_id: int) -> list[str]:
     except Exception as e:
         logger.error("get_recommended_document_types 工具执行失败", extra={"case_id": case_id, "error": str(e)})
         return []
-
 
 @tool(args_schema=GenerateDraftInput)
 def generate_draft(
@@ -292,11 +278,9 @@ def generate_draft(
         )
         return {"error": f"生成草稿失败: {e!s}"}
 
-
 # ============================================================
 # 工具集获取函数
 # ============================================================
-
 
 def get_litigation_tools(case_id: int) -> list[Any]:
     """
@@ -315,7 +299,6 @@ def get_litigation_tools(case_id: int) -> list[Any]:
         get_recommended_document_types,
         generate_draft,
     ]
-
 
 def get_tool_descriptions() -> dict[str, str]:
     """

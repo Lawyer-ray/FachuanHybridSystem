@@ -1,10 +1,9 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
-{% load i18n %}
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% trans "PDF预览" %} - {{ filename }}</title>
+    <title>{ - {{ filename }}</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { background: #525659; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
@@ -66,9 +65,9 @@
 <body>
     <div class="toolbar">
         <span class="title">{{ filename }}</span>
-        <button id="prevBtn">{% trans "上一页" %}</button>
+        <button id="prevBtn">{</button>
         <span id="pageInfo">- / -</span>
-        <button id="nextBtn">{% trans "下一页" %}</button>
+        <button id="nextBtn">{</button>
         <button id="zoomOutBtn">-</button>
         <span id="zoomInfo">100%</span>
         <button id="zoomInBtn">+</button>
@@ -100,9 +99,9 @@
         // 显示页码范围提示
         const totalPagesInRange = endPage - startPage + 1;
         if (totalPagesInRange > 1) {
-            rangeHint.textContent = '{% trans "片段页码范围：" %}' + startPage + ' - ' + endPage + ' ({% trans "共" %}' + totalPagesInRange + '{% trans "页" %})';
+            rangeHint.textContent = '{' + startPage + ' - ' + endPage + ' ({' + totalPagesInRange + '{)';
         } else {
-            rangeHint.textContent = '{% trans "单页片段：第" %}' + startPage + '{% trans "页" %}';
+            rangeHint.textContent = '{' + startPage + '{';
         }
         rangeHint.style.display = 'block';
 

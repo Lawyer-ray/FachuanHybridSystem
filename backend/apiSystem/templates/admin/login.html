@@ -1,10 +1,9 @@
 <!DOCTYPE html>
-{% load i18n %}
 <html lang="zh-hans">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% trans "登录" %} | {% trans "法穿AI Copilot" %}</title>
+    <title>{ | {</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Noto+Sans+SC:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
@@ -599,20 +598,20 @@
 
             <div class="brand-content">
                 <h1 class="brand-headline">
-                    {% trans "让每一个案件" %}<br>
-                    <span class="highlight">{% trans "自动运转" %}</span>
+                    {<br>
+                    <span class="highlight">{</span>
                 </h1>
 
                 <div class="brand-statement">
                     <div class="statement-quote">&ldquo;</div>
                     <p class="brand-desc">
-                        {% trans "从客户接洽到结案归档，全流程自动化。短信驱动、AI 赋能，把律师从事务性工作中解放出来。" %}
+                        {
                     </p>
                 </div>
             </div>
 
             <div class="brand-footer">
-                &copy; 2026 {% trans "法穿AI" %} &middot; PolyForm Noncommercial {% trans "开源" %} &middot; <a href="https://github.com/Lawyer-ray/FachuanHybridSystem" target="_blank">GitHub</a>
+                &copy; 2026 { &middot; PolyForm Noncommercial { &middot; <a href="https://github.com/Lawyer-ray/FachuanHybridSystem" target="_blank">GitHub</a>
             </div>
         </div>
 
@@ -624,14 +623,14 @@
                 <div id="login-section" class="auth-section" :class="{ 'active': mode === 'login', 'exit-left': mode === 'register' }">
 
                     <div class="form-header">
-                        <h2>{% trans "欢迎回来" %}</h2>
-                        <p>{% trans "登录法穿AI Copilot" %}</p>
+                        <h2>{</h2>
+                        <p>{</p>
                     </div>
 
                     {% if form.errors %}
                     <div class="error-banner">
                         <span>&#x26A0;&#xFE0F;</span>
-                        <span>{% trans "用户名或密码错误，请重试" %}</span>
+                        <span>{</span>
                     </div>
                     {% endif %}
 
@@ -641,27 +640,27 @@
 
                         <div class="form-group">
                             <label class="form-label" for="id_username">
-                                {% trans "用户名 / 真实姓名" %} <span class="required">*</span>
+                                { <span class="required">*</span>
                             </label>
                             <div class="input-wrapper">
                                 <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                     <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
                                     <circle cx="12" cy="7" r="4"/>
                                 </svg>
-                                <input type="text" name="username" id="id_username" class="form-input" placeholder="{% trans '请输入中文姓名' %}" autofocus required autocomplete="username">
+                                <input type="text" name="username" id="id_username" class="form-input" placeholder="{" autofocus required autocomplete="username">
                             </div>
                         </div>
 
                         <div class="form-group">
                             <label class="form-label" for="id_password">
-                                {% trans "密码" %} <span class="required">*</span>
+                                { <span class="required">*</span>
                             </label>
                             <div class="input-wrapper">
                                 <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                     <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
                                     <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
                                 </svg>
-                                <input type="password" name="password" id="id_password" class="form-input" placeholder="{% trans '请输入密码' %}" required autocomplete="current-password">
+                                <input type="password" name="password" id="id_password" class="form-input" placeholder="{" required autocomplete="current-password">
                                 <button type="button" class="password-toggle" onclick="togglePwd('id_password', this)">
                                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                         <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
@@ -673,15 +672,15 @@
 
                         <div class="form-row">
                             <label class="checkbox-label">
-                                <input type="checkbox" name="remember"> {% trans "记住我" %}
+                                <input type="checkbox" name="remember"> {
                             </label>
                         </div>
 
-                        <button type="submit" class="btn-primary">{% trans "登录" %}</button>
+                        <button type="submit" class="btn-primary">{</button>
                     </form>
 
                     <div class="form-footer">
-                        {% trans "还没有账号？" %}<a href="#" @click.prevent="switchTo('register')">{% trans "立即注册" %}</a>
+                        {<a href="#" @click.prevent="switchTo('register')">{</a>
                     </div>
                 </div>
 
@@ -689,27 +688,27 @@
                 <div id="register-section" class="auth-section" :class="{ 'active': mode === 'register', 'exit-left': mode === 'login' }">
 
                     <div class="form-header">
-                        <h2>{% trans "创建账号" %}</h2>
-                        <p>{% trans "加入法穿AI Copilot" %}</p>
+                        <h2>{</h2>
+                        <p>{</p>
                         {% if is_first_user %}
-                        <div class="first-user-badge">&#x1F389; {% trans "您将成为第一个用户，自动获得管理员权限" %}</div>
+                        <div class="first-user-badge">&#x1F389; {</div>
                         {% else %}
-                        <div class="approval-badge">&#x23F3; {% trans "注册后需等待管理员开通权限" %}</div>
+                        <div class="approval-badge">&#x23F3; {</div>
                         {% endif %}
                     </div>
 
                     {% if show_auto_register %}
                     <div class="quick-experience">
-                        <h4>&#x1F680; {% trans "快速体验" %}</h4>
-                        <p>{% trans "首次使用？一键创建默认超级管理员，立即可用。" %}</p>
+                        <h4>&#x1F680; {</h4>
+                        <p>{</p>
                         <div class="admin-credentials">
-                            <div class="cred-row"><span>{% trans "账号" %}</span><code>法穿</code></div>
-                            <div class="cred-row"><span>{% trans "密码" %}</span><code>1234qwer</code></div>
+                            <div class="cred-row"><span>{</span><code>法穿</code></div>
+                            <div class="cred-row"><span>{</span><code>1234qwer</code></div>
                         </div>
                         <form method="post" action="{% url 'admin_register' %}">
                             {% csrf_token %}
                             <input type="hidden" name="action" value="auto_register">
-                            <button type="submit" class="btn-gold">{% trans "自动注册默认管理员" %}</button>
+                            <button type="submit" class="btn-gold">{</button>
                         </form>
                     </div>
                     {% endif %}
@@ -736,16 +735,16 @@
                                     <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
                                     <circle cx="12" cy="7" r="4"/>
                                 </svg>
-                                <input type="text" name="{{ field.html_name }}" id="{{ field.id_for_label }}" class="form-input" placeholder="{% trans '请输入中文姓名' %}" style="padding-left:36px;" value="{{ field.value|default:'' }}" {% if field.field.required %}required{% endif %}>
+                                <input type="text" name="{{ field.html_name }}" id="{{ field.id_for_label }}" class="form-input" placeholder="{" style="padding-left:36px;" value="{{ field.value|default:'' }}" {% if field.field.required %}required{% endif %}>
                             </div>
-                            <p class="chinese-hint">&#x26A0;&#xFE0F; {% trans "只能输入中文" %}</p>
+                            <p class="chinese-hint">&#x26A0;&#xFE0F; {</p>
                             {% elif field.name == 'password1' %}
                             <div class="input-wrapper">
                                 <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                     <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
                                     <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
                                 </svg>
-                                <input type="password" name="{{ field.html_name }}" id="{{ field.id_for_label }}" class="form-input" placeholder="{% trans '至少8位，含字母和数字' %}" style="padding-left:36px;padding-right:38px;" oninput="checkStrength(this.value)" {% if field.field.required %}required{% endif %}>
+                                <input type="password" name="{{ field.html_name }}" id="{{ field.id_for_label }}" class="form-input" placeholder="{" style="padding-left:36px;padding-right:38px;" oninput="checkStrength(this.value)" {% if field.field.required %}required{% endif %}>
                                 <button type="button" class="password-toggle" onclick="togglePwd('{{ field.id_for_label }}', this)">
                                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                         <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
@@ -765,7 +764,7 @@
                                 <svg class="input-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                     <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
                                 </svg>
-                                <input type="password" name="{{ field.html_name }}" id="{{ field.id_for_label }}" class="form-input" placeholder="{% trans '请再次输入密码' %}" style="padding-left:36px;" {% if field.field.required %}required{% endif %}>
+                                <input type="password" name="{{ field.html_name }}" id="{{ field.id_for_label }}" class="form-input" placeholder="{" style="padding-left:36px;" {% if field.field.required %}required{% endif %}>
                             </div>
                             {% else %}
                             <div class="input-wrapper">
@@ -783,11 +782,11 @@
                         {% endfor %}
                         {% endif %}
 
-                        <button type="submit" class="btn-primary">{% trans "注册" %}</button>
+                        <button type="submit" class="btn-primary">{</button>
                     </form>
 
                     <div class="form-footer">
-                        {% trans "已有账号？" %}<a href="#" @click.prevent="switchTo('login')">{% trans "返回登录" %}</a>
+                        {<a href="#" @click.prevent="switchTo('login')">{</a>
                     </div>
                 </div>
 
@@ -847,7 +846,7 @@
             ];
             const text = document.getElementById('str-text');
             const levels = ['', 'weak', 'medium', 'medium', 'strong'];
-            const labels = ['', '{% trans "弱" %}', '{% trans "一般" %}', '{% trans "较强" %}', '{% trans "强" %}'];
+            const labels = ['', '{', '{', '{', '{'];
 
             bars.forEach((bar, i) => {
                 bar.className = 'strength-bar';
@@ -857,7 +856,7 @@
             });
 
             text.className = 'strength-text ' + levels[score];
-            text.textContent = pwd ? '{% trans "密码强度：" %}' + labels[score] : '';
+            text.textContent = pwd ? '{' + labels[score] : '';
         }
     </script>
 </body>

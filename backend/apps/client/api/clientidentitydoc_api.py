@@ -1,7 +1,6 @@
 import logging
 from typing import Any
 
-from django.utils.translation import gettext_lazy as _
 from ninja import File, Router, Schema
 from ninja.files import UploadedFile
 
@@ -13,13 +12,11 @@ logger = logging.getLogger(__name__)
 
 router = Router()
 
-
 def _get_identity_doc_service() -> Any:
     """工厂函数：创建 ClientIdentityDocService 实例"""
     from apps.client.services import ClientIdentityDocService
 
     return ClientIdentityDocService()
-
 
 def _get_identity_extraction_service() -> Any:
     """工厂函数：创建 IdentityExtractionService 实例"""
@@ -27,13 +24,11 @@ def _get_identity_extraction_service() -> Any:
 
     return IdentityExtractionService()
 
-
 def _get_id_card_merge_service() -> Any:
     """工厂函数：创建 IdCardMergeService 实例"""
     from apps.client.services.id_card_merge import IdCardMergeService
 
     return IdCardMergeService()
-
 
 @router.post("/identity-doc/recognize", response=IdentityRecognizeOut)
 def recognize_identity_doc(
@@ -67,7 +62,6 @@ def recognize_identity_doc(
         error=result.get("error"),
     )
 
-
 @router.post("/clients/{client_id}/identity-docs")
 def add_identity_doc(
     request: Any,
@@ -83,8 +77,7 @@ def add_identity_doc(
         uploaded_file=file,
         user=getattr(request, "user", None),
     )
-    return {"success": True, "doc_id": identity_doc.id, "message": _("证件文档添加成功")}
-
+    return {"success": True, "doc_id": identity_doc.id, "message": "证件文档添加成功"}
 
 class MergeIdCardManualIn(Schema):
     """手动合并身份证请求体"""
@@ -93,7 +86,6 @@ class MergeIdCardManualIn(Schema):
     back_image_path: str
     front_corners: list[list[int]]
     back_corners: list[list[int]]
-
 
 @router.post("/identity-docs/merge-id-card")
 def merge_id_card(
@@ -115,7 +107,6 @@ def merge_id_card(
         result["doc_id"] = doc.id
     return result
 
-
 @router.post("/identity-docs/merge-id-card-direct")
 def merge_id_card_direct(
     request: Any,
@@ -136,7 +127,6 @@ def merge_id_card_direct(
         result["doc_id"] = doc.id
     return result
 
-
 @router.post("/identity-docs/merge-id-card-manual")
 def merge_id_card_manual(
     request: Any,
@@ -151,7 +141,6 @@ def merge_id_card_manual(
         back_corners=data.back_corners,
     )
     return result
-
 
 @router.get("/identity-docs/{doc_id}", response=IdentityDocDetailOut)
 def get_identity_doc(request: Any, doc_id: int) -> IdentityDocDetailOut:
@@ -177,7 +166,6 @@ def get_identity_doc(request: Any, doc_id: int) -> IdentityDocDetailOut:
         media_url=identity_doc.media_url,
     )
 
-
 @router.delete("/identity-docs/{doc_id}")
 def delete_identity_doc(request: Any, doc_id: int) -> dict[str, Any]:
     """
@@ -193,8 +181,7 @@ def delete_identity_doc(request: Any, doc_id: int) -> dict[str, Any]:
     service = _get_identity_doc_service()
     service.delete_identity_doc(doc_id=doc_id, user=getattr(request, "user", None))
 
-    return {"success": True, "message": _("证件文档删除成功")}
-
+    return {"success": True, "message": "证件文档删除成功"}
 
 @router.post("/identity-doc/recognize/submit")
 @rate_limit_from_settings("TASK", by_user=True)
@@ -212,7 +199,6 @@ def submit_recognize_task(
     )
     logger.info("证件识别任务已提交", extra={"task_id": task_id, "file_path": rel_path})
     return {"task_id": task_id, "status": "pending"}
-
 
 @router.get("/identity-doc/task/{task_id}")
 def get_recognize_task_status(

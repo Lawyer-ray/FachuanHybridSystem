@@ -10,7 +10,6 @@ from typing import Any, cast
 
 logger = logging.getLogger("apps.automation")
 
-
 class CaptchaRecognizer(ABC):
     """
     验证码识别器抽象接口
@@ -62,7 +61,6 @@ class CaptchaRecognizer(ABC):
             - 应该记录错误日志以便调试
         """
         pass
-
 
 class DdddocrRecognizer(CaptchaRecognizer):
     """

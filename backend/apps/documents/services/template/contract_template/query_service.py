@@ -9,7 +9,6 @@ from django.db.models import Q
 if TYPE_CHECKING:
     from apps.documents.models import DocumentTemplate
 
-
 class ContractTemplateQueryService:
     def find_matching_templates(self, case_type: str) -> list[DocumentTemplate]:
         from apps.documents.models import DocumentTemplate, DocumentTemplateType

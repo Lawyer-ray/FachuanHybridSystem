@@ -4,7 +4,6 @@ from typing import Any
 
 from apps.core.dto import DocumentTemplateDTO
 
-
 class DocumentTemplateDtoAssembler:
     def to_dto(self, template: Any) -> DocumentTemplateDTO:
         case_types = template.case_types or []

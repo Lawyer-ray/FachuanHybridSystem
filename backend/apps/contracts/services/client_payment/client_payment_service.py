@@ -11,13 +11,11 @@ if TYPE_CHECKING:
 
 from django.db import transaction
 from django.db.models import QuerySet, Sum
-from django.utils.translation import gettext as _
 
 from apps.contracts.models import ClientPaymentRecord, Contract
 from apps.core.exceptions import NotFoundError, ValidationException
 
 logger = logging.getLogger("apps.contracts")
-
 
 class ClientPaymentRecordService:
     """
@@ -62,19 +60,19 @@ class ClientPaymentRecordService:
         try:
             contract = Contract.objects.get(id=contract_id)
         except Contract.DoesNotExist:
-            raise NotFoundError(_("合同 %(id)s 不存在") % {"id": contract_id}) from None
+            raise NotFoundError("合同 %(id)s 不存在" % {"id": contract_id}) from None
 
         # 验证金额
         if amount <= 0:
-            raise ValidationException(_("回款金额必须大于零"))
+            raise ValidationException("回款金额必须大于零")
 
         if amount > Decimal("999999999999.99"):
-            raise ValidationException(_("回款金额不能超过 14 位数字（含 2 位小数）"))
+            raise ValidationException("回款金额不能超过 14 位数字（含 2 位小数）")
 
         # 验证案件归属
         if case_id:
             if not self.validate_case_belongs_to_contract(contract_id, case_id):
-                raise ValidationException(_("所选案件不属于该合同"))
+                raise ValidationException("所选案件不属于该合同")
 
         # 创建回款记录
         record = ClientPaymentRecord.objects.create(
@@ -121,22 +119,22 @@ class ClientPaymentRecordService:
         try:
             record = ClientPaymentRecord.objects.get(id=record_id)
         except ClientPaymentRecord.DoesNotExist:
-            raise NotFoundError(_("客户回款记录 %(id)s 不存在") % {"id": record_id}) from None
+            raise NotFoundError("客户回款记录 %(id)s 不存在" % {"id": record_id}) from None
 
         # 更新金额
         if amount is not None:
             if amount <= 0:
-                raise ValidationException(_("回款金额必须大于零"))
+                raise ValidationException("回款金额必须大于零")
 
             if amount > Decimal("999999999999.99"):
-                raise ValidationException(_("回款金额不能超过 14 位数字（含 2 位小数）"))
+                raise ValidationException("回款金额不能超过 14 位数字（含 2 位小数）")
 
             record.amount = amount
 
         # 更新案件关联
         if case_id is not None:
             if case_id and not self.validate_case_belongs_to_contract(record.contract_id, case_id):
-                raise ValidationException(_("所选案件不属于该合同"))
+                raise ValidationException("所选案件不属于该合同")
             record.case_id = case_id
 
         # 更新备注
@@ -163,7 +161,7 @@ class ClientPaymentRecordService:
         try:
             record = ClientPaymentRecord.objects.get(id=record_id)
         except ClientPaymentRecord.DoesNotExist:
-            raise NotFoundError(_("客户回款记录 %(id)s 不存在") % {"id": record_id}) from None
+            raise NotFoundError("客户回款记录 %(id)s 不存在" % {"id": record_id}) from None
 
         # 删除关联图片
         if record.image_path:

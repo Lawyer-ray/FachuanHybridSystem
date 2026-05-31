@@ -10,7 +10,6 @@ from apps.evidence_sorting.models import EvidenceSorting
 
 logger = logging.getLogger("apps.evidence_sorting")
 
-
 @admin.register(EvidenceSorting)
 class EvidenceSortingAdmin(admin.ModelAdmin):
     """案件材料整理工具 Admin，使用虚拟模型作为入口"""

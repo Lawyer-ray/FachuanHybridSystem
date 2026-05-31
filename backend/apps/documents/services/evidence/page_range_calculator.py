@@ -6,7 +6,6 @@ from django.db import transaction
 
 from apps.evidence.models import EvidenceItem, EvidenceList
 
-
 class EvidencePageRangeCalculator:
     def calculate_page_ranges(self, *, evidence_list: EvidenceList) -> None:
         items = list(evidence_list.items.filter(file__isnull=False).order_by("order"))

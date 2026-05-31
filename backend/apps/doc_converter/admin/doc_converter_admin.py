@@ -8,14 +8,12 @@ from django.template.response import TemplateResponse
 
 from apps.doc_converter.models import DocConverterItem, DocConverterJob, DocConverterTool
 
-
 class DocConverterItemInline(admin.TabularInline):
     model = DocConverterItem
     extra = 0
     readonly_fields = ("original_name", "status", "error", "duration_ms", "created_at")
     fields = ("original_name", "status", "error", "duration_ms")
     can_delete = False
-
 
 @admin.register(DocConverterJob)
 class DocConverterJobAdmin(admin.ModelAdmin):
@@ -42,7 +40,6 @@ class DocConverterJobAdmin(admin.ModelAdmin):
 
     def has_add_permission(self, request: object) -> bool:
         return False
-
 
 @admin.register(DocConverterTool)
 class DocConverterToolAdmin(admin.ModelAdmin):

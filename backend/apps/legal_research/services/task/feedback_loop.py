@@ -12,7 +12,6 @@ from apps.legal_research.services.similarity.tuning_config import LegalResearchT
 
 logger = logging.getLogger(__name__)
 
-
 class _WritableConfigService(Protocol):
     def get_value(self, key: str, default: str = "") -> str: ...
 
@@ -25,12 +24,10 @@ class _WritableConfigService(Protocol):
         is_secret: bool = False,
     ) -> object: ...
 
-
 class LegalResearchFeedbackType:
     HIT_TRUE = "hit_true"
     HIT_FALSE = "hit_false"
     MISSED_CASE = "missed_case"
-
 
 @dataclass(frozen=True)
 class _FloatTuningKey:
@@ -39,7 +36,6 @@ class _FloatTuningKey:
     min_value: float
     max_value: float
     description: str
-
 
 class LegalResearchFeedbackLoopService:
     CATEGORY = "ai"

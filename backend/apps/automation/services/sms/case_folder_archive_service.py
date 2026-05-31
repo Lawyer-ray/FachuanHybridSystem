@@ -18,7 +18,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger("apps.automation")
 
-
 class CaseFolderArchiveService:
     """将短信和文书归档到案件绑定文件夹."""
 

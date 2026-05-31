@@ -7,7 +7,6 @@ from types import SimpleNamespace
 from apps.automation.api import court_guarantee_helpers as helpers
 from apps.core.dto.client import PropertyClueDTO
 
-
 class _FakeClientService:
     def __init__(self, clues_by_client_id: dict[int, list[PropertyClueDTO]]) -> None:
         self._clues_by_client_id = clues_by_client_id
@@ -15,11 +14,9 @@ class _FakeClientService:
     def get_property_clues_by_client_internal(self, client_id: int) -> list[PropertyClueDTO]:
         return list(self._clues_by_client_id.get(client_id, []))
 
-
 def _build_case_party(*, party_id: int, client_id: int, client_name: str, address: str = "") -> SimpleNamespace:
     client = SimpleNamespace(id=client_id, name=client_name, address=address)
     return SimpleNamespace(id=party_id, client=client)
-
 
 def test_build_selected_respondent_property_clues_returns_all_clues(monkeypatch) -> None:
     client_service = _FakeClientService(
@@ -58,7 +55,6 @@ def test_build_selected_respondent_property_clues_returns_all_clues(monkeypatch)
     assert result[2]["property_info"] == "其他：测试设备线索一批"
     assert [item["property_value"] for item in result] == ["206135.64", "206135.64", "206135.64"]
 
-
 def test_build_selected_respondent_property_clues_falls_back_when_no_clues(monkeypatch) -> None:
     monkeypatch.setattr(helpers, "_get_client_service", lambda: _FakeClientService({}))
 
@@ -84,7 +80,6 @@ def test_build_selected_respondent_property_clues_falls_back_when_no_clues(monke
             "property_value": "500000",
         }
     ]
-
 
 def test_build_primary_respondent_property_clue_returns_first_item(monkeypatch) -> None:
     client_service = _FakeClientService(

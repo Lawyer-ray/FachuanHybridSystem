@@ -16,7 +16,6 @@ from apps.documents.services.placeholders.fallback import PLACEHOLDER_FALLBACK_V
 
 logger = logging.getLogger(__name__)
 
-
 @GeneratorRegistry.register
 class ContractGenerator(BaseGenerator):
     """合同文书生成器"""

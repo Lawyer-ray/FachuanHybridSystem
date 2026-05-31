@@ -43,6 +43,5 @@ DEFAULT_FILENAME_PROMPT = dedent(
 current_date_str = time.strftime("%Y%m%d")
 DEFAULT_FILENAME_PROMPT = DEFAULT_FILENAME_PROMPT.format(current_date=current_date_str)
 
-
 def build_prompt(base: str, text: str) -> str:
     return f"{base}\n\n{text}"

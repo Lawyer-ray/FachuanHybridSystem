@@ -6,7 +6,6 @@ from typing import Any
 
 from django.core.management.base import BaseCommand
 
-
 class Command(BaseCommand):
     help: str = "将已关联合同的案件律师指派与合同律师指派对齐"
 

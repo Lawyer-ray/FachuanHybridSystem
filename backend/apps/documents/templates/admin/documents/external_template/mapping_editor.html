@@ -90,15 +90,15 @@
 {% block content %}
 <div class="me-container" x-data="mappingEditor()" x-cloak>
   <a class="me-back" href="{% url 'admin:documents_externaltemplate_change' template_obj.pk %}">
-    ← {% translate "返回模板详情" %}
+    ← {
   </a>
 
   <div class="me-header">
-    <h2 style="margin:0;">🎯 {% translate "映射编辑" %} — {{ template_obj.name }}</h2>
+    <h2 style="margin:0;">🎯 { — {{ template_obj.name }}</h2>
     <div style="display:flex;gap:8px;">
       <button class="me-btn me-btn-primary" @click="reanalyze()" :disabled="analyzing">
         <span x-show="analyzing" class="me-spinner"></span>
-        🔍 {% translate "重新分析全部" %}
+        🔍 {
       </button>
     </div>
   </div>
@@ -110,12 +110,12 @@
     <!-- Left: Document preview -->
     <div class="me-panel me-panel-left">
       <div class="me-panel-header">
-        📄 {% translate "文档预览" %}
-        <span style="font-weight:normal;color:#888;font-size:0.75rem;" x-text="'(' + mappings.length + ' {% translate "个映射" %})'"></span>
+        📄 {
+        <span style="font-weight:normal;color:#888;font-size:0.75rem;" x-text="'(' + mappings.length + ' {)'"></span>
       </div>
       <div class="me-panel-body">
         <template x-if="loadingHtml">
-          <div class="me-loading"><span class="me-spinner"></span>{% translate "加载预览中..." %}</div>
+          <div class="me-loading"><span class="me-spinner"></span>{</div>
         </template>
         <div class="me-preview" x-ref="preview" x-show="!loadingHtml" @click="onPreviewClick($event)"></div>
       </div>
@@ -124,18 +124,18 @@
     <!-- Right: Mapping list -->
     <div class="me-panel me-panel-right">
       <div class="me-panel-header">
-        📋 {% translate "字段映射" %}
-        <button class="me-btn me-btn-sm me-btn-primary" @click="openAddForm()">➕ {% translate "添加" %}</button>
+        📋 {
+        <button class="me-btn me-btn-sm me-btn-primary" @click="openAddForm()">➕ {</button>
       </div>
       <div class="me-panel-body">
         <template x-if="addMode">
           <div class="me-add-hint">
-            💡 {% translate "点击左侧文档中要映射的位置" %}
-            <button class="me-btn me-btn-secondary me-btn-cancel" @click="addMode = false">{% translate "取消" %}</button>
+            💡 {
+            <button class="me-btn me-btn-secondary me-btn-cancel" @click="addMode = false">{</button>
           </div>
         </template>
         <template x-if="mappings.length === 0 && !loadingMappings">
-          <div class="me-empty">{% translate "暂无映射，请先分析模板或手动添加" %}</div>
+          <div class="me-empty">{</div>
         </template>
         <template x-for="m in mappings" :key="m.id">
           <div class="me-mapping-item"
@@ -147,8 +147,8 @@
               · <span x-text="fillTypeLabel(m.fill_type)"></span>
             </div>
             <div class="me-mapping-actions" @click.stop>
-              <button @click="openEditForm(m)">✏️ {% translate "编辑" %}</button>
-              <button class="me-btn-delete" @click="deleteMapping(m.id)">🗑️ {% translate "删除" %}</button>
+              <button @click="openEditForm(m)">✏️ {</button>
+              <button class="me-btn-delete" @click="deleteMapping(m.id)">🗑️ {</button>
             </div>
           </div>
         </template>
@@ -160,29 +160,29 @@
   <template x-if="editForm.show">
     <div class="me-edit-overlay" @click.self="editForm.show = false">
       <div class="me-edit-form">
-        <h3 x-text="editForm.isNew ? '{% translate "添加映射" %}' : '{% translate "编辑映射" %}'"></h3>
+        <h3 x-text="editForm.isNew ? '{' : '{'"></h3>
         <template x-if="editForm.positionText">
           <div class="me-edit-row">
-            <label>{% translate "选中位置" %}</label>
+            <label>{</label>
             <div class="me-position-preview" x-text="editForm.positionText"></div>
           </div>
         </template>
         <div class="me-edit-row">
-          <label>{% translate "语义标签" %}</label>
-          <input type="text" x-model="editForm.semantic_label" placeholder="{% translate '如：被告姓名、案由' %}" x-ref="labelInput">
+          <label>{</label>
+          <input type="text" x-model="editForm.semantic_label" placeholder="{" x-ref="labelInput">
         </div>
         <div class="me-edit-row">
-          <label>{% translate "填充类型" %}</label>
+          <label>{</label>
           <select x-model="editForm.fill_type">
-            <option value="text">{% translate "文本替换" %}</option>
-            <option value="checkbox">{% translate "勾选复选框" %}</option>
-            <option value="delete_inapplicable">{% translate "删除不适用项" %}</option>
+            <option value="text">{</option>
+            <option value="checkbox">{</option>
+            <option value="delete_inapplicable">{</option>
           </select>
         </div>
         <div class="me-edit-actions">
-          <button class="me-btn me-btn-secondary" @click="editForm.show = false">{% translate "取消" %}</button>
+          <button class="me-btn me-btn-secondary" @click="editForm.show = false">{</button>
           <button class="me-btn me-btn-primary" @click="saveEdit()" :disabled="!editForm.semantic_label.trim()">
-            {% translate "保存" %}
+            {
           </button>
         </div>
       </div>
@@ -204,9 +204,9 @@
   }
 
   var FILL_TYPE_LABELS = {
-    text: '{% translate "文本" %}',
-    checkbox: '{% translate "复选框" %}',
-    delete_inapplicable: '{% translate "删除不适用" %}'
+    text: '{',
+    checkbox: '{',
+    delete_inapplicable: '{'
   };
 
   document.addEventListener('alpine:init', function() {
@@ -252,7 +252,7 @@
             var self = this;
             this.$nextTick(function() { self.applyHighlights(); });
           } catch(e) {
-            this.$refs.preview.innerHTML = '<p style="color:red;">{% translate "预览加载失败" %}: ' + e.message + '</p>';
+            this.$refs.preview.innerHTML = '<p style="color:red;">{: ' + e.message + '</p>';
           } finally {
             this.loadingHtml = false;
           }
@@ -383,13 +383,13 @@
               var cells = row.querySelectorAll('td, th');
               var colIdx = Array.from(cells).indexOf(cell);
               locator = { type: 'table_cell', table_index: tableIdx, row: rowIdx, col: colIdx, nested_table_path: [] };
-              desc = '{% translate "表格" %}' + tableIdx + ' {% translate "行" %}' + rowIdx + ' {% translate "列" %}' + colIdx;
+              desc = '{' + tableIdx + ' {' + rowIdx + ' {' + colIdx;
               targetEl = cell;
             } else if (para) {
               var ps = this.$refs.preview.querySelectorAll('p');
               var pIdx = Array.from(ps).indexOf(para);
               locator = { type: 'paragraph', paragraph_index: pIdx };
-              desc = '{% translate "段落" %} ' + pIdx;
+              desc = '{ ' + pIdx;
               targetEl = para;
             }
 
@@ -452,7 +452,7 @@
                 })
               });
               if (!resp.ok) throw new Error('HTTP ' + resp.status);
-              self.showToast('{% translate "映射已添加" %}');
+              self.showToast('{');
             } else {
               var resp = await fetch(API_BASE + '/mappings/' + this.editForm.id, {
                 method: 'PUT', headers: headers,
@@ -463,7 +463,7 @@
                 })
               });
               if (!resp.ok) throw new Error('HTTP ' + resp.status);
-              self.showToast('{% translate "映射已更新" %}');
+              self.showToast('{');
             }
             this.editForm.show = false;
             this.addMode = false;
@@ -472,37 +472,37 @@
             });
             await this.loadMappings();
           } catch(e) {
-            self.showToast('{% translate "保存失败" %}: ' + e.message, 'error');
+            self.showToast('{: ' + e.message, 'error');
           }
         },
 
         deleteMapping: async function(id) {
-          if (!confirm('{% translate "确定删除此映射？" %}')) return;
+          if (!confirm('{')) return;
           try {
             var resp = await fetch(API_BASE + '/mappings/' + id, {
               method: 'DELETE', headers: { 'X-CSRFToken': getCsrf() }
             });
             if (!resp.ok) throw new Error('HTTP ' + resp.status);
-            this.showToast('{% translate "映射已删除" %}');
+            this.showToast('{');
             if (this.activeId === id) this.activeId = null;
             await this.loadMappings();
           } catch(e) {
-            this.showToast('{% translate "删除失败" %}', 'error');
+            this.showToast('{', 'error');
           }
         },
 
         reanalyze: async function() {
-          if (!confirm('{% translate "重新分析将覆盖现有映射，确定继续？" %}')) return;
+          if (!confirm('{')) return;
           this.analyzing = true;
           try {
             var resp = await fetch(API_BASE + '/' + TEMPLATE_ID + '/analyze', {
               method: 'POST', headers: { 'X-CSRFToken': getCsrf() }
             });
             if (!resp.ok) throw new Error('HTTP ' + resp.status);
-            this.showToast('{% translate "分析完成" %}');
+            this.showToast('{');
             await this.loadMappings();
           } catch(e) {
-            this.showToast('{% translate "分析失败" %}: ' + e.message, 'error');
+            this.showToast('{: ' + e.message, 'error');
           } finally {
             this.analyzing = false;
           }

@@ -1,29 +1,28 @@
-{% load i18n %}
 <div x-data="courtGuaranteeApp()" style="margin-top: 20px; border-top: 1px solid #e5e7eb; padding-top: 16px;">
     <div class="info-grid">
         <div class="info-card" style="grid-column: 1 / -1;">
             <div class="card-header">
                 <span class="card-icon">🛡️</span>
-                <h3 class="card-title">{% translate "一张网申请担保（预览暂存）" %}</h3>
+                <h3 class="card-title">{</h3>
             </div>
 
             <div x-show="loading" style="text-align: center; padding: 16px;">
-                <span class="spinner"></span> {% translate "加载中..." %}
+                <span class="spinner"></span> {
             </div>
 
             <div x-show="!loading">
                 <div style="background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%); border: 1px solid #e2e8f0; border-radius: 10px; padding: 14px 16px; margin-bottom: 14px;">
                     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px 16px;">
                         <div style="display: flex; align-items: center; gap: 6px; min-width: 0;">
-                            <span style="color: #64748b; font-size: 12px; flex: 0 0 auto;">{% translate "管辖法院" %}：</span>
-                            <span style="font-size: 14px; font-weight: 600; color: #1e293b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" x-text="caseInfo.court_name || '{% trans "未设置" %}'"></span>
+                            <span style="color: #64748b; font-size: 12px; flex: 0 0 auto;">{：</span>
+                            <span style="font-size: 14px; font-weight: 600; color: #1e293b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" x-text="caseInfo.court_name || '{'"></span>
                         </div>
                         <div style="display: flex; align-items: center; gap: 6px; min-width: 0;">
-                            <span style="color: #64748b; font-size: 12px; flex: 0 0 auto;">{% translate "保全类别" %}：</span>
+                            <span style="color: #64748b; font-size: 12px; flex: 0 0 auto;">{：</span>
                             <span style="font-size: 14px; font-weight: 600; color: #1e293b;" x-text="caseInfo.preserve_category || '-'"></span>
                         </div>
                         <div style="display: flex; align-items: center; gap: 6px; min-width: 0;">
-                            <span style="color: #64748b; font-size: 12px; flex: 0 0 auto;">{% translate "保全金额" %}：</span>
+                            <span style="color: #64748b; font-size: 12px; flex: 0 0 auto;">{：</span>
                             <span style="font-size: 14px; font-weight: 700; color: #0f172a;" x-text="caseInfo.preserve_amount ? '¥' + caseInfo.preserve_amount : '-'"></span>
                         </div>
                     </div>
@@ -31,15 +30,15 @@
 
                 <div style="margin-bottom: 12px; border: 1px solid #e2e8f0; border-radius: 10px; padding: 12px; background: #f8fafc;">
                     <div style="display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 8px;">
-                        <div style="font-size: 13px; font-weight: 600; color: #0f172a;">{% trans "财产保全询价" %}</div>
+                        <div style="font-size: 13px; font-weight: 600; color: #0f172a;">{</div>
                         <button type="button"
                                 class="btn btn-primary"
                                 style="font-size: 12px; padding: 6px 10px;"
                                 :disabled="quoteLoading || !canStartQuote()"
                                 :class="{ 'btn-disabled': quoteLoading || !canStartQuote() }"
                                 @click="ensureQuote()">
-                            <span x-show="!quoteLoading">{% trans "发起询价" %}</span>
-                            <span x-show="quoteLoading"><span class="spinner"></span> {% trans "处理中..." %}</span>
+                            <span x-show="!quoteLoading">{</span>
+                            <span x-show="quoteLoading"><span class="spinner"></span> {</span>
                         </button>
                     </div>
 
@@ -47,7 +46,7 @@
                         <select x-model="selectedReusableQuoteId"
                                 :disabled="quoteLoading || !canStartQuote()"
                                 style="flex:1; min-width:220px; height:32px; border:1px solid #cbd5e1; border-radius:6px; padding:0 8px; background:#fff;">
-                            <option value="">{% trans "选择同保全金额历史询价记录" %}</option>
+                            <option value="">{</option>
                             <template x-for="option in reusableQuoteOptions" :key="option.quote_id">
                                 <option :value="String(option.quote_id)" x-text="formatReusableQuoteOption(option)"></option>
                             </template>
@@ -57,13 +56,13 @@
                                 style="font-size:12px; padding:6px 10px;"
                                 :disabled="quoteLoading || !selectedReusableQuoteId"
                                 :class="{ 'btn-disabled': quoteLoading || !selectedReusableQuoteId }"
-                                @click="bindReusableQuote()">{% trans "绑定所选询价" %}</button>
+                                @click="bindReusableQuote()">{</button>
                     </div>
 
                     <template x-if="quoteContext">
                         <div>
                             <div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:8px;">
-                                <span x-show="isQuotePolling()" style="font-size:12px; color:#1d4ed8; background:#dbeafe; border-radius:999px; padding:2px 8px;">{% trans "询价刷新中..." %}</span>
+                                <span x-show="isQuotePolling()" style="font-size:12px; color:#1d4ed8; background:#dbeafe; border-radius:999px; padding:2px 8px;">{</span>
                             </div>
 
                             <template x-if="quoteContext.items && quoteContext.items.length > 0">
@@ -71,11 +70,11 @@
                                     <table style="width:100%; border-collapse: collapse; font-size:12px;">
                                         <thead>
                                             <tr style="background:#eff6ff; color:#1e3a8a;">
-                                                <th style="text-align:center; padding:6px 8px; border-bottom:1px solid #dbeafe; width:36px;">{% trans "序号" %}</th>
-                                                <th style="text-align:left; padding:6px 8px; border-bottom:1px solid #dbeafe;">{% trans "担保机构" %}</th>
-                                                <th style="text-align:center; padding:6px 8px; border-bottom:1px solid #dbeafe;">{% trans "报价区间" %}</th>
-                                                <th style="text-align:right; padding:6px 8px; border-bottom:1px solid #dbeafe;">{% trans "最高保全金额" %}</th>
-                                                <th style="text-align:center; padding:6px 8px; border-bottom:1px solid #dbeafe;">{% trans "操作" %}</th>
+                                                <th style="text-align:center; padding:6px 8px; border-bottom:1px solid #dbeafe; width:36px;">{</th>
+                                                <th style="text-align:left; padding:6px 8px; border-bottom:1px solid #dbeafe;">{</th>
+                                                <th style="text-align:center; padding:6px 8px; border-bottom:1px solid #dbeafe;">{</th>
+                                                <th style="text-align:right; padding:6px 8px; border-bottom:1px solid #dbeafe;">{</th>
+                                                <th style="text-align:center; padding:6px 8px; border-bottom:1px solid #dbeafe;">{</th>
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -93,7 +92,7 @@
                                                                 class="btn"
                                                                 style="font-size:12px; padding:4px 8px;"
                                                                 :disabled="executing"
-                                                                @click="selectQuoteCompany(item)">{% trans "选用" %}</button>
+                                                                @click="selectQuoteCompany(item)">{</button>
                                                     </td>
                                                 </tr>
                                             </template>
@@ -105,13 +104,13 @@
                     </template>
 
                     <template x-if="!quoteContext">
-                        <div style="font-size: 12px; color: #64748b;">{% trans "尚未发起询价，可点击“发起询价”获取担保报价。" %}</div>
+                        <div style="font-size: 12px; color: #64748b;">{</div>
                     </template>
                 </div>
 
                 <div x-show="respondentOptions.length > 1" style="margin-bottom: 12px; border: 1px dashed #cbd5e1; border-radius: 8px; padding: 10px 12px; background: #f8fafc;">
                     <div style="font-size: 12px; color: #334155; margin-bottom: 8px; font-weight: 600;">
-                        {% trans "被申请人（可多选，默认全选）" %}
+                        {
                     </div>
                     <div style="display:flex; flex-wrap:wrap; gap:8px 16px;">
                         <template x-for="option in respondentOptions" :key="option.party_id">
@@ -140,31 +139,31 @@
                     <input type="text"
                            x-model="consultantCode"
                            :disabled="executing"
-                           placeholder="{% trans '咨询员编号（可选）' %}"
+                           placeholder="{"
                            class="court-guarantee-control">
                     <button type="button" class="btn btn-primary court-guarantee-submit"
                             :class="{ 'btn-disabled': executing || !canExecute() }"
                             :disabled="executing || !canExecute()"
                             @click="executeGuarantee()">
-                        <span x-show="!executing">🚀 {% translate "开始申请担保" %}</span>
-                        <span x-show="executing"><span class="spinner"></span> {% translate "执行中..." %}</span>
+                        <span x-show="!executing">🚀 {</span>
+                        <span x-show="executing"><span class="spinner"></span> {</span>
                     </button>
                 </div>
 
                 <div style="margin-bottom: 14px; font-size: 12px; color: #dc2626;" x-show="!caseInfo.court_name">
-                    {% translate "请先设置管辖法院（案件管辖机关）" %}
+                    {
                 </div>
                 <div style="margin-bottom: 14px; font-size: 12px; color: #dc2626;" x-show="caseInfo.court_name && !caseInfo.has_court_credential">
-                    {% translate "您没有一张网账号密码，请先在律师管理中添加" %}
+                    {
                 </div>
                 <div style="margin-bottom: 14px; font-size: 12px; color: #dc2626;" x-show="caseInfo.court_name && caseInfo.has_court_credential && !caseInfo.our_party_is_plaintiff_side">
-                    {% translate "我方当事人非申请方，系统默认禁止发起担保申请" %}
+                    {
                 </div>
                 <div style="margin-bottom: 14px; font-size: 12px; color: #dc2626;" x-show="caseInfo.court_name && caseInfo.has_court_credential && caseInfo.our_party_is_plaintiff_side && !caseInfo.preserve_amount">
-                    {% translate "请先维护案件保全金额（preservation_amount）" %}
+                    {
                 </div>
                 <div style="margin-bottom: 14px; font-size: 12px; color: #dc2626;" x-show="respondentOptions.length > 1 && selectedRespondentIds.length === 0">
-                    {% translate "请至少选择一个被申请人" %}
+                    {
                 </div>
 
                 <template x-if="lastResult">
@@ -226,7 +225,7 @@
                 if (!this.quoteContext) return '';
                 const successCount = this.quoteContext.success_count || 0;
                 const total = this.quoteContext.total_companies || 0;
-                return '{% trans "已获取报价" %} ' + successCount + ' / ' + total;
+                return '{ ' + successCount + ' / ' + total;
             },
 
             formatQuoteRange(item) {
@@ -427,7 +426,7 @@
                     this.startQuotePolling();
                 } catch (e) {
                     console.error('ensureQuote error:', e);
-                    this.lastResult = { success: false, message: e.message || '{% trans "请求失败" %}' };
+                    this.lastResult = { success: false, message: e.message || '{' };
                 } finally {
                     this.quoteLoading = false;
                 }
@@ -444,7 +443,7 @@
                     this.startQuotePolling();
                 } catch (e) {
                     console.error('bindReusableQuote error:', e);
-                    this.lastResult = { success: false, message: e.message || '{% trans "请求失败" %}' };
+                    this.lastResult = { success: false, message: e.message || '{' };
                 } finally {
                     this.quoteLoading = false;
                 }
@@ -460,7 +459,7 @@
                     this.startQuotePolling();
                 } catch (e) {
                     console.error('retryQuote error:', e);
-                    this.lastResult = { success: false, message: e.message || '{% trans "请求失败" %}' };
+                    this.lastResult = { success: false, message: e.message || '{' };
                 } finally {
                     this.quoteLoading = false;
                 }
@@ -468,7 +467,7 @@
 
             async deleteQuote() {
                 if (!this.quoteContext || !this.quoteContext.quote_id) return;
-                if (!confirm('{% trans "确认删除询价记录吗？" %}')) return;
+                if (!confirm('{')) return;
                 this.quoteLoading = true;
                 try {
                     const data = await this.postJson(`/api/v1/court-guarantee/quote/${this.quoteContext.quote_id}/delete`, { case_id: this.caseId });
@@ -477,7 +476,7 @@
                     this.stopQuotePolling();
                 } catch (e) {
                     console.error('deleteQuote error:', e);
-                    this.lastResult = { success: false, message: e.message || '{% trans "请求失败" %}' };
+                    this.lastResult = { success: false, message: e.message || '{' };
                 } finally {
                     this.quoteLoading = false;
                 }
@@ -485,7 +484,7 @@
 
             async deleteBinding() {
                 if (!this.quoteContext || !this.quoteContext.binding_id) return;
-                if (!confirm('{% trans "确认删除绑定关系吗？" %}')) return;
+                if (!confirm('{')) return;
                 this.quoteLoading = true;
                 try {
                     const data = await this.postJson(`/api/v1/court-guarantee/quote-binding/${this.quoteContext.binding_id}/delete`, { case_id: this.caseId });
@@ -494,7 +493,7 @@
                     this.stopQuotePolling();
                 } catch (e) {
                     console.error('deleteBinding error:', e);
-                    this.lastResult = { success: false, message: e.message || '{% trans "请求失败" %}' };
+                    this.lastResult = { success: false, message: e.message || '{' };
                 } finally {
                     this.quoteLoading = false;
                 }
@@ -508,7 +507,7 @@
                 }
                 this.insuranceCompanyName = companyName;
                 this.handleInsuranceCompanyChange();
-                this.lastResult = { success: true, message: `{% trans "已选用" %}${companyName}` };
+                this.lastResult = { success: true, message: `{${companyName}` };
             },
 
             async executeGuarantee() {
@@ -541,7 +540,7 @@
                     }
                 } catch (e) {
                     console.error('executeGuarantee error:', e);
-                    this.lastResult = { success: false, message: e.message || '{% trans "请求失败" %}' };
+                    this.lastResult = { success: false, message: e.message || '{' };
                     this.executing = false;
                 }
             },

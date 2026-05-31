@@ -18,7 +18,6 @@ from .siliconflow import SiliconFlowBackend
 
 logger = logging.getLogger("apps.core.llm.backends.openai_compatible")
 
-
 class OpenAICompatibleBackend(SiliconFlowBackend):
     """Generic backend for OpenAI-compatible providers (Moonshot/Kimi/DeepSeek etc.)."""
 

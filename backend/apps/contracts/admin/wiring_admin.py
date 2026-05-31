@@ -6,7 +6,6 @@ from typing import Any
 
 from apps.core.interfaces import ServiceLocator
 
-
 def get_contract_display_service() -> Any:
     from apps.contracts.services import ContractDisplayService
 
@@ -18,7 +17,6 @@ def get_contract_display_service() -> Any:
         lambda: ContractDisplayService(),
     )
 
-
 def get_contract_progress_service() -> Any:
     from apps.contracts.services import ContractProgressService
 
@@ -29,7 +27,6 @@ def get_contract_progress_service() -> Any:
         "contracts.contract_progress_service",
         lambda: ContractProgressService(),
     )
-
 
 def get_contract_admin_service() -> Any:
     from apps.contracts.services import ContractAdminService
@@ -48,7 +45,6 @@ def get_contract_admin_service() -> Any:
         ),
     )
 
-
 def get_contract_batch_folder_binding_service() -> Any:
     from apps.contracts.services import ContractBatchFolderBindingService
 
@@ -59,7 +55,6 @@ def get_contract_batch_folder_binding_service() -> Any:
         "contracts.contract_batch_folder_binding_service",
         lambda: ContractBatchFolderBindingService(),
     )
-
 
 def get_contract_folder_binding_service() -> Any:
     from apps.contracts.services import FolderBindingService
@@ -73,7 +68,6 @@ def get_contract_folder_binding_service() -> Any:
         lambda: FolderBindingService(document_template_binding_service=build_document_template_binding_service()),
     )
 
-
 def get_contract_oa_sync_service() -> Any:
     from apps.contracts.services import ContractOASyncService
 
@@ -85,12 +79,10 @@ def get_contract_oa_sync_service() -> Any:
         lambda: ContractOASyncService(),
     )
 
-
 def get_contract_mutation_facade() -> Any:
     from apps.contracts.services.contract.wiring import get_contract_mutation_facade as _get_contract_mutation_facade
 
     return _get_contract_mutation_facade()
-
 
 def get_contract_admin_action_service() -> Any:
     from apps.contracts.services.admin_actions.wiring import build_contract_admin_action_service
@@ -103,7 +95,6 @@ def get_contract_admin_action_service() -> Any:
         build_contract_admin_action_service,
     )
 
-
 def get_contract_assignment_query_service() -> Any:
     from apps.contracts.services.assignment.contract_assignment_query_service import ContractAssignmentQueryService
 
@@ -115,7 +106,6 @@ def get_contract_assignment_query_service() -> Any:
         lambda: ContractAssignmentQueryService(),
     )
 
-
 def get_material_service() -> Any:
     from apps.contracts.services.contract.integrations import MaterialService
 
@@ -126,7 +116,6 @@ def get_material_service() -> Any:
         "contracts.material_service",
         lambda: MaterialService(),
     )
-
 
 def get_invoice_upload_service() -> Any:
     from apps.contracts.services.contract.integrations import InvoiceUploadService

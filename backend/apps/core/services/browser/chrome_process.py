@@ -20,7 +20,6 @@ logger = logging.getLogger("apps.core")
 
 _DEFAULT_CDP_PORT: Final[int] = 9222
 
-
 def _detect_chrome_path() -> str:
     """自动检测 Chrome 可执行文件路径。"""
     import platform
@@ -38,7 +37,6 @@ def _detect_chrome_path() -> str:
         return "google-chrome"
     return r"C:\Program Files\Google\Chrome\Application\chrome.exe"
 
-
 def is_cdp_ready(port: int = _DEFAULT_CDP_PORT) -> bool:
     """检查 CDP 端点是否可用。"""
     try:
@@ -47,7 +45,6 @@ def is_cdp_ready(port: int = _DEFAULT_CDP_PORT) -> bool:
             return resp.status_code == 200
     except Exception:
         return False
-
 
 def launch_chrome(
     *,
@@ -113,7 +110,6 @@ def launch_chrome(
             raise RuntimeError("Chrome 进程意外退出")
 
     raise RuntimeError(f"Chrome CDP 端点未就绪 (port={port})，请检查 Chrome 是否正常运行")
-
 
 def kill_chrome(
     process: subprocess.Popen | None = None,

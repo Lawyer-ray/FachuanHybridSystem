@@ -36,9 +36,7 @@ router = Router(tags=["内容运营"], auth=JWTOrSessionAuth())
 
 _task_service = ContentOpsTaskService()
 
-
 # --- TTS 测试 ---
-
 
 @router.post("/tts/test")
 def tts_test(request: HttpRequest, payload: TTSTestIn) -> dict[str, str] | FileResponse | HttpResponse:
@@ -75,9 +73,7 @@ def tts_test(request: HttpRequest, payload: TTSTestIn) -> dict[str, str] | FileR
     response["Content-Disposition"] = f'attachment; filename="tts_test{suffix}"'
     return response
 
-
 # --- 选题建议 ---
-
 
 @router.post("/topics/suggest", response=list[TopicSuggestionOut])
 def topic_suggest(request: HttpRequest, payload: TopicSuggestIn) -> list[dict[str, str]]:
@@ -90,7 +86,6 @@ def topic_suggest(request: HttpRequest, payload: TopicSuggestIn) -> list[dict[st
     except Exception as e:
         logger.error("Topic suggestion failed: %s", e)
         return []
-
 
 @router.get("/topics/hot", response=list[HotTopicOut])
 def get_hot_topics(request: HttpRequest, source: str | None = None) -> list[dict[str, Any]]:
@@ -113,7 +108,6 @@ def get_hot_topics(request: HttpRequest, source: str | None = None) -> list[dict
         logger.error("Get hot topics failed: %s", e)
         return []
 
-
 @router.post("/topics/hot/refresh", response=list[HotTopicOut])
 def refresh_hot_topics(request: HttpRequest, payload: HotTopicRefreshIn) -> list[dict[str, Any]]:
     """强制刷新热点话题（绕过缓存）。"""
@@ -135,7 +129,6 @@ def refresh_hot_topics(request: HttpRequest, payload: HotTopicRefreshIn) -> list
         logger.error("Refresh hot topics failed: %s", e)
         return []
 
-
 @router.post("/topics/inspiration", response=list[TopicSuggestionOut])
 def topic_inspiration(request: HttpRequest, payload: TopicInspirationIn) -> list[dict[str, str]]:
     """基于热点话题的 AI 选题灵感。"""
@@ -152,9 +145,7 @@ def topic_inspiration(request: HttpRequest, payload: TopicInspirationIn) -> list
         logger.error("Topic inspiration failed: %s", e)
         return []
 
-
 # --- 翻译 ---
-
 
 @router.post("/topics/translate")
 def translate_topics(request: HttpRequest) -> dict[str, Any]:
@@ -194,9 +185,7 @@ def translate_topics(request: HttpRequest) -> dict[str, Any]:
         logger.error("Translation failed: %s", e)
         return {"translations": titles}  # 失败时返回原文
 
-
 # --- 任务管理 ---
-
 
 @router.post("/tasks", response=ContentTaskOut)
 def create_task(request: HttpRequest, payload: ContentTaskCreateIn) -> ContentTaskOut:
@@ -204,13 +193,11 @@ def create_task(request: HttpRequest, payload: ContentTaskCreateIn) -> ContentTa
     task = _task_service.create_task(payload=payload, user=request.user)
     return _task_to_out(task)
 
-
 @router.get("/tasks", response=list[ContentTaskOut])
 def list_tasks(request: HttpRequest, mode: str | None = None) -> list[ContentTaskOut]:
     """列出当前用户的任务。"""
     tasks = _task_service.list_tasks(user=request.user, mode=mode)
     return [_task_to_out(t) for t in tasks]
-
 
 @router.get("/tasks/{task_id}", response=ContentTaskOut)
 def get_task(request: HttpRequest, task_id: int) -> ContentTaskOut:
@@ -218,13 +205,11 @@ def get_task(request: HttpRequest, task_id: int) -> ContentTaskOut:
     task = _task_service.get_task(task_id=task_id, user=request.user)
     return _task_to_out(task)
 
-
 @router.post("/tasks/{task_id}/retry", response=ContentTaskOut)
 def retry_task(request: HttpRequest, task_id: int) -> ContentTaskOut:
     """重试失败的任务。"""
     task = _task_service.retry_task(task_id=task_id, user=request.user)
     return _task_to_out(task)
-
 
 @router.post("/tasks/{task_id}/cancel", response=ContentTaskOut)
 def cancel_task(request: HttpRequest, task_id: int) -> ContentTaskOut:
@@ -232,13 +217,11 @@ def cancel_task(request: HttpRequest, task_id: int) -> ContentTaskOut:
     task = _task_service.cancel_task(task_id=task_id, user=request.user)
     return _task_to_out(task)
 
-
 @router.delete("/tasks/{task_id}")
 def delete_task(request: HttpRequest, task_id: int) -> dict[str, str]:
     """删除任务。"""
     _task_service.delete_task(task_id=task_id, user=request.user)
     return {"message": "任务已删除"}
-
 
 @router.get("/tasks/{task_id}/articles", response=list[GeneratedArticleOut])
 def list_articles(request: HttpRequest, task_id: int) -> list[GeneratedArticleOut]:
@@ -246,13 +229,11 @@ def list_articles(request: HttpRequest, task_id: int) -> list[GeneratedArticleOu
     articles = _task_service.list_articles(task_id=task_id, user=request.user)
     return [_article_to_out(a) for a in articles]
 
-
 @router.get("/tasks/{task_id}/episodes", response=list[PodcastEpisodeOut])
 def list_episodes(request: HttpRequest, task_id: int) -> list[PodcastEpisodeOut]:
     """列出任务关联的播客单集。"""
     episodes = _task_service.list_episodes(task_id=task_id, user=request.user)
     return [_episode_to_out(e) for e in episodes]
-
 
 @router.get("/tasks/{task_id}/discussions", response=list[DiscussionScriptOut])
 def list_discussion_scripts(request: HttpRequest, task_id: int) -> list[DiscussionScriptOut]:
@@ -260,13 +241,11 @@ def list_discussion_scripts(request: HttpRequest, task_id: int) -> list[Discussi
     scripts = _task_service.list_discussion_scripts(task_id=task_id, user=request.user)
     return [_discussion_script_to_out(s) for s in scripts]
 
-
 @router.get("/discussions/{script_id}", response=DiscussionScriptOut)
 def get_discussion_script(request: HttpRequest, script_id: int) -> DiscussionScriptOut:
     """获取讨论稿详情（含轮次）。"""
     script = _task_service.get_discussion_script(script_id=script_id, user=request.user)
     return _discussion_script_to_out(script)
-
 
 @router.put("/discussions/turns/{turn_id}", response=DiscussionTurnOut)
 def update_discussion_turn(request: HttpRequest, turn_id: int, payload: DiscussionTurnUpdateIn) -> DiscussionTurnOut:
@@ -276,13 +255,11 @@ def update_discussion_turn(request: HttpRequest, turn_id: int, payload: Discussi
     )
     return _discussion_turn_to_out(turn)
 
-
 @router.post("/discussions/{script_id}/approve", response=DiscussionScriptOut)
 def approve_discussion_script(request: HttpRequest, script_id: int, payload: ReviewActionIn) -> DiscussionScriptOut:
     """审核通过讨论稿。"""
     script = _task_service.approve_discussion_script(script_id=script_id, user=request.user, notes=payload.notes)
     return _discussion_script_to_out(script)
-
 
 @router.post("/discussions/{script_id}/reject", response=DiscussionScriptOut)
 def reject_discussion_script(request: HttpRequest, script_id: int, payload: ReviewActionIn) -> DiscussionScriptOut:
@@ -290,13 +267,11 @@ def reject_discussion_script(request: HttpRequest, script_id: int, payload: Revi
     script = _task_service.reject_discussion_script(script_id=script_id, user=request.user, notes=payload.notes)
     return _discussion_script_to_out(script)
 
-
 @router.post("/discussions/{script_id}/regenerate", response=DiscussionScriptOut)
 def regenerate_discussion_script(request: HttpRequest, script_id: int) -> DiscussionScriptOut:
     """重新生成讨论稿。"""
     script = _task_service.regenerate_discussion_script(script_id=script_id, user=request.user)
     return _discussion_script_to_out(script)
-
 
 @router.post("/discussions/{script_id}/synthesize", response=PodcastEpisodeOut)
 def synthesize_discussion(request: HttpRequest, script_id: int) -> PodcastEpisodeOut:
@@ -304,9 +279,7 @@ def synthesize_discussion(request: HttpRequest, script_id: int) -> PodcastEpisod
     episode = _task_service.synthesize_discussion(script_id=script_id, user=request.user)
     return _episode_to_out(episode)
 
-
 # --- 审核 ---
-
 
 @router.post("/articles/{article_id}/approve", response=GeneratedArticleOut)
 def approve_article(request: HttpRequest, article_id: int, payload: ReviewActionIn) -> GeneratedArticleOut:
@@ -314,13 +287,11 @@ def approve_article(request: HttpRequest, article_id: int, payload: ReviewAction
     article = _task_service.approve_article(article_id=article_id, user=request.user, notes=payload.notes)
     return _article_to_out(article)
 
-
 @router.post("/articles/{article_id}/reject", response=GeneratedArticleOut)
 def reject_article(request: HttpRequest, article_id: int, payload: ReviewActionIn) -> GeneratedArticleOut:
     """驳回文章。"""
     article = _task_service.reject_article(article_id=article_id, user=request.user, notes=payload.notes)
     return _article_to_out(article)
-
 
 @router.put("/articles/{article_id}", response=GeneratedArticleOut)
 def update_article(request: HttpRequest, article_id: int, payload: ArticleUpdateIn) -> GeneratedArticleOut:
@@ -330,13 +301,11 @@ def update_article(request: HttpRequest, article_id: int, payload: ArticleUpdate
     )
     return _article_to_out(article)
 
-
 @router.post("/articles/{article_id}/regenerate", response=GeneratedArticleOut)
 def regenerate_article(request: HttpRequest, article_id: int) -> GeneratedArticleOut:
     """重新生成文章。"""
     article = _task_service.regenerate_article(article_id=article_id, user=request.user)
     return _article_to_out(article)
-
 
 @router.post("/articles/batch/approve")
 def batch_approve_articles(request: HttpRequest, payload: BatchReviewIn) -> dict[str, Any]:
@@ -350,7 +319,6 @@ def batch_approve_articles(request: HttpRequest, payload: BatchReviewIn) -> dict
             results.append({"id": article_id, "success": False, "error": str(e)})
     return {"results": results}
 
-
 @router.post("/episodes/batch/approve")
 def batch_approve_episodes(request: HttpRequest, payload: BatchReviewIn) -> dict[str, Any]:
     """批量审核通过播客单集。"""
@@ -363,13 +331,11 @@ def batch_approve_episodes(request: HttpRequest, payload: BatchReviewIn) -> dict
             results.append({"id": episode_id, "success": False, "error": str(e)})
     return {"results": results}
 
-
 @router.post("/episodes/{episode_id}/approve", response=PodcastEpisodeOut)
 def approve_episode(request: HttpRequest, episode_id: int, payload: ReviewActionIn) -> PodcastEpisodeOut:
     """审核通过播客单集。"""
     episode = _task_service.approve_episode(episode_id=episode_id, user=request.user, notes=payload.notes)
     return _episode_to_out(episode)
-
 
 @router.post("/episodes/{episode_id}/reject", response=PodcastEpisodeOut)
 def reject_episode(request: HttpRequest, episode_id: int, payload: ReviewActionIn) -> PodcastEpisodeOut:
@@ -377,9 +343,7 @@ def reject_episode(request: HttpRequest, episode_id: int, payload: ReviewActionI
     episode = _task_service.reject_episode(episode_id=episode_id, user=request.user, notes=payload.notes)
     return _episode_to_out(episode)
 
-
 # --- 音频流 ---
-
 
 @router.get("/episodes/{episode_id}/audio")
 def episode_audio(request: HttpRequest, episode_id: int) -> dict[str, str] | FileResponse | HttpResponseBase:
@@ -392,9 +356,7 @@ def episode_audio(request: HttpRequest, episode_id: int) -> dict[str, str] | Fil
 
     return build_range_file_response(request, episode.audio_file.path)
 
-
 # --- RSS ---
-
 
 @router.get("/rss", auth=None)
 def podcast_rss_feed(request: HttpRequest) -> HttpResponse:
@@ -407,9 +369,7 @@ def podcast_rss_feed(request: HttpRequest) -> HttpResponse:
 
     return HttpResponse(xml, content_type="application/rss+xml; charset=utf-8")
 
-
 # --- Helpers ---
-
 
 def _task_to_out(task: Any) -> ContentTaskOut:
     return ContentTaskOut(
@@ -432,7 +392,6 @@ def _task_to_out(task: Any) -> ContentTaskOut:
         updated_at=task.updated_at,
     )
 
-
 def _article_to_out(article: Any) -> GeneratedArticleOut:
     return GeneratedArticleOut(
         id=article.pk,
@@ -446,7 +405,6 @@ def _article_to_out(article: Any) -> GeneratedArticleOut:
         created_at=article.created_at,
         updated_at=article.updated_at,
     )
-
 
 def _episode_to_out(episode: Any) -> PodcastEpisodeOut:
     audio_url = ""
@@ -467,7 +425,6 @@ def _episode_to_out(episode: Any) -> PodcastEpisodeOut:
         updated_at=episode.updated_at,
     )
 
-
 def _discussion_turn_to_out(turn: Any) -> DiscussionTurnOut:
     return DiscussionTurnOut(
         id=turn.pk,
@@ -476,7 +433,6 @@ def _discussion_turn_to_out(turn: Any) -> DiscussionTurnOut:
         text=turn.text,
         order=turn.order,
     )
-
 
 def _discussion_script_to_out(script: Any) -> DiscussionScriptOut:
     turns = list(script.turns.order_by("order"))

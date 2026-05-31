@@ -24,7 +24,6 @@ router = Router(tags=["法院文书识别"])
 # 支持的文件格式
 SUPPORTED_EXTENSIONS = {".pdf", ".jpg", ".jpeg", ".png"}
 
-
 def _validate_file_format(filename: str) -> str:
     """验证文件格式"""
     if not filename:
@@ -39,7 +38,6 @@ def _validate_file_format(filename: str) -> str:
         )
     return ext
 
-
 def _save_uploaded_file(file: UploadedFile) -> str:
     """保存上传的文件（委托给 FileUploadService）"""
     from apps.core.services.file_upload_service import FileUploadService
@@ -49,11 +47,9 @@ def _save_uploaded_file(file: UploadedFile) -> str:
     logger.info("文件已保存: %s", saved_path)
     return str(saved_path)
 
-
 # ============================================================================
 # Response Schemas
 # ============================================================================
-
 
 class TaskSubmitResponseSchema(BaseModel):
     """任务提交响应"""
@@ -61,7 +57,6 @@ class TaskSubmitResponseSchema(BaseModel):
     task_id: int = Field(..., description="任务ID")
     status: str = Field(..., description="任务状态")
     message: str = Field(..., description="提示消息")
-
 
 class RecognitionResultSchema(BaseModel):
     """识别结果"""
@@ -72,7 +67,6 @@ class RecognitionResultSchema(BaseModel):
     confidence: float | None = Field(None, description="置信度")
     extraction_method: str | None = Field(None, description="提取方式")
 
-
 class BindingResultSchema(BaseModel):
     """绑定结果"""
 
@@ -82,7 +76,6 @@ class BindingResultSchema(BaseModel):
     case_log_id: int | None = Field(None, description="日志ID")
     message: str | None = Field(None, description="消息")
     error_code: str | None = Field(None, description="错误码")
-
 
 class TaskStatusResponseSchema(BaseModel):
     """任务状态响应"""
@@ -96,11 +89,9 @@ class TaskStatusResponseSchema(BaseModel):
     created_at: str
     finished_at: str | None = None
 
-
 # ============================================================================
 # 手动绑定 Schemas (Requirements: 1.3, 2.3, 3.1)
 # ============================================================================
-
 
 class CaseSearchResultSchema(BaseModel):
     """案件搜索结果"""
@@ -111,12 +102,10 @@ class CaseSearchResultSchema(BaseModel):
     parties: list[str] = Field(default_factory=list, description="当事人列表")
     created_at: str | None = Field(None, description="创建时间")
 
-
 class ManualBindingRequestSchema(BaseModel):
     """手动绑定请求"""
 
     case_id: int = Field(..., gt=0, description="案件ID")
-
 
 class ManualBindingResponseSchema(BaseModel):
     """手动绑定响应"""
@@ -128,13 +117,11 @@ class ManualBindingResponseSchema(BaseModel):
     message: str = Field(..., description="消息")
     error_code: str | None = Field(None, description="错误码")
 
-
 class UpdateInfoRequestSchema(BaseModel):
     """更新识别信息请求"""
 
     case_number: str | None = Field(None, description="案号")
     key_time: str | None = Field(None, description="关键时间（ISO格式）")
-
 
 class UpdateInfoResponseSchema(BaseModel):
     """更新识别信息响应"""
@@ -144,11 +131,9 @@ class UpdateInfoResponseSchema(BaseModel):
     case_number: str | None = Field(None, description="更新后的案号")
     key_time: str | None = Field(None, description="更新后的关键时间")
 
-
 # ============================================================================
 # API Endpoints
 # ============================================================================
-
 
 @router.post("/court-document/recognize", response=TaskSubmitResponseSchema)
 def recognize_document(request: Any, file: UploadedFile = File(...)) -> TaskSubmitResponseSchema:
@@ -182,7 +167,6 @@ def recognize_document(request: Any, file: UploadedFile = File(...)) -> TaskSubm
     logger.info("文书识别任务已提交: task_id=%s", task.id)
 
     return TaskSubmitResponseSchema(task_id=task.id, status="pending", message="任务已提交，正在后台处理")
-
 
 @router.get("/court-document/task/{task_id}", response=TaskStatusResponseSchema)
 def get_task_status(request: Any, task_id: int) -> TaskStatusResponseSchema:
@@ -225,11 +209,9 @@ def get_task_status(request: Any, task_id: int) -> TaskStatusResponseSchema:
         finished_at=task.finished_at.isoformat() if task.finished_at else None,
     )
 
-
 # ============================================================================
 # 手动绑定 API Endpoints (Requirements: 1.3, 2.3, 3.1)
 # ============================================================================
-
 
 def _get_case_binding_service() -> Any:
     """工厂函数：获取案件绑定服务"""
@@ -237,13 +219,11 @@ def _get_case_binding_service() -> Any:
 
     return CaseBindingService()
 
-
 def _get_task_service() -> Any:
     """工厂函数：获取任务管理服务"""
     from apps.document_recognition.services.task_service import DocumentRecognitionTaskService
 
     return DocumentRecognitionTaskService()
-
 
 @router.get("/court-document/search-cases", response=list[CaseSearchResultSchema])
 def search_cases_for_binding(request: Any, q: str = "", limit: int = 20) -> list[CaseSearchResultSchema]:
@@ -279,7 +259,6 @@ def search_cases_for_binding(request: Any, q: str = "", limit: int = 20) -> list
     logger.info("案件搜索完成", extra={"action": "search_cases_for_binding", "query": q, "result_count": len(results)})
 
     return results
-
 
 @router.post("/court-document/task/{task_id}/bind", response=ManualBindingResponseSchema)
 def manual_bind_case(request: Any, task_id: int, payload: ManualBindingRequestSchema) -> ManualBindingResponseSchema:
@@ -325,7 +304,6 @@ def manual_bind_case(request: Any, task_id: int, payload: ManualBindingRequestSc
         message=result.message,
         error_code=result.error_code,
     )
-
 
 @router.post("/court-document/task/{task_id}/update-info", response=UpdateInfoResponseSchema)
 def update_task_info(request: Any, task_id: int, payload: UpdateInfoRequestSchema) -> UpdateInfoResponseSchema:

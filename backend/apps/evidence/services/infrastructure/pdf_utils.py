@@ -9,7 +9,6 @@ from apps.core.utils.path import Path
 
 logger = logging.getLogger("apps.evidence")
 
-
 def get_pdf_page_count_with_error(source: Any, default: int = 1) -> tuple[int, str | None]:
     data = _read_source_bytes(source)
     last_error: Exception | None = None
@@ -48,11 +47,9 @@ def get_pdf_page_count_with_error(source: Any, default: int = 1) -> tuple[int, s
     logger.warning("PDF 页数识别失败: %s", error_text)
     return default, error_text
 
-
 def get_pdf_page_count(source: Any, default: int = 1) -> int:
     count, _ = get_pdf_page_count_with_error(source, default=default)
     return count
-
 
 def _read_source_bytes(source: Any) -> Any:
     if source is None:
@@ -80,7 +77,6 @@ def _read_source_bytes(source: Any) -> Any:
 
     raise TypeError(f"Unsupported source type: {type(source)}")
 
-
 def _read_django_field_file(source: Any) -> Any:
     """读取 Django FieldFile 或 InMemoryUploadedFile"""
     if not (hasattr(source, "open") and hasattr(source, "read")):
@@ -101,7 +97,6 @@ def _read_django_field_file(source: Any) -> Any:
         logger.exception("操作失败")
 
         return None
-
 
 def _read_file_like(source: Any) -> Any:
     """读取类文件对象"""
@@ -124,7 +119,6 @@ def _read_file_like(source: Any) -> Any:
         with contextlib.suppress(Exception):
             source.seek(pos if pos is not None else 0)
     return data
-
 
 def _read_from_path_attr(source: Any) -> Any:
     """通过 path 属性读取(已保存到磁盘的文件)"""

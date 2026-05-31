@@ -42,7 +42,6 @@ router = Router()
 
 _EXECUTOR = ThreadPoolExecutor(max_workers=2, thread_name_prefix="court-filing")
 
-
 def _check_plugin() -> bool:
     """检查法院自动化插件是否已安装。"""
     try:
@@ -51,7 +50,6 @@ def _check_plugin() -> bool:
         return has_court_automation_plugin()
     except ImportError:
         return False
-
 
 @router.get("/case-info/{case_id}", response=CaseFilingInfoOut)
 def get_case_filing_info(request: HttpRequest, case_id: int) -> Any:
@@ -128,7 +126,6 @@ def get_case_filing_info(request: HttpRequest, case_id: int) -> Any:
         "default_filing_engine": default_filing_engine,
         "plugin_available": True,
     }
-
 
 @router.post("/execute", response=ExecuteCourtFilingOut)
 def execute_court_filing(request: HttpRequest, payload: ExecuteCourtFilingIn) -> Any:
@@ -292,7 +289,6 @@ def execute_court_filing(request: HttpRequest, payload: ExecuteCourtFilingIn) ->
         "session_id": session.id,
         "status": "in_progress",
     }
-
 
 @router.get("/session/{session_id}", response=ExecuteCourtFilingOut)
 def get_court_filing_session_status(request: HttpRequest, session_id: int) -> Any:

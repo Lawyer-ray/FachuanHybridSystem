@@ -6,7 +6,6 @@ from typing import Any
 
 from mcp_server.client import client
 
-
 def list_lpr_rates(
     start_date: str | None = None,
     end_date: str | None = None,
@@ -20,11 +19,9 @@ def list_lpr_rates(
         params["end_date"] = end_date
     return client.get("/lpr/rates", params=params)  # type: ignore[no-any-return]
 
-
 def get_latest_lpr_rate() -> dict[str, Any]:
     """获取最新 LPR 利率。"""
     return client.get("/lpr/rates/latest")  # type: ignore[no-any-return]
-
 
 def calculate_interest(
     principal: float,

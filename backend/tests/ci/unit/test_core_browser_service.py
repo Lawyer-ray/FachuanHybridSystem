@@ -9,7 +9,6 @@ import pytest
 
 from apps.core.services.browser.profiles import BrowserProfile, get_profile, register_profile
 
-
 class TestBrowserProfile:
     """BrowserProfile 配置测试。"""
 
@@ -80,7 +79,6 @@ class TestBrowserProfile:
             assert p.slow_mo == 0
             assert p.cdp_url is None
 
-
 class TestGetProfile:
     """get_profile 测试。"""
 
@@ -103,7 +101,6 @@ class TestGetProfile:
             p = get_profile("custom")
             assert p.headless is False
 
-
 class TestRegisterProfile:
     """register_profile 测试。"""
 
@@ -115,7 +112,6 @@ class TestRegisterProfile:
         assert p.headless is False
         assert p.slow_mo == 100
 
-
 class TestChromeProcess:
     """chrome_process 工具测试。"""
 
@@ -124,7 +120,6 @@ class TestChromeProcess:
 
         # 没有 Chrome 运行时应该返回 False
         assert is_cdp_ready(port=19999) is False
-
 
 class TestAntiDetection:
     """AntiDetection 测试。"""
@@ -146,7 +141,6 @@ class TestAntiDetection:
         assert "user_agent" in opts
         assert "locale" in opts
         assert opts["locale"] == "zh-CN"
-
 
 class TestModuleImports:
     """模块导入测试。"""

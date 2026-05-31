@@ -7,7 +7,6 @@ from typing import Any
 from django.conf import settings
 from django.core.checks import CheckMessage, Error, Warning, register
 
-
 @register()
 def check_scraper_dependencies(app_configs: Any, **kwargs: Any) -> list[CheckMessage]:
     """检查爬虫依赖"""

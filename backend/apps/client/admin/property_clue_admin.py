@@ -6,10 +6,8 @@ from django import forms
 from django.contrib import admin
 from django.http import HttpRequest
 from django.utils.html import format_html
-from django.utils.translation import gettext_lazy as _
 
 from apps.client.models import PropertyClue, PropertyClueAttachment
-
 
 def _get_property_clue_service() -> Any:
     """工厂函数：获取财产线索服务"""
@@ -17,16 +15,14 @@ def _get_property_clue_service() -> Any:
 
     return PropertyClueService()
 
-
 class PropertyClueAttachmentInlineForm(forms.ModelForm[PropertyClueAttachment]):
     """财产线索附件内联表单"""
 
-    file_upload = forms.FileField(required=False, label=_("上传文件"))
+    file_upload = forms.FileField(required=False, label="上传文件")
 
     class Meta:
         model = PropertyClueAttachment
         fields = ("file_name", "file_path")
-
 
 class PropertyClueAttachmentInline(admin.TabularInline[PropertyClueAttachment, PropertyClueAttachment]):
     """财产线索附件内联编辑"""
@@ -45,8 +41,7 @@ class PropertyClueAttachmentInline(admin.TabularInline[PropertyClueAttachment, P
                 return format_html('<a href="{}" target="_blank">{}</a>', url, obj.file_name)
         return obj.file_name if obj.file_name else ""
 
-    file_link.short_description = _("文件")  # type: ignore[attr-defined]
-
+    file_link.short_description = "文件"  # type: ignore[attr-defined]
 
 @admin.register(PropertyClue)
 class PropertyClueAdmin(admin.ModelAdmin):
@@ -68,8 +63,8 @@ class PropertyClueAdmin(admin.ModelAdmin):
     inlines: ClassVar = [PropertyClueAttachmentInline]
 
     fieldsets = (
-        (_("基本信息"), {"fields": ("client", "clue_type", "content")}),
-        (_("时间信息"), {"fields": ("created_at", "updated_at"), "classes": ("collapse",)}),
+        ("基本信息", {"fields": ("client", "clue_type", "content")}),
+        ("时间信息", {"fields": ("created_at", "updated_at"), "classes": ("collapse",)}),
     )
 
     def get_queryset(self, request: HttpRequest) -> Any:
@@ -79,7 +74,7 @@ class PropertyClueAdmin(admin.ModelAdmin):
         """显示线索类型标签"""
         return obj.get_clue_type_display()
 
-    clue_type_display.short_description = _("线索类型")  # type: ignore[attr-defined]
+    clue_type_display.short_description = "线索类型"  # type: ignore[attr-defined]
 
     def content_preview(self, obj: PropertyClue) -> str:
         """显示内容摘要"""
@@ -87,7 +82,7 @@ class PropertyClueAdmin(admin.ModelAdmin):
             return ""
         return obj.content[:50] + ("..." if len(obj.content) > 50 else "")
 
-    content_preview.short_description = _("内容摘要")  # type: ignore[attr-defined]
+    content_preview.short_description = "内容摘要"  # type: ignore[attr-defined]
 
     def attachment_count(self, obj: PropertyClue) -> str:
         """显示附件数量"""
@@ -97,10 +92,10 @@ class PropertyClueAdmin(admin.ModelAdmin):
         )
         count = len(prefetched) if prefetched is not None else obj.attachments.count()
         if count > 0:
-            return format_html('<span style="color: green;">{}</span>', _("%(count)d 个附件") % {"count": count})
-        return str(_("无附件"))
+            return format_html('<span style="color: green;">{}</span>', "%(count)d 个附件" % {"count": count})
+        return str("无附件")
 
-    attachment_count.short_description = _("附件")  # type: ignore[attr-defined]
+    attachment_count.short_description = "附件"  # type: ignore[attr-defined]
 
     def save_formset(self, request: HttpRequest, form: Any, formset: Any, change: bool) -> None:
         """处理附件内联表单的文件上传"""

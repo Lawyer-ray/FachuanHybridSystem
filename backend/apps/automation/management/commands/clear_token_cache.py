@@ -10,7 +10,6 @@ from django.core.management.base import BaseCommand, CommandError
 
 from apps.automation.services.token.cache_manager import TokenCacheManager
 
-
 class Command(BaseCommand):
     help: str = "清理 token 缓存(支持定向失效与全量清理)"
 

@@ -20,18 +20,15 @@ from apps.core.dto.request_context import extract_request_context
 logger = logging.getLogger("apps.contracts.api")
 router = Router()
 
-
 def _get_contract_service() -> Any:
     from apps.contracts.services.contract.wiring import get_contract_service
 
     return get_contract_service()
 
-
 def _get_domain_service() -> Any:
     from apps.contracts.services.contract.wiring import get_contract_domain_service
 
     return get_contract_domain_service()
-
 
 @router.get("/contracts", response=list[ContractOut])
 def list_contracts(
@@ -61,10 +58,8 @@ def list_contracts(
         perm_open_access=ctx.perm_open_access,
     )
 
-
 class ContractWithCasesIn(ContractIn):
     cases: list[dict[str, Any]] | None = None
-
 
 @router.post("/contracts/full", response=ContractOut)
 def create_contract_with_cases(request: HttpRequest, payload: ContractWithCasesIn) -> Any:
@@ -77,7 +72,6 @@ def create_contract_with_cases(request: HttpRequest, payload: ContractWithCasesI
         cases_data=cases_data,
         assigned_lawyer_ids=lawyer_ids,
     )
-
 
 @router.get("/contracts/{contract_id}", response=ContractOut)
 def get_contract(request: HttpRequest, contract_id: int) -> Any:
@@ -95,7 +89,6 @@ def get_contract(request: HttpRequest, contract_id: int) -> Any:
         org_access=ctx.org_access,
         perm_open_access=ctx.perm_open_access,
     )
-
 
 @router.put("/contracts/{contract_id}", response=ContractOut)
 def update_contract(
@@ -117,7 +110,6 @@ def update_contract(
         new_payments=[p.model_dump() for p in new_payments] if new_payments else None,
     )
 
-
 @router.post("/contracts", response=ContractOut)
 def create_contract(
     request: HttpRequest,
@@ -138,20 +130,17 @@ def create_contract(
         user=ctx.user,
     )
 
-
 @router.put("/contracts/{contract_id}/lawyers", response=list[ContractAssignmentOut])
 def update_contract_lawyers(request: HttpRequest, contract_id: int, payload: UpdateLawyersIn) -> Any:
     service = _get_domain_service()
     assignments = service.update_contract_lawyers(contract_id=contract_id, lawyer_ids=payload.lawyer_ids)
     return [ContractAssignmentOut.from_assignment(item) for item in assignments]
 
-
 @router.delete("/contracts/{contract_id}")
 def delete_contract(request: HttpRequest, contract_id: int) -> dict[str, bool]:
     service = _get_domain_service()
     service.delete_contract(contract_id)
     return {"success": True}
-
 
 @router.get("/contracts/{contract_id}/all-parties", response=list[ContractPartySourceOut])
 def get_contract_all_parties(request: HttpRequest, contract_id: int) -> Any:

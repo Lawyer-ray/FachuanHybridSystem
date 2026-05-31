@@ -8,7 +8,6 @@ from typing import Any
 
 from playwright.sync_api import Page
 
-
 class FormUtilsMixin:
     """表单操作工具 Mixin，需要子类提供 self.page。"""
 
@@ -114,7 +113,6 @@ class FormUtilsMixin:
         required: bool = True,
     ) -> bool:
         """通过 label 定位页面级下拉框（非表单内），选择选项"""
-        from django.utils.translation import gettext_lazy as _
 
         labels = (label_text,) if isinstance(label_text, str) else tuple(label_text)
         if not labels:

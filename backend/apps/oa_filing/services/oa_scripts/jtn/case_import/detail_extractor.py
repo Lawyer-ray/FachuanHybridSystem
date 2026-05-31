@@ -14,7 +14,6 @@ from .http_client import _BASE_URL, _DETAIL_URL_TEMPLATE, _MEDIUM_WAIT
 
 logger = logging.getLogger("apps.oa_filing.jtn_case_import")
 
-
 class JtnDetailExtractorMixin:
     """详情页 Tab 数据提取。"""
 

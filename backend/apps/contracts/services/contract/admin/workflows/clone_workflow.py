@@ -15,7 +15,6 @@ from apps.contracts.models import (
     SupplementaryAgreementParty,
 )
 
-
 class ContractCloneWorkflow:
     def __init__(self, *, reminder_service: Any) -> None:
         self.reminder_service = reminder_service
@@ -88,7 +87,6 @@ class ContractCloneWorkflow:
                 for party in data["parties"]  # type: ignore[attr-defined]
             ]
         )
-
 
 def plus_one_year_due_at(due_at: Any) -> Any:
     if not due_at:

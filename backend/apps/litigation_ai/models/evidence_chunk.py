@@ -4,8 +4,6 @@ from datetime import datetime
 from typing import Any, ClassVar
 
 from django.db import models
-from django.utils.translation import gettext_lazy as _
-
 
 class EvidenceChunk(models.Model):
     evidence_item_id: int  # Django 自动生成的外键 ID 字段
@@ -24,8 +22,8 @@ class EvidenceChunk(models.Model):
 
     class Meta:
         app_label = "litigation_ai"
-        verbose_name = _("证据片段")
-        verbose_name_plural = _("证据片段")
+        verbose_name = "证据片段"
+        verbose_name_plural = "证据片段"
         indexes: ClassVar = [
             models.Index(fields=["evidence_item"]),
         ]

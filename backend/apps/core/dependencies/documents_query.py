@@ -12,7 +12,6 @@ if TYPE_CHECKING:
         IEvidenceQueryService,
     )
 
-
 def build_folder_template_service() -> Any:
     from apps.documents.services.folder_template.command_service import FolderTemplateCommandService
     from apps.documents.services.folder_template.id_service import FolderTemplateIdService
@@ -43,24 +42,20 @@ def build_folder_template_service() -> Any:
         )
     )
 
-
 def build_document_service() -> IDocumentService:
     from apps.documents.services.document_service_adapter import DocumentServiceAdapter
 
     return DocumentServiceAdapter()
-
 
 def build_document_template_binding_service() -> IDocumentTemplateBindingService:
     from apps.documents.services.template.contract_template.binding_service import DocumentTemplateBindingService
 
     return DocumentTemplateBindingService()
 
-
 def build_evidence_query_service() -> IEvidenceQueryService:
     from apps.evidence.services.core.evidence_query_service import EvidenceQueryService
 
     return EvidenceQueryService()
-
 
 def build_evidence_list_placeholder_service() -> IEvidenceListPlaceholderService:
     from apps.evidence.services.admin.evidence_list_placeholder_service import EvidenceListPlaceholderService

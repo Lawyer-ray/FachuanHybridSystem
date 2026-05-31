@@ -7,7 +7,6 @@ from apps.cases.models import Case
 from ..case_queryset import get_case_queryset
 from .case_search_query_builder import CaseSearchQueryBuilder
 
-
 class CaseSearchRepo:
     def __init__(self, query_builder: CaseSearchQueryBuilder | None = None) -> None:
         self._query_builder = query_builder

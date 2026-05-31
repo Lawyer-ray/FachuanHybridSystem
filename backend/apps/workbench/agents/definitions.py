@@ -65,7 +65,6 @@ CONTEXT_SUFFIX = """当前会话信息：
 - 使用模型：{llm_model}
 {summary_section}"""
 
-
 def _build_instructions(base: str, deps: WorkbenchDeps) -> str:
     """构建带上下文的 system prompt"""
     from datetime import datetime
@@ -86,7 +85,6 @@ def _build_instructions(base: str, deps: WorkbenchDeps) -> str:
     )
     return f"{base}\n\n{context}"
 
-
 # ─── 审批事件队列（per-request，ContextVar 隔离并发请求） ─────────────────────
 
 _current_event_queue: ContextVar[asyncio.Queue[dict[str, Any] | None] | None] = ContextVar(
@@ -95,7 +93,6 @@ _current_event_queue: ContextVar[asyncio.Queue[dict[str, Any] | None] | None] = 
 )
 _current_agent_name: ContextVar[str] = ContextVar("_current_agent_name", default="triage")
 _current_user_id: ContextVar[int | None] = ContextVar("_current_user_id", default=None)
-
 
 def set_event_queue(
     queue: asyncio.Queue[dict[str, Any] | None] | None,
@@ -106,7 +103,6 @@ def set_event_queue(
     _current_event_queue.set(queue)
     _current_agent_name.set(agent_name)
     _current_user_id.set(user_id)
-
 
 async def _process_tool_call(ctx: Any, call_tool: Any, name: str, tool_args: dict[str, Any]) -> Any:
     """MCP process_tool_call 回调：拦截高风险工具，推入审批事件"""
@@ -129,7 +125,6 @@ async def _process_tool_call(ctx: Any, call_tool: Any, name: str, tool_args: dic
     user_id = _current_user_id.get()
     return await process_tool_call_with_approval(ctx, call_tool, name, tool_args, queue, user_id=user_id)
 
-
 # ─── Model 构建 ──────────────────────────────────────────────────────────────
 
 # 全局并发限制器（所有模型共享，防止压爆 LLM provider rate limit）
@@ -142,7 +137,6 @@ _retry_config: RetryConfig = {
     "retry": tenacity.retry_if_exception_type(httpx.HTTPStatusError),
     "reraise": True,
 }
-
 
 def build_model(model_name: str) -> OpenAIChatModel:
     """根据模型名动态构建 Pydantic AI Model
@@ -191,7 +185,6 @@ def build_model(model_name: str) -> OpenAIChatModel:
 
     return limit_model_concurrency(model, _model_limiter)  # type: ignore[return-value]
 
-
 # ─── MCP Server（共享实例，带审批回调） ───────────────────────────────────────
 
 mcp_server = MCPServerStdio(
@@ -203,26 +196,21 @@ mcp_server = MCPServerStdio(
     process_tool_call=_process_tool_call,
 )
 
-
 # ─── 工具过滤函数 ────────────────────────────────────────────────────────────
-
 
 def _case_filter(ctx: Any, tool_def: Any) -> bool:
     name = tool_def.name.lower()
     return any(kw in name for kw in ["case", "litigation", "court", "hearing", "party", "log", "assign"])
 
-
 def _contract_filter(ctx: Any, tool_def: Any) -> bool:
     name = tool_def.name.lower()
     return any(kw in name for kw in ["contract", "agreement"])
-
 
 def _research_filter(ctx: Any, tool_def: Any) -> bool:
     name = tool_def.name.lower()
     return any(
         kw in name for kw in ["search", "research", "enterprise", "company", "bidding", "person", "profile", "web"]
     )
-
 
 # ─── 动态指令函数（每次 run 时实时生成上下文） ────────────────────────────────
 
@@ -244,22 +232,17 @@ TRIAGE_PROMPT = (
 - 搜索互联网信息时，直接使用 web_search 工具，不要委托给其他助手"""
 )
 
-
 def _case_instructions(ctx: RunContext[WorkbenchDeps]) -> str:
     return _build_instructions(_CASE_PROMPT, ctx.deps)
-
 
 def _contract_instructions(ctx: RunContext[WorkbenchDeps]) -> str:
     return _build_instructions(_CONTRACT_PROMPT, ctx.deps)
 
-
 def _research_instructions(ctx: RunContext[WorkbenchDeps]) -> str:
     return _build_instructions(_RESEARCH_PROMPT, ctx.deps)
 
-
 def _triage_instructions(ctx: RunContext[WorkbenchDeps]) -> str:
     return _build_instructions(TRIAGE_PROMPT, ctx.deps)
-
 
 # ─── 专业 Agent ──────────────────────────────────────────────────────────────
 
@@ -292,7 +275,6 @@ research_agent = Agent(
 
 # ─── Triage Agent（带 Handoff 工具） ─────────────────────────────────────────
 
-
 async def _handoff_to_case(ctx: RunContext[WorkbenchDeps], query: str) -> str:
     """当用户请求与案件管理相关时，将请求委托给案件管理助手。
 
@@ -306,7 +288,6 @@ async def _handoff_to_case(ctx: RunContext[WorkbenchDeps], query: str) -> str:
         model=ctx.model,
     )
     return result.output
-
 
 async def _handoff_to_contract(ctx: RunContext[WorkbenchDeps], query: str) -> str:
     """当用户请求与合同管理相关时，将请求委托给合同管理助手。
@@ -322,7 +303,6 @@ async def _handoff_to_contract(ctx: RunContext[WorkbenchDeps], query: str) -> st
     )
     return result.output
 
-
 async def _handoff_to_research(ctx: RunContext[WorkbenchDeps], query: str) -> str:
     """当用户请求与法律检索或企业信息查询相关时，将请求委托给法律检索助手。
 
@@ -336,7 +316,6 @@ async def _handoff_to_research(ctx: RunContext[WorkbenchDeps], query: str) -> st
         model=ctx.model,
     )
     return result.output
-
 
 triage_agent = Agent(
     None,

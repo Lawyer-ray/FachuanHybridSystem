@@ -19,7 +19,6 @@ from apps.core.infrastructure.cache import CacheTimeout
 
 logger = logging.getLogger(__name__)
 
-
 @dataclass
 class PerformanceMetrics:
     """性能指标数据类"""
@@ -41,7 +40,6 @@ class PerformanceMetrics:
         """转换为字典"""
         return asdict(self)
 
-
 @dataclass
 class AlertThresholds:
     """告警阈值配置"""
@@ -51,7 +49,6 @@ class AlertThresholds:
     max_timeout_rate: float = 10.0  # 最大超时率（%）
     max_concurrent_acquisitions: int = 5  # 最大并发获取数
     min_cache_hit_rate: float = 70.0  # 最低缓存命中率（%）
-
 
 class PerformanceMonitor:
     """
@@ -514,7 +511,6 @@ class PerformanceMonitor:
             alert_extra = {k: v for k, v in alert.items() if k != "message"}
             alert_extra["alert_message"] = alert.get("message", "")
             logger.warning("性能告警: %s", alert["message"], extra=alert_extra)
-
 
 # 全局性能监控实例
 performance_monitor = PerformanceMonitor()

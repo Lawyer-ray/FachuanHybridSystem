@@ -13,10 +13,8 @@ from apps.core.security.access_context import AccessContext
 from .case_access_policy import CaseAccessPolicy
 from .case_queryset import get_case_queryset
 
-
 def normalize_case_number(number: str) -> str:
     return normalize_case_number_util(number, ensure_hao=True)
-
 
 class CaseSearchService:
     def __init__(self, access_policy: CaseAccessPolicy | None = None) -> None:

@@ -18,7 +18,6 @@ from .exceptions import (
 logger = logging.getLogger("apps.core.llm.streaming")
 _RETRIABLE_ERRORS = (LLMTimeoutError, LLMNetworkError, LLMAPIError)
 
-
 def _resolve_backends(
     get_backend: Callable[[str], ILLMBackend],
     get_backends_by_priority: Callable[[], list[tuple[str, ILLMBackend]]],
@@ -34,7 +33,6 @@ def _resolve_backends(
                     backends_to_try.append((name, b))
         return backends_to_try
     return get_backends_by_priority()
-
 
 def _handle_stream_error(
     name: str, e: Exception, fallback: bool, errors: list[Any], log_prefix: str = "stream"
@@ -56,7 +54,6 @@ def _handle_stream_error(
         if not fallback:
             raise LLMAPIError(message=f"调用后端 {name} 时发生错误: {e!s}", errors={"detail": str(e)}) from e
 
-
 def _build_stream_kwargs(
     messages: Any,
     model: Any,
@@ -68,7 +65,6 @@ def _build_stream_kwargs(
     if extra_kwargs:
         kwargs.update(extra_kwargs)
     return kwargs
-
 
 def stream_with_fallback(
     *,
@@ -119,7 +115,6 @@ def stream_with_fallback(
         message="所有 LLM 后端均不可用",
         errors={"attempts": attempts_detail, "skipped": skipped},
     )
-
 
 async def astream_with_fallback(
     *,

@@ -10,7 +10,6 @@ from typing import Any
 
 from django.db import transaction
 from django.db.models import Count
-from django.utils.translation import gettext_lazy as _
 
 from apps.contracts.models import Contract, ContractTypeFolderRootPreset
 from apps.contracts.services.folder.folder_binding_service import FolderBindingService
@@ -19,7 +18,6 @@ from apps.core.infrastructure.subprocess_runner import SubprocessRunner
 from apps.core.models.enums import CaseType
 
 logger = logging.getLogger(__name__)
-
 
 class ContractBatchFolderBindingService:
     """批量绑定合同文件夹（目标固定为根目录的一级子文件夹）。"""
@@ -145,18 +143,18 @@ class ContractBatchFolderBindingService:
                 contract = unbound_contract_map.get(contract_id)
                 if contract is None:
                     skipped_count += 1
-                    errors.append(str(_("合同 %(id)s 不存在或已绑定") % {"id": contract_id}))
+                    errors.append(str("合同 %(id)s 不存在或已绑定" % {"id": contract_id}))
                     continue
 
                 if contract.case_type != case_type:
                     skipped_count += 1
-                    errors.append(str(_("合同 %(id)s 的类型已变化，请刷新后重试") % {"id": contract_id}))
+                    errors.append(str("合同 %(id)s 的类型已变化，请刷新后重试" % {"id": contract_id}))
                     continue
 
                 root_path = str(root_map.get(case_type, "") or "").strip()
                 if not root_path:
                     skipped_count += 1
-                    errors.append(str(_("合同类型 %(type)s 缺少根目录") % {"type": case_type}))
+                    errors.append(str("合同类型 %(type)s 缺少根目录" % {"type": case_type}))
                     continue
 
                 try:
@@ -165,7 +163,7 @@ class ContractBatchFolderBindingService:
                     bound_count += 1
                 except Exception as exc:
                     skipped_count += 1
-                    errors.append(str(_("合同 %(id)s 绑定失败: %(error)s") % {"id": contract_id, "error": exc}))
+                    errors.append(str("合同 %(id)s 绑定失败: %(error)s" % {"id": contract_id, "error": exc}))
 
         return {
             "bound_count": bound_count,
@@ -202,7 +200,7 @@ class ContractBatchFolderBindingService:
         item["contract_count"] = len(contracts)
 
         if not root_path:
-            item["error"] = str(_("请先填写根目录"))
+            item["error"] = str("请先填写根目录")
             return item
 
         try:
@@ -275,15 +273,15 @@ class ContractBatchFolderBindingService:
     ) -> dict[str, Any]:
         targets: list[tuple[str, str, float]] = []
         if contract_name:
-            targets.append((contract_name, str(_("合同名称")), 1.0))
+            targets.append((contract_name, str("合同名称"), 1.0))
         for name in case_names:
-            targets.append((name, str(_("案件名称")), 1.0))
+            targets.append((name, str("案件名称"), 1.0))
         if contract_filing_number:
-            targets.append((contract_filing_number, str(_("合同建档编号")), 0.95))
+            targets.append((contract_filing_number, str("合同建档编号"), 0.95))
         if oa_case_number:
-            targets.append((oa_case_number, str(_("律所OA案件编号")), 1.0))
+            targets.append((oa_case_number, str("律所OA案件编号"), 1.0))
         for number in case_filing_numbers:
-            targets.append((number, str(_("案件建档编号")), 0.95))
+            targets.append((number, str("案件建档编号"), 0.95))
 
         scored_candidates: list[dict[str, Any]] = []
         for candidate in candidates:
@@ -306,7 +304,7 @@ class ContractBatchFolderBindingService:
                 "recommended_folder_path": "",
                 "recommended_folder_name": "",
                 "confidence": 0.0,
-                "reason": str(_("未找到一级子文件夹")),
+                "reason": str("未找到一级子文件夹"),
                 "auto_selected": False,
                 "candidates": [],
             }
@@ -352,7 +350,7 @@ class ContractBatchFolderBindingService:
             score = min(1.0, (base_score + contains_bonus + number_bonus) * float(target_weight))
             if score > best_score:
                 best_score = score
-                best_reason = str(_("命中%(label)s") % {"label": target_label})
+                best_reason = str("命中%(label)s" % {"label": target_label})
 
         return {"score": best_score, "reason": best_reason}
 
@@ -363,16 +361,16 @@ class ContractBatchFolderBindingService:
         try:
             target.relative_to(root)
         except ValueError as exc:
-            raise ValidationException(message=_("选择目录不在根目录范围内")) from exc
+            raise ValidationException(message="选择目录不在根目录范围内") from exc
 
         if target.parent != root:
-            raise ValidationException(message=_("只能绑定根目录下的一级子文件夹"))
+            raise ValidationException(message="只能绑定根目录下的一级子文件夹")
         return target
 
     def _ensure_accessible_directory(self, folder_path: str) -> Path:
         path = Path(folder_path).expanduser().resolve()
         if not path.exists() or not path.is_dir():
-            raise ValidationException(message=_("目录不可访问: %(path)s") % {"path": folder_path})
+            raise ValidationException(message="目录不可访问: %(path)s" % {"path": folder_path})
         return path
 
     def _list_first_level_dirs(self, root: Path) -> list[Path]:

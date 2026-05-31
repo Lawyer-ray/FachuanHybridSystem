@@ -6,16 +6,13 @@ from typing import Protocol
 
 logger = logging.getLogger(__name__)
 
-
 class _ConfigGetter(Protocol):
     def get_value(self, key: str, default: str = "") -> str: ...
-
 
 def _get_config_service() -> _ConfigGetter | None:
     from apps.core.interfaces import ServiceLocator
 
     return ServiceLocator.get_system_config_service()
-
 
 @dataclass(frozen=True)
 class LegalResearchTuningConfig:

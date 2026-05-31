@@ -11,7 +11,6 @@ from __future__ import annotations
 - session_message_service.py: 消息管理(添加、查询、批量操作、对话摘要)
 """
 
-
 from typing import Any
 
 from .session_lifecycle_service import SessionLifecycleService
@@ -26,7 +25,6 @@ __all__: list[str] = [
     "SessionLifecycleService",
     "SessionMessageService",
 ]
-
 
 class LitigationConversationSessionService:
     """诉讼AI对话会话服务 - 委托给专门的生命周期和消息服务"""

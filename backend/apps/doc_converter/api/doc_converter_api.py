@@ -18,7 +18,6 @@ router = Router(tags=["DOC 转 DOCX"])
 
 _service = DocConverterService()
 
-
 @router.post("/jobs", response=JobSubmitOut, summary="创建转换任务")
 def create_conversion_job(
     request: Any,
@@ -32,7 +31,6 @@ def create_conversion_job(
         "total_files": job.total_files,
     }
 
-
 @router.get("/jobs/{job_id}", response=JobProgressOut, summary="查询转换进度")
 def get_conversion_progress(request: Any, job_id: UUID) -> dict[str, Any]:
     """轮询转换进度。"""
@@ -42,13 +40,11 @@ def get_conversion_progress(request: Any, job_id: UUID) -> dict[str, Any]:
         "items": [_service.build_item_payload(item) for item in items],
     }
 
-
 @router.post("/jobs/{job_id}/cancel", summary="取消转换任务")
 def cancel_conversion_job(request: Any, job_id: UUID) -> dict[str, str]:
     """取消转换任务。"""
     job = _service.request_cancel(job_id=job_id)
     return {"status": job.status}
-
 
 @router.get("/jobs/{job_id}/download", summary="下载转换结果")
 def download_converted_files(request: Any, job_id: UUID) -> FileResponse:
@@ -66,14 +62,12 @@ def download_converted_files(request: Any, job_id: UUID) -> FileResponse:
         content_type="application/zip",
     )
 
-
 @router.delete("/jobs/{job_id}", summary="删除转换任务")
 def delete_conversion_job(request: Any, job_id: UUID) -> dict[str, str]:
     """删除任务及其所有文件。"""
     job = _service.get_job(job_id)
     job.delete()
     return {"status": "deleted"}
-
 
 @router.get("/health", response=HealthOut, summary="检查 LibreOffice 可用性")
 def health_check(request: Any) -> dict[str, Any]:
@@ -82,7 +76,6 @@ def health_check(request: Any) -> dict[str, Any]:
         "libreoffice_available": path is not None,
         "libreoffice_path": path,
     }
-
 
 @router.post("/jobs/{job_id}/save-to-dir", response=SaveToDirOut, summary="保存到指定目录")
 def save_to_directory(request: Any, job_id: UUID, payload: SaveToDirIn) -> dict[str, Any]:

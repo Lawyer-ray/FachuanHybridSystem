@@ -5,14 +5,11 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from django.utils.translation import gettext_lazy as _
-
 from apps.organization.models import Lawyer
 
 logger = logging.getLogger("apps.organization")
 
 _DEFAULT_PASSWORD = "1234qwer"
-
 
 class LawyerResolveService:
     """按 phone get_or_create Lawyer，维护会话内缓存避免重复创建。"""

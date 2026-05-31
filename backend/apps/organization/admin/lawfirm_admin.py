@@ -4,7 +4,6 @@ from django.contrib import admin
 
 from apps.organization.models import LawFirm
 
-
 @admin.register(LawFirm)
 class LawFirmAdmin(admin.ModelAdmin):
     list_display = ("id", "name", "phone", "social_credit_code")

@@ -9,7 +9,6 @@ if TYPE_CHECKING:
     from apps.cases.services.party.case_assignment_service import CaseAssignmentService
     from apps.cases.services.template.case_template_binding_service import CaseTemplateBindingService
 
-
 class CaseAdminServiceMixin:
     """Admin 层服务工厂 mixin，统一提供 Service 实例获取方法。"""
 

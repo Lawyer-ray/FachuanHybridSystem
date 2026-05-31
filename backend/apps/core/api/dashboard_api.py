@@ -10,21 +10,17 @@ from ninja import Router, Schema
 
 router = Router(tags=["仪表盘"])
 
-
 # ─── Schemas ────────────────────────────────────────────────────────────────────
-
 
 class TrendItem(Schema):
     month: str
     count: int = 0
     amount: str = "0"
 
-
 class CaseTypeDistItem(Schema):
     type: str
     label: str
     count: int
-
 
 class UpcomingReminderItem(Schema):
     id: int
@@ -32,7 +28,6 @@ class UpcomingReminderItem(Schema):
     due_at: str
     type_label: str
     is_overdue: bool
-
 
 class DashboardStatsOut(Schema):
     client_count: int = 0
@@ -48,9 +43,7 @@ class DashboardStatsOut(Schema):
     overdue_count: int = 0
     today_count: int = 0
 
-
 # ─── Endpoints ──────────────────────────────────────────────────────────────────
-
 
 @router.get("/stats", response=DashboardStatsOut)
 def get_dashboard_stats(request: HttpRequest) -> dict[str, Any]:

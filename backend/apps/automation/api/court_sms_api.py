@@ -27,17 +27,14 @@ from apps.automation.schemas import (
 
 router = Router(tags=["法院短信处理"])
 
-
 def _get_court_sms_service() -> Any:
     from apps.core.dependencies.automation_sms_entry import build_court_sms_service_ctx
 
     return build_court_sms_service_ctx()
 
-
 # ============================================================================
 # 短信提交接口
 # ============================================================================
-
 
 @router.post("/court-sms", response=CourtSMSSubmitOut)
 def submit_sms(request: Any, payload: CourtSMSSubmitIn) -> CourtSMSSubmitOut:
@@ -51,7 +48,6 @@ def submit_sms(request: Any, payload: CourtSMSSubmitIn) -> CourtSMSSubmitOut:
     sms = service.submit_sms(content=payload.content, received_at=payload.received_at)
 
     return CourtSMSSubmitOut(success=True, data={"id": sms.id, "status": sms.status, "created_at": sms.created_at})
-
 
 @router.post("/court-sms/form", response=CourtSMSSubmitOut)
 def submit_sms_form(
@@ -70,11 +66,9 @@ def submit_sms_form(
 
     return CourtSMSSubmitOut(success=True, data={"id": sms.id, "status": sms.status, "created_at": sms.created_at})
 
-
 # ============================================================================
 # 状态查询接口
 # ============================================================================
-
 
 @router.get("/court-sms/{sms_id}", response=CourtSMSDetailOut)
 def get_sms_detail(request: Any, sms_id: int) -> CourtSMSDetailOut:
@@ -88,7 +82,6 @@ def get_sms_detail(request: Any, sms_id: int) -> CourtSMSDetailOut:
     sms = service.get_sms_detail(sms_id)
 
     return CourtSMSDetailOut.from_model(sms)
-
 
 @router.get("/court-sms", response=list[CourtSMSListOut])
 @paginate(PageNumberPagination, page_size=20)
@@ -113,11 +106,9 @@ def list_sms(
 
     return [CourtSMSListOut.from_model(sms) for sms in sms_list]
 
-
 # ============================================================================
 # 手动指定案件接口
 # ============================================================================
-
 
 @router.post("/court-sms/{sms_id}/assign-case", response=CourtSMSAssignCaseOut)
 def assign_case(request: Any, sms_id: int, payload: CourtSMSAssignCaseIn) -> CourtSMSAssignCaseOut:
@@ -139,11 +130,9 @@ def assign_case(request: Any, sms_id: int, payload: CourtSMSAssignCaseIn) -> Cou
         },
     )
 
-
 # ============================================================================
 # 重新处理接口
 # ============================================================================
-
 
 @router.post("/court-sms/{sms_id}/retry", response=CourtSMSSubmitOut)
 def retry_processing(request: Any, sms_id: int) -> CourtSMSSubmitOut:
@@ -158,11 +147,9 @@ def retry_processing(request: Any, sms_id: int) -> CourtSMSSubmitOut:
 
     return CourtSMSSubmitOut(success=True, data={"id": sms.id, "status": sms.status, "created_at": sms.created_at})
 
-
 # ============================================================================
 # 删除接口
 # ============================================================================
-
 
 @router.delete("/court-sms/{sms_id}")
 def delete_sms(request: Any, sms_id: int) -> dict[str, bool]:
@@ -171,7 +158,6 @@ def delete_sms(request: Any, sms_id: int) -> dict[str, bool]:
     service.delete_sms(sms_id)
     return {"success": True}
 
-
 @router.post("/court-sms/batch-delete", response=CourtSMSBatchDeleteOut)
 def batch_delete_sms(request: Any, payload: CourtSMSBatchDeleteIn) -> CourtSMSBatchDeleteOut:
     """批量删除短信"""
@@ -179,11 +165,9 @@ def batch_delete_sms(request: Any, payload: CourtSMSBatchDeleteIn) -> CourtSMSBa
     deleted = service.batch_delete_sms(payload.ids)
     return CourtSMSBatchDeleteOut(deleted=deleted)
 
-
 # ============================================================================
 # 文书下载接口
 # ============================================================================
-
 
 @router.get("/court-sms/{sms_id}/documents/{ref_index}/download")
 def download_document(request: Any, sms_id: int, ref_index: int) -> FileResponse:
@@ -204,7 +188,6 @@ def download_document(request: Any, sms_id: int, ref_index: int) -> FileResponse
         raise Http404("文书文件不存在")
 
     return FileResponse(file_path.open("rb"), as_attachment=True, filename=file_path.name)
-
 
 @router.get("/court-sms/{sms_id}/documents/download-all")
 def download_all_documents(request: Any, sms_id: int) -> FileResponse:
@@ -241,7 +224,6 @@ def download_all_documents(request: Any, sms_id: int) -> FileResponse:
 
     zip_buffer.seek(0)
     return FileResponse(zip_buffer, as_attachment=True, filename=f"courtsms_{sms_id}_documents.zip")
-
 
 @router.post("/court-sms/{sms_id}/documents/{ref_index}/rename")
 def rename_document(request: Any, sms_id: int, ref_index: int, payload: dict[str, Any]) -> dict[str, Any]:

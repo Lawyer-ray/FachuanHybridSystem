@@ -7,7 +7,6 @@ from typing import Any, Protocol, cast
 
 logger = logging.getLogger(__name__)
 
-
 class PrivateWeikeApiAdapter(Protocol):
     def open_http_session(
         self,
@@ -35,7 +34,6 @@ class PrivateWeikeApiAdapter(Protocol):
         raw_payload: dict[str, Any] | None = None,
     ) -> list[Any]: ...
 
-
 _PRIVATE_MODULE_PATHS: tuple[str, ...] = (
     "plugins.weike_api_private.adapter",
     "apps.legal_research.services.sources.weike_api_private.adapter",
@@ -44,7 +42,6 @@ _PRIVATE_MODULE_PATHS: tuple[str, ...] = (
 _CACHE_UNSET = object()
 _adapter_cache: object | PrivateWeikeApiAdapter | None = _CACHE_UNSET
 
-
 def _resolve_adapter(module: ModuleType) -> PrivateWeikeApiAdapter | None:
     candidate = getattr(module, "API_ADAPTER", module)
     if not callable(getattr(candidate, "open_http_session", None)):
@@ -52,7 +49,6 @@ def _resolve_adapter(module: ModuleType) -> PrivateWeikeApiAdapter | None:
     if not callable(getattr(candidate, "search_cases_via_api", None)):
         return None
     return cast(PrivateWeikeApiAdapter, candidate)
-
 
 def get_private_weike_api() -> PrivateWeikeApiAdapter | None:
     global _adapter_cache

@@ -5,7 +5,6 @@ from typing import Any, ClassVar
 
 from pydantic import BaseModel, Field, field_validator
 
-
 class APIInterceptResponseSchema(BaseModel):
     """API拦截响应Schema"""
 
@@ -24,7 +23,6 @@ class APIInterceptResponseSchema(BaseModel):
             if missing_fields:
                 raise ValueError(f"数据项 {idx} 缺少必需字段: {', '.join(missing_fields)}")
         return v
-
 
 class CourtDocumentSchema(BaseModel):
     """文书记录输出Schema"""

@@ -12,7 +12,6 @@ from apps.core.services.storage_service import delete_media_file
 
 logger = logging.getLogger("apps.client")
 
-
 class ClientDeletionWorkflow:
     def __init__(self, *, file_deleter: Callable[[str], None] | None = None) -> None:
         self._file_deleter = file_deleter or delete_media_file

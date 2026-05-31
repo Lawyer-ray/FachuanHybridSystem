@@ -17,11 +17,9 @@ from apps.contracts.services.supplementary.supplementary_agreement_service impor
 
 router = Router()
 
-
 def _get_supplementary_agreement_service() -> SupplementaryAgreementService:
     """工厂函数：创建服务实例并注入依赖"""
     return SupplementaryAgreementService(client_service=ClientServiceAdapter())
-
 
 @router.post("/supplementary-agreements", response=SupplementaryAgreementOut)
 def create_supplementary_agreement(
@@ -43,7 +41,6 @@ def create_supplementary_agreement(
         contract_id=payload.contract_id, name=payload.name, party_ids=payload.party_ids
     )  # type: ignore[return-value]
 
-
 @router.get("/supplementary-agreements/{agreement_id}", response=SupplementaryAgreementOut)
 def get_supplementary_agreement(request: HttpRequest, agreement_id: int) -> SupplementaryAgreementOut:
     """
@@ -59,7 +56,6 @@ def get_supplementary_agreement(request: HttpRequest, agreement_id: int) -> Supp
     service = _get_supplementary_agreement_service()
     return service.get_supplementary_agreement(agreement_id)  # type: ignore[return-value]
 
-
 @router.get("/contracts/{contract_id}/supplementary-agreements", response=list[SupplementaryAgreementOut])
 def list_supplementary_agreements(request: HttpRequest, contract_id: int) -> list[SupplementaryAgreementOut]:
     """
@@ -72,7 +68,6 @@ def list_supplementary_agreements(request: HttpRequest, contract_id: int) -> lis
     """
     service = _get_supplementary_agreement_service()
     return service.list_by_contract(contract_id)  # type: ignore[return-value]
-
 
 @router.put("/supplementary-agreements/{agreement_id}", response=SupplementaryAgreementOut)
 def update_supplementary_agreement(
@@ -96,7 +91,6 @@ def update_supplementary_agreement(
     return service.update_supplementary_agreement(
         agreement_id=agreement_id, name=data.get("name"), party_ids=data.get("party_ids")
     )  # type: ignore[return-value]
-
 
 @router.delete("/supplementary-agreements/{agreement_id}")
 def delete_supplementary_agreement(request: HttpRequest, agreement_id: int) -> dict[str, bool]:

@@ -36,7 +36,6 @@ __all__: list[str] = [
     "OwnerConfigException",
 ]
 
-
 class ChatProviderException(BusinessException):
     """群聊提供者异常基类"""
 
@@ -52,7 +51,6 @@ class ChatProviderException(BusinessException):
         self.error_code = error_code
         self.platform = platform
 
-
 class UnsupportedPlatformException(ChatProviderException):
     """不支持的平台异常"""
 
@@ -64,7 +62,6 @@ class UnsupportedPlatformException(ChatProviderException):
         errors: dict[str, Any] | None = None,
     ) -> None:
         super().__init__(message=message, code=code or "UNSUPPORTED_PLATFORM", errors=errors, platform=platform)
-
 
 class ChatCreationException(ChatProviderException):
     """群聊创建失败异常"""
@@ -80,7 +77,6 @@ class ChatCreationException(ChatProviderException):
         super().__init__(
             message=message, code=code or "CHAT_CREATION_ERROR", errors=errors, error_code=error_code, platform=platform
         )
-
 
 class MessageSendException(ChatProviderException):
     """消息发送失败异常"""
@@ -99,7 +95,6 @@ class MessageSendException(ChatProviderException):
         )
         self.chat_id = chat_id
 
-
 class ConfigurationException(ChatProviderException):
     """配置错误异常"""
 
@@ -113,7 +108,6 @@ class ConfigurationException(ChatProviderException):
     ) -> None:
         super().__init__(message=message, code=code or "CONFIGURATION_ERROR", errors=errors, platform=platform)
         self.missing_config = missing_config
-
 
 class OwnerSettingException(ChatProviderException):
     """
@@ -148,44 +142,35 @@ class OwnerSettingException(ChatProviderException):
         for key, value in extra.items():
             setattr(self, key, value)
 
-
 # ── 快捷构造函数（替代原子类）──────────────────────────────────────────────────
-
 
 def owner_permission_error(message: str | Promise = "群主权限不足", **kwargs: Any) -> OwnerSettingException:
     """群主权限不足"""
     return OwnerSettingException(message=message, code="OWNER_PERMISSION_ERROR", **kwargs)
 
-
 def owner_not_found_error(message: str | Promise = "群主用户不存在", **kwargs: Any) -> OwnerSettingException:
     """群主用户不存在"""
     return OwnerSettingException(message=message, code="OWNER_NOT_FOUND", **kwargs)
-
 
 def owner_validation_error(message: str | Promise = "群主验证失败", **kwargs: Any) -> OwnerSettingException:
     """群主验证失败"""
     return OwnerSettingException(message=message, code="OWNER_VALIDATION_ERROR", **kwargs)
 
-
 def owner_retry_error(message: str | Promise = "群主设置重试失败", **kwargs: Any) -> OwnerSettingException:
     """群主设置重试失败"""
     return OwnerSettingException(message=message, code="OWNER_RETRY_ERROR", **kwargs)
-
 
 def owner_timeout_error(message: str | Promise = "群主设置操作超时", **kwargs: Any) -> OwnerSettingException:
     """群主设置操作超时"""
     return OwnerSettingException(message=message, code="OWNER_TIMEOUT_ERROR", **kwargs)
 
-
 def owner_network_error(message: str | Promise = "群主设置网络错误", **kwargs: Any) -> OwnerSettingException:
     """群主设置网络错误"""
     return OwnerSettingException(message=message, code="OWNER_NETWORK_ERROR", **kwargs)
 
-
 def owner_config_error(message: str | Promise = "群主配置错误", **kwargs: Any) -> OwnerSettingException:
     """群主配置错误"""
     return OwnerSettingException(message=message, code="OWNER_CONFIG_ERROR", **kwargs)
-
 
 # ── 向后兼容别名（保持 isinstance 检查可用）────────────────────────────────────
 OwnerPermissionException = OwnerSettingException

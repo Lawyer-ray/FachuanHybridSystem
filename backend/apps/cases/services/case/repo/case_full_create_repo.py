@@ -7,7 +7,6 @@ from typing import Any
 
 from apps.cases.models import Case, CaseAssignment, CaseLog, CaseParty, SupervisingAuthority
 
-
 class CaseFullCreateRepo:
     def create_case_party(self, *, case: Case, client_id: int, legal_status: str | None) -> CaseParty:
         return CaseParty.objects.create(case=case, client_id=client_id, legal_status=legal_status)

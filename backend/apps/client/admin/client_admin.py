@@ -9,7 +9,7 @@ from django.db.models import QuerySet
 from django.forms import ModelForm
 from django.http import HttpRequest, JsonResponse
 from django.utils.html import format_html
-from django.utils.translation import gettext_lazy as _
+
 from simple_history.admin import SimpleHistoryAdmin
 
 from apps.client.models import Client, ClientIdentityDoc, PropertyClue, PropertyClueAttachment
@@ -20,18 +20,15 @@ from apps.core.admin.mixins import AdminImportExportMixin
 
 logger = logging.getLogger("apps.client")
 
-
 def _get_admin_service() -> Any:
     """工厂函数：创建 ClientAdminService 实例"""
     from apps.client.services import ClientAdminService
 
     return ClientAdminService()
 
-
 def _get_gsxt_report_task_model() -> type[Any]:
     """延迟获取 GsxtReportTask 模型。"""
     return django_apps.get_model("automation", "GsxtReportTask")
-
 
 class GsxtReportTaskInlineForm(forms.ModelForm[Any]):  # type: ignore[misc]
     class Meta:
@@ -47,7 +44,6 @@ class GsxtReportTaskInlineForm(forms.ModelForm[Any]):  # type: ignore[misc]
     class Media:
         css = {"all": ("automation/gsxt_inline.css",)}
 
-
 class GsxtReportTaskInline(admin.TabularInline[Any]):  # type: ignore[type-arg]
     model = _get_gsxt_report_task_model()
     form = GsxtReportTaskInlineForm
@@ -56,8 +52,8 @@ class GsxtReportTaskInline(admin.TabularInline[Any]):  # type: ignore[type-arg]
     fields = ("created_at", "status", "error_message", "inbox_link")  # type: ignore[assignment]
     readonly_fields = ("created_at", "status", "error_message", "inbox_link")  # type: ignore[assignment]
     ordering = ("-created_at",)
-    verbose_name = _("企业信用报告任务")
-    verbose_name_plural = _("企业信用报告任务")
+    verbose_name = "企业信用报告任务"
+    verbose_name_plural = "企业信用报告任务"
 
     def get_model(self) -> type[Any]:  # type: ignore[override]
         """延迟获取模型。"""
@@ -92,7 +88,7 @@ class GsxtReportTaskInline(admin.TabularInline[Any]):  # type: ignore[type-arg]
             email,
         )
 
-    inbox_link.short_description = _("收件箱")  # type: ignore[attr-defined]
+    inbox_link.short_description = "收件箱"  # type: ignore[attr-defined]
 
     def save_formset(
         self,
@@ -135,14 +131,12 @@ class GsxtReportTaskInline(admin.TabularInline[Any]):  # type: ignore[type-arg]
             )
         formset.save_m2m()
 
-
 class ClientIdentityDocInlineForm(forms.ModelForm[ClientIdentityDoc]):
-    upload = forms.FileField(required=False, label=_("上传文件"))
+    upload = forms.FileField(required=False, label="上传文件")
 
     class Meta:
         model = ClientIdentityDoc
         fields = ["doc_type", "upload"]
-
 
 class ClientIdentityDocInline(admin.TabularInline[ClientIdentityDoc]):  # type: ignore[type-arg]
     model = ClientIdentityDoc
@@ -157,16 +151,14 @@ class ClientIdentityDocInline(admin.TabularInline[ClientIdentityDoc]):  # type: 
             return format_html('<a href="{}" target="_blank">{}</a>', url, Path(obj.file_path or "").name)
         return ""
 
-    file_link.short_description = _("文件")  # type: ignore[attr-defined]
-
+    file_link.short_description = "文件"  # type: ignore[attr-defined]
 
 class PropertyClueInline(admin.TabularInline[PropertyClue]):  # type: ignore[type-arg]
     model = PropertyClue
     extra = 1
     fields = ("clue_type", "content")  # type: ignore[assignment]
-    verbose_name = _("财产线索")
-    verbose_name_plural = _("财产线索")
-
+    verbose_name = "财产线索"
+    verbose_name_plural = "财产线索"
 
 class ClientAdminForm(forms.ModelForm[Client]):
     class Meta:
@@ -186,8 +178,7 @@ class ClientAdminForm(forms.ModelForm[Client]):
             ct = self.data.get("client_type")
         elif self.initial.get("client_type"):
             ct = self.initial.get("client_type")
-        self.fields["id_number"].label = _("身份证号码") if ct == "natural" else _("统一社会信用代码")
-
+        self.fields["id_number"].label = "身份证号码" if ct == "natural" else "统一社会信用代码"
 
 @admin.register(Client)
 class ClientAdmin(SimpleHistoryAdmin, AdminImportExportMixin, admin.ModelAdmin):
@@ -236,7 +227,7 @@ class ClientAdmin(SimpleHistoryAdmin, AdminImportExportMixin, admin.ModelAdmin):
         if client.client_type != "legal":
             self.message_user(
                 request,
-                _("仅法人/非法人组织当事人支持获取企业信用报告"),
+                "仅法人/非法人组织当事人支持获取企业信用报告",
                 messages.WARNING,
             )
             return redirect(f"../../{client_id}/change/")
@@ -248,7 +239,7 @@ class ClientAdmin(SimpleHistoryAdmin, AdminImportExportMixin, admin.ModelAdmin):
         if not credential:
             self.message_user(
                 request,
-                _("未找到国家企业信用信息公示系统账号，请先在账号密码管理中添加"),
+                "未找到国家企业信用信息公示系统账号，请先在账号密码管理中添加",
                 messages.ERROR,
             )
             return redirect(f"../../{client_id}/change/")
@@ -273,7 +264,7 @@ class ClientAdmin(SimpleHistoryAdmin, AdminImportExportMixin, admin.ModelAdmin):
 
         self.message_user(
             request,
-            _("Chrome 已打开登录页，请在浏览器中完成验证码，系统将自动继续后续流程"),
+            "Chrome 已打开登录页，请在浏览器中完成验证码，系统将自动继续后续流程",
             messages.SUCCESS,
         )
         return redirect(f"../../{client_id}/change/")
@@ -289,7 +280,7 @@ class ClientAdmin(SimpleHistoryAdmin, AdminImportExportMixin, admin.ModelAdmin):
         from django.shortcuts import redirect
 
         if request.method != "POST" or not request.FILES.get("report_file"):
-            self.message_user(request, _("请选择 PDF 文件"), messages.WARNING)
+            self.message_user(request, "请选择 PDF 文件", messages.WARNING)
             return redirect(f"../../{client_id}/change/")
 
         # 使用端口获取任务
@@ -297,7 +288,7 @@ class ClientAdmin(SimpleHistoryAdmin, AdminImportExportMixin, admin.ModelAdmin):
         task = gsxt_port.get_waiting_email_task(client_id=client_id)
 
         if not task or task.id != task_id:
-            self.message_user(request, _("任务不存在或状态不正确"), messages.ERROR)
+            self.message_user(request, "任务不存在或状态不正确", messages.ERROR)
             return redirect(f"../../{client_id}/change/")
 
         client = task.client
@@ -329,7 +320,7 @@ class ClientAdmin(SimpleHistoryAdmin, AdminImportExportMixin, admin.ModelAdmin):
 
         self.message_user(
             request,
-            _("报告已上传并保存为营业执照附件"),
+            "报告已上传并保存为营业执照附件",
             messages.SUCCESS,
         )
         return redirect(f"../../{client_id}/change/")

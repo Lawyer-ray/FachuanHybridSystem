@@ -28,7 +28,6 @@ _ALLOWED_FILES: set[str] = {
     # str(_APPS_ROOT / "oa_filing" / "tasks.py"),
 }
 
-
 def _find_django_q_imports() -> list[tuple[str, int, str]]:
     """Find all ``from django_q`` or ``import django_q`` in apps/.
 
@@ -60,7 +59,6 @@ def _find_django_q_imports() -> list[tuple[str, int, str]]:
                 violations.append((rel_path, line_no, line.strip()))
 
     return violations
-
 
 def test_business_layer_has_no_django_q_imports() -> None:
     """Business layer code must not directly import django_q.

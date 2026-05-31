@@ -14,7 +14,7 @@
 
 {% block breadcrumbs %}
 <div class="breadcrumbs">
-    <a href="{% url 'admin:index' %}">{% translate 'Home' %}</a>
+    <a href="{% url 'admin:index' %}">{</a>
     › <a href="{% url 'admin:app_list' app_label=opts.app_label %}">{{ opts.app_config.verbose_name }}</a>
     › <a href="{% url 'admin:cases_case_changelist' %}">{{ opts.verbose_name_plural|capfirst }}</a>
     › {{ case.name }}
@@ -43,21 +43,21 @@
         <div class="header-meta">
             <span class="archived-status {% if case.is_filed %}archived{% endif %}">
                 {% if case.is_filed and case.filing_number %}
-                    {% trans "建档编号" %}: {{ case.filing_number }}
+                    {: {{ case.filing_number }}
                 {% elif case.is_filed %}
-                    ✓ {% trans "已建档" %}
+                    ✓ {
                 {% else %}
-                    {% trans "未建档" %}
+                    {
                 {% endif %}
             </span>
         </div>
         <div class="header-actions">
             <a href="{% url 'admin:cases_case_changelist' %}" class="btn btn-secondary">
-                ← {% trans "返回列表" %}
+                ← {
             </a>
             {% if has_change_permission %}
             <a href="{% url 'admin:cases_case_change' case.pk %}" class="btn btn-primary">
-                {% trans "编辑" %}
+                {
             </a>
             {% endif %}
         </div>
@@ -69,30 +69,30 @@
     <div class="tab-panel">
         <nav class="tab-nav">
             <button type="button" @click="activeTab = 'basic'" :class="{ active: activeTab === 'basic' }">
-                {% trans "基本信息" %}
+                {
             </button>
             <button type="button" @click="activeTab = 'parties'" :class="{ active: activeTab === 'parties' }">
-                {% trans "当事人与律师" %}
+                {
             </button>
             <button type="button" @click="activeTab = 'progress'" :class="{ active: activeTab === 'progress' }">
-                {% trans "案件进展" %}
+                {
             </button>
             <button type="button" @click="activeTab = 'documents'" :class="{ active: activeTab === 'documents' }">
-                {% trans "文档生成" %}
+                {
             </button>
             <button type="button" @click="activeTab = 'party_materials'" :class="{ active: activeTab === 'party_materials' }">
-                {% trans "当事人材料" %}
+                {
             </button>
             <button type="button" @click="activeTab = 'non_party_materials'" :class="{ active: activeTab === 'non_party_materials' }">
-                {% trans "非当事人材料" %}
+                {
             </button>
             {% if has_court_filing_plugin and not is_our_party_all_defendant %}
             <button type="button" @click="activeTab = 'court_filing'" :class="{ active: activeTab === 'court_filing' }">
-                {% trans "一张网立案" %}
+                {
             </button>
             {% endif %}
             <button type="button" @click="activeTab = 'contacts'" :class="{ active: activeTab === 'contacts' }">
-                {% trans "工作人员" %}
+                {
             </button>
         </nav>
 
@@ -143,11 +143,11 @@
     <div class="material-delete-modal" id="materialDeleteModal" style="display:none;">
         <div class="material-delete-modal-backdrop" onclick="closeDeleteModal()"></div>
         <div class="material-delete-modal-content">
-            <h3>{% trans "删除材料" %}</h3>
-            <p class="material-delete-modal-desc">{% trans "确定要删除此材料吗？删除后分类绑定和附件文件都将被移除，此操作不可恢复。" %}</p>
+            <h3>{</h3>
+            <p class="material-delete-modal-desc">{</p>
             <div class="material-delete-modal-actions">
-                <button type="button" class="button" onclick="closeDeleteModal()">{% trans "取消" %}</button>
-                <button type="button" class="button default" id="materialDeleteConfirmBtn" onclick="doDeleteMaterial()">{% trans "确认删除" %}</button>
+                <button type="button" class="button" onclick="closeDeleteModal()">{</button>
+                <button type="button" class="button default" id="materialDeleteConfirmBtn" onclick="doDeleteMaterial()">{</button>
             </div>
         </div>
     </div>
@@ -156,11 +156,11 @@
     <div class="material-delete-modal" id="materialDeleteAllModal" style="display:none;">
         <div class="material-delete-modal-backdrop" onclick="closeDeleteAllModal()"></div>
         <div class="material-delete-modal-content">
-            <h3>{% trans "删除全部材料" %}</h3>
+            <h3>{</h3>
             <p class="material-delete-modal-desc" id="deleteAllModalDesc"></p>
             <div class="material-delete-modal-actions">
-                <button type="button" class="button" onclick="closeDeleteAllModal()">{% trans "取消" %}</button>
-                <button type="button" class="button default" id="materialDeleteAllConfirmBtn" onclick="doDeleteAllMaterials()">{% trans "确认删除全部" %}</button>
+                <button type="button" class="button" onclick="closeDeleteAllModal()">{</button>
+                <button type="button" class="button default" id="materialDeleteAllConfirmBtn" onclick="doDeleteAllMaterials()">{</button>
             </div>
         </div>
     </div>

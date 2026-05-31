@@ -14,7 +14,6 @@ from apps.core.exceptions import ValidationException
 
 logger = logging.getLogger("apps.batch_printing")
 
-
 class FilePrepareService:
     def get_capability_snapshot(self) -> dict[str, Any]:
         soffice_path = self._resolve_soffice_path()

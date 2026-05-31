@@ -6,7 +6,6 @@
 
 from typing import Any
 
-
 class ConfigException(Exception):
     """
     配置异常基类
@@ -31,7 +30,6 @@ class ConfigException(Exception):
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}(message={self.message!r}, code={self.code!r})"
-
 
 class ConfigNotFoundError(ConfigException):
     """
@@ -58,7 +56,6 @@ class ConfigNotFoundError(ConfigException):
             message += f"，您是否想要: {', '.join(suggestions)}"
 
         super().__init__(message, "CONFIG_NOT_FOUND")
-
 
 class ConfigTypeError(ConfigException):
     """
@@ -90,7 +87,6 @@ class ConfigTypeError(ConfigException):
 
         super().__init__(message, "CONFIG_TYPE_ERROR")
 
-
 class ConfigValidationError(ConfigException):
     """
     配置验证错误异常
@@ -118,7 +114,6 @@ class ConfigValidationError(ConfigException):
             message = f"配置验证失败: {'; '.join(errors)}"
 
         super().__init__(message, "CONFIG_VALIDATION_ERROR")
-
 
 class ConfigFileError(ConfigException):
     """
@@ -154,7 +149,6 @@ class ConfigFileError(ConfigException):
             error_msg += f" (原因: {original_error})"
 
         super().__init__(error_msg, "CONFIG_FILE_ERROR")
-
 
 class SensitiveConfigError(ConfigException):
     """

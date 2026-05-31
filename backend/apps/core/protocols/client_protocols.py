@@ -8,7 +8,6 @@ from typing import Protocol
 
 from apps.core.dto import ClientDTO, ClientIdentityDocDTO, PropertyClueDTO
 
-
 class IClientService(Protocol):
     """
     客户服务接口

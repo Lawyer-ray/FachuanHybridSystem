@@ -15,7 +15,6 @@ from apps.legal_research.models import LegalResearchTaskEvent
 logger = logging.getLogger(__name__)
 _EVENT_ORM_FALLBACK_EXECUTOR = ThreadPoolExecutor(max_workers=1, thread_name_prefix="legal-research-event")
 
-
 class LegalResearchTaskEventService:
     MAX_ERROR_MESSAGE_CHARS = 255
     MAX_URL_CHARS = 1000

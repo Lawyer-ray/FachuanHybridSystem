@@ -18,7 +18,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger("apps.automation")
 
-
 class SMSParsingStage(BaseSMSStage):
     """
     SMS 解析阶段处理器
@@ -125,7 +124,6 @@ class SMSParsingStage(BaseSMSStage):
         except Exception as e:
             self._log_error(sms, e)
             raise
-
 
 def create_sms_parsing_stage(
     parser: Optional["SMSParserService"] = None,

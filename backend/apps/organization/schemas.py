@@ -13,12 +13,10 @@ from apps.core.api.schemas import SchemaMixin
 
 from .models import AccountCredential, LawFirm, Lawyer, Team
 
-
 class LawFirmOut(ModelSchema):
     class Meta:
         model = LawFirm
         fields: ClassVar[list[str]] = ["id", "name", "address", "phone", "social_credit_code"]
-
 
 class LawFirmIn(Schema):
     name: str
@@ -26,13 +24,11 @@ class LawFirmIn(Schema):
     phone: str | None = None
     social_credit_code: str | None = None
 
-
 class LawFirmUpdateIn(Schema):
     name: str | None = None
     address: str | None = None
     phone: str | None = None
     social_credit_code: str | None = None
-
 
 class LawyerOut(ModelSchema, SchemaMixin):
     license_pdf_url: str | None = None
@@ -65,7 +61,6 @@ class LawyerOut(ModelSchema, SchemaMixin):
             return None
         return LawFirmOut.from_orm(obj.law_firm)
 
-
 class LawyerCreateIn(Schema):
     username: str
     password: str
@@ -78,7 +73,6 @@ class LawyerCreateIn(Schema):
     lawyer_team_ids: list[int] | None = None
     biz_team_ids: list[int] | None = None
 
-
 class LawyerUpdateIn(Schema):
     real_name: str | None = None
     phone: str | None = None
@@ -90,16 +84,13 @@ class LawyerUpdateIn(Schema):
     lawyer_team_ids: list[int] | None = None
     biz_team_ids: list[int] | None = None
 
-
 class LoginIn(Schema):
     username: str
     password: str
 
-
 class LoginOut(Schema):
     success: bool
     user: LawyerOut | None = None
-
 
 class RegisterIn(Schema):
     """用户注册"""
@@ -109,7 +100,6 @@ class RegisterIn(Schema):
     real_name: str | None = None
     phone: str | None = None
 
-
 class RegisterOut(Schema):
     """注册响应"""
 
@@ -118,18 +108,15 @@ class RegisterOut(Schema):
     requires_approval: bool = True
     message: str = ""
 
-
 class TeamOut(ModelSchema):
     class Meta:
         model = Team
         fields: ClassVar[list[str]] = ["id", "name", "team_type", "law_firm"]
 
-
 class TeamIn(Schema):
     name: str
     team_type: str
     law_firm_id: int
-
 
 class AccountCredentialOut(ModelSchema, SchemaMixin):
     class Meta:
@@ -152,7 +139,6 @@ class AccountCredentialOut(ModelSchema, SchemaMixin):
     def resolve_updated_at(obj: AccountCredential) -> str | None:
         return SchemaMixin._resolve_datetime_iso(obj.updated_at)
 
-
 class AccountCredentialIn(Schema):
     lawyer_id: int
     site_name: str
@@ -160,13 +146,11 @@ class AccountCredentialIn(Schema):
     account: str
     password: str
 
-
 class AccountCredentialUpdateIn(Schema):
     site_name: str | None = None
     url: str | None = None
     account: str | None = None
     password: str | None = None
-
 
 # Pydantic v2 + `from __future__ import annotations` 需要 rebuild
 AccountCredentialOut.model_rebuild()
@@ -174,24 +158,20 @@ LawyerOut.model_rebuild()
 LoginIn.model_rebuild()
 LoginOut.model_rebuild()
 
-
 # ============================================================
 # 密码重置相关 Schema
 # ============================================================
-
 
 class PasswordResetRequestIn(Schema):
     """请求密码重置"""
 
     email: str
 
-
 class PasswordResetVerifyIn(Schema):
     """验证重置 token"""
 
     uid: str
     token: str
-
 
 class PasswordResetConfirmIn(Schema):
     """确认密码重置"""
@@ -200,7 +180,6 @@ class PasswordResetConfirmIn(Schema):
     token: str
     new_password: str
     confirm_password: str
-
 
 class PasswordResetOut(Schema):
     """密码重置响应"""

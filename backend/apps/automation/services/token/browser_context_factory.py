@@ -7,10 +7,8 @@ from typing import Any, Protocol
 
 from apps.core.exceptions import NetworkError
 
-
 class AntiDetectionOptionsProvider(Protocol):
     def get_options(self) -> dict[str, Any]: ...
-
 
 @dataclass(frozen=True)
 class DefaultAntiDetectionOptionsProvider:
@@ -19,10 +17,8 @@ class DefaultAntiDetectionOptionsProvider:
 
         return anti_detection.get_browser_context_options()
 
-
 class BrowserContextFactory(Protocol):
     def new_context(self) -> Any: ...
-
 
 @dataclass(frozen=True)
 class PlaywrightBrowserContextFactory:

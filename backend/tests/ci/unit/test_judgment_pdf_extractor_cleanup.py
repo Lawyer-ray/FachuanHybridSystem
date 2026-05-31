@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from apps.documents.services.extractors.judgment_pdf_extractor import JudgmentPdfExtractor
 
-
 def test_extract_main_text_removes_inline_page_noise() -> None:
     extractor = JudgmentPdfExtractor()
     text = (
@@ -19,7 +18,6 @@ def test_extract_main_text_removes_inline_page_noise() -> None:
     assert "第3页共3页" not in content
     assert "100592.83元的剩余未付款项为基数" in content
 
-
 def test_sanitize_text_removes_page_of_pattern() -> None:
     extractor = JudgmentPdfExtractor()
     raw = "判决如下：Page2of5被告应支付货款1000元。"
@@ -28,7 +26,6 @@ def test_sanitize_text_removes_page_of_pattern() -> None:
 
     assert "Page2of5" not in cleaned
     assert cleaned == "判决如下：被告应支付货款1000元。"
-
 
 def test_sanitize_text_keeps_legal_article_reference() -> None:
     extractor = JudgmentPdfExtractor()

@@ -12,7 +12,6 @@ logger = logging.getLogger(__name__)
 
 W_NS = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
 
-
 class PageNumbering:
     """页码标准化：删除旧页码，设置标准居中阿拉伯数字页码"""
 

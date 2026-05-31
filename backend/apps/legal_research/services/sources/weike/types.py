@@ -5,7 +5,6 @@ from typing import Any
 
 from playwright.sync_api import Browser, BrowserContext, Page, Playwright
 
-
 @dataclass
 class WeikeSearchItem:
     doc_id_raw: str
@@ -14,7 +13,6 @@ class WeikeSearchItem:
     title_hint: str
     search_id: str
     module: str
-
 
 @dataclass
 class WeikeCaseDetail:
@@ -30,7 +28,6 @@ class WeikeCaseDetail:
     case_digest: str
     content_text: str
     raw_meta: dict[str, Any]
-
 
 @dataclass
 class WeikeSession:

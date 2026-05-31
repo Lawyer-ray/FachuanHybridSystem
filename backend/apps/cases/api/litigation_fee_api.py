@@ -20,13 +20,11 @@ from apps.cases.schemas.litigation_fee_schemas import FeeCalculationRequest, Fee
 
 router = Router()
 
-
 def _get_litigation_fee_calculator_service() -> Any:
     """创建 LitigationFeeCalculatorService 实例"""
     from apps.cases.services import LitigationFeeCalculatorService
 
     return LitigationFeeCalculatorService()
-
 
 @router.post("/calculate-fee", response=FeeCalculationResponse)
 def calculate_fee(request: HttpRequest, data: FeeCalculationRequest) -> FeeCalculationResponse:

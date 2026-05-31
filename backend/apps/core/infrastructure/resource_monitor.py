@@ -26,7 +26,6 @@ except ImportError:
     PSUTIL_AVAILABLE = False
     logger.warning("psutil not available - resource monitoring will be limited")
 
-
 @dataclass
 class ResourceUsage:
     """资源使用情况数据模型"""
@@ -40,7 +39,6 @@ class ResourceUsage:
     disk_total_gb: float
     timestamp: datetime
 
-
 @dataclass
 class ResourceThresholds:
     """资源阈值配置"""
@@ -51,7 +49,6 @@ class ResourceThresholds:
     disk_warning: float = 85.0
     disk_critical: float = 95.0
     auto_restart_memory: float = 95.0
-
 
 class ResourceMonitor:
     """
@@ -303,25 +300,20 @@ class ResourceMonitor:
             except (OSError, ValueError, RuntimeError) as e:
                 logger.error(f"Error in resource monitoring loop: {e}")
 
-
 # 全局资源监控实例
 resource_monitor = ResourceMonitor()
-
 
 def get_resource_status() -> dict[str, Any]:
     """获取资源状态的便捷函数"""
     return resource_monitor.check_resource_health()
 
-
 def get_resource_usage() -> ResourceUsage | None:
     """获取资源使用情况的便捷函数"""
     return resource_monitor.get_current_usage()
 
-
 def start_resource_monitoring() -> None:
     """启动资源监控的便捷函数"""
     resource_monitor.start_monitoring()
-
 
 def stop_resource_monitoring() -> None:
     """停止资源监控的便捷函数"""

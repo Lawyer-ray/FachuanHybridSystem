@@ -13,7 +13,6 @@ from apps.pdf_splitting.services.storage import PdfSplitStorage
 
 router = Router(tags=["PDF 拆解"])
 
-
 class SegmentOut(BaseModel):
     id: int
     order: int
@@ -26,7 +25,6 @@ class SegmentOut(BaseModel):
     review_flag: str
     review_flag_label: str
     source_method: str
-
 
 class JobOut(BaseModel):
     job_id: str
@@ -43,11 +41,9 @@ class JobOut(BaseModel):
     pdf_url: str = ""
     error_message: str = ""
 
-
 class JobSubmitOut(BaseModel):
     job_id: str = Field(..., description="任务ID")
     status: str = Field(..., description="状态")
-
 
 class ConfirmSegmentIn(BaseModel):
     id: int | None = None
@@ -60,10 +56,8 @@ class ConfirmSegmentIn(BaseModel):
     review_flag: str | None = None
     source_method: str | None = None
 
-
 class ConfirmRequestIn(BaseModel):
     segments: list[ConfirmSegmentIn]
-
 
 @router.post("/jobs", response=JobSubmitOut)
 def create_pdf_split_job(
@@ -84,13 +78,11 @@ def create_pdf_split_job(
     )
     return JobSubmitOut(job_id=str(job.id), status=job.status)
 
-
 @router.get("/jobs/{job_id}", response=JobOut)
 def get_pdf_split_job(request: Any, job_id: UUID) -> JobOut:
     job = PdfSplitJobService().get_job(job_id)
     payload = PdfSplitJobService().build_job_payload(job)
     return JobOut(**payload)
-
 
 @router.get("/jobs/{job_id}/pages/{page_no}/preview")
 def get_pdf_split_preview(request: Any, job_id: UUID, page_no: int) -> HttpResponse:
@@ -98,18 +90,15 @@ def get_pdf_split_preview(request: Any, job_id: UUID, page_no: int) -> HttpRespo
     preview_path = PdfSplitService().render_preview(job, page_no)
     return FileResponse(preview_path.open("rb"), content_type="image/png", filename=preview_path.name)  # type: ignore[return-value]
 
-
 @router.post("/jobs/{job_id}/confirm", response=JobSubmitOut)
 def confirm_pdf_split_job(request: Any, job_id: UUID, payload: ConfirmRequestIn) -> JobSubmitOut:
     job = PdfSplitJobService().confirm_segments(job_id=job_id, items=[item.model_dump() for item in payload.segments])
     return JobSubmitOut(job_id=str(job.id), status=job.status)
 
-
 @router.post("/jobs/{job_id}/cancel", response=JobSubmitOut)
 def cancel_pdf_split_job(request: Any, job_id: UUID) -> JobSubmitOut:
     job = PdfSplitJobService().request_cancel(job_id=job_id)
     return JobSubmitOut(job_id=str(job.id), status=job.status)
-
 
 @router.get("/jobs/{job_id}/download")
 def get_pdf_split_download(request: Any, job_id: UUID) -> HttpResponse:
@@ -118,7 +107,6 @@ def get_pdf_split_download(request: Any, job_id: UUID) -> HttpResponse:
     if not storage.export_zip_path.exists():
         return HttpResponse(status=404)
     return FileResponse(storage.export_zip_path.open("rb"), content_type="application/zip", filename="split_result.zip")  # type: ignore[return-value]
-
 
 @router.get("/jobs/{job_id}/pdf")
 def get_pdf_split_raw(request: Any, job_id: UUID) -> HttpResponse:
@@ -132,7 +120,6 @@ def get_pdf_split_raw(request: Any, job_id: UUID) -> HttpResponse:
         content_type="application/pdf",
         filename=job.source_original_name or "document.pdf",
     )
-
 
 @router.get("/jobs/{job_id}/preview-page")
 def get_pdf_preview_page(

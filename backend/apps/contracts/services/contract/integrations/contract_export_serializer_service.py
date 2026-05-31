@@ -10,7 +10,6 @@ if TYPE_CHECKING:
     from apps.client.models import Client
     from apps.contracts.models import Contract
 
-
 ReminderPayload = dict[str, object]
 SerializedPayload = dict[str, object]
 
@@ -19,12 +18,10 @@ if TYPE_CHECKING:
 else:
     CaseSerializer = Callable[[object], SerializedPayload]
 
-
 def _serialize_contract_client(client: Client) -> SerializedPayload:
     from apps.client.services.client_export_serializer_service import serialize_client_obj
 
     return cast(SerializedPayload, serialize_client_obj(client))
-
 
 def _export_contract_reminders(contract: Contract) -> list[ReminderPayload]:
     from apps.core.interfaces import ServiceLocator
@@ -34,7 +31,6 @@ def _export_contract_reminders(contract: Contract) -> list[ReminderPayload]:
         list[ReminderPayload],
         reminder_service.export_contract_reminders_internal(contract_id=contract.id),
     )
-
 
 def _serialize_exported_contract_reminders(reminders: list[ReminderPayload]) -> list[SerializedPayload]:
     result: list[SerializedPayload] = []
@@ -59,7 +55,6 @@ def _serialize_exported_contract_reminders(reminders: list[ReminderPayload]) -> 
             }
         )
     return result
-
 
 def serialize_contract_obj(
     obj: Contract,

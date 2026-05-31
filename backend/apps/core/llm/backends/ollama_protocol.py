@@ -12,7 +12,6 @@ from apps.core.llm.exceptions import LLMAPIError
 
 logger = logging.getLogger("apps.core.llm.backends.ollama")
 
-
 def build_ollama_chat_payload(
     *,
     messages: list[dict[str, str]],
@@ -30,7 +29,6 @@ def build_ollama_chat_payload(
     if think is not None:
         payload["think"] = think
     return payload
-
 
 def parse_ollama_chat_response(*, resp: httpx.Response, model: str) -> dict[str, Any]:
     try:

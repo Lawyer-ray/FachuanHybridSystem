@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from typing import Any, Protocol
 
-
 class TaskServicePort(Protocol):
     """异步任务服务端口。
 

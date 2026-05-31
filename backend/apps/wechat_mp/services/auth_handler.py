@@ -12,7 +12,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-
 async def fetch_wechat_mp_credentials() -> tuple[str, str] | None:
     """从 AccountCredential 获取公众号后台账号密码。
 
@@ -33,7 +32,6 @@ async def fetch_wechat_mp_credentials() -> tuple[str, str] | None:
 
     result = await sync_to_async(_query)()
     return result
-
 
 async def check_login_status(page: Page) -> bool:
     """检查当前页面是否已登录公众号后台。"""
@@ -58,7 +56,6 @@ async def check_login_status(page: Page) -> bool:
             return False
         logger.warning("Failed to check login status: %s", exc)
         return False
-
 
 async def login_with_credentials(page: Page, account: str, password: str) -> bool:
     """使用账号密码登录公众号后台。
@@ -200,7 +197,6 @@ async def login_with_credentials(page: Page, account: str, password: str) -> boo
         logger.error("Login with credentials failed: %s", exc, exc_info=True)
         return False
 
-
 async def wait_for_qr_scan(page: Page, timeout_seconds: int = 120) -> bool:
     """等待用户扫码登录。
 
@@ -222,7 +218,6 @@ async def wait_for_qr_scan(page: Page, timeout_seconds: int = 120) -> bool:
 
     logger.warning("QR scan login timeout after %d seconds", timeout_seconds)
     return False
-
 
 async def capture_qr_code(page: Page) -> bytes | None:
     """截取登录二维码区域的截图。

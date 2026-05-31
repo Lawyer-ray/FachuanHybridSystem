@@ -30,7 +30,6 @@ CHROME_USER_DATA_DIR = "/tmp/chrome_gsxt_profile"
 LOGIN_CAPTCHA_TIMEOUT = 120  # 等待用户完成登录验证码（秒）
 REPORT_CAPTCHA_TIMEOUT = 180  # 等待用户完成搜索/报告验证码（秒）
 
-
 class GsxtCredentialProtocol(Protocol):
     account: str
     password: str
@@ -38,19 +37,15 @@ class GsxtCredentialProtocol(Protocol):
 
     def save(self, *, update_fields: list[str]) -> None: ...
 
-
 class GsxtLoginError(Exception):
     """登录失败异常。"""
-
 
 class GsxtReportError(Exception):
     """报告申请失败异常。"""
 
-
 # ──────────────────────────────────────────────
 # Chrome 进程管理
 # ──────────────────────────────────────────────
-
 
 def _kill_existing_chrome() -> None:
     """关闭使用同一 user-data-dir 的已有 Chrome 实例。"""
@@ -71,7 +66,6 @@ def _kill_existing_chrome() -> None:
             time.sleep(2)
     except Exception:
         pass
-
 
 def _ensure_chrome_running() -> None:
     """确保 Chrome 以调试模式运行。"""
@@ -96,11 +90,9 @@ def _ensure_chrome_running() -> None:
             f'或手动运行：\n  "{CHROME_PATH}" --remote-debugging-port=9222 --user-data-dir={CHROME_USER_DATA_DIR}'
         ) from e
 
-
 # ──────────────────────────────────────────────
 # CDP WebSocket 直接导航（绕过 Playwright 自动化注入）
 # ──────────────────────────────────────────────
-
 
 async def _cdp_navigate(url: str, wait_seconds: int = 8) -> str:
     """通过 CDP WebSocket 直接导航到目标 URL，避免 Playwright 注入自动化标记。
@@ -167,11 +159,9 @@ async def _cdp_navigate(url: str, wait_seconds: int = 8) -> str:
             if msg.get("id") == 3:
                 return str(msg.get("result", {}).get("result", {}).get("value", url))
 
-
 # ──────────────────────────────────────────────
 # 验证码等待
 # ──────────────────────────────────────────────
-
 
 async def _wait_captcha_success(page: Any, captcha_selector: str, timeout: int) -> bool:
     """轮询等待极验验证码完成。"""
@@ -192,11 +182,9 @@ async def _wait_captcha_success(page: Any, captcha_selector: str, timeout: int) 
             return False
     return False
 
-
 # ──────────────────────────────────────────────
 # 完整流程：登录 → 搜索 → 详情 → 申请报告
 # ──────────────────────────────────────────────
-
 
 async def _run_full_flow(credential: GsxtCredentialProtocol, task_id: int) -> None:
     """在一个浏览器会话中完成：登录→搜索→详情→申请报告。"""
@@ -413,7 +401,6 @@ async def _run_full_flow(credential: GsxtCredentialProtocol, task_id: int) -> No
             # 不关闭浏览器，让用户可以看到结果/验证码页面
             pass
 
-
 async def _click_company_detail(page: Any, company_name: str, context: Any) -> Any:
     """点击搜索结果中的企业链接，返回详情页 Page（通常在新标签页中打开）。
 
@@ -528,23 +515,19 @@ async def _click_company_detail(page: Any, company_name: str, context: Any) -> A
 
     raise GsxtReportError("详情页未打开，可能被 WAF 拦截")
 
-
 # ──────────────────────────────────────────────
 # 入口
 # ──────────────────────────────────────────────
 
-
 def _run_in_thread(credential: GsxtCredentialProtocol, task_id: int) -> None:
     """在独立线程中运行完整流程。"""
     asyncio.run(_run_full_flow(credential, task_id))
-
 
 class GsxtLoginService:
     """Class-based facade for GSXT login workflow."""
 
     def start_login(self, credential: GsxtCredentialProtocol, task_id: int) -> None:
         start_login_gsxt(credential, task_id)
-
 
 def _try_reverse_login(credential: GsxtCredentialProtocol, task_id: int) -> bool:
     """尝试使用逆向登录，成功返回 True，不可用或失败返回 False。"""
@@ -578,7 +561,6 @@ def _try_reverse_login(credential: GsxtCredentialProtocol, task_id: int) -> bool
 
     start_report_flow(task_id)
     return True
-
 
 def start_login_gsxt(credential: GsxtCredentialProtocol, task_id: int) -> None:
     """

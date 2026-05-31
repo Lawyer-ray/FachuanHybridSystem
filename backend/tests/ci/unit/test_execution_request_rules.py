@@ -12,11 +12,9 @@ from apps.documents.services.placeholders.litigation.execution_request_service i
 from apps.finance.models.lpr_rate import LPRRate
 from apps.litigation_ai.placeholders.spec import LitigationPlaceholderKeys
 
-
 @pytest.fixture
 def service() -> ExecutionRequestService:
     return ExecutionRequestService()
-
 
 def _seed_lpr_rates() -> None:
     LPRRate.objects.create(
@@ -24,7 +22,6 @@ def _seed_lpr_rates() -> None:
         rate_1y=Decimal("3.00"),
         rate_5y=Decimal("3.50"),
     )
-
 
 @pytest.mark.django_db
 def test_execution_request_rules_case_38361_deduction_order(service: ExecutionRequestService) -> None:
@@ -58,7 +55,6 @@ def test_execution_request_rules_case_38361_deduction_order(service: ExecutionRe
     assert params["interest_base"] == "190860"
     assert "律师代理费" not in preview
     assert "担保费" not in preview
-
 
 @pytest.mark.django_db
 def test_execution_request_rules_case_254_fee_ownership_and_double_interest(service: ExecutionRequestService) -> None:
@@ -95,7 +91,6 @@ def test_execution_request_rules_case_254_fee_ownership_and_double_interest(serv
     assert "4624" not in preview
     assert any("受理费" in w for w in warnings)
 
-
 @pytest.mark.django_db
 def test_execution_request_rules_case_51548_fixed_rate_and_cap(service: ExecutionRequestService) -> None:
     case = Case.objects.create(name="51548测试", target_amount=Decimal("100592.83"))
@@ -126,7 +121,6 @@ def test_execution_request_rules_case_51548_fixed_rate_and_cap(service: Executio
     assert "财产保全费" in preview
     assert "年利率4.5%" in preview
 
-
 @pytest.mark.django_db
 def test_execution_request_manual_text_has_priority(service: ExecutionRequestService) -> None:
     case = Case.objects.create(name="手工文本优先")
@@ -140,7 +134,6 @@ def test_execution_request_manual_text_has_priority(service: ExecutionRequestSer
 
     result = service.generate({"case_id": case.id})
     assert result[LitigationPlaceholderKeys.ENFORCEMENT_EXECUTION_REQUEST] == "这是手工填写的申请执行事项"
-
 
 @pytest.mark.django_db
 def test_execution_request_generate_converts_manual_newlines_to_docx_hard_breaks(
@@ -161,7 +154,6 @@ def test_execution_request_generate_converts_manual_newlines_to_docx_hard_breaks
     assert output == "第一行\a第二行"
     assert "\n" not in output
 
-
 @pytest.mark.django_db
 def test_execution_request_generate_output_uses_docx_hard_breaks(service: ExecutionRequestService) -> None:
     case = Case.objects.create(name="规则输出换行转换", target_amount=Decimal("1000"))
@@ -177,7 +169,6 @@ def test_execution_request_generate_output_uses_docx_hard_breaks(service: Execut
 
     assert "\a" in output
     assert "\n" not in output
-
 
 @pytest.mark.django_db
 def test_execution_request_cutoff_prefers_case_specified_date(service: ExecutionRequestService) -> None:
@@ -195,7 +186,6 @@ def test_execution_request_cutoff_prefers_case_specified_date(service: Execution
     result = service.preview_for_case_number(case=case, case_number=case_number)
     assert result["structured_params"]["cutoff_date"] == "2025-12-31"
 
-
 @pytest.mark.django_db
 def test_execution_request_cutoff_falls_back_to_today_when_no_specified_date(service: ExecutionRequestService) -> None:
     case = Case.objects.create(name="默认今天", target_amount=Decimal("1000"))
@@ -211,7 +201,6 @@ def test_execution_request_cutoff_falls_back_to_today_when_no_specified_date(ser
 
     result = service.preview_for_case_number(case=case, case_number=case_number)
     assert result["structured_params"]["cutoff_date"] == date.today().isoformat()
-
 
 @pytest.mark.django_db
 def test_execution_request_parses_lpr_markup_percent_as_multiplier(service: ExecutionRequestService) -> None:
@@ -236,7 +225,6 @@ def test_execution_request_parses_lpr_markup_percent_as_multiplier(service: Exec
 
     assert params["interest_rate_description"].endswith("1.5倍")
     assert params["overdue_interest"] == "2329.12"
-
 
 @pytest.mark.django_db
 def test_execution_request_infers_principal_from_interest_base_and_lpr_standard(service: ExecutionRequestService) -> None:
@@ -269,7 +257,6 @@ def test_execution_request_infers_principal_from_interest_base_and_lpr_standard(
     assert params["interest_rate_description"] == "全国银行间同业拆借中心公布的一年期贷款市场报价利率"
     assert Decimal(params["overdue_interest"]) > Decimal("0")
     assert not any("回退使用案件“涉案金额”" in w for w in warnings)
-
 
 @pytest.mark.django_db
 def test_execution_request_lpr_standard_clause_does_not_trigger_llm_fallback_when_rules_sufficient(
@@ -305,7 +292,6 @@ def test_execution_request_lpr_standard_clause_does_not_trigger_llm_fallback_whe
     assert params["interest_rate_description"] == "全国银行间同业拆借中心公布的一年期贷款市场报价利率"
     assert params["llm_fallback_used"] is False
 
-
 @pytest.mark.django_db
 def test_execution_request_preview_text_has_no_numeric_prefix(service: ExecutionRequestService) -> None:
     _seed_lpr_rates()
@@ -329,7 +315,6 @@ def test_execution_request_preview_text_has_no_numeric_prefix(service: Execution
 
     for line in preview.splitlines():
         assert not re.match(r"^\d+\.", line)
-
 
 @pytest.mark.django_db
 def test_execution_request_rules_case_34475_chinese_multiplier_and_fee_variants(
@@ -369,7 +354,6 @@ def test_execution_request_rules_case_34475_chinese_multiplier_and_fee_variants(
     assert "律师代理费72000元" in preview
     assert "受理费14028.67元" in preview
 
-
 @pytest.mark.django_db
 def test_execution_request_fee_marker_yifu_and_interest_base_reduces_after_paid(
     service: ExecutionRequestService,
@@ -401,7 +385,6 @@ def test_execution_request_fee_marker_yifu_and_interest_base_reduces_after_paid(
     assert params["overdue_interest"] == "14919.56"
     assert params["preservation_fee"] == "4422.61"
     assert "财产保全费4422.61元" in preview
-
 
 @pytest.mark.django_db
 def test_execution_request_rules_case_520000_wan_unit_and_fee_burden_and_double_interest(
@@ -439,7 +422,6 @@ def test_execution_request_rules_case_520000_wan_unit_and_fee_burden_and_double_
     assert params["has_double_interest_clause"] is True
     assert "加倍支付迟延履行期间的债务利息" in preview
     assert not any("未从文书解析到本金" in w for w in warnings)
-
 
 @pytest.mark.django_db
 def test_execution_request_ollama_fallback_merges_when_rules_low_confidence(
@@ -492,7 +474,6 @@ def test_execution_request_ollama_fallback_merges_when_rules_low_confidence(
     assert params["llm_fallback_used"] is True
     assert "加倍支付迟延履行期间的债务利息" in preview
 
-
 @pytest.mark.django_db
 def test_execution_request_ollama_fallback_can_be_disabled(
     service: ExecutionRequestService,
@@ -528,7 +509,6 @@ def test_execution_request_ollama_fallback_can_be_disabled(
     assert params["llm_fallback_enabled"] is False
     assert params["llm_fallback_used"] is False
 
-
 @pytest.mark.django_db
 def test_execution_request_fee_split_uses_defendant_burden_amount(service: ExecutionRequestService) -> None:
     _seed_lpr_rates()
@@ -553,7 +533,6 @@ def test_execution_request_fee_split_uses_defendant_burden_amount(service: Execu
     assert params["litigation_fee"] == "4849.03"
     assert params["preservation_fee"] == "1907.97"
     assert Decimal(params["litigation_fee"]) + Decimal(params["preservation_fee"]) == Decimal("6757")
-
 
 @pytest.mark.django_db
 def test_execution_request_includes_supplementary_liability_clause(service: ExecutionRequestService) -> None:
@@ -580,7 +559,6 @@ def test_execution_request_includes_supplementary_liability_clause(service: Exec
     assert expected_clause in preview
     assert params["has_supplementary_liability_clause"] is True
     assert params["supplementary_liability_text"] == expected_clause.rstrip("。")
-
 
 @pytest.mark.django_db
 def test_execution_request_supports_segmented_interest_with_custom_rate(service: ExecutionRequestService) -> None:
@@ -623,7 +601,6 @@ def test_execution_request_supports_segmented_interest_with_custom_rate(service:
     assert "以11766元为基数" in preview
     assert "以10766元为基数" in preview
 
-
 @pytest.mark.django_db
 def test_execution_request_fee_split_single_item_uses_defendant_burden_amount(service: ExecutionRequestService) -> None:
     case = Case.objects.create(name="单项费用分摊扣减", target_amount=Decimal("1000"))
@@ -643,7 +620,6 @@ def test_execution_request_fee_split_single_item_uses_defendant_burden_amount(se
 
     assert params["litigation_fee"] == "10802.27"
     assert "受理费10802.27元" in preview
-
 
 @pytest.mark.django_db
 def test_execution_request_complex_segmented_lpr_with_joint_liability_and_guarantee_fee(
@@ -701,7 +677,6 @@ def test_execution_request_complex_segmented_lpr_with_joint_liability_and_guaran
     assert "暂计至2026年3月23日违约金为" in preview
     assert "承担连带责任" in preview
 
-
 @pytest.mark.django_db
 def test_execution_request_parses_qingchang_principal_and_daily_percent_rate(
     service: ExecutionRequestService,
@@ -735,7 +710,6 @@ def test_execution_request_parses_qingchang_principal_and_daily_percent_rate(
     assert "受理费10元" in preview
     assert not warnings
 
-
 @pytest.mark.django_db
 def test_execution_request_parses_daily_permyriad_with_chinese_numeral(
     service: ExecutionRequestService,
@@ -768,7 +742,6 @@ def test_execution_request_parses_daily_permyriad_with_chinese_numeral(
     assert params["preservation_fee"] == "0"
     assert any("受理费244957.37元已排除" in w for w in warnings)
     assert any("财产保全费5000元已排除" in w for w in warnings)
-
 
 @pytest.mark.django_db
 def test_execution_request_parses_segmented_lpr_start_only_and_insufficient_property_liability(
@@ -824,7 +797,6 @@ def test_execution_request_parses_segmented_lpr_start_only_and_insufficient_prop
     assert any("受理费164174.3元已排除" in w for w in warnings)
     assert any("财产保全费5000元已排除" in w for w in warnings)
 
-
 @pytest.mark.django_db
 def test_execution_request_supports_fee_only_items_without_principal(service: ExecutionRequestService) -> None:
     case = Case.objects.create(name="仅费用项生成", target_amount=Decimal("0"))
@@ -851,7 +823,6 @@ def test_execution_request_supports_fee_only_items_without_principal(service: Ex
     assert params["total"] == "5000"
     assert "支付财产保全费5000元" in preview
     assert not any("未能确定本金" in w for w in warnings)
-
 
 @pytest.mark.django_db
 def test_execution_request_supports_multiple_overdue_interest_rules_with_mixed_rates(
@@ -897,7 +868,6 @@ def test_execution_request_supports_multiple_overdue_interest_rules_with_mixed_r
     assert any("受理费227128.23元已排除" in w for w in warnings)
     assert any("财产保全费5000元已排除" in w for w in warnings)
 
-
 @pytest.mark.django_db
 def test_execution_request_handles_penalty_and_compound_interest_clause(
     service: ExecutionRequestService,
@@ -936,7 +906,6 @@ def test_execution_request_handles_penalty_and_compound_interest_clause(
     assert "利息按分段基数计算" in preview
     assert any("受理费172411.45元已排除" in w for w in warnings)
 
-
 @pytest.mark.django_db
 def test_execution_request_includes_priority_execution_clauses(
     service: ExecutionRequestService,
@@ -965,7 +934,6 @@ def test_execution_request_includes_priority_execution_clauses(
     assert "土地折价、拍卖或变卖所得价款" in preview
     assert "股权折价或拍卖、变卖所得价款" in preview
 
-
 @pytest.mark.django_db
 def test_execution_request_fallbacks_unrecognized_property_clause_for_manual_review(
     service: ExecutionRequestService,
@@ -992,7 +960,6 @@ def test_execution_request_fallbacks_unrecognized_property_clause_for_manual_rev
     assert "应收账款在上述第一项确定的债权范围内享有优先受偿权" in params["manual_review_clauses"][0]
     assert "【人工核对】" in preview
     assert "应收账款在上述第一项确定的债权范围内享有优先受偿权" in preview
-
 
 @pytest.mark.django_db
 def test_execution_request_supports_same_base_two_phase_rates_fixed_then_lpr(
@@ -1044,7 +1011,6 @@ def test_execution_request_supports_same_base_two_phase_rates_fixed_then_lpr(
     assert Decimal(params["overdue_interest"]) > Decimal("0")
     assert "逾期利息按判决确定的分项规则计算" in preview
 
-
 @pytest.mark.django_db
 def test_execution_request_parses_advertising_fee_as_primary_principal(
     service: ExecutionRequestService,
@@ -1079,7 +1045,6 @@ def test_execution_request_parses_advertising_fee_as_primary_principal(
     assert "广告费17859734元" in preview
     assert "逾期付款违约金" in preview
     assert "暂计至2026年3月23日逾期付款违约金为" in preview
-
 
 @pytest.mark.django_db
 def test_execution_request_parses_repurchase_price_with_annualized_rate_segments(
@@ -1119,7 +1084,6 @@ def test_execution_request_parses_repurchase_price_with_annualized_rate_segments
     assert "按年化率6%计算至付清之日止" in preview
     assert "暂计至2026年3月23日利息为" in preview
     assert any("受理费187483.33元已排除" in w for w in warnings)
-
 
 @pytest.mark.django_db
 def test_execution_request_includes_confirmed_interest_with_wei_form(service: ExecutionRequestService) -> None:

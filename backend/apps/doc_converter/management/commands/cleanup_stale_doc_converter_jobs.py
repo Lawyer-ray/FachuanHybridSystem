@@ -11,7 +11,6 @@ from apps.doc_converter.models import DocConverterJob, DocConverterJobStatus
 
 logger = logging.getLogger("apps.doc_converter")
 
-
 class Command(BaseCommand):
     help = "清理过期的 DOC 转换任务及其文件"
 

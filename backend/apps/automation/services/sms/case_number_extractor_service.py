@@ -18,7 +18,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger("apps.automation")
 
-
 class CaseNumberExtractorService:
     """
     案号提取服务

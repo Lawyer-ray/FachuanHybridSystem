@@ -6,7 +6,6 @@ from typing import Any
 
 from apps.core.dto import CaseDTO
 
-
 class CaseDtoAssembler:
     def to_dto(self, case: Any, case_number: str | None = None) -> CaseDTO:
         dto = CaseDTO.from_model(case)

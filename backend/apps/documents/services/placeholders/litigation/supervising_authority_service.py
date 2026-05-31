@@ -13,7 +13,6 @@ from apps.litigation_ai.placeholders.spec import LitigationPlaceholderKeys
 
 logger = logging.getLogger(__name__)
 
-
 @PlaceholderRegistry.register
 class SupervisingAuthorityService(BasePlaceholderService):
     """审理机构服务"""

@@ -6,7 +6,6 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-
 def _parse_suffix_range(end_s: str, file_size: int) -> tuple[int, int] | None:
     """处理后缀范围请求,如 bytes=-500"""
     try:
@@ -17,7 +16,6 @@ def _parse_suffix_range(end_s: str, file_size: int) -> tuple[int, int] | None:
         return None
     start = max(0, file_size - suffix)
     return (start, file_size - 1)
-
 
 def _parse_explicit_range(start_s: str, end_s: str, file_size: int) -> tuple[int, int] | None:
     """处理显式范围请求,如 bytes=0-499"""
@@ -41,7 +39,6 @@ def _parse_explicit_range(start_s: str, end_s: str, file_size: int) -> tuple[int
     end = min(end, file_size - 1)
     start = min(start, file_size - 1)
     return (start, end)
-
 
 def parse_range_header(range_header: str, file_size: int) -> tuple[int, int] | None:
     if not range_header or not range_header.startswith("bytes="):

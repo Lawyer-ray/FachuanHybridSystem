@@ -3,7 +3,6 @@
 import apps.organization.models.lawyer
 from django.db import migrations
 
-
 class Migration(migrations.Migration):
 
     dependencies = [

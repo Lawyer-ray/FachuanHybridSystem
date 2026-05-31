@@ -12,7 +12,6 @@ from django.db.models import QuerySet
 
 from apps.contract_review.models.review_task import ReviewTask
 
-
 class ReviewTaskRepository:
     """合同审查任务数据访问层"""
 

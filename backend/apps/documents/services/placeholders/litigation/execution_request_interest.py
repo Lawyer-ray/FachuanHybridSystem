@@ -23,7 +23,6 @@ from .execution_request_utils import (
 
 logger = logging.getLogger(__name__)
 
-
 def parse_interest_params(main_text: str) -> ParsedInterestParams:
     params = ParsedInterestParams()
     clause = extract_interest_clause(main_text)
@@ -116,7 +115,6 @@ def parse_interest_params(main_text: str) -> ParsedInterestParams:
     params.base_mode, params.base_amount = parse_interest_base_rule(rate_text=rate_text, full_text=main_text)
     return params
 
-
 def detect_overdue_item_label(main_text: str) -> str:
     compact = (main_text or "").replace(" ", "")
     if "逾期付款违约金" in compact:
@@ -147,13 +145,11 @@ def detect_overdue_item_label(main_text: str) -> str:
         return "逾期利息"
     return "利息"
 
-
 def infer_principal_from_interest_base(params: ParsedInterestParams) -> Decimal | None:
     if params.base_mode in {"fixed_amount", "fixed_amount_remaining"} and params.base_amount is not None:
         if params.base_amount > 0:
             return params.base_amount
     return None
-
 
 def parse_interest_base_rule(*, rate_text: str, full_text: str) -> tuple[str, Decimal | None]:
     base_match = re.search(r"以\s*([^，,；。\n]{1,60}?)\s*为(?:本金|基数)", rate_text)
@@ -180,7 +176,6 @@ def parse_interest_base_rule(*, rate_text: str, full_text: str) -> tuple[str, De
         return "remaining_total", None
     return "fallback_target", None
 
-
 def resolve_interest_base(
     *,
     case: Case,
@@ -206,7 +201,6 @@ def resolve_interest_base(
         return max(principal, Decimal("0"))
     return base
 
-
 def parse_deduction_order(main_text: str) -> list[str]:
     patterns = [
         re.compile(r"按\s*([^。；\n]{2,120}?)\s*顺序(?:优先)?(?:进行)?抵扣"),
@@ -228,7 +222,6 @@ def parse_deduction_order(main_text: str) -> list[str]:
             return mapped
     return []
 
-
 def _map_deduction_token(token: str) -> str | None:
     if "受理费" in token:
         return "litigation_fee"
@@ -245,7 +238,6 @@ def _map_deduction_token(token: str) -> str | None:
     if any(k in token for k in ("借款", "货款", "本金", "未付款", "剩余未付款")):
         return "principal"
     return None
-
 
 DEDUCTION_KEY_TO_COMPONENT: dict[str, str] = {
     "litigation_fee": "litigation_fee",
@@ -266,7 +258,6 @@ DEDUCTION_KEY_TO_LABEL: dict[str, str] = {
     "interest": "利息",
     "principal": "本金",
 }
-
 
 def apply_paid_amount(
     *,
@@ -316,7 +307,6 @@ def apply_paid_amount(
     amounts.attorney_fee = components["attorney_fee"]
     amounts.guarantee_fee = components["guarantee_fee"]
     return amounts, principal_paid, applied
-
 
 def calculate_interest(
     *,
@@ -369,7 +359,6 @@ def calculate_interest(
         warnings.append(f"利息触发上限，已按 {format_amount(params.interest_cap)} 元截断。")
         interest = params.interest_cap
     return interest
-
 
 def calculate_interest_with_segments(
     *,
@@ -426,7 +415,6 @@ def calculate_interest_with_segments(
         warnings.append(f"利息触发上限，已按 {format_amount(params.interest_cap)} 元截断。")
         interest = params.interest_cap
     return interest
-
 
 def extract_interest_clause(main_text: str) -> str:
     patterns = [

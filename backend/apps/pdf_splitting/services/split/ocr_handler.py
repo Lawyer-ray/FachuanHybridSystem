@@ -20,7 +20,6 @@ from .split_models import OCRPageResult, OCRRuntimeProfile
 
 logger = logging.getLogger("apps.pdf_splitting")
 
-
 def _ocr_pages_worker(
     *,
     pdf_path: str,
@@ -64,7 +63,6 @@ def _ocr_pages_worker(
                 )
             )
     return results
-
 
 class OCRHandler:
     """OCR 子系统的入口，封装并行识别、缓存、配置解析。"""

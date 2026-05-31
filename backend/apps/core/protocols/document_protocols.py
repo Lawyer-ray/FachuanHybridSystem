@@ -8,7 +8,6 @@ from typing import Any, Protocol
 
 from apps.core.dto import DocumentTemplateDTO, EvidenceItemDigestDTO, GenerationTaskDTO
 
-
 class IDocumentService(Protocol):
     """
     文档服务接口
@@ -72,10 +71,8 @@ class IDocumentService(Protocol):
 
     def get_templates_by_ids_internal(self, template_ids: list[int]) -> list[DocumentTemplateDTO]: ...
 
-
 class IDocumentTemplateBindingService(Protocol):
     def get_contract_subdir_path_internal(self, case_type: str, contract_sub_type: str) -> str | None: ...
-
 
 class IEvidenceQueryService(Protocol):
     def list_evidence_items_for_digest_internal(
@@ -89,7 +86,6 @@ class IEvidenceQueryService(Protocol):
     ) -> list[EvidenceItemDigestDTO]: ...
 
     def list_evidence_items_for_case_internal(self, case_id: int) -> list[EvidenceItemDigestDTO]: ...
-
 
 class IGenerationTaskService(Protocol):
     def create_ai_task_internal(
@@ -316,10 +312,8 @@ class IGenerationTaskService(Protocol):
         """
         ...
 
-
 class IContractGenerationService(Protocol):
     def generate_contract_document(self, contract_id: int) -> tuple[bytes, str, str | None]: ...
-
 
 class ISupplementaryAgreementGenerationService(Protocol):
     def generate_supplementary_agreement(

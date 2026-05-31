@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from typing import cast
 
-
 class PdfExporter:
     def export(self, html_content: str) -> bytes:
         from weasyprint import HTML

@@ -12,10 +12,8 @@ from apps.core.exceptions import ValidationException
 
 router = Router(tags=["客户管理"])
 
-
 def _get_prefill_service() -> ClientEnterprisePrefillService:
     return ClientEnterprisePrefillService()
-
 
 @router.get("/clients/enterprise/search", response=EnterpriseCompanySearchOut)
 def search_enterprise_companies(
@@ -28,7 +26,6 @@ def search_enterprise_companies(
         raise ValidationException(message="limit 必须在 1 到 20 之间", code="INVALID_LIMIT")
     payload = _get_prefill_service().search_companies(keyword=keyword, provider=provider, limit=limit)
     return EnterpriseCompanySearchOut(**payload)
-
 
 @router.get("/clients/enterprise/prefill", response=EnterpriseClientPrefillOut)
 def get_enterprise_prefill(

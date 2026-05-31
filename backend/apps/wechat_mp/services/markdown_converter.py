@@ -14,7 +14,6 @@ import markdown  # type: ignore[import-untyped]
 
 logger = logging.getLogger(__name__)
 
-
 @dataclass
 class ThemeConfig:
     """排版主题配置。"""
@@ -35,7 +34,6 @@ class ThemeConfig:
 
     # 分隔线样式
     hr_style: str = "gradient"  # gradient / dot / dash
-
 
 # ── 预定义主题 ─────────────────────────────────────────────────────────────
 
@@ -66,7 +64,6 @@ THEMES: dict[str, ThemeConfig] = {
     "green": THEME_GREEN,
 }
 
-
 # ── GFM Alert / Callout 支持 ──────────────────────────────────────────────
 
 _ALERT_TYPES: dict[str, tuple[str, str]] = {
@@ -81,7 +78,6 @@ _ALERT_TYPES: dict[str, tuple[str, str]] = {
     "QUESTION": ("❓ 问题", "#c69026"),
     "DANGER": ("🚨 危险", "#e5534b"),
 }
-
 
 def _build_callout_html(alert_type: str, title: str, color: str, content: str) -> str:
     """构建 callout 盒子的内联样式 HTML。"""
@@ -101,7 +97,6 @@ def _build_callout_html(alert_type: str, title: str, color: str, content: str) -
         f"{content}</p>"
         f"</section>"
     )
-
 
 def _process_alerts(html: str) -> str:
     """将 GFM alert 语法转换为 callout 盒子。
@@ -125,9 +120,7 @@ def _process_alerts(html: str) -> str:
         )
     return html
 
-
 # ── 主题样式生成 ────────────────────────────────────────────────────────────
-
 
 def _get_styles(theme: ThemeConfig) -> dict[str, str]:
     """根据主题生成内联样式映射。"""
@@ -225,9 +218,7 @@ def _get_styles(theme: ThemeConfig) -> dict[str, str]:
         "a": f"color:{c};text-decoration:none;border-bottom:1px dashed {c}60;font-weight:500;",
     }
 
-
 # ── 内联样式应用 ────────────────────────────────────────────────────────────
-
 
 def _apply_inline_styles(html: str, styles: dict[str, str]) -> str:
     """将内联样式应用到 HTML 元素上。"""
@@ -240,14 +231,11 @@ def _apply_inline_styles(html: str, styles: dict[str, str]) -> str:
         html = re.sub(pattern, replacement, html)
     return html
 
-
 def _wrap_section(html: str, styles: dict[str, str]) -> str:
     """用 section 包裹 HTML 并添加全局样式。"""
     return f'<section style="{styles["section"]}">{html}</section>'
 
-
 # ── 主转换函数 ──────────────────────────────────────────────────────────────
-
 
 def convert_markdown_to_wechat_html(
     md_content: str,
@@ -313,7 +301,6 @@ def convert_markdown_to_wechat_html(
 
     return html
 
-
 def _add_table_striping(html: str, color: str) -> str:
     """为表格偶数行添加浅色背景，实现斑马纹效果。"""
     counter = 0
@@ -327,7 +314,6 @@ def _add_table_striping(html: str, color: str) -> str:
 
     html = re.sub(r"<tr>", _replace_tr, html)
     return html
-
 
 def _add_decorative_elements(html: str, color: str) -> str:
     """为文章添加装饰性 SVG 元素。"""
@@ -372,7 +358,6 @@ def _add_decorative_elements(html: str, color: str) -> str:
         html = html[:last_section_end] + bottom_decoration + html[last_section_end:]
 
     return html
-
 
 def extract_summary(md_content: str, max_length: int = 120) -> str:
     """从 Markdown 内容中提取摘要（用于公众号文章摘要）。"""

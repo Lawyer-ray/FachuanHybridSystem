@@ -9,7 +9,6 @@ if TYPE_CHECKING:
     from .calendar_sync_service import CalendarSyncService
     from .reminder_service_adapter import ReminderServiceAdapter
 
-
 def get_reminder_service() -> ReminderServiceAdapter:
     """获取 ReminderServiceAdapter 实例（供本模块 API 和其他模块使用）。"""
     from apps.cases.adapters import CaseLogReminderTargetQueryAdapter, CaseReminderTargetQueryAdapter
@@ -23,13 +22,11 @@ def get_reminder_service() -> ReminderServiceAdapter:
         case_log_target_query=CaseLogReminderTargetQueryAdapter(),
     )
 
-
 def get_calendar_sync_service() -> CalendarSyncService:
     """获取 CalendarSyncService 实例（日历导入功能）。"""
     from .calendar_sync_service import CalendarSyncService
 
     return CalendarSyncService()
-
 
 def get_calendar_export_service() -> CalendarExportService:
     """获取 CalendarExportService 实例（日历导出功能）。"""

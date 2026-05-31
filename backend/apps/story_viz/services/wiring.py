@@ -13,10 +13,8 @@ from .svg_fragment_generator_service import SvgFragmentGeneratorService
 from .svg_layout_renderer_service import SvgLayoutRendererService
 from .workflow_service import StoryAnimationWorkflowService
 
-
 def get_story_animation_job_service() -> StoryAnimationJobService:
     return StoryAnimationJobService()
-
 
 def get_story_animation_workflow_service() -> StoryAnimationWorkflowService:
     llm_service: Any = build_llm_service()

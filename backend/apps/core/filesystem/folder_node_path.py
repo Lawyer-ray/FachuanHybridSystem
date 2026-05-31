@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-
 def normalize_folder_node_path(folder_node_path: str) -> str:
     if not folder_node_path:
         return ""

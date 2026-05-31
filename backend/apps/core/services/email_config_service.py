@@ -13,7 +13,6 @@ from apps.core.services.system_config_service import SystemConfigService
 _CACHE_KEY = "email_config"
 _CACHE_TTL = 300  # 5 分钟
 
-
 class EmailConfigService:
     """邮件配置服务"""
 

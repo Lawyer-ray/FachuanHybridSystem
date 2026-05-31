@@ -10,7 +10,6 @@ from asgiref.sync import sync_to_async
 
 logger = logging.getLogger("apps.litigation_ai")
 
-
 class MockTrialReportService:
     """从 session metadata 提取并格式化各模式的报告."""
 

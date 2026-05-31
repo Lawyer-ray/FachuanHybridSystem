@@ -11,11 +11,9 @@ from apps.documents.services.placeholders.fallback import PLACEHOLDER_FALLBACK_V
 
 logger = logging.getLogger("apps.documents.generation")
 
-
 class _SafeDict(dict[str, str]):
     def __missing__(self, key: str) -> str:
         return PLACEHOLDER_FALLBACK_VALUE
-
 
 @dataclass(frozen=True)
 class PromptSpec:
@@ -29,7 +27,6 @@ class PromptSpec:
         }
         normalized.setdefault("format_instructions", self.format_instructions)
         return self.user_template.format_map(_SafeDict(normalized))
-
 
 # Hardcoded prompt specs for litigation documents
 COMPLAINT_PROMPT = PromptSpec(
@@ -62,7 +59,6 @@ DEFENSE_PROMPT = PromptSpec(
     format_instructions="",
 )
 
-
 def get_complaint_prompt() -> PromptSpec:
     """Get the complaint prompt spec."""
     from .outputs import ComplaintOutput
@@ -74,7 +70,6 @@ def get_complaint_prompt() -> PromptSpec:
         user_template=prompt.user_template,
         format_instructions=format_instructions,
     )
-
 
 def get_defense_prompt() -> PromptSpec:
     """Get the defense prompt spec."""

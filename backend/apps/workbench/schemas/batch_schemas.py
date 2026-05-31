@@ -10,7 +10,6 @@ from pydantic import BaseModel, field_validator
 
 from apps.core.api.schemas import SchemaMixin
 
-
 class BatchItemOut(BaseModel):
     id: UUID
     file_name: str
@@ -20,7 +19,6 @@ class BatchItemOut(BaseModel):
     duration_ms: float | None
 
     model_config = {"from_attributes": True}
-
 
 class BatchJobOut(SchemaMixin, BaseModel):
     id: UUID
@@ -76,7 +74,6 @@ class BatchJobOut(SchemaMixin, BaseModel):
     @staticmethod
     def resolve_started_processing_at(obj: object) -> datetime | None:
         return SchemaMixin._resolve_datetime(getattr(obj, "started_processing_at", None))
-
 
 class BatchProgressOut(BaseModel):
     job: BatchJobOut

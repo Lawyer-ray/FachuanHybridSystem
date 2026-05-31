@@ -44,7 +44,6 @@ _FILE_TYPE_IMAGE = 1
 # 请求超时（秒）
 _REQUEST_TIMEOUT = 120.0
 
-
 @dataclass(frozen=True)
 class PaddleOCRApiResult:
     """PaddleOCR API 识别结果"""
@@ -52,7 +51,6 @@ class PaddleOCRApiResult:
     text: str  # 合并后的文本
     raw_texts: list[str]  # 原始文本列表
     model: str  # 使用的模型名称
-
 
 class PaddleOCRApiEngine:
     """PaddleOCR API 云端引擎"""

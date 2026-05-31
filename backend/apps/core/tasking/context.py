@@ -6,14 +6,12 @@ import contextlib
 from dataclasses import dataclass
 from typing import Any
 
-
 def get_current_request_id() -> str | None:
     import threading
 
     from apps.core.infrastructure.request_context import get_request_id
 
     return get_request_id(fallback_generate=False) or getattr(threading.current_thread(), "request_id", None)
-
 
 def set_current_request_id(request_id: str | None) -> str | None:
     import threading
@@ -29,7 +27,6 @@ def set_current_request_id(request_id: str | None) -> str | None:
             delattr(threading.current_thread(), "request_id")
     clear_request_context()
     return None
-
 
 @dataclass(frozen=True)
 class TaskContext:

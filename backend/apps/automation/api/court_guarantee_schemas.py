@@ -7,7 +7,6 @@ from typing import Any
 
 from ninja import Schema
 
-
 def _read_int_env(name: str, default_value: int) -> int:
     raw_value = str(os.getenv(name, str(default_value))).strip()
     try:
@@ -15,7 +14,6 @@ def _read_int_env(name: str, default_value: int) -> int:
     except (TypeError, ValueError):
         return default_value
     return parsed if parsed >= 0 else default_value
-
 
 _PLAINTIFF_SIDE_STATUSES = {"plaintiff", "applicant", "appellant", "orig_plaintiff"}
 _RESPONDENT_SIDE_STATUSES = {"defendant", "respondent", "appellee", "orig_defendant"}
@@ -50,7 +48,6 @@ _BROWSER_HOLD_SECONDS_ON_FAILURE = _read_int_env("COURT_GUARANTEE_BROWSER_HOLD_S
 _DEFAULT_NATURAL_ID_NUMBER = "110101" + "19900307" + "7715"
 _DEFAULT_LEGAL_ID_NUMBER = "91440101MA59TEST8X"
 
-
 class CaseGuaranteeInfoOut(Schema):
     case_id: int
     case_name: str
@@ -69,23 +66,19 @@ class CaseGuaranteeInfoOut(Schema):
     respondent_options: list[dict[str, Any]] = []
     plugin_available: bool = True
 
-
 class CaseQuoteOperationIn(Schema):
     case_id: int
-
 
 class CaseQuoteOperationOut(Schema):
     success: bool
     message: str
     quote_context: dict[str, Any] | None = None
 
-
 class ExecuteCourtGuaranteeIn(Schema):
     case_id: int
     insurance_company_name: str | None = None
     consultant_code: str | None = None
     selected_respondent_ids: list[int] | None = None
-
 
 class ExecuteCourtGuaranteeOut(Schema):
     success: bool

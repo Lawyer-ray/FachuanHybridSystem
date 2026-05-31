@@ -18,7 +18,6 @@ from apps.core.interfaces import AccountCredentialDTO, LoginAttemptResult
 
 logger = logging.getLogger(__name__)
 
-
 @dataclass(frozen=True)
 class RetryConfig:
     max_network_retries: int = 3
@@ -26,7 +25,6 @@ class RetryConfig:
     network_retry_delay_base: float = 1.0
     captcha_retry_delay: float = 2.0
     login_timeout: float = 60.0
-
 
 @dataclass
 class AutoLoginUsecase:

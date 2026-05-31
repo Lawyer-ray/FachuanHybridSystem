@@ -12,7 +12,6 @@ from __future__ import annotations
 
 from typing import TypedDict
 
-
 class ChecklistItem(TypedDict):
     """检查清单项"""
 
@@ -22,7 +21,6 @@ class ChecklistItem(TypedDict):
     required: bool  # 是否必需
     auto_detect: str | None  # 自动检测类型，如 "supervision_card"
     source: str  # 材料来源: "template" | "contract" | "case" | "manual"
-
 
 # ============================================================
 # 法律顾问及非诉事务
@@ -414,7 +412,6 @@ ARCHIVE_CHECKLIST: dict[str, list[ChecklistItem]] = {
     "criminal": CRIMINAL_CHECKLIST,
 }
 
-
 # ============================================================
 # CaseMaterial.type_name 关键词 → archive_item_code 映射
 # ============================================================
@@ -467,7 +464,6 @@ ARCHIVE_SKIP_TEMPLATES: set[str] = {
     "inner_catalog",
 }
 
-
 CASE_MATERIAL_KEYWORD_MAPPING: dict[str, dict[str, list[str]]] = {
     # key: archive_item_code, value: type_name 中需包含的关键词列表
     "non_litigation": {
@@ -505,7 +501,6 @@ CASE_MATERIAL_KEYWORD_MAPPING: dict[str, dict[str, list[str]]] = {
         "cr_15": ["上诉书", "抗诉书"],
     },
 }
-
 
 # ============================================================
 # 归档清单子项默认排序规则

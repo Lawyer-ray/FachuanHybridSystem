@@ -5,8 +5,6 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any
 
-from django.utils.translation import gettext_lazy as _
-
 from apps.client.models import Client, ClientIdentityDoc
 from apps.client.services.importer.validator import ClientJsonImportValidator
 from apps.core.exceptions import ValidationException
@@ -26,7 +24,6 @@ _CLIENT_FIELDS: tuple[str, ...] = (
     "legal_representative_id_number",
     "is_our_client",
 )
-
 
 class ClientResolveService:
     """按 id_number get_or_create Client，维护会话内缓存避免重复创建。"""
@@ -53,7 +50,7 @@ class ClientResolveService:
             self._validator.validate(data)
         except ValidationException as exc:
             raise ValidationException(
-                message=_("当事人数据验证失败: %(name)s") % {"name": data.get("name", "")},
+                message="当事人数据验证失败: %(name)s" % {"name": data.get("name", "")},
                 code="INVALID_CLIENT_DATA",
                 errors=exc.errors,
             ) from exc

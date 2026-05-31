@@ -1,54 +1,53 @@
-{% load i18n %}
 <div class="modal-overlay" x-show="isOpen" x-cloak @click.self="closeModal()">
     <div class="modal-dialog fm-scan-modal">
         <div class="modal-header">
-            <h3>{% trans "从合同文件夹同步" %}</h3>
+            <h3>{</h3>
             <button type="button" class="modal-close" @click="closeModal()">&times;</button>
         </div>
 
         <div class="modal-body fm-scan-body">
             <div class="fm-scope-card" x-show="!isScanning">
-                <div class="fm-scope-title">{% trans "扫描前设置" %}</div>
+                <div class="fm-scope-title">{</div>
                 <div class="fm-scope-desc">
-                    {% trans "是否只扫描当前目录下的某个子文件夹？不指定时将扫描全部内容。" %}
+                    {
                 </div>
                 <div class="fm-scope-root" x-show="scanRootPath">
-                    <span>{% trans "当前目录：" %}</span>
+                    <span>{</span>
                     <code x-text="scanRootPath"></code>
                     <button type="button" class="fm-open-folder-btn"
                             :disabled="!scanRootPath"
                             @click="openFolder()"
-                            title="{% trans '在 Finder 中打开' %}">
+                            title="{">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
                     </button>
                 </div>
                 <div class="fm-scope-row" style="display:none;">
                     <label class="fm-radio-item">
                         <input type="radio" value="all" x-model="scanScopeMode">
-                        <span>{% trans "扫描全部内容" %}</span>
+                        <span>{</span>
                     </label>
                     <label class="fm-radio-item">
                         <input type="radio" value="subfolder" x-model="scanScopeMode" :disabled="!hasSubfolderOptions">
-                        <span>{% trans "指定子文件夹" %}</span>
+                        <span>{</span>
                     </label>
                 </div>
                 <div class="fm-scope-select" x-show="scanScopeMode === 'subfolder'">
                     <select x-model="scanSubfolder" :disabled="!hasSubfolderOptions || isLoadingSubfolders">
-                        <option value="">{% trans "请选择子文件夹" %}</option>
+                        <option value="">{</option>
                         <template x-for="folder in scanSubfolderOptions" :key="folder.relative_path">
                             <option :value="folder.relative_path" x-text="folder.display_name || folder.relative_path"></option>
                         </template>
                     </select>
-                    <p class="fm-scope-hint" x-show="isLoadingSubfolders">{% trans "正在加载子文件夹..." %}</p>
+                    <p class="fm-scope-hint" x-show="isLoadingSubfolders">{</p>
                     <p class="fm-scope-hint" x-show="!isLoadingSubfolders && !hasSubfolderOptions">
-                        {% trans "当前目录下暂无可选子文件夹，将扫描全部内容。" %}
+                        {
                     </p>
                 </div>
             </div>
 
             <div class="fm-scan-actions">
-                <button type="button" class="btn btn-primary" :disabled="isScanning || isLoadingSubfolders" @click="startScan(false)">{% trans "开始扫描" %}</button>
-                <button type="button" class="btn btn-secondary" :disabled="isScanning || isLoadingSubfolders" @click="startScan(true)">{% trans "重新扫描" %}</button>
+                <button type="button" class="btn btn-primary" :disabled="isScanning || isLoadingSubfolders" @click="startScan(false)">{</button>
+                <button type="button" class="btn btn-secondary" :disabled="isScanning || isLoadingSubfolders" @click="startScan(true)">{</button>
             </div>
 
             <div class="fm-scan-status" x-show="scanStatusText">
@@ -64,17 +63,17 @@
             </div>
 
             <div class="fm-scan-empty" x-show="!isScanning && scanSessionId && !visibleCandidates.length">
-                {% trans "未找到可导入的文件" %}
+                {
             </div>
 
             <div class="fm-scan-table-wrap" x-show="visibleCandidates.length">
                 <table class="fm-scan-table">
                     <thead>
                         <tr>
-                            <th style="width: 50px;">{% trans "导入" %}</th>
-                            <th>{% trans "文件" %}</th>
-                            <th style="width: 180px;">{% trans "材料分类" %}</th>
-                            <th style="width: 180px;">{% trans "归档清单项" %}</th>
+                            <th style="width: 50px;">{</th>
+                            <th>{</th>
+                            <th style="width: 180px;">{</th>
+                            <th style="width: 180px;">{</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -84,18 +83,18 @@
                                 <td>
                                     <div class="fm-file-cell">
                                         <span x-text="candidate.filename" :class="{ 'fm-file-dimmed': candidate.already_imported }"></span>
-                                        <span class="fm-docx-badge" x-show="candidate.is_docx" title="{% trans 'docx 将自动转换为 PDF' %}">docx→PDF</span>
-                                        <span class="fm-imported-badge" x-show="candidate.already_imported">{% trans "已导入" %}</span>
+                                        <span class="fm-docx-badge" x-show="candidate.is_docx" title="{">docx→PDF</span>
+                                        <span class="fm-imported-badge" x-show="candidate.already_imported">{</span>
                                         <span class="fm-file-reason" x-show="candidate.reason" x-text="candidate.reason"></span>
                                     </div>
                                 </td>
                                 <td>
                                     <select x-model="candidate.category">
-                                        <option value="contract_original">{% trans "合同正本" %}</option>
-                                        <option value="supplementary_agreement">{% trans "补充协议" %}</option>
-                                        <option value="invoice">{% trans "发票" %}</option>
-                                        <option value="supervision_card">{% trans "监督卡" %}</option>
-                                        <option value="case_material">{% trans "案件材料" %}</option>
+                                        <option value="contract_original">{</option>
+                                        <option value="supplementary_agreement">{</option>
+                                        <option value="invoice">{</option>
+                                        <option value="supervision_card">{</option>
+                                        <option value="case_material">{</option>
                                     </select>
                                 </td>
                                 <td>
@@ -104,7 +103,7 @@
                                         <select @change="selectArchiveItem(candidate, $event.target.value)"
                                                 class="fm-archive-select"
                                                 :data-current="candidate.archive_item_code || ''">
-                                            <option value="" :selected="!candidate.archive_item_code">{% trans "选择归档清单项" %}</option>
+                                            <option value="" :selected="!candidate.archive_item_code">{</option>
                                             <template x-for="opt in archiveItemOptions" :key="opt.code">
                                                 <option :value="opt.code" :selected="candidate.archive_item_code === opt.code" x-text="opt.name"></option>
                                             </template>
@@ -121,14 +120,14 @@
             <!-- 工作日志建议区域 -->
             <div class="fm-worklog-section" x-show="workLogSuggestions.length > 0 && !isScanning">
                 <div class="fm-worklog-header">
-                    <span class="fm-worklog-title">{% trans "律师办案工作日志建议" %}</span>
-                    <button type="button" class="btn btn-secondary btn-sm" @click="addWorkLogEntry()">{% trans "添加" %}</button>
+                    <span class="fm-worklog-title">{</span>
+                    <button type="button" class="btn btn-secondary btn-sm" @click="addWorkLogEntry()">{</button>
                 </div>
                 <div class="fm-worklog-list">
                     <template x-for="(entry, index) in workLogSuggestions" :key="index">
                         <div class="fm-worklog-row">
                             <input type="date" x-model="entry.date" class="fm-worklog-date" />
-                            <input type="text" x-model="entry.content" class="fm-worklog-content" placeholder="{% trans '事项内容' %}" />
+                            <input type="text" x-model="entry.content" class="fm-worklog-content" placeholder="{" />
                             <button type="button" class="fm-worklog-remove" @click="removeWorkLogEntry(index)">&times;</button>
                         </div>
                     </template>
@@ -137,8 +136,8 @@
         </div>
 
         <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" @click="closeModal()">{% trans "取消" %}</button>
-            <button type="button" class="btn btn-primary" :disabled="isScanning || isConfirming || !selectedCount" @click="confirmImport()">{% trans "确认导入" %}</button>
+            <button type="button" class="btn btn-secondary" @click="closeModal()">{</button>
+            <button type="button" class="btn btn-primary" :disabled="isScanning || isConfirming || !selectedCount" @click="confirmImport()">{</button>
         </div>
     </div>
 </div>

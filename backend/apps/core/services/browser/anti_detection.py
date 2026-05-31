@@ -11,7 +11,6 @@ from typing import Any, ClassVar
 
 logger = logging.getLogger("apps.core")
 
-
 class AntiDetection:
     """反检测工具。"""
 
@@ -62,7 +61,6 @@ class AntiDetection:
             logger.debug("已应用 playwright-stealth 反检测（async）")
         except ImportError:
             logger.warning("playwright-stealth 未安装，跳过 stealth 注入")
-
 
 # 全局实例
 anti_detection = AntiDetection()

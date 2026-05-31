@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from django.http import HttpResponse
-from django.utils.translation import gettext as _
+
 from ninja import File, Router
 from ninja.errors import HttpError
 from ninja.files import UploadedFile
@@ -20,7 +20,6 @@ logger = logging.getLogger("apps.invoice_recognition")
 
 router = Router(tags=["发票识别"])
 
-
 @router.post("/quick-recognize")
 def quick_recognize(
     request: Any,
@@ -28,7 +27,7 @@ def quick_recognize(
 ) -> dict[str, Any]:
     """快速识别发票文件（不创建任务）"""
     if not files:
-        raise HttpError(400, _("未提供文件"))
+        raise HttpError(400, "未提供文件")
 
     service = _get_quick_recognition_service()
 
@@ -36,7 +35,7 @@ def quick_recognize(
         results = service.recognize_files(files)
     except Exception as exc:
         logger.error("快速识别失败: %s", exc, exc_info=True)
-        raise HttpError(500, _("服务器内部错误"))
+        raise HttpError(500, "服务器内部错误")
 
     results_data: list[dict[str, Any]] = []
     for result in results:
@@ -75,24 +74,20 @@ def quick_recognize(
 
     return {"results": results_data}
 
-
 def _get_recognition_service() -> Any:
     from apps.invoice_recognition.services.wiring import get_invoice_recognition_service
 
     return get_invoice_recognition_service()
-
 
 def _get_download_service() -> Any:
     from apps.invoice_recognition.services.wiring import get_invoice_download_service
 
     return get_invoice_download_service()
 
-
 def _get_quick_recognition_service() -> Any:
     from apps.invoice_recognition.services.wiring import get_quick_recognition_service
 
     return get_quick_recognition_service()
-
 
 @router.post("/{task_id}/upload")
 @rate_limit_from_settings("UPLOAD", by_user=True)
@@ -108,7 +103,7 @@ def upload_invoices(
     try:
         records = service.upload_and_recognize(task_id, files)
     except ObjectDoesNotExist:
-        raise HttpError(404, _("任务不存在"))
+        raise HttpError(404, "任务不存在")
     except ValidationError as exc:
         raise HttpError(400, str(exc.message if hasattr(exc, "message") else exc))
 
@@ -126,7 +121,6 @@ def upload_invoices(
     ]
     return {"success": True, "count": len(records), "records": record_list}
 
-
 @router.get("/{task_id}/status")
 def get_task_status(
     request: Any,
@@ -139,7 +133,7 @@ def get_task_status(
     try:
         data = service.get_task_status(task_id)
     except ObjectDoesNotExist:
-        raise HttpError(404, _("任务不存在"))
+        raise HttpError(404, "任务不存在")
 
     def _serialize(obj: Any) -> Any:
         import datetime
@@ -158,7 +152,6 @@ def get_task_status(
     serialized = _serialize(data)
     assert isinstance(serialized, dict)
     return serialized
-
 
 @router.get("/{task_id}/download")
 @rate_limit_from_settings("EXPORT", by_user=True)
@@ -184,20 +177,20 @@ def download_invoices(
     try:
         if scope == "single":
             if invoice_id is None:
-                raise HttpError(400, _("scope=single 时必须提供 invoice_id"))
+                raise HttpError(400, "scope=single 时必须提供 invoice_id")
             file_path, filename = download_service.download_single(invoice_id)
             with Path(file_path).open("rb") as f:
                 data = f.read()
         elif scope == "category":
             if category is None:
-                raise HttpError(400, _("scope=category 时必须提供 category"))
+                raise HttpError(400, "scope=category 时必须提供 category")
             data, filename = download_service.download_by_category(task_id, category, fmt)
         elif scope == "all":
             data, filename = download_service.download_all(task_id, fmt)
         else:
-            raise HttpError(400, _("无效的 scope 参数，允许值：single/category/all"))
+            raise HttpError(400, "无效的 scope 参数，允许值：single/category/all")
     except ObjectDoesNotExist:
-        raise HttpError(404, _("任务或发票不存在"))
+        raise HttpError(404, "任务或发票不存在")
 
     response = HttpResponse(data, content_type=content_type)
     response["Content-Disposition"] = f'attachment; filename="{filename}"'

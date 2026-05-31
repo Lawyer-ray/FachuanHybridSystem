@@ -1,11 +1,10 @@
-{% load i18n %}
     <!-- 证据智能分类演示 -->
     <section class="evidence-sorting-section" id="evidence-sorting-flow">
         <div class="evidence-sorting-container">
             <div class="section-header reveal">
-                <span class="section-tag">🧠 {% trans "智能分类" %}</span>
-                <h2 class="section-title">{% trans "证据智能分类 · AI 自动整理" %}</h2>
-                <p class="section-desc">{% trans "LLM 驱动的证据分类器，自动识别证据类型并归类整理" %}</p>
+                <span class="section-tag">🧠 {</span>
+                <h2 class="section-title">{</h2>
+                <p class="section-desc">{</p>
             </div>
 
             <div class="evidence-demo" id="evidenceDemo">
@@ -51,7 +50,7 @@
                         🧠
                         <div class="ai-brain-ring"></div>
                     </div>
-                    <div class="ai-progress-text" id="aiProgressText">{% trans "等待开始" %}</div>
+                    <div class="ai-progress-text" id="aiProgressText">{</div>
                 </div>
 
                 <!-- 右侧：分类结果 -->
@@ -59,7 +58,7 @@
                     <div class="evidence-category" data-cat="contract" id="catContract">
                         <div class="category-icon contract">📄</div>
                         <div class="category-info">
-                            <div class="category-name">{% trans "合同协议类" %}</div>
+                            <div class="category-name">{</div>
                             <div class="category-count" id="catContractCount">0 份</div>
                         </div>
                         <div class="category-badge" id="catContractBadge">✓</div>
@@ -67,7 +66,7 @@
                     <div class="evidence-category" data-cat="finance" id="catFinance">
                         <div class="category-icon finance">🏦</div>
                         <div class="category-info">
-                            <div class="category-name">{% trans "财务凭证类" %}</div>
+                            <div class="category-name">{</div>
                             <div class="category-count" id="catFinanceCount">0 份</div>
                         </div>
                         <div class="category-badge" id="catFinanceBadge">✓</div>
@@ -75,7 +74,7 @@
                     <div class="evidence-category" data-cat="identity" id="catIdentity">
                         <div class="category-icon identity">🪪</div>
                         <div class="category-info">
-                            <div class="category-name">{% trans "身份证明类" %}</div>
+                            <div class="category-name">{</div>
                             <div class="category-count" id="catIdentityCount">0 份</div>
                         </div>
                         <div class="category-badge" id="catIdentityBadge">✓</div>
@@ -83,7 +82,7 @@
                     <div class="evidence-category" data-cat="chat" id="catChat">
                         <div class="category-icon chat">💬</div>
                         <div class="category-info">
-                            <div class="category-name">{% trans "通讯记录类" %}</div>
+                            <div class="category-name">{</div>
                             <div class="category-count" id="catChatCount">0 份</div>
                         </div>
                         <div class="category-badge" id="catChatBadge">✓</div>
@@ -91,7 +90,7 @@
                     <div class="evidence-category" data-cat="photo" id="catPhoto">
                         <div class="category-icon photo">📸</div>
                         <div class="category-info">
-                            <div class="category-name">{% trans "影像资料类" %}</div>
+                            <div class="category-name">{</div>
                             <div class="category-count" id="catPhotoCount">0 份</div>
                         </div>
                         <div class="category-badge" id="catPhotoBadge">✓</div>
@@ -101,10 +100,10 @@
 
             <div class="evidence-controls">
                 <button class="flow-btn flow-btn-play" id="evidencePlayBtn" onclick="startEvidenceAnimation()">
-                    <span>▶</span> {% trans "播放演示" %}
+                    <span>▶</span> {
                 </button>
                 <button class="flow-btn flow-btn-reset" id="evidenceResetBtn" onclick="resetEvidenceAnimation()">
-                    <span>↺</span> {% trans "重置" %}
+                    <span>↺</span> {
                 </button>
             </div>
         </div>

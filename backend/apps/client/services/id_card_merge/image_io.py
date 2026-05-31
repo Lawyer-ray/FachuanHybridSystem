@@ -11,7 +11,6 @@ import numpy as np
 from django.core.files.uploadedfile import UploadedFile
 from numpy.typing import NDArray
 
-
 def read_uploaded_image(image: UploadedFile, *, logger: Any) -> NDArray[np.uint8] | None:
     try:
         image.seek(0)
@@ -26,7 +25,6 @@ def read_uploaded_image(image: UploadedFile, *, logger: Any) -> NDArray[np.uint8
             extra={"file_name": getattr(image, "name", "unknown"), "error": str(e)},
         )
         return None
-
 
 def save_temp_image(image: UploadedFile, *, prefix: str, temp_dir: Path, logger: Any) -> str:
     filename = getattr(image, "name", "image.jpg")

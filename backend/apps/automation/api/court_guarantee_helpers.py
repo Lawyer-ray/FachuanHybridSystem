@@ -32,18 +32,15 @@ logger = logging.getLogger("apps.automation")
 
 _SESSION_UPDATE_EXECUTOR = ThreadPoolExecutor(max_workers=1, thread_name_prefix="court-guarantee-session")
 
-
 def _get_organization_service() -> Any:
     from apps.core.dependencies import build_organization_service
 
     return build_organization_service()
 
-
 def _get_client_service() -> Any:
     from apps.core.dependencies import build_client_service
 
     return build_client_service()
-
 
 def _get_case_number(case: Any) -> str:
     case_number_from_table = (
@@ -55,10 +52,8 @@ def _get_case_number(case: Any) -> str:
     filing_number = str(getattr(case, "filing_number", "") or "").strip()
     return filing_number
 
-
 def _has_case_number(case: Any) -> bool:
     return bool(_get_case_number(case))
-
 
 def _get_case_court_name(case: Any) -> str | None:
     from apps.core.models.enums import AuthorityType
@@ -74,7 +69,6 @@ def _get_case_court_name(case: Any) -> str | None:
 
     return None
 
-
 def _resolve_court_name(authority_name: str | None) -> str | None:
     normalized_authority_name = str(authority_name or "").strip()
     if not normalized_authority_name:
@@ -88,7 +82,6 @@ def _resolve_court_name(authority_name: str | None) -> str | None:
     if court and court.name:
         return str(court.name)
     return f"{normalized_authority_name}人民法院"
-
 
 def _normalize_insurance_company(name: str, *, allowed_options: list[str] | None = None) -> str:
     normalized_name = name.strip()
@@ -106,7 +99,6 @@ def _normalize_insurance_company(name: str, *, allowed_options: list[str] | None
         return normalized_name
     return _DEFAULT_INSURANCE_COMPANY
 
-
 def _parse_preserve_amount(raw_value: Any) -> Decimal | None:
     if raw_value is None:
         return None
@@ -117,14 +109,12 @@ def _parse_preserve_amount(raw_value: Any) -> Decimal | None:
     except (InvalidOperation, TypeError, ValueError):
         return None
 
-
 def _normalize_consultant_code(*, insurance_company_name: str, consultant_code: str | None) -> str:
     normalized_code = str(consultant_code or "").strip()
     normalized_company = str(insurance_company_name or "").strip()
     if _SUNSHINE_INSURANCE_COMPANY in normalized_company and not normalized_code:
         return _SUNSHINE_DEFAULT_CONSULTANT_CODE
     return normalized_code
-
 
 def _normalize_property_clue_content(raw_content: str) -> str:
     content = str(raw_content or "").strip()
@@ -135,7 +125,6 @@ def _normalize_property_clue_content(raw_content: str) -> str:
         return ""
     return "；".join(lines)
 
-
 def _normalize_property_value(raw_value: Any | None) -> str:
     if raw_value is None:
         return ""
@@ -144,7 +133,6 @@ def _normalize_property_value(raw_value: Any | None) -> str:
         normalized_property_value = normalized_property_value.rstrip("0").rstrip(".")
     return normalized_property_value
 
-
 def _build_property_clue_info(*, clue_type: str, raw_content: str) -> str:
     normalized_type = str(clue_type or "").strip()
     type_display = _PROPERTY_CLUE_TYPE_DISPLAY.get(normalized_type, normalized_type or "财产线索")
@@ -152,7 +140,6 @@ def _build_property_clue_info(*, clue_type: str, raw_content: str) -> str:
     if normalized_content:
         return f"{type_display}：{normalized_content}"
     return type_display
-
 
 def _build_selected_respondent_property_clues(
     *,
@@ -217,7 +204,6 @@ def _build_selected_respondent_property_clues(
 
     return property_clues
 
-
 def _build_primary_respondent_property_clue(
     *,
     case_parties: list[Any],
@@ -241,7 +227,6 @@ def _build_primary_respondent_property_clue(
         "property_value": _normalize_property_value(preserve_amount),
     }
 
-
 def _find_reusable_binding(*, case_id: int, preserve_amount: Decimal) -> Any | None:
     from apps.automation.models import CasePreservationQuoteBinding
 
@@ -251,7 +236,6 @@ def _find_reusable_binding(*, case_id: int, preserve_amount: Decimal) -> Any | N
         .order_by("-created_at")
         .first()
     )
-
 
 def _build_case_quote_context(*, case: Any) -> dict[str, Any] | None:
     from apps.automation.models import CasePreservationQuoteBinding, QuoteItemStatus
@@ -317,7 +301,6 @@ def _build_case_quote_context(*, case: Any) -> dict[str, Any] | None:
         "items": quote_items,
     }
 
-
 def _build_reusable_quote_options(*, case: Any) -> list[dict[str, Any]]:
     from apps.automation.models import CasePreservationQuoteBinding, PreservationQuote, QuoteStatus
 
@@ -355,7 +338,6 @@ def _build_reusable_quote_options(*, case: Any) -> list[dict[str, Any]]:
         for quote in reusable_quotes
     ]
 
-
 def _extract_quote_company_options(*, quote_context: dict[str, Any] | None) -> list[str]:
     if not quote_context:
         return []
@@ -386,7 +368,6 @@ def _extract_quote_company_options(*, quote_context: dict[str, Any] | None) -> l
         dedup.append(name)
     return dedup
 
-
 def _resolve_insurance_company_defaults(*, quote_context: dict[str, Any] | None) -> tuple[str, list[str]]:
     quote_options = _extract_quote_company_options(quote_context=quote_context)
     if quote_options:
@@ -395,7 +376,6 @@ def _resolve_insurance_company_defaults(*, quote_context: dict[str, Any] | None)
             return recommended, quote_options
         return quote_options[0], quote_options
     return _DEFAULT_INSURANCE_COMPANY, _GUARANTEE_INSURANCE_COMPANY_OPTIONS
-
 
 def _build_guarantee_material_paths(case: Any) -> list[dict[str, str]]:
     """构建担保立案材料列表，返回 ``[{"path": ..., "type_name": ...}, ...]``。
@@ -490,7 +470,6 @@ def _build_guarantee_material_paths(case: Any) -> list[dict[str, str]]:
 
     return selected
 
-
 def _build_cause_candidates(raw_cause: str) -> list[str]:
     text = str(raw_cause or "").replace("　", " ").strip()
     if not text:
@@ -515,7 +494,6 @@ def _build_cause_candidates(raw_cause: str) -> list[str]:
         dedup.append(normalized)
     return dedup[:8]
 
-
 def _normalize_party_type(raw_party_type: Any) -> str:
     value = str(raw_party_type or "").strip().lower()
     if value in {"natural", "person", "individual"}:
@@ -525,7 +503,6 @@ def _normalize_party_type(raw_party_type: Any) -> str:
     if value in {"non_legal_org", "nonlegal", "non_legal", "other_org"}:
         return "non_legal_org"
     return "natural"
-
 
 def _build_party_payload_from_case_party(*, party: Any) -> dict[str, Any]:
     client = getattr(party, "client", None)
@@ -553,7 +530,6 @@ def _build_party_payload_from_case_party(*, party: Any) -> dict[str, Any]:
         "legal_representative_id_number": legal_representative_id_number,
     }
 
-
 def _list_party_payloads(
     *, case_parties: list[Any], preferred_statuses: set[str], prefer_our: bool
 ) -> list[dict[str, Any]]:
@@ -579,7 +555,6 @@ def _list_party_payloads(
 
     return [_build_party_payload_from_case_party(party=party) for party in candidates]
 
-
 def _pick_party_payload(*, case_parties: list[Any], preferred_statuses: set[str], prefer_our: bool) -> dict[str, Any]:
     payloads = _list_party_payloads(
         case_parties=case_parties,
@@ -589,7 +564,6 @@ def _pick_party_payload(*, case_parties: list[Any], preferred_statuses: set[str]
     if payloads:
         return payloads[0]
     return _build_party_payload_from_case_party(party=None)
-
 
 def _normalize_selected_party_ids(raw_ids: list[int] | None) -> set[int] | None:
     if raw_ids is None:
@@ -603,7 +577,6 @@ def _normalize_selected_party_ids(raw_ids: list[int] | None) -> set[int] | None:
         if value > 0:
             ids.add(value)
     return ids
-
 
 def _list_opponent_case_parties(*, case_parties: list[Any]) -> list[Any]:
     opponents = [
@@ -622,13 +595,11 @@ def _list_opponent_case_parties(*, case_parties: list[Any]) -> list[Any]:
 
     return list(case_parties)
 
-
 def _list_opponent_party_payloads(*, case_parties: list[Any]) -> list[dict[str, Any]]:
     return [
         _build_party_payload_from_case_party(party=party)
         for party in _list_opponent_case_parties(case_parties=case_parties)
     ]
-
 
 def _build_respondent_options(*, case_parties: list[Any]) -> list[dict[str, Any]]:
     options: list[dict[str, Any]] = []
@@ -646,7 +617,6 @@ def _build_respondent_options(*, case_parties: list[Any]) -> list[dict[str, Any]
         )
 
     return options
-
 
 def _build_plaintiff_agent_payload(
     *, case: Any, requester_id: int | None, fallback_party: dict[str, Any]
@@ -685,7 +655,6 @@ def _build_plaintiff_agent_payload(
         "license_number": str(getattr(lawyer, "license_no", "") or "").strip(),
     }
 
-
 def _build_session_status_payload(*, task: Any) -> dict[str, Any]:
     from apps.automation.models import ScraperTaskStatus
 
@@ -720,7 +689,6 @@ def _build_session_status_payload(*, task: Any) -> dict[str, Any]:
     if timing:
         payload["timing"] = timing
     return payload
-
 
 def _update_session_task(
     *,
@@ -767,7 +735,6 @@ def _update_session_task(
         return
 
     _SESSION_UPDATE_EXECUTOR.submit(_do_update)
-
 
 def _run_guarantee(
     *,

@@ -14,7 +14,6 @@ from pydantic import field_validator
 
 from apps.contracts.models import ContractFolderBinding
 
-
 class FolderBindingCreateSchema(Schema):
     """创建文件夹绑定请求 Schema"""
 
@@ -27,7 +26,6 @@ class FolderBindingCreateSchema(Schema):
         if not v or not v.strip():
             raise ValueError("文件夹路径不能为空")
         return v.strip()
-
 
 class FolderBindingResponseSchema(Schema):
     """文件夹绑定响应 Schema"""
@@ -60,11 +58,9 @@ class FolderBindingResponseSchema(Schema):
             path_auto_repaired=path_auto_repaired,
         )
 
-
 class FolderBrowseEntrySchema(Schema):
     name: str
     path: str
-
 
 class FolderBrowseResponseSchema(Schema):
     browsable: bool

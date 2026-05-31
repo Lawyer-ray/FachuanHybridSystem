@@ -9,7 +9,6 @@ from .backends import ILLMBackend, LLMResponse
 
 logger = logging.getLogger(__name__)
 
-
 class LLMClient:
     def __init__(self, *, default_backend: str) -> None:
         self._default_backend = default_backend

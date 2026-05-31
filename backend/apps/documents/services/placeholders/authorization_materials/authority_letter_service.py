@@ -8,7 +8,6 @@ from apps.documents.services.placeholders.registry import PlaceholderRegistry
 
 logger = logging.getLogger(__name__)
 
-
 @PlaceholderRegistry.register
 class AuthorityLetterPlaceholderService(BasePlaceholderService):
     name: str = "authority_letter_placeholder_service"

@@ -14,11 +14,9 @@ from django.contrib.auth.models import AnonymousUser
 
 logger = logging.getLogger(__name__)
 
-
 def _use_agent_mode() -> bool:
     """检查是否使用 Agent 模式"""
     return getattr(settings, "LITIGATION_USE_AGENT_MODE", False)
-
 
 class LitigationConsumer(AsyncWebsocketConsumer):
     def __init__(self, *args: Any, **kwargs: Any) -> None:

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from typing import Any
 
-
 class ContractDetailsAssembler:
     def to_dict(self, contract: Any) -> dict[str, Any]:
         contract_parties = []

@@ -7,7 +7,6 @@ from typing import Any
 
 from django.db import transaction
 from django.db.models import QuerySet
-from django.utils.translation import gettext_lazy as _
 
 from apps.cases.models import CaseParty
 from apps.core.config.business_config import business_config
@@ -17,7 +16,6 @@ from apps.core.interfaces import IClientService, IContractService
 from .repo import CasePartyCommandRepo
 
 logger = logging.getLogger("apps.cases")
-
 
 class CasePartyMutationService:
     def __init__(
@@ -35,7 +33,7 @@ class CasePartyMutationService:
         case = self.repo.get_case(case_id)
         if not case:
             raise NotFoundError(
-                message=_("案件不存在"), code="CASE_NOT_FOUND", errors={"case_id": f"ID 为 {case_id} 的案件不存在"}
+                message="案件不存在", code="CASE_NOT_FOUND", errors={"case_id": f"ID 为 {case_id} 的案件不存在"}
             )
         if case.contract_id is None:
             return True
@@ -43,16 +41,16 @@ class CasePartyMutationService:
             all_parties = self.contract_service.get_all_parties(case.contract_id)
         except NotFoundError:
             raise ValidationException(
-                message=_("关联合同不存在"),
+                message="关联合同不存在",
                 code="CONTRACT_NOT_FOUND",
                 errors={"contract_id": f"案件关联的合同 {case.contract_id} 不存在"},
             ) from None
         valid_client_ids = {party["id"] for party in all_parties}
         if client_id not in valid_client_ids:
             raise ValidationException(
-                message=_("当事人必须属于绑定合同的当事人范围"),
+                message="当事人必须属于绑定合同的当事人范围",
                 code="PARTY_NOT_IN_CONTRACT_SCOPE",
-                errors={"client_id": str(_("当事人必须属于绑定合同的当事人范围"))},
+                errors={"client_id": str("当事人必须属于绑定合同的当事人范围")},
             )
         return True
 
@@ -64,7 +62,7 @@ class CasePartyMutationService:
         case = Case.objects.filter(id=case_id).only("id").first()
         if not case:
             raise NotFoundError(
-                message=_("案件不存在"), code="CASE_NOT_FOUND", errors={"case_id": f"ID 为 {case_id} 的案件不存在"}
+                message="案件不存在", code="CASE_NOT_FOUND", errors={"case_id": f"ID 为 {case_id} 的案件不存在"}
             )
         parties_qs = CaseParty.objects.filter(case_id=case_id).select_related("client")
         if exclude_party_id:
@@ -73,10 +71,10 @@ class CasePartyMutationService:
         # 检查与现有诉讼地位的兼容性（简单检查：同一案件不能有完全相同的诉讼地位组合冲突）
         if not is_compatible:
             raise ValidationException(
-                message=_("诉讼地位 %(status)s 不适用于当前案件") % {"status": legal_status},
+                message="诉讼地位 %(status)s 不适用于当前案件" % {"status": legal_status},
                 code="INCOMPATIBLE_LEGAL_STATUS",
                 errors={
-                    "legal_status": str(_("诉讼地位与现有当事人不兼容")),
+                    "legal_status": str("诉讼地位与现有当事人不兼容"),
                     "attempted_status": legal_status,
                 },
             )
@@ -131,7 +129,7 @@ class CasePartyMutationService:
                     message=conflict_msg,
                     code="OUR_PARTY_LEGAL_STATUS_CONFLICT",
                     errors={
-                        "legal_status": str(_("我方当事人不能同时处于对立诉讼地位")),
+                        "legal_status": str("我方当事人不能同时处于对立诉讼地位"),
                         "conflicting_party": client_name,
                         "conflicting_status": existing_status,
                     },
@@ -144,17 +142,17 @@ class CasePartyMutationService:
         case = self.repo.get_case(case_id)
         if not case:
             raise NotFoundError(
-                message=_("案件不存在"), code="CASE_NOT_FOUND", errors={"case_id": f"ID 为 {case_id} 的案件不存在"}
+                message="案件不存在", code="CASE_NOT_FOUND", errors={"case_id": f"ID 为 {case_id} 的案件不存在"}
             )
         if not self.client_service.validate_client_exists(client_id):
             raise NotFoundError(
-                message=_("客户不存在"),
+                message="客户不存在",
                 code="CLIENT_NOT_FOUND",
                 errors={"client_id": f"ID 为 {client_id} 的客户不存在"},
             )
         if self.repo.party_exists(case_id=case_id, client_id=client_id):
             raise ConflictError(
-                message=_("当事人已存在"),
+                message="当事人已存在",
                 code="PARTY_ALREADY_EXISTS",
                 errors={"party": f"案件 {case_id} 中已存在客户 {client_id} 的当事人记录"},
             )
@@ -180,7 +178,7 @@ class CasePartyMutationService:
         party = self.repo.get_party_for_update(party_id)
         if not party:
             raise NotFoundError(
-                message=_("当事人不存在"),
+                message="当事人不存在",
                 code="PARTY_NOT_FOUND",
                 errors={"party_id": f"ID 为 {party_id} 的当事人不存在"},
             )
@@ -216,12 +214,12 @@ class CasePartyMutationService:
         case_id = data.get("case_id")
         if case_id and case_id != party.case_id and (not self.repo.get_case(case_id)):
             raise NotFoundError(
-                message=_("案件不存在"), code="CASE_NOT_FOUND", errors={"case_id": f"ID 为 {case_id} 的案件不存在"}
+                message="案件不存在", code="CASE_NOT_FOUND", errors={"case_id": f"ID 为 {case_id} 的案件不存在"}
             )
         client_id = data.get("client_id")
         if client_id and client_id != party.client_id and (not self.client_service.validate_client_exists(client_id)):
             raise NotFoundError(
-                message=_("客户不存在"),
+                message="客户不存在",
                 code="CLIENT_NOT_FOUND",
                 errors={"client_id": f"ID 为 {client_id} 的客户不存在"},
             )
@@ -234,7 +232,7 @@ class CasePartyMutationService:
             return
         if CaseParty.objects.filter(case_id=new_case_id, client_id=new_client_id).exclude(id=party_id).exists():
             raise ConflictError(
-                message=_("当事人已存在"),
+                message="当事人已存在",
                 code="PARTY_ALREADY_EXISTS",
                 errors={"party": f"案件 {new_case_id} 中已存在客户 {new_client_id} 的当事人记录"},
             )
@@ -244,7 +242,7 @@ class CasePartyMutationService:
         party = CaseParty.objects.filter(id=party_id).only("id", "case_id", "client_id").first()
         if not party:
             raise NotFoundError(
-                message=_("当事人不存在"),
+                message="当事人不存在",
                 code="PARTY_NOT_FOUND",
                 errors={"party_id": f"ID 为 {party_id} 的当事人不存在"},
             )

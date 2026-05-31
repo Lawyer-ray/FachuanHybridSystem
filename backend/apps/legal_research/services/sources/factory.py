@@ -6,10 +6,8 @@ from typing import cast
 from .base import CaseSourceClient
 from .weike import WeikeCaseClient
 
-
 class UnsupportedCaseSourceError(ValueError):
     """未注册或不支持的数据源。"""
-
 
 class SourceClientFactory:
     _builders: dict[str, Callable[[], CaseSourceClient]] = {
@@ -30,7 +28,6 @@ class SourceClientFactory:
         if builder is None:
             raise UnsupportedCaseSourceError(f"不支持的数据源: {source or '<empty>'}")
         return builder()
-
 
 def get_case_source_client(source: str | None) -> CaseSourceClient:
     return SourceClientFactory.create(source)

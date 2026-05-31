@@ -10,7 +10,6 @@ from apps.legal_research.schemas.legal_research_schemas import (
 )
 from apps.legal_research.services.capability.mcp_wrapper import LegalResearchCapabilityMcpWrapper
 
-
 def test_capability_mcp_wrapper_returns_agent_friendly_contract() -> None:
     class _StubCapabilityService:
         def search(self, *, payload: AgentSearchRequestV1, user, idempotency_key: str = "") -> AgentSearchResponseV1:

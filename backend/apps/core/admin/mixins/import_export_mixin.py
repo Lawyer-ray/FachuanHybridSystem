@@ -14,13 +14,11 @@ from django.contrib import messages
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import redirect
 from django.urls import path
-from django.utils.translation import gettext_lazy as _
 
 if TYPE_CHECKING:
     from django.db.models import QuerySet
 
 logger = logging.getLogger("apps.core")
-
 
 class AdminImportExportMixin:
     """
@@ -65,19 +63,19 @@ class AdminImportExportMixin:
 
         uploaded = request.FILES.get("json_file")
         if not uploaded:
-            messages.error(request, _("请选择文件"))
+            messages.error(request, "请选择文件")
         else:
             try:
                 success, skipped, errors = self._process_import(uploaded, str(request.user))
                 messages.success(
                     request,
-                    _("导入完成：成功 %(s)d 条，跳过 %(k)d 条") % {"s": success, "k": skipped},
+                    "导入完成：成功 %(s)d 条，跳过 %(k)d 条" % {"s": success, "k": skipped},
                 )
                 for err in errors:
                     messages.warning(request, err)
             except Exception as exc:
                 logger.exception("导入失败")
-                messages.error(request, _("导入失败: %(err)s") % {"err": str(exc)})
+                messages.error(request, "导入失败: %(err)s" % {"err": str(exc)})
 
         return redirect(
             f"admin:{self.model._meta.app_label}_{self.model._meta.model_name}_changelist"  # type: ignore[attr-defined]
@@ -87,16 +85,16 @@ class AdminImportExportMixin:
         raw_bytes: bytes = uploaded.read()
 
         if not zipfile.is_zipfile(io.BytesIO(raw_bytes)):
-            raise ValueError(_("请上传 ZIP 文件"))
+            raise ValueError("请上传 ZIP 文件")
 
         with zipfile.ZipFile(io.BytesIO(raw_bytes)) as zf:
             if "data.json" not in zf.namelist():
-                raise ValueError(_("ZIP 中缺少 data.json"))
+                raise ValueError("ZIP 中缺少 data.json")
             envelope = json.loads(zf.read("data.json").decode("utf-8"))
             # 校验 _type 标记
             if not isinstance(envelope, dict) or envelope.get("_type") != self.export_model_name:
                 raise ValueError(
-                    _("文件类型不匹配：期望 %(expected)s，实际 %(actual)s")
+                    "文件类型不匹配：期望 %(expected)s，实际 %(actual)s"
                     % {
                         "expected": self.export_model_name,
                         "actual": envelope.get("_type") if isinstance(envelope, dict) else type(envelope).__name__,
@@ -104,16 +102,16 @@ class AdminImportExportMixin:
                 )
             data_list = envelope.get("data", [])
             if not isinstance(data_list, list):
-                raise ValueError(_("data.json 格式错误：data 字段必须为数组"))
+                raise ValueError("data.json 格式错误：data 字段必须为数组")
             # 校验每条记录必填字段
             required = getattr(self, "import_required_fields", ())
             for i, item in enumerate(data_list, 1):
                 if not isinstance(item, dict):
-                    raise ValueError(_("第 %(i)d 条记录格式错误") % {"i": i})
+                    raise ValueError("第 %(i)d 条记录格式错误" % {"i": i})
                 missing = [f for f in required if not item.get(f)]
                 if missing:
                     raise ValueError(
-                        _("第 %(i)d 条记录缺少必填字段: %(fields)s") % {"i": i, "fields": ", ".join(missing)}
+                        "第 %(i)d 条记录缺少必填字段: %(fields)s" % {"i": i, "fields": ", ".join(missing)}
                     )
             self._extract_files(zf)
             return self.handle_json_import(data_list, user, zf)  # type: ignore[attr-defined,no-any-return]
@@ -149,14 +147,14 @@ class AdminImportExportMixin:
         filename = f"{self.export_model_name}_selected_{count}_export_{date.today().strftime('%Y%m%d')}.zip"
         return self._build_zip_response(queryset, filename)
 
-    export_selected_as_json.short_description = _("导出选中")  # type: ignore[attr-defined]
+    export_selected_as_json.short_description = "导出选中"  # type: ignore[attr-defined]
 
     def export_all_as_json(self, request: HttpRequest, queryset: QuerySet[Any]) -> HttpResponse:
         all_qs = self.get_queryset(request)  # type: ignore[attr-defined]
         filename = f"{self.export_model_name}_all_export_{date.today().strftime('%Y%m%d')}.zip"
         return self._build_zip_response(all_qs, filename)
 
-    export_all_as_json.short_description = _("导出全部")  # type: ignore[attr-defined]
+    export_all_as_json.short_description = "导出全部"  # type: ignore[attr-defined]
 
     def _build_zip_response(self, queryset: QuerySet[Any], filename: str) -> HttpResponse:
         from apps.core.services.storage_service import _get_media_root

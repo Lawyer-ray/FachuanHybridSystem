@@ -18,7 +18,6 @@ from apps.legal_research.services.sources.weike import WeikeCaseClient, WeikeSes
 
 logger = logging.getLogger(__name__)
 
-
 class CaseDownloadService:
     """案例下载服务"""
 

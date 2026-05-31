@@ -16,7 +16,6 @@ from apps.core.exceptions import BusinessException
 
 logger = logging.getLogger(__name__)
 
-
 @dataclass
 class ExtractionResult:
     """解析结果数据类"""
@@ -24,7 +23,6 @@ class ExtractionResult:
     number: str | None = None  # 案号
     document_name: str | None = None  # 文书名称
     content: str | None = None  # 执行依据主文
-
 
 class JudgmentPdfExtractor:
     """从PDF裁判文书中提取判决/调解主文"""

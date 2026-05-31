@@ -6,7 +6,6 @@ import math
 import re
 from collections import Counter
 
-
 def tokenize(text: str) -> list[str]:
     raw = re.findall(r"[一-鿿A-Za-z0-9]{2,10}", (text or "").lower())
     stopwords = {
@@ -29,7 +28,6 @@ def tokenize(text: str) -> list[str]:
     }
     return [token for token in raw if token not in stopwords]
 
-
 def dedupe_tokens(tokens: list[str], *, max_tokens: int) -> list[str]:
     out: list[str] = []
     seen: set[str] = set()
@@ -42,7 +40,6 @@ def dedupe_tokens(tokens: list[str], *, max_tokens: int) -> list[str]:
         if len(out) >= max_tokens:
             break
     return out
-
 
 def char_ngrams(text: str) -> Counter[str]:
     normalized = re.sub(r"\s+", "", (text or "").lower())[:2000]
@@ -57,7 +54,6 @@ def char_ngrams(text: str) -> Counter[str]:
             counter[gram] += 1
     return counter
 
-
 def _heuristic_idf_weight(token: str) -> float:
     """启发式 IDF 权重：按词长估算稀有度，无语料库统计。"""
     length = len(token)
@@ -66,7 +62,6 @@ def _heuristic_idf_weight(token: str) -> float:
     if length == 3:
         return 0.7
     return 0.4
-
 
 def bm25_proxy_score(*, query_text: str, document_text: str) -> float:
     query_tokens = tokenize(query_text)
@@ -99,7 +94,6 @@ def bm25_proxy_score(*, query_text: str, document_text: str) -> float:
         return 0.0
     return max(0.0, min(1.0, total / weight_sum))
 
-
 def lexical_vector_similarity_score(text_a: str, text_b: str) -> float:
     grams_a = char_ngrams(text_a)
     grams_b = char_ngrams(text_b)
@@ -115,7 +109,6 @@ def lexical_vector_similarity_score(text_a: str, text_b: str) -> float:
     cosine = dot / (norm_a * norm_b)
     return max(0.0, min(1.0, cosine))
 
-
 def token_overlap_score(query_text: str, text: str) -> float:
     query_tokens_list = dedupe_tokens(tokenize(query_text), max_tokens=24)
     if not query_tokens_list:
@@ -123,7 +116,6 @@ def token_overlap_score(query_text: str, text: str) -> float:
     haystack = (text or "").lower()
     matched = sum(1 for token in query_tokens_list if token.lower() in haystack)
     return matched / len(query_tokens_list)
-
 
 def metadata_hint_score(*, keyword: str, title: str, case_digest: str, content_text: str) -> float:
     domain_terms = [
@@ -149,7 +141,6 @@ def metadata_hint_score(*, keyword: str, title: str, case_digest: str, content_t
     matched = sum(1 for term in relevant if term in haystack)
     return max(0.0, min(1.0, matched / max(1, len(relevant))))
 
-
 def keyword_overlap_score(*, keyword: str, title: str, case_digest: str, content_text: str) -> float:
     raw_tokens = re.split(r"[\s,，;；、]+", (keyword or "").lower())
     tokens = [token for token in raw_tokens if token and len(token) >= 2]
@@ -159,7 +150,6 @@ def keyword_overlap_score(*, keyword: str, title: str, case_digest: str, content
     haystack = f"{title} {case_digest} {(content_text or '')[:1200]}".lower()
     matched = sum(1 for token in tokens if token in haystack)
     return matched / len(tokens)
-
 
 def summary_overlap_score(*, case_summary: str, title: str, case_digest: str, content_text: str) -> float:
     summary_tokens = re.findall(r"[一-鿿A-Za-z0-9]{2,}", (case_summary or "").lower())
@@ -182,7 +172,6 @@ def summary_overlap_score(*, case_summary: str, title: str, case_digest: str, co
     matched = sum(1 for token in filtered if token in haystack)
     return matched / len(filtered)
 
-
 def coerce_score(value: object) -> float:
     raw = str(value or "").strip().replace("％", "%")
     if not raw:
@@ -201,14 +190,12 @@ def coerce_score(value: object) -> float:
         return 0.0
     return normalize_score(parsed)
 
-
 def normalize_score(score: float) -> float:
     if score > 1.0 and score <= 100.0:
         return score / 100.0
     if score < 0:
         return 0.0
     return min(1.0, score)
-
 
 def extract_score_from_text(text: str) -> float:
     if not text:
@@ -228,7 +215,6 @@ def extract_score_from_text(text: str) -> float:
             return score
     return 0.0
 
-
 def build_candidate_excerpt(content_text: str, *, max_len: int = 3200) -> str:
     text = focus_content_after_fact_marker(content_text)
     if len(text) <= max_len:
@@ -238,7 +224,6 @@ def build_candidate_excerpt(content_text: str, *, max_len: int = 3200) -> str:
     middle = text[middle_start : middle_start + 900]
     tail = text[-900:]
     return f"{head}\n...\n{middle}\n...\n{tail}"
-
 
 def focus_content_after_fact_marker(content_text: str) -> str:
     text = (content_text or "").strip()

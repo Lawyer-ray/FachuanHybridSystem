@@ -16,7 +16,6 @@ if TYPE_CHECKING:
     from apps.document_recognition.services.text_extraction_service import TextExtractionService
 logger = logging.getLogger("apps.fee_notice")
 
-
 class FeeNoticeExtractionService:
     """
     交费通知书识别服务

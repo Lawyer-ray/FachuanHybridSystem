@@ -7,7 +7,6 @@ from apps.contracts.admin.contract_admin import ContractAdmin
 from apps.contracts.models import Contract, ContractAssignment
 from apps.organization.models import AccountCredential
 
-
 @pytest.mark.django_db
 def test_contract_admin_shows_law_firm_oa_link(contract, lawyer) -> None:
     ContractAssignment.objects.create(contract=contract, lawyer=lawyer, is_primary=True)
@@ -24,7 +23,6 @@ def test_contract_admin_shows_law_firm_oa_link(contract, lawyer) -> None:
 
     assert "oa.example.com/login" in html
     assert "打开OA系统" in html
-
 
 @pytest.mark.django_db
 def test_contract_admin_shows_unconfigured_when_no_oa_link(contract, lawyer) -> None:

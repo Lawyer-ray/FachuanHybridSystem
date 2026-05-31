@@ -14,7 +14,6 @@ from .path_validator import FolderPathValidator
 
 logger = logging.getLogger("apps.core.filesystem")
 
-
 class BaseFolderBindingService:
     DEFAULT_SUBDIRS: ClassVar[dict[str, str]] = {}
 

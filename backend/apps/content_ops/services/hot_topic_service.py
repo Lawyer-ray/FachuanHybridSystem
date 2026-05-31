@@ -81,7 +81,6 @@ LEGAL_TECH_KEYWORDS = [
     "smart contract",
 ]
 
-
 @dataclass
 class HotTopicItem:
     """单条热点话题。"""
@@ -91,7 +90,6 @@ class HotTopicItem:
     heat: int | None = None
     url: str = ""
     source: str = ""
-
 
 def _fetch_toutiao(limit: int = 50) -> list[HotTopicItem]:
     """从今日头条获取热搜榜。"""
@@ -118,7 +116,6 @@ def _fetch_toutiao(limit: int = 50) -> list[HotTopicItem]:
             )
         )
     return items
-
 
 def _fetch_baidu(limit: int = 50) -> list[HotTopicItem]:
     """从百度获取热搜榜（解析 HTML 中嵌入的 JSON）。"""
@@ -151,7 +148,6 @@ def _fetch_baidu(limit: int = 50) -> list[HotTopicItem]:
         )
     return items
 
-
 def _fetch_douyin(limit: int = 50) -> list[HotTopicItem]:
     """从抖音获取热搜榜。"""
     url = "https://www.douyin.com/aweme/v1/web/hot/search/list/"
@@ -178,7 +174,6 @@ def _fetch_douyin(limit: int = 50) -> list[HotTopicItem]:
             )
         )
     return items
-
 
 def _fetch_36kr(limit: int = 50) -> list[HotTopicItem]:
     """从36氪获取热榜。"""
@@ -211,7 +206,6 @@ def _fetch_36kr(limit: int = 50) -> list[HotTopicItem]:
         )
     return items
 
-
 def _fetch_thepaper(limit: int = 50) -> list[HotTopicItem]:
     """从澎湃新闻获取热榜。"""
     url = "https://cache.thepaper.cn/contentapi/wwwIndex/rightSidebar"
@@ -237,12 +231,10 @@ def _fetch_thepaper(limit: int = 50) -> list[HotTopicItem]:
         )
     return items
 
-
 def _is_legal_tech_related(title: str) -> bool:
     """判断标题是否与法律科技相关。"""
     title_lower = title.lower()
     return any(kw.lower() in title_lower for kw in LEGAL_TECH_KEYWORDS)
-
 
 def _fetch_rss_feed(name: str, url: str, limit: int = 20) -> list[HotTopicItem]:
     """从 RSS 源获取法律科技新闻。"""
@@ -271,7 +263,6 @@ def _fetch_rss_feed(name: str, url: str, limit: int = 20) -> list[HotTopicItem]:
     except ET.ParseError:
         logger.warning("Failed to parse RSS feed from %s", name)
     return items
-
 
 def _scrape_with_playwright(name: str, url: str, limit: int = 10) -> list[HotTopicItem]:
     """使用 Playwright 爬取网站标题。"""
@@ -305,7 +296,6 @@ def _scrape_with_playwright(name: str, url: str, limit: int = 10) -> list[HotTop
     except Exception:
         logger.exception("Failed to scrape %s with Playwright", name)
     return items
-
 
 def _fetch_legaltech(limit: int = 50) -> list[HotTopicItem]:
     """获取法律科技相关新闻（并行采集，提升速度）。
@@ -370,7 +360,6 @@ def _fetch_legaltech(limit: int = 50) -> list[HotTopicItem]:
 
     return items[:limit]
 
-
 # 采集器注册表（仅保留有公开 API 的来源）
 _SCRAPERS: dict[str, tuple[str, type[Exception]]] = {
     "toutiao": ("头条", Exception),
@@ -389,7 +378,6 @@ _SCRAPER_FN_MAP: dict[str, Any] = {
     "thepaper": _fetch_thepaper,
     "legaltech": _fetch_legaltech,
 }
-
 
 class HotTopicService:
     """热点话题采集与缓存服务。"""

@@ -12,7 +12,6 @@ logger = logging.getLogger("apps.automation")
 if TYPE_CHECKING:
     from .court_insurance_client import InsuranceCompany, PremiumResult
 
-
 class InsuranceHttpMixin:
     """保险 HTTP 请求构建、响应解析、失败结果构建 Mixin"""
 

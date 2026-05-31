@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from .repo import CaseNumberRepo
 
-
 class CaseNumberAggregationService:
     def __init__(self, case_number_repo: CaseNumberRepo | None = None) -> None:
         self._case_number_repo = case_number_repo

@@ -9,7 +9,6 @@ from apps.client.services.client_internal_query_service import ClientInternalQue
 if TYPE_CHECKING:
     from apps.client.models import Client
 
-
 class ClientBatchQueryService:
     def __init__(self, internal_query_service: ClientInternalQueryService | None = None) -> None:
         self._internal_query_service = internal_query_service

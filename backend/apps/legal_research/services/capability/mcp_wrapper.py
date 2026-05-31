@@ -6,7 +6,6 @@ from apps.legal_research.schemas import AgentSearchRequestV1
 
 from .service import LegalResearchCapabilityService
 
-
 class LegalResearchCapabilityMcpWrapper:
     """给上层 Agent/MCP 调用的轻量封装，输出保持与 capability v1 契约一致。"""
 

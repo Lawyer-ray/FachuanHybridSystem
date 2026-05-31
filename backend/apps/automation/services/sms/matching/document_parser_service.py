@@ -13,7 +13,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger("apps.automation")
 
-
 class DocumentParserService:
     """文书解析服务 - 负责从文书中提取当事人信息"""
 
@@ -199,7 +198,6 @@ class DocumentParserService:
             logger.warning(f"获取律师姓名失败: {e!s}")
             # 如果获取失败，返回空列表，不影响主流程
             return []
-
 
 def _get_document_parser_service() -> DocumentParserService:
     """工厂函数：获取文书解析服务实例"""

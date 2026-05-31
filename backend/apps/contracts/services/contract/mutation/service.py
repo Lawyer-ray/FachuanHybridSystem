@@ -6,7 +6,6 @@ import logging
 from typing import TYPE_CHECKING, Any, cast
 
 from django.db import transaction
-from django.utils.translation import gettext_lazy as _
 
 from apps.contracts.models import Contract, ContractAssignment, ContractParty, ContractStatus
 from apps.core.exceptions import NotFoundError
@@ -18,7 +17,6 @@ if TYPE_CHECKING:
     from apps.core.protocols import ICaseService
 
     from ..domain import ContractValidator
-
 
 class ContractMutationService:
     def __init__(
@@ -74,7 +72,7 @@ class ContractMutationService:
         try:
             contract = Contract.objects.get(id=contract_id)
         except Contract.DoesNotExist:
-            raise NotFoundError(_("合同 %(id)s 不存在") % {"id": contract_id}) from None
+            raise NotFoundError("合同 %(id)s 不存在" % {"id": contract_id}) from None
 
         # 检测合同状态是否将变更为已归档
         old_status = contract.status
@@ -121,7 +119,7 @@ class ContractMutationService:
         try:
             contract = Contract.objects.get(id=contract_id)
         except Contract.DoesNotExist:
-            raise NotFoundError(_("合同 %(id)s 不存在") % {"id": contract_id}) from None
+            raise NotFoundError("合同 %(id)s 不存在" % {"id": contract_id}) from None
 
         # 不再解绑案件：Case.contract FK 已设为 CASCADE，删除合同时会级联删除案件及其日志、附件
         case_count = self.case_service.count_cases_by_contract(contract_id=contract.pk)

@@ -20,7 +20,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger("apps.automation")
 
-
 class SMSRenamingStage(BaseSMSStage):
     """SMS 重命名阶段处理器"""
 
@@ -224,7 +223,6 @@ class SMSRenamingStage(BaseSMSStage):
                     break
             except Exception as e:
                 logger.warning(f"提取当事人失败: {path}, 错误: {e}")
-
 
 def create_sms_renaming_stage(
     document_attachment: Optional["DocumentAttachmentService"] = None,

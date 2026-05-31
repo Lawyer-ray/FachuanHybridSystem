@@ -5,12 +5,10 @@ from datetime import datetime, timedelta
 from typing import Any
 
 import httpx
-from django.utils.translation import gettext_lazy as _
 
 from apps.core.exceptions import ChatProviderException, ConfigurationException
 
 logger = logging.getLogger(__name__)
-
 
 class FeishuTokenMixin:
     """负责飞书配置加载和 tenant_access_token 获取"""
@@ -91,7 +89,7 @@ class FeishuTokenMixin:
 
         if not app_id or not app_secret:
             raise ConfigurationException(
-                message=_("飞书APP_ID或APP_SECRET未配置"), platform="feishu", missing_config="APP_ID, APP_SECRET"
+                message="飞书APP_ID或APP_SECRET未配置", platform="feishu", missing_config="APP_ID, APP_SECRET"
             )
 
         url = f"{self.BASE_URL}{self.ENDPOINTS['tenant_access_token']}"

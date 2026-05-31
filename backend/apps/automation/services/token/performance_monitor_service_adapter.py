@@ -16,7 +16,6 @@ from apps.core.interfaces import IPerformanceMonitorService
 
 logger = logging.getLogger("apps.automation")
 
-
 class PerformanceMonitorServiceAdapter(IPerformanceMonitorService):
     """
     性能监控服务适配器

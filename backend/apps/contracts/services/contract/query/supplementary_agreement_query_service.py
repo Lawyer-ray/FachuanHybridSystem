@@ -9,7 +9,6 @@ from apps.core.dto import SupplementaryAgreementDTO
 
 logger = logging.getLogger("apps.contracts")
 
-
 class SupplementaryAgreementQueryService:
     def get_supplementary_agreements_internal(self, contract_id: int) -> list[SupplementaryAgreementDTO]:
         try:

@@ -8,7 +8,6 @@ from __future__ import annotations
 
 from typing import Any
 
-
 class TaskQueryService:
     """异步任务状态查询"""
 
@@ -99,7 +98,6 @@ class TaskQueryService:
             "finished": finished,
             "exists": task is not None,
         }
-
 
 class ScheduleQueryService:
     """定时调度查询与管理"""

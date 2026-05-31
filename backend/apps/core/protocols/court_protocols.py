@@ -4,12 +4,10 @@ from __future__ import annotations
 
 from typing import Any, Protocol
 
-
 class IAutomationService(Protocol):
     """自动化服务接口"""
 
     def create_token_acquisition_history_internal(self, history_data: dict[str, Any]) -> Any: ...
-
 
 class ICourtSMSService(Protocol):
     """法院短信处理服务接口"""
@@ -31,7 +29,6 @@ class ICourtSMSService(Protocol):
 
     def retry_processing(self, sms_id: int) -> Any: ...
 
-
 class ICourtDocumentService(Protocol):
     """法院文书服务接口"""
 
@@ -51,7 +48,6 @@ class ICourtDocumentService(Protocol):
     def get_documents_by_task(self, scraper_task_id: int) -> list[Any]: ...
 
     def get_document_by_id(self, document_id: int) -> Any | None: ...
-
 
 class ICourtDocumentRecognitionService(Protocol):
     """法院文书智能识别服务接口"""

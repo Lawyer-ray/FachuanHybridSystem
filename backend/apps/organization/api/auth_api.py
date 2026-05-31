@@ -27,14 +27,11 @@ from apps.organization.services.auth.password_reset_service import PasswordReset
 
 router = Router()
 
-
 def _get_auth_service() -> AuthService:
     """工厂函数：获取认证服务实例"""
     return AuthService()
 
-
 _auth_service = _get_auth_service()
-
 
 @router.post("/login", response=LoginOut, auth=None)
 @rate_limit_from_settings("AUTH")
@@ -43,12 +40,10 @@ def login_view(request: HttpRequest, payload: LoginIn) -> LoginOut:
     user_out = LawyerOut.from_orm(user)
     return LoginOut(success=True, user=user_out)
 
-
 @router.post("/logout", auth=None)
 def logout_view(request: HttpRequest) -> dict[str, bool]:
     _auth_service.logout(request)
     return {"success": True}
-
 
 @router.post("/register", response=RegisterOut, auth=None)
 @rate_limit_from_settings("AUTH")
@@ -87,16 +82,13 @@ def register_view(request: HttpRequest, payload: RegisterIn) -> RegisterOut:
     except Exception as e:
         return RegisterOut(success=False, message=str(e))
 
-
 @router.get("/me", response=LawyerOut, auth=JWTOrSessionAuth())
 def me_view(request: HttpRequest) -> LawyerOut:
     return LawyerOut.from_orm(request.user)
 
-
 # ============================================================
 # 密码重置端点
 # ============================================================
-
 
 @router.post("/password-reset/request", response=PasswordResetOut, auth=None)
 @rate_limit_from_settings("AUTH")
@@ -114,7 +106,6 @@ def request_password_reset(request: HttpRequest, payload: PasswordResetRequestIn
     success, message = PasswordResetService.request_password_reset(payload.email)
 
     return PasswordResetOut(success=success, message=message)
-
 
 @router.post("/password-reset/verify", response=PasswordResetOut, auth=None)
 @rate_limit_from_settings("AUTH")
@@ -134,7 +125,6 @@ def verify_reset_token(request: HttpRequest, payload: PasswordResetVerifyIn) -> 
             "username": user.username if user else None,
         },
     )
-
 
 @router.post("/password-reset/confirm", response=PasswordResetOut, auth=None)
 @rate_limit_from_settings("AUTH")

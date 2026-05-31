@@ -14,7 +14,6 @@ logger = logging.getLogger(__name__)
 # 缓存加载结果，避免重复导入
 _cached_client: ZnszjClientProtocol | None | bool = False  # False 表示未初始化
 
-
 @runtime_checkable
 class ZnszjClientProtocol(Protocol):
     """znszj 客户端接口协议。"""
@@ -40,7 +39,6 @@ class ZnszjClientProtocol(Protocol):
             转换后的 .docx 文件字节
         """
         ...
-
 
 def get_znszj_client() -> ZnszjClientProtocol | None:
     """

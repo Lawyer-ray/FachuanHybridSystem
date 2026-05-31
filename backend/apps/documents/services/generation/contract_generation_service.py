@@ -18,7 +18,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-
 class LawyerWrapper:
     def __init__(self, data: dict[str, Any]) -> None:
         self._data = data or {}
@@ -34,7 +33,6 @@ class LawyerWrapper:
     @property
     def id(self) -> Any:
         return self._data.get("lawyer_id") or self._data.get("id")
-
 
 class AssignmentWrapper:
     def __init__(self, data: dict[str, Any]) -> None:
@@ -53,14 +51,12 @@ class AssignmentWrapper:
     def order(self) -> Any:
         return self._data.get("order")
 
-
 class AssignmentListWrapper:
     def __init__(self, items: list[dict[str, Any]]) -> None:
         self._items = [AssignmentWrapper(x) for x in (items or [])]
 
     def all(self) -> list[Any]:
         return list(self._items)
-
 
 class ContractDataWrapper:
     def __init__(self, data: dict[str, Any]) -> None:
@@ -78,7 +74,6 @@ class ContractDataWrapper:
     @property
     def case_type(self) -> str:
         return str(self._data.get("case_type") or "")
-
 
 class ContractGenerationService:
     """

@@ -8,7 +8,6 @@ from typing import Any
 
 logger = logging.getLogger("apps.content_ops")
 
-
 def execute_content_ops_task(task_id: str) -> dict[str, Any]:
     """内容运营管道执行入口（Django Q 调用）。"""
     os.environ.setdefault("DJANGO_ALLOW_ASYNC_UNSAFE", "true")

@@ -9,11 +9,9 @@ import pytest
 
 from apps.workbench.services.doc_extractor import DocTextExtractor
 
-
 @pytest.fixture
 def extractor() -> DocTextExtractor:
     return DocTextExtractor()
-
 
 class TestExtractTxt:
     def test_extract_txt_file(self, extractor) -> None:
@@ -33,7 +31,6 @@ class TestExtractTxt:
             assert result == ""
         Path(f.name).unlink(missing_ok=True)
 
-
 class TestExtractTextErrors:
     def test_file_not_found_raises(self, extractor) -> None:
         with pytest.raises(FileNotFoundError):
@@ -46,7 +43,6 @@ class TestExtractTextErrors:
             with pytest.raises(ValueError, match="不支持"):
                 extractor.extract_text(f.name)
         Path(f.name).unlink(missing_ok=True)
-
 
 class TestCleanup:
     def test_cleanup_no_error(self, extractor) -> None:

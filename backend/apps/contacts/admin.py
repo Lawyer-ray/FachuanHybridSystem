@@ -4,7 +4,6 @@ from typing import TYPE_CHECKING, Any
 
 from django import forms
 from django.contrib import admin
-from django.utils.translation import gettext_lazy as _
 
 from apps.contacts.models import CaseContact
 
@@ -26,17 +25,16 @@ else:
         BaseStackedInline = admin.StackedInline
         BaseModelAdmin = admin.ModelAdmin
 
-
 class CaseContactAdminForm(forms.ModelForm[CaseContact]):
     """案件联系人表单 - 主管机关支持自动补全"""
 
     authority_name = forms.CharField(
-        label=_("主管机关"),
+        label="主管机关",
         required=False,
         widget=forms.TextInput(
             attrs={
                 "class": "vTextField js-court-autocomplete",
-                "placeholder": _("请输入法院/机关名称..."),
+                "placeholder": "请输入法院/机关名称...",
                 "autocomplete": "off",
             }
         ),
@@ -69,17 +67,16 @@ class CaseContactAdminForm(forms.ModelForm[CaseContact]):
             self.instance.authority = None
         return cleaned
 
-
 class CaseContactInlineForm(forms.ModelForm[CaseContact]):
     """案件联系人内联表单 - 主管机关支持自动补全"""
 
     authority_name = forms.CharField(
-        label=_("主管机关"),
+        label="主管机关",
         required=False,
         widget=forms.TextInput(
             attrs={
                 "class": "vTextField js-court-autocomplete",
-                "placeholder": _("搜索法院/机关名称..."),
+                "placeholder": "搜索法院/机关名称...",
                 "autocomplete": "off",
             }
         ),
@@ -112,13 +109,11 @@ class CaseContactInlineForm(forms.ModelForm[CaseContact]):
             self.instance.authority = None
         return cleaned
 
-
 class CaseContactInline(BaseStackedInline):
     model = CaseContact
     form = CaseContactInlineForm
     extra = 1
     fields = ("name", "role", "phone", "stage", "authority_name", "note")
-
 
 @admin.register(CaseContact)
 class CaseContactAdmin(BaseModelAdmin):

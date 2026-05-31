@@ -12,10 +12,8 @@ from django.template.response import TemplateResponse
 from django.urls import path, reverse
 from django.utils.html import format_html
 from django.utils.safestring import SafeString
-from django.utils.translation import gettext_lazy as _
 
 from apps.document_recognition.models import DocumentRecognitionStatus, DocumentRecognitionTask, DocumentRecognitionTool
-
 
 @admin.register(DocumentRecognitionTool)
 class DocumentRecognitionToolAdmin(admin.ModelAdmin):
@@ -45,7 +43,6 @@ class DocumentRecognitionToolAdmin(admin.ModelAdmin):
 
     def get_model_perms(self, request: HttpRequest) -> dict[str, bool]:
         return {"view": True}
-
 
 @admin.register(DocumentRecognitionTask)
 class DocumentRecognitionTaskAdmin(admin.ModelAdmin):
@@ -100,9 +97,9 @@ class DocumentRecognitionTaskAdmin(admin.ModelAdmin):
         "finished_at",
     ]
     fieldsets = (
-        (_("基本信息"), {"fields": ("id", "original_filename", "file_path", "status")}),
+        ("基本信息", {"fields": ("id", "original_filename", "file_path", "status")}),
         (
-            _("识别结果"),
+            "识别结果",
             {
                 "fields": (
                     "document_type",
@@ -114,17 +111,17 @@ class DocumentRecognitionTaskAdmin(admin.ModelAdmin):
                 )
             },
         ),
-        (_("原始文本"), {"fields": ("raw_text_display",), "classes": ("collapse",)}),
-        (_("绑定结果"), {"fields": ("binding_success", "case", "case_log", "binding_message", "binding_error_code")}),
+        ("原始文本", {"fields": ("raw_text_display",), "classes": ("collapse",)}),
+        ("绑定结果", {"fields": ("binding_success", "case", "case_log", "binding_message", "binding_error_code")}),
         (
-            _("通知状态"),
+            "通知状态",
             {
                 "fields": ("notification_sent", "notification_sent_at", "notification_file_sent", "notification_error"),
                 "description": "绑定成功后的飞书群通知状态",
             },
         ),
-        (_("错误信息"), {"fields": ("error_message",), "classes": ("collapse",)}),
-        (_("时间戳"), {"fields": ("created_at", "started_at", "finished_at"), "classes": ("collapse",)}),
+        ("错误信息", {"fields": ("error_message",), "classes": ("collapse",)}),
+        ("时间戳", {"fields": ("created_at", "started_at", "finished_at"), "classes": ("collapse",)}),
     )
 
     def get_urls(self) -> list[Any]:
@@ -157,7 +154,7 @@ class DocumentRecognitionTaskAdmin(admin.ModelAdmin):
         color = status_colors.get(obj.status, "gray")
         return format_html('<span style="color: {}; font-weight: bold;">{}</span>', color, obj.get_status_display())
 
-    status_display.short_description = _("任务状态")  # type: ignore[attr-defined]
+    status_display.short_description = "任务状态"  # type: ignore[attr-defined]
     status_display.admin_order_field = "status"  # type: ignore[attr-defined]
 
     def document_type_display(self, obj: DocumentRecognitionTask) -> str:
@@ -173,7 +170,7 @@ class DocumentRecognitionTaskAdmin(admin.ModelAdmin):
         icon = type_icons.get(obj.document_type, "📄")
         return f"{icon} {obj.document_type}"
 
-    document_type_display.short_description = _("文书类型")  # type: ignore[attr-defined]
+    document_type_display.short_description = "文书类型"  # type: ignore[attr-defined]
     document_type_display.admin_order_field = "document_type"  # type: ignore[attr-defined]
 
     def case_display(self, obj: DocumentRecognitionTask) -> SafeString | str:
@@ -185,7 +182,7 @@ class DocumentRecognitionTaskAdmin(admin.ModelAdmin):
             return format_html('<a href="{}" target="_blank">{}</a>', url, case_name)
         return "-"
 
-    case_display.short_description = _("关联案件")  # type: ignore[attr-defined]
+    case_display.short_description = "关联案件"  # type: ignore[attr-defined]
 
     def binding_status_display(self, obj: DocumentRecognitionTask) -> SafeString:
         if obj.binding_success is None:
@@ -198,7 +195,7 @@ class DocumentRecognitionTaskAdmin(admin.ModelAdmin):
             error_preview,
         )
 
-    binding_status_display.short_description = _("绑定状态")  # type: ignore[attr-defined]
+    binding_status_display.short_description = "绑定状态"  # type: ignore[attr-defined]
 
     def notification_status_display(self, obj: DocumentRecognitionTask) -> SafeString:
         if not obj.binding_success:
@@ -220,7 +217,7 @@ class DocumentRecognitionTaskAdmin(admin.ModelAdmin):
 
         return format_html('<span style="color: orange;">{}</span>', "⏳ 待发送")
 
-    notification_status_display.short_description = _("通知状态")  # type: ignore[attr-defined]
+    notification_status_display.short_description = "通知状态"  # type: ignore[attr-defined]
 
     def raw_text_display(self, obj: DocumentRecognitionTask) -> SafeString | str:
         if obj.raw_text:
@@ -232,7 +229,7 @@ class DocumentRecognitionTaskAdmin(admin.ModelAdmin):
             )
         return "-"
 
-    raw_text_display.short_description = _("原始文本")  # type: ignore[attr-defined]
+    raw_text_display.short_description = "原始文本"  # type: ignore[attr-defined]
 
     def get_queryset(self, request: HttpRequest) -> QuerySet[DocumentRecognitionTask]:
         return super().get_queryset(request).select_related("case", "case_log")

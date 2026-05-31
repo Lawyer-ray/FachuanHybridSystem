@@ -11,7 +11,6 @@ from apps.core.exceptions import ValidationException
 
 logger = logging.getLogger("apps.chat_records")
 
-
 def export_chat_record_task(task_id: str) -> Any:
     from apps.chat_records.models import ChatRecordExportTask, ExportStatus, ExportType
     from apps.chat_records.services.export.export_service import ExportService
@@ -107,7 +106,6 @@ def export_chat_record_task(task_id: str) -> Any:
             finished_at=timezone.now(),
         )
         return {"task_id": task_id, "status": "failed", "error": str(e)}
-
 
 def extract_recording_frames_task(
     recording_id: str,

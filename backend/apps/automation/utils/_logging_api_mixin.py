@@ -6,7 +6,6 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
-
 class ApiLoggingMixin:
     """性能监控、Admin操作、通用业务、文书API相关日志方法"""
 

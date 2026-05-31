@@ -4,7 +4,6 @@ from django.utils import timezone
 
 from apps.legal_research.models import LegalResearchTask, LegalResearchTaskStatus
 
-
 def sync_failed_queue_state(
     *,
     task: LegalResearchTask,

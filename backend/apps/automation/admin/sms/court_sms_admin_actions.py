@@ -14,12 +14,10 @@ from django.db.models import QuerySet
 from django.http import HttpRequest, HttpResponse, HttpResponseRedirect, JsonResponse
 from django.shortcuts import get_object_or_404, render
 from django.urls import reverse
-from django.utils.translation import gettext_lazy as _
 
 from apps.automation.models import CourtSMS, CourtSMSStatus
 
 logger = logging.getLogger("apps.automation")
-
 
 def _get_court_sms_service() -> Any:
     """获取法院短信服务实例(工厂函数)"""
@@ -27,13 +25,11 @@ def _get_court_sms_service() -> Any:
 
     return ServiceLocator.get_court_sms_service()
 
-
 def _get_case_service() -> Any:
     """获取案件服务实例(工厂函数)"""
     from apps.core.interfaces import ServiceLocator
 
     return ServiceLocator.get_case_service()
-
 
 class CourtSMSAdminActions:
     """法院短信 Admin 操作混入类"""
@@ -41,7 +37,7 @@ class CourtSMSAdminActions:
     # 自定义操作
     actions: list[str] = []
 
-    @admin.action(description=_("🔄 重新处理选中的短信"))
+    @admin.action(description="🔄 重新处理选中的短信")
     def retry_processing_action(self, request: HttpRequest, queryset: QuerySet[CourtSMS]) -> None:
         """重新处理操作"""
         service = _get_court_sms_service()

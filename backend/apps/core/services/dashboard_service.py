@@ -15,7 +15,6 @@ from apps.contracts.models import Contract, ContractPayment
 from apps.core.models.enums import CaseStage, CaseStatus, SimpleCaseType
 from apps.reminders.models import Reminder
 
-
 class DashboardService:
     """提供仪表盘所需的聚合统计数据。"""
 

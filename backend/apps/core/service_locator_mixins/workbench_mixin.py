@@ -6,7 +6,6 @@ from typing import Any
 
 from .automation_mixin import _ServiceLocatorStub
 
-
 class WorkbenchServiceLocatorMixin(_ServiceLocatorStub):
     @classmethod
     def get_workbench_session_service(cls) -> Any:

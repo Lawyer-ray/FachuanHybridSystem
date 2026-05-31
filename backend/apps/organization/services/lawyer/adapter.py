@@ -13,7 +13,6 @@ from apps.organization.services.dto_assemblers import LawyerDtoAssembler
 
 from .facade import LawyerService
 
-
 class LawyerServiceAdapter(ILawyerService):
     _assembler: ClassVar[LawyerDtoAssembler] = LawyerDtoAssembler()
 

@@ -11,12 +11,10 @@ from django.http import FileResponse, HttpRequest, HttpResponseNotAllowed, JsonR
 from django.urls import path
 from django.utils.html import escape, escapejs, format_html
 from django.utils.safestring import SafeString, mark_safe
-from django.utils.translation import gettext_lazy as _
 
 from apps.message_hub.models import InboxMessage
 
 logger = logging.getLogger("apps.message_hub")
-
 
 @admin.register(InboxMessage)
 class InboxMessageAdmin(admin.ModelAdmin):
@@ -43,13 +41,13 @@ class InboxMessageAdmin(admin.ModelAdmin):
     list_select_related: ClassVar = ["source", "source__credential"]
 
     fieldsets: ClassVar = (
-        (_("基本信息"), {"fields": ("source", "message_id", "sender", "received_at", "created_at")}),
-        (_("正文"), {"fields": ("body_preview",)}),
+        ("基本信息", {"fields": ("source", "message_id", "sender", "received_at", "created_at")}),
+        ("正文", {"fields": ("body_preview",)}),
         (
-            _("附件"),
+            "附件",
             {
                 "fields": ("attachments_actions",),
-                "description": _("可直接调整附件下载名；留空则使用原始文件名。"),
+                "description": "可直接调整附件下载名；留空则使用原始文件名。",
             },
         ),
     )
@@ -191,7 +189,7 @@ class InboxMessageAdmin(admin.ModelAdmin):
 
         msg = InboxMessage.objects.filter(pk=pk).first()
         if msg is None:
-            return JsonResponse({"ok": False, "message": _("消息不存在")}, status=404)
+            return JsonResponse({"ok": False, "message": "消息不存在"}, status=404)
 
         meta_list = msg.attachments_meta if isinstance(msg.attachments_meta, list) else []
         for att in meta_list:
@@ -204,7 +202,7 @@ class InboxMessageAdmin(admin.ModelAdmin):
             content_type = str(att.get("content_type", ""))
             custom_filename = self._apply_original_extension(custom_filename_input, original_name, content_type)
             if len(custom_filename) > 255:
-                return JsonResponse({"ok": False, "message": _("新文件名过长（最多255字符）")}, status=400)
+                return JsonResponse({"ok": False, "message": "新文件名过长（最多255字符）"}, status=400)
 
             att["filename"] = original_name
             att["original_filename"] = original_name
@@ -220,14 +218,14 @@ class InboxMessageAdmin(admin.ModelAdmin):
             return JsonResponse(
                 {
                     "ok": True,
-                    "message": _("保存成功"),
+                    "message": "保存成功",
                     "original_filename": original_name,
                     "custom_filename": custom_filename,
                     "effective_filename": custom_filename or original_name,
                 }
             )
 
-        return JsonResponse({"ok": False, "message": _("附件不存在")}, status=404)
+        return JsonResponse({"ok": False, "message": "附件不存在"}, status=404)
 
     def _attachment_view(self, request: HttpRequest, pk: int, part_index: int, inline: bool = False) -> FileResponse:
         from apps.message_hub.services import get_fetcher
@@ -247,7 +245,7 @@ class InboxMessageAdmin(admin.ModelAdmin):
             response["X-Content-Type-Options"] = "nosniff"
         return response
 
-    @admin.display(description=_("来源"))
+    @admin.display(description="来源")
     def source_badge(self, obj: InboxMessage) -> SafeString:
         colors = {"imap": "#0d6efd", "court_inbox": "#6f42c1"}
         st = obj.source.source_type
@@ -258,27 +256,27 @@ class InboxMessageAdmin(admin.ModelAdmin):
             f"{obj.source.display_name}</span>"
         )
 
-    @admin.display(description=_("收件人"))
+    @admin.display(description="收件人")
     def recipient_display(self, obj: InboxMessage) -> str:
         account: str = obj.source.credential.account
         return account
 
-    @admin.display(description=_("主题"))
+    @admin.display(description="主题")
     def subject_display(self, obj: InboxMessage) -> SafeString:
-        subject = obj.subject or _("(无主题)")
+        subject = obj.subject or "(无主题)"
         return format_html(
             '<span style="display:inline-block;max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{}</span>',
             subject,
         )
 
-    @admin.display(description=_("附件"))
+    @admin.display(description="附件")
     def attachments_display(self, obj: InboxMessage) -> SafeString:
         if not obj.has_attachments:
             return mark_safe('<span style="color:#ccc">—</span>')
         count = len(obj.attachments_meta)
         return format_html('<span style="color:#007bff">{} 个附件</span>', count)
 
-    @admin.display(description=_("正文"))
+    @admin.display(description="正文")
     def body_preview(self, obj: InboxMessage) -> SafeString:
         content = obj.body_html or obj.body_text or ""
         if not content:
@@ -299,20 +297,20 @@ class InboxMessageAdmin(admin.ModelAdmin):
             + "</div>"
         )
 
-    @admin.display(description=_("附件操作"))
+    @admin.display(description="附件操作")
     def attachments_actions(self, obj: InboxMessage) -> SafeString:
         if not obj.attachments_meta:
             return mark_safe('<span style="color:#999">无附件</span>')
         from django.urls import reverse
 
-        title_effective = _("当前下载名")
-        placeholder_custom = _("输入下载文件名，留空则使用原始文件名")
-        btn_save = _("保存")
-        btn_reset = _("恢复原名")
-        btn_download = _("下载")
-        btn_preview = _("预览")
-        save_ok = _("保存成功")
-        save_failed = _("保存失败")
+        title_effective = "当前下载名"
+        placeholder_custom = "输入下载文件名，留空则使用原始文件名"
+        btn_save = "保存"
+        btn_reset = "恢复原名"
+        btn_download = "下载"
+        btn_preview = "预览"
+        save_ok = "保存成功"
+        save_failed = "保存失败"
 
         parts: list[str] = ['<div id="mh-attachments-rename-panel" class="mh-attachments-panel">']
 
@@ -327,7 +325,7 @@ class InboxMessageAdmin(admin.ModelAdmin):
             normalized_custom_name = self._apply_original_extension(custom_name, original_name, ct)
             effective_name = normalized_custom_name or original_name
             size_kb = max(1, (int(att.get("size", 0)) + 1023) // 1024) if int(att.get("size", 0)) > 0 else 0
-            size_text = f"{size_kb} KB" if size_kb else _("未知大小")
+            size_text = f"{size_kb} KB" if size_kb else "未知大小"
 
             rename_url = reverse("admin:message_hub_attachment_rename", args=[obj.pk, idx])
             dl_url = reverse("admin:message_hub_attachment_download", args=[obj.pk, idx])

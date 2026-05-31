@@ -9,7 +9,6 @@ from typing import Any, ClassVar
 
 logger = logging.getLogger("apps.automation")
 
-
 class AntiDetection:
     """反爬虫对抗工具"""
 
@@ -150,7 +149,6 @@ class AntiDetection:
         x = random.randint(100, 1800)
         y = random.randint(100, 900)
         page.mouse.move(x, y)
-
 
 # 全局实例
 anti_detection = AntiDetection()

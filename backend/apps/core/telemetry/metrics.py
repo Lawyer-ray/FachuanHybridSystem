@@ -15,7 +15,6 @@ from django.utils import timezone
 
 logger = logging.getLogger(__name__)
 
-
 DEFAULT_BUCKETS_MS: tuple[int, ...] = (
     5,
     10,
@@ -35,14 +34,12 @@ _UUID_RE = re.compile(r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f
 _HEX_RE = re.compile(r"^[0-9a-f]{16,}$", re.IGNORECASE)
 _LABEL_SAFE_RE = re.compile(r"[^a-z0-9_-]+", re.IGNORECASE)
 
-
 def _minute_id(dt: Any | None = None) -> str:
     if dt is None:
         from django.utils import timezone as tz
 
         dt = tz.now()
     return str(dt.strftime("%Y%m%d%H%M"))
-
 
 def _last_minutes(*, window_minutes: int) -> list[str]:
     window = int(window_minutes or 1)
@@ -55,11 +52,9 @@ def _last_minutes(*, window_minutes: int) -> list[str]:
     minutes.reverse()
     return minutes
 
-
 def _stable_hash(data: dict[str, Any]) -> str:
     payload = json.dumps(data, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
     return hashlib.sha1(payload.encode("utf-8"), usedforsecurity=False).hexdigest()[:16]
-
 
 def _normalize_label(value: str, *, default: str, max_len: int) -> str:
     v = str(value or "").strip().lower()
@@ -71,14 +66,12 @@ def _normalize_label(value: str, *, default: str, max_len: int) -> str:
         return default
     return v[: max(1, int(max_len or 1))]
 
-
 def _set_meta_once(*, kind: str, suffix: str, meta: dict[str, Any], timeout: int) -> None:
     key = f"metrics:meta:{kind}:{suffix}"
     try:
         cache.add(key, json.dumps(meta, ensure_ascii=False, separators=(",", ":")), timeout=timeout)
     except (ConnectionError, TimeoutError, OSError):
         return
-
 
 def _get_meta(*, kind: str, suffix: str) -> dict[str, Any] | None:
     key = f"metrics:meta:{kind}:{suffix}"
@@ -92,7 +85,6 @@ def _get_meta(*, kind: str, suffix: str) -> dict[str, Any] | None:
     except (ValueError, TypeError, KeyError):
         return None
 
-
 def normalize_path_group(path: str, *, max_segments: int = 3) -> str:
     parts = [p for p in (path or "").split("/") if p]
     normalized: list[str] = []
@@ -103,18 +95,15 @@ def normalize_path_group(path: str, *, max_segments: int = 3) -> str:
             normalized.append(p[:64])
     return "/" + "/".join(normalized) if normalized else "/"
 
-
 def _status_class(status_code: int) -> str:
     try:
         return f"{int(status_code) // 100}xx"
     except (TypeError, ValueError):
         return "unknown"
 
-
 def _incr(key: str, delta: int, *, timeout: int) -> int:
     cache.add(key, 0, timeout=timeout)
     return int(cache.incr(key, delta))
-
 
 def _add_to_index(index_key: str, value: str, *, timeout: int) -> None:
     try:
@@ -131,7 +120,6 @@ def _add_to_index(index_key: str, value: str, *, timeout: int) -> None:
         cache.set(index_key, json.dumps(items, ensure_ascii=False), timeout=timeout)
     except (ValueError, TypeError, KeyError, ConnectionError, TimeoutError, OSError):
         return
-
 
 @dataclass(frozen=True)
 class Histogram:
@@ -157,7 +145,6 @@ class Histogram:
             return 0.0
         return float(self.total_sum_ms) / float(self.total_count)
 
-
 def _merge_histograms(histograms: list[Histogram], *, buckets_ms: tuple[int, ...]) -> Histogram:
     total_count = sum(h.total_count for h in histograms)
     total_sum_ms = sum(h.total_sum_ms for h in histograms)
@@ -166,7 +153,6 @@ def _merge_histograms(histograms: list[Histogram], *, buckets_ms: tuple[int, ...
         for b in buckets_ms:
             counts[int(b)] += int(h.counts.get(int(b), 0))
     return Histogram(buckets_ms=buckets_ms, counts=counts, total_count=total_count, total_sum_ms=total_sum_ms)
-
 
 def record_request(
     *,
@@ -206,7 +192,6 @@ def record_request(
             break
     _incr(f"{key_prefix}:bucket:{upper}", 1, timeout=ttl)
 
-
 def record_httpx(
     *,
     host: str,
@@ -245,7 +230,6 @@ def record_httpx(
             break
     _incr(f"{key_prefix}:bucket:{upper}", 1, timeout=ttl)
 
-
 def record_cache_access(
     *,
     cache_kind: str,
@@ -259,7 +243,6 @@ def record_cache_access(
         result="hit" if bool(hit) else "miss",
         window_minutes=window_minutes,
     )
-
 
 def record_cache_result(
     *,
@@ -286,7 +269,6 @@ def record_cache_result(
     )
     _incr(f"{key_prefix}:count", 1, timeout=ttl)
 
-
 def _load_histogram(
     *,
     minute: str,
@@ -302,11 +284,9 @@ def _load_histogram(
         counts[int(b)] = int(cache.get(f"{key_prefix}:bucket:{b}") or 0)
     return Histogram(buckets_ms=buckets_ms, counts=counts, total_count=count, total_sum_ms=sum_ms)
 
-
 def _load_counter(*, minute: str, kind: str, suffix: str) -> int:
     key_prefix = f"metrics:{kind}:{minute}:{suffix}"
     return int(cache.get(f"{key_prefix}:count") or 0)
-
 
 def _iter_suffixes(index_key: str) -> Iterable[str]:
     raw = cache.get(index_key)
@@ -320,7 +300,6 @@ def _iter_suffixes(index_key: str) -> Iterable[str]:
         return [str(v) for v in values if v]
     except (ValueError, TypeError, KeyError):
         return []
-
 
 def snapshot(
     *,
@@ -350,7 +329,6 @@ def snapshot(
         "automation_token_cache": cache_access_by_kind.get("automation_token") or {},
     }
 
-
 def _collect_histogram_data(
     minutes: list[str], kind: str, buckets_ms: tuple[int, ...]
 ) -> tuple[dict[str, Histogram], Histogram]:
@@ -361,7 +339,6 @@ def _collect_histogram_data(
     merged = {s: _merge_histograms(hs, buckets_ms=buckets_ms) for s, hs in by_suffix.items()}
     total = _merge_histograms(list(merged.values()), buckets_ms=buckets_ms)
     return merged, total
-
 
 def _collect_cache_data(minutes: list[str]) -> dict[str, Any]:
     cache_by_suffix: dict[str, list[int]] = {}
@@ -396,7 +373,6 @@ def _collect_cache_data(minutes: list[str]) -> dict[str, Any]:
     _finalize_cache_hit_rates(cache_access_by_kind)
     return cache_access_by_kind
 
-
 def _finalize_cache_hit_rates(cache_access_by_kind: dict[str, Any]) -> None:
     for kind_entry in cache_access_by_kind.values():
         total = int(kind_entry.get("total") or 0)
@@ -410,7 +386,6 @@ def _finalize_cache_hit_rates(cache_access_by_kind: dict[str, Any]) -> None:
         kind_entry["by_name"] = sorted(
             [{"name": n, **v} for n, v in by_name.items()], key=lambda r: int(r.get("total") or 0), reverse=True
         )
-
 
 def _build_histogram_rows(
     merged: dict[str, Histogram], kind: str, group_field: tuple[str, str]
@@ -432,7 +407,6 @@ def _build_histogram_rows(
         )
     return rows
 
-
 def _histogram_summary(h: Histogram) -> dict[str, Any]:
     return {
         "count": h.total_count,
@@ -442,10 +416,8 @@ def _histogram_summary(h: Histogram) -> dict[str, Any]:
         "p99_ms": h.quantile_ms(0.99),
     }
 
-
 def _top_slowest(rows: list[dict[str, Any]], top_n: int) -> list[dict[str, Any]]:
     return sorted(rows, key=lambda r: (float(r.get("p95_ms") or 0), int(r.get("count") or 0)), reverse=True)[:top_n]
-
 
 def _top_errors(rows: list[dict[str, Any]], top_n: int, *, include_error_class: bool = False) -> list[dict[str, Any]]:
     def is_error(r: dict[str, Any]) -> bool:
@@ -457,7 +429,6 @@ def _top_errors(rows: list[dict[str, Any]], top_n: int, *, include_error_class: 
         key=lambda r: (int(r.get("count") or 0), float(r.get("p95_ms") or 0)),
         reverse=True,
     )[:top_n]
-
 
 def snapshot_prometheus(*, window_minutes: int = 10, buckets_ms: tuple[int, ...] = DEFAULT_BUCKETS_MS) -> str:
     s = snapshot(window_minutes=window_minutes, buckets_ms=buckets_ms)

@@ -2,13 +2,11 @@
 
 from pydantic import BaseModel, Field
 
-
 class EvidenceExamItem(BaseModel):
     """单个质证维度."""
 
     opinion: str = Field(description="质证意见")
     challenge_strength: str = Field(description="质疑强度: strong/moderate/weak")
-
 
 class CrossExamOpinion(BaseModel):
     """对方律师对单份证据的质证意见."""
@@ -21,7 +19,6 @@ class CrossExamOpinion(BaseModel):
     suggested_response: str = Field(description="建议的回应策略")
     risk_level: str = Field(description="风险等级: high/medium/low")
 
-
 class DisputeFocus(BaseModel):
     """争议焦点."""
 
@@ -32,7 +29,6 @@ class DisputeFocus(BaseModel):
     key_evidence: list[str] = Field(default_factory=list, description="关键证据")
     burden_of_proof: str = Field(description="举证责任方")
 
-
 class EvidenceStrengthItem(BaseModel):
     """证据强弱对比项."""
 
@@ -40,7 +36,6 @@ class EvidenceStrengthItem(BaseModel):
     plaintiff_strength: str = Field(description="原告证据强度: strong/moderate/weak")
     defendant_strength: str = Field(description="被告证据强度: strong/moderate/weak")
     analysis: str = Field(description="分析说明")
-
 
 class JudgePerspectiveReport(BaseModel):
     """法官视角分析报告."""

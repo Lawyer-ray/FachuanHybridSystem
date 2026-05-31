@@ -9,13 +9,11 @@ from typing import Any
 from apps.core.exceptions import ExternalServiceError
 from apps.core.security.scrub import scrub_text
 
-
 @dataclass(frozen=True)
 class SubprocessOutput:
     stdout: str
     stderr: str
     returncode: int
-
 
 class SubprocessRunner:
     def __init__(self, *, allowed_programs: set[str] | None = None, max_output_chars: int = 20_000) -> None:

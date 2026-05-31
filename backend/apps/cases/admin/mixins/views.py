@@ -13,7 +13,6 @@ from django.http import Http404, HttpRequest, HttpResponse
 from django.shortcuts import render
 from django.urls import URLPattern, path, reverse
 from django.utils.html import format_html
-from django.utils.translation import gettext_lazy as _
 
 from apps.cases.models import Case
 from apps.core.models.enums import CaseStage, ContactRole
@@ -23,14 +22,11 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger("apps.cases")
 
-
 def _get_contact_role_choices() -> list[tuple[str, str]]:
     return [(str(k), str(v)) for k, v in ContactRole.choices]
 
-
 def _get_case_stage_choices() -> list[tuple[str, str]]:
     return [(str(k), str(v)) for k, v in CaseStage.choices]
-
 
 def _has_court_filing_plugin() -> bool:
     try:
@@ -39,7 +35,6 @@ def _has_court_filing_plugin() -> bool:
         return has_court_automation_plugin()
     except ImportError:
         return False
-
 
 def _log_inline_formset(inline_formset: object, logger: logging.Logger) -> None:
     """记录 inline formset 的错误信息（仅记录有错误的表单）"""
@@ -62,7 +57,6 @@ def _log_inline_formset(inline_formset: object, logger: logging.Logger) -> None:
             non_form,
         )
 
-
 class CaseAdminViewsMixin:
     """案件管理后台视图Mixin，提供自定义URL和视图方法"""
 
@@ -77,19 +71,19 @@ class CaseAdminViewsMixin:
         detail_url = reverse("admin:cases_case_detail", args=[obj.pk])
         return format_html('<a href="{}">{}</a>', detail_url, obj.name)
 
-    name_link.short_description = _("案件名称")  # type: ignore[attr-defined]
+    name_link.short_description = "案件名称"  # type: ignore[attr-defined]
     name_link.admin_order_field = "name"  # type: ignore[attr-defined]
 
     def case_type_display(self, obj: Case) -> str:
         return obj.get_case_type_display() or "-"
 
-    case_type_display.short_description = _("案件类型")  # type: ignore[attr-defined]
+    case_type_display.short_description = "案件类型"  # type: ignore[attr-defined]
     case_type_display.admin_order_field = "case_type"  # type: ignore[attr-defined]
 
     def current_stage_display(self, obj: Case) -> str:
         return obj.get_current_stage_display() or "-"
 
-    current_stage_display.short_description = _("当前阶段")  # type: ignore[attr-defined]
+    current_stage_display.short_description = "当前阶段"  # type: ignore[attr-defined]
     current_stage_display.admin_order_field = "current_stage"  # type: ignore[attr-defined]
 
     def assigned_lawyers(self, obj: Case) -> str:
@@ -99,7 +93,7 @@ class CaseAdminViewsMixin:
             lawyers.append(lawyer.real_name if lawyer.real_name else str(lawyer.id))
         return ", ".join(lawyers) if lawyers else "-"
 
-    assigned_lawyers.short_description = _("承办律师")  # type: ignore[attr-defined]
+    assigned_lawyers.short_description = "承办律师"  # type: ignore[attr-defined]
 
     def get_urls(self) -> list[URLPattern]:
         # 直接调用admin.ModelAdmin.get_urls，避免Mixin继承链问题
@@ -164,14 +158,14 @@ class CaseAdminViewsMixin:
     def mock_trial_view(self, request: HttpRequest, object_id: int) -> HttpResponse:
         case = self._get_case_with_relations(object_id)
         if case is None:
-            raise Http404(_("案件不存在"))
+            raise Http404("案件不存在")
         if not self.has_view_permission(request, case):  # type: ignore[attr-defined]
             raise PermissionDenied
         context = self.admin_site.each_context(request)  # type: ignore[attr-defined]
         context.update(
             {
                 "case": case,
-                "title": _("模拟庭审: %(name)s") % {"name": case.name},
+                "title": "模拟庭审: %(name)s" % {"name": case.name},
                 "opts": self.model._meta,  # type: ignore[attr-defined]
             }
         )
@@ -181,7 +175,7 @@ class CaseAdminViewsMixin:
         context = self.admin_site.each_context(request)  # type: ignore[attr-defined]
         context.update(
             {
-                "title": _("诉讼费用计算器"),
+                "title": "诉讼费用计算器",
                 "opts": self.model._meta,  # type: ignore[attr-defined]
             }
         )
@@ -191,7 +185,7 @@ class CaseAdminViewsMixin:
         case = self._get_case_with_relations(object_id)
 
         if case is None:
-            raise Http404(_("案件不存在"))
+            raise Http404("案件不存在")
 
         if not self.has_view_permission(request, case):  # type: ignore[attr-defined]
             raise PermissionDenied
@@ -211,7 +205,7 @@ class CaseAdminViewsMixin:
         matched_folder_templates = (
             service.get_matched_folder_templates(case.case_type, our_legal_statuses)
             if case.case_type
-            else str(_("未设置案件类型"))
+            else str("未设置案件类型")
         )
 
         matched_case_file_templates, case_file_templates_missing_reason = service.get_case_file_templates_for_detail(
@@ -264,7 +258,7 @@ class CaseAdminViewsMixin:
         context.update(
             {
                 "case": case,
-                "title": _("案件详情: %(name)s") % {"name": case.name},
+                "title": "案件详情: %(name)s" % {"name": case.name},
                 "opts": self.model._meta,  # type: ignore[attr-defined]
                 "has_change_permission": self.has_change_permission(request, case),  # type: ignore[attr-defined]
                 "matched_folder_templates": matched_folder_templates,
@@ -323,7 +317,7 @@ class CaseAdminViewsMixin:
     def materials_view(self, request: HttpRequest, object_id: int) -> HttpResponse:
         case = self._get_case_with_relations(object_id)
         if case is None:
-            raise Http404(_("案件不存在"))
+            raise Http404("案件不存在")
 
         if not self.has_change_permission(request, case):  # type: ignore[attr-defined]
             raise PermissionDenied
@@ -349,7 +343,7 @@ class CaseAdminViewsMixin:
         context.update(
             {
                 "case": case,
-                "title": _("上传/绑定材料: %(name)s") % {"name": case.name},
+                "title": "上传/绑定材料: %(name)s" % {"name": case.name},
                 "opts": self.model._meta,  # type: ignore[attr-defined]
                 "detail_url": reverse("admin:cases_case_detail", args=[case.pk]),
                 "party_types_json": json_mod.dumps(payload["party_types"], ensure_ascii=False),
@@ -373,12 +367,12 @@ class CaseAdminViewsMixin:
         service = self._get_case_admin_service()  # type: ignore[attr-defined]
         matched = service.get_matched_folder_templates(case.case_type) if case.case_type else ""
         if not matched or "无匹配" in matched:
-            return str(_("无匹配的文件夹模板"))
+            return str("无匹配的文件夹模板")
         return ""
 
     def _get_folder_disabled_reason_v2(self, matched_folder_templates: str) -> str:
         if not matched_folder_templates or "无匹配" in matched_folder_templates:
-            return str(_("无匹配的文件夹模板"))
+            return str("无匹配的文件夹模板")
         return ""
 
     def changeform_view(
@@ -432,44 +426,44 @@ class CaseAdminViewsMixin:
 
     def contract_folder_path_display(self, obj: Case) -> str:
         if not obj or not obj.contract:
-            return str(_("未关联合同"))
+            return str("未关联合同")
 
         try:
             binding = getattr(obj.contract, "folder_binding", None)
             if binding and binding.folder_path:
                 return str(binding.folder_path)
-            return str(_("未绑定文件夹"))
+            return str("未绑定文件夹")
         except Exception:
             logger.exception("操作失败")
-            return str(_("未绑定文件夹"))
+            return str("未绑定文件夹")
 
-    contract_folder_path_display.short_description = _("合同文件夹路径")  # type: ignore[attr-defined]
+    contract_folder_path_display.short_description = "合同文件夹路径"  # type: ignore[attr-defined]
 
     def filing_number_display(self, obj: Case) -> str:
         if obj and obj.filing_number:
             return str(obj.filing_number)
-        return str(_("未生成"))
+        return str("未生成")
 
-    filing_number_display.short_description = _("建档编号")  # type: ignore[attr-defined]
+    filing_number_display.short_description = "建档编号"  # type: ignore[attr-defined]
 
     def has_folder_binding(self, obj: Case) -> str:
         try:
             if hasattr(obj, "folder_binding") and obj.folder_binding:
-                return str(_("✓ 已绑定"))
-            return str(_("未绑定"))
+                return str("✓ 已绑定")
+            return str("未绑定")
         except Exception:
             logger.exception("操作失败")
-            return str(_("未绑定"))
+            return str("未绑定")
 
-    has_folder_binding.short_description = _("文件夹绑定")  # type: ignore[attr-defined]
+    has_folder_binding.short_description = "文件夹绑定"  # type: ignore[attr-defined]
 
     def get_matched_folder_templates_display(self, obj: Case) -> str:
         if not obj or not obj.case_type:
-            return str(_("未设置案件类型"))
+            return str("未设置案件类型")
         service = self._get_case_admin_service()  # type: ignore[attr-defined]
         return str(service.get_matched_folder_templates(obj.case_type))
 
-    get_matched_folder_templates_display.short_description = _("匹配的文件夹模板")  # type: ignore[attr-defined]
+    get_matched_folder_templates_display.short_description = "匹配的文件夹模板"  # type: ignore[attr-defined]
 
     def parse_document_view(self, request: HttpRequest, casenumber_id: int) -> HttpResponse:
         """解析裁判文书，提取案号、文书名称、执行依据主文"""
@@ -712,7 +706,7 @@ class CaseAdminViewsMixin:
             return JsonResponse({"success": False, "error": "Method not allowed"}, status=405)
 
         if not self.has_view_permission(request):  # type: ignore[attr-defined]
-            return JsonResponse({"success": False, "error": str(_("无权限"))}, status=403)
+            return JsonResponse({"success": False, "error": str("无权限")}, status=403)
 
         try:
             from apps.cases.models.material import CaseFolderBinding
@@ -720,23 +714,23 @@ class CaseAdminViewsMixin:
             try:
                 binding = CaseFolderBinding.objects.get(case_id=object_id)
             except CaseFolderBinding.DoesNotExist:
-                return JsonResponse({"success": False, "error": str(_("未绑定文件夹"))}, status=404)
+                return JsonResponse({"success": False, "error": str("未绑定文件夹")}, status=404)
 
             folder_path = binding.resolved_folder_path
             if not folder_path:
-                return JsonResponse({"success": False, "error": str(_("文件夹路径为空"))}, status=400)
+                return JsonResponse({"success": False, "error": str("文件夹路径为空")}, status=400)
 
             folder = Path(folder_path).expanduser().resolve()
             if not folder.exists():
                 return JsonResponse(
-                    {"success": False, "error": str(_("文件夹不存在: %(path)s") % {"path": folder_path})}, status=404
+                    {"success": False, "error": str("文件夹不存在: %(path)s" % {"path": folder_path})}, status=404
                 )
 
             # 安全检查：只允许打开用户主目录或 /Volumes 下的目录（防止打开系统敏感目录）
             home = Path.home().resolve()
             folder_str = str(folder)
             if not (folder_str.startswith(str(home) + "/") or folder_str.startswith("/Volumes/")):
-                return JsonResponse({"success": False, "error": str(_("不允许打开该目录"))}, status=403)
+                return JsonResponse({"success": False, "error": str("不允许打开该目录")}, status=403)
 
             system = platform.system()
             if system == "Darwin":
@@ -759,14 +753,14 @@ class CaseAdminViewsMixin:
         from django.http import JsonResponse
 
         if not self.has_view_permission(request):  # type: ignore[attr-defined]
-            return JsonResponse({"success": False, "error": str(_("无权限"))}, status=403)
+            return JsonResponse({"success": False, "error": str("无权限")}, status=403)
 
         try:
             from apps.cases.models.material import CaseFolderBinding
 
             binding = CaseFolderBinding.objects.filter(case_id=object_id).first()
             if not binding or not binding.resolved_folder_path:
-                return JsonResponse({"success": False, "error": str(_("未绑定文件夹"))}, status=404)
+                return JsonResponse({"success": False, "error": str("未绑定文件夹")}, status=404)
 
             if request.method == "GET":
                 # 列出第一层级所有子文件夹，让用户自己选
@@ -774,7 +768,7 @@ class CaseAdminViewsMixin:
 
                 root = Path(binding.resolved_folder_path).expanduser().resolve()
                 if not root.exists():
-                    return JsonResponse({"success": False, "error": str(_("文件夹不存在"))}, status=404)
+                    return JsonResponse({"success": False, "error": str("文件夹不存在")}, status=404)
 
                 subfolders = []
                 for child in sorted(root.iterdir(), key=lambda item: item.name.lower()):
@@ -794,7 +788,7 @@ class CaseAdminViewsMixin:
                 body = json_mod.loads(request.body) if request.body else {}
                 subfolder = body.get("subfolder", "")
                 if not subfolder:
-                    return JsonResponse({"success": False, "error": str(_("请指定子文件夹"))}, status=400)
+                    return JsonResponse({"success": False, "error": str("请指定子文件夹")}, status=400)
 
                 from apps.cases.services.log.email_folder_scan_service import EmailFolderScanService
 
@@ -809,7 +803,7 @@ class CaseAdminViewsMixin:
 
                 log_count = len(result["logs"])
                 skipped = result["skipped_count"]
-                msg = str(_("导入完成：新增 %(count)s 条日志，跳过 %(skipped)s 条（已存在）")) % {
+                msg = str("导入完成：新增 %(count)s 条日志，跳过 %(skipped)s 条（已存在）") % {
                     "count": log_count,
                     "skipped": skipped,
                 }
@@ -881,6 +875,5 @@ class CaseAdminViewsMixin:
         if not value:
             return None
         return value
-
 
 __all__: list[str] = ["CaseAdminViewsMixin"]

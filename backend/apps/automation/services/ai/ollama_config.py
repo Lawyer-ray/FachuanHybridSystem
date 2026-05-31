@@ -4,7 +4,6 @@ Ollama 配置文件
 通过 LLMConfig 统一读取 Ollama 相关配置（LLMConfig 内部使用 SystemConfigService）。
 """
 
-
 class OllamaConfig:
     """Ollama 配置类"""
 
@@ -26,12 +25,10 @@ class OllamaConfig:
 
         return LLMConfig.get_ollama_base_url()
 
-
 # 便捷函数
 def get_ollama_model() -> str:
     """获取 Ollama 模型名称"""
     return OllamaConfig.get_model()
-
 
 def get_ollama_base_url() -> str:
     """获取 Ollama 服务地址"""

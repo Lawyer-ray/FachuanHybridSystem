@@ -9,10 +9,8 @@ from typing import ClassVar
 from django.contrib import admin
 from django.db.models import QuerySet
 from django.http import HttpRequest
-from django.utils.translation import gettext_lazy as _
 
 from apps.contracts.models import SupplementaryAgreement, SupplementaryAgreementParty
-
 
 class SupplementaryAgreementPartyInline(admin.TabularInline[SupplementaryAgreementParty, SupplementaryAgreementParty]):
     """补充协议当事人内联编辑"""
@@ -20,15 +18,14 @@ class SupplementaryAgreementPartyInline(admin.TabularInline[SupplementaryAgreeme
     model = SupplementaryAgreementParty
     extra = 1
     autocomplete_fields: ClassVar = ["client"]
-    verbose_name = _("当事人")
-    verbose_name_plural = _("当事人")
+    verbose_name = "当事人"
+    verbose_name_plural = "当事人"
 
     def get_queryset(self, request: HttpRequest) -> QuerySet[SupplementaryAgreementParty, SupplementaryAgreementParty]:
         return super().get_queryset(request).exclude(role="PRINCIPAL")
 
     class Media:
         js = ("contracts/js/party_role_auto.js",)
-
 
 @admin.register(SupplementaryAgreement)
 class SupplementaryAgreementAdmin(admin.ModelAdmin):
@@ -50,9 +47,9 @@ class SupplementaryAgreementAdmin(admin.ModelAdmin):
     inlines: ClassVar = [SupplementaryAgreementPartyInline]
 
     fieldsets = (
-        (_("基本信息"), {"fields": ("contract", "name")}),
+        ("基本信息", {"fields": ("contract", "name")}),
         (
-            _("时间信息"),
+            "时间信息",
             {
                 "fields": ("created_at", "updated_at"),
                 "classes": ("collapse",),
@@ -60,7 +57,7 @@ class SupplementaryAgreementAdmin(admin.ModelAdmin):
         ),
     )
 
-    @admin.display(description=_("当事人数量"))
+    @admin.display(description="当事人数量")
     def party_count(self, obj: SupplementaryAgreement) -> int:
         """当事人数量"""
         return obj.parties.count()

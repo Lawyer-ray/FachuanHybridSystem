@@ -37,7 +37,6 @@ from .execution_request_utils import (
 
 logger = logging.getLogger(__name__)
 
-
 @PlaceholderRegistry.register
 class ExecutionRequestService(BasePlaceholderService):
     """申请执行事项规则引擎（纯规则，不依赖 LLM）."""

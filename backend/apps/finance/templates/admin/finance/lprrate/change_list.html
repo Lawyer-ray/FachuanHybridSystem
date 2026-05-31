@@ -6,12 +6,12 @@
 
 <li>
     <a href="calculator/" class="addlink">
-        {% translate "LPR计算器" %}
+        {
     </a>
 </li>
 
 <li>
-    <a href="#" class="addlink" onclick="document.getElementById('lpr-sync-form').submit(); return false;">{% translate "同步LPR数据" %}</a>
+    <a href="#" class="addlink" onclick="document.getElementById('lpr-sync-form').submit(); return false;">{</a>
     <form id="lpr-sync-form" method="post" action="sync/" style="display: none;">
         {% csrf_token %}
     </form>
@@ -19,9 +19,9 @@
 
 {% if sync_status %}
 <li style="margin-left: 20px; color: #666; font-size: 12px; line-height: 28px;">
-    {% blocktranslate with date=sync_status.latest_rate_date count=sync_status.total_records %}
+    {
     最新数据: {{ date }} | 共 {{ count }} 条记录
-    {% endblocktranslate %}
+    {
 </li>
 {% endif %}
 

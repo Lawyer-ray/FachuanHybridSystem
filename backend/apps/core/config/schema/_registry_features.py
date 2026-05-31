@@ -2,7 +2,6 @@
 
 from .field import ConfigField
 
-
 def register_feature_configs(registry: dict[str, ConfigField]) -> None:
     # 案件聊天
     registry["features.case_chat.default_platform"] = ConfigField(

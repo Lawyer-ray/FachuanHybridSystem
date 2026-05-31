@@ -18,7 +18,6 @@ logger = logging.getLogger(__name__)
 
 _LANCZOS: Any = None
 
-
 def _get_lanczos() -> Any:
     """延迟获取 Pillow LANCZOS 常量，避免模块级副作用。"""
     global _LANCZOS
@@ -27,7 +26,6 @@ def _get_lanczos() -> Any:
 
         _LANCZOS = getattr(_Img, "Resampling", _Img).LANCZOS
     return _LANCZOS
-
 
 class PdfExportService:
     """单一职责：生成 PDF 导出文件。"""

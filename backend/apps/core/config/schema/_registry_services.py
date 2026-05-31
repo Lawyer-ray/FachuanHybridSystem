@@ -2,7 +2,6 @@
 
 from .field import ConfigField
 
-
 def register_service_configs(registry: dict[str, ConfigField]) -> None:
     registry["services.ollama.model"] = ConfigField(
         name="services.ollama.model",

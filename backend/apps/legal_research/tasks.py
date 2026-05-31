@@ -7,7 +7,6 @@ from typing import Any
 from apps.legal_research.services.task.case_download_service import CaseDownloadService
 from apps.legal_research.services.task.executor import LegalResearchExecutor
 
-
 def execute_legal_research_task(task_id: str) -> dict[str, Any]:
     # Playwright 同步API内部会维护事件循环，执行过程中同步 ORM 读写
     # 可能触发 Django 的 async 上下文保护。任务是后台同步执行流程，
@@ -19,7 +18,6 @@ def execute_legal_research_task(task_id: str) -> dict[str, Any]:
     with ThreadPoolExecutor(max_workers=1, thread_name_prefix="legal-research-executor") as pool:
         future = pool.submit(executor.run, task_id=task_id)
         return future.result()
-
 
 def execute_case_download_task(task_id: int) -> dict[str, Any]:
     """执行案例下载任务"""

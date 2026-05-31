@@ -6,7 +6,6 @@ import io
 import logging
 from typing import Any
 
-from django.utils.translation import gettext_lazy as _
 from docxtpl import DocxTemplate
 
 from apps.core.exceptions import ValidationException
@@ -14,7 +13,6 @@ from apps.core.utils.path import Path
 from apps.documents.services.placeholders.fallback import build_docx_render_context
 
 logger = logging.getLogger("apps.cases.services")
-
 
 class DocxRenderer:
     def render(self, *, template_path: Path, context: dict[str, Any]) -> bytes:
@@ -44,7 +42,7 @@ class DocxRenderer:
                 },
             )
             raise ValidationException(
-                message=_("模板渲染失败: %(err)s") % {"err": str(e)},
+                message="模板渲染失败: %(err)s" % {"err": str(e)},
                 code="TEMPLATE_RENDER_ERROR",
                 errors={"error": str(e)},
             ) from e

@@ -31,7 +31,6 @@ from apps.content_ops.services.tts_service import TTSService
 
 logger = logging.getLogger(__name__)
 
-
 class ContentOpsExecutor:
     """内容运营管道执行器。"""
 
@@ -373,7 +372,6 @@ class ContentOpsExecutor:
 
         self._update_progress(task, 90, "多人对话音频合成完成")
         logger.info("Discussion episode created: id=%s, task=%s, size=%d", episode.pk, task.pk, len(audio_bytes))
-
 
 def _run_orm_safely[T](operation: Callable[[], T]) -> T:
     """Run ORM operation safely, even from async context."""

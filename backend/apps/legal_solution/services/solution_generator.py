@@ -16,7 +16,6 @@ _MAX_TOKENS = 2400
 _TIMEOUT = 120
 _RETRY = 2
 
-
 def _md_to_html(text: str) -> str:
     """markdown → HTML，优先用 markdown 库，回退手动转换。"""
     try:
@@ -66,7 +65,6 @@ def _md_to_html(text: str) -> str:
     if in_ol:
         out.append("</ol>")
     return "\n".join(out)
-
 
 class SolutionGenerator:
     def __init__(self) -> None:

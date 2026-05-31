@@ -5,7 +5,6 @@ from __future__ import annotations
 import re
 from typing import Any
 
-
 class GuaranteeUploadMixin:
     """gThree 材料上传：起诉状、身份证、证据。"""
 

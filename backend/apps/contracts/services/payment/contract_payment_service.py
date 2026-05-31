@@ -13,14 +13,12 @@ from typing import Any
 from django.db import transaction
 from django.db.models import Q, QuerySet, Sum
 from django.utils import timezone
-from django.utils.translation import gettext_lazy as _
 
 from apps.contracts.models import Contract, ContractFinanceLog, ContractPayment, InvoiceStatus
 from apps.core.exceptions import NotFoundError, ValidationException
 from apps.core.security import DjangoPermsMixin
 
 logger = logging.getLogger("apps.contracts")
-
 
 class ContractPaymentService(DjangoPermsMixin):
     """
@@ -102,7 +100,7 @@ class ContractPaymentService(DjangoPermsMixin):
             payment: ContractPayment = ContractPayment.objects.select_related("contract").get(id=payment_id)
             return payment
         except ContractPayment.DoesNotExist:
-            raise NotFoundError(_("收款记录 %(id)s 不存在") % {"id": payment_id}) from None
+            raise NotFoundError("收款记录 %(id)s 不存在" % {"id": payment_id}) from None
 
     @transaction.atomic
     def create_payment(
@@ -139,18 +137,18 @@ class ContractPaymentService(DjangoPermsMixin):
             ValidationException: 数据验证失败
             NotFoundError: 合同不存在
         """
-        self.ensure_admin(user, perm_open_access=perm_open_access, message=_("无权限"))
+        self.ensure_admin(user, perm_open_access=perm_open_access, message="无权限")
 
         # 二次确认检查
         if not confirm:
-            raise ValidationException(_("关键操作需二次确认"))
+            raise ValidationException("关键操作需二次确认")
 
         # 获取合同
         contract = self._get_contract(contract_id)
 
         # 金额校验
         if amount <= 0:
-            raise ValidationException(_("收款金额需大于0"))
+            raise ValidationException("收款金额需大于0")
 
         # 合规性校验:累计收款不超过合同固定金额
         total_received = self._get_total_received(contract_id)
@@ -166,12 +164,12 @@ class ContractPaymentService(DjangoPermsMixin):
                     "fixed_amount": str(contract.fixed_amount),
                 },
             )
-            raise ValidationException(_("累计收款超过合同固定金额"))
+            raise ValidationException("累计收款超过合同固定金额")
 
         # 发票校验和状态计算
         invoiced_amount_dec = Decimal(str(invoiced_amount or 0))
         if invoiced_amount_dec < 0 or invoiced_amount_dec > amount:
-            raise ValidationException(_("开票金额不能大于收款金额"))
+            raise ValidationException("开票金额不能大于收款金额")
 
         inv_status = self._calculate_invoice_status(invoiced_amount_dec, amount, invoice_status)
 
@@ -223,11 +221,11 @@ class ContractPaymentService(DjangoPermsMixin):
             ValidationException: 数据验证失败
             NotFoundError: 收款不存在
         """
-        self.ensure_admin(user, perm_open_access=perm_open_access, message=_("无权限"))
+        self.ensure_admin(user, perm_open_access=perm_open_access, message="无权限")
 
         # 二次确认检查
         if not confirm:
-            raise ValidationException(_("关键操作需二次确认"))
+            raise ValidationException("关键操作需二次确认")
 
         # 获取收款记录
         obj = self.get_payment(payment_id)
@@ -245,7 +243,7 @@ class ContractPaymentService(DjangoPermsMixin):
         if "amount" in data:
             new_amount = Decimal(str(data["amount"]))
             if new_amount <= 0:
-                raise ValidationException(_("收款金额需大于0"))
+                raise ValidationException("收款金额需大于0")
 
             # 合规校验:替换后累计不超过固定金额
             total_except = self._get_total_received(obj.contract_id, exclude_id=obj.id)
@@ -262,7 +260,7 @@ class ContractPaymentService(DjangoPermsMixin):
                         "fixed_amount": str(contract.fixed_amount),
                     },
                 )
-                raise ValidationException(_("累计收款超过合同固定金额"))
+                raise ValidationException("累计收款超过合同固定金额")
             obj.amount = new_amount
 
         # 更新收款日期
@@ -273,7 +271,7 @@ class ContractPaymentService(DjangoPermsMixin):
         if "invoiced_amount" in data or "invoice_status" in data:
             new_invoiced = Decimal(str(data.get("invoiced_amount", obj.invoiced_amount)))
             if new_invoiced < 0 or new_invoiced > obj.amount:
-                raise ValidationException(_("开票金额不能大于收款金额"))
+                raise ValidationException("开票金额不能大于收款金额")
 
             inv_status = self._calculate_invoice_status(
                 new_invoiced,
@@ -325,11 +323,11 @@ class ContractPaymentService(DjangoPermsMixin):
             ValidationException: 未二次确认
             NotFoundError: 收款不存在
         """
-        self.ensure_admin(user, perm_open_access=perm_open_access, message=_("无权限"))
+        self.ensure_admin(user, perm_open_access=perm_open_access, message="无权限")
 
         # 二次确认检查
         if not confirm:
-            raise ValidationException(_("关键操作需二次确认"))
+            raise ValidationException("关键操作需二次确认")
 
         # 获取收款记录
         obj = self.get_payment(payment_id)
@@ -367,7 +365,7 @@ class ContractPaymentService(DjangoPermsMixin):
         try:
             return Contract.objects.get(id=contract_id)
         except Contract.DoesNotExist:
-            raise NotFoundError(_("合同 %(id)s 不存在") % {"id": contract_id}) from None
+            raise NotFoundError("合同 %(id)s 不存在" % {"id": contract_id}) from None
 
     def _get_total_received(self, contract_id: int, exclude_id: int | None = None) -> Decimal:
         """

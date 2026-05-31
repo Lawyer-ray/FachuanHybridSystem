@@ -11,11 +11,9 @@ import pytest
 
 from apps.core.filesystem.inode_resolver import InodeResolver
 
-
 @pytest.fixture
 def resolver() -> InodeResolver:
     return InodeResolver()
-
 
 @pytest.fixture
 def tmp_dirs(tmp_path: Path):
@@ -28,7 +26,6 @@ def tmp_dirs(tmp_path: Path):
     (root / "dir_b" / "sub_b1").mkdir()
     (root / "dir_b" / "sub_b1" / "deep").mkdir()
     return root
-
 
 class TestGetInodeInfo:
     def test_returns_inode_and_device_for_existing_dir(self, resolver: InodeResolver, tmp_path: Path):
@@ -56,7 +53,6 @@ class TestGetInodeInfo:
         assert result is not None
         assert isinstance(result[0], int)
         assert isinstance(result[1], int)
-
 
 class TestFindPathByInode:
     def test_finds_immediate_child(self, resolver: InodeResolver, tmp_dirs: Path):

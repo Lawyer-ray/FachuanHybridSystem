@@ -4,98 +4,94 @@ from typing import ClassVar
 from uuid import uuid4
 
 from django.db import models
-from django.utils.translation import gettext_lazy as _
-
 
 class LegalResearchTaskStatus(models.TextChoices):
-    PENDING = "pending", _("待执行")
-    QUEUED = "queued", _("排队中")
-    RUNNING = "running", _("执行中")
-    COMPLETED = "completed", _("已完成")
-    FAILED = "failed", _("失败")
-    CANCELLED = "cancelled", _("已取消")
-
+    PENDING = "pending", "待执行"
+    QUEUED = "queued", "排队中"
+    RUNNING = "running", "执行中"
+    COMPLETED = "completed", "已完成"
+    FAILED = "failed", "失败"
+    CANCELLED = "cancelled", "已取消"
 
 class LegalResearchSearchMode(models.TextChoices):
-    EXPANDED = "expanded", _("扩展检索")
-    SINGLE = "single", _("单检索")
-
+    EXPANDED = "expanded", "扩展检索"
+    SINGLE = "single", "单检索"
 
 class LegalResearchTask(models.Model):
-    legacy_uuid = models.UUIDField(default=uuid4, editable=False, db_index=True, verbose_name=_("历史UUID"))
+    legacy_uuid = models.UUIDField(default=uuid4, editable=False, db_index=True, verbose_name="历史UUID")
     created_by = models.ForeignKey(
         "organization.Lawyer",
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
         related_name="legal_research_tasks",
-        verbose_name=_("创建人"),
+        verbose_name="创建人",
     )
     credential = models.ForeignKey(
         "organization.AccountCredential",
         on_delete=models.PROTECT,
         related_name="legal_research_tasks",
-        verbose_name=_("站点账号"),
+        verbose_name="站点账号",
     )
 
-    source = models.CharField(max_length=32, default="weike", verbose_name=_("数据源"))
-    search_url = models.URLField(max_length=2000, blank=True, verbose_name=_("WKInfo搜索URL"))
-    keyword = models.CharField(max_length=255, verbose_name=_("检索关键词"))
+    source = models.CharField(max_length=32, default="weike", verbose_name="数据源")
+    search_url = models.URLField(max_length=2000, blank=True, verbose_name="WKInfo搜索URL")
+    keyword = models.CharField(max_length=255, verbose_name="检索关键词")
     # 高级检索：JSON 数组，每项 {"field": "courtOpinion", "keyword": "逾期利息", "op": "AND"}
     # field 可选值：fullText / title / causeOfAction / courtOpinion / judgmentResult / disputeFocus / caseNumber
     # 为空时使用 keyword 字段做全文检索
     advanced_query = models.JSONField(
         default=list,
         blank=True,
-        verbose_name=_("高级检索条件"),
-        help_text=_('JSON 数组，例如：[{"field":"courtOpinion","keyword":"逾期利息","op":"AND"}]'),
+        verbose_name="高级检索条件",
+        help_text='JSON 数组，例如：[{"field":"courtOpinion","keyword":"逾期利息","op":"AND"}]',
     )
-    court_filter = models.CharField(max_length=128, blank=True, verbose_name=_("法院筛选"))
-    cause_of_action_filter = models.CharField(max_length=128, blank=True, verbose_name=_("案由筛选"))
-    date_from = models.CharField(max_length=10, blank=True, verbose_name=_("裁判日期起"))
-    date_to = models.CharField(max_length=10, blank=True, verbose_name=_("裁判日期止"))
-    case_summary = models.TextField(verbose_name=_("案情简述"))
+    court_filter = models.CharField(max_length=128, blank=True, verbose_name="法院筛选")
+    cause_of_action_filter = models.CharField(max_length=128, blank=True, verbose_name="案由筛选")
+    date_from = models.CharField(max_length=10, blank=True, verbose_name="裁判日期起")
+    date_to = models.CharField(max_length=10, blank=True, verbose_name="裁判日期止")
+    case_summary = models.TextField(verbose_name="案情简述")
     search_mode = models.CharField(
         max_length=16,
         choices=LegalResearchSearchMode.choices,
         default=LegalResearchSearchMode.EXPANDED,
-        verbose_name=_("检索模式"),
+        verbose_name="检索模式",
     )
-    target_count = models.PositiveIntegerField(default=3, verbose_name=_("目标案例数"))
-    max_candidates = models.PositiveIntegerField(default=100, verbose_name=_("最大扫描案例数"))
-    min_similarity_score = models.FloatField(default=0.9, verbose_name=_("最低相似度"))
+    target_count = models.PositiveIntegerField(default=3, verbose_name="目标案例数")
+    max_candidates = models.PositiveIntegerField(default=100, verbose_name="最大扫描案例数")
+    min_similarity_score = models.FloatField(default=0.9, verbose_name="最低相似度")
 
     status = models.CharField(
         max_length=16,
         choices=LegalResearchTaskStatus.choices,
         default=LegalResearchTaskStatus.PENDING,
-        verbose_name=_("状态"),
+        verbose_name="状态",
     )
-    progress = models.PositiveIntegerField(default=0, verbose_name=_("进度百分比"))
-    scanned_count = models.PositiveIntegerField(default=0, verbose_name=_("已扫描数"))
-    matched_count = models.PositiveIntegerField(default=0, verbose_name=_("已命中数"))
-    candidate_count = models.PositiveIntegerField(default=0, verbose_name=_("候选总数"))
+    progress = models.PositiveIntegerField(default=0, verbose_name="进度百分比")
+    scanned_count = models.PositiveIntegerField(default=0, verbose_name="已扫描数")
+    matched_count = models.PositiveIntegerField(default=0, verbose_name="已命中数")
+    candidate_count = models.PositiveIntegerField(default=0, verbose_name="候选总数")
 
-    message = models.CharField(max_length=255, blank=True, verbose_name=_("状态说明"))
-    error = models.TextField(blank=True, verbose_name=_("错误信息"))
+    message = models.CharField(max_length=255, blank=True, verbose_name="状态说明")
+    error = models.TextField(blank=True, verbose_name="错误信息")
 
-    llm_backend = models.CharField(max_length=64, default="", verbose_name=_("LLM后端"))
-    llm_model = models.CharField(max_length=128, blank=True, verbose_name=_("LLM模型"))
+    llm_backend = models.CharField(max_length=64, default="", verbose_name="LLM后端")
+    llm_model = models.CharField(max_length=128, blank=True, verbose_name="LLM模型")
     llm_scoring_concurrency = models.PositiveIntegerField(
         default=5,
-        verbose_name=_("LLM评分并发数"),
-        help_text=_("同时并发的 LLM 评分线程数。默认 5，kimi26 模型建议 100。"),
+        verbose_name="LLM评分并发数",
+        help_text="同时并发的 LLM 评分线程数。默认 5，kimi26 模型建议 100。",
     )
-    q_task_id = models.CharField(max_length=64, blank=True, verbose_name=_("DjangoQ任务ID"))
+    q_task_id = models.CharField(max_length=64, blank=True, verbose_name="DjangoQ任务ID")
 
-    started_at = models.DateTimeField(null=True, blank=True, verbose_name=_("开始时间"))
-    finished_at = models.DateTimeField(null=True, blank=True, verbose_name=_("完成时间"))
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name=_("创建时间"))
-    updated_at = models.DateTimeField(auto_now=True, verbose_name=_("更新时间"))
+    started_at = models.DateTimeField(null=True, blank=True, verbose_name="开始时间")
+    finished_at = models.DateTimeField(null=True, blank=True, verbose_name="完成时间")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="更新时间")
 
     class Meta:
-        verbose_name = _("案例检索任务")
-        verbose_name_plural = _("案例检索任务")
+        verbose_name = "案例检索任务"
+        verbose_name_plural = "案例检索任务"
         indexes: ClassVar = [
             models.Index(fields=["status", "-created_at"]),
             models.Index(fields=["credential", "-created_at"]),

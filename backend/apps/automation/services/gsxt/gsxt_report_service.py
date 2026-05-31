@@ -28,10 +28,8 @@ CHROME_PATH = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
 CHROME_USER_DATA_DIR = "/tmp/chrome_gsxt_profile"
 CAPTCHA_TIMEOUT = 180
 
-
 class GsxtReportError(Exception):
     """报告申请失败异常。"""
-
 
 def _ensure_chrome_running() -> None:
     """确保 Chrome 以调试模式运行。"""
@@ -55,7 +53,6 @@ def _ensure_chrome_running() -> None:
         )
     except RuntimeError as e:
         raise GsxtReportError("Chrome 启动失败，请先关闭所有 Chrome 窗口后重试") from e
-
 
 async def _cdp_navigate(url: str, wait_seconds: int = 8) -> str:
     """通过 CDP WebSocket 直接导航到目标 URL，避免 Playwright 注入自动化标记。"""
@@ -93,7 +90,6 @@ async def _cdp_navigate(url: str, wait_seconds: int = 8) -> str:
             if msg.get("id") == 3:
                 return str(msg.get("result", {}).get("result", {}).get("value", url))
 
-
 async def _wait_captcha_success(page: Any, captcha_selector: str, timeout: int = CAPTCHA_TIMEOUT) -> bool:
     deadline = asyncio.get_event_loop().time() + timeout
     while asyncio.get_event_loop().time() < deadline:
@@ -108,7 +104,6 @@ async def _wait_captcha_success(page: Any, captcha_selector: str, timeout: int =
         except Exception:
             return False
     return False
-
 
 async def _click_company_detail(page: Any, company_name: str, context: Any) -> Any:
     """点击搜索结果中的企业链接，返回详情页 Page。
@@ -207,7 +202,6 @@ async def _click_company_detail(page: Any, company_name: str, context: Any) -> A
             continue
 
     raise GsxtReportError("详情页未打开，可能被 WAF 拦截")
-
 
 async def _run_full_flow(task_id: int) -> None:
     """独立报告流程（逆向登录成功后，需要 Playwright 搜索+申请报告）。"""
@@ -358,7 +352,6 @@ async def _run_full_flow(task_id: int) -> None:
             await save_task(task, ["status", "error_message"])
             logger.exception("任务 %d 失败: %s", task_id, e)
 
-
 def start_report_flow(task_id: int) -> None:
     """非阻塞入口。"""
 
@@ -368,7 +361,6 @@ def start_report_flow(task_id: int) -> None:
     t = threading.Thread(target=_run, daemon=True)
     t.start()
     logger.info("报告申请后台线程已启动，task_id=%d", task_id)
-
 
 class GsxtReportService:
     """Class-based facade for GSXT report workflow."""

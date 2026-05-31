@@ -3,16 +3,13 @@
 from __future__ import annotations
 
 from django.db import models
-from django.utils.translation import gettext_lazy as _
-
 
 class ArchiveCategory(models.TextChoices):
     """归档分类"""
 
-    NON_LITIGATION = "non_litigation", _("法律顾问及非诉事务")
-    LITIGATION = "litigation", _("诉讼/仲裁")
-    CRIMINAL = "criminal", _("刑事案件")
-
+    NON_LITIGATION = "non_litigation", "法律顾问及非诉事务"
+    LITIGATION = "litigation", "诉讼/仲裁"
+    CRIMINAL = "criminal", "刑事案件"
 
 # 合同类型 → 归档分类映射
 _CONTRACT_TYPE_TO_ARCHIVE_CATEGORY: dict[str, str] = {
@@ -27,7 +24,6 @@ _CONTRACT_TYPE_TO_ARCHIVE_CATEGORY: dict[str, str] = {
     # 刑事案件
     "criminal": ArchiveCategory.CRIMINAL,
 }
-
 
 def get_archive_category(case_type: str) -> str:
     """

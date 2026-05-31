@@ -4,7 +4,6 @@ from __future__ import annotations
 
 """文档依赖聚合入口 — 按功能拆分为 query / generation 子模块,此文件保留为 re-export 入口."""
 
-
 from .documents_generation import (
     build_contract_generation_service,
     build_contract_generation_service_with_deps,

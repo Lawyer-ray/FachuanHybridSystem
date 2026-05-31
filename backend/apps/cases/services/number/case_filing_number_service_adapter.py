@@ -6,7 +6,6 @@ from typing import Any
 
 from apps.core.interfaces import ICaseFilingNumberService
 
-
 class CaseFilingNumberServiceAdapter(ICaseFilingNumberService):
     def __init__(self, service: Any | None = None) -> None:
         self._service = service

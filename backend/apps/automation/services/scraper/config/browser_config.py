@@ -12,12 +12,10 @@ from typing import Any
 
 logger = logging.getLogger("apps.automation")
 
-
 class ConfigurationError(ValueError):
     """配置验证错误"""
 
     pass
-
 
 @dataclass
 class BrowserConfig:

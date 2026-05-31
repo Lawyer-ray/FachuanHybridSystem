@@ -5,7 +5,6 @@
 
 from typing import Any
 
-from django.utils.translation import gettext_lazy as _
 from ninja import File, Router
 from ninja.files import UploadedFile
 
@@ -15,12 +14,10 @@ from apps.core.infrastructure.throttling import rate_limit_from_settings
 
 router = Router(tags=["自动命名"])
 
-
 def _get_auto_namer_service() -> Any:
     from apps.core.dependencies import build_auto_namer_service
 
     return build_auto_namer_service()
-
 
 @router.post("/process", response=AutoToolProcessOut)
 @rate_limit_from_settings("UPLOAD")
@@ -45,7 +42,6 @@ def auto_namer_process(
         text=result.get("text"), ollama_response=result.get("ollama_response"), error=result.get("error")
     )
 
-
 @router.post("/process-by-path", response=AutoToolProcessOut)
 @rate_limit_from_settings("UPLOAD")
 def auto_namer_process_by_path(request: Any, payload: AutoToolProcessIn) -> AutoToolProcessOut:
@@ -61,7 +57,7 @@ def auto_namer_process_by_path(request: Any, payload: AutoToolProcessIn) -> Auto
         return AutoToolProcessOut(
             text=None,
             ollama_response=None,
-            error=_("文件不存在: %(path)s") % {"path": payload.file_path},
+            error="文件不存在: %(path)s" % {"path": payload.file_path},
         )
 
     from apps.automation.services.document.document_processing import extract_document_content
@@ -71,7 +67,7 @@ def auto_namer_process_by_path(request: Any, payload: AutoToolProcessIn) -> Auto
     text_value = (extraction.text or "").strip()
     if not text_value:
         return AutoToolProcessOut(
-            text=None, ollama_response=None, error=str(_("文档中没有提取到文字内容，无法生成命名"))
+            text=None, ollama_response=None, error=str("文档中没有提取到文字内容，无法生成命名")
         )
 
     # 调用服务生成文件名

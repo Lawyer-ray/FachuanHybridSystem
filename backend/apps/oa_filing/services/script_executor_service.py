@@ -15,7 +15,6 @@ _executor = ThreadPoolExecutor(max_workers=2)
 # 系统支持的 OA 站点（site_name 需与账号密码管理中的「网站名称」一致）
 SUPPORTED_SITES: list[str] = ["金诚同达OA"]
 
-
 class ScriptExecutorService:
     """OA 立案执行服务。按 site_name 分发到对应律所脚本。"""
 

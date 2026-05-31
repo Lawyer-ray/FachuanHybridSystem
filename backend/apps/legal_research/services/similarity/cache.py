@@ -17,7 +17,6 @@ SEMANTIC_EMBEDDING_CACHE_PREFIX = "legal_research:semantic_embedding"
 SEMANTIC_VECTOR_LOCAL_CACHE_MAX_SIZE = 2048
 SEMANTIC_EMBEDDING_TEXT_MAX_CHARS = 1400
 
-
 def build_similarity_cache_key(
     *,
     mode: str,
@@ -48,19 +47,16 @@ def build_similarity_cache_key(
     digest = hashlib.sha256(serialized.encode("utf-8")).hexdigest()
     return f"{SIMILARITY_CACHE_PREFIX}:{digest}"
 
-
 def build_semantic_embedding_cache_key(*, model: str, text: str) -> str:
     raw = f"{model}|{text}"
     digest = hashlib.sha256(raw.encode("utf-8")).hexdigest()
     return f"{SEMANTIC_EMBEDDING_CACHE_PREFIX}:{digest}"
-
 
 def normalize_embedding_text(text: str) -> str:
     normalized = re.sub(r"\s+", " ", (text or "")).strip()
     if not normalized:
         return ""
     return normalized[:SEMANTIC_EMBEDDING_TEXT_MAX_CHARS]
-
 
 def serialize_similarity_result(result: Any) -> dict[str, Any]:
     return {
@@ -69,7 +65,6 @@ def serialize_similarity_result(result: Any) -> dict[str, Any]:
         "model": str(result.model or ""),
         "metadata": result.metadata if isinstance(result.metadata, dict) else {},
     }
-
 
 def deserialize_similarity_result(payload: dict[str, Any], *, result_class: type) -> Any | None:
     try:
@@ -88,7 +83,6 @@ def deserialize_similarity_result(payload: dict[str, Any], *, result_class: type
         metadata=metadata,
     )
 
-
 def coerce_float_list(value: Any) -> list[float]:
     if not isinstance(value, list):
         return []
@@ -99,7 +93,6 @@ def coerce_float_list(value: Any) -> list[float]:
         except (TypeError, ValueError):
             return []
     return out
-
 
 class SimilarityCacheManager:
     """管理相似度评分的本地缓存 + Django 共享缓存."""
@@ -163,7 +156,6 @@ class SimilarityCacheManager:
         self._local_cache.move_to_end(cache_key, last=True)
         while len(self._local_cache) > self._local_cache_max_size:
             self._local_cache.popitem(last=False)
-
 
 class SemanticVectorCacheManager:
     """管理语义向量的本地缓存 + Django 共享缓存."""

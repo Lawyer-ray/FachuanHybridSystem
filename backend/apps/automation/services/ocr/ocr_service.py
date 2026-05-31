@@ -20,7 +20,6 @@ from typing import Any
 
 from PIL import Image
 
-
 @dataclass(frozen=True)
 class OCRTextResult:
     """OCR 文本识别结果"""
@@ -28,12 +27,10 @@ class OCRTextResult:
     text: str  # 合并后的文本(用 | 分隔)
     raw_texts: list[str]  # 原始文本列表
 
-
 logger = logging.getLogger(__name__)
 
 # 全局 OCR 引擎实例缓存(按模型档位区分,避免 fast/accurate 串用同一引擎)
 _ocr_engine_cache: dict[bool, Any] = {}
-
 
 def get_ocr_engine(use_v5: bool = True) -> Any:
     """
@@ -76,13 +73,11 @@ def get_ocr_engine(use_v5: bool = True) -> Any:
 
     return _ocr_engine_cache[use_v5]
 
-
 def _get_ocr_provider() -> str:
     """从 SystemConfig 获取 OCR 提供者"""
     from apps.core.services.system_config_service import SystemConfigService
 
     return str(SystemConfigService().get_value("OCR_PROVIDER", "local") or "local")
-
 
 class OCRService:
     """OCR 服务类 - 统一路由层"""

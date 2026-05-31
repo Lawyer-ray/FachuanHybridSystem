@@ -7,7 +7,6 @@ import pytest
 from apps.core.exceptions import ChatCreationException, ConfigurationException, MessageSendException
 from apps.core.models.enums import ChatPlatform
 
-
 @pytest.fixture
 def mock_config():
     """Telegram 完整配置"""
@@ -17,7 +16,6 @@ def mock_config():
         "TIMEOUT": 30,
     }
 
-
 @pytest.fixture
 def mock_incomplete_config():
     """Telegram 不完整配置"""
@@ -26,7 +24,6 @@ def mock_incomplete_config():
         # 缺少 SUPERGROUP_ID
         "TIMEOUT": 30,
     }
-
 
 class TestTelegramProviderPlatform:
     """测试 Telegram Provider 基本属性"""
@@ -66,7 +63,6 @@ class TestTelegramProviderPlatform:
 
         provider = TelegramProvider()
         assert provider.is_available() is False
-
 
 class TestTelegramProviderCreateChat:
     """测试 Telegram 创建话题（一案一群）"""
@@ -166,7 +162,6 @@ class TestTelegramProviderCreateChat:
         assert parts[0] == "-1001234567890"
         assert parts[1] == "99"
 
-
 class TestTelegramProviderSendMessage:
     """测试 Telegram 发送消息"""
 
@@ -251,7 +246,6 @@ class TestTelegramProviderSendMessage:
         with pytest.raises(MessageSendException):
             provider.send_message("-1001234567890:42", MessageContent(title="通知", text="内容"))
 
-
 class TestTelegramProviderGetChatInfo:
     """测试 Telegram 获取群聊信息"""
 
@@ -281,7 +275,6 @@ class TestTelegramProviderGetChatInfo:
         assert result.chat_name == "法穿案件群"
         # 验证话题信息附加到了 raw_response
         assert result.raw_response["topic_info"]["message_thread_id"] == 42
-
 
 class TestTelegramProviderParseChatId:
     """测试 Telegram chat_id 解析"""
@@ -315,7 +308,6 @@ class TestTelegramProviderParseChatId:
         chat_id, thread_id = provider._parse_chat_id("-1001234567890:invalid")
         assert chat_id == "-1001234567890:invalid"
         assert thread_id is None
-
 
 class TestTelegramProviderFactory:
     """测试 Telegram Provider 工厂注册"""

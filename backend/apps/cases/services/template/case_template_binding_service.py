@@ -11,7 +11,6 @@ from collections import defaultdict
 from typing import TYPE_CHECKING, Any, cast
 
 from django.db import transaction
-from django.utils.translation import gettext_lazy as _
 
 from apps.core.exceptions import ConflictError
 
@@ -23,7 +22,6 @@ if TYPE_CHECKING:
     from apps.core.interfaces import IDocumentService
 
 logger = logging.getLogger(__name__)
-
 
 class CaseTemplateBindingService:
     """案件模板绑定服务"""
@@ -176,7 +174,7 @@ class CaseTemplateBindingService:
             from apps.core.exceptions import NotFoundError
 
             raise NotFoundError(
-                message=_("模板不存在"),
+                message="模板不存在",
                 code="TEMPLATE_NOT_FOUND",
                 errors={"template_id": f"ID 为 {template_id} 的模板不存在"},
             )
@@ -184,7 +182,7 @@ class CaseTemplateBindingService:
         # 检查是否已绑定
         if self.repo.exists_binding(case_id, template_id):
             raise ConflictError(
-                message=_("绑定关系已存在"),
+                message="绑定关系已存在",
                 code="BINDING_ALREADY_EXISTS",
                 errors={"template_id": f"模板 {template_id} 已绑定到该案件"},
             )
@@ -232,9 +230,9 @@ class CaseTemplateBindingService:
         # 检查是否为自动推荐的绑定 (Requirements 3.4)
         if binding.binding_source == BindingSource.AUTO_RECOMMENDED:
             raise ValidationException(
-                message=_("自动推荐的模板不能手动移除"),
+                message="自动推荐的模板不能手动移除",
                 code="CANNOT_DELETE_AUTO_RECOMMENDED",
-                errors={"binding_id": str(_("自动推荐的绑定不允许删除"))},
+                errors={"binding_id": str("自动推荐的绑定不允许删除")},
             )
 
         template_id = binding.template_id
@@ -342,7 +340,7 @@ class CaseTemplateBindingService:
                         "name": t.name,
                         "function_code": getattr(t, "function_code", None),
                         "binding_source": "general",
-                        "binding_source_display": str(_("通用")),
+                        "binding_source_display": str("通用"),
                     }
                 )
 

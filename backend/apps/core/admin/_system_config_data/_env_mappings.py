@@ -4,7 +4,6 @@ from typing import Any
 
 __all__ = ["get_env_mappings"]
 
-
 def get_env_mappings() -> dict[str, dict[str, Any]]:
     """获取环境变量到配置的映射"""
     return {

@@ -11,8 +11,6 @@ import logging
 from datetime import datetime
 from typing import Any
 
-from django.utils.translation import gettext_lazy as _
-
 from apps.core.exceptions import RecognitionTimeoutError, ServiceUnavailableError
 from apps.core.interfaces import ServiceLocator
 from apps.core.llm.config import LLMConfig
@@ -24,16 +22,13 @@ from ._response_parser_mixin import ResponseParserMixin
 
 logger = logging.getLogger("apps.document_recognition")
 
-
 def get_ollama_model() -> str:
     """兼容旧测试与调用方：保留模块级配置读取入口。"""
     return LLMConfig.get_ollama_model()
 
-
 def get_ollama_base_url() -> str:
     """兼容旧测试与调用方：保留模块级配置读取入口。"""
     return LLMConfig.get_ollama_base_url()
-
 
 def chat(
     *,
@@ -54,7 +49,6 @@ def chat(
         **kwargs,
     )
     return {"message": {"content": llm_response.content}}
-
 
 class InfoExtractor(CaseNumberMixin, DatetimeExtractionMixin, ResponseParserMixin):
     """
@@ -255,7 +249,7 @@ class InfoExtractor(CaseNumberMixin, DatetimeExtractionMixin, ResponseParserMixi
                 extra={"action": "extract_execution_info", "error_type": "connection_error", "error": str(e)},
             )
             raise ServiceUnavailableError(
-                message=_("AI 服务暂时不可用，请稍后重试"),
+                message="AI 服务暂时不可用，请稍后重试",
                 code="OLLAMA_SERVICE_UNAVAILABLE",
                 errors={"service": "Ollama 服务连接失败"},
                 service_name="Ollama",
@@ -266,7 +260,7 @@ class InfoExtractor(CaseNumberMixin, DatetimeExtractionMixin, ResponseParserMixi
                 extra={"action": "extract_execution_info", "error_type": "timeout_error", "error": str(e)},
             )
             raise RecognitionTimeoutError(
-                message=_("信息提取超时，请重试"),
+                message="信息提取超时，请重试",
                 code="EXTRACTION_TIMEOUT",
                 errors={"timeout": "AI 提取超时"},
             ) from e

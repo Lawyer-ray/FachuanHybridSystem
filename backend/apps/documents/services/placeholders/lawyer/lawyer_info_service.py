@@ -12,7 +12,6 @@ from apps.documents.services.placeholders.registry import PlaceholderRegistry
 
 logger = logging.getLogger(__name__)
 
-
 @PlaceholderRegistry.register
 class LawyerInfoService(BasePlaceholderService):
     """律师信息服务"""

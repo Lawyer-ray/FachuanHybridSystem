@@ -26,7 +26,6 @@ _PROVIDER_REGISTRY: dict[str, type[CalendarEventProvider]] = {
     "ics_url": IcsUrlProvider,  # type: ignore[dict-item]
 }
 
-
 def _lazy_registry() -> dict[str, type[CalendarEventProvider]]:
     """Return the provider registry, lazily loading platform-specific providers."""
     registry: dict[str, type[CalendarEventProvider]] = dict(_PROVIDER_REGISTRY)
@@ -40,7 +39,6 @@ def _lazy_registry() -> dict[str, type[CalendarEventProvider]]:
         registry["windows"] = WindowsOutlookProvider  # type: ignore[assignment]
     return registry
 
-
 def get_provider(name: str) -> CalendarEventProvider:
     """Return a provider instance by name. Raises KeyError if not found."""
     registry = _lazy_registry()
@@ -49,7 +47,6 @@ def get_provider(name: str) -> CalendarEventProvider:
         available = ", ".join(sorted(registry.keys()))
         raise KeyError(f"Unknown provider '{name}'. Available: {available}")
     return cls()
-
 
 def get_available_providers() -> list[dict[str, str]]:
     """Return a list of currently available providers with labels."""

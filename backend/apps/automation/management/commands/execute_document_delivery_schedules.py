@@ -16,9 +16,7 @@ from django.utils import timezone
 
 logger = logging.getLogger("apps.automation")
 
-
 from typing import Any
-
 
 class Command(BaseCommand):
     help = "执行到期的文书送达定时任务"

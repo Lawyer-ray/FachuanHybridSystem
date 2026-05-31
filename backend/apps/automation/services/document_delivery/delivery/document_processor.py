@@ -13,8 +13,6 @@ from datetime import date
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional, cast
 
-from django.utils.translation import gettext_lazy as _
-
 from apps.automation.models import DocumentQueryHistory
 from apps.automation.services.document_delivery.data_classes import DocumentDeliveryRecord, DocumentProcessResult
 from apps.core.interfaces import ServiceLocator
@@ -25,7 +23,6 @@ if TYPE_CHECKING:
     from apps.automation.services.sms.sms_notification_service import SMSNotificationService
 
 logger = logging.getLogger("apps.automation")
-
 
 class DocumentProcessor:
     """文书处理器"""
@@ -301,7 +298,7 @@ class DocumentProcessor:
                         logger.info(f"通知发送成功: SMS ID={sms_id}")
                     else:
                         sms.status = CourtSMSStatus.FAILED
-                        sms.error_message = str(_("通知发送失败"))
+                        sms.error_message = str("通知发送失败")
                         sms_id = sms.id
                         logger.warning(f"通知发送失败: SMS ID={sms_id}")
 

@@ -16,7 +16,6 @@ logger = logging.getLogger(__name__)
 _ALLOWED_EXTENSIONS = [".pdf", ".jpg", ".jpeg", ".png"]
 _MAX_SIZE_BYTES = 20 * 1024 * 1024
 
-
 class InvoiceUploadService:
     def save_invoice_file(self, uploaded_file: Any, payment_id: int) -> Invoice:
         """保存发票文件并创建 Invoice 记录。文件保存失败时抛出异常，不创建 DB 记录。"""

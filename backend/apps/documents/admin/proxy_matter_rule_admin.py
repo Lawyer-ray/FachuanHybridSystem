@@ -9,7 +9,6 @@ from django import forms
 from django.contrib import admin, messages
 from django.http import HttpResponseRedirect
 from django.urls import path, reverse
-from django.utils.translation import gettext_lazy as _
 
 from apps.core.models.enums import LegalStatus, SimpleCaseType
 from apps.documents.models import ProxyMatterRule
@@ -17,10 +16,8 @@ from apps.documents.services.proxy_matter_rule_init_service import ProxyMatterRu
 
 logger = logging.getLogger(__name__)
 
-
 def _get_proxy_matter_rule_init_service() -> ProxyMatterRuleInitService:
     return ProxyMatterRuleInitService()
-
 
 class ProxyMatterRuleAdminForm(forms.ModelForm[ProxyMatterRule]):
     case_types_field = forms.MultipleChoiceField(
@@ -59,7 +56,6 @@ class ProxyMatterRuleAdminForm(forms.ModelForm[ProxyMatterRule]):
         if commit:
             instance.save()
         return instance
-
 
 @admin.register(ProxyMatterRule)
 class ProxyMatterRuleAdmin(admin.ModelAdmin):
@@ -109,7 +105,7 @@ class ProxyMatterRuleAdmin(admin.ModelAdmin):
             result = _get_proxy_matter_rule_init_service().initialize_defaults()
         except Exception as exc:
             logger.exception("初始化代理事项规则失败")
-            messages.error(request, _("初始化失败：%(error)s") % {"error": str(exc)})
+            messages.error(request, "初始化失败：%(error)s" % {"error": str(exc)})
             return HttpResponseRedirect(reverse("admin:documents_proxymatterrule_changelist"))
 
         created = int(result.get("created", 0))
@@ -118,10 +114,10 @@ class ProxyMatterRuleAdmin(admin.ModelAdmin):
         if created > 0 or updated > 0:
             messages.success(
                 request,
-                _("初始化完成：新增 %(created)d 条，更新 %(updated)d 条") % {"created": created, "updated": updated},
+                "初始化完成：新增 %(created)d 条，更新 %(updated)d 条" % {"created": created, "updated": updated},
             )
         else:
-            messages.info(request, _("初始化完成：所有初始化数据已存在，无需变更"))
+            messages.info(request, "初始化完成：所有初始化数据已存在，无需变更")
 
         return HttpResponseRedirect(reverse("admin:documents_proxymatterrule_changelist"))
 
@@ -130,10 +126,10 @@ class ProxyMatterRuleAdmin(admin.ModelAdmin):
         extra_context["initialize_url"] = reverse("admin:documents_proxymatterrule_initialize")
         return super().changelist_view(request, extra_context=extra_context)
 
-    @admin.display(description=_("案件类型"))
+    @admin.display(description="案件类型")
     def case_types_display(self, obj: ProxyMatterRule) -> str:
         return obj.get_case_types_display() or "任意"
 
-    @admin.display(description=_("我方诉讼地位"))
+    @admin.display(description="我方诉讼地位")
     def legal_statuses_display(self, obj: ProxyMatterRule) -> str:
         return obj.get_legal_statuses_display() or "任意"

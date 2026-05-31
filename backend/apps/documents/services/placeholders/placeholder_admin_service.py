@@ -18,7 +18,6 @@ from apps.documents.services.code_placeholders.registry import CodePlaceholderDe
 
 logger = logging.getLogger("apps.documents")
 
-
 class PlaceholderAdminService:
     """占位符 Admin 服务"""
 

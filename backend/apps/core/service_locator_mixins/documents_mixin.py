@@ -17,7 +17,6 @@ if TYPE_CHECKING:
         ISupplementaryAgreementGenerationService,
     )
 
-
 class DocumentsServiceLocatorMixin(_ServiceLocatorStub):
     @classmethod
     def get_evidence_service(cls) -> Any:

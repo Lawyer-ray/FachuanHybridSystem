@@ -63,7 +63,6 @@ from .external import (
     TokenError,
 )
 
-
 def __getattr__(name: str) -> object:
     if name == "AutomationExceptions":
         import warnings
@@ -78,14 +77,12 @@ def __getattr__(name: str) -> object:
         return _AutomationExceptions
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
-
 # 异常处理器 - 延迟导入避免 Django 配置问题
 def register_exception_handlers(*args: Any, **kwargs: Any) -> None:
     """延迟导入异常处理器"""
     from .handlers import register_exception_handlers as _register
 
     return _register(*args, **kwargs)
-
 
 __all__ = [
     # 基础异常

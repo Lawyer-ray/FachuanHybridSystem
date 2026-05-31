@@ -11,7 +11,6 @@ from .base import CalendarEvent, CalendarEventProvider
 
 logger = logging.getLogger(__name__)
 
-
 class IcsFileProvider:
     """Parse .ics file content into CalendarEvent objects."""
 

@@ -8,7 +8,6 @@ from django import forms
 
 from apps.evidence.models import EvidenceList
 
-
 class EvidenceListForm(forms.ModelForm[EvidenceList]):
     class Meta:
         model = EvidenceList
@@ -19,6 +18,5 @@ class EvidenceListForm(forms.ModelForm[EvidenceList]):
 
         if "list_type" in self.fields:
             self.fields["list_type"].disabled = True
-
 
 __all__: list[str] = ["EvidenceListForm"]

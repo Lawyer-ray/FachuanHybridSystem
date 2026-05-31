@@ -16,12 +16,10 @@ logger = logging.getLogger("apps.preservation_date")
 
 router = Router(tags=["财产保全日期识别"])
 
-
 def _format_date(value: datetime | None) -> str | None:
     if value is None:
         return None
     return value.strftime("%Y-%m-%d")
-
 
 def _serialize_result(result: PreservationExtractionResult) -> dict[str, Any]:
     return {
@@ -54,7 +52,6 @@ def _serialize_result(result: PreservationExtractionResult) -> dict[str, Any]:
         "raw_response": result.raw_response,
     }
 
-
 @router.post("/extract")
 @rate_limit_from_settings("UPLOAD", by_user=True)
 def extract_preservation_date(
@@ -65,7 +62,6 @@ def extract_preservation_date(
     service = PreservationDateExtractionService()
     result = service.extract_from_uploaded_file(file.chunks(), file.name or "upload.pdf")
     return _serialize_result(result)
-
 
 @router.post("/extract-text")
 @rate_limit_from_settings("UPLOAD", by_user=False)

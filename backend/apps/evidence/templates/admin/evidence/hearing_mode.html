@@ -1,7 +1,6 @@
 {% extends "admin/base_site.html" %}
-{% load i18n %}
 
-{% block title %}{% trans "开庭模式" %} - {{ case_name }}{% endblock %}
+{% block title %}{ - {{ case_name }}{% endblock %}
 
 {% block extrahead %}
 {{ block.super }}
@@ -53,21 +52,21 @@
   <div class="hm-header">
     <h1>⚖️ {{ case_name }}</h1>
     <div class="hm-jump">
-      <input type="number" id="jumpInput" placeholder="{% trans '编号' %}" min="1" title="{% trans '输入证据编号快速跳转' %}">
+      <input type="number" id="jumpInput" placeholder="{" min="1" title="{">
     </div>
     <div class="hm-search">
-      <input type="text" id="searchInput" placeholder="{% trans '搜索证据名称、证明目的、OCR文本...' %}">
+      <input type="text" id="searchInput" placeholder="{">
     </div>
   </div>
   <div class="hm-filters">
     <select id="filterDirection">
-      <option value="">{% trans "全部方向" %}</option>
-      <option value="our">{% trans "我方证据" %}</option>
-      <option value="opponent">{% trans "对方证据" %}</option>
-      <option value="court">{% trans "法院调取" %}</option>
+      <option value="">{</option>
+      <option value="our">{</option>
+      <option value="opponent">{</option>
+      <option value="court">{</option>
     </select>
     <select id="filterType">
-      <option value="">{% trans "全部类型" %}</option>
+      <option value="">{</option>
       {% for val, label in evidence_types %}
       <option value="{{ val }}">{{ label }}</option>
       {% endfor %}
@@ -89,34 +88,34 @@
         <span class="hm-order">{{ item.global_order }}</span>
         <span class="hm-name">{{ item.name }}</span>
         <div class="hm-badges">
-          {% if item.direction == "opponent" %}<span class="hm-badge opponent">{% trans "对方" %}</span>{% endif %}
-          {% if item.direction == "court" %}<span class="hm-badge">{% trans "法院调取" %}</span>{% endif %}
+          {% if item.direction == "opponent" %}<span class="hm-badge opponent">{</span>{% endif %}
+          {% if item.direction == "court" %}<span class="hm-badge">{</span>{% endif %}
           {% if item.evidence_type %}<span class="hm-badge">{{ item.evidence_type_display }}</span>{% endif %}
-          {% if item.original_status == "has_original" %}<span class="hm-badge original">{% trans "有原件" %}</span>{% endif %}
+          {% if item.original_status == "has_original" %}<span class="hm-badge original">{</span>{% endif %}
         </div>
       </div>
       <div class="hm-purpose">{{ item.purpose }}</div>
       <div class="hm-meta">
-        {% if item.page_range %}<span>📄 {% trans "页码" %}: {{ item.page_range }}</span>{% endif %}
-        {% if item.page_count %}<span>{{ item.page_count }}{% trans "页" %}</span>{% endif %}
+        {% if item.page_range %}<span>📄 {: {{ item.page_range }}</span>{% endif %}
+        {% if item.page_count %}<span>{{ item.page_count }}{</span>{% endif %}
         {% if item.original_location %}<span>📍 {{ item.original_location }}</span>{% endif %}
       </div>
       <div class="hm-detail">
         {% if item.three_properties %}
         <div class="hm-detail-section">
-          <h4>{% trans "三性说明" %}</h4>
+          <h4>{</h4>
           <p>{{ item.three_properties_display }}</p>
         </div>
         {% endif %}
         {% if item.cross_examination %}
         <div class="hm-detail-section">
-          <h4>{% trans "质证意见" %}</h4>
+          <h4>{</h4>
           <p>{{ item.cross_examination_display }}</p>
         </div>
         {% endif %}
         {% if item.ocr_text %}
         <div class="hm-detail-section">
-          <h4>{% trans "OCR文本" %}</h4>
+          <h4>{</h4>
           <p style="max-height:200px;overflow-y:auto;white-space:pre-wrap;font-size:0.85rem;">{{ item.ocr_text }}</p>
         </div>
         {% endif %}
@@ -126,10 +125,10 @@
   </div>
 
   <div class="hm-note-area">
-    <h3>📝 {% trans "庭审笔记" %}</h3>
-    <textarea id="noteContent" placeholder="{% trans '记录法官提问、我方回答...' %}"></textarea>
-    <button onclick="saveNote()">{% trans "保存笔记" %}</button>
-    <span id="noteSaved" style="color:green;margin-left:10px;display:none;">✓ {% trans "已保存" %}</span>
+    <h3>📝 {</h3>
+    <textarea id="noteContent" placeholder="{"></textarea>
+    <button onclick="saveNote()">{</button>
+    <span id="noteSaved" style="color:green;margin-left:10px;display:none;">✓ {</span>
   </div>
 </div>
 

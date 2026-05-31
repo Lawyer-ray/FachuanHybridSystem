@@ -8,7 +8,6 @@ from typing import Any
 from apps.documents.models import FolderTemplate
 from apps.documents.usecases.folder_template.folder_template_usecases import FolderTemplateUsecases
 
-
 class FolderTemplateService:
     """
     文件夹模板服务

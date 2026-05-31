@@ -2,7 +2,6 @@ from typing import Any
 
 from apps.core.interfaces import ServiceLocator
 
-
 def chat(model: str, messages: list[dict[str, Any]], base_url: str | None = None) -> dict[str, Any]:
     """
     兼容旧接口：通过统一 LLM 服务调用 Ollama 聊天。

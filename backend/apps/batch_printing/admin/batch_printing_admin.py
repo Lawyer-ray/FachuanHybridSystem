@@ -8,7 +8,6 @@ from django.http import HttpRequest
 from django.template.response import TemplateResponse
 from django.utils.html import format_html
 from django.utils.safestring import SafeString
-from django.utils.translation import gettext_lazy as _
 
 from apps.batch_printing.models import (
     BatchPrintingTool,
@@ -18,7 +17,6 @@ from apps.batch_printing.models import (
     PrintPresetSnapshot,
 )
 from apps.batch_printing.services.wiring import get_rule_service
-
 
 class PrintKeywordRuleAdminForm(forms.ModelForm):
     class Meta:
@@ -31,7 +29,6 @@ class PrintKeywordRuleAdminForm(forms.ModelForm):
         if preset_field is not None:
             preset_field.queryset = PrintPresetSnapshot.objects.order_by("printer_name", "preset_name")
             preset_field.help_text = "只需选择打印预置，实际打印机会自动取该预置所属打印机，无需单独选择。"
-
 
 @admin.register(BatchPrintingTool)
 class BatchPrintingToolAdmin(admin.ModelAdmin):
@@ -60,7 +57,6 @@ class BatchPrintingToolAdmin(admin.ModelAdmin):
     def get_model_perms(self, request: HttpRequest) -> dict[str, bool]:
         return {"view": True}
 
-
 @admin.register(PrintPresetSnapshot)
 class PrintPresetSnapshotAdmin(admin.ModelAdmin):
     list_display = ["printer_name", "preset_name", "last_synced_at", "updated_at"]
@@ -83,7 +79,6 @@ class PrintPresetSnapshotAdmin(admin.ModelAdmin):
     def has_add_permission(self, request: HttpRequest) -> bool:
         return False
 
-
 @admin.register(PrintKeywordRule)
 class PrintKeywordRuleAdmin(admin.ModelAdmin):
     form = PrintKeywordRuleAdminForm
@@ -99,13 +94,12 @@ class PrintKeywordRuleAdmin(admin.ModelAdmin):
             return "保存后会自动同步为所选预置所属打印机"
         return obj.preset_snapshot.printer_name
 
-    resolved_printer_name.short_description = _("实际打印机")  # type: ignore[attr-defined]
+    resolved_printer_name.short_description = "实际打印机"  # type: ignore[attr-defined]
 
     def save_model(self, request: HttpRequest, obj: PrintKeywordRule, form: forms.ModelForm, change: bool) -> None:
         if obj.preset_snapshot_id:
             get_rule_service().sync_printer_name_from_preset(rule=obj)
         super().save_model(request, obj, form, change)
-
 
 class BatchPrintItemInline(admin.TabularInline[BatchPrintItem]):
     model = BatchPrintItem
@@ -124,7 +118,6 @@ class BatchPrintItemInline(admin.TabularInline[BatchPrintItem]):
         "started_at",
         "finished_at",
     ]
-
 
 @admin.register(BatchPrintJob)
 class BatchPrintJobAdmin(admin.ModelAdmin):
@@ -178,4 +171,4 @@ class BatchPrintJobAdmin(admin.ModelAdmin):
         color = color_map.get(obj.status, "#546e7a")
         return format_html('<span style="color:{};font-weight:700;">{}</span>', color, obj.get_status_display())
 
-    status_display.short_description = _("状态")  # type: ignore[attr-defined]
+    status_display.short_description = "状态"  # type: ignore[attr-defined]

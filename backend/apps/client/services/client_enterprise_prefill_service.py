@@ -8,7 +8,6 @@ from apps.client.models import Client
 from apps.core.exceptions import ValidationException
 from apps.enterprise_data.services import EnterpriseDataService
 
-
 class ClientEnterprisePrefillService:
     """基于 enterprise_data 的企业信息预填聚合服务。"""
 

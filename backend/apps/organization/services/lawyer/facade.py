@@ -7,7 +7,7 @@ LawyerService 门面类
 from __future__ import annotations
 
 from django.db.models import QuerySet
-from django.utils.translation import gettext_lazy as _
+
 from ninja.files import UploadedFile
 
 from apps.core.exceptions import AuthenticationError
@@ -18,7 +18,6 @@ from apps.organization.services.access.organization_access_policy import Organiz
 from .mutation import LawyerMutationService
 from .query import LawyerQueryService
 from .upload import LawyerUploadService
-
 
 class LawyerService:
     """
@@ -41,7 +40,7 @@ class LawyerService:
 
     def get_lawyer(self, lawyer_id: int, user: Lawyer | None) -> Lawyer:
         if user is None:
-            raise AuthenticationError(message=_("请先登录"), code="AUTHENTICATION_REQUIRED")
+            raise AuthenticationError(message="请先登录", code="AUTHENTICATION_REQUIRED")
         return self._query.get_lawyer(lawyer_id, user)
 
     def list_lawyers(
@@ -72,7 +71,7 @@ class LawyerService:
         avatar: UploadedFile | None = None,
     ) -> Lawyer:
         if user is None:
-            raise AuthenticationError(message=_("请先登录"), code="AUTHENTICATION_REQUIRED")
+            raise AuthenticationError(message="请先登录", code="AUTHENTICATION_REQUIRED")
         return self._mutation.create_lawyer(data=data, user=user, license_pdf=license_pdf, avatar=avatar)
 
     def update_lawyer(
@@ -86,14 +85,14 @@ class LawyerService:
         lawyer = self.get_lawyer(lawyer_id, user)
         # get_lawyer 对 user=None 抛 AuthenticationError，此处 user 必不为 None
         if user is None:  # pragma: no cover
-            raise AuthenticationError(message=_("请先登录"), code="AUTHENTICATION_REQUIRED")
+            raise AuthenticationError(message="请先登录", code="AUTHENTICATION_REQUIRED")
         return self._mutation.update_lawyer(lawyer=lawyer, data=data, user=user, license_pdf=license_pdf, avatar=avatar)
 
     def delete_lawyer(self, lawyer_id: int, user: Lawyer | None) -> None:
         lawyer = self.get_lawyer(lawyer_id, user)
         # get_lawyer 对 user=None 抛 AuthenticationError，此处 user 必不为 None
         if user is None:  # pragma: no cover
-            raise AuthenticationError(message=_("请先登录"), code="AUTHENTICATION_REQUIRED")
+            raise AuthenticationError(message="请先登录", code="AUTHENTICATION_REQUIRED")
         self._mutation.delete_lawyer(lawyer=lawyer, user=user)
 
     # ---- 公共查询方法 ----

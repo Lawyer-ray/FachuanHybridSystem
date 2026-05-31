@@ -12,7 +12,6 @@ from django.db.models import Sum
 
 from apps.contracts.models import Contract, ContractPayment
 
-
 class ContractFinanceService:
     """
     合同财务统计服务

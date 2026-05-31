@@ -8,7 +8,6 @@ if TYPE_CHECKING:
     from apps.cases.services.case_import_service import CaseImportService
     from apps.contracts.services.contract_import_service import ContractImportService
 
-
 def build_case_and_contract_import_services_for_admin() -> tuple[CaseImportService, ContractImportService]:
     """Build paired import services with bidirectional binding for admin JSON import."""
     from apps.cases.services.case_import_service import CaseImportService

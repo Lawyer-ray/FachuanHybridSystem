@@ -7,7 +7,6 @@ from django.db.models import Count, Q, QuerySet
 from apps.batch_printing.models import PrintPresetSnapshot
 from apps.core.exceptions import NotFoundError
 
-
 class PrintPresetSnapshotService:
     def list_presets(self, *, printer_name: str = "", keyword: str = "") -> list[PrintPresetSnapshot]:
         queryset = self._base_queryset()

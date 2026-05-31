@@ -10,24 +10,19 @@ if TYPE_CHECKING:
     from .case_document_template_admin_service import CaseDocumentTemplateAdminService
     from .case_template_binding_service import CaseTemplateBindingService
 
-
 def get_client_service() -> IClientService:
     return ServiceLocator.get_client_service()
-
 
 def get_case_service() -> ICaseService:
     return ServiceLocator.get_case_service()
 
-
 def get_document_service() -> IDocumentService:
     return ServiceLocator.get_document_service()
-
 
 def _build_sub_type_display() -> dict[str, str]:
     from apps.documents.models.choices import DocumentCaseFileSubType
 
     return {choice.value: str(choice.label) for choice in DocumentCaseFileSubType}
-
 
 def get_case_template_binding_service() -> CaseTemplateBindingService:
     from .case_template_binding_service import CaseTemplateBindingService
@@ -40,7 +35,6 @@ def get_case_template_binding_service() -> CaseTemplateBindingService:
     return CaseTemplateBindingService(
         document_service=get_document_service(), repo=CaseTemplateBindingRepo(), assembler=assembler
     )
-
 
 def get_case_document_template_admin_service() -> CaseDocumentTemplateAdminService:
     from .case_document_template_admin_service import CaseDocumentTemplateAdminService

@@ -11,12 +11,10 @@ from .context import TaskContext, set_current_request_id
 
 logger = logging.getLogger("apps.core.tasking")
 
-
 def _import_callable(dotted_path: str) -> Callable[..., Any]:
     module_path, attr = dotted_path.rsplit(".", 1)
     module = importlib.import_module(module_path)
     return cast(Callable[..., Any], getattr(module, attr))
-
 
 def run_task(
     target: str,

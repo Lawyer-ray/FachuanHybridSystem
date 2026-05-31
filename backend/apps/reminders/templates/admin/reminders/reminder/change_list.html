@@ -1,9 +1,8 @@
 {% extends "admin/change_list.html" %}
-{% load i18n %}
 
 {% block object-tools-items %}
 <li>
-    <a href="{{ calendar_url }}" class="addlink">{% trans "日历视图" %}</a>
+    <a href="{{ calendar_url }}" class="addlink">{</a>
 </li>
 {{ block.super }}
 {% endblock %}

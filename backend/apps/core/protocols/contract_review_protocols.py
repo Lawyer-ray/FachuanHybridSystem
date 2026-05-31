@@ -8,7 +8,6 @@ from pathlib import Path
 from typing import Any, Protocol
 from uuid import UUID
 
-
 class IReviewService(Protocol):
     """
     合同审查服务接口

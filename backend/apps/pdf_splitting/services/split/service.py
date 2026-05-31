@@ -31,7 +31,6 @@ from .split_models import PageDescriptor, SegmentDraft
 
 logger = logging.getLogger("apps.pdf_splitting")
 
-
 class PdfSplitService:
     MAX_PAGES = 300
     PREVIEW_DPI = 200

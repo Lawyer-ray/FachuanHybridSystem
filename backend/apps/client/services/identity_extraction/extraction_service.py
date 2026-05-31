@@ -12,8 +12,6 @@ from io import BytesIO
 from pathlib import Path
 from typing import Any
 
-from django.utils.translation import gettext_lazy as _
-
 from apps.client.models import ClientIdentityDoc
 from apps.client.services.wiring import get_llm_service
 from apps.core.exceptions import ServiceUnavailableError, ValidationException
@@ -27,7 +25,6 @@ logger = logging.getLogger(__name__)
 # 喂给 LLM 的 OCR 文本上限，避免噪声与超长上下文拖慢推理
 _MAX_LLM_OCR_CHARS = 1800
 _MAX_LLM_OCR_LINES = 80
-
 
 class IdentityExtractionService:
     """证件信息提取服务 - 使用 RapidOCR (PP-OCRv5) + LLM"""
@@ -55,12 +52,12 @@ class IdentityExtractionService:
         """
         if not image_bytes:
             raise ValidationException(
-                message=_("图片数据不能为空"), code="INVALID_IMAGE_DATA", errors={"image": _("图片数据不能为空")}
+                message="图片数据不能为空", code="INVALID_IMAGE_DATA", errors={"image": "图片数据不能为空"}
             )
 
         if not doc_type:
             raise ValidationException(
-                message=_("证件类型不能为空"), code="INVALID_DOC_TYPE", errors={"doc_type": _("证件类型不能为空")}
+                message="证件类型不能为空", code="INVALID_DOC_TYPE", errors={"doc_type": "证件类型不能为空"}
             )
 
         try:
@@ -129,7 +126,7 @@ class IdentityExtractionService:
         except Exception as e:
             logger.exception("证件信息提取失败: %s", e)
             raise ValidationException(
-                message=_("证件信息提取失败: %(error)s") % {"error": str(e)},
+                message="证件信息提取失败: %(error)s" % {"error": str(e)},
                 code="EXTRACTION_FAILED",
                 errors={"extraction": str(e)},
             ) from e
@@ -149,10 +146,10 @@ class IdentityExtractionService:
                 try:
                     raw_text = self._recognizer.classification(image_bytes) or ""
                 except Exception as e:
-                    raise OCRExtractionError(_("OCR 提取失败: %(e)s") % {"e": e}) from e
+                    raise OCRExtractionError("OCR 提取失败: %(e)s" % {"e": e}) from e
                 if raw_text.strip():
                     return raw_text.strip()
-                raise OCRExtractionError(_("OCR 未能提取到有效文字"))
+                raise OCRExtractionError("OCR 未能提取到有效文字")
 
             # 检测是否为 PDF(更健壮的检测方式)
             is_pdf = self._is_pdf_file(image_bytes)
@@ -168,7 +165,7 @@ class IdentityExtractionService:
             raise
         except Exception as e:
             logger.exception("OCR 提取失败: %s", e)
-            raise OCRExtractionError(_("OCR 提取失败: %(e)s") % {"e": e}) from e
+            raise OCRExtractionError("OCR 提取失败: %(e)s" % {"e": e}) from e
 
     def _is_pdf_file(self, file_bytes: bytes) -> bool:
         """
@@ -210,7 +207,7 @@ class IdentityExtractionService:
                 img = img.convert("RGB")
         except Exception as e:
             logger.exception("图片格式无效: %s", e)
-            raise OCRExtractionError(_("图片格式无效,请上传 JPG 或 PNG 格式的图片")) from e
+            raise OCRExtractionError("图片格式无效,请上传 JPG 或 PNG 格式的图片") from e
 
         with tempfile.NamedTemporaryFile(suffix=".jpg", delete=True) as tmp:
             img.save(tmp, format="JPEG", quality=95)
@@ -225,7 +222,7 @@ class IdentityExtractionService:
                 logger.info("OCR 提取成功,文字长度: %s", len(raw_text))
                 return raw_text.strip()
 
-            raise OCRExtractionError(_("OCR 未能提取到有效文字"))
+            raise OCRExtractionError("OCR 未能提取到有效文字")
 
     def _extract_from_pdf(self, pdf_bytes: bytes) -> str:
         """从 PDF 提取文字(图片型PDF)"""
@@ -272,13 +269,13 @@ class IdentityExtractionService:
                 logger.info("PDF OCR 提取成功,文字长度: %s", len(raw_text))
                 return raw_text.strip()
 
-            raise OCRExtractionError(_("PDF OCR 未能提取到有效文字"))
+            raise OCRExtractionError("PDF OCR 未能提取到有效文字")
 
         except OCRExtractionError:
             raise
         except (OSError, ValueError) as e:
             logger.exception("PDF 处理失败: %s", e)
-            raise OCRExtractionError(_("PDF 处理失败: %(e)s") % {"e": e}) from e
+            raise OCRExtractionError("PDF 处理失败: %(e)s" % {"e": e}) from e
 
     def _looks_like_json_noise(self, line: str) -> bool:
         """判断是否为结构化 JSON/调试噪声行。"""
@@ -733,7 +730,7 @@ class IdentityExtractionService:
             )
             content = llm_resp.content or ""
             if not content:
-                raise OllamaExtractionError(_("LLM 返回内容为空"))
+                raise OllamaExtractionError("LLM 返回内容为空")
 
             # 解析 JSON
             try:
@@ -743,22 +740,22 @@ class IdentityExtractionService:
 
             except (json.JSONDecodeError, ValueError) as e:
                 logger.exception("LLM 返回的 JSON 格式错误: %s", e)
-                raise OllamaExtractionError(_("智能识别结果解析失败，请稍后重试")) from e
+                raise OllamaExtractionError("智能识别结果解析失败，请稍后重试") from e
 
         except ConnectionError as e:
             logger.exception("LLM 服务连接失败: %s", e)
-            raise ServiceUnavailableError(message=_("LLM 服务连接失败: %(e)s") % {"e": e}, service_name="LLM") from e
+            raise ServiceUnavailableError(message="LLM 服务连接失败: %(e)s" % {"e": e}, service_name="LLM") from e
         except LLMTimeoutError as e:
             logger.warning("LLM 请求超时: %s", e)
-            raise OllamaExtractionError(_("智能识别超时，请稍后重试")) from e
+            raise OllamaExtractionError("智能识别超时，请稍后重试") from e
         except LLMNetworkError as e:
             logger.warning("LLM 网络异常: %s", e)
-            raise OllamaExtractionError(_("无法连接智能识别服务，请检查网络后重试")) from e
+            raise OllamaExtractionError("无法连接智能识别服务，请检查网络后重试") from e
         except OllamaExtractionError:
             raise
         except Exception as e:
             logger.exception("LLM 提取失败: %s", e)
-            raise OllamaExtractionError(_("智能识别暂时不可用，请稍后重试")) from e
+            raise OllamaExtractionError("智能识别暂时不可用，请稍后重试") from e
 
     def safe_extract(
         self,
@@ -794,10 +791,10 @@ class IdentityExtractionService:
             result["error"] = str(e)
         except ServiceUnavailableError as e:
             logger.warning("证件识别服务不可用: %s", e)
-            result["error"] = str(_("智能识别服务暂时不可用，请稍后重试"))
+            result["error"] = str("智能识别服务暂时不可用，请稍后重试")
         except ValidationException as e:
             result["error"] = str(e)
         except Exception as e:
             logger.exception("证件识别未知错误: %s", e)
-            result["error"] = str(_("识别过程中发生未知错误，请稍后重试"))
+            result["error"] = str("识别过程中发生未知错误，请稍后重试")
         return result

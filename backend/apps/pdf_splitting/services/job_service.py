@@ -34,7 +34,6 @@ logger = logging.getLogger("apps.pdf_splitting")
 
 _WINDOWS_ABS_RE = re.compile(r"^[A-Za-z]:[\\/]")
 
-
 class PdfSplitJobService:
     MAX_FILE_SIZE = 150 * 1024 * 1024
     MAX_PAGES = 300

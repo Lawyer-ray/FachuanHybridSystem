@@ -1,15 +1,14 @@
-{% load i18n %}
 
 <!-- 计算结果区 -->
 <div class="lpr-calc__result-section" x-show="result && result.success" style="display: none;">
     <!-- 计算明细 -->
     <div class="lpr-calc__result-card">
         <div class="lpr-calc__detail-header">
-            <div class="lpr-calc__detail-title">{% trans "计算明细" %}</div>
+            <div class="lpr-calc__detail-title">{</div>
             <div style="display: flex; gap: 12px; align-items: center;">
-                <button type="button" class="lpr-calc__detail-toggle" @click="showDetail = !showDetail" x-text="showDetail ? '{% trans "收起" %}' : '{% trans "展开" %}'"></button>
+                <button type="button" class="lpr-calc__detail-toggle" @click="showDetail = !showDetail" x-text="showDetail ? '{' : '{'"></button>
                 <button type="button" @click="copyDetail" style="font-size: 12px; color: #417690; background: #f0f7fa; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer;">
-                    {% trans "复制明细" %}
+                    {
                 </button>
             </div>
         </div>
@@ -19,10 +18,10 @@
             <table class="lpr-calc__detail-table" id="detailTable">
                 <thead>
                     <tr>
-                        <th>{% trans "本金" %}</th>
-                        <th>{% trans "计息期间" %}</th>
-                        <th>{% trans "天数" %}</th>
-                        <th>{% trans "利息" %}</th>
+                        <th>{</th>
+                        <th>{</th>
+                        <th>{</th>
+                        <th>{</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -37,7 +36,7 @@
                 </tbody>
                 <tbody class="lpr-calc__table-summary">
                     <tr>
-                        <td>{% trans "合计" %}</td>
+                        <td>{</td>
                         <td>-</td>
                         <td x-text="result.total_days"></td>
                         <td x-text="'¥' + formatMoney(result.total_interest)"></td>
@@ -52,16 +51,16 @@
                 <div style="margin-bottom: 16px;">
                     <!-- 分组标题 -->
                     <div style="background: #f0f7fa; padding: 8px 12px; border-radius: 6px 6px 0 0; font-weight: 600; color: #417690; border: 1px solid #e0eff5; border-bottom: none;">
-                        <span x-text="'{% trans "本金" %}: ¥' + formatMoney(group.principal) + ' | {% trans "天数" %}: ' + group.totalDays + ' | {% trans "利息" %}: ¥' + formatMoney(group.totalInterest)"></span>
+                        <span x-text="'{: ¥' + formatMoney(group.principal) + ' | {: ' + group.totalDays + ' | {: ¥' + formatMoney(group.totalInterest)"></span>
                     </div>
                     <!-- 分组明细表格 -->
                     <table class="lpr-calc__detail-table" style="border-top-left-radius: 0; border-top-right-radius: 0;">
                         <thead>
                             <tr>
-                                <th>{% trans "期间" %}</th>
-                                <th>{% trans "天数" %}</th>
-                                <th>{% trans "利率" %}</th>
-                                <th style="text-align: right;">{% trans "利息" %}</th>
+                                <th>{</th>
+                                <th>{</th>
+                                <th>{</th>
+                                <th style="text-align: right;">{</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -81,7 +80,7 @@
             <table class="lpr-calc__detail-table">
                 <tbody class="lpr-calc__table-summary">
                     <tr>
-                        <td>{% trans "总计" %}</td>
+                        <td>{</td>
                         <td x-text="result.total_days"></td>
                         <td>-</td>
                         <td x-text="'¥' + formatMoney(result.total_interest)"></td>

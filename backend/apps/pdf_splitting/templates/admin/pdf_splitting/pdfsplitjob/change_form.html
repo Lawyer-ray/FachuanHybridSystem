@@ -1,5 +1,4 @@
 {% extends "admin/change_form.html" %}
-{% load i18n %}
 
 {% block extrastyle %}
 {{ block.super }}
@@ -187,36 +186,36 @@
 <div class="ps-detail">
     <!-- Manual Split Mode Workbench - FIRST: primary user area -->
     <div id="manualWorkbench" class="ps-panel ps-manual-wrap">
-        <div class="ps-panel-head">{% trans "手动拆分工作区" %}</div>
+        <div class="ps-panel-head">{</div>
         <div class="ps-panel-body">
             <div class="ps-manual-workbench">
                 <div class="ps-thumb-list">
-                    <div class="ps-thumb-list-hint">{% trans "点击选中单页，拖拽框选多页，然后点击添加片段。" %}</div>
+                    <div class="ps-thumb-list-hint">{</div>
                     <div id="thumbGrid" class="ps-thumb-grid"></div>
                 </div>
                 <div class="ps-pdf-viewer">
                     <div class="ps-pdf-toolbar">
-                        <button type="button" id="pdfPrevBtn">{% trans "上页" %}</button>
+                        <button type="button" id="pdfPrevBtn">{</button>
                         <span id="pdfPageInfo">- / -</span>
-                        <button type="button" id="pdfNextBtn">{% trans "下页" %}</button>
-                        <button type="button" id="pdfZoomOutBtn">{% trans "-" %}</button>
+                        <button type="button" id="pdfNextBtn">{</button>
+                        <button type="button" id="pdfZoomOutBtn">{</button>
                         <span id="pdfZoomInfo">100%</span>
-                        <button type="button" id="pdfZoomInBtn">{% trans "+" %}</button>
+                        <button type="button" id="pdfZoomInBtn">{</button>
                     </div>
                     <div class="ps-pdf-canvas-wrap">
                         <canvas id="pdfViewerCanvas"></canvas>
                     </div>
                 </div>
                 <div class="ps-segments-panel ps-segments-panel-right">
-                    <div class="ps-panel-head" style="font-size:13px;padding:8px 12px;">{% trans "片段列表" %}</div>
-                    <div class="ps-selection-info" id="selectionInfo">{% trans "请选择页面以创建片段" %}</div>
+                    <div class="ps-panel-head" style="font-size:13px;padding:8px 12px;">{</div>
+                    <div class="ps-selection-info" id="selectionInfo">{</div>
                     <div id="manualSegmentsList" class="ps-segments-list"></div>
                     <div class="ps-seg-add">
                         <div class="ps-selection-info" id="addSegHint" style="display:none;"></div>
-                        <button type="button" id="addSegmentBtn" class="ps-btn ps-btn-secondary" disabled>{% trans "添加片段" %}</button>
+                        <button type="button" id="addSegmentBtn" class="ps-btn ps-btn-secondary" disabled>{</button>
                     </div>
                     <div class="ps-manual-actions">
-                        <button type="button" id="confirmExportManualBtn" class="ps-btn ps-btn-primary" disabled>{% trans "确认导出" %}</button>
+                        <button type="button" id="confirmExportManualBtn" class="ps-btn ps-btn-primary" disabled>{</button>
                     </div>
                 </div>
             </div>
@@ -225,21 +224,21 @@
 
     <!-- Content Analysis segments table -->
     <div id="segmentsPanel" class="ps-panel">
-        <div class="ps-panel-head">{% trans "片段列表" %}</div>
+        <div class="ps-panel-head">{</div>
         <div class="ps-panel-body">
-            <div id="segmentsEmpty" class="ps-empty">{% trans "分析完成后将在这里显示候选片段。处理中或导出中会自动轮询更新。" %}</div>
+            <div id="segmentsEmpty" class="ps-empty">{</div>
             <div id="segmentsTableWrap" class="ps-table-wrap" style="display:none;">
                 <table class="ps-table">
                     <thead>
                         <tr>
-                            <th style="width:50px;">{% trans "序号" %}</th>
-                            <th style="width:80px;">{% trans "起始页" %}</th>
-                            <th style="width:80px;">{% trans "结束页" %}</th>
-                            <th style="width:320px;">{% trans "材料类型" %}</th>
-                            <th style="width:200px;">{% trans "文件名" %}</th>
-                            <th style="width:70px;">{% trans "置信度" %}</th>
-                            <th style="width:80px;">{% trans "标记" %}</th>
-                            <th style="width:60px;">{% trans "操作" %}</th>
+                            <th style="width:50px;">{</th>
+                            <th style="width:80px;">{</th>
+                            <th style="width:80px;">{</th>
+                            <th style="width:320px;">{</th>
+                            <th style="width:200px;">{</th>
+                            <th style="width:70px;">{</th>
+                            <th style="width:80px;">{</th>
+                            <th style="width:60px;">{</th>
                         </tr>
                     </thead>
                     <tbody id="segmentsTbody"></tbody>
@@ -250,23 +249,23 @@
 
     <!-- Task Status Panel -->
     <div class="ps-panel">
-        <div class="ps-panel-head">{% trans "任务状态" %}</div>
+        <div class="ps-panel-head">{</div>
         <div class="ps-panel-body">
             <div class="ps-status-grid">
                 <div class="ps-stat">
-                    <div class="ps-stat-label">{% trans "当前状态" %}</div>
-                    <div class="ps-stat-value"><span id="jobStatusPill" class="ps-pill pending">{% trans "加载中" %}</span></div>
+                    <div class="ps-stat-label">{</div>
+                    <div class="ps-stat-value"><span id="jobStatusPill" class="ps-pill pending">{</span></div>
                 </div>
                 <div class="ps-stat">
-                    <div class="ps-stat-label">{% trans "处理进度" %}</div>
+                    <div class="ps-stat-label">{</div>
                     <div class="ps-stat-value" id="jobProgressText">0%</div>
                 </div>
                 <div class="ps-stat">
-                    <div class="ps-stat-label">{% trans "总页数" %}</div>
+                    <div class="ps-stat-label">{</div>
                     <div class="ps-stat-value" id="jobTotalPages">-</div>
                 </div>
                 <div class="ps-stat">
-                    <div class="ps-stat-label">{% trans "当前页" %}</div>
+                    <div class="ps-stat-label">{</div>
                     <div class="ps-stat-value" id="jobCurrentPage">-</div>
                 </div>
             </div>
@@ -274,10 +273,10 @@
                 <div class="ps-progress-track"><div id="jobProgressBar" class="ps-progress-bar" style="width:0%"></div></div>
             </div>
             <div class="ps-actions">
-                <button type="button" id="refreshStatusBtn" class="ps-btn ps-btn-secondary">{% trans "刷新" %}</button>
-                <button type="button" id="confirmExportBtn" class="ps-btn ps-btn-primary">{% trans "确认导出" %}</button>
-                <button type="button" id="cancelJobBtn" class="ps-btn ps-btn-danger">{% trans "取消" %}</button>
-                <a id="downloadZipBtn" class="ps-btn ps-btn-secondary" href="{{ pdf_split_download_api }}" target="_blank" style="display:none;">{% trans "下载" %}</a>
+                <button type="button" id="refreshStatusBtn" class="ps-btn ps-btn-secondary">{</button>
+                <button type="button" id="confirmExportBtn" class="ps-btn ps-btn-primary">{</button>
+                <button type="button" id="cancelJobBtn" class="ps-btn ps-btn-danger">{</button>
+                <a id="downloadZipBtn" class="ps-btn ps-btn-secondary" href="{{ pdf_split_download_api }}" target="_blank" style="display:none;">{</a>
             </div>
             <div id="jobMessage" class="ps-message info"></div>
         </div>
@@ -655,15 +654,15 @@
         });
         const sorted = Array.from(selectedPages).sort(function(a, b) { return a - b; });
         if (sorted.length === 0) {
-            selectionInfo.textContent = '{% trans "请选择页面以创建片段" %}';
+            selectionInfo.textContent = '{';
             addSegHint.style.display = 'none';
             addSegmentBtn.disabled = true;
         } else if (sorted.length === 1) {
-            selectionInfo.textContent = '{% trans "已选中第" %}' + sorted[0] + '{% trans "页" %}';
+            selectionInfo.textContent = '{' + sorted[0] + '{';
             addSegHint.style.display = 'none';
             addSegmentBtn.disabled = false;
         } else {
-            selectionInfo.textContent = '{% trans "已选中第" %}' + sorted[0] + '-' + sorted[sorted.length - 1] + '{% trans "页（共" %}' + sorted.length + '{% trans "页）" %}';
+            selectionInfo.textContent = '{' + sorted[0] + '-' + sorted[sorted.length - 1] + '{' + sorted.length + '{';
             addSegHint.style.display = 'none';
             addSegmentBtn.disabled = false;
         }
@@ -723,7 +722,7 @@
 
     function renderManualSegments() {
         if (manualSegments.length === 0) {
-            manualSegmentsList.innerHTML = '<div class="ps-empty" style="padding:12px;text-align:center;color:#62788b;">{% trans "暂无片段，请从左侧选择页面添加" %}</div>';
+            manualSegmentsList.innerHTML = '<div class="ps-empty" style="padding:12px;text-align:center;color:#62788b;">{</div>';
             markUsedPages();  // 清空片段时也要更新缩略图状态
             return;
         }
@@ -734,17 +733,17 @@
             div.dataset.id = seg.id;
             div.innerHTML =
                 '<div class="ps-seg-header">' +
-                    '<div class="ps-seg-drag" title="{% trans "拖拽排序" %}">☰</div>' +
+                    '<div class="ps-seg-drag" title="{">☰</div>' +
                     '<div class="ps-seg-filename">' +
-                        '<input type="text" value="' + seg.filename + '" data-field="filename" placeholder="{% trans "文件名" %}">' +
+                        '<input type="text" value="' + seg.filename + '" data-field="filename" placeholder="{">' +
                         '<span class="ps-seg-filename-suffix">.pdf</span>' +
                     '</div>' +
                 '</div>' +
                 '<div class="ps-seg-row">' +
                     '<div class="ps-seg-pages">' +
-                        '<span>{% trans "页" %}</span>' +
+                        '<span>{</span>' +
                         '<input type="number" min="1" max="' + totalPdfPages + '" value="' + seg.page_start + '" data-field="page_start">' +
-                        '<span>{% trans "至" %}</span>' +
+                        '<span>{</span>' +
                         '<input type="number" min="1" max="' + totalPdfPages + '" value="' + seg.page_end + '" data-field="page_end">' +
                     '</div>' +
                 '</div>' +
@@ -755,8 +754,8 @@
                         }).join('') +
                     '</select>' +
                     '<div class="ps-seg-actions">' +
-                        '<button type="button" class="ps-mini-btn preview" data-action="preview-seg">{% trans "预览" %}</button>' +
-                        '<button type="button" class="ps-mini-btn delete" data-action="delete-seg">{% trans "删除" %}</button>' +
+                        '<button type="button" class="ps-mini-btn preview" data-action="preview-seg">{</button>' +
+                        '<button type="button" class="ps-mini-btn delete" data-action="delete-seg">{</button>' +
                     '</div>' +
                 '</div>';
             manualSegmentsList.appendChild(div);

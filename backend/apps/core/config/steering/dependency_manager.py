@@ -29,7 +29,6 @@ from apps.core.utils.path import Path
 
 logger = logging.getLogger(__name__)
 
-
 class DependencyType(Enum):
     """依赖类型"""
 
@@ -37,7 +36,6 @@ class DependencyType(Enum):
     REQUIRES = "requires"  # 必需依赖
     OPTIONAL = "optional"  # 可选依赖
     CONFLICTS = "conflicts"  # 冲突依赖
-
 
 class LoadOrderStrategy(Enum):
     """加载顺序策略"""
@@ -47,7 +45,6 @@ class LoadOrderStrategy(Enum):
     ALPHABETICAL = "alphabetical"  # 按字母顺序排序
     TOPOLOGICAL = "topological"  # 拓扑排序
     CUSTOM = "custom"  # 自定义排序
-
 
 @dataclass
 class DependencyInfo:
@@ -59,7 +56,6 @@ class DependencyInfo:
     version_constraint: str | None = None
     condition: str | None = None  # 条件依赖
     metadata: dict[str, Any] = field(default_factory=dict)
-
 
 @dataclass
 class SpecificationMetadata:
@@ -86,7 +82,6 @@ class SpecificationMetadata:
     file_match_pattern: str | None = None
     load_condition: str | None = None
 
-
 @dataclass
 class DependencyConflict:
     """依赖冲突"""
@@ -95,7 +90,6 @@ class DependencyConflict:
     description: str
     affected_specs: list[str]
     suggested_resolution: str | None = None
-
 
 @dataclass
 class LoadOrderResult:
@@ -106,7 +100,6 @@ class LoadOrderResult:
     warnings: list[str]
     metadata: dict[str, Any] = field(default_factory=dict)
     conflicts: list[Any] = field(default_factory=list)
-
 
 class DependencyGraph:
     """依赖图"""
@@ -359,7 +352,6 @@ class DependencyGraph:
                     calculate_level(spec, set())
 
             return levels
-
 
 class SteeringDependencyManager:
     """Steering 依赖管理器"""
@@ -678,7 +670,6 @@ class SteeringDependencyManager:
             self.dependency_graph = DependencyGraph()
             self._load_all_metadata()
             logger.info("依赖管理器元数据已刷新")
-
 
 def create_dependency_manager_from_config(
     config: dict[str, Any], steering_root: str = ".kiro/steering"

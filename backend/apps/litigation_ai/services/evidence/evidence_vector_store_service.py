@@ -4,7 +4,6 @@ import math
 
 from apps.litigation_ai.models import EvidenceChunk
 
-
 class EvidenceVectorStoreService:
     def upsert_embeddings(self, chunk_ids: list[int], embeddings: list[list[float]]) -> None:
         for chunk_id, emb in zip(chunk_ids, embeddings, strict=False):

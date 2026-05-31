@@ -20,7 +20,6 @@ from xml.etree import ElementTree as ET
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import transaction
-from django.utils.translation import gettext_lazy as _
 
 from .fingerprint_service import FingerprintService
 
@@ -31,7 +30,6 @@ if TYPE_CHECKING:
     from apps.documents.services.placeholders.registry import PlaceholderRegistry
 
 logger: logging.Logger = logging.getLogger(__name__)
-
 
 class AnalysisService:
     """外部模板分析服务：上传校验 + 结构提取 + LLM 字段映射"""
@@ -118,7 +116,7 @@ class AnalysisService:
         filename: str = file.name if file.name else ""
         if not filename.lower().endswith(".docx"):
             logger.info("文件格式校验失败: %s", filename)
-            raise ValidationError(_("仅支持 .docx 格式"))
+            raise ValidationError("仅支持 .docx 格式")
 
         file_size: int = file.size if file.size is not None else 0
         if file_size > self.MAX_FILE_SIZE:
@@ -127,7 +125,7 @@ class AnalysisService:
                 filename,
                 file_size,
             )
-            raise ValidationError(_("文件大小超出限制"))
+            raise ValidationError("文件大小超出限制")
 
     def _validate_parseable(self, file_path: Path) -> None:
         """尝试 python-docx 打开文件，验证可解析性"""
@@ -141,7 +139,7 @@ class AnalysisService:
                 file_path.name,
                 str(exc),
             )
-            raise ValidationError(_("文件无法解析，请检查文件是否损坏或加密")) from exc
+            raise ValidationError("文件无法解析，请检查文件是否损坏或加密") from exc
 
     def _save_file(self, file: UploadedFile, law_firm_id: int) -> tuple[Path, str]:
         """
@@ -637,7 +635,7 @@ class AnalysisService:
 
         if not isinstance(parsed, list):
             logger.error("LLM 返回的不是 JSON 数组: type=%s", type(parsed).__name__)
-            raise ValueError(_("LLM 返回格式异常，期望 JSON 数组"))
+            raise ValueError("LLM 返回格式异常，期望 JSON 数组")
 
         result: list[dict[str, Any]] = []
         for item in parsed:

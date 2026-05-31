@@ -1,15 +1,14 @@
 {% extends "admin/base_site.html" %}
-{% load i18n %}
 
-{% block title %}{% trans "新建合同审查任务" %}{% endblock %}
+{% block title %}{{% endblock %}
 
 {% block content_title %}{% endblock %}
 
 {% block breadcrumbs %}
 <div class="breadcrumbs">
-    <a href="{% url 'admin:index' %}">{% trans "首页" %}</a>
-    &rsaquo; <a href="{% url 'admin:contract_review_reviewtask_changelist' %}">{% trans "合同审查任务" %}</a>
-    &rsaquo; {% trans "新建" %}
+    <a href="{% url 'admin:index' %}">{</a>
+    &rsaquo; <a href="{% url 'admin:contract_review_reviewtask_changelist' %}">{</a>
+    &rsaquo; {
 </div>
 {% endblock %}
 
@@ -115,43 +114,43 @@
     <div class="cr-steps">
         <div class="cr-step-item" :class="{ active: step === 'upload', done: step !== 'upload' }">
             <span class="cr-step-num" x-text="step === 'upload' ? '1' : '✓'"></span>
-            <span>{% trans "上传" %}</span>
+            <span>{</span>
         </div>
         <div class="cr-step-line" :class="{ done: step !== 'upload' }"></div>
         <div class="cr-step-item" :class="{ active: step === 'confirm', done: step === 'done' }">
             <span class="cr-step-num" x-text="step === 'done' ? '✓' : '2'"></span>
-            <span>{% trans "确认" %}</span>
+            <span>{</span>
         </div>
         <div class="cr-step-line" :class="{ done: step === 'done' }"></div>
         <div class="cr-step-item" :class="{ active: step === 'done' }">
             <span class="cr-step-num">3</span>
-            <span>{% trans "完成" %}</span>
+            <span>{</span>
         </div>
     </div>
 
     <!-- Step 1: Upload -->
     <div x-show="step === 'upload'">
-        <h2 class="cr-title">{% trans "选择模型并上传合同" %}</h2>
+        <h2 class="cr-title">{</h2>
 
         <!-- Searchable model selector -->
         <div class="cr-model-wrap" @click.away="modelOpen = false">
-            <label class="cr-label">{% trans "审查模型" %}</label>
+            <label class="cr-label">{</label>
             <template x-if="modelsError">
                 <div style="padding:6px 0;font-size:13px;">
-                    <span style="color:var(--body-quiet-color);">{% trans "模型列表加载失败" %}</span>
-                    <a href="#" @click.prevent="location.reload()" style="color:var(--primary,#417690);margin-left:6px;">{% trans "重试" %}</a>
+                    <span style="color:var(--body-quiet-color);">{</span>
+                    <a href="#" @click.prevent="location.reload()" style="color:var(--primary,#417690);margin-left:6px;">{</a>
                 </div>
             </template>
             <template x-if="!modelsError">
                 <div>
-                    <button type="button" class="cr-model-btn" @click="modelOpen = !modelOpen" x-text="selectedModel || '{% trans '选择模型' %}'"></button>
+                    <button type="button" class="cr-model-btn" @click="modelOpen = !modelOpen" x-text="selectedModel || '{'"></button>
                     <div class="cr-model-dropdown" x-show="modelOpen" x-cloak x-transition.opacity>
-                        <input class="cr-model-search" type="text" x-model="modelQuery" placeholder="{% trans '搜索模型...' %}" @keydown.escape="modelOpen = false" x-ref="modelSearch">
+                        <input class="cr-model-search" type="text" x-model="modelQuery" placeholder="{" @keydown.escape="modelOpen = false" x-ref="modelSearch">
                         <div class="cr-model-list">
                             <template x-for="m in filteredModels" :key="m.id">
                                 <div class="cr-model-opt" :class="{ selected: selectedModel === m.id }" @click="selectedModel = m.id; modelOpen = false; modelQuery = '';" x-text="m.id"></div>
                             </template>
-                            <div class="cr-model-empty" x-show="filteredModels.length === 0">{% trans "无匹配模型" %}</div>
+                            <div class="cr-model-empty" x-show="filteredModels.length === 0">{</div>
                         </div>
                     </div>
                 </div>
@@ -167,14 +166,14 @@
             <template x-if="!loading">
                 <div>
                     <div class="cr-dropzone-icon">📄</div>
-                    <p class="cr-dropzone-text">{% trans "拖拽 .docx 文件到此处，或点击选择" %}</p>
-                    <p class="cr-dropzone-hint">{% trans "仅支持 Word 文档（.docx）格式" %}</p>
+                    <p class="cr-dropzone-text">{</p>
+                    <p class="cr-dropzone-hint">{</p>
                 </div>
             </template>
             <template x-if="loading">
                 <div>
                     <span class="cr-spinner"></span>
-                    <p class="cr-dropzone-text" style="margin-top:14px;">{% trans "正在上传并解析合同..." %}</p>
+                    <p class="cr-dropzone-text" style="margin-top:14px;">{</p>
                 </div>
             </template>
         </div>
@@ -183,13 +182,13 @@
 
     <!-- Step 2: Confirm -->
     <div x-show="step === 'confirm'" x-cloak>
-        <h2 class="cr-title">{% trans "确认合同信息并选择代表方" %}</h2>
+        <h2 class="cr-title">{</h2>
 
         <div class="cr-info">
             <div class="cr-info-item">
                 <span class="cr-info-icon">📋</span>
                 <div class="cr-info-content">
-                    <div class="cr-info-label">{% trans "合同标题" %}</div>
+                    <div class="cr-info-label">{</div>
                     <div class="cr-info-value" x-text="contractTitle || '—'"></div>
                 </div>
             </div>
@@ -209,15 +208,15 @@
                 </div>
             </template>
         </div>
-        <p style="font-size:12px;color:var(--body-quiet-color,#999);margin:-16px 0 20px 4px;">{% trans "当事人名称可手动修改，AI 识别不准确时请自行更正" %}</p>
+        <p style="font-size:12px;color:var(--body-quiet-color,#999);margin:-16px 0 20px 4px;">{</p>
 
         <div style="margin-bottom: 24px;">
-            <label class="cr-label">{% trans "修订人名称" %}</label>
-            <input type="text" x-model="reviewerName" placeholder="{% trans '默认：法穿AI' %}" class="cr-model-btn" style="text-align:left;cursor:text;">
+            <label class="cr-label">{</label>
+            <input type="text" x-model="reviewerName" placeholder="{" class="cr-model-btn" style="text-align:left;cursor:text;">
         </div>
 
         <div style="margin-bottom: 24px;">
-            <label class="cr-label">{% trans "处理步骤" %}</label>
+            <label class="cr-label">{</label>
             <div style="display:flex;flex-direction:column;gap:10px;margin-top:8px;">
                 <template x-for="s in stepOptions" :key="s.key">
                     <label style="display:flex;align-items:center;gap:10px;padding:10px 14px;border:1px solid var(--hairline-color,#e4e4e4);border-radius:10px;cursor:pointer;transition:all .15s;"
@@ -232,7 +231,7 @@
         </div>
 
         <div class="cr-party-section">
-            <label class="cr-label">{% trans "选择我方代表" %}</label>
+            <label class="cr-label">{</label>
             <div class="cr-party-group" :style="'grid-template-columns: repeat(' + Math.min(parties.length, 4) + ', 1fr)'">
                 <template x-for="p in parties" :key="p.key">
                     <button type="button" class="cr-party-btn" :class="{ selected: selectedParty === p.key }" @click="selectedParty = p.key">
@@ -248,9 +247,9 @@
         <div class="cr-actions">
             <button type="button" class="cr-btn cr-btn-primary" @click="submitParty()" :disabled="!selectedParty || selectedSteps.length === 0 || loading">
                 <span class="cr-spinner cr-spinner-white" style="width:16px;height:16px;" x-show="loading"></span>
-                <span x-show="!loading">🚀 {% trans "开始审查" %}</span>
+                <span x-show="!loading">🚀 {</span>
             </button>
-            <button type="button" class="cr-btn cr-btn-ghost" @click="resetAll()" :disabled="loading">{% trans "重新上传" %}</button>
+            <button type="button" class="cr-btn cr-btn-ghost" @click="resetAll()" :disabled="loading">{</button>
         </div>
     </div>
 
@@ -258,14 +257,14 @@
     <div x-show="step === 'done'" x-cloak>
         <div class="cr-success">
             <div class="cr-success-badge">✅</div>
-            <p class="cr-success-title">{% trans "审查任务已提交" %}</p>
-            <p class="cr-success-hint">{% trans "AI 正在后台审查合同" %}</p>
-            <p class="cr-success-hint">{% trans "可在详情页实时查看审查进度" %}</p>
+            <p class="cr-success-title">{</p>
+            <p class="cr-success-hint">{</p>
+            <p class="cr-success-hint">{</p>
         </div>
         <div class="cr-actions">
-            <a :href="'/admin/contract_review/reviewtask/' + taskId + '/change/'" class="cr-btn cr-btn-primary">📊 {% trans "查看详情" %}</a>
-            <a href="{% url 'admin:contract_review_reviewtask_changelist' %}" class="cr-btn cr-btn-ghost">{% trans "返回列表" %}</a>
-            <button type="button" class="cr-btn cr-btn-ghost" @click="resetAll()">{% trans "继续上传" %}</button>
+            <a :href="'/admin/contract_review/reviewtask/' + taskId + '/change/'" class="cr-btn cr-btn-primary">📊 {</a>
+            <a href="{% url 'admin:contract_review_reviewtask_changelist' %}" class="cr-btn cr-btn-ghost">{</a>
+            <button type="button" class="cr-btn cr-btn-ghost" @click="resetAll()">{</button>
         </div>
     </div>
 
@@ -277,9 +276,9 @@
 
 <script>
 const TRANSLATIONS = {
-    invalidFormat: '{% trans "请选择 .docx 格式的文件" %}',
-    uploadFailed: '{% trans "上传失败，请重试" %}',
-    submitFailed: '{% trans "提交失败，请重试" %}',
+    invalidFormat: '{',
+    uploadFailed: '{',
+    submitFailed: '{',
 };
 
 const INITIAL_MODELS = {{ models_json|safe }};

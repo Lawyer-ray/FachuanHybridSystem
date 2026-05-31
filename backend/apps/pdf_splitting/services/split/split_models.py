@@ -10,7 +10,6 @@ _WINDOWS_ABS_RE = re.compile(r"^[A-Za-z]:[\\/]")
 _NON_WORD_RE = re.compile(r"\s+")
 _TEXT_MIN_LENGTH = 12
 
-
 def _levenshtein_distance(s1: str, s2: str) -> int:
     """计算两个字符串的 Levenshtein 编辑距离。"""
     if len(s1) < len(s2):
@@ -26,7 +25,6 @@ def _levenshtein_distance(s1: str, s2: str) -> int:
         prev_row = curr_row
     return prev_row[-1]
 
-
 @dataclass
 class PageDescriptor:
     page_no: int
@@ -36,7 +34,6 @@ class PageDescriptor:
     source_method: str
     ocr_failed: bool
     top_candidates: list[dict[str, Any]]
-
 
 @dataclass
 class SegmentDraft:
@@ -49,14 +46,12 @@ class SegmentDraft:
     source_method: str
     review_flag: str
 
-
 @dataclass(frozen=True)
 class OCRRuntimeProfile:
     key: str
     use_v5: bool
     dpi: int
     workers: int
-
 
 @dataclass(frozen=True)
 class OCRPageResult:

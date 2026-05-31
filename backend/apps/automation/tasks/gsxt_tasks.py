@@ -10,7 +10,6 @@ from django.apps import apps as django_apps
 
 logger = logging.getLogger("apps.automation")
 
-
 def check_gsxt_report_email(task_id: int, company_name: str) -> None:
     """
     Django-Q 任务：检查邮箱是否收到企业信用报告，收到则保存为营业执照附件。

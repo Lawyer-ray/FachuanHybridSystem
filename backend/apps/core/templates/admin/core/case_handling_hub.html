@@ -1,5 +1,4 @@
 {% extends "admin/base_site.html" %}
-{% load i18n %}
 
 {% block extrastyle %}
 {{ block.super }}
@@ -433,20 +432,20 @@
   <section class="hero-panel">
     <div class="hero-content">
       <div class="hero-copy">
-        <div class="hero-badge">{% trans "办案导航" %}</div>
-        <h2 class="hero-title">{% trans "当事人、合同、案件，一站式直达" %}</h2>
+        <div class="hero-badge">{</div>
+        <h2 class="hero-title">{</h2>
         <p class="hero-desc">
-          {% trans "这里汇总了案件办理的三大核心模块。你可以直接进入模块首页，也可以点击下方子菜单直达具体功能。侧边栏仅显示最常用的三个入口，更多功能请在此页面查找。" %}
+          {
         </p>
       </div>
 
       <div class="hero-stats">
         <div class="stat-card">
-          <span class="stat-label">{% trans "核心模块" %}</span>
+          <span class="stat-label">{</span>
           <span class="stat-value">{{ sections|length }}</span>
         </div>
         <div class="stat-card">
-          <span class="stat-label">{% trans "访问方式" %}</span>
+          <span class="stat-label">{</span>
           <span class="stat-value">2</span>
         </div>
       </div>
@@ -455,18 +454,18 @@
 
   <div class="toolbar">
     <label class="search-box">
-      <span class="sr-only">{% trans "搜索功能" %}</span>
+      <span class="sr-only">{</span>
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         <circle cx="11" cy="11" r="8"></circle>
         <path d="m21 21-4.3-4.3"></path>
       </svg>
-      <input type="text" x-model="query" placeholder="{% trans '搜索模块名或子菜单，如：当事人、合同、案件、日志…' %}">
+      <input type="text" x-model="query" placeholder="{">
     </label>
 
     <div class="toolbar-tips">
-      <span class="tip-chip">{% trans "支持搜索模块" %}</span>
-      <span class="tip-chip">{% trans "支持直达子菜单" %}</span>
-      <span class="tip-chip">{% trans "保留原始权限控制" %}</span>
+      <span class="tip-chip">{</span>
+      <span class="tip-chip">{</span>
+      <span class="tip-chip">{</span>
     </div>
   </div>
 
@@ -484,11 +483,11 @@
               <span>{{ section.name }}</span>
             </a>
             <div class="tool-meta">
-              <span class="meta-pill">{% blocktrans with count=section.children|length %}{{ count }} 个入口{% endblocktrans %}</span>
-              <span class="meta-pill">{% trans "可直达" %}</span>
+              <span class="meta-pill">{{{ count }} 个入口{</span>
+              <span class="meta-pill">{</span>
             </div>
           </div>
-          <a class="enter-link" href="{{ section.url }}">{% trans "进入模块" %}</a>
+          <a class="enter-link" href="{{ section.url }}">{</a>
         </div>
 
         <div class="children-list">
@@ -497,17 +496,17 @@
               <a class="child-link" href="{{ child.url }}">{{ child.name }}</a>
             </span>
           {% empty %}
-            <a class="child-link" href="{{ section.url }}">{% trans "模块首页" %}</a>
+            <a class="child-link" href="{{ section.url }}">{</a>
           {% endfor %}
         </div>
       </section>
     {% empty %}
-      <div class="empty-state">{% trans "暂无可用模块。" %}</div>
+      <div class="empty-state">{</div>
     {% endfor %}
   </div>
 
   <div class="empty-state" x-cloak x-show="query.trim() && !Array.from($el.parentElement.querySelectorAll('.tool-card')).some(card => getComputedStyle(card).display !== 'none')">
-    {% trans "没有找到匹配的模块或子菜单，请换个关键词试试。" %}
+    {
   </div>
 </div>
 {% endblock %}

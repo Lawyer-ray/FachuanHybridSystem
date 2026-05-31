@@ -39,7 +39,6 @@ if TYPE_CHECKING:
     from playwright.async_api import Page as AsyncPage
     from playwright.sync_api import BrowserContext, Page
 
-
 @contextmanager
 def create_browser(
     profile: str | BrowserProfile = "default",
@@ -91,7 +90,6 @@ def create_browser(
 
     with launch_browser(profile, session_id=session_id) as (page, ctx):
         yield page, ctx
-
 
 @asynccontextmanager
 async def create_browser_async(
@@ -170,7 +168,6 @@ async def create_browser_async(
                     await browser.close()
                 except Exception:
                     pass
-
 
 __all__ = [
     # 核心 API

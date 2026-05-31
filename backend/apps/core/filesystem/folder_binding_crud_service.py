@@ -11,7 +11,6 @@ from .folder_binding_base import BaseFolderBindingService
 
 logger = logging.getLogger("apps.core.filesystem")
 
-
 class FolderBindingCrudService(BaseFolderBindingService):
     binding_model: Any | None = None
     owner_model: Any | None = None

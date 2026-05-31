@@ -30,7 +30,6 @@ logger = logging.getLogger("apps.batch_printing")
 _ALLOWED_SUFFIX = {".pdf", ".docx"}
 _MAX_FILE_SIZE = 50 * 1024 * 1024  # 50MB
 
-
 class BatchPrintJobService:
     def __init__(
         self,

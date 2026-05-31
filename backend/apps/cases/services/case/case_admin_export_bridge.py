@@ -24,16 +24,13 @@ _CASE_ADMIN_FILE_PREFETCHES: tuple[str, ...] = (
     "logs__attachments",
 )
 
-
 def get_case_admin_export_prefetches() -> tuple[str, ...]:
     """Return case-side prefetch paths needed by CaseAdmin export."""
     return _CASE_ADMIN_EXPORT_PREFETCHES
 
-
 def get_case_admin_file_prefetches() -> tuple[str, ...]:
     """Return case-side prefetch paths needed by CaseAdmin file export."""
     return _CASE_ADMIN_FILE_PREFETCHES
-
 
 def collect_case_file_paths_for_export(
     case: Case,

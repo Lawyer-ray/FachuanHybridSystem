@@ -26,7 +26,6 @@ logger = logging.getLogger(__name__)
 _ZERO = Decimal("0")
 _TWO_PLACES = Decimal("0.01")
 
-
 @dataclass
 class DebtItem:
     """单笔债务"""
@@ -38,7 +37,6 @@ class DebtItem:
     has_guarantee: bool
     debt_id: str
 
-
 @dataclass
 class OffsetDetail:
     """单笔债务的冲抵明细"""
@@ -49,7 +47,6 @@ class OffsetDetail:
     offset_principal: Decimal
     remaining_principal: Decimal
 
-
 @dataclass
 class OffsetResult:
     """单笔还款的冲抵结果"""
@@ -59,14 +56,12 @@ class OffsetResult:
     details: list[OffsetDetail]
     remaining_debts: list[DebtItem]
 
-
 @dataclass
 class PaymentInput:
     """还款输入"""
 
     payment_date: date
     payment_amount: Decimal
-
 
 class RepaymentOffsetService:
     """还款冲抵引擎"""

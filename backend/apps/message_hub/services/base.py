@@ -8,7 +8,6 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from apps.message_hub.models import MessageSource
 
-
 class MessageFetcher(abc.ABC):
     @abc.abstractmethod
     def fetch_new_messages(self, source: MessageSource) -> int:

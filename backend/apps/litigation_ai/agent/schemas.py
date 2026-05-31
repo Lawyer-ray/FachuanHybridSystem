@@ -11,7 +11,6 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-
 class AgentResponse(BaseModel):
     """
     Agent 响应结构
@@ -27,7 +26,6 @@ class AgentResponse(BaseModel):
     type: str = Field(description="响应类型: system_message, assistant_complete, error")
     content: str = Field(description="响应内容")
     metadata: dict[str, Any] = Field(default_factory=dict, description="附加元数据,如 tool_calls、draft 等")
-
 
 class DraftOutput(BaseModel):
     """
@@ -53,7 +51,6 @@ class DraftOutput(BaseModel):
         default_factory=list, description="证据引用列表,每项包含 evidence_item_id、text、page_range"
     )
 
-
 class ToolCallRecord(BaseModel):
     """
     工具调用记录
@@ -73,7 +70,6 @@ class ToolCallRecord(BaseModel):
     result: Any = Field(description="调用结果")
     timestamp: str = Field(default_factory=lambda: datetime.now().isoformat(), description="调用时间(ISO 格式)")
     duration_ms: float | None = Field(default=None, description="执行耗时(毫秒)")
-
 
 class CaseInfoResult(BaseModel):
     """
@@ -99,7 +95,6 @@ class CaseInfoResult(BaseModel):
     parties: list[dict[str, Any]] = Field(default_factory=list, description="当事人列表")
     court_info: dict[str, Any] | None = Field(default=None, description="法院信息")
 
-
 class EvidenceSearchResult(BaseModel):
     """
     证据检索结果
@@ -121,7 +116,6 @@ class EvidenceSearchResult(BaseModel):
     page_end: int | None = Field(default=None, description="结束页码")
     source_name: str = Field(description="证据来源名称")
     relevance_score: float = Field(default=0.0, description="相关性分数")
-
 
 class EvidenceListItem(BaseModel):
     """
@@ -145,7 +139,6 @@ class EvidenceListItem(BaseModel):
     description: str | None = Field(default=None, description="证据描述")
     has_content: bool = Field(default=False, description="是否已提取内容")
 
-
 class GenerateDraftInput(BaseModel):
     """
     生成草稿输入参数
@@ -163,7 +156,6 @@ class GenerateDraftInput(BaseModel):
     document_type: str = Field(description="文书类型: complaint, defense, counterclaim, counterclaim_defense")
     litigation_goal: str = Field(description="诉讼目标描述")
     evidence_context: str = Field(description="证据上下文摘要")
-
 
 class GenerateDraftResult(BaseModel):
     """

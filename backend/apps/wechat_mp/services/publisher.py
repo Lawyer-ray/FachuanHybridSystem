@@ -31,10 +31,8 @@ logger = logging.getLogger(__name__)
 # 公众号后台 URL
 MP_HOME_URL = "https://mp.weixin.qq.com"
 
-
 class PublishError(Exception):
     """发布异常"""
-
 
 class WeChatPublisher:
     """公众号文章发布器（CDP 模式）"""

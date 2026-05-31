@@ -15,7 +15,6 @@ _LLM_WARMUP_STATE: dict[str, object] = {
     "error": None,
 }
 
-
 def warm_llm_system_config_cache(keys: Iterable[str] | None = None, *, strict: bool = False) -> dict[str, object]:
     llm_keys = (
         list(keys)
@@ -60,7 +59,6 @@ def warm_llm_system_config_cache(keys: Iterable[str] | None = None, *, strict: b
         if strict:
             raise
         return dict(_LLM_WARMUP_STATE)
-
 
 def get_llm_warmup_state() -> dict[str, object]:
     return dict(_LLM_WARMUP_STATE)

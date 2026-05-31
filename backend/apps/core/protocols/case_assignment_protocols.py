@@ -2,7 +2,6 @@
 
 from typing import Any, Protocol
 
-
 class ICaseAssignmentService(Protocol):
     def list_assignments(
         self,

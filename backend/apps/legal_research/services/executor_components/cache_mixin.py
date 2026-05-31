@@ -7,7 +7,6 @@ from typing import Any
 
 from apps.legal_research.services.sources import CaseDetail
 
-
 class ExecutorCacheMixin:
     DETAIL_CACHE_TTL_SECONDS = 21600
 

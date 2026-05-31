@@ -18,7 +18,6 @@ from .document_delivery_service import DocumentDeliveryService
 
 logger = logging.getLogger("apps.automation")
 
-
 class DocumentDeliveryScheduleService:
     """文书送达定时任务服务"""
 

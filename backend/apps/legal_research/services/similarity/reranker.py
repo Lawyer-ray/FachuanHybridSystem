@@ -10,7 +10,6 @@ import httpx
 
 logger = logging.getLogger(__name__)
 
-
 class SiliconFlowReranker:
     """调用 SiliconFlow /v1/rerank 端点做交叉编码器打分。"""
 
@@ -73,7 +72,6 @@ class SiliconFlowReranker:
                 out.append((idx, max(0.0, min(1.0, float(score)))))
         out.sort(key=lambda x: x[1], reverse=True)
         return out
-
 
 def create_reranker_from_tuning(tuning: Any) -> SiliconFlowReranker | None:
     """从 tuning config 创建 reranker 实例，若未启用或缺少 API Key 则返回 None。"""

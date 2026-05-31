@@ -9,10 +9,8 @@ from django.http import HttpRequest
 from django.template.response import TemplateResponse
 from django.urls import path, reverse
 from django.utils.html import format_html
-from django.utils.translation import gettext_lazy as _
 
 from apps.chat_records.models import ChatRecordExportTask, ChatRecordProject, ChatRecordRecording, ChatRecordScreenshot
-
 
 @admin.register(ChatRecordProject)
 class ChatRecordProjectAdmin(admin.ModelAdmin):
@@ -31,7 +29,7 @@ class ChatRecordProjectAdmin(admin.ModelAdmin):
         ]
         return custom_urls + urls
 
-    @admin.display(description=_("工作台"))
+    @admin.display(description="工作台")
     def workbench_link(self, obj: ChatRecordProject) -> str:
         url = reverse("admin:chat_records_project_workbench", args=[obj.id])
         return format_html('<a href="{}">进入工作台</a>', url)
@@ -47,14 +45,12 @@ class ChatRecordProjectAdmin(admin.ModelAdmin):
         }
         return TemplateResponse(request, "admin/chat_records/workbench.html", context)
 
-
 @admin.register(ChatRecordScreenshot)
 class ChatRecordScreenshotAdmin(admin.ModelAdmin):
     list_display = ("id", "project", "ordering", "title", "created_at")
     search_fields = ("title", "note", "sha256")
     list_filter = ("project",)
     readonly_fields = ("created_at", "sha256")
-
 
 @admin.register(ChatRecordExportTask)
 class ChatRecordExportTaskAdmin(admin.ModelAdmin):
@@ -81,12 +77,11 @@ class ChatRecordExportTaskAdmin(admin.ModelAdmin):
         "layout",
     )
 
-    @admin.display(description=_("文件"))
+    @admin.display(description="文件")
     def download_link(self, obj: ChatRecordExportTask) -> str:
         if not obj.output_file:
             return "-"
         return format_html('<a href="/api/v1/chat-records/exports/{}/download">下载</a>', obj.id)
-
 
 @admin.register(ChatRecordRecording)
 class ChatRecordRecordingAdmin(admin.ModelAdmin):

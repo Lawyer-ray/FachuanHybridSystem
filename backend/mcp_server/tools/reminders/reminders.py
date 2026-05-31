@@ -6,7 +6,6 @@ from typing import Any
 
 from mcp_server.client import client
 
-
 def list_all_reminders(
     contract_id: int | None = None,
     case_log_id: int | None = None,
@@ -19,11 +18,9 @@ def list_all_reminders(
         params["case_log_id"] = case_log_id
     return client.get("/reminders/list", params=params)  # type: ignore[return-value]
 
-
 def get_reminder(reminder_id: int) -> dict[str, Any]:
     """获取单个提醒详情。"""
     return client.get(f"/reminders/{reminder_id}")  # type: ignore[return-value]
-
 
 def create_new_reminder(
     reminder_type: str,
@@ -47,7 +44,6 @@ def create_new_reminder(
         payload["metadata"] = metadata
     return client.post("/reminders/create", json=payload)  # type: ignore[return-value]
 
-
 def update_reminder(
     reminder_id: int,
     reminder_type: str | None = None,
@@ -67,11 +63,9 @@ def update_reminder(
         payload["is_done"] = is_done
     return client.put(f"/reminders/{reminder_id}", json=payload)  # type: ignore[return-value]
 
-
 def delete_reminder(reminder_id: int) -> None:
     """删除提醒。"""
     client.delete(f"/reminders/{reminder_id}")
-
 
 def list_reminder_types() -> list[dict[str, Any]]:
     """获取所有支持的提醒类型列表。"""

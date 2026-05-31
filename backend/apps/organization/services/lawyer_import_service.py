@@ -9,7 +9,6 @@ from apps.organization.models.team import TeamType
 
 logger = logging.getLogger("apps.organization")
 
-
 class LawyerImportService:
     """Handle JSON import business rules for Lawyer admin import."""
 

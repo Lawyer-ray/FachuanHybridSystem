@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from typing import Any
 
-
 class AIService:
     def __init__(self, *, llm_service: Any) -> None:
         self._llm_service = llm_service

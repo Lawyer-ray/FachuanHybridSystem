@@ -6,7 +6,6 @@ from typing import Protocol, runtime_checkable
 
 from apps.enterprise_data.services.types import ProviderResponse
 
-
 @runtime_checkable
 class EnterpriseDataProvider(Protocol):
     name: str

@@ -20,12 +20,10 @@ AUTHOR = "法穿AI"
 
 _rev_id_counter = 1
 
-
 def _next_rev_id() -> str:
     global _rev_id_counter
     _rev_id_counter += 1
     return str(_rev_id_counter)
-
 
 class DocxRevisionTool:
     """通过 lxml 操作 OOXML 实现 Track Changes（修订模式）"""
@@ -183,7 +181,6 @@ class DocxRevisionTool:
 
         return True
 
-
 def _create_del(text: str, author: str, date: str, source_run: etree._Element) -> etree._Element:
     """创建 <w:del> 删除标记"""
     del_elem = OxmlElement("w:del")
@@ -193,7 +190,6 @@ def _create_del(text: str, author: str, date: str, source_run: etree._Element) -
     del_elem.append(_make_run(text, source_run, tag="w:delText"))
     return del_elem
 
-
 def _create_ins(text: str, author: str, date: str, source_run: etree._Element) -> etree._Element:
     """创建 <w:ins> 插入标记"""
     ins_elem = OxmlElement("w:ins")
@@ -202,7 +198,6 @@ def _create_ins(text: str, author: str, date: str, source_run: etree._Element) -
     ins_elem.set(qn("w:date"), date)
     ins_elem.append(_make_run(text, source_run))
     return ins_elem
-
 
 def _make_run(text: str, source_run: etree._Element, tag: str = "w:t") -> etree._Element:
     """创建 <w:r>，复制源 run 的格式"""

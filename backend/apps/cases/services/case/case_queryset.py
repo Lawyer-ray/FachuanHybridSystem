@@ -6,7 +6,6 @@ from django.db.models import QuerySet
 
 from apps.cases.models import Case
 
-
 def get_case_queryset() -> QuerySet[Case, Case]:
     return Case.objects.select_related(
         "contract",

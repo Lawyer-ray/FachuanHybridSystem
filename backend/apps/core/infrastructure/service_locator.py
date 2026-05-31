@@ -13,7 +13,6 @@ from apps.core.service_locator_mixins import (
 
 from .service_locator_base import BaseServiceLocator
 
-
 class ServiceLocator(
     BaseServiceLocator,
     BusinessServiceLocatorMixin,

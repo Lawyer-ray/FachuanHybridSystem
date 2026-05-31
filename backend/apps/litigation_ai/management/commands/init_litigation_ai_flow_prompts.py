@@ -5,7 +5,6 @@ from typing import Any
 from django.core.management.base import BaseCommand
 from django.db import transaction
 
-
 class Command(BaseCommand):
     help: str = "初始化 litigation_ai 对话流程与解析链默认 PromptVersion"
 

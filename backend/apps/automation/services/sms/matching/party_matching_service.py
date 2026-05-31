@@ -12,7 +12,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger("apps.automation")
 
-
 class PartyMatchingService:
     """当事人匹配服务 - 负责在现有客户数据库中匹配当事人"""
 
@@ -230,7 +229,6 @@ class PartyMatchingService:
                 unique_clients.append(client)
                 seen_ids.add(client.id)
         return unique_clients
-
 
 def _get_party_matching_service() -> PartyMatchingService:
     """工厂函数：获取当事人匹配服务实例"""

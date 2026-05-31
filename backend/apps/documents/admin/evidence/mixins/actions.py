@@ -4,7 +4,6 @@ import logging
 from typing import Any
 
 from django.contrib import admin
-from django.utils.translation import gettext_lazy as _
 
 from apps.documents.models import EvidenceList
 
@@ -12,9 +11,8 @@ from .views import EvidenceListAdminServiceMixin
 
 logger = logging.getLogger(__name__)
 
-
 class EvidenceListAdminActionsMixin(EvidenceListAdminServiceMixin):
-    @admin.action(description=_("合并选中清单的 PDF"))
+    @admin.action(description="合并选中清单的 PDF")
     def merge_pdfs(self, request: Any, queryset: Any) -> None:
         from django.contrib import messages
 
@@ -56,18 +54,18 @@ class EvidenceListAdminActionsMixin(EvidenceListAdminServiceMixin):
                 submitted_count += 1
             except Exception as e:
                 error_count += 1
-                messages.warning(request, _("清单 %(id)s 提交失败: %(e)s") % {"id": evidence_list.id, "e": e})
+                messages.warning(request, "清单 %(id)s 提交失败: %(e)s" % {"id": evidence_list.id, "e": e})
 
         if submitted_count > 0:
-            messages.success(request, _("已提交 %(n)s 个合并任务") % {"n": submitted_count})
+            messages.success(request, "已提交 %(n)s 个合并任务" % {"n": submitted_count})
         if skipped_count > 0:
-            messages.info(request, _("%(n)s 个清单正在合并中,已跳过") % {"n": skipped_count})
+            messages.info(request, "%(n)s 个清单正在合并中,已跳过" % {"n": skipped_count})
         if no_files_count > 0:
-            messages.warning(request, _("%(n)s 个清单没有文件,已跳过") % {"n": no_files_count})
+            messages.warning(request, "%(n)s 个清单没有文件,已跳过" % {"n": no_files_count})
         if error_count > 0:
-            messages.warning(request, _("%(n)s 个清单提交失败") % {"n": error_count})
+            messages.warning(request, "%(n)s 个清单提交失败" % {"n": error_count})
 
-    @admin.action(description=_("导出选中清单的 Word"))
+    @admin.action(description="导出选中清单的 Word")
     def export_list_word(self, request: Any, queryset: Any) -> Any:
         from django.contrib import messages
 
@@ -77,6 +75,5 @@ class EvidenceListAdminActionsMixin(EvidenceListAdminServiceMixin):
 
         evidence_list = queryset.first()
         return self.export_list_view(request, evidence_list.pk)  # type: ignore[attr-defined]
-
 
 __all__: list[str] = ["EvidenceListAdminActionsMixin"]

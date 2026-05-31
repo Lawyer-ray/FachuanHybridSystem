@@ -6,12 +6,10 @@ from django.utils import timezone
 
 from .court_sms_repo import CourtSmsRepo
 
-
 def record_query_history_task(credential_id: int, case_number: str, send_time: datetime) -> None:
     DocumentHistoryRepo().record_query_history(
         credential_id=credential_id, case_number=case_number, send_time=send_time
     )
-
 
 class DocumentHistoryRepo:
     def __init__(self, court_sms_repo: CourtSmsRepo | None = None) -> None:

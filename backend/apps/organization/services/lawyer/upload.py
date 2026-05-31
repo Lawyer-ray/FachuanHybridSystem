@@ -6,7 +6,6 @@ from ninja.files import UploadedFile
 
 from apps.organization.models import Lawyer
 
-
 class LawyerUploadService:
     def attach_license_pdf(self, lawyer: Lawyer, license_pdf: UploadedFile | None) -> None:
         if license_pdf is None:

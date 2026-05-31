@@ -47,13 +47,11 @@ _TRENDS_SYSTEM_PROMPT = """\
 推荐 5 个选题，请严格按照 JSON 格式输出。
 """
 
-
 @dataclass
 class TopicResult:
     topics: list[dict[str, str]]
     model: str
     token_usage: dict[str, int]
-
 
 class TopicService:
     """使用 LLM 生成选题建议。"""

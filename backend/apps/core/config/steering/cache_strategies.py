@@ -22,7 +22,6 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
-
 class CacheStrategy(Enum):
     """缓存策略枚举"""
 
@@ -31,7 +30,6 @@ class CacheStrategy(Enum):
     SMART = "smart"  # 智能缓存(基于文件修改时间)
     LAYERED = "layered"  # 分层缓存
     ADAPTIVE = "adaptive"  # 自适应缓存
-
 
 @dataclass
 class CacheEntry:
@@ -68,7 +66,6 @@ class CacheEntry:
         except (OSError, FileNotFoundError):
             return True  # 文件不存在,认为已修改
 
-
 class CacheStrategyInterface(ABC):
     """缓存策略接口"""
 
@@ -91,7 +88,6 @@ class CacheStrategyInterface(ABC):
     def update_on_access(self, entry: CacheEntry) -> None:
         """访问时更新策略状态"""
         pass
-
 
 class LRUCacheStrategy(CacheStrategyInterface):
     """LRU 缓存策略"""
@@ -116,7 +112,6 @@ class LRUCacheStrategy(CacheStrategyInterface):
     def update_on_access(self, entry: CacheEntry) -> None:
         """更新访问时间"""
         entry.touch()
-
 
 class TTLCacheStrategy(CacheStrategyInterface):
     """TTL 缓存策略"""
@@ -152,7 +147,6 @@ class TTLCacheStrategy(CacheStrategyInterface):
     def update_on_access(self, entry: CacheEntry) -> None:
         """TTL 策略不需要在访问时更新"""
         pass
-
 
 class SmartCacheStrategy(CacheStrategyInterface):
     """智能缓存策略(基于文件修改时间)"""
@@ -222,7 +216,6 @@ class SmartCacheStrategy(CacheStrategyInterface):
         """更新访问统计"""
         entry.touch()
 
-
 class LayeredCacheStrategy(CacheStrategyInterface):
     """分层缓存策略"""
 
@@ -290,7 +283,6 @@ class LayeredCacheStrategy(CacheStrategyInterface):
     def update_on_access(self, entry: CacheEntry) -> None:
         """更新访问统计"""
         entry.touch()
-
 
 class AdaptiveCacheStrategy(CacheStrategyInterface):
     """自适应缓存策略"""
@@ -364,7 +356,6 @@ class AdaptiveCacheStrategy(CacheStrategyInterface):
                     best_strategy = strategy_name
 
         return best_strategy
-
 
 class SteeringCacheStrategyManager:
     """Steering 缓存策略管理器"""
@@ -500,7 +491,6 @@ class SteeringCacheStrategyManager:
             return sys.getsizeof(data)
         except (ImportError, TypeError, AttributeError):
             return 1024  # 默认 1KB
-
 
 def create_cache_strategy_from_config(config: dict[str, Any]) -> SteeringCacheStrategyManager:
     """根据配置创建缓存策略管理器"""

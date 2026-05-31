@@ -13,7 +13,6 @@ from apps.core.security.admin_access import is_admin_user
 
 from .access_policy import ensure_can_access_project
 
-
 class ProjectService:
     def list_projects(self, *, user: Any | None) -> QuerySet[ChatRecordProject, ChatRecordProject]:
         qs = ChatRecordProject.objects.all()

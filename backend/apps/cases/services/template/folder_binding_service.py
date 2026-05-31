@@ -6,7 +6,6 @@ import logging
 from typing import TYPE_CHECKING, Any, ClassVar, cast
 
 from django.db import transaction
-from django.utils.translation import gettext_lazy as _
 
 from apps.cases.models import Case, CaseFolderBinding
 from apps.cases.services.case.case_access_policy import CaseAccessPolicy
@@ -23,7 +22,6 @@ if TYPE_CHECKING:
     from apps.core.security.access_context import AccessContext
 
 logger = logging.getLogger("apps.cases")
-
 
 class CaseFolderBindingService(FolderBindingCrudService):
     """
@@ -99,7 +97,7 @@ class CaseFolderBindingService(FolderBindingCrudService):
         case = self._get_case_internal(case_id)
         if not case:
             raise NotFoundError(
-                message=_("案件不存在"),
+                message="案件不存在",
                 code="CASE_NOT_FOUND",
                 errors={"case_id": f"ID 为 {case_id} 的案件不存在"},
             )
@@ -110,7 +108,7 @@ class CaseFolderBindingService(FolderBindingCrudService):
             org_access=org_access,
             perm_open_access=perm_open_access,
             case=case,
-            message=_("无权限访问此案件"),
+            message="无权限访问此案件",
         )
 
         return case
@@ -127,7 +125,7 @@ class CaseFolderBindingService(FolderBindingCrudService):
         """登录用户权限检查"""
         user = ctx.user
         if not user or not getattr(user, "is_authenticated", False):
-            raise PermissionDenied(_("需要登录"))
+            raise PermissionDenied("需要登录")
 
     # 默认子目录配置(仅在没有文书模板绑定配置时使用)
     DEFAULT_SUBDIRS: ClassVar = {
@@ -148,7 +146,7 @@ class CaseFolderBindingService(FolderBindingCrudService):
         case = self._get_case_internal(owner_id)
         if not case:
             raise NotFoundError(
-                message=_("案件不存在"),
+                message="案件不存在",
                 code="CASE_NOT_FOUND",
                 errors={"case_id": f"ID 为 {owner_id} 的案件不存在"},
             )

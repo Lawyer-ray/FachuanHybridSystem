@@ -7,11 +7,9 @@ from typing import ClassVar
 
 from .base import CaseAccessGrant, ModelSchema, Schema, SchemaMixin
 
-
 class CaseAccessGrantIn(Schema):
     case_id: int
     grantee_id: int
-
 
 class CaseAccessGrantOut(ModelSchema, SchemaMixin):
     class Meta:
@@ -22,10 +20,8 @@ class CaseAccessGrantOut(ModelSchema, SchemaMixin):
     def resolve_created_at(obj: CaseAccessGrant) -> datetime | None:
         return SchemaMixin._resolve_datetime(getattr(obj, "created_at", None))
 
-
 class CaseAccessGrantUpdate(Schema):
     case_id: int | None = None
     grantee_id: int | None = None
-
 
 __all__: list[str] = ["CaseAccessGrantIn", "CaseAccessGrantOut", "CaseAccessGrantUpdate"]

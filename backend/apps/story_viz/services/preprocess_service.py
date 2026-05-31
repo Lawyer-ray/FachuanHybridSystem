@@ -3,12 +3,10 @@ from __future__ import annotations
 import hashlib
 from dataclasses import dataclass
 
-
 @dataclass
 class PreprocessResult:
     cleaned_text: str
     source_hash: str
-
 
 class JudgmentPreprocessService:
     def preprocess(self, *, source_text: str, viz_type: str) -> PreprocessResult:

@@ -15,7 +15,6 @@ logger = logging.getLogger("apps.automation")
 
 __all__ = ["DocumentMatchingMixin"]
 
-
 class DocumentMatchingMixin:
     """案件匹配、重命名、通知 Mixin"""
 

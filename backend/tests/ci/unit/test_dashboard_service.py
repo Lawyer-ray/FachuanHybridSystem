@@ -9,11 +9,9 @@ import pytest
 
 from apps.sales_dispute.services.generation.dashboard_service import DashboardService, _lawyer_display_name, _safe_rate
 
-
 @pytest.fixture
 def svc() -> DashboardService:
     return DashboardService()
-
 
 @pytest.fixture
 def setup_data(db):
@@ -126,28 +124,21 @@ def setup_data(db):
         "today": today,
     }
 
-
 # ── _safe_rate ──
-
 
 def test_safe_rate_normal() -> None:
     assert _safe_rate(Decimal("50"), Decimal("200")) == Decimal("25.00")
 
-
 def test_safe_rate_zero_denominator() -> None:
     assert _safe_rate(Decimal("100"), Decimal("0")) == Decimal("0.00")
 
-
 # ── _lawyer_display_name ──
-
 
 def test_lawyer_display_name_none() -> None:
     result = _lawyer_display_name(None)
     assert result  # should return fallback
 
-
 # ── get_summary ──
-
 
 @pytest.mark.django_db
 def test_get_summary(svc, setup_data):
@@ -164,9 +155,7 @@ def test_get_summary(svc, setup_data):
     assert result.recovered_case_count >= 2
     assert result.avg_recovery_cycle > 0
 
-
 # ── get_trend ──
-
 
 @pytest.mark.django_db
 def test_get_trend_month(svc, setup_data):
@@ -180,9 +169,7 @@ def test_get_trend_month(svc, setup_data):
     total = sum(r.amount for r in result)
     assert total == Decimal("450000")
 
-
 # ── get_breakdown ──
-
 
 @pytest.mark.django_db
 def test_get_breakdown_by_case_type(svc, setup_data):
@@ -196,7 +183,6 @@ def test_get_breakdown_by_case_type(svc, setup_data):
     total_cases = sum(r.case_count for r in result)
     assert total_cases == 3
 
-
 @pytest.mark.django_db
 def test_get_breakdown_by_amount_range(svc, setup_data):
     today = setup_data["today"]
@@ -208,7 +194,6 @@ def test_get_breakdown_by_amount_range(svc, setup_data):
     assert len(result) > 0
     total_cases = sum(r.case_count for r in result)
     assert total_cases == 3
-
 
 @pytest.mark.django_db
 def test_get_breakdown_by_lawyer(svc, setup_data):
@@ -222,9 +207,7 @@ def test_get_breakdown_by_lawyer(svc, setup_data):
     total_cases = sum(r.case_count for r in result)
     assert total_cases == 3
 
-
 # ── get_factors ──
-
 
 @pytest.mark.django_db
 def test_get_factors(svc, setup_data):
@@ -248,9 +231,7 @@ def test_get_factors(svc, setup_data):
     # amount_range should have items
     assert len(result["amount_range"]) > 0
 
-
 # ── get_lawyer_performance ──
-
 
 @pytest.mark.django_db
 def test_get_lawyer_performance(svc, setup_data):
@@ -271,9 +252,7 @@ def test_get_lawyer_performance(svc, setup_data):
         assert item.lawyer_name
         assert item.case_count > 0
 
-
 # ── get_case_stats ──
-
 
 @pytest.mark.django_db
 def test_get_case_stats(svc, setup_data):

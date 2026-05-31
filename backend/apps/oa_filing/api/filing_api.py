@@ -12,18 +12,15 @@ from apps.oa_filing.services.script_executor_service import SUPPORTED_SITES
 logger = logging.getLogger("apps.oa_filing.api")
 router = Router()
 
-
 def _get_executor_service() -> Any:
     from apps.oa_filing.services.script_executor_service import ScriptExecutorService
 
     return ScriptExecutorService()
 
-
 def _get_organization_service() -> Any:
     from apps.core.dependencies import build_organization_service
 
     return build_organization_service()
-
 
 @router.get("/configs", response=list[OAConfigOut])
 def list_configs(request: HttpRequest) -> Any:
@@ -36,7 +33,6 @@ def list_configs(request: HttpRequest) -> Any:
     )
     return [{"id": name, "oa_system_name": name, "has_credential": name in user_sites} for name in SUPPORTED_SITES]
 
-
 @router.post("/execute", response=SessionOut)
 def execute_filing(request: HttpRequest, payload: ExecuteFilingIn) -> Any:
     """执行OA立案。"""
@@ -47,7 +43,6 @@ def execute_filing(request: HttpRequest, payload: ExecuteFilingIn) -> Any:
         payload.case_id,
         request.user,
     )
-
 
 @router.get("/session/{session_id}", response=SessionOut)
 def get_session(request: HttpRequest, session_id: int) -> Any:

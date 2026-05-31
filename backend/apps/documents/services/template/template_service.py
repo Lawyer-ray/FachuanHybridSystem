@@ -6,7 +6,6 @@ import logging
 from typing import Any
 
 from django.core.files.uploadedfile import UploadedFile
-from django.utils.translation import gettext_lazy as _
 
 from apps.core.exceptions import NotFoundError
 from apps.core.utils.path import Path
@@ -19,7 +18,6 @@ from apps.documents.services.document_template.validation_service import Documen
 from apps.documents.services.document_template.workflow import DocumentTemplateWorkflow
 
 logger = logging.getLogger(__name__)
-
 
 class DocumentTemplateService:
     """
@@ -158,7 +156,7 @@ class DocumentTemplateService:
             template = self.repo.get_by_id(template_id)
         except DocumentTemplate.DoesNotExist:
             raise NotFoundError(
-                message=_("文书模板不存在"),
+                message="文书模板不存在",
                 code="TEMPLATE_NOT_FOUND",
                 errors={"template_id": f"ID 为 {template_id} 的模板不存在"},
             ) from None
@@ -287,7 +285,7 @@ class DocumentTemplateService:
             return self.repo.get_by_id(template_id)
         except DocumentTemplate.DoesNotExist:
             raise NotFoundError(
-                message=_("文书模板不存在"),
+                message="文书模板不存在",
                 code="TEMPLATE_NOT_FOUND",
                 errors={"template_id": f"ID 为 {template_id} 的模板不存在"},
             ) from None
@@ -332,7 +330,7 @@ class DocumentTemplateService:
             template = self.repo.get_by_id(template_id)
         except DocumentTemplate.DoesNotExist:
             raise NotFoundError(
-                message=_("文书模板不存在"),
+                message="文书模板不存在",
                 code="TEMPLATE_NOT_FOUND",
                 errors={"template_id": f"ID 为 {template_id} 的模板不存在"},
             ) from None
@@ -385,7 +383,7 @@ class DocumentTemplateService:
             template = self.repo.get_by_id(template_id)
         except DocumentTemplate.DoesNotExist:
             raise NotFoundError(
-                message=_("文书模板不存在"),
+                message="文书模板不存在",
                 code="TEMPLATE_NOT_FOUND",
                 errors={"template_id": f"ID 为 {template_id} 的模板不存在"},
             ) from None

@@ -7,7 +7,6 @@ from typing import Protocol
 
 from ninja.files import UploadedFile
 
-
 class FileUploadPort(Protocol):
     """文件上传服务端口。
 

@@ -19,7 +19,6 @@ from apps.automation.services.ai.prompts import DEFAULT_FILENAME_PROMPT
 from apps.automation.services.document.document_processing import process_uploaded_document
 from apps.core.interfaces import ServiceLocator
 
-
 class AutoNamerToolForm(forms.Form):
     """自动命名工具表单"""
 
@@ -33,7 +32,6 @@ class AutoNamerToolForm(forms.Form):
     model = forms.CharField(required=True, initial="qwen3:0.6b", help_text="使用的AI模型名称")
     limit = forms.IntegerField(required=False, help_text="文字提取限制（留空使用默认值1500字）")
     preview_page = forms.IntegerField(required=False, min_value=1, help_text="PDF预览页码（留空使用默认值第1页）")
-
 
 @admin.register(NamerTool)
 class AutoNamerToolAdmin(admin.ModelAdmin):

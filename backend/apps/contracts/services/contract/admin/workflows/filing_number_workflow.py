@@ -8,7 +8,6 @@ from django.utils import timezone
 
 from apps.contracts.models import Contract
 
-
 class ContractFilingNumberWorkflow:
     def __init__(self, *, filing_number_service: Any) -> None:
         self.filing_number_service = filing_number_service

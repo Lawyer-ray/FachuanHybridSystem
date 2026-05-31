@@ -20,7 +20,6 @@ logger = logging.getLogger(__name__)
 
 __all__ = ["check_database", "check_cache", "check_disk_space", "check_dependencies"]
 
-
 def check_database() -> ComponentHealth:
     """检查数据库连接"""
     start = time.time()
@@ -123,7 +122,6 @@ def check_database() -> ComponentHealth:
             diagnostic_info=diagnostic_info,
         )
 
-
 def check_cache() -> ComponentHealth:
     """检查缓存连接"""
     start = time.time()
@@ -173,7 +171,6 @@ def check_cache() -> ComponentHealth:
             message=f"Cache error: {e!s}",
             diagnostic_info=diagnostic_info,
         )
-
 
 def check_disk_space() -> ComponentHealth:
     """检查磁盘空间"""
@@ -252,7 +249,6 @@ def check_disk_space() -> ComponentHealth:
             message=f"Disk check error: {e!s}",
             diagnostic_info=diagnostic_info,
         )
-
 
 def check_dependencies() -> ComponentHealth:
     """检查外部依赖服务"""

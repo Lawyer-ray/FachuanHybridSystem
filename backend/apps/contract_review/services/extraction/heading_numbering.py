@@ -13,7 +13,6 @@ from apps.core.llm.service import LLMService
 
 logger = logging.getLogger(__name__)
 
-
 class HeadingNumbering:
     """通过 LLM 识别标题层级并设置 OOXML 多级自动编号"""
 

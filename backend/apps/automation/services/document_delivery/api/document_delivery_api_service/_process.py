@@ -8,7 +8,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from django.utils import timezone
-from django.utils.translation import gettext_lazy as _
 
 from apps.automation.services.document_delivery.data_classes import (
     DocumentDeliveryRecord,
@@ -27,7 +26,6 @@ from abc import abstractmethod
 logger = logging.getLogger("apps.automation")
 
 __all__ = ["DocumentProcessMixin"]
-
 
 class DocumentProcessMixin:
     """文书下载与 SMS 处理 Mixin"""
@@ -96,7 +94,7 @@ class DocumentProcessMixin:
                     logger.warning(f"文书下载失败: {file_name}")
 
             if not downloaded_files:
-                result.error_message = str(_("所有文书下载失败"))
+                result.error_message = str("所有文书下载失败")
                 logger.error(result.error_message)
                 return result
 
@@ -218,7 +216,7 @@ class DocumentProcessMixin:
                         logger.info(f"通知发送成功: SMS ID={sms.id}")
                     else:
                         sms.status = CourtSMSStatus.FAILED
-                        sms.error_message = str(_("通知发送失败"))
+                        sms.error_message = str("通知发送失败")
                         logger.warning(f"通知发送失败: SMS ID={sms.id}")
 
                     sms.save()

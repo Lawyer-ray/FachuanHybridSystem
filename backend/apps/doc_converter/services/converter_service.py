@@ -19,7 +19,6 @@ from ..models import DocConverterItem, DocConverterJob, DocConverterJobStatus
 
 logger = logging.getLogger("apps.doc_converter")
 
-
 class DocConverterService:
     MAX_FILE_SIZE = 50 * 1024 * 1024  # 50MB per file
     ALLOWED_EXTENSIONS = {".doc"}

@@ -1,26 +1,25 @@
-{% load i18n %}
 <!-- 立案标签页 -->
 <div x-show="activeTab === 'filing'" x-cloak x-data="filingApp()" x-transition>
     <div class="info-grid">
         <div class="info-card" style="grid-column: 1 / -1;">
             <div class="card-header">
                 <span class="card-icon">🏛️</span>
-                <h3 class="card-title">{% translate "OA系统立案" %}</h3>
+                <h3 class="card-title">{</h3>
             </div>
 
             <div>
                 <div x-show="loading" style="text-align: center; padding: 24px;">
-                    <span class="spinner"></span> {% translate "加载中..." %}
+                    <span class="spinner"></span> {
                 </div>
                 <div x-show="!loading && configs.length === 0">
-                    <p class="empty-state">{% translate "暂无可用的OA系统配置" %}</p>
+                    <p class="empty-state">{</p>
                 </div>
                 <div x-show="!loading && configs.length > 0">
                     <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
-                        <label style="font-size: 13px; color: #374151; white-space: nowrap;">{% translate "OA系统" %}</label>
+                        <label style="font-size: 13px; color: #374151; white-space: nowrap;">{</label>
                         <select x-model="selectedConfigId"
                                 style="flex: 1; padding: 6px 10px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px;">
-                            <option value="">{% translate "请选择OA系统" %}</option>
+                            <option value="">{</option>
                             <template x-for="cfg in configs" :key="cfg.id">
                                 <option :value="cfg.id" x-text="cfg.oa_system_name + (cfg.has_credential ? '' : ' ⚠️ 缺少凭证')"></option>
                             </template>
@@ -30,19 +29,19 @@
                         <button type="button" class="btn btn-primary"
                                 :disabled="executing || !hasCredential()"
                                 @click="executeFiling()">
-                            <span x-show="!executing">🚀 {% translate "开始立案" %}</span>
-                            <span x-show="executing"><span class="spinner"></span> {% translate "执行中..." %}</span>
+                            <span x-show="!executing">🚀 {</span>
+                            <span x-show="executing"><span class="spinner"></span> {</span>
                         </button>
                         <span x-show="!hasCredential()"
                               style="margin-left: 12px; font-size: 12px; color: #dc2626;">
-                            {% translate "请先在账号密码管理中添加该OA系统的凭证" %}
+                            {
                         </span>
                     </div>
                     <template x-if="lastResult">
                         <div :style="lastResult.status === 'completed' ? 'background:#f0fdf4;border:1px solid #86efac;border-radius:8px;padding:12px;margin-bottom:16px;' : lastResult.status === 'in_progress' ? 'background:#eff6ff;border:1px solid #93c5fd;border-radius:8px;padding:12px;margin-bottom:16px;' : 'background:#fef2f2;border:1px solid #fca5a5;border-radius:8px;padding:12px;margin-bottom:16px;'">
-                            <span x-show="lastResult.status === 'completed'" style="color:#15803d;">✓ {% translate "立案成功" %}</span>
-                            <span x-show="lastResult.status === 'in_progress'" style="color:#1d4ed8;">⏳ {% translate "正在执行中，浏览器已打开..." %}</span>
-                            <span x-show="lastResult.status === 'failed'" style="color:#dc2626;">✗ {% translate "立案失败" %}</span>
+                            <span x-show="lastResult.status === 'completed'" style="color:#15803d;">✓ {</span>
+                            <span x-show="lastResult.status === 'in_progress'" style="color:#1d4ed8;">⏳ {</span>
+                            <span x-show="lastResult.status === 'failed'" style="color:#dc2626;">✗ {</span>
                             <span x-show="lastResult.error_message" style="margin-left:8px;font-size:12px;color:#6b7280;" x-text="lastResult.error_message"></span>
                         </div>
                     </template>

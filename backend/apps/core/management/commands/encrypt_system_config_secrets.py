@@ -7,7 +7,6 @@ from django.core.management.base import BaseCommand
 from apps.core.models import SystemConfig
 from apps.core.security.secret_codec import SecretCodec
 
-
 class Command(BaseCommand):
     help: str = "加密存量 SystemConfig 中 is_secret=True 的明文值"
 

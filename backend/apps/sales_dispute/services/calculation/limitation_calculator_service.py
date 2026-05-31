@@ -18,7 +18,6 @@ LIMITATION_YEARS: int = 3
 GUARANTEE_MONTHS: int = 6
 EXPIRING_SOON_DAYS: int = 90
 
-
 class InterruptionType(str, Enum):
     """时效中断事由类型"""
 
@@ -27,14 +26,12 @@ class InterruptionType(str, Enum):
     LAWSUIT = "lawsuit"
     PAYMENT_ORDER = "payment_order"
 
-
 @dataclass(frozen=True)
 class InterruptionEvent:
     """时效中断事由"""
 
     event_type: InterruptionType
     event_date: date
-
 
 @dataclass(frozen=True)
 class LimitationCalcParams:
@@ -44,7 +41,6 @@ class LimitationCalcParams:
     interruptions: list[InterruptionEvent]
     guarantee_debtor: bool = False
     principal_due_date: date | None = None
-
 
 @dataclass(frozen=True)
 class LimitationResult:
@@ -57,7 +53,6 @@ class LimitationResult:
     risk_warning: str
     guarantee_expiry_date: date | None = None
 
-
 def _add_months(d: date, months: int) -> date:
     """日期加月数，处理月末溢出。"""
     month = d.month + months
@@ -65,7 +60,6 @@ def _add_months(d: date, months: int) -> date:
     month = (month - 1) % 12 + 1
     day = min(d.day, calendar.monthrange(year, month)[1])
     return date(year, month, day)
-
 
 class LimitationCalculatorService:
     """诉讼时效计算服务"""

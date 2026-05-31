@@ -3,14 +3,12 @@
 from dataclasses import dataclass
 from typing import Any
 
-
 @dataclass(frozen=True)
 class CaptchaRecognizeResultDTO:
     success: bool
     text: str | None
     processing_time: float
     error: str | None
-
 
 @dataclass(frozen=True)
 class CourtTokenDTO:

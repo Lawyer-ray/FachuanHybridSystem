@@ -7,7 +7,6 @@
 from abc import ABC, abstractmethod
 from typing import Any, ClassVar
 
-
 class BasePlaceholderService(ABC):
     """占位符服务基类"""
 

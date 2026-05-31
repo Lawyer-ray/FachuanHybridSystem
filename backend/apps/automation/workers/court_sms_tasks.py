@@ -6,7 +6,6 @@ from typing import Any
 
 from apps.core.interfaces import ServiceLocator
 
-
 def process_sms(sms_id: int, process_options: dict[str, Any] | None = None) -> None:
     from apps.automation.usecases.court_sms.process_sms import ProcessSmsUsecase
 
@@ -15,18 +14,15 @@ def process_sms(sms_id: int, process_options: dict[str, Any] | None = None) -> N
         process_options=process_options,
     )
 
-
 def process_sms_from_matching(sms_id: int) -> None:
     from apps.automation.usecases.court_sms.process_sms import ProcessSmsFromMatchingUsecase
 
     ProcessSmsFromMatchingUsecase(court_sms_service=ServiceLocator.get_court_sms_service()).execute(sms_id=sms_id)
 
-
 def process_sms_from_renaming(sms_id: int) -> None:
     from apps.automation.usecases.court_sms.process_sms import ProcessSmsFromRenamingUsecase
 
     ProcessSmsFromRenamingUsecase(court_sms_service=ServiceLocator.get_court_sms_service()).execute(sms_id=sms_id)
-
 
 def retry_download_task(sms_id: Any, **kwargs: Any) -> None:
     from apps.automation.usecases.court_sms.retry_download import RetryDownloadUsecase

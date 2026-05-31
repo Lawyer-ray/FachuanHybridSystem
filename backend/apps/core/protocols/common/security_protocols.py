@@ -2,7 +2,6 @@
 
 from typing import Any, Protocol
 
-
 class ISecurityService(Protocol):
     def encrypt(self, text: str) -> str: ...
 
@@ -14,7 +13,6 @@ class ISecurityService(Protocol):
 
     def decrypt_config(self, config: dict[str, Any]) -> dict[str, Any]: ...
 
-
 class IValidatorService(Protocol):
     def validate_case_number(self, case_number: str) -> bool: ...
 
@@ -25,7 +23,6 @@ class IValidatorService(Protocol):
     def clean_text(self, text: str) -> str: ...
 
     def extract_case_numbers(self, text: str) -> list[str]: ...
-
 
 class IPermissionService(Protocol):
     def can_access_case(self, user_id: int, case_id: int) -> bool: ...

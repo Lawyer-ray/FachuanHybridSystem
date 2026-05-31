@@ -5,7 +5,6 @@ from typing import Any
 from django.core.management.base import BaseCommand
 from django.db import connection
 
-
 class Command(BaseCommand):
     help = "检查数据库性能和索引使用情况"
 

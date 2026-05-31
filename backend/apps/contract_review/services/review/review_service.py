@@ -27,18 +27,15 @@ from .typo_checker import TypoChecker
 
 logger = logging.getLogger(__name__)
 
-
 def _upload_dir() -> Path:
     d = Path(settings.MEDIA_ROOT) / "contract_review" / "uploads"
     d.mkdir(parents=True, exist_ok=True)
     return d
 
-
 def _output_dir() -> Path:
     d = Path(settings.MEDIA_ROOT) / "contract_review" / "output"
     d.mkdir(parents=True, exist_ok=True)
     return d
-
 
 class ReviewService:
     """合同审查主编排服务"""
@@ -170,7 +167,6 @@ class ReviewService:
         if not path.exists():
             raise ContractReviewError("原始文件不存在")
         return path
-
 
 def process_review(task_id_str: str) -> None:
     """异步执行审查流水线（由 Django-Q2 调用）"""
@@ -347,10 +343,8 @@ def process_review(task_id_str: str) -> None:
             error_message=str(e),
         )
 
-
 def _update_step(repository: ReviewTaskRepository, task: ReviewTask, step: str) -> None:
     repository.update(task.id, current_step=step)
-
 
 def _apply_to_any_paragraph(
     doc: DocumentType, tool: DocxRevisionTool, original: str, replacement: str, author: str = ""

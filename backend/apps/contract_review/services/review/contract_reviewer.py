@@ -154,14 +154,12 @@ _PARTY_LABELS: dict[str, str] = {
     "party_d": "丁方",
 }
 
-
 @dataclass
 class ReviewResult:
     original: str
     suggested: str
     reason: str
     paragraph_index: int
-
 
 class ContractReviewer:
     """基于用户代表方立场审查合同条款"""
@@ -295,14 +293,12 @@ class ContractReviewer:
                 )
         return results
 
-
 def _parse_int(val: object) -> int:
     if isinstance(val, int):
         return val
     s = str(val).strip()
     m = re.search(r"\d+", s)
     return int(m.group()) if m else 0
-
 
 def _try_fix_truncated_json(text: str) -> list[dict[str, object]] | None:
     """尝试修复被截断的 JSON 数组，返回已解析的完整条目"""

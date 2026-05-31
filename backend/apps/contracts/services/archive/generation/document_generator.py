@@ -16,7 +16,6 @@ from .template_finder import get_template_path
 
 logger = logging.getLogger("apps.contracts.archive")
 
-
 def preview_archive_template(contract_id: int, template_subtype: str) -> dict[str, Any]:
     """预览归档文书占位符替换词。"""
     contract = Contract.objects.filter(pk=contract_id).first()
@@ -58,7 +57,6 @@ def preview_archive_template(contract_id: int, template_subtype: str) -> dict[st
     rows = DocxPreviewService().preview(str(template_path), context)
     return {"success": True, "data": rows, "has_overrides": has_overrides}
 
-
 def generate_archive_documents(
     contract: Contract,
     case: Any | None = None,
@@ -89,7 +87,6 @@ def generate_archive_documents(
         results.append(result)
 
     return results
-
 
 def generate_single_archive_document(
     contract: Contract,
@@ -128,7 +125,6 @@ def generate_single_archive_document(
 
     return _generate_single_document(contract, target_item, case)
 
-
 def _apply_overrides(context: dict[str, Any], contract: Contract, template_subtype: str) -> None:
     """将用户覆盖值合并到 context 中。"""
     from apps.contracts.models.archive_override import ArchivePlaceholderOverride
@@ -142,7 +138,6 @@ def _apply_overrides(context: dict[str, Any], contract: Contract, template_subty
         for key, value in override_obj.overrides.items():
             if value is not None and value != "":
                 context[key] = value
-
 
 def _generate_single_document(
     contract: Contract,
@@ -199,7 +194,6 @@ def _generate_single_document(
         logger.exception("归档文书生成失败: %s", template_subtype)
         return {"template_subtype": template_subtype, "error": str(e)}
 
-
 def _generate_filename(contract: Contract, item: ChecklistItem) -> str:
     """生成归档文书文件名。"""
     from datetime import date
@@ -213,7 +207,6 @@ def _generate_filename(contract: Contract, item: ChecklistItem) -> str:
         )
         + ".docx"
     )
-
 
 def _save_as_material(
     contract: Contract,

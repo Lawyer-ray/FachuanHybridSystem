@@ -5,12 +5,10 @@ from datetime import datetime, timedelta
 from typing import Any
 
 import httpx
-from django.utils.translation import gettext_lazy as _
 
 from apps.core.exceptions import ChatProviderException, ConfigurationException
 
 logger = logging.getLogger(__name__)
-
 
 class WeChatWorkTokenMixin:
     """负责企业微信配置加载和 access_token 获取"""
@@ -93,7 +91,7 @@ class WeChatWorkTokenMixin:
 
         if not corp_id or not secret:
             raise ConfigurationException(
-                message=_("企业微信 CORP_ID 或 SECRET 未配置"),
+                message="企业微信 CORP_ID 或 SECRET 未配置",
                 platform="wechat_work",
                 missing_config="CORP_ID, SECRET",
             )

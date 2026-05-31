@@ -15,12 +15,10 @@ logger = logging.getLogger("apps.automation")
 
 router = Router(tags=["验证码识别"])
 
-
 def _get_captcha_service() -> Any:
     from apps.core.dependencies import build_captcha_service
 
     return build_captcha_service()
-
 
 # NOTE:
 # 该接口用于自动化流程中的验证码识别，必须保持“无认证、无 CSRF、无速率限制”。

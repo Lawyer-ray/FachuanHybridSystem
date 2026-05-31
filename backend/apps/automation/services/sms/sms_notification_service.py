@@ -29,7 +29,6 @@ from apps.core.models.enums import ChatPlatform
 
 logger = logging.getLogger(__name__)
 
-
 class SMSNotificationService:
     """短信通知服务 - 多平台群聊通知扇出
 

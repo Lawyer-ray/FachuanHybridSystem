@@ -7,7 +7,6 @@ from django.db.models import QuerySet
 from apps.client.models import Client
 from apps.client.services.client_query_builder import ClientQueryBuilder
 
-
 class ClientListQueryService:
     def __init__(self, query_builder: ClientQueryBuilder | None = None) -> None:
         self.query_builder = query_builder or ClientQueryBuilder()

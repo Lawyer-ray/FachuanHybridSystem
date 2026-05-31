@@ -10,20 +10,17 @@ from apps.documents.services.placeholders.fallback import (
 )
 from apps.litigation_ai.services.generation.placeholder_render_service import PlaceholderRenderService
 
-
 class _DocStub:
     def get_undeclared_template_variables(self, context: dict[str, object] | None = None) -> set[str]:
         if context and "known" in context:
             return {"missing_key"}
         return set()
 
-
 def test_build_docx_render_context_fills_undeclared_with_slash() -> None:
     context = build_docx_render_context(doc=_DocStub(), context={"known": "ok"})
 
     assert context["known"] == "ok"
     assert context["missing_key"] == PLACEHOLDER_FALLBACK_VALUE
-
 
 def test_resolve_render_variable_returns_slash_for_none_and_missing() -> None:
     hit, value = resolve_render_variable({"a": None}, "a")
@@ -33,7 +30,6 @@ def test_resolve_render_variable_returns_slash_for_none_and_missing() -> None:
     hit_missing, value_missing = resolve_render_variable({}, "missing")
     assert hit_missing is False
     assert value_missing == PLACEHOLDER_FALLBACK_VALUE
-
 
 def test_placeholder_render_service_renders_slash_for_missing_and_none() -> None:
     rendered, stats = PlaceholderRenderService().render(
@@ -47,7 +43,6 @@ def test_placeholder_render_service_renders_slash_for_missing_and_none() -> None
     assert stats.placeholders_found == ["name", "address"]
     assert stats.placeholders_hit == []
     assert stats.placeholders_missed == ["name", "address"]
-
 
 def test_prompt_spec_render_user_message_uses_slash_for_none_and_missing() -> None:
     prompt = PromptSpec(system_prompt="s", user_template="A:{a};B:{b}", format_instructions="")

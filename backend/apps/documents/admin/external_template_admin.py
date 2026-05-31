@@ -15,30 +15,26 @@ from django.core.validators import FileExtensionValidator
 from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
 from django.template.response import TemplateResponse
 from django.urls import reverse
-from django.utils.translation import gettext
-from django.utils.translation import gettext_lazy as _
 
 from apps.documents.models import ExternalTemplate, ExternalTemplateFieldMapping
 
 logger: logging.Logger = logging.getLogger(__name__)
 
-
 _SOURCE_NAME_WIDGET = forms.TextInput(
     attrs={
         "class": "vTextField js-court-autocomplete",
-        "placeholder": _("请输入法院或机构名称..."),
+        "placeholder": "请输入法院或机构名称...",
         "autocomplete": "off",
     }
 )
-
 
 class ExternalTemplateAddForm(forms.ModelForm[ExternalTemplate]):
     """新增外部模板表单"""
 
     docx_file = forms.FileField(
-        label=_("模板文件 (.docx)"),
+        label="模板文件 (.docx)",
         validators=[FileExtensionValidator(["docx"])],
-        help_text=_("仅支持 .docx 格式，最大 20MB"),
+        help_text="仅支持 .docx 格式，最大 20MB",
     )
 
     class Meta:
@@ -47,7 +43,6 @@ class ExternalTemplateAddForm(forms.ModelForm[ExternalTemplate]):
         widgets: ClassVar[dict[str, Any]] = {
             "source_name": _SOURCE_NAME_WIDGET,
         }
-
 
 class ExternalTemplateChangeForm(forms.ModelForm[ExternalTemplate]):
     """编辑外部模板表单"""
@@ -59,20 +54,17 @@ class ExternalTemplateChangeForm(forms.ModelForm[ExternalTemplate]):
             "source_name": _SOURCE_NAME_WIDGET,
         }
 
-
 def _get_analysis_service() -> Any:
     """工厂函数获取分析服务"""
     from apps.documents.services.infrastructure.wiring import get_analysis_service
 
     return get_analysis_service()
 
-
 def _get_filling_service() -> Any:
     """工厂函数获取填充服务"""
     from apps.documents.services.infrastructure.wiring import get_filling_service
 
     return get_filling_service()
-
 
 class ExternalTemplateFieldMappingInline(admin.TabularInline):
     """字段映射 Inline（只读展示，由 LLM 分析自动生成）"""
@@ -90,7 +82,6 @@ class ExternalTemplateFieldMappingInline(admin.TabularInline):
         "semantic_label",
         "fill_type",
     )
-
 
 @admin.register(ExternalTemplate)
 class ExternalTemplateAdmin(admin.ModelAdmin):
@@ -182,11 +173,11 @@ class ExternalTemplateAdmin(admin.ModelAdmin):
             return ()
         return self.change_readonly_fields
 
-    @admin.display(description=_("原始文件名"))
+    @admin.display(description="原始文件名")
     def original_filename(self, obj: ExternalTemplate) -> str:
         return obj.original_filename
 
-    @admin.display(description=_("文件大小"))
+    @admin.display(description="文件大小")
     def file_size_display(self, obj: ExternalTemplate) -> str:
         size = obj.file_size
         if size < 1024:
@@ -195,13 +186,13 @@ class ExternalTemplateAdmin(admin.ModelAdmin):
             return f"{size / 1024:.1f} KB"
         return f"{size / 1024 / 1024:.1f} MB"
 
-    @admin.display(description=_("上传者"))
+    @admin.display(description="上传者")
     def uploaded_by_display(self, obj: ExternalTemplate) -> str:
         if obj.uploaded_by:
             return str(obj.uploaded_by.real_name or obj.uploaded_by.username)
         return "-"
 
-    @admin.display(description=_("所属律所"))
+    @admin.display(description="所属律所")
     def law_firm_display(self, obj: ExternalTemplate) -> str:
         return str(obj.law_firm.name) if obj.law_firm_id else "-"
 

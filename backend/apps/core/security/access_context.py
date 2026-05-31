@@ -3,13 +3,11 @@
 from dataclasses import dataclass
 from typing import Any
 
-
 @dataclass(frozen=True)
 class AccessContext:
     user: Any | None
     org_access: dict[str, Any] | None
     perm_open_access: bool = False
-
 
 def get_request_access_context(request: Any) -> AccessContext:
     existing = getattr(request, "access_ctx", None)

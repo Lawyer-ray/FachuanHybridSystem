@@ -16,7 +16,6 @@ from apps.core.interfaces import ICourtDocumentService
 
 logger = logging.getLogger("apps.automation")
 
-
 class CourtDocumentService:
     """
     法院文书服务
@@ -252,7 +251,6 @@ class CourtDocumentService:
             return document
         except CourtDocument.DoesNotExist:
             return None
-
 
 class CourtDocumentServiceAdapter(ICourtDocumentService):
     """

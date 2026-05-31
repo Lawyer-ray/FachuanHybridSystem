@@ -4,7 +4,6 @@ from urllib.parse import quote
 
 from django.http import HttpResponse
 
-
 def build_download_response(*, content: bytes, filename: str, content_type: str) -> HttpResponse:
     response = HttpResponse(content, content_type=content_type)
     # filename="..." 使用百分号编码（ASCII 安全，避免 Django MIME 编码破坏正则匹配）

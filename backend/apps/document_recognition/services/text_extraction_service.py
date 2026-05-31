@@ -12,18 +12,14 @@ import logging
 from dataclasses import dataclass
 from pathlib import Path
 
-from django.utils.translation import gettext_lazy as _
-
 from apps.core.exceptions import ValidationException
 
 logger = logging.getLogger(__name__)
-
 
 # 支持的文件扩展名
 SUPPORTED_PDF_EXTENSIONS = {".pdf"}
 SUPPORTED_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png"}
 SUPPORTED_EXTENSIONS = SUPPORTED_PDF_EXTENSIONS | SUPPORTED_IMAGE_EXTENSIONS
-
 
 def _remove_all_spaces(text: str) -> str:
     """
@@ -40,7 +36,6 @@ def _remove_all_spaces(text: str) -> str:
     # 删除所有空白字符：空格、制表符、换行符、回车符等
     return re.sub(r"\s+", "", text) if text else ""
 
-
 @dataclass
 class TextExtractionResult:
     """
@@ -55,7 +50,6 @@ class TextExtractionResult:
     text: str
     extraction_method: str
     success: bool
-
 
 class TextExtractionService:
     """
@@ -102,14 +96,14 @@ class TextExtractionService:
         path = Path(file_path)
         if not path.exists():
             raise ValidationException(
-                message=_("文件不存在"), code="FILE_NOT_FOUND", errors={"file": f"文件 {file_path} 不存在"}
+                message="文件不存在", code="FILE_NOT_FOUND", errors={"file": f"文件 {file_path} 不存在"}
             )
 
         # 验证文件格式
         ext = path.suffix.lower()
         if ext not in SUPPORTED_EXTENSIONS:
             raise ValidationException(
-                message=_("不支持的文件格式"),
+                message="不支持的文件格式",
                 code="UNSUPPORTED_FILE_FORMAT",
                 errors={"file": f"不支持 {ext} 格式，请上传 PDF 或图片（jpg, jpeg, png）"},
             )
@@ -323,11 +317,9 @@ class TextExtractionService:
         """
         return tuple(SUPPORTED_EXTENSIONS)
 
-
 def get_supported_extensions() -> tuple[str, ...]:
     """模块级函数：获取支持的文件扩展名列表"""
     return tuple(SUPPORTED_EXTENSIONS)
-
 
 def is_supported_format(file_path: str) -> bool:
     """模块级函数：检查文件格式是否支持"""

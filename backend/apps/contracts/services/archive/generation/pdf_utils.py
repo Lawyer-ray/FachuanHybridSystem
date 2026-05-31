@@ -19,7 +19,6 @@ logger = logging.getLogger("apps.contracts.archive")
 A4_W, A4_H = 595.0, 842.0
 TOLERANCE = 1.0
 
-
 def scale_pages_to_a4(contract: Contract) -> dict[str, Any]:
     """将合同所有已上传的归档 PDF 材料按 A4 尺寸缩放。"""
     import fitz
@@ -126,7 +125,6 @@ def scale_pages_to_a4(contract: Contract) -> dict[str, Any]:
         "errors": errors,
     }
 
-
 def add_page_numbers(doc: Any, start_page: int = 1) -> None:
     """为PDF文档的每一页添加页码（居中底部）。"""
     import fitz
@@ -143,7 +141,6 @@ def add_page_numbers(doc: Any, start_page: int = 1) -> None:
             fontsize=9,
             color=(0, 0, 0),
         )
-
 
 def merge_materials_to_single_pdf(materials: list[FinalizedMaterial]) -> dict[str, Any]:
     """将多个材料文件合并为一个 PDF（通用工具方法）。"""
@@ -201,7 +198,6 @@ def merge_materials_to_single_pdf(materials: list[FinalizedMaterial]) -> dict[st
         return {"success": True, "content": content}
     finally:
         merged_doc.close()
-
 
 def compile_case_materials_pdf(
     contract: Contract,

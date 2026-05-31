@@ -22,7 +22,6 @@ logger = logging.getLogger("apps.automation")
 
 _PLAYWRIGHT_INSTALL_CMD = [sys.executable, "-m", "playwright", "install", "chromium"]
 
-
 def _ensure_browser_installed() -> None:
     """
     检测 Playwright 浏览器是否已安装，若缺失则自动安装。
@@ -62,7 +61,6 @@ def _ensure_browser_installed() -> None:
             logger.info("Playwright chromium 安装完成")
         except subprocess.CalledProcessError as install_err:
             logger.error("Playwright chromium 自动安装失败: %s", install_err.stderr)
-
 
 class BrowserService:
     """
@@ -223,7 +221,6 @@ class BrowserService:
         """析构时自动关闭"""
         self.close()
 
-
 class BrowserServiceAdapter(IBrowserService):
     """
     浏览器服务适配器
@@ -292,6 +289,5 @@ class BrowserServiceAdapter(IBrowserService):
         关闭浏览器（内部接口，无权限检查）
         """
         self.service.close()
-
 
 # 注意：不再使用全局单例，请通过 ServiceLocator.get_browser_service() 获取服务实例

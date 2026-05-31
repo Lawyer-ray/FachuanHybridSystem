@@ -4,14 +4,12 @@ import logging
 from typing import Any
 
 from django.db import models
-from django.utils.translation import gettext_lazy as _
 
 from apps.documents.models import LIST_TYPE_PREVIOUS, EvidenceItem, EvidenceList, ListType
 
 from .views import EvidenceListAdminServiceMixin
 
 logger = logging.getLogger(__name__)
-
 
 class EvidenceListAdminSaveMixin(EvidenceListAdminServiceMixin):
     def save_model(self, request: Any, obj: Any, form: Any, change: Any) -> None:
@@ -81,7 +79,7 @@ class EvidenceListAdminSaveMixin(EvidenceListAdminServiceMixin):
 
         except Exception as e:
             logger.error("保存过程出错", extra={"error": str(e)}, exc_info=True)
-            messages.error(request, _("保存过程出错: %(e)s") % {"e": e})
+            messages.error(request, "保存过程出错: %(e)s" % {"e": e})
             raise
 
     @staticmethod
@@ -89,7 +87,7 @@ class EvidenceListAdminSaveMixin(EvidenceListAdminServiceMixin):
         if formset.errors:
             for i, err in enumerate(formset.errors):
                 if err:
-                    messages.error(request, _("表单 %(i)s 错误: %(err)s") % {"i": i, "err": err})
+                    messages.error(request, "表单 %(i)s 错误: %(err)s" % {"i": i, "err": err})
         if form.errors:
             logger.warning("EvidenceListAdmin form errors", extra={"errors": form.errors})
 
@@ -104,7 +102,7 @@ class EvidenceListAdminSaveMixin(EvidenceListAdminServiceMixin):
                 obj.save()
             except Exception as e:
                 logger.error("保存失败", extra={"error": str(e)}, exc_info=True)
-                messages.error(request, _("保存失败: %(e)s") % {"e": e})
+                messages.error(request, "保存失败: %(e)s" % {"e": e})
                 raise
         return max_order
 
@@ -115,7 +113,7 @@ class EvidenceListAdminSaveMixin(EvidenceListAdminServiceMixin):
                 obj.delete()
             except Exception as e:
                 logger.warning("删除失败", extra={"error": str(e)}, exc_info=True)
-                messages.error(request, _("删除失败: %(e)s") % {"e": e})
+                messages.error(request, "删除失败: %(e)s" % {"e": e})
 
     @staticmethod
     def _prepare_evidence_item(obj: Any, max_order: int, items_need_page_count: list[Any]) -> None:
@@ -156,7 +154,7 @@ class EvidenceListAdminSaveMixin(EvidenceListAdminServiceMixin):
                 if error:
                     messages.warning(
                         request,
-                        _("文件 %(n)s 页数识别失败,将按 %(p)s 页处理:%(e)s")
+                        "文件 %(n)s 页数识别失败,将按 %(p)s 页处理:%(e)s"
                         % {
                             "n": obj.file_name or obj.file,
                             "p": page_count,
@@ -169,7 +167,7 @@ class EvidenceListAdminSaveMixin(EvidenceListAdminServiceMixin):
                     extra={"file_name": getattr(obj.file, "name", None), "error": str(e)},
                     exc_info=True,
                 )
-                messages.warning(request, _("文件 %(n)s 页数识别失败: %(e)s") % {"n": obj.file_name, "e": e})
+                messages.warning(request, "文件 %(n)s 页数识别失败: %(e)s" % {"n": obj.file_name, "e": e})
         if to_update:
             EvidenceItem.objects.bulk_update(to_update, ["page_count"])
 
@@ -209,6 +207,5 @@ class EvidenceListAdminSaveMixin(EvidenceListAdminServiceMixin):
         if evidence_list.total_pages != total_pages:
             evidence_list.total_pages = total_pages
             evidence_list.save(update_fields=["total_pages"])
-
 
 __all__: list[str] = ["EvidenceListAdminSaveMixin"]

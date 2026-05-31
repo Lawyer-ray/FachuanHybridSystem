@@ -11,7 +11,6 @@ from apps.litigation_ai.placeholders.spec import LitigationPlaceholderKeys
 
 logger = logging.getLogger(__name__)
 
-
 @PlaceholderRegistry.register
 class EnforcementMediaPublicationRequestService(BasePlaceholderService):
     """生成强制执行申请书中的“申请媒体公布事项”占位符."""

@@ -13,7 +13,6 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger("apps.automation")
 
-
 class ISMSStage(ABC):
     """
     SMS 处理阶段接口
@@ -60,7 +59,6 @@ class ISMSStage(ABC):
             str: 阶段名称
         """
         pass
-
 
 class BaseSMSStage(ISMSStage):
     """

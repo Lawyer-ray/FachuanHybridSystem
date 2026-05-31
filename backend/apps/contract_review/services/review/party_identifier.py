@@ -38,7 +38,6 @@ PARTY_LABELS: dict[str, str] = {
     "party_d": "丁方",
 }
 
-
 class PartyIdentifier:
     """当事人识别器，支持甲乙丙丁四方"""
 

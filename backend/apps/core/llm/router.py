@@ -7,7 +7,6 @@ from typing import ClassVar
 from .backends import BackendConfig, ILLMBackend
 from .backends.registry import get_backend_class
 
-
 class LLMBackendRouter:
     DEFAULT_PRIORITIES: ClassVar = {
         "siliconflow": 1,

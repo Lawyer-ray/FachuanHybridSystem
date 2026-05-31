@@ -18,12 +18,10 @@ logger = logging.getLogger(__name__)
 
 router = Router(tags=["性能监控"])
 
-
 def _get_performance_monitor_service() -> Any:
     from apps.core.dependencies import build_performance_monitor_service
 
     return build_performance_monitor_service()
-
 
 @router.get("/metrics", response=PerformanceMetricsOut, summary="获取实时性能指标")
 def get_performance_metrics(request: HttpRequest) -> dict[str, Any]:
@@ -33,7 +31,6 @@ def get_performance_metrics(request: HttpRequest) -> dict[str, Any]:
     metrics = service.get_token_acquisition_metrics()
     logger.info("获取性能指标成功", extra={"total_acquisitions": metrics.get("total_acquisitions", 0)})
     return {"success": True, "data": metrics}
-
 
 @router.get("/statistics", response=StatisticsReportOut, summary="获取统计报告")
 def get_statistics_report(
@@ -51,7 +48,6 @@ def get_statistics_report(
     )
     return {"success": True, "data": report}
 
-
 @router.get("/health", summary="健康检查")
 def health_check(request: HttpRequest) -> dict[str, Any]:
     """检查Token获取服务的健康状态"""
@@ -60,7 +56,6 @@ def health_check(request: HttpRequest) -> dict[str, Any]:
     health_report = service.get_system_metrics()
     logger.info("健康检查完成", extra={"status": "healthy"})
     return health_report  # type: ignore[no-any-return]
-
 
 @router.get("/resource-usage", summary="获取资源使用情况")
 def get_resource_usage(request: HttpRequest) -> dict[str, Any]:
@@ -71,7 +66,6 @@ def get_resource_usage(request: HttpRequest) -> dict[str, Any]:
     logger.info("获取资源使用情况成功", extra={"system_metrics": True})
     return usage  # type: ignore[no-any-return]
 
-
 @router.post("/optimize-concurrency", summary="优化并发配置")
 def optimize_concurrency(request: HttpRequest) -> dict[str, Any]:
     """分析当前使用情况并提供并发优化建议"""
@@ -81,7 +75,6 @@ def optimize_concurrency(request: HttpRequest) -> dict[str, Any]:
     logger.info("并发优化分析完成")
     return {"success": True, "data": optimization_result}
 
-
 @router.get("/cache-stats", summary="获取缓存统计")
 def get_cache_statistics(request: HttpRequest) -> dict[str, Any]:
     """获取缓存使用统计信息"""
@@ -90,7 +83,6 @@ def get_cache_statistics(request: HttpRequest) -> dict[str, Any]:
     cache_stats = service.get_system_metrics()
     logger.info("获取缓存统计成功")
     return {"success": True, "data": cache_stats}
-
 
 @router.post("/cache/warm-up", summary="预热缓存")
 def warm_up_cache(
@@ -110,7 +102,6 @@ def warm_up_cache(
         "message": f"网站 {site_name} 的缓存预热完成",
     }
 
-
 @router.delete("/cache/clear", summary="清除缓存")
 def clear_cache(request: HttpRequest) -> dict[str, Any]:
     """清除所有Token相关缓存"""
@@ -120,7 +111,6 @@ def clear_cache(request: HttpRequest) -> dict[str, Any]:
     logger.info("缓存清除完成")
     return {"success": True, "data": {"status": "completed"}, "message": "所有Token相关缓存已清除"}
 
-
 @router.post("/metrics/reset", summary="重置性能指标")
 def reset_performance_metrics(request: HttpRequest) -> dict[str, Any]:
     """重置所有性能监控指标"""
@@ -129,7 +119,6 @@ def reset_performance_metrics(request: HttpRequest) -> dict[str, Any]:
     service.record_performance_metric("metrics_reset", 1.0)
     logger.info("性能指标重置完成")
     return {"success": True, "data": {"status": "completed"}, "message": "性能监控指标已重置"}
-
 
 @router.post("/resources/cleanup", summary="清理资源")
 def cleanup_resources(request: HttpRequest) -> dict[str, Any]:

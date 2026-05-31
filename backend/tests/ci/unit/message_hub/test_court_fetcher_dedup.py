@@ -12,7 +12,6 @@ from apps.message_hub.models import InboxMessage, MessageSource, SourceType
 from apps.message_hub.services.court.court_fetcher import CourtInboxFetcher
 from apps.organization.models import AccountCredential, Lawyer
 
-
 @pytest.mark.django_db
 class TestCourtFetcherDedup:
     """同一送达事件跨律师同步时，仅触发一次主流程。"""

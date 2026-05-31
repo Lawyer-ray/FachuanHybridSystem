@@ -9,7 +9,6 @@ from typing import TYPE_CHECKING, Final, NotRequired, Protocol, TypedDict
 
 from django.db import transaction
 from django.utils.dateparse import parse_datetime
-from django.utils.translation import gettext_lazy as _
 
 from apps.core.exceptions import ValidationException
 
@@ -21,26 +20,21 @@ if TYPE_CHECKING:
 
 ImportData = dict[str, object]
 
-
 class CasePartyImportPayload(TypedDict):
     legal_status: NotRequired[str | None]
     client: NotRequired[ImportData]
 
-
 class CaseAssignmentImportPayload(TypedDict):
     lawyer: NotRequired[ImportData]
-
 
 class SupervisingAuthorityImportPayload(TypedDict):
     name: NotRequired[str]
     authority_type: NotRequired[str]
 
-
 class CaseNumberImportPayload(TypedDict):
     number: NotRequired[str]
     is_active: NotRequired[bool]
     remarks: NotRequired[str | None]
-
 
 class CaseChatImportPayload(TypedDict):
     platform: NotRequired[str]
@@ -49,11 +43,9 @@ class CaseChatImportPayload(TypedDict):
     is_active: NotRequired[bool]
     owner_id: NotRequired[int | None]
 
-
 class CaseLogAttachmentImportPayload(TypedDict):
     file_path: NotRequired[str]
     filename: NotRequired[str]
-
 
 class CaseLogReminderImportPayload(TypedDict):
     reminder_type: NotRequired[str]
@@ -61,13 +53,11 @@ class CaseLogReminderImportPayload(TypedDict):
     due_at: NotRequired[str | datetime | None]
     metadata: NotRequired[dict[str, object]]
 
-
 class CaseLogImportPayload(TypedDict):
     content: NotRequired[str]
     actor: NotRequired[ImportData]
     attachments: NotRequired[list[CaseLogAttachmentImportPayload]]
     reminders: NotRequired[list[CaseLogReminderImportPayload]]
-
 
 class CaseImportPayload(TypedDict):
     name: NotRequired[str]
@@ -89,18 +79,14 @@ class CaseImportPayload(TypedDict):
     chats: NotRequired[list[CaseChatImportPayload]]
     logs: NotRequired[list[CaseLogImportPayload]]
 
-
 class ClientResolverProtocol(Protocol):
     def resolve_with_attachments(self, data: ImportData) -> Client: ...
-
 
 class ContractImportProtocol(Protocol):
     def resolve(self, data: ImportData) -> Contract: ...
 
-
 class LawyerResolverProtocol(Protocol):
     def resolve(self, data: ImportData) -> Lawyer | None: ...
-
 
 logger = logging.getLogger("apps.cases")
 
@@ -117,7 +103,6 @@ _CASE_FIELDS: Final[tuple[str, ...]] = (
     "is_filed",
     "filing_number",
 )
-
 
 def _parse_log_reminders_for_create(
     reminder_data_list: list[CaseLogReminderImportPayload],
@@ -142,7 +127,6 @@ def _parse_log_reminders_for_create(
         )
     return reminders
 
-
 class CaseImportService:
     """按 filing_number get_or_create Case，级联创建 Contract、Client、Lawyer。"""
 
@@ -165,7 +149,7 @@ class CaseImportService:
         from apps.cases.models import Case, CaseAssignment, CaseParty
 
         if not data.get("name"):
-            raise ValidationException(message=_("案件名称不能为空"), code="INVALID_CASE_DATA")
+            raise ValidationException(message="案件名称不能为空", code="INVALID_CASE_DATA")
 
         filing_number: str | None = data.get("filing_number") or None
         if filing_number:
@@ -282,7 +266,6 @@ class CaseImportService:
                 )
 
         return case
-
 
 def build_case_import_service_for_admin() -> CaseImportService:
     """构建 admin 导入使用的 CaseImportService（包含循环依赖绑定）。"""

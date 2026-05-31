@@ -9,7 +9,6 @@ from apps.cases.utils import normalize_case_number as normalize_case_number_util
 
 logger = logging.getLogger("apps.cases")
 
-
 class CaseNumberInternalService:
     def add_case_number_internal(self, case_id: int, case_number: str, user_id: int | None = None) -> bool:
         if not case_number or not case_number.strip():

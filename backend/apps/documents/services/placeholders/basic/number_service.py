@@ -13,7 +13,6 @@ from apps.documents.services.placeholders.registry import PlaceholderRegistry
 
 logger = logging.getLogger(__name__)
 
-
 @PlaceholderRegistry.register
 class NumberPlaceholderService(BasePlaceholderService):
     """数字格式化服务"""

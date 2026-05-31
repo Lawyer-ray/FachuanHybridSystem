@@ -12,7 +12,6 @@ from apps.express_query.services import ExpressBrowserQueryService, TrackingExtr
 
 logger = logging.getLogger("apps.express_query")
 
-
 def execute_express_query_task(task_id: int) -> None:
     """执行快递查询任务（从文件识别运单号）"""
     logger.info("开始执行快递查询任务", extra={"task_id": task_id})
@@ -67,7 +66,6 @@ def execute_express_query_task(task_id: int) -> None:
         task.finished_at = timezone.now()
         task.save(update_fields=["status", "error_message", "finished_at", "updated_at"])
 
-
 def execute_manual_express_query_task(task_id: int) -> None:
     """执行手动输入的快递查询任务（跳过OCR）"""
     logger.info("开始执行手动输入快递查询任务", extra={"task_id": task_id})
@@ -99,7 +97,6 @@ def execute_manual_express_query_task(task_id: int) -> None:
         task.error_message = str(exc)
         task.finished_at = timezone.now()
         task.save(update_fields=["status", "error_message", "finished_at", "updated_at"])
-
 
 def _execute_browser_query(task: ExpressQueryTask) -> None:
     """执行浏览器查询（公共逻辑）"""

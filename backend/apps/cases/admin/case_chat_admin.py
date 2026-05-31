@@ -8,12 +8,10 @@ from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
 from django.urls import reverse
 from django.utils.html import format_html
 from django.utils.safestring import SafeString
-from django.utils.translation import gettext_lazy as _
 
 from apps.cases.admin.base_admin import BaseTabularInline
 from apps.cases.admin.mixins import CaseAdminServiceMixin
 from apps.cases.models import CaseChat
-
 
 @admin.register(CaseChat)
 class CaseChatAdmin(CaseAdminServiceMixin, admin.ModelAdmin):
@@ -46,7 +44,7 @@ class CaseChatAdmin(CaseAdminServiceMixin, admin.ModelAdmin):
             return chat_id
         return "-"
 
-    chat_id_display.short_description = _("群聊ID")  # type: ignore[attr-defined]
+    chat_id_display.short_description = "群聊ID"  # type: ignore[attr-defined]
 
     def platform_display(self, obj: CaseChat) -> str:
         """显示平台（带图标）"""
@@ -62,7 +60,7 @@ class CaseChatAdmin(CaseAdminServiceMixin, admin.ModelAdmin):
         display = platform_labels.get(obj.platform, obj.platform)
         return f"{icon} {display}"
 
-    platform_display.short_description = _("平台")  # type: ignore[attr-defined]
+    platform_display.short_description = "平台"  # type: ignore[attr-defined]
 
     def case_link(self, obj: CaseChat) -> SafeString:
         """案件链接"""
@@ -73,7 +71,7 @@ class CaseChatAdmin(CaseAdminServiceMixin, admin.ModelAdmin):
             return format_html('<a href="{}" target="_blank">{}</a>', url, case_name)
         return format_html("<span>{}</span>", "-")
 
-    case_link.short_description = _("关联案件")  # type: ignore[attr-defined]
+    case_link.short_description = "关联案件"  # type: ignore[attr-defined]
 
     def status_display(self, obj: CaseChat) -> SafeString:
         """状态显示"""
@@ -82,7 +80,7 @@ class CaseChatAdmin(CaseAdminServiceMixin, admin.ModelAdmin):
         else:
             return format_html('<span style="color: red;">●</span> {}', "已解绑")
 
-    status_display.short_description = _("状态")  # type: ignore[attr-defined]
+    status_display.short_description = "状态"  # type: ignore[attr-defined]
 
     def unbind_selected_chats(self, request: HttpRequest, queryset: QuerySet[CaseChat, CaseChat]) -> None:
         """批量解除绑定群聊"""
@@ -94,16 +92,16 @@ class CaseChatAdmin(CaseAdminServiceMixin, admin.ModelAdmin):
                 if service.unbind_chat(chat.id):
                     success_count += 1
             except Exception as e:
-                msg = _("解除绑定群聊 %(chat)s 失败: %(error)s") % {
+                msg = "解除绑定群聊 %(chat)s 失败: %(error)s" % {
                     "chat": chat.name,
                     "error": str(e),
                 }
                 messages.error(request, msg)
 
         if success_count > 0:
-            messages.success(request, _("成功解除绑定 %d 个群聊") % success_count)
+            messages.success(request, "成功解除绑定 %d 个群聊" % success_count)
 
-    unbind_selected_chats.short_description = _("解除绑定选中的群聊")  # type: ignore[attr-defined]
+    unbind_selected_chats.short_description = "解除绑定选中的群聊"  # type: ignore[attr-defined]
 
     def has_add_permission(self, request: HttpRequest) -> bool:
         """禁止直接添加群聊记录"""
@@ -119,16 +117,15 @@ class CaseChatAdmin(CaseAdminServiceMixin, admin.ModelAdmin):
             service = self._get_case_chat_service()
             try:
                 if service.unbind_chat(obj.id):
-                    messages.success(request, _("成功解除绑定群聊: %s") % obj.name)
+                    messages.success(request, "成功解除绑定群聊: %s" % obj.name)
                 else:
-                    messages.error(request, _("解除绑定群聊失败: %s") % obj.name)
+                    messages.error(request, "解除绑定群聊失败: %s" % obj.name)
             except Exception as e:
-                messages.error(request, _("解除绑定群聊时发生错误: %s") % str(e))
+                messages.error(request, "解除绑定群聊时发生错误: %s" % str(e))
 
             return HttpResponseRedirect(reverse("admin:cases_casechat_changelist"))
 
         return super().response_change(request, obj)
-
 
 class CaseChatInline(BaseTabularInline):
     """案件群聊内联管理"""
@@ -152,7 +149,7 @@ class CaseChatInline(BaseTabularInline):
         display = obj.get_platform_display()
         return f"{icon} {display}"
 
-    platform_display.short_description = _("平台")  # type: ignore[attr-defined]
+    platform_display.short_description = "平台"  # type: ignore[attr-defined]
 
     def chat_id_display(self, obj: CaseChat) -> str:
         """显示群聊ID（截断显示）"""
@@ -164,7 +161,7 @@ class CaseChatInline(BaseTabularInline):
             return f"{chat_id[:15]}..."
         return chat_id
 
-    chat_id_display.short_description = _("群聊ID")  # type: ignore[attr-defined]
+    chat_id_display.short_description = "群聊ID"  # type: ignore[attr-defined]
 
     def status_display(self, obj: CaseChat) -> SafeString:
         """状态显示"""
@@ -176,7 +173,7 @@ class CaseChatInline(BaseTabularInline):
         else:
             return format_html('<span style="color: red;">●</span> {}', "已解绑")
 
-    status_display.short_description = _("状态")  # type: ignore[attr-defined]
+    status_display.short_description = "状态"  # type: ignore[attr-defined]
 
     def has_add_permission(self, request: HttpRequest, obj: Any = None) -> bool:
         """禁止直接添加群聊记录"""

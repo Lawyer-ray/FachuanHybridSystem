@@ -13,7 +13,6 @@ from django.dispatch import receiver
 
 logger = logging.getLogger("apps.wechat_mp")
 
-
 @receiver(post_delete, sender="wechat_mp.PublishTask", dispatch_uid="cleanup_publishtask_cover_image")
 def _cleanup_publishtask_cover_image(sender: Any, instance: Any, **kwargs: Any) -> None:
     """删除 PublishTask 时清理封面图物理文件。"""

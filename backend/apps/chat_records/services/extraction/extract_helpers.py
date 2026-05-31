@@ -8,7 +8,6 @@ from typing import Any
 
 logger = logging.getLogger("apps.chat_records")
 
-
 def safe_int(raw: Any, default: int) -> int:
     """安全转换为 int，失败返回 default。"""
     if raw is None:
@@ -21,7 +20,6 @@ def safe_int(raw: Any, default: int) -> int:
             extra={"raw": repr(raw), "default": default},
         )
         return default
-
 
 def safe_float(
     raw: Any,
@@ -46,7 +44,6 @@ def safe_float(
         v = min(v, hi)
     return v
 
-
 def shingles(s: str, n: int = 3) -> set[str]:
     """文本 n-gram 分片。"""
     s = s or ""
@@ -56,7 +53,6 @@ def shingles(s: str, n: int = 3) -> set[str]:
         return {s}
     return {s[i : i + n] for i in range(0, len(s) - n + 1)}
 
-
 def jaccard_sets(sa: set[str], sb: set[str]) -> float:
     """两个集合的 Jaccard 相似度。"""
     if not sa or not sb:
@@ -64,7 +60,6 @@ def jaccard_sets(sa: set[str], sb: set[str]) -> float:
     inter = len(sa & sb)
     union = len(sa | sb)
     return float(inter) / float(union) if union else 0.0
-
 
 @dataclass
 class ExtractParams:
@@ -103,7 +98,6 @@ class ExtractParams:
             ocr_similarity_threshold=ocr_similarity_threshold,
             ocr_min_new_chars=ocr_min_new_chars,
         )
-
 
 @dataclass
 class DedupState:

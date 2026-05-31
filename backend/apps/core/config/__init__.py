@@ -39,7 +39,6 @@ from .utils import (
 _global_config_manager: ConfigManager | None = None
 _global_config_lock = threading.Lock()
 
-
 def get_config_manager() -> ConfigManager:
     """获取全局配置管理器实例（线程安全单例）"""
     global _global_config_manager
@@ -73,7 +72,6 @@ def get_config_manager() -> ConfigManager:
         _global_config_manager.add_provider(YamlProvider(str(config_file)))
         return _global_config_manager
 
-
 def get_config(key: str, default: Any = None) -> Any:
     """
     获取配置项的便捷函数
@@ -86,7 +84,6 @@ def get_config(key: str, default: Any = None) -> Any:
         Any: 配置值
     """
     return get_config_manager().get(key, default)
-
 
 # 向后兼容性说明：
 # 原有的 business_config, BusinessConfig, CaseTypeCode 已迁移到统一配置管理系统

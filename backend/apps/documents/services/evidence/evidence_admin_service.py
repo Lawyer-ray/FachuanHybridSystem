@@ -10,7 +10,6 @@ from apps.documents.services.evidence.evidence_service import EvidenceService
 from apps.documents.services.evidence.export_service import EvidenceExportService
 from apps.documents.services.infrastructure.pdf_merge_service import PDFMergeService
 
-
 class EvidenceAdminService:
     """
     证据清单 Admin 服务

@@ -2,7 +2,6 @@
 
 from typing import Any, Protocol
 
-
 class IMonitorService(Protocol):
     def get_task_statistics(self, hours: int = 24) -> dict[str, Any]: ...
 

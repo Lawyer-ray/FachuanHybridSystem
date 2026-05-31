@@ -17,7 +17,6 @@ logger = logging.getLogger(__name__)
 OLLAMA_FALLBACK_MODEL = "qwen3.5:0.8b"
 OLLAMA_MAX_TEXT_CHARS = 12000
 
-
 def should_try_llm_fallback(
     *,
     text: str,
@@ -44,7 +43,6 @@ def should_try_llm_fallback(
         return True
     return False
 
-
 def _has_fee_prepaid_context(text: str, *, fee_keywords: tuple[str, ...]) -> bool:
     prepaid_markers = ("预交", "已缴", "已交", "先行垫付")
     for sentence in re.split(r"[。；\n]", text):
@@ -58,7 +56,6 @@ def _has_fee_prepaid_context(text: str, *, fee_keywords: tuple[str, ...]) -> boo
         if any(marker in compact for marker in prepaid_markers):
             return True
     return False
-
 
 def merge_llm_fallback(
     *,
@@ -140,7 +137,6 @@ def merge_llm_fallback(
 
     return changed
 
-
 def extract_with_ollama_fallback(main_text: str) -> dict[str, Any] | None:
     prompt = (
         "你是法律文书金额与利率解析助手。仅输出 JSON，不要输出其他文字。\n"
@@ -204,7 +200,6 @@ def extract_with_ollama_fallback(main_text: str) -> dict[str, Any] | None:
     parsed["interest_start_date"] = _parse_iso_date(start_date_value)
     return parsed
 
-
 def _extract_json_object(content: str) -> dict[str, Any] | None:
     text = (content or "").strip()
     if not text:
@@ -224,7 +219,6 @@ def _extract_json_object(content: str) -> dict[str, Any] | None:
             continue
     return None
 
-
 def _parse_iso_date(value: Any) -> date | None:
     if value is None:
         return None
@@ -236,7 +230,6 @@ def _parse_iso_date(value: Any) -> date | None:
         return date(int(year), int(month), int(day))
     except Exception:
         return None
-
 
 def _parse_bool(value: Any) -> bool:
     if isinstance(value, bool):

@@ -18,9 +18,7 @@ from .parsing import parse_llm_result
 
 logger = logging.getLogger(__name__)
 
-
 # ─── 汇总报告 ────────────────────────────────────────────────────────────────
-
 
 async def generate_summary(
     job_id: UUID,
@@ -111,9 +109,7 @@ async def generate_summary(
 
     return summary_text
 
-
 # ─── ZIP 打包 ────────────────────────────────────────────────────────────────
-
 
 def build_detail_zip_sync(job_id: UUID) -> bool:
     """同步生成分析详情 ZIP 并保存到 job.detail_zip_file。
@@ -180,7 +176,6 @@ def build_detail_zip_sync(job_id: UUID) -> bool:
     job = BatchJob.objects.get(id=job_id)
     job.detail_zip_file.save(zip_filename, zip_file, save=True)
     return True
-
 
 async def generate_detail_zip(
     job_id: UUID,

@@ -16,7 +16,6 @@ from ._perf_models import AlertLevel, LoadingPerformanceData, PerformanceAlert, 
 
 logger = logging.getLogger(__name__)
 
-
 class PerformanceDataCollector:
     """性能数据收集器"""
 

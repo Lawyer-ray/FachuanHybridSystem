@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-
 @dataclass
 class OACaseCustomerData:
     """OA客户数据（案件中提取）。"""
@@ -16,7 +15,6 @@ class OACaseCustomerData:
     id_number: str | None = None  # 身份证号码（自然人）
     industry: str | None = None  # 行业（企业）
     legal_representative: str | None = None  # 法定代表人（企业）
-
 
 @dataclass
 class OACaseInfoData:
@@ -32,14 +30,12 @@ class OACaseInfoData:
     description: str | None = None  # 案情简介
     client_side: str | None = None  # 代理何方
 
-
 @dataclass
 class OAConflictData:
     """OA利益冲突数据。"""
 
     name: str  # 冲突方名称
     conflict_type: str | None = None  # 冲突类型
-
 
 @dataclass
 class OACaseData:
@@ -51,14 +47,12 @@ class OACaseData:
     case_info: OACaseInfoData | None = None  # 案件信息
     conflicts: list[OAConflictData] = field(default_factory=list)  # 利益冲突列表
 
-
 @dataclass
 class CaseSearchItem:
     """案件搜索结果项。"""
 
     case_no: str  # 案件编号
     keyid: str  # 详情页KeyID
-
 
 @dataclass
 class OAListCaseCandidate:
@@ -68,7 +62,6 @@ class OAListCaseCandidate:
     case_name: str
     keyid: str
     detail_url: str
-
 
 @dataclass
 class CaseListFormState:

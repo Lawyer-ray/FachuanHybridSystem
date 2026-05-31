@@ -11,7 +11,6 @@ from apps.core.tasking import TaskTimeoutError
 
 logger = logging.getLogger("apps.oa_filing.tasks")
 
-
 def run_client_import_task(session_id: int, headless: bool = True, limit: int | None = None) -> None:
     """Django-Q 任务入口：执行 OA 客户导入。
 
@@ -62,7 +61,6 @@ def run_client_import_task(session_id: int, headless: bool = True, limit: int | 
         session.save(
             update_fields=["status", "phase", "error_message", "progress_message", "completed_at", "updated_at"]
         )
-
 
 def run_case_import_preview_task(session_id: int, file_path: str) -> None:
     """Django-Q 任务入口：预览 OA 案件导入。
@@ -168,7 +166,6 @@ def run_case_import_preview_task(session_id: int, file_path: str) -> None:
         session.progress_message = "预览失败"
         session.completed_at = timezone.now()
         session.save()
-
 
 def run_case_import_task(
     session_id: int,

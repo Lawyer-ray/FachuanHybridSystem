@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from django.http import HttpResponse
-from django.utils.translation import gettext_lazy as _
+
 from ninja import Router
 
 from apps.core.api.schema_utils import schema_to_update_dict
@@ -24,11 +24,9 @@ from ..services.wiring import get_reminder_service
 
 router = Router()
 
-
 def _get_reminder_service() -> Any:
     """工厂函数：获取 ReminderService 实例。"""
     return get_reminder_service()
-
 
 @router.post("/parse", response=list[ParsedReminderOut])
 def parse_reminders(request: Any, payload: ParseReminderIn) -> list[ParsedReminderOut]:
@@ -47,7 +45,6 @@ def parse_reminders(request: Any, payload: ParseReminderIn) -> list[ParsedRemind
         for r in results
     ]
 
-
 @router.get("/list", response=list[ReminderOut])
 def list_reminders(
     request: Any,
@@ -61,7 +58,6 @@ def list_reminders(
         case_log_id=case_log_id,
     )
 
-
 @router.post("/create", response=ReminderOut)
 def create_reminder(request: Any, payload: ReminderIn) -> Any:
     return _get_reminder_service().create_reminder(
@@ -74,12 +70,10 @@ def create_reminder(request: Any, payload: ReminderIn) -> Any:
         metadata=payload.metadata,
     )
 
-
 # 注意:/types 和 /target-options 必须在 /{reminder_id} 之前,否则会被当作 reminder_id 参数
 @router.get("/types", response=list[ReminderTypeItem])
 def get_types(request: Any) -> Any:
     return list_reminder_types()
-
 
 @router.get("/target-options", response=TargetOptionsOut)
 def get_target_options(request: Any, q: str = "") -> Any:
@@ -88,17 +82,14 @@ def get_target_options(request: Any, q: str = "") -> Any:
 
     return get_target_options(keyword=q)
 
-
 @router.get("/{reminder_id}", response=ReminderOut)
 def get_reminder(request: Any, reminder_id: int) -> Any:
     return _get_reminder_service().get_reminder(reminder_id)
-
 
 @router.put("/{reminder_id}", response=ReminderOut)
 def update_reminder(request: Any, reminder_id: int, payload: ReminderUpdate) -> Any:
     data = schema_to_update_dict(payload)
     return _get_reminder_service().update_reminder(reminder_id, data)
-
 
 @router.delete("/{reminder_id}")
 def delete_reminder(request: Any, reminder_id: int) -> HttpResponse:

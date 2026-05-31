@@ -10,9 +10,7 @@ from pydantic import BaseModel
 
 TModel = TypeVar("TModel", bound=BaseModel)
 
-
 _CODE_FENCE_RE = re.compile(r"```(?:json)?\s*(.*?)\s*```", re.IGNORECASE | re.DOTALL)
-
 
 def clean_text(text: str) -> str:
     """Remove common wrappers around model output."""
@@ -27,7 +25,6 @@ def clean_text(text: str) -> str:
     ]:
         cleaned = cleaned.replace(marker, "")
     return cleaned.strip()
-
 
 def extract_json_text(text: str) -> str | None:
     """Extract the first valid JSON object/array text from a model response."""
@@ -77,7 +74,6 @@ def extract_json_text(text: str) -> str | None:
 
     return None
 
-
 def parse_json_content(text: str) -> Any:
     """Parse JSON payload from model response text."""
     payload = extract_json_text(text)
@@ -85,12 +81,10 @@ def parse_json_content(text: str) -> Any:
         raise ValueError("LLM response does not contain valid JSON")
     return json.loads(payload)
 
-
 def parse_model_content(text: str, model_cls: type[TModel]) -> TModel:
     """Parse and validate structured model output from model response text."""
     parsed = parse_json_content(text)
     return model_cls.model_validate(parsed)
-
 
 def json_schema_instructions(model_cls: type[BaseModel]) -> str:
     """Return concise JSON-schema instructions for structured generation."""

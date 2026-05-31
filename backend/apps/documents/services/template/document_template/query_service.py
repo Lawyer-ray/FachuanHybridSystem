@@ -11,7 +11,6 @@ if TYPE_CHECKING:
     from .dto_assembler import DocumentTemplateDtoAssembler
 logger = logging.getLogger(__name__)
 
-
 class DocumentTemplateQueryService:
     def __init__(self, assembler: DocumentTemplateDtoAssembler | None = None) -> None:
         self._assembler = assembler

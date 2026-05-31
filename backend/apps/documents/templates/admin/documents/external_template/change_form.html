@@ -16,22 +16,22 @@
 {{ block.super }}
 {% if original %}
 <div class="module" x-data="{ status: '{{ original.status|default:"" }}' }">
-    <h2>{% translate "模板操作" %}</h2>
+    <h2>{</h2>
     <div class="et-action-buttons">
         <a class="button et-btn"
            :class="{ 'disabled': status === 'analyzing' }"
            href="{% url 'admin:documents_externaltemplate_analyze' original.pk %}">
-            🔍 <span x-text="(status === 'ready' || status === 'confirmed') ? '{% translate "重新分析" %}' : '{% translate "分析模板" %}'"></span>
+            🔍 <span x-text="(status === 'ready' || status === 'confirmed') ? '{' : '{'"></span>
         </a>
         <a class="button et-btn"
            :class="{ 'disabled': status !== 'confirmed' && status !== 'ready' }"
            href="{% url 'admin:documents_externaltemplate_fill_action' original.pk %}">
-            📝 {% translate "填充操作" %}
+            📝 {
         </a>
         <a class="button et-btn"
            :class="{ 'disabled': status !== 'ready' && status !== 'confirmed' && status !== 'analysis_failed' }"
            href="{% url 'admin:documents_externaltemplate_mapping_editor' original.pk %}">
-            🎯 {% translate "映射编辑" %}
+            🎯 {
         </a>
     </div>
 </div>

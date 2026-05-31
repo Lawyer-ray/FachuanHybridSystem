@@ -11,13 +11,10 @@ import logging
 from collections.abc import Callable
 from typing import Any
 
-from django.utils.translation import gettext_lazy as _
-
 from apps.core.exceptions import NotFoundError
 from apps.litigation_ai.agent.interfaces import ILitigationAgentService
 
 logger = logging.getLogger("apps.litigation_ai")
-
 
 class LitigationAgentService(ILitigationAgentService):
     """
@@ -200,7 +197,7 @@ class LitigationAgentService(ILitigationAgentService):
             session = LitigationSession.objects.filter(session_id=session_id).first()
             if not session:
                 raise NotFoundError(
-                    message=_("会话不存在"),
+                    message="会话不存在",
                     code="SESSION_NOT_FOUND",
                     errors={"session_id": session_id},
                 )

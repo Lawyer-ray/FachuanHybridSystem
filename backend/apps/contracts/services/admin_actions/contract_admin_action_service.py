@@ -9,7 +9,6 @@ from apps.core.protocols import ICaseAssignmentService, ICaseService
 
 logger = logging.getLogger("apps.contracts")
 
-
 class ContractAdminActionService:
     def __init__(self, *, case_service: ICaseService, case_assignment_service: ICaseAssignmentService) -> None:
         self._case_service = case_service

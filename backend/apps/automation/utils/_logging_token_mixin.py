@@ -6,7 +6,6 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
-
 class TokenLoggingMixin:
     """验证码、Token、登录相关日志方法"""
 

@@ -12,17 +12,14 @@ from django.db.models import QuerySet
 from django.http import HttpRequest
 from django.utils.html import format_html
 from django.utils.safestring import SafeString
-from django.utils.translation import gettext_lazy as _
 
 from apps.automation.models import CourtDocument, DocumentDownloadStatus
-
 
 def _get_court_document_admin_service() -> Any:
     """工厂函数：创建法院文书管理服务"""
     from apps.automation.services.admin import CourtDocumentAdminService
 
     return CourtDocumentAdminService()
-
 
 @admin.register(CourtDocument)
 class CourtDocumentAdmin(admin.ModelAdmin):
@@ -87,7 +84,7 @@ class CourtDocumentAdmin(admin.ModelAdmin):
 
     fieldsets = (
         (
-            _("基本信息"),
+            "基本信息",
             {
                 "fields": (
                     "id",
@@ -97,7 +94,7 @@ class CourtDocumentAdmin(admin.ModelAdmin):
             },
         ),
         (
-            _("文书信息"),
+            "文书信息",
             {
                 "fields": (
                     "c_wsmc",
@@ -113,7 +110,7 @@ class CourtDocumentAdmin(admin.ModelAdmin):
             },
         ),
         (
-            _("下载状态"),
+            "下载状态",
             {
                 "fields": (
                     "download_status",
@@ -126,7 +123,7 @@ class CourtDocumentAdmin(admin.ModelAdmin):
             },
         ),
         (
-            _("时间信息"),
+            "时间信息",
             {
                 "fields": (
                     "created_at",
@@ -142,7 +139,7 @@ class CourtDocumentAdmin(admin.ModelAdmin):
 
     list_per_page = 20
 
-    @admin.display(description=_("文书名称"))
+    @admin.display(description="文书名称")
     def c_wsmc_display(self, obj: CourtDocument) -> SafeString:
         """格式化显示文书名称"""
         return format_html(
@@ -150,12 +147,12 @@ class CourtDocumentAdmin(admin.ModelAdmin):
             obj.c_wsmc[:50] + "..." if len(obj.c_wsmc) > 50 else obj.c_wsmc,
         )
 
-    @admin.display(description=_("法院名称"))
+    @admin.display(description="法院名称")
     def c_fymc_display(self, obj: CourtDocument) -> SafeString:
         """格式化显示法院名称"""
         return format_html('<span style="color: #007bff;">{}</span>', obj.c_fymc)
 
-    @admin.display(description=_("下载状态"))
+    @admin.display(description="下载状态")
     def download_status_display(self, obj: CourtDocument) -> SafeString:
         """带颜色的状态显示"""
         colors = {
@@ -177,7 +174,7 @@ class CourtDocumentAdmin(admin.ModelAdmin):
             '<span style="color: {}; font-weight: bold;">{} {}</span>', color, icon, obj.get_download_status_display()
         )
 
-    @admin.display(description=_("文件大小"))
+    @admin.display(description="文件大小")
     def file_info_display(self, obj: CourtDocument) -> SafeString:
         """显示文件信息"""
         if obj.file_size:
@@ -192,7 +189,7 @@ class CourtDocumentAdmin(admin.ModelAdmin):
             return format_html('<span style="color: #666;">{}</span>', size_str)
         return format_html('<span style="color: #999;">{}</span>', "-")
 
-    @admin.display(description=_("文件大小"))
+    @admin.display(description="文件大小")
     def file_size_display(self, obj: CourtDocument) -> SafeString:
         """详情页显示文件大小"""
         if obj.file_size:
@@ -209,7 +206,7 @@ class CourtDocumentAdmin(admin.ModelAdmin):
             )
         return format_html('<span style="color: #999;">{}</span>', "-")
 
-    @admin.display(description=_("文件下载"))
+    @admin.display(description="文件下载")
     def download_link(self, obj: CourtDocument) -> SafeString:
         """列表页的下载链接"""
         if obj.download_status == DocumentDownloadStatus.SUCCESS and obj.local_file_path:
@@ -220,11 +217,11 @@ class CourtDocumentAdmin(admin.ModelAdmin):
                 'line-height: 1.4; white-space: nowrap;">'
                 "{}</a>",
                 obj.local_file_path,
-                _("下载"),
+                "下载",
             )
         return format_html('<span style="color: #999;">{}</span>', "-")
 
-    @admin.display(description=_("文件下载"))
+    @admin.display(description="文件下载")
     def download_link_detail(self, obj: CourtDocument) -> SafeString:
         """详情页的下载链接"""
         if obj.download_status == DocumentDownloadStatus.SUCCESS and obj.local_file_path:
@@ -240,7 +237,7 @@ class CourtDocumentAdmin(admin.ModelAdmin):
                 "{}</a>",
                 obj.local_file_path,
                 filename,
-                _("下载文件"),
+                "下载文件",
             )
         elif obj.download_status == DocumentDownloadStatus.FAILED:
             return format_html('<span style="color: #dc3545; font-weight: bold;">{}</span>', "下载失败")

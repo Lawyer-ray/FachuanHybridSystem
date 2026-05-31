@@ -17,23 +17,19 @@ _CASE_LIST_URL = "https://ims.jtn.com/project/index.aspx?FirstModel=PROJECT&Seco
 _BASE_URL = "https://ims.jtn.com/project"
 _DETAIL_URL_TEMPLATE = "{base}/projectView.aspx?keyid={keyid}&FirstModel=PROJECT&SecondModel=PROJECT002"
 
-
 def normalize_text(value: str | None) -> str:
     if value is None:
         return ""
     compact = str(value).replace("\xa0", " ").replace("　", " ")
     return re.sub(r"\s+", " ", compact).strip()
 
-
 def normalize_label(value: str | None) -> str:
     text = normalize_text(value)
     return text.replace("：", "").replace(":", "").replace(" ", "")
 
-
 def extract_row_cells_text(row_node: Any) -> list[str]:
     cells = row_node.xpath("./td")
     return [normalize_text("".join(cell.itertext())) for cell in cells]
-
 
 def iter_label_value_pairs(cell_texts: list[str]) -> list[tuple[str, str]]:
     pairs: list[tuple[str, str]] = []
@@ -43,7 +39,6 @@ def iter_label_value_pairs(cell_texts: list[str]) -> list[tuple[str, str]]:
         pairs.append((label, value))
     return pairs
 
-
 def extract_hidden_input(html_text: str, name: str) -> str:
     pattern = re.compile(
         rf'<input[^>]+name=["\']{re.escape(name)}["\'][^>]*value=["\']([^"\']*)["\']',
@@ -51,7 +46,6 @@ def extract_hidden_input(html_text: str, name: str) -> str:
     )
     match = pattern.search(html_text)
     return match.group(1).strip() if match else ""
-
 
 def extract_case_no_from_text(row_text: str) -> str:
     text = normalize_text(row_text)
@@ -69,7 +63,6 @@ def extract_case_no_from_text(row_text: str) -> str:
             return str(match.group(0)).strip()
     return ""
 
-
 def extract_keyid_from_href(href: str) -> str | None:
     if not href:
         return None
@@ -77,7 +70,6 @@ def extract_keyid_from_href(href: str) -> str | None:
     query = parse_qs(urlparse(full_url).query)
     keyid = query.get("keyid", query.get("KeyID", [None]))[0]
     return str(keyid).strip() if keyid else None
-
 
 def score_case_name_cell(cell_text: str, *, case_no: str) -> int:
     text = normalize_text(cell_text)
@@ -102,7 +94,6 @@ def score_case_name_cell(cell_text: str, *, case_no: str) -> int:
     if len(text) <= 2:
         score -= 10
     return score
-
 
 def clean_case_name_text(value: str, *, case_no: str) -> str:
     text = normalize_text(value)
@@ -148,7 +139,6 @@ def clean_case_name_text(value: str, *, case_no: str) -> str:
     text = re.sub(r"^\d+\s+", "", text)
     return re.sub(r"\s+", " ", text).strip()
 
-
 def extract_case_name_from_row(row_node: Any, *, case_no: str, row_text: str) -> str:
     best_text = ""
     best_score = -10_000
@@ -163,7 +153,6 @@ def extract_case_name_from_row(row_node: Any, *, case_no: str, row_text: str) ->
     if cleaned:
         return cleaned
     return clean_case_name_text(row_text, case_no=case_no)
-
 
 def extract_case_candidates_from_search_html(html_text: str) -> list[OAListCaseCandidate]:
     candidates: list[OAListCaseCandidate] = []
@@ -212,7 +201,6 @@ def extract_case_candidates_from_search_html(html_text: str) -> list[OAListCaseC
 
     return candidates
 
-
 def extract_case_keyid_from_search_html(*, html_text: str, case_no: str) -> str | None:
     """从查询结果 HTML 中解析案件 keyid。"""
     try:
@@ -240,7 +228,6 @@ def extract_case_keyid_from_search_html(*, html_text: str, case_no: str) -> str 
         return match.group(1)
     return None
 
-
 def parse_case_detail_html(
     *,
     html_text: str,
@@ -263,7 +250,6 @@ def parse_case_detail_html(
     except Exception as exc:
         logger.warning("解析案件详情HTML异常 %s: %s", case_no, exc)
         return None
-
 
 def extract_customers_from_html(root: Any) -> list[OACaseCustomerData]:
     customers: list[OACaseCustomerData] = []
@@ -310,7 +296,6 @@ def extract_customers_from_html(root: Any) -> list[OACaseCustomerData]:
 
     return customers
 
-
 def extract_case_info_from_html(root: Any, *, fallback_case_no: str) -> OACaseInfoData:
     case_info = OACaseInfoData(case_no=fallback_case_no)
     rows = root.xpath('//div[@id="tab_con_2"]//tr')
@@ -343,7 +328,6 @@ def extract_case_info_from_html(root: Any, *, fallback_case_no: str) -> OACaseIn
                 case_info.case_no = value
 
     return case_info
-
 
 def extract_conflicts_from_html(root: Any) -> list[OAConflictData]:
     conflicts: list[OAConflictData] = []

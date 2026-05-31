@@ -2,7 +2,6 @@
 
 from typing import Any
 
-
 class PromptTemplateService:
     def get_system_template(self, name: str) -> str | None:
         from ..wiring import get_prompt_version_service  # type: ignore[attr-defined]

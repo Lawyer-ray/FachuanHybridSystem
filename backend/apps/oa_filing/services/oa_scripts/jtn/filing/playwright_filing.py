@@ -25,7 +25,6 @@ from .filing_models import CaseInfo, ClientInfo, ConflictPartyInfo, ContractInfo
 
 logger = logging.getLogger("apps.oa_filing.jtn")
 
-
 class PlaywrightFilingMixin:
     """Playwright 立案全流程 mixin。"""
 

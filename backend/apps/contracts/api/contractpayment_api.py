@@ -17,13 +17,11 @@ from apps.core.dto.request_context import extract_request_context
 
 router = Router()
 
-
 def _get_payment_service() -> Any:
     """工厂函数：创建 ContractPaymentService 实例"""
     from apps.contracts.services.payment.contract_payment_service import ContractPaymentService
 
     return ContractPaymentService()
-
 
 @router.get("/finance/payments", response=list[ContractPaymentOut])
 def list_payments(
@@ -51,7 +49,6 @@ def list_payments(
         )
     )
 
-
 @router.post("/finance/payments", response=ContractPaymentOut)
 def create_payment(request: HttpRequest, payload: ContractPaymentIn) -> Any:
     """创建收款记录"""
@@ -70,7 +67,6 @@ def create_payment(request: HttpRequest, payload: ContractPaymentIn) -> Any:
         user=ctx.user,
         confirm=payload.confirm,
     )
-
 
 @router.put("/finance/payments/{payment_id}", response=ContractPaymentOut)
 def update_payment(request: HttpRequest, payment_id: int, payload: ContractPaymentUpdate) -> Any:
@@ -91,7 +87,6 @@ def update_payment(request: HttpRequest, payment_id: int, payload: ContractPayme
         user=ctx.user,
         confirm=confirm,
     )
-
 
 @router.delete("/finance/payments/{payment_id}")
 def delete_payment(request: HttpRequest, payment_id: int) -> Any:

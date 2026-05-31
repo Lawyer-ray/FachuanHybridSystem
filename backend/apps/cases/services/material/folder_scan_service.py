@@ -14,7 +14,6 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import transaction
 from django.urls import reverse
 from django.utils import timezone
-from django.utils.translation import gettext_lazy as _
 
 from apps.cases.models import Case, CaseFolderBinding, CaseFolderScanSession, CaseFolderScanStatus
 from apps.cases.services.log.caselog_service import CaseLogService
@@ -23,7 +22,6 @@ from apps.core.exceptions import NotFoundError, ValidationException
 from apps.core.services.bound_folder_scan_service import BoundFolderScanService
 
 logger = logging.getLogger(__name__)
-
 
 class CaseFolderScanService:
     """案件自动捕获扫描、轮询、导入附件服务。"""
@@ -74,7 +72,7 @@ class CaseFolderScanService:
                 ):
                     return existing
                 raise ValidationException(
-                    message=_("已有进行中的扫描任务，请等待完成或使用“重新扫描”"),
+                    message="已有进行中的扫描任务，请等待完成或使用“重新扫描”",
                     errors={"session_id": str(existing.id)},
                 )
 
@@ -145,7 +143,7 @@ class CaseFolderScanService:
         try:
             return CaseFolderScanSession.objects.get(id=session_id, case_id=case_id)
         except CaseFolderScanSession.DoesNotExist:
-            raise NotFoundError(_("扫描会话不存在")) from None
+            raise NotFoundError("扫描会话不存在") from None
 
     def build_status_payload(self, *, session: CaseFolderScanSession) -> dict[str, Any]:
         payload = dict(session.result_payload or {})
@@ -186,7 +184,7 @@ class CaseFolderScanService:
     ) -> dict[str, Any]:
         session = self.get_session(case_id=case_id, session_id=session_id)
         if session.status not in {CaseFolderScanStatus.COMPLETED, CaseFolderScanStatus.STAGED}:
-            raise ValidationException(message=_("扫描尚未完成"), errors={"status": session.status})
+            raise ValidationException(message="扫描尚未完成", errors={"status": session.status})
 
         payload = dict(session.result_payload or {})
         candidates = payload.get("candidates") or []
@@ -194,11 +192,11 @@ class CaseFolderScanService:
 
         selected_items = [item for item in items if bool(item.get("selected", True))]
         if not selected_items:
-            raise ValidationException(message=_("未找到可导入的 PDF"))
+            raise ValidationException(message="未找到可导入的 PDF")
 
         log = self._case_log_service.create_log(
             case_id=case_id,
-            content=str(_("自动捕获材料")),
+            content=str("自动捕获材料"),
             user=user,
             org_access=org_access,
             perm_open_access=perm_open_access,
@@ -210,11 +208,11 @@ class CaseFolderScanService:
         for item in selected_items:
             source_path = str(item.get("source_path") or "").strip()
             if not source_path or source_path not in candidate_map:
-                raise ValidationException(message=_("候选文件不存在"), errors={"source_path": source_path})
+                raise ValidationException(message="候选文件不存在", errors={"source_path": source_path})
 
             file_path = Path(source_path)
             if not file_path.exists() or not file_path.is_file():
-                raise ValidationException(message=_("源文件不存在"), errors={"source_path": source_path})
+                raise ValidationException(message="源文件不存在", errors={"source_path": source_path})
 
             uploads.append(
                 SimpleUploadedFile(
@@ -364,13 +362,13 @@ class CaseFolderScanService:
     def _ensure_case_exists(case_id: int) -> None:
         if Case.objects.filter(id=case_id).exists():
             return
-        raise NotFoundError(_("案件不存在"))
+        raise NotFoundError("案件不存在")
 
     @staticmethod
     def _get_accessible_binding(case_id: int) -> CaseFolderBinding:
         binding = CaseFolderBinding.objects.filter(case_id=case_id).first()
         if not binding:
-            raise ValidationException(message=_("未绑定文件夹"), errors={"case_id": case_id})
+            raise ValidationException(message="未绑定文件夹", errors={"case_id": case_id})
 
         folder = Path(binding.resolved_folder_path)
         if not folder.exists() or not folder.is_dir():
@@ -380,7 +378,7 @@ class CaseFolderScanService:
             folder = Path(binding.resolved_folder_path)
             if not folder.exists() or not folder.is_dir():
                 raise ValidationException(
-                    message=_("绑定文件夹不可访问"), errors={"folder_path": binding.resolved_folder_path}
+                    message="绑定文件夹不可访问", errors={"folder_path": binding.resolved_folder_path}
                 )
 
         return binding
@@ -490,12 +488,12 @@ class CaseFolderScanService:
             scan_path = (root / normalized_subfolder).resolve()
             if not self._is_within_root(root, scan_path):
                 raise ValidationException(
-                    message=_("扫描子文件夹越界"),
+                    message="扫描子文件夹越界",
                     errors={"scan_subfolder": normalized_subfolder},
                 )
             if not scan_path.exists() or not scan_path.is_dir():
                 raise ValidationException(
-                    message=_("扫描子文件夹不可访问"),
+                    message="扫描子文件夹不可访问",
                     errors={"scan_subfolder": normalized_subfolder},
                 )
 
@@ -510,13 +508,13 @@ class CaseFolderScanService:
         if not raw:
             return ""
         if raw.startswith("/") or raw.startswith("~") or re.match(r"^[A-Za-z]:/", raw):
-            raise ValidationException(message=_("扫描子文件夹必须使用相对路径"), errors={"scan_subfolder": raw})
+            raise ValidationException(message="扫描子文件夹必须使用相对路径", errors={"scan_subfolder": raw})
 
         parts = [part for part in raw.split("/") if part not in {"", "."}]
         if not parts:
             return ""
         if any(part == ".." for part in parts):
-            raise ValidationException(message=_("扫描子文件夹路径非法"), errors={"scan_subfolder": raw})
+            raise ValidationException(message="扫描子文件夹路径非法", errors={"scan_subfolder": raw})
         return "/".join(parts)
 
     def _is_within_root(self, root: Path, target: Path) -> bool:
@@ -575,7 +573,6 @@ class CaseFolderScanService:
     def _build_materials_url(*, case_id: int, session_id: UUID) -> str:
         base = reverse("admin:cases_case_materials", args=[case_id])
         return f"{base}?{urlencode({'scan_session': str(session_id), 'open_scan': '1'})}"
-
 
 def run_case_folder_scan_task(session_id: str) -> None:
     """Django-Q 任务入口。"""

@@ -6,7 +6,6 @@ from typing import Any
 
 from apps.core.utils.path import Path
 
-
 def ensure_output_dir() -> Any:
     from django.conf import settings
 
@@ -17,17 +16,14 @@ def ensure_output_dir() -> Any:
     output_dir.mkdir(parents=True, exist_ok=True)
     return output_dir
 
-
 def build_zip_filename(*, prefix: str = "rotated_images") -> str:
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     unique_id = uuid.uuid4().hex[:8]
     return f"{prefix}_{timestamp}_{unique_id}.zip"
 
-
 def build_pdf_filename(*, prefix: str = "rotated_pages") -> str:
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     return f"{prefix}_{timestamp}.pdf"
-
 
 def to_media_url(filename: str) -> str:
     return f"/media/image_rotation/{filename}"

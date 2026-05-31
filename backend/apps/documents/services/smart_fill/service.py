@@ -40,7 +40,6 @@ USER_PROMPT_TEMPLATE = """## 模板占位符列表
 # 自动填充的占位符
 AUTO_FILL_KEYS = {"今天日期", "当前日期", "今年年份"}
 
-
 @dataclass
 class PlaceholderResult:
     """单个占位符的填充结果"""
@@ -49,7 +48,6 @@ class PlaceholderResult:
     value: str
     source: str  # "llm", "auto", "fallback"
 
-
 @dataclass
 class SmartFillResult:
     """智能填充结果"""
@@ -57,7 +55,6 @@ class SmartFillResult:
     placeholders: list[PlaceholderResult] = field(default_factory=list)
     rendered_bytes: bytes | None = None
     error: str | None = None
-
 
 class SmartFillService:
     """自然语言模板填充服务"""

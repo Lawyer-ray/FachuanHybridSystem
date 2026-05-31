@@ -8,6 +8,5 @@ from ._logging_api_mixin import ApiLoggingMixin
 from ._logging_document_mixin import DocumentLoggingMixin
 from ._logging_token_mixin import TokenLoggingMixin
 
-
 class AutomationLogger(TokenLoggingMixin, DocumentLoggingMixin, ApiLoggingMixin):
     """Automation模块标准化日志工具类"""

@@ -3,19 +3,16 @@
 from dataclasses import dataclass
 from typing import Any
 
-
 @dataclass(frozen=True)
 class ClientIdentityDocCommand:
     doc_type: str
     file_path: str
-
 
 @dataclass(frozen=True)
 class ClientImportCommand:
     client_data: dict[str, Any]
     identity_docs: list[ClientIdentityDocCommand]
     admin_user: str
-
 
 class ClientJsonImportMapper:
     _CLIENT_FIELDS: tuple[str, ...] = (

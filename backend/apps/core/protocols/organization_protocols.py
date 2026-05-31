@@ -8,7 +8,6 @@ from typing import Protocol
 
 from apps.core.dto import AccountCredentialDTO, LawFirmDTO, LawyerDTO, TeamDTO
 
-
 class IOrganizationService(Protocol):
     """组织服务接口，定义组织(律所、团队)相关的公共方法。"""
 
@@ -58,7 +57,6 @@ class IOrganizationService(Protocol):
 
     def get_default_lawyer_id_internal(self) -> int | None: ...
 
-
 class ILawyerService(Protocol):
     """律师服务接口，供其他模块使用。"""
 
@@ -81,7 +79,6 @@ class ILawyerService(Protocol):
     def get_all_lawyer_names_internal(self) -> list[str]: ...
 
     def get_lawyer_internal(self, lawyer_id: int) -> object | None: ...
-
 
 class ILawFirmService(Protocol):
     """律所服务接口，供其他模块使用。"""

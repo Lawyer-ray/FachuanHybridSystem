@@ -9,7 +9,6 @@ from apps.litigation_ai.chains.mock_trial_chains import DebateChain, DebateResul
 
 logger = logging.getLogger("apps.litigation_ai")
 
-
 class DebateService:
     """辩论模拟：围绕争议焦点进行多轮辩论."""
 

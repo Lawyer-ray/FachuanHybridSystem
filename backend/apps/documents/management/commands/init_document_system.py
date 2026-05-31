@@ -16,7 +16,6 @@ from django.core.management.base import BaseCommand
 from apps.core.utils.path import Path
 from apps.documents.models import Placeholder
 
-
 class Command(BaseCommand):
     help: str = "初始化文书生成系统配置"
 

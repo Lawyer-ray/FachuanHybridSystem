@@ -8,7 +8,6 @@ from apps.automation.services.wiring import get_baoquan_token_service
 
 logger = logging.getLogger("apps.automation")
 
-
 class BaoquanTokenProvider:
     def __init__(
         self,

@@ -6,8 +6,6 @@ import logging
 from collections.abc import Callable
 from typing import Any
 
-from django.utils.translation import gettext_lazy as _
-
 from apps.core.exceptions import MessageSendException
 from apps.core.models.enums import ChatPlatform
 
@@ -16,7 +14,6 @@ from .recreate_policy import ChatRecreatePolicy
 from .repo import CaseChatRepository
 
 logger = logging.getLogger(__name__)
-
 
 class SendNotificationUsecase:
     def __init__(
@@ -53,7 +50,7 @@ class SendNotificationUsecase:
                 chat = new_chat
             except Exception as retry_error:
                 raise MessageSendException(
-                    message=_("群聊已解散,重新创建群聊失败: %(error)s") % {"error": str(retry_error)},
+                    message="群聊已解散,重新创建群聊失败: %(error)s" % {"error": str(retry_error)},
                     code="CHAT_RECREATE_FAILED",
                     platform=platform.value,
                     chat_id=chat.chat_id,
@@ -96,13 +93,13 @@ class SendNotificationUsecase:
                     logger.error("文件发送异常: %s, 错误: %s", file_path, str(e))
 
             if successful_files == len(document_paths):
-                result.message = str(_("消息和所有文件发送成功 (%(count)s 个文件)") % {"count": successful_files})
+                result.message = str("消息和所有文件发送成功 (%(count)s 个文件)" % {"count": successful_files})
             elif successful_files > 0:
                 result.message = str(
-                    _("消息发送成功,部分文件发送成功 (%(ok)s/%(total)s 个文件)")
+                    "消息发送成功,部分文件发送成功 (%(ok)s/%(total)s 个文件)"
                     % {"ok": successful_files, "total": len(document_paths)}
                 )
             else:
-                result.message = str(_("消息发送成功,但所有文件发送失败 (%(count)s 个文件)") % {"count": failed_files})
+                result.message = str("消息发送成功,但所有文件发送失败 (%(count)s 个文件)" % {"count": failed_files})
 
         return result

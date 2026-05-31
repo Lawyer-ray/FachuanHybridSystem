@@ -70,9 +70,9 @@ window.FILL_ACTION_CONFIG = {
     customFields: {{ custom_fields_json|safe }}
 };
 window.FILL_ACTION_I18N = {
-    previewFailed: '{% translate "加载预览失败" %}',
-    fillFailed: '{% translate "填充失败" %}',
-    networkError: '{% translate "网络错误，请重试" %}'
+    previewFailed: '{',
+    fillFailed: '{',
+    networkError: '{'
 };
 </script>
 <script src="{% static 'documents/js/fill_action.js' %}?v=3"></script>
@@ -83,19 +83,19 @@ window.FILL_ACTION_I18N = {
   {% csrf_token %}
 
   <a class="back-link" href="{% url 'admin:documents_externaltemplate_change' template_obj.pk %}">
-    ← {% translate "返回模板详情" %}
+    ← {
   </a>
 
   <!-- Step 1: Case selection -->
   <div class="fill-step">
     <div class="fill-step-header">
-      <h3><span class="step-badge">1</span>{% translate "选择案件" %}</h3>
+      <h3><span class="step-badge">1</span>{</h3>
     </div>
     <div style="position:relative;">
       <div class="case-input-row">
         <input type="text"
                x-model="caseQuery"
-               placeholder="{% translate '输入案件名称搜索...' %}"
+               placeholder="{"
                @input.debounce.300ms="searchCases()"
                @focus="showDropdown = caseResults.length > 0"
                @keydown.escape="showDropdown = false"
@@ -106,11 +106,11 @@ window.FILL_ACTION_I18N = {
                 class="btn-secondary"
                 @click="toggleActiveCases()"
                 style="white-space:nowrap;display:flex;align-items:center;gap:4px;">
-          {% translate "在办案件" %}
+          {
           <span x-text="showActiveCases ? '▲' : '▼'" style="font-size:0.7rem;"></span>
         </button>
         <template x-if="selectedCase">
-          <span style="font-size:0.8rem;color:#417690;white-space:nowrap;" x-text="'{% translate "已选" %}: ' + selectedCase.name"></span>
+          <span style="font-size:0.8rem;color:#417690;white-space:nowrap;" x-text="'{: ' + selectedCase.name"></span>
         </template>
       </div>
 
@@ -134,18 +134,18 @@ window.FILL_ACTION_I18N = {
            x-show="showActiveCases"
            style="position:absolute;top:100%;right:0;width:360px;z-index:200;background:#fff;border:1px solid #ccc;border-radius:4px;box-shadow:0 4px 12px rgba(0,0,0,.15);margin-top:2px;">
         <div style="padding:8px 12px;border-bottom:1px solid #eee;font-size:0.8rem;color:#666;font-weight:600;">
-          {% translate "在办案件" %}
+          {
         </div>
         <!-- 加载中 -->
         <template x-if="loadingActiveCases">
           <div style="padding:16px;text-align:center;font-size:0.875rem;color:#888;">
-            <span class="loading-spinner"></span>{% translate "加载中..." %}
+            <span class="loading-spinner"></span>{
           </div>
         </template>
         <!-- 空列表 -->
         <template x-if="!loadingActiveCases && activeCases.length === 0">
           <div style="padding:16px;text-align:center;font-size:0.875rem;color:#aaa;">
-            {% translate "暂无在办案件" %}
+            {
           </div>
         </template>
         <!-- 案件列表 -->
@@ -167,7 +167,7 @@ window.FILL_ACTION_I18N = {
     </div>
 
     <template x-if="searchingCases">
-      <p style="margin-top:6px;font-size:0.8rem;color:#888;"><span class="loading-spinner"></span>{% translate "搜索中..." %}</p>
+      <p style="margin-top:6px;font-size:0.8rem;color:#888;"><span class="loading-spinner"></span>{</p>
     </template>
     <template x-if="partyError">
       <p class="result-error" x-text="partyError" style="margin-top:8px;"></p>
@@ -177,12 +177,12 @@ window.FILL_ACTION_I18N = {
   <!-- Step 2: Party selection -->
   <div class="fill-step" x-show="parties.length > 0">
     <div class="fill-step-header">
-      <h3><span class="step-badge">2</span>{% translate "选择当事人" %}</h3>
+      <h3><span class="step-badge">2</span>{</h3>
     </div>
     <div class="select-all-row">
       <label style="cursor:pointer;">
         <input type="checkbox" @change="toggleAllParties($event.target.checked)">
-        {% translate "全选" %}
+        {
       </label>
     </div>
     <div class="party-list">
@@ -201,9 +201,9 @@ window.FILL_ACTION_I18N = {
   <!-- Step 3: Custom fields -->
   <div class="fill-step" x-show="customFields.length > 0 && selectedPartyIds.length > 0">
     <div class="fill-step-header">
-      <h3><span class="step-badge">3</span>{% translate "自定义字段" %}</h3>
+      <h3><span class="step-badge">3</span>{</h3>
     </div>
-    <p style="color:#666;font-size:0.8rem;margin-bottom:12px;">{% translate "以下字段无法自动填充，请手动输入值" %}</p>
+    <p style="color:#666;font-size:0.8rem;margin-bottom:12px;">{</p>
     <template x-for="field in customFields" :key="field.mapping_id">
       <div class="custom-field-row">
         <label x-text="field.semantic_label"></label>
@@ -213,14 +213,14 @@ window.FILL_ACTION_I18N = {
         </template>
         <template x-if="field.fill_type === 'checkbox'">
           <select x-model="customValues[field.mapping_id]">
-            <option value="">-- {% translate "请选择" %} --</option>
-            <option value="true">{% translate "勾选" %}</option>
-            <option value="false">{% translate "不勾选" %}</option>
+            <option value="">-- { --</option>
+            <option value="true">{</option>
+            <option value="false">{</option>
           </select>
         </template>
         <template x-if="field.fill_type === 'delete_inapplicable'">
           <select x-model="customValues[field.mapping_id]">
-            <option value="">-- {% translate "请选择" %} --</option>
+            <option value="">-- { --</option>
             <template x-for="opt in (field.options || [])" :key="opt">
               <option :value="opt" x-text="opt"></option>
             </template>
@@ -233,21 +233,21 @@ window.FILL_ACTION_I18N = {
   <!-- Step 4: Preview -->
   <div class="fill-step" x-show="step === 'preview'">
     <div class="fill-step-header">
-      <h3><span class="step-badge">4</span>{% translate "填充预览" %}</h3>
+      <h3><span class="step-badge">4</span>{</h3>
     </div>
     <template x-if="loadingPreview">
-      <p><span class="loading-spinner"></span>{% translate "加载预览中..." %}</p>
+      <p><span class="loading-spinner"></span>{</p>
     </template>
     <template x-if="!loadingPreview && previewItems.length > 0">
       <div style="overflow-x:auto;">
         <table class="preview-table">
           <thead>
             <tr>
-              <th>{% translate "位置" %}</th>
-              <th>{% translate "字段名称" %}</th>
-              <th>{% translate "填充值" %}</th>
-              <th>{% translate "来源" %}</th>
-              <th>{% translate "类型" %}</th>
+              <th>{</th>
+              <th>{</th>
+              <th>{</th>
+              <th>{</th>
+              <th>{</th>
             </tr>
           </thead>
           <tbody>
@@ -257,9 +257,9 @@ window.FILL_ACTION_I18N = {
                 <td x-text="item.semantic_label"></td>
                 <td x-text="item.fill_value || '—'"></td>
                 <td>
-                  <span x-show="item.value_source === 'auto'">{% translate "自动" %}</span>
-                  <span x-show="item.value_source === 'manual'">{% translate "手动" %}</span>
-                  <span x-show="item.value_source === 'empty'" style="color:#dc3545;">{% translate "为空" %}</span>
+                  <span x-show="item.value_source === 'auto'">{</span>
+                  <span x-show="item.value_source === 'manual'">{</span>
+                  <span x-show="item.value_source === 'empty'" style="color:#dc3545;">{</span>
                 </td>
                 <td x-text="item.fill_type"></td>
               </tr>
@@ -276,18 +276,18 @@ window.FILL_ACTION_I18N = {
       <template x-if="step !== 'preview'">
         <button class="btn-primary" @click="loadPreview()" :disabled="loadingPreview || selectedPartyIds.length === 0">
           <span x-show="loadingPreview" class="loading-spinner"></span>
-          {% translate "预览填充" %}
+          {
         </button>
       </template>
       <template x-if="step === 'preview'">
         <button class="btn-primary" @click="confirmFill()" :disabled="filling">
           <span x-show="filling" class="loading-spinner"></span>
-          {% translate "确认生成" %}
+          {
         </button>
       </template>
       <template x-if="step === 'preview'">
         <button class="btn-secondary" @click="step = 'input'">
-          {% translate "返回修改" %}
+          {
         </button>
       </template>
     </div>
@@ -296,16 +296,16 @@ window.FILL_ACTION_I18N = {
   <!-- Step 6: Results -->
   <div class="fill-step" x-show="step === 'result'">
     <div class="fill-step-header">
-      <h3><span class="step-badge">✓</span>{% translate "填充结果" %}</h3>
+      <h3><span class="step-badge">✓</span>{</h3>
     </div>
     <div x-show="fillResult && fillResult.success">
-      <p class="result-success">{% translate "填充完成" %}</p>
+      <p class="result-success">{</p>
       <div x-show="fillResult && fillResult.zip_file_path">
         <p>
           <a :href="fillResult && fillResult.zip_file_path ? '/media/' + fillResult.zip_file_path : '#'"
              class="btn-primary"
              style="display:inline-block;text-decoration:none;margin-top:8px;">
-            {% translate "下载 ZIP 文件" %}
+            {
           </a>
         </p>
       </div>
@@ -313,14 +313,14 @@ window.FILL_ACTION_I18N = {
         <template x-for="rec in (fillResult && fillResult.records ? fillResult.records : [])" :key="rec.id">
           <div class="result-item">
             <span x-text="rec.filename"></span>
-            <a :href="'/media/' + rec.file_path" style="margin-left:10px;color:#417690;">{% translate "下载" %}</a>
+            <a :href="'/media/' + rec.file_path" style="margin-left:10px;color:#417690;">{</a>
           </div>
         </template>
       </div>
       <div x-show="fillResult && fillResult.summary" style="margin-top:12px;padding:10px;background:#f9f9f9;border-radius:4px;font-size:0.8rem;">
-        <p>{% translate "总计" %}: <span x-text="fillResult && fillResult.summary ? fillResult.summary.total || 0 : 0"></span></p>
-        <p>{% translate "成功" %}: <span x-text="fillResult && fillResult.summary ? fillResult.summary.success || 0 : 0"></span></p>
-        <p>{% translate "失败" %}: <span x-text="fillResult && fillResult.summary ? fillResult.summary.failed || 0 : 0"></span></p>
+        <p>{: <span x-text="fillResult && fillResult.summary ? fillResult.summary.total || 0 : 0"></span></p>
+        <p>{: <span x-text="fillResult && fillResult.summary ? fillResult.summary.success || 0 : 0"></span></p>
+        <p>{: <span x-text="fillResult && fillResult.summary ? fillResult.summary.failed || 0 : 0"></span></p>
       </div>
     </div>
     <div x-show="fillResult && fillResult.error">

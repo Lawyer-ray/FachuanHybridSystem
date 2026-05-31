@@ -10,13 +10,11 @@ from apps.core.llm.service import LLMService
 
 logger = logging.getLogger(__name__)
 
-
 @dataclass
 class TypoResult:
     original: str
     corrected: str
     paragraph_index: int
-
 
 class TypoChecker:
     """通过 LLM 检测合同错别字"""
@@ -112,7 +110,6 @@ class TypoChecker:
                     )
                 )
         return results
-
 
 def _parse_int(val: object) -> int:
     """解析 LLM 返回的段落索引，兼容 '段落85'、85、'85' 等格式"""

@@ -16,7 +16,6 @@ from .split_models import _NON_WORD_RE, _TEXT_MIN_LENGTH, PageDescriptor, Segmen
 
 logger = logging.getLogger("apps.pdf_splitting")
 
-
 class SegmentDetector:
     """段落检测、评分、上下文推理、补全未识别区间。"""
 

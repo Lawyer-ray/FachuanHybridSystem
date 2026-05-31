@@ -6,7 +6,6 @@ from .evidence_embedding_service import EvidenceEmbeddingService
 from .evidence_text_extraction_service import EvidenceTextExtractionService
 from .evidence_vector_store_service import EvidenceVectorStoreService
 
-
 class EvidenceRAGService:
     def ensure_ingested(self, evidence_item_ids: list[int], max_pages_per_item: int = 20) -> None:
         from ..wiring import get_evidence_query_service

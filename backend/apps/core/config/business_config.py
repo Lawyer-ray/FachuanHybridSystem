@@ -10,7 +10,6 @@ from dataclasses import dataclass, field
 from apps.core.infrastructure.cache import CacheKeys, CacheTimeout
 from apps.core.services.cache_service import cached, invalidate_cache
 
-
 @dataclass
 class StageConfig:
     """阶段配置"""
@@ -19,7 +18,6 @@ class StageConfig:
     label: str
     applicable_case_types: list[str] = field(default_factory=list)  # 空列表表示适用所有类型
 
-
 @dataclass
 class LegalStatusConfig:
     """诉讼地位配置"""
@@ -27,7 +25,6 @@ class LegalStatusConfig:
     value: str
     label: str
     applicable_case_types: list[str] = field(default_factory=list)
-
 
 class CaseTypeCode:
     """案件类型代码"""
@@ -39,7 +36,6 @@ class CaseTypeCode:
     INTL = "intl"
     SPECIAL = "special"
     ADVISOR = "advisor"
-
 
 # 案件阶段配置
 CASE_STAGES: list[StageConfig] = [
@@ -73,7 +69,6 @@ CASE_STAGES: list[StageConfig] = [
     StageConfig("petition_protest", "申诉抗诉", [CaseTypeCode.CRIMINAL]),
 ]
 
-
 # 诉讼地位配置
 LEGAL_STATUSES: list[LegalStatusConfig] = [
     # 民事
@@ -94,7 +89,6 @@ LEGAL_STATUSES: list[LegalStatusConfig] = [
     LegalStatusConfig("orig_defendant", "原审被告", [CaseTypeCode.CIVIL]),
     LegalStatusConfig("orig_third", "原审第三人", [CaseTypeCode.CIVIL, CaseTypeCode.ADMINISTRATIVE]),
 ]
-
 
 class BusinessConfig:
     """业务配置管理器"""
@@ -190,7 +184,6 @@ class BusinessConfig:
             # 失效 None key（全量查询缓存）
             invalidate_cache(f"{CacheKeys.CASE_STAGES_CONFIG}:None")
             invalidate_cache(f"{CacheKeys.LEGAL_STATUS_CONFIG}:None")
-
 
 # 全局配置实例
 business_config = BusinessConfig()

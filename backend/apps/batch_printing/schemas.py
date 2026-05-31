@@ -5,16 +5,13 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-
 class CapabilityOut(BaseModel):
     docx_supported: bool
     docx_converter: str
 
-
 class PresetSyncOut(BaseModel):
     discovered: int
     upserted: int
-
 
 class PrintPresetSnapshotOut(BaseModel):
     id: int
@@ -30,7 +27,6 @@ class PrintPresetSnapshotOut(BaseModel):
     created_at: datetime
     updated_at: datetime
 
-
 class PrintKeywordRuleIn(BaseModel):
     keyword: str
     priority: int = 100
@@ -38,14 +34,12 @@ class PrintKeywordRuleIn(BaseModel):
     preset_snapshot_id: int
     notes: str = ""
 
-
 class PrintKeywordRuleUpdateIn(BaseModel):
     keyword: str | None = None
     priority: int | None = None
     enabled: bool | None = None
     preset_snapshot_id: int | None = None
     notes: str | None = None
-
 
 class PrintKeywordRuleOut(BaseModel):
     id: int
@@ -60,11 +54,9 @@ class PrintKeywordRuleOut(BaseModel):
     created_at: datetime
     updated_at: datetime
 
-
 class BatchPrintSubmitOut(BaseModel):
     job_id: str
     status: str
-
 
 class BatchPrintItemOut(BaseModel):
     id: int
@@ -84,7 +76,6 @@ class BatchPrintItemOut(BaseModel):
     started_at: datetime | None = None
     finished_at: datetime | None = None
 
-
 class BatchPrintJobSummaryOut(BaseModel):
     job_id: str
     status: str
@@ -103,7 +94,6 @@ class BatchPrintJobSummaryOut(BaseModel):
     created_at: datetime
     started_at: datetime | None = None
     finished_at: datetime | None = None
-
 
 class BatchPrintJobOut(BatchPrintJobSummaryOut):
     items: list[BatchPrintItemOut] = Field(default_factory=list)

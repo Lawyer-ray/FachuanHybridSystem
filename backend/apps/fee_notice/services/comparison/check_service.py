@@ -9,7 +9,6 @@ from __future__ import annotations
 在案件绑定完成后、飞书通知发送前触发检查.
 """
 
-
 import logging
 from dataclasses import dataclass, field
 from decimal import Decimal
@@ -23,7 +22,6 @@ if TYPE_CHECKING:
     from .comparison_service import CaseComparisonInfo, FeeComparisonService
 
 logger = logging.getLogger("apps.fee_notice")
-
 
 @dataclass
 class FeeCheckItem:
@@ -49,7 +47,6 @@ class FeeCheckItem:
     can_compare: bool = True
     compare_message: str | None = None  # 无法比对的原因
 
-
 @dataclass
 class FeeCheckResult:
     """费用检查结果"""
@@ -60,7 +57,6 @@ class FeeCheckResult:
     case_number: str | None = None
     cause_of_action: str | None = None
     target_amount: Decimal | None = None
-
 
 class FeeNoticeCheckService:
     """

@@ -14,7 +14,6 @@ from apps.core.services.storage_service import _get_media_root, delete_media_fil
 
 logger = logging.getLogger(__name__)
 
-
 @receiver(post_delete, dispatch_uid="cleanup_client_identity_doc_files")
 def cleanup_client_identity_doc_files(sender: type, **kwargs: Any) -> None:
     """ClientIdentityDoc 使用 CharField(file_path) 存储证件扫描件，需手动清理。
@@ -29,7 +28,6 @@ def cleanup_client_identity_doc_files(sender: type, **kwargs: Any) -> None:
         file_path = instance.file_path
         if file_path:
             transaction.on_commit(lambda fp=file_path: delete_media_file(fp))  # type: ignore[misc]
-
 
 @receiver(post_delete, dispatch_uid="cleanup_property_clue_attachment_files")
 def cleanup_property_clue_attachment_files(sender: type, **kwargs: Any) -> None:

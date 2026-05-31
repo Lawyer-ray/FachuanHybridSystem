@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from apps.core.utils.path import Path
 
-
 class GeneratedDocumentStorage:
     def __init__(self, media_root: str | None = None) -> None:
         self._media_root = media_root

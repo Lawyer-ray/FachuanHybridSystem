@@ -4,7 +4,6 @@ import re
 
 KEYWORD_INPUT_HELP_TEXT = "支持多关键词：可用空格、逗号(,，)、分号(;；)、顿号(、)或换行分隔。系统会自动合并为联合检索。"
 
-
 def normalize_keyword_query(raw_keyword: str) -> str:
     text = (raw_keyword or "").strip()
     if not text:

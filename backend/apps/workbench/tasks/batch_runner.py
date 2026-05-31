@@ -26,9 +26,7 @@ from .summary import generate_detail_zip, generate_summary
 
 logger = logging.getLogger(__name__)
 
-
 # ─── 取消监视器 ──────────────────────────────────────────────────────────────
-
 
 async def _cancel_watcher(job_id: UUID, cancel_event: asyncio.Event) -> None:
     """每 2 秒检查一次 DB 的 cancel_requested 标志"""
@@ -45,9 +43,7 @@ async def _cancel_watcher(job_id: UUID, cancel_event: asyncio.Event) -> None:
             pass
         await asyncio.sleep(2)
 
-
 # ─── 入口点 ──────────────────────────────────────────────────────────────────
-
 
 def run_batch_analysis(job_id: str) -> None:
     """Django Q2 入口点
@@ -65,7 +61,6 @@ def run_batch_analysis(job_id: str) -> None:
         # 没有运行中的循环 → 直接用 asyncio.run()
         asyncio.run(_run_batch_async(UUID(job_id)))
 
-
 def run_batch_retry(job_id: str, item_ids: list[str]) -> None:
     """Django Q2 入口点：重试失败的 item"""
     try:
@@ -75,7 +70,6 @@ def run_batch_retry(job_id: str, item_ids: list[str]) -> None:
             future.result(timeout=3600)
     except RuntimeError:
         asyncio.run(_run_batch_retry_async(UUID(job_id), [UUID(i) for i in item_ids]))
-
 
 def _sync_llm_chat(
     llm: Any,
@@ -118,9 +112,7 @@ def _sync_llm_chat(
                 raise
     raise last_error  # type: ignore[misc]
 
-
 # ─── 辅助函数 ────────────────────────────────────────────────────────────────
-
 
 async def _increment_counter(job_id: UUID, field: str) -> None:
     """原子递增计数器并更新进度百分比（2 次查询代替原来 3 次）"""
@@ -150,9 +142,7 @@ async def _increment_counter(job_id: UUID, field: str) -> None:
         )
     )()
 
-
 # ─── 单文件分析 ──────────────────────────────────────────────────────────────
-
 
 async def _analyze_single_item(
     item: BatchJobItem,
@@ -209,9 +199,7 @@ async def _analyze_single_item(
 
     return merge_chunk_results(chunk_results, item.file_name)
 
-
 # ─── 主逻辑 ──────────────────────────────────────────────────────────────────
-
 
 async def _run_batch_async(job_id: UUID) -> None:
     """批量分析主逻辑
@@ -410,9 +398,7 @@ async def _run_batch_async(job_id: UUID) -> None:
         task_registry.unregister(str(job_id))
         extractor.cleanup()
 
-
 # ─── 重试逻辑 ────────────────────────────────────────────────────────────────
-
 
 async def _run_batch_retry_async(job_id: UUID, item_ids: list[UUID]) -> None:
     """只重试指定的失败 item"""

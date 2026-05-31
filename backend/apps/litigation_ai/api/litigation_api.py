@@ -25,18 +25,15 @@ logger = logging.getLogger(__name__)
 
 router = Router(tags=["诉讼文书生成"], auth=JWTOrSessionAuth())
 
-
 def _get_conversation_service() -> Any:
     from apps.litigation_ai.services import LitigationConversationService
 
     return LitigationConversationService()
 
-
 def _get_document_generator_service() -> Any:
     from apps.litigation_ai.services import DocumentGeneratorService
 
     return DocumentGeneratorService()
-
 
 @router.post(
     "/sessions",
@@ -62,7 +59,6 @@ def create_session(request: HttpRequest, payload: CreateSessionRequest) -> Any:
         "recommended_types": recommended_types,
     }
 
-
 @router.get("/sessions", response={200: SessionListResponse, 403: ErrorResponse})
 def list_sessions(
     request: HttpRequest, case_id: int | None = None, status: str | None = None, limit: int = 20, offset: int = 0
@@ -79,7 +75,6 @@ def list_sessions(
         offset=offset,
     )
     return {"count": sessions_data["total"], "results": sessions_data["sessions"]}
-
 
 @router.get(
     "/sessions/{session_id}",
@@ -113,7 +108,6 @@ def get_session(request: HttpRequest, session_id: str) -> Any:
         "recommended_types": recommended_types,
     }
 
-
 @router.get(
     "/sessions/{session_id}/messages",
     response={200: MessageListResponse, 404: ErrorResponse, 403: ErrorResponse},
@@ -140,7 +134,6 @@ def get_messages(request: HttpRequest, session_id: str, limit: int = 50, offset:
         "offset": offset,
     }
 
-
 @router.patch(
     "/sessions/{session_id}",
     response={200: SessionResponse, 404: ErrorResponse, 400: ErrorResponse, 403: ErrorResponse},
@@ -159,7 +152,6 @@ def update_session_status(request: HttpRequest, session_id: str, payload: Update
         "updated_at": session.updated_at,
     }
 
-
 @router.delete(
     "/sessions/{session_id}",
     response={204: None, 404: ErrorResponse, 403: ErrorResponse},
@@ -169,7 +161,6 @@ def delete_session(request: HttpRequest, session_id: str) -> Any:
     user = getattr(request, "user", None)
     service.delete_session(session_id, user)
     return Status(204, None)
-
 
 @router.post(
     "/sessions/{session_id}/generate",
@@ -191,7 +182,6 @@ def generate_document(request: HttpRequest, session_id: str, payload: GenerateDo
         "status": task.status,
         "created_at": task.created_at,
     }
-
 
 @router.get(
     "/tasks/{task_id}",

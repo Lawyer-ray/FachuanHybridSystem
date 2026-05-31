@@ -9,7 +9,6 @@ import re
 
 logger = logging.getLogger("apps.automation")
 
-
 class TextUtils:
     """文本处理相关工具方法"""
 

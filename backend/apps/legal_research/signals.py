@@ -13,7 +13,6 @@ from django.dispatch import receiver
 
 logger = logging.getLogger("apps.legal_research")
 
-
 @receiver(post_delete, sender="legal_research.LegalResearchResult", dispatch_uid="cleanup_legal_research_pdf")
 def _cleanup_legal_research_pdf(sender: Any, instance: Any, **kwargs: Any) -> None:
     """删除 LegalResearchResult 时清理 PDF 物理文件。"""

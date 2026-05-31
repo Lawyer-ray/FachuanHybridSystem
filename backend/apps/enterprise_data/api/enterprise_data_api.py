@@ -15,15 +15,12 @@ RiskType = Literal["周边风险", "预警提醒", "自身风险", "历史风险
 
 router = Router(tags=["企业数据查询"], auth=JWTOrSessionAuth())
 
-
 def _service() -> EnterpriseDataService:
     return EnterpriseDataService()
-
 
 @router.get("/providers", response=EnterpriseProvidersOut)
 def list_providers(request: Any, include_tools: bool = False) -> EnterpriseProvidersOut:
     return EnterpriseProvidersOut(**_service().list_providers(include_tools=include_tools))  # type: ignore[arg-type]
-
 
 @router.get("/companies/search", response=EnterpriseQueryOut)
 def search_companies(
@@ -36,7 +33,6 @@ def search_companies(
         **_service().search_companies(keyword=keyword, provider=provider, include_raw=include_raw)
     )
 
-
 @router.get("/companies/{company_id}", response=EnterpriseQueryOut)
 def get_company_profile(
     request: Any,
@@ -47,7 +43,6 @@ def get_company_profile(
     return EnterpriseQueryOut(
         **_service().get_company_profile(company_id=company_id, provider=provider, include_raw=include_raw)
     )
-
 
 @router.get("/companies/{company_id}/risks", response=EnterpriseQueryOut)
 def get_company_risks(
@@ -66,7 +61,6 @@ def get_company_risks(
         )
     )
 
-
 @router.get("/companies/{company_id}/shareholders", response=EnterpriseQueryOut)
 def get_company_shareholders(
     request: Any,
@@ -77,7 +71,6 @@ def get_company_shareholders(
     return EnterpriseQueryOut(
         **_service().get_company_shareholders(company_id=company_id, provider=provider, include_raw=include_raw)
     )
-
 
 @router.get("/companies/{company_id}/personnel", response=EnterpriseQueryOut)
 def get_company_personnel(
@@ -90,7 +83,6 @@ def get_company_personnel(
         **_service().get_company_personnel(company_id=company_id, provider=provider, include_raw=include_raw)
     )
 
-
 @router.get("/personnel/{hcgid}", response=EnterpriseQueryOut)
 def get_person_profile(
     request: Any,
@@ -99,7 +91,6 @@ def get_person_profile(
     include_raw: bool = False,
 ) -> EnterpriseQueryOut:
     return EnterpriseQueryOut(**_service().get_person_profile(hcgid=hcgid, provider=provider, include_raw=include_raw))
-
 
 @router.get("/biddings/search", response=EnterpriseQueryOut)
 def search_bidding_info(

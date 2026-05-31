@@ -13,7 +13,6 @@ from apps.litigation_ai.placeholders.spec import LitigationPlaceholderKeys
 
 logger = logging.getLogger(__name__)
 
-
 @PlaceholderRegistry.register
 class DefenseSignatureService(BasePlaceholderService):
     """答辩状签名盖章信息服务"""

@@ -12,7 +12,6 @@ from apps.documents.services.placeholders.registry import PlaceholderRegistry
 
 logger = logging.getLogger(__name__)
 
-
 @PlaceholderRegistry.register
 class SupplementaryAgreementPrincipalService(BasePlaceholderService):
     """补充协议委托人信息服务"""

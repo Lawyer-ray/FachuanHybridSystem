@@ -6,13 +6,11 @@ from typing import Protocol
 
 from .base import Schema
 
-
 class LawyerLike(Protocol):
     id: int
     username: str
     real_name: str | None
     phone: str | None
-
 
 class LawyerOutFromDTO(Schema):
     id: int
@@ -28,6 +26,5 @@ class LawyerOutFromDTO(Schema):
             real_name=getattr(lawyer, "real_name", None) or None,
             phone=getattr(lawyer, "phone", None) or None,
         )
-
 
 __all__: list[str] = ["LawyerOutFromDTO"]

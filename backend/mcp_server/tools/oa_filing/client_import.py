@@ -6,7 +6,6 @@ from typing import Any
 
 from mcp_server.client import client
 
-
 def trigger_client_import(
     headless: bool = True,
     limit: int | None = None,
@@ -16,7 +15,6 @@ def trigger_client_import(
     if limit is not None:
         payload["limit"] = limit
     return client.post("/client-import", json=payload)  # type: ignore[return-value]
-
 
 def get_client_import_session(session_id: int) -> dict[str, Any]:
     """查询客户导入会话状态。status: pending/running/completed/failed。"""

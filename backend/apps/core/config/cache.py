@@ -5,7 +5,6 @@ import time
 from dataclasses import dataclass, field
 from typing import Any
 
-
 @dataclass
 class CacheEntry:
     value: Any
@@ -19,7 +18,6 @@ class CacheEntry:
 
     def is_expired(self, ttl: float) -> bool:
         return ttl > 0 and (time.time() - self.created_at) > ttl
-
 
 class ConfigCache:
     def __init__(self, max_size: int = 1000, ttl: float = 3600.0) -> None:

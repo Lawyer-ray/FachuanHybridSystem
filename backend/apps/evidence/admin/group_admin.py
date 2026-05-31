@@ -4,10 +4,8 @@ from typing import Any, ClassVar
 
 from django.contrib import admin
 from django.db.models import Count, QuerySet
-from django.utils.translation import gettext_lazy as _
 
 from apps.evidence.models import EvidenceGroup
-
 
 @admin.register(EvidenceGroup)
 class EvidenceGroupAdmin(admin.ModelAdmin):
@@ -21,7 +19,7 @@ class EvidenceGroupAdmin(admin.ModelAdmin):
     def get_queryset(self, request: Any) -> QuerySet:
         return super().get_queryset(request).annotate(item_count=Count("items"))  # type: ignore[no-any-return]
 
-    @admin.display(description=_("证据数量"))
+    @admin.display(description="证据数量")
     def item_count(self, obj: EvidenceGroup) -> int:
         count: int | None = getattr(obj, "item_count", None)
         if count is None:

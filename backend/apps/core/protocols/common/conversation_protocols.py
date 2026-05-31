@@ -4,7 +4,6 @@ from typing import Any, Protocol
 
 from apps.core.dto import ConversationHistoryDTO
 
-
 class IConversationHistoryService(Protocol):
     def create_message_internal(
         self,
@@ -41,7 +40,6 @@ class IConversationHistoryService(Protocol):
         self, *, litigation_session_ids: list[int]
     ) -> dict[int, int]: ...
 
-
 class ICaseChatService(Protocol):
     def send_message_to_case_chat(self, case_id: int, message: str, files: list[str] | None = None) -> bool: ...
 
@@ -55,7 +53,6 @@ class ICaseChatService(Protocol):
         platform: Any = None,
         title: str = "📋 法院文书通知",
     ) -> Any: ...
-
 
 class IEvidenceListPlaceholderService(Protocol):
     def get_evidence_list_context(self, evidence_list_id: int) -> dict[str, Any]: ...

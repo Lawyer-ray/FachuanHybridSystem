@@ -6,7 +6,6 @@ from typing import Any
 
 from ninja import Schema
 
-
 class WeChatAccountOut(Schema):
     id: int
     name: str
@@ -14,14 +13,12 @@ class WeChatAccountOut(Schema):
     is_active: bool
     created_at: Any
 
-
 class PublishTaskCreate(Schema):
     title: str
     content_md: str
     account_id: int
     save_as_draft: bool = True
     format_method: str = "rule"
-
 
 class PublishTaskOut(Schema):
     id: int

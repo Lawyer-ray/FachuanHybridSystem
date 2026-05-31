@@ -23,10 +23,8 @@ from apps.core.security import get_request_access_context
 
 router = Router()
 
-
 def _get_service() -> CaseFolderScanService:
     return CaseFolderScanService()
-
 
 def _require_case_access(request: HttpRequest, case_id: int) -> None:
     ctx = get_request_access_context(request)
@@ -36,7 +34,6 @@ def _require_case_access(request: HttpRequest, case_id: int) -> None:
         org_access=ctx.org_access,
         perm_open_access=ctx.perm_open_access,
     )
-
 
 @router.post("/{case_id}/folder-scan", response=CaseFolderScanStartOut)
 @rate_limit_from_settings("TASK", by_user=True)
@@ -57,12 +54,10 @@ def start_case_scan(request: HttpRequest, case_id: int, payload: CaseFolderScanS
         "task_id": str(session.task_id or ""),
     }
 
-
 @router.get("/{case_id}/folder-scan/subfolders", response=CaseFolderScanSubfolderListOut)
 def list_case_scan_subfolders(request: HttpRequest, case_id: int) -> dict[str, object]:
     _require_case_access(request, case_id)
     return _get_service().list_scan_subfolders(case_id=case_id)
-
 
 @router.get("/{case_id}/folder-scan/{session_id}", response=CaseFolderScanStatusOut)
 def get_case_scan_status(request: HttpRequest, case_id: int, session_id: UUID) -> dict[str, object]:
@@ -71,7 +66,6 @@ def get_case_scan_status(request: HttpRequest, case_id: int, session_id: UUID) -
     service = _get_service()
     session = service.get_session(case_id=case_id, session_id=session_id)
     return service.build_status_payload(session=session)
-
 
 @router.post("/{case_id}/folder-scan/{session_id}/stage", response=CaseFolderScanStageOut)
 @rate_limit_from_settings("TASK", by_user=True)

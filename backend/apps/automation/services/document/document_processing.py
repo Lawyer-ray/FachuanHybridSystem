@@ -11,7 +11,6 @@ from django.conf import settings
 from django.core.files.uploadedfile import UploadedFile
 from docx import Document
 
-
 def get_doc_config() -> dict[str, int]:
     """获取文档处理配置"""
     from django.conf import settings
@@ -42,7 +41,6 @@ def get_doc_config() -> dict[str, int]:
         },
     )
 
-
 def extract_text_from_image_with_rapidocr(file_path: str) -> str:
     """
     使用 OCR 从图片中提取文字
@@ -53,7 +51,6 @@ def extract_text_from_image_with_rapidocr(file_path: str) -> str:
 
     ocr_service = OCRService()
     return ocr_service.recognize(file_path)
-
 
 def render_pdf_page_to_image(file_path: str, page_num: int = 0) -> str:
     """
@@ -85,11 +82,9 @@ def render_pdf_page_to_image(file_path: str, page_num: int = 0) -> str:
         pix.save(out_path.as_posix())
         return f"{settings.MEDIA_URL}automation/processed/{out_name}"
 
-
 def render_pdf_first_page_to_image(file_path: str) -> str:
     """保持向后兼容性的函数"""
     return render_pdf_page_to_image(file_path, page_num=0)
-
 
 def extract_docx_text(file_path: str, limit: int | None = None) -> str:
     """提取 .docx 文件的文本"""
@@ -115,7 +110,6 @@ def extract_docx_text(file_path: str, limit: int | None = None) -> str:
     if limit is not None:
         return text[: int(limit)]
     return text
-
 
 def extract_pdf_text(file_path: str, limit: int | None = None, max_pages: int | None = None) -> str:
     # 如果没有指定限制，使用配置的默认值
@@ -145,7 +139,6 @@ def extract_pdf_text(file_path: str, limit: int | None = None, max_pages: int | 
         return text[: int(limit)]
     return text
 
-
 def _apply_pdf_limits(limit: int | None, preview_page: int | None, config: dict[str, Any]) -> tuple[int, int]:
     """应用配置默认值和范围限制"""
     lim = limit if limit is not None else config["DEFAULT_TEXT_LIMIT"]
@@ -153,7 +146,6 @@ def _apply_pdf_limits(limit: int | None, preview_page: int | None, config: dict[
     lim = min(lim, config["MAX_TEXT_LIMIT"])
     page = min(page, config["MAX_PREVIEW_PAGES"])
     return lim, page
-
 
 def _ocr_pdf_page(file_path: str, page_num_1based: int, limit: int) -> str | None:
     """将 PDF 指定页 OCR，返回文字或 None"""
@@ -179,7 +171,6 @@ def _ocr_pdf_page(file_path: str, page_num_1based: int, limit: int) -> str | Non
         logger.info(f"OCR处理PDF失败: {e}")
     return None
 
-
 def process_pdf(
     file_path: str, limit: int | None = None, preview_page: int | None = None
 ) -> tuple[str | None, str | None]:
@@ -198,14 +189,12 @@ def process_pdf(
     image_url = render_pdf_page_to_image(file_path, page - 1)
     return image_url, None
 
-
 @dataclass
 class DocumentExtraction:
     file_path: str
     text: str | None
     image_url: str | None
     kind: str
-
 
 def save_uploaded_document(upload: UploadedFile) -> Path:
     out_dir = Path(settings.MEDIA_ROOT) / "automation" / "uploads"
@@ -216,7 +205,6 @@ def save_uploaded_document(upload: UploadedFile) -> Path:
         for chunk in upload.chunks():
             w.write(chunk)
     return dest
-
 
 def extract_document_content(
     file_path: str, limit: int | None = None, preview_page: int | None = None
@@ -259,7 +247,6 @@ def extract_document_content(
         return DocumentExtraction(file_path=file_path, text=text, image_url=None, kind="image")
 
     raise ValueError(f"不支持的文件类型 {ext}，支持的格式：PDF、DOCX、图片({', '.join(supported_image_exts)})")
-
 
 def process_uploaded_document(
     upload: UploadedFile, limit: int | None = None, preview_page: int | None = None

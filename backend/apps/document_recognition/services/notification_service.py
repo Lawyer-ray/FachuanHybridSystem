@@ -29,7 +29,6 @@ from .data_classes import NotificationResult
 
 logger = logging.getLogger(__name__)
 
-
 class DocumentRecognitionNotificationService:
     """文书识别通知服务 - 发送绑定成功后的飞书群通知
 

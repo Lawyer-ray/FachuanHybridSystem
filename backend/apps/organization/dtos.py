@@ -4,13 +4,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-
 @dataclass(frozen=True)
 class TeamUpsertDTO:
     name: str
     team_type: str
     law_firm_id: int
-
 
 @dataclass(frozen=True)
 class LawFirmCreateDTO:
@@ -19,14 +17,12 @@ class LawFirmCreateDTO:
     phone: str | None = None
     social_credit_code: str | None = None
 
-
 @dataclass(frozen=True)
 class LawFirmUpdateDTO:
     name: str | None = None
     address: str | None = None
     phone: str | None = None
     social_credit_code: str | None = None
-
 
 @dataclass(frozen=True)
 class AccountCredentialCreateDTO:
@@ -36,14 +32,12 @@ class AccountCredentialCreateDTO:
     password: str
     url: str | None = None
 
-
 @dataclass(frozen=True)
 class AccountCredentialUpdateDTO:
     site_name: str | None = None
     url: str | None = None
     account: str | None = None
     password: str | None = None
-
 
 @dataclass(frozen=True)
 class LawyerCreateDTO:
@@ -58,7 +52,6 @@ class LawyerCreateDTO:
     lawyer_team_ids: list[int] | None = None
     biz_team_ids: list[int] | None = None
 
-
 @dataclass(frozen=True)
 class LawyerUpdateDTO:
     real_name: str | None = None
@@ -70,7 +63,6 @@ class LawyerUpdateDTO:
     password: str | None = None
     lawyer_team_ids: list[int] | None = None
     biz_team_ids: list[int] | None = None
-
 
 @dataclass(frozen=True)
 class LawyerListFiltersDTO:

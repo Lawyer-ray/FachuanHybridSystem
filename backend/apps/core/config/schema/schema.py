@@ -6,7 +6,6 @@ from apps.core.config.exceptions import ConfigValidationError
 
 from .field import ConfigField
 
-
 class ConfigSchema:
     def __init__(self) -> None:
         self._fields: dict[str, ConfigField] = {}

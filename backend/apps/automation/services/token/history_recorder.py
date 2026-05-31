@@ -16,7 +16,6 @@ from apps.core.interfaces import TokenAcquisitionResult
 
 logger = logging.getLogger(__name__)
 
-
 class TokenHistoryRecorder:
     """
     Token获取历史记录器
@@ -307,7 +306,6 @@ class TokenHistoryRecorder:
                 "avg_login_duration": 0,
                 "last_success_at": None,
             }
-
 
 # 全局实例（为了向后兼容）
 history_recorder = TokenHistoryRecorder()

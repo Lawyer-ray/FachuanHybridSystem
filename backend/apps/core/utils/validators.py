@@ -10,7 +10,6 @@ from typing import Any
 
 from apps.core.exceptions import ValidationException
 
-
 class Validators:
     """通用验证器集合"""
 

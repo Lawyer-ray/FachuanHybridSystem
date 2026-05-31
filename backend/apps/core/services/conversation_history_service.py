@@ -8,7 +8,6 @@ from apps.core.dto import ConversationHistoryDTO
 from apps.core.models import ConversationHistory
 from apps.core.repositories import ConversationHistoryRepository
 
-
 class ConversationHistoryService:
     def __init__(self, *, repository: ConversationHistoryRepository | None = None) -> None:
         self._repository = repository or ConversationHistoryRepository()

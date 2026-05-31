@@ -11,7 +11,6 @@ from dataclasses import dataclass
 
 logger = logging.getLogger(__name__)
 
-
 @dataclass(frozen=True)
 class JurisdictionParams:
     """管辖权分析参数"""
@@ -22,7 +21,6 @@ class JurisdictionParams:
     invalid_reason: str
     plaintiff_location: str
     defendant_location: str
-
 
 @dataclass(frozen=True)
 class JurisdictionResult:
@@ -38,7 +36,6 @@ class JurisdictionResult:
     recommendation_reason: str
     alternative_court: str
     legal_basis: str
-
 
 class JurisdictionAnalyzerService:
     """管辖权分析服务"""

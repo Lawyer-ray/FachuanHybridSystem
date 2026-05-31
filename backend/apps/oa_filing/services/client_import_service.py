@@ -18,14 +18,12 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger("apps.oa_filing.client_import_service")
 
-
 @dataclass
 class ImportResult:
     """导入结果。"""
 
     status: str  # created / skipped / error
     message: str
-
 
 class ClientImportService:
     """客户导入服务。"""
