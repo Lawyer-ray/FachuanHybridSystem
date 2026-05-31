@@ -34,7 +34,7 @@ class LawyerResolveService:
             if existing:
                 self._cache[phone] = existing
                 logger.info("复用已有律师", extra={"lawyer_id": existing.pk, "phone": phone})
-                return existing
+                return existing  # type: ignore[return-value]
 
         # phone 找不到时按 username 查找（不创建新账号，避免覆盖系统账号）
         if username:
@@ -45,7 +45,7 @@ class LawyerResolveService:
             if existing:
                 self._cache[cache_key] = existing
                 logger.info("按 username 复用已有律师", extra={"lawyer_id": existing.pk, "username": username})
-                return existing
+                return existing  # type: ignore[return-value]
 
         if not phone:
             logger.warning("律师数据缺少 phone 且 username 未找到，跳过", extra={"data": data})
@@ -64,7 +64,7 @@ class LawyerResolveService:
         )
         self._cache[phone] = lawyer
         logger.info("创建新律师", extra={"lawyer_id": lawyer.pk, "username": new_username, "phone": phone})
-        return lawyer
+        return lawyer  # type: ignore[return-value]
 
     def _unique_username(self, base: str) -> str:
         username = base

@@ -448,7 +448,7 @@ class DocumentTemplateAdmin(admin.ModelAdmin):
     )
 
     # 编辑时追加「状态」fieldset
-    _edit_fieldsets = ("状态", {"fields": ("is_active",)})
+    _edit_fieldsets: tuple[str, dict[str, Any]] = ("状态", {"fields": ("is_active",)})
 
     inlines = [DocumentTemplateFolderBindingInline]
 
@@ -570,8 +570,8 @@ class DocumentTemplateAdmin(admin.ModelAdmin):
         tmp_path: str | None = None
         try:
             template_path, err = self._resolve_template_path(request)
-            if err:
-                return JsonResponse({"error": err}, status=400 if "请提供" in err else 404)
+            if err or not template_path:
+                return JsonResponse({"error": err or "模板路径为空"}, status=400 if "请提供" in (err or "") else 404)
 
             # 上传文件时 template_path 是临时路径，需要在 finally 中清理
             if request.FILES.get("file"):
