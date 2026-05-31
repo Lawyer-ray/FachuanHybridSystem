@@ -161,7 +161,7 @@ class LegalResearchTaskAdmin(admin.ModelAdmin):
                     if is_fallback:
                         messages.warning(
                             request,
-                            _("SiliconFlow 模型列表获取失败：%(error)s，当前显示默认模型列表")
+                            _("LLM 模型列表获取失败：%(error)s，当前显示默认模型列表")
                             % {"error": error_message},
                         )
             return form
@@ -188,7 +188,7 @@ class LegalResearchTaskAdmin(admin.ModelAdmin):
         if is_fallback:
             messages.warning(
                 request,
-                _("SiliconFlow 模型列表获取失败：%(error)s，当前显示默认模型列表") % {"error": error_message},
+                _("LLM 模型列表获取失败：%(error)s，当前显示默认模型列表") % {"error": error_message},
             )
         self._attach_keyword_cleaner(form)
         return form

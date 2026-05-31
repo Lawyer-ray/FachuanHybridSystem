@@ -138,6 +138,8 @@ class ModelListService:
             all_models.extend(self._fetch_siliconflow_models())
         if configs.get("ollama") and configs["ollama"].enabled:
             all_models.extend(self._fetch_ollama_models())
+        if configs.get("openai_compatible") and configs["openai_compatible"].enabled:
+            all_models.extend(self._fetch_openai_compatible_models())
 
         if all_models:
             return ModelListResult(models=all_models)
@@ -216,6 +218,40 @@ class ModelListService:
             pass
 
         return [_make_model(ollama_model, ctx_window)]
+
+    @staticmethod
+    def _fetch_openai_compatible_models() -> list[dict[str, Any]]:
+        """从 OpenAI 兼容后端获取模型列表（GET /v1/models）"""
+        api_key = LLMConfig.get_openai_compatible_api_key()
+        base_url = LLMConfig.get_openai_compatible_base_url()
+        if not api_key or not base_url:
+            return []
+
+        url = f"{base_url.rstrip('/')}/v1/models"
+        try:
+            resp = httpx.get(
+                url,
+                headers={"Authorization": f"Bearer {api_key}"},
+                timeout=15.0,
+            )
+            resp.raise_for_status()
+            data: dict[str, Any] = resp.json()
+            models: list[dict[str, Any]] = []
+            for m in data.get("data", []):
+                model_id = str(m.get("id", "")).strip()
+                if not model_id:
+                    continue
+                ctx = m.get("max_model_len") or m.get("context_length") or 0
+                models.append(_make_model(model_id, int(ctx) if ctx else 0))
+            if models:
+                logger.info("从 OpenAI 兼容后端获取到 %d 个模型", len(models))
+            return models
+        except (httpx.HTTPStatusError, httpx.ConnectError, httpx.TimeoutException) as exc:
+            logger.warning("OpenAI 兼容后端不可用: %s", exc)
+            return []
+        except Exception:
+            logger.exception("获取 OpenAI 兼容后端模型列表时发生未知错误")
+            return []
 
     @staticmethod
     def _get_fallback_models() -> list[dict[str, Any]]:
