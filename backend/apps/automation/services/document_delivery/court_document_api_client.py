@@ -248,7 +248,7 @@ class CourtDocumentApiClient:
 
                 # 检查 HTTP 状态码
                 if response.status_code == 401:
-                    raise TokenExpiredError(message="Token 已过期或无效", errors={"status_code": 401})  # type: ignore
+                    raise TokenExpiredError(message="Token 已过期或无效", errors={"status_code": 401})
 
                 if response.status_code >= 400:
                     logger.error(f"HTTP 错误: {response.status_code}, url={url}")

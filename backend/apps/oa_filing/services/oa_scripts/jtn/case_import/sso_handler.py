@@ -47,8 +47,7 @@ class JtnSsoHandlerMixin:
     def _build_sso_blocking_message(self: Any, *, stage: str, login_url: str) -> str:
         return str(
             "%(stage)s 触发飞连/企微单点登录（二维码），当前自动化无法完成无交互登录。"
-            "请先在可见浏览器完成扫码登录后重试：%(login_url)s"
-            % {"stage": stage, "login_url": login_url}
+            "请先在可见浏览器完成扫码登录后重试：%(login_url)s" % {"stage": stage, "login_url": login_url}
         )
 
     def _raise_if_sso_blocking(self: Any, *, url: str, html_text: str, stage: str) -> None:

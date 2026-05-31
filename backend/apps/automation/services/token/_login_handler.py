@@ -117,7 +117,7 @@ class LoginHandler:
                 success=True,
                 token=saved_token,
                 account=account,
-                error_message="超时但Token已保存",  # type: ignore
+                error_message="超时但Token已保存",
                 attempt_duration=login_duration,
                 retry_count=1,
             )

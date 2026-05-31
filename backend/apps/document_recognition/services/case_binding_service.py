@@ -428,7 +428,7 @@ class CaseBindingService:
 
         # 2. 检查任务是否已绑定
         if task.binding_success:
-            return BindingResult.failure_result(message="任务已绑定到案件", error_code="ALREADY_BOUND")  # type: ignore
+            return BindingResult.failure_result(message="任务已绑定到案件", error_code="ALREADY_BOUND")
 
         # 3. 获取案件信息
         case_dto = self.case_service.get_case_by_id_internal(case_id)

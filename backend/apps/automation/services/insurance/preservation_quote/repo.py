@@ -46,7 +46,7 @@ class PreservationQuoteRepository:
         if credential_id is not None and credential_id <= 0:
             errors["credential_id"] = "凭证 ID 必须为正整数"
         if errors:
-            raise ValidationError(message="数据验证失败", errors=errors)  # type: ignore
+            raise ValidationError(message="数据验证失败", errors=errors)
 
     def create_quote(
         self, *, preserve_amount: Decimal, corp_id: str, category_id: str, credential_id: int | None

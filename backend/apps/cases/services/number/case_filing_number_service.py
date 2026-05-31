@@ -51,10 +51,8 @@ class CaseFilingNumberService:
                         message="建档编号生成失败(数据库未迁移)",
                         code="FILING_NUMBER_MIGRATION_REQUIRED",
                         errors={
-                            "detail": str(
-                                "缺少表 cases_casefilingnumbersequence,"
-                                "请执行迁移 cases.0009_case_filing_number_sequence"
-                            ),
+                            "detail": "缺少表 cases_casefilingnumbersequence,"
+                            "请执行迁移 cases.0009_case_filing_number_sequence",
                         },
                     ) from e
                 raise
