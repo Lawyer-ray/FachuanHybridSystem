@@ -16,6 +16,7 @@ from apps.automation.models import ScraperTask
 
 logger = logging.getLogger(__name__)
 
+
 @admin.register(ScraperTask)
 class ScraperTaskAdmin(admin.ModelAdmin):
     """爬虫任务管理"""
@@ -35,6 +36,7 @@ class ScraperTaskAdmin(admin.ModelAdmin):
         "created_at",
         "duration",
     )
+    list_select_related = ("case",)
     list_filter = ("task_type", "status", "priority", "created_at")
     search_fields = ("url", "error_message")
     readonly_fields = (

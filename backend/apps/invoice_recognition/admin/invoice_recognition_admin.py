@@ -7,6 +7,7 @@ from decimal import Decimal
 from typing import Any
 
 from django.contrib import admin
+from django.db.models import Count, Q, Sum
 from django.http import HttpRequest, HttpResponse
 from django.utils.html import format_html
 from django.utils.safestring import SafeString
@@ -14,6 +15,7 @@ from django.utils.safestring import SafeString
 from apps.invoice_recognition.models import InvoiceRecognitionTask, InvoiceRecognitionTaskStatus
 
 logger = logging.getLogger("apps.invoice_recognition")
+
 
 @admin.register(InvoiceRecognitionTask)
 class InvoiceRecognitionTaskAdmin(admin.ModelAdmin):
@@ -36,6 +38,19 @@ class InvoiceRecognitionTaskAdmin(admin.ModelAdmin):
         "finished_at",
     ]
     change_form_template = "admin/invoice_recognition/invoicerecognitiontask/change_form.html"
+
+    def get_queryset(self, request: HttpRequest) -> Any:  # type: ignore[override]
+        return (
+            super()
+            .get_queryset(request)
+            .annotate(
+                _record_count=Count("records"),
+                _total_amount_sum=Sum(
+                    "records__total_amount",
+                    filter=Q(records__is_duplicate=False),
+                ),
+            )
+        )
 
     def has_add_permission(self, request: HttpRequest) -> bool:
         return True
@@ -100,10 +115,10 @@ class InvoiceRecognitionTaskAdmin(admin.ModelAdmin):
             InvoiceRecognitionTaskStatus.FAILED: "red",
         }
         label_map: dict[str, str] = {
-            InvoiceRecognitionTaskStatus.PENDING: str("待处理"),
-            InvoiceRecognitionTaskStatus.PROCESSING: str("处理中"),
-            InvoiceRecognitionTaskStatus.COMPLETED: str("已完成"),
-            InvoiceRecognitionTaskStatus.FAILED: str("失败"),
+            InvoiceRecognitionTaskStatus.PENDING: "待处理",
+            InvoiceRecognitionTaskStatus.PROCESSING: "处理中",
+            InvoiceRecognitionTaskStatus.COMPLETED: "已完成",
+            InvoiceRecognitionTaskStatus.FAILED: "失败",
         }
         color = color_map.get(obj.status, "gray")
         label = label_map.get(obj.status, obj.status)
@@ -112,17 +127,15 @@ class InvoiceRecognitionTaskAdmin(admin.ModelAdmin):
     status_display.short_description = "状态"  # type: ignore[attr-defined]
 
     def record_count(self, obj: InvoiceRecognitionTask) -> int:
-        return int(obj.records.count())
+        return obj._record_count  # type: ignore[attr-defined]
 
     record_count.short_description = "发票数量"  # type: ignore[attr-defined]
 
     def total_amount_display(self, obj: InvoiceRecognitionTask) -> str:
-        try:
-            amount: Decimal = self._get_service().get_total_amount(obj.id)
-            return f"¥{amount}"
-        except (TypeError, ValueError) as exc:
-            logger.error("获取总金额失败: task_id=%s, error=%s", obj.id, exc)
+        amount: Decimal | None = obj._total_amount_sum  # type: ignore[attr-defined]
+        if amount is None:
             return "-"
+        return f"¥{amount}"
 
     total_amount_display.short_description = "非重复总金额"  # type: ignore[attr-defined]
 

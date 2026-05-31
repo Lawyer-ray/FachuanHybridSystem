@@ -9,7 +9,7 @@ import logging
 from typing import Any
 
 from django.contrib import admin, messages
-from django.db.models import Count
+from django.db.models import Count, QuerySet
 from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
 from django.urls import URLPattern, path, reverse
 from django.utils.html import format_html
@@ -19,11 +19,13 @@ from apps.core.models import Court
 
 logger = logging.getLogger(__name__)
 
+
 def _get_initialization_service() -> Any:
     """工厂函数:创建初始化服务实例"""
     from apps.core.services.cause_court_initialization_service import CauseCourtInitializationService
 
     return CauseCourtInitializationService()
+
 
 @admin.register(Court)
 class CourtAdmin(admin.ModelAdmin):
@@ -90,11 +92,25 @@ class CourtAdmin(admin.ModelAdmin):
         ),
     )
 
+    list_select_related = ["parent"]
+
     ordering = ["province", "level", "name"]
 
     list_per_page = 50
 
     change_list_template = "admin/core/court/change_list.html"
+
+    def get_queryset(self, request: HttpRequest) -> QuerySet[Court]:
+        """预取完整父级链，避免 full_path 递归访问触发 N+1 查询.
+
+        法院最多 4 层（省 -> 高院 -> 中院 -> 基层），select_related 4 级 parent
+        可覆盖最深路径，使 full_path 遍历全部在内存中完成.
+        """
+        return (
+            super()
+            .get_queryset(request)
+            .select_related("parent", "parent__parent", "parent__parent__parent", "parent__parent__parent__parent")
+        )
 
     def parent_display(self, obj: Court) -> SafeString:
         """显示父级法院"""

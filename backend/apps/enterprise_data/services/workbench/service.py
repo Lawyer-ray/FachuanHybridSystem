@@ -28,6 +28,7 @@ _SAMPLE_CACHE_TTL_SECONDS = 24 * 60 * 60
 _DESCRIBE_TOOLS_CACHE_TTL_SECONDS = 10 * 60  # 10 minutes
 _MAX_SAMPLE_JSON_CHARS = 12000
 
+
 class McpWorkbenchService:
     """供 Admin 调试页面使用的 MCP 工具编排服务。"""
 
@@ -76,19 +77,25 @@ class McpWorkbenchService:
 
     def describe_tools(self, *, provider: str | None = None, actor_is_superuser: bool = False) -> dict[str, Any]:
         self._ensure_superuser(actor_is_superuser=actor_is_superuser)
-        selected_provider = self._registry.get_provider(provider)
-        provider_name = selected_provider.name
 
-        cache_key = f"mcp_workbench:describe_tools:{provider_name}"
-        tools = cache.get(cache_key)
+        # Resolve provider name cheaply (without building full config) for cache-key lookup.
+        provider_name = (provider or self._registry.get_default_provider_name()).strip().lower()
+        full_cache_key = f"mcp_workbench:describe_tools_full:{provider_name}"
+        cached = cache.get(full_cache_key)
+        if isinstance(cached, dict) and "tools" in cached:
+            return cached
+
+        # Cache miss — build provider, fetch from MCP, load samples.
+        selected_provider = self._registry.get_provider(provider_name)
+
+        raw_cache_key = f"mcp_workbench:describe_tools:{provider_name}"
+        tools = cache.get(raw_cache_key)
         if tools is None:
             tools = selected_provider.describe_tools()
-            cache.set(cache_key, tools, timeout=_DESCRIBE_TOOLS_CACHE_TTL_SECONDS)
+            cache.set(raw_cache_key, tools, timeout=_DESCRIBE_TOOLS_CACHE_TTL_SECONDS)
 
         tool_names = [
-            str(tool.get("name", "") or "").strip()
-            for tool in tools
-            if str(tool.get("name", "") or "").strip()
+            str(tool.get("name", "") or "").strip() for tool in tools if str(tool.get("name", "") or "").strip()
         ]
         samples = self._load_samples_batch(provider=provider_name, tool_names=tool_names)
 
@@ -114,11 +121,13 @@ class McpWorkbenchService:
                 }
             )
         normalized_tools.sort(key=lambda item: item["name"])
-        return {
+        result = {
             "provider": provider_name,
             "transport": selected_provider.transport,
             "tools": normalized_tools,
         }
+        cache.set(full_cache_key, result, timeout=_DESCRIBE_TOOLS_CACHE_TTL_SECONDS)
+        return result
 
     def execute_tool(
         self,
@@ -179,6 +188,7 @@ class McpWorkbenchService:
                 data=masked_data,
                 captured_at=timezone.now(),
             )
+            self._invalidate_describe_cache(selected_provider.name)
             self._create_history(
                 provider=selected_provider.name,
                 tool_name=response.tool,
@@ -264,7 +274,10 @@ class McpWorkbenchService:
         normalized_tool = str(tool_name or "").strip()
         if normalized_tool:
             queryset = queryset.filter(tool_name=normalized_tool)
-        rows = queryset.order_by("-created_at")[: max(1, min(100, int(limit or 20)))]
+        # Defer large JSON blobs that are never shown in the history table.
+        rows = queryset.defer("response_data", "response_raw", "response_meta").order_by("-created_at")[
+            : max(1, min(100, int(limit or 20)))
+        ]
         return [
             {
                 "id": row.id,
@@ -294,6 +307,11 @@ class McpWorkbenchService:
         if bool(actor_is_superuser):
             return
         raise PermissionDenied(message="仅超级管理员可使用 MCP 调试工作台", code="PERMISSION_DENIED")
+
+    @staticmethod
+    def _invalidate_describe_cache(provider_name: str) -> None:
+        """Drop the full describe_tools cache so the next page load picks up fresh samples/history."""
+        cache.delete(f"mcp_workbench:describe_tools_full:{provider_name}")
 
     def _read_registry_int(self, method_name: str, default: int) -> int:
         getter = getattr(self._registry, method_name, None)
@@ -387,9 +405,14 @@ class McpWorkbenchService:
         if not tool_names:
             return {}
         result: dict[str, dict[str, Any]] = {}
+        # Batch cache lookup — single round-trip instead of N individual gets.
+        key_to_name: dict[str, str] = {
+            self._sample_cache_key(provider=provider, tool_name=name): name for name in tool_names
+        }
+        cached_map = cache.get_many(list(key_to_name.keys()))
         uncached_names: list[str] = []
-        for name in tool_names:
-            sample = cache.get(self._sample_cache_key(provider=provider, tool_name=name))
+        for cache_key, name in key_to_name.items():
+            sample = cached_map.get(cache_key)
             if isinstance(sample, dict):
                 result[name] = sample
             else:
@@ -398,18 +421,13 @@ class McpWorkbenchService:
             from django.db.models import Max
 
             latest_records = (
-                McpWorkbenchExecution.objects.filter(
-                    provider=provider, tool_name__in=uncached_names, success=True
-                )
+                McpWorkbenchExecution.objects.filter(provider=provider, tool_name__in=uncached_names, success=True)
                 .values("tool_name")
                 .annotate(latest_id=Max("id"))
             )
             record_ids = [row["latest_id"] for row in latest_records if row["latest_id"] is not None]
             if record_ids:
-                records = {
-                    r.id: r
-                    for r in McpWorkbenchExecution.objects.filter(id__in=record_ids)
-                }
+                records = {r.id: r for r in McpWorkbenchExecution.objects.filter(id__in=record_ids)}
                 for row in latest_records:
                     tool_name = row["tool_name"]
                     record = records.get(row["latest_id"])
