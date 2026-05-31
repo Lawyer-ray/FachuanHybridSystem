@@ -440,7 +440,6 @@ class DocumentTemplateAdmin(admin.ModelAdmin):
                 "fields": ("placeholder_preview",),
             },
         ),
-        (_("状态"), {"fields": ("is_active",)}),
         (
             _("占位符信息"),
             {
@@ -451,7 +450,16 @@ class DocumentTemplateAdmin(admin.ModelAdmin):
         ),
     )
 
+    # 编辑时追加「状态」fieldset
+    _edit_fieldsets = (_("状态"), {"fields": ("is_active",)})
+
     inlines = [DocumentTemplateFolderBindingInline]
+
+    def get_fieldsets(self, request: Any, obj: Any = None) -> list[Any]:
+        fieldsets = list(super().get_fieldsets(request, obj))
+        if obj is not None:
+            fieldsets.insert(len(fieldsets) - 1, self._edit_fieldsets)
+        return fieldsets
 
     change_list_template = "admin/documents/documenttemplate/change_list.html"
 
