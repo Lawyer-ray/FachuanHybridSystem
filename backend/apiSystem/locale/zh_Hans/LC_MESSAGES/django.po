@@ -1,0 +1,187 @@
+# Chinese (Simplified) translation for Django admin
+msgid ""
+msgstr ""
+"Content-Type: text/plain; charset=UTF-8\n"
+"Language: zh-Hans\n"
+
+#: contrib/admin
+msgid "Save"
+msgstr "保存"
+
+msgid "Save as new"
+msgstr "另存为新的"
+
+msgid "Save and add another"
+msgstr "保存并添加另一个"
+
+msgid "Save and continue editing"
+msgstr "保存并继续编辑"
+
+msgid "Save and view"
+msgstr "保存并查看"
+
+msgid "Close"
+msgstr "关闭"
+
+msgid "Delete"
+msgstr "删除"
+
+msgid "Error:"
+msgstr "错误："
+
+msgid "Home"
+msgstr "首页"
+
+msgid "Add %(name)s"
+msgstr "添加 %(name)s"
+
+msgid "Change %(name)s"
+msgstr "修改 %(name)s"
+
+msgid "View %(name)s"
+msgstr "查看 %(name)s"
+
+msgid "Select %(name)s to change"
+msgstr "选择要修改的 %(name)s"
+
+msgid "Please correct the error below."
+msgstr "请修正下面的错误。"
+
+msgid "Please correct the errors below."
+msgstr "请修正下面的错误。"
+
+msgid "Select %s to change"
+msgstr "选择要修改的 %s"
+
+msgid "Add %s"
+msgstr "添加 %s"
+
+msgid "Change %s"
+msgstr "修改 %s"
+
+msgid "View %s"
+msgstr "查看 %s"
+
+msgid "Add"
+msgstr "添加"
+
+msgid "Change"
+msgstr "修改"
+
+msgid "View"
+msgstr "查看"
+
+msgid "Filter"
+msgstr "筛选"
+
+msgid "Search"
+msgstr "搜索"
+
+msgid "Run"
+msgstr "执行"
+
+msgid "Actions"
+msgstr "操作"
+
+msgid "Date hierarchy"
+msgstr "日期层级"
+
+msgid "All dates"
+msgstr "所有日期"
+
+msgid "Today"
+msgstr "今天"
+
+msgid "Past 7 days"
+msgstr "过去 7 天"
+
+msgid "This month"
+msgstr "本月"
+
+msgid "This year"
+msgstr "今年"
+
+msgid "Are you sure?"
+msgstr "确定吗？"
+
+msgid "Yes, I'm sure"
+msgstr "是的，我确定"
+
+msgid "Cancel"
+msgstr "取消"
+
+msgid "Django administration"
+msgstr "法穿AI Copilot"
+
+msgid "Django site admin"
+msgstr "法穿AI Copilot"
+
+msgid "View site"
+msgstr "查看站点"
+
+msgid "Log out"
+msgstr "退出"
+
+msgid "Password change"
+msgstr "修改密码"
+
+msgid "Log in"
+msgstr "登录"
+
+msgid "Username:"
+msgstr "用户名："
+
+msgid "Password:"
+msgstr "密码："
+
+msgid "Forgotten your password or username?"
+msgstr "忘记密码或用户名？"
+
+msgid "Welcome,"
+msgstr "欢迎，"
+
+msgid "Welcome"
+msgstr "欢迎"
+
+msgid "Dashboard"
+msgstr "仪表盘"
+
+msgid "Recent actions"
+msgstr "最近操作"
+
+msgid "My actions"
+msgstr "我的操作"
+
+msgid "None available"
+msgstr "无可用项"
+
+msgid "Unknown"
+msgstr "未知"
+
+msgid "One result"
+msgstr "一条结果"
+
+msgid "%(counter)s result"
+msgid_plural "%(counter)s results"
+msgstr[0] "%(counter)s 条结果"
+
+msgid "Show all"
+msgstr "显示全部"
+
+msgid "Show counts"
+msgstr "显示计数"
+
+msgid "By %(title)s"
+msgstr "按 %(title)s"
+
+msgid "Any date"
+msgstr "任意日期"
+
+msgid "Empty list"
+msgstr "空列表"
+
+msgid "No %(name)s found"
+msgstr "未找到 %(name)s"
+
+msgid "insufficient privileges"
+msgstr "权限不足"

@@ -115,6 +115,7 @@ MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "apps.core.middleware.request_id.RequestIdMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
+    "django.middleware.locale.LocaleMiddleware",
     "apps.organization.middleware.ApiTrailingSlashMiddleware",
     "django.middleware.common.CommonMiddleware",
     "ninja.compatibility.files.fix_request_files_middleware",
@@ -257,9 +258,17 @@ SIMPLE_JWT = {
 
 LANGUAGE_CODE = "zh-hans"
 
+LANGUAGES = [
+    ("zh-hans", "简体中文"),
+]
+
+LOCALE_PATHS = [
+    BASE_DIR / "locale",
+]
+
 TIME_ZONE = "Asia/Shanghai"
 
-USE_I18N = False
+USE_I18N = True
 
 USE_TZ = True
 
