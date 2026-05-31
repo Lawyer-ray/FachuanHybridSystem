@@ -66,7 +66,7 @@ class SmartFillService:
         self._llm_service = llm_service
         self._catalog_service = CodePlaceholderCatalogService()
 
-    def preview(self, template_path: str, user_input: str) -> SmartFillResult:
+    def preview(self, template_path: str, user_input: str, model: str | None = None) -> SmartFillResult:
         """预览：提取占位符 -> LLM 映射 -> 返回预览"""
         try:
             # Step 1: 提取占位符
@@ -78,7 +78,7 @@ class SmartFillService:
             catalog_text = self._build_catalog(keys)
 
             # Step 3: 调用 LLM
-            llm_values = self._call_llm(catalog_text, user_input)
+            llm_values = self._call_llm(catalog_text, user_input, model=model)
 
             # Step 4: 后处理
             items = self._build_result_items(keys, llm_values)
@@ -127,7 +127,7 @@ class SmartFillService:
 
         return "\n".join(lines)
 
-    def _call_llm(self, catalog: str, user_input: str) -> dict[str, str]:
+    def _call_llm(self, catalog: str, user_input: str, model: str | None = None) -> dict[str, str]:
         """调用 LLM，返回映射结果"""
         today = timezone.localdate()
         today_str = f"{today.year}年{today.month:02d}月{today.day:02d}日"
@@ -146,6 +146,7 @@ class SmartFillService:
                     prompt=user_message,
                     system_prompt=SYSTEM_PROMPT,
                     temperature=0.1,
+                    model=model or None,
                 )
 
                 parsed = parse_json_content(response.content)

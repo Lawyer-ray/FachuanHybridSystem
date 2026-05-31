@@ -604,6 +604,8 @@ class DocumentTemplateAdmin(admin.ModelAdmin):
         if not user_input:
             return JsonResponse({"error": "请输入自然语言描述"}, status=400)
 
+        llm_model = request.POST.get("llm_model", "").strip() or None
+
         tmp_path: str | None = None
         try:
             template_path, err = self._resolve_template_path(request)
@@ -616,7 +618,7 @@ class DocumentTemplateAdmin(admin.ModelAdmin):
             from apps.documents.services.infrastructure.wiring import get_smart_fill_service
 
             service = get_smart_fill_service()
-            result = service.preview(template_path, user_input)
+            result = service.preview(template_path, user_input, model=llm_model)
 
             if result.error:
                 return JsonResponse({"error": result.error}, status=400)
@@ -804,6 +806,43 @@ class DocumentTemplateAdmin(admin.ModelAdmin):
         extra_context.update(self._get_docx_root_extra_context())
         return super().changelist_view(request, extra_context=extra_context)
 
+    @staticmethod
+    def _build_llm_model_choices() -> list[tuple[str, str]]:
+        """构建 LLM 模型选项列表（复用 legal_research 的模式）。"""
+        from apps.core.llm.config import LLMConfig
+        from apps.core.llm.model_list_service import ModelListService
+
+        choices: list[tuple[str, str]] = []
+        seen: set[str] = set()
+
+        def append_choice(model_id: str, *, label: str | None = None) -> None:
+            value = model_id.strip()
+            if not value or value in seen:
+                return
+            seen.add(value)
+            choices.append((value, label or value))
+
+        default_model = LLMConfig.get_default_model().strip()
+        if default_model:
+            append_choice(default_model, label=f"{default_model}（默认）")
+
+        try:
+            result = ModelListService().get_result()
+            for item in result.models:
+                model_id = str(item.get("id", "")).strip()
+                model_name = str(item.get("name", "")).strip()
+                if model_name and model_name != model_id:
+                    append_choice(model_id, label=f"{model_name} ({model_id})")
+                else:
+                    append_choice(model_id)
+        except Exception:
+            logger.exception("加载模型列表失败")
+
+        if not choices:
+            append_choice(default_model or "Qwen/Qwen2.5-7B-Instruct")
+
+        return choices
+
     def changeform_view(
         self,
         request: Any,
@@ -813,6 +852,7 @@ class DocumentTemplateAdmin(admin.ModelAdmin):
     ) -> Any:
         extra_context = extra_context or {}
         extra_context.update(self._get_docx_root_extra_context())
+        extra_context["smart_fill_llm_models"] = self._build_llm_model_choices()
         return super().changeform_view(request, object_id=object_id, form_url=form_url, extra_context=extra_context)
 
     @admin.display(description=_("模板类型"))

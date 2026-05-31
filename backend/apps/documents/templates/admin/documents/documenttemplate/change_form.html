@@ -250,6 +250,14 @@
     <div class="smart-fill-body">
         <p class="smart-fill-desc">输入自然语言描述，AI 自动将信息映射到模板占位符并填充。支持在预览后修改值再下载。</p>
         <div class="form-row">
+            <label for="id_smart_fill_llm_model">LLM 模型</label>
+            <select id="id_smart_fill_llm_model" class="vLargeTextField">
+                {% for value, label in smart_fill_llm_models %}
+                <option value="{{ value }}">{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="form-row">
             <label for="id_smart_fill_input">自然语言描述</label>
             <textarea id="id_smart_fill_input" rows="4" class="vLargeTextField"
                 placeholder="例如：委托人是张三，案件编号是(2026)京01民初123号，被申请人是李四"></textarea>
@@ -558,6 +566,11 @@
                 formData.append('file', fileInput0.files[0]);
             } else if (filePathVal) {
                 formData.append('file_path', filePathVal);
+            }
+
+            var llmModel = $('#id_smart_fill_llm_model').val();
+            if (llmModel) {
+                formData.append('llm_model', llmModel);
             }
             return formData;
         }
