@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -133,16 +134,40 @@ class ModelListService:
         return merged + api_models
 
     def _fetch_from_api(self) -> ModelListResult:
-        """从可发现的后端获取模型列表（SiliconFlow / Ollama / OpenAI-compatible）"""
+        """从可发现的后端并发获取模型列表（SiliconFlow / Ollama / OpenAI-compatible）"""
         configs = LLMConfig.get_backend_configs()
-        all_models: list[dict[str, Any]] = []
 
-        if configs.get("siliconflow") and configs["siliconflow"].enabled:
-            all_models.extend(self._fetch_siliconflow_models())
-        if configs.get("ollama") and configs["ollama"].enabled:
-            all_models.extend(self._fetch_ollama_models())
-        if configs.get("openai_compatible") and configs["openai_compatible"].enabled:
-            all_models.extend(self._fetch_openai_compatible_models())
+        # 只查询已启用且配了凭证的后端，避免无意义的 HTTP 请求
+        fetchers: list[tuple[str, Any]] = []
+        sf_cfg = configs.get("siliconflow")
+        if sf_cfg and sf_cfg.enabled and sf_cfg.api_key:
+            fetchers.append(("siliconflow", self._fetch_siliconflow_models))
+        ollama_cfg = configs.get("ollama")
+        if ollama_cfg and ollama_cfg.enabled and ollama_cfg.base_url:
+            fetchers.append(("ollama", self._fetch_ollama_models))
+        oc_cfg = configs.get("openai_compatible")
+        if oc_cfg and oc_cfg.enabled and oc_cfg.base_url:
+            fetchers.append(("openai_compatible", self._fetch_openai_compatible_models))
+
+        if not fetchers:
+            return ModelListResult(
+                models=[],
+                is_fallback=True,
+                error_message="所有后端均不可用，使用默认模型列表",
+            )
+
+        # 并发查询所有后端，总超时 = max(单个超时) 而非 sum
+        all_models: list[dict[str, Any]] = []
+        if len(fetchers) == 1:
+            all_models.extend(fetchers[0][1]())
+        else:
+            with ThreadPoolExecutor(max_workers=len(fetchers)) as executor:
+                futures = {executor.submit(fn): name for name, fn in fetchers}
+                for future in as_completed(futures):
+                    try:
+                        all_models.extend(future.result())
+                    except Exception:
+                        logger.debug("获取 %s 模型列表失败", futures[future])
 
         if all_models:
             return ModelListResult(models=all_models)
@@ -158,7 +183,6 @@ class ModelListService:
         api_key = LLMConfig.get_api_key()
         base_url = LLMConfig.get_base_url()
         if not api_key:
-            logger.warning("SILICONFLOW_API_KEY 未配置")
             return []
 
         url = f"{base_url.rstrip('/')}/models"
@@ -167,7 +191,7 @@ class ModelListService:
                 url,
                 headers={"Authorization": f"Bearer {api_key}"},
                 params={"sub_type": "chat"},
-                timeout=15.0,
+                timeout=5.0,
             )
             resp.raise_for_status()
             data: dict[str, Any] = resp.json()
@@ -207,7 +231,7 @@ class ModelListService:
             resp = httpx.post(
                 f"{ollama_url}/api/show",
                 json={"name": ollama_model},
-                timeout=10.0,
+                timeout=5.0,
             )
             resp.raise_for_status()
             data = resp.json()
@@ -236,7 +260,7 @@ class ModelListService:
             headers["Authorization"] = f"Bearer {api_key}"
 
         try:
-            resp = httpx.get(url, headers=headers, timeout=15.0)
+            resp = httpx.get(url, headers=headers, timeout=5.0)
             resp.raise_for_status()
             data: dict[str, Any] = resp.json()
             models: list[dict[str, Any]] = []
@@ -250,7 +274,7 @@ class ModelListService:
                 logger.info("从 OpenAI-compatible API 获取到 %d 个模型", len(models))
             return models
         except (httpx.HTTPStatusError, httpx.ConnectError, httpx.TimeoutException) as exc:
-            logger.warning("OpenAI-compatible API 不可用: %s", exc)
+            logger.debug("OpenAI-compatible API 不可用: %s", exc)
             return []
         except Exception:
             logger.exception("获取 OpenAI-compatible 模型列表时发生未知错误")
