@@ -6,12 +6,12 @@
 
 <li>
     <a href="calculator/" class="addlink">
-        {% trans "LPR计算器" %}
+        {% translate "LPR计算器" %}
     </a>
 </li>
 
 <li>
-    <a href="#" class="addlink" onclick="document.getElementById('lpr-sync-form').submit(); return false;">{% trans "同步LPR数据" %}</a>
+    <a href="#" class="addlink" onclick="document.getElementById('lpr-sync-form').submit(); return false;">{% translate "同步LPR数据" %}</a>
     <form id="lpr-sync-form" method="post" action="sync/" style="display: none;">
         {% csrf_token %}
     </form>

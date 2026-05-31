@@ -9,13 +9,13 @@
 <script src="{% static 'contracts/js/auto_contract_name.js' %}"></script>
 <script>
 window.CONTRACTS_I18N = Object.assign(window.CONTRACTS_I18N || {}, {
-    bound: '{',
-    unbound: '{',
-    duplicate: '{',
-    createCase: '{',
-    fillContractParties: '{',
-    fillPrevSuppParties: '{',
-    archiveWarning: '{'
+    bound: '{% trans "已绑定" %}',
+    unbound: '{% trans "未绑定" %}',
+    duplicate: '{% trans "保存并复制" %}',
+    createCase: '{% trans "保存并创建案件" %}',
+    fillContractParties: '{% trans "填充合同当事人" %}',
+    fillPrevSuppParties: '{% trans "填充上一份补充协议当事人" %}',
+    archiveWarning: '{% trans "归档合同将自动结案所有关联案件，确认要改为已归档吗？" %}'
 });
 </script>
 <style>
