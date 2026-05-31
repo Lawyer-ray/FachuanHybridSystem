@@ -17,13 +17,10 @@ git pull
 cd backend
 make install-dev
 
-# 3) 同步环境变量（检查是否有新增配置项）
-cp -n .env.example .env 2>/dev/null; open .env
-
-# 4) 数据库迁移（有新 migration 时自动执行）
+# 3) 数据库迁移（有新 migration 时自动执行）
 make migrate
 
-# 5) 启动服务（需要两个终端）
+# 4) 启动服务（需要两个终端）
 # 终端1：Web 服务（开发模式，含热重载）
 make run-dev
 
@@ -117,13 +114,10 @@ cd backend
 source .venv/bin/activate
 uv sync
 
-# 3) 同步环境变量（检查是否有新增配置项）
-cp -n .env.example .env 2>/dev/null; nano .env
-
-# 4) 数据库迁移
+# 3) 数据库迁移
 cd apiSystem && uv run python manage.py migrate && cd ..
 
-# 5) 启动服务（需要两个终端）
+# 4) 启动服务（需要两个终端）
 # 终端1：Web 服务（开发模式，含热重载）
 uv run python manage.py runserver 0.0.0.0:8002
 
@@ -200,13 +194,10 @@ cd backend
 .venv\Scripts\activate
 uv sync
 
-# 3) 同步环境变量（检查是否有新增配置项）
-Copy-Item -Force .env.example .env; notepad .env
-
-# 4) 数据库迁移
+# 3) 数据库迁移
 cd apiSystem; uv run python manage.py migrate; cd ..
 
-# 5) 启动服务（需要两个终端）
+# 4) 启动服务（需要两个终端）
 # 终端1：Web 服务（开发模式，含热重载）
 uv run python manage.py runserver 0.0.0.0:8002
 
@@ -245,9 +236,8 @@ Register-ScheduledTask -TaskName "FachuanQCluster" -Action $action2 -Trigger $tr
 cd FachuanHybridSystem
 git pull
 
-# 2) 同步环境变量（检查是否有新增配置项）
+# 2) 进入后端目录
 cd backend
-cp -n .env.example .env 2>/dev/null; nano .env
 
 # 3) 重建并启动（Web + qcluster + PostgreSQL + Redis 全部自动启动）
 docker compose up -d --build
