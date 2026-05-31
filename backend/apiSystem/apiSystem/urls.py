@@ -56,6 +56,7 @@ def root_redirect(request: HttpRequest) -> HttpResponseRedirect:
 urlpatterns = [
     path("admin/register/", register, name="admin_register"),
     path("admin/", admin.site.urls),
+    path("i18n/", include("django.conf.urls.i18n")),
     path("api/v1/", api_v1.urls),
     path("api/", api_redirect),
     path("favicon.ico", favicon_view, name="favicon"),
