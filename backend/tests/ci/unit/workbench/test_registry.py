@@ -13,6 +13,7 @@ from apps.workbench.tasks.registry import TaskRegistry
 def registry() -> TaskRegistry:
     return TaskRegistry()
 
+
 class TestTaskRegistry:
     def test_register_and_get(self, registry) -> None:
         loop = asyncio.new_event_loop()

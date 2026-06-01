@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
+
 class CourtCaseMixin:
     async def _lookup_court(self: Any, sfid: str, court_name: str) -> str:
         keyword = re.sub(r"(人民法院|法院)$", "", court_name).strip()

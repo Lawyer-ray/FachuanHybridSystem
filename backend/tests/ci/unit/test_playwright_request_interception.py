@@ -21,6 +21,7 @@ class FakeRequest:
     def post_data(self) -> str | None:
         return self._post_data
 
+
 class TestPlaywrightRequestInterception:
     """Verify the request interception pattern works."""
 

@@ -16,6 +16,7 @@ class _AccessorStub:
     def get_case_parties(self, case_id: int) -> list[dict[str, str]]:
         return self._parties
 
+
 def _build_legal_party(name: str, status: str) -> dict[str, str]:
     return {
         "legal_status": status,
@@ -26,6 +27,7 @@ def _build_legal_party(name: str, status: str) -> dict[str, str]:
         "legal_representative": "张三",
         "phone": "13800000000",
     }
+
 
 def test_respondent_info_uses_chinese_numerals_for_multiple_parties() -> None:
     service = EnforcementRespondentPartyService()
@@ -41,6 +43,7 @@ def test_respondent_info_uses_chinese_numerals_for_multiple_parties() -> None:
     assert "被申请人一：第一公司" in text
     assert "被申请人二：第二公司" in text
     assert "被申请人丁" not in text
+
 
 def test_applicant_info_uses_chinese_numerals_for_multiple_parties() -> None:
     service = EnforcementApplicantPartyService()

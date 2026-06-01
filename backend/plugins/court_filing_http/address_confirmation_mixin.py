@@ -17,6 +17,7 @@ logger = logging.getLogger("plugins.court_filing_http")
 _CLLX = "11800016-254"
 _CLMC = "送达地址确认书"
 
+
 def _build_address_lines(info: dict[str, Any]) -> list[str]:
     """从地址信息字典组装可读文本行。"""
     lines: list[str] = []
@@ -49,6 +50,7 @@ def _build_address_lines(info: dict[str, Any]) -> list[str]:
             if v and k not in ("id", "layyid", "fyId", "fyid", "pageNum", "pageSize"):
                 lines.append(f"{k}：{v}")
     return lines
+
 
 class AddressConfirmationMixin:
     """送达地址确认书自动生成与上传。"""

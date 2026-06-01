@@ -19,6 +19,7 @@ def _build_invoice_files(files: list[dict[str, str]]) -> dict[str, Any]:
         result.append(("files", (filename, file_bytes, mime)))
     return result  # type: ignore[return-value]
 
+
 def quick_recognize_invoice(files: list[dict[str, str]]) -> dict[str, Any]:
     """快速识别发票（不创建任务）。files 为 [{base64: '...', filename: 'xxx.pdf'}, ...]。返回识别结果列表。"""
     file_list = _build_invoice_files(files)
@@ -34,6 +35,7 @@ def quick_recognize_invoice(files: list[dict[str, str]]) -> dict[str, Any]:
             detail = resp.text
         raise RuntimeError(f"HTTP {resp.status_code}: {detail}")
     return resp.json()  # type: ignore[return-value]
+
 
 def upload_invoices(task_id: int, files: list[dict[str, str]]) -> dict[str, Any]:
     """上传发票文件到指定任务并自动识别。files 为 [{base64: '...', filename: 'xxx.pdf'}, ...]。"""
@@ -51,9 +53,11 @@ def upload_invoices(task_id: int, files: list[dict[str, str]]) -> dict[str, Any]
         raise RuntimeError(f"HTTP {resp.status_code}: {detail}")
     return resp.json()  # type: ignore[return-value]
 
+
 def get_invoice_task_status(task_id: int) -> dict[str, Any]:
     """查询发票识别任务状态和发票记录列表。"""
     return client.get(f"/invoice-recognition/{task_id}/status")  # type: ignore[return-value]
+
 
 def download_invoices(
     task_id: int,
@@ -68,9 +72,7 @@ def download_invoices(
         params["invoice_id"] = invoice_id
     if category is not None:
         params["category"] = category
-    content, filename, content_type = client.download(
-        f"/invoice-recognition/{task_id}/download", params=params
-    )
+    content, filename, content_type = client.download(f"/invoice-recognition/{task_id}/download", params=params)
     return {
         "filename": filename,
         "content_type": content_type,

@@ -19,9 +19,11 @@ def list_contracts(
         params["status"] = status
     return client.get("/contracts/contracts", params=params)  # type: ignore[return-value]
 
+
 def get_contract(contract_id: int) -> dict[str, Any]:
     """获取单个合同的详细信息，包含关联案件、当事人、律师指派、付款记录等。"""
     return client.get(f"/contracts/contracts/{contract_id}")  # type: ignore[return-value]
+
 
 def create_contract(
     name: str,

@@ -22,13 +22,16 @@ def list_cases(
         params["case_number"] = case_number
     return client.get("/cases/cases", params=params)  # type: ignore[return-value]
 
+
 def search_cases(q: str, limit: int = 10) -> list[dict[str, Any]]:
     """按关键词搜索案件，支持案件名称、当事人姓名等模糊搜索。"""
     return client.get("/cases/cases/search", params={"q": q, "limit": limit})  # type: ignore[return-value]
 
+
 def get_case(case_id: int) -> dict[str, Any]:
     """获取单个案件的详细信息，包含当事人、指派律师、案号、进展日志等。"""
     return client.get(f"/cases/cases/{case_id}")  # type: ignore[return-value]
+
 
 def create_case(
     name: str,

@@ -6,6 +6,7 @@ from typing import Any
 
 logger = logging.getLogger("plugins.court_filing_http")
 
+
 class PartyApiMixin:
     async def _add_party(
         self: Any,

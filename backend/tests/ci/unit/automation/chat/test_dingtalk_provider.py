@@ -19,6 +19,7 @@ def mock_config():
         "TIMEOUT": 30,
     }
 
+
 @pytest.fixture
 def mock_incomplete_config():
     """钉钉不完整配置"""
@@ -27,6 +28,7 @@ def mock_incomplete_config():
         # 缺少 APP_SECRET
         "TIMEOUT": 30,
     }
+
 
 class TestDingtalkProviderPlatform:
     """测试钉钉 Provider 基本属性"""
@@ -68,6 +70,7 @@ class TestDingtalkProviderPlatform:
 
         provider = DingtalkProvider()
         assert provider.is_available() is False
+
 
 class TestDingtalkProviderCreateChat:
     """测试钉钉创建群聊"""
@@ -180,6 +183,7 @@ class TestDingtalkProviderCreateChat:
         with pytest.raises(ChatCreationException):
             provider.create_chat("测试案件群")
 
+
 class TestDingtalkProviderSendMessage:
     """测试钉钉发送消息"""
 
@@ -220,6 +224,7 @@ class TestDingtalkProviderSendMessage:
         assert result.success is True
         assert result.chat_id == "chat_123"
 
+
 class TestDingtalkProviderGetChatInfo:
     """测试钉钉获取群聊信息"""
 
@@ -252,6 +257,7 @@ class TestDingtalkProviderGetChatInfo:
 
             assert result.success is True
             assert result.chat_name == "测试群聊"
+
 
 class TestDingtalkProviderFactory:
     """测试钉钉 Provider 工厂注册"""

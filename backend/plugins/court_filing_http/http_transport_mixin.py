@@ -4,6 +4,7 @@ from typing import Any
 
 from .constants import _BASE
 
+
 class HttpTransportMixin:
     async def _get(self: Any, path: str, **params: Any) -> Any:
         r = await self._client.get(f"{_BASE}{path}", params=params or None)

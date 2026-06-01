@@ -18,6 +18,7 @@ def query_document_delivery(
         json={"credential_id": credential_id, "cutoff_hours": cutoff_hours, "tab": tab},
     )  # type: ignore[return-value]
 
+
 def list_delivery_schedules(
     credential_id: int | None = None,
     is_active: bool | None = None,
@@ -29,6 +30,7 @@ def list_delivery_schedules(
     if is_active is not None:
         params["is_active"] = is_active
     return client.get("/automation/document-delivery/schedules", params=params)  # type: ignore[return-value]
+
 
 def create_delivery_schedule(
     credential_id: int,

@@ -13,6 +13,7 @@ def test_ci_tree_has_required_layers() -> None:
     assert (root / "integration").is_dir()
     assert (root / "property").is_dir()
 
+
 def test_unit_regression_modules_are_importable() -> None:
     module = import_module("tests.ci.unit.test_regression_suite")
     names = [name for name in vars(module) if name.startswith("test_")]

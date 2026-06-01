@@ -120,8 +120,11 @@ def test_batch_printing_rule_and_preset_endpoints_support_full_crud(authenticate
     assert delete_rule_response.json() == {"success": True}
     assert not PrintKeywordRule.objects.filter(id=existing_rule.id).exists()
 
+
 @pytest.mark.django_db
-def test_batch_printing_job_endpoints_expose_full_contract(authenticated_client, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_batch_printing_job_endpoints_expose_full_contract(
+    authenticated_client, monkeypatch: pytest.MonkeyPatch
+) -> None:
     job_id = uuid4()
     now = timezone.now()
     captured: dict[str, object] = {}

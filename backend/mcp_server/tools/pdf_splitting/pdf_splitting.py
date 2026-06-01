@@ -27,17 +27,21 @@ def create_pdf_split_job(
         },
     )  # type: ignore[return-value]
 
+
 def get_pdf_split_job(job_id: str) -> dict[str, Any]:
     """查询 PDF 拆解任务状态和结果。status: pending/processing/completed/failed。"""
     return client.get(f"/pdf-splitting/jobs/{job_id}")  # type: ignore[return-value]
+
 
 def confirm_pdf_split(job_id: str, segments: list[dict[str, Any]]) -> dict[str, Any]:
     """确认 PDF 拆解分段结果，触发最终打包。segments 为分段列表，每项包含 page_start、page_end、segment_type、filename 等字段。"""
     return client.post(f"/pdf-splitting/jobs/{job_id}/confirm", json={"segments": segments})  # type: ignore[return-value]
 
+
 def cancel_pdf_split(job_id: str) -> dict[str, Any]:
     """取消 PDF 拆解任务。"""
     return client.post(f"/pdf-splitting/jobs/{job_id}/cancel", json={})  # type: ignore[return-value]
+
 
 def download_pdf_split_result(job_id: str) -> dict[str, Any]:
     """下载 PDF 拆解结果 ZIP 压缩包。返回 {filename, content_type, data_base64}。"""

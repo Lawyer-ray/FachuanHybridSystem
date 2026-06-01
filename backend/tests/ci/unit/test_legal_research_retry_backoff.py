@@ -28,6 +28,7 @@ def test_executor_source_gateway_retry_backoff_uses_exponential_jitter(monkeypat
     _Gateway._sleep_for_retry(attempt=10)
     assert slept[0] == pytest.approx(7.5)
 
+
 def test_weike_transport_retry_backoff_uses_exponential_jitter(monkeypatch: pytest.MonkeyPatch) -> None:
     slept: list[float] = []
     monkeypatch.setattr(

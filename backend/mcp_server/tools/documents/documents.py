@@ -23,9 +23,11 @@ def list_document_templates(
         params["is_active"] = is_active
     return client.get("/documents/templates", params=params)  # type: ignore[no-any-return]
 
+
 def get_document_template(template_id: int) -> dict[str, Any]:
     """获取文件模板详情。"""
     return client.get(f"/documents/templates/{template_id}")  # type: ignore[no-any-return]
+
 
 def create_document_template(
     name: str,
@@ -40,6 +42,7 @@ def create_document_template(
     if content:
         payload["content"] = content
     return client.post("/documents/templates", json=payload)  # type: ignore[no-any-return]
+
 
 def list_folder_templates(
     template_type: str | None = None,
@@ -56,12 +59,14 @@ def list_folder_templates(
         params["is_active"] = is_active
     return client.get("/documents/folder-templates", params=params)  # type: ignore[no-any-return]
 
+
 def list_placeholders(is_active: bool | None = None) -> list[dict[str, Any]]:
     """获取替换词列表。"""
     params: dict[str, Any] = {}
     if is_active is not None:
         params["is_active"] = is_active
     return client.get("/documents/placeholders", params=params)  # type: ignore[no-any-return]
+
 
 def preview_placeholders(
     contract_id: int,
@@ -73,26 +78,25 @@ def preview_placeholders(
         params["keys"] = keys
     return client.get(f"/documents/placeholders/preview/{contract_id}", params=params)  # type: ignore[no-any-return]
 
+
 def preview_contract_context(contract_id: int) -> dict[str, Any]:
     """预览合同占位符上下文数据。"""
     return client.get(f"/documents/contracts/{contract_id}/preview")  # type: ignore[no-any-return]
 
+
 def download_contract_document(contract_id: int) -> dict[str, Any]:
     """下载合同文档（DOCX）。返回 {filename, content_type, data_base64}。"""
-    content, filename, content_type = client.download(
-        f"/documents/contracts/{contract_id}/download"
-    )
+    content, filename, content_type = client.download(f"/documents/contracts/{contract_id}/download")
     return {
         "filename": filename,
         "content_type": content_type,
         "data_base64": base64.b64encode(content).decode(),
     }
 
+
 def download_contract_folder(contract_id: int) -> dict[str, Any]:
     """下载合同文件夹（ZIP）。返回 {filename, content_type, data_base64}。"""
-    content, filename, content_type = client.download(
-        f"/documents/contracts/{contract_id}/folder/download"
-    )
+    content, filename, content_type = client.download(f"/documents/contracts/{contract_id}/folder/download")
     return {
         "filename": filename,
         "content_type": content_type,

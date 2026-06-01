@@ -23,6 +23,7 @@ def test_text_extraction_service_prefers_constructor_max_pages(tmp_path, monkeyp
     assert result.extraction_method == "pdf_direct"
     assert called.get("max_pages") == 3
 
+
 def test_text_extraction_service_extract_text_can_override_max_pages(tmp_path, monkeypatch):
     pdf_path = tmp_path / "override.pdf"
     pdf_path.write_bytes(b"%PDF-1.4")
@@ -39,6 +40,7 @@ def test_text_extraction_service_extract_text_can_override_max_pages(tmp_path, m
     service.extract_text(str(pdf_path), max_pages=1)
 
     assert called.get("max_pages") == 1
+
 
 def test_document_processing_extract_pdf_text_respects_max_pages(monkeypatch):
     loaded_pages: list[int] = []

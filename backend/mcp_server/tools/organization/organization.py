@@ -14,6 +14,7 @@ def list_lawyers(team_id: int | None = None) -> list[dict[str, Any]]:
         params["team_id"] = team_id
     return client.get("/organization/lawyers", params=params)  # type: ignore[return-value]
 
+
 def list_teams() -> list[dict[str, Any]]:
     """查询所有团队列表。"""
     return client.get("/organization/teams")  # type: ignore[return-value]

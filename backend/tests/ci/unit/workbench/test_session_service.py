@@ -13,6 +13,7 @@ from apps.workbench.services.session_service import WorkbenchSessionService
 def svc() -> WorkbenchSessionService:
     return WorkbenchSessionService()
 
+
 @pytest.fixture
 def user(db):
     from apps.organization.models import Lawyer
@@ -23,6 +24,7 @@ def user(db):
         real_name="测试用户",
     )
 
+
 @pytest.fixture
 def other_user(db):
     from apps.organization.models import Lawyer
@@ -32,6 +34,7 @@ def other_user(db):
         email="other_wb@example.com",
         real_name="其他用户",
     )
+
 
 class TestCreateSession:
     def test_create_with_user(self, svc, user) -> None:
@@ -45,6 +48,7 @@ class TestCreateSession:
         session = svc.create_session(title="匿名会话")
         assert session.id is not None
         assert session.user is None
+
 
 class TestListSessions:
     def test_list_returns_user_sessions(self, svc, user) -> None:
@@ -79,6 +83,7 @@ class TestListSessions:
         assert result["count"] == 5
         assert len(result["items"]) == 2
 
+
 class TestGetSession:
     def test_get_existing(self, svc, user) -> None:
         session = svc.create_session(title="获取测试", user=user)
@@ -94,6 +99,7 @@ class TestGetSession:
         with pytest.raises(NotFoundError):
             svc.get_session(session.id, user=user)
 
+
 class TestUpdateSession:
     def test_update_title(self, svc, user) -> None:
         session = svc.create_session(title="原标题", user=user)
@@ -104,6 +110,7 @@ class TestUpdateSession:
         session = svc.create_session(llm_model="gpt-4", user=user)
         updated = svc.update_session(session.id, llm_model="claude-3", user=user)
         assert updated.llm_model == "claude-3"
+
 
 class TestDeleteSession:
     def test_delete(self, svc, user) -> None:

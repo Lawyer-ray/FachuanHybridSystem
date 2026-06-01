@@ -15,6 +15,7 @@ from .constants import (
 
 logger = logging.getLogger("plugins.court_filing_http")
 
+
 class ExecutionValidationMixin:
     @staticmethod
     def _normalize_name(value: Any) -> str:

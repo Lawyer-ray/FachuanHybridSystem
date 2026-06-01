@@ -24,6 +24,7 @@ def create_preservation_quote(
         },
     )  # type: ignore[return-value]
 
+
 def list_preservation_quotes(
     page: int = 1,
     page_size: int = 20,
@@ -35,9 +36,11 @@ def list_preservation_quotes(
         params["status"] = status
     return client.get("/automation/preservation-quotes", params=params)  # type: ignore[return-value]
 
+
 def get_preservation_quote(quote_id: int) -> dict[str, Any]:
     """获取询价任务详情，包含所有保险公司的报价记录。"""
     return client.get(f"/automation/preservation-quotes/{quote_id}")  # type: ignore[return-value]
+
 
 def execute_preservation_quote(quote_id: int) -> dict[str, Any]:
     """执行询价任务，并发查询所有保险公司报价。返回执行结果统计。"""

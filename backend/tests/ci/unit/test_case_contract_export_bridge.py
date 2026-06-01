@@ -17,10 +17,12 @@ def test_get_case_admin_contract_export_prefetches_returns_nonempty_tuple() -> N
     assert isinstance(result, tuple)
     assert len(result) > 0
 
+
 def test_get_case_admin_contract_file_prefetches_returns_nonempty_tuple() -> None:
     result = get_case_admin_contract_file_prefetches()
     assert isinstance(result, tuple)
     assert len(result) > 0
+
 
 def test_collect_contract_file_paths_for_case_export_collects_all_paths() -> None:
     material = MagicMock()
@@ -53,17 +55,14 @@ def test_collect_contract_file_paths_for_case_export_collects_all_paths() -> Non
     assert "id.pdf" in collected
     assert "clue.pdf" in collected
 
+
 def test_serialize_contract_for_case_export_calls_serializer() -> None:
     contract = MagicMock()
     expected = {"id": 1, "name": "test"}
 
     with (
-        patch(
-            "apps.cases.services.case.case_export_serializer_service.serialize_case_obj"
-        ) as mock_case_ser,
-        patch(
-            "apps.contracts.services.contract.integrations.serialize_contract_obj"
-        ) as mock_contract_ser,
+        patch("apps.cases.services.case.case_export_serializer_service.serialize_case_obj") as mock_case_ser,
+        patch("apps.contracts.services.contract.integrations.serialize_contract_obj") as mock_contract_ser,
     ):
         mock_contract_ser.return_value = expected
         result = serialize_contract_for_case_export(contract)

@@ -11,6 +11,7 @@ from .constants import _OSS_BUCKET
 
 logger = logging.getLogger("plugins.court_filing_http")
 
+
 class MaterialMixin:
     async def _extract_material_slot_ids(self: Any, layyid: str) -> dict[str, str]:
         detail = await self._get(f"/yzw-zxfw-lafw/api/v3/layy/layyxq/{layyid}/0")

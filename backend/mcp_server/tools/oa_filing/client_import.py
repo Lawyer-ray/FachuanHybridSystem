@@ -17,6 +17,7 @@ def trigger_client_import(
         payload["limit"] = limit
     return client.post("/client-import", json=payload)  # type: ignore[return-value]
 
+
 def get_client_import_session(session_id: int) -> dict[str, Any]:
     """查询客户导入会话状态。status: pending/running/completed/failed。"""
     return client.get(f"/client-import/{session_id}")  # type: ignore[return-value]

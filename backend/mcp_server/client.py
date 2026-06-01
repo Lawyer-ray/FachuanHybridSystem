@@ -17,6 +17,7 @@ logger = logging.getLogger(__name__)
 _MAX_OBTAIN_RETRIES = 3
 _RETRY_BACKOFF = (1.0, 3.0, 5.0)
 
+
 class FachuanClient:
     def __init__(self) -> None:
         self._access_token: str = ""
@@ -116,6 +117,7 @@ class FachuanClient:
             m = re.search(r"filename\*=UTF-8''([^;]+)", disposition)
             if m:
                 from urllib.parse import unquote
+
                 filename = unquote(m.group(1))
             else:
                 m2 = re.search(r'filename="?([^";]+)"?', disposition)
@@ -134,6 +136,7 @@ class FachuanClient:
         if resp.status_code == 204:
             return None
         return resp.json()
+
 
 # 全局单例
 client = FachuanClient()

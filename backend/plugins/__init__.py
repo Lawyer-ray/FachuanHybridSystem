@@ -14,6 +14,7 @@ __all__ = [
     "get_plugin_status",
 ]
 
+
 def has_court_automation_plugin() -> bool:
     """
     检测法院自动化立案/担保插件是否已安装。
@@ -26,6 +27,7 @@ def has_court_automation_plugin() -> bool:
     import os
 
     return os.getenv("ENABLE_COURT_FILING_PLUGIN") == "1"
+
 
 def has_court_filing_api_plugin() -> bool:
     """
@@ -41,6 +43,7 @@ def has_court_filing_api_plugin() -> bool:
     except ImportError:
         return False
 
+
 def has_weike_private_api_plugin() -> bool:
     """
     检测WK私有 API 适配器插件是否已安装。
@@ -54,6 +57,7 @@ def has_weike_private_api_plugin() -> bool:
         return True
     except ImportError:
         return False
+
 
 def get_plugin_status() -> dict[str, Literal["installed", "not_installed"]]:
     """

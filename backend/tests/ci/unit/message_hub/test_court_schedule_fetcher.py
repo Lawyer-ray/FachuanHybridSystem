@@ -24,6 +24,7 @@ from apps.reminders.models import Reminder, ReminderType
 # _parse_datetime 测试
 # ---------------------------------------------------------------------------
 
+
 class TestParseDatetime:
     """时间字符串解析测试。"""
 
@@ -49,9 +50,11 @@ class TestParseDatetime:
         dt = _parse_datetime(None)  # type: ignore[arg-type]
         assert dt is not None
 
+
 # ---------------------------------------------------------------------------
 # _extract_party_names 分词测试
 # ---------------------------------------------------------------------------
+
 
 class TestExtractPartyNames:
     """rcbt 日程标题分词测试。"""
@@ -71,9 +74,7 @@ class TestExtractPartyNames:
 
     def test_company_multiple_defendants(self):
         """公司+多被告+案由噪声。"""
-        names = _extract_party_names(
-            "佛山市升平百货有限公司与佛山市仲满金属材料有限公司,郑汝钋,石莹追偿权纠纷一案"
-        )
+        names = _extract_party_names("佛山市升平百货有限公司与佛山市仲满金属材料有限公司,郑汝钋,石莹追偿权纠纷一案")
         assert "佛山市升平百货有限公司" in names
         assert "佛山市仲满金属材料有限公司" in names
         assert "郑汝钋" in names
@@ -104,9 +105,11 @@ class TestExtractPartyNames:
         assert "李四" in names
         assert "王五" in names
 
+
 # ---------------------------------------------------------------------------
 # _is_valid_party_name 测试
 # ---------------------------------------------------------------------------
+
 
 class TestIsValidPartyName:
     """当事人名称有效性过滤测试。"""
@@ -132,9 +135,11 @@ class TestIsValidPartyName:
     def test_government_bureau(self):
         assert _is_valid_party_name("国家税务总局海南省税务局第二稽查局") is True
 
+
 # ---------------------------------------------------------------------------
 # 案件关联策略测试
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.django_db
 class TestFindCaseId:
@@ -210,9 +215,11 @@ class TestFindCaseId:
         assert case_id is None
         assert strategy == "none"
 
+
 # ---------------------------------------------------------------------------
 # CourtScheduleFetcher 完整流程测试
 # ---------------------------------------------------------------------------
+
 
 @pytest.mark.django_db
 class TestCourtScheduleFetcher:
@@ -283,7 +290,10 @@ class TestCourtScheduleFetcher:
 
         count = self.fetcher.fetch_new_messages(self.source)
         assert count == 1
-        assert Reminder.objects.filter(reminder_type=ReminderType.HEARING, metadata__source_id="unique-id-001").count() == 1
+        assert (
+            Reminder.objects.filter(reminder_type=ReminderType.HEARING, metadata__source_id="unique-id-001").count()
+            == 1
+        )
 
     @patch("apps.message_hub.services.court.court_schedule_fetcher._api_post")
     @patch("apps.message_hub.services.court.court_schedule_fetcher._acquire_token")
@@ -364,11 +374,39 @@ class TestCourtScheduleFetcher:
         mock_token.return_value = "fake_token"
 
         page1_data = [
-            {"bh": f"page1-{i}", "ajbs": str(i), "ah": None, "kssj": "2026-06-15 09:30", "jssj": "2026-06-15 10:30", "sj": "09:30-10:30", "rcbt": f"案件{i}一案", "rcdd": "法院", "lx": "线下开庭", "fydm": "2602", "cjfs": 0, "hasCase": False, "najzt": 1}
+            {
+                "bh": f"page1-{i}",
+                "ajbs": str(i),
+                "ah": None,
+                "kssj": "2026-06-15 09:30",
+                "jssj": "2026-06-15 10:30",
+                "sj": "09:30-10:30",
+                "rcbt": f"案件{i}一案",
+                "rcdd": "法院",
+                "lx": "线下开庭",
+                "fydm": "2602",
+                "cjfs": 0,
+                "hasCase": False,
+                "najzt": 1,
+            }
             for i in range(20)
         ]
         page2_data = [
-            {"bh": f"page2-{i}", "ajbs": str(i + 20), "ah": None, "kssj": "2026-06-16 09:30", "jssj": "2026-06-16 10:30", "sj": "09:30-10:30", "rcbt": f"案件{i+20}一案", "rcdd": "法院", "lx": "线下开庭", "fydm": "2602", "cjfs": 0, "hasCase": False, "najzt": 1}
+            {
+                "bh": f"page2-{i}",
+                "ajbs": str(i + 20),
+                "ah": None,
+                "kssj": "2026-06-16 09:30",
+                "jssj": "2026-06-16 10:30",
+                "sj": "09:30-10:30",
+                "rcbt": f"案件{i + 20}一案",
+                "rcdd": "法院",
+                "lx": "线下开庭",
+                "fydm": "2602",
+                "cjfs": 0,
+                "hasCase": False,
+                "najzt": 1,
+            }
             for i in range(5)
         ]
 

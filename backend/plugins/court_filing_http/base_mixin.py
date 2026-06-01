@@ -12,6 +12,7 @@ from .constants import _BASE, _OSS_BUCKET
 
 logger = logging.getLogger("plugins.court_filing_http")
 
+
 class BaseApiMixin:
     def _get(self, path: str, **params: Any) -> Any:
         r = self._client.get(f"{_BASE}{path}", params=params or None)

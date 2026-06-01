@@ -10,6 +10,7 @@ contracts_admin_user = contract_http_smoke.contracts_admin_user
 api_client = contract_http_smoke.api_client
 BaseContractHttpSmoke = contract_http_smoke.TestContractHttpSmoke
 
+
 @pytest.mark.django_db
 @pytest.mark.integration
 class TestContractHttpSmokeCI(BaseContractHttpSmoke):

@@ -11,6 +11,7 @@ def list_oa_configs() -> list[dict[str, Any]]:
     """获取当前用户可用的 OA 系统列表（需要有对应账号凭证）。"""
     return client.get("/oa-filing/configs")  # type: ignore[return-value]
 
+
 def trigger_oa_filing(
     contract_id: int,
     site_name: str,
@@ -21,6 +22,7 @@ def trigger_oa_filing(
     if case_id is not None:
         payload["case_id"] = case_id
     return client.post("/oa-filing/execute", json=payload)  # type: ignore[return-value]
+
 
 def get_filing_status(session_id: int) -> dict[str, Any]:
     """查询 OA 立案进度。返回状态（pending/running/completed/failed）和错误信息。"""

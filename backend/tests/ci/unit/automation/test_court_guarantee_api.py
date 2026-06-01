@@ -15,16 +15,22 @@ class _FakeClientService:
     def get_property_clues_by_client_internal(self, client_id: int) -> list[PropertyClueDTO]:
         return list(self._clues_by_client_id.get(client_id, []))
 
+
 def _build_case_party(*, party_id: int, client_id: int, client_name: str, address: str = "") -> SimpleNamespace:
     client = SimpleNamespace(id=client_id, name=client_name, address=address)
     return SimpleNamespace(id=party_id, client=client)
+
 
 def test_build_selected_respondent_property_clues_returns_all_clues(monkeypatch) -> None:
     client_service = _FakeClientService(
         {
             101: [
-                PropertyClueDTO(id=1, client_id=101, clue_type="bank", content="户名: 测试户名A\n银行账号: 6222", description=None),
-                PropertyClueDTO(id=2, client_id=101, clue_type="wechat", content="微信号: test_wechat_123", description=None),
+                PropertyClueDTO(
+                    id=1, client_id=101, clue_type="bank", content="户名: 测试户名A\n银行账号: 6222", description=None
+                ),
+                PropertyClueDTO(
+                    id=2, client_id=101, clue_type="wechat", content="微信号: test_wechat_123", description=None
+                ),
             ],
             202: [
                 PropertyClueDTO(id=3, client_id=202, clue_type="other", content="测试设备线索一批", description=None),
@@ -56,6 +62,7 @@ def test_build_selected_respondent_property_clues_returns_all_clues(monkeypatch)
     assert result[2]["property_info"] == "其他：测试设备线索一批"
     assert [item["property_value"] for item in result] == ["206135.64", "206135.64", "206135.64"]
 
+
 def test_build_selected_respondent_property_clues_falls_back_when_no_clues(monkeypatch) -> None:
     monkeypatch.setattr(helpers, "_get_client_service", lambda: _FakeClientService({}))
 
@@ -82,11 +89,14 @@ def test_build_selected_respondent_property_clues_falls_back_when_no_clues(monke
         }
     ]
 
+
 def test_build_primary_respondent_property_clue_returns_first_item(monkeypatch) -> None:
     client_service = _FakeClientService(
         {
             101: [
-                PropertyClueDTO(id=1, client_id=101, clue_type="alipay", content="支付宝账号: test_alipay_001", description=None),
+                PropertyClueDTO(
+                    id=1, client_id=101, clue_type="alipay", content="支付宝账号: test_alipay_001", description=None
+                ),
                 PropertyClueDTO(id=2, client_id=101, clue_type="other", content="测试车辆线索", description=None),
             ]
         }

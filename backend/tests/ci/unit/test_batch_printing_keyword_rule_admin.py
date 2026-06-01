@@ -21,6 +21,7 @@ def test_print_keyword_rule_admin_form_hides_manual_printer_field() -> None:
     assert "preset_snapshot" in form.fields
     assert "自动取该预置所属打印机" in (form.fields["preset_snapshot"].help_text or "")
 
+
 @pytest.mark.django_db
 def test_print_keyword_rule_admin_save_model_syncs_printer_name_from_preset() -> None:
     preset = PrintPresetSnapshot.objects.create(

@@ -17,6 +17,7 @@ from apps.litigation_ai.placeholders.spec import LitigationPlaceholderKeys
 class _CaseStub:
     id: int
 
+
 class _CaptureCaseIdService:
     name = "capture_case_id_service"
     category = "test"
@@ -24,6 +25,7 @@ class _CaptureCaseIdService:
 
     def generate(self, context_data: dict[str, Any]) -> dict[str, Any]:
         return {"captured_case_id": context_data.get("case_id")}
+
 
 class _RegistryStub:
     def __init__(self, services: list[Any]) -> None:
@@ -38,6 +40,7 @@ class _RegistryStub:
                 return service
         return None
 
+
 class _PartialService:
     name = "partial_service"
     category = "test"
@@ -45,6 +48,7 @@ class _PartialService:
 
     def generate(self, context_data: dict[str, Any]) -> dict[str, Any]:
         return {"a": "value-a"}
+
 
 class _ErrorService:
     name = "error_service"
@@ -54,6 +58,7 @@ class _ErrorService:
     def generate(self, context_data: dict[str, Any]) -> dict[str, Any]:
         raise RuntimeError("boom")
 
+
 def test_build_context_infers_case_id_from_case_object() -> None:
     builder = EnhancedContextBuilder(registry=_RegistryStub([_CaptureCaseIdService()]))
 
@@ -61,12 +66,14 @@ def test_build_context_infers_case_id_from_case_object() -> None:
 
     assert context["captured_case_id"] == 11
 
+
 def test_build_context_keeps_explicit_case_id() -> None:
     builder = EnhancedContextBuilder(registry=_RegistryStub([_CaptureCaseIdService()]))
 
     context = builder.build_context({"case": _CaseStub(id=11), "case_id": 99})
 
     assert context["captured_case_id"] == 99
+
 
 def test_enforcement_judgment_service_infers_case_id_from_case_object() -> None:
     service = EnforcementJudgmentMainTextService()
@@ -76,6 +83,7 @@ def test_enforcement_judgment_service_infers_case_id_from_case_object() -> None:
 
     assert result[LitigationPlaceholderKeys.ENFORCEMENT_JUDGMENT_MAIN_TEXT] == "main-11"
 
+
 def test_build_context_fills_missing_service_keys_with_slash() -> None:
     builder = EnhancedContextBuilder(registry=_RegistryStub([_PartialService()]))
 
@@ -84,12 +92,14 @@ def test_build_context_fills_missing_service_keys_with_slash() -> None:
     assert context["a"] == "value-a"
     assert context["b"] == PLACEHOLDER_FALLBACK_VALUE
 
+
 def test_build_context_fills_service_exception_keys_with_slash() -> None:
     builder = EnhancedContextBuilder(registry=_RegistryStub([_ErrorService()]))
 
     context = builder.build_context({"case": _CaseStub(id=11)})
 
     assert context["c"] == PLACEHOLDER_FALLBACK_VALUE
+
 
 def test_build_context_fills_missing_required_placeholders_with_slash() -> None:
     builder = EnhancedContextBuilder(registry=_RegistryStub([]))

@@ -16,6 +16,7 @@ def _make_workflow() -> tuple[ContractCloneWorkflow, MagicMock]:
     workflow = ContractCloneWorkflow(reminder_service=reminder_service)
     return workflow, reminder_service
 
+
 def _make_contract(*, parties: list[MagicMock], assignments: list[MagicMock], agreements: list[MagicMock]) -> MagicMock:
     contract = MagicMock()
     contract.id = 1
@@ -24,12 +25,15 @@ def _make_contract(*, parties: list[MagicMock], assignments: list[MagicMock], ag
     contract.supplementary_agreements.all.return_value = agreements
     return contract
 
+
 def _make_target_contract() -> MagicMock:
     contract = MagicMock()
     contract.id = 2
     return contract
 
+
 # ── 完整流程 ──────────────────────────────────────────────────────────────────
+
 
 def test_clone_related_data_full_flow() -> None:
     party = MagicMock()
@@ -56,8 +60,12 @@ def test_clone_related_data_full_flow() -> None:
     with (
         patch("apps.contracts.services.contract.admin.workflows.clone_workflow.ContractParty") as MockParty,
         patch("apps.contracts.services.contract.admin.workflows.clone_workflow.ContractAssignment") as MockAssignment,
-        patch("apps.contracts.services.contract.admin.workflows.clone_workflow.SupplementaryAgreement") as MockAgreement,
-        patch("apps.contracts.services.contract.admin.workflows.clone_workflow.SupplementaryAgreementParty") as MockAgreementParty,
+        patch(
+            "apps.contracts.services.contract.admin.workflows.clone_workflow.SupplementaryAgreement"
+        ) as MockAgreement,
+        patch(
+            "apps.contracts.services.contract.admin.workflows.clone_workflow.SupplementaryAgreementParty"
+        ) as MockAgreementParty,
     ):
         MockAgreement.objects.bulk_create.return_value = [MagicMock()]
         workflow.clone_related_data(source_contract=source, target_contract=target)
@@ -67,7 +75,9 @@ def test_clone_related_data_full_flow() -> None:
     MockAgreement.objects.bulk_create.assert_called_once()
     MockAgreementParty.objects.bulk_create.assert_called_once()
 
+
 # ── 无补充协议（提前 return）────────────────────────────────────────────────
+
 
 def test_clone_related_data_no_agreements_skips_agreement_bulk_create() -> None:
     source = _make_contract(parties=[], assignments=[], agreements=[])
@@ -78,15 +88,21 @@ def test_clone_related_data_no_agreements_skips_agreement_bulk_create() -> None:
     with (
         patch("apps.contracts.services.contract.admin.workflows.clone_workflow.ContractParty"),
         patch("apps.contracts.services.contract.admin.workflows.clone_workflow.ContractAssignment"),
-        patch("apps.contracts.services.contract.admin.workflows.clone_workflow.SupplementaryAgreement") as MockAgreement,
-        patch("apps.contracts.services.contract.admin.workflows.clone_workflow.SupplementaryAgreementParty") as MockAgreementParty,
+        patch(
+            "apps.contracts.services.contract.admin.workflows.clone_workflow.SupplementaryAgreement"
+        ) as MockAgreement,
+        patch(
+            "apps.contracts.services.contract.admin.workflows.clone_workflow.SupplementaryAgreementParty"
+        ) as MockAgreementParty,
     ):
         workflow.clone_related_data(source_contract=source, target_contract=target)
 
     MockAgreement.objects.bulk_create.assert_not_called()
     MockAgreementParty.objects.bulk_create.assert_not_called()
 
+
 # ── due_at_transform 参数 ────────────────────────────────────────────────────
+
 
 def test_clone_related_data_applies_due_at_transform() -> None:
     reminder = {"due_at": datetime.date(2025, 1, 1), "title": "提醒"}
@@ -107,15 +123,19 @@ def test_clone_related_data_applies_due_at_transform() -> None:
     transform.assert_called_once_with(datetime.date(2025, 1, 1))
     reminder_service.create_contract_reminders_internal.assert_called_once()
 
+
 # ── plus_one_year_due_at ─────────────────────────────────────────────────────
+
 
 def test_plus_one_year_due_at_adds_one_year() -> None:
     d = datetime.date(2024, 3, 15)
     result = plus_one_year_due_at(d)
     assert result == datetime.date(2025, 3, 15)
 
+
 def test_plus_one_year_due_at_none_returns_none() -> None:
     assert plus_one_year_due_at(None) is None
+
 
 def test_plus_one_year_due_at_falsy_returns_none() -> None:
     assert plus_one_year_due_at("") is None

@@ -29,9 +29,7 @@ ALLOWLIST_MARKERS = (
 PLACEHOLDER_PATTERN = re.compile(
     r"(?i)(example|sample|dummy|placeholder|changeme|redacted|masked|测试|示例|\*\*\*|xxxx)"
 )
-CN_ID_PATTERN = re.compile(
-    r"\b[1-9]\d{5}(18|19|20)\d{2}(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])\d{3}[0-9Xx]\b"
-)
+CN_ID_PATTERN = re.compile(r"\b[1-9]\d{5}(18|19|20)\d{2}(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])\d{3}[0-9Xx]\b")
 SENSITIVE_LITERAL_ASSIGN_PATTERN = re.compile(
     r"(?i)\b(?:password|passwd|pwd|token|access[_-]?token|refresh[_-]?token|api[_-]?key|secret(?:[_-]?key)?|authorization|cookie|sessionid)\b"
     r"\s*[:=]\s*['\"][^'\"]{4,}['\"]"
@@ -39,6 +37,7 @@ SENSITIVE_LITERAL_ASSIGN_PATTERN = re.compile(
 BEARER_PATTERN = re.compile(r"(?i)\bbearer\s+[A-Za-z0-9._-]{12,}\b")
 CN_MOBILE_PATTERN = re.compile(r"(?<!\d)(?:\+?86[-\s]?)?1[3-9]\d{9}(?!\d)")
 EMAIL_PATTERN = re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b")
+
 
 def _run_git(args: list[str]) -> str:
     try:
@@ -48,6 +47,7 @@ def _run_git(args: list[str]) -> str:
     if result.returncode != 0:
         return ""
     return result.stdout
+
 
 def _parse_added_lines(diff_text: str) -> list[tuple[int, str]]:
     lines: list[tuple[int, str]] = []
@@ -67,6 +67,7 @@ def _parse_added_lines(diff_text: str) -> list[tuple[int, str]]:
         current_line += 1
     return lines
 
+
 def _get_changed_files(mode: str, base: str | None, head: str) -> list[str]:
     if mode == "staged":
         output = _run_git(["git", "diff", "--cached", "--name-only", "--diff-filter=ACMR"])
@@ -75,6 +76,7 @@ def _get_changed_files(mode: str, base: str | None, head: str) -> list[str]:
             return []
         output = _run_git(["git", "diff", "--name-only", "--diff-filter=ACMR", f"{base}..{head}"])
     return [line.strip() for line in output.splitlines() if line.strip()]
+
 
 def _get_added_lines(filepath: str, mode: str, base: str | None, head: str) -> list[tuple[int, str]]:
     if mode == "staged":
@@ -85,10 +87,12 @@ def _get_added_lines(filepath: str, mode: str, base: str | None, head: str) -> l
         output = _run_git(["git", "diff", f"{base}..{head}", "-U0", "--", filepath])
     return _parse_added_lines(output)
 
+
 def _resolve_candidates(files: list[str], mode: str, base: str | None, head: str) -> list[str]:
     if files:
         return files
     return _get_changed_files(mode, base, head)
+
 
 def _check_todo(filepath: str, mode: str, base: str | None, head: str) -> list[str]:
     errors: list[str] = []
@@ -96,6 +100,7 @@ def _check_todo(filepath: str, mode: str, base: str | None, head: str) -> list[s
         if "TODO" in content or "FIXME" in content:
             errors.append(f"{filepath}:{lineno}: 新增了 TODO/FIXME 标记")
     return errors
+
 
 def _check_print(filepath: str, mode: str, base: str | None, head: str) -> list[str]:
     errors: list[str] = []
@@ -121,6 +126,7 @@ def _check_print(filepath: str, mode: str, base: str | None, head: str) -> list[
                 errors.append(f"{filepath}:{node.lineno}: 新增了 {name}() 调用，请改用 logger")
     return errors
 
+
 def _is_forbidden_binary_path(filepath: str) -> str | None:
     normalized = filepath.replace("\\", "/")
     if not any(normalized.startswith(prefix) for prefix in SOURCE_DIR_PREFIXES):
@@ -131,6 +137,7 @@ def _is_forbidden_binary_path(filepath: str) -> str | None:
             return ext
     return None
 
+
 def _check_binary_ext(files: list[str], mode: str, base: str | None, head: str) -> list[str]:
     errors: list[str] = []
     for filepath in _resolve_candidates(files, mode, base, head):
@@ -138,6 +145,7 @@ def _check_binary_ext(files: list[str], mode: str, base: str | None, head: str) 
         if ext:
             errors.append(f"{filepath}: 禁止在源码目录提交 {ext} 文件，请改用制品仓/对象存储")
     return errors
+
 
 def _check_private_paths(files: list[str], mode: str, base: str | None, head: str) -> list[str]:
     errors: list[str] = []
@@ -147,15 +155,17 @@ def _check_private_paths(files: list[str], mode: str, base: str | None, head: st
             errors.append(f"{filepath}: 禁止提交WK私有实现目录（weike_api_private/api_private）")
     return errors
 
+
 def _has_allowlist_marker(content: str) -> bool:
     lowered = content.lower()
     return any(marker in lowered for marker in ALLOWLIST_MARKERS)
+
 
 def _check_sensitive(files: list[str], mode: str, base: str | None, head: str) -> list[str]:
     errors: list[str] = []
     for filepath in _resolve_candidates(files, mode, base, head):
         # 跳过 lock 文件（自动生成，包含大量 URL 和哈希值）
-        if filepath.endswith(('.lock', 'uv.lock', 'poetry.lock', 'Pipfile.lock')):
+        if filepath.endswith((".lock", "uv.lock", "poetry.lock", "Pipfile.lock")):
             continue
         for lineno, content in _get_added_lines(filepath, mode, base, head):
             if _has_allowlist_marker(content):
@@ -179,6 +189,7 @@ def _check_sensitive(files: list[str], mode: str, base: str | None, head: str) -
                     continue
                 errors.append(f"{filepath}:{lineno}: 检测到密码/Token 关键词字面量赋值，请改为环境变量或密钥管理")
     return errors
+
 
 def main() -> None:
     parser = argparse.ArgumentParser()
@@ -211,6 +222,7 @@ def main() -> None:
         for err in all_errors:
             print(err)
         sys.exit(1)
+
 
 if __name__ == "__main__":
     main()

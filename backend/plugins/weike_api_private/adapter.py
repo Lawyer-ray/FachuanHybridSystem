@@ -12,6 +12,7 @@ import httpx
 from apps.legal_research.services.sources.weike.types import WeikeSearchItem, WeikeSession
 from apps.legal_research.services.task.event_service import LegalResearchTaskEventService
 
+
 class PrivateWeikeApiAdapter:
     def open_http_session(
         self,
@@ -447,5 +448,6 @@ class PrivateWeikeApiAdapter:
         text = re.sub(r"[\\t\\r ]+", " ", text)
         text = re.sub(r"\\n{3,}", "\\n\\n", text)
         return text.strip()
+
 
 API_ADAPTER = PrivateWeikeApiAdapter()

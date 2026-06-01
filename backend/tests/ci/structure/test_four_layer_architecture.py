@@ -29,6 +29,7 @@ API_MODEL_OBJECTS_RATCHET = 46
 # Service layer using @staticmethod
 SERVICE_STATIC_METHOD_RATCHET = 245
 
+
 def _scan_api_model_objects() -> list[tuple[str, int, str]]:
     """Find Model.objects calls in API layer files."""
     violations: list[tuple[str, int, str]] = []
@@ -51,6 +52,7 @@ def _scan_api_model_objects() -> list[tuple[str, int, str]]:
                     violations.append((str(py_file.relative_to(_APPS_ROOT)), line_no, line.strip()))
 
     return violations
+
 
 def _scan_service_staticmethod() -> list[tuple[str, int, str]]:
     """Find @staticmethod usage in Service layer files."""
@@ -75,6 +77,7 @@ def _scan_service_staticmethod() -> list[tuple[str, int, str]]:
 
     return violations
 
+
 def test_api_layer_no_model_objects_calls() -> None:
     """API layer must not call Model.objects directly — use Service layer instead."""
     violations = _scan_api_model_objects()
@@ -84,6 +87,7 @@ def test_api_layer_no_model_objects_calls() -> None:
         "Move ORM queries to Service layer.\n"
         + "\n".join(f"  {path}:{lineno}: {content}" for path, lineno, content in violations)
     )
+
 
 def test_service_layer_staticmethod_count_within_ratchet() -> None:
     """Service layer @staticmethod usage must not exceed ratchet baseline."""

@@ -30,19 +30,24 @@ def create_authenticated_client(user: Any) -> Client:
     client.force_login(user)
     return client
 
+
 def get_json_response(response: Any) -> Any:
     return response.json()
+
 
 @pytest.fixture
 def contracts_admin_user() -> Any:
     return LawyerFactory(is_admin=True, is_staff=True, is_superuser=True)
 
+
 @pytest.fixture
 def api_client(contracts_admin_user: Any) -> Client:
     return create_authenticated_client(contracts_admin_user)
 
+
 def _assert_status(response: Any, expected_status: int = 200) -> None:
     assert response.status_code == expected_status, response.content.decode("utf-8", errors="ignore")
+
 
 def _post_json(client: Client, path: str, data: dict[str, Any]) -> Any:
     return client.post(
@@ -52,6 +57,7 @@ def _post_json(client: Client, path: str, data: dict[str, Any]) -> Any:
         HTTP_HOST="localhost",
     )
 
+
 def _put_json(client: Client, path: str, data: dict[str, Any]) -> Any:
     return client.put(
         path,
@@ -59,6 +65,7 @@ def _put_json(client: Client, path: str, data: dict[str, Any]) -> Any:
         content_type="application/json",
         HTTP_HOST="localhost",
     )
+
 
 @pytest.mark.django_db
 @pytest.mark.integration
@@ -130,9 +137,7 @@ class TestContractHttpSmoke:
             {"lawyer_ids": [contracts_admin_user.id, secondary_lawyer.id]},
         )
         _assert_status(lawyer_response)
-        assigned_ids = set(
-            Contract.objects.get(id=contract_id).assignments.values_list("lawyer_id", flat=True)
-        )
+        assigned_ids = set(Contract.objects.get(id=contract_id).assignments.values_list("lawyer_id", flat=True))
         assert assigned_ids == {contracts_admin_user.id, secondary_lawyer.id}
 
         all_parties_response = api_client.get(
@@ -152,7 +157,9 @@ class TestContractHttpSmoke:
         assert get_json_response(delete_response)["success"] is True
         assert not Contract.objects.filter(id=contract_id).exists()
 
-    def test_contract_full_creation_and_supplementary_agreements(self, api_client: Client, contracts_admin_user: Any) -> None:
+    def test_contract_full_creation_and_supplementary_agreements(
+        self, api_client: Client, contracts_admin_user: Any
+    ) -> None:
         case_client = ClientFactory(name="案件委托人")
         supplementary_client = ClientFactory(name="补充协议当事人")
 
@@ -524,6 +531,7 @@ class TestContractHttpSmoke:
             )
             _assert_status(agreement_download_response)
             assert agreement_download_response["Content-Disposition"] is not None
+
 
 @pytest.mark.django_db
 @pytest.mark.integration

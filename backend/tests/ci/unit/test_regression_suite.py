@@ -18,9 +18,11 @@ def _tracked_unit_modules() -> list[str]:
         if path.is_file() and path.stem != this_module
     )
 
+
 @pytest.fixture(autouse=True)
 def _clear_ci_cache() -> None:
     cache.clear()
+
 
 def test_tracked_ci_unit_modules_are_importable() -> None:
     modules = _tracked_unit_modules()

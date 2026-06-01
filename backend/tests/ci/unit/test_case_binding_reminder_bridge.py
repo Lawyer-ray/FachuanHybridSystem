@@ -28,6 +28,7 @@ class _CaseServiceSpy:
         )
         return self.update_result
 
+
 @pytest.mark.parametrize(
     ("document_type", "expected_reminder_type"),
     [
@@ -50,6 +51,7 @@ def test_update_log_reminder_delegates_with_expected_type(
     assert spy.calls[0]["case_log_id"] == 42
     assert spy.calls[0]["reminder_time"] == reminder_time
     assert spy.calls[0]["reminder_type"] == expected_reminder_type
+
 
 def test_update_log_reminder_keeps_flow_when_case_service_returns_false() -> None:
     spy = _CaseServiceSpy(update_result=False)

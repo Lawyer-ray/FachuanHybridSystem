@@ -19,6 +19,7 @@ def list_reminders(
         params["is_done"] = is_done
     return client.get("/reminders/list", params=params)  # type: ignore[return-value]
 
+
 def create_reminder(
     reminder_type: str,
     content: str,

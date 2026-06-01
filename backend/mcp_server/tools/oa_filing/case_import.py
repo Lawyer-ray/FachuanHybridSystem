@@ -16,13 +16,16 @@ def trigger_case_import(file_base64: str, filename: str) -> dict[str, Any]:
         files={"file": (filename, file_bytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")},
     )  # type: ignore[return-value]
 
+
 def get_case_import_session(session_id: int) -> dict[str, Any]:
     """查询案件导入会话状态。status: pending/running/completed/failed。"""
     return client.get(f"/case-import/{session_id}")  # type: ignore[return-value]
 
+
 def get_case_import_preview(session_id: int) -> dict[str, Any]:
     """获取案件导入预览结果，包含匹配/未匹配的案件列表。"""
     return client.get(f"/case-import/{session_id}/preview")  # type: ignore[return-value]
+
 
 def execute_case_import(
     session_id: int,

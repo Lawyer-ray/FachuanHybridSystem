@@ -13,6 +13,7 @@ def test_resolve_soffice_path_prefers_path_command(monkeypatch) -> None:
 
     assert service._resolve_soffice_path() == "/opt/homebrew/bin/soffice"
 
+
 def test_resolve_soffice_path_falls_back_to_macos_app_bundle(tmp_path: Path, monkeypatch) -> None:
     fake_soffice = tmp_path / "LibreOffice.app" / "Contents" / "MacOS" / "soffice"
     fake_soffice.parent.mkdir(parents=True, exist_ok=True)

@@ -14,6 +14,7 @@ def list_doc_convert_types() -> dict[str, Any]:
     """获取支持的文书类型列表（mbid），按类别分组。需要系统启用 ZNSZJ_ENABLED。"""
     return client.get("/doc-convert/mbid-list")  # type: ignore[return-value]
 
+
 def convert_document(file_base64: str, filename: str, mbid: str) -> dict[str, Any]:
     """将传统文书转换为要素式文书。file_base64 为 .docx/.doc/.pdf 文件的 base64 编码；mbid 为文书类型标识符（来自 list_doc_convert_types）。返回 {filename, content_type, data_base64}。"""
     file_bytes = base64.b64decode(file_base64)

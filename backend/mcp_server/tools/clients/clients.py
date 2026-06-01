@@ -22,9 +22,11 @@ def list_clients(
         params["is_our_client"] = is_our_client
     return client.get("/client/clients", params=params)  # type: ignore[return-value]
 
+
 def get_client(client_id: int) -> dict[str, Any]:
     """获取单个客户的详细信息，包含身份证件、联系方式等。"""
     return client.get(f"/client/clients/{client_id}")  # type: ignore[return-value]
+
 
 def create_client(
     name: str,
@@ -47,9 +49,11 @@ def create_client(
         payload["legal_representative"] = legal_representative
     return client.post("/client/clients", json=payload)  # type: ignore[return-value]
 
+
 def parse_client_text(text: str) -> dict[str, Any]:
     """从自然语言文本中解析客户信息（姓名、电话、身份证号等），返回结构化数据。适合从聊天记录或文件中提取客户信息。"""
     return client.post("/client/clients/parse-text", json={"text": text})  # type: ignore[return-value]
+
 
 def update_client(
     client_id: int,

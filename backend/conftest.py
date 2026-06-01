@@ -23,6 +23,7 @@ collect_ignore = [
     "tests/unit/automation/test_court_document.py",
 ]
 
+
 @pytest.fixture(scope="session")
 def django_db_setup(django_db_setup: Any, django_db_blocker: Any) -> Any:
     """
@@ -62,6 +63,7 @@ def django_db_setup(django_db_setup: Any, django_db_blocker: Any) -> Any:
 
         # 测试结束后，pytest-django 会自动清理测试数据库
 
+
 @pytest.fixture(scope="session")
 def django_db_modify_db_settings() -> None:
     """
@@ -72,7 +74,9 @@ def django_db_modify_db_settings() -> None:
     from django.conf import settings
 
     inferred_engine = "sqlite" if (os.environ.get("DATABASE_PATH") or os.environ.get("TEST_DB_PATH")) else "postgresql"
-    test_db_engine = (os.environ.get("TEST_DB_ENGINE") or os.environ.get("DB_ENGINE") or inferred_engine).strip().lower()
+    test_db_engine = (
+        (os.environ.get("TEST_DB_ENGINE") or os.environ.get("DB_ENGINE") or inferred_engine).strip().lower()
+    )
 
     if test_db_engine in ("sqlite", "sqlite3", "django.db.backends.sqlite3"):
         test_db_path = (os.environ.get("TEST_DB_PATH") or os.environ.get("DATABASE_PATH") or ":memory:").strip()
@@ -107,12 +111,14 @@ def django_db_modify_db_settings() -> None:
         "CONN_HEALTH_CHECKS": True,
     }
 
+
 @pytest.fixture
 def api_client() -> Any:
     """提供 API 测试客户端"""
     from django.test import Client
 
     return Client()
+
 
 @pytest.fixture
 def authenticated_client(db: Any) -> Any:
@@ -132,12 +138,14 @@ def authenticated_client(db: Any) -> Any:
     client.force_login(user)
     return client
 
+
 @pytest.fixture
 def law_firm(db: Any) -> Any:
     """提供测试律所"""
     from apps.organization.models import LawFirm
 
     return LawFirm.objects.create(name="Fixture测试律所")
+
 
 @pytest.fixture
 def lawyer(db: Any, law_firm: Any) -> Any:
@@ -151,6 +159,7 @@ def lawyer(db: Any, law_firm: Any) -> Any:
         law_firm=law_firm,
     )
 
+
 @pytest.fixture
 def admin_lawyer(db: Any, law_firm: Any) -> Any:
     """提供管理员律师"""
@@ -163,6 +172,7 @@ def admin_lawyer(db: Any, law_firm: Any) -> Any:
         law_firm=law_firm,
     )
 
+
 @pytest.fixture
 def client_entity(db: Any) -> Any:
     """提供测试客户"""
@@ -174,6 +184,7 @@ def client_entity(db: Any) -> Any:
         is_our_client=True,
     )
 
+
 @pytest.fixture
 def contract(db: Any, lawyer: Any) -> Any:
     """提供测试合同"""
@@ -184,6 +195,7 @@ def contract(db: Any, lawyer: Any) -> Any:
         case_type="civil",
     )
 
+
 @pytest.fixture
 def case(db: Any, contract: Any) -> Any:
     """提供测试案件"""
@@ -193,6 +205,7 @@ def case(db: Any, contract: Any) -> Any:
         name="Fixture测试案件",
         contract=contract,
     )
+
 
 # ========== Hypothesis 配置 ==========
 
@@ -210,12 +223,14 @@ settings.load_profile(profile)
 
 # ========== 测试工具 Fixtures ==========
 
+
 @pytest.fixture
 def mock_contract_service() -> Any:
     """提供 Mock 合同服务"""
     from tests.mocks import MockContractService
 
     return MockContractService()
+
 
 @pytest.fixture
 def mock_case_service() -> Any:
@@ -224,6 +239,7 @@ def mock_case_service() -> Any:
 
     return MockCaseService()
 
+
 @pytest.fixture
 def mock_permission_service() -> Any:
     """提供 Mock 权限服务"""
@@ -231,12 +247,14 @@ def mock_permission_service() -> Any:
 
     return MockPermissionService()
 
+
 @pytest.fixture
 def mock_email_service() -> Any:
     """提供 Mock 邮件服务"""
     from tests.mocks import MockEmailService
 
     return MockEmailService()
+
 
 @pytest.fixture
 def query_counter(db: Any) -> Any:
@@ -280,6 +298,7 @@ def query_counter(db: Any) -> Any:
         return QueryCounter()
 
     return _counter
+
 
 @pytest.fixture
 def assert_num_queries(db: Any) -> Any:

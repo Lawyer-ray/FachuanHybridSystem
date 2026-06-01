@@ -61,6 +61,7 @@ def test_capability_search_endpoint_returns_contract_and_passes_idempotency_key(
     assert "query_trace" in data
     assert captured["idempotency_key"] == "idem-capability-001"
 
+
 @pytest.mark.django_db
 def test_capability_search_mcp_endpoint_returns_wrapper_contract(
     authenticated_client,

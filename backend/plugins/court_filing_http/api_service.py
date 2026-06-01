@@ -26,6 +26,7 @@ from .party_mixin import PartyApiMixin
 
 logger = logging.getLogger("plugins.court_filing_http")
 
+
 class CourtZxfwFilingApiService(
     HttpTransportMixin,
     CourtCaseMixin,
