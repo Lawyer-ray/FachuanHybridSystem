@@ -232,7 +232,7 @@ class DocxFormatNormalizer:
             self._set_run_font(para, FONT_SIZE_BODY)
             return
 
-        # 正文：两端对齐
+        # 正文：两端对齐，设置字号为12磅
         self._set_alignment(pPr, 'both')
         self._set_run_font(para, FONT_SIZE_BODY)
 
