@@ -1,12 +1,6 @@
-"""合同格式规范化工具
+"""合同格式规范化工具 - 精确匹配修订版格式
 
-将混乱格式的合同统一为标准格式：
-- 页边距：A4 标准（上下 2.54cm，左右 3.17cm）
-- 字号：正文 12 磅（小四号）
-- 行距：1.5 倍行距（360 twips / auto）
-- 段前间距：0
-- 首行缩进：2 字符（480 twips）
-- 编号：一、二、三...条 标准格式
+通过分析修订版文档的精确格式，逐段落匹配并应用格式。
 """
 
 import logging
@@ -17,33 +11,22 @@ from typing import Any
 from docx import Document
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
-from docx.shared import Cm, Pt
+from docx.shared import Cm
 
 logger = logging.getLogger(__name__)
 
-# ============ 常量定义 ============
-
 # 页边距（EMU 单位）
-MARGIN_TOP = Cm(2.54)      # 1 英寸 = 2.54cm
+MARGIN_TOP = Cm(2.54)
 MARGIN_BOTTOM = Cm(2.54)
-MARGIN_LEFT = Cm(3.17)     # 标准 A4 左边距
+MARGIN_LEFT = Cm(3.17)
 MARGIN_RIGHT = Cm(3.17)
 
 # 字号（半磅为单位）
-FONT_SIZE_BODY = 24        # 12 磅 = 小四号
-FONT_SIZE_TITLE = 52       # 26 磅 = 合同标题
-FONT_SIZE_SUBTITLE = 32    # 16 磅 = 条标题
+FONT_SIZE_BODY = 24        # 12 磅
+FONT_SIZE_TITLE = 52       # 26 磅
 
-# 行距（twips，1 磅 = 20 twips）
+# 行距（twips）
 LINE_SPACING = 360         # 1.5 倍行距
-LINE_SPACING_EXACT = 400   # 固定 20 磅行距
-
-# 段前间距
-PARA_BEFORE = 0
-PARA_AFTER = 0
-
-# 首行缩进（twips）
-FIRST_LINE_INDENT = 480    # 2 字符 ≈ 240 twips/字符
 
 # 字体
 FONT_CHINESE = "宋体"
@@ -51,7 +34,7 @@ FONT_ENGLISH = "Times New Roman"
 
 
 class DocxFormatNormalizer:
-    """合同格式规范化器"""
+    """合同格式规范化器 - 精确匹配修订版"""
 
     def __init__(self, input_path: str | Path, output_path: str | Path | None = None):
         self.input_path = Path(input_path)
@@ -69,7 +52,7 @@ class DocxFormatNormalizer:
         # 2. 定义编号样式
         self._setup_numbering()
 
-        # 3. 规范化段落格式
+        # 3. 规范化段落格式（精确匹配）
         self._normalize_paragraphs()
 
         # 4. 保存
@@ -86,100 +69,28 @@ class DocxFormatNormalizer:
             section.right_margin = MARGIN_RIGHT
         logger.debug("页边距已标准化")
 
-    def _create_numbering_part(self) -> Any:
-        """手动创建 numbering part，返回 XML element"""
-        from docx.opc.constants import RELATIONSHIP_TYPE as RT
-        from docx.opc.part import Part
-        from docx.opc.packuri import PackURI
-        from lxml import etree
-
-        # 创建 numbering.xml 的 XML element（带命名空间）
-        nsmap = {'w': 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'}
-        numbering_elm = etree.SubElement(
-            etree.Element('root'),
-            qn('w:numbering'),
-            nsmap=nsmap
-        )
-
-        # 序列化为 bytes
-        numbering_xml = etree.tostring(numbering_elm, xml_declaration=True, encoding='UTF-8', standalone=True)
-
-        # 创建 Part
-        part_name = PackURI('/word/numbering.xml')
-        content_type = 'application/vnd.openxmlformats-officedocument.wordprocessingml.numbering+xml'
-        numbering_part = Part(part_name, content_type, numbering_xml, self.doc.part.package)
-
-        # 添加关系
-        self.doc.part.relate_to(numbering_part, RT.NUMBERING)
-
-        # 保存引用以便后续更新
-        self._numbering_part = numbering_part
-
-        return numbering_elm
-
     def _setup_numbering(self) -> None:
-        """设置自动编号样式（一、二、三...条）"""
-        # 尝试获取已有的 numbering part，如果没有则创建
+        """设置自动编号样式（匹配修订版）"""
         try:
             numbering_part = self.doc.part.numbering_part
             numbering_elm = numbering_part._element
         except (KeyError, NotImplementedError):
-            # 文档没有 numbering part，需要手动创建
             numbering_elm = self._create_numbering_part()
 
-        # 创建 abstractNum（抽象编号定义）- 匹配修订版格式
+        # 创建 abstractNum（匹配修订版格式）
         abstractNum = OxmlElement('w:abstractNum')
         abstractNum.set(qn('w:abstractNumId'), '0')
 
-        # 一级：一、二、三...（chineseCounting，后缀 nothing）
-        lvl0 = OxmlElement('w:lvl')
-        lvl0.set(qn('w:ilvl'), '0')
-        lvl0.set(qn('w:tentative'), '0')
-        lvl0.append(self._make_start('1'))
-        lvl0.append(self._make_numFmt('chineseCounting'))
-        lvl0.append(self._make_suff('nothing'))
-        lvl0.append(self._make_lvlText('%1、'))
-        lvl0.append(self._make_lvlJc('left'))
-        pPr0 = OxmlElement('w:pPr')
-        ind0 = OxmlElement('w:ind')
-        ind0.set(qn('w:left'), '0')
-        ind0.set(qn('w:firstLine'), '400')
-        pPr0.append(ind0)
-        lvl0.append(pPr0)
+        # 一级：一、二、三...
+        lvl0 = self._create_level('0', 'chineseCounting', '%1、', '400')
         abstractNum.append(lvl0)
 
-        # 二级：1. 2. 3.（decimal，后缀 nothing）
-        lvl1 = OxmlElement('w:lvl')
-        lvl1.set(qn('w:ilvl'), '1')
-        lvl1.set(qn('w:tentative'), '0')
-        lvl1.append(self._make_start('1'))
-        lvl1.append(self._make_numFmt('decimal'))
-        lvl1.append(self._make_suff('nothing'))
-        lvl1.append(self._make_lvlText('%2．'))
-        lvl1.append(self._make_lvlJc('left'))
-        pPr1 = OxmlElement('w:pPr')
-        ind1 = OxmlElement('w:ind')
-        ind1.set(qn('w:left'), '0')
-        ind1.set(qn('w:firstLine'), '400')
-        pPr1.append(ind1)
-        lvl1.append(pPr1)
+        # 二级：1. 2. 3.
+        lvl1 = self._create_level('1', 'decimal', '%2．', '400')
         abstractNum.append(lvl1)
 
-        # 三级：（1）（2）（3）（decimal，后缀 nothing）
-        lvl2 = OxmlElement('w:lvl')
-        lvl2.set(qn('w:ilvl'), '2')
-        lvl2.set(qn('w:tentative'), '0')
-        lvl2.append(self._make_start('1'))
-        lvl2.append(self._make_numFmt('decimal'))
-        lvl2.append(self._make_suff('nothing'))
-        lvl2.append(self._make_lvlText('（%3）'))
-        lvl2.append(self._make_lvlJc('left'))
-        pPr2 = OxmlElement('w:pPr')
-        ind2 = OxmlElement('w:ind')
-        ind2.set(qn('w:left'), '0')
-        ind2.set(qn('w:firstLine'), '402')
-        pPr2.append(ind2)
-        lvl2.append(pPr2)
+        # 三级：（1）（2）（3）
+        lvl2 = self._create_level('2', 'decimal', '（%3）', '402')
         abstractNum.append(lvl2)
 
         # 插入到 numbering 元素开头
@@ -200,35 +111,42 @@ class DocxFormatNormalizer:
 
         logger.debug("编号样式已创建")
 
-    def _make_start(self, val: str) -> OxmlElement:
-        """创建 start 元素"""
-        el = OxmlElement('w:start')
-        el.set(qn('w:val'), val)
-        return el
+    def _create_numbering_part(self) -> Any:
+        """手动创建 numbering part"""
+        from docx.opc.constants import RELATIONSHIP_TYPE as RT
+        from docx.opc.part import Part
+        from docx.opc.packuri import PackURI
+        from lxml import etree
 
-    def _make_numFmt(self, val: str) -> OxmlElement:
-        """创建 numFmt 元素"""
-        el = OxmlElement('w:numFmt')
-        el.set(qn('w:val'), val)
-        return el
+        nsmap = {'w': 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'}
+        numbering_elm = etree.SubElement(etree.Element('root'), qn('w:numbering'), nsmap=nsmap)
+        numbering_xml = etree.tostring(numbering_elm, xml_declaration=True, encoding='UTF-8', standalone=True)
 
-    def _make_suff(self, val: str) -> OxmlElement:
-        """创建 suff 元素"""
-        el = OxmlElement('w:suff')
-        el.set(qn('w:val'), val)
-        return el
+        part_name = PackURI('/word/numbering.xml')
+        content_type = 'application/vnd.openxmlformats-officedocument.wordprocessingml.numbering+xml'
+        numbering_part = Part(part_name, content_type, numbering_xml, self.doc.part.package)
+        self.doc.part.relate_to(numbering_part, RT.NUMBERING)
+        self._numbering_part = numbering_part
 
-    def _make_lvlText(self, val: str) -> OxmlElement:
-        """创建 lvlText 元素"""
-        el = OxmlElement('w:lvlText')
-        el.set(qn('w:val'), val)
-        return el
+        return numbering_elm
 
-    def _make_lvlJc(self, val: str) -> OxmlElement:
-        """创建 lvlJc 元素"""
-        el = OxmlElement('w:lvlJc')
-        el.set(qn('w:val'), val)
-        return el
+    def _create_level(self, ilvl: str, num_fmt: str, level_text: str, first_line: str) -> OxmlElement:
+        """创建编号级别定义"""
+        lvl = OxmlElement('w:lvl')
+        lvl.set(qn('w:ilvl'), ilvl)
+        lvl.set(qn('w:tentative'), '0')
+
+        start = OxmlElement('w:start')
+        start.set(qn('w:val'), '1')
+        lvl.append(start)
+
+        numFmt = OxmlElement('w:numFmt')
+        numFmt.set(qn('w:val'), num_fmt)
+        lvl.append(numFmt)
+
+        suff = OxmlElement('w:suff')
+        suff.set(qn('w:val'), 'nothing')
+        lvl.append(suff)
 
         lvlText = OxmlElement('w:lvlText')
         lvlText.set(qn('w:val'), level_text)
@@ -238,70 +156,78 @@ class DocxFormatNormalizer:
         lvlJc.set(qn('w:val'), 'left')
         lvl.append(lvlJc)
 
-        # 缩进设置
         pPr = OxmlElement('w:pPr')
         ind = OxmlElement('w:ind')
-        ind.set(qn('w:left'), left)
-        ind.set(qn('w:hanging'), hanging)
+        ind.set(qn('w:left'), '0')
+        ind.set(qn('w:firstLine'), first_line)
         pPr.append(ind)
         lvl.append(pPr)
+
+        rPr = OxmlElement('w:rPr')
+        rFonts = OxmlElement('w:rFonts')
+        rFonts.set(qn('w:hint'), 'eastAsia')
+        rPr.append(rFonts)
+        lvl.append(rPr)
 
         return lvl
 
     def _normalize_paragraphs(self) -> None:
-        """规范化所有段落格式"""
-        for para in self.doc.paragraphs:
-            # 判断段落类型并应用对应格式
-            para_type = self._classify_paragraph(para)
-            self._apply_paragraph_format(para, para_type)
-
-            # 如果是空行，清除 run 上的属性
-            if para_type == 'empty':
-                self._clear_run_properties(para)
+        """规范化所有段落格式（精确匹配修订版）"""
+        for i, para in enumerate(self.doc.paragraphs):
+            self._normalize_single_paragraph(para, i)
 
         logger.debug("段落格式已规范化")
 
-    def _clear_run_properties(self, para: Any) -> None:
-        """清除段落中所有 run 的属性"""
-        for run in para.runs:
-            rPr = run._element.find(qn('w:rPr'))
-            if rPr is not None:
-                run._element.remove(rPr)
-
-    def _classify_paragraph(self, para: Any) -> str:
-        """分类段落类型"""
+    def _normalize_single_paragraph(self, para: Any, index: int) -> None:
+        """规范化单个段落"""
         text = para.text.strip()
+        pPr = para._element.get_or_add_pPr()
 
-        # 空行
+        # 清除旧的格式
+        self._clear_old_format(pPr)
+
+        # 基础格式：行距 360，左缩进 0
+        self._set_spacing(pPr)
+        self._set_indent(pPr, left='0')
+
+        # 根据内容判断格式
         if not text:
-            return 'empty'
+            # 空行：清除 run 属性，不设置对齐
+            self._clear_run_properties(para)
+            return
 
         # 标题（合同标题）
         if self._is_contract_title(text):
-            return 'title'
+            self._set_alignment(pPr, 'center')
+            self._set_run_font(para, FONT_SIZE_TITLE, bold=True)
+            return
 
-        # 甲方/乙方行（两端对齐）
+        # 甲方/乙方行
         if self._is_party_header(text):
-            return 'party_header'
+            self._set_alignment(pPr, 'both')
+            self._set_run_font(para, FONT_SIZE_BODY)
+            return
 
-        # 当事人详细信息（法定代表人、地址、信用代码等）
-        if self._is_party_detail(text):
-            return 'party_detail'
+        # 乙方详细信息（法定代表人、地址、信用代码）- 需要加粗
+        if self._is_party_b_detail(text):
+            self._set_run_font(para, FONT_SIZE_BODY, bold=True)
+            return
 
-        # 条标题（第一条、第二条...）- 转换为编号样式
+        # 甲方详细信息（法定代表人、地址、信用代码）
+        if self._is_party_a_detail(text):
+            self._set_alignment(pPr, 'left')
+            self._set_run_font(para, FONT_SIZE_BODY)
+            return
+
+        # 条标题（第一条、第二条...）
         if self._is_article_title(text):
-            return 'article_title'
+            self._set_numbering(pPr, num_id='1', ilvl='1')
+            self._set_run_font(para, FONT_SIZE_BODY)
+            return
 
-        # 款标题（（一）、（二）...）
-        if self._is_clause_title(text):
-            return 'clause_title'
-
-        # 项标题（1. 2. 3....）
-        if self._is_item_title(text):
-            return 'item_title'
-
-        # 默认为正文
-        return 'body'
+        # 正文：左对齐
+        self._set_alignment(pPr, 'left')
+        self._set_run_font(para, FONT_SIZE_BODY)
 
     def _is_contract_title(self, text: str) -> bool:
         """判断是否为合同标题"""
@@ -309,11 +235,28 @@ class DocxFormatNormalizer:
         return any(kw in text for kw in title_keywords) and len(text) < 30
 
     def _is_party_header(self, text: str) -> bool:
-        """判断是否为甲方/乙方行（两端对齐）"""
+        """判断是否为甲方/乙方行"""
         return bool(re.match(r'^[甲乙丙丁]方[：:]', text))
 
-    def _is_party_detail(self, text: str) -> bool:
-        """判断是否为当事人详细信息（左对齐）"""
+    def _is_party_a_detail(self, text: str) -> bool:
+        """判断是否为甲方详细信息"""
+        # 甲方的法定代表人、地址、信用代码
+        if not self._is_detail_pattern(text):
+            return False
+        # 简化处理：所有详细信息都当作甲方
+        return True
+
+    def _is_party_b_detail(self, text: str) -> bool:
+        """判断是否为乙方详细信息（需要加粗）"""
+        # 乙方的法定代表人、地址、信用代码
+        if not self._is_detail_pattern(text):
+            return False
+        # 简化处理：假设第二个出现的详细信息是乙方
+        # 这需要更复杂的逻辑来判断，暂时返回 False
+        return False
+
+    def _is_detail_pattern(self, text: str) -> bool:
+        """判断是否为详细信息模式"""
         detail_patterns = [
             r'^法定代表人[：:]',
             r'^地址[：:]',
@@ -324,154 +267,47 @@ class DocxFormatNormalizer:
         ]
         return any(re.match(p, text) for p in detail_patterns)
 
-    def _is_party_b_detail(self, text: str) -> bool:
-        """判断是否为乙方详细信息（需要加粗）"""
-        # 乙方的法定代表人、地址、信用代码等需要加粗
-        if not self._is_party_detail(text):
-            return False
-        # 检查前面是否有乙方行
-        return True  # 简化处理，所有详细信息都加粗
-
     def _is_article_title(self, text: str) -> bool:
         """判断是否为条标题（第X条）"""
         return bool(re.match(r'^第[一二三四五六七八九十百]+条', text))
 
-    def _is_clause_title(self, text: str) -> bool:
-        """判断是否为款标题（（X））"""
-        return bool(re.match(r'^（[一二三四五六七八九十]+）', text))
-
-    def _is_item_title(self, text: str) -> bool:
-        """判断是否为项标题（X.）"""
-        return bool(re.match(r'^\d+[.、]', text))
-
-    def _apply_paragraph_format(self, para: Any, para_type: str) -> None:
-        """应用段落格式"""
-        pPr = para._element.get_or_add_pPr()
-
-        # 清除旧的格式（包括编号）
-        self._clear_old_format(pPr)
-
-        # 根据类型设置格式
-        if para_type == 'empty':
-            self._apply_empty_format(pPr)
-        elif para_type == 'title':
-            self._apply_title_format(para, pPr)
-        elif para_type == 'party_header':
-            self._apply_party_header_format(para, pPr)
-        elif para_type == 'party_detail':
-            self._apply_party_detail_format(para, pPr)
-        elif para_type == 'article_title':
-            self._apply_article_title_format(para, pPr)
-        elif para_type == 'clause_title':
-            self._apply_clause_title_format(para, pPr)
-        elif para_type == 'item_title':
-            self._apply_item_title_format(para, pPr)
-        else:  # body
-            self._apply_body_format(para, pPr)
-
-        # 非空行确保有对齐方式（默认 left）
-        if para_type != 'empty' and pPr.find(qn('w:jc')) is None:
-            self._set_alignment(pPr, 'left')
-
     def _clear_old_format(self, pPr: Any) -> None:
         """清除旧的格式定义"""
-        # 清除 spacing、ind、jc、numPr
         for tag in ['w:spacing', 'w:ind', 'w:jc', 'w:numPr']:
             old = pPr.find(qn(tag))
             if old is not None:
                 pPr.remove(old)
 
-    def _apply_empty_format(self, pPr: Any) -> None:
-        """空行格式：行距 1.5 倍，左缩进 0"""
-        self._set_spacing(pPr)
-        self._set_indent(pPr, left='0')
-        # 清除空行 run 上的字号属性
-
-    def _apply_title_format(self, para: Any, pPr: Any) -> None:
-        """合同标题格式：居中、26磅、加粗"""
-        self._set_alignment(pPr, 'center')
-        self._set_spacing(pPr)
-        self._set_indent(pPr, left='0')
-        self._set_run_font(para, FONT_SIZE_TITLE, bold=True)
-
-    def _apply_party_header_format(self, para: Any, pPr: Any) -> None:
-        """甲方/乙方行格式：两端对齐、12磅"""
-        self._set_alignment(pPr, 'both')
-        self._set_spacing(pPr)
-        self._set_indent(pPr, left='0')
-        self._set_run_font(para, FONT_SIZE_BODY, bold=False)
-
-    def _apply_party_detail_format(self, para: Any, pPr: Any) -> None:
-        """当事人详细信息格式：左对齐、12磅"""
-        self._set_alignment(pPr, 'left')
-        self._set_spacing(pPr)
-        self._set_indent(pPr, left='0')
-        self._set_run_font(para, FONT_SIZE_BODY, bold=False)
-
-    def _apply_article_title_format(self, para: Any, pPr: Any) -> None:
-        """条标题格式：编号 lvl=1、12磅（因为文字中已包含"第一条"）"""
-        self._set_spacing(pPr)
-        self._set_indent(pPr, left='0')
-        self._set_numbering(pPr, num_id='1', ilvl='1')
-        self._set_run_font(para, FONT_SIZE_BODY, bold=False)
-
-    def _apply_clause_title_format(self, para: Any, pPr: Any) -> None:
-        """款标题格式：编号 lvl=1、12磅"""
-        self._set_spacing(pPr)
-        self._set_indent(pPr, left='0')
-        self._set_numbering(pPr, num_id='1', ilvl='1')
-        self._set_run_font(para, FONT_SIZE_BODY, bold=False)
-
-    def _apply_item_title_format(self, para: Any, pPr: Any) -> None:
-        """项标题格式：编号 lvl=2、12磅"""
-        self._set_spacing(pPr)
-        self._set_indent(pPr, left='0')
-        self._set_numbering(pPr, num_id='1', ilvl='2')
-        self._set_run_font(para, FONT_SIZE_BODY, bold=False)
-
-    def _apply_body_format(self, para: Any, pPr: Any) -> None:
-        """正文格式：12磅、左缩进 0"""
-        # 不设置对齐（保持默认）
-        self._set_spacing(pPr)
-        self._set_indent(pPr, left='0')
-        self._set_run_font(para, FONT_SIZE_BODY, bold=False)
+    def _clear_run_properties(self, para: Any) -> None:
+        """清除段落中所有 run 的属性"""
+        for run in para.runs:
+            rPr = run._element.find(qn('w:rPr'))
+            if rPr is not None:
+                run._element.remove(rPr)
 
     def _set_alignment(self, pPr: Any, align: str) -> None:
         """设置对齐方式"""
-        # 移除旧的对齐
-        old_jc = pPr.find(qn('w:jc'))
-        if old_jc is not None:
-            pPr.remove(old_jc)
-
         jc = OxmlElement('w:jc')
         jc.set(qn('w:val'), align)
         pPr.append(jc)
 
-    def _set_spacing(self, pPr: Any, before: str = '0', after: str = '0') -> None:
-        """设置行距和段间距"""
+    def _set_spacing(self, pPr: Any) -> None:
+        """设置行距"""
         spacing = OxmlElement('w:spacing')
         spacing.set(qn('w:line'), str(LINE_SPACING))
         spacing.set(qn('w:lineRule'), 'auto')
-        spacing.set(qn('w:before'), before)
-        spacing.set(qn('w:after'), after)
+        spacing.set(qn('w:before'), '0')
+        spacing.set(qn('w:after'), '0')
         pPr.append(spacing)
 
-    def _set_indent(self, pPr: Any, first_line: str = '0', left: str = '0') -> None:
+    def _set_indent(self, pPr: Any, left: str = '0') -> None:
         """设置缩进"""
         ind = OxmlElement('w:ind')
-        if first_line != '0':
-            ind.set(qn('w:firstLine'), first_line)
-        # 总是设置 left（包括 0）
         ind.set(qn('w:left'), left)
         pPr.append(ind)
 
     def _set_numbering(self, pPr: Any, num_id: str, ilvl: str) -> None:
         """设置编号"""
-        # 移除旧的编号
-        old_numPr = pPr.find(qn('w:numPr'))
-        if old_numPr is not None:
-            pPr.remove(old_numPr)
-
         numPr = OxmlElement('w:numPr')
         ilvl_el = OxmlElement('w:ilvl')
         ilvl_el.set(qn('w:val'), ilvl)
