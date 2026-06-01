@@ -7,6 +7,7 @@ from collections.abc import Sequence
 from typing import TYPE_CHECKING, Any, cast
 
 from django.db import models, transaction
+from django.utils.translation import gettext_lazy as _
 
 from apps.cases.models import (
     CaseLogAttachment,
@@ -145,17 +146,17 @@ class CaseMaterialService:
 
         category = (category or "").strip()
         if category not in {CaseMaterialCategory.PARTY, CaseMaterialCategory.NON_PARTY}:
-            raise ValidationException(message="材料大类不合法", errors={"category": category})
+            raise ValidationException(message=_("材料大类不合法"), errors={"category": category})
 
         if category == CaseMaterialCategory.PARTY:
             if side not in {CaseMaterialSide.OUR, CaseMaterialSide.OPPONENT}:
-                raise ValidationException(message="当事人方向不合法", errors={"side": side})
+                raise ValidationException(message=_("当事人方向不合法"), errors={"side": side})
             supervising_authority_id = None
         else:
             side = None
             if not supervising_authority_id:
                 raise ValidationException(
-                    message="必须选择主管机关",
+                    message=_("必须选择主管机关"),
                     errors={"supervising_authority_id": "required"},
                 )
 
@@ -165,7 +166,7 @@ class CaseMaterialService:
         }
         missing = [tid for tid in ordered_type_ids if tid not in types]
         if missing:
-            raise ValidationException(message="包含无效的材料类型", errors={"type_ids": missing})
+            raise ValidationException(message=_("包含无效的材料类型"), errors={"type_ids": missing})
 
         with transaction.atomic():
             for idx, type_id in enumerate(ordered_type_ids):
@@ -189,7 +190,7 @@ class CaseMaterialService:
             try:
                 t = CaseMaterialType.objects.get(id=int(type_id), category=category, is_active=True)
             except CaseMaterialType.DoesNotExist:
-                raise ValidationException(message="材料类型不存在", errors={"type_id": type_id}) from None
+                raise ValidationException(message=_("材料类型不存在"), errors={"type_id": type_id}) from None
             return t
 
         qs = CaseMaterialType.objects.filter(category=category, name=type_name, is_active=True).order_by(
@@ -225,12 +226,12 @@ class CaseMaterialService:
                 continue
             party = parties_by_id.get(pid_int)
             if not party:
-                raise ValidationException(message="包含无效当事人", errors={"party_ids": pid_int})
+                raise ValidationException(message=_("包含无效当事人"), errors={"party_ids": pid_int})
             is_our = bool(getattr(getattr(party, "client", None), "is_our_client", False))
             if side == CaseMaterialSide.OUR and not is_our:
-                raise ValidationException(message="当事人不属于我方", errors={"party_ids": pid_int})
+                raise ValidationException(message=_("当事人不属于我方"), errors={"party_ids": pid_int})
             if side == CaseMaterialSide.OPPONENT and is_our:
-                raise ValidationException(message="当事人不属于对方", errors={"party_ids": pid_int})
+                raise ValidationException(message=_("当事人不属于对方"), errors={"party_ids": pid_int})
             validated.append(pid_int)
         return validated
 
@@ -308,24 +309,28 @@ class CaseMaterialService:
         try:
             material = CaseMaterial.objects.select_related("source_attachment").get(id=material_id, case_id=case_id)
         except CaseMaterial.DoesNotExist:
-            raise NotFoundError("材料不存在") from None
+            raise NotFoundError(_("材料不存在")) from None
 
         old_attachment_id = material.source_attachment_id
 
         if old_attachment_id == new_attachment_id:
-            raise ValidationException(message="新附件与当前附件相同", errors={"new_attachment_id": new_attachment_id})
+            raise ValidationException(
+                message=_("新附件与当前附件相同"), errors={"new_attachment_id": new_attachment_id}
+            )
 
         try:
             new_attachment = CaseLogAttachment.objects.select_related("log").get(
                 id=new_attachment_id, log__case_id=case_id
             )
         except CaseLogAttachment.DoesNotExist:
-            raise NotFoundError("新附件不存在或不属于该案件") from None
+            raise NotFoundError(_("新附件不存在或不属于该案件")) from None
 
         # 检查新附件是否已被其他材料绑定
         existing = CaseMaterial.objects.filter(source_attachment_id=new_attachment_id).first()
         if existing and existing.id != material_id:
-            raise ValidationException(message="新附件已被其他材料绑定", errors={"new_attachment_id": new_attachment_id})
+            raise ValidationException(
+                message=_("新附件已被其他材料绑定"), errors={"new_attachment_id": new_attachment_id}
+            )
 
         old_attachment = material.source_attachment
         old_attachment_id_val = material.source_attachment_id
@@ -377,12 +382,12 @@ class CaseMaterialService:
 
         new_type_name = new_type_name.strip()
         if not new_type_name:
-            raise ValidationException(message="类型名称不能为空", errors={"new_type_name": "required"})
+            raise ValidationException(message=_("类型名称不能为空"), errors={"new_type_name": "required"})
 
         try:
             material_type = CaseMaterialType.objects.get(id=type_id)
         except CaseMaterialType.DoesNotExist:
-            raise NotFoundError("材料类型不存在") from None
+            raise NotFoundError(_("材料类型不存在")) from None
 
         old_type_name = material_type.name
 
@@ -432,7 +437,7 @@ class CaseMaterialService:
         try:
             material = CaseMaterial.objects.select_related("source_attachment").get(id=material_id, case_id=case_id)
         except CaseMaterial.DoesNotExist:
-            raise NotFoundError("材料不存在") from None
+            raise NotFoundError(_("材料不存在")) from None
 
         material_id_val = material.id
         attachment_id_val = material.source_attachment_id
@@ -475,7 +480,7 @@ class CaseMaterialService:
 
         category = (category or "").strip()
         if category not in {CaseMaterialCategory.PARTY, CaseMaterialCategory.NON_PARTY}:
-            raise ValidationException(message="材料大类不合法", errors={"category": category})
+            raise ValidationException(message=_("材料大类不合法"), errors={"category": category})
 
         materials = list(
             CaseMaterial.objects.select_related("source_attachment").filter(case_id=case_id, category=category)

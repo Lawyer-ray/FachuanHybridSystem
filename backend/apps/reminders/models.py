@@ -6,18 +6,19 @@ from typing import Any, ClassVar
 from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models import Q
+from django.utils.translation import gettext_lazy as _
 from simple_history.models import HistoricalRecords
 
 
 class ReminderType(models.TextChoices):
-    HEARING = ("hearing", "开庭")
-    ASSET_PRESERVATION_EXPIRES = ("asset_preservation_expires", "财产保全到期日")
-    EVIDENCE_DEADLINE = ("evidence_deadline", "举证到期日")
-    APPEAL_DEADLINE = ("appeal_deadline", "上诉期到期日")
-    STATUTE_LIMITATIONS = ("statute_limitations", "诉讼时效到期日")
-    PAYMENT_DEADLINE = ("payment_deadline", "缴费期限")
-    SUBMISSION_DEADLINE = ("submission_deadline", "补正/材料提交期限")
-    OTHER = ("other", "其他")
+    HEARING = ("hearing", _("开庭"))
+    ASSET_PRESERVATION_EXPIRES = ("asset_preservation_expires", _("财产保全到期日"))
+    EVIDENCE_DEADLINE = ("evidence_deadline", _("举证到期日"))
+    APPEAL_DEADLINE = ("appeal_deadline", _("上诉期到期日"))
+    STATUTE_LIMITATIONS = ("statute_limitations", _("诉讼时效到期日"))
+    PAYMENT_DEADLINE = ("payment_deadline", _("缴费期限"))
+    SUBMISSION_DEADLINE = ("submission_deadline", _("补正/材料提交期限"))
+    OTHER = ("other", _("其他"))
 
 
 class Reminder(models.Model):
@@ -31,7 +32,7 @@ class Reminder(models.Model):
         related_name="reminders",
         null=True,
         blank=True,
-        verbose_name="合同",
+        verbose_name=_("合同"),
     )
     case: Any = models.ForeignKey(
         "cases.Case",
@@ -39,7 +40,7 @@ class Reminder(models.Model):
         related_name="reminders",
         null=True,
         blank=True,
-        verbose_name="案件",
+        verbose_name=_("案件"),
     )
     case_log: Any = models.ForeignKey(
         "cases.CaseLog",
@@ -47,25 +48,25 @@ class Reminder(models.Model):
         related_name="reminders",
         null=True,
         blank=True,
-        verbose_name="案件日志",
+        verbose_name=_("案件日志"),
     )
-    reminder_type: Any = models.CharField(max_length=64, choices=ReminderType.choices, verbose_name="类型")
-    content: Any = models.CharField(max_length=255, verbose_name="提醒事项")
-    due_at: Any = models.DateTimeField(verbose_name="到期时间")
-    metadata: Any = models.JSONField(default=dict, blank=True, verbose_name="扩展数据")
+    reminder_type: Any = models.CharField(max_length=64, choices=ReminderType.choices, verbose_name=_("类型"))
+    content: Any = models.CharField(max_length=255, verbose_name=_("提醒事项"))
+    due_at: Any = models.DateTimeField(verbose_name=_("到期时间"))
+    metadata: Any = models.JSONField(default=dict, blank=True, verbose_name=_("扩展数据"))
     include_in_important_time: Any = models.BooleanField(
         default=False,
-        verbose_name="列入重要时间",
-        help_text="同步到案件重要时间：勾选后会在案件详情的重要时间中展示，不会复制生成新数据。",
+        verbose_name=_("列入重要时间"),
+        help_text=_("同步到案件重要时间：勾选后会在案件详情的重要时间中展示，不会复制生成新数据。"),
     )
-    created_at: Any = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
-    updated_at: Any = models.DateTimeField(auto_now=True, verbose_name="更新时间")
+    created_at: Any = models.DateTimeField(auto_now_add=True, verbose_name=_("创建时间"))
+    updated_at: Any = models.DateTimeField(auto_now=True, verbose_name=_("更新时间"))
 
     history = HistoricalRecords()
 
     class Meta:
-        verbose_name = "重要日期提醒"
-        verbose_name_plural = "重要日期提醒"
+        verbose_name = _("重要日期提醒")
+        verbose_name_plural = _("重要日期提醒")
         constraints: ClassVar = [
             models.CheckConstraint(
                 condition=(Q(contract__isnull=True) | Q(case__isnull=True))
@@ -86,7 +87,7 @@ class Reminder(models.Model):
         super().clean()
         bound_count = sum(target_id is not None for target_id in (self.contract_id, self.case_id, self.case_log_id))
         if bound_count > 1:
-            raise ValidationError("合同、案件、案件日志最多只能绑定一个")
+            raise ValidationError(_("合同、案件、案件日志最多只能绑定一个"))
 
     def __str__(self) -> str:
         if self.contract_id is not None:

@@ -143,6 +143,21 @@ class CaseFolderBindingService(FolderBindingCrudService):
     owner_id_field: str = "case_id"
     owner_label: str = "案件"
 
+    # 默认子目录配置(仅在没有文书模板绑定配置时使用)
+    DEFAULT_SUBDIRS: ClassVar = {
+        "case_documents": "案件文书",
+        "trial_materials": "庭审材料",
+        "judgments": "判决书",
+        "execution_documents": "执行文书",
+        "other_files": "其他文件",
+    }
+
+    binding_model = CaseFolderBinding
+    owner_model = Case
+    owner_rel_field: str = "case"
+    owner_id_field: str = "case_id"
+    owner_label: str = "案件"
+
     def _get_owner(self, *, owner_id: int) -> Case:
         case = self._get_case_internal(owner_id)
         if not case:

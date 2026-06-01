@@ -17,6 +17,7 @@ from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
 from django.shortcuts import render
 from django.template.response import TemplateResponse
 from django.urls import URLPattern, URLResolver, path, reverse
+from django.utils.translation import gettext_lazy as _
 
 from apps.organization.views import AuthLoginView
 
@@ -26,9 +27,9 @@ logger = logging.getLogger(__name__)
 # Admin 站点标题
 # ============================================================
 
-admin.site.site_header = getattr(settings, "ADMIN_SITE_HEADER", "法穿AI Copilot")
-admin.site.site_title = getattr(settings, "ADMIN_SITE_TITLE", "法穿AI Copilot")
-admin.site.index_title = getattr(settings, "ADMIN_INDEX_TITLE", "欢迎来到法穿AI Copilot")
+admin.site.site_header = _(getattr(settings, "ADMIN_SITE_HEADER", "法穿AI Copilot"))
+admin.site.site_title = _(getattr(settings, "ADMIN_SITE_TITLE", "法穿AI Copilot"))
+admin.site.index_title = _(getattr(settings, "ADMIN_INDEX_TITLE", "欢迎来到法穿AI Copilot"))
 
 # 覆盖 admin login 视图，注入注册上下文
 _admin_login_view = AuthLoginView.as_view()
@@ -115,46 +116,46 @@ _HIDDEN_APP_LABELS = {
 
 # "其他工具"聚合页应用列表
 _OTHER_TOOLS_APPS = [
-    {"app_label": "contacts", "name": "案件工作人员", "url": "/admin/contacts/"},
-    {"app_label": "automation", "name": "自动化工具", "url": "/admin/automation/"},
-    {"app_label": "fee_notice", "name": "交费通知书识别", "url": "/admin/fee_notice/"},
-    {"app_label": "document_recognition", "name": "文书智能识别", "url": "/admin/document_recognition/"},
-    {"app_label": "pdf_splitting", "name": "PDF 拆解", "url": "/admin/pdf_splitting/"},
-    {"app_label": "story_viz", "name": "故事可视化", "url": "/admin/story_viz/"},
-    {"app_label": "documents", "name": "文书生成", "url": "/admin/documents/"},
-    {"app_label": "chat_records", "name": "聊天记录", "url": "/admin/chat_records/"},
-    {"app_label": "sales_dispute", "name": "销售纠纷", "url": "/admin/sales_dispute/"},
-    {"app_label": "enterprise_data", "name": "企业数据工作台", "url": "/admin/enterprise_data/"},
-    {"app_label": "invoice_recognition", "name": "发票识别", "url": "/admin/invoice_recognition/"},
-    {"app_label": "contract_review", "name": "合同审核", "url": "/admin/contract_review/"},
-    {"app_label": "image_rotation", "name": "图片自动旋转", "url": "/admin/image_rotation/"},
-    {"app_label": "express_query", "name": "快递查询", "url": "/admin/express_query/"},
-    {"app_label": "doc_convert", "name": "文档转换", "url": "/admin/doc_convert/"},
-    {"app_label": "doc_converter", "name": "DOC 转 DOCX", "url": "/admin/doc_converter/"},
-    {"app_label": "wechat_mp", "name": "公众号发布", "url": "/admin/wechat_mp/"},
-    {"app_label": "content_ops", "name": "内容运营", "url": "/admin/content_ops/"},
-    {"app_label": "batch_printing", "name": "批量打印", "url": "/admin/batch_printing/"},
-    {"app_label": "evidence_sorting", "name": "证据整理", "url": "/admin/evidence_sorting/"},
-    {"app_label": "legal_research", "name": "法律检索", "url": "/admin/legal_research/"},
-    {"app_label": "legal_solution", "name": "法律方案", "url": "/admin/legal_solution/"},
-    {"app_label": "evidence", "name": "证据管理", "url": "/admin/evidence/"},
-    {"app_label": "preservation_date", "name": "保全日期识别", "url": "/admin/preservation_date/"},
+    {"app_label": "contacts", "name": _("案件工作人员"), "url": "/admin/contacts/"},
+    {"app_label": "automation", "name": _("自动化工具"), "url": "/admin/automation/"},
+    {"app_label": "fee_notice", "name": _("交费通知书识别"), "url": "/admin/fee_notice/"},
+    {"app_label": "document_recognition", "name": _("文书智能识别"), "url": "/admin/document_recognition/"},
+    {"app_label": "pdf_splitting", "name": _("PDF 拆解"), "url": "/admin/pdf_splitting/"},
+    {"app_label": "story_viz", "name": _("故事可视化"), "url": "/admin/story_viz/"},
+    {"app_label": "documents", "name": _("文书生成"), "url": "/admin/documents/"},
+    {"app_label": "chat_records", "name": _("聊天记录"), "url": "/admin/chat_records/"},
+    {"app_label": "sales_dispute", "name": _("销售纠纷"), "url": "/admin/sales_dispute/"},
+    {"app_label": "enterprise_data", "name": _("企业数据工作台"), "url": "/admin/enterprise_data/"},
+    {"app_label": "invoice_recognition", "name": _("发票识别"), "url": "/admin/invoice_recognition/"},
+    {"app_label": "contract_review", "name": _("合同审核"), "url": "/admin/contract_review/"},
+    {"app_label": "image_rotation", "name": _("图片自动旋转"), "url": "/admin/image_rotation/"},
+    {"app_label": "express_query", "name": _("快递查询"), "url": "/admin/express_query/"},
+    {"app_label": "doc_convert", "name": _("文档转换"), "url": "/admin/doc_convert/"},
+    {"app_label": "doc_converter", "name": _("DOC 转 DOCX"), "url": "/admin/doc_converter/"},
+    {"app_label": "wechat_mp", "name": _("公众号发布"), "url": "/admin/wechat_mp/"},
+    {"app_label": "content_ops", "name": _("内容运营"), "url": "/admin/content_ops/"},
+    {"app_label": "batch_printing", "name": _("批量打印"), "url": "/admin/batch_printing/"},
+    {"app_label": "evidence_sorting", "name": _("证据整理"), "url": "/admin/evidence_sorting/"},
+    {"app_label": "legal_research", "name": _("法律检索"), "url": "/admin/legal_research/"},
+    {"app_label": "legal_solution", "name": _("法律方案"), "url": "/admin/legal_solution/"},
+    {"app_label": "evidence", "name": _("证据管理"), "url": "/admin/evidence/"},
+    {"app_label": "preservation_date", "name": _("保全日期识别"), "url": "/admin/preservation_date/"},
     {
         "app_label": "finance",
-        "name": "利息/违约金计算",
+        "name": _("利息/违约金计算"),
         "url": "/admin/finance/",
         "children": [
-            {"name": "LPR利率", "url": "/admin/finance/lprrate/"},
-            {"name": "LPR计算器", "url": "/admin/finance/calculator/"},
+            {"name": _("LPR利率"), "url": "/admin/finance/lprrate/"},
+            {"name": _("LPR计算器"), "url": "/admin/finance/calculator/"},
         ],
     },
-    {"app_label": "django_q", "name": "任务队列", "url": "/admin/django_q/"},
-    {"app_label": "organization", "name": "组织管理", "url": "/admin/organization/"},
-    {"app_label": "auth", "name": "用户与权限", "url": "/admin/auth/"},
-    {"app_label": "core", "name": "核心系统", "url": "/admin/core/"},
-    {"app_label": "reminders", "name": "重要日期提醒", "url": "/admin/reminders/"},
-    {"app_label": "message_hub", "name": "信息中转站", "url": "/admin/message_hub/"},
-    {"app_label": "workbench", "name": "工作台", "url": "/admin/workbench/"},
+    {"app_label": "django_q", "name": _("任务队列"), "url": "/admin/django_q/"},
+    {"app_label": "organization", "name": _("组织管理"), "url": "/admin/organization/"},
+    {"app_label": "auth", "name": _("用户与权限"), "url": "/admin/auth/"},
+    {"app_label": "core", "name": _("核心系统"), "url": "/admin/core/"},
+    {"app_label": "reminders", "name": _("重要日期提醒"), "url": "/admin/reminders/"},
+    {"app_label": "message_hub", "name": _("信息中转站"), "url": "/admin/message_hub/"},
+    {"app_label": "workbench", "name": _("工作台"), "url": "/admin/workbench/"},
 ]
 
 # 新用户默认收藏的子工具 URL（首次访问「其他工具」页时自动创建）
@@ -167,10 +168,11 @@ _DEFAULT_FAV_URLS = [
 
 # "办案"聚合页应用列表
 _CASE_HANDLING_APPS = [
-    {"app_label": "client", "name": "当事人管理", "url": "/admin/client/"},
-    {"app_label": "contracts", "name": "合同管理", "url": "/admin/contracts/"},
-    {"app_label": "cases", "name": "案件管理", "url": "/admin/cases/"},
+    {"app_label": "client", "name": _("当事人管理"), "url": "/admin/client/"},
+    {"app_label": "contracts", "name": _("合同管理"), "url": "/admin/contracts/"},
+    {"app_label": "cases", "name": _("案件管理"), "url": "/admin/cases/"},
 ]
+
 
 # ============================================================
 # 侧边栏排序 monkey-patch
@@ -230,7 +232,7 @@ def _sorted_get_app_list(self: admin.AdminSite, request: HttpRequest, app_label:
             {
                 "app_label": "case_handling",
                 "app_url": "/admin/case-handling/",
-                "name": "办案",
+                "name": _("办案"),
                 "has_perms": True,
                 "models": case_handling_models,
             }
@@ -282,7 +284,7 @@ def _sorted_get_app_list(self: admin.AdminSite, request: HttpRequest, app_label:
             {
                 "app_label": "other_tools",
                 "app_url": "/admin/automation/other-tools/",
-                "name": "其他工具",
+                "name": _("其他工具"),
                 "has_perms": True,
                 "models": virtual_models,
             }
@@ -292,7 +294,7 @@ def _sorted_get_app_list(self: admin.AdminSite, request: HttpRequest, app_label:
     for app in app_list:
         if app.get("app_label") == "reminders":
             calendar_model = {
-                "name": "提醒日历",
+                "name": _("提醒日历"),
                 "object_name": "ReminderCalendar",
                 "perms": {"add": False, "change": False, "delete": False, "view": True},
                 "admin_url": "/admin/reminders/calendar/",
@@ -309,6 +311,7 @@ def _sorted_get_app_list(self: admin.AdminSite, request: HttpRequest, app_label:
 
 
 admin.site.__class__.get_app_list = _sorted_get_app_list  # type: ignore[method-assign]
+
 
 # ============================================================
 # Admin Hub 视图
@@ -332,7 +335,7 @@ def lpr_calculator_view(request: HttpRequest) -> HttpResponse:
 
     context: dict[str, Any] = {
         **admin.site.each_context(request),
-        "title": "利息/违约金计算器",
+        "title": _("利息/违约金计算器"),
         "recent_rates": recent_rates,
         "latest_rate": latest_rate,
         "is_data_current": rate_service.is_data_current(),
@@ -372,7 +375,7 @@ def case_handling_hub_view(request: HttpRequest) -> TemplateResponse:
 
     context: dict[str, Any] = {
         **admin.site.each_context(request),
-        "title": "办案",
+        "title": _("办案"),
         "sections": sections,
     }
     return TemplateResponse(request, "admin/core/case_handling_hub.html", context)
@@ -414,12 +417,22 @@ def other_tools_hub_view(request: HttpRequest) -> TemplateResponse:
             }
         )
 
-    # 获取当前用户的收藏 URL 集合（默认收藏已在 context_processors 中初始化）
-    fav_urls: set[str] = set(ToolFavorite.objects.filter(user=request.user).values_list("tool_url", flat=True))
+    # 获取当前用户的收藏 URL 集合；首次访问时创建默认收藏
+    existing_favs = ToolFavorite.objects.filter(user=request.user)
+    if not existing_favs.exists():
+        for url in _DEFAULT_FAV_URLS:
+            ToolFavorite.objects.get_or_create(
+                user=request.user,
+                tool_url=url,
+                defaults={"tool_name": url.strip("/").split("/")[-1].replace("_", " ").title()},
+            )
+        existing_favs = ToolFavorite.objects.filter(user=request.user)
+
+    fav_urls: set[str] = set(existing_favs.values_list("tool_url", flat=True))
 
     context: dict[str, Any] = {
         **admin.site.each_context(request),
-        "title": "其他工具",
+        "title": _("其他工具"),
         "sections": sections,
         "fav_urls": fav_urls,
     }

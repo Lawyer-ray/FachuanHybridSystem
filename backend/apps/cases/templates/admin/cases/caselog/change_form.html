@@ -134,8 +134,8 @@ function _caselogAddParseButton() {
     var btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'parse-reminder-btn';
-    btn.textContent = '{';
-    btn.title = '{';
+    btn.textContent = '{% trans "解析提醒" %}';
+    btn.title = '{% trans "从日志内容中提取日期，自动填入下方提醒" %}';
     btn.onclick = function() { _caselogParseReminders(); };
 
     wrapper.appendChild(btn);
@@ -146,19 +146,19 @@ function _caselogParseReminders() {
     var btn = document.querySelector('.parse-reminder-btn');
     var textarea = document.querySelector('.form-row.field-content textarea');
     if (!textarea) {
-        _caselogShowToast('{', 'error');
+        _caselogShowToast('{% trans "未找到日志内容" %}', 'error');
         return;
     }
 
     var text = textarea.value.trim();
     if (!text) {
-        _caselogShowToast('{', 'error');
+        _caselogShowToast('{% trans "日志内容为空，请先输入内容" %}', 'error');
         return;
     }
 
     if (btn) {
         btn.disabled = true;
-        btn.textContent = '{';
+        btn.textContent = '{% trans "解析中..." %}';
     }
 
     var xhr = new XMLHttpRequest();
@@ -170,7 +170,7 @@ function _caselogParseReminders() {
     xhr.onload = function() {
         if (btn) {
             btn.disabled = false;
-            btn.textContent = '{';
+            btn.textContent = '{% trans "解析提醒" %}';
         }
 
         if (xhr.status === 200) {
@@ -179,22 +179,22 @@ function _caselogParseReminders() {
                 if (Array.isArray(data) && data.length > 0) {
                     _caselogFillInlineRows(data);
                 } else {
-                    _caselogShowToast('{', 'error');
+                    _caselogShowToast('{% trans "未在内容中发现日期信息" %}', 'error');
                 }
             } catch (e) {
-                _caselogShowToast('{', 'error');
+                _caselogShowToast('{% trans "解析失败" %}', 'error');
             }
         } else {
-            _caselogShowToast('{：HTTP ' + xhr.status, 'error');
+            _caselogShowToast('{% trans "解析失败" %}：HTTP ' + xhr.status, 'error');
         }
     };
 
     xhr.onerror = function() {
         if (btn) {
             btn.disabled = false;
-            btn.textContent = '{';
+            btn.textContent = '{% trans "解析提醒" %}';
         }
-        _caselogShowToast('{', 'error');
+        _caselogShowToast('{% trans "网络错误" %}', 'error');
     };
 
     xhr.send(JSON.stringify({ text: text }));
@@ -206,13 +206,13 @@ function _caselogFillInlineRows(results) {
         inlineGroup = document.querySelector('.inline-group[id$="reminders-group"]');
     }
     if (!inlineGroup) {
-        _caselogShowToast('{', 'error');
+        _caselogShowToast('{% trans "未找到提醒表单区域" %}', 'error');
         return;
     }
 
     var totalFormsInput = inlineGroup.querySelector('input[name$="-TOTAL_FORMS"]');
     if (!totalFormsInput) {
-        _caselogShowToast('{', 'error');
+        _caselogShowToast('{% trans "表单结构异常" %}', 'error');
         return;
     }
 
@@ -232,7 +232,7 @@ function _caselogFillInlineRows(results) {
     }
 
     if (!emptyRow) {
-        _caselogShowToast('{', 'error');
+        _caselogShowToast('{% trans "表单结构异常：找不到空行模板" %}', 'error');
         return;
     }
 
@@ -270,7 +270,7 @@ function _caselogFillInlineRows(results) {
     // 更新 TOTAL_FORMS
     totalFormsInput.value = currentTotal + results.length;
 
-    _caselogShowToast('{' + results.length + '{', 'success');
+    _caselogShowToast('{% trans "已填入" %}' + results.length + '{% trans "条提醒，保存后生效" %}', 'success');
 
     // 滚动到提醒区域
     inlineGroup.scrollIntoView({ behavior: 'smooth', block: 'center' });

@@ -7,10 +7,10 @@ from decimal import Decimal
 from typing import Any
 
 from django.contrib import admin
-from django.db.models import Count, Q, Sum
 from django.http import HttpRequest, HttpResponse
 from django.utils.html import format_html
 from django.utils.safestring import SafeString
+from django.utils.translation import gettext_lazy as _
 
 from apps.invoice_recognition.models import InvoiceRecognitionTask, InvoiceRecognitionTaskStatus
 
@@ -38,19 +38,6 @@ class InvoiceRecognitionTaskAdmin(admin.ModelAdmin):
         "finished_at",
     ]
     change_form_template = "admin/invoice_recognition/invoicerecognitiontask/change_form.html"
-
-    def get_queryset(self, request: HttpRequest) -> Any:
-        return (
-            super()
-            .get_queryset(request)
-            .annotate(
-                _record_count=Count("records"),
-                _total_amount_sum=Sum(
-                    "records__total_amount",
-                    filter=Q(records__is_duplicate=False),
-                ),
-            )
-        )
 
     def has_add_permission(self, request: HttpRequest) -> bool:
         return True
@@ -115,29 +102,31 @@ class InvoiceRecognitionTaskAdmin(admin.ModelAdmin):
             InvoiceRecognitionTaskStatus.FAILED: "red",
         }
         label_map: dict[str, str] = {
-            InvoiceRecognitionTaskStatus.PENDING: "待处理",
-            InvoiceRecognitionTaskStatus.PROCESSING: "处理中",
-            InvoiceRecognitionTaskStatus.COMPLETED: "已完成",
-            InvoiceRecognitionTaskStatus.FAILED: "失败",
+            InvoiceRecognitionTaskStatus.PENDING: str(_("待处理")),
+            InvoiceRecognitionTaskStatus.PROCESSING: str(_("处理中")),
+            InvoiceRecognitionTaskStatus.COMPLETED: str(_("已完成")),
+            InvoiceRecognitionTaskStatus.FAILED: str(_("失败")),
         }
         color = color_map.get(obj.status, "gray")
         label = label_map.get(obj.status, obj.status)
         return format_html('<span style="color: {}; font-weight: bold;">{}</span>', color, label)
 
-    status_display.short_description = "状态"  # type: ignore[attr-defined]
+    status_display.short_description = _("状态")  # type: ignore[attr-defined]
 
     def record_count(self, obj: InvoiceRecognitionTask) -> int:
-        return obj._record_count  # type: ignore[attr-defined,no-any-return]
+        return int(obj.records.count())
 
-    record_count.short_description = "发票数量"  # type: ignore[attr-defined]
+    record_count.short_description = _("发票数量")  # type: ignore[attr-defined]
 
     def total_amount_display(self, obj: InvoiceRecognitionTask) -> str:
-        amount: Decimal | None = obj._total_amount_sum  # type: ignore[attr-defined]
-        if amount is None:
+        try:
+            amount: Decimal = self._get_service().get_total_amount(obj.id)
+            return f"¥{amount}"
+        except (TypeError, ValueError) as exc:
+            logger.error("获取总金额失败: task_id=%s, error=%s", obj.id, exc)
             return "-"
-        return f"¥{amount}"
 
-    total_amount_display.short_description = "非重复总金额"  # type: ignore[attr-defined]
+    total_amount_display.short_description = _("非重复总金额")  # type: ignore[attr-defined]
 
     def _get_service(self) -> Any:
         from apps.invoice_recognition.services.wiring import get_invoice_recognition_service

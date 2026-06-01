@@ -11,6 +11,7 @@ from django.template.response import TemplateResponse
 from django.urls import path as urlpath
 from django.urls import reverse
 from django.utils.html import format_html
+from django.utils.translation import gettext_lazy as _
 
 from apps.cases.admin.base_admin import BaseModelAdmin, BaseTabularInline
 from apps.cases.models import CaseLog, CaseLogAttachment
@@ -110,7 +111,7 @@ class CaseLogAdmin(BaseModelAdmin):
         context = self.admin_site.each_context(request)
         context.update(
             {
-                "title": "批量添加案件日志",
+                "title": _("批量添加案件日志"),
                 "opts": self.model._meta,
                 "contracts": list(contracts),
                 "batch_add_config": {
@@ -126,18 +127,18 @@ class CaseLogAdmin(BaseModelAdmin):
 
     def batch_add_cases_view(self, request: HttpRequest) -> JsonResponse:
         if request.method != "POST":
-            return JsonResponse({"success": False, "message": "Method not allowed"}, status=405)
+            return JsonResponse({"success": False, "message": _("Method not allowed")}, status=405)
         if not self.has_view_permission(request):
-            return JsonResponse({"success": False, "message": "Permission denied"}, status=403)
+            return JsonResponse({"success": False, "message": _("Permission denied")}, status=403)
 
         try:
             payload = json.loads(request.body.decode("utf-8"))
         except json.JSONDecodeError:
-            return JsonResponse({"success": False, "message": "参数格式错误"}, status=400)
+            return JsonResponse({"success": False, "message": _("参数格式错误")}, status=400)
 
         contract_id = payload.get("contract_id")
         if not contract_id:
-            return JsonResponse({"success": False, "message": "缺少 contract_id"}, status=400)
+            return JsonResponse({"success": False, "message": _("缺少 contract_id")}, status=400)
 
         from apps.cases.models import Case
 
@@ -158,18 +159,18 @@ class CaseLogAdmin(BaseModelAdmin):
 
     def batch_add_search_view(self, request: HttpRequest) -> JsonResponse:
         if request.method != "POST":
-            return JsonResponse({"success": False, "message": "Method not allowed"}, status=405)
+            return JsonResponse({"success": False, "message": _("Method not allowed")}, status=405)
         if not self.has_view_permission(request):
-            return JsonResponse({"success": False, "message": "Permission denied"}, status=403)
+            return JsonResponse({"success": False, "message": _("Permission denied")}, status=403)
 
         try:
             payload = json.loads(request.body.decode("utf-8"))
         except json.JSONDecodeError:
-            return JsonResponse({"success": False, "message": "参数格式错误"}, status=400)
+            return JsonResponse({"success": False, "message": _("参数格式错误")}, status=400)
 
         query = (payload.get("query") or "").strip()
         if not query:
-            return JsonResponse({"success": False, "message": "请输入搜索关键词"}, status=400)
+            return JsonResponse({"success": False, "message": _("请输入搜索关键词")}, status=400)
 
         limit = min(int(payload.get("limit", 30)), 50)
 
@@ -193,22 +194,22 @@ class CaseLogAdmin(BaseModelAdmin):
 
     def batch_add_submit_view(self, request: HttpRequest) -> JsonResponse:
         if request.method != "POST":
-            return JsonResponse({"success": False, "message": "Method not allowed"}, status=405)
+            return JsonResponse({"success": False, "message": _("Method not allowed")}, status=405)
         if not self.has_add_permission(request):
-            return JsonResponse({"success": False, "message": "Permission denied"}, status=403)
+            return JsonResponse({"success": False, "message": _("Permission denied")}, status=403)
 
         try:
             payload = json.loads(request.body.decode("utf-8"))
         except json.JSONDecodeError:
-            return JsonResponse({"success": False, "message": "参数格式错误"}, status=400)
+            return JsonResponse({"success": False, "message": _("参数格式错误")}, status=400)
 
         case_ids = payload.get("case_ids")
         content = (payload.get("content") or "").strip()
 
         if not case_ids or not isinstance(case_ids, list):
-            return JsonResponse({"success": False, "message": "请至少选择一个案件"}, status=400)
+            return JsonResponse({"success": False, "message": _("请至少选择一个案件")}, status=400)
         if not content:
-            return JsonResponse({"success": False, "message": "日志内容不能为空"}, status=400)
+            return JsonResponse({"success": False, "message": _("日志内容不能为空")}, status=400)
 
         user_id = getattr(request.user, "id", None)
         with transaction.atomic():

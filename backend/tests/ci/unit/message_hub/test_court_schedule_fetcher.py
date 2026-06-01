@@ -230,7 +230,7 @@ class TestCourtScheduleFetcher:
             lawyer=lawyer,
             site_name="court_zxfw",
             account="test_account",
-            password="placeholder",  # pragma: allowlist secret
+            password="placeholder",
             url="https://zxfw.court.gov.cn",
         )
         self.source = MessageSource.objects.create(
@@ -506,7 +506,7 @@ class TestCourtScheduleFetcher:
             lawyer=lawyer2,
             site_name="court_zxfw",
             account="test_account2",
-            password="placeholder2",  # pragma: allowlist secret
+            password="placeholder2",
             url="https://zxfw.court.gov.cn",
         )
         source2 = MessageSource.objects.create(

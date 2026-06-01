@@ -16,6 +16,7 @@ def test_sms_parser_extract_guangxi_sfdw_link() -> None:
 
     assert "http://171.106.48.55:28083/sfsdw//r/TESTTOKEN001" in links
 
+
 def test_download_link_extractor_extract_guangxi_sfdw_link() -> None:
     extractor = DownloadLinkExtractor()
     content = "文书链接：http://171.106.48.55:28083/sfsdw//r/AbCd1234"
@@ -24,16 +25,19 @@ def test_download_link_extractor_extract_guangxi_sfdw_link() -> None:
 
     assert links == ["http://171.106.48.55:28083/sfsdw//r/AbCd1234"]
 
+
 def test_sms_download_mixin_normalize_phone_tail6() -> None:
     assert SMSDownloadMixin._normalize_phone_tail6("138975829") == "975829"
     assert SMSDownloadMixin._normalize_phone_tail6("后6位: 975829") == "975829"
     assert SMSDownloadMixin._normalize_phone_tail6("12345") is None
+
 
 def test_sms_download_mixin_identify_sfdw_url() -> None:
     assert SMSDownloadMixin._is_sfdw_url("http://171.106.48.55:28083/sfsdw//r/TESTTOKEN001")
     assert SMSDownloadMixin._is_sfdw_url("https://sfpt.cdfy12368.gov.cn:806/sfsdw//r/demo")
     assert SMSDownloadMixin._is_sfdw_url("https://example.com/sfsdw//r/ALT_HOST_TOKEN")
     assert not SMSDownloadMixin._is_sfdw_url("https://jysd.10102368.com/sd?key=abc")
+
 
 def test_sms_parser_extract_same_structure_new_domain() -> None:
     service = SMSParserService()
@@ -48,6 +52,7 @@ def test_sms_parser_extract_same_structure_new_domain() -> None:
         "https://new-portal.example.cn/zxfw/#/pagesAjkj/app/wssd/index?qdbh=Q1&sdbh=S1&sdsin=U1"
     ]
 
+
 def test_download_link_extractor_extract_same_structure_new_domain() -> None:
     extractor = DownloadLinkExtractor()
     content = "请登录 https://alt-host.example.com/sd?key=ABCD1234 查看送达文书"
@@ -55,6 +60,7 @@ def test_download_link_extractor_extract_same_structure_new_domain() -> None:
     links = extractor.extract(content)
 
     assert links == ["https://alt-host.example.com/sd?key=ABCD1234"]
+
 
 def test_sms_download_mixin_identify_jysd_and_hbfy_structure_url() -> None:
     assert SMSDownloadMixin._is_jysd_url("https://jysd.10102368.com/sd?key=abc")

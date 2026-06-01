@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -37,7 +36,6 @@ _KNOWN_CONTEXT_WINDOWS: dict[str, int] = {
     "deepseek-ai/DeepSeek-V3": 65536,
     "deepseek-ai/DeepSeek-R1": 65536,
     "kimi26": 262144,
-    "mimo-v2.5-pro": 1048576,
 }
 
 
@@ -65,7 +63,7 @@ class ModelListResult:
 
 
 class ModelListService:
-    """模型列表公共服务（SiliconFlow / Ollama / OpenAI-compatible）"""
+    """模型列表公共服务（SiliconFlow + Ollama）"""
 
     def __init__(self, cache_ttl: int = DEFAULT_CACHE_TTL) -> None:
         self._cache_ttl = cache_ttl
@@ -74,21 +72,6 @@ class ModelListService:
         """获取可用模型列表，优先从缓存读取"""
         result = self.get_result()
         return result.models
-
-    def get_cached_models(self) -> list[dict[str, Any]]:
-        """仅返回缓存 + SystemConfig 中的模型，不发 HTTP 请求。
-
-        适用于页面加载等对延迟敏感的场景，避免触发后端连通性检查。
-        """
-        cached: list[dict[str, Any]] | None = cache.get(CACHE_KEY)
-        base = list(cached) if cached is not None else []
-        return self._merge_system_config_models(base)
-
-    def refresh_models(self) -> ModelListResult:
-        """强制刷新模型列表，清除缓存后重新从所有后端获取。"""
-        cache.delete(CACHE_KEY)
-        cache.delete(CACHE_KEY_STATUS)
-        return self.get_result()
 
     def get_result(self) -> ModelListResult:
         """获取模型列表及连接状态，优先从缓存读取。
@@ -115,11 +98,6 @@ class ModelListService:
 
         # 合并 SystemConfig 中的模型（LLM_EXTRA_MODELS 等）
         result.models = self._merge_system_config_models(result.models)
-
-        # 如果合并后有可用模型，不算 fallback
-        if result.models:
-            result.is_fallback = False
-            result.error_message = ""
         return result
 
     @staticmethod
@@ -152,46 +130,20 @@ class ModelListService:
         return merged + api_models
 
     def _fetch_from_api(self) -> ModelListResult:
-        """从可发现的后端并发获取模型列表（SiliconFlow / Ollama / OpenAI-compatible）"""
+        """从各后端获取模型列表，合并结果"""
         configs = LLMConfig.get_backend_configs()
-
-        # 只查询已启用且配了凭证的后端，避免无意义的 HTTP 请求
-        fetchers: list[tuple[str, Any]] = []
-        sf_cfg = configs.get("siliconflow")
-        if sf_cfg and sf_cfg.enabled and sf_cfg.api_key:
-            fetchers.append(("siliconflow", self._fetch_siliconflow_models))
-        ollama_cfg = configs.get("ollama")
-        if ollama_cfg and ollama_cfg.enabled and ollama_cfg.base_url:
-            fetchers.append(("ollama", self._fetch_ollama_models))
-        oc_cfg = configs.get("openai_compatible")
-        if oc_cfg and oc_cfg.enabled and oc_cfg.base_url:
-            fetchers.append(("openai_compatible", self._fetch_openai_compatible_models))
-
-        if not fetchers:
-            return ModelListResult(
-                models=[],
-                is_fallback=True,
-                error_message="所有后端均不可用，使用默认模型列表",
-            )
-
-        # 并发查询所有后端，总超时 = max(单个超时) 而非 sum
         all_models: list[dict[str, Any]] = []
-        if len(fetchers) == 1:
-            all_models.extend(fetchers[0][1]())
-        else:
-            with ThreadPoolExecutor(max_workers=len(fetchers)) as executor:
-                futures = {executor.submit(fn): name for name, fn in fetchers}
-                for future in as_completed(futures):
-                    try:
-                        all_models.extend(future.result())
-                    except Exception:
-                        logger.debug("获取 %s 模型列表失败", futures[future])
+
+        if configs.get("siliconflow") and configs["siliconflow"].enabled:
+            all_models.extend(self._fetch_siliconflow_models())
+        if configs.get("ollama") and configs["ollama"].enabled:
+            all_models.extend(self._fetch_ollama_models())
 
         if all_models:
             return ModelListResult(models=all_models)
 
         return ModelListResult(
-            models=[],
+            models=self._get_fallback_models(),
             is_fallback=True,
             error_message="所有后端均不可用，使用默认模型列表",
         )
@@ -201,6 +153,7 @@ class ModelListService:
         api_key = LLMConfig.get_api_key()
         base_url = LLMConfig.get_base_url()
         if not api_key:
+            logger.warning("SILICONFLOW_API_KEY 未配置")
             return []
 
         url = f"{base_url.rstrip('/')}/models"
@@ -209,7 +162,7 @@ class ModelListService:
                 url,
                 headers={"Authorization": f"Bearer {api_key}"},
                 params={"sub_type": "chat"},
-                timeout=5.0,
+                timeout=15.0,
             )
             resp.raise_for_status()
             data: dict[str, Any] = resp.json()
@@ -225,7 +178,7 @@ class ModelListService:
                 logger.info("从 SiliconFlow API 获取到 %d 个模型", len(models))
             return models
         except (httpx.HTTPStatusError, httpx.ConnectError, httpx.TimeoutException) as exc:
-            logger.debug("SiliconFlow API 不可用: %s", exc)
+            logger.warning("SiliconFlow API 不可用: %s", exc)
             return []
         except Exception:
             logger.exception("获取 SiliconFlow 模型列表时发生未知错误")
@@ -249,7 +202,7 @@ class ModelListService:
             resp = httpx.post(
                 f"{ollama_url}/api/show",
                 json={"name": ollama_model},
-                timeout=5.0,
+                timeout=10.0,
             )
             resp.raise_for_status()
             data = resp.json()
@@ -265,87 +218,6 @@ class ModelListService:
         return [_make_model(ollama_model, ctx_window)]
 
     @staticmethod
-    def _fetch_openai_compatible_models() -> list[dict[str, Any]]:
-        """调用 OpenAI-compatible GET /v1/models API 获取模型列表"""
-        base_url = LLMConfig.get_openai_compatible_base_url()
-        api_key = LLMConfig.get_openai_compatible_api_key()
-        if not base_url:
-            return []
-
-        url = f"{base_url.rstrip('/')}/models"
-        headers: dict[str, str] = {}
-        if api_key:
-            headers["Authorization"] = f"Bearer {api_key}"
-
-        try:
-            resp = httpx.get(url, headers=headers, timeout=5.0)
-            resp.raise_for_status()
-            data: dict[str, Any] = resp.json()
-            models: list[dict[str, Any]] = []
-            for m in data.get("data", []):
-                if not m.get("id"):
-                    continue
-                model_id: str = m["id"]
-                ctx = m.get("context_length") or m.get("max_model_len") or 0
-                models.append(_make_model(model_id, int(ctx) if ctx else 0))
-            if models:
-                logger.info("从 OpenAI-compatible API 获取到 %d 个模型", len(models))
-            return models
-        except (httpx.HTTPStatusError, httpx.ConnectError, httpx.TimeoutException) as exc:
-            logger.debug("OpenAI-compatible API 不可用: %s", exc)
-            return []
-        except Exception:
-            logger.exception("获取 OpenAI-compatible 模型列表时发生未知错误")
-            return []
-
-    @staticmethod
     def _get_fallback_models() -> list[dict[str, Any]]:
         """返回预置默认模型列表"""
         return list(_FALLBACK_MODELS)
-
-    @staticmethod
-    def test_model_connection(model_id: str) -> dict[str, Any]:
-        """测试指定模型的连通性，发送一条简单消息并返回结果。
-
-        Returns:
-            {"ok": True, "latency_ms": 123, "backend": "...", "message": "..."}
-            或 {"ok": False, "error": "...", "backend": "..."}
-        """
-        from apps.core.llm.config import LLMConfig
-        from apps.core.llm.router import LLMBackendRouter
-
-        backend_name = LLMConfig.resolve_backend_for_model(model_id)
-        configs = LLMConfig.get_backend_configs()
-        router = LLMBackendRouter(backend_configs=configs)
-
-        try:
-            backend = router.get_backend(backend_name)
-        except Exception as exc:
-            return {"ok": False, "error": f"无法加载后端 {backend_name}: {exc}", "backend": backend_name}
-
-        import time
-
-        start = time.time()
-        try:
-            resp = backend.chat(
-                messages=[{"role": "user", "content": "回复 OK"}],
-                model=model_id,
-                temperature=0,
-                max_tokens=16,
-                timeout_seconds=10,
-            )
-            latency_ms = int((time.time() - start) * 1000)
-            return {
-                "ok": True,
-                "latency_ms": latency_ms,
-                "backend": resp.backend,
-                "message": f"模型 {model_id} 连通，响应延迟 {latency_ms}ms",
-            }
-        except Exception as exc:
-            latency_ms = int((time.time() - start) * 1000)
-            return {
-                "ok": False,
-                "latency_ms": latency_ms,
-                "error": str(exc),
-                "backend": backend_name,
-            }

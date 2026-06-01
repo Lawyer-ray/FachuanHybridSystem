@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Any, ClassVar, cast
 
 from django.contrib import admin
 from django.http import HttpRequest
+from django.utils.translation import gettext_lazy as _
 from simple_history.admin import SimpleHistoryAdmin
 
 from apps.cases.admin.base_admin import BaseModelAdmin, BaseStackedInline, BaseTabularInline
@@ -205,7 +206,7 @@ class CaseAdmin(
             },
         ),
         (
-            "阶段与建档",
+            _("阶段与建档"),
             {
                 "fields": (
                     "start_date",
@@ -218,14 +219,14 @@ class CaseAdmin(
             },
         ),
         (
-            "案件关联",
+            _("案件关联"),
             {
                 "classes": ("collapse",),
                 "fields": ("previous_case",),
             },
         ),
         (
-            "金额信息",
+            _("金额信息"),
             {
                 "classes": ("collapse",),
                 "fields": (

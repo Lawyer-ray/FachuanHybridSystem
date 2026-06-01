@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Any, ClassVar
 
 from django.core.files.uploadedfile import UploadedFile
 from django.db import models
+from django.utils.translation import gettext_lazy as _
 
 from apps.cases.utils import CASE_LOG_ALLOWED_EXTENSIONS, CASE_LOG_MAX_FILE_SIZE
 from apps.core.filesystem.storage import KeepOriginalNameStorage
@@ -34,37 +35,37 @@ def validate_log_attachment(file: UploadedFile) -> None:
     if ext not in CASE_LOG_ALLOWED_EXTENSIONS:
         from django.core.exceptions import ValidationError
 
-        raise ValidationError("不支持的文件类型")
+        raise ValidationError(_("不支持的文件类型"))
     if size and size > CASE_LOG_MAX_FILE_SIZE:
         from django.core.exceptions import ValidationError
 
-        raise ValidationError("文件大小超过50MB限制")
+        raise ValidationError(_("文件大小超过50MB限制"))
 
 
 class CaseLog(models.Model):
     id: int
-    case = models.ForeignKey(Case, on_delete=models.CASCADE, related_name="logs", verbose_name="案件")
-    content = models.TextField(verbose_name="日志内容")
+    case = models.ForeignKey(Case, on_delete=models.CASCADE, related_name="logs", verbose_name=_("案件"))
+    content = models.TextField(verbose_name=_("日志内容"))
     actor = models.ForeignKey(
-        "organization.Lawyer", on_delete=models.PROTECT, related_name="case_logs", verbose_name="操作人"
+        "organization.Lawyer", on_delete=models.PROTECT, related_name="case_logs", verbose_name=_("操作人")
     )
     source_subfolder = models.CharField(
         blank=True,
         default="",
         max_length=500,
-        verbose_name="来源子文件夹",
-        help_text="邮件往来导入时记录的来源子文件夹路径，用于去重",
+        verbose_name=_("来源子文件夹"),
+        help_text=_("邮件往来导入时记录的来源子文件夹路径，用于去重"),
     )
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建日期")
-    updated_at = models.DateTimeField(auto_now=True, verbose_name="修改日期")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name=_("创建日期"))
+    updated_at = models.DateTimeField(auto_now=True, verbose_name=_("修改日期"))
 
     if TYPE_CHECKING:
         attachments: RelatedManager[CaseLogAttachment]
         versions: RelatedManager[CaseLogVersion]
 
     class Meta:
-        verbose_name = "日志"
-        verbose_name_plural = "日志"
+        verbose_name = _("日志")
+        verbose_name_plural = _("日志")
         indexes: ClassVar = [
             models.Index(fields=["case", "-created_at"]),
             models.Index(fields=["actor"]),
@@ -151,22 +152,22 @@ class CaseLog(models.Model):
 
 class CaseLogAttachment(models.Model):
     id: int
-    log = models.ForeignKey(CaseLog, on_delete=models.CASCADE, related_name="attachments", verbose_name="日志")
+    log = models.ForeignKey(CaseLog, on_delete=models.CASCADE, related_name="attachments", verbose_name=_("日志"))
     file = models.FileField(
         upload_to=DatedUUIDPath("case_logs"),
         storage=case_log_storage,
         validators=[validate_log_attachment],
-        verbose_name="相关文书",
+        verbose_name=_("相关文书"),
     )
-    original_filename = models.CharField(max_length=500, blank=True, default="", verbose_name="原始文件名")
-    relative_file_path = models.CharField(max_length=1000, blank=True, default="", verbose_name="相对文件路径")
-    storage_root_type = models.CharField(max_length=100, blank=True, default="", verbose_name="存储根类型")
-    subdir_path = models.CharField(max_length=1000, blank=True, default="", verbose_name="子目录路径")
-    uploaded_at = models.DateTimeField(auto_now_add=True, verbose_name="上传时间")
+    original_filename = models.CharField(max_length=500, blank=True, default="", verbose_name=_("原始文件名"))
+    relative_file_path = models.CharField(max_length=1000, blank=True, default="", verbose_name=_("相对文件路径"))
+    storage_root_type = models.CharField(max_length=100, blank=True, default="", verbose_name=_("存储根类型"))
+    subdir_path = models.CharField(max_length=1000, blank=True, default="", verbose_name=_("子目录路径"))
+    uploaded_at = models.DateTimeField(auto_now_add=True, verbose_name=_("上传时间"))
 
     class Meta:
-        verbose_name = "日志附件"
-        verbose_name_plural = "日志附件"
+        verbose_name = _("日志附件")
+        verbose_name_plural = _("日志附件")
         indexes: ClassVar = [
             models.Index(fields=["log"]),
         ]
@@ -182,16 +183,16 @@ class CaseLogAttachment(models.Model):
 
 class CaseLogVersion(models.Model):
     id: int
-    log = models.ForeignKey(CaseLog, on_delete=models.CASCADE, related_name="versions", verbose_name="日志")
-    content = models.TextField(verbose_name="历史内容")
-    version_at = models.DateTimeField(auto_now_add=True, verbose_name="版本时间")
+    log = models.ForeignKey(CaseLog, on_delete=models.CASCADE, related_name="versions", verbose_name=_("日志"))
+    content = models.TextField(verbose_name=_("历史内容"))
+    version_at = models.DateTimeField(auto_now_add=True, verbose_name=_("版本时间"))
     actor = models.ForeignKey(
-        "organization.Lawyer", on_delete=models.PROTECT, related_name="case_log_versions", verbose_name="操作者"
+        "organization.Lawyer", on_delete=models.PROTECT, related_name="case_log_versions", verbose_name=_("操作者")
     )
 
     class Meta:
-        verbose_name = "案件日志版本"
-        verbose_name_plural = "案件日志版本"
+        verbose_name = _("案件日志版本")
+        verbose_name_plural = _("案件日志版本")
         indexes: ClassVar = [
             models.Index(fields=["log"]),
             models.Index(fields=["actor"]),

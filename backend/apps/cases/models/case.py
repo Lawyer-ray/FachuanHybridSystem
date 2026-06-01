@@ -6,6 +6,7 @@ from datetime import date
 from typing import TYPE_CHECKING, ClassVar
 
 from django.db import models
+from django.utils.translation import gettext_lazy as _
 from simple_history.models import HistoricalRecords
 
 from apps.core.filesystem.upload_paths import DatedUUIDPath
@@ -31,28 +32,30 @@ class Case(models.Model):
         null=True,
         blank=True,
         related_name="cases",
-        verbose_name="关联合同",
+        verbose_name=_("关联合同"),
     )
-    is_filed = models.BooleanField(default=False, verbose_name="是否已建档")
+    is_filed = models.BooleanField(default=False, verbose_name=_("是否已建档"))
     filing_number = models.CharField(
         max_length=50,
         blank=True,
         null=True,
         unique=True,
-        verbose_name="建档编号",
-        help_text="格式: {年份}_{案件类型}_{AJ}_{序号}",
+        verbose_name=_("建档编号"),
+        help_text=_("格式: {年份}_{案件类型}_{AJ}_{序号}"),
     )
-    name = models.CharField(max_length=255, verbose_name="案件名称")
+    name = models.CharField(max_length=255, verbose_name=_("案件名称"))
     status = models.CharField(
-        max_length=32, choices=CaseStatus.choices, default=CaseStatus.ACTIVE, verbose_name="案件状态"
+        max_length=32, choices=CaseStatus.choices, default=CaseStatus.ACTIVE, verbose_name=_("案件状态")
     )
-    start_date = models.DateField(default=date.today, verbose_name="收案日期")
-    effective_date = models.DateField(blank=True, null=True, verbose_name="生效日期")
-    specified_date = models.DateField(blank=True, null=True, verbose_name="指定日期")
-    cause_of_action = models.CharField(max_length=128, blank=True, null=True, verbose_name="案由")
-    target_amount = models.DecimalField(max_digits=14, decimal_places=2, blank=True, null=True, verbose_name="涉案金额")
+    start_date = models.DateField(default=date.today, verbose_name=_("收案日期"))
+    effective_date = models.DateField(blank=True, null=True, verbose_name=_("生效日期"))
+    specified_date = models.DateField(blank=True, null=True, verbose_name=_("指定日期"))
+    cause_of_action = models.CharField(max_length=128, blank=True, null=True, verbose_name=_("案由"))
+    target_amount = models.DecimalField(
+        max_digits=14, decimal_places=2, blank=True, null=True, verbose_name=_("涉案金额")
+    )
     preservation_amount = models.DecimalField(
-        max_digits=14, decimal_places=2, blank=True, null=True, verbose_name="财产保全金额"
+        max_digits=14, decimal_places=2, blank=True, null=True, verbose_name=_("财产保全金额")
     )
     case_type = models.CharField(
         max_length=32,
@@ -60,10 +63,10 @@ class Case(models.Model):
         default=SimpleCaseType.CIVIL,
         blank=True,
         null=True,
-        verbose_name="案件类型",
+        verbose_name=_("案件类型"),
     )
     current_stage = models.CharField(
-        max_length=64, choices=CaseStage.choices, blank=True, null=True, verbose_name="当前阶段"
+        max_length=64, choices=CaseStage.choices, blank=True, null=True, verbose_name=_("当前阶段")
     )
     previous_case = models.ForeignKey(
         "self",
@@ -71,8 +74,8 @@ class Case(models.Model):
         null=True,
         blank=True,
         related_name="next_cases",
-        verbose_name="前序案件",
-        help_text="该案的前一个审理阶段，如二审案件指向前一审案件",
+        verbose_name=_("前序案件"),
+        help_text=_("该案的前一个审理阶段，如二审案件指向前一审案件"),
     )
 
     history = HistoricalRecords()
@@ -92,8 +95,8 @@ class Case(models.Model):
         template_bindings: RelatedManager[CaseTemplateBinding]
 
     class Meta:
-        verbose_name = "案件"
-        verbose_name_plural = "案件"
+        verbose_name = _("案件")
+        verbose_name_plural = _("案件")
         indexes: ClassVar = [
             models.Index(fields=["contract"]),
             models.Index(fields=["is_filed"]),
@@ -145,103 +148,103 @@ class Case(models.Model):
         if self.current_stage:
             valid_stages = {c[0] for c in CaseStage.choices}
             if self.current_stage not in valid_stages:
-                raise ValidationError({"current_stage": "无效的案件阶段"})
+                raise ValidationError({"current_stage": _("无效的案件阶段")})
 
 
 class CaseFilingNumberSequence(models.Model):
     id: int
-    year = models.IntegerField(unique=True, verbose_name="年份")
-    next_value = models.IntegerField(default=1, verbose_name="下一个序号")
-    updated_at = models.DateTimeField(auto_now=True, verbose_name="更新时间")
+    year = models.IntegerField(unique=True, verbose_name=_("年份"))
+    next_value = models.IntegerField(default=1, verbose_name=_("下一个序号"))
+    updated_at = models.DateTimeField(auto_now=True, verbose_name=_("更新时间"))
 
     class Meta:
-        verbose_name = "案件建档编号序列"
-        verbose_name_plural = "案件建档编号序列"
+        verbose_name = _("案件建档编号序列")
+        verbose_name_plural = _("案件建档编号序列")
         indexes: ClassVar = [models.Index(fields=["year"])]
 
 
 class CaseNumber(models.Model):
     YEAR_DAYS_CHOICES: ClassVar = (
-        (360, "360天"),
-        (365, "365天"),
-        (0, "按实际天数"),
+        (360, _("360天")),
+        (365, _("365天")),
+        (0, _("按实际天数")),
     )
     DATE_INCLUSION_CHOICES: ClassVar = (
-        ("both", "起止日都计入"),
-        ("start_only", "仅计入起始日"),
-        ("end_only", "仅计入截止日"),
-        ("neither", "起止日都不计入"),
+        ("both", _("起止日都计入")),
+        ("start_only", _("仅计入起始日")),
+        ("end_only", _("仅计入截止日")),
+        ("neither", _("起止日都不计入")),
     )
 
     id: int
-    case = models.ForeignKey(Case, on_delete=models.CASCADE, related_name="case_numbers", verbose_name="案件")
-    number = models.CharField(max_length=128, verbose_name="案号")
+    case = models.ForeignKey(Case, on_delete=models.CASCADE, related_name="case_numbers", verbose_name=_("案件"))
+    number = models.CharField(max_length=128, verbose_name=_("案号"))
     document_name = models.CharField(
         max_length=128,
         blank=True,
         null=True,
-        verbose_name="文书名称",
-        help_text="如：民事判决书、民事调解书、执行证书等",
+        verbose_name=_("文书名称"),
+        help_text=_("如：民事判决书、民事调解书、执行证书等"),
     )
     document_file = models.FileField(
         upload_to=DatedUUIDPath("case_documents"),
         blank=True,
         null=True,
-        verbose_name="裁判文书文件",
-        help_text="上传PDF格式的裁判文书，用于自动提取执行依据主文",
+        verbose_name=_("裁判文书文件"),
+        help_text=_("上传PDF格式的裁判文书，用于自动提取执行依据主文"),
     )
     document_content = models.TextField(
         blank=True,
         null=True,
-        verbose_name="执行依据主文",
-        help_text="从裁判文书自动提取的判决/调解主文内容",
+        verbose_name=_("执行依据主文"),
+        help_text=_("从裁判文书自动提取的判决/调解主文内容"),
     )
-    is_active = models.BooleanField(default=False, verbose_name="是否已生效")
+    is_active = models.BooleanField(default=False, verbose_name=_("是否已生效"))
     execution_cutoff_date = models.DateField(
         blank=True,
         null=True,
-        verbose_name="执行事项截止日",
-        help_text="申请执行事项中利息计算截至日期；为空时优先按案件“指定日期”计算，未填写指定日期时按当天计算",
+        verbose_name=_("执行事项截止日"),
+        help_text=_("申请执行事项中利息计算截至日期；为空时优先按案件“指定日期”计算，未填写指定日期时按当天计算"),
     )
     execution_paid_amount = models.DecimalField(
         max_digits=14,
         decimal_places=2,
         default=0,
-        verbose_name="已付款金额",
-        help_text="用于按抵扣顺序重算未付款项，默认 0",
+        verbose_name=_("已付款金额"),
+        help_text=_("用于按抵扣顺序重算未付款项，默认 0"),
     )
     execution_use_deduction_order = models.BooleanField(
         default=False,
-        verbose_name="启用抵扣顺序",
-        help_text="启用后按文书条款中的抵扣顺序处理已付款",
+        verbose_name=_("启用抵扣顺序"),
+        help_text=_("启用后按文书条款中的抵扣顺序处理已付款"),
     )
     execution_year_days = models.PositiveSmallIntegerField(
         choices=YEAR_DAYS_CHOICES,
         default=360,
-        verbose_name="年基准天数",
-        help_text="利息计算参数：360 / 365 / 按实际天数",
+        verbose_name=_("年基准天数"),
+        help_text=_("利息计算参数：360 / 365 / 按实际天数"),
     )
     execution_date_inclusion = models.CharField(
         max_length=16,
         choices=DATE_INCLUSION_CHOICES,
         default="both",
-        verbose_name="日期包含方式",
-        help_text="利息计算参数：起止日期是否计入",
+        verbose_name=_("日期包含方式"),
+        help_text=_("利息计算参数：起止日期是否计入"),
     )
     execution_manual_text = models.TextField(
         blank=True,
         null=True,
-        verbose_name="申请执行事项（手工最终文本）",
-        help_text="有值时模板生成优先使用该文本",
+        verbose_name=_("申请执行事项（手工最终文本）"),
+        help_text=_("有值时模板生成优先使用该文本"),
     )
-    remarks = models.TextField(blank=True, null=True, verbose_name="备注")
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
+    remarks = models.TextField(blank=True, null=True, verbose_name=_("备注"))
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name=_("创建时间"))
 
     history = HistoricalRecords()
 
     class Meta:
-        verbose_name = "案件案号"
-        verbose_name_plural = "案件案号"
+        verbose_name = _("案件案号")
+        verbose_name_plural = _("案件案号")
         ordering: ClassVar = ["created_at"]
         indexes: ClassVar = [
             models.Index(fields=["number"]),
@@ -262,26 +265,26 @@ class SupervisingAuthority(models.Model):
 
     id: int
     case = models.ForeignKey(
-        Case, on_delete=models.CASCADE, related_name="supervising_authorities", verbose_name="案件"
+        Case, on_delete=models.CASCADE, related_name="supervising_authorities", verbose_name=_("案件")
     )
-    name = models.CharField(max_length=255, blank=True, null=True, verbose_name="名称")
+    name = models.CharField(max_length=255, blank=True, null=True, verbose_name=_("名称"))
     authority_type = models.CharField(
         max_length=32,
         choices=AuthorityType.choices,
         default=AuthorityType.TRIAL,
         blank=True,
         null=True,
-        verbose_name="性质",
+        verbose_name=_("性质"),
     )
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name=_("创建时间"))
 
     if TYPE_CHECKING:
         materials: RelatedManager[CaseMaterial]
         material_group_orders: RelatedManager[CaseMaterialGroupOrder]
 
     class Meta:
-        verbose_name = "主管机关"
-        verbose_name_plural = "主管机关"
+        verbose_name = _("主管机关")
+        verbose_name_plural = _("主管机关")
         ordering: ClassVar = ["created_at"]
         indexes: ClassVar = [
             models.Index(fields=["case"]),

@@ -7,6 +7,7 @@ from typing import Any
 
 from django.db import transaction
 from django.utils.safestring import mark_safe
+from django.utils.translation import gettext_lazy as _
 
 from apps.core.exceptions import NotFoundError
 from apps.documents.models import FolderTemplate

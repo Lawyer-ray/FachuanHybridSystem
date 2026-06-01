@@ -50,6 +50,11 @@ class FormatMethod(models.TextChoices):
     LLM = "llm", "AI 排版"
 
 
+class FormatMethod(models.TextChoices):
+    RULE = "rule", _("规则排版")
+    LLM = "llm", _("AI 排版")
+
+
 class PublishTask(models.Model):
     """公众号文章发布任务"""
 

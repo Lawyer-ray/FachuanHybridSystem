@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, ClassVar
 from django import forms
 from django.contrib import admin
 from django.http import HttpRequest
+from django.utils.translation import gettext_lazy as _
 
 from apps.contracts.models import (
     ContractAssignment,
@@ -31,8 +32,8 @@ else:
 class FinalizedMaterialAdminForm(forms.ModelForm[FinalizedMaterial]):
     file = forms.FileField(
         required=False,
-        label="上传文件",
-        help_text="仅支持 PDF，最大 20MB",
+        label=_("上传文件"),
+        help_text=_("仅支持 PDF，最大 20MB"),
     )
 
     class Meta:
@@ -63,7 +64,7 @@ class FinalizedMaterialInline(BaseTabularInline):
     readonly_fields: ClassVar = ("filename_link", "uploaded_at")
     classes = ("collapse",)
 
-    @admin.display(description="原始文件名")
+    @admin.display(description=_("原始文件名"))
     def filename_link(self, obj: FinalizedMaterial) -> str:
         from django.utils.html import format_html
 

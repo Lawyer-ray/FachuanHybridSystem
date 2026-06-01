@@ -7,6 +7,7 @@ likely added by a migration that was later reverted without cleaning up the DB.
 
 from django.db import migrations
 
+
 class Migration(migrations.Migration):
 
     dependencies = [

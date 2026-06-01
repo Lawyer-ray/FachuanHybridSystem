@@ -66,6 +66,7 @@ THEMES: dict[str, ThemeConfig] = {
     "green": THEME_GREEN,
 }
 
+
 # ── GFM Alert / Callout 支持 ──────────────────────────────────────────────
 
 _ALERT_TYPES: dict[str, tuple[str, str]] = {

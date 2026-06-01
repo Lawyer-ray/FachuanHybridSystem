@@ -1,4 +1,5 @@
 {% extends "admin/change_form.html" %}
+{% load i18n %}
 
 {% block admin_change_form_document_ready %}
 {{ block.super }}
@@ -11,12 +12,12 @@
 
     const TERMINAL = ['completed', 'failed', 'extraction_failed'];
     const STEP_LABELS = {
-        'title_extraction': '{',
-        'typo_check': '{',
-        'contract_review': '{',
-        'format_document': '{',
-        'page_numbering': '{',
-        'heading_numbering': '{',
+        'title_extraction': '{% trans "标题提取" %}',
+        'typo_check': '{% trans "错别字检测" %}',
+        'contract_review': '{% trans "合同审查" %}',
+        'format_document': '{% trans "格式标准化" %}',
+        'page_numbering': '{% trans "页码标准化" %}',
+        'heading_numbering': '{% trans "标题序号" %}',
     };
 
     function currentStatus() {
