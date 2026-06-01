@@ -121,19 +121,21 @@ class SMSNotifyingStage(BaseSMSStage):
             sms.status = CourtSMSStatus.COMPLETED
             logger.info(f"案件群聊通知发送成功，短信处理完成: SMS ID={sms.id}")
         else:
-            sms.status = CourtSMSStatus.FAILED
+            sms.status = CourtSMSStatus.COMPLETED
             error_detail = "; ".join(f"{r.platform}: {r.error}" for r in result.attempts if not r.success)
-            sms.error_message = f"案件群聊通知发送失败: {error_detail}" if error_detail else "案件群聊通知发送失败"
-            logger.error(f"案件群聊通知发送失败，短信标记为失败: SMS ID={sms.id}")
+            sms.error_message = (
+                f"案件群聊通知发送失败（不影响文书归档）: {error_detail}" if error_detail else "案件群聊通知发送失败（不影响文书归档）"
+            )
+            logger.warning(f"案件群聊通知发送失败，但文书已归档，短信标记为完成: SMS ID={sms.id}")
 
     def _handle_notification_error(self, sms: CourtSMS, error: Exception) -> None:
         error_msg = str(error)
         sms.notification_results = sms.notification_results or {}
         sms.notification_results["_exception"] = {"success": False, "error": error_msg}
-        sms.status = CourtSMSStatus.FAILED
-        sms.error_message = f"案件群聊通知发送失败: {error_msg}"
+        sms.status = CourtSMSStatus.COMPLETED
+        sms.error_message = f"案件群聊通知发送失败（不影响文书归档）: {error_msg}"
         sms.save()
-        logger.error(f"案件群聊通知发送失败: SMS ID={sms.id}, 错误: {error_msg}")
+        logger.warning(f"案件群聊通知发送失败，但文书已归档，短信标记为完成: SMS ID={sms.id}, 错误: {error_msg}")
 
 
 def create_sms_notifying_stage(

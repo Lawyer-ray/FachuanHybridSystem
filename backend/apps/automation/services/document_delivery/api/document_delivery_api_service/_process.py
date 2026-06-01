@@ -216,9 +216,9 @@ class DocumentProcessMixin:
                         sms.status = CourtSMSStatus.COMPLETED
                         logger.info(f"通知发送成功: SMS ID={sms.id}")
                     else:
-                        sms.status = CourtSMSStatus.FAILED
-                        sms.error_message = "通知发送失败"
-                        logger.warning(f"通知发送失败: SMS ID={sms.id}")
+                        sms.status = CourtSMSStatus.COMPLETED
+                        sms.error_message = "通知发送失败（不影响文书归档）"
+                        logger.warning(f"通知发送失败，但文书已归档，短信标记为完成: SMS ID={sms.id}")
 
                     sms.save()
                     result["success"] = True
