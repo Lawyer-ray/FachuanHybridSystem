@@ -1,4 +1,3 @@
-import { createApiClient } from '@/lib/api'
 import { casesCrudApi } from './cases'
 import { partiesApi } from './parties'
 import { logsApi } from './logs'
@@ -7,10 +6,6 @@ import { courtFilingApi } from './court-filing'
 import { courtGuaranteeApi } from './court-guarantee'
 import { authorizationApi } from './authorization'
 import { preservationApi } from './preservation'
-
-const courtStatusClient = createApiClient({
-  prefixUrl: `${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8002/api/v1'}/court`,
-})
 
 export const caseApi = {
   ...casesCrudApi,
@@ -76,9 +71,6 @@ export const caseApi = {
   deleteGuaranteeQuoteBinding: courtGuaranteeApi.deleteQuoteBinding,
   executeCourtGuarantee: courtGuaranteeApi.execute,
   getCourtGuaranteeSession: courtGuaranteeApi.getSession,
-  // Court Status
-  getCourtStatus: (): Promise<{ available: boolean }> =>
-    courtStatusClient.get('status').json(),
   // Authorization Materials
   downloadAuthorizationPackage: authorizationApi.downloadPackage,
   downloadAuthorizationLetter: authorizationApi.downloadLetter,
