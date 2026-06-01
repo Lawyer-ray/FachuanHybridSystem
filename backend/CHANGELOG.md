@@ -1,13 +1,5 @@
 # Changelog
 
-## 26.50.10
-
-### 后端
-
-#### 修复
-- 移除登录页面外部 CDN 依赖（Google Fonts、jsdelivr），改用本地静态资源，解决国内网络 ERR_CONNECTION_CLOSED 错误
-- 修复 Lawyer email 字段空字符串导致 PostgreSQL 唯一约束冲突，将空字符串转为 NULL
-
 ## 26.48.11
 
 ### 后端
