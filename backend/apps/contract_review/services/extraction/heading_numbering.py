@@ -6,8 +6,12 @@ import re
 
 from docx import Document
 from docx.document import Document as DocumentType
-from docx.oxml import OxmlElement
+from docx.opc.constants import CONTENT_TYPE as CT
+from docx.opc.constants import RELATIONSHIP_TYPE as RT
+from docx.opc.packuri import PackURI
+from docx.oxml import OxmlElement, parse_xml
 from docx.oxml.ns import qn
+from docx.parts.numbering import NumberingPart
 
 from apps.core.llm.service import LLMService
 
@@ -52,7 +56,7 @@ class HeadingNumbering:
                 num_pr.getparent().remove(num_pr)
 
         # 拆分区域并分配 numId
-        numbering_elem = doc.part.numbering_part.element
+        numbering_elem = self._get_or_add_numbering_part(doc).element
         sections: list[list[tuple[int, int]]] = [[]]
         for idx, lvl in headings:
             if lvl == -1:
@@ -229,7 +233,7 @@ class HeadingNumbering:
 
     def _create_abstract_num(self, doc: DocumentType) -> int:
         """创建 abstractNum 定义，返回 abstractNumId"""
-        numbering_part = doc.part.numbering_part
+        numbering_part = self._get_or_add_numbering_part(doc)
         numbering_elem = numbering_part.element
 
         existing_ids = {int(a.get(qn("w:abstractNumId"), 0)) for a in numbering_elem.findall(qn("w:abstractNum"))}
@@ -277,6 +281,32 @@ class HeadingNumbering:
             numbering_elem.append(abstract_num)
 
         return abstract_id
+
+    @staticmethod
+    def _get_or_add_numbering_part(doc: DocumentType) -> NumberingPart:
+        """Return the numbering part, creating it for DOCX files that omit it.
+
+        python-docx 1.2.0 tries to create this part through NumberingPart.new(),
+        but that method raises NotImplementedError. Uploaded contracts can omit
+        word/numbering.xml entirely, so create the minimal OOXML part directly.
+        """
+        try:
+            return doc.part.numbering_part
+        except NotImplementedError:
+            logger.info("DOCX has no numbering part; creating a minimal numbering.xml part")
+
+        package = doc.part.package
+        partnames = {part.partname for part in package.iter_parts()}
+        partname = PackURI("/word/numbering.xml")
+        if partname in partnames:
+            partname = package.next_partname("/word/numbering%d.xml")
+
+        numbering_xml = (
+            '<w:numbering xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"/>'
+        )
+        numbering_part = NumberingPart(partname, CT.WML_NUMBERING, parse_xml(numbering_xml), package)
+        doc.part.relate_to(numbering_part, RT.NUMBERING)
+        return numbering_part
 
     @staticmethod
     def _create_num_ref(numbering_elem: object, abstract_id: int) -> int:
