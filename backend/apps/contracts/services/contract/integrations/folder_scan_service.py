@@ -548,7 +548,7 @@ class ContractFolderScanService:
 
     def _is_within_root(self, root: Path, target: Path) -> bool:
         try:
-            return os.path.commonpath([root.as_posix(), target.as_posix()]) == root.as_posix()
+            return os.path.commonpath([root.as_posix(), target.as_posix()]).replace("\\", "/") == root.as_posix()
         except ValueError:
             return False
 
