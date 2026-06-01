@@ -460,7 +460,20 @@
 {% endblock %}
 
 {% block content %}
-<div id="content-main" class="other-tools-page" x-data="{ query: '' }">
+<div id="content-main" class="other-tools-page" x-data="{
+  query: new URLSearchParams(window.location.search).get('q') || '',
+  init() {
+    this.$watch('query', (val) => {
+      const url = new URL(window.location);
+      if (val) {
+        url.searchParams.set('q', val);
+      } else {
+        url.searchParams.delete('q');
+      }
+      history.replaceState(null, '', url);
+    });
+  }
+}">
   <section class="hero-panel">
     <div class="hero-content">
       <div class="hero-copy">
