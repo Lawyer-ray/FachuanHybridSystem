@@ -1,10 +1,9 @@
-"""合同格式规范化工具 - 精确匹配修订版格式
+"""合同格式规范化工具 - 直接复制修订版格式
 
-通过分析修订版文档的精确格式，逐段落匹配并应用格式。
+通过读取修订版文档的精确格式，逐段落复制到原始文档。
 """
 
 import logging
-import re
 from pathlib import Path
 from typing import Any
 
@@ -21,30 +20,26 @@ MARGIN_BOTTOM = Cm(2.54)
 MARGIN_LEFT = Cm(3.17)
 MARGIN_RIGHT = Cm(3.17)
 
-# 字号（半磅为单位）
-FONT_SIZE_BODY = 24        # 12 磅
-FONT_SIZE_TITLE = 52       # 26 磅
-
-# 行距（twips）
-LINE_SPACING = 360         # 1.5 倍行距
-
-# 字体
-FONT_CHINESE = "宋体"
-FONT_ENGLISH = "Times New Roman"
-
 
 class DocxFormatNormalizer:
-    """合同格式规范化器 - 精确匹配修订版"""
+    """合同格式规范化器 - 直接复制修订版格式"""
 
-    def __init__(self, input_path: str | Path, output_path: str | Path | None = None):
+    def __init__(self, input_path: str | Path, output_path: str | Path | None = None, reference_path: str | Path | None = None):
         self.input_path = Path(input_path)
         self.output_path = Path(output_path) if output_path else self.input_path.parent / f"{self.input_path.stem}_规范化{self.input_path.suffix}"
+        self.reference_path = Path(reference_path) if reference_path else None
         self.doc: Document | None = None
+        self.ref_doc: Document | None = None
 
     def normalize(self) -> Path:
         """执行格式规范化，返回输出文件路径"""
         logger.info("开始规范化: %s", self.input_path)
         self.doc = Document(str(self.input_path))
+
+        # 加载参考文档
+        if self.reference_path and self.reference_path.exists():
+            self.ref_doc = Document(str(self.reference_path))
+            logger.info("已加载参考文档: %s", self.reference_path)
 
         # 1. 设置页边距
         self._normalize_margins()
@@ -52,8 +47,13 @@ class DocxFormatNormalizer:
         # 2. 定义编号样式
         self._setup_numbering()
 
-        # 3. 规范化段落格式（精确匹配）
-        self._normalize_paragraphs()
+        # 3. 规范化段落格式
+        if self.ref_doc:
+            # 使用参考文档的格式
+            self._normalize_with_reference()
+        else:
+            # 使用默认格式
+            self._normalize_default()
 
         # 4. 保存
         self.doc.save(str(self.output_path))
@@ -70,14 +70,14 @@ class DocxFormatNormalizer:
         logger.debug("页边距已标准化")
 
     def _setup_numbering(self) -> None:
-        """设置自动编号样式（匹配修订版）"""
+        """设置自动编号样式"""
         try:
             numbering_part = self.doc.part.numbering_part
             numbering_elm = numbering_part._element
         except (KeyError, NotImplementedError):
             numbering_elm = self._create_numbering_part()
 
-        # 创建 abstractNum（匹配修订版格式）
+        # 创建 abstractNum
         abstractNum = OxmlElement('w:abstractNum')
         abstractNum.set(qn('w:abstractNumId'), '0')
 
@@ -96,7 +96,7 @@ class DocxFormatNormalizer:
         # 插入到 numbering 元素开头
         numbering_elm.insert(0, abstractNum)
 
-        # 创建 num 实例（numId=1，引用 abstractNumId=0）
+        # 创建 num 实例
         num = OxmlElement('w:num')
         num.set(qn('w:numId'), '1')
         abstractNumRef = OxmlElement('w:abstractNumId')
@@ -171,111 +171,154 @@ class DocxFormatNormalizer:
 
         return lvl
 
-    def _normalize_paragraphs(self) -> None:
-        """规范化所有段落格式（精确匹配修订版）"""
+    def _normalize_with_reference(self) -> None:
+        """使用参考文档的格式进行规范化"""
+        ref_paras = self.ref_doc.paragraphs
+        doc_paras = self.doc.paragraphs
+
+        # 逐段落复制格式
+        for i, para in enumerate(doc_paras):
+            if i < len(ref_paras):
+                # 从参考文档获取格式
+                ref_para = ref_paras[i]
+                self._copy_paragraph_format(ref_para, para, i)
+            else:
+                # 超出参考文档范围，使用默认格式
+                self._apply_default_format(para, i)
+
+        logger.debug("段落格式已规范化（使用参考文档）")
+
+    def _normalize_default(self) -> None:
+        """使用默认格式进行规范化"""
         for i, para in enumerate(self.doc.paragraphs):
-            self._normalize_single_paragraph(para, i)
+            self._apply_default_format(para, i)
 
-        logger.debug("段落格式已规范化")
+        logger.debug("段落格式已规范化（使用默认格式）")
 
-    def _normalize_single_paragraph(self, para: Any, index: int) -> None:
-        """规范化单个段落"""
-        text = para.text.strip()
+    def _copy_paragraph_format(self, ref_para: Any, doc_para: Any, index: int) -> None:
+        """从参考文档复制段落格式"""
+        # 获取参考文档的段落格式
+        ref_pPr = ref_para._element.find(qn('w:pPr'))
+        doc_pPr = doc_para._element.get_or_add_pPr()
+
+        # 清除旧的格式
+        self._clear_old_format(doc_pPr)
+
+        # 复制 pPr 属性
+        if ref_pPr is not None:
+            # 复制对齐方式
+            ref_jc = ref_pPr.find(qn('w:jc'))
+            if ref_jc is not None:
+                jc = OxmlElement('w:jc')
+                jc.set(qn('w:val'), ref_jc.get(qn('w:val')))
+                doc_pPr.append(jc)
+
+            # 复制行距
+            ref_spacing = ref_pPr.find(qn('w:spacing'))
+            if ref_spacing is not None:
+                spacing = OxmlElement('w:spacing')
+                for attr in ['w:line', 'w:lineRule', 'w:before', 'w:after']:
+                    val = ref_spacing.get(qn(attr))
+                    if val is not None:
+                        spacing.set(qn(attr), val)
+                doc_pPr.append(spacing)
+
+            # 复制缩进
+            ref_ind = ref_pPr.find(qn('w:ind'))
+            if ref_ind is not None:
+                ind = OxmlElement('w:ind')
+                for attr in ['w:left', 'w:firstLine', 'w:hanging']:
+                    val = ref_ind.get(qn(attr))
+                    if val is not None:
+                        ind.set(qn(attr), val)
+                doc_pPr.append(ind)
+
+            # 复制编号
+            ref_numPr = ref_pPr.find(qn('w:numPr'))
+            if ref_numPr is not None:
+                numPr = OxmlElement('w:numPr')
+                ref_ilvl = ref_numPr.find(qn('w:ilvl'))
+                if ref_ilvl is not None:
+                    ilvl = OxmlElement('w:ilvl')
+                    ilvl.set(qn('w:val'), ref_ilvl.get(qn('w:val')))
+                    numPr.append(ilvl)
+                ref_numId = ref_numPr.find(qn('w:numId'))
+                if ref_numId is not None:
+                    numId = OxmlElement('w:numId')
+                    numId.set(qn('w:val'), ref_numId.get(qn('w:val')))
+                    numPr.append(numId)
+                doc_pPr.append(numPr)
+
+        # 复制 run 格式
+        self._copy_run_format(ref_para, doc_para)
+
+    def _copy_run_format(self, ref_para: Any, doc_para: Any) -> None:
+        """从参考文档复制 run 格式"""
+        # 获取参考文档的 run 格式
+        if ref_para.runs:
+            ref_rPr = ref_para.runs[0]._element.find(qn('w:rPr'))
+        else:
+            ref_rPr = None
+
+        # 应用到文档的每个 run
+        for run in doc_para.runs:
+            rPr = run._element.get_or_add_rPr()
+
+            # 清除旧的格式
+            for tag in ['w:rFonts', 'w:sz', 'w:szCs', 'w:b']:
+                old = rPr.find(qn(tag))
+                if old is not None:
+                    rPr.remove(old)
+
+            # 复制格式
+            if ref_rPr is not None:
+                # 复制字体
+                ref_rFonts = ref_rPr.find(qn('w:rFonts'))
+                if ref_rFonts is not None:
+                    rFonts = OxmlElement('w:rFonts')
+                    for attr in ['w:ascii', 'w:hAnsi', 'w:eastAsia', 'w:cs']:
+                        val = ref_rFonts.get(qn(attr))
+                        if val is not None:
+                            rFonts.set(qn(attr), val)
+                    rPr.insert(0, rFonts)
+
+                # 复制字号
+                ref_sz = ref_rPr.find(qn('w:sz'))
+                if ref_sz is not None:
+                    sz = OxmlElement('w:sz')
+                    sz.set(qn('w:val'), ref_sz.get(qn('w:val')))
+                    rPr.append(sz)
+
+                ref_szCs = ref_rPr.find(qn('w:szCs'))
+                if ref_szCs is not None:
+                    szCs = OxmlElement('w:szCs')
+                    szCs.set(qn('w:val'), ref_szCs.get(qn('w:val')))
+                    rPr.append(szCs)
+
+                # 复制加粗
+                ref_b = ref_rPr.find(qn('w:b'))
+                if ref_b is not None:
+                    b = OxmlElement('w:b')
+                    rPr.append(b)
+
+    def _apply_default_format(self, para: Any, index: int) -> None:
+        """应用默认格式"""
         pPr = para._element.get_or_add_pPr()
 
         # 清除旧的格式
         self._clear_old_format(pPr)
 
         # 基础格式：行距 360，左缩进 0
-        self._set_spacing(pPr)
-        self._set_indent(pPr, left='0')
+        spacing = OxmlElement('w:spacing')
+        spacing.set(qn('w:line'), '360')
+        spacing.set(qn('w:lineRule'), 'auto')
+        spacing.set(qn('w:before'), '0')
+        spacing.set(qn('w:after'), '0')
+        pPr.append(spacing)
 
-        # 根据内容判断格式
-        if not text:
-            # 空行：清除 run 属性
-            self._clear_run_properties(para)
-            # 特殊空行需要设置对齐（根据修订版的规律）
-            if index == 4:  # 第5个段落（标题后的空行）
-                self._set_alignment(pPr, 'right')
-            elif index in [6, 9, 10]:  # 第7、10、11个段落
-                self._set_alignment(pPr, 'left')
-            elif index in [12, 16, 17]:  # 第13、17、18个段落
-                self._set_alignment(pPr, 'both')
-            return
-
-        # 标题（合同标题）
-        if self._is_contract_title(text):
-            self._set_alignment(pPr, 'center')
-            self._set_run_font(para, FONT_SIZE_TITLE, bold=True)
-            return
-
-        # 甲方/乙方行
-        if self._is_party_header(text):
-            self._set_alignment(pPr, 'both')
-            self._set_run_font(para, FONT_SIZE_BODY)
-            return
-
-        # 乙方详细信息（法定代表人、地址、信用代码）- 需要加粗
-        if self._is_party_b_detail(text, index):
-            self._set_run_font(para, FONT_SIZE_BODY, bold=True)
-            return
-
-        # 甲方详细信息（法定代表人、地址、信用代码）
-        if self._is_party_a_detail(text):
-            self._set_alignment(pPr, 'left')
-            self._set_run_font(para, FONT_SIZE_BODY)
-            return
-
-        # 条标题（第一条、第二条...）
-        if self._is_article_title(text):
-            self._set_numbering(pPr, num_id='1', ilvl='1')
-            self._set_run_font(para, FONT_SIZE_BODY)
-            return
-
-        # 正文：两端对齐，设置字号为12磅
-        self._set_alignment(pPr, 'both')
-        self._set_run_font(para, FONT_SIZE_BODY)
-
-    def _is_contract_title(self, text: str) -> bool:
-        """判断是否为合同标题"""
-        title_keywords = ['合同', '协议', '契约', '合约']
-        return any(kw in text for kw in title_keywords) and len(text) < 30
-
-    def _is_party_header(self, text: str) -> bool:
-        """判断是否为甲方/乙方行"""
-        return bool(re.match(r'^[甲乙丙丁]方[：:]', text))
-
-    def _is_party_a_detail(self, text: str) -> bool:
-        """判断是否为甲方详细信息"""
-        # 甲方的法定代表人、地址、信用代码
-        if not self._is_detail_pattern(text):
-            return False
-        # 简化处理：所有详细信息都当作甲方
-        return True
-
-    def _is_party_b_detail(self, text: str, index: int) -> bool:
-        """判断是否为乙方详细信息（需要加粗）"""
-        # 乙方的法定代表人、地址、信用代码需要加粗
-        # 根据修订版的规律，段落12-14是乙方详细信息
-        if self._is_detail_pattern(text) and 12 <= index <= 14:
-            return True
-        return False
-
-    def _is_detail_pattern(self, text: str) -> bool:
-        """判断是否为详细信息模式"""
-        detail_patterns = [
-            r'^法定代表人[：:]',
-            r'^地址[：:]',
-            r'^统一社会信用代码[：:]',
-            r'^联系人[/／]电话',
-            r'^电话[：:]',
-            r'^法人[：:]',
-        ]
-        return any(re.match(p, text) for p in detail_patterns)
-
-    def _is_article_title(self, text: str) -> bool:
-        """判断是否为条标题（第X条）"""
-        return bool(re.match(r'^第[一二三四五六七八九十百]+条', text))
+        ind = OxmlElement('w:ind')
+        ind.set(qn('w:left'), '0')
+        pPr.append(ind)
 
     def _clear_old_format(self, pPr: Any) -> None:
         """清除旧的格式定义"""
@@ -283,87 +326,3 @@ class DocxFormatNormalizer:
             old = pPr.find(qn(tag))
             if old is not None:
                 pPr.remove(old)
-
-    def _clear_run_properties(self, para: Any) -> None:
-        """清除段落中所有 run 的属性"""
-        for run in para.runs:
-            rPr = run._element.find(qn('w:rPr'))
-            if rPr is not None:
-                run._element.remove(rPr)
-
-    def _set_alignment(self, pPr: Any, align: str) -> None:
-        """设置对齐方式"""
-        jc = OxmlElement('w:jc')
-        jc.set(qn('w:val'), align)
-        pPr.append(jc)
-
-    def _set_spacing(self, pPr: Any) -> None:
-        """设置行距"""
-        spacing = OxmlElement('w:spacing')
-        spacing.set(qn('w:line'), str(LINE_SPACING))
-        spacing.set(qn('w:lineRule'), 'auto')
-        spacing.set(qn('w:before'), '0')
-        spacing.set(qn('w:after'), '0')
-        pPr.append(spacing)
-
-    def _set_indent(self, pPr: Any, left: str = '0') -> None:
-        """设置缩进"""
-        ind = OxmlElement('w:ind')
-        ind.set(qn('w:left'), left)
-        pPr.append(ind)
-
-    def _set_numbering(self, pPr: Any, num_id: str, ilvl: str) -> None:
-        """设置编号"""
-        numPr = OxmlElement('w:numPr')
-        ilvl_el = OxmlElement('w:ilvl')
-        ilvl_el.set(qn('w:val'), ilvl)
-        numPr.append(ilvl_el)
-
-        numId = OxmlElement('w:numId')
-        numId.set(qn('w:val'), num_id)
-        numPr.append(numId)
-
-        pPr.append(numPr)
-
-    def _set_run_font(self, para: Any, size: int, bold: bool = False) -> None:
-        """设置 run 的字体和字号"""
-        for run in para.runs:
-            rPr = run._element.get_or_add_rPr()
-
-            # 清除旧字体设置
-            old_rFonts = rPr.find(qn('w:rFonts'))
-            if old_rFonts is not None:
-                rPr.remove(old_rFonts)
-
-            # 设置新字体
-            rFonts = OxmlElement('w:rFonts')
-            rFonts.set(qn('w:ascii'), FONT_ENGLISH)
-            rFonts.set(qn('w:hAnsi'), FONT_ENGLISH)
-            rFonts.set(qn('w:eastAsia'), FONT_CHINESE)
-            rFonts.set(qn('w:cs'), FONT_ENGLISH)
-            rPr.insert(0, rFonts)
-
-            # 清除旧字号
-            for tag in ['w:sz', 'w:szCs']:
-                old = rPr.find(qn(tag))
-                if old is not None:
-                    rPr.remove(old)
-
-            # 设置字号
-            sz = OxmlElement('w:sz')
-            sz.set(qn('w:val'), str(size))
-            rPr.append(sz)
-
-            szCs = OxmlElement('w:szCs')
-            szCs.set(qn('w:val'), str(size))
-            rPr.append(szCs)
-
-            # 清除旧加粗
-            old_b = rPr.find(qn('w:b'))
-            if old_b is not None:
-                rPr.remove(old_b)
-
-            # 设置加粗
-            if bold:
-                b = OxmlElement('w:b')
-                rPr.append(b)
