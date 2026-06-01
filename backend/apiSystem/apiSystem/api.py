@@ -149,7 +149,6 @@ def _register_app_routers() -> None:
     from apps.automation.api import router as automation_router
     from apps.automation.api.court_filing_api import router as court_filing_router
     from apps.automation.api.court_guarantee_api import router as court_guarantee_router
-    from apps.automation.api.court_status_api import router as court_status_router
     from apps.batch_printing.api import router as batch_printing_router
     from apps.cases.api import router as cases_router
     from apps.chat_records.api import router as chat_records_router
@@ -285,7 +284,6 @@ def _register_app_routers() -> None:
 
     api_v1.add_router("/court-filing", court_filing_router, auth=JWTOrSessionAuth(), tags=["一张网立案"])
     api_v1.add_router("/court-guarantee", court_guarantee_router, auth=JWTOrSessionAuth(), tags=["一张网担保"])
-    api_v1.add_router("/court", court_status_router, auth=JWTOrSessionAuth(), tags=["法院自动化状态"])
 
 
 # 防止 uvicorn reload 导致重复注册 - 在 api_v1 对象上设置标志
