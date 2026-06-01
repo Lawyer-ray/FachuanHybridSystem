@@ -260,6 +260,14 @@ class DocxFormatNormalizer:
         else:
             ref_rPr = None
 
+        # 如果文档没有 run，但参考文档有 run 格式，需要添加 run
+        if not doc_para.runs and ref_rPr is not None:
+            # 创建一个空的 run
+            run_elem = OxmlElement('w:r')
+            rPr = OxmlElement('w:rPr')
+            run_elem.append(rPr)
+            doc_para._element.append(run_elem)
+
         # 应用到文档的每个 run
         for run in doc_para.runs:
             rPr = run._element.get_or_add_rPr()
