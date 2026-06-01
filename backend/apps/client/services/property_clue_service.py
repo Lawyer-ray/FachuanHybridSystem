@@ -271,7 +271,7 @@ class PropertyClueService:
         file_name: str = uploaded_file.name or saved_path.name
         return self.add_attachment(
             clue_id=clue_id,
-            file_path=str(saved_path),
+            file_path=saved_path.as_posix(),
             file_name=file_name,
             user=user,
         )

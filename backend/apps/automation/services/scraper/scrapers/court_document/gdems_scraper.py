@@ -309,7 +309,7 @@ class GdemsCourtScraper(BaseCourtDocumentScraper):
             with zipfile.ZipFile(zip_filepath, "r") as zip_ref:
                 for member in zip_ref.infolist():
                     target = (extract_dir / member.filename).resolve()
-                    if not str(target).startswith(str(extract_dir.resolve())):
+                    if not target.is_relative_to(extract_dir.resolve()):
                         logger.warning(f"跳过不安全的 ZIP 条目: {member.filename}")
                         continue
                     zip_ref.extract(member, extract_dir)
