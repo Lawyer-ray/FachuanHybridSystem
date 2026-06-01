@@ -15,7 +15,6 @@ from django.http import HttpRequest, HttpResponse
 from django.utils import timezone
 from django.utils.html import format_html, format_html_join
 from django.utils.safestring import SafeData, SafeString
-from django.utils.translation import gettext_lazy as _
 
 from apps.automation.models import TokenAcquisitionHistory, TokenAcquisitionStatus
 
@@ -93,7 +92,7 @@ class TokenAcquisitionHistoryAdmin(admin.ModelAdmin):
 
     fieldsets = (
         (
-            _("基本信息"),
+            "基本信息",
             {
                 "fields": (
                     "id",
@@ -105,7 +104,7 @@ class TokenAcquisitionHistoryAdmin(admin.ModelAdmin):
             },
         ),
         (
-            _("执行结果"),
+            "执行结果",
             {
                 "fields": (
                     "status",
@@ -116,7 +115,7 @@ class TokenAcquisitionHistoryAdmin(admin.ModelAdmin):
             },
         ),
         (
-            _("性能指标"),
+            "性能指标",
             {
                 "fields": (
                     "performance_summary",
@@ -129,7 +128,7 @@ class TokenAcquisitionHistoryAdmin(admin.ModelAdmin):
             },
         ),
         (
-            _("时间信息"),
+            "时间信息",
             {
                 "fields": (
                     "created_at",
@@ -145,12 +144,12 @@ class TokenAcquisitionHistoryAdmin(admin.ModelAdmin):
 
     list_per_page = 50
 
-    @admin.display(description=_("站点"))
+    @admin.display(description="站点")
     def site_name_display(self, obj: TokenAcquisitionHistory) -> str:
         """显示可读站点名称"""
         return SITE_NAME_LABELS.get(obj.site_name, obj.site_name)  # type: ignore[no-any-return]
 
-    @admin.display(description=_("状态"))
+    @admin.display(description="状态")
     def status_display(self, obj: TokenAcquisitionHistory) -> SafeString:
         """带颜色的状态显示"""
         colors: dict[str, str] = {
@@ -180,7 +179,7 @@ class TokenAcquisitionHistoryAdmin(admin.ModelAdmin):
             obj.get_status_display(),
         )
 
-    @admin.display(description=_("触发原因"))
+    @admin.display(description="触发原因")
     def trigger_reason_display(self, obj: TokenAcquisitionHistory) -> SafeString:
         """格式化触发原因"""
         reason_map: dict[str, str] = {
@@ -195,7 +194,7 @@ class TokenAcquisitionHistoryAdmin(admin.ModelAdmin):
 
         return format_html('<span style="font-weight: bold;">{}</span>', display_text)
 
-    @admin.display(description=_("总耗时"))
+    @admin.display(description="总耗时")
     def performance_display(self, obj: TokenAcquisitionHistory) -> SafeString:
         """显示性能指标"""
         if not obj.total_duration:
@@ -211,7 +210,7 @@ class TokenAcquisitionHistoryAdmin(admin.ModelAdmin):
         duration_text = f"{duration:.1f}s"
         return format_html('<span style="color: {}; font-weight: bold;">{}</span>', color, duration_text)
 
-    @admin.display(description=_("尝试统计"))
+    @admin.display(description="尝试统计")
     def attempts_display(self, obj: TokenAcquisitionHistory) -> SafeString | SafeData:
         """显示尝试次数统计"""
         parts: list[SafeString] = []
@@ -243,9 +242,9 @@ class TokenAcquisitionHistoryAdmin(admin.ModelAdmin):
         if parts:
             return format_html_join(" | ", "{}", ((p,) for p in parts))
 
-        return format_html('<span style="color: #28a745;">{}</span>', _("一次成功"))
+        return format_html('<span style="color: #28a745;">{}</span>', "一次成功")
 
-    @admin.display(description=_("耗时详情"))
+    @admin.display(description="耗时详情")
     def duration_display(self, obj: TokenAcquisitionHistory) -> SafeString | SafeData:
         """显示详细耗时信息"""
         if not obj.total_duration:
@@ -260,7 +259,7 @@ class TokenAcquisitionHistoryAdmin(admin.ModelAdmin):
 
         return format_html_join("<br>", "{}", ((p,) for p in parts))
 
-    @admin.display(description=_("错误详情"))
+    @admin.display(description="错误详情")
     def error_details_display(self, obj: TokenAcquisitionHistory) -> SafeString:
         """格式化显示错误详情"""
         if not obj.error_details:
@@ -284,18 +283,18 @@ class TokenAcquisitionHistoryAdmin(admin.ModelAdmin):
                 str(obj.error_details)[:500],
             )
 
-    @admin.display(description=_("性能汇总"))
+    @admin.display(description="性能汇总")
     def performance_summary(self, obj: TokenAcquisitionHistory) -> SafeString:
         """性能汇总信息"""
         if not obj.total_duration:
-            return format_html('<p style="color: #999;">{}</p>', _("无性能数据"))
+            return format_html('<p style="color: #999;">{}</p>', "无性能数据")
 
         # 构建表格行列表
         rows: list[SafeString] = [
             format_html(
                 '<tr><td style="padding: 5px; font-weight: bold;">{}</td><td style="padding: 5px;">{}</td></tr>',
-                _("总耗时:"),
-                f"{obj.total_duration:.2f} " + str(_("秒")),
+                "总耗时:",
+                f"{obj.total_duration:.2f} " + "秒",
             ),
         ]
 
@@ -303,8 +302,8 @@ class TokenAcquisitionHistoryAdmin(admin.ModelAdmin):
             rows.append(
                 format_html(
                     '<tr><td style="padding: 5px; font-weight: bold;">{}</td><td style="padding: 5px;">{}</td></tr>',
-                    _("登录耗时:"),
-                    f"{obj.login_duration:.2f} " + str(_("秒")),
+                    "登录耗时:",
+                    f"{obj.login_duration:.2f} " + "秒",
                 )
             )
 
@@ -312,21 +311,21 @@ class TokenAcquisitionHistoryAdmin(admin.ModelAdmin):
             [
                 format_html(
                     '<tr><td style="padding: 5px; font-weight: bold;">{}</td><td style="padding: 5px;">{} {}</td></tr>',
-                    _("尝试次数:"),
+                    "尝试次数:",
                     obj.attempt_count,
-                    _("次"),
+                    "次",
                 ),
                 format_html(
                     '<tr><td style="padding: 5px; font-weight: bold;">{}</td><td style="padding: 5px;">{} {}</td></tr>',
-                    _("验证码尝试:"),
+                    "验证码尝试:",
                     obj.captcha_attempts,
-                    _("次"),
+                    "次",
                 ),
                 format_html(
                     '<tr><td style="padding: 5px; font-weight: bold;">{}</td><td style="padding: 5px;">{} {}</td></tr>',
-                    _("网络重试:"),
+                    "网络重试:",
                     obj.network_retries,
-                    _("次"),
+                    "次",
                 ),
             ]
         )
@@ -339,16 +338,16 @@ class TokenAcquisitionHistoryAdmin(admin.ModelAdmin):
         # 性能评级
         duration = float(obj.total_duration)
         if duration < 10:
-            rating: SafeString = format_html('<span style="color: #28a745; font-weight: bold;">{}</span>', _("优秀"))
+            rating: SafeString = format_html('<span style="color: #28a745; font-weight: bold;">{}</span>', "优秀")
         elif duration < 30:
-            rating = format_html('<span style="color: #ffc107; font-weight: bold;">{}</span>', _("良好"))
+            rating = format_html('<span style="color: #ffc107; font-weight: bold;">{}</span>', "良好")
         else:
-            rating = format_html('<span style="color: #dc3545; font-weight: bold;">{}</span>', _("需优化"))
+            rating = format_html('<span style="color: #dc3545; font-weight: bold;">{}</span>', "需优化")
 
         return format_html(
             '{}<p style="margin-top: 10px;">{}: {}</p>',
             table,
-            _("性能评级"),
+            "性能评级",
             rating,
         )
 
@@ -363,7 +362,7 @@ class TokenAcquisitionHistoryAdmin(admin.ModelAdmin):
     # 定义批量操作
     actions: ClassVar[list[str]] = ["cleanup_old_records", "export_to_csv", "reanalyze_performance"]  # type: ignore[misc]
 
-    @admin.action(description=_("清理30天前的一张网/保全Token历史记录"))
+    @admin.action(description="清理30天前的一张网/保全Token历史记录")
     def cleanup_old_records(
         self,
         request: HttpRequest,
@@ -377,14 +376,14 @@ class TokenAcquisitionHistoryAdmin(admin.ModelAdmin):
             if count > 0:
                 self.message_user(
                     request,
-                    _("成功清理 %(count)d 条30天前的历史记录") % {"count": count},
+                    "成功清理 %(count)d 条30天前的历史记录" % {"count": count},
                 )
             else:
-                self.message_user(request, _("没有找到需要清理的历史记录"))
+                self.message_user(request, "没有找到需要清理的历史记录")
         except Exception as e:
-            self.message_user(request, _("清理失败: %(error)s") % {"error": str(e)}, level=messages.ERROR)
+            self.message_user(request, "清理失败: %(error)s" % {"error": str(e)}, level=messages.ERROR)
 
-    @admin.action(description=_("导出为CSV文件"))
+    @admin.action(description="导出为CSV文件")
     def export_to_csv(
         self,
         request: HttpRequest,
@@ -397,15 +396,15 @@ class TokenAcquisitionHistoryAdmin(admin.ModelAdmin):
 
             self.message_user(
                 request,
-                _("成功导出 %(count)d 条记录") % {"count": queryset.count()},
+                "成功导出 %(count)d 条记录" % {"count": queryset.count()},
             )
 
             return response
         except Exception as e:
-            self.message_user(request, _("导出失败: %(error)s") % {"error": str(e)}, level=messages.ERROR)
+            self.message_user(request, "导出失败: %(error)s" % {"error": str(e)}, level=messages.ERROR)
             return None
 
-    @admin.action(description=_("重新分析性能数据"))
+    @admin.action(description="重新分析性能数据")
     def reanalyze_performance(
         self,
         request: HttpRequest,

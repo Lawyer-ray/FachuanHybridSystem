@@ -14,7 +14,6 @@ from typing import cast
 
 logger = logging.getLogger("apps.litigation_ai")
 
-
 # 默认系统提示词
 DEFAULT_SYSTEM_PROMPT = """你是一位专业的诉讼文书生成助手,具有丰富的法律知识和文书写作经验.
 你可以帮助律师生成起诉状、答辩状、反诉状、反诉答辩状等诉讼文书.

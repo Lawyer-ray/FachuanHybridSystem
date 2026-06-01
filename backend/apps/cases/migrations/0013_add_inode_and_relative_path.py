@@ -4,7 +4,6 @@ from pathlib import PurePosixPath
 
 from django.db import migrations, models
 
-
 def migrate_cases_relative_path(apps, schema_editor):
     """回填 CaseFolderBinding.relative_path：从绝对路径中提取相对合同文件夹的路径."""
     CaseFolderBinding = apps.get_model("cases", "CaseFolderBinding")
@@ -33,12 +32,10 @@ def migrate_cases_relative_path(apps, schema_editor):
             binding.relative_path = str(case_path.relative_to(contract_path))
             binding.save(update_fields=["relative_path"])
 
-
 def reverse_migrate_cases_relative_path(apps, schema_editor):
     """反向迁移：清空 relative_path 字段."""
     CaseFolderBinding = apps.get_model("cases", "CaseFolderBinding")
     CaseFolderBinding.objects.filter(relative_path__gt="").update(relative_path="")
-
 
 class Migration(migrations.Migration):
 

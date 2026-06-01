@@ -51,8 +51,18 @@ class WeikeSearchMixin:
         date_to: str = "",
         raw_payload: dict[str, Any] | None = None,
     ) -> list[WeikeSearchItem]:
+        has_filters = bool(court_filter or cause_of_action_filter or date_from or date_to)
         if session.search_via_api_enabled:
-            if self._is_search_api_degraded(session=session):
+            if has_filters:
+                # WK /csi/search API 不支持法院/案由/日期过滤（filterQueries 仅接受系统内部字符串），
+                # 直接走 DOM 检索路径，由浏览器 URL 参数实现过滤。
+                logger.info(
+                    "存在法院/案由/日期过滤，跳过API直接走DOM检索（keyword=%s, court=%s, cause=%s）",
+                    keyword,
+                    court_filter,
+                    cause_of_action_filter,
+                )
+            elif self._is_search_api_degraded(session=session):
                 wait_seconds = self._search_api_degraded_wait_seconds(session=session)
                 self._record_search_event(
                     session=session,
@@ -342,18 +352,18 @@ class WeikeSearchMixin:
                 # 高级检索：构造 URL 参数直接导航
                 from urllib.parse import urlencode
 
-                params: dict[str, str] = {"keyword": keyword}
-                # 单字段时加 searchField 参数（多字段组合 DOM 不支持，只能靠私有 API）
+                # WK 网站使用 "simple" 作为关键词参数（非 "keyword"），
+                # 格式: simple=keyword（全文）或 simple=field:((keyword))（指定字段）
+                # 注意: courtName/causeOfAction URL 参数不被 WK 前端识别，
+                # 法院/案由过滤由评分管线在获取详情后处理。
+                search_keyword = keyword
                 if advanced_query and len(advanced_query) == 1:
                     field = str(advanced_query[0].get("field", "") or "")
                     mapped = self.SEARCH_FIELD_MAP.get(field, "")
                     if mapped and mapped != "fullText":
-                        params["searchField"] = mapped
-                        params["keyword"] = str(advanced_query[0].get("keyword", keyword) or keyword)
-                if court_filter:
-                    params["courtName"] = court_filter
-                if cause_of_action_filter:
-                    params["causeOfAction"] = cause_of_action_filter
+                        kw = str(advanced_query[0].get("keyword", keyword) or keyword)
+                        search_keyword = f"{mapped}:(({kw}))"
+                params: dict[str, str] = {"simple": search_keyword}
                 if date_from:
                     params["judgmentDateFrom"] = date_from
                 if date_to:
@@ -370,10 +380,9 @@ class WeikeSearchMixin:
                 )
                 if anchor_count == 0:
                     logger.warning(
-                        "高级检索 URL 参数未返回结果，回退普通关键词检索（keyword=%s, search_field=%s）",
+                        "高级检索 URL 参数未返回结果，回退普通关键词检索（keyword=%s）",
                         keyword,
-                        params.get("searchField", "fullText"),
-                        extra={"keyword": keyword, "search_field": params.get("searchField", "fullText")},
+                        extra={"keyword": keyword},
                     )
                     # fallback：普通搜索框方式
                     page.goto(self.LAW_LIST_URL, wait_until="domcontentloaded", timeout=120000)

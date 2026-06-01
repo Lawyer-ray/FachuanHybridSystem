@@ -17,7 +17,6 @@ from datetime import datetime, timedelta
 from typing import Any
 
 import httpx
-from django.utils.translation import gettext_lazy as _
 
 from apps.core.exceptions import ChatProviderException, ConfigurationException
 
@@ -108,7 +107,7 @@ class DingtalkTokenMixin:
 
         if not app_key or not app_secret:
             raise ConfigurationException(
-                message=_("钉钉 APP_KEY 或 APP_SECRET 未配置"),
+                message="钉钉 APP_KEY 或 APP_SECRET 未配置",
                 platform="dingtalk",
                 missing_config="APP_KEY, APP_SECRET",
             )

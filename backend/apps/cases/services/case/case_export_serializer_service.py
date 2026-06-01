@@ -9,7 +9,6 @@ if TYPE_CHECKING:
     from apps.cases.models import Case, CaseLog
     from apps.client.models import Client
 
-
 ReminderPayload = dict[str, object]
 SerializedPayload = dict[str, object]
 

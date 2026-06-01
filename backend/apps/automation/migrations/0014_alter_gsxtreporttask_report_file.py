@@ -3,7 +3,6 @@
 import apps.core.filesystem.upload_paths
 from django.db import migrations, models
 
-
 class Migration(migrations.Migration):
 
     dependencies = [

@@ -6,7 +6,6 @@ from datetime import datetime
 from typing import Any, cast
 
 from django.db import transaction
-from django.utils.translation import gettext_lazy as _
 
 from apps.cases.models import Case, CaseLog, CaseLogVersion
 from apps.core.exceptions import ForbiddenError, NotFoundError, ValidationException
@@ -33,23 +32,23 @@ class CaseLogMutationService:
         try:
             case = Case.objects.get(id=case_id)
         except Case.DoesNotExist:
-            raise NotFoundError(_("案件 %(case_id)s 不存在") % {"case_id": case_id}) from None
+            raise NotFoundError("案件 %(case_id)s 不存在" % {"case_id": case_id}) from None
 
         if not perm_open_access:
             if not user or not getattr(user, "is_authenticated", False):
-                raise ForbiddenError(_("用户未认证"))
+                raise ForbiddenError("用户未认证")
             self.query_service.access_policy.ensure_access(
                 case_id=case.id,
                 user=user,
                 org_access=org_access,
                 perm_open_access=perm_open_access,
                 case=case,
-                message=_("无权限创建此案件日志"),
+                message="无权限创建此案件日志",
             )
 
         actor_id = getattr(user, "id", None) if user else None
         if not actor_id:
-            raise ValidationException(_("操作人不能为空"), errors={"actor": _("缺少有效的操作人")})
+            raise ValidationException("操作人不能为空", errors={"actor": "缺少有效的操作人"})
 
         log = CaseLog.objects.create(case_id=case_id, content=content, actor_id=actor_id)
 
@@ -83,7 +82,7 @@ class CaseLogMutationService:
                 org_access=org_access,
                 perm_open_access=perm_open_access,
                 case=log.case,
-                message=_("无权限修改此日志"),
+                message="无权限修改此日志",
             )
 
         old_content = log.content
@@ -92,7 +91,7 @@ class CaseLogMutationService:
         reminder_type_provided = "reminder_type" in data
         reminder_time_provided = "reminder_time" in data
         if reminder_type_provided != reminder_time_provided:
-            raise ValidationException(_("提醒类型和提醒时间必须同时提供"))
+            raise ValidationException("提醒类型和提醒时间必须同时提供")
         reminder_type = data.pop("reminder_type", None) if reminder_type_provided else None
         reminder_time = data.pop("reminder_time", None) if reminder_time_provided else None
 
@@ -131,7 +130,7 @@ class CaseLogMutationService:
                 org_access=org_access,
                 perm_open_access=perm_open_access,
                 case=log.case,
-                message=_("无权限删除此日志"),
+                message="无权限删除此日志",
             )
 
         log.delete()
@@ -162,7 +161,7 @@ class CaseLogMutationService:
             return
 
         if reminder_type is None or reminder_time is None:
-            raise ValidationException(_("提醒类型和提醒时间必须同时为空或同时有值"))
+            raise ValidationException("提醒类型和提醒时间必须同时为空或同时有值")
 
         reminder_service.upsert_case_log_reminder_internal(
             case_log_id=int(log.id),

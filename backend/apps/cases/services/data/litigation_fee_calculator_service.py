@@ -6,15 +6,12 @@ import logging
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any
 
-from django.utils.translation import gettext_lazy as _
-
 from apps.core.exceptions import ValidationException
 
 if TYPE_CHECKING:
     from .cause_rule_service import CauseRuleService
 
 logger = logging.getLogger(__name__)
-
 
 # ============================================================================
 # 费用计算规则常量
@@ -601,10 +598,10 @@ class LitigationFeeCalculatorService:
             ValidationException: 金额为负数时抛出
         """
         if target_amount is not None and target_amount < 0:
-            raise ValidationException(_("涉案金额不能为负数"))
+            raise ValidationException("涉案金额不能为负数")
 
         if preservation_amount is not None and preservation_amount < 0:
-            raise ValidationException(_("财产保全金额不能为负数"))
+            raise ValidationException("财产保全金额不能为负数")
 
         converted_target = Decimal(str(target_amount)) if target_amount is not None else None
         converted_preservation = Decimal(str(preservation_amount)) if preservation_amount is not None else None

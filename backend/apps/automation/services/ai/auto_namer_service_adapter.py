@@ -7,8 +7,6 @@
 import logging
 from typing import Any
 
-from django.utils.translation import gettext_lazy as _
-
 from apps.automation.services.ai.prompts import DEFAULT_FILENAME_PROMPT
 from apps.core.exceptions import BusinessException, ValidationException
 from apps.core.interfaces import IAutoNamerService, IDocumentProcessingService
@@ -66,7 +64,7 @@ class AutoNamerServiceAdapter(IAutoNamerService):
             # 验证输入
             if not document_content or not document_content.strip():
                 raise ValidationException(
-                    message=_("文档内容不能为空"),
+                    message="文档内容不能为空",
                     code="EMPTY_DOCUMENT_CONTENT",
                     errors={},
                 )

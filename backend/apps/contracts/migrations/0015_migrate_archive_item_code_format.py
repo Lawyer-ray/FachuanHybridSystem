@@ -61,14 +61,12 @@ _CODE_MAPPING: dict[str, str] = {
     "4.3.17": "cr_17",
 }
 
-
 def migrate_archive_item_codes_forwards(apps, schema_editor):
     FinalizedMaterial = apps.get_model("contracts", "FinalizedMaterial")
     for old_code, new_code in _CODE_MAPPING.items():
         FinalizedMaterial.objects.filter(archive_item_code=old_code).update(
             archive_item_code=new_code
         )
-
 
 def migrate_archive_item_codes_reverse(apps, schema_editor):
     FinalizedMaterial = apps.get_model("contracts", "FinalizedMaterial")
@@ -77,7 +75,6 @@ def migrate_archive_item_codes_reverse(apps, schema_editor):
         FinalizedMaterial.objects.filter(archive_item_code=new_code).update(
             archive_item_code=old_code
         )
-
 
 class Migration(migrations.Migration):
 

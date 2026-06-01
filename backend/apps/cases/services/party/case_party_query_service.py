@@ -6,7 +6,6 @@ import logging
 from typing import Any
 
 from django.db.models import QuerySet
-from django.utils.translation import gettext_lazy as _
 
 from apps.cases.models import CaseParty
 from apps.core.config.business_config import business_config
@@ -29,7 +28,7 @@ class CasePartyQueryService:
         party = self.base_queryset().filter(id=party_id).first()
         if not party:
             raise NotFoundError(
-                message=_("当事人不存在"),
+                message="当事人不存在",
                 code="PARTY_NOT_FOUND",
                 errors={"party_id": f"ID 为 {party_id} 的当事人不存在"},
             )
@@ -41,7 +40,7 @@ class CasePartyQueryService:
         case = Case.objects.filter(id=case_id).only("id", "case_type").first()
         if not case:
             raise NotFoundError(
-                message=_("案件不存在"), code="CASE_NOT_FOUND", errors={"case_id": f"ID 为 {case_id} 的案件不存在"}
+                message="案件不存在", code="CASE_NOT_FOUND", errors={"case_id": f"ID 为 {case_id} 的案件不存在"}
             )
 
         existing_statuses: list[str] = list(

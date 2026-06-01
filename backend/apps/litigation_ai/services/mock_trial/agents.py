@@ -103,7 +103,6 @@ JUDGE_MEDIATION = (
 
 JUDGE_CLOSING = "本案庭审结束。合议庭将依法进行评议，择日宣判。\n请双方当事人在庭审笔录上签字确认。退庭。"
 
-
 # ── 激烈对抗 System Prompts ──
 
 PLAINTIFF_SYSTEM = (

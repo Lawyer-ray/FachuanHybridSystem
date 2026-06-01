@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from django.db import models
-from django.utils.translation import gettext_lazy as _
 
 
 class AutomationTool(models.Model):
@@ -13,8 +12,8 @@ class AutomationTool(models.Model):
 
     class Meta:
         managed = False
-        verbose_name = _("文档处理")
-        verbose_name_plural = _("文档处理")
+        verbose_name = "文档处理"
+        verbose_name_plural = "文档处理"
 
 
 class NamerTool(models.Model):
@@ -24,8 +23,8 @@ class NamerTool(models.Model):
 
     class Meta:
         managed = False
-        verbose_name = _("自动命名工具")
-        verbose_name_plural = _("自动命名工具")
+        verbose_name = "自动命名工具"
+        verbose_name_plural = "自动命名工具"
 
 
 class TestCourt(models.Model):
@@ -36,8 +35,8 @@ class TestCourt(models.Model):
 
     class Meta:
         managed = False
-        verbose_name = _("测试法院系统")
-        verbose_name_plural = _("测试法院系统")
+        verbose_name = "测试法院系统"
+        verbose_name_plural = "测试法院系统"
 
 
 class TestToolsHub(models.Model):
@@ -48,8 +47,8 @@ class TestToolsHub(models.Model):
 
     class Meta:
         managed = False
-        verbose_name = _("测试工具")
-        verbose_name_plural = _("测试工具")
+        verbose_name = "测试工具"
+        verbose_name_plural = "测试工具"
 
 
 class ImageRotation(models.Model):
@@ -60,5 +59,5 @@ class ImageRotation(models.Model):
 
     class Meta:
         managed = False
-        verbose_name = _("图片自动旋转")
-        verbose_name_plural = _("图片自动旋转")
+        verbose_name = "图片自动旋转"
+        verbose_name_plural = "图片自动旋转"

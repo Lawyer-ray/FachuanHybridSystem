@@ -3,7 +3,6 @@
 from datetime import datetime
 from typing import Any
 
-from django.utils.translation import gettext_lazy as _
 from ninja import Schema
 from pydantic import Field, field_validator, model_validator
 
@@ -15,7 +14,7 @@ from .services.validators import _CONTENT_MAX_LENGTH
 
 def _validate_positive_id(value: int | None) -> int | None:
     if value is not None and (isinstance(value, bool) or value <= 0):
-        raise ValueError(_("ID 必须为正整数"))
+        raise ValueError("ID 必须为正整数")
     return value
 
 
@@ -24,7 +23,7 @@ def _validate_content_not_blank(value: str | None) -> str | None:
         return None
     normalized = value.strip()
     if not normalized:
-        raise ValueError(_("提醒事项不能为空"))
+        raise ValueError("提醒事项不能为空")
     return normalized
 
 
@@ -44,7 +43,7 @@ class ReminderIn(Schema):
     def validate_binding_exclusivity(self) -> "ReminderIn":
         selected_count = sum(target_id is not None for target_id in (self.contract_id, self.case_id, self.case_log_id))
         if selected_count > 1:
-            raise ValueError(_("合同、案件、案件日志最多只能绑定一个"))
+            raise ValueError("合同、案件、案件日志最多只能绑定一个")
         return self
 
 

@@ -2,8 +2,6 @@
 证件信息提取的 Ollama 提示词模板
 """
 
-from django.utils.translation import gettext_lazy as _
-
 from apps.client.models import ClientIdentityDoc
 from apps.core.exceptions import ValidationException
 
@@ -191,7 +189,6 @@ BUSINESS_LICENSE_PROMPT = """
 # 法定代表人身份证提示词模板(与普通身份证相同)
 LEGAL_REP_ID_CARD_PROMPT = ID_CARD_PROMPT
 
-
 # 提示词映射表
 PROMPT_MAPPING: dict[str, str] = {
     ClientIdentityDoc.ID_CARD: ID_CARD_PROMPT,
@@ -221,9 +218,9 @@ def get_prompt_for_doc_type(doc_type: str, raw_text: str = "") -> str:
     if doc_type not in PROMPT_MAPPING:
         supported_types = list(PROMPT_MAPPING.keys())
         raise ValidationException(
-            message=_("不支持的证件类型"),
+            message="不支持的证件类型",
             code="UNSUPPORTED_DOC_TYPE",
-            errors={"doc_type": _("不支持: %(t)s，支持: %(s)s") % {"t": doc_type, "s": supported_types}},
+            errors={"doc_type": "不支持: %(t)s，支持: %(s)s" % {"t": doc_type, "s": supported_types}},
         )
 
     return PROMPT_MAPPING[doc_type]

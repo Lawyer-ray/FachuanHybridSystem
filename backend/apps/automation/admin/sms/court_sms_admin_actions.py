@@ -14,7 +14,6 @@ from django.db.models import QuerySet
 from django.http import HttpRequest, HttpResponse, HttpResponseRedirect, JsonResponse
 from django.shortcuts import get_object_or_404, render
 from django.urls import reverse
-from django.utils.translation import gettext_lazy as _
 
 from apps.automation.models import CourtSMS, CourtSMSStatus
 
@@ -41,7 +40,7 @@ class CourtSMSAdminActions:
     # 自定义操作
     actions: list[str] = []
 
-    @admin.action(description=_("🔄 重新处理选中的短信"))
+    @admin.action(description="🔄 重新处理选中的短信")
     def retry_processing_action(self, request: HttpRequest, queryset: QuerySet[CourtSMS]) -> None:
         """重新处理操作"""
         service = _get_court_sms_service()

@@ -2,12 +2,10 @@
 
 from django.db import migrations, models
 
-
 def clear_empty_emails(apps, schema_editor):
     """将空字符串的 email 更新为 NULL"""
     Lawyer = apps.get_model("organization", "Lawyer")
     Lawyer.objects.filter(email="").update(email=None)
-
 
 class Migration(migrations.Migration):
 

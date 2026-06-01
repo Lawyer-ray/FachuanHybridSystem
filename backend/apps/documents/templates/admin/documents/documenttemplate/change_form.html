@@ -165,11 +165,101 @@
     font-size: 12px;
     margin-top: 6px;
 }
+
+/* AI 智能填充区域样式 — 沿用 Django .module 风格 */
+.smart-fill-desc {
+    color: #666;
+    font-size: 13px;
+    margin: 0 0 12px;
+}
+.smart-fill-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 12px;
+}
+.smart-fill-preview-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+    margin-top: 12px;
+}
+.smart-fill-preview-table th,
+.smart-fill-preview-table td {
+    padding: 6px 10px;
+    border: 1px solid #ddd;
+    text-align: left;
+}
+.smart-fill-preview-table th {
+    background: #f8f8f8;
+    font-weight: 600;
+}
+.smart-fill-preview-table td input[type="text"] {
+    width: 100%;
+    padding: 4px 8px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 13px;
+    box-sizing: border-box;
+}
+.smart-fill-source-auto { color: #28a745; font-weight: 600; }
+.smart-fill-source-llm { color: #417690; font-weight: 600; }
+.smart-fill-source-fallback { color: #999; }
+#smart-fill-error {
+    margin-top: 8px;
+    padding: 8px 12px;
+    color: #ba2121;
+    font-size: 13px;
+}
 </style>
 {% endblock %}
 
 {% block content %}
 {{ block.super }}
+{% endblock %}
+
+{% block after_related_objects %}
+{{ block.super }}
+<div class="module">
+    <h2>AI 智能填充</h2>
+    <div class="smart-fill-desc">输入自然语言描述，AI 自动将信息映射到模板占位符并填充。支持在预览后修改值再下载。</div>
+    <div class="form-row">
+        <label for="id_smart_fill_llm_model">LLM 模型</label>
+        <select id="id_smart_fill_llm_model" class="vLargeTextField">
+            {% for value, label in smart_fill_llm_models %}
+            <option value="{{ value }}">{{ label }}</option>
+            {% endfor %}
+        </select>
+    </div>
+    <div class="form-row">
+        <label for="id_smart_fill_input">自然语言描述</label>
+        <textarea id="id_smart_fill_input" rows="4" class="vLargeTextField"
+            placeholder="例如：委托人是张三，案件编号是(2026)京01民初123号，被申请人是李四"></textarea>
+    </div>
+    <div class="smart-fill-actions">
+        <button type="button" id="smart-fill-preview-btn" class="button">AI 填充预览</button>
+    </div>
+    <div id="smart-fill-loading" style="display:none;">
+        <div class="preview-loading"><span class="spinner"></span>AI 正在分析...</div>
+    </div>
+    <div id="smart-fill-error" style="display:none;"></div>
+    <div id="smart-fill-result" style="display:none;">
+        <table class="smart-fill-preview-table">
+            <thead>
+                <tr>
+                    <th>占位符</th>
+                    <th>填充值</th>
+                    <th>来源</th>
+                </tr>
+            </thead>
+            <tbody id="smart-fill-tbody"></tbody>
+        </table>
+        <div class="smart-fill-actions" style="margin-top:12px;">
+            <button type="button" id="smart-fill-download-btn" class="button default" style="background:#28a745;color:#fff;border-color:#28a745;">
+                下载填充后的文件
+            </button>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block admin_change_form_document_ready %}
@@ -419,6 +509,183 @@
         } else if (hasFilePath) {
             extractFromFilePath(filePathInput.val().trim());
         }
+
+        // ==================== AI 智能填充逻辑 ====================
+
+        var smartFillPreviewUrl = '/admin/documents/documenttemplate/smart-fill-preview/';
+        var smartFillRenderUrl = '/admin/documents/documenttemplate/smart-fill-render/';
+        var smartFillPreviewBtn = $('#smart-fill-preview-btn');
+        var smartFillDownloadBtn = $('#smart-fill-download-btn');
+        var smartFillInput = $('#id_smart_fill_input');
+        var smartFillResult = $('#smart-fill-result');
+        var smartFillTbody = $('#smart-fill-tbody');
+        var smartFillLoading = $('#smart-fill-loading');
+        var smartFillError = $('#smart-fill-error');
+
+        // 构建 FormData，包含当前文件源信息
+        function buildSmartFillFormData() {
+            var formData = new FormData();
+            var csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+            formData.append('csrfmiddlewaretoken', csrftoken);
+
+            var existingVal = existingFileSelect.val();
+            var fileInput0 = fileInput[0];
+            var filePathVal = filePathInput.val().trim();
+
+            if (existingVal) {
+                formData.append('existing_file', existingVal);
+            } else if (fileInput0 && fileInput0.files && fileInput0.files[0]) {
+                formData.append('file', fileInput0.files[0]);
+            } else if (filePathVal) {
+                formData.append('file_path', filePathVal);
+            }
+
+            var llmModel = $('#id_smart_fill_llm_model').val();
+            if (llmModel) {
+                formData.append('llm_model', llmModel);
+            }
+            return formData;
+        }
+
+        function getSmartFillFileSource() {
+            var existingVal = existingFileSelect.val();
+            var fileInput0 = fileInput[0];
+            var filePathVal = filePathInput.val().trim();
+            if (existingVal) return {type: 'existing_file', value: existingVal};
+            if (fileInput0 && fileInput0.files && fileInput0.files[0]) return {type: 'file', value: fileInput0.files[0]};
+            if (filePathVal) return {type: 'file_path', value: filePathVal};
+            return null;
+        }
+
+        function renderSmartFillResult(data) {
+            smartFillError.hide();
+            if (!data.placeholders || data.placeholders.length === 0) {
+                smartFillResult.hide();
+                smartFillError.text('未检测到占位符').show();
+                return;
+            }
+            var rows = '';
+            data.placeholders.forEach(function(p) {
+                var sourceClass = 'smart-fill-source-' + escapeHtml(p.source);
+                var sourceLabel = p.source === 'auto' ? '自动' : (p.source === 'llm' ? 'AI 填充' : '未匹配');
+                rows += '<tr>' +
+                    '<td style="font-family:monospace;background:#f8f9fa;">{{' + escapeHtml(p.key) + '}}</td>' +
+                    '<td><input type="text" data-key="' + escapeHtml(p.key) + '" data-source="' + escapeHtml(p.source) + '" value="' + escapeHtml(p.value) + '"></td>' +
+                    '<td class="' + sourceClass + '">' + sourceLabel + '</td>' +
+                    '</tr>';
+            });
+            smartFillTbody.html(rows);
+            smartFillResult.show();
+        }
+
+        smartFillPreviewBtn.on('click', function() {
+            var userInput = smartFillInput.val().trim();
+            if (!userInput) {
+                smartFillError.text('请输入自然语言描述').show();
+                return;
+            }
+            var fileSource = getSmartFillFileSource();
+            if (!fileSource) {
+                smartFillError.text('请先选择或上传模板文件').show();
+                return;
+            }
+
+            smartFillError.hide();
+            smartFillResult.hide();
+            smartFillLoading.show();
+            smartFillPreviewBtn.prop('disabled', true);
+
+            var formData = buildSmartFillFormData();
+            formData.append('user_input', userInput);
+
+            $.ajax({
+                url: smartFillPreviewUrl,
+                method: 'POST',
+                data: formData,
+                processData: false,
+                contentType: false,
+                success: function(data) {
+                    smartFillLoading.hide();
+                    smartFillPreviewBtn.prop('disabled', false);
+                    if (data.error) {
+                        smartFillError.text('预览失败: ' + data.error).show();
+                    } else {
+                        renderSmartFillResult(data);
+                    }
+                },
+                error: function(xhr) {
+                    smartFillLoading.hide();
+                    smartFillPreviewBtn.prop('disabled', false);
+                    var msg = '请求失败';
+                    try { msg = JSON.parse(xhr.responseText).error || msg; } catch(e) {}
+                    smartFillError.text('预览失败: ' + msg).show();
+                }
+            });
+        });
+
+        smartFillDownloadBtn.on('click', function() {
+            var fileSource = getSmartFillFileSource();
+            if (!fileSource) {
+                smartFillError.text('请先选择或上传模板文件').show();
+                return;
+            }
+
+            // 收集编辑后的占位符值
+            var placeholders = [];
+            smartFillTbody.find('input[data-key]').each(function() {
+                placeholders.push({
+                    key: $(this).attr('data-key'),
+                    value: $(this).val(),
+                    source: $(this).attr('data-source')
+                });
+            });
+
+            if (placeholders.length === 0) {
+                smartFillError.text('没有可填充的占位符').show();
+                return;
+            }
+
+            smartFillError.hide();
+            smartFillDownloadBtn.prop('disabled', true).text('生成中...');
+
+            var formData = buildSmartFillFormData();
+            formData.append('placeholders', JSON.stringify(placeholders));
+
+            $.ajax({
+                url: smartFillRenderUrl,
+                method: 'POST',
+                data: formData,
+                processData: false,
+                contentType: false,
+                xhrFields: { responseType: 'blob' },
+                success: function(blob) {
+                    smartFillDownloadBtn.prop('disabled', false).text('下载填充后的文件');
+                    var url = URL.createObjectURL(blob);
+                    var a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'smart_fill_output.docx';
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                },
+                error: function(xhr) {
+                    smartFillDownloadBtn.prop('disabled', false).text('下载填充后的文件');
+                    var msg = '渲染失败';
+                    try {
+                        // blob response 需要先读取 text
+                        var reader = new FileReader();
+                        reader.onload = function() {
+                            try { msg = JSON.parse(reader.result).error || msg; } catch(e) {}
+                            smartFillError.text('下载失败: ' + msg).show();
+                        };
+                        reader.readAsText(xhr.response);
+                    } catch(e) {
+                        smartFillError.text('下载失败: ' + msg).show();
+                    }
+                }
+            });
+        });
     });
 })(django.jQuery);
 </script>

@@ -9,7 +9,6 @@ from typing import TYPE_CHECKING, Final, NotRequired, Protocol, TypedDict
 
 from django.db import transaction
 from django.utils.dateparse import parse_datetime
-from django.utils.translation import gettext_lazy as _
 
 from apps.core.exceptions import ValidationException
 
@@ -165,7 +164,7 @@ class CaseImportService:
         from apps.cases.models import Case, CaseAssignment, CaseParty
 
         if not data.get("name"):
-            raise ValidationException(message=_("案件名称不能为空"), code="INVALID_CASE_DATA")
+            raise ValidationException(message="案件名称不能为空", code="INVALID_CASE_DATA")
 
         filing_number: str | None = data.get("filing_number") or None
         if filing_number:

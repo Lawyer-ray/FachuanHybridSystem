@@ -9,7 +9,6 @@ from typing import Any
 
 from django.db import transaction
 from django.utils import timezone
-from django.utils.translation import gettext_lazy as _
 
 from apps.chat_records.models import ChatRecordRecording, ExtractStatus
 from apps.core.exceptions import NotFoundError, ValidationException
@@ -56,7 +55,7 @@ class RecordingExtractFacade:
             extract_ocr_similarity_threshold=params.ocr_similarity_threshold,
             extract_ocr_min_new_chars=params.ocr_min_new_chars,
             extract_cancel_requested=False,
-            extract_message=_("抽帧任务已提交"),
+            extract_message="抽帧任务已提交",
             extract_error="",
             updated_at=timezone.now(),
         )
@@ -86,7 +85,7 @@ class RecordingExtractFacade:
 
         ChatRecordRecording.objects.filter(id=recording.id).update(
             extract_cancel_requested=True,
-            extract_message=_("已请求取消"),
+            extract_message="已请求取消",
             updated_at=timezone.now(),
         )
         recording.refresh_from_db()
@@ -103,7 +102,7 @@ class RecordingExtractFacade:
             extract_status=ExtractStatus.FAILED,
             extract_cancel_requested=False,
             extract_error="已重置抽帧状态",
-            extract_message=_("已重置"),
+            extract_message="已重置",
             extract_finished_at=timezone.now(),
             updated_at=timezone.now(),
         )

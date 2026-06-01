@@ -8,8 +8,6 @@ import logging
 from dataclasses import dataclass
 from datetime import date
 
-from django.utils.translation import gettext_lazy as _
-
 logger = logging.getLogger(__name__)
 
 # 校验码权重因子
@@ -166,13 +164,13 @@ class IdCardUtils:
             dict: {"valid": bool, "message": str}
         """
         if not id_number:
-            return {"valid": False, "message": str(_("身份证号码不能为空"))}
+            return {"valid": False, "message": "身份证号码不能为空"}
 
         id_number = id_number.strip().upper()
 
         # 长度校验
         if len(id_number) not in (15, 18):
-            return {"valid": False, "message": str(_("身份证号码长度应为15位或18位"))}
+            return {"valid": False, "message": "身份证号码长度应为15位或18位"}
 
         # 18位身份证校验
         if len(id_number) == 18:
@@ -186,22 +184,22 @@ class IdCardUtils:
         """校验18位身份证号码"""
         # 前17位必须为数字
         if not id_number[:17].isdigit():
-            return {"valid": False, "message": str(_("身份证前17位必须为数字"))}
+            return {"valid": False, "message": "身份证前17位必须为数字"}
 
         # 第18位校验
         last_char = id_number[17]
         if not (last_char.isdigit() or last_char == "X"):
-            return {"valid": False, "message": str(_("身份证第18位必须为数字或X"))}
+            return {"valid": False, "message": "身份证第18位必须为数字或X"}
 
         # 地区码校验(前两位: 11-65)
         province_code = int(id_number[:2])
         if province_code < 11 or province_code > 65:
-            return {"valid": False, "message": str(_("身份证地区码无效"))}
+            return {"valid": False, "message": "身份证地区码无效"}
 
         # 出生日期校验
         birth_date_str = id_number[6:14]
         if not cls._validate_birth_date(birth_date_str, is_18_digit=True):
-            return {"valid": False, "message": str(_("身份证出生日期无效"))}
+            return {"valid": False, "message": "身份证出生日期无效"}
 
         # 校验码计算
         check_sum = 0
@@ -213,29 +211,29 @@ class IdCardUtils:
         if id_number[17] != check_code:
             return {
                 "valid": False,
-                "message": str(_("身份证校验码错误，正确校验码应为 %(code)s")) % {"code": check_code},
+                "message": "身份证校验码错误，正确校验码应为 %(code)s" % {"code": check_code},
             }
 
-        return {"valid": True, "message": str(_("身份证号码格式正确"))}
+        return {"valid": True, "message": "身份证号码格式正确"}
 
     @classmethod
     def _validate_15_digit_id(cls, id_number: str) -> dict[str, str | bool]:
         """校验15位身份证号码"""
         # 全部为数字
         if not id_number.isdigit():
-            return {"valid": False, "message": str(_("15位身份证必须全部为数字"))}
+            return {"valid": False, "message": "15位身份证必须全部为数字"}
 
         # 地区码校验(前两位: 11-65)
         province_code = int(id_number[:2])
         if province_code < 11 or province_code > 65:
-            return {"valid": False, "message": str(_("身份证地区码无效"))}
+            return {"valid": False, "message": "身份证地区码无效"}
 
         # 出生日期校验(YYMMDD, 默认19XX年)
         birth_date_str = "19" + id_number[6:12]
         if not cls._validate_birth_date(birth_date_str, is_18_digit=True):
-            return {"valid": False, "message": str(_("身份证出生日期无效"))}
+            return {"valid": False, "message": "身份证出生日期无效"}
 
-        return {"valid": True, "message": str(_("身份证号码格式正确"))}
+        return {"valid": True, "message": "身份证号码格式正确"}
 
     @classmethod
     def _validate_birth_date(cls, date_str: str, *, is_18_digit: bool) -> bool:

@@ -10,7 +10,6 @@ from typing import Any
 本模块定义了交费通知书识别和费用比对所需的所有数据类.
 """
 
-
 from dataclasses import dataclass, field
 from decimal import Decimal
 

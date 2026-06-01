@@ -9,7 +9,6 @@ from pathlib import Path
 from typing import Any
 
 from django.db import transaction
-from django.utils.translation import gettext_lazy as _
 
 from apps.client.models import Client, ClientIdentityDoc
 from apps.client.ports import FileUploadPort
@@ -50,9 +49,9 @@ class ClientIdentityDocService:
         client = Client.objects.filter(id=client_id).first()
         if not client:
             raise NotFoundError(
-                message=_("当事人不存在"),
+                message="当事人不存在",
                 code="CLIENT_NOT_FOUND",
-                errors={"client_id": _("ID 为 %(id)s 的当事人不存在") % {"id": client_id}},
+                errors={"client_id": "ID 为 %(id)s 的当事人不存在" % {"id": client_id}},
             )
 
         # 创建证件记录
@@ -125,9 +124,9 @@ class ClientIdentityDocService:
         doc = ClientIdentityDoc.objects.select_related("client").filter(id=doc_id).first()
         if not doc:
             raise NotFoundError(
-                message=_("证件文档不存在"),
+                message="证件文档不存在",
                 code="IDENTITY_DOC_NOT_FOUND",
-                errors={"doc_id": _("ID 为 %(id)s 的证件文档不存在") % {"id": doc_id}},
+                errors={"doc_id": "ID 为 %(id)s 的证件文档不存在" % {"id": doc_id}},
             )
         return doc
 
@@ -143,9 +142,9 @@ class ClientIdentityDocService:
         client = Client.objects.filter(id=client_id).first()
         if not client:
             raise NotFoundError(
-                message=_("当事人不存在"),
+                message="当事人不存在",
                 code="CLIENT_NOT_FOUND",
-                errors={"client_id": _("ID 为 %(id)s 的当事人不存在") % {"id": client_id}},
+                errors={"client_id": "ID 为 %(id)s 的当事人不存在" % {"id": client_id}},
             )
 
         doc, _created = ClientIdentityDoc.objects.get_or_create(client=client, doc_type=doc_type)

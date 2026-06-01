@@ -187,8 +187,7 @@ def test_execution_request_cutoff_prefers_case_specified_date(service: Execution
         number="(2026)测试2号",
         document_name="民事判决书",
         document_content=(
-            "被告应向原告偿还借款1000元。"
-            "逾期利息以1000元为本金，自2025年1月1日起按年利率4.5%计算至实际清偿之日。"
+            "被告应向原告偿还借款1000元。逾期利息以1000元为本金，自2025年1月1日起按年利率4.5%计算至实际清偿之日。"
         ),
     )
 
@@ -204,8 +203,7 @@ def test_execution_request_cutoff_falls_back_to_today_when_no_specified_date(ser
         number="(2026)测试3号",
         document_name="民事判决书",
         document_content=(
-            "被告应向原告偿还借款1000元。"
-            "逾期利息以1000元为本金，自2025年1月1日起按年利率4.5%计算至实际清偿之日。"
+            "被告应向原告偿还借款1000元。逾期利息以1000元为本金，自2025年1月1日起按年利率4.5%计算至实际清偿之日。"
         ),
     )
 
@@ -239,7 +237,9 @@ def test_execution_request_parses_lpr_markup_percent_as_multiplier(service: Exec
 
 
 @pytest.mark.django_db
-def test_execution_request_infers_principal_from_interest_base_and_lpr_standard(service: ExecutionRequestService) -> None:
+def test_execution_request_infers_principal_from_interest_base_and_lpr_standard(
+    service: ExecutionRequestService,
+) -> None:
     _seed_lpr_rates()
     case = Case.objects.create(name="租赁费用按LPR标准", target_amount=Decimal("0"))
     case_number = CaseNumber.objects.create(
@@ -632,8 +632,7 @@ def test_execution_request_fee_split_single_item_uses_defendant_burden_amount(se
         number="（2026）单项费用分摊号",
         document_name="民事判决书",
         document_content=(
-            "被告应向原告支付借款1000元。"
-            "案件受理费12401.27元，由原告承担1599元，被告承担10802.27元（向原告迳付）。"
+            "被告应向原告支付借款1000元。案件受理费12401.27元，由原告承担1599元，被告承担10802.27元（向原告迳付）。"
         ),
     )
 
@@ -891,7 +890,10 @@ def test_execution_request_supports_multiple_overdue_interest_rules_with_mixed_r
     assert params["overdue_interest_rules"][0]["interest_rate_description"] == "年利率8%"
     assert params["overdue_interest_rules"][0]["interest_segmented"] is True
     assert len(params["overdue_interest_rules"][0]["interest_segments"]) == 2
-    assert params["overdue_interest_rules"][1]["interest_rate_description"] == "全国银行间同业拆借中心公布的一年期贷款市场报价利率的4倍"
+    assert (
+        params["overdue_interest_rules"][1]["interest_rate_description"]
+        == "全国银行间同业拆借中心公布的一年期贷款市场报价利率的4倍"
+    )
     assert Decimal(params["overdue_interest"]) > Decimal("0")
     assert "逾期利息按判决确定的分项规则计算" in preview
     assert any("受理费227128.23元已排除" in w for w in warnings)
@@ -1031,7 +1033,9 @@ def test_execution_request_supports_same_base_two_phase_rates_fixed_then_lpr(
     assert params["principal"] == "30808650"
     assert params["has_multiple_overdue_interest_rules"] is True
     assert len(params["overdue_interest_rules"]) == 2
-    fixed_rule = next(rule for rule in params["overdue_interest_rules"] if rule["interest_rate_description"] == "年利率6%")
+    fixed_rule = next(
+        rule for rule in params["overdue_interest_rules"] if rule["interest_rate_description"] == "年利率6%"
+    )
     lpr_rule = next(rule for rule in params["overdue_interest_rules"] if "4倍" in rule["interest_rate_description"])
     assert fixed_rule["interest_segmented"] is True
     assert len(fixed_rule["interest_segments"]) == 5

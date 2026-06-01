@@ -4,7 +4,6 @@ from typing import Any, ClassVar
 from uuid import uuid4
 
 from django.db import models
-from django.utils.translation import gettext_lazy as _
 
 from apps.core.filesystem.upload_paths import EntityIdPath
 
@@ -15,42 +14,42 @@ def _result_pdf_upload_to(instance: Any, filename: str) -> str:
 
 
 class LegalResearchResult(models.Model):
-    legacy_uuid = models.UUIDField(default=uuid4, editable=False, db_index=True, verbose_name=_("历史UUID"))
+    legacy_uuid = models.UUIDField(default=uuid4, editable=False, db_index=True, verbose_name="历史UUID")
     task = models.ForeignKey(
         "legal_research.LegalResearchTask",
         on_delete=models.CASCADE,
         related_name="results",
-        verbose_name=_("任务"),
+        verbose_name="任务",
     )
 
-    rank = models.PositiveIntegerField(default=0, verbose_name=_("命中顺序"))
-    source_doc_id = models.CharField(max_length=255, verbose_name=_("源文档ID"))
-    source_url = models.TextField(blank=True, verbose_name=_("源链接"))
+    rank = models.PositiveIntegerField(default=0, verbose_name="命中顺序")
+    source_doc_id = models.CharField(max_length=255, verbose_name="源文档ID")
+    source_url = models.TextField(blank=True, verbose_name="源链接")
 
-    title = models.CharField(max_length=512, blank=True, verbose_name=_("标题"))
-    court_text = models.CharField(max_length=255, blank=True, verbose_name=_("法院"))
-    document_number = models.CharField(max_length=255, blank=True, verbose_name=_("案号"))
-    judgment_date = models.CharField(max_length=64, blank=True, verbose_name=_("裁判日期"))
-    case_digest = models.TextField(blank=True, verbose_name=_("摘要"))
+    title = models.CharField(max_length=512, blank=True, verbose_name="标题")
+    court_text = models.CharField(max_length=255, blank=True, verbose_name="法院")
+    document_number = models.CharField(max_length=255, blank=True, verbose_name="案号")
+    judgment_date = models.CharField(max_length=64, blank=True, verbose_name="裁判日期")
+    case_digest = models.TextField(blank=True, verbose_name="摘要")
 
-    similarity_score = models.FloatField(default=0.0, verbose_name=_("相似度分数"))
-    match_reason = models.TextField(blank=True, verbose_name=_("匹配理由"))
+    similarity_score = models.FloatField(default=0.0, verbose_name="相似度分数")
+    match_reason = models.TextField(blank=True, verbose_name="匹配理由")
 
     pdf_file = models.FileField(
         upload_to=EntityIdPath("legal_research"),
         max_length=255,
         null=True,
         blank=True,
-        verbose_name=_("PDF文件"),
+        verbose_name="PDF文件",
     )
-    metadata = models.JSONField(default=dict, blank=True, verbose_name=_("扩展信息"))
+    metadata = models.JSONField(default=dict, blank=True, verbose_name="扩展信息")
 
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name=_("创建时间"))
-    updated_at = models.DateTimeField(auto_now=True, verbose_name=_("更新时间"))
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="更新时间")
 
     class Meta:
-        verbose_name = _("案例检索结果")
-        verbose_name_plural = _("案例检索结果")
+        verbose_name = "案例检索结果"
+        verbose_name_plural = "案例检索结果"
         ordering: ClassVar = ["rank", "created_at"]
         indexes: ClassVar = [
             models.Index(fields=["task", "rank"]),

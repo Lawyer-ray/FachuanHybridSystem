@@ -9,7 +9,6 @@ from typing import Any
 
 from django.db import transaction
 from django.utils import timezone
-from django.utils.translation import gettext_lazy as _
 
 from apps.documents.services.infrastructure.wiring import get_case_service
 
@@ -68,7 +67,7 @@ class EvidenceMergeUseCase:
                 evidence_list.merge_progress = 0
                 evidence_list.merge_current = 0
                 evidence_list.merge_total = total_files
-                evidence_list.merge_message = _("准备合并")
+                evidence_list.merge_message = "准备合并"
                 evidence_list.save(
                     update_fields=[
                         "merge_status",
@@ -105,7 +104,7 @@ class EvidenceMergeUseCase:
                 merge_finished_at=timezone.now(),
                 merge_progress=100,
                 merge_current=total_files,
-                merge_message=_("合并完成"),
+                merge_message="合并完成",
                 updated_at=timezone.now(),
             )
 
@@ -121,7 +120,7 @@ class EvidenceMergeUseCase:
                 merge_status=MergeStatus.FAILED,
                 merge_error=str(e),
                 merge_finished_at=timezone.now(),
-                merge_message=_("合并失败"),
+                merge_message="合并失败",
                 updated_at=timezone.now(),
             )
             return {"list_id": list_id, "status": "failed", "error": str(e)}

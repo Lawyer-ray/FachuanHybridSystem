@@ -14,7 +14,6 @@ import re
 from datetime import datetime
 from typing import Any, cast
 
-from django.utils.translation import gettext_lazy as _
 from docxtpl import DocxTemplate
 
 from apps.core.exceptions import NotFoundError, ValidationException
@@ -64,7 +63,7 @@ class CaseTemplateGenerationService:
         if self._is_legal_rep_cert_template(template):
             if client_id is None:
                 raise ValidationException(
-                    message=_("请先选择我方法人当事人"),
+                    message="请先选择我方法人当事人",
                     code="MISSING_CLIENT",
                     errors={"client_id": "法定代表人身份证明书必须指定我方法人当事人"},
                 )
@@ -137,14 +136,14 @@ class CaseTemplateGenerationService:
         client_dto = client_service.get_client_internal(client_id)
         if not client_dto:
             raise ValidationException(
-                message=_("当事人不存在"),
+                message="当事人不存在",
                 code="INVALID_CLIENT",
                 errors={"client_id": f"ID 为 {client_id} 的当事人不存在"},
             )
         is_party = case.parties.filter(client_id=client_id, client__is_our_client=True).exists()
         if not is_party:
             raise ValidationException(
-                message=_("当事人非我方当事人"),
+                message="当事人非我方当事人",
                 code="INVALID_OUR_CLIENT",
                 errors={"client_id": f"ID 为 {client_id} 的当事人不是该案件的我方当事人"},
             )
@@ -168,7 +167,7 @@ class CaseTemplateGenerationService:
         is_natural = client_service.is_natural_person_internal(client_id)
         if is_natural:
             raise ValidationException(
-                message=_("当事人非法人"),
+                message="当事人非法人",
                 code="INVALID_LEGAL_CLIENT",
                 errors={"client_id": f"ID 为 {client_id} 的当事人不是法人"},
             )
@@ -198,7 +197,7 @@ class CaseTemplateGenerationService:
         case = case_service.get_case_model_internal(case_id)
         if not case:
             raise NotFoundError(
-                message=_("案件不存在"), code="CASE_NOT_FOUND", errors={"case_id": f"ID 为 {case_id} 的案件不存在"}
+                message="案件不存在", code="CASE_NOT_FOUND", errors={"case_id": f"ID 为 {case_id} 的案件不存在"}
             )
         return case
 
@@ -216,7 +215,7 @@ class CaseTemplateGenerationService:
         template = document_service.get_template_by_id_internal(template_id)
         if not template:
             raise NotFoundError(
-                message=_("模板不存在"),
+                message="模板不存在",
                 code="TEMPLATE_NOT_FOUND",
                 errors={"template_id": f"ID 为 {template_id} 的模板不存在"},
             )
@@ -235,12 +234,12 @@ class CaseTemplateGenerationService:
         location = (getattr(template, "file_path", None) or "").strip()
         if not location:
             raise ValidationException(
-                message=_("模板文件路径为空"), code="TEMPLATE_FILE_EMPTY", errors={"template_id": str(template.id)}
+                message="模板文件路径为空", code="TEMPLATE_FILE_EMPTY", errors={"template_id": str(template.id)}
             )
         path = Path(location)
         if not path.exists():
             raise ValidationException(
-                message=_("模板文件不存在: %(path)s") % {"path": location},
+                message="模板文件不存在: %(path)s" % {"path": location},
                 code="TEMPLATE_FILE_NOT_FOUND",
                 errors={"template_path": location},
             )
@@ -291,7 +290,7 @@ class CaseTemplateGenerationService:
         except Exception as e:
             logger.error("模板渲染失败", exc_info=True, extra={"template_path": str(template_path), "error": str(e)})
             raise ValidationException(
-                message=_("模板渲染失败: %(err)s") % {"err": str(e)},
+                message="模板渲染失败: %(err)s" % {"err": str(e)},
                 code="TEMPLATE_RENDER_ERROR",
                 errors={"error": str(e)},
             ) from e

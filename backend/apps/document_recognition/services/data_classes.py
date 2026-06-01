@@ -11,8 +11,6 @@ from datetime import datetime
 from enum import Enum
 from typing import Any
 
-from django.utils.translation import gettext_lazy as _
-
 
 class DocumentType(str, Enum):
     """
@@ -232,7 +230,7 @@ class NotificationResult:
         """
         return cls(
             success=True,
-            message=str(_("通知发送成功")),
+            message="通知发送成功",
             sent_at=sent_at,
             file_sent=file_sent,
         )

@@ -7,7 +7,6 @@ from django.contrib import admin
 from django.http import FileResponse, Http404, HttpResponse
 from django.urls import path, reverse
 from django.utils.html import format_html, format_html_join
-from django.utils.translation import gettext_lazy as _
 
 from apps.documents.models import DocumentCaseFileSubType, DocumentTemplateType, EvidenceList, ListType
 
@@ -43,7 +42,7 @@ class EvidenceListAdminViewsMixin(EvidenceListAdminServiceMixin):
             )
         return response
 
-    @admin.display(description=_("总页数"), ordering="total_pages")
+    @admin.display(description="总页数", ordering="total_pages")
     def total_pages_display(self, obj: Any) -> Any:
         if not obj.total_pages:
             return ""
@@ -147,26 +146,26 @@ class EvidenceListAdminViewsMixin(EvidenceListAdminServiceMixin):
                 }
             )
 
-    @admin.display(description=_("案件"))
+    @admin.display(description="案件")
     def case_display(self, obj: Any) -> Any:
         return obj.case.name
 
-    @admin.display(description=_("证据数量"))
+    @admin.display(description="证据数量")
     def item_count_display(self, obj: Any) -> Any:
         count = getattr(obj, "item_count", None)
         if count is None:
             count = obj.items.count()
         return count
 
-    @admin.display(description=_("页码范围"))
+    @admin.display(description="页码范围")
     def page_range_display(self, obj: Any) -> Any:
         return obj.page_range_display
 
-    @admin.display(description=_("序号范围"))
+    @admin.display(description="序号范围")
     def order_range_display(self, obj: Any) -> Any:
         return obj.order_range_display
 
-    @admin.display(description=_("合并状态"))
+    @admin.display(description="合并状态")
     def has_merged_pdf_display(self, obj: Any) -> Any:
         from apps.documents.models import MergeStatus
 
@@ -278,7 +277,7 @@ class EvidenceListAdminViewsMixin(EvidenceListAdminServiceMixin):
             logger.exception("操作失败")
             if is_ajax:
                 return JsonResponse({"success": False, "error": f"提交合并任务失败: {e!s}"})
-            messages.error(request, _("提交合并任务失败: %(e)s") % {"e": e})
+            messages.error(request, "提交合并任务失败: %(e)s" % {"e": e})
 
         return redirect("admin:documents_evidencelist_change", pk)
 
@@ -338,7 +337,7 @@ class EvidenceListAdminViewsMixin(EvidenceListAdminServiceMixin):
 
             error_detail = f"{e!s}\n\n{traceback.format_exc()}"
             logger.error("导出失败", extra={"pk": pk, "error": error_detail}, exc_info=True)
-            raise Http404(_("导出失败: %(e)s") % {"e": e}) from e
+            raise Http404("导出失败: %(e)s" % {"e": e}) from e
 
     def download_pdf_view(self, request: Any, pk: int) -> Any:
         try:
@@ -388,8 +387,7 @@ class EvidenceListAdminViewsMixin(EvidenceListAdminServiceMixin):
             if result["updated"] > 0:
                 messages.success(
                     request,
-                    _("已重新识别 %(n)s 个文件的页数,总页数:%(p)s")
-                    % {"n": result["updated"], "p": result["total_pages"]},
+                    "已重新识别 %(n)s 个文件的页数,总页数:%(p)s" % {"n": result["updated"], "p": result["total_pages"]},
                 )
             else:
                 messages.info(request, "没有需要更新的文件")
@@ -402,7 +400,7 @@ class EvidenceListAdminViewsMixin(EvidenceListAdminServiceMixin):
             messages.error(request, "证据清单不存在")
         except Exception as e:
             logger.exception("EvidenceList recount_pages 失败", extra={"evidence_list_id": pk, "error": str(e)})
-            messages.error(request, _("识别页数失败: %(e)s") % {"e": e})
+            messages.error(request, "识别页数失败: %(e)s" % {"e": e})
 
         return redirect("admin:documents_evidencelist_changelist")
 

@@ -12,7 +12,6 @@ from django.contrib import admin
 from django.http import JsonResponse
 from django.urls import path
 from django.utils.html import format_html
-from django.utils.translation import gettext_lazy as _
 
 from apps.core.exceptions import NotFoundError
 from apps.core.models.enums import LegalStatus
@@ -49,8 +48,8 @@ class FolderTemplateForm(forms.ModelForm):
     template_type = forms.ChoiceField(
         choices=FolderTemplateType.choices,
         widget=forms.RadioSelect,
-        label=_("模板类型"),
-        help_text=_("必须选择:合同文件夹模板或案件文件夹模板"),
+        label="模板类型",
+        help_text="必须选择:合同文件夹模板或案件文件夹模板",
     )
 
     # 合同类型多选(放在最上面)
@@ -58,8 +57,8 @@ class FolderTemplateForm(forms.ModelForm):
         choices=[(c.value, c.label) for c in DocumentContractType],
         widget=forms.CheckboxSelectMultiple,
         required=False,
-        label=_("合同类型"),
-        help_text=_("仅在选择'合同文件夹模板'时有效,可多选"),
+        label="合同类型",
+        help_text="仅在选择'合同文件夹模板'时有效,可多选",
     )
 
     # 案件类型多选
@@ -67,8 +66,8 @@ class FolderTemplateForm(forms.ModelForm):
         choices=[(c.value, c.label) for c in DocumentCaseType],
         widget=forms.CheckboxSelectMultiple,
         required=False,
-        label=_("案件类型"),
-        help_text=_("仅在选择'案件文件夹模板'时有效,可多选"),
+        label="案件类型",
+        help_text="仅在选择'案件文件夹模板'时有效,可多选",
     )
 
     # 案件阶段单选
@@ -76,8 +75,8 @@ class FolderTemplateForm(forms.ModelForm):
         choices=[("", "不限")] + [(c.value, c.label) for c in DocumentCaseStage],
         widget=forms.Select,
         required=False,
-        label=_("案件阶段"),
-        help_text=_("仅在选择'案件文件夹模板'时有效,单选"),
+        label="案件阶段",
+        help_text="仅在选择'案件文件夹模板'时有效,单选",
     )
 
     # 诉讼地位多选
@@ -85,8 +84,8 @@ class FolderTemplateForm(forms.ModelForm):
         choices=LegalStatus.choices,
         widget=forms.CheckboxSelectMultiple,
         required=False,
-        label=_("我方诉讼地位"),
-        help_text=_("仅在选择'案件文件夹模板'时有效,可多选;不选表示匹配任意诉讼地位"),
+        label="我方诉讼地位",
+        help_text="仅在选择'案件文件夹模板'时有效,可多选;不选表示匹配任意诉讼地位",
     )
 
     # 诉讼地位匹配模式
@@ -94,8 +93,8 @@ class FolderTemplateForm(forms.ModelForm):
         choices=LegalStatusMatchMode.choices,
         widget=forms.Select,
         required=False,
-        label=_("诉讼地位匹配模式"),
-        help_text=_("仅在选择'案件文件夹模板'时有效"),
+        label="诉讼地位匹配模式",
+        help_text="仅在选择'案件文件夹模板'时有效",
     )
 
     class Meta:
@@ -226,9 +225,9 @@ class FolderTemplateAdmin(admin.ModelAdmin):
 
     fieldsets = (
         (None, {"fields": ("name",)}),
-        (_("模板类型"), {"fields": ("template_type",), "description": _("选择此模板用于合同还是案件,必须二选一")}),
+        ("模板类型", {"fields": ("template_type",), "description": "选择此模板用于合同还是案件,必须二选一"}),
         (
-            _("适用范围"),
+            "适用范围",
             {
                 "fields": (
                     "contract_types_field",
@@ -237,15 +236,15 @@ class FolderTemplateAdmin(admin.ModelAdmin):
                     "legal_statuses_field",
                     "legal_status_match_mode",
                 ),
-                "description": _("根据模板类型选择相应的适用范围:合同模板选择合同类型,案件模板选择案件类型和阶段"),
+                "description": "根据模板类型选择相应的适用范围:合同模板选择合同类型,案件模板选择案件类型和阶段",
             },
         ),
-        (_("状态"), {"fields": ("is_active",)}),
+        ("状态", {"fields": ("is_active",)}),
         (
-            _("文件夹结构"),
-            {"fields": ("structure", "structure_preview"), "description": _("使用 JSON 格式定义文件夹层级结构")},
+            "文件夹结构",
+            {"fields": ("structure", "structure_preview"), "description": "使用 JSON 格式定义文件夹层级结构"},
         ),
-        (_("时间信息"), {"fields": ("created_at", "updated_at"), "classes": ("collapse",)}),
+        ("时间信息", {"fields": ("created_at", "updated_at"), "classes": ("collapse",)}),
     )
 
     actions = ["activate_templates", "deactivate_templates", "duplicate_templates"]
@@ -260,22 +259,22 @@ class FolderTemplateAdmin(admin.ModelAdmin):
             "documents/js/template_type_toggle.js",
         )
 
-    @admin.display(description=_("模板类型"))
+    @admin.display(description="模板类型")
     def template_type_display(self, obj: FolderTemplate) -> str:
         """显示模板类型"""
         return str(obj.template_type_display)
 
-    @admin.display(description=_("合同类型"))
+    @admin.display(description="合同类型")
     def contract_types_display(self, obj: FolderTemplate) -> str:
         """显示合同类型"""
         return str(obj.contract_types_display)
 
-    @admin.display(description=_("案件类型"))
+    @admin.display(description="案件类型")
     def case_types_display(self, obj: FolderTemplate) -> str:
         """显示案件类型"""
         return str(obj.case_types_display)
 
-    @admin.display(description=_("案件阶段"))
+    @admin.display(description="案件阶段")
     def case_stage_display(self, obj: FolderTemplate) -> str:
         """显示案件阶段"""
         stages = obj.case_stages or []
@@ -284,14 +283,14 @@ class FolderTemplateAdmin(admin.ModelAdmin):
         stage_label = dict(DocumentCaseStage.choices).get(stages[0], stages[0])
         return str(stage_label)
 
-    @admin.display(description=_("我方诉讼地位"))
+    @admin.display(description="我方诉讼地位")
     def legal_statuses_display(self, obj: FolderTemplate) -> str:
         """显示诉讼地位"""
         if obj.template_type != "case":
             return "-"
         return str(obj.get_legal_statuses_display() or "任意")
 
-    @admin.display(description=_("匹配模式"))
+    @admin.display(description="匹配模式")
     def legal_status_match_mode_display(self, obj: FolderTemplate) -> str:
         """显示诉讼地位匹配模式"""
         if obj.template_type != "case":
@@ -394,7 +393,7 @@ class FolderTemplateAdmin(admin.ModelAdmin):
 
         super().save_model(request, obj, form, change)
 
-    @admin.display(description=_("文件夹数量"))
+    @admin.display(description="文件夹数量")
     def folder_count_display(self, obj: FolderTemplate) -> int:
         """显示文件夹数量"""
         return self._count_folders(obj.structure)
@@ -410,11 +409,11 @@ class FolderTemplateAdmin(admin.ModelAdmin):
             count += self._count_folders(child)
         return count
 
-    @admin.display(description=_("结构预览"))
+    @admin.display(description="结构预览")
     def structure_preview(self, obj: FolderTemplate) -> Any:
         """文件夹结构预览"""
         if not obj.structure:
-            return _("暂无结构")
+            return "暂无结构"
 
         admin_service = _get_admin_service()
         return admin_service.render_structure_preview(obj.structure)
@@ -424,23 +423,23 @@ class FolderTemplateAdmin(admin.ModelAdmin):
         admin_service = _get_admin_service()
         return admin_service.render_structure_tree(structure, level)
 
-    @admin.action(description=_("启用选中的模板"))
+    @admin.action(description="启用选中的模板")
     def activate_templates(self, request: Any, queryset: Any) -> None:
         """批量启用模板"""
         admin_service = _get_admin_service()
         updated: int = admin_service.batch_activate(queryset)
-        self.message_user(request, _("已启用 %(count)d 个模板") % {"count": updated})
+        self.message_user(request, "已启用 %(count)d 个模板" % {"count": updated})
 
-    @admin.action(description=_("禁用选中的模板"))
+    @admin.action(description="禁用选中的模板")
     def deactivate_templates(self, request: Any, queryset: Any) -> None:
         """批量禁用模板"""
         admin_service = _get_admin_service()
         updated: int = admin_service.batch_deactivate(queryset)
-        self.message_user(request, _("已禁用 %(count)d 个模板") % {"count": updated})
+        self.message_user(request, "已禁用 %(count)d 个模板" % {"count": updated})
 
-    @admin.action(description=_("复制选中的模板"))
+    @admin.action(description="复制选中的模板")
     def duplicate_templates(self, request: Any, queryset: Any) -> None:
         """批量复制文件夹模板"""
         admin_service = _get_admin_service()
         count = admin_service.batch_duplicate_templates(queryset)
-        self.message_user(request, _("已复制 %(count)d 个模板") % {"count": count})
+        self.message_user(request, "已复制 %(count)d 个模板" % {"count": count})

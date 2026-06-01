@@ -16,8 +16,6 @@ import time
 from pathlib import Path
 from typing import Any
 
-from django.utils.translation import gettext_lazy as _
-
 from ._zxfw_direct_api_mixin import ZxfwDirectApiMixin
 from ._zxfw_fallback_mixin import ZxfwFallbackMixin
 from ._zxfw_intercept_mixin import ZxfwInterceptMixin
@@ -96,7 +94,7 @@ class ZxfwCourtScraper(ZxfwDirectApiMixin, ZxfwInterceptMixin, ZxfwFallbackMixin
             from apps.core.exceptions import ExternalServiceError
 
             raise ExternalServiceError(
-                message=_("直接 API 调用失败，且 Playwright 未安装无法降级到浏览器模式"),
+                message="直接 API 调用失败，且 Playwright 未安装无法降级到浏览器模式",
                 code="DOWNLOAD_API_FAILED_NO_PLAYWRIGHT",
                 errors={
                     "direct_api_error": str(direct_api_error),
@@ -173,7 +171,7 @@ class ZxfwCourtScraper(ZxfwDirectApiMixin, ZxfwInterceptMixin, ZxfwFallbackMixin
             from apps.core.exceptions import ExternalServiceError
 
             raise ExternalServiceError(
-                message=_("所有下载方式均失败"),
+                message="所有下载方式均失败",
                 code="DOWNLOAD_ALL_METHODS_FAILED",
                 errors={
                     "direct_api_error": str(direct_api_error),

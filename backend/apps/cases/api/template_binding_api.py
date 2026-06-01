@@ -23,7 +23,6 @@ from apps.cases.schemas.template_binding_schemas import (
 
 router = Router()
 
-
 # ==================== Factory Function ====================
 
 

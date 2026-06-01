@@ -9,7 +9,6 @@ from typing import Any, ClassVar, cast
 from django.contrib import admin
 from django.db.models import QuerySet
 from django.utils.html import format_html
-from django.utils.translation import gettext_lazy as _
 
 from apps.documents.models import Placeholder
 
@@ -33,15 +32,15 @@ def _get_placeholder_admin_service() -> Any:
 
 
 class PlaceholderUsageFilter(admin.SimpleListFilter):
-    title = _("用途")
+    title = "用途"
     parameter_name: str = "usage"
 
     def lookups(self, request: Any, model_admin: Any) -> Any:
         return (
-            ("contract", _("合同文件")),
-            ("case", _("案件文件")),
-            ("both", _("合同+案件")),
-            ("unused", _("未使用")),
+            ("contract", "合同文件"),
+            ("case", "案件文件"),
+            ("both", "合同+案件"),
+            ("unused", "未使用"),
         )
 
     def queryset(self, request: Any, queryset: Any) -> Any:
@@ -86,8 +85,8 @@ class PlaceholderAdmin(admin.ModelAdmin):
 
     fieldsets: ClassVar[tuple[Any, ...]] = (
         (None, {"fields": ("key", "display_name")}),
-        (_("示例和说明"), {"fields": ("example_value", "description")}),
-        (_("状态"), {"fields": ("is_active",)}),
+        ("示例和说明", {"fields": ("example_value", "description")}),
+        ("状态", {"fields": ("is_active",)}),
     )
 
     actions: list[str] = ["activate_placeholders", "deactivate_placeholders"]
@@ -127,7 +126,7 @@ class PlaceholderAdmin(admin.ModelAdmin):
         service = _get_placeholder_admin_service()
         return cast(QuerySet[Any], service.get_filtered_queryset(qs, code_keys))
 
-    @admin.display(description=_("用途"))
+    @admin.display(description="用途")
     def usage_display(self, obj: Any) -> Any:
         usage_map = getattr(self, "_usage_map_for_changelist", None)
         if usage_map is None:
@@ -135,24 +134,24 @@ class PlaceholderAdmin(admin.ModelAdmin):
         types = usage_map.get(obj.key, set()) or set()
         parts: list[Any] = []
         if "contract" in types:
-            parts.append(str(_("合同文件")))
+            parts.append("合同文件")
         if "case" in types:
-            parts.append(str(_("案件文件")))
+            parts.append("案件文件")
         if not parts:
             return format_html('<span style="color: #999;">{}</span>', "-")
         return " / ".join(parts)
 
-    @admin.display(description=_("来源服务"))
+    @admin.display(description="来源服务")
     def code_service_display(self, obj: Any) -> Any:
         definition = self._catalog_cache().get(obj.key)
         return definition.source if definition else ""
 
-    @admin.display(description=_("分类"))
+    @admin.display(description="分类")
     def code_category_display(self, obj: Any) -> Any:
         definition = self._catalog_cache().get(obj.key)
         return definition.category if definition else ""
 
-    @admin.display(description=_("示例值"))
+    @admin.display(description="示例值")
     def example_value_display(self, obj: Any) -> Any:
         """显示示例值"""
         if obj.example_value:
@@ -165,19 +164,19 @@ class PlaceholderAdmin(admin.ModelAdmin):
             )
         return format_html('<span style="color: #999;">{}</span>', "-")
 
-    @admin.action(description=_("启用选中的替换词"))
+    @admin.action(description="启用选中的替换词")
     def activate_placeholders(self, request: Any, queryset: Any) -> None:
         """批量启用替换词"""
         updated = queryset.filter(is_active=False).update(is_active=True)
-        self.message_user(request, _("已启用 %(count)d 个替换词") % {"count": updated})
+        self.message_user(request, "已启用 %(count)d 个替换词" % {"count": updated})
 
-    @admin.action(description=_("禁用选中的替换词"))
+    @admin.action(description="禁用选中的替换词")
     def deactivate_placeholders(self, request: Any, queryset: Any) -> None:
         """批量禁用替换词"""
         updated = queryset.filter(is_active=True).update(is_active=False)
-        self.message_user(request, _("已禁用 %(count)d 个替换词") % {"count": updated})
+        self.message_user(request, "已禁用 %(count)d 个替换词" % {"count": updated})
 
-    @admin.action(description=_("复制选中的替换词"))
+    @admin.action(description="复制选中的替换词")
     def duplicate_placeholders(self, request: Any, queryset: QuerySet[Any]) -> None:
         """复制替换词"""
         service = _get_placeholder_admin_service()
@@ -186,7 +185,7 @@ class PlaceholderAdmin(admin.ModelAdmin):
             service.duplicate_placeholder(placeholder)
             count += 1
 
-        self.message_user(request, _("已复制 %(count)d 个替换词") % {"count": count})
+        self.message_user(request, "已复制 %(count)d 个替换词" % {"count": count})
 
     def get_readonly_fields(self, request: Any, obj: Any = None) -> Any:
         """编辑时 key 字段只读"""

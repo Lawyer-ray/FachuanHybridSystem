@@ -13,7 +13,6 @@ from django.contrib.staticfiles.urls import staticfiles_urlpatterns
 from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
 from django.shortcuts import render
 from django.urls import include, path
-from django.utils.translation import gettext_lazy as _
 
 from apps.organization.views import register
 

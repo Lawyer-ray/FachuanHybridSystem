@@ -4,7 +4,6 @@ import django.db.models.deletion
 from django.conf import settings
 from django.db import migrations, models
 
-
 class Migration(migrations.Migration):
     dependencies = [
         ("automation", "0008_rename_court_token_verbose"),

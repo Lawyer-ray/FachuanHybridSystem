@@ -9,8 +9,6 @@ Requirements: 2.1, 2.2
 import logging
 from typing import Any
 
-from django.utils.translation import gettext_lazy as _
-
 from apps.core.exceptions import NotFoundError
 
 logger = logging.getLogger("apps.litigation_ai")
@@ -42,7 +40,7 @@ class LitigationContextService:
         case_service = get_case_service()
         details = case_service.get_case_with_details_internal(case_id)
         if not details:
-            raise NotFoundError(message=_("案件不存在"), code="CASE_NOT_FOUND", errors={"case_id": case_id})
+            raise NotFoundError(message="案件不存在", code="CASE_NOT_FOUND", errors={"case_id": case_id})
 
         parties = []
         for party in details.get("case_parties", []) or []:
@@ -132,7 +130,7 @@ class LitigationContextService:
 
         case_dto = get_case_service().get_case_internal(case_id)
         if not case_dto:
-            raise NotFoundError(message=_("案件不存在"), code="CASE_NOT_FOUND", errors={"case_id": case_id})
+            raise NotFoundError(message="案件不存在", code="CASE_NOT_FOUND", errors={"case_id": case_id})
 
         from apps.litigation_ai.placeholders import LitigationPlaceholderContextService, LitigationPlaceholderKeys
 

@@ -28,14 +28,14 @@ class ExecutorQueryMixin:
     _synonym_groups_cache: tuple[tuple[str, ...], ...] | None = None
     _synonym_groups_cache_ts: float = 0.0
     _SYNONYM_CACHE_TTL: float = 300.0
-    ELEMENT_EXTRACTION_MAX_TOKENS = 300
-    ELEMENT_EXTRACTION_TIMEOUT_SECONDS = 20
+    ELEMENT_EXTRACTION_MAX_TOKENS = 16384
+    ELEMENT_EXTRACTION_TIMEOUT_SECONDS = 60
     QUERY_EXPANSION_TRIGGER_CANDIDATES = 80
     INTENT_QUERY_MAX = 5
     TITLE_PREFILTER_MIN_OVERLAP = 0.15
     QUERY_VARIANT_MAX = 2
-    QUERY_VARIANT_MAX_TOKENS = 220
-    QUERY_VARIANT_TIMEOUT_SECONDS = 25
+    QUERY_VARIANT_MAX_TOKENS = 16384
+    QUERY_VARIANT_TIMEOUT_SECONDS = 60
 
     # ── 主构建器 ──────────────────────────────────────────────
 
@@ -312,15 +312,17 @@ class ExecutorQueryMixin:
 
         prompt = (
             "你是法律检索要素提取器。从案情简述中提取关键法律要素，只输出JSON。\n"
+            "输出格式示例（注意：必须用案情中的真实内容替换，禁止照抄示例文字）：\n"
             "{\n"
-            '  "cause_of_action": "案由（如：买卖合同纠纷、民间借贷纠纷）",\n'
-            '  "legal_relation": "法律关系（如：买卖合同、借款合同）",\n'
-            '  "dispute_focus": ["争议焦点1", "争议焦点2"],\n'
-            '  "damage_type": ["损失类型1", "损失类型2"],\n'
-            '  "key_facts": ["关键事实1", "关键事实2"]\n'
+            '  "cause_of_action": "劳动争议",\n'
+            '  "legal_relation": "劳动合同",\n'
+            '  "dispute_focus": ["未缴纳社保", "经济补偿金"],\n'
+            '  "damage_type": ["社保损失"],\n'
+            '  "key_facts": ["入职未签合同", "拖欠工资"]\n'
             "}\n"
             "规则：每个字段2-6个字，dispute_focus和damage_type各不超过3项，key_facts不超过3项。\n"
-            "若无法判断某字段，留空字符串或空数组。\n\n"
+            "若无法判断某字段，留空字符串或空数组。\n"
+            "禁止输出括号说明文字（如'如：xxx'）或编号占位符（如'争议焦点1'）。\n\n"
             f"案情简述：{case_summary[:1500]}\n"
         )
         try:
@@ -342,20 +344,67 @@ class ExecutorQueryMixin:
         content = str(getattr(response, "content", "") or "").strip()
         if not content:
             return {}
+        parsed: dict[str, Any] | None = None
         try:
-            parsed = json.loads(content)
-            if isinstance(parsed, dict):
-                return parsed
+            raw = json.loads(content)
+            if isinstance(raw, dict):
+                parsed = raw
         except json.JSONDecodeError:
             match = re.search(r"\{.*\}", content, flags=re.S)
             if match:
                 try:
-                    parsed = json.loads(match.group(0))
-                    if isinstance(parsed, dict):
-                        return parsed
+                    raw = json.loads(match.group(0))
+                    if isinstance(raw, dict):
+                        parsed = raw
                 except json.JSONDecodeError:
                     pass
-        return {}
+        if not parsed:
+            return {}
+        return cls._sanitize_elements(parsed)
+
+    # LLM 有时会原样返回 prompt 中的示例文字，此正则匹配常见占位符模式
+    _PLACEHOLDER_RE = re.compile(
+        r"(?:案由|法律关系|争议焦点|损失类型|关键事实)"
+        r"[（(]?(?:如[：:].+?|[0-9]+)[）)]?$"
+    )
+    # 去掉括号后只剩字段名的通用标签
+    _GENERIC_LABELS = frozenset({"案由", "法律关系", "争议焦点", "损失类型", "关键事实"})
+
+    @classmethod
+    def _sanitize_elements(cls, elements: dict[str, Any]) -> dict[str, Any]:
+        """过滤 LLM 返回的占位符文本，只保留真实提取的要素。"""
+
+        def _clean_str(value: str) -> str:
+            text = value.strip()
+            # 移除括号说明：案由（如：买卖合同纠纷） → 案由
+            text = re.sub(r"[（(]如[：:].+?[）)]", "", text)
+            if cls._PLACEHOLDER_RE.match(text):
+                return ""
+            # 过滤含"如："的残留
+            if "如：" in text or "如:" in text:
+                return ""
+            # 过滤只剩字段名的通用标签
+            if text in cls._GENERIC_LABELS:
+                return ""
+            return text.strip()
+
+        def _clean_list(values: list[str]) -> list[str]:
+            cleaned = []
+            for v in values:
+                text = _clean_str(str(v))
+                if text:
+                    cleaned.append(text)
+            return cleaned
+
+        result: dict[str, Any] = {}
+        for key, value in elements.items():
+            if isinstance(value, str):
+                result[key] = _clean_str(value)
+            elif isinstance(value, list):
+                result[key] = _clean_list(value)
+            else:
+                result[key] = value
+        return result
 
     @classmethod
     def _build_element_based_queries(cls, elements: dict[str, Any]) -> list[str]:

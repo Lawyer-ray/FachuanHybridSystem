@@ -15,8 +15,6 @@ from datetime import date
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
-from django.utils.translation import gettext_lazy as _
-
 from apps.core.exceptions import ValidationException
 from apps.finance.services.lpr.rate_service import PrincipalPeriod
 
@@ -158,10 +156,10 @@ class InterestCalculator:
             计算结果
         """
         if start_date > end_date:
-            raise ValidationException(message=_("开始日期必须早于或等于结束日期"), code="INVALID_DATE_RANGE")
+            raise ValidationException(message="开始日期必须早于或等于结束日期", code="INVALID_DATE_RANGE")
 
         if principal <= 0:
-            raise ValidationException(message=_("本金必须大于0"), code="INVALID_PRINCIPAL")
+            raise ValidationException(message="本金必须大于0", code="INVALID_PRINCIPAL")
 
         # 根据日期包含模式调整计算用日期
         calc_start, calc_end = self._apply_date_inclusion(start_date, end_date, date_inclusion)
@@ -242,7 +240,7 @@ class InterestCalculator:
             计算结果
         """
         if not principal_periods:
-            raise ValidationException(message=_("本金时间段不能为空"), code="EMPTY_PRINCIPAL_PERIODS")
+            raise ValidationException(message="本金时间段不能为空", code="EMPTY_PRINCIPAL_PERIODS")
 
         # 排序并验证
         principal_periods = sorted(principal_periods, key=lambda x: x.start_date)
@@ -332,7 +330,7 @@ class InterestCalculator:
                 total_days += days
 
         if not periods:
-            raise ValidationException(message=_("无法计算利息，请检查日期范围和利率数据"), code="CALCULATION_FAILED")
+            raise ValidationException(message="无法计算利息，请检查日期范围和利率数据", code="CALCULATION_FAILED")
 
         # 计算加权平均本金
         total_principal_weighted = sum(Decimal(str(p.principal)) * p.days for p in periods)
@@ -366,13 +364,13 @@ class InterestCalculator:
             # 验证本金大于0
             if period.principal <= 0:
                 raise ValidationException(
-                    message=_("第%(index)s段本金必须大于0") % {"index": i + 1}, code="INVALID_PRINCIPAL"
+                    message="第%(index)s段本金必须大于0" % {"index": i + 1}, code="INVALID_PRINCIPAL"
                 )
 
             # 验证开始日期不晚于结束日期
             if period.start_date > period.end_date:
                 raise ValidationException(
-                    message=_("第%(index)s段开始日期不能晚于结束日期") % {"index": i + 1}, code="INVALID_DATE_RANGE"
+                    message="第%(index)s段开始日期不能晚于结束日期" % {"index": i + 1}, code="INVALID_DATE_RANGE"
                 )
 
         # 注意：时间段之间允许有空隙，不强制连续
@@ -449,7 +447,7 @@ class InterestCalculator:
             total_days += days
 
         if not periods:
-            raise ValidationException(message=_("无法计算利息，请检查日期范围"), code="CALCULATION_FAILED")
+            raise ValidationException(message="无法计算利息，请检查日期范围", code="CALCULATION_FAILED")
 
         # 计算加权平均本金
         total_principal_weighted = sum(Decimal(str(p.principal)) * p.days for p in periods)

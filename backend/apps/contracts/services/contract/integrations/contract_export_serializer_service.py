@@ -10,7 +10,6 @@ if TYPE_CHECKING:
     from apps.client.models import Client
     from apps.contracts.models import Contract
 
-
 ReminderPayload = dict[str, object]
 SerializedPayload = dict[str, object]
 

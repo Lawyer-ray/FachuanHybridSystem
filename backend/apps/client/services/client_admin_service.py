@@ -6,8 +6,6 @@ import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
-from django.utils.translation import gettext_lazy as _
-
 from apps.client.services.client_admin_file_mixin import _DOC_TYPE_DISPLAY, ClientAdminFileMixin
 from apps.core.exceptions import ValidationException
 
@@ -74,9 +72,9 @@ class ClientAdminService(ClientAdminFileMixin):
         client = self.internal_query_service.get_client(client_id=client_id)
         if not client:
             raise ValidationException(
-                message=_("客户不存在"),
+                message="客户不存在",
                 code="CLIENT_NOT_FOUND",
-                errors={"client_id": _("ID 为 %(id)s 的客户不存在") % {"id": client_id}},
+                errors={"client_id": "ID 为 %(id)s 的客户不存在" % {"id": client_id}},
             )
 
         processed_files = []

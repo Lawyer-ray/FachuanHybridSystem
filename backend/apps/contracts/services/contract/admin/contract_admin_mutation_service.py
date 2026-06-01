@@ -8,7 +8,6 @@ from typing import Any, ClassVar, cast
 
 from dateutil.relativedelta import relativedelta
 from django.db import transaction
-from django.utils.translation import gettext_lazy as _
 
 from apps.contracts.models import Contract
 from apps.core.exceptions import NotFoundError, ValidationException
@@ -90,13 +89,13 @@ class ContractAdminMutationService:
             original = Contract.objects.get(pk=contract_id)
         except Contract.DoesNotExist:
             raise NotFoundError(
-                message=_("合同不存在"),
+                message="合同不存在",
                 code="CONTRACT_NOT_FOUND",
-                errors={"contract_id": _("ID为 %(id)s 的合同不存在") % {"id": contract_id}},
+                errors={"contract_id": "ID为 %(id)s 的合同不存在" % {"id": contract_id}},
             ) from None
 
         new_contract = Contract.objects.create(
-            name=_("%(name)s (副本)") % {"name": original.name},
+            name="%(name)s (副本)" % {"name": original.name},
             case_type=original.case_type,
             status=original.status,
             specified_date=original.specified_date,
@@ -127,18 +126,16 @@ class ContractAdminMutationService:
             contract = Contract.objects.get(pk=contract_id)
         except Contract.DoesNotExist:
             raise NotFoundError(
-                message=_("合同不存在"),
+                message="合同不存在",
                 code="CONTRACT_NOT_FOUND",
-                errors={"contract_id": _("ID为 %(id)s 的合同不存在") % {"id": contract_id}},
+                errors={"contract_id": "ID为 %(id)s 的合同不存在" % {"id": contract_id}},
             ) from None
 
         if contract.case_type not in self.CASE_ALLOWED_TYPES:
             raise ValidationException(
-                message=_("该合同类型不支持创建案件"),
+                message="该合同类型不支持创建案件",
                 code="INVALID_CONTRACT_TYPE",
-                errors={
-                    "case_type": _("合同类型 %(type)s 不支持创建案件") % {"type": contract.get_case_type_display()}
-                },
+                errors={"case_type": "合同类型 %(type)s 不支持创建案件" % {"type": contract.get_case_type_display()}},
             )
 
         from apps.core.models.enums import SimpleCaseType
@@ -171,17 +168,17 @@ class ContractAdminMutationService:
             original = Contract.objects.get(pk=contract_id)
         except Contract.DoesNotExist:
             raise NotFoundError(
-                message=_("合同不存在"),
+                message="合同不存在",
                 code="CONTRACT_NOT_FOUND",
-                errors={"contract_id": _("ID为 %(id)s 的合同不存在") % {"id": contract_id}},
+                errors={"contract_id": "ID为 %(id)s 的合同不存在" % {"id": contract_id}},
             ) from None
 
         if original.case_type != CaseType.ADVISOR:
             raise ValidationException(
-                message=_("只有常法顾问合同才能续签"),
+                message="只有常法顾问合同才能续签",
                 code="INVALID_CONTRACT_TYPE",
                 errors={
-                    "case_type": _("合同类型为 %(type)s，不是常法顾问合同") % {"type": original.get_case_type_display()}
+                    "case_type": "合同类型为 %(type)s，不是常法顾问合同" % {"type": original.get_case_type_display()}
                 },
             )
 
@@ -215,7 +212,7 @@ class ContractAdminMutationService:
         principals_str = "、".join(principal_names)
         start_str = start_date.strftime("%Y年%m月%d日")
         end_str = end_date.strftime("%Y年%m月%d日")
-        return _("%(names)s常法顾问-%(start)s至%(end)s") % {"names": principals_str, "start": start_str, "end": end_str}
+        return "%(names)s常法顾问-%(start)s至%(end)s" % {"names": principals_str, "start": start_str, "end": end_str}
 
     @transaction.atomic
     def handle_contract_filing_change(self, contract_id: int, is_filed: bool) -> str | None:
@@ -223,9 +220,9 @@ class ContractAdminMutationService:
             contract = Contract.objects.get(pk=contract_id)
         except Contract.DoesNotExist:
             raise NotFoundError(
-                message=_("合同不存在"),
+                message="合同不存在",
                 code="CONTRACT_NOT_FOUND",
-                errors={"contract_id": _("ID为 %(id)s 的合同不存在") % {"id": contract_id}},
+                errors={"contract_id": "ID为 %(id)s 的合同不存在" % {"id": contract_id}},
             ) from None
 
         if not is_filed:

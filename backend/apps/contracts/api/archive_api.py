@@ -8,14 +8,12 @@ from typing import Any
 
 from django.conf import settings as django_settings
 from django.http import HttpRequest, HttpResponse
-from django.utils.translation import gettext_lazy as _
 from ninja import Router, Schema
 
 from apps.contracts.services.archive.checklist.checklist_query import get_checklist_with_status
 
 logger = logging.getLogger("apps.contracts.api")
 router = Router()
-
 
 # ── Schemas ──
 

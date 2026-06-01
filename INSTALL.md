@@ -145,7 +145,7 @@ make run-dev
 make run-port PORT=8080
 ```
 
-## 3. 本地开发（Linux / Windows）
+## 3. 本地开发（Linux）
 
 ### 3.1 安装 PostgreSQL
 
@@ -157,13 +157,12 @@ sudo apt install -y postgresql postgresql-contrib
 sudo systemctl enable --now postgresql
 ```
 
-#### Windows
+#### CentOS / RHEL
 
-- 方案1（推荐）：从 PostgreSQL 官网下载安装器并完成初始化。
-- 方案2（Chocolatey）：
-
-```powershell
-choco install postgresql --yes
+```bash
+sudo yum install -y postgresql-server postgresql-contrib
+sudo postgresql-setup --initdb
+sudo systemctl enable --now postgresql
 ```
 
 ### 3.2 初始化数据库与用户
@@ -191,26 +190,23 @@ git clone --depth 1 https://github.com/Lawyer-ray/FachuanHybridSystem.git
 cd FachuanHybridSystem/backend
 
 # 2) 安装 uv（若未安装）
-# Linux: 可直接执行下行；Windows: 请参考 https://docs.astral.sh/uv/getting-started/installation/
 curl -LsSf https://astral.sh/uv/install.sh | sh
 
 # 3) 安装系统依赖（ddddocr / OpenCV 需要，Docker 部署已内置）
-# Ubuntu / Debian（Ubuntu 22.04 用 libglib2.0-0，24.04+ 用 libglib2.0-0t64）:
+# Ubuntu 22.04 用 libglib2.0-0，24.04+ 用 libglib2.0-0t64
 sudo apt-get install -y libgl1 libglib2.0-0t64 || sudo apt-get install -y libgl1 libglib2.0-0
-# CentOS / RHEL:
-# sudo yum install -y mesa-libGL glib2
 
 # 4) 创建虚拟环境并安装依赖
 uv sync
 
 # 5) 激活虚拟环境
-source .venv/bin/activate  # Windows: .venv\\Scripts\\activate
+source .venv/bin/activate
 
 # 6) 配置环境变量
 cp .env.example .env
 
-# 7) 确保 PostgreSQL 已启动并可连接（默认读取 .env 中 DB_* 配置）
-# 例如：systemctl start postgresql / brew services start postgresql / Docker 启动 postgres
+# 7) 确保 PostgreSQL 已启动并可连接
+# systemctl start postgresql
 
 # 8) 数据库迁移
 cd apiSystem
@@ -228,6 +224,76 @@ uv run python manage.py collectstatic --noinput
 Web 与 qcluster 可按任意顺序启动；涉及异步任务时需保持 qcluster 运行。
 
 ```bash
+# 终端1
+uv run python manage.py qcluster
+
+# 终端2
+uv run python manage.py runserver 0.0.0.0:8002
+```
+
+## 4. 本地开发（Windows）
+
+### 4.1 安装 PostgreSQL
+
+从 [PostgreSQL 官网](https://www.postgresql.org/download/windows/) 下载安装器，安装时记住设置的密码。
+
+或使用 Chocolatey：
+
+```powershell
+choco install postgresql --yes
+```
+
+安装完成后**重启终端**，确保 `psql` 命令可用。
+
+### 4.2 初始化数据库与用户
+
+按 `backend/.env` 里的 `DB_NAME/DB_USER/DB_PASSWORD` 保持一致（默认示例：`fachuan_dev/postgres/postgres`）：
+
+```powershell
+# 通过 psql 连接（输入安装时设置的密码）
+psql -U postgres -c "ALTER USER postgres WITH PASSWORD 'postgres';"
+psql -U postgres -c "CREATE DATABASE fachuan_dev OWNER postgres;"
+```
+
+如果数据库已存在，第二条 `CREATE DATABASE` 报错可忽略。
+
+### 4.3 安装项目依赖
+
+> 前置条件：Python 3.12+（`uv sync` 会自动下载，无需手动安装）
+
+```powershell
+# 1) 克隆项目
+git clone --depth 1 https://github.com/Lawyer-ray/FachuanHybridSystem.git
+cd FachuanHybridSystem\backend
+
+# 2) 安装 uv（若未安装）
+# 参考 https://docs.astral.sh/uv/getting-started/installation/
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
+# 安装后需重启终端，确保 uv 加入 PATH
+
+# 3) 创建虚拟环境并安装依赖
+uv sync
+
+# 4) 激活虚拟环境
+.venv\Scripts\activate
+
+# 5) 配置环境变量
+copy .env.example .env
+
+# 6) 数据库迁移
+cd apiSystem
+uv run python manage.py migrate
+
+# 7) 创建管理员
+uv run python manage.py createsuperuser
+
+# 8) 收集静态文件
+uv run python manage.py collectstatic --noinput
+```
+
+### 4.4 启动服务
+
+```powershell
 # 终端1
 uv run python manage.py qcluster
 

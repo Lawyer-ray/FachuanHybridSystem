@@ -9,12 +9,11 @@ import logging
 from typing import Any
 
 from django.contrib import admin, messages
-from django.db.models import Count
+from django.db.models import Count, QuerySet
 from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
 from django.urls import URLPattern, path, reverse
 from django.utils.html import format_html
 from django.utils.safestring import SafeString
-from django.utils.translation import gettext_lazy as _
 
 from apps.core.models import Court
 
@@ -67,7 +66,7 @@ class CourtAdmin(admin.ModelAdmin):
 
     fieldsets = (
         (
-            _("基本信息"),
+            "基本信息",
             {
                 "fields": (
                     "code",
@@ -78,11 +77,11 @@ class CourtAdmin(admin.ModelAdmin):
             },
         ),
         (
-            _("状态"),
+            "状态",
             {"fields": ("is_active",)},
         ),
         (
-            _("时间信息"),
+            "时间信息",
             {
                 "fields": (
                     "created_at",
@@ -93,11 +92,27 @@ class CourtAdmin(admin.ModelAdmin):
         ),
     )
 
+    autocomplete_fields = ["parent"]
+
+    list_select_related = ["parent"]
+
     ordering = ["province", "level", "name"]
 
     list_per_page = 50
 
     change_list_template = "admin/core/court/change_list.html"
+
+    def get_queryset(self, request: HttpRequest) -> QuerySet[Court]:
+        """预取完整父级链，避免 full_path 递归访问触发 N+1 查询.
+
+        法院最多 4 层（省 -> 高院 -> 中院 -> 基层），select_related 4 级 parent
+        可覆盖最深路径，使 full_path 遍历全部在内存中完成.
+        """
+        return (
+            super()
+            .get_queryset(request)
+            .select_related("parent", "parent__parent", "parent__parent__parent", "parent__parent__parent__parent")
+        )
 
     def parent_display(self, obj: Court) -> SafeString:
         """显示父级法院"""
@@ -109,7 +124,7 @@ class CourtAdmin(admin.ModelAdmin):
             )
         return format_html('<span style="color: #999;">{}</span>', "—")
 
-    parent_display.short_description = _("上级法院")  # type: ignore[attr-defined]
+    parent_display.short_description = "上级法院"  # type: ignore[attr-defined]
 
     def status_display(self, obj: Court) -> SafeString:
         """状态显示"""
@@ -117,7 +132,7 @@ class CourtAdmin(admin.ModelAdmin):
             return format_html('<span style="color: #ffc107;">{}</span>', "⏸️ 已禁用")
         return format_html('<span style="color: #28a745;">{}</span>', "✅ 正常")
 
-    status_display.short_description = _("状态")  # type: ignore[attr-defined]
+    status_display.short_description = "状态"  # type: ignore[attr-defined]
 
     def get_urls(self) -> list[URLPattern]:
         """添加自定义 URL"""

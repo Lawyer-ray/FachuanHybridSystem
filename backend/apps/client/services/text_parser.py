@@ -37,7 +37,6 @@ _FIELD_KEYWORDS: list[str] = [
     "手机",
 ]
 
-
 # 角色标签模式（用于分割多当事人文本）
 # 统一支持：
 # - 带序号：被告一 / 被告1 / 甲方二
@@ -82,7 +81,6 @@ _ROLE_SPLIT_PATTERNS: list[re.Pattern[str]] = [re.compile(p, re.IGNORECASE) for 
 
 # 角色标签 + 名称捕获模式（用于提取名称）
 _ROLE_NAME_PATTERNS: list[re.Pattern[str]] = [re.compile(rf"{p}([^\n]+)", re.IGNORECASE) for p in _ROLE_SPLIT_STRS]
-
 
 _ETHNICITY_PATTERN = re.compile(
     r"[，,]\s*(?:男|女|汉族|回族|满族|蒙古族|维吾尔族|藏族|壮族|朝鲜族|苗族|瑶族|"

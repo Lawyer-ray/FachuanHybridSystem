@@ -12,7 +12,6 @@ from pathlib import Path
 from typing import Any
 
 import httpx
-from django.utils.translation import gettext_lazy as _
 
 from apps.core.exceptions import ConfigurationException, MessageSendException
 
@@ -41,7 +40,7 @@ class TelegramFileMixin:
         """
         if not self.is_available():
             raise ConfigurationException(
-                message=_("Telegram 配置不完整，无法发送文件"),
+                message="Telegram 配置不完整，无法发送文件",
                 platform="telegram",
                 missing_config="BOT_TOKEN",
             )

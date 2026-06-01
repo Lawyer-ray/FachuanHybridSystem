@@ -6,7 +6,6 @@ from typing import Any, ClassVar
 from django import forms
 from django.contrib import admin
 from django.core.exceptions import ValidationError
-from django.utils.translation import gettext_lazy as _
 
 from apps.core.admin.mixins import AdminImportExportMixin
 from apps.organization.models import AccountCredential, Lawyer, Team
@@ -21,20 +20,20 @@ def _get_lawyer_import_service() -> LawyerImportService:
 class LawyerAdminForm(forms.ModelForm[Lawyer]):
     new_password = forms.CharField(
         required=False,
-        label=_("新密码"),
+        label="新密码",
         # Keep password entry masked to avoid accidental plain text exposure in admin.
         widget=forms.PasswordInput(render_value=False, attrs={"autocomplete": "new-password"}),
-        help_text=_("留空则不修改密码"),
+        help_text="留空则不修改密码",
     )
     lawyer_team = forms.ModelChoiceField(
         queryset=Team.objects.filter(team_type=TeamType.LAWYER),
         required=False,
-        label=_("律师团队"),
+        label="律师团队",
     )
     biz_team = forms.ModelChoiceField(
         queryset=Team.objects.filter(team_type=TeamType.BIZ),
         required=False,
-        label=_("业务团队"),
+        label="业务团队",
     )
 
     class Meta:
@@ -69,7 +68,7 @@ class LawyerAdminForm(forms.ModelForm[Lawyer]):
     def clean(self) -> dict[str, Any]:
         cleaned: dict[str, Any] = super().clean() or {}
         if not cleaned.get("lawyer_team"):
-            raise ValidationError({"lawyer_team": str(_("律师必须至少关联一个律师团队"))})
+            raise ValidationError({"lawyer_team": "律师必须至少关联一个律师团队"})
         return cleaned
 
     def save(self, commit: bool = True) -> Lawyer:
@@ -108,8 +107,8 @@ class AccountCredentialInline(admin.TabularInline[AccountCredential, AccountCred
     fields = ("site_name", "url", "account", "password")
     autocomplete_fields = ()
     show_change_link = False
-    verbose_name = _("账号密码")
-    verbose_name_plural = _("账号密码")
+    verbose_name = "账号密码"
+    verbose_name_plural = "账号密码"
 
     def get_extra(self, request: Any, obj: Any = None, **kwargs: Any) -> int:
         return 1 if not obj or not obj.credentials.exists() else 0
@@ -125,10 +124,10 @@ class LawyerAdmin(AdminImportExportMixin, admin.ModelAdmin):
     export_model_name = "lawyer"
     actions: ClassVar = ["export_selected_as_json", "export_all_as_json"]  # type: ignore[misc]
     fieldsets: ClassVar = (
-        (_("账号信息"), {"fields": ("username", "password", "new_password")}),
-        (_("个人信息"), {"fields": ("real_name", "phone", "avatar", "license_no", "id_card", "license_pdf")}),
-        (_("组织关系"), {"fields": ("lawyer_team", "biz_team")}),
-        (_("权限"), {"fields": ("is_active", "is_admin", "is_staff", "is_superuser")}),
+        ("账号信息", {"fields": ("username", "password", "new_password")}),
+        ("个人信息", {"fields": ("real_name", "phone", "avatar", "license_no", "id_card", "license_pdf")}),
+        ("组织关系", {"fields": ("lawyer_team", "biz_team")}),
+        ("权限", {"fields": ("is_active", "is_admin", "is_staff", "is_superuser")}),
     )
 
     class Media:

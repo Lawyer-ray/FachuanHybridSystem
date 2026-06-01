@@ -14,7 +14,6 @@ from django.core.exceptions import PermissionDenied
 from django.http import Http404, HttpRequest, HttpResponse
 from django.shortcuts import render
 from django.urls import URLPattern, path, reverse
-from django.utils.translation import gettext_lazy as _
 
 from apps.core.exceptions import BusinessException, NotFoundError
 
@@ -152,7 +151,7 @@ class ContractDisplayMixin(ContractArchiveMixin, ContractDisplayFormatMixin):
         try:
             contract = admin_service.query_service.get_contract_detail(object_id)
         except NotFoundError:
-            raise Http404(_("合同不存在")) from None
+            raise Http404("合同不存在") from None
 
         # 判断是否显示代理阶段(仅民商事/刑事/行政/劳动仲裁类型显示)
         ctx_data = admin_service.get_contract_detail_context(contract.id)
@@ -174,7 +173,7 @@ class ContractDisplayMixin(ContractArchiveMixin, ContractDisplayFormatMixin):
         context.update(
             {
                 "contract": contract,
-                "title": _("合同详情: %(name)s") % {"name": contract.name},
+                "title": "合同详情: %(name)s" % {"name": contract.name},
                 "opts": self.model._meta,
                 "has_change_permission": self.has_change_permission(request, contract),
                 "has_view_permission": self.has_view_permission(request, contract),
@@ -262,7 +261,7 @@ class ContractDisplayMixin(ContractArchiveMixin, ContractDisplayFormatMixin):
             return JsonResponse({"success": False, "error": "Method not allowed"}, status=405)
 
         if not self.has_view_permission(request):
-            return JsonResponse({"success": False, "error": str(_("无权限"))}, status=403)
+            return JsonResponse({"success": False, "error": "无权限"}, status=403)
 
         try:
             from apps.contracts.models.folder_binding import ContractFolderBinding
@@ -270,16 +269,16 @@ class ContractDisplayMixin(ContractArchiveMixin, ContractDisplayFormatMixin):
             try:
                 binding = ContractFolderBinding.objects.get(contract_id=object_id)
             except ContractFolderBinding.DoesNotExist:
-                return JsonResponse({"success": False, "error": str(_("未绑定文件夹"))}, status=404)
+                return JsonResponse({"success": False, "error": "未绑定文件夹"}, status=404)
 
             folder_path = binding.folder_path
             if not folder_path:
-                return JsonResponse({"success": False, "error": str(_("文件夹路径为空"))}, status=400)
+                return JsonResponse({"success": False, "error": "文件夹路径为空"}, status=400)
 
             folder = Path(folder_path).expanduser()
             if not folder.exists():
                 return JsonResponse(
-                    {"success": False, "error": str(_("文件夹不存在: %(path)s") % {"path": folder_path})}, status=404
+                    {"success": False, "error": str("文件夹不存在: %(path)s" % {"path": folder_path})}, status=404
                 )
 
             system = platform.system()
@@ -311,7 +310,7 @@ class ContractDisplayMixin(ContractArchiveMixin, ContractDisplayFormatMixin):
         try:
             contract = admin_service.query_service.get_contract_detail(object_id)
         except NotFoundError:
-            raise Http404(_("合同不存在")) from None
+            raise Http404("合同不存在") from None
 
         ctx_data = admin_service.get_contract_detail_context(contract.id)
 

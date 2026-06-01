@@ -13,8 +13,6 @@ from decimal import ROUND_HALF_UP, Decimal
 from enum import Enum
 from typing import TYPE_CHECKING
 
-from django.utils.translation import gettext_lazy as _
-
 if TYPE_CHECKING:
     from apps.sales_dispute.services.calculation.lpr_rate_service import LprRateService
 
@@ -118,11 +116,11 @@ class InterestCalculatorService:
         warnings: list[str] = []
 
         # 买卖合同不适用4倍LPR上限提示
-        warnings.append(str(_("买卖合同不适用民间借贷4倍LPR利率上限")))
+        warnings.append("买卖合同不适用民间借贷4倍LPR利率上限")
 
         # 违约金与利息不能同时全额主张提示
         if params.rate_type in (RateType.PENALTY_FIXED, RateType.PENALTY_DAILY):
-            warnings.append(str(_("违约金与利息不能同时全额主张，建议择一主张或由法院酌定")))
+            warnings.append("违约金与利息不能同时全额主张，建议择一主张或由法院酌定")
 
         # 分批交货：每批独立计算
         if params.interest_start_type == InterestStartType.BATCH_DELIVERY:

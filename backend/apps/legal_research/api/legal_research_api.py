@@ -6,7 +6,6 @@ from io import BytesIO
 from typing import Any
 
 from django.http import FileResponse, Http404, HttpResponse
-from django.utils.translation import gettext_lazy as _
 from ninja import Router
 
 from apps.core.infrastructure.throttling import rate_limit_from_settings
@@ -131,7 +130,7 @@ def list_results(request: Any, task_id: int) -> list[LegalResearchResultOut]:
 def download_single_result(request: Any, task_id: int, result_id: int) -> FileResponse:
     result = _get_service().get_result(task_id=task_id, result_id=result_id, user=getattr(request, "user", None))
     if not result.pdf_file:
-        raise Http404(_("结果PDF不存在"))
+        raise Http404("结果PDF不存在")
 
     filename = (result.pdf_file.name or "").split("/")[-1]
     return FileResponse(result.pdf_file.open("rb"), as_attachment=True, filename=filename)
@@ -145,7 +144,7 @@ def download_all_results(request: Any, task_id: int) -> HttpResponse:
     results = service.list_results(task_id=task_id, user=getattr(request, "user", None))
 
     if not results:
-        raise Http404(_("任务暂无可下载结果"))
+        raise Http404("任务暂无可下载结果")
 
     buffer = BytesIO()
     with zipfile.ZipFile(buffer, "w", compression=zipfile.ZIP_DEFLATED) as zip_file:
@@ -161,7 +160,7 @@ def download_all_results(request: Any, task_id: int) -> HttpResponse:
                 zip_file.writestr(entry_name, fp.read())
 
     if buffer.tell() == 0 or not has_file:
-        raise Http404(_("任务暂无可下载PDF"))
+        raise Http404("任务暂无可下载PDF")
 
     filename = f"legal_research_{task_id}.zip"
     response = HttpResponse(buffer.getvalue(), content_type="application/zip")

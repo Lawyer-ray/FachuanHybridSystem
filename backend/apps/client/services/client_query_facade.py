@@ -5,7 +5,6 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from django.db.models import QuerySet
-from django.utils.translation import gettext_lazy as _
 
 from .client_access_policy import ClientAccessPolicy
 from .client_query_service import ClientQueryService
@@ -46,7 +45,7 @@ class ClientQueryFacade:
         user: User | None = None,
     ) -> QuerySet[Client, Client]:
         if user is not None:
-            self.access_policy.ensure_has_perm(user, "client.view_client", _("无权限查看客户"))
+            self.access_policy.ensure_has_perm(user, "client.view_client", "无权限查看客户")
         return self.query_service.list_clients(
             client_type=client_type,
             is_our_client=is_our_client,
@@ -56,12 +55,12 @@ class ClientQueryFacade:
 
     def get_client(self, *, client_id: int, user: User | None = None) -> Client:
         if user is not None:
-            self.access_policy.ensure_has_perm(user, "client.view_client", _("无权限查看客户"))
+            self.access_policy.ensure_has_perm(user, "client.view_client", "无权限查看客户")
         return self.query_service.get_client(client_id=client_id, user=user)
 
     def get_clients_by_ids(self, *, client_ids: list[int], user: User | None = None) -> list[Client]:
         if user is not None:
-            self.access_policy.ensure_has_perm(user, "client.view_client", _("无权限查看客户"))
+            self.access_policy.ensure_has_perm(user, "client.view_client", "无权限查看客户")
         return self.query_service.get_clients_by_ids(client_ids=client_ids)
 
     def get_related_items(self, *, client_id: int) -> dict[str, list[dict[str, Any]]]:

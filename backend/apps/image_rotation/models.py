@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from django.db import models
-from django.utils.translation import gettext_lazy as _
 
 
 class ImageRotationTool(models.Model):
@@ -14,5 +13,5 @@ class ImageRotationTool(models.Model):
 
     class Meta:
         managed = False
-        verbose_name = _("图片自动旋转")
-        verbose_name_plural = _("图片自动旋转")
+        verbose_name = "图片自动旋转"
+        verbose_name_plural = "图片自动旋转"

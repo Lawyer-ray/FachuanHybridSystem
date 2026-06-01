@@ -414,7 +414,6 @@ ARCHIVE_CHECKLIST: dict[str, list[ChecklistItem]] = {
     "criminal": CRIMINAL_CHECKLIST,
 }
 
-
 # ============================================================
 # CaseMaterial.type_name 关键词 → archive_item_code 映射
 # ============================================================
@@ -467,7 +466,6 @@ ARCHIVE_SKIP_TEMPLATES: set[str] = {
     "inner_catalog",
 }
 
-
 CASE_MATERIAL_KEYWORD_MAPPING: dict[str, dict[str, list[str]]] = {
     # key: archive_item_code, value: type_name 中需包含的关键词列表
     "non_litigation": {
@@ -505,7 +503,6 @@ CASE_MATERIAL_KEYWORD_MAPPING: dict[str, dict[str, list[str]]] = {
         "cr_15": ["上诉书", "抗诉书"],
     },
 }
-
 
 # ============================================================
 # 归档清单子项默认排序规则

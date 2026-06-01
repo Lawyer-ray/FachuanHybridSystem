@@ -18,7 +18,6 @@ from django.utils import timezone
 from django.utils.html import format_html
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.utils.safestring import mark_safe
-from django.utils.translation import gettext_lazy as _
 from simple_history.admin import SimpleHistoryAdmin
 
 from ..models import Reminder, ReminderType
@@ -29,7 +28,7 @@ class ReminderAdminForm(forms.ModelForm[Reminder]):
         model = Reminder
         fields: str = "__all__"
         help_texts: dict[str, object] = {
-            "metadata": _(
+            "metadata": (
                 '用于存放"结构化扩展信息"的 JSON(不参与业务必填).可留空或填 {}.'
                 "常见键:source(来源,如 court_sms / manual)、file_name(来源文件名)、"
                 'external_id(外部ID)、note(备注).示例:{"source":"court_sms","file_name":"传票.pdf"}'
@@ -49,11 +48,11 @@ class ReminderAdminForm(forms.ModelForm[Reminder]):
             try:
                 parsed = json.loads(value)
             except json.JSONDecodeError:
-                raise forms.ValidationError(_("请输入合法的 JSON 格式")) from None
+                raise forms.ValidationError("请输入合法的 JSON 格式") from None
             if not isinstance(parsed, dict):
-                raise forms.ValidationError(_("请输入合法的 JSON 对象（非数组或标量）"))
+                raise forms.ValidationError("请输入合法的 JSON 对象（非数组或标量）")
             return parsed
-        raise forms.ValidationError(_("请输入合法的 JSON 格式"))
+        raise forms.ValidationError("请输入合法的 JSON 格式")
 
 
 @admin.register(Reminder)
@@ -97,21 +96,21 @@ class ReminderAdmin(SimpleHistoryAdmin, admin.ModelAdmin):
             },
         ),
         (
-            _("扩展数据（原始 JSON）"),
+            "扩展数据（原始 JSON）",
             {
                 "fields": ("metadata",),
                 "classes": ("collapse",),
             },
         ),
         (
-            _("时间信息"),
+            "时间信息",
             {
                 "fields": ("created_at", "updated_at"),
             },
         ),
     )
 
-    @admin.display(description=_("扩展数据"))
+    @admin.display(description="扩展数据")
     def metadata_display(self, obj: Reminder) -> str:
         from django.utils.html import escape
 
@@ -214,18 +213,18 @@ class ReminderAdmin(SimpleHistoryAdmin, admin.ModelAdmin):
 
         context: dict[str, object] = {
             **self.admin_site.each_context(request),
-            "title": _("提醒日历"),
+            "title": "提醒日历",
             "opts": self.model._meta,
             "calendar_weeks": calendar_weeks,
-            "month_title": _("%(year)s年%(month)s月") % {"year": year, "month": month},
+            "month_title": "%(year)s年%(month)s月" % {"year": year, "month": month},
             "weekday_labels": [
-                _("周一"),
-                _("周二"),
-                _("周三"),
-                _("周四"),
-                _("周五"),
-                _("周六"),
-                _("周日"),
+                "周一",
+                "周二",
+                "周三",
+                "周四",
+                "周五",
+                "周六",
+                "周日",
             ],
             "selected_type": selected_type,
             "selected_scope": selected_scope,
@@ -256,7 +255,7 @@ class ReminderAdmin(SimpleHistoryAdmin, admin.ModelAdmin):
             return HttpResponseRedirect(reverse("admin:reminders_reminder_calendar"))
 
         if not self.has_add_permission(request):
-            self.message_user(request, _("你没有新增提醒的权限。"), level="error")
+            self.message_user(request, "你没有新增提醒的权限。", level="error")
             return HttpResponseRedirect(reverse("admin:reminders_reminder_calendar"))
 
         return_url = self._safe_return_url(request=request)
@@ -268,34 +267,34 @@ class ReminderAdmin(SimpleHistoryAdmin, admin.ModelAdmin):
         target_id = self._parse_positive_int(request.POST.get("target_id", ""))
 
         if not content:
-            self.message_user(request, _("提醒事项不能为空。"), level="error")
+            self.message_user(request, "提醒事项不能为空。", level="error")
             return HttpResponseRedirect(return_url)
 
         valid_types = {value for value, _ in ReminderType.choices}
         if reminder_type not in valid_types:
-            self.message_user(request, _("提醒类型不合法。"), level="error")
+            self.message_user(request, "提醒类型不合法。", level="error")
             return HttpResponseRedirect(return_url)
 
         if not due_date_text or not due_time_text:
-            self.message_user(request, _("请选择提醒日期和时间。"), level="error")
+            self.message_user(request, "请选择提醒日期和时间。", level="error")
             return HttpResponseRedirect(return_url)
 
         if target_type and target_type not in {"contract", "case", "case_log"}:
-            self.message_user(request, _("请选择合法的关联对象类型。"), level="error")
+            self.message_user(request, "请选择合法的关联对象类型。", level="error")
             return HttpResponseRedirect(return_url)
 
         if target_type and target_id is None:
-            self.message_user(request, _("关联对象ID必须是正整数。"), level="error")
+            self.message_user(request, "关联对象ID必须是正整数。", level="error")
             return HttpResponseRedirect(return_url)
 
         if not target_type and target_id is not None:
-            self.message_user(request, _("请选择关联对象类型后再选择具体对象。"), level="error")
+            self.message_user(request, "请选择关联对象类型后再选择具体对象。", level="error")
             return HttpResponseRedirect(return_url)
 
         try:
             due_naive = datetime.fromisoformat(f"{due_date_text}T{due_time_text}")
         except ValueError:
-            self.message_user(request, _("提醒时间格式不正确。"), level="error")
+            self.message_user(request, "提醒时间格式不正确。", level="error")
             return HttpResponseRedirect(return_url)
 
         due_at = timezone.make_aware(due_naive, timezone.get_current_timezone())
@@ -317,11 +316,11 @@ class ReminderAdmin(SimpleHistoryAdmin, admin.ModelAdmin):
             reminder.full_clean()
             reminder.save()
         except ValidationError as exc:
-            messages = exc.messages if exc.messages else [_("新增提醒失败，请检查输入内容。")]
+            messages = exc.messages if exc.messages else ["新增提醒失败，请检查输入内容。"]
             self.message_user(request, "；".join(str(message) for message in messages), level="error")
             return HttpResponseRedirect(return_url)
 
-        self.message_user(request, _("提醒已创建。"))
+        self.message_user(request, "提醒已创建。")
         return HttpResponseRedirect(return_url)
 
     def calendar_target_options_view(self, request: HttpRequest) -> JsonResponse:
@@ -356,7 +355,7 @@ class ReminderAdmin(SimpleHistoryAdmin, admin.ModelAdmin):
                 "id": row["id"],
                 "name": row["name"],
                 "target_type": "contract",
-                "target_type_label": str(_("合同")),
+                "target_type_label": "合同",
             }
             for row in contract_queryset.order_by("-id").values("id", "name")[:limit_per_group]
         ]
@@ -364,7 +363,7 @@ class ReminderAdmin(SimpleHistoryAdmin, admin.ModelAdmin):
             groups.append(
                 {
                     "key": "contract",
-                    "label": str(_("合同")),
+                    "label": "合同",
                     "items": contract_items,
                 }
             )
@@ -374,7 +373,7 @@ class ReminderAdmin(SimpleHistoryAdmin, admin.ModelAdmin):
                 "id": row["id"],
                 "name": row["name"],
                 "target_type": "case",
-                "target_type_label": str(_("案件")),
+                "target_type_label": "案件",
             }
             for row in case_queryset.order_by("-id").values("id", "name")[:limit_per_group]
         ]
@@ -382,7 +381,7 @@ class ReminderAdmin(SimpleHistoryAdmin, admin.ModelAdmin):
             groups.append(
                 {
                     "key": "case",
-                    "label": str(_("案件")),
+                    "label": "案件",
                     "items": case_items,
                 }
             )
@@ -392,24 +391,24 @@ class ReminderAdmin(SimpleHistoryAdmin, admin.ModelAdmin):
             preview = item.content.strip().replace("\n", " ")
             if len(preview) > 24:
                 preview = f"{preview[:24]}..."
-            label = _("#%(id)s %(case)s｜%(preview)s") % {
+            label = "#%(id)s %(case)s｜%(preview)s" % {
                 "id": item.id,
                 "case": item.case.name,
-                "preview": preview or _("无内容"),
+                "preview": preview or "无内容",
             }
             case_log_items.append(
                 {
                     "id": item.id,
                     "name": label,
                     "target_type": "case_log",
-                    "target_type_label": str(_("案件日志")),
+                    "target_type_label": "案件日志",
                 }
             )
         if case_log_items:
             groups.append(
                 {
                     "key": "case_log",
-                    "label": str(_("案件日志")),
+                    "label": "案件日志",
                     "items": case_log_items,
                 }
             )
@@ -726,20 +725,20 @@ class ReminderAdmin(SimpleHistoryAdmin, admin.ModelAdmin):
         for reminder in reminders:
             due_local = timezone.localtime(reminder.due_at)
             if reminder.contract_id is not None and reminder.contract is not None:
-                target_type = _("合同")
+                target_type = "合同"
                 target_name = reminder.contract.name
             elif reminder.case_id is not None and reminder.case is not None:
-                target_type = _("案件")
+                target_type = "案件"
                 target_name = reminder.case.name
             elif reminder.case_log_id is not None and reminder.case_log is not None:
-                target_type = _("案件日志")
-                target_name = _("#%(id)s %(case)s") % {
+                target_type = "案件日志"
+                target_name = "#%(id)s %(case)s" % {
                     "id": reminder.case_log_id,
                     "case": reminder.case_log.case.name,
                 }
             else:
-                target_type = _("未绑定")
-                target_name = _("独立提醒")
+                target_type = "未绑定"
+                target_name = "独立提醒"
 
             type_label = str(dict(ReminderType.choices).get(reminder.reminder_type, reminder.reminder_type))
             metadata = reminder.metadata if isinstance(reminder.metadata, dict) else {}

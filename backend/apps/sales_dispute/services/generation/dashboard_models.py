@@ -9,10 +9,8 @@ from typing import Any
 
 from django.apps import apps as django_apps
 from django.db.models import Q
-from django.utils.translation import gettext as _
 
 _ZERO = Decimal("0.00")
-
 
 # ── 输出 dataclass ──
 
@@ -90,18 +88,17 @@ class CaseStatsOutput:
 # ── 常量 ──
 
 AMOUNT_RANGES: list[tuple[str, Decimal | None, Decimal | None]] = [
-    (_("10万以下"), None, Decimal("100000")),
-    (_("10万-50万"), Decimal("100000"), Decimal("500000")),
-    (_("50万-100万"), Decimal("500000"), Decimal("1000000")),
-    (_("100万以上"), Decimal("1000000"), None),
+    ("10万以下", None, Decimal("100000")),
+    ("10万-50万", Decimal("100000"), Decimal("500000")),
+    ("50万-100万", Decimal("500000"), Decimal("1000000")),
+    ("100万以上", Decimal("1000000"), None),
 ]
 
 DEBT_AGE_RANGES: list[tuple[str, int | None, int | None]] = [
-    (_("1年内"), None, 365),
-    (_("1-2年"), 365, 730),
-    (_("2年以上"), 730, None),
+    ("1年内", None, 365),
+    ("1-2年", 365, 730),
+    ("2年以上", 730, None),
 ]
-
 
 # ── 工具函数 ──
 
@@ -137,5 +134,5 @@ def _get_case_assignment_model() -> type[Any]:
 
 def _lawyer_display_name(lawyer: object | None) -> str:
     if lawyer is None:
-        return _("未知律师")
-    return getattr(lawyer, "real_name", None) or getattr(lawyer, "username", "") or _("未知律师")
+        return "未知律师"
+    return getattr(lawyer, "real_name", None) or getattr(lawyer, "username", "") or "未知律师"

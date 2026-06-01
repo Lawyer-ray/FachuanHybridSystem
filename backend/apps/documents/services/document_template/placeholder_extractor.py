@@ -5,7 +5,6 @@ import re
 
 logger = logging.getLogger(__name__)
 
-
 PLACEHOLDER_PATTERN = re.compile(r"\{\{\s*([\w\u4e00-\u9fff][\w\u4e00-\u9fff\.\(\)]*)\s*\}\}")
 
 

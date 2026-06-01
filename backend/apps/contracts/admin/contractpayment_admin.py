@@ -7,7 +7,6 @@ from django.contrib import admin
 from django.db.models import QuerySet
 from django.http import HttpRequest
 from django.utils.html import format_html
-from django.utils.translation import gettext_lazy as _
 from simple_history.admin import SimpleHistoryAdmin
 
 from apps.contracts.models import ContractPayment, Invoice, InvoiceStatus
@@ -29,8 +28,8 @@ else:
 class InvoiceAdminForm(forms.ModelForm[Invoice]):
     file = forms.FileField(
         required=False,
-        label=_("上传发票"),
-        help_text=_("支持 PDF、JPG、JPEG、PNG，最大 20MB"),
+        label="上传发票",
+        help_text="支持 PDF、JPG、JPEG、PNG，最大 20MB",
     )
 
     class Meta:
@@ -80,10 +79,10 @@ class InvoiceInline(BaseTabularInline):
     readonly_fields: ClassVar = ("file_link",)
 
     # 隐藏 verbose_name_plural，避免显示识别结果
-    verbose_name = _("发票")
-    verbose_name_plural = _("发票")
+    verbose_name = "发票"
+    verbose_name_plural = "发票"
 
-    @admin.display(description=_("查看文件"))
+    @admin.display(description="查看文件")
     def file_link(self, obj: Invoice) -> str:
         if not obj.pk or not obj.file_path:
             return "-"
@@ -94,7 +93,7 @@ class InvoiceInline(BaseTabularInline):
             return "-"
 
         url = f"{settings.MEDIA_URL}{obj.file_path}"
-        return format_html('<a href="{}" target="_blank">{}</a>', url, obj.original_filename or _("查看"))
+        return format_html('<a href="{}" target="_blank">{}</a>', url, obj.original_filename or "查看")
 
     def delete_model(self, request: HttpRequest, obj: Invoice) -> None:
         from apps.contracts.admin.wiring_admin import get_invoice_upload_service
@@ -126,7 +125,7 @@ class ContractPaymentInline(BaseTabularInline[ContractPayment, ContractPayment])
                 inv = form.cleaned_data.get("invoiced_amount") or 0
                 if amt and inv is not None:
                     if float(inv) - float(amt) > 1e-6:
-                        form.add_error("invoiced_amount", _("开票金额不能大于收款金额"))
+                        form.add_error("invoiced_amount", "开票金额不能大于收款金额")
                     else:
                         if float(inv) == 0:
                             form.cleaned_data["invoice_status"] = InvoiceStatus.UNINVOICED

@@ -10,7 +10,6 @@ from typing import TYPE_CHECKING, Any
 
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import transaction
-from django.utils.translation import gettext_lazy as _
 
 from apps.cases.models import CaseFolderBinding, CaseLog, CaseLogAttachment
 from apps.cases.utils import CASE_LOG_ALLOWED_EXTENSIONS, CASE_LOG_MAX_FILE_SIZE
@@ -90,12 +89,12 @@ class EmailFolderScanService:
         """
         case_root = self._get_bound_case_root(case_id)
         if case_root is None:
-            raise NotFoundError(_("案件未绑定可用文件夹"))
+            raise NotFoundError("案件未绑定可用文件夹")
 
         target = self._resolve_subfolder(case_root, subfolder)
 
         if not target.exists() or not target.is_dir():
-            raise ValidationException(_("指定文件夹不存在"), errors={"subfolder": _("文件夹路径无效")})
+            raise ValidationException("指定文件夹不存在", errors={"subfolder": "文件夹路径无效"})
 
         # 收集子目录（每个子目录 = 一条日志）
         subdirs = self._collect_subdirs(target)
@@ -103,7 +102,7 @@ class EmailFolderScanService:
             # 如果没有子目录，将整个文件夹作为一条日志
             files = self._collect_allowed_files(target)
             if not files:
-                raise ValidationException(_("文件夹内没有可导入的文件"), errors={"subfolder": _("无合规文件")})
+                raise ValidationException("文件夹内没有可导入的文件", errors={"subfolder": "无合规文件"})
             subdirs = [(target, files)]
 
         # 查询该案件已有的来源子文件夹，用于去重
@@ -181,24 +180,24 @@ class EmailFolderScanService:
         """将相对子文件夹路径解析为绝对路径，并校验安全性."""
         raw = str(subfolder or "").strip().replace("\\", "/")
         if not raw:
-            raise ValidationException(_("子文件夹路径不能为空"), errors={"subfolder": raw})
+            raise ValidationException("子文件夹路径不能为空", errors={"subfolder": raw})
 
         if raw.startswith("/") or raw.startswith("~"):
-            raise ValidationException(_("子文件夹必须使用相对路径"), errors={"subfolder": raw})
+            raise ValidationException("子文件夹必须使用相对路径", errors={"subfolder": raw})
 
         parts = [p for p in raw.split("/") if p not in {"", "."}]
         if not parts:
-            raise ValidationException(_("子文件夹路径不能为空"), errors={"subfolder": raw})
+            raise ValidationException("子文件夹路径不能为空", errors={"subfolder": raw})
         if any(p == ".." for p in parts):
-            raise ValidationException(_("子文件夹路径非法"), errors={"subfolder": raw})
+            raise ValidationException("子文件夹路径非法", errors={"subfolder": raw})
         if any(p.startswith(".") for p in parts):
-            raise ValidationException(_("子文件夹路径非法"), errors={"subfolder": raw})
+            raise ValidationException("子文件夹路径非法", errors={"subfolder": raw})
 
         target = (case_root / "/".join(parts)).resolve()
         if not target.is_relative_to(case_root):
             raise ValidationException(
-                _("文件夹路径不在案件绑定目录内"),
-                errors={"subfolder": _("路径不在允许范围内")},
+                "文件夹路径不在案件绑定目录内",
+                errors={"subfolder": "路径不在允许范围内"},
             )
         return target
 

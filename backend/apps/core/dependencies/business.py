@@ -4,7 +4,6 @@ from __future__ import annotations
 
 """业务依赖聚合入口 — 按业务域拆分为子模块,此文件保留为 re-export 入口."""
 
-
 from .business_case import (
     build_case_assignment_service,
     build_case_assignment_service_with_deps,

@@ -8,7 +8,6 @@ from django.http import HttpRequest
 from django.template.response import TemplateResponse
 from django.utils.html import format_html
 from django.utils.safestring import SafeString
-from django.utils.translation import gettext_lazy as _
 
 from apps.batch_printing.models import (
     BatchPrintingTool,
@@ -99,7 +98,7 @@ class PrintKeywordRuleAdmin(admin.ModelAdmin):
             return "保存后会自动同步为所选预置所属打印机"
         return obj.preset_snapshot.printer_name
 
-    resolved_printer_name.short_description = _("实际打印机")  # type: ignore[attr-defined]
+    resolved_printer_name.short_description = "实际打印机"  # type: ignore[attr-defined]
 
     def save_model(self, request: HttpRequest, obj: PrintKeywordRule, form: forms.ModelForm, change: bool) -> None:
         if obj.preset_snapshot_id:
@@ -178,4 +177,4 @@ class BatchPrintJobAdmin(admin.ModelAdmin):
         color = color_map.get(obj.status, "#546e7a")
         return format_html('<span style="color:{};font-weight:700;">{}</span>', color, obj.get_status_display())
 
-    status_display.short_description = _("状态")  # type: ignore[attr-defined]
+    status_display.short_description = "状态"  # type: ignore[attr-defined]

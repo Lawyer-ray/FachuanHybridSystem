@@ -8,7 +8,6 @@ from datetime import date, timedelta
 
 from django.apps import apps as django_apps
 from django.db import transaction
-from django.utils.translation import gettext_lazy as _
 
 from apps.core.exceptions import ValidationException
 
@@ -63,13 +62,13 @@ class CollectionWorkflowService:
         case_model = django_apps.get_model("cases", "Case")
         if not case_model.objects.filter(id=case_id).exists():
             raise ValidationException(
-                message=_("案件不存在"),
+                message="案件不存在",
                 code="CASE_NOT_FOUND",
             )
 
         if CollectionRecord.objects.filter(case_id=case_id).exists():
             raise ValidationException(
-                message=_("该案件已存在催收记录"),
+                message="该案件已存在催收记录",
                 code="COLLECTION_ALREADY_EXISTS",
             )
 
@@ -89,7 +88,7 @@ class CollectionWorkflowService:
             record=record,
             action_type=CollectionStage.PHONE_COLLECTION,
             action_date=actual_start,
-            description=str(_("启动催收流程，进入电话催款阶段")),
+            description="启动催收流程，进入电话催款阶段",
         )
 
         logger.info("案件 %s 启动催收流程", case_id)
@@ -121,14 +120,14 @@ class CollectionWorkflowService:
             record = CollectionRecord.objects.select_for_update().get(id=record_id)
         except CollectionRecord.DoesNotExist:
             raise ValidationException(
-                message=_("催收记录不存在"),
+                message="催收记录不存在",
                 code="COLLECTION_NOT_FOUND",
             )
 
         current_idx = STAGE_ORDER.index(record.current_stage)
         if current_idx >= len(STAGE_ORDER) - 1:
             raise ValidationException(
-                message=_("当前已是最终阶段（起诉），无法继续推进"),
+                message="当前已是最终阶段（起诉），无法继续推进",
                 code="ALREADY_LAST_STAGE",
             )
 
@@ -156,7 +155,7 @@ class CollectionWorkflowService:
         )
 
         stage_display = CollectionStage(next_stage_value).label
-        log_desc = description or str(_("推进至%(stage)s阶段") % {"stage": stage_display})
+        log_desc = description or str("推进至%(stage)s阶段" % {"stage": stage_display})
 
         CollectionLog.objects.create(
             record=record,
@@ -176,7 +175,7 @@ class CollectionWorkflowService:
             record = CollectionRecord.objects.get(case_id=case_id)
         except CollectionRecord.DoesNotExist:
             raise ValidationException(
-                message=_("该案件暂无催收记录"),
+                message="该案件暂无催收记录",
                 code="COLLECTION_NOT_FOUND",
             )
 
@@ -205,7 +204,7 @@ class CollectionWorkflowService:
 
         if not CollectionRecord.objects.filter(id=record_id).exists():
             raise ValidationException(
-                message=_("催收记录不存在"),
+                message="催收记录不存在",
                 code="COLLECTION_NOT_FOUND",
             )
 

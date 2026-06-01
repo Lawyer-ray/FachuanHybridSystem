@@ -13,7 +13,6 @@ import logging
 from typing import ClassVar
 
 from django.db import models
-from django.utils.translation import gettext_lazy as _
 
 from .external_template import ExternalTemplate
 
@@ -34,48 +33,48 @@ class BatchFillTask(models.Model):
     case = models.ForeignKey(
         "cases.Case",
         on_delete=models.CASCADE,
-        verbose_name=_("关联案件"),
-        help_text=_("批量填充关联的案件"),
+        verbose_name="关联案件",
+        help_text="批量填充关联的案件",
     )
     templates = models.ManyToManyField(
         ExternalTemplate,
-        verbose_name=_("选择的模板"),
-        help_text=_("本次批量填充选择的外部模板"),
+        verbose_name="选择的模板",
+        help_text="本次批量填充选择的外部模板",
     )
     initiated_by = models.ForeignKey(
         "organization.Lawyer",
         on_delete=models.SET_NULL,
         null=True,
-        verbose_name=_("操作者"),
+        verbose_name="操作者",
         related_name="initiated_batch_fill_tasks",
     )
     started_at = models.DateTimeField(
         auto_now_add=True,
-        verbose_name=_("发起时间"),
+        verbose_name="发起时间",
     )
     finished_at = models.DateTimeField(
         null=True,
         blank=True,
-        verbose_name=_("完成时间"),
+        verbose_name="完成时间",
     )
     zip_file_path = models.CharField(
         max_length=500,
         blank=True,
         default="",
-        verbose_name=_("ZIP文件路径"),
-        help_text=_("批量填充生成的 ZIP 压缩包路径"),
+        verbose_name="ZIP文件路径",
+        help_text="批量填充生成的 ZIP 压缩包路径",
     )
     summary_json = models.JSONField(
         default=dict,
         blank=True,
-        verbose_name=_("汇总报告"),
-        help_text=_("批量填充的汇总报告 JSON"),
+        verbose_name="汇总报告",
+        help_text="批量填充的汇总报告 JSON",
     )
 
     class Meta:
         app_label = "documents"
-        verbose_name = _("批量填充任务")
-        verbose_name_plural = _("批量填充任务")
+        verbose_name = "批量填充任务"
+        verbose_name_plural = "批量填充任务"
         ordering: ClassVar = ["-started_at"]
 
     def __str__(self) -> str:
@@ -99,69 +98,69 @@ class FillRecord(models.Model):
         null=True,
         blank=True,
         related_name="records",
-        verbose_name=_("批量任务"),
-        help_text=_("所属的批量填充任务, 单次填充时为空"),
+        verbose_name="批量任务",
+        help_text="所属的批量填充任务, 单次填充时为空",
     )
     case = models.ForeignKey(
         "cases.Case",
         on_delete=models.CASCADE,
-        verbose_name=_("关联案件"),
+        verbose_name="关联案件",
     )
     template = models.ForeignKey(
         ExternalTemplate,
         on_delete=models.CASCADE,
-        verbose_name=_("关联模板"),
+        verbose_name="关联模板",
     )
     party = models.ForeignKey(
         "cases.CaseParty",
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        verbose_name=_("关联当事人"),
+        verbose_name="关联当事人",
     )
     filled_by = models.ForeignKey(
         "organization.Lawyer",
         on_delete=models.SET_NULL,
         null=True,
-        verbose_name=_("操作者"),
+        verbose_name="操作者",
         related_name="fill_records",
     )
     filled_at = models.DateTimeField(
         auto_now_add=True,
-        verbose_name=_("填充时间"),
+        verbose_name="填充时间",
     )
     file_path = models.CharField(
         max_length=500,
-        verbose_name=_("生成文件路径"),
-        help_text=_("填充生成的文件相对于 MEDIA_ROOT 的路径"),
+        verbose_name="生成文件路径",
+        help_text="填充生成的文件相对于 MEDIA_ROOT 的路径",
     )
     original_output_name = models.CharField(
         max_length=255,
-        verbose_name=_("输出文件名"),
-        help_text=_("填充生成的文件原始名称"),
+        verbose_name="输出文件名",
+        help_text="填充生成的文件原始名称",
     )
     report_json = models.JSONField(
         default=dict,
         blank=True,
-        verbose_name=_("填充报告"),
-        help_text=_("填充操作的详细报告 JSON"),
+        verbose_name="填充报告",
+        help_text="填充操作的详细报告 JSON",
     )
     custom_values = models.JSONField(
         default=dict,
         blank=True,
-        verbose_name=_("自定义填充值"),
-        help_text=_("用户手动输入的自定义字段值"),
+        verbose_name="自定义填充值",
+        help_text="用户手动输入的自定义字段值",
     )
     file_available = models.BooleanField(
         default=True,
-        verbose_name=_("文件是否可用"),
-        help_text=_("生成的文件是否仍然可访问"),
+        verbose_name="文件是否可用",
+        help_text="生成的文件是否仍然可访问",
     )
 
     class Meta:
         app_label = "documents"
-        verbose_name = _("填充记录")
-        verbose_name_plural = _("填充记录")
+        verbose_name = "填充记录"
+        verbose_name_plural = "填充记录"
         ordering: ClassVar = ["-filled_at"]
         indexes: ClassVar = [
             models.Index(fields=["case", "-filled_at"]),

@@ -5,8 +5,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from django.utils.translation import gettext_lazy as _
-
 from apps.core.exceptions import NotFoundError
 from apps.documents.models import FolderTemplate
 
@@ -42,7 +40,7 @@ class FolderTemplateQueryService:
             return self.repo.get_by_id(template_id)
         except FolderTemplate.DoesNotExist:
             raise NotFoundError(
-                message=_("文件夹模板不存在"),
+                message="文件夹模板不存在",
                 code="FOLDER_TEMPLATE_NOT_FOUND",
                 errors={"template_id": f"ID 为 {template_id} 的模板不存在"},
             ) from None
