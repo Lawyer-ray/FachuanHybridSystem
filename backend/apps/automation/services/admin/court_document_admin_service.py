@@ -357,7 +357,7 @@ class CourtDocumentAdminService:
             for root, _dirs, files in documents_dir.walk():
                 for file in files:
                     file_path = root / file
-                    relative_path = str(file_path.relative_to(media_root))
+                    relative_path = file_path.relative_to(media_root).as_posix()
 
                     if relative_path not in downloaded_files:
                         orphaned_files.append(str(file_path))
