@@ -619,7 +619,7 @@ class CaseAdminViewsMixin:
             media_root = Path(settings.MEDIA_ROOT).resolve()
             allowed_dir = media_root / "case_documents" / "temp"
             file_path = Path(temp_file_path).resolve()
-            if not str(file_path).startswith(str(allowed_dir) + "/") and file_path != allowed_dir:
+            if not file_path.is_relative_to(allowed_dir):
                 return JsonResponse({"success": False, "error": "非法文件路径"}, status=400)
 
             if not file_path.exists():
@@ -733,8 +733,8 @@ class CaseAdminViewsMixin:
 
             # 安全检查：只允许打开用户主目录或 /Volumes 下的目录（防止打开系统敏感目录）
             home = Path.home().resolve()
-            folder_str = str(folder)
-            if not (folder_str.startswith(str(home) + "/") or folder_str.startswith("/Volumes/")):
+            volumes = Path("/Volumes").resolve()
+            if not (folder.is_relative_to(home) or folder.is_relative_to(volumes)):
                 return JsonResponse({"success": False, "error": "不允许打开该目录"}, status=403)
 
             system = platform.system()

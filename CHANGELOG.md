@@ -2,6 +2,19 @@
 
 本项目的所有重要更改都将记录在此文件中。
 
+## [26.50.12] - 2026-06-01
+
+### 后端
+
+#### 修复
+
+- **Windows 路径分隔符问题**：修复 12 处 Windows 下路径比较和存储失效的问题
+  - `os.path.commonpath()` 返回反斜杠导致 `_is_within_root()` 过滤所有子文件夹（contracts、cases 模块）
+  - `str(relative_to())` 存储反斜杠路径到数据库，导致后续比较失败（output_storage、court_document_admin）
+  - `startswith(str(path) + "/")` 安全检查在 Windows 上失效，改用 `is_relative_to()`（cases admin views）
+  - `str(path.resolve())` 存储反斜杠路径，改用 `.as_posix()`（client_identity_doc、property_clue、court_sms 相关服务）
+  - ZIP 路径遍历检查改用 `is_relative_to()` 提升安全性和跨平台兼容（4 处 document_delivery 相关）
+
 ## [26.50.11] - 2026-06-01
 
 ### 前端

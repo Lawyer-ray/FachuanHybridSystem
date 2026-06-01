@@ -110,9 +110,9 @@ class ClientIdentityDocService:
                 media_root = Path(media_root_str) if media_root_str else None
                 try:
                     relative_path = new_abs_path.relative_to(media_root) if media_root else None
-                    doc_instance.file_path = str(relative_path) if relative_path else str(new_abs_path)
+                    doc_instance.file_path = relative_path.as_posix() if relative_path else new_abs_path.as_posix()
                 except ValueError:
-                    doc_instance.file_path = str(new_abs_path)
+                    doc_instance.file_path = new_abs_path.as_posix()
                 doc_instance.save(update_fields=["file_path"])
                 logger.info("文件重命名成功: %s -> %s", raw_path, doc_instance.file_path)
             except Exception:
@@ -189,6 +189,6 @@ class ClientIdentityDocService:
         return self.add_identity_doc(
             client_id=client_id,
             doc_type=doc_type,
-            file_path=str(saved_path),
+            file_path=saved_path.as_posix(),
             user=user,
         )
