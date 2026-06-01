@@ -12,12 +12,9 @@ import logging
 from dataclasses import dataclass
 from pathlib import Path
 
-from django.utils.translation import gettext_lazy as _
-
 from apps.core.exceptions import ValidationException
 
 logger = logging.getLogger(__name__)
-
 
 # 支持的文件扩展名
 SUPPORTED_PDF_EXTENSIONS = {".pdf"}
@@ -102,14 +99,14 @@ class TextExtractionService:
         path = Path(file_path)
         if not path.exists():
             raise ValidationException(
-                message=_("文件不存在"), code="FILE_NOT_FOUND", errors={"file": f"文件 {file_path} 不存在"}
+                message="文件不存在", code="FILE_NOT_FOUND", errors={"file": f"文件 {file_path} 不存在"}
             )
 
         # 验证文件格式
         ext = path.suffix.lower()
         if ext not in SUPPORTED_EXTENSIONS:
             raise ValidationException(
-                message=_("不支持的文件格式"),
+                message="不支持的文件格式",
                 code="UNSUPPORTED_FILE_FORMAT",
                 errors={"file": f"不支持 {ext} 格式，请上传 PDF 或图片（jpg, jpeg, png）"},
             )

@@ -11,7 +11,6 @@ from typing import ClassVar
 from django.db import transaction
 from django.db.models import F, Q, QuerySet
 from django.utils import timezone
-from django.utils.translation import gettext_lazy as _
 
 from apps.core.exceptions import NotFoundError, PermissionDenied
 from apps.organization.dtos import AccountCredentialCreateDTO, AccountCredentialUpdateDTO
@@ -73,7 +72,7 @@ class AccountCredentialService:
 
         # 权限检查：复用 OrganizationAccessPolicy 的律师读取权限
         if not self._access_policy.can_read_lawyer(user=user, lawyer=credential.lawyer):
-            raise PermissionDenied(message=_("无权限访问该凭证"), code="CREDENTIAL_ACCESS_DENIED")
+            raise PermissionDenied(message="无权限访问该凭证", code="CREDENTIAL_ACCESS_DENIED")
 
         return credential
 
@@ -93,11 +92,11 @@ class AccountCredentialService:
         # 验证律师存在
         lawyer = Lawyer.objects.select_related("law_firm").filter(id=data.lawyer_id).first()
         if lawyer is None:
-            raise NotFoundError(message=_("律师不存在"), code="LAWYER_NOT_FOUND")
+            raise NotFoundError(message="律师不存在", code="LAWYER_NOT_FOUND")
 
         # 权限检查：验证用户是否有权限为该律师创建凭证
         if not self._access_policy.can_read_lawyer(user=user, lawyer=lawyer):
-            raise PermissionDenied(message=_("无权限为该律师创建凭证"), code="CREDENTIAL_CREATE_DENIED")
+            raise PermissionDenied(message="无权限为该律师创建凭证", code="CREDENTIAL_CREATE_DENIED")
 
         credential = AccountCredential.objects.create(
             lawyer=lawyer,
@@ -179,7 +178,7 @@ class AccountCredentialService:
         """
         credential = self._get_base_queryset().filter(id=credential_id).first()
         if credential is None:
-            raise NotFoundError(message=_("凭证不存在"), code="CREDENTIAL_NOT_FOUND")
+            raise NotFoundError(message="凭证不存在", code="CREDENTIAL_NOT_FOUND")
         return credential
 
     def update_login_success(self, credential_id: int) -> None:
@@ -188,7 +187,7 @@ class AccountCredentialService:
             last_login_success_at=timezone.now(),
         )
         if not updated:
-            raise NotFoundError(message=_("凭证不存在"), code="CREDENTIAL_NOT_FOUND")
+            raise NotFoundError(message="凭证不存在", code="CREDENTIAL_NOT_FOUND")
         logger.info("登录成功统计已更新", extra={"credential_id": credential_id, "action": "update_login_success"})
 
     def update_login_failure(self, credential_id: int) -> None:
@@ -196,7 +195,7 @@ class AccountCredentialService:
             login_failure_count=F("login_failure_count") + 1,
         )
         if not updated:
-            raise NotFoundError(message=_("凭证不存在"), code="CREDENTIAL_NOT_FOUND")
+            raise NotFoundError(message="凭证不存在", code="CREDENTIAL_NOT_FOUND")
         logger.info("登录失败统计已更新", extra={"credential_id": credential_id, "action": "update_login_failure"})
 
     def filter_by_ids_and_site(
@@ -226,7 +225,7 @@ class AccountCredentialService:
         credential = self._get_base_queryset().filter(account=account, site_name=site_name).first()
         if credential is None:
             raise NotFoundError(
-                message=_("账号凭证不存在"),
+                message="账号凭证不存在",
                 code="CREDENTIAL_NOT_FOUND",
             )
         return credential

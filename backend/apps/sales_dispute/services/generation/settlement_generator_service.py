@@ -11,8 +11,6 @@ from importlib import import_module
 from pathlib import Path
 from typing import Any
 
-from django.utils.translation import gettext_lazy as _
-
 from apps.core.exceptions import ValidationException
 from apps.documents.storage import get_docx_templates_root
 
@@ -85,7 +83,7 @@ class SettlementGeneratorService:
 
         if not template_path.exists():
             raise ValidationException(
-                message=_("模板文件不存在：%(path)s") % {"path": str(template_path)},
+                message="模板文件不存在：%(path)s" % {"path": str(template_path)},
                 code="TEMPLATE_NOT_FOUND",
             )
 
@@ -102,7 +100,7 @@ class SettlementGeneratorService:
                 record=record,
                 action_type="lawyer_letter",
                 action_date=date.today(),
-                description=str(_("生成和解协议")),
+                description="生成和解协议",
                 document_type="和解协议",
                 document_filename=filename,
             )

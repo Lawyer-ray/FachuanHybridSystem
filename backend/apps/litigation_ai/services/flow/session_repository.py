@@ -4,7 +4,6 @@ from __future__ import annotations
 
 """诉讼 AI 会话仓储层,封装 LitigationSession 的数据库操作."""
 
-
 from typing import TYPE_CHECKING, Any
 
 from asgiref.sync import sync_to_async

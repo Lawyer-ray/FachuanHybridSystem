@@ -8,7 +8,6 @@ from __future__ import annotations
 负责识别PDF页面是否为交费通知书.
 """
 
-
 import logging
 from typing import Any, ClassVar
 

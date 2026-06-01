@@ -7,7 +7,6 @@ import sys
 from typing import Any
 
 from django.apps import AppConfig
-from django.utils.translation import gettext_lazy as _
 
 logger = logging.getLogger(__name__)
 
@@ -17,7 +16,7 @@ class DocumentsConfig(AppConfig):
 
     default_auto_field: str = "django.db.models.BigAutoField"
     name: str = "apps.documents"
-    verbose_name = _("文书生成")
+    verbose_name = "文书生成"
 
     def ready(self) -> None:
         """应用启动时的初始化"""

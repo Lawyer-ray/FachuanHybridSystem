@@ -8,7 +8,6 @@ import time
 from typing import Any
 from urllib.parse import urlparse
 
-from django.utils.translation import gettext_lazy as _
 from playwright.sync_api import BrowserContext, Page
 
 from .http_client import _CASE_LIST_URL, _HTTP_HEADERS
@@ -47,11 +46,8 @@ class JtnSsoHandlerMixin:
 
     def _build_sso_blocking_message(self: Any, *, stage: str, login_url: str) -> str:
         return str(
-            _(
-                "%(stage)s 触发飞连/企微单点登录（二维码），当前自动化无法完成无交互登录。"
-                "请先在可见浏览器完成扫码登录后重试：%(login_url)s"
-            )
-            % {"stage": stage, "login_url": login_url}
+            "%(stage)s 触发飞连/企微单点登录（二维码），当前自动化无法完成无交互登录。"
+            "请先在可见浏览器完成扫码登录后重试：%(login_url)s" % {"stage": stage, "login_url": login_url}
         )
 
     def _raise_if_sso_blocking(self: Any, *, url: str, html_text: str, stage: str) -> None:
@@ -111,10 +107,10 @@ class JtnSsoHandlerMixin:
 
                 time.sleep(1)
             else:
-                raise RuntimeError(str(_("等待扫码登录超时，请完成扫码后重试")))
+                raise RuntimeError("等待扫码登录超时，请完成扫码后重试")
 
             if not merged_cookies:
-                raise RuntimeError(str(_("扫码登录完成，但未获取到 OA 会话，请重试")))
+                raise RuntimeError("扫码登录完成，但未获取到 OA 会话，请重试")
 
             self._http_cookies_cache = dict(merged_cookies)
             logger.info("交互登录成功，已回灌 cookie=%d", len(merged_cookies))

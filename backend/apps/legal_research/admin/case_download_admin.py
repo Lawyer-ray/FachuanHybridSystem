@@ -20,7 +20,6 @@ from apps.legal_research.services.task.case_download_service import CaseDownload
 
 # mypy: ignore-errors
 
-
 logger = logging.getLogger(__name__)
 
 

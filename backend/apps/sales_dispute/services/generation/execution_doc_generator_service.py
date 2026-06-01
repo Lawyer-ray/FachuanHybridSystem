@@ -11,8 +11,6 @@ from importlib import import_module
 from pathlib import Path
 from typing import Any, cast
 
-from django.utils.translation import gettext_lazy as _
-
 from apps.core.exceptions import ValidationException
 from apps.documents.storage import get_docx_templates_root
 
@@ -60,7 +58,6 @@ _ADD_REASON_DISPLAY: dict[str, str] = {
     "sole_shareholder": "一人公司财产混同",
     "other": "其他",
 }
-
 
 # ── 各文书参数 dataclass ──
 
@@ -252,7 +249,7 @@ class ExecutionDocGeneratorService:
 
         if not template_path.exists():
             raise ValidationException(
-                message=_("模板文件不存在：%(path)s") % {"path": str(template_path)},
+                message="模板文件不存在：%(path)s" % {"path": str(template_path)},
                 code="TEMPLATE_NOT_FOUND",
             )
 
@@ -275,7 +272,7 @@ class ExecutionDocGeneratorService:
                 record=record,
                 action_type="litigation",
                 action_date=date.today(),
-                description=str(_("生成%(doc_type)s") % {"doc_type": doc_type}),
+                description=str("生成%(doc_type)s" % {"doc_type": doc_type}),
                 document_type=doc_type,
                 document_filename=filename,
             )

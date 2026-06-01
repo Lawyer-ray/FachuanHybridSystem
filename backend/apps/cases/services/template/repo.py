@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from django.utils.translation import gettext_lazy as _
-
 from apps.cases.models import BindingSource, Case, CaseTemplateBinding
 from apps.core.exceptions import NotFoundError
 
@@ -21,7 +19,7 @@ class CaseTemplateBindingRepo:
             return Case.objects.get(id=case_id)
         except Case.DoesNotExist:
             raise NotFoundError(
-                message=_("案件不存在"), code="CASE_NOT_FOUND", errors={"case_id": f"ID 为 {case_id} 的案件不存在"}
+                message="案件不存在", code="CASE_NOT_FOUND", errors={"case_id": f"ID 为 {case_id} 的案件不存在"}
             ) from None
 
     def get_case_optional(self, case_id: int) -> Case | None:
@@ -38,7 +36,7 @@ class CaseTemplateBindingRepo:
             return CaseTemplateBinding.objects.get(id=binding_id, case_id=case_id)
         except CaseTemplateBinding.DoesNotExist:
             raise NotFoundError(
-                message=_("绑定记录不存在"),
+                message="绑定记录不存在",
                 code="BINDING_NOT_FOUND",
                 errors={"binding_id": f"ID 为 {binding_id} 的绑定记录不存在"},
             ) from None

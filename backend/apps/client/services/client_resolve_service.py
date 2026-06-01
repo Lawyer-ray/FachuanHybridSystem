@@ -5,8 +5,6 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any
 
-from django.utils.translation import gettext_lazy as _
-
 from apps.client.models import Client, ClientIdentityDoc
 from apps.client.services.importer.validator import ClientJsonImportValidator
 from apps.core.exceptions import ValidationException
@@ -53,7 +51,7 @@ class ClientResolveService:
             self._validator.validate(data)
         except ValidationException as exc:
             raise ValidationException(
-                message=_("当事人数据验证失败: %(name)s") % {"name": data.get("name", "")},
+                message="当事人数据验证失败: %(name)s" % {"name": data.get("name", "")},
                 code="INVALID_CLIENT_DATA",
                 errors=exc.errors,
             ) from exc

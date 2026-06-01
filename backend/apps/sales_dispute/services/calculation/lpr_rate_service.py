@@ -11,8 +11,6 @@ from datetime import date
 from decimal import Decimal
 from typing import TYPE_CHECKING, NamedTuple
 
-from django.utils.translation import gettext_lazy as _
-
 from apps.core.exceptions import ValidationException
 
 if TYPE_CHECKING:
@@ -42,7 +40,7 @@ class LprRateService:
         rate = LPRRate.objects.filter(effective_date__lte=query_date).order_by("-effective_date").first()
         if rate is None:
             raise ValidationException(
-                message=_("缺少 %(date)s 之前的LPR利率数据") % {"date": query_date},
+                message="缺少 %(date)s 之前的LPR利率数据" % {"date": query_date},
                 code="LPR_RATE_NOT_FOUND",
             )
         return rate
@@ -68,7 +66,7 @@ class LprRateService:
 
         if not rates:
             raise ValidationException(
-                message=_("缺少 %(start)s 至 %(end)s 期间的LPR利率数据") % {"start": start_date, "end": end_date},
+                message="缺少 %(start)s 至 %(end)s 期间的LPR利率数据" % {"start": start_date, "end": end_date},
                 code="LPR_RATE_NOT_FOUND",
             )
 
@@ -94,7 +92,7 @@ class LprRateService:
 
         if not segments:
             raise ValidationException(
-                message=_("缺少 %(start)s 至 %(end)s 期间的LPR利率数据") % {"start": start_date, "end": end_date},
+                message="缺少 %(start)s 至 %(end)s 期间的LPR利率数据" % {"start": start_date, "end": end_date},
                 code="LPR_RATE_NOT_FOUND",
             )
 

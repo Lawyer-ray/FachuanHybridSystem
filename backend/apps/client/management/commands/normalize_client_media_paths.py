@@ -5,7 +5,6 @@ from typing import Any
 
 from django.conf import settings
 from django.core.management.base import BaseCommand
-from django.utils.translation import gettext_lazy as _
 
 
 class Command(BaseCommand):
@@ -32,7 +31,7 @@ class Command(BaseCommand):
 
         updated, skipped = self._normalize_model_paths(ClientIdentityDoc, normalize, updated, skipped)
         updated, skipped = self._normalize_model_paths(PropertyClueAttachment, normalize, updated, skipped)
-        self.stdout.write(self.style.SUCCESS(_("完成：更新 %(u)d 条，跳过 %(s)d 条") % {"u": updated, "s": skipped}))
+        self.stdout.write(self.style.SUCCESS("完成：更新 %(u)d 条，跳过 %(s)d 条" % {"u": updated, "s": skipped}))
 
     @staticmethod
     def _normalize_model_paths(

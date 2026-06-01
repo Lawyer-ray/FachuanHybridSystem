@@ -7,7 +7,6 @@ from typing import Any, cast
 
 from django.db import transaction
 from django.db.models import Count, QuerySet
-from django.utils.translation import gettext_lazy as _
 
 from apps.contacts.models import CaseContact
 from apps.core.exceptions import NotFoundError
@@ -47,7 +46,7 @@ class CaseContactService(DjangoPermsMixin):
             return CaseContact.objects.select_related("authority").get(id=contact_id)
         except CaseContact.DoesNotExist:
             raise NotFoundError(
-                message=_("工作人员不存在"),
+                message="工作人员不存在",
                 code="CONTACT_NOT_FOUND",
                 errors={"contact_id": f"ID 为 {contact_id} 的工作人员不存在"},
             ) from None
@@ -88,7 +87,7 @@ class CaseContactService(DjangoPermsMixin):
             contact = CaseContact.objects.get(id=contact_id)
         except CaseContact.DoesNotExist:
             raise NotFoundError(
-                message=_("工作人员不存在"),
+                message="工作人员不存在",
                 code="CONTACT_NOT_FOUND",
                 errors={"contact_id": f"ID 为 {contact_id} 的工作人员不存在"},
             ) from None
@@ -117,7 +116,7 @@ class CaseContactService(DjangoPermsMixin):
             contact = CaseContact.objects.get(id=contact_id)
         except CaseContact.DoesNotExist:
             raise NotFoundError(
-                message=_("工作人员不存在"),
+                message="工作人员不存在",
                 code="CONTACT_NOT_FOUND",
                 errors={"contact_id": f"ID 为 {contact_id} 的工作人员不存在"},
             ) from None

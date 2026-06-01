@@ -21,7 +21,6 @@ from datetime import datetime
 from typing import Any
 
 import httpx
-from django.utils.translation import gettext_lazy as _
 
 from apps.core.exceptions import (
     ChatCreationException,
@@ -137,7 +136,7 @@ class FeishuChatProvider(FeishuTokenMixin, FeishuFileMixin, FeishuOwnerMixin, Ch
         """
         if not self.is_available():
             raise ConfigurationException(
-                message=_("飞书配置不完整，无法创建群聊"), platform="feishu", missing_config="APP_ID, APP_SECRET"
+                message="飞书配置不完整，无法创建群聊", platform="feishu", missing_config="APP_ID, APP_SECRET"
             )
 
         effective_owner_id: str | None = None
@@ -181,13 +180,13 @@ class FeishuChatProvider(FeishuTokenMixin, FeishuFileMixin, FeishuOwnerMixin, Ch
             chat_id = chat_data.get("chat_id")
             if not chat_id:
                 raise ChatCreationException(
-                    message=_("API响应中缺少群聊ID"), platform="feishu", errors={"api_response": data}
+                    message="API响应中缺少群聊ID", platform="feishu", errors={"api_response": data}
                 )
 
             logger.info(f"成功创建飞书群聊: {chat_name} (ID: {chat_id}), 群主: {effective_owner_id}")
 
             result = ChatResult(
-                success=True, chat_id=chat_id, chat_name=chat_name, message=str(_("群聊创建成功")), raw_response=data
+                success=True, chat_id=chat_id, chat_name=chat_name, message="群聊创建成功", raw_response=data
             )
             if result.raw_response:
                 result.raw_response["owner_info"] = {
@@ -222,7 +221,7 @@ class FeishuChatProvider(FeishuTokenMixin, FeishuFileMixin, FeishuOwnerMixin, Ch
         """发送消息到群聊"""
         if not self.is_available():
             raise ConfigurationException(
-                message=_("飞书配置不完整，无法发送消息"), platform="feishu", missing_config="APP_ID, APP_SECRET"
+                message="飞书配置不完整，无法发送消息", platform="feishu", missing_config="APP_ID, APP_SECRET"
             )
 
         try:
@@ -258,7 +257,7 @@ class FeishuChatProvider(FeishuTokenMixin, FeishuFileMixin, FeishuOwnerMixin, Ch
             message_id = message_data.get("message_id")
             logger.info(f"成功发送飞书消息到群聊: {chat_id} (消息ID: {message_id})")
 
-            return ChatResult(success=True, chat_id=chat_id, message=str(_("消息发送成功")), raw_response=data)
+            return ChatResult(success=True, chat_id=chat_id, message="消息发送成功", raw_response=data)
 
         except MessageSendException:
             raise

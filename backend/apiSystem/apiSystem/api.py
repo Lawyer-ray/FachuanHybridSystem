@@ -109,7 +109,6 @@ _OPENAPI_TAGS: list[dict[str, str]] = [
     {"name": "OA立案", "description": "OA 系统自动立案"},
     {"name": "要素式转换", "description": "传统文书转要素式文书"},
     {"name": "LLM 服务", "description": "大语言模型服务接口"},
-    {"name": "国际化", "description": "多语言支持"},
     {"name": "性能监控", "description": "自动化性能监控"},
     {"name": "文档处理", "description": "文档内容提取与处理"},
     {"name": "自动命名", "description": "AI 自动文件命名"},
@@ -141,7 +140,6 @@ api_v1 = NinjaAPI(
 # 注册全局异常处理器
 register_exception_handlers(api_v1)
 
-
 # ============================================================
 # 注册应用路由
 # ============================================================
@@ -160,7 +158,6 @@ def _register_app_routers() -> None:
     from apps.contract_review.api.review_api import router as contract_review_router
     from apps.contracts.api import router as contracts_router
     from apps.core.api import router as config_router
-    from apps.core.api.i18n_api import i18n_router
     from apps.core.api.ninja_llm_api import llm_router
     from apps.document_recognition.api import router as document_recognition_router
     from apps.documents.api import (
@@ -192,7 +189,6 @@ def _register_app_routers() -> None:
 
     api_v1.add_router("/config", config_router)
     api_v1.add_router("/llm", llm_router)
-    api_v1.add_router("/i18n", i18n_router)
     api_v1.add_router("/organization", organization_router, auth=JWTOrSessionAuth())
     api_v1.add_router("/client", client_router, auth=JWTOrSessionAuth())
     api_v1.add_router("/cases", cases_router, auth=JWTOrSessionAuth())
@@ -305,7 +301,6 @@ _ensure_routers_registered()
 # JWT 认证路由
 api_v1.add_router("/token", router=obtain_pair_router, tags=["JWT认证"])
 api_v1.add_router("/token", router=verify_router, tags=["JWT认证"])
-
 
 # ============================================================
 # 系统端点

@@ -12,7 +12,6 @@ from django.conf import settings
 from django.contrib.auth import authenticate, login, logout
 from django.db import transaction
 from django.http import HttpRequest
-from django.utils.translation import gettext_lazy as _
 
 from apps.core.exceptions import AuthenticationError, PermissionDenied
 from apps.organization.models import Lawyer
@@ -37,10 +36,10 @@ class AuthService:
         """
         user = authenticate(request, username=username, password=password)
         if not user:
-            raise AuthenticationError(message=_("用户名或密码错误"), code="INVALID_CREDENTIALS")
+            raise AuthenticationError(message="用户名或密码错误", code="INVALID_CREDENTIALS")
         login(request, user)
         if not isinstance(user, Lawyer):
-            raise AuthenticationError(message=_("用户类型错误"), code="INVALID_USER_TYPE")
+            raise AuthenticationError(message="用户类型错误", code="INVALID_USER_TYPE")
         return user
 
     def logout(self, request: HttpRequest) -> None:
@@ -73,7 +72,7 @@ class AuthService:
             expected_token = str(getattr(settings, "BOOTSTRAP_ADMIN_TOKEN", "") or "").strip()
             if not expected_token or not bootstrap_token or not compare_digest(str(bootstrap_token), expected_token):
                 raise PermissionDenied(
-                    message=_("首位管理员注册需要有效引导令牌"),
+                    message="首位管理员注册需要有效引导令牌",
                     code="BOOTSTRAP_FORBIDDEN",
                 )
 
@@ -94,7 +93,7 @@ class AuthService:
     def auto_register_superadmin(self) -> RegisterResult:
         if not self.should_show_auto_register():
             raise PermissionDenied(
-                message=_("自动注册仅在系统初始化时可用"),
+                message="自动注册仅在系统初始化时可用",
                 code="AUTO_REGISTER_UNAVAILABLE",
             )
 

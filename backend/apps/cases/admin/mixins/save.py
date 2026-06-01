@@ -12,7 +12,6 @@ from django.db import IntegrityError, connection
 from django.db.models import QuerySet
 from django.forms import ModelForm
 from django.http import HttpRequest
-from django.utils.translation import gettext_lazy as _
 
 from apps.cases.models import Case, CaseAssignment, CaseLog
 
@@ -54,7 +53,7 @@ class CaseAdminSaveMixin(CaseAdminServiceMixin):
             )
             with connection.constraint_checks_disabled():
                 super().delete_model(request, obj)  # type: ignore[misc]
-            messages.warning(request, _("已强制删除案件 %(case_id)s(已绕过外键检查)") % {"case_id": obj.id})
+            messages.warning(request, "已强制删除案件 %(case_id)s(已绕过外键检查)" % {"case_id": obj.id})
 
     def delete_queryset(self, request: HttpRequest, queryset: QuerySet[Case, Case]) -> None:
         case_ids = list(queryset.values_list("id", flat=True))
@@ -69,7 +68,7 @@ class CaseAdminSaveMixin(CaseAdminServiceMixin):
             )
             with connection.constraint_checks_disabled():
                 super().delete_queryset(request, queryset)  # type: ignore[misc]
-            messages.warning(request, _("已强制批量删除 %d 个案件(已绕过外键检查)") % len(case_ids))
+            messages.warning(request, "已强制批量删除 %d 个案件(已绕过外键检查)" % len(case_ids))
 
     def save_model(
         self,
@@ -116,7 +115,7 @@ class CaseAdminSaveMixin(CaseAdminServiceMixin):
                 extra={"case_id": obj.id},
                 exc_info=True,
             )
-            messages.error(request, _("处理建档编号失败: %s") % str(e))
+            messages.error(request, "处理建档编号失败: %s" % str(e))
 
         case_type_changed = old_case_type != obj.case_type
         stage_changed = old_current_stage != obj.current_stage
@@ -142,7 +141,7 @@ class CaseAdminSaveMixin(CaseAdminServiceMixin):
                     extra={"case_id": obj.id},
                     exc_info=True,
                 )
-                messages.warning(request, _("同步模板绑定失败: %s") % str(e))
+                messages.warning(request, "同步模板绑定失败: %s" % str(e))
 
         new_contract_id = getattr(obj, "contract_id", None)
         contract_changed = not change or (old_contract_id != new_contract_id)
@@ -162,7 +161,7 @@ class CaseAdminSaveMixin(CaseAdminServiceMixin):
                     extra={"case_id": obj.id},
                     exc_info=True,
                 )
-                messages.error(request, _("同步律师指派失败: %s") % str(e))
+                messages.error(request, "同步律师指派失败: %s" % str(e))
 
     def save_formset(self, request: HttpRequest, form: ModelForm[Any], formset: Any, change: bool) -> None:
         from apps.contracts.models import ClientPaymentRecord

@@ -12,8 +12,6 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
-from django.utils.translation import gettext_lazy as _
-
 logger = logging.getLogger(__name__)
 
 # ---- 日期正则 ----

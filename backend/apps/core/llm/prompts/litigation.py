@@ -62,6 +62,5 @@ LITIGATION_PROMPT_TEMPLATE = CodePromptTemplate(
     ],
 )
 
-
 # 注册模板到 PromptManager
 PromptManager.register(LITIGATION_PROMPT_TEMPLATE)

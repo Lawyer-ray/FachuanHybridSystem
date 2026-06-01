@@ -6,7 +6,6 @@ from functools import cached_property
 from typing import TYPE_CHECKING, Any, ClassVar
 
 from django.db import models
-from django.utils.translation import gettext_lazy as _
 
 from apps.client.utils.media import resolve_media_url
 
@@ -27,20 +26,18 @@ class PropertyClue(models.Model):
     OTHER = "other"
 
     CLUE_TYPE_CHOICES: ClassVar[list[tuple[str, Any]]] = [
-        (BANK, _("银行账户")),
-        (ALIPAY, _("支付宝账户")),
-        (WECHAT, _("微信账户")),
-        (REAL_ESTATE, _("不动产")),
-        (OTHER, _("其他")),
+        (BANK, "银行账户"),
+        (ALIPAY, "支付宝账户"),
+        (WECHAT, "微信账户"),
+        (REAL_ESTATE, "不动产"),
+        (OTHER, "其他"),
     ]
 
-    client = models.ForeignKey(
-        Client, on_delete=models.CASCADE, related_name="property_clues", verbose_name=_("当事人")
-    )
-    clue_type = models.CharField(max_length=16, choices=CLUE_TYPE_CHOICES, default=BANK, verbose_name=_("线索类型"))
-    content = models.TextField(blank=True, default="", verbose_name=_("线索内容"))
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name=_("创建时间"))
-    updated_at = models.DateTimeField(auto_now=True, verbose_name=_("更新时间"))
+    client = models.ForeignKey(Client, on_delete=models.CASCADE, related_name="property_clues", verbose_name="当事人")
+    clue_type = models.CharField(max_length=16, choices=CLUE_TYPE_CHOICES, default=BANK, verbose_name="线索类型")
+    content = models.TextField(blank=True, default="", verbose_name="线索内容")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="更新时间")
 
     if TYPE_CHECKING:
         attachments: RelatedManager[PropertyClueAttachment]
@@ -49,8 +46,8 @@ class PropertyClue(models.Model):
         return f"{self.client.name}-{self.get_clue_type_display()}"
 
     class Meta:
-        verbose_name = _("财产线索")
-        verbose_name_plural = _("财产线索")
+        verbose_name = "财产线索"
+        verbose_name_plural = "财产线索"
         db_table = "cases_propertyclue"
         managed = True
         indexes: ClassVar = [
@@ -64,11 +61,11 @@ class PropertyClueAttachment(models.Model):
     id: int
     property_clue_id: int
     property_clue = models.ForeignKey(
-        PropertyClue, on_delete=models.CASCADE, related_name="attachments", verbose_name=_("财产线索")
+        PropertyClue, on_delete=models.CASCADE, related_name="attachments", verbose_name="财产线索"
     )
-    file_path = models.CharField(max_length=512, verbose_name=_("文件路径"))
-    file_name = models.CharField(max_length=255, verbose_name=_("文件名"))
-    uploaded_at = models.DateTimeField(auto_now_add=True, verbose_name=_("上传时间"))
+    file_path = models.CharField(max_length=512, verbose_name="文件路径")
+    file_name = models.CharField(max_length=255, verbose_name="文件名")
+    uploaded_at = models.DateTimeField(auto_now_add=True, verbose_name="上传时间")
 
     def __str__(self) -> str:
         return f"{self.property_clue}-{self.file_name}"
@@ -79,8 +76,8 @@ class PropertyClueAttachment(models.Model):
         return resolve_media_url(self.file_path)
 
     class Meta:
-        verbose_name = _("财产线索附件")
-        verbose_name_plural = _("财产线索附件")
+        verbose_name = "财产线索附件"
+        verbose_name_plural = "财产线索附件"
         db_table = "cases_propertyclueattachment"
         managed = True
         indexes: ClassVar = [

@@ -24,7 +24,6 @@ logger = logging.getLogger(__name__)
 # 创建 LLM 路由
 llm_router = Router(tags=["LLM 服务"], auth=JWTOrSessionAuth())
 
-
 # ============================================================
 # 请求/响应 Schema
 # ============================================================
@@ -240,3 +239,18 @@ def list_available_models(request: Any) -> Any:
         )
 
     return ModelListResponse(models=[ModelInfo(id=m["id"], name=m["name"], backend=m["backend"]) for m in models])
+
+
+@llm_router.post("/test-connection")
+def test_model_connection(request: Any, model_id: str = "") -> dict[str, Any]:
+    """测试指定模型的连通性（仅管理员可用）"""
+    from apps.core.llm.model_list_service import ModelListService
+
+    is_admin = request.user and (request.user.is_staff or request.user.is_superuser)
+    if not is_admin:
+        raise PermissionDenied(message="需要管理员权限", code="PERMISSION_DENIED")
+
+    if not model_id.strip():
+        return {"ok": False, "error": "请指定模型 ID"}
+
+    return ModelListService.test_model_connection(model_id.strip())

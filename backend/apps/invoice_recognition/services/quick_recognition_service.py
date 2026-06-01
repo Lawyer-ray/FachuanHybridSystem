@@ -5,7 +5,6 @@ from pathlib import Path
 
 from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import UploadedFile
-from django.utils.translation import gettext as _
 
 from apps.automation.services.ocr.ocr_service import OCRService
 from apps.automation.services.ocr.pdf_text_extractor import PDFTextExtractor
@@ -47,12 +46,12 @@ class QuickRecognitionService:
         ext = Path(name).suffix.lower()
 
         if ext not in self.ALLOWED_EXTENSIONS:
-            raise ValidationError(_("不支持的文件格式：%(ext)s，仅允许 PDF、JPG、JPEG、PNG。") % {"ext": ext})
+            raise ValidationError("不支持的文件格式：%(ext)s，仅允许 PDF、JPG、JPEG、PNG。" % {"ext": ext})
 
         size: int = file.size or 0
         if size > self.MAX_FILE_SIZE:
             raise ValidationError(
-                _("文件大小超过限制（最大 20 MB），当前文件大小：%(size).1f MB。") % {"size": size / 1024 / 1024}
+                "文件大小超过限制（最大 20 MB），当前文件大小：%(size).1f MB。" % {"size": size / 1024 / 1024}
             )
 
     def _process_single_file(self, file: UploadedFile) -> RecognitionResult:
@@ -94,7 +93,7 @@ class QuickRecognitionService:
             return RecognitionResult(
                 filename=filename,
                 success=False,
-                error=_("识别失败，请重试"),
+                error="识别失败，请重试",
             )
 
     def _process_pdf(self, file: UploadedFile) -> str:

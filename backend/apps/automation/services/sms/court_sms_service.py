@@ -10,7 +10,6 @@ from typing import TYPE_CHECKING, Any
 
 from django.db import transaction
 from django.utils import timezone
-from django.utils.translation import gettext_lazy as _
 
 from apps.automation.models import CourtSMS, CourtSMSStatus
 from apps.core.exceptions import NotFoundError, ValidationException
@@ -176,7 +175,7 @@ class CourtSMSService(SMSCaseBindingMixin, SMSDocumentMixin, SMSDownloadMixin):
         """提交短信，创建记录并触发异步处理"""
         if not content or not content.strip():
             raise ValidationException(
-                message=_("短信内容不能为空"), code="EMPTY_SMS_CONTENT", errors={"content": "短信内容不能为空"}
+                message="短信内容不能为空", code="EMPTY_SMS_CONTENT", errors={"content": "短信内容不能为空"}
             )
 
         if received_at is None:
@@ -243,7 +242,7 @@ class CourtSMSService(SMSCaseBindingMixin, SMSDocumentMixin, SMSDownloadMixin):
                     logger.info(f"案件绑定创建成功，进入重命名阶段: SMS ID={sms_id}")
             else:
                 sms.status = CourtSMSStatus.FAILED
-                sms.error_message = str(_("创建案件绑定失败"))
+                sms.error_message = "创建案件绑定失败"
                 sms.save()
                 logger.error(f"案件绑定创建失败: SMS ID={sms_id}")
                 return sms
@@ -483,9 +482,10 @@ class CourtSMSService(SMSCaseBindingMixin, SMSDocumentMixin, SMSDownloadMixin):
                     f"疑似 OCR 内存不足导致 worker 反复崩溃，标记为待人工处理"
                 )
                 sms.status = CourtSMSStatus.PENDING_MANUAL
-                sms.error_message = str(
-                    _("匹配阶段反复失败（已重试%(count)d次），可能因OCR内存不足导致处理中断，需要人工处理")
-                ) % {"count": sms.retry_count}
+                sms.error_message = (
+                    "匹配阶段反复失败（已重试%(count)d次），可能因OCR内存不足导致处理中断，需要人工处理"
+                    % {"count": sms.retry_count}
+                )
                 sms.save()
                 return sms
 
@@ -496,7 +496,7 @@ class CourtSMSService(SMSCaseBindingMixin, SMSDocumentMixin, SMSDownloadMixin):
                     sms.status = CourtSMSStatus.RENAMING
                 else:
                     sms.status = CourtSMSStatus.FAILED
-                    sms.error_message = str(_("创建案件绑定失败"))
+                    sms.error_message = "创建案件绑定失败"
                 sms.save()
                 return sms
 
@@ -524,13 +524,13 @@ class CourtSMSService(SMSCaseBindingMixin, SMSDocumentMixin, SMSDownloadMixin):
                     logger.info(f"案件自动绑定成功: SMS ID={sms.id}")
                 else:
                     sms.status = CourtSMSStatus.FAILED
-                    sms.error_message = str(_("创建案件绑定失败"))
+                    sms.error_message = "创建案件绑定失败"
                     sms.save()
                     logger.error(f"案件绑定失败: SMS ID={sms.id}")
             else:
                 logger.info(f"案件匹配失败，标记为待人工处理: SMS ID={sms.id}")
                 sms.status = CourtSMSStatus.PENDING_MANUAL
-                sms.error_message = str(_("未能匹配到唯一的在办案件，需要人工处理"))
+                sms.error_message = "未能匹配到唯一的在办案件，需要人工处理"
                 sms.save()
 
             return sms

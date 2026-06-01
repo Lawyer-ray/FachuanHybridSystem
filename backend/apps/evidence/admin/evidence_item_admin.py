@@ -3,7 +3,6 @@
 from typing import Any, ClassVar
 
 from django.contrib import admin
-from django.utils.translation import gettext_lazy as _
 
 from apps.evidence.models import EvidenceItem
 
@@ -33,44 +32,42 @@ class EvidenceItemAdmin(admin.ModelAdmin):
             },
         ),
         (
-            _("证据属性"),
+            "证据属性",
             {
                 "fields": ("evidence_type", "direction", "original_status", "original_location"),
             },
         ),
         (
-            _("三性说明"),
+            "三性说明",
             {
                 "fields": ("three_properties",),
-                "description": _(
-                    '格式: {"authenticity": {"opinion": "认可", "reason": "..."}, "legality": {...}, "relevance": {...}}'
-                ),
+                "description": '格式: {"authenticity": {"opinion": "认可", "reason": "..."}, "legality": {...}, "relevance": {...}}',
                 "classes": ("collapse",),
             },
         ),
         (
-            _("质证意见"),
+            "质证意见",
             {
                 "fields": ("cross_examination",),
-                "description": _("对方证据的质证意见，格式同三性说明"),
+                "description": "对方证据的质证意见，格式同三性说明",
                 "classes": ("collapse",),
             },
         ),
         (
-            _("文件信息"),
+            "文件信息",
             {
                 "fields": ("file", "file_hash", "source_channel", "page_count", "page_start", "page_end"),
             },
         ),
         (
-            _("OCR / AI"),
+            "OCR / AI",
             {
                 "fields": ("ocr_text", "ai_analysis"),
                 "classes": ("collapse",),
             },
         ),
         (
-            _("系统信息"),
+            "系统信息",
             {
                 "fields": ("created_at", "updated_at"),
                 "classes": ("collapse",),
@@ -78,6 +75,6 @@ class EvidenceItemAdmin(admin.ModelAdmin):
         ),
     )
 
-    @admin.display(description=_("页码"))
+    @admin.display(description="页码")
     def page_range_display(self, obj: EvidenceItem) -> str:
         return obj.page_range_display

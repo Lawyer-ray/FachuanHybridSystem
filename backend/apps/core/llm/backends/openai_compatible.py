@@ -26,7 +26,7 @@ class OpenAICompatibleBackend(SiliconFlowBackend):
 
     # ── thinking 模式控制 ────────────────────────────────────────────────────
 
-    _DISABLE_THINKING_MODELS = {"kimi26"}
+    _DISABLE_THINKING_MODELS = {"kimi26", "mimo"}
 
     def _build_extra_body(self, model: str | None = None) -> dict[str, Any] | None:
         """vLLM/SGLang 部分模型（如 kimi26）需要 chat_template_kwargs 关闭思考模式"""

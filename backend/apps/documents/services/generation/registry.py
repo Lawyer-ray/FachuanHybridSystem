@@ -7,8 +7,6 @@ import logging
 import pkgutil
 from typing import TYPE_CHECKING, Any, ClassVar
 
-from django.utils.translation import gettext_lazy as _
-
 from apps.core.exceptions import ConflictError, NotFoundError
 from apps.core.utils.path import Path
 
@@ -89,7 +87,7 @@ class GeneratorRegistry:
         """
         if name not in self._generators:
             raise NotFoundError(
-                message=_("生成器不存在: %(n)s") % {"n": name},
+                message="生成器不存在: %(n)s" % {"n": name},
                 code="GENERATOR_NOT_FOUND",
                 errors={"name": f"未找到名为 '{name}' 的生成器"},
             )

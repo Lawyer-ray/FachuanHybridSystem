@@ -9,7 +9,6 @@ from decimal import Decimal
 from django.db.models import Case as DBCase
 from django.db.models import CharField, Count, Max, OuterRef, Q, Subquery, Sum, Value, When
 from django.db.models.functions import Coalesce, TruncMonth, TruncQuarter, TruncYear
-from django.utils.translation import gettext as _
 
 from apps.sales_dispute.models.case_assessment import ContractBasisType
 from apps.sales_dispute.models.collection_record import STAGE_ORDER, CollectionStage
@@ -188,7 +187,7 @@ class DashboardService:
             )
             return [
                 BreakdownItem(
-                    group_label=g["case_type"] or _("未分类"),
+                    group_label=g["case_type"] or "未分类",
                     total_recovery=g["total_recovery"] or _ZERO,
                     case_count=g["case_count"],
                     recovery_rate=_safe_rate(g["total_recovery"] or _ZERO, g["total_target"] or _ZERO),
@@ -353,9 +352,9 @@ class DashboardService:
         preservation_bucket = DBCase(
             When(
                 Q(preservation_amount__isnull=True) | Q(preservation_amount=0),
-                then=Value(_("无财产保全")),
+                then=Value("无财产保全"),
             ),
-            default=Value(_("有财产保全")),
+            default=Value("有财产保全"),
             output_field=CharField(),
         )
         preservation_grouped = (

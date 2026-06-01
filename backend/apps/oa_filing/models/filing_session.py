@@ -3,15 +3,14 @@ from __future__ import annotations
 from typing import Any, ClassVar
 
 from django.db import models
-from django.utils.translation import gettext_lazy as _
 
 
 class SessionStatus(models.TextChoices):
-    PENDING = "pending", _("待开始")
-    IN_PROGRESS = "in_progress", _("进行中")
-    COMPLETED = "completed", _("已完成")
-    FAILED = "failed", _("失败")
-    CANCELLED = "cancelled", _("已取消")
+    PENDING = "pending", "待开始"
+    IN_PROGRESS = "in_progress", "进行中"
+    COMPLETED = "completed", "已完成"
+    FAILED = "failed", "失败"
+    CANCELLED = "cancelled", "已取消"
 
 
 class FilingSession(models.Model):
@@ -23,7 +22,7 @@ class FilingSession(models.Model):
         "contracts.Contract",
         on_delete=models.CASCADE,
         related_name="filing_sessions",
-        verbose_name=_("合同"),
+        verbose_name="合同",
     )
     case: Any = models.ForeignKey(
         "cases.Case",
@@ -31,7 +30,7 @@ class FilingSession(models.Model):
         null=True,
         blank=True,
         related_name="filing_sessions",
-        verbose_name=_("案件"),
+        verbose_name="案件",
     )
     oa_config: Any = models.ForeignKey(
         "oa_filing.OAConfig",
@@ -39,44 +38,44 @@ class FilingSession(models.Model):
         null=True,
         blank=True,
         related_name="filing_sessions",
-        verbose_name=_("OA配置"),
+        verbose_name="OA配置",
     )
     credential: Any = models.ForeignKey(
         "organization.AccountCredential",
         on_delete=models.SET_NULL,
         null=True,
         related_name="filing_sessions",
-        verbose_name=_("登录凭证"),
+        verbose_name="登录凭证",
     )
     user: Any = models.ForeignKey(
         "organization.Lawyer",
         on_delete=models.CASCADE,
         related_name="filing_sessions",
-        verbose_name=_("发起用户"),
+        verbose_name="发起用户",
     )
     status: str = models.CharField(  # type: ignore[assignment]
         max_length=16,
         choices=SessionStatus.choices,
         default=SessionStatus.PENDING,
-        verbose_name=_("状态"),
+        verbose_name="状态",
     )
     error_message: str = models.TextField(  # type: ignore[assignment]
         blank=True,
         default="",
-        verbose_name=_("错误信息"),
+        verbose_name="错误信息",
     )
     created_at: Any = models.DateTimeField(
         auto_now_add=True,
-        verbose_name=_("创建时间"),
+        verbose_name="创建时间",
     )
     updated_at: Any = models.DateTimeField(
         auto_now=True,
-        verbose_name=_("更新时间"),
+        verbose_name="更新时间",
     )
 
     class Meta:
-        verbose_name = _("立案记录")
-        verbose_name_plural = _("立案记录")
+        verbose_name = "立案记录"
+        verbose_name_plural = "立案记录"
         indexes: ClassVar = [
             models.Index(fields=["contract", "-created_at"]),
             models.Index(fields=["user", "-created_at"]),

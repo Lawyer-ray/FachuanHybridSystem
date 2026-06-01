@@ -5,7 +5,6 @@ from __future__ import annotations
 from typing import Any, ClassVar
 
 from django.db import models
-from django.utils.translation import gettext_lazy as _
 
 from apps.core.models.enums import CaseStage, LegalStatus, SimpleCaseType
 from apps.documents.models.choices import LegalStatusMatchMode
@@ -17,51 +16,51 @@ class ProxyMatterRule(models.Model):
     case_types: Any = models.JSONField(
         default=list,
         blank=True,
-        verbose_name=_("案件类型"),
-        help_text=_("可单选或多选;为空表示匹配任意案件类型"),
+        verbose_name="案件类型",
+        help_text="可单选或多选;为空表示匹配任意案件类型",
     )
     case_type = models.CharField(
         max_length=32,
         choices=SimpleCaseType.choices,
         null=True,
         blank=True,
-        verbose_name=_("案件类型"),
-        help_text=_("兼容旧数据字段，请使用“案件类型（多选）”"),
+        verbose_name="案件类型",
+        help_text="兼容旧数据字段，请使用“案件类型（多选）”",
     )
     case_stage = models.CharField(
         max_length=64,
         choices=CaseStage.choices,
         null=True,
         blank=True,
-        verbose_name=_("当前阶段"),
-        help_text=_("为空表示匹配任意案件阶段"),
+        verbose_name="当前阶段",
+        help_text="为空表示匹配任意案件阶段",
     )
     legal_statuses: Any = models.JSONField(
         default=list,
         blank=True,
-        verbose_name=_("我方诉讼地位"),
-        help_text=_("可单选或多选;为空表示匹配任意诉讼地位"),
+        verbose_name="我方诉讼地位",
+        help_text="可单选或多选;为空表示匹配任意诉讼地位",
     )
     legal_status_match_mode = models.CharField(
         max_length=16,
         choices=LegalStatusMatchMode.choices,
         default=LegalStatusMatchMode.ANY,
-        verbose_name=_("诉讼地位匹配模式"),
+        verbose_name="诉讼地位匹配模式",
     )
     items_text = models.TextField(
         blank=True,
         default="",
-        verbose_name=_("代理事项条目"),
-        help_text=_("每行一条代理事项"),
+        verbose_name="代理事项条目",
+        help_text="每行一条代理事项",
     )
-    priority = models.PositiveIntegerField(default=100, verbose_name=_("优先级"))
-    is_active = models.BooleanField(default=True, verbose_name=_("是否启用"))
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name=_("创建时间"))
-    updated_at = models.DateTimeField(auto_now=True, verbose_name=_("更新时间"))
+    priority = models.PositiveIntegerField(default=100, verbose_name="优先级")
+    is_active = models.BooleanField(default=True, verbose_name="是否启用")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="更新时间")
 
     class Meta:
-        verbose_name = _("代理事项规则")
-        verbose_name_plural = _("代理事项规则")
+        verbose_name = "代理事项规则"
+        verbose_name_plural = "代理事项规则"
         indexes: ClassVar = [
             models.Index(fields=["is_active", "priority"]),
             models.Index(fields=["case_stage", "is_active"]),

@@ -9,7 +9,6 @@ from typing import TYPE_CHECKING
 
 from django.db import transaction
 from django.db.models import QuerySet
-from django.utils.translation import gettext_lazy as _
 
 from apps.chat_records.models import ChatRecordRecording, ChatRecordScreenshot, ExtractStatus
 from apps.core.exceptions import NotFoundError, ValidationException
@@ -75,7 +74,7 @@ class RecordingService:
             extract_progress=0,
             extract_current=0,
             extract_total=0,
-            extract_message=_("等待抽帧"),
+            extract_message="等待抽帧",
             extract_error="",
         )
         return recording

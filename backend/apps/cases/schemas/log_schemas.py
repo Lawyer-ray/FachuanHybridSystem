@@ -5,7 +5,6 @@ from __future__ import annotations
 from datetime import datetime
 from typing import ClassVar, Protocol
 
-from django.utils.translation import gettext_lazy as _
 from pydantic import model_validator
 
 from .base import CaseLog, CaseLogAttachment, ModelSchema, ReminderOut, Schema, SchemaMixin
@@ -28,9 +27,9 @@ def _validate_reminder_type(value: str | None) -> str | None:
 
     normalized = value.strip()
     if not normalized:
-        raise ValueError(_("提醒类型不能为空"))
+        raise ValueError("提醒类型不能为空")
     if normalized not in ReminderType.values:
-        raise ValueError(_("无效的提醒类型"))
+        raise ValueError("无效的提醒类型")
     return normalized
 
 
@@ -44,10 +43,10 @@ class _CaseLogReminderMixin(Schema):
         reminder_type_set = "reminder_type" in fields_set
         reminder_time_set = "reminder_time" in fields_set
         if reminder_type_set != reminder_time_set:
-            raise ValueError(_("提醒类型和提醒时间必须同时提供"))
+            raise ValueError("提醒类型和提醒时间必须同时提供")
         if reminder_type_set and reminder_time_set:
             if (self.reminder_type is None) != (self.reminder_time is None):
-                raise ValueError(_("提醒类型和提醒时间必须同时为空或同时有值"))
+                raise ValueError("提醒类型和提醒时间必须同时为空或同时有值")
         self.reminder_type = _validate_reminder_type(self.reminder_type)
         return self
 

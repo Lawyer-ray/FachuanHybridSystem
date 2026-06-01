@@ -14,7 +14,6 @@ from decimal import Decimal
 from typing import Any, cast
 
 import httpx
-from django.utils.translation import gettext_lazy as _
 
 from apps.core.config import get_config
 from apps.core.exceptions import APIError, NetworkError, TokenError
@@ -494,7 +493,7 @@ class CourtInsuranceClient(InsuranceHttpMixin):
                 company=company,
                 premium=None,
                 status="failed",
-                error_message=str(_("响应中未找到费率数据")),
+                error_message="响应中未找到费率数据",
                 response_data=data,
                 request_info=request_info,
             )

@@ -17,7 +17,6 @@ router = Router(tags=["系统配置"], auth=JWTOrSessionAuth())
 
 _repository = SystemConfigRepository()
 
-
 # ─── Schemas ────────────────────────────────────────────────────────────────────
 
 

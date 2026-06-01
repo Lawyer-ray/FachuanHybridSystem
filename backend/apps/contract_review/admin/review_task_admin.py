@@ -10,7 +10,6 @@ from django.http import HttpRequest, HttpResponse
 from django.template.response import TemplateResponse
 from django.urls import path
 from django.utils.html import format_html
-from django.utils.translation import gettext_lazy as _
 
 from apps.contract_review.models import ReviewTask, TaskStatus
 
@@ -38,7 +37,7 @@ class ReviewTaskAdmin(admin.ModelAdmin):
     change_form_template = "admin/contract_review/reviewtask/change_form.html"
     actions = ["retry_selected_tasks", "delete_selected_with_files"]
 
-    @admin.action(description=_("重新执行选中的审查任务"))
+    @admin.action(description="重新执行选中的审查任务")
     def retry_selected_tasks(self, request: HttpRequest, queryset: Any) -> None:
         from apps.core.tasking import submit_task
 
@@ -55,7 +54,7 @@ class ReviewTaskAdmin(admin.ModelAdmin):
                 count += 1
         self.message_user(request, f"已重新提交 {count} 个审查任务")
 
-    @admin.action(description=_("删除选中任务及关联文件"))
+    @admin.action(description="删除选中任务及关联文件")
     def delete_selected_with_files(self, request: HttpRequest, queryset: Any) -> None:
         from apps.contract_review.repositories.review_task_repository import ReviewTaskRepository
 
@@ -89,7 +88,7 @@ class ReviewTaskAdmin(admin.ModelAdmin):
 
         self.message_user(request, f"已删除 {deleted_count} 个任务及 {file_count} 个关联文件")
 
-    @admin.display(description=_("当前处理步骤"))
+    @admin.display(description="当前处理步骤")
     def current_step_display(self, obj: ReviewTask) -> str:
         if obj.status == "completed":
             return "✅ 已完成"
@@ -106,7 +105,7 @@ class ReviewTaskAdmin(admin.ModelAdmin):
         "review_report": "输出审查报告",
     }
 
-    @admin.display(description=_("选中的处理步骤"))
+    @admin.display(description="选中的处理步骤")
     def selected_steps_display(self, obj: ReviewTask) -> str:
         steps = obj.selected_steps or []
         if not steps:
@@ -157,19 +156,19 @@ class ReviewTaskAdmin(admin.ModelAdmin):
             ctx["show_delete_link"] = True
         return super().change_view(request, object_id, form_url, ctx)
 
-    @admin.display(description=_("原始文件"))
+    @admin.display(description="原始文件")
     def original_file_link(self, obj: ReviewTask) -> str:
         if not obj.original_file:
             return "—"
         return self._file_link(obj, obj.original_file)
 
-    @admin.display(description=_("审查结果"))
+    @admin.display(description="审查结果")
     def output_file_link(self, obj: ReviewTask) -> str:
         if not obj.output_file:
             return "—"
         return self._file_link(obj, obj.output_file, primary=True)
 
-    @admin.display(description=_("评估报告"))
+    @admin.display(description="评估报告")
     def review_report_html(self, obj: ReviewTask) -> str:
         if not obj.review_report:
             return "—"
@@ -207,14 +206,14 @@ class ReviewTaskAdmin(admin.ModelAdmin):
 
         fieldsets = [
             (None, {"fields": ("id", "user", "contract_title", "model_name", "reviewer_name")}),
-            (_("当事人"), {"fields": (*party_fields, "represented_party")}),
-            (_("处理步骤"), {"fields": ("selected_steps_display",)}),
-            (_("状态"), {"fields": ("status", "current_step", "error_message")}),
-            (_("文件"), {"fields": ("original_file_link", "output_file_link")}),
-            (_("时间"), {"fields": ("created_at", "updated_at")}),
+            ("当事人", {"fields": (*party_fields, "represented_party")}),
+            ("处理步骤", {"fields": ("selected_steps_display",)}),
+            ("状态", {"fields": ("status", "current_step", "error_message")}),
+            ("文件", {"fields": ("original_file_link", "output_file_link")}),
+            ("时间", {"fields": ("created_at", "updated_at")}),
         ]
         if obj and obj.review_report:
-            fieldsets.insert(4, (_("评估报告"), {"fields": ("review_report_html",)}))
+            fieldsets.insert(4, ("评估报告", {"fields": ("review_report_html",)}))
         return fieldsets
 
     def add_view(
@@ -234,13 +233,13 @@ class ReviewTaskAdmin(admin.ModelAdmin):
 
             messages.warning(
                 request,
-                _("SiliconFlow 模型列表获取失败：%(error)s，当前显示默认模型列表") % {"error": result.error_message},
+                "SiliconFlow 模型列表获取失败：%(error)s，当前显示默认模型列表" % {"error": result.error_message},
             )
 
         context = {
             **self.admin_site.each_context(request),
             "opts": self.model._meta,
-            "title": _("新建合同审查任务"),
+            "title": "新建合同审查任务",
             "has_view_permission": self.has_view_permission(request),
             "models_json": json.dumps(models, ensure_ascii=False),
         }

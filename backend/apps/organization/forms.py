@@ -6,7 +6,6 @@ from typing import Any
 from django import forms
 from django.contrib.auth.forms import UserCreationForm
 from django.core.exceptions import ValidationError
-from django.utils.translation import gettext_lazy as _
 
 from .models import Lawyer
 
@@ -21,30 +20,30 @@ class LawyerRegistrationForm(UserCreationForm[Lawyer]):
         self.fields["username"].widget.attrs.update(
             {
                 "class": "form-input",
-                "placeholder": str(_("请输入中文姓名")),
+                "placeholder": "请输入中文姓名",
                 "autocomplete": "username",
             }
         )
         self.fields["password1"].widget.attrs.update(
             {
                 "class": "form-input",
-                "placeholder": str(_("请输入密码")),
+                "placeholder": "请输入密码",
                 "autocomplete": "new-password",
             }
         )
         self.fields["password2"].widget.attrs.update(
             {
                 "class": "form-input",
-                "placeholder": str(_("请确认密码")),
+                "placeholder": "请确认密码",
                 "autocomplete": "new-password",
             }
         )
 
-        self.fields["username"].label = _("用户名/真实姓名")
-        self.fields["password1"].label = _("密码")
-        self.fields["password2"].label = _("确认密码")
+        self.fields["username"].label = "用户名/真实姓名"
+        self.fields["password1"].label = "密码"
+        self.fields["password2"].label = "确认密码"
 
-        self.fields["username"].help_text = _("只能输入中文")
+        self.fields["username"].help_text = "只能输入中文"
         self.fields["password1"].help_text = ""
         self.fields["password2"].help_text = ""
 
@@ -52,7 +51,7 @@ class LawyerRegistrationForm(UserCreationForm[Lawyer]):
         username: str | None = self.cleaned_data.get("username")
         if username:
             if not re.match(r"^[\u4e00-\u9fa5]+$", username):
-                raise ValidationError(_("用户名只能输入中文"))
+                raise ValidationError("用户名只能输入中文")
         if username is None:
             username = ""
         return username

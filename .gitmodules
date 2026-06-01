@@ -1,0 +1,6 @@
+[submodule "backend/plugins"]
+	path = backend/plugins
+	url = https://github.com/Lawyer-ray/FachuanPlugins.git
+[submodule "backend/backend/plugins"]
+	path = backend/backend/plugins
+	url = https://github.com/Lawyer-ray/FachuanPlugins.git

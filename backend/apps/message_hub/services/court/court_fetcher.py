@@ -13,7 +13,6 @@ from typing import TYPE_CHECKING, Any, Callable
 import httpx
 from django.conf import settings
 from django.utils import timezone
-from django.utils.translation import gettext_lazy as _
 
 from apps.message_hub.models import InboxMessage, SyncStatus
 from apps.message_hub.services.base import MessageFetcher
@@ -66,7 +65,7 @@ def _api_post(url: str, token: str, data: dict[str, Any]) -> dict[str, Any]:
                 continue
 
             if resp.status_code == 401:
-                raise PermissionError(_("Token 已过期"))
+                raise PermissionError("Token 已过期")
 
             if resp.status_code in _RETRYABLE_STATUS_CODES and attempt < _MAX_API_RETRIES:
                 backoff = _RETRY_BACKOFF_SECONDS[min(attempt, len(_RETRY_BACKOFF_SECONDS) - 1)]
@@ -86,7 +85,7 @@ def _api_post(url: str, token: str, data: dict[str, Any]) -> dict[str, Any]:
                 raise RuntimeError(f"API 错误: {body.get('msg', body)}")
             return body
 
-    raise RuntimeError(_("一张网 API 请求失败"))
+    raise RuntimeError("一张网 API 请求失败")
 
 
 def _run_callable_with_timeout(func: Callable[[], str], timeout_seconds: float) -> str:
@@ -104,7 +103,7 @@ def _run_callable_with_timeout(func: Callable[[], str], timeout_seconds: float) 
     worker.join(timeout=timeout_seconds)
 
     if worker.is_alive():
-        raise TimeoutError(_("Token 获取超时（%(seconds)s 秒）") % {"seconds": int(timeout_seconds)})
+        raise TimeoutError("Token 获取超时（%(seconds)s 秒）" % {"seconds": int(timeout_seconds)})
 
     success, payload = result_queue.get()
     if success:
@@ -112,7 +111,7 @@ def _run_callable_with_timeout(func: Callable[[], str], timeout_seconds: float) 
 
     if isinstance(payload, Exception):
         raise payload
-    raise RuntimeError(_("Token 获取失败：未知异常"))
+    raise RuntimeError("Token 获取失败：未知异常")
 
 
 def _acquire_token(credential_id: int) -> str:
@@ -124,7 +123,7 @@ def _acquire_token(credential_id: int) -> str:
     org_svc = ServiceLocator.get_organization_service()
     credential = org_svc.get_credential(credential_id)
     if not credential:
-        raise RuntimeError(_("凭证不存在: %(id)s") % {"id": credential_id})
+        raise RuntimeError("凭证不存在: %(id)s" % {"id": credential_id})
 
     cached = cache_manager.get_cached_token(credential.site_name, credential.account)
     if cached:
@@ -159,7 +158,7 @@ def _acquire_token(credential_id: int) -> str:
                 raise RuntimeError(result.get("message", "登录失败"))
             token = result.get("token")
             if not token:
-                raise RuntimeError(_("登录成功但未获取到 Token"))
+                raise RuntimeError("登录成功但未获取到 Token")
             return str(token)
 
     token = _run_callable_with_timeout(_playwright_login, _TOKEN_LOGIN_TIMEOUT_SECONDS)
@@ -170,7 +169,7 @@ def _acquire_token(credential_id: int) -> str:
 def _build_subject(record: dict[str, Any]) -> str:
     ah = record.get("ah", "")
     wsmc = record.get("wsmc", "")
-    return f"{ah} - {wsmc}" if ah else wsmc or str(_("(无主题)"))
+    return f"{ah} - {wsmc}" if ah else wsmc or "(无主题)"
 
 
 def _build_body(record: dict[str, Any]) -> str:

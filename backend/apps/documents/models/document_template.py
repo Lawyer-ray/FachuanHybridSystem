@@ -11,7 +11,6 @@ from typing import TYPE_CHECKING, Any, ClassVar
 
 from django.core.exceptions import ValidationError
 from django.db import models
-from django.utils.translation import gettext_lazy as _
 from django_lifecycle import AFTER_CREATE, AFTER_UPDATE, BEFORE_CREATE, BEFORE_UPDATE, LifecycleModel, hook
 
 from apps.core.utils.path import Path
@@ -48,79 +47,79 @@ class DocumentTemplate(LifecycleModel):
     """
 
     id: int
-    name: Any = models.CharField(max_length=200, verbose_name=_("模板名称"))
+    name: Any = models.CharField(max_length=200, verbose_name="模板名称")
     template_type: Any = models.CharField(
         max_length=20,
         choices=DocumentTemplateType.choices,
         default=DocumentTemplateType.CONTRACT,
-        verbose_name=_("模板类型"),
-        help_text=_("选择此模板用于合同还是案件"),
+        verbose_name="模板类型",
+        help_text="选择此模板用于合同还是案件",
     )
     contract_sub_type: Any = models.CharField(
         max_length=30,
         choices=DocumentContractSubType.choices,
         blank=True,
         null=True,
-        verbose_name=_("合同子类型"),
-        help_text=_("仅在选择'合同文件模板'时有效,必须选择合同模板或补充协议模板"),
+        verbose_name="合同子类型",
+        help_text="仅在选择'合同文件模板'时有效,必须选择合同模板或补充协议模板",
     )
     case_sub_type: Any = models.CharField(
         max_length=50,
         choices=DocumentCaseFileSubType.choices,
         blank=True,
         null=True,
-        verbose_name=_("案件文件子类型"),
-        help_text=_("仅在选择'案件文件模板'时有效,可选择诉状材料、证据材料、授权委托材料等"),
+        verbose_name="案件文件子类型",
+        help_text="仅在选择'案件文件模板'时有效,可选择诉状材料、证据材料、授权委托材料等",
     )
     archive_sub_type: Any = models.CharField(
         max_length=50,
         choices=DocumentArchiveSubType.choices,
         blank=True,
         null=True,
-        verbose_name=_("归档文件子类型"),
-        help_text=_("仅在选择'归档文件模板'时有效,可选择案卷封面、结案归档登记表等"),
+        verbose_name="归档文件子类型",
+        help_text="仅在选择'归档文件模板'时有效,可选择案卷封面、结案归档登记表等",
     )
     file = models.FileField(
         storage=document_template_storage,
         upload_to="",  # 存储类会自动处理路径
         blank=True,
         null=True,
-        verbose_name=_("上传文件"),
+        verbose_name="上传文件",
     )
     file_path: Any = models.CharField(
-        max_length=500, blank=True, verbose_name=_("文件路径"), help_text=_("相对于模板基础目录的路径")
+        max_length=500, blank=True, verbose_name="文件路径", help_text="相对于模板基础目录的路径"
     )
     # 适用范围字段(与文件夹模板保持一致)
     case_types: Any = models.JSONField(
-        default=list, verbose_name=_("案件类型"), help_text=_("JSON 数组,如 ['civil', 'criminal'],支持多选")
+        default=list, verbose_name="案件类型", help_text="JSON 数组,如 ['civil', 'criminal'],支持多选"
     )
     case_stages: Any = models.JSONField(
-        default=list, verbose_name=_("案件阶段"), help_text=_("JSON 数组,如 ['first_trial', 'second_trial'],支持多选")
+        default=list, verbose_name="案件阶段", help_text="JSON 数组,如 ['first_trial', 'second_trial'],支持多选"
     )
     contract_types: Any = models.JSONField(
-        default=list, verbose_name=_("合同类型"), help_text=_("JSON 数组,如 ['civil', 'criminal'],支持多选")
+        default=list, verbose_name="合同类型", help_text="JSON 数组,如 ['civil', 'criminal'],支持多选"
     )
     legal_statuses: Any = models.JSONField(
         default=list,
         blank=True,
-        verbose_name=_("我方诉讼地位"),
-        help_text=_("可单选或多选;为空表示匹配任意诉讼地位"),
+        verbose_name="我方诉讼地位",
+        help_text="可单选或多选;为空表示匹配任意诉讼地位",
     )
     legal_status_match_mode: Any = models.CharField(
         max_length=16,
         choices=LegalStatusMatchMode.choices,
         default=LegalStatusMatchMode.ANY,
-        verbose_name=_("诉讼地位匹配模式"),
+        verbose_name="诉讼地位匹配模式",
     )
     applicable_institutions: Any = models.JSONField(
         default=list,
         blank=True,
-        verbose_name=_("适用机构"),
-        help_text=_("JSON 数组,如 ['北京市第一中级人民法院'],支持多选"),
+        verbose_name="适用机构",
+        help_text="JSON 数组,如 ['北京市第一中级人民法院'],支持多选",
     )
-    is_active: Any = models.BooleanField(default=True, verbose_name=_("是否启用"))
-    created_at: Any = models.DateTimeField(auto_now_add=True, verbose_name=_("创建时间"))
-    updated_at: Any = models.DateTimeField(auto_now=True, verbose_name=_("更新时间"))
+    is_active: Any = models.BooleanField(default=True, verbose_name="是否启用")
+    created_at: Any = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
+    updated_at: Any = models.DateTimeField(auto_now=True, verbose_name="更新时间")
 
     if TYPE_CHECKING:
         folder_bindings: RelatedManager[DocumentTemplateFolderBinding]
@@ -128,8 +127,8 @@ class DocumentTemplate(LifecycleModel):
 
     class Meta:
         app_label = "documents"
-        verbose_name = _("文件模板")
-        verbose_name_plural = _("文件模板")
+        verbose_name = "文件模板"
+        verbose_name_plural = "文件模板"
         ordering: ClassVar = ["-updated_at"]
         indexes: ClassVar = [
             models.Index(fields=["template_type"]),
@@ -144,11 +143,11 @@ class DocumentTemplate(LifecycleModel):
         file_path_present = bool((self.file_path or "").strip())
 
         if file_present and file_path_present:
-            message = _("不能同时提供上传文件和文件路径")
+            message = "不能同时提供上传文件和文件路径"
             raise ValidationError({"file": message, "file_path": message})
 
         if not file_present and not file_path_present:
-            raise ValidationError(_("必须提供上传文件或文件路径"))
+            raise ValidationError("必须提供上传文件或文件路径")
 
     def get_file_location(self) -> str:
         """获取文件实际位置"""
@@ -268,34 +267,34 @@ class DocumentTemplateFolderBinding(LifecycleModel):
         "documents.DocumentTemplate",
         on_delete=models.CASCADE,
         related_name="folder_bindings",
-        verbose_name=_("文件模板"),
+        verbose_name="文件模板",
     )
     folder_template: Any = models.ForeignKey(
         "documents.FolderTemplate",
         on_delete=models.CASCADE,
         related_name="document_bindings",
-        verbose_name=_("文件夹模板"),
+        verbose_name="文件夹模板",
     )
     folder_node_id: Any = models.CharField(
         max_length=100,
-        verbose_name=_("文件夹节点ID"),
-        help_text=_("文件夹结构JSON中的节点ID"),
+        verbose_name="文件夹节点ID",
+        help_text="文件夹结构JSON中的节点ID",
     )
     folder_node_path: Any = models.CharField(
         max_length=500,
         blank=True,
-        verbose_name=_("文件夹路径"),
-        help_text=_("自动计算的文件夹路径,如:一审/1-立案材料/1-起诉状和反诉答辩状"),
+        verbose_name="文件夹路径",
+        help_text="自动计算的文件夹路径,如:一审/1-立案材料/1-起诉状和反诉答辩状",
     )
 
-    is_active: Any = models.BooleanField(default=True, verbose_name=_("是否启用"))
-    created_at: Any = models.DateTimeField(auto_now_add=True, verbose_name=_("创建时间"))
-    updated_at: Any = models.DateTimeField(auto_now=True, verbose_name=_("更新时间"))
+    is_active: Any = models.BooleanField(default=True, verbose_name="是否启用")
+    created_at: Any = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
+    updated_at: Any = models.DateTimeField(auto_now=True, verbose_name="更新时间")
 
     class Meta:
         app_label = "documents"
-        verbose_name = _("文件模板文件夹绑定")
-        verbose_name_plural = _("文件模板文件夹绑定")
+        verbose_name = "文件模板文件夹绑定"
+        verbose_name_plural = "文件模板文件夹绑定"
         ordering: ClassVar = ["folder_template", "document_template"]
         # 同一文件模板在同一文件夹模板的同一节点只能绑定一次
         unique_together: ClassVar = ["document_template", "folder_template", "folder_node_id"]

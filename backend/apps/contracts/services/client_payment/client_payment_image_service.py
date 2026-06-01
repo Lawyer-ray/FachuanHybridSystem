@@ -7,7 +7,6 @@ from pathlib import Path
 from typing import Any
 
 from django.conf import settings
-from django.utils.translation import gettext as _
 
 from apps.core.exceptions import ValidationException
 from apps.core.services import storage_service as storage
@@ -64,7 +63,7 @@ class ClientPaymentImageService:
             raise
         except Exception as e:
             logger.error("图片上传失败: %s", str(e), exc_info=True)
-            raise ValidationException(_("图片上传失败")) from e
+            raise ValidationException("图片上传失败") from e
 
     def delete_image(self, image_path: str) -> None:
         """

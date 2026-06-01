@@ -15,8 +15,6 @@ import re
 from pathlib import Path
 from typing import TYPE_CHECKING, Optional, cast
 
-from django.utils.translation import gettext_lazy as _
-
 from apps.automation.models import CourtSMS, CourtSMSStatus, ScraperTaskStatus
 
 from .base import BaseSMSStage
@@ -120,10 +118,10 @@ class SMSMatchingStage(BaseSMSStage):
                     sms.status = CourtSMSStatus.RENAMING
                 else:
                     sms.status = CourtSMSStatus.FAILED
-                    sms.error_message = _("创建案件绑定失败")
+                    sms.error_message = "创建案件绑定失败"
             else:
                 sms.status = CourtSMSStatus.PENDING_MANUAL
-                sms.error_message = _("未能匹配到唯一的在办案件，需要人工处理")
+                sms.error_message = "未能匹配到唯一的在办案件，需要人工处理"
 
             sms.save()
             self._log_complete(sms)
@@ -143,7 +141,7 @@ class SMSMatchingStage(BaseSMSStage):
             sms.status = CourtSMSStatus.RENAMING
         else:
             sms.status = CourtSMSStatus.FAILED
-            sms.error_message = _("创建案件绑定失败")
+            sms.error_message = "创建案件绑定失败"
         sms.save()
         self._log_complete(sms)
         return sms

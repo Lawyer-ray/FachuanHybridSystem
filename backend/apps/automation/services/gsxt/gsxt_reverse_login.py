@@ -30,20 +30,19 @@ LOGIN_API = f"{GSXT_BASE}/socialuser-use-login-request.html"
 CAPTCHA_ID = "b608ae7850d2e730b89b02a384d6b9cc"
 GEETEST_LOAD_URL = "https://gcaptcha4.geetest.com/load"
 
-RSA_PUBLIC_KEY_PEM = (
+RSA_PUBLIC_KEY_PEM = (  # pragma: allowlist secret
     "-----BEGIN PUBLIC KEY-----\n"
-    "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEArqeSZx1T1/54PuJA29Km"
-    "8eK/z0a5z9wrF4TjC3r6PjsVX9f9HRXy7TX1MTFkPJMI3BU/Yb/48IEn56Aftws"
-    "AW3cDwPoSu9rvRdxf3tXcwtktbrTGuQHvvm82BAXN+04MQB+gy0MbXgNIIW6BZsD"
-    "nI1FbV2fEx/ih0mhMG9FvHSB30Z/cUweklGYLjj5kMJ0C7wUNtM5vHXlfHGci079"
-    "PuSmHrqrszfXZi0KWmahmRgZiViy6Q9lXqYnvTg4zvcWtSqEaxHtZ/DfG83ufxJP"
-    "0AD6dLHFemTlZ83tMNm4IhFFeDmX5GQ9RVWKYwwDtIoHLtzyrzE4TUKmAA7eUo94"
-    "1zQIDAQAB\n"
+    "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEArqeSZx1T1/54PuJA29Km"  # pragma: allowlist secret
+    "8eK/z0a5z9wrF4TjC3r6PjsVX9f9HRXy7TX1MTFkPJMI3BU/Yb/48IEn56Aftws"  # pragma: allowlist secret
+    "AW3cDwPoSu9rvRdxf3tXcwtktbrTGuQHvvm82BAXN+04MQB+gy0MbXgNIIW6BZsD"  # pragma: allowlist secret
+    "nI1FbV2fEx/ih0mhMG9FvHSB30Z/cUweklGYLjj5kMJ0C7wUNtM5vHXlfHGci079"  # pragma: allowlist secret
+    "PuSmHrqrszfXZi0KWmahmRgZiViy6Q9lXqYnvTg4zvcWtSqEaxHtZ/DfG83ufxJP"  # pragma: allowlist secret
+    "0AD6dLHFemTlZ83tMNm4IhFFeDmX5GQ9RVWKYwwDtIoHLtzyrzE4TUKmAA7eUo94"  # pragma: allowlist secret
+    "1zQIDAQAB\n"  # pragma: allowlist secret
     "-----END PUBLIC KEY-----"
 )
 
 _rsa_key = serialization.load_pem_public_key(RSA_PUBLIC_KEY_PEM.encode())
-
 
 # ── RSA 加密 ─────────────────────────────────────────
 

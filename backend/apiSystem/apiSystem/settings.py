@@ -5,8 +5,6 @@ Django settings for apiSystem project.
 import os
 from pathlib import Path
 
-from django.utils.translation import gettext_lazy as _
-
 try:
     import django_stubs_ext
 
@@ -35,7 +33,6 @@ try:
 except ImportError:
     pass
 
-
 # ============================================================
 # 核心配置
 # ============================================================
@@ -56,7 +53,6 @@ DEBUG = _security.debug
 ALLOWED_HOSTS = _security.allowed_hosts
 CREDENTIAL_ENCRYPTION_KEY = _security.credential_encryption_key
 SCRAPER_ENCRYPTION_KEY = _security.scraper_encryption_key
-
 
 # Application definition
 
@@ -167,7 +163,6 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "apiSystem.wsgi.application"
 
-
 # ============================================================
 # 数据库配置
 # ============================================================
@@ -249,7 +244,6 @@ def activate_foreign_keys(sender: Any, connection: Any, **kwargs: Any) -> None:
 
 connection_created.connect(activate_foreign_keys)
 
-
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
 
@@ -263,15 +257,13 @@ SIMPLE_JWT = {
     "REFRESH_TOKEN_LIFETIME": timedelta(days=30),
 }
 
-
 # Internationalization
 # https://docs.djangoproject.com/en/5.2/topics/i18n/
 
 LANGUAGE_CODE = "zh-hans"
 
 LANGUAGES = [
-    ("zh-hans", _("简体中文")),
-    ("en", _("English")),
+    ("zh-hans", "简体中文"),
 ]
 
 LOCALE_PATHS = [
@@ -283,7 +275,6 @@ TIME_ZONE = "Asia/Shanghai"
 USE_I18N = True
 
 USE_TZ = True
-
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
@@ -401,7 +392,6 @@ LEGAL_RESEARCH_ADMIN_FEATURE_ENABLED = (
 # ============================================================
 
 Q_CLUSTER = resolve_q_cluster()
-
 
 # ============================================================
 # 基础配置（保留少量必要配置）
@@ -623,7 +613,6 @@ if not DEBUG:
         CROSS_ORIGIN_RESOURCE_POLICY = "same-origin"
     if not CROSS_ORIGIN_EMBEDDER_POLICY:
         CROSS_ORIGIN_EMBEDDER_POLICY = "unsafe-none"
-
 
 # ============================================================
 # 诉讼文书生成 Agent 配置

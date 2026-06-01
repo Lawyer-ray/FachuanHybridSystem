@@ -6,7 +6,6 @@ import logging
 from typing import Any, cast
 
 from django.utils import timezone
-from django.utils.translation import gettext_lazy as _
 
 from apps.cases.models import Case, CaseLog
 from apps.core.exceptions import NotFoundError
@@ -21,15 +20,15 @@ class CaseLogInternalService:
         try:
             case = Case.objects.get(id=case_id)
         except Case.DoesNotExist:
-            raise NotFoundError(_("案件 %(id)s 不存在") % {"id": case_id}) from None
+            raise NotFoundError("案件 %(id)s 不存在" % {"id": case_id}) from None
         actor_id = user_id
         if not actor_id:
             actor_id = get_organization_service().get_default_lawyer_id()
             if not actor_id:
                 raise NotFoundError(
-                    message=_("系统中没有律师用户,无法创建日志"),
+                    message="系统中没有律师用户,无法创建日志",
                     code="NO_DEFAULT_ACTOR",
-                    errors={"actor": str(_("请先创建律师用户"))},
+                    errors={"actor": "请先创建律师用户"},
                 )
         case_log = CaseLog.objects.create(case=case, content=content, actor_id=actor_id)
         logger.info(
@@ -47,7 +46,7 @@ class CaseLogInternalService:
         try:
             case_log = CaseLog.objects.get(id=case_log_id)
         except CaseLog.DoesNotExist:
-            raise NotFoundError(_("案件日志 %(id)s 不存在") % {"id": case_log_id}) from None
+            raise NotFoundError("案件日志 %(id)s 不存在" % {"id": case_log_id}) from None
         try:
             from apps.cases.models import CaseLogAttachment
 

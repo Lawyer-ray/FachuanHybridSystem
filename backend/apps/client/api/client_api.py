@@ -7,7 +7,6 @@ from __future__ import annotations
 
 from typing import Any, cast
 
-from django.utils.translation import gettext_lazy as _
 from ninja import File, Router, Status
 from ninja.files import UploadedFile
 from pydantic import BaseModel
@@ -80,7 +79,7 @@ def parse_client_text(request: Any, payload: ParseTextRequest) -> dict[str, Any]
         if result.get("name"):
             return {"success": True, "client": result, "parse_method": "regex"}
         else:
-            return {"success": False, "error": _("未能解析出客户信息")}
+            return {"success": False, "error": "未能解析出客户信息"}
 
 
 @router.get("/parse-text")
@@ -136,9 +135,9 @@ def create_client_with_docs(
     """创建客户并上传文档"""
     if doc_types and files and len(doc_types) != len(files):
         raise ValidationException(
-            message=_("证件类型数量与文件数量不一致"),
+            message="证件类型数量与文件数量不一致",
             code="DOC_FILES_MISMATCH",
-            errors={"doc_types": _("doc_types 与 files 长度必须一致")},
+            errors={"doc_types": "doc_types 与 files 长度必须一致"},
         )
 
     mutation_service = _get_mutation_service()

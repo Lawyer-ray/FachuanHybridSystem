@@ -58,7 +58,7 @@ document.addEventListener('alpine:init', () => {
 
             if (invalidFiles.length > 0) {
                 this.showMessage(
-                    gettext('不支持的文件格式：') + invalidFiles.map(f => f.name).join(', '),
+                    '不支持的文件格式：' + invalidFiles.map(f => f.name).join(', '),
                     'error'
                 );
                 return;
@@ -69,7 +69,7 @@ document.addEventListener('alpine:init', () => {
             const oversizedFiles = files.filter(file => file.size > maxSize);
             if (oversizedFiles.length > 0) {
                 this.showMessage(
-                    gettext('文件大小超过限制（最大 20 MB）：') + oversizedFiles.map(f => f.name).join(', '),
+                    '文件大小超过限制（最大 20 MB）：' + oversizedFiles.map(f => f.name).join(', '),
                     'error'
                 );
                 return;
@@ -105,7 +105,7 @@ document.addEventListener('alpine:init', () => {
                 this.progress = 100;
 
                 if (!response.ok) {
-                    throw new Error(gettext('识别失败，请重试'));
+                    throw new Error('识别失败，请重试');
                 }
 
                 const data = await response.json();
@@ -116,17 +116,17 @@ document.addEventListener('alpine:init', () => {
                     this.updateInvoicedAmount();
                     this.addInvoiceRows();
                     this.showMessage(
-                        gettext('识别完成！成功：') + this.successCount +
-                        gettext('，失败：') + this.failureCount,
+                        '识别完成！成功：' + this.successCount +
+                        '，失败：' + this.failureCount,
                         this.failureCount > 0 ? 'warning' : 'success'
                     );
                 } else {
-                    this.showMessage(gettext('所有文件识别失败'), 'error');
+                    this.showMessage('所有文件识别失败', 'error');
                 }
 
             } catch (error) {
                 console.error('Upload error:', error);
-                this.showMessage(error.message || gettext('上传失败，请重试'), 'error');
+                this.showMessage(error.message || '上传失败，请重试', 'error');
             } finally {
                 this.uploading = false;
             }
@@ -160,7 +160,7 @@ document.addEventListener('alpine:init', () => {
             const paymentAmount = parseFloat(paymentAmountField.value || 0);
 
             if (invoicedAmount > paymentAmount) {
-                this.showMessage(gettext('警告：开票金额超过收款金额'), 'warning');
+                this.showMessage('警告：开票金额超过收款金额', 'warning');
             }
 
             // 状态值根据实际模型定义调整
@@ -289,10 +289,3 @@ document.addEventListener('alpine:init', () => {
         }
     }));
 });
-
-// 国际化辅助函数（如果 Django i18n 未加载）
-if (typeof gettext === 'undefined') {
-    window.gettext = function(text) {
-        return text;
-    };
-}

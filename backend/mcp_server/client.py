@@ -117,6 +117,7 @@ class FachuanClient:
             m = re.search(r"filename\*=UTF-8''([^;]+)", disposition)
             if m:
                 from urllib.parse import unquote
+
                 filename = unquote(m.group(1))
             else:
                 m2 = re.search(r'filename="?([^";]+)"?', disposition)

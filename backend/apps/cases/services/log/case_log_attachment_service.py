@@ -5,7 +5,6 @@ from __future__ import annotations
 from typing import Any
 
 from django.core.files.uploadedfile import UploadedFile
-from django.utils.translation import gettext_lazy as _
 
 from apps.cases.models import CaseLogAttachment
 from apps.cases.utils import validate_case_log_attachment
@@ -36,7 +35,7 @@ class CaseLogAttachmentService:
                 org_access=org_access,
                 perm_open_access=perm_open_access,
                 case=log.case,
-                message=_("无权限上传附件"),
+                message="无权限上传附件",
             )
 
         created = []
@@ -57,7 +56,7 @@ class CaseLogAttachmentService:
         try:
             attachment = CaseLogAttachment.objects.select_related("log__case").get(id=attachment_id)
         except CaseLogAttachment.DoesNotExist:
-            raise NotFoundError(_("附件 %(attachment_id)s 不存在") % {"attachment_id": attachment_id}) from None
+            raise NotFoundError("附件 %(attachment_id)s 不存在" % {"attachment_id": attachment_id}) from None
 
         if not perm_open_access:
             self.query_service.access_policy.ensure_access(
@@ -66,7 +65,7 @@ class CaseLogAttachmentService:
                 org_access=org_access,
                 perm_open_access=perm_open_access,
                 case=attachment.log.case,
-                message=_("无权限删除此附件"),
+                message="无权限删除此附件",
             )
 
         if attachment.file:
@@ -80,4 +79,4 @@ class CaseLogAttachmentService:
         size = getattr(file, "size", 0)
         ok, error = validate_case_log_attachment(name, size)
         if not ok:
-            raise ValidationException(_("附件校验失败"), errors={"file": error or _("附件校验失败")})
+            raise ValidationException("附件校验失败", errors={"file": error or "附件校验失败"})

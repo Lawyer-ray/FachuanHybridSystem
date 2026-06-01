@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from django.apps import AppConfig
-from django.utils.translation import gettext_lazy as _
 
 
 class DocumentRecognitionConfig(AppConfig):
@@ -9,4 +8,4 @@ class DocumentRecognitionConfig(AppConfig):
 
     default_auto_field: str = "django.db.models.BigAutoField"
     name: str = "apps.document_recognition"
-    verbose_name: str = _("文书智能识别")  # type: ignore[assignment]
+    verbose_name: str = "文书智能识别"

@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from django.db import migrations, models
 
-
 def _build_legacy_task_model() -> type[models.Model]:
     class LegacyDocumentRecognitionTask(models.Model):
         file_path = models.CharField(max_length=1024)
@@ -50,7 +49,6 @@ def _build_legacy_task_model() -> type[models.Model]:
 
     return LegacyDocumentRecognitionTask
 
-
 def _create_table(apps, schema_editor) -> None:
     model = _build_legacy_task_model()
     table_name = model._meta.db_table
@@ -72,7 +70,6 @@ def _create_table(apps, schema_editor) -> None:
         models.Index(fields=["notification_sent"], name="automation__notific_6b9b00_idx"),
     )
 
-
 def _drop_table(apps, schema_editor) -> None:
     model = _build_legacy_task_model()
     table_name = model._meta.db_table
@@ -80,7 +77,6 @@ def _drop_table(apps, schema_editor) -> None:
     if table_name not in existing_tables:
         return
     schema_editor.delete_model(model)
-
 
 class Migration(migrations.Migration):
     dependencies = [

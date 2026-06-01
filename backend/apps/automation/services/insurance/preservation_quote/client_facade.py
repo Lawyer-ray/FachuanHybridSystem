@@ -3,8 +3,6 @@
 import logging
 from decimal import Decimal
 
-from django.utils.translation import gettext_lazy as _
-
 from apps.automation.services.insurance.court_insurance_client import (
     CourtInsuranceClient,
     InsuranceCompany,
@@ -45,7 +43,7 @@ class InsuranceClientFacade:
                         "corp_id": corp_id,
                     },
                 )
-                raise CompanyListEmptyError(message=_("未获取到保险公司列表,请检查分类 ID 和法院 ID 是否正确"))  # type: ignore
+                raise CompanyListEmptyError(message="未获取到保险公司列表,请检查分类 ID 和法院 ID 是否正确")
 
             logger.info(
                 f"✅ 获取到 {len(companies)} 家保险公司",

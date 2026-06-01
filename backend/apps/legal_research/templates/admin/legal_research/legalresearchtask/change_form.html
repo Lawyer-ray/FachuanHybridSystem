@@ -1,5 +1,12 @@
 {% extends "admin/change_form.html" %}
-{% load i18n %}
+{% load i18n static %}
+
+{% block extrahead %}
+{{ block.super }}
+<link rel="stylesheet" href="{% static 'cases/css/autocomplete.css' %}">
+<script src="{% static 'cases/js/autocomplete.js' %}"></script>
+<script src="{% static 'cases/js/autocomplete_init.js' %}"></script>
+{% endblock %}
 
 {% block after_field_sets %}
 {{ block.super }}
@@ -212,6 +219,54 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
   modelSelect.addEventListener('change', syncConcurrency);
+
+  // ── 测试连通性按钮 ──────────────────────────────────────────
+  var btn = document.createElement('button');
+  btn.type = 'button';
+  btn.textContent = '测试连通性';
+  btn.style.cssText = 'margin-left:8px;padding:4px 12px;border:1px solid #417690;border-radius:4px;background:#417690;color:#fff;cursor:pointer;font-size:13px;vertical-align:middle;';
+  modelSelect.parentElement.appendChild(btn);
+
+  var statusSpan = document.createElement('span');
+  statusSpan.style.cssText = 'margin-left:8px;font-size:13px;vertical-align:middle;';
+  modelSelect.parentElement.appendChild(statusSpan);
+
+  btn.addEventListener('click', function () {
+    var modelId = modelSelect.value;
+    if (!modelId) { statusSpan.textContent = '请先选择模型'; statusSpan.style.color = '#ba2121'; return; }
+
+    btn.disabled = true;
+    btn.textContent = '测试中…';
+    btn.style.opacity = '0.6';
+    statusSpan.textContent = '';
+    statusSpan.style.color = '';
+
+    fetch('/api/v1/llm/test-connection?model_id=' + encodeURIComponent(modelId), {
+      method: 'POST',
+      headers: {
+        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+      },
+    })
+    .then(function (r) { return r.json(); })
+    .then(function (data) {
+      if (data.ok) {
+        statusSpan.textContent = '✓ 连通，延迟 ' + data.latency_ms + 'ms（' + (data.backend || '') + '）';
+        statusSpan.style.color = '#1a7f37';
+      } else {
+        statusSpan.textContent = '✗ 失败：' + (data.error || '未知错误');
+        statusSpan.style.color = '#ba2121';
+      }
+    })
+    .catch(function (err) {
+      statusSpan.textContent = '✗ 请求异常：' + err.message;
+      statusSpan.style.color = '#ba2121';
+    })
+    .finally(function () {
+      btn.disabled = false;
+      btn.textContent = '测试连通性';
+      btn.style.opacity = '1';
+    });
+  });
 });
 </script>
 {% endblock %}

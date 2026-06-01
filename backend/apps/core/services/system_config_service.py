@@ -9,7 +9,6 @@ from typing import Any
 
 from django.core.cache import cache
 from django.db import transaction
-from django.utils.translation import gettext_lazy as _
 
 from apps.core.exceptions import NotFoundError, ValidationException
 from apps.core.models.system_config import SystemConfig
@@ -63,7 +62,7 @@ class SystemConfigService:
         config = self._repository.get_by_id(config_id)
         if config is None:
             raise NotFoundError(
-                message=_("系统配置不存在"),
+                message="系统配置不存在",
                 code="SYSTEM_CONFIG_NOT_FOUND",
                 errors={"config_id": f"ID 为 {config_id} 的配置不存在"},
             )
@@ -104,7 +103,7 @@ class SystemConfigService:
         config = self._repository.get_by_id(config_id)
         if config is None:
             raise NotFoundError(
-                message=_("系统配置不存在"),
+                message="系统配置不存在",
                 code="SYSTEM_CONFIG_NOT_FOUND",
                 errors={"config_id": f"ID 为 {config_id} 的配置不存在"},
             )
@@ -130,7 +129,7 @@ class SystemConfigService:
         config = self._repository.get_by_id(config_id)
         if config is None:
             raise NotFoundError(
-                message=_("系统配置不存在"),
+                message="系统配置不存在",
                 code="SYSTEM_CONFIG_NOT_FOUND",
                 errors={"config_id": f"ID 为 {config_id} 的配置不存在"},
             )

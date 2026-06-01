@@ -60,9 +60,9 @@ class SimilarityResult:
 class CaseSimilarityService:
     """用硅基流动模型计算案例相似度。"""
 
-    SCORE_MAX_TOKENS = 260
-    RESCORE_MAX_TOKENS = 220
-    JSON_REPAIR_MAX_TOKENS = 260
+    SCORE_MAX_TOKENS = 65536
+    RESCORE_MAX_TOKENS = 32768
+    JSON_REPAIR_MAX_TOKENS = 16384
     SCORE_TIMEOUT_SECONDS = 40
     RESCORE_TIMEOUT_SECONDS = 30
     JSON_REPAIR_TIMEOUT_SECONDS = 25
@@ -192,6 +192,7 @@ class CaseSimilarityService:
         candidate_tags = ", ".join(json_utils.extract_transaction_tags(f"{title} {case_digest}")) or "无"
         prompt = (
             "你是法律案例匹配评估器。必须只输出严格JSON，不允许任何额外文本。\n"
+            "重要：不要输出思考过程、推理步骤或解释。直接输出一个JSON对象。\n"
             "输出字段:\n"
             "{\n"
             '  "score": 0.0-1.0,\n'

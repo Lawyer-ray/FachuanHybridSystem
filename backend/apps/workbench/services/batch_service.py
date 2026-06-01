@@ -13,7 +13,6 @@ from uuid import UUID
 
 from django.core.files.base import ContentFile
 from django.utils import timezone
-from django.utils.translation import gettext as _
 
 from apps.core.exceptions import NotFoundError, ValidationException
 from apps.core.security.permissions import AccessContext, PermissionMixin
@@ -106,12 +105,12 @@ class BatchAnalysisService(PermissionMixin):
     def validate_files(self, files: list[Any]) -> None:
         """校验上传文件"""
         if not files:
-            raise ValidationException(_("请上传至少一个文件"))
+            raise ValidationException("请上传至少一个文件")
         for f in files:
             ext = f".{f.name.rsplit('.', 1)[-1].lower()}" if f.name and "." in f.name else ""
             if ext not in self.ALLOWED_EXTENSIONS:
                 raise ValidationException(
-                    _("不支持的文件格式: %(name)s") % {"name": f.name},
+                    "不支持的文件格式: %(name)s" % {"name": f.name},
                     errors={"file": "支持 .doc、.docx、.xls、.xlsx"},
                 )
 
@@ -120,7 +119,7 @@ class BatchAnalysisService(PermissionMixin):
         try:
             return BatchJob.objects.get(id=job_id)
         except BatchJob.DoesNotExist:
-            raise NotFoundError(_("任务不存在")) from None
+            raise NotFoundError("任务不存在") from None
 
     def create_job(
         self,

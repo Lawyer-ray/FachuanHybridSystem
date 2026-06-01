@@ -8,7 +8,6 @@ from typing import TYPE_CHECKING, Callable, Final, NotRequired, Protocol, TypedD
 
 from django.db import transaction
 from django.utils.dateparse import parse_datetime
-from django.utils.translation import gettext_lazy as _
 
 from apps.core.exceptions import ValidationException
 
@@ -198,7 +197,7 @@ class ContractImportService:
         from apps.contracts.models import Contract, ContractAssignment, ContractParty
 
         if not data.get("name"):
-            raise ValidationException(message=_("合同名称不能为空"), code="INVALID_CONTRACT_DATA")
+            raise ValidationException(message="合同名称不能为空", code="INVALID_CONTRACT_DATA")
 
         filing_number: str | None = data.get("filing_number") or None
         if filing_number:

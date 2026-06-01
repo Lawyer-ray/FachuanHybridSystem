@@ -12,7 +12,6 @@ from django.template.response import TemplateResponse
 from django.urls import reverse
 from django.utils.html import format_html
 from django.utils.safestring import SafeData
-from django.utils.translation import gettext as _
 
 from apps.core.tasking import submit_task
 from apps.express_query.models import ExpressCarrierType, ExpressQueryTask, ExpressQueryTaskStatus, ExpressQueryTool
@@ -36,7 +35,7 @@ class ExpressQueryToolAdmin(admin.ModelAdmin):
 
         context = {
             **self.admin_site.each_context(request),
-            "title": _("查询EMS/顺丰"),
+            "title": "查询EMS/顺丰",
             "opts": self.model._meta,
             "has_view_permission": self.has_view_permission(request),
             "task_list_url": reverse("admin:express_query_expressquerytask_changelist"),
@@ -83,14 +82,14 @@ class ExpressQueryToolAdmin(admin.ModelAdmin):
         """处理手动输入运单号"""
         # 校验承运商
         if carrier_type not in {ExpressCarrierType.SF, ExpressCarrierType.EMS}:
-            self.message_user(request, _("不支持的承运商，仅允许顺丰(SF)和EMS(EMS)。"), level=messages.ERROR)
+            self.message_user(request, "不支持的承运商，仅允许顺丰(SF)和EMS(EMS)。", level=messages.ERROR)
             return HttpResponseRedirect(request.path)
 
         # 校验运单号格式
         if carrier_type == ExpressCarrierType.SF and not _SF_PATTERN.match(tracking_number):
             self.message_user(
                 request,
-                _("顺丰单号格式错误：应为 SF 开头 + 10~20 位数字（如 SF1569188465678）。"),
+                "顺丰单号格式错误：应为 SF 开头 + 10~20 位数字（如 SF1569188465678）。",
                 level=messages.ERROR,
             )
             return HttpResponseRedirect(request.path)
@@ -98,7 +97,7 @@ class ExpressQueryToolAdmin(admin.ModelAdmin):
         if carrier_type == ExpressCarrierType.EMS and not _EMS_PATTERN.match(tracking_number):
             self.message_user(
                 request,
-                _("EMS 单号格式错误：应为 13 位纯数字（如 1313351023914）。"),
+                "EMS 单号格式错误：应为 13 位纯数字（如 1313351023914）。",
                 level=messages.ERROR,
             )
             return HttpResponseRedirect(request.path)
@@ -111,7 +110,7 @@ class ExpressQueryToolAdmin(admin.ModelAdmin):
         # 直接设置承运商和运单号（跳过OCR）
         task.carrier_type = carrier_type
         task.tracking_number = tracking_number
-        task.ocr_text = _("手动输入运单号")
+        task.ocr_text = "手动输入运单号"
         task.status = ExpressQueryTaskStatus.QUERYING  # 跳过OCR，直接进入查询状态
         task.save()
 
@@ -132,7 +131,7 @@ class ExpressQueryToolAdmin(admin.ModelAdmin):
 
         self.message_user(
             request,
-            _("任务已创建并进入队列：%s-%s") % (carrier_type.upper(), tracking_number),
+            "任务已创建并进入队列：%s-%s" % (carrier_type.upper(), tracking_number),
             level=messages.SUCCESS,
         )
         return HttpResponseRedirect(reverse("admin:express_query_expressquerytask_changelist"))
@@ -143,18 +142,18 @@ class ExpressQueryToolAdmin(admin.ModelAdmin):
         title = str(request.POST.get("title", "")).strip()
 
         if upload_file is None:
-            self.message_user(request, _("请先选择要上传的文件。"), level=messages.ERROR)
+            self.message_user(request, "请先选择要上传的文件。", level=messages.ERROR)
             return HttpResponseRedirect(request.path)
 
         file_name = upload_file.name or ""
         if not file_name:
-            self.message_user(request, _("上传文件名无效。"), level=messages.ERROR)
+            self.message_user(request, "上传文件名无效。", level=messages.ERROR)
             return HttpResponseRedirect(request.path)
 
         extension = Path(file_name).suffix.lower()
         allowed_extensions = {".pdf", ".png", ".jpg", ".jpeg", ".webp"}
         if extension not in allowed_extensions:
-            self.message_user(request, _("仅支持 PDF、PNG、JPG、JPEG、WEBP 文件。"), level=messages.ERROR)
+            self.message_user(request, "仅支持 PDF、PNG、JPG、JPEG、WEBP 文件。", level=messages.ERROR)
             return HttpResponseRedirect(request.path)
 
         task = ExpressQueryTask(title=title, waybill_image=upload_file)
@@ -167,7 +166,7 @@ class ExpressQueryToolAdmin(admin.ModelAdmin):
         task.save(update_fields=["queue_task_id", "updated_at"])
 
         logger.info("快递查询任务已创建并入队", extra={"task_id": task.id, "queue_task_id": queue_task_id})
-        self.message_user(request, _("上传成功，任务已创建并进入队列。"), level=messages.SUCCESS)
+        self.message_user(request, "上传成功，任务已创建并进入队列。", level=messages.SUCCESS)
         return HttpResponseRedirect(reverse("admin:express_query_expressquerytask_changelist"))
 
 
@@ -205,11 +204,11 @@ class ExpressQueryTaskAdmin(admin.ModelAdmin):
         "updated_at",
     )
     fieldsets = (
-        (_("上传信息"), {"fields": ("title", "waybill_image_link")}),
-        (_("识别与查询结果"), {"fields": ("status", "carrier_type", "tracking_number", "ocr_text_display")}),
-        (_("任务详情"), {"fields": ("query_url_link", "result_pdf_link", "result_payload", "queue_task_id")}),
-        (_("错误信息"), {"fields": ("error_message",), "classes": ("collapse",)}),
-        (_("时间信息"), {"fields": ("created_by", "created_at", "started_at", "finished_at", "updated_at")}),
+        ("上传信息", {"fields": ("title", "waybill_image_link")}),
+        ("识别与查询结果", {"fields": ("status", "carrier_type", "tracking_number", "ocr_text_display")}),
+        ("任务详情", {"fields": ("query_url_link", "result_pdf_link", "result_payload", "queue_task_id")}),
+        ("错误信息", {"fields": ("error_message",), "classes": ("collapse",)}),
+        ("时间信息", {"fields": ("created_by", "created_at", "started_at", "finished_at", "updated_at")}),
     )
 
     def has_add_permission(self, request: HttpRequest) -> bool:
@@ -228,7 +227,7 @@ class ExpressQueryTaskAdmin(admin.ModelAdmin):
             return {"delete_selected": actions["delete_selected"]}
         return {}
 
-    @admin.display(description=_("状态"))
+    @admin.display(description="状态")
     def status_colored(self, obj: ExpressQueryTask) -> SafeData:
         color_map: dict[str, str] = {
             "pending": "#ff9800",
@@ -241,13 +240,13 @@ class ExpressQueryTaskAdmin(admin.ModelAdmin):
         color = color_map.get(obj.status, "#616161")
         return format_html('<span style="color:{};font-weight:700;">{}</span>', color, obj.status)
 
-    @admin.display(description=_("邮单文件"))
+    @admin.display(description="邮单文件")
     def waybill_image_link(self, obj: ExpressQueryTask) -> SafeData | str:
         if not obj.waybill_image:
             return "-"
         return format_html('<a href="{}" target="_blank">{}</a>', obj.waybill_image.url, obj.waybill_image.name)
 
-    @admin.display(description=_("OCR 文本"))
+    @admin.display(description="OCR 文本")
     def ocr_text_display(self, obj: ExpressQueryTask) -> SafeData | str:
         if not obj.ocr_text:
             return "-"
@@ -257,13 +256,13 @@ class ExpressQueryTaskAdmin(admin.ModelAdmin):
             obj.ocr_text,
         )
 
-    @admin.display(description=_("查询URL"))
+    @admin.display(description="查询URL")
     def query_url_link(self, obj: ExpressQueryTask) -> SafeData | str:
         if not obj.query_url:
             return "-"
         return format_html('<a href="{}" target="_blank">{}</a>', obj.query_url, obj.query_url)
 
-    @admin.display(description=_("结果 PDF"))
+    @admin.display(description="结果 PDF")
     def result_pdf_link(self, obj: ExpressQueryTask) -> SafeData | str:
         if not obj.result_pdf:
             return "-"

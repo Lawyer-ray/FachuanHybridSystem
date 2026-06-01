@@ -2,7 +2,6 @@
 
 from django.db import migrations, models
 
-
 def include_existing_case_reminders(apps, schema_editor):
     """已绑定案件的提醒默认勾选「列入重要时间」。"""
     Reminder = apps.get_model('reminders', 'Reminder')
@@ -11,7 +10,6 @@ def include_existing_case_reminders(apps, schema_editor):
         contract_id__isnull=True,
         case_log_id__isnull=True,
     ).update(include_in_important_time=True)
-
 
 class Migration(migrations.Migration):
 

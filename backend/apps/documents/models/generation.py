@@ -10,7 +10,6 @@ import logging
 from typing import Any, ClassVar
 
 from django.db import models
-from django.utils.translation import gettext_lazy as _
 
 from apps.core.filesystem.upload_paths import DatedUUIDPath
 
@@ -20,17 +19,17 @@ logger = logging.getLogger("apps.documents")
 class GenerationMethod(models.TextChoices):
     """生成方式"""
 
-    TEMPLATE = "template", _("模板生成")
-    AI = "ai", _("AI生成")
+    TEMPLATE = "template", "模板生成"
+    AI = "ai", "AI生成"
 
 
 class GenerationStatus(models.TextChoices):
     """生成状态"""
 
-    PENDING = "pending", _("等待中")
-    PROCESSING = "processing", _("生成中")
-    COMPLETED = "completed", _("已完成")
-    FAILED = "failed", _("失败")
+    PENDING = "pending", "等待中"
+    PROCESSING = "processing", "生成中"
+    COMPLETED = "completed", "已完成"
+    FAILED = "failed", "失败"
 
 
 class GenerationTask(models.Model):
@@ -54,7 +53,7 @@ class GenerationTask(models.Model):
         null=True,
         blank=True,
         related_name="generation_tasks",
-        verbose_name=_("关联案件"),
+        verbose_name="关联案件",
     )
     contract = models.ForeignKey(
         "contracts.Contract",
@@ -62,7 +61,7 @@ class GenerationTask(models.Model):
         null=True,
         blank=True,
         related_name="generation_tasks",
-        verbose_name=_("关联合同"),
+        verbose_name="关联合同",
     )
     litigation_session = models.ForeignKey(
         "litigation_ai.LitigationSession",
@@ -70,43 +69,39 @@ class GenerationTask(models.Model):
         null=True,
         blank=True,
         related_name="generation_tasks",
-        verbose_name=_("AI生成会话"),
-        help_text=_("如果是 AI 生成,关联到对应的会话"),
+        verbose_name="AI生成会话",
+        help_text="如果是 AI 生成,关联到对应的会话",
     )
     generation_method = models.CharField(
-        max_length=20, choices=GenerationMethod.choices, default=GenerationMethod.TEMPLATE, verbose_name=_("生成方式")
+        max_length=20, choices=GenerationMethod.choices, default=GenerationMethod.TEMPLATE, verbose_name="生成方式"
     )
-    document_type = models.CharField(
-        max_length=100, verbose_name=_("文书类型"), help_text=_("如:起诉状、答辩状、合同等")
-    )
+    document_type = models.CharField(max_length=100, verbose_name="文书类型", help_text="如:起诉状、答辩状、合同等")
     template_id = models.IntegerField(
-        null=True, blank=True, verbose_name=_("模板ID"), help_text=_("使用的模板ID(模板生成时)")
+        null=True, blank=True, verbose_name="模板ID", help_text="使用的模板ID(模板生成时)"
     )
     status = models.CharField(
-        max_length=20, choices=GenerationStatus.choices, default=GenerationStatus.PENDING, verbose_name=_("生成状态")
+        max_length=20, choices=GenerationStatus.choices, default=GenerationStatus.PENDING, verbose_name="生成状态"
     )
     result_file = models.FileField(
-        upload_to=DatedUUIDPath("generated_documents"), null=True, blank=True, verbose_name=_("生成文件")
+        upload_to=DatedUUIDPath("generated_documents"), null=True, blank=True, verbose_name="生成文件"
     )
-    error_message = models.TextField(blank=True, verbose_name=_("错误信息"))
-    metadata: Any = models.JSONField(
-        default=dict, verbose_name=_("任务元数据"), help_text=_("存储生成参数、token消耗等信息")
-    )
+    error_message = models.TextField(blank=True, verbose_name="错误信息")
+    metadata: Any = models.JSONField(default=dict, verbose_name="任务元数据", help_text="存储生成参数、token消耗等信息")
     created_by = models.ForeignKey(
         "organization.Lawyer",
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
         related_name="created_generation_tasks",
-        verbose_name=_("创建人"),
+        verbose_name="创建人",
     )
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name=_("创建时间"))
-    completed_at = models.DateTimeField(null=True, blank=True, verbose_name=_("完成时间"))
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
+    completed_at = models.DateTimeField(null=True, blank=True, verbose_name="完成时间")
 
     class Meta:
         app_label = "documents"
-        verbose_name = _("文书生成任务")
-        verbose_name_plural = _("文书生成任务")
+        verbose_name = "文书生成任务"
+        verbose_name_plural = "文书生成任务"
         ordering: ClassVar = ["-created_at"]
         indexes: ClassVar = [
             models.Index(fields=["case", "-created_at"]),
@@ -181,20 +176,20 @@ class GenerationConfig(models.Model):
     """
 
     id: int
-    name = models.CharField(max_length=100, unique=True, verbose_name=_("配置名称"))
+    name = models.CharField(max_length=100, unique=True, verbose_name="配置名称")
     config_type = models.CharField(
-        max_length=50, verbose_name=_("配置类型"), help_text=_("如:default_template、ai_model、generation_params")
+        max_length=50, verbose_name="配置类型", help_text="如:default_template、ai_model、generation_params"
     )
-    value: Any = models.JSONField(verbose_name=_("配置值"))
-    description = models.TextField(blank=True, verbose_name=_("配置说明"))
-    is_active = models.BooleanField(default=True, verbose_name=_("是否启用"))
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name=_("创建时间"))
-    updated_at = models.DateTimeField(auto_now=True, verbose_name=_("更新时间"))
+    value: Any = models.JSONField(verbose_name="配置值")
+    description = models.TextField(blank=True, verbose_name="配置说明")
+    is_active = models.BooleanField(default=True, verbose_name="是否启用")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="更新时间")
 
     class Meta:
         app_label = "documents"
-        verbose_name = _("文书生成配置")
-        verbose_name_plural = _("文书生成配置")
+        verbose_name = "文书生成配置"
+        verbose_name_plural = "文书生成配置"
         ordering: ClassVar = ["config_type", "name"]
         indexes: ClassVar = [
             models.Index(fields=["config_type"]),

@@ -12,7 +12,6 @@ from typing import TYPE_CHECKING, Any
 from django.contrib import admin
 from django.urls import reverse
 from django.utils.html import format_html
-from django.utils.translation import gettext_lazy as _
 
 from apps.core.exceptions import BusinessException
 
@@ -35,13 +34,13 @@ class ContractDisplayFormatMixin:
     if TYPE_CHECKING:
         model: type[Model]
 
-    @admin.display(description=_("合同名称"), ordering="name")
+    @admin.display(description="合同名称", ordering="name")
     def name_link(self, obj: Any) -> Any:
         """生成指向详情页的合同名称链接"""
         url = reverse("admin:contracts_contract_detail", args=[obj.pk])
         return format_html('<a href="{}">{}</a>', url, obj.name)
 
-    @admin.display(description=_("主办律师"))
+    @admin.display(description="主办律师")
     def get_primary_lawyer(self, obj: Any) -> Any:
         """显示主办律师（使用 prefetch_related 数据避免 N+1）"""
         for assignment in obj.assignments.all():
@@ -57,7 +56,7 @@ class ContractDisplayFormatMixin:
                 return assignment.lawyer
         return None
 
-    @admin.display(description=_("主办律师"))
+    @admin.display(description="主办律师")
     def get_primary_lawyer_display(self, obj: Any) -> Any:
         """详情页显示主办律师(只读，复用 prefetch)"""
         for assignment in obj.assignments.all():
@@ -65,9 +64,9 @@ class ContractDisplayFormatMixin:
                 lawyer = assignment.lawyer
                 name = lawyer.real_name or lawyer.username
                 return f"{name} (ID: {lawyer.id})"
-        return _("无")
+        return "无"
 
-    @admin.display(description=_("律所OA链接"))
+    @admin.display(description="律所OA链接")
     def law_firm_oa_link_display(self, obj: Any) -> Any:
         """显示合同所属律所的 OA 登录链接（可点击）。使用预取数据避免 N+1。"""
         from apps.oa_filing.services.script_executor_service import SUPPORTED_SITES
@@ -85,7 +84,7 @@ class ContractDisplayFormatMixin:
             law_firm_ids.append(int(law_firm_id))
 
         if not law_firm_ids:
-            return _("未配置")
+            return "未配置"
 
         credential = (
             AccountCredential.objects.filter(
@@ -99,15 +98,15 @@ class ContractDisplayFormatMixin:
         )
 
         if not credential:
-            return _("未配置")
+            return "未配置"
 
         return format_html(
             '<a href="{}" target="_blank" rel="noopener noreferrer">{}</a>',
             credential.url,
-            _("打开OA系统"),
+            "打开OA系统",
         )
 
-    @admin.display(description=_("建档编号"))
+    @admin.display(description="建档编号")
     def filing_number_display(self, obj: Any) -> Any:
         """显示建档编号(只读)
 
@@ -117,36 +116,36 @@ class ContractDisplayFormatMixin:
         """
         if obj and obj.filing_number:
             return obj.filing_number
-        return _("未生成")
+        return "未生成"
 
-    @admin.display(description=_("匹配的合同模板"))
+    @admin.display(description="匹配的合同模板")
     def get_matched_template_display(self, obj: Any) -> Any:
         """显示匹配的合同模板
 
         Requirements: 1.4
         """
         if not obj or not obj.pk:
-            return _("请先保存合同")
+            return "请先保存合同"
 
         try:
             display_service = _get_contract_display_service()
             return display_service.get_matched_document_template(obj)
         except (BusinessException, RuntimeError, Exception) as e:
             logger.error("获取合同 %s 匹配模板失败: %s", obj.id, e, exc_info=True)
-            return _("查询失败")
+            return "查询失败"
 
-    @admin.display(description=_("匹配的文件夹模板"))
+    @admin.display(description="匹配的文件夹模板")
     def get_matched_folder_templates_display(self, obj: Any) -> Any:
         """显示匹配的文件夹模板
 
         Requirements: 7.1
         """
         if not obj or not obj.pk:
-            return _("请先保存合同")
+            return "请先保存合同"
 
         try:
             display_service = _get_contract_display_service()
             return display_service.get_matched_folder_templates(obj)
         except (BusinessException, RuntimeError, Exception) as e:
             logger.error("获取合同 %s 匹配文件夹模板失败: %s", obj.id, e, exc_info=True)
-            return _("查询失败")
+            return "查询失败"

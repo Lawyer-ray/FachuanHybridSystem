@@ -9,7 +9,6 @@ from datetime import timedelta
 from typing import Any
 
 from django.utils import timezone
-from django.utils.translation import gettext_lazy as _
 
 from apps.automation.models import CourtSMS, CourtSMSStatus, ScraperTaskStatus
 from apps.core.tasking import ScheduleQueryService, submit_task
@@ -212,7 +211,7 @@ class TaskRecoveryService:
             else:
                 # 重试次数用完，标记为失败
                 sms.status = CourtSMSStatus.FAILED
-                sms.error_message = str(_("恢复时发现重试次数已用完"))
+                sms.error_message = "恢复时发现重试次数已用完"
                 sms.save()
                 return False
 
@@ -225,9 +224,10 @@ class TaskRecoveryService:
                     f"疑似 OCR 内存不足导致 worker 反复崩溃，标记为待人工处理"
                 )
                 sms.status = CourtSMSStatus.PENDING_MANUAL
-                sms.error_message = str(
-                    _("匹配阶段反复失败（已重试%(count)d次），可能因OCR内存不足导致处理中断，需要人工处理")
-                ) % {"count": sms.retry_count}
+                sms.error_message = (
+                    "匹配阶段反复失败（已重试%(count)d次），可能因OCR内存不足导致处理中断，需要人工处理"
+                    % {"count": sms.retry_count}
+                )
                 sms.save()
                 return False
 
@@ -264,7 +264,7 @@ class TaskRecoveryService:
                         )
                     else:
                         sms.status = CourtSMSStatus.FAILED
-                        sms.error_message = str(_("下载重试次数已用完"))
+                        sms.error_message = "下载重试次数已用完"
                         sms.save()
                         return False
                 else:

@@ -11,7 +11,6 @@ from typing import Any, ClassVar
 from django.contrib import admin
 from django.http import HttpRequest
 from django.utils.html import format_html, format_html_join
-from django.utils.translation import gettext_lazy as _
 
 from apps.documents.models import TemplateAuditLog
 
@@ -62,10 +61,10 @@ class TemplateAuditLogAdmin(admin.ModelAdmin):
     date_hierarchy = "created_at"
 
     fieldsets = (
-        (_("对象信息"), {"fields": ("content_type", "object_id", "object_repr")}),
-        (_("操作信息"), {"fields": ("action", "changes_display")}),
-        (_("操作人信息"), {"fields": ("user", "ip_address", "user_agent")}),
-        (_("时间"), {"fields": ("created_at",)}),
+        ("对象信息", {"fields": ("content_type", "object_id", "object_repr")}),
+        ("操作信息", {"fields": ("action", "changes_display")}),
+        ("操作人信息", {"fields": ("user", "ip_address", "user_agent")}),
+        ("时间", {"fields": ("created_at",)}),
     )
 
     def has_add_permission(self, request: HttpRequest) -> bool:
@@ -80,7 +79,7 @@ class TemplateAuditLogAdmin(admin.ModelAdmin):
         """禁止删除"""
         return False
 
-    @admin.display(description=_("对象描述"))
+    @admin.display(description="对象描述")
     def object_repr_display(self, obj: TemplateAuditLog) -> str:
         """显示对象描述(截断)"""
         text = obj.object_repr
@@ -88,11 +87,11 @@ class TemplateAuditLogAdmin(admin.ModelAdmin):
             text = text[:50] + "..."
         return text
 
-    @admin.display(description=_("变更详情"))
+    @admin.display(description="变更详情")
     def changes_display(self, obj: TemplateAuditLog) -> Any:
         """格式化显示变更内容"""
         if not obj.changes:
-            return _("无变更记录")
+            return "无变更记录"
 
         rows: list[tuple[Any, Any, Any]] = []
         for field, change in obj.changes.items():
@@ -128,8 +127,8 @@ class TemplateAuditLogAdmin(admin.ModelAdmin):
             "</tr>"
             "{}"
             "</table></div>",
-            _("字段"),
-            _("旧值"),
-            _("新值"),
+            "字段",
+            "旧值",
+            "新值",
             rows_html,
         )

@@ -28,7 +28,6 @@ import logging
 from typing import Any
 
 import httpx
-from django.utils.translation import gettext_lazy as _
 
 from apps.core.exceptions import (
     ChatCreationException,
@@ -85,7 +84,7 @@ class TelegramProvider(TelegramTokenMixin, TelegramFileMixin, ChatProvider):
         """
         if not self.is_available():
             raise ConfigurationException(
-                message=_("Telegram 配置不完整，无法创建话题"),
+                message="Telegram 配置不完整，无法创建话题",
                 platform="telegram",
                 missing_config="BOT_TOKEN, SUPERGROUP_ID",
             )
@@ -126,7 +125,7 @@ class TelegramProvider(TelegramTokenMixin, TelegramFileMixin, ChatProvider):
 
             if not thread_id:
                 raise ChatCreationException(
-                    message=_("API 响应中缺少话题 ID"),
+                    message="API 响应中缺少话题 ID",
                     platform="telegram",
                     errors={"api_response": data},
                 )
@@ -144,7 +143,7 @@ class TelegramProvider(TelegramTokenMixin, TelegramFileMixin, ChatProvider):
                 success=True,
                 chat_id=combined_chat_id,
                 chat_name=chat_name,
-                message=str(_("话题创建成功")),
+                message="话题创建成功",
                 raw_response=data,
             )
             if result.raw_response:
@@ -183,7 +182,7 @@ class TelegramProvider(TelegramTokenMixin, TelegramFileMixin, ChatProvider):
         """
         if not self.is_available():
             raise ConfigurationException(
-                message=_("Telegram 配置不完整，无法发送消息"),
+                message="Telegram 配置不完整，无法发送消息",
                 platform="telegram",
                 missing_config="BOT_TOKEN",
             )
@@ -224,7 +223,7 @@ class TelegramProvider(TelegramTokenMixin, TelegramFileMixin, ChatProvider):
             message_id = message_data.get("message_id")
             logger.info(f"成功发送 Telegram 消息到群聊: {chat_id} (消息ID: {message_id})")
 
-            return ChatResult(success=True, chat_id=chat_id, message=str(_("消息发送成功")), raw_response=data)
+            return ChatResult(success=True, chat_id=chat_id, message="消息发送成功", raw_response=data)
 
         except MessageSendException:
             raise
@@ -255,7 +254,7 @@ class TelegramProvider(TelegramTokenMixin, TelegramFileMixin, ChatProvider):
         """
         if not self.is_available():
             raise ConfigurationException(
-                message=_("Telegram 配置不完整，无法获取群聊信息"),
+                message="Telegram 配置不完整，无法获取群聊信息",
                 platform="telegram",
                 missing_config="BOT_TOKEN",
             )
@@ -301,7 +300,7 @@ class TelegramProvider(TelegramTokenMixin, TelegramFileMixin, ChatProvider):
                 success=True,
                 chat_id=chat_id,
                 chat_name=chat_name,
-                message=str(_("获取群聊信息成功")),
+                message="获取群聊信息成功",
                 raw_response=result_data,
             )
 

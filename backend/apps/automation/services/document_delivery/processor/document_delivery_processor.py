@@ -16,8 +16,6 @@ from datetime import date
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional
 
-from django.utils.translation import gettext_lazy as _
-
 from apps.automation.models import DocumentQueryHistory
 from apps.automation.services.document_delivery.data_classes import DocumentDeliveryRecord, DocumentProcessResult
 
@@ -210,7 +208,7 @@ class DocumentDeliveryProcessor:
                         sms.status = CourtSMSStatus.COMPLETED
                     else:
                         sms.status = CourtSMSStatus.FAILED
-                        sms.error_message = str(_("通知发送失败"))
+                        sms.error_message = "通知发送失败"
                     sms.save()
                     result["success"] = True
                 else:

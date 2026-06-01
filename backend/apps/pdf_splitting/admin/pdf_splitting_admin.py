@@ -7,7 +7,6 @@ from django.http import HttpRequest
 from django.template.response import TemplateResponse
 from django.utils.html import format_html
 from django.utils.safestring import SafeString
-from django.utils.translation import gettext_lazy as _
 
 from apps.pdf_splitting.models import PdfSplitJob, PdfSplittingTool
 
@@ -101,7 +100,7 @@ class PdfSplitJobAdmin(admin.ModelAdmin):
         color = color_map.get(obj.status, "#546e7a")
         return format_html('<span style="color:{};font-weight:700;">{}</span>', color, obj.get_status_display())
 
-    status_display.short_description = _("状态")  # type: ignore[attr-defined]
+    status_display.short_description = "状态"  # type: ignore[attr-defined]
 
     def change_view(
         self,

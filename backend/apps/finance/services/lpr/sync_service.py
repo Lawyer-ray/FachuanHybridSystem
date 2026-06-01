@@ -14,7 +14,6 @@ from decimal import Decimal, InvalidOperation
 from typing import TYPE_CHECKING, Any
 
 from django.db import transaction
-from django.utils.translation import gettext_lazy as _
 
 from apps.core.exceptions import BusinessException
 
@@ -58,10 +57,10 @@ class LPRSyncService:
             lpr_data_list = self._fetch_with_playwright()
         except Exception as e:
             logger.error(f"[LPRSync] Fetch failed: {e}")
-            raise BusinessException(message=_(f"获取LPR数据失败: {e}"), code="LPR_SYNC_FAILED")
+            raise BusinessException(message=f"获取LPR数据失败: {e}", code="LPR_SYNC_FAILED")
 
         if not lpr_data_list:
-            raise BusinessException(message=_("无法从央行官网获取LPR数据，未找到有效数据"), code="LPR_SYNC_FAILED")
+            raise BusinessException(message="无法从央行官网获取LPR数据，未找到有效数据", code="LPR_SYNC_FAILED")
 
         return self._save_lpr_data(lpr_data_list)
 

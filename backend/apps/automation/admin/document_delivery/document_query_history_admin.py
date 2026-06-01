@@ -17,7 +17,6 @@ from django.urls import reverse
 from django.utils import timezone
 from django.utils.html import format_html
 from django.utils.safestring import SafeString
-from django.utils.translation import gettext_lazy as _
 
 from apps.automation.models import DocumentQueryHistory
 
@@ -66,22 +65,22 @@ class DocumentQueryHistoryAdmin(admin.ModelAdmin):
 
     fieldsets = (
         (
-            _("查询信息"),
+            "查询信息",
             {"fields": ("id", "credential", "case_number", "send_time")},
         ),
         (
-            _("关联信息"),
+            "关联信息",
             {"fields": ("court_sms", "court_sms_link")},
         ),
         (
-            _("时间信息"),
+            "时间信息",
             {"fields": ("queried_at", "time_since_query")},
         ),
     )
 
     date_hierarchy = "queried_at"
 
-    @admin.display(description=_("账号凭证"))
+    @admin.display(description="账号凭证")
     def credential_display(self, obj: DocumentQueryHistory) -> SafeString | str:
         """账号凭证显示"""
         if obj.credential:
@@ -94,7 +93,7 @@ class DocumentQueryHistoryAdmin(admin.ModelAdmin):
             )
         return "-"
 
-    @admin.display(description=_("文书发送时间"))
+    @admin.display(description="文书发送时间")
     def send_time_display(self, obj: DocumentQueryHistory) -> SafeString:
         """文书发送时间显示"""
         now = timezone.now()
@@ -122,7 +121,7 @@ class DocumentQueryHistoryAdmin(admin.ModelAdmin):
             obj.send_time.strftime("%Y-%m-%d %H:%M"),
         )
 
-    @admin.display(description=_("关联短信"))
+    @admin.display(description="关联短信")
     def court_sms_display(self, obj: DocumentQueryHistory) -> SafeString:
         """关联短信显示"""
         if obj.court_sms:
@@ -151,7 +150,7 @@ class DocumentQueryHistoryAdmin(admin.ModelAdmin):
             )
         return format_html('<span style="color: gray;">{}</span>', "无关联短信")
 
-    @admin.display(description=_("查询时间"))
+    @admin.display(description="查询时间")
     def queried_at_display(self, obj: DocumentQueryHistory) -> SafeString:
         """查询时间显示"""
         now = timezone.now()
@@ -179,7 +178,7 @@ class DocumentQueryHistoryAdmin(admin.ModelAdmin):
             obj.queried_at.strftime("%Y-%m-%d %H:%M"),
         )
 
-    @admin.display(description=_("关联短信链接"))
+    @admin.display(description="关联短信链接")
     def court_sms_link(self, obj: DocumentQueryHistory) -> SafeString | str:
         """关联短信链接"""
         if obj.court_sms:
@@ -192,7 +191,7 @@ class DocumentQueryHistoryAdmin(admin.ModelAdmin):
             )
         return "-"
 
-    @admin.display(description=_("查询后经过时间"))
+    @admin.display(description="查询后经过时间")
     def time_since_query(self, obj: DocumentQueryHistory) -> str:
         """查询后经过的时间"""
         now = timezone.now()
@@ -231,7 +230,7 @@ class DocumentQueryHistoryAdmin(admin.ModelAdmin):
         actions["delete_old_records"] = (  # type: ignore[assignment]
             self.delete_old_records,
             "delete_old_records",
-            _("删除30天前的记录"),
+            "删除30天前的记录",
         )
         return actions
 
@@ -243,7 +242,7 @@ class DocumentQueryHistoryAdmin(admin.ModelAdmin):
 
         old_records.delete()
 
-        self.message_user(request, _(f"成功删除 {count} 条30天前的查询记录"))
+        self.message_user(request, f"成功删除 {count} 条30天前的查询记录")
         logger.info(f"管理员批量删除旧查询记录: Count={count}, User={request.user}")
 
     def get_queryset(self, request: HttpRequest) -> QuerySet[DocumentQueryHistory]:

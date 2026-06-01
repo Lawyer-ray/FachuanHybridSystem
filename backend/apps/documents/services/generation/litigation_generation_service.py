@@ -15,8 +15,6 @@ import logging
 from datetime import date
 from typing import Any, cast
 
-from django.utils.translation import gettext_lazy as _
-
 from apps.core.exceptions import NotFoundError, ValidationException
 from apps.core.interfaces import ServiceLocator
 from apps.core.utils.path import Path
@@ -144,7 +142,7 @@ class LitigationGenerationService:
         case_dto = case_service.get_case_by_id_internal(case_id)
 
         if not case_dto:
-            raise NotFoundError(message=_("案件不存在"), code="CASE_NOT_FOUND", errors={"case_id": case_id})
+            raise NotFoundError(message="案件不存在", code="CASE_NOT_FOUND", errors={"case_id": case_id})
 
         # 2. 提取案件信息
         case_data = self.context_builder.extract_complaint_prompt_data(case_dto)
@@ -189,7 +187,7 @@ class LitigationGenerationService:
         case_dto = case_service.get_case_by_id_internal(case_id)
 
         if not case_dto:
-            raise NotFoundError(message=_("案件不存在"), code="CASE_NOT_FOUND", errors={"case_id": case_id})
+            raise NotFoundError(message="案件不存在", code="CASE_NOT_FOUND", errors={"case_id": case_id})
 
         # 2. 提取案件信息
         case_data = self.context_builder.extract_defense_prompt_data(case_dto)
@@ -217,7 +215,7 @@ class LitigationGenerationService:
         case_service = ServiceLocator.get_case_service()
         case_dto = case_service.get_case_by_id_internal(case_id)
         if not case_dto:
-            raise NotFoundError(message=_("案件不存在"), code="CASE_NOT_FOUND", errors={"case_id": case_id})
+            raise NotFoundError(message="案件不存在", code="CASE_NOT_FOUND", errors={"case_id": case_id})
 
         if litigation_type == "complaint":
             template_path = self._complaint_template_path()
@@ -231,7 +229,7 @@ class LitigationGenerationService:
             context = self.context_builder.build_defense_context(case_dto=case_dto, llm_result=llm_result)
         else:
             raise ValidationException(
-                message=_("不支持的诉讼类型: %(t)s") % {"t": litigation_type},
+                message="不支持的诉讼类型: %(t)s" % {"t": litigation_type},
                 code="INVALID_LITIGATION_TYPE",
             )
 
@@ -262,7 +260,7 @@ class LitigationGenerationService:
         if doc_type == "defense":
             return str(filename_service.generate_defense_filename(case_id))
         raise ValidationException(
-            message=_("不支持的文档类型: %(t)s") % {"t": doc_type},
+            message="不支持的文档类型: %(t)s" % {"t": doc_type},
             code="INVALID_DOC_TYPE",
             errors={"doc_type": doc_type},
         )
@@ -355,7 +353,7 @@ class LitigationGenerationService:
         """渲染 docx 模板"""
         if not template_path.exists():
             raise ValidationException(
-                message=_("模板文件不存在: %(p)s") % {"p": template_path},
+                message="模板文件不存在: %(p)s" % {"p": template_path},
                 code="TEMPLATE_NOT_FOUND",
                 errors={"template_path": str(template_path)},
             )
@@ -374,5 +372,5 @@ class LitigationGenerationService:
         except Exception as e:
             logger.error("模板渲染失败: %s", e, exc_info=True)
             raise ValidationException(
-                message=_("模板渲染失败: %(e)s") % {"e": e}, code="TEMPLATE_RENDER_ERROR", errors={"error": str(e)}
+                message="模板渲染失败: %(e)s" % {"e": e}, code="TEMPLATE_RENDER_ERROR", errors={"error": str(e)}
             ) from e

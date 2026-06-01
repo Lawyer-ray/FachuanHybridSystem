@@ -17,7 +17,6 @@ from apps.core.llm.exceptions import LLMNetworkError, LLMTimeoutError
 
 logger = logging.getLogger("apps.image_rotation")
 
-
 # LLM 提取 Prompt 模板
 EXTRACTION_PROMPT = """
 从以下 OCR 识别的文本中提取日期和金额信息.
