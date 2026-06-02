@@ -69,6 +69,16 @@ DEFAULT_PROXY_MATTER_RULES: tuple[ProxyMatterRuleSeed, ...] = (
         "priority": 100,
         "is_active": True,
     },
+    {
+        "case_types": ["civil"],
+        "case_type": "civil",
+        "case_stage": "second_trial",
+        "legal_statuses": ["appellee"],
+        "legal_status_match_mode": "any",
+        "items_text": "代为应诉、答辩、举证、质证、参加庭审及法庭辩论；代为承认、反驳、变更诉讼请求，进行和解、调解，提起反诉；代为签收、领取法律文书及款项；办理本案二审相关的全部诉讼事宜。",
+        "priority": 100,
+        "is_active": True,
+    },
 )
 
 
@@ -81,24 +91,38 @@ class ProxyMatterRuleInitService:
         updated = 0
 
         for seed in DEFAULT_PROXY_MATTER_RULES:
-            lookup = {
-                "case_type": seed["case_type"],
-                "case_stage": seed["case_stage"],
-                "legal_status_match_mode": seed["legal_status_match_mode"],
-                "priority": seed["priority"],
-            }
-            defaults = {
-                "case_types": list(seed["case_types"]),
-                "legal_statuses": list(seed["legal_statuses"]),
-                "items_text": seed["items_text"],
-                "is_active": seed["is_active"],
-            }
+            case_types = list(seed["case_types"])
+            legal_statuses = list(seed["legal_statuses"])
 
-            rule, is_created = ProxyMatterRule.objects.update_or_create(defaults=defaults, **lookup)  # type: ignore[arg-type]
-            if is_created:
+            # legal_statuses 是 JSONField，不能直接放在 update_or_create 的 lookup 里
+            # 先用精确条件 filter，再手动 create/update
+            rule = ProxyMatterRule.objects.filter(
+                case_type=seed["case_type"],
+                case_stage=seed["case_stage"],
+                legal_status_match_mode=seed["legal_status_match_mode"],
+                priority=seed["priority"],
+                legal_statuses=legal_statuses,
+            ).first()
+
+            if rule is None:
+                ProxyMatterRule.objects.create(
+                    case_types=case_types,
+                    case_type=seed["case_type"],
+                    case_stage=seed["case_stage"],
+                    legal_statuses=legal_statuses,
+                    legal_status_match_mode=seed["legal_status_match_mode"],
+                    items_text=seed["items_text"],
+                    priority=seed["priority"],
+                    is_active=seed["is_active"],
+                )
                 created += 1
                 continue
 
+            defaults = {
+                "case_types": case_types,
+                "items_text": seed["items_text"],
+                "is_active": seed["is_active"],
+            }
             changed_fields: list[str] = []
             for field_name, field_value in defaults.items():
                 if getattr(rule, field_name) != field_value:
