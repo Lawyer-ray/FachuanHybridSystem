@@ -1,0 +1,146 @@
+{% extends "admin/base_site.html" %}
+{% load i18n admin_urls static %}
+
+{% block extrastyle %}
+{{ block.super }}
+<style>
+    .format-normalize-container {
+        max-width: 800px;
+        margin: 20px auto;
+        padding: 20px;
+    }
+    .card {
+        background: #fff;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        padding: 20px;
+        margin-bottom: 20px;
+    }
+    .card h2 {
+        margin-top: 0;
+        color: #333;
+        border-bottom: 2px solid #417690;
+        padding-bottom: 10px;
+    }
+    .task-list {
+        list-style: none;
+        padding: 0;
+    }
+    .task-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 12px;
+        border-bottom: 1px solid #eee;
+    }
+    .task-item:last-child {
+        border-bottom: none;
+    }
+    .task-info {
+        flex: 1;
+    }
+    .task-title {
+        font-weight: bold;
+        color: #333;
+    }
+    .task-meta {
+        font-size: 12px;
+        color: #666;
+        margin-top: 4px;
+    }
+    .btn {
+        display: inline-block;
+        padding: 8px 16px;
+        border-radius: 4px;
+        text-decoration: none;
+        font-size: 14px;
+        cursor: pointer;
+        border: none;
+    }
+    .btn-primary {
+        background: #417690;
+        color: #fff;
+    }
+    .btn-primary:hover {
+        background: #205067;
+    }
+    .btn-success {
+        background: #28a745;
+        color: #fff;
+    }
+    .btn-success:hover {
+        background: #218838;
+    }
+    .help-text {
+        background: #f8f9fa;
+        border-left: 4px solid #417690;
+        padding: 12px;
+        margin-bottom: 20px;
+        color: #555;
+    }
+    .empty-state {
+        text-align: center;
+        padding: 40px;
+        color: #999;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="format-normalize-container">
+    <h1>合同格式调整</h1>
+
+    <div class="help-text">
+        <strong>功能说明：</strong>
+        <ul>
+            <li>将合同格式统一为标准格式（A4 页边距、12磅字号、1.5倍行距）</li>
+            <li>支持自动编号（一、二、三...条）</li>
+            <li>可选择参考文档，精确匹配其格式</li>
+        </ul>
+        <strong>使用方法：</strong>
+        <ol>
+            <li>在下方列表中找到需要调整格式的合同</li>
+            <li>点击"格式规范化"按钮</li>
+            <li>系统会自动生成规范化后的文件</li>
+        </ol>
+    </div>
+
+    <div class="card">
+        <h2>待处理任务</h2>
+        {% if tasks %}
+            <ul class="task-list">
+                {% for task in tasks %}
+                    <li class="task-item">
+                        <div class="task-info">
+                            <div class="task-title">{{ task.contract_title|default:"未命名合同" }}</div>
+                            <div class="task-meta">
+                                状态: {{ task.get_status_display }} |
+                                创建时间: {{ task.created_at|date:"Y-m-d H:i" }}
+                                {% if task.original_file %}
+                                    | 原始文件: {{ task.original_file }}
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div>
+                            {% if task.original_file %}
+                                <a href="{% url 'admin:contract_review_reviewtask_format_normalize_task' task_id=task.id %}"
+                                   class="btn btn-primary"
+                                   onclick="return confirm('确定要对此任务执行格式规范化吗？')">
+                                    格式规范化
+                                </a>
+                            {% else %}
+                                <span style="color: #999;">无原始文件</span>
+                            {% endif %}
+                        </div>
+                    </li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <div class="empty-state">
+                <p>暂无待处理的任务</p>
+                <p>请先在<a href="{% url 'admin:contract_review_reviewtask_changelist' %}">合同审查</a>中创建任务</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

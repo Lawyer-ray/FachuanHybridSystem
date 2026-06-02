@@ -311,6 +311,16 @@ class ReviewTaskAdmin(admin.ModelAdmin):
                 self.admin_site.admin_view(self.report_pdf_view),
                 name="contract_review_reviewtask_report_pdf",
             ),
+            path(
+                "format-normalize/",
+                self.admin_site.admin_view(self.format_normalize_view),
+                name="contract_review_reviewtask_format_normalize",
+            ),
+            path(
+                "<uuid:task_id>/format-normalize/",
+                self.admin_site.admin_view(self.format_normalize_task_view),
+                name="contract_review_reviewtask_format_normalize_task",
+            ),
         ]
         return custom + super().get_urls()
 
@@ -385,3 +395,73 @@ class ReviewTaskAdmin(admin.ModelAdmin):
         response = HttpResponse(pdf, content_type="application/pdf")
         response["Content-Disposition"] = f'inline; filename="{filename}"'
         return response
+
+    def format_normalize_view(self, request: HttpRequest) -> HttpResponse:
+        """格式调整页面"""
+        # 获取所有有原始文件的任务
+        tasks = ReviewTask.objects.filter(
+            original_file__isnull=False,
+            original_file__gt='',
+        ).order_by('-created_at')[:50]
+
+        context = {
+            **self.admin_site.each_context(request),
+            "title": "合同格式调整",
+            "opts": self.model._meta,
+            "tasks": tasks,
+        }
+        return TemplateResponse(
+            request,
+            "admin/contract_review/reviewtask/format_normalize.html",
+            context,
+        )
+
+    def format_normalize_task_view(self, request: HttpRequest, task_id: UUID) -> HttpResponse:
+        """对单个任务执行格式调整"""
+        from apps.contract_review.services.format_normalizer import DocxFormatNormalizer
+
+        try:
+            task = ReviewTask.objects.get(id=task_id)
+        except ReviewTask.DoesNotExist:
+            from django.http import Http404
+            raise Http404("任务不存在")
+
+        if not task.original_file:
+            from django.contrib import messages
+            messages.error(request, "该任务没有原始文件")
+            return self._redirect_back(request)
+
+        original_path = Path(task.original_file)
+        if not original_path.exists():
+            from django.contrib import messages
+            messages.error(request, f"原始文件不存在: {original_path}")
+            return self._redirect_back(request)
+
+        try:
+            # 生成输出文件路径
+            output_dir = original_path.parent
+            output_filename = f"{original_path.stem}_规范化{original_path.suffix}"
+            output_path = output_dir / output_filename
+
+            # 执行格式规范化
+            normalizer = DocxFormatNormalizer(original_path, output_path)
+            result_path = normalizer.normalize()
+
+            # 更新任务的输出文件
+            task.output_file = str(result_path)
+            task.save(update_fields=["output_file"])
+
+            from django.contrib import messages
+            messages.success(request, f"格式规范化完成: {result_path.name}")
+
+        except Exception as e:
+            logger.exception("格式规范化失败: %s", e)
+            from django.contrib import messages
+            messages.error(request, f"格式规范化失败: {e!s}")
+
+        return self._redirect_back(request)
+
+    def _redirect_back(self, request: HttpRequest) -> HttpResponse:
+        """重定向回上一页"""
+        from django.http import HttpResponseRedirect
+        return HttpResponseRedirect(request.META.get("HTTP_REFERER", "/admin/contract_review/reviewtask/"))
