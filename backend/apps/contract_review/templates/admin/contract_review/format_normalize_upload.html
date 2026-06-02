@@ -3,95 +3,259 @@
 
 {% block title %}上传合同文件 - 合同格式调整{% endblock %}
 
+{% block content_title %}{% endblock %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="{% url 'admin:index' %}">首页</a>
+    &rsaquo; <a href="{% url 'admin:contract_review_formatnormalize_changelist' %}">合同格式调整</a>
+    &rsaquo; 上传合同文件
+</div>
+{% endblock %}
+
 {% block extrastyle %}
 {{ block.super }}
 <style>
-    .object-tools {
-        display: flex;
-        justify-content: flex-end;
-        align-items: center;
-        gap: 10px;
-        float: none;
-        margin-left: auto;
-        list-style: none;
-        padding-left: 0;
-        margin-bottom: 15px;
+    .cr-wrap { max-width: 780px; margin: 24px auto; }
+    .cr-card {
+        background: var(--body-bg, #fff);
+        border: 1px solid var(--hairline-color, #e0e0e0);
+        border-radius: 16px;
+        padding: 44px 48px;
+        box-shadow: 0 2px 12px rgba(0,0,0,.05);
     }
-    .object-tools li {
-        float: none;
-        margin: 0;
-        list-style: none;
+    .cr-title {
+        font-size: 22px;
+        font-weight: 700;
+        margin: 0 0 28px;
+        color: var(--body-fg, #222);
     }
-    .object-tools li + li {
-        margin-left: 0;
-    }
-    .upload-form {
-        max-width: 600px;
-        margin: 0 auto;
-    }
-    .upload-form .form-row {
-        margin-bottom: 15px;
-    }
-    .upload-form label {
+    .cr-label {
         display: block;
-        margin-bottom: 5px;
-        font-weight: bold;
-        color: #333;
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--body-quiet-color, #666);
+        margin-bottom: 6px;
     }
-    .upload-form input[type="file"] {
-        width: 100%;
-        padding: 8px;
-        border: 1px solid #ccc;
-        border-radius: 4px;
+    .cr-dropzone {
+        border: 2px dashed var(--border-color, #d0d0d0);
+        border-radius: 14px;
+        padding: 56px 24px;
+        text-align: center;
+        cursor: pointer;
+        transition: all .2s;
+        background: var(--darkened-bg, #fafafa);
     }
-    .upload-form .help-text {
-        color: #666;
+    .cr-dropzone:hover, .cr-dropzone.active {
+        border-color: var(--primary, #417690);
+        background: rgba(65,118,144,.03);
+    }
+    .cr-dropzone-icon {
+        font-size: 52px;
+        margin-bottom: 16px;
+        filter: grayscale(.3);
+    }
+    .cr-dropzone-text {
+        font-size: 16px;
+        color: var(--body-fg, #444);
+        margin: 0 0 6px;
+    }
+    .cr-dropzone-hint {
+        font-size: 13px;
+        color: var(--body-quiet-color, #aaa);
+        margin: 0;
+    }
+    .cr-dropzone input[type="file"] {
+        display: none;
+    }
+    .cr-info {
+        border-radius: 14px;
+        overflow: hidden;
+        background: var(--darkened-bg, #f8f9fa);
+        padding: 20px 24px;
+        margin-bottom: 28px;
+        display: none;
+    }
+    .cr-info.show {
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+    }
+    .cr-info-item {
+        display: flex;
+        align-items: baseline;
+        gap: 12px;
+    }
+    .cr-info-content {
+        flex: 1;
+        min-width: 0;
+    }
+    .cr-info-label {
         font-size: 12px;
-        margin-top: 5px;
+        color: var(--body-quiet-color, #999);
+        font-weight: 500;
+        text-transform: uppercase;
+        letter-spacing: .5px;
+        margin-bottom: 2px;
     }
-    .upload-form .submit-row {
-        margin-top: 20px;
-        text-align: right;
+    .cr-info-value {
+        font-size: 15px;
+        color: var(--body-fg, #333);
+        font-weight: 500;
+        word-break: break-all;
+    }
+    .cr-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        padding: 12px 32px;
+        border-radius: 10px;
+        font-size: 15px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all .2s;
+        text-decoration: none;
+        border: none;
+    }
+    .cr-btn-primary {
+        background: var(--primary, #417690);
+        color: #fff;
+    }
+    .cr-btn-primary:hover {
+        filter: brightness(.9);
+    }
+    .cr-btn-primary:disabled {
+        opacity: .45;
+        cursor: not-allowed;
+        filter: none;
+    }
+    .cr-btn-ghost {
+        background: transparent;
+        color: var(--body-quiet-color, #888);
+        border: 1px solid var(--border-color, #ddd);
+    }
+    .cr-btn-ghost:hover {
+        background: var(--darkened-bg, #f5f5f5);
+        color: var(--body-fg, #555);
+    }
+    .cr-actions {
+        display: flex;
+        gap: 10px;
+        justify-content: center;
+        flex-wrap: wrap;
+        margin-top: 28px;
+    }
+    .cr-success-badge {
+        width: 72px;
+        height: 72px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #e8f5e9, #c8e6c9);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 20px;
+        font-size: 36px;
+    }
+    .cr-success-title {
+        font-size: 20px;
+        font-weight: 700;
+        color: var(--body-fg, #222);
+        margin: 0 0 8px;
+        text-align: center;
     }
 </style>
 {% endblock %}
 
 {% block content %}
 <div id="content-main">
-    <ul class="object-tools">
-        <li>
-            <a href="{% url 'admin:contract_review_formatnormalize_changelist' %}" class="changelink">
-                返回格式调整列表
-            </a>
-        </li>
-    </ul>
+    <div class="cr-wrap">
+        <div class="cr-card">
+            <h1 class="cr-title">上传合同文件</h1>
 
-    {% if messages %}
-        {% for message in messages %}
-            <p class="errornote" style="{% if message.tags == 'success' %}background: #dff0d8; border: 1px solid #d6e9c6; color: #3c763d;{% elif message.tags == 'error' %}background: #f2dede; border: 1px solid #ebccd1; color: #a94442;{% endif %} padding: 10px; margin-bottom: 15px;">
-                {{ message }}
-            </p>
-        {% endfor %}
-    {% endif %}
+            {% if messages %}
+                {% for message in messages %}
+                    <p class="errornote" style="{% if message.tags == 'success' %}background: #dff0d8; border: 1px solid #d6e9c6; color: #3c763d;{% elif message.tags == 'error' %}background: #f2dede; border: 1px solid #ebccd1; color: #a94442;{% endif %} padding: 10px; margin-bottom: 15px; border-radius: 8px;">
+                        {{ message }}
+                    </p>
+                {% endfor %}
+            {% endif %}
 
-    <div class="module">
-        <h2>上传合同文件</h2>
-        <div class="upload-form">
-            <form method="post" enctype="multipart/form-data">
+            <form method="post" enctype="multipart/form-data" id="upload-form">
                 {% csrf_token %}
-                <div class="form-row">
-                    <label for="contract_file">选择合同文件</label>
-                    <input type="file" name="contract_file" id="contract_file" accept=".docx,.doc" required>
-                    <p class="help-text">支持 .docx 或 .doc 格式的 Word 文档</p>
+
+                <div class="cr-dropzone" id="dropzone" onclick="document.getElementById('file-input').click();">
+                    <div class="cr-dropzone-icon">&#128196;</div>
+                    <p class="cr-dropzone-text">点击或拖拽文件到此处上传</p>
+                    <p class="cr-dropzone-hint">支持 .docx 或 .doc 格式的 Word 文档</p>
+                    <input type="file" name="contract_file" id="file-input" accept=".docx,.doc">
                 </div>
-                <div class="submit-row">
-                    <a href="{% url 'admin:contract_review_formatnormalize_changelist' %}" class="button" style="background: #666; margin-right: 10px;">
-                        取消
+
+                <div class="cr-info" id="file-info">
+                    <div class="cr-info-item">
+                        <div class="cr-info-content">
+                            <div class="cr-info-label">文件名</div>
+                            <div class="cr-info-value" id="file-name">-</div>
+                        </div>
+                    </div>
+                    <div class="cr-info-item">
+                        <div class="cr-info-content">
+                            <div class="cr-info-label">文件大小</div>
+                            <div class="cr-info-value" id="file-size">-</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="cr-actions">
+                    <a href="{% url 'admin:contract_review_formatnormalize_changelist' %}" class="cr-btn cr-btn-ghost">
+                        返回列表
                     </a>
-                    <input type="submit" value="上传并格式规范化" class="button" style="background: #417690; color: #fff;">
+                    <button type="submit" class="cr-btn cr-btn-primary" id="submit-btn" disabled>
+                        上传并格式规范化
+                    </button>
                 </div>
             </form>
         </div>
     </div>
 </div>
+
+<script>
+document.getElementById('file-input').addEventListener('change', function(e) {
+    const file = e.target.files[0];
+    if (file) {
+        document.getElementById('file-name').textContent = file.name;
+        document.getElementById('file-size').textContent = formatFileSize(file.size);
+        document.getElementById('file-info').classList.add('show');
+        document.getElementById('submit-btn').disabled = false;
+    }
+});
+
+function formatFileSize(bytes) {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
+
+// 拖拽上传
+const dropzone = document.getElementById('dropzone');
+dropzone.addEventListener('dragover', function(e) {
+    e.preventDefault();
+    dropzone.classList.add('active');
+});
+dropzone.addEventListener('dragleave', function(e) {
+    e.preventDefault();
+    dropzone.classList.remove('active');
+});
+dropzone.addEventListener('drop', function(e) {
+    e.preventDefault();
+    dropzone.classList.remove('active');
+    const files = e.dataTransfer.files;
+    if (files.length) {
+        document.getElementById('file-input').files = files;
+        document.getElementById('file-input').dispatchEvent(new Event('change'));
+    }
+});
+</script>
 {% endblock %}
