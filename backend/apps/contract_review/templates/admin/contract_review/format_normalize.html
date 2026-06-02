@@ -87,7 +87,7 @@
 {% endblock %}
 
 {% block content %}
-<h1>📋 合同格式调整</h1>
+<h1>合同格式调整</h1>
 
 {% if messages %}
     {% for message in messages %}
@@ -123,7 +123,7 @@
                         <a href="{% url 'admin:contract_review_formatnormalize_execute' task_id=task.id %}"
                            class="btn-normalize"
                            onclick="return confirm('确定要对此任务执行格式规范化吗？')">
-                            📐 格式规范化
+                            格式规范化
                         </a>
                     </td>
                 </tr>

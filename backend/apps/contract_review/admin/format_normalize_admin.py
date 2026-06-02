@@ -62,7 +62,7 @@ class FormatNormalizeAdmin(admin.ModelAdmin):
         if not obj.original_file:
             return "—"
         url = f"/admin/contract-review-format-normalize/{obj.pk}/execute/"
-        return f'<a href="{url}" class="btn" onclick="return confirm(\'确定要执行格式规范化吗？\')">📐 格式规范化</a>'
+        return f'<a href="{url}" class="btn" onclick="return confirm(\'确定要执行格式规范化吗？\')">格式规范化</a>'
 
     def has_add_permission(self, request: HttpRequest) -> bool:
         return False
@@ -142,10 +142,10 @@ class FormatNormalizeAdmin(admin.ModelAdmin):
             task.output_file = str(result_path)
             task.save(update_fields=["output_file"])
 
-            messages.success(request, f"✅ 格式规范化完成: {result_path.name}")
+            messages.success(request, f"格式规范化完成: {result_path.name}")
 
         except Exception as e:
             logger.exception("格式规范化失败: %s", e)
-            messages.error(request, f"❌ 格式规范化失败: {e!s}")
+            messages.error(request, f"格式规范化失败: {e!s}")
 
         return HttpResponseRedirect("/admin/contract_review/formatnormalize/")
