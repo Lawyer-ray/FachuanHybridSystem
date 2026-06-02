@@ -6,9 +6,17 @@
 <style>
     #content {
         max-width: 900px;
+        margin: 0 auto;
+    }
+    h1 {
+        color: #333;
+        font-size: 18px;
+        margin-bottom: 15px;
     }
     .module {
         margin-bottom: 20px;
+        border: 1px solid #ddd;
+        border-radius: 4px;
     }
     .module h2 {
         background: #79aec8;
@@ -16,6 +24,7 @@
         padding: 10px 15px;
         margin: 0;
         font-size: 14px;
+        border-radius: 4px 4px 0 0;
     }
     table {
         width: 100%;
@@ -36,7 +45,7 @@
     }
     .btn-normalize {
         display: inline-block;
-        padding: 6px 12px;
+        padding: 8px 16px;
         background: #417690;
         color: #fff;
         border: none;
@@ -49,50 +58,49 @@
         background: #205067;
         color: #fff;
     }
-    .help-text {
-        background: #ffffcc;
-        border: 1px solid #e6db55;
-        padding: 12px 15px;
-        margin-bottom: 20px;
-        border-radius: 4px;
-    }
-    .help-text h3 {
-        margin-top: 0;
-        color: #333;
-        font-size: 14px;
-    }
-    .help-text ul {
-        margin-bottom: 0;
-        padding-left: 20px;
-    }
-    .help-text li {
-        margin-bottom: 5px;
-        color: #555;
-    }
     .empty-message {
-        padding: 20px;
+        padding: 30px;
         text-align: center;
         color: #999;
+        background: #f9f9f9;
+    }
+    .empty-message a {
+        color: #417690;
+    }
+    .success {
+        background: #d4edda;
+        border: 1px solid #c3e6cb;
+        color: #155724;
+        padding: 10px 15px;
+        margin-bottom: 15px;
+        border-radius: 4px;
+    }
+    .error {
+        background: #f8d7da;
+        border: 1px solid #f5c6cb;
+        color: #721c24;
+        padding: 10px 15px;
+        margin-bottom: 15px;
+        border-radius: 4px;
     }
 </style>
 {% endblock %}
 
 {% block content %}
-<h1>合同格式调整</h1>
+<h1>📋 合同格式调整</h1>
 
-<div class="help-text">
-    <h3>💡 功能说明</h3>
-    <ul>
-        <li><strong>统一页边距</strong>：A4 标准（上下 2.54cm，左右 3.17cm）</li>
-        <li><strong>统一字号</strong>：正文 12 磅，标题 26 磅</li>
-        <li><strong>统一行距</strong>：1.5 倍行距</li>
-        <li><strong>自动编号</strong>：支持"一、二、三...条"格式</li>
-        <li><strong>乙方加粗</strong>：乙方信息自动加粗</li>
-    </ul>
-</div>
+{% if messages %}
+    {% for message in messages %}
+        {% if message.tags == 'success' %}
+            <div class="success">{{ message }}</div>
+        {% elif message.tags == 'error' %}
+            <div class="error">{{ message }}</div>
+        {% endif %}
+    {% endfor %}
+{% endif %}
 
 <div class="module">
-    <h2>待处理任务</h2>
+    <h2>待处理任务（点击"格式规范化"按钮即可处理）</h2>
     {% if tasks %}
         <table>
             <thead>
@@ -124,7 +132,7 @@
         </table>
     {% else %}
         <div class="empty-message">
-            暂无待处理的任务<br>
+            暂无待处理的任务<br><br>
             请先在<a href="{% url 'admin:contract_review_reviewtask_changelist' %}">合同审查任务</a>中创建任务
         </div>
     {% endif %}
