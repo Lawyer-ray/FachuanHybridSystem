@@ -434,6 +434,117 @@
             "is_active": true
         },
         {
+            "name": "民事二审答辩",
+            "template_type": "case",
+            "case_types": [
+                "civil"
+            ],
+            "case_stages": [
+                "second_trial"
+            ],
+            "contract_types": [],
+            "legal_statuses": [
+                "third",
+                "appellee"
+            ],
+            "legal_status_match_mode": "any",
+            "structure": {
+                "children": [
+                    {
+                        "id": "folder_1780363145841_f93lla0b",
+                        "name": "二审",
+                        "children": [
+                            {
+                                "id": "folder_1780363145842_kb38hpuz",
+                                "name": "1-答辩材料",
+                                "children": [
+                                    {
+                                        "id": "folder_1780363145843_bl12unwb",
+                                        "name": "1-答辩状",
+                                        "children": []
+                                    },
+                                    {
+                                        "id": "folder_1780363145845_m9jzf1fu",
+                                        "name": "2-当事人身份证明",
+                                        "children": []
+                                    },
+                                    {
+                                        "id": "folder_1780363145846_9sterqss",
+                                        "name": "3-委托材料",
+                                        "children": []
+                                    },
+                                    {
+                                        "id": "folder_1780363145846_zzdlyu09",
+                                        "name": "4-其他答辩材料",
+                                        "children": []
+                                    }
+                                ]
+                            },
+                            {
+                                "id": "folder_1780363145847_d6cv4760",
+                                "name": "2-庭审准备",
+                                "children": [
+                                    {
+                                        "id": "folder_1780363145848_kwoyqkfy",
+                                        "name": "1-问题清单",
+                                        "children": []
+                                    },
+                                    {
+                                        "id": "folder_1780363145848_lpus14bs",
+                                        "name": "2-庭审提纲",
+                                        "children": []
+                                    },
+                                    {
+                                        "id": "folder_1780363145849_fcu8pccc",
+                                        "name": "3-质证意见",
+                                        "children": []
+                                    },
+                                    {
+                                        "id": "folder_1780363145850_zxhdv1k2",
+                                        "name": "4-时间轴大事记",
+                                        "children": []
+                                    },
+                                    {
+                                        "id": "folder_1780363145851_rf74zdtk",
+                                        "name": "5-代理意见",
+                                        "children": []
+                                    },
+                                    {
+                                        "id": "folder_1780363145851_6158yqjd",
+                                        "name": "6-其他材料",
+                                        "children": []
+                                    }
+                                ]
+                            },
+                            {
+                                "id": "folder_1780363145852_zc8igokj",
+                                "name": "4-结案文书",
+                                "children": [
+                                    {
+                                        "id": "folder_1780363145853_alay9qlj",
+                                        "name": "1-和解(调解)协议",
+                                        "children": []
+                                    },
+                                    {
+                                        "id": "folder_1780363145853_c6uvvp7x",
+                                        "name": "2-其他结案文书",
+                                        "children": []
+                                    }
+                                ]
+                            },
+                            {
+                                "id": "folder_1780363145854_vp50inps",
+                                "name": "5-邮件往来",
+                                "children": []
+                            }
+                        ]
+                    }
+                ]
+            },
+            "is_default": false,
+            "is_active": true
+        },
+        {
             "name": "申请执行文件夹",
             "template_type": "case",
             "case_types": [
@@ -1109,6 +1220,21 @@
             "document_template_name": "财产保全申请书",
             "folder_template_name": "民事一审起诉",
             "folder_node_id": "folder_1767234707146_8q1ifw47t"
+        },
+        {
+            "document_template_name": "所函",
+            "folder_template_name": "民事二审答辩",
+            "folder_node_id": "folder_1780363145846_9sterqss"
+        },
+        {
+            "document_template_name": "法定代表人身份证明书",
+            "folder_template_name": "民事二审答辩",
+            "folder_node_id": "folder_1780363145845_m9jzf1fu"
+        },
+        {
+            "document_template_name": "授权委托书",
+            "folder_template_name": "民事二审答辩",
+            "folder_node_id": "folder_1780363145846_9sterqss"
         }
     ]
 }

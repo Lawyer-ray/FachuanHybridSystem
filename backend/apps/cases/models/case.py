@@ -290,6 +290,7 @@ class SupervisingAuthority(models.Model):
             models.Index(fields=["case"]),
             models.Index(fields=["authority_type"]),
         ]
+        unique_together: ClassVar = [("case", "name")]
 
     def __str__(self) -> str:
         authority_type_display = self.get_authority_type_display()

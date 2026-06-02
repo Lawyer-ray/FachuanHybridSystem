@@ -198,55 +198,59 @@ class ExecutionValidationMixin:
         if not expected_agents and isinstance(single_agent, dict):
             expected_agents = [single_agent]
 
-        if dlr_records and expected_agents:
-            matched_agents: list[tuple[dict[str, Any], dict[str, Any]]] = []
-            for agent in expected_agents:
-                expected_name = str(agent.get("name") or "").strip()
-                if not expected_name:
-                    continue
-                matched = self._find_record_by_name(
-                    dlr_records,
-                    expected_name=expected_name,
-                    name_keys=("xm", "name"),
-                )
-                if matched is None:
-                    continue
-                matched_agents.append((agent, matched))
-
-            if not matched_agents:
+        if expected_agents:
+            if not dlr_records:
                 fallback_name = str((expected_agents[0] or {}).get("name") or "").strip() or "首位代理人"
-                issues.append(f"代理人未写入: {fallback_name}")
+                issues.append(f"代理人未写入（dlr记录为空）: {fallback_name}")
             else:
-                agent, matched = matched_agents[0]
-                expected_name = str(agent.get("name") or "").strip() or "代理人"
-                self._ensure_written(
-                    expected_value=str(agent.get("id_number") or ""),
-                    record=matched,
-                    actual_keys=("zjhm", "idNumber", "sfzh"),
-                    issue=f"代理人证件号缺失: {expected_name}",
-                    issues=issues,
-                )
-                self._ensure_written(
-                    expected_value=str(agent.get("phone") or ""),
-                    record=matched,
-                    actual_keys=("sjhm", "lxdh", "phone"),
-                    issue=f"代理人联系电话缺失: {expected_name}",
-                    issues=issues,
-                )
-                self._ensure_written(
-                    expected_value=str(agent.get("bar_number") or ""),
-                    record=matched,
-                    actual_keys=("zyzh", "barNo"),
-                    issue=f"代理人执业证号缺失: {expected_name}",
-                    issues=issues,
-                )
-                self._ensure_written(
-                    expected_value=str(agent.get("law_firm") or ""),
-                    record=matched,
-                    actual_keys=("zyjg", "lawFirm"),
-                    issue=f"代理人执业机构缺失: {expected_name}",
-                    issues=issues,
-                )
+                matched_agents: list[tuple[dict[str, Any], dict[str, Any]]] = []
+                for agent in expected_agents:
+                    expected_name = str(agent.get("name") or "").strip()
+                    if not expected_name:
+                        continue
+                    matched = self._find_record_by_name(
+                        dlr_records,
+                        expected_name=expected_name,
+                        name_keys=("xm", "name"),
+                    )
+                    if matched is None:
+                        continue
+                    matched_agents.append((agent, matched))
+
+                if not matched_agents:
+                    fallback_name = str((expected_agents[0] or {}).get("name") or "").strip() or "首位代理人"
+                    issues.append(f"代理人未写入: {fallback_name}")
+                else:
+                    agent, matched = matched_agents[0]
+                    expected_name = str(agent.get("name") or "").strip() or "代理人"
+                    self._ensure_written(
+                        expected_value=str(agent.get("id_number") or ""),
+                        record=matched,
+                        actual_keys=("zjhm", "idNumber", "sfzh"),
+                        issue=f"代理人证件号缺失: {expected_name}",
+                        issues=issues,
+                    )
+                    self._ensure_written(
+                        expected_value=str(agent.get("phone") or ""),
+                        record=matched,
+                        actual_keys=("sjhm", "lxdh", "phone"),
+                        issue=f"代理人联系电话缺失: {expected_name}",
+                        issues=issues,
+                    )
+                    self._ensure_written(
+                        expected_value=str(agent.get("bar_number") or ""),
+                        record=matched,
+                        actual_keys=("zyzh", "barNo"),
+                        issue=f"代理人执业证号缺失: {expected_name}",
+                        issues=issues,
+                    )
+                    self._ensure_written(
+                        expected_value=str(agent.get("law_firm") or ""),
+                        record=matched,
+                        actual_keys=("zyjg", "lawFirm"),
+                        issue=f"代理人执业机构缺失: {expected_name}",
+                        issues=issues,
+                    )
 
         if is_exec:
             execution_reason = str(case_data.get("execution_reason") or "").strip()

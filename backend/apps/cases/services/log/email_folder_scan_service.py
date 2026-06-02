@@ -234,7 +234,7 @@ class EmailFolderScanService:
             if f.suffix.lower() not in CASE_LOG_ALLOWED_EXTENSIONS:
                 continue
             try:
-                if f.stat().st_size > CASE_LOG_MAX_FILE_SIZE:
+                if CASE_LOG_MAX_FILE_SIZE > 0 and f.stat().st_size > CASE_LOG_MAX_FILE_SIZE:
                     logger.warning(f"文件超过大小限制，跳过: {f.name}")
                     continue
             except OSError:

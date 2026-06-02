@@ -100,25 +100,91 @@ class PartyApiMixin:
         principal_name: str = "",
     ) -> None:
         detail = await self._get(f"/yzw-zxfw-lafw/api/v3/layy/layyxq/{layyid}/0")
-        existing_dlr_ids: list[str] = []
-        for item in (detail or {}).get("dlr") or []:
-            agent_id = str(item.get("id") or "").strip()
-            if agent_id:
-                existing_dlr_ids.append(agent_id)
 
-        for idx, agent in enumerate(agents):
+        # 已有正式代理人（dlr 字段）
+        existing_dlr: list[dict[str, Any]] = [
+            item for item in (detail or {}).get("dlr") or []
+            if isinstance(item, dict) and item.get("id")
+        ]
+        # 法院自动识别的待补全代理人（dlrs 字段）
+        auto_recognized: list[dict[str, Any]] = [
+            item for item in (detail or {}).get("dlrs") or []
+            if isinstance(item, dict) and item.get("id")
+        ]
+
+        logger.info(
+            "代理人更新: layyid=%s, bdlrid=%s, 待写入=%d, 已有正式=%d, 自动识别=%d",
+            layyid, bdlrid, len(agents), len(existing_dlr), len(auto_recognized),
+        )
+
+        # 策略：优先补全自动识别的代理人（按名字匹配），剩下的才新建
+        used_auto_ids: set[str] = set()
+        for agent in agents:
             if not agent.get("name"):
                 continue
-            agent_id = existing_dlr_ids[idx] if idx < len(existing_dlr_ids) else uuid.uuid4().hex
-            await self._update_agent(
-                layyid=layyid,
-                fyid=fyid,
-                bdlrid=bdlrid,
-                agent=agent,
-                is_exec=is_exec,
-                agent_id=agent_id,
-                principal_name=principal_name,
-            )
+            agent_name = str(agent.get("name") or "").strip()
+
+            # 1. 先看是否有自动识别的代理人可以补全
+            matched_auto = None
+            for auto_item in auto_recognized:
+                auto_id = str(auto_item.get("id") or "").strip()
+                if auto_id in used_auto_ids:
+                    continue
+                auto_name = str(auto_item.get("xm") or auto_item.get("name") or "").strip()
+                if agent_name and auto_name and agent_name == auto_name:
+                    matched_auto = auto_item
+                    used_auto_ids.add(auto_id)
+                    break
+
+            if matched_auto:
+                # 补全自动识别的代理人
+                agent_id = str(matched_auto.get("id") or "").strip()
+                logger.info("补全自动识别代理人: %s (id=%s)", agent_name, agent_id)
+                await self._update_agent(
+                    layyid=layyid,
+                    fyid=fyid,
+                    bdlrid=bdlrid,
+                    agent=agent,
+                    is_exec=is_exec,
+                    agent_id=agent_id,
+                    principal_name=principal_name,
+                    is_new=False,
+                )
+            else:
+                # 2. 没有匹配的自动识别代理人，检查正式代理人列表
+                is_existing = False
+                for existing in existing_dlr:
+                    existing_name = str(existing.get("xm") or existing.get("name") or "").strip()
+                    if agent_name and existing_name and agent_name == existing_name:
+                        agent_id = str(existing.get("id") or "").strip()
+                        is_existing = True
+                        logger.info("更新正式代理人: %s (id=%s)", agent_name, agent_id)
+                        break
+
+                if is_existing:
+                    await self._update_agent(
+                        layyid=layyid,
+                        fyid=fyid,
+                        bdlrid=bdlrid,
+                        agent=agent,
+                        is_exec=is_exec,
+                        agent_id=agent_id,
+                        principal_name=principal_name,
+                        is_new=False,
+                    )
+                else:
+                    # 3. 都没有匹配，创建新代理人
+                    logger.info("创建新代理人: %s", agent_name)
+                    await self._update_agent(
+                        layyid=layyid,
+                        fyid=fyid,
+                        bdlrid=bdlrid,
+                        agent=agent,
+                        is_exec=is_exec,
+                        agent_id=None,
+                        principal_name=principal_name,
+                        is_new=True,
+                    )
 
     async def _update_agent(
         self: Any,
@@ -130,6 +196,7 @@ class PartyApiMixin:
         is_exec: bool = False,
         agent_id: str | None = None,
         principal_name: str = "",
+        is_new: bool = False,
     ) -> None:
         dlr_id = str(agent_id or "").strip() or uuid.uuid4().hex
 
@@ -165,5 +232,11 @@ class PartyApiMixin:
             payload["sfdzsd"] = "1501_000010-1"
             payload["csfdzsd"] = "是"
 
-        await self._patch("/yzw-zxfw-lafw/api/v3/layy/dlr", payload)
-        logger.info("代理人更新完成: %s", agent["name"])
+        if is_new:
+            # 新代理人用 POST 创建（PATCH 只能更新已有记录）
+            result = await self._post("/yzw-zxfw-lafw/api/v3/layy/dlr", payload)
+            logger.info("代理人创建完成: %s, id=%s, 响应=%s", agent["name"], dlr_id, result)
+        else:
+            # 已有代理人用 PATCH 更新
+            result = await self._patch("/yzw-zxfw-lafw/api/v3/layy/dlr", payload)
+            logger.info("代理人更新完成: %s, id=%s, 响应=%s", agent["name"], dlr_id, result)
