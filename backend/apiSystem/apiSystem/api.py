@@ -229,6 +229,10 @@ def _register_app_routers() -> None:
     api_v1.add_router("/litigation", litigation_router, auth=JWTOrSessionAuth(), tags=["诉讼文书生成"])
     api_v1.add_router("/mock-trial", mock_trial_router, auth=JWTOrSessionAuth(), tags=["模拟庭审"])
     api_v1.add_router("/contract-review", contract_review_router, auth=JWTOrSessionAuth(), tags=["合同审查"])
+
+    from apps.contract_review.api.format_api import router as format_normalize_router
+
+    api_v1.add_router("/contract-review/format", format_normalize_router, auth=JWTOrSessionAuth(), tags=["合同审查"])
     api_v1.add_router("/legal-research", legal_research_router, auth=JWTOrSessionAuth(), tags=["案例检索"])
 
     from apps.oa_filing.api.filing_api import router as oa_filing_router

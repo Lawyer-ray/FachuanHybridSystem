@@ -122,6 +122,15 @@ class FilingFlowMixin:
             agent = case_data.get("agent")
             if isinstance(agent, dict):
                 agents = [agent]
+        logger.info(
+            "代理人写入条件检查: agents数量=%d, first_plaintiff_dsrid=%s",
+            len(agents),
+            first_plaintiff_dsrid,
+        )
+        if not agents:
+            logger.warning("代理人数据为空，跳过代理人写入")
+        if not first_plaintiff_dsrid:
+            logger.warning("first_plaintiff_dsrid 为空，跳过代理人写入")
         if agents and first_plaintiff_dsrid:
             principal_name = str(((case_data.get("plaintiffs") or [{}])[0]).get("name", "") or "").strip()
             await self._update_agents(
