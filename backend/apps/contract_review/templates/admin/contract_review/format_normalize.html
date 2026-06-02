@@ -5,18 +5,16 @@
 
 {% block content %}
 <div id="content-main">
-    <ul class="object-tools">
-        <li>
-            <a href="{% url 'admin:contract_review_reviewtask_add' %}" class="addlink">
-                添加合同审查任务
-            </a>
-        </li>
-        <li>
-            <a href="{% url 'admin:contract_review_reviewtask_changelist' %}" class="changelink">
+    <div class="submit-row">
+        <p class="deletelink-box">
+            <a href="{% url 'admin:contract_review_reviewtask_changelist' %}" class="deletelink">
                 合同审查任务列表
             </a>
-        </li>
-    </ul>
+        </p>
+        <a href="{% url 'admin:contract_review_reviewtask_add' %}" class="addlink">
+            添加合同审查任务
+        </a>
+    </div>
 
     {% if messages %}
         {% for message in messages %}
@@ -31,19 +29,19 @@
         <p style="color: #666; margin-bottom: 15px;">点击"格式规范化"按钮即可处理对应任务</p>
 
         {% if tasks %}
-            <table>
+            <table class="result-list">
                 <thead>
                     <tr>
-                        <th>合同标题</th>
-                        <th>用户</th>
-                        <th>状态</th>
-                        <th>创建时间</th>
+                        <th class="sortable">合同标题</th>
+                        <th class="sortable">用户</th>
+                        <th class="sortable">状态</th>
+                        <th class="sortable">创建时间</th>
                         <th>操作</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for task in tasks %}
-                    <tr>
+                    <tr class="row1">
                         <td>{{ task.contract_title|default:"未命名合同" }}</td>
                         <td>{{ task.user|default:"-" }}</td>
                         <td>{{ task.get_status_display }}</td>
