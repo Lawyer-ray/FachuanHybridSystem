@@ -131,6 +131,7 @@ class FormatNormalizeAdmin(admin.ModelAdmin):
             try:
                 # 保存上传的文件
                 from django.core.files.storage import default_storage
+
                 file_path = f"contract_review/uploads/{uploaded_file.name}"
                 saved_path = default_storage.save(file_path, uploaded_file)
 

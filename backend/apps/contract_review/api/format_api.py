@@ -116,9 +116,9 @@ def download_normalized(request: HttpRequest, task_id: UUID) -> FileResponse:
 
     # 权限检查
     if not _check_task_access(task, request.user):
-        from django.http import HttpResponseForbidden
+        from django.http import Http404
 
-        return HttpResponseForbidden("无权下载此文件")
+        raise Http404("无权下载此文件")
 
     if not task.output_file:
         from django.http import Http404
