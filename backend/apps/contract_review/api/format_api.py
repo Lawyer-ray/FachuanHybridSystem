@@ -19,7 +19,7 @@ def _check_task_access(task: Any, user: Any) -> bool:
         return False
     if user.is_superuser:
         return True
-    return task.user_id == user.id
+    return bool(task.user_id == user.id)
 
 
 @router.post("/normalize", response=FormatNormalizeOut)
@@ -39,8 +39,11 @@ def normalize_format(
 
     # 权限检查
     if not _check_task_access(task, request.user):
-        from django.http import HttpResponseForbidden
-        return HttpResponseForbidden("无权操作此任务")
+        return {
+            "task_id": payload.task_id,
+            "status": "failed",
+            "message": "无权操作此任务",
+        }
 
     # 检查原始文件是否存在
     if not task.original_file:
@@ -108,20 +111,24 @@ def download_normalized(request: HttpRequest, task_id: UUID) -> FileResponse:
         task = ReviewTask.objects.get(id=task_id)
     except ReviewTask.DoesNotExist:
         from django.http import Http404
+
         raise Http404("任务不存在")
 
     # 权限检查
     if not _check_task_access(task, request.user):
         from django.http import HttpResponseForbidden
+
         return HttpResponseForbidden("无权下载此文件")
 
     if not task.output_file:
         from django.http import Http404
+
         raise Http404("输出文件不存在")
 
     output_path = Path(task.output_file)
     if not output_path.exists():
         from django.http import Http404
+
         raise Http404("输出文件不存在")
 
     return FileResponse(

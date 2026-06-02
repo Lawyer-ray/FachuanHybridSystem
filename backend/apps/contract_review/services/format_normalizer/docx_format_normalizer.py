@@ -24,12 +24,18 @@ MARGIN_RIGHT = Cm(3.17)
 class DocxFormatNormalizer:
     """合同格式规范化器 - 直接复制修订版格式"""
 
-    def __init__(self, input_path: str | Path, output_path: str | Path | None = None, reference_path: str | Path | None = None):
+    def __init__(
+        self, input_path: str | Path, output_path: str | Path | None = None, reference_path: str | Path | None = None
+    ):
         self.input_path = Path(input_path)
-        self.output_path = Path(output_path) if output_path else self.input_path.parent / f"{self.input_path.stem}_规范化{self.input_path.suffix}"
+        self.output_path = (
+            Path(output_path)
+            if output_path
+            else self.input_path.parent / f"{self.input_path.stem}_规范化{self.input_path.suffix}"
+        )
         self.reference_path = Path(reference_path) if reference_path else None
-        self.doc: Document | None = None
-        self.ref_doc: Document | None = None
+        self.doc: Any = None
+        self.ref_doc: Any = None
 
     def normalize(self) -> Path:
         """执行格式规范化，返回输出文件路径"""
@@ -56,12 +62,14 @@ class DocxFormatNormalizer:
             self._normalize_default()
 
         # 4. 保存
+        assert self.doc is not None, "doc 应在 normalize 开头初始化"
         self.doc.save(str(self.output_path))
         logger.info("规范化完成: %s", self.output_path)
         return self.output_path
 
     def _normalize_margins(self) -> None:
         """统一页边距为 A4 标准"""
+        assert self.doc is not None
         for section in self.doc.sections:
             section.top_margin = MARGIN_TOP
             section.bottom_margin = MARGIN_BOTTOM
@@ -71,6 +79,7 @@ class DocxFormatNormalizer:
 
     def _setup_numbering(self) -> None:
         """设置自动编号样式"""
+        assert self.doc is not None
         try:
             numbering_part = self.doc.part.numbering_part
             numbering_elm = numbering_part._element
@@ -78,94 +87,98 @@ class DocxFormatNormalizer:
             numbering_elm = self._create_numbering_part()
 
         # 创建 abstractNum
-        abstractNum = OxmlElement('w:abstractNum')
-        abstractNum.set(qn('w:abstractNumId'), '0')
+        abstractNum = OxmlElement("w:abstractNum")
+        abstractNum.set(qn("w:abstractNumId"), "0")
 
         # 一级：一、二、三...
-        lvl0 = self._create_level('0', 'chineseCounting', '%1、', '400')
+        lvl0 = self._create_level("0", "chineseCounting", "%1、", "400")
         abstractNum.append(lvl0)
 
         # 二级：1. 2. 3.
-        lvl1 = self._create_level('1', 'decimal', '%2．', '400')
+        lvl1 = self._create_level("1", "decimal", "%2．", "400")
         abstractNum.append(lvl1)
 
         # 三级：（1）（2）（3）
-        lvl2 = self._create_level('2', 'decimal', '（%3）', '402')
+        lvl2 = self._create_level("2", "decimal", "（%3）", "402")
         abstractNum.append(lvl2)
 
         # 插入到 numbering 元素开头
         numbering_elm.insert(0, abstractNum)
 
         # 创建 num 实例
-        num = OxmlElement('w:num')
-        num.set(qn('w:numId'), '1')
-        abstractNumRef = OxmlElement('w:abstractNumId')
-        abstractNumRef.set(qn('w:val'), '0')
+        num = OxmlElement("w:num")
+        num.set(qn("w:numId"), "1")
+        abstractNumRef = OxmlElement("w:abstractNumId")
+        abstractNumRef.set(qn("w:val"), "0")
         num.append(abstractNumRef)
         numbering_elm.append(num)
 
         # 如果是新创建的 part，需要更新其内容
-        if hasattr(self, '_numbering_part'):
+        if hasattr(self, "_numbering_part"):
             from lxml import etree
-            self._numbering_part._blob = etree.tostring(numbering_elm, xml_declaration=True, encoding='UTF-8', standalone=True)
+
+            self._numbering_part._blob = etree.tostring(
+                numbering_elm, xml_declaration=True, encoding="UTF-8", standalone=True
+            )
 
         logger.debug("编号样式已创建")
 
     def _create_numbering_part(self) -> Any:
         """手动创建 numbering part"""
+        assert self.doc is not None
         from docx.opc.constants import RELATIONSHIP_TYPE as RT
-        from docx.opc.part import Part
         from docx.opc.packuri import PackURI
+        from docx.opc.part import Part
         from lxml import etree
 
-        nsmap = {'w': 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'}
-        numbering_elm = etree.SubElement(etree.Element('root'), qn('w:numbering'), nsmap=nsmap)
-        numbering_xml = etree.tostring(numbering_elm, xml_declaration=True, encoding='UTF-8', standalone=True)
+        nsmap = {"w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main"}
+        numbering_elm = etree.SubElement(etree.Element("root"), qn("w:numbering"), nsmap=nsmap)
+        numbering_xml = etree.tostring(numbering_elm, xml_declaration=True, encoding="UTF-8", standalone=True)
 
-        part_name = PackURI('/word/numbering.xml')
-        content_type = 'application/vnd.openxmlformats-officedocument.wordprocessingml.numbering+xml'
+        part_name = PackURI("/word/numbering.xml")
+        content_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.numbering+xml"
         numbering_part = Part(part_name, content_type, numbering_xml, self.doc.part.package)
         self.doc.part.relate_to(numbering_part, RT.NUMBERING)
         self._numbering_part = numbering_part
 
         return numbering_elm
 
-    def _create_level(self, ilvl: str, num_fmt: str, level_text: str, first_line: str) -> OxmlElement:
+    def _create_level(self, ilvl: str, num_fmt: str, level_text: str, first_line: str) -> Any:
         """创建编号级别定义"""
-        lvl = OxmlElement('w:lvl')
-        lvl.set(qn('w:ilvl'), ilvl)
-        lvl.set(qn('w:tentative'), '0')
+        lvl = OxmlElement("w:lvl")
+        lvl.set(qn("w:ilvl"), ilvl)
+        lvl.set(qn("w:tentative"), "0")
 
-        start = OxmlElement('w:start')
-        start.set(qn('w:val'), '1')
+        start = OxmlElement("w:start")
+        start.set(qn("w:val"), "1")
         lvl.append(start)
 
-        numFmt = OxmlElement('w:numFmt')
-        numFmt.set(qn('w:val'), num_fmt)
+        numFmt = OxmlElement("w:numFmt")
+        numFmt.set(qn("w:val"), num_fmt)
         lvl.append(numFmt)
 
-        suff = OxmlElement('w:suff')
-        suff.set(qn('w:val'), 'nothing')
+        suff = OxmlElement("w:suff")
+        suff.set(qn("w:val"), "nothing")
         lvl.append(suff)
 
-        lvlText = OxmlElement('w:lvlText')
-        lvlText.set(qn('w:val'), level_text)
+        lvlText = OxmlElement("w:lvlText")
+        lvlText.set(qn("w:val"), level_text)
         lvl.append(lvlText)
 
-        lvlJc = OxmlElement('w:lvlJc')
-        lvlJc.set(qn('w:val'), 'left')
+        lvlJc = OxmlElement("w:lvlJc")
+        lvlJc.set(qn("w:val"), "left")
         lvl.append(lvlJc)
 
-        pPr = OxmlElement('w:pPr')
-        ind = OxmlElement('w:ind')
-        ind.set(qn('w:left'), '0')
-        ind.set(qn('w:firstLine'), first_line)
+        pPr = OxmlElement("w:pPr")
+        ind = OxmlElement("w:ind")
+        ind.set(qn("w:left"), "0")
+        ind.set(qn("w:firstLine"), first_line)
         pPr.append(ind)
         lvl.append(pPr)
 
-        rPr = OxmlElement('w:rPr')
-        rFonts = OxmlElement('w:rFonts')
-        rFonts.set(qn('w:hint'), 'eastAsia')
+        rPr = OxmlElement("w:rPr")
+        rFonts = OxmlElement("w:rFonts")
+        rFonts.set(qn("w:hint"), "eastAsia")
         rPr.append(rFonts)
         lvl.append(rPr)
 
@@ -173,6 +186,8 @@ class DocxFormatNormalizer:
 
     def _normalize_with_reference(self) -> None:
         """使用参考文档的格式进行规范化"""
+        assert self.ref_doc is not None
+        assert self.doc is not None
         ref_paras = self.ref_doc.paragraphs
         doc_paras = self.doc.paragraphs
 
@@ -190,6 +205,7 @@ class DocxFormatNormalizer:
 
     def _normalize_default(self) -> None:
         """使用默认格式进行规范化"""
+        assert self.doc is not None
         for i, para in enumerate(self.doc.paragraphs):
             self._apply_default_format(para, i)
 
@@ -198,7 +214,7 @@ class DocxFormatNormalizer:
     def _copy_paragraph_format(self, ref_para: Any, doc_para: Any, index: int) -> None:
         """从参考文档复制段落格式"""
         # 获取参考文档的段落格式
-        ref_pPr = ref_para._element.find(qn('w:pPr'))
+        ref_pPr = ref_para._element.find(qn("w:pPr"))
         doc_pPr = doc_para._element.get_or_add_pPr()
 
         # 清除旧的格式
@@ -207,45 +223,45 @@ class DocxFormatNormalizer:
         # 复制 pPr 属性
         if ref_pPr is not None:
             # 复制对齐方式
-            ref_jc = ref_pPr.find(qn('w:jc'))
+            ref_jc = ref_pPr.find(qn("w:jc"))
             if ref_jc is not None:
-                jc = OxmlElement('w:jc')
-                jc.set(qn('w:val'), ref_jc.get(qn('w:val')))
+                jc = OxmlElement("w:jc")
+                jc.set(qn("w:val"), ref_jc.get(qn("w:val")))
                 doc_pPr.append(jc)
 
             # 复制行距
-            ref_spacing = ref_pPr.find(qn('w:spacing'))
+            ref_spacing = ref_pPr.find(qn("w:spacing"))
             if ref_spacing is not None:
-                spacing = OxmlElement('w:spacing')
-                for attr in ['w:line', 'w:lineRule', 'w:before', 'w:after']:
+                spacing = OxmlElement("w:spacing")
+                for attr in ["w:line", "w:lineRule", "w:before", "w:after"]:
                     val = ref_spacing.get(qn(attr))
                     if val is not None:
                         spacing.set(qn(attr), val)
                 doc_pPr.append(spacing)
 
             # 复制缩进
-            ref_ind = ref_pPr.find(qn('w:ind'))
+            ref_ind = ref_pPr.find(qn("w:ind"))
             if ref_ind is not None:
-                ind = OxmlElement('w:ind')
-                for attr in ['w:left', 'w:firstLine', 'w:hanging']:
+                ind = OxmlElement("w:ind")
+                for attr in ["w:left", "w:firstLine", "w:hanging"]:
                     val = ref_ind.get(qn(attr))
                     if val is not None:
                         ind.set(qn(attr), val)
                 doc_pPr.append(ind)
 
             # 复制编号
-            ref_numPr = ref_pPr.find(qn('w:numPr'))
+            ref_numPr = ref_pPr.find(qn("w:numPr"))
             if ref_numPr is not None:
-                numPr = OxmlElement('w:numPr')
-                ref_ilvl = ref_numPr.find(qn('w:ilvl'))
+                numPr = OxmlElement("w:numPr")
+                ref_ilvl = ref_numPr.find(qn("w:ilvl"))
                 if ref_ilvl is not None:
-                    ilvl = OxmlElement('w:ilvl')
-                    ilvl.set(qn('w:val'), ref_ilvl.get(qn('w:val')))
+                    ilvl = OxmlElement("w:ilvl")
+                    ilvl.set(qn("w:val"), ref_ilvl.get(qn("w:val")))
                     numPr.append(ilvl)
-                ref_numId = ref_numPr.find(qn('w:numId'))
+                ref_numId = ref_numPr.find(qn("w:numId"))
                 if ref_numId is not None:
-                    numId = OxmlElement('w:numId')
-                    numId.set(qn('w:val'), ref_numId.get(qn('w:val')))
+                    numId = OxmlElement("w:numId")
+                    numId.set(qn("w:val"), ref_numId.get(qn("w:val")))
                     numPr.append(numId)
                 doc_pPr.append(numPr)
 
@@ -256,15 +272,15 @@ class DocxFormatNormalizer:
         """从参考文档复制 run 格式"""
         # 获取参考文档的 run 格式
         if ref_para.runs:
-            ref_rPr = ref_para.runs[0]._element.find(qn('w:rPr'))
+            ref_rPr = ref_para.runs[0]._element.find(qn("w:rPr"))
         else:
             ref_rPr = None
 
         # 如果文档没有 run，但参考文档有 run 格式，需要添加 run
         if not doc_para.runs and ref_rPr is not None:
             # 创建一个空的 run
-            run_elem = OxmlElement('w:r')
-            rPr = OxmlElement('w:rPr')
+            run_elem = OxmlElement("w:r")
+            rPr = OxmlElement("w:rPr")
             run_elem.append(rPr)
             doc_para._element.append(run_elem)
 
@@ -273,7 +289,7 @@ class DocxFormatNormalizer:
             rPr = run._element.get_or_add_rPr()
 
             # 清除旧的格式
-            for tag in ['w:rFonts', 'w:sz', 'w:szCs', 'w:b']:
+            for tag in ["w:rFonts", "w:sz", "w:szCs", "w:b"]:
                 old = rPr.find(qn(tag))
                 if old is not None:
                     rPr.remove(old)
@@ -281,32 +297,32 @@ class DocxFormatNormalizer:
             # 复制格式
             if ref_rPr is not None:
                 # 复制字体
-                ref_rFonts = ref_rPr.find(qn('w:rFonts'))
+                ref_rFonts = ref_rPr.find(qn("w:rFonts"))
                 if ref_rFonts is not None:
-                    rFonts = OxmlElement('w:rFonts')
-                    for attr in ['w:ascii', 'w:hAnsi', 'w:eastAsia', 'w:cs']:
+                    rFonts = OxmlElement("w:rFonts")
+                    for attr in ["w:ascii", "w:hAnsi", "w:eastAsia", "w:cs"]:
                         val = ref_rFonts.get(qn(attr))
                         if val is not None:
                             rFonts.set(qn(attr), val)
                     rPr.insert(0, rFonts)
 
                 # 复制字号
-                ref_sz = ref_rPr.find(qn('w:sz'))
+                ref_sz = ref_rPr.find(qn("w:sz"))
                 if ref_sz is not None:
-                    sz = OxmlElement('w:sz')
-                    sz.set(qn('w:val'), ref_sz.get(qn('w:val')))
+                    sz = OxmlElement("w:sz")
+                    sz.set(qn("w:val"), ref_sz.get(qn("w:val")))
                     rPr.append(sz)
 
-                ref_szCs = ref_rPr.find(qn('w:szCs'))
+                ref_szCs = ref_rPr.find(qn("w:szCs"))
                 if ref_szCs is not None:
-                    szCs = OxmlElement('w:szCs')
-                    szCs.set(qn('w:val'), ref_szCs.get(qn('w:val')))
+                    szCs = OxmlElement("w:szCs")
+                    szCs.set(qn("w:val"), ref_szCs.get(qn("w:val")))
                     rPr.append(szCs)
 
                 # 复制加粗
-                ref_b = ref_rPr.find(qn('w:b'))
+                ref_b = ref_rPr.find(qn("w:b"))
                 if ref_b is not None:
-                    b = OxmlElement('w:b')
+                    b = OxmlElement("w:b")
                     rPr.append(b)
 
     def _apply_default_format(self, para: Any, index: int) -> None:
@@ -317,20 +333,20 @@ class DocxFormatNormalizer:
         self._clear_old_format(pPr)
 
         # 基础格式：行距 360，左缩进 0
-        spacing = OxmlElement('w:spacing')
-        spacing.set(qn('w:line'), '360')
-        spacing.set(qn('w:lineRule'), 'auto')
-        spacing.set(qn('w:before'), '0')
-        spacing.set(qn('w:after'), '0')
+        spacing = OxmlElement("w:spacing")
+        spacing.set(qn("w:line"), "360")
+        spacing.set(qn("w:lineRule"), "auto")
+        spacing.set(qn("w:before"), "0")
+        spacing.set(qn("w:after"), "0")
         pPr.append(spacing)
 
-        ind = OxmlElement('w:ind')
-        ind.set(qn('w:left'), '0')
+        ind = OxmlElement("w:ind")
+        ind.set(qn("w:left"), "0")
         pPr.append(ind)
 
     def _clear_old_format(self, pPr: Any) -> None:
         """清除旧的格式定义"""
-        for tag in ['w:spacing', 'w:ind', 'w:jc', 'w:numPr']:
+        for tag in ["w:spacing", "w:ind", "w:jc", "w:numPr"]:
             old = pPr.find(qn(tag))
             if old is not None:
                 pPr.remove(old)

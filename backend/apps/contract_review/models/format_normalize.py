@@ -2,6 +2,7 @@
 
 用于在 Django admin 中创建独立的格式调整菜单入口
 """
+
 from django.db import models
 
 from .review_task import ReviewTask

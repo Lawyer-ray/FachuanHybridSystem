@@ -401,8 +401,8 @@ class ReviewTaskAdmin(admin.ModelAdmin):
         # 获取所有有原始文件的任务
         tasks = ReviewTask.objects.filter(
             original_file__isnull=False,
-            original_file__gt='',
-        ).order_by('-created_at')[:50]
+            original_file__gt="",
+        ).order_by("-created_at")[:50]
 
         context = {
             **self.admin_site.each_context(request),
@@ -424,16 +424,19 @@ class ReviewTaskAdmin(admin.ModelAdmin):
             task = ReviewTask.objects.get(id=task_id)
         except ReviewTask.DoesNotExist:
             from django.http import Http404
+
             raise Http404("任务不存在")
 
         if not task.original_file:
             from django.contrib import messages
+
             messages.error(request, "该任务没有原始文件")
             return self._redirect_back(request)
 
         original_path = Path(task.original_file)
         if not original_path.exists():
             from django.contrib import messages
+
             messages.error(request, f"原始文件不存在: {original_path}")
             return self._redirect_back(request)
 
@@ -452,11 +455,13 @@ class ReviewTaskAdmin(admin.ModelAdmin):
             task.save(update_fields=["output_file"])
 
             from django.contrib import messages
+
             messages.success(request, f"格式规范化完成: {result_path.name}")
 
         except Exception as e:
             logger.exception("格式规范化失败: %s", e)
             from django.contrib import messages
+
             messages.error(request, f"格式规范化失败: {e!s}")
 
         return self._redirect_back(request)
@@ -464,4 +469,5 @@ class ReviewTaskAdmin(admin.ModelAdmin):
     def _redirect_back(self, request: HttpRequest) -> HttpResponse:
         """重定向回上一页"""
         from django.http import HttpResponseRedirect
+
         return HttpResponseRedirect(request.META.get("HTTP_REFERER", "/admin/contract_review/reviewtask/"))
