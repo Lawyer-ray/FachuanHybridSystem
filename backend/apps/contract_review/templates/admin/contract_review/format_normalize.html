@@ -25,30 +25,27 @@
     .object-tools li + li {
         margin-left: 0;
     }
-    .module h2 {
-        background: #79aec8;
-        color: #fff;
-        padding: 10px 15px;
-        margin: 0;
-        font-size: 14px;
-    }
     .result-list {
         width: 100%;
         border-collapse: collapse;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        overflow: hidden;
     }
     .result-list th {
-        background: #f8f9fa;
+        background: #79aec8;
+        color: #fff;
         padding: 10px 15px;
         text-align: left;
-        border-bottom: 1px solid #ddd;
         font-weight: bold;
-        color: #333;
         font-size: 12px;
-        text-transform: uppercase;
     }
     .result-list td {
         padding: 10px 15px;
         border-bottom: 1px solid #eee;
+    }
+    .result-list tr:last-child td {
+        border-bottom: none;
     }
     .result-list tr:hover {
         background: #f5f5f5;
@@ -67,6 +64,18 @@
     .result-list .button:hover {
         background: #205067;
         color: #fff;
+    }
+    .empty-state {
+        padding: 40px 20px;
+        text-align: center;
+        color: #666;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        background: #f9f9f9;
+    }
+    .empty-state a {
+        color: #417690;
+        text-decoration: underline;
     }
 </style>
 {% endblock %}
@@ -94,44 +103,39 @@
         {% endfor %}
     {% endif %}
 
-    <div class="module">
-        <h2>待处理任务</h2>
-        <p style="color: #666; margin: 15px;">点击"格式规范化"按钮即可处理对应任务</p>
-
-        {% if tasks %}
-            <table class="result-list">
-                <thead>
-                    <tr>
-                        <th>合同标题</th>
-                        <th>用户</th>
-                        <th>状态</th>
-                        <th>创建时间</th>
-                        <th>操作</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for task in tasks %}
-                    <tr>
-                        <td>{{ task.contract_title|default:"未命名合同" }}</td>
-                        <td>{{ task.user|default:"-" }}</td>
-                        <td>{{ task.get_status_display }}</td>
-                        <td>{{ task.created_at|date:"Y-m-d H:i" }}</td>
-                        <td>
-                            <a href="{% url 'admin:contract_review_formatnormalize_execute' task_id=task.id %}"
-                               class="button"
-                               onclick="return confirm('确定要对此任务执行格式规范化吗？')">
-                                格式规范化
-                            </a>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        {% else %}
-            <p style="padding: 20px; text-align: center; color: #666;">
-                暂无待处理的任务。请先 <a href="{% url 'admin:contract_review_reviewtask_add' %}">添加合同审查任务</a>。
-            </p>
-        {% endif %}
-    </div>
+    {% if tasks %}
+        <table class="result-list">
+            <thead>
+                <tr>
+                    <th>合同标题</th>
+                    <th>用户</th>
+                    <th>状态</th>
+                    <th>创建时间</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for task in tasks %}
+                <tr>
+                    <td>{{ task.contract_title|default:"未命名合同" }}</td>
+                    <td>{{ task.user|default:"-" }}</td>
+                    <td>{{ task.get_status_display }}</td>
+                    <td>{{ task.created_at|date:"Y-m-d H:i" }}</td>
+                    <td>
+                        <a href="{% url 'admin:contract_review_formatnormalize_execute' task_id=task.id %}"
+                           class="button"
+                           onclick="return confirm('确定要对此任务执行格式规范化吗？')">
+                            格式规范化
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <div class="empty-state">
+            暂无待处理的任务。请先 <a href="{% url 'admin:contract_review_reviewtask_add' %}">添加合同审查任务</a>。
+        </div>
+    {% endif %}
 </div>
 {% endblock %}
