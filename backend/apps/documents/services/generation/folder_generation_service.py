@@ -15,8 +15,6 @@ from datetime import date
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 
-from django.utils.translation import gettext_lazy as _
-
 from apps.core.exceptions import NotFoundError, ValidationException
 from apps.core.models.enums import CaseType
 from apps.core.services.filename_template_service import FilenameTemplateService
@@ -73,6 +71,8 @@ class FolderGenerationService:
 
     def fetch_template_by_id(self, template_id: int) -> FolderTemplate:
         """按 ID 获取文件夹模板。"""
+        from apps.documents.models import FolderTemplate
+
         return FolderTemplate.objects.get(pk=template_id)
 
     @property
@@ -302,7 +302,7 @@ class FolderGenerationService:
         folder_template = self.find_matching_folder_template(contract.case_type)
         if not folder_template:
             raise ValidationException(
-                message=_("请先配置文件夹模板"),
+                message="请先配置文件夹模板",
                 code="NO_FOLDER_TEMPLATE",
                 errors={"case_type": f"合同类型 {contract.case_type} 没有匹配的文件夹模板"},
             )

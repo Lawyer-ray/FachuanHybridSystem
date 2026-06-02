@@ -14,7 +14,6 @@ from __future__ import annotations
 from typing import Any
 
 from django.http import HttpRequest
-from django.utils.translation import gettext_lazy as _
 from ninja import Router, Schema
 
 from apps.core.exceptions import NotFoundError
@@ -101,7 +100,7 @@ def get_cause_by_id(request: HttpRequest, cause_id: int) -> Any:
     service = _get_cause_court_data_service()
     result = service.get_cause_by_id(cause_id)
     if result is None:
-        raise NotFoundError(message=_("案由不存在"), code="CAUSE_NOT_FOUND")
+        raise NotFoundError(message="案由不存在", code="CAUSE_NOT_FOUND")
     return result
 
 

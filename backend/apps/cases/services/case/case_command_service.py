@@ -6,7 +6,6 @@ import logging
 from typing import Any
 
 from django.db import transaction
-from django.utils.translation import gettext_lazy as _
 
 from apps.cases.models import Case
 from apps.core.config.business_config import business_config
@@ -44,13 +43,13 @@ class CaseCommandService(PermissionMixin):
         """验证案件阶段是否合法。"""
         if case_type and not business_config.is_stage_valid_for_case_type(stage, case_type):
             raise ValidationException(
-                _("该案件类型不支持此阶段"),
-                errors={"current_stage": str(_("阶段不适用于此案件类型"))},
+                "该案件类型不支持此阶段",
+                errors={"current_stage": "阶段不适用于此案件类型"},
             )
         if representation_stages and stage not in representation_stages:
             raise ValidationException(
-                _("当前阶段必须属于代理阶段集合"),
-                errors={"current_stage": str(_("阶段不在代理范围内"))},
+                "当前阶段必须属于代理阶段集合",
+                errors={"current_stage": "阶段不在代理范围内"},
             )
         return stage
 
@@ -76,15 +75,15 @@ class CaseCommandService(PermissionMixin):
         contract = self._contract_service.get_contract(contract_id)
         if not contract:
             raise ValidationException(
-                message=_("合同不存在"),
+                message="合同不存在",
                 code="CONTRACT_NOT_FOUND",
                 errors={"contract_id": f"无效的合同 ID: {contract_id}"},
             )
         if not self._contract_service.validate_contract_active(contract_id):
             raise ValidationException(
-                message=_("合同未激活"),
+                message="合同未激活",
                 code="CONTRACT_INACTIVE",
-                errors={"contract_id": str(_("合同状态不是 active"))},
+                errors={"contract_id": "合同状态不是 active"},
             )
 
     # ------------------------------------------------------------------
@@ -156,7 +155,7 @@ class CaseCommandService(PermissionMixin):
         try:
             case = get_case_queryset().select_related("contract").get(id=case_id)
         except Case.DoesNotExist:
-            raise NotFoundError(_("案件 %(id)s 不存在") % {"id": case_id}) from None
+            raise NotFoundError("案件 %(id)s 不存在" % {"id": case_id}) from None
 
         ctx = AccessContext(user=user, org_access=org_access, perm_open_access=perm_open_access)
         if not perm_open_access:
@@ -167,7 +166,7 @@ class CaseCommandService(PermissionMixin):
                 org_access=org_access,
                 perm_open_access=perm_open_access,
                 case=case,
-                message=_("无权限访问此案件"),
+                message="无权限访问此案件",
             )
 
         contract_id: int | None = data.get("contract_id")
@@ -175,7 +174,7 @@ class CaseCommandService(PermissionMixin):
             contract = self._contract_service.get_contract(contract_id)
             if not contract:
                 raise ValidationException(
-                    message=_("合同不存在"),
+                    message="合同不存在",
                     code="CONTRACT_NOT_FOUND",
                     errors={"contract_id": f"无效的合同 ID: {contract_id}"},
                 )
@@ -227,7 +226,7 @@ class CaseCommandService(PermissionMixin):
         try:
             case = Case.objects.get(id=case_id)
         except Case.DoesNotExist:
-            raise NotFoundError(_("案件 %(id)s 不存在") % {"id": case_id}) from None
+            raise NotFoundError("案件 %(id)s 不存在" % {"id": case_id}) from None
 
         ctx = AccessContext(user=user, org_access=org_access, perm_open_access=perm_open_access)
         if not perm_open_access:
@@ -238,7 +237,7 @@ class CaseCommandService(PermissionMixin):
                 org_access=org_access,
                 perm_open_access=perm_open_access,
                 case=case,
-                message=_("无权限访问此案件"),
+                message="无权限访问此案件",
             )
 
         logger.info(

@@ -2,8 +2,6 @@
 
 from typing import Any
 
-from django.utils.translation import gettext_lazy as _
-
 from apps.core.exceptions import NetworkError
 
 from .court_document_api_exceptions import ApiResponseError, TokenExpiredError
@@ -37,7 +35,7 @@ class CourtDocumentApiCoordinator:
             except (TokenExpiredError, ApiResponseError):
                 raise
 
-        raise NetworkError(message=_("请求失败"), errors={"url": url})
+        raise NetworkError(message="请求失败", errors={"url": url})
 
     def fetch_document_list(self, *, url: str, token: str, page_num: int, page_size: int) -> Any:
         payload: dict[str, Any] = {"pageNum": page_num, "pageSize": page_size}
@@ -60,4 +58,4 @@ class CourtDocumentApiCoordinator:
             except ApiResponseError:
                 raise
 
-        raise NetworkError(message=_("请求失败"), errors={"url": url})
+        raise NetworkError(message="请求失败", errors={"url": url})

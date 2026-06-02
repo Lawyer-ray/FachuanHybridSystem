@@ -10,7 +10,6 @@ from typing import TYPE_CHECKING, Any
 
 import httpx
 from django.utils import timezone
-from django.utils.translation import gettext_lazy as _
 
 from apps.message_hub.models import SyncStatus
 from apps.message_hub.services.base import MessageFetcher
@@ -456,7 +455,7 @@ class CourtScheduleFetcher(MessageFetcher):
 
         bh = record.get("bh", "")
         kssj = record.get("kssj", "")
-        rcbt = record.get("rcbt", "") or _("(无标题)")
+        rcbt = record.get("rcbt", "") or "(无标题)"
 
         if not kssj:
             logger.warning("一张网庭审日程: 跳过无时间的记录 bh=%s", bh)

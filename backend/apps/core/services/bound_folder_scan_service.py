@@ -9,8 +9,6 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Callable
 
-from django.utils.translation import gettext_lazy as _
-
 from apps.core.exceptions import ValidationException
 from apps.document_recognition.services.text_extraction_service import TextExtractionService
 
@@ -60,11 +58,11 @@ class BoundFolderScanService:
     def __init__(
         self,
         *,
-        max_candidates: int = 300,
+        max_candidates: int = 0,
         text_extraction_service: TextExtractionService | None = None,
         classification_service: MaterialClassificationService | None = None,
     ) -> None:
-        self._max_candidates = max_candidates
+        self._max_candidates = max_candidates  # 0 表示不限制数量
         self._text_extraction_service = text_extraction_service or TextExtractionService(
             text_limit=self._MAX_TEXT_EXCERPT,
             max_pages=self._SCAN_MAX_PAGES,
@@ -84,7 +82,7 @@ class BoundFolderScanService:
         root = Path(folder_path).expanduser()
         if not root.exists() or not root.is_dir():
             raise ValidationException(
-                message=_("绑定文件夹不可访问"),
+                message="绑定文件夹不可访问",
                 code="FOLDER_NOT_ACCESSIBLE",
                 errors={"folder_path": str(root)},
             )
@@ -93,7 +91,7 @@ class BoundFolderScanService:
         all_pdf_files = self._collect_pdf_files(root)
         deduped = self._deduplicate_files(all_pdf_files)
 
-        if len(deduped) > self._max_candidates:
+        if self._max_candidates > 0 and len(deduped) > self._max_candidates:
             deduped = deduped[: self._max_candidates]
 
         candidates: list[dict[str, Any]] = []
@@ -218,9 +216,7 @@ class BoundFolderScanService:
             )
             return candidate
 
-        raise ValidationException(
-            message=_("不支持的扫描领域"), code="UNSUPPORTED_SCAN_DOMAIN", errors={"domain": domain}
-        )
+        raise ValidationException(message="不支持的扫描领域", code="UNSUPPORTED_SCAN_DOMAIN", errors={"domain": domain})
 
     @staticmethod
     def _extract_parent_folder_hint(file_path: Path, scan_root: Path) -> str:

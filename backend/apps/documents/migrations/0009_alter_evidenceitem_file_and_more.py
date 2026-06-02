@@ -4,7 +4,6 @@ import apps.core.filesystem.upload_paths
 import apps.evidence.models.evidence_storage
 from django.db import migrations, models
 
-
 class Migration(migrations.Migration):
 
     dependencies = [

@@ -7,7 +7,6 @@ from typing import Any
 
 from django.core.cache import cache
 from django.db.models import Count, F, OuterRef, Subquery
-from django.utils.translation import gettext_lazy as _
 
 from apps.core.exceptions import NotFoundError, ValidationException
 from apps.core.security.permissions import AccessContext, PermissionMixin
@@ -170,7 +169,7 @@ class WorkbenchSessionService(PermissionMixin):
         try:
             return WorkbenchSession.objects.get(id=session_id, user=user)
         except WorkbenchSession.DoesNotExist:
-            raise NotFoundError(_("会话不存在")) from None
+            raise NotFoundError("会话不存在") from None
 
     @staticmethod
     def _invalidate_session_cache(user: Any) -> None:

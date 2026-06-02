@@ -10,7 +10,6 @@ import logging
 from typing import TYPE_CHECKING, Any, ClassVar
 
 from django.db import models
-from django.utils.translation import gettext_lazy as _
 from django_lifecycle import AFTER_CREATE, AFTER_UPDATE, LifecycleModel, hook
 
 from .choices import DocumentCaseStage, DocumentCaseType, DocumentContractType, FolderTemplateType, LegalStatusMatchMode
@@ -35,49 +34,47 @@ class FolderTemplate(LifecycleModel):
 
     id: int
 
-    name = models.CharField(max_length=100, verbose_name=_("模板名称"))
+    name = models.CharField(max_length=100, verbose_name="模板名称")
     template_type = models.CharField(
         max_length=20,
         choices=FolderTemplateType.choices,
-        verbose_name=_("模板类型"),
-        help_text=_("选择此模板用于合同还是案件"),
+        verbose_name="模板类型",
+        help_text="选择此模板用于合同还是案件",
     )
     case_types: Any = models.JSONField(
-        default=list, verbose_name=_("案件类型"), help_text=_("JSON 数组,如 ['civil', 'criminal'],支持多选")
+        default=list, verbose_name="案件类型", help_text="JSON 数组,如 ['civil', 'criminal'],支持多选"
     )
     case_stages: Any = models.JSONField(
-        default=list, verbose_name=_("案件阶段"), help_text=_("JSON 数组,如 ['first_trial', 'second_trial'],支持多选")
+        default=list, verbose_name="案件阶段", help_text="JSON 数组,如 ['first_trial', 'second_trial'],支持多选"
     )
     contract_types: Any = models.JSONField(
-        default=list, verbose_name=_("合同类型"), help_text=_("JSON 数组,如 ['civil', 'criminal'],支持多选")
+        default=list, verbose_name="合同类型", help_text="JSON 数组,如 ['civil', 'criminal'],支持多选"
     )
     legal_statuses: Any = models.JSONField(
         default=list,
         blank=True,
-        verbose_name=_("我方诉讼地位"),
-        help_text=_("可单选或多选;为空表示匹配任意诉讼地位"),
+        verbose_name="我方诉讼地位",
+        help_text="可单选或多选;为空表示匹配任意诉讼地位",
     )
     legal_status_match_mode = models.CharField(
         max_length=16,
         choices=LegalStatusMatchMode.choices,
         default=LegalStatusMatchMode.ANY,
-        verbose_name=_("诉讼地位匹配模式"),
+        verbose_name="诉讼地位匹配模式",
     )
-    structure: Any = models.JSONField(
-        default=dict, verbose_name=_("文件夹结构"), help_text=_("JSON 格式的文件夹层级结构")
-    )
-    is_default = models.BooleanField(default=False, verbose_name=_("是否默认模板"))
-    is_active = models.BooleanField(default=True, verbose_name=_("是否启用"))
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name=_("创建时间"))
-    updated_at = models.DateTimeField(auto_now=True, verbose_name=_("更新时间"))
+    structure: Any = models.JSONField(default=dict, verbose_name="文件夹结构", help_text="JSON 格式的文件夹层级结构")
+    is_default = models.BooleanField(default=False, verbose_name="是否默认模板")
+    is_active = models.BooleanField(default=True, verbose_name="是否启用")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="更新时间")
 
     if TYPE_CHECKING:
         document_bindings: RelatedManager[DocumentTemplateFolderBinding]
 
     class Meta:
         app_label = "documents"
-        verbose_name = _("文件夹模板")
-        verbose_name_plural = _("文件夹模板")
+        verbose_name = "文件夹模板"
+        verbose_name_plural = "文件夹模板"
         ordering: ClassVar = ["-updated_at"]
         indexes: ClassVar = [
             models.Index(fields=["is_active"]),

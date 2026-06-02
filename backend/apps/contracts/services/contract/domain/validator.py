@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from typing import Any
 
-from django.utils.translation import gettext_lazy as _
-
 from apps.contracts.models import FeeMode
 from apps.core.config.business_config import BusinessConfig
 from apps.core.exceptions import ValidationException
@@ -36,25 +34,25 @@ class ContractValidator:
                 validator(data, errors)
 
         if errors:
-            raise ValidationException(_("收费模式验证失败"), errors=errors)
+            raise ValidationException("收费模式验证失败", errors=errors)
 
     def _validate_fixed(self, data: dict[str, Any], errors: dict[str, str]) -> None:
         if not data.get("fixed_amount") or float(data["fixed_amount"]) <= 0:
-            errors["fixed_amount"] = str(_("固定收费需填写金额"))
+            errors["fixed_amount"] = "固定收费需填写金额"
 
     def _validate_semi_risk(self, data: dict[str, Any], errors: dict[str, str]) -> None:
         if not data.get("fixed_amount") or float(data["fixed_amount"]) <= 0:
-            errors["fixed_amount"] = str(_("半风险需填写前期金额"))
+            errors["fixed_amount"] = "半风险需填写前期金额"
         if not data.get("risk_rate") or float(data["risk_rate"]) <= 0:
-            errors["risk_rate"] = str(_("半风险需填写风险比例"))
+            errors["risk_rate"] = "半风险需填写风险比例"
 
     def _validate_full_risk(self, data: dict[str, Any], errors: dict[str, str]) -> None:
         if not data.get("risk_rate") or float(data["risk_rate"]) <= 0:
-            errors["risk_rate"] = str(_("全风险需填写风险比例"))
+            errors["risk_rate"] = "全风险需填写风险比例"
 
     def _validate_custom(self, data: dict[str, Any], errors: dict[str, str]) -> None:
         if not data.get("custom_terms") or not str(data["custom_terms"]).strip():
-            errors["custom_terms"] = str(_("自定义收费需填写条款文本"))
+            errors["custom_terms"] = "自定义收费需填写条款文本"
 
     def validate_stages(self, stages: list[str], case_type: str | None) -> list[str]:
         if not stages:
@@ -64,7 +62,7 @@ class ContractValidator:
         invalid = set(stages) - set(valid_stages)
         if invalid:
             raise ValidationException(
-                _("无效的代理阶段"), errors={"representation_stages": f"无效阶段: {', '.join(invalid)}"}
+                "无效的代理阶段", errors={"representation_stages": f"无效阶段: {', '.join(invalid)}"}
             )
 
         return stages

@@ -4,8 +4,6 @@ import logging
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any, cast
 
-from django.utils.translation import gettext_lazy as _
-
 from apps.automation.models import InsuranceQuote, QuoteItemStatus
 from apps.automation.services.insurance.exceptions import APIError, CompanyListEmptyError, TokenError
 
@@ -142,7 +140,7 @@ class QuoteExecutionMixin:
                 ),
             )
             if not companies:
-                raise CompanyListEmptyError(message=str(_("未获取到保险公司列表，请检查分类 ID 和法院 ID 是否正确")))
+                raise CompanyListEmptyError(message="未获取到保险公司列表，请检查分类 ID 和法院 ID 是否正确")
             logger.info(f"✅ 获取到 {len(companies)} 家保险公司")
             return companies
         except CompanyListEmptyError:

@@ -16,8 +16,6 @@ from datetime import date
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Optional
 
-from django.utils.translation import gettext_lazy as _
-
 from apps.automation.models import DocumentQueryHistory
 from apps.automation.services.document_delivery.data_classes import DocumentDeliveryRecord, DocumentProcessResult
 
@@ -210,7 +208,7 @@ class DocumentDeliveryProcessor:
                         sms.status = CourtSMSStatus.COMPLETED
                     else:
                         sms.status = CourtSMSStatus.FAILED
-                        sms.error_message = str(_("通知发送失败"))
+                        sms.error_message = "通知发送失败"
                     sms.save()
                     result["success"] = True
                 else:
@@ -400,7 +398,7 @@ class DocumentDeliveryProcessor:
             with zipfile.ZipFile(file_path, "r") as zip_ref:
                 for member in zip_ref.infolist():
                     target = (extract_path / member.filename).resolve()
-                    if not str(target).startswith(str(extract_path.resolve())):
+                    if not target.is_relative_to(extract_path.resolve()):
                         logger.warning(f"跳过不安全的 ZIP 条目: {member.filename}")
                         continue
                     zip_ref.extract(member, extract_path)

@@ -1,10 +1,8 @@
 from django.db import migrations, models
 
-
 def migrate_other_to_invoice(apps, schema_editor):
     FinalizedMaterial = apps.get_model("contracts", "FinalizedMaterial")
     FinalizedMaterial.objects.filter(category="other").update(category="invoice")
-
 
 class Migration(migrations.Migration):
 

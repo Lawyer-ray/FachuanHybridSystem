@@ -68,9 +68,7 @@ def list_research_results(task_id: int) -> list[dict[str, Any]]:
 
 def download_research_result(task_id: int, result_id: int) -> dict[str, Any]:
     """下载单个检索结果的 PDF 文件。返回 {filename, content_type, data_base64}。"""
-    content, filename, content_type = client.download(
-        f"/legal-research/tasks/{task_id}/results/{result_id}/download"
-    )
+    content, filename, content_type = client.download(f"/legal-research/tasks/{task_id}/results/{result_id}/download")
     return {
         "filename": filename,
         "content_type": content_type,
@@ -80,9 +78,7 @@ def download_research_result(task_id: int, result_id: int) -> dict[str, Any]:
 
 def download_all_research_results(task_id: int) -> dict[str, Any]:
     """下载检索任务所有结果的 ZIP 压缩包。返回 {filename, content_type, data_base64}。"""
-    content, filename, content_type = client.download(
-        f"/legal-research/tasks/{task_id}/results/download"
-    )
+    content, filename, content_type = client.download(f"/legal-research/tasks/{task_id}/results/download")
     return {
         "filename": filename,
         "content_type": content_type,

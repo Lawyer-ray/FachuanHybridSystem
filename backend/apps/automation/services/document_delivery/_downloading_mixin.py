@@ -111,7 +111,7 @@ class DocumentDeliveryDownloadingMixin:
             with zipfile.ZipFile(file_path, "r") as zip_ref:
                 for member in zip_ref.infolist():
                     target = (extract_path / member.filename).resolve()
-                    if not str(target).startswith(str(extract_path.resolve())):
+                    if not target.is_relative_to(extract_path.resolve()):
                         logger.warning(f"跳过不安全的 ZIP 条目: {member.filename}")
                         continue
                     zip_ref.extract(member, extract_path)

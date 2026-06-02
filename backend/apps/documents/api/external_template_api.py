@@ -10,14 +10,12 @@ import logging
 from typing import Any
 
 from django.http import HttpRequest, HttpResponse
-from django.utils.translation import gettext_lazy as _
 from ninja import Router, Schema
 
 from apps.core.security.auth import JWTOrSessionAuth
 
 logger = logging.getLogger("apps.documents.api")
 router = Router(auth=JWTOrSessionAuth())
-
 
 # ---------------------------------------------------------------------------
 # Factory functions
@@ -175,7 +173,7 @@ def match_templates(
     law_firm_id: int | None = getattr(user, "law_firm_id", None)
 
     if law_firm_id is None:
-        return {"success": False, "message": str(_("无法确定所属律所"))}
+        return {"success": False, "message": "无法确定所属律所"}
 
     if case_id is not None:
         results = service.match_by_case(case_id=case_id, law_firm_id=law_firm_id)
@@ -185,7 +183,7 @@ def match_templates(
             law_firm_id=law_firm_id,
         )
     else:
-        return {"success": False, "message": str(_("请提供 case_id 或 source_name 参数"))}
+        return {"success": False, "message": "请提供 case_id 或 source_name 参数"}
 
     return {
         "success": True,
@@ -215,7 +213,7 @@ def get_fill_history(
     elif template_id is not None:
         qs = service.get_fill_history_by_template(template_id)
     else:
-        return {"success": False, "message": str(_("请提供 case_id 或 template_id 参数"))}
+        return {"success": False, "message": "请提供 case_id 或 template_id 参数"}
 
     records = list(
         qs.values(
@@ -239,7 +237,7 @@ def get_statistics(request: HttpRequest) -> dict[str, Any]:
     law_firm_id: int | None = getattr(user, "law_firm_id", None)
 
     if law_firm_id is None:
-        return {"success": False, "message": str(_("无法确定所属律所"))}
+        return {"success": False, "message": "无法确定所属律所"}
 
     stats = service.get_template_statistics(law_firm_id)
     return {"success": True, "statistics": stats}

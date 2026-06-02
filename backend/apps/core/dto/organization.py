@@ -13,6 +13,7 @@ if TYPE_CHECKING:
 class AccountCredentialDTO:
     id: int
     lawyer_id: int
+    lawyer_name: str
     site_name: str
     url: str | None
     account: str
@@ -29,6 +30,7 @@ class AccountCredentialDTO:
         return cls(
             id=credential.id,
             lawyer_id=credential.lawyer_id,
+            lawyer_name=credential.lawyer.real_name or credential.lawyer.username,
             site_name=credential.site_name,
             url=credential.url,
             account=credential.account,

@@ -6,7 +6,6 @@ from apps.core.models import SystemConfig
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 logger = logging.getLogger(__name__)
 
-
 _SENSITIVE_KEY_RE = re.compile(
     r"(token|secret|password|passwd|api[_-]?key|authorization|bearer|cookie|session|private)",
     re.IGNORECASE,

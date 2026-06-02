@@ -2,6 +2,183 @@
 
 本项目的所有重要更改都将记录在此文件中。
 
+## [26.50.13] - 2026-06-02
+
+### 后端
+
+#### 新功能
+
+- **合同格式规范化**：新增合同格式调整功能，从修订版文档复制格式到正式版，支持标题加粗、正文 12 磅字号等规范化处理
+  - 新增 `DocxFormatNormalizer` 服务，精确匹配修订版段落格式并复制到正式版
+  - 新增格式调整 admin 页面（独立入口 + 合同审查列表入口）
+  - 新增格式调整 API 端点，支持上传文档和参考文档进行格式规范化
+- **代理事项规则初始化增强**：补充民事/二审/被上诉人默认代理事项规则，修复初始化 lookup 唯一性问题（`legal_statuses` 是 JSONField 不能直接做 lookup）
+- **文件夹模板初始化增强**：补充"民事二审答辩"文件夹模板及所函、授权委托书、法定代表人身份证明书的绑定关系
+- **移除文件大小和数量限制**：附件上传不再有 50MB 限制，文件夹扫描不再有 300 个文件数量限制
+- **合同上传功能**：添加独立的合同文档上传功能
+
+#### 修复
+
+- **主管机关重复记录**：修复主管机关（SupervisingAuthority）重复记录导致案件保存失败的问题，增加唯一性约束
+- **管辖法院查询降级**：`authority_type` 非 `trial` 时也能识别管辖法院，增加降级逻辑
+- **二审代理事项文本**：去掉二审被上诉人代理事项中的"提起反诉"
+
+#### 优化
+
+- 格式调整页面样式迭代优化，使用 Django admin 标准组件
+
+### 立案插件
+
+#### 优化
+
+- 优化 `execution_validation_mixin` 逻辑
+- 增强 `filing_flow_mixin` 功能
+- 改进 `party_mixin` 当事人处理逻辑
+
+## [26.50.12] - 2026-06-01
+
+### 后端
+
+#### 修复
+
+- **Windows 路径分隔符问题**：修复 12 处 Windows 下路径比较和存储失效的问题
+  - `os.path.commonpath()` 返回反斜杠导致 `_is_within_root()` 过滤所有子文件夹（contracts、cases 模块）
+  - `str(relative_to())` 存储反斜杠路径到数据库，导致后续比较失败（output_storage、court_document_admin）
+  - `startswith(str(path) + "/")` 安全检查在 Windows 上失效，改用 `is_relative_to()`（cases admin views）
+  - `str(path.resolve())` 存储反斜杠路径，改用 `.as_posix()`（client_identity_doc、property_clue、court_sms 相关服务）
+  - ZIP 路径遍历检查改用 `is_relative_to()` 提升安全性和跨平台兼容（4 处 document_delivery 相关）
+
+## [26.50.11] - 2026-06-01
+
+### 前端
+
+#### 修复
+
+- **工具搜索页回退状态不同步**：将搜索状态同步到 URL 参数 `?q=`，修复浏览器后退时搜索词残留但内容显示全部工具的问题
+- **一张网立案 tab 始终显示**：移除环境变量和当事人身份条件，案件详情页始终展示一张网立案 tab
+
+#### 优化
+
+- **清理 court status 死代码**：移除前端 `getCourtStatus` 方法、`courtStatusClient` 常量及后端 `/api/v1/court/status` 路由注册
+
+### 后端
+
+#### 优化
+
+- **清理 court_status_api.py**：删除已废弃的法院自动化状态 API 端点文件
+
+## [26.50.10] - 2026-06-01
+
+### 后端
+
+#### 修复
+
+- 移除登录页面外部 CDN 依赖（Google Fonts、jsdelivr），改用本地静态资源，解决国内网络 ERR_CONNECTION_CLOSED 错误
+- 修复 Lawyer email 字段空字符串导致 PostgreSQL 唯一约束冲突，将空字符串转为 NULL
+
+## [26.50.9] - 2026-05-31
+
+### 后端
+
+#### 新功能
+
+- **智能模板填充（SmartFill）**：新增基于 LLM 的自然语言占位符填充功能，支持在 DocumentTemplate changeform 中直接使用，可切换 LLM 模型
+- **内容运营系统**：完整实现 content_ops 模块，包括数据模型、核心服务、API、Admin、执行器、RSS 采集、TTS 服务、选题灵感（热搜源 + LLM 筛选）、多人播客讨论稿（VoiceDesign 模式）
+- **案件日志批量添加**：按合同选择案件，一键写入相同日志内容
+- **法律检索自动补全**：任务页法院/案由字段支持 autocomplete，新增法院层级、地域、案由等字段级精确筛选
+- **模型连通性按需测试**：admin 页面模型列表不再加载时检查连通性，改为「测试连通性」按钮按需测试，页面加载从 ~5s 降至 ~0.05s
+- **LLM 自动重试**：临时性错误自动重试（最多3次，指数退避）
+- **东莞第三法院模板**：新增 docx 模板文件
+- **仪表盘日历增强**：事件类型颜色、议程视图、溢出 Popover
+
+#### 优化
+
+- **模型列表服务并发查询**：使用 ThreadPoolExecutor 并发查询所有后端，HTTP 超时从 15s 降至 5s，跳过未配凭证的后端
+- **Admin Top10 慢页面**：消除 N+1 查询，优化 causeofaction 和 court 编辑页面性能
+- **批量分析实时注入**：结果完成后实时注入消息列表，不再等任务结束
+
+#### 修复
+
+- **法律检索 WK API 500 错误**：修复 `filterQueries` 格式错误（Solr 字符串 vs 对象）
+- **WK DOM 检索参数错误**：URL 参数 `keyword` 改为 `simple`，修正 WK 网站实际使用的参数名
+- **推理模型 token 不足**：`SCORE_MAX_TOKENS` 从 260 提升至 65536，`ELEMENT_EXTRACTION_MAX_TOKENS` 从 300 提升至 16384，适配 mimo-v2.5-pro 等大输出模型
+- **LLM 占位符文本污染**：`_sanitize_elements()` 过滤 LLM 输出中的 "以下是提取结果" 等前缀文本，避免污染搜索关键词
+- **PostgreSQL 连接泄露**：Q cluster 从 ORM broker 切换到 Redis broker（配置 `REDIS_URL`），消除数据库轮询导致的连接累积
+- **LLM preflight SSL 握手失败**：使用 `ssl.CERT_NONE` 彻底禁用 SSL 验证，与后端保持一致
+- **模型列表支持 OpenAI-compatible 后端**：新增 `_fetch_openai_compatible_models()` 方法，mimo-v2.5-pro 等模型正确显示在下拉列表中
+- **i18n 清理后遗症**：批量恢复 91+ 个被破坏的 admin 模板文件，恢复 `{% trans %}` 标签和 i18n URL 路由
+- **OpenAI 兼容后端模型列表 URL 拼接重复**：修复 `/v1/v1` 路径问题
+- **新用户登录侧边栏为空**：修复「其他工具」菜单初始化问题
+- **DocumentTemplate add 页面隐藏状态字段**
+- **SmartFill 模型选择器默认值**：使用系统默认模型而非硬编码
+- **Windows 日志轮转**：使用 `ConcurrentRotatingFileHandler` 替代 `RotatingFileHandler`
+- **FolderTemplate NameError**：修复未导入导致的运行时错误
+- **一张网立案文件名**：上传材料保留原始中文文件名
+- **testcourt 500 错误 + MCP workbench 加载优化**
+
+#### 依赖变更
+
+- `.env` 新增 `REDIS_URL=redis://127.0.0.1:6379/0`（Q cluster 使用 Redis broker）
+
+### 前端
+
+#### 新功能
+
+- **内容运营创作工作台**：完整的前端页面，支持选题灵感、创作、发布流程
+- **VoiceDesign 模式**：自然语言描述音色风格
+
+#### 优化
+
+- **SmartFill 区域样式**：改用 Django `.module` class 统一风格
+
+#### 修复
+
+- **InspirationPage 导航简化**：去掉与面包屑重复的顶部标题栏
+- **AdminLayout 路由标签**：添加「选题灵感」路由标签
+- **批量添加日志 UI**：去重标题、美化 UI、案件名称可点击跳转，修复下拉菜单高度被 admin base.css 覆盖
+- **合同审查多项体验修复**：当事人识别、手动输入、并行化审查流程
+- **选题建议 LLM 返回中文 key 匹配问题**
+- **content_ops 前端 UX 修复**
+
+#### 杂项
+
+- plugins 独立为 git submodule（FachuanPlugins），更新子模块引用
+- 删除 UPDATE.md 中无效的环境变量同步步骤
+- 拆分 INSTALL.md 平台章节，新增 UPDATE.md 更新指南
+- `.gitignore` 添加 `.handbook/`
+
+## [26.50.8] - 2026-05-30
+
+### 后端
+
+#### 修复
+
+- **文件夹模板导入错误**：修复 `FolderTemplate` 未导入导致的 `NameError`，在 `fetch_template_by_id()` 函数中添加运行时导入
+
+## [26.50.7] - 2026-05-30
+
+### 后端
+
+#### 修复
+
+- **Windows 日志文件轮转错误**：使用 `ConcurrentRotatingFileHandler` 替代 `RotatingFileHandler`，解决 Windows 上 `PermissionError: [WinError 32]` 文件锁定问题
+
+## [26.50.6] - 2026-05-30
+
+### 后端
+
+#### 修复
+
+- **一张网立案功能默认可用**：移除环境变量 `ENABLE_COURT_FILING_PLUGIN=1` 的限制，`has_court_automation_plugin()` 改为检查 `plugins.court_automation` 模块是否存在，用户无需配置环境变量即可使用一张网立案功能
+
+## [26.50.5] - 2026-05-27
+
+### 后端
+
+#### 修复
+
+- **一张网立案文件名丢失**：HTTP主链路上传材料时，文件名从 UUID（如 `abc123.pdf`）恢复为原始中文文件名（如 `传统起诉状V1_20260520.pdf`）。`_build_materials_map()` 现在从 `CaseLogAttachment.original_filename` 读取原始文件名，`_upload_material()` 在 OSS 上传和法院注册接口中均使用原始文件名
+
 ## [26.50.4] - 2026-05-25
 
 ### 后端

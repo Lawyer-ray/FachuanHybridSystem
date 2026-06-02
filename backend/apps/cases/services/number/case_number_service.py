@@ -7,7 +7,6 @@ from typing import Any
 
 from django.db import transaction
 from django.db.models import QuerySet
-from django.utils.translation import gettext_lazy as _
 
 from apps.cases.models import Case, CaseNumber
 from apps.cases.services.case.case_access_policy import CaseAccessPolicy
@@ -63,7 +62,7 @@ class CaseNumberService(DjangoPermsMixin):
             user=user,
             org_access=org_access,
             perm_open_access=perm_open_access,
-            message=_("无权限访问此案件"),
+            message="无权限访问此案件",
         )
 
     def list_numbers(
@@ -156,7 +155,7 @@ class CaseNumberService(DjangoPermsMixin):
                 },
             )
             raise NotFoundError(
-                message=_("案号不存在"),
+                message="案号不存在",
                 code="CASE_NUMBER_NOT_FOUND",
                 errors={"number_id": f"ID 为 {number_id} 的案号不存在"},
             ) from None
@@ -200,13 +199,13 @@ class CaseNumberService(DjangoPermsMixin):
                 },
             )
             raise NotFoundError(
-                message=_("案件不存在"), code="CASE_NOT_FOUND", errors={"case_id": f"ID 为 {case_id} 的案件不存在"}
+                message="案件不存在", code="CASE_NOT_FOUND", errors={"case_id": f"ID 为 {case_id} 的案件不存在"}
             ) from None
 
         # 验证案号不能为空
         if not number or not number.strip():
             raise ValidationException(
-                message=_("案号不能为空"), code="INVALID_CASE_NUMBER", errors={"number": str(_("案号不能为空"))}
+                message="案号不能为空", code="INVALID_CASE_NUMBER", errors={"number": "案号不能为空"}
             )
 
         # 规范化案号
@@ -262,7 +261,7 @@ class CaseNumberService(DjangoPermsMixin):
                 },
             )
             raise NotFoundError(
-                message=_("案号不存在"),
+                message="案号不存在",
                 code="CASE_NUMBER_NOT_FOUND",
                 errors={"number_id": f"ID 为 {number_id} 的案号不存在"},
             ) from None
@@ -278,7 +277,7 @@ class CaseNumberService(DjangoPermsMixin):
                 Case.objects.get(id=case_id)
             except Case.DoesNotExist:
                 raise NotFoundError(
-                    message=_("案件不存在"), code="CASE_NOT_FOUND", errors={"case_id": f"ID 为 {case_id} 的案件不存在"}
+                    message="案件不存在", code="CASE_NOT_FOUND", errors={"case_id": f"ID 为 {case_id} 的案件不存在"}
                 ) from None
             self._require_case_access(case_id, user=user, org_access=org_access, perm_open_access=perm_open_access)
 
@@ -287,7 +286,7 @@ class CaseNumberService(DjangoPermsMixin):
         if number is not None:
             if not number or not number.strip():
                 raise ValidationException(
-                    message=_("案号不能为空"), code="INVALID_CASE_NUMBER", errors={"number": str(_("案号不能为空"))}
+                    message="案号不能为空", code="INVALID_CASE_NUMBER", errors={"number": "案号不能为空"}
                 )
             data["number"] = normalize_case_number_util(number, ensure_hao=False)
 
@@ -343,7 +342,7 @@ class CaseNumberService(DjangoPermsMixin):
                 },
             )
             raise NotFoundError(
-                message=_("案号不存在"),
+                message="案号不存在",
                 code="CASE_NUMBER_NOT_FOUND",
                 errors={"number_id": f"ID 为 {number_id} 的案号不存在"},
             ) from None

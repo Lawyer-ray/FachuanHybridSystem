@@ -5,8 +5,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Protocol
 
-from django.utils.translation import gettext_lazy as _
-
 from apps.core.dto import AccountCredentialDTO
 
 
@@ -37,5 +35,5 @@ class CourtZxfwLoginGateway:
         if not token:
             from apps.automation.exceptions import LoginFailedError
 
-            raise LoginFailedError(message=_("登录成功但未获取到token"), attempts=[])
+            raise LoginFailedError(message="登录成功但未获取到token", attempts=[])
         return token

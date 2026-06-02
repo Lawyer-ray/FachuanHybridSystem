@@ -6,7 +6,6 @@ import logging
 from typing import TYPE_CHECKING, Any
 
 from django.db import transaction
-from django.utils.translation import gettext_lazy as _
 
 from apps.client.models import PropertyClue, PropertyClueAttachment
 from apps.client.ports import FileUploadPort
@@ -19,13 +18,12 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger("apps.client")
 
-
 _VALID_CLUE_TYPES: dict[str, str] = dict(PropertyClue.CLUE_TYPE_CHOICES)
 
 _CONTENT_TEMPLATES: dict[str, str] = {
-    PropertyClue.BANK: str(_("户名:\n开户行:\n银行账号:")),
-    PropertyClue.WECHAT: str(_("微信号:\n微信实名:")),
-    PropertyClue.ALIPAY: str(_("支付宝账号:\n支付宝实名:")),
+    PropertyClue.BANK: "户名:\n开户行:\n银行账号:",
+    PropertyClue.WECHAT: "微信号:\n微信实名:",
+    PropertyClue.ALIPAY: "支付宝账号:\n支付宝实名:",
     PropertyClue.REAL_ESTATE: "",
     PropertyClue.OTHER: "",
 }
@@ -63,9 +61,9 @@ class PropertyClueService:
 
         if clue_type not in _VALID_CLUE_TYPES:
             raise ValidationException(
-                message=_("无效的线索类型"),
+                message="无效的线索类型",
                 code="INVALID_CLUE_TYPE",
-                errors={"clue_type": _("线索类型必须是: %(types)s") % {"types": ", ".join(_VALID_CLUE_TYPES.keys())}},
+                errors={"clue_type": "线索类型必须是: %(types)s" % {"types": ", ".join(_VALID_CLUE_TYPES.keys())}},
             )
 
     def _get_client_or_404(self, client_id: int) -> Any:
@@ -73,9 +71,9 @@ class PropertyClueService:
         client = self.internal_query_service.get_client(client_id=client_id)
         if not client:
             raise NotFoundError(
-                message=_("当事人不存在"),
+                message="当事人不存在",
                 code="CLIENT_NOT_FOUND",
-                errors={"client_id": _("ID 为 %(id)s 的当事人不存在") % {"id": client_id}},
+                errors={"client_id": "ID 为 %(id)s 的当事人不存在" % {"id": client_id}},
             )
         return client
 
@@ -119,9 +117,9 @@ class PropertyClueService:
 
         if not clue:
             raise NotFoundError(
-                message=_("财产线索不存在"),
+                message="财产线索不存在",
                 code="CLUE_NOT_FOUND",
-                errors={"clue_id": _("ID 为 %(id)s 的财产线索不存在") % {"id": clue_id}},
+                errors={"clue_id": "ID 为 %(id)s 的财产线索不存在" % {"id": clue_id}},
             )
 
         return clue
@@ -225,11 +223,11 @@ class PropertyClueService:
 
         if not file_path or not file_name:
             raise ValidationException(
-                message=_("文件路径和文件名不能为空"),
+                message="文件路径和文件名不能为空",
                 code="INVALID_FILE_INFO",
                 errors={
-                    "file_path": _("文件路径不能为空") if not file_path else None,
-                    "file_name": _("文件名不能为空") if not file_name else None,
+                    "file_path": "文件路径不能为空" if not file_path else None,
+                    "file_name": "文件名不能为空" if not file_name else None,
                 },
             )
 
@@ -273,7 +271,7 @@ class PropertyClueService:
         file_name: str = uploaded_file.name or saved_path.name
         return self.add_attachment(
             clue_id=clue_id,
-            file_path=str(saved_path),
+            file_path=saved_path.as_posix(),
             file_name=file_name,
             user=user,
         )
@@ -286,9 +284,9 @@ class PropertyClueService:
             attachment = PropertyClueAttachment.objects.get(id=attachment_id)
         except PropertyClueAttachment.DoesNotExist as e:
             raise NotFoundError(
-                message=_("附件不存在"),
+                message="附件不存在",
                 code="ATTACHMENT_NOT_FOUND",
-                errors={"attachment_id": _("ID 为 %(id)s 的附件不存在") % {"id": attachment_id}},
+                errors={"attachment_id": "ID 为 %(id)s 的附件不存在" % {"id": attachment_id}},
             ) from e
 
         file_path = attachment.file_path

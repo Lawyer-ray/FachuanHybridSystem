@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 
-from django.utils.translation import gettext_lazy as _
-
 from apps.core.exceptions import ValidationException
 from apps.core.models.enums import CaseStage, CaseType
 
@@ -20,7 +18,7 @@ def normalize_representation_stages(
     if not case_type or case_type not in APPLICABLE_TYPES:
         rep = list(representation_stages or [])
         if strict and rep:
-            raise ValidationException(_("代理阶段不适用于此合同类型"), code="STAGES_NOT_APPLICABLE")
+            raise ValidationException("代理阶段不适用于此合同类型", code="STAGES_NOT_APPLICABLE")
         return []
 
     rep = list(representation_stages or [])
@@ -28,7 +26,7 @@ def normalize_representation_stages(
     invalid = set(rep) - allowed
     if invalid:
         raise ValidationException(
-            _("无效的代理阶段"),
+            "无效的代理阶段",
             code="INVALID_STAGES",
             errors={"invalid_stages": sorted(invalid)},
         )

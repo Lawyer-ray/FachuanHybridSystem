@@ -6,7 +6,6 @@ from dataclasses import dataclass
 from typing import Any
 
 from django.db import transaction
-from django.utils.translation import gettext_lazy as _
 
 from apps.core.exceptions import NotFoundError, ValidationException
 from apps.documents.models import FolderTemplate
@@ -45,7 +44,7 @@ class FolderTemplateCommandService:
         is_valid, errors = self.structure_rules.validate_structure_ids(structure)
         if not is_valid:
             raise ValidationException(
-                message=_("文件夹结构验证失败"),
+                message="文件夹结构验证失败",
                 code="INVALID_STRUCTURE",
                 errors={"validation_errors": errors},
             )
@@ -70,7 +69,7 @@ class FolderTemplateCommandService:
             template = self.repo.get_by_id(template_id)
         except FolderTemplate.DoesNotExist:
             raise NotFoundError(
-                message=_("文件夹模板不存在"),
+                message="文件夹模板不存在",
                 code="FOLDER_TEMPLATE_NOT_FOUND",
                 errors={"template_id": f"ID 为 {template_id} 的模板不存在"},
             ) from None
@@ -86,7 +85,7 @@ class FolderTemplateCommandService:
         is_valid, errors = self.structure_rules.validate_structure_ids(structure, template_id)
         if not is_valid:
             raise ValidationException(
-                message=_("文件夹结构验证失败"),
+                message="文件夹结构验证失败",
                 code="INVALID_STRUCTURE",
                 errors={"validation_errors": errors},
             )
@@ -108,7 +107,7 @@ class FolderTemplateCommandService:
             template = self.repo.get_by_id(template_id)
         except FolderTemplate.DoesNotExist:
             raise NotFoundError(
-                message=_("文件夹模板不存在"),
+                message="文件夹模板不存在",
                 code="FOLDER_TEMPLATE_NOT_FOUND",
                 errors={"template_id": f"ID 为 {template_id} 的模板不存在"},
             ) from None
@@ -174,7 +173,7 @@ class FolderTemplateCommandService:
             return self.repo.get_by_id(template_id)
         except FolderTemplate.DoesNotExist:
             raise NotFoundError(
-                message=_("文件夹模板不存在"),
+                message="文件夹模板不存在",
                 code="FOLDER_TEMPLATE_NOT_FOUND",
                 errors={"template_id": f"ID 为 {template_id} 的模板不存在"},
             ) from None

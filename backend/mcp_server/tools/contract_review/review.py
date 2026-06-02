@@ -15,7 +15,11 @@ def upload_contract_for_review(
 ) -> dict[str, Any]:
     """上传合同文件并创建审查任务。file_content_base64: 文件内容的 base64 编码。返回 task_id。"""
     content = base64.b64decode(file_content_base64)
-    content_type = "application/pdf" if filename.endswith(".pdf") else "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    content_type = (
+        "application/pdf"
+        if filename.endswith(".pdf")
+        else "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    )
     return client.upload(  # type: ignore[no-any-return]
         "/contract-review/upload",
         files={"file": (filename, content, content_type)},

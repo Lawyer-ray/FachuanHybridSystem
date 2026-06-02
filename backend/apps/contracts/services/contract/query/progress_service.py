@@ -6,7 +6,6 @@ from decimal import Decimal
 from typing import Any
 
 from django.db.models import Sum
-from django.utils.translation import gettext_lazy as _
 
 from apps.contracts.models import Contract, ContractPayment, FeeMode
 from apps.core.exceptions import NotFoundError
@@ -20,7 +19,7 @@ class ContractProgressService:
         try:
             return Contract.objects.get(id=contract_id)
         except Contract.DoesNotExist:
-            raise NotFoundError(_("合同 %(id)s 不存在") % {"id": contract_id}) from None
+            raise NotFoundError("合同 %(id)s 不存在" % {"id": contract_id}) from None
 
     def _get_payment_totals(self, contract_id: int) -> dict[str, Decimal]:
         """获取收款汇总: total_amount, invoiced_amount。"""

@@ -36,10 +36,10 @@ def validate_log_attachment(file: UploadedFile) -> None:
         from django.core.exceptions import ValidationError
 
         raise ValidationError(_("不支持的文件类型"))
-    if size and size > CASE_LOG_MAX_FILE_SIZE:
+    if CASE_LOG_MAX_FILE_SIZE > 0 and size and size > CASE_LOG_MAX_FILE_SIZE:
         from django.core.exceptions import ValidationError
 
-        raise ValidationError(_("文件大小超过50MB限制"))
+        raise ValidationError(_("文件大小超过%(limit)sMB限制") % {"limit": CASE_LOG_MAX_FILE_SIZE // 1024 // 1024})
 
 
 class CaseLog(models.Model):

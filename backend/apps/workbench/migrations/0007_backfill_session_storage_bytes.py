@@ -2,7 +2,6 @@
 
 from django.db import migrations
 
-
 def backfill_storage_bytes(apps, schema_editor):
     WorkbenchSession = apps.get_model("workbench", "WorkbenchSession")
     WorkbenchMessage = apps.get_model("workbench", "WorkbenchMessage")
@@ -17,11 +16,9 @@ def backfill_storage_bytes(apps, schema_editor):
         if total:
             WorkbenchSession.objects.filter(id=session.id).update(storage_bytes=total)
 
-
 def reverse(apps, schema_editor):
     WorkbenchSession = apps.get_model("workbench", "WorkbenchSession")
     WorkbenchSession.objects.update(storage_bytes=0)
-
 
 class Migration(migrations.Migration):
     dependencies = [

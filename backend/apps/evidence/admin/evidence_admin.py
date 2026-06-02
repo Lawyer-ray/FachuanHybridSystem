@@ -7,7 +7,6 @@ from django.contrib import admin
 from django.db.models import Count, QuerySet
 from django.urls import reverse
 from django.utils.html import format_html
-from django.utils.translation import gettext_lazy as _
 
 from apps.evidence.models import EvidenceList
 
@@ -63,29 +62,29 @@ class EvidenceListAdmin(
     fieldsets: tuple[Any, ...] = (
         (None, {"fields": ("case",)}),
         (
-            _("自动计算信息"),
+            "自动计算信息",
             {
                 "fields": ("list_type", "order_range_display", "total_pages", "page_range_display"),
-                "description": _("以下信息由系统自动计算,无需手动填写."),
+                "description": "以下信息由系统自动计算,无需手动填写.",
             },
         ),
         (
-            _("合并PDF"),
+            "合并PDF",
             {
                 "fields": ("merged_pdf",),
-                "description": _("点击列表页的「合并」按钮将证据文件合并为PDF."),
+                "description": "点击列表页的「合并」按钮将证据文件合并为PDF.",
             },
         ),
         (
-            _("导出设置"),
+            "导出设置",
             {
                 "fields": ("export_version", "export_template"),
-                "description": _("导出版本号用于文件名控制,请手动修改.选择导出模板后,导出清单时将使用该模板格式."),
+                "description": "导出版本号用于文件名控制,请手动修改.选择导出模板后,导出清单时将使用该模板格式.",
                 "classes": ("evidence-export-section",),
             },
         ),
         (
-            _("系统信息"),
+            "系统信息",
             {
                 "fields": ("created_by", "created_at", "updated_at"),
                 "classes": ("collapse",),
@@ -100,7 +99,7 @@ class EvidenceListAdmin(
     def get_queryset(self, request: Any) -> QuerySet:
         return super().get_queryset(request).annotate(item_count=Count("items"))  # type: ignore[no-any-return]
 
-    @admin.display(description=_("开庭"))
+    @admin.display(description="开庭")
     def hearing_mode_link(self, obj: EvidenceList) -> str:
         url = reverse("admin:evidence_hearing_mode", args=[obj.case_id])
         return format_html('<a class="button" href="{}" target="_blank">⚖️</a>', url)

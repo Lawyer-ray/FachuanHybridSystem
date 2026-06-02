@@ -7,7 +7,6 @@ from pathlib import Path as StdPath
 from typing import Any, ClassVar, cast
 
 from django.utils import timezone
-from django.utils.translation import gettext_lazy as _
 
 from apps.core.exceptions import NotFoundError, ValidationException
 from apps.core.services.filename_template_service import FilenameTemplateService
@@ -18,7 +17,6 @@ from apps.documents.services.placeholders import EnhancedContextBuilder
 from apps.documents.storage import get_docx_templates_root
 
 logger = logging.getLogger("apps.documents.generation")
-
 
 # 模板名称常量(用于从案件绑定模板中匹配)
 TEMPLATE_NAME_AUTHORITY_LETTER = "所函"
@@ -139,7 +137,7 @@ class AuthorizationMaterialGenerationService:
         our_parties = self._get_our_parties(case)
         if not our_parties:
             raise ValidationException(
-                message=_("没有我方当事人,无法生成全套授权委托材料"),
+                message="没有我方当事人,无法生成全套授权委托材料",
                 code="NO_OUR_PARTIES",
                 errors={"case_id": str(case_id)},
             )
@@ -363,7 +361,7 @@ class AuthorizationMaterialGenerationService:
         )
         if not template:
             raise ValidationException(
-                message=_("未找到%(n)s模板(请在后台上传/启用名称为'%(n)s'的模板)")
+                message="未找到%(n)s模板(请在后台上传/启用名称为'%(n)s'的模板)"
                 % {"n": TEMPLATE_NAME_POWER_OF_ATTORNEY},
                 code="TEMPLATE_NOT_FOUND",
                 errors={"template_name": TEMPLATE_NAME_POWER_OF_ATTORNEY},
@@ -443,7 +441,7 @@ class AuthorizationMaterialGenerationService:
         location = (template.get_file_location() or "").strip()
         if not location:
             raise ValidationException(
-                message=_("模板文件路径为空"),
+                message="模板文件路径为空",
                 code="TEMPLATE_FILE_EMPTY",
                 errors={"template_id": str(cast(int, template.pk))},
             )
@@ -470,7 +468,7 @@ class AuthorizationMaterialGenerationService:
             return client
 
         raise ValidationException(
-            message=_("我方当事人不存在或不合法"),
+            message="我方当事人不存在或不合法",
             code="INVALID_OUR_CLIENT",
             errors={"client_id": str(client_id)},
         )
@@ -479,7 +477,7 @@ class AuthorizationMaterialGenerationService:
         case = self.case_service.get_case_model_internal(case_id)
         if not case:
             raise NotFoundError(
-                message=_("案件不存在"),
+                message="案件不存在",
                 code="CASE_NOT_FOUND",
                 errors={"case_id": str(case_id)},
             )
@@ -508,7 +506,7 @@ class AuthorizationMaterialGenerationService:
             return client
 
         raise ValidationException(
-            message=_("我方当事人法人不存在或不合法"),
+            message="我方当事人法人不存在或不合法",
             code="INVALID_LEGAL_CLIENT",
             errors={"client_id": str(client_id)},
         )
@@ -516,7 +514,7 @@ class AuthorizationMaterialGenerationService:
     def _render_template(self, template_path: Path, context: dict[str, Any]) -> bytes:
         if not template_path.exists():
             raise ValidationException(
-                message=_("模板文件不存在: %(p)s") % {"p": template_path},
+                message="模板文件不存在: %(p)s" % {"p": template_path},
                 code="TEMPLATE_NOT_FOUND",
                 errors={"template_path": str(template_path)},
             )
@@ -532,7 +530,7 @@ class AuthorizationMaterialGenerationService:
         except Exception as e:
             logger.error("模板渲染失败", exc_info=True, extra={"template_path": str(template_path), "error": str(e)})
             raise ValidationException(
-                message=_("模板渲染失败: %(e)s") % {"e": e},
+                message="模板渲染失败: %(e)s" % {"e": e},
                 code="TEMPLATE_RENDER_ERROR",
                 errors={"error": str(e)},
             ) from e

@@ -1,838 +1,187 @@
-# SOME DESCRIPTIVE TITLE.
-# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
-# This file is distributed under the same license as the PACKAGE package.
-# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
-#
-#, fuzzy
+# Chinese (Simplified) translation for Django admin
 msgid ""
 msgstr ""
-"Project-Id-Version: PACKAGE VERSION\n"
-"Report-Msgid-Bugs-To: \n"
-"POT-Creation-Date: 2026-03-05 20:38+0800\n"
-"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
-"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
-"Language-Team: LANGUAGE <LL@li.org>\n"
-"Language: \n"
-"MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
-"Content-Transfer-Encoding: 8bit\n"
-"Plural-Forms: nplurals=1; plural=0;\n"
+"Language: zh-Hans\n"
 
-#: apiSystem/settings.py:234
-msgid "简体中文"
-msgstr ""
+#: contrib/admin
+msgid "Save"
+msgstr "保存"
 
-#: apiSystem/settings.py:235
-msgid "English"
-msgstr ""
+msgid "Save as new"
+msgstr "另存为新的"
 
-#: apiSystem/urls.py:23 apiSystem/urls.py:24
-msgid "法穿AI案件管理系统"
-msgstr ""
+msgid "Save and add another"
+msgstr "保存并添加另一个"
 
-#: apiSystem/urls.py:25
-msgid "欢迎来到法穿AI案件管理系统"
-msgstr ""
+msgid "Save and continue editing"
+msgstr "保存并继续编辑"
 
-#: templates/admin/base_site.html:5
-msgid "Django site admin"
-msgstr ""
+msgid "Save and view"
+msgstr "保存并查看"
 
-#: templates/admin/base_site.html:225
+msgid "Close"
+msgstr "关闭"
+
+msgid "Delete"
+msgstr "删除"
+
+msgid "Error:"
+msgstr "错误："
+
+msgid "Home"
+msgstr "首页"
+
+msgid "Add %(name)s"
+msgstr "添加 %(name)s"
+
+msgid "Change %(name)s"
+msgstr "修改 %(name)s"
+
+msgid "View %(name)s"
+msgstr "查看 %(name)s"
+
+msgid "Select %(name)s to change"
+msgstr "选择要修改的 %(name)s"
+
+msgid "Please correct the error below."
+msgstr "请修正下面的错误。"
+
+msgid "Please correct the errors below."
+msgstr "请修正下面的错误。"
+
+msgid "Select %s to change"
+msgstr "选择要修改的 %s"
+
+msgid "Add %s"
+msgstr "添加 %s"
+
+msgid "Change %s"
+msgstr "修改 %s"
+
+msgid "View %s"
+msgstr "查看 %s"
+
+msgid "Add"
+msgstr "添加"
+
+msgid "Change"
+msgstr "修改"
+
+msgid "View"
+msgstr "查看"
+
+msgid "Filter"
+msgstr "筛选"
+
+msgid "Search"
+msgstr "搜索"
+
+msgid "Run"
+msgstr "执行"
+
+msgid "Actions"
+msgstr "操作"
+
+msgid "Date hierarchy"
+msgstr "日期层级"
+
+msgid "All dates"
+msgstr "所有日期"
+
+msgid "Today"
+msgstr "今天"
+
+msgid "Past 7 days"
+msgstr "过去 7 天"
+
+msgid "This month"
+msgstr "本月"
+
+msgid "This year"
+msgstr "今年"
+
+msgid "Are you sure?"
+msgstr "确定吗？"
+
+msgid "Yes, I'm sure"
+msgstr "是的，我确定"
+
+msgid "Cancel"
+msgstr "取消"
+
 msgid "Django administration"
-msgstr ""
+msgstr "法穿AI Copilot"
 
-#: templates/admin/base_site.html:249
-msgid "我要立案"
-msgstr ""
+msgid "Django site admin"
+msgstr "法穿AI Copilot"
 
-#: templates/admin/base_site.html:258 templates/admin/base_site.html:261
-msgid "问题反馈"
-msgstr ""
+msgid "View site"
+msgstr "查看站点"
 
-#: templates/admin/base_site.html:264
-msgid "法穿公众号二维码"
-msgstr ""
+msgid "Log out"
+msgstr "退出"
 
-#: templates/admin/base_site.html:265
-msgid "公众号反馈"
-msgstr ""
+msgid "Password change"
+msgstr "修改密码"
 
-#: templates/admin/base_site.html:268
-msgid "作者微信二维码"
-msgstr ""
+msgid "Log in"
+msgstr "登录"
 
-#: templates/admin/base_site.html:269
-msgid "联系作者"
-msgstr ""
+msgid "Username:"
+msgstr "用户名："
 
-#: templates/admin/base_site.html:273
-msgid "扫码关注 <span class=\"highlight\">「法穿」</span> 公众号反馈问题"
-msgstr ""
+msgid "Password:"
+msgstr "密码："
 
-#: templates/admin/base_site.html:274
-msgid "或直接添加作者微信进行交流"
-msgstr ""
+msgid "Forgotten your password or username?"
+msgstr "忘记密码或用户名？"
 
-#: templates/index/_auto_filing.html:6
-msgid "一键立案"
-msgstr ""
+msgid "Welcome,"
+msgstr "欢迎，"
 
-#: templates/index/_auto_filing.html:7
-msgid "自动立案 · OA 与法院双通道并行"
-msgstr ""
+msgid "Welcome"
+msgstr "欢迎"
 
-#: templates/index/_auto_filing.html:8
-msgid "Playwright 驱动，两套系统同时自动填写，效率翻倍"
-msgstr ""
+msgid "Dashboard"
+msgstr "仪表盘"
 
-#: templates/index/_auto_filing.html:15
-msgid "系统立案"
-msgstr ""
+msgid "Recent actions"
+msgstr "最近操作"
 
-#: templates/index/_auto_filing.html:26 templates/index/_auto_filing.html:45
-msgid "Playwright 自动化执行中..."
-msgstr ""
+msgid "My actions"
+msgstr "我的操作"
 
-#: templates/index/_auto_filing.html:34
-msgid "法院一张网立案"
-msgstr ""
+msgid "None available"
+msgstr "无可用项"
 
-#: templates/index/_auto_filing.html:54 templates/index/_case_flow.html:262
-#: templates/index/_chat_record.html:99
-#: templates/index/_evidence_sorting.html:104
-#: templates/index/_gsxt_flow.html:178 templates/index/_mock_trial.html:71
-#: templates/index/_sms_flow.html:214
-msgid "播放演示"
-msgstr ""
+msgid "Unknown"
+msgstr "未知"
 
-#: templates/index/_auto_filing.html:57 templates/index/_case_flow.html:265
-#: templates/index/_chat_record.html:102
-#: templates/index/_evidence_sorting.html:107
-#: templates/index/_gsxt_flow.html:181 templates/index/_mock_trial.html:74
-#: templates/index/_sms_flow.html:217
-msgid "重置"
-msgstr ""
+msgid "One result"
+msgstr "一条结果"
 
-#: templates/index/_case_flow.html:6
-msgid "智能归档"
-msgstr ""
+msgid "%(counter)s result"
+msgid_plural "%(counter)s results"
+msgstr[0] "%(counter)s 条结果"
 
-#: templates/index/_case_flow.html:7
-msgid "案件全流程管理与智能文书生成"
-msgstr ""
+msgid "Show all"
+msgstr "显示全部"
 
-#: templates/index/_case_flow.html:8
-msgid "一次录入、全局复用，文件夹自动生成，文书自动归档到指定位置"
-msgstr ""
+msgid "Show counts"
+msgstr "显示计数"
 
-#: templates/index/_chat_record.html:6
-msgid "证据整理"
-msgstr ""
+msgid "By %(title)s"
+msgstr "按 %(title)s"
 
-#: templates/index/_chat_record.html:7
-msgid "聊天记录智能梳理"
-msgstr ""
+msgid "Any date"
+msgstr "任意日期"
 
-#: templates/index/_chat_record.html:8
-msgid "从视频录制到证据材料，AI 驱动的聊天记录取证全流程"
-msgstr ""
+msgid "Empty list"
+msgstr "空列表"
 
-#: templates/index/_chat_record.html:16
-msgid "上传录屏"
-msgstr ""
+msgid "No %(name)s found"
+msgstr "未找到 %(name)s"
 
-#: templates/index/_chat_record.html:20
-msgid "微信/QQ 录屏"
-msgstr ""
-
-#: templates/index/_chat_record.html:42
-msgid "解析"
-msgstr ""
-
-#: templates/index/_chat_record.html:43
-msgid "本地"
-msgstr ""
-
-#: templates/index/_chat_record.html:46
-msgid "视频解码"
-msgstr ""
-
-#: templates/index/_chat_record.html:47
-msgid "场景检测"
-msgstr ""
-
-#: templates/index/_chat_record.html:48
-msgid "去重过滤"
-msgstr ""
-
-#: templates/index/_chat_record.html:49
-msgid "识别"
-msgstr ""
-
-#: templates/index/_chat_record.html:60
-msgid "智能截帧"
-msgstr ""
-
-#: templates/index/_chat_record.html:73
-msgid "帧"
-msgstr ""
-
-#: templates/index/_chat_record.html:73
-msgid "去重"
-msgstr ""
-
-#: templates/index/_chat_record.html:84
-msgid "导出 PDF"
-msgstr ""
-
-#: templates/index/_chat_record.html:89
-msgid "证据材料.pdf"
-msgstr ""
-
-#: templates/index/_chat_record.html:90
-msgid "页"
-msgstr ""
-
-#: templates/index/_chat_record.html:90
-msgid "含OCR"
-msgstr ""
-
-#: templates/index/_cta.html:6
-msgid "立即开始"
-msgstr ""
-
-#: templates/index/_cta.html:8
-msgid "本地私有化部署，数据完全掌控在您手中。"
-msgstr ""
-
-#: templates/index/_cta.html:12
-msgid "法穿公众号"
-msgstr ""
-
-#: templates/index/_cta.html:13
-msgid "关注公众号"
-msgstr ""
-
-#: templates/index/_cta.html:14
-msgid "获取最新更新动态"
-msgstr ""
-
-#: templates/index/_cta.html:17
-msgid "GitHub源码"
-msgstr ""
-
-#: templates/index/_cta.html:18
-msgid "查看源代码"
-msgstr ""
-
-#: templates/index/_cta.html:19
-msgid "安全可靠，所见即所得"
-msgstr ""
-
-#: templates/index/_cta.html:38 templates/index/_nav.html:15
-msgid "文档"
-msgstr ""
-
-#: templates/index/_cta.html:39
-msgid "管理后台"
-msgstr ""
-
-#: templates/index/_cta.html:42
-msgid "法穿AI · Less is more"
-msgstr ""
-
-#: templates/index/_evidence_sorting.html:6
-msgid "智能分类"
-msgstr ""
-
-#: templates/index/_evidence_sorting.html:7
-msgid "证据智能分类 · AI 自动整理"
-msgstr ""
-
-#: templates/index/_evidence_sorting.html:8
-msgid "LLM 驱动的证据分类器，自动识别证据类型并归类整理"
-msgstr ""
-
-#: templates/index/_evidence_sorting.html:54
-msgid "等待开始"
-msgstr ""
-
-#: templates/index/_evidence_sorting.html:62
-msgid "合同协议类"
-msgstr ""
-
-#: templates/index/_evidence_sorting.html:70
-msgid "财务凭证类"
-msgstr ""
-
-#: templates/index/_evidence_sorting.html:78
-msgid "身份证明类"
-msgstr ""
-
-#: templates/index/_evidence_sorting.html:86
-msgid "通讯记录类"
-msgstr ""
-
-#: templates/index/_evidence_sorting.html:94
-msgid "影像资料类"
-msgstr ""
-
-#: templates/index/_features.html:5
-msgid "核心功能"
-msgstr ""
-
-#: templates/index/_features.html:6
-msgid "为律师打造的智能工具"
-msgstr ""
-
-#: templates/index/_features.html:7
-msgid "从案件管理到文书生成，全方位提升工作效率"
-msgstr ""
-
-#: templates/index/_features.html:16
-msgid "案件管理"
-msgstr ""
-
-#: templates/index/_features.html:18
-msgid ""
-"全生命周期案件管理，从立案到结案。支持案件创建、分配、进度跟踪、案号管理，多"
-"维度数据统计分析。"
-msgstr ""
-
-#: templates/index/_features.html:30
-msgid "张某诉李某民间借贷纠纷"
-msgstr ""
-
-#: templates/index/_features.html:31
-msgid "沪0115民初1234号"
-msgstr ""
-
-#: templates/index/_features.html:33 templates/index/_features.html:42
-msgid "民事"
-msgstr ""
-
-#: templates/index/_features.html:34 templates/index/_features.html:43
-#: templates/index/_features.html:52
-msgid "万"
-msgstr ""
-
-#: templates/index/_features.html:39
-msgid "王某与某公司劳动争议"
-msgstr ""
-
-#: templates/index/_features.html:40
-msgid "沪0101民初5678号"
-msgstr ""
-
-#: templates/index/_features.html:48
-msgid "某科技公司XX行政行为（行政复议）"
-msgstr ""
-
-#: templates/index/_features.html:49
-msgid "沪0107行初9012号"
-msgstr ""
-
-#: templates/index/_features.html:51
-msgid "行政"
-msgstr ""
-
-#: templates/index/_features.html:63 templates/index/_hero.html:64
-msgid "AI 文书生成"
-msgstr ""
-
-#: templates/index/_features.html:65
-msgid ""
-"基于统一 LLM 服务的智能文书生成，支持起诉状、答辩状、代理词、财产保"
-"全申请书等，对话式交互引导。"
-msgstr ""
-
-#: templates/index/_features.html:74
-msgid "合同管理"
-msgstr ""
-
-#: templates/index/_features.html:76
-msgid ""
-"合同创建、补充协议、付款跟踪、律师分配、收费进度，完整的合同生命周期管理。"
-msgstr ""
-
-#: templates/index/_features.html:85
-msgid "自动化引擎"
-msgstr ""
-
-#: templates/index/_features.html:87
-msgid ""
-"法院短信智能解析与文书自动下载、法院文书定时抓取、财产保全保险自动询价、飞书"
-"群消息实时通知、验证码自动识别。7×24 小时无人值守运行，解放双手。"
-msgstr ""
-
-#: templates/index/_features.html:96
-msgid "客户管理"
-msgstr ""
-
-#: templates/index/_features.html:98
-msgid "客户信息、身份证件 OCR 识别、财产线索管理，一站式 CRM 解决方案。"
-msgstr ""
-
-#: templates/index/_features.html:107
-msgid "文档模板系统"
-msgstr ""
-
-#: templates/index/_features.html:109
-msgid ""
-"可视化模板配置，支持占位符、条件渲染、案件类型匹配、批量生成 Word 文档。"
-msgstr ""
-
-#: templates/index/_features.html:118
-msgid "聊天记录取证"
-msgstr ""
-
-#: templates/index/_features.html:120
-msgid "微信/QQ 聊天记录视频录制、智能截帧、OCR 文字提取，一键生成证据材料。"
-msgstr ""
-
-#: templates/index/_features.html:129
-msgid "数据安全"
-msgstr ""
-
-#: templates/index/_features.html:131
-msgid "端到端加密传输，支持本地私有化部署，数据完全掌控在您手中。"
-msgstr ""
-
-#: templates/index/_gsxt_flow.html:6 templates/index/_sms_flow.html:6
-msgid "自动化演示"
-msgstr ""
-
-#: templates/index/_gsxt_flow.html:7
-msgid "企业信用报告自动获取流程"
-msgstr ""
-
-#: templates/index/_gsxt_flow.html:8
-msgid ""
-"点击按钮，系统自动完成登录→搜索→申请报告，用户只需手动完成验证码，报告自动入"
-"档"
-msgstr ""
-
-#: templates/index/_gsxt_flow.html:18
-msgid "当事人详情"
-msgstr ""
-
-#: templates/index/_gsxt_flow.html:26
-msgid "获取企业信用报告"
-msgstr ""
-
-#: templates/index/_gsxt_flow.html:29 templates/index/_gsxt_flow.html:143
-msgid "报告已归档"
-msgstr ""
-
-#: templates/index/_gsxt_flow.html:39 templates/index/_tech_stack.html:62
-msgid "自动化"
-msgstr ""
-
-#: templates/index/_gsxt_flow.html:54
-msgid "法穿AI 自动处理"
-msgstr ""
-
-#: templates/index/_gsxt_flow.html:55
-msgid "全程自动化"
-msgstr ""
-
-#: templates/index/_gsxt_flow.html:64 templates/index/_gsxt_flow.html:168
-msgid "自动登录"
-msgstr ""
-
-#: templates/index/_gsxt_flow.html:75
-msgid "验证码①"
-msgstr ""
-
-#: templates/index/_gsxt_flow.html:86 templates/index/_gsxt_flow.html:169
-msgid "搜索企业"
-msgstr ""
-
-#: templates/index/_gsxt_flow.html:97
-msgid "验证码②"
-msgstr ""
-
-#: templates/index/_gsxt_flow.html:108
-msgid "进入详情页"
-msgstr ""
-
-#: templates/index/_gsxt_flow.html:119
-msgid "验证码③"
-msgstr ""
-
-#: templates/index/_gsxt_flow.html:130
-msgid "报告发送至邮箱 → 自动收取 → 归档为营业执照"
-msgstr ""
-
-#: templates/index/_gsxt_flow.html:144
-msgid "自动保存为营业执照"
-msgstr ""
-
-#: templates/index/_gsxt_flow.html:148
-msgid "任务完成"
-msgstr ""
-
-#: templates/index/_gsxt_flow.html:149
-msgid "状态自动更新"
-msgstr ""
-
-#: templates/index/_gsxt_flow.html:153
-msgid "信用代码兜底"
-msgstr ""
-
-#: templates/index/_gsxt_flow.html:154
-msgid "名称不匹配时自动切换"
-msgstr ""
-
-#: templates/index/_gsxt_flow.html:158
-msgid "邮件自动轮询"
-msgstr ""
-
-#: templates/index/_gsxt_flow.html:159
-msgid "163 IMAP 60s 间隔"
-msgstr ""
-
-#: templates/index/_gsxt_flow.html:167
-msgid "点击按钮"
-msgstr ""
-
-#: templates/index/_gsxt_flow.html:170
-msgid "申请报告"
-msgstr ""
-
-#: templates/index/_gsxt_flow.html:171
-msgid "邮件收取"
-msgstr ""
-
-#: templates/index/_gsxt_flow.html:172
-msgid "自动归档"
-msgstr ""
-
-#: templates/index/_hero.html:11
-msgid "免费开源 · 持续更新"
-msgstr ""
-
-#: templates/index/_hero.html:15
-msgid "智能"
-msgstr ""
-
-#: templates/index/_hero.html:15
-msgid "法律案件"
-msgstr ""
-
-#: templates/index/_hero.html:16
-msgid "管理系统"
-msgstr ""
-
-#: templates/index/_hero.html:20
-msgid "全自动处理法律文书，AI 驱动的案件管理解决方案。"
-msgstr ""
-
-#: templates/index/_hero.html:21
-msgid "Less is more，让律师专注于真正重要的事。"
-msgstr ""
-
-#: templates/index/_hero.html:26
-msgid "立即体验"
-msgstr ""
-
-#: templates/index/_hero.html:36
-msgid "核心功能模块"
-msgstr ""
-
-#: templates/index/_hero.html:40
-msgid "接口"
-msgstr ""
-
-#: templates/index/_hero.html:44
-msgid "小时自动化"
-msgstr ""
-
-#: templates/index/_hero.html:54
-msgid "案件自动归档"
-msgstr ""
-
-#: templates/index/_hero.html:55
-msgid "智能分类整理"
-msgstr ""
-
-#: templates/index/_hero.html:65
-msgid "一键生成诉状"
-msgstr ""
-
-#: templates/index/_hero.html:74
-msgid "数据可视化"
-msgstr ""
-
-#: templates/index/_hero.html:75
-msgid "案件进度追踪"
-msgstr ""
-
-#: templates/index/_mock_trial.html:6
-msgid "庭审"
-msgstr ""
-
-#: templates/index/_mock_trial.html:7
-msgid "模拟庭审 · 多角色 AI 对抗"
-msgstr ""
-
-#: templates/index/_mock_trial.html:8
-msgid "原告、被告、法官三方 AI 实时对话，WebSocket 驱动的沉浸式庭审模拟"
-msgstr ""
-
-#: templates/index/_mock_trial.html:16 templates/index/_mock_trial.html:33
-msgid "审判长"
-msgstr ""
-
-#: templates/index/_mock_trial.html:21
-msgid "实时连接"
-msgstr ""
-
-#: templates/index/_mock_trial.html:29
-msgid "原告代理人"
-msgstr ""
-
-#: templates/index/_mock_trial.html:37
-msgid "被告代理人"
-msgstr ""
-
-#: templates/index/_nav.html:5
-msgid "法穿AI"
-msgstr ""
-
-#: templates/index/_nav.html:8
-msgid "功能特性"
-msgstr ""
-
-#: templates/index/_nav.html:9
-msgid "短信处理"
-msgstr ""
-
-#: templates/index/_nav.html:10
-msgid "聊天记录"
-msgstr ""
-
-#: templates/index/_nav.html:11
-msgid "模拟庭审"
-msgstr ""
-
-#: templates/index/_nav.html:12
-msgid "自动立案"
-msgstr ""
-
-#: templates/index/_nav.html:13
-msgid "证据分类"
-msgstr ""
-
-#: templates/index/_nav.html:14 templates/index/_tech_stack.html:5
-msgid "技术栈"
-msgstr ""
-
-#: templates/index/_nav.html:16
-msgid "进入系统"
-msgstr ""
-
-#: templates/index/_sms_flow.html:7
-msgid "法院短信智能处理流程"
-msgstr ""
-
-#: templates/index/_sms_flow.html:8
-msgid "从收到短信到文书归档，全程自动化处理，7×24 小时无人值守"
-msgstr ""
-
-#: templates/index/_sms_flow.html:26
-msgid "浦东法院"
-msgstr ""
-
-#: templates/index/_sms_flow.html:27 templates/index/_sms_flow.html:39
-msgid "刚刚"
-msgstr ""
-
-#: templates/index/_sms_flow.html:38 templates/index/_sms_flow.html:55
-msgid "快捷指令"
-msgstr ""
-
-#: templates/index/_sms_flow.html:43
-msgid "正在转发至法穿AI..."
-msgstr ""
-
-#: templates/index/_sms_flow.html:54 templates/index/_sms_flow.html:191
-msgid "自动转发"
-msgstr ""
-
-#: templates/index/_sms_flow.html:71
-msgid "法穿AI 智能处理"
-msgstr ""
-
-#: templates/index/_sms_flow.html:72
-msgid "7×24 自动化"
-msgstr ""
-
-#: templates/index/_sms_flow.html:82
-msgid "接收短信"
-msgstr ""
-
-#: templates/index/_sms_flow.html:93 templates/index/_sms_flow.html:195
-msgid "解析链接"
-msgstr ""
-
-#: templates/index/_sms_flow.html:104 templates/index/_sms_flow.html:199
-msgid "下载文书"
-msgstr ""
-
-#: templates/index/_sms_flow.html:115
-msgid "匹配案件"
-msgstr ""
-
-#: templates/index/_sms_flow.html:126
-msgid "重命名归档"
-msgstr ""
-
-#: templates/index/_sms_flow.html:137
-msgid "智能分析"
-msgstr ""
-
-#: templates/index/_sms_flow.html:148
-msgid "推送通知给律师（飞书/Telegram）"
-msgstr ""
-
-#: templates/index/_sms_flow.html:161
-msgid "文书已归档"
-msgstr ""
-
-#: templates/index/_sms_flow.html:162
-msgid "自动绑定至案件"
-msgstr ""
-
-#: templates/index/_sms_flow.html:166
-msgid "已重命名"
-msgstr ""
-
-#: templates/index/_sms_flow.html:167
-msgid "传票（张某诉李某…）.pdf"
-msgstr ""
-
-#: templates/index/_sms_flow.html:171
-msgid "开庭提醒"
-msgstr ""
-
-#: templates/index/_sms_flow.html:176
-msgid "费用异常"
-msgstr ""
-
-#: templates/index/_sms_flow.html:177
-msgid "受理费计算有误，立即联系书记员"
-msgstr ""
-
-#: templates/index/_sms_flow.html:187
-msgid "收到短信"
-msgstr ""
-
-#: templates/index/_sms_flow.html:203
-msgid "归档绑定"
-msgstr ""
-
-#: templates/index/_sms_flow.html:207
-msgid "智能提醒"
-msgstr ""
-
-#: templates/index/_tech_stack.html:6
-msgid "现代化技术架构"
-msgstr ""
-
-#: templates/index/_tech_stack.html:7
-msgid "基于成熟稳定的技术栈构建，确保系统可靠性与可扩展性"
-msgstr ""
-
-#: templates/index/_tech_stack.html:16
-msgid "后端核心"
-msgstr ""
-
-#: templates/index/_tech_stack.html:25
-msgid "高性能运行时"
-msgstr ""
-
-#: templates/index/_tech_stack.html:34
-msgid "框架"
-msgstr ""
-
-#: templates/index/_tech_stack.html:43
-msgid "高性能 API"
-msgstr ""
-
-#: templates/index/_tech_stack.html:52
-msgid "异步任务队列"
-msgstr ""
-
-#: templates/index/_tech_stack.html:71
-msgid "应用框架"
-msgstr ""
-
-#: templates/index/_tech_stack.html:80
-msgid "浏览器自动化"
-msgstr ""
-
-#: templates/index/_tech_stack.html:89
-msgid "文字识别"
-msgstr ""
-
-#: templates/index/_tech_stack.html:98
-msgid "编排"
-msgstr ""
-
-#: templates/index/_tech_stack.html:108
-msgid "数据 & 通信"
-msgstr ""
-
-#: templates/index/_tech_stack.html:117
-msgid "轻量级数据库"
-msgstr ""
-
-#: templates/index/_tech_stack.html:125
-msgid "向量数据库"
-msgstr ""
-
-#: templates/index/_tech_stack.html:126
-msgid "检索增强"
-msgstr ""
-
-#: templates/index/_tech_stack.html:126
-msgid "规划中"
-msgstr ""
-
-#: templates/index/_tech_stack.html:135
-msgid "实时通信"
-msgstr ""
-
-#: templates/index/_tech_stack.html:143
-msgid "飞书 API"
-msgstr ""
-
-#: templates/index/_tech_stack.html:144
-msgid "消息通知集成"
-msgstr ""
-
-#: templates/index/_tech_stack.html:155
-msgid "层架构设计"
-msgstr ""
-
-#: templates/index/_tech_stack.html:160
-msgid "类型注解覆盖"
-msgstr ""
-
-#: templates/index/_tech_stack.html:161
-msgid "严格模式"
-msgstr ""
-
-#: templates/index/_tech_stack.html:165
-msgid "依赖注入"
-msgstr ""
-
-#: templates/index/_tech_stack.html:166
-msgid "模式"
-msgstr ""
-
-#: templates/index/_tech_stack.html:170
-msgid "自动化部署"
-msgstr ""
+msgid "insufficient privileges"
+msgstr "权限不足"

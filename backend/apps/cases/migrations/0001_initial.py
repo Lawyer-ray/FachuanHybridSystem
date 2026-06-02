@@ -4,7 +4,6 @@ import apps.cases.models.log
 import apps.core.filesystem.storage
 from django.db import migrations, models
 
-
 class Migration(migrations.Migration):
 
     initial = True

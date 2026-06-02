@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from typing import Any
 
-from django.utils.translation import gettext_lazy as _
-
 from apps.core.exceptions import NotFoundError
 from apps.core.interfaces import CaseDTO, IClientService, IContractService
 
@@ -155,7 +153,7 @@ class CaseServiceAdapter:
         case = self._command.create_case(data=data, user=user, org_access=org_access, perm_open_access=perm_open_access)
         dto = self._internal_query.get_case_internal(case_id=case.id)
         if not dto:
-            raise NotFoundError(_("案件 %(id)s 不存在") % {"id": case.id})
+            raise NotFoundError("案件 %(id)s 不存在" % {"id": case.id})
         return dto
 
     def unbind_cases_from_contract_internal(self, contract_id: int) -> Any:

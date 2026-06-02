@@ -183,7 +183,7 @@ class CourtSMSDocumentReferenceService:
             path = Path(settings.MEDIA_ROOT) / path
 
         if path.exists():
-            return str(path.resolve())
+            return path.resolve().as_posix()
 
         # 文件被重命名时，尝试在同目录下匹配
         parent = path.parent
@@ -199,7 +199,7 @@ class CourtSMSDocumentReferenceService:
         stem = path.stem
         prefix_matches = [f for f in same_suffix if f.stem.startswith(stem)]
         if prefix_matches:
-            return str(max(prefix_matches, key=lambda f: f.stat().st_mtime).resolve())
+            return max(prefix_matches, key=lambda f: f.stat().st_mtime).resolve().as_posix()
 
         # 2) 兜底：取同后缀最新的文件（适用于完全重命名的情况）
-        return str(max(same_suffix, key=lambda f: f.stat().st_mtime).resolve())
+        return max(same_suffix, key=lambda f: f.stat().st_mtime).resolve().as_posix()

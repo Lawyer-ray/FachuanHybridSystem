@@ -3,7 +3,6 @@
 import apps.legal_research.models.result
 from django.db import migrations, models
 
-
 class Migration(migrations.Migration):
 
     dependencies = [

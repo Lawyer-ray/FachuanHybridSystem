@@ -8,7 +8,6 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
-
 Hook = Callable[[], Awaitable[None]]
 
 

@@ -11,8 +11,6 @@ import time
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING, Any
 
-from django.utils.translation import gettext_lazy as _
-
 from apps.core.exceptions import ValidationException
 from apps.core.utils.path import Path
 from apps.documents.services.placeholders.fallback import PLACEHOLDER_FALLBACK_VALUE, build_docx_render_context
@@ -126,7 +124,7 @@ class BaseGenerator(ABC):
             # 验证模板文件存在
             if not Path(template_path).exists():
                 raise ValidationException(
-                    message=_("模板文件不存在: %(p)s") % {"p": template_path},
+                    message="模板文件不存在: %(p)s" % {"p": template_path},
                     code="TEMPLATE_NOT_FOUND",
                     errors={"template_path": f"文件不存在: {template_path}"},
                 )
@@ -146,13 +144,13 @@ class BaseGenerator(ABC):
 
         except ImportError as e:
             raise ValidationException(
-                message=_("docxtpl 库未安装"),
+                message="docxtpl 库未安装",
                 code="DOCXTPL_NOT_INSTALLED",
                 errors={"dependency": "请安装 docxtpl 库: uv add docxtpl"},
             ) from e
         except Exception as e:
             raise ValidationException(
-                message=_("模板渲染失败: %(e)s") % {"e": e},
+                message="模板渲染失败: %(e)s" % {"e": e},
                 code="TEMPLATE_RENDER_ERROR",
                 errors={"template_path": template_path, "error": str(e)},
             ) from e

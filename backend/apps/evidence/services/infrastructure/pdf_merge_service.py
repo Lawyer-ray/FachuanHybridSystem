@@ -11,7 +11,6 @@ from typing import Any, ClassVar, cast
 
 from django.core.files.base import ContentFile
 from django.utils import timezone
-from django.utils.translation import gettext_lazy as _
 
 from apps.core.exceptions import BusinessException, ValidationException
 from apps.core.services.filename_template_service import FilenameTemplateService
@@ -31,7 +30,7 @@ class PDFMergeValidator:
         items = evidence_list.items.filter(file__isnull=False).exclude(file="").order_by("order")
         if not items.exists():
             raise ValidationException(
-                message=_("证据清单没有任何文件"),
+                message="证据清单没有任何文件",
                 code="NO_FILES_TO_MERGE",
                 errors={"evidence_list_id": int(evidence_list.pk)},
             )

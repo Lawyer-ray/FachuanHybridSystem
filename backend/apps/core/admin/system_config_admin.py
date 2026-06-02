@@ -12,7 +12,6 @@ from django.core.cache import cache
 from django.http import HttpRequest, HttpResponseRedirect
 from django.urls import path, reverse
 from django.utils.html import format_html
-from django.utils.translation import gettext_lazy as _
 
 from apps.core.models import SystemConfig
 from apps.core.security.secret_codec import SecretCodec
@@ -40,9 +39,9 @@ class SystemConfigAdmin(admin.ModelAdmin):
     change_list_template = "admin/core/systemconfig/change_list.html"
 
     fieldsets = (
-        (_("基本信息"), {"fields": ("key", "value", "category", "description")}),
-        (_("安全设置"), {"fields": ("is_secret", "is_active"), "classes": ("collapse",)}),
-        (_("时间信息"), {"fields": ("created_at", "updated_at"), "classes": ("collapse",)}),
+        ("基本信息", {"fields": ("key", "value", "category", "description")}),
+        ("安全设置", {"fields": ("is_secret", "is_active"), "classes": ("collapse",)}),
+        ("时间信息", {"fields": ("created_at", "updated_at"), "classes": ("collapse",)}),
     )
 
     readonly_fields: ClassVar[list[str]] = ["created_at", "updated_at"]
@@ -71,7 +70,7 @@ class SystemConfigAdmin(admin.ModelAdmin):
             obj.get_category_display(),
         )
 
-    category_display.short_description = _("分类")  # type: ignore[attr-defined]
+    category_display.short_description = "分类"  # type: ignore[attr-defined]
     category_display.admin_order_field = "category"  # type: ignore[attr-defined]
 
     def masked_value(self, obj: Any) -> Any:
@@ -87,7 +86,7 @@ class SystemConfigAdmin(admin.ModelAdmin):
                 return format_html('<span title="{}">{}</span>', obj.value, obj.value[:50] + "...")
             return obj.value
 
-    masked_value.short_description = _("配置值")  # type: ignore[attr-defined]
+    masked_value.short_description = "配置值"  # type: ignore[attr-defined]
 
     def get_urls(self) -> list[Any]:
         """添加自定义 URL"""
@@ -221,11 +220,11 @@ class SystemConfigAdmin(admin.ModelAdmin):
     def trigger_update_view(self, request: HttpRequest) -> HttpResponseRedirect:
         """触发系统更新任务。"""
         if request.method != "POST":
-            messages.error(request, _("仅支持 POST 请求"))
+            messages.error(request, "仅支持 POST 请求")
             return HttpResponseRedirect(reverse("admin:core_systemconfig_changelist"))
 
         if not self.has_change_permission(request):
-            messages.error(request, _("无权限执行系统更新"))
+            messages.error(request, "无权限执行系统更新")
             return HttpResponseRedirect(reverse("admin:core_systemconfig_changelist"))
 
         raw_enable_post_update_setup = str(request.POST.get("enable_post_update_setup", "")).strip().lower()
@@ -238,11 +237,11 @@ class SystemConfigAdmin(admin.ModelAdmin):
         )
         if bool(result.get("accepted")):
             if enable_post_update_setup:
-                messages.success(request, _("更新任务已提交，将自动执行 uv sync 与 migrate。"))
+                messages.success(request, "更新任务已提交，将自动执行 uv sync 与 migrate。")
             else:
-                messages.success(request, _("更新任务已提交，请稍后刷新查看状态"))
+                messages.success(request, "更新任务已提交，请稍后刷新查看状态")
         else:
-            message_text = str(result.get("message") or _("更新任务提交失败"))
+            message_text = str(result.get("message") or "更新任务提交失败")
             messages.warning(request, message_text)
         return HttpResponseRedirect(reverse("admin:core_systemconfig_changelist"))
 

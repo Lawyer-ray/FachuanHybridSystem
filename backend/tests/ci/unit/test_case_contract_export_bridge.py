@@ -61,12 +61,8 @@ def test_serialize_contract_for_case_export_calls_serializer() -> None:
     expected = {"id": 1, "name": "test"}
 
     with (
-        patch(
-            "apps.cases.services.case.case_export_serializer_service.serialize_case_obj"
-        ) as mock_case_ser,
-        patch(
-            "apps.contracts.services.contract.integrations.serialize_contract_obj"
-        ) as mock_contract_ser,
+        patch("apps.cases.services.case.case_export_serializer_service.serialize_case_obj") as mock_case_ser,
+        patch("apps.contracts.services.contract.integrations.serialize_contract_obj") as mock_contract_ser,
     ):
         mock_contract_ser.return_value = expected
         result = serialize_contract_for_case_export(contract)

@@ -11,7 +11,6 @@ from dataclasses import dataclass
 from io import BytesIO
 from typing import Any
 
-from django.utils.translation import gettext_lazy as _
 from PIL import Image
 
 from apps.automation.services.scraper.core.captcha_recognizer import DdddocrRecognizer
@@ -235,7 +234,7 @@ class CaptchaRecognitionService:
             else:
                 AutomationLogger.log_captcha_recognition_failed(
                     processing_time=processing_time,
-                    error_message=str(_("无法识别验证码")),
+                    error_message="无法识别验证码",
                     image_size=len(image_bytes),
                 )
                 return CaptchaResult(success=False, text=None, processing_time=processing_time, error="无法识别验证码")
@@ -327,7 +326,7 @@ class CaptchaServiceAdapter(ICaptchaService):
                 if processing_time is not None:
                     errors["processing_time"] = processing_time
                 raise ValidationException(
-                    message=_("验证码识别失败"),
+                    message="验证码识别失败",
                     code="CAPTCHA_RECOGNITION_FAILED",
                     errors=errors,
                 )
@@ -338,7 +337,7 @@ class CaptchaServiceAdapter(ICaptchaService):
 
             if not isinstance(e, ValidationException):
                 raise ValidationException(
-                    message=_("验证码识别异常"),
+                    message="验证码识别异常",
                     code="CAPTCHA_RECOGNITION_ERROR",
                     errors={"error_message": str(e)},
                 ) from e

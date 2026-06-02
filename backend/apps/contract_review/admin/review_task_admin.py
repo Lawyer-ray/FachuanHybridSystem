@@ -10,7 +10,6 @@ from django.http import HttpRequest, HttpResponse
 from django.template.response import TemplateResponse
 from django.urls import path
 from django.utils.html import format_html
-from django.utils.translation import gettext_lazy as _
 
 from apps.contract_review.models import ReviewTask, TaskStatus
 
@@ -36,9 +35,9 @@ class ReviewTaskAdmin(admin.ModelAdmin):
     )
     ordering = ("-created_at",)
     change_form_template = "admin/contract_review/reviewtask/change_form.html"
-    actions = ["retry_selected_tasks", "delete_selected_with_files"]
+    actions = ["retry_selected_tasks", "delete_selected_with_files", "normalize_format"]
 
-    @admin.action(description=_("重新执行选中的审查任务"))
+    @admin.action(description="重新执行选中的审查任务")
     def retry_selected_tasks(self, request: HttpRequest, queryset: Any) -> None:
         from apps.core.tasking import submit_task
 
@@ -55,7 +54,7 @@ class ReviewTaskAdmin(admin.ModelAdmin):
                 count += 1
         self.message_user(request, f"已重新提交 {count} 个审查任务")
 
-    @admin.action(description=_("删除选中任务及关联文件"))
+    @admin.action(description="删除选中任务及关联文件")
     def delete_selected_with_files(self, request: HttpRequest, queryset: Any) -> None:
         from apps.contract_review.repositories.review_task_repository import ReviewTaskRepository
 
@@ -89,7 +88,57 @@ class ReviewTaskAdmin(admin.ModelAdmin):
 
         self.message_user(request, f"已删除 {deleted_count} 个任务及 {file_count} 个关联文件")
 
-    @admin.display(description=_("当前处理步骤"))
+    @admin.action(description="格式规范化（调整字体/行距/页边距）")
+    def normalize_format(self, request: HttpRequest, queryset: Any) -> None:
+        from apps.contract_review.services.format_normalizer import DocxFormatNormalizer
+
+        success_count = 0
+        fail_count = 0
+
+        for task in queryset:
+            if not task.original_file:
+                self.message_user(request, f"任务 {task.contract_title or task.id} 没有原始文件", level="warning")
+                fail_count += 1
+                continue
+
+            original_path = Path(task.original_file)
+            if not original_path.exists():
+                self.message_user(request, f"任务 {task.contract_title or task.id} 的原始文件不存在", level="warning")
+                fail_count += 1
+                continue
+
+            try:
+                # 生成输出文件路径
+                output_dir = original_path.parent
+                output_filename = f"{original_path.stem}_规范化{original_path.suffix}"
+                output_path = output_dir / output_filename
+
+                # 执行格式规范化
+                normalizer = DocxFormatNormalizer(original_path, output_path)
+                result_path = normalizer.normalize()
+
+                # 更新任务的输出文件
+                task.output_file = str(result_path)
+                task.save(update_fields=["output_file"])
+
+                success_count += 1
+                logger.info("格式规范化成功: %s -> %s", original_path, result_path)
+
+            except Exception as e:
+                logger.exception("格式规范化失败: %s", e)
+                self.message_user(
+                    request,
+                    f"任务 {task.contract_title or task.id} 格式规范化失败: {e!s}",
+                    level="error",
+                )
+                fail_count += 1
+
+        if success_count > 0:
+            self.message_user(request, f"成功规范化 {success_count} 个文件")
+        if fail_count > 0:
+            self.message_user(request, f"{fail_count} 个文件规范化失败", level="warning")
+
+    @admin.display(description="当前处理步骤")
     def current_step_display(self, obj: ReviewTask) -> str:
         if obj.status == "completed":
             return "✅ 已完成"
@@ -106,7 +155,7 @@ class ReviewTaskAdmin(admin.ModelAdmin):
         "review_report": "输出审查报告",
     }
 
-    @admin.display(description=_("选中的处理步骤"))
+    @admin.display(description="选中的处理步骤")
     def selected_steps_display(self, obj: ReviewTask) -> str:
         steps = obj.selected_steps or []
         if not steps:
@@ -157,19 +206,19 @@ class ReviewTaskAdmin(admin.ModelAdmin):
             ctx["show_delete_link"] = True
         return super().change_view(request, object_id, form_url, ctx)
 
-    @admin.display(description=_("原始文件"))
+    @admin.display(description="原始文件")
     def original_file_link(self, obj: ReviewTask) -> str:
         if not obj.original_file:
             return "—"
         return self._file_link(obj, obj.original_file)
 
-    @admin.display(description=_("审查结果"))
+    @admin.display(description="审查结果")
     def output_file_link(self, obj: ReviewTask) -> str:
         if not obj.output_file:
             return "—"
         return self._file_link(obj, obj.output_file, primary=True)
 
-    @admin.display(description=_("评估报告"))
+    @admin.display(description="评估报告")
     def review_report_html(self, obj: ReviewTask) -> str:
         if not obj.review_report:
             return "—"
@@ -207,14 +256,14 @@ class ReviewTaskAdmin(admin.ModelAdmin):
 
         fieldsets = [
             (None, {"fields": ("id", "user", "contract_title", "model_name", "reviewer_name")}),
-            (_("当事人"), {"fields": (*party_fields, "represented_party")}),
-            (_("处理步骤"), {"fields": ("selected_steps_display",)}),
-            (_("状态"), {"fields": ("status", "current_step", "error_message")}),
-            (_("文件"), {"fields": ("original_file_link", "output_file_link")}),
-            (_("时间"), {"fields": ("created_at", "updated_at")}),
+            ("当事人", {"fields": (*party_fields, "represented_party")}),
+            ("处理步骤", {"fields": ("selected_steps_display",)}),
+            ("状态", {"fields": ("status", "current_step", "error_message")}),
+            ("文件", {"fields": ("original_file_link", "output_file_link")}),
+            ("时间", {"fields": ("created_at", "updated_at")}),
         ]
         if obj and obj.review_report:
-            fieldsets.insert(4, (_("评估报告"), {"fields": ("review_report_html",)}))
+            fieldsets.insert(4, ("评估报告", {"fields": ("review_report_html",)}))
         return fieldsets
 
     def add_view(
@@ -234,13 +283,13 @@ class ReviewTaskAdmin(admin.ModelAdmin):
 
             messages.warning(
                 request,
-                _("SiliconFlow 模型列表获取失败：%(error)s，当前显示默认模型列表") % {"error": result.error_message},
+                "SiliconFlow 模型列表获取失败：%(error)s，当前显示默认模型列表" % {"error": result.error_message},
             )
 
         context = {
             **self.admin_site.each_context(request),
             "opts": self.model._meta,
-            "title": _("新建合同审查任务"),
+            "title": "新建合同审查任务",
             "has_view_permission": self.has_view_permission(request),
             "models_json": json.dumps(models, ensure_ascii=False),
         }
@@ -261,6 +310,16 @@ class ReviewTaskAdmin(admin.ModelAdmin):
                 "<uuid:task_id>/report/pdf/",
                 self.admin_site.admin_view(self.report_pdf_view),
                 name="contract_review_reviewtask_report_pdf",
+            ),
+            path(
+                "format-normalize/",
+                self.admin_site.admin_view(self.format_normalize_view),
+                name="contract_review_reviewtask_format_normalize",
+            ),
+            path(
+                "<uuid:task_id>/format-normalize/",
+                self.admin_site.admin_view(self.format_normalize_task_view),
+                name="contract_review_reviewtask_format_normalize_task",
             ),
         ]
         return custom + super().get_urls()
@@ -336,3 +395,79 @@ class ReviewTaskAdmin(admin.ModelAdmin):
         response = HttpResponse(pdf, content_type="application/pdf")
         response["Content-Disposition"] = f'inline; filename="{filename}"'
         return response
+
+    def format_normalize_view(self, request: HttpRequest) -> HttpResponse:
+        """格式调整页面"""
+        # 获取所有有原始文件的任务
+        tasks = ReviewTask.objects.filter(
+            original_file__isnull=False,
+            original_file__gt="",
+        ).order_by("-created_at")[:50]
+
+        context = {
+            **self.admin_site.each_context(request),
+            "title": "合同格式调整",
+            "opts": self.model._meta,
+            "tasks": tasks,
+        }
+        return TemplateResponse(
+            request,
+            "admin/contract_review/reviewtask/format_normalize.html",
+            context,
+        )
+
+    def format_normalize_task_view(self, request: HttpRequest, task_id: UUID) -> HttpResponse:
+        """对单个任务执行格式调整"""
+        from apps.contract_review.services.format_normalizer import DocxFormatNormalizer
+
+        try:
+            task = ReviewTask.objects.get(id=task_id)
+        except ReviewTask.DoesNotExist:
+            from django.http import Http404
+
+            raise Http404("任务不存在")
+
+        if not task.original_file:
+            from django.contrib import messages
+
+            messages.error(request, "该任务没有原始文件")
+            return self._redirect_back(request)
+
+        original_path = Path(task.original_file)
+        if not original_path.exists():
+            from django.contrib import messages
+
+            messages.error(request, f"原始文件不存在: {original_path}")
+            return self._redirect_back(request)
+
+        try:
+            # 生成输出文件路径
+            output_dir = original_path.parent
+            output_filename = f"{original_path.stem}_规范化{original_path.suffix}"
+            output_path = output_dir / output_filename
+
+            # 执行格式规范化
+            normalizer = DocxFormatNormalizer(original_path, output_path)
+            result_path = normalizer.normalize()
+
+            # 更新任务的输出文件
+            task.output_file = str(result_path)
+            task.save(update_fields=["output_file"])
+
+            from django.contrib import messages
+
+            messages.success(request, f"格式规范化完成: {result_path.name}")
+
+        except Exception as e:
+            logger.exception("格式规范化失败: %s", e)
+            from django.contrib import messages
+
+            messages.error(request, f"格式规范化失败: {e!s}")
+
+        return self._redirect_back(request)
+
+    def _redirect_back(self, request: HttpRequest) -> HttpResponse:
+        """重定向回上一页"""
+        from django.http import HttpResponseRedirect
+
+        return HttpResponseRedirect(request.META.get("HTTP_REFERER", "/admin/contract_review/reviewtask/"))

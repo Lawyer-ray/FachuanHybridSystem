@@ -53,6 +53,7 @@ dependencies = [
     # --- 可观测性 ---
     "psutil==7.2.2",
     "sentry-sdk>=2.59.0",
+    "concurrent-log-handler>=0.9.25",
     # --- 配置 ---
     "python-dotenv==1.2.2",
     # --- 热重载 ---

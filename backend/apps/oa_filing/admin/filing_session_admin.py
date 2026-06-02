@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from django.contrib import admin
-from django.utils.translation import gettext_lazy as _
 
 from apps.oa_filing.models import FilingSession
 
@@ -31,15 +30,15 @@ class FilingSessionAdmin(admin.ModelAdmin):
     ]
     fieldsets = [
         (
-            _("会话信息"),
+            "会话信息",
             {"fields": ("contract", "case", "oa_config", "credential", "user", "status")},
         ),
         (
-            _("错误信息"),
+            "错误信息",
             {"fields": ("error_message",), "classes": ("collapse",)},
         ),
         (
-            _("时间信息"),
+            "时间信息",
             {"fields": ("created_at", "updated_at"), "classes": ("collapse",)},
         ),
     ]

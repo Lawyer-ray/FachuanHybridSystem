@@ -5,7 +5,6 @@ from __future__ import annotations
 from typing import Any
 
 from django.db import transaction
-from django.utils.translation import gettext_lazy as _
 
 from apps.core.exceptions import ValidationException
 from apps.documents.models import DocumentTemplate
@@ -101,7 +100,7 @@ class DocumentTemplateWorkflow:
         file_path = data.get("file_path")
         if file_path and (not self.validator.validate_file_path(file_path)):
             raise ValidationException(
-                message=_("文件不存在: %(p)s") % {"p": file_path},
+                message="文件不存在: %(p)s" % {"p": file_path},
                 code="INVALID_FILE_PATH",
                 errors={"file_path": f"文件不存在: {file_path}"},
             )
@@ -120,7 +119,7 @@ class DocumentTemplateWorkflow:
         if file_path is not None:
             if file_path and (not self.validator.validate_file_path(file_path)):
                 raise ValidationException(
-                    message=_("文件不存在: %(p)s") % {"p": file_path},
+                    message="文件不存在: %(p)s" % {"p": file_path},
                     code="INVALID_FILE_PATH",
                     errors={"file_path": f"文件不存在: {file_path}"},
                 )

@@ -5,7 +5,6 @@
 
 from typing import Any
 
-from django.utils.translation import gettext_lazy as _
 from ninja import File, Router
 from ninja.files import UploadedFile
 
@@ -61,7 +60,7 @@ def auto_namer_process_by_path(request: Any, payload: AutoToolProcessIn) -> Auto
         return AutoToolProcessOut(
             text=None,
             ollama_response=None,
-            error=_("文件不存在: %(path)s") % {"path": payload.file_path},
+            error="文件不存在: %(path)s" % {"path": payload.file_path},
         )
 
     from apps.automation.services.document.document_processing import extract_document_content
@@ -70,9 +69,7 @@ def auto_namer_process_by_path(request: Any, payload: AutoToolProcessIn) -> Auto
 
     text_value = (extraction.text or "").strip()
     if not text_value:
-        return AutoToolProcessOut(
-            text=None, ollama_response=None, error=str(_("文档中没有提取到文字内容，无法生成命名"))
-        )
+        return AutoToolProcessOut(text=None, ollama_response=None, error="文档中没有提取到文字内容，无法生成命名")
 
     # 调用服务生成文件名
     filename_suggestion = service.generate_filename(

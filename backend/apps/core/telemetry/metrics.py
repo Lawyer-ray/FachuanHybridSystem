@@ -15,7 +15,6 @@ from django.utils import timezone
 
 logger = logging.getLogger(__name__)
 
-
 DEFAULT_BUCKETS_MS: tuple[int, ...] = (
     5,
     10,

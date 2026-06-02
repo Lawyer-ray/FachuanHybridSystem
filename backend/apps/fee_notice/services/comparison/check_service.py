@@ -9,7 +9,6 @@ from __future__ import annotations
 在案件绑定完成后、飞书通知发送前触发检查.
 """
 
-
 import logging
 from dataclasses import dataclass, field
 from decimal import Decimal

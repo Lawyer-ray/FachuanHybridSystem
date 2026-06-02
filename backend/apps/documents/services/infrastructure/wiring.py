@@ -98,3 +98,10 @@ def get_evidence_list_placeholder_service() -> Any:
     from apps.core.infrastructure.service_locator import ServiceLocator
 
     return ServiceLocator.get_evidence_list_placeholder_service()
+
+
+def get_smart_fill_service() -> Any:
+    """获取智能填充服务实例"""
+    from apps.documents.services.smart_fill.service import SmartFillService
+
+    return SmartFillService(llm_service=get_llm_service())

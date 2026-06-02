@@ -11,13 +11,10 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, ClassVar, cast
 
-from django.utils.translation import gettext_lazy as _
-
 from apps.core.exceptions import NotFoundError
 
 if TYPE_CHECKING:
     from apps.core.interfaces import ICaseService
-
 
 # 诉讼地位到显示名称的映射
 # Requirements: 2.1, 2.2
@@ -378,7 +375,7 @@ class EvidenceListPlaceholderService:
             return EvidenceList.objects.select_related("case").get(id=evidence_list_id)
         except EvidenceList.DoesNotExist:
             raise NotFoundError(
-                message=_("证据清单不存在"),
+                message="证据清单不存在",
                 code="EVIDENCE_LIST_NOT_FOUND",
                 errors={"list_id": f"ID 为 {evidence_list_id} 的证据清单不存在"},
             ) from None
@@ -399,7 +396,7 @@ class EvidenceListPlaceholderService:
         case_data = self.case_service.get_case_with_details_internal(case_id)
         if case_data is None:
             raise NotFoundError(
-                message=_("案件不存在"),
+                message="案件不存在",
                 code="CASE_NOT_FOUND",
                 errors={"case_id": f"ID 为 {case_id} 的案件不存在"},
             )

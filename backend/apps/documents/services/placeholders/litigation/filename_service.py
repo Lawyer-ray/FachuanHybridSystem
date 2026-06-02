@@ -7,7 +7,6 @@ Requirements: 1.1, 1.2, 1.3, 1.4
 import logging
 
 from django.utils import timezone
-from django.utils.translation import gettext_lazy as _
 
 from apps.core.exceptions import NotFoundError
 from apps.core.services.filename_template_service import FilenameTemplateService
@@ -49,7 +48,7 @@ class FilenameService:
 
         if not case:
             logger.error("案件不存在: case_id=%s", case_id)
-            raise NotFoundError(message=_("案件不存在"), code="CASE_NOT_FOUND", errors={"case_id": case_id})
+            raise NotFoundError(message="案件不存在", code="CASE_NOT_FOUND", errors={"case_id": case_id})
 
         # 获取案件名称(直接使用 case.name)
         case_name = case.name if case.name else "未命名案件"
@@ -88,7 +87,7 @@ class FilenameService:
 
         if not case:
             logger.error("案件不存在: case_id=%s", case_id)
-            raise NotFoundError(message=_("案件不存在"), code="CASE_NOT_FOUND", errors={"case_id": case_id})
+            raise NotFoundError(message="案件不存在", code="CASE_NOT_FOUND", errors={"case_id": case_id})
 
         # 获取案件名称(直接使用 case.name)
         case_name = case.name if case.name else "未命名案件"

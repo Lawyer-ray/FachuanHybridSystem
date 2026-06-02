@@ -4,7 +4,6 @@ import uuid
 from typing import Any, ClassVar
 
 from django.db import models
-from django.utils.translation import gettext_lazy as _
 from django_lifecycle import BEFORE_UPDATE, LifecycleModel, hook
 
 from apps.core.filesystem.upload_paths import EntityIdPath
@@ -23,25 +22,25 @@ class ChatRecordScreenshot(LifecycleModel):
         "ChatRecordProject",
         on_delete=models.CASCADE,
         related_name="screenshots",
-        verbose_name=_("项目"),
+        verbose_name="项目",
     )
-    image = models.ImageField(upload_to=EntityIdPath("chat_records/screenshots"), verbose_name=_("截图"))
-    ordering = models.PositiveIntegerField(default=0, verbose_name=_("顺序"))
-    title = models.CharField(max_length=255, blank=True, verbose_name=_("标题"))
-    note = models.TextField(blank=True, verbose_name=_("备注"))
-    capture_time_seconds = models.FloatField(null=True, blank=True, verbose_name=_("截图时间点(秒)"))
-    sha256 = models.CharField(max_length=64, blank=True, db_index=True, verbose_name=_("内容哈希"))
-    dhash = models.CharField(max_length=16, blank=True, db_index=True, verbose_name=_("感知哈希"))
-    frame_score = models.FloatField(null=True, blank=True, verbose_name=_("帧评分"))
+    image = models.ImageField(upload_to=EntityIdPath("chat_records/screenshots"), verbose_name="截图")
+    ordering = models.PositiveIntegerField(default=0, verbose_name="顺序")
+    title = models.CharField(max_length=255, blank=True, verbose_name="标题")
+    note = models.TextField(blank=True, verbose_name="备注")
+    capture_time_seconds = models.FloatField(null=True, blank=True, verbose_name="截图时间点(秒)")
+    sha256 = models.CharField(max_length=64, blank=True, db_index=True, verbose_name="内容哈希")
+    dhash = models.CharField(max_length=16, blank=True, db_index=True, verbose_name="感知哈希")
+    frame_score = models.FloatField(null=True, blank=True, verbose_name="帧评分")
     source = models.CharField(
-        max_length=16, choices=ScreenshotSource.choices, default=ScreenshotSource.UNKNOWN, verbose_name=_("来源")
+        max_length=16, choices=ScreenshotSource.choices, default=ScreenshotSource.UNKNOWN, verbose_name="来源"
     )
-    is_filtered = models.BooleanField(default=False, verbose_name=_("已过滤"))
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name=_("创建时间"))
+    is_filtered = models.BooleanField(default=False, verbose_name="已过滤")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
 
     class Meta:
-        verbose_name = _("聊天记录截图")
-        verbose_name_plural = _("聊天记录截图")
+        verbose_name = "聊天记录截图"
+        verbose_name_plural = "聊天记录截图"
         ordering: ClassVar = ["ordering", "created_at"]
         indexes: ClassVar = [
             models.Index(fields=["project", "ordering"]),

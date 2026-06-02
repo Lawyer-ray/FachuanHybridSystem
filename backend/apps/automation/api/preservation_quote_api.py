@@ -15,7 +15,6 @@ import math
 from typing import Any
 
 from django.http import HttpRequest
-from django.utils.translation import gettext_lazy as _
 from ninja import Router
 from ninja_jwt.authentication import JWTAuth
 
@@ -195,7 +194,7 @@ async def execute_preservation_quote(request: HttpRequest, quote_id: int) -> Quo
     # 返回响应
     return QuoteExecuteResponseSchema(
         success=True,
-        message=_("询价任务执行完成，成功 %(success)d 个，失败 %(failed)d 个")
+        message="询价任务执行完成，成功 %(success)d 个，失败 %(failed)d 个"
         % {"success": result["success_count"], "failed": result["failed_count"]},
         data=PreservationQuoteSchema.from_model(quote),
     )
@@ -239,7 +238,7 @@ async def retry_preservation_quote(request: HttpRequest, quote_id: int) -> Quote
     # 返回响应
     return QuoteExecuteResponseSchema(
         success=True,
-        message=_("重试询价任务完成，成功 %(success)d 个，失败 %(failed)d 个")
+        message="重试询价任务完成，成功 %(success)d 个，失败 %(failed)d 个"
         % {"success": result["success_count"], "failed": result["failed_count"]},
         data=PreservationQuoteSchema.from_model(quote),
     )

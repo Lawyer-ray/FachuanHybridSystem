@@ -6,8 +6,6 @@ import logging
 from dataclasses import dataclass
 from typing import Any, cast
 
-from django.utils.translation import gettext_lazy as _
-
 from apps.core.exceptions import NotFoundError, ValidationException
 from apps.core.utils.path import Path
 
@@ -41,9 +39,9 @@ class TemplateResolver:
     ) -> ResolvedTemplate:
         if template_id is None and not function_code:
             raise ValidationException(
-                message=_("必须提供 template_id 或 function_code"),
+                message="必须提供 template_id 或 function_code",
                 code="INVALID_PARAMS",
-                errors={"params": str(_("必须提供 template_id 或 function_code"))},
+                errors={"params": "必须提供 template_id 或 function_code"},
             )
 
         if template_id is not None:
@@ -52,7 +50,7 @@ class TemplateResolver:
         else:
             if not function_code:
                 raise ValidationException(
-                    message=_("必须提供 function_code"),
+                    message="必须提供 function_code",
                     code="INVALID_PARAMS",
                     errors={"params": "function_code is required"},
                 )
@@ -82,7 +80,7 @@ class TemplateResolver:
         )
         if not template:
             raise NotFoundError(
-                message=_("未找到功能标识为 %(code)s 的活跃模板") % {"code": function_code},
+                message="未找到功能标识为 %(code)s 的活跃模板" % {"code": function_code},
                 code="TEMPLATE_NOT_FOUND",
                 errors={"function_code": f"未找到功能标识为 {function_code} 的活跃模板"},
             )
@@ -101,7 +99,7 @@ class TemplateResolver:
         template = self.document_service.get_template_by_id_internal(template_id)
         if not template:
             raise NotFoundError(
-                message=_("模板不存在"),
+                message="模板不存在",
                 code="TEMPLATE_NOT_FOUND",
                 errors={"template_id": f"ID 为 {template_id} 的模板不存在"},
             )
@@ -111,7 +109,7 @@ class TemplateResolver:
         location = (getattr(template, "file_path", None) or "").strip()
         if not location:
             raise ValidationException(
-                message=_("模板文件路径为空"),
+                message="模板文件路径为空",
                 code="TEMPLATE_FILE_EMPTY",
                 errors={"template_id": str(template.id)},
             )
@@ -119,7 +117,7 @@ class TemplateResolver:
         path = Path(location)
         if not path.exists():
             raise ValidationException(
-                message=_("模板文件不存在: %(path)s") % {"path": location},
+                message="模板文件不存在: %(path)s" % {"path": location},
                 code="TEMPLATE_FILE_NOT_FOUND",
                 errors={"template_path": location},
             )

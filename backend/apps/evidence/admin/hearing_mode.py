@@ -10,7 +10,6 @@ from django.contrib import admin
 from django.http import HttpRequest, JsonResponse
 from django.template.response import TemplateResponse
 from django.urls import path
-from django.utils.translation import gettext_lazy as _
 
 from apps.evidence.models import EvidenceDirection, EvidenceItem, EvidenceList, EvidenceType, HearingNote
 

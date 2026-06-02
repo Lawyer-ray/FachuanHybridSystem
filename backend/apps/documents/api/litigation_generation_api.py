@@ -8,7 +8,6 @@ import logging
 import time
 from typing import Any
 
-from django.utils.translation import gettext_lazy as _
 from ninja import Router, Schema
 
 from apps.core.exceptions import ValidationException
@@ -149,7 +148,7 @@ def download_litigation_document(request: Any, case_id: int, litigation_type: st
         filename, doc_bytes = service.generate_defense_document(case_id)
     else:
         raise ValidationException(
-            message=_("不支持的诉讼类型: %(t)s") % {"t": litigation_type}, code="INVALID_LITIGATION_TYPE"
+            message="不支持的诉讼类型: %(t)s" % {"t": litigation_type}, code="INVALID_LITIGATION_TYPE"
         )
 
     duration_ms = int((time.time() - start_time) * 1000)

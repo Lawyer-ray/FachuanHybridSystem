@@ -200,20 +200,10 @@ backend/tests/structure/snapshots/*
 !backend/tests/structure/snapshots/openapi_v1.json
 
 # legal_research 私有 API 检索实现（本地保留，不入库）
-backend/plugins/weike_api_private/*
-!backend/plugins/weike_api_private/__init__.py
 backend/apps/legal_research/services/sources/weike/api_private/
 
 # court_zxfw 纯逆向登录插件（本地保留，不入库）
 backend/apps/automation/services/scraper/sites/court_zxfw_login_private/
-
-# court_filing HTTP 链路私有插件（用户需单独获取，不入库）
-backend/plugins/court_filing_http/*
-!backend/plugins/court_filing_http/__init__.py
-
-# 法院自动化插件（Playwright 立案/担保，用户需单独获取，不入库）
-backend/plugins/court_automation/*
-!backend/plugins/court_automation/__init__.py
 
 # legal_research 基线评估样本（本地标注数据，不入库）
 backend/apps/legal_research/evaluation/
@@ -254,3 +244,4 @@ playwright-report/
 /~/
 backend/cookies.txt
 videos/
+.handbook/

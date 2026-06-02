@@ -5,7 +5,6 @@ from __future__ import annotations
 from typing import Any
 
 from django.http import HttpRequest
-from django.utils.translation import gettext as _
 from ninja import Query, Router
 from ninja.errors import HttpError
 
@@ -40,7 +39,7 @@ def get_dashboard_summary(
     """核心指标统计"""
     s, e = _resolve_date_range(query.start_date, query.end_date)
     if query.start_date and query.end_date and s > e:
-        raise HttpError(422, _("起始日期不能晚于结束日期"))
+        raise HttpError(422, "起始日期不能晚于结束日期")
     svc = _get_dashboard_service()
     out = svc.get_summary(s, e)
     return SummaryResponse(
@@ -61,10 +60,10 @@ def get_dashboard_trend(
     """回款趋势"""
     s, e = _resolve_date_range(query.start_date, query.end_date)
     if query.start_date and query.end_date and s > e:
-        raise HttpError(422, _("起始日期不能晚于结束日期"))
+        raise HttpError(422, "起始日期不能晚于结束日期")
     valid_dims = {"month", "quarter", "year"}
     if query.dimension not in valid_dims:
-        raise HttpError(422, _("时间维度参数无效，可选值：month, quarter, year"))
+        raise HttpError(422, "时间维度参数无效，可选值：month, quarter, year")
     svc = _get_dashboard_service()
     items = svc.get_trend(s, e, query.dimension)
     return TrendResponse(
@@ -89,10 +88,10 @@ def get_dashboard_breakdown(
     """多维度分组统计"""
     s, e = _resolve_date_range(query.start_date, query.end_date)
     if query.start_date and query.end_date and s > e:
-        raise HttpError(422, _("起始日期不能晚于结束日期"))
+        raise HttpError(422, "起始日期不能晚于结束日期")
     valid_groups = {"case_type", "amount_range", "lawyer"}
     if query.group_by not in valid_groups:
-        raise HttpError(422, _("分组参数无效，可选值：case_type, amount_range, lawyer"))
+        raise HttpError(422, "分组参数无效，可选值：case_type, amount_range, lawyer")
     svc = _get_dashboard_service()
     items = svc.get_breakdown(s, e, query.group_by)
     return BreakdownResponse(
@@ -117,7 +116,7 @@ def get_dashboard_factors(
     """回款影响因素分析"""
     s, e = _resolve_date_range(query.start_date, query.end_date)
     if query.start_date and query.end_date and s > e:
-        raise HttpError(422, _("起始日期不能晚于结束日期"))
+        raise HttpError(422, "起始日期不能晚于结束日期")
     svc = _get_dashboard_service()
     result = svc.get_factors(s, e)
 
@@ -149,10 +148,10 @@ def get_dashboard_lawyer_performance(
     """律师绩效分析"""
     s, e = _resolve_date_range(query.start_date, query.end_date)
     if query.start_date and query.end_date and s > e:
-        raise HttpError(422, _("起始日期不能晚于结束日期"))
+        raise HttpError(422, "起始日期不能晚于结束日期")
     valid_sorts = {"total_recovery", "recovery_rate", "case_count"}
     if query.sort_by not in valid_sorts:
-        raise HttpError(422, _("排序参数无效，可选值：total_recovery, recovery_rate, case_count"))
+        raise HttpError(422, "排序参数无效，可选值：total_recovery, recovery_rate, case_count")
     svc = _get_dashboard_service()
     items = svc.get_lawyer_performance(s, e, query.sort_by)
     return LawyerPerformanceResponse(
@@ -180,7 +179,7 @@ def get_dashboard_case_stats(
     """案件数据统计"""
     s, e = _resolve_date_range(query.start_date, query.end_date)
     if query.start_date and query.end_date and s > e:
-        raise HttpError(422, _("起始日期不能晚于结束日期"))
+        raise HttpError(422, "起始日期不能晚于结束日期")
     svc = _get_dashboard_service()
     out = svc.get_case_stats(s, e)
     return CaseStatsResponse(

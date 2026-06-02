@@ -11,7 +11,6 @@ from pydantic import BaseModel, Field
 
 router = Router(tags=["文书送达自动下载"])
 
-
 from typing import Any, ClassVar
 
 

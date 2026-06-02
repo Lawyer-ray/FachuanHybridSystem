@@ -1,0 +1,142 @@
+{% extends "admin/base_site.html" %}
+{% load i18n admin_urls static %}
+
+{% block title %}合同格式调整{% endblock %}
+
+{% block extrastyle %}
+{{ block.super }}
+<style>
+    .object-tools {
+        display: flex;
+        justify-content: flex-end;
+        align-items: center;
+        gap: 10px;
+        float: none;
+        margin-left: auto;
+        list-style: none;
+        padding-left: 0;
+        margin-bottom: 15px;
+    }
+    .object-tools li {
+        float: none;
+        margin: 0;
+        list-style: none;
+    }
+    .object-tools li + li {
+        margin-left: 0;
+    }
+    .result-list {
+        width: 100%;
+        border-collapse: collapse;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        overflow: hidden;
+    }
+    .result-list th {
+        background: #f8f9fa;
+        color: #333;
+        padding: 10px 15px;
+        text-align: left;
+        font-weight: bold;
+        font-size: 12px;
+        border-bottom: 2px solid #ddd;
+    }
+    .result-list td {
+        padding: 10px 15px;
+        border-bottom: 1px solid #eee;
+    }
+    .result-list tr:last-child td {
+        border-bottom: none;
+    }
+    .result-list tr:hover {
+        background: #f5f5f5;
+    }
+    .result-list .button {
+        display: inline-block;
+        padding: 6px 12px;
+        background: #417690;
+        color: #fff;
+        border: none;
+        border-radius: 3px;
+        text-decoration: none;
+        font-size: 12px;
+        cursor: pointer;
+    }
+    .result-list .button:hover {
+        background: #205067;
+        color: #fff;
+    }
+    .empty-state {
+        padding: 40px 20px;
+        text-align: center;
+        color: #666;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        background: #f9f9f9;
+    }
+    .empty-state a {
+        color: #417690;
+        text-decoration: underline;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div id="content-main">
+    <ul class="object-tools">
+        <li>
+            <a href="{% url 'admin:contract_review_formatnormalize_changelist' %}" class="changelink">
+                合同审查任务列表
+            </a>
+        </li>
+        <li>
+            <a href="{% url 'admin:contract_review_formatnormalize_upload' %}" class="addlink">
+                上传合同文件
+            </a>
+        </li>
+    </ul>
+
+    {% if messages %}
+        {% for message in messages %}
+            <p class="errornote" style="{% if message.tags == 'success' %}background: #dff0d8; border: 1px solid #d6e9c6; color: #3c763d;{% elif message.tags == 'error' %}background: #f2dede; border: 1px solid #ebccd1; color: #a94442;{% endif %} padding: 10px; margin-bottom: 15px;">
+                {{ message }}
+            </p>
+        {% endfor %}
+    {% endif %}
+
+    {% if tasks %}
+        <table class="result-list">
+            <thead>
+                <tr>
+                    <th>合同标题</th>
+                    <th>用户</th>
+                    <th>状态</th>
+                    <th>创建时间</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for task in tasks %}
+                <tr>
+                    <td>{{ task.contract_title|default:"未命名合同" }}</td>
+                    <td>{{ task.user|default:"-" }}</td>
+                    <td>{{ task.get_status_display }}</td>
+                    <td>{{ task.created_at|date:"Y-m-d H:i" }}</td>
+                    <td>
+                        <a href="{% url 'admin:contract_review_formatnormalize_execute' task_id=task.id %}"
+                           class="button"
+                           onclick="return confirm('确定要对此任务执行格式规范化吗？')">
+                            格式规范化
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <div class="empty-state">
+            暂无待处理的任务。请先 <a href="{% url 'admin:contract_review_reviewtask_add' %}">添加合同审查任务</a>。
+        </div>
+    {% endif %}
+</div>
+{% endblock %}
