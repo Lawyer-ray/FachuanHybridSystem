@@ -4,14 +4,8 @@ from typing import Any
 
 
 def get_cloud_storage_configs() -> list[dict[str, Any]]:
-    """获取坚果云 WebDAV 配置项"""
+    """获取坚果云 WebDAV 配置项（仅需用户名和应用密码）"""
     return [
-        {
-            "key": "NUTSTORE_WEBDAV_URL",
-            "category": "general",
-            "description": "坚果云 WebDAV 服务器地址",
-            "value": "https://dav.jianguoyun.com/dav/",
-        },
         {
             "key": "NUTSTORE_WEBDAV_USERNAME",
             "category": "general",
@@ -25,10 +19,5 @@ def get_cloud_storage_configs() -> list[dict[str, Any]]:
             "value": "",
             "is_secret": True,
         },
-        {
-            "key": "NUTSTORE_WEBDAV_ROOT_PATH",
-            "category": "general",
-            "description": "坚果云 WebDAV 根路径（默认 / 表示根目录，可设置如 /法穿AI文件）",
-            "value": "/",
-        },
     ]
+

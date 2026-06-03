@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 
 def _get_nutstore_config_from_system_config() -> dict[str, str] | None:
-    """Read Nutstore WebDAV config from SystemConfig (DB)."""
+    """Read Nutstore WebDAV credentials from SystemConfig (DB)."""
     try:
         from apps.core.services.system_config_service import SystemConfigService
 
@@ -26,8 +26,6 @@ def _get_nutstore_config_from_system_config() -> dict[str, str] | None:
         return {
             "username": username,
             "app_password": password,
-            "url": service.get_value("NUTSTORE_WEBDAV_URL", "https://dav.jianguoyun.com/dav/"),
-            "root_path": service.get_value("NUTSTORE_WEBDAV_ROOT_PATH", "/"),
         }
     except Exception:
         logger.exception("Failed to read Nutstore config from SystemConfig")
@@ -59,7 +57,6 @@ def create_provider_for_binding(binding) -> CloudStorageProvider:
             return JianguoyunProvider(
                 username=config["username"],
                 app_password=config["app_password"],
-                root_path=config["root_path"],
             )
 
         logger.warning("No Nutstore WebDAV credentials configured")
