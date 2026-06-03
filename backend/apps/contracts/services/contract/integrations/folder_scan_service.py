@@ -62,7 +62,8 @@ class ContractFolderScanService:
     ) -> ContractFolderScanSession:
         self._ensure_contract_exists(contract_id)
         binding = self._get_accessible_binding(contract_id)
-        scan_scope = self._resolve_scan_scope(binding.folder_path, scan_subfolder)
+        storage_provider = self._make_provider_for_binding(binding)
+        scan_scope = self._resolve_scan_scope(binding.folder_path, scan_subfolder, storage_provider=storage_provider)
 
         if not rescan:
             existing = (
@@ -368,10 +369,12 @@ class ContractFolderScanService:
 
         try:
             binding = self._get_accessible_binding(session.contract_id)
+            storage_provider = self._make_provider_for_binding(binding)
             payload = dict(session.result_payload or {})
             scan_scope = self._resolve_scan_scope(
                 binding.folder_path,
                 self._extract_scan_subfolder(payload),
+                storage_provider=storage_provider,
             )
 
             def _progress(status: str, progress: int, current_file: str | None) -> None:
@@ -392,6 +395,7 @@ class ContractFolderScanService:
                 folder_path=scan_scope["scan_folder"],
                 domain="contract",
                 progress_callback=_progress,
+                storage_provider=storage_provider,
             )
             result["scan_scope"] = scan_scope
 
@@ -498,20 +502,75 @@ class ContractFolderScanService:
         if not binding:
             raise ValidationException(message="未绑定文件夹", errors={"contract_id": contract_id})
 
-        folder = Path(binding.folder_path)
-        if not folder.exists() or not folder.is_dir():
-            raise ValidationException(message="绑定文件夹不可访问", errors={"folder_path": binding.folder_path})
+        storage_type = getattr(binding, "storage_type", "local")
+        if storage_type == "local":
+            folder = Path(binding.folder_path)
+            if not folder.exists() or not folder.is_dir():
+                raise ValidationException(message="绑定文件夹不可访问", errors={"folder_path": binding.folder_path})
+        else:
+            # Cloud storage: use provider to check accessibility
+            from apps.core.cloud_storage.factory import create_provider_for_binding
+
+            provider = create_provider_for_binding(binding)
+            try:
+                accessible = provider.is_dir(binding.folder_path) or provider.exists(binding.folder_path)
+            except Exception:
+                accessible = False
+            if not accessible:
+                raise ValidationException(message="绑定文件夹不可访问", errors={"folder_path": binding.folder_path})
 
         return binding
+
+    def _make_provider_for_binding(self, binding: ContractFolderBinding) -> Any | None:
+        """Create a cloud storage provider for the binding, or None for local."""
+        storage_type = getattr(binding, "storage_type", "local")
+        if storage_type == "local":
+            return None
+        from apps.core.cloud_storage.factory import create_provider_for_binding
+
+        return create_provider_for_binding(binding)
 
     def _extract_scan_subfolder(self, payload: dict[str, Any] | None) -> str:
         scope = (payload or {}).get("scan_scope") or {}
         return str(scope.get("scan_subfolder") or "").strip()
 
-    def _resolve_scan_scope(self, root_folder: str, scan_subfolder: str) -> dict[str, str]:
-        root = Path(root_folder).expanduser().resolve()
+    def _resolve_scan_scope(
+        self,
+        root_folder: str,
+        scan_subfolder: str,
+        storage_provider: Any | None = None,
+    ) -> dict[str, str]:
         normalized_subfolder = self._normalize_scan_subfolder(scan_subfolder)
 
+        if storage_provider is not None:
+            # Cloud storage: use PurePosixPath for path arithmetic
+            from pathlib import PurePosixPath
+
+            root = PurePosixPath(root_folder)
+            scan_path = root
+            if normalized_subfolder:
+                scan_path = root / normalized_subfolder
+                # Normalize to prevent traversal
+                scan_path = PurePosixPath("/") / str(scan_path).lstrip("/")
+                if not str(scan_path).startswith(str(root) + "/") and str(scan_path) != str(root):
+                    raise ValidationException(
+                        message="扫描子文件夹越界",
+                        errors={"scan_subfolder": normalized_subfolder},
+                    )
+                if not storage_provider.exists(str(scan_path)):
+                    raise ValidationException(
+                        message="扫描子文件夹不可访问",
+                        errors={"scan_subfolder": normalized_subfolder},
+                    )
+
+            return {
+                "root_folder": str(root),
+                "scan_folder": str(scan_path),
+                "scan_subfolder": normalized_subfolder,
+            }
+
+        # Local filesystem
+        root = Path(root_folder).expanduser().resolve()
         scan_path = root
         if normalized_subfolder:
             scan_path = (root / normalized_subfolder).resolve()

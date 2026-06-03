@@ -87,7 +87,7 @@ def create_folder_binding(request: HttpRequest, contract_id: int, data: FolderBi
     )
 
     display_path = service.format_path_for_display(binding.folder_path)
-    is_accessible = service.check_folder_accessible(binding.folder_path)
+    is_accessible = service.check_folder_accessible(binding.folder_path, binding=binding)
 
     logger.info(
         "contract_folder_binding_upsert",

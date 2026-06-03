@@ -97,7 +97,17 @@ class BaseFolderBindingService:
             return results
         return self.browse_policy.list_subdirs(path, include_hidden=include_hidden)
 
-    def check_folder_accessible(self, path: str) -> bool:
+    def check_folder_accessible(self, path: str, binding: Any = None) -> bool:
+        # Cloud storage: use provider to check accessibility
+        if binding is not None and self._is_cloud_storage(binding):
+            provider = self._get_provider_for_binding(binding)
+            try:
+                return provider.is_dir(path) or provider.exists(path)
+            except Exception:
+                logger.warning("cloud_storage_accessible_check_failed", extra={"path": path})
+                return False
+
+        # Local filesystem
         try:
             folder = Path(path)
             if hasattr(folder, "exists") and folder.exists():

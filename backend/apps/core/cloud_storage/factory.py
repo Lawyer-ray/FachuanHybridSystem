@@ -46,7 +46,7 @@ def create_provider_for_binding(binding) -> CloudStorageProvider:
         # Prefer CloudStorageAccount if linked
         if storage_account is not None:
             return JianguoyunProvider(
-                username=storage_account.get_decrypted_webdav_username(),
+                username=storage_account.webdav_username,
                 app_password=storage_account.get_decrypted_webdav_password(),
                 root_path=getattr(storage_account, "webdav_root_path", "/"),
             )
@@ -90,7 +90,7 @@ def create_provider_from_account(account) -> CloudStorageProvider:
         from .webdav_provider import JianguoyunProvider
 
         return JianguoyunProvider(
-            username=account.get_decrypted_webdav_username(),
+            username=account.webdav_username,
             app_password=account.get_decrypted_webdav_password(),
             root_path=getattr(account, "webdav_root_path", "/"),
         )

@@ -62,7 +62,7 @@ def create_folder_binding(request: HttpRequest, case_id: int, data: CaseFolderBi
         storage_type=data.storage_type,
         storage_account=storage_account,
     )
-    is_accessible: bool = service.check_folder_accessible(binding.resolved_folder_path)
+    is_accessible: bool = service.check_folder_accessible(binding.resolved_folder_path, binding=binding)
     display_path: str = service.format_path_for_display(binding.resolved_folder_path)
 
     logger.info(
@@ -103,7 +103,7 @@ def get_folder_binding(request: HttpRequest, case_id: int) -> CaseFolderBindingR
     # 先尝试修复合同文件夹路径（合同路径修复后，案件的 resolved_folder_path 自动更新）
     contract_auto_repaired = service.check_and_repair_contract_path(binding)
 
-    is_accessible: bool = service.check_folder_accessible(binding.resolved_folder_path)
+    is_accessible: bool = service.check_folder_accessible(binding.resolved_folder_path, binding=binding)
     display_path: str = service.format_path_for_display(binding.resolved_folder_path)
 
     return CaseFolderBindingResponseSchema.from_binding(
