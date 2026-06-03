@@ -461,6 +461,7 @@ export interface FolderBrowseResponse {
   path: string
   parent_path: string | null
   entries: FolderBrowseEntry[]
+  storage_type?: string
 }
 
 export interface FolderScanSession {

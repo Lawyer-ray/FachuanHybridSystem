@@ -34,10 +34,10 @@ export function useFolderBinding(contractId: number) {
   return { binding, createBinding, deleteBinding }
 }
 
-export function useFolderBrowse(path?: string) {
+export function useFolderBrowse(path?: string, storageType?: string, storageAccountId?: number) {
   return useQuery<FolderBrowseResponse>({
-    queryKey: ['folder-browse', path ?? ''],
-    queryFn: () => contractApi.browseFolders(path),
+    queryKey: ['folder-browse', path ?? '', storageType ?? 'local', storageAccountId ?? 0],
+    queryFn: () => contractApi.browseFolders(path, false, storageType, storageAccountId),
     enabled: true,
     staleTime: 30 * 1000,
   })

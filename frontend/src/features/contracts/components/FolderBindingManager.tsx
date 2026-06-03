@@ -1,15 +1,15 @@
 import { useState, useCallback } from 'react'
 import { Folder, Link, Unlink, FolderOpen, Cloud, HardDrive } from 'lucide-react'
 import { toast } from 'sonner'
+import { useQuery } from '@tanstack/react-query'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Input } from '@/components/ui/input'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { useFolderBinding } from '../hooks/use-folder-binding'
 import { FolderBrowser } from './FolderBrowser'
 import { FolderScanPanel } from './FolderScanPanel'
+import { foldersApi } from '../api/folders'
 
 const STORAGE_TYPES = [
   { value: 'local', label: '本地文件系统', icon: HardDrive },
@@ -20,37 +20,28 @@ const STORAGE_TYPES = [
 export function FolderBindingManager({ contractId }: { contractId: number }) {
   const { binding, createBinding, deleteBinding } = useFolderBinding(contractId)
   const [browserOpen, setBrowserOpen] = useState(false)
-  const [bindDialogOpen, setBindDialogOpen] = useState(false)
   const [storageType, setStorageType] = useState<string>('local')
-  const [cloudPath, setCloudPath] = useState('')
   const [cloudAccountId, setCloudAccountId] = useState<number | null>(null)
+
+  const { data: cloudAccounts } = useQuery({
+    queryKey: ['cloud-storage-accounts'],
+    queryFn: () => foldersApi.listCloudStorageAccounts(),
+    staleTime: 5 * 60 * 1000,
+  })
 
   const bd = binding.data
 
-  const handleSelectLocal = useCallback(async (path: string) => {
-    try {
-      await createBinding.mutateAsync({ folder_path: path, storage_type: 'local' })
-      toast.success('文件夹已绑定')
-      setBrowserOpen(false)
-    } catch { toast.error('绑定失败') }
-  }, [createBinding])
-
-  const handleCloudBind = useCallback(async () => {
-    if (!cloudPath.trim()) {
-      toast.error('请输入文件夹路径')
-      return
-    }
+  const handleSelectFolder = useCallback(async (path: string) => {
     try {
       await createBinding.mutateAsync({
-        folder_path: cloudPath.trim(),
+        folder_path: path,
         storage_type: storageType,
         storage_account_id: cloudAccountId,
       })
       toast.success('文件夹已绑定')
-      setBindDialogOpen(false)
-      setCloudPath('')
+      setBrowserOpen(false)
     } catch { toast.error('绑定失败') }
-  }, [createBinding, cloudPath, storageType, cloudAccountId])
+  }, [createBinding, storageType, cloudAccountId])
 
   const handleUnbind = useCallback(async () => {
     try {
@@ -60,16 +51,18 @@ export function FolderBindingManager({ contractId }: { contractId: number }) {
   }, [deleteBinding])
 
   const handleOpenBind = () => {
-    if (storageType === 'local') {
-      setBrowserOpen(true)
-    } else {
-      setBindDialogOpen(true)
+    if (storageType !== 'local' && !cloudAccountId) {
+      toast.error('请先选择云存储账号')
+      return
     }
+    setBrowserOpen(true)
   }
 
   const storageLabel = bd
     ? STORAGE_TYPES.find(t => t.value === (bd.storage_type || 'local'))?.label || '本地文件系统'
     : null
+
+  const filteredAccounts = cloudAccounts?.filter(a => a.storage_type === storageType) ?? []
 
   return (
     <div className="space-y-4">
@@ -77,7 +70,7 @@ export function FolderBindingManager({ contractId }: { contractId: number }) {
         <CardHeader className="flex flex-row items-center justify-between pb-3">
           <CardTitle className="flex items-center gap-2 text-base"><Folder className="size-4" />文件夹绑定</CardTitle>
           <div className="flex items-center gap-2">
-            <Select value={storageType} onValueChange={setStorageType}>
+            <Select value={storageType} onValueChange={v => { setStorageType(v); setCloudAccountId(null) }}>
               <SelectTrigger className="w-[160px] h-8 text-xs">
                 <SelectValue />
               </SelectTrigger>
@@ -87,6 +80,18 @@ export function FolderBindingManager({ contractId }: { contractId: number }) {
                 ))}
               </SelectContent>
             </Select>
+            {storageType !== 'local' && filteredAccounts.length > 0 && (
+              <Select value={cloudAccountId ? String(cloudAccountId) : ''} onValueChange={v => setCloudAccountId(Number(v))}>
+                <SelectTrigger className="w-[180px] h-8 text-xs">
+                  <SelectValue placeholder="选择账号" />
+                </SelectTrigger>
+                <SelectContent>
+                  {filteredAccounts.map(a => (
+                    <SelectItem key={a.id} value={String(a.id)}>{a.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
             <Button size="sm" variant="outline" onClick={handleOpenBind}>
               <FolderOpen className="mr-1 size-4" />{bd ? '更换' : '绑定'}
             </Button>
@@ -117,33 +122,13 @@ export function FolderBindingManager({ contractId }: { contractId: number }) {
 
       {bd && <FolderScanPanel contractId={contractId} />}
 
-      <FolderBrowser open={browserOpen} onOpenChange={setBrowserOpen} onSelect={handleSelectLocal} />
-
-      {/* Cloud storage bind dialog */}
-      <Dialog open={bindDialogOpen} onOpenChange={setBindDialogOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>绑定云存储文件夹</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <label className="text-sm font-medium">文件夹路径</label>
-              <Input
-                placeholder="如：我的工作空间/合同/2026.01-某某案"
-                value={cloudPath}
-                onChange={e => setCloudPath(e.target.value)}
-              />
-              <p className="text-xs text-muted-foreground">
-                输入云存储中的相对路径（相对于存储根目录）
-              </p>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setBindDialogOpen(false)}>取消</Button>
-            <Button onClick={handleCloudBind}>绑定</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <FolderBrowser
+        open={browserOpen}
+        onOpenChange={setBrowserOpen}
+        onSelect={handleSelectFolder}
+        storageType={storageType}
+        storageAccountId={cloudAccountId ?? undefined}
+      />
     </div>
   )
 }

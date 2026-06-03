@@ -380,6 +380,7 @@ export interface FolderBrowseResponse {
   path: string | null
   parent_path: string | null
   entries: FolderBrowseEntry[]
+  storage_type?: string
 }
 
 // ============================================================================

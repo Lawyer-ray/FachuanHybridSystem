@@ -16,10 +16,17 @@ export const foldersApi = {
   deleteBinding: async (contractId: number): Promise<{ success: boolean; message: string }> =>
     client.delete(`${contractId}/folder-binding`).json(),
 
-  browse: async (path?: string, includeHidden = false): Promise<FolderBrowseResponse> => {
+  browse: async (
+    path?: string,
+    includeHidden = false,
+    storageType?: string,
+    storageAccountId?: number,
+  ): Promise<FolderBrowseResponse> => {
     const sp = new URLSearchParams()
     if (path) sp.set('path', path)
     if (includeHidden) sp.set('include_hidden', 'true')
+    if (storageType && storageType !== 'local') sp.set('storage_type', storageType)
+    if (storageAccountId) sp.set('storage_account_id', String(storageAccountId))
     return client.get('folder-browse', { searchParams: sp }).json<FolderBrowseResponse>()
   },
 
@@ -34,4 +41,7 @@ export const foldersApi = {
 
   confirmScan: async (contractId: number, sessionId: string, items: FolderScanConfirmItem[]): Promise<FolderScanConfirmResult> =>
     client.post(`${contractId}/folder-scan/${sessionId}/confirm`, { json: { items } }).json<FolderScanConfirmResult>(),
+
+  listCloudStorageAccounts: async (): Promise<Array<{ id: number; name: string; storage_type: string }>> =>
+    client.get('cloud-storage-accounts').json(),
 }
