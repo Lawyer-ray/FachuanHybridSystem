@@ -321,4 +321,4 @@ def list_cloud_storage_accounts(request: HttpRequest) -> list[dict[str, Any]]:
     accounts = CloudStorageAccount.objects.filter(is_active=True).values(
         "id", "name", "storage_type", "local_root_path", "webdav_root_path", "onedrive_root_path"
     )
-    return list(accounts)
+    return list(accounts)  # type: ignore[arg-type]

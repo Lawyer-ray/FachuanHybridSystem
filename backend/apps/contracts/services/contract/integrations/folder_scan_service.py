@@ -155,25 +155,25 @@ class ContractFolderScanService:
         # Local filesystem
         root = Path(binding.folder_path).expanduser().resolve()
 
-        subfolders: list[dict[str, str]] = []
-        for child in sorted(root.iterdir(), key=lambda item: item.name.lower()):
-            if child.name.startswith("."):
+        subfolders_local: list[dict[str, str]] = []
+        for child_local in sorted(root.iterdir(), key=lambda item: item.name.lower()):
+            if child_local.name.startswith("."):
                 continue
-            if not child.is_dir():
+            if not child_local.is_dir():
                 continue
-            resolved_child = child.resolve()
+            resolved_child = child_local.resolve()
             if not self._is_within_root(root, resolved_child):
                 continue
-            subfolders.append(
+            subfolders_local.append(
                 {
-                    "relative_path": child.name,
-                    "display_name": child.name,
+                    "relative_path": child_local.name,
+                    "display_name": child_local.name,
                 }
             )
 
         return {
             "root_path": root.as_posix(),
-            "subfolders": subfolders,
+            "subfolders": subfolders_local,
         }
 
     def get_session(self, *, contract_id: int, session_id: UUID) -> ContractFolderScanSession:
@@ -591,24 +591,24 @@ class ContractFolderScanService:
             }
 
         # Local filesystem
-        root = Path(root_folder).expanduser().resolve()
-        scan_path = root
+        root_local = Path(root_folder).expanduser().resolve()
+        scan_path_local = root_local
         if normalized_subfolder:
-            scan_path = (root / normalized_subfolder).resolve()
-            if not self._is_within_root(root, scan_path):
+            scan_path_local = (root_local / normalized_subfolder).resolve()
+            if not self._is_within_root(root_local, scan_path_local):
                 raise ValidationException(
                     message="扫描子文件夹越界",
                     errors={"scan_subfolder": normalized_subfolder},
                 )
-            if not scan_path.exists() or not scan_path.is_dir():
+            if not scan_path_local.exists() or not scan_path_local.is_dir():
                 raise ValidationException(
                     message="扫描子文件夹不可访问",
                     errors={"scan_subfolder": normalized_subfolder},
                 )
 
         return {
-            "root_folder": root.as_posix(),
-            "scan_folder": scan_path.as_posix(),
+            "root_folder": root_local.as_posix(),
+            "scan_folder": scan_path_local.as_posix(),
             "scan_subfolder": normalized_subfolder,
         }
 

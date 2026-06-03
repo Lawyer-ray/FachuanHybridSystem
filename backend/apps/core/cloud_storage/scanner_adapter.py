@@ -28,11 +28,11 @@ class ScannedFile:
         return PurePosixPath(self._info.name).suffix
 
     @property
-    def as_posix(self) -> str:  # type: ignore[override]
+    def as_posix(self) -> str:
         return self._info.path
 
     @property
-    def stat(self) -> _FakeStat:  # type: ignore[override]
+    def stat(self) -> _FakeStat:
         return _FakeStat(size=self._info.size, mtime=self._info.modified_at)
 
     def relative_to(self, other: str) -> PurePosixPath:
