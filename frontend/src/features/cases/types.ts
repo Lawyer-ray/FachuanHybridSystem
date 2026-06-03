@@ -444,6 +444,7 @@ export interface FolderBinding {
   case_id: number
   folder_path: string
   folder_path_display: string
+  storage_type: string
   is_accessible: boolean
   relative_path: string
   path_auto_repaired: boolean

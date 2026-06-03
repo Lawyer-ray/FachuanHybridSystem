@@ -2,6 +2,12 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { contractApi } from '../api'
 import type { FolderBinding, FolderBrowseResponse } from '../types'
 
+interface BindFolderParams {
+  folder_path: string
+  storage_type?: string
+  storage_account_id?: number | null
+}
+
 export function useFolderBinding(contractId: number) {
   const qc = useQueryClient()
   const invalidate = () => {
@@ -16,7 +22,7 @@ export function useFolderBinding(contractId: number) {
   })
 
   const createBinding = useMutation({
-    mutationFn: (path: string) => contractApi.createBinding(contractId, path),
+    mutationFn: (params: BindFolderParams) => contractApi.createBinding(contractId, params),
     onSuccess: invalidate,
   })
 

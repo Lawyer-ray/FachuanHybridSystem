@@ -80,24 +80,38 @@ class FolderBindingCrudService(BaseFolderBindingService):
 
         owner = self._require_owner(owner_id=owner_id, **kwargs)
 
-        is_valid, error_msg = self.validate_folder_path(folder_path)
-        if not is_valid:
-            raise ValidationException(
-                message="文件夹路径格式无效",
-                code="INVALID_PATH_FORMAT",
-                errors={"folder_path": error_msg},
-            )
+        # ── Resolve storage_type and storage_account from kwargs ──
+        storage_type = kwargs.pop("storage_type", "local")
+        storage_account = kwargs.pop("storage_account", None)
+
+        # Cloud storage paths don't need local path format validation
+        if storage_type == "local":
+            is_valid, error_msg = self.validate_folder_path(folder_path)
+            if not is_valid:
+                raise ValidationException(
+                    message="文件夹路径格式无效",
+                    code="INVALID_PATH_FORMAT",
+                    errors={"folder_path": error_msg},
+                )
 
         stripped_path = folder_path.strip()
 
-        # 计算 inode 信息（合同文件夹绑定时记录）
-        inode_info = self.inode_resolver.get_inode_info(stripped_path)
+        # Compute inode info (only for local storage)
+        inode_info = None
+        if storage_type == "local":
+            inode_info = self.inode_resolver.get_inode_info(stripped_path)
 
         defaults: dict[str, Any] = {"folder_path": stripped_path}
         has_inode_fields = hasattr(self.binding_model, "folder_inode")
         if inode_info is not None and has_inode_fields:
             defaults["folder_inode"] = inode_info[0]
             defaults["folder_device"] = inode_info[1]
+
+        # Set cloud storage fields
+        if storage_type != "local":
+            defaults["storage_type"] = storage_type
+            if storage_account is not None:
+                defaults["storage_account"] = storage_account
 
         # 案件文件夹绑定时计算 relative_path
         relative_path = self._compute_relative_path(owner, stripped_path)
@@ -120,6 +134,7 @@ class FolderBindingCrudService(BaseFolderBindingService):
                 "inode": inode_info[0] if inode_info else None,
                 "device": inode_info[1] if inode_info else None,
                 "relative_path": relative_path,
+                "storage_type": storage_type,
             },
         )
         return binding
@@ -167,9 +182,30 @@ class FolderBindingCrudService(BaseFolderBindingService):
 
         safe_name = self.path_validator.sanitize_file_name(file_name)
         relative_dir_parts = self.path_validator.sanitize_relative_dir(subdir_path)
+        resolved_path = getattr(binding, "resolved_folder_path", None) or binding.folder_path
 
+        # ── Cloud storage: use provider ──
+        if self._is_cloud_storage(binding):
+            provider = self._get_provider_for_binding(binding)
+            try:
+                cloud_path = "/".join([resolved_path.strip("/")] + relative_dir_parts + [safe_name])
+                provider.write_file(cloud_path, file_content)
+            except Exception as e:
+                error_msg = f"文件保存失败（云存储）: {e}"
+                logger.error(error_msg, extra={"owner_id": owner_id, "file_name": safe_name})
+                raise ValidationException(
+                    message="文件保存失败",
+                    code="FILE_SAVE_FAILED",
+                    errors={"file_operation": error_msg},
+                ) from e
+            logger.info(
+                "文件保存到绑定文件夹成功（云存储）",
+                extra={"owner_id": owner_id, "file_name": safe_name, "cloud_path": cloud_path, "subdir_key": subdir_key},
+            )
+            return cloud_path
+
+        # ── Local filesystem: existing logic ──
         try:
-            resolved_path = getattr(binding, "resolved_folder_path", None) or binding.folder_path
             abs_file_path = self.filesystem_service.save_bytes(
                 base_path=resolved_path,
                 relative_dir_parts=relative_dir_parts,
@@ -201,8 +237,35 @@ class FolderBindingCrudService(BaseFolderBindingService):
         if not binding:
             return None
 
+        resolved_path = getattr(binding, "resolved_folder_path", None) or binding.folder_path
+
+        # ── Cloud storage: use provider ──
+        if self._is_cloud_storage(binding):
+            provider = self._get_provider_for_binding(binding)
+            try:
+                import io
+                import zipfile
+
+                with zipfile.ZipFile(io.BytesIO(zip_content)) as zf:
+                    for member in zf.infolist():
+                        if member.is_dir():
+                            provider.mkdir(f"{resolved_path.strip('/')}/{member.filename.rstrip('/')}")
+                            continue
+                        safe_name = self.path_validator.sanitize_file_name(member.filename.split("/")[-1])
+                        # Build path relative to zip root
+                        parts = [p for p in member.filename.split("/") if p and p != safe_name]
+                        cloud_path = "/".join([resolved_path.strip("/")] + parts + [safe_name])
+                        with zf.open(member) as f:
+                            provider.write_file(cloud_path, f.read())
+            except Exception as e:
+                error_msg = f"ZIP解压失败（云存储）: {e}"
+                logger.error(error_msg, extra={"owner_id": owner_id})
+                raise ValidationException(message=error_msg, code="ZIP_EXTRACT_FAILED") from e
+            logger.info("ZIP解压到绑定文件夹成功（云存储）", extra={"owner_id": owner_id, "cloud_path": resolved_path})
+            return resolved_path
+
+        # ── Local filesystem: existing logic ──
         try:
-            resolved_path = getattr(binding, "resolved_folder_path", None) or binding.folder_path
             base_path = self.filesystem_service.extract_zip_bytes(resolved_path, zip_content)
         except (OSError, PermissionError, ValidationException) as e:
             error_msg = f"ZIP解压失败: {e}"

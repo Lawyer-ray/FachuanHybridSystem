@@ -9,6 +9,8 @@ from .base import CaseFolderBinding, Schema, SchemaMixin, field_validator
 
 class CaseFolderBindingCreateSchema(Schema):
     folder_path: str
+    storage_type: str = "local"
+    storage_account_id: int | None = None
 
     @field_validator("folder_path")
     @classmethod
@@ -23,6 +25,7 @@ class CaseFolderBindingResponseSchema(Schema):
     case_id: int
     folder_path: str
     folder_path_display: str
+    storage_type: str = "local"
     is_accessible: bool
     created_at: str
     updated_at: str
@@ -42,6 +45,7 @@ class CaseFolderBindingResponseSchema(Schema):
             case_id=obj.case_id,
             folder_path=obj.resolved_folder_path,
             folder_path_display=display_path or obj.folder_path_display,
+            storage_type=getattr(obj, "storage_type", "local"),
             is_accessible=is_accessible,
             created_at=SchemaMixin._resolve_datetime_iso(obj.created_at) or "",
             updated_at=SchemaMixin._resolve_datetime_iso(obj.updated_at) or "",

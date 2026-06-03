@@ -46,7 +46,22 @@ def create_folder_binding(request: HttpRequest, case_id: int, data: CaseFolderBi
     service = _get_folder_binding_service()
     ctx = get_request_access_context(request)
 
-    binding = service.create_binding_ctx(case_id=case_id, folder_path=data.folder_path, ctx=ctx)
+    # Resolve storage_account if provided
+    storage_account = None
+    if data.storage_account_id and data.storage_type != "local":
+        from apps.core.cloud_storage.models import CloudStorageAccount
+
+        storage_account = CloudStorageAccount.objects.filter(
+            id=data.storage_account_id, storage_type=data.storage_type, is_active=True
+        ).first()
+
+    binding = service.create_binding_ctx(
+        case_id=case_id,
+        folder_path=data.folder_path,
+        ctx=ctx,
+        storage_type=data.storage_type,
+        storage_account=storage_account,
+    )
     is_accessible: bool = service.check_folder_accessible(binding.resolved_folder_path)
     display_path: str = service.format_path_for_display(binding.resolved_folder_path)
 

@@ -19,6 +19,8 @@ class FolderBindingCreateSchema(Schema):
     """创建文件夹绑定请求 Schema"""
 
     folder_path: str
+    storage_type: str = "local"
+    storage_account_id: int | None = None
 
     @field_validator("folder_path")
     @classmethod
@@ -36,6 +38,7 @@ class FolderBindingResponseSchema(Schema):
     contract_id: int
     folder_path: str
     folder_path_display: str  # 格式化后的显示路径
+    storage_type: str = "local"
     created_at: datetime
     updated_at: datetime
     is_accessible: bool  # 文件夹是否可访问
@@ -54,6 +57,7 @@ class FolderBindingResponseSchema(Schema):
             contract_id=obj.contract_id,
             folder_path=obj.folder_path,
             folder_path_display=display_path or obj.folder_path,
+            storage_type=getattr(obj, "storage_type", "local"),
             created_at=obj.created_at,
             updated_at=obj.updated_at,
             is_accessible=is_accessible,

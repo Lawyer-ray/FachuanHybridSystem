@@ -80,20 +80,24 @@ export function CaseFolderSection({ binding, caseId }: CaseFolderSectionProps) {
   const mutations = useFolderMutations(caseId)
   const [bindOpen, setBindOpen] = useState(false)
   const [folderPath, setFolderPath] = useState('')
+  const [storageType, setStorageType] = useState<string>('local')
   const [scanSession, setScanSession] = useState<FolderScanSession | null>(null)
   const [selectedCandidates, setSelectedCandidates] = useState<Set<number>>(new Set())
   const [scanning, setScanning] = useState(false)
 
   const handleBind = () => {
     if (!folderPath.trim()) return
-    mutations.createFolderBinding.mutate(folderPath.trim(), {
-      onSuccess: () => {
-        toast.success('绑定成功')
-        setBindOpen(false)
-        setFolderPath('')
+    mutations.createFolderBinding.mutate(
+      { folder_path: folderPath.trim(), storage_type: storageType },
+      {
+        onSuccess: () => {
+          toast.success('绑定成功')
+          setBindOpen(false)
+          setFolderPath('')
+        },
+        onError: () => toast.error('绑定失败'),
       },
-      onError: () => toast.error('绑定失败'),
-    })
+    )
   }
 
   const handleDelete = () => {

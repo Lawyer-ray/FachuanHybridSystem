@@ -27,6 +27,22 @@ class ContractFolderBinding(models.Model):
     folder_device = models.IntegerField(
         null=True, blank=True, verbose_name=_("设备号"), help_text=_("文件夹所在设备号，与 inode 配合使用")
     )
+
+    # ── Cloud storage fields ───────────────────────────────────
+    storage_type = models.CharField(
+        max_length=20,
+        choices=[("local", "本地文件系统"), ("webdav", "坚果云 WebDAV"), ("onedrive", "OneDrive")],
+        default="local",
+        verbose_name=_("存储类型"),
+    )
+    storage_account = models.ForeignKey(
+        "core.CloudStorageAccount",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        verbose_name=_("云存储账号"),
+    )
+
     created_at = models.DateTimeField(auto_now_add=True, verbose_name=_("绑定时间"))
     updated_at = models.DateTimeField(auto_now=True, verbose_name=_("更新时间"))
 

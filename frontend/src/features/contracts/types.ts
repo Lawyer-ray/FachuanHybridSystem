@@ -363,6 +363,7 @@ export interface FolderBinding {
   contract_id: number
   folder_path: string
   folder_path_display: string
+  storage_type: string
   created_at: string
   updated_at: string
   is_accessible: boolean

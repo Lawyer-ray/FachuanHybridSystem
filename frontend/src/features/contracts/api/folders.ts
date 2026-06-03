@@ -7,8 +7,11 @@ export const foldersApi = {
   getBinding: async (contractId: number): Promise<FolderBinding | null> =>
     client.get(`${contractId}/folder-binding`).json<FolderBinding | null>(),
 
-  createBinding: async (contractId: number, folderPath: string): Promise<FolderBinding> =>
-    client.post(`${contractId}/folder-binding`, { json: { folder_path: folderPath } }).json<FolderBinding>(),
+  createBinding: async (
+    contractId: number,
+    params: { folder_path: string; storage_type?: string; storage_account_id?: number | null },
+  ): Promise<FolderBinding> =>
+    client.post(`${contractId}/folder-binding`, { json: params }).json<FolderBinding>(),
 
   deleteBinding: async (contractId: number): Promise<{ success: boolean; message: string }> =>
     client.delete(`${contractId}/folder-binding`).json(),

@@ -205,18 +205,9 @@ class CaseFolderBindingService(FolderBindingCrudService):
         user: Any | None = None,
         org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
+        storage_type: str = "local",
+        storage_account: Any = None,
     ) -> CaseFolderBinding:
-        """
-        创建文件夹绑定
-
-            case_id: 案件ID
-            folder_path: 文件夹路径
-
-            创建的绑定记录
-
-            ValidationException: 路径无效
-            NotFoundError: 案件不存在
-        """
         return cast(
             CaseFolderBinding,
             super().create_binding(
@@ -225,17 +216,28 @@ class CaseFolderBindingService(FolderBindingCrudService):
                 user=user,
                 org_access=org_access,
                 perm_open_access=perm_open_access,
+                storage_type=storage_type,
+                storage_account=storage_account,
             ),
         )
 
     @transaction.atomic
-    def create_binding_ctx(self, case_id: int, folder_path: str, ctx: AccessContext) -> CaseFolderBinding:
+    def create_binding_ctx(
+        self,
+        case_id: int,
+        folder_path: str,
+        ctx: AccessContext,
+        storage_type: str = "local",
+        storage_account: Any = None,
+    ) -> CaseFolderBinding:
         return self.create_binding(
             case_id=case_id,
             folder_path=folder_path,
             user=ctx.user,
             org_access=ctx.org_access,
             perm_open_access=ctx.perm_open_access,
+            storage_type=storage_type,
+            storage_account=storage_account,
         )
 
     @transaction.atomic

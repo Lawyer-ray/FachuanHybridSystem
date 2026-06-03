@@ -78,7 +78,23 @@ class BaseFolderBindingService:
     def resolve_under_allowed_roots(self, path: str) -> Path:
         return self.browse_policy.resolve_under_allowed_roots(path)
 
-    def list_subdirs(self, path: str, include_hidden: bool = False) -> list[dict[str, str]]:
+    def list_subdirs(self, path: str, include_hidden: bool = False, binding: Any = None) -> list[dict[str, str]]:
+        # Cloud storage: list via provider
+        if binding is not None and self._is_cloud_storage(binding):
+            provider = self._get_provider_for_binding(binding)
+            try:
+                children = provider.list_directory(path)
+            except Exception:
+                return []
+            results = []
+            for child in children:
+                if not child.is_dir:
+                    continue
+                if not include_hidden and child.name.startswith("."):
+                    continue
+                results.append({"name": child.name, "path": f"{path.rstrip('/')}/{child.name}"})
+            results.sort(key=lambda x: x["name"].lower())
+            return results
         return self.browse_policy.list_subdirs(path, include_hidden=include_hidden)
 
     def check_folder_accessible(self, path: str) -> bool:
@@ -93,6 +109,17 @@ class BaseFolderBindingService:
         except (OSError, PermissionError):
             return False
 
+    def _is_cloud_storage(self, binding: Any) -> bool:
+        """Check whether the binding uses cloud storage (not local filesystem)."""
+        storage_type = getattr(binding, "storage_type", "local")
+        return storage_type != "local" and getattr(binding, "storage_account", None) is not None
+
+    def _get_provider_for_binding(self, binding: Any):
+        """Create the appropriate CloudStorageProvider for a binding."""
+        from apps.core.cloud_storage.factory import create_provider_for_binding
+
+        return create_provider_for_binding(binding)
+
     def check_and_repair_path(self, binding: Any) -> tuple[bool, bool]:
         """检查绑定路径可达性，必要时通过 inode 自动修复.
 
@@ -101,6 +128,8 @@ class BaseFolderBindingService:
         2. 如果父目录不可达，逐步向上回退
         3. 最终 fallback 到全局 browse roots
 
+        云存储模式：跳过 inode 修复，只验证路径可达性。
+
         Args:
             binding: 文件夹绑定对象（需有 folder_path, folder_inode, folder_device 属性）
 
@@ -108,6 +137,18 @@ class BaseFolderBindingService:
             (is_accessible, path_auto_repaired) 元组
         """
         folder_path = getattr(binding, "folder_path", "")
+
+        # ── Cloud storage: validate via provider, skip inode repair ──
+        if self._is_cloud_storage(binding):
+            provider = self._get_provider_for_binding(binding)
+            try:
+                accessible = provider.is_dir(folder_path) or provider.exists(folder_path)
+            except Exception:
+                logger.warning("cloud_storage_access_check_failed", extra={"binding_id": getattr(binding, "id", None), "folder_path": folder_path})
+                accessible = False
+            return accessible, False
+
+        # ── Local filesystem: existing logic ──
         if self.check_folder_accessible(folder_path):
             # 路径可达，顺便补充 inode（如果缺失）
             self._maybe_fill_inode(binding)

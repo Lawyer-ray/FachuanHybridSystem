@@ -14,6 +14,7 @@ from apps.contracts.schemas import (
     FolderBrowseEntrySchema,
     FolderBrowseResponseSchema,
 )
+from apps.core.cloud_storage.models import CloudStorageAccount
 from apps.core.exceptions import PermissionDenied
 from apps.core.security import get_request_access_context
 
@@ -69,7 +70,21 @@ def create_folder_binding(request: HttpRequest, contract_id: int, data: FolderBi
     service = _get_folder_binding_service()
     ctx = get_request_access_context(request)
 
-    binding = service.create_binding(owner_id=contract_id, folder_path=data.folder_path)
+    # Resolve storage_account if provided
+    storage_account = None
+    if data.storage_account_id and data.storage_type != "local":
+        from apps.core.cloud_storage.models import CloudStorageAccount
+
+        storage_account = CloudStorageAccount.objects.filter(
+            id=data.storage_account_id, storage_type=data.storage_type, is_active=True
+        ).first()
+
+    binding = service.create_binding(
+        owner_id=contract_id,
+        folder_path=data.folder_path,
+        storage_type=data.storage_type,
+        storage_account=storage_account,
+    )
 
     display_path = service.format_path_for_display(binding.folder_path)
     is_accessible = service.check_folder_accessible(binding.folder_path)
@@ -228,3 +243,13 @@ def browse_folders(request: HttpRequest, path: str | None = None, include_hidden
         parent_path=parent_path,
         entries=entries,
     )
+
+
+@router.get("/cloud-storage-accounts")
+def list_cloud_storage_accounts(request: HttpRequest) -> list[dict[str, Any]]:
+    """List available cloud storage accounts for folder binding."""
+    _require_admin(request)
+    accounts = CloudStorageAccount.objects.filter(is_active=True).values(
+        "id", "name", "storage_type", "local_root_path", "webdav_root_path", "onedrive_root_path"
+    )
+    return list(accounts)

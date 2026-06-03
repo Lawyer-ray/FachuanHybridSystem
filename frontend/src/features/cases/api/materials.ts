@@ -66,8 +66,11 @@ export const materialsApi = {
     }
   },
 
-  createFolderBinding: async (caseId: number | string, folderPath: string): Promise<FolderBinding> =>
-    client.post(`${caseId}/folder-binding`, { json: { folder_path: folderPath } }).json<FolderBinding>(),
+  createFolderBinding: async (
+    caseId: number | string,
+    params: { folder_path: string; storage_type?: string; storage_account_id?: number | null },
+  ): Promise<FolderBinding> =>
+    client.post(`${caseId}/folder-binding`, { json: params }).json<FolderBinding>(),
 
   deleteFolderBinding: async (caseId: number | string): Promise<void> => {
     await client.delete(`${caseId}/folder-binding`)

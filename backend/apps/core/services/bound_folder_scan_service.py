@@ -78,7 +78,21 @@ class BoundFolderScanService:
         enable_recognition: bool = True,
         classification_context: dict[str, Any] | None = None,
         scan_subfolder: str = "",
+        storage_provider: Any | None = None,
     ) -> dict[str, Any]:
+        # ── Cloud storage path ──
+        if storage_provider is not None:
+            return self._scan_cloud(
+                folder_path=folder_path,
+                domain=domain,
+                progress_callback=progress_callback,
+                enable_recognition=enable_recognition,
+                classification_context=classification_context,
+                scan_subfolder=scan_subfolder,
+                storage_provider=storage_provider,
+            )
+
+        # ── Local filesystem path (existing logic) ──
         root = Path(folder_path).expanduser()
         if not root.exists() or not root.is_dir():
             raise ValidationException(
@@ -312,3 +326,200 @@ class BoundFolderScanService:
     def _normalize_group_key(base_name: str) -> str:
         normalized = re.sub(r"[\s._-]+", " ", (base_name or "").strip().lower())
         return normalized or "_"
+
+    # ── Cloud storage scan ─────────────────────────────────────
+
+    def _scan_cloud(
+        self,
+        *,
+        folder_path: str,
+        domain: str,
+        progress_callback: ProgressCallback | None,
+        enable_recognition: bool,
+        classification_context: dict[str, Any] | None,
+        scan_subfolder: str,
+        storage_provider: Any,
+    ) -> dict[str, Any]:
+        """Scan a cloud storage folder using CloudFolderScanner."""
+        from apps.core.cloud_storage.scanner_adapter import CloudFolderScanner
+
+        scanner = CloudFolderScanner(provider=storage_provider, root_path=folder_path)
+
+        self._notify(progress_callback, "scanning", 5, None)
+        all_scanned = scanner.collect_pdf_files()
+
+        deduped = self._deduplicate_scanned_files(all_scanned)
+
+        if self._max_candidates > 0 and len(deduped) > self._max_candidates:
+            deduped = deduped[: self._max_candidates]
+
+        candidates: list[dict[str, Any]] = []
+        is_contract_domain = domain == "contract"
+        total = len(deduped)
+
+        for idx, item in enumerate(deduped, start=1):
+            scanned = item["scanned"]
+            current_file = scanned.name
+            progress = self._calc_progress(idx=idx, total=total)
+
+            extraction_method = "none"
+            text_excerpt = ""
+            if enable_recognition and not is_contract_domain:
+                self._notify(progress_callback, "extracting", progress, current_file)
+                try:
+                    file_bytes = scanner.read_file_bytes(scanned)
+                    import os
+                    import tempfile
+
+                    with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
+                        tmp.write(file_bytes)
+                        tmp_path = tmp.name
+                    try:
+                        extraction = self._text_extraction_service.extract_text(tmp_path)
+                        extraction_method = extraction.extraction_method if extraction.success else "none"
+                        text_excerpt = (extraction.text or "")[: self._MAX_TEXT_EXCERPT]
+                    finally:
+                        os.unlink(tmp_path)
+                except Exception:
+                    logger.exception("scan_extract_failed_cloud", extra={"path": scanned.as_posix})
+
+            self._notify(progress_callback, "classifying", progress, current_file)
+
+            parent_folder_hint = self._extract_parent_folder_hint_cloud(scanned, folder_path)
+
+            candidate = self._build_candidate_cloud(
+                scanned=scanned,
+                base_name=item["base_name"],
+                version_token=item["version_token"],
+                extraction_method=extraction_method,
+                text_excerpt=text_excerpt,
+                domain=domain,
+                enable_recognition=enable_recognition,
+                classification_context=classification_context,
+                scan_subfolder=scan_subfolder,
+                parent_folder_hint=parent_folder_hint,
+            )
+            candidates.append(candidate)
+
+        self._notify(progress_callback, "completed", 100, None)
+
+        return {
+            "summary": {
+                "total_files": len(all_scanned),
+                "deduped_files": len(deduped),
+                "classified_files": len(candidates),
+            },
+            "candidates": candidates,
+        }
+
+    def _deduplicate_scanned_files(self, files: list) -> list[dict[str, Any]]:
+        """Deduplicate ScannedFile objects using the same logic as local dedup."""
+        grouped: dict[str, list[dict[str, Any]]] = {}
+        for scanned in files:
+            stem = scanned.stem
+            version = self._parse_version(stem)
+            group_key = self._normalize_group_key(version.base_name)
+            grouped.setdefault(group_key, []).append(
+                {
+                    "scanned": scanned,
+                    "base_name": version.base_name,
+                    "version_token": version.version_token,
+                    "version_rank": version.version_rank,
+                    "mtime": scanned.stat.mtime,
+                }
+            )
+
+        deduped: list[dict[str, Any]] = []
+        for group_items in grouped.values():
+            group_items.sort(key=lambda x: (-x["version_rank"], -x["mtime"], x["scanned"].as_posix))
+            deduped.append(group_items[0])
+
+        deduped.sort(key=lambda x: x["scanned"].as_posix)
+        return deduped
+
+    @staticmethod
+    def _extract_parent_folder_hint_cloud(scanned: Any, scan_root: str) -> str:
+        """Extract parent folder hint from cloud file path."""
+        from pathlib import PurePosixPath
+
+        try:
+            file_path = PurePosixPath(scanned.as_posix)
+            root_path = PurePosixPath(scan_root)
+            relative = file_path.parent.relative_to(root_path)
+        except (ValueError, IndexError):
+            return ""
+        if str(relative) == ".":
+            return ""
+        first_part = relative.parts[0] if relative.parts else ""
+        return re.sub(r"^[\d]+[\s.\-_]*[\)）]?\s*", "", first_part).strip() or first_part
+
+    def _build_candidate_cloud(
+        self,
+        *,
+        scanned: Any,
+        base_name: str,
+        version_token: str,
+        extraction_method: str,
+        text_excerpt: str,
+        domain: str,
+        enable_recognition: bool,
+        classification_context: dict[str, Any] | None,
+        scan_subfolder: str = "",
+        parent_folder_hint: str = "",
+    ) -> dict[str, Any]:
+        """Build a candidate dict from a ScannedFile (cloud storage)."""
+        from datetime import UTC, datetime
+
+        modified_at = datetime.fromtimestamp(scanned.stat.mtime, tz=UTC).isoformat() if scanned.stat.mtime else ""
+        candidate: dict[str, Any] = {
+            "source_path": scanned.as_posix,
+            "filename": scanned.name,
+            "file_size": scanned.stat.size,
+            "modified_at": modified_at,
+            "base_name": base_name,
+            "version_token": version_token,
+            "extract_method": extraction_method,
+            "text_excerpt": text_excerpt,
+            "selected": True,
+        }
+
+        if domain == "contract":
+            suggestion = self._classification_service.classify_contract_material(
+                filename=scanned.name,
+                text_excerpt="",
+                source_path=scanned.as_posix,
+                enable_ai=False,
+            )
+            candidate.update(
+                {
+                    "suggested_category": suggestion.get("category", "archive_document"),
+                    "confidence": float(suggestion.get("confidence", 0.0) or 0.0),
+                    "reason": str(suggestion.get("reason") or ""),
+                }
+            )
+            return candidate
+
+        if domain == "case":
+            suggestion = self._classification_service.classify_case_material(
+                filename=scanned.name,
+                text_excerpt=text_excerpt,
+                source_path=scanned.as_posix,
+                enable_ai=enable_recognition,
+                context=classification_context,
+                scan_subfolder=scan_subfolder,
+                parent_folder_hint=parent_folder_hint,
+            )
+            candidate.update(
+                {
+                    "suggested_category": suggestion.get("category", "unknown"),
+                    "suggested_side": suggestion.get("side", "unknown"),
+                    "type_name_hint": suggestion.get("type_name_hint", ""),
+                    "suggested_supervising_authority_id": suggestion.get("suggested_supervising_authority_id"),
+                    "suggested_party_ids": suggestion.get("suggested_party_ids", []),
+                    "confidence": float(suggestion.get("confidence", 0.0) or 0.0),
+                    "reason": str(suggestion.get("reason") or ""),
+                }
+            )
+            return candidate
+
+        raise ValidationException(message="不支持的扫描领域", code="UNSUPPORTED_SCAN_DOMAIN", errors={"domain": domain})
