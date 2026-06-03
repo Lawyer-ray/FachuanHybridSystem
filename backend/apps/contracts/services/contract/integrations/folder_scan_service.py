@@ -62,7 +62,8 @@ class ContractFolderScanService:
     ) -> ContractFolderScanSession:
         self._ensure_contract_exists(contract_id)
         binding = self._get_accessible_binding(contract_id)
-        scan_scope = self._resolve_scan_scope(binding.folder_path, scan_subfolder)
+        storage_provider = self._make_provider_for_binding(binding)
+        scan_scope = self._resolve_scan_scope(binding.folder_path, scan_subfolder, storage_provider=storage_provider)
 
         if not rescan:
             existing = (
@@ -131,27 +132,48 @@ class ContractFolderScanService:
     def list_scan_subfolders(self, *, contract_id: int) -> dict[str, Any]:
         self._ensure_contract_exists(contract_id)
         binding = self._get_accessible_binding(contract_id)
+
+        # Cloud storage: use provider to list subdirectories
+        storage_type = getattr(binding, "storage_type", "local")
+        if storage_type != "local":
+            provider = self._make_provider_for_binding(binding)
+            root_path = binding.folder_path
+            try:
+                children = provider.list_directory(root_path) if provider else []
+            except Exception:
+                children = []
+            subfolders = []
+            for child in children:
+                if not child.is_dir:
+                    continue
+                if child.name.startswith("."):
+                    continue
+                subfolders.append({"relative_path": child.name, "display_name": child.name})
+            subfolders.sort(key=lambda x: x["display_name"].lower())
+            return {"root_path": root_path, "subfolders": subfolders}
+
+        # Local filesystem
         root = Path(binding.folder_path).expanduser().resolve()
 
-        subfolders: list[dict[str, str]] = []
-        for child in sorted(root.iterdir(), key=lambda item: item.name.lower()):
-            if child.name.startswith("."):
+        subfolders_local: list[dict[str, str]] = []
+        for child_local in sorted(root.iterdir(), key=lambda item: item.name.lower()):
+            if child_local.name.startswith("."):
                 continue
-            if not child.is_dir():
+            if not child_local.is_dir():
                 continue
-            resolved_child = child.resolve()
+            resolved_child = child_local.resolve()
             if not self._is_within_root(root, resolved_child):
                 continue
-            subfolders.append(
+            subfolders_local.append(
                 {
-                    "relative_path": child.name,
-                    "display_name": child.name,
+                    "relative_path": child_local.name,
+                    "display_name": child_local.name,
                 }
             )
 
         return {
             "root_path": root.as_posix(),
-            "subfolders": subfolders,
+            "subfolders": subfolders_local,
         }
 
     def get_session(self, *, contract_id: int, session_id: UUID) -> ContractFolderScanSession:
@@ -368,10 +390,12 @@ class ContractFolderScanService:
 
         try:
             binding = self._get_accessible_binding(session.contract_id)
+            storage_provider = self._make_provider_for_binding(binding)
             payload = dict(session.result_payload or {})
             scan_scope = self._resolve_scan_scope(
                 binding.folder_path,
                 self._extract_scan_subfolder(payload),
+                storage_provider=storage_provider,
             )
 
             def _progress(status: str, progress: int, current_file: str | None) -> None:
@@ -392,6 +416,7 @@ class ContractFolderScanService:
                 folder_path=scan_scope["scan_folder"],
                 domain="contract",
                 progress_callback=_progress,
+                storage_provider=storage_provider,
             )
             result["scan_scope"] = scan_scope
 
@@ -498,37 +523,92 @@ class ContractFolderScanService:
         if not binding:
             raise ValidationException(message="未绑定文件夹", errors={"contract_id": contract_id})
 
-        folder = Path(binding.folder_path)
-        if not folder.exists() or not folder.is_dir():
-            raise ValidationException(message="绑定文件夹不可访问", errors={"folder_path": binding.folder_path})
+        storage_type = getattr(binding, "storage_type", "local")
+        if storage_type == "local":
+            folder = Path(binding.folder_path)
+            if not folder.exists() or not folder.is_dir():
+                raise ValidationException(message="绑定文件夹不可访问", errors={"folder_path": binding.folder_path})
+        else:
+            # Cloud storage: use provider to check accessibility
+            from apps.core.cloud_storage.factory import create_provider_for_binding
+
+            provider = create_provider_for_binding(binding)
+            try:
+                accessible = provider.is_dir(binding.folder_path) or provider.exists(binding.folder_path)
+            except Exception:
+                accessible = False
+            if not accessible:
+                raise ValidationException(message="绑定文件夹不可访问", errors={"folder_path": binding.folder_path})
 
         return binding
+
+    def _make_provider_for_binding(self, binding: ContractFolderBinding) -> Any | None:
+        """Create a cloud storage provider for the binding, or None for local."""
+        storage_type = getattr(binding, "storage_type", "local")
+        if storage_type == "local":
+            return None
+        from apps.core.cloud_storage.factory import create_provider_for_binding
+
+        return create_provider_for_binding(binding)
 
     def _extract_scan_subfolder(self, payload: dict[str, Any] | None) -> str:
         scope = (payload or {}).get("scan_scope") or {}
         return str(scope.get("scan_subfolder") or "").strip()
 
-    def _resolve_scan_scope(self, root_folder: str, scan_subfolder: str) -> dict[str, str]:
-        root = Path(root_folder).expanduser().resolve()
+    def _resolve_scan_scope(
+        self,
+        root_folder: str,
+        scan_subfolder: str,
+        storage_provider: Any | None = None,
+    ) -> dict[str, str]:
         normalized_subfolder = self._normalize_scan_subfolder(scan_subfolder)
 
-        scan_path = root
+        if storage_provider is not None:
+            # Cloud storage: use PurePosixPath for path arithmetic
+            from pathlib import PurePosixPath
+
+            root = PurePosixPath(root_folder)
+            scan_path = root
+            if normalized_subfolder:
+                scan_path = root / normalized_subfolder
+                # Normalize to prevent traversal
+                scan_path = PurePosixPath("/") / str(scan_path).lstrip("/")
+                if not str(scan_path).startswith(str(root) + "/") and str(scan_path) != str(root):
+                    raise ValidationException(
+                        message="扫描子文件夹越界",
+                        errors={"scan_subfolder": normalized_subfolder},
+                    )
+                if not storage_provider.exists(str(scan_path)):
+                    raise ValidationException(
+                        message="扫描子文件夹不可访问",
+                        errors={"scan_subfolder": normalized_subfolder},
+                    )
+
+            return {
+                "root_folder": str(root),
+                "scan_folder": str(scan_path),
+                "scan_subfolder": normalized_subfolder,
+            }
+
+        # Local filesystem
+        root_local = Path(root_folder).expanduser().resolve()
+        scan_path_local = root_local
         if normalized_subfolder:
-            scan_path = (root / normalized_subfolder).resolve()
-            if not self._is_within_root(root, scan_path):
+            scan_path_local = (root_local / normalized_subfolder).resolve()
+            if not self._is_within_root(root_local, scan_path_local):
                 raise ValidationException(
                     message="扫描子文件夹越界",
                     errors={"scan_subfolder": normalized_subfolder},
                 )
-            if not scan_path.exists() or not scan_path.is_dir():
+            if not scan_path_local.exists() or not scan_path_local.is_dir():
                 raise ValidationException(
                     message="扫描子文件夹不可访问",
                     errors={"scan_subfolder": normalized_subfolder},
                 )
 
         return {
-            "root_folder": root.as_posix(),
-            "scan_folder": scan_path.as_posix(),
+            "root_folder": root_local.as_posix(),
+            "scan_folder": scan_path_local.as_posix(),
             "scan_subfolder": normalized_subfolder,
         }
 

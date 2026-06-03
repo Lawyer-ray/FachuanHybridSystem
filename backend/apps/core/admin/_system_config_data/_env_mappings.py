@@ -80,6 +80,12 @@ def get_env_mappings() -> dict[str, dict[str, Any]]:
             "description": "企业微信默认群主 userid",
             "is_secret": False,
         },
+        "WECHAT_WORK_DEFAULT_MEMBER_IDS": {
+            "key": "WECHAT_WORK_DEFAULT_MEMBER_IDS",
+            "category": "wechat_work",
+            "description": "企业微信默认初始成员帐号列表（逗号分隔）",
+            "is_secret": False,
+        },
         "TELEGRAM_BOT_TOKEN": {
             "key": "TELEGRAM_BOT_TOKEN",
             "category": "telegram",

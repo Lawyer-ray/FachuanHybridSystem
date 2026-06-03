@@ -553,6 +553,7 @@ class CourtSMSService(SMSCaseBindingMixin, SMSDocumentMixin, SMSDownloadMixin):
             document_paths = self.document_attachment.get_paths_for_notification(sms)
             logger.info(f"准备发送 {len(document_paths)} 个文件到群聊: SMS ID={sms.id}")
 
+            notification_is_optional = bool(sms.case)
             if sms.case:
                 result = self.notification.send_case_chat_notification(sms, document_paths)
 
@@ -578,6 +579,10 @@ class CourtSMSService(SMSCaseBindingMixin, SMSDocumentMixin, SMSDownloadMixin):
             if any_platform_success:
                 sms.status = CourtSMSStatus.COMPLETED
                 logger.info(f"案件群聊通知发送成功，短信处理完成: SMS ID={sms.id}")
+            elif notification_is_optional:
+                sms.status = CourtSMSStatus.COMPLETED
+                sms.error_message = "案件群聊通知发送失败（不影响文书归档）"
+                logger.warning(f"案件群聊通知发送失败，但文书已归档，短信标记为完成: SMS ID={sms.id}")
             else:
                 sms.status = CourtSMSStatus.FAILED
                 sms.error_message = "案件群聊通知发送失败"
@@ -590,8 +595,12 @@ class CourtSMSService(SMSCaseBindingMixin, SMSDocumentMixin, SMSDownloadMixin):
             logger.error(f"案件群聊通知发送失败: SMS ID={sms.id}, 错误: {e!s}")
             sms.notification_results = sms.notification_results or {}
             sms.notification_results["_exception"] = {"success": False, "error": str(e)}
-            sms.status = CourtSMSStatus.FAILED
-            sms.error_message = f"案件群聊通知发送失败: {e!s}"
+            if sms.case:
+                sms.status = CourtSMSStatus.COMPLETED
+                sms.error_message = f"案件群聊通知发送失败（不影响文书归档）: {e!s}"
+            else:
+                sms.status = CourtSMSStatus.FAILED
+                sms.error_message = f"案件群聊通知发送失败: {e!s}"
             sms.save()
             return sms
 

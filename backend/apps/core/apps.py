@@ -14,3 +14,4 @@ class CoreConfig(AppConfig):
 
     def ready(self) -> None:
         from . import admin
+        from .cloud_storage import models

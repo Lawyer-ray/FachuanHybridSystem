@@ -34,6 +34,7 @@ class SystemConfig(models.Model):
         SCRAPER = "scraper", "爬虫配置"
         OCR = "ocr", "OCR 服务配置"
         EMAIL = "email", "邮件配置"
+        CLOUD_STORAGE = "cloud_storage", "云存储配置"
         GENERAL = "general", "通用配置"
 
     key = models.CharField(

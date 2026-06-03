@@ -9,16 +9,21 @@ interface Props {
   open: boolean
   onOpenChange: (open: boolean) => void
   onSelect: (path: string) => void
+  storageType?: string
+  storageAccountId?: number
 }
 
-export function FolderBrowser({ open, onOpenChange, onSelect }: Props) {
-  const [currentPath, setCurrentPath] = useState<string | undefined>()
-  const { data, isLoading } = useFolderBrowse(currentPath)
+export function FolderBrowser({ open, onOpenChange, onSelect, storageType, storageAccountId }: Props) {
+  const isCloud = Boolean(storageType && storageType !== 'local')
+  const [currentPath, setCurrentPath] = useState<string | undefined>(isCloud ? '/' : undefined)
+  const { data, isLoading } = useFolderBrowse(currentPath, storageType, storageAccountId)
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg">
-        <DialogHeader><DialogTitle>选择文件夹</DialogTitle></DialogHeader>
+        <DialogHeader>
+          <DialogTitle>{isCloud ? '选择云存储文件夹' : '选择文件夹'}</DialogTitle>
+        </DialogHeader>
         <div className="space-y-2">
           {data?.path && (
             <div className="flex items-center gap-2 text-sm text-muted-foreground">

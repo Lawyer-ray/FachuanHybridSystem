@@ -4,6 +4,12 @@ import { caseApi } from '../api'
 import type { FolderScanCandidate } from '../types'
 import { caseQueryKey } from './use-case'
 
+interface BindFolderParams {
+  folder_path: string
+  storage_type?: string
+  storage_account_id?: number | null
+}
+
 export function useFolderMutations(caseId: number | string) {
   const queryClient = useQueryClient()
 
@@ -13,7 +19,7 @@ export function useFolderMutations(caseId: number | string) {
   }
 
   const createFolderBinding = useMutation({
-    mutationFn: (folderPath: string) => caseApi.createFolderBinding(caseId, folderPath),
+    mutationFn: (params: BindFolderParams) => caseApi.createFolderBinding(caseId, params),
     onSuccess: invalidateCase,
   })
 

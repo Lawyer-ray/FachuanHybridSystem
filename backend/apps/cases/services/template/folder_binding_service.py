@@ -143,21 +143,6 @@ class CaseFolderBindingService(FolderBindingCrudService):
     owner_id_field: str = "case_id"
     owner_label: str = "案件"
 
-    # 默认子目录配置(仅在没有文书模板绑定配置时使用)
-    DEFAULT_SUBDIRS: ClassVar = {
-        "case_documents": "案件文书",
-        "trial_materials": "庭审材料",
-        "judgments": "判决书",
-        "execution_documents": "执行文书",
-        "other_files": "其他文件",
-    }
-
-    binding_model = CaseFolderBinding
-    owner_model = Case
-    owner_rel_field: str = "case"
-    owner_id_field: str = "case_id"
-    owner_label: str = "案件"
-
     def _get_owner(self, *, owner_id: int) -> Case:
         case = self._get_case_internal(owner_id)
         if not case:
@@ -205,18 +190,9 @@ class CaseFolderBindingService(FolderBindingCrudService):
         user: Any | None = None,
         org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
+        storage_type: str = "local",
+        storage_account: Any = None,
     ) -> CaseFolderBinding:
-        """
-        创建文件夹绑定
-
-            case_id: 案件ID
-            folder_path: 文件夹路径
-
-            创建的绑定记录
-
-            ValidationException: 路径无效
-            NotFoundError: 案件不存在
-        """
         return cast(
             CaseFolderBinding,
             super().create_binding(
@@ -225,17 +201,28 @@ class CaseFolderBindingService(FolderBindingCrudService):
                 user=user,
                 org_access=org_access,
                 perm_open_access=perm_open_access,
+                storage_type=storage_type,
+                storage_account=storage_account,
             ),
         )
 
     @transaction.atomic
-    def create_binding_ctx(self, case_id: int, folder_path: str, ctx: AccessContext) -> CaseFolderBinding:
+    def create_binding_ctx(
+        self,
+        case_id: int,
+        folder_path: str,
+        ctx: AccessContext,
+        storage_type: str = "local",
+        storage_account: Any = None,
+    ) -> CaseFolderBinding:
         return self.create_binding(
             case_id=case_id,
             folder_path=folder_path,
             user=ctx.user,
             org_access=ctx.org_access,
             perm_open_access=ctx.perm_open_access,
+            storage_type=storage_type,
+            storage_account=storage_account,
         )
 
     @transaction.atomic

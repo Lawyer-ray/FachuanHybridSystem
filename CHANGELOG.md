@@ -2,6 +2,56 @@
 
 本项目的所有重要更改都将记录在此文件中。
 
+## [26.51.0] - 2026-06-03
+
+### 后端
+
+#### 新功能
+
+- **云存储抽象层**：新增 `CloudStorageProvider` 协议和三种存储后端实现，统一文件夹绑定的存储接口
+  - `LocalProvider`：本地文件系统（原有逻辑）
+  - `JianguoyunProvider`：坚果云 WebDAV（含速率限制器，3.5s/请求）
+  - `OneDriveProvider`：Microsoft Graph API（OAuth2 设备码流 + 自动 token 刷新）
+- **CloudStorageAccount 模型**：新增云存储账号管理，支持本地/坚果云/OneDrive 三种类型，敏感字段 Fernet 加密存储
+- **OneDrive OAuth 授权**：管理员后台一键设备码授权，后台线程自动轮询获取 token
+  - 新增 `_start_auth_view` 管理员视图和 `change_form.html` 模板
+  - 后台 `_poll_device_code` 线程自动完成 token 交换
+- **SystemConfig 云存储配置**：新增 `NUTSTORE_WEBDAV_*` 和 `ONEDRIVE_*` 配置项（CLOUD_STORAGE 分类）
+- **文件夹扫描云存储支持**：`BoundFolderScanService._scan_cloud()` 通过 `CloudFolderScanner` 适配器扫描云端 PDF
+- **文件夹绑定云存储支持**：`FolderBindingCrudService` 支持云端文件保存和 ZIP 解压
+- **目录浏览 API 云存储支持**：`browse_folders` 端点新增 `storage_type` + `storage_account_id` 参数，可浏览云存储目录结构
+- **云存储账号 API**：Cases 新增 `GET /cloud-storage-accounts` 端点（Contracts 侧已有）
+- **Admin 配置指南**：`CloudStorageAccount` 编辑页新增坚果云/OneDrive 折叠式详细配置指引
+
+#### 修复
+
+- **坚果云 WebDAV 403 错误**：移除 `_full_path` 尾部斜杠，修复 Nutstore HEAD/PUT 请求返回 403 的问题
+- **坚果云配置简化**：URL 和根路径硬编码，只需配置用户名和应用密码
+- **合同/案件文件夹扫描全面适配云存储**：`_get_accessible_binding`、`_resolve_scan_scope`、`run_scan_task`、`list_scan_subfolders` 均新增云存储分支
+- **`check_folder_accessible` 云存储支持**：新增 `binding` 参数，云存储路径通过 Provider 判断可达性
+- **`CloudFolderScanner` 路径修复**：`source_path` 包含子目录路径（如 `附件/授权委托书.pdf`），不再只是文件名
+- **`factory.py` 方法修复**：`get_decrypted_webdav_username()` 不存在，改为直接访问 `webdav_username`
+- **绑定无效账号校验**：`storage_account_id` 对应的账号不存在时返回 `STORAGE_ACCOUNT_NOT_FOUND` 错误，不再创建无效绑定
+
+### 前端
+
+#### 新功能
+
+- **云存储选择器**：合同和案件编辑页的文件夹绑定组件支持选择存储类型（本地/坚果云/OneDrive）和云存储账号
+- **云存储文件夹浏览**：`FolderBrowser` 组件支持浏览 WebDAV/OneDrive 目录结构
+- **Admin 文件夹绑定云存储**：合同/案件 Admin 编辑页的「文件夹绑定」组件新增存储类型下拉、云存储账号选择、云存储目录浏览器
+- **Cases 云存储账号 API**：`materialsApi` 新增 `listCloudStorageAccounts` 方法
+
+#### 修复
+
+- **案件文件夹选择器云存储支持**：修复 `case_folder_browser.js` 缺少 `storageTypeLabel`、`filteredAccounts` 等 Alpine.js 变量导致的报错，补齐云存储浏览和绑定功能
+- **案件文件夹扫描云存储支持**：`CaseFolderSection` 和 `materials.ts` 支持云存储类型的文件夹绑定和扫描
+- **云存储绑定错误提示**：未选择云存储账号时点击「绑定」，错误信息显示在按钮下方（不再隐藏在弹窗内）
+
+### 其他
+
+- **企业微信建群修复**：新增默认初始成员配置，修复 chatid 和 userlist 处理逻辑
+
 ## [26.50.13] - 2026-06-02
 
 ### 后端

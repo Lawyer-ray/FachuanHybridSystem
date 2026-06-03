@@ -207,8 +207,8 @@ class DocumentDeliveryProcessor:
                     if notification_sent:
                         sms.status = CourtSMSStatus.COMPLETED
                     else:
-                        sms.status = CourtSMSStatus.FAILED
-                        sms.error_message = "通知发送失败"
+                        sms.status = CourtSMSStatus.COMPLETED
+                        sms.error_message = "通知发送失败（不影响文书归档）"
                     sms.save()
                     result["success"] = True
                 else:

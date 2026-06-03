@@ -46,8 +46,31 @@ def create_folder_binding(request: HttpRequest, case_id: int, data: CaseFolderBi
     service = _get_folder_binding_service()
     ctx = get_request_access_context(request)
 
-    binding = service.create_binding_ctx(case_id=case_id, folder_path=data.folder_path, ctx=ctx)
-    is_accessible: bool = service.check_folder_accessible(binding.resolved_folder_path)
+    # Resolve storage_account if provided
+    storage_account = None
+    if data.storage_account_id and data.storage_type != "local":
+        from apps.core.cloud_storage.models import CloudStorageAccount
+
+        storage_account = CloudStorageAccount.objects.filter(
+            id=data.storage_account_id, storage_type=data.storage_type, is_active=True
+        ).first()
+        if storage_account is None:
+            from apps.core.exceptions import ValidationException
+
+            raise ValidationException(
+                message="指定的云存储账号不存在或已禁用",
+                code="STORAGE_ACCOUNT_NOT_FOUND",
+                errors={"storage_account_id": data.storage_account_id},
+            )
+
+    binding = service.create_binding_ctx(
+        case_id=case_id,
+        folder_path=data.folder_path,
+        ctx=ctx,
+        storage_type=data.storage_type,
+        storage_account=storage_account,
+    )
+    is_accessible: bool = service.check_folder_accessible(binding.resolved_folder_path, binding=binding)
     display_path: str = service.format_path_for_display(binding.resolved_folder_path)
 
     logger.info(
@@ -88,7 +111,7 @@ def get_folder_binding(request: HttpRequest, case_id: int) -> CaseFolderBindingR
     # 先尝试修复合同文件夹路径（合同路径修复后，案件的 resolved_folder_path 自动更新）
     contract_auto_repaired = service.check_and_repair_contract_path(binding)
 
-    is_accessible: bool = service.check_folder_accessible(binding.resolved_folder_path)
+    is_accessible: bool = service.check_folder_accessible(binding.resolved_folder_path, binding=binding)
     display_path: str = service.format_path_for_display(binding.resolved_folder_path)
 
     return CaseFolderBindingResponseSchema.from_binding(
@@ -142,11 +165,77 @@ def get_contract_folder_path(request: HttpRequest, case_id: int) -> ContractFold
 
 
 @router.get("/folder-browse", response=FolderBrowseResponseSchema)
-def browse_folders(request: HttpRequest, path: str | None = None, include_hidden: bool = False) -> Any:
+def browse_folders(
+    request: HttpRequest,
+    path: str | None = None,
+    include_hidden: bool = False,
+    storage_type: str = "local",
+    storage_account_id: int | None = None,
+) -> Any:
     service = _get_folder_binding_service()
     ctx = get_request_access_context(request)
     service.require_admin(ctx)
 
+    # ── Cloud storage browse ──
+    if storage_type and storage_type != "local" and storage_account_id:
+        from apps.core.cloud_storage.factory import create_provider_from_account
+        from apps.core.cloud_storage.models import CloudStorageAccount as CSA
+
+        account = CSA.objects.filter(id=storage_account_id, storage_type=storage_type, is_active=True).first()
+        if not account:
+            return FolderBrowseResponseSchema(
+                browsable=False,
+                message="云存储账号不存在",
+                path=path,
+                parent_path=None,
+                entries=[],
+                storage_type=storage_type,
+            )
+
+        provider = create_provider_from_account(account)
+        browse_path = (path or "").strip().rstrip("/") or "/"
+
+        try:
+            children = provider.list_directory(browse_path)
+        except Exception:
+            logger.exception("cloud_browse_failed", extra={"path": browse_path, "account_id": storage_account_id})
+            return FolderBrowseResponseSchema(
+                browsable=False,
+                message="云存储目录访问失败",
+                path=browse_path,
+                parent_path=None,
+                entries=[],
+                storage_type=storage_type,
+            )
+
+        entries = []
+        for child in children:
+            if not child.is_dir:
+                continue
+            if not include_hidden and child.name.startswith("."):
+                continue
+            child_path = browse_path.rstrip("/") + "/" + child.name
+            entries.append(FolderBrowseEntrySchema(name=child.name, path=child_path))
+        entries.sort(key=lambda e: e.name.lower())
+
+        parent_path: str | None = None
+        if browse_path != "/":
+            from pathlib import PurePosixPath
+
+            parent_path = str(PurePosixPath(browse_path).parent)
+            if parent_path == ".":
+                parent_path = "/"
+
+        return FolderBrowseResponseSchema(
+            browsable=True,
+            message=None,
+            path=browse_path,
+            parent_path=parent_path,
+            entries=entries,
+            storage_type=storage_type,
+        )
+
+    # ── Local filesystem browse (existing logic) ──
     if not path or not str(path).strip():
         default_path = service.get_default_browse_path()
         if default_path:
@@ -164,11 +253,7 @@ def browse_folders(request: HttpRequest, path: str | None = None, include_hidden
                 },
             )
             return FolderBrowseResponseSchema(
-                browsable=True,
-                message=None,
-                path=None,
-                parent_path=None,
-                entries=entries,
+                browsable=True, message=None, path=None, parent_path=None, entries=entries, storage_type="local"
             )
 
     browsable, browse_message = service.is_browsable_path(str(path))
@@ -179,13 +264,14 @@ def browse_folders(request: HttpRequest, path: str | None = None, include_hidden
             path=str(path).strip(),
             parent_path=None,
             entries=[],
+            storage_type="local",
         )
 
     resolved = service.resolve_under_allowed_roots(str(path))
     entries = [
         FolderBrowseEntrySchema(**item) for item in service.list_subdirs(str(path), include_hidden=include_hidden)
     ]
-    parent_path: str | None = service.compute_parent_path(resolved)
+    parent_path = service.compute_parent_path(resolved)
 
     logger.info(
         "case_folder_browse",
@@ -200,9 +286,19 @@ def browse_folders(request: HttpRequest, path: str | None = None, include_hidden
     )
 
     return FolderBrowseResponseSchema(
-        browsable=True,
-        message=None,
-        path=str(resolved),
-        parent_path=parent_path,
-        entries=entries,
+        browsable=True, message=None, path=str(resolved), parent_path=parent_path, entries=entries, storage_type="local"
     )
+
+
+@router.get("/cloud-storage-accounts")
+def list_cloud_storage_accounts(request: HttpRequest) -> list[dict[str, Any]]:
+    """List available cloud storage accounts for folder binding."""
+    from apps.core.cloud_storage.models import CloudStorageAccount as CSA
+
+    service = _get_folder_binding_service()
+    ctx = get_request_access_context(request)
+    service.require_admin(ctx)
+    accounts = CSA.objects.filter(is_active=True).values(
+        "id", "name", "storage_type", "local_root_path", "webdav_root_path", "onedrive_root_path"
+    )
+    return list(accounts)  # type: ignore[arg-type]

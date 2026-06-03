@@ -63,6 +63,7 @@ def root_redirect(request: HttpRequest) -> HttpResponseRedirect:
 
 urlpatterns = [
     path("admin/register/", register, name="admin_register"),
+    path("admin/cloud-storage/", include("apps.core.cloud_storage.urls")),
     path("admin/", admin.site.urls),
     path("i18n/", include("django.conf.urls.i18n")),
     path("api/v1/", api_v1.urls),

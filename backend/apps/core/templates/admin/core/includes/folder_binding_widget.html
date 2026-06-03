@@ -5,9 +5,28 @@
     <div class="binding-status">
         <span class="status-badge" :class="binding ? 'bound' : 'unbound'"
               x-text="binding ? '{% trans "已绑定" %}' : '{% trans "未绑定" %}'"></span>
+        <span x-show="binding && binding.storage_type && binding.storage_type !== 'local'"
+              class="storage-type-badge"
+              x-text="storageTypeLabel(binding?.storage_type)"></span>
     </div>
 
     <div x-show="binding" class="binding-path" x-text="binding?.display_path || binding?.folder_path"></div>
+
+    <!-- Storage type & account selector (only when not bound) -->
+    <div x-show="!binding" class="storage-selector">
+        <select x-model="storageType" @change="onStorageTypeChange()" class="storage-type-select">
+            <option value="local">{% trans "本地文件系统" %}</option>
+            <option value="webdav">{% trans "坚果云 WebDAV" %}</option>
+            <option value="onedrive">{% trans "OneDrive" %}</option>
+        </select>
+        <select x-show="storageType !== 'local' && filteredAccounts.length > 0"
+                x-model="storageAccountId" class="storage-account-select">
+            <option value="">{% trans "选择账号" %}</option>
+            <template x-for="acc in filteredAccounts" :key="acc.id">
+                <option :value="acc.id" x-text="acc.name"></option>
+            </template>
+        </select>
+    </div>
 
     <div class="binding-actions">
         <button type="button" class="btn-folder primary" @click="openBrowser()" :disabled="loading">
@@ -18,11 +37,12 @@
             {% trans "解除绑定" %}
         </button>
     </div>
+    <div x-show="error && !showBrowser" class="folder-browser-error" x-text="error" style="margin-top:10px"></div>
 
     <div x-show="showBrowser" x-cloak class="folder-browser-modal" @click.self="closeBrowser()">
         <div class="folder-browser-content">
             <div class="folder-browser-header" style="position: relative;">
-                <h2>{% trans "选择文件夹" %}</h2>
+                <h2 x-text="storageType !== 'local' ? '{% trans "选择云存储文件夹" %}' : '{% trans "选择文件夹" %}'"></h2>
                 <button type="button" class="folder-browser-close" @click="closeBrowser()">×</button>
                 <div class="manual-path-input">
                     <input type="text" x-model="manualPath"

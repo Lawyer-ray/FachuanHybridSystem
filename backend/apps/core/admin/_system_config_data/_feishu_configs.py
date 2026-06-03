@@ -98,6 +98,15 @@ def get_wechat_work_configs() -> list[dict[str, Any]]:
             "description": "企业微信默认群主帐号（创建群聊必须指定群主。在管理后台「通讯录」→ 点击成员 → 成员详情中的「帐号」字段即为 userid）",
             "is_secret": False,
         },
+        {
+            "key": "WECHAT_WORK_DEFAULT_MEMBER_IDS",
+            "category": "wechat_work",
+            "description": (
+                "企业微信默认初始成员帐号列表（逗号分隔，建群时除群主外自动加入，"
+                "企业微信要求建群至少 2 人）。在管理后台「通讯录」→ 成员详情中的「帐号」字段即为 userid"
+            ),
+            "is_secret": False,
+        },
     ]
 
 

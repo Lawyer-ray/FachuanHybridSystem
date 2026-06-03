@@ -66,18 +66,30 @@ export const materialsApi = {
     }
   },
 
-  createFolderBinding: async (caseId: number | string, folderPath: string): Promise<FolderBinding> =>
-    client.post(`${caseId}/folder-binding`, { json: { folder_path: folderPath } }).json<FolderBinding>(),
+  createFolderBinding: async (
+    caseId: number | string,
+    params: { folder_path: string; storage_type?: string; storage_account_id?: number | null },
+  ): Promise<FolderBinding> =>
+    client.post(`${caseId}/folder-binding`, { json: params }).json<FolderBinding>(),
 
   deleteFolderBinding: async (caseId: number | string): Promise<void> => {
     await client.delete(`${caseId}/folder-binding`)
   },
 
-  browseFolders: async (path?: string): Promise<FolderBrowseResponse> => {
+  browseFolders: async (
+    path?: string,
+    storageType?: string,
+    storageAccountId?: number,
+  ): Promise<FolderBrowseResponse> => {
     const searchParams = new URLSearchParams()
     if (path) searchParams.set('path', path)
+    if (storageType && storageType !== 'local') searchParams.set('storage_type', storageType)
+    if (storageAccountId) searchParams.set('storage_account_id', String(storageAccountId))
     return client.get('folder-browse', { searchParams }).json<FolderBrowseResponse>()
   },
+
+  listCloudStorageAccounts: async (): Promise<Array<{ id: number; name: string; storage_type: string }>> =>
+    client.get('cloud-storage-accounts').json(),
 
   startFolderScan: async (caseId: number | string, options?: Record<string, unknown>): Promise<FolderScanSession> =>
     client.post(`${caseId}/folder-scan`, { json: options ?? {} }).json<FolderScanSession>(),

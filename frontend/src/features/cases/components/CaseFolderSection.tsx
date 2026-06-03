@@ -5,20 +5,21 @@ import {
   Unlink,
   Loader2,
   Search,
+  Cloud,
+  HardDrive,
 } from 'lucide-react'
 import { toast } from 'sonner'
+import { useQuery } from '@tanstack/react-query'
 
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from '@/components/ui/dialog'
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -33,8 +34,16 @@ import {
 import { Checkbox } from '@/components/ui/checkbox'
 import { Progress } from '@/components/ui/progress'
 
+import { FolderBrowser } from '@/features/contracts/components/FolderBrowser'
+import { materialsApi } from '../api/materials'
 import { useFolderMutations } from '../hooks/use-folder-mutations'
 import type { FolderBinding, FolderScanCandidate, FolderScanSession } from '../types'
+
+const STORAGE_TYPES = [
+  { value: 'local', label: '本地', icon: HardDrive },
+  { value: 'webdav', label: '坚果云', icon: Cloud },
+  { value: 'onedrive', label: 'OneDrive', icon: Cloud },
+] as const
 
 function ScanResultRow({
   candidate,
@@ -78,22 +87,32 @@ export interface CaseFolderSectionProps {
 
 export function CaseFolderSection({ binding, caseId }: CaseFolderSectionProps) {
   const mutations = useFolderMutations(caseId)
-  const [bindOpen, setBindOpen] = useState(false)
-  const [folderPath, setFolderPath] = useState('')
+  const [browserOpen, setBrowserOpen] = useState(false)
+  const [storageType, setStorageType] = useState<string>('local')
+  const [cloudAccountId, setCloudAccountId] = useState<number | null>(null)
   const [scanSession, setScanSession] = useState<FolderScanSession | null>(null)
   const [selectedCandidates, setSelectedCandidates] = useState<Set<number>>(new Set())
   const [scanning, setScanning] = useState(false)
 
-  const handleBind = () => {
-    if (!folderPath.trim()) return
-    mutations.createFolderBinding.mutate(folderPath.trim(), {
-      onSuccess: () => {
-        toast.success('绑定成功')
-        setBindOpen(false)
-        setFolderPath('')
+  const { data: cloudAccounts } = useQuery({
+    queryKey: ['case-cloud-storage-accounts'],
+    queryFn: () => materialsApi.listCloudStorageAccounts(),
+    staleTime: 5 * 60 * 1000,
+  })
+
+  const filteredAccounts = cloudAccounts?.filter(a => a.storage_type === storageType) ?? []
+
+  const handleSelectFolder = (path: string) => {
+    mutations.createFolderBinding.mutate(
+      { folder_path: path, storage_type: storageType, storage_account_id: cloudAccountId },
+      {
+        onSuccess: () => {
+          toast.success('绑定成功')
+          setBrowserOpen(false)
+        },
+        onError: () => toast.error('绑定失败'),
       },
-      onError: () => toast.error('绑定失败'),
-    })
+    )
   }
 
   const handleDelete = () => {
@@ -139,13 +158,47 @@ export function CaseFolderSection({ binding, caseId }: CaseFolderSectionProps) {
     setSelectedCandidates(next)
   }
 
+  const handleOpenBind = () => {
+    if (storageType !== 'local' && !cloudAccountId) {
+      toast.error('请先选择云存储账号')
+      return
+    }
+    setBrowserOpen(true)
+  }
+
+  const storageLabel = binding
+    ? STORAGE_TYPES.find(t => t.value === (binding.storage_type || 'local'))?.label || '本地'
+    : null
+
   return (
     <div className="space-y-3">
       {/* Binding row */}
       {!binding ? (
         <div className="flex items-center gap-2">
           <p className="text-muted-foreground text-xs">未绑定文件夹</p>
-          <Button size="xs" variant="ghost" className="h-5 px-1.5 text-[11px]" onClick={() => setBindOpen(true)}>
+          <Select value={storageType} onValueChange={v => { setStorageType(v); setCloudAccountId(null) }}>
+            <SelectTrigger className="w-[100px] h-6 text-[11px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {STORAGE_TYPES.map(t => (
+                <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {storageType !== 'local' && filteredAccounts.length > 0 && (
+            <Select value={cloudAccountId ? String(cloudAccountId) : ''} onValueChange={v => setCloudAccountId(Number(v))}>
+              <SelectTrigger className="w-[140px] h-6 text-[11px]">
+                <SelectValue placeholder="选择账号" />
+              </SelectTrigger>
+              <SelectContent>
+                {filteredAccounts.map(a => (
+                  <SelectItem key={a.id} value={String(a.id)}>{a.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+          <Button size="xs" variant="ghost" className="h-5 px-1.5 text-[11px]" onClick={handleOpenBind}>
             <Link2 className="size-3 mr-0.5" /> 绑定
           </Button>
         </div>
@@ -153,6 +206,9 @@ export function CaseFolderSection({ binding, caseId }: CaseFolderSectionProps) {
         <div className="group flex items-center gap-2 py-1.5">
           <FolderOpen className="text-muted-foreground size-3.5 shrink-0" />
           <span className="text-[13px] font-medium truncate flex-1">{binding.folder_path_display || binding.folder_path}</span>
+          {storageLabel && storageLabel !== '本地' && (
+            <Badge variant="secondary" className="text-[10px] shrink-0 py-0">{storageLabel}</Badge>
+          )}
           {binding.is_accessible ? (
             <span className="text-[11px] text-green-700">可访问</span>
           ) : (
@@ -246,34 +302,14 @@ export function CaseFolderSection({ binding, caseId }: CaseFolderSectionProps) {
         </div>
       )}
 
-      {/* Bind dialog */}
-      <Dialog open={bindOpen} onOpenChange={setBindOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>绑定文件夹</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-2">
-            <div className="space-y-2">
-              <Label>文件夹路径</Label>
-              <Input
-                placeholder="/path/to/case/folder"
-                value={folderPath}
-                onChange={(e) => setFolderPath(e.target.value)}
-              />
-              <p className="text-xs text-muted-foreground">
-                输入案件文件夹的绝对路径，绑定后可扫描导入材料
-              </p>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setBindOpen(false)}>取消</Button>
-            <Button onClick={handleBind} disabled={!folderPath.trim() || mutations.createFolderBinding.isPending}>
-              {mutations.createFolderBinding.isPending && <Loader2 className="mr-1 size-3 animate-spin" />}
-              绑定
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Folder browser (works for both local and cloud) */}
+      <FolderBrowser
+        open={browserOpen}
+        onOpenChange={setBrowserOpen}
+        onSelect={handleSelectFolder}
+        storageType={storageType}
+        storageAccountId={cloudAccountId ?? undefined}
+      />
     </div>
   )
 }
