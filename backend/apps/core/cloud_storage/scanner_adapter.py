@@ -72,10 +72,22 @@ class CloudFolderScanner:
     def collect_pdf_files(self) -> list[ScannedFile]:
         """Recursively collect all PDF files from the bound folder."""
         results: list[ScannedFile] = []
-        for _dirpath, _subdirs, files in self._provider.walk(self._root):
+        for dirpath, _subdirs, files in self._provider.walk(self._root):
             for f in files:
                 if f.name.lower().endswith(".pdf"):
-                    results.append(ScannedFile(_info=f, _root=self._root))
+                    # Build full relative path from scan root
+                    if dirpath == self._root:
+                        rel_path = f.name
+                    else:
+                        rel_path = dirpath[len(self._root) :].lstrip("/") + "/" + f.name
+                    full_info = CloudFileInfo(
+                        name=f.name,
+                        path=rel_path,
+                        is_dir=f.is_dir,
+                        size=f.size,
+                        modified_at=f.modified_at,
+                    )
+                    results.append(ScannedFile(_info=full_info, _root=self._root))
         results.sort(key=lambda x: x.as_posix)
         return results
 
