@@ -145,7 +145,7 @@ class WeChatWorkProvider(WeChatWorkTokenMixin, WeChatWorkFileMixin, ChatProvider
             self._send_initial_message(chat_id, chat_name)
 
             result = ChatResult(
-                success=True, chat_id=chat_id, chat_name=chat_name, message=_("群聊创建成功"), raw_response=data
+                success=True, chat_id=chat_id, chat_name=chat_name, message=str(_("群聊创建成功")), raw_response=data
             )
             if result.raw_response:
                 result.raw_response["owner_info"] = {
@@ -216,7 +216,7 @@ class WeChatWorkProvider(WeChatWorkTokenMixin, WeChatWorkFileMixin, ChatProvider
             msg_id = data.get("msgid", "")
             logger.info(f"成功发送企业微信消息到群聊: {chat_id} (消息ID: {msg_id})")
 
-            return ChatResult(success=True, chat_id=chat_id, message=_("消息发送成功"), raw_response=data)
+            return ChatResult(success=True, chat_id=chat_id, message=str(_("消息发送成功")), raw_response=data)
 
         except MessageSendException:
             raise
@@ -276,7 +276,7 @@ class WeChatWorkProvider(WeChatWorkTokenMixin, WeChatWorkFileMixin, ChatProvider
                 success=True,
                 chat_id=chat_id,
                 chat_name=chat_name,
-                message=_("获取群聊信息成功"),
+                message=str(_("获取群聊信息成功")),
                 raw_response=data,
             )
 
