@@ -37,6 +37,7 @@
             {% trans "解除绑定" %}
         </button>
     </div>
+    <div x-show="error && !showBrowser" class="folder-browser-error" x-text="error" style="margin-top:10px"></div>
 
     <div x-show="showBrowser" x-cloak class="folder-browser-modal" @click.self="closeBrowser()">
         <div class="folder-browser-content">
