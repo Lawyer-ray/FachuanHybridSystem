@@ -36,18 +36,14 @@ class CloudStorageAccount(models.Model):
     webdav_password = models.CharField(
         max_length=512, blank=True, default="", verbose_name=_("WebDAV 应用密码（加密存储）")
     )
-    webdav_root_path = models.CharField(
-        max_length=500, blank=True, default="/", verbose_name=_("WebDAV 根路径")
-    )
+    webdav_root_path = models.CharField(max_length=500, blank=True, default="/", verbose_name=_("WebDAV 根路径"))
 
     # ── OneDrive fields ────────────────────────────────────────
     onedrive_client_id = models.CharField(max_length=255, blank=True, default="", verbose_name=_("Azure AD Client ID"))
     onedrive_tenant_id = models.CharField(
         max_length=255, blank=True, default="consumers", verbose_name=_("Azure AD Tenant ID")
     )
-    onedrive_root_path = models.CharField(
-        max_length=500, blank=True, default="/", verbose_name=_("OneDrive 根路径")
-    )
+    onedrive_root_path = models.CharField(max_length=500, blank=True, default="/", verbose_name=_("OneDrive 根路径"))
     onedrive_access_token = models.TextField(blank=True, default="", verbose_name=_("OneDrive Access Token（加密）"))
     onedrive_refresh_token = models.TextField(blank=True, default="", verbose_name=_("OneDrive Refresh Token（加密）"))
     onedrive_token_expires_at = models.DateTimeField(null=True, blank=True, verbose_name=_("Token 过期时间"))
@@ -93,6 +89,14 @@ class CloudStorageAccount(models.Model):
         if self.onedrive_refresh_token and not codec.is_encrypted(self.onedrive_refresh_token):
             self.onedrive_refresh_token = codec.encrypt(self.onedrive_refresh_token)
 
-    def save(self, *args, **kwargs):  # type: ignore[override]
+    STORAGE_TYPE_NAMES: ClassVar = {
+        "local": "本地文件系统",
+        "webdav": "坚果云",
+        "onedrive": "OneDrive",
+    }
+
+    def save(self, *args, **kwargs):  # type: ignore[no-untyped-def]
+        if not self.name:
+            self.name = self.STORAGE_TYPE_NAMES.get(self.storage_type, self.get_storage_type_display())
         self.encrypt_sensitive_fields()
         super().save(*args, **kwargs)

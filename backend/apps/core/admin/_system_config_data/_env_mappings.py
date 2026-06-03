@@ -212,4 +212,29 @@ def get_env_mappings() -> dict[str, dict[str, Any]]:
             "description": "Playwright 有头模式（true=显示浏览器窗口）",
             "is_secret": False,
         },
+        # ── 云存储 ──────────────────────────────────────────
+        "NUTSTORE_WEBDAV_ROOT_PATH": {
+            "key": "NUTSTORE_WEBDAV_ROOT_PATH",
+            "category": "cloud_storage",
+            "description": "坚果云 WebDAV 根路径",
+            "is_secret": False,
+        },
+        "ONEDRIVE_CLIENT_ID": {
+            "key": "ONEDRIVE_CLIENT_ID",
+            "category": "cloud_storage",
+            "description": "Azure AD 应用程序(client) ID",
+            "is_secret": False,
+        },
+        "ONEDRIVE_TENANT_ID": {
+            "key": "ONEDRIVE_TENANT_ID",
+            "category": "cloud_storage",
+            "description": "Azure AD 目录(tenant) ID",
+            "is_secret": False,
+        },
+        "ONEDRIVE_ROOT_PATH": {
+            "key": "ONEDRIVE_ROOT_PATH",
+            "category": "cloud_storage",
+            "description": "OneDrive 根路径",
+            "is_secret": False,
+        },
     }

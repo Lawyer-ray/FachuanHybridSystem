@@ -14,7 +14,7 @@ class CloudStorageAccountAdmin(admin.ModelAdmin):
     search_fields = ["name"]
 
     FIELDSETS = [
-        ("基本信息", {"fields": ["name", "storage_type", "is_active"]}),
+        ("基本信息", {"fields": ["storage_type", "is_active"]}),
         (
             "坚果云 WebDAV",
             {
@@ -50,7 +50,11 @@ class CloudStorageAccountAdmin(admin.ModelAdmin):
     class Media:
         js = ("admin/js/cloud_storage_admin.js",)
 
-    def get_readonly_fields(self, request, obj=None):  # type: ignore[override]
+    def get_readonly_fields(self, request, obj=None):  # type: ignore[no-untyped-def]
+        readonly = []
+        # storage_type不可修改（创建后锁定）
+        if obj and obj.pk:
+            readonly.append("storage_type")
         if obj and obj.storage_type == "onedrive":
-            return ["onedrive_token_expires_at"]
-        return []
+            readonly.append("onedrive_token_expires_at")
+        return readonly

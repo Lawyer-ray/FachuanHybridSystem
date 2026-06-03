@@ -40,7 +40,7 @@ class JianguoyunProvider:
     quirks of the ``webdavclient3`` library for edge cases.
     """
 
-    WEBDAV_URL = "https://dav.jianguoyun.com/dav/"
+    DEFAULT_WEBDAV_URL = "https://dav.jianguoyun.com/dav/"
 
     def __init__(
         self,
@@ -48,10 +48,12 @@ class JianguoyunProvider:
         app_password: str,
         root_path: str = "/",
         *,
+        webdav_url: str = "",
         rate_limiter: _RateLimiter | None = None,
     ) -> None:
         self._username = username
         self._password = app_password
+        self._webdav_url = (webdav_url or self.DEFAULT_WEBDAV_URL).rstrip("/") + "/"
         self._root = root_path.rstrip("/") or ""
         self._auth = HTTPBasicAuth(username, app_password)
         self._limiter = rate_limiter or _RateLimiter()
@@ -68,7 +70,7 @@ class JianguoyunProvider:
         return "/" + "/".join(parts)
 
     def _url(self, path: str) -> str:
-        return self.WEBDAV_URL + self._full_path(path).lstrip("/")
+        return self._webdav_url + self._full_path(path).lstrip("/")
 
     def _request(self, method: str, path: str, **kwargs) -> requests.Response:  # type: ignore[no-untyped-def]
         self._limiter.wait_if_needed()
@@ -108,7 +110,7 @@ class JianguoyunProvider:
 
         # Nutstore returns hrefs prefixed with the WebDAV root (e.g. "/dav/我的坚果云")
         # We need to strip this prefix to get paths relative to our root_path
-        server_url = urllib.parse.urlparse(self.WEBDAV_URL)
+        server_url = urllib.parse.urlparse(self._webdav_url)
         dav_root_prefix = server_url.path.rstrip("/")
 
         try:
@@ -136,7 +138,11 @@ class JianguoyunProvider:
                                     if p_tag == "resourcetype":
                                         # Check for <d:collection/>
                                         for collection in p.iter():
-                                            c_tag = collection.tag.split("}")[-1] if "}" in collection.tag else collection.tag
+                                            c_tag = (
+                                                collection.tag.split("}")[-1]
+                                                if "}" in collection.tag
+                                                else collection.tag
+                                            )
                                             if c_tag == "collection":
                                                 is_dir = True
                                     elif p_tag == "getcontentlength":
