@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from django.http import JsonResponse
+from django.http import HttpRequest, JsonResponse
 from django.views.decorators.http import require_POST
 
 from .models import CloudStorageAccount

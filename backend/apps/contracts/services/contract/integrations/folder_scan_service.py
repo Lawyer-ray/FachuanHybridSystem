@@ -139,7 +139,7 @@ class ContractFolderScanService:
             provider = self._make_provider_for_binding(binding)
             root_path = binding.folder_path
             try:
-                children = provider.list_directory(root_path)
+                children = provider.list_directory(root_path) if provider else []
             except Exception:
                 children = []
             subfolders = []
