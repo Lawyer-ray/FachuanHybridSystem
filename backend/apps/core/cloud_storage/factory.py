@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from .local import LocalProvider
 
@@ -13,7 +13,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-def create_provider_for_binding(binding) -> CloudStorageProvider:
+def create_provider_for_binding(binding: Any) -> CloudStorageProvider:
     """Create a provider based on the binding's storage_type and storage_account.
 
     CloudStorageAccount is the single source of truth for credentials.
@@ -55,7 +55,7 @@ def create_provider_for_binding(binding) -> CloudStorageProvider:
     return LocalProvider()
 
 
-def create_provider_from_account(account) -> CloudStorageProvider:
+def create_provider_from_account(account: Any) -> CloudStorageProvider:
     """Create a provider directly from a CloudStorageAccount instance."""
     storage_type = account.storage_type
 

@@ -9,6 +9,7 @@ import urllib.parse
 from collections.abc import Iterator
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
+from typing import Any
 
 import httpx
 
@@ -32,7 +33,7 @@ class _TokenData:
 class OAuthTokenManager:
     """Manages OneDrive OAuth2 token lifecycle (device code flow + auto-refresh)."""
 
-    def __init__(self, account) -> None:
+    def __init__(self, account: Any) -> None:
         self._account = account
 
     def _tenant_id(self) -> str:
@@ -53,7 +54,7 @@ class OAuthTokenManager:
         expires_at = getattr(self._account, "onedrive_token_expires_at", None)
 
         if token and expires_at and expires_at > datetime.now(UTC) + timedelta(minutes=5):
-            return token
+            return str(token)
 
         refresh_token = self._account.get_decrypted_onedrive_refresh_token()
         if refresh_token:
@@ -95,7 +96,7 @@ class OAuthTokenManager:
         )
 
     @staticmethod
-    def start_device_code_flow(account) -> dict:
+    def start_device_code_flow(account: Any) -> dict[str, Any]:
         """Initiate device code flow. Returns dict with user_code, verification_uri, device_code."""
         tenant_id = getattr(account, "onedrive_tenant_id", None) or "consumers"
         client_id = getattr(account, "onedrive_client_id", "")

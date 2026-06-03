@@ -267,7 +267,7 @@ class FolderBindingCrudService(BaseFolderBindingService):
                 logger.error(error_msg, extra={"owner_id": owner_id})
                 raise ValidationException(message=error_msg, code="ZIP_EXTRACT_FAILED") from e
             logger.info("ZIP解压到绑定文件夹成功（云存储）", extra={"owner_id": owner_id, "cloud_path": resolved_path})
-            return resolved_path
+            return str(resolved_path)
 
         # ── Local filesystem: existing logic ──
         try:

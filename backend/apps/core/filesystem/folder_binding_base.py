@@ -102,7 +102,7 @@ class BaseFolderBindingService:
         if binding is not None and self._is_cloud_storage(binding):
             provider = self._get_provider_for_binding(binding)
             try:
-                return provider.is_dir(path) or provider.exists(path)
+                return bool(provider.is_dir(path) or provider.exists(path))
             except Exception:
                 logger.warning("cloud_storage_accessible_check_failed", extra={"path": path})
                 return False
@@ -124,7 +124,7 @@ class BaseFolderBindingService:
         storage_type = getattr(binding, "storage_type", "local")
         return storage_type != "local" and getattr(binding, "storage_account", None) is not None
 
-    def _get_provider_for_binding(self, binding: Any):
+    def _get_provider_for_binding(self, binding: Any) -> Any:
         """Create the appropriate CloudStorageProvider for a binding."""
         from apps.core.cloud_storage.factory import create_provider_for_binding
 
