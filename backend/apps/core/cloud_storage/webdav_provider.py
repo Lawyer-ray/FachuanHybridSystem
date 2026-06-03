@@ -62,13 +62,10 @@ class JianguoyunProvider:
     # ── Internal helpers ───────────────────────────────────────
 
     def _full_path(self, path: str) -> str:
-        """Build absolute WebDAV path from a relative path."""
+        """Build absolute WebDAV path from a relative path (no trailing slash)."""
         clean = path.strip("/")
         parts = [p for p in (self._root, clean) if p]
-        result = "/" + "/".join(parts)
-        if not result.endswith("/"):
-            result += "/"
-        return result
+        return "/" + "/".join(parts)
 
     def _url(self, path: str) -> str:
         return self.WEBDAV_URL + self._full_path(path).lstrip("/")
@@ -85,7 +82,8 @@ class JianguoyunProvider:
 
     def list_directory(self, path: str) -> list[CloudFileInfo]:
         """List immediate children using PROPFIND Depth:1."""
-        url = self._url(path)
+        # PROPFIND on directories requires trailing slash for Nutstore
+        url = self._url(path).rstrip("/") + "/"
         self._limiter.wait_if_needed()
         resp = self._session.request(
             "PROPFIND",
@@ -212,7 +210,8 @@ class JianguoyunProvider:
     def is_dir(self, path: str) -> bool:
         results = self.list_directory(path)
         # If we can list it, it's a directory
-        url = self._url(path)
+        # PROPFIND on directories requires trailing slash for Nutstore
+        url = self._url(path).rstrip("/") + "/"
         self._limiter.wait_if_needed()
         resp = self._session.request("PROPFIND", url, headers={"Depth": "0"}, timeout=30)
         if resp.status_code >= 400:
