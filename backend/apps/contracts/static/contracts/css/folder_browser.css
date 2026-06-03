@@ -322,3 +322,36 @@
     text-overflow: ellipsis;
     white-space: nowrap;
 }
+
+/* Storage type & account selector */
+.storage-type-badge {
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 500;
+    background: #dbeafe;
+    color: #1e40af;
+}
+
+.storage-selector {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.storage-type-select,
+.storage-account-select {
+    padding: 6px 10px;
+    border: 1px solid #d1d5db;
+    border-radius: 4px;
+    font-size: 13px;
+    background: white;
+    color: #374151;
+}
+
+.storage-type-select:focus,
+.storage-account-select:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
+}
