@@ -150,8 +150,8 @@ class CloudStorageAccountAdmin(admin.ModelAdmin):
             return redirect("admin:core_cloudstorageaccount_change", object_id)
 
         try:
-            account = self.model.objects.get(pk=object_id)  # type: ignore[attr-defined]
-        except self.model.DoesNotExist:  # type: ignore[attr-defined]
+            account = self.model.objects.get(pk=object_id)
+        except self.model.DoesNotExist:
             messages.error(request, "账号不存在")
             return redirect("admin:core_cloudstorageaccount_changelist")
 
@@ -190,7 +190,7 @@ class CloudStorageAccountAdmin(admin.ModelAdmin):
 
         if object_id:
             try:
-                obj = self.model.objects.get(pk=object_id)  # type: ignore[attr-defined]
+                obj = self.model.objects.get(pk=object_id)
                 is_onedrive = obj.storage_type == "onedrive"
                 extra_context["show_onedrive_auth"] = is_onedrive
                 extra_context["onedrive_account_id"] = object_id

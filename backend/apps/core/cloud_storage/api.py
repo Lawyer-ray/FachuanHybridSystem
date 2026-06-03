@@ -10,7 +10,7 @@ from .onedrive_provider import OAuthTokenManager
 
 
 @require_POST
-def onedrive_start_auth(request, account_id: int) -> JsonResponse:
+def onedrive_start_auth(request: HttpRequest, account_id: int) -> JsonResponse:
     """Start OneDrive device code authorization flow."""
     try:
         account = CloudStorageAccount.objects.get(id=account_id, storage_type="onedrive")
@@ -25,7 +25,7 @@ def onedrive_start_auth(request, account_id: int) -> JsonResponse:
 
 
 @require_POST
-def onedrive_complete_auth(request, account_id: int) -> JsonResponse:
+def onedrive_complete_auth(request: HttpRequest, account_id: int) -> JsonResponse:
     """Complete device code flow by polling for token."""
     import json
 
