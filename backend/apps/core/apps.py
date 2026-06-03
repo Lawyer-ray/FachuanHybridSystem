@@ -13,5 +13,5 @@ class CoreConfig(AppConfig):
     verbose_name = "核心系统"
 
     def ready(self) -> None:
-        from . import admin  # noqa: F401
-        from .cloud_storage import models  # noqa: F401
+        from . import admin
+        from .cloud_storage import models

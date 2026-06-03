@@ -59,9 +59,7 @@ class OAuthTokenManager:
         if refresh_token:
             return self._refresh_token(refresh_token)
 
-        raise RuntimeError(
-            "OneDrive 未授权。请在 Admin 后台 -> 云存储账号 中点击「获取授权」按钮完成授权。"
-        )
+        raise RuntimeError("OneDrive 未授权。请在 Admin 后台 -> 云存储账号 中点击「获取授权」按钮完成授权。")
 
     def _refresh_token(self, refresh_token: str) -> str:
         resp = httpx.post(
@@ -256,7 +254,9 @@ class OneDriveProvider:
             parent = "/".join(parts[:-1])
             self.mkdir(parent)
 
-        parent_url = self._children_url("/".join(parts[:-1])) if len(parts) > 1 else f"{GRAPH_BASE}/me/drive/root/children"
+        parent_url = (
+            self._children_url("/".join(parts[:-1])) if len(parts) > 1 else f"{GRAPH_BASE}/me/drive/root/children"
+        )
         folder_name = parts[-1]
         resp = self._client.post(
             parent_url,

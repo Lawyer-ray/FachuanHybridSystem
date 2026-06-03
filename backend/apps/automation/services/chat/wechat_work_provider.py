@@ -18,8 +18,8 @@ API文档参考：
 
 import logging
 import re
-from uuid import uuid4
 from typing import Any
+from uuid import uuid4
 
 import httpx
 from django.utils.translation import gettext_lazy as _

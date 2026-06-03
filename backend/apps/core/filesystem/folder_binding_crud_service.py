@@ -200,7 +200,12 @@ class FolderBindingCrudService(BaseFolderBindingService):
                 ) from e
             logger.info(
                 "文件保存到绑定文件夹成功（云存储）",
-                extra={"owner_id": owner_id, "file_name": safe_name, "cloud_path": cloud_path, "subdir_key": subdir_key},
+                extra={
+                    "owner_id": owner_id,
+                    "file_name": safe_name,
+                    "cloud_path": cloud_path,
+                    "subdir_key": subdir_key,
+                },
             )
             return cloud_path
 

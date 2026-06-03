@@ -1,0 +1,151 @@
+{% extends "admin/change_form.html" %}
+{% load i18n %}
+
+{% block content %}
+{{ block.super }}
+
+{# ── 坚果云配置指南 ── #}
+<div id="nutstore-help-section" style="margin: 16px 0; padding: 0;">
+  <details style="border: 1px solid #d1d5db; border-radius: 6px; background: #f9fafb;">
+    <summary style="padding: 12px 16px; cursor: pointer; font-weight: 600; font-size: 14px; color: #374151; user-select: none;">
+      📖 坚果云 WebDAV 配置指南
+    </summary>
+    <div style="padding: 0 16px 16px; font-size: 13px; line-height: 1.8; color: #374151;">
+      <h4 style="margin: 12px 0 6px; color: #1f2937;">第一步：获取坚果云应用密码</h4>
+      <ol style="margin: 0; padding-left: 20px;">
+        <li>登录 <a href="https://www.jianguoyun.com" target="_blank">坚果云官网</a></li>
+        <li>点击右上角用户名 → <b>账户信息</b></li>
+        <li>左侧菜单选择 <b>安全选项</b></li>
+        <li>找到「第三方应用管理」区域，点击 <b>添加应用密码</b></li>
+        <li>输入应用名称（如「法穿AI」），点击 <b>生成密码</b></li>
+        <li><b>复制生成的密码</b>（16位字母），粘贴到下方「WebDAV 应用密码」字段</li>
+      </ol>
+
+      <h4 style="margin: 12px 0 6px; color: #1f2937;">第二步：填写本页配置</h4>
+      <table style="width: 100%; border-collapse: collapse; margin: 8px 0;">
+        <tr style="border-bottom: 1px solid #e5e7eb;">
+          <td style="padding: 6px 8px; font-weight: 500; width: 140px;">WebDAV 地址</td>
+          <td style="padding: 6px 8px;"><code>https://dav.jianguoyun.com/dav/</code>（默认已填）</td>
+        </tr>
+        <tr style="border-bottom: 1px solid #e5e7eb;">
+          <td style="padding: 6px 8px; font-weight: 500;">WebDAV 用户名</td>
+          <td style="padding: 6px 8px;">你的坚果云注册邮箱</td>
+        </tr>
+        <tr style="border-bottom: 1px solid #e5e7eb;">
+          <td style="padding: 6px 8px; font-weight: 500;">WebDAV 应用密码</td>
+          <td style="padding: 6px 8px;">第一步生成的16位密码（非登录密码）</td>
+        </tr>
+        <tr>
+          <td style="padding: 6px 8px; font-weight: 500;">WebDAV 根路径</td>
+          <td style="padding: 6px 8px;">
+            默认 <code>/</code> 即可（指向坚果云 WebDAV 根目录）<br>
+            <span style="color: #6b7280;">如果只想绑定某个子文件夹，可填如 <code>我的坚果云/工作文件</code></span>
+          </td>
+        </tr>
+      </table>
+
+      <div style="margin: 10px 0; padding: 10px 12px; background: #fef3c7; border: 1px solid #f59e0b; border-radius: 4px; font-size: 12px;">
+        ⚠️ <b>注意</b>：坚果云免费版限制 600 次请求/30分钟，系统已内置限流（约3.5秒/次），正常使用不会超限。
+      </div>
+    </div>
+  </details>
+</div>
+
+{# ── OneDrive 配置指南 ── #}
+<div id="onedrive-help-section" style="margin: 16px 0; padding: 0;">
+  <details style="border: 1px solid #d1d5db; border-radius: 6px; background: #f9fafb;">
+    <summary style="padding: 12px 16px; cursor: pointer; font-weight: 600; font-size: 14px; color: #374151; user-select: none;">
+      📖 OneDrive 配置指南
+    </summary>
+    <div style="padding: 0 16px 16px; font-size: 13px; line-height: 1.8; color: #374151;">
+      <h4 style="margin: 12px 0 6px; color: #1f2937;">第一步：注册 Azure AD 应用</h4>
+      <ol style="margin: 0; padding-left: 20px;">
+        <li>打开 <a href="https://entra.microsoft.com" target="_blank">Microsoft Entra 管理中心</a>（原 Azure AD）</li>
+        <li>左侧菜单 → <b>标识</b> → <b>应用程序</b> → <b>应用注册</b></li>
+        <li>点击 <b>新注册</b></li>
+        <li>名称填「法穿AI」（或任意名称）</li>
+        <li>支持的帐户类型选 <b>「任何组织目录中的帐户和个人 Microsoft 帐户」</b></li>
+        <li>重定向 URI <b>留空</b>（本系统使用设备码流，不需要回调地址）</li>
+        <li>点击 <b>注册</b></li>
+        <li>在应用概览页，复制 <b>「应用程序(客户端) ID」</b>，填入下方「Client ID」</li>
+      </ol>
+
+      <h4 style="margin: 12px 0 6px; color: #1f2937;">第二步：配置应用权限</h4>
+      <ol style="margin: 0; padding-left: 20px;">
+        <li>在应用页面，左侧 → <b>API 权限</b></li>
+        <li>点击 <b>添加权限</b> → <b>Microsoft Graph</b> → <b>委托的权限</b></li>
+        <li>搜索并添加以下权限：
+          <ul style="margin: 4px 0;">
+            <li><code>Files.ReadWrite</code> — 读写用户文件</li>
+            <li><code>offline_access</code> — 保持登录态</li>
+          </ul>
+        </li>
+        <li>无需「授予管理员同意」，个人账号自己授权即可</li>
+      </ol>
+
+      <h4 style="margin: 12px 0 6px; color: #1f2937;">第三步：填写本页配置并授权</h4>
+      <table style="width: 100%; border-collapse: collapse; margin: 8px 0;">
+        <tr style="border-bottom: 1px solid #e5e7eb;">
+          <td style="padding: 6px 8px; font-weight: 500; width: 140px;">Client ID</td>
+          <td style="padding: 6px 8px;">第一步复制的「应用程序(客户端) ID」</td>
+        </tr>
+        <tr style="border-bottom: 1px solid #e5e7eb;">
+          <td style="padding: 6px 8px; font-weight: 500;">Tenant ID</td>
+          <td style="padding: 6px 8px;">
+            默认 <code>consumers</code>（个人账号）<br>
+            <span style="color: #6b7280;">如果是企业账号，填你的租户 ID（如 <code>xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx</code>）</span>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding: 6px 8px; font-weight: 500;">OneDrive 根路径</td>
+          <td style="padding: 6px 8px;">
+            默认 <code>/</code>（OneDrive 根目录）<br>
+            <span style="color: #6b7280;">如只想绑定某个文件夹，填如 <code>/工作/合同</code></span>
+          </td>
+        </tr>
+      </table>
+
+      <h4 style="margin: 12px 0 6px; color: #1f2937;">第四步：完成授权</h4>
+      <ol style="margin: 0; padding-left: 20px;">
+        <li>保存本页配置后，页面底部会出现「OneDrive 授权」区域</li>
+        <li>点击 <b>获取设备码</b>，页面会显示一个设备码和验证地址</li>
+        <li>在浏览器打开验证地址，输入设备码，用微软账号登录并同意授权</li>
+        <li>回到本页刷新，状态应变为 <b style="color:#0a7;">已授权</b></li>
+      </ol>
+
+      <div style="margin: 10px 0; padding: 10px 12px; background: #dbeafe; border: 1px solid #3b82f6; border-radius: 4px; font-size: 12px;">
+        💡 <b>提示</b>：授权有效期约1小时，过期后系统会自动用 refresh_token 续期，无需手动操作。如果 refresh_token 也过期（通常90天），需要重新授权。
+      </div>
+    </div>
+  </details>
+</div>
+
+{# ── OneDrive 授权区域 ── #}
+{% if show_onedrive_auth %}
+<div id="onedrive-auth-section">
+  <strong>OneDrive 授权</strong><br><br>
+
+  {% if onedrive_authorized %}
+    <span style="color:#0a7; font-weight:bold;">已授权</span>
+    <form method="post" action="{% url 'admin:core_cloudstorageaccount_onedrive_start' onedrive_account_id %}" style="display:inline; margin-left:8px;">
+      {% csrf_token %}
+      <button type="submit" class="button">重新授权</button>
+    </form>
+
+  {% elif onedrive_pending %}
+    <p style="color:#c77a00; font-weight:bold; margin:0 0 8px;">等待授权中...</p>
+    <p style="margin:0 0 4px;">请在浏览器打开：<a href="{{ onedrive_verification_uri }}" target="_blank">{{ onedrive_verification_uri }}</a></p>
+    <p style="margin:8px 0; font-size:20px; background:#fff; padding:6px 16px; border:1px solid #ddd; border-radius:4px; display:inline-block; font-weight:bold; letter-spacing:3px; font-family:monospace;">{{ onedrive_device_code }}</p>
+    <br>
+    <button type="button" onclick="window.location.reload()" class="button" style="margin-top:8px;">刷新查看结果</button>
+
+  {% else %}
+    <form method="post" action="{% url 'admin:core_cloudstorageaccount_onedrive_start' onedrive_account_id %}">
+      {% csrf_token %}
+      <button type="submit" class="button">获取设备码</button>
+      <span style="color:#888; font-size:12px; margin-left:8px;">点击后在浏览器中完成微软授权</span>
+    </form>
+  {% endif %}
+</div>
+{% endif %}
+{% endblock %}

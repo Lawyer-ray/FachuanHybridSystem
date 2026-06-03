@@ -4,43 +4,66 @@
  */
 
 document.addEventListener('alpine:init', () => {
-    Alpine.data('caseFolderBrowser', (contractId) => ({
-        contractId: contractId,
+    Alpine.data('caseFolderBrowser', (caseId) => ({
+        caseId: caseId,
         contractFolderPath: '',
         showBrowser: false,
         loading: false,
-        loadingColumn: null, // 局部加载状态
-        columns: [], // 分栏数据 [{path, entries, selectedIndex}]
+        loadingColumn: null,
+        columns: [],
         binding: null,
         error: null,
-        manualPath: '', // 手动输入的路径
+        manualPath: '',
+        // Cloud storage state
+        storageType: 'local',
+        storageAccountId: '',
+        cloudAccounts: [],
 
-        init() {
-            this.loadBinding();
-            this.loadContractFolderPath();
+        async init() {
+            await this.loadBinding();
+            await this.loadContractFolderPath();
+            await this.loadCloudAccounts();
+        },
+
+        get filteredAccounts() {
+            return this.cloudAccounts.filter(a => a.storage_type === this.storageType);
+        },
+
+        storageTypeLabel(type) {
+            const labels = { webdav: '坚果云', onedrive: 'OneDrive' };
+            return labels[type] || type;
+        },
+
+        onStorageTypeChange() {
+            this.storageAccountId = '';
+        },
+
+        async loadCloudAccounts() {
+            try {
+                const response = await fetch('/api/v1/cases/cloud-storage-accounts', {
+                    headers: { 'X-CSRFToken': this.getCsrfToken() },
+                    credentials: 'same-origin'
+                });
+                if (response.ok) {
+                    this.cloudAccounts = await response.json();
+                }
+            } catch (e) {
+                console.error('加载云存储账号失败:', e);
+            }
         },
 
         async loadBinding() {
-            if (!this.contractId) return;
-
+            if (!this.caseId) return;
             try {
-                const response = await fetch(`/api/v1/cases/${this.contractId}/folder-binding`, {
-                    headers: {
-                        'X-CSRFToken': this.getCsrfToken()
-                    },
+                const response = await fetch(`/api/v1/cases/${this.caseId}/folder-binding`, {
+                    headers: { 'X-CSRFToken': this.getCsrfToken() },
                     credentials: 'same-origin'
                 });
-
                 if (response.ok) {
                     const data = await response.json();
-                    if (data) {
-                        this.binding = data;
-                    }
+                    if (data) this.binding = data;
                 } else if (response.status === 404) {
-                    // 未绑定，正常情况
                     this.binding = null;
-                } else {
-                    console.error('加载绑定失败:', response.status);
                 }
             } catch (error) {
                 console.error('加载绑定失败:', error);
@@ -48,33 +71,27 @@ document.addEventListener('alpine:init', () => {
         },
 
         async loadContractFolderPath() {
-            if (!this.contractId) return;
-
+            if (!this.caseId) return;
             try {
-                const response = await fetch(`/api/v1/cases/${this.contractId}/contract-folder-path`, {
-                    headers: {
-                        'X-CSRFToken': this.getCsrfToken()
-                    },
+                const response = await fetch(`/api/v1/cases/${this.caseId}/contract-folder-path`, {
+                    headers: { 'X-CSRFToken': this.getCsrfToken() },
                     credentials: 'same-origin'
                 });
-
                 if (response.ok) {
                     const data = await response.json();
-                    if (data && data.folder_path) {
-                        this.contractFolderPath = data.folder_path;
-                    }
+                    if (data && data.folder_path) this.contractFolderPath = data.folder_path;
                 }
-            } catch (error) {
-                // 静默失败，不影响主流程
-            }
+            } catch (e) { /* ignore */ }
         },
 
         async openBrowser() {
+            if (this.storageType !== 'local' && !this.storageAccountId) {
+                this.error = '请先选择云存储账号';
+                return;
+            }
             this.showBrowser = true;
             this.error = null;
             this.columns = [];
-
-            // 确定初始路径优先级：案件已绑定 > 合同已绑定 > 根目录
             let initialPath = '';
             if (this.binding?.folder_path) {
                 initialPath = this.binding.folder_path;
@@ -82,9 +99,7 @@ document.addEventListener('alpine:init', () => {
                 initialPath = this.contractFolderPath;
             }
             this.manualPath = initialPath;
-
             if (initialPath) {
-                // 有初始路径时，直接加载该路径的内容
                 await this.loadPathAsRoot(initialPath);
             } else {
                 await this.loadRoots();
@@ -98,34 +113,31 @@ document.addEventListener('alpine:init', () => {
             this.manualPath = '';
         },
 
+        _browseUrl(path) {
+            const sp = new URLSearchParams();
+            if (path) sp.set('path', path);
+            if (this.storageType !== 'local') {
+                sp.set('storage_type', this.storageType);
+                sp.set('storage_account_id', this.storageAccountId);
+            }
+            return `/api/v1/cases/folder-browse?${sp.toString()}`;
+        },
+
         async loadRoots() {
             this.loading = true;
             this.error = null;
-
             try {
-                const response = await fetch('/api/v1/cases/folder-browse', {
-                    headers: {
-                        'X-CSRFToken': this.getCsrfToken()
-                    },
+                const response = await fetch(this._browseUrl(null), {
+                    headers: { 'X-CSRFToken': this.getCsrfToken() },
                     credentials: 'same-origin'
                 });
-
-                if (!response.ok) {
-                    throw new Error('加载根目录失败');
-                }
-
+                if (!response.ok) throw new Error('加载根目录失败');
                 const data = await response.json();
-
                 if (!data.browsable) {
                     this.error = data.message || '无法访问根目录';
                     return;
                 }
-
-                this.columns = [{
-                    path: null,
-                    entries: data.entries || [],
-                    selectedIndex: -1
-                }];
+                this.columns = [{ path: null, entries: data.entries || [], selectedIndex: -1 }];
             } catch (error) {
                 console.error('加载根目录失败:', error);
                 this.error = '加载根目录失败';
@@ -137,67 +149,38 @@ document.addEventListener('alpine:init', () => {
         async loadPathAsRoot(path) {
             this.loading = true;
             this.error = null;
-
             try {
-                const response = await fetch(`/api/v1/cases/folder-browse?path=${encodeURIComponent(path)}`, {
-                    headers: {
-                        'X-CSRFToken': this.getCsrfToken()
-                    },
+                const response = await fetch(this._browseUrl(path), {
+                    headers: { 'X-CSRFToken': this.getCsrfToken() },
                     credentials: 'same-origin'
                 });
-
-                if (!response.ok) {
-                    throw new Error('加载文件夹失败');
-                }
-
+                if (!response.ok) throw new Error('加载文件夹失败');
                 const data = await response.json();
-
                 if (!data.browsable) {
-                    // 路径不可访问时，降级到根目录
                     await this.loadRoots();
                     return;
                 }
-
-                // 将该路径作为第一列展示
-                this.columns = [{
-                    path: data.path || path,
-                    entries: data.entries || [],
-                    selectedIndex: -1
-                }];
-
-                // 如果有父路径，在最前面添加父目录列以便回退
+                this.columns = [{ path: data.path || path, entries: data.entries || [], selectedIndex: -1 }];
                 if (data.parent_path) {
-                    const parentResponse = await fetch(`/api/v1/cases/folder-browse?path=${encodeURIComponent(data.parent_path)}`, {
-                        headers: {
-                            'X-CSRFToken': this.getCsrfToken()
-                        },
+                    const parentResponse = await fetch(this._browseUrl(data.parent_path), {
+                        headers: { 'X-CSRFToken': this.getCsrfToken() },
                         credentials: 'same-origin'
                     });
-
                     if (parentResponse.ok) {
                         const parentData = await parentResponse.json();
                         if (parentData.browsable && parentData.entries) {
-                            // 在父目录列中高亮当前路径对应的条目
                             const targetName = path.split('/').pop() || path.split('\\').pop() || '';
                             let selectedIdx = -1;
                             const entries = parentData.entries.map((entry, idx) => {
-                                if (entry.name === targetName || entry.path === path) {
-                                    selectedIdx = idx;
-                                }
+                                if (entry.name === targetName || entry.path === path) selectedIdx = idx;
                                 return entry;
                             });
-
-                            this.columns.unshift({
-                                path: parentData.path || data.parent_path,
-                                entries: entries,
-                                selectedIndex: selectedIdx
-                            });
+                            this.columns.unshift({ path: parentData.path || data.parent_path, entries, selectedIndex: selectedIdx });
                         }
                     }
                 }
             } catch (error) {
                 console.error('加载文件夹失败:', error);
-                // 降级到根目录
                 await this.loadRoots();
             } finally {
                 this.loading = false;
@@ -238,39 +221,22 @@ document.addEventListener('alpine:init', () => {
         },
 
         async loadSubfolders(path) {
-            // 使用局部加载状态，不影响整个列表面板
             this.loadingColumn = path;
             this.error = null;
-
             try {
-                const response = await fetch(`/api/v1/cases/folder-browse?path=${encodeURIComponent(path)}`, {
-                    headers: {
-                        'X-CSRFToken': this.getCsrfToken()
-                    },
+                const response = await fetch(this._browseUrl(path), {
+                    headers: { 'X-CSRFToken': this.getCsrfToken() },
                     credentials: 'same-origin'
                 });
-
-                if (!response.ok) {
-                    throw new Error('加载文件夹失败');
-                }
-
+                if (!response.ok) throw new Error('加载文件夹失败');
                 const data = await response.json();
-
                 if (!data.browsable) {
                     this.error = data.message || '无法访问此路径';
                     return;
                 }
-
-                // 添加新列
                 if (data.entries && data.entries.length > 0) {
-                    this.columns.push({
-                        path: path,
-                        entries: data.entries,
-                        selectedIndex: -1
-                    });
+                    this.columns.push({ path, entries: data.entries, selectedIndex: -1 });
                 }
-
-                // 更新手动输入框
                 this.manualPath = path;
             } catch (error) {
                 console.error('加载文件夹失败:', error);
@@ -292,27 +258,27 @@ document.addEventListener('alpine:init', () => {
         async selectFolderPath(path) {
             this.loading = true;
             this.error = null;
-
             try {
-                const response = await fetch(`/api/v1/cases/${this.contractId}/folder-binding`, {
+                const body = { folder_path: path };
+                if (this.storageType !== 'local') {
+                    body.storage_type = this.storageType;
+                    body.storage_account_id = Number(this.storageAccountId);
+                }
+                const response = await fetch(`/api/v1/cases/${this.caseId}/folder-binding`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                         'X-CSRFToken': this.getCsrfToken()
                     },
                     credentials: 'same-origin',
-                    body: JSON.stringify({ folder_path: path })
+                    body: JSON.stringify(body)
                 });
-
                 if (!response.ok) {
                     const errorData = await response.json();
                     throw new Error(errorData.message || '绑定失败');
                 }
-
                 this.binding = await response.json();
                 this.closeBrowser();
-
-                // 显示成功消息
                 this.showMessage('文件夹绑定成功', 'success');
             } catch (error) {
                 console.error('绑定文件夹失败:', error);
@@ -343,25 +309,15 @@ document.addEventListener('alpine:init', () => {
         },
 
         async unbindFolder() {
-            if (!confirm('确定要解除文件夹绑定吗？')) {
-                return;
-            }
-
+            if (!confirm('确定要解除文件夹绑定吗？')) return;
             this.loading = true;
-
             try {
-                const response = await fetch(`/api/v1/cases/${this.contractId}/folder-binding`, {
+                const response = await fetch(`/api/v1/cases/${this.caseId}/folder-binding`, {
                     method: 'DELETE',
-                    headers: {
-                        'X-CSRFToken': this.getCsrfToken()
-                    },
+                    headers: { 'X-CSRFToken': this.getCsrfToken() },
                     credentials: 'same-origin'
                 });
-
-                if (!response.ok) {
-                    throw new Error('解除绑定失败');
-                }
-
+                if (!response.ok) throw new Error('解除绑定失败');
                 this.binding = null;
                 this.showMessage('已解除文件夹绑定', 'success');
             } catch (error) {

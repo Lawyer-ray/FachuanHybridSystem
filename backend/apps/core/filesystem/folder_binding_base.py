@@ -154,7 +154,10 @@ class BaseFolderBindingService:
             try:
                 accessible = provider.is_dir(folder_path) or provider.exists(folder_path)
             except Exception:
-                logger.warning("cloud_storage_access_check_failed", extra={"binding_id": getattr(binding, "id", None), "folder_path": folder_path})
+                logger.warning(
+                    "cloud_storage_access_check_failed",
+                    extra={"binding_id": getattr(binding, "id", None), "folder_path": folder_path},
+                )
                 accessible = False
             return accessible, False
 

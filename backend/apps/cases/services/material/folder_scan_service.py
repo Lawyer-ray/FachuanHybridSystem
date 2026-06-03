@@ -56,7 +56,9 @@ class CaseFolderScanService:
         self._ensure_case_exists(case_id)
         binding = self._get_accessible_binding(case_id)
         storage_provider = self._make_provider_for_binding(binding)
-        scan_scope = self._resolve_scan_scope(binding.resolved_folder_path, scan_subfolder, storage_provider=storage_provider)
+        scan_scope = self._resolve_scan_scope(
+            binding.resolved_folder_path, scan_subfolder, storage_provider=storage_provider
+        )
         scan_options = {"enable_recognition": bool(enable_recognition)}
 
         if not rescan:
