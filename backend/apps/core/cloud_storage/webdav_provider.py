@@ -65,7 +65,10 @@ class JianguoyunProvider:
         """Build absolute WebDAV path from a relative path."""
         clean = path.strip("/")
         parts = [p for p in (self._root, clean) if p]
-        return "/" + "/".join(parts) + "/"
+        result = "/" + "/".join(parts)
+        if not result.endswith("/"):
+            result += "/"
+        return result
 
     def _url(self, path: str) -> str:
         return self.WEBDAV_URL + self._full_path(path).lstrip("/")
@@ -100,15 +103,21 @@ class JianguoyunProvider:
 
     def _parse_propfind_response(self, xml_text: str, base_path: str) -> list[CloudFileInfo]:
         """Parse PROPFIND XML response into CloudFileInfo list."""
+        import urllib.parse
         from xml.etree import ElementTree
 
         results: list[CloudFileInfo] = []
+
+        # Nutstore returns hrefs prefixed with the WebDAV root (e.g. "/dav/我的坚果云")
+        # We need to strip this prefix to get paths relative to our root_path
+        server_url = urllib.parse.urlparse(self.WEBDAV_URL)
+        dav_root_prefix = server_url.path.rstrip("/")
+
         try:
             root = ElementTree.fromstring(xml_text)
         except ElementTree.ParseError:
             return results
 
-        # Strip namespace prefixes for easier XPath
         base_href = self._full_path(base_path).rstrip("/")
         for response in root.iter():
             if response.tag.endswith("}response") or response.tag == "response":
@@ -119,7 +128,7 @@ class JianguoyunProvider:
                 for child in response:
                     tag = child.tag.split("}")[-1] if "}" in child.tag else child.tag
                     if tag == "href":
-                        href = child.text or ""
+                        href = urllib.parse.unquote(child.text or "")
                     elif tag == "propstat":
                         for prop in child:
                             prop_tag = prop.tag.split("}")[-1] if "}" in prop.tag else prop.tag
@@ -146,11 +155,14 @@ class JianguoyunProvider:
                                             modified = 0.0
 
                 if href:
+                    # Strip WebDAV root prefix to get path relative to our root_path
+                    if dav_root_prefix and href.startswith(dav_root_prefix):
+                        href = href[len(dav_root_prefix) :]
                     # Normalize: strip trailing slash, extract name
                     href_clean = href.rstrip("/")
                     name = href_clean.split("/")[-1] if href_clean else ""
                     # Skip the base directory itself
-                    if href_clean.rstrip("/") == base_href.rstrip("/"):
+                    if href_clean == base_href:
                         continue
                     # Compute relative path from base
                     rel_path = href_clean

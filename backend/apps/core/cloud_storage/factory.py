@@ -13,31 +13,70 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+def _get_nutstore_config_from_system_config() -> dict[str, str] | None:
+    """Read Nutstore WebDAV config from SystemConfig (DB)."""
+    try:
+        from apps.core.services.system_config_service import SystemConfigService
+
+        service = SystemConfigService()
+        username = service.get_value("NUTSTORE_WEBDAV_USERNAME", "")
+        password = service.get_value("NUTSTORE_WEBDAV_PASSWORD", "")
+        if not username or not password:
+            return None
+        return {
+            "username": username,
+            "app_password": password,
+            "url": service.get_value("NUTSTORE_WEBDAV_URL", "https://dav.jianguoyun.com/dav/"),
+            "root_path": service.get_value("NUTSTORE_WEBDAV_ROOT_PATH", "/"),
+        }
+    except Exception:
+        logger.exception("Failed to read Nutstore config from SystemConfig")
+        return None
+
+
 def create_provider_for_binding(binding) -> CloudStorageProvider:
     """Create a provider based on the binding's storage_type and storage_account."""
     storage_type = getattr(binding, "storage_type", "local")
     storage_account = getattr(binding, "storage_account", None)
 
-    if storage_type == "local" or storage_account is None:
+    if storage_type == "local":
         return LocalProvider()
 
     if storage_type == "webdav":
         from .webdav_provider import JianguoyunProvider
 
-        return JianguoyunProvider(
-            username=storage_account.get_decrypted_webdav_username(),
-            app_password=storage_account.get_decrypted_webdav_password(),
-            root_path=getattr(storage_account, "webdav_root_path", "/"),
-        )
+        # Prefer CloudStorageAccount if linked
+        if storage_account is not None:
+            return JianguoyunProvider(
+                username=storage_account.get_decrypted_webdav_username(),
+                app_password=storage_account.get_decrypted_webdav_password(),
+                root_path=getattr(storage_account, "webdav_root_path", "/"),
+            )
+
+        # Fallback to SystemConfig
+        config = _get_nutstore_config_from_system_config()
+        if config:
+            return JianguoyunProvider(
+                username=config["username"],
+                app_password=config["app_password"],
+                root_path=config["root_path"],
+            )
+
+        logger.warning("No Nutstore WebDAV credentials configured")
+        return LocalProvider()
 
     if storage_type == "onedrive":
         from .onedrive_provider import OneDriveProvider, OAuthTokenManager
 
-        token_manager = OAuthTokenManager(storage_account)
-        return OneDriveProvider(
-            access_token=token_manager.get_valid_token(),
-            root_path=getattr(storage_account, "onedrive_root_path", "/"),
-        )
+        if storage_account is not None:
+            token_manager = OAuthTokenManager(storage_account)
+            return OneDriveProvider(
+                access_token=token_manager.get_valid_token(),
+                root_path=getattr(storage_account, "onedrive_root_path", "/"),
+            )
+
+        logger.warning("No OneDrive account linked")
+        return LocalProvider()
 
     logger.warning("Unknown storage_type %r, falling back to local", storage_type)
     return LocalProvider()
