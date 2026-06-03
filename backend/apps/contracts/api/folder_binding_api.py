@@ -177,10 +177,62 @@ def delete_folder_binding(request: HttpRequest, contract_id: int) -> Any:
 
 
 @router.get("/folder-browse", response=FolderBrowseResponseSchema)
-def browse_folders(request: HttpRequest, path: str | None = None, include_hidden: bool = False) -> Any:
+def browse_folders(
+    request: HttpRequest,
+    path: str | None = None,
+    include_hidden: bool = False,
+    storage_type: str = "local",
+    storage_account_id: int | None = None,
+) -> Any:
     _require_admin(request)
-    service = _get_folder_binding_service()
     ctx = get_request_access_context(request)
+
+    # ── Cloud storage browse ──
+    if storage_type and storage_type != "local" and storage_account_id:
+        from apps.core.cloud_storage.factory import create_provider_from_account
+
+        account = CloudStorageAccount.objects.filter(
+            id=storage_account_id, storage_type=storage_type, is_active=True
+        ).first()
+        if not account:
+            return FolderBrowseResponseSchema(
+                browsable=False, message="云存储账号不存在", path=path, parent_path=None, entries=[], storage_type=storage_type
+            )
+
+        provider = create_provider_from_account(account)
+        browse_path = (path or "").strip().rstrip("/") or "/"
+
+        try:
+            children = provider.list_directory(browse_path)
+        except Exception:
+            logger.exception("cloud_browse_failed", extra={"path": browse_path, "account_id": storage_account_id})
+            return FolderBrowseResponseSchema(
+                browsable=False, message="云存储目录访问失败", path=browse_path, parent_path=None, entries=[], storage_type=storage_type
+            )
+
+        entries = []
+        for child in children:
+            if not child.is_dir:
+                continue
+            if not include_hidden and child.name.startswith("."):
+                continue
+            child_path = browse_path.rstrip("/") + "/" + child.name
+            entries.append(FolderBrowseEntrySchema(name=child.name, path=child_path))
+        entries.sort(key=lambda e: e.name.lower())
+
+        parent_path: str | None = None
+        if browse_path != "/":
+            from pathlib import PurePosixPath
+            parent_path = str(PurePosixPath(browse_path).parent)
+            if parent_path == ".":
+                parent_path = "/"
+
+        return FolderBrowseResponseSchema(
+            browsable=True, message=None, path=browse_path, parent_path=parent_path, entries=entries, storage_type=storage_type
+        )
+
+    # ── Local filesystem browse (existing logic) ──
+    service = _get_folder_binding_service()
 
     if not path or not str(path).strip():
         # 默认进入用户下载文件夹
@@ -201,28 +253,20 @@ def browse_folders(request: HttpRequest, path: str | None = None, include_hidden
                 },
             )
             return FolderBrowseResponseSchema(
-                browsable=True,
-                message=None,
-                path=None,
-                parent_path=None,
-                entries=entries,
+                browsable=True, message=None, path=None, parent_path=None, entries=entries, storage_type="local"
             )
 
     browsable, browse_message = service.is_browsable_path(str(path))
     if not browsable:
         return FolderBrowseResponseSchema(
-            browsable=False,
-            message=browse_message,
-            path=str(path).strip(),
-            parent_path=None,
-            entries=[],
+            browsable=False, message=browse_message, path=str(path).strip(), parent_path=None, entries=[], storage_type="local"
         )
 
     resolved = service.resolve_under_allowed_roots(str(path))
     entries = [
         FolderBrowseEntrySchema(**item) for item in service.list_subdirs(str(path), include_hidden=include_hidden)
     ]
-    parent_path: str | None = service.compute_parent_path(resolved)
+    parent_path = service.compute_parent_path(resolved)
 
     logger.info(
         "contract_folder_browse",
@@ -237,11 +281,7 @@ def browse_folders(request: HttpRequest, path: str | None = None, include_hidden
     )
 
     return FolderBrowseResponseSchema(
-        browsable=True,
-        message=None,
-        path=str(resolved),
-        parent_path=parent_path,
-        entries=entries,
+        browsable=True, message=None, path=str(resolved), parent_path=parent_path, entries=entries, storage_type="local"
     )
 
 

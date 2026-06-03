@@ -69,6 +69,7 @@ class FolderBrowseResponseSchema(Schema):
     path: str | None = None
     parent_path: str | None = None
     entries: list[FolderBrowseEntrySchema]
+    storage_type: str = "local"
 
 
 __all__: list[str] = [
