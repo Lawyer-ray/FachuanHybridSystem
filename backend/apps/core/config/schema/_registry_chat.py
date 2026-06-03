@@ -109,6 +109,12 @@ def register_chat_configs(registry: dict[str, ConfigField]) -> None:
         env_var="WECHAT_WORK_DEFAULT_OWNER_ID",
         description="企业微信默认群主 userid（建群必须指定群主）",
     )
+    registry["chat_platforms.wechat_work.default_member_ids"] = ConfigField(
+        name="chat_platforms.wechat_work.default_member_ids",
+        type=str,
+        env_var="WECHAT_WORK_DEFAULT_MEMBER_IDS",
+        description="企业微信默认初始成员帐号列表（逗号分隔，建群时除群主外自动加入，企业微信要求至少 2 人）",
+    )
     # Telegram
     registry["chat_platforms.telegram.bot_token"] = ConfigField(
         name="chat_platforms.telegram.bot_token",

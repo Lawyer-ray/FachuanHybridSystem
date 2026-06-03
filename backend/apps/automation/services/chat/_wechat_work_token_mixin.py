@@ -32,6 +32,7 @@ class WeChatWorkTokenMixin:
                 "WECHAT_WORK_AGENT_ID": "AGENT_ID",
                 "WECHAT_WORK_SECRET": "SECRET",  # pragma: allowlist secret
                 "WECHAT_WORK_DEFAULT_OWNER_ID": "DEFAULT_OWNER_ID",
+                "WECHAT_WORK_DEFAULT_MEMBER_IDS": "DEFAULT_MEMBER_IDS",
             }
             config = {internal: db_configs[db] for db, internal in key_mapping.items() if db_configs.get(db)}
             logger.debug(f"从 SystemConfig 加载企业微信配置: {list(config.keys())}")
