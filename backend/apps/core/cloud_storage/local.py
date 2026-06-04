@@ -13,7 +13,7 @@ class LocalProvider:
     """Read/write files on the local filesystem via pathlib."""
 
     def __init__(self, root: str = "/") -> None:
-        self._root = Path(root)
+        self._root = Path(root).resolve()
 
     def _resolve(self, path: str) -> Path:
         resolved = (self._root / path).resolve()
