@@ -64,6 +64,7 @@ docker compose up -d --build    # 更新后重建
 数据持久化说明：
 
 - 数据库与上传文件已通过 Docker volume 持久化
+- 缓存/消息队列使用 Valkey（docker-compose 内已配置），数据通过 `redis-data` 卷持久化
 - `docker compose down` 不会删除数据
 - 如需清空：`docker compose down -v`
 
@@ -78,7 +79,25 @@ brew install postgresql@16
 brew services start postgresql@16
 ```
 
-### 2.2 初始化数据库与用户
+### 2.2 安装 Valkey（推荐）
+
+项目使用 Valkey（Redis 的开源替代）作为缓存/消息队列后端。本地开发可跳过（自动降级为内存缓存），但多进程协作和定时任务需要 Valkey。
+
+```bash
+brew install valkey
+brew services start valkey
+```
+
+验证：
+
+```bash
+valkey-cli ping
+# 返回 PONG 即成功
+```
+
+如果已有 Redis 在运行，Valkey 可直接替代，无需迁移数据。
+
+### 2.3 初始化数据库与用户
 
 按 `backend/.env` 里的 `DB_NAME/DB_USER/DB_PASSWORD` 保持一致（默认示例：`fachuan_dev/postgres/postgres`）：
 
@@ -95,7 +114,7 @@ sudo -u postgres psql -c "CREATE DATABASE fachuan_dev OWNER postgres;"
 
 如果数据库已存在，第二条 `CREATE DATABASE` 报错可忽略。
 
-### 2.3 安装项目依赖
+### 2.4 安装项目依赖
 
 ```bash
 # 1) 克隆项目
@@ -129,7 +148,7 @@ make collectstatic
 make superuser
 ```
 
-### 2.4 启动服务
+### 2.5 启动服务
 
 Web 与 qcluster 可按任意顺序启动；涉及异步任务时需保持 qcluster 运行。
 
@@ -165,7 +184,32 @@ sudo postgresql-setup --initdb
 sudo systemctl enable --now postgresql
 ```
 
-### 3.2 初始化数据库与用户
+### 3.2 安装 Valkey（推荐）
+
+```bash
+# Ubuntu / Debian
+sudo apt install -y valkey
+sudo systemctl enable --now valkey
+
+# CentOS / RHEL（通过 EPEL 或源码编译）
+sudo yum install -y epel-release
+sudo yum install -y valkey
+sudo systemctl enable --now valkey
+
+# 或从源码编译（获取最新版本）
+git clone --depth 1 https://github.com/valkey-io/valkey.git
+cd valkey && make -j$(nproc)
+sudo cp src/valkey-server src/valkey-cli /usr/local/bin/
+```
+
+验证：
+
+```bash
+valkey-cli ping
+# 返回 PONG 即成功
+```
+
+### 3.3 初始化数据库与用户
 
 按 `backend/.env` 里的 `DB_NAME/DB_USER/DB_PASSWORD` 保持一致（默认示例：`fachuan_dev/postgres/postgres`）：
 
@@ -182,7 +226,7 @@ sudo -u postgres psql -c "CREATE DATABASE fachuan_dev OWNER postgres;"
 
 如果数据库已存在，第二条 `CREATE DATABASE` 报错可忽略。
 
-### 3.3 安装项目依赖
+### 3.4 安装项目依赖
 
 ```bash
 # 1) 克隆项目
@@ -219,7 +263,7 @@ uv run python manage.py createsuperuser
 uv run python manage.py collectstatic --noinput
 ```
 
-### 3.4 启动服务
+### 3.5 启动服务
 
 Web 与 qcluster 可按任意顺序启动；涉及异步任务时需保持 qcluster 运行。
 
@@ -245,7 +289,28 @@ choco install postgresql --yes
 
 安装完成后**重启终端**，确保 `psql` 命令可用。
 
-### 4.2 初始化数据库与用户
+### 4.2 安装 Valkey（推荐）
+
+从 [Valkey 官网](https://valkey.io/download/) 下载 Windows 版本，或使用 WSL2：
+
+```powershell
+# WSL2 方式（推荐）
+wsl sudo apt install -y valkey
+wsl sudo service valkey start
+wsl valkey-cli ping  # 返回 PONG 即成功
+
+# 或使用 Chocolatey（如有可用包）
+# choco install valkey --yes
+```
+
+验证：
+
+```powershell
+wsl valkey-cli ping
+# 返回 PONG 即成功
+```
+
+### 4.3 初始化数据库与用户
 
 按 `backend/.env` 里的 `DB_NAME/DB_USER/DB_PASSWORD` 保持一致（默认示例：`fachuan_dev/postgres/postgres`）：
 
@@ -257,7 +322,7 @@ psql -U postgres -c "CREATE DATABASE fachuan_dev OWNER postgres;"
 
 如果数据库已存在，第二条 `CREATE DATABASE` 报错可忽略。
 
-### 4.3 安装项目依赖
+### 4.4 安装项目依赖
 
 > 前置条件：Python 3.12+（`uv sync` 会自动下载，无需手动安装）
 
@@ -291,7 +356,7 @@ uv run python manage.py createsuperuser
 uv run python manage.py collectstatic --noinput
 ```
 
-### 4.4 启动服务
+### 4.5 启动服务
 
 ```powershell
 # 终端1
