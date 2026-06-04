@@ -4,22 +4,63 @@ _BASE = "https://zxfw.court.gov.cn/yzw"
 _OSS_BUCKET = "https://zxfy2-oss.oss-cn-north-2-gov-1.aliyuncs.com"
 
 PROVINCE_CODES: dict[str, str] = {
-    "广东省": "440000",
     "北京市": "110000",
+    "天津市": "120000",
+    "河北省": "130000",
+    "山西省": "140000",
+    "内蒙古自治区": "150000",
+    "辽宁省": "210000",
+    "吉林省": "220000",
+    "黑龙江省": "230000",
     "上海市": "310000",
-    "浙江省": "330000",
     "江苏省": "320000",
-    "湖南省": "430000",
-    "湖北省": "420000",
-    "四川省": "510000",
+    "浙江省": "330000",
+    "安徽省": "340000",
     "福建省": "350000",
+    "江西省": "360000",
     "山东省": "370000",
     "河南省": "410000",
-    "河北省": "130000",
-    "陕西省": "610000",
+    "湖北省": "420000",
+    "湖南省": "430000",
+    "广东省": "440000",
+    "广西壮族自治区": "450000",
+    "海南省": "460000",
     "重庆市": "500000",
-    "天津市": "120000",
+    "四川省": "510000",
+    "贵州省": "520000",
+    "云南省": "530000",
+    "西藏自治区": "540000",
+    "陕西省": "610000",
+    "甘肃省": "620000",
+    "青海省": "630000",
+    "宁夏回族自治区": "640000",
+    "新疆维吾尔自治区": "650000",
 }
+
+# 反向映射：省份代码 → 省份名称
+_CODE_TO_PROVINCE: dict[str, str] = {v: k for k, v in PROVINCE_CODES.items()}
+
+
+def resolve_province_code(province: str) -> str:
+    """将省份名称解析为行政区划代码。
+
+    支持精确匹配和模糊匹配（如 "广西" → "广西壮族自治区"）。
+    找不到时抛出 ValueError，避免静默回退到错误省份。
+    """
+    if province in PROVINCE_CODES:
+        return PROVINCE_CODES[province]
+
+    # 模糊匹配：短名包含在全名中（如 "广西" 在 "广西壮族自治区" 里）
+    for full_name, code in PROVINCE_CODES.items():
+        if province in full_name or full_name.startswith(province):
+            return code
+
+    supported = "、".join(sorted(PROVINCE_CODES.keys()))
+    raise ValueError(
+        f"不支持的省份「{province}」，未找到对应行政区划代码。"
+        f"支持的省份：{supported}"
+    )
+
 
 CASE_TYPE_CODES: dict[str, str] = {
     "民事一审": "1501_000001-0301",
