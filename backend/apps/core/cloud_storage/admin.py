@@ -19,12 +19,16 @@ _pending_auth: dict[int, dict[str, Any]] = {}
 
 def _poll_device_code(account_id: int, device_code: str, interval: int, max_attempts: int) -> None:
     """Background thread: poll Microsoft token endpoint until user authorizes or timeout."""
+    import logging
+
     import httpx
 
     from apps.core.security.secret_codec import SecretCodec
 
     from .models import CloudStorageAccount
     from .onedrive_provider import TOKEN_URL_TEMPLATE
+
+    logger = logging.getLogger(__name__)
 
     try:
         account = CloudStorageAccount.objects.get(id=account_id)
@@ -36,7 +40,7 @@ def _poll_device_code(account_id: int, device_code: str, interval: int, max_atte
     client_id = getattr(account, "onedrive_client_id", "")
     token_url = TOKEN_URL_TEMPLATE.format(tenant_id=tenant_id)
 
-    for _ in range(max_attempts):
+    for attempt in range(max_attempts):
         _time.sleep(interval)
         try:
             resp = httpx.post(
@@ -54,6 +58,8 @@ def _poll_device_code(account_id: int, device_code: str, interval: int, max_atte
                 from datetime import UTC, datetime, timedelta
 
                 codec = SecretCodec()
+                # 重新获取最新的 account 对象，确保使用最新数据
+                account = CloudStorageAccount.objects.select_for_update().get(id=account_id)
                 account.onedrive_access_token = codec.encrypt(data["access_token"])
                 account.onedrive_refresh_token = codec.encrypt(data.get("refresh_token", ""))
                 account.onedrive_token_expires_at = datetime.now(UTC) + timedelta(seconds=data.get("expires_in", 3600))
@@ -65,6 +71,7 @@ def _poll_device_code(account_id: int, device_code: str, interval: int, max_atte
                         "updated_at",
                     ]
                 )
+                logger.info(f"OneDrive authorization successful for account {account_id}")
                 _pending_auth.pop(account_id, None)
                 return
 
@@ -75,9 +82,15 @@ def _poll_device_code(account_id: int, device_code: str, interval: int, max_atte
             if error == "slow_down":
                 interval += 5
 
-        except Exception:
-            pass
+        except CloudStorageAccount.DoesNotExist:
+            logger.warning(f"CloudStorageAccount {account_id} no longer exists during OneDrive auth")
+            _pending_auth.pop(account_id, None)
+            return
+        except Exception as e:
+            logger.error(f"Error during OneDrive device code poll (attempt {attempt}): {e}")
+            # 不退出，继续尝试
 
+    logger.warning(f"OneDrive authorization timeout for account {account_id}")
     _pending_auth.pop(account_id, None)
 
 
