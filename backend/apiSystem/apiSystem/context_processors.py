@@ -6,7 +6,7 @@ import json
 from typing import Any
 
 from django.http import HttpRequest
-from django.utils.cache import _i18n_cache_key_suffix
+from django.core.cache import cache
 
 
 def tool_favorites(request: HttpRequest) -> dict[str, Any]:
@@ -15,10 +15,11 @@ def tool_favorites(request: HttpRequest) -> dict[str, Any]:
     if not hasattr(request, "user") or not request.user.is_authenticated:
         return {"fav_urls_json": "[]"}
 
-    # 用 request 缓存避免同一次请求中多次调用（如模板 include 嵌套）
-    cache_key = "_fav_urls_json"
-    if hasattr(request, cache_key):
-        return {"fav_urls_json": getattr(request, cache_key)}
+    # 用 Django cache 跨请求缓存（5 分钟），避免每次页面加载都查 DB
+    cache_key = f"fav_urls:{request.user.id}"
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return {"fav_urls_json": cached}
 
     from apiSystem.admin_customization import _DEFAULT_FAV_URLS
     from apps.core.models import ToolFavorite
@@ -35,5 +36,5 @@ def tool_favorites(request: HttpRequest) -> dict[str, Any]:
 
     urls = list(ToolFavorite.objects.filter(user=request.user).values_list("tool_url", flat=True))
     result = json.dumps(urls)
-    setattr(request, cache_key, result)
+    cache.set(cache_key, result, timeout=300)  # 缓存 5 分钟
     return {"fav_urls_json": result}
