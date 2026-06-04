@@ -56,6 +56,7 @@ class ContractAssignment(models.Model):
         verbose_name = "合同指派"
         verbose_name_plural = "合同指派"
         unique_together = ("contract", "lawyer")
+        indexes: ClassVar = [models.Index(fields=["lawyer"])]
         ordering: ClassVar = ["-is_primary", "order"]
 
     def __str__(self) -> str:

@@ -56,6 +56,7 @@ class SupplementaryAgreementParty(models.Model):
 
     class Meta:
         unique_together = ("supplementary_agreement", "client")
+        indexes = [models.Index(fields=["client"])]
         verbose_name = "补充协议当事人"
         verbose_name_plural = "补充协议当事人"
 

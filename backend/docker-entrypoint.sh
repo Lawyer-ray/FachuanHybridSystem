@@ -29,9 +29,9 @@ while True:
 PY
 fi
 
-# Redis 连通性检测（当 REDIS_URL 配置了才检测）
+# Valkey/Redis 连通性检测（当 REDIS_URL 配置了才检测）
 if [ -n "${REDIS_URL:-}" ]; then
-  echo "Waiting for Redis..."
+  echo "Waiting for Valkey/Redis..."
   uv run python - <<'PY'
 import os
 import time

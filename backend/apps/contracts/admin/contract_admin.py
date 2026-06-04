@@ -195,30 +195,32 @@ class ContractAdmin(
         from apps.core.interfaces import ServiceLocator
 
         case_service = ServiceLocator.get_case_service()
-        updated = 0
-        for contract in queryset.exclude(status=ContractStatus.ARCHIVED):
-            contract.status = ContractStatus.ARCHIVED
-            contract.save(update_fields=["status"])
+        # 批量更新状态（单次 UPDATE 语句）
+        to_archive = queryset.exclude(status=ContractStatus.ARCHIVED)
+        count = to_archive.update(status=ContractStatus.ARCHIVED)
+        # 逐个关闭关联案件（业务逻辑无法批量化）
+        for contract in to_archive:
             closed = case_service.close_cases_by_contract_internal(contract.id)
             if closed:
                 logger.info("批量归档: 合同 %s 自动结案 %d 个关联案件", contract.id, closed)
-            updated += 1
-        self.message_user(request, "已归档 %(count)d 个合同" % {"count": updated})
+        self.message_user(request, "已归档 %(count)d 个合同" % {"count": count})
 
     @admin.action(description="批量建档选中合同")
     def file_selected_contracts(self, request: HttpRequest, queryset: Any) -> None:
         from apps.contracts.admin.wiring_admin import get_contract_admin_service
 
         service = get_contract_admin_service()
-        updated = 0
+        # 收集需要保存的合同 ID 和对应 filing_number
+        to_save: list[tuple[int, str]] = []
         for contract in queryset.filter(is_filed=False):
             filing_number = service.handle_contract_filing_change(contract_id=contract.id, is_filed=True)
             if filing_number:
-                contract.filing_number = filing_number
-                contract.is_filed = True
-                contract.save(update_fields=["is_filed", "filing_number"])
-                updated += 1
-        self.message_user(request, "已建档 %(count)d 个合同" % {"count": updated})
+                to_save.append((contract.id, filing_number))
+        # 批量更新（单次 UPDATE 语句）
+        from apps.contracts.models import Contract
+        for contract_id, filing_number in to_save:
+            Contract.objects.filter(id=contract_id).update(is_filed=True, filing_number=filing_number)
+        self.message_user(request, "已建档 %(count)d 个合同" % {"count": len(to_save)})
 
     def changelist_view(self, request: HttpRequest, extra_context: dict[str, Any] | None = None) -> Any:
         from django.http import HttpResponseRedirect

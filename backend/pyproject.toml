@@ -17,7 +17,7 @@ dependencies = [
     "uvicorn[standard]==0.46.0",
     "channels==4.3.2",
     "channels-redis==4.3.0",
-    "redis==7.4.0",
+    "valkey==6.0.0",
     # --- 数据库 ---
     "psycopg[binary]==3.3.4",
     # --- HTTP 客户端 ---

@@ -408,18 +408,18 @@ class TokenCacheManager:
             return
 
         try:
-            import redis
+            import valkey
 
-            client = redis.from_url(str(location))
+            client = valkey.from_url(str(location))
             pattern = f"{self.cache_prefix}:*"
             keys = client.keys(pattern)
             if keys:
                 client.delete(*keys)  # type: ignore[misc]
-            logger.info(f"Redis 命名空间缓存已清除: {len(keys)} 个键")  # type: ignore[arg-type]
+            logger.info(f"Valkey 命名空间缓存已清除: {len(keys)} 个键")  # type: ignore[arg-type]
         except ModuleNotFoundError:
-            logger.warning("token_cache_clear_redis_client_init_failed")
+            logger.warning("token_cache_clear_valkey_client_init_failed")
         except Exception as e:
-            logger.warning(f"Redis 缓存清除失败: {e}")
+            logger.warning(f"Valkey 缓存清除失败: {e}")
 
     def get_cache_statistics(self) -> dict[str, Any]:
         """

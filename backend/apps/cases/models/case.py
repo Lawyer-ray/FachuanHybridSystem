@@ -104,6 +104,7 @@ class Case(models.Model):
             models.Index(fields=["start_date"]),
             models.Index(fields=["current_stage"]),
             models.Index(fields=["-start_date"]),
+            models.Index(fields=["status"]),
         ]
 
     def __str__(self) -> str:
