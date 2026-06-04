@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+
 from django.http import HttpRequest, JsonResponse
 from django.views.decorators.http import require_POST
 
@@ -27,8 +29,6 @@ def onedrive_start_auth(request: HttpRequest, account_id: int) -> JsonResponse:
 @require_POST
 def onedrive_complete_auth(request: HttpRequest, account_id: int) -> JsonResponse:
     """Complete device code flow by polling for token."""
-    import json
-
     try:
         body = json.loads(request.body)
         device_code = body.get("device_code", "")
@@ -42,6 +42,47 @@ def onedrive_complete_auth(request: HttpRequest, account_id: int) -> JsonRespons
 
     try:
         manager = OAuthTokenManager(account)
+        access_token = manager.complete_device_code_flow(device_code)
+        return JsonResponse({"status": "authorized", "token_preview": access_token[:20] + "..."})
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=400)
+
+
+@require_POST
+def dropbox_start_auth(request: HttpRequest, account_id: int) -> JsonResponse:
+    """Start Dropbox device code authorization flow."""
+    from .dropbox_provider import DropboxOAuthTokenManager
+
+    try:
+        account = CloudStorageAccount.objects.get(id=account_id, storage_type="dropbox")
+    except CloudStorageAccount.DoesNotExist:
+        return JsonResponse({"error": "账号不存在"}, status=404)
+
+    try:
+        result = DropboxOAuthTokenManager.start_device_code_flow(account)
+        return JsonResponse(result)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=400)
+
+
+@require_POST
+def dropbox_complete_auth(request: HttpRequest, account_id: int) -> JsonResponse:
+    """Complete Dropbox device code flow by polling for token."""
+    try:
+        body = json.loads(request.body)
+        device_code = body.get("device_code", "")
+    except (json.JSONDecodeError, KeyError):
+        return JsonResponse({"error": "缺少 device_code"}, status=400)
+
+    try:
+        account = CloudStorageAccount.objects.get(id=account_id, storage_type="dropbox")
+    except CloudStorageAccount.DoesNotExist:
+        return JsonResponse({"error": "账号不存在"}, status=404)
+
+    try:
+        from .dropbox_provider import DropboxOAuthTokenManager
+
+        manager = DropboxOAuthTokenManager(account)
         access_token = manager.complete_device_code_flow(device_code)
         return JsonResponse({"status": "authorized", "token_preview": access_token[:20] + "..."})
     except Exception as e:
