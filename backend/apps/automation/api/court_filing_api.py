@@ -188,7 +188,7 @@ def execute_court_filing(request: HttpRequest, payload: ExecuteCourtFilingIn) ->
     }
 
     court_obj = CourtModel.objects.filter(name=court_name).first()
-    if court_obj and court_obj.province:
+    if court_obj and court_obj.province and "法院" not in court_obj.province:
         case_data["province"] = court_obj.province
 
     plaintiffs, defendants, third_parties = _build_party_payloads(parties)
