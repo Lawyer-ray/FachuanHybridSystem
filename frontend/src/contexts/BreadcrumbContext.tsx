@@ -15,6 +15,7 @@ import {
   useState,
   useCallback,
   useMemo,
+  useRef,
   useEffect,
   type ReactNode,
 } from 'react'
@@ -52,11 +53,41 @@ interface BreadcrumbProviderProps {
  */
 export function BreadcrumbProvider({ children }: BreadcrumbProviderProps) {
   const [customItems, setCustomItems] = useState<BreadcrumbItem[] | null>(null)
+  const clearTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+
+  /**
+   * 包装 setCustomItems：清除操作延迟到微任务队列末尾。
+   *
+   * React 的执行顺序是 旧cleanup → 新render → 新effect。
+   * 旧页面 unmount 的 cleanup 会调用 setCustomItems(null)，导致中间帧
+   * 面包屑闪回 URL 默认标签。延迟清除后，新页面的 useBreadcrumb 会在
+   * 同一同步渲染周期内设置新值并取消这个延迟清除。
+   */
+  const deferredSet = useCallback((items: BreadcrumbItem[] | null) => {
+    if (clearTimerRef.current) {
+      clearTimeout(clearTimerRef.current)
+      clearTimerRef.current = undefined
+    }
+    if (items === null) {
+      clearTimerRef.current = setTimeout(() => setCustomItems(null), 0)
+    } else {
+      setCustomItems(items)
+    }
+  }, [])
 
   const value = useMemo<BreadcrumbContextValue>(
-    () => ({ customItems, setCustomItems }),
-    [customItems, setCustomItems],
+    () => ({ customItems, setCustomItems: deferredSet }),
+    [customItems, deferredSet],
   )
+
+  // Provider unmount 时清理延迟清除定时器
+  useEffect(() => {
+    return () => {
+      if (clearTimerRef.current) {
+        clearTimeout(clearTimerRef.current)
+      }
+    }
+  }, [])
 
   return (
     <BreadcrumbContext.Provider value={value}>
