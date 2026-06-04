@@ -38,7 +38,7 @@ class TestFactoryNullProviderFallback:
     def test_webdav_null_provider_raises_on_use(self):
         binding = SimpleNamespace(storage_type="webdav", storage_account=None)
         provider = create_provider_for_binding(binding)
-        with pytest.raises(RuntimeError, match="坚果云 WebDAV 账号未配置"):
+        with pytest.raises(RuntimeError, match="WebDAV 账号未配置"):
             provider.list_directory("/")
 
     def test_onedrive_null_provider_raises_on_use(self):

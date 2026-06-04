@@ -41,7 +41,7 @@ import type { FolderBinding, FolderScanCandidate, FolderScanSession } from '../t
 
 const STORAGE_TYPES = [
   { value: 'local', label: '本地', icon: HardDrive },
-  { value: 'webdav', label: '坚果云', icon: Cloud },
+  { value: 'webdav', label: 'WebDAV', icon: Cloud },
   { value: 'onedrive', label: 'OneDrive', icon: Cloud },
 ] as const
 

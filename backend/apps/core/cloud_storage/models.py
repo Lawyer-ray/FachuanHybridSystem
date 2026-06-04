@@ -17,10 +17,10 @@ class CloudStorageAccount(models.Model):
 
     class StorageType(models.TextChoices):
         LOCAL = "local", _("本地文件系统")
-        WEBDAV = "webdav", _("坚果云 WebDAV")
+        WEBDAV = "webdav", _("WebDAV")
         ONEDRIVE = "onedrive", _("OneDrive")
 
-    name = models.CharField(max_length=100, verbose_name=_("存储名称"), help_text=_("如：坚果云-工作空间"))
+    name = models.CharField(max_length=100, verbose_name=_("存储名称"), help_text=_("如：坚果云、123云盘"))
     storage_type = models.CharField(
         max_length=20, choices=StorageType.choices, default=StorageType.LOCAL, verbose_name=_("存储类型")
     )
@@ -91,7 +91,7 @@ class CloudStorageAccount(models.Model):
 
     STORAGE_TYPE_NAMES: ClassVar = {
         "local": "本地文件系统",
-        "webdav": "坚果云",
+        "webdav": "WebDAV",
         "onedrive": "OneDrive",
     }
 

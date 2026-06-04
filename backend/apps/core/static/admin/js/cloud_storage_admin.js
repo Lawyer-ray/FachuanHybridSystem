@@ -26,11 +26,16 @@ document.addEventListener('DOMContentLoaded', function () {
       }
     });
 
-    // Toggle help sections
-    var nutstoreHelp = document.getElementById('nutstore-help-section');
-    var onedriveHelp = document.getElementById('onedrive-help-section');
-    if (nutstoreHelp) nutstoreHelp.style.display = val === 'webdav' ? '' : 'none';
-    if (onedriveHelp) onedriveHelp.style.display = val === 'onedrive' ? '' : 'none';
+    // Toggle help sections — show all WebDAV guides when webdav is selected
+    var helpSections = [
+      { id: 'nutstore-help-section', type: 'webdav' },
+      { id: '123pan-help-section', type: 'webdav' },
+      { id: 'onedrive-help-section', type: 'onedrive' },
+    ];
+    helpSections.forEach(function (section) {
+      var el = document.getElementById(section.id);
+      if (el) el.style.display = val === section.type ? '' : 'none';
+    });
   }
 
   typeSelect.addEventListener('change', toggle);

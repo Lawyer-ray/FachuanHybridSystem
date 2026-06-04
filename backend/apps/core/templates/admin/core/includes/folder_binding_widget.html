@@ -16,7 +16,7 @@
     <div x-show="!binding" class="storage-selector">
         <select x-model="storageType" @change="onStorageTypeChange()" class="storage-type-select">
             <option value="local">{% trans "本地文件系统" %}</option>
-            <option value="webdav">{% trans "坚果云 WebDAV" %}</option>
+            <option value="webdav">{% trans "WebDAV" %}</option>
             <option value="onedrive">{% trans "OneDrive" %}</option>
         </select>
         <select x-show="storageType !== 'local' && filteredAccounts.length > 0"

@@ -13,7 +13,7 @@ import { foldersApi } from '../api/folders'
 
 const STORAGE_TYPES = [
   { value: 'local', label: '本地文件系统', icon: HardDrive },
-  { value: 'webdav', label: '坚果云 WebDAV', icon: Cloud },
+  { value: 'webdav', label: 'WebDAV', icon: Cloud },
   { value: 'onedrive', label: 'OneDrive', icon: Cloud },
 ] as const
 

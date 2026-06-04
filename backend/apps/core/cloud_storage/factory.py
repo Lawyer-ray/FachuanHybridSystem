@@ -36,8 +36,8 @@ def create_provider_for_binding(binding: Any) -> CloudStorageProvider:
                 webdav_url=getattr(storage_account, "webdav_url", ""),
             )
 
-        logger.warning("No Nutstore WebDAV account linked to binding")
-        return NullProvider(reason="坚果云 WebDAV 账号未配置或已禁用，请在 Admin 后台 -> 云存储账号 中配置")
+        logger.warning("No WebDAV account linked to binding")
+        return NullProvider(reason="WebDAV 账号未配置或已禁用，请在 Admin 后台 -> 云存储账号 中配置")
 
     if storage_type == "onedrive":
         from .onedrive_provider import OAuthTokenManager, OneDriveProvider

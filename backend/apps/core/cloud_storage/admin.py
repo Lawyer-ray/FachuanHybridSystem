@@ -90,7 +90,7 @@ class CloudStorageAccountAdmin(admin.ModelAdmin):
     FIELDSETS = [
         ("基本信息", {"fields": ["storage_type", "is_active"]}),
         (
-            "坚果云 WebDAV",
+            "WebDAV 设置",
             {
                 "fields": ["webdav_url", "webdav_username", "webdav_password", "webdav_root_path"],
                 "classes": ["collapse", "webdav-section"],

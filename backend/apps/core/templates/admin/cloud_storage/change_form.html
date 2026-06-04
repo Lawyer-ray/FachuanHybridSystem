@@ -8,7 +8,7 @@
 <div id="nutstore-help-section" style="margin: 16px 0; padding: 0;">
   <details style="border: 1px solid #d1d5db; border-radius: 6px; background: #f9fafb;">
     <summary style="padding: 12px 16px; cursor: pointer; font-weight: 600; font-size: 14px; color: #374151; user-select: none;">
-      📖 坚果云 WebDAV 配置指南
+      📖 WebDAV 配置指南 — 坚果云
     </summary>
     <div style="padding: 0 16px 16px; font-size: 13px; line-height: 1.8; color: #374151;">
       <h4 style="margin: 12px 0 6px; color: #1f2937;">第一步：获取坚果云应用密码</h4>
@@ -46,6 +46,52 @@
 
       <div style="margin: 10px 0; padding: 10px 12px; background: #fef3c7; border: 1px solid #f59e0b; border-radius: 4px; font-size: 12px;">
         ⚠️ <b>注意</b>：坚果云免费版限制 600 次请求/30分钟，系统已内置限流（约3.5秒/次），正常使用不会超限。
+      </div>
+    </div>
+  </details>
+</div>
+
+{# ── 123云盘配置指南 ── #}
+<div id="123pan-help-section" style="margin: 16px 0; padding: 0;">
+  <details style="border: 1px solid #d1d5db; border-radius: 6px; background: #f9fafb;">
+    <summary style="padding: 12px 16px; cursor: pointer; font-weight: 600; font-size: 14px; color: #374151; user-select: none;">
+      📖 WebDAV 配置指南 — 123云盘
+    </summary>
+    <div style="padding: 0 16px 16px; font-size: 13px; line-height: 1.8; color: #374151;">
+      <h4 style="margin: 12px 0 6px; color: #1f2937;">第一步：获取123云盘应用密码</h4>
+      <ol style="margin: 0; padding-left: 20px;">
+        <li>登录 <a href="https://www.123pan.com" target="_blank">123云盘官网</a></li>
+        <li>进入 <b>个人中心</b> → <b>安全设置</b></li>
+        <li>找到「应用密码」区域，点击 <b>添加应用密码</b></li>
+        <li>输入应用名称（如「法穿AI」），点击 <b>确认</b></li>
+        <li><b>复制生成的密码</b>，粘贴到下方「WebDAV 应用密码」字段</li>
+      </ol>
+
+      <h4 style="margin: 12px 0 6px; color: #1f2937;">第二步：填写本页配置</h4>
+      <table style="width: 100%; border-collapse: collapse; margin: 8px 0;">
+        <tr style="border-bottom: 1px solid #e5e7eb;">
+          <td style="padding: 6px 8px; font-weight: 500; width: 140px;">WebDAV 地址</td>
+          <td style="padding: 6px 8px;"><code>https://webdav.123pan.com/dav/</code></td>
+        </tr>
+        <tr style="border-bottom: 1px solid #e5e7eb;">
+          <td style="padding: 6px 8px; font-weight: 500;">WebDAV 用户名</td>
+          <td style="padding: 6px 8px;">你的123云盘账号（手机号或邮箱）</td>
+        </tr>
+        <tr style="border-bottom: 1px solid #e5e7eb;">
+          <td style="padding: 6px 8px; font-weight: 500;">WebDAV 应用密码</td>
+          <td style="padding: 6px 8px;">第一步生成的应用密码（非登录密码）</td>
+        </tr>
+        <tr>
+          <td style="padding: 6px 8px; font-weight: 500;">WebDAV 根路径</td>
+          <td style="padding: 6px 8px;">
+            默认 <code>/</code> 即可（指向123云盘 WebDAV 根目录）<br>
+            <span style="color: #6b7280;">如果只想绑定某个子文件夹，可填如 <code>工作文件</code></span>
+          </td>
+        </tr>
+      </table>
+
+      <div style="margin: 10px 0; padding: 10px 12px; background: #dbeafe; border: 1px solid #3b82f6; border-radius: 4px; font-size: 12px;">
+        💡 <b>提示</b>：123云盘 WebDAV 支持标准协议，免费版提供 2TB 存储空间。系统已内置限流保护，正常使用不会触发限制。
       </div>
     </div>
   </details>
