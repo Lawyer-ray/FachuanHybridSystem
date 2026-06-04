@@ -278,4 +278,4 @@ def list_cloud_storage_accounts(request: HttpRequest) -> list[dict[str, Any]]:
     _require_admin(request)
     from apps.core.cloud_storage.browse_helper import list_active_cloud_accounts
 
-    return list_active_cloud_accounts()  # type: ignore[return-value]
+    return list_active_cloud_accounts()

@@ -258,4 +258,4 @@ def list_cloud_storage_accounts(request: HttpRequest) -> list[dict[str, Any]]:
     service = _get_folder_binding_service()
     ctx = get_request_access_context(request)
     service.require_admin(ctx)
-    return list_active_cloud_accounts()  # type: ignore[return-value]
+    return list_active_cloud_accounts()

@@ -74,7 +74,8 @@ class EmailFolderScanService:
 
         # 检查目标是否存在
         if is_cloud:
-            if not provider.exists(target):  # type: ignore[union-attr]
+            assert provider is not None
+            if not provider.exists(str(target)):
                 raise ValidationException("指定文件夹不存在", errors={"subfolder": "文件夹路径无效"})
         else:
             if not target.exists() or not target.is_dir():  # type: ignore[union-attr]
@@ -197,7 +198,7 @@ class EmailFolderScanService:
             )
         return target
 
-    def _collect_subdirs(self, folder_path: Path | str, provider: Any = None) -> list[tuple[Path | str, list[Path | str]]]:
+    def _collect_subdirs(self, folder_path: Path | str, provider: Any = None) -> list[tuple[Any, list[Any]]]:
         """收集文件夹下所有含合规文件的子目录."""
         if provider is not None:
             return self._collect_subdirs_cloud(str(folder_path), provider)
@@ -237,7 +238,7 @@ class EmailFolderScanService:
                 result.append((child_path, files))
         return result
 
-    def _collect_allowed_files(self, folder_path: Path | str, provider: Any = None) -> list[Path | str]:
+    def _collect_allowed_files(self, folder_path: Path | str, provider: Any = None) -> list[Any]:
         """递归收集文件夹内所有合规文件."""
         if provider is not None:
             return self._collect_allowed_files_cloud(str(folder_path), provider)
@@ -297,7 +298,9 @@ class EmailFolderScanService:
         content = re.sub(r"^\d{4}[.\-]\d{1,2}[.\-]\d{1,2}[\-\s]*", "", subdir_name)
         return content if content else subdir_name
 
-    def _upload_file_as_attachment(self, log: CaseLog, file_path: Path | str, provider: Any = None) -> CaseLogAttachment | None:
+    def _upload_file_as_attachment(
+        self, log: CaseLog, file_path: Path | str, provider: Any = None
+    ) -> CaseLogAttachment | None:
         """上传文件为日志附件（本地或云存储）."""
         try:
             if provider is not None:
