@@ -239,9 +239,19 @@ class SupplementaryAgreementGenerationService:
             if not subdir_path:
                 return "V1"
 
-            folder_path = Path(binding.folder_path) / subdir_path
-            if not folder_path.exists():
-                return "V1"
+            # 获取文件名列表（云存储 vs 本地）
+            storage_type = getattr(binding, "storage_type", "local")
+            if storage_type != "local":
+                from apps.core.cloud_storage.factory import create_provider_for_binding
+
+                provider = create_provider_for_binding(binding)
+                children = provider.list_directory(subdir_path)
+                names = [c.name for c in children if not c.is_dir]
+            else:
+                folder_path = Path(binding.folder_path) / subdir_path
+                if not folder_path.exists():
+                    return "V1"
+                names = [f.name for f in folder_path.iterdir() if f.is_file()]
 
             # 构建文件名模式（不包含版本号和日期）
             today_str = date.today().strftime("%Y%m%d")
@@ -252,12 +262,11 @@ class SupplementaryAgreementGenerationService:
 
             # 查找已存在的版本号
             max_version = 0
-            for file_path in folder_path.iterdir():
-                if file_path.is_file():
-                    match = pattern.match(file_path.name)
-                    if match:
-                        version_num = int(match.group(1))
-                        max_version = max(max_version, version_num)
+            for name in names:
+                match = pattern.match(name)
+                if match:
+                    version_num = int(match.group(1))
+                    max_version = max(max_version, version_num)
 
             return f"V{max_version + 1}"
 
