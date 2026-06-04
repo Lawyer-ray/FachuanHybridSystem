@@ -17,6 +17,14 @@
 <style>
     /* Alpine.js x-cloak 防止闪烁 */
     [x-cloak] { display: none !important; }
+    /* Alpine.js x-show 初始隐藏保护：defer 加载前元素不应可见 */
+    [x-show] { display: none; }
+
+    /* 侧边栏虚拟模块行默认隐藏（CSS-first，防止 JS 执行前闪烁） */
+    #nav-sidebar .app-case_handling.module tr[class^="model-"],
+    #nav-sidebar .app-other_tools.module tr[class^="model-"] {
+      display: none;
+    }
 
     /* 关于链接样式 - 融入用户工具栏 */
     #user-tools .about-link {
@@ -230,6 +238,7 @@
 {{ block.super }}
 <script>
 // 其他工具侧边栏收藏过滤：仅显示已收藏的工具
+// CSS 已默认隐藏所有行（#nav-sidebar .app-other_tools.module tr），JS 只负责显示允许的行
 (function() {
   const APP_LABEL = 'other_tools';
   // 收藏 URL 由服务端注入
@@ -245,10 +254,8 @@
       const link = row.querySelector('th a');
       if (!link) return;
       const href = link.getAttribute('href') || '';
-      if (!favSet.has(href)) {
-        row.style.display = 'none';
-      } else {
-        row.style.display = '';
+      if (favSet.has(href)) {
+        row.style.display = '';  // 只显示已收藏的
       }
     });
   }
@@ -261,6 +268,7 @@
 })();
 
 // 办案侧边栏过滤：仅显示3个固定核心入口
+// CSS 已默认隐藏所有行（#nav-sidebar .app-case_handling.module tr），JS 只负责显示允许的行
 (function() {
   const APP_LABEL = 'case_handling';
   const SIDEBAR_URLS = [
@@ -279,10 +287,8 @@
       const link = row.querySelector('th a');
       if (!link) return;
       const href = link.getAttribute('href') || '';
-      if (!allowedSet.has(href)) {
-        row.style.display = 'none';
-      } else {
-        row.style.display = '';
+      if (allowedSet.has(href)) {
+        row.style.display = '';  // 只显示允许的
       }
     });
   }
