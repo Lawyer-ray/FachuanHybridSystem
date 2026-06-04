@@ -252,13 +252,9 @@ class GDriveProvider:
         if not file_id:
             return None
 
-        resp = (
-            self._service.files()
-            .get(fileId=file_id, fields="name, mimeType, size, modifiedTime")
-            .execute()
-        )
+        resp = self._service.files().get(fileId=file_id, fields="name, mimeType, size, modifiedTime").execute()
 
-        is_folder = resp["mimeType"] == GDRIVE_FOLDER_MIME
+        is_folder: bool = resp["mimeType"] == GDRIVE_FOLDER_MIME
         name = resp["name"]
         return CloudFileInfo(
             name=name,
@@ -271,9 +267,7 @@ class GDriveProvider:
     def walk(self, path: str) -> Iterator[tuple[str, list[str], list[CloudFileInfo]]]:
         yield from self._walk_recursive(path, set())
 
-    def _walk_recursive(
-        self, path: str, visited: set[str]
-    ) -> Iterator[tuple[str, list[str], list[CloudFileInfo]]]:
+    def _walk_recursive(self, path: str, visited: set[str]) -> Iterator[tuple[str, list[str], list[CloudFileInfo]]]:
         file_id = self._resolve(path)
         if not file_id or file_id in visited:
             return

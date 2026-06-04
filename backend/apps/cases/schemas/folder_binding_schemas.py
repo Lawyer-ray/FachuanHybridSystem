@@ -47,7 +47,9 @@ class CaseFolderBindingResponseSchema(Schema):
             folder_path=obj.resolved_folder_path,
             folder_path_display=display_path or obj.folder_path_display,
             storage_type=getattr(obj, "storage_type", "local"),
-            storage_account_id=getattr(obj.storage_account, "id", None) if getattr(obj, "storage_account", None) else None,
+            storage_account_id=getattr(obj.storage_account, "id", None)
+            if getattr(obj, "storage_account", None)
+            else None,
             is_accessible=is_accessible,
             created_at=SchemaMixin._resolve_datetime_iso(obj.created_at) or "",
             updated_at=SchemaMixin._resolve_datetime_iso(obj.updated_at) or "",

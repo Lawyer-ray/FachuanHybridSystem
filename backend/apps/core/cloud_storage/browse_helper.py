@@ -15,9 +15,15 @@ logger = logging.getLogger("apps.core.cloud_storage")
 def list_active_cloud_accounts() -> list[dict[str, Any]]:
     """Return active cloud storage accounts for folder binding UI."""
     qs = CloudStorageAccount.objects.filter(is_active=True).values(
-        "id", "name", "storage_type",
-        "local_root_path", "webdav_root_path", "onedrive_root_path",
-        "s3_root_path", "gdrive_root_path", "dropbox_root_path",
+        "id",
+        "name",
+        "storage_type",
+        "local_root_path",
+        "webdav_root_path",
+        "onedrive_root_path",
+        "s3_root_path",
+        "gdrive_root_path",
+        "dropbox_root_path",
     )
     return list(qs)  # type: ignore[arg-type]
 

@@ -31,10 +31,7 @@ class FilingStepsMixin(FormUtilsMixin):
         try:
             self.page.get_by_text(case_type, exact=True).wait_for(state="visible", timeout=30000)
         except Exception:
-            raise ValueError(
-                f"省份代码 {province_code} 对应的页面未加载成功，"
-                "请检查该省份是否支持一张网立案"
-            ) from None
+            raise ValueError(f"省份代码 {province_code} 对应的页面未加载成功，请检查该省份是否支持一张网立案") from None
 
         current_province = self.page.evaluate("() => localStorage.getItem('provinceId')")
         if current_province != province_code:
