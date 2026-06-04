@@ -19,17 +19,18 @@
     if (v === 'true') main.classList.add('shifted');
   }
 
-  // 3. DOM 就绪后重新启用 transition（延迟一帧确保布局稳定）
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', function() {
+  // 3. DOM 就绪后重新启用 transition（双 rAF 确保侧边栏过滤 JS 已执行完毕）
+  function _enableTransitions() {
+    requestAnimationFrame(function() {
       requestAnimationFrame(function() {
         document.documentElement.classList.remove('disable-transitions');
       });
     });
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', _enableTransitions);
   } else {
-    requestAnimationFrame(function() {
-      document.documentElement.classList.remove('disable-transitions');
-    });
+    _enableTransitions();
   }
 })();
 </script>
@@ -59,12 +60,13 @@
     [x-cloak] { display: none !important; }
 
     /* 侧边栏虚拟模块行 CSS-first 过滤（解决快速切换时的 UI 残影）
-     * 使用 content-visibility: hidden 而非 display: none
-     * 优势：元素不参与渲染管线（无绘制开销）但不阻塞 DOM 查询
-     * JS 执行后会通过 style.display 重写为正常状态 */
+     * 使用 opacity: 0 而非 content-visibility: hidden
+     * 原因：content-visibility 在 Safari/Windows 浏览器上有兼容问题且会产生残影
+     * disable-transitions 确保 opacity 变化无过渡动画，首帧不可见
+     * JS 执行后通过 style.opacity 重写为正常状态 */
     #nav-sidebar .app-case_handling.module tr[class^="model-"],
     #nav-sidebar .app-other_tools.module tr[class^="model-"] {
-      content-visibility: hidden;
+      opacity: 0;
     }
 
     /* 关于链接样式 - 融入用户工具栏 */
@@ -279,7 +281,7 @@
 {{ block.super }}
 <script>
 // 其他工具侧边栏收藏过滤：仅显示已收藏的工具
-// CSS 默认对虚拟模块行设置 content-visibility: hidden（首帧不渲染）
+// CSS 默认对虚拟模块行设置 opacity: 0（首帧不可见）
 // JS 执行后为允许的行清除该属性，对禁止的行额外设置 display: none
 (function() {
   const APP_LABEL = 'other_tools';
@@ -296,8 +298,8 @@
       if (!link) return;
       const href = link.getAttribute('href') || '';
       if (favSet.has(href)) {
-        // 允许的行：清除 CSS 的 content-visibility 隐藏
-        row.style.contentVisibility = '';
+        // 允许的行：清除 CSS 的 opacity 隐藏
+        row.style.opacity = '';
       } else {
         // 不允许的行：额外设置 display: none（从布局中移除）
         row.style.display = 'none';
@@ -336,8 +338,8 @@
       // 匹配不带参数和带参数的 URL（如 /admin/cases/case/ 和 /admin/cases/case/?status__exact=active）
       const basePath = href.split('?')[0];
       if (allowedSet.has(basePath)) {
-        // 允许的行：清除 CSS 的 content-visibility 隐藏
-        row.style.contentVisibility = '';
+        // 允许的行：清除 CSS 的 opacity 隐藏
+        row.style.opacity = '';
       } else {
         // 不允许的行：额外设置 display: none
         row.style.display = 'none';
