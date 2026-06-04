@@ -16,7 +16,10 @@ class LocalProvider:
         self._root = Path(root)
 
     def _resolve(self, path: str) -> Path:
-        return (self._root / path).resolve()
+        resolved = (self._root / path).resolve()
+        if not resolved.is_relative_to(self._root):
+            raise OSError(f"路径逃逸: {path} 不在根目录 {self._root} 内")
+        return resolved
 
     def list_directory(self, path: str) -> list[CloudFileInfo]:
         target = self._resolve(path)
@@ -83,12 +86,18 @@ class LocalProvider:
 
     def walk(self, path: str) -> Iterator[tuple[str, list[str], list[CloudFileInfo]]]:
         target = self._resolve(path)
-        for root, dirs, files in os.walk(target):
+        for abs_root, dirs, files in os.walk(target):
+            root_path = Path(abs_root)
+            if not root_path.is_relative_to(self._root):
+                break
+            rel_root = str(root_path.relative_to(self._root))
             file_infos = []
             for f in files:
-                fp = Path(root) / f
+                fp = root_path / f
                 try:
                     stat = fp.stat()
+                    if not fp.is_relative_to(self._root):
+                        continue
                     file_infos.append(
                         CloudFileInfo(
                             name=f,
@@ -100,4 +109,4 @@ class LocalProvider:
                     )
                 except (OSError, PermissionError):
                     continue
-            yield (root, dirs, file_infos)
+            yield (rel_root, dirs, file_infos)

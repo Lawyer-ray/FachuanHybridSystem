@@ -2,10 +2,8 @@
 
 from __future__ import annotations
 
-import io
 import logging
 import time
-import zipfile
 from collections.abc import Iterator
 from dataclasses import dataclass, field
 
@@ -32,8 +30,8 @@ class _RateLimiter:
         self._last_call = time.monotonic()
 
 
-class JianguoyunProvider:
-    """Read/write files on Nutstore via WebDAV.
+class WebDAVProvider:
+    """Read/write files on any WebDAV server.
 
     Uses ``requests`` + HTTPBasicAuth directly for full control over
     PROPFIND / PUT / GET / DELETE / MKCOL operations, avoiding the
@@ -214,9 +212,6 @@ class JianguoyunProvider:
         return resp.status_code in (200, 207)
 
     def is_dir(self, path: str) -> bool:
-        results = self.list_directory(path)
-        # If we can list it, it's a directory
-        # PROPFIND on directories requires trailing slash for Nutstore
         url = self._url(path).rstrip("/") + "/"
         self._limiter.wait_if_needed()
         resp = self._session.request("PROPFIND", url, headers={"Depth": "0"}, timeout=30)
@@ -264,3 +259,7 @@ class JianguoyunProvider:
         for subdir in subdirs:
             sub_path = f"{path.rstrip('/')}/{subdir}"
             yield from self.walk(sub_path)
+
+
+# Backward-compat alias
+JianguoyunProvider = WebDAVProvider

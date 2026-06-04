@@ -58,9 +58,17 @@ class OAuthTokenManager:
 
         refresh_token = self._account.get_decrypted_onedrive_refresh_token()
         if refresh_token:
-            return self._refresh_token(refresh_token)
+            try:
+                return self._refresh_token(refresh_token)
+            except Exception as e:
+                raise RuntimeError(
+                    "OneDrive 授权已过期（refresh_token 无效），请在 Admin 后台 -> 云存储账号 "
+                    "中重新点击「获取授权」按钮完成授权。"
+                ) from e
 
-        raise RuntimeError("OneDrive 未授权。请在 Admin 后台 -> 云存储账号 中点击「获取授权」按钮完成授权。")
+        raise RuntimeError(
+            "OneDrive 未授权。请在 Admin 后台 -> 云存储账号 中点击「获取授权」按钮完成授权。"
+        )
 
     def _refresh_token(self, refresh_token: str) -> str:
         resp = httpx.post(
