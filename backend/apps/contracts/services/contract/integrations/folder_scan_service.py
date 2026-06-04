@@ -341,7 +341,7 @@ class ContractFolderScanService:
                         "material_hash_duplicate_skipped",
                         extra={
                             "contract_id": contract_id,
-                            "filename": display_name,
+                            "file_name": display_name,
                             "content_hash": content_hash[:16],
                         },
                     )
@@ -359,7 +359,7 @@ class ContractFolderScanService:
                     skipped_dupes += 1
                     logger.info(
                         "material_name_duplicate_skipped",
-                        extra={"contract_id": contract_id, "filename": display_name, "category": category},
+                        extra={"contract_id": contract_id, "file_name": display_name, "category": category},
                     )
                     continue
 
@@ -981,7 +981,7 @@ class ContractFolderScanService:
             finally:
                 Path(docx_path).unlink(missing_ok=True)
         except (OSError, RuntimeError):
-            logger.exception("docx_to_pdf_conversion_from_bytes_failed", extra={"filename": filename})
+            logger.exception("docx_to_pdf_conversion_from_bytes_failed", extra={"file_name": filename})
             return None
 
     def _learn_from_import_correction(
