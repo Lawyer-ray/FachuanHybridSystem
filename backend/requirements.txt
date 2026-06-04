@@ -299,7 +299,7 @@ pyee==13.0.1
     # via playwright
 pygments==2.20.0
     # via rich
-pyjwt==2.12.1
+pyjwt==2.13.0
     # via
     #   django-ninja-jwt
     #   mcp
@@ -384,7 +384,7 @@ sqlparse==0.5.5
     # via django
 sse-starlette==3.4.1
     # via mcp
-starlette==1.0.0
+starlette==1.2.1
     # via
     #   mcp
     #   sse-starlette
