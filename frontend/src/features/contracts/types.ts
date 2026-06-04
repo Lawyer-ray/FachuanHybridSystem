@@ -364,6 +364,7 @@ export interface FolderBinding {
   folder_path: string
   folder_path_display: string
   storage_type: string
+  storage_account_id: number | null
   created_at: string
   updated_at: string
   is_accessible: boolean

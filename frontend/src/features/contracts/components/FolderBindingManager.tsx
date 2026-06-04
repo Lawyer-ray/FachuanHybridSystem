@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Folder, Link, Unlink, FolderOpen, Cloud, HardDrive } from 'lucide-react'
 import { toast } from 'sonner'
 import { useQuery } from '@tanstack/react-query'
@@ -25,6 +25,15 @@ export function FolderBindingManager({ contractId }: { contractId: number }) {
   const [browserOpen, setBrowserOpen] = useState(false)
   const [storageType, setStorageType] = useState<string>('local')
   const [cloudAccountId, setCloudAccountId] = useState<number | null>(null)
+
+  // Sync storageType/cloudAccountId from existing binding
+  useEffect(() => {
+    const bd = binding.data
+    if (bd) {
+      setStorageType(bd.storage_type || 'local')
+      setCloudAccountId(bd.storage_account_id ?? null)
+    }
+  }, [binding.data])
 
   const { data: cloudAccounts } = useQuery({
     queryKey: ['cloud-storage-accounts'],

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   FolderOpen,
   Link2,
@@ -96,6 +96,14 @@ export function CaseFolderSection({ binding, caseId }: CaseFolderSectionProps) {
   const [scanSession, setScanSession] = useState<FolderScanSession | null>(null)
   const [selectedCandidates, setSelectedCandidates] = useState<Set<number>>(new Set())
   const [scanning, setScanning] = useState(false)
+
+  // Sync storageType/cloudAccountId from existing binding
+  useEffect(() => {
+    if (binding) {
+      setStorageType(binding.storage_type || 'local')
+      setCloudAccountId(binding.storage_account_id ?? null)
+    }
+  }, [binding])
 
   const { data: cloudAccounts } = useQuery({
     queryKey: ['case-cloud-storage-accounts'],

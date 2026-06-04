@@ -61,6 +61,8 @@ document.addEventListener('alpine:init', () => {
                     const data = await response.json();
                     if (data) {
                         this.binding = data;
+                        this.storageType = data.storage_type || 'local';
+                        this.storageAccountId = data.storage_account_id || '';
                     }
                 } else if (response.status === 404) {
                     this.binding = null;
