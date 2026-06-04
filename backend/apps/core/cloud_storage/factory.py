@@ -92,9 +92,9 @@ def create_provider_for_binding(binding: Any) -> CloudStorageProvider:
         from .dropbox_provider import DropboxOAuthTokenManager, DropboxProvider
 
         if storage_account is not None:
-            token_manager = DropboxOAuthTokenManager(storage_account)
+            dbx_token_manager = DropboxOAuthTokenManager(storage_account)
             return DropboxProvider(
-                access_token=token_manager.get_valid_token(),
+                access_token=dbx_token_manager.get_valid_token(),
                 app_key=storage_account.dropbox_app_key,
                 app_secret=storage_account.get_decrypted_dropbox_app_secret(),
                 root_path=getattr(storage_account, "dropbox_root_path", "/"),
@@ -146,9 +146,9 @@ def create_provider_from_account(account: Any) -> CloudStorageProvider:
         )
 
     if storage_type == "google_drive":
-        from .gdrive_provider import GDriveProvider
-
         import json
+
+        from .gdrive_provider import GDriveProvider
 
         sa_json_str = account.get_decrypted_gdrive_service_account_json()
         if not sa_json_str:

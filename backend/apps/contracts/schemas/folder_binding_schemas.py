@@ -59,7 +59,9 @@ class FolderBindingResponseSchema(Schema):
             folder_path=obj.folder_path,
             folder_path_display=display_path or obj.folder_path,
             storage_type=getattr(obj, "storage_type", "local"),
-            storage_account_id=getattr(obj.storage_account, "id", None) if getattr(obj, "storage_account", None) else None,
+            storage_account_id=getattr(obj.storage_account, "id", None)
+            if getattr(obj, "storage_account", None)
+            else None,
             created_at=obj.created_at,
             updated_at=obj.updated_at,
             is_accessible=is_accessible,

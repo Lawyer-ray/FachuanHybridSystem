@@ -120,9 +120,7 @@ def _poll_dropbox_device_code(account_id: int, device_code: str, interval: int, 
                 codec = SecretCodec()
                 account.dropbox_access_token = codec.encrypt(data["access_token"])
                 account.dropbox_refresh_token = codec.encrypt(data.get("refresh_token", ""))
-                account.dropbox_token_expires_at = datetime.now(UTC) + timedelta(
-                    seconds=data.get("expires_in", 14400)
-                )
+                account.dropbox_token_expires_at = datetime.now(UTC) + timedelta(seconds=data.get("expires_in", 14400))
                 account.save(
                     update_fields=[
                         "dropbox_access_token",

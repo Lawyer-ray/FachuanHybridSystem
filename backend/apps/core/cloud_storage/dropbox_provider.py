@@ -51,9 +51,7 @@ class DropboxOAuthTokenManager:
                     "中重新点击「获取授权」按钮完成授权。"
                 ) from e
 
-        raise RuntimeError(
-            "Dropbox 未授权。请在 Admin 后台 -> 云存储账号 中点击「获取授权」按钮完成授权。"
-        )
+        raise RuntimeError("Dropbox 未授权。请在 Admin 后台 -> 云存储账号 中点击「获取授权」按钮完成授权。")
 
     def _refresh_token(self, refresh_token: str) -> str:
         resp = httpx.post(

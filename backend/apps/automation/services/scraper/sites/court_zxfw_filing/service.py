@@ -114,10 +114,7 @@ class CourtZxfwFilingService(FilingStepsMixin, PartyInfoHandlerMixin, ProgressRe
                 return code
 
         supported = "、".join(sorted(cls.PROVINCE_CODES.keys()))
-        raise ValueError(
-            f"不支持的省份「{province}」，未找到对应行政区划代码。"
-            f"支持的省份：{supported}"
-        )
+        raise ValueError(f"不支持的省份「{province}」，未找到对应行政区划代码。支持的省份：{supported}")
 
     # ==================== 主入口 ====================
 

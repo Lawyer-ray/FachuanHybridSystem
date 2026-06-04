@@ -60,7 +60,7 @@ class S3Provider:
             # CommonPrefixes = "subdirectories"
             for cp in page.get("CommonPrefixes", []):
                 dir_prefix = cp["Prefix"]
-                name = dir_prefix[len(prefix):].rstrip("/")
+                name = dir_prefix[len(prefix) :].rstrip("/")
                 if not name:
                     continue
                 rel = f"{path.strip('/')}/{name}".lstrip("/")
@@ -71,7 +71,7 @@ class S3Provider:
                 key = obj["Key"]
                 if key == prefix.rstrip("/"):
                     continue
-                name = key[len(prefix):].rstrip("/")
+                name = key[len(prefix) :].rstrip("/")
                 if not name or "/" in name:
                     continue
                 rel = f"{path.strip('/')}/{name}".lstrip("/")
@@ -113,14 +113,14 @@ class S3Provider:
         try:
             self._client.head_object(Bucket=self._bucket, Key=key)
             return True
-        except self._client.exceptions.ClientError as e:  # type: ignore[attr-defined]
-            error_code = e.response["Error"]["Code"]  # type: ignore[attr-defined]
+        except self._client.exceptions.ClientError as e:
+            error_code: str = e.response["Error"]["Code"]
             if error_code in ("404", "NoSuchKey"):
                 # Fallback: check if any child objects exist under this prefix
                 prefix = key + "/" if key else ""
                 if prefix:
                     resp = self._client.list_objects_v2(Bucket=self._bucket, Prefix=prefix, MaxKeys=1)
-                    return resp.get("KeyCount", 0) > 0
+                    return bool(resp.get("KeyCount", 0) > 0)
                 return False
             raise
 
@@ -129,7 +129,7 @@ class S3Provider:
         if prefix:
             prefix += "/"
         resp = self._client.list_objects_v2(Bucket=self._bucket, Prefix=prefix, MaxKeys=1)
-        return resp.get("KeyCount", 0) > 0
+        return bool(resp.get("KeyCount", 0) > 0)
 
     def delete_file(self, path: str) -> None:
         key = self._full_key(path)
@@ -139,8 +139,8 @@ class S3Provider:
         key = self._full_key(path)
         try:
             resp = self._client.head_object(Bucket=self._bucket, Key=key)
-        except self._client.exceptions.ClientError as e:  # type: ignore[attr-defined]
-            error_code = e.response["Error"]["Code"]  # type: ignore[attr-defined]
+        except self._client.exceptions.ClientError as e:
+            error_code: str = e.response["Error"]["Code"]
             if error_code in ("404", "NoSuchKey"):
                 return None
             raise

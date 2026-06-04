@@ -57,7 +57,9 @@ class CloudStorageAccount(models.Model):
         max_length=512, blank=True, default="", verbose_name=_("Secret Access Key（加密存储）")
     )
     s3_bucket_name = models.CharField(max_length=255, blank=True, default="", verbose_name=_("Bucket 名称"))
-    s3_endpoint_url = models.URLField(blank=True, default="", verbose_name=_("Endpoint URL"), help_text=_("留空使用 AWS 默认；S3 兼容服务填对应地址"))
+    s3_endpoint_url = models.URLField(
+        blank=True, default="", verbose_name=_("Endpoint URL"), help_text=_("留空使用 AWS 默认；S3 兼容服务填对应地址")
+    )
     s3_region = models.CharField(max_length=50, blank=True, default="us-east-1", verbose_name=_("Region"))
     s3_root_path = models.CharField(max_length=1000, blank=True, default="/", verbose_name=_("S3 根路径"))
 
@@ -65,9 +67,7 @@ class CloudStorageAccount(models.Model):
     gdrive_service_account_json = models.TextField(
         blank=True, default="", verbose_name=_("Service Account JSON（加密存储）")
     )
-    gdrive_root_folder_id = models.CharField(
-        max_length=255, blank=True, default="root", verbose_name=_("根文件夹 ID")
-    )
+    gdrive_root_folder_id = models.CharField(max_length=255, blank=True, default="root", verbose_name=_("根文件夹 ID"))
     gdrive_root_path = models.CharField(max_length=1000, blank=True, default="/", verbose_name=_("Google Drive 根路径"))
 
     # ── Dropbox fields ──────────────────────────────────────────
