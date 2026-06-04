@@ -145,7 +145,7 @@ class CourtSMSAdminActions:
             return {
                 "id": case.id,
                 "name": case.name,
-                "created_at": case.created_at,
+                "created_at": case.created_at,  # type: ignore[attr-defined]
                 "case_numbers": case.case_numbers.all(),
                 "parties": case.parties.all(),
             }

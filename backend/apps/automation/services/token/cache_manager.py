@@ -421,8 +421,8 @@ class TokenCacheManager:
                 pattern = f"{self.cache_prefix}:*"
             keys = client.keys(pattern)
             if keys:
-                client.delete(*keys)  # type: ignore[misc]
-            logger.info(f"Valkey 命名空间缓存已清除: {len(keys)} 个键，pattern={pattern}")  # type: ignore[arg-type]
+                client.delete(*keys)
+            logger.info(f"Valkey 命名空间缓存已清除: {len(keys)} 个键，pattern={pattern}")
         except ModuleNotFoundError:
             logger.warning("token_cache_clear_valkey_client_init_failed")
         except Exception as e:
