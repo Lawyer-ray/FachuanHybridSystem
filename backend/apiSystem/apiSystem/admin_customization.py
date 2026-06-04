@@ -214,8 +214,8 @@ def _sorted_get_app_list(self: admin.AdminSite, request: HttpRequest, app_label:
         case_handling_models: list[dict[str, Any]] = []
         sidebar_labels = {
             "当事人": "/admin/client/client/",
-            "合同": "/admin/contracts/contract/",
-            "案件": "/admin/cases/case/",
+            "合同": "/admin/contracts/contract/?status__exact=active",
+            "案件": "/admin/cases/case/?status__exact=active",
         }
         for label, url in sidebar_labels.items():
             case_handling_models.append(

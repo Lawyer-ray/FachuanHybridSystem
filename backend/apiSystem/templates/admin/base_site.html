@@ -293,7 +293,9 @@
       const link = row.querySelector('th a');
       if (!link) return;
       const href = link.getAttribute('href') || '';
-      if (allowedSet.has(href)) {
+      // 匹配不带参数和带参数的 URL（如 /admin/cases/case/ 和 /admin/cases/case/?status__exact=active）
+      const basePath = href.split('?')[0];
+      if (allowedSet.has(basePath)) {
         // 允许的行：清除 CSS 的 content-visibility 隐藏
         row.style.contentVisibility = '';
       } else {
