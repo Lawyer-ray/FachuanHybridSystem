@@ -64,6 +64,8 @@ def browse_cloud_folder(
         parent_path = str(PurePosixPath(browse_path).parent)
         if parent_path == ".":
             parent_path = "/"
+    else:
+        parent_path = "/"
 
     return {
         "browsable": True,
