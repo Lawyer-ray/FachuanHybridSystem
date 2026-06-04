@@ -30,7 +30,7 @@ document.addEventListener('alpine:init', () => {
         },
 
         storageTypeLabel(type) {
-            const labels = { webdav: 'WebDAV', onedrive: 'OneDrive' };
+            const labels = { webdav: 'WebDAV', onedrive: 'OneDrive', s3: 'S3', google_drive: 'Google Drive', dropbox: 'Dropbox' };
             return labels[type] || type;
         },
 

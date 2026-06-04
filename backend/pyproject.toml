@@ -77,6 +77,10 @@ dependencies = [
     "beautifulsoup4>=4.14.3",
     # --- 云存储 ---
     "webdavclient3>=3.14.7",
+    "boto3>=1.35.0",
+    "dropbox>=12.0.0",
+    "google-api-python-client>=2.150.0",
+    "google-auth>=2.35.0",
 ]
 
 [dependency-groups]

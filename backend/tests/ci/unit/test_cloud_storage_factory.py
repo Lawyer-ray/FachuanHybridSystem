@@ -25,8 +25,23 @@ class TestFactoryNullProviderFallback:
         provider = create_provider_for_binding(binding)
         assert isinstance(provider, NullProvider)
 
-    def test_unknown_type_returns_null(self):
+    def test_s3_without_account_returns_null(self):
         binding = SimpleNamespace(storage_type="s3", storage_account=None)
+        provider = create_provider_for_binding(binding)
+        assert isinstance(provider, NullProvider)
+
+    def test_google_drive_without_account_returns_null(self):
+        binding = SimpleNamespace(storage_type="google_drive", storage_account=None)
+        provider = create_provider_for_binding(binding)
+        assert isinstance(provider, NullProvider)
+
+    def test_dropbox_without_account_returns_null(self):
+        binding = SimpleNamespace(storage_type="dropbox", storage_account=None)
+        provider = create_provider_for_binding(binding)
+        assert isinstance(provider, NullProvider)
+
+    def test_unknown_type_returns_null(self):
+        binding = SimpleNamespace(storage_type="ftp", storage_account=None)
         provider = create_provider_for_binding(binding)
         assert isinstance(provider, NullProvider)
 
@@ -45,6 +60,24 @@ class TestFactoryNullProviderFallback:
         binding = SimpleNamespace(storage_type="onedrive", storage_account=None)
         provider = create_provider_for_binding(binding)
         with pytest.raises(RuntimeError, match="OneDrive 账号未配置"):
+            provider.list_directory("/")
+
+    def test_s3_null_provider_raises_on_use(self):
+        binding = SimpleNamespace(storage_type="s3", storage_account=None)
+        provider = create_provider_for_binding(binding)
+        with pytest.raises(RuntimeError, match="S3 账号未配置"):
+            provider.list_directory("/")
+
+    def test_google_drive_null_provider_raises_on_use(self):
+        binding = SimpleNamespace(storage_type="google_drive", storage_account=None)
+        provider = create_provider_for_binding(binding)
+        with pytest.raises(RuntimeError, match="Google Drive 账号未配置"):
+            provider.list_directory("/")
+
+    def test_dropbox_null_provider_raises_on_use(self):
+        binding = SimpleNamespace(storage_type="dropbox", storage_account=None)
+        provider = create_provider_for_binding(binding)
+        with pytest.raises(RuntimeError, match="Dropbox 账号未配置"):
             provider.list_directory("/")
 
     def test_unknown_type_null_provider_raises_on_use(self):

@@ -1,15 +1,18 @@
 /**
  * CloudStorageAccount admin — show/hide fieldsets + help sections based on storage_type,
- * and move OneDrive auth section into the OneDrive fieldset.
+ * and move auth sections into their respective fieldsets.
  */
 document.addEventListener('DOMContentLoaded', function () {
   var typeSelect = document.getElementById('id_storage_type');
   if (!typeSelect) return;
 
   var sectionMap = {
-    local: { fieldset: 'local-section', help: 'nutstore-help-section' },
-    webdav: { fieldset: 'webdav-section', help: 'nutstore-help-section' },
-    onedrive: { fieldset: 'onedrive-section', help: 'onedrive-help-section' },
+    local: { fieldset: 'local-section' },
+    webdav: { fieldset: 'webdav-section' },
+    onedrive: { fieldset: 'onedrive-section' },
+    s3: { fieldset: 's3-section' },
+    google_drive: { fieldset: 'gdrive-section' },
+    dropbox: { fieldset: 'dropbox-section' },
   };
 
   function toggle() {
@@ -26,11 +29,14 @@ document.addEventListener('DOMContentLoaded', function () {
       }
     });
 
-    // Toggle help sections — show all WebDAV guides when webdav is selected
+    // Toggle help sections
     var helpSections = [
       { id: 'nutstore-help-section', type: 'webdav' },
       { id: '123pan-help-section', type: 'webdav' },
       { id: 'onedrive-help-section', type: 'onedrive' },
+      { id: 's3-help-section', type: 's3' },
+      { id: 'gdrive-help-section', type: 'google_drive' },
+      { id: 'dropbox-help-section', type: 'dropbox' },
     ];
     helpSections.forEach(function (section) {
       var el = document.getElementById(section.id);
@@ -41,19 +47,26 @@ document.addEventListener('DOMContentLoaded', function () {
   typeSelect.addEventListener('change', toggle);
   toggle();
 
-  // Move OneDrive auth section into the OneDrive fieldset
-  var authSection = document.getElementById('onedrive-auth-section');
-  if (!authSection) return;
+  // Move auth sections into their respective fieldsets
+  var authSections = [
+    { id: 'onedrive-auth-section', headingContains: 'OneDrive' },
+    { id: 'dropbox-auth-section', headingContains: 'Dropbox' },
+  ];
 
-  var fieldsets = document.querySelectorAll('fieldset');
-  for (var i = 0; i < fieldsets.length; i++) {
-    var heading = fieldsets[i].querySelector('h2');
-    if (heading && heading.textContent.indexOf('OneDrive') !== -1) {
-      authSection.style.margin = '12px 0 0 0';
-      authSection.style.padding = '12px';
-      authSection.style.borderTop = '1px solid #eee';
-      fieldsets[i].appendChild(authSection);
-      break;
+  authSections.forEach(function (cfg) {
+    var authSection = document.getElementById(cfg.id);
+    if (!authSection) return;
+
+    var fieldsets = document.querySelectorAll('fieldset');
+    for (var i = 0; i < fieldsets.length; i++) {
+      var heading = fieldsets[i].querySelector('h2');
+      if (heading && heading.textContent.indexOf(cfg.headingContains) !== -1) {
+        authSection.style.margin = '12px 0 0 0';
+        authSection.style.padding = '12px';
+        authSection.style.borderTop = '1px solid #eee';
+        fieldsets[i].appendChild(authSection);
+        break;
+      }
     }
-  }
+  });
 });

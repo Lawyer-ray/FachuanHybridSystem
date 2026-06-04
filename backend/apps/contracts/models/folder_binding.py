@@ -31,7 +31,14 @@ class ContractFolderBinding(models.Model):
     # ── Cloud storage fields ───────────────────────────────────
     storage_type = models.CharField(
         max_length=20,
-        choices=[("local", "本地文件系统"), ("webdav", "WebDAV"), ("onedrive", "OneDrive")],
+        choices=[
+            ("local", "本地文件系统"),
+            ("webdav", "WebDAV"),
+            ("onedrive", "OneDrive"),
+            ("s3", "S3 兼容存储"),
+            ("google_drive", "Google Drive"),
+            ("dropbox", "Dropbox"),
+        ],
         default="local",
         verbose_name=_("存储类型"),
     )
