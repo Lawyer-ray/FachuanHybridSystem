@@ -59,16 +59,18 @@ class _PathResolver:
         return current_id
 
     def invalidate(self, path: str) -> None:
-        """Remove cached entries under path."""
+        """Remove cached entries under path. Preserves root mapping."""
         prefix = path.strip("/")
+        if not prefix:
+            return  # never clear the root
         keys_to_remove = [k for k in self._cache if k.startswith(f"/{prefix}")]
         for k in keys_to_remove:
             self._cache.pop(k, None)
 
 
 def _escape_gql(value: str) -> str:
-    """Escape single quotes for Google Drive query strings."""
-    return value.replace("'", "\\'")
+    """Escape special characters for Google Drive query strings."""
+    return value.replace("\\", "\\\\").replace("'", "\\'").replace('"', '\\"')
 
 
 def _parse_gdrive_time(iso_str: str) -> float:
@@ -212,8 +214,10 @@ class GDriveProvider:
     def mkdir(self, path: str) -> None:
         parts = path.strip("/").split("/")
         current_id = self._root_id
+        current_path = ""
 
         for part in parts:
+            current_path = f"{current_path}/{part}" if current_path else f"/{part}"
             existing = self._find_child(current_id, part)
             if existing:
                 current_id = existing
@@ -225,7 +229,7 @@ class GDriveProvider:
                 }
                 folder = self._service.files().create(body=metadata, fields="id").execute()
                 current_id = folder["id"]
-                self._resolver._cache[f"{path.rstrip('/')}"] = current_id
+            self._resolver._cache[current_path] = current_id
 
     def exists(self, path: str) -> bool:
         return self._resolve(path) is not None
@@ -265,10 +269,19 @@ class GDriveProvider:
         )
 
     def walk(self, path: str) -> Iterator[tuple[str, list[str], list[CloudFileInfo]]]:
+        yield from self._walk_recursive(path, set())
+
+    def _walk_recursive(
+        self, path: str, visited: set[str]
+    ) -> Iterator[tuple[str, list[str], list[CloudFileInfo]]]:
+        file_id = self._resolve(path)
+        if not file_id or file_id in visited:
+            return
+        visited.add(file_id)
         children = self.list_directory(path)
         subdirs = [c.name for c in children if c.is_dir]
         files = [c for c in children if not c.is_dir]
         yield (path, subdirs, files)
         for subdir in subdirs:
             sub_path = f"{path.rstrip('/')}/{subdir}"
-            yield from self.walk(sub_path)
+            yield from self._walk_recursive(sub_path, visited)

@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 DEVICE_CODE_URL = "https://api.dropboxapi.com/oauth2/device/code"
 TOKEN_URL = "https://api.dropboxapi.com/oauth2/token"
-SCOPE = "files.content.write files.content.read file_requests.write"
+SCOPE = "files.content.write files.content.read files.metadata.read"
 
 
 @dataclass
@@ -113,13 +113,14 @@ class DropboxOAuthTokenManager:
             "interval": data.get("interval", 5),
         }
 
-    def complete_device_code_flow(self, device_code: str) -> str:
+    def complete_device_code_flow(self, device_code: str, interval: int = 5) -> str:
         """Poll for token until user authorizes or timeout. Returns access_token."""
         app_key = self._account.dropbox_app_key
         app_secret = self._account.get_decrypted_dropbox_app_secret()
+        current_interval = interval
 
         for i in range(60):
-            time.sleep(5)
+            time.sleep(current_interval)
             resp = httpx.post(
                 TOKEN_URL,
                 data={
@@ -145,7 +146,7 @@ class DropboxOAuthTokenManager:
             if error in ("access_denied", "expired_token"):
                 raise RuntimeError("授权被拒绝或已过期，请重试")
             if error == "slow_down":
-                time.sleep(5)
+                current_interval += 5
 
         raise RuntimeError("授权超时，请重试")
 
@@ -262,7 +263,7 @@ class DropboxProvider:
         try:
             self._dbx.files_delete_v2(dbx_path)
         except dropbox.exceptions.ApiError as e:
-            if e.error.is_path() and e.error.get_path().is_not_found():
+            if e.error.is_path_lookup() and e.error.get_path_lookup().is_not_found():
                 return
             raise
 

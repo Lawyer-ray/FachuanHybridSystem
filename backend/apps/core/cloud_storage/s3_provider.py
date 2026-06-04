@@ -115,7 +115,12 @@ class S3Provider:
             return True
         except self._client.exceptions.ClientError as e:  # type: ignore[attr-defined]
             error_code = e.response["Error"]["Code"]  # type: ignore[attr-defined]
-            if error_code == "404":
+            if error_code in ("404", "NoSuchKey"):
+                # Fallback: check if any child objects exist under this prefix
+                prefix = key + "/" if key else ""
+                if prefix:
+                    resp = self._client.list_objects_v2(Bucket=self._bucket, Prefix=prefix, MaxKeys=1)
+                    return resp.get("KeyCount", 0) > 0
                 return False
             raise
 
@@ -134,8 +139,11 @@ class S3Provider:
         key = self._full_key(path)
         try:
             resp = self._client.head_object(Bucket=self._bucket, Key=key)
-        except self._client.exceptions.ClientError:  # type: ignore[attr-defined]
-            return None
+        except self._client.exceptions.ClientError as e:  # type: ignore[attr-defined]
+            error_code = e.response["Error"]["Code"]  # type: ignore[attr-defined]
+            if error_code in ("404", "NoSuchKey"):
+                return None
+            raise
         name = path.strip("/").split("/")[-1]
         return CloudFileInfo(
             name=name,

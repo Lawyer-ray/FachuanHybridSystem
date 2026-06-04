@@ -75,7 +75,10 @@ def create_provider_for_binding(binding: Any) -> CloudStorageProvider:
             import json
 
             sa_json_str = storage_account.get_decrypted_gdrive_service_account_json()
-            sa_json = json.loads(sa_json_str) if sa_json_str else {}
+            if not sa_json_str:
+                logger.warning("No Google Drive service account JSON configured")
+                return NullProvider(reason="Google Drive 服务账号 JSON 未配置，请在 Admin 后台填写")
+            sa_json = json.loads(sa_json_str)
             return GDriveProvider(
                 service_account_json=sa_json,
                 root_folder_id=getattr(storage_account, "gdrive_root_folder_id", "root"),
@@ -148,7 +151,10 @@ def create_provider_from_account(account: Any) -> CloudStorageProvider:
         import json
 
         sa_json_str = account.get_decrypted_gdrive_service_account_json()
-        sa_json = json.loads(sa_json_str) if sa_json_str else {}
+        if not sa_json_str:
+            logger.warning("No Google Drive service account JSON configured")
+            return NullProvider(reason="Google Drive 服务账号 JSON 未配置，请在 Admin 后台填写")
+        sa_json = json.loads(sa_json_str)
         return GDriveProvider(
             service_account_json=sa_json,
             root_folder_id=getattr(account, "gdrive_root_folder_id", "root"),
