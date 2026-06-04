@@ -216,9 +216,13 @@ class EmailFolderScanService:
 
     def _collect_subdirs_cloud(self, folder_path: str, provider: Any) -> list[tuple[str, list[str]]]:
         """云存储版本：收集子目录."""
+        from apps.core.cloud_storage.exceptions import CloudStorageError
+
         result: list[tuple[str, list[str]]] = []
         try:
             children = provider.list_directory(folder_path)
+        except CloudStorageError:
+            raise
         except Exception:
             return []
 
@@ -263,6 +267,8 @@ class EmailFolderScanService:
 
     def _collect_allowed_files_cloud(self, folder_path: str, provider: Any) -> list[str]:
         """云存储版本：递归收集合规文件."""
+        from apps.core.cloud_storage.exceptions import CloudStorageError
+
         result: list[str] = []
         try:
             for _dirpath, _subdirs, files in provider.walk(folder_path):
@@ -280,6 +286,8 @@ class EmailFolderScanService:
                         logger.warning("文件超过大小限制，跳过: %s", f.name)
                         continue
                     result.append(file_path)
+        except CloudStorageError:
+            raise
         except Exception:
             logger.exception("云存储文件收集失败: %s", folder_path)
         return sorted(result)

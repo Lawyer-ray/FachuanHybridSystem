@@ -74,6 +74,14 @@ class WebDAVProvider:
         self._limiter.wait_if_needed()
         url = self._url(path)
         resp = self._session.request(method, url, timeout=30, **kwargs)
+        if resp.status_code == 503:
+            from .exceptions import CloudStorageRateLimitError
+
+            raise CloudStorageRateLimitError(
+                "坚果云服务暂时不可用（请求过于频繁），请稍后重试",
+                provider="坚果云 WebDAV",
+                retry_after=60,
+            )
         if resp.status_code >= 400:
             logger.error("WebDAV %s %s returned %d", method, url, resp.status_code)
         return resp
@@ -91,6 +99,14 @@ class WebDAVProvider:
             headers={"Depth": "1"},
             timeout=30,
         )
+        if resp.status_code == 503:
+            from .exceptions import CloudStorageRateLimitError
+
+            raise CloudStorageRateLimitError(
+                "坚果云服务暂时不可用（请求过于频繁），请稍后重试",
+                provider="坚果云 WebDAV",
+                retry_after=60,
+            )
         if resp.status_code == 404:
             return []
         if resp.status_code >= 400:

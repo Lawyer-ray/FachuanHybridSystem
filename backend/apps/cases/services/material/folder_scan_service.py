@@ -253,7 +253,17 @@ class CaseFolderScanService:
             if storage_provider is not None:
                 from pathlib import PurePosixPath
 
-                file_bytes = storage_provider.read_file(source_path)
+                from apps.core.cloud_storage.exceptions import CloudStorageError
+
+                try:
+                    file_bytes = storage_provider.read_file(source_path)
+                except CloudStorageError:
+                    raise
+                except Exception as e:
+                    raise CloudStorageError(
+                        f"读取云存储文件失败: {source_path}",
+                        provider="云存储",
+                    ) from e
                 file_name = PurePosixPath(source_path).name
             else:
                 file_path = Path(source_path)
@@ -402,10 +412,16 @@ class CaseFolderScanService:
                 updated_at=timezone.now(),
             )
         except Exception as exc:
+            from apps.core.cloud_storage.exceptions import CloudStorageError
+
+            if isinstance(exc, CloudStorageError):
+                error_msg = str(exc)
+            else:
+                error_msg = f"扫描失败: {type(exc).__name__}"
             logger.exception("case_folder_scan_failed", extra={"session_id": session_id})
             CaseFolderScanSession.objects.filter(id=session.id).update(
                 status=CaseFolderScanStatus.FAILED,
-                error_message=str(exc),
+                error_message=error_msg,
                 updated_at=timezone.now(),
             )
 

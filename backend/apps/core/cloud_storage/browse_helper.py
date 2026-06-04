@@ -6,6 +6,7 @@ import logging
 from pathlib import PurePosixPath
 from typing import Any
 
+from .exceptions import CloudStorageRateLimitError
 from .models import CloudStorageAccount
 
 logger = logging.getLogger("apps.core.cloud_storage")
@@ -45,9 +46,12 @@ def browse_cloud_folder(
 
     try:
         children = provider.list_directory(browse_path)
+    except CloudStorageRateLimitError as e:
+        logger.warning("cloud_browse_rate_limited", extra={"path": browse_path, "account_id": storage_account_id})
+        return _error_result(str(e), browse_path, storage_type)
     except Exception:
         logger.exception("cloud_browse_failed", extra={"path": browse_path, "account_id": storage_account_id})
-        return _error_result("云存储目录访问失败", browse_path, storage_type)
+        return _error_result("云存储目录访问失败，请稍后重试", browse_path, storage_type)
 
     entries: list[dict[str, str]] = []
     for child in children:

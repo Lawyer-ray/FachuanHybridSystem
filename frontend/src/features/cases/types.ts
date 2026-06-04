@@ -469,6 +469,7 @@ export interface FolderScanSession {
   status: string
   progress: number
   current_file: string
+  error_message: string
   summary: Record<string, unknown>
   candidates: FolderScanCandidate[]
 }
