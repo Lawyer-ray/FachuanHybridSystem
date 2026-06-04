@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import threading
 import time as _time
 from typing import Any
@@ -13,22 +14,20 @@ from django.utils.html import format_html
 
 from .models import CloudStorageAccount
 
+logger = logging.getLogger(__name__)
+
 # In-memory store for pending device code auth: {account_id: {"user_code": ..., "verification_uri": ..., ...}}
 _pending_auth: dict[int, dict[str, Any]] = {}
 
 
 def _poll_device_code(account_id: int, device_code: str, interval: int, max_attempts: int) -> None:
     """Background thread: poll Microsoft token endpoint until user authorizes or timeout."""
-    import logging
-
     import httpx
 
     from apps.core.security.secret_codec import SecretCodec
 
     from .models import CloudStorageAccount
     from .onedrive_provider import TOKEN_URL_TEMPLATE
-
-    logger = logging.getLogger(__name__)
 
     try:
         account = CloudStorageAccount.objects.get(id=account_id)
