@@ -286,7 +286,9 @@ class ContractFolderScanService:
             try:
                 if temp_pdf_path is not None:
                     upload_content = temp_pdf_path.read_bytes()
-                    upload_name = str(PurePosixPath(file_name).stem) + ".pdf" if storage_provider else temp_pdf_path.name
+                    upload_name = (
+                        str(PurePosixPath(file_name).stem) + ".pdf" if storage_provider else temp_pdf_path.name
+                    )
                 else:
                     upload_content = file_bytes
                     upload_name = file_name
@@ -705,7 +707,7 @@ class ContractFolderScanService:
         if storage_provider is not None:
             from pathlib import PurePosixPath
 
-            scan_root_posix = PurePosixPath(scan_folder)
+            scan_root_posix: PurePosixPath | None = PurePosixPath(scan_folder)
         else:
             scan_root_posix = None
             scan_root = Path(scan_folder).expanduser().resolve()
@@ -790,6 +792,7 @@ class ContractFolderScanService:
                     try:
                         from pathlib import PurePosixPath
 
+                        assert scan_root_posix is not None
                         rel_path = str(PurePosixPath(source).relative_to(scan_root_posix))
                     except ValueError:
                         rel_path = source
@@ -805,9 +808,7 @@ class ContractFolderScanService:
 
         # 仅非诉项目收集 docx 文件（修订版/批注版 → 转 PDF）
         if archive_category == "non_litigation":
-            docx_candidates = self._collect_docx_files(
-                scan_folder, archive_category, storage_provider=storage_provider
-            )
+            docx_candidates = self._collect_docx_files(scan_folder, archive_category, storage_provider=storage_provider)
             processed.extend(docx_candidates)
 
         # 标记已导入文件：计算文件哈希并比对已有材料
@@ -905,12 +906,14 @@ class ContractFolderScanService:
             for f in files:
                 if not f.is_dir and PurePosixPath(f.name).suffix.lower() in (".docx", ".doc"):
                     if any(kw in _normalize_docx_name(f.name) for kw in revision_keywords):
-                        all_files.append({
-                            "name": f.name,
-                            "path": f.path,
-                            "size": f.size,
-                            "modified_at": f.modified_at,
-                        })
+                        all_files.append(
+                            {
+                                "name": f.name,
+                                "path": f.path,
+                                "size": f.size,
+                                "modified_at": f.modified_at,
+                            }
+                        )
 
         if not all_files:
             return []
@@ -946,23 +949,25 @@ class ContractFolderScanService:
                 archive_item_name = "案件其它关联材料"
                 reason = "常法docx（修订版/批注版）→ nl_9"
 
-            candidates.append({
-                "source_path": item["path"],
-                "filename": item["name"],
-                "file_size": item["size"],
-                "modified_at": "",
-                "base_name": normalized_name,
-                "version_token": "",
-                "extract_method": "none",
-                "text_excerpt": "",
-                "suggested_category": "case_material",
-                "confidence": 0.85,
-                "reason": reason,
-                "selected": True,
-                "is_docx": True,
-                "archive_item_code": archive_item_code,
-                "archive_item_name": archive_item_name,
-            })
+            candidates.append(
+                {
+                    "source_path": item["path"],
+                    "filename": item["name"],
+                    "file_size": item["size"],
+                    "modified_at": "",
+                    "base_name": normalized_name,
+                    "version_token": "",
+                    "extract_method": "none",
+                    "text_excerpt": "",
+                    "suggested_category": "case_material",
+                    "confidence": 0.85,
+                    "reason": reason,
+                    "selected": True,
+                    "is_docx": True,
+                    "archive_item_code": archive_item_code,
+                    "archive_item_name": archive_item_name,
+                }
+            )
 
         return candidates
 

@@ -784,10 +784,12 @@ class CaseAdminViewsMixin:
                     for child in children:
                         if not child.is_dir or child.name.startswith("."):
                             continue
-                        subfolders.append({
-                            "relative_path": child.name,
-                            "display_name": child.name,
-                        })
+                        subfolders.append(
+                            {
+                                "relative_path": child.name,
+                                "display_name": child.name,
+                            }
+                        )
                     subfolders.sort(key=lambda x: x["display_name"].lower())
                     return JsonResponse({"success": True, "subfolders": subfolders})
 
@@ -798,13 +800,13 @@ class CaseAdminViewsMixin:
                     return JsonResponse({"success": False, "error": "文件夹不存在"}, status=404)
 
                 subfolders = []
-                for child in sorted(root.iterdir(), key=lambda item: item.name.lower()):
-                    if not child.is_dir() or child.name.startswith("."):
+                for local_child in sorted(root.iterdir(), key=lambda item: item.name.lower()):
+                    if not local_child.is_dir() or local_child.name.startswith("."):
                         continue
                     subfolders.append(
                         {
-                            "relative_path": child.name,
-                            "display_name": child.name,
+                            "relative_path": local_child.name,
+                            "display_name": local_child.name,
                         }
                     )
 
