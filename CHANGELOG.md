@@ -2,6 +2,37 @@
 
 本项目的所有重要更改都将记录在此文件中。
 
+## [26.51.1] - 2026-06-04
+
+### 后端
+
+#### 新功能
+
+- **云存储全链路改造**：扫描→导入→版本号→案卷生成→邮件导入的完整业务流程均支持坚果云 WebDAV 和 OneDrive 云存储
+  - 扫描→导入管道云存储支持（`confirm_import`、哈希计算、docx 收集、已导入标记等）
+  - 版本号 + 案卷生成云存储支持（`_get_next_version` 递归搜索、`generate_archive_folder` 云上传）
+  - 邮件附件导入云存储支持（`email_folder_scan_service` 全部方法 + Admin 目录列表）
+- **云存储限流错误提示**：新增 `CloudStorageError`/`CloudStorageRateLimitError` 异常类，WebDAV 503 时抛出明确的中文提示（而非静默返回空或通用"系统错误"）
+- **共享 browse_helper 模块**：提取合同/案件 API 中重复的云浏览和账号查询逻辑到 `core.cloud_storage.browse_helper`
+
+#### 修复
+
+- **LocalProvider 路径逃逸防护**：`_resolve()` 和 `walk()` 均限制在 root 目录内，防止 `..` 路径穿越
+- **NullProvider 替代静默降级**：缺失账号时抛出明确错误而非 fallback 到本地文件系统
+- **OneDrive 根目录 URL 修复**：`_item_url`/`_children_url` 空路径处理，修复根目录 `exists()`/`is_dir()` 返回错误结果
+- **LocalProvider macOS 符号链接修复**：`_resolve()` 在 `__init__` 中解析 `self._root`，修复 `/tmp` → `/private/tmp` 符号链接导致 `is_relative_to()` 失败
+- **版本号子目录搜索修复**：使用 `provider.walk()` 替代 `list_directory()`，支持日期子目录结构中的版本文件
+- **Logger 属性冲突修复**：`extra` 字典中 `filename` 重命名为 `file_name`，避免覆盖 Python LogRecord 内置属性
+- **依赖漏洞修复**：pyjwt 2.12.1→2.13.0、starlette 1.0.0→1.2.1、aiohttp 3.13.5→3.14.0、pydantic-ai 1.90.0→1.105.0
+- **mypy 类型错误修复**：修复云存储模块中的 TypedDict/Iterable 类型不匹配等问题
+
+### 前端
+
+#### 修复
+
+- **云存储限流错误展示**：扫描失败时显示服务端错误详情（如"坚果云服务暂时不可用（请求过于频繁），请稍后重试"），不再显示空的通用错误
+- **FolderScanPanel 错误处理**：修复空 catch 吞掉错误信息的问题，toast 显示服务端错误详情
+
 ## [26.51.0] - 2026-06-03
 
 ### 后端
