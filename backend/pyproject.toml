@@ -1,6 +1,6 @@
 [project]
 name = "fachuan-backend"
-version = "26.51.0"
+version = "26.51.3"
 description = "法穿AI Copilot - Backend"
 requires-python = ">=3.12"
 dependencies = [
@@ -17,7 +17,7 @@ dependencies = [
     "uvicorn[standard]==0.46.0",
     "channels==4.3.2",
     "channels-redis==4.3.0",
-    "redis==7.4.0",
+    "valkey==6.0.0",
     # --- 数据库 ---
     "psycopg[binary]==3.3.4",
     # --- HTTP 客户端 ---
@@ -45,7 +45,7 @@ dependencies = [
     # --- 数据处理 ---
     "pandas==3.0.2",
     "pydantic==2.13.3",
-    "pydantic-ai[mcp]==1.90.0",
+    "pydantic-ai[mcp]==1.105.0",
     "python-dateutil==2.9.0.post0",
     "pyyaml==6.0.3",
     # --- 安全 / 加密 ---

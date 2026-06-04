@@ -99,9 +99,21 @@ def confirm_contract_scan(
 ) -> dict[str, object]:
     _require_contract_access(request, contract_id)
 
-    return _get_service().confirm_import(
+    service = _get_service()
+
+    # 解析云存储 provider（从 session → contract → binding 链路）
+    storage_provider = None
+    session = service.get_session(contract_id=contract_id, session_id=session_id)
+    try:
+        binding = session.contract.folder_binding
+        storage_provider = service._make_provider_for_binding(binding)
+    except Exception:
+        pass
+
+    return service.confirm_import(
         contract_id=contract_id,
         session_id=session_id,
         items=[item.model_dump() for item in payload.items],
         work_log_suggestions=[item.model_dump() for item in payload.work_log_suggestions],
+        storage_provider=storage_provider,
     )

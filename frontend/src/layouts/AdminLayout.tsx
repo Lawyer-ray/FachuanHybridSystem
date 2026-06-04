@@ -9,6 +9,7 @@ import {
   BreadcrumbProvider,
   useBreadcrumbContext,
 } from '@/contexts/BreadcrumbContext'
+import { PageSkeleton } from '@/components/shared/PageSkeleton'
 
 const CommandPalette = lazy(() =>
   import('@/components/shared/CommandPalette').then((m) => ({ default: m.CommandPalette }))
@@ -146,7 +147,7 @@ function AdminLayoutContent() {
 
       {/* 主内容区域 */}
       <div
-        className="relative z-10 flex min-h-screen flex-col transition-[margin-left] duration-200 ease-[cubic-bezier(0.4,0,0.2,1)]"
+        className="relative z-10 flex min-h-screen flex-col transition-[margin-left] duration-200 ease-[cubic-bezier(0.4,0,0.2,1)] will-change-[margin-left]"
         style={{ marginLeft: mainMarginLeft }}
       >
         <Navbar onMenuClick={handleMobileMenuClick} />
@@ -155,7 +156,9 @@ function AdminLayoutContent() {
           <div className="mb-4">
             <Breadcrumb items={breadcrumbItems} />
           </div>
-          <Outlet />
+          <Suspense fallback={<PageSkeleton />}>
+            <Outlet />
+          </Suspense>
         </main>
 
         {showFooter && (

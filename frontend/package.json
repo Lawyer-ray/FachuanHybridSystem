@@ -1,7 +1,7 @@
 {
   "name": "frontend",
   "private": true,
-  "version": "26.51.0",
+  "version": "26.51.3",
   "packageManager": "pnpm@10.28.2",
   "type": "module",
   "scripts": {
@@ -29,8 +29,6 @@
     "@tailwindcss/typography": "^0.5.19",
     "@tailwindcss/vite": "^4.1.18",
     "@tanstack/react-query": "^5.90.20",
-    "@tsparticles/react": "^3.0.0",
-    "@tsparticles/slim": "^3.9.1",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
@@ -60,7 +58,6 @@
     "@eslint/js": "^9.39.1",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
-    "@tsparticles/engine": "^3.9.1",
     "@types/node": "^24.10.1",
     "@types/react": "^19.2.5",
     "@types/react-dom": "^19.2.3",

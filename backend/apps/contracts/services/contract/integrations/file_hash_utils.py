@@ -20,3 +20,12 @@ def compute_file_hash(file_path: Path) -> str:
     except (OSError, ValueError):
         logger.exception("compute_file_hash_failed", extra={"path": file_path.as_posix()})
         return ""
+
+
+def compute_file_hash_from_bytes(data: bytes) -> str:
+    """计算 bytes 内容的 SHA-256 哈希值。用于云存储场景。"""
+    try:
+        return hashlib.sha256(data).hexdigest()
+    except (ValueError, TypeError):
+        logger.exception("compute_file_hash_from_bytes_failed")
+        return ""

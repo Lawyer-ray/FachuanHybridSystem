@@ -21,7 +21,10 @@ export function FolderScanPanel({ contractId }: { contractId: number }) {
       const res = await startScan.mutateAsync({ rescan, subfolder: subfolder === '__root__' ? '' : subfolder })
       setSessionId(res.session_id)
       toast.success('扫描已启动')
-    } catch { toast.error('启动失败') }
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : '启动失败'
+      toast.error(msg)
+    }
   }, [startScan, subfolder])
 
   const handleConfirm = useCallback(async () => {
@@ -33,7 +36,10 @@ export function FolderScanPanel({ contractId }: { contractId: number }) {
       const res = await confirmScan.mutateAsync({ sessionId, items })
       toast.success(`已导入 ${res.imported_count} 个文件`)
       setSessionId(null)
-    } catch { toast.error('确认失败') }
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : '确认失败'
+      toast.error(msg)
+    }
   }, [sessionId, status, candidates, confirmScan])
 
   const toggleCandidate = (idx: number) => {

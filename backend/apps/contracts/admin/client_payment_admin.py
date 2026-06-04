@@ -275,12 +275,13 @@ class ClientPaymentRecordAdmin(admin.ModelAdmin):
     def delete_queryset(
         self, request: HttpRequest, queryset: QuerySet[ClientPaymentRecord, ClientPaymentRecord]
     ) -> None:
-        """批量删除时调用 Service 层"""
+        """批量删除时调用 Service 层（需逐条处理关联图片清理）"""
         from apps.contracts.services.client_payment import ClientPaymentRecordService
 
         service = ClientPaymentRecordService()
-        for obj in queryset:
-            service.delete_payment_record(obj.id)
+        record_ids = list(queryset.values_list("id", flat=True))
+        for record_id in record_ids:
+            service.delete_payment_record(record_id)
 
     class Media:
         js = ("admin/js/jquery.init.js", "contracts/js/client_payment_admin.js")

@@ -262,6 +262,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
         'fixed left-0 top-0 z-40 h-screen flex flex-col',
         'bg-[#18181b] border-r border-[#27272a]',
         'transition-[width] duration-200 ease-[cubic-bezier(0.4,0,0.2,1)]',
+        'will-change-[width]',
       )}
       style={{ width: collapsed ? 56 : 220 }}
     >

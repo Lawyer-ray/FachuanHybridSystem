@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Search, Loader2, Plus, Clock, Paperclip, Bell, Trash2 } from 'lucide-react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query'
 
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -53,6 +53,7 @@ export function LogsPage() {
   const [newContent, setNewContent] = useState('')
   const [reminderType, setReminderType] = useState('')
   const [reminderTime, setReminderTime] = useState('')
+  const [visibleGroups, setVisibleGroups] = useState(10)  // 客户端分页：初始显示 10 组
 
   const queryClient = useQueryClient()
 
@@ -60,12 +61,14 @@ export function LogsPage() {
     queryKey: ['all-logs'],
     queryFn: () => caseApi.listAllLogs(),
     staleTime: 60 * 1000,
+    placeholderData: keepPreviousData,
   })
 
   const { data: cases = [] } = useQuery({
     queryKey: ['cases-for-log'],
     queryFn: () => caseApi.list(),
     staleTime: 5 * 60 * 1000,
+    placeholderData: keepPreviousData,
   })
 
   const createMutation = useMutation({
@@ -245,7 +248,7 @@ export function LogsPage() {
         </div>
       ) : (
         <div className="space-y-6">
-          {grouped.map(([dateKey, dateLogs]) => (
+          {grouped.slice(0, visibleGroups).map(([dateKey, dateLogs]) => (
             <div key={dateKey}>
               <div className="sticky top-0 z-10 bg-background py-2 mb-3">
                 <span className="text-xs font-medium text-muted-foreground">
@@ -350,6 +353,17 @@ export function LogsPage() {
               </div>
             </div>
           ))}
+          {visibleGroups < grouped.length && (
+            <div className="flex justify-center pt-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setVisibleGroups((v) => v + 10)}
+              >
+                加载更多（还有 {grouped.length - visibleGroups} 组）
+              </Button>
+            </div>
+          )}
         </div>
       )}
     </div>

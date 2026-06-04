@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 import re
 from datetime import datetime
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import TYPE_CHECKING, Any
 
 from django.core.files.uploadedfile import SimpleUploadedFile
@@ -21,9 +21,10 @@ from .case_log_query_service import CaseLogQueryService
 if TYPE_CHECKING:
     from django.contrib.auth.models import AbstractBaseUser
 
+    from apps.core.cloud_storage.protocols import CloudStorageProvider
+
 logger = logging.getLogger("apps.cases")
 
-# 子文件夹名中的日期提取模式，如 "2026.04.16-收到判决书" → (2026, 4, 16)
 _DATE_PATTERN = re.compile(r"^(\d{4})[.\-](\d{1,2})[.\-](\d{1,2})")
 
 
@@ -63,49 +64,31 @@ class EmailFolderScanService:
         org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
     ) -> dict[str, Any]:
-        """将指定子文件夹下每个子目录分别导入为独立案件日志 + 附件.
-
-        目录结构示例:
-          4-邮件往来/
-            2026.04.16-收到判决书/
-              判决书.pdf
-            2026.03.12-收到移送检察院通知/
-              通知.jpg
-
-        每个 "2026.04.16-收到判决书" 子目录生成一条日志，日志内容包含目录标题和文件清单，
-        附件为该子目录下的合规文件。如果子目录名以日期开头，日志的 created_at 会被设为该日期。
-
-        去重逻辑：通过 source_subfolder 字段记录来源，重复导入时跳过已存在的子目录。
-
-        Args:
-            case_id: 案件 ID
-            subfolder: 子文件夹相对路径（与 folder-scan/subfolders 返回的 relative_path 一致）
-            user: 当前用户
-            org_access: 组织访问策略
-            perm_open_access: 是否有开放访问权限
-
-        Returns:
-            {"logs": 创建的 CaseLog 列表, "skipped_count": 跳过的子目录数量}
-        """
-        case_root = self._get_bound_case_root(case_id)
+        """将指定子文件夹下每个子目录分别导入为独立案件日志 + 附件."""
+        case_root, provider = self._get_bound_case_root(case_id)
         if case_root is None:
             raise NotFoundError("案件未绑定可用文件夹")
 
-        target = self._resolve_subfolder(case_root, subfolder)
+        is_cloud = provider is not None
+        target = self._resolve_subfolder(case_root, subfolder, provider=provider)
 
-        if not target.exists() or not target.is_dir():
-            raise ValidationException("指定文件夹不存在", errors={"subfolder": "文件夹路径无效"})
+        # 检查目标是否存在
+        if is_cloud:
+            assert provider is not None
+            if not provider.exists(str(target)):
+                raise ValidationException("指定文件夹不存在", errors={"subfolder": "文件夹路径无效"})
+        else:
+            if not target.exists() or not target.is_dir():  # type: ignore[union-attr]
+                raise ValidationException("指定文件夹不存在", errors={"subfolder": "文件夹路径无效"})
 
-        # 收集子目录（每个子目录 = 一条日志）
-        subdirs = self._collect_subdirs(target)
+        # 收集子目录
+        subdirs = self._collect_subdirs(target, provider=provider)
         if not subdirs:
-            # 如果没有子目录，将整个文件夹作为一条日志
-            files = self._collect_allowed_files(target)
+            files = self._collect_allowed_files(target, provider=provider)
             if not files:
                 raise ValidationException("文件夹内没有可导入的文件", errors={"subfolder": "无合规文件"})
             subdirs = [(target, files)]
 
-        # 查询该案件已有的来源子文件夹，用于去重
         existing_sources: set[str] = set(
             CaseLog.objects.filter(case_id=case_id)
             .exclude(source_subfolder="")
@@ -117,14 +100,14 @@ class EmailFolderScanService:
 
         with transaction.atomic():
             for subdir, files in subdirs:
-                # 去重：来源标识 = "子文件夹路径/子目录名"
-                source_key = f"{subfolder}/{subdir.name}"
+                subdir_name = subdir.name if isinstance(subdir, Path) else PurePosixPath(subdir).name
+                source_key = f"{subfolder}/{subdir_name}"
                 if source_key in existing_sources:
                     skipped_count += 1
-                    logger.info(f"案件 {case_id} 跳过已导入子目录: {source_key}")
+                    logger.info("案件 %d 跳过已导入子目录: %s", case_id, source_key)
                     continue
 
-                content = self._build_log_content(subdir, files, target)
+                content = self._build_log_content(subdir_name)
 
                 log = self.mutation_service.create_log(
                     case_id=case_id,
@@ -134,29 +117,29 @@ class EmailFolderScanService:
                     perm_open_access=perm_open_access,
                 )
 
-                # 回写 source_subfolder 用于后续去重
                 log.source_subfolder = source_key
                 log.save(update_fields=["source_subfolder"])
 
-                # 如果子目录名以日期开头，回写 created_at
-                date_match = _DATE_PATTERN.match(subdir.name)
+                date_match = _DATE_PATTERN.match(subdir_name)
                 if date_match:
                     try:
                         year, month, day = int(date_match.group(1)), int(date_match.group(2)), int(date_match.group(3))
                         log.created_at = datetime(year, month, day, 12, 0, 0)
                         log.save(update_fields=["created_at"])
                     except ValueError:
-                        pass  # 日期无效则跳过，使用默认时间
+                        pass
 
-                # 逐个上传附件
                 for file_path in files:
-                    self._upload_file_as_attachment(log, file_path)
+                    self._upload_file_as_attachment(log, file_path, provider=provider)
 
                 created_logs.append(log)
                 existing_sources.add(source_key)
 
         logger.info(
-            f"案件 {case_id} 子文件夹导入完成: 目录={target.name}, 新增={len(created_logs)}, 跳过={skipped_count}"
+            "案件 %d 子文件夹导入完成: 新增=%d, 跳过=%d",
+            case_id,
+            len(created_logs),
+            skipped_count,
         )
         return {"logs": created_logs, "skipped_count": skipped_count}
 
@@ -164,20 +147,27 @@ class EmailFolderScanService:
     # 内部方法
     # ------------------------------------------------------------------
 
-    def _get_bound_case_root(self, case_id: int) -> Path | None:
-        """获取案件绑定的文件夹根路径."""
+    def _get_bound_case_root(self, case_id: int) -> tuple[Path | str | None, CloudStorageProvider | None]:
+        """获取案件绑定的文件夹根路径和可选的云存储 provider."""
         binding = CaseFolderBinding.objects.filter(case_id=case_id).first()
         if not binding or not binding.resolved_folder_path:
-            return None
+            return None, None
+
+        storage_type = getattr(binding, "storage_type", "local")
+        if storage_type != "local" and getattr(binding, "storage_account", None) is not None:
+            from apps.core.cloud_storage.factory import create_provider_for_binding
+
+            provider = create_provider_for_binding(binding)
+            return binding.resolved_folder_path, provider
 
         root = Path(binding.resolved_folder_path).expanduser().resolve()
         if not root.exists() or not root.is_dir():
-            logger.warning(f"案件 {case_id} 绑定目录不可访问: {root}")
-            return None
-        return root
+            logger.warning("案件 %d 绑定目录不可访问: %s", case_id, root)
+            return None, None
+        return root, None
 
-    def _resolve_subfolder(self, case_root: Path, subfolder: str) -> Path:
-        """将相对子文件夹路径解析为绝对路径，并校验安全性."""
+    def _resolve_subfolder(self, case_root: Path | str, subfolder: str, provider: Any = None) -> Path | str:
+        """将相对子文件夹路径解析为完整路径，并校验安全性."""
         raw = str(subfolder or "").strip().replace("\\", "/")
         if not raw:
             raise ValidationException("子文件夹路径不能为空", errors={"subfolder": raw})
@@ -193,7 +183,14 @@ class EmailFolderScanService:
         if any(p.startswith(".") for p in parts):
             raise ValidationException("子文件夹路径非法", errors={"subfolder": raw})
 
-        target = (case_root / "/".join(parts)).resolve()
+        joined = "/".join(parts)
+
+        if provider is not None:
+            root_str = str(case_root).rstrip("/")
+            return f"{root_str}/{joined}"
+
+        assert isinstance(case_root, Path)
+        target = (case_root / joined).resolve()
         if not target.is_relative_to(case_root):
             raise ValidationException(
                 "文件夹路径不在案件绑定目录内",
@@ -201,12 +198,12 @@ class EmailFolderScanService:
             )
         return target
 
-    def _collect_subdirs(self, folder_path: Path) -> list[tuple[Path, list[Path]]]:
-        """收集文件夹下所有含合规文件的子目录.
+    def _collect_subdirs(self, folder_path: Path | str, provider: Any = None) -> list[tuple[Any, list[Any]]]:
+        """收集文件夹下所有含合规文件的子目录."""
+        if provider is not None:
+            return self._collect_subdirs_cloud(str(folder_path), provider)
 
-        Returns:
-            [(子目录路径, [合规文件列表]), ...] 按目录名排序
-        """
+        assert isinstance(folder_path, Path)
         result: list[tuple[Path, list[Path]]] = []
         for child in sorted(folder_path.iterdir()):
             if not child.is_dir():
@@ -218,13 +215,39 @@ class EmailFolderScanService:
                 result.append((child, files))
         return result
 
-    def _collect_allowed_files(self, folder_path: Path) -> list[Path]:
-        """递归收集文件夹内所有合规文件（扩展名 + 大小校验），跳过隐藏文件/目录."""
+    def _collect_subdirs_cloud(self, folder_path: str, provider: Any) -> list[tuple[str, list[str]]]:
+        """云存储版本：收集子目录."""
+        from apps.core.cloud_storage.exceptions import CloudStorageError
+
+        result: list[tuple[str, list[str]]] = []
+        try:
+            children = provider.list_directory(folder_path)
+        except CloudStorageError:
+            raise
+        except Exception:
+            return []
+
+        for child in sorted(children, key=lambda c: c.name.lower()):
+            if not child.is_dir:
+                continue
+            if child.name.startswith("."):
+                continue
+            child_path = f"{folder_path.rstrip('/')}/{child.name}"
+            files = self._collect_allowed_files(child_path, provider=provider)
+            if files:
+                result.append((child_path, files))
+        return result
+
+    def _collect_allowed_files(self, folder_path: Path | str, provider: Any = None) -> list[Any]:
+        """递归收集文件夹内所有合规文件."""
+        if provider is not None:
+            return self._collect_allowed_files_cloud(str(folder_path), provider)
+
+        assert isinstance(folder_path, Path)
         result: list[Path] = []
         for f in sorted(folder_path.rglob("*")):
             if not f.is_file():
                 continue
-            # 跳过隐藏文件和隐藏目录下的文件
             try:
                 rel_parts = f.relative_to(folder_path).parts
             except ValueError:
@@ -235,38 +258,64 @@ class EmailFolderScanService:
                 continue
             try:
                 if CASE_LOG_MAX_FILE_SIZE > 0 and f.stat().st_size > CASE_LOG_MAX_FILE_SIZE:
-                    logger.warning(f"文件超过大小限制，跳过: {f.name}")
+                    logger.warning("文件超过大小限制，跳过: %s", f.name)
                     continue
             except OSError:
-                logger.warning(f"文件无法访问，跳过: {f.name}")
+                logger.warning("文件无法访问，跳过: %s", f.name)
                 continue
             result.append(f)
         return result
 
-    def _build_log_content(self, subdir: Path, files: list[Path], root: Path) -> str:
-        """构建日志内容，只保留文件夹名中日期之后的描述部分.
+    def _collect_allowed_files_cloud(self, folder_path: str, provider: Any) -> list[str]:
+        """云存储版本：递归收集合规文件."""
+        from apps.core.cloud_storage.exceptions import CloudStorageError
 
-        例如 "2026.03.02-收到鉴定意见通知书等当事人传回材料" → "收到鉴定意见通知书等当事人传回材料"
-        如果文件夹名没有日期前缀，则直接使用文件夹名。
-        """
-        name = subdir.name
-        # 尝试去掉日期前缀，如 "2026.03.02-" 或 "2026-03-02-"
-        content = re.sub(r"^\d{4}[.\-]\d{1,2}[.\-]\d{1,2}[\-\s]*", "", name)
-        return content if content else name
-
-    def _upload_file_as_attachment(self, log: CaseLog, file_path: Path) -> CaseLogAttachment | None:
-        """将本地文件上传为日志附件."""
+        result: list[str] = []
         try:
-            with open(file_path, "rb") as f:
-                file_content = f.read()
+            for _dirpath, _subdirs, files in provider.walk(folder_path):
+                for f in files:
+                    if f.is_dir:
+                        continue
+                    # 构建完整路径（兼容 WebDAV 和 OneDrive 的不同 path 格式）
+                    file_path = f"{folder_path.rstrip('/')}/{f.name}"
+                    rel = PurePosixPath(file_path)
+                    if any(part.startswith(".") for part in rel.parts):
+                        continue
+                    if PurePosixPath(f.name).suffix.lower() not in CASE_LOG_ALLOWED_EXTENSIONS:
+                        continue
+                    if CASE_LOG_MAX_FILE_SIZE > 0 and f.size > CASE_LOG_MAX_FILE_SIZE:
+                        logger.warning("文件超过大小限制，跳过: %s", f.name)
+                        continue
+                    result.append(file_path)
+        except CloudStorageError:
+            raise
+        except Exception:
+            logger.exception("云存储文件收集失败: %s", folder_path)
+        return sorted(result)
 
-            uploaded_file = SimpleUploadedFile(
-                name=file_path.name,
-                content=file_content,
-            )
+    def _build_log_content(self, subdir_name: str) -> str:
+        """构建日志内容，只保留文件夹名中日期之后的描述部分."""
+        content = re.sub(r"^\d{4}[.\-]\d{1,2}[.\-]\d{1,2}[\-\s]*", "", subdir_name)
+        return content if content else subdir_name
+
+    def _upload_file_as_attachment(
+        self, log: CaseLog, file_path: Path | str, provider: Any = None
+    ) -> CaseLogAttachment | None:
+        """上传文件为日志附件（本地或云存储）."""
+        try:
+            if provider is not None:
+                file_content = provider.read_file(str(file_path))
+                file_name = PurePosixPath(str(file_path)).name
+            else:
+                assert isinstance(file_path, Path)
+                with open(file_path, "rb") as f:
+                    file_content = f.read()
+                file_name = file_path.name
+
+            uploaded_file = SimpleUploadedFile(name=file_name, content=file_content)
             attachment = CaseLogAttachment.objects.create(log=log, file=uploaded_file)
-            logger.info(f"附件上传成功: {file_path.name} -> 日志 {log.id}")
+            logger.info("附件上传成功: %s -> 日志 %d", file_name, log.id)
             return attachment
         except Exception:
-            logger.exception(f"附件上传失败: {file_path.name}")
+            logger.exception("附件上传失败: %s", file_path)
             return None

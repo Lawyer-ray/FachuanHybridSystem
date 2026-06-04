@@ -13,15 +13,22 @@ import { useAuth } from '@/features/auth/hooks/use-auth'
 import { PATHS } from './paths'
 
 /**
- * 加载状态组件
- * 在认证状态检查期间显示
+ * 认证检查期间的骨架屏
+ *
+ * 只渲染简单背景 + 加载指示器，不渲染 Sidebar/Navbar。
+ * 避免认证失败时闪现整个后台壳。
  */
-function LoadingSpinner() {
+function AuthLoadingSkeleton() {
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center">
-      <div className="flex flex-col items-center gap-3">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        <p className="text-sm text-muted-foreground">验证登录状态...</p>
+    <div className="min-h-screen bg-background">
+      {/* 模拟侧边栏占位 */}
+      <div className="fixed left-0 top-0 h-full w-[56px] bg-[#18181b] border-r border-[#27272a]" />
+      {/* 主内容区骨架 */}
+      <div className="ml-[56px] flex items-center justify-center min-h-screen">
+        <div className="flex flex-col items-center gap-3">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <p className="text-sm text-muted-foreground">验证登录状态...</p>
+        </div>
       </div>
     </div>
   )
@@ -33,7 +40,7 @@ function LoadingSpinner() {
  *
  * 功能：
  * - 页面加载时调用 checkAuth 恢复认证状态
- * - 认证检查期间直接渲染布局（乐观渲染），避免全屏 spinner
+ * - 认证检查期间显示骨架屏（不渲染 Sidebar/Navbar），避免认证失败时闪现后台壳
  * - 未认证时重定向到登录页
  *
  * Validates: Requirement 8.5
@@ -47,8 +54,12 @@ export function AuthGuard() {
     checkAuth()
   }, [checkAuth])
 
-  // 仅在确认未认证时跳转，检查期间直接渲染布局（页面内 TanStack Query 自行处理加载态）
-  if (!isLoading && !isAuthenticated) {
+  // 加载中显示骨架屏，避免认证失败时闪现整个后台壳
+  if (isLoading) {
+    return <AuthLoadingSkeleton />
+  }
+
+  if (!isAuthenticated) {
     const redirectTo = location.pathname + location.search
     return <Navigate to={`${PATHS.LOGIN}?redirect=${encodeURIComponent(redirectTo)}`} replace />
   }
@@ -76,9 +87,9 @@ export function GuestGuard() {
     checkAuth()
   }, [checkAuth])
 
-  // 加载中显示 loading 状态
+  // 加载中显示骨架屏
   if (isLoading) {
-    return <LoadingSpinner />
+    return <AuthLoadingSkeleton />
   }
 
   // 已认证则重定向：优先跳回 redirect 参数指定的页面

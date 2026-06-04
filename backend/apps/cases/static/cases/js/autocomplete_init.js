@@ -11,12 +11,16 @@
         document.querySelectorAll('input.js-cause-autocomplete').forEach((el) => {
             if (!el.id) return;
             if (el.closest('.autocomplete-container')) return;
+            if (el.dataset.autocompleteInitialized) return;  // 已初始化，跳过
+            el.dataset.autocompleteInitialized = 'true';
             window.initCauseAutocomplete(`#${el.id}`, caseTypeSelector);
         });
 
         document.querySelectorAll('input.js-court-autocomplete').forEach((el) => {
             if (!el.id) return;
             if (el.closest('.autocomplete-container')) return;
+            if (el.dataset.autocompleteInitialized) return;  // 已初始化，跳过
+            el.dataset.autocompleteInitialized = 'true';
             window.initCourtAutocomplete(`#${el.id}`);
         });
     }

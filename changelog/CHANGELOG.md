@@ -2,6 +2,132 @@
 
 本项目的所有重要更改都将记录在此文件中。
 
+## [26.51.3] - 2026-06-04
+
+### 后端
+
+#### 修复
+
+- **Django Admin 侧边栏闪烁彻底修复**：将过滤逻辑从客户端 JS 移到服务端 `get_app_list`，HTML 只渲染需要的行，零 DOM 修改
+  - `admin_customization.py`：`other_tools` 虚拟菜单注入时按用户 `ToolFavorite` 收藏过滤，未收藏的工具不在 HTML 中渲染
+  - `base_site.html`：移除所有客户端 filter JS、`opacity: 0` CSS、`content-visibility`、`disable-transitions` — 改用 `js-sidebar-init` 防护模式（CSS 首帧隐藏 → DOMContentLoaded 设置 shifted → rAF 移除防护 → 页面一次性完整展示）
+  - `tool_favorites` context processor 改用 Django cache 跨请求缓存（5 分钟），减少每次页面加载的 DB 查询
+- **侧边栏案件/合同链接闪烁修复**：虚拟菜单 URL 直接带 `?status__exact=active` 参数，避免 `changelist_view` 302 重定向导致的二次渲染闪烁
+- **assign_case 模板 N+1 修复**：`_format_case_for_template` 改用 `Case.objects.prefetch_related("case_numbers", "parties__client")`，推荐 10 个案件从 20 次查询降为 1 次
+- **CaseLog 模板 N+1 查询修复**：`CaseAdmin.get_queryset` 添加 `select_related("contract")` + `prefetch_related("logs__attachments", "logs__reminders")`
+- **ContractAdmin 批量操作优化**：归档/建档 action 从逐条 `obj.save()` 改为 `queryset.update()`，10 个合同从 10 条 UPDATE 降为 1 条
+- **数据库索引补全**：`Case.status`（list_filter 每次加载都过滤）、`ContractAssignment.lawyer`、`SupplementaryAgreementParty.client` 添加独立索引
+- **autocomplete 输入框闪烁修复**：`autocomplete.js` 中 `replaceChild` 改为 `insertBefore` + 隐藏原 input，消除 DOM 节点替换造成的中间空帧
+- **表单 inline 重复触发修复**：`admin_case_form.js` 多层 setTimeout(80/220/500ms) 改为 debounce(150ms)
+- **cache_manager 命名空间清除修复**：原 pattern 未包含 Django cache 的 `KEY_PREFIX` 和 `VERSION`（实际键名为 `lawfirm:1:auto_token:...`），修复后正确匹配
+- **PydanticAI deprecation warning 修复**：`Agent(instrument=True)` 改为 `capabilities=[Instrumentation()]`
+- **BatchJob.DoesNotExist 错误修复**：`_run_batch_retry_async` 添加异常处理，防止 django-q 残留任务刷 ERROR 日志
+
+### 前端
+
+#### 优化
+
+- **LogsPage 分页优化**：添加 `keepPreviousData` 避免切换搜索词时白屏闪烁 + 客户端分页（初始 10 组日期，按需"加载更多"）
+- **死依赖清理**：移除未使用的 `@tsparticles/react`、`@tsparticles/slim`、`@tsparticles/engine`
+
+#### 修复
+
+- **Admin 页面路由切换闪烁修复**：`AdminLayout` 的 `<Outlet />` 外包裹 `<Suspense fallback={<PageSkeleton />}>`
+- **面包屑导航闪烁修复**：`BreadcrumbProvider` 用 `setTimeout(fn, 0)` 延迟清除 `customItems`
+- **AuthGuard 闪烁修复**：加载态从直接渲染 `<Outlet />` 改为显示骨架屏
+
+### 文档
+
+- **CHANGELOG**：v26.51.2 + v26.51.3 更新日志
+- **INSTALL.md**：三平台（macOS/Linux/Windows）新增 Valkey 安装章节
+- **UPDATE.md**：Docker 更新注释中 Redis 改为 Valkey
+- **README.md**：技术栈表 PostgreSQL + Redis 改为 PostgreSQL + Valkey
+
+### 基础设施
+
+- **Redis 升级为 Valkey**：Docker 镜像从 `redis:7-alpine` 切换为 `valkey/valkey:8-alpine`，Python 客户端从 `redis` 切换为 `valkey`（API 完全兼容，零迁移成本）
+
+## [26.51.2] - 2026-06-04
+
+> 此版本内容已合并到 v26.51.3
+
+### 后端
+
+#### 新功能
+
+- **Redis 升级为 Valkey**：全面迁移到 Valkey（BSD 开源，Linux 基金会），消除 SSPL 许可证法律风险
+  - Docker 镜像从 `redis:7-alpine` 切换为 `valkey/valkey:8-alpine`
+  - Python 客户端从 `redis` 切换为 `valkey`（API 完全兼容）
+  - 从 Redis 迁移零成本：数据格式兼容，RDB/AOF 文件可直接加载
+
+#### 修复
+
+- **Django Admin 侧边栏闪烁彻底修复**：三管齐下解决 Windows 上严重的 UI 残影
+  - `content-visibility: hidden` CSS-first 过滤虚拟模块行
+  - 同步脚本首帧设置 `.shifted` 类，消除 `nav_sidebar.js` defer 加载延迟
+  - `tool_favorites` context processor 添加 request 缓存，减少每次页面加载的 DB 查询
+- **autocomplete 输入框闪烁修复**：`autocomplete.js` 中 `replaceChild` 改为 `insertBefore` + 隐藏原 input，消除 DOM 节点替换造成的中间空帧
+- **表单 inline 重复触发修复**：`admin_case_form.js` 多层 setTimeout(80/220/500ms) 改为 debounce(150ms)，避免同一事件触发 3 次 `handleInlineAdded` 导致 select 选项闪烁
+- **CaseLog 模板 N+1 查询修复**：`CaseAdmin.get_queryset` 添加 `select_related("contract")` + `prefetch_related("logs__attachments", "logs__reminders")`，消除 caselog_inline 模板中每条日志的额外查询
+- **侧边栏案件/合同链接闪烁修复**：虚拟菜单 URL 直接带 `?status__exact=active` 参数，避免 `changelist_view` 302 重定向导致的二次渲染闪烁
+- **ContractAdmin 批量操作优化**：归档/建档 action 从逐条 `obj.save()` 改为 `queryset.update()`，10 个合同从 10 条 UPDATE 降为 1 条
+- **assign_case 模板 N+1 修复**：`_format_case_for_template` 改用 `Case.objects.prefetch_related("case_numbers", "parties__client")`，推荐 10 个案件从 20 次查询降为 1 次
+- **数据库索引补全**：`Case.status`（list_filter 每次加载都过滤）、`ContractAssignment.lawyer`、`SupplementaryAgreementParty.client` 添加独立索引
+- **PydanticAI deprecation warning 修复**：`Agent(instrument=True)` 改为 `capabilities=[Instrumentation()]`
+- **BatchJob.DoesNotExist 错误修复**：`_run_batch_retry_async` 添加 `BatchJob.DoesNotExist` 异常处理，防止 django-q 残留任务刷 ERROR 日志
+- **cache_manager 命名空间清除修复**：原 pattern `{cache_prefix}:*` 未包含 Django cache 的 `KEY_PREFIX` 和 `VERSION`，实际键名为 `lawfirm:1:auto_token:...`，修复后正确匹配
+
+### 前端
+
+#### 优化
+
+- **LogsPage 分页优化**：添加 `keepPreviousData` 避免切换搜索词时白屏闪烁 + 客户端分页（初始 10 组日期，按需"加载更多"），减少首屏 DOM 节点数
+- **死依赖清理**：移除未使用的 `@tsparticles/react`、`@tsparticles/slim`、`@tsparticles/engine`
+
+#### 修复
+
+- **Admin 页面路由切换闪烁修复**：`AdminLayout` 的 `<Outlet />` 外包裹 `<Suspense fallback={<PageSkeleton />}>`，懒加载时只替换内容区，侧边栏和导航栏保持不动
+- **面包屑导航闪烁修复**：`BreadcrumbProvider` 用 `setTimeout(fn, 0)` 延迟清除 `customItems`，避免新旧页面切换间面包屑闪回 URL 默认标签
+- **AuthGuard 闪烁修复**：加载态从直接渲染 `<Outlet />` 改为显示骨架屏，避免未认证用户闪现整个后台壳
+
+### 文档
+
+- **INSTALL.md**：三平台（macOS/Linux/Windows）新增 Valkey 安装章节
+- **UPDATE.md**：Docker 更新注释中 Redis 改为 Valkey
+- **README.md**：技术栈表 PostgreSQL + Redis 改为 PostgreSQL + Valkey
+- **CLAUDE.md**：新增 Django Admin UI 闪烁修复经验教训
+
+## [26.51.1] - 2026-06-04
+
+### 后端
+
+#### 新功能
+
+- **云存储全链路改造**：扫描→导入→版本号→案卷生成→邮件导入的完整业务流程均支持坚果云 WebDAV 和 OneDrive 云存储
+  - 扫描→导入管道云存储支持（`confirm_import`、哈希计算、docx 收集、已导入标记等）
+  - 版本号 + 案卷生成云存储支持（`_get_next_version` 递归搜索、`generate_archive_folder` 云上传）
+  - 邮件附件导入云存储支持（`email_folder_scan_service` 全部方法 + Admin 目录列表）
+- **云存储限流错误提示**：新增 `CloudStorageError`/`CloudStorageRateLimitError` 异常类，WebDAV 503 时抛出明确的中文提示（而非静默返回空或通用"系统错误"）
+- **共享 browse_helper 模块**：提取合同/案件 API 中重复的云浏览和账号查询逻辑到 `core.cloud_storage.browse_helper`
+
+#### 修复
+
+- **LocalProvider 路径逃逸防护**：`_resolve()` 和 `walk()` 均限制在 root 目录内，防止 `..` 路径穿越
+- **NullProvider 替代静默降级**：缺失账号时抛出明确错误而非 fallback 到本地文件系统
+- **OneDrive 根目录 URL 修复**：`_item_url`/`_children_url` 空路径处理，修复根目录 `exists()`/`is_dir()` 返回错误结果
+- **LocalProvider macOS 符号链接修复**：`_resolve()` 在 `__init__` 中解析 `self._root`，修复 `/tmp` → `/private/tmp` 符号链接导致 `is_relative_to()` 失败
+- **版本号子目录搜索修复**：使用 `provider.walk()` 替代 `list_directory()`，支持日期子目录结构中的版本文件
+- **Logger 属性冲突修复**：`extra` 字典中 `filename` 重命名为 `file_name`，避免覆盖 Python LogRecord 内置属性
+- **依赖漏洞修复**：pyjwt 2.12.1→2.13.0、starlette 1.0.0→1.2.1、aiohttp 3.13.5→3.14.0、pydantic-ai 1.90.0→1.105.0
+- **mypy 类型错误修复**：修复云存储模块中的 TypedDict/Iterable 类型不匹配等问题
+
+### 前端
+
+#### 修复
+
+- **云存储限流错误展示**：扫描失败时显示服务端错误详情（如"坚果云服务暂时不可用（请求过于频繁），请稍后重试"），不再显示空的通用错误
+- **FolderScanPanel 错误处理**：修复空 catch 吞掉错误信息的问题，toast 显示服务端错误详情
+
 ## [26.51.0] - 2026-06-03
 
 ### 后端

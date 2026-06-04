@@ -315,8 +315,10 @@ function initCauseAutocomplete(inputSelector, caseTypeSelector) {
         placeholder: '请输入案由关键词...'
     });
 
-    // 替换原输入框
-    inputElement.parentNode.replaceChild(container, inputElement);
+    // 渐进增强：先隐藏原 input，再插入新容器，避免 replaceChild 造成的中间空帧
+    inputElement.style.display = 'none';
+    inputElement.removeAttribute('name');  // 避免表单提交重复字段
+    inputElement.parentNode.insertBefore(container, inputElement);
 }
 
 /**
@@ -337,8 +339,10 @@ function initCourtAutocomplete(inputSelector) {
         placeholder: '请输入法院名称...'
     });
 
-    // 替换原输入框
-    inputElement.parentNode.replaceChild(container, inputElement);
+    // 渐进增强：先隐藏原 input，再插入新容器，避免 replaceChild 造成的中间空帧
+    inputElement.style.display = 'none';
+    inputElement.removeAttribute('name');  // 避免表单提交重复字段
+    inputElement.parentNode.insertBefore(container, inputElement);
 }
 
 /**

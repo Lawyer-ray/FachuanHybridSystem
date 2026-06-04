@@ -178,61 +178,21 @@ def browse_folders(
 
     # ── Cloud storage browse ──
     if storage_type and storage_type != "local" and storage_account_id:
-        from apps.core.cloud_storage.factory import create_provider_from_account
-        from apps.core.cloud_storage.models import CloudStorageAccount as CSA
+        from apps.core.cloud_storage.browse_helper import browse_cloud_folder
 
-        account = CSA.objects.filter(id=storage_account_id, storage_type=storage_type, is_active=True).first()
-        if not account:
-            return FolderBrowseResponseSchema(
-                browsable=False,
-                message="云存储账号不存在",
-                path=path,
-                parent_path=None,
-                entries=[],
-                storage_type=storage_type,
-            )
-
-        provider = create_provider_from_account(account)
-        browse_path = (path or "").strip().rstrip("/") or "/"
-
-        try:
-            children = provider.list_directory(browse_path)
-        except Exception:
-            logger.exception("cloud_browse_failed", extra={"path": browse_path, "account_id": storage_account_id})
-            return FolderBrowseResponseSchema(
-                browsable=False,
-                message="云存储目录访问失败",
-                path=browse_path,
-                parent_path=None,
-                entries=[],
-                storage_type=storage_type,
-            )
-
-        entries = []
-        for child in children:
-            if not child.is_dir:
-                continue
-            if not include_hidden and child.name.startswith("."):
-                continue
-            child_path = browse_path.rstrip("/") + "/" + child.name
-            entries.append(FolderBrowseEntrySchema(name=child.name, path=child_path))
-        entries.sort(key=lambda e: e.name.lower())
-
-        parent_path: str | None = None
-        if browse_path != "/":
-            from pathlib import PurePosixPath
-
-            parent_path = str(PurePosixPath(browse_path).parent)
-            if parent_path == ".":
-                parent_path = "/"
-
-        return FolderBrowseResponseSchema(
-            browsable=True,
-            message=None,
-            path=browse_path,
-            parent_path=parent_path,
-            entries=entries,
+        result = browse_cloud_folder(
             storage_type=storage_type,
+            storage_account_id=storage_account_id,
+            path=path,
+            include_hidden=include_hidden,
+        )
+        return FolderBrowseResponseSchema(
+            browsable=result["browsable"],
+            message=result["message"],
+            path=result["path"],
+            parent_path=result["parent_path"],
+            entries=[FolderBrowseEntrySchema(**e) for e in result["entries"]],
+            storage_type=result["storage_type"],
         )
 
     # ── Local filesystem browse (existing logic) ──
@@ -293,12 +253,9 @@ def browse_folders(
 @router.get("/cloud-storage-accounts")
 def list_cloud_storage_accounts(request: HttpRequest) -> list[dict[str, Any]]:
     """List available cloud storage accounts for folder binding."""
-    from apps.core.cloud_storage.models import CloudStorageAccount as CSA
+    from apps.core.cloud_storage.browse_helper import list_active_cloud_accounts
 
     service = _get_folder_binding_service()
     ctx = get_request_access_context(request)
     service.require_admin(ctx)
-    accounts = CSA.objects.filter(is_active=True).values(
-        "id", "name", "storage_type", "local_root_path", "webdav_root_path", "onedrive_root_path"
-    )
-    return list(accounts)  # type: ignore[arg-type]
+    return list_active_cloud_accounts()

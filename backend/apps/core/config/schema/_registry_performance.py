@@ -41,20 +41,20 @@ def register_performance_configs(registry: dict[str, ConfigField]) -> None:
         max_value=3600,
         description="认证用户限流窗口期（秒）",
     )
-    # Redis 缓存
+    # Valkey/Redis 缓存
     registry["performance.cache.redis_url"] = ConfigField(
         name="performance.cache.redis_url",
         type=str,
         default="redis://localhost:6379/0",
         env_var="REDIS_URL",
-        description="Redis 连接 URL",
+        description="Valkey/Redis 连接 URL",
     )
     registry["performance.cache.redis_host"] = ConfigField(
         name="performance.cache.redis_host",
         type=str,
         default="127.0.0.1",
         env_var="REDIS_HOST",
-        description="Redis 主机地址",
+        description="Valkey/Redis 主机地址",
     )
     registry["performance.cache.redis_port"] = ConfigField(
         name="performance.cache.redis_port",
@@ -63,7 +63,7 @@ def register_performance_configs(registry: dict[str, ConfigField]) -> None:
         env_var="REDIS_PORT",
         min_value=1,
         max_value=65535,
-        description="Redis 端口",
+        description="Valkey/Redis 端口",
     )
     registry["performance.cache.redis_db"] = ConfigField(
         name="performance.cache.redis_db",

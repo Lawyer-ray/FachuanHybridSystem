@@ -239,7 +239,7 @@ git pull
 # 2) 进入后端目录
 cd backend
 
-# 3) 重建并启动（Web + qcluster + PostgreSQL + Redis 全部自动启动）
+# 3) 重建并启动（Web + qcluster + PostgreSQL + Valkey 全部自动启动）
 docker compose up -d --build
 
 # 4) 数据库迁移

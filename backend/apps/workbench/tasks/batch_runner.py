@@ -415,7 +415,11 @@ async def _run_batch_async(job_id: UUID) -> None:
 
 async def _run_batch_retry_async(job_id: UUID, item_ids: list[UUID]) -> None:
     """只重试指定的失败 item"""
-    job = await sync_to_async(BatchJob.objects.get)(id=job_id)
+    try:
+        job = await sync_to_async(BatchJob.objects.get)(id=job_id)
+    except BatchJob.DoesNotExist:
+        logger.warning("batch_retry_job_not_found job_id=%s", job_id)
+        return
     await sync_to_async(BatchJob.objects.filter(id=job_id).update)(
         status=BatchJobStatus.RUNNING,
     )

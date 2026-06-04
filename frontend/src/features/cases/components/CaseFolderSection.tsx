@@ -127,9 +127,14 @@ export function CaseFolderSection({ binding, caseId }: CaseFolderSectionProps) {
     try {
       const session = await mutations.startFolderScan.mutateAsync({})
       setScanSession(session)
-      toast.success('扫描完成')
-    } catch {
-      toast.error('扫描失败')
+      if (session.status === 'failed' && session.error_message) {
+        toast.error(`扫描失败: ${session.error_message}`)
+      } else {
+        toast.success('扫描完成')
+      }
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : '扫描失败'
+      toast.error(msg)
     } finally {
       setScanning(false)
     }
@@ -146,7 +151,10 @@ export function CaseFolderSection({ binding, caseId }: CaseFolderSectionProps) {
           setScanSession(null)
           setSelectedCandidates(new Set())
         },
-        onError: () => toast.error('导入失败'),
+        onError: (e: unknown) => {
+          const msg = e instanceof Error ? e.message : '导入失败'
+          toast.error(msg)
+        },
       },
     )
   }
@@ -251,6 +259,13 @@ export function CaseFolderSection({ binding, caseId }: CaseFolderSectionProps) {
         <div className="space-y-1.5">
           <Progress value={undefined} className="h-1.5" />
           <p className="text-[11px] text-muted-foreground text-center">正在扫描文件夹...</p>
+        </div>
+      )}
+
+      {/* Scan error message */}
+      {scanSession && scanSession.error_message && (
+        <div className="rounded-md bg-destructive/10 p-2 text-sm text-destructive">
+          {scanSession.error_message}
         </div>
       )}
 

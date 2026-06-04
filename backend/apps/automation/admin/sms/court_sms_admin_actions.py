@@ -127,21 +127,32 @@ class CourtSMSAdminActions:
             return []
 
     def _format_case_for_template(self, case_dto: Any) -> dict[str, Any]:
-        """将 CaseDTO 转换为模板可用的格式"""
+        """将 CaseDTO 转换为模板可用的格式（prefetch 已在调用方完成）"""
         try:
-            case_service = _get_case_service()
-            case_detail = case_service.get_case_detail_internal(cast(int, case_dto.id))
+            # 优先使用已 prefetch 的 ORM 对象（来自 _prefetch_suggested_cases）
+            if hasattr(case_dto, "case_numbers") and hasattr(case_dto, "parties"):
+                return {
+                    "id": case_dto.id,
+                    "name": case_dto.name,
+                    "created_at": case_dto.created_at,
+                    "case_numbers": case_dto.case_numbers.all(),
+                    "parties": case_dto.parties.all(),
+                }
+            # fallback：逐个查询（仅在 DTO 不是 ORM 对象时）
+            from apps.cases.models import Case
+
+            case = Case.objects.prefetch_related("case_numbers", "parties__client").get(id=case_dto.id)
             return {
-                "id": cast(int, case_detail.id),
-                "name": case_detail.name,
-                "created_at": cast(Any, case_detail.created_at),
-                "case_numbers": getattr(case_detail, "case_numbers", []),
-                "parties": getattr(case_detail, "parties", []),
+                "id": case.id,
+                "name": case.name,
+                "created_at": case.created_at,  # type: ignore[attr-defined]
+                "case_numbers": case.case_numbers.all(),
+                "parties": case.parties.all(),
             }
         except Exception as e:
             logger.warning(f"格式化案件数据失败: Case ID={case_dto.id}, 错误: {e!s}")
             return {
-                "id": cast(int, case_dto.id),
+                "id": case_dto.id,
                 "name": case_dto.name,
                 "created_at": None,
                 "case_numbers": [],
@@ -169,6 +180,17 @@ class CourtSMSAdminActions:
 
         case_service = _get_case_service()
         suggested_cases = self._get_suggested_cases(sms, case_service, sms_id)
+
+        # 批量 prefetch case_numbers 和 parties，避免模板 N+1
+        if suggested_cases:
+            from apps.cases.models import Case
+
+            case_ids = [c.id for c in suggested_cases if hasattr(c, "id")]
+            prefetched = {
+                c.id: c
+                for c in Case.objects.prefetch_related("case_numbers", "parties__client").filter(id__in=case_ids)
+            }
+            suggested_cases = [prefetched.get(c.id, c) for c in suggested_cases]
 
         context: dict[str, Any] = {
             "title": f"为短信 #{sms_id} 指定案件",

@@ -31,7 +31,7 @@ from apps.core.dependencies.core import build_task_submission_service
 from apps.core.exceptions import NotFoundError, ValidationException
 from apps.core.services.bound_folder_scan_service import BoundFolderScanService
 
-from .file_hash_utils import compute_file_hash
+from .file_hash_utils import compute_file_hash, compute_file_hash_from_bytes
 from .material_service import MaterialService
 from .quality_card_detector import has_quality_card_on_last_page
 
@@ -216,6 +216,7 @@ class ContractFolderScanService:
         session_id: UUID,
         items: list[dict[str, Any]],
         work_log_suggestions: list[dict[str, str]] | None = None,
+        storage_provider: Any | None = None,
     ) -> dict[str, Any]:
         session = self.get_session(contract_id=contract_id, session_id=session_id)
         if session.status == ContractFolderScanStatus.IMPORTED:
@@ -251,38 +252,74 @@ class ContractFolderScanService:
             is_docx = bool(item.get("is_docx", False))
             archive_item_code = str(item.get("archive_item_code") or "").strip()
 
-            file_path = Path(source_path)
-            if not file_path.exists() or not file_path.is_file():
-                raise ValidationException(message="源文件不存在", errors={"source_path": source_path})
+            # ── 读取文件内容（云存储 vs 本地）──
+            if storage_provider is not None:
+                from pathlib import PurePosixPath
+
+                from apps.core.cloud_storage.exceptions import CloudStorageError
+
+                try:
+                    file_bytes = storage_provider.read_file(source_path)
+                except CloudStorageError:
+                    raise
+                except Exception as e:
+                    raise CloudStorageError(
+                        f"读取云存储文件失败: {source_path}",
+                        provider="云存储",
+                    ) from e
+                file_name = PurePosixPath(source_path).name
+            else:
+                file_path = Path(source_path)
+                if not file_path.exists() or not file_path.is_file():
+                    raise ValidationException(message="源文件不存在", errors={"source_path": source_path})
+                file_bytes = file_path.read_bytes()
+                file_name = file_path.name
 
             # docx → PDF 转换
-            actual_file_path = file_path
             temp_pdf_path: Path | None = None
             if is_docx:
-                temp_pdf_path = self._convert_docx_to_temp_pdf(file_path)
+                temp_pdf_path = self._convert_docx_to_temp_pdf_from_bytes(file_bytes, file_name)
                 if temp_pdf_path is None:
                     logger.warning("docx_convert_failed_skip", extra={"source_path": source_path})
                     continue
-                actual_file_path = temp_pdf_path
 
             try:
+                if temp_pdf_path is not None:
+                    upload_content = temp_pdf_path.read_bytes()
+                    upload_name = (
+                        str(PurePosixPath(file_name).stem) + ".pdf" if storage_provider else temp_pdf_path.name
+                    )
+                else:
+                    upload_content = file_bytes
+                    upload_name = file_name
+
                 upload = SimpleUploadedFile(
-                    name=actual_file_path.name,
-                    content=actual_file_path.read_bytes(),
+                    name=upload_name,
+                    content=upload_content,
                     content_type="application/pdf",
                 )
                 rel_path, original_name = self._material_service.save_material_file(upload, contract_id)
                 display_name = original_name
                 # 如果原始文件是 docx，显示名保留原 docx 文件名
                 if is_docx:
-                    display_name = file_path.name
+                    display_name = file_name
 
-                if (
-                    category == MaterialCategory.CONTRACT_ORIGINAL
-                    and not is_docx
-                    and has_quality_card_on_last_page(file_path)
-                ):
-                    display_name = self._QUALITY_CARD_TITLE
+                # 质量监督卡检测（需要读取 PDF 内容）
+                if category == MaterialCategory.CONTRACT_ORIGINAL and not is_docx:
+                    if storage_provider is not None:
+                        import tempfile
+
+                        with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
+                            tmp.write(file_bytes)
+                            tmp_path = Path(tmp.name)
+                        try:
+                            quality_card = has_quality_card_on_last_page(tmp_path)
+                        finally:
+                            tmp_path.unlink(missing_ok=True)
+                    else:
+                        quality_card = has_quality_card_on_last_page(Path(source_path))
+                    if quality_card:
+                        display_name = self._QUALITY_CARD_TITLE
 
                 material_kwargs: dict[str, Any] = {
                     "contract_id": contract_id,
@@ -296,7 +333,10 @@ class ContractFolderScanService:
                 # 计算文件内容哈希
                 # 注意：docx 文件存入 DB 的哈希是原始 docx 的哈希（而非转换后 PDF），
                 # 这样扫描时也能用同一哈希值比对已导入状态
-                content_hash = compute_file_hash(file_path)
+                if is_docx:
+                    content_hash = compute_file_hash_from_bytes(file_bytes)
+                else:
+                    content_hash = compute_file_hash_from_bytes(file_bytes)
                 if content_hash:
                     material_kwargs["content_hash"] = content_hash
 
@@ -313,7 +353,7 @@ class ContractFolderScanService:
                         "material_hash_duplicate_skipped",
                         extra={
                             "contract_id": contract_id,
-                            "filename": display_name,
+                            "file_name": display_name,
                             "content_hash": content_hash[:16],
                         },
                     )
@@ -331,7 +371,7 @@ class ContractFolderScanService:
                     skipped_dupes += 1
                     logger.info(
                         "material_name_duplicate_skipped",
-                        extra={"contract_id": contract_id, "filename": display_name, "category": category},
+                        extra={"contract_id": contract_id, "file_name": display_name, "category": category},
                     )
                     continue
 
@@ -430,11 +470,14 @@ class ContractFolderScanService:
                 archive_category=archive_category,
                 scan_folder=scan_scope["scan_folder"],
                 contract_id=session.contract_id,
+                storage_provider=storage_provider,
             )
             result["candidates"] = candidates
 
             # 工作日志建议
-            work_log_suggestions = collect_work_log_suggestions(scan_scope["scan_folder"], archive_category)
+            work_log_suggestions = collect_work_log_suggestions(
+                scan_scope["scan_folder"], archive_category, storage_provider=storage_provider
+            )
             result["work_log_suggestions"] = work_log_suggestions
 
             # 归档清单项选项
@@ -451,10 +494,16 @@ class ContractFolderScanService:
                 updated_at=timezone.now(),
             )
         except Exception as exc:
+            from apps.core.cloud_storage.exceptions import CloudStorageError
+
+            if isinstance(exc, CloudStorageError):
+                error_msg = str(exc)
+            else:
+                error_msg = f"扫描失败: {type(exc).__name__}"
             logger.exception("contract_folder_scan_failed", extra={"session_id": session_id})
             ContractFolderScanSession.objects.filter(id=session.id).update(
                 status=ContractFolderScanStatus.FAILED,
-                error_message=str(exc),
+                error_message=error_msg,
                 updated_at=timezone.now(),
             )
 
@@ -651,10 +700,17 @@ class ContractFolderScanService:
         archive_category: str,
         scan_folder: str,
         contract_id: int = 0,
+        storage_provider: Any | None = None,
     ) -> list[dict[str, Any]]:
         """扫描后处理：归档清单项匹配 + docx 文件收集 + 跳过项过滤。"""
         processed: list[dict[str, Any]] = []
-        scan_root = Path(scan_folder).expanduser().resolve()
+        if storage_provider is not None:
+            from pathlib import PurePosixPath
+
+            scan_root_posix: PurePosixPath | None = PurePosixPath(scan_folder)
+        else:
+            scan_root_posix = None
+            scan_root = Path(scan_folder).expanduser().resolve()
 
         for candidate in candidates:
             suggested_category = str(candidate.get("suggested_category") or "")
@@ -730,10 +786,21 @@ class ContractFolderScanService:
 
             # 案件材料的 reason 统一替换为相对路径，方便用户定位文件
             if candidate.get("suggested_category") == "case_material":
-                rel_path = self._relative_path_str(
-                    source_path=str(candidate.get("source_path") or ""),
-                    scan_root=scan_root,
-                )
+                if storage_provider is not None:
+                    # 云存储：用 PurePosixPath 计算相对路径
+                    source = str(candidate.get("source_path") or "")
+                    try:
+                        from pathlib import PurePosixPath
+
+                        assert scan_root_posix is not None
+                        rel_path = str(PurePosixPath(source).relative_to(scan_root_posix))
+                    except ValueError:
+                        rel_path = source
+                else:
+                    rel_path = self._relative_path_str(
+                        source_path=str(candidate.get("source_path") or ""),
+                        scan_root=scan_root,
+                    )
                 if rel_path:
                     candidate["reason"] = rel_path
 
@@ -741,12 +808,12 @@ class ContractFolderScanService:
 
         # 仅非诉项目收集 docx 文件（修订版/批注版 → 转 PDF）
         if archive_category == "non_litigation":
-            docx_candidates = self._collect_docx_files(scan_folder, archive_category)
+            docx_candidates = self._collect_docx_files(scan_folder, archive_category, storage_provider=storage_provider)
             processed.extend(docx_candidates)
 
         # 标记已导入文件：计算文件哈希并比对已有材料
         if contract_id:
-            self._mark_already_imported(processed, contract_id=contract_id)
+            self._mark_already_imported(processed, contract_id=contract_id, storage_provider=storage_provider)
 
         return processed
 
@@ -754,6 +821,7 @@ class ContractFolderScanService:
         self,
         scan_folder: str,
         archive_category: str,
+        storage_provider: Any | None = None,
     ) -> list[dict[str, Any]]:
         """单独收集 docx/doc 文件，仅非诉项目且仅含修订版/批注版关键词。
 
@@ -762,12 +830,14 @@ class ContractFolderScanService:
         if archive_category != "non_litigation":
             return []
 
+        _DOCX_REVISION_KEYWORDS = ("修订版", "批注版", "律师修订")
+
+        if storage_provider is not None:
+            return self._collect_docx_files_cloud(scan_folder, storage_provider, _DOCX_REVISION_KEYWORDS)
+
         root = Path(scan_folder).expanduser().resolve()
         if not root.exists() or not root.is_dir():
             return []
-
-        # 仅收集文件名含"修订版"/"批注版"/"律师修订"关键词的 docx
-        _DOCX_REVISION_KEYWORDS = ("修订版", "批注版", "律师修订")
 
         docx_files = [
             p
@@ -822,8 +892,87 @@ class ContractFolderScanService:
 
         return candidates
 
+    def _collect_docx_files_cloud(
+        self,
+        scan_folder: str,
+        storage_provider: Any,
+        revision_keywords: tuple[str, ...],
+    ) -> list[dict[str, Any]]:
+        """云存储版本的 docx 文件收集。使用 provider.walk() 替代 Path.rglob()。"""
+        from pathlib import PurePosixPath
+
+        all_files: list[dict[str, Any]] = []
+        for _dirpath, _subdirs, files in storage_provider.walk(scan_folder):
+            for f in files:
+                if not f.is_dir and PurePosixPath(f.name).suffix.lower() in (".docx", ".doc"):
+                    if any(kw in _normalize_docx_name(f.name) for kw in revision_keywords):
+                        all_files.append(
+                            {
+                                "name": f.name,
+                                "path": f.path,
+                                "size": f.size,
+                                "modified_at": f.modified_at,
+                            }
+                        )
+
+        if not all_files:
+            return []
+
+        all_files.sort(key=lambda x: x["path"])
+
+        # 简单去重：按文件名分组，取每个组最新的一个
+        from collections import defaultdict
+
+        grouped: dict[str, list[dict[str, Any]]] = defaultdict(list)
+        for item in all_files:
+            stem = PurePosixPath(item["name"]).stem
+            grouped[stem].append(item)
+
+        deduped: list[dict[str, Any]] = []
+        for group_items in grouped.values():
+            group_items.sort(key=lambda x: (-x["modified_at"], x["path"]))
+            deduped.append(group_items[0])
+
+        candidates: list[dict[str, Any]] = []
+        for item in deduped:
+            archive_item_code = ""
+            archive_item_name = "未匹配"
+            reason = "常法docx（修订版/批注版）→ 转 PDF"
+            normalized_name = _normalize_docx_name(item["name"])
+
+            if "律师函" in normalized_name:
+                archive_item_code = "nl_8"
+                archive_item_name = "法律意见书、律师函等"
+                reason = "常法docx（律师函）→ nl_8"
+            else:
+                archive_item_code = "nl_9"
+                archive_item_name = "案件其它关联材料"
+                reason = "常法docx（修订版/批注版）→ nl_9"
+
+            candidates.append(
+                {
+                    "source_path": item["path"],
+                    "filename": item["name"],
+                    "file_size": item["size"],
+                    "modified_at": "",
+                    "base_name": normalized_name,
+                    "version_token": "",
+                    "extract_method": "none",
+                    "text_excerpt": "",
+                    "suggested_category": "case_material",
+                    "confidence": 0.85,
+                    "reason": reason,
+                    "selected": True,
+                    "is_docx": True,
+                    "archive_item_code": archive_item_code,
+                    "archive_item_name": archive_item_name,
+                }
+            )
+
+        return candidates
+
     def _convert_docx_to_temp_pdf(self, file_path: Path) -> Path | None:
-        """将 docx 文件转换为临时 PDF 文件。返回临时 PDF 路径，失败返回 None。"""
+        """将本地 docx 文件转换为临时 PDF 文件。返回临时 PDF 路径，失败返回 None。"""
         try:
             from apps.documents.services.infrastructure.pdf_merge_utils import convert_docx_to_pdf
 
@@ -833,6 +982,27 @@ class ContractFolderScanService:
             return None
         except (OSError, RuntimeError):
             logger.exception("docx_to_pdf_conversion_failed", extra={"path": file_path.as_posix()})
+            return None
+
+    def _convert_docx_to_temp_pdf_from_bytes(self, file_bytes: bytes, filename: str) -> Path | None:
+        """将 docx bytes 转换为临时 PDF 文件（用于云存储场景）。"""
+        import tempfile
+
+        try:
+            from apps.documents.services.infrastructure.pdf_merge_utils import convert_docx_to_pdf
+
+            with tempfile.NamedTemporaryFile(suffix=".docx", delete=False) as tmp:
+                tmp.write(file_bytes)
+                docx_path = tmp.name
+            try:
+                pdf_path_str = convert_docx_to_pdf(docx_path)
+                if pdf_path_str:
+                    return Path(pdf_path_str)
+                return None
+            finally:
+                Path(docx_path).unlink(missing_ok=True)
+        except (OSError, RuntimeError):
+            logger.exception("docx_to_pdf_conversion_from_bytes_failed", extra={"file_name": filename})
             return None
 
     def _learn_from_import_correction(
@@ -906,6 +1076,7 @@ class ContractFolderScanService:
         candidates: list[dict[str, Any]],
         *,
         contract_id: int,
+        storage_provider: Any | None = None,
     ) -> None:
         """标记已导入文件：计算文件哈希，与已有材料比对。"""
         existing_hashes: set[str] = set(
@@ -930,11 +1101,20 @@ class ContractFolderScanService:
             source_path = str(candidate.get("source_path") or "").strip()
             if not source_path:
                 continue
-            file_path = Path(source_path)
-            if not file_path.exists() or not file_path.is_file():
+
+            try:
+                if storage_provider is not None:
+                    file_bytes = storage_provider.read_file(source_path)
+                    content_hash = compute_file_hash_from_bytes(file_bytes)
+                else:
+                    file_path = Path(source_path)
+                    if not file_path.exists() or not file_path.is_file():
+                        continue
+                    content_hash = compute_file_hash(file_path)
+            except Exception:
+                logger.warning("mark_imported_hash_failed", extra={"source_path": source_path})
                 continue
 
-            content_hash = compute_file_hash(file_path)
             if content_hash and content_hash in existing_hashes:
                 candidate["already_imported"] = True
                 candidate["selected"] = False

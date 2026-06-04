@@ -367,16 +367,24 @@ def parse_work_log_from_folder_name(
     return {"date": date_str, "content": content}
 
 
-def collect_work_log_suggestions(scan_folder: str, archive_category: str) -> list[dict[str, str]]:
+def collect_work_log_suggestions(
+    scan_folder: str,
+    archive_category: str,
+    storage_provider: Any | None = None,
+) -> list[dict[str, str]]:
     """扫描目录下所有日期前缀子目录，返回工作日志建议列表。
 
     Args:
         scan_folder: 扫描根目录路径
         archive_category: 归档分类
+        storage_provider: 云存储 provider（可选）
 
     Returns:
         工作日志建议列表，按日期排序
     """
+    if storage_provider is not None:
+        return _collect_work_log_suggestions_cloud(scan_folder, archive_category, storage_provider)
+
     root = Path(scan_folder).expanduser().resolve()
     if not root.exists() or not root.is_dir():
         return []
@@ -390,6 +398,29 @@ def collect_work_log_suggestions(scan_folder: str, archive_category: str) -> lis
             suggestions.append(result)
 
     # 按日期排序
+    suggestions.sort(key=lambda x: x["date"])
+    return suggestions
+
+
+def _collect_work_log_suggestions_cloud(
+    scan_folder: str,
+    archive_category: str,
+    storage_provider: Any,
+) -> list[dict[str, str]]:
+    """云存储版本：遍历一层子目录收集工作日志建议。"""
+    suggestions: list[dict[str, str]] = []
+    try:
+        children = storage_provider.list_directory(scan_folder)
+    except Exception:
+        return []
+
+    for child in children:
+        if not child.is_dir:
+            continue
+        result = parse_work_log_from_folder_name(child.name, archive_category)
+        if result:
+            suggestions.append(result)
+
     suggestions.sort(key=lambda x: x["date"])
     return suggestions
 

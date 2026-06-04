@@ -127,7 +127,7 @@ class TestWalk:
     def test_walks_tree(self, provider: LocalProvider, sample_tree: Path):
         collected = []
         for dirpath, dirs, files in provider.walk("testroot"):
-            collected.append((dirpath, [d for d in dirs], [f.name for f in files]))
+            collected.append((dirpath, list(dirs), [f.name for f in files]))
 
         all_names = [f for _, _, files in collected for f in files]
         assert "top.txt" in all_names
@@ -154,3 +154,47 @@ class TestCloudFileInfoContract:
             assert isinstance(info.is_dir, bool)
             assert isinstance(info.size, int)
             assert isinstance(info.modified_at, float)
+
+
+class TestPathTraversal:
+    """Verify path traversal attacks are blocked."""
+
+    def test_dotdot_read_blocked(self, provider: LocalProvider, tmp_path: Path):
+        """Reading outside root via .. should raise OSError."""
+        (tmp_path / "secret.txt").write_text("secret")
+        with pytest.raises(OSError, match="路径逃逸"):
+            provider.read_file("../../../secret.txt")
+
+    def test_dotdot_write_blocked(self, provider: LocalProvider, tmp_path: Path):
+        """Writing outside root via .. should raise OSError."""
+        with pytest.raises(OSError, match="路径逃逸"):
+            provider.write_file("../../../evil.txt", b"bad")
+
+    def test_dotdot_mkdir_blocked(self, provider: LocalProvider, tmp_path: Path):
+        """Creating dir outside root via .. should raise OSError."""
+        with pytest.raises(OSError, match="路径逃逸"):
+            provider.mkdir("../../../evil_dir")
+
+    def test_dotdot_exists_blocked(self, provider: LocalProvider, tmp_path: Path):
+        """Checking existence outside root via .. should raise OSError."""
+        with pytest.raises(OSError, match="路径逃逸"):
+            provider.exists("../../../etc/passwd")
+
+    def test_dotdot_delete_blocked(self, provider: LocalProvider, tmp_path: Path):
+        """Deleting outside root via .. should raise OSError."""
+        (tmp_path / "important.txt").write_text("keep")
+        with pytest.raises(OSError, match="路径逃逸"):
+            provider.delete_file("../../important.txt")
+
+    def test_walk_stays_within_root(self, provider: LocalProvider, sample_tree: Path):
+        """walk() should yield paths relative to root, not absolute."""
+        for dirpath, _dirs, files in provider.walk("testroot"):
+            assert not Path(dirpath).is_absolute(), f"dirpath should be relative: {dirpath}"
+            for f in files:
+                assert not Path(f.path).is_absolute(), f"file path should be relative: {f.path}"
+
+    def test_normal_relative_path_works(self, provider: LocalProvider, sample_tree: Path):
+        """Normal relative paths should work fine."""
+        info = provider.get_file_info("testroot/top.txt")
+        assert info is not None
+        assert info.name == "top.txt"

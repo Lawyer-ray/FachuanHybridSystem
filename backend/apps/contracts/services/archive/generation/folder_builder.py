@@ -34,7 +34,12 @@ def generate_archive_folder(contract: Contract) -> dict[str, Any]:
     3. 将1-3号模板文书写入（仅 docx）
     4. 将剩余材料项合并为"4-案卷材料.pdf"（带页码）
     5. 将1-3号docx转PDF，与4号合并为"5-Final案卷材料.pdf"（无页码）
+
+    云存储模式：先在本地临时目录完成所有操作，最后上传到云存储。
     """
+    import shutil
+    import tempfile
+
     from apps.contracts.models.folder_binding import ContractFolderBinding
 
     try:
@@ -45,14 +50,58 @@ def generate_archive_folder(contract: Contract) -> dict[str, Any]:
     if not binding or not binding.folder_path:
         return {"success": False, "error": "合同未绑定文件夹"}
 
-    folder_path = Path(binding.folder_path)
-    if not folder_path.exists():
-        return {"success": False, "error": f"绑定文件夹不存在: {binding.folder_path}"}
+    # 判断是否为云存储
+    storage_type = getattr(binding, "storage_type", "local")
+    is_cloud = storage_type != "local"
+
+    if is_cloud:
+        from apps.core.cloud_storage.factory import create_provider_for_binding
+
+        provider = create_provider_for_binding(binding)
+        cloud_archive_path = f"{binding.folder_path.rstrip('/')}/{ARCHIVE_FOLDER_NAME}"
+        # 用临时目录代替本地路径
+        temp_dir = tempfile.mkdtemp(prefix="archive_")
+        archive_dir = Path(temp_dir) / ARCHIVE_FOLDER_NAME
+        archive_dir.mkdir(parents=True, exist_ok=True)
+        local_work_dir = Path(temp_dir)
+    else:
+        provider = None
+        cloud_archive_path = ""
+        temp_dir = None
+        folder_path = Path(binding.folder_path)
+        if not folder_path.exists():
+            return {"success": False, "error": f"绑定文件夹不存在: {binding.folder_path}"}
+        archive_dir = folder_path / ARCHIVE_FOLDER_NAME
+        archive_dir.mkdir(parents=True, exist_ok=True)
+        local_work_dir = folder_path
+
+    try:
+        return _generate_archive_folder_inner(
+            contract=contract,
+            archive_dir=archive_dir,
+            local_work_dir=local_work_dir,
+            provider=provider,
+            cloud_archive_path=cloud_archive_path,
+            is_cloud=is_cloud,
+        )
+    finally:
+        # 云存储模式：清理临时目录
+        if temp_dir and Path(temp_dir).exists():
+            shutil.rmtree(temp_dir, ignore_errors=True)
+
+
+def _generate_archive_folder_inner(
+    contract: Contract,
+    archive_dir: Path,
+    local_work_dir: Path,
+    provider: Any,
+    cloud_archive_path: str,
+    is_cloud: bool,
+) -> dict[str, Any]:
+    """归档文件夹生成的核心逻辑（本地和云存储共用）。"""
 
     # 生成模板文书到 DB
     doc_results = generate_archive_documents(contract)
-
-    # 重新生成案卷目录以确保内容完整
     archive_category = get_archive_category(contract.case_type)
     catalog_code = _ARCHIVE_CATALOG_CODES.get(archive_category)
     if catalog_code:
@@ -61,10 +110,6 @@ def generate_archive_folder(contract: Contract) -> dict[str, Any]:
             if r.get("template_subtype") == "inner_catalog":
                 doc_results[i] = catalog_result
                 break
-
-    # 创建归档文件夹
-    archive_dir = folder_path / ARCHIVE_FOLDER_NAME
-    archive_dir.mkdir(parents=True, exist_ok=True)
 
     from datetime import date
 
@@ -135,12 +180,30 @@ def generate_archive_folder(contract: Contract) -> dict[str, Any]:
         extra={"contract_id": contract.id, "archive_dir": str(archive_dir)},
     )
 
+    # 云存储：将临时目录中的文件上传到云存储
+    if is_cloud and provider and generated_docs:
+        try:
+            provider.mkdir(cloud_archive_path)
+            for f in archive_dir.iterdir():
+                if f.is_file():
+                    cloud_file_path = f"{cloud_archive_path.rstrip('/')}/{f.name}"
+                    provider.write_file(cloud_file_path, f.read_bytes())
+            logger.info(
+                "归档文件夹已上传到云存储: %s, %d 个文件",
+                cloud_archive_path,
+                len(list(archive_dir.iterdir())),
+                extra={"contract_id": contract.id, "cloud_archive_path": cloud_archive_path},
+            )
+        except Exception as e:
+            errors.append(f"上传到云存储失败: {e}")
+            logger.exception("archive_cloud_upload_failed", extra={"contract_id": contract.id})
+
     return {
         "success": True,
-        "archive_dir": str(archive_dir),
+        "archive_dir": cloud_archive_path if is_cloud else str(archive_dir),
         "generated_docs": generated_docs,
         "errors": errors,
-        "folder_path": str(folder_path),
+        "folder_path": str(local_work_dir),
         "doc_results": doc_results,
     }
 

@@ -735,14 +735,15 @@
     initContractPartyFilter();
 
     // 监听 inline 行添加事件（兼容 Django Admin / nested_admin）
+    // 使用 debounce 替代多层 setTimeout，避免重复触发导致 select 选项闪烁
+    var _inlineAddedTimer = null;
     document.body.addEventListener('formset:added', function() {
-      // 多次延迟，覆盖不同插件的异步插入时机
-      setTimeout(handleInlineAdded, 80);
-      setTimeout(handleInlineAdded, 220);
-      setTimeout(handleInlineAdded, 500);
+      clearTimeout(_inlineAddedTimer);
+      _inlineAddedTimer = setTimeout(handleInlineAdded, 150);
     });
 
     // 兜底：监听”添加另一个案件当事人”点击，确保新行总会触发过滤
+    var _clickAddTimer = null;
     document.body.addEventListener('click', function(e) {
       var target = e.target;
       if (!target || typeof target.closest !== 'function') {
@@ -755,9 +756,8 @@
         return;
       }
 
-      setTimeout(handleInlineAdded, 120);
-      setTimeout(handleInlineAdded, 320);
-      setTimeout(handleInlineAdded, 650);
+      clearTimeout(_clickAddTimer);
+      _clickAddTimer = setTimeout(handleInlineAdded, 150);
     });
   });
 

@@ -21,6 +21,7 @@ from typing import Any
 import httpx
 import tenacity
 from pydantic_ai import Agent, ConcurrencyLimiter, RunContext, Tool, limit_model_concurrency
+from pydantic_ai.capabilities.instrumentation import Instrumentation
 from pydantic_ai.mcp import MCPServerStdio
 from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.profiles.openai import OpenAIModelProfile
@@ -268,7 +269,7 @@ case_agent = Agent(
     deps_type=WorkbenchDeps,
     toolsets=[mcp_server.filtered(_case_filter)],
     name="案件管理助手",
-    instrument=True,
+    capabilities=[Instrumentation()],
 )
 
 contract_agent = Agent(
@@ -277,7 +278,7 @@ contract_agent = Agent(
     deps_type=WorkbenchDeps,
     toolsets=[mcp_server.filtered(_contract_filter)],
     name="合同管理助手",
-    instrument=True,
+    capabilities=[Instrumentation()],
 )
 
 research_agent = Agent(
@@ -286,7 +287,7 @@ research_agent = Agent(
     deps_type=WorkbenchDeps,
     toolsets=[mcp_server.filtered(_research_filter)],
     name="法律检索助手",
-    instrument=True,
+    capabilities=[Instrumentation()],
 )
 
 # ─── Triage Agent（带 Handoff 工具） ─────────────────────────────────────────
@@ -348,5 +349,5 @@ triage_agent = Agent(
         Tool(_handoff_to_research, takes_ctx=True),
     ],
     name="分诊助手",
-    instrument=True,
+    capabilities=[Instrumentation()],
 )

@@ -5,6 +5,27 @@
 
 {% block extrahead %}
 {{ block.super }}
+<!-- 侧边栏布局同步：确保首帧即正确布局，消除 content-width 跳变闪烁 -->
+<style>
+  .js-sidebar-init #main {
+    visibility: hidden;
+  }
+</style>
+<script>
+document.documentElement.classList.add('js-sidebar-init');
+document.addEventListener('DOMContentLoaded', function() {
+  var main = document.getElementById('main');
+  if (main) {
+    var v = localStorage.getItem('django.admin.navSidebarIsOpen');
+    if (v === null) v = 'true';
+    if (v === 'true') main.classList.add('shifted');
+  }
+  // 侧边栏状态已应用 → 下一帧安全展示内容
+  requestAnimationFrame(function() {
+    document.documentElement.classList.remove('js-sidebar-init');
+  });
+});
+</script>
 <!-- Alpine.js -->
 {% block alpine_script %}
 <script defer src="{% static 'admin/js/alpine.js' %}"></script>
@@ -224,74 +245,4 @@
         退出
     </button>
 </form>
-{% endblock %}
-
-{% block footer %}
-{{ block.super }}
-<script>
-// 其他工具侧边栏收藏过滤：仅显示已收藏的工具
-(function() {
-  const APP_LABEL = 'other_tools';
-  // 收藏 URL 由服务端注入
-  const FAV_URLS = JSON.parse('{{ fav_urls_json|escapejs }}' || '[]');
-  const favSet = new Set(FAV_URLS);
-
-  function applyFilter() {
-    const appSection = document.querySelector(`#nav-sidebar .app-${APP_LABEL}.module`);
-    if (!appSection) return;
-
-    const rows = appSection.querySelectorAll('tr[class^="model-"]');
-    rows.forEach(row => {
-      const link = row.querySelector('th a');
-      if (!link) return;
-      const href = link.getAttribute('href') || '';
-      if (!favSet.has(href)) {
-        row.style.display = 'none';
-      } else {
-        row.style.display = '';
-      }
-    });
-  }
-
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', applyFilter);
-  } else {
-    applyFilter();
-  }
-})();
-
-// 办案侧边栏过滤：仅显示3个固定核心入口
-(function() {
-  const APP_LABEL = 'case_handling';
-  const SIDEBAR_URLS = [
-    '/admin/client/client/',
-    '/admin/contracts/contract/',
-    '/admin/cases/case/',
-  ];
-  const allowedSet = new Set(SIDEBAR_URLS);
-
-  function applyFilter() {
-    const appSection = document.querySelector(`#nav-sidebar .app-${APP_LABEL}.module`);
-    if (!appSection) return;
-
-    const rows = appSection.querySelectorAll('tr[class^="model-"]');
-    rows.forEach(row => {
-      const link = row.querySelector('th a');
-      if (!link) return;
-      const href = link.getAttribute('href') || '';
-      if (!allowedSet.has(href)) {
-        row.style.display = 'none';
-      } else {
-        row.style.display = '';
-      }
-    });
-  }
-
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', applyFilter);
-  } else {
-    applyFilter();
-  }
-})();
-</script>
 {% endblock %}

@@ -214,8 +214,8 @@ def _sorted_get_app_list(self: admin.AdminSite, request: HttpRequest, app_label:
         case_handling_models: list[dict[str, Any]] = []
         sidebar_labels = {
             "当事人": "/admin/client/client/",
-            "合同": "/admin/contracts/contract/",
-            "案件": "/admin/cases/case/",
+            "合同": "/admin/contracts/contract/?status__exact=active",
+            "案件": "/admin/cases/case/?status__exact=active",
         }
         for label, url in sidebar_labels.items():
             case_handling_models.append(
@@ -238,19 +238,30 @@ def _sorted_get_app_list(self: admin.AdminSite, request: HttpRequest, app_label:
             }
         )
 
-    # 注入虚拟「其他工具」顶级菜单（主菜单链接 hub 页，子菜单直达各子工具）
+    # 注入虚拟「其他工具」顶级菜单（服务端过滤：只注入用户收藏的工具，避免客户端 JS 操作 DOM 导致闪烁）
     if app_label is None and not any(a.get("app_label") == "other_tools" for a in app_list):
+        # 获取用户收藏的 URL 集合（服务端过滤，HTML 里只渲染需要的行）
+        fav_urls: set[str] = set()
+        if request is not None and hasattr(request, "user") and request.user.is_authenticated:
+            from apps.core.models import ToolFavorite
+
+            fav_urls = set(
+                ToolFavorite.objects.filter(user=request.user).values_list("tool_url", flat=True)
+            )
+        if not fav_urls:
+            fav_urls = set(_DEFAULT_FAV_URLS)
+
         virtual_models: list[dict[str, Any]] = []
         for item in _OTHER_TOOLS_APPS:
             item_label = str(item.get("app_label", ""))
             manual_children = item.get("children")
 
             if manual_children:
-                # 手动指定的子工具
+                # 手动指定的子工具（仅收藏的才注入）
                 for child in manual_children:
                     child_url = str(child.get("url", ""))
                     child_name = str(child.get("name", ""))
-                    if child_url and child_name:
+                    if child_url and child_name and child_url in fav_urls:
                         virtual_models.append(
                             {
                                 "name": child_name,
@@ -262,13 +273,13 @@ def _sorted_get_app_list(self: admin.AdminSite, request: HttpRequest, app_label:
                             }
                         )
             elif item_label:
-                # 通过 app_label 自动发现子模型（从缓存的 app_map 查找，避免递归调用）
+                # 通过 app_label 自动发现子模型（仅收藏的才注入）
                 item_app = app_map.get(item_label)
                 if item_app:
                     for model in item_app.get("models", []):
                         m_name = str(model.get("name", "")).strip()
                         m_url = str(model.get("admin_url") or "").strip()
-                        if m_name and m_url:
+                        if m_name and m_url and m_url in fav_urls:
                             virtual_models.append(
                                 {
                                     "name": m_name,
