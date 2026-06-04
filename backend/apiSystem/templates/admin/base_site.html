@@ -18,6 +18,15 @@
     /* Alpine.js x-cloak 防止闪烁 */
     [x-cloak] { display: none !important; }
 
+    /* 侧边栏虚拟模块行 CSS-first 过滤（解决快速切换时的 UI 残影）
+     * 使用 content-visibility: hidden 而非 display: none
+     * 优势：元素不参与渲染管线（无绘制开销）但不阻塞 DOM 查询
+     * JS 执行后会通过 style.display 重写为正常状态 */
+    #nav-sidebar .app-case_handling.module tr[class^="model-"],
+    #nav-sidebar .app-other_tools.module tr[class^="model-"] {
+      content-visibility: hidden;
+    }
+
     /* 关于链接样式 - 融入用户工具栏 */
     #user-tools .about-link {
         color: var(--header-link-color, #81d4fa);
@@ -230,6 +239,8 @@
 {{ block.super }}
 <script>
 // 其他工具侧边栏收藏过滤：仅显示已收藏的工具
+// CSS 默认对虚拟模块行设置 content-visibility: hidden（首帧不渲染）
+// JS 执行后为允许的行清除该属性，对禁止的行额外设置 display: none
 (function() {
   const APP_LABEL = 'other_tools';
   const FAV_URLS = JSON.parse('{{ fav_urls_json|escapejs }}' || '[]');
@@ -244,11 +255,16 @@
       const link = row.querySelector('th a');
       if (!link) return;
       const href = link.getAttribute('href') || '';
-      row.style.display = favSet.has(href) ? '' : 'none';
+      if (favSet.has(href)) {
+        // 允许的行：清除 CSS 的 content-visibility 隐藏
+        row.style.contentVisibility = '';
+      } else {
+        // 不允许的行：额外设置 display: none（从布局中移除）
+        row.style.display = 'none';
+      }
     });
   }
 
-  // 在下一帧立即执行，确保比默认渲染更快隐藏不需要的行
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', function() {
       requestAnimationFrame(applyFilter);
@@ -277,7 +293,13 @@
       const link = row.querySelector('th a');
       if (!link) return;
       const href = link.getAttribute('href') || '';
-      row.style.display = allowedSet.has(href) ? '' : 'none';
+      if (allowedSet.has(href)) {
+        // 允许的行：清除 CSS 的 content-visibility 隐藏
+        row.style.contentVisibility = '';
+      } else {
+        // 不允许的行：额外设置 display: none
+        row.style.display = 'none';
+      }
     });
   }
 
