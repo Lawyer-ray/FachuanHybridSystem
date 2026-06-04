@@ -245,8 +245,9 @@ class SupplementaryAgreementGenerationService:
                 from apps.core.cloud_storage.factory import create_provider_for_binding
 
                 provider = create_provider_for_binding(binding)
-                children = provider.list_directory(subdir_path)
-                names = [c.name for c in children if not c.is_dir]
+                names = []
+                for _d, _s, files in provider.walk(subdir_path):
+                    names.extend(c.name for c in files if not c.is_dir)
             else:
                 folder_path = Path(binding.folder_path) / subdir_path
                 if not folder_path.exists():
