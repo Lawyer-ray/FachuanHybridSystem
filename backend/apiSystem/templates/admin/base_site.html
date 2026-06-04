@@ -8,8 +8,9 @@
 <!-- 同步设置侧边栏可见性 + 禁用首帧 transition -->
 <script>
 (function() {
-  // 1. 立即禁用所有 transition，消除导航闪烁
+  // 1. 立即禁用所有 transition + 阻止侧边栏提前显示
   document.documentElement.classList.add('disable-transitions');
+  document.documentElement.classList.add('sidebar-pending');
 
   // 2. 同步设置侧边栏可见性（替代 nav_sidebar.js 的 defer 行为）
   var main = document.getElementById('main');
@@ -58,6 +59,16 @@
 
     /* Alpine.js x-cloak 防止闪烁 */
     [x-cloak] { display: none !important; }
+
+    /* 侧边栏虚拟模块过滤同步：过滤完成前强制隐藏整个侧边栏
+     * 问题：nav_sidebar.js (defer) 在 DOM 解析完后立即给 #main 加 shifted
+     *       此时虚拟模块行还是 opacity: 0（过滤 JS 尚未执行）
+     *       用户会看到空白侧边栏一闪 → 过滤完成后才填充内容
+     * 修复：用 !important 覆盖 shifted 的 visibility: visible
+     *       等虚拟模块行过滤完成后再移除 sidebar-pending → 侧边栏一次性完整显示 */
+    html.sidebar-pending #nav-sidebar {
+      visibility: hidden !important;
+    }
 
     /* 侧边栏虚拟模块行 CSS-first 过滤（解决快速切换时的 UI 残影）
      * 使用 opacity: 0 而非 content-visibility: hidden
@@ -280,79 +291,100 @@
 {% block footer %}
 {{ block.super }}
 <script>
-// 其他工具侧边栏收藏过滤：仅显示已收藏的工具
-// CSS 默认对虚拟模块行设置 opacity: 0（首帧不可见）
-// JS 执行后为允许的行清除该属性，对禁止的行额外设置 display: none
+// 侧边栏虚拟模块行过滤（两个虚拟菜单：other_tools / case_handling）
+// 关键：过滤 JS 与 CSS sidebar-pending 协作 — 等所有过滤完成后才让侧边栏可见
 (function() {
-  const APP_LABEL = 'other_tools';
-  const FAV_URLS = JSON.parse('{{ fav_urls_json|escapejs }}' || '[]');
-  const favSet = new Set(FAV_URLS);
+  var _sectionsPending = 0;
+  var _sectionsDone = 0;
 
-  function applyFilter() {
-    const appSection = document.querySelector(`#nav-sidebar .app-${APP_LABEL}.module`);
-    if (!appSection) return;
+  // 注册一个需要过滤的虚拟模块区域
+  function _regSection() { _sectionsPending++; }
+  function _sectionDone() {
+    _sectionsDone++;
+    if (_sectionsDone >= _sectionsPending) {
+      // 所有虚拟模块过滤完成 → 一次性显示侧边栏（无空白帧）
+      document.documentElement.classList.remove('sidebar-pending');
+    }
+  }
 
-    const rows = appSection.querySelectorAll('tr[class^="model-"]');
-    rows.forEach(row => {
-      const link = row.querySelector('th a');
+  // === other_tools 收藏过滤 ===
+  var _favUrls = JSON.parse('{{ fav_urls_json|escapejs }}' || '[]');
+  var _favSet = new Set(_favUrls);
+
+  function _filterOtherTools() {
+    var section = document.querySelector('#nav-sidebar .app-other_tools.module');
+    if (!section) return;
+    var rows = section.querySelectorAll('tr[class^="model-"]');
+    rows.forEach(function(row) {
+      var link = row.querySelector('th a');
       if (!link) return;
-      const href = link.getAttribute('href') || '';
-      if (favSet.has(href)) {
-        // 允许的行：显式设为 1 覆盖 CSS 的 opacity: 0
+      var href = link.getAttribute('href') || '';
+      if (_favSet.has(href)) {
         row.style.opacity = '1';
       } else {
-        // 不允许的行：额外设置 display: none（从布局中移除）
         row.style.display = 'none';
       }
     });
   }
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', function() {
-      requestAnimationFrame(applyFilter);
-    });
-  } else {
-    requestAnimationFrame(applyFilter);
+  function _filterOtherToolsWrap() {
+    _filterOtherTools();
+    _sectionDone();
   }
-})();
 
-// 办案侧边栏过滤：仅显示3个固定核心入口
-(function() {
-  const APP_LABEL = 'case_handling';
-  const SIDEBAR_URLS = [
-    '/admin/client/client/',
-    '/admin/contracts/contract/',
-    '/admin/cases/case/',
-  ];
-  const allowedSet = new Set(SIDEBAR_URLS);
+  // 注册 other_tools（如果该区域存在于页面中）
+  if (document.querySelector('#nav-sidebar .app-other_tools.module')) {
+    _regSection();
+  }
 
-  function applyFilter() {
-    const appSection = document.querySelector(`#nav-sidebar .app-${APP_LABEL}.module`);
-    if (!appSection) return;
+  // === case_handling 过滤 ===
+  var _allowedUrls = ['/admin/client/client/', '/admin/contracts/contract/', '/admin/cases/case/'];
+  var _allowedSet = new Set(_allowedUrls);
 
-    const rows = appSection.querySelectorAll('tr[class^="model-"]');
-    rows.forEach(row => {
-      const link = row.querySelector('th a');
+  function _filterCaseHandling() {
+    var section = document.querySelector('#nav-sidebar .app-case_handling.module');
+    if (!section) return;
+    var rows = section.querySelectorAll('tr[class^="model-"]');
+    rows.forEach(function(row) {
+      var link = row.querySelector('th a');
       if (!link) return;
-      const href = link.getAttribute('href') || '';
-      // 匹配不带参数和带参数的 URL（如 /admin/cases/case/ 和 /admin/cases/case/?status__exact=active）
-      const basePath = href.split('?')[0];
-      if (allowedSet.has(basePath)) {
-        // 允许的行：显式设为 1 覆盖 CSS 的 opacity: 0
+      var href = link.getAttribute('href') || '';
+      var basePath = href.split('?')[0];
+      if (_allowedSet.has(basePath)) {
         row.style.opacity = '1';
       } else {
-        // 不允许的行：额外设置 display: none
         row.style.display = 'none';
       }
     });
   }
 
+  function _filterCaseHandlingWrap() {
+    _filterCaseHandling();
+    _sectionDone();
+  }
+
+  // 注册 case_handling（如果该区域存在于页面中）
+  if (document.querySelector('#nav-sidebar .app-case_handling.module')) {
+    _regSection();
+  }
+
+  // 如果两个虚拟模块都不存在（如 Admin 首页），直接移除 sidebar-pending
+  function _runFilters() {
+    if (_sectionsPending === 0) {
+      document.documentElement.classList.remove('sidebar-pending');
+      return;
+    }
+    // 并行执行两个过滤器；sectionDone 会检查全部完成后移除 sidebar-pending
+    _filterOtherToolsWrap();
+    _filterCaseHandlingWrap();
+  }
+
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', function() {
-      requestAnimationFrame(applyFilter);
+      requestAnimationFrame(_runFilters);
     });
   } else {
-    requestAnimationFrame(applyFilter);
+    requestAnimationFrame(_runFilters);
   }
 })();
 </script>
