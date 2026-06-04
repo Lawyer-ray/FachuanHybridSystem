@@ -192,10 +192,14 @@ class OneDriveProvider:
 
     def _item_url(self, path: str) -> str:
         item_path = urllib.parse.quote(self._item_path(path), safe="/:")
+        if not item_path:
+            return f"{GRAPH_BASE}/me/drive/root"
         return f"{GRAPH_BASE}/me/drive/root:/{item_path}"
 
     def _children_url(self, path: str) -> str:
         item_path = urllib.parse.quote(self._item_path(path), safe="/:")
+        if not item_path:
+            return f"{GRAPH_BASE}/me/drive/root/children"
         return f"{GRAPH_BASE}/me/drive/root:/{item_path}:/children"
 
     # ── Protocol implementation ────────────────────────────────
