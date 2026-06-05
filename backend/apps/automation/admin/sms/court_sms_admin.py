@@ -59,6 +59,11 @@ class CourtSMSAdmin(CourtSMSAdminActions, CourtSMSAdminBase):
                 name="automation_courtsms_search_cases",
             ),
             path(
+                "<int:sms_id>/recommendations/",
+                self.admin_site.admin_view(self.recommendations_ajax),
+                name="automation_courtsms_recommendations",
+            ),
+            path(
                 "<int:sms_id>/documents/<int:ref_index>/open/",
                 self.admin_site.admin_view(self.open_document_view),
                 name="automation_courtsms_open_document",
