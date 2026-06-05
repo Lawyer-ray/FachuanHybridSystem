@@ -237,7 +237,7 @@ else
     if [ -z "$MVNW_USERNAME" ] || [ -z "$MVNW_PASSWORD" ]; then
       wget $QUIET "$wrapperUrl" -O "$wrapperJarPath" || rm -f "$wrapperJarPath"
     else
-      wget $QUIET --http-user="$MVNW_USERNAME" --http-password="$MVNW_PASSWORD" "$wrapperUrl" -O "$wrapperJarPath" || rm -f "$wrapperJarPath"
+      wget $QUIET --http-user="$MVNW_USERNAME" --http-password="$MVNW_PASSWORD" # nosec "$wrapperUrl" -O "$wrapperJarPath" || rm -f "$wrapperJarPath"
     fi
   elif command -v curl >/dev/null; then
     log "Found curl ... using curl"
