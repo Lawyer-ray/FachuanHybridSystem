@@ -1,0 +1,10 @@
+# POI Service build artifacts
+target/
+*.class
+*.jar
+
+# Test output
+test_output_*.docx
+
+# Maven wrapper
+!.mvn/wrapper/maven-wrapper.jar

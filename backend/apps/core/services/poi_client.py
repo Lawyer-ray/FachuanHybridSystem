@@ -1,0 +1,150 @@
+"""POI Service HTTP client for communicating with the Apache POI microservice.
+
+Provides methods to call the POI service for document generation (complaints,
+due diligence reports, template rendering) via REST API.
+"""
+
+from __future__ import annotations
+
+import logging
+from typing import Any
+
+import httpx
+
+logger = logging.getLogger("apps.core")
+
+# Default POI service URL (configurable via Django settings)
+_POI_SERVICE_URL = "http://127.0.0.1:8090"
+
+
+def _get_poi_url() -> str:
+    """Get the POI service base URL from Django settings or default."""
+    try:
+        from django.conf import settings
+
+        return getattr(settings, "POI_SERVICE_URL", _POI_SERVICE_URL)
+    except Exception:
+        return _POI_SERVICE_URL
+
+
+class POIServiceClient:
+    """HTTP client for the Apache POI document generation service."""
+
+    def __init__(self, base_url: str | None = None, timeout: float = 30.0):
+        self.base_url = (base_url or _get_poi_url()).rstrip("/")
+        self.timeout = timeout
+
+    def _post(self, endpoint: str, payload: dict[str, Any]) -> bytes:
+        """Send POST request and return raw bytes."""
+        url = f"{self.base_url}/api/documents{endpoint}"
+        with httpx.Client(timeout=self.timeout) as client:
+            response = client.post(url, json=payload)
+            response.raise_for_status()
+            return response.content
+
+    def _get(self, endpoint: str) -> dict[str, Any]:
+        """Send GET request and return JSON."""
+        url = f"{self.base_url}/api/documents{endpoint}"
+        with httpx.Client(timeout=self.timeout) as client:
+            response = client.get(url)
+            response.raise_for_status()
+            return response.json()
+
+    def health_check(self) -> dict[str, Any]:
+        """Check if the POI service is running."""
+        return self._get("/health")
+
+    def generate_complaint(self, data: dict[str, Any]) -> bytes:
+        """Generate 起诉状 (complaint) document.
+
+        Args:
+            data: Complaint data dict matching ComplaintRequest schema:
+                - courtName: 法院名称
+                - plaintiffName: 原告名称
+                - plaintiffType: 原告类型 ("自然人"/"法人")
+                - plaintiffIdNumber: 原告证件号
+                - plaintiffAddress: 原告地址
+                - plaintiffPhone: 原告电话
+                - defendantName: 被告名称
+                - defendantType: 被告类型
+                - defendantIdNumber: 被告证件号
+                - defendantAddress: 被告地址
+                - defendantPhone: 被告电话
+                - lawyerName: 律师姓名
+                - lawyerFirm: 律所名称
+                - lawyerLicense: 执业证号
+                - causeOfAction: 案由
+                - litigationClaims: 诉讼请求 (list of strings)
+                - factsAndReasons: 事实与理由
+                - evidenceList: 证据清单
+                - signatureDate: 签署日期
+
+        Returns:
+            DOCX file bytes
+        """
+        logger.info("POI: 生成起诉状, 原告=%s, 被告=%s", data.get("plaintiffName"), data.get("defendantName"))
+        return self._post("/complaint", data)
+
+    def generate_report(self, data: dict[str, Any]) -> bytes:
+        """Generate 尽调报告 (due diligence report) document.
+
+        Args:
+            data: Report data dict matching ReportRequest schema:
+                - reportTitle: 报告标题
+                - projectName: 项目名称
+                - reportDate: 报告日期
+                - author: 编制人
+                - confidentialityLevel: 密级
+                - companyName: 目标公司名称
+                - companyRegistrationNumber: 统一社会信用代码
+                - registeredCapital: 注册资本
+                - establishedDate: 成立日期
+                - legalRepresentative: 法定代表人
+                - businessScope: 经营范围
+                - financialData: 财务数据 (list of FinancialYear)
+                - equityStructure: 股权结构 (list of EquityHolder)
+                - riskItems: 风险事项 (list of RiskItem)
+                - sections: 自定义章节 (list of ReportSection)
+
+        Returns:
+            DOCX file bytes
+        """
+        logger.info("POI: 生成尽调报告, 项目=%s", data.get("projectName"))
+        return self._post("/report", data)
+
+    def render_template(self, template_name: str, context: dict[str, Any]) -> bytes:
+        """Render a .docx template with context data.
+
+        Args:
+            template_name: Template file name (relative to templates dir)
+            context: Placeholder values ({{key}} -> value)
+
+        Returns:
+            DOCX file bytes
+        """
+        logger.info("POI: 渲染模板, template=%s, keys=%s", template_name, list(context.keys()))
+        return self._post(
+            "/template/render",
+            {
+                "templateName": template_name,
+                "context": context,
+            },
+        )
+
+    def list_templates(self) -> list[str]:
+        """List available templates."""
+        result = self._get("/templates")
+        return result.get("templates", [])
+
+
+# ── Singleton ──────────────────────────────────────────────────────────────
+
+_default_client: POIServiceClient | None = None
+
+
+def get_poi_client() -> POIServiceClient:
+    """Get or create the default POI service client."""
+    global _default_client
+    if _default_client is None:
+        _default_client = POIServiceClient()
+    return _default_client
