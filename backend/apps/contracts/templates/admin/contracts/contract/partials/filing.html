@@ -70,7 +70,13 @@
                 this.loading = true;
                 try {
                     const resp = await fetch('/api/v1/oa-filing/configs');
-                    if (resp.ok) this.configs = await resp.json();
+                    if (resp.ok) {
+                        this.configs = await resp.json();
+                        // 自动选中唯一的配置项，减少用户操作
+                        if (this.configs.length === 1) {
+                            this.selectedConfigId = this.configs[0].id;
+                        }
+                    }
                 } catch (e) {
                     console.error('loadConfigs error:', e);
                 } finally {
