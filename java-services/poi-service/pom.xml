@@ -44,6 +44,12 @@
             <artifactId>poi-ooxml-full</artifactId>
         </dependency>
 
+        <!-- poi-tl Template Engine (version managed by parent) -->
+        <dependency>
+            <groupId>com.deepoove</groupId>
+            <artifactId>poi-tl</artifactId>
+        </dependency>
+
         <!-- Lombok -->
         <dependency>
             <groupId>org.projectlombok</groupId>

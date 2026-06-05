@@ -23,6 +23,7 @@
         <poi.version>5.5.1</poi.version>
         <poi-ooxml.version>5.5.1</poi-ooxml.version>
         <lombok.version>1.18.38</lombok.version>
+        <poi-tl.version>1.12.2</poi-tl.version>
     </properties>
 
     <modules>
@@ -68,6 +69,13 @@
                 <artifactId>lombok</artifactId>
                 <version>${lombok.version}</version>
                 <scope>provided</scope>
+            </dependency>
+
+            <!-- poi-tl Template Engine -->
+            <dependency>
+                <groupId>com.deepoove</groupId>
+                <artifactId>poi-tl</artifactId>
+                <version>${poi-tl.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
