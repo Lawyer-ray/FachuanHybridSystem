@@ -5,6 +5,7 @@ target/
 
 # Test output
 test_output_*.docx
+test_output_archive/
 
 # Maven wrapper
 !.mvn/wrapper/maven-wrapper.jar

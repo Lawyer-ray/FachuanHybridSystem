@@ -1,11 +1,11 @@
 """POI Service integration test script.
 
 Tests the POI service by calling its endpoints directly and via the Django client.
-Run the POI service first: cd poi-service && ./mvnw spring-boot:run
+Run the POI service first: cd java-services/poi-service && ./mvnw spring-boot:run
 
 Usage:
     cd backend
-    python ../poi-service/test_poi_integration.py
+    python ../java-services/poi-service/test_poi_integration.py
 """
 
 from __future__ import annotations
@@ -16,8 +16,9 @@ import os
 from pathlib import Path
 
 # Setup Django
-backend_dir = str(Path(__file__).resolve().parent.parent / "backend")
-api_system_dir = str(Path(__file__).resolve().parent.parent / "backend" / "apiSystem")
+project_root = str(Path(__file__).resolve().parent.parent.parent)
+backend_dir = os.path.join(project_root, "backend")
+api_system_dir = os.path.join(project_root, "backend", "apiSystem")
 sys.path.insert(0, api_system_dir)
 sys.path.insert(0, backend_dir)
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "apiSystem.settings")
