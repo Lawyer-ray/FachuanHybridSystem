@@ -48,20 +48,20 @@ def test_complaint_generation():
 
     client = get_poi_client()
     data = {
-        "courtName": "广东省佛山市禅城区人民法院",
-        "plaintiffName": "佛山市三水南钢实业有限公司",
+        "courtName": "广东省广州市天河区人民法院",
+        "plaintiffName": "深圳市某科技有限公司",
         "plaintiffType": "法人",
         "plaintiffIdNumber": "91440600MA5XXXXXX",
-        "plaintiffAddress": "广东省佛山市三水区西南街道人民路1号",
+        "plaintiffAddress": "广东省广州市天河区珠江新城",
         "plaintiffPhone": "0757-87778888",
         "plaintiffLegalRepresentative": "张三",
-        "defendantName": "佛山市升平百货有限公司",
+        "defendantName": "广州市某商贸有限公司",
         "defendantType": "法人",
         "defendantIdNumber": "91440600MA6YYYYYY",
-        "defendantAddress": "广东省佛山市禅城区升平路88号",
+        "defendantAddress": "广东省广州市天河区体育西路100号",
         "defendantPhone": "0757-82223333",
         "lawyerName": "李四",
-        "lawyerFirm": "广东某律师事务所",
+        "lawyerFirm": "广州某律师事务所",
         "lawyerLicense": "14406202010000001",
         "causeOfAction": "金融借款合同纠纷",
         "litigationClaims": [
@@ -98,11 +98,11 @@ def test_report_generation():
     client = POIServiceClient()
     data = {
         "reportTitle": "尽职调查报告",
-        "projectName": "佛山市升平百货有限公司股权收购项目",
+        "projectName": "广州市某商贸有限公司股权收购项目",
         "reportDate": "2026年6月5日",
-        "author": "广东某律师事务所",
+        "author": "广州某律师事务所",
         "confidentialityLevel": "机密",
-        "companyName": "佛山市升平百货有限公司",
+        "companyName": "广州市某商贸有限公司",
         "companyRegistrationNumber": "91440600MA6YYYYYY",
         "registeredCapital": "5000万元人民币",
         "establishedDate": "2010年3月15日",
@@ -116,7 +116,7 @@ def test_report_generation():
         "equityStructure": [
             {"name": "张三", "percentage": 40.0, "type": "自然人", "contributionMethod": "货币"},
             {"name": "李四", "percentage": 30.0, "type": "自然人", "contributionMethod": "货币"},
-            {"name": "广东某投资有限公司", "percentage": 20.0, "type": "法人", "contributionMethod": "实物"},
+            {"name": "深圳市某投资有限公司", "percentage": 20.0, "type": "法人", "contributionMethod": "实物"},
             {"name": "员工持股平台", "percentage": 10.0, "type": "法人", "contributionMethod": "货币"},
         ],
         "riskItems": [
@@ -162,7 +162,7 @@ def test_report_generation():
                 "level": 2,
                 "content": "目标公司持有注册商标12项，专利权5项（其中发明专利2项，实用新型3项）。所有知识产权均在有效期内，权属清晰，不存在权属争议。",
                 "bulletPoints": [
-                    "注册商标：升平百货（第35类）、升平优选（第35类）等12项",
+                    "注册商标：某商贸（第35类）、某优选（第35类）等12项",
                     "发明专利：一种智能仓储管理系统（专利号：ZL20201XXXXXX.X）",
                     "实用新型：3项（均为物流设备相关）",
                     "软件著作权：3项（ERP系统、会员管理系统、供应链管理系统）",

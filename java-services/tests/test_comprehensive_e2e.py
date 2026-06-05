@@ -82,7 +82,7 @@ def test_02_complaint_normal():
         "defendantAddress": "深圳市南山区科技园",
         "defendantPhone": "0755-87654321",
         "lawyerName": "李四",
-        "lawyerFirm": "广东某律师事务所",
+        "lawyerFirm": "广州某律师事务所",
         "lawyerLicense": "14401202010000001",
         "causeOfAction": "买卖合同纠纷",
         "litigationClaims": [
@@ -134,7 +134,7 @@ def test_04_report_normal():
         "reportTitle": "尽职调查报告",
         "projectName": "某公司股权收购项目",
         "reportDate": "2026年6月5日",
-        "author": "广东某律师事务所",
+        "author": "广州某律师事务所",
         "confidentialityLevel": "保密",
         "companyName": "目标公司",
         "companyRegistrationNumber": "91440100MA5XXXXXX",

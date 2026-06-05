@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-POI 归档文书端到端测试 — 使用黎梓婷真实案件数据.
+POI 归档文书端到端测试 — 使用张某某真实案件数据.
 
 测试内容：
 1. 案卷封面（POI）
@@ -32,34 +32,34 @@ def _post(endpoint, data, filename):
 
 
 # ══════════════════════════════════════════════════════════════════════
-# 黎梓婷真实案件数据
+# 张某某真实案件数据
 # ══════════════════════════════════════════════════════════════════════
 
 LIZITING_ARCHIVE = {
-    "caseName": "杜丽琼委托代理黎梓婷涉嫌危险驾驶罪一案",
+    "caseName": "李某某委托代理张某某涉嫌买卖合同纠纷一案",
     "caseType": "刑事",
-    "caseNumber": "(2006)粤0604刑初155号",
-    "causeOfAction": "危险驾驶罪",
-    "courtName": "佛山市禅城区人民法院",
+    "caseNumber": "(2006)粤0106刑初155号",
+    "causeOfAction": "买卖合同纠纷",
+    "courtName": "广州市天河区人民法院",
     "caseStage": "一审",
-    "trialResult": "被告人黎梓婷犯危险驾驶罪，判处拘役一个月，缓刑二个月，并处罚金人民币4000元。",
+    "trialResult": "被告人张某某犯买卖合同纠纷，判处拘役一个月，缓刑二个月，并处罚金人民币4000元。",
     "oaCaseNumber": "2026GZXS0003",
-    "ourPartyName": "黎梓婷",
-    "opposingPartyName": "佛山市禅城区人民检察院",
-    "leadLawyer": "黄崧",
+    "ourPartyName": "张某某",
+    "opposingPartyName": "广州市天河区人民检察院",
+    "leadLawyer": "王律师",
     "startDate": "2026-02-01",
     "archiveDate": "2026-04-21",
     "year": "2026",
-    "contractName": "杜丽琼委托代理黎梓婷涉嫌危险驾驶罪一案",
+    "contractName": "李某某委托代理张某某涉嫌买卖合同纠纷一案",
     "contractType": "刑事代理合同",
     "archiveItems": [
         {"name": "合同正本与律师办案服务质量监督卡", "pages": "1-2", "note": ""},
         {"name": "授权委托证明材料（户口本）", "pages": "3", "note": "当事人提供"},
         {"name": "所函（检察院授权）", "pages": "4", "note": "2026-03-03"},
-        {"name": "房长波律师证", "pages": "5", "note": "复印件"},
-        {"name": "授权委托书（杜丽琼→黎梓婷）", "pages": "6", "note": "2026-02-01"},
+        {"name": "赵律师律师证", "pages": "5", "note": "复印件"},
+        {"name": "授权委托书（李某某→张某某）", "pages": "6", "note": "2026-02-01"},
         {"name": "所函（现场咨询）", "pages": "7", "note": "2026-02-05"},
-        {"name": "黄崧律师证", "pages": "8", "note": "复印件"},
+        {"name": "王律师律师证", "pages": "8", "note": "复印件"},
         {"name": "鉴定意见通知书", "pages": "9", "note": "当事人传回"},
         {"name": "移送检察院通知", "pages": "10", "note": "2026-03-12"},
         {"name": "认罪认罚具结书", "pages": "11", "note": "2026-04-02"},
@@ -72,10 +72,10 @@ LIZITING_ARCHIVE = {
         {"sequenceNumber": "2", "materialName": "律师办案服务质量监督卡", "pageNumbers": "2"},
         {"sequenceNumber": "3", "materialName": "户口本（授权委托证明）", "pageNumbers": "3"},
         {"sequenceNumber": "4", "materialName": "所函（检察院授权）", "pageNumbers": "4"},
-        {"sequenceNumber": "5", "materialName": "房长波律师证复印件", "pageNumbers": "5"},
+        {"sequenceNumber": "5", "materialName": "赵律师律师证复印件", "pageNumbers": "5"},
         {"sequenceNumber": "6", "materialName": "授权委托书", "pageNumbers": "6"},
         {"sequenceNumber": "7", "materialName": "所函（现场咨询）", "pageNumbers": "7"},
-        {"sequenceNumber": "8", "materialName": "黄崧律师证复印件", "pageNumbers": "8"},
+        {"sequenceNumber": "8", "materialName": "王律师律师证复印件", "pageNumbers": "8"},
         {"sequenceNumber": "9", "materialName": "鉴定意见通知书", "pageNumbers": "9"},
         {"sequenceNumber": "10", "materialName": "移送检察院通知书", "pageNumbers": "10"},
         {"sequenceNumber": "11", "materialName": "认罪认罚具结书", "pageNumbers": "11"},
@@ -86,30 +86,30 @@ LIZITING_ARCHIVE = {
 }
 
 LIZITING_COMPLAINT = {
-    "courtName": "佛山市禅城区人民法院",
-    "plaintiffName": "佛山市禅城区人民检察院",
+    "courtName": "广州市天河区人民法院",
+    "plaintiffName": "广州市天河区人民检察院",
     "plaintiffType": "机关",
     "plaintiffIdNumber": "",
-    "plaintiffAddress": "广东省佛山市禅城区",
+    "plaintiffAddress": "广东省广州市天河区",
     "plaintiffPhone": "",
     "plaintiffLegalRepresentative": "",
-    "defendantName": "黎梓婷",
+    "defendantName": "张某某",
     "defendantType": "自然人",
     "defendantIdNumber": "",
-    "defendantAddress": "广东省佛山市",
+    "defendantAddress": "广东省广州市",
     "defendantPhone": "",
-    "lawyerName": "黄崧",
-    "lawyerFirm": "广东某律师事务所",
+    "lawyerName": "王律师",
+    "lawyerFirm": "广州某律师事务所",
     "lawyerLicense": "14406202010000001",
-    "causeOfAction": "危险驾驶罪",
+    "causeOfAction": "买卖合同纠纷",
     "litigationClaims": [
-        "1. 判处被告人黎梓婷拘役一个月，缓刑二个月",
-        "2. 判处被告人黎梓婷缴纳罚金人民币4000元",
+        "1. 判处被告人张某某拘役一个月，缓刑二个月",
+        "2. 判处被告人张某某缴纳罚金人民币4000元",
     ],
     "factsAndReasons": (
-        "被告人黎梓婷于2026年1月15日22时许，饮酒后驾驶粤EXXXXX号小型轿车行驶至佛山市禅城区XX路时，"
-        "被执勤民警查获。经鉴定，被告人黎梓婷血液中乙醇含量为156.3mg/100ml，已达到醉酒驾驶标准。\n"
-        "被告人黎梓婷到案后如实供述犯罪事实，且自愿认罪认罚。"
+        "被告人张某某于2026年1月15日22时许，饮酒后驾驶粤EXXXXX号小型轿车行驶至广州市天河区XX路时，"
+        "被执勤民警查获。经鉴定，被告人张某某血液中乙醇含量为156.3mg/100ml，已达到醉酒驾驶标准。\n"
+        "被告人张某某到案后如实供述犯罪事实，且自愿认罪认罚。"
     ),
     "evidenceList": "1. 血液酒精含量鉴定报告；2. 驾驶证及行驶证复印件；3. 证人证言",
     "signatureDate": "2026年4月3日",
@@ -117,40 +117,40 @@ LIZITING_COMPLAINT = {
 
 
 def test_case_cover():
-    path, size = _post("/archive/case-cover", LIZITING_ARCHIVE, "1-案卷封面-黎梓婷.docx")
+    path, size = _post("/archive/case-cover", LIZITING_ARCHIVE, "1-案卷封面-张某某.docx")
     print(f"✅ 案卷封面: {path} ({size} bytes)")
     return True
 
 
 def test_closing_register():
-    path, size = _post("/archive/closing-register", LIZITING_ARCHIVE, "2-结案归档登记表-黎梓婷.docx")
+    path, size = _post("/archive/closing-register", LIZITING_ARCHIVE, "2-结案归档登记表-张某某.docx")
     print(f"✅ 结案归档登记表: {path} ({size} bytes)")
     return True
 
 
 def test_catalog():
-    path, size = _post("/archive/catalog", LIZITING_ARCHIVE, "3-卷内目录-黎梓婷.docx")
+    path, size = _post("/archive/catalog", LIZITING_ARCHIVE, "3-卷内目录-张某某.docx")
     print(f"✅ 卷内目录: {path} ({size} bytes)")
     return True
 
 
 def test_complaint():
-    path, size = _post("/complaint", LIZITING_COMPLAINT, "4-起诉状-黎梓婷.docx")
+    path, size = _post("/complaint", LIZITING_COMPLAINT, "4-起诉状-张某某.docx")
     print(f"✅ 起诉状: {path} ({size} bytes)")
     return True
 
 
 def test_comparison():
     """Compare POI output with existing docxtpl output."""
-    existing_archive = Path("/Users/huangsong21/Downloads/新工作/200-诉讼/4-刑事/2026.02.01-[刑事]黎梓婷醉驾一案/归档文件夹")
+    existing_archive = Path("/Users/huangsong21/Downloads/新工作/200-诉讼/4-刑事/2026.02.01-[刑事]张某某醉驾一案/归档文件夹")
 
     print("\n📊 POI vs docxtpl 文件对比:")
     print("-" * 70)
 
     comparisons = [
-        ("1-案卷封面", "poi_output_archive/1-案卷封面-黎梓婷.docx"),
-        ("2-结案归档登记表", "poi_output_archive/2-结案归档登记表-黎梓婷.docx"),
-        ("3-卷内目录", "poi_output_archive/3-卷内目录-黎梓婷.docx"),
+        ("1-案卷封面", "poi_output_archive/1-案卷封面-张某某.docx"),
+        ("2-结案归档登记表", "poi_output_archive/2-结案归档登记表-张某某.docx"),
+        ("3-卷内目录", "poi_output_archive/3-卷内目录-张某某.docx"),
     ]
 
     for label, poi_file in comparisons:
@@ -171,7 +171,7 @@ def test_comparison():
 
 def main():
     print("=" * 70)
-    print("POI 归档文书端到端测试 — 黎梓婷案件真实数据")
+    print("POI 归档文书端到端测试 — 张某某案件真实数据")
     print("=" * 70)
 
     results = []
