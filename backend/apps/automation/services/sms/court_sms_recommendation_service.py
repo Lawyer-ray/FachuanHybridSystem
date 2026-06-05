@@ -11,7 +11,7 @@ import re
 from dataclasses import dataclass, field
 from datetime import date
 
-from django.db.models import Q
+from django.db.models import Q, QuerySet
 
 from apps.automation.models.court_sms import CourtSMS
 from apps.automation.utils.text_utils import TextUtils
@@ -98,7 +98,7 @@ class CourtSMSRecommendationService:
                 return None
             court_doc = documents.filter(c_fymc__isnull=False).exclude(c_fymc="").first()
             if court_doc and court_doc.c_fymc:
-                return court_doc.c_fymc
+                return str(court_doc.c_fymc)
         except Exception:
             pass
         return None
@@ -157,7 +157,7 @@ class CourtSMSRecommendationService:
 
     def _score_and_rank(
         self,
-        candidates: object,
+        candidates: QuerySet[Case],
         normalized_numbers: list[str],
         year_court_prefixes: list[str],
         court_name: str | None,

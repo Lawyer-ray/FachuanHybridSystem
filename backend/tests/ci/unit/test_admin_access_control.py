@@ -17,14 +17,13 @@ import pytest
 from django.test import Client, RequestFactory
 from django.urls import reverse
 
-from apps.cases.models import Case, CaseAssignment, CaseAccessGrant
+from apps.cases.models import Case, CaseAccessGrant, CaseAssignment
 from apps.cases.services.case.case_access_policy import CaseAccessPolicy
 from apps.contracts.models import Contract, ContractAssignment
 from apps.contracts.services.contract.domain.access_policy import ContractAccessPolicy
 from apps.core.security.admin_access import apply_admin_access_filter
 from apps.organization.models import Lawyer, Team, TeamType
 from apps.testing.factories import CaseFactory, ContractFactory, LawyerFactory
-
 
 # ── helpers ──────────────────────────────────────────────────────────────────
 
