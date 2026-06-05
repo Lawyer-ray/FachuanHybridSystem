@@ -48,7 +48,8 @@ class POIServiceClient:
         with httpx.Client(timeout=self.timeout) as client:
             response = client.get(url)
             response.raise_for_status()
-            return response.json()
+            result: dict[str, Any] = response.json()
+            return result
 
     def health_check(self) -> dict[str, Any]:
         """Check if the POI service is running."""
@@ -133,8 +134,9 @@ class POIServiceClient:
 
     def list_templates(self) -> list[str]:
         """List available templates."""
-        result = self._get("/templates")
-        return result.get("templates", [])
+        result: dict[str, Any] = self._get("/templates")
+        templates: list[str] = result.get("templates", [])
+        return templates
 
 
 # ── Singleton ──────────────────────────────────────────────────────────────

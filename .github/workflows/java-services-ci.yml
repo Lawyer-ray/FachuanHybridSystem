@@ -20,7 +20,7 @@ jobs:
     timeout-minutes: 20
     defaults:
       run:
-        working-directory: java-services/poi-service
+        working-directory: java-services
 
     steps:
       - name: Checkout
@@ -41,5 +41,5 @@ jobs:
 
       - name: Verify JAR exists
         run: |
-          ls -la target/poi-service-*.jar
+          ls -la poi-service/target/poi-service-*.jar
           echo "✅ JAR built successfully"
