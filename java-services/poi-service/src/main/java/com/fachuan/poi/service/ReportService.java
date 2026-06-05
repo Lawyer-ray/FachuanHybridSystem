@@ -2,7 +2,7 @@ package com.fachuan.poi.service;
 
 import com.fachuan.poi.model.ReportRequest;
 import com.fachuan.poi.model.ReportRequest.*;
-import com.fachuan.poi.util.DocxHelper;
+import com.fachuan.shared.poi.DocxHelper;
 import org.apache.poi.xwpf.usermodel.*;
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTP;
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTSimpleField;

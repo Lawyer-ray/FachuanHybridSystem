@@ -1,7 +1,7 @@
 package com.fachuan.poi.service;
 
 import com.fachuan.poi.model.ArchiveRequest;
-import com.fachuan.poi.util.DocxHelper;
+import com.fachuan.shared.poi.DocxHelper;
 import org.apache.poi.xwpf.usermodel.ParagraphAlignment;
 import org.apache.poi.xwpf.usermodel.XWPFDocument;
 import org.apache.poi.xwpf.usermodel.XWPFParagraph;

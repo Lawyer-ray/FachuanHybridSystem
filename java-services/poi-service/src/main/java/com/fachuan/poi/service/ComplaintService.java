@@ -1,7 +1,7 @@
 package com.fachuan.poi.service;
 
 import com.fachuan.poi.model.ComplaintRequest;
-import com.fachuan.poi.util.DocxHelper;
+import com.fachuan.shared.poi.DocxHelper;
 import org.apache.poi.xwpf.usermodel.*;
 import org.springframework.stereotype.Service;
 
