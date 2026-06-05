@@ -511,7 +511,7 @@ class CourtSMSAdminBase(admin.ModelAdmin):
             "  box.innerHTML='<p style=\"color:#999;padding:10px;\">未找到匹配案件，建议通过上方搜索框手动查找。</p>';"
             "  return;"
             " }}"
-            " var html='<div style=\"display:grid;gap:10px;\">';"
+            " var html='<div style=\"display:grid;grid-template-columns:repeat(auto-fill,minmax(380px,1fr));gap:10px;\">';"
             " list.forEach(function(r){{"
             "  var borderColor=r.id==='{current_case}'?'#007cba':'#ddd';"
             "  var statusLabel=r.status==='active'?'<span style=\"color:#28a745;font-size:12px;\">在办</span>':'<span style=\"color:#6c757d;font-size:12px;\">已结案</span>';"
