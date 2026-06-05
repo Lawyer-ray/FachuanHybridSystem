@@ -9,9 +9,9 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from django.http import HttpResponse
 from django.conf import settings
-from ninja import Router, Schema, Field
+from django.http import HttpResponse
+from ninja import Field, Router, Schema
 
 logger = logging.getLogger("apps.automation")
 
