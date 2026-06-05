@@ -218,6 +218,7 @@ class ContractAdmin(
                 to_save.append((contract.id, filing_number))
         # 批量更新（单次 UPDATE 语句）
         from apps.contracts.models import Contract
+
         for contract_id, filing_number in to_save:
             Contract.objects.filter(id=contract_id).update(is_filed=True, filing_number=filing_number)
         self.message_user(request, "已建档 %(count)d 个合同" % {"count": len(to_save)})
@@ -233,17 +234,18 @@ class ContractAdmin(
         return super().changelist_view(request, extra_context=extra_context)
 
     def get_queryset(self, request: HttpRequest) -> Any:
-        return (
-            super()
-            .get_queryset(request)
-            .prefetch_related(
-                "assignments__lawyer",
-                "contract_parties__client",
-                "supplementary_agreements__parties__client",
-                "finalized_materials",
-                "payments",
-                "client_payment_records",
-            )
+        qs = super().get_queryset(request)
+        from apps.contracts.services.contract.domain.access_policy import ContractAccessPolicy
+        from apps.core.security.admin_access import apply_admin_access_filter
+
+        qs = apply_admin_access_filter(request, qs, ContractAccessPolicy())
+        return qs.prefetch_related(
+            "assignments__lawyer",
+            "contract_parties__client",
+            "supplementary_agreements__parties__client",
+            "finalized_materials",
+            "payments",
+            "client_payment_records",
         )
 
     def get_urls(self) -> list[Any]:
