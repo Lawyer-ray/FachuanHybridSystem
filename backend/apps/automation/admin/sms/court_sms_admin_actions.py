@@ -262,6 +262,40 @@ class CourtSMSAdminActions:
             logger.error(f"AJAX 搜索案件失败: SMS ID={sms_id}, 搜索词={search_term}, 错误: {e!s}")
             return JsonResponse({"error": "搜索失败,请重试"}, status=500)
 
+    def recommendations_ajax(self, request: HttpRequest, sms_id: int) -> JsonResponse:
+        """AJAX 推荐关联案件接口（聚合搜索）"""
+        if request.method != "GET":
+            return JsonResponse({"error": "只支持 GET 请求"}, status=405)
+
+        sms = get_object_or_404(CourtSMS, id=sms_id)
+
+        try:
+            from apps.automation.services.sms.court_sms_recommendation_service import CourtSMSRecommendationService
+
+            results = CourtSMSRecommendationService().get_recommendations(sms)
+
+            return JsonResponse(
+                {
+                    "recommendations": [
+                        {
+                            "id": r.case_id,
+                            "name": r.case_name,
+                            "score": r.score,
+                            "reasons": r.reasons,
+                            "case_numbers": r.case_numbers,
+                            "parties": r.parties,
+                            "court_names": r.court_names,
+                            "status": r.status,
+                        }
+                        for r in results
+                    ]
+                }
+            )
+
+        except Exception as e:
+            logger.error(f"AJAX 推荐关联案件失败: SMS ID={sms_id}, 错误: {e!s}")
+            return JsonResponse({"error": "推荐查询失败,请重试"}, status=500)
+
     def retry_single_sms_view(self, request: HttpRequest, sms_id: int) -> HttpResponse:
         """单个短信重新处理"""
         get_object_or_404(CourtSMS, id=sms_id)

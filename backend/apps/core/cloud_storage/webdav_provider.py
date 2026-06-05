@@ -1,4 +1,4 @@
-"""Nutstore (坚果云) WebDAV storage provider."""
+"""WebDAV storage provider — works with any WebDAV-compatible service."""
 
 from __future__ import annotations
 
@@ -78,8 +78,8 @@ class WebDAVProvider:
             from .exceptions import CloudStorageRateLimitError
 
             raise CloudStorageRateLimitError(
-                "坚果云服务暂时不可用（请求过于频繁），请稍后重试",
-                provider="坚果云 WebDAV",
+                "云存储服务暂时不可用（请求过于频繁），请稍后重试",
+                provider="WebDAV",
                 retry_after=60,
             )
         if resp.status_code >= 400:
@@ -103,8 +103,8 @@ class WebDAVProvider:
             from .exceptions import CloudStorageRateLimitError
 
             raise CloudStorageRateLimitError(
-                "坚果云服务暂时不可用（请求过于频繁），请稍后重试",
-                provider="坚果云 WebDAV",
+                "云存储服务暂时不可用（请求过于频繁），请稍后重试",
+                provider="WebDAV",
                 retry_after=60,
             )
         if resp.status_code == 404:

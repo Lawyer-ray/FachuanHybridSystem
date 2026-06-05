@@ -83,6 +83,7 @@ class CourtSMSAdminBase(admin.ModelAdmin):
         "documents_display",
         "notification_details",
         "retry_button",
+        "recommended_cases_display",
     ]
 
     # 字段分组
@@ -115,6 +116,7 @@ class CourtSMSAdminBase(admin.ModelAdmin):
             {
                 "fields": (
                     "case",
+                    "recommended_cases_display",
                     "scraper_task_link",
                     "case_log_link",
                     "documents_display",
@@ -471,6 +473,90 @@ class CourtSMSAdminBase(admin.ModelAdmin):
                 retry_url,
             )
         return "-"
+
+    @admin.display(description=_("推荐关联案件"))
+    def recommended_cases_display(self, obj: CourtSMS) -> SafeString:
+        """推荐关联案件卡片（AJAX 加载 + Select2 集成）"""
+        if not obj.id:
+            return format_html('<span style="color:#999;">保存后可查看推荐案件</span>')
+
+        if not (obj.case_numbers or obj.party_names):
+            return format_html(
+                '<p style="color:#999;margin:8px 0;">短信中未提取到案号或当事人信息，无法推荐关联案件。'
+                "请使用上方的搜索框手动查找。</p>"
+            )
+
+        rec_url = reverse("admin:automation_courtsms_recommendations", args=[obj.id])
+        container_id = f"rec-cases-{obj.id}"
+
+        return format_html(
+            "<div id='{cid}' style='margin:10px 0;'>"
+            "<div style='color:#666;padding:10px;'>🔍 正在搜索推荐案件…</div>"
+            "</div>"
+            "<script>"
+            "(function(){{"
+            " if(window.__recCasesBound){{return;}}"
+            " window.__recCasesBound=true;"
+            " var url='{url}';"
+            " var box=document.getElementById('{cid}');"
+            " if(!box){{return;}}"
+            " fetch(url).then(function(r){{return r.json();}}).then(function(data){{"
+            "  renderRecCases(box,data.recommendations||[]);"
+            " }}).catch(function(){{"
+            "  box.innerHTML='<p style=\"color:#c00;padding:10px;\">推荐案件加载失败</p>';"
+            " }});"
+            "}})();"
+            "function renderRecCases(box,list){{"
+            " if(!list.length){{"
+            "  box.innerHTML='<p style=\"color:#999;padding:10px;\">未找到匹配案件，建议通过上方搜索框手动查找。</p>';"
+            "  return;"
+            " }}"
+            " var html='<div style=\"display:flex;flex-wrap:wrap;gap:10px;\">';"
+            " list.forEach(function(r){{"
+            "  var borderColor=r.id==='{current_case}'?'#007cba':'#ddd';"
+            "  var statusLabel=r.status==='active'?'<span style=\"color:#28a745;font-size:12px;\">在办</span>':'<span style=\"color:#6c757d;font-size:12px;\">已结案</span>';"
+            "  var reasonsHtml=r.reasons.map(function(x){{return '<span style=\"background:#e7f3ff;color:#007cba;padding:2px 8px;border-radius:12px;font-size:12px;margin-right:4px;\">'+x+'</span>';}}).join('');"
+            "  var caseNums=r.case_numbers.length?'<div style=\"font-size:13px;color:#555;margin-top:4px;\"><b>案号：</b>'+r.case_numbers.join(', ')+'</div>':'';"
+            "  var parties=r.parties.length?'<div style=\"font-size:13px;color:#555;\"><b>当事人：</b>'+r.parties.join(', ')+'</div>':'';"
+            "  var courts=r.court_names.length?'<div style=\"font-size:13px;color:#555;\"><b>法院：</b>'+r.court_names.join(', ')+'</div>':'';"
+            "  var caseUrl='/admin/cases/case/'+r.id+'/change/';"
+            "  html+="
+            "   '<div class=\"rec-card\" data-id=\"'+r.id+'\" style=\"flex:1 1 320px;max-width:100%;border:2px solid '+borderColor+';border-radius:6px;padding:12px 14px;background:#fff;box-sizing:border-box;position:relative;\">'"
+            "   +'<div style=\"position:absolute;top:10px;right:12px;text-align:center;\">'"
+            "   +'<div style=\"font-size:10px;color:#888;\">相关度</div>'"
+            "   +'<div style=\"background:#007cba;color:#fff;border-radius:10px;padding:2px 10px;font-size:13px;font-weight:bold;white-space:nowrap;\">'+r.score+'</div>'"
+            "   +'</div>'"
+            "   +'<div style=\"padding-right:60px;\"><b style=\"font-size:14px;\">'+r.name+'</b> '+statusLabel+' <span style=\"color:#999;font-size:12px;\">#'+r.id+'</span></div>'"
+            "   +'<div style=\"margin-top:6px;\">'+reasonsHtml+'</div>'"
+            "   +caseNums+parties+courts"
+            "   +'<div style=\"margin-top:10px;display:flex;gap:8px;\">'"
+            "   +'<button type=\"button\" class=\"button btn-success\" onclick=\"selectRecCase('+r.id+',\\''+r.name.replace(/'/g,\"\\\\'\")+'\\')\">选择此案件</button>'"
+            '   +\'<a href="\'+caseUrl+\'" target="_blank" class="button">查看详情</a>\''
+            "   +'</div>'"
+            "   +'</div>';"
+            " }});"
+            " html+='</div>';"
+            " box.innerHTML=html;"
+            "}}"
+            "function selectRecCase(caseId,caseName){{"
+            " var s=document.getElementById('id_case');"
+            " if(!s){{return;}}"
+            " if(!s.querySelector('option[value=\"'+caseId+'\"]')){{"
+            "  var o=document.createElement('option');"
+            "  o.value=caseId;o.textContent=caseName;s.appendChild(o);"
+            " }}"
+            " if(window.jQuery&&jQuery(s).data('select2')){{"
+            "  jQuery(s).val(caseId).trigger('change');"
+            " }}else{{"
+            "  s.value=caseId;s.dispatchEvent(new Event('change',{{bubbles:true}}));"
+            " }}"
+            " document.querySelectorAll('.rec-card').forEach(function(c){{c.style.borderColor=c.dataset.id==String(caseId)?'#007cba':'#ddd';}});"
+            "}}"
+            "</script>",
+            cid=container_id,
+            url=rec_url,
+            current_case=str(obj.case_id or ""),
+        )
 
     def get_search_results(
         self, request: HttpRequest, queryset: QuerySet[CourtSMS], search_term: str

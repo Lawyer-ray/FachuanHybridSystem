@@ -15,6 +15,41 @@ from apps.core.exceptions import ValidationException
 
 logger = logging.getLogger(__name__)
 
+# 全国 31 个省级行政区名称，用于校验法院 API level-1 项是否为合法省份
+_VALID_PROVINCES: set[str] = {
+    "北京市",
+    "天津市",
+    "河北省",
+    "山西省",
+    "内蒙古自治区",
+    "辽宁省",
+    "吉林省",
+    "黑龙江省",
+    "上海市",
+    "江苏省",
+    "浙江省",
+    "安徽省",
+    "福建省",
+    "江西省",
+    "山东省",
+    "河南省",
+    "湖北省",
+    "湖南省",
+    "广东省",
+    "广西壮族自治区",
+    "海南省",
+    "重庆市",
+    "四川省",
+    "贵州省",
+    "云南省",
+    "西藏自治区",
+    "陕西省",
+    "甘肃省",
+    "青海省",
+    "宁夏回族自治区",
+    "新疆维吾尔自治区",
+}
+
 
 @dataclass
 class CauseItem:
@@ -425,7 +460,7 @@ class CourtApiClient:
                 continue
 
             current_province = province
-            if level == 1:
+            if level == 1 and name in _VALID_PROVINCES:
                 current_province = name
 
             children_data = item.get("children") or []

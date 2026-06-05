@@ -264,7 +264,12 @@ class CaseAdmin(
 
     def get_queryset(self, request: HttpRequest) -> QuerySet[Case]:
         qs = super().get_queryset(request)
-        return qs.select_related(
+        from apps.cases.services.case.case_access_policy import CaseAccessPolicy
+        from apps.core.security.admin_access import apply_admin_access_filter
+
+        qs = apply_admin_access_filter(request, qs, CaseAccessPolicy())
+        filtered_qs: QuerySet[Case] = qs
+        return filtered_qs.select_related(
             "contract",
         ).prefetch_related(
             "assignments__lawyer",

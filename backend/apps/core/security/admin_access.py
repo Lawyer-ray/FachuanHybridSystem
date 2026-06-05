@@ -34,3 +34,14 @@ def ensure_admin_request(
     if is_admin_user(get_request_user(request)):
         return
     raise PermissionDenied(message=message, code=code)
+
+
+def apply_admin_access_filter(request: HttpRequest, qs: Any, policy: Any) -> Any:
+    """在 Django admin get_queryset 中应用行级权限过滤.
+
+    复用 CaseAccessPolicy / ContractAccessPolicy 的 filter_queryset,
+    根据用户团队分配和显式授权过滤 queryset.
+    """
+    org_access = getattr(request, "org_access", None)
+    perm_open_access = getattr(request, "perm_open_access", False)
+    return policy.filter_queryset(qs, request.user, org_access, perm_open_access)

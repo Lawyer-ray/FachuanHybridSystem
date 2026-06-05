@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Folder, Link, Unlink, FolderOpen, Cloud, HardDrive } from 'lucide-react'
 import { toast } from 'sonner'
 import { useQuery } from '@tanstack/react-query'
@@ -13,8 +13,11 @@ import { foldersApi } from '../api/folders'
 
 const STORAGE_TYPES = [
   { value: 'local', label: '本地文件系统', icon: HardDrive },
-  { value: 'webdav', label: '坚果云 WebDAV', icon: Cloud },
+  { value: 'webdav', label: 'WebDAV', icon: Cloud },
   { value: 'onedrive', label: 'OneDrive', icon: Cloud },
+  { value: 's3', label: 'S3 兼容存储', icon: Cloud },
+  { value: 'google_drive', label: 'Google Drive', icon: Cloud },
+  { value: 'dropbox', label: 'Dropbox', icon: Cloud },
 ] as const
 
 export function FolderBindingManager({ contractId }: { contractId: number }) {
@@ -22,6 +25,15 @@ export function FolderBindingManager({ contractId }: { contractId: number }) {
   const [browserOpen, setBrowserOpen] = useState(false)
   const [storageType, setStorageType] = useState<string>('local')
   const [cloudAccountId, setCloudAccountId] = useState<number | null>(null)
+
+  // Sync storageType/cloudAccountId from existing binding
+  useEffect(() => {
+    const bd = binding.data
+    if (bd) {
+      setStorageType(bd.storage_type || 'local')
+      setCloudAccountId(bd.storage_account_id ?? null)
+    }
+  }, [binding.data])
 
   const { data: cloudAccounts } = useQuery({
     queryKey: ['cloud-storage-accounts'],

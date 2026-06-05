@@ -22,18 +22,28 @@ class FilingStepsMixin(FormUtilsMixin):
     CIVIL_UPLOAD_SLOT_KEYWORDS: list[tuple[str, tuple[str, ...]]]
     EXEC_UPLOAD_SLOT_KEYWORDS: list[tuple[str, tuple[str, ...]]]
 
-    def _open_case_type_page(self, case_type: str, province_code: str = "440000") -> None:
+    def _open_case_type_page(self, case_type: str, province_code: str) -> None:
         """设置省份并从案件类型页点击指定类型（打开新tab）"""
-        logger.info("导航到%s立案页", case_type)
+        logger.info("导航到%s立案页，省份代码=%s", case_type, province_code)
 
         self.page.goto(self.CASE_TYPE_URL, timeout=60000, wait_until="domcontentloaded")
-        self.page.get_by_text(case_type, exact=True).wait_for(state="visible", timeout=30000)
+
+        try:
+            self.page.get_by_text(case_type, exact=True).wait_for(state="visible", timeout=30000)
+        except Exception:
+            raise ValueError(f"省份代码 {province_code} 对应的页面未加载成功，请检查该省份是否支持一张网立案") from None
 
         current_province = self.page.evaluate("() => localStorage.getItem('provinceId')")
         if current_province != province_code:
             self.page.evaluate(f"() => localStorage.setItem('provinceId', '{province_code}')")
             self.page.reload(wait_until="domcontentloaded")
-            self.page.get_by_text(case_type, exact=True).wait_for(state="visible", timeout=30000)
+            try:
+                self.page.get_by_text(case_type, exact=True).wait_for(state="visible", timeout=30000)
+            except Exception:
+                raise ValueError(
+                    f"切换到省份代码 {province_code} 后，案件类型「{case_type}」未出现，"
+                    "该省份可能不支持此案件类型的在线立案"
+                ) from None
 
         self._random_wait(1, 2)
 

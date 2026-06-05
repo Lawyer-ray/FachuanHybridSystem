@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   FolderOpen,
   Link2,
@@ -41,8 +41,11 @@ import type { FolderBinding, FolderScanCandidate, FolderScanSession } from '../t
 
 const STORAGE_TYPES = [
   { value: 'local', label: '本地', icon: HardDrive },
-  { value: 'webdav', label: '坚果云', icon: Cloud },
+  { value: 'webdav', label: 'WebDAV', icon: Cloud },
   { value: 'onedrive', label: 'OneDrive', icon: Cloud },
+  { value: 's3', label: 'S3 兼容存储', icon: Cloud },
+  { value: 'google_drive', label: 'Google Drive', icon: Cloud },
+  { value: 'dropbox', label: 'Dropbox', icon: Cloud },
 ] as const
 
 function ScanResultRow({
@@ -93,6 +96,14 @@ export function CaseFolderSection({ binding, caseId }: CaseFolderSectionProps) {
   const [scanSession, setScanSession] = useState<FolderScanSession | null>(null)
   const [selectedCandidates, setSelectedCandidates] = useState<Set<number>>(new Set())
   const [scanning, setScanning] = useState(false)
+
+  // Sync storageType/cloudAccountId from existing binding
+  useEffect(() => {
+    if (binding) {
+      setStorageType(binding.storage_type || 'local')
+      setCloudAccountId(binding.storage_account_id ?? null)
+    }
+  }, [binding])
 
   const { data: cloudAccounts } = useQuery({
     queryKey: ['case-cloud-storage-accounts'],

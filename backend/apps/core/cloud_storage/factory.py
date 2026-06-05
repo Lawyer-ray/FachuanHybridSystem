@@ -36,8 +36,8 @@ def create_provider_for_binding(binding: Any) -> CloudStorageProvider:
                 webdav_url=getattr(storage_account, "webdav_url", ""),
             )
 
-        logger.warning("No Nutstore WebDAV account linked to binding")
-        return NullProvider(reason="坚果云 WebDAV 账号未配置或已禁用，请在 Admin 后台 -> 云存储账号 中配置")
+        logger.warning("No WebDAV account linked to binding")
+        return NullProvider(reason="WebDAV 账号未配置或已禁用，请在 Admin 后台 -> 云存储账号 中配置")
 
     if storage_type == "onedrive":
         from .onedrive_provider import OAuthTokenManager, OneDriveProvider
@@ -51,6 +51,57 @@ def create_provider_for_binding(binding: Any) -> CloudStorageProvider:
 
         logger.warning("No OneDrive account linked to binding")
         return NullProvider(reason="OneDrive 账号未配置或已禁用，请在 Admin 后台 -> 云存储账号 中配置")
+
+    if storage_type == "s3":
+        from .s3_provider import S3Provider
+
+        if storage_account is not None:
+            return S3Provider(
+                access_key_id=storage_account.s3_access_key_id,
+                secret_access_key=storage_account.get_decrypted_s3_secret_access_key(),
+                bucket_name=storage_account.s3_bucket_name,
+                endpoint_url=getattr(storage_account, "s3_endpoint_url", ""),
+                region=getattr(storage_account, "s3_region", "us-east-1"),
+                root_path=getattr(storage_account, "s3_root_path", "/"),
+            )
+
+        logger.warning("No S3 account linked to binding")
+        return NullProvider(reason="S3 账号未配置或已禁用，请在 Admin 后台 -> 云存储账号 中配置")
+
+    if storage_type == "google_drive":
+        from .gdrive_provider import GDriveProvider
+
+        if storage_account is not None:
+            import json
+
+            sa_json_str = storage_account.get_decrypted_gdrive_service_account_json()
+            if not sa_json_str:
+                logger.warning("No Google Drive service account JSON configured")
+                return NullProvider(reason="Google Drive 服务账号 JSON 未配置，请在 Admin 后台填写")
+            sa_json = json.loads(sa_json_str)
+            return GDriveProvider(
+                service_account_json=sa_json,
+                root_folder_id=getattr(storage_account, "gdrive_root_folder_id", "root"),
+                root_path=getattr(storage_account, "gdrive_root_path", "/"),
+            )
+
+        logger.warning("No Google Drive account linked to binding")
+        return NullProvider(reason="Google Drive 账号未配置或已禁用，请在 Admin 后台 -> 云存储账号 中配置")
+
+    if storage_type == "dropbox":
+        from .dropbox_provider import DropboxOAuthTokenManager, DropboxProvider
+
+        if storage_account is not None:
+            dbx_token_manager = DropboxOAuthTokenManager(storage_account)
+            return DropboxProvider(
+                access_token=dbx_token_manager.get_valid_token(),
+                app_key=storage_account.dropbox_app_key,
+                app_secret=storage_account.get_decrypted_dropbox_app_secret(),
+                root_path=getattr(storage_account, "dropbox_root_path", "/"),
+            )
+
+        logger.warning("No Dropbox account linked to binding")
+        return NullProvider(reason="Dropbox 账号未配置或已禁用，请在 Admin 后台 -> 云存储账号 中配置")
 
     logger.warning("Unknown storage_type %r", storage_type)
     return NullProvider(reason=f"不支持的存储类型: {storage_type}")
@@ -80,6 +131,45 @@ def create_provider_from_account(account: Any) -> CloudStorageProvider:
         return OneDriveProvider(
             access_token=token_manager.get_valid_token(),
             root_path=getattr(account, "onedrive_root_path", "/"),
+        )
+
+    if storage_type == "s3":
+        from .s3_provider import S3Provider
+
+        return S3Provider(
+            access_key_id=account.s3_access_key_id,
+            secret_access_key=account.get_decrypted_s3_secret_access_key(),
+            bucket_name=account.s3_bucket_name,
+            endpoint_url=getattr(account, "s3_endpoint_url", ""),
+            region=getattr(account, "s3_region", "us-east-1"),
+            root_path=getattr(account, "s3_root_path", "/"),
+        )
+
+    if storage_type == "google_drive":
+        import json
+
+        from .gdrive_provider import GDriveProvider
+
+        sa_json_str = account.get_decrypted_gdrive_service_account_json()
+        if not sa_json_str:
+            logger.warning("No Google Drive service account JSON configured")
+            return NullProvider(reason="Google Drive 服务账号 JSON 未配置，请在 Admin 后台填写")
+        sa_json = json.loads(sa_json_str)
+        return GDriveProvider(
+            service_account_json=sa_json,
+            root_folder_id=getattr(account, "gdrive_root_folder_id", "root"),
+            root_path=getattr(account, "gdrive_root_path", "/"),
+        )
+
+    if storage_type == "dropbox":
+        from .dropbox_provider import DropboxOAuthTokenManager, DropboxProvider
+
+        dbx_token_manager = DropboxOAuthTokenManager(account)
+        return DropboxProvider(
+            access_token=dbx_token_manager.get_valid_token(),
+            app_key=account.dropbox_app_key,
+            app_secret=account.get_decrypted_dropbox_app_secret(),
+            root_path=getattr(account, "dropbox_root_path", "/"),
         )
 
     logger.warning("Unknown storage_type %r", storage_type)

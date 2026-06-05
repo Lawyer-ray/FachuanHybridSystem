@@ -30,7 +30,7 @@ document.addEventListener('alpine:init', () => {
         },
 
         storageTypeLabel(type) {
-            const labels = { webdav: '坚果云', onedrive: 'OneDrive' };
+            const labels = { webdav: 'WebDAV', onedrive: 'OneDrive', s3: 'S3', google_drive: 'Google Drive', dropbox: 'Dropbox' };
             return labels[type] || type;
         },
 
@@ -61,7 +61,11 @@ document.addEventListener('alpine:init', () => {
                 });
                 if (response.ok) {
                     const data = await response.json();
-                    if (data) this.binding = data;
+                    if (data) {
+                        this.binding = data;
+                        this.storageType = data.storage_type || 'local';
+                        this.storageAccountId = data.storage_account_id || '';
+                    }
                 } else if (response.status === 404) {
                     this.binding = null;
                 }

@@ -7,7 +7,7 @@ class CloudStorageError(Exception):
     """Base exception for cloud storage operations.
 
     Attributes:
-        provider: Storage provider name (e.g. "坚果云 WebDAV", "OneDrive")
+        provider: Storage provider name (e.g. "WebDAV", "OneDrive")
         retry_after: Suggested seconds to wait before retrying (None if unknown)
     """
 

@@ -16,7 +16,7 @@ from typing import Any
 import httpx
 
 from .address_confirmation_mixin import AddressConfirmationMixin
-from .constants import CASE_TYPE_CODES, PROVINCE_CODES
+from .constants import CASE_TYPE_CODES, PROVINCE_CODES, resolve_province_code
 from .court_case_mixin import CourtCaseMixin
 from .execution_validation_mixin import ExecutionValidationMixin
 from .filing_flow_mixin import FilingFlowMixin
@@ -118,7 +118,7 @@ class CourtZxfwFilingApiService(
 
     async def _file(self, case_data: dict[str, Any], case_type: str) -> dict[str, Any]:
         province = case_data.get("province", "广东省")
-        sfid = PROVINCE_CODES.get(province, "440000")
+        sfid = resolve_province_code(province)
         court_name: str = case_data["court_name"]
         ajlx = CASE_TYPE_CODES[case_type]
         is_exec = case_type == "申请执行"

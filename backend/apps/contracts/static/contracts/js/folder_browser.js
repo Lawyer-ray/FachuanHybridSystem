@@ -1,6 +1,6 @@
 /**
  * 文件夹浏览器组件 - Finder 风格
- * 支持本地文件系统 + 云存储（坚果云 WebDAV / OneDrive）
+ * 支持本地文件系统 + 云存储（WebDAV / OneDrive）
  */
 
 document.addEventListener('alpine:init', () => {
@@ -28,7 +28,7 @@ document.addEventListener('alpine:init', () => {
         },
 
         storageTypeLabel(type) {
-            const labels = { webdav: '坚果云', onedrive: 'OneDrive' };
+            const labels = { webdav: 'WebDAV', onedrive: 'OneDrive', s3: 'S3', google_drive: 'Google Drive', dropbox: 'Dropbox' };
             return labels[type] || type;
         },
 
@@ -61,6 +61,8 @@ document.addEventListener('alpine:init', () => {
                     const data = await response.json();
                     if (data) {
                         this.binding = data;
+                        this.storageType = data.storage_type || 'local';
+                        this.storageAccountId = data.storage_account_id || '';
                     }
                 } else if (response.status === 404) {
                     this.binding = null;
