@@ -7,7 +7,7 @@
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>3.4.5</version>
+        <version>3.5.14</version>
         <relativePath/>
     </parent>
 
@@ -18,9 +18,9 @@
     <description>Apache POI document generation service for Fachuan</description>
 
     <properties>
-        <java.version>21</java.version>
-        <poi.version>5.3.0</poi.version>
-        <poi-ooxml.version>5.3.0</poi-ooxml.version>
+        <java.version>25</java.version>
+        <poi.version>5.5.1</poi.version>
+        <poi-ooxml.version>5.5.1</poi-ooxml.version>
     </properties>
 
     <dependencies>
@@ -43,18 +43,11 @@
             <version>${poi-ooxml.version}</version>
         </dependency>
 
-        <!-- Apache POI OOXML-schemas (for chart support) -->
+        <!-- Apache POI OOXML full schemas (for CTP/CTSectPr OOXML types) -->
         <dependency>
             <groupId>org.apache.poi</groupId>
             <artifactId>poi-ooxml-full</artifactId>
             <version>${poi-ooxml.version}</version>
-        </dependency>
-
-        <!-- For Excel chart embedding in DOCX -->
-        <dependency>
-            <groupId>org.apache.poi</groupId>
-            <artifactId>poi-scratchpad</artifactId>
-            <version>${poi.version}</version>
         </dependency>
 
         <!-- Lombok for reducing boilerplate -->
@@ -80,6 +73,19 @@
 
     <build>
         <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <annotationProcessorPaths>
+                        <path>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok</artifactId>
+                            <version>1.18.38</version>
+                        </path>
+                    </annotationProcessorPaths>
+                </configuration>
+            </plugin>
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
