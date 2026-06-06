@@ -15,6 +15,7 @@ class ContractStructureAnalyzer:
 
     def __init__(self):
         from apps.core.llm.service import LLMService
+        # 直接使用LLMService，它会自动读取后台配置的key
         self.llm_service = LLMService()
 
     def analyze_paragraph_level(self, text: str, context: str = "") -> dict[str, Any]:
@@ -49,6 +50,7 @@ class ContractStructureAnalyzer:
 只返回JSON，不要有其他内容。"""
 
         try:
+            # 直接调用LLMService，使用默认后端
             response = self.llm_service.complete(
                 prompt=prompt,
                 system_prompt="你是一个专业的法律文档分析专家，擅长识别文档的层级结构。",
@@ -104,3 +106,4 @@ class ContractStructureAnalyzer:
             })
 
         return results
+
