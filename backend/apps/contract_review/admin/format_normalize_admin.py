@@ -138,6 +138,11 @@ class FormatNormalizeAdmin(admin.ModelAdmin):
                 name="contract_review_formatnormalize_batch_execute",
             ),
             path(
+                "batch-delete/",
+                self.admin_site.admin_view(self.batch_delete_view),
+                name="contract_review_formatnormalize_batch_delete",
+            ),
+            path(
                 "health-check/",
                 self.admin_site.admin_view(self.health_check_view),
                 name="contract_review_formatnormalize_health_check",
@@ -453,5 +458,55 @@ class FormatNormalizeAdmin(admin.ModelAdmin):
             messages.success(request, f"✓ 批量格式化完成！成功 {success_count} 个，失败 {error_count} 个")
         else:
             messages.error(request, f"批量格式化失败，成功 0 个，失败 {error_count} 个")
+
+        return HttpResponseRedirect("/admin/contract_review/formatnormalize/")
+
+    def batch_delete_view(self, request: HttpRequest) -> HttpResponse:
+        """批量删除所有任务和相关文件"""
+        from django.conf import settings
+        from django.http import HttpResponseRedirect
+
+        # 获取所有任务
+        all_tasks = ReviewTask.objects.filter(
+            original_file__isnull=False,
+            original_file__gt="",
+        )
+
+        if not all_tasks.exists():
+            messages.info(request, "没有任务可删除")
+            return HttpResponseRedirect("/admin/contract_review/formatnormalize/")
+
+        success_count = 0
+        error_count = 0
+
+        for task in all_tasks:
+            try:
+                # 删除原始文件
+                if task.original_file:
+                    original_path = Path(settings.MEDIA_ROOT) / task.original_file
+                    if original_path.exists():
+                        original_path.unlink()
+                        logger.info("删除原始文件: %s", original_path)
+
+                # 删除输出文件
+                if task.output_file:
+                    output_path = Path(settings.MEDIA_ROOT) / task.output_file
+                    if output_path.exists():
+                        output_path.unlink()
+                        logger.info("删除输出文件: %s", output_path)
+
+                # 删除任务记录
+                task.delete()
+                success_count += 1
+
+            except Exception as e:
+                logger.exception("删除任务 %s 失败: %s", task.id, e)
+                error_count += 1
+
+        # 显示结果
+        if success_count > 0:
+            messages.success(request, f"✓ 批量删除完成！成功删除 {success_count} 个任务和相关文件，失败 {error_count} 个")
+        else:
+            messages.error(request, f"批量删除失败，成功 0 个，失败 {error_count} 个")
 
         return HttpResponseRedirect("/admin/contract_review/formatnormalize/")

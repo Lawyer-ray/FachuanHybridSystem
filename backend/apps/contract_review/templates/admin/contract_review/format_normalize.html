@@ -192,6 +192,13 @@
             批量格式化 ({{ pending_count }} 个待处理)
         </a>
         {% endif %}
+        {% if tasks|length > 0 %}
+        <a href="{% url 'admin:contract_review_formatnormalize_batch_delete' %}"
+           class="btn btn-danger"
+           onclick="return confirm('确定要彻底删除所有 {{ tasks|length }} 个任务和相关文件吗？此操作不可恢复！')">
+            批量删除 ({{ tasks|length }} 个任务)
+        </a>
+        {% endif %}
     </div>
 
     <!-- 服务状态 -->
