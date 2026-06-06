@@ -8,9 +8,9 @@ from datetime import date
 from typing import Any
 
 from apps.core.exceptions import RecognitionTimeoutError, ServiceUnavailableError, ValidationException
+from apps.core.exceptions.error_codes import TEXT_EXTRACTION_FAILED
 from apps.core.services.filename_template_service import FilenameTemplateService
 from apps.document_recognition.services.data_classes import (
-from apps.core.exceptions.error_codes import TEXT_EXTRACTION_FAILED
     BindingResult,
     DocumentType,
     RecognitionResponse,
