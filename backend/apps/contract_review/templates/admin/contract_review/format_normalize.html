@@ -180,21 +180,18 @@
 
 {% block content %}
 <div id="content-main">
-    <!-- 头部 -->
-    <div class="page-header">
-        <h1 class="page-title">合同格式调整</h1>
-        <div>
-            <a href="{% url 'admin:contract_review_formatnormalize_upload' %}" class="btn btn-primary">
-                上传新合同
-            </a>
-            {% if pending_count > 0 %}
-            <a href="{% url 'admin:contract_review_formatnormalize_batch_execute' %}"
-               class="btn btn-success"
-               onclick="return confirm('确定要批量格式化所有 {{ pending_count }} 个待处理任务吗？')">
-                批量格式化 ({{ pending_count }} 个待处理)
-            </a>
-            {% endif %}
-        </div>
+    <!-- 操作按钮 -->
+    <div style="margin-bottom: 20px; text-align: right;">
+        <a href="{% url 'admin:contract_review_formatnormalize_upload' %}" class="btn btn-primary">
+            上传新合同
+        </a>
+        {% if pending_count > 0 %}
+        <a href="{% url 'admin:contract_review_formatnormalize_batch_execute' %}"
+           class="btn btn-success"
+           onclick="return confirm('确定要批量格式化所有 {{ pending_count }} 个待处理任务吗？')">
+            批量格式化 ({{ pending_count }} 个待处理)
+        </a>
+        {% endif %}
     </div>
 
     <!-- 服务状态 -->
