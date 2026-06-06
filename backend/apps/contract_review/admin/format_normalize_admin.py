@@ -65,24 +65,36 @@ class FormatNormalizeAdmin(admin.ModelAdmin):
         if not obj.original_file:
             return "—"
 
-        # 检查POI服务状态
-        from apps.core.services.poi_client import get_poi_client
-        poi_client = get_poi_client()
-        is_poi_available = poi_client.health_check()
-
-        # 根据POI服务状态显示不同的按钮
-        if is_poi_available:
-            url = f"/admin/contract_review/formatnormalize/{obj.pk}/execute/"
+        # 检查是否有输出文件
+        if obj.output_file:
+            # 已处理：显示下载按钮
+            download_url = f"/media/{obj.output_file}"
+            reformat_url = f"/admin/contract_review/formatnormalize/{obj.pk}/execute/"
             return format_html(
-                '<a class="button" href="{}" onclick="return confirm(\'使用POI服务格式化？\')">使用POI格式化</a>',
-                url
+                '<a href="{}" class="btn btn-success" download style="background: #4CAF50; color: white; padding: 5px 10px; border-radius: 3px; text-decoration: none; margin-right: 5px;">下载</a>'
+                '<a href="{}" class="btn btn-warning" onclick="return confirm(\'确定要重新格式化吗？\')" style="background: #FF9800; color: white; padding: 5px 10px; border-radius: 3px; text-decoration: none;">重新格式化</a>',
+                download_url,
+                reformat_url
             )
         else:
+            # 未处理：显示格式化按钮
             url = f"/admin/contract_review/formatnormalize/{obj.pk}/execute/"
-            return format_html(
-                '<a class="button" href="{}" style="background-color: #ffc107;" onclick="return confirm(\'POI服务不可用，将使用Python格式化？\')">使用Python格式化</a>',
-                url
-            )
+
+            # 检查POI服务状态
+            from apps.core.services.poi_client import get_poi_client
+            poi_client = get_poi_client()
+            is_poi_available = poi_client.health_check()
+
+            if is_poi_available:
+                return format_html(
+                    '<a href="{}" class="btn btn-primary" onclick="return confirm(\'使用POI服务格式化？\')" style="background: #417690; color: white; padding: 5px 10px; border-radius: 3px; text-decoration: none;">格式化</a>',
+                    url
+                )
+            else:
+                return format_html(
+                    '<a href="{}" class="btn btn-warning" onclick="return confirm(\'POI服务不可用，将使用Python格式化？\')" style="background: #FF9800; color: white; padding: 5px 10px; border-radius: 3px; text-decoration: none;">格式化(Python)</a>',
+                    url
+                )
 
     def has_add_permission(self, request: HttpRequest) -> bool:
         return False
@@ -143,6 +155,9 @@ class FormatNormalizeAdmin(admin.ModelAdmin):
             "poi_status": poi_status,
             "poi_status_text": "在线" if poi_status else "离线",
             "poi_status_color": "green" if poi_status else "red",
+            "has_add_permission": False,
+            "has_change_permission": False,
+            "has_delete_permission": False,
         }
         return TemplateResponse(
             request,
@@ -235,14 +250,21 @@ class FormatNormalizeAdmin(admin.ModelAdmin):
             normalizer = DocxFormatNormalizer(original_path, output_path)
             result_path = normalizer.normalize()
 
-            # 更新任务的输出文件（相对于MEDIA_ROOT）
+            # 更新任务状态
             task.output_file = str(result_path.relative_to(settings.MEDIA_ROOT))
-            task.save(update_fields=["output_file"])
+            task.status = "completed"
+            task.save(update_fields=["output_file", "status"])
 
-            messages.success(request, f"格式规范化完成: {result_path.name}")
+            messages.success(
+                request,
+                f"✓ 格式规范化完成！<br>"
+                f"<a href='/media/{task.output_file}' download style='color: #4CAF50; font-weight: bold;'>点击下载格式化后的文件</a>"
+            )
 
         except Exception as e:
             logger.exception("格式规范化失败: %s", e)
+            task.status = "failed"
+            task.save(update_fields=["status"])
             messages.error(request, f"格式规范化失败: {e!s}")
 
         return HttpResponseRedirect("/admin/contract_review/formatnormalize/")
