@@ -18,13 +18,14 @@ class ContractStructureAnalyzer:
         # 直接使用LLMService，它会自动读取后台配置的key
         self.llm_service = LLMService()
 
-    def analyze_paragraph_level(self, text: str, context: str = "") -> dict[str, Any]:
+    def analyze_paragraph_level(self, text: str, context: str = "", llm_backend: str = "siliconflow") -> dict[str, Any]:
         """
         使用LLM分析段落的层级
 
         Args:
             text: 段落文本
             context: 上下文（前后段落）
+            llm_backend: 使用的LLM后端（siliconflow/ollama）
 
         Returns:
             包含level和reason的字典
@@ -50,13 +51,13 @@ class ContractStructureAnalyzer:
 只返回JSON，不要有其他内容。"""
 
         try:
-            # 直接调用LLMService，指定使用siliconflow后端（mimo2.5pro）
+            # 调用LLMService，指定后端
             response = self.llm_service.complete(
                 prompt=prompt,
                 system_prompt="你是一个专业的法律文档分析专家，擅长识别文档的层级结构。",
                 temperature=0.3,
                 max_tokens=100,
-                backend="siliconflow"  # 指定使用siliconflow后端
+                backend=llm_backend  # 使用指定的后端
             )
 
             # 解析响应

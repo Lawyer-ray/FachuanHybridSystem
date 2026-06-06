@@ -248,6 +248,27 @@
                     </div>
                 </div>
 
+                <!-- 模型选择（仅在使用AI时显示） -->
+                <div id="model-selection" style="margin-bottom: 20px;">
+                    <label class="cr-label">选择AI模型</label>
+                    <div style="display: flex; gap: 15px; margin-top: 8px;">
+                        <label style="display: flex; align-items: center; cursor: pointer; padding: 12px 16px; border: 2px solid #ddd; border-radius: 8px; flex: 1; transition: all 0.2s;">
+                            <input type="radio" name="llm_backend" value="siliconflow" checked style="margin-right: 10px;">
+                            <div>
+                                <div style="font-weight: 600; margin-bottom: 4px;">mimo2.5pro</div>
+                                <div style="font-size: 12px; color: #666;">SiliconFlow后端，速度快</div>
+                            </div>
+                        </label>
+                        <label style="display: flex; align-items: center; cursor: pointer; padding: 12px 16px; border: 2px solid #ddd; border-radius: 8px; flex: 1; transition: all 0.2s;">
+                            <input type="radio" name="llm_backend" value="ollama" style="margin-right: 10px;">
+                            <div>
+                                <div style="font-weight: 600; margin-bottom: 4px;">本地模型</div>
+                                <div style="font-size: 12px; color: #666;">Ollama后端，隐私安全</div>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+
                 <div class="cr-actions">
                     <a href="{% url 'admin:contract_review_formatnormalize_changelist' %}" class="cr-btn cr-btn-ghost">
                         返回列表
