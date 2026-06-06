@@ -390,20 +390,14 @@ class DocxFormatNormalizer:
             if new_text.startswith("（") and len(new_text) >= 4 and new_text[2] == "）":
                 new_text = new_text[4:]  # 删除"（X）"
 
-        # 更新段落文本
+        # 更新段落文本（简化实现，避免复杂的XML操作）
         if new_text != text:
-            # 保留第一个run的格式
-            if para.runs:
-                first_run = para.runs[0]
-                # 清除所有runs
-                for run in para.runs:
-                    run._element.getparent().remove(run._element)
-                # 添加新的run
-                new_run = para.add_run(new_text.strip())
-                # 复制格式
-                new_run._element.rPr = first_run._element.rPr
-            else:
-                para.text = new_text.strip()
+            # 清除所有runs
+            for run in para.runs:
+                run._element.getparent().remove(run._element)
+
+            # 添加新的run（简单的文本替换）
+            new_run = para.add_run(new_text.strip())
                 self._apply_numbering(para, "3", "2")  # numId=3, ilvl=0
 
     def _apply_numbering(self, para: Any, num_id: str, ilvl: str) -> None:
