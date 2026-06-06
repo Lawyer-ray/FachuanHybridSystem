@@ -310,17 +310,23 @@ class FormatNormalizeAdmin(admin.ModelAdmin):
         return HttpResponseRedirect(f"/admin/contract_review/formatnormalize/")
 
     def health_check_view(self, request: HttpRequest) -> HttpResponse:
-        """健康检查页面"""
-        from django.http import JsonResponse
+        """健康检查页面（简化版）"""
+        from django.http import HttpResponse
+        import json
 
         from apps.core.services.poi_client import get_poi_client
 
         poi_client = get_poi_client()
         poi_status = poi_client.health_check()
 
-        return JsonResponse({
+        response_data = {
             "poi_service": {
                 "status": "online" if poi_status else "offline",
                 "available": poi_status
             }
-        })
+        }
+
+        return HttpResponse(
+            json.dumps(response_data, ensure_ascii=False),
+            content_type="application/json"
+        )
