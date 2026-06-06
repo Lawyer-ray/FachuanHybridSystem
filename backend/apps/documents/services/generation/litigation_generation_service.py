@@ -19,6 +19,7 @@ from apps.core.exceptions import NotFoundError, ValidationException
 from apps.core.interfaces import ServiceLocator
 from apps.core.utils.path import Path
 from apps.documents.storage import get_docx_templates_root
+from apps.core.exceptions.error_codes import TEMPLATE_RENDER_ERROR
 
 from .litigation_context_builder import LitigationContextBuilder
 from .litigation_llm_generator import LitigationLLMGenerator
@@ -372,5 +373,5 @@ class LitigationGenerationService:
         except Exception as e:
             logger.error("模板渲染失败: %s", e, exc_info=True)
             raise ValidationException(
-                message="模板渲染失败: %(e)s" % {"e": e}, code="TEMPLATE_RENDER_ERROR", errors={"error": str(e)}
+                message="模板渲染失败: %(e)s" % {"e": e}, code=TEMPLATE_RENDER_ERROR, errors={"error": str(e)}
             ) from e

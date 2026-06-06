@@ -206,11 +206,74 @@
                     </div>
                 </div>
 
+                <!-- 编号类型选择 -->
+                <div style="margin-bottom: 20px;">
+                    <label class="cr-label">选择编号类型</label>
+                    <div style="display: flex; gap: 15px; margin-top: 8px;">
+                        <label style="display: flex; align-items: center; cursor: pointer; padding: 12px 16px; border: 2px solid #ddd; border-radius: 8px; flex: 1; transition: all 0.2s;">
+                            <input type="radio" name="numbering_type" value="chinese" checked style="margin-right: 10px;">
+                            <div>
+                                <div style="font-weight: 600; margin-bottom: 4px;">中文编号</div>
+                                <div style="font-size: 12px; color: #666;">一、→1.→(1)</div>
+                            </div>
+                        </label>
+                        <label style="display: flex; align-items: center; cursor: pointer; padding: 12px 16px; border: 2px solid #ddd; border-radius: 8px; flex: 1; transition: all 0.2s;">
+                            <input type="radio" name="numbering_type" value="digital" style="margin-right: 10px;">
+                            <div>
+                                <div style="font-weight: 600; margin-bottom: 4px;">数字编号</div>
+                                <div style="font-size: 12px; color: #666;">1.→1.1.→1.1.1.</div>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- AI辅助选择 -->
+                <div style="margin-bottom: 20px;">
+                    <label class="cr-label">AI辅助格式化</label>
+                    <div style="display: flex; gap: 15px; margin-top: 8px;">
+                        <label style="display: flex; align-items: center; cursor: pointer; padding: 12px 16px; border: 2px solid #ddd; border-radius: 8px; flex: 1; transition: all 0.2s;">
+                            <input type="radio" name="use_llm" value="true" checked style="margin-right: 10px;">
+                            <div>
+                                <div style="font-weight: 600; margin-bottom: 4px;">使用AI</div>
+                                <div style="font-size: 12px; color: #666;">智能识别段落层级，自动编排序号</div>
+                            </div>
+                        </label>
+                        <label style="display: flex; align-items: center; cursor: pointer; padding: 12px 16px; border: 2px solid #ddd; border-radius: 8px; flex: 1; transition: all 0.2s;">
+                            <input type="radio" name="use_llm" value="false" style="margin-right: 10px;">
+                            <div>
+                                <div style="font-weight: 600; margin-bottom: 4px;">不使用AI</div>
+                                <div style="font-size: 12px; color: #666;">仅格式化，不自动编排序号</div>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- 模型选择（仅在使用AI时显示） -->
+                <div id="model-selection" style="margin-bottom: 20px;">
+                    <label class="cr-label">选择AI模型</label>
+                    <div style="display: flex; gap: 15px; margin-top: 8px;">
+                        <label style="display: flex; align-items: center; cursor: pointer; padding: 12px 16px; border: 2px solid #ddd; border-radius: 8px; flex: 1; transition: all 0.2s;">
+                            <input type="radio" name="llm_backend" value="siliconflow" checked style="margin-right: 10px;">
+                            <div>
+                                <div style="font-weight: 600; margin-bottom: 4px;">mimo2.5pro</div>
+                                <div style="font-size: 12px; color: #666;">SiliconFlow后端，速度快</div>
+                            </div>
+                        </label>
+                        <label style="display: flex; align-items: center; cursor: pointer; padding: 12px 16px; border: 2px solid #ddd; border-radius: 8px; flex: 1; transition: all 0.2s;">
+                            <input type="radio" name="llm_backend" value="ollama" style="margin-right: 10px;">
+                            <div>
+                                <div style="font-weight: 600; margin-bottom: 4px;">本地模型</div>
+                                <div style="font-size: 12px; color: #666;">Ollama后端，隐私安全</div>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+
                 <div class="cr-actions">
                     <a href="{% url 'admin:contract_review_formatnormalize_changelist' %}" class="cr-btn cr-btn-ghost">
                         返回列表
                     </a>
-                    <button type="submit" class="cr-btn cr-btn-primary" id="submit-btn" disabled>
+                    <button type="submit" class="cr-btn cr-btn-primary" id="submit-btn" disabled onclick="this.disabled=true; this.form.submit();">
                         上传并格式规范化
                     </button>
                 </div>

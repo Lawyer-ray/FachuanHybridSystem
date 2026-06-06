@@ -7,43 +7,15 @@
 from __future__ import annotations
 
 import logging
-import platform
 import shutil
 import subprocess
 from pathlib import Path
 
+from apps.core.services.libreoffice import find_libreoffice
+
 logger = logging.getLogger("apps.doc_converter")
 
 BATCH_CONVERT_SIZE = 25
-
-
-def find_libreoffice() -> str | None:
-    """查找 LibreOffice 可执行路径"""
-    path = shutil.which("soffice") or shutil.which("libreoffice")
-    if path:
-        return path
-
-    if platform.system() == "Darwin":
-        mac_paths = [
-            "/Applications/LibreOffice.app/Contents/MacOS/soffice",
-            "/Applications/OpenOffice.app/Contents/MacOS/soffice",
-        ]
-        for p in mac_paths:
-            if Path(p).exists():
-                return p
-
-    if platform.system() == "Linux":
-        linux_paths = [
-            "/usr/bin/libreoffice",
-            "/usr/bin/soffice",
-            "/usr/local/bin/libreoffice",
-            "/snap/bin/libreoffice",
-        ]
-        for p in linux_paths:
-            if Path(p).exists():
-                return p
-
-    return None
 
 
 def convert_single(doc_path: str, output_dir: str, timeout: int = 30) -> str:

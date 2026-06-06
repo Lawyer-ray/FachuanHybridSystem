@@ -5,7 +5,7 @@ from typing import Any
 
 def get_anti_detection() -> Any:
     """获取反检测模块实例"""
-    from apps.automation.services.scraper.core.anti_detection import anti_detection
+    from apps.core.services.browser import anti_detection
 
     return anti_detection
 

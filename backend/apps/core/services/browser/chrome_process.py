@@ -73,6 +73,7 @@ def launch_chrome(
     if chrome_path is None:
         chrome_path = _detect_chrome_path()
 
+    _is_temp_user_dir = user_data_dir is None
     if user_data_dir is None:
         import tempfile
 
@@ -97,6 +98,9 @@ def launch_chrome(
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
         )
+        # 记录临时用户数据目录，供 kill_chrome 清理
+        if _is_temp_user_dir:
+            process._temp_user_data_dir = str(user_data_dir)  # type: ignore[attr-defined]
         logger.info("Chrome 启动成功 (PID=%d, port=%d)", process.pid, port)
     except FileNotFoundError:
         raise RuntimeError(f"Chrome 未找到: {chrome_path}") from None
@@ -113,6 +117,16 @@ def launch_chrome(
             raise RuntimeError("Chrome 进程意外退出")
 
     raise RuntimeError(f"Chrome CDP 端点未就绪 (port={port})，请检查 Chrome 是否正常运行")
+
+
+def _cleanup_temp_user_data_dir(process: subprocess.Popen) -> None:
+    """清理 launch_chrome 自动创建的临时用户数据目录。"""
+    import shutil
+
+    temp_dir = getattr(process, "_temp_user_data_dir", None)
+    if temp_dir:
+        shutil.rmtree(temp_dir, ignore_errors=True)
+        logger.debug("已清理 Chrome 临时用户数据目录: %s", temp_dir)
 
 
 def kill_chrome(
@@ -136,6 +150,7 @@ def kill_chrome(
             logger.warning("Chrome 进程强制终止 (PID=%d)", process.pid)
         except Exception as exc:
             logger.warning("终止 Chrome 进程失败: %s", exc)
+        _cleanup_temp_user_data_dir(process)
         return
 
     # 清理占用端口的孤儿进程

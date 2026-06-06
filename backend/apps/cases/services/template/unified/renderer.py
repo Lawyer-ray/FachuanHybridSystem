@@ -11,6 +11,7 @@ from docxtpl import DocxTemplate
 from apps.core.exceptions import ValidationException
 from apps.core.utils.path import Path
 from apps.documents.services.placeholders.fallback import build_docx_render_context
+from apps.core.exceptions.error_codes import TEMPLATE_RENDER_ERROR
 
 logger = logging.getLogger("apps.cases.services")
 
@@ -44,6 +45,6 @@ class DocxRenderer:
             )
             raise ValidationException(
                 message="模板渲染失败: %(err)s" % {"err": str(e)},
-                code="TEMPLATE_RENDER_ERROR",
+                code=TEMPLATE_RENDER_ERROR,
                 errors={"error": str(e)},
             ) from e

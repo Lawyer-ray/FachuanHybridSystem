@@ -14,6 +14,7 @@ from ninja import Router, Schema
 from apps.core.exceptions import ValidationException
 from apps.core.infrastructure.throttling import rate_limit_from_settings
 from apps.core.security.auth import JWTOrSessionAuth
+from apps.core.exceptions.error_codes import CONTRACT_GENERATION_FAILED
 
 from .download_response_factory import build_download_response
 
@@ -198,7 +199,7 @@ def download_contract_document(request: Any, contract_id: int, split_fee: bool =
     if error:
         logger.warning("生成合同文档失败: %s", error, extra={"contract_id": contract_id, "error": error})
         raise ValidationException(
-            message="生成合同文档失败", code="CONTRACT_GENERATION_FAILED", errors={"detail": error}
+            message="生成合同文档失败", code=CONTRACT_GENERATION_FAILED, errors={"detail": error}
         )
 
     if saved_path:

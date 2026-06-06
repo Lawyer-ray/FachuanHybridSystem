@@ -11,6 +11,7 @@ import httpx
 
 from apps.legal_research.services.sources.weike.types import WeikeSearchItem, WeikeSession
 from apps.legal_research.services.task.event_service import LegalResearchTaskEventService
+from apps.core.exceptions.error_codes import REQUEST_ERROR
 
 
 class PrivateWeikeApiAdapter:
@@ -164,7 +165,7 @@ class PrivateWeikeApiAdapter:
                     status_code=status_code or None,
                     duration_ms=int((time.monotonic() - started) * 1000),
                     success=False,
-                    error_code="REQUEST_ERROR",
+                    error_code=REQUEST_ERROR,
                     error_message=str(exc),
                     response_summary={},
                 )

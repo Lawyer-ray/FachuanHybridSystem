@@ -2,6 +2,7 @@
 
 import logging
 import queue
+import shutil
 import tempfile
 import threading
 import zipfile
@@ -79,11 +80,18 @@ class DocumentDeliveryDownloadingMixin:
             notification_sent=False,
             error_message=None,
         )
+        # 收集需要清理的临时目录
+        temp_dirs: set[str] = set()
+        download_dir = str(Path(file_path).parent)
+        temp_dirs.add(download_dir)
         try:
             extracted_files = self._extract_zip_if_needed(file_path)
-            logger.info(f"文书下载完成: 案号={record.case_number}, 文件={file_path}")
             if extracted_files:
+                # 解压目录也需要清理
+                extract_dir = str(Path(extracted_files[0]).parent)
+                temp_dirs.add(extract_dir)
                 logger.info(f"ZIP 解压完成: {len(extracted_files)} 个文件")
+            logger.info(f"文书下载完成: 案号={record.case_number}, 文件={file_path}")
             process_result = self._process_sms_in_thread(
                 record=record,
                 file_path=file_path,
@@ -99,6 +107,9 @@ class DocumentDeliveryDownloadingMixin:
         except Exception as e:
             result.error_message = f"处理下载文书失败: {e!s}"
             logger.error(result.error_message)
+        finally:
+            for d in temp_dirs:
+                shutil.rmtree(d, ignore_errors=True)
         return result
 
     def _extract_zip_if_needed(self, file_path: str) -> list[str] | None:

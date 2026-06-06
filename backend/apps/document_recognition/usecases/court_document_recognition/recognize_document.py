@@ -8,6 +8,7 @@ from datetime import date
 from typing import Any
 
 from apps.core.exceptions import RecognitionTimeoutError, ServiceUnavailableError, ValidationException
+from apps.core.exceptions.error_codes import TEXT_EXTRACTION_FAILED
 from apps.core.services.filename_template_service import FilenameTemplateService
 from apps.document_recognition.services.data_classes import (
     BindingResult,
@@ -68,7 +69,7 @@ class RecognizeCourtDocumentUsecase:
                 confidence=0.0,
                 extraction_method=extraction_result.extraction_method,
             ),
-            binding=BindingResult.failure_result(message="无法从文书中提取文字", error_code="TEXT_EXTRACTION_FAILED"),
+            binding=BindingResult.failure_result(message="无法从文书中提取文字", error_code=TEXT_EXTRACTION_FAILED),
             file_path=file_path,
         )
 

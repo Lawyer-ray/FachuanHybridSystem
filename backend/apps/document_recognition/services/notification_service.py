@@ -24,6 +24,7 @@ from datetime import datetime
 
 from apps.core.interfaces import ICaseChatService, ServiceLocator
 from apps.core.models.enums import ChatPlatform
+from apps.core.exceptions.error_codes import CHAT_CREATION_FAILED, MESSAGE_SEND_FAILED
 
 from .data_classes import NotificationResult
 
@@ -193,7 +194,7 @@ class DocumentRecognitionNotificationService:
                 )
                 return NotificationResult.failure_result(
                     message=f"获取或创建群聊失败: {e!s}",
-                    error_code="CHAT_CREATION_FAILED",
+                    error_code=CHAT_CREATION_FAILED,
                 )
 
             # 构建通知消息
@@ -248,7 +249,7 @@ class DocumentRecognitionNotificationService:
                     )
                     return NotificationResult.failure_result(
                         message=result.message or "消息发送失败",
-                        error_code="MESSAGE_SEND_FAILED",
+                        error_code=MESSAGE_SEND_FAILED,
                     )
 
             except Exception as e:

@@ -15,6 +15,7 @@ from apps.documents.models import DocumentTemplate, DocumentTemplateType
 from apps.documents.services.generation.path_utils import resolve_media_path, safe_arcname, safe_name
 from apps.documents.services.placeholders import EnhancedContextBuilder
 from apps.documents.storage import get_docx_templates_root
+from apps.core.exceptions.error_codes import TEMPLATE_RENDER_ERROR
 
 logger = logging.getLogger("apps.documents.generation")
 
@@ -531,7 +532,7 @@ class AuthorizationMaterialGenerationService:
             logger.error("模板渲染失败", exc_info=True, extra={"template_path": str(template_path), "error": str(e)})
             raise ValidationException(
                 message="模板渲染失败: %(e)s" % {"e": e},
-                code="TEMPLATE_RENDER_ERROR",
+                code=TEMPLATE_RENDER_ERROR,
                 errors={"error": str(e)},
             ) from e
 

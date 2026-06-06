@@ -15,9 +15,9 @@ class AntiDetectionOptionsProvider(Protocol):
 @dataclass(frozen=True)
 class DefaultAntiDetectionOptionsProvider:
     def get_options(self) -> dict[str, Any]:
-        from apps.automation.services.scraper.core.anti_detection import anti_detection
+        from apps.core.services.browser import anti_detection
 
-        return anti_detection.get_browser_context_options()
+        return anti_detection.get_context_options()
 
 
 class BrowserContextFactory(Protocol):

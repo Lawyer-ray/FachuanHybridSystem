@@ -9,6 +9,7 @@ from django.db import connection, transaction
 
 from apps.core.exceptions import ConflictError, ValidationException
 from apps.core.models.enums import CaseType
+from apps.core.exceptions.error_codes import FILING_NUMBER_GENERATION_FAILED
 
 logger = logging.getLogger("apps.contracts")
 
@@ -81,7 +82,7 @@ class FilingNumberService:
         except Exception as e:
             logger.error("生成合同建档编号失败: %s", e, extra={"contract_id": contract_id}, exc_info=True)
             raise ConflictError(
-                message="建档编号生成失败", code="FILING_NUMBER_GENERATION_FAILED", errors={"detail": str(e)}
+                message="建档编号生成失败", code=FILING_NUMBER_GENERATION_FAILED, errors={"detail": str(e)}
             ) from e
 
     def generate_case_filing_number(self, case_id: int, case_type: str, created_year: int) -> Any:

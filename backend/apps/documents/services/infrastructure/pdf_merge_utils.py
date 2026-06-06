@@ -12,6 +12,7 @@ from typing import Any
 from PIL import Image as _PILImage
 
 from apps.core.exceptions import BusinessException
+from apps.core.services.libreoffice import find_libreoffice as _find_libreoffice
 
 logger = logging.getLogger(__name__)
 
@@ -59,41 +60,6 @@ def convert_image_to_pdf(image_path: str) -> str:
             code="IMAGE_CONVERSION_FAILED",
             errors={"image_path": image_path, "error": str(e)},
         ) from e
-
-
-def _find_libreoffice() -> str | None:
-    """查找本机 LibreOffice 可执行文件路径"""
-    import platform
-    import shutil
-
-    # 1. PATH 中查找
-    path = shutil.which("soffice") or shutil.which("libreoffice")
-    if path:
-        return path
-
-    # 2. macOS 标准安装路径
-    if platform.system() == "Darwin":
-        mac_paths = [
-            "/Applications/LibreOffice.app/Contents/MacOS/soffice",
-            "/Applications/OpenOffice.app/Contents/MacOS/soffice",
-        ]
-        for p in mac_paths:
-            if Path(p).exists():
-                return p
-
-    # 3. Linux 标准安装路径
-    if platform.system() == "Linux":
-        linux_paths = [
-            "/usr/bin/libreoffice",
-            "/usr/bin/soffice",
-            "/usr/local/bin/libreoffice",
-            "/snap/bin/libreoffice",
-        ]
-        for p in linux_paths:
-            if Path(p).exists():
-                return p
-
-    return None
 
 
 def _convert_via_libreoffice(docx_path: str) -> str | None:

@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING, Any
 from apps.core.exceptions import ValidationException
 from apps.core.utils.path import Path
 from apps.documents.services.placeholders.fallback import PLACEHOLDER_FALLBACK_VALUE, build_docx_render_context
+from apps.core.exceptions.error_codes import TEMPLATE_RENDER_ERROR
 
 from .result import GenerationResult
 
@@ -151,7 +152,7 @@ class BaseGenerator(ABC):
         except Exception as e:
             raise ValidationException(
                 message="模板渲染失败: %(e)s" % {"e": e},
-                code="TEMPLATE_RENDER_ERROR",
+                code=TEMPLATE_RENDER_ERROR,
                 errors={"template_path": template_path, "error": str(e)},
             ) from e
 
