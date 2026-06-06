@@ -398,7 +398,6 @@ class DocxFormatNormalizer:
 
             # 添加新的run（简单的文本替换）
             new_run = para.add_run(new_text.strip())
-                self._apply_numbering(para, "3", "2")  # numId=3, ilvl=0
 
     def _apply_numbering(self, para: Any, num_id: str, ilvl: str) -> None:
         """应用编号到段落"""
