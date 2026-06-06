@@ -105,13 +105,29 @@ class DocxFormatNormalizer:
         # 插入到 numbering 元素开头
         numbering_elm.insert(0, abstractNum)
 
-        # 创建 num 实例
-        num = OxmlElement("w:num")
-        num.set(qn("w:numId"), "1")
-        abstractNumRef = OxmlElement("w:abstractNumId")
-        abstractNumRef.set(qn("w:val"), "0")
-        num.append(abstractNumRef)
-        numbering_elm.append(num)
+        # 创建 num 实例（一级标题）
+        num1 = OxmlElement("w:num")
+        num1.set(qn("w:numId"), "1")
+        abstractNumRef1 = OxmlElement("w:abstractNumId")
+        abstractNumRef1.set(qn("w:val"), "0")
+        num1.append(abstractNumRef1)
+        numbering_elm.append(num1)
+
+        # 创建 num 实例（二级标题）
+        num2 = OxmlElement("w:num")
+        num2.set(qn("w:numId"), "2")
+        abstractNumRef2 = OxmlElement("w:abstractNumId")
+        abstractNumRef2.set(qn("w:val"), "0")
+        num2.append(abstractNumRef2)
+        numbering_elm.append(num2)
+
+        # 创建 num 实例（三级标题）
+        num3 = OxmlElement("w:num")
+        num3.set(qn("w:numId"), "3")
+        abstractNumRef3 = OxmlElement("w:abstractNumId")
+        abstractNumRef3.set(qn("w:val"), "0")
+        num3.append(abstractNumRef3)
+        numbering_elm.append(num3)
 
         # 如果是新创建的 part，需要更新其内容
         if hasattr(self, "_numbering_part"):
