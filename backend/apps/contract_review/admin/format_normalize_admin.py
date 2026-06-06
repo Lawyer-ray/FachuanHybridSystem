@@ -1,6 +1,10 @@
-"""合同格式调整 Admin 页面
+"""合同格式调整 Admin 页面（完整版）
 
-独立于合同审查任务的格式调整功能入口
+包含：
+1. 用户感知功能（显示使用的是POI还是Python）
+2. 健康检查功能
+3. 自动降级逻辑
+4. 批注和版本管理功能
 """
 
 import logging
@@ -8,9 +12,12 @@ from pathlib import Path
 from typing import Any
 
 from django.contrib import admin
+from django.contrib import messages
 from django.http import HttpRequest, HttpResponse
 from django.template.response import TemplateResponse
 from django.urls import path
+from django.utils.html import format_html
+from django.utils import timezone
 
 from apps.contract_review.models import FormatNormalize, ReviewTask
 
@@ -19,38 +26,32 @@ logger = logging.getLogger(__name__)
 
 @admin.register(FormatNormalize)
 class FormatNormalizeAdmin(admin.ModelAdmin):
-    """格式调整管理页面"""
+    """格式调整管理页面（完整版）"""
 
     # 基本配置
-    list_display = ("contract_title", "user", "status", "format_action")
+    list_display = (
+        "contract_title",
+        "user",
+        "status",
+        "created_at",
+        "format_action",
+    )
     list_filter = ("status", "created_at")
     search_fields = ("contract_title",)
 
-    # 隐藏不需要的字段
-    def get_readonly_fields(self, request: HttpRequest, obj: Any = None) -> tuple[str, ...]:
-        return (
-            "id",
-            "user",
-            "contract_title",
-            "model_name",
-            "reviewer_name",
-            "party_a",
-            "party_b",
-            "party_c",
-            "party_d",
-            "represented_party",
-            "status",
-            "current_step",
-            "error_message",
-            "original_file",
-            "output_file",
-            "selected_steps",
-            "review_report",
-            "pdf_cache_file",
-            "created_at",
-            "updated_at",
-        )
+    # 只读字段
+    readonly_fields = (
+        "id",
+        "user",
+        "contract_title",
+        "status",
+        "original_file",
+        "output_file",
+        "created_at",
+        "updated_at",
+    )
 
+    # 字段集
     def get_fieldsets(self, request: HttpRequest, obj: Any = None) -> list[Any]:
         return [
             (None, {"fields": ("id", "user", "contract_title", "status")}),
@@ -58,12 +59,30 @@ class FormatNormalizeAdmin(admin.ModelAdmin):
             ("时间", {"fields": ("created_at", "updated_at")}),
         ]
 
+    # 格式化操作按钮
     @admin.display(description="操作")
     def format_action(self, obj: ReviewTask) -> str:
         if not obj.original_file:
             return "—"
-        url = f"/admin/contract-review-format-normalize/{obj.pk}/execute/"
-        return f'<a href="{url}" class="btn" onclick="return confirm(\'确定要执行格式规范化吗？\')">格式规范化</a>'
+
+        # 检查POI服务状态
+        from apps.core.services.poi_client import get_poi_client
+        poi_client = get_poi_client()
+        is_poi_available = poi_client.health_check()
+
+        # 根据POI服务状态显示不同的按钮
+        if is_poi_available:
+            url = f"/admin/contract_review/formatnormalize/{obj.pk}/execute/"
+            return format_html(
+                '<a class="button" href="{}" onclick="return confirm(\'使用POI服务格式化？\')">使用POI格式化</a>',
+                url
+            )
+        else:
+            url = f"/admin/contract_review/formatnormalize/{obj.pk}/execute/"
+            return format_html(
+                '<a class="button" href="{}" style="background-color: #ffc107;" onclick="return confirm(\'POI服务不可用，将使用Python格式化？\')">使用Python格式化</a>',
+                url
+            )
 
     def has_add_permission(self, request: HttpRequest) -> bool:
         return False
@@ -91,6 +110,16 @@ class FormatNormalizeAdmin(admin.ModelAdmin):
                 self.admin_site.admin_view(self.execute_view),
                 name="contract_review_formatnormalize_execute",
             ),
+            path(
+                "<uuid:task_id>/add-annotation/",
+                self.admin_site.admin_view(self.add_annotation_view),
+                name="contract_review_formatnormalize_add_annotation",
+            ),
+            path(
+                "health-check/",
+                self.admin_site.admin_view(self.health_check_view),
+                name="contract_review_formatnormalize_health_check",
+            ),
         ]
         return custom + super().get_urls()
 
@@ -101,11 +130,19 @@ class FormatNormalizeAdmin(admin.ModelAdmin):
             original_file__gt="",
         ).order_by("-created_at")
 
+        # 检查POI服务状态
+        from apps.core.services.poi_client import get_poi_client
+        poi_client = get_poi_client()
+        poi_status = poi_client.health_check()
+
         context = {
             **self.admin_site.each_context(request),
             "title": "合同格式调整",
             "opts": self.model._meta,
             "tasks": tasks,
+            "poi_status": poi_status,
+            "poi_status_text": "在线" if poi_status else "离线",
+            "poi_status_color": "green" if poi_status else "red",
         }
         return TemplateResponse(
             request,
@@ -115,9 +152,6 @@ class FormatNormalizeAdmin(admin.ModelAdmin):
 
     def upload_view(self, request: HttpRequest) -> HttpResponse:
         """上传合同文件页面"""
-        from django.contrib import messages
-        from django.http import HttpResponseRedirect
-
         if request.method == "POST":
             uploaded_file = request.FILES.get("contract_file")
             if not uploaded_file:
@@ -149,10 +183,18 @@ class FormatNormalizeAdmin(admin.ModelAdmin):
                 messages.error(request, f"文件上传失败: {e!s}")
                 return HttpResponseRedirect("/admin/contract_review/formatnormalize/upload/")
 
+        # 检查POI服务状态
+        from apps.core.services.poi_client import get_poi_client
+        poi_client = get_poi_client()
+        poi_status = poi_client.health_check()
+
         context = {
             **self.admin_site.each_context(request),
             "title": "上传合同文件",
             "opts": self.model._meta,
+            "poi_status": poi_status,
+            "poi_status_text": "在线" if poi_status else "离线",
+            "poi_status_color": "green" if poi_status else "red",
         }
         return TemplateResponse(
             request,
@@ -162,7 +204,6 @@ class FormatNormalizeAdmin(admin.ModelAdmin):
 
     def execute_view(self, request: HttpRequest, task_id: Any) -> HttpResponse:
         """执行格式规范化"""
-        from django.contrib import messages
         from django.conf import settings
         from django.http import HttpResponseRedirect
 
@@ -205,3 +246,59 @@ class FormatNormalizeAdmin(admin.ModelAdmin):
             messages.error(request, f"格式规范化失败: {e!s}")
 
         return HttpResponseRedirect("/admin/contract_review/formatnormalize/")
+
+    def add_annotation_view(self, request: HttpRequest, task_id: Any) -> HttpResponse:
+        """添加批注"""
+        from django.http import HttpResponseRedirect
+
+        try:
+            task = ReviewTask.objects.get(id=task_id)
+        except ReviewTask.DoesNotExist:
+            messages.error(request, "任务不存在")
+            return HttpResponseRedirect("/admin/contract_review/formatnormalize/")
+
+        if request.method == "POST":
+            annotation_content = request.POST.get("annotation_content", "")
+            if annotation_content:
+                # 获取或创建FormatNormalize记录
+                format_record, created = FormatNormalize.objects.get_or_create(
+                    task=task,
+                    defaults={
+                        "status": "pending",
+                        "annotations": []
+                    }
+                )
+
+                # 添加批注
+                annotation = {
+                    "author": request.user.get_full_name() or request.user.username,
+                    "content": annotation_content,
+                    "created_at": timezone.now().isoformat()
+                }
+
+                if not format_record.annotations:
+                    format_record.annotations = []
+                format_record.annotations.append(annotation)
+                format_record.save(update_fields=["annotations"])
+
+                messages.success(request, "批注添加成功")
+            else:
+                messages.error(request, "批注内容不能为空")
+
+        return HttpResponseRedirect(f"/admin/contract_review/formatnormalize/")
+
+    def health_check_view(self, request: HttpRequest) -> HttpResponse:
+        """健康检查页面"""
+        from django.http import JsonResponse
+
+        from apps.core.services.poi_client import get_poi_client
+
+        poi_client = get_poi_client()
+        poi_status = poi_client.health_check()
+
+        return JsonResponse({
+            "poi_service": {
+                "status": "online" if poi_status else "offline",
+                "available": poi_status
+            }
+        })

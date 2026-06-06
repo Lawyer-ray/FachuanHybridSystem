@@ -4,7 +4,7 @@
 """
 from pathlib import Path
 from typing import Optional, Tuple
-from django.core.files.base import ContentFile
+from django.conf import settings
 import logging
 
 from apps.core.services.poi_client import get_poi_client
@@ -37,11 +37,11 @@ class ContractFormatService:
             (文件路径, 使用的方法)
         """
         # 1. 读取原始文件
-        original_file = task.original_file
-        if not original_file:
-            raise ValueError("任务没有关联原始文件")
+        original_file_path = Path(settings.MEDIA_ROOT) / task.original_file
+        if not original_file_path.exists():
+            raise ValueError(f"原始文件不存在: {original_file_path}")
 
-        docx_bytes = original_file.read()
+        docx_bytes = original_file_path.read_bytes()
 
         # 2. 确定使用的方法
         method = self._determine_method(force_method)
@@ -57,11 +57,13 @@ class ContractFormatService:
             )
 
         # 4. 保存格式化后的文件
-        output_filename = f"{task.title}_formatted.docx"
-        task.formatted_file.save(
-            output_filename,
-            ContentFile(formatted_bytes)
-        )
+        output_filename = f"{task.contract_title}_formatted.docx"
+        output_path = original_file_path.parent / output_filename
+        output_path.write_bytes(formatted_bytes)
+
+        # 更新任务的输出文件（相对于MEDIA_ROOT）
+        task.output_file = str(output_path.relative_to(settings.MEDIA_ROOT))
+        task.save(update_fields=["output_file"])
 
         logger.info(
             f"合同格式化完成：任务 {task.id}, "
@@ -69,7 +71,7 @@ class ContractFormatService:
             f"文件 {output_filename}"
         )
 
-        return Path(task.formatted_file.path), used_method
+        return output_path, used_method
 
     def _determine_method(self, force_method: Optional[str]) -> str:
         """确定使用的方法"""
