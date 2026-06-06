@@ -388,9 +388,9 @@ class FormatNormalizeAdmin(admin.ModelAdmin):
                     "created_at": timezone.now().isoformat()
                 }
 
-                if not format_record.annotations:
-                    format_record.annotations = []  # type: ignore[assignment]
-                format_record.annotations.append(annotation)  # type: ignore[union-attr]
+                if not format_record.annotations:  # type: ignore[attr-defined]
+                    format_record.annotations = []  # type: ignore[attr-defined]
+                format_record.annotations.append(annotation)  # type: ignore[attr-defined]
                 format_record.save(update_fields=["annotations"])
 
                 messages.success(request, "批注添加成功")
