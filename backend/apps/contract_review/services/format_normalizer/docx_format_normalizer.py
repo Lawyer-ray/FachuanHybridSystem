@@ -129,6 +129,14 @@ class DocxFormatNormalizer:
         num3.append(abstractNumRef3)
         numbering_elm.append(num3)
 
+        # 创建 num 实例（正文段落）
+        num4 = OxmlElement("w:num")
+        num4.set(qn("w:numId"), "4")
+        abstractNumRef4 = OxmlElement("w:abstractNumId")
+        abstractNumRef4.set(qn("w:val"), "0")
+        num4.append(abstractNumRef4)
+        numbering_elm.append(num4)
+
         # 如果是新创建的 part，需要更新其内容
         if hasattr(self, "_numbering_part"):
             from lxml import etree
@@ -341,7 +349,7 @@ class DocxFormatNormalizer:
                     b = OxmlElement("w:b")
                     rPr.append(b)
 
-    def _apply_default_format(self, para: Any, index: int, use_llm: bool = True, llm_backend: str = "siliconflow") -> None:
+    def _apply_default_format(self, para: Any, index: int, use_llm: bool = True, llm_backend: str = "openai_compatible") -> None:
         """应用默认格式"""
         pPr = para._element.get_or_add_pPr()
 
@@ -380,16 +388,19 @@ class DocxFormatNormalizer:
                     logger.warning(f"LLM判断失败: {e}")
                     level = -1
 
-            # 应用编号
+            # 应用编号（所有段落都设置编号）
             if level == 0:
                 self._apply_numbering(para, "1", "0")  # numId=1, ilvl=0
                 self._remove_manual_numbering(para, "一级")
             elif level == 1:
-                self._apply_numbering(para, "2", "1")  # numId=2, ilvl=0
+                self._apply_numbering(para, "2", "1")  # numId=2, ilvl=1
                 self._remove_manual_numbering(para, "二级")
             elif level == 2:
-                self._apply_numbering(para, "3", "2")  # numId=3, ilvl=0
+                self._apply_numbering(para, "3", "2")  # numId=3, ilvl=2
                 self._remove_manual_numbering(para, "三级")
+            else:
+                # 对于其他段落（正文），也设置编号
+                self._apply_numbering(para, "4", "3")  # numId=4, ilvl=3
 
     def _detect_level_by_rules(self, text: str) -> int:
         """使用规则方法检测段落层级"""
