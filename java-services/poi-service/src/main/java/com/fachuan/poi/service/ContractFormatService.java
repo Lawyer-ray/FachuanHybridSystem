@@ -10,6 +10,11 @@ import org.apache.poi.xwpf.usermodel.*;
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTPageMar;
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTPageSz;
 import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTSectPr;
+import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTNumbering;
+import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTAbstractNum;
+import org.openxmlformats.schemas.wordprocessingml.x2006.main.CTLevel;
+import org.openxmlformats.schemas.wordprocessingml.x2006.main.STNumberFormat;
+import org.openxmlformats.schemas.wordprocessingml.x2006.main.STLevelJc;
 import org.springframework.stereotype.Service;
 
 import java.io.ByteArrayInputStream;
@@ -51,23 +56,28 @@ public class ContractFormatService {
             // 1. 标准化页边距
             normalizeMargins(doc, config);
 
-            // 2. 提取文档结构
+            // 2. 设置自动编号（如果需要）
+            if (config.isRenumberHeadings()) {
+                setupAutoNumbering(doc);
+            }
+
+            // 3. 提取文档结构
             DocumentStructure structure = extractStructure(doc);
 
-            // 3. 重新编号（如果需要）
+            // 4. 重新编号（如果需要）
             if (config.isRenumberHeadings()) {
                 renumberHeadings(structure);
             }
 
-            // 4. 应用格式
+            // 5. 应用格式
             applyFormatting(doc, structure, config);
 
-            // 5. 标准化表格
+            // 6. 标准化表格
             if (config.isNormalizeTableBorders()) {
                 normalizeAllTables(doc);
             }
 
-            // 6. 转换为byte[]
+            // 7. 转换为byte[]
             ByteArrayOutputStream out = new ByteArrayOutputStream();
             doc.write(out);
             doc.close();
@@ -288,6 +298,58 @@ public class ContractFormatService {
         pageMar.setBottom(BigInteger.valueOf(config.getMarginBottom()));
         pageMar.setLeft(BigInteger.valueOf(config.getMarginLeft()));
         pageMar.setRight(BigInteger.valueOf(config.getMarginRight()));
+    }
+
+    /**
+     * 设置自动编号
+     * 在Word文档中创建自动编号域，修改条款后序号会自动更新
+     */
+    private void setupAutoNumbering(XWPFDocument doc) {
+        // 创建编号定义
+        CTNumbering numbering = doc.createNumbering();
+
+        // 定义抽象编号（一级标题：一、二、三...）
+        CTAbstractNum abstractNum = numbering.addNewAbstractNum();
+        abstractNum.addNewAbstractNumId().setVal(BigInteger.ZERO);
+
+        CTLevel level1 = abstractNum.addNewLvl();
+        level1.addNewIlvl().setVal(BigInteger.ZERO);
+        level1.addNewStart().setVal(BigInteger.ONE);
+        level1.addNewNumFmt().setVal(STNumberFormat.CHINESE_COUNTING);
+        level1.addNewLvlText().setVal("%1、");
+        level1.addNewLvlJc().setVal(STLevelJc.LEFT);
+        level1.addNewPPr().addNewInd().setLeft(BigInteger.valueOf(0));
+
+        // 定义抽象编号（二级标题：1. 2. 3.）
+        CTAbstractNum abstractNum2 = numbering.addNewAbstractNum();
+        abstractNum2.addNewAbstractNumId().setVal(BigInteger.ONE);
+
+        CTLevel level2 = abstractNum2.addNewLvl();
+        level2.addNewIlvl().setVal(BigInteger.ZERO);
+        level2.addNewStart().setVal(BigInteger.ONE);
+        level2.addNewNumFmt().setVal(STNumberFormat.DECIMAL);
+        level2.addNewLvlText().setVal("%1.");
+        level2.addNewLvlJc().setVal(STLevelJc.LEFT);
+        level2.addNewPPr().addNewInd().setLeft(BigInteger.valueOf(480));
+
+        // 定义抽象编号（三级标题：(1) (2) (3)）
+        CTAbstractNum abstractNum3 = numbering.addNewAbstractNum();
+        abstractNum3.addNewAbstractNumId().setVal(BigInteger.TWO);
+
+        CTLevel level3 = abstractNum3.addNewLvl();
+        level3.addNewIlvl().setVal(BigInteger.ZERO);
+        level3.addNewStart().setVal(BigInteger.ONE);
+        level3.addNewNumFmt().setVal(STNumberFormat.BULLET);
+        level3.addNewLvlText().setVal("(%1)");
+        level3.addNewLvlJc().setVal(STLevelJc.LEFT);
+        level3.addNewPPr().addNewInd().setLeft(BigInteger.valueOf(960));
+
+        // 创建具体编号实例
+        numbering.addNewNum().addNewAbstractNumId().setVal(BigInteger.ZERO);
+        numbering.addNewNum().addNewAbstractNumId().setVal(BigInteger.ONE);
+        numbering.addNewNum().addNewAbstractNumId().setVal(BigInteger.TWO);
+
+        log.info("自动编号设置完成：3级编号体系");
     }
 
     /**
