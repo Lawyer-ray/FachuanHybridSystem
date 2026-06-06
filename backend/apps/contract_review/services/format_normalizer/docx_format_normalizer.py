@@ -388,7 +388,7 @@ class DocxFormatNormalizer:
                     logger.warning(f"LLM判断失败: {e}")
                     level = -1
 
-            # 应用编号（所有段落都设置编号）
+            # 应用编号（只给应该有编号的段落设置）
             if level == 0:
                 self._apply_numbering(para, "1", "0")  # numId=1, ilvl=0
                 self._remove_manual_numbering(para, "一级")
@@ -398,31 +398,42 @@ class DocxFormatNormalizer:
             elif level == 2:
                 self._apply_numbering(para, "3", "2")  # numId=3, ilvl=2
                 self._remove_manual_numbering(para, "三级")
-            else:
-                # 对于其他段落（正文），也设置编号
-                self._apply_numbering(para, "4", "3")  # numId=4, ilvl=3
+            # 注意：不给level=-1的段落设置编号
 
     def _detect_level_by_rules(self, text: str) -> int:
         """使用规则方法检测段落层级"""
-        # 检测一级标题（一、二、三... 或 （一）、（二）、...）
-        if (len(text) >= 2 and text[0] in "一二三四五六七八九十" and text[1] == "、"):
-            return 0
-        elif (len(text) >= 4 and text.startswith("（") and text[1] in "一二三四五六七八九十" and text[2] == "）"):
-            return 0
-        # 检测二级标题（1. 2. 3.）
-        elif len(text) >= 2 and text[0].isdigit() and text[1] == ".":
-            return 1
-        # 检测三级标题（（1）（2）（3））
-        elif len(text) >= 4 and text.startswith("（") and text[1].isdigit() and text[2] == "）":
-            return 2
-
-        # 检测常见的一级标题关键词
-        level0_keywords = ["服务内容", "服务范围", "费用", "保密义务", "责任限制", "免责条款", "合同期限", "违约责任"]
+        # 检测一级标题（服务内容、服务范围、费用等）
+        level0_keywords = ["服务内容", "服务范围", "费用", "保密义务", "责任限制", "免责条款", "合同期限", "违约责任", "服务响应时间", "争议解决", "其他约定"]
         for keyword in level0_keywords:
             if keyword in text and len(text) < 20:
                 return 0
 
-        return -1  # 无法判断
+        # 检测二级标题（具体的条款内容）
+        # 特征：以数字开头，描述具体事项
+        if len(text) >= 2 and text[0].isdigit() and text[1] in "、.":
+            # 检查是否是具体的条款内容
+            if any(keyword in text for keyword in ["费用", "责任", "义务", "权利", "期限", "范围"]):
+                return 1
+
+        # 检测三级标题（详细的操作说明）
+        # 特征：包含具体的操作或细节
+        if any(keyword in text for keyword in ["安装", "维修", "检测", "调试", "排查", "维护", "更新"]):
+            return 2
+
+        # 检测二级标题（以"一、"、"二、"等开头）
+        if (len(text) >= 2 and text[0] in "一二三四五六七八九十" and text[1] == "、"):
+            return 1
+
+        # 检测三级标题（以"1."、"2."等开头）
+        if len(text) >= 2 and text[0].isdigit() and text[1] == ".":
+            return 2
+
+        # 检测二级标题（包含"乙方"、"甲方"等关键词）
+        if any(keyword in text for keyword in ["乙方", "甲方", "双方"]):
+            return 1
+
+        # 默认返回1（二级标题）
+        return 1
 
     def _remove_manual_numbering(self, para: Any, level_type: str) -> None:
         """删除段落中的手动编号文本"""
