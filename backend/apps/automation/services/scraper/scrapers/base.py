@@ -10,7 +10,6 @@ from django.utils import timezone
 from apps.automation.models import ScraperTask, ScraperTaskStatus
 
 # 所有服务通过 ServiceLocator 获取
-from apps.automation.services.scraper.core.anti_detection import anti_detection
 
 if TYPE_CHECKING:
     from playwright.sync_api import BrowserContext, Page
@@ -69,6 +68,7 @@ class BaseScraper:
 
         # 通过 ServiceLocator 获取服务
         from apps.core.interfaces import ServiceLocator
+        from apps.core.services.browser import anti_detection
 
         self.browser_service = ServiceLocator.get_browser_service()
         self.captcha_service = ServiceLocator.get_captcha_service()
@@ -109,9 +109,6 @@ class BaseScraper:
                 self.context = self.browser_service.create_context(use_anti_detection=True)
                 assert self.context is not None
                 self.page = self.context.new_page()
-
-                # 注入反检测脚本
-                self.anti_detection.inject_stealth_script(self.page)
 
             # 执行具体的爬虫逻辑
             result = self._run()

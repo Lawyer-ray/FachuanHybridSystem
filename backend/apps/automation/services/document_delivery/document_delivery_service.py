@@ -634,9 +634,9 @@ class DocumentDeliveryService(
                 result.errors.append(error_msg)
                 return result
 
-            from apps.automation.services.scraper.core.browser_service import BrowserService
+            from apps.core.services.browser import get_browser_service
 
-            browser_service = BrowserService()
+            browser_service = get_browser_service()
             browser = browser_service.get_browser()
             page = browser.new_page()
 

@@ -80,6 +80,24 @@ class BrowserService:
 
         return cast(BrowserContext, context)
 
+    # ── IBrowserService 兼容方法 ──
+    # 以下方法满足 core.protocols.IBrowserService 协议，
+    # 供 ServiceLocator / automation_token.py 依赖注入链使用。
+
+    def get_browser(self, profile: str = "default") -> Any:
+        """获取浏览器实例。"""
+        p = get_profile(profile)
+        _, browser = self._get_or_create_browser(p)
+        return browser
+
+    async def close_browser(self) -> None:
+        """关闭所有浏览器。"""
+        self.close()
+
+    def create_context(self, use_anti_detection: bool = True, **kwargs: Any) -> BrowserContext:
+        """创建浏览器上下文（默认 profile）。"""
+        return self.get_context("default", use_anti_detection=use_anti_detection, **kwargs)
+
     def _get_or_create_browser(self, profile: BrowserProfile) -> tuple[Any, Any]:
         """获取或创建浏览器实例。"""
         if profile.name in self._browsers:

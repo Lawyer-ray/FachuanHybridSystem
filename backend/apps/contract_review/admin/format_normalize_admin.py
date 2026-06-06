@@ -252,11 +252,10 @@ class FormatNormalizeAdmin(admin.ModelAdmin):
         )
 
     def execute_view(self, request: HttpRequest, task_id: Any) -> HttpResponse:
-        """执行格式规范化"""
+        """执行格式规范化（后台线程执行，立即返回）"""
+        import threading
         from django.conf import settings
         from django.http import HttpResponseRedirect
-
-        from apps.contract_review.services.format_normalizer import DocxFormatNormalizer
 
         try:
             task = ReviewTask.objects.get(id=task_id)
@@ -268,64 +267,61 @@ class FormatNormalizeAdmin(admin.ModelAdmin):
             messages.error(request, "该任务没有原始文件")
             return HttpResponseRedirect("/admin/contract_review/formatnormalize/")
 
-        # 使用MEDIA_ROOT构造完整的绝对路径
         original_path = Path(settings.MEDIA_ROOT) / task.original_file
         if not original_path.exists():
             messages.error(request, f"原始文件不存在: {original_path}")
             return HttpResponseRedirect("/admin/contract_review/formatnormalize/")
 
-        try:
-            # 生成输出文件路径
-            output_dir = original_path.parent
-            output_filename = f"{original_path.stem}_规范化{original_path.suffix}"
-            output_path = output_dir / output_filename
+        # 解析参数
+        use_llm = True
+        llm_backend = "siliconflow"
+        if task.selected_steps and len(task.selected_steps) > 0:
+            for step in task.selected_steps:
+                if step == "use_llm":
+                    use_llm = True
+                elif step == "no_llm":
+                    use_llm = False
+                elif step.startswith("llm_"):
+                    llm_backend = step[4:]
 
-            # 确定编号类型、AI辅助和模型选择
-            numbering_type = "chinese"  # 默认
-            use_llm = True  # 默认使用LLM
-            llm_backend = "siliconflow"  # 默认使用siliconflow
+        # 生成输出路径
+        output_dir = original_path.parent
+        output_filename = f"{original_path.stem}_规范化{original_path.suffix}"
+        output_path = output_dir / output_filename
 
-            if task.selected_steps and len(task.selected_steps) > 0:
-                for step in task.selected_steps:
-                    if step in ["chinese", "digital"]:
-                        numbering_type = step
-                    elif step == "use_llm":
-                        use_llm = True
-                    elif step == "no_llm":
-                        use_llm = False
-                    elif step.startswith("llm_"):
-                        llm_backend = step[4:]  # 提取llm_后面的部分
+        # 查找参考文档
+        reference_path = self._find_reference_document(original_path)
 
-            # 执行格式规范化
-            # 自动查找匹配的参考文档
-            reference_path = self._find_reference_document(original_path)
-            if reference_path:
-                logger.info("找到匹配的参考文档: %s", reference_path)
+        # 更新状态为处理中
+        task.status = "processing"
+        task.save(update_fields=["status"])
 
-            normalizer = DocxFormatNormalizer(
-                original_path, output_path, reference_path=reference_path
-            )
-            result_path = normalizer.normalize(use_llm=use_llm, llm_backend=llm_backend)
+        # 后台线程执行格式化（不阻塞页面响应）
+        def _run_normalize():
+            from apps.contract_review.services.format_normalizer import DocxFormatNormalizer
+            try:
+                normalizer = DocxFormatNormalizer(
+                    original_path, output_path, reference_path=reference_path
+                )
+                result_path = normalizer.normalize(use_llm=use_llm, llm_backend=llm_backend)
+                task.output_file = str(result_path.relative_to(settings.MEDIA_ROOT))
+                task.status = "completed"
+                task.save(update_fields=["output_file", "status"])
+                logger.info("格式规范化完成: %s", result_path)
+            except Exception as e:
+                logger.exception("格式规范化失败: %s", e)
+                task.status = "failed"
+                task.save(update_fields=["status"])
 
-            # 更新任务状态
-            task.output_file = str(result_path.relative_to(settings.MEDIA_ROOT))
-            task.status = "completed"
-            task.save(update_fields=["output_file", "status"])
+        thread = threading.Thread(target=_run_normalize, daemon=True)
+        thread.start()
 
-            # 显示结果
-            llm_status = f"使用AI ({llm_backend})" if use_llm else "不使用AI"
-            messages.success(
-                request,
-                f"✓ 格式规范化完成！({llm_status})<br>"
-                f"<a href='/media/{task.output_file}' download style='color: #4CAF50; font-weight: bold;'>点击下载格式化后的文件</a>"
-            )
-
-        except Exception as e:
-            logger.exception("格式规范化失败: %s", e)
-            task.status = "failed"
-            task.save(update_fields=["status"])
-            messages.error(request, f"格式规范化失败: {e!s}")
-
+        llm_status = f"使用AI ({llm_backend})" if use_llm else "不使用AI"
+        messages.success(
+            request,
+            f"✓ 格式规范化已开始处理（{llm_status}），请稍后刷新页面查看结果。<br>"
+            f"参考文档: {reference_path.name if reference_path else '无（使用默认格式）'}"
+        )
         return HttpResponseRedirect("/admin/contract_review/formatnormalize/")
 
     def _find_reference_document(self, test_path: Path) -> Path | None:

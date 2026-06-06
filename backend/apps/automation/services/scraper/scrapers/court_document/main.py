@@ -69,8 +69,6 @@ class CourtDocumentScraper(BaseCourtDocumentScraper):
             self.context = self.browser_service.create_context(use_anti_detection=True)
             assert self.context is not None
             self.page = self.context.new_page()
-            # 注入反检测脚本
-            self.anti_detection.inject_stealth_script(self.page)
 
         return self._dispatch_to_scraper(scraper_cls)
 
@@ -123,7 +121,6 @@ class CourtDocumentScraper(BaseCourtDocumentScraper):
                 self.context = self.browser_service.create_context(use_anti_detection=True)
             if self.page is None:
                 self.page = self.context.new_page()
-                self.anti_detection.inject_stealth_script(self.page)
 
             detected_platform = self._detect_platform_by_structure()
             if detected_platform == "zxfw":

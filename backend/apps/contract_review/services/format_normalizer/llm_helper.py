@@ -110,6 +110,7 @@ class ContractStructureAnalyzer:
                 system_prompt=system_prompt,
                 temperature=0.1,
                 max_tokens=8000,
+                timeout=120,  # 120秒超时
             )
             if self.backend:
                 kwargs["backend"] = self.backend

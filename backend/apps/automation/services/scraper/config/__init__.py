@@ -1,7 +1,3 @@
-"""
-Scraper configuration module
-"""
+"""Scraper configuration module"""
 
-from .browser_config import BrowserConfig
-
-__all__ = ["BrowserConfig"]
+__all__: list[str] = []

@@ -228,7 +228,7 @@ def main():
         normalizer = DocxFormatNormalizer(
             test_path, output_path, reference_path=ref_path
         )
-        normalizer.normalize(use_llm=False)  # 测试 fallback 模式
+        normalizer.normalize()  # use_llm=True (默认)
 
         # 分析输出和参考
         ref_info = analyze_doc(ref_path)

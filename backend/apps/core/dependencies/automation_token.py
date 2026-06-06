@@ -60,9 +60,9 @@ def build_court_token_store_service() -> ICourtTokenStoreService:
 
 
 def build_browser_service() -> IBrowserService:
-    from apps.automation.services.scraper.core.browser_service import BrowserServiceAdapter
+    from apps.core.services.browser import get_browser_service
 
-    return BrowserServiceAdapter()
+    return get_browser_service()  # type: ignore[return-value]
 
 
 def build_captcha_service() -> ICaptchaService:
