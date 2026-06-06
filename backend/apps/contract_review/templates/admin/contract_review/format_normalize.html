@@ -63,58 +63,7 @@
         margin-bottom: 20px;
     }
 
-    /* 按钮样式 - Django Admin标准 */
-    .btn {
-        display: inline-block;
-        padding: 4px 12px;
-        font-size: 13px;
-        font-weight: normal;
-        text-decoration: none;
-        border-radius: 4px;
-        cursor: pointer;
-        border: 1px solid #ccc;
-        transition: background-color 0.2s;
-    }
-    .btn-primary {
-        background-color: #417690;
-        color: #fff;
-        border-color: #417690;
-    }
-    .btn-primary:hover {
-        background-color: #205067;
-        color: #fff;
-    }
-    .btn-success {
-        background-color: #44b78b;
-        color: #fff;
-        border-color: #44b78b;
-    }
-    .btn-success:hover {
-        background-color: #339971;
-        color: #fff;
-    }
-    .btn-warning {
-        background-color: #fba74b;
-        color: #333;
-        border-color: #fba74b;
-    }
-    .btn-warning:hover {
-        background-color: #e09a3c;
-        color: #333;
-    }
-    .btn-secondary {
-        background-color: #79aec8;
-        color: #fff;
-        border-color: #79aec8;
-    }
-    .btn-secondary:hover {
-        background-color: #4178a0;
-        color: #fff;
-    }
-    .btn-sm {
-        padding: 3px 8px;
-        font-size: 12px;
-    }
+    /* 不定义自定义.btn样式，使用Django Admin默认 */
 
     /* 任务列表 */
     .task-list {
@@ -279,6 +228,8 @@
                     <span>创建: {{ task.created_at|date:"Y-m-d H:i" }}</span>
                     {% if task.output_file %}
                     <span style="color: #28a745;">✓ 已处理</span>
+                    {% else %}
+                    <span style="color: #ffc107;">⏳ 待处理</span>
                     {% endif %}
                 </div>
 
@@ -306,6 +257,12 @@
                        class="btn btn-secondary btn-sm"
                        download>
                         下载原始文件
+                    </a>
+
+                    <a href="{% url 'admin:contract_review_formatnormalize_delete' task_id=task.id %}"
+                       class="btn btn-danger btn-sm"
+                       onclick="return confirm('确定要彻底删除此任务和所有相关文件吗？此操作不可恢复！')">
+                        删除
                     </a>
                 </div>
             </div>

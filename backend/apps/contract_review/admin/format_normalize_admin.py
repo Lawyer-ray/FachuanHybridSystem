@@ -128,6 +128,11 @@ class FormatNormalizeAdmin(admin.ModelAdmin):
                 name="contract_review_formatnormalize_add_annotation",
             ),
             path(
+                "<uuid:task_id>/delete/",
+                self.admin_site.admin_view(self.delete_view),
+                name="contract_review_formatnormalize_delete",
+            ),
+            path(
                 "health-check/",
                 self.admin_site.admin_view(self.health_check_view),
                 name="contract_review_formatnormalize_health_check",
@@ -338,3 +343,41 @@ class FormatNormalizeAdmin(admin.ModelAdmin):
             json.dumps(response_data, ensure_ascii=False),
             content_type="application/json"
         )
+
+    def delete_view(self, request: HttpRequest, task_id: Any) -> HttpResponse:
+        """删除任务和相关文件"""
+        from django.conf import settings
+        from django.http import HttpResponseRedirect
+
+        try:
+            task = ReviewTask.objects.get(id=task_id)
+        except ReviewTask.DoesNotExist:
+            messages.error(request, "任务不存在")
+            return HttpResponseRedirect("/admin/contract_review/formatnormalize/")
+
+        try:
+            # 删除原始文件
+            if task.original_file:
+                original_path = Path(settings.MEDIA_ROOT) / task.original_file
+                if original_path.exists():
+                    original_path.unlink()
+                    logger.info("删除原始文件: %s", original_path)
+
+            # 删除输出文件
+            if task.output_file:
+                output_path = Path(settings.MEDIA_ROOT) / task.output_file
+                if output_path.exists():
+                    output_path.unlink()
+                    logger.info("删除输出文件: %s", output_path)
+
+            # 删除任务记录
+            task_title = task.contract_title
+            task.delete()
+
+            messages.success(request, f"已彻底删除任务和相关文件: {task_title}")
+
+        except Exception as e:
+            logger.exception("删除任务失败: %s", e)
+            messages.error(request, f"删除任务失败: {e!s}")
+
+        return HttpResponseRedirect("/admin/contract_review/formatnormalize/")
