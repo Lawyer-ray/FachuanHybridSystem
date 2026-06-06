@@ -132,7 +132,7 @@ class DocxFormatNormalizer:
         from lxml import etree
 
         nsmap = {"w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main"}
-        numbering_elm = etree.SubElement(etree.Element("root"), qn("w:numbering"), nsmap=nsmap)
+        numbering_elm = etree.Element(qn("w:numbering"), nsmap=nsmap)
         numbering_xml = etree.tostring(numbering_elm, xml_declaration=True, encoding="UTF-8", standalone=True)
 
         part_name = PackURI("/word/numbering.xml")
@@ -347,14 +347,16 @@ class DocxFormatNormalizer:
         # 根据段落内容设置编号
         text = para.text.strip()
         if text:
-            # 检测是否为一级标题（一、二、三...）
-            if len(text) >= 2 and text[0] in "一二三四五六七八九十" and text[1] == "、":
-                self._apply_numbering(para, "1", "1")  # numId=1, ilvl=0
-            # 检测是否为二级标题（1. 2. 3.）
+            # 检测一级标题（一、二、三... 或 （一）、（二）、...）
+            if (len(text) >= 2 and text[0] in "一二三四五六七八九十" and text[1] == "、") or \
+               (len(text) >= 4 and text.startswith("（") and text[1] in "一二三四五六七八九十" and text[2] == "）"):
+                self._apply_numbering(para, "1", "0")  # numId=1, ilvl=0
+            # 检测二级标题（1. 2. 3.）
             elif len(text) >= 2 and text[0].isdigit() and text[1] == ".":
                 self._apply_numbering(para, "2", "1")  # numId=2, ilvl=0
-            # 检测是否为三级标题（（1）（2）（3））
+            # 检测三级标题（（1）（2）（3））
             elif len(text) >= 4 and text.startswith("（") and text[1].isdigit() and text[2] == "）":
+                self._apply_numbering(para, "3", "2")  # numId=3, ilvl=0
                 self._apply_numbering(para, "3", "2")  # numId=3, ilvl=0
 
     def _apply_numbering(self, para: Any, num_id: str, ilvl: str) -> None:
