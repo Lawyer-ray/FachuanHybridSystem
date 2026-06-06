@@ -21,6 +21,10 @@ MARGIN_LEFT = Cm(3.17)
 MARGIN_RIGHT = Cm(3.17)
 
 
+import sys
+sys.path.insert(0, '/Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/apps/contract_review/services/format_normalizer')
+from paragraph_classifier import ParagraphClassifier
+
 class DocxFormatNormalizer:
     """合同格式规范化器 - 直接复制修订版格式"""
 
@@ -371,8 +375,10 @@ class DocxFormatNormalizer:
         # 根据段落内容设置编号，并删除手动编号
         text = para.text.strip()
         if text:
-            # 先尝试规则方法
-            level = self._detect_level_by_rules(text)
+            # 使用ParagraphClassifier进行智能分类
+            classifier = ParagraphClassifier()
+            level, reason = classifier.classify(text)
+            logger.debug(f'段落分类: {text[:30]}... -> level={level}, reason={reason}')
 
             # 如果规则方法无法判断，且启用了LLM，使用LLM
             if level == -1 and use_llm:
@@ -402,14 +408,18 @@ class DocxFormatNormalizer:
 
     def _detect_level_by_rules(self, text: str) -> int:
         """使用规则方法检测段落层级"""
+        # 只有明确的条款内容才设置编号
+        # 标题、当事人信息、前言等不应该有编号
+
         # 检测一级标题（服务内容、服务范围、费用等）
+        # 特征：简短、明确的标题
         level0_keywords = ["服务内容", "服务范围", "费用", "保密义务", "责任限制", "免责条款", "合同期限", "违约责任", "服务响应时间", "争议解决", "其他约定"]
         for keyword in level0_keywords:
             if keyword in text and len(text) < 20:
                 return 0
 
         # 检测二级标题（具体的条款内容）
-        # 特征：以数字开头，描述具体事项
+        # 特征：以数字开头，描述具体事项，包含关键词
         if len(text) >= 2 and text[0].isdigit() and text[1] in "、.":
             # 检查是否是具体的条款内容
             if any(keyword in text for keyword in ["费用", "责任", "义务", "权利", "期限", "范围"]):
@@ -430,6 +440,7 @@ class DocxFormatNormalizer:
 
         # 默认返回-1（不设置编号）
         return -1
+
 
     def _remove_manual_numbering(self, para: Any, level_type: str) -> None:
         """删除段落中的手动编号文本"""
