@@ -363,21 +363,53 @@ class DocxFormatNormalizer:
         # 根据段落内容设置编号，并删除手动编号
         text = para.text.strip()
         if text:
-            # 检测一级标题（一、二、三... 或 （一）、（二）、...）
-            if (len(text) >= 2 and text[0] in "一二三四五六七八九十" and text[1] == "、"):
+            # 先尝试规则方法
+            level = self._detect_level_by_rules(text)
+
+            # 如果规则方法无法判断，使用LLM
+            if level == -1:
+                try:
+                    from .llm_helper import ContractStructureAnalyzer
+                    analyzer = ContractStructureAnalyzer()
+                    result = analyzer.analyze_paragraph_level(text)
+                    level = result["level"]
+                    logger.debug(f"LLM判断段落 '{text[:30]}...' 的层级为 {level}")
+                except Exception as e:
+                    logger.warning(f"LLM判断失败: {e}")
+                    level = -1
+
+            # 应用编号
+            if level == 0:
                 self._apply_numbering(para, "1", "0")  # numId=1, ilvl=0
                 self._remove_manual_numbering(para, "一级")
-            elif (len(text) >= 4 and text.startswith("（") and text[1] in "一二三四五六七八九十" and text[2] == "）"):
-                self._apply_numbering(para, "1", "0")  # numId=1, ilvl=0
-                self._remove_manual_numbering(para, "一级")
-            # 检测二级标题（1. 2. 3.）
-            elif len(text) >= 2 and text[0].isdigit() and text[1] == ".":
+            elif level == 1:
                 self._apply_numbering(para, "2", "1")  # numId=2, ilvl=0
                 self._remove_manual_numbering(para, "二级")
-            # 检测三级标题（（1）（2）（3））
-            elif len(text) >= 4 and text.startswith("（") and text[1].isdigit() and text[2] == "）":
+            elif level == 2:
                 self._apply_numbering(para, "3", "2")  # numId=3, ilvl=0
                 self._remove_manual_numbering(para, "三级")
+
+    def _detect_level_by_rules(self, text: str) -> int:
+        """使用规则方法检测段落层级"""
+        # 检测一级标题（一、二、三... 或 （一）、（二）、...）
+        if (len(text) >= 2 and text[0] in "一二三四五六七八九十" and text[1] == "、"):
+            return 0
+        elif (len(text) >= 4 and text.startswith("（") and text[1] in "一二三四五六七八九十" and text[2] == "）"):
+            return 0
+        # 检测二级标题（1. 2. 3.）
+        elif len(text) >= 2 and text[0].isdigit() and text[1] == ".":
+            return 1
+        # 检测三级标题（（1）（2）（3））
+        elif len(text) >= 4 and text.startswith("（") and text[1].isdigit() and text[2] == "）":
+            return 2
+
+        # 检测常见的一级标题关键词
+        level0_keywords = ["服务内容", "服务范围", "费用", "保密义务", "责任限制", "免责条款", "合同期限", "违约责任"]
+        for keyword in level0_keywords:
+            if keyword in text and len(text) < 20:
+                return 0
+
+        return -1  # 无法判断
 
     def _remove_manual_numbering(self, para: Any, level_type: str) -> None:
         """删除段落中的手动编号文本"""
