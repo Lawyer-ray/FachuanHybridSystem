@@ -344,6 +344,39 @@ class DocxFormatNormalizer:
         ind.set(qn("w:left"), "0")
         pPr.append(ind)
 
+        # 根据段落内容设置编号
+        text = para.text.strip()
+        if text:
+            # 检测是否为一级标题（一、二、三...）
+            if len(text) >= 2 and text[0] in "一二三四五六七八九十" and text[1] == "、":
+                self._apply_numbering(para, "1", "1")  # numId=1, ilvl=0
+            # 检测是否为二级标题（1. 2. 3.）
+            elif len(text) >= 2 and text[0].isdigit() and text[1] == ".":
+                self._apply_numbering(para, "2", "1")  # numId=2, ilvl=0
+            # 检测是否为三级标题（（1）（2）（3））
+            elif len(text) >= 4 and text.startswith("（") and text[1].isdigit() and text[2] == "）":
+                self._apply_numbering(para, "3", "2")  # numId=3, ilvl=0
+
+    def _apply_numbering(self, para: Any, num_id: str, ilvl: str) -> None:
+        """应用编号到段落"""
+        pPr = para._element.get_or_add_pPr()
+
+        # 创建 numPr 元素
+        numPr = OxmlElement("w:numPr")
+
+        # 添加 ilvl（缩进级别）
+        ilvl_elem = OxmlElement("w:ilvl")
+        ilvl_elem.set(qn("w:val"), ilvl)
+        numPr.append(ilvl_elem)
+
+        # 添加 numId（编号ID）
+        numId_elem = OxmlElement("w:numId")
+        numId_elem.set(qn("w:val"), num_id)
+        numPr.append(numId_elem)
+
+        # 添加到段落属性
+        pPr.append(numPr)
+
     def _clear_old_format(self, pPr: Any) -> None:
         """清除旧的格式定义"""
         for tag in ["w:spacing", "w:ind", "w:jc", "w:numPr"]:
