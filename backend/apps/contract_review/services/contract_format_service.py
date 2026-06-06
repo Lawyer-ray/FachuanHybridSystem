@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 class ContractFormatService:
     """合同格式化服务"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.poi_client = get_poi_client()
 
     def format_contract(
