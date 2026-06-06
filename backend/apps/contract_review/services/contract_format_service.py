@@ -22,9 +22,9 @@ class ContractFormatService:
     def format_contract(
         self,
         task: ReviewTask,
-        config: Optional[dict] = None,
-        force_method: Optional[str] = None
-    ) -> Tuple[Path, str]:
+        config: dict | None = None,
+        force_method: str | None = None
+    ) -> tuple[Path, str]:
         """
         格式化合同文档
 
@@ -73,7 +73,7 @@ class ContractFormatService:
 
         return output_path, used_method
 
-    def _determine_method(self, force_method: Optional[str]) -> str:
+    def _determine_method(self, force_method: str | None) -> str:
         """确定使用的方法"""
         if force_method and force_method != 'auto':
             return force_method
@@ -88,8 +88,8 @@ class ContractFormatService:
     def _format_with_poi(
         self,
         docx_bytes: bytes,
-        config: Optional[dict]
-    ) -> Tuple[bytes, str]:
+        config: dict | None
+    ) -> tuple[bytes, str]:
         """使用POI格式化"""
         try:
             formatted_bytes = self.poi_client.format_contract(
@@ -104,8 +104,8 @@ class ContractFormatService:
     def _format_with_python(
         self,
         docx_bytes: bytes,
-        config: Optional[dict]
-    ) -> Tuple[bytes, str]:
+        config: dict | None
+    ) -> tuple[bytes, str]:
         """使用Python格式化（降级方案）"""
         from docx import Document
         from docx.shared import Pt

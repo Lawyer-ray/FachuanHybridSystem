@@ -11,7 +11,7 @@ import shutil
 import subprocess
 from pathlib import Path
 
-from apps.core.services.libreoffice import find_libreoffice  # noqa: F401 — re-export
+from apps.core.services.libreoffice import find_libreoffice
 
 logger = logging.getLogger("apps.doc_converter")
 
