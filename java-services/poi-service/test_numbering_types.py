@@ -70,7 +70,7 @@ def test_format_chinese_numbering():
         json={
             "docxBytes": list(docx_bytes),
             "config": {
-                "numberingType": "chinese",
+                "numberingType": "CHINESE",  # 大写
                 "lineSpacing": 360,
                 "bodyFont": "宋体",
                 "bodyFontSize": 24,
@@ -118,7 +118,7 @@ def test_format_digital_numbering():
         json={
             "docxBytes": list(docx_bytes),
             "config": {
-                "numberingType": "digital",
+                "numberingType": "DIGITAL",  # 大写
                 "lineSpacing": 360,
                 "bodyFont": "宋体",
                 "bodyFontSize": 24,
@@ -166,7 +166,7 @@ def test_format_without_numbering():
         json={
             "docxBytes": list(docx_bytes),
             "config": {
-                "numberingType": "chinese",
+                "numberingType": "CHINESE",  # 大写
                 "lineSpacing": 360,
                 "bodyFont": "宋体",
                 "bodyFontSize": 24,
@@ -237,7 +237,7 @@ def test_format_all_verification_files():
                 json={
                     "docxBytes": list(docx_bytes),
                     "config": {
-                        "numberingType": file_info["numbering"],
+                        "numberingType": file_info["numbering"].upper(),  # 大写
                         "lineSpacing": 360,
                         "bodyFont": "宋体",
                         "bodyFontSize": 24,
