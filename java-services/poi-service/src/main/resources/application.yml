@@ -1,0 +1,16 @@
+server:
+  port: 8090
+  tomcat:
+    max-threads: 20
+    accept-count: 10
+
+spring:
+  servlet:
+    multipart:
+      max-file-size: 50MB
+      max-request-size: 50MB
+
+logging:
+  level:
+    com.fachuan.poi: INFO
+    org.springframework: WARN

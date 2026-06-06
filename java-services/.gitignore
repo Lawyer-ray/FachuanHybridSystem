@@ -1,0 +1,18 @@
+# Build artifacts
+target/
+*.class
+*.jar
+!**/maven-wrapper.jar
+
+# Test output
+test_output/
+test_output_*.docx
+test_output_archive/
+**/test_output*/
+
+# IDE
+.idea/
+*.iml
+.settings/
+.classpath
+.project

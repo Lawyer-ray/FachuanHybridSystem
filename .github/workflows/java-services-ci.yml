@@ -1,0 +1,45 @@
+name: java-services-ci
+
+on:
+  pull_request:
+    paths:
+      - 'java-services/**'
+      - '.github/workflows/java-services-ci.yml'
+  push:
+    branches:
+      - main
+      - master
+      - dev
+    paths:
+      - 'java-services/**'
+      - '.github/workflows/java-services-ci.yml'
+
+jobs:
+  poi-service:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: java-services
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v4
+        with:
+          java-version: '25'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: Compile
+        run: ./mvnw compile -q
+
+      - name: Package (skip tests)
+        run: ./mvnw package -DskipTests -q
+
+      - name: Verify JAR exists
+        run: |
+          ls -la poi-service/target/poi-service-*.jar
+          echo "✅ JAR built successfully"
