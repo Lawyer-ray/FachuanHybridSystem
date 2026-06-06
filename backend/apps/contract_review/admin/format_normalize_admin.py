@@ -163,6 +163,7 @@ class FormatNormalizeAdmin(admin.ModelAdmin):
     def execute_view(self, request: HttpRequest, task_id: Any) -> HttpResponse:
         """执行格式规范化"""
         from django.contrib import messages
+        from django.conf import settings
         from django.http import HttpResponseRedirect
 
         from apps.contract_review.services.format_normalizer import DocxFormatNormalizer
@@ -177,7 +178,8 @@ class FormatNormalizeAdmin(admin.ModelAdmin):
             messages.error(request, "该任务没有原始文件")
             return HttpResponseRedirect("/admin/contract_review/formatnormalize/")
 
-        original_path = Path(task.original_file)
+        # 使用MEDIA_ROOT构造完整的绝对路径
+        original_path = Path(settings.MEDIA_ROOT) / task.original_file
         if not original_path.exists():
             messages.error(request, f"原始文件不存在: {original_path}")
             return HttpResponseRedirect("/admin/contract_review/formatnormalize/")
@@ -192,8 +194,8 @@ class FormatNormalizeAdmin(admin.ModelAdmin):
             normalizer = DocxFormatNormalizer(original_path, output_path)
             result_path = normalizer.normalize()
 
-            # 更新任务的输出文件
-            task.output_file = str(result_path)
+            # 更新任务的输出文件（相对于MEDIA_ROOT）
+            task.output_file = str(result_path.relative_to(settings.MEDIA_ROOT))
             task.save(update_fields=["output_file"])
 
             messages.success(request, f"格式规范化完成: {result_path.name}")
