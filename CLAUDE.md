@@ -149,3 +149,45 @@ lsof -ti:8090 | xargs kill -9
 ```bash
 ./mvnw clean package -DskipTests  # 首次会自动下载 Maven
 ```
+
+## CI 注意事项
+
+### 本地 CI 必须覆盖所有变更文件
+
+本地 ruff/mypy 检查范围必须与远端 CI 一致，否则会出现"本地绿、远端红"的情况。
+
+**远端 CI 检查范围**：`git diff main --name-only` 中所有变更文件（不只是你改的文件）。
+
+**正确的本地 CI 命令**（在 `backend/` 目录下）：
+```bash
+# ruff：检查所有变更文件
+git diff main --name-only -- '*.py' | xargs -r .venv/bin/ruff check
+
+# mypy：检查所有变更文件
+git diff main --name-only -- '*.py' | xargs -r .venv/bin/mypy --ignore-missing-imports
+
+# 语法编译：检查所有 Python 文件
+.venv/bin/python -m compileall -q apps apiSystem
+```
+
+**错误做法**：只检查自己改的几个文件，忽略了分支上其他变更文件（合并冲突、其他人的提交等）。
+
+### mypy type: ignore 错误码
+
+mypy 的 `type: ignore` 注释需要精确匹配错误码。如果本地 mypy 因 Django 插件崩溃无法运行，不要盲猜错误码。正确做法：
+1. 先在 CI 日志中找到确切的错误码（如 `no-any-return`、`attr-defined`、`override`）
+2. 用正确的错误码添加 `type: ignore[xxx]`
+3. 如果不确定，用通用的 `type: ignore`（不带错误码）
+
+### 远端 CI 包含的检查
+
+| 检查项 | 说明 |
+|---|---|
+| `Compile Python` | `python -m compileall` 语法编译 |
+| `ruff` | ruff lint（变更文件） |
+| `mypy` / `mypy-full` / `mypy-strict` | 类型检查（变更文件） |
+| `pytest` | 单元测试 |
+| `coverage` | 测试覆盖率 |
+| `integration-smoke` | 集成冒烟测试 |
+| `property-smoke` | 属性测试 |
+| `poi-service` | Java 编译 + 测试 |
