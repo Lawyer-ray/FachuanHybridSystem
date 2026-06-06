@@ -205,22 +205,34 @@ public class ParagraphClassifier {
         if (node.getType() == ParagraphType.HEADING_L1) {
             Matcher matcher = HEADING_L1_PATTERN.matcher(text);
             if (matcher.matches()) {
-                number = text.substring(0, text.indexOf("、"));
+                int index = text.indexOf("、");
+                if (index > 0) {
+                    number = text.substring(0, index);
+                }
             }
         } else if (node.getType() == ParagraphType.HEADING_L2) {
             Matcher matcher = HEADING_L2_PATTERN.matcher(text);
             if (matcher.matches()) {
-                number = text.substring(0, text.indexOf("."));
+                int index = text.indexOf(".");
+                if (index > 0) {
+                    number = text.substring(0, index);
+                }
             }
         } else if (node.getType() == ParagraphType.HEADING_L3) {
             Matcher matcher = HEADING_L3_PATTERN.matcher(text);
             if (matcher.matches()) {
-                number = text.substring(0, text.indexOf(")") + 1);
+                int index = text.indexOf(")");
+                if (index > 0) {
+                    number = text.substring(0, index + 1);
+                }
             }
         } else if (node.getType() == ParagraphType.CLAUSE) {
             Matcher matcher = CLAUSE_PATTERN.matcher(text);
             if (matcher.matches()) {
-                number = text.substring(0, text.indexOf("条"));
+                int index = text.indexOf("条");
+                if (index > 0) {
+                    number = text.substring(0, index);
+                }
             }
         }
 
