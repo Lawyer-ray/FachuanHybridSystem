@@ -62,7 +62,7 @@ def build_court_token_store_service() -> ICourtTokenStoreService:
 def build_browser_service() -> IBrowserService:
     from apps.core.services.browser import get_browser_service
 
-    return get_browser_service()  # type: ignore[return-value]
+    return get_browser_service()
 
 
 def build_captcha_service() -> ICaptchaService:

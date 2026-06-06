@@ -373,7 +373,7 @@ class FormatNormalizeAdmin(admin.ModelAdmin):
             annotation_content = request.POST.get("annotation_content", "")
             if annotation_content:
                 # 获取或创建FormatNormalize记录
-                format_record, created = FormatNormalize.objects.get_or_create(  # type: ignore[attr-defined]
+                format_record, created = FormatNormalize.objects.get_or_create(  # type: ignore[misc]
                     task=task,
                     defaults={
                         "status": "pending",

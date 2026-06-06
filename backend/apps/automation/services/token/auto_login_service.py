@@ -65,7 +65,7 @@ class AutoLoginService:
         if self._browser_service is None:
             from apps.core.services.browser import get_browser_service
 
-            self._browser_service = get_browser_service()  # type: ignore[assignment]
+            self._browser_service = get_browser_service()
         return self._browser_service
 
     async def login_and_get_token(self, credential: AccountCredentialDTO) -> str:

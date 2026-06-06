@@ -107,7 +107,7 @@ class TestService:
                 # 5. 收集截图
                 result["logs"].append("📸 收集调试截图...")
                 screenshot_limit = get_config("validation.screenshot_limit", 5)
-                result["screenshots"] = ScreenshotUtils.collect_screenshots(limit=screenshot_limit)
+                result["screenshots"] = ScreenshotUtils.collect_screenshots(limit=screenshot_limit)  # type: ignore[call-arg]
                 result["logs"].append(f"✅ 收集到 {len(result['screenshots'])} 张截图")
 
                 # 6. 等待用户观察
