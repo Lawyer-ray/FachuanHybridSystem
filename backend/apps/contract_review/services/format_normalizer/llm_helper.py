@@ -50,12 +50,13 @@ class ContractStructureAnalyzer:
 只返回JSON，不要有其他内容。"""
 
         try:
-            # 直接调用LLMService，使用默认后端
+            # 直接调用LLMService，指定使用siliconflow后端（mimo2.5pro）
             response = self.llm_service.complete(
                 prompt=prompt,
                 system_prompt="你是一个专业的法律文档分析专家，擅长识别文档的层级结构。",
                 temperature=0.3,
-                max_tokens=100
+                max_tokens=100,
+                backend="siliconflow"  # 指定使用siliconflow后端
             )
 
             # 解析响应
