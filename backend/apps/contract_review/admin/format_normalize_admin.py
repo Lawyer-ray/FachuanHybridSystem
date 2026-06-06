@@ -190,6 +190,8 @@ class FormatNormalizeAdmin(admin.ModelAdmin):
 
     def upload_view(self, request: HttpRequest) -> HttpResponse:
         """上传合同文件页面"""
+        from django.http import HttpResponseRedirect
+
         if request.method == "POST":
             uploaded_file = request.FILES.get("contract_file")
             numbering_type = request.POST.get("numbering_type", "chinese")
