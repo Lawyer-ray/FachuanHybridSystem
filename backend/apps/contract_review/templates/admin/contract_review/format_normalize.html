@@ -187,6 +187,13 @@
             <a href="{% url 'admin:contract_review_formatnormalize_upload' %}" class="btn btn-primary">
                 上传新合同
             </a>
+            {% if pending_count > 0 %}
+            <a href="{% url 'admin:contract_review_formatnormalize_batch_execute' %}"
+               class="btn btn-success"
+               onclick="return confirm('确定要批量格式化所有 {{ pending_count }} 个待处理任务吗？')">
+                批量格式化 ({{ pending_count }} 个待处理)
+            </a>
+            {% endif %}
         </div>
     </div>
 

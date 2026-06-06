@@ -133,6 +133,11 @@ class FormatNormalizeAdmin(admin.ModelAdmin):
                 name="contract_review_formatnormalize_delete",
             ),
             path(
+                "batch-execute/",
+                self.admin_site.admin_view(self.batch_execute_view),
+                name="contract_review_formatnormalize_batch_execute",
+            ),
+            path(
                 "health-check/",
                 self.admin_site.admin_view(self.health_check_view),
                 name="contract_review_formatnormalize_health_check",
@@ -147,6 +152,13 @@ class FormatNormalizeAdmin(admin.ModelAdmin):
             original_file__gt="",
         ).order_by("-created_at")
 
+        # 统计待处理任务数量
+        pending_count = ReviewTask.objects.filter(
+            original_file__isnull=False,
+            original_file__gt="",
+            output_file__isnull=True,
+        ).count()
+
         # 检查POI服务状态
         from apps.core.services.poi_client import get_poi_client
         poi_client = get_poi_client()
@@ -157,6 +169,7 @@ class FormatNormalizeAdmin(admin.ModelAdmin):
             "title": "合同格式调整",
             "opts": self.model._meta,
             "tasks": tasks,
+            "pending_count": pending_count,
             "poi_status": poi_status,
             "poi_status_text": "在线" if poi_status else "离线",
             "poi_status_color": "green" if poi_status else "red",
@@ -379,5 +392,66 @@ class FormatNormalizeAdmin(admin.ModelAdmin):
         except Exception as e:
             logger.exception("删除任务失败: %s", e)
             messages.error(request, f"删除任务失败: {e!s}")
+
+        return HttpResponseRedirect("/admin/contract_review/formatnormalize/")
+
+    def batch_execute_view(self, request: HttpRequest) -> HttpResponse:
+        """批量格式化所有待处理任务"""
+        from django.conf import settings
+        from django.http import HttpResponseRedirect
+
+        from apps.contract_review.services.format_normalizer import DocxFormatNormalizer
+
+        # 获取所有待处理的任务
+        pending_tasks = ReviewTask.objects.filter(
+            original_file__isnull=False,
+            original_file__gt="",
+            output_file__isnull=True,
+        )
+
+        if not pending_tasks.exists():
+            messages.info(request, "没有待处理的任务")
+            return HttpResponseRedirect("/admin/contract_review/formatnormalize/")
+
+        success_count = 0
+        error_count = 0
+
+        for task in pending_tasks:
+            try:
+                # 使用MEDIA_ROOT构造完整的绝对路径
+                original_path = Path(settings.MEDIA_ROOT) / task.original_file
+                if not original_path.exists():
+                    logger.warning("任务 %s 的原始文件不存在: %s", task.id, original_path)
+                    error_count += 1
+                    continue
+
+                # 生成输出文件路径
+                output_dir = original_path.parent
+                output_filename = f"{original_path.stem}_规范化{original_path.suffix}"
+                output_path = output_dir / output_filename
+
+                # 执行格式规范化
+                normalizer = DocxFormatNormalizer(original_path, output_path)
+                result_path = normalizer.normalize()
+
+                # 更新任务状态
+                task.output_file = str(result_path.relative_to(settings.MEDIA_ROOT))
+                task.status = "completed"
+                task.save(update_fields=["output_file", "status"])
+
+                success_count += 1
+                logger.info("任务 %s 格式化成功", task.id)
+
+            except Exception as e:
+                logger.exception("任务 %s 格式化失败: %s", task.id, e)
+                task.status = "failed"
+                task.save(update_fields=["status"])
+                error_count += 1
+
+        # 显示结果
+        if success_count > 0:
+            messages.success(request, f"✓ 批量格式化完成！成功 {success_count} 个，失败 {error_count} 个")
+        else:
+            messages.error(request, f"批量格式化失败，成功 0 个，失败 {error_count} 个")
 
         return HttpResponseRedirect("/admin/contract_review/formatnormalize/")
