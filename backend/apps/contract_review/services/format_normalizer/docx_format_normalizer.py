@@ -195,7 +195,7 @@ class DocxFormatNormalizer:
                     if numId_el is not None:
                         val = numId_el.get(qn("w:val"))
                         if val and val != "0":
-                            return val
+                            return val  # type: ignore[return-value]
         return "1"
 
     # ── 段落格式应用 ─────────────────────────────────────────
@@ -288,7 +288,7 @@ class DocxFormatNormalizer:
         """获取段落层级：LLM 结果优先，fallback 到简单规则"""
         # 优先用 LLM 结果
         if index in self._llm_results:
-            return self._llm_results[index]["level"]
+            return self._llm_results[index]["level"]  # type: ignore[return-value]
         # fallback
         return self._fallback_classify(para)
 

@@ -297,7 +297,7 @@ class FormatNormalizeAdmin(admin.ModelAdmin):
         task.save(update_fields=["status"])
 
         # 后台线程执行格式化（不阻塞页面响应）
-        def _run_normalize():
+        def _run_normalize() -> None:
             from apps.contract_review.services.format_normalizer import DocxFormatNormalizer
             try:
                 normalizer = DocxFormatNormalizer(
@@ -373,7 +373,7 @@ class FormatNormalizeAdmin(admin.ModelAdmin):
             annotation_content = request.POST.get("annotation_content", "")
             if annotation_content:
                 # 获取或创建FormatNormalize记录
-                format_record, created = FormatNormalize.objects.get_or_create(
+                format_record, created = FormatNormalize.objects.get_or_create(  # type: ignore[call-arg]
                     task=task,
                     defaults={
                         "status": "pending",
@@ -383,14 +383,14 @@ class FormatNormalizeAdmin(admin.ModelAdmin):
 
                 # 添加批注
                 annotation = {
-                    "author": request.user.get_full_name() or request.user.username,
+                    "author": request.user.get_full_name() or request.user.username,  # type: ignore[union-attr]
                     "content": annotation_content,
                     "created_at": timezone.now().isoformat()
                 }
 
                 if not format_record.annotations:
-                    format_record.annotations = []
-                format_record.annotations.append(annotation)
+                    format_record.annotations = []  # type: ignore[assignment]
+                format_record.annotations.append(annotation)  # type: ignore[union-attr]
                 format_record.save(update_fields=["annotations"])
 
                 messages.success(request, "批注添加成功")

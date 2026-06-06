@@ -43,7 +43,7 @@ class ContractStructureAnalyzer:
         """
         cache_key = "|".join(paragraphs)
         if cache_key in self._cache:
-            return self._cache[cache_key]
+            return self._cache[cache_key]  # type: ignore[return-value]
 
         # 第一轮：批量分析
         results = self._analyze_batch(paragraphs)
@@ -192,7 +192,7 @@ class ContractStructureAnalyzer:
 
             # 合并结果
             for item in refined:
-                idx = item.get("index")
+                idx = item.get("index")  # type: ignore[assignment]
                 if idx is not None and 0 <= idx < len(results):
                     results[idx] = {
                         "level": item.get("level", results[idx]["level"]),
