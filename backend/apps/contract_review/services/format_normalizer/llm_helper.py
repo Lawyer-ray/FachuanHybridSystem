@@ -30,54 +30,45 @@ class ContractStructureAnalyzer:
         Returns:
             包含level和reason的字典
         """
-        prompt = f"""你是一个法律文档分析专家。请分析以下段落的层级结构。
+        prompt = f"""段落：{text}
 
-段落文本：{text}
+层级判断（直接返回JSON）：
+0=一级标题 1=二级标题 2=三级标题 -1=正文
 
-上下文：{context}
-
-请判断这个段落属于哪个层级：
-- level=0: 一级标题（如"服务内容"、"费用"、"保密义务"等主要章节）
-- level=1: 二级标题（如具体的服务项目、费用明细等）
-- level=2: 三级标题（如具体的操作步骤、细节说明等）
-- level=-1: 正文内容（不是标题）
-
-请以JSON格式返回：
-{{
-    "level": 0/1/2/-1,
-    "reason": "判断理由"
-}}
-
-只返回JSON，不要有其他内容。"""
+返回格式：{{"level":0,"reason":"理由"}}"""
 
         try:
-            # 调用LLMService，指定后端
+            # 调用LLMService，使用openai_compatible后端（mimo2.5pro）
+            # 不传递backend参数，让它使用默认后端
             response = self.llm_service.complete(
                 prompt=prompt,
                 system_prompt="你是一个专业的法律文档分析专家，擅长识别文档的层级结构。",
                 temperature=0.3,
-                max_tokens=100,
-                backend=llm_backend  # 使用指定的后端
+                max_tokens=200  # 增加token数量
             )
 
-            # 解析响应
-            result_text = response.text.strip()
+            # 解析响应（使用content属性）
+            result_text = response.content.strip() if hasattr(response, 'content') else response.text.strip()
 
-            # 尝试提取JSON
+            # 尝试提取JSON（忽略其他文字）
             if "{" in result_text and "}" in result_text:
                 # 找到JSON部分
                 start = result_text.find("{")
                 end = result_text.rfind("}") + 1
                 json_str = result_text[start:end]
 
-                result = json.loads(json_str)
-                return {
-                    "level": result.get("level", -1),
-                    "reason": result.get("reason", "无法判断")
-                }
+                try:
+                    result = json.loads(json_str)
+                    return {
+                        "level": result.get("level", -1),
+                        "reason": result.get("reason", "无法判断")
+                    }
+                except json.JSONDecodeError:
+                    logger.warning(f"JSON解析失败: {json_str}")
+                    return {"level": -1, "reason": "JSON解析失败"}
             else:
-                logger.warning(f"LLM响应格式错误: {result_text}")
-                return {"level": -1, "reason": "LLM响应格式错误"}
+                logger.warning(f"LLM响应中没有找到JSON: {result_text[:100]}...")
+                return {"level": -1, "reason": "LLM响应中没有找到JSON"}
 
         except Exception as e:
             logger.error(f"LLM调用失败: {e}")
