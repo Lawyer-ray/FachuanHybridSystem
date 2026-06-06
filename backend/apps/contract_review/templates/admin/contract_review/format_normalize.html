@@ -197,15 +197,6 @@
         </div>
     </div>
 
-    <!-- 消息提示 -->
-    {% if messages %}
-        {% for message in messages %}
-        <div class="alert {% if message.tags == 'success' %}alert-success{% elif message.tags == 'error' %}alert-error{% endif %}">
-            {{ message }}
-        </div>
-        {% endfor %}
-    {% endif %}
-
     <!-- 服务状态 -->
     <div class="service-status">
         <div class="status-dot {% if poi_status %}online{% else %}offline{% endif %}"></div>
