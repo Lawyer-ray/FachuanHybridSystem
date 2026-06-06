@@ -397,7 +397,7 @@ class FormatNormalizeAdmin(admin.ModelAdmin):
             else:
                 messages.error(request, "批注内容不能为空")
 
-        return HttpResponseRedirect(f"/admin/contract_review/formatnormalize/")
+        return HttpResponseRedirect("/admin/contract_review/formatnormalize/")
 
     def health_check_view(self, request: HttpRequest) -> HttpResponse:
         """健康检查页面（简化版）"""

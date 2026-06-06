@@ -4,13 +4,12 @@
 """
 
 import re
-from typing import Tuple
 
 
 class ParagraphClassifier:
     """段落分类器"""
 
-    def classify(self, text: str, context: str = "") -> Tuple[int, str]:
+    def classify(self, text: str, context: str = "") -> tuple[int, str]:
         """
         分类段落层级
 

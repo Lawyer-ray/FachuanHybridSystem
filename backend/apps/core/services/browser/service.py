@@ -78,7 +78,7 @@ class BrowserService:
 
             anti_detection.apply_stealth(context)
 
-        return cast(BrowserContext, context)
+        return cast("BrowserContext", context)
 
     # ── IBrowserService 兼容方法 ──
     # 以下方法满足 core.protocols.IBrowserService 协议，

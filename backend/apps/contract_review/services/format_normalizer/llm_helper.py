@@ -105,13 +105,13 @@ class ContractStructureAnalyzer:
         prompt = f"分析以下{total_paragraphs}个段落：\n\n{paragraphs_text}"
 
         try:
-            kwargs: dict[str, Any] = dict(
-                prompt=prompt,
-                system_prompt=system_prompt,
-                temperature=0.1,
-                max_tokens=8000,
-                timeout=120,  # 120秒超时
-            )
+            kwargs: dict[str, Any] = {
+                "prompt": prompt,
+                "system_prompt": system_prompt,
+                "temperature": 0.1,
+                "max_tokens": 8000,
+                "timeout": 120,
+            }
             if self.backend:
                 kwargs["backend"] = self.backend
 
