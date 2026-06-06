@@ -421,7 +421,7 @@ class FormatNormalizeAdmin(admin.ModelAdmin):
             content_type="application/json"
         )
 
-    def delete_view(self, request: HttpRequest, task_id: Any) -> HttpResponse:
+    def delete_view(self, request: HttpRequest, task_id: Any) -> HttpResponse:  # type: ignore[override]
         """删除任务和相关文件"""
         from django.conf import settings
         from django.http import HttpResponseRedirect
