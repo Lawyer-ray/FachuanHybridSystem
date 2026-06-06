@@ -70,12 +70,12 @@ class ParagraphClassifier:
         if (len(text) >= 2 and text[0] in "一二三四五六七八九十" and text[1] == "、"):
             return 1
 
-        # 3. 包含"乙方"、"甲方"等关键词（但不包括标题）
-        # 只有当段落较长且包含这些关键词时才设置为二级标题
-        if len(text) > 30 and any(keyword in text for keyword in ["乙方", "甲方", "双方"]):
+        # 3. 包含"乙方"、"甲方"等关键词
+        if any(keyword in text for keyword in ["乙方", "甲方", "双方"]):
             return 1
 
-        return -1
+        # 4. 默认返回1（二级标题）- 给所有段落设置编号
+        return 1
 
     def _detect_level2(self, text: str, context: str) -> int:
         """检测三级标题"""
@@ -85,9 +85,8 @@ class ParagraphClassifier:
         if len(text) >= 2 and text[0].isdigit() and text[1] == ".":
             return 2
 
-        # 2. 包含具体的操作或细节（但不包括标题）
-        # 只有当段落较长且包含这些关键词时才设置为三级标题
-        if len(text) > 30 and any(keyword in text for keyword in [
+        # 2. 包含具体的操作或细节
+        if any(keyword in text for keyword in [
             "安装", "维修", "检测", "调试", "排查", "维护", "更新",
             "提供", "送修", "维修后", "若", "甲方", "乙方"
         ]):
