@@ -227,6 +227,27 @@
                     </div>
                 </div>
 
+                <!-- AI辅助选择 -->
+                <div style="margin-bottom: 20px;">
+                    <label class="cr-label">AI辅助格式化</label>
+                    <div style="display: flex; gap: 15px; margin-top: 8px;">
+                        <label style="display: flex; align-items: center; cursor: pointer; padding: 12px 16px; border: 2px solid #ddd; border-radius: 8px; flex: 1; transition: all 0.2s;">
+                            <input type="radio" name="use_llm" value="true" checked style="margin-right: 10px;">
+                            <div>
+                                <div style="font-weight: 600; margin-bottom: 4px;">使用AI</div>
+                                <div style="font-size: 12px; color: #666;">智能识别段落层级，自动编排序号</div>
+                            </div>
+                        </label>
+                        <label style="display: flex; align-items: center; cursor: pointer; padding: 12px 16px; border: 2px solid #ddd; border-radius: 8px; flex: 1; transition: all 0.2s;">
+                            <input type="radio" name="use_llm" value="false" style="margin-right: 10px;">
+                            <div>
+                                <div style="font-weight: 600; margin-bottom: 4px;">不使用AI</div>
+                                <div style="font-size: 12px; color: #666;">仅格式化，不自动编排序号</div>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+
                 <div class="cr-actions">
                     <a href="{% url 'admin:contract_review_formatnormalize_changelist' %}" class="cr-btn cr-btn-ghost">
                         返回列表

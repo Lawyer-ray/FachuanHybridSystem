@@ -37,9 +37,9 @@ class DocxFormatNormalizer:
         self.doc: Any = None
         self.ref_doc: Any = None
 
-    def normalize(self) -> Path:
+    def normalize(self, use_llm: bool = True) -> Path:
         """执行格式规范化，返回输出文件路径"""
-        logger.info("开始规范化: %s", self.input_path)
+        logger.info("开始规范化: %s (use_llm=%s)", self.input_path, use_llm)
         self.doc = Document(str(self.input_path))
 
         # 加载参考文档
@@ -59,7 +59,7 @@ class DocxFormatNormalizer:
             self._normalize_with_reference()
         else:
             # 使用默认格式
-            self._normalize_default()
+            self._normalize_default(use_llm=use_llm)
 
         # 4. 保存
         assert self.doc is not None, "doc 应在 normalize 开头初始化"
@@ -219,13 +219,13 @@ class DocxFormatNormalizer:
 
         logger.debug("段落格式已规范化（使用参考文档）")
 
-    def _normalize_default(self) -> None:
+    def _normalize_default(self, use_llm: bool = True) -> None:
         """使用默认格式进行规范化"""
         assert self.doc is not None
         for i, para in enumerate(self.doc.paragraphs):
-            self._apply_default_format(para, i)
+            self._apply_default_format(para, i, use_llm=use_llm)
 
-        logger.debug("段落格式已规范化（使用默认格式）")
+        logger.debug("段落格式已规范化（使用默认格式，use_llm=%s）", use_llm)
 
     def _copy_paragraph_format(self, ref_para: Any, doc_para: Any, index: int) -> None:
         """从参考文档复制段落格式"""
@@ -341,7 +341,7 @@ class DocxFormatNormalizer:
                     b = OxmlElement("w:b")
                     rPr.append(b)
 
-    def _apply_default_format(self, para: Any, index: int) -> None:
+    def _apply_default_format(self, para: Any, index: int, use_llm: bool = True) -> None:
         """应用默认格式"""
         pPr = para._element.get_or_add_pPr()
 
@@ -366,8 +366,8 @@ class DocxFormatNormalizer:
             # 先尝试规则方法
             level = self._detect_level_by_rules(text)
 
-            # 如果规则方法无法判断，使用LLM
-            if level == -1:
+            # 如果规则方法无法判断，且启用了LLM，使用LLM
+            if level == -1 and use_llm:
                 try:
                     from .llm_helper import ContractStructureAnalyzer
                     analyzer = ContractStructureAnalyzer()
