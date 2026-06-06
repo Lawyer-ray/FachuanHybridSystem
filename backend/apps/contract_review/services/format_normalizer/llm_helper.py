@@ -17,11 +17,11 @@ logger = logging.getLogger(__name__)
 class ContractStructureAnalyzer:
     """合同结构分析器 - LLM 驱动"""
 
-    def __init__(self, backend: str = "siliconflow"):
+    def __init__(self, backend: str | None = None):
         from apps.core.llm.service import LLMService
 
         self.llm_service = LLMService()
-        self.backend = backend
+        self.backend = backend  # None = 自动选择可用后端
         self._cache: dict[str, Any] = {}
 
     # ── 批量分析（主入口） ──────────────────────────────────
@@ -69,8 +69,8 @@ class ContractStructureAnalyzer:
         for i, text in enumerate(paragraphs):
             numbered.append(f"[{i}] {text}")
 
-        # 分批处理（避免 prompt 过长）
-        batch_size = 80
+        # 分批处理（避免 prompt 过长导致超时）
+        batch_size = 20
         all_results: list[dict[str, Any]] = []
 
         for batch_start in range(0, len(paragraphs), batch_size):
@@ -94,39 +94,42 @@ class ContractStructureAnalyzer:
         self, paragraphs_text: str, round_num: int = 1, total_paragraphs: int = 0
     ) -> list[dict[str, Any]]:
         """调用 LLM 分析段落"""
-        system_prompt = """你是一个专业的中文合同文档格式分析专家。
+        system_prompt = """你是合同文档格式分析专家。分析每个段落的层级和手动编号前缀。
 
-你的任务是分析合同文档的段落，判断每个段落在文档结构中的层级，并检测手动编号前缀。
+层级：0=一级标题(章节标题), 1=正文(条款内容), 2=子项(列表项)
+手动编号前缀：如"一、"、"（一）"、"1、"、"(1)"等，没有则返回""
 
-层级定义：
-- 0 = 一级标题/章节标题（如"服务内容"、"合作期限"、"保密义务"、"权利与义务"）
-- 1 = 正文/条款内容（正常叙述段落）
-- 2 = 子项/列表项（隶属于某个章节下的细分条目）
+严格按以下格式返回JSON数组，不要返回其他任何文字：
+[{"level":0,"prefix":"","confidence":0.9,"reason":"标题"}]"""
 
-手动编号前缀检测：
-- 如果段落以手动编号开头（如"一、"、"（一）"、"1、"、"(1)"、"第X条"等），返回该前缀文本
-- 如果没有手动编号前缀，prefix 返回空字符串 ""
-
-返回格式：一个 JSON 数组，每个元素对应一个段落：
-[{"level": 0, "prefix": "一、", "confidence": 0.95, "reason": "章节标题"}]
-
-confidence 表示你的判断置信度（0.0-1.0），低于 0.7 的会在第二轮被重新审查。
-只返回 JSON 数组，不要返回其他文字。"""
-
-        prompt = f"以下是合同文档的 {total_paragraphs} 个段落（带编号），请分析每个段落的层级和手动编号前缀：\n\n{paragraphs_text}"
+        prompt = f"分析以下{total_paragraphs}个段落：\n\n{paragraphs_text}"
 
         try:
-            response = self.llm_service.complete(
+            kwargs: dict[str, Any] = dict(
                 prompt=prompt,
                 system_prompt=system_prompt,
-                backend=self.backend,
-                temperature=0.2,
+                temperature=0.1,
                 max_tokens=8000,
             )
-            results = self._parse_response(response.content)
-            if not results:
-                raise RuntimeError("LLM 返回空结果")
-            return results
+            if self.backend:
+                kwargs["backend"] = self.backend
+
+            # 带重试的 LLM 调用（处理临时网络/API 问题）
+            import time
+            last_error = None
+            for attempt in range(3):
+                try:
+                    response = self.llm_service.complete(**kwargs)
+                    results = self._parse_response(response.content)
+                    if not results:
+                        raise RuntimeError("LLM 返回空结果")
+                    return results
+                except Exception as retry_err:
+                    last_error = retry_err
+                    if attempt < 2:
+                        logger.warning("LLM 调用失败 (attempt %d/3), 重试中...", attempt + 1)
+                        time.sleep(2 * (attempt + 1))
+            raise last_error  # type: ignore[misc]
         except Exception as e:
             logger.error("LLM 批量分析失败: %s", e)
             raise  # 向上抛出，让调用方走 fallback

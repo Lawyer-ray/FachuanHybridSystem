@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import shutil
 import tempfile
 from pathlib import Path
 
@@ -35,10 +36,13 @@ class PDFTextExtractor:
             logger.warning("PDFTextExtractor.extract 失败: %s, 文件: %s", exc, pdf_path)
             return None
 
-    def pdf_to_images(self, pdf_path: Path) -> list[Path]:
+    def pdf_to_images(self, pdf_path: Path) -> tuple[list[Path], Path]:
         """
         将 PDF 每页转换为临时 PNG 图片文件，供 OCR 使用。
         使用 PyMuPDF (fitz) 渲染，dpi=150。
+
+        Returns:
+            (image_paths, tmp_dir) — 调用方用完后需调用 shutil.rmtree(tmp_dir) 清理。
         """
         try:
             import fitz
@@ -55,7 +59,7 @@ class PDFTextExtractor:
                 image_paths.append(img_path)
 
             doc.close()
-            return image_paths
+            return image_paths, tmp_dir
         except Exception as exc:
             logger.warning("PDFTextExtractor.pdf_to_images 失败: %s, 文件: %s", exc, pdf_path)
-            return []
+            return [], Path()

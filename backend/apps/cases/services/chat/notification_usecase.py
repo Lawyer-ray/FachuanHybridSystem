@@ -8,6 +8,7 @@ from typing import Any
 
 from apps.core.exceptions import MessageSendException
 from apps.core.models.enums import ChatPlatform
+from apps.core.exceptions.error_codes import MESSAGE_SEND_FAILED
 
 from .provider_facade import ChatProviderFacade
 from .recreate_policy import ChatRecreatePolicy
@@ -66,7 +67,7 @@ class SendNotificationUsecase:
         if not result.success:
             raise MessageSendException(
                 message=result.message or "消息发送失败",
-                code="MESSAGE_SEND_FAILED",
+                code=MESSAGE_SEND_FAILED,
                 platform=platform.value,
                 chat_id=chat.chat_id,
                 error_code=result.error_code,

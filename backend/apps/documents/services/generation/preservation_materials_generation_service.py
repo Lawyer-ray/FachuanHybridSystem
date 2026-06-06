@@ -20,6 +20,7 @@ from apps.core.utils.path import Path
 from apps.documents.services.infrastructure.wiring import get_case_service, get_document_service
 from apps.documents.services.placeholders import EnhancedContextBuilder
 from apps.documents.services.placeholders.fallback import build_docx_render_context
+from apps.core.exceptions.error_codes import TEMPLATE_RENDER_ERROR
 
 logger = logging.getLogger("apps.documents.generation")
 FUNCTION_CODE_PRESERVATION_APPLICATION = "preservation_application"
@@ -311,7 +312,7 @@ class PreservationMaterialsGenerationService:
         except Exception as e:
             logger.error("模板渲染失败", exc_info=True, extra={"template_path": str(template_path), "error": str(e)})
             raise ValidationException(
-                message="模板渲染失败: %(e)s" % {"e": e}, code="TEMPLATE_RENDER_ERROR", errors={"error": str(e)}
+                message="模板渲染失败: %(e)s" % {"e": e}, code=TEMPLATE_RENDER_ERROR, errors={"error": str(e)}
             ) from e
 
     def _build_filename(self, template_name: str, case: Any) -> str:

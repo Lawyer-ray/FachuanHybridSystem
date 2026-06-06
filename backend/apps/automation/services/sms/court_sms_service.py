@@ -14,6 +14,7 @@ from django.utils import timezone
 from apps.automation.models import CourtSMS, CourtSMSStatus
 from apps.core.exceptions import NotFoundError, ValidationException
 from apps.core.tasking import submit_task
+from apps.core.exceptions.error_codes import CASE_ASSIGNMENT_FAILED, SMS_RETRY_FAILED, SMS_SUBMIT_FAILED
 
 from ._sms_case_binding_mixin import SMSCaseBindingMixin
 from ._sms_document_mixin import SMSDocumentMixin
@@ -204,7 +205,7 @@ class CourtSMSService(SMSCaseBindingMixin, SMSDocumentMixin, SMSDownloadMixin):
         except Exception as e:
             logger.error(f"提交短信处理失败: {e!s}")
             raise ValidationException(
-                message=f"提交短信处理失败: {e!s}", code="SMS_SUBMIT_FAILED", errors={"error": str(e)}
+                message=f"提交短信处理失败: {e!s}", code=SMS_SUBMIT_FAILED, errors={"error": str(e)}
             ) from e
 
     @transaction.atomic
@@ -260,7 +261,7 @@ class CourtSMSService(SMSCaseBindingMixin, SMSDocumentMixin, SMSDownloadMixin):
         except Exception as e:
             logger.error(f"手动指定案件失败: SMS ID={sms_id}, Case ID={case_id}, 错误: {e!s}")
             raise ValidationException(
-                message=f"手动指定案件失败: {e!s}", code="CASE_ASSIGNMENT_FAILED", errors={"error": str(e)}
+                message=f"手动指定案件失败: {e!s}", code=CASE_ASSIGNMENT_FAILED, errors={"error": str(e)}
             ) from e
 
     def _has_renamed_documents(self, sms: CourtSMS) -> bool:
@@ -326,7 +327,7 @@ class CourtSMSService(SMSCaseBindingMixin, SMSDocumentMixin, SMSDownloadMixin):
         except Exception as e:
             logger.error(f"重新处理短信失败: SMS ID={sms_id}, 错误: {e!s}")
             raise ValidationException(
-                message=f"重新处理短信失败: {e!s}", code="SMS_RETRY_FAILED", errors={"error": str(e)}
+                message=f"重新处理短信失败: {e!s}", code=SMS_RETRY_FAILED, errors={"error": str(e)}
             ) from e
 
     def delete_sms(self, sms_id: int) -> None:

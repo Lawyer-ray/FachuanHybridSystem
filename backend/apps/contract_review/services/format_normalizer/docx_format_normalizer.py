@@ -83,7 +83,7 @@ class DocxFormatNormalizer:
         try:
             from apps.contract_review.services.format_normalizer.llm_helper import ContractStructureAnalyzer
 
-            analyzer = ContractStructureAnalyzer(backend=llm_backend)
+            analyzer = ContractStructureAnalyzer()  # 自动选择可用后端
             llm_results = analyzer.analyze_document(paragraphs, max_rounds=2)
 
             # 映射回段落索引
@@ -342,20 +342,24 @@ class DocxFormatNormalizer:
             return
 
         new_text = text
+        stripped_text = text.strip()
 
         # 优先用 LLM 返回的 prefix
         if index in self._llm_results:
             llm_prefix = self._llm_results[index].get("prefix", "")
-            if llm_prefix and new_text.startswith(llm_prefix):
-                new_text = new_text[len(llm_prefix):].lstrip()
-                # 清理残留标点
+            if llm_prefix and stripped_text.startswith(llm_prefix):
+                # 保留前导空白，去掉 prefix
+                leading = text[: len(text) - len(text.lstrip())]
+                new_text = leading + stripped_text[len(llm_prefix):]
                 new_text = new_text.lstrip("、．.,，：:").lstrip()
+                # 恢复前导空白
+                new_text = leading + new_text[len(leading):] if new_text.startswith(leading) else new_text
 
         # LLM 没有 prefix 时，用简单规则 fallback
         if new_text == text:
             new_text = self._fallback_strip(text)
 
-        if new_text == text or not new_text:
+        if new_text == text or not new_text.strip():
             return
 
         # 更新段落文本（保留第一个 run 的格式）
@@ -365,21 +369,31 @@ class DocxFormatNormalizer:
         """简单规则剥离手动编号（LLM 不可用时的 fallback）"""
         import re
 
+        # 保留前导空白
+        leading = text[: len(text) - len(text.lstrip())]
+        core = text[len(leading):]
+
         patterns = [
-            re.compile(r'^（[一二三四五六七八九十]+）[、．.：:]?\s*'),
+            # 多级编号（优先）："1.2.", "2.3.", "1.2.3."
+            re.compile(r'^\d+(?:\.\d+)+[、．.：:]?\s*'),
+            # 括号中文数字："（一）", "(一)", "（一）、", "(一)、"
+            re.compile(r'^[（(][一二三四五六七八九十]+[)）][、．.：:]?\s*'),
+            # 中文数字+顿号："一、"
             re.compile(r'^[一二三四五六七八九十]+、\s*'),
+            # 括号阿拉伯数字："(1)", "（1）"
             re.compile(r'^[（(]\d+[)）][、．.：:]?\s*'),
+            # 单级数字编号："1、", "2.", "3．"
             re.compile(r'^\d+[、．.]\s*'),
         ]
 
         for pattern in patterns:
-            match = pattern.match(text)
+            match = pattern.match(core)
             if match:
-                result = text[match.end():]
+                result = core[match.end():]
                 # 清理残留标点
                 result = result.lstrip("、．.,，：:").lstrip()
                 if result:
-                    return result
+                    return leading + result
         return text
 
     def _replace_para_text(self, para: Any, new_text: str) -> None:
