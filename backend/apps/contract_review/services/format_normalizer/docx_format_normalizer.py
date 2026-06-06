@@ -344,19 +344,66 @@ class DocxFormatNormalizer:
         ind.set(qn("w:left"), "0")
         pPr.append(ind)
 
-        # 根据段落内容设置编号
+        # 根据段落内容设置编号，并删除手动编号
         text = para.text.strip()
         if text:
             # 检测一级标题（一、二、三... 或 （一）、（二）、...）
-            if (len(text) >= 2 and text[0] in "一二三四五六七八九十" and text[1] == "、") or \
-               (len(text) >= 4 and text.startswith("（") and text[1] in "一二三四五六七八九十" and text[2] == "）"):
+            if (len(text) >= 2 and text[0] in "一二三四五六七八九十" and text[1] == "、"):
                 self._apply_numbering(para, "1", "0")  # numId=1, ilvl=0
+                self._remove_manual_numbering(para, "一级")
+            elif (len(text) >= 4 and text.startswith("（") and text[1] in "一二三四五六七八九十" and text[2] == "）"):
+                self._apply_numbering(para, "1", "0")  # numId=1, ilvl=0
+                self._remove_manual_numbering(para, "一级")
             # 检测二级标题（1. 2. 3.）
             elif len(text) >= 2 and text[0].isdigit() and text[1] == ".":
                 self._apply_numbering(para, "2", "1")  # numId=2, ilvl=0
+                self._remove_manual_numbering(para, "二级")
             # 检测三级标题（（1）（2）（3））
             elif len(text) >= 4 and text.startswith("（") and text[1].isdigit() and text[2] == "）":
                 self._apply_numbering(para, "3", "2")  # numId=3, ilvl=0
+                self._remove_manual_numbering(para, "三级")
+
+    def _remove_manual_numbering(self, para: Any, level_type: str) -> None:
+        """删除段落中的手动编号文本"""
+        text = para.text
+        if not text:
+            return
+
+        new_text = text
+
+        if level_type == "一级":
+            # 删除"（一）、"或"一、"格式
+            if new_text.startswith("（") and len(new_text) >= 4 and new_text[2] == "）":
+                new_text = new_text[4:]  # 删除"（X）、"
+            elif len(new_text) >= 2 and new_text[0] in "一二三四五六七八九十" and new_text[1] == "、":
+                new_text = new_text[2:]  # 删除"X、"
+
+        elif level_type == "二级":
+            # 删除"1. "或"1、"格式
+            if len(new_text) >= 2 and new_text[0].isdigit() and new_text[1] in ".":
+                new_text = new_text[2:]  # 删除"X."
+            elif len(new_text) >= 2 and new_text[0].isdigit() and new_text[1] == "、":
+                new_text = new_text[2:]  # 删除"X、"
+
+        elif level_type == "三级":
+            # 删除"（1）"格式
+            if new_text.startswith("（") and len(new_text) >= 4 and new_text[2] == "）":
+                new_text = new_text[4:]  # 删除"（X）"
+
+        # 更新段落文本
+        if new_text != text:
+            # 保留第一个run的格式
+            if para.runs:
+                first_run = para.runs[0]
+                # 清除所有runs
+                for run in para.runs:
+                    run._element.getparent().remove(run._element)
+                # 添加新的run
+                new_run = para.add_run(new_text.strip())
+                # 复制格式
+                new_run._element.rPr = first_run._element.rPr
+            else:
+                para.text = new_text.strip()
                 self._apply_numbering(para, "3", "2")  # numId=3, ilvl=0
 
     def _apply_numbering(self, para: Any, num_id: str, ilvl: str) -> None:
