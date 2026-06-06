@@ -394,7 +394,7 @@ class DocxFormatNormalizer:
                     logger.warning(f"LLM判断失败: {e}")
                     level = -1
 
-            # 应用编号（只给应该有编号的段落设置）
+            # 应用编号（给所有段落设置）
             if level == 0:
                 self._apply_numbering(para, "1", "0")  # numId=1, ilvl=0
                 self._remove_manual_numbering(para, "一级")
@@ -404,6 +404,9 @@ class DocxFormatNormalizer:
             elif level == 2:
                 self._apply_numbering(para, "3", "2")  # numId=3, ilvl=2
                 self._remove_manual_numbering(para, "三级")
+            else:
+                # 对于level=-1的段落，也设置编号（使用默认的ilvl=1）
+                self._apply_numbering(para, "2", "1")  # numId=2, ilvl=1
             # 注意：不给level=-1的段落设置编号
 
     def _detect_level_by_rules(self, text: str) -> int:

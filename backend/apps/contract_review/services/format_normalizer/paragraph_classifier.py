@@ -74,7 +74,7 @@ class ParagraphClassifier:
         if any(keyword in text for keyword in ["乙方", "甲方", "双方"]):
             return 1
 
-        # 4. 默认返回1（二级标题）- 给所有段落设置编号
+        # 4. 默认返回1（二级标题）
         return 1
 
     def _detect_level2(self, text: str, context: str) -> int:
