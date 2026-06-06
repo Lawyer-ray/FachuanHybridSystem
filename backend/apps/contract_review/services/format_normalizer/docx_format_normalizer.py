@@ -428,14 +428,6 @@ class DocxFormatNormalizer:
         if len(text) >= 2 and text[0].isdigit() and text[1] == ".":
             return 2
 
-        # 检测二级标题（包含"乙方"、"甲方"等关键词）
-        if any(keyword in text for keyword in ["乙方", "甲方", "双方"]):
-            return 1
-
-        # 检测一级标题（包含"服务"、"费用"、"责任"等关键词）
-        if any(keyword in text for keyword in ["服务", "费用", "责任", "义务", "权利", "期限", "范围"]):
-            return 1
-
         # 默认返回-1（不设置编号）
         return -1
 
