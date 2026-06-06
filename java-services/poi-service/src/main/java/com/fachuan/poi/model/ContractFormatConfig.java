@@ -1,5 +1,6 @@
 package com.fachuan.poi.model;
 
+import com.fachuan.poi.enums.NumberingType;
 import lombok.Data;
 import org.apache.poi.xwpf.usermodel.ParagraphAlignment;
 
@@ -9,6 +10,15 @@ import org.apache.poi.xwpf.usermodel.ParagraphAlignment;
  */
 @Data
 public class ContractFormatConfig {
+
+    // ========== 编号配置 ==========
+
+    /**
+     * 编号类型
+     * CHINESE: 一、→1.→(1)
+     * DIGITAL: 1.→1.1.→1.1.1.
+     */
+    private NumberingType numberingType = NumberingType.CHINESE;
 
     // ========== 行距配置 ==========
 

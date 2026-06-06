@@ -169,6 +169,8 @@ class FormatNormalizeAdmin(admin.ModelAdmin):
         """上传合同文件页面"""
         if request.method == "POST":
             uploaded_file = request.FILES.get("contract_file")
+            numbering_type = request.POST.get("numbering_type", "chinese")
+
             if not uploaded_file:
                 messages.error(request, "请选择要上传的合同文件")
                 return HttpResponseRedirect("/admin/contract_review/formatnormalize/upload/")
@@ -184,12 +186,13 @@ class FormatNormalizeAdmin(admin.ModelAdmin):
                 file_path = f"contract_review/uploads/{uploaded_file.name}"
                 saved_path = default_storage.save(file_path, uploaded_file)
 
-                # 创建任务
+                # 创建任务，并保存编号类型
                 task = ReviewTask.objects.create(
                     user=request.user,  # type: ignore[misc]
                     contract_title=uploaded_file.name.rsplit(".", 1)[0],
                     original_file=saved_path,
                     status="pending",
+                    selected_steps=[numbering_type],  # 保存编号类型
                 )
                 messages.success(request, f"文件上传成功: {uploaded_file.name}")
                 return HttpResponseRedirect(f"/admin/contract_review/formatnormalize/{task.id}/execute/")
@@ -245,6 +248,11 @@ class FormatNormalizeAdmin(admin.ModelAdmin):
             output_dir = original_path.parent
             output_filename = f"{original_path.stem}_规范化{original_path.suffix}"
             output_path = output_dir / output_filename
+
+            # 确定编号类型
+            numbering_type = "chinese"  # 默认
+            if task.selected_steps and len(task.selected_steps) > 0:
+                numbering_type = task.selected_steps[0]
 
             # 执行格式规范化
             normalizer = DocxFormatNormalizer(original_path, output_path)
