@@ -43,7 +43,7 @@ class ContractStructureAnalyzer:
         """
         cache_key = "|".join(paragraphs)
         if cache_key in self._cache:
-            return self._cache[cache_key]  # type: ignore[return-value]
+            return self._cache[cache_key]  # type: ignore[no-any-return]
 
         # 第一轮：批量分析
         results = self._analyze_batch(paragraphs)

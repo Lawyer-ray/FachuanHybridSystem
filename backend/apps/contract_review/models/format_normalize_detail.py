@@ -82,10 +82,10 @@ class FormatNormalizeDetail(models.Model):
         verbose_name_plural = "格式调整详情"
         ordering = ['-created_at']
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"详情: {self.task.contract_title} ({self.format_method})"
 
-    def add_annotation(self, author: str, content: str):
+    def add_annotation(self, author: str, content: str) -> None:
         """添加批注"""
         annotation = {
             'author': author,
@@ -97,14 +97,14 @@ class FormatNormalizeDetail(models.Model):
         self.annotations.append(annotation)
         self.save(update_fields=['annotations'])
 
-    def mark_completed(self, method_used: str):
+    def mark_completed(self, method_used: str) -> None:
         """标记完成"""
         self.completed_at = timezone.now()
         self.processing_log += f"\n完成时间: {self.completed_at}"
         self.processing_log += f"\n使用方法: {method_used}"
         self.save(update_fields=['completed_at', 'processing_log'])
 
-    def mark_failed(self, error_message: str):
+    def mark_failed(self, error_message: str) -> None:
         """标记失败"""
         self.completed_at = timezone.now()
         self.processing_log += f"\n失败时间: {self.completed_at}"

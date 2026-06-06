@@ -171,7 +171,7 @@ class POIServiceClient:
         }
 
         if config:
-            payload["config"] = config
+            payload["config"] = config  # type: ignore[assignment]
 
         return self._post("/contract/format", payload)
 
