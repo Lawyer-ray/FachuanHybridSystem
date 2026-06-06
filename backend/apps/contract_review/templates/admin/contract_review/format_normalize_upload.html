@@ -273,7 +273,7 @@
                     <a href="{% url 'admin:contract_review_formatnormalize_changelist' %}" class="cr-btn cr-btn-ghost">
                         返回列表
                     </a>
-                    <button type="submit" class="cr-btn cr-btn-primary" id="submit-btn" disabled>
+                    <button type="submit" class="cr-btn cr-btn-primary" id="submit-btn" disabled onclick="this.disabled=true; this.form.submit();">
                         上传并格式规范化
                     </button>
                 </div>

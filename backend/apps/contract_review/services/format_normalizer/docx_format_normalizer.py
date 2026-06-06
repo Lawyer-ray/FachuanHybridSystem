@@ -369,7 +369,9 @@ class DocxFormatNormalizer:
             # 如果规则方法无法判断，且启用了LLM，使用LLM
             if level == -1 and use_llm:
                 try:
-                    from .llm_helper import ContractStructureAnalyzer
+                    import sys
+                    sys.path.insert(0, '/Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend/apps/contract_review/services/format_normalizer')
+                    from llm_helper import ContractStructureAnalyzer
                     analyzer = ContractStructureAnalyzer()
                     result = analyzer.analyze_paragraph_level(text, llm_backend=llm_backend)
                     level = result["level"]
