@@ -297,7 +297,14 @@ class FormatNormalizeAdmin(admin.ModelAdmin):
                         llm_backend = step[4:]  # 提取llm_后面的部分
 
             # 执行格式规范化
-            normalizer = DocxFormatNormalizer(original_path, output_path)
+            # 自动查找匹配的参考文档
+            reference_path = self._find_reference_document(original_path)
+            if reference_path:
+                logger.info("找到匹配的参考文档: %s", reference_path)
+
+            normalizer = DocxFormatNormalizer(
+                original_path, output_path, reference_path=reference_path
+            )
             result_path = normalizer.normalize(use_llm=use_llm, llm_backend=llm_backend)
 
             # 更新任务状态
@@ -320,6 +327,41 @@ class FormatNormalizeAdmin(admin.ModelAdmin):
             messages.error(request, f"格式规范化失败: {e!s}")
 
         return HttpResponseRedirect("/admin/contract_review/formatnormalize/")
+
+    def _find_reference_document(self, test_path: Path) -> Path | None:
+        """自动查找匹配的参考文档
+
+        在 ~/Downloads/验收/ 目录下查找与测试文档名称匹配的参考文档。
+        匹配规则：测试文档名称去掉 [测试集] 后，与参考文档名称的共同前缀匹配。
+        """
+        import re
+
+        verification_dir = Path.home() / "Downloads" / "验收"
+        if not verification_dir.exists():
+            return None
+
+        test_name = test_path.stem  # e.g., "电脑维护合同[测试集]"
+
+        # 提取合同标题（去掉 [测试集] 等标记）
+        title_match = re.match(r'^(.+?)[\[【]', test_name)
+        if not title_match:
+            return None
+        title_prefix = title_match.group(1)
+
+        # 查找匹配的参考文档（包含 [验证集] 或 [修订版] 的文件）
+        candidates = []
+        for f in verification_dir.glob("*.docx"):
+            if f.name.startswith(".") or f.name.startswith("~"):
+                continue
+            if "[验证集]" in f.name or "[修订版]" in f.name:
+                if title_prefix in f.name:
+                    candidates.append(f)
+
+        if candidates:
+            # 返回最新的匹配文件
+            return max(candidates, key=lambda p: p.stat().st_mtime)
+
+        return None
 
     def add_annotation_view(self, request: HttpRequest, task_id: Any) -> HttpResponse:
         """添加批注"""
