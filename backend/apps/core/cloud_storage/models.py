@@ -50,6 +50,13 @@ class CloudStorageAccount(models.Model):
     onedrive_access_token = models.TextField(blank=True, default="", verbose_name=_("OneDrive Access Token（加密）"))
     onedrive_refresh_token = models.TextField(blank=True, default="", verbose_name=_("OneDrive Refresh Token（加密）"))
     onedrive_token_expires_at = models.DateTimeField(null=True, blank=True, verbose_name=_("Token 过期时间"))
+    onedrive_pending_device_code = models.TextField(
+        blank=True, default="", verbose_name=_("OneDrive 待轮询 Device Code"),
+        help_text=_("授权流程中临时存储，进程重启后可恢复轮询"),
+    )
+    onedrive_pending_expires_at = models.DateTimeField(
+        null=True, blank=True, verbose_name=_("Device Code 过期时间"),
+    )
 
     # ── S3 fields ───────────────────────────────────────────────
     s3_access_key_id = models.CharField(max_length=255, blank=True, default="", verbose_name=_("Access Key ID"))
@@ -79,6 +86,12 @@ class CloudStorageAccount(models.Model):
     dropbox_refresh_token = models.TextField(blank=True, default="", verbose_name=_("Refresh Token（加密）"))
     dropbox_token_expires_at = models.DateTimeField(null=True, blank=True, verbose_name=_("Dropbox Token 过期时间"))
     dropbox_root_path = models.CharField(max_length=1000, blank=True, default="/", verbose_name=_("Dropbox 根路径"))
+    dropbox_pending_device_code = models.TextField(
+        blank=True, default="", verbose_name=_("Dropbox 待轮询 Device Code"),
+    )
+    dropbox_pending_expires_at = models.DateTimeField(
+        null=True, blank=True, verbose_name=_("Dropbox Device Code 过期时间"),
+    )
 
     # ── Local fields ───────────────────────────────────────────
     local_root_path = models.CharField(max_length=1000, blank=True, default="/", verbose_name=_("本地根路径"))

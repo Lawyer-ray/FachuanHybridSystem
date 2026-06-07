@@ -11,13 +11,14 @@ from django.conf import settings
 from apps.batch_printing.models import BatchPrintFileType, BatchPrintItem
 from apps.batch_printing.services.storage import BatchPrintStorage
 from apps.core.exceptions import ValidationException
+from apps.core.services.libreoffice import find_libreoffice
 
 logger = logging.getLogger("apps.batch_printing")
 
 
 class FilePrepareService:
     def get_capability_snapshot(self) -> dict[str, Any]:
-        soffice_path = self._resolve_soffice_path()
+        soffice_path = find_libreoffice()
         return {
             "docx_supported": bool(soffice_path),
             "docx_converter": soffice_path or "",
@@ -41,28 +42,8 @@ class FilePrepareService:
 
         raise ValidationException(message="不支持的文件类型", errors={"file_type": item.file_type})
 
-    def _resolve_soffice_path(self) -> str:
-        for cmd in ("soffice", "libreoffice"):
-            path = shutil.which(cmd)
-            if path:
-                return path
-
-        for candidate in self._candidate_soffice_paths():
-            if candidate.is_file():
-                return str(candidate)
-        return ""
-
-    def _candidate_soffice_paths(self) -> tuple[Path, ...]:
-        home = Path.home()
-        return (
-            Path("/Applications/LibreOffice.app/Contents/MacOS/soffice"),
-            Path("/Applications/LibreOffice.app/Contents/program/soffice"),
-            home / "Applications" / "LibreOffice.app" / "Contents" / "MacOS" / "soffice",
-            home / "Applications" / "LibreOffice.app" / "Contents" / "program" / "soffice",
-        )
-
     def _convert_docx_to_pdf(self, *, source_abs: Path, target_pdf: Path) -> Path:
-        soffice_path = self._resolve_soffice_path()
+        soffice_path = find_libreoffice()
         if not soffice_path:
             raise ValidationException(
                 message="当前机器未安装 DOCX 转换器",

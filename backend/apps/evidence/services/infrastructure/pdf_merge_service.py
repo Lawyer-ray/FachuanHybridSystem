@@ -15,6 +15,7 @@ from django.utils import timezone
 from apps.core.exceptions import BusinessException, ValidationException
 from apps.core.services.filename_template_service import FilenameTemplateService
 from apps.evidence.models import EvidenceList
+from apps.core.exceptions.error_codes import FILE_CONVERSION_FAILED, PDF_MERGE_FAILED
 
 
 def _get_pdf_merge_utils_module() -> Any:
@@ -82,7 +83,7 @@ class PDFMergeWorkflow:
             raise
         except Exception as e:
             raise BusinessException(
-                message=f"PDF 合并失败: {e!s}", code="PDF_MERGE_FAILED", errors={"original_error": str(e)}
+                message=f"PDF 合并失败: {e!s}", code=PDF_MERGE_FAILED, errors={"original_error": str(e)}
             ) from e
 
     def _merge_all_items(
@@ -105,7 +106,7 @@ class PDFMergeWorkflow:
             except Exception as e:
                 raise BusinessException(
                     message=f"处理文件 {item.file_name} 失败: {e!s}",
-                    code="FILE_CONVERSION_FAILED",
+                    code=FILE_CONVERSION_FAILED,
                     errors={"item_id": item.id, "file_name": item.file_name},
                 ) from e
 

@@ -39,6 +39,12 @@ class Lawyer(AbstractUser):
 
     objects: LawyerManager = LawyerManager()  # type: ignore[misc]
 
+    def save(self, **kwargs: object) -> None:
+        # 将空字符串 email 转为 NULL，避免 PostgreSQL 唯一约束冲突
+        if self.email == "":
+            self.email = None
+        super().save(**kwargs)  # type: ignore[arg-type]
+
     real_name = models.CharField(max_length=255, null=True, blank=True, verbose_name="真实姓名")
     law_firm_id: int | None  # 外键ID字段
     phone = models.CharField(max_length=20, unique=True, null=True, blank=True, verbose_name="手机号码")

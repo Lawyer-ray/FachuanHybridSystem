@@ -16,6 +16,7 @@ from docxtpl import DocxTemplate
 from apps.core.exceptions import NotFoundError, ValidationException
 from apps.documents.models import EvidenceItem, EvidenceList
 from apps.documents.services.placeholders.fallback import build_docx_render_context
+from apps.core.exceptions.error_codes import TEMPLATE_RENDER_ERROR
 
 if TYPE_CHECKING:
     from apps.core.interfaces import IEvidenceListPlaceholderService
@@ -110,7 +111,7 @@ class EvidenceExportService:
 
             raise ValidationException(
                 message="获取占位符上下文失败",
-                code="TEMPLATE_RENDER_ERROR",
+                code=TEMPLATE_RENDER_ERROR,
                 errors={"context": f"获取占位符数据时发生错误: {e!s}\n{traceback.format_exc()}"},
             ) from e
 
@@ -131,7 +132,7 @@ class EvidenceExportService:
 
             raise ValidationException(
                 message="模板渲染失败",
-                code="TEMPLATE_RENDER_ERROR",
+                code=TEMPLATE_RENDER_ERROR,
                 errors={"template": f"渲染模板时发生错误: {e!s}\n{traceback.format_exc()}"},
             ) from e
 

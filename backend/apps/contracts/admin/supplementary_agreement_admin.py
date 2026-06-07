@@ -7,7 +7,7 @@ from __future__ import annotations
 from typing import ClassVar
 
 from django.contrib import admin
-from django.db.models import QuerySet
+from django.db.models import Count, QuerySet
 from django.http import HttpRequest
 
 from apps.contracts.models import SupplementaryAgreement, SupplementaryAgreementParty
@@ -59,12 +59,12 @@ class SupplementaryAgreementAdmin(admin.ModelAdmin):
         ),
     )
 
-    @admin.display(description="当事人数量")
+    @admin.display(description="当事人数量", ordering="party_count")
     def party_count(self, obj: SupplementaryAgreement) -> int:
-        """当事人数量"""
-        return obj.parties.count()
+        """当事人数量（来自 annotate，无额外查询）"""
+        return obj.party_count  # type: ignore[attr-defined,no-any-return]
 
     def get_queryset(self, request: HttpRequest) -> QuerySet[SupplementaryAgreement, SupplementaryAgreement]:
-        """优化查询"""
+        """优化查询：用 annotate(Count) 替代 prefetch_related + .count()，消除 N+1"""
         qs = super().get_queryset(request)
-        return qs.select_related("contract").prefetch_related("parties")
+        return qs.select_related("contract").annotate(party_count=Count("parties"))  # type: ignore[no-any-return]

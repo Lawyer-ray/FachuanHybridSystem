@@ -236,12 +236,18 @@ class EvidenceList(models.Model):
 
     @property
     def start_order(self) -> int:
-        """计算起始序号(委托给 Service 层)"""
+        """计算起始序号(委托给 Service 层)。支持 __dict__ 缓存预填充。"""
+        cached = self.__dict__.get("_cached_start_order")
+        if cached is not None:
+            return cached  # type: ignore[no-any-return]
         return _get_evidence_service().calculate_start_order(self)  # type: ignore[no-any-return]
 
     @property
     def start_page(self) -> int:
-        """计算起始页码(委托给 Service 层)"""
+        """计算起始页码(委托给 Service 层)。支持 __dict__ 缓存预填充。"""
+        cached = self.__dict__.get("_cached_start_page")
+        if cached is not None:
+            return cached  # type: ignore[no-any-return]
         return _get_evidence_service().calculate_start_page(self)  # type: ignore[no-any-return]
 
     @property

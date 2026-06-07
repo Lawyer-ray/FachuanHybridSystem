@@ -6,137 +6,278 @@
 {% block extrastyle %}
 {{ block.super }}
 <style>
-    .object-tools {
+    /* 全局样式 */
+    #content {
+        max-width: 1000px;
+        margin: 0 auto;
+        padding: 20px;
+    }
+
+    /* 头部 */
+    .page-header {
         display: flex;
-        justify-content: flex-end;
+        justify-content: space-between;
         align-items: center;
+        margin-bottom: 20px;
+        padding-bottom: 15px;
+        border-bottom: 1px solid #ddd;
+    }
+    .page-title {
+        font-size: 22px;
+        font-weight: 600;
+        color: #333;
+        margin: 0;
+    }
+
+    /* 服务状态 */
+    .service-status {
+        display: flex;
+        align-items: center;
+        padding: 12px 15px;
+        margin-bottom: 20px;
+        background: #f8f9fa;
+        border: 1px solid #dee2e6;
+        border-radius: 4px;
+    }
+    .status-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        margin-right: 10px;
+    }
+    .status-dot.online {
+        background: #28a745;
+    }
+    .status-dot.offline {
+        background: #dc3545;
+    }
+    .status-text {
+        font-size: 14px;
+        color: #495057;
+    }
+
+    /* 操作按钮 */
+    .action-bar {
+        display: flex;
         gap: 10px;
-        float: none;
-        margin-left: auto;
-        list-style: none;
-        padding-left: 0;
+        margin-bottom: 20px;
+    }
+
+    /* 不定义自定义.btn样式，使用Django Admin默认 */
+
+    /* 任务列表 */
+    .task-list {
+        margin-top: 20px;
+    }
+    .task-list-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
         margin-bottom: 15px;
     }
-    .object-tools li {
-        float: none;
+    .task-count {
+        font-size: 14px;
+        color: #6c757d;
+    }
+
+    /* 任务卡片 */
+    .task-item {
+        background: #fff;
+        border: 1px solid #dee2e6;
+        border-radius: 4px;
+        padding: 15px;
+        margin-bottom: 10px;
+    }
+    .task-item-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 10px;
+    }
+    .task-title {
+        font-size: 16px;
+        font-weight: 600;
+        color: #212529;
         margin: 0;
-        list-style: none;
     }
-    .object-tools li + li {
-        margin-left: 0;
-    }
-    .result-list {
-        width: 100%;
-        border-collapse: collapse;
-        border: 1px solid #ddd;
-        border-radius: 4px;
-        overflow: hidden;
-    }
-    .result-list th {
-        background: #f8f9fa;
-        color: #333;
-        padding: 10px 15px;
-        text-align: left;
-        font-weight: bold;
-        font-size: 12px;
-        border-bottom: 2px solid #ddd;
-    }
-    .result-list td {
-        padding: 10px 15px;
-        border-bottom: 1px solid #eee;
-    }
-    .result-list tr:last-child td {
-        border-bottom: none;
-    }
-    .result-list tr:hover {
-        background: #f5f5f5;
-    }
-    .result-list .button {
+    .task-status {
         display: inline-block;
-        padding: 6px 12px;
-        background: #417690;
-        color: #fff;
-        border: none;
-        border-radius: 3px;
-        text-decoration: none;
+        padding: 3px 10px;
         font-size: 12px;
-        cursor: pointer;
+        font-weight: 600;
+        border-radius: 3px;
+        text-transform: uppercase;
     }
-    .result-list .button:hover {
-        background: #205067;
-        color: #fff;
+    .task-status.pending {
+        background: #fff3cd;
+        color: #856404;
     }
+    .task-status.processing {
+        background: #cce5ff;
+        color: #004085;
+    }
+    .task-status.completed {
+        background: #d4edda;
+        color: #155724;
+    }
+    .task-status.failed {
+        background: #f8d7da;
+        color: #721c24;
+    }
+
+    .task-meta {
+        font-size: 13px;
+        color: #6c757d;
+        margin-bottom: 10px;
+    }
+    .task-meta span {
+        margin-right: 15px;
+    }
+
+    .task-actions {
+        display: flex;
+        gap: 8px;
+        padding-top: 10px;
+        border-top: 1px solid #eee;
+    }
+
+    /* 空状态 */
     .empty-state {
-        padding: 40px 20px;
         text-align: center;
-        color: #666;
-        border: 1px solid #ddd;
+        padding: 40px;
+        background: #f8f9fa;
+        border: 1px solid #dee2e6;
         border-radius: 4px;
-        background: #f9f9f9;
+        color: #6c757d;
     }
-    .empty-state a {
-        color: #417690;
-        text-decoration: underline;
+    .empty-state h3 {
+        color: #495057;
+        margin-bottom: 10px;
+    }
+    .empty-state p {
+        margin-bottom: 15px;
+    }
+
+    /* 消息提示 */
+    .alert {
+        padding: 12px 15px;
+        margin-bottom: 15px;
+        border-radius: 4px;
+        font-size: 14px;
+    }
+    .alert-success {
+        background: #d4edda;
+        color: #155724;
+        border: 1px solid #c3e6cb;
+    }
+    .alert-error {
+        background: #f8d7da;
+        color: #721c24;
+        border: 1px solid #f5c6cb;
     }
 </style>
 {% endblock %}
 
 {% block content %}
 <div id="content-main">
-    <ul class="object-tools">
-        <li>
-            <a href="{% url 'admin:contract_review_formatnormalize_changelist' %}" class="changelink">
-                合同审查任务列表
-            </a>
-        </li>
-        <li>
-            <a href="{% url 'admin:contract_review_formatnormalize_upload' %}" class="addlink">
-                上传合同文件
-            </a>
-        </li>
-    </ul>
+    <!-- 操作按钮 -->
+    <div style="margin-bottom: 20px; text-align: right;">
+        <a href="{% url 'admin:contract_review_formatnormalize_upload' %}" class="btn btn-primary">
+            上传新合同
+        </a>
+        {% if pending_count > 0 %}
+        <a href="{% url 'admin:contract_review_formatnormalize_batch_execute' %}"
+           class="btn btn-success"
+           onclick="return confirm('确定要批量格式化所有 {{ pending_count }} 个待处理任务吗？')">
+            批量格式化 ({{ pending_count }} 个待处理)
+        </a>
+        {% endif %}
+        {% if tasks|length > 0 %}
+        <a href="{% url 'admin:contract_review_formatnormalize_batch_delete' %}"
+           class="btn btn-danger"
+           onclick="return confirm('确定要彻底删除所有 {{ tasks|length }} 个任务和相关文件吗？此操作不可恢复！')">
+            批量删除 ({{ tasks|length }} 个任务)
+        </a>
+        {% endif %}
+    </div>
 
-    {% if messages %}
-        {% for message in messages %}
-            <p class="errornote" style="{% if message.tags == 'success' %}background: #dff0d8; border: 1px solid #d6e9c6; color: #3c763d;{% elif message.tags == 'error' %}background: #f2dede; border: 1px solid #ebccd1; color: #a94442;{% endif %} padding: 10px; margin-bottom: 15px;">
-                {{ message }}
-            </p>
-        {% endfor %}
-    {% endif %}
+    <!-- 服务状态 -->
+    <div class="service-status">
+        <div class="status-dot {% if poi_status %}online{% else %}offline{% endif %}"></div>
+        <span class="status-text">
+            POI服务: {{ poi_status_text }}
+            {% if not poi_status %}（将使用Python格式化）{% endif %}
+        </span>
+    </div>
 
-    {% if tasks %}
-        <table class="result-list">
-            <thead>
-                <tr>
-                    <th>合同标题</th>
-                    <th>用户</th>
-                    <th>状态</th>
-                    <th>创建时间</th>
-                    <th>操作</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for task in tasks %}
-                <tr>
-                    <td>{{ task.contract_title|default:"未命名合同" }}</td>
-                    <td>{{ task.user|default:"-" }}</td>
-                    <td>{{ task.get_status_display }}</td>
-                    <td>{{ task.created_at|date:"Y-m-d H:i" }}</td>
-                    <td>
-                        <a href="{% url 'admin:contract_review_formatnormalize_execute' task_id=task.id %}"
-                           class="button"
-                           onclick="return confirm('确定要对此任务执行格式规范化吗？')">
-                            格式规范化
-                        </a>
-                    </td>
-                </tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    {% else %}
-        <div class="empty-state">
-            暂无待处理的任务。请先 <a href="{% url 'admin:contract_review_reviewtask_add' %}">添加合同审查任务</a>。
+    <!-- 任务列表 -->
+    <div class="task-list">
+        <div class="task-list-header">
+            <h2 style="font-size: 18px; margin: 0; color: #212529;">合同列表</h2>
+            <span class="task-count">{{ tasks|length }} 个任务</span>
         </div>
-    {% endif %}
+
+        {% if tasks %}
+            {% for task in tasks %}
+            <div class="task-item">
+                <div class="task-item-header">
+                    <h3 class="task-title">{{ task.contract_title|default:"未命名合同" }}</h3>
+                    <span class="task-status {{ task.status }}">{{ task.get_status_display }}</span>
+                </div>
+
+                <div class="task-meta">
+                    <span>用户: {{ task.user|default:"-" }}</span>
+                    <span>创建: {{ task.created_at|date:"Y-m-d H:i" }}</span>
+                    {% if task.output_file %}
+                    <span style="color: #28a745;">✓ 已处理</span>
+                    {% else %}
+                    <span style="color: #ffc107;">⏳ 待处理</span>
+                    {% endif %}
+                </div>
+
+                <div class="task-actions">
+                    {% if not task.output_file %}
+                        <a href="{% url 'admin:contract_review_formatnormalize_execute' task_id=task.id %}"
+                           class="btn btn-primary btn-sm"
+                           onclick="return confirm('确定要格式化此合同吗？')">
+                            格式化
+                        </a>
+                    {% else %}
+                        <a href="/media/{{ task.output_file }}"
+                           class="btn btn-success btn-sm"
+                           download>
+                            下载格式化文件
+                        </a>
+                        <a href="{% url 'admin:contract_review_formatnormalize_execute' task_id=task.id %}"
+                           class="btn btn-warning btn-sm"
+                           onclick="return confirm('确定要重新格式化吗？')">
+                            重新格式化
+                        </a>
+                    {% endif %}
+
+                    <a href="/media/{{ task.original_file }}"
+                       class="btn btn-secondary btn-sm"
+                       download>
+                        下载原始文件
+                    </a>
+
+                    <a href="{% url 'admin:contract_review_formatnormalize_delete' task_id=task.id %}"
+                       class="btn btn-danger btn-sm"
+                       onclick="return confirm('确定要彻底删除此任务和所有相关文件吗？此操作不可恢复！')">
+                        删除
+                    </a>
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="empty-state">
+                <h3>暂无合同</h3>
+                <p>请先上传合同文件进行格式化</p>
+                <a href="{% url 'admin:contract_review_formatnormalize_upload' %}" class="btn btn-primary">
+                    上传第一个合同
+                </a>
+            </div>
+        {% endif %}
+    </div>
 </div>
 {% endblock %}

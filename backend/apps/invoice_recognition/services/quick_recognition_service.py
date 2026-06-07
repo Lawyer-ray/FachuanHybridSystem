@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import shutil
 from pathlib import Path
 
 from django.core.exceptions import ValidationError
@@ -109,11 +110,14 @@ class QuickRecognitionService:
             if text is not None:
                 return text
 
-            image_paths = self._pdf_extractor.pdf_to_images(tmp_path)
-            parts: list[str] = []
-            for img_path in image_paths:
-                parts.append(self._ocr.recognize(str(img_path)))
-            return "\n".join(parts)
+            image_paths, img_tmp_dir = self._pdf_extractor.pdf_to_images(tmp_path)
+            try:
+                parts: list[str] = []
+                for img_path in image_paths:
+                    parts.append(self._ocr.recognize(str(img_path)))
+                return "\n".join(parts)
+            finally:
+                shutil.rmtree(img_tmp_dir, ignore_errors=True)
 
         finally:
             tmp_path.unlink(missing_ok=True)

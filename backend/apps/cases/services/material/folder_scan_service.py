@@ -590,7 +590,15 @@ class CaseFolderScanService:
                 scan_path = root / normalized_subfolder
                 # Normalize to prevent traversal
                 scan_path = PurePosixPath("/") / str(scan_path).lstrip("/")
-                if not str(scan_path).startswith(str(root) + "/") and str(scan_path) != str(root):
+                root_str = str(root)
+                scan_str = str(scan_path)
+                # 当 root="/" 时，任何以 "/" 开头且不等于 "/" 的路径都在范围内
+                is_within = (
+                    scan_str.startswith(root_str + "/")
+                    or scan_str == root_str
+                    or (root_str == "/" and scan_str.startswith("/") and scan_str != "/")
+                )
+                if not is_within:
                     raise ValidationException(
                         message="扫描子文件夹越界",
                         errors={"scan_subfolder": normalized_subfolder},

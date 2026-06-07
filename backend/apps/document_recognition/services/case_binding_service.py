@@ -16,6 +16,7 @@ from typing import TYPE_CHECKING, Any, Optional
 from django.db import transaction
 
 from apps.core.exceptions import NotFoundError
+from apps.core.exceptions.error_codes import CASE_NOT_FOUND
 
 from .data_classes import BindingResult, DocumentType
 
@@ -285,13 +286,13 @@ class CaseBindingService:
 
         if case_id is None:
             return BindingResult.failure_result(
-                message=f"未找到案号 {case_number} 对应的案件", error_code="CASE_NOT_FOUND"
+                message=f"未找到案号 {case_number} 对应的案件", error_code=CASE_NOT_FOUND
             )
 
         # 3. 获取案件名称
         case_dto = self.case_service.get_case_by_id_internal(case_id)
         if case_dto is None:
-            return BindingResult.failure_result(message=f"案件 {case_id} 不存在", error_code="CASE_NOT_FOUND")
+            return BindingResult.failure_result(message=f"案件 {case_id} 不存在", error_code=CASE_NOT_FOUND)
 
         case_name = case_dto.name
 
@@ -330,7 +331,7 @@ class CaseBindingService:
                     "error": str(e),
                 },
             )
-            return BindingResult.failure_result(message=str(e), error_code="CASE_NOT_FOUND")
+            return BindingResult.failure_result(message=str(e), error_code=CASE_NOT_FOUND)
         except Exception as e:
             logger.error(
                 f"绑定失败：{e}",
@@ -433,7 +434,7 @@ class CaseBindingService:
         # 3. 获取案件信息
         case_dto = self.case_service.get_case_by_id_internal(case_id)
         if case_dto is None:
-            return BindingResult.failure_result(message=f"案件 {case_id} 不存在", error_code="CASE_NOT_FOUND")
+            return BindingResult.failure_result(message=f"案件 {case_id} 不存在", error_code=CASE_NOT_FOUND)
 
         case_name = case_dto.name
 

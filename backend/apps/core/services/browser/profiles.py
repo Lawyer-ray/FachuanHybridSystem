@@ -95,19 +95,16 @@ class BrowserProfile:
         return self.user_data_dir is not None
 
     def to_launch_args(self) -> dict[str, Any]:
-        """转换为 playwright launch() 参数。"""
+        """转换为 CloakBrowser launch() 参数。"""
         args: dict[str, Any] = {
             "headless": self.headless,
-            "args": [
-                "--disable-blink-features=AutomationControlled",
-                "--no-sandbox",
-                *self.launch_args,
-            ],
         }
         if self.slow_mo > 0:
             args["slow_mo"] = self.slow_mo
         if self.proxy:
             args["proxy"] = {"server": self.proxy}
+        if self.launch_args:
+            args["args"] = self.launch_args
         return args
 
     def to_context_args(self) -> dict[str, Any]:

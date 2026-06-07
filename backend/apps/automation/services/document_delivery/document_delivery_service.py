@@ -233,6 +233,7 @@ class DocumentDeliveryService(
         self, record: DocumentRecord, token: str, credential_id: int
     ) -> DocumentProcessResult:
         """通过 API 处理单个文书"""
+        import shutil
         import tempfile
         from pathlib import Path
 
@@ -245,6 +246,7 @@ class DocumentDeliveryService(
             notification_sent=False,
             error_message=None,
         )
+        temp_dir: str | None = None
         try:
             details = self.api_client.fetch_document_details(token=token, sdbh=record.sdbh)
             if not details:
@@ -305,6 +307,9 @@ class DocumentDeliveryService(
             error_msg = f"API 处理文书失败: {e!s}"
             logger.error(error_msg)
             result.error_message = error_msg
+        finally:
+            if temp_dir:
+                shutil.rmtree(temp_dir, ignore_errors=True)
         return result
 
     def _should_process_api_document(self, record: DocumentRecord, cutoff_time: datetime, credential_id: int) -> bool:
@@ -629,9 +634,9 @@ class DocumentDeliveryService(
                 result.errors.append(error_msg)
                 return result
 
-            from apps.automation.services.scraper.core.browser_service import BrowserService
+            from apps.core.services.browser import get_browser_service
 
-            browser_service = BrowserService()
+            browser_service = get_browser_service()
             browser = browser_service.get_browser()
             page = browser.new_page()
 

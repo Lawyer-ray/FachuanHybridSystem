@@ -48,6 +48,33 @@ class CaseLogAdmin(BaseModelAdmin):
     change_list_template = "admin/cases/caselog/change_list.html"
     change_form_template = "admin/cases/caselog/change_form.html"
 
+    def changelist_view(self, request: HttpRequest, extra_context: dict[str, Any] | None = None) -> Any:
+        """覆写 changelist：批量预填充 reminder 缓存，消除每行 2 次 DB 查询的 N+1。"""
+        response = super().changelist_view(request, extra_context)
+
+        # changelist_instance 在 super() 调用后可用
+        cl = getattr(self, "changelist_instance", None)
+        if cl is None or not hasattr(cl, "result_list") or not cl.result_list:
+            return response
+
+        case_log_ids = [obj.pk for obj in cl.result_list if obj.pk]
+        if not case_log_ids:
+            return response
+
+        from apps.core.service_locator import ServiceLocator
+
+        svc = ServiceLocator.get_reminder_service()
+        batch = svc.export_case_log_reminders_batch_internal(case_log_ids=case_log_ids)
+
+        for obj in cl.result_list:
+            reminders = batch.get(obj.pk, [])
+            # batch 按 due_at ASC, id ASC 排序，最后一条即最新
+            latest = reminders[-1] if reminders else None
+            obj._cached_latest_reminder = latest
+            obj._cached_exported_reminders = reminders
+
+        return response
+
     @admin.display(description="案件名称", ordering="case__name")
     def case_link(self, obj: CaseLog) -> str:
         url = reverse("admin:cases_case_detail", args=[obj.case_id])

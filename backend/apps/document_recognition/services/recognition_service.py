@@ -12,6 +12,7 @@ from typing import Any
 
 from apps.core.exceptions import RecognitionTimeoutError, ServiceUnavailableError, ValidationException
 from apps.core.services.filename_template_service import FilenameTemplateService
+from apps.core.exceptions.error_codes import TEXT_EXTRACTION_FAILED
 
 from .data_classes import BindingResult, DocumentType, RecognitionResponse, RecognitionResult
 
@@ -194,7 +195,7 @@ class CourtDocumentRecognitionService:
                     ),
                     binding=BindingResult.failure_result(
                         message="无法从文书中提取文字",  # type: ignore
-                        error_code="TEXT_EXTRACTION_FAILED",
+                        error_code=TEXT_EXTRACTION_FAILED,
                     ),
                     file_path=file_path,
                 )

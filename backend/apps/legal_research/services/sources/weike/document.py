@@ -9,6 +9,7 @@ from datetime import datetime
 from typing import Any
 
 from apps.legal_research.services.task.event_service import LegalResearchTaskEventService
+from apps.core.exceptions.error_codes import REQUEST_ERROR
 
 from .types import WeikeCaseDetail, WeikeSearchItem, WeikeSession
 
@@ -102,7 +103,7 @@ class WeikeDocumentMixin:
                     url=meta_url,
                     duration_ms=0,
                     success=False,
-                    error_code="REQUEST_ERROR",
+                    error_code=REQUEST_ERROR,
                     error_message=self._compact_error(exc),
                     request_summary={"doc_id": doc_id, "url": meta_url},
                 )
@@ -167,7 +168,7 @@ class WeikeDocumentMixin:
                     url=html_url,
                     duration_ms=0,
                     success=False,
-                    error_code="REQUEST_ERROR",
+                    error_code=REQUEST_ERROR,
                     error_message=self._compact_error(exc),
                     request_summary={"doc_id": doc_id, "url": html_url},
                 )

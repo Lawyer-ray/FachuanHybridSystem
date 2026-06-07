@@ -23,7 +23,7 @@ from apps.automation.utils.logging import AutomationLogger
 from apps.core.interfaces import ServiceLocator
 
 if TYPE_CHECKING:
-    from apps.automation.services.scraper.core.browser_service import BrowserService
+    from apps.core.services.browser.service import BrowserService
     from apps.automation.services.sms.case_matcher import CaseMatcher
     from apps.automation.services.sms.document_renamer import DocumentRenamer
     from apps.automation.services.sms.sms_notification_service import SMSNotificationService
@@ -89,9 +89,9 @@ class DocumentDeliveryPlaywrightService(
     @property
     def browser_service(self) -> "BrowserService":
         if self._browser_service is None:
-            from apps.automation.services.scraper.core.browser_service import BrowserService
+            from apps.core.services.browser import get_browser_service
 
-            self._browser_service = BrowserService()
+            self._browser_service = get_browser_service()
         return self._browser_service
 
     @property

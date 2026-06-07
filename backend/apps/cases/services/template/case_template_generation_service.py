@@ -19,6 +19,7 @@ from docxtpl import DocxTemplate
 from apps.core.exceptions import NotFoundError, ValidationException
 from apps.core.utils.path import Path
 from apps.documents.services.placeholders.fallback import build_docx_render_context
+from apps.core.exceptions.error_codes import TEMPLATE_RENDER_ERROR
 
 from .wiring import get_case_service, get_client_service, get_document_service
 
@@ -291,7 +292,7 @@ class CaseTemplateGenerationService:
             logger.error("模板渲染失败", exc_info=True, extra={"template_path": str(template_path), "error": str(e)})
             raise ValidationException(
                 message="模板渲染失败: %(err)s" % {"err": str(e)},
-                code="TEMPLATE_RENDER_ERROR",
+                code=TEMPLATE_RENDER_ERROR,
                 errors={"error": str(e)},
             ) from e
 

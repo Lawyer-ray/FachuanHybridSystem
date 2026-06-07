@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from apps.core.exceptions import NotFoundError, ValidationException
+from apps.core.exceptions.error_codes import CONTRACT_GENERATION_FAILED
 
 from ..wiring import (
     get_contract_folder_binding_service,
@@ -21,7 +22,7 @@ class ContractAdminDocumentService:
         if error:
             if "不存在" in error:
                 raise NotFoundError(message=error, code="CONTRACT_NOT_FOUND", errors={})
-            raise ValidationException(message=error, code="CONTRACT_GENERATION_FAILED", errors={})
+            raise ValidationException(message=error, code=CONTRACT_GENERATION_FAILED, errors={})
 
         folder_binding_service = get_contract_folder_binding_service()
         binding = folder_binding_service.get_binding(contract_id)

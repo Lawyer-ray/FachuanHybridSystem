@@ -129,6 +129,7 @@ class DropboxOAuthTokenManager:
                 },
                 timeout=30,
             )
+            resp.raise_for_status()
             data = resp.json()
 
             if "access_token" in data:
@@ -229,8 +230,12 @@ class DropboxProvider:
             except dropbox.exceptions.ApiError:
                 try:
                     self._dbx.files_create_folder_v2(current)
-                except dropbox.exceptions.ApiError:
-                    pass  # already exists
+                except dropbox.exceptions.ApiError as e:
+                    # 只忽略 "路径已存在" 错误，其他错误向上传播
+                    if e.error.is_path() and e.error.get_path().is_conflict():
+                        pass
+                    else:
+                        raise
 
     def exists(self, path: str) -> bool:
         import dropbox

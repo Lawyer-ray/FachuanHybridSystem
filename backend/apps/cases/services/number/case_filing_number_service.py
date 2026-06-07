@@ -11,6 +11,7 @@ from django.db.utils import OperationalError
 from apps.cases.models import Case, CaseFilingNumberSequence
 from apps.core.exceptions import ConflictError, ValidationException
 from apps.core.models.enums import SimpleCaseType
+from apps.core.exceptions.error_codes import FILING_NUMBER_GENERATION_FAILED
 
 logger = logging.getLogger("apps.cases")
 
@@ -82,7 +83,7 @@ class CaseFilingNumberService:
             )
             raise ConflictError(
                 message="建档编号生成失败",
-                code="FILING_NUMBER_GENERATION_FAILED",
+                code=FILING_NUMBER_GENERATION_FAILED,
                 errors={"detail": str(e)},
             ) from e
 

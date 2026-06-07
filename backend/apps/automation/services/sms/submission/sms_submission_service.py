@@ -19,6 +19,7 @@ from django.utils.translation import gettext_lazy as _
 from apps.automation.models import CourtSMS, CourtSMSStatus
 from apps.core.exceptions import NotFoundError, ValidationException
 from apps.core.tasking import submit_task
+from apps.core.exceptions.error_codes import CASE_ASSIGNMENT_FAILED, SMS_RETRY_FAILED, SMS_SUBMIT_FAILED
 
 if TYPE_CHECKING:
     from apps.core.interfaces import ICaseService, ILawyerService
@@ -122,7 +123,7 @@ class SMSSubmissionService:
         except Exception as e:
             logger.error(f"提交短信处理失败: {e!s}")
             raise ValidationException(
-                message=f"提交短信处理失败: {e!s}", code="SMS_SUBMIT_FAILED", errors={"error": str(e)}
+                message=f"提交短信处理失败: {e!s}", code=SMS_SUBMIT_FAILED, errors={"error": str(e)}
             ) from e
 
     @transaction.atomic
@@ -188,7 +189,7 @@ class SMSSubmissionService:
         except Exception as e:
             logger.error(f"手动指定案件失败: SMS ID={sms_id}, Case ID={case_id}, 错误: {e!s}")
             raise ValidationException(
-                message=f"手动指定案件失败: {e!s}", code="CASE_ASSIGNMENT_FAILED", errors={"error": str(e)}
+                message=f"手动指定案件失败: {e!s}", code=CASE_ASSIGNMENT_FAILED, errors={"error": str(e)}
             ) from e
 
     def retry_processing(self, sms_id: int) -> CourtSMS:
@@ -240,7 +241,7 @@ class SMSSubmissionService:
         except Exception as e:
             logger.error(f"重新处理短信失败: SMS ID={sms_id}, 错误: {e!s}")
             raise ValidationException(
-                message=f"重新处理短信失败: {e!s}", code="SMS_RETRY_FAILED", errors={"error": str(e)}
+                message=f"重新处理短信失败: {e!s}", code=SMS_RETRY_FAILED, errors={"error": str(e)}
             ) from e
 
     def _create_case_binding(self, sms: CourtSMS) -> bool:

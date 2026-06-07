@@ -13,7 +13,7 @@ RUN ln -snf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime && echo "Asia/Shang
 # 替换为清华镜像源（解决国内网络问题）
 RUN sed -i 's|deb.debian.org|mirrors.tuna.tsinghua.edu.cn|g' /etc/apt/sources.list.d/debian.sources
 
-# 基础工具 + 字体 + xvfb + OpenCV 依赖（Playwright 系统依赖由 install-deps 自动安装）
+# 基础工具 + 字体 + xvfb + OpenCV 依赖（CloakBrowser 系统依赖）
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl ca-certificates \
     fonts-liberation fonts-noto-color-emoji \
@@ -28,9 +28,8 @@ RUN pip install --no-cache-dir uv -i https://pypi.org/simple/
 COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen --no-dev
 
-# 安装 Playwright chromium 及其系统依赖（用 install-deps 自动补全，避免手动维护依赖列表）
-RUN uv run playwright install chromium \
-    && uv run playwright install-deps chromium
+# 安装 CloakBrowser 浏览器二进制（替代 Playwright chromium，内置 C++ 级反检测）
+RUN uv run python -m cloakbrowser install
 
 # 复制项目代码
 COPY . .

@@ -51,9 +51,18 @@ class POIServiceClient:
             result: dict[str, Any] = response.json()
             return result
 
-    def health_check(self) -> dict[str, Any]:
-        """Check if the POI service is running."""
-        return self._get("/health")
+    def health_check(self) -> bool:
+        """Check if the POI service is running.
+
+        Returns:
+            True if POI service is available, False otherwise
+        """
+        try:
+            result = self._get("/health")
+            return result.get("status") == "ok"
+        except Exception as e:
+            logger.warning("POI服务健康检查失败: %s", e)
+            return False
 
     def generate_complaint(self, data: dict[str, Any]) -> bytes:
         """Generate 起诉状 (complaint) document.
@@ -137,6 +146,34 @@ class POIServiceClient:
         result: dict[str, Any] = self._get("/templates")
         templates: list[str] = result.get("templates", [])
         return templates
+
+    def format_contract(
+        self,
+        docx_bytes: bytes,
+        config: dict[str, Any] | None = None,
+        output_filename: str = "formatted_contract.docx"
+    ) -> bytes:
+        """格式化合同文档
+
+        Args:
+            docx_bytes: 原始DOCX文件字节
+            config: 格式配置（可选）
+            output_filename: 输出文件名
+
+        Returns:
+            格式化后的DOCX文件字节
+        """
+        logger.info("POI: 格式化合同, 原始大小=%d bytes", len(docx_bytes))
+
+        payload = {
+            "docxBytes": list(docx_bytes),
+            "outputFileName": output_filename
+        }
+
+        if config:
+            payload["config"] = config  # type: ignore[assignment]
+
+        return self._post("/contract/format", payload)
 
 
 # ── Singleton ──────────────────────────────────────────────────────────────

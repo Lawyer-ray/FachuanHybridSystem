@@ -2,6 +2,7 @@
 
 import logging
 import queue
+import shutil
 import tempfile
 import threading
 from pathlib import Path
@@ -64,6 +65,7 @@ class DocumentProcessMixin:
             error_message=None,
         )
 
+        temp_dir: str | None = None
         try:
             details = self.api_client.fetch_document_details(token=token, sdbh=record.sdbh)
 
@@ -136,6 +138,10 @@ class DocumentProcessMixin:
             error_msg = f"API 处理文书失败: {e!s}"
             logger.error(error_msg)
             result.error_message = error_msg
+
+        finally:
+            if temp_dir:
+                shutil.rmtree(temp_dir, ignore_errors=True)
 
         return result
 

@@ -63,9 +63,9 @@ class AutoLoginService:
     def browser_service(self) -> IBrowserService:
         """获取浏览器服务（延迟加载）"""
         if self._browser_service is None:
-            from apps.automation.services.scraper.core.browser_service import BrowserServiceAdapter
+            from apps.core.services.browser import get_browser_service
 
-            self._browser_service = BrowserServiceAdapter()
+            self._browser_service = get_browser_service()
         return self._browser_service
 
     async def login_and_get_token(self, credential: AccountCredentialDTO) -> str:
@@ -396,9 +396,9 @@ class AutoLoginService:
                 browser = self.browser_service.get_browser()
 
             # 反检测配置
-            from apps.automation.services.scraper.core.anti_detection import anti_detection
+            from apps.core.services.browser import anti_detection
 
-            default_config = anti_detection.get_browser_context_options()
+            default_config = anti_detection.get_context_options()
 
             return browser.new_context(**default_config)
         except Exception as e:

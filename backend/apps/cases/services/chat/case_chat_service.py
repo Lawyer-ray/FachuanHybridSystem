@@ -27,6 +27,7 @@ from apps.cases.services.case.case_access_policy import CaseAccessPolicy
 from apps.core.exceptions import ChatCreationException, MessageSendException, ValidationException
 from apps.core.models.enums import ChatPlatform
 from apps.core.security import AccessContext
+from apps.core.exceptions.error_codes import CHAT_CREATION_FAILED, SYSTEM_ERROR
 
 from .naming import ChatNameBuilder
 from .notification_usecase import SendNotificationUsecase
@@ -145,7 +146,7 @@ class CaseChatService:
             if not result.success:
                 raise ChatCreationException(
                     message=result.message or "群聊创建失败",
-                    code="CHAT_CREATION_FAILED",
+                    code=CHAT_CREATION_FAILED,
                     platform=platform.value,
                     error_code=result.error_code,
                     errors={"provider_response": result.raw_response, "chat_name": chat_name},
@@ -172,7 +173,7 @@ class CaseChatService:
         except Exception as e:
             raise ChatCreationException(
                 message="创建群聊时发生系统错误",
-                code="SYSTEM_ERROR",
+                code=SYSTEM_ERROR,
                 platform=platform.value,
                 errors={"case_id": case_id, "original_error": str(e)},
             ) from e
@@ -314,7 +315,7 @@ class CaseChatService:
         except Exception as e:
             raise MessageSendException(
                 message="发送文书通知时发生系统错误",
-                code="SYSTEM_ERROR",
+                code=SYSTEM_ERROR,
                 platform=platform.value,
                 chat_id=getattr(chat, "chat_id", "") if chat else "",
                 errors={"case_id": case_id, "original_error": str(e)},
@@ -357,7 +358,7 @@ class CaseChatService:
         except Exception as e:
             raise ValidationException(
                 message="解除群聊绑定时发生系统错误",
-                code="SYSTEM_ERROR",
+                code=SYSTEM_ERROR,
                 errors={"chat_id": chat_id, "original_error": str(e)},
             ) from e
 
