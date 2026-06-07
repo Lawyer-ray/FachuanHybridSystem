@@ -62,9 +62,9 @@ class SupplementaryAgreementAdmin(admin.ModelAdmin):
     @admin.display(description="当事人数量", ordering="party_count")
     def party_count(self, obj: SupplementaryAgreement) -> int:
         """当事人数量（来自 annotate，无额外查询）"""
-        return obj.party_count
+        return obj.party_count  # type: ignore[return-value]
 
     def get_queryset(self, request: HttpRequest) -> QuerySet[SupplementaryAgreement, SupplementaryAgreement]:
         """优化查询：用 annotate(Count) 替代 prefetch_related + .count()，消除 N+1"""
         qs = super().get_queryset(request)
-        return qs.select_related("contract").annotate(party_count=Count("parties"))
+        return qs.select_related("contract").annotate(party_count=Count("parties"))  # type: ignore[return-value]
