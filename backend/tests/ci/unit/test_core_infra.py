@@ -78,7 +78,7 @@ class TestSensitiveDataFilter:
         )
         return record
 
-    def test_scrubs_bearer_token(self) -> None:
+    def test_scrubs_bearer_token(self) -> None:  # pragma: allowlist secret
         """Authorization: Bearer token 应被脱敏。"""
         from apps.core.infrastructure.logging import SensitiveDataFilter
         flt = SensitiveDataFilter()
