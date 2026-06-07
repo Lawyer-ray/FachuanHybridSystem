@@ -86,7 +86,7 @@ def launch_browser(
 
         # dialog 处理（CloakBrowser 继承 Playwright 的 dialog 拦截行为）
         assert page is not None
-        page.on("dialog", lambda d: d.accept())
+        page.on("dialog", lambda d: d.accept())  # type: ignore[union-attr]
 
         # macOS 补充指纹补丁（26→58 差异）
         anti_detection.apply_macos_patches(page)
