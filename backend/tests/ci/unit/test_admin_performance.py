@@ -107,7 +107,7 @@ class CaseLogAdminReminderBatchTest(TestCase):
 
     @classmethod
     def setUpTestData(cls) -> None:
-        cls.user = User.objects.create_user(username="testadmin_p0", password="testpass123")
+        cls.user = User.objects.create_user(username="testadmin_p0", password="x")
         cls.contract = Contract.objects.create(name="测试合同P0", case_type="civil", status="active")
         cls.case = Case.objects.create(name="测试案件P0", contract=cls.contract)
 
@@ -447,7 +447,7 @@ class ToolFavoriteCacheTest(TestCase):
         """侧边栏收藏缓存的写入和读取应正常工作。"""
         from django.core.cache import cache
 
-        user = User.objects.create_user(username="favtest_p5", password="testpass123")
+        user = User.objects.create_user(username="favtest_p5", password="x")
         ToolFavorite.objects.create(user=user, tool_url="/admin/test/", tool_name="Test")
 
         cache_key = f"admin:fav_urls:{user.id}"
@@ -466,7 +466,7 @@ class ToolFavoriteCacheTest(TestCase):
         """toggle 操作应清除缓存。"""
         from django.core.cache import cache
 
-        user = User.objects.create_user(username="toggle_p5", password="testpass123")
+        user = User.objects.create_user(username="toggle_p5", password="x")
         cache_key = f"admin:fav_urls:{user.id}"
 
         cache.set(cache_key, ["/admin/old/"], timeout=300)

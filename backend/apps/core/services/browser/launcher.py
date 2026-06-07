@@ -80,10 +80,12 @@ def launch_browser(
             page = context.new_page()
 
         # 超时设置
+        assert context is not None
         context.set_default_timeout(profile.timeout)
         context.set_default_navigation_timeout(profile.navigation_timeout)
 
         # dialog 处理（CloakBrowser 继承 Playwright 的 dialog 拦截行为）
+        assert page is not None
         page.on("dialog", lambda d: d.accept())
 
         # macOS 补充指纹补丁（26→58 差异）

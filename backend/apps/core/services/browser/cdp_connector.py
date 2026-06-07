@@ -73,7 +73,8 @@ async def connect_cdp_browser(
         context.set_default_navigation_timeout(profile.navigation_timeout)
 
         try:
-            yield browser or context, context
+            result_browser: Any = browser if browser is not None else context
+            yield result_browser, context
         finally:
             try:
                 await context.close()

@@ -82,7 +82,7 @@ class TestSensitiveDataFilter:
         """Authorization: Bearer token 应被脱敏。"""
         from apps.core.infrastructure.logging import SensitiveDataFilter
         flt = SensitiveDataFilter()
-        record = self._make_record("Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.xxxxx")
+        record = self._make_record("Authorization: Bearer FAKE_TOKEN_FOR_TESTING")
         flt.filter(record)
         assert "eyJhbGciOiJIUzI1NiJ9" not in record.msg
         assert "***" in record.msg
@@ -99,7 +99,7 @@ class TestSensitiveDataFilter:
         """token=sk-xxx 格式应被脱敏。"""
         from apps.core.infrastructure.logging import SensitiveDataFilter
         flt = SensitiveDataFilter()
-        record = self._make_record("token=sk-abcdefghijklmnopqrst")
+        record = self._make_record("token=sk-FAKE_FOR_TESTING")
         flt.filter(record)
         assert "sk-abcdefghijklmnopqrst" not in record.msg
 
