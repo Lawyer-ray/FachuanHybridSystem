@@ -209,6 +209,14 @@ jobs:
             apps/core/dto/auth.py \
             apps/core/infrastructure/throttling.py \
             apps/core/exceptions/handlers.py \
+            apps/core/security/auth.py \
+            apps/core/infrastructure/cache.py \
+            apps/core/middleware/request_id.py \
+            apps/core/middleware/security.py \
+            apps/organization/services/auth/auth_service.py \
+            apps/organization/services/access/organization_access_policy.py \
+            apps/automation/services/token/cache_manager.py \
+            apps/automation/utils/logging_mixins/common.py \
             apiSystem/apiSystem/api.py
 
       - name: Tests (collection smoke)
@@ -258,72 +266,6 @@ jobs:
 
       - name: Static security scan (bandit)
         run: uv run bandit -r apps -q -lll -x "*/migrations/*,*/static/*,*/staticfiles/*,*/media/*,*/venv*/*,*/htmlcov/*"
-
-  backend-ruff-full:
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    defaults:
-      run:
-        working-directory: backend
-    strategy:
-      fail-fast: false
-      matrix:
-        python-version: ["3.12"]
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v5
-
-      - name: Setup Python
-        run: uv python install ${{ matrix.python-version }}
-
-      - name: Install dependencies
-        run: uv sync --frozen
-
-      - name: Lint (ruff, core + apiSystem)
-        run: uv run ruff check apps/core apiSystem --config ruff.toml
-
-  backend-mypy-full:
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    defaults:
-      run:
-        working-directory: backend
-    strategy:
-      fail-fast: false
-      matrix:
-        python-version: ["3.12"]
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v5
-
-      - name: Setup Python
-        run: uv python install ${{ matrix.python-version }}
-
-      - name: Install dependencies
-        run: uv sync --frozen
-
-      - name: Type check (mypy, core + apiSystem)
-        env:
-          PYTHONPATH: "apiSystem:."
-        run: |
-          uv run mypy --config-file=mypy.ini --follow-imports=silent \
-            apps/core/services/wiring.py \
-            apps/core/protocols/common_protocols.py \
-            apps/core/dto/auth.py \
-            apps/core/infrastructure/throttling.py \
-            apps/core/exceptions/handlers.py \
-            apps/organization/services/access/organization_access_policy.py \
-            apiSystem/apiSystem/api.py
 
   backend-unit-coverage:
     runs-on: ubuntu-latest
@@ -385,6 +327,24 @@ jobs:
             --cov=apps.enterprise_data.services.clients.api_key_pool \
             --cov-report=term-missing --cov-fail-under=85 \
             tests/ci/unit/
+
+      - name: Coverage (apps global baseline)
+        env:
+          DJANGO_DEBUG: "1"
+          DB_ENGINE: "postgresql"
+          TEST_DB_ENGINE: "postgresql"
+          TEST_DB_NAME: "fachuan_ci_test"
+          TEST_DB_USER: "postgres"
+          TEST_DB_PASSWORD: "postgres"
+          TEST_DB_HOST: "127.0.0.1"
+          TEST_DB_PORT: "5432"
+          PYTHONPATH: "apiSystem:."
+        run: |
+          uv run pytest -c pytest.ini -o addopts="" \
+            --reuse-db --import-mode=importlib \
+            --cov=apps \
+            --cov-report=term-missing --cov-fail-under=25 \
+            -q tests/ci/unit/
 
   backend-integration-smoke:
     runs-on: ubuntu-latest
@@ -540,130 +500,3 @@ jobs:
             --skip-websocket \
             --skip-q
 
-  backend-mypy:
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    defaults:
-      run:
-        working-directory: backend
-    strategy:
-      fail-fast: false
-      matrix:
-        python-version: ["3.12"]
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v5
-
-      - name: Setup Python
-        run: uv python install ${{ matrix.python-version }}
-
-      - name: Install dependencies
-        run: uv sync --frozen
-
-      - name: Type check (mypy)
-        env:
-          PYTHONPATH: "apiSystem:."
-        run: |
-          uv run mypy --config-file=mypy.ini --follow-imports=silent \
-            apps/core/security/auth.py \
-            apps/core/infrastructure/throttling.py \
-            apps/core/infrastructure/cache.py \
-            apps/core/middleware/request_id.py \
-            apps/core/middleware/security.py \
-            apps/organization/services/auth/auth_service.py \
-            apps/automation/services/token/cache_manager.py \
-            apps/automation/utils/logging_mixins/common.py
-
-  backend-mypy-strict:
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    defaults:
-      run:
-        working-directory: backend
-    strategy:
-      fail-fast: false
-      matrix:
-        python-version: ["3.12"]
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v5
-
-      - name: Setup Python
-        run: uv python install ${{ matrix.python-version }}
-
-      - name: Install dependencies
-        run: uv sync --frozen
-
-      - name: Type check (mypy strict - curated gate)
-        env:
-          PYTHONPATH: "apiSystem:."
-        run: |
-          uv run mypy --config-file=mypy.ini --follow-imports=silent \
-            apps/core/services/wiring.py \
-            apps/core/protocols/common_protocols.py \
-            apps/core/dto/auth.py \
-            apps/core/infrastructure/throttling.py \
-            apps/core/exceptions/handlers.py \
-            apps/organization/services/access/organization_access_policy.py \
-            apiSystem/apiSystem/api.py
-
-  backend-coverage:
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    defaults:
-      run:
-        working-directory: backend
-    strategy:
-      fail-fast: false
-      matrix:
-        python-version: ["3.12"]
-    services:
-      postgres:
-        image: postgres:16
-        env:
-          POSTGRES_DB: fachuan_ci_test
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd="pg_isready -U postgres -d fachuan_ci_test"
-          --health-interval=10s
-          --health-timeout=5s
-          --health-retries=5
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@v5
-
-      - name: Setup Python
-        run: uv python install ${{ matrix.python-version }}
-
-      - name: Install dependencies
-        run: uv sync --frozen
-
-      - name: Coverage (apps baseline)
-        env:
-          DJANGO_DEBUG: "1"
-          DB_ENGINE: "postgresql"
-          TEST_DB_ENGINE: "postgresql"
-          TEST_DB_NAME: "fachuan_ci_test"
-          TEST_DB_USER: "postgres"
-          TEST_DB_PASSWORD: "postgres"
-          TEST_DB_HOST: "127.0.0.1"
-          TEST_DB_PORT: "5432"
-          PYTHONPATH: "apiSystem:."
-        run: |
-          uv run pytest -c pytest.ini -o addopts="" \
-            --reuse-db --import-mode=importlib \
-            --cov=apps \
-            --cov-report=term-missing --cov-fail-under=25 \
-            -q tests/ci/unit/
