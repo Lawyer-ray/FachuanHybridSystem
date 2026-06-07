@@ -7,7 +7,7 @@ from typing import Any, cast
 from django.utils import timezone
 
 from apps.documents.services.evidence.evidence_service import EvidenceService
-from apps.documents.services.evidence.export_service import EvidenceExportService
+from apps.documents.services.evidence.evidence_export_service import EvidenceExportService
 from apps.documents.services.infrastructure.pdf_merge_service import PDFMergeService
 
 

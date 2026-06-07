@@ -726,6 +726,19 @@ wheels = [
 ]
 
 [[package]]
+name = "cloakbrowser"
+version = "0.3.31"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "httpx" },
+    { name = "playwright" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/54/12/50296c1adf7f09988a8ae300f2472e8c33a9d79826980579f0aa7b938b74/cloakbrowser-0.3.31.tar.gz", hash = "sha256:7109961fc9ef0c9a288547eff6717d3cb2cc7ad7b14fecfef1221357b9a0d870", size = 5365798, upload-time = "2026-05-26T18:32:45.045Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/42/ba/7acb1250c0d453124f6bff0185296fa75618b0a4924cdf9ef5f27d1337ec/cloakbrowser-0.3.31-py3-none-any.whl", hash = "sha256:0496f586c9a580b03ef69dc26b931bbe3ad93b944be2750edcc423379d97d2d3", size = 76582, upload-time = "2026-05-26T18:32:43.436Z" },
+]
+
+[[package]]
 name = "cobble"
 version = "0.1.4"
 source = { registry = "https://pypi.org/simple" }
@@ -1069,16 +1082,16 @@ wheels = [
 
 [[package]]
 name = "django"
-version = "6.0.5"
+version = "6.0.6"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "asgiref" },
     { name = "sqlparse" },
     { name = "tzdata", marker = "sys_platform == 'win32'" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/5e/f1/bf85f0d29ef76abf901f193fe8fef4769d3da7794197832bc30151c071d8/django-6.0.5.tar.gz", hash = "sha256:bc6d6872e98a2864c836e42edd644b362db311147dd5aa8d5b82ba7a032f5269", size = 10924131, upload-time = "2026-05-05T13:54:39.329Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/78/29/ac41e16097af67066d97a7d5775c5d8e7efc5d0284f6b0a159e07b9adb92/django-6.0.6.tar.gz", hash = "sha256:ad03916ba59523d781ae5c3f631960c23d69a9d9c43cecda52fc23b47e953713", size = 10905525, upload-time = "2026-06-03T13:02:46.503Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/94/5b/1328f8b84fce040c404f76822bf8c57d254e368e8cbd8bd67ec2b26d75f5/django-6.0.5-py3-none-any.whl", hash = "sha256:9d58a7cb49244e74c8e161d5e403a46d6209f1009ba40f5a66d6aa0d0786a8f0", size = 8368680, upload-time = "2026-05-05T13:54:33.532Z" },
+    { url = "https://files.pythonhosted.org/packages/eb/50/23f9dc45483419a3cc2085b498b25adfbf10642b2941c73e6d2dfaffc9ab/django-6.0.6-py3-none-any.whl", hash = "sha256:25148b1194c47c2e685e5f5e9c5d59c78b075dfd282cb9618861ba6c1708f4d2", size = 8373354, upload-time = "2026-06-03T13:02:41.72Z" },
 ]
 
 [[package]]
@@ -1336,13 +1349,14 @@ wheels = [
 
 [[package]]
 name = "fachuan-backend"
-version = "26.51.3"
+version = "26.51.8"
 source = { virtual = "." }
 dependencies = [
     { name = "beautifulsoup4" },
     { name = "boto3" },
     { name = "channels" },
     { name = "channels-redis" },
+    { name = "cloakbrowser" },
     { name = "concurrent-log-handler" },
     { name = "cryptography" },
     { name = "daphne" },
@@ -1376,7 +1390,6 @@ dependencies = [
     { name = "pikepdf" },
     { name = "pillow" },
     { name = "playwright" },
-    { name = "playwright-stealth" },
     { name = "psutil" },
     { name = "psycopg", extra = ["binary"] },
     { name = "pydantic" },
@@ -1430,11 +1443,12 @@ requires-dist = [
     { name = "boto3", specifier = ">=1.35.0" },
     { name = "channels", specifier = "==4.3.2" },
     { name = "channels-redis", specifier = "==4.3.0" },
+    { name = "cloakbrowser", specifier = ">=0.3.31" },
     { name = "concurrent-log-handler", specifier = ">=0.9.25" },
     { name = "cryptography", specifier = "==48.0.0" },
     { name = "daphne", specifier = ">=4.2.1" },
     { name = "ddddocr", specifier = "==1.6.1" },
-    { name = "django", specifier = "==6.0.5" },
+    { name = "django", specifier = "==6.0.6" },
     { name = "django-cors-headers", specifier = "==4.9.0" },
     { name = "django-lifecycle", specifier = "==1.2.7" },
     { name = "django-nested-admin", specifier = "==4.1.6" },
@@ -1463,7 +1477,6 @@ requires-dist = [
     { name = "pikepdf", specifier = "==10.5.1" },
     { name = "pillow", specifier = "==12.2.0" },
     { name = "playwright", specifier = "==1.59.0" },
-    { name = "playwright-stealth", specifier = "==2.0.3" },
     { name = "psutil", specifier = "==7.2.2" },
     { name = "psycopg", extras = ["binary"], specifier = "==3.3.4" },
     { name = "pydantic", specifier = "==2.13.3" },
@@ -3716,18 +3729,6 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/72/a1/717ac5bc99f387c0f60def91271ea4262125c0815d764a5d1776a272275c/playwright-1.59.0-py3-none-win32.whl", hash = "sha256:6989c476be2b9cd3e24a18cc9dcf202e266fb3d91e3e5395cd668c54ea54b119", size = 37713698, upload-time = "2026-04-29T08:11:27.251Z" },
     { url = "https://files.pythonhosted.org/packages/0f/a5/4e630ee05d8b46b840f943268e86d6063703e8dadb2d3eb405c7b9b2e48c/playwright-1.59.0-py3-none-win_amd64.whl", hash = "sha256:d5a5cc064b82ca92996080025710844e417f44df8fda9001102c28f44174171c", size = 37713704, upload-time = "2026-04-29T08:11:30.41Z" },
     { url = "https://files.pythonhosted.org/packages/eb/0c/3ece41761ba13c8321009aefcaec7a016eb42799c42eef5e03ace7f2de5b/playwright-1.59.0-py3-none-win_arm64.whl", hash = "sha256:93581ad515728cadc8af39b288a5633ba6d36e7d72048e79d890ce01ea2156f9", size = 33956745, upload-time = "2026-04-29T08:11:34.738Z" },
-]
-
-[[package]]
-name = "playwright-stealth"
-version = "2.0.3"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "playwright" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/a4/db/6ade5d539c7d151b9defc78fafa8b65aa52352617d0e7699b47008bd801f/playwright_stealth-2.0.3.tar.gz", hash = "sha256:1d8e488fbdd8f190f1269ea8cf5d57d14df3a9f1af1001c41ee3588b2aac3133", size = 25751, upload-time = "2026-04-04T02:50:33.88Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/b5/10/607c409712c02a26c4cb794820514cb7fdaaeac15fb05bed917fb8a354b3/playwright_stealth-2.0.3-py3-none-any.whl", hash = "sha256:1887ade423ab7ff8ae16d363a30a38de0b5817e1e4a29d47b74bf3a0e3dbfcb4", size = 34385, upload-time = "2026-04-04T02:50:35.246Z" },
 ]
 
 [[package]]
