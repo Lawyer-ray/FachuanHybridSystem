@@ -80,6 +80,9 @@ class MessageSource(models.Model):
         verbose_name = "消息来源"
         verbose_name_plural = "消息来源"
         ordering: ClassVar = ["-created_at"]
+        indexes: ClassVar = [
+            models.Index(fields=["source_type"]),
+        ]
 
     def __str__(self) -> str:
         return f"{self.display_name} ({self.source_type})"

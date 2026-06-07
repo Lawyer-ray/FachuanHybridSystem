@@ -71,4 +71,4 @@ class ClientPaymentRecord(models.Model):
         ]
 
     def __str__(self) -> str:
-        return f"{self.contract.name} - ¥{self.amount}"
+        return f"合同#{self.contract_id} 回款 ¥{self.amount}"

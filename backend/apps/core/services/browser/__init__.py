@@ -131,45 +131,48 @@ async def create_browser_async(
         async with connect_cdp_page(profile, auto_launch=True) as (page, context):
             yield page, context
     else:
-        # 原生 launch 的异步版本
-        from playwright.async_api import async_playwright
+        # 原生 launch 的异步版本（CloakBrowser）
+        from cloakbrowser import ensure_binary, launch_async
 
         from .anti_detection import anti_detection
 
-        async with async_playwright() as pw:
-            launch_args = profile.to_launch_args()
-            browser = await pw.chromium.launch(**launch_args)
+        ensure_binary()
+        browser = await launch_async(
+            headless=profile.headless,
+            humanize=profile.anti_detection,
+        )
 
-            context_args = profile.to_context_args()
-            if profile.anti_detection:
-                anti_opts = anti_detection.get_context_options()
-                anti_opts.update(context_args)
-                context_args = anti_opts
+        context_args = profile.to_context_args()
+        if profile.anti_detection:
+            anti_opts = anti_detection.get_context_options()
+            anti_opts.update(context_args)
+            context_args = anti_opts
 
-            context = await browser.new_context(**context_args)
-            context.set_default_timeout(profile.timeout)
-            context.set_default_navigation_timeout(profile.navigation_timeout)
+        context = await browser.new_context(**context_args)
+        context.set_default_timeout(profile.timeout)
+        context.set_default_navigation_timeout(profile.navigation_timeout)
 
-            page = await context.new_page()
+        page = await context.new_page()
+        page.on("dialog", lambda d: d.accept())
 
-            if profile.anti_detection:
-                await anti_detection.apply_stealth_async(context)
+        # macOS 补充指纹补丁
+        await anti_detection.apply_macos_patches_async(page)
 
+        try:
+            yield page, context
+        finally:
             try:
-                yield page, context
-            finally:
-                try:
-                    await page.close()
-                except Exception:
-                    pass
-                try:
-                    await context.close()
-                except Exception:
-                    pass
-                try:
-                    await browser.close()
-                except Exception:
-                    pass
+                await page.close()
+            except Exception:
+                pass
+            try:
+                await context.close()
+            except Exception:
+                pass
+            try:
+                await browser.close()
+            except Exception:
+                pass
 
 
 __all__ = [

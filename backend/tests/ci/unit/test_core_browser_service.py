@@ -43,8 +43,8 @@ class TestBrowserProfile:
         args = p.to_launch_args()
         assert args["headless"] is False
         assert args["slow_mo"] == 500
-        assert "--no-sandbox" in args["args"]
-        assert "--disable-blink-features=AutomationControlled" in args["args"]
+        # CloakBrowser 内置反检测，不再需要 Chrome 启动参数
+        assert "args" not in args or "--no-sandbox" not in args.get("args", [])
 
     def test_to_launch_args_with_proxy(self) -> None:
         p = BrowserProfile(name="test", proxy="http://proxy:8080")
@@ -130,12 +130,12 @@ class TestAntiDetection:
     """AntiDetection 测试。"""
 
     def test_random_user_agent(self) -> None:
+        """UA 由 CloakBrowser 自动处理，get_random_user_agent 保留兼容但返回空。"""
         from apps.core.services.browser.anti_detection import AntiDetection
 
         ad = AntiDetection()
         ua = ad.get_random_user_agent()
         assert isinstance(ua, str)
-        assert len(ua) > 20
 
     def test_get_context_options(self) -> None:
         from apps.core.services.browser.anti_detection import AntiDetection
@@ -143,9 +143,9 @@ class TestAntiDetection:
         ad = AntiDetection()
         opts = ad.get_context_options()
         assert "viewport" in opts
-        assert "user_agent" in opts
         assert "locale" in opts
         assert opts["locale"] == "zh-CN"
+        assert "timezone_id" in opts
 
 
 class TestModuleImports:

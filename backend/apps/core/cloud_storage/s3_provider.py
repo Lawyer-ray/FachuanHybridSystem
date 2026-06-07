@@ -137,21 +137,40 @@ class S3Provider:
 
     def get_file_info(self, path: str) -> CloudFileInfo | None:
         key = self._full_key(path)
+        name = path.strip("/").split("/")[-1]
+        # 1. 尝试作为文件
         try:
             resp = self._client.head_object(Bucket=self._bucket, Key=key)
+            return CloudFileInfo(
+                name=name,
+                path=path.strip("/"),
+                is_dir=False,
+                size=resp.get("ContentLength", 0),
+                modified_at=resp["LastModified"].timestamp(),
+            )
         except self._client.exceptions.ClientError as e:
             error_code: str = e.response["Error"]["Code"]
-            if error_code in ("404", "NoSuchKey"):
-                return None
-            raise
-        name = path.strip("/").split("/")[-1]
-        return CloudFileInfo(
-            name=name,
-            path=path.strip("/"),
-            is_dir=False,
-            size=resp.get("ContentLength", 0),
-            modified_at=resp["LastModified"].timestamp(),
-        )
+            if error_code not in ("404", "NoSuchKey"):
+                raise
+        # 2. 尝试目录标记（trailing-slash key）
+        try:
+            resp = self._client.head_object(Bucket=self._bucket, Key=key + "/")
+            return CloudFileInfo(
+                name=name,
+                path=path.strip("/"),
+                is_dir=True,
+                size=0,
+                modified_at=resp["LastModified"].timestamp(),
+            )
+        except self._client.exceptions.ClientError:
+            pass
+        # 3. 虚拟目录（存在子对象）
+        prefix = key + "/" if key else ""
+        if prefix:
+            resp = self._client.list_objects_v2(Bucket=self._bucket, Prefix=prefix, MaxKeys=1)
+            if resp.get("KeyCount", 0) > 0:
+                return CloudFileInfo(name=name, path=path.strip("/"), is_dir=True, size=0, modified_at=0.0)
+        return None
 
     def walk(self, path: str) -> Iterator[tuple[str, list[str], list[CloudFileInfo]]]:
         children = self.list_directory(path)

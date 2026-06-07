@@ -622,7 +622,14 @@ class ContractFolderScanService:
                 scan_path = root / normalized_subfolder
                 # Normalize to prevent traversal
                 scan_path = PurePosixPath("/") / str(scan_path).lstrip("/")
-                if not str(scan_path).startswith(str(root) + "/") and str(scan_path) != str(root):
+                root_str = str(root)
+                scan_str = str(scan_path)
+                is_within = (
+                    scan_str.startswith(root_str + "/")
+                    or scan_str == root_str
+                    or (root_str == "/" and scan_str.startswith("/") and scan_str != "/")
+                )
+                if not is_within:
                     raise ValidationException(
                         message="扫描子文件夹越界",
                         errors={"scan_subfolder": normalized_subfolder},
@@ -1033,8 +1040,6 @@ class ContractFolderScanService:
             from apps.contracts.models import ArchiveClassificationRule
             from apps.contracts.services.archive.category_mapping import get_archive_category
             from apps.contracts.services.archive.learning_service import (
-                _contains_document_keyword,
-                _strip_non_keyword_parts,
                 extract_keywords,
             )
 

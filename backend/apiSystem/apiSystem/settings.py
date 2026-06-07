@@ -145,17 +145,29 @@ ROOT_URLCONF = "apiSystem.urls"
 # API 路由由 ApiTrailingSlashMiddleware 统一处理（移除尾部斜杠）
 APPEND_SLASH = False
 
+# 生产环境使用 cached.Loader 缓存模板 AST，避免 40+ app 的 templates/ 目录扫描
+# DEBUG 模式不缓存（模板修改需即时生效）
+if not DEBUG:
+    _template_loaders: list[tuple[str, list[str]]] | None = [
+        ("django.template.loaders.cached.Loader", [
+            "django.template.loaders.filesystem.Loader",
+            "django.template.loaders.app_directories.Loader",
+        ]),
+    ]
+else:
+    _template_loaders = None
+
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
         "DIRS": [BASE_DIR / "templates"],  # 全局模板目录
-        "APP_DIRS": True,
+        **({"APP_DIRS": True} if _template_loaders is None else {}),
         "OPTIONS": {
+            **({"loaders": _template_loaders} if _template_loaders else {}),
             "context_processors": [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
-                "apiSystem.context_processors.tool_favorites",
             ],
         },
     },
@@ -423,6 +435,11 @@ from apps.core.infrastructure.logging import get_logging_config
 
 LOGGING = get_logging_config(BASE_DIR.parent, DEBUG)
 CACHES = get_cache_config()
+
+# Session 后端：cached_db 先查缓存再查 DB，写回双写，零中断迁移
+# 生产有 Redis 时完全消除 session DB 查询；无 Redis 时退化为 DB（与之前一致）
+SESSION_ENGINE = os.environ.get("SESSION_ENGINE", "django.contrib.sessions.backends.cached_db")
+SESSION_CACHE_ALIAS = "default"
 
 SENTRY_DSN = (os.environ.get("SENTRY_DSN", "") or "").strip()
 if SENTRY_DSN:

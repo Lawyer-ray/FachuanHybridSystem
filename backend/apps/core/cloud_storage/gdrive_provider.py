@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import io
 import logging
+import random
+import time
 from collections.abc import Iterator
 from typing import Any
 
@@ -13,6 +15,29 @@ logger = logging.getLogger(__name__)
 
 GDRIVE_FOLDER_MIME = "application/vnd.google-apps.folder"
 
+# ── Retry helper ─────────────────────────────────────────────
+
+_MAX_RETRIES = 5
+_MAX_BACKOFF = 32
+
+
+def _execute_with_retry(request: Any) -> Any:
+    """Execute a Google API request with exponential backoff on 429/5xx."""
+    from googleapiclient.errors import HttpError
+
+    for attempt in range(_MAX_RETRIES):
+        try:
+            return request.execute()
+        except HttpError as e:
+            if e.resp.status not in (429, 500, 502, 503) or attempt == _MAX_RETRIES - 1:
+                raise
+            wait = min(2 ** attempt + random.random(), _MAX_BACKOFF)
+            logger.warning("Drive API %d, retry %.1fs (attempt %d/%d)", e.resp.status, wait, attempt + 1, _MAX_RETRIES)
+            time.sleep(wait)
+    raise RuntimeError("unreachable")
+
+
+# ── Path resolver ─────────────────────────────────────────────
 
 class _PathResolver:
     """Resolves filesystem-like paths to Google Drive file IDs with caching."""
@@ -38,15 +63,14 @@ class _PathResolver:
                 current_path = cache_key
                 continue
 
-            results = (
-                self._service.files()
-                .list(
-                    q=f"'{current_id}' in parents and name='{_escape_gql(segment)}' and trashed=false",
-                    fields="files(id, name)",
-                    pageSize=1,
-                )
-                .execute()
+            request = self._service.files().list(
+                q=f"'{current_id}' in parents and name='{_escape_gql(segment)}' and trashed=false",
+                fields="files(id, name)",
+                pageSize=1,
+                supportsAllDrives=True,
+                includeItemsFromAllDrives=True,
             )
+            results = _execute_with_retry(request)
 
             files = results.get("files", [])
             if not files:
@@ -62,7 +86,7 @@ class _PathResolver:
         """Remove cached entries under path. Preserves root mapping."""
         prefix = path.strip("/")
         if not prefix:
-            return  # never clear the root
+            return
         keys_to_remove = [k for k in self._cache if k.startswith(f"/{prefix}")]
         for k in keys_to_remove:
             self._cache.pop(k, None)
@@ -78,14 +102,15 @@ def _parse_gdrive_time(iso_str: str) -> float:
     if not iso_str:
         return 0.0
     try:
-        from datetime import UTC, datetime
+        from datetime import datetime
 
-        # Google returns "2026-06-04T12:00:00.000Z"
         dt = datetime.fromisoformat(iso_str.replace("Z", "+00:00"))
         return dt.timestamp()
     except (ValueError, TypeError):
         return 0.0
 
+
+# ── Provider ──────────────────────────────────────────────────
 
 class GDriveProvider:
     """Read/write files on Google Drive using Service Account authentication."""
@@ -121,15 +146,14 @@ class GDriveProvider:
 
     def _find_child(self, parent_id: str, name: str) -> str | None:
         """Find a child by name under parent_id."""
-        results = (
-            self._service.files()
-            .list(
-                q=f"'{parent_id}' in parents and name='{_escape_gql(name)}' and trashed=false",
-                fields="files(id, name)",
-                pageSize=1,
-            )
-            .execute()
+        request = self._service.files().list(
+            q=f"'{parent_id}' in parents and name='{_escape_gql(name)}' and trashed=false",
+            fields="files(id, name)",
+            pageSize=1,
+            supportsAllDrives=True,
+            includeItemsFromAllDrives=True,
         )
+        results = _execute_with_retry(request)
         files = results.get("files", [])
         return files[0]["id"] if files else None
 
@@ -143,16 +167,15 @@ class GDriveProvider:
         results: list[CloudFileInfo] = []
         page_token = None
         while True:
-            resp = (
-                self._service.files()
-                .list(
-                    q=f"'{folder_id}' in parents and trashed=false",
-                    fields="nextPageToken, files(id, name, mimeType, size, modifiedTime)",
-                    pageSize=1000,
-                    pageToken=page_token,
-                )
-                .execute()
+            request = self._service.files().list(
+                q=f"'{folder_id}' in parents and trashed=false",
+                fields="nextPageToken, files(id, name, mimeType, size, modifiedTime)",
+                pageSize=1000,
+                pageToken=page_token,
+                supportsAllDrives=True,
+                includeItemsFromAllDrives=True,
             )
+            resp = _execute_with_retry(request)
             for f in resp.get("files", []):
                 is_folder = f["mimeType"] == GDRIVE_FOLDER_MIME
                 name = f["name"]
@@ -189,6 +212,8 @@ class GDriveProvider:
         return buf.getvalue()
 
     def write_file(self, path: str, content: bytes) -> None:
+        import mimetypes
+
         from googleapiclient.http import MediaIoBaseUpload
 
         parts = path.strip("/").split("/")
@@ -199,16 +224,19 @@ class GDriveProvider:
         if not parent_id:
             raise FileNotFoundError(f"父目录不存在: {parent_path}")
 
-        # Check if file exists
+        # 自动检测 MIME 类型
+        mime_type = mimetypes.guess_type(file_name)[0] or "application/octet-stream"
+
         existing_id = self._find_child(parent_id, file_name)
-        media = MediaIoBaseUpload(io.BytesIO(content), mimetype="application/octet-stream")
+        media = MediaIoBaseUpload(io.BytesIO(content), mimetype=mime_type, resumable=True)
 
         if existing_id:
-            self._service.files().update(fileId=existing_id, media_body=media).execute()
+            request = self._service.files().update(fileId=existing_id, media_body=media)
         else:
             metadata = {"name": file_name, "parents": [parent_id]}
-            self._service.files().create(body=metadata, media_body=media, fields="id").execute()
+            request = self._service.files().create(body=metadata, media_body=media, fields="id")
 
+        _execute_with_retry(request)
         self._resolver.invalidate(path)
 
     def mkdir(self, path: str) -> None:
@@ -227,7 +255,8 @@ class GDriveProvider:
                     "mimeType": GDRIVE_FOLDER_MIME,
                     "parents": [current_id],
                 }
-                folder = self._service.files().create(body=metadata, fields="id").execute()
+                request = self._service.files().create(body=metadata, fields="id", supportsAllDrives=True)
+                folder = _execute_with_retry(request)
                 current_id = folder["id"]
             self._resolver._cache[current_path] = current_id
 
@@ -238,14 +267,16 @@ class GDriveProvider:
         file_id = self._resolve(path)
         if not file_id:
             return False
-        resp = self._service.files().get(fileId=file_id, fields="mimeType").execute()
+        request = self._service.files().get(fileId=file_id, fields="mimeType", supportsAllDrives=True)
+        resp = _execute_with_retry(request)
         is_dir: bool = resp["mimeType"] == GDRIVE_FOLDER_MIME
         return is_dir
 
     def delete_file(self, path: str) -> None:
         file_id = self._resolve(path)
         if file_id:
-            self._service.files().delete(fileId=file_id).execute()
+            request = self._service.files().delete(fileId=file_id, supportsAllDrives=True)
+            _execute_with_retry(request)
             self._resolver.invalidate(path)
 
     def get_file_info(self, path: str) -> CloudFileInfo | None:
@@ -253,7 +284,10 @@ class GDriveProvider:
         if not file_id:
             return None
 
-        resp = self._service.files().get(fileId=file_id, fields="name, mimeType, size, modifiedTime").execute()
+        request = self._service.files().get(
+            fileId=file_id, fields="name, mimeType, size, modifiedTime", supportsAllDrives=True,
+        )
+        resp = _execute_with_retry(request)
 
         is_folder: bool = resp["mimeType"] == GDRIVE_FOLDER_MIME
         name = resp["name"]

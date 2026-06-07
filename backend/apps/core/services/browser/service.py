@@ -12,9 +12,7 @@ from typing import TYPE_CHECKING, Any, cast
 from .profiles import BrowserProfile, get_profile
 
 if TYPE_CHECKING:
-    from playwright.async_api import Browser as AsyncBrowser
-    from playwright.async_api import BrowserContext as AsyncBrowserContext
-    from playwright.sync_api import Browser, BrowserContext
+    from playwright.sync_api import BrowserContext
 
 logger = logging.getLogger("apps.core")
 
@@ -101,18 +99,19 @@ class BrowserService:
     def _get_or_create_browser(self, profile: BrowserProfile) -> tuple[Any, Any]:
         """获取或创建浏览器实例。"""
         if profile.name in self._browsers:
-            pw, browser = self._browsers[profile.name]
-            return pw, browser
+            return self._browsers[profile.name]
 
-        from playwright.sync_api import sync_playwright
+        from cloakbrowser import ensure_binary, launch
 
         logger.info("创建浏览器实例 (profile=%s)", profile.name)
-        pw = sync_playwright().start()
-        launch_args = profile.to_launch_args()
-        browser = pw.chromium.launch(**launch_args)
+        ensure_binary()
+        browser = launch(
+            headless=profile.headless,
+            humanize=profile.anti_detection,
+        )
 
-        self._browsers[profile.name] = (pw, browser)
-        return pw, browser
+        self._browsers[profile.name] = (None, browser)
+        return None, browser
 
     def close(self, profile: str | None = None) -> None:
         """关闭浏览器实例。
@@ -124,13 +123,15 @@ class BrowserService:
             if profile in self._browsers:
                 pw, browser = self._browsers.pop(profile)
                 browser.close()
-                pw.stop()
+                if pw is not None:
+                    pw.stop()
                 logger.info("浏览器已关闭 (profile=%s)", profile)
         else:
             for name, (pw, browser) in list(self._browsers.items()):
                 try:
                     browser.close()
-                    pw.stop()
+                    if pw is not None:
+                        pw.stop()
                 except Exception as e:
                     logger.warning("关闭浏览器失败 (profile=%s): %s", name, e)
             self._browsers.clear()

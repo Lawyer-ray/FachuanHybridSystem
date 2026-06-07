@@ -243,11 +243,19 @@ def _sorted_get_app_list(self: admin.AdminSite, request: HttpRequest, app_label:
         # 获取用户收藏的 URL 集合（服务端过滤，HTML 里只渲染需要的行）
         fav_urls: set[str] = set()
         if request is not None and hasattr(request, "user") and request.user.is_authenticated:
-            from apps.core.models import ToolFavorite
+            from django.core.cache import cache as _django_cache
 
-            fav_urls = set(
-                ToolFavorite.objects.filter(user=request.user).values_list("tool_url", flat=True)
-            )
+            _fav_cache_key = f"admin:fav_urls:{request.user.id}"
+            _cached_favs = _django_cache.get(_fav_cache_key)
+            if _cached_favs is not None:
+                fav_urls = set(_cached_favs)
+            else:
+                from apps.core.models import ToolFavorite
+
+                fav_urls = set(
+                    ToolFavorite.objects.filter(user=request.user).values_list("tool_url", flat=True)
+                )
+                _django_cache.set(_fav_cache_key, list(fav_urls), timeout=300)
         if not fav_urls:
             fav_urls = set(_DEFAULT_FAV_URLS)
 
@@ -429,17 +437,25 @@ def other_tools_hub_view(request: HttpRequest) -> TemplateResponse:
         )
 
     # 获取当前用户的收藏 URL 集合；首次访问时创建默认收藏
-    existing_favs = ToolFavorite.objects.filter(user=request.user)
-    if not existing_favs.exists():
-        for url in _DEFAULT_FAV_URLS:
-            ToolFavorite.objects.get_or_create(
-                user=request.user,
-                tool_url=url,
-                defaults={"tool_name": url.strip("/").split("/")[-1].replace("_", " ").title()},
-            )
-        existing_favs = ToolFavorite.objects.filter(user=request.user)
+    from django.core.cache import cache as _django_cache
 
-    fav_urls: set[str] = set(existing_favs.values_list("tool_url", flat=True))
+    _fav_cache_key = f"admin:fav_urls:{request.user.id}"
+    _cached_favs = _django_cache.get(_fav_cache_key)
+    if _cached_favs is not None:
+        fav_urls = set(_cached_favs)
+    else:
+        existing_favs = ToolFavorite.objects.filter(user=request.user)
+        if not existing_favs.exists():
+            for url in _DEFAULT_FAV_URLS:
+                ToolFavorite.objects.get_or_create(
+                    user=request.user,
+                    tool_url=url,
+                    defaults={"tool_name": url.strip("/").split("/")[-1].replace("_", " ").title()},
+                )
+            existing_favs = ToolFavorite.objects.filter(user=request.user)
+
+        fav_urls = set(existing_favs.values_list("tool_url", flat=True))
+        _django_cache.set(_fav_cache_key, list(fav_urls), timeout=300)
 
     context: dict[str, Any] = {
         **admin.site.each_context(request),
@@ -479,6 +495,11 @@ def tool_favorite_toggle_view(request: HttpRequest) -> HttpResponse:
     else:
         ToolFavorite.objects.create(user=request.user, tool_url=tool_url, tool_name=tool_name)
         is_fav = True
+
+    # 清除侧边栏和 hub 的收藏缓存
+    from django.core.cache import cache as _django_cache
+
+    _django_cache.delete(f"admin:fav_urls:{request.user.id}")
 
     return HttpResponse(
         json.dumps({"is_fav": is_fav, "url": tool_url}),
