@@ -1,4 +1,4 @@
-"""Coverage tests for litigation_ai, oa_filing, story_viz, wechat_mp, pdf_splitting, chat_records, document_recognition, workbench."""
+"""Coverage tests for litigation_ai, oa_filing, story_viz, pdf_splitting, chat_records, document_recognition, workbench."""
 from __future__ import annotations
 
 from types import SimpleNamespace

@@ -15,7 +15,6 @@ import {
   Calculator,
   Settings,
   Bot,
-  Megaphone,
   type LucideIcon,
 } from 'lucide-react'
 import { PATHS } from '@/routes/paths'
@@ -121,12 +120,6 @@ export const menuConfig: MenuConfig = [
         icon: Calculator,
         label: 'LPR 计算器',
         path: PATHS.ADMIN_TOOLS_LPR,
-      },
-      {
-        id: 'content-ops',
-        icon: Megaphone,
-        label: '内容运营',
-        path: PATHS.ADMIN_TOOLS_CONTENT_OPS,
       },
     ],
   },

@@ -73,8 +73,6 @@ export const PATHS = {
   ADMIN_TOOLS_COURIER: '/admin/tools/courier-tracking',
   ADMIN_TOOLS_ELEMENT: '/admin/tools/element-convert',
   ADMIN_TOOLS_LPR: '/admin/tools/lpr-calculator',
-  ADMIN_TOOLS_CONTENT_OPS: '/admin/tools/content-ops',
-  ADMIN_TOOLS_CONTENT_OPS_INSPIRATION: '/admin/tools/content-ops/inspiration',
 
   // 联系人搜索
   ADMIN_CONTACT_SEARCH: '/admin/contact-search',

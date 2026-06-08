@@ -97,7 +97,6 @@ _HIDDEN_APP_LABELS = {
     "express_query",
     "doc_convert",
     "doc_converter",
-    "wechat_mp",
     "evidence_sorting",
     "legal_research",
     "legal_solution",
@@ -111,7 +110,6 @@ _HIDDEN_APP_LABELS = {
     "reminders",
     "message_hub",
     "workbench",
-    "content_ops",
 }
 
 # "其他工具"聚合页应用列表
@@ -132,8 +130,6 @@ _OTHER_TOOLS_APPS = [
     {"app_label": "express_query", "name": _("快递查询"), "url": "/admin/express_query/"},
     {"app_label": "doc_convert", "name": _("文档转换"), "url": "/admin/doc_convert/"},
     {"app_label": "doc_converter", "name": _("DOC 转 DOCX"), "url": "/admin/doc_converter/"},
-    {"app_label": "wechat_mp", "name": _("公众号发布"), "url": "/admin/wechat_mp/"},
-    {"app_label": "content_ops", "name": _("内容运营"), "url": "/admin/content_ops/"},
     {"app_label": "batch_printing", "name": _("批量打印"), "url": "/admin/batch_printing/"},
     {"app_label": "evidence_sorting", "name": _("证据整理"), "url": "/admin/evidence_sorting/"},
     {"app_label": "legal_research", "name": _("法律检索"), "url": "/admin/legal_research/"},

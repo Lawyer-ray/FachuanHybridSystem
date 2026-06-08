@@ -66,7 +66,6 @@ describe('router configuration', () => {
     expect(allPaths).toContain('/admin/tools/courier-tracking')
     expect(allPaths).toContain('/admin/tools/element-convert')
     expect(allPaths).toContain('/admin/tools/lpr-calculator')
-    expect(allPaths).toContain('/admin/tools/content-ops')
   })
 
   it('includes organization paths', () => {
@@ -133,11 +132,6 @@ describe('router configuration', () => {
   it('includes court sms detail path', () => {
     const allPaths = extractPaths(router.routes)
     expect(allPaths).toContain(PATHS.ADMIN_TOOLS_COURT_SMS_DETAIL)
-  })
-
-  it('includes content ops inspiration path', () => {
-    const allPaths = extractPaths(router.routes)
-    expect(allPaths).toContain(PATHS.ADMIN_TOOLS_CONTENT_OPS_INSPIRATION)
   })
 
   it('includes task queue path', () => {

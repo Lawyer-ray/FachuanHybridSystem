@@ -1,4 +1,4 @@
-"""Coverage tests for story_viz, content_ops, doc_converter, evidence, automation, wechat_mp, workbench, oa_filing, finance, contracts, client, cases, reminders, organization, sales_dispute, pdf_splitting."""
+"""Coverage tests for story_viz, doc_converter, evidence, automation, workbench, oa_filing, finance, contracts, client, cases, reminders, organization, sales_dispute, pdf_splitting."""
 from __future__ import annotations
 
 import pytest

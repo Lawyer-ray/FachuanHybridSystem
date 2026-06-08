@@ -206,51 +206,6 @@ class TestLPRSyncService:
         assert result is None
 
 
-# ── wechat_mp/auth_handler ──────────────────────────────────────
-
-
-class TestWechatMpAuthHandler:
-    @pytest.mark.asyncio
-    async def test_check_login_status_on_login_page(self) -> None:
-        from apps.wechat_mp.services.auth_handler import check_login_status
-
-        mock_page = MagicMock()
-        mock_page.url = "https://mp.weixin.qq.com/cgi-bin/loginpage?act=login"
-        result = await check_login_status(mock_page)
-        assert result is False
-
-    @pytest.mark.asyncio
-    async def test_check_login_status_no_indicators(self) -> None:
-        from apps.wechat_mp.services.auth_handler import check_login_status
-
-        mock_page = MagicMock()
-        mock_page.url = "https://mp.weixin.qq.com/cgi-bin/home"
-        mock_page.query_selector = AsyncMock(return_value=None)
-        result = await check_login_status(mock_page)
-        assert result is False
-
-    @pytest.mark.asyncio
-    async def test_capture_qr_code_element_found(self) -> None:
-        from apps.wechat_mp.services.auth_handler import capture_qr_code
-
-        mock_element = AsyncMock()
-        mock_element.screenshot = AsyncMock(return_value=b"qr_bytes")
-        mock_page = AsyncMock()
-        mock_page.query_selector = AsyncMock(return_value=mock_element)
-        result = await capture_qr_code(mock_page)
-        assert result == b"qr_bytes"
-
-    @pytest.mark.asyncio
-    async def test_capture_qr_code_not_found(self) -> None:
-        from apps.wechat_mp.services.auth_handler import capture_qr_code
-
-        mock_page = AsyncMock()
-        mock_page.query_selector = AsyncMock(return_value=None)
-        mock_page.screenshot = AsyncMock(return_value=b"full_page")
-        result = await capture_qr_code(mock_page)
-        assert result == b"full_page"
-
-
 # ── pdf_splitting/segment_detector ──────────────────────────────
 
 

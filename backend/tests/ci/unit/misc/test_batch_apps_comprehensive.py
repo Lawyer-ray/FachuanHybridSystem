@@ -10,7 +10,6 @@
 - apps/legal_solution/models/*.py
 - apps/batch_printing/models.py, schemas.py
 - apps/story_viz/models/*.py, schemas/*.py
-- apps/wechat_mp/models.py, schemas.py
 - apps/doc_converter/models.py, schemas.py
 - apps/finance/models/*.py, schemas/*.py
 - apps/evidence_sorting/models/*.py, schemas.py
