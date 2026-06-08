@@ -181,7 +181,7 @@ class CourtAdmin(admin.ModelAdmin):
                 loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(loop)
                 try:
-                    return loop.run_until_complete(service.initialize_courts())
+                    return loop.run_until_complete(service.initialize_courts(lawyer_id=request.user.id))
                 finally:
                     loop.close()
 

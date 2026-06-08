@@ -123,7 +123,7 @@ class CaseLogAdminReminderBatchTest(TestCase):
                 case_log=cls.case_logs[i],
                 reminder_type="hearing",
                 content=f"开庭提醒 {i}",
-                due_at=datetime.datetime(2026, 1, i + 1, tzinfo=datetime.timezone.utc),
+                due_at=datetime.datetime(2026, 1, i + 1, tzinfo=datetime.UTC),
             )
 
     def test_batch_load_produces_single_query(self) -> None:
@@ -194,7 +194,7 @@ class CaseLogAdminReminderBatchTest(TestCase):
             case_log=log,
             reminder_type="appeal_deadline",
             content="上诉期提醒",
-            due_at=datetime.datetime(2026, 12, 31, tzinfo=datetime.timezone.utc),
+            due_at=datetime.datetime(2026, 12, 31, tzinfo=datetime.UTC),
         )
 
         from apps.core.infrastructure.service_locator import ServiceLocator

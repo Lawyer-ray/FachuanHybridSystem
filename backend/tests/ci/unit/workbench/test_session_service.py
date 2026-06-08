@@ -44,6 +44,7 @@ class TestCreateSession:
         assert session.llm_model == "gpt-4"
         assert session.user == user
 
+    @pytest.mark.django_db
     def test_create_without_user(self, svc) -> None:
         session = svc.create_session(title="匿名会话")
         assert session.id is not None

@@ -13,6 +13,7 @@ from asgiref.sync import sync_to_async
 from django.db import transaction
 from django.utils import timezone
 
+from apps.core.dto import AccountCredentialDTO
 from apps.core.exceptions import TokenError
 from apps.core.models import CauseOfAction, Court
 from apps.core.repositories import CauseCourtRepository
@@ -138,6 +139,7 @@ class CauseCourtInitializationService:
     async def initialize_causes(
         self,
         credential_id: int | None = None,
+        lawyer_id: int | None = None,
     ) -> InitializationResult:
         """初始化案由数据
 
@@ -146,18 +148,18 @@ class CauseCourtInitializationService:
 
         Args:
             credential_id: 凭证 ID,可选.如果不指定则使用任意可用的 Token
+            lawyer_id: 当前操作用户的律师 ID,优先使用该用户的一张网账号
 
         Returns:
             InitializationResult 初始化结果
 
         Raises:
-            NotFoundError: 找不到可用的凭证或 Token
-            ValidationException: API 请求或数据解析失败
+            TokenError: 找不到可用的凭证或 Token
         """
         logger.info("开始初始化案由数据...")
 
         # 1. 获取一张网 Token(HS256 格式)
-        token = await self._get_zxfw_token(credential_id)
+        token = await self._get_zxfw_token(credential_id, lawyer_id=lawyer_id)
 
         # 2. 获取所有案由(刑事、民事、行政)
         all_cause_items = await self.api_client.fetch_all_causes(token)
@@ -184,11 +186,12 @@ class CauseCourtInitializationService:
 
         return result
 
-    async def _get_zxfw_token(self, credential_id: int | None = None) -> str:
+    async def _get_zxfw_token(self, credential_id: int | None = None, *, lawyer_id: int | None = None) -> str:
         """获取法院一张网 Token (HS256 格式)
 
         Args:
             credential_id: 凭证 ID,可选
+            lawyer_id: 当前操作用户的律师 ID,用于限定 token 和凭证范围
 
         Returns:
             一张网 Token 字符串 (HS256 格式)
@@ -198,29 +201,44 @@ class CauseCourtInitializationService:
         """
         logger.info("获取一张网 Token (HS256)...")
 
-        # 1. 检查现有一张网 Token
+        # 1. 确定 account（用于限定 token 范围）
+        account: str | None = None
+        if lawyer_id and not credential_id:
+            from .wiring import get_organization_service
+
+            organization_service = get_organization_service()
+            credential = await sync_to_async(organization_service.get_credential_for_lawyer)(
+                lawyer_id, self.COURT_SITE_NAME
+            )
+            if credential is None:
+                raise TokenError("当前用户没有配置一张网账号,请先在「账号管理」中添加")
+            account = credential.account
+
+        # 2. 检查现有一张网 Token（限定到该用户的 account）
         from .wiring import get_court_token_store_service
 
         token_store = get_court_token_store_service()
         token_info = await sync_to_async(token_store.get_latest_valid_token_internal)(
             site_name=self.COURT_SITE_NAME,
+            account=account,
             token_prefix="eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9",
         )
         if token_info:
             logger.info(f"✅ 找到现有有效一张网 Token: {token_info.account}")
             return token_info.token
 
-        # 2. 如果没有有效 Token,需要登录获取
+        # 3. 如果没有有效 Token,需要登录获取
         logger.info("无现有有效一张网 Token,将自动获取")
-        token = await self._acquire_zxfw_token(credential_id)
+        token = await self._acquire_zxfw_token(credential_id, lawyer_id=lawyer_id)
 
         return token
 
-    async def _acquire_zxfw_token(self, credential_id: int | None = None) -> str:
+    async def _acquire_zxfw_token(self, credential_id: int | None = None, *, lawyer_id: int | None = None) -> str:
         """自动登录并获取一张网 Token
 
         Args:
             credential_id: 凭证 ID,可选
+            lawyer_id: 当前操作用户的律师 ID,优先使用该用户的凭证
 
         Returns:
             一张网 Token 字符串
@@ -233,15 +251,20 @@ class CauseCourtInitializationService:
         organization_service = get_organization_service()
         token_store = get_court_token_store_service()
 
+        credential: AccountCredentialDTO | None = None
+
         if credential_id:
             credential = await sync_to_async(organization_service.get_credential)(credential_id)
         else:
-            all_credentials = await sync_to_async(organization_service.get_all_credentials)()
-            credentials = [c for c in all_credentials if "zxfw.court.gov.cn" in (c.url or "")]
-            if not credentials:
-                raise TokenError("没有找到法院一张网的账号凭证")
-            credential = credentials[0]
+            if not lawyer_id:
+                raise TokenError("未指定当前用户,无法获取一张网账号")
+            credential = await sync_to_async(organization_service.get_credential_for_lawyer)(
+                lawyer_id, self.COURT_SITE_NAME
+            )
+            if credential is None:
+                raise TokenError("当前用户没有配置一张网账号,请先在「账号管理」中添加")
 
+        assert credential is not None  # credential_id 或 lawyer_id 分支已保证
         account = credential.account
         password = credential.password
 
@@ -287,11 +310,11 @@ class CauseCourtInitializationService:
         logger.info(f"✅ 一张网 Token 已保存: {account}")
         return token
 
-    async def _get_token(self, credential_id: int | None = None) -> str:
+    async def _get_token(self, credential_id: int | None = None, *, lawyer_id: int | None = None) -> str:
         from .wiring import get_baoquan_token_service
 
         baoquan_token_service = get_baoquan_token_service()
-        return await baoquan_token_service.get_valid_baoquan_token(credential_id)
+        return await baoquan_token_service.get_valid_baoquan_token(credential_id, lawyer_id=lawyer_id)
 
     def _collect_cause_codes(self, items: list[CauseItem]) -> set[str]:
         """递归收集所有案由编码
@@ -449,6 +472,7 @@ class CauseCourtInitializationService:
     async def initialize_courts(
         self,
         credential_id: int | None = None,
+        lawyer_id: int | None = None,
     ) -> InitializationResult:
         """初始化法院数据
 
@@ -457,18 +481,18 @@ class CauseCourtInitializationService:
 
         Args:
             credential_id: 凭证 ID,可选.如果不指定则使用任意可用的 Token
+            lawyer_id: 当前操作用户的律师 ID,优先使用该用户的一张网账号
 
         Returns:
             InitializationResult 初始化结果
 
         Raises:
-            NotFoundError: 找不到可用的凭证或 Token
-            ValidationException: API 请求或数据解析失败
+            TokenError: 找不到可用的凭证或 Token
         """
         logger.info("开始初始化法院数据...")
 
         # 1. 获取 Token
-        token = await self._get_token(credential_id)
+        token = await self._get_token(credential_id, lawyer_id=lawyer_id)
 
         # 2. 从 API 获取数据
         response_data = await self.api_client.fetch_courts(token)
