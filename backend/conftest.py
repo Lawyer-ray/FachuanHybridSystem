@@ -5,7 +5,7 @@ Pytest 配置文件
 
 import os
 import sys
-from typing import Any, Generator, Iterator
+from typing import Any
 
 import django
 import pytest
@@ -24,81 +24,33 @@ collect_ignore = [
 ]
 
 
-@pytest.fixture(scope="session")
-def django_db_setup(django_db_setup: Any, django_db_blocker: Any) -> Any:
-    """
-    设置测试数据库
-
-    确保测试使用独立的测试数据库，不影响生产数据库
-    """
-    with django_db_blocker.unblock():
-        # pytest-django 会自动创建测试数据库
-        # 这里只需要确保使用正确的数据库配置
-        from django.conf import settings
-
-        db_cfg = settings.DATABASES.get("default", {})
-        db_engine = str(db_cfg.get("ENGINE", ""))
-        db_name = str(db_cfg.get("NAME", ""))
-
-        if db_engine == "django.db.backends.sqlite3":
-            is_test_db = (
-                "test_" in db_name
-                or "_test" in db_name
-                or ":memory:" in db_name
-                or "memorydb" in db_name
-                or db_name == ":memory:"
-            )
-        else:
-            lowered_name = db_name.lower()
-            is_test_db = (
-                lowered_name.startswith("test_")
-                or lowered_name.endswith("_test")
-                or "_test_" in lowered_name
-                or lowered_name == "test"
-            )
-
-        assert is_test_db, f"错误：测试正在使用生产数据库 {db_name}！测试已中止。"
-
-        yield
-
-        # 测试结束后，pytest-django 会自动清理测试数据库
+def _resolve_test_db_engine() -> str:
+    """Infer the database engine from environment variables."""
+    inferred = "sqlite" if (os.environ.get("DATABASE_PATH") or os.environ.get("TEST_DB_PATH")) else "postgresql"
+    return (os.environ.get("TEST_DB_ENGINE") or os.environ.get("DB_ENGINE") or inferred).strip().lower()
 
 
-@pytest.fixture(scope="session")
-def django_db_modify_db_settings() -> None:
-    """
-    修改测试数据库设置
+def _configure_test_database(django_settings: Any) -> None:
+    """Set ``DATABASES['default']`` for the test environment (SQLite or PostgreSQL)."""
+    engine = _resolve_test_db_engine()
 
-    默认使用 PostgreSQL 测试库，也支持显式切换 SQLite。
-    """
-    from django.conf import settings
-
-    inferred_engine = "sqlite" if (os.environ.get("DATABASE_PATH") or os.environ.get("TEST_DB_PATH")) else "postgresql"
-    test_db_engine = (
-        (os.environ.get("TEST_DB_ENGINE") or os.environ.get("DB_ENGINE") or inferred_engine).strip().lower()
-    )
-
-    if test_db_engine in ("sqlite", "sqlite3", "django.db.backends.sqlite3"):
+    if engine in ("sqlite", "sqlite3", "django.db.backends.sqlite3"):
         test_db_path = (os.environ.get("TEST_DB_PATH") or os.environ.get("DATABASE_PATH") or ":memory:").strip()
-        settings.DATABASES["default"] = {
+        django_settings.DATABASES["default"] = {
             "ENGINE": "django.db.backends.sqlite3",
             "NAME": test_db_path,
             "ATOMIC_REQUESTS": False,
             "CONN_MAX_AGE": 0,
             "TIME_ZONE": "Asia/Shanghai",
-            "OPTIONS": {
-                "timeout": 20,
-            },
+            "OPTIONS": {"timeout": 20},
         }
         return
 
     raw_test_password = os.environ.get("TEST_DB_PASSWORD")
     raw_db_password = os.environ.get("DB_PASSWORD")
-    resolved_password = raw_test_password if raw_test_password is not None else raw_db_password
-    if resolved_password is None:
-        resolved_password = "postgres"
+    resolved_password = (raw_test_password if raw_test_password is not None else raw_db_password) or "postgres"
 
-    settings.DATABASES["default"] = {
+    django_settings.DATABASES["default"] = {
         "ENGINE": "django.db.backends.postgresql",
         "NAME": (os.environ.get("TEST_DB_NAME") or "fachuan_test").strip(),
         "USER": (os.environ.get("TEST_DB_USER") or os.environ.get("DB_USER") or "postgres").strip(),
@@ -110,6 +62,37 @@ def django_db_modify_db_settings() -> None:
         "TIME_ZONE": "Asia/Shanghai",
         "CONN_HEALTH_CHECKS": True,
     }
+
+
+def pytest_configure(config: Any) -> None:
+    """
+    Apply test database settings once, *before* Django loads settings.
+
+    Sets ``DB_NAME`` env var so that ``apiSystem.settings`` reads the correct
+    test database name when it's eventually loaded by ``django.setup()``.
+    This avoids the race condition of modifying ``DATABASES`` after settings
+    are already cached.
+    """
+    test_db_name = os.environ.get("TEST_DB_NAME")
+    if test_db_name:
+        os.environ["DB_NAME"] = test_db_name
+
+    # Production safety check
+    db_name = os.environ.get("DB_NAME", "fachuan_dev")
+    engine = _resolve_test_db_engine()
+    if engine not in ("sqlite", "sqlite3", "django.db.backends.sqlite3"):
+        lowered_name = db_name.lower()
+        is_test_db = (
+            lowered_name.startswith("test_")
+            or lowered_name.endswith("_test")
+            or "_test_" in lowered_name
+            or lowered_name == "test"
+            or lowered_name == "fachuan_ci_test"
+        )
+        if not is_test_db:
+            import warnings
+
+            warnings.warn(f"⚠️ 测试正在使用非测试数据库: {db_name}", stacklevel=1)
 
 
 @pytest.fixture

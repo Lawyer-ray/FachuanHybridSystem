@@ -108,6 +108,8 @@ test = [
     "pytest-django==4.12.0",
     "pytest-cov==7.1.0",
     "pytest-asyncio==1.3.0",
+    "pytest-xdist==3.8.0",
+    "pytest-timeout==2.4.0",
     # --- Property-Based Testing ---
     "hypothesis==6.152.4",
     # --- 测试工厂 ---

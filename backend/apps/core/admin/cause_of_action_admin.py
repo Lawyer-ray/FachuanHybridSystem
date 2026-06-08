@@ -207,7 +207,7 @@ class CauseOfActionAdmin(admin.ModelAdmin):
                 loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(loop)
                 try:
-                    return loop.run_until_complete(service.initialize_causes())
+                    return loop.run_until_complete(service.initialize_causes(lawyer_id=request.user.id))
                 finally:
                     loop.close()
 

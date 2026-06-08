@@ -436,6 +436,7 @@ class TestCourtScheduleFetcher:
         assert count == 0
         assert mock_token.call_count == 2  # 初始 + 重试
 
+    @pytest.mark.timeout(60)
     @patch("apps.message_hub.services.court.court_schedule_fetcher._acquire_token")
     def test_fetch_server_error_retry_with_token_refresh(self, mock_token):
         """5xx 场景应刷新 Token 并重试一次。"""
@@ -455,6 +456,7 @@ class TestCourtScheduleFetcher:
         assert mock_token.call_count == 2
         mock_invalidate.assert_called_once()
 
+    @pytest.mark.timeout(60)
     @patch("apps.message_hub.services.court.court_schedule_fetcher._api_post")
     @patch("apps.message_hub.services.court.court_schedule_fetcher._acquire_token")
     def test_fetch_marks_failed_on_token_error(self, mock_token, mock_api):

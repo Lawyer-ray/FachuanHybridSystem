@@ -16,7 +16,7 @@ class PasswordResetServiceTest(TestCase):
     """密码重置服务测试"""
 
     # 标准测试手机号 / 标准测试密码
-    _TEST_PHONE = "13800000000"  # nosec: standard test phone
+    _TEST_PHONE = "00000000000"  # nosec: standard test phone
     _TEST_PASSWORD = "TestOldP@ss1"  # nosec: test fixture
 
     def setUp(self):

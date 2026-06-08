@@ -96,6 +96,12 @@ coverage.xml
 *,cover
 cov_annotate/
 backend/apiSystem/.coverage
+# Test output (generated docx files from LLM contract tests)
+backend/test_output/
+# Coverage reports (Jest/Istanbul)
+frontend/coverage/
+# detect-secrets temporary artifact
+*.secrets.baseline.new
 # Playwright screenshots (keep folder, ignore images)
 backend/tests/screenshots/*.png
 backend/tests/screenshots/*.jpg

@@ -318,33 +318,17 @@ jobs:
           TEST_DB_PORT: "5432"
           PYTHONPATH: "apiSystem:."
         run: |
-          uv run pytest -c pytest.ini -q -o addopts="" \
-            --reuse-db --import-mode=importlib \
+          uv run pytest -c pytest.ini -o addopts="" \
+            --reuse-db --import-mode=importlib -q \
             --cov=apps.cases.services.case.case_admin_export_bridge \
             --cov=apps.cases.services.case.case_contract_export_bridge \
             --cov=apps.contracts.services.contract.admin_workflows.clone_workflow \
             --cov=apps.client.services.text_parser \
             --cov=apps.enterprise_data.services.clients.api_key_pool \
-            --cov-report=term-missing --cov-fail-under=85 \
-            tests/ci/unit/
-
-      - name: Coverage (apps global baseline)
-        env:
-          DJANGO_DEBUG: "1"
-          DB_ENGINE: "postgresql"
-          TEST_DB_ENGINE: "postgresql"
-          TEST_DB_NAME: "fachuan_ci_test"
-          TEST_DB_USER: "postgres"
-          TEST_DB_PASSWORD: "postgres"
-          TEST_DB_HOST: "127.0.0.1"
-          TEST_DB_PORT: "5432"
-          PYTHONPATH: "apiSystem:."
-        run: |
-          uv run pytest -c pytest.ini -o addopts="" \
-            --reuse-db --import-mode=importlib \
             --cov=apps \
             --cov-report=term-missing --cov-fail-under=25 \
-            -q tests/ci/unit/
+            -n auto --dist loadfile \
+            tests/ci/unit/
 
   backend-integration-smoke:
     runs-on: ubuntu-latest

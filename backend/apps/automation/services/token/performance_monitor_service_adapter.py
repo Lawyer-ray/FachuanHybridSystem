@@ -130,7 +130,7 @@ class PerformanceMonitorServiceAdapter(IPerformanceMonitorService):
 
             # 尝试导入TokenAcquisitionHistory模型
             try:
-                from apps.automation.models import TokenAcquisitionHistory
+                from apps.automation.models import TokenAcquisitionHistory, TokenAcquisitionStatus
 
                 # 查询指定时间范围内的Token获取记录
                 queryset = TokenAcquisitionHistory.objects.filter(created_at__gte=start_time, created_at__lte=end_time)
@@ -139,15 +139,17 @@ class PerformanceMonitorServiceAdapter(IPerformanceMonitorService):
                 total_attempts = queryset.count()
 
                 # 统计成功和失败数量
-                successful_attempts = queryset.filter(success=True).count()  # type: ignore[misc]
-                failed_attempts = queryset.filter(success=False).count()  # type: ignore[misc]
+                successful_attempts = queryset.filter(status=TokenAcquisitionStatus.SUCCESS).count()
+                failed_attempts = queryset.exclude(status=TokenAcquisitionStatus.SUCCESS).count()
 
                 # 计算成功率
                 success_rate = (successful_attempts / total_attempts * 100) if total_attempts > 0 else 0
 
                 # 计算平均获取时间
                 avg_duration = (
-                    queryset.filter(success=True, total_duration__isnull=False).aggregate(  # type: ignore[misc]
+                    queryset.filter(
+                        status=TokenAcquisitionStatus.SUCCESS, total_duration__isnull=False
+                    ).aggregate(
                         avg_duration=Avg("total_duration")
                     )["avg_duration"]
                     or 0
@@ -156,7 +158,7 @@ class PerformanceMonitorServiceAdapter(IPerformanceMonitorService):
                 # 按站点统计
                 site_stats = {}
                 for record in queryset.values("site_name").annotate(
-                    count=Count("id"), success_count=Count("id", filter=Q(success=True))
+                    count=Count("id"), success_count=Count("id", filter=Q(status=TokenAcquisitionStatus.SUCCESS))
                 ):
                     site_name = record["site_name"]
                     site_stats[site_name] = {
