@@ -74,7 +74,7 @@ class EnterpriseProviderRegistry:
                 provider_name=provider_name,
                 base_url_key="QCC_MCP_BASE_URL",
                 base_url_default="https://agent.qcc.com",
-                sse_url_key="QCC_MCP_BASE_URL",  # 企查查不使用 SSE，复用 base_url
+                sse_url_key="QCC_MCP_BASE_URL",
                 sse_url_default="https://agent.qcc.com",
                 api_key_key="QCC_MCP_API_KEY",  # pragma: allowlist secret
             )

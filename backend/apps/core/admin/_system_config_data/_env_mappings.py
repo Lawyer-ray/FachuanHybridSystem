@@ -206,12 +206,6 @@ def get_env_mappings() -> dict[str, dict[str, Any]]:
             "description": "企查查 MCP API Key（Bearer Token，支持多 Key；每行一个）",
             "is_secret": True,
         },
-        "QCC_MCP_BASE_URL": {
-            "key": "QCC_MCP_BASE_URL",
-            "category": "enterprise_data",
-            "description": "企查查 MCP 基础地址（不含 Server 路径）",
-            "is_secret": False,
-        },
         "SCRAPER_ENCRYPTION_KEY": {
             "key": "SCRAPER_ENCRYPTION_KEY",
             "category": "scraper",
