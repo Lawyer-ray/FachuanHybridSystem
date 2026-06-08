@@ -33,13 +33,13 @@ _SERVER_PATHS: dict[str, str] = {
 
 # 统一能力 → (server_key, qcc_tool_name)
 _CAPABILITY_ROUTING: dict[str, tuple[str, str]] = {
-    "search_companies": ("company", "searchCompany"),
+    "search_companies": ("company", "get_company_by_query"),
     "get_company_profile": ("company", "get_company_registration_info"),
     "get_company_shareholders": ("company", "get_shareholder_info"),
     "get_company_personnel": ("company", "get_key_personnel"),
     "get_company_risks": ("risk", "get_dishonest_info"),
     "search_bidding_info": ("operation", "get_bidding_info"),
-    "get_person_profile": ("executive", "get_executive_info"),
+    "get_person_profile": ("executive", "get_executive_positions"),
 }
 
 
@@ -156,11 +156,11 @@ class QichachaMcpProvider:
         # 根据 risk_type 选择对应的 QCC 风险工具
         risk_tool_map = {
             "dishonest": "get_dishonest_info",
-            "executed": "get_executed_info",
-            "punishment": "get_administrative_punishment",
-            "court_document": "get_court_document",
-            "abnormal": "get_business_abnormal",
-            "judicial_sale": "get_judicial_sale",
+            "executed": "get_judgment_debtor_info",
+            "punishment": "get_administrative_penalty",
+            "court_document": "get_judicial_documents",
+            "abnormal": "get_business_exception",
+            "judicial_sale": "get_judicial_auction",
             "high_consumption": "get_high_consumption_restriction",
         }
         tool_name = risk_tool_map.get(risk_type, "get_dishonest_info")
