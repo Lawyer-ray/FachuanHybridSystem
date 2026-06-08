@@ -343,4 +343,126 @@ describe('BatchAnalysisDialog', () => {
     // Initially disabled since no prompt
     expect(screen.getByText('AI 优化')).toBeDisabled()
   })
+
+  it('handles file input change with valid files', () => {
+    render(<BatchAnalysisDialog {...defaultProps} />)
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement
+    const file = new File(['test'], 'test.docx', { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' })
+    fireEvent.change(fileInput, { target: { files: [file] } })
+    expect(screen.getByText('test.docx')).toBeInTheDocument()
+  })
+
+  it('shows file list after adding files', () => {
+    render(<BatchAnalysisDialog {...defaultProps} />)
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement
+    const file1 = new File(['test1'], 'doc1.docx', { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' })
+    const file2 = new File(['test2'], 'doc2.xlsx', { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+    fireEvent.change(fileInput, { target: { files: [file1, file2] } })
+    expect(screen.getByText('doc1.docx')).toBeInTheDocument()
+    expect(screen.getByText('doc2.xlsx')).toBeInTheDocument()
+  })
+
+  it('removes file from list', () => {
+    render(<BatchAnalysisDialog {...defaultProps} />)
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement
+    const file = new File(['test'], 'test.docx', { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' })
+    fireEvent.change(fileInput, { target: { files: [file] } })
+    expect(screen.getByText('test.docx')).toBeInTheDocument()
+    // Remove file
+    const removeBtns = screen.getAllByTestId('x-icon')
+    fireEvent.click(removeBtns[0])
+    expect(screen.queryByText('test.docx')).not.toBeInTheDocument()
+  })
+
+  it('shows file badges with extension', () => {
+    render(<BatchAnalysisDialog {...defaultProps} />)
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement
+    const file = new File(['test'], 'test.docx', { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' })
+    fireEvent.change(fileInput, { target: { files: [file] } })
+    expect(screen.getByText('DOCX')).toBeInTheDocument()
+  })
+
+  it('shows continue add button when files are selected', () => {
+    render(<BatchAnalysisDialog {...defaultProps} />)
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement
+    const file = new File(['test'], 'test.docx', { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' })
+    fireEvent.change(fileInput, { target: { files: [file] } })
+    expect(screen.getByText('继续添加')).toBeInTheDocument()
+  })
+
+  it('update button count with file selection', () => {
+    render(<BatchAnalysisDialog {...defaultProps} />)
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement
+    const file = new File(['test'], 'test.docx', { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' })
+    fireEvent.change(fileInput, { target: { files: [file] } })
+    // Click a preset to set prompt
+    fireEvent.click(screen.getByText('竞业限制'))
+    expect(screen.getByText('开始分析 (1 个文件)')).toBeInTheDocument()
+  })
+
+  it('submit calls onSubmit with correct args', async () => {
+    const onSubmit = vi.fn().mockResolvedValue(undefined)
+    render(<BatchAnalysisDialog {...defaultProps} onSubmit={onSubmit} />)
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement
+    const file = new File(['test'], 'test.docx', { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' })
+    fireEvent.change(fileInput, { target: { files: [file] } })
+    fireEvent.click(screen.getByText('竞业限制'))
+    fireEvent.click(screen.getByText(/开始分析/))
+    await waitFor(() => {
+      expect(onSubmit).toHaveBeenCalledWith(
+        expect.stringContaining('竞业限制'),
+        [file],
+        '',
+        50,
+      )
+    })
+  })
+
+  it('submit resets form on success', async () => {
+    const onSubmit = vi.fn().mockResolvedValue(undefined)
+    render(<BatchAnalysisDialog {...defaultProps} onSubmit={onSubmit} />)
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement
+    const file = new File(['test'], 'test.docx', { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' })
+    fireEvent.change(fileInput, { target: { files: [file] } })
+    fireEvent.click(screen.getByText('竞业限制'))
+    fireEvent.click(screen.getByText(/开始分析/))
+    await waitFor(() => {
+      expect(screen.getByText('开始分析 (0 个文件)')).toBeInTheDocument()
+    })
+  })
+
+  it('handles drop event with files', async () => {
+    render(<BatchAnalysisDialog {...defaultProps} />)
+    const dropZone = screen.getByText(/点击选择文件/).closest('div')!
+    const file = new File(['test'], 'dropped.docx', { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' })
+    fireEvent.drop(dropZone, { dataTransfer: { items: [{ webkitGetAsEntry: () => ({ isFile: true, isDirectory: false, name: 'dropped.docx', file: (cb: Function) => cb(file) }) }] } })
+    await waitFor(() => {
+      expect(screen.getByText('dropped.docx')).toBeInTheDocument()
+    })
+  })
+
+  it('concurrency input validates within range', () => {
+    render(<BatchAnalysisDialog {...defaultProps} />)
+    const inputs = screen.getAllByRole('spinbutton')
+    const numberInput = inputs[0]
+    fireEvent.change(numberInput, { target: { value: '75' } })
+    expect(numberInput).toHaveValue(75)
+  })
+
+  it('post-analysis prompt textarea works', () => {
+    render(<BatchAnalysisDialog {...defaultProps} />)
+    const textarea = screen.getByPlaceholderText(/留空则直接下载/)
+    fireEvent.change(textarea, { target: { value: '对比分析所有案例' } })
+    expect(textarea).toHaveValue('对比分析所有案例')
+  })
+
+  it('no duplicate files when same file added twice', () => {
+    render(<BatchAnalysisDialog {...defaultProps} />)
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement
+    const file = new File(['test'], 'test.docx', { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' })
+    fireEvent.change(fileInput, { target: { files: [file] } })
+    fireEvent.change(fileInput, { target: { files: [file] } })
+    // Should only have 1 file
+    expect(screen.getByText('开始分析 (1 个文件)')).toBeInTheDocument()
+  })
 })

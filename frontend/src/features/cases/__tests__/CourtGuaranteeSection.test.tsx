@@ -240,4 +240,361 @@ describe('CourtGuaranteeSection', () => {
     await user.click(selectButton)
     expect(toast.success).toHaveBeenCalledWith('已选用 担保公司A')
   })
+
+  it('renders quote range with equal min and max', async () => {
+    const infoEqualRange = {
+      ...baseInfo,
+      quote_context: {
+        quote_id: 100,
+        status: 'completed',
+        binding_id: null,
+        items: [
+          { id: 1, company_name: '公司B', min_amount: '500', max_amount: '500', max_apply_amount: '100000000', is_recommended: false },
+        ],
+      },
+    }
+    setupMocks(infoEqualRange)
+    render(<CourtGuaranteeSection caseId={1} />)
+    await waitFor(() => {
+      expect(screen.getByText('¥500')).toBeInTheDocument()
+    })
+  })
+
+  it('renders quote range with only min', async () => {
+    const infoMinOnly = {
+      ...baseInfo,
+      quote_context: {
+        quote_id: 100,
+        status: 'completed',
+        binding_id: null,
+        items: [
+          { id: 1, company_name: '公司C', min_amount: '300', max_amount: '', max_apply_amount: '200000000', is_recommended: false },
+        ],
+      },
+    }
+    setupMocks(infoMinOnly)
+    render(<CourtGuaranteeSection caseId={1} />)
+    await waitFor(() => {
+      expect(screen.getByText('¥300')).toBeInTheDocument()
+    })
+  })
+
+  it('renders quote range with only max', async () => {
+    const infoMaxOnly = {
+      ...baseInfo,
+      quote_context: {
+        quote_id: 100,
+        status: 'completed',
+        binding_id: null,
+        items: [
+          { id: 1, company_name: '公司D', min_amount: '', max_amount: '800', max_apply_amount: '300000000', is_recommended: false },
+        ],
+      },
+    }
+    setupMocks(infoMaxOnly)
+    render(<CourtGuaranteeSection caseId={1} />)
+    await waitFor(() => {
+      expect(screen.getByText('~ ¥800')).toBeInTheDocument()
+    })
+  })
+
+  it('renders quote range with no min and no max', async () => {
+    const infoNoRange = {
+      ...baseInfo,
+      quote_context: {
+        quote_id: 100,
+        status: 'completed',
+        binding_id: null,
+        items: [
+          { id: 1, company_name: '公司E', min_amount: '', max_amount: '', max_apply_amount: '', is_recommended: false },
+        ],
+      },
+    }
+    setupMocks(infoNoRange)
+    render(<CourtGuaranteeSection caseId={1} />)
+    await waitFor(() => {
+      expect(screen.getByText('公司E')).toBeInTheDocument()
+    })
+  })
+
+  it('renders quote with recommended flag', async () => {
+    setupMocks(infoWithQuote)
+    render(<CourtGuaranteeSection caseId={1} />)
+    await waitFor(() => {
+      expect(screen.getByText('担保公司A')).toBeInTheDocument()
+    })
+    // Recommended emoji should be present
+    expect(screen.getByText('🏆')).toBeInTheDocument()
+  })
+
+  it('handles respondent toggle', async () => {
+    setupMocks(infoWithMultipleRespondents)
+    const user = userEvent.setup()
+    render(<CourtGuaranteeSection caseId={1} />)
+    await waitFor(() => {
+      expect(screen.getByText(/被申请人/)).toBeInTheDocument()
+    })
+    // Toggle a respondent
+    const checkboxes = screen.getAllByTestId('checkbox')
+    if (checkboxes.length > 0) {
+      await user.click(checkboxes[0])
+    }
+    // Should not crash
+    expect(screen.getByText(/张三/)).toBeInTheDocument()
+  })
+
+  it('handles ensureGuaranteeQuote error', async () => {
+    setupMocks(baseInfo)
+    mockEnsureGuaranteeQuote.mockRejectedValue(new Error('fail'))
+    const user = userEvent.setup()
+    render(<CourtGuaranteeSection caseId={1} />)
+    await waitFor(() => {
+      expect(screen.getByText('发起询价')).toBeInTheDocument()
+    })
+    await user.click(screen.getByText('发起询价'))
+    await waitFor(() => {
+      expect(toast.error).toHaveBeenCalledWith('询价失败')
+    })
+  })
+
+  it('handles execute error', async () => {
+    setupMocks(infoWithQuote)
+    mockExecuteCourtGuarantee.mockRejectedValue(new Error('fail'))
+    const user = userEvent.setup()
+    render(<CourtGuaranteeSection caseId={1} />)
+    await waitFor(() => {
+      expect(screen.getByText('开始申请')).toBeInTheDocument()
+    })
+    await user.click(screen.getByText('开始申请'))
+    await waitFor(() => {
+      expect(toast.error).toHaveBeenCalledWith('申请保全失败')
+    })
+  })
+
+  it('renders execute button disabled without quote', async () => {
+    setupMocks(baseInfo)
+    render(<CourtGuaranteeSection caseId={1} />)
+    await waitFor(() => {
+      expect(screen.getByText('开始申请')).toBeInTheDocument()
+    })
+    // Button should be disabled without quote
+    expect(screen.getByText('开始申请')).toBeDisabled()
+  })
+
+  it('renders quote in progress state', async () => {
+    const infoQuoteInProgress = {
+      ...baseInfo,
+      quote_context: {
+        quote_id: 100,
+        status: 'processing',
+        binding_id: null,
+        items: [],
+      },
+    }
+    setupMocks(infoQuoteInProgress)
+    render(<CourtGuaranteeSection caseId={1} />)
+    await waitFor(() => {
+      expect(screen.getByText('询价中')).toBeInTheDocument()
+    })
+  })
+
+  it('renders session status when running', async () => {
+    setupMocks(infoWithQuote)
+    mockExecuteCourtGuarantee.mockResolvedValue({
+      session_id: 's1',
+      status: 'running',
+      progress: 50,
+      current_step: '正在登录...',
+      error: null,
+      timing: null,
+    })
+    const user = userEvent.setup()
+    render(<CourtGuaranteeSection caseId={1} />)
+    await waitFor(() => {
+      expect(screen.getByText('开始申请')).toBeInTheDocument()
+    })
+    await user.click(screen.getByText('开始申请'))
+    await waitFor(() => {
+      expect(screen.getByText('执行中')).toBeInTheDocument()
+      expect(screen.getByText('50%')).toBeInTheDocument()
+      expect(screen.getByText('正在登录...')).toBeInTheDocument()
+    })
+  })
+
+  it('renders session status when completed', async () => {
+    setupMocks(infoWithQuote)
+    mockExecuteCourtGuarantee.mockResolvedValue({
+      session_id: 's1',
+      status: 'completed',
+      progress: 100,
+      current_step: null,
+      error: null,
+      timing: null,
+    })
+    const user = userEvent.setup()
+    render(<CourtGuaranteeSection caseId={1} />)
+    await waitFor(() => {
+      expect(screen.getByText('开始申请')).toBeInTheDocument()
+    })
+    await user.click(screen.getByText('开始申请'))
+    await waitFor(() => {
+      expect(mockExecuteCourtGuarantee).toHaveBeenCalledWith(1)
+    })
+  })
+
+  it('renders session status when failed', async () => {
+    setupMocks(infoWithQuote)
+    mockExecuteCourtGuarantee.mockResolvedValue({
+      session_id: 's1',
+      status: 'failed',
+      progress: 30,
+      current_step: null,
+      error: '登录失败',
+      timing: null,
+    })
+    const user = userEvent.setup()
+    render(<CourtGuaranteeSection caseId={1} />)
+    await waitFor(() => {
+      expect(screen.getByText('开始申请')).toBeInTheDocument()
+    })
+    await user.click(screen.getByText('开始申请'))
+    await waitFor(() => {
+      expect(screen.getByText('失败')).toBeInTheDocument()
+      expect(screen.getByText('登录失败')).toBeInTheDocument()
+    })
+  })
+
+  it('renders respondent with legal_status_display', async () => {
+    setupMocks(infoWithMultipleRespondents)
+    render(<CourtGuaranteeSection caseId={1} />)
+    await waitFor(() => {
+      expect(screen.getByText(/张三（被告）/)).toBeInTheDocument()
+      expect(screen.getByText(/李四（第三人）/)).toBeInTheDocument()
+    })
+  })
+
+  it('disables quote button when no preservation amount', async () => {
+    setupMocks(infoWithoutAmount)
+    render(<CourtGuaranteeSection caseId={1} />)
+    await waitFor(() => {
+      expect(screen.getByText('发起询价')).toBeInTheDocument()
+    })
+    expect(screen.getByText('发起询价')).toBeDisabled()
+  })
+
+  it('renders consultant code input', async () => {
+    setupMocks(infoWithQuote)
+    render(<CourtGuaranteeSection caseId={1} />)
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText('顾问代码（可选）')).toBeInTheDocument()
+    })
+  })
+
+  it('renders no quote state message', async () => {
+    setupMocks(baseInfo)
+    render(<CourtGuaranteeSection caseId={1} />)
+    await waitFor(() => {
+      expect(screen.getByText(/尚未发起询价/)).toBeInTheDocument()
+    })
+  })
+
+  it('renders preserve amount when present', async () => {
+    setupMocks(baseInfo)
+    render(<CourtGuaranteeSection caseId={1} />)
+    await waitFor(() => {
+      expect(screen.getByText('¥100000')).toBeInTheDocument()
+    })
+  })
+
+  it('renders preserve category', async () => {
+    setupMocks(baseInfo)
+    render(<CourtGuaranteeSection caseId={1} />)
+    await waitFor(() => {
+      expect(screen.getByText('财产保全')).toBeInTheDocument()
+    })
+  })
+
+  it('renders court name', async () => {
+    setupMocks(baseInfo)
+    render(<CourtGuaranteeSection caseId={1} />)
+    await waitFor(() => {
+      expect(screen.getByText('北京市朝阳区人民法院')).toBeInTheDocument()
+    })
+  })
+
+  it('handles bindGuaranteeQuote', async () => {
+    setupMocks(infoWithQuote)
+    const user = userEvent.setup()
+    render(<CourtGuaranteeSection caseId={1} />)
+    await waitFor(() => {
+      expect(screen.getByText('绑定')).toBeInTheDocument()
+    })
+    await user.click(screen.getByText('绑定'))
+    await waitFor(() => {
+      expect(mockBindGuaranteeQuote).toHaveBeenCalledWith(100)
+      expect(toast.success).toHaveBeenCalledWith('绑定成功')
+    })
+  })
+
+  it('handles bindGuaranteeQuote error', async () => {
+    setupMocks(infoWithQuote)
+    mockBindGuaranteeQuote.mockRejectedValue(new Error('fail'))
+    const user = userEvent.setup()
+    render(<CourtGuaranteeSection caseId={1} />)
+    await waitFor(() => {
+      expect(screen.getByText('绑定')).toBeInTheDocument()
+    })
+    await user.click(screen.getByText('绑定'))
+    await waitFor(() => {
+      expect(toast.error).toHaveBeenCalledWith('绑定失败')
+    })
+  })
+
+  it('handles quote status failed with retry button', async () => {
+    const infoFailedQuote = {
+      ...baseInfo,
+      quote_context: {
+        quote_id: 100,
+        status: 'failed',
+        binding_id: null,
+        items: [],
+      },
+    }
+    setupMocks(infoFailedQuote)
+    const user = userEvent.setup()
+    render(<CourtGuaranteeSection caseId={1} />)
+    await waitFor(() => {
+      expect(screen.getByText('重试')).toBeInTheDocument()
+    })
+    await user.click(screen.getByText('重试'))
+    await waitFor(() => {
+      expect(mockRetryGuaranteeQuote).toHaveBeenCalledWith(100)
+      expect(toast.success).toHaveBeenCalledWith('重试已提交')
+    })
+  })
+
+  it('handles deleteGuaranteeQuote', async () => {
+    setupMocks(infoWithQuote)
+    const user = userEvent.setup()
+    render(<CourtGuaranteeSection caseId={1} />)
+    await waitFor(() => {
+      expect(screen.getByText('删除')).toBeInTheDocument()
+    })
+    await user.click(screen.getByText('删除'))
+    // Confirm dialog should appear
+    expect(screen.getByText('确认删除报价')).toBeInTheDocument()
+    await user.click(screen.getByText('确认'))
+    await waitFor(() => {
+      expect(mockDeleteGuaranteeQuote).toHaveBeenCalledWith(100)
+    })
+  })
+
+  it('handles getCourtGuaranteeInfo error gracefully', async () => {
+    mockGetCourtGuaranteeInfo.mockRejectedValue(new Error('fail'))
+    render(<CourtGuaranteeSection caseId={1} />)
+    // Should not crash
+    await waitFor(() => {
+      expect(screen.getByTestId('detail-card-title')).toHaveTextContent('诉讼保全担保')
+    })
+  })
 })

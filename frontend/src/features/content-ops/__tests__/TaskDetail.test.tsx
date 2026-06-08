@@ -453,4 +453,195 @@ describe('TaskDetail', () => {
     // In non-edit mode, source_summary should be visible
     expect(screen.getByText('来源摘要')).toBeInTheDocument()
   })
+
+  it('handles article approve button click', async () => {
+    const mockReviewMutate = vi.fn()
+    const articles = [
+      { id: 1, title: '文章1', content: '内容', source_summary: '', review_status: 'draft', reviewer_notes: '', llm_model: '', token_usage: null, created_at: '', updated_at: '' },
+    ]
+    setTask(baseTask, { articles })
+    hookOverrides = {
+      ...hookOverrides,
+      reviewArticle: { mutate: mockReviewMutate, isPending: false },
+    }
+    render(<MemoryRouter><TaskDetail taskId={1} /></MemoryRouter>)
+    const approveBtns = screen.getAllByText('通过')
+    fireEvent.click(approveBtns[0])
+    expect(mockReviewMutate).toHaveBeenCalled()
+  })
+
+  it('handles article reject button click', async () => {
+    const mockReviewMutate = vi.fn()
+    const articles = [
+      { id: 1, title: '文章1', content: '内容', source_summary: '', review_status: 'draft', reviewer_notes: '', llm_model: '', token_usage: null, created_at: '', updated_at: '' },
+    ]
+    setTask(baseTask, { articles })
+    hookOverrides = {
+      ...hookOverrides,
+      reviewArticle: { mutate: mockReviewMutate, isPending: false },
+    }
+    render(<MemoryRouter><TaskDetail taskId={1} /></MemoryRouter>)
+    const rejectBtns = screen.getAllByText('驳回')
+    fireEvent.click(rejectBtns[0])
+    expect(mockReviewMutate).toHaveBeenCalled()
+  })
+
+  it('handles expand/collapse for long article', () => {
+    const articles = [
+      { id: 1, title: '长文', content: 'A'.repeat(500), source_summary: '', review_status: 'draft', reviewer_notes: '', llm_model: '', token_usage: null, created_at: '', updated_at: '' },
+    ]
+    setTask(baseTask, { articles })
+    render(<MemoryRouter><TaskDetail taskId={1} /></MemoryRouter>)
+    fireEvent.click(screen.getByText('展开全文'))
+    expect(screen.getByText('收起')).toBeInTheDocument()
+  })
+
+  it('renders copy button for article', () => {
+    const articles = [
+      { id: 1, title: '文章', content: '内容', source_summary: '', review_status: 'draft', reviewer_notes: '', llm_model: '', token_usage: null, created_at: '', updated_at: '' },
+    ]
+    setTask(baseTask, { articles })
+    render(<MemoryRouter><TaskDetail taskId={1} /></MemoryRouter>)
+    expect(screen.getByText('复制全文')).toBeInTheDocument()
+  })
+
+  it('renders export button for article', () => {
+    const articles = [
+      { id: 1, title: '文章', content: '内容', source_summary: '', review_status: 'draft', reviewer_notes: '', llm_model: '', token_usage: null, created_at: '', updated_at: '' },
+    ]
+    setTask(baseTask, { articles })
+    render(<MemoryRouter><TaskDetail taskId={1} /></MemoryRouter>)
+    expect(screen.getByText('导出')).toBeInTheDocument()
+  })
+
+  it('renders edit button for draft articles', () => {
+    const articles = [
+      { id: 1, title: '文章', content: '内容', source_summary: '', review_status: 'draft', reviewer_notes: '', llm_model: '', token_usage: null, created_at: '', updated_at: '' },
+    ]
+    setTask(baseTask, { articles })
+    render(<MemoryRouter><TaskDetail taskId={1} /></MemoryRouter>)
+    expect(screen.getByText('编辑')).toBeInTheDocument()
+  })
+
+  it('handles edit button click to enter edit mode', () => {
+    const articles = [
+      { id: 1, title: '文章', content: '内容', source_summary: '', review_status: 'draft', reviewer_notes: '', llm_model: '', token_usage: null, created_at: '', updated_at: '' },
+    ]
+    setTask(baseTask, { articles })
+    render(<MemoryRouter><TaskDetail taskId={1} /></MemoryRouter>)
+    fireEvent.click(screen.getByText('编辑'))
+    // Should show save button in edit mode
+    const saveBtns = screen.getAllByText('保存')
+    expect(saveBtns.length).toBeGreaterThan(0)
+  })
+
+  it('handles cancel edit mode', () => {
+    const articles = [
+      { id: 1, title: '文章', content: '内容', source_summary: '', review_status: 'draft', reviewer_notes: '', llm_model: '', token_usage: null, created_at: '', updated_at: '' },
+    ]
+    setTask(baseTask, { articles })
+    render(<MemoryRouter><TaskDetail taskId={1} /></MemoryRouter>)
+    fireEvent.click(screen.getByText('编辑'))
+    // Click cancel
+    const cancelBtns = screen.getAllByText('取消')
+    fireEvent.click(cancelBtns[cancelBtns.length - 1])
+    // Should exit edit mode
+    expect(screen.getByText('编辑')).toBeInTheDocument()
+  })
+
+  it('renders regenerate button for draft articles', () => {
+    const articles = [
+      { id: 1, title: '文章', content: '内容', source_summary: '', review_status: 'draft', reviewer_notes: '', llm_model: '', token_usage: null, created_at: '', updated_at: '' },
+    ]
+    setTask(baseTask, { articles })
+    render(<MemoryRouter><TaskDetail taskId={1} /></MemoryRouter>)
+    expect(screen.getByText('重新生成')).toBeInTheDocument()
+  })
+
+  it('does not render edit button for non-draft articles', () => {
+    const articles = [
+      { id: 1, title: '文章', content: '内容', source_summary: '', review_status: 'approved', reviewer_notes: '', llm_model: '', token_usage: null, created_at: '', updated_at: '' },
+    ]
+    setTask(baseTask, { articles })
+    render(<MemoryRouter><TaskDetail taskId={1} /></MemoryRouter>)
+    expect(screen.queryByText('编辑')).not.toBeInTheDocument()
+  })
+
+  it('renders episode play button', () => {
+    const episodes = [
+      { id: 1, voice: '冰糖', audio_url: '', duration_seconds: 60, file_size_bytes: null, review_status: 'draft', reviewer_notes: '', content_source: 'article', article_id: 1, discussion_script_id: null, created_at: '', updated_at: '' },
+    ]
+    setTask(baseTask, { episodes })
+    render(<MemoryRouter><TaskDetail taskId={1} /></MemoryRouter>)
+    // Play button should be rendered
+    expect(screen.getByText(/音色: 冰糖/)).toBeInTheDocument()
+  })
+
+  it('renders episode download link', () => {
+    const episodes = [
+      { id: 1, voice: '冰糖', audio_url: '', duration_seconds: 60, file_size_bytes: 5242880, review_status: 'draft', reviewer_notes: '', content_source: 'article', article_id: 1, discussion_script_id: null, created_at: '', updated_at: '' },
+    ]
+    setTask(baseTask, { episodes })
+    render(<MemoryRouter><TaskDetail taskId={1} /></MemoryRouter>)
+    // Download link should be rendered - file_size_bytes = 5242880 = 5.0MB
+    expect(screen.getByText(/5\.0MB/)).toBeInTheDocument()
+  })
+
+  it('renders discussion review approve/reject buttons', () => {
+    const discussions = [
+      { id: 1, title: '讨论稿', topic: '', review_status: 'draft', reviewer_notes: '', turns: [{ id: 1, speaker_name: 'A', speaker_style_prompt: '', text: '内容', order: 0 }], llm_model: '', token_usage: null, created_at: '', updated_at: '' },
+    ]
+    setTask(baseTask, { discussions })
+    render(<MemoryRouter><TaskDetail taskId={1} /></MemoryRouter>)
+    // Discussion should have approve and reject buttons
+    const approveBtns = screen.getAllByText('通过')
+    const rejectBtns = screen.getAllByText('驳回')
+    expect(approveBtns.length).toBeGreaterThan(0)
+    expect(rejectBtns.length).toBeGreaterThan(0)
+  })
+
+  it('renders discussion regenerate and synthesize buttons', () => {
+    const discussions = [
+      { id: 1, title: '讨论稿', topic: '', review_status: 'draft', reviewer_notes: '', turns: [{ id: 1, speaker_name: 'A', speaker_style_prompt: '', text: '内容', order: 0 }], llm_model: '', token_usage: null, created_at: '', updated_at: '' },
+    ]
+    setTask(baseTask, { discussions })
+    render(<MemoryRouter><TaskDetail taskId={1} /></MemoryRouter>)
+    expect(screen.getByText('重新生成')).toBeInTheDocument()
+    expect(screen.getByText('合成音频')).toBeInTheDocument()
+  })
+
+  it('renders batch approve button with article and episode drafts', () => {
+    const articles = [
+      { id: 1, title: '文章1', content: '内容', source_summary: '', review_status: 'draft', reviewer_notes: '', llm_model: '', token_usage: null, created_at: '', updated_at: '' },
+    ]
+    const episodes = [
+      { id: 1, voice: '冰糖', audio_url: '', duration_seconds: 60, file_size_bytes: null, review_status: 'draft', reviewer_notes: '', content_source: 'article', article_id: 1, discussion_script_id: null, created_at: '', updated_at: '' },
+    ]
+    setTask(baseTask, { articles, episodes })
+    render(<MemoryRouter><TaskDetail taskId={1} /></MemoryRouter>)
+    expect(screen.getByText(/一键全部通过/)).toBeInTheDocument()
+  })
+
+  it('handles batch approve button click', async () => {
+    const { contentOpsApi } = await import('../api')
+    const articles = [
+      { id: 1, title: '文章1', content: '内容', source_summary: '', review_status: 'draft', reviewer_notes: '', llm_model: '', token_usage: null, created_at: '', updated_at: '' },
+    ]
+    setTask(baseTask, { articles })
+    render(<MemoryRouter><TaskDetail taskId={1} /></MemoryRouter>)
+    fireEvent.click(screen.getByText(/一键全部通过/))
+    await waitFor(() => {
+      expect(contentOpsApi.batchApproveArticles).toHaveBeenCalled()
+    })
+  })
+
+  it('renders discussion edit turn button', () => {
+    const discussions = [
+      { id: 1, title: '讨论稿', topic: '', review_status: 'draft', reviewer_notes: '', turns: [{ id: 1, speaker_name: 'A', speaker_style_prompt: '', text: '对话内容', order: 0 }], llm_model: '', token_usage: null, created_at: '', updated_at: '' },
+    ]
+    setTask(baseTask, { discussions })
+    render(<MemoryRouter><TaskDetail taskId={1} /></MemoryRouter>)
+    // Discussion turn should be rendered
+    expect(screen.getByText('对话内容')).toBeInTheDocument()
+  })
 })

@@ -1,5 +1,6 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import { CaseFolderSection } from '../components/CaseFolderSection'
+import { toast } from 'sonner'
 
 vi.mock('lucide-react', () => ({
   FolderOpen: (props: Record<string, unknown>) => <svg data-testid="folder-icon" {...props} />,
@@ -128,5 +129,150 @@ describe('CaseFolderSection', () => {
     }
     render(<CaseFolderSection binding={binding as never} caseId={1} />)
     expect(screen.getByText('WebDAV')).toBeInTheDocument()
+  })
+
+  it('renders local binding without storage label', () => {
+    const binding = {
+      id: 1,
+      folder_path: '/test',
+      storage_type: 'local',
+      is_accessible: true,
+    }
+    render(<CaseFolderSection binding={binding as never} caseId={1} />)
+    expect(screen.queryByText('本地')).not.toBeInTheDocument()
+  })
+
+  it('renders OneDrive storage type', () => {
+    const binding = {
+      id: 1,
+      folder_path: '/test',
+      storage_type: 'onedrive',
+      is_accessible: true,
+    }
+    render(<CaseFolderSection binding={binding as never} caseId={1} />)
+    expect(screen.getByText('OneDrive')).toBeInTheDocument()
+  })
+
+  it('renders S3 storage type', () => {
+    const binding = {
+      id: 1,
+      folder_path: '/test',
+      storage_type: 's3',
+      is_accessible: true,
+    }
+    render(<CaseFolderSection binding={binding as never} caseId={1} />)
+    expect(screen.getByText('S3 兼容存储')).toBeInTheDocument()
+  })
+
+  it('renders binding with folder_path_display', () => {
+    const binding = {
+      id: 1,
+      folder_path: '/home/user/cases/001',
+      folder_path_display: '案件001文件夹',
+      storage_type: 'local',
+      is_accessible: true,
+    }
+    render(<CaseFolderSection binding={binding as never} caseId={1} />)
+    expect(screen.getByText('案件001文件夹')).toBeInTheDocument()
+  })
+
+  it('renders binding without folder_path_display uses folder_path', () => {
+    const binding = {
+      id: 1,
+      folder_path: '/home/user/cases/001',
+      storage_type: 'local',
+      is_accessible: true,
+    }
+    render(<CaseFolderSection binding={binding as never} caseId={1} />)
+    expect(screen.getByText('/home/user/cases/001')).toBeInTheDocument()
+  })
+
+  it('renders relative path when present', () => {
+    const binding = {
+      id: 1,
+      folder_path: '/test',
+      relative_path: 'cases/001',
+      storage_type: 'local',
+      is_accessible: true,
+    }
+    render(<CaseFolderSection binding={binding as never} caseId={1} />)
+    expect(screen.getByText('相对路径: cases/001')).toBeInTheDocument()
+  })
+
+  it('renders unbound state with storage type selector', () => {
+    render(<CaseFolderSection binding={null} caseId={1} />)
+    expect(screen.getByText('未绑定文件夹')).toBeInTheDocument()
+    expect(screen.getByText('绑定')).toBeInTheDocument()
+  })
+
+  it('renders scan button for bound folder', () => {
+    const binding = {
+      id: 1,
+      folder_path: '/test',
+      storage_type: 'local',
+      is_accessible: true,
+    }
+    render(<CaseFolderSection binding={binding as never} caseId={1} />)
+    // Scan button should be present (hidden, visible on hover)
+    const searchIcons = screen.getAllByTestId('search-icon')
+    expect(searchIcons.length).toBeGreaterThan(0)
+  })
+
+  it('renders unlink button for bound folder', () => {
+    const binding = {
+      id: 1,
+      folder_path: '/test',
+      storage_type: 'local',
+      is_accessible: true,
+    }
+    render(<CaseFolderSection binding={binding as never} caseId={1} />)
+    const unlinkIcons = screen.getAllByTestId('unlink-icon')
+    expect(unlinkIcons.length).toBeGreaterThan(0)
+  })
+
+  it('renders Google Drive storage type', () => {
+    const binding = {
+      id: 1,
+      folder_path: '/test',
+      storage_type: 'google_drive',
+      is_accessible: true,
+    }
+    render(<CaseFolderSection binding={binding as never} caseId={1} />)
+    expect(screen.getByText('Google Drive')).toBeInTheDocument()
+  })
+
+  it('renders Dropbox storage type', () => {
+    const binding = {
+      id: 1,
+      folder_path: '/test',
+      storage_type: 'dropbox',
+      is_accessible: true,
+    }
+    render(<CaseFolderSection binding={binding as never} caseId={1} />)
+    expect(screen.getByText('Dropbox')).toBeInTheDocument()
+  })
+
+  it('renders unknown storage type falls back to local label', () => {
+    const binding = {
+      id: 1,
+      folder_path: '/test',
+      storage_type: 'unknown',
+      is_accessible: true,
+    }
+    render(<CaseFolderSection binding={binding as never} caseId={1} />)
+    // Unknown type should fall back to default label
+    expect(screen.getByText('/test')).toBeInTheDocument()
+  })
+
+  it('handles bind button click for local storage', () => {
+    render(<CaseFolderSection binding={null} caseId={1} />)
+    fireEvent.click(screen.getByText('绑定'))
+    // Should open folder browser (FolderBrowser is mocked)
+    expect(screen.getByTestId('folder-browser')).toBeInTheDocument()
+  })
+
+  it('handles undefined binding', () => {
+    render(<CaseFolderSection binding={undefined} caseId={1} />)
+    expect(screen.getByText('未绑定文件夹')).toBeInTheDocument()
   })
 })

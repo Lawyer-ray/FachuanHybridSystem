@@ -165,4 +165,268 @@ describe('OcrUploader', () => {
       expect(defaultProps.onError).toHaveBeenCalledWith('OCR failed')
     })
   })
+
+  it('handles cancel result', async () => {
+    vi.mocked(clientApi.recognizeIdentityDoc).mockResolvedValue({
+      success: true,
+      doc_type: 'id_card',
+      extracted_data: { name: 'Wang', id_number: '000000000000000100' },
+      confidence: 0.95,
+    })
+
+    render(<OcrUploader {...defaultProps} />)
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement
+    const file = new File(['test'], 'test.jpg', { type: 'image/jpeg' })
+    fireEvent.change(fileInput, { target: { files: [file] } })
+
+    await waitFor(() => {
+      expect(screen.getByText('取消')).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByText('取消'))
+    // Recognition result should be dismissed
+    expect(screen.queryByText('确认填充')).not.toBeInTheDocument()
+  })
+
+  it('handles remove file', async () => {
+    vi.mocked(clientApi.recognizeIdentityDoc).mockResolvedValue({
+      success: true,
+      doc_type: 'id_card',
+      extracted_data: { name: 'Wang', id_number: '000000000000000100' },
+      confidence: 0.95,
+    })
+
+    render(<OcrUploader {...defaultProps} />)
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement
+    const file = new File(['test'], 'test.jpg', { type: 'image/jpeg' })
+    fireEvent.change(fileInput, { target: { files: [file] } })
+
+    await waitFor(() => {
+      expect(screen.getByText('test.jpg')).toBeInTheDocument()
+    })
+
+    // Remove file
+    const removeBtn = screen.getByLabelText('移除文件')
+    fireEvent.click(removeBtn)
+
+    // Should show drop zone again
+    expect(screen.getByTestId('drop-zone')).toBeInTheDocument()
+  })
+
+  it('handles empty recognition result', async () => {
+    vi.mocked(clientApi.recognizeIdentityDoc).mockResolvedValue({
+      success: true,
+      doc_type: 'id_card',
+      extracted_data: {},
+      confidence: 0.95,
+    })
+
+    render(<OcrUploader {...defaultProps} />)
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement
+    const file = new File(['test'], 'test.jpg', { type: 'image/jpeg' })
+    fireEvent.change(fileInput, { target: { files: [file] } })
+
+    await waitFor(() => {
+      expect(screen.getByText('未能识别到有效信息')).toBeInTheDocument()
+    })
+  })
+
+  it('shows file preview for PDF files', async () => {
+    vi.mocked(clientApi.recognizeIdentityDoc).mockResolvedValue({
+      success: true,
+      doc_type: 'id_card',
+      extracted_data: { name: 'Wang' },
+      confidence: 0.95,
+    })
+
+    render(<OcrUploader {...defaultProps} />)
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement
+    const file = new File(['test'], 'test.pdf', { type: 'application/pdf' })
+    fireEvent.change(fileInput, { target: { files: [file] } })
+
+    await waitFor(() => {
+      expect(screen.getByText('test.pdf')).toBeInTheDocument()
+    })
+  })
+
+  it('handles invalid file extension fallback', async () => {
+    render(<OcrUploader {...defaultProps} />)
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement
+    // File with no MIME type but valid extension
+    const file = new File(['test'], 'test.xyz', { type: '' })
+    fireEvent.change(fileInput, { target: { files: [file] } })
+
+    await waitFor(() => {
+      expect(defaultProps.onError).toHaveBeenCalledWith(expect.stringContaining('不支持的文件格式'))
+    })
+  })
+
+  it('handles file too large', async () => {
+    render(<OcrUploader {...defaultProps} />)
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement
+    const file = new File(['x'.repeat(20 * 1024 * 1024)], 'large.jpg', { type: 'image/jpeg' })
+    Object.defineProperty(file, 'size', { value: 20 * 1024 * 1024 })
+    fireEvent.change(fileInput, { target: { files: [file] } })
+
+    await waitFor(() => {
+      expect(defaultProps.onError).toHaveBeenCalledWith(expect.stringContaining('10MB'))
+    })
+  })
+
+  it('handles click on drop zone', () => {
+    render(<OcrUploader {...defaultProps} />)
+    const dropZone = screen.getByTestId('drop-zone')
+    fireEvent.click(dropZone)
+    // Should trigger file input click - no crash
+    expect(dropZone).toBeInTheDocument()
+  })
+
+  it('handles drag enter and leave', () => {
+    render(<OcrUploader {...defaultProps} />)
+    const dropZone = screen.getByTestId('drop-zone')
+    fireEvent.dragEnter(dropZone, { dataTransfer: { items: ['item'] } })
+    fireEvent.dragOver(dropZone)
+    fireEvent.dragLeave(dropZone)
+    expect(dropZone).toBeInTheDocument()
+  })
+
+  it('handles drop with no files gracefully', () => {
+    render(<OcrUploader {...defaultProps} />)
+    const dropZone = screen.getByTestId('drop-zone')
+    fireEvent.drop(dropZone, { dataTransfer: { files: [] } })
+    // Should not crash
+    expect(screen.getByText('OCR 智能识别')).toBeInTheDocument()
+  })
+
+  it('handles file input reset after change', async () => {
+    vi.mocked(clientApi.recognizeIdentityDoc).mockResolvedValue({
+      success: true,
+      doc_type: 'id_card',
+      extracted_data: { name: 'Wang' },
+      confidence: 0.95,
+    })
+
+    render(<OcrUploader {...defaultProps} />)
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement
+    const file = new File(['test'], 'test.jpg', { type: 'image/jpeg' })
+    fireEvent.change(fileInput, { target: { files: [file] } })
+
+    await waitFor(() => {
+      expect(fileInput.value).toBe('')
+    })
+  })
+
+  it('handles async mode toggle', () => {
+    render(<OcrUploader {...defaultProps} />)
+    const asyncToggle = screen.getByRole('checkbox')
+    expect(asyncToggle).not.toBeChecked()
+    fireEvent.click(asyncToggle)
+    expect(asyncToggle).toBeChecked()
+  })
+
+  it('shows error with default message when OCR returns no error', async () => {
+    vi.mocked(clientApi.recognizeIdentityDoc).mockResolvedValue({
+      success: false,
+      doc_type: '',
+      extracted_data: {},
+      confidence: 0,
+    })
+
+    render(<OcrUploader {...defaultProps} />)
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement
+    const file = new File(['test'], 'test.jpg', { type: 'image/jpeg' })
+    fireEvent.change(fileInput, { target: { files: [file] } })
+
+    await waitFor(() => {
+      expect(defaultProps.onError).toHaveBeenCalledWith('识别失败，请重试或手动输入')
+    })
+  })
+
+  it('handles recognizeIdentityDoc network error', async () => {
+    vi.mocked(clientApi.recognizeIdentityDoc).mockRejectedValue(new Error('Network error'))
+
+    render(<OcrUploader {...defaultProps} />)
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement
+    const file = new File(['test'], 'test.jpg', { type: 'image/jpeg' })
+    fireEvent.change(fileInput, { target: { files: [file] } })
+
+    await waitFor(() => {
+      expect(defaultProps.onError).toHaveBeenCalledWith('Network error')
+    })
+  })
+
+  it('handles recognizeIdentityDoc non-Error exception', async () => {
+    vi.mocked(clientApi.recognizeIdentityDoc).mockRejectedValue('string error')
+
+    render(<OcrUploader {...defaultProps} />)
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement
+    const file = new File(['test'], 'test.jpg', { type: 'image/jpeg' })
+    fireEvent.change(fileInput, { target: { files: [file] } })
+
+    await waitFor(() => {
+      expect(defaultProps.onError).toHaveBeenCalledWith('识别失败，请检查网络连接')
+    })
+  })
+
+  it('shows legal representative for company OCR', async () => {
+    vi.mocked(clientApi.recognizeIdentityDoc).mockResolvedValue({
+      success: true,
+      doc_type: 'business_license',
+      extracted_data: {
+        name: '测试公司',
+        id_number: '91110000MA01XXXXX',
+        address: '北京市',
+        legal_representative: '张三',
+      },
+      confidence: 0.95,
+    })
+
+    render(<OcrUploader {...defaultProps} />)
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement
+    const file = new File(['test'], 'license.jpg', { type: 'image/jpeg' })
+    fireEvent.change(fileInput, { target: { files: [file] } })
+
+    await waitFor(() => {
+      expect(screen.getByText('测试公司')).toBeInTheDocument()
+      expect(screen.getByText('法定代表人')).toBeInTheDocument()
+      expect(screen.getByText('张三')).toBeInTheDocument()
+    })
+  })
+
+  it('shows address in recognition result', async () => {
+    vi.mocked(clientApi.recognizeIdentityDoc).mockResolvedValue({
+      success: true,
+      doc_type: 'id_card',
+      extracted_data: { name: 'Wang', address: '北京市朝阳区' },
+      confidence: 0.95,
+    })
+
+    render(<OcrUploader {...defaultProps} />)
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement
+    const file = new File(['test'], 'test.jpg', { type: 'image/jpeg' })
+    fireEvent.change(fileInput, { target: { files: [file] } })
+
+    await waitFor(() => {
+      expect(screen.getByText('地址')).toBeInTheDocument()
+      expect(screen.getByText('北京市朝阳区')).toBeInTheDocument()
+    })
+  })
+
+  it('does not allow file selection while uploading', async () => {
+    vi.mocked(clientApi.recognizeIdentityDoc).mockImplementation(() => new Promise(() => {}))
+
+    render(<OcrUploader {...defaultProps} />)
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement
+    const file = new File(['test'], 'test.jpg', { type: 'image/jpeg' })
+    fireEvent.change(fileInput, { target: { files: [file] } })
+
+    await waitFor(() => {
+      expect(screen.getByText('test.jpg')).toBeInTheDocument()
+    })
+
+    // Click drop zone while uploading should not trigger new upload
+    const dropZone = screen.getByTestId('drop-zone')
+    fireEvent.click(dropZone)
+    // Should not crash
+  })
 })

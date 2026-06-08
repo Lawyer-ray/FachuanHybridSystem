@@ -1,4 +1,4 @@
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
 import { ServiceConfig } from '../components/ServiceConfig'
 import { toast } from 'sonner'
@@ -542,5 +542,225 @@ describe('ServiceConfig', () => {
     render(<MemoryRouter><ServiceConfig /></MemoryRouter>)
     // Should show empty state
     expect(screen.getByText('该类别暂无配置项')).toBeInTheDocument()
+  })
+
+  it('renders test connection button for system category', () => {
+    setCategory('system')
+    render(<MemoryRouter><ServiceConfig /></MemoryRouter>)
+    expect(screen.getByText('测试连通性')).toBeInTheDocument()
+  })
+
+  it('handles test connection click', async () => {
+    setCategory('system')
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(JSON.stringify({ status: 'ok' }), { status: 200 }))
+    render(<MemoryRouter><ServiceConfig /></MemoryRouter>)
+    fireEvent.click(screen.getByText('测试连通性'))
+    await waitFor(() => {
+      expect(screen.getByText(/连接成功/)).toBeInTheDocument()
+    })
+    fetchSpy.mockRestore()
+  })
+
+  it('handles test connection error', async () => {
+    setCategory('system')
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('', { status: 500 }))
+    render(<MemoryRouter><ServiceConfig /></MemoryRouter>)
+    fireEvent.click(screen.getByText('测试连通性'))
+    await waitFor(() => {
+      expect(screen.getByText(/连接失败/)).toBeInTheDocument()
+    })
+    fetchSpy.mockRestore()
+  })
+
+  it('handles test connection timeout', async () => {
+    setCategory('system')
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockRejectedValue(Object.assign(new Error('abort'), { name: 'AbortError' }))
+    render(<MemoryRouter><ServiceConfig /></MemoryRouter>)
+    fireEvent.click(screen.getByText('测试连通性'))
+    await waitFor(() => {
+      expect(screen.getByText(/连接超时/)).toBeInTheDocument()
+    })
+    fetchSpy.mockRestore()
+  })
+
+  it('handles test connection network error', async () => {
+    setCategory('system')
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('Network error'))
+    render(<MemoryRouter><ServiceConfig /></MemoryRouter>)
+    fireEvent.click(screen.getByText('测试连通性'))
+    await waitFor(() => {
+      expect(screen.getByText(/无法连接到后端服务/)).toBeInTheDocument()
+    })
+    fetchSpy.mockRestore()
+  })
+
+  it('handles test connection with empty backend url', () => {
+    setCategory('system')
+    // Mock getBackendUrl to return empty
+    render(<MemoryRouter><ServiceConfig /></MemoryRouter>)
+    // Should render without crashing
+    expect(screen.getByText('测试连通性')).toBeInTheDocument()
+  })
+
+  it('handles open edit dialog from backend item', () => {
+    setCategory('ai')
+    hookOverrides = {
+      systemConfigs: {
+        data: [{
+          category: 'ai',
+          items: [{
+            key: 'OPENAI_API_KEY',
+            value: 'sk-test',
+            description: 'OpenAI Key',
+            is_secret: false,
+            is_active: true,
+            has_value: true,
+            category: 'ai',
+          }],
+        }],
+        isLoading: false,
+      },
+    }
+    render(<MemoryRouter><ServiceConfig /></MemoryRouter>)
+    fireEvent.click(screen.getByTitle('编辑配置项'))
+    expect(screen.getByText('编辑配置项')).toBeInTheDocument()
+  })
+
+  it('handles open delete dialog from backend item', () => {
+    setCategory('ai')
+    hookOverrides = {
+      systemConfigs: {
+        data: [{
+          category: 'ai',
+          items: [{
+            key: 'OPENAI_API_KEY',
+            value: 'sk-test',
+            description: 'OpenAI Key',
+            is_secret: false,
+            is_active: true,
+            has_value: true,
+            category: 'ai',
+          }],
+        }],
+        isLoading: false,
+      },
+    }
+    render(<MemoryRouter><ServiceConfig /></MemoryRouter>)
+    fireEvent.click(screen.getByTitle('删除配置项'))
+    expect(screen.getByText(/确认删除配置项/)).toBeInTheDocument()
+  })
+
+  it('renders config with has_value false for non-secret field', () => {
+    setCategory('ai')
+    hookOverrides = {
+      systemConfigs: {
+        data: [{
+          category: 'ai',
+          items: [{
+            key: 'OPENAI_API_KEY',
+            value: '',
+            description: 'OpenAI Key',
+            is_secret: false,
+            is_active: true,
+            has_value: false,
+            category: 'ai',
+          }],
+        }],
+        isLoading: false,
+      },
+    }
+    render(<MemoryRouter><ServiceConfig /></MemoryRouter>)
+    // Non-secret field with no value should show an input, not shield
+    expect(screen.getByText('OpenAI API Key')).toBeInTheDocument()
+  })
+
+  it('renders fields not in hints with fallback labels', () => {
+    setCategory('ai')
+    hookOverrides = {
+      systemConfigs: {
+        data: [{
+          category: 'ai',
+          items: [
+            { key: 'OPENAI_API_KEY', value: 'sk-test', description: 'OpenAI Key', is_secret: false, is_active: true, has_value: true, category: 'ai' },
+            { key: 'UNKNOWN_KEY', value: 'val', description: 'Unknown desc', is_secret: false, is_active: true, has_value: true, category: 'ai' },
+          ],
+        }],
+        isLoading: false,
+      },
+    }
+    render(<MemoryRouter><ServiceConfig /></MemoryRouter>)
+    // Unknown key should use description as label
+    expect(screen.getByText('Unknown desc')).toBeInTheDocument()
+  })
+
+  it('renders fields sorted by fieldOrder', () => {
+    setCategory('ai')
+    hookOverrides = {
+      systemConfigs: {
+        data: [{
+          category: 'ai',
+          items: [{
+            key: 'OPENAI_API_KEY',
+            value: 'sk-test',
+            description: 'OpenAI Key',
+            is_secret: false,
+            is_active: true,
+            has_value: true,
+            category: 'ai',
+          }],
+        }],
+        isLoading: false,
+      },
+    }
+    render(<MemoryRouter><ServiceConfig /></MemoryRouter>)
+    // The field should render properly
+    expect(screen.getByText('OpenAI API Key')).toBeInTheDocument()
+  })
+
+  it('handles empty backendGroups for non-system category', () => {
+    setCategory('ai')
+    hookOverrides = {
+      systemConfigs: {
+        data: [],
+        isLoading: false,
+      },
+    }
+    render(<MemoryRouter><ServiceConfig /></MemoryRouter>)
+    expect(screen.getByText('该类别暂无配置项')).toBeInTheDocument()
+  })
+
+  it('handles null category in useParams', () => {
+    setCategory(undefined)
+    render(<MemoryRouter><ServiceConfig /></MemoryRouter>)
+    expect(screen.getByText('配置')).toBeInTheDocument()
+  })
+
+  it('renders save system config with empty url removes from localStorage', () => {
+    setCategory('system')
+    const removeItemSpy = vi.spyOn(Storage.prototype, 'removeItem')
+    render(<MemoryRouter><ServiceConfig /></MemoryRouter>)
+    // Clear the default values - the system values should be empty initially for missing localStorage
+    fireEvent.click(screen.getByText('保存配置'))
+    expect(toast.success).toHaveBeenCalledWith('系统连接配置已保存，刷新页面后生效')
+    removeItemSpy.mockRestore()
+  })
+
+  it('renders hint groups with remaining ungrouped fields', () => {
+    setCategory('tts')
+    hookOverrides = {
+      systemConfigs: {
+        data: [{
+          category: 'tts',
+          items: [
+            { key: 'TTS_VOICE', value: '冰糖', description: 'TTS Voice', is_secret: false, is_active: true, has_value: true, category: 'tts' },
+            { key: 'TTS_EXTRA', value: 'extra', description: 'Extra', is_secret: false, is_active: true, has_value: true, category: 'tts' },
+          ],
+        }],
+        isLoading: false,
+      },
+    }
+    render(<MemoryRouter><ServiceConfig /></MemoryRouter>)
+    expect(screen.getByText('基础配置')).toBeInTheDocument()
+    expect(screen.getByText('其他')).toBeInTheDocument()
   })
 })

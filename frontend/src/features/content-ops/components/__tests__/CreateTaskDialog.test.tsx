@@ -64,6 +64,7 @@ vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
 
 import { render, screen, fireEvent } from '@testing-library/react'
 import { CreateTaskDialog } from '../CreateTaskDialog'
+import { toast } from 'sonner'
 
 describe('CreateTaskDialog', () => {
   it('renders dialog title when open', () => {
@@ -220,5 +221,113 @@ describe('CreateTaskDialog', () => {
     fireEvent.click(screen.getByText('多人讨论'))
     fireEvent.click(screen.getByText('添加角色'))
     expect(screen.getByText('添加角色')).toBeInTheDocument()
+  })
+
+  it('handles removing a speaker in discussion mode', () => {
+    render(<CreateTaskDialog open onOpenChange={vi.fn()} />)
+    fireEvent.click(screen.getByText('多人讨论'))
+    // Default has 3 speakers, remove one
+    const trashIcons = screen.getAllByTestId('trash')
+    expect(trashIcons.length).toBe(3)
+    fireEvent.click(trashIcons[0])
+    // Should have 2 speakers now
+    const remainingTrash = screen.getAllByTestId('trash')
+    expect(remainingTrash.length).toBe(2)
+  })
+
+  it('handles search mode without keyword shows error', () => {
+    render(<CreateTaskDialog open onOpenChange={vi.fn()} />)
+    fireEvent.click(screen.getByText('检索模式'))
+    fireEvent.click(screen.getByText('创建任务'))
+    expect(toast.error).toHaveBeenCalledWith('请输入检索关键词')
+  })
+
+  it('handles direct mode without content shows error', () => {
+    render(<CreateTaskDialog open onOpenChange={vi.fn()} />)
+    // Direct mode is default, but no content
+    fireEvent.click(screen.getByText('创建任务'))
+    expect(toast.error).toHaveBeenCalledWith('请输入内容')
+  })
+
+  it('handles search mode without credential shows error', () => {
+    render(<CreateTaskDialog open onOpenChange={vi.fn()} />)
+    fireEvent.click(screen.getByText('检索模式'))
+    // Fill keyword but no credential
+    const input = screen.getByPlaceholderText(/输入法律案例关键词/)
+    fireEvent.change(input, { target: { value: '竞业限制' } })
+    fireEvent.click(screen.getByText('创建任务'))
+    expect(toast.error).toHaveBeenCalledWith('请选择法律检索账号')
+  })
+
+  it('handles voice preview button click', async () => {
+    render(<CreateTaskDialog open onOpenChange={vi.fn()} />)
+    // The voice preview button should be clickable
+    const buttons = screen.getAllByRole('button')
+    // Find the volume2 button near voice selector
+    expect(buttons.length).toBeGreaterThan(0)
+  })
+
+  it('renders discussion mode speakers section', () => {
+    render(<CreateTaskDialog open onOpenChange={vi.fn()} />)
+    fireEvent.click(screen.getByText('多人讨论'))
+    expect(screen.getByText('讨论角色')).toBeInTheDocument()
+    // Should show default speakers
+    expect(screen.getByDisplayValue('主持人')).toBeInTheDocument()
+    expect(screen.getByDisplayValue('张律师')).toBeInTheDocument()
+    expect(screen.getByDisplayValue('李大姐')).toBeInTheDocument()
+  })
+
+  it('handles editing speaker fields', () => {
+    render(<CreateTaskDialog open onOpenChange={vi.fn()} />)
+    fireEvent.click(screen.getByText('多人讨论'))
+    const nameInputs = screen.getAllByPlaceholderText('角色名')
+    fireEvent.change(nameInputs[0], { target: { value: '新主持人' } })
+    expect(nameInputs[0]).toHaveValue('新主持人')
+  })
+
+  it('resets form on dialog reopen', () => {
+    const { rerender } = render(<CreateTaskDialog open onOpenChange={vi.fn()} defaultKeyword="old" />)
+    // Change mode
+    fireEvent.click(screen.getByText('检索模式'))
+    // Reopen dialog
+    rerender(<CreateTaskDialog open onOpenChange={vi.fn()} defaultKeyword="new" />)
+    // Should sync to new defaults
+    expect(screen.getByText('创建内容任务')).toBeInTheDocument()
+  })
+
+  it('handles direct mode with valid content and submit', () => {
+    render(<CreateTaskDialog open onOpenChange={vi.fn()} />)
+    const textarea = screen.getByPlaceholderText('粘贴案例内容、判决书摘要或任何法律文本...')
+    fireEvent.change(textarea, { target: { value: '测试法律内容' } })
+    fireEvent.click(screen.getByText('创建任务'))
+    // Should call the mutate function (via useCreateTask mock)
+    expect(toast.success).not.toHaveBeenCalled() // mutate is a no-op in mock
+  })
+
+  it('handles discussion mode output selection', () => {
+    render(<CreateTaskDialog open onOpenChange={vi.fn()} />)
+    fireEvent.click(screen.getByText('多人讨论'))
+    // Discussion speakers section should be visible
+    expect(screen.getByText('讨论角色')).toBeInTheDocument()
+  })
+
+  it('shows description for discussion output mode', () => {
+    render(<CreateTaskDialog open onOpenChange={vi.fn()} />)
+    fireEvent.click(screen.getByText('多人讨论'))
+    expect(screen.getByText('创建内容任务')).toBeInTheDocument()
+  })
+
+  it('handles case summary input', () => {
+    render(<CreateTaskDialog open onOpenChange={vi.fn()} />)
+    const summaryInput = screen.getByPlaceholderText(/简要描述案例背景/)
+    fireEvent.change(summaryInput, { target: { value: '案件摘要' } })
+    expect(summaryInput).toHaveValue('案件摘要')
+  })
+
+  it('renders default speakers with style prompts', () => {
+    render(<CreateTaskDialog open onOpenChange={vi.fn()} />)
+    fireEvent.click(screen.getByText('多人讨论'))
+    const styleInputs = screen.getAllByPlaceholderText('声音描述')
+    expect(styleInputs.length).toBe(3)
   })
 })

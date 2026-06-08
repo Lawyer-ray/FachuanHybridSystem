@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import { CaseNumberSection } from '../components/CaseNumberSection'
 
 vi.mock('lucide-react', () => ({
@@ -22,9 +22,9 @@ vi.mock('@/lib/format', () => ({ formatAmountInt: (v: number) => `${v}` }))
 
 vi.mock('../hooks/use-case-number-mutations', () => ({
   useCaseNumberMutations: () => ({
-    createNumber: { mutate: vi.fn(), isPending: false },
-    updateNumber: { mutate: vi.fn(), isPending: false },
-    deleteNumber: { mutate: vi.fn(), isPending: false },
+    createCaseNumber: { mutate: vi.fn(), isPending: false },
+    updateCaseNumber: { mutate: vi.fn(), isPending: false },
+    deleteCaseNumber: { mutate: vi.fn(), isPending: false },
   }),
 }))
 
@@ -107,6 +107,151 @@ describe('CaseNumberSection', () => {
   it('renders with empty caseNumbers array', () => {
     const { container } = render(<CaseNumberSection caseNumbers={[]} />)
     expect(container).toBeTruthy()
+  })
+
+  it('renders case number with document name', () => {
+    const numbers = [{
+      id: 1,
+      number: '(2024)京0105民初1234号',
+      display_number: '(2024)京0105民初1234号',
+      document_name: '民事判决书',
+      is_active: true,
+      remarks: '',
+    }]
+    render(<CaseNumberSection caseNumbers={numbers as never} />)
+    expect(screen.getByText('(2024)京0105民初1234号')).toBeInTheDocument()
+    expect(screen.getByText('(民事判决书)')).toBeInTheDocument()
+  })
+
+  it('renders case number with remarks', () => {
+    const numbers = [{
+      id: 1,
+      number: '案号1',
+      display_number: '案号1',
+      document_name: '',
+      is_active: true,
+      remarks: '这是备注',
+    }]
+    render(<CaseNumberSection caseNumbers={numbers as never} />)
+    expect(screen.getByText('这是备注')).toBeInTheDocument()
+  })
+
+  it('renders inactive case number with grey dot', () => {
+    const numbers = [{
+      id: 1,
+      number: '案号1',
+      display_number: '案号1',
+      is_active: false,
+    }]
+    render(<CaseNumberSection caseNumbers={numbers as never} />)
+    expect(screen.getByText('案号1')).toBeInTheDocument()
+  })
+
+  it('renders case number with execution parameters', () => {
+    const numbers = [{
+      id: 1,
+      number: '案号1',
+      display_number: '案号1',
+      is_active: true,
+      execution_cutoff_date: '2024-12-31',
+      execution_paid_amount: 5000,
+      execution_year_days: 365,
+      execution_date_inclusion: 'include',
+      execution_use_deduction_order: false,
+      execution_manual_text: '',
+    }]
+    render(<CaseNumberSection caseNumbers={numbers as never} />)
+    expect(screen.getByText('执行参数')).toBeInTheDocument()
+  })
+
+  it('renders case number with manual execution text', () => {
+    const numbers = [{
+      id: 1,
+      number: '案号1',
+      display_number: '案号1',
+      is_active: true,
+      execution_cutoff_date: '2024-12-31',
+      execution_paid_amount: 0,
+      execution_year_days: 360,
+      execution_date_inclusion: 'both',
+      execution_use_deduction_order: true,
+      execution_manual_text: '手动执行请求文本',
+    }]
+    render(<CaseNumberSection caseNumbers={numbers as never} />)
+    expect(screen.getByText('执行参数')).toBeInTheDocument()
+  })
+
+  it('renders multiple case numbers', () => {
+    const numbers = [
+      { id: 1, number: '案号A', display_number: '案号A', is_active: true },
+      { id: 2, number: '案号B', display_number: '案号B', is_active: false },
+    ]
+    render(<CaseNumberSection caseNumbers={numbers as never} />)
+    expect(screen.getByText('案号A')).toBeInTheDocument()
+    expect(screen.getByText('案号B')).toBeInTheDocument()
+  })
+
+  it('renders editable mode with edit and delete buttons', () => {
+    const numbers = [{
+      id: 1,
+      number: '案号1',
+      display_number: '案号1',
+      is_active: true,
+    }]
+    render(<CaseNumberSection caseNumbers={numbers as never} editable caseId={1} />)
+    expect(screen.getByText('案号1')).toBeInTheDocument()
+    // Edit and delete buttons should be present (rendered as icon buttons)
+    const pencilIcons = screen.getAllByTestId('pencil')
+    const trashIcons = screen.getAllByTestId('trash')
+    expect(pencilIcons.length).toBeGreaterThan(0)
+    expect(trashIcons.length).toBeGreaterThan(0)
+  })
+
+  it('renders editable mode with empty case numbers showing add dialog', () => {
+    render(<CaseNumberSection caseNumbers={[]} editable caseId={1} />)
+    // Should show "暂无案号" even in editable mode when empty
+    expect(screen.getByText('暂无案号')).toBeInTheDocument()
+  })
+
+  it('renders non-editable empty state', () => {
+    render(<CaseNumberSection caseNumbers={[]} />)
+    expect(screen.getByText('暂无案号')).toBeInTheDocument()
+  })
+
+  it('renders case number with execution_use_deduction_order true', () => {
+    const numbers = [{
+      id: 1,
+      number: '案号1',
+      display_number: '案号1',
+      is_active: true,
+      execution_cutoff_date: '2024-12-31',
+      execution_paid_amount: 0,
+      execution_year_days: 360,
+      execution_date_inclusion: 'both',
+      execution_use_deduction_order: true,
+      execution_manual_text: '',
+    }]
+    render(<CaseNumberSection caseNumbers={numbers as never} />)
+    // hasExecution = execution_cutoff_date is truthy => shows "执行参数"
+    expect(screen.getByText('执行参数')).toBeInTheDocument()
+  })
+
+  it('renders case number with year_days 0 (按实际天数)', () => {
+    const numbers = [{
+      id: 1,
+      number: '案号1',
+      display_number: '案号1',
+      is_active: true,
+      execution_cutoff_date: '',
+      execution_paid_amount: 100,
+      execution_year_days: 0,
+      execution_date_inclusion: '',
+      execution_use_deduction_order: false,
+      execution_manual_text: '',
+    }]
+    render(<CaseNumberSection caseNumbers={numbers as never} />)
+    // hasExecution = execution_paid_amount > 0 => shows "执行参数"
+    expect(screen.getByText('执行参数')).toBeInTheDocument()
   })
 
 })
