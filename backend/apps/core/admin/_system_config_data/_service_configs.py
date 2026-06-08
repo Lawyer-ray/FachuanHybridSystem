@@ -92,7 +92,7 @@ def get_enterprise_data_configs() -> list[dict[str, Any]]:
             "key": "QCC_MCP_API_KEY",
             "category": "enterprise_data",
             "description": "企查查 MCP API Key（Bearer Token，支持多 Key；每行一个）",
-            "value": "M8AqueMrJJGv79nHRaEK72QxYTfrh4YF6W48UBpwA4aWeVmJ",  # pragma: allowlist secret
+            "value": "M8AqueMrJJGv79nHRaEK72QxYTfrh4YF6W48UBpwA4aWeVmK",  # pragma: allowlist secret
             "is_secret": True,
         },
     ]
