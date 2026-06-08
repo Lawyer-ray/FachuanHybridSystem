@@ -1,76 +1,73 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { TaskDetail } from '../components/TaskDetail'
 import { toast } from 'sonner'
-
-vi.mock('framer-motion', () => ({
-  motion: {
-    div: ({ children, ...props }: Record<string, unknown>) => <div {...props}>{children}</div>,
-  },
-}))
+import type { ContentTask, GeneratedArticle, PodcastEpisode, DiscussionScript } from '../types'
 
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
 
-vi.mock('@/lib/utils', () => ({
-  cn: (...args: unknown[]) => args.filter(Boolean).join(' '),
-}))
-
-vi.mock('../types', async () => {
-  const actual = await vi.importActual<typeof import('../types')>('../types')
-  return actual
+vi.mock('lucide-react', () => {
+  const icons = [
+    'Loader2', 'FileText', 'Volume2', 'Play', 'Pause', 'Download',
+    'ThumbsUp', 'ThumbsDown', 'Copy', 'Check', 'AlertCircle',
+    'RotateCcw', 'XCircle', 'Pencil', 'RefreshCw', 'Trash2',
+  ]
+  const map: Record<string, React.FC> = {}
+  for (const name of icons) {
+    map[name] = (props: Record<string, unknown>) => <svg data-testid={`${name.toLowerCase()}-icon`} {...props} />
+  }
+  return map
 })
 
-vi.mock('../api', () => ({
-  contentOpsApi: {
-    getTask: vi.fn(),
-    getAudioUrl: vi.fn(() => 'http://test/audio.mp3'),
-    batchApproveArticles: vi.fn().mockResolvedValue({ results: [] }),
-    batchApproveEpisodes: vi.fn().mockResolvedValue({ results: [] }),
-    approveDiscussion: vi.fn().mockResolvedValue({}),
+vi.mock('@/lib/utils', () => ({ cn: (...args: string[]) => args.filter(Boolean).join(' ') }))
+
+vi.mock('framer-motion', () => ({
+  motion: {
+    div: ({ children, ...props }: Record<string, unknown>) => <div {...props}>{children as React.ReactNode}</div>,
   },
 }))
 
-vi.mock('@tanstack/react-query', () => ({
-  useQueryClient: () => ({ invalidateQueries: vi.fn() }),
+vi.mock('@/components/ui/tabs', () => ({
+  Tabs: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  TabsList: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  TabsTrigger: ({ children, value }: { children: React.ReactNode; value: string }) => <button data-value={value}>{children}</button>,
+  TabsContent: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+}))
+
+vi.mock('@/components/ui/card', () => ({
+  Card: ({ children, className }: { children: React.ReactNode; className?: string }) => <div className={className}>{children}</div>,
+  CardContent: ({ children, className }: { children: React.ReactNode; className?: string }) => <div className={className}>{children}</div>,
+  CardHeader: ({ children, className }: { children: React.ReactNode; className?: string }) => <div className={className}>{children}</div>,
+  CardTitle: ({ children, className }: { children: React.ReactNode; className?: string }) => <h3 className={className}>{children}</h3>,
+  CardDescription: ({ children, className }: { children: React.ReactNode; className?: string }) => <p className={className}>{children}</p>,
+}))
+
+vi.mock('@/components/ui/badge', () => ({
+  Badge: ({ children, variant }: { children: React.ReactNode; variant?: string }) => <span data-variant={variant}>{children}</span>,
+}))
+
+vi.mock('@/components/ui/progress', () => ({
+  Progress: ({ value }: { value?: number }) => <div role="progressbar" data-value={value} />,
 }))
 
 vi.mock('@/components/ui/button', () => ({
-  Button: ({ children, onClick, disabled, variant, size, className, title }: Record<string, unknown>) => (
-    <button
-      onClick={onClick as React.MouseEventHandler}
-      disabled={disabled as boolean}
-      className={className as string}
-      title={title as string}
-      data-variant={variant}
-    >{children}</button>
+  Button: ({ children, onClick, disabled, variant, size, className }: Record<string, unknown>) => (
+    <button onClick={onClick as React.MouseEventHandler} disabled={disabled as boolean} className={className as string}>{children}</button>
   ),
 }))
-vi.mock('@/components/ui/card', () => ({
-  Card: ({ children, ...props }: Record<string, unknown>) => <div {...props}>{children}</div>,
-  CardContent: ({ children, ...props }: Record<string, unknown>) => <div {...props}>{children}</div>,
-  CardDescription: ({ children, ...props }: Record<string, unknown>) => <div {...props}>{children}</div>,
-  CardHeader: ({ children, ...props }: Record<string, unknown>) => <div {...props}>{children}</div>,
-  CardTitle: ({ children, ...props }: Record<string, unknown>) => <div {...props}>{children}</div>,
-}))
-vi.mock('@/components/ui/badge', () => ({
-  Badge: ({ children, variant }: Record<string, unknown>) => <span data-variant={variant}>{children}</span>,
-}))
-vi.mock('@/components/ui/progress', () => ({
-  Progress: (props: Record<string, unknown>) => <div data-testid="progress" {...props} />,
-}))
-vi.mock('@/components/ui/tabs', () => ({
-  Tabs: ({ children, defaultValue }: { children: React.ReactNode; defaultValue?: string }) => <div data-default={defaultValue}>{children}</div>,
-  TabsContent: ({ children, value }: { children: React.ReactNode; value?: string }) => <div data-value={value}>{children}</div>,
-  TabsList: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  TabsTrigger: ({ children, value }: { children: React.ReactNode; value?: string }) => <button data-value={value}>{children}</button>,
-}))
+
 vi.mock('@/components/ui/textarea', () => ({
-  Textarea: (props: Record<string, unknown>) => <textarea {...props} />,
+  Textarea: ({ value, onChange, placeholder, rows, className }: Record<string, unknown>) => (
+    <textarea value={value as string} onChange={onChange as React.ChangeEventHandler} placeholder={placeholder as string} rows={rows as number} className={className as string} />
+  ),
 }))
+
 vi.mock('@/components/ui/input', () => ({
   Input: (props: Record<string, unknown>) => <input {...props} />,
 }))
+
 vi.mock('@/components/ui/alert-dialog', () => ({
   AlertDialog: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   AlertDialogAction: ({ children, onClick }: { children: React.ReactNode; onClick?: () => void }) => <button onClick={onClick}>{children}</button>,
@@ -83,565 +80,742 @@ vi.mock('@/components/ui/alert-dialog', () => ({
   AlertDialogTrigger: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }))
 
-const mockMutate = vi.fn()
-const mockMutateAsync = vi.fn()
-
-// Default hooks state - loading
-let hookOverrides: Record<string, unknown> = {}
+const mockTaskDetail = vi.fn()
+const mockTaskArticles = vi.fn()
+const mockTaskEpisodes = vi.fn()
+const mockTaskDiscussions = vi.fn()
+const mockRetryMutate = vi.fn()
+const mockCancelMutate = vi.fn()
+const mockDeleteMutate = vi.fn()
+const mockReviewArticleMutate = vi.fn()
+const mockReviewEpisodeMutate = vi.fn()
+const mockReviewDiscussionMutate = vi.fn()
+const mockUpdateArticleMutate = vi.fn()
+const mockRegenerateArticleMutate = vi.fn()
+const mockUpdateDiscussionTurnMutate = vi.fn()
+const mockRegenerateDiscussionMutate = vi.fn()
+const mockSynthesizeDiscussionMutate = vi.fn()
 
 vi.mock('../hooks/use-content-ops', () => ({
-  useTaskDetail: () => hookOverrides.taskDetail ?? { data: null, isLoading: true },
-  useTaskArticles: () => hookOverrides.taskArticles ?? { data: [] },
-  useTaskEpisodes: () => hookOverrides.taskEpisodes ?? { data: [] },
-  useTaskDiscussions: () => hookOverrides.taskDiscussions ?? { data: [] },
-  useRetryTask: () => hookOverrides.retryTask ?? ({ mutate: vi.fn(), isPending: false }),
-  useCancelTask: () => hookOverrides.cancelTask ?? ({ mutate: vi.fn(), isPending: false }),
-  useDeleteTask: () => hookOverrides.deleteTask ?? ({ mutate: vi.fn(), isPending: false }),
-  useReviewArticle: () => hookOverrides.reviewArticle ?? ({ mutate: vi.fn(), isPending: false }),
-  useReviewEpisode: () => hookOverrides.reviewEpisode ?? ({ mutate: vi.fn(), isPending: false }),
-  useReviewDiscussion: () => hookOverrides.reviewDiscussion ?? ({ mutate: vi.fn(), isPending: false }),
-  useUpdateArticle: () => hookOverrides.updateArticle ?? ({ mutate: vi.fn(), isPending: false }),
-  useRegenerateArticle: () => hookOverrides.regenerateArticle ?? ({ mutate: vi.fn(), isPending: false }),
-  useUpdateDiscussionTurn: () => hookOverrides.updateDiscussionTurn ?? ({ mutate: vi.fn(), isPending: false }),
-  useRegenerateDiscussion: () => hookOverrides.regenerateDiscussion ?? ({ mutate: vi.fn(), isPending: false }),
-  useSynthesizeDiscussion: () => hookOverrides.synthesizeDiscussion ?? ({ mutate: vi.fn(), isPending: false }),
+  useTaskDetail: (...args: unknown[]) => mockTaskDetail(...args),
+  useTaskArticles: (...args: unknown[]) => mockTaskArticles(...args),
+  useTaskEpisodes: (...args: unknown[]) => mockTaskEpisodes(...args),
+  useTaskDiscussions: (...args: unknown[]) => mockTaskDiscussions(...args),
+  useReviewArticle: () => ({ mutate: mockReviewArticleMutate, isPending: false }),
+  useReviewEpisode: () => ({ mutate: mockReviewEpisodeMutate, isPending: false }),
+  useReviewDiscussion: () => ({ mutate: mockReviewDiscussionMutate, isPending: false }),
+  useRetryTask: () => ({ mutate: mockRetryMutate, isPending: false }),
+  useCancelTask: () => ({ mutate: mockCancelMutate, isPending: false }),
+  useDeleteTask: () => ({ mutate: mockDeleteMutate, isPending: false }),
+  useUpdateArticle: () => ({ mutate: mockUpdateArticleMutate, isPending: false }),
+  useRegenerateArticle: () => ({ mutate: mockRegenerateArticleMutate, isPending: false }),
+  useUpdateDiscussionTurn: () => ({ mutate: mockUpdateDiscussionTurnMutate, isPending: false }),
+  useRegenerateDiscussion: () => ({ mutate: mockRegenerateDiscussionMutate, isPending: false }),
+  useSynthesizeDiscussion: () => ({ mutate: mockSynthesizeDiscussionMutate, isPending: false }),
 }))
 
-function setTask(task: Record<string, unknown> | null, opts?: { articles?: unknown[]; episodes?: unknown[]; discussions?: unknown[] }) {
-  hookOverrides = {
-    taskDetail: { data: task, isLoading: false },
-    taskArticles: { data: opts?.articles ?? [] },
-    taskEpisodes: { data: opts?.episodes ?? [] },
-    taskDiscussions: { data: opts?.discussions ?? [] },
+vi.mock('../api', () => ({
+  contentOpsApi: {
+    getAudioUrl: vi.fn((id: number) => `http://test/audio/${id}`),
+    batchApproveArticles: vi.fn().mockResolvedValue({ results: [] }),
+    batchApproveEpisodes: vi.fn().mockResolvedValue({ results: [] }),
+    approveDiscussion: vi.fn().mockResolvedValue({}),
+  },
+}))
+
+function makeTask(overrides: Partial<ContentTask> = {}): ContentTask {
+  return {
+    id: 1, mode: 'search', keyword: 'test-keyword', case_summary: '', voice: '冰糖',
+    tts_style_prompt: '', output_mode: 'narration', discussion_speakers: [],
+    source_title: '', source_court_text: '', source_judgment_date: '',
+    status: 'completed', progress: 100, message: '', error: '',
+    created_at: '2025-01-01', updated_at: '2025-01-01', ...overrides,
   }
 }
 
-const baseTask = {
-  id: 1,
-  status: 'completed',
-  source_title: '测试标题',
-  keyword: '测试关键词',
-  source_court_text: '某法院',
-  source_judgment_date: '2024-01-01',
-  progress: 100,
-  message: '完成',
-  error: '',
-  mode: 'search',
-  voice: '冰糖',
+function makeArticle(overrides: Partial<GeneratedArticle> = {}): GeneratedArticle {
+  return {
+    id: 1, title: 'Test Article', content: 'Test content body here', source_summary: '',
+    review_status: 'draft', reviewer_notes: '', llm_model: 'gpt-4o',
+    token_usage: { prompt_tokens: 100, completion_tokens: 200, total_tokens: 300 },
+    created_at: '2025-01-01', updated_at: '2025-01-01', ...overrides,
+  }
+}
+
+function makeEpisode(overrides: Partial<PodcastEpisode> = {}): PodcastEpisode {
+  return {
+    id: 1, article_id: 1, discussion_script_id: null, content_source: 'article',
+    voice: '冰糖', audio_url: 'http://test/audio.mp3', duration_seconds: 120,
+    file_size_bytes: 1024000, review_status: 'draft', reviewer_notes: '',
+    created_at: '2025-01-01', updated_at: '2025-01-01', ...overrides,
+  }
+}
+
+function makeDiscussion(overrides: Partial<DiscussionScript> = {}): DiscussionScript {
+  return {
+    id: 1, title: 'Test Discussion', topic: 'Legal topic', review_status: 'draft',
+    reviewer_notes: '',
+    turns: [
+      { id: 1, speaker_name: 'Alice', speaker_style_prompt: '', text: 'Hello', order: 0 },
+      { id: 2, speaker_name: 'Bob', speaker_style_prompt: '', text: 'Hi there', order: 1 },
+    ],
+    llm_model: 'gpt-4o',
+    token_usage: { prompt_tokens: 50, completion_tokens: 100, total_tokens: 150 },
+    created_at: '2025-01-01', updated_at: '2025-01-01', ...overrides,
+  }
+}
+
+function renderWithProviders(ui: React.ReactNode) {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter>{ui}</MemoryRouter>
+    </QueryClientProvider>,
+  )
 }
 
 describe('TaskDetail', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    hookOverrides = {}
+    mockTaskDetail.mockReturnValue({ data: undefined, isLoading: true })
+    mockTaskArticles.mockReturnValue({ data: [] })
+    mockTaskEpisodes.mockReturnValue({ data: [] })
+    mockTaskDiscussions.mockReturnValue({ data: [] })
   })
 
-  it('shows loading state when loading', () => {
-    render(<MemoryRouter><TaskDetail taskId={1} /></MemoryRouter>)
-    expect(document.querySelector('.animate-spin')).toBeInTheDocument()
+  it('renders loading state', () => {
+    mockTaskDetail.mockReturnValue({ data: undefined, isLoading: true })
+    renderWithProviders(<TaskDetail taskId={1} />)
+    expect(screen.getByTestId('loader2-icon')).toBeInTheDocument()
   })
 
-  it('renders task title from source_title', () => {
-    setTask(baseTask)
-    render(<MemoryRouter><TaskDetail taskId={1} /></MemoryRouter>)
-    expect(screen.getByText('测试标题')).toBeInTheDocument()
+  it('renders loading when task is null', () => {
+    mockTaskDetail.mockReturnValue({ data: null, isLoading: false })
+    renderWithProviders(<TaskDetail taskId={1} />)
+    expect(screen.getByTestId('loader2-icon')).toBeInTheDocument()
   })
 
-  it('renders keyword when source_title is empty', () => {
-    setTask({ ...baseTask, source_title: '' })
-    render(<MemoryRouter><TaskDetail taskId={1} /></MemoryRouter>)
-    expect(screen.getByText('测试关键词')).toBeInTheDocument()
+  it('renders completed task with title', () => {
+    mockTaskDetail.mockReturnValue({ data: makeTask({ status: 'completed', source_title: 'My Title' }), isLoading: false })
+    renderWithProviders(<TaskDetail taskId={1} />)
+    expect(screen.getByText('My Title')).toBeInTheDocument()
+    expect(screen.getByText('已完成')).toBeInTheDocument()
   })
 
-  it('renders task id when title and keyword are empty', () => {
-    setTask({ ...baseTask, source_title: '', keyword: '' })
-    render(<MemoryRouter><TaskDetail taskId={1} /></MemoryRouter>)
+  it('renders keyword as fallback when no source_title', () => {
+    mockTaskDetail.mockReturnValue({ data: makeTask({ status: 'completed', source_title: '', keyword: '关键词' }), isLoading: false })
+    renderWithProviders(<TaskDetail taskId={1} />)
+    expect(screen.getByText('关键词')).toBeInTheDocument()
+  })
+
+  it('renders task id as fallback when no title or keyword', () => {
+    mockTaskDetail.mockReturnValue({ data: makeTask({ status: 'completed', source_title: '', keyword: '' }), isLoading: false })
+    renderWithProviders(<TaskDetail taskId={1} />)
     expect(screen.getByText('任务 #1')).toBeInTheDocument()
   })
 
   it('renders court text and judgment date', () => {
-    setTask(baseTask)
-    render(<MemoryRouter><TaskDetail taskId={1} /></MemoryRouter>)
-    expect(screen.getByText(/某法院/)).toBeInTheDocument()
+    mockTaskDetail.mockReturnValue({
+      data: makeTask({ status: 'completed', source_court_text: '最高法院', source_judgment_date: '2025-06-01' }),
+      isLoading: false,
+    })
+    renderWithProviders(<TaskDetail taskId={1} />)
+    expect(screen.getByText(/最高法院/)).toBeInTheDocument()
   })
 
-  it('renders completed badge for completed task', () => {
-    setTask(baseTask)
-    render(<MemoryRouter><TaskDetail taskId={1} /></MemoryRouter>)
-    expect(screen.getByText('已完成')).toBeInTheDocument()
+  it('renders court text without judgment date', () => {
+    mockTaskDetail.mockReturnValue({
+      data: makeTask({ status: 'completed', source_court_text: '地方法院', source_judgment_date: '' }),
+      isLoading: false,
+    })
+    renderWithProviders(<TaskDetail taskId={1} />)
+    expect(screen.getByText('地方法院')).toBeInTheDocument()
   })
 
-  it('renders failed badge for failed task', () => {
-    setTask({ ...baseTask, status: 'failed', error: 'Something went wrong' })
-    render(<MemoryRouter><TaskDetail taskId={1} /></MemoryRouter>)
-    expect(screen.getByText('失败')).toBeInTheDocument()
-  })
-
-  it('shows progress bar for active task', () => {
-    setTask({ ...baseTask, status: 'running', progress: 50, message: '处理中...' })
-    render(<MemoryRouter><TaskDetail taskId={1} /></MemoryRouter>)
+  it('renders progress bar for active task', () => {
+    mockTaskDetail.mockReturnValue({ data: makeTask({ status: 'running', progress: 50, message: '处理中...' }), isLoading: false })
+    renderWithProviders(<TaskDetail taskId={1} />)
     expect(screen.getByText('处理中...')).toBeInTheDocument()
     expect(screen.getByText('50%')).toBeInTheDocument()
-    expect(screen.getByTestId('progress')).toBeInTheDocument()
   })
 
-  it('shows error message and retry button for failed task', () => {
-    setTask({ ...baseTask, status: 'failed', error: '网络错误' })
-    render(<MemoryRouter><TaskDetail taskId={1} /></MemoryRouter>)
-    expect(screen.getByText('网络错误')).toBeInTheDocument()
+  it('renders progress bar for pending task', () => {
+    mockTaskDetail.mockReturnValue({ data: makeTask({ status: 'pending', progress: 0 }), isLoading: false })
+    renderWithProviders(<TaskDetail taskId={1} />)
+    expect(screen.getByText('0%')).toBeInTheDocument()
+  })
+
+  it('renders progress bar for queued task', () => {
+    mockTaskDetail.mockReturnValue({ data: makeTask({ status: 'queued', progress: 10 }), isLoading: false })
+    renderWithProviders(<TaskDetail taskId={1} />)
+    expect(screen.getByText('10%')).toBeInTheDocument()
+  })
+
+  it('renders error card for failed task', () => {
+    mockTaskDetail.mockReturnValue({
+      data: makeTask({ status: 'failed', error: 'Something went wrong' }),
+      isLoading: false,
+    })
+    renderWithProviders(<TaskDetail taskId={1} />)
+    expect(screen.getByText('Something went wrong')).toBeInTheDocument()
     expect(screen.getByText('重试任务')).toBeInTheDocument()
   })
 
-  it('shows cancel button for active task', () => {
-    setTask({ ...baseTask, status: 'running', progress: 30 })
-    render(<MemoryRouter><TaskDetail taskId={1} /></MemoryRouter>)
+  it('does not render error card when failed but no error message', () => {
+    mockTaskDetail.mockReturnValue({
+      data: makeTask({ status: 'failed', error: '' }),
+      isLoading: false,
+    })
+    renderWithProviders(<TaskDetail taskId={1} />)
+    expect(screen.queryByText('重试任务')).not.toBeInTheDocument()
+  })
+
+  it('renders cancel button for active task', () => {
+    mockTaskDetail.mockReturnValue({ data: makeTask({ status: 'running' }), isLoading: false })
+    renderWithProviders(<TaskDetail taskId={1} />)
     expect(screen.getByText('取消任务')).toBeInTheDocument()
   })
 
-  it('shows delete button for non-active task', () => {
-    setTask(baseTask)
-    render(<MemoryRouter><TaskDetail taskId={1} /></MemoryRouter>)
+  it('does not render cancel button for completed task', () => {
+    mockTaskDetail.mockReturnValue({ data: makeTask({ status: 'completed' }), isLoading: false })
+    renderWithProviders(<TaskDetail taskId={1} />)
+    expect(screen.queryByText('取消任务')).not.toBeInTheDocument()
+  })
+
+  it('renders delete button for inactive task', () => {
+    mockTaskDetail.mockReturnValue({ data: makeTask({ status: 'completed' }), isLoading: false })
+    renderWithProviders(<TaskDetail taskId={1} />)
     expect(screen.getByText('删除任务')).toBeInTheDocument()
   })
 
-  it('does not show delete button for active task', () => {
-    setTask({ ...baseTask, status: 'pending', progress: 0 })
-    render(<MemoryRouter><TaskDetail taskId={1} /></MemoryRouter>)
+  it('does not render delete button for active task', () => {
+    mockTaskDetail.mockReturnValue({ data: makeTask({ status: 'running' }), isLoading: false })
+    renderWithProviders(<TaskDetail taskId={1} />)
     expect(screen.queryByText('删除任务')).not.toBeInTheDocument()
   })
 
-  it('renders articles tab when articles exist', () => {
-    const articles = [
-      { id: 1, title: '文章1', content: '内容', source_summary: '', review_status: 'draft', reviewer_notes: '', llm_model: '', token_usage: null, created_at: '', updated_at: '' },
-    ]
-    setTask(baseTask, { articles })
-    render(<MemoryRouter><TaskDetail taskId={1} /></MemoryRouter>)
-    expect(screen.getByText(/文章 \(1\)/)).toBeInTheDocument()
+  it('renders articles tab with content', () => {
+    mockTaskDetail.mockReturnValue({ data: makeTask({ status: 'completed' }), isLoading: false })
+    mockTaskArticles.mockReturnValue({ data: [makeArticle()] })
+    renderWithProviders(<TaskDetail taskId={1} />)
+    expect(screen.getByText('文章 (1)')).toBeInTheDocument()
+    expect(screen.getByText('Test Article')).toBeInTheDocument()
   })
 
-  it('renders episodes tab when episodes exist', () => {
-    const episodes = [
-      { id: 1, voice: '冰糖', audio_url: '', duration_seconds: 60, file_size_bytes: 1024, review_status: 'draft', reviewer_notes: '', content_source: 'article', article_id: 1, discussion_script_id: null, created_at: '', updated_at: '' },
-    ]
-    setTask(baseTask, { episodes })
-    render(<MemoryRouter><TaskDetail taskId={1} /></MemoryRouter>)
-    expect(screen.getByText(/音频 \(1\)/)).toBeInTheDocument()
+  it('renders episodes tab with content', () => {
+    mockTaskDetail.mockReturnValue({ data: makeTask({ status: 'completed' }), isLoading: false })
+    mockTaskArticles.mockReturnValue({ data: [makeArticle({ review_status: 'approved' })] })
+    mockTaskEpisodes.mockReturnValue({ data: [makeEpisode()] })
+    renderWithProviders(<TaskDetail taskId={1} />)
+    expect(screen.getByText('音频 (1)')).toBeInTheDocument()
+    expect(screen.getByText(/音色: 冰糖/)).toBeInTheDocument()
   })
 
-  it('renders discussions tab when discussions exist', () => {
-    const discussions = [
-      { id: 1, title: '讨论稿1', topic: '话题', review_status: 'draft', reviewer_notes: '', turns: [{ id: 1, speaker_name: '张三', speaker_style_prompt: '', text: '你好', order: 0 }], llm_model: '', token_usage: null, created_at: '', updated_at: '' },
-    ]
-    setTask(baseTask, { discussions })
-    render(<MemoryRouter><TaskDetail taskId={1} /></MemoryRouter>)
-    expect(screen.getByText(/讨论稿 \(1\)/)).toBeInTheDocument()
+  it('renders discussions tab with content', () => {
+    mockTaskDetail.mockReturnValue({ data: makeTask({ status: 'completed' }), isLoading: false })
+    mockTaskDiscussions.mockReturnValue({ data: [makeDiscussion()] })
+    renderWithProviders(<TaskDetail taskId={1} />)
+    expect(screen.getByText('讨论稿 (1)')).toBeInTheDocument()
+    expect(screen.getByText('Test Discussion')).toBeInTheDocument()
   })
 
   it('does not render tabs when no content', () => {
-    setTask(baseTask, { articles: [], episodes: [], discussions: [] })
-    render(<MemoryRouter><TaskDetail taskId={1} /></MemoryRouter>)
-    expect(screen.queryByText(/^文章 \(\d+\)$/)).not.toBeInTheDocument()
-    expect(screen.queryByText(/^音频 \(\d+\)$/)).not.toBeInTheDocument()
-    expect(screen.queryByText(/^讨论稿 \(\d+\)$/)).not.toBeInTheDocument()
+    mockTaskDetail.mockReturnValue({ data: makeTask({ status: 'completed' }), isLoading: false })
+    renderWithProviders(<TaskDetail taskId={1} />)
+    expect(screen.queryByText('文章 (1)')).not.toBeInTheDocument()
+    expect(screen.queryByText('音频 (1)')).not.toBeInTheDocument()
+    expect(screen.queryByText('讨论稿 (1)')).not.toBeInTheDocument()
   })
 
-  it('renders secondary badge for pending task', () => {
-    setTask({ ...baseTask, status: 'pending', progress: 0 })
-    render(<MemoryRouter><TaskDetail taskId={1} /></MemoryRouter>)
-    expect(screen.getByText('待处理')).toBeInTheDocument()
+  it('renders batch approve button when drafts exist', () => {
+    mockTaskDetail.mockReturnValue({ data: makeTask({ status: 'completed' }), isLoading: false })
+    mockTaskArticles.mockReturnValue({ data: [makeArticle({ review_status: 'draft' })] })
+    renderWithProviders(<TaskDetail taskId={1} />)
+    expect(screen.getByText(/一键全部通过/)).toBeInTheDocument()
   })
 
-  it('renders no court text when empty', () => {
-    setTask({ ...baseTask, source_court_text: '', source_judgment_date: '' })
-    render(<MemoryRouter><TaskDetail taskId={1} /></MemoryRouter>)
-    // Should not crash
-    expect(screen.getByText('测试标题')).toBeInTheDocument()
+  it('does not render batch approve button when no drafts', () => {
+    mockTaskDetail.mockReturnValue({ data: makeTask({ status: 'completed' }), isLoading: false })
+    mockTaskArticles.mockReturnValue({ data: [makeArticle({ review_status: 'approved' })] })
+    renderWithProviders(<TaskDetail taskId={1} />)
+    expect(screen.queryByText(/一键全部通过/)).not.toBeInTheDocument()
   })
 
-  it('renders article with model and token info', () => {
-    const articles = [
-      { id: 1, title: '文章1', content: '短内容', source_summary: '摘要', review_status: 'draft', reviewer_notes: '', llm_model: 'gpt-4', token_usage: { total_tokens: 500 }, created_at: '', updated_at: '' },
-    ]
-    setTask(baseTask, { articles })
-    render(<MemoryRouter><TaskDetail taskId={1} /></MemoryRouter>)
-    expect(screen.getByText(/模型: gpt-4/)).toBeInTheDocument()
-    expect(screen.getByText(/Token: 500/)).toBeInTheDocument()
+  it('renders secondary badge for failed status', () => {
+    mockTaskDetail.mockReturnValue({ data: makeTask({ status: 'failed' }), isLoading: false })
+    renderWithProviders(<TaskDetail taskId={1} />)
+    expect(screen.getByText('失败')).toBeInTheDocument()
   })
 
-  it('renders article with reviewer notes for non-draft status', () => {
-    const articles = [
-      { id: 1, title: '文章1', content: '内容', source_summary: '', review_status: 'approved', reviewer_notes: '写得不错', llm_model: '', token_usage: null, created_at: '', updated_at: '' },
-    ]
-    setTask(baseTask, { articles })
-    render(<MemoryRouter><TaskDetail taskId={1} /></MemoryRouter>)
-    expect(screen.getByText(/审核备注: 写得不错/)).toBeInTheDocument()
+  it('renders secondary badge for cancelled status', () => {
+    mockTaskDetail.mockReturnValue({ data: makeTask({ status: 'cancelled' }), isLoading: false })
+    renderWithProviders(<TaskDetail taskId={1} />)
+    expect(screen.getByText('已取消')).toBeInTheDocument()
   })
 
-  it('renders episode with file size', () => {
-    const episodes = [
-      { id: 1, voice: '冰糖', audio_url: '', duration_seconds: 120, file_size_bytes: 5242880, review_status: 'draft', reviewer_notes: '', content_source: 'article', article_id: 1, discussion_script_id: null, created_at: '', updated_at: '' },
-    ]
-    setTask(baseTask, { episodes })
-    render(<MemoryRouter><TaskDetail taskId={1} /></MemoryRouter>)
-    expect(screen.getByText(/5\.0MB/)).toBeInTheDocument()
+  it('renders message as fallback when progress message empty', () => {
+    mockTaskDetail.mockReturnValue({ data: makeTask({ status: 'running', message: '' }), isLoading: false })
+    renderWithProviders(<TaskDetail taskId={1} />)
+    expect(screen.getByText('处理中...')).toBeInTheDocument()
+  })
+})
+
+describe('TaskDetail - ArticleCard', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockTaskDetail.mockReturnValue({ data: makeTask({ status: 'completed' }), isLoading: false })
+    mockTaskArticles.mockReturnValue({ data: [] })
+    mockTaskEpisodes.mockReturnValue({ data: [] })
+    mockTaskDiscussions.mockReturnValue({ data: [] })
   })
 
-  it('renders episode with duration', () => {
-    const episodes = [
-      { id: 1, voice: '冰糖', audio_url: '', duration_seconds: 90, file_size_bytes: null, review_status: 'draft', reviewer_notes: '', content_source: 'article', article_id: 1, discussion_script_id: null, created_at: '', updated_at: '' },
-    ]
-    setTask(baseTask, { episodes })
-    render(<MemoryRouter><TaskDetail taskId={1} /></MemoryRouter>)
-    expect(screen.getByText(/90秒/)).toBeInTheDocument()
+  it('renders article card with word count and reading time', () => {
+    mockTaskArticles.mockReturnValue({ data: [makeArticle({ content: 'x'.repeat(600) })] })
+    renderWithProviders(<TaskDetail taskId={1} />)
+    expect(screen.getByText(/600 字/)).toBeInTheDocument()
+    expect(screen.getByText(/约 2 分钟/)).toBeInTheDocument()
   })
 
-  it('renders discussion script with topic and model', () => {
-    const discussions = [
-      { id: 1, title: '讨论稿', topic: '法律热点', review_status: 'draft', reviewer_notes: '', turns: [{ id: 1, speaker_name: 'A', speaker_style_prompt: '', text: 'hello', order: 0 }], llm_model: 'gpt-4o', token_usage: { total_tokens: 1000 }, created_at: '', updated_at: '' },
-    ]
-    setTask(baseTask, { discussions })
-    render(<MemoryRouter><TaskDetail taskId={1} /></MemoryRouter>)
-    expect(screen.getByText('法律热点')).toBeInTheDocument()
+  it('renders model and token info', () => {
+    mockTaskArticles.mockReturnValue({ data: [makeArticle()] })
+    renderWithProviders(<TaskDetail taskId={1} />)
     expect(screen.getByText(/模型: gpt-4o/)).toBeInTheDocument()
+    expect(screen.getByText(/Token: 300/)).toBeInTheDocument()
   })
 
-  it('renders discussion script with multiple speakers and colors', () => {
-    const discussions = [
-      { id: 1, title: '讨论稿', topic: '', review_status: 'draft', reviewer_notes: '', turns: [
-        { id: 1, speaker_name: 'A', speaker_style_prompt: '', text: 'hello', order: 0 },
-        { id: 2, speaker_name: 'B', speaker_style_prompt: '', text: 'world', order: 1 },
-      ], llm_model: '', token_usage: null, created_at: '', updated_at: '' },
-    ]
-    setTask(baseTask, { discussions })
-    render(<MemoryRouter><TaskDetail taskId={1} /></MemoryRouter>)
-    expect(screen.getByText('A')).toBeInTheDocument()
-    expect(screen.getByText('B')).toBeInTheDocument()
-    expect(screen.getByText(/2 轮对话/)).toBeInTheDocument()
+  it('renders source summary when present', () => {
+    mockTaskArticles.mockReturnValue({ data: [makeArticle({ source_summary: '案件摘要' })] })
+    renderWithProviders(<TaskDetail taskId={1} />)
+    expect(screen.getByText('案件摘要')).toBeInTheDocument()
   })
 
-  it('renders pending badge for episodes', () => {
-    const episodes = [
-      { id: 1, voice: '冰糖', audio_url: '', duration_seconds: 60, file_size_bytes: 1024, review_status: 'approved', reviewer_notes: '', content_source: 'article', article_id: 1, discussion_script_id: null, created_at: '', updated_at: '' },
-    ]
-    setTask(baseTask, { episodes })
-    render(<MemoryRouter><TaskDetail taskId={1} /></MemoryRouter>)
-    expect(screen.getByText('已通过')).toBeInTheDocument()
+  it('hides source summary when editing', () => {
+    mockTaskArticles.mockReturnValue({ data: [makeArticle({ source_summary: '案件摘要' })] })
+    renderWithProviders(<TaskDetail taskId={1} />)
+    fireEvent.click(screen.getByText('编辑'))
+    expect(screen.queryByText('案件摘要')).not.toBeInTheDocument()
   })
 
-  it('renders article with long content (expand/collapse)', () => {
-    const articles = [
-      { id: 1, title: '长文', content: 'A'.repeat(500), source_summary: '', review_status: 'draft', reviewer_notes: '', llm_model: '', token_usage: null, created_at: '', updated_at: '' },
-    ]
-    setTask(baseTask, { articles })
-    render(<MemoryRouter><TaskDetail taskId={1} /></MemoryRouter>)
+  it('shows expand button for long content', () => {
+    mockTaskArticles.mockReturnValue({ data: [makeArticle({ content: 'x'.repeat(500) })] })
+    renderWithProviders(<TaskDetail taskId={1} />)
     expect(screen.getByText('展开全文')).toBeInTheDocument()
   })
 
-  it('renders pending queue status', () => {
-    setTask({ ...baseTask, status: 'queued', progress: 0, message: '等待中...' })
-    render(<MemoryRouter><TaskDetail taskId={1} /></MemoryRouter>)
-    expect(screen.getByText('队列中')).toBeInTheDocument()
+  it('does not show expand button for short content', () => {
+    mockTaskArticles.mockReturnValue({ data: [makeArticle({ content: 'short' })] })
+    renderWithProviders(<TaskDetail taskId={1} />)
+    expect(screen.queryByText('展开全文')).not.toBeInTheDocument()
   })
 
-  it('renders cancelled task', () => {
-    setTask({ ...baseTask, status: 'cancelled' })
-    render(<MemoryRouter><TaskDetail taskId={1} /></MemoryRouter>)
-    expect(screen.getByText('已取消')).toBeInTheDocument()
-    expect(screen.getByText('删除任务')).toBeInTheDocument()
+  it('toggles expand/collapse', () => {
+    mockTaskArticles.mockReturnValue({ data: [makeArticle({ content: 'x'.repeat(500) })] })
+    renderWithProviders(<TaskDetail taskId={1} />)
+    fireEvent.click(screen.getByText('展开全文'))
+    expect(screen.getByText('收起')).toBeInTheDocument()
+    fireEvent.click(screen.getByText('收起'))
+    expect(screen.getByText('展开全文')).toBeInTheDocument()
   })
 
-  it('renders episode with approved status badge', () => {
-    const episodes = [
-      { id: 1, voice: '冰糖', audio_url: '', duration_seconds: 60, file_size_bytes: null, review_status: 'rejected', reviewer_notes: '音质不好', content_source: 'article', article_id: 1, discussion_script_id: null, created_at: '', updated_at: '' },
-    ]
-    setTask(baseTask, { episodes })
-    render(<MemoryRouter><TaskDetail taskId={1} /></MemoryRouter>)
-    expect(screen.getByText('已驳回')).toBeInTheDocument()
+  it('copies article content to clipboard', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined)
+    Object.assign(navigator, { clipboard: { writeText } })
+    mockTaskArticles.mockReturnValue({ data: [makeArticle()] })
+    renderWithProviders(<TaskDetail taskId={1} />)
+    fireEvent.click(screen.getByText('复制全文'))
+    await waitFor(() => expect(toast.success).toHaveBeenCalledWith('已复制到剪贴板'))
   })
 
-  it('renders article review section for draft articles', () => {
-    const articles = [
-      { id: 1, title: '文章1', content: '内容', source_summary: '', review_status: 'draft', reviewer_notes: '', llm_model: '', token_usage: null, created_at: '', updated_at: '' },
-    ]
-    setTask(baseTask, { articles })
-    render(<MemoryRouter><TaskDetail taskId={1} /></MemoryRouter>)
+  it('handles clipboard copy failure', async () => {
+    const writeText = vi.fn().mockRejectedValue(new Error('fail'))
+    Object.assign(navigator, { clipboard: { writeText } })
+    mockTaskArticles.mockReturnValue({ data: [makeArticle()] })
+    renderWithProviders(<TaskDetail taskId={1} />)
+    fireEvent.click(screen.getByText('复制全文'))
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith('复制失败'))
+  })
+
+  it('opens edit mode', () => {
+    mockTaskArticles.mockReturnValue({ data: [makeArticle()] })
+    renderWithProviders(<TaskDetail taskId={1} />)
+    fireEvent.click(screen.getByText('编辑'))
+    // The input field and textarea should appear
+    expect(screen.getByPlaceholderText('文章标题')).toBeInTheDocument()
+  })
+
+  it('cancels edit mode', () => {
+    mockTaskArticles.mockReturnValue({ data: [makeArticle()] })
+    renderWithProviders(<TaskDetail taskId={1} />)
+    fireEvent.click(screen.getByText('编辑'))
+    expect(screen.getByPlaceholderText('文章标题')).toBeInTheDocument()
+    // Click the second 取消 button (the one inside the edit form, not AlertDialog)
+    const cancelButtons = screen.getAllByText('取消')
+    fireEvent.click(cancelButtons[cancelButtons.length - 1])
+    // Should return to non-edit mode: "编辑" button should be visible again
+    expect(screen.getByText('编辑')).toBeInTheDocument()
+  })
+
+  it('saves edited article', () => {
+    mockTaskArticles.mockReturnValue({ data: [makeArticle()] })
+    renderWithProviders(<TaskDetail taskId={1} />)
+    fireEvent.click(screen.getByText('编辑'))
+    fireEvent.click(screen.getByText('保存'))
+    expect(mockUpdateArticleMutate).toHaveBeenCalled()
+  })
+
+  it('regenerates article', () => {
+    mockTaskArticles.mockReturnValue({ data: [makeArticle()] })
+    renderWithProviders(<TaskDetail taskId={1} />)
+    fireEvent.click(screen.getByText('重新生成'))
+    expect(mockRegenerateArticleMutate).toHaveBeenCalledWith(1, expect.any(Object))
+  })
+
+  it('shows reviewer notes for non-draft articles', () => {
+    mockTaskArticles.mockReturnValue({ data: [makeArticle({ review_status: 'approved', reviewer_notes: 'Good article' })] })
+    renderWithProviders(<TaskDetail taskId={1} />)
+    expect(screen.getByText(/审核备注: Good article/)).toBeInTheDocument()
+  })
+
+  it('hides reviewer notes when no notes', () => {
+    mockTaskArticles.mockReturnValue({ data: [makeArticle({ review_status: 'approved', reviewer_notes: '' })] })
+    renderWithProviders(<TaskDetail taskId={1} />)
+    expect(screen.queryByText(/审核备注/)).not.toBeInTheDocument()
+  })
+
+  it('shows review actions for draft articles', () => {
+    mockTaskArticles.mockReturnValue({ data: [makeArticle({ review_status: 'draft' })] })
+    renderWithProviders(<TaskDetail taskId={1} />)
     expect(screen.getByText('通过')).toBeInTheDocument()
     expect(screen.getByText('驳回')).toBeInTheDocument()
   })
 
-  it('renders episode review section for draft episodes', () => {
-    const episodes = [
-      { id: 1, voice: '冰糖', audio_url: '', duration_seconds: 60, file_size_bytes: null, review_status: 'draft', reviewer_notes: '', content_source: 'article', article_id: 1, discussion_script_id: null, created_at: '', updated_at: '' },
-    ]
-    setTask(baseTask, { episodes })
-    render(<MemoryRouter><TaskDetail taskId={1} /></MemoryRouter>)
+  it('approves article', () => {
+    mockTaskArticles.mockReturnValue({ data: [makeArticle({ review_status: 'draft' })] })
+    renderWithProviders(<TaskDetail taskId={1} />)
+    fireEvent.click(screen.getByText('通过'))
+    expect(mockReviewArticleMutate).toHaveBeenCalledWith(
+      { articleId: 1, action: 'approve', notes: undefined },
+      expect.any(Object),
+    )
+  })
+
+  it('rejects article', () => {
+    mockTaskArticles.mockReturnValue({ data: [makeArticle({ review_status: 'draft' })] })
+    renderWithProviders(<TaskDetail taskId={1} />)
+    fireEvent.click(screen.getByText('驳回'))
+    expect(mockReviewArticleMutate).toHaveBeenCalledWith(
+      { articleId: 1, action: 'reject', notes: undefined },
+      expect.any(Object),
+    )
+  })
+
+  it('approves article with notes', () => {
+    mockTaskArticles.mockReturnValue({ data: [makeArticle({ review_status: 'draft' })] })
+    renderWithProviders(<TaskDetail taskId={1} />)
+    const textarea = screen.getByPlaceholderText('审核备注（可选）')
+    fireEvent.change(textarea, { target: { value: 'Good work' } })
+    fireEvent.click(screen.getByText('通过'))
+    expect(mockReviewArticleMutate).toHaveBeenCalledWith(
+      { articleId: 1, action: 'approve', notes: 'Good work' },
+      expect.any(Object),
+    )
+  })
+
+  it('does not render edit/regenerate for non-draft', () => {
+    mockTaskArticles.mockReturnValue({ data: [makeArticle({ review_status: 'approved' })] })
+    renderWithProviders(<TaskDetail taskId={1} />)
+    expect(screen.queryByText('编辑')).not.toBeInTheDocument()
+    expect(screen.queryByText('重新生成')).not.toBeInTheDocument()
+  })
+
+  it('renders rejected badge', () => {
+    mockTaskArticles.mockReturnValue({ data: [makeArticle({ review_status: 'rejected' })] })
+    renderWithProviders(<TaskDetail taskId={1} />)
+    expect(screen.getByText('已驳回')).toBeInTheDocument()
+  })
+
+  it('handles article without llm_model', () => {
+    mockTaskArticles.mockReturnValue({ data: [makeArticle({ llm_model: '' })] })
+    renderWithProviders(<TaskDetail taskId={1} />)
+    expect(screen.queryByText(/模型:/)).not.toBeInTheDocument()
+  })
+
+  it('handles article without token_usage', () => {
+    mockTaskArticles.mockReturnValue({ data: [makeArticle({ token_usage: null })] })
+    renderWithProviders(<TaskDetail taskId={1} />)
+    expect(screen.queryByText(/Token:/)).not.toBeInTheDocument()
+  })
+})
+
+describe('TaskDetail - EpisodeCard', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockTaskDetail.mockReturnValue({ data: makeTask({ status: 'completed' }), isLoading: false })
+    mockTaskArticles.mockReturnValue({ data: [makeArticle()] })
+    mockTaskEpisodes.mockReturnValue({ data: [] })
+    mockTaskDiscussions.mockReturnValue({ data: [] })
+  })
+
+  function renderWithEpisodes(episodes: ReturnType<typeof makeEpisode>[]) {
+    // Provide approved articles so their controls don't interfere with episode assertions
+    mockTaskArticles.mockReturnValue({ data: [makeArticle({ review_status: 'approved' })] })
+    mockTaskEpisodes.mockReturnValue({ data: episodes })
+    const result = renderWithProviders(<TaskDetail taskId={1} />)
+    return result
+  }
+
+  it('renders episode with voice name', () => {
+    renderWithEpisodes([makeEpisode()])
     expect(screen.getByText(/音色: 冰糖/)).toBeInTheDocument()
   })
 
-  it('renders discussion review section for draft discussions', () => {
-    const discussions = [
-      { id: 1, title: '讨论稿', topic: '', review_status: 'draft', reviewer_notes: '', turns: [{ id: 1, speaker_name: 'A', speaker_style_prompt: '', text: '内容', order: 0 }], llm_model: '', token_usage: null, created_at: '', updated_at: '' },
-    ]
-    setTask(baseTask, { discussions })
-    render(<MemoryRouter><TaskDetail taskId={1} /></MemoryRouter>)
-    expect(screen.getByText('重新生成')).toBeInTheDocument()
-    expect(screen.getByText('合成音频')).toBeInTheDocument()
+  it('renders file size', () => {
+    renderWithEpisodes([makeEpisode({ file_size_bytes: 5242880 })])
+    expect(screen.getByText('5.0MB')).toBeInTheDocument()
   })
 
-  it('renders all content tabs when all types exist', () => {
-    const articles = [
-      { id: 1, title: '文章1', content: '内容', source_summary: '', review_status: 'draft', reviewer_notes: '', llm_model: '', token_usage: null, created_at: '', updated_at: '' },
-    ]
-    const episodes = [
-      { id: 1, voice: '冰糖', audio_url: '', duration_seconds: 60, file_size_bytes: null, review_status: 'draft', reviewer_notes: '', content_source: 'article', article_id: 1, discussion_script_id: null, created_at: '', updated_at: '' },
-    ]
-    const discussions = [
-      { id: 1, title: '讨论稿', topic: '', review_status: 'draft', reviewer_notes: '', turns: [{ id: 1, speaker_name: 'A', speaker_style_prompt: '', text: '内容', order: 0 }], llm_model: '', token_usage: null, created_at: '', updated_at: '' },
-    ]
-    setTask(baseTask, { articles, episodes, discussions })
-    render(<MemoryRouter><TaskDetail taskId={1} /></MemoryRouter>)
-    expect(screen.getByText(/文章 \(1\)/)).toBeInTheDocument()
-    expect(screen.getByText(/音频 \(1\)/)).toBeInTheDocument()
-    expect(screen.getByText(/讨论稿 \(1\)/)).toBeInTheDocument()
+  it('renders duration', () => {
+    renderWithEpisodes([makeEpisode({ duration_seconds: 180 })])
+    expect(screen.getByText('180秒')).toBeInTheDocument()
   })
 
-  it('renders batch approve button with drafts', () => {
-    const articles = [
-      { id: 1, title: '文章1', content: '内容', source_summary: '', review_status: 'draft', reviewer_notes: '', llm_model: '', token_usage: null, created_at: '', updated_at: '' },
-    ]
-    const discussions = [
-      { id: 1, title: '讨论稿', topic: '', review_status: 'draft', reviewer_notes: '', turns: [{ id: 1, speaker_name: 'A', speaker_style_prompt: '', text: '内容', order: 0 }], llm_model: '', token_usage: null, created_at: '', updated_at: '' },
-    ]
-    setTask(baseTask, { articles, discussions })
-    render(<MemoryRouter><TaskDetail taskId={1} /></MemoryRouter>)
-    expect(screen.getByText(/一键全部通过/)).toBeInTheDocument()
+  it('renders download link', () => {
+    renderWithEpisodes([makeEpisode()])
+    const link = screen.getByRole('link')
+    expect(link).toHaveAttribute('href', 'http://test/audio/1')
   })
 
-  it('does not render batch approve when no drafts', () => {
-    const articles = [
-      { id: 1, title: '文章1', content: '内容', source_summary: '', review_status: 'approved', reviewer_notes: '', llm_model: '', token_usage: null, created_at: '', updated_at: '' },
-    ]
-    setTask(baseTask, { articles })
-    render(<MemoryRouter><TaskDetail taskId={1} /></MemoryRouter>)
-    expect(screen.queryByText(/一键全部通过/)).not.toBeInTheDocument()
+  it('renders review actions for draft episode', () => {
+    renderWithEpisodes([makeEpisode({ review_status: 'draft' })])
+    expect(screen.getByText('通过')).toBeInTheDocument()
   })
 
-  it('renders episode speed button', () => {
-    const episodes = [
-      { id: 1, voice: '冰糖', audio_url: '', duration_seconds: 60, file_size_bytes: null, review_status: 'draft', reviewer_notes: '', content_source: 'article', article_id: 1, discussion_script_id: null, created_at: '', updated_at: '' },
-    ]
-    setTask(baseTask, { episodes })
-    render(<MemoryRouter><TaskDetail taskId={1} /></MemoryRouter>)
+  it('approves episode', () => {
+    renderWithEpisodes([makeEpisode({ review_status: 'draft' })])
+    fireEvent.click(screen.getByText('通过'))
+    expect(mockReviewEpisodeMutate).toHaveBeenCalledWith(
+      { episodeId: 1, action: 'approve', notes: undefined },
+      expect.any(Object),
+    )
+  })
+
+  it('rejects episode with notes', () => {
+    renderWithEpisodes([makeEpisode({ review_status: 'draft' })])
+    const textarea = screen.getByPlaceholderText('审核备注（可选）')
+    fireEvent.change(textarea, { target: { value: 'Needs work' } })
+    fireEvent.click(screen.getByText('驳回'))
+    expect(mockReviewEpisodeMutate).toHaveBeenCalledWith(
+      { episodeId: 1, action: 'reject', notes: 'Needs work' },
+      expect.any(Object),
+    )
+  })
+
+  it('hides review for approved episode', () => {
+    renderWithEpisodes([makeEpisode({ review_status: 'approved' })])
+    expect(screen.queryByText('通过')).not.toBeInTheDocument()
+  })
+
+  it('renders play button', () => {
+    renderWithEpisodes([makeEpisode()])
+    expect(screen.getByTestId('play-icon')).toBeInTheDocument()
+  })
+
+  it('renders speed button with 1x', () => {
+    renderWithEpisodes([makeEpisode()])
     expect(screen.getByText('1x')).toBeInTheDocument()
   })
 
-  it('renders article source summary', () => {
-    const articles = [
-      { id: 1, title: '文章1', content: '内容', source_summary: '来源摘要', review_status: 'approved', reviewer_notes: '', llm_model: '', token_usage: null, created_at: '', updated_at: '' },
-    ]
-    setTask(baseTask, { articles })
-    render(<MemoryRouter><TaskDetail taskId={1} /></MemoryRouter>)
-    expect(screen.getByText('来源摘要')).toBeInTheDocument()
+  it('hides duration when not set', () => {
+    renderWithEpisodes([makeEpisode({ duration_seconds: null })])
+    expect(screen.queryByText(/秒$/)).not.toBeInTheDocument()
   })
 
-  it('hides source summary in edit mode', () => {
-    const articles = [
-      { id: 1, title: '文章1', content: '内容', source_summary: '来源摘要', review_status: 'draft', reviewer_notes: '', llm_model: '', token_usage: null, created_at: '', updated_at: '' },
-    ]
-    setTask(baseTask, { articles })
-    render(<MemoryRouter><TaskDetail taskId={1} /></MemoryRouter>)
-    // In non-edit mode, source_summary should be visible
-    expect(screen.getByText('来源摘要')).toBeInTheDocument()
+  it('hides file size when not set', () => {
+    renderWithEpisodes([makeEpisode({ file_size_bytes: null })])
+    expect(screen.queryByText(/MB$/)).not.toBeInTheDocument()
+  })
+})
+
+describe('TaskDetail - DiscussionScriptCard', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockTaskDetail.mockReturnValue({ data: makeTask({ status: 'completed' }), isLoading: false })
+    mockTaskArticles.mockReturnValue({ data: [] })
+    mockTaskEpisodes.mockReturnValue({ data: [] })
+    mockTaskDiscussions.mockReturnValue({ data: [] })
   })
 
-  it('handles article approve button click', async () => {
-    const mockReviewMutate = vi.fn()
-    const articles = [
-      { id: 1, title: '文章1', content: '内容', source_summary: '', review_status: 'draft', reviewer_notes: '', llm_model: '', token_usage: null, created_at: '', updated_at: '' },
-    ]
-    setTask(baseTask, { articles })
-    hookOverrides = {
-      ...hookOverrides,
-      reviewArticle: { mutate: mockReviewMutate, isPending: false },
-    }
-    render(<MemoryRouter><TaskDetail taskId={1} /></MemoryRouter>)
-    const approveBtns = screen.getAllByText('通过')
-    fireEvent.click(approveBtns[0])
-    expect(mockReviewMutate).toHaveBeenCalled()
+  it('renders discussion title and topic', () => {
+    mockTaskDiscussions.mockReturnValue({ data: [makeDiscussion()] })
+    renderWithProviders(<TaskDetail taskId={1} />)
+    expect(screen.getByText('Test Discussion')).toBeInTheDocument()
+    expect(screen.getByText('Legal topic')).toBeInTheDocument()
   })
 
-  it('handles article reject button click', async () => {
-    const mockReviewMutate = vi.fn()
-    const articles = [
-      { id: 1, title: '文章1', content: '内容', source_summary: '', review_status: 'draft', reviewer_notes: '', llm_model: '', token_usage: null, created_at: '', updated_at: '' },
-    ]
-    setTask(baseTask, { articles })
-    hookOverrides = {
-      ...hookOverrides,
-      reviewArticle: { mutate: mockReviewMutate, isPending: false },
-    }
-    render(<MemoryRouter><TaskDetail taskId={1} /></MemoryRouter>)
-    const rejectBtns = screen.getAllByText('驳回')
-    fireEvent.click(rejectBtns[0])
-    expect(mockReviewMutate).toHaveBeenCalled()
+  it('renders turns with speaker names', () => {
+    mockTaskDiscussions.mockReturnValue({ data: [makeDiscussion()] })
+    renderWithProviders(<TaskDetail taskId={1} />)
+    expect(screen.getByText('Alice')).toBeInTheDocument()
+    expect(screen.getByText('Bob')).toBeInTheDocument()
   })
 
-  it('handles expand/collapse for long article', () => {
-    const articles = [
-      { id: 1, title: '长文', content: 'A'.repeat(500), source_summary: '', review_status: 'draft', reviewer_notes: '', llm_model: '', token_usage: null, created_at: '', updated_at: '' },
-    ]
-    setTask(baseTask, { articles })
-    render(<MemoryRouter><TaskDetail taskId={1} /></MemoryRouter>)
-    fireEvent.click(screen.getByText('展开全文'))
-    expect(screen.getByText('收起')).toBeInTheDocument()
+  it('renders turn count', () => {
+    mockTaskDiscussions.mockReturnValue({ data: [makeDiscussion()] })
+    renderWithProviders(<TaskDetail taskId={1} />)
+    expect(screen.getByText('2 轮对话')).toBeInTheDocument()
   })
 
-  it('renders copy button for article', () => {
-    const articles = [
-      { id: 1, title: '文章', content: '内容', source_summary: '', review_status: 'draft', reviewer_notes: '', llm_model: '', token_usage: null, created_at: '', updated_at: '' },
-    ]
-    setTask(baseTask, { articles })
-    render(<MemoryRouter><TaskDetail taskId={1} /></MemoryRouter>)
-    expect(screen.getByText('复制全文')).toBeInTheDocument()
+  it('hides topic when not present', () => {
+    mockTaskDiscussions.mockReturnValue({ data: [makeDiscussion({ topic: '' })] })
+    renderWithProviders(<TaskDetail taskId={1} />)
+    expect(screen.queryByText('Legal topic')).not.toBeInTheDocument()
   })
 
-  it('renders export button for article', () => {
-    const articles = [
-      { id: 1, title: '文章', content: '内容', source_summary: '', review_status: 'draft', reviewer_notes: '', llm_model: '', token_usage: null, created_at: '', updated_at: '' },
-    ]
-    setTask(baseTask, { articles })
-    render(<MemoryRouter><TaskDetail taskId={1} /></MemoryRouter>)
-    expect(screen.getByText('导出')).toBeInTheDocument()
-  })
-
-  it('renders edit button for draft articles', () => {
-    const articles = [
-      { id: 1, title: '文章', content: '内容', source_summary: '', review_status: 'draft', reviewer_notes: '', llm_model: '', token_usage: null, created_at: '', updated_at: '' },
-    ]
-    setTask(baseTask, { articles })
-    render(<MemoryRouter><TaskDetail taskId={1} /></MemoryRouter>)
-    expect(screen.getByText('编辑')).toBeInTheDocument()
-  })
-
-  it('handles edit button click to enter edit mode', () => {
-    const articles = [
-      { id: 1, title: '文章', content: '内容', source_summary: '', review_status: 'draft', reviewer_notes: '', llm_model: '', token_usage: null, created_at: '', updated_at: '' },
-    ]
-    setTask(baseTask, { articles })
-    render(<MemoryRouter><TaskDetail taskId={1} /></MemoryRouter>)
-    fireEvent.click(screen.getByText('编辑'))
-    // Should show save button in edit mode
-    const saveBtns = screen.getAllByText('保存')
-    expect(saveBtns.length).toBeGreaterThan(0)
-  })
-
-  it('handles cancel edit mode', () => {
-    const articles = [
-      { id: 1, title: '文章', content: '内容', source_summary: '', review_status: 'draft', reviewer_notes: '', llm_model: '', token_usage: null, created_at: '', updated_at: '' },
-    ]
-    setTask(baseTask, { articles })
-    render(<MemoryRouter><TaskDetail taskId={1} /></MemoryRouter>)
-    fireEvent.click(screen.getByText('编辑'))
-    // Click cancel
-    const cancelBtns = screen.getAllByText('取消')
-    fireEvent.click(cancelBtns[cancelBtns.length - 1])
-    // Should exit edit mode
-    expect(screen.getByText('编辑')).toBeInTheDocument()
-  })
-
-  it('renders regenerate button for draft articles', () => {
-    const articles = [
-      { id: 1, title: '文章', content: '内容', source_summary: '', review_status: 'draft', reviewer_notes: '', llm_model: '', token_usage: null, created_at: '', updated_at: '' },
-    ]
-    setTask(baseTask, { articles })
-    render(<MemoryRouter><TaskDetail taskId={1} /></MemoryRouter>)
-    expect(screen.getByText('重新生成')).toBeInTheDocument()
-  })
-
-  it('does not render edit button for non-draft articles', () => {
-    const articles = [
-      { id: 1, title: '文章', content: '内容', source_summary: '', review_status: 'approved', reviewer_notes: '', llm_model: '', token_usage: null, created_at: '', updated_at: '' },
-    ]
-    setTask(baseTask, { articles })
-    render(<MemoryRouter><TaskDetail taskId={1} /></MemoryRouter>)
-    expect(screen.queryByText('编辑')).not.toBeInTheDocument()
-  })
-
-  it('renders episode play button', () => {
-    const episodes = [
-      { id: 1, voice: '冰糖', audio_url: '', duration_seconds: 60, file_size_bytes: null, review_status: 'draft', reviewer_notes: '', content_source: 'article', article_id: 1, discussion_script_id: null, created_at: '', updated_at: '' },
-    ]
-    setTask(baseTask, { episodes })
-    render(<MemoryRouter><TaskDetail taskId={1} /></MemoryRouter>)
-    // Play button should be rendered
-    expect(screen.getByText(/音色: 冰糖/)).toBeInTheDocument()
-  })
-
-  it('renders episode download link', () => {
-    const episodes = [
-      { id: 1, voice: '冰糖', audio_url: '', duration_seconds: 60, file_size_bytes: 5242880, review_status: 'draft', reviewer_notes: '', content_source: 'article', article_id: 1, discussion_script_id: null, created_at: '', updated_at: '' },
-    ]
-    setTask(baseTask, { episodes })
-    render(<MemoryRouter><TaskDetail taskId={1} /></MemoryRouter>)
-    // Download link should be rendered - file_size_bytes = 5242880 = 5.0MB
-    expect(screen.getByText(/5\.0MB/)).toBeInTheDocument()
-  })
-
-  it('renders discussion review approve/reject buttons', () => {
-    const discussions = [
-      { id: 1, title: '讨论稿', topic: '', review_status: 'draft', reviewer_notes: '', turns: [{ id: 1, speaker_name: 'A', speaker_style_prompt: '', text: '内容', order: 0 }], llm_model: '', token_usage: null, created_at: '', updated_at: '' },
-    ]
-    setTask(baseTask, { discussions })
-    render(<MemoryRouter><TaskDetail taskId={1} /></MemoryRouter>)
-    // Discussion should have approve and reject buttons
-    const approveBtns = screen.getAllByText('通过')
-    const rejectBtns = screen.getAllByText('驳回')
-    expect(approveBtns.length).toBeGreaterThan(0)
-    expect(rejectBtns.length).toBeGreaterThan(0)
-  })
-
-  it('renders discussion regenerate and synthesize buttons', () => {
-    const discussions = [
-      { id: 1, title: '讨论稿', topic: '', review_status: 'draft', reviewer_notes: '', turns: [{ id: 1, speaker_name: 'A', speaker_style_prompt: '', text: '内容', order: 0 }], llm_model: '', token_usage: null, created_at: '', updated_at: '' },
-    ]
-    setTask(baseTask, { discussions })
-    render(<MemoryRouter><TaskDetail taskId={1} /></MemoryRouter>)
+  it('renders review actions for draft discussion', () => {
+    mockTaskDiscussions.mockReturnValue({ data: [makeDiscussion({ review_status: 'draft' })] })
+    renderWithProviders(<TaskDetail taskId={1} />)
     expect(screen.getByText('重新生成')).toBeInTheDocument()
     expect(screen.getByText('合成音频')).toBeInTheDocument()
   })
 
-  it('renders batch approve button with article and episode drafts', () => {
-    const articles = [
-      { id: 1, title: '文章1', content: '内容', source_summary: '', review_status: 'draft', reviewer_notes: '', llm_model: '', token_usage: null, created_at: '', updated_at: '' },
-    ]
-    const episodes = [
-      { id: 1, voice: '冰糖', audio_url: '', duration_seconds: 60, file_size_bytes: null, review_status: 'draft', reviewer_notes: '', content_source: 'article', article_id: 1, discussion_script_id: null, created_at: '', updated_at: '' },
-    ]
-    setTask(baseTask, { articles, episodes })
-    render(<MemoryRouter><TaskDetail taskId={1} /></MemoryRouter>)
-    expect(screen.getByText(/一键全部通过/)).toBeInTheDocument()
+  it('regenerates discussion', () => {
+    mockTaskDiscussions.mockReturnValue({ data: [makeDiscussion({ review_status: 'draft' })] })
+    renderWithProviders(<TaskDetail taskId={1} />)
+    fireEvent.click(screen.getByText('重新生成'))
+    expect(mockRegenerateDiscussionMutate).toHaveBeenCalledWith(1, expect.any(Object))
   })
 
-  it('handles batch approve button click', async () => {
+  it('synthesizes discussion', () => {
+    mockTaskDiscussions.mockReturnValue({ data: [makeDiscussion({ review_status: 'draft' })] })
+    renderWithProviders(<TaskDetail taskId={1} />)
+    fireEvent.click(screen.getByText('合成音频'))
+    expect(mockSynthesizeDiscussionMutate).toHaveBeenCalledWith(1, expect.any(Object))
+  })
+
+  it('approves discussion', () => {
+    mockTaskDiscussions.mockReturnValue({ data: [makeDiscussion({ review_status: 'draft' })] })
+    renderWithProviders(<TaskDetail taskId={1} />)
+    fireEvent.click(screen.getByText('通过'))
+    expect(mockReviewDiscussionMutate).toHaveBeenCalledWith(
+      { scriptId: 1, action: 'approve', notes: undefined },
+      expect.any(Object),
+    )
+  })
+
+  it('rejects discussion with notes', () => {
+    mockTaskDiscussions.mockReturnValue({ data: [makeDiscussion({ review_status: 'draft' })] })
+    renderWithProviders(<TaskDetail taskId={1} />)
+    const textarea = screen.getByPlaceholderText('审核备注（可选）')
+    fireEvent.change(textarea, { target: { value: 'Needs revision' } })
+    fireEvent.click(screen.getByText('驳回'))
+    expect(mockReviewDiscussionMutate).toHaveBeenCalledWith(
+      { scriptId: 1, action: 'reject', notes: 'Needs revision' },
+      expect.any(Object),
+    )
+  })
+
+  it('hides review actions for approved discussion', () => {
+    mockTaskDiscussions.mockReturnValue({ data: [makeDiscussion({ review_status: 'approved' })] })
+    renderWithProviders(<TaskDetail taskId={1} />)
+    expect(screen.queryByText('重新生成')).not.toBeInTheDocument()
+    expect(screen.queryByText('合成音频')).not.toBeInTheDocument()
+  })
+
+  it('handles discussion without llm_model', () => {
+    mockTaskDiscussions.mockReturnValue({ data: [makeDiscussion({ llm_model: '' })] })
+    renderWithProviders(<TaskDetail taskId={1} />)
+    expect(screen.queryByText(/模型:/)).not.toBeInTheDocument()
+  })
+
+  it('handles discussion without token_usage', () => {
+    mockTaskDiscussions.mockReturnValue({ data: [makeDiscussion({ token_usage: null })] })
+    renderWithProviders(<TaskDetail taskId={1} />)
+    expect(screen.queryByText(/Token:/)).not.toBeInTheDocument()
+  })
+
+  it('hides pencil buttons for non-draft discussions', () => {
+    mockTaskDiscussions.mockReturnValue({ data: [makeDiscussion({ review_status: 'approved' })] })
+    renderWithProviders(<TaskDetail taskId={1} />)
+    expect(screen.queryByTestId('pencil-icon')).not.toBeInTheDocument()
+  })
+
+  it('renders rejected badge', () => {
+    mockTaskDiscussions.mockReturnValue({ data: [makeDiscussion({ review_status: 'rejected' })] })
+    renderWithProviders(<TaskDetail taskId={1} />)
+    expect(screen.getByText('已驳回')).toBeInTheDocument()
+  })
+})
+
+describe('TaskDetail - BatchApproveButton', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockTaskDetail.mockReturnValue({ data: makeTask({ status: 'completed' }), isLoading: false })
+    mockTaskArticles.mockReturnValue({ data: [] })
+    mockTaskEpisodes.mockReturnValue({ data: [] })
+    mockTaskDiscussions.mockReturnValue({ data: [] })
+  })
+
+  it('shows count of all draft items', () => {
+    mockTaskArticles.mockReturnValue({ data: [makeArticle({ review_status: 'draft' })] })
+    mockTaskEpisodes.mockReturnValue({ data: [makeEpisode({ review_status: 'draft' })] })
+    mockTaskDiscussions.mockReturnValue({ data: [makeDiscussion({ review_status: 'draft' })] })
+    renderWithProviders(<TaskDetail taskId={1} />)
+    expect(screen.getByText(/一键全部通过 \(3\)/)).toBeInTheDocument()
+  })
+
+  it('batch approves all drafts', async () => {
     const { contentOpsApi } = await import('../api')
-    const articles = [
-      { id: 1, title: '文章1', content: '内容', source_summary: '', review_status: 'draft', reviewer_notes: '', llm_model: '', token_usage: null, created_at: '', updated_at: '' },
-    ]
-    setTask(baseTask, { articles })
-    render(<MemoryRouter><TaskDetail taskId={1} /></MemoryRouter>)
+    mockTaskArticles.mockReturnValue({ data: [makeArticle({ id: 10, review_status: 'draft' })] })
+    mockTaskEpisodes.mockReturnValue({ data: [makeEpisode({ id: 20, review_status: 'draft' })] })
+    mockTaskDiscussions.mockReturnValue({ data: [makeDiscussion({ id: 30, review_status: 'draft' })] })
+    renderWithProviders(<TaskDetail taskId={1} />)
+    fireEvent.click(screen.getByText(/一键全部通过/))
+    await waitFor(() => {
+      expect(contentOpsApi.batchApproveArticles).toHaveBeenCalledWith([10])
+      expect(contentOpsApi.batchApproveEpisodes).toHaveBeenCalledWith([20])
+      expect(contentOpsApi.approveDiscussion).toHaveBeenCalledWith(30)
+    })
+    await waitFor(() => expect(toast.success).toHaveBeenCalledWith(expect.stringContaining('已批量通过')))
+  })
+
+  it('batch approve handles only articles', async () => {
+    const { contentOpsApi } = await import('../api')
+    mockTaskArticles.mockReturnValue({ data: [makeArticle({ review_status: 'draft' })] })
+    renderWithProviders(<TaskDetail taskId={1} />)
     fireEvent.click(screen.getByText(/一键全部通过/))
     await waitFor(() => {
       expect(contentOpsApi.batchApproveArticles).toHaveBeenCalled()
+      expect(contentOpsApi.batchApproveEpisodes).not.toHaveBeenCalled()
     })
   })
 
-  it('renders discussion edit turn button', () => {
-    const discussions = [
-      { id: 1, title: '讨论稿', topic: '', review_status: 'draft', reviewer_notes: '', turns: [{ id: 1, speaker_name: 'A', speaker_style_prompt: '', text: '对话内容', order: 0 }], llm_model: '', token_usage: null, created_at: '', updated_at: '' },
-    ]
-    setTask(baseTask, { discussions })
-    render(<MemoryRouter><TaskDetail taskId={1} /></MemoryRouter>)
-    // Discussion turn should be rendered
-    expect(screen.getByText('对话内容')).toBeInTheDocument()
+  it('batch approve handles only episodes', async () => {
+    const { contentOpsApi } = await import('../api')
+    mockTaskEpisodes.mockReturnValue({ data: [makeEpisode({ review_status: 'draft' })] })
+    renderWithProviders(<TaskDetail taskId={1} />)
+    fireEvent.click(screen.getByText(/一键全部通过/))
+    await waitFor(() => {
+      expect(contentOpsApi.batchApproveArticles).not.toHaveBeenCalled()
+      expect(contentOpsApi.batchApproveEpisodes).toHaveBeenCalled()
+    })
+  })
+
+  it('batch approve handles only discussions', async () => {
+    const { contentOpsApi } = await import('../api')
+    mockTaskDiscussions.mockReturnValue({ data: [makeDiscussion({ review_status: 'draft' })] })
+    renderWithProviders(<TaskDetail taskId={1} />)
+    fireEvent.click(screen.getByText(/一键全部通过/))
+    await waitFor(() => {
+      expect(contentOpsApi.approveDiscussion).toHaveBeenCalled()
+    })
+  })
+
+  it('batch approve shows error toast on failure', async () => {
+    const { contentOpsApi } = await import('../api')
+    vi.mocked(contentOpsApi.batchApproveArticles).mockRejectedValueOnce(new Error('fail'))
+    mockTaskArticles.mockReturnValue({ data: [makeArticle({ review_status: 'draft' })] })
+    renderWithProviders(<TaskDetail taskId={1} />)
+    fireEvent.click(screen.getByText(/一键全部通过/))
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith('批量操作失败'))
   })
 })
