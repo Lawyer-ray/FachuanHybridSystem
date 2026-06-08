@@ -29,15 +29,15 @@ class TestToValidMobile:
     """_to_valid_mobile 手机号校验。"""
 
     @pytest.mark.parametrize("value,expected", [
-        ("13800138000", "13800138000"),
-        (" 13800138000 ", "13800138000"),
-        ("013800138000", ""),          # 不以1开头
+        ("13800000000", "13800000000"),
+        (" 13800000000 ", "13800000000"),
+        ("013800000000", ""),          # 不以1开头
         ("1380013800", ""),            # 少一位
-        ("138001380001", ""),          # 多一位
+        ("138000000001", ""),          # 多一位
         ("abc", ""),
         ("", ""),
         (None, ""),
-        ("138-0013-8000", "13800138000"),
+        ("138-0000-0000", "13800000000"),
     ])
     def test_to_valid_mobile(self, value, expected):
         from apps.automation.api.court_filing_helpers import _to_valid_mobile
@@ -321,8 +321,8 @@ class TestBuildAgentPayloads:
 
     def test_filters_duplicate_lawyers(self):
         from apps.automation.api.court_filing_helpers import _build_agent_payloads
-        lawyer = SimpleNamespace(id=1, real_name="张律师", username="zhang", phone="13800138000",
-                                 id_card="110101199001011234", license_no="12345",
+        lawyer = SimpleNamespace(id=1, real_name="张律师", username="zhang", phone="13800000000",
+                                 id_card="110101190001010000", license_no="12345",
                                  law_firm=SimpleNamespace(name="测试所", address="广州市"))
         assignment = SimpleNamespace(lawyer=lawyer)
         case = SimpleNamespace(assignments=MagicMock(
@@ -341,8 +341,8 @@ class TestBuildPartyPayloads:
     def test_natural_person_in_plaintiff(self, mock_extract_gender):
         from apps.automation.api.court_filing_helpers import _build_party_payloads
         client = SimpleNamespace(client_type="natural", name="张三", address="广州市",
-                                phone="13800138000", id_number="110101199001011234",
-                                id_card="110101199001011234")
+                                phone="13800000000", id_number="110101190001010000",
+                                id_card="110101190001010000")
         party = SimpleNamespace(client=client, legal_status="plaintiff")
         plaintiffs, defendants, thirds = _build_party_payloads([party])
         assert len(plaintiffs) == 1
@@ -353,8 +353,8 @@ class TestBuildPartyPayloads:
     def test_legal_person_in_defendant(self):
         from apps.automation.api.court_filing_helpers import _build_party_payloads
         client = SimpleNamespace(client_type="legal", name="测试公司", address="天河区",
-                                phone="02012345678", id_number="91440101MA12345678",
-                                legal_representative="李四", legal_representative_id_number="110101199001019999")
+                                phone="02000000000", id_number="91440101MA12345678",
+                                legal_representative="李四", legal_representative_id_number="110101190001010001")
         party = SimpleNamespace(client=client, legal_status="defendant")
         plaintiffs, defendants, thirds = _build_party_payloads([party])
         assert len(plaintiffs) == 0
@@ -369,21 +369,21 @@ class TestApplyExecutionPartyFallbacks:
     def test_fills_phone_from_agent(self):
         from apps.automation.api.court_filing_helpers import _apply_execution_party_fallbacks
         plaintiffs = [{"client_type": "natural", "phone": "", "address": "广州"}]
-        agents = [{"phone": "13800138000"}]
+        agents = [{"phone": "13800000000"}]
         _apply_execution_party_fallbacks(plaintiffs=plaintiffs, agents=agents)
-        assert plaintiffs[0]["phone"] == "13800138000"
+        assert plaintiffs[0]["phone"] == "13800000000"
 
     def test_does_not_overwrite_existing_phone(self):
         from apps.automation.api.court_filing_helpers import _apply_execution_party_fallbacks
-        plaintiffs = [{"client_type": "natural", "phone": "13900139000", "address": "广州"}]
-        agents = [{"phone": "13800138000"}]
+        plaintiffs = [{"client_type": "natural", "phone": "13900000000", "address": "广州"}]
+        agents = [{"phone": "13800000000"}]
         _apply_execution_party_fallbacks(plaintiffs=plaintiffs, agents=agents)
-        assert plaintiffs[0]["phone"] == "13900139000"
+        assert plaintiffs[0]["phone"] == "13900000000"
 
     def test_skips_legal_person(self):
         from apps.automation.api.court_filing_helpers import _apply_execution_party_fallbacks
         plaintiffs = [{"client_type": "legal", "phone": "", "address": ""}]
-        agents = [{"phone": "13800138000"}]
+        agents = [{"phone": "13800000000"}]
         _apply_execution_party_fallbacks(plaintiffs=plaintiffs, agents=agents)
         assert plaintiffs[0]["phone"] == ""
 

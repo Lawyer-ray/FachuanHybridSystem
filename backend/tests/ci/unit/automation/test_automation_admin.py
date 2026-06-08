@@ -163,7 +163,7 @@ class TestCourtTokenAdmin:
     def test_site_name_display(self) -> None:
         """site_name_display 应返回可读站点名称"""
         token = CourtToken.objects.create(
-            site_name="court_zxfw", account="test_account", token="test_token",
+            site_name="court_zxfw", account="test_account", token="test_placeholder_1",
             expires_at=timezone.now() + timedelta(hours=1)
         )
         admin_obj = CourtTokenAdmin(CourtToken, AdminSite())
@@ -196,7 +196,7 @@ class TestCourtTokenAdmin:
         """status_display 应显示有效状态"""
         token = CourtToken.objects.create(
             site_name="court_zxfw", account="test_account",
-            token="valid_token", expires_at=timezone.now() + timedelta(hours=1)
+            token="test_placeholder_2", expires_at=timezone.now() + timedelta(hours=1)
         )
         admin_obj = CourtTokenAdmin(CourtToken, AdminSite())
         result = admin_obj.status_display(token)
@@ -206,7 +206,7 @@ class TestCourtTokenAdmin:
         """status_display 应显示过期状态"""
         token = CourtToken.objects.create(
             site_name="court_zxfw", account="test_account",
-            token="expired_token", expires_at=timezone.now() - timedelta(hours=1)
+            token="test_placeholder_3", expires_at=timezone.now() - timedelta(hours=1)
         )
         admin_obj = CourtTokenAdmin(CourtToken, AdminSite())
         result = admin_obj.status_display(token)
@@ -216,7 +216,7 @@ class TestCourtTokenAdmin:
         """remaining_time 应显示剩余时间"""
         token = CourtToken.objects.create(
             site_name="court_zxfw", account="test_account",
-            token="time_token", expires_at=timezone.now() + timedelta(hours=2)
+            token="test_placeholder_4", expires_at=timezone.now() + timedelta(hours=2)
         )
         admin_obj = CourtTokenAdmin(CourtToken, AdminSite())
         result = admin_obj.remaining_time(token)
@@ -226,7 +226,7 @@ class TestCourtTokenAdmin:
         """remaining_time 过期时应显示已过期"""
         token = CourtToken.objects.create(
             site_name="court_zxfw", account="test_account",
-            token="expired_time_token", expires_at=timezone.now() - timedelta(hours=1)
+            token="test_placeholder_5", expires_at=timezone.now() - timedelta(hours=1)
         )
         admin_obj = CourtTokenAdmin(CourtToken, AdminSite())
         result = admin_obj.remaining_time(token)

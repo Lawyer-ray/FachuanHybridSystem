@@ -96,7 +96,7 @@ class TestNormalizePhoneTail6:
     def test_long_number(self):
         from apps.automation.services.sms._sms_download_mixin import SMSDownloadMixin
 
-        assert SMSDownloadMixin._normalize_phone_tail6("13812345678") == "345678"
+        assert SMSDownloadMixin._normalize_phone_tail6("13800000000") == "000000"
 
     def test_exact_six(self):
         from apps.automation.services.sms._sms_download_mixin import SMSDownloadMixin
@@ -367,7 +367,7 @@ class TestCollectLawyerPhones:
 
         mixin = SMSDownloadMixin()
         lawyer = MagicMock()
-        lawyer.phone = "13800001111"
+        lawyer.phone = "13800000000"
         assignment = MagicMock()
         assignment.lawyer = lawyer
         MockAssignment.objects.select_related.return_value.filter.return_value.order_by.return_value = [
@@ -376,7 +376,7 @@ class TestCollectLawyerPhones:
         MockServiceLocator.get_lawyer_service.return_value.get_admin_lawyer.return_value = None
         sms = _make_sms(case=MagicMock())
         phones = mixin._collect_lawyer_phones(sms)
-        assert "13800001111" in phones
+        assert "13800000000" in phones
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -390,20 +390,20 @@ class TestCollectLawyerPhoneTail6Candidates:
         from apps.automation.services.sms._sms_download_mixin import SMSDownloadMixin
 
         mixin = SMSDownloadMixin()
-        mixin._collect_lawyer_phones = MagicMock(return_value=["13812345678", "13912345678"])
+        mixin._collect_lawyer_phones = MagicMock(return_value=["13800000000", "13900000000"])
         sms = _make_sms()
         candidates = mixin._collect_lawyer_phone_tail6_candidates(sms)
-        assert candidates == ["345678"]
+        assert candidates == ["000000"]
         assert len(candidates) == 1
 
     def test_multiple_tails(self):
         from apps.automation.services.sms._sms_download_mixin import SMSDownloadMixin
 
         mixin = SMSDownloadMixin()
-        mixin._collect_lawyer_phones = MagicMock(return_value=["13812345678", "13912349999"])
+        mixin._collect_lawyer_phones = MagicMock(return_value=["13800000000", "13900000001"])
         sms = _make_sms()
         candidates = mixin._collect_lawyer_phone_tail6_candidates(sms)
-        assert candidates == ["345678", "349999"]
+        assert candidates == ["000000", "000001"]
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -457,7 +457,7 @@ class TestCreateDownloadTask:
         from apps.automation.services.sms._sms_download_mixin import SMSDownloadMixin
 
         mixin = SMSDownloadMixin()
-        mixin._collect_lawyer_phones = MagicMock(return_value=["13800001111"])
+        mixin._collect_lawyer_phones = MagicMock(return_value=["13800000000"])
         mixin._collect_lawyer_phone_tail6_candidates = MagicMock(return_value=[])
         sms = _make_sms(
             download_links=["https://jysd.10102368.com/sd?key=abc"],

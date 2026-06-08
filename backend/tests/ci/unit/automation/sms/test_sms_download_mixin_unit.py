@@ -8,12 +8,12 @@ import pytest
 class TestNormalizePhoneTail6:
 
     @pytest.mark.parametrize("raw,expected", [
-        ("13800138000", "138000"),   # 138-0013-8000 -> last 6 = 138000
-        ("+8613800138000", "138000"),
+        ("13800000000", "000000"),   # 138-0000-0000 -> last 6 = 000000
+        ("+8613800000000", "000000"),
         ("138001", "138001"),  # exactly 6 digits
         ("", None),
         (None, None),
-        ("abc13800138000xyz", "138000"),
+        ("abc13800000000xyz", "000000"),
     ])
     def test_normalize_phone_tail6(self, raw, expected):
         from apps.automation.services.sms._sms_download_mixin import SMSDownloadMixin

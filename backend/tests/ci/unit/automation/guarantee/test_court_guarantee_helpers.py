@@ -309,15 +309,15 @@ class TestBuildPartyPayloadFromCaseParty:
     def test_natural_person(self):
         from apps.automation.api.court_guarantee_helpers import _build_party_payload_from_case_party
         client = SimpleNamespace(
-            client_type="natural", name="张三", id_number="110101199001011234",
-            phone="13800138000", address="广州",
+            client_type="natural", name="张三", id_number="110101190001010000",
+            phone="13800000000", address="广州",
             legal_representative="", legal_representative_id_number=""
         )
         party = SimpleNamespace(id=10, client=client)
         result = _build_party_payload_from_case_party(party=party)
         assert result["name"] == "张三"
         assert result["party_type"] == "natural"
-        assert result["id_number"] == "110101199001011234"
+        assert result["id_number"] == "110101190001010000"
 
     def test_none_party_uses_defaults(self):
         from apps.automation.api.court_guarantee_helpers import _build_party_payload_from_case_party
@@ -329,8 +329,8 @@ class TestBuildPartyPayloadFromCaseParty:
         from apps.automation.api.court_guarantee_helpers import _build_party_payload_from_case_party
         client = SimpleNamespace(
             client_type="legal", name="测试公司", id_number="91440101",
-            phone="02012345678", address="天河区",
-            legal_representative="李四", legal_representative_id_number="110101199001019999"
+            phone="02000000000", address="天河区",
+            legal_representative="李四", legal_representative_id_number="110101190001010001"
         )
         party = SimpleNamespace(id=20, client=client)
         result = _build_party_payload_from_case_party(party=party)

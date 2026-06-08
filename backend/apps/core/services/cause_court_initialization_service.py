@@ -13,6 +13,7 @@ from asgiref.sync import sync_to_async
 from django.db import transaction
 from django.utils import timezone
 
+from apps.core.dto import AccountCredentialDTO
 from apps.core.exceptions import TokenError
 from apps.core.models import CauseOfAction, Court
 from apps.core.repositories import CauseCourtRepository
@@ -250,6 +251,8 @@ class CauseCourtInitializationService:
         organization_service = get_organization_service()
         token_store = get_court_token_store_service()
 
+        credential: AccountCredentialDTO | None = None
+
         if credential_id:
             credential = await sync_to_async(organization_service.get_credential)(credential_id)
         else:
@@ -261,6 +264,7 @@ class CauseCourtInitializationService:
             if credential is None:
                 raise TokenError("当前用户没有配置一张网账号,请先在「账号管理」中添加")
 
+        assert credential is not None  # credential_id 或 lawyer_id 分支已保证
         account = credential.account
         password = credential.password
 

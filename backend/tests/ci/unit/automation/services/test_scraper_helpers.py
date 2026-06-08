@@ -114,19 +114,19 @@ class TestSfdwScraperHelpers:
     def test_get_phone_tail6_manual_first(self):
         scraper = self._make_scraper()
         scraper.task.config = {
-            "sfdw_phone_tail6": "13800138000",
-            "sfdw_phone_tail6_candidates": ["13900139000"],
+            "sfdw_phone_tail6": "13800000000",
+            "sfdw_phone_tail6_candidates": ["13900000001"],
         }
         result = scraper._get_phone_tail6_candidates()
         assert len(result) == 2
-        assert result[0] == "138000"  # last 6 digits of 13800138000
-        assert result[1] == "139000"  # last 6 digits of 13900139000
+        assert result[0] == "000000"  # last 6 digits of 13800000000
+        assert result[1] == "000001"  # last 6 digits of 13900000001
 
     def test_get_phone_tail6_deduplicates(self):
         scraper = self._make_scraper()
         scraper.task.config = {
-            "sfdw_phone_tail6": "13800138000",
-            "sfdw_phone_tail6_candidates": ["13800138000"],
+            "sfdw_phone_tail6": "13800000000",
+            "sfdw_phone_tail6_candidates": ["13800000000"],
         }
         result = scraper._get_phone_tail6_candidates()
         assert len(result) == 1
@@ -144,7 +144,7 @@ class TestSfdwScraperHelpers:
 class TestJysdScraperHelpers:
     def test_mask_phone_normal(self):
         from apps.automation.services.scraper.scrapers.court_document.jysd_scraper import JysdCourtScraper
-        assert JysdCourtScraper._mask_phone("13800138000") == "138****8000"
+        assert JysdCourtScraper._mask_phone("13800000000") == "138****0000"
 
     def test_mask_phone_short(self):
         from apps.automation.services.scraper.scrapers.court_document.jysd_scraper import JysdCourtScraper
