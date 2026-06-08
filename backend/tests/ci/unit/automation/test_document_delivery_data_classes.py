@@ -36,8 +36,8 @@ class TestDocumentRecord:
             "ahdm": "AHDM001",
             "fybh": "FY001",
             "ssdrxm": "张三",
-            "ssdrsjhm": "13812345678",
-            "ssdrzjhm": "440100199001011234",
+            "ssdrsjhm": "13812345678",  # allowlist secret
+            "ssdrzjhm": "440100199001011234",  # allowlist secret
             "wsmc": "传票,起诉状副本",
             "sdzt": "已送达",
             "qdzt": "已签到",

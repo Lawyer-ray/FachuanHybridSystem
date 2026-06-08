@@ -56,16 +56,16 @@ class TestIsMobilePhone:
     """测试手机号码验证"""
 
     def test_valid_mobile_13x(self) -> None:
-        assert PartyInfoHandlerMixin._is_mobile_phone("13812345678") is True
+        assert PartyInfoHandlerMixin._is_mobile_phone("13812345678") is True  # allowlist secret
 
     def test_valid_mobile_15x(self) -> None:
-        assert PartyInfoHandlerMixin._is_mobile_phone("15912345678") is True
+        assert PartyInfoHandlerMixin._is_mobile_phone("15912345678") is True  # allowlist secret
 
     def test_valid_mobile_18x(self) -> None:
-        assert PartyInfoHandlerMixin._is_mobile_phone("18612345678") is True
+        assert PartyInfoHandlerMixin._is_mobile_phone("18612345678") is True  # allowlist secret
 
     def test_valid_mobile_19x(self) -> None:
-        assert PartyInfoHandlerMixin._is_mobile_phone("19912345678") is True
+        assert PartyInfoHandlerMixin._is_mobile_phone("19912345678") is True  # allowlist secret
 
     def test_invalid_starts_with_0(self) -> None:
         assert PartyInfoHandlerMixin._is_mobile_phone("01234567890") is False
@@ -87,7 +87,7 @@ class TestIsMobilePhone:
 
     def test_whitespace_stripped(self) -> None:
         """带空格的输入，strip后应匹配"""
-        assert PartyInfoHandlerMixin._is_mobile_phone(" 13812345678 ") is True
+        assert PartyInfoHandlerMixin._is_mobile_phone(" 13812345678 ") is True  # allowlist secret
 
     def test_valid_17x(self) -> None:
-        assert PartyInfoHandlerMixin._is_mobile_phone("17812345678") is True
+        assert PartyInfoHandlerMixin._is_mobile_phone("17812345678") is True  # allowlist secret

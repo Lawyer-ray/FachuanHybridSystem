@@ -436,12 +436,12 @@ class TestInvalidateToken:
     def test_with_credential(self, mock_cm: MagicMock, mock_sl: MagicMock, MockToken: MagicMock) -> None:
         cred = MagicMock()
         cred.site_name = "court_zxfw"
-        cred.account = "user@test.com"
+        cred.account = "user@test.com"  # allowlist secret
         mock_sl.get_organization_service.return_value.get_credential.return_value = cred
         from apps.message_hub.services.court.court_fetcher import _invalidate_token
 
         _invalidate_token(1)
-        mock_cm.invalidate_token_cache.assert_called_once_with("court_zxfw", "user@test.com")
+        mock_cm.invalidate_token_cache.assert_called_once_with("court_zxfw", "user@test.com")  # allowlist secret
         MockToken.objects.filter.return_value.update.assert_called_once()
 
     @patch(_LAZY_CT)

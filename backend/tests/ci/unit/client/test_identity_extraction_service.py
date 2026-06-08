@@ -143,12 +143,12 @@ class TestIdentityExtractionServiceTextProcessing:
 
     def test_extract_id_number_valid(self):
         svc = self._make_service()
-        text = "公民身份号码 440106199001011234"
-        assert svc._extract_id_number(text) == "440106199901011234" or svc._extract_id_number(text) == "440106199001011234"
+        text = "公民身份号码 440106199001011234"  # allowlist secret
+        assert svc._extract_id_number(text) == "440106199901011234" or svc._extract_id_number(text) == "440106199001011234"  # allowlist secret
 
     def test_extract_id_number_with_x(self):
         svc = self._make_service()
-        text = "公民身份号码 44010619900101123X"
+        text = "公民身份号码 44010619900101123X"  # allowlist secret
         result = svc._extract_id_number(text)
         assert result is not None
         assert result.endswith("X")
@@ -230,7 +230,7 @@ class TestIdentityExtractionServiceTextProcessing:
 
     def test_extract_birth_date_from_id_number(self):
         svc = self._make_service()
-        assert svc._extract_birth_date("", "440106199001151234") == "1990-01-15"
+        assert svc._extract_birth_date("", "440106199001151234") == "1990-01-15"  # allowlist secret
 
     def test_extract_birth_date_none(self):
         svc = self._make_service()
@@ -263,13 +263,13 @@ class TestIdentityExtractionServiceTextProcessing:
 
     def test_extract_address_found(self):
         svc = self._make_service()
-        lines = ["住址", "广东省广州市天河区", "公民身份号码 440106199001011234"]
+        lines = ["住址", "广东省广州市天河区", "公民身份号码 440106199001011234"]  # allowlist secret
         result = svc._extract_address(lines)
         assert "广东省广州市天河区" in result
 
     def test_extract_address_inline(self):
         svc = self._make_service()
-        lines = ["住址：广东省广州市天河区", "公民身份号码 440106199001011234"]
+        lines = ["住址：广东省广州市天河区", "公民身份号码 440106199001011234"]  # allowlist secret
         result = svc._extract_address(lines)
         assert "广东省广州市天河区" in result
 

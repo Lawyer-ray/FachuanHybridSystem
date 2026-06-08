@@ -30,7 +30,7 @@ def _create_message_source() -> tuple[AccountCredential, MessageSource]:
     firm = LawFirm.objects.create(name="消息测试律所")
     lawyer = Lawyer.objects.create_user(username="msg_lawyer", real_name="消息律师", law_firm=firm)
     cred = AccountCredential.objects.create(
-        lawyer=lawyer, site_name="imap_site", account="msg_account", password="test_pass"
+        lawyer=lawyer, site_name="imap_site", account="msg_account", password="test_pass"  # allowlist secret
     )
     source = MessageSource.objects.create(
         credential=cred,

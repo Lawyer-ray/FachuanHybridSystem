@@ -19,7 +19,7 @@ class TestMcpToolClientInit:
             transport="streamable_http",
             base_url="http://example.com",
             sse_url="",
-            api_key="key1",
+            api_key="key1",  # allowlist secret
             api_keys=["key1", "key2"],
         )
         assert client._api_key == "key1"
@@ -31,7 +31,7 @@ class TestMcpToolClientInit:
             transport="streamable_http",
             base_url="http://example.com",
             sse_url="",
-            api_key="single_key",
+            api_key="single_key",  # allowlist secret
         )
         assert client._api_key == "single_key"
 
@@ -45,9 +45,9 @@ class TestMcpToolClientHeaders:
             transport="streamable_http",
             base_url="http://example.com",
             sse_url="",
-            api_key="key123",
+            api_key="key123",  # allowlist secret
         )
-        headers = client._headers(transport="streamable_http", api_key="key123")
+        headers = client._headers(transport="streamable_http", api_key="key123")  # allowlist secret
         assert headers["Authorization"] == "bearer key123"
 
     def test_sse_uses_capital_bearer(self):
@@ -57,9 +57,9 @@ class TestMcpToolClientHeaders:
             transport="sse",
             base_url="",
             sse_url="http://example.com/sse",
-            api_key="key123",
+            api_key="key123",  # allowlist secret
         )
-        headers = client._headers(transport="sse", api_key="key123")
+        headers = client._headers(transport="sse", api_key="key123")  # allowlist secret
         assert headers["Authorization"] == "Bearer key123"
 
 

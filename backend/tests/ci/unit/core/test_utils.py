@@ -25,12 +25,12 @@ class TestValidatorsPhone:
     def test_valid_phone(self) -> None:
         from apps.core.utils.validators import Validators
 
-        assert Validators.validate_phone("13812345678") == "13812345678"
+        assert Validators.validate_phone("13812345678") == "13812345678"  # allowlist secret
 
     def test_phone_with_spaces(self) -> None:
         from apps.core.utils.validators import Validators
 
-        assert Validators.validate_phone("  13812345678  ") == "13812345678"
+        assert Validators.validate_phone("  13812345678  ") == "13812345678"  # allowlist secret
 
     def test_none_phone(self) -> None:
         from apps.core.utils.validators import Validators
@@ -316,7 +316,7 @@ class TestIdCardUtils:
     def test_extract_birth_date_18_digit(self) -> None:
         from apps.core.utils.id_card_utils import IdCardUtils
 
-        result = IdCardUtils.extract_birth_date("110101199003071234")
+        result = IdCardUtils.extract_birth_date("110101199003071234")  # allowlist secret
         assert result == "1990年03月07日"
 
     def test_extract_birth_date_15_digit(self) -> None:
@@ -335,13 +335,13 @@ class TestIdCardUtils:
         from apps.core.utils.id_card_utils import IdCardUtils
 
         # 倒数第二位为奇数 = 男
-        assert IdCardUtils.extract_gender("110101199003071234") == "男"
+        assert IdCardUtils.extract_gender("110101199003071234") == "男"  # allowlist secret
 
     def test_extract_gender_female(self) -> None:
         from apps.core.utils.id_card_utils import IdCardUtils
 
         # 倒数第二位为偶数 = 女
-        assert IdCardUtils.extract_gender("110101199003072244") == "女"
+        assert IdCardUtils.extract_gender("110101199003072244") == "女"  # allowlist secret
 
     def test_extract_gender_short(self) -> None:
         from apps.core.utils.id_card_utils import IdCardUtils
@@ -351,7 +351,7 @@ class TestIdCardUtils:
     def test_calculate_age_18_digit(self) -> None:
         from apps.core.utils.id_card_utils import IdCardUtils
 
-        age = IdCardUtils.calculate_age("110101199003071234")
+        age = IdCardUtils.calculate_age("110101199003071234")  # allowlist secret
         assert age is not None
         assert age >= 30  # 2025 - 1990 >= 35 (近似)
 

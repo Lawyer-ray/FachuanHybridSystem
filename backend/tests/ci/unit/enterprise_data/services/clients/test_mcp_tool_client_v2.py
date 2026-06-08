@@ -74,7 +74,7 @@ class TestInit:
             assert client._api_key == "key-a"
 
     def test_api_key_fallback_from_single_key(self) -> None:
-        client = _make_client(api_key="single-key")
+        client = _make_client(api_key="single-key")  # allowlist secret
         assert client._api_key == "single-key"
 
 
@@ -95,7 +95,7 @@ class TestHeaders:
         assert headers["Authorization"] == "Bearer k"
 
     def test_fallback_to_instance_key(self) -> None:
-        client = _make_client(api_key="inst-key")
+        client = _make_client(api_key="inst-key")  # allowlist secret
         headers = client._headers(transport="sse", api_key="")
         assert "inst-key" in headers["Authorization"]
 

@@ -288,14 +288,14 @@ class TestEmailService:
     def test_send_password_reset_not_configured(self, mock_config):
         from apps.core.services.email_service import EmailService
         mock_config.is_configured.return_value = False
-        result = EmailService.send_password_reset_email("test@test.com", "user", "http://reset")
+        result = EmailService.send_password_reset_email("test@test.com", "user", "http://reset")  # allowlist secret
         assert result is False
 
     @patch("apps.core.services.email_service.EmailConfigService")
     def test_send_password_changed_not_configured(self, mock_config):
         from apps.core.services.email_service import EmailService
         mock_config.is_configured.return_value = False
-        result = EmailService.send_password_changed_notification("test@test.com", "user")
+        result = EmailService.send_password_changed_notification("test@test.com", "user")  # allowlist secret
         assert result is False
 
 

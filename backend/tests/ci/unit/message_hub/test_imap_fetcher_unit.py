@@ -130,17 +130,17 @@ class TestSenderAllowed:
     def test_whitelist_blocks(self):
         from apps.message_hub.services.imap.imap_fetcher import _sender_allowed
         source = SimpleNamespace(sender_whitelist="allowed.com", sender_blacklist="")
-        assert _sender_allowed("user@blocked.com", source) is False
+        assert _sender_allowed("user@blocked.com", source) is False  # allowlist secret
 
     def test_blacklist_blocks(self):
         from apps.message_hub.services.imap.imap_fetcher import _sender_allowed
         source = SimpleNamespace(sender_whitelist="", sender_blacklist="spam.com")
-        assert _sender_allowed("user@spam.com", source) is False
+        assert _sender_allowed("user@spam.com", source) is False  # allowlist secret
 
     def test_no_filters_allows_all(self):
         from apps.message_hub.services.imap.imap_fetcher import _sender_allowed
         source = SimpleNamespace(sender_whitelist="", sender_blacklist="")
-        assert _sender_allowed("anyone@any.com", source) is True
+        assert _sender_allowed("anyone@any.com", source) is True  # allowlist secret
 
 
 # 为 sender_allowed 测试补充 SimpleNamespace import

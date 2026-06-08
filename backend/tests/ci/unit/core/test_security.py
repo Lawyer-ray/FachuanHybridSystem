@@ -457,7 +457,7 @@ class TestScrub:
     def test_scrub_text_masks_bearer(self) -> None:
         from apps.core.security.scrub import scrub_text
 
-        result = scrub_text("Bearer abcdefghijklmnopqrstuvwxyz")
+        result = scrub_text("Bearer abcdefghijklmnopqrstuvwxyz")  # allowlist secret
         assert "Bearer" in result or "***" in result
 
     def test_scrub_obj_dict_masks_sensitive_keys(self) -> None:

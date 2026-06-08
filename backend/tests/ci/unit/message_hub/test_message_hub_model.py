@@ -16,7 +16,7 @@ def _create_source() -> tuple[AccountCredential, MessageSource]:
     firm = LawFirm.objects.create(name="模型测试律所")
     lawyer = Lawyer.objects.create_user(username="model_msg_lawyer", real_name="模型律师", law_firm=firm)
     cred = AccountCredential.objects.create(
-        lawyer=lawyer, site_name="model_site", account="model_account", password="test_pass"
+        lawyer=lawyer, site_name="model_site", account="model_account", password="test_pass"  # allowlist secret
     )
     source = MessageSource.objects.create(
         credential=cred,

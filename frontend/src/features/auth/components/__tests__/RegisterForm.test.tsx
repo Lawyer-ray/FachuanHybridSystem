@@ -70,7 +70,7 @@ describe('RegisterForm', () => {
       expect(mockMutate).toHaveBeenCalledWith(
         expect.objectContaining({
           username: 'newuser',
-          password: 'password123',
+          password: 'password123',  // allowlist secret
         }),
         expect.any(Object),
       )

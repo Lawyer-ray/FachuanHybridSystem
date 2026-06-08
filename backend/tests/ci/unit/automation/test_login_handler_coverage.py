@@ -24,7 +24,7 @@ class TestLoginHandler:
             mock_svc = MagicMock()
             mock_credential = MagicMock()
             mock_credential.account = "test"
-            mock_credential.password = "pass"
+            mock_credential.password = "pass"  # allowlist secret
             mock_svc.get_credential = AsyncMock(return_value=mock_credential)
             mock_build.return_value = mock_svc
             with patch("apps.core.interfaces.AccountCredentialDTO.from_model", return_value=MagicMock(account="test")):

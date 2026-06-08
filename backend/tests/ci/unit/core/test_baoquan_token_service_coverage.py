@@ -51,7 +51,7 @@ class TestGetValidBaoquanToken:
         mock_org.get_credential_for_lawyer = MagicMock(return_value=mock_credential)
 
         mock_token_info = MagicMock()
-        mock_token_info.token = "eyJhbGciOiJIUzUxMiJ9.cached_token"
+        mock_token_info.token = "eyJhbGciOiJIUzUxMiJ9.cached_token"  # allowlist secret
         mock_token_info.account = "test_account"
 
         mock_token_store = MagicMock()

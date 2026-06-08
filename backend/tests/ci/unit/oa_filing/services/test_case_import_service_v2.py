@@ -25,8 +25,8 @@ def _make_session(**overrides: Any) -> MagicMock:
     session = MagicMock()
     session.pk = overrides.get("pk", 1)
     session.credential = MagicMock()
-    session.credential.account = "user@test.com"
-    session.credential.password = "pass"
+    session.credential.account = "user@test.com"  # allowlist secret
+    session.credential.password = "pass"  # allowlist secret
     session.started_at = None
     return session
 

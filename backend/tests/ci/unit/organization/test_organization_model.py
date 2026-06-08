@@ -113,7 +113,7 @@ class TestAccountCredentialModel:
         firm = LawFirm.objects.create(name="凭证测试律所")
         lawyer = Lawyer.objects.create_user(username="cred_lawyer", real_name="凭证律师", law_firm=firm)
         cred = AccountCredential.objects.create(
-            lawyer=lawyer, site_name="test_site", account="test_account", password="test_pass"
+            lawyer=lawyer, site_name="test_site", account="test_account", password="test_pass"  # allowlist secret
         )
         assert cred.site_name == "test_site"
         assert cred.account == "test_account"
@@ -126,7 +126,7 @@ class TestAccountCredentialModel:
             lawyer=lawyer,
             site_name="rate_site",
             account="rate_account",
-            password="test_pass",
+            password="test_pass",  # allowlist secret
             login_success_count=8,
             login_failure_count=2,
         )
@@ -137,6 +137,6 @@ class TestAccountCredentialModel:
         firm = LawFirm.objects.create(name="零次律所")
         lawyer = Lawyer.objects.create_user(username="zero_lawyer", real_name="零次律师", law_firm=firm)
         cred = AccountCredential.objects.create(
-            lawyer=lawyer, site_name="zero_site", account="zero_account", password="test_pass"
+            lawyer=lawyer, site_name="zero_site", account="zero_account", password="test_pass"  # allowlist secret
         )
         assert cred.success_rate == 0.0

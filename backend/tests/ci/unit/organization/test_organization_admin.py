@@ -119,7 +119,7 @@ class TestAccountCredentialAdmin:
         firm = LawFirm.objects.create(name="凭证测试律所")
         lawyer = Lawyer.objects.create_user(username="cred_lawyer", real_name="凭证律师", law_firm=firm)
         AccountCredential.objects.create(
-            lawyer=lawyer, site_name="test_site", account="test_account", password="test_pass"
+            lawyer=lawyer, site_name="test_site", account="test_account", password="test_pass"  # allowlist secret
         )
 
         admin_obj = AccountCredentialAdmin(AccountCredential, AdminSite())
@@ -136,7 +136,7 @@ class TestAccountCredentialAdmin:
             lawyer=lawyer,
             site_name="test_site",
             account="stat_account",
-            password="test_pass",
+            password="test_pass",  # allowlist secret
             login_success_count=10,
             login_failure_count=2,
         )
@@ -154,7 +154,7 @@ class TestAccountCredentialAdmin:
             lawyer=lawyer,
             site_name="test_site",
             account="rate_account",
-            password="test_pass",
+            password="test_pass",  # allowlist secret
             login_success_count=8,
             login_failure_count=2,
         )
@@ -170,7 +170,7 @@ class TestAccountCredentialAdmin:
 
         # 其他站点应返回"不支持"
         cred2 = AccountCredential.objects.create(
-            lawyer=lawyer, site_name="other_site", account="btn_account2", password="test_pass"
+            lawyer=lawyer, site_name="other_site", account="btn_account2", password="test_pass"  # allowlist secret
         )
         admin_obj = AccountCredentialAdmin(AccountCredential, AdminSite())
         result2 = admin_obj.auto_login_button(cred2)

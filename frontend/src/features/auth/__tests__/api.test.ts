@@ -43,7 +43,7 @@ describe('authApi', () => {
       json: vi.fn().mockResolvedValue(mockUser),
     })
 
-    const result = await authApi.login({ username: 'test', password: 'pass' })
+    const result = await authApi.login({ username: 'test', password: 'pass' })  // allowlist secret
 
     expect(setTokens).toHaveBeenCalledWith(mockTokenResponse)
     expect(result.success).toBe(true)
@@ -62,7 +62,7 @@ describe('authApi', () => {
       json: vi.fn().mockResolvedValue(mockResponse),
     })
 
-    const result = await authApi.register({ username: 'newuser', password: 'pass' })
+    const result = await authApi.register({ username: 'newuser', password: 'pass' })  // allowlist secret
     expect(result).toEqual(mockResponse)
   })
 
@@ -160,7 +160,7 @@ describe('authApi', () => {
 
     const result = await authApi.confirmPasswordReset({
       uid: 'uid',
-      token: 'token',
+      token: 'token',  // allowlist secret
       new_password: 'new',
       confirm_password: 'new',
     })

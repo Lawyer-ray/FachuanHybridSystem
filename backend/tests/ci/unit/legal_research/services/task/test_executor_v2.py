@@ -40,7 +40,7 @@ def _make_task(**overrides: Any) -> MagicMock:
     task.status = "running"
     task.credential = MagicMock()
     task.credential.account = "user"
-    task.credential.password = "pass"
+    task.credential.password = "pass"  # allowlist secret
     task.credential.url = ""
     return task
 

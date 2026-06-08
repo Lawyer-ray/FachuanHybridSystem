@@ -155,7 +155,7 @@ class TestCourtTokenModel:
         token = CourtToken.objects.create(
             site_name="court_zxfw",
             account="test_account",
-            token="test_token",
+            token="test_token",  # allowlist secret
             expires_at=timezone.now() + timedelta(hours=1),
         )
         assert "court_zxfw" in str(token)
@@ -166,7 +166,7 @@ class TestCourtTokenModel:
         token = CourtToken.objects.create(
             site_name="court_zxfw",
             account="valid_account",
-            token="valid_token",
+            token="valid_token",  # allowlist secret
             expires_at=timezone.now() + timedelta(hours=1),
         )
         assert token.is_expired() is False
@@ -176,7 +176,7 @@ class TestCourtTokenModel:
         token = CourtToken.objects.create(
             site_name="court_zxfw",
             account="expired_account",
-            token="expired_token",
+            token="expired_token",  # allowlist secret
             expires_at=timezone.now() - timedelta(hours=1),
         )
         assert token.is_expired() is True
@@ -186,14 +186,14 @@ class TestCourtTokenModel:
         CourtToken.objects.create(
             site_name="court_zxfw",
             account="unique_account",
-            token="token1",
+            token="token1",  # allowlist secret
             expires_at=timezone.now() + timedelta(hours=1),
         )
         with pytest.raises(Exception):  # noqa: B017
             CourtToken.objects.create(
                 site_name="court_zxfw",
                 account="unique_account",
-                token="token2",
+                token="token2",  # allowlist secret
                 expires_at=timezone.now() + timedelta(hours=2),
             )
 
@@ -202,7 +202,7 @@ class TestCourtTokenModel:
         token = CourtToken.objects.create(
             site_name="court_zxfw",
             account="default_type_account",
-            token="default_type_token",
+            token="default_type_token",  # allowlist secret
             expires_at=timezone.now() + timedelta(hours=1),
         )
         assert token.token_type == "Bearer"

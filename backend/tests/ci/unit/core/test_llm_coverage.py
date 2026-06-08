@@ -87,7 +87,7 @@ class TestDiagnoseUnavailable:
 
     def test_siliconflow_with_key_no_model(self) -> None:
         backend = MagicMock()
-        backend.api_key = "key123"
+        backend.api_key = "key123"  # allowlist secret
         backend.default_model = ""
         result = _diagnose_unavailable("siliconflow", backend)
         assert "默认模型" in result

@@ -28,7 +28,7 @@ class TestSiliconFlowBackendInit:
     def test_init_with_config(self) -> None:
         from apps.core.llm.backends.siliconflow import SiliconFlowBackend
 
-        config = _cfg(name="sf", enabled=True, priority=1, default_model="model-1", api_key="test-key", base_url="http://test")
+        config = _cfg(name="sf", enabled=True, priority=1, default_model="model-1", api_key="test-key", base_url="http://test")  # allowlist secret
         backend = SiliconFlowBackend(config=config)
         assert backend._config is config
 
@@ -37,7 +37,7 @@ class TestSiliconFlowProperties:
     def test_api_key_from_config(self) -> None:
         from apps.core.llm.backends.siliconflow import SiliconFlowBackend
 
-        config = _cfg(api_key="sk-test")
+        config = _cfg(api_key="sk-test")  # allowlist secret
         backend = SiliconFlowBackend(config=config)
         assert backend.api_key == "sk-test"
 
@@ -200,7 +200,7 @@ class TestSiliconFlowErrorMapping:
     def _make_backend(self) -> Any:
         from apps.core.llm.backends.siliconflow import SiliconFlowBackend
 
-        config = _cfg(api_key="test", base_url="http://test", default_model="m")
+        config = _cfg(api_key="test", base_url="http://test", default_model="m")  # allowlist secret
         return SiliconFlowBackend(config=config)
 
     def test_authentication_error(self) -> None:
@@ -253,14 +253,14 @@ class TestSiliconFlowAvailability:
     def test_available(self) -> None:
         from apps.core.llm.backends.siliconflow import SiliconFlowBackend
 
-        config = _cfg(api_key="sk-test", default_model="gpt-4")
+        config = _cfg(api_key="sk-test", default_model="gpt-4")  # allowlist secret
         backend = SiliconFlowBackend(config=config)
         assert backend.is_available() is True
 
     def test_not_available_disabled(self) -> None:
         from apps.core.llm.backends.siliconflow import SiliconFlowBackend
 
-        config = _cfg(api_key="sk-test", default_model="gpt-4", enabled=False)
+        config = _cfg(api_key="sk-test", default_model="gpt-4", enabled=False)  # allowlist secret
         backend = SiliconFlowBackend(config=config)
         assert backend.is_available() is False
 
@@ -275,7 +275,7 @@ class TestSiliconFlowAvailability:
     def test_not_available_no_model(self) -> None:
         from apps.core.llm.backends.siliconflow import SiliconFlowBackend
 
-        config = _cfg(api_key="sk-test", default_model="")
+        config = _cfg(api_key="sk-test", default_model="")  # allowlist secret
         with patch("apps.core.llm.backends.siliconflow.LLMConfig") as mock_cfg:
             mock_cfg.get_default_model.return_value = ""
             backend = SiliconFlowBackend(config=config)
@@ -301,7 +301,7 @@ class TestSiliconFlowChat:
     def test_chat_success(self, mock_openai_cls) -> None:
         from apps.core.llm.backends.siliconflow import SiliconFlowBackend
 
-        config = _cfg(api_key="sk-test", base_url="http://test", default_model="m", timeout=10)
+        config = _cfg(api_key="sk-test", base_url="http://test", default_model="m", timeout=10)  # allowlist secret
         backend = SiliconFlowBackend(config=config)
 
         mock_resp = MagicMock()
@@ -321,7 +321,7 @@ class TestSiliconFlowChat:
     def test_chat_with_max_tokens(self, mock_openai_cls) -> None:
         from apps.core.llm.backends.siliconflow import SiliconFlowBackend
 
-        config = _cfg(api_key="sk-test", base_url="http://test", default_model="m", timeout=10)
+        config = _cfg(api_key="sk-test", base_url="http://test", default_model="m", timeout=10)  # allowlist secret
         backend = SiliconFlowBackend(config=config)
 
         mock_resp = MagicMock()
@@ -341,7 +341,7 @@ class TestSiliconFlowChat:
         import openai
         from apps.core.llm.backends.siliconflow import SiliconFlowBackend
 
-        config = _cfg(api_key="sk-test", base_url="http://test", default_model="m", timeout=10)
+        config = _cfg(api_key="sk-test", base_url="http://test", default_model="m", timeout=10)  # allowlist secret
         backend = SiliconFlowBackend(config=config)
 
         mock_client = MagicMock()
@@ -359,7 +359,7 @@ class TestSiliconFlowStream:
     def test_stream_yields_chunks(self, mock_openai_cls) -> None:
         from apps.core.llm.backends.siliconflow import SiliconFlowBackend
 
-        config = _cfg(api_key="sk-test", base_url="http://test", default_model="m", timeout=10)
+        config = _cfg(api_key="sk-test", base_url="http://test", default_model="m", timeout=10)  # allowlist secret
         backend = SiliconFlowBackend(config=config)
 
         chunk1 = MagicMock()
@@ -385,7 +385,7 @@ class TestSiliconFlowEmbed:
     def test_embed_texts_success(self, mock_openai_cls) -> None:
         from apps.core.llm.backends.siliconflow import SiliconFlowBackend
 
-        config = _cfg(api_key="sk-test", base_url="http://test", default_model="m",
+        config = _cfg(api_key="sk-test", base_url="http://test", default_model="m",  # allowlist secret
                                embedding_model="embed-v1", timeout=10)
         backend = SiliconFlowBackend(config=config)
 
@@ -405,6 +405,6 @@ class TestSiliconFlowEmbed:
     def test_embed_texts_empty(self) -> None:
         from apps.core.llm.backends.siliconflow import SiliconFlowBackend
 
-        config = _cfg(api_key="sk-test", default_model="m")
+        config = _cfg(api_key="sk-test", default_model="m")  # allowlist secret
         backend = SiliconFlowBackend(config=config)
         assert backend.embed_texts([]) == []

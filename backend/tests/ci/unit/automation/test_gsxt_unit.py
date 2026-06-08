@@ -13,7 +13,7 @@ class TestGsxtLoginService:
     def test_start_login_delegates(self):
         from apps.automation.services.gsxt.gsxt_login_service import GsxtLoginService
         svc = GsxtLoginService()
-        credential = SimpleNamespace(account="user", password="pass", last_login_success_at=None)
+        credential = SimpleNamespace(account="user", password="pass", last_login_success_at=None)  # allowlist secret
         with patch("apps.automation.services.gsxt.gsxt_login_service.start_login_gsxt") as mock:
             svc.start_login(credential, 1)
             mock.assert_called_once_with(credential, 1)
@@ -53,7 +53,7 @@ class TestTryReverseLogin:
 
     def test_returns_false_when_import_fails(self):
         from apps.automation.services.gsxt.gsxt_login_service import _try_reverse_login
-        credential = SimpleNamespace(account="user", password="pass")
+        credential = SimpleNamespace(account="user", password="pass")  # allowlist secret
         with patch.dict("sys.modules", {"apps.automation.services.gsxt.gsxt_reverse_login": None}):
             result = _try_reverse_login(credential, 1)
         assert result is False

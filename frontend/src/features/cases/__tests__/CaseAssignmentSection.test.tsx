@@ -54,7 +54,7 @@ const mockAssignments = [
   {
     id: 1,
     lawyer: 10,
-    lawyer_detail: { real_name: '张律师', username: 'zhang', phone: '13900139000' },
+    lawyer_detail: { real_name: '张律师', username: 'zhang', phone: '13900139000' },  // allowlist secret
   },
   {
     id: 2,
@@ -77,7 +77,7 @@ describe('CaseAssignmentSection', () => {
 
   it('renders phone when available', () => {
     render(<CaseAssignmentSection assignments={mockAssignments as never} />)
-    expect(screen.getByText('13900139000')).toBeInTheDocument()
+    expect(screen.getByText('13900139000')).toBeInTheDocument()  // allowlist secret
   })
 
   it('shows add button when editable with caseId', () => {

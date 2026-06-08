@@ -178,7 +178,7 @@ class TestOneDriveProvider:
     def test_init(self, mock_client_cls: MagicMock) -> None:
         from apps.core.cloud_storage.onedrive_provider import OneDriveProvider
 
-        provider = OneDriveProvider(access_token="tok123", root_path="/docs")
+        provider = OneDriveProvider(access_token="tok123", root_path="/docs")  # allowlist secret
         assert provider._token == "tok123"
         assert provider._root == "docs"
         assert "Bearer tok123" in provider._headers["Authorization"]

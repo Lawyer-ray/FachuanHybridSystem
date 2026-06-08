@@ -36,7 +36,7 @@ describe('useLoginMutation', () => {
   it('calls authApi.login when mutate is invoked', async () => {
     const { authApi } = await import('../../api')
     const { result } = renderHook(() => useLoginMutation(), { wrapper: createWrapper() })
-    act(() => { result.current.mutate({ username: 'admin', password: '123456' }) })
+    act(() => { result.current.mutate({ username: 'admin', password: '123456' }) })  // allowlist secret
 
     expect(result.current).toHaveProperty("mutate")
   })
@@ -56,7 +56,7 @@ describe('useRegisterMutation', () => {
   it('calls authApi.register when mutate is invoked', async () => {
     const { authApi } = await import('../../api')
     const { result } = renderHook(() => useRegisterMutation(), { wrapper: createWrapper() })
-    act(() => { result.current.mutate({ username: 'newuser', password: '123456', real_name: 'New' }) })
+    act(() => { result.current.mutate({ username: 'newuser', password: '123456', real_name: 'New' }) })  // allowlist secret
 
     expect(result.current).toHaveProperty("mutate")
   })
@@ -79,7 +79,7 @@ describe('useRegisterMutation', () => {
 
     await act(async () => {
       try {
-        await result.current.mutateAsync({ username: 'existing', password: '123456', real_name: 'Test' })
+        await result.current.mutateAsync({ username: 'existing', password: '123456', real_name: 'Test' })  // allowlist secret
       } catch (e) {
         expect((e as Error).message).toBe('用户名已存在')
       }
@@ -99,7 +99,7 @@ describe('useRegisterMutation', () => {
 
     await act(async () => {
       try {
-        await result.current.mutateAsync({ username: 'newuser', password: '123456', real_name: 'Test' })
+        await result.current.mutateAsync({ username: 'newuser', password: '123456', real_name: 'Test' })  // allowlist secret
       } catch (e) {
         expect((e as Error).message).toBe('注册失败')
       }
@@ -120,7 +120,7 @@ describe('useRegisterMutation', () => {
     await act(async () => {
       const response = await result.current.mutateAsync({
         username: 'firstuser',
-        password: '123456',
+        password: '123456',  // allowlist secret
         real_name: 'First',
       })
       expect(response.success).toBe(true)
@@ -145,7 +145,7 @@ describe('useRegisterMutation', () => {
       // Should not throw even if auto-login fails
       const response = await result.current.mutateAsync({
         username: 'newuser',
-        password: '123456',
+        password: '123456',  // allowlist secret
         real_name: 'New',
       })
       expect(response.success).toBe(true)

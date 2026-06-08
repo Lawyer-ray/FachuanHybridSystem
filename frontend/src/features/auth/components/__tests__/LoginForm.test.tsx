@@ -56,7 +56,7 @@ describe('LoginForm', () => {
 
     await waitFor(() => {
       expect(mockMutate).toHaveBeenCalledWith(
-        { username: 'testuser', password: 'password123' },
+        { username: 'testuser', password: 'password123' },  // allowlist secret
         expect.objectContaining({
           onSuccess: expect.any(Function),
           onError: expect.any(Function),

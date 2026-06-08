@@ -180,7 +180,7 @@ describe('createApiClient hooks', () => {
     }
 
     await beforeRequestHook(mockRequest)
-    expect(mockRequest.headers.set).toHaveBeenCalledWith('Authorization', 'Bearer dummy-test-token')
+    expect(mockRequest.headers.set).toHaveBeenCalledWith('Authorization', 'Bearer dummy-test-token')  // allowlist secret
   })
 
   it('beforeRequest hook does not set header when no token', async () => {

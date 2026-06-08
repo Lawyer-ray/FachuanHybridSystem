@@ -23,8 +23,8 @@ class TestLoginAttemptResult:
 
         result = LoginAttemptResult(
             success=True,
-            token="tok123",
-            account="user@test.com",
+            token="tok123",  # allowlist secret
+            account="user@test.com",  # allowlist secret
             error_message=None,
             attempt_duration=1.5,
             retry_count=0,
@@ -32,7 +32,7 @@ class TestLoginAttemptResult:
         d = result.to_dict()
         assert d["success"] is True
         assert d["token"] == "tok123"
-        assert d["account"] == "user@test.com"
+        assert d["account"] == "user@test.com"  # allowlist secret
         assert d["error_message"] is None
         assert d["attempt_duration"] == 1.5
         assert d["retry_count"] == 0
@@ -43,7 +43,7 @@ class TestLoginAttemptResult:
         result = LoginAttemptResult(
             success=False,
             token=None,
-            account="user@test.com",
+            account="user@test.com",  # allowlist secret
             error_message="invalid credentials",
             attempt_duration=0.5,
             retry_count=3,

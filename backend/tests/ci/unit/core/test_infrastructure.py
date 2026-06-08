@@ -576,7 +576,7 @@ class TestSensitiveDataFilter:
         from apps.core.infrastructure.logging import SensitiveDataFilter
 
         f = SensitiveDataFilter()
-        result = f._scrub_message("Authorization: Bearer abcdefghijklmnopqr")
+        result = f._scrub_message("Authorization: Bearer abcdefghijklmnopqr")  # allowlist secret
         assert "abcdefghijklmnopqr" not in result
 
     def test_scrub_value_sensitive_key(self) -> None:

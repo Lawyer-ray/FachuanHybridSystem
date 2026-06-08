@@ -7,12 +7,12 @@ import { loginSchema, registerSchema } from '../schemas'
 
 describe('loginSchema', () => {
   it('accepts valid credentials', () => {
-    const result = loginSchema.safeParse({ username: 'admin', password: 'secret123' })
+    const result = loginSchema.safeParse({ username: 'admin', password: 'secret123' })  // allowlist secret
     expect(result.success).toBe(true)
   })
 
   it('rejects empty username', () => {
-    const result = loginSchema.safeParse({ username: '', password: 'secret123' })
+    const result = loginSchema.safeParse({ username: '', password: 'secret123' })  // allowlist secret
     expect(result.success).toBe(false)
   })
 
@@ -30,7 +30,7 @@ describe('loginSchema', () => {
 describe('registerSchema', () => {
   const validData = {
     username: 'test_user',
-    password: 'password123',
+    password: 'password123',  // allowlist secret
     confirmPassword: 'password123',
   }
 
@@ -78,7 +78,7 @@ describe('registerSchema', () => {
   })
 
   it('rejects password shorter than 6 characters', () => {
-    const result = registerSchema.safeParse({ ...validData, password: '12345', confirmPassword: '12345' })
+    const result = registerSchema.safeParse({ ...validData, password: '12345', confirmPassword: '12345' })  // allowlist secret
     expect(result.success).toBe(false)
   })
 
