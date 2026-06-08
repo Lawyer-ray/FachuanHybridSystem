@@ -15,11 +15,13 @@ function enterprisePrefillApp() {
         providerStatuses: {},
         statusHint: '',
         isProviderReady: true,
+        isLoadingStatuses: true,
         systemConfigUrl: 'http://127.0.0.1:8002/admin/core/systemconfig/',
 
         async init() {
             this.provider = 'tianyancha';
             await this.loadProviderStatuses();
+            this.isLoadingStatuses = false;
             this.applyProviderAvailability();
         },
 
@@ -52,6 +54,11 @@ function enterprisePrefillApp() {
         },
 
         applyProviderAvailability() {
+            if (this.isLoadingStatuses) {
+                this.isProviderReady = false;
+                this.statusHint = '正在加载服务状态...';
+                return;
+            }
             const item = this.providerStatuses[this.provider] || null;
             const unavailableReason = this.getProviderUnavailableReason(item);
             this.isProviderReady = !unavailableReason;
