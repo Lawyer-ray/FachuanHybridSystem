@@ -176,7 +176,7 @@ class TestRunWithCallableTimeout:
         import time
 
         def slow_func() -> str:
-            time.sleep(10)
+            time.sleep(1)  # 足够触发 0.1s 的 timeout
             return "done"
 
         with pytest.raises(TimeoutError):
