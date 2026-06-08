@@ -20,9 +20,7 @@ function enterprisePrefillApp() {
 
         async init() {
             this.provider = 'tianyancha';
-            await this.loadProviderStatuses();
-            this.isLoadingStatuses = false;
-            this.applyProviderAvailability();
+            this.loadProviderStatuses();
         },
 
         onProviderChange() {
@@ -50,13 +48,14 @@ function enterprisePrefillApp() {
                 }, {});
             } catch (error) {
                 this.providerStatuses = {};
+            } finally {
+                this.isLoadingStatuses = false;
+                this.applyProviderAvailability();
             }
         },
 
         applyProviderAvailability() {
             if (this.isLoadingStatuses) {
-                this.isProviderReady = false;
-                this.statusHint = '正在加载服务状态...';
                 return;
             }
             const item = this.providerStatuses[this.provider] || null;

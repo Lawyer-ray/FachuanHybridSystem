@@ -773,7 +773,7 @@
 
         <div x-show="statusHint" class="info-message">
             <span x-text="statusHint"></span>
-            <a x-show="!isLoadingStatuses" :href="systemConfigUrl" target="_blank" rel="noopener" style="margin-left: 8px; text-decoration: underline;">前往系统配置</a>
+            <a :href="systemConfigUrl" target="_blank" rel="noopener" style="margin-left: 8px; text-decoration: underline;">前往系统配置</a>
         </div>
 
         <div x-show="searchError" class="error-message" x-text="searchError"></div>
