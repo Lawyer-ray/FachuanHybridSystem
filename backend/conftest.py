@@ -24,81 +24,33 @@ collect_ignore = [
 ]
 
 
-@pytest.fixture(scope="session")
-def django_db_setup(django_db_setup: Any, django_db_blocker: Any) -> Any:
-    """
-    设置测试数据库
-
-    确保测试使用独立的测试数据库，不影响生产数据库
-    """
-    with django_db_blocker.unblock():
-        # pytest-django 会自动创建测试数据库
-        # 这里只需要确保使用正确的数据库配置
-        from django.conf import settings
-
-        db_cfg = settings.DATABASES.get("default", {})
-        db_engine = str(db_cfg.get("ENGINE", ""))
-        db_name = str(db_cfg.get("NAME", ""))
-
-        if db_engine == "django.db.backends.sqlite3":
-            is_test_db = (
-                "test_" in db_name
-                or "_test" in db_name
-                or ":memory:" in db_name
-                or "memorydb" in db_name
-                or db_name == ":memory:"
-            )
-        else:
-            lowered_name = db_name.lower()
-            is_test_db = (
-                lowered_name.startswith("test_")
-                or lowered_name.endswith("_test")
-                or "_test_" in lowered_name
-                or lowered_name == "test"
-            )
-
-        assert is_test_db, f"错误：测试正在使用生产数据库 {db_name}！测试已中止。"
-
-        yield
-
-        # 测试结束后，pytest-django 会自动清理测试数据库
+def _resolve_test_db_engine() -> str:
+    """Infer the database engine from environment variables."""
+    inferred = "sqlite" if (os.environ.get("DATABASE_PATH") or os.environ.get("TEST_DB_PATH")) else "postgresql"
+    return (os.environ.get("TEST_DB_ENGINE") or os.environ.get("DB_ENGINE") or inferred).strip().lower()
 
 
-@pytest.fixture(scope="session")
-def django_db_modify_db_settings() -> None:
-    """
-    修改测试数据库设置
+def _configure_test_database(django_settings: Any) -> None:
+    """Set ``DATABASES['default']`` for the test environment (SQLite or PostgreSQL)."""
+    engine = _resolve_test_db_engine()
 
-    默认使用 PostgreSQL 测试库，也支持显式切换 SQLite。
-    """
-    from django.conf import settings
-
-    inferred_engine = "sqlite" if (os.environ.get("DATABASE_PATH") or os.environ.get("TEST_DB_PATH")) else "postgresql"
-    test_db_engine = (
-        (os.environ.get("TEST_DB_ENGINE") or os.environ.get("DB_ENGINE") or inferred_engine).strip().lower()
-    )
-
-    if test_db_engine in ("sqlite", "sqlite3", "django.db.backends.sqlite3"):
+    if engine in ("sqlite", "sqlite3", "django.db.backends.sqlite3"):
         test_db_path = (os.environ.get("TEST_DB_PATH") or os.environ.get("DATABASE_PATH") or ":memory:").strip()
-        settings.DATABASES["default"] = {
+        django_settings.DATABASES["default"] = {
             "ENGINE": "django.db.backends.sqlite3",
             "NAME": test_db_path,
             "ATOMIC_REQUESTS": False,
             "CONN_MAX_AGE": 0,
             "TIME_ZONE": "Asia/Shanghai",
-            "OPTIONS": {
-                "timeout": 20,
-            },
+            "OPTIONS": {"timeout": 20},
         }
         return
 
     raw_test_password = os.environ.get("TEST_DB_PASSWORD")
     raw_db_password = os.environ.get("DB_PASSWORD")
-    resolved_password = raw_test_password if raw_test_password is not None else raw_db_password
-    if resolved_password is None:
-        resolved_password = "postgres"
+    resolved_password = (raw_test_password if raw_test_password is not None else raw_db_password) or "postgres"
 
-    settings.DATABASES["default"] = {
+    django_settings.DATABASES["default"] = {
         "ENGINE": "django.db.backends.postgresql",
         "NAME": (os.environ.get("TEST_DB_NAME") or "fachuan_test").strip(),
         "USER": (os.environ.get("TEST_DB_USER") or os.environ.get("DB_USER") or "postgres").strip(),
@@ -110,6 +62,83 @@ def django_db_modify_db_settings() -> None:
         "TIME_ZONE": "Asia/Shanghai",
         "CONN_HEALTH_CHECKS": True,
     }
+
+
+def pytest_configure(config: Any) -> None:
+    """
+    Apply test database settings once, *before* xdist workers fork.
+
+    This replaces the old session-scoped ``django_db_modify_db_settings``
+    fixture so that all workers inherit the same DATABASES config from the
+    start, avoiding race-conditions when the test DB does not yet exist.
+    """
+    from django.conf import settings as django_settings
+
+    _configure_test_database(django_settings)
+
+
+@pytest.fixture(scope="session")
+def django_db_setup(
+    django_db_setup: Any, django_db_blocker: Any, request: Any
+) -> Generator[None, None, None]:
+    """
+    设置测试数据库
+
+    确保测试使用独立的测试数据库，不影响生产数据库。
+    For xdist, wrap the default setup in a file lock so only one worker
+    creates/migrates the database while others wait.
+    """
+    is_xdist_worker = hasattr(request.config, "workerinput")
+
+    if is_xdist_worker:
+        import fcntl
+
+        lock_path = os.path.join(
+            os.environ.get("TMPDIR", "/tmp"),
+            f"pytest_django_db_{os.getppid()}.lock",
+        )
+        with open(lock_path, "w") as lock_file:
+            fcntl.flock(lock_file, fcntl.LOCK_EX)
+            try:
+                yield
+            finally:
+                fcntl.flock(lock_file, fcntl.LOCK_UN)
+    else:
+        with django_db_blocker.unblock():
+            from django.conf import settings
+
+            db_cfg = settings.DATABASES.get("default", {})
+            db_engine = str(db_cfg.get("ENGINE", ""))
+            db_name = str(db_cfg.get("NAME", ""))
+
+            if db_engine == "django.db.backends.sqlite3":
+                is_test_db = (
+                    "test_" in db_name
+                    or "_test" in db_name
+                    or ":memory:" in db_name
+                    or "memorydb" in db_name
+                    or db_name == ":memory:"
+                )
+            else:
+                lowered_name = db_name.lower()
+                is_test_db = (
+                    lowered_name.startswith("test_")
+                    or lowered_name.endswith("_test")
+                    or "_test_" in lowered_name
+                    or lowered_name == "test"
+                )
+
+            assert is_test_db, f"错误：测试正在使用生产数据库 {db_name}！测试已中止。"
+
+            yield
+
+
+@pytest.fixture(scope="session")
+def django_db_modify_db_settings() -> None:
+    """
+    No-op: database settings are now applied in ``pytest_configure``.
+    """
+    return
 
 
 @pytest.fixture

@@ -26,8 +26,8 @@ def _make_client(
     name: str = "张三",
     is_our: bool = True,
     client_type: str = "natural",
-    id_number: str = "110101199001011234",
-    phone: str = "13800000000",
+    id_number: str = "000000000000000000",
+    phone: str = "00000000000",
     address: str = "北京市朝阳区",
     legal_representative: str = "",
 ) -> MagicMock:
@@ -185,16 +185,16 @@ class TestGetPartyNames:
 
 class TestGetPartyValues:
     def test_returns_id_numbers(self):
-        c1 = _make_client(id_number="110101199001011234", is_our=True)
-        c2 = _make_client(id_number="110101199001015678", is_our=True, client_id=20)
+        c1 = _make_client(id_number="000000000000000000", is_our=True)
+        c2 = _make_client(id_number="000000000000000001", is_our=True, client_id=20)
         p1 = _make_party(client=c1, party_id=1)
         p2 = _make_party(client=c2, party_id=2)
         case = _make_case()
         case.parties.select_related.return_value.all.return_value.order_by.return_value = [p1, p2]
         svc = _make_service()
         result = svc._get_party_values(case, is_our_client=True, field_name="id_number")
-        assert "110101199001011234" in result
-        assert "110101199001015678" in result
+        assert "000000000000000000" in result
+        assert "000000000000000001" in result
 
     def test_returns_empty_on_exception(self):
         case = _make_case()
@@ -573,16 +573,16 @@ class TestGetOurPartySignatureInfo:
 class TestGetOpposingPartyInfo:
     def test_natural_opponent(self):
         client = _make_client(name="赵某", is_our=False, client_id=20, client_type="natural",
-                             id_number="440301199001011234", phone="13900000000", address="深圳市")
+                             id_number="000000000000000000", phone="00000000001", address="深圳市")
         party = _make_party(client=client, party_id=1)
         case = _make_case()
         case.parties.select_related.return_value.all.return_value.order_by.return_value = [party]
         svc = _make_service()
         result = svc._get_opposing_party_info(case)
         assert "赵某" in result
-        assert "身份证号码：440301199001011234" in result
+        assert "身份证号码：000000000000000000" in result
         assert "地址：深圳市" in result
-        assert "联系电话：13900000000" in result
+        assert "联系电话：00000000001" in result
 
     def test_legal_opponent(self):
         client = _make_client(name="乙公司", is_our=False, client_id=20, client_type="legal",
@@ -627,12 +627,12 @@ class TestFormatClientInfo:
         assert result == "被告："
 
     def test_natural_client(self):
-        client = _make_client(name="赵某", client_type="natural", id_number="440301199001011234",
-                             address="深圳", phone="13900000000")
+        client = _make_client(name="赵某", client_type="natural", id_number="000000000000000000",
+                             address="深圳", phone="00000000001")
         svc = _make_service()
         result = svc._format_client_info("原告", client)
         assert "原告：赵某" in result
-        assert "身份证号码：440301199001011234" in result
+        assert "身份证号码：000000000000000000" in result
 
     def test_legal_client(self):
         client = _make_client(name="乙公司", client_type="legal", id_number="91110000MA12345678",

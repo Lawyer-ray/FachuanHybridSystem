@@ -15,8 +15,8 @@ describe('ClientResult', () => {
   it('renders client count for list results', () => {
     const output = {
       results: [
-        { name: 'Alice', phone: '13800000000' },
-        { name: 'Bob', phone: '13900000000' },
+        { name: 'Alice', phone: '00000000000' },
+        { name: 'Bob', phone: '00000000001' },
       ],
     }
     render(<ClientResult {...baseProps} output={output} />)
@@ -27,18 +27,18 @@ describe('ClientResult', () => {
     const output = {
       name: 'Alice',
       client_type: '个人',
-      phone: '13800000000',
+      phone: '00000000000',
       email: 'alice@example.com',
     }
     render(<ClientResult input={{}} toolName="get_client" output={output} />)
     expect(screen.getByText('Alice')).toBeInTheDocument()
-    expect(screen.getByText('13800000000')).toBeInTheDocument()
+    expect(screen.getByText('00000000000')).toBeInTheDocument()
     expect(screen.getByText('alice@example.com')).toBeInTheDocument()
   })
 
   it('renders compact client name in list', () => {
     const output = {
-      results: [{ name: 'Alice', phone: '13800000000' }],
+      results: [{ name: 'Alice', phone: '00000000000' }],
     }
     render(<ClientResult {...baseProps} output={output} />)
     expect(screen.getByText('Alice')).toBeInTheDocument()

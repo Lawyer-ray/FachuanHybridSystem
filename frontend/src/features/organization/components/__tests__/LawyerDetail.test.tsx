@@ -21,8 +21,8 @@ import { LawyerDetail } from '../LawyerDetail'
 import { useLawyer } from '../../hooks/use-lawyer'
 
 const mockLawyer = {
-  id: 1, username: 'zhangsan', real_name: '张三', phone: '13800000000',
-  license_no: 'A12345', id_card: '110101190001010000', law_firm: 1, is_admin: true, is_active: true,
+  id: 1, username: 'zhangsan', real_name: '张三', phone: '00000000000',
+  license_no: 'A12345', id_card: '000000000000000000', law_firm: 1, is_admin: true, is_active: true,
   license_pdf_url: null, avatar_url: null,
   law_firm_detail: { id: 1, name: '大成律所', address: '', phone: '', social_credit_code: '' },
 }

@@ -46,11 +46,11 @@ function makeClient(overrides: Partial<Client> = {}): Client {
     id: 1,
     name: 'Wang',
     is_our_client: true,
-    phone: '13800000000',
+    phone: '00000000000',
     address: 'Beijing',
     client_type: 'natural',
     client_type_label: '自然人',
-    id_number: '110101190001010001',
+    id_number: '000000000000000100',
     legal_representative: null,
     legal_representative_id_number: null,
     identity_docs: [],
@@ -77,13 +77,13 @@ describe('ClientTable', () => {
   })
 
   it('displays client id numbers with masking', () => {
-    render(<ClientTable clients={[makeClient({ id_number: '110101190001010001' })]} />)
-    expect(screen.getByText('1101****0001')).toBeInTheDocument()
+    render(<ClientTable clients={[makeClient({ id_number: '000000000000000100' })]} />)
+    expect(screen.getByText('0000****0100')).toBeInTheDocument()
   })
 
   it('displays phone numbers with masking', () => {
-    render(<ClientTable clients={[makeClient({ phone: '13800000000' })]} />)
-    expect(screen.getByText('138****8000')).toBeInTheDocument()
+    render(<ClientTable clients={[makeClient({ phone: '00000000000' })]} />)
+    expect(screen.getByText('000****0000')).toBeInTheDocument()
   })
 
   it('shows dash for null id_number and phone', () => {

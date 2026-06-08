@@ -61,7 +61,7 @@ describe('clientApi', () => {
   it('validateIdCard posts id number', async () => {
     const client = createFeatureApiClient('client') as unknown as { post: ReturnType<typeof vi.fn> }
     client.post.mockReturnValue({ json: vi.fn().mockResolvedValue({ valid: true, message: 'ok' }) })
-    const result = await clientApi.validateIdCard('110101190001010001')
+    const result = await clientApi.validateIdCard('000000000000000100')
     expect(result).toEqual({ valid: true, message: 'ok' })
   })
 

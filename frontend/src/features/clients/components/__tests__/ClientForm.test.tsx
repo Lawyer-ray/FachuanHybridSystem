@@ -175,7 +175,7 @@ describe('ClientForm', () => {
     vi.mocked(useClient).mockReturnValue({
       data: {
         id: 1, name: 'Wang', is_our_client: true, client_type: 'natural',
-        phone: '138', address: 'Beijing', id_number: '110101190001010001',
+        phone: '138', address: 'Beijing', id_number: '000000000000000100',
         legal_representative: null, legal_representative_id_number: null,
         identity_docs: [], client_type_label: '自然人',
       },

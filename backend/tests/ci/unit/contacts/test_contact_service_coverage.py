@@ -44,6 +44,7 @@ class TestCaseContactService:
         with pytest.raises(NotFoundError):
             svc.get_contact(999)
 
+    @pytest.mark.django_db
     @patch("apps.contacts.services.contact_service.CaseContact")
     @patch.object(CaseContactService, "ensure_admin")
     def test_create_contact(self, mock_admin, MockModel):
@@ -54,6 +55,7 @@ class TestCaseContactService:
         result = svc.create_contact(1, {"name": "test"})
         assert result.id == 1
 
+    @pytest.mark.django_db
     @patch("apps.contacts.services.contact_service.CaseContact")
     @patch.object(CaseContactService, "ensure_admin")
     def test_update_contact_not_found(self, mock_admin, MockModel):
@@ -63,6 +65,7 @@ class TestCaseContactService:
         with pytest.raises(NotFoundError):
             svc.update_contact(999, {"name": "new"})
 
+    @pytest.mark.django_db
     @patch("apps.contacts.services.contact_service.CaseContact")
     @patch.object(CaseContactService, "ensure_admin")
     def test_delete_contact_not_found(self, mock_admin, MockModel):

@@ -578,6 +578,10 @@ class TestCourtSmsApi:
 
 class TestCourtZxfwLoginService:
     def test_class_exists(self) -> None:
+        pytest.importorskip(
+            "apps.automation.services.scraper.sites.court_zxfw_login_private.login_service",
+            reason="court_zxfw_login_private is a gitignored private module, unavailable in CI",
+        )
         from apps.automation.services.scraper.sites.court_zxfw_login_private.login_service import (
             CourtZxfwHttpLoginService,
         )

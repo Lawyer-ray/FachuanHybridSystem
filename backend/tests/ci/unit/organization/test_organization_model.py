@@ -49,12 +49,12 @@ class TestLawyerModel:
         lawyer = Lawyer.objects.create_user(
             username="create_lawyer",
             real_name="创建律师",
-            phone="13800138000",
+            phone="12000000000",
             law_firm=firm,
         )
         assert lawyer.username == "create_lawyer"
         assert lawyer.real_name == "创建律师"
-        assert lawyer.phone == "13800138000"
+        assert lawyer.phone == "12000000000"
 
     def test_lawyer_is_admin(self) -> None:
         """律师管理员标记"""

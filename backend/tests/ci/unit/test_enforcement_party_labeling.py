@@ -25,7 +25,7 @@ def _build_legal_party(name: str, status: str) -> dict[str, str]:
         "address": "广东省广州市天河区",
         "id_number": "91440101MA00000000",
         "legal_representative": "张三",
-        "phone": "13800000000",
+        "phone": "00000000000",
     }
 
 

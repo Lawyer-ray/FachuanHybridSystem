@@ -412,7 +412,7 @@ class TestGetOrCreateClient:
         svc = _make_service()
         customer = MagicMock()
         customer.name = "张三"
-        customer.phone = "13800138000"
+        customer.phone = "12000000000"
         customer.address = ""
         customer.id_number = ""
         customer.customer_type = "natural"
@@ -425,7 +425,7 @@ class TestGetOrCreateClient:
             MockClient.objects.filter.return_value.first.return_value = existing
             result = svc._get_or_create_client(customer)
             assert result is existing
-            assert existing.phone == "13800138000"
+            assert existing.phone == "12000000000"
             existing.save.assert_called()
 
     def test_new_client(self) -> None:

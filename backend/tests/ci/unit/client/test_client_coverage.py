@@ -31,8 +31,8 @@ class TestClientDtoAssembler:
             id=1,
             name="张三",
             client_type="natural",
-            phone="13800138000",
-            id_number="110101199001011234",
+            phone="12000000000",
+            id_number="000000000000000000",
             address="北京市朝阳区",
             is_our_client=True,
         )
@@ -40,8 +40,8 @@ class TestClientDtoAssembler:
         assert dto.id == 1
         assert dto.name == "张三"
         assert dto.client_type == "natural"
-        assert dto.phone == "13800138000"
-        assert dto.id_number == "110101199001011234"
+        assert dto.phone == "12000000000"
+        assert dto.id_number == "000000000000000000"
         assert dto.address == "北京市朝阳区"
         assert dto.is_our_client is True
 

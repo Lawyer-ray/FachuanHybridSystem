@@ -140,8 +140,8 @@ class TestGuaranteeDataMixin:
     def test_build_agent_dialog_defaults(self):
         from apps.automation.services.scraper.sites.guarantee.data_mixin import GuaranteeDataMixin
         mixin = GuaranteeDataMixin()
-        mixin.DEFAULT_NATURAL_ID_NUMBER = "110101199001011234"
-        result = mixin._build_agent_dialog_defaults({"name": "张律师", "phone": "13800138000"})
+        mixin.DEFAULT_NATURAL_ID_NUMBER = "000000000000000000"
+        result = mixin._build_agent_dialog_defaults({"name": "张律师", "phone": "12000000000"})
         assert result["party_type"] == "agent"
         assert result["name"] == "张律师"
 

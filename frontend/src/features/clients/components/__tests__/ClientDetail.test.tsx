@@ -111,9 +111,9 @@ const mockClient = {
   is_our_client: true,
   client_type: 'natural' as const,
   client_type_label: '自然人',
-  phone: '13800000000',
+  phone: '00000000000',
   address: 'Beijing',
-  id_number: '110101190001010001',
+  id_number: '000000000000000100',
   legal_representative: null,
   legal_representative_id_number: null,
   identity_docs: [],
@@ -227,9 +227,9 @@ describe('ClientDetail', () => {
     } as ReturnType<typeof useClient>)
 
     render(<ClientDetail clientId="1" />)
-    const idElements = screen.getAllByText('110101190001010001')
+    const idElements = screen.getAllByText('000000000000000100')
     expect(idElements.length).toBeGreaterThanOrEqual(1)
-    const phoneElements = screen.getAllByText('13800000000')
+    const phoneElements = screen.getAllByText('00000000000')
     expect(phoneElements.length).toBeGreaterThanOrEqual(1)
   })
 })

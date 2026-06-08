@@ -79,7 +79,7 @@ describe('OcrUploader', () => {
     vi.mocked(clientApi.recognizeIdentityDoc).mockResolvedValue({
       success: true,
       doc_type: 'id_card',
-      extracted_data: { name: 'Wang', id_number: '110101190001010001' },
+      extracted_data: { name: 'Wang', id_number: '000000000000000100' },
       confidence: 0.95,
     })
 
@@ -108,7 +108,7 @@ describe('OcrUploader', () => {
     vi.mocked(clientApi.recognizeIdentityDoc).mockResolvedValue({
       success: true,
       doc_type: 'id_card',
-      extracted_data: { name: 'Wang', id_number: '110101190001010001', address: 'Beijing' },
+      extracted_data: { name: 'Wang', id_number: '000000000000000100', address: 'Beijing' },
       confidence: 0.95,
     })
 
@@ -120,7 +120,7 @@ describe('OcrUploader', () => {
     await waitFor(() => {
       expect(screen.getByText('识别成功')).toBeInTheDocument()
       expect(screen.getByText('Wang')).toBeInTheDocument()
-      expect(screen.getByText('110101190001010001')).toBeInTheDocument()
+      expect(screen.getByText('000000000000000100')).toBeInTheDocument()
     })
   })
 
@@ -128,7 +128,7 @@ describe('OcrUploader', () => {
     vi.mocked(clientApi.recognizeIdentityDoc).mockResolvedValue({
       success: true,
       doc_type: 'id_card',
-      extracted_data: { name: 'Wang', id_number: '110101190001010001' },
+      extracted_data: { name: 'Wang', id_number: '000000000000000100' },
       confidence: 0.95,
     })
 
@@ -143,7 +143,7 @@ describe('OcrUploader', () => {
 
     fireEvent.click(screen.getByText('确认填充'))
     expect(defaultProps.onRecognized).toHaveBeenCalledWith(
-      expect.objectContaining({ name: 'Wang', id_number: '110101190001010001' }),
+      expect.objectContaining({ name: 'Wang', id_number: '000000000000000100' }),
     )
   })
 

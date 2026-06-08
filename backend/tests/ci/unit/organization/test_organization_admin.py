@@ -57,7 +57,7 @@ class TestLawyerAdmin:
         lawyer = Lawyer.objects.create_user(
             username="serialize_lawyer",
             real_name="序列化律师",
-            phone="13800138000",
+            phone="12000000000",
             law_firm=firm,
         )
 
@@ -66,7 +66,7 @@ class TestLawyerAdmin:
         assert len(result) == 1
         assert result[0]["username"] == "serialize_lawyer"
         assert result[0]["real_name"] == "序列化律师"
-        assert result[0]["phone"] == "13800138000"
+        assert result[0]["phone"] == "12000000000"
 
 
 @pytest.mark.django_db

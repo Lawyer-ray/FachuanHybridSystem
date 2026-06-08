@@ -44,7 +44,7 @@ class TestCourtFilingHelpers:
     def test_to_valid_mobile(self):
         from apps.automation.api.court_filing_helpers import _to_valid_mobile
 
-        assert _to_valid_mobile("13800138000") == "13800138000"
+        assert _to_valid_mobile("12000000000") == "12000000000"
         assert _to_valid_mobile("abc") == ""
         assert _to_valid_mobile("") == ""
         assert _to_valid_mobile("123") == ""
@@ -98,9 +98,9 @@ class TestCourtFilingHelpers:
         from apps.automation.api.court_filing_helpers import _apply_execution_party_fallbacks
 
         plaintiffs = [{"client_type": "natural", "phone": "", "address": "北京市"}]
-        agents = [{"phone": "13800138000"}]
+        agents = [{"phone": "12000000000"}]
         _apply_execution_party_fallbacks(plaintiffs=plaintiffs, agents=agents)
-        assert plaintiffs[0]["phone"] == "13800138000"
+        assert plaintiffs[0]["phone"] == "12000000000"
 
     def test_build_session_status_pending(self):
         from apps.automation.api.court_filing_helpers import _build_session_status_payload

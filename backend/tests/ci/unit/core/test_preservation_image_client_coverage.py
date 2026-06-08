@@ -232,8 +232,8 @@ class TestIdentityExtractionService:
         from apps.client.services.identity_extraction.extraction_service import IdentityExtractionService
 
         service = IdentityExtractionService()
-        result = service._extract_id_number("公民身份号码 110101199001011234")
-        assert result == "110101199001011234"
+        result = service._extract_id_number("公民身份号码 000000000000000000")
+        assert result == "000000000000000000"
 
     def test_extract_id_number_none(self):
         from apps.client.services.identity_extraction.extraction_service import IdentityExtractionService

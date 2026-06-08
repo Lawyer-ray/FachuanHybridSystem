@@ -13,12 +13,12 @@ import { LawyerTable } from '../LawyerTable'
 describe('LawyerTable', () => {
   const mockLawyers = [
     {
-      id: 1, username: 'zhangsan', real_name: '张三', phone: '13800000000',
+      id: 1, username: 'zhangsan', real_name: '张三', phone: '00000000000',
       license_no: 'A12345', id_card: '', law_firm: 1, is_admin: true, is_active: true,
       license_pdf_url: null, avatar_url: null, law_firm_detail: { id: 1, name: '大成律所', address: '', phone: '', social_credit_code: '' },
     },
     {
-      id: 2, username: 'lisi', real_name: '李四', phone: '13900000000',
+      id: 2, username: 'lisi', real_name: '李四', phone: '00000000001',
       license_no: 'B67890', id_card: '', law_firm: null, is_admin: false, is_active: false,
       license_pdf_url: null, avatar_url: null, law_firm_detail: null,
     },
@@ -62,6 +62,6 @@ describe('LawyerTable', () => {
 
   it('renders phone in masked format', () => {
     render(<LawyerTable lawyers={mockLawyers as any} />)
-    expect(screen.getByText('138****8001')).toBeInTheDocument()
+    expect(screen.getByText('000****0001')).toBeInTheDocument()
   })
 })

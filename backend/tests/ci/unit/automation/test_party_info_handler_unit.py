@@ -25,7 +25,7 @@ class TestNormalizeClientType:
 class TestIsMobilePhone:
 
     @pytest.mark.parametrize("value,expected", [
-        ("13800138000", True),
+        ("12000000000", True),
         ("013800138000", False),
         ("1380013800", False),
         ("", False),

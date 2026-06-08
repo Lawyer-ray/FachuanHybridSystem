@@ -47,8 +47,8 @@ def _make_party(
     is_our: bool = True,
     client_type: str = "natural",
     legal_representative: str = "",
-    id_number: str = "110101199001011234",
-    phone: str = "13800000000",
+    id_number: str = "000000000000000000",
+    phone: str = "00000000000",
     address: str = "北京市朝阳区",
 ) -> MagicMock:
     party = MagicMock()

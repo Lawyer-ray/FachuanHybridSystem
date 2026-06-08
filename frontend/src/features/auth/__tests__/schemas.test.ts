@@ -43,7 +43,7 @@ describe('registerSchema', () => {
     const result = registerSchema.safeParse({
       ...validData,
       real_name: '张三',
-      phone: '13800000000',
+      phone: '15912345678', // allowlist secret: test fixture for schema validation
     })
     expect(result.success).toBe(true)
   })
@@ -102,7 +102,7 @@ describe('registerSchema', () => {
   })
 
   it('accepts valid Chinese mobile number', () => {
-    const result = registerSchema.safeParse({ ...validData, phone: '15912345678' })
+    const result = registerSchema.safeParse({ ...validData, phone: '15912345678' }) // allowlist secret: test fixture
     expect(result.success).toBe(true)
   })
 })

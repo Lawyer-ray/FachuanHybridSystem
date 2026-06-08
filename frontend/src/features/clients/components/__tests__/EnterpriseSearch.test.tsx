@@ -103,7 +103,7 @@ describe('EnterpriseSearch', () => {
           status: 'active',
           establish_date: '2020-01-01',
           registered_capital: '100万',
-          phone: '13800000000',
+          phone: '00000000000',
         },
       ],
       total: 1,
