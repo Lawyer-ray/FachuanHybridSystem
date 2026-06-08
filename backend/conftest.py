@@ -79,31 +79,39 @@ def pytest_configure(config: Any) -> None:
 
 @pytest.fixture(scope="session")
 def django_db_setup(
-    django_db_setup: Any, django_db_blocker: Any, request: Any
+    request: Any,
+    django_test_environment: Any,
+    django_db_blocker: Any,
+    django_db_modify_db_settings: Any,
+    tmp_path_factory: Any,
 ) -> Generator[None, None, None]:
     """
-    设置测试数据库
+    设置测试数据库 — xdist-safe 版本。
 
-    确保测试使用独立的测试数据库，不影响生产数据库。
-    For xdist, wrap the default setup in a file lock so only one worker
-    creates/migrates the database while others wait.
+    Fixture 依赖链（由 pytest 自动解析）：
+
+    1. ``django_test_environment`` — 设置 ``DEBUG=False`` 等测试环境。
+    2. ``django_db_modify_db_settings`` — 触发 pytest-django 的
+       ``django_db_modify_db_settings_xdist_suffix``，为每个 worker 追加
+       ``_gw0``, ``_gw1`` 等后缀，使每个 worker 连接独立的测试数据库，
+       从根源上消除并发冲突。
+    3. 然后本 fixture 调用 ``django.test.utils.setup_databases`` 完成实际的
+       DB 创建和 migration，同时加上生产库安全校验和 xdist 文件锁。
+
+    注意：此 fixture **不**通过同名参数引用 pytest-django 的默认
+    ``django_db_setup``（那会导致循环依赖），而是直接调用
+    ``setup_databases()``。
     """
+    from django.test.utils import setup_databases, teardown_databases
+
+    # Read keepdb / createdb from CLI so we mirror pytest-django's own logic.
+    keepdb: bool = request.config.getvalue("reuse_db") and not request.config.getvalue("create_db")
+    createdb: bool = request.config.getvalue("create_db")
+
     is_xdist_worker = hasattr(request.config, "workerinput")
 
-    if is_xdist_worker:
-        import fcntl
-
-        lock_path = os.path.join(
-            os.environ.get("TMPDIR", "/tmp"),
-            f"pytest_django_db_{os.getppid()}.lock",
-        )
-        with open(lock_path, "w") as lock_file:
-            fcntl.flock(lock_file, fcntl.LOCK_EX)
-            try:
-                yield
-            finally:
-                fcntl.flock(lock_file, fcntl.LOCK_UN)
-    else:
+    # --- Production safety check (runs once per session) ---
+    if not is_xdist_worker:
         with django_db_blocker.unblock():
             from django.conf import settings
 
@@ -130,15 +138,88 @@ def django_db_setup(
 
             assert is_test_db, f"错误：测试正在使用生产数据库 {db_name}！测试已中止。"
 
-            yield
+    # --- xdist serialisation: file lock around setup_databases ---
+    if is_xdist_worker:
+        import fcntl
+
+        # getbasetemp().parent is the session-level tmp dir shared by all workers.
+        lock_path = (
+            tmp_path_factory.getbasetemp().parent / "pytest_django_db_setup.lock"
+        )
+        with open(lock_path, "w") as lock_file:
+            fcntl.flock(lock_file, fcntl.LOCK_EX)
+            try:
+                yield
+            finally:
+                fcntl.flock(lock_file, fcntl.LOCK_UN)
+    else:
+        setup_databases_args: dict[str, Any] = {}
+        if keepdb:
+            setup_databases_args["keepdb"] = True
+        if not request.config.getvalue("nomigrations"):
+            pass  # migrations enabled by default
+        else:
+            from pytest_django.fixtures import _disable_migrations
+
+            _disable_migrations()
+
+        aliases, serialized_aliases = _get_databases_for_setup(request.session.items)
+
+        with django_db_blocker.unblock():
+            db_cfg = setup_databases(
+                verbosity=request.config.option.verbose,
+                interactive=False,
+                aliases=aliases,
+                serialized_aliases=serialized_aliases,
+                **setup_databases_args,
+            )
+
+        yield
+
+        if not keepdb:
+            with django_db_blocker.unblock():
+                try:
+                    teardown_databases(db_cfg, verbosity=request.config.option.verbose)
+                except Exception:
+                    request.config.warn(
+                        "DBD001",
+                        "测试数据库删除失败（可忽略）",
+                    )
 
 
-@pytest.fixture(scope="session")
-def django_db_modify_db_settings() -> None:
-    """
-    No-op: database settings are now applied in ``pytest_configure``.
-    """
-    return
+def _get_databases_for_setup(
+    items: Any,
+) -> tuple[set[str], set[str]]:
+    """Collect database aliases that tests actually need (mirrors pytest-django logic)."""
+    from django.db import DEFAULT_DB_ALIAS, connections
+
+    aliases: set[str] = set()
+    serialized_aliases: set[str] = set()
+    for test in items:
+        databases = None
+        serialized_rollback = False
+        test_cls = getattr(test, "cls", None)
+        if test_cls and hasattr(test_cls, "databases"):
+            databases = getattr(test_cls, "databases", None)
+            serialized_rollback = getattr(test_cls, "serialized_rollback", False)
+        else:
+            fixtures = getattr(test, "fixturenames", ())
+            marker_db = test.get_closest_marker("django_db")
+            if marker_db:
+                databases = marker_db.kwargs.get("databases", None)
+            elif "db" in fixtures or "transactional_db" in fixtures or "live_server" in fixtures:
+                databases = None
+            else:
+                continue
+        if databases is None:
+            aliases.add(DEFAULT_DB_ALIAS)
+        elif databases == "__all__":
+            aliases.update(connections)
+        else:
+            aliases.update(databases)
+        if serialized_rollback:
+            serialized_aliases.update(aliases)
+    return aliases, serialized_aliases
 
 
 @pytest.fixture

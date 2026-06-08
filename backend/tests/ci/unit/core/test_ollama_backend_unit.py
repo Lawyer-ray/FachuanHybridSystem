@@ -186,6 +186,7 @@ class TestOllamaBackendIsAvailable:
         backend = OllamaBackend(config=config)
         assert backend.is_available() is False
 
+    @pytest.mark.django_db
     def test_empty_base_url_uses_config_value(self):
         from apps.core.llm.backends.ollama import OllamaBackend
         config = SimpleNamespace(

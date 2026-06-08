@@ -261,6 +261,7 @@ class TestDocumentRenamer:
         assert "民事判决书" in result
         assert result.endswith(".pdf")
 
+    @pytest.mark.django_db
     def test_generate_filename_empty_title(self) -> None:
         """空标题使用默认值。"""
         from datetime import date
@@ -268,6 +269,7 @@ class TestDocumentRenamer:
         result = self.renamer.generate_filename("", "案件", date(2025, 1, 1))
         assert "司法文书" in result
 
+    @pytest.mark.django_db
     def test_generate_filename_empty_case_name(self) -> None:
         """空案件名使用默认值。"""
         from datetime import date
