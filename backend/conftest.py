@@ -66,31 +66,21 @@ def _configure_test_database(django_settings: Any) -> None:
 
 def pytest_configure(config: Any) -> None:
     """
-    Apply test database settings once, *before* xdist workers fork.
+    Apply test database settings once, *before* Django loads settings.
 
-    This ensures all workers inherit the correct DATABASES config from the
-    start. pytest-django's native ``django_db_modify_db_settings_xdist_suffix``
-    fixture then appends ``_gw0``, ``_gw1`` etc. to each worker's DB name,
-    providing isolation without manual locking.
+    Sets ``DB_NAME`` env var so that ``apiSystem.settings`` reads the correct
+    test database name when it's eventually loaded by ``django.setup()``.
+    This avoids the race condition of modifying ``DATABASES`` after settings
+    are already cached.
     """
-    from django.conf import settings as django_settings
+    test_db_name = os.environ.get("TEST_DB_NAME")
+    if test_db_name:
+        os.environ["DB_NAME"] = test_db_name
 
-    _configure_test_database(django_settings)
-
-    # Production safety check: ensure we're not running against a prod DB
-    db_cfg = django_settings.DATABASES.get("default", {})
-    db_engine = str(db_cfg.get("ENGINE", ""))
-    db_name = str(db_cfg.get("NAME", ""))
-
-    if db_engine == "django.db.backends.sqlite3":
-        is_test_db = (
-            "test_" in db_name
-            or "_test" in db_name
-            or ":memory:" in db_name
-            or "memorydb" in db_name
-            or db_name == ":memory:"
-        )
-    else:
+    # Production safety check
+    db_name = os.environ.get("DB_NAME", "fachuan_dev")
+    engine = _resolve_test_db_engine()
+    if engine not in ("sqlite", "sqlite3", "django.db.backends.sqlite3"):
         lowered_name = db_name.lower()
         is_test_db = (
             lowered_name.startswith("test_")
@@ -99,11 +89,10 @@ def pytest_configure(config: Any) -> None:
             or lowered_name == "test"
             or lowered_name == "fachuan_ci_test"
         )
+        if not is_test_db:
+            import warnings
 
-    if not is_test_db and db_name:
-        import warnings
-
-        warnings.warn(f"⚠️ 测试正在使用非测试数据库: {db_name}", stacklevel=1)
+            warnings.warn(f"⚠️ 测试正在使用非测试数据库: {db_name}", stacklevel=1)
 
 
 @pytest.fixture
