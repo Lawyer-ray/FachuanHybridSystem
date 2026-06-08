@@ -223,6 +223,19 @@
             min-width: 150px;
             height: 34px;
         }
+        .provider-fav-btn {
+            background: none;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            padding: 0 6px;
+            height: 34px;
+            line-height: 32px;
+        }
+        .provider-fav-btn:hover {
+            border-color: #f5a623;
+        }
         .enterprise-prefill-input {
             flex: 1;
             min-width: 260px;
@@ -755,8 +768,11 @@
         <div class="enterprise-prefill-toolbar">
             <select x-model="provider" @change="onProviderChange()" class="enterprise-prefill-select">
                 <option value="tianyancha">{% trans "天眼查" %}</option>
-                <option value="qichacha">{% trans "企查查（预留）" %}</option>
+                <option value="qichacha">{% trans "企查查" %}</option>
             </select>
+            <button type="button" class="provider-fav-btn" @click="toggleFavorite()" :title="isFavorite ? '取消默认' : '设为默认'">
+                <span x-text="isFavorite ? '★' : '☆'" :style="isFavorite ? 'color: #f5a623' : 'color: #bbb'"></span>
+            </button>
             <input
                 type="text"
                 class="enterprise-prefill-input"

@@ -9,7 +9,7 @@ from typing import cast
 
 from apps.core.exceptions import ValidationException
 from apps.core.services.system_config_service import SystemConfigService
-from apps.enterprise_data.services.providers import TianyanchaMcpProvider
+from apps.enterprise_data.services.providers import QichachaMcpProvider, TianyanchaMcpProvider
 from apps.enterprise_data.services.types import (
     DEFAULT_CACHE_TTL_SECONDS,
     DEFAULT_PROVIDER_NAME,
@@ -37,6 +37,7 @@ class EnterpriseProviderRegistry:
 
     def list_providers(self) -> list[ProviderDescriptor]:
         transport = self.get_tianyancha_transport()
+        qcc_enabled = bool(self._read_sensitive_str("QCC_MCP_API_KEY"))  # pragma: allowlist secret
         return [
             ProviderDescriptor(
                 name=TianyanchaMcpProvider.name,
@@ -45,27 +46,44 @@ class EnterpriseProviderRegistry:
                 transport=transport,
                 capabilities=TianyanchaMcpProvider.supported_capabilities(),
                 note="",
-            )
+            ),
+            ProviderDescriptor(
+                name=QichachaMcpProvider.name,
+                enabled=qcc_enabled,
+                is_default=False,
+                transport="streamable_http",
+                capabilities=QichachaMcpProvider.supported_capabilities(),
+                note="企查查 MCP（6 个 Server，181 个工具）" if qcc_enabled else "未配置 API Key",
+            ),
         ]
 
-    def get_provider(self, provider: str | None = None) -> TianyanchaMcpProvider:
+    def get_provider(self, provider: str | None = None) -> TianyanchaMcpProvider | QichachaMcpProvider:
         provider_name = (provider or self.get_default_provider_name()).strip().lower()
-        if provider_name != TianyanchaMcpProvider.name:
-            raise ValidationException(
-                message=f"不支持的企业数据提供商: {provider_name}",
-                code="UNSUPPORTED_PROVIDER",
-                errors={"provider": provider_name},
+        if provider_name == TianyanchaMcpProvider.name:
+            config = self._build_provider_config(
+                provider_name=provider_name,
+                base_url_key="TIANYANCHA_MCP_BASE_URL",
+                base_url_default="https://mcp-service.tianyancha.com/mcp",
+                sse_url_key="TIANYANCHA_MCP_SSE_URL",
+                sse_url_default="https://mcp-service.tianyancha.com/sse",
+                api_key_key="TIANYANCHA_MCP_API_KEY",  # pragma: allowlist secret
             )
-
-        config = self._build_provider_config(
-            provider_name=provider_name,
-            base_url_key="TIANYANCHA_MCP_BASE_URL",
-            base_url_default="https://mcp-service.tianyancha.com/mcp",
-            sse_url_key="TIANYANCHA_MCP_SSE_URL",
-            sse_url_default="https://mcp-service.tianyancha.com/sse",
-            api_key_key="TIANYANCHA_MCP_API_KEY",  # pragma: allowlist secret
+            return TianyanchaMcpProvider(config=config)
+        if provider_name == QichachaMcpProvider.name:
+            config = self._build_provider_config(
+                provider_name=provider_name,
+                base_url_key="QCC_MCP_BASE_URL",
+                base_url_default="https://agent.qcc.com",
+                sse_url_key="QCC_MCP_BASE_URL",
+                sse_url_default="https://agent.qcc.com",
+                api_key_key="QCC_MCP_API_KEY",  # pragma: allowlist secret
+            )
+            return QichachaMcpProvider(config=config)
+        raise ValidationException(
+            message=f"不支持的企业数据提供商: {provider_name}",
+            code="UNSUPPORTED_PROVIDER",
+            errors={"provider": provider_name},
         )
-        return TianyanchaMcpProvider(config=config)
 
     def get_tianyancha_transport(self) -> str:
         raw_transport = str(self._config.get_value("TIANYANCHA_MCP_TRANSPORT", DEFAULT_TRANSPORT) or "").strip().lower()

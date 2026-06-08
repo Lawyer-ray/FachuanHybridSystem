@@ -15,15 +15,20 @@ function enterprisePrefillApp() {
         providerStatuses: {},
         statusHint: '',
         isProviderReady: true,
+        isLoadingStatuses: true,
+        isFavorite: false,
         systemConfigUrl: 'http://127.0.0.1:8002/admin/core/systemconfig/',
+        _favKey: 'enterprise_prefill_favorite_provider',
 
         async init() {
-            this.provider = 'tianyancha';
-            await this.loadProviderStatuses();
-            this.applyProviderAvailability();
+            const saved = this._loadFavorite();
+            this.provider = saved || 'tianyancha';
+            this.isFavorite = !!saved;
+            this.loadProviderStatuses();
         },
 
         onProviderChange() {
+            this.isFavorite = this.provider === this._loadFavorite();
             this.searchError = '';
             this.prefillError = '';
             this.applyMessage = '';
@@ -48,10 +53,16 @@ function enterprisePrefillApp() {
                 }, {});
             } catch (error) {
                 this.providerStatuses = {};
+            } finally {
+                this.isLoadingStatuses = false;
+                this.applyProviderAvailability();
             }
         },
 
         applyProviderAvailability() {
+            if (this.isLoadingStatuses) {
+                return;
+            }
             const item = this.providerStatuses[this.provider] || null;
             const unavailableReason = this.getProviderUnavailableReason(item);
             this.isProviderReady = !unavailableReason;
@@ -93,6 +104,25 @@ function enterprisePrefillApp() {
             }
 
             return '';
+        },
+
+        toggleFavorite() {
+            const current = this._loadFavorite();
+            if (current === this.provider) {
+                localStorage.removeItem(this._favKey);
+                this.isFavorite = false;
+            } else {
+                localStorage.setItem(this._favKey, this.provider);
+                this.isFavorite = true;
+            }
+        },
+
+        _loadFavorite() {
+            try {
+                return localStorage.getItem(this._favKey) || '';
+            } catch (e) {
+                return '';
+            }
         },
 
         async searchCompanies() {

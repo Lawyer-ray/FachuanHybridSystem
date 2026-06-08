@@ -200,6 +200,12 @@ def get_env_mappings() -> dict[str, dict[str, Any]]:
             "description": "天眼查 MCP API Key（支持多 Key；可用换行、逗号或分号分隔）",
             "is_secret": True,
         },
+        "QCC_MCP_API_KEY": {
+            "key": "QCC_MCP_API_KEY",
+            "category": "enterprise_data",
+            "description": "企查查 MCP API Key（Bearer Token，支持多 Key；每行一个）",
+            "is_secret": True,
+        },
         "SCRAPER_ENCRYPTION_KEY": {
             "key": "SCRAPER_ENCRYPTION_KEY",
             "category": "scraper",
