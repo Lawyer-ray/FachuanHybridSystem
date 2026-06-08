@@ -151,6 +151,83 @@ describe('reduceStreamingMessage', () => {
     expect(result).toBe(sm)
   })
 
+  it('handles meta event - uses existing activeAgent when agent not provided', () => {
+    const sm = createStreamingMessage({ activeAgent: 'contract' })
+    const event: SSEEvent = { type: 'meta', model: 'gpt-4o' }
+    const result = reduceStreamingMessage(sm, event)
+    expect(result.activeAgent).toBe('contract')
+    expect(result.model).toBe('gpt-4o')
+  })
+
+  it('handles activity event with no agent', () => {
+    const sm = createStreamingMessage({ activeAgent: 'case' })
+    const event: SSEEvent = { type: 'activity', status: 'thinking' }
+    const result = reduceStreamingMessage(sm, event)
+    expect(result.currentActivity).toContain('case')
+  })
+
+  it('handles tool_call with no name fields', () => {
+    const sm = createStreamingMessage()
+    const event: SSEEvent = { type: 'tool_call', tool_call_id: 'tc-2' }
+    const result = reduceStreamingMessage(sm, event)
+    expect(result.toolCalls[0].name).toBe('')
+    expect(result.currentActivity).toContain('工具')
+  })
+
+  it('handles tool_result with undefined tool_output', () => {
+    const sm = createStreamingMessage({
+      toolCalls: [
+        { toolCallId: 'tc-1', name: 'search', arguments: {}, status: 'running' },
+      ],
+    })
+    const event: SSEEvent = {
+      type: 'tool_result',
+      tool_call_id: 'tc-1',
+      success: true,
+    }
+    const result = reduceStreamingMessage(sm, event)
+    expect(result.toolCalls[0].status).toBe('success')
+  })
+
+  it('handles tool_result with tool_output fallback', () => {
+    const sm = createStreamingMessage({
+      toolCalls: [
+        { toolCallId: 'tc-1', name: 'search', arguments: {}, status: 'running' },
+      ],
+    })
+    const event: SSEEvent = {
+      type: 'tool_result',
+      tool_call_id: 'tc-1',
+      tool_output: { data: [4, 5, 6] },
+    }
+    const result = reduceStreamingMessage(sm, event)
+    expect(result.toolCalls[0].result).toEqual({ data: [4, 5, 6] })
+  })
+
+  it('handles handoff with empty agents', () => {
+    const sm = createStreamingMessage()
+    const event: SSEEvent = { type: 'handoff' }
+    const result = reduceStreamingMessage(sm, event)
+    expect(result.handoffs[0]).toEqual({ from: '', to: '' })
+    expect(result.currentActivity).toContain('助手')
+  })
+
+  it('handles tool_result for non-matching toolCallId', () => {
+    const sm = createStreamingMessage({
+      toolCalls: [
+        { toolCallId: 'tc-1', name: 'search', arguments: {}, status: 'running' },
+      ],
+    })
+    const event: SSEEvent = {
+      type: 'tool_result',
+      tool_call_id: 'tc-2',
+      result: 'data',
+      success: true,
+    }
+    const result = reduceStreamingMessage(sm, event)
+    expect(result.toolCalls[0].status).toBe('running')
+  })
+
   it('preserves existing fields when handling meta event', () => {
     const sm = createStreamingMessage({ content: 'existing', error: 'old error' })
     const event: SSEEvent = { type: 'meta', model: 'gpt-4' }
@@ -158,6 +235,209 @@ describe('reduceStreamingMessage', () => {
     expect(result.content).toBe('existing')
     expect(result.error).toBe('old error')
     expect(result.model).toBe('gpt-4')
+  })
+})
+
+describe('connectAndReadStream', () => {
+  const createMockReader = (chunks: string[]) => {
+    let index = 0
+    return {
+      read: vi.fn().mockImplementation(() => {
+        if (index >= chunks.length) {
+          return Promise.resolve({ done: true, value: undefined })
+        }
+        const chunk = chunks[index++]
+        const encoder = new TextEncoder()
+        return Promise.resolve({ done: false, value: encoder.encode(chunk) })
+      }),
+    }
+  }
+
+  it('processes SSE data events', async () => {
+    const onEvent = vi.fn()
+    const onLastEventId = vi.fn()
+    const reader = createMockReader([
+      'data: {"type":"delta","content":"hello"}\n\n',
+      'data: {"type":"delta","content":" world"}\n\n',
+    ])
+
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      body: { getReader: () => reader },
+    }))
+
+    const { connectAndReadStream } = await import('../streaming-helpers')
+    await connectAndReadStream(
+      'http://test.com/sse',
+      { 'Content-Type': 'application/json' },
+      { content: 'test' },
+      undefined,
+      onEvent,
+      onLastEventId,
+    )
+
+    expect(onEvent).toHaveBeenCalledTimes(2)
+    expect(onEvent).toHaveBeenCalledWith({ type: 'delta', content: 'hello' })
+    expect(onEvent).toHaveBeenCalledWith({ type: 'delta', content: ' world' })
+  })
+
+  it('skips [DONE] marker', async () => {
+    const onEvent = vi.fn()
+    const onLastEventId = vi.fn()
+    const reader = createMockReader([
+      'data: {"type":"delta","content":"text"}\n\n',
+      'data: [DONE]\n\n',
+    ])
+
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      body: { getReader: () => reader },
+    }))
+
+    const { connectAndReadStream } = await import('../streaming-helpers')
+    await connectAndReadStream('http://test.com/sse', {}, undefined, undefined, onEvent, onLastEventId)
+    expect(onEvent).toHaveBeenCalledTimes(1)
+  })
+
+  it('handles meta event with session_id via onLastEventId', async () => {
+    const onEvent = vi.fn()
+    const onLastEventId = vi.fn()
+    const reader = createMockReader([
+      'data: {"type":"meta","session_id":"sess-123"}\n\n',
+    ])
+
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      body: { getReader: () => reader },
+    }))
+
+    const { connectAndReadStream } = await import('../streaming-helpers')
+    await connectAndReadStream('http://test.com/sse', {}, undefined, undefined, onEvent, onLastEventId)
+    expect(onLastEventId).toHaveBeenCalledWith('sess-123')
+  })
+
+  it('skips malformed JSON lines', async () => {
+    const onEvent = vi.fn()
+    const onLastEventId = vi.fn()
+    const reader = createMockReader([
+      'data: {invalid json}\n\n',
+      'data: {"type":"delta","content":"ok"}\n\n',
+    ])
+
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      body: { getReader: () => reader },
+    }))
+
+    const { connectAndReadStream } = await import('../streaming-helpers')
+    await connectAndReadStream('http://test.com/sse', {}, undefined, undefined, onEvent, onLastEventId)
+    expect(onEvent).toHaveBeenCalledTimes(1)
+    expect(onEvent).toHaveBeenCalledWith({ type: 'delta', content: 'ok' })
+  })
+
+  it('throws when response is not ok', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: false,
+      status: 500,
+    }))
+
+    const { connectAndReadStream } = await import('../streaming-helpers')
+    await expect(
+      connectAndReadStream('http://test.com/sse', {}, undefined, undefined, vi.fn(), vi.fn()),
+    ).rejects.toThrow('HTTP 500')
+  })
+
+  it('throws when no reader available', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      body: null,
+    }))
+
+    const { connectAndReadStream } = await import('../streaming-helpers')
+    await expect(
+      connectAndReadStream('http://test.com/sse', {}, undefined, undefined, vi.fn(), vi.fn()),
+    ).rejects.toThrow('No reader')
+  })
+
+  it('skips non-data lines', async () => {
+    const onEvent = vi.fn()
+    const onLastEventId = vi.fn()
+    const reader = createMockReader([
+      'event: message\n',
+      'id: 1\n',
+      'retry: 5000\n',
+      'data: {"type":"delta","content":"ok"}\n\n',
+    ])
+
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      body: { getReader: () => reader },
+    }))
+
+    const { connectAndReadStream } = await import('../streaming-helpers')
+    await connectAndReadStream('http://test.com/sse', {}, undefined, undefined, onEvent, onLastEventId)
+    expect(onEvent).toHaveBeenCalledTimes(1)
+  })
+
+  it('sends resume_from header when provided', async () => {
+    const onEvent = vi.fn()
+    const onLastEventId = vi.fn()
+    const reader = createMockReader([])
+
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      body: { getReader: () => reader },
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { connectAndReadStream } = await import('../streaming-helpers')
+    await connectAndReadStream(
+      'http://test.com/sse',
+      { 'Content-Type': 'application/json', 'Last-Event-ID': 'last-id' },
+      undefined,
+      undefined,
+      onEvent,
+      onLastEventId,
+    )
+
+    expect(fetchMock).toHaveBeenCalledWith('http://test.com/sse', expect.objectContaining({
+      headers: expect.objectContaining({ 'Last-Event-ID': 'last-id' }),
+    }))
+  })
+
+  it('handles empty buffer at end of stream', async () => {
+    const onEvent = vi.fn()
+    const onLastEventId = vi.fn()
+    const reader = createMockReader([
+      'data: {"type":"delta","content":"text"}\n',
+    ])
+
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      body: { getReader: () => reader },
+    }))
+
+    const { connectAndReadStream } = await import('../streaming-helpers')
+    await connectAndReadStream('http://test.com/sse', {}, undefined, undefined, onEvent, onLastEventId)
+    expect(onEvent).toHaveBeenCalledWith({ type: 'delta', content: 'text' })
+  })
+
+  it('handles meta event without session_id', async () => {
+    const onEvent = vi.fn()
+    const onLastEventId = vi.fn()
+    const reader = createMockReader([
+      'data: {"type":"meta","model":"gpt-4o"}\n\n',
+    ])
+
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      body: { getReader: () => reader },
+    }))
+
+    const { connectAndReadStream } = await import('../streaming-helpers')
+    await connectAndReadStream('http://test.com/sse', {}, undefined, undefined, onEvent, onLastEventId)
+    expect(onLastEventId).not.toHaveBeenCalled()
+    expect(onEvent).toHaveBeenCalledWith({ type: 'meta', model: 'gpt-4o' })
   })
 })
 

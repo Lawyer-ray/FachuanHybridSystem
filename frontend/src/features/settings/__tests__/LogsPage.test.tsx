@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import { LogsPage } from '../components/LogsPage'
 
 vi.mock('lucide-react', () => ({
@@ -130,5 +130,60 @@ describe('LogsPage', () => {
     vi.mocked(useQuery).mockReturnValueOnce({ data: undefined, isLoading: true } as never)
     render(<LogsPage />)
     expect(screen.getByTestId('loader-icon')).toBeInTheDocument()
+  })
+
+  it('renders log entries when data is available', async () => {
+    const { useQuery } = await import('@tanstack/react-query')
+    const mockLogs = [
+      {
+        id: 1,
+        case: 101,
+        content: '提交了起诉状',
+        created_at: '2025-06-01 10:00:00',
+        actor_detail: { real_name: '张律师', username: 'zhang' },
+        attachments: [],
+        reminders: [],
+      },
+    ]
+    const mockCases = [{ id: 101, name: '案件A' }]
+    // Return mockLogs for all useQuery calls (simpler approach)
+    vi.mocked(useQuery).mockReturnValue({ data: mockLogs, isLoading: false } as never)
+    render(<LogsPage />)
+    expect(screen.getByText('提交了起诉状')).toBeInTheDocument()
+    expect(screen.getByText('张律师')).toBeInTheDocument()
+    // Reset
+    vi.mocked(useQuery).mockReturnValue({ data: [], isLoading: false } as never)
+  })
+
+  it('filters logs by search query', async () => {
+    const { useQuery } = await import('@tanstack/react-query')
+    const mockLogs = [
+      {
+        id: 1,
+        case: 101,
+        content: '提交了起诉状',
+        created_at: '2025-06-01 10:00:00',
+        actor_detail: { real_name: '张律师', username: 'zhang' },
+        attachments: [],
+        reminders: [],
+      },
+      {
+        id: 2,
+        case: 102,
+        content: '法院受理',
+        created_at: '2025-06-01 11:00:00',
+        actor_detail: { real_name: '李法官', username: 'li' },
+        attachments: [],
+        reminders: [],
+      },
+    ]
+    vi.mocked(useQuery).mockReturnValue({ data: mockLogs, isLoading: false } as never)
+    render(<LogsPage />)
+    const input = screen.getByPlaceholderText('搜索日志内容、案件名称、操作人...')
+    fireEvent.change(input, { target: { value: '起诉' } })
+    expect(screen.getByText('提交了起诉状')).toBeInTheDocument()
+    expect(screen.queryByText('法院受理')).not.toBeInTheDocument()
+    // Reset
+    vi.mocked(useQuery).mockReturnValue({ data: [], isLoading: false } as never)
   })
 })

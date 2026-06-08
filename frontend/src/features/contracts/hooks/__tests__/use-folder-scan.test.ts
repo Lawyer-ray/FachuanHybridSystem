@@ -28,15 +28,25 @@ describe('contracts/hooks/use-folder-scan', () => {
     expect(typeof useScanStatus).toBe('function')
   })
 
-  it('useFolderScan returns expected shape', () => {
+  it('useFolderScan returns subfolders, startScan, confirmScan', () => {
     const result = useFolderScan(1)
     expect(result).toHaveProperty('subfolders')
     expect(result).toHaveProperty('startScan')
     expect(result).toHaveProperty('confirmScan')
   })
 
-  it('useScanStatus returns query result', () => {
+  it('useScanStatus returns query result when sessionId provided', () => {
     const result = useScanStatus(1, 'sess-1')
+    expect(result).toBeDefined()
+  })
+
+  it('useScanStatus handles null sessionId', () => {
+    const result = useScanStatus(1, null)
+    expect(result).toBeDefined()
+  })
+
+  it('useScanStatus works with different contractId', () => {
+    const result = useScanStatus(42, 'sess-2')
     expect(result).toBeDefined()
   })
 })

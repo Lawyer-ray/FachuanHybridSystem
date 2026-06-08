@@ -116,6 +116,68 @@ describe('contracts/api/archive', () => {
     await archiveApi.reorderMaterials(1, { 'code-1': [3, 1, 2] })
     expect(mockPost).toHaveBeenCalledWith('1/archive/reorder', { json: { orders: { 'code-1': [3, 1, 2] } } })
   })
+
+  it('resetAndResync posts to correct endpoint', async () => {
+    await archiveApi.resetAndResync(1)
+    expect(mockPost).toHaveBeenCalledWith('1/archive/reset-and-resync')
+  })
+
+  it('uploadItem posts file with FormData', async () => {
+    const file = new File(['test'], 'test.pdf', { type: 'application/pdf' })
+    await archiveApi.uploadItem(1, file, '起诉状')
+    expect(mockPost).toHaveBeenCalledWith('1/archive/upload', { body: expect.any(FormData) })
+  })
+
+  it('downloadItem calls correct endpoint', async () => {
+    const { downloadFromResponse } = await import('@/lib/download')
+    await archiveApi.downloadItem(1, 'item-code-1')
+    expect(mockGet).toHaveBeenCalledWith('1/archive/download-item/item-code-1')
+    expect(downloadFromResponse).toHaveBeenCalled()
+  })
+
+  it('previewItem opens blob URL in new window', async () => {
+    const createObjectURLSpy = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:http://test')
+    const openSpy = vi.spyOn(window, 'open').mockReturnValue(null)
+    mockGet.mockReturnValueOnce({ blob: vi.fn().mockResolvedValue(new Blob(['test'])) })
+
+    await archiveApi.previewItem(1, 'item-code-1')
+    expect(mockGet).toHaveBeenCalledWith('1/archive/download-item/item-code-1?preview=1')
+    expect(createObjectURLSpy).toHaveBeenCalled()
+    expect(openSpy).toHaveBeenCalledWith('blob:http://test', '_blank')
+
+    createObjectURLSpy.mockRestore()
+    openSpy.mockRestore()
+  })
+
+  it('previewSingleMaterial opens blob URL in new window', async () => {
+    const createObjectURLSpy = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:http://test')
+    const openSpy = vi.spyOn(window, 'open').mockReturnValue(null)
+    mockGet.mockReturnValueOnce({ blob: vi.fn().mockResolvedValue(new Blob(['test'])) })
+
+    await archiveApi.previewSingleMaterial(1, 5)
+    expect(mockGet).toHaveBeenCalledWith('1/archive/materials/5/preview')
+    expect(createObjectURLSpy).toHaveBeenCalled()
+    expect(openSpy).toHaveBeenCalledWith('blob:http://test', '_blank')
+
+    createObjectURLSpy.mockRestore()
+    openSpy.mockRestore()
+  })
+
+  it('previewMaterial calls correct endpoint', async () => {
+    mockGet.mockReturnValueOnce(new Response())
+    await archiveApi.previewMaterial(1, 5)
+    expect(mockGet).toHaveBeenCalledWith('1/archive/materials/5/preview')
+  })
+
+  it('getChecklist with string contractId', async () => {
+    await archiveApi.getChecklist('abc-123')
+    expect(mockGet).toHaveBeenCalledWith('abc-123/archive/checklist')
+  })
+
+  it('generateFolder with string contractId', async () => {
+    await archiveApi.generateFolder('abc-123')
+    expect(mockPost).toHaveBeenCalledWith('abc-123/archive/generate-folder')
+  })
 })
 
 describe('contracts/api/invoices', () => {
@@ -132,6 +194,40 @@ describe('contracts/api/invoices', () => {
   it('create posts to correct endpoint', async () => {
     mockJson.mockResolvedValue({ id: 1 })
     await invoicesApi.create(1, { amount: 1000, invoice_number: 'INV-001', issued_at: '2025-01-01' })
+    expect(mockPost).toHaveBeenCalled()
+  })
+
+  it('delete calls correct endpoint', async () => {
+    await invoicesApi.delete(1, 5)
+    expect(mockDelete).toHaveBeenCalledWith('1/invoices/5')
+  })
+
+  it('listClientPaymentRecords calls correct endpoint', async () => {
+    await invoicesApi.listClientPaymentRecords(1)
+    expect(mockGet).toHaveBeenCalledWith('1/client-payment-records')
+  })
+
+  it('createClientPaymentRecord posts FormData', async () => {
+    mockJson.mockResolvedValue({ id: 1 })
+    const formData = new FormData()
+    formData.append('amount', '500')
+    await invoicesApi.createClientPaymentRecord(1, formData)
+    expect(mockPost).toHaveBeenCalledWith('1/client-payment-records', { body: formData })
+  })
+
+  it('deleteClientPaymentRecord calls correct endpoint', async () => {
+    await invoicesApi.deleteClientPaymentRecord(1, 3)
+    expect(mockDelete).toHaveBeenCalledWith('1/client-payment-records/3')
+  })
+
+  it('list with string contractId', async () => {
+    await invoicesApi.list('abc-123')
+    expect(mockGet).toHaveBeenCalled()
+  })
+
+  it('create with optional fields', async () => {
+    mockJson.mockResolvedValue({ id: 2 })
+    await invoicesApi.create(1, { amount: 500 })
     expect(mockPost).toHaveBeenCalled()
   })
 })

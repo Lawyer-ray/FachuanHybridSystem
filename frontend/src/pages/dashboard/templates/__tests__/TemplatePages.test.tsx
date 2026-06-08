@@ -1,8 +1,15 @@
 import { render, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router'
 import TemplateListPage from '../TemplateListPage'
 import TemplateNewPage from '../TemplateNewPage'
 import TemplateEditPage from '../TemplateEditPage'
+import { toast } from 'sonner'
+
+const { mockCreateMutate, mockUpdateMutate } = vi.hoisted(() => ({
+  mockCreateMutate: vi.fn(),
+  mockUpdateMutate: vi.fn(),
+}))
 
 // Mock feature components
 vi.mock('@/features/templates', () => ({
@@ -10,7 +17,7 @@ vi.mock('@/features/templates', () => ({
   TemplateForm: ({ template, onSubmit }: { template?: { name: string }; onSubmit: (data: unknown) => void }) => (
     <div data-testid="template-form">
       TemplateForm{template ? `-${template.name}` : ''}
-      <button onClick={() => onSubmit({})}>Submit</button>
+      <button onClick={() => onSubmit({ name: 'test' })}>Submit</button>
     </div>
   ),
 }))
@@ -21,8 +28,8 @@ vi.mock('@/features/templates/hooks/use-template', () => ({
 
 vi.mock('@/features/templates/hooks/use-template-mutations', () => ({
   useTemplateMutations: vi.fn().mockReturnValue({
-    create: { mutate: vi.fn() },
-    update: { mutate: vi.fn() },
+    create: { mutate: mockCreateMutate },
+    update: { mutate: mockUpdateMutate },
   }),
 }))
 
@@ -86,6 +93,54 @@ describe('TemplateNewPage', () => {
     )
 
     expect(screen.getByTestId('template-form')).toBeInTheDocument()
+  })
+
+  it('calls create.mutate on form submit', async () => {
+    const user = userEvent.setup()
+    render(
+      <MemoryRouter>
+        <TemplateNewPage />
+      </MemoryRouter>,
+    )
+
+    await user.click(screen.getByText('Submit'))
+    expect(mockCreateMutate).toHaveBeenCalledWith(
+      { name: 'test' },
+      expect.objectContaining({
+        onSuccess: expect.any(Function),
+        onError: expect.any(Function),
+      }),
+    )
+  })
+
+  it('shows success toast and navigates on create success', () => {
+    mockCreateMutate.mockImplementation((_data: unknown, opts: { onSuccess: () => void }) => {
+      opts.onSuccess()
+    })
+
+    render(
+      <MemoryRouter>
+        <TemplateNewPage />
+      </MemoryRouter>,
+    )
+
+    screen.getByText('Submit').click()
+    expect(toast.success).toHaveBeenCalledWith('模板创建成功')
+  })
+
+  it('shows error toast on create failure', () => {
+    mockCreateMutate.mockImplementation((_data: unknown, opts: { onError: (err: Error) => void }) => {
+      opts.onError(new Error('创建失败'))
+    })
+
+    render(
+      <MemoryRouter>
+        <TemplateNewPage />
+      </MemoryRouter>,
+    )
+
+    screen.getByText('Submit').click()
+    expect(toast.error).toHaveBeenCalledWith('创建失败')
   })
 })
 
@@ -167,5 +222,96 @@ describe('TemplateEditPage', () => {
     )
 
     expect(screen.getByText('返回列表')).toBeInTheDocument()
+  })
+
+  it('calls update.mutate on form submit in edit mode', () => {
+    mockUseTemplate.mockReturnValue({
+      data: { id: 1, name: '起诉状模板' },
+      isLoading: false,
+      error: null,
+    } as ReturnType<typeof useTemplate>)
+
+    render(
+      <MemoryRouter initialEntries={['/admin/templates/1/edit']}>
+        <Routes>
+          <Route path="/admin/templates/:id/edit" element={<TemplateEditPage />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    screen.getByText('Submit').click()
+    expect(mockUpdateMutate).toHaveBeenCalledWith(
+      { id: 1, data: { name: 'test' } },
+      expect.objectContaining({
+        onSuccess: expect.any(Function),
+        onError: expect.any(Function),
+      }),
+    )
+  })
+
+  it('shows success toast on edit success', () => {
+    mockUseTemplate.mockReturnValue({
+      data: { id: 1, name: '起诉状模板' },
+      isLoading: false,
+      error: null,
+    } as ReturnType<typeof useTemplate>)
+    mockUpdateMutate.mockImplementation((_args: unknown, opts: { onSuccess: () => void }) => {
+      opts.onSuccess()
+    })
+
+    render(
+      <MemoryRouter initialEntries={['/admin/templates/1/edit']}>
+        <Routes>
+          <Route path="/admin/templates/:id/edit" element={<TemplateEditPage />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    screen.getByText('Submit').click()
+    expect(toast.success).toHaveBeenCalledWith('模板更新成功')
+  })
+
+  it('shows error toast on edit failure', () => {
+    mockUseTemplate.mockReturnValue({
+      data: { id: 1, name: '起诉状模板' },
+      isLoading: false,
+      error: null,
+    } as ReturnType<typeof useTemplate>)
+    mockUpdateMutate.mockImplementation((_args: unknown, opts: { onError: (err: Error) => void }) => {
+      opts.onError(new Error('更新失败'))
+    })
+
+    render(
+      <MemoryRouter initialEntries={['/admin/templates/1/edit']}>
+        <Routes>
+          <Route path="/admin/templates/:id/edit" element={<TemplateEditPage />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    screen.getByText('Submit').click()
+    expect(toast.error).toHaveBeenCalledWith('更新失败')
+  })
+
+  it('shows error toast with default message when no error message', () => {
+    mockUseTemplate.mockReturnValue({
+      data: { id: 1, name: '起诉状模板' },
+      isLoading: false,
+      error: null,
+    } as ReturnType<typeof useTemplate>)
+    mockUpdateMutate.mockImplementation((_args: unknown, opts: { onError: (err: Error) => void }) => {
+      opts.onError(new Error(''))
+    })
+
+    render(
+      <MemoryRouter initialEntries={['/admin/templates/1/edit']}>
+        <Routes>
+          <Route path="/admin/templates/:id/edit" element={<TemplateEditPage />} />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    screen.getByText('Submit').click()
+    expect(toast.error).toHaveBeenCalledWith('更新失败，请重试')
   })
 })

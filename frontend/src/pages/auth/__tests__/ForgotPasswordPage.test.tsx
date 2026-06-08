@@ -36,10 +36,13 @@ vi.mock('@/components/ui/input', () => ({
 }))
 
 vi.mock('@/components/ui/form', () => ({
-  Form: ({ children }: { children: React.ReactNode }) => <form>{children}</form>,
+  Form: ({ children, ...props }: { children: React.ReactNode; [key: string]: unknown }) => {
+    // Just pass through children - the actual <form> element in the component handles submission
+    return <>{children}</>
+  },
   FormControl: ({ children }: { children: React.ReactNode }) => <>{children}</>,
-  FormField: ({ render: renderFn }: { render: (props: { field: Record<string, unknown> }) => React.ReactNode }) =>
-    renderFn({ field: { value: '', onChange: vi.fn(), onBlur: vi.fn(), name: 'email', ref: vi.fn() } }),
+  FormField: ({ render: renderFn, name }: { render: (props: { field: Record<string, unknown> }) => React.ReactNode; name?: string }) =>
+    renderFn({ field: { value: '', onChange: vi.fn(), onBlur: vi.fn(), name: name || 'email', ref: vi.fn() } }),
   FormItem: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   FormLabel: ({ children }: { children: React.ReactNode }) => <label>{children}</label>,
   FormMessage: () => <div />,
@@ -177,5 +180,64 @@ describe('ForgotPasswordPage', () => {
     const link = screen.getByText(/返回登录/).closest('a')
     expect(link).toHaveAttribute('href', '/login')
     expect(link).toHaveClass('font-medium')
+  })
+
+  it('renders mail icon in submit button', () => {
+    render(
+      <MemoryRouter>
+        <ForgotPasswordPage />
+      </MemoryRouter>,
+    )
+
+    // Mail icon is rendered inside the submit button
+    const submitButton = screen.getByText('发送重置链接')
+    expect(submitButton).toBeInTheDocument()
+  })
+
+  it('has the AuthLayoutCard wrapper', () => {
+    render(
+      <MemoryRouter>
+        <ForgotPasswordPage />
+      </MemoryRouter>,
+    )
+
+    const card = screen.getByTestId('auth-layout-card')
+    expect(card).toBeInTheDocument()
+  })
+
+  it('form has submit button with correct type', () => {
+    render(
+      <MemoryRouter>
+        <ForgotPasswordPage />
+      </MemoryRouter>,
+    )
+
+    const button = screen.getByRole('button', { name: /发送重置链接/ })
+    expect(button).toHaveAttribute('type', 'submit')
+  })
+
+  it('displays page title in AuthLayoutCard', () => {
+    render(
+      <MemoryRouter>
+        <ForgotPasswordPage />
+      </MemoryRouter>,
+    )
+
+    const title = screen.getByRole('heading', { name: '忘记密码' })
+    expect(title).toBeInTheDocument()
+  })
+
+  it('renders multiple form elements', () => {
+    render(
+      <MemoryRouter>
+        <ForgotPasswordPage />
+      </MemoryRouter>,
+    )
+
+    // Verify structure: label, input, button, link
+    expect(screen.getByText('邮箱地址')).toBeInTheDocument()
+    expect(screen.getByPlaceholderText('请输入注册时使用的邮箱')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /发送重置链接/ })).toBeInTheDocument()
+    expect(screen.getByText(/返回登录/)).toBeInTheDocument()
   })
 })

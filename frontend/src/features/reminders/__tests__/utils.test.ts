@@ -22,7 +22,7 @@ describe('reminders/utils', () => {
 
     it('returns upcoming for today', () => {
       const today = new Date()
-      today.setHours(12, 0, 0, 0)
+      today.setHours(23, 59, 0, 0)  // 设到今天末尾，确保在 now 之后
       expect(getReminderStatus(today.toISOString())).toBe('upcoming')
     })
   })

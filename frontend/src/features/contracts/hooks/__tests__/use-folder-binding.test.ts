@@ -1,8 +1,9 @@
 vi.mock('../api', () => ({
   contractApi: {
-    getFolderBinding: vi.fn().mockResolvedValue({ binding: null }),
-    bindFolder: vi.fn().mockResolvedValue({}),
-    unbindFolder: vi.fn().mockResolvedValue({}),
+    getBinding: vi.fn().mockResolvedValue({ binding: null }),
+    createBinding: vi.fn().mockResolvedValue({}),
+    deleteBinding: vi.fn().mockResolvedValue({}),
+    browseFolders: vi.fn().mockResolvedValue({ entries: [], path: '/' }),
   },
 }))
 
@@ -27,13 +28,36 @@ describe('contracts/hooks/use-folder-binding', () => {
     expect(typeof useFolderBrowse).toBe('function')
   })
 
-  it('useFolderBinding returns query result', () => {
+  it('useFolderBinding returns binding, createBinding, deleteBinding', () => {
     const result = useFolderBinding(1)
+    expect(result).toHaveProperty('binding')
+    expect(result).toHaveProperty('createBinding')
+    expect(result).toHaveProperty('deleteBinding')
+  })
+
+  it('useFolderBrowse returns query result with default path', () => {
+    const result = useFolderBrowse()
+    expect(result).toBeDefined()
+    expect(result).toHaveProperty('data')
+  })
+
+  it('useFolderBrowse accepts path parameter', () => {
+    const result = useFolderBrowse('/home/user/docs')
     expect(result).toBeDefined()
   })
 
-  it('useFolderBrowse returns query result', () => {
-    const result = useFolderBrowse('/path')
+  it('useFolderBrowse accepts storageType parameter', () => {
+    const result = useFolderBrowse('/path', 'oss')
+    expect(result).toBeDefined()
+  })
+
+  it('useFolderBrowse accepts storageAccountId parameter', () => {
+    const result = useFolderBrowse('/path', 'oss', 5)
+    expect(result).toBeDefined()
+  })
+
+  it('useFolderBinding returns query result', () => {
+    const result = useFolderBinding(1)
     expect(result).toBeDefined()
   })
 })

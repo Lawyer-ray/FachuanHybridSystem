@@ -14,7 +14,7 @@ class BaoquanTokenService:
     BAOQUAN_SITE_NAME = "court_baoquan"
     _BAOQUAN_TOKEN_PREFIX = "eyJhbGciOiJIUzUxMiJ9"
 
-    async def get_valid_baoquan_token(self, credential_id: int | None = None) -> str:
+    async def get_valid_baoquan_token(self, credential_id: int | None = None, *, lawyer_id: int | None = None) -> str:
         logger.info("获取保全系统 Token (HS512)...")
 
         from apps.core.services.wiring import get_court_token_store_service, get_organization_service
@@ -25,15 +25,13 @@ class BaoquanTokenService:
         if credential_id:
             credential = await sync_to_async(organization_service.get_credential)(credential_id)
         else:
-            all_credentials = await sync_to_async(organization_service.get_all_credentials)()
-            credentials = [
-                c
-                for c in all_credentials
-                if ("zxfw.court.gov.cn" in (c.url or "")) or ("baoquan.court.gov.cn" in (c.url or ""))
-            ]
-            if not credentials:
-                raise TokenError("没有找到法院保全系统的账号凭证")
-            credential = credentials[0]
+            if not lawyer_id:
+                raise TokenError("未指定当前用户,无法获取一张网账号")
+            credential = await sync_to_async(organization_service.get_credential_for_lawyer)(
+                lawyer_id, self.COURT_SITE_NAME
+            )
+            if credential is None:
+                raise TokenError("当前用户没有配置一张网账号,请先在「账号管理」中添加")
 
         account = credential.account
 
