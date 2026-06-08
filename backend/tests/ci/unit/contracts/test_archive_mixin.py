@@ -46,7 +46,7 @@ class TestContractArchiveMixinPermissionChecks:
         mixin = self._make_mixin()
         mixin.has_view_permission.return_value = False
         request = MagicMock()
-        with pytest.raises(Exception):  # PermissionDenied
+        with pytest.raises(Exception):  # PermissionDenied  # noqa: B017
             mixin.download_archive_item_view(request, 1, "code")
 
     def test_detect_supervision_card_wrong_method(self) -> None:
@@ -131,12 +131,12 @@ class TestContractArchiveMixinPermissionChecks:
         mixin = self._make_mixin()
         mixin.has_view_permission.return_value = False
         request = MagicMock()
-        with pytest.raises(Exception):
+        with pytest.raises(Exception):  # noqa: B017
             mixin.case_material_match_map_view(request, 1)
 
     def test_preview_archive_material_no_permission(self) -> None:
         mixin = self._make_mixin()
         mixin.has_view_permission.return_value = False
         request = MagicMock()
-        with pytest.raises(Exception):
+        with pytest.raises(Exception):  # noqa: B017
             mixin.preview_archive_material_view(request, 1, 1)

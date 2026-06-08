@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import tempfile
 import zipfile
-from datetime import datetime, timezone as tz
+from datetime import datetime, timezone as tz, UTC
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
@@ -23,7 +23,7 @@ class TestDocumentDeliveryRecord:
     def test_creation(self):
         record = DocumentDeliveryRecord(
             case_number="(2024)粤01民初100号",
-            send_time=datetime(2024, 1, 15, tzinfo=tz.utc),
+            send_time=datetime(2024, 1, 15, tzinfo=UTC),
             element_index=0,
             document_name="判决书",
             court_name="广州市中级人民法院",
@@ -165,13 +165,13 @@ class TestDocumentDeliveryServiceShouldProcess:
         svc = DocumentDeliveryService()
         record = DocumentDeliveryRecord(
             case_number="test",
-            send_time=datetime(2020, 1, 1, tzinfo=tz.utc),
+            send_time=datetime(2020, 1, 1, tzinfo=UTC),
             element_index=0,
             document_name="test",
             court_name="test",
             delivery_event_id="test",
         )
-        cutoff = datetime(2024, 1, 1, tzinfo=tz.utc)
+        cutoff = datetime(2024, 1, 1, tzinfo=UTC)
         assert svc._should_process(record, cutoff, 1) is False
 
     def test_should_process_returns_false_when_none_time(self):
@@ -185,5 +185,5 @@ class TestDocumentDeliveryServiceShouldProcess:
             court_name="test",
             delivery_event_id="test",
         )
-        cutoff = datetime(2024, 1, 1, tzinfo=tz.utc)
+        cutoff = datetime(2024, 1, 1, tzinfo=UTC)
         assert svc._should_process(record, cutoff, 1) is False

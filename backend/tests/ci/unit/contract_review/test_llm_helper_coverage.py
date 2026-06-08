@@ -15,7 +15,7 @@ class TestContractStructureAnalyzerParseResponse:
     """测试 LLM 响应 JSON 解析"""
 
     @patch("apps.core.llm.service.LLMService")
-    def _make_analyzer(self, mock_llm: MagicMock) -> "ContractStructureAnalyzer":
+    def _make_analyzer(self, mock_llm: MagicMock) -> ContractStructureAnalyzer:
         from apps.contract_review.services.format_normalizer.llm_helper import ContractStructureAnalyzer
 
         return ContractStructureAnalyzer()

@@ -49,7 +49,7 @@ class TestReadDjangoFieldFile:
 
     def test_read_exception_returns_none(self) -> None:
         source = MagicMock()
-        source.read.side_effect = IOError("read error")
+        source.read.side_effect = OSError("read error")
         result = _read_django_field_file(source)
         assert result is None
 
@@ -68,7 +68,7 @@ class TestReadFileLike:
 
     def test_read_exception_returns_none(self) -> None:
         source = MagicMock()
-        source.read.side_effect = IOError("read error")
+        source.read.side_effect = OSError("read error")
         source.tell.return_value = 0
         result = _read_file_like(source)
         assert result is None

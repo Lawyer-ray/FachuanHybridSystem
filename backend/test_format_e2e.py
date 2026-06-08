@@ -78,7 +78,7 @@ def analyze_doc(path: Path) -> dict:
                     "numFmt": num_fmt.get(qn("w:val")) if num_fmt is not None else None,
                 })
             result["numbering_defs"].append({"abstractNumId": aid, "levels": levels})
-    except:
+    except Exception:
         pass
 
     # Paragraphs
@@ -188,11 +188,7 @@ def compare_format(ref_info: dict, out_info: dict, name: str) -> list[str]:
             continue
         # 检测 "一、", "（一）", "1、", "(1)" 等前缀
         import re
-        if re.match(r'^[一二三四五六七八九十]+、', text):
-            manual_prefixes += 1
-        elif re.match(r'^[（(][一二三四五六七八九十\d]+[)）]', text):
-            manual_prefixes += 1
-        elif re.match(r'^\d+[、．.]', text):
+        if re.match(r'^[一二三四五六七八九十]+、', text) or re.match(r'^[（(][一二三四五六七八九十\d]+[)）]', text) or re.match(r'^\d+[、．.]', text):
             manual_prefixes += 1
     if manual_prefixes > 0:
         issues.append(f"输出有 {manual_prefixes} 个段落残留手动编号前缀")
@@ -217,10 +213,10 @@ def main():
         print(f"  验证集: {ref_path.name}")
 
         if not test_path.exists():
-            print(f"  ⚠️ 测试文件不存在，跳过")
+            print("  ⚠️ 测试文件不存在，跳过")
             continue
         if not ref_path.exists():
-            print(f"  ⚠️ 验证文件不存在，跳过")
+            print("  ⚠️ 验证文件不存在，跳过")
             continue
 
         # 执行规范化
@@ -244,7 +240,7 @@ def main():
                 print(f"    - {issue}")
             all_pass = False
         else:
-            print(f"  ✅ 格式一致")
+            print("  ✅ 格式一致")
 
         # 打印段落统计
         out_paras = out_info["paragraphs"]
@@ -255,7 +251,7 @@ def main():
         print(f"  段落统计: 总计={total}, ilvl=0:{h0}, ilvl=1:{h1}, ilvl=2:{h2}")
 
         # 打印前15个段落
-        print(f"\n  前15个段落:")
+        print("\n  前15个段落:")
         for p in out_paras[:15]:
             nid = p.get("numId", "-")
             ilvl = p.get("ilvl", "-")

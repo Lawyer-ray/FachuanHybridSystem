@@ -34,7 +34,7 @@ class TestAutoNamerServiceAdapter:
         mock_response = MagicMock()
         mock_response.content = None
         svc.llm_service.chat.return_value = mock_response
-        with pytest.raises(Exception):
+        with pytest.raises(Exception):  # noqa: B017
             svc.generate_filename("content")
 
     def test_process_document_for_naming_no_text(self):

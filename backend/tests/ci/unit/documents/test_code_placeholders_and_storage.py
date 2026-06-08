@@ -36,7 +36,7 @@ class TestCodePlaceholderDefinition:
         defn = CodePlaceholderDefinition(key="test", source="test", category="test")
         try:
             defn.key = "changed"  # type: ignore
-            assert False, "应抛出异常"
+            raise AssertionError("应抛出异常")
         except AttributeError:
             pass
 

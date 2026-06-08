@@ -85,6 +85,6 @@ class TestOCRRuntimeProfile:
         profile = OCRRuntimeProfile(key="test", use_v5=False, dpi=150, workers=1)
         try:
             profile.key = "changed"  # type: ignore
-            assert False, "应抛出异常"
+            raise AssertionError("应抛出异常")
         except AttributeError:
             pass

@@ -92,7 +92,7 @@ class TestInboxMessageModel:
             subject="唯一性测试",
             received_at=timezone.now(),
         )
-        with pytest.raises(Exception):
+        with pytest.raises(Exception):  # noqa: B017
             InboxMessage.objects.create(
                 source=source,
                 message_id="unique_msg",

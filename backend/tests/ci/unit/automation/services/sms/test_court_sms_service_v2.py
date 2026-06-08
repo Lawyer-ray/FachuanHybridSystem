@@ -439,12 +439,14 @@ class TestAssignCase:
         assert svc._has_renamed_documents(sms1) is False
 
         # result not dict
-        task2 = MagicMock(); task2.result = "not_dict"
+        task2 = MagicMock()
+        task2.result = "not_dict"
         sms2 = _make_sms(scraper_task=task2)
         assert svc._has_renamed_documents(sms2) is False
 
         # empty renamed_files
-        task3 = MagicMock(); task3.result = {"renamed_files": []}
+        task3 = MagicMock()
+        task3.result = {"renamed_files": []}
         sms3 = _make_sms(scraper_task=task3)
         assert svc._has_renamed_documents(sms3) is False
 
@@ -844,7 +846,7 @@ class TestProcessNotifying:
 class TestModuleLevelFunctions:
 
     def test_process_sms_async(self):
-        import apps.automation.workers.court_sms_tasks as _mod  # noqa: F401 - ensure attr exists
+        import apps.automation.workers.court_sms_tasks as _mod
         import apps.automation.workers as _workers
         mock_tasks = MagicMock()
         with patch.object(_workers, "court_sms_tasks", mock_tasks):
@@ -853,7 +855,7 @@ class TestModuleLevelFunctions:
             mock_tasks.process_sms.assert_called_once_with(1, process_options={"key": "val"})
 
     def test_process_sms_from_matching(self):
-        import apps.automation.workers.court_sms_tasks as _mod  # noqa: F401
+        import apps.automation.workers.court_sms_tasks as _mod
         import apps.automation.workers as _workers
         mock_tasks = MagicMock()
         with patch.object(_workers, "court_sms_tasks", mock_tasks):
@@ -862,7 +864,7 @@ class TestModuleLevelFunctions:
             mock_tasks.process_sms_from_matching.assert_called_once_with(1)
 
     def test_process_sms_from_renaming(self):
-        import apps.automation.workers.court_sms_tasks as _mod  # noqa: F401
+        import apps.automation.workers.court_sms_tasks as _mod
         import apps.automation.workers as _workers
         mock_tasks = MagicMock()
         with patch.object(_workers, "court_sms_tasks", mock_tasks):
@@ -871,7 +873,7 @@ class TestModuleLevelFunctions:
             mock_tasks.process_sms_from_renaming.assert_called_once_with(1)
 
     def test_retry_download_task(self):
-        import apps.automation.workers.court_sms_tasks as _mod  # noqa: F401
+        import apps.automation.workers.court_sms_tasks as _mod
         import apps.automation.workers as _workers
         mock_tasks = MagicMock()
         with patch.object(_workers, "court_sms_tasks", mock_tasks):

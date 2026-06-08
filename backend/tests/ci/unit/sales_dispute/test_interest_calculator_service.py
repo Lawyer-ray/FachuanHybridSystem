@@ -65,10 +65,10 @@ class TestInterestCalculatorService:
         self.service = InterestCalculatorService()
 
     def test_lpr_watershed_constant(self) -> None:
-        assert LPR_WATERSHED == date(2019, 8, 20)
+        assert date(2019, 8, 20) == LPR_WATERSHED
 
     def test_old_benchmark_rate(self) -> None:
-        assert OLD_BENCHMARK_RATE_1Y == Decimal("4.35")
+        assert Decimal("4.35") == OLD_BENCHMARK_RATE_1Y
 
     def test_calculate_start_after_end_returns_zero(self) -> None:
         params = InterestCalcParams(

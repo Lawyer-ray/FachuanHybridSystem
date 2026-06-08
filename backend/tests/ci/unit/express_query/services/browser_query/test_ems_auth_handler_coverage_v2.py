@@ -31,11 +31,11 @@ def _make_page(url="https://www.ems.com.cn/query_express_delivery", body_text=""
     """Return a mock Page."""
     page = MagicMock()
     page.url = url
-    page.locator = MagicMock(return_value=_make_locator())
+    body_locator = _make_locator()
+    body_locator.text_content = AsyncMock(return_value=body_text)
+    page.locator = MagicMock(return_value=body_locator)
     page.get_by_text = MagicMock(return_value=_make_locator())
     page.evaluate = AsyncMock(return_value=False)
-    page.locator.return_value.first.text_content = AsyncMock(return_value=body_text)
-    # allow `page.locator("body").text_content()` pattern
     page.is_closed = MagicMock(return_value=False)
     page.close = AsyncMock()
     return page
@@ -343,9 +343,13 @@ class TestEmsOpenLastAgreementAndAccept:
         new_page.close = AsyncMock()
         new_page.locator = MagicMock(return_value=_make_locator(count=1, is_visible=True))
 
-        ctx = _make_context(pages=[page, new_page])
+        ctx = _make_context(pages=[page])
 
-        with patch(f"{MODULE}.click_locator_if_visible", new_callable=AsyncMock, return_value=True):
+        def click_and_open(trigger, desc=None):
+            ctx.pages.append(new_page)
+            return True
+
+        with patch(f"{MODULE}.click_locator_if_visible", side_effect=click_and_open):
             from apps.express_query.services.browser_query.ems_auth_handler import _ems_open_last_agreement_and_accept
             result = await _ems_open_last_agreement_and_accept(ctx, page)
             assert result is True
@@ -682,7 +686,8 @@ class TestEmsHandleAgreementAndWait:
 
         with patch(f"{MODULE}.is_ems_dialog_visible", new_callable=AsyncMock, return_value=False), \
              patch(f"{MODULE}.ems_click_login_button", new_callable=AsyncMock, return_value=True), \
-             patch(f"{MODULE}._ems_try_agreement_checkbox", new_callable=AsyncMock, return_value=False):
+             patch(f"{MODULE}._ems_try_agreement_checkbox", new_callable=AsyncMock, return_value=False), \
+             patch("asyncio.sleep", new_callable=AsyncMock):
             from apps.express_query.services.browser_query.ems_auth_handler import ems_handle_agreement_and_wait
             with pytest.raises(TimeoutError):
                 await ems_handle_agreement_and_wait(ctx, page, timeout_seconds=2)
@@ -734,7 +739,7 @@ class TestEmsHandleAgreementAndWait:
         with patch(f"{MODULE}.is_ems_dialog_visible", new_callable=AsyncMock, return_value=False), \
              patch(f"{MODULE}.ems_click_login_button", new_callable=AsyncMock, return_value=True), \
              patch(f"{MODULE}._ems_try_agreement_checkbox", new_callable=AsyncMock, return_value=False), \
-             patch(f"{MODULE}.asyncio.sleep", new_callable=AsyncMock):
+             patch("asyncio.sleep", new_callable=AsyncMock):
             ctx = _make_context(pages=[page])
             from apps.express_query.services.browser_query.ems_auth_handler import ems_handle_agreement_and_wait
             # Agreement loop: dialog not visible -> reclick 20 times (instant with mocked sleep)

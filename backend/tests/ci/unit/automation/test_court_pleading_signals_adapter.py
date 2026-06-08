@@ -32,7 +32,7 @@ _ensure_fake_dtos()
 
 # Now import the module — it will also try to import court_pleading_signals_service which
 # needs the fake dtos too (already injected above).
-from apps.automation.services.litigation.court_pleading_signals_service_adapter import (  # noqa: E402
+from apps.automation.services.litigation.court_pleading_signals_service_adapter import (
     CourtPleadingSignalsServiceAdapter,
 )
 

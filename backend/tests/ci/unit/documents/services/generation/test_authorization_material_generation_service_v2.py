@@ -636,7 +636,7 @@ class TestClassConstants:
         from apps.documents.services.generation.authorization_material_generation_service import (
             AuthorizationMaterialGenerationService,
         )
-        assert AuthorizationMaterialGenerationService._OUR_LEGAL_REQUIRED == {"business_license", "legal_rep_id_card"}
+        assert {"business_license", "legal_rep_id_card"} == AuthorizationMaterialGenerationService._OUR_LEGAL_REQUIRED
 
 
 # ---------------------------------------------------------------------------

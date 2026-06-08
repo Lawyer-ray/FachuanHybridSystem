@@ -22,7 +22,7 @@ from apps.core.config.steering.cache_strategies import (
 
 def _make_entry(key: str = "k", data: str = "data", **kwargs) -> CacheEntry:
     now = time.time()
-    defaults = dict(key=key, data=data, created_at=now, last_accessed=now, access_count=1, file_mtime=None, size_bytes=100, priority=0)
+    defaults = {"key": key, "data": data, "created_at": now, "last_accessed": now, "access_count": 1, "file_mtime": None, "size_bytes": 100, "priority": 0}
     defaults.update(kwargs)
     return CacheEntry(**defaults)
 

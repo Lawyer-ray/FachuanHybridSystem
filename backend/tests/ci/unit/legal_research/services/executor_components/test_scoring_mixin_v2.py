@@ -43,15 +43,15 @@ def _make_detail(**overrides: Any) -> MagicMock:
 
 
 def _make_dual_review_policy(**overrides: Any) -> DualReviewPolicy:
-    defaults = dict(
-        enabled=True,
-        review_model="Qwen/Qwen2.5-14B-Instruct",
-        primary_weight=0.62,
-        secondary_weight=0.38,
-        trigger_floor=0.60,
-        gap_tolerance=0.18,
-        required_min=0.55,
-    )
+    defaults = {
+        "enabled": True,
+        "review_model": "Qwen/Qwen2.5-14B-Instruct",
+        "primary_weight": 0.62,
+        "secondary_weight": 0.38,
+        "trigger_floor": 0.60,
+        "gap_tolerance": 0.18,
+        "required_min": 0.55,
+    }
     defaults.update(overrides)
     return DualReviewPolicy(**defaults)
 

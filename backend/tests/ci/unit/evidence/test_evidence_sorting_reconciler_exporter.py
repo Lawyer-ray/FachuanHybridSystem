@@ -230,7 +230,9 @@ class TestExporterServiceHelpers:
         assert ExporterService._get_ext("file.backup.pdf") == ".pdf"
 
     def test_write_image_normal_data(self) -> None:
-        import base64, io, zipfile
+        import base64
+        import io
+        import zipfile
         from apps.evidence_sorting.services.exporter import ExporterService
         data = base64.b64encode(b"fake image data").decode()
         buf = io.BytesIO()
@@ -241,7 +243,9 @@ class TestExporterServiceHelpers:
             assert "test/img.jpg" in zf.namelist()
 
     def test_write_image_with_data_url_prefix(self) -> None:
-        import base64, io, zipfile
+        import base64
+        import io
+        import zipfile
         from apps.evidence_sorting.services.exporter import ExporterService
         raw = base64.b64encode(b"image bytes").decode()
         data = f"data:image/jpeg;base64,{raw}"

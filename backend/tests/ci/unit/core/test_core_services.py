@@ -70,14 +70,14 @@ class TestCacheTimeout:
     def test_until_end_of_day_returns_positive(self) -> None:
         """任何时间调用都应返回正数。"""
         from apps.core.infrastructure.cache import CacheTimeout
-        now = datetime.datetime(2026, 6, 7, 12, 0, 0, tzinfo=datetime.timezone.utc)
+        now = datetime.datetime(2026, 6, 7, 12, 0, 0, tzinfo=datetime.UTC)
         result = CacheTimeout.until_end_of_day(now=now, buffer_seconds=3600)
         assert result > 3600  # 至少大于 buffer
 
     def test_until_end_of_day_includes_buffer(self) -> None:
         """buffer_seconds 应被加到结果中。"""
         from apps.core.infrastructure.cache import CacheTimeout
-        now = datetime.datetime(2026, 6, 7, 12, 0, 0, tzinfo=datetime.timezone.utc)
+        now = datetime.datetime(2026, 6, 7, 12, 0, 0, tzinfo=datetime.UTC)
         r1 = CacheTimeout.until_end_of_day(now=now, buffer_seconds=0)
         r2 = CacheTimeout.until_end_of_day(now=now, buffer_seconds=3600)
         assert r2 == r1 + 3600
@@ -85,14 +85,14 @@ class TestCacheTimeout:
     def test_until_end_of_day_later_time_smaller_result(self) -> None:
         """更晚的时间应返回更小的结果。"""
         from apps.core.infrastructure.cache import CacheTimeout
-        early = datetime.datetime(2026, 6, 7, 6, 0, 0, tzinfo=datetime.timezone.utc)
-        late = datetime.datetime(2026, 6, 7, 18, 0, 0, tzinfo=datetime.timezone.utc)
+        early = datetime.datetime(2026, 6, 7, 6, 0, 0, tzinfo=datetime.UTC)
+        late = datetime.datetime(2026, 6, 7, 18, 0, 0, tzinfo=datetime.UTC)
         assert CacheTimeout.until_end_of_day(now=early) > CacheTimeout.until_end_of_day(now=late)
 
     def test_until_end_of_day_minimum_one(self) -> None:
         """返回值至少为 1。"""
         from apps.core.infrastructure.cache import CacheTimeout
-        late = datetime.datetime(2026, 6, 7, 23, 59, 59, tzinfo=datetime.timezone.utc)
+        late = datetime.datetime(2026, 6, 7, 23, 59, 59, tzinfo=datetime.UTC)
         result = CacheTimeout.until_end_of_day(now=late, buffer_seconds=0)
         assert result >= 1
 

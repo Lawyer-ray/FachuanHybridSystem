@@ -65,7 +65,7 @@ class TestCookieService:
         context = MagicMock()
         try:
             service.save(context)
-            assert False, "应抛出 ValueError"
+            raise AssertionError("应抛出 ValueError")
         except ValueError as e:
             assert "storage_path" in str(e)
 

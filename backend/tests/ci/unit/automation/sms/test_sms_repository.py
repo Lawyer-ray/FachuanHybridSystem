@@ -29,7 +29,7 @@ class TestCourtSMSRepository:
         from apps.core.exceptions import NotFoundError
         try:
             self.repo.get_by_id(sms_id=999)
-            assert False, "应抛出 NotFoundError"
+            raise AssertionError("应抛出 NotFoundError")
         except NotFoundError:
             pass
 

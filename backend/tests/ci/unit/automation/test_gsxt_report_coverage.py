@@ -27,7 +27,7 @@ class TestGsxtReportError:
         assert str(err) == "测试错误"
 
     def test_can_be_caught_as_exception(self) -> None:
-        with pytest.raises(Exception):
+        with pytest.raises(Exception):  # noqa: B017
             raise GsxtReportError("test")
 
     def test_can_be_raised_and_caught(self) -> None:

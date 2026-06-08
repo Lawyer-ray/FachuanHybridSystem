@@ -8,6 +8,8 @@ from datetime import datetime, timezone
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from apps.automation.services.sms.court_sms_dedup_service import CourtSMSDedupService
 from apps.automation.services.sms.task_recovery_service import TaskRecoveryService
 from apps.automation.services.sms.document_renamer import DocumentRenamer
@@ -250,6 +252,7 @@ class TestDocumentRenamer:
         result = self.renamer._extract_title_from_filename("/path/random_doc.pdf")
         assert result == "random_doc"
 
+    @pytest.mark.django_db
     def test_generate_filename(self) -> None:
         """生成规范文件名。"""
         from datetime import date

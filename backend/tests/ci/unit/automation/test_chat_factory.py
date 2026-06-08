@@ -101,7 +101,7 @@ class TestChatProviderFactory:
         """获取未注册的提供者抛出异常。"""
         try:
             ChatProviderFactory.get_provider(ChatPlatform.FEISHU)
-            assert False, "应抛出异常"
+            raise AssertionError("应抛出异常")
         except Exception:
             pass
 

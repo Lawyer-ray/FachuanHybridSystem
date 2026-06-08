@@ -32,7 +32,7 @@ def _ensure_fake_dtos() -> None:
 # Ensure the fake module is available before importing the service
 _ensure_fake_dtos()
 
-from apps.automation.services.litigation.court_pleading_signals_service import (  # noqa: E402
+from apps.automation.services.litigation.court_pleading_signals_service import (
     CourtPleadingSignalsService,
 )
 

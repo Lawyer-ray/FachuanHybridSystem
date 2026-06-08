@@ -168,7 +168,7 @@ class TestLazyProperties:
 
         p = DocumentDeliveryProcessor()
         mock_cm = MagicMock()
-        with patch(f"apps.automation.services.sms.case_matcher.CaseMatcher", return_value=mock_cm):
+        with patch("apps.automation.services.sms.case_matcher.CaseMatcher", return_value=mock_cm):
             result = p.case_matcher
         assert result is mock_cm
         # Second call should return cached value
@@ -181,7 +181,7 @@ class TestLazyProperties:
 
         p = DocumentDeliveryProcessor()
         mock_dr = MagicMock()
-        with patch(f"apps.automation.services.sms.document_renamer.DocumentRenamer", return_value=mock_dr):
+        with patch("apps.automation.services.sms.document_renamer.DocumentRenamer", return_value=mock_dr):
             result = p.document_renamer
         assert result is mock_dr
 
@@ -193,7 +193,7 @@ class TestLazyProperties:
         p = DocumentDeliveryProcessor()
         mock_ns = MagicMock()
         with patch(
-            f"apps.automation.services.sms.sms_notification_service.SMSNotificationService",
+            "apps.automation.services.sms.sms_notification_service.SMSNotificationService",
             return_value=mock_ns,
         ):
             result = p.notification_service
@@ -207,7 +207,7 @@ class TestLazyProperties:
         p = DocumentDeliveryProcessor()
         mock_cl = MagicMock()
         with patch(
-            f"apps.core.dependencies.business_case.build_case_log_service",
+            "apps.core.dependencies.business_case.build_case_log_service",
             return_value=mock_cl,
         ):
             result = p.caselog_service
@@ -221,7 +221,7 @@ class TestLazyProperties:
         p = DocumentDeliveryProcessor()
         mock_cn = MagicMock()
         with patch(
-            f"apps.core.dependencies.business_case.build_case_number_service",
+            "apps.core.dependencies.business_case.build_case_number_service",
             return_value=mock_cn,
         ):
             result = p.case_number_service
@@ -529,7 +529,7 @@ class TestMatchCaseByNumber:
 
 
 class TestMatchCaseByDocumentParties:
-    @patch(f"apps.core.models.enums.CaseStatus")
+    @patch("apps.core.models.enums.CaseStatus")
     def test_matches_active_case(self, mock_status_enum, processor, mock_case_matcher):
         mock_status_enum.ACTIVE = "active"
         mock_case = MagicMock()
@@ -542,7 +542,7 @@ class TestMatchCaseByDocumentParties:
         mock_case_matcher.extract_parties_from_document.assert_called_once_with("/tmp/doc.pdf")
         mock_case_matcher.match_by_party_names.assert_called_once_with(["张三"])
 
-    @patch(f"apps.core.models.enums.CaseStatus")
+    @patch("apps.core.models.enums.CaseStatus")
     def test_skips_inactive_case(self, mock_status_enum, processor, mock_case_matcher):
         mock_status_enum.ACTIVE = "active"
         mock_case = MagicMock()
@@ -569,7 +569,7 @@ class TestMatchCaseByDocumentParties:
         result = processor.match_case_by_document_parties(["/tmp/doc.pdf"])
         assert result is None
 
-    @patch(f"apps.core.models.enums.CaseStatus")
+    @patch("apps.core.models.enums.CaseStatus")
     def test_tries_multiple_documents(self, mock_status_enum, processor, mock_case_matcher):
         mock_status_enum.ACTIVE = "active"
         mock_case_matcher.extract_parties_from_document.side_effect = [[], ["李四"]]
@@ -581,7 +581,7 @@ class TestMatchCaseByDocumentParties:
         assert result is mock_case
         assert mock_case_matcher.extract_parties_from_document.call_count == 2
 
-    @patch(f"apps.core.models.enums.CaseStatus")
+    @patch("apps.core.models.enums.CaseStatus")
     def test_inactive_then_active_finds_active(self, mock_status_enum, processor, mock_case_matcher):
         mock_status_enum.ACTIVE = "active"
         inactive_case = MagicMock()
@@ -812,7 +812,7 @@ class TestUploadAttachments:
 
     def test_file_read_exception_handled(self, processor, mock_caselog_service):
         with patch.object(Path, "exists", return_value=True):
-            with patch("builtins.open", side_effect=IOError("read fail")):
+            with patch("builtins.open", side_effect=OSError("read fail")):
                 # Should not raise
                 processor._upload_attachments(mock_caselog_service, log_id=1, file_paths=["/tmp/doc.pdf"])
 
@@ -845,7 +845,7 @@ class TestGetSystemUser:
         mock_lawyer_model = MagicMock()
         mock_lawyer_service.get_lawyer_model.return_value = mock_lawyer_model
 
-        with patch(f"apps.core.interfaces.ServiceLocator") as mock_locator:
+        with patch("apps.core.interfaces.ServiceLocator") as mock_locator:
             mock_locator.get_lawyer_service.return_value = mock_lawyer_service
             result = processor._get_system_user()
 
@@ -856,14 +856,14 @@ class TestGetSystemUser:
         mock_lawyer_service = MagicMock()
         mock_lawyer_service.get_admin_lawyer.return_value = None
 
-        with patch(f"apps.core.interfaces.ServiceLocator") as mock_locator:
+        with patch("apps.core.interfaces.ServiceLocator") as mock_locator:
             mock_locator.get_lawyer_service.return_value = mock_lawyer_service
             result = processor._get_system_user()
 
         assert result is None
 
     def test_returns_none_on_exception(self, processor):
-        with patch(f"apps.core.interfaces.ServiceLocator") as mock_locator:
+        with patch("apps.core.interfaces.ServiceLocator") as mock_locator:
             mock_locator.get_lawyer_service.side_effect = RuntimeError("service down")
             result = processor._get_system_user()
 
@@ -894,7 +894,7 @@ class TestArchiveToCaseFolder:
         mock_sms.id = 10
 
         with patch(
-            f"apps.automation.services.sms.case_folder_archive_service.CaseFolderArchiveService"
+            "apps.automation.services.sms.case_folder_archive_service.CaseFolderArchiveService"
         ) as mock_service_cls:
             mock_service = MagicMock()
             mock_service.archive_sms_documents.return_value = True
@@ -910,7 +910,7 @@ class TestArchiveToCaseFolder:
         mock_sms.id = 10
 
         with patch(
-            f"apps.automation.services.sms.case_folder_archive_service.CaseFolderArchiveService"
+            "apps.automation.services.sms.case_folder_archive_service.CaseFolderArchiveService"
         ) as mock_service_cls:
             mock_service = MagicMock()
             mock_service.archive_sms_documents.return_value = False
@@ -925,7 +925,7 @@ class TestArchiveToCaseFolder:
         mock_sms.id = 10
 
         with patch(
-            f"apps.automation.services.sms.case_folder_archive_service.CaseFolderArchiveService"
+            "apps.automation.services.sms.case_folder_archive_service.CaseFolderArchiveService"
         ) as mock_service_cls:
             mock_service_cls.side_effect = RuntimeError("archive fail")
 

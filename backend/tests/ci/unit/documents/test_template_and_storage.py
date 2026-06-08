@@ -55,7 +55,7 @@ class TestReadSourceBytes:
         """None 源抛出异常。"""
         try:
             _read_source_bytes(None)
-            assert False, "应抛出 ValueError"
+            raise AssertionError("应抛出 ValueError")
         except ValueError as e:
             assert "None" in str(e)
 

@@ -402,6 +402,7 @@ class TestBuildExecutionRequestText:
         result = _build_execution_request_text(case=case)
         assert "请求执行事项内容" in result
 
+    @pytest.mark.django_db
     def test_fallback_when_no_service(self):
         from apps.automation.api.court_filing_helpers import _build_execution_request_text
         # 当 ExecutionRequestService 不可用时，使用 fallback 文本

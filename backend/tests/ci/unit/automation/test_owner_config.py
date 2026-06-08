@@ -52,7 +52,7 @@ class TestMacPrintExecutorService:
 
         try:
             service.print_pdf(printer_name="HP", options={}, pdf_path=Path("/nonexistent/file.pdf"))
-            assert False, "应抛出 ValidationException"
+            raise AssertionError("应抛出 ValidationException")
         except ValidationException as e:
             assert "不存在" in str(e)
 
@@ -70,6 +70,6 @@ class TestMacPrintExecutorService:
 
             try:
                 service.print_pdf(printer_name="", options={}, pdf_path=Path(f.name))
-                assert False, "应抛出 ValidationException"
+                raise AssertionError("应抛出 ValidationException")
             except ValidationException as e:
                 assert "未指定打印机" in str(e)

@@ -18,12 +18,12 @@ for mod_name in _forbidden_imports:
         mock_mod = MagicMock()
         sys.modules[mod_name] = mock_mod
 
-from apps.sales_dispute.services.assessment.cost_benefit_service import (  # noqa: E402
+from apps.sales_dispute.services.assessment.cost_benefit_service import (
     CostBenefitParams,
     CostBenefitService,
     DEFAULT_RATES,
 )
-from apps.sales_dispute.services.assessment.evidence_scorer_service import (  # noqa: E402
+from apps.sales_dispute.services.assessment.evidence_scorer_service import (
     EVIDENCE_WEIGHTS,
     EvidenceItem,
     EvidenceScorerService,

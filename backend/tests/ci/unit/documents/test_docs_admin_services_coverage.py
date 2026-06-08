@@ -145,7 +145,7 @@ class TestReminderAdmin:
 
         form = ReminderAdminForm.__new__(ReminderAdminForm)
         form.cleaned_data = {"metadata": "not json"}
-        with pytest.raises(Exception):
+        with pytest.raises(Exception):  # noqa: B017
             form.clean_metadata()
 
 

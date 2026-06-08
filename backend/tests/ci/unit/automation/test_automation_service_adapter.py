@@ -17,7 +17,7 @@ if not hasattr(_core_exc, "ValidationError"):
 
     _core_exc.ValidationError = ValidationException  # type: ignore[attr-defined]
 
-from apps.automation.services.automation_service_adapter import AutomationServiceAdapter  # noqa: E402
+from apps.automation.services.automation_service_adapter import AutomationServiceAdapter
 
 
 class TestAutomationServiceAdapter:

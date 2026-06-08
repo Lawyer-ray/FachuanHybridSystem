@@ -185,7 +185,7 @@ class TestSafeLogValue:
         from apps.core.exceptions.handlers import _safe_log_value
         data = {"a" * 200: "ok"}
         result = _safe_log_value(data)
-        assert len(list(result.keys())[0]) == 100
+        assert len(next(iter(result.keys()))) == 100
 
     def test_dict_max_50_keys(self):
         from apps.core.exceptions.handlers import _safe_log_value

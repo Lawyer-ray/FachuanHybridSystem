@@ -42,11 +42,11 @@ from apps.documents.services.external_template.analysis_service import AnalysisS
 # ---------------------------------------------------------------------------
 
 def _make_service(**kwargs: Any) -> AnalysisService:
-    defaults = dict(
-        fingerprint_service=MagicMock(),
-        llm_service=MagicMock(),
-        placeholder_registry=MagicMock(),
-    )
+    defaults = {
+        "fingerprint_service": MagicMock(),
+        "llm_service": MagicMock(),
+        "placeholder_registry": MagicMock(),
+    }
     defaults.update(kwargs)
     return AnalysisService(**defaults)
 
@@ -82,7 +82,7 @@ class TestValidateFile:
 
     def test_non_docx(self) -> None:
         svc = _make_service()
-        with pytest.raises(ValidationError, match="仅支持 .docx"):
+        with pytest.raises(ValidationError, match=r"仅支持 \.docx"):
             svc._validate_file(_make_file("doc.pdf"))
 
     def test_too_large(self) -> None:
@@ -94,7 +94,7 @@ class TestValidateFile:
         svc = _make_service()
         f = _make_file()
         f.name = None
-        with pytest.raises(ValidationError, match="仅支持 .docx"):
+        with pytest.raises(ValidationError, match=r"仅支持 \.docx"):
             svc._validate_file(f)
 
 

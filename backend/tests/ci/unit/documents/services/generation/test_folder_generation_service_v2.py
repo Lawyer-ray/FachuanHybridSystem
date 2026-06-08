@@ -42,7 +42,7 @@ from apps.documents.services.generation.folder_generation_service import (
 # ---------------------------------------------------------------------------
 
 def _make_service(**kwargs: Any) -> FolderGenerationService:
-    defaults = dict(contract_service=MagicMock(), folder_binding_service=MagicMock())
+    defaults = {"contract_service": MagicMock(), "folder_binding_service": MagicMock()}
     defaults.update(kwargs)
     return FolderGenerationService(**defaults)
 

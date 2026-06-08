@@ -165,7 +165,7 @@ class TestCancelWatcher:
         cancel_event = asyncio.Event()
 
         with patch(f"{_MOD}.sync_to_async") as mock_sync:
-            mock_fn = MagicMock(return_value=True)
+            mock_fn = AsyncMock(return_value=True)
             mock_sync.return_value = mock_fn
 
             with patch("asyncio.sleep", new_callable=AsyncMock):
@@ -198,8 +198,8 @@ class TestIncrementCounter:
         with patch(f"{_MOD}.sync_to_async") as mock_sync:
             # First call returns current counts, second call is the update
             mock_sync.side_effect = [
-                MagicMock(return_value={"total_items": 10, "completed_items": 5, "failed_items": 2}),
-                MagicMock(),
+                AsyncMock(return_value={"total_items": 10, "completed_items": 5, "failed_items": 2}),
+                AsyncMock(),
             ]
             await _increment_counter(job_id, "completed_items")
             assert mock_sync.call_count == 2
@@ -211,7 +211,7 @@ class TestIncrementCounter:
         job_id = uuid4()
 
         with patch(f"{_MOD}.sync_to_async") as mock_sync:
-            mock_sync.return_value = MagicMock(return_value=None)
+            mock_sync.return_value = AsyncMock(return_value=None)
             await _increment_counter(job_id, "completed_items")
             # Only the read query, no update
             assert mock_sync.call_count == 1
@@ -223,7 +223,7 @@ class TestIncrementCounter:
         job_id = uuid4()
 
         with patch(f"{_MOD}.sync_to_async") as mock_sync:
-            mock_sync.return_value = MagicMock(return_value={"total_items": 0, "completed_items": 0, "failed_items": 0})
+            mock_sync.return_value = AsyncMock(return_value={"total_items": 0, "completed_items": 0, "failed_items": 0})
             await _increment_counter(job_id, "completed_items")
             assert mock_sync.call_count == 1
 
@@ -254,7 +254,7 @@ class TestAnalyzeSingleItem:
         with patch(f"{_MOD}.build_case_info", return_value="Case: 2024-01"):
             with patch(f"{_MOD}.chunk_text") as mock_chunk:
                 with patch(f"{_MOD}.merge_chunk_results", return_value="final"):
-                    with patch(f"{_MOD}.LLMConfig") as mock_config:
+                    with patch("apps.core.llm.config.LLMConfig") as mock_config:
                         mock_config.resolve_backend_for_model.return_value = "default"
                         mock_chunk.return_value = ["short text"]
 

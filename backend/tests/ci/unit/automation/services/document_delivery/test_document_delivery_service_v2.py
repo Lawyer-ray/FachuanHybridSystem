@@ -48,14 +48,14 @@ def _make_service(**kwargs: Any) -> Any:
     """Create DocumentDeliveryService with all deps mocked."""
     from apps.automation.services.document_delivery.document_delivery_service import DocumentDeliveryService
 
-    defaults = dict(
-        case_matcher=MagicMock(),
-        document_renamer=MagicMock(),
-        notification_service=MagicMock(),
-        auto_login_service=MagicMock(),
-        api_client=MagicMock(),
-        token_service=MagicMock(),
-    )
+    defaults = {
+        "case_matcher": MagicMock(),
+        "document_renamer": MagicMock(),
+        "notification_service": MagicMock(),
+        "auto_login_service": MagicMock(),
+        "api_client": MagicMock(),
+        "token_service": MagicMock(),
+    }
     defaults.update(kwargs)
     return DocumentDeliveryService(**defaults)
 
@@ -86,10 +86,10 @@ def _make_delivery_record(
 
 
 def _make_query_result(**kwargs: Any) -> DocumentQueryResult:
-    defaults = dict(
-        total_found=0, processed_count=0, skipped_count=0, failed_count=0,
-        case_log_ids=[], errors=[],
-    )
+    defaults = {
+        "total_found": 0, "processed_count": 0, "skipped_count": 0, "failed_count": 0,
+        "case_log_ids": [], "errors": [],
+    }
     defaults.update(kwargs)
     return DocumentQueryResult(**defaults)
 
@@ -446,7 +446,7 @@ class TestProcessDocumentViaApi:
 
         result = svc._process_document_via_api(rec, "tok", 1)
         assert result.success is False
-        assert "所有文书下载失败" == result.error_message
+        assert result.error_message == "所有文书下载失败"
 
     def test_success_flow(self) -> None:
         svc = _make_service()

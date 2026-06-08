@@ -193,7 +193,7 @@ class TestCaseLogReminderProperties:
         """预填充缓存后不应调用 ServiceLocator。"""
         log = CaseLogFactory()
         log._cached_exported_reminders = [
-            {"reminder_type": "hearing", "due_at": datetime.datetime(2026, 1, 1, tzinfo=datetime.timezone.utc)}
+            {"reminder_type": "hearing", "due_at": datetime.datetime(2026, 1, 1, tzinfo=datetime.UTC)}
         ]
 
         with patch("apps.core.infrastructure.service_locator.ServiceLocator") as mock_sl:
@@ -205,7 +205,7 @@ class TestCaseLogReminderProperties:
     def test_reminder_type_with_cached_dict(self) -> None:
         """reminder_type 应从缓存的 dict 中读取。"""
         log = CaseLogFactory()
-        log._cached_latest_reminder = {"reminder_type": "hearing", "due_at": datetime.datetime(2026, 1, 1, tzinfo=datetime.timezone.utc)}
+        log._cached_latest_reminder = {"reminder_type": "hearing", "due_at": datetime.datetime(2026, 1, 1, tzinfo=datetime.UTC)}
         assert log.reminder_type == "hearing"
 
     @pytest.mark.django_db
@@ -220,7 +220,7 @@ class TestCaseLogReminderProperties:
     def test_reminder_time_extracts_due_at(self) -> None:
         """reminder_time 应提取 due_at 字段。"""
         log = CaseLogFactory()
-        dt = datetime.datetime(2026, 6, 15, 10, 0, tzinfo=datetime.timezone.utc)
+        dt = datetime.datetime(2026, 6, 15, 10, 0, tzinfo=datetime.UTC)
         log._cached_latest_reminder = {"reminder_type": "hearing", "due_at": dt}
         assert log.reminder_time == dt
 
@@ -244,7 +244,7 @@ class TestReminderModel:
     def test_clean_single_binding_passes(self) -> None:
         """只绑定一个目标时 clean 应通过。"""
         case = CaseFactory()
-        r = Reminder(case=case, reminder_type="hearing", content="test", due_at=datetime.datetime.now(datetime.timezone.utc))
+        r = Reminder(case=case, reminder_type="hearing", content="test", due_at=datetime.datetime.now(datetime.UTC))
         r.clean()  # 不应抛出异常
 
     @pytest.mark.django_db
@@ -255,7 +255,7 @@ class TestReminderModel:
         r = Reminder(
             contract=contract, case=case,
             reminder_type="hearing", content="test",
-            due_at=datetime.datetime.now(datetime.timezone.utc),
+            due_at=datetime.datetime.now(datetime.UTC),
         )
         with pytest.raises(ValidationError):
             r.clean()
@@ -263,7 +263,7 @@ class TestReminderModel:
     @pytest.mark.django_db
     def test_str_with_case(self) -> None:
         case = CaseFactory()
-        r = Reminder(case=case, reminder_type="hearing", due_at=datetime.datetime(2026, 1, 1, tzinfo=datetime.timezone.utc))
+        r = Reminder(case=case, reminder_type="hearing", due_at=datetime.datetime(2026, 1, 1, tzinfo=datetime.UTC))
         result = str(r)
         assert "case:" in result
         assert "hearing" in result
@@ -271,7 +271,7 @@ class TestReminderModel:
     @pytest.mark.django_db
     def test_str_unbound(self) -> None:
         """无绑定时应包含 'unbound'。"""
-        r = Reminder(reminder_type="other", due_at=datetime.datetime(2026, 1, 1, tzinfo=datetime.timezone.utc))
+        r = Reminder(reminder_type="other", due_at=datetime.datetime(2026, 1, 1, tzinfo=datetime.UTC))
         result = str(r)
         assert "unbound" in result
 
@@ -284,7 +284,7 @@ class TestReminderModel:
             Reminder.objects.create(
                 contract=contract, case=case,
                 reminder_type="hearing", content="test",
-                due_at=datetime.datetime.now(datetime.timezone.utc),
+                due_at=datetime.datetime.now(datetime.UTC),
             )
 
 

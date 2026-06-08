@@ -61,7 +61,7 @@ class TestPDFMergeWorkflowConvertToPdf:
 
     def test_unsupported_format_raises(self) -> None:
         workflow = PDFMergeWorkflow()
-        with pytest.raises(Exception):
+        with pytest.raises(Exception):  # noqa: B017
             workflow.convert_to_pdf("/path/to/file.xyz")
 
 

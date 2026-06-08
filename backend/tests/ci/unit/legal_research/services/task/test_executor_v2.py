@@ -31,7 +31,7 @@ def _make_task(**overrides: Any) -> MagicMock:
     task.court_filter = overrides.get("court_filter", "")
     task.date_from = overrides.get("date_from", "")
     task.date_to = overrides.get("date_to", "")
-    task.advanced_query = overrides.get("advanced_query", None)
+    task.advanced_query = overrides.get("advanced_query")
     task.llm_scoring_concurrency = overrides.get("llm_scoring_concurrency", 0)
     task.candidate_count = overrides.get("candidate_count", 0)
     task.scanned_count = overrides.get("scanned_count", 0)
@@ -193,7 +193,7 @@ class TestExecutorRunSuccessSingleItem:
 
         result = _run_with_patches(executor, p, task, str(task.id))
         # _save_result is called when matched, so verify that path was taken
-        p["_save_result"].stop  # just access, not stop
+        _ = p["_save_result"].stop
         assert result["status"] == "running"
         # Since _mark_completed is mocked, task.matched_count stays 0,
         # but the local matched was >= 1 so save_result was called

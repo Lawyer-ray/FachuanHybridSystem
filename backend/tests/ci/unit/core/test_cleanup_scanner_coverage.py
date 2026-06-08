@@ -9,7 +9,8 @@ import pytest
 class TestCleanupTasks:
     @patch("apps.core.tasking.cleanup_tasks.settings")
     def test_cleanup_temp_files_no_dir(self, mock_settings):
-        import tempfile, os
+        import tempfile
+        import os
         tmp = tempfile.mkdtemp()
         mock_settings.MEDIA_ROOT = tmp
         from apps.core.tasking.cleanup_tasks import cleanup_temp_files

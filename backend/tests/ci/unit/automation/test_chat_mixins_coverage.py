@@ -54,7 +54,7 @@ class TestFeishuTokenMixin:
         obj = self._make()
         obj._access_token = None
         obj.config = {}
-        with pytest.raises(Exception):
+        with pytest.raises(Exception):  # noqa: B017
             obj._get_tenant_access_token()
 
 

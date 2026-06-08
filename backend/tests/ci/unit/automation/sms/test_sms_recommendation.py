@@ -83,7 +83,7 @@ class TestCaptchaRecognizer:
         """不能直接实例化抽象类。"""
         try:
             CaptchaRecognizer()
-            assert False, "应抛出 TypeError"
+            raise AssertionError("应抛出 TypeError")
         except TypeError:
             pass
 

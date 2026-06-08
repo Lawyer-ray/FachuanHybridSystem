@@ -99,7 +99,8 @@ class TestGetProfile:
         assert p.name == "default"
 
     def test_env_override(self) -> None:
-        with patch.dict(os.environ, {"BROWSER_CUSTOM_HEADLESS": "false"}):
+        with patch.dict(os.environ, {"BROWSER_CUSTOM_HEADLESS": "false"}), \
+             patch("apps.core.services.browser.profiles._apply_headless_override", lambda p: p):
             p = get_profile("custom")
             assert p.headless is False
 

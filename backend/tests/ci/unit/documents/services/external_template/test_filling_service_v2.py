@@ -43,7 +43,7 @@ from apps.documents.services.placeholders.fallback import PLACEHOLDER_FALLBACK_V
 # ---------------------------------------------------------------------------
 
 def _make_service(**kwargs: Any) -> FillingService:
-    defaults = dict(placeholder_registry=MagicMock())
+    defaults = {"placeholder_registry": MagicMock()}
     defaults.update(kwargs)
     return FillingService(**defaults)
 

@@ -17,7 +17,7 @@ class TestConvertSingle:
         mock_find.return_value = None
         try:
             convert_single("/path/to/file.doc", "/tmp/output")
-            assert False, "应抛出 RuntimeError"
+            raise AssertionError("应抛出 RuntimeError")
         except RuntimeError as e:
             assert "LibreOffice" in str(e)
 
@@ -37,6 +37,6 @@ class TestBatchConvert:
         mock_find.return_value = None
         try:
             batch_convert(["/path/to/file.doc"], "/tmp/output")
-            assert False, "应抛出 RuntimeError"
+            raise AssertionError("应抛出 RuntimeError")
         except RuntimeError as e:
             assert "LibreOffice" in str(e)
