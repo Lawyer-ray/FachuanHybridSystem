@@ -16,14 +16,19 @@ function enterprisePrefillApp() {
         statusHint: '',
         isProviderReady: true,
         isLoadingStatuses: true,
+        isFavorite: false,
         systemConfigUrl: 'http://127.0.0.1:8002/admin/core/systemconfig/',
+        _favKey: 'enterprise_prefill_favorite_provider',
 
         async init() {
-            this.provider = 'tianyancha';
+            const saved = this._loadFavorite();
+            this.provider = saved || 'tianyancha';
+            this.isFavorite = !!saved;
             this.loadProviderStatuses();
         },
 
         onProviderChange() {
+            this.isFavorite = this.provider === this._loadFavorite();
             this.searchError = '';
             this.prefillError = '';
             this.applyMessage = '';
@@ -99,6 +104,25 @@ function enterprisePrefillApp() {
             }
 
             return '';
+        },
+
+        toggleFavorite() {
+            const current = this._loadFavorite();
+            if (current === this.provider) {
+                localStorage.removeItem(this._favKey);
+                this.isFavorite = false;
+            } else {
+                localStorage.setItem(this._favKey, this.provider);
+                this.isFavorite = true;
+            }
+        },
+
+        _loadFavorite() {
+            try {
+                return localStorage.getItem(this._favKey) || '';
+            } catch (e) {
+                return '';
+            }
         },
 
         async searchCompanies() {
