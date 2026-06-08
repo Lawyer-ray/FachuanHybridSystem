@@ -478,10 +478,10 @@ class CourtSMSAdminBase(admin.ModelAdmin):
     def recommended_cases_display(self, obj: CourtSMS) -> SafeString:
         """推荐关联案件卡片（AJAX 加载 + Select2 集成）"""
         if not obj.id:
-            return format_html('<span style="color:#999;">保存后可查看推荐案件</span>')
+            return mark_safe('<span style="color:#999;">保存后可查看推荐案件</span>')
 
         if not (obj.case_numbers or obj.party_names):
-            return format_html(
+            return mark_safe(
                 '<p style="color:#999;margin:8px 0;">短信中未提取到案号或当事人信息，无法推荐关联案件。'
                 "请使用上方的搜索框手动查找。</p>"
             )
