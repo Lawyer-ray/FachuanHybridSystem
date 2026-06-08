@@ -27,10 +27,10 @@ describe('formatClientText', () => {
   it('detects male gender from id number', () => {
     const result = formatClientText(makeClient({
       name: 'Wang',
-      id_number: '110101199001011234', // 17th digit 3 -> odd -> male
+      id_number: '110101190001010001', // 17th digit 1 -> odd -> male
     }))
     expect(result).toContain('姓名：Wang，男')
-    expect(result).toContain('身份证号：110101199001011234')
+    expect(result).toContain('身份证号：110101190001010001')
   })
 
   it('detects female gender from id number', () => {
@@ -65,10 +65,10 @@ describe('formatClientText', () => {
   it('includes phone and address', () => {
     const result = formatClientText(makeClient({
       name: 'Wang',
-      phone: '13800138000',
+      phone: '13800000000',
       address: 'Beijing',
     }))
-    expect(result).toContain('手机号：13800138000')
+    expect(result).toContain('手机号：13800000000')
     expect(result).toContain('地址：Beijing')
   })
 

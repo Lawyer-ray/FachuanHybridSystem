@@ -46,11 +46,11 @@ function makeClient(overrides: Partial<Client> = {}): Client {
     id: 1,
     name: 'Wang',
     is_our_client: true,
-    phone: '13800138000',
+    phone: '13800000000',
     address: 'Beijing',
     client_type: 'natural',
     client_type_label: '自然人',
-    id_number: '110101199001011234',
+    id_number: '110101190001010001',
     legal_representative: null,
     legal_representative_id_number: null,
     identity_docs: [],
@@ -77,12 +77,12 @@ describe('ClientTable', () => {
   })
 
   it('displays client id numbers with masking', () => {
-    render(<ClientTable clients={[makeClient({ id_number: '110101199001011234' })]} />)
-    expect(screen.getByText('1101****1234')).toBeInTheDocument()
+    render(<ClientTable clients={[makeClient({ id_number: '110101190001010001' })]} />)
+    expect(screen.getByText('1101****0001')).toBeInTheDocument()
   })
 
   it('displays phone numbers with masking', () => {
-    render(<ClientTable clients={[makeClient({ phone: '13800138000' })]} />)
+    render(<ClientTable clients={[makeClient({ phone: '13800000000' })]} />)
     expect(screen.getByText('138****8000')).toBeInTheDocument()
   })
 

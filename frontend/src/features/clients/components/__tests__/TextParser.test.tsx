@@ -73,7 +73,7 @@ describe('TextParser', () => {
   it('calls parseText API when parse button is clicked with text', async () => {
     vi.mocked(clientApi.parseText).mockResolvedValue({
       success: true,
-      client: { name: 'Wang', id_number: '110101199001011234' },
+      client: { name: 'Wang', id_number: '110101190001010000' },
     })
 
     render(<TextParser {...defaultProps} />)

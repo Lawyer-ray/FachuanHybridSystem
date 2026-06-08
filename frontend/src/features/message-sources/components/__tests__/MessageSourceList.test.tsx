@@ -78,8 +78,8 @@ describe('MessageSourceList', () => {
   it('renders multiple sources in table', () => {
     mockUseMessageSources.mockReturnValue({
       data: [
-        { id: 1, display_name: 'Source A', source_type: 'imap', credential_account: 'a@test.com', poll_interval_minutes: 30, is_enabled: true, last_sync_at: null, last_sync_status: null },
-        { id: 2, display_name: 'Source B', source_type: 'yzw', credential_account: 'b@test.com', poll_interval_minutes: 60, is_enabled: false, last_sync_at: null, last_sync_status: null },
+        { id: 1, display_name: 'Source A', source_type: 'imap', credential_account: 'source_a@placeholder.test', poll_interval_minutes: 30, is_enabled: true, last_sync_at: null, last_sync_status: null },
+        { id: 2, display_name: 'Source B', source_type: 'yzw', credential_account: 'source_b@placeholder.test', poll_interval_minutes: 60, is_enabled: false, last_sync_at: null, last_sync_status: null },
       ],
       isLoading: false,
     } as any)

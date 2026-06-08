@@ -97,7 +97,7 @@ describe('CaseDetail', () => {
       },
     ],
     assignments: [
-      { id: 1, lawyer_detail: { real_name: '李律师', username: 'li', phone: '13800138000' } },
+      { id: 1, lawyer_detail: { real_name: '李律师', username: 'li', phone: '13800000000' } },
     ],
     logs: [],
     chats: [],

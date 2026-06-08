@@ -43,7 +43,7 @@ describe('registerSchema', () => {
     const result = registerSchema.safeParse({
       ...validData,
       real_name: '张三',
-      phone: '13800138000',
+      phone: '13800000000',
     })
     expect(result.success).toBe(true)
   })

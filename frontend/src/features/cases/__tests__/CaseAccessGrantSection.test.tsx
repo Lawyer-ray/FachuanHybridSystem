@@ -59,7 +59,7 @@ vi.mock('@/components/ui/alert-dialog', () => ({
 const mockGrants = [
   {
     id: 1,
-    grantee_detail: { real_name: '王律师', username: 'wang', phone: '13800138000' },
+    grantee_detail: { real_name: '王律师', username: 'wang', phone: '13800000000' },
   },
   {
     id: 2,
@@ -85,7 +85,7 @@ describe('CaseAccessGrantSection', () => {
 
   it('shows phone when available', () => {
     render(<CaseAccessGrantSection grants={mockGrants as never} />)
-    expect(screen.getByText('13800138000')).toBeInTheDocument()
+    expect(screen.getByText('13800000000')).toBeInTheDocument()
   })
 
   it('shows add button when editable', () => {

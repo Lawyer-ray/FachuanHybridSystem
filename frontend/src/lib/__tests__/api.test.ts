@@ -166,7 +166,7 @@ describe('createApiClient hooks', () => {
   })
 
   it('beforeRequest hook sets Authorization header when token exists', async () => {
-    vi.mocked(getAccessToken).mockReturnValue('test-token-123')
+    vi.mocked(getAccessToken).mockReturnValue('dummy-test-token')
     vi.mocked(shouldRefreshToken).mockReturnValue(false)
 
     createApiClient()
@@ -180,7 +180,7 @@ describe('createApiClient hooks', () => {
     }
 
     await beforeRequestHook(mockRequest)
-    expect(mockRequest.headers.set).toHaveBeenCalledWith('Authorization', 'Bearer test-token-123')
+    expect(mockRequest.headers.set).toHaveBeenCalledWith('Authorization', 'Bearer dummy-test-token')
   })
 
   it('beforeRequest hook does not set header when no token', async () => {
