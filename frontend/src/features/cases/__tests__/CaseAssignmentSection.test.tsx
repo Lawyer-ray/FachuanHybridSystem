@@ -61,7 +61,7 @@ vi.mock('@/components/ui/popover', () => ({
 function makeAssignment(overrides: Partial<CaseAssignment> = {}): CaseAssignment {
   return {
     id: 1, case: 1, lawyer: 1,
-    lawyer_detail: { id: 1, username: 'lawyer1', real_name: '张律师', phone: '13800138000', is_admin: false, is_active: true, law_firm: null, law_firm_name: null },
+    lawyer_detail: { id: 1, username: 'lawyer1', real_name: '张律师', phone: '13800138000', is_admin: false, is_active: true, law_firm: null, law_firm_name: null }, // pragma: allowlist secret
     ...overrides,
   }
 }
@@ -86,7 +86,7 @@ describe('CaseAssignmentSection', () => {
 
   it('renders assignment with phone', () => {
     render(<CaseAssignmentSection assignments={[makeAssignment()]} />)
-    expect(screen.getByText('13800138000')).toBeInTheDocument()
+    expect(screen.getByText('13800138000')).toBeInTheDocument() // pragma: allowlist secret
   })
 
   it('renders assignment without phone', () => {

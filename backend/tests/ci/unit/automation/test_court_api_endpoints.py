@@ -153,7 +153,7 @@ def _filing_patches(**overrides):
         "sa": SimpleNamespace(name="天河区"),
         "court_name": "天河区人民法院",
         "party_payloads": ([{"p": 1}], [{"d": 1}], []),
-        "agents": [{"name": "律师", "phone": "13800138000"}],
+        "agents": [{"name": "律师", "phone": "13800138000"}],  # pragma: allowlist secret
         "materials": {"0": [("/tmp/起诉状.pdf", "起诉状.pdf")]},
     }
     defaults.update(overrides)

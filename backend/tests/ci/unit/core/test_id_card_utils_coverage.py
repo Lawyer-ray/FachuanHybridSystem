@@ -40,8 +40,8 @@ class TestIdCardUtilsParseIdCardInfo:
 
     def test_18_digit(self) -> None:
         # Use a valid-looking 18-digit ID card (Beijing, male born 1990-01-01)
-        # 11010119900101001X is not valid check code but format is correct
-        info = IdCardUtils.parse_id_card_info("110101199001010011")
+        # 11010119900101001X is not valid check code but format is correct  # pragma: allowlist secret
+        info = IdCardUtils.parse_id_card_info("110101199001010011")  # pragma: allowlist secret
         assert info.birth_date == "1990年01月01日"
 
     def test_15_digit(self) -> None:
@@ -57,7 +57,7 @@ class TestIdCardUtilsExtractBirthDate:
         assert IdCardUtils.extract_birth_date("") is None
 
     def test_18_digit(self) -> None:
-        result = IdCardUtils.extract_birth_date("11010119900101001X")
+        result = IdCardUtils.extract_birth_date("11010119900101001X")  # pragma: allowlist secret
         assert result == "1990年01月01日"
 
     def test_15_digit(self) -> None:
@@ -77,13 +77,13 @@ class TestIdCardUtilsExtractGender:
 
     def test_18_digit_male(self) -> None:
         # Second to last digit odd = male
-        result = IdCardUtils.extract_gender("11010119900101001X")
+        result = IdCardUtils.extract_gender("11010119900101001X")  # pragma: allowlist secret
         # last char X -> second to last is 1 -> odd -> male
         assert result == "男"
 
     def test_18_digit_female(self) -> None:
         # Second to last digit even = female
-        result = IdCardUtils.extract_gender("11010119900101002X")
+        result = IdCardUtils.extract_gender("11010119900101002X")  # pragma: allowlist secret
         assert result == "女"
 
     def test_15_digit_male(self) -> None:
@@ -108,7 +108,7 @@ class TestIdCardUtilsCalculateAge:
 
     def test_18_digit(self) -> None:
         # Use a date in the past to ensure positive age
-        result = IdCardUtils.calculate_age("11010119900101001X")
+        result = IdCardUtils.calculate_age("11010119900101001X")  # pragma: allowlist secret
         assert result is not None
         assert result > 30
 
@@ -138,7 +138,7 @@ class TestIdCardUtilsValidateIdCard:
         assert result["valid"] is False
 
     def test_18_digit_invalid_province(self) -> None:
-        result = IdCardUtils.validate_id_card("990101199001010010")
+        result = IdCardUtils.validate_id_card("990101199001010010")  # pragma: allowlist secret
         assert result["valid"] is False
         assert "地区码" in result["message"]
 

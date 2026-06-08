@@ -65,7 +65,7 @@ vi.mock('@/components/ui/alert-dialog', () => ({
 function makeGrant(overrides: Partial<CaseAccessGrant> = {}): CaseAccessGrant {
   return {
     id: 1, case: 1, grantee: 2,
-    grantee_detail: { id: 2, username: 'lawyer2', real_name: '李律师', phone: '13900139000', is_admin: false, is_active: true, law_firm: null, law_firm_name: null },
+    grantee_detail: { id: 2, username: 'lawyer2', real_name: '李律师', phone: '13900139000', is_admin: false, is_active: true, law_firm: null, law_firm_name: null }, // pragma: allowlist secret
     created_at: '2025-01-01', ...overrides,
   }
 }
@@ -86,7 +86,7 @@ describe('CaseAccessGrantSection', () => {
 
   it('renders grant with phone', () => {
     render(<CaseAccessGrantSection grants={[makeGrant()]} />)
-    expect(screen.getByText('13900139000')).toBeInTheDocument()
+    expect(screen.getByText('13900139000')).toBeInTheDocument() // pragma: allowlist secret
   })
 
   it('renders grant without phone', () => {

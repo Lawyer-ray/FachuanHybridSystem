@@ -48,7 +48,7 @@ class TestLawyerModel:
         firm = LawFirm.objects.create(name="律所")
         lawyer = Lawyer.objects.create_user(
             username="testlawyer",
-            password="testpass123",
+            password="testpass123",  # pragma: allowlist secret
             law_firm=firm,
         )
         assert lawyer.username == "testlawyer"
@@ -60,7 +60,7 @@ class TestLawyerModel:
         firm = LawFirm.objects.create(name="律所")
         lawyer = Lawyer.objects.create_user(
             username="emailuser",
-            password="pass",
+            password="pass",  # pragma: allowlist secret
             email="test@example.com",
             law_firm=firm,
         )
@@ -72,7 +72,7 @@ class TestLawyerModel:
         firm = LawFirm.objects.create(name="律所")
         lawyer = Lawyer.objects.create_user(
             username="noemail",
-            password="pass",
+            password="pass",  # pragma: allowlist secret
             email=None,
             law_firm=firm,
         )
@@ -94,7 +94,7 @@ class TestLawyerModel:
         firm = LawFirm.objects.create(name="律所")
         lawyer = Lawyer.objects.create_user(
             username="adminuser",
-            password="pass",
+            password="pass",  # pragma: allowlist secret
             is_admin=True,
             law_firm=firm,
         )
@@ -147,7 +147,7 @@ class TestOrganizationSchemas:
 
         data = LawyerCreateIn(
             username="newuser",
-            password="pass123",
+            password="pass123",  # pragma: allowlist secret
             real_name="新律师",
         )
         assert data.username == "newuser"

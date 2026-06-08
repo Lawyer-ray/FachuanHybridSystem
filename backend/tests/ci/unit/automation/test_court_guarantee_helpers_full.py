@@ -22,8 +22,8 @@ def _make_case_party(
     client_name: str = "张三",
     legal_status: str = "defendant",
     client_type: str = "natural",
-    id_number: str = "110101199003077715",
-    phone: str = "13800138000",
+    id_number: str = "110101199003077715",  # pragma: allowlist secret
+    phone: str = "13800138000",  # pragma: allowlist secret
     address: str = "广州市天河区",
     is_our_client: bool = False,
     legal_rep: str = "",
@@ -316,12 +316,12 @@ class TestBuildPartyPayloadFromCaseParty:
         result = helpers._build_party_payload_from_case_party(party=party)
         assert result["party_type"] == "natural"
         assert result["name"] == "张三"
-        assert result["id_number"] == "110101199003077715"
+        assert result["id_number"] == "110101199003077715"  # pragma: allowlist secret
 
     def test_legal_party(self):
         party = _make_case_party(
             client_type="legal", client_name="某公司", id_number="91440101MA59TEST8X",
-            legal_rep="李四", legal_rep_id="110101199003077715",
+            legal_rep="李四", legal_rep_id="110101199003077715",  # pragma: allowlist secret
         )
         result = helpers._build_party_payload_from_case_party(party=party)
         assert result["party_type"] == "legal"
@@ -688,8 +688,8 @@ class TestBuildPlaintiffAgentPayload:
             id=1,
             real_name="王律师",
             username="wang",
-            id_card="110101199003077715",
-            phone="13800138000",
+            id_card="110101199003077715",  # pragma: allowlist secret
+            phone="13800138000",  # pragma: allowlist secret
             license_no="12345",
             law_firm=SimpleNamespace(name="测试所"),
         )

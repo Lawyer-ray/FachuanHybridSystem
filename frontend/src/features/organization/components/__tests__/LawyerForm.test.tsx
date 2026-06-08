@@ -126,8 +126,8 @@ describe('LawyerForm', () => {
   it('renders with lawyer data in edit mode', () => {
     vi.mocked(useLawyer).mockReturnValue({
       data: {
-        username: 'zhangsan', real_name: '张三', phone: '13800138000',
-        license_no: 'L12345', id_card: '110101199001011234', law_firm: 1,
+        username: 'zhangsan', real_name: '张三', phone: '13800138000', // pragma: allowlist secret
+        license_no: 'L12345', id_card: '110101199001011234', law_firm: 1, // pragma: allowlist secret
         is_admin: true, avatar_url: 'http://example.com/avatar.jpg',
         license_pdf_url: 'http://example.com/license.pdf',
       },

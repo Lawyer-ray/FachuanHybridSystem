@@ -540,7 +540,7 @@ class TestLLMPreflight:
         config = MagicMock()
         config.enabled = True
         config.base_url = "https://api.example.com"
-        config.api_key = "bad-key"
+        config.api_key = "bad-key"  # pragma: allowlist secret
         mock_llm_config.resolve_backend_for_model.return_value = "openai_compatible"
         mock_llm_config.get_backend_configs.return_value = {"openai_compatible": config}
 

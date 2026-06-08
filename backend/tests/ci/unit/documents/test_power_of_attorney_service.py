@@ -86,7 +86,7 @@ def _make_case(lawyers: list[MagicMock] | None = None, **kwargs: Any) -> MagicMo
     return case
 
 
-def _make_lawyer(name: str = "Lawyer A", phone: str = "13800138000", firm_name: str = "Test Firm") -> MagicMock:
+def _make_lawyer(name: str = "Lawyer A", phone: str = "13800138000", firm_name: str = "Test Firm") -> MagicMock:  # pragma: allowlist secret
     lawyer = MagicMock()
     lawyer.real_name = name
     lawyer.username = "lawyer_a"
@@ -194,10 +194,10 @@ class TestFormatPrincipals:
 
     def test_natural_person(self) -> None:
         svc = _make_service()
-        client = _make_client(client_type="natural", name="Zhang San", id_number="110101199001011234")
+        client = _make_client(client_type="natural", name="Zhang San", id_number="110101199001011234")  # pragma: allowlist secret
         result = svc._format_principals([client])
         assert "委托人姓名：Zhang San" in result
-        assert "身份证号码：110101199001011234" in result
+        assert "身份证号码：110101199001011234" in result  # pragma: allowlist secret
 
     def test_empty_clients(self) -> None:
         svc = _make_service()
@@ -265,11 +265,11 @@ class TestFormatLawyers:
 class TestFormatOneLawyerBlock:
     def test_with_lawyer(self) -> None:
         svc = _make_service()
-        lawyer = _make_lawyer("TestLawyer", "13900139000", "TestFirm")
+        lawyer = _make_lawyer("TestLawyer", "13900139000", "TestFirm")  # pragma: allowlist secret
         result = svc._format_one_lawyer_block(lawyer)
         assert "受托人姓名：TestLawyer" in result
         assert "工作单位：TestFirm" in result
-        assert "联系电话：13900139000" in result
+        assert "联系电话：13900139000" in result  # pragma: allowlist secret
 
     def test_none_lawyer(self) -> None:
         svc = _make_service()

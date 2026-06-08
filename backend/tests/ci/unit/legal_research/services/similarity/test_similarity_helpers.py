@@ -455,19 +455,19 @@ class TestReranker:
     def test_rerank_empty_query(self) -> None:
         from apps.legal_research.services.similarity.reranker import SiliconFlowReranker
 
-        reranker = SiliconFlowReranker(api_key="test")
+        reranker = SiliconFlowReranker(api_key="test")  # pragma: allowlist secret
         assert reranker.rerank(query="", documents=["doc1"]) == []
 
     def test_rerank_empty_documents(self) -> None:
         from apps.legal_research.services.similarity.reranker import SiliconFlowReranker
 
-        reranker = SiliconFlowReranker(api_key="test")
+        reranker = SiliconFlowReranker(api_key="test")  # pragma: allowlist secret
         assert reranker.rerank(query="test", documents=[]) == []
 
     def test_rerank_cooldown(self) -> None:
         from apps.legal_research.services.similarity.reranker import SiliconFlowReranker
 
-        reranker = SiliconFlowReranker(api_key="test")
+        reranker = SiliconFlowReranker(api_key="test")  # pragma: allowlist secret
         reranker._fail_until = 9999999999.0
         assert reranker.rerank(query="test", documents=["doc1"]) == []
 
@@ -489,7 +489,7 @@ class TestReranker:
         mock_client.post.return_value = mock_resp
         mock_client_cls.return_value = mock_client
 
-        reranker = SiliconFlowReranker(api_key="test")
+        reranker = SiliconFlowReranker(api_key="test")  # pragma: allowlist secret
         results = reranker.rerank(query="test query", documents=["doc0", "doc1"])
         assert len(results) == 2
         assert results[0][0] == 1  # highest score first
@@ -505,7 +505,7 @@ class TestReranker:
         mock_client.post.side_effect = RuntimeError("network error")
         mock_client_cls.return_value = mock_client
 
-        reranker = SiliconFlowReranker(api_key="test")
+        reranker = SiliconFlowReranker(api_key="test")  # pragma: allowlist secret
         result = reranker.rerank(query="test", documents=["doc1"])
         assert result == []
         assert reranker._fail_until > 0

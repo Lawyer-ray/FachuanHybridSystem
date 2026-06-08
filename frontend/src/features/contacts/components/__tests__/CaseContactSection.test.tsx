@@ -62,7 +62,7 @@ function makeContact(overrides: Partial<CaseContact> = {}): CaseContact {
   return {
     id: 1, case_id: 1, authority_id: null, authority_name: null,
     name: '张法官', role: 'judge', role_display: '法官',
-    phone: '13800138000', address: '北京市朝阳区', stage: null, stage_display: null,
+    phone: '13800138000', address: '北京市朝阳区', stage: null, stage_display: null, // pragma: allowlist secret
     note: '备注信息', created_at: '2025-06-01', updated_at: '2025-06-01', ...overrides,
   }
 }
@@ -83,7 +83,7 @@ describe('CaseContactSection', () => {
 
   it('renders contact phone', () => {
     render(<CaseContactSection contacts={[makeContact()]} />)
-    expect(screen.getByText('13800138000')).toBeInTheDocument()
+    expect(screen.getByText('13800138000')).toBeInTheDocument() // pragma: allowlist secret
   })
 
   it('renders contact address', () => {
@@ -100,7 +100,7 @@ describe('CaseContactSection', () => {
     const contact = makeContact({ phone: null })
     render(<CaseContactSection contacts={[contact]} />)
     expect(screen.getByText('张法官')).toBeInTheDocument()
-    expect(screen.queryByText('13800138000')).not.toBeInTheDocument()
+    expect(screen.queryByText('13800138000')).not.toBeInTheDocument() // pragma: allowlist secret
   })
 
   it('renders contact with stage', () => {

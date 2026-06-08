@@ -167,7 +167,7 @@ class TestTokenCacheManager:
     def test_cache_credentials(self, mock_cache: MagicMock) -> None:
         mgr = self._make_manager()
         mgr.cache_prefix = "auto_token"
-        cred = SimpleNamespace(site_name="s", account="a", password="secret123", extra="x")
+        cred = SimpleNamespace(site_name="s", account="a", password="secret123", extra="x")  # pragma: allowlist secret
         mgr.cache_credentials("s", [cred])
         mock_cache.set.assert_called_once()
         saved = mock_cache.set.call_args[0][1]

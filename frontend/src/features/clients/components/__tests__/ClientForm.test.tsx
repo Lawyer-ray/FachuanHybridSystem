@@ -220,7 +220,7 @@ describe('ClientForm', () => {
     vi.mocked(useClient).mockReturnValue({
       data: {
         id: 1, name: '张三', is_our_client: true, client_type: 'natural',
-        phone: '138', address: 'Beijing', id_number: '110101199001011234',
+        phone: '138', address: 'Beijing', id_number: '110101199001011234', // pragma: allowlist secret
         legal_representative: null, legal_representative_id_number: null,
         identity_docs: [], client_type_label: '自然人',
       },
@@ -238,7 +238,7 @@ describe('ClientForm', () => {
     vi.mocked(useClient).mockReturnValue({
       data: {
         id: 1, name: '张三', is_our_client: true, client_type: 'natural',
-        phone: '138', address: 'Beijing', id_number: '110101199001011234',
+        phone: '138', address: 'Beijing', id_number: '110101199001011234', // pragma: allowlist secret
         legal_representative: null, legal_representative_id_number: null,
         identity_docs: [], client_type_label: '自然人',
       },
@@ -256,7 +256,7 @@ describe('ClientForm', () => {
       data: {
         id: 1, name: '公司A', is_our_client: false, client_type: 'legal',
         phone: '010-12345678', address: 'Shanghai', id_number: '91310000MA1ABCDE',
-        legal_representative: '王总', legal_representative_id_number: '310101199001011234',
+        legal_representative: '王总', legal_representative_id_number: '310101199001011234', // pragma: allowlist secret
         identity_docs: [], client_type_label: '法人',
       },
       isLoading: false,

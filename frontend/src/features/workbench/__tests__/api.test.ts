@@ -278,7 +278,7 @@ describe('workbench/api', () => {
       'http://localhost:8002/api/v1/workbench/batch/job-1/stream',
       expect.objectContaining({
         headers: expect.objectContaining({
-          Authorization: 'Bearer test-token',
+          Authorization: 'Bearer test-token', // pragma: allowlist secret
         }),
       }),
     )

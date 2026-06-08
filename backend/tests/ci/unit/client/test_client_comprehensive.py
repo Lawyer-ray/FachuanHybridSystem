@@ -51,10 +51,10 @@ class TestTextParser:
     def test_parse_client_text_natural_person(self):
         from apps.client.services.text_parser import parse_client_text
 
-        text = "被告：张三，男，1990年1月1日出生\n身份证号码：110101199001011234"
+        text = "被告：张三，男，1990年1月1日出生\n身份证号码：110101199001011234"  # pragma: allowlist secret
         result = parse_client_text(text)
         assert "张三" in result["name"]
-        assert result["id_number"] == "110101199001011234"
+        assert result["id_number"] == "110101199001011234"  # pragma: allowlist secret
 
     def test_parse_client_text_with_address(self):
         from apps.client.services.text_parser import parse_client_text
@@ -111,8 +111,8 @@ class TestTextParser:
     def test_extract_id_number(self):
         from apps.client.services.text_parser import _extract_id_number
 
-        result = _extract_id_number("身份证号码：110101199001011234")
-        assert result == "110101199001011234"
+        result = _extract_id_number("身份证号码：110101199001011234")  # pragma: allowlist secret
+        assert result == "110101199001011234"  # pragma: allowlist secret
 
     def test_extract_id_number_not_found(self):
         from apps.client.services.text_parser import _extract_id_number
@@ -153,7 +153,7 @@ class TestTextParser:
     def test_determine_client_type_natural(self):
         from apps.client.services.text_parser import _determine_client_type
 
-        result = _determine_client_type("张三", "身份证号码：110101199001011234")
+        result = _determine_client_type("张三", "身份证号码：110101199001011234")  # pragma: allowlist secret
         assert result == "natural"
 
     def test_determine_client_type_by_keyword(self):
@@ -425,8 +425,8 @@ class TestClientExportSerializerService:
         mock_client = SimpleNamespace(
             name="张三",
             client_type="natural",
-            id_number="110101199001011234",
-            phone="13800138000",
+            id_number="110101199001011234",  # pragma: allowlist secret
+            phone="13800138000",  # pragma: allowlist secret
             address="北京市朝阳区",
             legal_representative="",
             legal_representative_id_number="",
@@ -623,7 +623,7 @@ class TestClientApi:
 
         mock_utils.validate_id_card.return_value = {"valid": True, "message": "ok"}
         request = MagicMock()
-        payload = SimpleNamespace(id_number="110101199001011234")
+        payload = SimpleNamespace(id_number="110101199001011234")  # pragma: allowlist secret
         result = validate_id_card(request, payload)
         assert result.valid is True
 

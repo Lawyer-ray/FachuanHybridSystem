@@ -44,7 +44,7 @@ class TestEnterpriseDataTypes:
             transport="streamable_http",
             base_url="http://localhost:8080",
             sse_url="http://localhost:8080/sse",
-            api_key="test-key",
+            api_key="test-key",  # pragma: allowlist secret
             timeout_seconds=30,
         )
         assert config.name == "tianyancha"

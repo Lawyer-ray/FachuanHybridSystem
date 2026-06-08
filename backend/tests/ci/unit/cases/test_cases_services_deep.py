@@ -35,7 +35,7 @@ def admin_user(db, law_firm):
 
     return Lawyer.objects.create_user(
         username="admin_case_test",
-        password="testpass123",
+        password="testpass123",  # pragma: allowlist secret
         is_admin=True,
         law_firm=law_firm,
     )

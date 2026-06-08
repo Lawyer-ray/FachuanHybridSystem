@@ -103,7 +103,7 @@ class TestWorkbenchSessionService:
         firm = LawFirm.objects.create(name="Workbench测试律所")
         return Lawyer.objects.create_user(
             username="wblawyer",
-            password="testpass123",
+            password="testpass123",  # pragma: allowlist secret
             law_firm=firm,
         )
 
@@ -230,7 +230,7 @@ class TestWorkbenchMessageService:
         firm = LawFirm.objects.create(name="Msg测试律所")
         return Lawyer.objects.create_user(
             username="msglawyer",
-            password="testpass123",
+            password="testpass123",  # pragma: allowlist secret
             law_firm=firm,
         )
 

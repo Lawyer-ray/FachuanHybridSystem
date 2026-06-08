@@ -172,7 +172,7 @@ class TestReviewTaskRepository:
         firm = LawFirm.objects.create(name="Repo测试律所")
         return Lawyer.objects.create_user(
             username="repouser",
-            password="testpass123",
+            password="testpass123",  # pragma: allowlist secret
             law_firm=firm,
         )
 
@@ -259,7 +259,7 @@ class TestReviewService:
         firm = LawFirm.objects.create(name="Service测试律所")
         return Lawyer.objects.create_user(
             username="serviceuser",
-            password="testpass123",
+            password="testpass123",  # pragma: allowlist secret
             law_firm=firm,
         )
 

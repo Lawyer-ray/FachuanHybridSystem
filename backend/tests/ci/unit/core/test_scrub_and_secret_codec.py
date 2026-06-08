@@ -115,12 +115,12 @@ class TestFingerprintSha256:
 
 class TestScrubText:
     def test_masks_api_key_pattern(self) -> None:
-        result = scrub_text("Bearer sk-abc123def456ghi789jkl")
+        result = scrub_text("Bearer sk-abc123def456ghi789jkl")  # pragma: allowlist secret
         assert "Bearer" in result
         assert "***" in result
 
     def test_masks_bearer_token(self) -> None:
-        result = scrub_text("Bearer abc123def456ghi789jkl")
+        result = scrub_text("Bearer abc123def456ghi789jkl")  # pragma: allowlist secret
         assert "Bearer" in result
         assert "***" in result
 

@@ -40,11 +40,11 @@ class TestOACustomerData:
         data = OACustomerData(
             name="Company",
             client_type="legal",
-            phone="13800138000",
+            phone="13800138000",  # pragma: allowlist secret
             address="Beijing",
             legal_representative="CEO",
         )
-        assert data.phone == "13800138000"
+        assert data.phone == "13800138000"  # pragma: allowlist secret
         assert data.legal_representative == "CEO"
 
 
@@ -136,13 +136,13 @@ class TestJtnClientImportScriptIsValidFieldValue:
 
     def test_valid_value_returns_true(self):
         svc = _make_script()
-        assert svc._is_valid_field_value("13800138000") is True
+        assert svc._is_valid_field_value("13800138000") is True  # pragma: allowlist secret
 
 
 class TestJtnClientImportScriptIsValidPhone:
     def test_valid_phone(self):
         svc = _make_script()
-        assert svc._is_valid_phone("13800138000") is True
+        assert svc._is_valid_phone("13800138000") is True  # pragma: allowlist secret
 
     def test_too_short(self):
         svc = _make_script()
@@ -150,7 +150,7 @@ class TestJtnClientImportScriptIsValidPhone:
 
     def test_too_long_is_id_number(self):
         svc = _make_script()
-        assert svc._is_valid_phone("110101199001011234") is False
+        assert svc._is_valid_phone("110101199001011234") is False  # pragma: allowlist secret
 
     def test_none_returns_false(self):
         svc = _make_script()
@@ -160,8 +160,8 @@ class TestJtnClientImportScriptIsValidPhone:
 class TestJtnClientImportScriptExtractLabeledValue:
     def test_found(self):
         svc = _make_script()
-        result = svc._extract_labeled_value("电话: 13800138000\n地址: Beijing", "电话")
-        assert result == "13800138000"
+        result = svc._extract_labeled_value("电话: 13800138000\n地址: Beijing", "电话")  # pragma: allowlist secret
+        assert result == "13800138000"  # pragma: allowlist secret
 
     def test_not_found(self):
         svc = _make_script()
@@ -177,9 +177,9 @@ class TestJtnClientImportScriptExtractLabeledValue:
 class TestJtnClientImportScriptParseCustomerDetailText:
     def test_natural_person_id_number(self):
         svc = _make_script()
-        text = "客户名称: 张三\n身份证号码: 110101199001011234\n性别: 男"
+        text = "客户名称: 张三\n身份证号码: 110101199001011234\n性别: 男"  # pragma: allowlist secret
         result = svc._parse_customer_detail_text("张三", "natural", text)
-        assert result.id_number == "110101199001011234"
+        assert result.id_number == "110101199001011234"  # pragma: allowlist secret
         assert result.gender == "男"
         assert result.client_type == "natural"
 

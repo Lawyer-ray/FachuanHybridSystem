@@ -32,11 +32,11 @@ class TestJysdCourtScraper:
 
     def test_get_lawyer_phones_from_config(self) -> None:
         scraper = self._make_scraper()
-        scraper.task.config = {"jysd_lawyer_phones": ["13612340615", " 13800138000 "]}
+        scraper.task.config = {"jysd_lawyer_phones": ["13612340615", " 13800138000 "]}  # pragma: allowlist secret
         phones = scraper._get_lawyer_phones()
         assert len(phones) == 2
-        assert phones[0] == "13612340615"
-        assert phones[1] == "13800138000"
+        assert phones[0] == "13612340615"  # pragma: allowlist secret
+        assert phones[1] == "13800138000"  # pragma: allowlist secret
 
     def test_get_lawyer_phones_empty_config(self) -> None:
         scraper = self._make_scraper()
@@ -55,7 +55,7 @@ class TestJysdCourtScraper:
 
     def test_get_lawyer_phones_with_empty_strings(self) -> None:
         scraper = self._make_scraper()
-        scraper.task.config = {"jysd_lawyer_phones": ["13612340615", "", "  ", "13800138000"]}
+        scraper.task.config = {"jysd_lawyer_phones": ["13612340615", "", "  ", "13800138000"]}  # pragma: allowlist secret
         phones = scraper._get_lawyer_phones()
         assert len(phones) == 2
 

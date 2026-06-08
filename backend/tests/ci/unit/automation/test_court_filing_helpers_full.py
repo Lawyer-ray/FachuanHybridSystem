@@ -21,8 +21,8 @@ def _make_party(
     legal_status: str = "plaintiff",
     client_type: str = "natural",
     name: str = "张三",
-    id_number: str = "110101199003077715",
-    phone: str = "13800138000",
+    id_number: str = "110101199003077715",  # pragma: allowlist secret
+    phone: str = "13800138000",  # pragma: allowlist secret
     address: str = "北京市",
     legal_rep: str = "",
     legal_rep_id: str = "",
@@ -215,7 +215,7 @@ class TestBuildPartyPayloads:
             name="某公司",
             id_number="91440101MA59TEST8X",
             legal_rep="李四",
-            legal_rep_id="110101199003077715",
+            legal_rep_id="110101199003077715",  # pragma: allowlist secret
         )
         plaintiffs, defendants, third = _build_party_payloads([party])
         assert len(defendants) == 1
@@ -242,11 +242,11 @@ class TestBuildPartyPayloads:
 class TestToValidMobile:
     def test_valid(self):
         from apps.automation.api.court_filing_helpers import _to_valid_mobile
-        assert _to_valid_mobile("13800138000") == "13800138000"
+        assert _to_valid_mobile("13800138000") == "13800138000"  # pragma: allowlist secret
 
     def test_with_spaces(self):
         from apps.automation.api.court_filing_helpers import _to_valid_mobile
-        assert _to_valid_mobile("138 0013 8000") == "13800138000"
+        assert _to_valid_mobile("138 0013 8000") == "13800138000"  # pragma: allowlist secret
 
     def test_invalid_short(self):
         from apps.automation.api.court_filing_helpers import _to_valid_mobile
@@ -269,23 +269,23 @@ class TestApplyExecutionPartyFallbacks:
     def test_fills_phone_from_agent(self):
         from apps.automation.api.court_filing_helpers import _apply_execution_party_fallbacks
         plaintiffs = [{"client_type": "natural", "phone": "", "address": "北京"}]
-        agents = [{"phone": "13800138000"}]
+        agents = [{"phone": "13800138000"}]  # pragma: allowlist secret
         _apply_execution_party_fallbacks(plaintiffs=plaintiffs, agents=agents)
-        assert plaintiffs[0]["phone"] == "13800138000"
+        assert plaintiffs[0]["phone"] == "13800138000"  # pragma: allowlist secret
 
     def test_skips_non_natural(self):
         from apps.automation.api.court_filing_helpers import _apply_execution_party_fallbacks
         plaintiffs = [{"client_type": "legal", "phone": "", "address": ""}]
-        agents = [{"phone": "13800138000"}]
+        agents = [{"phone": "13800138000"}]  # pragma: allowlist secret
         _apply_execution_party_fallbacks(plaintiffs=plaintiffs, agents=agents)
         assert plaintiffs[0]["phone"] == ""
 
     def test_no_fallback_when_phone_exists(self):
         from apps.automation.api.court_filing_helpers import _apply_execution_party_fallbacks
-        plaintiffs = [{"client_type": "natural", "phone": "13900139000", "address": ""}]
-        agents = [{"phone": "13800138000"}]
+        plaintiffs = [{"client_type": "natural", "phone": "13900139000", "address": ""}]  # pragma: allowlist secret
+        agents = [{"phone": "13800138000"}]  # pragma: allowlist secret
         _apply_execution_party_fallbacks(plaintiffs=plaintiffs, agents=agents)
-        assert plaintiffs[0]["phone"] == "13900139000"
+        assert plaintiffs[0]["phone"] == "13900139000"  # pragma: allowlist secret
 
     def test_preserves_address(self):
         from apps.automation.api.court_filing_helpers import _apply_execution_party_fallbacks
@@ -304,8 +304,8 @@ class TestBuildAgentPayloads:
         from apps.automation.api.court_filing_helpers import _build_agent_payloads
         law_firm = SimpleNamespace(name="测试律师事务所", address="广州天河")
         lawyer = SimpleNamespace(
-            id=1, real_name="王律师", username="wang", id_card="110101199003077715",
-            license_no="12345", phone="13800138000", law_firm=law_firm,
+            id=1, real_name="王律师", username="wang", id_card="110101199003077715",  # pragma: allowlist secret
+            license_no="12345", phone="13800138000", law_firm=law_firm,  # pragma: allowlist secret
         )
         assignment = SimpleNamespace(lawyer=lawyer)
         case = SimpleNamespace(assignments=MagicMock())
@@ -319,8 +319,8 @@ class TestBuildAgentPayloads:
     def test_deduplicates_lawyers(self):
         from apps.automation.api.court_filing_helpers import _build_agent_payloads
         lawyer = SimpleNamespace(
-            id=1, real_name="王律师", username="wang", id_card="110101199003077715",
-            license_no="12345", phone="13800138000", law_firm=SimpleNamespace(name="所", address=""),
+            id=1, real_name="王律师", username="wang", id_card="110101199003077715",  # pragma: allowlist secret
+            license_no="12345", phone="13800138000", law_firm=SimpleNamespace(name="所", address=""),  # pragma: allowlist secret
         )
         assignment1 = SimpleNamespace(lawyer=lawyer)
         assignment2 = SimpleNamespace(lawyer=lawyer)
@@ -338,12 +338,12 @@ class TestBuildAgentPayloads:
         )
         case = SimpleNamespace(assignments=MagicMock())
         case.assignments.select_related.return_value.order_by.return_value = [SimpleNamespace(lawyer=lawyer)]
-        party = _make_party(phone="13900139000")
+        party = _make_party(phone="13900139000")  # pragma: allowlist secret
 
         with patch("apps.organization.models.Lawyer") as MockLawyer:
             MockLawyer.objects.select_related.return_value.filter.return_value.first.return_value = None
             result = _build_agent_payloads(case=case, requester_id=None, parties=[party])
-            assert result[0]["phone"] == "13900139000"
+            assert result[0]["phone"] == "13900139000"  # pragma: allowlist secret
 
     def test_skips_lawyer_without_name(self):
         from apps.automation.api.court_filing_helpers import _build_agent_payloads
@@ -362,8 +362,8 @@ class TestBuildAgentPayloads:
         case = SimpleNamespace(assignments=MagicMock())
         case.assignments.select_related.return_value.order_by.return_value = []
         requester = SimpleNamespace(
-            id=99, real_name="请求人", username="req", id_card="110101199003077715",
-            license_no="54321", phone="13700137000", law_firm=SimpleNamespace(name="所", address=""),
+            id=99, real_name="请求人", username="req", id_card="110101199003077715",  # pragma: allowlist secret
+            license_no="54321", phone="13700137000", law_firm=SimpleNamespace(name="所", address=""),  # pragma: allowlist secret
         )
         with patch("apps.organization.models.Lawyer") as MockLawyer:
             MockLawyer.objects.select_related.return_value.filter.return_value.first.return_value = requester

@@ -263,7 +263,7 @@ class TestClientImportService:
         session.id = 1
         session.credential = MagicMock()
         session.credential.account = "test_account"
-        session.credential.password = "test_password"
+        session.credential.password = "test_password"  # pragma: allowlist secret
         session.started_at = None
         session.total_count = 0
         session.discovered_count = 0
@@ -490,13 +490,13 @@ class TestFilingModels:
         from apps.oa_filing.services.oa_scripts.jtn.filing.filing_models import _gender_from_id_number
 
         # 18-digit ID, 17th digit odd = male
-        assert _gender_from_id_number("110101199001011234") == "01"
+        assert _gender_from_id_number("110101199001011234") == "01"  # pragma: allowlist secret
 
     def test_gender_from_id_number_female(self) -> None:
         from apps.oa_filing.services.oa_scripts.jtn.filing.filing_models import _gender_from_id_number
 
         # 18-digit ID, 17th digit even = female
-        assert _gender_from_id_number("110101199001011244") == "02"
+        assert _gender_from_id_number("110101199001011244") == "02"  # pragma: allowlist secret
 
     def test_gender_from_id_number_short(self) -> None:
         from apps.oa_filing.services.oa_scripts.jtn.filing.filing_models import _gender_from_id_number

@@ -266,7 +266,7 @@ describe('TextParser', () => {
       client: {
         name: 'Wang',
         id_number: '123',
-        phone: '13800000000',
+        phone: '13800000000', // pragma: allowlist secret
         address: 'Beijing',
         legal_representative: 'Li',
         legal_representative_id_number: '456',
@@ -288,7 +288,7 @@ describe('TextParser', () => {
     expect(defaultProps.onParsed).toHaveBeenCalledWith({
       name: 'Wang',
       id_number: '123',
-      phone: '13800000000',
+      phone: '13800000000', // pragma: allowlist secret
       address: 'Beijing',
       legal_representative: 'Li',
       legal_representative_id_number: '456',
