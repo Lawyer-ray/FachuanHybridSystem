@@ -145,6 +145,17 @@ class QichachaMcpProvider:
         data = self._adapter.normalize_company_profile(item)
         if not data["company_id"]:
             data["company_id"] = company_id
+
+        # 补充电话号码（工商信息不含电话，需单独调 get_contact_info）
+        if not data.get("phone"):
+            try:
+                contact_result = client.call_tool(tool_name="get_contact_info", arguments={"searchKey": company_id})
+                phone = self._extract_phone_from_contact(contact_result["payload"])
+                if phone:
+                    data["phone"] = phone
+            except Exception:
+                pass  # 电话获取失败不影响主流程
+
         return ProviderResponse(
             data=data,
             raw=result["raw"],
@@ -241,6 +252,24 @@ class QichachaMcpProvider:
             tool=tool_name,
             meta=self._build_response_meta(result),
         )
+
+    @staticmethod
+    def _extract_phone_from_contact(payload: Any) -> str:
+        """从 get_contact_info 响应中提取第一个电话号码。"""
+        if not isinstance(payload, dict):
+            return ""
+        contact_info = payload.get("联系方式信息")
+        if not isinstance(contact_info, dict):
+            return ""
+        phones = contact_info.get("电话")
+        if not isinstance(phones, list):
+            return ""
+        for item in phones:
+            if isinstance(item, dict):
+                phone = str(item.get("电话号码", "") or "").strip()
+                if phone:
+                    return phone
+        return ""
 
     def _build_response_meta(self, transport_result: dict[str, Any]) -> dict[str, Any]:
         requested_transport = (
