@@ -429,4 +429,162 @@ describe('OcrUploader', () => {
     fireEvent.click(dropZone)
     // Should not crash
   })
+
+  it('submits async task when async mode enabled', async () => {
+    vi.mocked(clientApi.submitRecognizeTask).mockResolvedValue({ task_id: 'task-123' })
+    vi.mocked(clientApi.getRecognizeTaskStatus).mockResolvedValue({
+      status: 'completed',
+      result: {
+        success: true,
+        extracted_data: { name: 'Async User', id_number: '111' },
+      },
+    })
+
+    render(<OcrUploader {...defaultProps} />)
+    // Enable async mode
+    fireEvent.click(screen.getByRole('checkbox'))
+    // Upload file
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement
+    const file = new File(['test'], 'async.jpg', { type: 'image/jpeg' })
+    fireEvent.change(fileInput, { target: { files: [file] } })
+
+    await waitFor(() => {
+      expect(clientApi.submitRecognizeTask).toHaveBeenCalledWith(file)
+    })
+
+    await waitFor(() => {
+      expect(screen.getByText('识别成功')).toBeInTheDocument()
+    }, { timeout: 10000 })
+  })
+
+  it('handles async task failure', async () => {
+    vi.mocked(clientApi.submitRecognizeTask).mockResolvedValue({ task_id: 'task-456' })
+    vi.mocked(clientApi.getRecognizeTaskStatus).mockResolvedValue({
+      status: 'failed',
+      result: null,
+    })
+
+    render(<OcrUploader {...defaultProps} />)
+    fireEvent.click(screen.getByRole('checkbox'))
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement
+    const file = new File(['test'], 'fail.jpg', { type: 'image/jpeg' })
+    fireEvent.change(fileInput, { target: { files: [file] } })
+
+    await waitFor(() => {
+      expect(defaultProps.onError).toHaveBeenCalledWith('识别任务失败')
+    }, { timeout: 10000 })
+  })
+
+  it('handles async task submit error', async () => {
+    vi.mocked(clientApi.submitRecognizeTask).mockRejectedValue(new Error('submit error'))
+
+    render(<OcrUploader {...defaultProps} />)
+    fireEvent.click(screen.getByRole('checkbox'))
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement
+    const file = new File(['test'], 'error.jpg', { type: 'image/jpeg' })
+    fireEvent.change(fileInput, { target: { files: [file] } })
+
+    await waitFor(() => {
+      expect(defaultProps.onError).toHaveBeenCalledWith('submit error')
+    }, { timeout: 10000 })
+  })
+
+  it('handles async task with non-Error exception', async () => {
+    vi.mocked(clientApi.submitRecognizeTask).mockRejectedValue('string error')
+
+    render(<OcrUploader {...defaultProps} />)
+    fireEvent.click(screen.getByRole('checkbox'))
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement
+    const file = new File(['test'], 'error.jpg', { type: 'image/jpeg' })
+    fireEvent.change(fileInput, { target: { files: [file] } })
+
+    await waitFor(() => {
+      expect(defaultProps.onError).toHaveBeenCalledWith('识别失败，请检查网络连接')
+    }, { timeout: 10000 })
+  })
+
+  it('handles async task completed with no extracted data', async () => {
+    vi.mocked(clientApi.submitRecognizeTask).mockResolvedValue({ task_id: 'task-789' })
+    vi.mocked(clientApi.getRecognizeTaskStatus).mockResolvedValue({
+      status: 'completed',
+      result: { success: false, error: 'no data' },
+    })
+
+    render(<OcrUploader {...defaultProps} />)
+    fireEvent.click(screen.getByRole('checkbox'))
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement
+    const file = new File(['test'], 'nodata.jpg', { type: 'image/jpeg' })
+    fireEvent.change(fileInput, { target: { files: [file] } })
+
+    await waitFor(() => {
+      expect(defaultProps.onError).toHaveBeenCalledWith('no data')
+    }, { timeout: 10000 })
+  })
+
+  it('handles drop with file', async () => {
+    vi.mocked(clientApi.recognizeIdentityDoc).mockResolvedValue({
+      success: true,
+      doc_type: 'id_card',
+      extracted_data: { name: 'Dropped' },
+      confidence: 0.9,
+    })
+
+    render(<OcrUploader {...defaultProps} />)
+    const dropZone = screen.getByTestId('drop-zone')
+    const file = new File(['test'], 'dropped.jpg', { type: 'image/jpeg' })
+    fireEvent.drop(dropZone, { dataTransfer: { files: [file] } })
+
+    await waitFor(() => {
+      expect(clientApi.recognizeIdentityDoc).toHaveBeenCalledWith(file)
+    })
+  })
+
+  it('handles drag enter with empty items', () => {
+    render(<OcrUploader {...defaultProps} />)
+    const dropZone = screen.getByTestId('drop-zone')
+    fireEvent.dragEnter(dropZone, { dataTransfer: { items: [] } })
+    expect(dropZone).toBeInTheDocument()
+  })
+
+  it('handles cancel result button', async () => {
+    vi.mocked(clientApi.recognizeIdentityDoc).mockResolvedValue({
+      success: true,
+      doc_type: 'id_card',
+      extracted_data: { name: 'User' },
+      confidence: 0.9,
+    })
+
+    render(<OcrUploader {...defaultProps} />)
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement
+    const file = new File(['test'], 'test.jpg', { type: 'image/jpeg' })
+    fireEvent.change(fileInput, { target: { files: [file] } })
+
+    await waitFor(() => {
+      expect(screen.getByText('取消')).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByText('取消'))
+    expect(screen.queryByText('确认填充')).not.toBeInTheDocument()
+  })
+
+  it('shows no data warning for empty recognition', async () => {
+    vi.mocked(clientApi.recognizeIdentityDoc).mockResolvedValue({
+      success: true,
+      doc_type: 'id_card',
+      extracted_data: {},
+      confidence: 0.5,
+    })
+
+    render(<OcrUploader {...defaultProps} />)
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement
+    const file = new File(['test'], 'empty.jpg', { type: 'image/jpeg' })
+    fireEvent.change(fileInput, { target: { files: [file] } })
+
+    await waitFor(() => {
+      expect(screen.getByText('未能识别到有效信息')).toBeInTheDocument()
+    })
+
+    fireEvent.click(screen.getByText('关闭'))
+    expect(screen.queryByText('未能识别到有效信息')).not.toBeInTheDocument()
+  })
 })

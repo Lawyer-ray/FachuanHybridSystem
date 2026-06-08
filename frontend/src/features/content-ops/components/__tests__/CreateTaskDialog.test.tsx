@@ -1,5 +1,7 @@
+const mockMutate = vi.fn()
+
 vi.mock('../../hooks/use-content-ops', () => ({
-  useCreateTask: () => ({ mutate: vi.fn(), isPending: false }),
+  useCreateTask: () => ({ mutate: mockMutate, isPending: false }),
 }))
 
 vi.mock('@/features/organization/hooks/use-credentials', () => ({
@@ -329,5 +331,176 @@ describe('CreateTaskDialog', () => {
     fireEvent.click(screen.getByText('多人讨论'))
     const styleInputs = screen.getAllByPlaceholderText('声音描述')
     expect(styleInputs.length).toBe(3)
+  })
+
+  it('handles voice preview click', async () => {
+    const { contentOpsApi } = await import('../../api')
+    vi.mocked(contentOpsApi.testTts).mockResolvedValue(new Blob(['audio'], { type: 'audio/mpeg' }))
+
+    render(<CreateTaskDialog open onOpenChange={vi.fn()} />)
+    const previewBtn = screen.getByTestId('volume').closest('button')!
+    fireEvent.click(previewBtn)
+    // The function calls contentOpsApi.testTts
+    await waitFor(() => {
+      expect(contentOpsApi.testTts).toHaveBeenCalled()
+    })
+  })
+
+  it('handles voice preview failure', async () => {
+    const { contentOpsApi } = await import('../../api')
+    vi.mocked(contentOpsApi.testTts).mockRejectedValue(new Error('tts error'))
+
+    render(<CreateTaskDialog open onOpenChange={vi.fn()} />)
+    const previewBtn = screen.getByTestId('volume').closest('button')!
+    fireEvent.click(previewBtn)
+    await waitFor(() => {
+      expect(toast.error).toHaveBeenCalledWith('语音试听失败')
+    })
+  })
+
+  it('submits direct mode with valid content', () => {
+    mockMutate.mockImplementation((_data: unknown, opts: { onSuccess: (task: { id: number }) => void }) => {
+      opts.onSuccess({ id: 42 })
+    })
+    const onOpenChange = vi.fn()
+    render(<CreateTaskDialog open onOpenChange={onOpenChange} />)
+    const textarea = screen.getByPlaceholderText('粘贴案例内容、判决书摘要或任何法律文本...')
+    fireEvent.change(textarea, { target: { value: '法律内容' } })
+    fireEvent.click(screen.getByText('创建任务'))
+    expect(mockMutate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        mode: 'direct',
+        direct_content: '法律内容',
+        voice: '冰糖',
+        output_mode: 'narration',
+      }),
+      expect.any(Object),
+    )
+    expect(toast.success).toHaveBeenCalledWith(expect.stringContaining('任务 #42 已创建'))
+    expect(onOpenChange).toHaveBeenCalledWith(false)
+  })
+
+  it('submits search mode with keyword and credential', () => {
+    const { useCredentials } = require('@/features/organization/hooks/use-credentials')
+    useCredentials.mockReturnValue({
+      data: [
+        { id: 1, site_name: 'WkInfo', account: 'test@wk.com' },
+      ],
+    })
+
+    mockMutate.mockImplementation((_data: unknown, opts: { onSuccess: (task: { id: number }) => void }) => {
+      opts.onSuccess({ id: 10 })
+    })
+    render(<CreateTaskDialog open onOpenChange={vi.fn()} />)
+    fireEvent.click(screen.getByText('检索模式'))
+    const keywordInput = screen.getByPlaceholderText(/输入法律案例关键词/)
+    fireEvent.change(keywordInput, { target: { value: '劳动仲裁' } })
+    fireEvent.click(screen.getByText('创建任务'))
+    expect(toast.error).toHaveBeenCalledWith('请选择法律检索账号')
+  })
+
+  it('submits discussion mode with speakers', () => {
+    mockMutate.mockImplementation((_data: unknown, opts: { onSuccess: (task: { id: number }) => void }) => {
+      opts.onSuccess({ id: 20 })
+    })
+    render(<CreateTaskDialog open onOpenChange={vi.fn()} />)
+    fireEvent.click(screen.getByText('多人讨论'))
+    const textarea = screen.getByPlaceholderText('粘贴案例内容、判决书摘要或任何法律文本...')
+    fireEvent.change(textarea, { target: { value: '讨论内容' } })
+    fireEvent.click(screen.getByText('创建任务'))
+    expect(mockMutate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        mode: 'direct',
+        output_mode: 'discussion',
+        discussion_speakers: expect.any(Array),
+      }),
+      expect.any(Object),
+    )
+  })
+
+  it('handles submit error', () => {
+    mockMutate.mockImplementation((_data: unknown, opts: { onError: (error: Error) => void }) => {
+      opts.onError(new Error('API error'))
+    })
+    render(<CreateTaskDialog open onOpenChange={vi.fn()} />)
+    const textarea = screen.getByPlaceholderText('粘贴案例内容、判决书摘要或任何法律文本...')
+    fireEvent.change(textarea, { target: { value: 'content' } })
+    fireEvent.click(screen.getByText('创建任务'))
+    expect(toast.error).toHaveBeenCalledWith('API error')
+  })
+
+  it('handles submit with non-Error exception', () => {
+    mockMutate.mockImplementation((_data: unknown, opts: { onError: (error: unknown) => void }) => {
+      opts.onError('string error')
+    })
+    render(<CreateTaskDialog open onOpenChange={vi.fn()} />)
+    const textarea = screen.getByPlaceholderText('粘贴案例内容、判决书摘要或任何法律文本...')
+    fireEvent.change(textarea, { target: { value: 'content' } })
+    fireEvent.click(screen.getByText('创建任务'))
+    expect(toast.error).toHaveBeenCalledWith('创建任务失败')
+  })
+
+  it('resets form on successful submission', () => {
+    mockMutate.mockImplementation((_data: unknown, opts: { onSuccess: (task: { id: number }) => void }) => {
+      opts.onSuccess({ id: 1 })
+    })
+    render(<CreateTaskDialog open onOpenChange={vi.fn()} />)
+    const textarea = screen.getByPlaceholderText('粘贴案例内容、判决书摘要或任何法律文本...')
+    fireEvent.change(textarea, { target: { value: 'content' } })
+    fireEvent.click(screen.getByText('创建任务'))
+    // After submit, form should be reset
+    expect(textarea).toHaveValue('')
+  })
+
+  it('handles editing role field in discussion mode', () => {
+    render(<CreateTaskDialog open onOpenChange={vi.fn()} />)
+    fireEvent.click(screen.getByText('多人讨论'))
+    // Edit role field
+    const roleInputs = screen.getAllByPlaceholderText('角色定位')
+    fireEvent.change(roleInputs[0], { target: { value: '新角色定位' } })
+    expect(roleInputs[0]).toHaveValue('新角色定位')
+  })
+
+  it('handles editing style_prompt field in discussion mode', () => {
+    render(<CreateTaskDialog open onOpenChange={vi.fn()} />)
+    fireEvent.click(screen.getByText('多人讨论'))
+    const styleInputs = screen.getAllByPlaceholderText('声音描述')
+    fireEvent.change(styleInputs[0], { target: { value: '新的声音描述' } })
+    expect(styleInputs[0]).toHaveValue('新的声音描述')
+  })
+
+  it('handles voice change', () => {
+    render(<CreateTaskDialog open onOpenChange={vi.fn()} />)
+    // Voice selector is a Select component - test it renders
+    expect(screen.getByText('语音音色')).toBeInTheDocument()
+  })
+
+  it('renders with defaultCaseSummary', () => {
+    render(<CreateTaskDialog open onOpenChange={vi.fn()} defaultCaseSummary="案件摘要" />)
+    const summaryInput = screen.getByPlaceholderText(/简要描述案例背景/)
+    expect(summaryInput).toHaveValue('案件摘要')
+  })
+
+  it('syncs on dialog reopen', () => {
+    const { rerender } = render(<CreateTaskDialog open={false} onOpenChange={vi.fn()} defaultKeyword="old" />)
+    rerender(<CreateTaskDialog open onOpenChange={vi.fn()} defaultKeyword="new" />)
+    // Should sync to new default
+    expect(screen.getByText('创建内容任务')).toBeInTheDocument()
+  })
+
+  it('submits with case summary', () => {
+    mockMutate.mockImplementation((_data: unknown, opts: { onSuccess: (task: { id: number }) => void }) => {
+      opts.onSuccess({ id: 1 })
+    })
+    render(<CreateTaskDialog open onOpenChange={vi.fn()} />)
+    const textarea = screen.getByPlaceholderText('粘贴案例内容、判决书摘要或任何法律文本...')
+    fireEvent.change(textarea, { target: { value: 'content' } })
+    const summaryInput = screen.getByPlaceholderText(/简要描述案例背景/)
+    fireEvent.change(summaryInput, { target: { value: '案件背景' } })
+    fireEvent.click(screen.getByText('创建任务'))
+    expect(mockMutate).toHaveBeenCalledWith(
+      expect.objectContaining({ case_summary: '案件背景' }),
+      expect.any(Object),
+    )
   })
 })

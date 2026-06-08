@@ -545,6 +545,117 @@ describe('TaskDetail - ArticleCard', () => {
     renderWithProviders(<TaskDetail taskId={1} />)
     expect(screen.queryByText(/Token:/)).not.toBeInTheDocument()
   })
+
+  // --- New tests for uncovered lines ---
+
+  it('triggers retry task mutation on confirm', () => {
+    mockTaskDetail.mockReturnValue({
+      data: makeTask({ status: 'failed', error: 'Something went wrong' }),
+      isLoading: false,
+    })
+    renderWithProviders(<TaskDetail taskId={1} />)
+    // Click "确认重试" button in the AlertDialogAction
+    const retryButtons = screen.getAllByText('确认重试')
+    fireEvent.click(retryButtons[0])
+    expect(mockRetryMutate).toHaveBeenCalledWith(1)
+  })
+
+  it('triggers cancel task mutation on confirm', () => {
+    mockTaskDetail.mockReturnValue({ data: makeTask({ status: 'running' }), isLoading: false })
+    renderWithProviders(<TaskDetail taskId={1} />)
+    const cancelButtons = screen.getAllByText('确认取消')
+    fireEvent.click(cancelButtons[0])
+    expect(mockCancelMutate).toHaveBeenCalledWith(1)
+  })
+
+  it('triggers delete task mutation on confirm', () => {
+    mockTaskDetail.mockReturnValue({ data: makeTask({ status: 'completed' }), isLoading: false })
+    renderWithProviders(<TaskDetail taskId={1} />)
+    const deleteButtons = screen.getAllByText('确认删除')
+    fireEvent.click(deleteButtons[0])
+    expect(mockDeleteMutate).toHaveBeenCalledWith(1)
+  })
+
+  it('article review onSuccess callback clears notes', async () => {
+    // Simulate the onSuccess callback path by testing the mutate call structure
+    mockTaskArticles.mockReturnValue({ data: [makeArticle({ review_status: 'draft' })] })
+    renderWithProviders(<TaskDetail taskId={1} />)
+    fireEvent.click(screen.getByText('通过'))
+    expect(mockReviewArticleMutate).toHaveBeenCalledWith(
+      { articleId: 1, action: 'approve', notes: undefined },
+      expect.objectContaining({
+        onSuccess: expect.any(Function),
+        onError: expect.any(Function),
+      }),
+    )
+    // Trigger onSuccess callback
+    const options = mockReviewArticleMutate.mock.calls[0][1]
+    act(() => options.onSuccess())
+    expect(toast.success).toHaveBeenCalledWith('文章已通过')
+  })
+
+  it('article review onError callback shows error', () => {
+    mockTaskArticles.mockReturnValue({ data: [makeArticle({ review_status: 'draft' })] })
+    renderWithProviders(<TaskDetail taskId={1} />)
+    fireEvent.click(screen.getByText('通过'))
+    const options = mockReviewArticleMutate.mock.calls[0][1]
+    act(() => options.onError())
+    expect(toast.error).toHaveBeenCalledWith('操作失败')
+  })
+
+  it('article review reject calls with correct action', () => {
+    mockTaskArticles.mockReturnValue({ data: [makeArticle({ review_status: 'draft' })] })
+    renderWithProviders(<TaskDetail taskId={1} />)
+    fireEvent.click(screen.getByText('驳回'))
+    const options = mockReviewArticleMutate.mock.calls[0][1]
+    act(() => options.onSuccess())
+    expect(toast.success).toHaveBeenCalledWith('文章已驳回')
+  })
+
+  it('save edit calls updateArticle mutate', () => {
+    mockTaskArticles.mockReturnValue({ data: [makeArticle({ review_status: 'draft' })] })
+    renderWithProviders(<TaskDetail taskId={1} />)
+    fireEvent.click(screen.getByText('编辑'))
+    fireEvent.click(screen.getByText('保存'))
+    expect(mockUpdateArticleMutate).toHaveBeenCalled()
+    const options = mockUpdateArticleMutate.mock.calls[0][1]
+    act(() => options.onSuccess())
+    expect(toast.success).toHaveBeenCalledWith('文章已更新')
+  })
+
+  it('save edit onError shows error', () => {
+    mockTaskArticles.mockReturnValue({ data: [makeArticle({ review_status: 'draft' })] })
+    renderWithProviders(<TaskDetail taskId={1} />)
+    fireEvent.click(screen.getByText('编辑'))
+    fireEvent.click(screen.getByText('保存'))
+    const options = mockUpdateArticleMutate.mock.calls[0][1]
+    act(() => options.onError())
+    expect(toast.error).toHaveBeenCalledWith('保存失败')
+  })
+
+  it('regenerate article onError shows error', () => {
+    mockTaskArticles.mockReturnValue({ data: [makeArticle({ review_status: 'draft' })] })
+    renderWithProviders(<TaskDetail taskId={1} />)
+    fireEvent.click(screen.getByText('重新生成'))
+    const options = mockRegenerateArticleMutate.mock.calls[0][1]
+    act(() => options.onSuccess())
+    expect(toast.success).toHaveBeenCalledWith('文章已重新生成')
+    act(() => options.onError())
+    expect(toast.error).toHaveBeenCalledWith('重新生成失败')
+  })
+
+  it('exports article as markdown', () => {
+    mockTaskArticles.mockReturnValue({ data: [makeArticle({ title: 'Test', content: 'Content' })] })
+    renderWithProviders(<TaskDetail taskId={1} />)
+    fireEvent.click(screen.getByText('导出'))
+    expect(toast.success).toHaveBeenCalledWith('已导出 Markdown')
+  })
+
+  it('renders article with content over 300 chars shows expand', () => {
+    mockTaskArticles.mockReturnValue({ data: [makeArticle({ content: 'x'.repeat(400) })] })
+    renderWithProviders(<TaskDetail taskId={1} />)
+    expect(screen.getByText('展开全文')).toBeInTheDocument()
+  })
 })
 
 describe('TaskDetail - EpisodeCard', () => {
@@ -633,6 +744,60 @@ describe('TaskDetail - EpisodeCard', () => {
   it('hides file size when not set', () => {
     renderWithEpisodes([makeEpisode({ file_size_bytes: null })])
     expect(screen.queryByText(/MB$/)).not.toBeInTheDocument()
+  })
+
+  // --- New tests for uncovered lines ---
+
+  it('episode review approve callback fires', () => {
+    renderWithEpisodes([makeEpisode({ review_status: 'draft' })])
+    fireEvent.click(screen.getByText('通过'))
+    const options = mockReviewEpisodeMutate.mock.calls[0][1]
+    act(() => options.onSuccess())
+    expect(toast.success).toHaveBeenCalledWith('音频已通过')
+  })
+
+  it('episode review reject callback fires', () => {
+    renderWithEpisodes([makeEpisode({ review_status: 'draft' })])
+    fireEvent.click(screen.getByText('驳回'))
+    const options = mockReviewEpisodeMutate.mock.calls[0][1]
+    act(() => options.onError())
+    expect(toast.error).toHaveBeenCalledWith('操作失败')
+  })
+
+  it('episode review reject clears notes on success', () => {
+    renderWithEpisodes([makeEpisode({ review_status: 'draft' })])
+    fireEvent.click(screen.getByText('驳回'))
+    const options = mockReviewEpisodeMutate.mock.calls[0][1]
+    act(() => options.onSuccess())
+    expect(toast.success).toHaveBeenCalledWith('音频已驳回')
+  })
+
+  it('audio element has onError handler', () => {
+    renderWithEpisodes([makeEpisode()])
+    const audio = document.querySelector('audio')
+    expect(audio).toBeInTheDocument()
+  })
+
+  it('audio element onEnded handler sets playing false', () => {
+    renderWithEpisodes([makeEpisode()])
+    const audio = document.querySelector('audio') as HTMLAudioElement
+    // Simulate ended event
+    fireEvent.ended(audio)
+    // Playing should be false (no pause icon visible)
+    expect(screen.getByTestId('play-icon')).toBeInTheDocument()
+  })
+
+  it('audio element onError handler sets error state', () => {
+    renderWithEpisodes([makeEpisode()])
+    const audio = document.querySelector('audio') as HTMLAudioElement
+    fireEvent.error(audio)
+    expect(screen.getByText('音频加载失败')).toBeInTheDocument()
+  })
+
+  it('renders episode without file_size_bytes and duration', () => {
+    renderWithEpisodes([makeEpisode({ file_size_bytes: null, duration_seconds: null })])
+    expect(screen.queryByText(/MB$/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/秒$/)).not.toBeInTheDocument()
   })
 })
 
@@ -743,6 +908,111 @@ describe('TaskDetail - DiscussionScriptCard', () => {
     mockTaskDiscussions.mockReturnValue({ data: [makeDiscussion({ review_status: 'rejected' })] })
     renderWithProviders(<TaskDetail taskId={1} />)
     expect(screen.getByText('已驳回')).toBeInTheDocument()
+  })
+
+  // --- New tests for uncovered lines ---
+
+  it('enters edit mode for discussion turn on pencil click', () => {
+    mockTaskDiscussions.mockReturnValue({ data: [makeDiscussion({ review_status: 'draft' })] })
+    renderWithProviders(<TaskDetail taskId={1} />)
+    // Hover over a turn to reveal the pencil button, then click it
+    const pencilButtons = screen.getAllByTestId('pencil-icon')
+    fireEvent.click(pencilButtons[0])
+    // Should show save/cancel buttons for the turn
+    expect(screen.getByText('保存')).toBeInTheDocument()
+  })
+
+  it('cancels editing a discussion turn', () => {
+    mockTaskDiscussions.mockReturnValue({ data: [makeDiscussion({ review_status: 'draft' })] })
+    renderWithProviders(<TaskDetail taskId={1} />)
+    const pencilButtons = screen.getAllByTestId('pencil-icon')
+    fireEvent.click(pencilButtons[0])
+    // Find the cancel button inside the turn editing area
+    const cancelButtons = screen.getAllByText('取消')
+    // The last cancel should be the turn editing cancel
+    fireEvent.click(cancelButtons[cancelButtons.length - 1])
+  })
+
+  it('saves edited discussion turn', () => {
+    mockTaskDiscussions.mockReturnValue({ data: [makeDiscussion({ review_status: 'draft' })] })
+    renderWithProviders(<TaskDetail taskId={1} />)
+    const pencilButtons = screen.getAllByTestId('pencil-icon')
+    fireEvent.click(pencilButtons[0])
+    // Click save
+    const saveButtons = screen.getAllByText('保存')
+    fireEvent.click(saveButtons[saveButtons.length - 1])
+    expect(mockUpdateDiscussionTurnMutate).toHaveBeenCalled()
+    const options = mockUpdateDiscussionTurnMutate.mock.calls[0][1]
+    act(() => options.onSuccess())
+    expect(toast.success).toHaveBeenCalledWith('对话已更新')
+    act(() => options.onError())
+    expect(toast.error).toHaveBeenCalledWith('保存失败')
+  })
+
+  it('discussion review approve callback', () => {
+    mockTaskDiscussions.mockReturnValue({ data: [makeDiscussion({ review_status: 'draft' })] })
+    renderWithProviders(<TaskDetail taskId={1} />)
+    fireEvent.click(screen.getByText('通过'))
+    const options = mockReviewDiscussionMutate.mock.calls[0][1]
+    act(() => options.onSuccess())
+    expect(toast.success).toHaveBeenCalledWith('讨论稿已通过')
+  })
+
+  it('discussion review reject callback', () => {
+    mockTaskDiscussions.mockReturnValue({ data: [makeDiscussion({ review_status: 'draft' })] })
+    renderWithProviders(<TaskDetail taskId={1} />)
+    fireEvent.click(screen.getByText('驳回'))
+    const options = mockReviewDiscussionMutate.mock.calls[0][1]
+    act(() => options.onError())
+    expect(toast.error).toHaveBeenCalledWith('操作失败')
+  })
+
+  it('discussion regenerate callbacks', () => {
+    mockTaskDiscussions.mockReturnValue({ data: [makeDiscussion({ review_status: 'draft' })] })
+    renderWithProviders(<TaskDetail taskId={1} />)
+    fireEvent.click(screen.getByText('重新生成'))
+    const options = mockRegenerateDiscussionMutate.mock.calls[0][1]
+    act(() => options.onSuccess())
+    expect(toast.success).toHaveBeenCalledWith('讨论稿已重新生成')
+    act(() => options.onError())
+    expect(toast.error).toHaveBeenCalledWith('重新生成失败')
+  })
+
+  it('discussion synthesize callbacks', () => {
+    mockTaskDiscussions.mockReturnValue({ data: [makeDiscussion({ review_status: 'draft' })] })
+    renderWithProviders(<TaskDetail taskId={1} />)
+    fireEvent.click(screen.getByText('合成音频'))
+    const options = mockSynthesizeDiscussionMutate.mock.calls[0][1]
+    act(() => options.onSuccess())
+    expect(toast.success).toHaveBeenCalledWith('音频合成完成')
+    act(() => options.onError(new Error('合成失败原因')))
+    expect(toast.error).toHaveBeenCalledWith('合成失败: 合成失败原因')
+  })
+
+  it('discussion without topic hides topic', () => {
+    mockTaskDiscussions.mockReturnValue({ data: [makeDiscussion({ topic: '' })] })
+    renderWithProviders(<TaskDetail taskId={1} />)
+    expect(screen.queryByText('Legal topic')).not.toBeInTheDocument()
+  })
+
+  it('renders batch approve with articles only', async () => {
+    const { contentOpsApi } = await import('../api')
+    mockTaskArticles.mockReturnValue({ data: [makeArticle({ review_status: 'draft' })] })
+    renderWithProviders(<TaskDetail taskId={1} />)
+    fireEvent.click(screen.getByText(/一键全部通过/))
+    await waitFor(() => {
+      expect(contentOpsApi.batchApproveArticles).toHaveBeenCalled()
+    })
+  })
+
+  it('renders batch approve with discussions only', async () => {
+    const { contentOpsApi } = await import('../api')
+    mockTaskDiscussions.mockReturnValue({ data: [makeDiscussion({ review_status: 'draft' })] })
+    renderWithProviders(<TaskDetail taskId={1} />)
+    fireEvent.click(screen.getByText(/一键全部通过/))
+    await waitFor(() => {
+      expect(contentOpsApi.approveDiscussion).toHaveBeenCalled()
+    })
   })
 })
 

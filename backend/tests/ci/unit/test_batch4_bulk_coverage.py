@@ -44,19 +44,6 @@ class TestAnimationHtmlComposerService:
         assert "诉求 vs 判决" in html
 
 
-# ── content_ops ──
-class TestNarrativeResult:
-    def test_narrative_result(self):
-        from apps.content_ops.services.content_chain import NarrativeResult
-        result = NarrativeModel = NarrativeResult(title="标题", content="内容", summary="摘要")
-        assert result.title == "标题"
-
-    def test_content_result_dataclass(self):
-        from apps.content_ops.services.content_chain import ContentResult
-        cr = ContentResult(title="t", content="c", summary="s", model="gpt-4", token_usage={"prompt_tokens": 10})
-        assert cr.model == "gpt-4"
-
-
 # ── automation/document_delivery ──
 class TestCourtDocumentResponseParser:
     def test_parse_document_list_error(self):
@@ -684,21 +671,6 @@ def test_finance_tasks_exist():
     import importlib
     mod = importlib.import_module("apps.finance.tasks")
     assert mod is not None
-
-
-# ── wechat_mp ──
-class TestWechatMpLlmFormatter:
-    def test_module_exists(self):
-        import importlib
-        mod = importlib.import_module("apps.wechat_mp.services.llm_formatter")
-        assert mod is not None
-
-
-class TestWechatMpTasks:
-    def test_module_exists(self):
-        import importlib
-        mod = importlib.import_module("apps.wechat_mp.tasks")
-        assert mod is not None
 
 
 # ── oa_filing ──

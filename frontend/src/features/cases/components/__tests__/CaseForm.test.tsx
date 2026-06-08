@@ -137,4 +137,102 @@ describe('CaseForm', () => {
     expect(screen.getByText('案号')).toBeInTheDocument()
     expect(screen.getByText('主管机关')).toBeInTheDocument()
   })
+
+  // --- New tests for uncovered lines ---
+
+  it('renders create mode with all form fields', () => {
+    render(<CaseForm mode="create" />)
+    expect(screen.getByPlaceholderText('请输入案件名称')).toBeInTheDocument()
+  })
+
+  it('renders case type select', () => {
+    render(<CaseForm mode="create" />)
+    expect(screen.getByText('案件类型')).toBeInTheDocument()
+  })
+
+  it('renders status select', () => {
+    render(<CaseForm mode="create" />)
+    expect(screen.getByText('状态')).toBeInTheDocument()
+  })
+
+  it('renders cause of action field', () => {
+    render(<CaseForm mode="create" />)
+    expect(screen.getByText('案由')).toBeInTheDocument()
+  })
+
+  it('renders current stage field', () => {
+    render(<CaseForm mode="create" />)
+    expect(screen.getByText('当前阶段')).toBeInTheDocument()
+  })
+
+  it('renders date fields', () => {
+    render(<CaseForm mode="create" />)
+    expect(screen.getByText('生效日期')).toBeInTheDocument()
+    expect(screen.getByText('指定日期')).toBeInTheDocument()
+  })
+
+  it('renders amount fields', () => {
+    render(<CaseForm mode="create" />)
+    expect(screen.getByText('标的金额')).toBeInTheDocument()
+    expect(screen.getByText('保全金额')).toBeInTheDocument()
+  })
+
+  it('renders is_filed switch', () => {
+    render(<CaseForm mode="create" />)
+    expect(screen.getByText('已建档')).toBeInTheDocument()
+  })
+
+  it('renders fee calculator embedded', () => {
+    render(<CaseForm mode="create" />)
+    expect(screen.getByTestId('fee-calculator')).toBeInTheDocument()
+  })
+
+  it('shows back link in create mode', () => {
+    render(<CaseForm mode="create" />)
+    expect(screen.getByText('新建案件')).toBeInTheDocument()
+  })
+
+  it('shows back link in edit mode', () => {
+    mockUseCase.mockReturnValue({
+      data: { id: 1, name: '编辑案件', status: 'active', case_type: 'litigation', parties: [], assignments: [], logs: [], case_numbers: [], supervising_authorities: [] },
+      isLoading: false,
+      error: null,
+    })
+    render(<CaseForm caseId="1" mode="edit" />)
+    expect(screen.getByText('编辑案件')).toBeInTheDocument()
+  })
+
+  it('renders with null caseData values in edit mode', () => {
+    mockUseCase.mockReturnValue({
+      data: {
+        id: 1, name: 'Test', status: 'active', case_type: null,
+        is_filed: false, cause_of_action: null, current_stage: null,
+        target_amount: null, preservation_amount: null,
+        effective_date: null, specified_date: null,
+        parties: [], assignments: [], logs: [], case_numbers: [], supervising_authorities: [],
+      },
+      isLoading: false,
+      error: null,
+    })
+    render(<CaseForm caseId="1" mode="edit" />)
+    expect(screen.getByText('编辑案件')).toBeInTheDocument()
+  })
+
+  it('renders with caseData having all optional values', () => {
+    mockUseCase.mockReturnValue({
+      data: {
+        id: 1, name: 'Full Case', status: 'closed', case_type: 'civil',
+        is_filed: true, cause_of_action: '合同纠纷', current_stage: 'first_instance',
+        target_amount: 100000, preservation_amount: 50000,
+        effective_date: '2025-01-01', specified_date: '2025-06-01',
+        parties: [{ id: 1, client_id: 10, legal_status: 'plaintiff', client_name: '张三' }],
+        assignments: [{ id: 1, lawyer_id: 5, lawyer_name: '李律师' }],
+        logs: [], case_numbers: [], supervising_authorities: [],
+      },
+      isLoading: false,
+      error: null,
+    })
+    render(<CaseForm caseId="1" mode="edit" />)
+    expect(screen.getByText('编辑案件')).toBeInTheDocument()
+  })
 })

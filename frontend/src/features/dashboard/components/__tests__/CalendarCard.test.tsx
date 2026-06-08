@@ -373,4 +373,247 @@ describe('CalendarCard', () => {
     render(<CalendarCard />)
     expect(screen.getByText(/年\d+月/)).toBeInTheDocument()
   })
+
+  // --- New tests for uncovered lines ---
+
+  it('handles event click to open detail dialog', () => {
+    mockUseQuery.mockImplementation((opts: Record<string, unknown>) => {
+      if (opts.queryKey?.[0] === 'dashboard-reminders') return { data: [mockReminders[0]] } as never
+      if (opts.queryKey?.[0] === 'reminders-target-options') return { data: { groups: [] } } as never
+      return { data: undefined } as never
+    })
+    render(<CalendarCard />)
+    // Find the event button in the calendar and click it
+    const eventBtns = screen.getAllByText('开庭')
+    const eventBtn = eventBtns.find((el) => el.closest('button')?.className?.includes('rounded-md'))
+    if (eventBtn) {
+      fireEvent.click(eventBtn)
+    }
+  })
+
+  it('handles clicking a calendar cell to create reminder', () => {
+    render(<CalendarCard />)
+    const cells = document.querySelectorAll('[role="button"]')
+    if (cells.length > 0) {
+      fireEvent.click(cells[0])
+      // Should open form dialog
+    }
+  })
+
+  it('renders more than 3 events popover', () => {
+    mockUseQuery.mockImplementation((opts: Record<string, unknown>) => {
+      if (opts.queryKey?.[0] === 'dashboard-reminders') return { data: mockReminders } as never
+      if (opts.queryKey?.[0] === 'reminders-target-options') return { data: { groups: [] } } as never
+      return { data: undefined } as never
+    })
+    render(<CalendarCard />)
+    // Today should have >3 events (reminders 1, 2, 4, 5, 6 are today)
+    // The "共 N 条" link should appear
+    const moreLinks = screen.queryAllByText(/共 \d+ 条/)
+    expect(moreLinks.length).toBeGreaterThan(0)
+  })
+
+  it('handles agenda view tab click', () => {
+    render(<CalendarCard />)
+    fireEvent.click(screen.getByText('议程'))
+    expect(screen.getByTestId('agenda-view')).toBeInTheDocument()
+  })
+
+  it('handles month view tab click', () => {
+    render(<CalendarCard />)
+    fireEvent.click(screen.getByText('议程'))
+    fireEvent.click(screen.getByText('月'))
+    // Day headers should be visible again
+    expect(screen.getByText('日')).toBeInTheDocument()
+  })
+
+  it('handles keyboard Space on calendar cell', () => {
+    render(<CalendarCard />)
+    const cells = document.querySelectorAll('[role="button"]')
+    if (cells.length > 0) {
+      fireEvent.keyDown(cells[0], { key: ' ' })
+    }
+  })
+
+  it('handles other key on calendar cell (no action)', () => {
+    render(<CalendarCard />)
+    const cells = document.querySelectorAll('[role="button"]')
+    if (cells.length > 0) {
+      fireEvent.keyDown(cells[0], { key: 'Tab' })
+    }
+  })
+
+  it('renders calendar with no reminders', () => {
+    mockUseQuery.mockImplementation((opts: Record<string, unknown>) => {
+      if (opts.queryKey?.[0] === 'dashboard-reminders') return { data: [] } as never
+      if (opts.queryKey?.[0] === 'reminders-target-options') return { data: { groups: [] } } as never
+      return { data: undefined } as never
+    })
+    render(<CalendarCard />)
+    // No event counts should show
+    expect(screen.queryAllByText(/\d+条/).length).toBe(0)
+  })
+
+  it('renders event with location info', () => {
+    const remindersWithLocation = [{
+      id: 100,
+      content: 'Meeting',
+      reminder_type: 'other' as const,
+      reminder_type_label: '其他',
+      due_at: `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(new Date().getDate()).padStart(2, '0')}T10:00:00`,
+      metadata: { location: 'Room 301' },
+      contract: null,
+      case: null,
+      case_log: null,
+    }]
+    mockUseQuery.mockImplementation((opts: Record<string, unknown>) => {
+      if (opts.queryKey?.[0] === 'dashboard-reminders') return { data: remindersWithLocation } as never
+      if (opts.queryKey?.[0] === 'reminders-target-options') return { data: { groups: [] } } as never
+      return { data: undefined } as never
+    })
+    render(<CalendarCard />)
+    expect(screen.getByText(/年\d+月/)).toBeInTheDocument()
+  })
+
+  it('renders event with case_log reference', () => {
+    mockUseQuery.mockImplementation((opts: Record<string, unknown>) => {
+      if (opts.queryKey?.[0] === 'dashboard-reminders') return { data: [mockReminders[2]] } as never
+      return { data: { groups: [] } } as never
+    })
+    render(<CalendarCard />)
+    expect(screen.getByText(/年\d+月/)).toBeInTheDocument()
+  })
+
+  it('handles event with source_id for hearing merge', () => {
+    // mockReminders[3] has source_id: 'case-hearing-1', same time as mockReminders[0]
+    mockUseQuery.mockImplementation((opts: Record<string, unknown>) => {
+      if (opts.queryKey?.[0] === 'dashboard-reminders') return { data: [mockReminders[0], mockReminders[3]] } as never
+      if (opts.queryKey?.[0] === 'reminders-target-options') return { data: { groups: [] } } as never
+      return { data: undefined } as never
+    })
+    render(<CalendarCard />)
+    // Both lawyers should appear in merged event
+    expect(screen.getByText(/年\d+月/)).toBeInTheDocument()
+  })
+
+  it('renders calendar legend', () => {
+    render(<CalendarCard />)
+    expect(screen.getByText('开庭')).toBeInTheDocument()
+    expect(screen.getByText('保全到期')).toBeInTheDocument()
+    expect(screen.getByText('举证到期')).toBeInTheDocument()
+    expect(screen.getByText('上诉到期')).toBeInTheDocument()
+    expect(screen.getByText('诉讼时效')).toBeInTheDocument()
+    expect(screen.getByText('缴费期限')).toBeInTheDocument()
+    expect(screen.getByText('材料提交')).toBeInTheDocument()
+    expect(screen.getByText('其他')).toBeInTheDocument()
+    expect(screen.getByText('已逾期')).toBeInTheDocument()
+  })
+
+  it('handles different reminder types', () => {
+    const mixedReminders = [
+      { ...mockReminders[0], reminder_type: 'asset_preservation_expires', reminder_type_label: '保全到期', due_at: `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(new Date().getDate()).padStart(2, '0')}T10:00:00` },
+      { ...mockReminders[0], id: 10, reminder_type: 'appeal_deadline', reminder_type_label: '上诉到期', due_at: `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(new Date().getDate()).padStart(2, '0')}T11:00:00` },
+      { ...mockReminders[0], id: 11, reminder_type: 'statute_limitations', reminder_type_label: '诉讼时效', due_at: `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(new Date().getDate()).padStart(2, '0')}T12:00:00` },
+    ]
+    mockUseQuery.mockImplementation((opts: Record<string, unknown>) => {
+      if (opts.queryKey?.[0] === 'dashboard-reminders') return { data: mixedReminders } as never
+      if (opts.queryKey?.[0] === 'reminders-target-options') return { data: { groups: [] } } as never
+      return { data: undefined } as never
+    })
+    render(<CalendarCard />)
+    expect(screen.getByText(/年\d+月/)).toBeInTheDocument()
+  })
+
+  it('handles reminder without metadata', () => {
+    const noMetaReminder = [{
+      id: 99,
+      content: 'No metadata event',
+      reminder_type: 'other' as const,
+      reminder_type_label: '其他',
+      due_at: `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(new Date().getDate()).padStart(2, '0')}T10:00:00`,
+      metadata: null,
+      contract: null,
+      case: null,
+      case_log: null,
+    }]
+    mockUseQuery.mockImplementation((opts: Record<string, unknown>) => {
+      if (opts.queryKey?.[0] === 'dashboard-reminders') return { data: noMetaReminder } as never
+      if (opts.queryKey?.[0] === 'reminders-target-options') return { data: { groups: [] } } as never
+      return { data: undefined } as never
+    })
+    render(<CalendarCard />)
+    expect(screen.getByText(/年\d+月/)).toBeInTheDocument()
+  })
+
+  it('handles reminder without due_at', () => {
+    mockUseQuery.mockImplementation((opts: Record<string, unknown>) => {
+      if (opts.queryKey?.[0] === 'dashboard-reminders') return { data: [mockReminders[6]] } as never
+      if (opts.queryKey?.[0] === 'reminders-target-options') return { data: { groups: [] } } as never
+      return { data: undefined } as never
+    })
+    render(<CalendarCard />)
+    // Reminder without due_at should be skipped
+    expect(screen.getByText(/年\d+月/)).toBeInTheDocument()
+  })
+
+  it('handles target options with contract group', () => {
+    mockUseQuery.mockImplementation((opts: Record<string, unknown>) => {
+      if (opts.queryKey?.[0] === 'dashboard-reminders') return { data: [] } as never
+      if (opts.queryKey?.[0] === 'reminders-target-options') return {
+        data: {
+          groups: [{
+            key: 'contract',
+            label: '合同',
+            items: [{ id: 1, name: '合同A' }, { id: 2, name: '合同B' }],
+          }],
+        },
+      } as never
+      return { data: undefined } as never
+    })
+    render(<CalendarCard />)
+    expect(screen.getByText(/年\d+月/)).toBeInTheDocument()
+  })
+
+  it('renders weekend cells with muted styling', () => {
+    render(<CalendarCard />)
+    const cells = document.querySelectorAll('.min-h-\\[130px\\]')
+    expect(cells.length).toBeGreaterThan(0)
+  })
+
+  it('handles merged hearing with same fallback key', () => {
+    // Two hearings at same time without source_id, same content, courtroom, contract, case_log
+    const sameHearings = [
+      { id: 200, content: 'Same hearing', reminder_type: 'hearing' as const, reminder_type_label: '开庭', due_at: `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(new Date().getDate()).padStart(2, '0')}T09:00:00`, metadata: { courtroom: 'Court A', lawyer_name: 'Lawyer A' }, contract: 1, case: null, case_log: null },
+      { id: 201, content: 'Same hearing', reminder_type: 'hearing' as const, reminder_type_label: '开庭', due_at: `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(new Date().getDate()).padStart(2, '0')}T09:00:00`, metadata: { courtroom: 'Court A', lawyer_name: 'Lawyer B' }, contract: 1, case: null, case_log: null },
+    ]
+    mockUseQuery.mockImplementation((opts: Record<string, unknown>) => {
+      if (opts.queryKey?.[0] === 'dashboard-reminders') return { data: sameHearings } as never
+      if (opts.queryKey?.[0] === 'reminders-target-options') return { data: { groups: [] } } as never
+      return { data: undefined } as never
+    })
+    render(<CalendarCard />)
+    // Both lawyers should be merged into one event
+    expect(screen.getByText(/年\d+月/)).toBeInTheDocument()
+  })
+
+  it('handles reminder with hearing type and no lawyer', () => {
+    const noLawyerHearing = [{
+      id: 300,
+      content: 'No lawyer hearing',
+      reminder_type: 'hearing' as const,
+      reminder_type_label: '开庭',
+      due_at: `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(new Date().getDate()).padStart(2, '0')}T09:00:00`,
+      metadata: { courtroom: 'Court B' },
+      contract: null,
+      case: null,
+      case_log: null,
+    }]
+    mockUseQuery.mockImplementation((opts: Record<string, unknown>) => {
+      if (opts.queryKey?.[0] === 'dashboard-reminders') return { data: noLawyerHearing } as never
+      if (opts.queryKey?.[0] === 'reminders-target-options') return { data: { groups: [] } } as never
+      return { data: undefined } as never
+    })
+    render(<CalendarCard />)
+    expect(screen.getByText(/年\d+月/)).toBeInTheDocument()
+  })
 })

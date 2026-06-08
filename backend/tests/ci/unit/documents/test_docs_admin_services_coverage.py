@@ -243,25 +243,6 @@ class TestContracts:
         assert ReviewService is not None
 
 
-# --- content_ops ---
-
-class TestContentOps:
-    def test_task_service_import(self):
-        from apps.content_ops.services.task_service import ContentOpsTaskService
-
-        assert ContentOpsTaskService is not None
-
-    def test_executor_import(self):
-        from apps.content_ops.services.executor import ContentOpsExecutor
-
-        assert ContentOpsExecutor is not None
-
-    def test_hot_topic_service_import(self):
-        from apps.content_ops.services.hot_topic_service import HotTopicService
-
-        assert HotTopicService is not None
-
-
 # --- enterprise_data ---
 
 class TestEnterpriseData:

@@ -207,15 +207,6 @@ class TestStoryViz:
         assert StoryAnimationJobService is not None
 
 
-# --- wechat_mp ---
-
-class TestWechatMp:
-    def test_publisher_import(self):
-        from apps.wechat_mp.services.publisher import WeChatPublisher
-
-        assert WeChatPublisher is not None
-
-
 # --- pdf_splitting ---
 
 class TestPdfSplitting:

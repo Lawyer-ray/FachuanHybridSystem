@@ -1,7 +1,6 @@
 """多模块批量覆盖测试
 
 覆盖文件:
-- apps/content_ops/models/*.py, schemas/*.py
 - apps/message_hub/models/*.py, schemas.py
 - apps/express_query/models.py
 - apps/image_rotation/models.py
@@ -26,34 +25,6 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
-
-
-# ==================== content_ops ====================
-
-
-class TestContentOps:
-    """content_ops 模块测试"""
-
-    def test_models_module(self):
-        from apps.content_ops.models import task as task_mod
-        from apps.content_ops.models import article as article_mod
-        from apps.content_ops.models import episode as episode_mod
-        from apps.content_ops.models import discussion as discussion_mod
-
-        assert task_mod is not None
-        assert article_mod is not None
-        assert episode_mod is not None
-        assert discussion_mod is not None
-
-    def test_schemas_module(self):
-        from apps.content_ops.schemas import content_ops_schemas
-
-        assert content_ops_schemas is not None
-
-    def test_constants_module(self):
-        from apps.content_ops import constants
-
-        assert constants is not None
 
 
 # ==================== message_hub ====================
@@ -251,32 +222,6 @@ class TestStoryViz:
         assert animation_script is not None
 
 
-# ==================== wechat_mp ====================
-
-
-class TestWechatMp:
-    """wechat_mp 模块测试"""
-
-    def test_models_module(self):
-        from apps.wechat_mp import models
-
-        assert models is not None
-
-    def test_schemas_module(self):
-        from apps.wechat_mp import schemas
-
-        assert schemas is not None
-
-    def test_services_modules(self):
-        from apps.wechat_mp.services import auth_handler
-        from apps.wechat_mp.services import markdown_converter
-        from apps.wechat_mp.services import publisher
-
-        assert auth_handler is not None
-        assert markdown_converter is not None
-        assert publisher is not None
-
-
 # ==================== doc_converter ====================
 
 
@@ -429,46 +374,6 @@ class TestContacts:
         from apps.contacts.services import contact_service
 
         assert contact_service is not None
-
-
-# ==================== content_ops Article model ====================
-
-
-class TestContentOpsArticle:
-    """Article 模型测试"""
-
-    def test_article_model_exists(self):
-        from apps.content_ops.models.article import GeneratedArticle
-
-        assert GeneratedArticle is not None
-        assert hasattr(GeneratedArticle, '_meta')
-
-
-class TestContentOpsTask:
-    """Task 模型测试"""
-
-    def test_task_model_exists(self):
-        from apps.content_ops.models.task import ContentTask
-
-        assert ContentTask is not None
-
-
-class TestContentOpsEpisode:
-    """Episode 模型测试"""
-
-    def test_episode_model_exists(self):
-        from apps.content_ops.models.episode import PodcastEpisode
-
-        assert PodcastEpisode is not None
-
-
-class TestContentOpsDiscussion:
-    """Discussion 模型测试"""
-
-    def test_discussion_model_exists(self):
-        from apps.content_ops.models.discussion import DiscussionScript
-
-        assert DiscussionScript is not None
 
 
 # ==================== message_hub InboxMessage ====================

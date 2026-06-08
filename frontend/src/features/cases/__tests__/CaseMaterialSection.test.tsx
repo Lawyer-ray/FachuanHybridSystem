@@ -295,4 +295,134 @@ describe('CaseMaterialSection', () => {
     render(<CaseMaterialSection candidates={candidates as never} caseId={1} />)
     expect(screen.getByText('matched.pdf')).toBeInTheDocument()
   })
+
+  // --- New tests for uncovered lines ---
+
+  it('renders unbound attachments section', () => {
+    const candidates = [
+      { id: 3, file_name: '未绑定文件.pdf', file_url: '', actor_name: '王律师', uploaded_at: '2024-01-03', material: null, matches: [] },
+    ]
+    render(<CaseMaterialSection candidates={candidates as never} caseId={1} />)
+    expect(screen.getByText('未绑定附件')).toBeInTheDocument()
+    expect(screen.getByText('未绑定文件.pdf')).toBeInTheDocument()
+  })
+
+  it('renders grouped materials with group names', () => {
+    render(<CaseMaterialSection candidates={mockCandidates as never} caseId={1} />)
+    // Group names should be rendered (合同 and 证据)
+    expect(screen.getByText('合同')).toBeInTheDocument()
+    expect(screen.getByText('证据')).toBeInTheDocument()
+  })
+
+  it('renders with categoryFilter', () => {
+    render(<CaseMaterialSection candidates={mockCandidates as never} caseId={1} categoryFilter="contract" />)
+    expect(screen.getByText('合同扫描件.pdf')).toBeInTheDocument()
+  })
+
+  it('renders empty message with category filter', () => {
+    const candidates = [
+      { id: 1, file_name: 'a.pdf', file_url: '', actor_name: 'A', uploaded_at: '2024-01-01', material: { id: 1, category: 'evidence', side: null, type_name: '证据', type_id: 1 }, matches: [] },
+    ]
+    render(<CaseMaterialSection candidates={candidates as never} caseId={1} categoryFilter="contract" />)
+    // Should show "没有合同数据"
+    expect(screen.getByText('没有合同数据')).toBeInTheDocument()
+  })
+
+  it('renders bind dialog when link button clicked', () => {
+    render(<CaseMaterialSection candidates={mockCandidates as never} caseId={1} />)
+    // The bind button (Link2 icon) should be in the group card
+    const bindButtons = screen.getAllByTestId('link2')
+    expect(bindButtons.length).toBeGreaterThan(0)
+  })
+
+  it('renders group with expand/collapse toggle', () => {
+    render(<CaseMaterialSection candidates={mockCandidates as never} caseId={1} />)
+    const chevrons = screen.getAllByTestId('chevron-down')
+    expect(chevrons.length).toBeGreaterThan(0)
+  })
+
+  it('renders group with rename pencil button', () => {
+    render(<CaseMaterialSection candidates={mockCandidates as never} caseId={1} />)
+    const pencils = screen.getAllByTestId('pencil')
+    expect(pencils.length).toBeGreaterThan(0)
+  })
+
+  it('renders group with delete button', () => {
+    render(<CaseMaterialSection candidates={mockCandidates as never} caseId={1} />)
+    const trashButtons = screen.getAllByTestId('trash')
+    expect(trashButtons.length).toBeGreaterThan(0)
+  })
+
+  it('handles file upload via input change', async () => {
+    render(<CaseMaterialSection candidates={mockCandidates as never} caseId={1} />)
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement
+    const file = new File(['content'], 'upload.pdf', { type: 'application/pdf' })
+    fireEvent.change(fileInput, { target: { files: [file] } })
+  })
+
+  it('handles file upload with no files', () => {
+    render(<CaseMaterialSection candidates={mockCandidates as never} caseId={1} />)
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement
+    fireEvent.change(fileInput, { target: { files: [] } })
+  })
+
+  it('renders material with file_url shows link button', () => {
+    render(<CaseMaterialSection candidates={mockCandidates as never} caseId={1} />)
+    // Materials with file_url should have a link to open the file
+    expect(screen.getByText('合同扫描件.pdf')).toBeInTheDocument()
+  })
+
+  it('renders material without file_url', () => {
+    const candidates = [
+      { id: 1, file_name: 'no-url.pdf', file_url: '', actor_name: 'A', uploaded_at: '2024-01-01', material: { id: 1, category: 'contract', side: null, type_name: '合同', type_id: 1 }, matches: [] },
+    ]
+    render(<CaseMaterialSection candidates={candidates as never} caseId={1} />)
+    expect(screen.getByText('no-url.pdf')).toBeInTheDocument()
+  })
+
+  it('renders with multiple groups of same category different types', () => {
+    const candidates = [
+      { id: 1, file_name: 'a.pdf', file_url: '', actor_name: 'A', uploaded_at: '2024-01-01', material: { id: 1, category: 'contract', side: null, type_name: '合同A', type_id: 1 }, matches: [] },
+      { id: 2, file_name: 'b.pdf', file_url: '', actor_name: 'B', uploaded_at: '2024-01-02', material: { id: 2, category: 'contract', side: null, type_name: '合同B', type_id: 2 }, matches: [] },
+    ]
+    render(<CaseMaterialSection candidates={candidates as never} caseId={1} />)
+    expect(screen.getByText('合同A')).toBeInTheDocument()
+    expect(screen.getByText('合同B')).toBeInTheDocument()
+  })
+
+  it('renders empty state with no candidates and no groups', () => {
+    render(<CaseMaterialSection candidates={[]} caseId={1} />)
+    expect(screen.getByText('暂无材料数据')).toBeInTheDocument()
+  })
+
+  it('renders with unbound count in empty groups', () => {
+    const candidates = [
+      { id: 1, file_name: 'unbound.pdf', file_url: '', actor_name: 'A', uploaded_at: '2024-01-01', material: null, matches: [] },
+      { id: 2, file_name: 'bound.pdf', file_url: '', actor_name: 'B', uploaded_at: '2024-01-02', material: { id: 1, category: 'contract', side: null, type_name: '合同', type_id: 1 }, matches: [] },
+    ]
+    render(<CaseMaterialSection candidates={candidates as never} caseId={1} />)
+    expect(screen.getByText('未绑定附件')).toBeInTheDocument()
+    expect(screen.getAllByText('unbound.pdf').length).toBeGreaterThan(0)
+  })
+
+  it('renders grid with file_url has FileText link', () => {
+    const candidates = [
+      { id: 1, file_name: 'linked.pdf', file_url: 'http://example.com/doc.pdf', actor_name: 'A', uploaded_at: '2024-01-01', material: { id: 1, category: 'contract', side: null, type_name: '合同', type_id: 1 }, matches: [] },
+    ]
+    render(<CaseMaterialSection candidates={candidates as never} caseId={1} />)
+    expect(screen.getByText('linked.pdf')).toBeInTheDocument()
+  })
+
+  it('renders group card with grip vertical icon', () => {
+    render(<CaseMaterialSection candidates={mockCandidates as never} caseId={1} />)
+    const grips = screen.getAllByTestId('grip')
+    expect(grips.length).toBeGreaterThan(0)
+  })
+
+  it('exposes openUpload via ref', () => {
+    const ref = { current: null as { openUpload: () => void } | null }
+    render(<CaseMaterialSection candidates={mockCandidates as never} caseId={1} ref={ref} />)
+    expect(ref.current).not.toBeNull()
+    expect(ref.current!.openUpload).toBeDefined()
+  })
 })

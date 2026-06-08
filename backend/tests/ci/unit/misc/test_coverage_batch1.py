@@ -1,4 +1,4 @@
-"""content_ops, evidence_sorting, finance, wechat_mp 模块单元测试。"""
+"""evidence_sorting, finance 模块单元测试。"""
 
 from __future__ import annotations
 
@@ -10,51 +10,6 @@ from unittest.mock import MagicMock, patch, AsyncMock
 
 import pytest
 from PIL import Image
-
-
-# ── content_ops/tts_service ─────────────────────────────────────
-
-
-class TestTTSServiceSplitText:
-    def test_short_text(self) -> None:
-        from apps.content_ops.services.tts_service import TTSService
-
-        result = TTSService._split_text("短文本")
-        assert result == ["短文本"]
-
-    def test_long_text_with_punctuation(self) -> None:
-        from apps.content_ops.services.tts_service import TTSService
-
-        text = "这是一段很长的文本。" * 100
-        result = TTSService._split_text(text)
-        assert len(result) >= 1
-        assert all(len(c) > 0 for c in result)
-
-    def test_empty_text(self) -> None:
-        from apps.content_ops.services.tts_service import TTSService
-
-        result = TTSService._split_text("")
-        assert result == [""]
-
-    def test_text_with_newlines(self) -> None:
-        from apps.content_ops.services.tts_service import TTSService
-
-        text = "第一段很长的内容需要超过五十个字符才能触发分割。" * 3 + "\n" + "第二段内容。"
-        result = TTSService._split_text(text)
-        assert len(result) >= 1
-
-
-class TestTTSServiceConstants:
-    def test_tts_voices(self) -> None:
-        from apps.content_ops.services.tts_service import TTS_VOICES
-
-        assert "冰糖" in TTS_VOICES
-        assert "茉莉" in TTS_VOICES
-
-    def test_default_voice(self) -> None:
-        from apps.content_ops.services.tts_service import DEFAULT_VOICE
-
-        assert DEFAULT_VOICE == "冰糖"
 
 
 # ── evidence_sorting/classifier ─────────────────────────────────

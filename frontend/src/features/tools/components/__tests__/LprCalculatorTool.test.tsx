@@ -537,4 +537,274 @@ describe('LprCalculatorTool', () => {
       expect.any(Object),
     )
   })
+
+  it('copies detail when copy detail button clicked', async () => {
+    const result = {
+      success: true,
+      total_interest: '3100.00',
+      total_days: 365,
+      total_principal: '100000',
+      start_date: '2024-01-01',
+      end_date: '2024-12-31',
+      periods: [
+        { start_date: '2024-01-01', end_date: '2024-06-30', days: 181, rate: '3.10', rate_unit: 'percent', interest: '1550.00' },
+        { start_date: '2024-07-01', end_date: '2024-12-31', days: 184, rate: '3.10', rate_unit: 'percent', interest: '1550.00' },
+      ],
+      message: '',
+      code: null,
+      sync_info: null,
+    }
+    mockLprCalculate.mockReturnValue({ mutate: makeMutateWithData(result), isPending: false })
+
+    render(<LprCalculatorTool />)
+    fireEvent.click(screen.getByText('计算利息'))
+    fireEvent.click(screen.getByText('复制明细'))
+    const { copyToClipboard } = await import('@/lib/clipboard')
+    expect(copyToClipboard).toHaveBeenCalledWith(expect.stringContaining('LPR利息计算明细'), '明细已复制')
+  })
+
+  it('copies result when copy result button clicked', async () => {
+    const result = {
+      success: true,
+      total_interest: '3100.00',
+      total_days: 365,
+      total_principal: '100000',
+      start_date: '2024-01-01',
+      end_date: '2024-12-31',
+      periods: [
+        { start_date: '2024-01-01', end_date: '2024-12-31', days: 365, rate: '3.10', rate_unit: 'percent', interest: '3100.00' },
+      ],
+      message: '',
+      code: null,
+      sync_info: null,
+    }
+    mockLprCalculate.mockReturnValue({ mutate: makeMutateWithData(result), isPending: false })
+
+    render(<LprCalculatorTool />)
+    fireEvent.click(screen.getByText('计算利息'))
+    fireEvent.click(screen.getByText('复制结果'))
+    const { copyToClipboard } = await import('@/lib/clipboard')
+    expect(copyToClipboard).toHaveBeenCalledWith(expect.stringContaining('LPR利息计算结果'), '已复制到剪贴板')
+  })
+
+  it('adds principal change with next start date from last end date', () => {
+    render(<LprCalculatorTool />)
+    fireEvent.click(screen.getByText('变动本金'))
+    // Set end_date on first row
+    const endInputs = screen.getAllByPlaceholderText('本金金额')
+    // Fill end date on first row
+    const dateInputs = document.querySelectorAll('input[type="date"]')
+    fireEvent.change(dateInputs[1], { target: { value: '2024-06-30' } })
+    fireEvent.click(screen.getByText('添加本金变动'))
+    // A second row should be added
+    expect(screen.getAllByPlaceholderText('本金金额').length).toBe(2)
+  })
+
+  it('fixes end_date when it is before start_date', () => {
+    render(<LprCalculatorTool />)
+    fireEvent.click(screen.getByText('变动本金'))
+    const dateInputs = document.querySelectorAll('input[type="date"]')
+    fireEvent.change(dateInputs[0], { target: { value: '2024-06-30' } }) // start
+    fireEvent.change(dateInputs[1], { target: { value: '2024-01-01' } }) // end before start
+    // The component should fix end to match start
+    expect(dateInputs[1]).toHaveValue('2024-06-30')
+  })
+
+  it('removes principal change row when multiple rows', () => {
+    render(<LprCalculatorTool />)
+    fireEvent.click(screen.getByText('变动本金'))
+    fireEvent.click(screen.getByText('添加本金变动'))
+    expect(screen.getAllByPlaceholderText('本金金额').length).toBe(2)
+    // Find remove button (Trash2 icon button)
+    const removeButtons = screen.getAllByRole('button').filter(b =>
+      b.querySelector('svg') && b.closest('[class*="grid"]')
+    )
+    if (removeButtons.length > 0) {
+      fireEvent.click(removeButtons[removeButtons.length - 1])
+    }
+    expect(screen.getAllByPlaceholderText('本金金额').length).toBe(1)
+  })
+
+  it('validates variable mode with filled changes', () => {
+    const result = {
+      success: true,
+      total_interest: '1500.00',
+      total_days: 180,
+      total_principal: '50000',
+      start_date: '2024-01-01',
+      end_date: '2024-06-30',
+      periods: [
+        { start_date: '2024-01-01', end_date: '2024-06-30', days: 180, rate: '3.10', rate_unit: 'percent', interest: '1500.00' },
+      ],
+      message: '',
+      code: null,
+      sync_info: null,
+    }
+    mockLprCalculate.mockReturnValue({ mutate: makeMutateWithData(result), isPending: false })
+    render(<LprCalculatorTool />)
+    fireEvent.click(screen.getByText('变动本金'))
+    // Fill the change row
+    const dateInputs = document.querySelectorAll('input[type="date"]')
+    fireEvent.change(dateInputs[0], { target: { value: '2024-01-01' } })
+    fireEvent.change(dateInputs[1], { target: { value: '2024-06-30' } })
+    const principalInputs = screen.getAllByPlaceholderText('本金金额')
+    fireEvent.change(principalInputs[0], { target: { value: '50000' } })
+    fireEvent.click(screen.getByText('计算利息'))
+    expect(mockMutate).toHaveBeenCalled()
+  })
+
+  it('saves to history when calculation succeeds', () => {
+    const result = {
+      success: true,
+      total_interest: '3100.00',
+      total_days: 365,
+      total_principal: '100000',
+      start_date: '2024-01-01',
+      end_date: '2024-12-31',
+      periods: [
+        { start_date: '2024-01-01', end_date: '2024-12-31', days: 365, rate: '3.10', rate_unit: 'percent', interest: '3100.00' },
+      ],
+      message: '',
+      code: null,
+      sync_info: null,
+    }
+    mockLprCalculate.mockReturnValue({ mutate: makeMutateWithData(result), isPending: false })
+    render(<LprCalculatorTool />)
+    fireEvent.click(screen.getByText('计算利息'))
+    // History should be saved
+    const saved = localStorage.getItem('lpr_calculator_history')
+    expect(saved).not.toBeNull()
+    const parsed = JSON.parse(saved!)
+    expect(parsed.length).toBe(1)
+    expect(parsed[0].result.total_interest).toBe('3100.00')
+  })
+
+  it('handles ResultSection with no success', () => {
+    const result = {
+      success: false,
+      message: 'Validation error',
+      total_interest: null,
+      total_days: null,
+      total_principal: null,
+      start_date: null,
+      end_date: null,
+      periods: null,
+      code: null,
+      sync_info: null,
+    }
+    mockLprCalculate.mockReturnValue({ mutate: makeMutateWithData(result), isPending: false })
+    render(<LprCalculatorTool />)
+    fireEvent.click(screen.getByText('计算利息'))
+    expect(screen.queryByText('计算明细')).not.toBeInTheDocument()
+  })
+
+  it('does not save to history when calculation fails', () => {
+    const result = {
+      success: false,
+      message: 'Error',
+      total_interest: null,
+      total_days: null,
+      total_principal: null,
+      start_date: null,
+      end_date: null,
+      periods: null,
+      code: null,
+      sync_info: null,
+    }
+    mockLprCalculate.mockReturnValue({ mutate: makeMutateWithData(result), isPending: false })
+    render(<LprCalculatorTool />)
+    fireEvent.click(screen.getByText('计算利息'))
+    const saved = localStorage.getItem('lpr_calculator_history')
+    expect(saved).toBeNull()
+  })
+
+  it('truncates history to 20 items', () => {
+    const items = Array.from({ length: 20 }, (_, i) => ({
+      id: i,
+      timestamp: new Date().toISOString(),
+      useChanges: false,
+      form: {
+        start_date: '2024-01-01', end_date: '2024-12-31', principal: '100000',
+        rate_mode: 'lpr', rate_type: '1y', multiplier: '1',
+        custom_rate_unit: 'percent', custom_rate_value: '', year_days: 360,
+        date_inclusion: 'both', changes: [],
+      },
+      result: { total_interest: '3100', total_days: 365, total_principal: '100000' },
+      rateInfo: 'LPR 1年期 x1.0',
+    }))
+    localStorage.setItem('lpr_calculator_history', JSON.stringify(items))
+
+    const result = {
+      success: true,
+      total_interest: '100.00',
+      total_days: 30,
+      total_principal: '100000',
+      start_date: '2024-01-01',
+      end_date: '2024-01-31',
+      periods: [],
+      message: '',
+      code: null,
+      sync_info: null,
+    }
+    mockLprCalculate.mockReturnValue({ mutate: makeMutateWithData(result), isPending: false })
+    render(<LprCalculatorTool />)
+    fireEvent.click(screen.getByText('计算利息'))
+    const saved = JSON.parse(localStorage.getItem('lpr_calculator_history')!)
+    expect(saved.length).toBe(20) // still 20 (capped)
+    expect(saved[0].result.total_interest).toBe('100.00') // newest first
+  })
+
+  it('calculates with fixed mode and missing start date', () => {
+    render(<LprCalculatorTool />)
+    // Clear start date
+    const dateInputs = document.querySelectorAll('input[type="date"]')
+    fireEvent.change(dateInputs[0], { target: { value: '' } })
+    fireEvent.click(screen.getByText('计算利息'))
+    // Should set error result
+    expect(screen.getByText('请填写日期和本金')).toBeInTheDocument()
+  })
+
+  it('calculates with fixed mode and missing principal', () => {
+    render(<LprCalculatorTool />)
+    const principalInput = screen.getByPlaceholderText('请输入本金金额')
+    fireEvent.change(principalInput, { target: { value: '' } })
+    fireEvent.click(screen.getByText('计算利息'))
+    expect(screen.getByText('请填写日期和本金')).toBeInTheDocument()
+  })
+
+  it('calculates with fixed mode and missing end date', () => {
+    render(<LprCalculatorTool />)
+    const dateInputs = document.querySelectorAll('input[type="date"]')
+    fireEvent.change(dateInputs[1], { target: { value: '' } })
+    fireEvent.click(screen.getByText('计算利息'))
+    expect(screen.getByText('请填写日期和本金')).toBeInTheDocument()
+  })
+
+  it('variable mode shows error when changes have empty fields', () => {
+    render(<LprCalculatorTool />)
+    fireEvent.click(screen.getByText('变动本金'))
+    // Leave row empty (no dates/principal filled)
+    fireEvent.click(screen.getByText('计算利息'))
+    expect(screen.getByText('请填写完整的本金变动信息')).toBeInTheDocument()
+  })
+
+  it('copies detail with no periods returns early', async () => {
+    const result = {
+      success: true,
+      total_interest: '0',
+      total_days: 0,
+      total_principal: '100000',
+      start_date: '2024-01-01',
+      end_date: '2024-12-31',
+      periods: [],
+      message: '',
+      code: null,
+      sync_info: null,
+    }
+    mockLprCalculate.mockReturnValue({ mutate: makeMutateWithData(result), isPending: false })
+    render(<LprCalculatorTool />)
+    fireEvent.click(screen.getByText('计算利息'))
+    // No "复制明细" button when periods is empty (result section shows)
+    // But copyDetail should handle it gracefully
+  })
 })

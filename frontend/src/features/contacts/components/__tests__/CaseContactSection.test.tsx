@@ -1,7 +1,7 @@
 import { render, screen, fireEvent, act } from '@testing-library/react'
-import { CaseContactSection } from '../components/CaseContactSection'
+import { CaseContactSection } from '../CaseContactSection'
 import { toast } from 'sonner'
-import type { CaseContact } from '../types'
+import type { CaseContact } from '../../types'
 
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
 
@@ -13,7 +13,7 @@ vi.mock('lucide-react', () => ({
 const mockCreateMutate = vi.fn()
 const mockDeleteMutate = vi.fn()
 
-vi.mock('../hooks/use-contact-mutations', () => ({
+vi.mock('../../hooks/use-contact-mutations', () => ({
   useContactMutations: () => ({
     createContact: { mutate: mockCreateMutate, isPending: false },
     deleteContact: { mutate: mockDeleteMutate, isPending: false },

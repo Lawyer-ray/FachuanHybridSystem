@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react'
-import { ContactSearchPage } from '../components/ContactSearchPage'
+import { ContactSearchPage } from '../ContactSearchPage'
 
 vi.mock('lucide-react', () => ({
   Search: (props: Record<string, unknown>) => <svg data-testid="search-icon" {...props} />,
@@ -9,11 +9,11 @@ vi.mock('lucide-react', () => ({
   Building2: (props: Record<string, unknown>) => <svg data-testid="building-icon" {...props} />,
 }))
 
-vi.mock('../hooks/use-contact-search', () => ({
+vi.mock('../../hooks/use-contact-search', () => ({
   useContactSearch: vi.fn(() => ({ data: null, isLoading: false })),
 }))
 
-vi.mock('../types', () => ({
+vi.mock('../../types', () => ({
   CONTACT_ROLE_LABELS: {
     judge: { zh: '法官' },
     prosecutor: { zh: '检察官' },
@@ -41,7 +41,7 @@ vi.mock('@/components/ui/card', () => ({
   CardContent: ({ children, ...props }: Record<string, unknown>) => <div {...props}>{children}</div>,
 }))
 
-import { useContactSearch } from '../hooks/use-contact-search'
+import { useContactSearch } from '../../hooks/use-contact-search'
 const mockUseContactSearch = vi.mocked(useContactSearch)
 
 describe('ContactSearchPage', () => {
