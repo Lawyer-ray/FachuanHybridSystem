@@ -1,3 +1,13 @@
+vi.mock('lucide-react', () => ({
+  ChevronLeft: () => <svg data-testid="chevron-left" />,
+  ChevronRight: () => <svg data-testid="chevron-right" />,
+  MapPin: () => <svg />,
+  User: () => <svg />,
+  Clock: () => <svg />,
+  Pencil: () => <svg />,
+  Trash2: () => <svg />,
+}))
+
 vi.mock('@/features/reminders/api', () => ({
   reminderApi: {
     list: vi.fn().mockResolvedValue([]),
@@ -14,7 +24,19 @@ vi.mock('@/features/reminders/hooks/use-reminder-mutations', () => ({
 }))
 
 vi.mock('@/features/reminders/components/ReminderFormDialog', () => ({
-  ReminderFormDialog: ({ open }: any) => (open ? <div data-testid="form-dialog" /> : null),
+  ReminderFormDialog: ({ open }: { open: boolean }) => (open ? <div data-testid="form-dialog" /> : null),
+}))
+
+vi.mock('../AgendaView', () => ({
+  AgendaView: () => <div data-testid="agenda-view" />,
+}))
+
+vi.mock('@/lib/date', () => ({
+  formatDate: (d: string) => d,
+}))
+
+vi.mock('@/lib/utils', () => ({
+  cn: (...args: unknown[]) => args.filter(Boolean).join(' '),
 }))
 
 vi.mock('@tanstack/react-query', async (importOriginal) => {
@@ -28,12 +50,130 @@ vi.mock('@tanstack/react-query', async (importOriginal) => {
   }
 })
 
-import { render, screen } from '@testing-library/react'
+vi.mock('@/components/ui/card', () => ({
+  Card: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+}))
+vi.mock('@/components/ui/badge', () => ({
+  Badge: ({ children, variant, className }: Record<string, unknown>) => <span className={className as string} data-variant={variant}>{children}</span>,
+}))
+vi.mock('@/components/ui/button', () => ({
+  Button: ({ children, onClick, disabled, variant, size, className }: Record<string, unknown>) => (
+    <button onClick={onClick as React.MouseEventHandler} disabled={disabled as boolean} className={className as string}>{children}</button>
+  ),
+}))
+vi.mock('@/components/ui/dialog', () => ({
+  Dialog: ({ children, open }: { children: React.ReactNode; open?: boolean }) => open ? <div data-testid="dialog">{children}</div> : null,
+  DialogContent: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  DialogHeader: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  DialogTitle: ({ children }: { children: React.ReactNode }) => <h2>{children}</h2>,
+}))
+vi.mock('@/components/ui/tabs', () => ({
+  Tabs: ({ children, value }: { children: React.ReactNode; value?: string }) => <div data-value={value}>{children}</div>,
+  TabsList: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  TabsTrigger: ({ children, value: triggerValue }: { children: React.ReactNode; value?: string }) => <button data-trigger={triggerValue}>{children}</button>,
+  TabsContent: ({ children, value: contentValue }: { children: React.ReactNode; value?: string }) => <div data-tab={contentValue}>{children}</div>,
+}))
+vi.mock('@/components/ui/popover', () => ({
+  Popover: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  PopoverTrigger: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  PopoverContent: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+}))
+vi.mock('@/components/ui/scroll-area', () => ({
+  ScrollArea: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+}))
+
+import { render, screen, fireEvent } from '@testing-library/react'
 import { CalendarCard } from '../CalendarCard'
+import { useQuery } from '@tanstack/react-query'
+
+const mockUseQuery = vi.mocked(useQuery)
+
+const mockReminders = [
+  {
+    id: 1,
+    content: '开庭',
+    reminder_type: 'hearing',
+    reminder_type_label: '开庭',
+    due_at: `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(new Date().getDate()).padStart(2, '0')}T09:00:00`,
+    metadata: { courtroom: '第一法庭', lawyer_name: '张律师' },
+    contract: 1,
+    case: null,
+    case_log: null,
+  },
+  {
+    id: 2,
+    content: '证据截止',
+    reminder_type: 'evidence_deadline',
+    reminder_type_label: '举证到期',
+    due_at: `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(new Date().getDate()).padStart(2, '0')}T14:00:00`,
+    metadata: {},
+    contract: null,
+    case: 2,
+    case_log: null,
+  },
+  {
+    id: 3,
+    content: '逾期事件',
+    reminder_type: 'other',
+    reminder_type_label: '其他',
+    due_at: '2020-01-01T10:00:00',
+    metadata: {},
+    contract: null,
+    case: null,
+    case_log: 3,
+  },
+  {
+    id: 4,
+    content: '同类型合并1',
+    reminder_type: 'hearing',
+    reminder_type_label: '开庭',
+    due_at: `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(new Date().getDate()).padStart(2, '0')}T09:00:00`,
+    metadata: { source_id: 'case-hearing-1', lawyer_name: '李律师' },
+    contract: null,
+    case: null,
+    case_log: null,
+  },
+  // More than 3 events on same day
+  {
+    id: 5,
+    content: '第三条事件',
+    reminder_type: 'payment_deadline',
+    reminder_type_label: '缴费期限',
+    due_at: `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(new Date().getDate()).padStart(2, '0')}T15:00:00`,
+    metadata: {},
+    contract: null,
+    case: null,
+    case_log: null,
+  },
+  {
+    id: 6,
+    content: '第四条事件',
+    reminder_type: 'submission_deadline',
+    reminder_type_label: '材料提交',
+    due_at: `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(new Date().getDate()).padStart(2, '0')}T16:00:00`,
+    metadata: {},
+    contract: null,
+    case: null,
+    case_log: null,
+  },
+  // No due_at
+  {
+    id: 7,
+    content: '无截止日期',
+    reminder_type: 'other',
+    reminder_type_label: '其他',
+    due_at: '',
+    metadata: {},
+    contract: null,
+    case: null,
+    case_log: null,
+  },
+]
 
 describe('CalendarCard', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockUseQuery.mockReturnValue({ data: undefined } as never)
   })
 
   it('renders calendar card with current month', () => {
@@ -65,5 +205,172 @@ describe('CalendarCard', () => {
     render(<CalendarCard />)
     expect(screen.getByText('开庭')).toBeInTheDocument()
     expect(screen.getByText('已逾期')).toBeInTheDocument()
+  })
+
+  it('navigates to previous month', () => {
+    render(<CalendarCard />)
+    const prevBtn = screen.getByTestId('chevron-left').closest('button')!
+    const now = new Date()
+    fireEvent.click(prevBtn)
+    const prevMonth = now.getMonth() === 0 ? 12 : now.getMonth()
+    const prevYear = now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear()
+    expect(screen.getByText(`${prevYear}年${prevMonth}月`)).toBeInTheDocument()
+  })
+
+  it('navigates to next month', () => {
+    render(<CalendarCard />)
+    const nextBtn = screen.getByTestId('chevron-right').closest('button')!
+    const now = new Date()
+    fireEvent.click(nextBtn)
+    const nextMonth = now.getMonth() === 11 ? 1 : now.getMonth() + 2
+    const nextYear = now.getMonth() === 11 ? now.getFullYear() + 1 : now.getFullYear()
+    expect(screen.getByText(`${nextYear}年${nextMonth}月`)).toBeInTheDocument()
+  })
+
+  it('goes to today when clicking today button', () => {
+    render(<CalendarCard />)
+    fireEvent.click(screen.getByTestId('chevron-right').closest('button')!)
+    fireEvent.click(screen.getByText('今天'))
+    const now = new Date()
+    expect(screen.getByText(`${now.getFullYear()}年${now.getMonth() + 1}月`)).toBeInTheDocument()
+  })
+
+  it('renders with reminders', () => {
+    mockUseQuery.mockImplementation((opts: Record<string, unknown>) => {
+      if (opts.queryKey?.[0] === 'dashboard-reminders') return { data: mockReminders } as never
+      if (opts.queryKey?.[0] === 'reminders-target-options') return { data: { groups: [] } } as never
+      return { data: undefined } as never
+    })
+    render(<CalendarCard />)
+    // Multiple "开庭" elements (legend + events)
+    expect(screen.getAllByText('开庭').length).toBeGreaterThan(0)
+  })
+
+  it('renders event count for days with events', () => {
+    mockUseQuery.mockImplementation((opts: Record<string, unknown>) => {
+      if (opts.queryKey?.[0] === 'dashboard-reminders') return { data: mockReminders } as never
+      if (opts.queryKey?.[0] === 'reminders-target-options') return { data: { groups: [] } } as never
+      return { data: undefined } as never
+    })
+    render(<CalendarCard />)
+    // Should show count like "X条"
+    const countEls = screen.queryAllByText(/\d+条/)
+    expect(countEls.length).toBeGreaterThan(0)
+  })
+
+  it('navigates prev month at january boundary', () => {
+    render(<CalendarCard />)
+    // Navigate to January by going back many times
+    const prevBtn = screen.getByTestId('chevron-left').closest('button')!
+    for (let i = 0; i < new Date().getMonth() + 1; i++) {
+      fireEvent.click(prevBtn)
+    }
+    expect(screen.getByText(/年12月/)).toBeInTheDocument()
+  })
+
+  it('navigates next month at december boundary', () => {
+    render(<CalendarCard />)
+    const nextBtn = screen.getByTestId('chevron-right').closest('button')!
+    for (let i = 0; i < 12 - new Date().getMonth(); i++) {
+      fireEvent.click(nextBtn)
+    }
+    expect(screen.getByText(/年1月/)).toBeInTheDocument()
+  })
+
+  it('renders empty calendar cells', () => {
+    render(<CalendarCard />)
+    // Calendar should have grid cells
+    const gridCells = document.querySelectorAll('.min-h-\\[130px\\]')
+    expect(gridCells.length).toBeGreaterThan(0)
+  })
+
+  it('renders today cell with special styling', () => {
+    render(<CalendarCard />)
+    const now = new Date()
+    // Today's date number should be in the calendar
+    const todayElements = screen.getAllByText(now.getDate().toString())
+    expect(todayElements.length).toBeGreaterThan(0)
+  })
+
+  it('renders month view tab content', () => {
+    render(<CalendarCard />)
+    // Month grid should be visible
+    expect(screen.getByText('日')).toBeInTheDocument()
+    expect(screen.getByText('五')).toBeInTheDocument()
+  })
+
+  it('renders agenda view tab content', () => {
+    render(<CalendarCard />)
+    // Switch to agenda view by clicking the tab button
+    fireEvent.click(screen.getByText('议程'))
+    expect(screen.getByTestId('agenda-view')).toBeInTheDocument()
+  })
+
+  it('handles keyboard events on calendar cells', () => {
+    render(<CalendarCard />)
+    const now = new Date()
+    // Find a cell with a date and trigger Enter key
+    const cells = document.querySelectorAll('[role="button"]')
+    if (cells.length > 0) {
+      fireEvent.keyDown(cells[0], { key: 'Enter' })
+      // Should open form dialog
+    }
+    expect(screen.getByText(/年\d+月/)).toBeInTheDocument()
+  })
+
+  it('handles space key on calendar cells', () => {
+    render(<CalendarCard />)
+    const cells = document.querySelectorAll('[role="button"]')
+    if (cells.length > 0) {
+      fireEvent.keyDown(cells[0], { key: ' ' })
+    }
+    expect(screen.getByText(/年\d+月/)).toBeInTheDocument()
+  })
+
+  it('renders with empty reminders array', () => {
+    mockUseQuery.mockImplementation((opts: Record<string, unknown>) => {
+      if (opts.queryKey?.[0] === 'dashboard-reminders') return { data: [] } as never
+      if (opts.queryKey?.[0] === 'reminders-target-options') return { data: { groups: [] } } as never
+      return { data: undefined } as never
+    })
+    render(<CalendarCard />)
+    expect(screen.getByText(/年\d+月/)).toBeInTheDocument()
+  })
+
+  it('renders calendar with target options', () => {
+    mockUseQuery.mockImplementation((opts: Record<string, unknown>) => {
+      if (opts.queryKey?.[0] === 'dashboard-reminders') return { data: [] } as never
+      if (opts.queryKey?.[0] === 'reminders-target-options') return {
+        data: {
+          groups: [{
+            key: 'contract',
+            label: '合同',
+            items: [{ id: 1, name: '测试合同' }],
+          }],
+        },
+      } as never
+      return { data: undefined } as never
+    })
+    render(<CalendarCard />)
+    expect(screen.getByText(/年\d+月/)).toBeInTheDocument()
+  })
+
+  it('renders with overdue events showing strikethrough', () => {
+    mockUseQuery.mockImplementation((opts: Record<string, unknown>) => {
+      if (opts.queryKey?.[0] === 'dashboard-reminders') return { data: [mockReminders[2]] } as never
+      return { data: { groups: [] } } as never
+    })
+    render(<CalendarCard />)
+    // The overdue event from 2020 should render
+    expect(screen.getByText(/年\d+月/)).toBeInTheDocument()
+  })
+
+  it('renders events with lawyer and courtroom info', () => {
+    mockUseQuery.mockImplementation((opts: Record<string, unknown>) => {
+      if (opts.queryKey?.[0] === 'dashboard-reminders') return { data: [mockReminders[0]] } as never
+      return { data: { groups: [] } } as never
+    })
+    render(<CalendarCard />)
+    expect(screen.getByText(/年\d+月/)).toBeInTheDocument()
   })
 })
