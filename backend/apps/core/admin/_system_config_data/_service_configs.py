@@ -88,6 +88,20 @@ def get_enterprise_data_configs() -> list[dict[str, Any]]:
             "value": "sk_qJKABWT2vMAa0c35LJOtzg2dougEOzab",  # pragma: allowlist secret
             "is_secret": True,
         },
+        {
+            "key": "QCC_MCP_API_KEY",
+            "category": "enterprise_data",
+            "description": "企查查 MCP API Key（Bearer Token，支持多 Key；每行一个）",
+            "value": "M8AqueMrJJGv79nHRaEK72QxYTfrh4YF6W48UBpwA4aWeVmJ",  # pragma: allowlist secret
+            "is_secret": True,
+        },
+        {
+            "key": "QCC_MCP_BASE_URL",
+            "category": "enterprise_data",
+            "description": "企查查 MCP 基础地址（不含 Server 路径）",
+            "value": "https://agent.qcc.com",
+            "is_secret": False,
+        },
     ]
 
 
