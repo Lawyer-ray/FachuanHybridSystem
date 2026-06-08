@@ -84,6 +84,7 @@ class TestBrowserProfile:
 class TestGetProfile:
     """get_profile 测试。"""
 
+    @pytest.mark.django_db
     def test_get_default(self) -> None:
         p = get_profile("default")
         assert p.name == "default"
@@ -94,6 +95,7 @@ class TestGetProfile:
         assert p.name == "gsxt"
         assert p.cdp_url == "http://localhost:9222"
 
+    @pytest.mark.django_db
     def test_get_unknown_fallback(self) -> None:
         p = get_profile("nonexistent")
         assert p.name == "default"
@@ -108,6 +110,7 @@ class TestGetProfile:
 class TestRegisterProfile:
     """register_profile 测试。"""
 
+    @pytest.mark.django_db
     def test_register_and_get(self) -> None:
         custom = BrowserProfile(name="my_custom", headless=False, slow_mo=100)
         register_profile(custom)

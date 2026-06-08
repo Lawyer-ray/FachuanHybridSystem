@@ -79,6 +79,7 @@ class TestModelListService:
                 result = svc.get_result()
         assert result.models
 
+    @pytest.mark.django_db
     def test_merge_system_config_models_empty(self):
         result = ModelListService._merge_system_config_models([])
         assert isinstance(result, list)

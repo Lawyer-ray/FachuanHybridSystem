@@ -57,6 +57,7 @@ class TestGetJobById:
         result = svc.get_job_by_id(job.id)
         assert result.id == job.id
 
+    @pytest.mark.django_db
     def test_nonexistent_raises(self, svc) -> None:
         import uuid
 

@@ -1,6 +1,7 @@
 """文档指纹服务和文件夹模板结构规则测试。"""
 
 from __future__ import annotations
+import pytest
 
 import hashlib
 import re
@@ -112,6 +113,7 @@ class TestFolderTemplateStructureRules:
         is_valid, messages = self.rules.validate_structure_ids(None)  # type: ignore
         assert is_valid is True
 
+    @pytest.mark.django_db
     def test_validate_and_fix_structure_with_unique_ids(self) -> None:
         """唯一 ID 结构无需修复。"""
         structure = {
