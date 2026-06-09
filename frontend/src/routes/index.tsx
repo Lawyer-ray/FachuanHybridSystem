@@ -25,6 +25,10 @@ const ResetPasswordPage = lazy(() =>
   import('@/pages/auth/ResetPasswordPage').then((m) => ({ default: m.ResetPasswordPage }))
 )
 
+const SocialCallbackPage = lazy(() =>
+  import('@/pages/auth/SocialCallbackPage').then((m) => ({ default: m.SocialCallbackPage }))
+)
+
 // 后台页面懒加载
 // @validates Requirements 8.6 - THE 路由 SHALL 使用 React Router v7 的懒加载功能
 const DashboardPage = lazy(() => import('@/pages/dashboard/DashboardPage'))
@@ -128,6 +132,10 @@ export const router = createBrowserRouter([
           {
             path: PATHS.RESET_PASSWORD,
             element: <ResetPasswordPage />,
+          },
+          {
+            path: PATHS.SOCIAL_CALLBACK,
+            element: <SocialCallbackPage />,
           },
         ],
       },

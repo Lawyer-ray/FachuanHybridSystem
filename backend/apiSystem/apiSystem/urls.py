@@ -15,6 +15,7 @@ from django.shortcuts import render
 from django.urls import include, path
 
 from apps.organization.views import register
+from apps.social_auth.views import SocialCallbackView, SocialLoginView
 
 # Admin 界面自定义（侧边栏排序、Hub 页、工具收藏等）
 # 导入即执行 monkey-patch，无需额外调用
@@ -66,6 +67,9 @@ urlpatterns = [
     path("admin/cloud-storage/", include("apps.core.cloud_storage.urls")),
     path("admin/", admin.site.urls),
     path("i18n/", include("django.conf.urls.i18n")),
+    # 社交登录（放在 api/v1/ 之前，避免被 Ninja 路由匹配）
+    path("social/<str:provider>/login/", SocialLoginView.as_view(), name="social_login"),
+    path("social/<str:provider>/callback/", SocialCallbackView.as_view(), name="social_callback"),
     path("api/v1/", api_v1.urls),
     path("api/", api_redirect),
     path("favicon.ico", favicon_view, name="favicon"),

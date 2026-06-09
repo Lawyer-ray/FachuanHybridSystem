@@ -8,6 +8,7 @@ export const PATHS = {
   REGISTER: '/register',
   FORGOT_PASSWORD: '/forgot-password',
   RESET_PASSWORD: '/reset-password',
+  SOCIAL_CALLBACK: '/social-callback',
 
   // 后台页面 - 使用 /admin 前缀
   ADMIN_DASHBOARD: '/admin/dashboard',
