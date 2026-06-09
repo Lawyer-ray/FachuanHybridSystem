@@ -1,7 +1,9 @@
 vi.mock('react-router', async (importOriginal) => {
   const actual = await importOriginal<typeof import('react-router')>()
-  return { ...actual, useNavigate: () => vi.fn() }
+  return { ...actual, useNavigate: () => mockNavigate }
 })
+
+const mockNavigate = vi.fn()
 
 vi.mock('@/routes/paths', () => ({
   PATHS: { ADMIN_CASES: '/admin/cases' },
@@ -12,8 +14,9 @@ vi.mock('@/lib/date', () => ({ formatDateOnly: (v: string | null) => v ?? '-' })
 vi.mock('@/lib/format', () => ({ formatAmount: (v: number | null) => (v != null ? `¥${v}` : '-') }))
 
 vi.mock('../../hooks/use-case', () => ({ useCase: vi.fn() }))
+const mockDeleteMutateAsync = vi.fn()
 vi.mock('../../hooks/use-case-mutations', () => ({
-  useCaseMutations: () => ({ deleteCase: { mutateAsync: vi.fn() } }),
+  useCaseMutations: () => ({ deleteCase: { mutateAsync: mockDeleteMutateAsync } }),
 }))
 vi.mock('../../hooks/use-material-candidates', () => ({
   useMaterialCandidates: () => ({ data: [] }),
@@ -67,7 +70,7 @@ vi.mock('framer-motion', async (importOriginal) => {
   }
 })
 
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { useCase } from '../../hooks/use-case'
 import { CaseDetail } from '../CaseDetail'
 
@@ -299,5 +302,208 @@ describe('CaseDetail', () => {
     expect(screen.getByTestId('material-section')).toBeInTheDocument()
     fireEvent.click(screen.getByText('非当事人材料'))
     expect(screen.getByTestId('material-section')).toBeInTheDocument()
+  })
+
+  // ── Delete flow ──
+  it('deletes case successfully and navigates', async () => {
+    mockDeleteMutateAsync.mockResolvedValue(undefined)
+    mockUseCase.mockReturnValue({ data: mockCase, isLoading: false, error: null })
+    render(<CaseDetail caseId="1" />)
+    fireEvent.click(screen.getByText('删除'))
+    const confirmBtns = screen.getAllByText('确认删除')
+    fireEvent.click(confirmBtns[confirmBtns.length - 1])
+    await waitFor(() => expect(mockNavigate).toHaveBeenCalledWith('/admin/cases'))
+  })
+
+  it('shows error toast when delete fails', async () => {
+    mockDeleteMutateAsync.mockRejectedValue(new Error('fail'))
+    mockUseCase.mockReturnValue({ data: mockCase, isLoading: false, error: null })
+    render(<CaseDetail caseId="1" />)
+    fireEvent.click(screen.getByText('删除'))
+    const confirmBtns = screen.getAllByText('确认删除')
+    fireEvent.click(confirmBtns[confirmBtns.length - 1])
+    await waitFor(() => expect(mockDeleteMutateAsync).toHaveBeenCalledWith('1'))
+  })
+
+  // ── CaseStatusBadge branches ──
+  it('renders null status as 未设置', () => {
+    mockUseCase.mockReturnValue({ data: { ...mockCase, status: null }, isLoading: false, error: null })
+    render(<CaseDetail caseId="1" />)
+    expect(screen.getAllByText('未设置').length).toBeGreaterThan(0)
+  })
+
+  it('renders closed status as 已结案', () => {
+    mockUseCase.mockReturnValue({ data: { ...mockCase, status: 'closed' }, isLoading: false, error: null })
+    render(<CaseDetail caseId="1" />)
+    expect(screen.getAllByText('已结案').length).toBeGreaterThan(0)
+  })
+
+  it('renders unknown status with fallback label', () => {
+    mockUseCase.mockReturnValue({ data: { ...mockCase, status: 'suspended' }, isLoading: false, error: null })
+    render(<CaseDetail caseId="1" />)
+    expect(screen.getAllByText('suspended').length).toBeGreaterThan(0)
+  })
+
+  // ── Null/empty field branches ──
+  it('handles null target_amount', () => {
+    mockUseCase.mockReturnValue({ data: { ...mockCase, target_amount: null }, isLoading: false, error: null })
+    render(<CaseDetail caseId="1" />)
+    expect(screen.getAllByText('案件信息').length).toBeGreaterThan(0)
+  })
+
+  it('handles null dates', () => {
+    mockUseCase.mockReturnValue({
+      data: { ...mockCase, start_date: null, effective_date: null, specified_date: null },
+      isLoading: false, error: null,
+    })
+    render(<CaseDetail caseId="1" />)
+    expect(screen.getAllByText('日期信息').length).toBeGreaterThan(0)
+  })
+
+  it('handles null contract_id', () => {
+    mockUseCase.mockReturnValue({ data: { ...mockCase, contract_id: null }, isLoading: false, error: null })
+    render(<CaseDetail caseId="1" />)
+    expect(screen.queryByText(/合同 #/)).not.toBeInTheDocument()
+  })
+
+  it('handles null case_type and current_stage', () => {
+    mockUseCase.mockReturnValue({
+      data: { ...mockCase, case_type: null, current_stage: null },
+      isLoading: false, error: null,
+    })
+    render(<CaseDetail caseId="1" />)
+    expect(screen.getAllByText('测试案件').length).toBeGreaterThan(0)
+  })
+
+  it('handles unknown case_type and stage fallback labels', () => {
+    mockUseCase.mockReturnValue({
+      data: { ...mockCase, case_type: 'unknown_type', current_stage: 'unknown_stage' },
+      isLoading: false, error: null,
+    })
+    render(<CaseDetail caseId="1" />)
+    expect(screen.getAllByText('unknown_type').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('unknown_stage').length).toBeGreaterThan(0)
+  })
+
+  it('handles null cause_of_action', () => {
+    mockUseCase.mockReturnValue({ data: { ...mockCase, cause_of_action: null }, isLoading: false, error: null })
+    render(<CaseDetail caseId="1" />)
+    expect(screen.getAllByText('案件信息').length).toBeGreaterThan(0)
+  })
+
+  it('handles null filing_number', () => {
+    mockUseCase.mockReturnValue({
+      data: { ...mockCase, is_filed: true, filing_number: null },
+      isLoading: false, error: null,
+    })
+    render(<CaseDetail caseId="1" />)
+    expect(screen.getAllByText(/已建档/).length).toBeGreaterThan(0)
+  })
+
+  // ── Party interactions ──
+  it('opens party detail sheet on party click', () => {
+    mockUseCase.mockReturnValue({ data: mockCase, isLoading: false, error: null })
+    render(<CaseDetail caseId="1" />)
+    fireEvent.click(screen.getByText('案件人员'))
+    const parties = screen.getAllByText('张三')
+    fireEvent.click(parties[parties.length - 1])
+    expect(screen.getByText('当事人详细信息')).toBeInTheDocument()
+  })
+
+  it('shows party with legal entity type', () => {
+    const legalParty = {
+      id: 2,
+      client_detail: { name: '某公司', is_our_client: false, client_type: 'legal', id_number: '91110000', phone: '010-12345678' },
+      legal_status: 'defendant',
+    }
+    mockUseCase.mockReturnValue({
+      data: { ...mockCase, parties: [legalParty] },
+      isLoading: false, error: null,
+    })
+    render(<CaseDetail caseId="1" />)
+    fireEvent.click(screen.getByText('案件人员'))
+    const companies = screen.getAllByText('某公司')
+    fireEvent.click(companies[companies.length - 1])
+    expect(screen.getAllByText('法人/组织').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('对方').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('被告').length).toBeGreaterThan(0)
+  })
+
+  it('shows party with null legal_status', () => {
+    const party = { id: 3, client_detail: { name: '王五', is_our_client: true, client_type: 'natural' }, legal_status: null }
+    mockUseCase.mockReturnValue({ data: { ...mockCase, parties: [party] }, isLoading: false, error: null })
+    render(<CaseDetail caseId="1" />)
+    fireEvent.click(screen.getByText('案件人员'))
+    const wangs = screen.getAllByText('王五')
+    fireEvent.click(wangs[wangs.length - 1])
+    expect(screen.getAllByText('我方').length).toBeGreaterThan(0)
+  })
+
+  it('shows party with unknown legal_status fallback', () => {
+    const party = { id: 4, client_detail: { name: '赵六', is_our_client: true, client_type: 'natural' }, legal_status: 'unknown_role' }
+    mockUseCase.mockReturnValue({ data: { ...mockCase, parties: [party] }, isLoading: false, error: null })
+    render(<CaseDetail caseId="1" />)
+    fireEvent.click(screen.getByText('案件人员'))
+    const zhaos = screen.getAllByText('赵六')
+    fireEvent.click(zhaos[zhaos.length - 1])
+    expect(screen.getAllByText('unknown_role').length).toBeGreaterThan(0)
+  })
+
+  // ── Lawyer interactions ──
+  it('opens lawyer detail sheet on lawyer click', () => {
+    mockUseCase.mockReturnValue({ data: mockCase, isLoading: false, error: null })
+    render(<CaseDetail caseId="1" />)
+    fireEvent.click(screen.getByText('案件人员'))
+    const lawyers = screen.getAllByText('李律师')
+    fireEvent.click(lawyers[lawyers.length - 1])
+    expect(screen.getByText('律师详细信息')).toBeInTheDocument()
+  })
+
+  it('shows lawyer with username fallback', () => {
+    mockUseCase.mockReturnValue({
+      data: { ...mockCase, assignments: [{ id: 1, lawyer_detail: { real_name: null, username: 'li_user', phone: '123' } }] },
+      isLoading: false, error: null,
+    })
+    render(<CaseDetail caseId="1" />)
+    expect(screen.getAllByText('li_user').length).toBeGreaterThan(0)
+  })
+
+  // ── Chat platform labels ──
+  it('renders feishu platform label', () => {
+    mockUseCase.mockReturnValue({
+      data: { ...mockCase, chats: [{ id: 1, name: '飞书群', platform: 'feishu', is_active: true }] },
+      isLoading: false, error: null,
+    })
+    render(<CaseDetail caseId="1" />)
+    fireEvent.click(screen.getByText('案件进展'))
+    expect(screen.getAllByText('飞书').length).toBeGreaterThan(0)
+  })
+
+  it('renders dingtalk platform label with inactive status', () => {
+    mockUseCase.mockReturnValue({
+      data: { ...mockCase, chats: [{ id: 1, name: '钉钉群', platform: 'dingtalk', is_active: false }] },
+      isLoading: false, error: null,
+    })
+    render(<CaseDetail caseId="1" />)
+    fireEvent.click(screen.getByText('案件进展'))
+    expect(screen.getAllByText('钉钉').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('已失效').length).toBeGreaterThan(0)
+  })
+
+  it('renders unknown platform fallback', () => {
+    mockUseCase.mockReturnValue({
+      data: { ...mockCase, chats: [{ id: 1, name: '其他群', platform: 'slack', is_active: true }] },
+      isLoading: false, error: null,
+    })
+    render(<CaseDetail caseId="1" />)
+    fireEvent.click(screen.getByText('案件进展'))
+    expect(screen.getAllByText('slack').length).toBeGreaterThan(0)
+  })
+
+  // ── Supervising authorities ──
+  it('renders authority section in basic tab', () => {
+    mockUseCase.mockReturnValue({ data: mockCase, isLoading: false, error: null })
+    render(<CaseDetail caseId="1" />)
+    expect(screen.getByTestId('authority-section')).toBeInTheDocument()
   })
 })

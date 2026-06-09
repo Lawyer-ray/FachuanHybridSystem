@@ -58,7 +58,7 @@ vi.mock('@/components/ui/select', () => ({
   SelectValue: () => <span />,
 }))
 vi.mock('@/components/ui/dialog', () => ({
-  Dialog: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  Dialog: ({ children, open }: { children: React.ReactNode; open?: boolean }) => open ? <div>{children}</div> : null,
   DialogContent: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   DialogHeader: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   DialogTitle: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
@@ -442,7 +442,7 @@ describe('CaseNumberSection', () => {
     render(<CaseNumberSection caseNumbers={numbers as never} editable caseId={1} />)
     fireEvent.click(screen.getByTestId('pencil').closest('button')!)
     expect(screen.getByText('编辑案号')).toBeInTheDocument()
-    fireEvent.click(screen.getByText('取消'))
+    fireEvent.click(screen.getAllByText('取消')[1])
     expect(screen.queryByText('编辑案号')).not.toBeInTheDocument()
   })
 
@@ -458,7 +458,7 @@ describe('CaseNumberSection', () => {
     render(<CaseNumberSection caseNumbers={numbers as never} editable caseId={1} />)
     fireEvent.click(screen.getByTestId('pencil').closest('button')!)
     // Edit number
-    const numberInput = screen.getByPlaceholderText(/如：/)
+    const numberInput = screen.getByPlaceholderText(/如：\(2025\)/)
     fireEvent.change(numberInput, { target: { value: '(2025)京01民初999号' } })
     expect(numberInput).toHaveValue('(2025)京01民初999号')
   })
