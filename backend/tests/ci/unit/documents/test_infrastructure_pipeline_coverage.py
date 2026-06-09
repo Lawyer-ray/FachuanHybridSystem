@@ -110,10 +110,10 @@ class TestPdfUtils:
     def test_get_pdf_page_count_with_error_all_fail(self):
         from apps.documents.services.infrastructure.pdf_utils import get_pdf_page_count_with_error
 
-        # Pass bytes that look like a valid source but fail all PDF parsers
-        with patch("pikepdf.open", side_effect=Exception("bad pdf")):
-            with patch("fitz.open", side_effect=Exception("bad pdf")):
-                with patch("pdfplumber.open", side_effect=Exception("bad pdf")):
+        # Patch all three PDF libraries to fail
+        with patch("pikepdf.open", side_effect=ValueError("bad pdf")):
+            with patch("fitz.open", side_effect=ValueError("bad pdf")):
+                with patch("pdfplumber.open", side_effect=ValueError("bad pdf")):
                     count, error = get_pdf_page_count_with_error(b"corrupt", default=5)
                     assert count == 5
                     assert error is not None
