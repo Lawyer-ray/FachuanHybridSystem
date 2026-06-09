@@ -243,7 +243,7 @@ jobs:
           TEST_DB_HOST: "127.0.0.1"
           TEST_DB_PORT: "5432"
           PYTHONPATH: "apiSystem:."
-        run: uv run pytest -c pytest.ini --no-cov -q tests/ci/unit/
+        run: uv run pytest -c pytest.ini --no-cov -q -n 2 --dist loadscope tests/ci/unit/
 
       - name: Smoke check (minimal)
         env:
@@ -327,7 +327,7 @@ jobs:
             --cov=apps.enterprise_data.services.clients.api_key_pool \
             --cov=apps \
             --cov-report=term-missing --cov-fail-under=25 \
-            -n auto --dist loadfile \
+            -n 2 --dist loadscope \
             tests/ci/unit/
 
   backend-integration-smoke:
