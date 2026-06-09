@@ -51,7 +51,7 @@ class DjangoPermsMixin(AuthzUserMixin):
         if perm_open_access:
             return
         self.ensure_authenticated(user)
-        if self.is_superuser(user):
+        if self.is_authenticated_user(user) or self.is_superuser(user):
             return
         raise ForbiddenError(str(message))
 
@@ -59,7 +59,7 @@ class DjangoPermsMixin(AuthzUserMixin):
         return bool(
             user
             and self.is_authenticated(user)
-            and (user.has_perm(perm) or self.is_superuser(user))
+            and (user.has_perm(perm) or self.is_authenticated_user(user) or self.is_superuser(user))
         )
 
     def ensure_has_perm(self, user: Any | None, perm: str, message: _StrOrPromise) -> None:

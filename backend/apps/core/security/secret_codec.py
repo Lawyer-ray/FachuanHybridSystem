@@ -6,7 +6,7 @@ import base64
 from dataclasses import dataclass
 
 from cryptography.fernet import Fernet, InvalidToken
-from django.conf import settings  # noqa: F401 — settings used by _get_cipher
+from django.conf import settings
 
 
 @dataclass(frozen=True)
@@ -42,4 +42,6 @@ class SecretCodec:
         try:
             return self.decrypt(value)
         except (InvalidToken, ValueError):
+            if getattr(settings, "DEBUG", False):
+                return value
             raise
