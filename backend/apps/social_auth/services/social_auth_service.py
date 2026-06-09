@@ -57,7 +57,7 @@ def link_or_create_user(profile: SocialProfile) -> Lawyer:
         return existing.user
 
     username = _ensure_unique_username(_generate_username(profile.provider_user_id))
-    user = Lawyer.objects.create_user(
+    user: Lawyer = Lawyer.objects.create_user(
         username=username,
         password=_generate_password(),
         email=None,

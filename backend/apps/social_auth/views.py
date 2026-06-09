@@ -8,6 +8,8 @@ import time
 
 from django.conf import settings
 from django.http import (
+    HttpResponse,
+    HttpRequest,
     HttpResponseBadRequest,
     HttpResponseRedirect,
 )
@@ -27,7 +29,7 @@ _STATE_TTL_SECONDS = 300
 class SocialLoginView(View):
     """GET /social/{provider}/login/ — 重定向到 Provider 授权页"""
 
-    def get(self, request, provider: str) -> HttpResponseRedirect:
+    def get(self, request: HttpRequest, provider: str) -> HttpResponse:
         if not ProviderRegistry._configs:
             ProviderRegistry.load_configs(
                 getattr(settings, "SOCIAL_AUTH_PROVIDERS", {})
@@ -60,7 +62,7 @@ class SocialLoginView(View):
 class SocialCallbackView(View):
     """GET /social/{provider}/callback/ — 接收 Provider 回调"""
 
-    def get(self, request, provider: str) -> HttpResponseRedirect:
+    def get(self, request: HttpRequest, provider: str) -> HttpResponse:
         frontend_base = getattr(settings, "FRONTEND_BASE_URL", "http://localhost:5173")
 
         session_data = request.session.get("oauth", {})

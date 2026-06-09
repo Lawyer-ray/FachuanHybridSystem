@@ -39,16 +39,16 @@ def _ensure_loaded() -> None:
 def list_providers(request: HttpRequest) -> ProvidersListOut:
     _ensure_loaded()
     items = ProviderRegistry.enabled_list()
-    return ProvidersListOut(
-        providers=[
+    providers = []
+    for p in items:
+        providers.append(
             ProviderOut(
-                name=p["name"],
-                display_name=p["display_name"],
-                client_config=p["client_config"],
+                name=str(p["name"]),
+                display_name=str(p["display_name"]),
+                client_config=p["client_config"],  # type: ignore[arg-type]
             )
-            for p in items
-        ]
-    )
+        )
+    return ProvidersListOut(providers=providers)
 
 
 @router.post("/token-exchange", response=TokenExchangeOut, auth=None)
@@ -76,7 +76,7 @@ def token_exchange(request: HttpRequest, payload: TokenExchangeIn) -> TokenExcha
 
     return TokenExchangeOut(
         success=True,
-        access=str(refresh.access_token),
+        access=str(refresh.access_token),  # type: ignore[attr-defined]
         refresh=str(refresh),
         user_id=user.id,
         username=user.username,

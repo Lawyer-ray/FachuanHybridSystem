@@ -49,9 +49,9 @@ class ProviderRegistry:
         return cls._configs[name]
 
     @classmethod
-    def enabled_list(cls) -> list[dict[str, str | dict | None]]:
+    def enabled_list(cls) -> list[dict[str, str | dict[str, str] | None]]:
         """返回已启用的 Provider 列表（供前端渲染）"""
-        result = []
+        result: list[dict[str, str | dict[str, str] | None]] = []
         for name, provider_cls in cls._providers.items():
             config = cls._configs.get(name)
             if config and config.is_enabled:

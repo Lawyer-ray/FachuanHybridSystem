@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import timedelta
+
 from django.db import models
 from django.utils import timezone
 
@@ -28,4 +30,4 @@ class TempAuth(models.Model):
 
     @property
     def is_expired(self) -> bool:
-        return timezone.now() > self.created_at + timezone.timedelta(minutes=TEMP_AUTH_EXPIRE_MINUTES)
+        return bool(timezone.now() > self.created_at + timedelta(minutes=TEMP_AUTH_EXPIRE_MINUTES))
