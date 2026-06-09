@@ -4,7 +4,11 @@ from typing import ClassVar
 
 from django.db import models
 
+from apps.core.security.secret_codec import SecretCodec
+
 from .lawyer import Lawyer
+
+_codec = SecretCodec()
 
 
 class AccountCredential(models.Model):
@@ -16,7 +20,7 @@ class AccountCredential(models.Model):
     site_name = models.CharField(max_length=255, verbose_name="网站名称")
     url = models.URLField(blank=True, verbose_name="URL")
     account = models.CharField(max_length=255, verbose_name="账号")
-    password = models.CharField(max_length=255, verbose_name="密码")
+    _password = models.CharField(max_length=512, verbose_name="密码", db_column="password")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="更新时间")
 
@@ -35,6 +39,23 @@ class AccountCredential(models.Model):
 
     def __str__(self) -> str:
         return f"{self.site_name} - {self.account}"
+
+    @property
+    def password(self) -> str:
+        """解密并返回密码明文。"""
+        raw = self._password or ""
+        if _codec.is_encrypted(raw):
+            return _codec.try_decrypt(raw)
+        # 兼容旧的明文数据：返回原值（生产环境会解密失败时 raise）
+        return raw
+
+    @password.setter
+    def password(self, value: str) -> None:
+        """写入时自动加密。"""
+        if value and not _codec.is_encrypted(value):
+            self._password = _codec.encrypt(value)
+        else:
+            self._password = value
 
     @property
     def success_rate(self) -> float:

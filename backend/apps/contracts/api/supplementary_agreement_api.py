@@ -23,22 +23,44 @@ def _get_supplementary_agreement_service() -> SupplementaryAgreementService:
     return SupplementaryAgreementService(client_service=ClientServiceAdapter())
 
 
+def _get_contract_access_policy() -> Any:
+    from apps.contracts.services.contract.wiring import get_contract_service
+
+    return get_contract_service().access_policy
+
+
+def _ensure_contract_access(request: Any, contract_id: int) -> None:
+    """验证当前用户对合同的访问权限。"""
+    from apps.core.security import get_request_access_context
+
+    ctx = get_request_access_context(request)
+    _get_contract_access_policy().ensure_access(
+        contract_id=contract_id,
+        user=ctx.user,
+        org_access=ctx.org_access,
+        perm_open_access=ctx.perm_open_access,
+    )
+
+
+def _resolve_contract_id_from_agreement(agreement_id: int) -> int:
+    """从补充协议 ID 解析其所属合同 ID。"""
+    from apps.contracts.models import SupplementaryAgreement
+
+    try:
+        agreement = SupplementaryAgreement.objects.values("contract_id").get(pk=agreement_id)
+    except SupplementaryAgreement.DoesNotExist:
+        from apps.core.exceptions import NotFoundError
+
+        raise NotFoundError(f"补充协议 {agreement_id} 不存在")
+    return agreement["contract_id"]
+
+
 @router.post("/supplementary-agreements", response=SupplementaryAgreementOut)
 def create_supplementary_agreement(
     request: HttpRequest, payload: SupplementaryAgreementIn
 ) -> SupplementaryAgreementOut:
-    """
-    创建补充协议
-
-    API 层职责:
-    1. 接收请求数据
-    2. 调用 Service
-    3. 返回结果
-
-    异常由全局异常处理器处理
-    """
+    _ensure_contract_access(request, payload.contract_id)
     service = _get_supplementary_agreement_service()
-
     return service.create_supplementary_agreement(
         contract_id=payload.contract_id, name=payload.name, party_ids=payload.party_ids
     )  # type: ignore[return-value]
@@ -46,30 +68,15 @@ def create_supplementary_agreement(
 
 @router.get("/supplementary-agreements/{agreement_id}", response=SupplementaryAgreementOut)
 def get_supplementary_agreement(request: HttpRequest, agreement_id: int) -> SupplementaryAgreementOut:
-    """
-    获取补充协议
-
-    API 层职责：
-    1. 接收路径参数
-    2. 调用 Service
-    3. 返回结果
-
-    异常由全局异常处理器处理
-    """
+    contract_id = _resolve_contract_id_from_agreement(agreement_id)
+    _ensure_contract_access(request, contract_id)
     service = _get_supplementary_agreement_service()
     return service.get_supplementary_agreement(agreement_id)  # type: ignore[return-value]
 
 
 @router.get("/contracts/{contract_id}/supplementary-agreements", response=list[SupplementaryAgreementOut])
 def list_supplementary_agreements(request: HttpRequest, contract_id: int) -> list[SupplementaryAgreementOut]:
-    """
-    获取合同的所有补充协议
-
-    API 层职责：
-    1. 接收路径参数
-    2. 调用 Service
-    3. 返回结果列表
-    """
+    _ensure_contract_access(request, contract_id)
     service = _get_supplementary_agreement_service()
     return service.list_by_contract(contract_id)  # type: ignore[return-value]
 
@@ -78,21 +85,10 @@ def list_supplementary_agreements(request: HttpRequest, contract_id: int) -> lis
 def update_supplementary_agreement(
     request: HttpRequest, agreement_id: int, payload: SupplementaryAgreementUpdate
 ) -> SupplementaryAgreementOut:
-    """
-    更新补充协议
-
-    API 层职责：
-    1. 接收参数
-    2. 调用 Service
-    3. 返回结果
-
-    异常由全局异常处理器处理
-    """
+    contract_id = _resolve_contract_id_from_agreement(agreement_id)
+    _ensure_contract_access(request, contract_id)
     service = _get_supplementary_agreement_service()
-
-    # 提取更新数据（只包含实际提供的字段）
     data = payload.model_dump(exclude_unset=True)
-
     return service.update_supplementary_agreement(
         agreement_id=agreement_id, name=data.get("name"), party_ids=data.get("party_ids")
     )  # type: ignore[return-value]
@@ -100,16 +96,8 @@ def update_supplementary_agreement(
 
 @router.delete("/supplementary-agreements/{agreement_id}")
 def delete_supplementary_agreement(request: HttpRequest, agreement_id: int) -> dict[str, bool]:
-    """
-    删除补充协议
-
-    API 层职责：
-    1. 接收参数
-    2. 调用 Service
-    3. 返回成功响应
-
-    异常由全局异常处理器处理
-    """
+    contract_id = _resolve_contract_id_from_agreement(agreement_id)
+    _ensure_contract_access(request, contract_id)
     service = _get_supplementary_agreement_service()
     service.delete_supplementary_agreement(agreement_id)
     return {"success": True}

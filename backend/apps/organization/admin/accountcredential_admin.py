@@ -63,8 +63,14 @@ class AccountCredentialAdmin(admin.ModelAdmin):
         self, request: HttpRequest, obj: AccountCredential | None = None, **kwargs: Any
     ) -> type[forms.ModelForm]:
         form = super().get_form(request, obj, **kwargs)
-        if "password" in form.base_fields:
-            # Preserve masked credential input; do not regress to plain text rendering.
+        # password 是 Python property（底层字段 _password），需要手动添加表单字段
+        if "password" not in form.base_fields:
+            form.base_fields["password"] = forms.CharField(
+                required=False,
+                widget=forms.PasswordInput(render_value=True),
+                label="密码",
+            )
+        else:
             form.base_fields["password"].widget = forms.PasswordInput(render_value=True)
         # URL 字段使用普通文本输入框，隐藏 "Currently" 和 "Change"
         if "url" in form.base_fields:

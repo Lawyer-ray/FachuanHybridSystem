@@ -27,7 +27,9 @@ def _get_case_party_service() -> Any:
 def list_parties(request: HttpRequest, case_id: int | None = None) -> list[CasePartyOut]:
     service = _get_case_party_service()
     ctx = extract_request_context(request)
-    return cast(list[CasePartyOut], service.list_parties(case_id=case_id, user=ctx.user))
+    return cast(list[CasePartyOut], service.list_parties(
+        case_id=case_id, user=ctx.user, org_access=ctx.org_access, perm_open_access=ctx.perm_open_access,
+    ))
 
 
 @router.post("/parties", response=CasePartyOut)
@@ -37,7 +39,8 @@ def create_party(request: HttpRequest, payload: CasePartyIn) -> CasePartyOut:
     return cast(
         CasePartyOut,
         service.create_party(
-            case_id=payload.case_id, client_id=payload.client_id, legal_status=payload.legal_status, user=ctx.user
+            case_id=payload.case_id, client_id=payload.client_id, legal_status=payload.legal_status,
+            user=ctx.user, org_access=ctx.org_access, perm_open_access=ctx.perm_open_access,
         ),
     )
 
@@ -46,7 +49,9 @@ def create_party(request: HttpRequest, payload: CasePartyIn) -> CasePartyOut:
 def get_party(request: HttpRequest, party_id: int) -> CasePartyOut:
     service = _get_case_party_service()
     ctx = extract_request_context(request)
-    return cast(CasePartyOut, service.get_party(party_id=party_id, user=ctx.user))
+    return cast(CasePartyOut, service.get_party(
+        party_id=party_id, user=ctx.user, org_access=ctx.org_access, perm_open_access=ctx.perm_open_access,
+    ))
 
 
 @router.put("/parties/{party_id}", response=CasePartyOut)
@@ -54,11 +59,15 @@ def update_party(request: HttpRequest, party_id: int, payload: CasePartyUpdate) 
     service = _get_case_party_service()
     ctx = extract_request_context(request)
     data = payload.model_dump(exclude_unset=True)
-    return cast(CasePartyOut, service.update_party(party_id=party_id, data=data, user=ctx.user))
+    return cast(CasePartyOut, service.update_party(
+        party_id=party_id, data=data, user=ctx.user, org_access=ctx.org_access, perm_open_access=ctx.perm_open_access,
+    ))
 
 
 @router.delete("/parties/{party_id}")
 def delete_party(request: HttpRequest, party_id: int) -> Any:
     service = _get_case_party_service()
     ctx = extract_request_context(request)
-    return service.delete_party(party_id=party_id, user=ctx.user)
+    return service.delete_party(
+        party_id=party_id, user=ctx.user, org_access=ctx.org_access, perm_open_access=ctx.perm_open_access,
+    )

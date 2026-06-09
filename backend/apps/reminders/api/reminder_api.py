@@ -8,6 +8,8 @@ from django.http import HttpResponse
 from ninja import Router
 
 from apps.core.api.schema_utils import schema_to_update_dict
+from apps.core.security import get_request_access_context
+from apps.core.security.access_context import AccessContext
 
 from ..schemas import (
     ParsedReminderOut,
@@ -27,6 +29,36 @@ router = Router()
 def _get_reminder_service() -> Any:
     """工厂函数：获取 ReminderService 实例。"""
     return get_reminder_service()
+
+
+def _ensure_target_access(
+    ctx: AccessContext,
+    contract_id: int | None = None,
+    case_id: int | None = None,
+    case_log_id: int | None = None,
+) -> None:
+    """验证用户对提醒关联实体（合同/案件/案件日志）的访问权限。"""
+    if case_id is not None:
+        from apps.cases.services.case.case_access_policy import CaseAccessPolicy
+
+        CaseAccessPolicy().ensure_access_ctx(case_id=case_id, ctx=ctx)
+    elif contract_id is not None:
+        from apps.contracts.services.contract.domain.access_policy import ContractAccessPolicy
+
+        ContractAccessPolicy().ensure_access(
+            contract_id=contract_id,
+            user=ctx.user,
+            org_access=ctx.org_access,
+            perm_open_access=ctx.perm_open_access,
+        )
+    elif case_log_id is not None:
+        from apps.cases.models import CaseLog
+
+        log = CaseLog.objects.filter(pk=case_log_id).values("case_id").first()
+        if log:
+            from apps.cases.services.case.case_access_policy import CaseAccessPolicy
+
+            CaseAccessPolicy().ensure_access_ctx(case_id=log["case_id"], ctx=ctx)
 
 
 @router.post("/parse", response=list[ParsedReminderOut])
@@ -54,6 +86,8 @@ def list_reminders(
     case_id: int | None = None,
     case_log_id: int | None = None,
 ) -> Any:
+    ctx = get_request_access_context(request)
+    _ensure_target_access(ctx, contract_id=contract_id, case_id=case_id, case_log_id=case_log_id)
     return _get_reminder_service().list_reminders(
         contract_id=contract_id,
         case_id=case_id,
@@ -63,6 +97,8 @@ def list_reminders(
 
 @router.post("/create", response=ReminderOut)
 def create_reminder(request: Any, payload: ReminderIn) -> Any:
+    ctx = get_request_access_context(request)
+    _ensure_target_access(ctx, contract_id=payload.contract_id, case_id=payload.case_id, case_log_id=payload.case_log_id)
     return _get_reminder_service().create_reminder(
         contract_id=payload.contract_id,
         case_id=payload.case_id,
@@ -90,16 +126,40 @@ def get_target_options(request: Any, q: str = "") -> Any:
 
 @router.get("/{reminder_id}", response=ReminderOut)
 def get_reminder(request: Any, reminder_id: int) -> Any:
-    return _get_reminder_service().get_reminder(reminder_id)
+    reminder = _get_reminder_service().get_reminder(reminder_id, select_related=True)
+    ctx = get_request_access_context(request)
+    _ensure_target_access(
+        ctx,
+        contract_id=reminder.contract_id,
+        case_id=reminder.case_id,
+        case_log_id=reminder.case_log_id,
+    )
+    return reminder
 
 
 @router.put("/{reminder_id}", response=ReminderOut)
 def update_reminder(request: Any, reminder_id: int, payload: ReminderUpdate) -> Any:
+    existing = _get_reminder_service().get_reminder(reminder_id)
+    ctx = get_request_access_context(request)
+    _ensure_target_access(
+        ctx,
+        contract_id=existing.contract_id,
+        case_id=existing.case_id,
+        case_log_id=existing.case_log_id,
+    )
     data = schema_to_update_dict(payload)
     return _get_reminder_service().update_reminder(reminder_id, data)
 
 
 @router.delete("/{reminder_id}")
 def delete_reminder(request: Any, reminder_id: int) -> HttpResponse:
+    existing = _get_reminder_service().get_reminder(reminder_id)
+    ctx = get_request_access_context(request)
+    _ensure_target_access(
+        ctx,
+        contract_id=existing.contract_id,
+        case_id=existing.case_id,
+        case_log_id=existing.case_log_id,
+    )
     _get_reminder_service().delete_reminder(reminder_id)
     return HttpResponse(status=204)

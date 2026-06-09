@@ -24,6 +24,7 @@ from .services import link_or_create_user
 logger = logging.getLogger(__name__)
 
 _STATE_TTL_SECONDS = 300
+_SAFE_REDIRECT_PATTERN = __import__("re").compile(r"^/[a-zA-Z0-9/_\-.?=&%+]*$")
 
 
 class SocialLoginView(View):
@@ -47,11 +48,15 @@ class SocialLoginView(View):
         instance = provider_cls(config)
 
         state = secrets.token_urlsafe(32)
+        next_url = request.GET.get("redirect", "/")
+        # 防止开放重定向：只允许相对路径，且不能包含协议（如 //evil.com）
+        if not _SAFE_REDIRECT_PATTERN.match(next_url) or next_url.startswith("//"):
+            next_url = "/"
         request.session["oauth"] = {
             "provider": provider,
             "state": state,
             "created_at": time.time(),
-            "next_url": request.GET.get("redirect", "/"),
+            "next_url": next_url,
         }
         request.session.modified = True
 
@@ -129,6 +134,9 @@ class SocialCallbackView(View):
             request.session.modified = True
 
         next_url = session_data.get("next_url", "/")
+        # 二次校验：防止 session 被篡改后构造恶意重定向
+        if not _SAFE_REDIRECT_PATTERN.match(next_url) or next_url.startswith("//"):
+            next_url = "/"
         return HttpResponseRedirect(
             f"{frontend_base}/social-callback?code={temp.token}&redirect={next_url}"
         )

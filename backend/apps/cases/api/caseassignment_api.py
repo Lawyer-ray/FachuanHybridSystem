@@ -29,7 +29,10 @@ def list_assignments(
 ) -> list[CaseAssignmentOut]:
     service = _get_case_assignment_service()
     ctx = extract_request_context(request)
-    return cast(list[CaseAssignmentOut], service.list_assignments(case_id=case_id, lawyer_id=lawyer_id, user=ctx.user))
+    return cast(list[CaseAssignmentOut], service.list_assignments(
+        case_id=case_id, lawyer_id=lawyer_id, user=ctx.user,
+        org_access=ctx.org_access, perm_open_access=ctx.perm_open_access,
+    ))
 
 
 @router.post("/assignments", response=CaseAssignmentOut)
@@ -38,7 +41,10 @@ def create_assignment(request: HttpRequest, payload: CaseAssignmentIn) -> CaseAs
     ctx = extract_request_context(request)
     return cast(
         CaseAssignmentOut,
-        service.create_assignment(case_id=payload.case_id, lawyer_id=payload.lawyer_id, user=ctx.user),
+        service.create_assignment(
+            case_id=payload.case_id, lawyer_id=payload.lawyer_id, user=ctx.user,
+            org_access=ctx.org_access, perm_open_access=ctx.perm_open_access,
+        ),
     )
 
 
@@ -46,7 +52,10 @@ def create_assignment(request: HttpRequest, payload: CaseAssignmentIn) -> CaseAs
 def get_assignment(request: HttpRequest, assignment_id: int) -> CaseAssignmentOut:
     service = _get_case_assignment_service()
     ctx = extract_request_context(request)
-    return cast(CaseAssignmentOut, service.get_assignment(assignment_id=assignment_id, user=ctx.user))
+    return cast(CaseAssignmentOut, service.get_assignment(
+        assignment_id=assignment_id, user=ctx.user,
+        org_access=ctx.org_access, perm_open_access=ctx.perm_open_access,
+    ))
 
 
 @router.put("/assignments/{assignment_id}", response=CaseAssignmentOut)
@@ -54,11 +63,17 @@ def update_assignment(request: HttpRequest, assignment_id: int, payload: CaseAss
     service = _get_case_assignment_service()
     ctx = extract_request_context(request)
     data = payload.model_dump(exclude_unset=True)
-    return cast(CaseAssignmentOut, service.update_assignment(assignment_id=assignment_id, data=data, user=ctx.user))
+    return cast(CaseAssignmentOut, service.update_assignment(
+        assignment_id=assignment_id, data=data, user=ctx.user,
+        org_access=ctx.org_access, perm_open_access=ctx.perm_open_access,
+    ))
 
 
 @router.delete("/assignments/{assignment_id}")
 def delete_assignment(request: HttpRequest, assignment_id: int) -> Any:
     service = _get_case_assignment_service()
     ctx = extract_request_context(request)
-    return service.delete_assignment(assignment_id=assignment_id, user=ctx.user)
+    return service.delete_assignment(
+        assignment_id=assignment_id, user=ctx.user,
+        org_access=ctx.org_access, perm_open_access=ctx.perm_open_access,
+    )

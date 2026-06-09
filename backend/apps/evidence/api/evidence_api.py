@@ -56,6 +56,12 @@ def reorder_evidence_items(request: HttpRequest, list_id: int, data: ReorderItem
 
     Requirements: 4.2, 4.3
     """
+    from apps.core.security import get_request_access_context
+    from apps.evidence.services.core.access_policy import ensure_evidence_list_access
+
+    ctx = get_request_access_context(request)
+    ensure_evidence_list_access(list_id, ctx)
+
     service = _get_evidence_service()
     service.reorder_items(list_id, data.item_ids)
     return ReorderItemsResponse(success=True, message="排序成功")

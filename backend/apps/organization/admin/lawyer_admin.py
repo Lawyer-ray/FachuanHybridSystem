@@ -95,7 +95,7 @@ class AccountCredentialInlineForm(forms.ModelForm[AccountCredential]):
         model = AccountCredential
         fields = "__all__"
         widgets: ClassVar[dict[str, Any]] = {
-            "password": forms.PasswordInput(render_value=True),
+            "_password": forms.PasswordInput(render_value=True),
             "url": forms.TextInput(attrs={"class": "vTextField"}),
         }
 
@@ -104,7 +104,7 @@ class AccountCredentialInline(admin.TabularInline[AccountCredential, AccountCred
     model = AccountCredential
     form = AccountCredentialInlineForm
     extra = 1
-    fields = ("site_name", "url", "account", "password")
+    fields = ("site_name", "url", "account", "_password")
     autocomplete_fields = ()
     show_change_link = False
     verbose_name = "账号密码"
