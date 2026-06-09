@@ -626,21 +626,6 @@ describe('LprCalculatorTool', () => {
   })
 
   it('validates variable mode with filled changes', () => {
-    const result = {
-      success: true,
-      total_interest: '1500.00',
-      total_days: 180,
-      total_principal: '50000',
-      start_date: '2024-01-01',
-      end_date: '2024-06-30',
-      periods: [
-        { start_date: '2024-01-01', end_date: '2024-06-30', days: 180, rate: '3.10', rate_unit: 'percent', interest: '1500.00' },
-      ],
-      message: '',
-      code: null,
-      sync_info: null,
-    }
-    mockLprCalculate.mockReturnValue({ mutate: makeMutateWithData(result), isPending: false })
     render(<LprCalculatorTool />)
     fireEvent.click(screen.getByText('变动本金'))
     // Fill the change row

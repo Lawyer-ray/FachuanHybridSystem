@@ -34,13 +34,53 @@ vi.mock('ky', () => ({
   HTTPError: class HTTPError extends Error {},
 }))
 
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { ElementConvertTool } from '../ElementConvertTool'
 import { useQuery } from '@tanstack/react-query'
+import { api } from '@/lib/api'
+import { toast } from 'sonner'
+import { HTTPError } from 'ky'
+
+const mockCategories = [
+  { category: '合同纠纷', items: [{ mbid: 'mb1', name: '买卖合同' }, { mbid: 'mb2', name: '借款合同' }] },
+]
+
+function mockUseQueryWithData() {
+  vi.mocked(useQuery).mockReturnValue({
+    data: { categories: mockCategories },
+    isLoading: false,
+  } as any)
+}
+
+function selectFile(name: string, size = 1024) {
+  const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement
+  const file = new File(['content'], name, { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' })
+  Object.defineProperty(file, 'size', { value: size })
+  fireEvent.change(fileInput, { target: { files: [file] } })
+  return file
+}
+
+function selectMbid(label: string) {
+  const buttons = screen.getAllByText(label)
+  fireEvent.click(buttons[0])
+}
 
 describe('ElementConvertTool', () => {
+  let originalCreateElement: typeof document.createElement
+  let urlSpy: { createObjectURL: ReturnType<typeof vi.fn>; revokeObjectURL: ReturnType<typeof vi.fn> }
+
   beforeEach(() => {
     vi.clearAllMocks()
+    originalCreateElement = document.createElement.bind(document)
+    urlSpy = { createObjectURL: vi.fn(() => 'blob:url'), revokeObjectURL: vi.fn() }
+    vi.stubGlobal('URL', { ...URL, ...urlSpy })
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+    vi.unstubAllGlobals()
+    // Restore createElement if it was overridden via direct assignment
+    document.createElement = originalCreateElement
   })
 
   it('renders page title', () => {
@@ -91,15 +131,12 @@ describe('ElementConvertTool', () => {
     expect(screen.getByText(/上传传统格式文书，系统自动识别并转换为要素式标准格式/)).toBeInTheDocument()
   })
 
-  // --- New tests for uncovered lines ---
+  // --- File selection tests ---
 
-  it('handles file select with valid docx file', async () => {
+  it('handles file select with valid docx file', () => {
     vi.mocked(useQuery).mockReturnValue({ data: null, isLoading: false } as any)
     render(<ElementConvertTool />)
-    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement
-    const file = new File(['content'], 'test.docx', { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' })
-    Object.defineProperty(file, 'size', { value: 1024 })
-    fireEvent.change(fileInput, { target: { files: [file] } })
+    selectFile('test.docx')
     expect(screen.getAllByText('test.docx').length).toBeGreaterThan(0)
   })
 
@@ -109,17 +146,13 @@ describe('ElementConvertTool', () => {
     const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement
     const file = new File(['content'], 'test.txt', { type: 'text/plain' })
     fireEvent.change(fileInput, { target: { files: [file] } })
-    // Should show error toast, not display file
     expect(screen.queryByText('test.txt')).not.toBeInTheDocument()
   })
 
   it('handles file select with oversized file', () => {
     vi.mocked(useQuery).mockReturnValue({ data: null, isLoading: false } as any)
     render(<ElementConvertTool />)
-    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement
-    const file = new File(['x'.repeat(21 * 1024 * 1024)], 'large.docx', { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' })
-    Object.defineProperty(file, 'size', { value: 21 * 1024 * 1024 })
-    fireEvent.change(fileInput, { target: { files: [file] } })
+    selectFile('large.docx', 21 * 1024 * 1024)
     expect(screen.queryByText('large.docx')).not.toBeInTheDocument()
   })
 
@@ -162,10 +195,7 @@ describe('ElementConvertTool', () => {
       isLoading: false,
     } as any)
     render(<ElementConvertTool />)
-    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement
-    const file = new File(['content'], '传统格式_买卖合同.docx', { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' })
-    Object.defineProperty(file, 'size', { value: 2048 })
-    fireEvent.change(fileInput, { target: { files: [file] } })
+    selectFile('传统格式_买卖合同.docx', 2048)
     expect(screen.getAllByText('传统格式_买卖合同.docx').length).toBeGreaterThan(0)
     expect(screen.getByText(/2 KB/)).toBeInTheDocument()
   })
@@ -176,10 +206,7 @@ describe('ElementConvertTool', () => {
       isLoading: false,
     } as any)
     render(<ElementConvertTool />)
-    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement
-    const file = new File(['content'], '买卖合同_传统.docx', { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' })
-    fireEvent.change(fileInput, { target: { files: [file] } })
-    // MBID should be auto-selected, enabling step 3
+    selectFile('买卖合同_传统.docx')
     expect(screen.getAllByText('买卖合同_传统.docx').length).toBeGreaterThan(0)
   })
 
@@ -189,22 +216,16 @@ describe('ElementConvertTool', () => {
       isLoading: false,
     } as any)
     render(<ElementConvertTool />)
-    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement
-    const file = new File(['content'], '买卖合同.docx', { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' })
-    fireEvent.change(fileInput, { target: { files: [file] } })
-    // Click MBID button to select it - use getAllByText since text appears in multiple places
+    selectFile('买卖合同.docx')
     const mbidButtons = screen.getAllByText('买卖合同')
     fireEvent.click(mbidButtons[0])
-    // Step 3 should now be visible
     expect(screen.getByText('转换并下载')).toBeInTheDocument()
   })
 
   it('renders clear file button', () => {
     vi.mocked(useQuery).mockReturnValue({ data: null, isLoading: false } as any)
     render(<ElementConvertTool />)
-    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement
-    const file = new File(['content'], 'test.docx', { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' })
-    fireEvent.change(fileInput, { target: { files: [file] } })
+    selectFile('test.docx')
     expect(screen.getAllByText('test.docx').length).toBeGreaterThan(0)
   })
 
@@ -223,7 +244,6 @@ describe('ElementConvertTool', () => {
       isLoading: false,
     } as any)
     render(<ElementConvertTool />)
-    // Step 2 should have pointer-events-none class
     expect(screen.getByText('买卖合同')).toBeInTheDocument()
   })
 
@@ -234,5 +254,309 @@ describe('ElementConvertTool', () => {
     const file = new File(['content'], 'test.doc', { type: 'application/msword' })
     fireEvent.change(fileInput, { target: { files: [file] } })
     expect(screen.getAllByText('test.doc').length).toBeGreaterThan(0)
+  })
+
+  // --- Conversion tests ---
+
+  it('triggers download on successful convert', async () => {
+    const mockBlob = new Blob(['converted'])
+    const mockClick = vi.fn()
+    // Override createElement only for 'a' tags, using the real impl for others
+    document.createElement = ((tag: string) => {
+      if (tag === 'a') {
+        return { href: '', download: '', click: mockClick } as unknown as HTMLAnchorElement
+      }
+      return originalCreateElement(tag)
+    }) as typeof document.createElement
+
+    vi.mocked(api.post).mockResolvedValue({ blob: () => Promise.resolve(mockBlob) } as any)
+    mockUseQueryWithData()
+    render(<ElementConvertTool />)
+
+    selectFile('传统格式_买卖合同.docx')
+    await waitFor(() => expect(screen.getByText('转换并下载')).toBeInTheDocument())
+    fireEvent.click(screen.getByText('转换并下载'))
+
+    await waitFor(() => {
+      expect(api.post).toHaveBeenCalledWith('doc-convert/convert', expect.objectContaining({ timeout: 120_000 }))
+      expect(urlSpy.createObjectURL).toHaveBeenCalledWith(mockBlob)
+      expect(mockClick).toHaveBeenCalled()
+      expect(toast.success).toHaveBeenCalledWith('转换完成，文件已下载')
+    })
+  })
+
+  it('renames 传统 to 要素式 in downloaded filename', async () => {
+    const mockBlob = new Blob(['x'])
+    const mockClick = vi.fn()
+    let downloadName = ''
+    document.createElement = ((tag: string) => {
+      if (tag === 'a') {
+        return new Proxy({} as HTMLAnchorElement, {
+          set(_target, prop, value) {
+            if (prop === 'download') downloadName = value as string
+            return true
+          },
+          get(_target, prop) {
+            if (prop === 'click') return mockClick
+            return undefined
+          },
+        })
+      }
+      return originalCreateElement(tag)
+    }) as typeof document.createElement
+
+    vi.mocked(api.post).mockResolvedValue({ blob: () => Promise.resolve(mockBlob) } as any)
+    mockUseQueryWithData()
+    render(<ElementConvertTool />)
+
+    selectFile('传统格式_买卖合同.docx')
+    await waitFor(() => expect(screen.getByText('转换并下载')).toBeInTheDocument())
+    fireEvent.click(screen.getByText('转换并下载'))
+
+    await waitFor(() => {
+      expect(downloadName).toBe('要素式格式_买卖合同.docx')
+    })
+  })
+
+  it('prepends 要素式 when filename has no 传统', async () => {
+    const mockBlob = new Blob(['x'])
+    const mockClick = vi.fn()
+    let downloadName = ''
+    document.createElement = ((tag: string) => {
+      if (tag === 'a') {
+        return new Proxy({} as HTMLAnchorElement, {
+          set(_target, prop, value) {
+            if (prop === 'download') downloadName = value as string
+            return true
+          },
+          get(_target, prop) {
+            if (prop === 'click') return mockClick
+            return undefined
+          },
+        })
+      }
+      return originalCreateElement(tag)
+    }) as typeof document.createElement
+
+    vi.mocked(api.post).mockResolvedValue({ blob: () => Promise.resolve(mockBlob) } as any)
+    mockUseQueryWithData()
+    render(<ElementConvertTool />)
+
+    selectFile('买卖合同.docx')
+    selectMbid('买卖合同')
+    await waitFor(() => expect(screen.getByText('转换并下载')).toBeInTheDocument())
+    fireEvent.click(screen.getByText('转换并下载'))
+
+    await waitFor(() => {
+      expect(downloadName).toBe('要素式买卖合同.docx')
+    })
+  })
+
+  it('handles HTTPError 502 with detail', async () => {
+    const mockResponse = { status: 502, json: vi.fn().mockResolvedValue({ detail: '远端服务不可用' }) }
+    const err = Object.create(HTTPError.prototype, {
+      response: { value: mockResponse },
+    })
+    vi.mocked(api.post).mockRejectedValue(err)
+    mockUseQueryWithData()
+    render(<ElementConvertTool />)
+
+    selectFile('买卖合同.docx')
+    selectMbid('买卖合同')
+    await waitFor(() => expect(screen.getByText('转换并下载')).toBeInTheDocument())
+    fireEvent.click(screen.getByText('转换并下载'))
+
+    await waitFor(() => {
+      expect(toast.error).toHaveBeenCalledWith('远端服务不可用')
+    })
+  })
+
+  it('handles HTTPError 502 without detail', async () => {
+    const mockResponse = { status: 502, json: vi.fn().mockResolvedValue({}) }
+    const err = Object.create(HTTPError.prototype, {
+      response: { value: mockResponse },
+    })
+    vi.mocked(api.post).mockRejectedValue(err)
+    mockUseQueryWithData()
+    render(<ElementConvertTool />)
+
+    selectFile('买卖合同.docx')
+    selectMbid('买卖合同')
+    await waitFor(() => expect(screen.getByText('转换并下载')).toBeInTheDocument())
+    fireEvent.click(screen.getByText('转换并下载'))
+
+    await waitFor(() => {
+      expect(toast.error).toHaveBeenCalledWith('远端转换服务暂时不可用，请稍后重试')
+    })
+  })
+
+  it('handles HTTPError non-502 with detail', async () => {
+    const mockResponse = { status: 400, json: vi.fn().mockResolvedValue({ detail: '文件格式错误' }) }
+    const err = Object.create(HTTPError.prototype, {
+      response: { value: mockResponse },
+    })
+    vi.mocked(api.post).mockRejectedValue(err)
+    mockUseQueryWithData()
+    render(<ElementConvertTool />)
+
+    selectFile('买卖合同.docx')
+    selectMbid('买卖合同')
+    await waitFor(() => expect(screen.getByText('转换并下载')).toBeInTheDocument())
+    fireEvent.click(screen.getByText('转换并下载'))
+
+    await waitFor(() => {
+      expect(toast.error).toHaveBeenCalledWith('文件格式错误')
+    })
+  })
+
+  it('handles HTTPError non-502 without detail', async () => {
+    const mockResponse = { status: 400, json: vi.fn().mockResolvedValue({}) }
+    const err = Object.create(HTTPError.prototype, {
+      response: { value: mockResponse },
+    })
+    vi.mocked(api.post).mockRejectedValue(err)
+    mockUseQueryWithData()
+    render(<ElementConvertTool />)
+
+    selectFile('买卖合同.docx')
+    selectMbid('买卖合同')
+    await waitFor(() => expect(screen.getByText('转换并下载')).toBeInTheDocument())
+    fireEvent.click(screen.getByText('转换并下载'))
+
+    await waitFor(() => {
+      expect(toast.error).toHaveBeenCalledWith('请求失败 (400)')
+    })
+  })
+
+  it('handles HTTPError when response.json() throws (502)', async () => {
+    const mockResponse = { status: 502, json: vi.fn().mockRejectedValue(new Error('parse error')) }
+    const err = Object.create(HTTPError.prototype, {
+      response: { value: mockResponse },
+    })
+    vi.mocked(api.post).mockRejectedValue(err)
+    mockUseQueryWithData()
+    render(<ElementConvertTool />)
+
+    selectFile('买卖合同.docx')
+    selectMbid('买卖合同')
+    await waitFor(() => expect(screen.getByText('转换并下载')).toBeInTheDocument())
+    fireEvent.click(screen.getByText('转换并下载'))
+
+    await waitFor(() => {
+      expect(toast.error).toHaveBeenCalledWith('远端转换服务暂时不可用，请稍后重试')
+    })
+  })
+
+  it('handles HTTPError when response.json() throws (non-502)', async () => {
+    const mockResponse = { status: 400, json: vi.fn().mockRejectedValue(new Error('parse error')) }
+    const err = Object.create(HTTPError.prototype, {
+      response: { value: mockResponse },
+    })
+    vi.mocked(api.post).mockRejectedValue(err)
+    mockUseQueryWithData()
+    render(<ElementConvertTool />)
+
+    selectFile('买卖合同.docx')
+    selectMbid('买卖合同')
+    await waitFor(() => expect(screen.getByText('转换并下载')).toBeInTheDocument())
+    fireEvent.click(screen.getByText('转换并下载'))
+
+    await waitFor(() => {
+      expect(toast.error).toHaveBeenCalledWith('请求失败 (400)')
+    })
+  })
+
+  it('handles generic Error', async () => {
+    vi.mocked(api.post).mockRejectedValue(new Error('网络超时'))
+    mockUseQueryWithData()
+    render(<ElementConvertTool />)
+
+    selectFile('买卖合同.docx')
+    selectMbid('买卖合同')
+    await waitFor(() => expect(screen.getByText('转换并下载')).toBeInTheDocument())
+    fireEvent.click(screen.getByText('转换并下载'))
+
+    await waitFor(() => {
+      expect(toast.error).toHaveBeenCalledWith('网络超时')
+    })
+  })
+
+  it('handles non-Error exception', async () => {
+    vi.mocked(api.post).mockRejectedValue('unknown error')
+    mockUseQueryWithData()
+    render(<ElementConvertTool />)
+
+    selectFile('买卖合同.docx')
+    selectMbid('买卖合同')
+    await waitFor(() => expect(screen.getByText('转换并下载')).toBeInTheDocument())
+    fireEvent.click(screen.getByText('转换并下载'))
+
+    await waitFor(() => {
+      expect(toast.error).toHaveBeenCalledWith('转换失败')
+    })
+  })
+
+  it('shows converting state and disables button', async () => {
+    let resolvePost: (v: unknown) => void
+    vi.mocked(api.post).mockReturnValue(new Promise((resolve) => { resolvePost = resolve }) as any)
+    mockUseQueryWithData()
+    render(<ElementConvertTool />)
+
+    selectFile('买卖合同.docx')
+    selectMbid('买卖合同')
+    await waitFor(() => expect(screen.getByText('转换并下载')).toBeInTheDocument())
+    fireEvent.click(screen.getByText('转换并下载'))
+
+    await waitFor(() => {
+      expect(screen.getByText('转换中...')).toBeInTheDocument()
+    })
+
+    resolvePost!({ blob: () => Promise.resolve(new Blob(['x'])) })
+    await waitFor(() => {
+      expect(screen.getByText('转换并下载')).toBeInTheDocument()
+    })
+  })
+
+  // --- Clear file button ---
+
+  it('clears selected file and resets mbid when X is clicked', () => {
+    mockUseQueryWithData()
+    render(<ElementConvertTool />)
+
+    selectFile('买卖合同.docx')
+    expect(screen.getAllByText('买卖合同.docx').length).toBeGreaterThan(0)
+
+    // Find the close button (X icon wrapper)
+    const closeButtons = document.querySelectorAll('.hover\\:bg-muted')
+    expect(closeButtons.length).toBeGreaterThan(0)
+    fireEvent.click(closeButtons[0])
+
+    // File should be removed, upload area should reappear
+    expect(screen.queryByText('买卖合同.docx')).not.toBeInTheDocument()
+    expect(screen.getByText(/点击选择或拖拽文件到此处/)).toBeInTheDocument()
+  })
+
+  // --- MBID selection ---
+
+  it('selects MBID when clicking a format button', () => {
+    mockUseQueryWithData()
+    render(<ElementConvertTool />)
+
+    selectFile('test.docx')
+    selectMbid('借款合同')
+
+    // Step 3 should show the selected MBID name in the conversion summary
+    expect(screen.getByText('借款合同', { selector: '.text-foreground.font-medium' })).toBeInTheDocument()
+  })
+
+  // --- Drop handler ---
+
+  it('prevents default on dragOver', () => {
+    vi.mocked(useQuery).mockReturnValue({ data: null, isLoading: false } as any)
+    render(<ElementConvertTool />)
+    const dropZone = screen.getByText(/点击选择或拖拽文件到此处/).closest('div')!
+    const event = new Event('dragOver', { bubbles: true, cancelable: true })
+    fireEvent(dropZone, event)
+    // Should not throw
   })
 })

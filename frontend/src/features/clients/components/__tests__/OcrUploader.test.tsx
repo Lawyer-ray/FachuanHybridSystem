@@ -14,8 +14,8 @@ vi.mock('@/components/ui/card', () => ({
 }))
 
 vi.mock('@/components/shared/DropZone', () => ({
-  DropZone: ({ onClick, ariaLabel }: { onClick: () => void; ariaLabel: string }) => (
-    <div data-testid="drop-zone" role="button" aria-label={ariaLabel} onClick={onClick} />
+  DropZone: ({ onClick, ariaLabel, onDrop, onDragEnter, onDragLeave, onDragOver }: { onClick: () => void; ariaLabel: string; onDrop?: (e: unknown) => void; onDragEnter?: (e: unknown) => void; onDragLeave?: (e: unknown) => void; onDragOver?: (e: unknown) => void }) => (
+    <div data-testid="drop-zone" role="button" aria-label={ariaLabel} onClick={onClick} onDrop={onDrop} onDragEnter={onDragEnter} onDragLeave={onDragLeave} onDragOver={onDragOver} />
   ),
 }))
 
