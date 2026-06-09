@@ -103,6 +103,7 @@ INSTALLED_APPS = [
     "apps.doc_converter",  # 6.71 DOC 批量转 DOCX
     "apps.workbench",  # 6.8 工作台（AI 对话式操作中心）
     "apps.core",  # 7. 核心系统
+    "apps.social_auth",  # 7.1 社交登录
     "django_q",  # 8. DJANGO Q
 ]
 
@@ -322,6 +323,24 @@ SMOKE_ADMIN_PASSWORD = _smoke_pw or "smoke_admin_password"  # DEBUG 模式下使
 
 if (not DEBUG) and ALLOW_FIRST_USER_SUPERUSER and (not BOOTSTRAP_ADMIN_TOKEN):
     raise RuntimeError("ALLOW_FIRST_USER_SUPERUSER=true 时必须配置 BOOTSTRAP_ADMIN_TOKEN")
+
+# ============================================================
+# 社交登录 Provider 配置
+# ============================================================
+
+SOCIAL_AUTH_PROVIDERS = {
+    "wechat": {
+        "display_name": "微信",
+        "client_id": os.environ.get("WECHAT_APP_ID", ""),
+        "client_secret": os.environ.get("WECHAT_APP_SECRET", ""),
+        "is_enabled": bool(os.environ.get("WECHAT_APP_ID", "")),
+        "extra": {
+            "redirect_uri": os.environ.get("WECHAT_REDIRECT_URI", ""),
+        },
+    },
+}
+
+FRONTEND_BASE_URL = os.environ.get("FRONTEND_BASE_URL", "http://localhost:5173")
 
 # ============================================================
 # CORS 配置
