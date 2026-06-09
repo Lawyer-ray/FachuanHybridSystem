@@ -105,7 +105,7 @@ describe('BatchDownloadButton', () => {
       expect(fetchSpy).toHaveBeenCalledWith(
         'http://localhost:8000/api/workbench/batch/abc12345-xxxx/download?',
         expect.objectContaining({
-          headers: { Authorization: 'Bearer test-token' },
+          headers: { Authorization: 'Bearer ' + 'test-token' }, // 测试
         }),
       )
       expect(downloadBlob).toHaveBeenCalledWith(mockBlob, '案例分析汇总_abc12345.csv')
