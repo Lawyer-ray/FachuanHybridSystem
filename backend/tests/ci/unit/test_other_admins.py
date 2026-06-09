@@ -36,7 +36,6 @@ from apps.invoice_recognition.admin.invoice_recognition_admin import InvoiceReco
 from apps.legal_research.admin.task_admin import LegalResearchTaskAdmin
 from apps.legal_research.admin.result_admin import LegalResearchResultAdmin
 from apps.legal_solution.admin.task_admin import SolutionTaskAdmin
-from apps.preservation_date.admin.preservation_date_admin import PreservationDateAdmin
 from apps.contract_review.admin.format_normalize_admin import FormatNormalizeAdmin
 from apps.contract_review.admin.review_task_admin import ReviewTaskAdmin
 
@@ -60,7 +59,6 @@ from apps.image_rotation.models import ImageRotationTool
 from apps.invoice_recognition.models import InvoiceRecognitionTask
 from apps.legal_research.models import LegalResearchResult, LegalResearchTask
 from apps.legal_solution.models import SolutionTask
-from apps.preservation_date.models import PreservationDateTool
 from apps.contract_review.models import FormatNormalize, ReviewTask
 
 User = get_user_model()
@@ -253,17 +251,6 @@ class TestLegalSolutionAdmin:
         """SolutionTaskAdmin list_display"""
         admin_obj = SolutionTaskAdmin(SolutionTask, AdminSite())
         assert "id" in admin_obj.list_display
-
-
-@pytest.mark.django_db
-class TestPreservationDateAdmin:
-    """保全日期 Admin 测试"""
-
-    def test_list_display(self) -> None:
-        """PreservationDateAdmin list_display"""
-        admin_obj = PreservationDateAdmin(PreservationDateTool, AdminSite())
-        assert len(admin_obj.list_display) > 0
-
 
 @pytest.mark.django_db
 class TestContractReviewAdmins:

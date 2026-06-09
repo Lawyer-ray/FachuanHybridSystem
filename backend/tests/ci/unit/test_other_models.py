@@ -8,7 +8,6 @@ import pytest
 
 from apps.batch_printing.models import BatchPrintJob, BatchPrintItem, BatchPrintJobStatus
 from apps.pdf_splitting.models import PdfSplitJob, PdfSplitJobStatus
-from apps.sales_dispute.models import CaseAssessment, CollectionRecord, PaymentRecord
 from apps.finance.models.lpr_rate import LPRRate
 from apps.story_viz.models import StoryAnimation, StoryAnimationStatus
 
@@ -52,70 +51,6 @@ class TestPdfSplitJobModel:
         assert PdfSplitJobStatus.PROCESSING == "processing"
         assert PdfSplitJobStatus.COMPLETED == "completed"
         assert PdfSplitJobStatus.FAILED == "failed"
-
-
-@pytest.mark.django_db
-class TestCaseAssessmentModel:
-    """CaseAssessment 模型测试"""
-
-    def test_create_assessment(self) -> None:
-        """创建案件评估"""
-        from apps.cases.models import Case
-        from apps.contracts.models import Contract
-        from decimal import Decimal
-
-        contract = Contract.objects.create(name="评估测试合同", case_type="civil")
-        case = Case.objects.create(name="评估测试案件", contract=contract)
-        assessment = CaseAssessment.objects.create(
-            case=case,
-            principal_amount=Decimal("100000.00"),
-            assessment_grade="A",
-        )
-        assert assessment.principal_amount == Decimal("100000.00")
-        assert assessment.assessment_grade == "A"
-
-
-@pytest.mark.django_db
-class TestCollectionRecordModel:
-    """CollectionRecord 模型测试"""
-
-    def test_create_record(self) -> None:
-        """创建催收记录"""
-        from apps.cases.models import Case
-        from apps.contracts.models import Contract
-        from datetime import date
-
-        contract = Contract.objects.create(name="催收测试合同", case_type="civil")
-        case = Case.objects.create(name="催收测试案件", contract=contract)
-        record = CollectionRecord.objects.create(
-            case=case,
-            current_stage="phone",
-            start_date=date(2024, 1, 1),
-        )
-        assert record.current_stage == "phone"
-
-
-@pytest.mark.django_db
-class TestPaymentRecordModel:
-    """PaymentRecord 模型测试"""
-
-    def test_create_record(self) -> None:
-        """创建付款记录"""
-        from apps.cases.models import Case
-        from apps.contracts.models import Contract
-        from decimal import Decimal
-        from datetime import date
-
-        contract = Contract.objects.create(name="付款测试合同", case_type="civil")
-        case = Case.objects.create(name="付款测试案件", contract=contract)
-        record = PaymentRecord.objects.create(
-            case=case,
-            payment_date=date(2024, 1, 1),
-            payment_amount=Decimal("50000.00"),
-            remaining_principal=Decimal("50000.00"),
-        )
-        assert record.payment_amount == Decimal("50000.00")
-
 
 @pytest.mark.django_db
 class TestLPRRateModel:

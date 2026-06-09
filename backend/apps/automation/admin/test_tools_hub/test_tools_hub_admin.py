@@ -36,23 +36,6 @@ class TestToolsHubAdmin(admin.ModelAdmin):
             '<line x1="16" y1="17" x2="8" y2="17"/>'
             '<polyline points="10 9 9 9 8 9"/></svg>'
         )
-        icon_court = (
-            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"'
-            ' stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
-            '<circle cx="12" cy="12" r="10"/>'
-            '<path d="M12 6v6l4 2"/></svg>'
-        )
-        icon_calendar = (
-            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"'
-            ' stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
-            '<rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>'
-            '<line x1="16" y1="2" x2="16" y2="6"/>'
-            '<line x1="8" y1="2" x2="8" y2="6"/>'
-            '<line x1="3" y1="10" x2="21" y2="10"/>'
-            '<path d="M8 14h.01"/><path d="M12 14h.01"/>'
-            '<path d="M16 14h.01"/><path d="M8 18h.01"/>'
-            '<path d="M12 18h.01"/><path d="M16 18h.01"/></svg>'
-        )
         icon_rotate = (
             '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"'
             ' stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'
@@ -67,13 +50,6 @@ class TestToolsHubAdmin(admin.ModelAdmin):
                 "url": "fee_notice_feenoticetool_changelist",
                 "icon": icon_document,
                 "color": "primary",
-            },
-            {
-                "name": "财产保全日期识别",
-                "description": "从法院文书中识别财产保全措施的到期时间",
-                "url": "preservation_date_preservationdatetool_changelist",
-                "icon": icon_calendar,
-                "color": "warning",
             },
             {
                 "name": "图片自动旋转",

@@ -1,81 +1,10 @@
-"""Coverage tests for preservation_date, image_rotation, client extraction services."""
+"""Coverage tests for image_rotation, client extraction services."""
 from __future__ import annotations
 
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
-
-
-# --- preservation_date rule_engine ---
-
-class TestPreservationRuleEngine:
-    def test_rule_match_dataclass(self):
-        from apps.preservation_date.services.rule_engine import RuleMatch
-
-        rm = RuleMatch(
-            measure_type="冻结",
-            property_description="银行账户",
-            raw_text="冻结银行账户",
-            start_date="2025-01-01",
-            end_date="2026-01-01",
-        )
-        assert rm.measure_type == "冻结"
-        assert rm.is_pending is False
-
-    def test_rule_match_pending(self):
-        from apps.preservation_date.services.rule_engine import RuleMatch
-
-        rm = RuleMatch(measure_type="轮候冻结", property_description="存款", raw_text="轮候冻结存款", is_pending=True)
-        assert rm.is_pending is True
-
-    def test_engine_init(self):
-        from apps.preservation_date.services.rule_engine import PreservationRuleEngine
-
-        engine = PreservationRuleEngine()
-        assert engine is not None
-
-    def test_date_range_pattern_match(self):
-        from apps.preservation_date.services.rule_engine import DATE_RANGE_PATTERN
-
-        match = DATE_RANGE_PATTERN.search("自2025年1月1日起至2026年1月1日止")
-        assert match is not None
-        assert "2025" in match.group(1)
-
-    def test_date_range_pattern_no_match(self):
-        from apps.preservation_date.services.rule_engine import DATE_RANGE_PATTERN
-
-        match = DATE_RANGE_PATTERN.search("没有日期信息")
-        assert match is None
-
-    def test_date_single_pattern_match(self):
-        from apps.preservation_date.services.rule_engine import DATE_SINGLE_PATTERN
-
-        match = DATE_SINGLE_PATTERN.search("日期为2025年6月15日")
-        assert match is not None
-
-    def test_duration_pattern_match(self):
-        from apps.preservation_date.services.rule_engine import DURATION_PATTERN
-
-        match = DURATION_PATTERN.search("期限为一年")
-        assert match is not None
-
-
-# --- preservation_date extraction_service ---
-
-class TestPreservationDateExtractionService:
-    def test_init(self):
-        from apps.preservation_date.services.extraction_service import PreservationDateExtractionService
-
-        service = PreservationDateExtractionService(text_service=MagicMock())
-        assert service is not None
-
-    def test_text_service_lazy_load(self):
-        from apps.preservation_date.services.extraction_service import PreservationDateExtractionService
-
-        service = PreservationDateExtractionService()
-        # Lazy loading: text_service property loads TextExtractionService on first access
-        assert service._text_service is None  # Initially None
 
 
 # --- image_rotation auto_rename_service ---

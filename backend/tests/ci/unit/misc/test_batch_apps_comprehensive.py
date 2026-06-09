@@ -13,7 +13,6 @@
 - apps/doc_converter/models.py, schemas.py
 - apps/finance/models/*.py, schemas/*.py
 - apps/evidence_sorting/models/*.py, schemas.py
-- apps/preservation_date/models.py, services/models.py
 - apps/doc_convert/models.py, constants.py, exceptions.py
 - apps/contacts/models.py, schemas/*.py
 """
@@ -297,31 +296,6 @@ class TestEvidenceSorting:
         assert classifier is not None
         assert reconciler is not None
         assert exporter is not None
-
-
-# ==================== preservation_date ====================
-
-
-class TestPreservationDate:
-    """preservation_date 模块测试"""
-
-    def test_models_module(self):
-        from apps.preservation_date import models
-
-        assert models is not None
-
-    def test_services_modules(self):
-        from apps.preservation_date.services import extraction_service
-        from apps.preservation_date.services import models as svc_models
-        from apps.preservation_date.services import validators
-        from apps.preservation_date.services import rule_engine
-        from apps.preservation_date.services import prompts
-
-        assert extraction_service is not None
-        assert svc_models is not None
-        assert validators is not None
-        assert rule_engine is not None
-        assert prompts is not None
 
 
 # ==================== doc_convert ====================

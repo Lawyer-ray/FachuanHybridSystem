@@ -1,1 +1,0 @@
-"""Preservation date recognition app."""

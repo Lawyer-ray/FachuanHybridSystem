@@ -355,12 +355,6 @@ class TestEvidenceSortingAPI:
         assert hasattr(evidence_sorting_api, '__file__')
 
 
-class TestSalesDisputeAPI:
-    def test_api_exists(self):
-        from apps.sales_dispute.api import sales_dispute_collection_api
-        assert hasattr(sales_dispute_collection_api, '__file__')
-
-
 class TestContractReviewAPI:
     def test_format_api_exists(self):
         from apps.contract_review.api import format_api

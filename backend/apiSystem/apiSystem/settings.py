@@ -83,7 +83,6 @@ INSTALLED_APPS = [
     "apps.image_rotation",  # 5.1 图片自动旋转（从 automation 拆分）
     "apps.invoice_recognition",  # 5.2 发票识别（从 automation 拆分）
     "apps.fee_notice",  # 5.3 交费通知书识别（从 automation 拆分）
-    "apps.preservation_date",  # 5.35 财产保全日期识别（从 automation 拆分）
     "apps.document_recognition",  # 5.4 文书智能识别（从 automation 拆分）
     "apps.express_query",  # 5.41 快递查询
     "apps.pdf_splitting",  # 5.45 PDF 拆解
@@ -95,7 +94,6 @@ INSTALLED_APPS = [
     "apps.chat_records",  # 6.0 聊天记录梳理
     "apps.litigation_ai",  # 6.1 AI 诉讼文书生成
     "apps.contract_review",  # 6.2 合同审查
-    "apps.sales_dispute",  # 6.3 买卖纠纷计算
     "apps.finance",  # 6.3.1 金融工具(LPR计算器)
     "apps.oa_filing",  # 6.4 OA立案
     "apps.legal_research",  # 6.5 案例检索（法律数据源）
