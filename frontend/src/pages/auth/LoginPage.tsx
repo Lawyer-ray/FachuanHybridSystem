@@ -13,6 +13,7 @@ import { toast } from 'sonner'
 
 import { LoginForm } from '@/features/auth/components/LoginForm'
 import { AuthLayoutCard } from '@/layouts/AuthLayout'
+import { SocialLoginButtons } from '@/features/social-auth/components/SocialLoginButtons'
 
 /**
  * 登录页面组件
@@ -63,6 +64,9 @@ export function LoginPage() {
         onSuccess={handleSuccess}
         onError={handleError}
       />
+
+      {/* 社交登录按钮 */}
+      <SocialLoginButtons />
 
       {/* 忘记密码链接 */}
       <div className="mt-4 text-center text-sm">

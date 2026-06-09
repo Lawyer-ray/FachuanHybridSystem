@@ -125,6 +125,7 @@ _OPENAPI_TAGS: list[dict[str, str]] = [
     {"name": "重要日期提醒", "description": "案件重要日期提醒"},
     {"name": "收件箱", "description": "消息收件箱"},
     {"name": "案件工作人员", "description": "案件工作人员联系方式管理"},
+    {"name": "社交登录", "description": "微信/Google 等社交平台登录"},
 ]
 
 api_v1 = NinjaAPI(
@@ -280,6 +281,10 @@ def _register_app_routers() -> None:
     from apps.core.api.poi_api import router as poi_router
 
     api_v1.add_router("/poi", poi_router, auth=JWTOrSessionAuth(), tags=["POI 文档生成"])
+
+    from apps.social_auth.api import router as social_auth_router
+
+    api_v1.add_router("/social", social_auth_router, tags=["社交登录"])
 
 
 # 防止 uvicorn reload 导致重复注册 - 在 api_v1 对象上设置标志
