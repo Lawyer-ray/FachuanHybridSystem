@@ -84,9 +84,10 @@ function enterprisePrefillApp() {
             const isTianyancha = providerName === 'tianyancha';
 
             if (!providerEnabled) {
-                return isTianyancha
-                    ? '天眼查企业查询功能未启用，请在系统配置中开启并填写 TIANYANCHA_MCP_API_KEY'
-                    : '当前企业查询服务未启用';
+                if (isTianyancha) {
+                    return '天眼查企业查询功能未启用，请在系统配置中开启并填写 TIANYANCHA_MCP_API_KEY';
+                }
+                return '企查查企业查询功能未启用，请在系统配置中开启并填写 QCC_MCP_API_KEY';
             }
 
             if (
@@ -94,9 +95,10 @@ function enterprisePrefillApp() {
                 normalizedNote.includes('api key') && normalizedNote.includes('未配置') ||
                 normalizedNote.includes('mcp api key 未配置')
             ) {
-                return isTianyancha
-                    ? '未检测到 TIANYANCHA_MCP_API_KEY，企业查询功能已禁用，请先到系统配置填写'
-                    : '当前服务 API Key 未配置，请先完善系统配置';
+                if (isTianyancha) {
+                    return '未检测到 TIANYANCHA_MCP_API_KEY，企业查询功能已禁用，请先到系统配置填写';
+                }
+                return '未检测到 QCC_MCP_API_KEY，企业查询功能已禁用，请先到系统配置填写';
             }
 
             if (normalizedNote.includes('骨架实现') || normalizedNote.includes('尚未完成')) {
@@ -214,14 +216,18 @@ function enterprisePrefillApp() {
                 errorCode === 'PROVIDER_API_KEY_MISSING' ||
                 errorCode === 'MCP_API_KEY_MISSING' ||
                 errorCode === 'MCP_AUTH_ERROR' ||
-                (errorCode === 'MCP_HTTP_ERROR' && Number(errorDetails.status_code || 0) === 500 && this.provider === 'tianyancha') ||
+                (errorCode === 'MCP_HTTP_ERROR' && Number(errorDetails.status_code || 0) === 500) ||
                 detailText.includes('api key') ||
                 detailText.includes('鉴权') ||
                 detailText.includes('auth');
 
             if (shouldGuideConfig) {
                 this.isProviderReady = false;
-                this.statusHint = '天眼查鉴权异常，请到系统配置更换 TIANYANCHA_MCP_API_KEY 后重试';
+                if (this.provider === 'qichacha') {
+                    this.statusHint = '企查查鉴权异常，请到系统配置更换 QCC_MCP_API_KEY 后重试';
+                } else {
+                    this.statusHint = '天眼查鉴权异常，请到系统配置更换 TIANYANCHA_MCP_API_KEY 后重试';
+                }
                 return '';
             }
 
