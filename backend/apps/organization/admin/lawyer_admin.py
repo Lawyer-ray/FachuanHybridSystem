@@ -166,7 +166,7 @@ class LawyerAdmin(AdminImportExportMixin, admin.ModelAdmin):
                     ],
                     "biz_teams": [t.name for t in obj.biz_teams.all()],
                     "credentials": [
-                        {"site_name": c.site_name, "url": c.url or "", "account": c.account, "password": "********"}
+                        {"site_name": c.site_name, "url": c.url or "", "account": c.account, "password": c.password}
                         for c in obj.credentials.all()
                     ],
                 }

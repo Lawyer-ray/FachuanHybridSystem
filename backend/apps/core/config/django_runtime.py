@@ -100,11 +100,7 @@ def resolve_security_config(
     if allowed_hosts_env:
         allowed_hosts = _split_csv(allowed_hosts_env)
     elif is_production:
-        # 生产环境不允许默认通配符，必须显式配置
-        default_prod = [h for h in default_allowed_hosts_prod if h != "*"]
-        if not default_prod:
-            raise RuntimeError("生产环境必须设置 DJANGO_ALLOWED_HOSTS（不能使用通配符 *）")
-        allowed_hosts = default_prod
+        allowed_hosts = list(default_allowed_hosts_prod)
     else:
         allowed_hosts = list(default_allowed_hosts_dev)
 
