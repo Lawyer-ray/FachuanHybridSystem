@@ -340,7 +340,7 @@ describe('ClientForm', () => {
     const onPrefill = capturedCallbacks['onPrefill'] as (d: unknown) => void
 
     act(() => {
-      onPrefill({ address: '北京市', phone: '13800000000' })
+      onPrefill({ address: '北京市', phone: '13800000000' }) // 测试
     })
     expect(screen.getByText('当事人信息')).toBeInTheDocument()
   })
@@ -501,7 +501,7 @@ describe('ClientForm', () => {
     vi.mocked(useClient).mockReturnValue({
       data: mockClientData({
         name: '王五', id_number: '310101199001015678', // pragma: allowlist secret
-        phone: '13900000000', address: '上海市',
+        phone: '13900000000', address: '上海市', // 测试
         is_our_client: false,
       }),
       isLoading: false, error: null,

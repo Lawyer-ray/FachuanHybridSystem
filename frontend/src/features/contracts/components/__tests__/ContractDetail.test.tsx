@@ -530,7 +530,7 @@ describe('ContractDetail', () => {
           client_detail: {
             name: '公司A', is_our_client: true, client_type: 'legal', client_type_label: '法人',
             id_number: '91310000MA1ABCDE', phone: '021-12345678', address: '上海市',
-            legal_representative: '王总', legal_representative_id_number: '310101199001011234', // pragma: allowlist secret
+            legal_representative: '王总', legal_representative_id_number: '310101199001011234', // pragma: allowlist secret // pragma: allowlist secret
           },
         }],
       },
@@ -801,7 +801,7 @@ describe('ContractDetail', () => {
           client_detail: {
             name: '公司A', is_our_client: true, client_type: 'legal', client_type_label: '法人',
             id_number: '91310000MA1ABCDE', phone: '021-12345678', address: '上海市',
-            legal_representative: '王总', legal_representative_id_number: '310101199001011234',
+            legal_representative: '王总', legal_representative_id_number: '310101199001011234', // pragma: allowlist secret
           },
         }],
       },
