@@ -182,7 +182,6 @@ def _register_app_routers() -> None:
     from apps.message_hub.api import router as inbox_router
     from apps.organization.api import router as organization_router
     from apps.pdf_splitting.api import router as pdf_splitting_router
-    from apps.preservation_date.api import router as preservation_date_router
     from apps.reminders.api import router as reminders_router
     from apps.story_viz.api import router as story_viz_router
 
@@ -197,7 +196,6 @@ def _register_app_routers() -> None:
     api_v1.add_router("/image-rotation", image_rotation_router, auth=JWTOrSessionAuth())
     api_v1.add_router("/invoice-recognition", invoice_recognition_router, auth=JWTOrSessionAuth())
     api_v1.add_router("/fee-notice", fee_notice_router, auth=JWTOrSessionAuth())
-    api_v1.add_router("/preservation-date", preservation_date_router, auth=JWTOrSessionAuth())
     api_v1.add_router("/document-recognition", document_recognition_router, auth=JWTOrSessionAuth())
     api_v1.add_router("/pdf-splitting", pdf_splitting_router, auth=JWTOrSessionAuth())
     api_v1.add_router("/batch-printing", batch_printing_router, auth=JWTOrSessionAuth())
@@ -253,9 +251,6 @@ def _register_app_routers() -> None:
     # case_import_router 内部路径已包含 /case-import，前缀保持空避免变成 /case-import/case-import
     api_v1.add_router("", case_import_router, auth=JWTOrSessionAuth(), tags=["案件导入"])
 
-    from apps.sales_dispute.api import router as sales_dispute_router
-
-    api_v1.add_router("/sales-dispute", sales_dispute_router, tags=["买卖纠纷计算"])
 
     # LPR金融工具
     from apps.finance.api.lpr_api import router as lpr_router

@@ -1,4 +1,4 @@
-"""Coverage tests for story_viz, doc_converter, evidence, automation, workbench, oa_filing, finance, contracts, client, cases, reminders, organization, sales_dispute, pdf_splitting."""
+"""Coverage tests for story_viz, doc_converter, evidence, automation, workbench, oa_filing, finance, contracts, client, cases, reminders, organization, pdf_splitting."""
 from __future__ import annotations
 
 import pytest
@@ -565,12 +565,6 @@ class TestWorkbenchMessageService:
     def test_message_to_dict(self):
         from apps.workbench.services.message_service import WorkbenchMessageService
         assert callable(WorkbenchMessageService._message_to_dict)
-
-
-# ── sales_dispute ──
-def test_dashboard_router_exists():
-    from apps.sales_dispute.api.sales_dispute_dashboard_api import router
-    assert router is not None
 
 
 # ── document_recognition ──
