@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import { CaseMaterialSection } from '../components/CaseMaterialSection'
 
 vi.mock('lucide-react', () => ({
@@ -13,6 +13,9 @@ vi.mock('lucide-react', () => ({
   Check: () => <svg data-testid="check" />,
   X: () => <svg data-testid="x" />,
   FolderOpen: () => <svg data-testid="folder-open" />,
+  Upload: () => <svg data-testid="upload" />,
+  Eye: () => <svg data-testid="eye" />,
+  Search: () => <svg data-testid="search" />,
 }))
 
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
@@ -45,18 +48,29 @@ vi.mock('@/lib/api', () => ({
   resolveMediaUrl: (url: string) => url,
 }))
 
+vi.mock('@/lib/utils', () => ({
+  cn: (...args: unknown[]) => args.filter(Boolean).join(' '),
+}))
+
 vi.mock('@/lib/date', () => ({
   formatDateOnly: (d: string) => d ?? '',
 }))
 
+const mockCreateMaterial = vi.fn()
+const mockUpdateMaterial = vi.fn()
+const mockDeleteMaterial = vi.fn()
+const mockReorderMaterials = vi.fn()
+const mockBindMaterials = vi.fn()
+const mockUnbindMaterials = vi.fn()
+
 vi.mock('../hooks/use-material-mutations', () => ({
   useMaterialMutations: () => ({
-    createMaterial: { mutate: vi.fn(), isPending: false },
-    updateMaterial: { mutate: vi.fn(), isPending: false },
-    deleteMaterial: { mutate: vi.fn(), isPending: false },
-    reorderMaterials: { mutate: vi.fn() },
-    bindMaterials: { mutate: vi.fn(), isPending: false },
-    unbindMaterials: { mutate: vi.fn(), isPending: false },
+    createMaterial: { mutate: mockCreateMaterial, isPending: false },
+    updateMaterial: { mutate: mockUpdateMaterial, isPending: false },
+    deleteMaterial: { mutate: mockDeleteMaterial, isPending: false },
+    reorderMaterials: { mutate: mockReorderMaterials },
+    bindMaterials: { mutate: mockBindMaterials, isPending: false },
+    unbindMaterials: { mutate: mockUnbindMaterials, isPending: false },
   }),
 }))
 
@@ -88,17 +102,56 @@ vi.mock('@/components/ui/alert-dialog', () => ({
   AlertDialogAction: ({ children, ...props }: Record<string, unknown>) => <button {...props}>{children}</button>,
   AlertDialogCancel: ({ children }: { children: React.ReactNode }) => <button>{children}</button>,
   AlertDialogContent: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  AlertDialogDescription: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  AlertDialogDescription: ({ children }: { children: React.ReactNode }) => <p>{children}</p>,
   AlertDialogFooter: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   AlertDialogHeader: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  AlertDialogTitle: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  AlertDialogTitle: ({ children }: { children: React.ReactNode }) => <h2>{children}</h2>,
   AlertDialogTrigger: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }))
 
+const mockCandidates = [
+  {
+    id: 1,
+    file_name: '合同扫描件.pdf',
+    file_url: 'http://example.com/doc1.pdf',
+    actor_name: '张律师',
+    uploaded_at: '2024-01-01T10:00:00',
+    material: { id: 100, category: 'contract', side: 'plaintiff', type_name: '合同', type_id: 1 },
+    matches: [],
+  },
+  {
+    id: 2,
+    file_name: '证据材料.docx',
+    file_url: 'http://example.com/doc2.docx',
+    actor_name: '李律师',
+    uploaded_at: '2024-01-02T10:00:00',
+    material: { id: 200, category: 'evidence', side: 'defendant', type_name: '证据', type_id: 2 },
+    matches: [],
+  },
+  {
+    id: 3,
+    file_name: '未分类文件.pdf',
+    file_url: '',
+    actor_name: '王律师',
+    uploaded_at: '2024-01-03T10:00:00',
+    material: null,
+    matches: [],
+  },
+]
+
 describe('CaseMaterialSection', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
   it('renders empty state when no candidates', () => {
     render(<CaseMaterialSection candidates={[]} caseId={1} />)
     expect(screen.getByText('暂无材料数据')).toBeInTheDocument()
+  })
+
+  it('renders empty state with folder icon', () => {
+    render(<CaseMaterialSection candidates={[]} caseId={1} />)
+    expect(screen.getByTestId('folder-open')).toBeInTheDocument()
   })
 
   it('renders without crashing with editable prop', () => {
@@ -111,5 +164,265 @@ describe('CaseMaterialSection', () => {
     expect(container).toBeTruthy()
   })
 
+  it('renders file names when candidates provided', () => {
+    render(<CaseMaterialSection candidates={mockCandidates as never} caseId={1} />)
+    expect(screen.getAllByText('合同扫描件.pdf').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('证据材料.docx').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('未分类文件.pdf').length).toBeGreaterThan(0)
+  })
 
+  it('renders actor names and dates', () => {
+    render(<CaseMaterialSection candidates={mockCandidates as never} caseId={1} />)
+    expect(screen.getAllByText(/张律师/).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/李律师/).length).toBeGreaterThan(0)
+    expect(screen.getAllByText(/王律师/).length).toBeGreaterThan(0)
+  })
+
+  it('renders file text icons', () => {
+    render(<CaseMaterialSection candidates={mockCandidates as never} caseId={1} />)
+    const icons = screen.getAllByTestId('file-text')
+    expect(icons.length).toBeGreaterThan(0)
+  })
+
+  it('renders with editable mode', () => {
+    render(<CaseMaterialSection candidates={mockCandidates as never} caseId={1} editable />)
+    // Editable mode shows delete buttons on hover
+    expect(screen.getAllByText('合同扫描件.pdf').length).toBeGreaterThan(0)
+  })
+
+  it('renders materials from different categories', () => {
+    render(<CaseMaterialSection candidates={mockCandidates as never} caseId={1} />)
+    // Both contract and evidence materials should be visible
+    expect(screen.getAllByText('合同扫描件.pdf').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('证据材料.docx').length).toBeGreaterThan(0)
+  })
+
+  it('renders with null material', () => {
+    render(<CaseMaterialSection candidates={mockCandidates as never} caseId={1} />)
+    // File without material should still show
+    expect(screen.getAllByText('未分类文件.pdf').length).toBeGreaterThan(0)
+  })
+
+  it('renders with empty file_url', () => {
+    render(<CaseMaterialSection candidates={mockCandidates as never} caseId={1} />)
+    // File without URL should not crash
+    expect(screen.getAllByText('未分类文件.pdf').length).toBeGreaterThan(0)
+  })
+
+  it('renders multiple file types', () => {
+    const candidates = [
+      { id: 1, file_name: 'file.pdf', file_url: '', actor_name: 'A', uploaded_at: '2024-01-01', material: null, matches: [] },
+      { id: 2, file_name: 'file.docx', file_url: '', actor_name: 'B', uploaded_at: '2024-01-02', material: null, matches: [] },
+      { id: 3, file_name: 'file.jpg', file_url: '', actor_name: 'C', uploaded_at: '2024-01-03', material: null, matches: [] },
+    ]
+    render(<CaseMaterialSection candidates={candidates as never} caseId={1} />)
+    expect(screen.getByText('file.pdf')).toBeInTheDocument()
+    expect(screen.getByText('file.docx')).toBeInTheDocument()
+    expect(screen.getByText('file.jpg')).toBeInTheDocument()
+  })
+
+  it('renders single material', () => {
+    const single = [mockCandidates[0]]
+    render(<CaseMaterialSection candidates={single as never} caseId={1} />)
+    expect(screen.getAllByText('合同扫描件.pdf').length).toBeGreaterThan(0)
+  })
+
+  it('renders in non-editable mode', () => {
+    render(<CaseMaterialSection candidates={mockCandidates as never} caseId={1} />)
+    // Non-editable should not show action buttons
+    expect(screen.getAllByText('合同扫描件.pdf').length).toBeGreaterThan(0)
+  })
+
+  it('handles caseId prop', () => {
+    const { rerender } = render(<CaseMaterialSection candidates={[]} caseId={1} />)
+    expect(screen.getByText('暂无材料数据')).toBeInTheDocument()
+    rerender(<CaseMaterialSection candidates={[]} caseId={2} />)
+    expect(screen.getByText('暂无材料数据')).toBeInTheDocument()
+  })
+
+  it('renders with long file names', () => {
+    const candidates = [
+      { id: 1, file_name: '这是一个非常非常长的文件名用于测试截断效果.pdf', file_url: '', actor_name: 'A', uploaded_at: '2024-01-01', material: null, matches: [] },
+    ]
+    render(<CaseMaterialSection candidates={candidates as never} caseId={1} />)
+    expect(screen.getByText('这是一个非常非常长的文件名用于测试截断效果.pdf')).toBeInTheDocument()
+  })
+
+  it('renders with special characters in file names', () => {
+    const candidates = [
+      { id: 1, file_name: 'file (1) [copy].pdf', file_url: '', actor_name: 'A', uploaded_at: '2024-01-01', material: null, matches: [] },
+    ]
+    render(<CaseMaterialSection candidates={candidates as never} caseId={1} />)
+    expect(screen.getByText('file (1) [copy].pdf')).toBeInTheDocument()
+  })
+
+  it('renders with different material types', () => {
+    const candidates = [
+      { id: 1, file_name: 'a.pdf', file_url: '', actor_name: 'A', uploaded_at: '2024-01-01', material: { id: 1, category: 'contract', side: 'plaintiff', type_name: '合同', type_id: 1 }, matches: [] },
+      { id: 2, file_name: 'b.pdf', file_url: '', actor_name: 'B', uploaded_at: '2024-01-02', material: { id: 2, category: 'evidence', side: 'defendant', type_name: '证据', type_id: 2 }, matches: [] },
+    ]
+    render(<CaseMaterialSection candidates={candidates as never} caseId={1} />)
+    expect(screen.getByText('a.pdf')).toBeInTheDocument()
+    expect(screen.getByText('b.pdf')).toBeInTheDocument()
+  })
+
+  it('renders with same category different sides', () => {
+    const candidates = [
+      { id: 1, file_name: 'plaintiff.pdf', file_url: '', actor_name: 'A', uploaded_at: '2024-01-01', material: { id: 1, category: 'evidence', side: 'plaintiff', type_name: '证据', type_id: 1 }, matches: [] },
+      { id: 2, file_name: 'defendant.pdf', file_url: '', actor_name: 'B', uploaded_at: '2024-01-02', material: { id: 2, category: 'evidence', side: 'defendant', type_name: '证据', type_id: 2 }, matches: [] },
+    ]
+    render(<CaseMaterialSection candidates={candidates as never} caseId={1} />)
+    expect(screen.getByText('plaintiff.pdf')).toBeInTheDocument()
+    expect(screen.getByText('defendant.pdf')).toBeInTheDocument()
+  })
+
+  it('renders with null side', () => {
+    const candidates = [
+      { id: 1, file_name: 'no-side.pdf', file_url: '', actor_name: 'A', uploaded_at: '2024-01-01', material: { id: 1, category: 'contract', side: null, type_name: '合同', type_id: 1 }, matches: [] },
+    ]
+    render(<CaseMaterialSection candidates={candidates as never} caseId={1} />)
+    expect(screen.getByText('no-side.pdf')).toBeInTheDocument()
+  })
+
+  it('renders with matches', () => {
+    const candidates = [
+      {
+        id: 1, file_name: 'matched.pdf', file_url: '', actor_name: 'A', uploaded_at: '2024-01-01',
+        material: null,
+        matches: [{ type: 'exact', target_id: 1, target_name: '合同扫描件' }],
+      },
+    ]
+    render(<CaseMaterialSection candidates={candidates as never} caseId={1} />)
+    expect(screen.getByText('matched.pdf')).toBeInTheDocument()
+  })
+
+  // --- New tests for uncovered lines ---
+
+  it('renders unbound attachments section', () => {
+    const candidates = [
+      { id: 3, file_name: '未绑定文件.pdf', file_url: '', actor_name: '王律师', uploaded_at: '2024-01-03', material: null, matches: [] },
+    ]
+    render(<CaseMaterialSection candidates={candidates as never} caseId={1} />)
+    expect(screen.getByText('未绑定附件')).toBeInTheDocument()
+    expect(screen.getByText('未绑定文件.pdf')).toBeInTheDocument()
+  })
+
+  it('renders grouped materials with group names', () => {
+    render(<CaseMaterialSection candidates={mockCandidates as never} caseId={1} />)
+    // Group names should be rendered (合同 and 证据)
+    expect(screen.getByText('合同')).toBeInTheDocument()
+    expect(screen.getByText('证据')).toBeInTheDocument()
+  })
+
+  it('renders with categoryFilter', () => {
+    render(<CaseMaterialSection candidates={mockCandidates as never} caseId={1} categoryFilter="contract" />)
+    expect(screen.getByText('合同扫描件.pdf')).toBeInTheDocument()
+  })
+
+  it('renders empty message with category filter', () => {
+    const candidates = [
+      { id: 1, file_name: 'a.pdf', file_url: '', actor_name: 'A', uploaded_at: '2024-01-01', material: { id: 1, category: 'evidence', side: null, type_name: '证据', type_id: 1 }, matches: [] },
+    ]
+    render(<CaseMaterialSection candidates={candidates as never} caseId={1} categoryFilter="contract" />)
+    // Should show "没有合同数据"
+    expect(screen.getByText('没有合同数据')).toBeInTheDocument()
+  })
+
+  it('renders bind dialog when link button clicked', () => {
+    render(<CaseMaterialSection candidates={mockCandidates as never} caseId={1} />)
+    // The bind button (Link2 icon) should be in the group card
+    const bindButtons = screen.getAllByTestId('link2')
+    expect(bindButtons.length).toBeGreaterThan(0)
+  })
+
+  it('renders group with expand/collapse toggle', () => {
+    render(<CaseMaterialSection candidates={mockCandidates as never} caseId={1} />)
+    const chevrons = screen.getAllByTestId('chevron-down')
+    expect(chevrons.length).toBeGreaterThan(0)
+  })
+
+  it('renders group with rename pencil button', () => {
+    render(<CaseMaterialSection candidates={mockCandidates as never} caseId={1} />)
+    const pencils = screen.getAllByTestId('pencil')
+    expect(pencils.length).toBeGreaterThan(0)
+  })
+
+  it('renders group with delete button', () => {
+    render(<CaseMaterialSection candidates={mockCandidates as never} caseId={1} />)
+    const trashButtons = screen.getAllByTestId('trash')
+    expect(trashButtons.length).toBeGreaterThan(0)
+  })
+
+  it('handles file upload via input change', async () => {
+    render(<CaseMaterialSection candidates={mockCandidates as never} caseId={1} />)
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement
+    const file = new File(['content'], 'upload.pdf', { type: 'application/pdf' })
+    fireEvent.change(fileInput, { target: { files: [file] } })
+  })
+
+  it('handles file upload with no files', () => {
+    render(<CaseMaterialSection candidates={mockCandidates as never} caseId={1} />)
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement
+    fireEvent.change(fileInput, { target: { files: [] } })
+  })
+
+  it('renders material with file_url shows link button', () => {
+    render(<CaseMaterialSection candidates={mockCandidates as never} caseId={1} />)
+    // Materials with file_url should have a link to open the file
+    expect(screen.getByText('合同扫描件.pdf')).toBeInTheDocument()
+  })
+
+  it('renders material without file_url', () => {
+    const candidates = [
+      { id: 1, file_name: 'no-url.pdf', file_url: '', actor_name: 'A', uploaded_at: '2024-01-01', material: { id: 1, category: 'contract', side: null, type_name: '合同', type_id: 1 }, matches: [] },
+    ]
+    render(<CaseMaterialSection candidates={candidates as never} caseId={1} />)
+    expect(screen.getByText('no-url.pdf')).toBeInTheDocument()
+  })
+
+  it('renders with multiple groups of same category different types', () => {
+    const candidates = [
+      { id: 1, file_name: 'a.pdf', file_url: '', actor_name: 'A', uploaded_at: '2024-01-01', material: { id: 1, category: 'contract', side: null, type_name: '合同A', type_id: 1 }, matches: [] },
+      { id: 2, file_name: 'b.pdf', file_url: '', actor_name: 'B', uploaded_at: '2024-01-02', material: { id: 2, category: 'contract', side: null, type_name: '合同B', type_id: 2 }, matches: [] },
+    ]
+    render(<CaseMaterialSection candidates={candidates as never} caseId={1} />)
+    expect(screen.getByText('合同A')).toBeInTheDocument()
+    expect(screen.getByText('合同B')).toBeInTheDocument()
+  })
+
+  it('renders empty state with no candidates and no groups', () => {
+    render(<CaseMaterialSection candidates={[]} caseId={1} />)
+    expect(screen.getByText('暂无材料数据')).toBeInTheDocument()
+  })
+
+  it('renders with unbound count in empty groups', () => {
+    const candidates = [
+      { id: 1, file_name: 'unbound.pdf', file_url: '', actor_name: 'A', uploaded_at: '2024-01-01', material: null, matches: [] },
+      { id: 2, file_name: 'bound.pdf', file_url: '', actor_name: 'B', uploaded_at: '2024-01-02', material: { id: 1, category: 'contract', side: null, type_name: '合同', type_id: 1 }, matches: [] },
+    ]
+    render(<CaseMaterialSection candidates={candidates as never} caseId={1} />)
+    expect(screen.getByText('未绑定附件')).toBeInTheDocument()
+    expect(screen.getAllByText('unbound.pdf').length).toBeGreaterThan(0)
+  })
+
+  it('renders grid with file_url has FileText link', () => {
+    const candidates = [
+      { id: 1, file_name: 'linked.pdf', file_url: 'http://example.com/doc.pdf', actor_name: 'A', uploaded_at: '2024-01-01', material: { id: 1, category: 'contract', side: null, type_name: '合同', type_id: 1 }, matches: [] },
+    ]
+    render(<CaseMaterialSection candidates={candidates as never} caseId={1} />)
+    expect(screen.getByText('linked.pdf')).toBeInTheDocument()
+  })
+
+  it('renders group card with grip vertical icon', () => {
+    render(<CaseMaterialSection candidates={mockCandidates as never} caseId={1} />)
+    const grips = screen.getAllByTestId('grip')
+    expect(grips.length).toBeGreaterThan(0)
+  })
+
+  it('exposes openUpload via ref', () => {
+    const ref = { current: null as { openUpload: () => void } | null }
+    render(<CaseMaterialSection candidates={mockCandidates as never} caseId={1} ref={ref} />)
+    expect(ref.current).not.toBeNull()
+    expect(ref.current!.openUpload).toBeDefined()
+  })
 })

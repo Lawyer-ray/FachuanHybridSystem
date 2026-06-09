@@ -6,54 +6,11 @@ from typing import Any
 
 import pytest
 
-from apps.wechat_mp.models import WeChatAccount, PublishTask, PublishTaskStatus
 from apps.batch_printing.models import BatchPrintJob, BatchPrintItem, BatchPrintJobStatus
 from apps.pdf_splitting.models import PdfSplitJob, PdfSplitJobStatus
 from apps.sales_dispute.models import CaseAssessment, CollectionRecord, PaymentRecord
 from apps.finance.models.lpr_rate import LPRRate
 from apps.story_viz.models import StoryAnimation, StoryAnimationStatus
-
-
-@pytest.mark.django_db
-class TestWeChatAccountModel:
-    """WeChatAccount 模型测试"""
-
-    def test_str_representation(self) -> None:
-        """__str__ 应返回账号名称"""
-        account = WeChatAccount.objects.create(name="测试公众号")
-        assert str(account) == "测试公众号"
-
-    def test_create_account(self) -> None:
-        """创建公众号账号"""
-        account = WeChatAccount.objects.create(name="完整公众号", mp_url="https://mp.weixin.qq.com")
-        assert account.name == "完整公众号"
-        assert account.is_active is True  # 默认激活
-
-
-@pytest.mark.django_db
-class TestPublishTaskModel:
-    """PublishTask 模型测试"""
-
-    def test_create_task(self) -> None:
-        """创建发布任务"""
-        account = WeChatAccount.objects.create(name="任务测试公众号")
-        task = PublishTask.objects.create(
-            account=account,
-            title="测试文章",
-            content_md="# 测试内容",
-            status=PublishTaskStatus.PENDING,
-        )
-        assert task.title == "测试文章"
-        assert task.status == PublishTaskStatus.PENDING
-
-    def test_task_status_choices(self) -> None:
-        """任务状态选项"""
-        assert PublishTaskStatus.PENDING == "pending"
-        assert PublishTaskStatus.LOGGING_IN == "logging_in"
-        assert PublishTaskStatus.EDITING == "editing"
-        assert PublishTaskStatus.PUBLISHING == "publishing"
-        assert PublishTaskStatus.SUCCESS == "success"
-        assert PublishTaskStatus.FAILED == "failed"
 
 
 @pytest.mark.django_db

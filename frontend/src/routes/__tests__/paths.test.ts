@@ -43,7 +43,6 @@ describe('PATHS', () => {
     expect(PATHS.ADMIN_TOOLS_COURIER).toBe('/admin/tools/courier-tracking')
     expect(PATHS.ADMIN_TOOLS_ELEMENT).toBe('/admin/tools/element-convert')
     expect(PATHS.ADMIN_TOOLS_LPR).toBe('/admin/tools/lpr-calculator')
-    expect(PATHS.ADMIN_TOOLS_CONTENT_OPS).toBe('/admin/tools/content-ops')
   })
 
   it('defines parameterized paths with colons', () => {

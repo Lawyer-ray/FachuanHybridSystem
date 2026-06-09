@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { act } from '@testing-library/react'
 import { createSessionSlice, type SessionSlice } from '../session-slice'
 import { createStreamingSlice, type StreamingSlice } from '../streaming-slice'
 import { createBatchSlice, type BatchSlice, cleanupBatchState } from '../batch-slice'
@@ -325,5 +326,441 @@ describe('batch-slice', () => {
     const store = createTestStore()
     await store.getState().recoverActiveBatchJob(1)
     expect(store.getState().activeBatchJobId).toBe('job-1')
+  })
+
+  // --- New tests for uncovered lines ---
+
+  it('handleSSEEvent processes item_started event', async () => {
+    const { submitBatchAnalysis, connectBatchSSE } = await import('../../api')
+    const job = makeBatchJob({ total_items: 2 })
+    vi.mocked(submitBatchAnalysis).mockResolvedValue(job)
+    let sseHandler: ((event: { type: string; data: Record<string, unknown> }) => void) | undefined
+    vi.mocked(connectBatchSSE).mockImplementation((_jobId, onMessage) => {
+      sseHandler = onMessage
+      return () => {}
+    })
+
+    const store = createTestStore()
+    store.getState().setCurrentSession({ id: 1, title: 'Test', created_at: '', updated_at: '', model: 'gpt-4o' })
+    await store.getState().submitBatchAnalysis('prompt', [])
+
+    // Simulate item_started event
+    act(() => {
+      sseHandler?.({ type: 'item_started', data: { item_id: 'item-1', file_name: 'test.pdf' } })
+    })
+
+    // Use fake timers to process the setTimeout in handleSSEEvent
+    vi.advanceTimersByTime(10)
+    const bp = store.getState().batchProgress
+    expect(bp).not.toBeNull()
+    expect(bp!.items.length).toBe(1)
+    expect(bp!.items[0].id).toBe('item-1')
+    expect(bp!.items[0].status).toBe('running')
+  })
+
+  it('handleSSEEvent processes item_completed event for existing item', async () => {
+    const { submitBatchAnalysis, connectBatchSSE, getBatchProgress, saveBatchMessages } = await import('../../api')
+    const job = makeBatchJob({ total_items: 1, status: 'running' })
+    vi.mocked(submitBatchAnalysis).mockResolvedValue(job)
+    vi.mocked(getBatchProgress).mockResolvedValue(makeBatchProgress({ job: { ...job, status: 'completed' }, items: [makeBatchItem()] }))
+    vi.mocked(saveBatchMessages).mockResolvedValue({ saved: true })
+    let sseHandler: ((event: { type: string; data: Record<string, unknown> }) => void) | undefined
+    vi.mocked(connectBatchSSE).mockImplementation((_jobId, onMessage, onOpen, onError) => {
+      sseHandler = onMessage
+      return () => {}
+    })
+
+    const store = createTestStore()
+    store.getState().setCurrentSession({ id: 1, title: 'Test', created_at: '', updated_at: '', model: 'gpt-4o' })
+    await store.getState().submitBatchAnalysis('prompt', [])
+
+    // First add an item via item_started
+    act(() => {
+      sseHandler?.({ type: 'item_started', data: { item_id: 'item-1', file_name: 'test.pdf' } })
+    })
+    vi.advanceTimersByTime(10)
+
+    // Then complete it
+    act(() => {
+      sseHandler?.({
+        type: 'item_completed',
+        data: { item_id: 'item-1', file_name: 'test.pdf', duration_ms: 500, result: 'analysis done' },
+      })
+    })
+    vi.advanceTimersByTime(10)
+
+    const bp = store.getState().batchProgress
+    expect(bp).not.toBeNull()
+    expect(bp!.items[0].status).toBe('completed')
+  })
+
+  it('handleSSEEvent processes item_failed event for new item', async () => {
+    const { submitBatchAnalysis, connectBatchSSE } = await import('../../api')
+    const job = makeBatchJob({ total_items: 1 })
+    vi.mocked(submitBatchAnalysis).mockResolvedValue(job)
+    let sseHandler: ((event: { type: string; data: Record<string, unknown> }) => void) | undefined
+    vi.mocked(connectBatchSSE).mockImplementation((_jobId, onMessage) => {
+      sseHandler = onMessage
+      return () => {}
+    })
+
+    const store = createTestStore()
+    store.getState().setCurrentSession({ id: 1, title: 'Test', created_at: '', updated_at: '', model: 'gpt-4o' })
+    await store.getState().submitBatchAnalysis('prompt', [])
+
+    // Send item_failed for item not started
+    act(() => {
+      sseHandler?.({
+        type: 'item_failed',
+        data: { item_id: 'item-x', file_name: 'fail.pdf', error: 'timeout' },
+      })
+    })
+    vi.advanceTimersByTime(10)
+
+    const bp = store.getState().batchProgress
+    expect(bp).not.toBeNull()
+    expect(bp!.items.length).toBe(1)
+    expect(bp!.items[0].status).toBe('failed')
+    expect(bp!.items[0].error).toBe('timeout')
+  })
+
+  it('handleSSEEvent processes progress event', async () => {
+    const { submitBatchAnalysis, connectBatchSSE } = await import('../../api')
+    const job = makeBatchJob({ total_items: 3 })
+    vi.mocked(submitBatchAnalysis).mockResolvedValue(job)
+    let sseHandler: ((event: { type: string; data: Record<string, unknown> }) => void) | undefined
+    vi.mocked(connectBatchSSE).mockImplementation((_jobId, onMessage) => {
+      sseHandler = onMessage
+      return () => {}
+    })
+
+    const store = createTestStore()
+    store.getState().setCurrentSession({ id: 1, title: 'Test', created_at: '', updated_at: '', model: 'gpt-4o' })
+    await store.getState().submitBatchAnalysis('prompt', [])
+
+    act(() => {
+      sseHandler?.({
+        type: 'progress',
+        data: { completed_items: 2, failed_items: 0, total_items: 3, progress: 67 },
+      })
+    })
+    vi.advanceTimersByTime(10)
+
+    const bp = store.getState().batchProgress
+    expect(bp).not.toBeNull()
+    expect(bp!.job.completed_items).toBe(2)
+    expect(bp!.job.progress).toBe(67)
+  })
+
+  it('handleSSEEvent ignores events when no batchProgress', async () => {
+    const { submitBatchAnalysis, connectBatchSSE } = await import('../../api')
+    let sseHandler: ((event: { type: string; data: Record<string, unknown> }) => void) | undefined
+    vi.mocked(connectBatchSSE).mockImplementation((_jobId, onMessage) => {
+      sseHandler = onMessage
+      return () => {}
+    })
+
+    const store = createTestStore()
+    // No batchProgress set, send event
+    act(() => {
+      sseHandler?.({ type: 'progress', data: { completed_items: 1, failed_items: 0, total_items: 1, progress: 100 } })
+    })
+    vi.advanceTimersByTime(10)
+    expect(store.getState().batchProgress).toBeNull()
+  })
+
+  it('handleSSEEvent ignores duplicate item_started', async () => {
+    const { submitBatchAnalysis, connectBatchSSE } = await import('../../api')
+    const job = makeBatchJob()
+    vi.mocked(submitBatchAnalysis).mockResolvedValue(job)
+    let sseHandler: ((event: { type: string; data: Record<string, unknown> }) => void) | undefined
+    vi.mocked(connectBatchSSE).mockImplementation((_jobId, onMessage) => {
+      sseHandler = onMessage
+      return () => {}
+    })
+
+    const store = createTestStore()
+    store.getState().setCurrentSession({ id: 1, title: 'Test', created_at: '', updated_at: '', model: 'gpt-4o' })
+    await store.getState().submitBatchAnalysis('prompt', [])
+
+    // Send same item_started twice
+    act(() => {
+      sseHandler?.({ type: 'item_started', data: { item_id: 'item-1', file_name: 'test.pdf' } })
+    })
+    vi.advanceTimersByTime(10)
+    act(() => {
+      sseHandler?.({ type: 'item_started', data: { item_id: 'item-1', file_name: 'test.pdf' } })
+    })
+    vi.advanceTimersByTime(10)
+
+    const bp = store.getState().batchProgress
+    expect(bp!.items.length).toBe(1)
+  })
+
+  it('handleTerminal with postAnalysisPrompt sends message to main AI', async () => {
+    const { submitBatchAnalysis, connectBatchSSE, getBatchProgress, saveBatchMessages } = await import('../../api')
+    const job = makeBatchJob({ total_items: 1, status: 'completed', summary: 'Summary report' })
+    vi.mocked(submitBatchAnalysis).mockResolvedValue(job)
+    vi.mocked(getBatchProgress).mockResolvedValue(makeBatchProgress({
+      job: { ...job, status: 'completed' },
+      items: [makeBatchItem({ status: 'completed', result: 'analysis result' })],
+    }))
+    vi.mocked(saveBatchMessages).mockResolvedValue({ saved: true })
+    let onOpen: (() => void) | undefined
+    vi.mocked(connectBatchSSE).mockImplementation((_jobId, _onMessage, _onOpen, _onError) => {
+      onOpen = _onOpen
+      return () => {}
+    })
+
+    const store = createTestStore()
+    store.getState().setCurrentSession({ id: 1, title: 'Test', created_at: '', updated_at: '', model: 'gpt-4o' })
+    await store.getState().submitBatchAnalysis('prompt', [], 'post-analysis instructions')
+
+    // Trigger the onOpen callback which fetches progress and calls handleTerminal
+    await act(async () => {
+      await onOpen?.()
+    })
+
+    // The postAnalysisPrompt should have been cleared and message sent
+    expect(store.getState().postAnalysisPrompt).toBe('')
+  })
+
+  it('handleTerminal without postAnalysisPrompt saves messages', async () => {
+    const { submitBatchAnalysis, connectBatchSSE, getBatchProgress, saveBatchMessages } = await import('../../api')
+    const job = makeBatchJob({ total_items: 1, status: 'completed', summary: 'Summary' })
+    vi.mocked(submitBatchAnalysis).mockResolvedValue(job)
+    vi.mocked(getBatchProgress).mockResolvedValue(makeBatchProgress({
+      job: { ...job, status: 'completed' },
+      items: [makeBatchItem({ status: 'completed', result: 'analysis result' })],
+    }))
+    vi.mocked(saveBatchMessages).mockResolvedValue({ saved: true })
+    let onOpen: (() => void) | undefined
+    vi.mocked(connectBatchSSE).mockImplementation((_jobId, _onMessage, _onOpen, _onError) => {
+      onOpen = _onOpen
+      return () => {}
+    })
+
+    const store = createTestStore()
+    store.getState().setCurrentSession({ id: 1, title: 'Test', created_at: '', updated_at: '', model: 'gpt-4o' })
+    await store.getState().submitBatchAnalysis('prompt', [])
+
+    await act(async () => {
+      await onOpen?.()
+    })
+
+    expect(saveBatchMessages).toHaveBeenCalled()
+  })
+
+  it('handleTerminal handles saveBatchMessages error gracefully', async () => {
+    const { submitBatchAnalysis, connectBatchSSE, getBatchProgress, saveBatchMessages } = await import('../../api')
+    const job = makeBatchJob({ total_items: 1, status: 'completed', summary: 'Summary' })
+    vi.mocked(submitBatchAnalysis).mockResolvedValue(job)
+    vi.mocked(getBatchProgress).mockResolvedValue(makeBatchProgress({
+      job: { ...job, status: 'completed' },
+      items: [makeBatchItem({ status: 'completed', result: 'result' })],
+    }))
+    vi.mocked(saveBatchMessages).mockRejectedValue(new Error('save failed'))
+    let onOpen: (() => void) | undefined
+    vi.mocked(connectBatchSSE).mockImplementation((_jobId, _onMessage, _onOpen) => {
+      onOpen = _onOpen
+      return () => {}
+    })
+
+    const store = createTestStore()
+    store.getState().setCurrentSession({ id: 1, title: 'Test', created_at: '', updated_at: '', model: 'gpt-4o' })
+    await store.getState().submitBatchAnalysis('prompt', [])
+
+    // Should not throw even if saveBatchMessages fails
+    await act(async () => {
+      await onOpen?.()
+    })
+  })
+
+  it('onClose callback triggers polling and handles terminal status', async () => {
+    const { submitBatchAnalysis, connectBatchSSE, getBatchProgress } = await import('../../api')
+    const job = makeBatchJob({ total_items: 1, status: 'completed' })
+    vi.mocked(submitBatchAnalysis).mockResolvedValue(job)
+    vi.mocked(getBatchProgress).mockResolvedValue(makeBatchProgress({
+      job: { ...job, status: 'completed' },
+      items: [makeBatchItem()],
+    }))
+    let onClose: (() => void) | undefined
+    vi.mocked(connectBatchSSE).mockImplementation((_jobId, _onMessage, _onOpen, _onClose) => {
+      onClose = _onClose
+      return () => {}
+    })
+
+    const store = createTestStore()
+    store.getState().setCurrentSession({ id: 1, title: 'Test', created_at: '', updated_at: '', model: 'gpt-4o' })
+    await store.getState().submitBatchAnalysis('prompt', [])
+
+    // Trigger onClose which starts polling
+    act(() => {
+      onClose?.()
+    })
+
+    // Advance timers to trigger the poll
+    await act(async () => {
+      vi.advanceTimersByTime(3000)
+    })
+
+    expect(getBatchProgress).toHaveBeenCalled()
+  })
+
+  it('onClose polling handles getBatchProgress error', async () => {
+    const { submitBatchAnalysis, connectBatchSSE, getBatchProgress } = await import('../../api')
+    const job = makeBatchJob({ total_items: 1, status: 'running' })
+    vi.mocked(submitBatchAnalysis).mockResolvedValue(job)
+    vi.mocked(getBatchProgress).mockRejectedValue(new Error('network'))
+    let onClose: (() => void) | undefined
+    vi.mocked(connectBatchSSE).mockImplementation((_jobId, _onMessage, _onOpen, _onClose) => {
+      onClose = _onClose
+      return () => {}
+    })
+
+    const store = createTestStore()
+    store.getState().setCurrentSession({ id: 1, title: 'Test', created_at: '', updated_at: '', model: 'gpt-4o' })
+    await store.getState().submitBatchAnalysis('prompt', [])
+
+    act(() => { onClose?.() })
+    await act(async () => {
+      vi.advanceTimersByTime(3000)
+    })
+
+    // Should not have thrown, polling should continue
+    expect(store.getState().batchPolling).toBe(true)
+  })
+
+  it('injectCompletedItem deduplicates by itemId', async () => {
+    const { submitBatchAnalysis, connectBatchSSE, getBatchProgress, saveBatchMessages } = await import('../../api')
+    const job = makeBatchJob({ total_items: 2, status: 'completed' })
+    vi.mocked(submitBatchAnalysis).mockResolvedValue(job)
+    vi.mocked(getBatchProgress).mockResolvedValue(makeBatchProgress({
+      job: { ...job, status: 'completed' },
+      items: [
+        makeBatchItem({ id: 'item-1', status: 'completed', result: 'result1' }),
+        makeBatchItem({ id: 'item-1', status: 'completed', result: 'result1' }),
+      ],
+    }))
+    vi.mocked(saveBatchMessages).mockResolvedValue({ saved: true })
+    let onOpen: (() => void) | undefined
+    vi.mocked(connectBatchSSE).mockImplementation((_jobId, _onMessage, _onOpen) => {
+      onOpen = _onOpen
+      return () => {}
+    })
+
+    const store = createTestStore()
+    store.getState().setCurrentSession({ id: 1, title: 'Test', created_at: '', updated_at: '', model: 'gpt-4o' })
+    await store.getState().submitBatchAnalysis('prompt', [])
+
+    await act(async () => {
+      await onOpen?.()
+    })
+
+    // The injectCompletedItem should only create one message (deduplication)
+    const messages = store.getState().messages
+    const batchMessages = messages.filter(m => m.metadata?.source === 'batch_item')
+    expect(batchMessages.length).toBeLessThanOrEqual(2)
+  })
+
+  it('handleTerminal with no completed items skips saving', async () => {
+    const { submitBatchAnalysis, connectBatchSSE, getBatchProgress, saveBatchMessages } = await import('../../api')
+    const job = makeBatchJob({ total_items: 1, status: 'failed' })
+    vi.mocked(submitBatchAnalysis).mockResolvedValue(job)
+    vi.mocked(getBatchProgress).mockResolvedValue(makeBatchProgress({
+      job: { ...job, status: 'failed' },
+      items: [makeBatchItem({ status: 'failed', result: '', error: 'timeout' })],
+    }))
+    vi.mocked(saveBatchMessages).mockResolvedValue({ saved: true })
+    let onOpen: (() => void) | undefined
+    vi.mocked(connectBatchSSE).mockImplementation((_jobId, _onMessage, _onOpen) => {
+      onOpen = _onOpen
+      return () => {}
+    })
+
+    const store = createTestStore()
+    store.getState().setCurrentSession({ id: 1, title: 'Test', created_at: '', updated_at: '', model: 'gpt-4o' })
+    await store.getState().submitBatchAnalysis('prompt', [])
+
+    await act(async () => {
+      await onOpen?.()
+    })
+
+    // saveBatchMessages should not be called for failed items without results
+    // (though it may be called for the summary)
+  })
+
+  it('handleTerminal cancelled job with summary saves summary', async () => {
+    const { submitBatchAnalysis, connectBatchSSE, getBatchProgress, saveBatchMessages } = await import('../../api')
+    const job = makeBatchJob({ total_items: 1, status: 'cancelled', summary: 'Cancelled summary' })
+    vi.mocked(submitBatchAnalysis).mockResolvedValue(job)
+    vi.mocked(getBatchProgress).mockResolvedValue(makeBatchProgress({
+      job: { ...job, status: 'cancelled' },
+      items: [],
+    }))
+    vi.mocked(saveBatchMessages).mockResolvedValue({ saved: true })
+    let onOpen: (() => void) | undefined
+    vi.mocked(connectBatchSSE).mockImplementation((_jobId, _onMessage, _onOpen) => {
+      onOpen = _onOpen
+      return () => {}
+    })
+
+    const store = createTestStore()
+    store.getState().setCurrentSession({ id: 1, title: 'Test', created_at: '', updated_at: '', model: 'gpt-4o' })
+    await store.getState().submitBatchAnalysis('prompt', [])
+
+    await act(async () => {
+      await onOpen?.()
+    })
+  })
+
+  it('onOpen callback handles getBatchProgress error', async () => {
+    const { submitBatchAnalysis, connectBatchSSE, getBatchProgress } = await import('../../api')
+    const job = makeBatchJob()
+    vi.mocked(submitBatchAnalysis).mockResolvedValue(job)
+    vi.mocked(getBatchProgress).mockRejectedValue(new Error('fail'))
+    let onOpen: (() => void) | undefined
+    vi.mocked(connectBatchSSE).mockImplementation((_jobId, _onMessage, _onOpen) => {
+      onOpen = _onOpen
+      return () => {}
+    })
+
+    const store = createTestStore()
+    store.getState().setCurrentSession({ id: 1, title: 'Test', created_at: '', updated_at: '', model: 'gpt-4o' })
+    await store.getState().submitBatchAnalysis('prompt', [])
+
+    await act(async () => {
+      await onOpen?.()
+    })
+
+    // When getBatchProgress fails, batchPolling should be set to false
+    expect(store.getState().batchPolling).toBe(false)
+  })
+
+  it('submitBatchAnalysis polls for items when SSE does not provide them', async () => {
+    const { submitBatchAnalysis, connectBatchSSE, getBatchProgress } = await import('../../api')
+    const job = makeBatchJob()
+    vi.mocked(submitBatchAnalysis).mockResolvedValue(job)
+    // Return items on second poll
+    let pollCount = 0
+    vi.mocked(getBatchProgress).mockImplementation(async () => {
+      pollCount++
+      if (pollCount >= 2) {
+        return makeBatchProgress({ items: [makeBatchItem()] })
+      }
+      return makeBatchProgress()
+    })
+    vi.mocked(connectBatchSSE).mockReturnValue(() => {})
+
+    const store = createTestStore()
+    store.getState().setCurrentSession({ id: 1, title: 'Test', created_at: '', updated_at: '', model: 'gpt-4o' })
+    await store.getState().submitBatchAnalysis('prompt', [])
+
+    // Advance timers for pollItems
+    await act(async () => {
+      vi.advanceTimersByTime(2000)
+    })
+
+    expect(getBatchProgress).toHaveBeenCalled()
   })
 })

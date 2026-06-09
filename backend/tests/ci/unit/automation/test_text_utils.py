@@ -1,9 +1,8 @@
-"""文本工具和 LLM 格式化器测试。"""
+"""文本工具测试。"""
 
 from __future__ import annotations
 
 from apps.automation.utils.text_utils import TextUtils
-from apps.wechat_mp.services.llm_formatter import _FORMATTING_SYSTEM_PROMPT
 
 
 class TestTextUtils:
@@ -85,18 +84,3 @@ class TestTextUtils:
         assert TextUtils.DATE_PATTERN.search("2025年1月1日") is not None
         assert TextUtils.DATE_PATTERN.search("2025年12月31号") is not None
         assert TextUtils.DATE_PATTERN.search("普通文本") is None
-
-
-class TestLLMFormatterConstants:
-    """LLM 格式化器常量测试。"""
-
-    def test_system_prompt_not_empty(self) -> None:
-        assert len(_FORMATTING_SYSTEM_PROMPT) > 0
-
-    def test_system_prompt_contains_rules(self) -> None:
-        assert "只输出 HTML" in _FORMATTING_SYSTEM_PROMPT
-        assert "内联" in _FORMATTING_SYSTEM_PROMPT
-
-    def test_system_prompt_contains_tags(self) -> None:
-        assert "section" in _FORMATTING_SYSTEM_PROMPT
-        assert "blockquote" in _FORMATTING_SYSTEM_PROMPT

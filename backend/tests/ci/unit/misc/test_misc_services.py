@@ -1,4 +1,4 @@
-"""Tests for fee_notice services, content_ops, oa_filing, contract_review, and misc."""
+"""Tests for fee_notice services, oa_filing, contract_review, and misc."""
 
 from datetime import datetime
 from decimal import Decimal
@@ -115,39 +115,6 @@ class TestFeeCheckItem:
         assert item.can_compare is True
         assert item.acceptance_fee_match is False
         assert item.extracted_acceptance_fee is None
-
-
-# ============================================================
-# content_ops/services/executor.py - _run_orm_safely
-# ============================================================
-
-class TestRunOrmSafely:
-    def test_sync_context(self):
-        from apps.content_ops.services.executor import _run_orm_safely
-        result = _run_orm_safely(lambda: 42)
-        assert result == 42
-
-
-# ============================================================
-# content_ops/services/executor.py - ContentOpsExecutor lifecycle
-# ============================================================
-
-class TestContentOpsExecutorLifecycle:
-    def test_check_cancelled_raises(self):
-        from apps.content_ops.services.executor import ContentOpsExecutor
-        from apps.content_ops.models import ContentTaskStatus
-        task = MagicMock()
-        task.status = ContentTaskStatus.CANCELLED
-        with pytest.raises(RuntimeError, match="已被取消"):
-            ContentOpsExecutor._check_cancelled(task)
-
-    def test_mark_failed_sets_status(self):
-        from apps.content_ops.services.executor import ContentOpsExecutor
-        from apps.content_ops.models import ContentTaskStatus
-        task = MagicMock()
-        ContentOpsExecutor._mark_failed(task, "test error")
-        assert task.status == ContentTaskStatus.FAILED
-        assert task.error == "test error"
 
 
 # ============================================================

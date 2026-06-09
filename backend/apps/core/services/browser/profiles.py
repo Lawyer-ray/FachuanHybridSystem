@@ -136,14 +136,6 @@ _PROFILES: dict[str, BrowserProfile] = {
         name="express",
         cdp_url="http://localhost:9222",
     ),
-    "wechat_mp": BrowserProfile(
-        name="wechat_mp",
-        cdp_url="http://localhost:9223",
-        user_data_dir=str(Path(__file__).resolve().parents[4] / "data" / "chrome_wechat_mp"),
-        anti_detection=False,
-        timeout=60000,
-        navigation_timeout=60000,
-    ),
 }
 
 

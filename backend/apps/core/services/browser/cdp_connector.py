@@ -51,7 +51,7 @@ async def connect_cdp_browser(
             launch_kwargs["proxy"] = profile.proxy
 
         if profile.user_data_dir:
-            # 持久化上下文（wechat_mp 等需要保持登录状态的场景）
+            # 持久化上下文（需要保持登录状态的场景）
             Path(profile.user_data_dir).mkdir(parents=True, exist_ok=True)
             context = await launch_persistent_context_async(
                 user_data_dir=profile.user_data_dir,

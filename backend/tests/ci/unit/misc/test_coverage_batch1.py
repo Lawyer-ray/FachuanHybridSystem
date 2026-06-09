@@ -1,4 +1,4 @@
-"""content_ops, evidence_sorting, finance, wechat_mp 模块单元测试。"""
+"""evidence_sorting, finance 模块单元测试。"""
 
 from __future__ import annotations
 
@@ -10,51 +10,6 @@ from unittest.mock import MagicMock, patch, AsyncMock
 
 import pytest
 from PIL import Image
-
-
-# ── content_ops/tts_service ─────────────────────────────────────
-
-
-class TestTTSServiceSplitText:
-    def test_short_text(self) -> None:
-        from apps.content_ops.services.tts_service import TTSService
-
-        result = TTSService._split_text("短文本")
-        assert result == ["短文本"]
-
-    def test_long_text_with_punctuation(self) -> None:
-        from apps.content_ops.services.tts_service import TTSService
-
-        text = "这是一段很长的文本。" * 100
-        result = TTSService._split_text(text)
-        assert len(result) >= 1
-        assert all(len(c) > 0 for c in result)
-
-    def test_empty_text(self) -> None:
-        from apps.content_ops.services.tts_service import TTSService
-
-        result = TTSService._split_text("")
-        assert result == [""]
-
-    def test_text_with_newlines(self) -> None:
-        from apps.content_ops.services.tts_service import TTSService
-
-        text = "第一段很长的内容需要超过五十个字符才能触发分割。" * 3 + "\n" + "第二段内容。"
-        result = TTSService._split_text(text)
-        assert len(result) >= 1
-
-
-class TestTTSServiceConstants:
-    def test_tts_voices(self) -> None:
-        from apps.content_ops.services.tts_service import TTS_VOICES
-
-        assert "冰糖" in TTS_VOICES
-        assert "茉莉" in TTS_VOICES
-
-    def test_default_voice(self) -> None:
-        from apps.content_ops.services.tts_service import DEFAULT_VOICE
-
-        assert DEFAULT_VOICE == "冰糖"
 
 
 # ── evidence_sorting/classifier ─────────────────────────────────
@@ -249,51 +204,6 @@ class TestLPRSyncService:
         svc = LPRSyncService()
         result = svc._parse_rate("N/A")
         assert result is None
-
-
-# ── wechat_mp/auth_handler ──────────────────────────────────────
-
-
-class TestWechatMpAuthHandler:
-    @pytest.mark.asyncio
-    async def test_check_login_status_on_login_page(self) -> None:
-        from apps.wechat_mp.services.auth_handler import check_login_status
-
-        mock_page = MagicMock()
-        mock_page.url = "https://mp.weixin.qq.com/cgi-bin/loginpage?act=login"
-        result = await check_login_status(mock_page)
-        assert result is False
-
-    @pytest.mark.asyncio
-    async def test_check_login_status_no_indicators(self) -> None:
-        from apps.wechat_mp.services.auth_handler import check_login_status
-
-        mock_page = MagicMock()
-        mock_page.url = "https://mp.weixin.qq.com/cgi-bin/home"
-        mock_page.query_selector = AsyncMock(return_value=None)
-        result = await check_login_status(mock_page)
-        assert result is False
-
-    @pytest.mark.asyncio
-    async def test_capture_qr_code_element_found(self) -> None:
-        from apps.wechat_mp.services.auth_handler import capture_qr_code
-
-        mock_element = AsyncMock()
-        mock_element.screenshot = AsyncMock(return_value=b"qr_bytes")
-        mock_page = AsyncMock()
-        mock_page.query_selector = AsyncMock(return_value=mock_element)
-        result = await capture_qr_code(mock_page)
-        assert result == b"qr_bytes"
-
-    @pytest.mark.asyncio
-    async def test_capture_qr_code_not_found(self) -> None:
-        from apps.wechat_mp.services.auth_handler import capture_qr_code
-
-        mock_page = AsyncMock()
-        mock_page.query_selector = AsyncMock(return_value=None)
-        mock_page.screenshot = AsyncMock(return_value=b"full_page")
-        result = await capture_qr_code(mock_page)
-        assert result == b"full_page"
 
 
 # ── pdf_splitting/segment_detector ──────────────────────────────

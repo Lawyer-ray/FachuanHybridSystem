@@ -1,4 +1,5 @@
 import { router } from '../index'
+import { PATHS } from '../paths'
 
 describe('router configuration', () => {
   it('exports a router instance', () => {
@@ -21,8 +22,6 @@ describe('router configuration', () => {
   })
 
   it('has guest guard for auth pages', () => {
-    // GuestGuard is the element of one of the top-level routes
-    // and it contains auth pages as children
     const guestRoute = router.routes.find(
       (r) => r.children?.some((c) => c.children?.some((cc) => cc.path === '/login')),
     )
@@ -30,7 +29,6 @@ describe('router configuration', () => {
   })
 
   it('has auth guard for admin pages', () => {
-    // AuthGuard wraps admin routes
     const adminRoute = router.routes.find(
       (r) => r.children?.some((c) => c.children?.some((cc) => cc.path === '/admin/dashboard')),
     )
@@ -68,7 +66,6 @@ describe('router configuration', () => {
     expect(allPaths).toContain('/admin/tools/courier-tracking')
     expect(allPaths).toContain('/admin/tools/element-convert')
     expect(allPaths).toContain('/admin/tools/lpr-calculator')
-    expect(allPaths).toContain('/admin/tools/content-ops')
   })
 
   it('includes organization paths', () => {
@@ -87,8 +84,112 @@ describe('router configuration', () => {
 
   it('has a catch-all 404 route under admin layout', () => {
     const allPaths = extractPaths(router.routes)
-    // The wildcard * route for 404
     expect(allPaths).toContain('*')
+  })
+
+  it('includes all client CRUD paths', () => {
+    const allPaths = extractPaths(router.routes)
+    expect(allPaths).toContain(PATHS.ADMIN_CLIENTS)
+    expect(allPaths).toContain(PATHS.ADMIN_CLIENT_NEW)
+    expect(allPaths).toContain(PATHS.ADMIN_CLIENT_DETAIL)
+    expect(allPaths).toContain(PATHS.ADMIN_CLIENT_EDIT)
+  })
+
+  it('includes all case CRUD paths', () => {
+    const allPaths = extractPaths(router.routes)
+    expect(allPaths).toContain(PATHS.ADMIN_CASES)
+    expect(allPaths).toContain(PATHS.ADMIN_CASE_NEW)
+    expect(allPaths).toContain(PATHS.ADMIN_CASE_DETAIL)
+    expect(allPaths).toContain(PATHS.ADMIN_CASE_EDIT)
+  })
+
+  it('includes all contract CRUD paths', () => {
+    const allPaths = extractPaths(router.routes)
+    expect(allPaths).toContain(PATHS.ADMIN_CONTRACTS)
+    expect(allPaths).toContain(PATHS.ADMIN_CONTRACT_NEW)
+    expect(allPaths).toContain(PATHS.ADMIN_CONTRACT_DETAIL)
+    expect(allPaths).toContain(PATHS.ADMIN_CONTRACT_EDIT)
+  })
+
+  it('includes inbox paths', () => {
+    const allPaths = extractPaths(router.routes)
+    expect(allPaths).toContain(PATHS.ADMIN_INBOX)
+    expect(allPaths).toContain(PATHS.ADMIN_INBOX_DETAIL)
+  })
+
+  it('includes template paths', () => {
+    const allPaths = extractPaths(router.routes)
+    expect(allPaths).toContain(PATHS.ADMIN_TEMPLATES)
+    expect(allPaths).toContain(PATHS.ADMIN_TEMPLATE_NEW)
+    expect(allPaths).toContain(PATHS.ADMIN_TEMPLATE_EDIT)
+  })
+
+  it('includes message sources path', () => {
+    const allPaths = extractPaths(router.routes)
+    expect(allPaths).toContain(PATHS.ADMIN_MESSAGE_SOURCES)
+  })
+
+  it('includes court sms detail path', () => {
+    const allPaths = extractPaths(router.routes)
+    expect(allPaths).toContain(PATHS.ADMIN_TOOLS_COURT_SMS_DETAIL)
+  })
+
+  it('includes task queue path', () => {
+    const allPaths = extractPaths(router.routes)
+    expect(allPaths).toContain(PATHS.ADMIN_TASK_QUEUE)
+  })
+
+  it('includes logs path', () => {
+    const allPaths = extractPaths(router.routes)
+    expect(allPaths).toContain(PATHS.ADMIN_LOGS)
+  })
+
+  it('includes workbench paths', () => {
+    const allPaths = extractPaths(router.routes)
+    expect(allPaths).toContain(PATHS.ADMIN_WORKBENCH)
+    expect(allPaths).toContain(PATHS.ADMIN_WORKBENCH_SESSION)
+  })
+
+  it('includes reminders path', () => {
+    const allPaths = extractPaths(router.routes)
+    expect(allPaths).toContain(PATHS.ADMIN_REMINDERS)
+  })
+
+  it('includes config settings path', () => {
+    const allPaths = extractPaths(router.routes)
+    expect(allPaths).toContain(PATHS.ADMIN_SETTINGS_CONFIG)
+  })
+
+  it('includes all lawfirm paths', () => {
+    const allPaths = extractPaths(router.routes)
+    expect(allPaths).toContain(PATHS.ADMIN_LAWFIRMS)
+    expect(allPaths).toContain(PATHS.ADMIN_LAWFIRM_NEW)
+    expect(allPaths).toContain(PATHS.ADMIN_LAWFIRM_DETAIL)
+    expect(allPaths).toContain(PATHS.ADMIN_LAWFIRM_EDIT)
+  })
+
+  it('includes all lawyer paths', () => {
+    const allPaths = extractPaths(router.routes)
+    expect(allPaths).toContain(PATHS.ADMIN_LAWYERS)
+    expect(allPaths).toContain(PATHS.ADMIN_LAWYER_NEW)
+    expect(allPaths).toContain(PATHS.ADMIN_LAWYER_DETAIL)
+    expect(allPaths).toContain(PATHS.ADMIN_LAWYER_EDIT)
+  })
+
+  it('includes teams and credentials paths', () => {
+    const allPaths = extractPaths(router.routes)
+    expect(allPaths).toContain(PATHS.ADMIN_TEAMS)
+    expect(allPaths).toContain(PATHS.ADMIN_CREDENTIALS)
+  })
+
+  it('includes quote detail path', () => {
+    const allPaths = extractPaths(router.routes)
+    expect(allPaths).toContain(PATHS.ADMIN_AUTOMATION_QUOTE_DETAIL)
+  })
+
+  it('includes recognition detail path', () => {
+    const allPaths = extractPaths(router.routes)
+    expect(allPaths).toContain(PATHS.ADMIN_AUTOMATION_RECOGNITION_DETAIL)
   })
 })
 

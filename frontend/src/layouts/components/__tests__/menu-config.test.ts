@@ -49,7 +49,6 @@ describe('menu-config', () => {
         expect(ids).toContain('courier-tracking')
         expect(ids).toContain('element-convert')
         expect(ids).toContain('lpr-calculator')
-        expect(ids).toContain('content-ops')
       }
     })
 

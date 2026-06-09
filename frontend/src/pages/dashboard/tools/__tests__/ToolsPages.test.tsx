@@ -5,8 +5,6 @@ import CourtSmsDetailPage from '../CourtSmsDetailPage'
 import CourierTrackingPage from '../CourierTrackingPage'
 import ElementConvertPage from '../ElementConvertPage'
 import LprCalculatorPage from '../LprCalculatorPage'
-import ContentOpsPage from '../ContentOpsPage'
-import ContentOpsInspirationPage from '../ContentOpsInspirationPage'
 
 // Mock tool feature components
 vi.mock('@/features/tools', () => ({
@@ -20,11 +18,6 @@ vi.mock('@/features/tools/components/CourtSmsDetail', () => ({
   CourtSmsDetail: ({ smsId }: { smsId: number }) => (
     <div data-testid="court-sms-detail">CourtSmsDetail-{smsId}</div>
   ),
-}))
-
-vi.mock('@/features/content-ops', () => ({
-  ContentWorkbench: () => <div data-testid="content-workbench">ContentWorkbench</div>,
-  InspirationPage: () => <div data-testid="inspiration-page">InspirationPage</div>,
 }))
 
 describe('CourtSmsPage', () => {
@@ -87,29 +80,5 @@ describe('LprCalculatorPage', () => {
     )
 
     expect(screen.getByTestId('lpr-calculator-tool')).toBeInTheDocument()
-  })
-})
-
-describe('ContentOpsPage', () => {
-  it('renders ContentWorkbench component', () => {
-    render(
-      <MemoryRouter>
-        <ContentOpsPage />
-      </MemoryRouter>,
-    )
-
-    expect(screen.getByTestId('content-workbench')).toBeInTheDocument()
-  })
-})
-
-describe('ContentOpsInspirationPage', () => {
-  it('renders InspirationPage component', () => {
-    render(
-      <MemoryRouter>
-        <ContentOpsInspirationPage />
-      </MemoryRouter>,
-    )
-
-    expect(screen.getByTestId('inspiration-page')).toBeInTheDocument()
   })
 })

@@ -1,3 +1,6 @@
+const mockDelete = vi.fn().mockResolvedValue(undefined)
+const mockPatch = vi.fn().mockReturnValue({ json: vi.fn().mockResolvedValue({}) })
+
 const { mockGet, mockPost, mockJson } = vi.hoisted(() => {
   const mockJson = vi.fn().mockResolvedValue({ items: [] })
   const mockGet = vi.fn().mockReturnValue({ json: mockJson })
@@ -9,8 +12,8 @@ vi.mock('@/lib/api', () => ({
   createFeatureApiClient: vi.fn(() => ({
     get: mockGet, post: mockPost,
     put: vi.fn().mockReturnValue({ json: mockJson }),
-    delete: vi.fn(),
-    patch: vi.fn().mockReturnValue({ json: mockJson }),
+    delete: mockDelete,
+    patch: mockPatch.mockReturnValue({ json: mockJson }),
   })),
   api: { post: vi.fn().mockReturnValue({ json: mockJson }) },
   API_BASE_URL: 'http://localhost:8002/api/v1',
@@ -207,5 +210,259 @@ describe('workbench/api', () => {
   it('connectBatchSSE is a function', async () => {
     const api = await import('../api')
     expect(typeof api.connectBatchSSE).toBe('function')
+  })
+
+  // --- New tests for uncovered lines ---
+
+  it('deleteSession calls DELETE sessions/:id', async () => {
+    const api = await import('../api')
+    await api.deleteSession(42)
+    expect(mockDelete).toHaveBeenCalledWith('sessions/42')
+  })
+
+  it('truncateMessages calls DELETE sessions/:id/messages/from/:fromId', async () => {
+    const api = await import('../api')
+    await api.truncateMessages(5, 100)
+    expect(mockDelete).toHaveBeenCalledWith('sessions/5/messages/from/100')
+  })
+
+  it('updateSession calls PATCH sessions/:id with data', async () => {
+    const api = await import('../api')
+    await api.updateSession(1, { title: 'New Title', llm_model: 'gpt-4', status: 'active' })
+    expect(mockPatch).toHaveBeenCalledWith('sessions/1', { json: { title: 'New Title', llm_model: 'gpt-4', status: 'active' } })
+  })
+
+  it('submitFeedback calls PATCH messages/:id/feedback', async () => {
+    const api = await import('../api')
+    await api.submitFeedback(10, 'good', 'great work')
+    expect(mockPatch).toHaveBeenCalledWith('messages/10/feedback', { json: { rating: 'good', comment: 'great work' } })
+  })
+
+  it('submitFeedback uses default empty comment', async () => {
+    const api = await import('../api')
+    await api.submitFeedback(10, 'bad')
+    expect(mockPatch).toHaveBeenCalledWith('messages/10/feedback', { json: { rating: 'bad', comment: '' } })
+  })
+
+  it('connectBatchSSE establishes SSE connection and handles events', async () => {
+    const { getAccessToken } = await import('@/lib/token')
+    const mockReader = {
+      read: vi.fn()
+        .mockResolvedValueOnce({
+          done: false,
+          value: new TextEncoder().encode('data: {"type":"progress","data":{"pct":50}}\n\n'),
+        })
+        .mockResolvedValueOnce({
+          done: false,
+          value: new TextEncoder().encode('data: {"type":"done"}\n\n'),
+        })
+        .mockResolvedValueOnce({ done: true }),
+    }
+    const mockResponse = {
+      ok: true,
+      body: { getReader: () => mockReader },
+    }
+    global.fetch = vi.fn().mockResolvedValue(mockResponse)
+
+    const api = await import('../api')
+    const onEvent = vi.fn()
+    const onDone = vi.fn()
+    const onError = vi.fn()
+
+    const cleanup = api.connectBatchSSE('job-1', onEvent, onDone, onError)
+
+    // Wait for async operations
+    await new Promise((r) => setTimeout(r, 100))
+
+    expect(fetch).toHaveBeenCalledWith(
+      'http://localhost:8002/api/v1/workbench/batch/job-1/stream',
+      expect.objectContaining({
+        headers: expect.objectContaining({
+          Authorization: 'Bearer test-token', // pragma: allowlist secret
+        }),
+      }),
+    )
+    expect(onEvent).toHaveBeenCalledWith({ type: 'progress', data: { pct: 50 } })
+    expect(onDone).toHaveBeenCalled()
+
+    cleanup()
+    // @ts-expect-error restore
+    global.fetch = undefined
+  })
+
+  it('connectBatchSSE handles HTTP error', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 500,
+    })
+
+    const api = await import('../api')
+    const onEvent = vi.fn()
+    const onDone = vi.fn()
+    const onError = vi.fn()
+
+    api.connectBatchSSE('job-1', onEvent, onDone, onError)
+    await new Promise((r) => setTimeout(r, 100))
+
+    expect(onError).toHaveBeenCalledWith(expect.objectContaining({
+      message: expect.stringContaining('SSE'),
+    }))
+
+    // @ts-expect-error restore
+    global.fetch = undefined
+  })
+
+  it('connectBatchSSE handles no reader', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      body: null,
+    })
+
+    const api = await import('../api')
+    const onEvent = vi.fn()
+    const onDone = vi.fn()
+    const onError = vi.fn()
+
+    api.connectBatchSSE('job-1', onEvent, onDone, onError)
+    await new Promise((r) => setTimeout(r, 100))
+
+    expect(onError).toHaveBeenCalled()
+
+    // @ts-expect-error restore
+    global.fetch = undefined
+  })
+
+  it('connectBatchSSE handles abort gracefully', async () => {
+    const abortError = new DOMException('The operation was aborted.', 'AbortError')
+    global.fetch = vi.fn().mockRejectedValue(abortError)
+
+    const api = await import('../api')
+    const onEvent = vi.fn()
+    const onDone = vi.fn()
+    const onError = vi.fn()
+
+    api.connectBatchSSE('job-1', onEvent, onDone, onError)
+    await new Promise((r) => setTimeout(r, 100))
+
+    // AbortError should not trigger onError
+    expect(onError).not.toHaveBeenCalled()
+
+    // @ts-expect-error restore
+    global.fetch = undefined
+  })
+
+  it('connectBatchSSE returns cleanup function', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      body: { getReader: () => ({ read: vi.fn().mockResolvedValue({ done: true }) }) },
+    })
+
+    const api = await import('../api')
+    const cleanup = api.connectBatchSSE('job-1', vi.fn(), vi.fn(), vi.fn())
+    expect(typeof cleanup).toBe('function')
+    cleanup()
+
+    // @ts-expect-error restore
+    global.fetch = undefined
+  })
+
+  it('connectBatchSSE handles stream ending without done event', async () => {
+    const mockReader = {
+      read: vi.fn()
+        .mockResolvedValueOnce({
+          done: false,
+          value: new TextEncoder().encode('data: {"type":"progress"}\n\n'),
+        })
+        .mockResolvedValueOnce({ done: true }),
+    }
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      body: { getReader: () => mockReader },
+    })
+
+    const api = await import('../api')
+    const onDone = vi.fn()
+    api.connectBatchSSE('job-1', vi.fn(), onDone, vi.fn())
+    await new Promise((r) => setTimeout(r, 100))
+
+    expect(onDone).toHaveBeenCalled()
+
+    // @ts-expect-error restore
+    global.fetch = undefined
+  })
+
+  it('connectBatchSSE skips malformed JSON data', async () => {
+    const mockReader = {
+      read: vi.fn()
+        .mockResolvedValueOnce({
+          done: false,
+          value: new TextEncoder().encode('data: {bad json}\n\ndata: {"type":"done"}\n\n'),
+        })
+        .mockResolvedValueOnce({ done: true }),
+    }
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      body: { getReader: () => mockReader },
+    })
+
+    const api = await import('../api')
+    const onDone = vi.fn()
+    api.connectBatchSSE('job-1', vi.fn(), onDone, vi.fn())
+    await new Promise((r) => setTimeout(r, 100))
+
+    expect(onDone).toHaveBeenCalled()
+
+    // @ts-expect-error restore
+    global.fetch = undefined
+  })
+
+  it('connectBatchSSE skips non-data lines', async () => {
+    const mockReader = {
+      read: vi.fn()
+        .mockResolvedValueOnce({
+          done: false,
+          value: new TextEncoder().encode('event: ping\ndata: {"type":"done"}\n\n'),
+        })
+        .mockResolvedValueOnce({ done: true }),
+    }
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      body: { getReader: () => mockReader },
+    })
+
+    const api = await import('../api')
+    const onDone = vi.fn()
+    api.connectBatchSSE('job-1', vi.fn(), onDone, vi.fn())
+    await new Promise((r) => setTimeout(r, 100))
+
+    expect(onDone).toHaveBeenCalled()
+
+    // @ts-expect-error restore
+    global.fetch = undefined
+  })
+
+  it('connectBatchSSE handles empty data line', async () => {
+    const mockReader = {
+      read: vi.fn()
+        .mockResolvedValueOnce({
+          done: false,
+          value: new TextEncoder().encode('data: \n\ndata: {"type":"done"}\n\n'),
+        })
+        .mockResolvedValueOnce({ done: true }),
+    }
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      body: { getReader: () => mockReader },
+    })
+
+    const api = await import('../api')
+    const onDone = vi.fn()
+    api.connectBatchSSE('job-1', vi.fn(), onDone, vi.fn())
+    await new Promise((r) => setTimeout(r, 100))
+
+    expect(onDone).toHaveBeenCalled()
+
+    // @ts-expect-error restore
+    global.fetch = undefined
   })
 })
