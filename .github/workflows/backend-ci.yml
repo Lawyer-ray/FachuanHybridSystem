@@ -243,7 +243,7 @@ jobs:
           TEST_DB_HOST: "127.0.0.1"
           TEST_DB_PORT: "5432"
           PYTHONPATH: "apiSystem:."
-        run: uv run pytest -c pytest.ini --no-cov -q -n 2 --dist loadscope tests/ci/unit/
+        run: uv run pytest -c pytest.ini -o "addopts=--reuse-db --import-mode=importlib -q --tb=short --strict-markers --timeout=30" --capture=no --no-cov -q tests/ci/unit/
 
       - name: Smoke check (minimal)
         env:
@@ -319,6 +319,7 @@ jobs:
           PYTHONPATH: "apiSystem:."
         run: |
           uv run pytest -c pytest.ini -o addopts="" \
+            --capture=no \
             --reuse-db --import-mode=importlib -q \
             --cov=apps.cases.services.case.case_admin_export_bridge \
             --cov=apps.cases.services.case.case_contract_export_bridge \
@@ -327,7 +328,6 @@ jobs:
             --cov=apps.enterprise_data.services.clients.api_key_pool \
             --cov=apps \
             --cov-report=term-missing --cov-fail-under=25 \
-            -n 2 --dist loadscope \
             tests/ci/unit/
 
   backend-integration-smoke:
