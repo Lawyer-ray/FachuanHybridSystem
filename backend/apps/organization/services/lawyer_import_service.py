@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 import secrets
-from typing import Any
+from typing import Any, cast
 
 from apps.organization.models import AccountCredential, LawFirm, Lawyer, Team
 from apps.organization.models.team import TeamType
@@ -72,7 +72,7 @@ class LawyerImportService:
             law_firm, _ = LawFirm.objects.get_or_create(name=item["law_firm"])
 
         password = item.get("password") or secrets.token_urlsafe(16)
-        lawyer = Lawyer.objects.create_user(
+        lawyer = cast(Lawyer, Lawyer.objects.create_user(
             username=item.get("username", ""),
             password=password,
             real_name=item.get("real_name", ""),
@@ -83,7 +83,7 @@ class LawyerImportService:
             is_active=item.get("is_active", False),
             is_staff=item.get("is_admin", False),
             law_firm=law_firm,
-        )
+        ))
 
         if item.get("license_pdf"):
             lawyer.license_pdf = item["license_pdf"]

@@ -237,6 +237,7 @@ class ContractBatchFolderBindingService:
         if storage_type != "local":
             return
         target = self._validate_selected_folder(root_path=root_path, selected_folder_path=folder_path)
+        assert isinstance(target, Path)  # storage_type == "local" branch guarantees Path
         SubprocessRunner(allowed_programs={"open"}).run(
             args=["open", target.as_posix()],
             timeout_seconds=5,

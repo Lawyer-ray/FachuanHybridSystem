@@ -467,7 +467,7 @@ def _build_guarantee_material_paths(case: Any) -> list[dict[str, str]]:
     selected: list[dict[str, str]] = []
     used: set[str] = set()
 
-    required_rules: list[tuple[list[tuple[int, str, str, str]], list[str], list[str] | None]] = [
+    required_rules: list[tuple[list[tuple[int, str, str, str, str]], list[str], list[str] | None]] = [
         (our_files, ["财产保全申请书", "保全申请书"], ["保全申请", "保全", "保全申请书及保函"]),
         (our_files, ["起诉状", "起诉书", "起诉"], ["起诉状"]),
         (non_party_files, ["立案受理通知书", "受理通知书", "立案通知书", "受理通知", "立案通知"], None),

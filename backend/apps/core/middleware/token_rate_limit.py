@@ -55,7 +55,8 @@ class TokenRateLimitMiddleware:
         return self.get_response(request)
 
     def _get_client_ip(self, request: Any) -> str:
-        xff = request.META.get("HTTP_X_FORWARDED_FOR")
+        xff: str | None = request.META.get("HTTP_X_FORWARDED_FOR")
         if xff:
             return xff.split(",")[0].strip()
-        return request.META.get("REMOTE_ADDR", "unknown")
+        remote_addr: str = request.META.get("REMOTE_ADDR", "unknown")
+        return remote_addr

@@ -20,21 +20,21 @@ class ZxfwInterceptMixin:
 
     def _debug_log(self, message: str, data: Any = None) -> None:
         if hasattr(super(), "_debug_log"):
-            super()._debug_log(message, data)
+            super()._debug_log(message, data)  # type: ignore[union-attr]
         elif hasattr(self, "_debug_log"):
             self._debug_log(message, data)
 
     def navigate_to_url(self) -> None:
         if hasattr(super(), "navigate_to_url"):
-            super().navigate_to_url()
+            super().navigate_to_url()  # type: ignore[union-attr]
 
     def random_wait(self, min_s: float, max_s: float) -> None:
         if hasattr(super(), "random_wait"):
-            super().random_wait(min_s, max_s)
+            super().random_wait(min_s, max_s)  # type: ignore[union-attr]
 
     def _save_page_state(self, name: str) -> dict[str, Any]:
         if hasattr(super(), "_save_page_state"):
-            return super()._save_page_state(name)
+            return super()._save_page_state(name)  # type: ignore[union-attr]
         return {}
 
     def _download_document_directly(
@@ -44,7 +44,7 @@ class ZxfwInterceptMixin:
         download_timeout: int,
     ) -> tuple[bool, str | None, str | None]:
         if hasattr(super(), "_download_document_directly"):
-            return super()._download_document_directly(document_data, download_dir, download_timeout)
+            return super()._download_document_directly(document_data, download_dir, download_timeout)  # type: ignore[union-attr]
         raise NotImplementedError("子类必须实现 _download_document_directly 方法")
 
     def _save_documents_batch(  # pragma: no cover
@@ -52,7 +52,7 @@ class ZxfwInterceptMixin:
         documents_with_results: list[tuple[dict[str, Any], tuple[bool, str | None, str | None]]],
     ) -> dict[str, Any]:
         if hasattr(super(), "_save_documents_batch"):
-            return super()._save_documents_batch(documents_with_results)
+            return super()._save_documents_batch(documents_with_results)  # type: ignore[union-attr]
         return {}
 
     def _intercept_api_response_with_navigation(self, timeout: int = 30000) -> dict[str, Any] | None:  # pragma: no cover

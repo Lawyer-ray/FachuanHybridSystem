@@ -39,7 +39,7 @@ class GuaranteeUploadMixin:  # pragma: no cover
             payloads.append(self._build_file_payload(fp))
         if len(payloads) == 1:
             return payloads[0]
-        return payloads
+        return payloads  # type: ignore[return-value]
 
     def _complete_g_three(self, case_data: dict[str, Any]) -> dict[str, Any]:  # pragma: no cover
         result: dict[str, Any] = {"uploaded": 0, "next_clicked": None, "uploads": []}

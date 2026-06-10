@@ -376,7 +376,7 @@ class FilingStepsMixin(FormUtilsMixin):  # pragma: no cover
                 for attempt in range(3):
                     with self.page.expect_file_chooser() as fc_info:
                         btn.click()
-                    fc_info.value.set_files(upload_payload)
+                    fc_info.value.set_files(upload_payload)  # type: ignore[arg-type]
                     self.page.wait_for_timeout(2000)
 
                     # 验证上传成功（文件数增加）
