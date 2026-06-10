@@ -49,7 +49,7 @@ def build_document_delivery_coordinator(  # pragma: no cover
     api_client = api_client or CourtDocumentApiClient()
     token_service = token_service or DocumentDeliveryTokenService(
         cache_manager=cache_manager,
-        auto_token_service=auto_token_service,
+        auto_token_service=auto_token_service,  # type: ignore[arg-type]
     )
 
     if case_matcher is None:
@@ -91,7 +91,7 @@ def build_document_delivery_coordinator(  # pragma: no cover
     )
 
     playwright_service = DocumentDeliveryPlaywrightService(
-        browser_service=browser_service,
+        browser_service=browser_service,  # type: ignore[arg-type]
         case_matcher=case_matcher,
         document_renamer=document_renamer,
         notification_service=notification_service,
