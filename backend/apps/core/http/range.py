@@ -27,6 +27,9 @@ def _parse_explicit_range(start_s: str, end_s: str, file_size: int) -> tuple[int
         return None
     if start < 0:
         return None
+    # 如果起始位置超出文件大小，应返回 416 Range Not Satisfiable
+    if start >= file_size:
+        return None
 
     if end_s == "":
         end = file_size - 1
@@ -39,7 +42,6 @@ def _parse_explicit_range(start_s: str, end_s: str, file_size: int) -> tuple[int
     if end < start:
         return None
     end = min(end, file_size - 1)
-    start = min(start, file_size - 1)
     return (start, end)
 
 

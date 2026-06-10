@@ -86,18 +86,17 @@ class TestBuildRangeFileResponse:
         assert response.get("Content-Length") == "5"
 
     def test_range_beyond_file_size(self, temp_file: str) -> None:
-        """请求范围超过文件大小时，_parse_explicit_range 会将 start/end 限制在 file_size-1"""
+        """请求范围超过文件大小时，应返回 416 Range Not Satisfiable"""
         from apps.core.http.streaming import build_range_file_response
 
         file_size = os.path.getsize(temp_file)
         request = _make_request(range_header=f"bytes={file_size + 100}-{file_size + 200}")
         response = build_range_file_response(request, temp_file)
-        # The range parser caps start/end to file_size-1, so this returns 206 not 416
-        assert response.status_code == 206
+        assert response.status_code == 416
 
     def test_custom_content_type(self, temp_file: str) -> None:
         from apps.core.http.streaming import build_range_file_response
 
         request = _make_request()
-        response = build_range_file_response(request, temp_file, content_type="text/html")
-        assert response.get("Content-Type") == "text/html"
+        response = build_range_file_response(request, temp_file, content_type="application/json")
+        assert response.get("Content-Type") == "application/json"

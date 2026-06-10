@@ -377,6 +377,7 @@ class TestScoringMixinCoarseRecall:
 # ── ExecutorIntentMixin ────────────────────────────────────────
 
 
+@pytest.mark.django_db
 class TestIntentMixinExtraction:
     """Intent slot extraction."""
 

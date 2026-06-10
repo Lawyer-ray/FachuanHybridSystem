@@ -114,6 +114,7 @@ class TestDocumentProcessing:
 # ============================================================
 
 
+@pytest.mark.django_db
 class TestDocumentRenamerFilename:
     """DocumentRenamer 生成文件名测试"""
 

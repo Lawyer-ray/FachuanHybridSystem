@@ -424,11 +424,11 @@ class TestSave:
 # ---------------------------------------------------------------------------
 
 class TestOpenFolder:
-    def test_calls_subprocess_runner(self):
+    def test_calls_subprocess_runner(self, tmp_path):
         svc = _make_service()
         with patch("apps.contracts.services.contract.integrations.batch_folder_binding_service.SubprocessRunner") as MockRunner, \
              patch.object(svc, "_validate_selected_folder") as mock_validate:
-            mock_validate.return_value = MagicMock(as_posix=MagicMock(return_value="/target"))
+            mock_validate.return_value = tmp_path / "target"
             svc.open_folder(root_path="/root", folder_path="/root/sub")
             MockRunner.return_value.run.assert_called_once()
 

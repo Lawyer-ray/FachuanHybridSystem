@@ -27,6 +27,7 @@ class TestMessageFetcher:
             fetcher.download_attachment(None, "msg1", 0)
 
 
+@pytest.mark.django_db
 class TestInboxQuery:
     def test_get_base_queryset(self):
         from apps.message_hub.services.inbox_query import get_base_queryset

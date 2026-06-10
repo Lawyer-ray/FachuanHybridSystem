@@ -121,15 +121,21 @@ class TestPlaceholderRegistryMethods:
     def _make_service(self, name, category="cat1", keys=None):
         from apps.documents.services.placeholders.base import BasePlaceholderService
 
-        class Svc(BasePlaceholderService):
-            pass
+        def _generate(self, ctx):
+            return {}
 
-        Svc.name = name
-        Svc.display_name = f"Display {name}"
-        Svc.description = f"Desc {name}"
-        Svc.category = category
-        Svc.placeholder_keys = keys or [name]
-        Svc.generate = lambda self, ctx: {}
+        Svc = type(
+            "Svc",
+            (BasePlaceholderService,),
+            {
+                "name": name,
+                "display_name": f"Display {name}",
+                "description": f"Desc {name}",
+                "category": category,
+                "placeholder_keys": keys or [name],
+                "generate": _generate,
+            },
+        )
         return Svc
 
     def test_get_service(self):
@@ -402,6 +408,7 @@ class TestPageRangeCalculator:
 # EvidenceFileService — evidence/evidence_file_service.py
 # =====================================================================
 
+@pytest.mark.django_db
 class TestEvidenceFileService:
     def test_reject_unsupported_format(self):
         from apps.documents.services.evidence.evidence_file_service import EvidenceFileService
@@ -451,7 +458,7 @@ class TestMergeProgressReporter:
     def test_report_updates_db(self):
         from apps.documents.services.evidence.evidence_merge_usecase import MergeProgressReporter
 
-        with patch("apps.documents.services.evidence.evidence_merge_usecase.EvidenceList") as mock_el:
+        with patch("apps.documents.models.EvidenceList") as mock_el:
             reporter = MergeProgressReporter(list_id=1, min_interval_seconds=0.0)
             reporter.report(current=5, total=10, message="halfway")
             mock_el.objects.filter.assert_called_once()
@@ -459,7 +466,7 @@ class TestMergeProgressReporter:
     def test_report_dedup_within_interval(self):
         from apps.documents.services.evidence.evidence_merge_usecase import MergeProgressReporter
 
-        with patch("apps.documents.services.evidence.evidence_merge_usecase.EvidenceList") as mock_el:
+        with patch("apps.documents.models.EvidenceList") as mock_el:
             reporter = MergeProgressReporter(list_id=1, min_interval_seconds=999.0)
             reporter.report(current=5, total=10, message="msg")
             mock_el.reset_mock()

@@ -77,7 +77,7 @@ class TestSyncSourceById:
         ):
             mock_source = MagicMock()
             mock_source.display_name = "Test Source"
-            MockSource.objects.select_related.return_value.get.return_value = mock_source
+            MockSource.objects.select_related.return_value.filter.return_value.first.return_value = mock_source
 
             mock_fetcher = MagicMock()
             mock_fetcher.fetch_new_messages.return_value = 5

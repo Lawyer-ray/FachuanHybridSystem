@@ -812,9 +812,11 @@ class TestScraperSites:
         import apps.automation.services.scraper.sites.guarantee.upload_mixin
 
     def test_court_zxfw_login_private(self) -> None:
-        import apps.automation.services.scraper.sites.court_zxfw_login_private
-
-        assert apps.automation.services.scraper.sites.court_zxfw_login_private is not None
+        mod = pytest.importorskip(
+            "apps.automation.services.scraper.sites.court_zxfw_login_private",
+            reason="court_zxfw_login_private is not tracked in Git (private module)",
+        )
+        assert mod is not None
 
 
 # ── scraper court document modules ───────────────────────────────

@@ -608,11 +608,11 @@ class TestParseRangeHeader:
         result = parse_range_header("bytes=0-9999", 1000)
         assert result == (0, 999)
 
-    def test_start_clamped_to_file_size(self):
+    def test_start_exceeds_file_size_returns_none(self):
         from apps.core.http.range import parse_range_header
 
         result = parse_range_header("bytes=9999-9999", 1000)
-        assert result == (999, 999)
+        assert result is None
 
     def test_end_before_start(self):
         from apps.core.http.range import parse_range_header
@@ -1049,7 +1049,7 @@ class TestLifespanApp:
 
         app = LifespanApp(on_startup=on_startup)
 
-        messages = [{"type": "lifespan.startup"}]
+        messages = [{"type": "lifespan.startup"}, {"type": "lifespan.shutdown"}]
         sent = []
 
         async def receive():

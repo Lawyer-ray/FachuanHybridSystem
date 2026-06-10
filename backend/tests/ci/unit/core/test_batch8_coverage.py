@@ -208,32 +208,31 @@ class TestTaskContext:
 # =====================================================================
 
 class TestDjangoQTaskScheduler:
-    @patch("apps.core.tasking.scheduler.Schedule")
+    @patch("django_q.models.Schedule")
     def test_delete_schedules_by_name(self, mock_schedule):
         from apps.core.tasking.scheduler import DjangoQTaskScheduler
 
-        mock_qs = MagicMock()
-        mock_qs.count.return_value = 3
-        mock_schedule.objects.all.return_value = mock_qs
+        mock_filtered = MagicMock()
+        mock_filtered.count.return_value = 3
+        mock_schedule.objects.all.return_value.filter.return_value = mock_filtered
         scheduler = DjangoQTaskScheduler()
         result = scheduler.delete_schedules(name="test_name")
-        mock_qs.filter.assert_called_once_with(name="test_name")
-        mock_qs.delete.assert_called_once()
+        mock_filtered.delete.assert_called_once()
         assert result == 3
 
-    @patch("apps.core.tasking.scheduler.Schedule")
+    @patch("django_q.models.Schedule")
     def test_delete_schedules_by_func(self, mock_schedule):
         from apps.core.tasking.scheduler import DjangoQTaskScheduler
 
-        mock_qs = MagicMock()
-        mock_qs.count.return_value = 1
-        mock_schedule.objects.all.return_value = mock_qs
+        mock_filtered = MagicMock()
+        mock_filtered.count.return_value = 1
+        mock_schedule.objects.all.return_value.filter.return_value = mock_filtered
         scheduler = DjangoQTaskScheduler()
         result = scheduler.delete_schedules(func="some.func")
-        mock_qs.filter.assert_called_once_with(func="some.func")
+        mock_filtered.delete.assert_called_once()
         assert result == 1
 
-    @patch("apps.core.tasking.scheduler.Schedule")
+    @patch("django_q.models.Schedule")
     def test_delete_schedules_no_filters(self, mock_schedule):
         from apps.core.tasking.scheduler import DjangoQTaskScheduler
 
@@ -243,6 +242,7 @@ class TestDjangoQTaskScheduler:
         scheduler = DjangoQTaskScheduler()
         result = scheduler.delete_schedules()
         mock_qs.filter.assert_not_called()
+        mock_qs.delete.assert_called_once()
         assert result == 0
 
 

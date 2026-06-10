@@ -113,7 +113,7 @@ class TrackingExtractionService:
         if not text:
             return None
 
-        normalized = text.replace("|", " ")
+        normalized = text.replace("|", "")
         candidates: list[dict[str, str | int]] = []
 
         # 先收集所有顺丰单号的位置范围，避免EMS匹配到顺丰单号中的数字部分

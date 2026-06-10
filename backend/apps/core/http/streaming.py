@@ -47,6 +47,13 @@ def build_range_file_response(
     range_header: str = request.headers.get("Range") or request.META.get("HTTP_RANGE", "") or ""
     byte_range = parse_range_header(range_header, file_size)
 
+    # 如果 Range 请求头存在但解析失败或范围无效，返回 416 Range Not Satisfiable (RFC 7233)
+    if range_header and not byte_range:
+        resp = HttpResponse(status=416)
+        resp["Accept-Ranges"] = "bytes"
+        resp["Content-Range"] = f"bytes */{file_size}"
+        return resp
+
     def _set_security_headers(resp: HttpResponseBase) -> HttpResponseBase:
         resp["X-Content-Type-Options"] = "nosniff"
         if as_attachment:
