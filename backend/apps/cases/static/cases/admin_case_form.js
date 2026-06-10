@@ -198,6 +198,10 @@
           select.value = currentValue;
         }
       }
+      // 触发 Select2 (admin-autocomplete) 刷新，使其重新读取 option 并更新显示
+      if (typeof jQuery !== 'undefined') {
+        jQuery(select).trigger('change');
+      }
     });
 
     console.log('[updateOptions] 更新完成');
@@ -229,6 +233,10 @@
       // 恢复之前选中的值
       if (currentValue) {
         select.value = currentValue;
+      }
+      // 触发 Select2 刷新
+      if (typeof jQuery !== 'undefined') {
+        jQuery(select).trigger('change');
       }
     });
   }
@@ -377,6 +385,10 @@
       select.value = partyIdStr;
       filledSelectNames[select.name] = true;
       console.log('[autoFill]   已填充:', party.name, '(ID:', party.id, '), select.name:', select.name);
+      // 触发 Select2 刷新
+      if (typeof jQuery !== 'undefined') {
+        jQuery(select).trigger('change');
+      }
       return true;
     }
 
