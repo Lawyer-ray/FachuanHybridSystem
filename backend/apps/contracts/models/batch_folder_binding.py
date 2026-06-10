@@ -24,6 +24,19 @@ class ContractTypeFolderRootPreset(models.Model):
         verbose_name="根目录",
         help_text="该合同类型下用于自动匹配的根目录",
     )
+    storage_type = models.CharField(
+        max_length=20,
+        default="local",
+        verbose_name="存储类型",
+        help_text="local / webdav / s3 / onedrive / google_drive / dropbox",
+    )
+    storage_account = models.ForeignKey(
+        "core.CloudStorageAccount",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        verbose_name="云存储账号",
+    )
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="更新时间")
 

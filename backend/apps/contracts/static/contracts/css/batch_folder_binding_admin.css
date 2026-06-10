@@ -220,6 +220,30 @@
     background: #eef5fc;
 }
 
+.batch-storage-row {
+    display: grid;
+    grid-template-columns: 240px minmax(0, 1fr);
+    gap: 12px;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.batch-storage-select {
+    min-height: 38px;
+    border-radius: 8px;
+    border: 1px solid #c6d3e0;
+    padding: 0 10px;
+    background: #fbfdff;
+    font-size: 13px;
+    color: #1a202c;
+}
+
+.batch-storage-select:focus {
+    border-color: #85a7c3;
+    box-shadow: 0 0 0 2px rgba(75, 132, 170, 0.16);
+    outline: none;
+}
+
 .batch-root-row {
     display: grid;
     grid-template-columns: 240px minmax(0, 1fr);

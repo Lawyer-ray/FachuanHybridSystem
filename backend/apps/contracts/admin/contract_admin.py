@@ -327,6 +327,7 @@ class ContractAdmin(
             raise PermissionDenied
 
         from apps.contracts.admin.wiring_admin import get_contract_batch_folder_binding_service
+        from apps.core.cloud_storage.browse_helper import list_active_cloud_accounts
 
         service = get_contract_batch_folder_binding_service()
         context = self.admin_site.each_context(request)
@@ -335,6 +336,7 @@ class ContractAdmin(
                 "title": "合同批量绑定文件夹",
                 "opts": self.model._meta,
                 "cards": service.list_unbound_case_type_cards(),
+                "cloud_accounts": list_active_cloud_accounts(),
                 "batch_folder_binding_config": {
                     "previewUrl": "/admin/contracts/contract/batch-folder-binding/preview/",
                     "saveUrl": "/admin/contracts/contract/batch-folder-binding/save/",
@@ -500,11 +502,16 @@ class ContractAdmin(
         payload = self._parse_json_payload(request)
         root_path = str(payload.get("root_path") or "").strip()
         folder_path = str(payload.get("folder_path") or "").strip()
+        storage_type = str(payload.get("storage_type") or "local").strip()
         if not root_path or not folder_path:
             return JsonResponse({"success": False, "message": "缺少路径参数"}, status=400)
 
         try:
-            get_contract_batch_folder_binding_service().open_folder(root_path=root_path, folder_path=folder_path)
+            get_contract_batch_folder_binding_service().open_folder(
+                root_path=root_path,
+                folder_path=folder_path,
+                storage_type=storage_type,
+            )
             return JsonResponse({"success": True, "message": "已打开文件夹"})
         except Exception as exc:
             logger.exception("contract_batch_folder_binding_open_folder_failed")

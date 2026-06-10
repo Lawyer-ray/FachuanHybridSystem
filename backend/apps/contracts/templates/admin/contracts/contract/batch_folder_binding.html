@@ -14,6 +14,7 @@
 {% block extrahead %}
 {{ block.super }}
 {{ cards|json_script:"batch-folder-binding-cards" }}
+{{ cloud_accounts|json_script:"batch-folder-binding-cloud-accounts" }}
 {{ batch_folder_binding_config|json_script:"batch-folder-binding-config" }}
 <script src="{% static 'contracts/js/batch_folder_binding_admin.js' %}"></script>
 <script src="{% static 'contracts/js/batch_folder_binding_browser.js' %}"></script>
@@ -99,6 +100,30 @@
                 <button type="button" class="button batch-secondary-btn" :disabled="isPreviewing" @click="previewSingle(card)">
                     {% trans "仅预览此类型" %}
                 </button>
+            </div>
+
+            <div class="batch-storage-row">
+                <div class="batch-root-label">
+                    <label>{% trans "存储位置" %}</label>
+                </div>
+                <div class="batch-root-input-wrap">
+                    <select x-model="card.storage_type" @change="card.storage_account_id = ''" class="batch-storage-select">
+                        <option value="local">{% trans "本地文件系统" %}</option>
+                        <option value="webdav">WebDAV</option>
+                        <option value="onedrive">OneDrive</option>
+                        <option value="s3">S3</option>
+                        <option value="google_drive">Google Drive</option>
+                        <option value="dropbox">Dropbox</option>
+                    </select>
+                    <select x-show="card.storage_type !== 'local'"
+                            x-model="card.storage_account_id"
+                            class="batch-storage-select">
+                        <option value="">{% trans "选择账号" %}</option>
+                        <template x-for="acc in cloudAccounts.filter(a => a.storage_type === card.storage_type)" :key="acc.id">
+                            <option :value="acc.id" x-text="acc.name"></option>
+                        </template>
+                    </select>
+                </div>
             </div>
 
             <div class="batch-root-row">

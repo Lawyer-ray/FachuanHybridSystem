@@ -35,6 +35,10 @@ class ContractBatchFolderBindingService:
     def folder_binding_service(self) -> FolderBindingService:
         return self._folder_binding_service
 
+    # ------------------------------------------------------------------
+    # 公共入口
+    # ------------------------------------------------------------------
+
     def list_unbound_case_type_cards(self) -> list[dict[str, Any]]:
         unbound = (
             Contract.objects.filter(folder_binding__isnull=True)
@@ -44,11 +48,16 @@ class ContractBatchFolderBindingService:
             .annotate(unbound_count=Count("id"))
             .order_by("case_type")
         )
-        preset_map = {
-            item.case_type: item.root_path
-            for item in ContractTypeFolderRootPreset.objects.filter(
-                case_type__in=[str(row["case_type"]) for row in unbound]
-            )
+        presets = ContractTypeFolderRootPreset.objects.filter(
+            case_type__in=[str(row["case_type"]) for row in unbound]
+        )
+        preset_map: dict[str, dict[str, Any]] = {
+            p.case_type: {
+                "root_path": p.root_path,
+                "storage_type": p.storage_type,
+                "storage_account_id": p.storage_account_id or "",
+            }
+            for p in presets
         }
 
         cards: list[dict[str, Any]] = []
@@ -56,12 +65,15 @@ class ContractBatchFolderBindingService:
             case_type = str(row["case_type"] or "").strip()
             if not case_type:
                 continue
+            preset = preset_map.get(case_type, {})
             cards.append(
                 {
                     "case_type": case_type,
                     "case_type_display": self._case_type_label_map.get(case_type, case_type),
                     "unbound_count": int(row["unbound_count"] or 0),
-                    "root_path": str(preset_map.get(case_type, "") or ""),
+                    "root_path": str(preset.get("root_path", "") or ""),
+                    "storage_type": str(preset.get("storage_type", "local") or "local"),
+                    "storage_account_id": preset.get("storage_account_id", ""),
                 }
             )
         return cards
@@ -74,10 +86,17 @@ class ContractBatchFolderBindingService:
         for item in case_type_roots:
             case_type = str(item.get("case_type") or "").strip()
             root_path = str(item.get("root_path") or "").strip()
+            storage_type = str(item.get("storage_type") or "local").strip()
+            storage_account_id = item.get("storage_account_id") or ""
             if not case_type:
                 continue
 
-            preview_item = self._preview_single_case_type(case_type=case_type, root_path=root_path)
+            preview_item = self._preview_single_case_type(
+                case_type=case_type,
+                root_path=root_path,
+                storage_type=storage_type,
+                storage_account_id=storage_account_id,
+            )
             items.append(preview_item)
             total_contracts += int(preview_item.get("contract_count", 0) or 0)
             auto_selected += int(preview_item.get("auto_selected_count", 0) or 0)
@@ -97,17 +116,32 @@ class ContractBatchFolderBindingService:
         contract_selections: list[dict[str, Any]],
     ) -> dict[str, Any]:  # pragma: no cover
         root_map: dict[str, str] = {}
+        storage_map: dict[str, tuple[str, Any]] = {}  # case_type → (storage_type, storage_account_id)
         for item in case_type_roots:
             case_type = str(item.get("case_type") or "").strip()
             root_path = str(item.get("root_path") or "").strip()
+            storage_type = str(item.get("storage_type") or "local").strip()
+            storage_account_id = item.get("storage_account_id") or ""
             if not case_type:
                 continue
-            if root_path:
+            if root_path and storage_type == "local":
                 self._ensure_accessible_directory(root_path)
             root_map[case_type] = root_path
+            storage_map[case_type] = (storage_type, storage_account_id)
+
+            # 持久化预设
+            preset_defaults: dict[str, Any] = {"root_path": root_path, "storage_type": storage_type}
+            if storage_type != "local" and storage_account_id:
+                from apps.core.cloud_storage.models import CloudStorageAccount
+
+                preset_defaults["storage_account"] = CloudStorageAccount.objects.filter(
+                    id=int(storage_account_id)
+                ).first()
+            else:
+                preset_defaults["storage_account"] = None
             ContractTypeFolderRootPreset.objects.update_or_create(
                 case_type=case_type,
-                defaults={"root_path": root_path},
+                defaults=preset_defaults,
             )
 
         bound_count = 0
@@ -158,9 +192,29 @@ class ContractBatchFolderBindingService:
                     errors.append(str("合同类型 %(type)s 缺少根目录" % {"type": case_type}))
                     continue
 
+                storage_type_str, storage_account_id_val = storage_map.get(case_type, ("local", ""))
+
                 try:
-                    self._validate_selected_folder(root_path=root_path, selected_folder_path=selected_folder_path)
-                    self.folder_binding_service.create_binding(owner_id=contract_id, folder_path=selected_folder_path)
+                    self._validate_selected_folder(
+                        root_path=root_path,
+                        selected_folder_path=selected_folder_path,
+                        storage_type=storage_type_str,
+                    )
+                    # 解析云存储账号对象
+                    cloud_account = None
+                    if storage_type_str != "local" and storage_account_id_val:
+                        from apps.core.cloud_storage.models import CloudStorageAccount
+
+                        cloud_account = CloudStorageAccount.objects.filter(
+                            id=int(storage_account_id_val)
+                        ).first()
+
+                    self.folder_binding_service.create_binding(
+                        owner_id=contract_id,
+                        folder_path=selected_folder_path,
+                        storage_type=storage_type_str,
+                        storage_account=cloud_account,
+                    )
                     bound_count += 1
                 except Exception as exc:
                     skipped_count += 1
@@ -173,7 +227,15 @@ class ContractBatchFolderBindingService:
             "errors": errors,
         }
 
-    def open_folder(self, *, root_path: str, folder_path: str) -> None:
+    def open_folder(
+        self,
+        *,
+        root_path: str,
+        folder_path: str,
+        storage_type: str = "local",
+    ) -> None:
+        if storage_type != "local":
+            return
         target = self._validate_selected_folder(root_path=root_path, selected_folder_path=folder_path)
         SubprocessRunner(allowed_programs={"open"}).run(
             args=["open", target.as_posix()],
@@ -181,11 +243,24 @@ class ContractBatchFolderBindingService:
             check=False,
         )
 
-    def _preview_single_case_type(self, *, case_type: str, root_path: str) -> dict[str, Any]:  # pragma: no cover
+    # ------------------------------------------------------------------
+    # 预览逻辑
+    # ------------------------------------------------------------------
+
+    def _preview_single_case_type(  # pragma: no cover
+        self,
+        *,
+        case_type: str,
+        root_path: str,
+        storage_type: str = "local",
+        storage_account_id: str | int = "",
+    ) -> dict[str, Any]:
         item: dict[str, Any] = {
             "case_type": case_type,
             "case_type_display": self._case_type_label_map.get(case_type, case_type),
             "root_path": root_path,
+            "storage_type": storage_type,
+            "storage_account_id": storage_account_id,
             "contract_count": 0,
             "auto_selected_count": 0,
             "options": [],
@@ -205,15 +280,18 @@ class ContractBatchFolderBindingService:
             return item
 
         try:
-            root = self._ensure_accessible_directory(root_path)
-            candidates = self._list_first_level_dirs(root)
+            candidates = self._list_first_level_dirs_for_storage(
+                root_path=root_path,
+                storage_type=storage_type,
+                storage_account_id=storage_account_id,
+            )
         except Exception as exc:
             item["error"] = str(exc)
             return item
 
         item["options"] = [
-            {"name": folder.name, "path": folder.as_posix(), "is_penalized": self._is_non_contract_dir(folder.name)}
-            for folder in candidates
+            {"name": c["name"], "path": c["path"], "is_penalized": self._is_non_contract_dir(c["name"])}
+            for c in candidates
         ]
 
         rows: list[dict[str, Any]] = []
@@ -262,6 +340,66 @@ class ContractBatchFolderBindingService:
         item["auto_selected_count"] = auto_selected_count
         return item
 
+    # ------------------------------------------------------------------
+    # 目录列表（统一返回 list[dict]）
+    # ------------------------------------------------------------------
+
+    def _list_first_level_dirs_for_storage(
+        self,
+        *,
+        root_path: str,
+        storage_type: str,
+        storage_account_id: str | int,
+    ) -> list[dict[str, Any]]:
+        if storage_type != "local":
+            return self._list_cloud_first_level_dirs(
+                root_path=root_path,
+                storage_type=storage_type,
+                storage_account_id=storage_account_id,
+            )
+        return self._list_local_first_level_dirs(root_path)
+
+    def _list_local_first_level_dirs(self, root_path: str) -> list[dict[str, Any]]:
+        root = self._ensure_accessible_directory(root_path)
+        dirs = [item for item in root.iterdir() if item.is_dir() and not item.name.startswith(".")]
+        dirs.sort(key=lambda f: f.name.lower())
+        return [{"name": f.name, "path": f.resolve().as_posix()} for f in dirs]
+
+    def _list_cloud_first_level_dirs(  # pragma: no cover
+        self,
+        *,
+        root_path: str,
+        storage_type: str,
+        storage_account_id: str | int,
+    ) -> list[dict[str, Any]]:
+        from apps.core.cloud_storage.factory import create_provider_from_account
+        from apps.core.cloud_storage.models import CloudStorageAccount
+
+        account = CloudStorageAccount.objects.filter(
+            id=int(storage_account_id),
+            storage_type=storage_type,
+            is_active=True,
+        ).first()
+        if not account:
+            raise ValidationException(message="云存储账号不存在或已禁用")
+
+        provider = create_provider_from_account(account)
+        browse_path = (root_path or "").strip().rstrip("/") or "/"
+
+        children = provider.list_directory(browse_path)
+        entries: list[dict[str, Any]] = []
+        for child in children:
+            if not child.is_dir or child.name.startswith("."):
+                continue
+            child_path = browse_path.rstrip("/") + "/" + child.name
+            entries.append({"name": child.name, "path": child_path})
+        entries.sort(key=lambda e: e["name"].lower())
+        return entries
+
+    # ------------------------------------------------------------------
+    # 推荐算法
+    # ------------------------------------------------------------------
+
     def _recommend_folder(
         self,
         *,
@@ -270,7 +408,7 @@ class ContractBatchFolderBindingService:
         oa_case_number: str,
         case_names: list[str],
         case_filing_numbers: list[str],
-        candidates: list[Path],
+        candidates: list[dict[str, Any]],
     ) -> dict[str, Any]:
         targets: list[tuple[str, str, float]] = []
         if contract_name:
@@ -286,14 +424,16 @@ class ContractBatchFolderBindingService:
 
         scored_candidates: list[dict[str, Any]] = []
         for candidate in candidates:
-            score_data = self._score_candidate(candidate_name=candidate.name, targets=targets)
+            name = candidate["name"]
+            path = candidate["path"]
+            score_data = self._score_candidate(candidate_name=name, targets=targets)
             score = float(score_data.get("score") or 0.0)
-            if self._is_non_contract_dir(candidate.name):
+            if self._is_non_contract_dir(name):
                 score = max(0.0, score - 0.25)
             scored_candidates.append(
                 {
-                    "path": candidate.as_posix(),
-                    "name": candidate.name,
+                    "path": path,
+                    "name": name,
                     "score": round(score, 4),
                     "reason": str(score_data.get("reason") or ""),
                 }
@@ -355,7 +495,29 @@ class ContractBatchFolderBindingService:
 
         return {"score": best_score, "reason": best_reason}
 
-    def _validate_selected_folder(self, *, root_path: str, selected_folder_path: str) -> Path:
+    # ------------------------------------------------------------------
+    # 路径校验
+    # ------------------------------------------------------------------
+
+    def _validate_selected_folder(
+        self,
+        *,
+        root_path: str,
+        selected_folder_path: str,
+        storage_type: str = "local",
+    ) -> Path | str:
+        if storage_type != "local":
+            # 云存储：字符串检查 selected_folder_path 是 root_path 的一级子路径
+            normalized_root = root_path.rstrip("/")
+            normalized_selected = selected_folder_path.rstrip("/")
+            if not normalized_selected.startswith(normalized_root + "/"):
+                raise ValidationException(message="选择目录不在根目录范围内")
+            # 检查只有一层
+            remainder = normalized_selected[len(normalized_root) + 1 :]
+            if "/" in remainder or "\\" in remainder:
+                raise ValidationException(message="只能绑定根目录下的一级子文件夹")
+            return selected_folder_path
+
         root = self._ensure_accessible_directory(root_path)
         target = self._ensure_accessible_directory(selected_folder_path)
 
@@ -368,16 +530,15 @@ class ContractBatchFolderBindingService:
             raise ValidationException(message="只能绑定根目录下的一级子文件夹")
         return target
 
+    # ------------------------------------------------------------------
+    # 工具方法
+    # ------------------------------------------------------------------
+
     def _ensure_accessible_directory(self, folder_path: str) -> Path:  # pragma: no cover
         path = Path(folder_path).expanduser().resolve()
         if not path.exists() or not path.is_dir():
             raise ValidationException(message="目录不可访问: %(path)s" % {"path": folder_path})
         return path
-
-    def _list_first_level_dirs(self, root: Path) -> list[Path]:  # pragma: no cover
-        dirs = [item.resolve() for item in root.iterdir() if item.is_dir() and not item.name.startswith(".")]
-        dirs.sort(key=lambda folder: folder.name.lower())
-        return dirs
 
     def _normalize_text(self, value: str) -> str:
         text = str(value or "").strip()
@@ -386,7 +547,7 @@ class ContractBatchFolderBindingService:
         text = self._strip_leading_date(text)
         text = self._strip_leading_labels(text)
         text = re.sub(r"[（）()【】\[\]{}]", " ", text)
-        text = re.sub(r"[，。、“”‘’；：,.!?！？\-_/\\|]", " ", text)
+        text = re.sub(r"[，。、""''；：,.!?！？\\-_/\\|]", " ", text)
         text = re.sub(r"\s+", " ", text).strip().lower()
         return text
 
