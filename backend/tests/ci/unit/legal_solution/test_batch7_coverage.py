@@ -23,9 +23,9 @@ class TestLegalSolutionModuleImports:
         assert prompts is not None
 
     def test_import_section_model(self) -> None:
-        from apps.legal_solution.models.section import Section
-        assert Section is not None
+        from apps.legal_solution.models.section import SolutionSection
+        assert SolutionSection is not None
 
     def test_import_task_model(self) -> None:
-        from apps.legal_solution.models.task import Task
-        assert Task is not None
+        from apps.legal_solution.models.task import SolutionTask
+        assert SolutionTask is not None
