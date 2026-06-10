@@ -31,7 +31,7 @@ def list_assignments(  # pragma: no cover
     ctx = extract_request_context(request)
     return cast(list[CaseAssignmentOut], service.list_assignments(
         case_id=case_id, lawyer_id=lawyer_id, user=ctx.user,
-        org_access=ctx.org_access, perm_open_access=ctx.perm_open_access,
+        perm_open_access=ctx.perm_open_access,
     ))
 
 
@@ -43,7 +43,7 @@ def create_assignment(request: HttpRequest, payload: CaseAssignmentIn) -> CaseAs
         CaseAssignmentOut,
         service.create_assignment(
             case_id=payload.case_id, lawyer_id=payload.lawyer_id, user=ctx.user,
-            org_access=ctx.org_access, perm_open_access=ctx.perm_open_access,
+            perm_open_access=ctx.perm_open_access,
         ),
     )
 
@@ -54,7 +54,7 @@ def get_assignment(request: HttpRequest, assignment_id: int) -> CaseAssignmentOu
     ctx = extract_request_context(request)
     return cast(CaseAssignmentOut, service.get_assignment(
         assignment_id=assignment_id, user=ctx.user,
-        org_access=ctx.org_access, perm_open_access=ctx.perm_open_access,
+        perm_open_access=ctx.perm_open_access,
     ))
 
 
@@ -65,7 +65,7 @@ def update_assignment(request: HttpRequest, assignment_id: int, payload: CaseAss
     data = payload.model_dump(exclude_unset=True)
     return cast(CaseAssignmentOut, service.update_assignment(
         assignment_id=assignment_id, data=data, user=ctx.user,
-        org_access=ctx.org_access, perm_open_access=ctx.perm_open_access,
+        perm_open_access=ctx.perm_open_access,
     ))
 
 
@@ -75,5 +75,5 @@ def delete_assignment(request: HttpRequest, assignment_id: int) -> Any:  # pragm
     ctx = extract_request_context(request)
     return service.delete_assignment(
         assignment_id=assignment_id, user=ctx.user,
-        org_access=ctx.org_access, perm_open_access=ctx.perm_open_access,
+        perm_open_access=ctx.perm_open_access,
     )
