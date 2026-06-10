@@ -79,19 +79,22 @@ class GuaranteeUploadMixin:  # pragma: no cover
                             continue
                         if any(keyword in tn for keyword in keywords):
                             return entry["path"]
-            for keywords in keyword_groups:
+            if keyword_groups:
+                for keywords in keyword_groups:
+                    for entry in items:
+                        if entry["path"] in used:
+                            continue
+                        tn = entry["type_name"]
+                        if exclude_type_names and any(ex in tn for ex in exclude_type_names):
+                            continue
+                        haystack = f"{entry.get('original_name', '')} {entry['path'].rsplit('/', 1)[-1]}"
+                        if any(keyword in haystack for keyword in keywords):
+                            return entry["path"]
+            # 仅当未指定任何关键词组时，才兜底返回第一个未使用文件
+            if not type_name_groups and not keyword_groups:
                 for entry in items:
-                    if entry["path"] in used:
-                        continue
-                    tn = entry["type_name"]
-                    if exclude_type_names and any(ex in tn for ex in exclude_type_names):
-                        continue
-                    filename = entry["path"].rsplit("/", 1)[-1]
-                    if any(keyword in filename for keyword in keywords):
+                    if entry["path"] not in used:
                         return entry["path"]
-            for entry in items:
-                if entry["path"] not in used:
-                    return entry["path"]
             return None
 
         def _pick_evidence() -> list[str]:  # pragma: no cover
@@ -105,8 +108,8 @@ class GuaranteeUploadMixin:  # pragma: no cover
                 for entry in items:
                     if entry["path"] in used:
                         continue
-                    filename = entry["path"].rsplit("/", 1)[-1]
-                    if any(kw in filename for kw in ["证据", "明细", "清单"]):
+                    haystack = f"{entry.get('original_name', '')} {entry['path'].rsplit('/', 1)[-1]}"
+                    if any(kw in haystack for kw in ["证据", "明细", "清单"]):
                         evidence.append(entry["path"])
             return evidence
 
@@ -192,12 +195,12 @@ class GuaranteeUploadMixin:  # pragma: no cover
                     for entry in items:
                         if entry["path"] in used:
                             continue
-                        filename = entry["path"].rsplit("/", 1)[-1]
-                        if "法定代表人" in filename:
+                        display_name = entry.get("original_name", "") or entry["path"].rsplit("/", 1)[-1]
+                        if "法定代表人" in display_name:
                             continue
-                        if "身份证" not in filename and "身份证明" not in filename:
+                        if "身份证" not in display_name and "身份证明" not in display_name:
                             continue
-                        if respondent_name and respondent_name not in filename:
+                        if respondent_name and respondent_name not in display_name:
                             continue
                         natural_identity = entry["path"]
                         break
@@ -261,10 +264,9 @@ class GuaranteeUploadMixin:  # pragma: no cover
             (
                 entry["path"]
                 for entry in items
-                if (
-                    "起诉状" in entry["path"].rsplit("/", 1)[-1]
-                    or "起诉书" in entry["path"].rsplit("/", 1)[-1]
-                    or "起诉" in entry["path"].rsplit("/", 1)[-1]
+                if any(
+                    kw in (entry.get("original_name", "") or entry["path"].rsplit("/", 1)[-1])
+                    for kw in ("起诉状", "起诉书", "起诉")
                 )
             ),
             items[0]["path"] if items else "",
@@ -467,8 +469,8 @@ class GuaranteeUploadMixin:  # pragma: no cover
         def _pick_path(keyword_groups: list[list[str]]) -> str | None:  # pragma: no cover
             for keywords in keyword_groups:
                 for entry in self._material_items:
-                    filename = entry["path"].rsplit("/", 1)[-1]
-                    if any(keyword in filename for keyword in keywords):
+                    display_name = entry.get("original_name", "") or entry["path"].rsplit("/", 1)[-1]
+                    if any(keyword in display_name for keyword in keywords):
                         return entry["path"]
             return None
 
@@ -533,8 +535,8 @@ class GuaranteeUploadMixin:  # pragma: no cover
                 evidence_files.append(entry["path"])
         if not evidence_files:
             for entry in self._material_items:
-                filename = entry["path"].rsplit("/", 1)[-1]
-                if any(kw in filename for kw in ["证据", "明细", "清单"]):
+                display_name = entry.get("original_name", "") or entry["path"].rsplit("/", 1)[-1]
+                if any(kw in display_name for kw in ["证据", "明细", "清单"]):
                     evidence_files.append(entry["path"])
 
         if not evidence_files:
