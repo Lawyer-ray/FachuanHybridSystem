@@ -5,6 +5,8 @@ from __future__ import annotations
 import logging
 import os
 import tempfile
+import uuid
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -275,6 +277,38 @@ class AddressConfirmationMixin:
         slot_id_by_cllx = await self._extract_material_slot_ids(layyid)
         ssclid = slot_id_by_cllx.get(_CLLX)
 
+        # 构造 wjs 文件信息，ssclfj/upload 接口要求此字段非空
+        wj_id = uuid.uuid4().hex
+        now_str = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+        file_url = f"{oss_url.rstrip('/')}/{key}"
+        wj_entry: dict[str, Any] = {
+            "id": wj_id,
+            "wjbh": key,
+            "layyid": layyid,
+            "fyId": fyid,
+            "ymc": None,
+            "scsj": now_str,
+            "ssclid": ssclid or wj_id,
+            "path": file_url,
+            "cImageRelativePath": None,
+            "bccl": None,
+            "xh": 1,
+            "wjmc": f"{_CLMC}.pdf",
+            "url": file_url,
+            "name": f"{_CLMC}.pdf",
+            "extname": "pdf",
+            "ssryId": None,
+            "sfzxzz": None,
+            "sjly": None,
+            "qyzt": None,
+            "wjbhOld": None,
+            "detectStatus": None,
+            "detectResult": None,
+            "optimizeResult": None,
+            "wjbhBak": None,
+            "cllx": _CLLX,
+        }
+
         await self._post(
             "/yzw-zxfw-lafw/api/v3/layy/ssclfj/upload",
             {
@@ -284,7 +318,7 @@ class AddressConfirmationMixin:
                 "clmc": _CLMC,
                 "cllx": _CLLX,
                 "ssryId": ssryId,
-                "wjs": [],
+                "wjs": [wj_entry],
                 "ssclid": ssclid or "",
                 "ywlx": "layy",
                 "path": "layy",
