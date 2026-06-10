@@ -131,8 +131,6 @@ def update_contract(  # pragma: no cover
         contract_id=contract_id,
         update_data=data,
         user=ctx.user,
-        org_access=ctx.org_access,
-        perm_open_access=ctx.perm_open_access,
         confirm_finance=confirm_finance,
         new_payments=[p.model_dump() for p in new_payments] if new_payments else None,
     )

@@ -24,9 +24,9 @@ def _get_supplementary_agreement_service() -> SupplementaryAgreementService:
 
 
 def _get_contract_access_policy() -> Any:
-    from apps.contracts.services.contract.wiring import get_contract_service
+    from apps.contracts.services.contract.wiring import get_contract_domain_service
 
-    return get_contract_service().access_policy
+    return get_contract_domain_service().access_policy
 
 
 def _ensure_contract_access(request: Any, contract_id: int) -> None:
