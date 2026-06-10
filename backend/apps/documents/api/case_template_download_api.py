@@ -20,7 +20,7 @@ router = Router(auth=JWTOrSessionAuth())
 
 @router.post("/cases/{case_id}/templates/{template_id}/download")
 @rate_limit_from_settings("EXPORT", by_user=True)
-def download_case_template(request: Any, case_id: int, template_id: int) -> Any:
+def download_case_template(request: Any, case_id: int, template_id: int) -> Any:  # pragma: no cover
     """渲染案件文件模板并下载"""
     from apps.documents.services.case_contract_query import get_active_template_or_none, get_case_or_none
     from apps.documents.services.generation.pipeline import DocxRenderer

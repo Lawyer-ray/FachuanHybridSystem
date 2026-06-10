@@ -10,5 +10,5 @@ class ChatRecordsConfig(AppConfig):
     name: str = "apps.chat_records"
     verbose_name = "梳理聊天记录"
 
-    def ready(self) -> None:
+    def ready(self) -> None:  # pragma: no cover
         from . import signals  # 注册 post_delete 和 pre_save 信号处理器

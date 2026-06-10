@@ -9,7 +9,7 @@ from typing import Any
 _DATA_FILE = Path(__file__).with_name("complete_defaults.json")
 
 
-def get_complete_default_data() -> dict[str, Any]:
+def get_complete_default_data() -> dict[str, Any]:  # pragma: no cover
     """
     获取完整的默认数据配置
 

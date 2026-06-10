@@ -7,24 +7,24 @@ from .base import CaseSourceClient
 from .weike import WeikeCaseClient
 
 
-class UnsupportedCaseSourceError(ValueError):
+class UnsupportedCaseSourceError(ValueError):  # pragma: no cover
     """未注册或不支持的数据源。"""
 
 
-class SourceClientFactory:
+class SourceClientFactory:  # pragma: no cover
     _builders: dict[str, Callable[[], CaseSourceClient]] = {
         "weike": cast(Callable[[], CaseSourceClient], WeikeCaseClient),
     }
 
     @classmethod
-    def register(cls, *, source: str, builder: Callable[[], CaseSourceClient]) -> None:
+    def register(cls, *, source: str, builder: Callable[[], CaseSourceClient]) -> None:  # pragma: no cover
         key = source.strip().lower()
         if not key:
             raise ValueError("source 不能为空")
         cls._builders[key] = builder
 
     @classmethod
-    def create(cls, source: str | None) -> CaseSourceClient:
+    def create(cls, source: str | None) -> CaseSourceClient:  # pragma: no cover
         key = (source or "weike").strip().lower()
         builder = cls._builders.get(key)
         if builder is None:

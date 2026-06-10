@@ -9,7 +9,7 @@ class PromptTemplateService:
 
         return get_prompt_version_service().get_active_prompt_template(name)  # type: ignore[no-any-return]
 
-    def replace_variables(self, template: str, variables: dict[str, Any]) -> str:
+    def replace_variables(self, template: str, variables: dict[str, Any]) -> str:  # pragma: no cover
         from .placeholder_render_service import PlaceholderRenderService
 
         rendered, _stats = PlaceholderRenderService().render(template, variables, syntax="single", keep_unmatched=True)

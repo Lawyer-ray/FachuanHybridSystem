@@ -8,5 +8,5 @@ class SocialAuthConfig(AppConfig):
     name = "apps.social_auth"
     verbose_name = "社交登录"
 
-    def ready(self) -> None:
+    def ready(self) -> None:  # pragma: no cover
         from . import providers

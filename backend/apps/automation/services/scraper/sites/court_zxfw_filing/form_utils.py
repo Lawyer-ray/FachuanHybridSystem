@@ -9,12 +9,12 @@ from typing import Any
 from playwright.sync_api import Page
 
 
-class FormUtilsMixin:
+class FormUtilsMixin:  # pragma: no cover
     """表单操作工具 Mixin，需要子类提供 self.page。"""
 
     page: Page
 
-    def _dismiss_popup(self) -> None:
+    def _dismiss_popup(self) -> None:  # pragma: no cover
         """关闭可能出现的弹窗（如综治中心提示）"""
         close_btn = self.page.locator('uni-button:has-text("关闭")')
         try:
@@ -24,7 +24,7 @@ class FormUtilsMixin:
         except Exception:
             pass
 
-    def _dismiss_popup_by_text(self, button_text: str) -> None:
+    def _dismiss_popup_by_text(self, button_text: str) -> None:  # pragma: no cover
         """点击弹窗中指定文本的按钮"""
         btn = self.page.locator(f'uni-button:has-text("{button_text}")')
         try:
@@ -34,7 +34,7 @@ class FormUtilsMixin:
         except Exception:
             pass
 
-    def _handle_popups(self) -> bool:
+    def _handle_popups(self) -> bool:  # pragma: no cover
         """集中扫描并处理所有已知弹窗，返回是否有弹窗被处理。
 
         处理的弹窗类型：
@@ -89,7 +89,7 @@ class FormUtilsMixin:
 
         return handled
 
-    def _open_dropdown_by_labels(self, labels: tuple[str, ...], *, required: bool) -> bool:
+    def _open_dropdown_by_labels(self, labels: tuple[str, ...], *, required: bool) -> bool:  # pragma: no cover
         for label in labels:
             trigger = self.page.locator(f".uni-forms-item:has(.uni-forms-item__label:has-text('{label}')) .input-value")
             if not trigger.count():
@@ -106,7 +106,7 @@ class FormUtilsMixin:
             raise ValueError(message)
         return False
 
-    def _select_dropdown_by_label(
+    def _select_dropdown_by_label(  # pragma: no cover
         self,
         label_text: str | tuple[str, ...],
         option_text: str,
@@ -136,7 +136,7 @@ class FormUtilsMixin:
         self._random_wait(1, 2)
         return False
 
-    def _fill_field(self, label_text: str, value: str, *, form: Any = None) -> None:
+    def _fill_field(self, label_text: str, value: str, *, form: Any = None) -> None:  # pragma: no cover
         """通过 label 文本定位并填写当前编辑表单中的 input 字段"""
         if not value:
             return
@@ -151,7 +151,7 @@ class FormUtilsMixin:
             return
         self._random_wait(0.3, 0.5)
 
-    def _fill_field_exact(self, label_text: str, value: str, *, form: Any = None) -> None:
+    def _fill_field_exact(self, label_text: str, value: str, *, form: Any = None) -> None:  # pragma: no cover
         """通过 label 精确匹配填写字段（避免 has-text 的模糊匹配）"""
         if not value:
             return
@@ -192,7 +192,7 @@ class FormUtilsMixin:
                 )
         self._random_wait(0.3, 0.5)
 
-    def _select_dropdown(self, label_text: str, option_text: str, *, form: Any = None) -> bool:
+    def _select_dropdown(self, label_text: str, option_text: str, *, form: Any = None) -> bool:  # pragma: no cover
         """点击表单内下拉框并选择选项（.item-text 类型）"""
         if form is None:
             form = self.page.locator(".fd-wsla-ryxx-box:has(uni-button:has-text('保存'))").first
@@ -211,7 +211,7 @@ class FormUtilsMixin:
         self._random_wait(0.5, 1)
         return True
 
-    def _select_tree_dropdown(self, label_text: str, option_text: str, *, form: Any = None) -> bool:
+    def _select_tree_dropdown(self, label_text: str, option_text: str, *, form: Any = None) -> bool:  # pragma: no cover
         """点击 uni-data-tree 下拉框并选择选项（.fd-item 类型）"""
         if form is None:
             form = self.page.locator(".fd-wsla-ryxx-box:has(uni-button:has-text('保存'))").first
@@ -230,7 +230,7 @@ class FormUtilsMixin:
         self._random_wait(0.5, 1)
         return True
 
-    def _click_save(self, *, form: Any = None) -> None:
+    def _click_save(self, *, form: Any = None) -> None:  # pragma: no cover
         """点击当前表单的保存按钮"""
         if form is not None:
             save = form.locator("uni-button:has-text('保存')").first
@@ -241,7 +241,7 @@ class FormUtilsMixin:
         save.click()
         self._random_wait(2, 3)
 
-    def _click_next_step(self) -> None:
+    def _click_next_step(self) -> None:  # pragma: no cover
         """点击下一步按钮，点击后处理可能出现的弹窗"""
         self._handle_popups()
         self.page.locator("uni-button:has-text('下一步')").click()

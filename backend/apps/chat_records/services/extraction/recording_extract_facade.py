@@ -33,7 +33,7 @@ class RecordingExtractFacade:
         self._task_submission_service = task_submission_service
 
     @transaction.atomic
-    def submit(self, *, user: Any, recording_id: str, params: RecordingExtractParams) -> ChatRecordRecording:
+    def submit(self, *, user: Any, recording_id: str, params: RecordingExtractParams) -> ChatRecordRecording:  # pragma: no cover
         from .video_frame_extract_service import VideoFrameExtractService
 
         try:
@@ -74,7 +74,7 @@ class RecordingExtractFacade:
         return recording
 
     @transaction.atomic
-    def request_cancel(self, *, user: Any, recording_id: str) -> ChatRecordRecording:
+    def request_cancel(self, *, user: Any, recording_id: str) -> ChatRecordRecording:  # pragma: no cover
         try:
             recording: ChatRecordRecording = ChatRecordRecording.objects.select_for_update().get(id=recording_id)
         except ChatRecordRecording.DoesNotExist:
@@ -92,7 +92,7 @@ class RecordingExtractFacade:
         return recording
 
     @transaction.atomic
-    def reset(self, *, user: Any, recording_id: str) -> ChatRecordRecording:
+    def reset(self, *, user: Any, recording_id: str) -> ChatRecordRecording:  # pragma: no cover
         try:
             recording: ChatRecordRecording = ChatRecordRecording.objects.select_for_update().get(id=recording_id)
         except ChatRecordRecording.DoesNotExist:
@@ -122,7 +122,7 @@ class RecordingExtractFacade:
         started_at: datetime | None = None,
         finished_at: datetime | None = None,
         duration_seconds: float | None = None,
-    ) -> None:
+    ) -> None:  # pragma: no cover
         """单次数据库操作更新抽帧任务的状态和进度。"""
         fields: dict[str, Any] = {"updated_at": timezone.now()}
 

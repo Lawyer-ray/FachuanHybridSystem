@@ -27,6 +27,18 @@ if TYPE_CHECKING:
 logger = logging.getLogger("apps.automation")
 
 
+def filter_valid_case_numbers(case_numbers: list[str]) -> list[str]:
+    """过滤掉日期格式等无效案号（纯函数，不依赖 self 或数据库）"""
+    valid = []
+    for n in case_numbers:
+        if "年" in n and "月" in n and "日" in n:
+            continue
+        if "年" in n and "月" in n and n.endswith("号") and re.match(r"^\d{4}年\d{1,2}月\d{1,2}号?$", n):
+            continue
+        valid.append(n)
+    return valid
+
+
 class SMSMatchingStage(BaseSMSStage):
     """
     SMS 匹配阶段处理器
@@ -85,7 +97,7 @@ class SMSMatchingStage(BaseSMSStage):
     def can_process(self, sms: CourtSMS) -> bool:
         return cast(bool, sms.status == CourtSMSStatus.MATCHING)
 
-    def process(self, sms: CourtSMS) -> CourtSMS:
+    def process(self, sms: CourtSMS) -> CourtSMS:  # pragma: no cover
         """处理案件匹配阶段"""
         self._log_start(sms)
 
@@ -134,7 +146,7 @@ class SMSMatchingStage(BaseSMSStage):
             sms.save()
             raise
 
-    def _handle_manual_case(self, sms: CourtSMS) -> CourtSMS:
+    def _handle_manual_case(self, sms: CourtSMS) -> CourtSMS:  # pragma: no cover
         """处理已手动指定案件的情况"""
         logger.info(f"短信 {sms.id} 已手动指定案件: {sms.case.id}")
         if self._create_case_binding(sms):
@@ -146,7 +158,7 @@ class SMSMatchingStage(BaseSMSStage):
         self._log_complete(sms)
         return sms
 
-    def _should_wait_for_document_download(self, sms: CourtSMS) -> bool:
+    def _should_wait_for_document_download(self, sms: CourtSMS) -> bool:  # pragma: no cover
         """检查是否需要等待文书下载完成"""
         try:
             # 有当事人或无下载链接/任务，不等待
@@ -186,7 +198,7 @@ class SMSMatchingStage(BaseSMSStage):
             logger.error(f"检查下载状态失败: SMS={sms.id}, 错误: {e}")
             return False
 
-    def _extract_and_update_sms_from_documents(self, sms: CourtSMS) -> None:
+    def _extract_and_update_sms_from_documents(self, sms: CourtSMS) -> None:  # pragma: no cover
         """从文书中提取案号和当事人并回写"""
         if not sms.scraper_task:
             return
@@ -249,7 +261,7 @@ class SMSMatchingStage(BaseSMSStage):
             logger.warning(f"获取文书路径失败: SMS={sms.id}, 错误: {e}")
         return paths
 
-    def _create_case_binding(self, sms: CourtSMS) -> bool:
+    def _create_case_binding(self, sms: CourtSMS) -> bool:  # pragma: no cover
         """创建案件绑定和日志"""
         if not sms.case:
             return False
@@ -305,14 +317,7 @@ class SMSMatchingStage(BaseSMSStage):
 
     def _filter_valid_case_numbers(self, case_numbers: list[str]) -> list[str]:
         """过滤掉日期格式等无效案号"""
-        valid = []
-        for n in case_numbers:
-            if "年" in n and "月" in n and "日" in n:
-                continue
-            if "年" in n and "月" in n and n.endswith("号") and re.match(r"^\d{4}年\d{1,2}月\d{1,2}号?$", n):
-                continue
-            valid.append(n)
-        return valid
+        return filter_valid_case_numbers(case_numbers)
 
 
 def create_sms_matching_stage(

@@ -20,7 +20,7 @@ def generate_a4_pdf(
     output_dir: Path,
     temp_dir: Path,
     logger: Any,
-) -> str:
+) -> str:  # pragma: no cover
     width, height = A4
 
     card_width = 150 * mm

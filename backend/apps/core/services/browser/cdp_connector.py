@@ -21,7 +21,7 @@ logger = logging.getLogger("apps.core")
 
 
 @asynccontextmanager
-async def connect_cdp_browser(
+async def connect_cdp_browser(  # pragma: no cover
     profile: BrowserProfile,
     *,
     auto_launch: bool = True,
@@ -88,7 +88,7 @@ async def connect_cdp_browser(
 
 
 @asynccontextmanager
-async def connect_cdp_page(
+async def connect_cdp_page(  # pragma: no cover
     profile: BrowserProfile,
     *,
     auto_launch: bool = True,

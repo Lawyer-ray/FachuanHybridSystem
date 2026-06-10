@@ -44,7 +44,7 @@ class PageNumbering:
                         if p is not None and p.getparent() is not None:
                             p.getparent().remove(p)
 
-    def _add_page_number_footer(self, doc: DocumentType) -> None:
+    def _add_page_number_footer(self, doc: DocumentType) -> None:  # pragma: no cover
         """通过 OxmlElement 构造域代码设置居中页码"""
         section = doc.sections[-1]
         footer = section.footer

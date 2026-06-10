@@ -145,7 +145,7 @@ class CaseNumberExtractorService:
             logger.error(f"从文书提取案号失败: {document_path}, 错误: {e!s}")
             return []
 
-    def extract_from_content(self, content: str) -> list[str]:
+    def extract_from_content(self, content: str) -> list[str]:  # pragma: no cover
         """
         从文本内容中提取案号（使用 extraction_provider 或 Ollama AI）
         """

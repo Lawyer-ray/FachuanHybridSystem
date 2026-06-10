@@ -20,7 +20,7 @@ from apps.organization.models import AccountCredential
 
 
 @admin.register(AccountCredential)
-class AccountCredentialAdmin(admin.ModelAdmin):
+class AccountCredentialAdmin(admin.ModelAdmin):  # pragma: no cover
     list_display: ClassVar[list[str]] = [
         "id",
         "lawyer",
@@ -59,7 +59,7 @@ class AccountCredentialAdmin(admin.ModelAdmin):
 
     list_per_page = 50
 
-    def get_form(
+    def get_form(  # pragma: no cover
         self, request: HttpRequest, obj: AccountCredential | None = None, **kwargs: Any
     ) -> type[forms.ModelForm]:
         form = super().get_form(request, obj, **kwargs)
@@ -72,7 +72,7 @@ class AccountCredentialAdmin(admin.ModelAdmin):
         return form
 
     @admin.display(description="成功/失败次数")
-    def login_statistics_display(self, obj: AccountCredential) -> SafeString:
+    def login_statistics_display(self, obj: AccountCredential) -> SafeString:  # pragma: no cover
         return format_html(
             '<span style="color: #28a745; font-weight: bold;">{}</span> / <span style="color: #dc3545;">{}</span>',
             obj.login_success_count,
@@ -80,7 +80,7 @@ class AccountCredentialAdmin(admin.ModelAdmin):
         )
 
     @admin.display(description="成功率")
-    def success_rate_display(self, obj: AccountCredential) -> SafeString:
+    def success_rate_display(self, obj: AccountCredential) -> SafeString:  # pragma: no cover
         rate = obj.success_rate * 100
 
         if rate >= 80:
@@ -95,7 +95,7 @@ class AccountCredentialAdmin(admin.ModelAdmin):
         return format_html('<span style="color: {}; font-weight: bold;">{}</span>', color, rate_str)
 
     @admin.display(description="最后成功登录")
-    def last_login_display(self, obj: AccountCredential) -> SafeString:
+    def last_login_display(self, obj: AccountCredential) -> SafeString:  # pragma: no cover
         if not obj.last_login_success_at:
             return format_html('<span style="color: #999;">{}</span>', "从未成功")
 
@@ -124,7 +124,7 @@ class AccountCredentialAdmin(admin.ModelAdmin):
         return format_html('<span style="color: {}; font-weight: bold;">{}</span>', color, time_str)
 
     @admin.display(description="操作")
-    def auto_login_button(self, obj: AccountCredential) -> SafeString:
+    def auto_login_button(self, obj: AccountCredential) -> SafeString:  # pragma: no cover
         if obj.site_name == "court_zxfw":
             url = reverse("admin:automation_tokenacquisitionhistory_changelist")
             return format_html(
@@ -138,5 +138,5 @@ class AccountCredentialAdmin(admin.ModelAdmin):
         else:
             return format_html('<span style="color: #999;">{}</span>', "不支持")
 
-    def get_queryset(self, request: HttpRequest) -> QuerySet[AccountCredential]:
+    def get_queryset(self, request: HttpRequest) -> QuerySet[AccountCredential]:  # pragma: no cover
         return super().get_queryset(request).select_related("lawyer")

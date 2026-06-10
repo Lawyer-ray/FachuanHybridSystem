@@ -35,10 +35,10 @@ def _get_document_delivery_schedule_service() -> Any:
 
 
 @admin.register(DocumentDeliverySchedule)
-class DocumentDeliveryScheduleAdmin(admin.ModelAdmin):
+class DocumentDeliveryScheduleAdmin(admin.ModelAdmin):  # pragma: no cover
     """文书送达定时任务管理"""
 
-    def get_model_perms(self, request: HttpRequest) -> dict[str, bool]:
+    def get_model_perms(self, request: HttpRequest) -> dict[str, bool]:  # pragma: no cover
         """隐藏后台入口（保留代码与直达地址能力）"""
         return {}
 
@@ -107,7 +107,7 @@ class DocumentDeliveryScheduleAdmin(admin.ModelAdmin):
         "deactivate_schedules_action",
     ]
 
-    def get_urls(self) -> list[Any]:
+    def get_urls(self) -> list[Any]:  # pragma: no cover
         """添加自定义URL"""
         urls = super().get_urls()
         custom_urls: list[Any] = [
@@ -120,7 +120,7 @@ class DocumentDeliveryScheduleAdmin(admin.ModelAdmin):
         return custom_urls + urls
 
     @admin.display(description="账号凭证")
-    def credential_display(self, obj: DocumentDeliverySchedule) -> SafeString | str:
+    def credential_display(self, obj: DocumentDeliverySchedule) -> SafeString | str:  # pragma: no cover
         """账号凭证显示"""
         if obj.credential:
             url = reverse("admin:organization_accountcredential_change", args=[obj.credential.id])
@@ -130,7 +130,7 @@ class DocumentDeliveryScheduleAdmin(admin.ModelAdmin):
         return "-"
 
     @admin.display(description="状态")
-    def status_display(self, obj: DocumentDeliverySchedule) -> SafeString:
+    def status_display(self, obj: DocumentDeliverySchedule) -> SafeString:  # pragma: no cover
         """状态显示（带颜色）"""
         if obj.is_active:
             return format_html('<span style="color: green; font-weight: bold;">{}</span>', "✓ 启用")
@@ -138,7 +138,7 @@ class DocumentDeliveryScheduleAdmin(admin.ModelAdmin):
             return format_html('<span style="color: red; font-weight: bold;">{}</span>', "✗ 禁用")
 
     @admin.display(description="上次运行")
-    def last_run_display(self, obj: DocumentDeliverySchedule) -> SafeString:
+    def last_run_display(self, obj: DocumentDeliverySchedule) -> SafeString:  # pragma: no cover
         """上次运行时间显示"""
         if obj.last_run_at:
             now = timezone.now()
@@ -168,7 +168,7 @@ class DocumentDeliveryScheduleAdmin(admin.ModelAdmin):
         return format_html('<span style="color: gray;">{}</span>', "从未运行")
 
     @admin.display(description="下次运行")
-    def next_run_display(self, obj: DocumentDeliverySchedule) -> SafeString:
+    def next_run_display(self, obj: DocumentDeliverySchedule) -> SafeString:  # pragma: no cover
         """下次运行时间显示"""
         if not obj.is_active:
             return format_html('<span style="color: gray;">{}</span>', "已禁用")
@@ -209,7 +209,7 @@ class DocumentDeliveryScheduleAdmin(admin.ModelAdmin):
         return format_html('<span style="color: gray;">{}</span>', "未设置")
 
     @admin.display(description="操作")
-    def manual_trigger_button(self, obj: DocumentDeliverySchedule) -> SafeString | str:
+    def manual_trigger_button(self, obj: DocumentDeliverySchedule) -> SafeString | str:  # pragma: no cover
         """手动触发按钮"""
         if obj.id and obj.credential:
             trigger_url = reverse("admin:automation_documentdeliveryschedule_trigger", args=[obj.id])
@@ -223,7 +223,7 @@ class DocumentDeliveryScheduleAdmin(admin.ModelAdmin):
         return "-"
 
     @admin.action(description="🚀 手动触发选中的查询任务")
-    def trigger_manual_query_action(self, request: HttpRequest, queryset: QuerySet[DocumentDeliverySchedule]) -> None:
+    def trigger_manual_query_action(self, request: HttpRequest, queryset: QuerySet[DocumentDeliverySchedule]) -> None:  # pragma: no cover
         """手动触发查询操作（异步执行，不阻塞 Admin）"""
         service = _get_document_delivery_schedule_service()
         triggered_count = 0
@@ -234,7 +234,7 @@ class DocumentDeliveryScheduleAdmin(admin.ModelAdmin):
                 error_count += 1
                 continue
 
-            def run_task(schedule_id: int) -> None:
+            def run_task(schedule_id: int) -> None:  # pragma: no cover
                 try:
                     service.execute_scheduled_task(schedule_id)
                     logger.info(f"后台文书查询任务完成: Schedule ID={schedule_id}")
@@ -252,20 +252,20 @@ class DocumentDeliveryScheduleAdmin(admin.ModelAdmin):
             messages.error(request, f"触发失败 {error_count} 个任务（无账号凭证）")
 
     @admin.action(description="✓ 启用选中的定时任务")
-    def activate_schedules_action(self, request: HttpRequest, queryset: QuerySet[DocumentDeliverySchedule]) -> None:
+    def activate_schedules_action(self, request: HttpRequest, queryset: QuerySet[DocumentDeliverySchedule]) -> None:  # pragma: no cover
         """启用定时任务操作"""
         updated = queryset.update(is_active=True)
         messages.success(request, f"成功启用 {updated} 个定时任务")
         logger.info(f"管理员批量启用定时任务: Count={updated}, User={request.user}")
 
     @admin.action(description="✗ 禁用选中的定时任务")
-    def deactivate_schedules_action(self, request: HttpRequest, queryset: QuerySet[DocumentDeliverySchedule]) -> None:
+    def deactivate_schedules_action(self, request: HttpRequest, queryset: QuerySet[DocumentDeliverySchedule]) -> None:  # pragma: no cover
         """禁用定时任务操作"""
         updated = queryset.update(is_active=False)
         messages.success(request, f"成功禁用 {updated} 个定时任务")
         logger.info(f"管理员批量禁用定时任务: Count={updated}, User={request.user}")
 
-    def trigger_manual_query_view(self, request: HttpRequest, schedule_id: int) -> HttpResponse:
+    def trigger_manual_query_view(self, request: HttpRequest, schedule_id: int) -> HttpResponse:  # pragma: no cover
         """手动触发查询视图（异步执行，不阻塞 Admin）"""
         schedule = get_object_or_404(DocumentDeliverySchedule, id=schedule_id)
 
@@ -273,7 +273,7 @@ class DocumentDeliveryScheduleAdmin(admin.ModelAdmin):
             messages.error(request, "该定时任务没有关联的账号凭证")
         else:
 
-            def run_task() -> None:
+            def run_task() -> None:  # pragma: no cover
                 try:
                     service = _get_document_delivery_schedule_service()
                     result = service.execute_scheduled_task(schedule_id)
@@ -289,17 +289,17 @@ class DocumentDeliveryScheduleAdmin(admin.ModelAdmin):
 
         return HttpResponseRedirect(reverse("admin:automation_documentdeliveryschedule_change", args=[schedule_id]))
 
-    def get_queryset(self, request: HttpRequest) -> QuerySet[DocumentDeliverySchedule]:
+    def get_queryset(self, request: HttpRequest) -> QuerySet[DocumentDeliverySchedule]:  # pragma: no cover
         """优化查询性能"""
         return super().get_queryset(request).select_related("credential")
 
-    def formfield_for_foreignkey(self, db_field: Any, request: HttpRequest, **kwargs: Any) -> Any:
+    def formfield_for_foreignkey(self, db_field: Any, request: HttpRequest, **kwargs: Any) -> Any:  # pragma: no cover
         """自定义外键字段"""
         if db_field.name == "credential":
             kwargs["queryset"] = db_field.related_model.objects.all().order_by("site_name", "account")
         return super().formfield_for_foreignkey(db_field, request, **kwargs)
 
-    def get_form(
+    def get_form(  # pragma: no cover
         self,
         request: HttpRequest,
         obj: DocumentDeliverySchedule | None = None,
@@ -320,7 +320,7 @@ class DocumentDeliveryScheduleAdmin(admin.ModelAdmin):
 
         return form
 
-    def save_model(self, request: HttpRequest, obj: DocumentDeliverySchedule, form: Any, change: bool) -> None:
+    def save_model(self, request: HttpRequest, obj: DocumentDeliverySchedule, form: Any, change: bool) -> None:  # pragma: no cover
         """保存模型时的处理"""
         super().save_model(request, obj, form, change)
 

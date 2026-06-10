@@ -20,18 +20,18 @@ from .base import ChatResult
 logger = logging.getLogger(__name__)
 
 
-class TelegramFileMixin:
+class TelegramFileMixin:  # pragma: no cover
     """负责 Telegram 文件上传和发送"""
 
     config: dict[str, Any]
 
-    def is_available(self) -> bool:  # 由 TelegramTokenMixin 提供
+    def is_available(self) -> bool:  # 由 TelegramTokenMixin 提供  # pragma: no cover
         raise NotImplementedError
 
-    def _get_bot_api_url(self, method: str) -> str:  # 由 TelegramTokenMixin 提供
+    def _get_bot_api_url(self, method: str) -> str:  # 由 TelegramTokenMixin 提供  # pragma: no cover
         raise NotImplementedError
 
-    def send_file(self, chat_id: str, file_path: str) -> ChatResult:
+    def send_file(self, chat_id: str, file_path: str) -> ChatResult:  # pragma: no cover
         """发送文件到群聊
 
         Telegram 使用 sendDocument API 直接发送文件。
@@ -66,7 +66,7 @@ class TelegramFileMixin:
                 errors={"original_error": str(e), "file_path": file_path},
             ) from e
 
-    def _send_document(self, chat_id: str, file_path: str) -> ChatResult:
+    def _send_document(self, chat_id: str, file_path: str) -> ChatResult:  # pragma: no cover
         """使用 sendDocument API 发送文件
 
         POST https://api.telegram.org/bot{token}/sendDocument
@@ -119,7 +119,7 @@ class TelegramFileMixin:
                 errors={"original_error": str(e), "file_path": file_path},
             ) from e
 
-    def _parse_chat_id(self, chat_id: str) -> tuple[str, int | None]:
+    def _parse_chat_id(self, chat_id: str) -> tuple[str, int | None]:  # pragma: no cover
         """解析 chat_id，支持 topic 格式
 
         Telegram 一案一群通过 Topic 实现，chat_id 格式可能为:

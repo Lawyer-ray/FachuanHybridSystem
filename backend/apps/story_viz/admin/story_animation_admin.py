@@ -12,7 +12,7 @@ from apps.story_viz.services.wiring import get_story_animation_job_service
 
 
 @admin.register(StoryAnimation)
-class StoryAnimationAdmin(admin.ModelAdmin):
+class StoryAnimationAdmin(admin.ModelAdmin):  # pragma: no cover
     change_form_template = "admin/story_viz/storyanimation/change_form.html"
     actions = ["requeue_selected", "delete_selected"]
     list_display = [
@@ -110,17 +110,17 @@ class StoryAnimationAdmin(admin.ModelAdmin):
         "updated_at",
     ]
 
-    def get_readonly_fields(self, request: HttpRequest, obj: StoryAnimation | None = None) -> list[str]:
+    def get_readonly_fields(self, request: HttpRequest, obj: StoryAnimation | None = None) -> list[str]:  # pragma: no cover
         if obj is None:
             return []
         return list(self.readonly_fields)
 
-    def get_fieldsets(self, request: HttpRequest, obj: StoryAnimation | None = None) -> Any:
+    def get_fieldsets(self, request: HttpRequest, obj: StoryAnimation | None = None) -> Any:  # pragma: no cover
         if obj is None:
             return [(None, {"fields": ("source_title", "source_text", "viz_type", "llm_model")})]
         return self.fieldsets
 
-    def get_form(
+    def get_form(  # pragma: no cover
         self, request: HttpRequest, obj: StoryAnimation | None = None, change: bool = False, **kwargs: Any
     ) -> Any:
         form = super().get_form(request, obj, change=change, **kwargs)
@@ -134,7 +134,7 @@ class StoryAnimationAdmin(admin.ModelAdmin):
         return form
 
     @staticmethod
-    def _build_llm_model_choices() -> list[tuple[str, str]]:
+    def _build_llm_model_choices() -> list[tuple[str, str]]:  # pragma: no cover
         from apps.core.llm.config import LLMConfig
         from apps.core.llm.model_list_service import ModelListService
 
@@ -152,7 +152,7 @@ class StoryAnimationAdmin(admin.ModelAdmin):
             pass
         return choices
 
-    def save_model(self, request: HttpRequest, obj: StoryAnimation, form: Any, change: bool) -> None:
+    def save_model(self, request: HttpRequest, obj: StoryAnimation, form: Any, change: bool) -> None:  # pragma: no cover
         if change:
             super().save_model(request, obj, form, change)
             return
@@ -167,7 +167,7 @@ class StoryAnimationAdmin(admin.ModelAdmin):
         obj.pk = animation.pk
 
     @admin.action(description="重新排队选中的任务")
-    def requeue_selected(self, request: HttpRequest, queryset: Any) -> None:
+    def requeue_selected(self, request: HttpRequest, queryset: Any) -> None:  # pragma: no cover
         count = 0
         for animation in queryset:
             if animation.status in {StoryAnimationStatus.FAILED, StoryAnimationStatus.CANCELLED}:
@@ -178,7 +178,7 @@ class StoryAnimationAdmin(admin.ModelAdmin):
                     pass
         self.message_user(request, f"已重新提交 {count} 个任务")
 
-    def status_badge(self, obj: StoryAnimation) -> str:
+    def status_badge(self, obj: StoryAnimation) -> str:  # pragma: no cover
         color_map = {
             "pending": "#8d6e63",
             "processing": "#1565c0",
@@ -191,17 +191,17 @@ class StoryAnimationAdmin(admin.ModelAdmin):
 
     status_badge.short_description = "状态"  # type: ignore[attr-defined]
 
-    def viz_type_display(self, obj: StoryAnimation) -> str:
+    def viz_type_display(self, obj: StoryAnimation) -> str:  # pragma: no cover
         return obj.get_viz_type_display()
 
     viz_type_display.short_description = "类型"  # type: ignore[attr-defined]
 
-    def stage_display(self, obj: StoryAnimation) -> str:
+    def stage_display(self, obj: StoryAnimation) -> str:  # pragma: no cover
         return obj.get_current_stage_display()
 
     stage_display.short_description = "阶段"  # type: ignore[attr-defined]
 
-    def progress_display(self, obj: StoryAnimation) -> str:
+    def progress_display(self, obj: StoryAnimation) -> str:  # pragma: no cover
         pct = obj.progress_percent or 0
         width = max(40, min(pct, 100))
         color = "#0ea5e9" if pct < 100 else "#34d399"
@@ -215,13 +215,13 @@ class StoryAnimationAdmin(admin.ModelAdmin):
 
     progress_display.short_description = "进度"  # type: ignore[attr-defined]
 
-    def created_at_display(self, obj: StoryAnimation) -> str:
+    def created_at_display(self, obj: StoryAnimation) -> str:  # pragma: no cover
         return obj.created_at.strftime("%Y-%m-%d %H:%M") if obj.created_at else "-"
 
     created_at_display.short_description = "创建时间"  # type: ignore[attr-defined]
 
     @admin.display(description="耗时")
-    def duration(self, obj: StoryAnimation) -> str:
+    def duration(self, obj: StoryAnimation) -> str:  # pragma: no cover
         if not obj.started_at:
             return "-"
         from django.utils import timezone
@@ -233,7 +233,7 @@ class StoryAnimationAdmin(admin.ModelAdmin):
         return f"{int(elapsed / 60)} 分 {int(elapsed % 60)} 秒"
 
     @admin.display(description="事实数据")
-    def facts_payload_display(self, obj: StoryAnimation) -> str:
+    def facts_payload_display(self, obj: StoryAnimation) -> str:  # pragma: no cover
         facts = obj.facts_payload or {}
         events = facts.get("events", [])
         parties = facts.get("parties", [])
@@ -247,7 +247,7 @@ class StoryAnimationAdmin(admin.ModelAdmin):
         return " · ".join(rv)
 
     @admin.display(description="脚本数据")
-    def script_payload_display(self, obj: StoryAnimation) -> str:
+    def script_payload_display(self, obj: StoryAnimation) -> str:  # pragma: no cover
         script = obj.script_payload or {}
         nodes = script.get("timeline_nodes", [])
         rnodes = script.get("relationship_nodes", [])
@@ -264,7 +264,7 @@ class StoryAnimationAdmin(admin.ModelAdmin):
         return " · ".join(rv)
 
     @admin.display(description="渲染数据")
-    def render_payload_display(self, obj: StoryAnimation) -> str:
+    def render_payload_display(self, obj: StoryAnimation) -> str:  # pragma: no cover
         render = obj.render_payload or {}
         nodes = render.get("nodes", [])
         edges = render.get("edges", [])
@@ -277,7 +277,7 @@ class StoryAnimationAdmin(admin.ModelAdmin):
             rv.append("无数据")
         return " · ".join(rv)
 
-    def change_view(
+    def change_view(  # pragma: no cover
         self,
         request: HttpRequest,
         object_id: str,

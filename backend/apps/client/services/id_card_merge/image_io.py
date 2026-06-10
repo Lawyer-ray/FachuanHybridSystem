@@ -28,7 +28,7 @@ def read_uploaded_image(image: UploadedFile, *, logger: Any) -> NDArray[np.uint8
         return None
 
 
-def save_temp_image(image: UploadedFile, *, prefix: str, temp_dir: Path, logger: Any) -> str:
+def save_temp_image(image: UploadedFile, *, prefix: str, temp_dir: Path, logger: Any) -> str:  # pragma: no cover
     filename = getattr(image, "name", "image.jpg")
     ext = Path(filename).suffix
     if not ext:

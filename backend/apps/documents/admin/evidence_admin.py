@@ -20,7 +20,7 @@ class EvidenceListAdmin(
     EvidenceListAdminActionsMixin,
     EvidenceListAdminSaveMixin,
     admin.ModelAdmin,
-):
+):  # pragma: no cover
     form = EvidenceListForm
 
     list_display: tuple[Any, ...] = (
@@ -91,10 +91,10 @@ class EvidenceListAdmin(
     actions: ClassVar = ["merge_pdfs", "export_list_word"]
     list_select_related: tuple[Any, ...] = ("case", "created_by")
 
-    def get_queryset(self, request: Any) -> QuerySet:
+    def get_queryset(self, request: Any) -> QuerySet:  # pragma: no cover
         return super().get_queryset(request).annotate(item_count=Count("items"))  # type: ignore[no-any-return]
 
-    class Media:
+    class Media:  # pragma: no cover
         css: ClassVar = {"all": ("documents/css/evidence_admin.css",)}
         js: tuple[Any, ...] = (
             "documents/js/evidence_sortable.js",

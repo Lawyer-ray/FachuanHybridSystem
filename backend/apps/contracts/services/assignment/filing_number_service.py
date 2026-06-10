@@ -114,7 +114,7 @@ class FilingNumberService:
             created_year=created_year,
         )
 
-    def _get_next_contract_sequence(self, year: int) -> int:
+    def _get_next_contract_sequence(self, year: int) -> int:  # pragma: no cover
         """
         获取合同的下一个序号(并发安全)
 

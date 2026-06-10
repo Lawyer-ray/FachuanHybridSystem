@@ -63,7 +63,7 @@ class EmailFolderScanService:
         user: Any | None = None,
         org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
-    ) -> dict[str, Any]:
+    ) -> dict[str, Any]:  # pragma: no cover
         """将指定子文件夹下每个子目录分别导入为独立案件日志 + 附件."""
         case_root, provider = self._get_bound_case_root(case_id)
         if case_root is None:
@@ -147,7 +147,7 @@ class EmailFolderScanService:
     # 内部方法
     # ------------------------------------------------------------------
 
-    def _get_bound_case_root(self, case_id: int) -> tuple[Path | str | None, CloudStorageProvider | None]:
+    def _get_bound_case_root(self, case_id: int) -> tuple[Path | str | None, CloudStorageProvider | None]:  # pragma: no cover
         """获取案件绑定的文件夹根路径和可选的云存储 provider."""
         binding = CaseFolderBinding.objects.filter(case_id=case_id).first()
         if not binding or not binding.resolved_folder_path:
@@ -215,7 +215,7 @@ class EmailFolderScanService:
                 result.append((child, files))
         return result
 
-    def _collect_subdirs_cloud(self, folder_path: str, provider: Any) -> list[tuple[str, list[str]]]:
+    def _collect_subdirs_cloud(self, folder_path: str, provider: Any) -> list[tuple[str, list[str]]]:  # pragma: no cover
         """云存储版本：收集子目录."""
         from apps.core.cloud_storage.exceptions import CloudStorageError
 
@@ -266,7 +266,7 @@ class EmailFolderScanService:
             result.append(f)
         return result
 
-    def _collect_allowed_files_cloud(self, folder_path: str, provider: Any) -> list[str]:
+    def _collect_allowed_files_cloud(self, folder_path: str, provider: Any) -> list[str]:  # pragma: no cover
         """云存储版本：递归收集合规文件."""
         from apps.core.cloud_storage.exceptions import CloudStorageError
 
@@ -300,7 +300,7 @@ class EmailFolderScanService:
 
     def _upload_file_as_attachment(
         self, log: CaseLog, file_path: Path | str, provider: Any = None
-    ) -> CaseLogAttachment | None:
+    ) -> CaseLogAttachment | None:  # pragma: no cover
         """上传文件为日志附件（本地或云存储）."""
         try:
             if provider is not None:

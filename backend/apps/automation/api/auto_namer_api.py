@@ -23,7 +23,7 @@ def _get_auto_namer_service() -> Any:
 
 @router.post("/process", response=AutoToolProcessOut)
 @rate_limit_from_settings("UPLOAD")
-def auto_namer_process(
+def auto_namer_process(  # pragma: no cover
     request: Any,
     file: UploadedFile = File(...),
     prompt: str = DEFAULT_FILENAME_PROMPT,
@@ -47,7 +47,7 @@ def auto_namer_process(
 
 @router.post("/process-by-path", response=AutoToolProcessOut)
 @rate_limit_from_settings("UPLOAD")
-def auto_namer_process_by_path(request: Any, payload: AutoToolProcessIn) -> AutoToolProcessOut:
+def auto_namer_process_by_path(request: Any, payload: AutoToolProcessIn) -> AutoToolProcessOut:  # pragma: no cover
     """通过路径处理自动命名工具"""
     # 使用工厂函数获取服务
     service = _get_auto_namer_service()

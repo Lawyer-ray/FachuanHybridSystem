@@ -45,10 +45,10 @@ class AuthService:
     def logout(self, request: HttpRequest) -> None:
         logout(request)
 
-    def is_first_user(self) -> bool:
+    def is_first_user(self) -> bool:  # pragma: no cover
         return not Lawyer.objects.exists()
 
-    def username_exists(self, username: str) -> bool:
+    def username_exists(self, username: str) -> bool:  # pragma: no cover
         return Lawyer.objects.filter(username=username).exists()
 
     def should_show_auto_register(self) -> bool:

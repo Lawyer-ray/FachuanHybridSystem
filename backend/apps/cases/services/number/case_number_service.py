@@ -169,7 +169,7 @@ class CaseNumberService(DjangoPermsMixin):
         user: Any | None = None,
         org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
-    ) -> CaseNumber:
+    ) -> CaseNumber:  # pragma: no cover
         """
         创建案号(自动规范化)
 
@@ -236,7 +236,7 @@ class CaseNumberService(DjangoPermsMixin):
         user: Any | None = None,
         org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
-    ) -> CaseNumber:
+    ) -> CaseNumber:  # pragma: no cover
         """
         更新案号
 

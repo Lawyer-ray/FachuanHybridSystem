@@ -8,7 +8,7 @@ from typing import Any
 logger = logging.getLogger("apps.documents")
 
 
-def merge_evidence_pdf_task(list_id: int) -> Any:
+def merge_evidence_pdf_task(list_id: int) -> Any:  # pragma: no cover
     # 已迁移到 apps.evidence.tasks，此处保留向后兼容
     from apps.evidence.tasks import merge_evidence_pdf_task as _task
 

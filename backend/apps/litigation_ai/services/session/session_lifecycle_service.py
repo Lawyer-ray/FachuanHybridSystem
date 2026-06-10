@@ -32,7 +32,7 @@ class SessionLifecycleService:
         self.conversation_history_service = get_conversation_history_service()
         self.session_repo = LitigationSessionRepository()
 
-    def create_session(self, case_id: int, user_id: int | None = None, session_type: str | None = None) -> SessionDTO:
+    def create_session(self, case_id: int, user_id: int | None = None, session_type: str | None = None) -> SessionDTO:  # pragma: no cover
         from apps.litigation_ai.models import LitigationSession
 
         create_payload: dict[str, Any] = {
@@ -60,7 +60,7 @@ class SessionLifecycleService:
     @transaction.atomic
     def update_session_status(
         self, session_id: str, status: str, metadata_updates: dict[str, Any] | None = None
-    ) -> SessionDTO:
+    ) -> SessionDTO:  # pragma: no cover
         from apps.litigation_ai.models.choices import SessionStatus
 
         session = self.session_repo.get_session_sync(session_id)

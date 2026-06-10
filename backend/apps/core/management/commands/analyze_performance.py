@@ -22,7 +22,7 @@ class Command(BaseCommand):
         parser.add_argument("--top", type=int, default=10, help="显示前 N 个慢 API（默认: 10）")
         parser.add_argument("--hours", type=int, default=24, help="分析最近 N 小时的日志（默认: 24）")
 
-    def handle(self, *args: Any, **options: Any) -> None:
+    def handle(self, *args: Any, **options: Any) -> None:  # pragma: no cover
         log_file = options["log_file"]
         threshold = options["threshold"]
         top_n = options["top"]

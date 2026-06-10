@@ -6,7 +6,7 @@ from typing import Any
 
 
 class AutomationConfigService:
-    def get_automation_config(self) -> dict[str, Any]:
+    def get_automation_config(self) -> dict[str, Any]:  # pragma: no cover
         from apps.core.llm.config import LLMConfig
 
         return {

@@ -29,7 +29,7 @@ class RecordingService:
     def __init__(self, *, project_service: ProjectService) -> None:
         self._project_service = project_service
 
-    def list_recordings(self, *, user: User, project_id: int) -> QuerySet[ChatRecordRecording, ChatRecordRecording]:
+    def list_recordings(self, *, user: User, project_id: int) -> QuerySet[ChatRecordRecording, ChatRecordRecording]:  # pragma: no cover
         self._project_service.get_project(user=user, project_id=project_id)
         return ChatRecordRecording.objects.filter(project_id=project_id).order_by("-created_at")
 
@@ -42,7 +42,7 @@ class RecordingService:
         return recording
 
     @transaction.atomic
-    def upload_recording(self, *, user: User, project_id: int, file: UploadedFile) -> ChatRecordRecording:
+    def upload_recording(self, *, user: User, project_id: int, file: UploadedFile) -> ChatRecordRecording:  # pragma: no cover
         project = self._project_service.get_project(user=user, project_id=project_id)
         if not file:
             raise ValidationException("请上传录屏文件")

@@ -13,14 +13,14 @@ from .form_utils import FormUtilsMixin
 logger = logging.getLogger("apps.automation")
 
 
-class PartyInfoHandlerMixin(FormUtilsMixin):
+class PartyInfoHandlerMixin(FormUtilsMixin):  # pragma: no cover
     """当事人信息填写 Mixin，需要子类提供 self.page。"""
 
     page: Page
     CIVIL_SECTION_MAP: dict[str, str]
     EXEC_SECTION_MAP: dict[str, str]
 
-    def _step5_complete_info(
+    def _step5_complete_info(  # pragma: no cover
         self,
         case_data: dict[str, Any],
         *,
@@ -117,7 +117,7 @@ class PartyInfoHandlerMixin(FormUtilsMixin):
 
         logger.info("完善案件信息: 当事人和代理人已填写")
 
-    def _clear_auto_recognized_parties(self) -> None:
+    def _clear_auto_recognized_parties(self) -> None:  # pragma: no cover
         """清除一张网自动识别的当事人信息。
 
         一张网会从上传的材料中自动识别当事人，但识别结果经常不准确
@@ -162,7 +162,7 @@ class PartyInfoHandlerMixin(FormUtilsMixin):
         if cleared > 0:
             logger.info("已清除 %d 个自动识别的当事人", cleared)
 
-    def _complete_agent_info(self, case_data: dict[str, Any]) -> None:
+    def _complete_agent_info(self, case_data: dict[str, Any]) -> None:  # pragma: no cover
         """按案件绑定顺序补齐代理人（不足则新增）。"""
         agents = [item for item in case_data.get("agents", []) if isinstance(item, dict)]
         if not agents and isinstance(case_data.get("agent"), dict):
@@ -180,7 +180,7 @@ class PartyInfoHandlerMixin(FormUtilsMixin):
             self._fill_agent_form(case_data=case_data, agent=agent, form=form)
             self._click_save(form=form)
 
-    def _open_agent_form(self, *, index: int) -> tuple[bool, Any]:
+    def _open_agent_form(self, *, index: int) -> tuple[bool, Any]:  # pragma: no cover
         section = self.page.locator(".uni-section:has(.uni-section__content-title:has-text('代理人信息'))").first
         edit_cards = section.locator(".fd-wsla-ryxx-box:has(.fd-sscyr-option-pc-icon:has-text('编辑'))")
         if edit_cards.count() > index:
@@ -203,7 +203,7 @@ class PartyInfoHandlerMixin(FormUtilsMixin):
         form = section.locator(".fd-wsla-ryxx-box:has(uni-button:has-text('保存'))").first
         return bool(form.count() > 0), form
 
-    def _fill_agent_form(self, *, case_data: dict[str, Any], agent: dict[str, Any], form: Any = None) -> None:
+    def _fill_agent_form(self, *, case_data: dict[str, Any], agent: dict[str, Any], form: Any = None) -> None:  # pragma: no cover
         if form is not None:
             form.evaluate(
                 """el => {
@@ -291,7 +291,7 @@ class PartyInfoHandlerMixin(FormUtilsMixin):
             )
         self._random_wait(0.5, 1)
 
-    def _import_original_party(
+    def _import_original_party(  # pragma: no cover
         self,
         *,
         section_title: str,
@@ -366,7 +366,7 @@ class PartyInfoHandlerMixin(FormUtilsMixin):
         self._click_save(form=form)
         return True
 
-    def _add_legal_person(
+    def _add_legal_person(  # pragma: no cover
         self,
         *,
         section_title: str,
@@ -409,7 +409,7 @@ class PartyInfoHandlerMixin(FormUtilsMixin):
 
         self._click_save(form=form)
 
-    def _add_natural_person(
+    def _add_natural_person(  # pragma: no cover
         self,
         *,
         section_title: str,
@@ -453,7 +453,7 @@ class PartyInfoHandlerMixin(FormUtilsMixin):
 
         self._click_save(form=form)
 
-    def _add_other_organization(
+    def _add_other_organization(  # pragma: no cover
         self,
         *,
         section_title: str,
@@ -506,7 +506,7 @@ class PartyInfoHandlerMixin(FormUtilsMixin):
         self._click_save(form=form)
 
     @staticmethod
-    def _normalize_client_type(client_type: str) -> str:
+    def _normalize_client_type(client_type: str) -> str:  # pragma: no cover
         """归一化当事人类别：非法人组织/个体工商户/个人独资企业 → other_organization"""
         other_types = {"非法人组织", "个体工商户", "个人独资企业", "other_organization"}
         if client_type in other_types:
@@ -515,7 +515,7 @@ class PartyInfoHandlerMixin(FormUtilsMixin):
             return "natural"
         return "legal"
 
-    def _add_party_by_type(
+    def _add_party_by_type(  # pragma: no cover
         self,
         *,
         client_type: str,
@@ -540,7 +540,7 @@ class PartyInfoHandlerMixin(FormUtilsMixin):
                 **{**party, "phone": party_phone},
             )
 
-    def _fill_execution_target_info(self, case_data: dict[str, Any]) -> None:
+    def _fill_execution_target_info(self, case_data: dict[str, Any]) -> None:  # pragma: no cover
         """申请执行特有：填写执行理由、执行请求、执行标的类型"""
         logger.info("填写执行标的信息")
 

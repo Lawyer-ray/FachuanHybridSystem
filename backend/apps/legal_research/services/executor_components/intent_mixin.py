@@ -8,6 +8,158 @@ from typing import TypedDict
 from apps.core.interfaces import ServiceLocator
 
 
+# ── 模块级纯函数 ────────────────────────────────────────────
+
+
+def split_intent_clauses(text: str) -> list[str]:
+    """将文本按标点切分为语义子句。"""
+    raw = re.split(r"[\n\r，,。；;：:！!？?]+", text or "")
+    clauses: list[str] = []
+    for part in raw:
+        normalized = re.sub(r"\s+", "", part).strip()
+        if len(normalized) < 2:
+            continue
+        clauses.append(normalized)
+    return clauses
+
+
+def compact_clause_by_hints(clause: str, *, hints: tuple[str, ...], max_chars: int) -> str:
+    """提取子句中围绕命中关键词的紧凑片段。"""
+    if not clause:
+        return ""
+
+    chosen_hint = ""
+    chosen_index = len(clause) + 1
+    for hint in hints:
+        idx = clause.find(hint)
+        if idx < 0:
+            continue
+        if idx < chosen_index:
+            chosen_index = idx
+            chosen_hint = hint
+
+    if not chosen_hint:
+        compact = clause
+    else:
+        left = max(0, chosen_index - 6)
+        right = min(len(clause), chosen_index + len(chosen_hint) + 8)
+        compact = clause[left:right]
+
+    compact = re.sub(r"^(原告|被告|双方|当事人|买方|卖方|请求|主张|要求|因|由于|致使|导致)+", "", compact)
+    compact = re.sub(r"(请求|主张|要求)$", "", compact)
+    compact = compact.strip("，。；：、,.;: ")
+    if len(compact) > max_chars:
+        compact = compact[:max_chars]
+    return compact
+
+
+def normalize_relation_term(term: str) -> str:
+    """规范化法律关系术语（去除噪音、补齐后缀）。"""
+    normalized = re.sub(r"\s+", "", term or "").strip("，。；：、,.;: ")
+    if not normalized:
+        return ""
+    normalized = re.sub(r"(纠纷案|争议案|之诉案)$", lambda m: m.group(1)[:-1], normalized)
+    if normalized in {"劳动", "劳动纠纷"}:
+        return "劳动争议"
+    if normalized.endswith("合同") and not normalized.endswith("合同纠纷"):
+        return f"{normalized}纠纷"
+    return normalized
+
+
+def looks_like_relation_term(term: str) -> bool:
+    """判断一个词是否像法律关系术语。"""
+    value = (term or "").strip()
+    if not value:
+        return False
+    if value.endswith("纠纷") or value.endswith("争议") or value.endswith("之诉"):
+        return True
+    return "合同" in value
+
+
+def contains_any_hint(text: str, hints: tuple[str, ...]) -> bool:
+    """检查文本是否包含任意一个关键词。"""
+    normalized = (text or "").strip()
+    if not normalized:
+        return False
+    return any(hint in normalized for hint in hints)
+
+
+def dedupe_tokens(tokens: list[str], *, max_tokens: int) -> list[str]:
+    """去重并截断 token 列表（大小写不敏感）。"""
+    out: list[str] = []
+    seen: set[str] = set()
+    for token in tokens:
+        key = token.strip().lower()
+        if not key or key in seen:
+            continue
+        seen.add(key)
+        out.append(token.strip())
+        if len(out) >= max_tokens:
+            break
+    return out
+
+
+def split_tokens(text: str) -> list[str]:
+    """将文本切分为 token，过滤短 token。"""
+    parts = re.split(r"[\s,，;；、]+", (text or "").strip())
+    return [p for p in parts if p and len(p) >= 2]
+
+
+def is_location_or_court_token(token: str) -> bool:
+    """判断 token 是否为地名或法院名。"""
+    value = (token or "").strip()
+    if not value:
+        return False
+    if "法院" in value:
+        return True
+    if re.fullmatch(r"[一-鿿]{2,12}(省|市|区|县|镇|乡)", value):
+        return True
+    return False
+
+
+def parse_rule_items(raw: str, *, max_items: int, max_len: int) -> list[str]:
+    """从配置文本中解析规则条目列表。"""
+    if not raw:
+        return []
+    parts = re.split(r"[\n\r,，;；|]+", raw)
+    out: list[str] = []
+    seen: set[str] = set()
+    for part in parts:
+        token = re.sub(r"\s+", "", part or "").strip()
+        if not token:
+            continue
+        token = token[:max_len]
+        key = token.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(token)
+        if len(out) >= max_items:
+            break
+    return out
+
+
+def parse_int_with_bounds(raw: str, *, default: int, min_value: int, max_value: int) -> int:
+    """解析整数字符串，带边界约束。"""
+    try:
+        value = int((raw or "").strip())
+    except (TypeError, ValueError):
+        return default
+    return max(min_value, min(max_value, value))
+
+
+def collect_intent_terms(
+    text: str,
+    mapping: tuple[tuple[tuple[str, ...], str], ...],
+) -> list[str]:
+    """根据映射规则从文本中抽取意图术语。"""
+    terms: list[str] = []
+    for needles, canonical_term in mapping:
+        if any(needle in text for needle in needles):
+            terms.append(canonical_term)
+    return dedupe_tokens(terms, max_tokens=8)
+
+
 class _IntentSlots(TypedDict):
     relation_high: list[str]
     relation_low: list[str]
@@ -235,11 +387,7 @@ class ExecutorIntentMixin:
         text: str,
         mapping: tuple[tuple[tuple[str, ...], str], ...],
     ) -> list[str]:
-        terms: list[str] = []
-        for needles, canonical_term in mapping:
-            if any(needle in text for needle in needles):
-                terms.append(canonical_term)
-        return cls._dedupe_tokens(terms, max_tokens=8)
+        return collect_intent_terms(text, mapping)
 
     @classmethod
     def _extract_relation_terms_dynamic(
@@ -299,71 +447,23 @@ class ExecutorIntentMixin:
 
     @staticmethod
     def _split_intent_clauses(text: str) -> list[str]:
-        raw = re.split(r"[\n\r，,。；;：:！!？?]+", text or "")
-        clauses: list[str] = []
-        for part in raw:
-            normalized = re.sub(r"\s+", "", part).strip()
-            if len(normalized) < 2:
-                continue
-            clauses.append(normalized)
-        return clauses
+        return split_intent_clauses(text)
 
     @classmethod
     def _compact_clause_by_hints(cls, clause: str, *, hints: tuple[str, ...], max_chars: int) -> str:
-        if not clause:
-            return ""
-
-        chosen_hint = ""
-        chosen_index = len(clause) + 1
-        for hint in hints:
-            idx = clause.find(hint)
-            if idx < 0:
-                continue
-            if idx < chosen_index:
-                chosen_index = idx
-                chosen_hint = hint
-
-        if not chosen_hint:
-            compact = clause
-        else:
-            left = max(0, chosen_index - 6)
-            right = min(len(clause), chosen_index + len(chosen_hint) + 8)
-            compact = clause[left:right]
-
-        compact = re.sub(r"^(原告|被告|双方|当事人|买方|卖方|请求|主张|要求|因|由于|致使|导致)+", "", compact)
-        compact = re.sub(r"(请求|主张|要求)$", "", compact)
-        compact = compact.strip("，。；：、,.;: ")
-        if len(compact) > max_chars:
-            compact = compact[:max_chars]
-        return compact
+        return compact_clause_by_hints(clause, hints=hints, max_chars=max_chars)
 
     @classmethod
     def _normalize_relation_term(cls, term: str) -> str:
-        normalized = re.sub(r"\s+", "", term or "").strip("，。；：、,.;: ")
-        if not normalized:
-            return ""
-        normalized = re.sub(r"(纠纷案|争议案|之诉案)$", lambda m: m.group(1)[:-1], normalized)
-        if normalized in {"劳动", "劳动纠纷"}:
-            return "劳动争议"
-        if normalized.endswith("合同") and not normalized.endswith("合同纠纷"):
-            return f"{normalized}纠纷"
-        return normalized
+        return normalize_relation_term(term)
 
     @staticmethod
     def _looks_like_relation_term(term: str) -> bool:
-        value = (term or "").strip()
-        if not value:
-            return False
-        if value.endswith("纠纷") or value.endswith("争议") or value.endswith("之诉"):
-            return True
-        return "合同" in value
+        return looks_like_relation_term(term)
 
     @staticmethod
     def _contains_any_hint(text: str, hints: tuple[str, ...]) -> bool:
-        normalized = (text or "").strip()
-        if not normalized:
-            return False
-        return any(hint in normalized for hint in hints)
+        return contains_any_hint(text, hints)
 
     # ── 规则覆盖加载 ──────────────────────────────────────────
 
@@ -417,55 +517,26 @@ class ExecutorIntentMixin:
 
     @staticmethod
     def _parse_rule_items(raw: str, *, max_items: int, max_len: int) -> list[str]:
-        if not raw:
-            return []
-        parts = re.split(r"[\n\r,，;；|]+", raw)
-        out: list[str] = []
-        seen: set[str] = set()
-        for part in parts:
-            token = re.sub(r"\s+", "", part or "").strip()
-            if not token:
-                continue
-            token = token[:max_len]
-            key = token.lower()
-            if key in seen:
-                continue
-            seen.add(key)
-            out.append(token)
-            if len(out) >= max_items:
-                break
-        return out
+        return parse_rule_items(raw, max_items=max_items, max_len=max_len)
 
     @staticmethod
     def _parse_int_with_bounds(raw: str, *, default: int, min_value: int, max_value: int) -> int:
-        try:
-            value = int((raw or "").strip())
-        except (TypeError, ValueError):
-            return default
-        return max(min_value, min(max_value, value))
+        return parse_int_with_bounds(raw, default=default, min_value=min_value, max_value=max_value)
 
     @classmethod
     def _merge_hint_overrides(cls, defaults: tuple[str, ...], extras: list[str]) -> tuple[str, ...]:
-        merged = cls._dedupe_tokens([*defaults, *extras], max_tokens=64)
+        merged = dedupe_tokens([*defaults, *extras], max_tokens=64)
         return tuple(merged)
 
     # ── 通用工具方法 ──────────────────────────────────────────
 
     @staticmethod
     def _split_tokens(text: str) -> list[str]:
-        parts = re.split(r"[\s,，;；、]+", (text or "").strip())
-        return [p for p in parts if p and len(p) >= 2]
+        return split_tokens(text)
 
     @staticmethod
     def _is_location_or_court_token(token: str) -> bool:
-        value = (token or "").strip()
-        if not value:
-            return False
-        if "法院" in value:
-            return True
-        if re.fullmatch(r"[一-鿿]{2,12}(省|市|区|县|镇|乡)", value):
-            return True
-        return False
+        return is_location_or_court_token(token)
 
     @classmethod
     def _extract_summary_terms(cls, case_summary: str) -> list[str]:
@@ -538,14 +609,4 @@ class ExecutorIntentMixin:
 
     @staticmethod
     def _dedupe_tokens(tokens: list[str], *, max_tokens: int) -> list[str]:
-        out: list[str] = []
-        seen: set[str] = set()
-        for token in tokens:
-            key = token.strip().lower()
-            if not key or key in seen:
-                continue
-            seen.add(key)
-            out.append(token.strip())
-            if len(out) >= max_tokens:
-                break
-        return out
+        return dedupe_tokens(tokens, max_tokens=max_tokens)

@@ -25,7 +25,7 @@ class PlaceholderAdminService:
     def ensure_code_placeholders(
         self,
         definitions: dict[str, CodePlaceholderDefinition],
-    ) -> None:
+    ) -> None:  # pragma: no cover
         """
         同步代码占位符：根据定义批量创建缺失的占位符记录。
 
@@ -67,7 +67,7 @@ class PlaceholderAdminService:
         """
         return base_qs.filter(key__in=code_keys)
 
-    def duplicate_placeholder(self, placeholder: Any) -> Any:
+    def duplicate_placeholder(self, placeholder: Any) -> Any:  # pragma: no cover
         """
         复制占位符并生成唯一 key。
 

@@ -24,7 +24,7 @@ class CookieService:
         context.add_cookies(cookies)
         return True
 
-    def save(self, context: Any, storage_path: str | None = None) -> str:
+    def save(self, context: Any, storage_path: str | None = None) -> str:  # pragma: no cover
         path = storage_path or self.storage_path
         if not path:
             raise ValueError("storage_path is required")

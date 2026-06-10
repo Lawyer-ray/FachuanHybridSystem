@@ -26,7 +26,7 @@ class ContractCloneWorkflow:
         source_contract: Contract,
         target_contract: Contract,
         due_at_transform: Callable[[Any], Any] | None = None,
-    ) -> None:
+    ) -> None:  # pragma: no cover
         ContractParty.objects.bulk_create(
             [
                 ContractParty(

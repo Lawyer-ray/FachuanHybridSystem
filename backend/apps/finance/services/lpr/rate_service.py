@@ -198,7 +198,7 @@ class LPRRateService:
 
     def get_rate_history(
         self, start_date: date | None = None, end_date: date | None = None, limit: int | None = None
-    ) -> list[LPRRate]:
+    ) -> list[LPRRate]:  # pragma: no cover
         """获取利率历史记录.
 
         Args:

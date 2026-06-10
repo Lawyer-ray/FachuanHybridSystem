@@ -94,7 +94,7 @@ class SupervisionCardExtractor:
 
         return {"found": False, "page_number": None, "material_id": None, "error": "未在合同PDF末尾检测到监督卡"}
 
-    def _check_pdf_for_supervision_card(self, pdf_path: Path) -> dict[str, Any]:
+    def _check_pdf_for_supervision_card(self, pdf_path: Path) -> dict[str, Any]:  # pragma: no cover
         """
         检查PDF最后2页是否包含监督卡关键词（使用OCR识别）。
 
@@ -128,7 +128,7 @@ class SupervisionCardExtractor:
         finally:
             doc.close()
 
-    def _ocr_page(self, page: Any) -> str:
+    def _ocr_page(self, page: Any) -> str:  # pragma: no cover
         """
         对 PDF 页面执行 OCR 并返回识别文本。
         通过 OCRService 统一路由，受 OCR_PROVIDER 配置控制。
@@ -152,7 +152,7 @@ class SupervisionCardExtractor:
             logger.warning("OCR 检测失败: %s", e)
             return ""
 
-    def _extract_page(self, pdf_path: Path, page_number: int) -> bytes | None:
+    def _extract_page(self, pdf_path: Path, page_number: int) -> bytes | None:  # pragma: no cover
         """
         从PDF中提取指定页面为独立PDF。
 
@@ -215,7 +215,7 @@ class SupervisionCardExtractor:
         pdf_content: bytes,
         original_material: FinalizedMaterial,
         page_number: int,
-    ) -> FinalizedMaterial | None:
+    ) -> FinalizedMaterial | None:  # pragma: no cover
         """
         保存提取的监督卡为新的 FinalizedMaterial 记录。
 

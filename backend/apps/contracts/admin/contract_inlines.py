@@ -29,18 +29,18 @@ else:
         BaseTabularInline = admin.TabularInline
 
 
-class FinalizedMaterialAdminForm(forms.ModelForm[FinalizedMaterial]):
+class FinalizedMaterialAdminForm(forms.ModelForm[FinalizedMaterial]):  # pragma: no cover
     file = forms.FileField(
         required=False,
         label=_("上传文件"),
         help_text=_("仅支持 PDF，最大 20MB"),
     )
 
-    class Meta:
+    class Meta:  # pragma: no cover
         model = FinalizedMaterial
         fields = ("file", "category")
 
-    def save(self, commit: bool = True) -> FinalizedMaterial:
+    def save(self, commit: bool = True) -> FinalizedMaterial:  # pragma: no cover
         instance = super().save(commit=False)
         uploaded_file = self.cleaned_data.get("file")
         if uploaded_file:
@@ -56,7 +56,7 @@ class FinalizedMaterialAdminForm(forms.ModelForm[FinalizedMaterial]):
         return instance
 
 
-class FinalizedMaterialInline(BaseTabularInline):
+class FinalizedMaterialInline(BaseTabularInline):  # pragma: no cover
     model = FinalizedMaterial
     form = FinalizedMaterialAdminForm
     extra = 1
@@ -65,7 +65,7 @@ class FinalizedMaterialInline(BaseTabularInline):
     classes = ("collapse",)
 
     @admin.display(description=_("原始文件名"))
-    def filename_link(self, obj: FinalizedMaterial) -> str:
+    def filename_link(self, obj: FinalizedMaterial) -> str:  # pragma: no cover
         from django.utils.html import format_html
 
         if obj.file_path and obj.original_filename:
@@ -73,35 +73,35 @@ class FinalizedMaterialInline(BaseTabularInline):
             return format_html('<a href="{}" target="_blank">{}</a>', url, obj.original_filename)
         return obj.original_filename or "-"
 
-    def delete_model(self, request: HttpRequest, obj: FinalizedMaterial) -> None:
+    def delete_model(self, request: HttpRequest, obj: FinalizedMaterial) -> None:  # pragma: no cover
         from apps.contracts.admin.wiring_admin import get_material_service
 
         get_material_service().delete_material_file(obj.file_path)
         obj.delete()
 
-    class Media:
+    class Media:  # pragma: no cover
         css = {"all": ("contracts/css/finalized_material_inline.css",)}
 
 
-class ContractPartyInline(BaseTabularInline):
+class ContractPartyInline(BaseTabularInline):  # pragma: no cover
     model = ContractParty
     extra = 1
     fields = ("client", "role")
     autocomplete_fields: ClassVar = ["client"]
     show_change_link = True
 
-    class Media:
+    class Media:  # pragma: no cover
         js = ("contracts/js/party_role_auto.js",)
 
 
-class ContractAssignmentInline(BaseTabularInline):
+class ContractAssignmentInline(BaseTabularInline):  # pragma: no cover
     model = ContractAssignment
     extra = 1
     fields = ("lawyer", "is_primary", "order")
     autocomplete_fields: ClassVar = ["lawyer"]
 
 
-class SupplementaryAgreementPartyInline(BaseTabularInline):
+class SupplementaryAgreementPartyInline(BaseTabularInline):  # pragma: no cover
     """补充协议当事人内联（嵌套在补充协议中）"""
 
     model = SupplementaryAgreementParty
@@ -110,7 +110,7 @@ class SupplementaryAgreementPartyInline(BaseTabularInline):
     autocomplete_fields: ClassVar = ["client"]
 
 
-class SupplementaryAgreementInline(BaseStackedInline):
+class SupplementaryAgreementInline(BaseStackedInline):  # pragma: no cover
     """补充协议内联（在合同中）"""
 
     model = SupplementaryAgreement

@@ -12,10 +12,10 @@ logger = logging.getLogger("apps.evidence_sorting")
 
 
 @admin.register(EvidenceSorting)
-class EvidenceSortingAdmin(admin.ModelAdmin):
+class EvidenceSortingAdmin(admin.ModelAdmin):  # pragma: no cover
     """案件材料整理工具 Admin，使用虚拟模型作为入口"""
 
-    def changelist_view(self, request: Any, extra_context: dict[str, Any] | None = None) -> TemplateResponse:
+    def changelist_view(self, request: Any, extra_context: dict[str, Any] | None = None) -> TemplateResponse:  # pragma: no cover
         context: dict[str, Any] = {
             "title": "案件材料整理",
             "opts": self.model._meta,
@@ -29,14 +29,14 @@ class EvidenceSortingAdmin(admin.ModelAdmin):
             context,
         )
 
-    def has_add_permission(self, request: Any) -> bool:
+    def has_add_permission(self, request: Any) -> bool:  # pragma: no cover
         return False
 
-    def has_delete_permission(self, request: Any, obj: Any = None) -> bool:
+    def has_delete_permission(self, request: Any, obj: Any = None) -> bool:  # pragma: no cover
         return False
 
-    def has_change_permission(self, request: Any, obj: Any = None) -> bool:
+    def has_change_permission(self, request: Any, obj: Any = None) -> bool:  # pragma: no cover
         return False
 
-    def get_model_perms(self, request: Any) -> dict[str, bool]:
+    def get_model_perms(self, request: Any) -> dict[str, bool]:  # pragma: no cover
         return {"view": True}

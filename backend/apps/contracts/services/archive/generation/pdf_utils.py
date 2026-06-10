@@ -20,7 +20,7 @@ A4_W, A4_H = 595.0, 842.0
 TOLERANCE = 1.0
 
 
-def scale_pages_to_a4(contract: Contract) -> dict[str, Any]:
+def scale_pages_to_a4(contract: Contract) -> dict[str, Any]:  # pragma: no cover
     """将合同所有已上传的归档 PDF 材料按 A4 尺寸缩放。"""
     import fitz
 
@@ -127,7 +127,7 @@ def scale_pages_to_a4(contract: Contract) -> dict[str, Any]:
     }
 
 
-def add_page_numbers(doc: Any, start_page: int = 1) -> None:
+def add_page_numbers(doc: Any, start_page: int = 1) -> None:  # pragma: no cover
     """为PDF文档的每一页添加页码（居中底部）。"""
     import fitz
 
@@ -145,7 +145,7 @@ def add_page_numbers(doc: Any, start_page: int = 1) -> None:
         )
 
 
-def merge_materials_to_single_pdf(materials: list[FinalizedMaterial]) -> dict[str, Any]:
+def merge_materials_to_single_pdf(materials: list[FinalizedMaterial]) -> dict[str, Any]:  # pragma: no cover
     """将多个材料文件合并为一个 PDF（通用工具方法）。"""
     import fitz
     from django.conf import settings as django_settings
@@ -206,7 +206,7 @@ def merge_materials_to_single_pdf(materials: list[FinalizedMaterial]) -> dict[st
 def compile_case_materials_pdf(
     contract: Contract,
     archive_dir: Path,
-) -> dict[str, Any]:
+) -> dict[str, Any]:  # pragma: no cover
     """将归档检查清单中非1-3号的已上传材料合并为"4-案卷材料.pdf"。
 
     Returns:

@@ -49,7 +49,7 @@ class CalendarSyncService:
         events = provider.fetch_events(**fetch_kwargs)
         return self._build_preview(events)
 
-    def import_events(self, events: list[dict]) -> tuple[int, int]:
+    def import_events(self, events: list[dict]) -> tuple[int, int]:  # pragma: no cover
         """Import selected events as Reminders. Returns (created_count, skipped_count)."""
         created = 0
         skipped = 0

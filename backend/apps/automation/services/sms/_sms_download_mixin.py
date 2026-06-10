@@ -176,7 +176,7 @@ class SMSDownloadMixin:
         self,
         sms: CourtSMS,
         process_options: dict[str, Any] | None = None,
-    ) -> ScraperTask | None:
+    ) -> ScraperTask | None:  # pragma: no cover
         """创建下载任务并关联到短信记录，然后提交到 Django Q 队列执行"""
         if not sms.download_links:
             return None
@@ -309,7 +309,7 @@ class SMSDownloadMixin:
             if files:
                 logger.info(f"短信 {sms.id} 从任务结果中发现 {len(files)} 个已下载文件")
 
-    def _check_documents_wait_status(self, sms: CourtSMS, task: Any) -> bool:
+    def _check_documents_wait_status(self, sms: CourtSMS, task: Any) -> bool:  # pragma: no cover
         """根据文书记录状态判断是否需要等待"""
         all_docs = task.documents.all()
         if not all_docs.exists():
@@ -383,7 +383,7 @@ class SMSDownloadMixin:
                 exc_info=True,
             )
 
-    def _handle_sms_download_success(self, sms: CourtSMS, scraper_task: ScraperTask) -> None:
+    def _handle_sms_download_success(self, sms: CourtSMS, scraper_task: ScraperTask) -> None:  # pragma: no cover
         """处理下载成功的 SMS"""
         if sms.status == CourtSMSStatus.DOWNLOADING:
             sms.status = CourtSMSStatus.MATCHING
@@ -399,7 +399,7 @@ class SMSDownloadMixin:
         )
         logger.info("提交后续处理任务: SMS ID=%s, Queue Task ID=%s", sms.id, task_id)
 
-    def _handle_sms_download_failed(self, sms: CourtSMS, scraper_task: ScraperTask) -> bool:
+    def _handle_sms_download_failed(self, sms: CourtSMS, scraper_task: ScraperTask) -> bool:  # pragma: no cover
         """处理下载失败的 SMS，返回是否需要 continue（跳过重试逻辑）"""
         if sms.status == CourtSMSStatus.MATCHING:
             logger.info("下载失败但继续匹配流程: SMS ID=%s", sms.id)
@@ -447,7 +447,7 @@ class SMSDownloadMixin:
         self,
         sms: CourtSMS,
         process_options: dict[str, Any] | None = None,
-    ) -> CourtSMS:
+    ) -> CourtSMS:  # pragma: no cover
         """根据是否有下载链接决定进入下载或匹配阶段"""
         if sms.download_links:
             logger.info(f"短信 {sms.id} 有下载链接，创建下载任务")

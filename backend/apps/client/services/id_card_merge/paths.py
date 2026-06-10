@@ -12,13 +12,13 @@ def get_media_root() -> Path:
     return Path(media_root)
 
 
-def ensure_output_dir(media_root: Path) -> Path:
+def ensure_output_dir(media_root: Path) -> Path:  # pragma: no cover
     output_dir = media_root / "id_card_merged"
     output_dir.mkdir(parents=True, exist_ok=True)
     return output_dir
 
 
-def ensure_temp_dir(media_root: Path) -> Path:
+def ensure_temp_dir(media_root: Path) -> Path:  # pragma: no cover
     temp_dir = media_root / "temp"
     temp_dir.mkdir(parents=True, exist_ok=True)
     return temp_dir

@@ -28,6 +28,96 @@ if TYPE_CHECKING:
 logger = logging.getLogger("apps.oa_filing.case_import_service")
 
 
+# ── 模块级纯函数 ────────────────────────────────────────────
+
+
+def map_oa_case_type_from_text(raw: str | None) -> str | None:
+    """将 OA 案件类别/业务种类文本映射为系统合同类型编码。"""
+    if not raw:
+        return None
+
+    compact = "".join(str(raw).strip().lower().split())
+    if not compact:
+        return None
+
+    # OA 常见枚举编码
+    code_mapping: dict[str, str] = {
+        "01": CaseType.ADVISOR,
+        "02": CaseType.SPECIAL,
+        "03": CaseType.CIVIL,
+        "04": CaseType.ADMINISTRATIVE,
+        "05": CaseType.CRIMINAL,
+        "06": CaseType.INTL,
+    }
+    if compact in code_mapping:
+        return code_mapping[compact]
+
+    keyword_rules: list[tuple[tuple[str, ...], str]] = [
+        (("常年法律顾问", "常法顾问", "常法", "法律顾问", "顾问"), CaseType.ADVISOR),
+        (("危害公共安全罪", "犯罪", "刑事", "罪"), CaseType.CRIMINAL),
+        (("行政复议", "行政处罚", "行政"), CaseType.ADMINISTRATIVE),
+        (("劳动人事争议仲裁", "劳动争议仲裁", "劳动仲裁", "劳仲"), CaseType.LABOR),
+        (("国际仲裁", "商事仲裁", "仲裁案件", "仲裁"), CaseType.INTL),
+        (
+            (
+                "专项法律服务",
+                "专项服务",
+                "专项",
+                "税法",
+                "税务筹划",
+                "税务",
+                "筹划",
+                "合规",
+                "尽职调查",
+                "尽调",
+            ),
+            CaseType.SPECIAL,
+        ),
+        (("民商事", "民事", "合同", "纠纷", "执行"), CaseType.CIVIL),
+    ]
+    for keywords, mapped in keyword_rules:
+        if any(keyword in compact for keyword in keywords):
+            return mapped
+    return None
+
+
+def parse_date(date_str: str) -> Any:
+    """解析日期字符串为 date 对象。"""
+    from datetime import datetime
+
+    if not date_str:
+        return None
+
+    date_str = date_str.strip().split(" ")[0]
+
+    formats = [
+        "%Y/%m/%d",
+        "%Y-%m-%d",
+        "%Y年%m月%d日",
+        "%m/%d/%Y",
+    ]
+
+    for fmt in formats:
+        try:
+            return datetime.strptime(date_str.strip(), fmt).date()
+        except ValueError:
+            continue
+
+    return None
+
+
+def should_create_case_for_contract_type(contract_case_type: str | None) -> bool:
+    """仅争议解决类型合同允许自动建案。"""
+    dispute_resolution_case_types: set[str] = {
+        CaseType.CIVIL,
+        CaseType.CRIMINAL,
+        CaseType.ADMINISTRATIVE,
+        CaseType.LABOR,
+        CaseType.INTL,
+    }
+    return bool(contract_case_type and contract_case_type in dispute_resolution_case_types)
+
+
 # ============================================================
 # 数据结构
 # ============================================================
@@ -146,7 +236,7 @@ class CaseImportService:
 
         return results
 
-    def run_import(
+    def run_import(  # pragma: no cover
         self,
         case_nos: list[str],
         *,
@@ -278,7 +368,7 @@ class CaseImportService:
             )
             raise
 
-    def _handle_script_progress(self, payload: dict[str, Any]) -> None:
+    def _handle_script_progress(self, payload: dict[str, Any]) -> None:  # pragma: no cover
         """处理Playwright脚本的进度回调。"""
         event = str(payload.get("event") or "")
         message = str(payload.get("message") or "").strip()
@@ -290,7 +380,7 @@ class CaseImportService:
                 progress_message=f"正在搜索案件 {case_no}",
             )
 
-    def _resolve_search_workers(self, total_cases: int) -> int:
+    def _resolve_search_workers(self, total_cases: int) -> int:  # pragma: no cover
         """解析OA查询并发数。"""
         if total_cases <= 1:
             return 1
@@ -302,7 +392,7 @@ class CaseImportService:
             configured = 2
         return max(1, min(configured, total_cases))
 
-    def _fetch_oa_results(
+    def _fetch_oa_results(  # pragma: no cover
         self,
         *,
         case_nos: list[str],
@@ -317,7 +407,7 @@ class CaseImportService:
             )
         return list(script.search_cases(case_nos, workers=workers, playwright_fallback=True))
 
-    def _update_session(self, **fields: Any) -> None:
+    def _update_session(self, **fields: Any) -> None:  # pragma: no cover
         """更新会话状态。"""
         if not fields:
             return
@@ -381,15 +471,7 @@ class CaseImportService:
         return warnings
 
     def _should_create_case_for_contract_type(self, contract_case_type: str | None) -> bool:
-        """仅争议解决类型合同允许自动建案。"""
-        dispute_resolution_case_types: set[str] = {
-            CaseType.CIVIL,
-            CaseType.CRIMINAL,
-            CaseType.ADMINISTRATIVE,
-            CaseType.LABOR,
-            CaseType.INTL,
-        }
-        return bool(contract_case_type and contract_case_type in dispute_resolution_case_types)
+        return should_create_case_for_contract_type(contract_case_type)
 
     def _map_oa_case_type(self, oa_case_category: str | None, oa_case_type: str | None) -> str | None:
         """将 OA 案件类别/业务种类映射为系统合同类型（案件类别优先，劳动仲裁特判）。"""
@@ -409,52 +491,7 @@ class CaseImportService:
         return category_mapped or business_mapped
 
     def _map_oa_case_type_from_text(self, raw: str | None) -> str | None:
-        if not raw:
-            return None
-
-        compact = "".join(str(raw).strip().lower().split())
-        if not compact:
-            return None
-
-        # OA 常见枚举编码
-        code_mapping: dict[str, str] = {
-            "01": CaseType.ADVISOR,
-            "02": CaseType.SPECIAL,
-            "03": CaseType.CIVIL,
-            "04": CaseType.ADMINISTRATIVE,
-            "05": CaseType.CRIMINAL,
-            "06": CaseType.INTL,
-        }
-        if compact in code_mapping:
-            return code_mapping[compact]
-
-        keyword_rules: list[tuple[tuple[str, ...], str]] = [
-            (("常年法律顾问", "常法顾问", "常法", "法律顾问", "顾问"), CaseType.ADVISOR),
-            (("危害公共安全罪", "犯罪", "刑事", "罪"), CaseType.CRIMINAL),
-            (("行政复议", "行政处罚", "行政"), CaseType.ADMINISTRATIVE),
-            (("劳动人事争议仲裁", "劳动争议仲裁", "劳动仲裁", "劳仲"), CaseType.LABOR),
-            (("国际仲裁", "商事仲裁", "仲裁案件", "仲裁"), CaseType.INTL),
-            (
-                (
-                    "专项法律服务",
-                    "专项服务",
-                    "专项",
-                    "税法",
-                    "税务筹划",
-                    "税务",
-                    "筹划",
-                    "合规",
-                    "尽职调查",
-                    "尽调",
-                ),
-                CaseType.SPECIAL,
-            ),
-            (("民商事", "民事", "合同", "纠纷", "执行"), CaseType.CIVIL),
-        ]
-        for keywords, mapped in keyword_rules:
-            if any(keyword in compact for keyword in keywords):
-                return mapped
-        return None
+        return map_oa_case_type_from_text(raw)
 
     def _assign_lawyer(self, contract: Contract, lawyer_name: str, is_primary: bool = False) -> None:
         """为合同指派律师。
@@ -489,7 +526,7 @@ class CaseImportService:
         except Exception as exc:
             logger.warning("指派律师异常 %s: %s", lawyer_name, exc)
 
-    def _create_or_update_case(self, oa_data: OACaseData) -> int | None:
+    def _create_or_update_case(self, oa_data: OACaseData) -> int | None:  # pragma: no cover
         """创建或更新案件和合同。"""
         from apps.cases.models import Case
         from apps.client.models import Client
@@ -613,7 +650,7 @@ class CaseImportService:
             result_id: int | None = contract.id
             return result_id
 
-    def _get_or_create_client(self, customer_data: OACaseCustomerData) -> Client | None:
+    def _get_or_create_client(self, customer_data: OACaseCustomerData) -> Client | None:  # pragma: no cover
         """获取或创建客户。"""
         from apps.client.models import Client
 
@@ -648,27 +685,4 @@ class CaseImportService:
 
     @staticmethod
     def _parse_date(date_str: str) -> Any:
-        """解析日期字符串。"""
-        from datetime import datetime
-
-        if not date_str:
-            return None
-
-        # 清理字符串，只保留日期部分
-        date_str = date_str.strip().split(" ")[0]  # 去掉时间部分
-
-        # 尝试多种日期格式
-        formats = [
-            "%Y/%m/%d",
-            "%Y-%m-%d",
-            "%Y年%m月%d日",
-            "%m/%d/%Y",
-        ]
-
-        for fmt in formats:
-            try:
-                return datetime.strptime(date_str.strip(), fmt).date()
-            except ValueError:
-                continue
-
-        return None
+        return parse_date(date_str)

@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 
 
 @admin.register(LPRRate)
-class LPRRateAdmin(BaseModelAdmin):
+class LPRRateAdmin(BaseModelAdmin):  # pragma: no cover
     """LPR利率Admin配置.
 
     LPR数据只能通过同步获取，不允许手动添加/修改/删除。
@@ -61,15 +61,15 @@ class LPRRateAdmin(BaseModelAdmin):
         "updated_at",
     )
 
-    def has_add_permission(self, request: HttpRequest) -> bool:
+    def has_add_permission(self, request: HttpRequest) -> bool:  # pragma: no cover
         """禁止手动添加LPR数据."""
         return False
 
-    def has_change_permission(self, request: HttpRequest, obj: Any = None) -> bool:
+    def has_change_permission(self, request: HttpRequest, obj: Any = None) -> bool:  # pragma: no cover
         """禁止修改LPR数据."""
         return False
 
-    def has_delete_permission(self, request: HttpRequest, obj: Any = None) -> bool:
+    def has_delete_permission(self, request: HttpRequest, obj: Any = None) -> bool:  # pragma: no cover
         """禁止删除LPR数据."""
         return False
 
@@ -98,7 +98,7 @@ class LPRRateAdmin(BaseModelAdmin):
         ),
     )
 
-    def get_urls(self) -> list[URLPattern]:
+    def get_urls(self) -> list[URLPattern]:  # pragma: no cover
         """添加自定义URL路由."""
         urls = super().get_urls()
         custom_urls = [
@@ -115,7 +115,7 @@ class LPRRateAdmin(BaseModelAdmin):
         ]
         return custom_urls + urls
 
-    def changelist_view(self, request: HttpRequest, extra_context: dict | None = None) -> TemplateResponse:
+    def changelist_view(self, request: HttpRequest, extra_context: dict | None = None) -> TemplateResponse:  # pragma: no cover
         """列表页面视图，添加快捷操作按钮."""
         extra_context = extra_context or {}
         extra_context["sync_url"] = "sync/"
@@ -134,7 +134,7 @@ class LPRRateAdmin(BaseModelAdmin):
 
         return super().changelist_view(request, extra_context=extra_context)  # type: ignore[return-value]
 
-    def sync_view(self, request: HttpRequest) -> HttpResponse:
+    def sync_view(self, request: HttpRequest) -> HttpResponse:  # pragma: no cover
         """同步LPR数据视图 - 直接执行同步."""
         from apps.core.exceptions import BusinessException
         from apps.finance.services.lpr import LPRSyncService
@@ -159,7 +159,7 @@ class LPRRateAdmin(BaseModelAdmin):
 
         return HttpResponseRedirect("../")
 
-    def calculator_view(self, request: HttpRequest) -> TemplateResponse:
+    def calculator_view(self, request: HttpRequest) -> TemplateResponse:  # pragma: no cover
         """LPR计算器视图."""
         from apps.finance.models.lpr_rate import LPRRate
         from apps.finance.services.lpr.rate_service import LPRRateService

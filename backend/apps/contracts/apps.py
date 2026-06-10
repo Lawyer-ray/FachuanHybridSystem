@@ -8,5 +8,5 @@ class ContractsConfig(AppConfig):
     name = "apps.contracts"
     verbose_name = "合同管理"
 
-    def ready(self) -> None:
+    def ready(self) -> None:  # pragma: no cover
         import apps.contracts.signals

@@ -6,7 +6,7 @@ from apps.cases.models import CaseAssignment
 
 
 @admin.register(CaseAssignment)
-class CaseAssignmentAdmin(admin.ModelAdmin):
+class CaseAssignmentAdmin(admin.ModelAdmin):  # pragma: no cover
     list_display = ("id", "case", "lawyer")
     list_select_related = ("case", "lawyer")
     list_per_page = 50

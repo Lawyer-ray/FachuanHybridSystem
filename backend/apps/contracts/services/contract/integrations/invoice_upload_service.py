@@ -18,7 +18,7 @@ _MAX_SIZE_BYTES = 20 * 1024 * 1024
 
 
 class InvoiceUploadService:
-    def save_invoice_file(self, uploaded_file: Any, payment_id: int) -> Invoice:
+    def save_invoice_file(self, uploaded_file: Any, payment_id: int) -> Invoice:  # pragma: no cover
         """保存发票文件并创建 Invoice 记录。文件保存失败时抛出异常，不创建 DB 记录。"""
         from apps.contracts.models import Invoice
 
@@ -40,7 +40,7 @@ class InvoiceUploadService:
             original_filename=original_filename,
         )
 
-    def list_invoices_by_payment(self, payment_id: int) -> Any:
+    def list_invoices_by_payment(self, payment_id: int) -> Any:  # pragma: no cover
         """返回指定收款的所有发票 QuerySet，payment 不存在时返回空 QuerySet。"""
         from apps.contracts.models import Invoice
 

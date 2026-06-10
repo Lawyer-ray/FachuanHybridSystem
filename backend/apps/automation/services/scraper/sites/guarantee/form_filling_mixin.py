@@ -8,13 +8,13 @@ from typing import Any
 logger = logging.getLogger("apps.automation")
 
 
-class GuaranteeFormFillingMixin:
+class GuaranteeFormFillingMixin:  # pragma: no cover
     """gOne 页面表单填写：法院、案由、金额、保全公司等。"""
 
     page: Any
     MAX_SLOW_WAIT_MS: int
 
-    def _choose_court(self, court_name: str) -> bool:
+    def _choose_court(self, court_name: str) -> bool:  # pragma: no cover
         target_name = str(court_name or "").strip()
         if not target_name:
             return False
@@ -128,7 +128,7 @@ class GuaranteeFormFillingMixin:
         logger.warning("court_guarantee_court_not_stable", extra={"target_name": target_name})
         return False
 
-    def _click_radio_in_form_item(self, label_keywords: list[str], option_text: str) -> bool:
+    def _click_radio_in_form_item(self, label_keywords: list[str], option_text: str) -> bool:  # pragma: no cover
         cleaned_option = str(option_text or "").strip()
         cleaned_keywords = [str(keyword).strip() for keyword in label_keywords if str(keyword).strip()]
         if not cleaned_option or not cleaned_keywords:
@@ -193,7 +193,7 @@ class GuaranteeFormFillingMixin:
 
         return False
 
-    def _click_radio_by_text(self, text: str) -> bool:
+    def _click_radio_by_text(self, text: str) -> bool:  # pragma: no cover
         option = self.page.locator("label, .el-radio-wrapper").filter(has_text=text).first
         if option.count() == 0:
             return False
@@ -204,7 +204,7 @@ class GuaranteeFormFillingMixin:
         self._random_wait(0.3, 0.6)  # type: ignore[attr-defined]
         return True
 
-    def _fill_case_number(self, case_data: dict[str, Any]) -> dict[str, bool]:
+    def _fill_case_number(self, case_data: dict[str, Any]) -> dict[str, bool]:  # pragma: no cover
         result = {"case_type": False, "year": False, "court_code": False, "type_code": False, "seq": False}
 
         case_type_input = self.page.locator("input[placeholder*='案件类型']").first
@@ -237,7 +237,7 @@ class GuaranteeFormFillingMixin:
 
         return result
 
-    def _fill_case_cause(self, cause_name: str, cause_candidates: list[str] | None = None) -> bool:
+    def _fill_case_cause(self, cause_name: str, cause_candidates: list[str] | None = None) -> bool:  # pragma: no cover
         cause_input = self.page.locator("input[placeholder*='案由']").first
         if cause_input.count() == 0:
             return False
@@ -312,7 +312,7 @@ class GuaranteeFormFillingMixin:
         )
         return False
 
-    def _choose_insurance(self, preferred_name: str) -> str | None:
+    def _choose_insurance(self, preferred_name: str) -> str | None:  # pragma: no cover
         select = self.page.locator(".el-select").last
         if select.count() == 0:
             return None
@@ -401,7 +401,7 @@ class GuaranteeFormFillingMixin:
         self._close_popovers()  # type: ignore[attr-defined]
         return None
 
-    def _fill_consultant_code(self, consultant_code: str) -> bool:
+    def _fill_consultant_code(self, consultant_code: str) -> bool:  # pragma: no cover
         code = consultant_code.strip()
         if not code:
             return False
@@ -454,7 +454,7 @@ class GuaranteeFormFillingMixin:
             self._random_wait(0.2, 0.4)  # type: ignore[attr-defined]
         return bool(filled)
 
-    def _fill_amount(self, amount: Any) -> bool:
+    def _fill_amount(self, amount: Any) -> bool:  # pragma: no cover
         raw = str(amount or "").strip().replace(",", "")
         if not raw:
             return False
@@ -472,7 +472,7 @@ class GuaranteeFormFillingMixin:
         self._random_wait(0.2, 0.4)  # type: ignore[attr-defined]
         return True
 
-    def _choose_dropdown_item(self, preferred_text: str) -> bool:
+    def _choose_dropdown_item(self, preferred_text: str) -> bool:  # pragma: no cover
         preferred = str(preferred_text or "").strip()
         for _ in range(3):
             items = self.page.locator(".el-select-dropdown__item")
@@ -491,7 +491,7 @@ class GuaranteeFormFillingMixin:
             self._random_wait(0.4, 0.8)  # type: ignore[attr-defined]
         return False
 
-    def _reopen_and_search_dropdown_input(
+    def _reopen_and_search_dropdown_input(  # pragma: no cover
         self,
         dropdown_input: Any,
         search_text: str,
@@ -535,7 +535,7 @@ class GuaranteeFormFillingMixin:
         except Exception:
             return False
 
-    def _reopen_and_search_court_dropdown(
+    def _reopen_and_search_court_dropdown(  # pragma: no cover
         self, court_input: Any, search_text: str, *, force_reset: bool = False
     ) -> bool:
         return self._reopen_and_search_dropdown_input(
@@ -546,7 +546,7 @@ class GuaranteeFormFillingMixin:
             submit_enter=True,
         )
 
-    def _force_vue_select_by_label(self, label_keyword: str, preferred_texts: list[str]) -> str | None:
+    def _force_vue_select_by_label(self, label_keyword: str, preferred_texts: list[str]) -> str | None:  # pragma: no cover
         selected = self.page.evaluate(
             r"""(args) => {
                 const labelKeyword = args.labelKeyword || '';

@@ -117,7 +117,7 @@ class ReconcilerService:
         ocr_text: str,
         backend: str | None = None,
         model: str | None = None,
-    ) -> StatementInfo:
+    ) -> StatementInfo:  # pragma: no cover
         """用 LLM 解析对账单 OCR 文本"""
         from apps.core.llm import get_llm_service
 

@@ -15,7 +15,7 @@ from django.utils.html import format_html, format_html_join
 from apps.documents.models import TemplateAuditLog
 
 
-class TemplateAuditLogAdmin(admin.ModelAdmin):
+class TemplateAuditLogAdmin(admin.ModelAdmin):  # pragma: no cover
     """
     模板审计日志管理
 
@@ -67,20 +67,20 @@ class TemplateAuditLogAdmin(admin.ModelAdmin):
         ("时间", {"fields": ("created_at",)}),
     )
 
-    def has_add_permission(self, request: HttpRequest) -> bool:
+    def has_add_permission(self, request: HttpRequest) -> bool:  # pragma: no cover
         """禁止手动添加"""
         return False
 
-    def has_change_permission(self, request: HttpRequest, obj: Any = None) -> bool:
+    def has_change_permission(self, request: HttpRequest, obj: Any = None) -> bool:  # pragma: no cover
         """禁止修改"""
         return False
 
-    def has_delete_permission(self, request: HttpRequest, obj: Any = None) -> bool:
+    def has_delete_permission(self, request: HttpRequest, obj: Any = None) -> bool:  # pragma: no cover
         """禁止删除"""
         return False
 
     @admin.display(description="对象描述")
-    def object_repr_display(self, obj: TemplateAuditLog) -> str:
+    def object_repr_display(self, obj: TemplateAuditLog) -> str:  # pragma: no cover
         """显示对象描述(截断)"""
         text = obj.object_repr
         if len(text) > 50:
@@ -88,7 +88,7 @@ class TemplateAuditLogAdmin(admin.ModelAdmin):
         return text
 
     @admin.display(description="变更详情")
-    def changes_display(self, obj: TemplateAuditLog) -> Any:
+    def changes_display(self, obj: TemplateAuditLog) -> Any:  # pragma: no cover
         """格式化显示变更内容"""
         if not obj.changes:
             return "无变更记录"

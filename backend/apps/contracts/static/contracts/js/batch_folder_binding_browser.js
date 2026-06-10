@@ -1,6 +1,6 @@
 /**
  * 批量绑定页面文件夹选择器组件
- * Finder 风格，用于选择根目录
+ * Finder 风格，用于选择根目录，支持本地和云存储
  */
 (function () {
   'use strict';
@@ -27,8 +27,23 @@
       manualPath: '',
       pendingCard: null,
 
+      _browseUrl: function _browseUrl(path) {
+        var sp = new URLSearchParams();
+        if (path) sp.set('path', path);
+        var card = this.pendingCard;
+        if (card && (card.storage_type || 'local') !== 'local') {
+          sp.set('storage_type', card.storage_type);
+          sp.set('storage_account_id', card.storage_account_id);
+        }
+        return '/api/v1/contracts/folder-browse?' + sp.toString();
+      },
+
       openBrowser: function openBrowser(card) {
         this.pendingCard = card || window.__batchFolderSelectorCard;
+        if (this.pendingCard && (this.pendingCard.storage_type || 'local') !== 'local' && !this.pendingCard.storage_account_id) {
+          this.error = '请先选择云存储账号';
+          return;
+        }
         this.showBrowser = true;
         this.error = null;
         this.columns = [];
@@ -50,7 +65,7 @@
         this.error = null;
 
         try {
-          var response = await fetch('/api/v1/contracts/folder-browse', {
+          var response = await fetch(this._browseUrl(null), {
             method: 'GET',
             headers: {
               'X-CSRFToken': getCsrfToken()
@@ -112,7 +127,7 @@
         this.error = null;
 
         try {
-          var response = await fetch('/api/v1/contracts/folder-browse?path=' + encodeURIComponent(path), {
+          var response = await fetch(this._browseUrl(path), {
             method: 'GET',
             headers: {
               'X-CSRFToken': getCsrfToken()
@@ -194,7 +209,7 @@
         this.columns = [];
 
         try {
-          var response = await fetch('/api/v1/contracts/folder-browse?path=' + encodeURIComponent(parentPath), {
+          var response = await fetch(this._browseUrl(parentPath), {
             method: 'GET',
             headers: {
               'X-CSRFToken': getCsrfToken()

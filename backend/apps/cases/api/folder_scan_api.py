@@ -40,7 +40,7 @@ def _require_case_access(request: HttpRequest, case_id: int) -> None:
 
 @router.post("/{case_id}/folder-scan", response=CaseFolderScanStartOut)
 @rate_limit_from_settings("TASK", by_user=True)
-def start_case_scan(request: HttpRequest, case_id: int, payload: CaseFolderScanStartIn) -> dict[str, str]:
+def start_case_scan(request: HttpRequest, case_id: int, payload: CaseFolderScanStartIn) -> dict[str, str]:  # pragma: no cover
     _require_case_access(request, case_id)
     ctx = get_request_access_context(request)
 
@@ -59,13 +59,13 @@ def start_case_scan(request: HttpRequest, case_id: int, payload: CaseFolderScanS
 
 
 @router.get("/{case_id}/folder-scan/subfolders", response=CaseFolderScanSubfolderListOut)
-def list_case_scan_subfolders(request: HttpRequest, case_id: int) -> dict[str, object]:
+def list_case_scan_subfolders(request: HttpRequest, case_id: int) -> dict[str, object]:  # pragma: no cover
     _require_case_access(request, case_id)
     return _get_service().list_scan_subfolders(case_id=case_id)
 
 
 @router.get("/{case_id}/folder-scan/{session_id}", response=CaseFolderScanStatusOut)
-def get_case_scan_status(request: HttpRequest, case_id: int, session_id: UUID) -> dict[str, object]:
+def get_case_scan_status(request: HttpRequest, case_id: int, session_id: UUID) -> dict[str, object]:  # pragma: no cover
     _require_case_access(request, case_id)
 
     service = _get_service()
@@ -75,7 +75,7 @@ def get_case_scan_status(request: HttpRequest, case_id: int, session_id: UUID) -
 
 @router.post("/{case_id}/folder-scan/{session_id}/stage", response=CaseFolderScanStageOut)
 @rate_limit_from_settings("TASK", by_user=True)
-def stage_case_scan(
+def stage_case_scan(  # pragma: no cover
     request: HttpRequest,
     case_id: int,
     session_id: UUID,

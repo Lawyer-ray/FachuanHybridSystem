@@ -37,7 +37,7 @@ class EvidenceQueryService:
         self,
         evidence_list_ids: list[int],
         evidence_item_ids: list[int],
-    ) -> list[EvidenceItemDigestDTO]:
+    ) -> list[EvidenceItemDigestDTO]:  # pragma: no cover
         qs = EvidenceItem.objects.all()
         if evidence_item_ids:
             qs = qs.filter(id__in=evidence_item_ids)

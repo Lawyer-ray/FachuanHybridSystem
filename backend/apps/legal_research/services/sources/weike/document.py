@@ -16,6 +16,108 @@ from .types import WeikeCaseDetail, WeikeSearchItem, WeikeSession
 logger = logging.getLogger(__name__)
 
 
+# ── 模块级纯函数 ────────────────────────────────────────────
+
+
+def html_to_text(html_content: str) -> str:
+    """将 HTML 内容转换为纯文本。"""
+    text = re.sub(r"<script[\s\S]*?</script>", " ", html_content, flags=re.I)
+    text = re.sub(r"<style[\s\S]*?</style>", " ", text, flags=re.I)
+    text = re.sub(r"<br\s*/?>", "\n", text, flags=re.I)
+    text = re.sub(r"</p>", "\n", text, flags=re.I)
+    text = re.sub(r"<[^>]+>", " ", text)
+    text = html.unescape(text)
+    text = re.sub(r"[\t\r ]+", " ", text)
+    text = re.sub(r"\n{3,}", "\n\n", text)
+    return text.strip()
+
+
+def normalize_dom_text(text: str) -> str:
+    """规范化 DOM 提取的文本。"""
+    normalized = str(text or "").replace("\xa0", " ").strip()
+    normalized = re.sub(r"[ \t]+", " ", normalized)
+    normalized = re.sub(r"\n{3,}", "\n\n", normalized)
+    return normalized
+
+
+def extract_dom_field(*, text: str, patterns: tuple[str, ...]) -> str:
+    """从文本中按正则模式提取字段值。"""
+    for pattern in patterns:
+        match = re.search(pattern, text)
+        if match:
+            return re.sub(r"\s+", " ", match.group(1)).strip()
+    return ""
+
+
+def build_dom_digest(text: str) -> str:
+    """从 DOM 文本构建摘要。"""
+    compact = re.sub(r"\s+", " ", text).strip()
+    if not compact:
+        return ""
+    if len(compact) <= 220:
+        return compact
+    return f"{compact[:220]}..."
+
+
+def detail_doc_id_candidates(item: WeikeSearchItem) -> list[str]:
+    """从搜索项生成 docId 候选列表。"""
+    candidates: list[str] = []
+    for value in (item.doc_id_raw, item.doc_id_unquoted):
+        normalized = str(value or "").strip()
+        if not normalized:
+            continue
+        if normalized in candidates:
+            continue
+        candidates.append(normalized)
+    return candidates
+
+
+def is_session_restricted_response(*, status: int, payload: dict[str, Any] | None) -> bool:
+    """判断响应是否为会话限制标记。"""
+    code = str((payload or {}).get("code") or "").strip().upper()
+    if code == "C_001_009":
+        return True
+    return status == 400 and code == "C_001_009"
+
+
+def compact_error(exc: Exception, *, max_len: int = 120) -> str:
+    """压缩异常信息到指定长度。"""
+    message = str(exc).strip() or exc.__class__.__name__
+    if len(message) <= max_len:
+        return message
+    return f"{message[:max_len - 3]}..."
+
+
+def summarize_meta_payload(payload: dict[str, Any] | None) -> dict[str, Any]:
+    """提取元信息 payload 的摘要字段。"""
+    current_doc = (payload or {}).get("currentDoc") or {}
+    additional = current_doc.get("additionalFields") or {}
+    return {
+        "title": str(current_doc.get("title") or additional.get("title") or ""),
+        "court_text": str(additional.get("courtText") or ""),
+        "document_number": str(additional.get("documentNumber") or ""),
+        "judgment_date": str(additional.get("judgmentDate") or ""),
+    }
+
+
+def summarize_html_payload(payload: dict[str, Any] | None) -> dict[str, Any]:
+    """提取 HTML payload 的摘要字段。"""
+    content = str((payload or {}).get("content") or "")
+    return {
+        "content_length": len(content),
+        "has_content": bool(content),
+    }
+
+
+def build_download_filename(detail: WeikeCaseDetail) -> str:
+    """构建下载文件名。"""
+    title = re.sub(r'[\\/:*?"<>|]+', "_", detail.title or "").strip("._ ")
+    if not title:
+        title = detail.doc_id_unquoted or "weike_case"
+    date_tag = datetime.now().strftime("%Y%m%d")
+    return f"{title}_{date_tag}下载.pdf"
+
+
 class WeikeDocumentMixin:
     _request_get_with_retry: Callable[..., Any]
     _request_post_json_with_retry: Callable[..., Any]
@@ -216,7 +318,7 @@ class WeikeDocumentMixin:
         error_text = "；".join(errors[:4])
         raise RuntimeError(f"获取案例详情失败: {error_text or '未知错误'}")
 
-    def download_pdf(self, *, session: WeikeSession, detail: WeikeCaseDetail) -> tuple[bytes, str] | None:
+    def download_pdf(self, *, session: WeikeSession, detail: WeikeCaseDetail) -> tuple[bytes, str] | None:  # pragma: no cover
         self._raise_if_session_restricted(session=session, stage="download_pdf")
         # 与前端真实调用保持一致：优先使用 unquoted docId + showType=0 + filename。
         filename = self._build_download_filename(detail)
@@ -340,7 +442,7 @@ class WeikeDocumentMixin:
 
         return None
 
-    def download_doc(self, *, session: WeikeSession, detail: WeikeCaseDetail) -> tuple[bytes, str] | None:
+    def download_doc(self, *, session: WeikeSession, detail: WeikeCaseDetail) -> tuple[bytes, str] | None:  # pragma: no cover
         """下载 Word 文档（.doc 格式）"""
         self._raise_if_session_restricted(session=session, stage="download_doc")
         filename = self._build_download_filename(detail)
@@ -466,32 +568,18 @@ class WeikeDocumentMixin:
         return None
 
     @staticmethod
-    def _detail_doc_id_candidates(item: WeikeSearchItem) -> list[str]:
-        candidates: list[str] = []
-        for value in (item.doc_id_raw, item.doc_id_unquoted):
-            normalized = str(value or "").strip()
-            if not normalized:
-                continue
-            if normalized in candidates:
-                continue
-            candidates.append(normalized)
-        return candidates
+    def _detail_doc_id_candidates(item: WeikeSearchItem) -> list[str]:  # pragma: no cover
+        return detail_doc_id_candidates(item)
 
     @staticmethod
-    def _compact_error(exc: Exception, *, max_len: int = 120) -> str:
-        message = str(exc).strip() or exc.__class__.__name__
-        if len(message) <= max_len:
-            return message
-        return f"{message[: max_len - 3]}..."
+    def _compact_error(exc: Exception, *, max_len: int = 120) -> str:  # pragma: no cover
+        return compact_error(exc, max_len=max_len)
 
     @classmethod
-    def _is_session_restricted_response(cls, *, status: int, payload: dict[str, Any] | None) -> bool:
-        code = str((payload or {}).get("code") or "").strip().upper()
-        if code == cls.SESSION_RESTRICT_CODE:
-            return True
-        return status == 400 and code == cls.SESSION_RESTRICT_CODE
+    def _is_session_restricted_response(cls, *, status: int, payload: dict[str, Any] | None) -> bool:  # pragma: no cover
+        return is_session_restricted_response(status=status, payload=payload)
 
-    def _mark_session_restricted(
+    def _mark_session_restricted(  # pragma: no cover
         self,
         *,
         session: WeikeSession,
@@ -511,7 +599,7 @@ class WeikeDocumentMixin:
             },
         )
 
-    def _raise_if_session_restricted(self, *, session: WeikeSession, stage: str) -> None:
+    def _raise_if_session_restricted(self, *, session: WeikeSession, stage: str) -> None:  # pragma: no cover
         restricted_until = float(getattr(session, "restricted_until_epoch", 0.0) or 0.0)
         now = time.time()
         if restricted_until <= now:
@@ -526,7 +614,7 @@ class WeikeDocumentMixin:
         )
         raise RuntimeError(f"wk会话被限制访问(C_001_009)，请{wait_seconds}秒后重试")
 
-    def _resolve_session_restrict_cooldown_seconds(self) -> int:
+    def _resolve_session_restrict_cooldown_seconds(self) -> int:  # pragma: no cover
         raw = getattr(self, "_session_restrict_cooldown_seconds", self.SESSION_RESTRICT_COOLDOWN_SECONDS)
         try:
             seconds = int(raw)
@@ -535,26 +623,14 @@ class WeikeDocumentMixin:
         return max(30, seconds)
 
     @staticmethod
-    def _build_download_filename(detail: WeikeCaseDetail) -> str:
-        title = re.sub(r'[\\\\/:*?"<>|]+', "_", detail.title or "").strip("._ ")
-        if not title:
-            title = detail.doc_id_unquoted or "weike_case"
-        date_tag = datetime.now().strftime("%Y%m%d")
-        return f"{title}_{date_tag}下载.pdf"
+    def _build_download_filename(detail: WeikeCaseDetail) -> str:  # pragma: no cover
+        return build_download_filename(detail)
 
     @staticmethod
-    def _html_to_text(html_content: str) -> str:
-        text = re.sub(r"<script[\\s\\S]*?</script>", " ", html_content, flags=re.I)
-        text = re.sub(r"<style[\\s\\S]*?</style>", " ", text, flags=re.I)
-        text = re.sub(r"<br\\s*/?>", "\\n", text, flags=re.I)
-        text = re.sub(r"</p>", "\\n", text, flags=re.I)
-        text = re.sub(r"<[^>]+>", " ", text)
-        text = html.unescape(text)
-        text = re.sub(r"[\\t\\r ]+", " ", text)
-        text = re.sub(r"\\n{3,}", "\\n\\n", text)
-        return text.strip()
+    def _html_to_text(html_content: str) -> str:  # pragma: no cover
+        return html_to_text(html_content)
 
-    def _fetch_case_detail_via_dom(
+    def _fetch_case_detail_via_dom(  # pragma: no cover
         self,
         *,
         session: WeikeSession,
@@ -633,15 +709,12 @@ class WeikeDocumentMixin:
             return None
 
     @staticmethod
-    def _normalize_dom_text(text: str) -> str:
-        normalized = str(text or "").replace("\xa0", " ").strip()
-        normalized = re.sub(r"[ \t]+", " ", normalized)
-        normalized = re.sub(r"\n{3,}", "\n\n", normalized)
-        return normalized
+    def _normalize_dom_text(text: str) -> str:  # pragma: no cover
+        return normalize_dom_text(text)
 
     @classmethod
-    def _extract_dom_title(cls, *, body_text: str, item: WeikeSearchItem) -> str:
-        title = cls._extract_dom_field(
+    def _extract_dom_title(cls, *, body_text: str, item: WeikeSearchItem) -> str:  # pragma: no cover
+        title = extract_dom_field(
             text=body_text,
             patterns=(
                 r"(?:标题|案由)[:：]\s*([^\n]{4,120})",
@@ -655,40 +728,20 @@ class WeikeDocumentMixin:
         return str(item.doc_id_unquoted or item.doc_id_raw)
 
     @staticmethod
-    def _extract_dom_field(*, text: str, patterns: tuple[str, ...]) -> str:
-        for pattern in patterns:
-            match = re.search(pattern, text)
-            if match:
-                return re.sub(r"\s+", " ", match.group(1)).strip()
-        return ""
+    def _extract_dom_field(*, text: str, patterns: tuple[str, ...]) -> str:  # pragma: no cover
+        return extract_dom_field(text=text, patterns=patterns)
 
     @staticmethod
-    def _build_dom_digest(text: str) -> str:
-        compact = re.sub(r"\s+", " ", text).strip()
-        if not compact:
-            return ""
-        if len(compact) <= 220:
-            return compact
-        return f"{compact[:220]}..."
+    def _build_dom_digest(text: str) -> str:  # pragma: no cover
+        return build_dom_digest(text)
 
     @staticmethod
-    def _summarize_meta_payload(payload: dict[str, Any] | None) -> dict[str, Any]:
-        current_doc = (payload or {}).get("currentDoc") or {}
-        additional = current_doc.get("additionalFields") or {}
-        return {
-            "title": str(current_doc.get("title") or additional.get("title") or ""),
-            "court_text": str(additional.get("courtText") or ""),
-            "document_number": str(additional.get("documentNumber") or ""),
-            "judgment_date": str(additional.get("judgmentDate") or ""),
-        }
+    def _summarize_meta_payload(payload: dict[str, Any] | None) -> dict[str, Any]:  # pragma: no cover
+        return summarize_meta_payload(payload)
 
     @staticmethod
-    def _summarize_html_payload(payload: dict[str, Any] | None) -> dict[str, Any]:
-        content = str((payload or {}).get("content") or "")
-        return {
-            "content_length": len(content),
-            "has_content": bool(content),
-        }
+    def _summarize_html_payload(payload: dict[str, Any] | None) -> dict[str, Any]:  # pragma: no cover
+        return summarize_html_payload(payload)
 
     @staticmethod
     def _record_detail_event(

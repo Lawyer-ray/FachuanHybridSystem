@@ -24,7 +24,7 @@ def _get_id_card_merge_service() -> Any:
 
 
 @staff_member_required
-def id_card_merge_view(request: HttpRequest) -> HttpResponse:
+def id_card_merge_view(request: HttpRequest) -> HttpResponse:  # pragma: no cover
     """
     身份证合并视图
 
@@ -82,7 +82,7 @@ def id_card_merge_view(request: HttpRequest) -> HttpResponse:
 
 
 @staff_member_required
-def id_card_merge_manual_view(request: HttpRequest) -> HttpResponse:
+def id_card_merge_manual_view(request: HttpRequest) -> HttpResponse:  # pragma: no cover
     """
     身份证手动合并视图
 
@@ -129,7 +129,7 @@ def id_card_merge_manual_view(request: HttpRequest) -> HttpResponse:
     return redirect("admin:id_card_merge")
 
 
-def register_id_card_merge_urls(admin_site: admin.AdminSite) -> None:
+def register_id_card_merge_urls(admin_site: admin.AdminSite) -> None:  # pragma: no cover
     """注册身份证合并页面的 URL 到 admin site"""
     original_get_urls = admin_site.get_urls
 

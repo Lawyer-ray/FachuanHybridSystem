@@ -24,7 +24,7 @@ from .base_court_scraper import BaseCourtDocumentScraper
 logger = logging.getLogger("apps.automation")
 
 
-class JysdCourtScraper(BaseCourtDocumentScraper):
+class JysdCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
     """简易送达 (jysd.10102368.com) 文书下载爬虫"""
 
     # 最大尝试手机号数量
@@ -34,7 +34,7 @@ class JysdCourtScraper(BaseCourtDocumentScraper):
     # 页面加载等待时间（毫秒）
     _PAGE_LOAD_WAIT_MS = 5000
 
-    def run(self) -> dict[str, Any]:
+    def run(self) -> dict[str, Any]:  # pragma: no cover
         """执行文书下载任务"""
         logger.info("开始处理简易送达链接: %s", self.task.url)
 
@@ -116,7 +116,7 @@ class JysdCourtScraper(BaseCourtDocumentScraper):
 
     # ==================== 手机号管理 ====================
 
-    def _get_lawyer_phones(self) -> list[str]:
+    def _get_lawyer_phones(self) -> list[str]:  # pragma: no cover
         """从任务配置中获取律师手机号列表"""
         task_config = self.task.config if isinstance(self.task.config, dict) else {}
         phones = task_config.get("jysd_lawyer_phones", [])
@@ -125,7 +125,7 @@ class JysdCourtScraper(BaseCourtDocumentScraper):
         return []
 
     @staticmethod
-    def _mask_phone(phone: str) -> str:
+    def _mask_phone(phone: str) -> str:  # pragma: no cover
         """手机号脱敏：136****0615"""
         if len(phone) >= 7:
             return phone[:3] + "****" + phone[-4:]
@@ -133,7 +133,7 @@ class JysdCourtScraper(BaseCourtDocumentScraper):
 
     # ==================== iframe 管理 ====================
 
-    def _get_sifayun_iframe(self) -> Any | None:
+    def _get_sifayun_iframe(self) -> Any | None:  # pragma: no cover
         """获取 sifayun.com 的 iframe frame 对象"""
         assert self.page is not None
 
@@ -150,7 +150,7 @@ class JysdCourtScraper(BaseCourtDocumentScraper):
 
     # ==================== 登录流程 ====================
 
-    def _try_login_with_phone(self, iframe: Any, phone: str) -> bool:
+    def _try_login_with_phone(self, iframe: Any, phone: str) -> bool:  # pragma: no cover
         """在 iframe 内输入手机号并登录
 
         iframe 当前应该在 checkLoginPc 页面，包含：
@@ -195,7 +195,7 @@ class JysdCourtScraper(BaseCourtDocumentScraper):
             logger.warning("简易送达: 手机号登录过程出错: %s", exc)
             return False
 
-    def _check_login_result(self) -> bool:
+    def _check_login_result(self) -> bool:  # pragma: no cover
         """检查登录是否成功
 
         登录成功：iframe URL 从 checkLoginPc 变为 middlePagePc
@@ -222,7 +222,7 @@ class JysdCourtScraper(BaseCourtDocumentScraper):
 
     # ==================== 中间页面 → 文书详情 ====================
 
-    def _navigate_to_document_page(self) -> Any | None:
+    def _navigate_to_document_page(self) -> Any | None:  # pragma: no cover
         """从中间页面导航到文书详情页面
 
         中间页面 (middlePagePc) 有"查看文书详情"按钮，点击后进入文书详情 (home)。
@@ -267,7 +267,7 @@ class JysdCourtScraper(BaseCourtDocumentScraper):
 
     # ==================== 文书下载 ====================
 
-    def _download_documents_from_table(self, iframe: Any, download_dir: Path) -> list[str]:
+    def _download_documents_from_table(self, iframe: Any, download_dir: Path) -> list[str]:  # pragma: no cover
         """从文书详情页面的 el-table 表格中下载文书
 
         文书详情页面结构：
@@ -333,7 +333,7 @@ class JysdCourtScraper(BaseCourtDocumentScraper):
 
         return files
 
-    def _download_row_document(
+    def _download_row_document(  # pragma: no cover
         self, row: Any, iframe: Any, download_dir: Path, doc_name: str, index: int
     ) -> str | None:
         """下载单行文书

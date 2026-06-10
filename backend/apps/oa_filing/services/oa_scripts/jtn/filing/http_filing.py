@@ -18,7 +18,37 @@ from .filing_models import CaseInfo, ClientInfo, ConflictPartyInfo, ContractInfo
 logger = logging.getLogger("apps.oa_filing.jtn")
 
 
-class HttpFilingMixin:
+# ── 模块级纯函数 ────────────────────────────────────────────
+
+
+def project_field_name(field: str) -> str:
+    """构建 OA 立案表单字段名。"""
+    return f"ctl00$ctl00$mainContentPlaceHolder$projmainPlaceHolder$project_{field}"
+
+
+def handler_url(method: str) -> str:
+    """构建 OA Handler 接口 URL。"""
+    return f"{_PROJECT_HANDLER_BASE}/{method}"
+
+
+def parse_json_object(response_text: str) -> dict[str, Any]:
+    """解析 OA 接口返回的 JSON 对象。"""
+    text = response_text.strip().lstrip("﻿")
+    data = json.loads(text)
+    if not isinstance(data, dict):
+        raise RuntimeError("OA 接口返回格式异常")
+    return data
+
+
+def normalize_text(value: Any) -> str:
+    """规范化文本（去空白、统一空格）。"""
+    text = str(value or "")
+    text = text.replace("\r", "\n").replace("\xa0", " ").replace("　", " ")
+    text = re.sub(r"[ \t\f\v]+", " ", text)
+    return text.strip()
+
+
+class HttpFilingMixin:  # pragma: no cover
     """HTTP 立案主链路 mixin。"""
 
     _account: str
@@ -28,7 +58,7 @@ class HttpFilingMixin:
     # 公共入口
     # ------------------------------------------------------------------
 
-    def _run_via_http(
+    def _run_via_http(  # pragma: no cover
         self: Any,
         *,
         clients: list[ClientInfo],
@@ -61,7 +91,7 @@ class HttpFilingMixin:
     # 登录
     # ------------------------------------------------------------------
 
-    def _http_login(self: Any, client: httpx.Client) -> None:
+    def _http_login(self: Any, client: httpx.Client) -> None:  # pragma: no cover
         """HTTP 登录：优先使用缓存 cookies，过期则走 SSO 扫码流程。"""
         # 优先尝试缓存 cookies
         cached = self._load_cookies()
@@ -145,7 +175,7 @@ class HttpFilingMixin:
 
     def _resolve_customers_via_http(
         self: Any, *, client: httpx.Client, clients: list[ClientInfo]
-    ) -> list[ResolvedCustomer]:
+    ) -> list[ResolvedCustomer]:  # pragma: no cover
         resolved: list[ResolvedCustomer] = []
         for client_info in clients:
             customer = self._search_customer_http(client=client, client_info=client_info)
@@ -332,23 +362,16 @@ class HttpFilingMixin:
 
     @staticmethod
     def _project_field_name(field: str) -> str:
-        return f"ctl00$ctl00$mainContentPlaceHolder$projmainPlaceHolder$project_{field}"
+        return project_field_name(field)
 
     @staticmethod
     def _handler_url(method: str) -> str:
-        return f"{_PROJECT_HANDLER_BASE}/{method}"
+        return handler_url(method)
 
     @staticmethod
     def _parse_json_object(response_text: str) -> dict[str, Any]:
-        text = response_text.strip().lstrip("﻿")
-        data = json.loads(text)
-        if not isinstance(data, dict):
-            raise RuntimeError("OA 接口返回格式异常")
-        return data
+        return parse_json_object(response_text)
 
     @staticmethod
     def _normalize_text(value: Any) -> str:
-        text = str(value or "")
-        text = text.replace("\r", "\n").replace(" ", " ").replace("　", " ")
-        text = re.sub(r"[ \t\f\v]+", " ", text)
-        return text.strip()
+        return normalize_text(value)

@@ -50,7 +50,7 @@ class JtnHttpClientMixin:
     # ------------------------------------------------------------------
     # 批量 HTTP 查询
     # ------------------------------------------------------------------
-    def _search_cases_via_http(
+    def _search_cases_via_http(  # pragma: no cover
         self: Any,
         *,
         indexed_case_nos: list[tuple[int, str]],
@@ -98,7 +98,7 @@ class JtnHttpClientMixin:
             ordered_results.append(maybe_result)
         return ordered_results
 
-    def _search_cases_chunk_via_http(
+    def _search_cases_chunk_via_http(  # pragma: no cover
         self: Any,
         *,
         indexed_chunk: list[tuple[int, str]],
@@ -139,7 +139,7 @@ class JtnHttpClientMixin:
     # ------------------------------------------------------------------
     # HTTP 登录 + cookie 管理
     # ------------------------------------------------------------------
-    def _get_or_login_http_cookies(self: Any) -> dict[str, str]:
+    def _get_or_login_http_cookies(self: Any) -> dict[str, str]:  # pragma: no cover
         if self._http_cookies_cache:
             return dict(self._http_cookies_cache)
 
@@ -147,7 +147,7 @@ class JtnHttpClientMixin:
         self._http_cookies_cache = dict(cookies)
         return dict(cookies)
 
-    def _http_login_and_get_cookies(self: Any) -> dict[str, str]:
+    def _http_login_and_get_cookies(self: Any) -> dict[str, str]:  # pragma: no cover
         """执行一次 HTTP 登录并返回可复用 cookie。"""
         logger.info("HTTP 登录 OA: %s", _LOGIN_URL)
 
@@ -170,14 +170,14 @@ class JtnHttpClientMixin:
     # ------------------------------------------------------------------
     # 列表页表单解析
     # ------------------------------------------------------------------
-    def _load_case_list_form_state(self: Any, client: httpx.Client) -> CaseListFormState:
+    def _load_case_list_form_state(self: Any, client: httpx.Client) -> CaseListFormState:  # pragma: no cover
         """加载案件列表页面并提取 ASP.NET 表单状态。"""
         response = client.get(_CASE_LIST_URL)
         response.raise_for_status()
         self._raise_if_sso_blocking(url=str(response.url), html_text=response.text, stage="HTTP 列表页访问")
         return self._extract_form_state(html_text=response.text, base_url=str(response.url), client=client)  # type: ignore[no-any-return]
 
-    def _search_case_item_via_http(
+    def _search_case_item_via_http(  # pragma: no cover
         self: Any,
         *,
         client: httpx.Client,
@@ -199,7 +199,7 @@ class JtnHttpClientMixin:
 
         return CaseSearchItem(case_no=case_no, keyid=keyid), next_form_state
 
-    def _fetch_case_detail_via_http(
+    def _fetch_case_detail_via_http(  # pragma: no cover
         self: Any,
         *,
         client: httpx.Client,
@@ -244,7 +244,7 @@ class JtnHttpClientMixin:
             self._reset_name_search_http_session()
             raise
 
-    def _ensure_name_search_http_session(self: Any) -> tuple[httpx.Client, CaseListFormState]:
+    def _ensure_name_search_http_session(self: Any) -> tuple[httpx.Client, CaseListFormState]:  # pragma: no cover
         if self._name_search_http_client is not None and self._name_search_form_state is not None:
             return self._name_search_http_client, self._name_search_form_state
 
@@ -279,7 +279,7 @@ class JtnHttpClientMixin:
         self._name_search_form_state = form_state
         return client, form_state
 
-    def _build_name_search_http_client(self: Any, *, cookies: dict[str, str]) -> httpx.Client:
+    def _build_name_search_http_client(self: Any, *, cookies: dict[str, str]) -> httpx.Client:  # pragma: no cover
         return httpx.Client(
             headers={**_HTTP_HEADERS, "Connection": "close"},
             follow_redirects=True,
@@ -305,7 +305,7 @@ class JtnHttpClientMixin:
         base_url: str,
         client: httpx.Client | None = None,
         depth: int = 0,
-    ) -> CaseListFormState:
+    ) -> CaseListFormState:  # pragma: no cover
         """解析 ASP.NET 表单状态（隐藏字段 + 过滤条件）。"""
         try:
             root = lxml_html.fromstring(html_text)

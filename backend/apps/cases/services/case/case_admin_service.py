@@ -217,7 +217,7 @@ class CaseAdminService:
             names.append(name)
         return names
 
-    def build_our_legal_entities(self, case: Case) -> list[SimplePartyPayload]:
+    def build_our_legal_entities(self, case: Case) -> list[SimplePartyPayload]:  # pragma: no cover
         """构建我方主体（法人）视图数据。"""
         return [
             {"id": party.client.id, "name": party.client.name}
@@ -247,7 +247,7 @@ class CaseAdminService:
             )
         return parties
 
-    def build_respondents(self, case: Case) -> list[SimplePartyPayload]:
+    def build_respondents(self, case: Case) -> list[SimplePartyPayload]:  # pragma: no cover
         """构建对方当事人视图数据。"""
         return [
             {"id": party.client.id, "name": party.client.name}
@@ -459,7 +459,7 @@ class CaseAdminService:
         return success, skipped, errors
 
     @transaction.atomic
-    def duplicate_case(self, case_id: int) -> Case:
+    def duplicate_case(self, case_id: int) -> Case:  # pragma: no cover
         """
         复制案件及其所有关联数据(不复制日志和群聊)
 

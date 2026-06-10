@@ -38,7 +38,7 @@ class CourtDocumentService:
     @transaction.atomic
     def create_document_from_api_data(
         self, scraper_task_id: int, api_data: dict[str, Any], case_id: int | None = None
-    ) -> CourtDocument:
+    ) -> CourtDocument:  # pragma: no cover
         """
         从API数据创建文书记录
 
@@ -149,7 +149,7 @@ class CourtDocumentService:
         local_file_path: str | None = None,
         file_size: int | None = None,
         error_message: str | None = None,
-    ) -> CourtDocument:
+    ) -> CourtDocument:  # pragma: no cover
         """
         更新文书下载状态
 

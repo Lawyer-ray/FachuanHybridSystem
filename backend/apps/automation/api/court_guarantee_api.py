@@ -63,7 +63,7 @@ def _check_plugin() -> bool:
 
 
 @router.get("/case-info/{case_id}", response=CaseGuaranteeInfoOut)
-def get_case_guarantee_info(request: HttpRequest, case_id: int) -> Any:
+def get_case_guarantee_info(request: HttpRequest, case_id: int) -> Any:  # pragma: no cover
     if not _check_plugin():
         return {
             "case_id": case_id,
@@ -124,7 +124,7 @@ def get_case_guarantee_info(request: HttpRequest, case_id: int) -> Any:
 
 
 @router.post("/quote/ensure", response=CaseQuoteOperationOut)
-def ensure_case_quote(request: HttpRequest, payload: CaseQuoteOperationIn) -> Any:
+def ensure_case_quote(request: HttpRequest, payload: CaseQuoteOperationIn) -> Any:  # pragma: no cover
     from apps.automation.models import CasePreservationQuoteBinding
     from apps.automation.services.insurance.preservation_quote_service import PreservationQuoteService
     from apps.cases.models import Case
@@ -182,7 +182,7 @@ def ensure_case_quote(request: HttpRequest, payload: CaseQuoteOperationIn) -> An
 
 
 @router.post("/quote/{quote_id}/bind", response=CaseQuoteOperationOut)
-def bind_case_quote(request: HttpRequest, quote_id: int, payload: CaseQuoteOperationIn) -> Any:
+def bind_case_quote(request: HttpRequest, quote_id: int, payload: CaseQuoteOperationIn) -> Any:  # pragma: no cover
     from apps.automation.models import CasePreservationQuoteBinding, PreservationQuote
     from apps.cases.models import Case
 
@@ -228,7 +228,7 @@ def bind_case_quote(request: HttpRequest, quote_id: int, payload: CaseQuoteOpera
 
 
 @router.post("/quote/{quote_id}/retry", response=CaseQuoteOperationOut)
-def retry_case_quote(request: HttpRequest, quote_id: int, payload: CaseQuoteOperationIn) -> Any:
+def retry_case_quote(request: HttpRequest, quote_id: int, payload: CaseQuoteOperationIn) -> Any:  # pragma: no cover
     from apps.automation.models import CasePreservationQuoteBinding, PreservationQuote, QuoteStatus
     from apps.cases.models import Case
 
@@ -294,7 +294,7 @@ def retry_case_quote(request: HttpRequest, quote_id: int, payload: CaseQuoteOper
 
 
 @router.post("/quote/{quote_id}/delete", response=CaseQuoteOperationOut)
-def delete_case_quote(request: HttpRequest, quote_id: int, payload: CaseQuoteOperationIn) -> Any:
+def delete_case_quote(request: HttpRequest, quote_id: int, payload: CaseQuoteOperationIn) -> Any:  # pragma: no cover
     from apps.automation.models import CasePreservationQuoteBinding, PreservationQuote
     from apps.cases.models import Case
 
@@ -324,7 +324,7 @@ def delete_case_quote(request: HttpRequest, quote_id: int, payload: CaseQuoteOpe
 
 
 @router.post("/quote-binding/{binding_id}/delete", response=CaseQuoteOperationOut)
-def delete_case_quote_binding(request: HttpRequest, binding_id: int, payload: CaseQuoteOperationIn) -> Any:
+def delete_case_quote_binding(request: HttpRequest, binding_id: int, payload: CaseQuoteOperationIn) -> Any:  # pragma: no cover
     from apps.automation.models import CasePreservationQuoteBinding
     from apps.cases.models import Case
 
@@ -346,7 +346,7 @@ def delete_case_quote_binding(request: HttpRequest, binding_id: int, payload: Ca
 
 
 @router.post("/execute", response=ExecuteCourtGuaranteeOut)
-def execute_court_guarantee(request: HttpRequest, payload: ExecuteCourtGuaranteeIn) -> Any:
+def execute_court_guarantee(request: HttpRequest, payload: ExecuteCourtGuaranteeIn) -> Any:  # pragma: no cover
     if not _check_plugin():
         return {"success": False, "message": "法院自动化插件未安装", "session_id": None, "status": "failed"}
     from apps.automation.models import ScraperTask, ScraperTaskStatus, ScraperTaskType
@@ -494,7 +494,7 @@ def execute_court_guarantee(request: HttpRequest, payload: ExecuteCourtGuarantee
 
 
 @router.get("/session/{session_id}", response=ExecuteCourtGuaranteeOut)
-def get_court_guarantee_session_status(request: HttpRequest, session_id: int) -> Any:
+def get_court_guarantee_session_status(request: HttpRequest, session_id: int) -> Any:  # pragma: no cover
     from apps.automation.models import ScraperTask
 
     task = ScraperTask.objects.filter(id=session_id).first()

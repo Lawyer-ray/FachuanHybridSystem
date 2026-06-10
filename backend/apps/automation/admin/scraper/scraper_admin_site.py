@@ -3,6 +3,6 @@
 from django.contrib.admin import AdminSite
 
 
-def customize_admin_index(site: AdminSite) -> None:
+def customize_admin_index(site: AdminSite) -> None:  # pragma: no cover
     """自定义 admin 首页，添加爬虫工具分组（当前为空实现）"""
     pass

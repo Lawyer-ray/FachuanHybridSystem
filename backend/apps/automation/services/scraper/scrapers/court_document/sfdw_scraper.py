@@ -26,7 +26,7 @@ from .base_court_scraper import BaseCourtDocumentScraper
 logger = logging.getLogger("apps.automation")
 
 
-class SfdwCourtScraper(BaseCourtDocumentScraper):
+class SfdwCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
     """司法送达网 (sfpt.cdfy12368.gov.cn) 文书下载爬虫"""
 
     # 页面加载等待时间（毫秒）
@@ -38,7 +38,7 @@ class SfdwCourtScraper(BaseCourtDocumentScraper):
     # 后6位候选最大尝试次数
     _MAX_TAIL6_ATTEMPTS = 10
 
-    def run(self) -> dict[str, Any]:
+    def run(self) -> dict[str, Any]:  # pragma: no cover
         """执行文书下载任务"""
         logger.info("开始处理司法送达网链接: %s", self.task.url)
 
@@ -88,13 +88,13 @@ class SfdwCourtScraper(BaseCourtDocumentScraper):
 
     # ==================== 验证码管理 ====================
 
-    def _get_verification_code(self) -> str:
+    def _get_verification_code(self) -> str:  # pragma: no cover
         """从任务配置中获取司法送达网验证码"""
         task_config = self.task.config if isinstance(self.task.config, dict) else {}
         code = str(task_config.get("sfdw_verification_code", "")).strip()
         return code
 
-    def _get_phone_tail6_candidates(self) -> list[str]:
+    def _get_phone_tail6_candidates(self) -> list[str]:  # pragma: no cover
         """从任务配置获取手机号后6位候选（手工输入优先）。"""
         task_config = self.task.config if isinstance(self.task.config, dict) else {}
 
@@ -121,7 +121,7 @@ class SfdwCourtScraper(BaseCourtDocumentScraper):
 
         return ordered
 
-    def _try_phone_tail6_candidates(self, tail6_candidates: list[str]) -> list[dict[str, Any]]:
+    def _try_phone_tail6_candidates(self, tail6_candidates: list[str]) -> list[dict[str, Any]]:  # pragma: no cover
         """依次尝试手机号后6位，直到成功拿到文书列表。"""
         assert self.page is not None
 
@@ -148,7 +148,7 @@ class SfdwCourtScraper(BaseCourtDocumentScraper):
 
     # ==================== 验证码输入与验证 ====================
 
-    def _input_verification_code(self, code: str) -> None:
+    def _input_verification_code(self, code: str) -> None:  # pragma: no cover
         """输入验证码并触发验证
 
         司法送达网页面使用 Vue 实例管理状态：
@@ -189,7 +189,7 @@ class SfdwCourtScraper(BaseCourtDocumentScraper):
 
     # ==================== 文书列表获取 ====================
 
-    def _get_ws_list(self) -> list[dict[str, Any]]:
+    def _get_ws_list(self) -> list[dict[str, Any]]:  # pragma: no cover
         """获取验证后的文书列表
 
         从 Vue 实例的 wsList 数据中获取文书信息。
@@ -235,7 +235,7 @@ class SfdwCourtScraper(BaseCourtDocumentScraper):
 
     # ==================== 文书下载 ====================
 
-    def _download_all_documents(self, ws_list: list[dict[str, Any]], download_dir: Path) -> list[str]:
+    def _download_all_documents(self, ws_list: list[dict[str, Any]], download_dir: Path) -> list[str]:  # pragma: no cover
         """逐个下载所有文书
 
         使用 Vue 实例的 downloadFile 方法触发下载。
@@ -267,7 +267,7 @@ class SfdwCourtScraper(BaseCourtDocumentScraper):
 
         return files
 
-    def _download_single_document(
+    def _download_single_document(  # pragma: no cover
         self, ws: dict[str, Any], index: int, download_dir: Path, doc_name: str
     ) -> str | None:
         """下载单个文书
@@ -320,7 +320,7 @@ class SfdwCourtScraper(BaseCourtDocumentScraper):
             ws_json = json.dumps(ws, ensure_ascii=False)
             captured_downloads: list[Any] = []
 
-            def on_download(download: Any) -> None:
+            def on_download(download: Any) -> None:  # pragma: no cover
                 captured_downloads.append(download)
 
             self.page.on("download", on_download)

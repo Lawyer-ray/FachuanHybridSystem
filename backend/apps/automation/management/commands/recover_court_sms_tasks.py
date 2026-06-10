@@ -40,7 +40,7 @@ class Command(BaseCommand):
             help="只恢复指定小时内的任务（默认24小时）",
         )
 
-    def handle(self, *args: Any, **options: Any) -> None:
+    def handle(self, *args: Any, **options: Any) -> None:  # pragma: no cover
 
         # 只在详细模式下显示完整输出
         verbose = options.get("verbosity", 1) > 0

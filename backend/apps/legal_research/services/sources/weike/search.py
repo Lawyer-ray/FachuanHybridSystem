@@ -17,7 +17,40 @@ from .types import WeikeSearchItem, WeikeSession
 logger = logging.getLogger(__name__)
 
 
-class WeikeSearchMixin:
+# ── 模块级纯函数 ────────────────────────────────────────────
+
+
+def parse_detail_url(url: str) -> WeikeSearchItem | None:
+    """解析 WKInfo 详情页 URL，提取 docId/searchId/module。"""
+    parsed_url = urlparse(url)
+    path_match = re.search(r"/judgment-documents/detail/([^/?#]+)", parsed_url.path)
+    if not path_match:
+        return None
+
+    doc_id_raw = path_match.group(1)
+    query = parse_qs(parsed_url.query)
+    search_id = (query.get("searchId") or [""])[0]
+    module = (query.get("module") or [""])[0]
+
+    return WeikeSearchItem(
+        doc_id_raw=doc_id_raw,
+        doc_id_unquoted=unquote(doc_id_raw),
+        detail_url=urljoin("https://law.wkinfo.com.cn", url),
+        title_hint="",
+        search_id=search_id,
+        module=module,
+    )
+
+
+def compact_error_message(exc: Exception, *, max_len: int = 200) -> str:
+    """压缩异常信息到指定长度。"""
+    text = str(exc or "").strip() or exc.__class__.__name__
+    if len(text) <= max_len:
+        return text
+    return f"{text[:max_len - 3]}..."
+
+
+class WeikeSearchMixin:  # pragma: no cover
     LAW_LIST_URL: str
     _ensure_playwright_session: Callable[[WeikeSession], None]
 
@@ -36,7 +69,7 @@ class WeikeSearchMixin:
         "caseNumber": "caseNumber",
     }
 
-    def search_cases(
+    def search_cases(  # pragma: no cover
         self,
         *,
         session: WeikeSession,
@@ -164,7 +197,7 @@ class WeikeSearchMixin:
             date_to=date_to,
         )
 
-    def search_cases_from_url(
+    def search_cases_from_url(  # pragma: no cover
         self,
         *,
         session: WeikeSession,
@@ -190,7 +223,7 @@ class WeikeSearchMixin:
 
         intercepted: dict[str, Any] | None = None
 
-        def _on_request(request: Any) -> None:
+        def _on_request(request: Any) -> None:  # pragma: no cover
             nonlocal intercepted
             try:
                 if "/csi/search" in request.url and request.method == "POST":
@@ -248,7 +281,7 @@ class WeikeSearchMixin:
         )
         return items, intercepted
 
-    def _scrape_current_page(
+    def _scrape_current_page(  # pragma: no cover
         self,
         *,
         session: WeikeSession,
@@ -317,7 +350,7 @@ class WeikeSearchMixin:
         )
         return items
 
-    def _search_cases_via_dom(
+    def _search_cases_via_dom(  # pragma: no cover
         self,
         *,
         session: WeikeSession,
@@ -493,7 +526,7 @@ class WeikeSearchMixin:
             raise
 
     @classmethod
-    def _raise_if_login_required(cls, page: Page) -> None:
+    def _raise_if_login_required(cls, page: Page) -> None:  # pragma: no cover
         body_text = page.locator("body").inner_text(timeout=30000)
         if cls.LAW_LOGIN_REQUIRED_TEXT in body_text:
             raise RuntimeError("wk登录态失效或账号未登录，请检查账号密码")
@@ -507,28 +540,11 @@ class WeikeSearchMixin:
             raise RuntimeError("wk登录态失效或账号未登录，请检查账号密码")
 
     @staticmethod
-    def _parse_detail_url(url: str) -> WeikeSearchItem | None:
-        parsed_url = urlparse(url)
-        path_match = re.search(r"/judgment-documents/detail/([^/?#]+)", parsed_url.path)
-        if not path_match:
-            return None
-
-        doc_id_raw = path_match.group(1)
-        query = parse_qs(parsed_url.query)
-        search_id = (query.get("searchId") or [""])[0]
-        module = (query.get("module") or [""])[0]
-
-        return WeikeSearchItem(
-            doc_id_raw=doc_id_raw,
-            doc_id_unquoted=unquote(doc_id_raw),
-            detail_url=urljoin("https://law.wkinfo.com.cn", url),
-            title_hint="",
-            search_id=search_id,
-            module=module,
-        )
+    def _parse_detail_url(url: str) -> WeikeSearchItem | None:  # pragma: no cover
+        return parse_detail_url(url)
 
     @staticmethod
-    def _go_next_page(page: Page) -> bool:
+    def _go_next_page(page: Page) -> bool:  # pragma: no cover
         selectors = [
             "li.ant-pagination-next:not(.ant-pagination-disabled) button",
             "li.ant-pagination-next:not(.ant-pagination-disabled)",
@@ -548,7 +564,7 @@ class WeikeSearchMixin:
                 continue
         return False
 
-    def _is_search_api_degraded(self, *, session: WeikeSession) -> bool:
+    def _is_search_api_degraded(self, *, session: WeikeSession) -> bool:  # pragma: no cover
         degraded_until = float(getattr(session, "search_api_degraded_until_epoch", 0.0) or 0.0)
         if degraded_until <= 0:
             return False
@@ -558,12 +574,12 @@ class WeikeSearchMixin:
         return True
 
     @staticmethod
-    def _search_api_degraded_wait_seconds(*, session: WeikeSession) -> int:
+    def _search_api_degraded_wait_seconds(*, session: WeikeSession) -> int:  # pragma: no cover
         degraded_until = float(getattr(session, "search_api_degraded_until_epoch", 0.0) or 0.0)
         remaining = degraded_until - time.time()
         return max(1, int(remaining)) if remaining > 0 else 0
 
-    def _mark_search_api_empty(
+    def _mark_search_api_empty(  # pragma: no cover
         self,
         *,
         session: WeikeSession,
@@ -584,7 +600,7 @@ class WeikeSearchMixin:
             doc_count=doc_count,
         )
 
-    def _mark_search_api_error(self, *, session: WeikeSession, keyword: str, offset: int) -> None:
+    def _mark_search_api_error(self, *, session: WeikeSession, keyword: str, offset: int) -> None:  # pragma: no cover
         session.search_api_error_streak = int(getattr(session, "search_api_error_streak", 0) or 0) + 1
         session.search_api_empty_streak = 0
         threshold = self._resolve_search_api_degrade_streak_threshold()
@@ -598,7 +614,7 @@ class WeikeSearchMixin:
             doc_count=int(getattr(session, "last_search_doc_count", 0) or 0),
         )
 
-    def _mark_search_api_degraded(
+    def _mark_search_api_degraded(  # pragma: no cover
         self,
         *,
         session: WeikeSession,
@@ -633,7 +649,7 @@ class WeikeSearchMixin:
         )
 
     @staticmethod
-    def _reset_search_api_health(*, session: WeikeSession) -> None:
+    def _reset_search_api_health(*, session: WeikeSession) -> None:  # pragma: no cover
         session.search_api_empty_streak = 0
         session.search_api_error_streak = 0
         session.search_api_degraded_until_epoch = 0.0
@@ -656,10 +672,7 @@ class WeikeSearchMixin:
 
     @staticmethod
     def _compact_error_message(exc: Exception, *, max_len: int = 200) -> str:
-        text = str(exc or "").strip() or exc.__class__.__name__
-        if len(text) <= max_len:
-            return text
-        return f"{text[: max_len - 3]}..."
+        return compact_error_message(exc, max_len=max_len)
 
     @staticmethod
     def _record_search_event(

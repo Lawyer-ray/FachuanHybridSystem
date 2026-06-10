@@ -53,7 +53,7 @@ class EnhancedOpposingPartyService(BasePlaceholderService):
             )
             return {"对方当事人名称案由与案件数量": ""}
 
-    def _get_contract_cases(self, contract: Any) -> list[Any]:
+    def _get_contract_cases(self, contract: Any) -> list[Any]:  # pragma: no cover
         """
         获取合同关联的案件列表
 

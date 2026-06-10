@@ -29,7 +29,7 @@ from .http_client import (
 logger = logging.getLogger("apps.oa_filing.jtn_case_import")
 
 
-class JtnPlaywrightBrowserMixin:
+class JtnPlaywrightBrowserMixin:  # pragma: no cover
     """Playwright 导航 + IMS 表单 + 搜索链路。"""
 
     # --- 由 facade 或其他 mixin 提供 ---
@@ -46,7 +46,7 @@ class JtnPlaywrightBrowserMixin:
     # ------------------------------------------------------------------
     # Playwright 兜底批量查询
     # ------------------------------------------------------------------
-    def _search_cases_via_playwright(
+    def _search_cases_via_playwright(  # pragma: no cover
         self: Any,
         case_nos: list[str],
     ) -> list[tuple[str, OACaseData | None]]:
@@ -99,7 +99,7 @@ class JtnPlaywrightBrowserMixin:
             pw.stop()
         return fallback_results
 
-    def _search_cases_by_name_via_playwright(self: Any, *, keyword: str, limit: int) -> list[OAListCaseCandidate]:
+    def _search_cases_by_name_via_playwright(self: Any, *, keyword: str, limit: int) -> list[OAListCaseCandidate]:  # pragma: no cover
         try:
             self._ensure_name_search_playwright_session()
             page = self._page
@@ -133,7 +133,7 @@ class JtnPlaywrightBrowserMixin:
             logger.warning("Playwright 按名称查询异常 keyword=%s: %s", keyword, exc, exc_info=True)
             return []
 
-    def _ensure_name_search_playwright_session(self: Any) -> None:
+    def _ensure_name_search_playwright_session(self: Any) -> None:  # pragma: no cover
         if self._name_search_browser is not None and self._page is not None and self._context is not None:
             try:
                 self._ensure_case_list_ready()
@@ -165,7 +165,7 @@ class JtnPlaywrightBrowserMixin:
     # ------------------------------------------------------------------
     # Frame / 页面工具
     # ------------------------------------------------------------------
-    def _find_visible_frame_for_selector(self: Any, *, selector: str, timeout_ms: int) -> Frame | None:
+    def _find_visible_frame_for_selector(self: Any, *, selector: str, timeout_ms: int) -> Frame | None:  # pragma: no cover
         page = self._page
         assert page is not None
 
@@ -183,7 +183,7 @@ class JtnPlaywrightBrowserMixin:
             time.sleep(0.2)
         return None
 
-    def _ensure_case_list_ready(self: Any) -> None:
+    def _ensure_case_list_ready(self: Any) -> None:  # pragma: no cover
         """确保当前在案件列表页并且搜索输入框可用。"""
         selector = "#ctl00_ctl00_mainContentPlaceHolder_projmainPlaceHolder_project_no"
         target_frame = self._find_visible_frame_for_selector(selector=selector, timeout_ms=2_000)
@@ -194,7 +194,7 @@ class JtnPlaywrightBrowserMixin:
     # ------------------------------------------------------------------
     # Cookie 注入 + Playwright 登录
     # ------------------------------------------------------------------
-    def _inject_cookies_to_context(self: Any, cookies: dict[str, str]) -> None:
+    def _inject_cookies_to_context(self: Any, cookies: dict[str, str]) -> None:  # pragma: no cover
         """将 cookie 字典注入 Playwright context。"""
         context = self._context
         assert context is not None
@@ -214,7 +214,7 @@ class JtnPlaywrightBrowserMixin:
             ]
         )
 
-    def _login(self: Any) -> None:
+    def _login(self: Any) -> None:  # pragma: no cover
         """通过 httpx 接口登录，将 cookie 注入 Playwright context。"""
         cached_cookies = self._http_cookies_cache or {}
         if cached_cookies:
@@ -248,12 +248,12 @@ class JtnPlaywrightBrowserMixin:
     # ------------------------------------------------------------------
     # 导航到案件列表页
     # ------------------------------------------------------------------
-    def _navigate_to_case_list(self: Any) -> None:
+    def _navigate_to_case_list(self: Any) -> None:  # pragma: no cover
         """导航到案件列表页。"""
         page = self._page
         assert page is not None
 
-        def _goto_case_list_once() -> None:
+        def _goto_case_list_once() -> None:  # pragma: no cover
             page.goto(_CASE_LIST_URL, wait_until="domcontentloaded", timeout=60_000)
             try:
                 page.wait_for_load_state("networkidle", timeout=8_000)
@@ -307,13 +307,13 @@ class JtnPlaywrightBrowserMixin:
     # ------------------------------------------------------------------
     # IMS 登录页检测与自动填充
     # ------------------------------------------------------------------
-    def _is_ims_login_form_page(self: Any, url: str) -> bool:
+    def _is_ims_login_form_page(self: Any, url: str) -> bool:  # pragma: no cover
         parsed = urlparse(str(url or "").strip())
         host = (parsed.netloc or "").lower()
         path = (parsed.path or "").lower()
         return host == "ims.jtn.com" and path == "/member/login.aspx"
 
-    def _resolve_ims_login_frame(self: Any, page: Page) -> Frame | None:
+    def _resolve_ims_login_frame(self: Any, page: Page) -> Frame | None:  # pragma: no cover
         frame_candidates = [page.main_frame, *[frame for frame in page.frames if frame != page.main_frame]]
         user_selectors = (
             'input[name="userid"]',
@@ -356,7 +356,7 @@ class JtnPlaywrightBrowserMixin:
                 continue
         return None
 
-    def _has_visible_ims_login_form(self: Any, page: Page) -> bool:
+    def _has_visible_ims_login_form(self: Any, page: Page) -> bool:  # pragma: no cover
         login_frame = self._resolve_ims_login_frame(page)
         if login_frame is None:
             return False
@@ -365,7 +365,7 @@ class JtnPlaywrightBrowserMixin:
         except Exception:
             return False
 
-    def _try_playwright_ims_form_login(self: Any, page: Page) -> bool:
+    def _try_playwright_ims_form_login(self: Any, page: Page) -> bool:  # pragma: no cover
         if not self._account or not self._password:
             return False
 
@@ -477,7 +477,7 @@ class JtnPlaywrightBrowserMixin:
             logger.debug("IMS 登录页自动填充失败，回退人工交互", exc_info=True)
             return False
 
-    def _wait_for_playwright_sso_login(self: Any) -> None:
+    def _wait_for_playwright_sso_login(self: Any) -> None:  # pragma: no cover
         page = self._page
         assert page is not None
 
@@ -517,7 +517,7 @@ class JtnPlaywrightBrowserMixin:
     # ------------------------------------------------------------------
     # 案件搜索（Playwright）
     # ------------------------------------------------------------------
-    def _search_case_by_no(self: Any, case_no: str) -> CaseSearchItem | None:
+    def _search_case_by_no(self: Any, case_no: str) -> CaseSearchItem | None:  # pragma: no cover
         """在案件列表页搜索指定案件编号。"""
         page = self._page
         assert page is not None

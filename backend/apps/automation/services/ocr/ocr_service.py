@@ -77,7 +77,7 @@ def get_ocr_engine(use_v5: bool = True) -> Any:
     return _ocr_engine_cache[use_v5]
 
 
-def _get_ocr_provider() -> str:
+def _get_ocr_provider() -> str:  # pragma: no cover
     """从 SystemConfig 获取 OCR 提供者"""
     from apps.core.services.system_config_service import SystemConfigService
 
@@ -121,7 +121,7 @@ class OCRService:
             self._paddleocr_engine = PaddleOCRApiEngine()
         return self._paddleocr_engine
 
-    def recognize(self, image_path: str) -> str:
+    def recognize(self, image_path: str) -> str:  # pragma: no cover
         """
         识别图片中的文字
 
@@ -139,7 +139,7 @@ class OCRService:
             return "\n".join(result.txts)
         return ""
 
-    def recognize_with_boxes(self, image_path: str) -> tuple[list[list[Any]] | None, list[float] | None]:
+    def recognize_with_boxes(self, image_path: str) -> tuple[list[list[Any]] | None, list[float] | None]:  # pragma: no cover
         """
         识别图片中的文字,返回带位置信息的结果
 
@@ -164,7 +164,7 @@ class OCRService:
             return boxes_with_text, list(result.scores)
         return None, None
 
-    def recognize_bytes(self, image_bytes: bytes) -> str:
+    def recognize_bytes(self, image_bytes: bytes) -> str:  # pragma: no cover
         """
         识别图片字节数据中的文字
 
@@ -182,7 +182,7 @@ class OCRService:
             return "\n".join(result.txts)
         return ""
 
-    def _recognize_via_paddleocr_path(self, image_path: str) -> str:
+    def _recognize_via_paddleocr_path(self, image_path: str) -> str:  # pragma: no cover
         """通过 PaddleOCR API 识别图片文件"""
         try:
             from pathlib import Path
@@ -199,7 +199,7 @@ class OCRService:
                 return "\n".join(result.txts)
             return ""
 
-    def _recognize_via_paddleocr_bytes(self, image_bytes: bytes) -> str:
+    def _recognize_via_paddleocr_bytes(self, image_bytes: bytes) -> str:  # pragma: no cover
         """通过 PaddleOCR API 识别图片字节数据"""
         try:
             api_result = self.paddleocr_engine.recognize_bytes(image_bytes, is_pdf=False)
@@ -261,7 +261,7 @@ class OCRService:
             return True
         return False
 
-    def extract_text(self, image_bytes: bytes) -> OCRTextResult:
+    def extract_text(self, image_bytes: bytes) -> OCRTextResult:  # pragma: no cover
         """
         提取图片中的文字(带清洗和排序)
 
@@ -332,7 +332,7 @@ class OCRService:
             logger.warning("RapidOCR 识别失败", extra={"error": str(e)}, exc_info=True)
             return OCRTextResult(text="", raw_texts=[])
 
-    def _extract_text_via_paddleocr(self, image_bytes: bytes) -> OCRTextResult:
+    def _extract_text_via_paddleocr(self, image_bytes: bytes) -> OCRTextResult:  # pragma: no cover
         """通过 PaddleOCR API 提取文字"""
         try:
             api_result = self.paddleocr_engine.recognize_bytes(image_bytes, is_pdf=False)

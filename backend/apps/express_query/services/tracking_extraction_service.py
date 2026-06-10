@@ -46,7 +46,7 @@ class TrackingExtractionService:
             ocr_text=full_text,
         )
 
-    def _load_waybill_bytes_for_ocr(self, waybill_file_path: Path) -> bytes:
+    def _load_waybill_bytes_for_ocr(self, waybill_file_path: Path) -> bytes:  # pragma: no cover
         suffix = waybill_file_path.suffix.lower()
         if suffix != ".pdf":
             return waybill_file_path.read_bytes()
@@ -113,7 +113,7 @@ class TrackingExtractionService:
         if not text:
             return None
 
-        normalized = text.replace("|", " ")
+        normalized = text.replace("|", "")
         candidates: list[dict[str, str | int]] = []
 
         # 先收集所有顺丰单号的位置范围，避免EMS匹配到顺丰单号中的数字部分

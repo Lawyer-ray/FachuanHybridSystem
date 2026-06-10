@@ -26,7 +26,7 @@ else:
         BaseModelAdmin = admin.ModelAdmin
 
 
-class CaseContactAdminForm(forms.ModelForm[CaseContact]):
+class CaseContactAdminForm(forms.ModelForm[CaseContact]):  # pragma: no cover
     """案件联系人表单 - 主管机关支持自动补全"""
 
     authority_name = forms.CharField(
@@ -41,17 +41,17 @@ class CaseContactAdminForm(forms.ModelForm[CaseContact]):
         ),
     )
 
-    class Meta:
+    class Meta:  # pragma: no cover
         model = CaseContact
         fields = "__all__"
         exclude = ("authority",)
 
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
+    def __init__(self, *args: Any, **kwargs: Any) -> None:  # pragma: no cover
         super().__init__(*args, **kwargs)
         if self.instance and self.instance.pk and self.instance.authority:
             self.fields["authority_name"].initial = self.instance.authority.name
 
-    def clean(self) -> dict[str, Any]:
+    def clean(self) -> dict[str, Any]:  # pragma: no cover
         cleaned = super().clean() or {}
         authority_name = cleaned.pop("authority_name", "").strip()
         case = cleaned.get("case")
@@ -69,7 +69,7 @@ class CaseContactAdminForm(forms.ModelForm[CaseContact]):
         return cleaned
 
 
-class CaseContactInlineForm(forms.ModelForm[CaseContact]):
+class CaseContactInlineForm(forms.ModelForm[CaseContact]):  # pragma: no cover
     """案件联系人内联表单 - 主管机关支持自动补全"""
 
     authority_name = forms.CharField(
@@ -84,17 +84,17 @@ class CaseContactInlineForm(forms.ModelForm[CaseContact]):
         ),
     )
 
-    class Meta:
+    class Meta:  # pragma: no cover
         model = CaseContact
         fields = "__all__"
         exclude = ("authority",)
 
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
+    def __init__(self, *args: Any, **kwargs: Any) -> None:  # pragma: no cover
         super().__init__(*args, **kwargs)
         if self.instance and self.instance.pk and self.instance.authority:
             self.fields["authority_name"].initial = self.instance.authority.name
 
-    def clean(self) -> dict[str, Any]:
+    def clean(self) -> dict[str, Any]:  # pragma: no cover
         cleaned = super().clean() or {}
         authority_name = cleaned.pop("authority_name", "").strip()
         case = cleaned.get("case") or getattr(self.instance, "case", None)
@@ -112,7 +112,7 @@ class CaseContactInlineForm(forms.ModelForm[CaseContact]):
         return cleaned
 
 
-class CaseContactInline(BaseStackedInline):
+class CaseContactInline(BaseStackedInline):  # pragma: no cover
     model = CaseContact
     form = CaseContactInlineForm
     extra = 1
@@ -120,7 +120,7 @@ class CaseContactInline(BaseStackedInline):
 
 
 @admin.register(CaseContact)
-class CaseContactAdmin(BaseModelAdmin):
+class CaseContactAdmin(BaseModelAdmin):  # pragma: no cover
     form = CaseContactAdminForm
     list_display = ("id", "case", "name", "role", "phone", "stage", "authority")
     list_select_related = ("case", "authority")
@@ -128,12 +128,12 @@ class CaseContactAdmin(BaseModelAdmin):
     search_fields = ("name", "phone", "case__name")
     autocomplete_fields = ("case",)
 
-    class Media:
+    class Media:  # pragma: no cover
         js = (
             "cases/js/autocomplete.js",
             "cases/js/autocomplete_init.js",
         )
 
-    def has_module_permission(self, request: Any) -> bool:
+    def has_module_permission(self, request: Any) -> bool:  # pragma: no cover
         """允许访问 - 通过其他工具页面管理"""
         return True

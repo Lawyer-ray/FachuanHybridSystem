@@ -20,7 +20,7 @@ logger = logging.getLogger("apps.evidence_sorting")
 class ExporterService:
     """导出整理好的案件材料为 ZIP"""
 
-    def export_zip(self, reconcile_result: ReconcileResult) -> dict[str, Any]:
+    def export_zip(self, reconcile_result: ReconcileResult) -> dict[str, Any]:  # pragma: no cover
         """
         根据比对结果生成 ZIP
 

@@ -63,7 +63,7 @@ class Command(BaseCommand):
         parser.add_argument("--disk-warning-pct", type=float, default=85.0)
         parser.add_argument("--disk-critical-pct", type=float, default=95.0)
 
-    def handle(self, *args, **options: Any) -> None:  # type: ignore[no-untyped-def]
+    def handle(self, *args, **options: Any) -> None:  # type: ignore[no-untyped-def]  # pragma: no cover
         self._database_path = None
         self._maybe_switch_sqlite_db(options.get("database_path"))
         if not options.get("skip_migrate"):

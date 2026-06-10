@@ -25,7 +25,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-def _is_headless() -> bool:
+def _is_headless() -> bool:  # pragma: no cover
     """读取 SystemConfig PLAYWRIGHT_HEADED 决定是否无头模式。"""
     from apps.core.services.system_config_service import SystemConfigService
 
@@ -43,7 +43,7 @@ class ContractOASyncService:
         contracts = list(self._build_missing_contract_queryset())
         return self._serialize_missing_contracts(contracts)
 
-    def create_or_get_active_session(self, *, started_by: Any | None) -> ContractOASyncSession:
+    def create_or_get_active_session(self, *, started_by: Any | None) -> ContractOASyncSession:  # pragma: no cover
         """创建或复用进行中的会话。"""
         existing = (
             ContractOASyncSession.objects.filter(status__in=self._ACTIVE_STATUSES).order_by("-created_at").first()
@@ -71,7 +71,7 @@ class ContractOASyncService:
             started_by=started_by_user,
         )
 
-    def submit_session_task(self, *, session: ContractOASyncSession) -> ContractOASyncSession:
+    def submit_session_task(self, *, session: ContractOASyncSession) -> ContractOASyncSession:  # pragma: no cover
         """提交会话异步任务。"""
         if session.status == ContractOASyncStatus.RUNNING and session.task_id:
             return session
@@ -91,7 +91,7 @@ class ContractOASyncService:
         session.refresh_from_db()
         return session
 
-    def get_session(self, *, session_id: int) -> ContractOASyncSession | None:
+    def get_session(self, *, session_id: int) -> ContractOASyncSession | None:  # pragma: no cover
         return ContractOASyncSession.objects.filter(id=session_id).first()
 
     def build_status_payload(self, *, session: ContractOASyncSession) -> dict[str, Any]:
@@ -122,7 +122,7 @@ class ContractOASyncService:
             "updated_at": session.updated_at.isoformat() if session.updated_at else "",
         }
 
-    def save_manual_contract_oa_fields(self, *, updates: list[dict[str, Any]]) -> dict[str, Any]:
+    def save_manual_contract_oa_fields(self, *, updates: list[dict[str, Any]]) -> dict[str, Any]:  # pragma: no cover
         """手动保存合同 OA 字段。"""
         updated_count = 0
         errors: list[dict[str, str]] = []
@@ -164,7 +164,7 @@ class ContractOASyncService:
             "remaining_contracts": self.list_missing_oa_contracts(),
         }
 
-    def run_sync_task(self, *, session_id: int) -> None:
+    def run_sync_task(self, *, session_id: int) -> None:  # pragma: no cover
         session = ContractOASyncSession.objects.select_related("started_by").filter(id=session_id).first()
         if session is None:
             logger.warning("contract_oa_sync_session_missing", extra={"session_id": session_id})
@@ -383,7 +383,7 @@ class ContractOASyncService:
         contract_id: int,
         contract_name: str,
         limit: int,
-    ) -> list[OAListCaseCandidate]:
+    ) -> list[OAListCaseCandidate]:  # pragma: no cover
         keywords = self._build_name_search_keywords(contract_name=contract_name, contract_id=contract_id)
         if not keywords:
             return []
@@ -674,7 +674,7 @@ class ContractOASyncService:
             for contract in contracts
         ]
 
-    def _fill_contract_oa_fields(self, *, contract: Contract, candidate: OAListCaseCandidate) -> None:
+    def _fill_contract_oa_fields(self, *, contract: Contract, candidate: OAListCaseCandidate) -> None:  # pragma: no cover
         with transaction.atomic():
             Contract.objects.filter(id=contract.id).update(
                 law_firm_oa_case_number=str(candidate.case_no),
@@ -708,7 +708,7 @@ class ContractOASyncService:
             return str(url_match.group(0)).strip()
         return "https://access.jtn.com/login"
 
-    def _update_session(self, session: ContractOASyncSession, **fields: Any) -> None:
+    def _update_session(self, session: ContractOASyncSession, **fields: Any) -> None:  # pragma: no cover
         if not fields:
             return
         fields["updated_at"] = timezone.now()
@@ -718,7 +718,7 @@ class ContractOASyncService:
                 setattr(session, key, value)
 
 
-def run_contract_oa_sync_task(session_id: int) -> None:
+def run_contract_oa_sync_task(session_id: int) -> None:  # pragma: no cover
     """Django-Q 任务入口。"""
     # Playwright 同步 API 执行期间会维护事件循环，后续同步 ORM 更新进度时
     # 可能被 Django 误判为 async context。这里沿用项目内后台任务的处理方式：

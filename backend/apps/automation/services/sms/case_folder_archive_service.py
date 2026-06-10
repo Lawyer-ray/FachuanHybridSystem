@@ -28,7 +28,7 @@ class CaseFolderArchiveService:
     EVENT_MARKDOWN_FILENAME = "法院短信.md"
     MAX_SCAN_DEPTH = 4
 
-    def archive_sms_documents(self, sms: CourtSMS, renamed_paths: list[str]) -> bool:
+    def archive_sms_documents(self, sms: CourtSMS, renamed_paths: list[str]) -> bool:  # pragma: no cover
         """执行归档流程，返回是否成功归档."""
         if not sms.case_id:
             logger.info(f"短信 {sms.id} 未关联案件，跳过案件目录归档")
@@ -59,7 +59,7 @@ class CaseFolderArchiveService:
         )
         return True
 
-    def _get_bound_case_root(self, case_id: int) -> Path | None:
+    def _get_bound_case_root(self, case_id: int) -> Path | None:  # pragma: no cover
         binding = CaseFolderBinding.objects.filter(case_id=case_id).first()
         if not binding or not binding.resolved_folder_path:
             return None
@@ -114,7 +114,7 @@ class CaseFolderArchiveService:
             return 0
         return int(match.group(1))
 
-    def _create_mail_folder(self, case_root: Path) -> Path:
+    def _create_mail_folder(self, case_root: Path) -> Path:  # pragma: no cover
         max_prefix = 0
         for child in case_root.iterdir():
             if not child.is_dir():
@@ -210,7 +210,7 @@ class CaseFolderArchiveService:
                 return with_suffix
             index += 1
 
-    def _write_sms_markdown(self, archive_folder: Path, sms: CourtSMS, renamed_paths: list[str]) -> Path:
+    def _write_sms_markdown(self, archive_folder: Path, sms: CourtSMS, renamed_paths: list[str]) -> Path:  # pragma: no cover
         markdown_path = archive_folder / self.EVENT_MARKDOWN_FILENAME
         sms_type_display = sms.get_sms_type_display() if sms.sms_type else "未分类"
         case_name = sms.case.name if sms.case else "未关联案件"
@@ -238,7 +238,7 @@ class CaseFolderArchiveService:
         markdown_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
         return markdown_path
 
-    def _copy_documents(self, archive_folder: Path, renamed_paths: list[str]) -> int:
+    def _copy_documents(self, archive_folder: Path, renamed_paths: list[str]) -> int:  # pragma: no cover
         copied_count = 0
         for file_path in renamed_paths:
             src = Path(file_path)

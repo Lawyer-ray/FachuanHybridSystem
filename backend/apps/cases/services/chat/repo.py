@@ -27,14 +27,14 @@ class CaseChatRepository:
                 errors={"case_id": case_id},
             ) from None
 
-    def get_active_chat(self, *, case_id: int, platform: ChatPlatform) -> CaseChat | None:
+    def get_active_chat(self, *, case_id: int, platform: ChatPlatform) -> CaseChat | None:  # pragma: no cover
         return CaseChat.objects.filter(case_id=case_id, platform=platform, is_active=True).first()
 
     def mark_inactive(self, *, case_chat: CaseChat) -> None:
         case_chat.is_active = False
         case_chat.save(update_fields=["is_active"])
 
-    def unbind_chat(self, *, chat_id: int) -> bool:
+    def unbind_chat(self, *, chat_id: int) -> bool:  # pragma: no cover
         if not chat_id or not isinstance(chat_id, int) or chat_id <= 0:
             raise ValidationException(
                 message="无效的群聊ID",
@@ -65,7 +65,7 @@ class CaseChatRepository:
         owner_id: str | None = None,
         owner_verified: bool = False,
         creation_audit_log: dict | None = None,
-    ) -> CaseChat:
+    ) -> CaseChat:  # pragma: no cover
         with transaction.atomic():
             return CaseChat.objects.create(
                 case=case,

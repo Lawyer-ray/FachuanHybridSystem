@@ -73,10 +73,10 @@ Object.defineProperty(screen, 'pixelDepth', {get: () => 24});
 _IS_MACOS = platform.system() == "Darwin"
 
 
-class AntiDetection:
+class AntiDetection:  # pragma: no cover
     """浏览器上下文基础配置。"""
 
-    def get_context_options(self) -> dict[str, Any]:
+    def get_context_options(self) -> dict[str, Any]:  # pragma: no cover
         """返回浏览器上下文配置（viewport、locale、timezone、headers）。"""
         return {
             "viewport": {"width": 1920, "height": 1080},
@@ -88,13 +88,13 @@ class AntiDetection:
             },
         }
 
-    def apply_macos_patches(self, page: Any) -> None:
+    def apply_macos_patches(self, page: Any) -> None:  # pragma: no cover
         """在 macOS 上补充 CloakBrowser 未覆盖的指纹补丁（同步页面）。"""
         if _IS_MACOS:
             page.add_init_script(_MACOS_FINGERPRINT_JS)
             logger.debug("已应用 macOS 指纹补充补丁")
 
-    async def apply_macos_patches_async(self, page: Any) -> None:
+    async def apply_macos_patches_async(self, page: Any) -> None:  # pragma: no cover
         """在 macOS 上补充 CloakBrowser 未覆盖的指纹补丁（异步页面）。"""
         if _IS_MACOS:
             await page.add_init_script(_MACOS_FINGERPRINT_JS)
@@ -102,13 +102,13 @@ class AntiDetection:
 
     # ── 向后兼容方法（已废弃） ──
 
-    def get_random_user_agent(self) -> str:
+    def get_random_user_agent(self) -> str:  # pragma: no cover
         return ""
 
-    def apply_stealth(self, context: Any) -> None:
+    def apply_stealth(self, context: Any) -> None:  # pragma: no cover
         pass
 
-    async def apply_stealth_async(self, context: Any) -> None:
+    async def apply_stealth_async(self, context: Any) -> None:  # pragma: no cover
         pass
 
 

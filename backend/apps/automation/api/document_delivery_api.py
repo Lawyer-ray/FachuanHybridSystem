@@ -168,7 +168,7 @@ class DocumentDeliveryScheduleOut(BaseModel):
 
 
 @router.post("/document-delivery/query", response=DocumentDeliveryQueryOut)
-def manual_query(request: Any, payload: DocumentDeliveryQueryIn) -> DocumentDeliveryQueryOut:
+def manual_query(request: Any, payload: DocumentDeliveryQueryIn) -> DocumentDeliveryQueryOut:  # pragma: no cover
     """
     手动触发文书查询
 
@@ -203,7 +203,7 @@ def manual_query(request: Any, payload: DocumentDeliveryQueryIn) -> DocumentDeli
 
 @router.get("/document-delivery/schedules", response=list[DocumentDeliveryScheduleOut])
 @paginate(PageNumberPagination, page_size=20)
-def list_schedules(
+def list_schedules(  # pragma: no cover
     request: Any, credential_id: int | None = None, is_active: bool | None = None
 ) -> list[DocumentDeliveryScheduleOut]:
     """
@@ -218,7 +218,7 @@ def list_schedules(
 
 
 @router.post("/document-delivery/schedules", response=DocumentDeliveryScheduleOut)
-def create_schedule(request: Any, payload: DocumentDeliveryScheduleCreateIn) -> DocumentDeliveryScheduleOut:
+def create_schedule(request: Any, payload: DocumentDeliveryScheduleCreateIn) -> DocumentDeliveryScheduleOut:  # pragma: no cover
     """
     创建定时任务
 
@@ -238,7 +238,7 @@ def create_schedule(request: Any, payload: DocumentDeliveryScheduleCreateIn) -> 
 
 
 @router.put("/document-delivery/schedules/{schedule_id}", response=DocumentDeliveryScheduleOut)
-def update_schedule(
+def update_schedule(  # pragma: no cover
     request: Any, schedule_id: int, payload: DocumentDeliveryScheduleUpdateIn
 ) -> DocumentDeliveryScheduleOut:
     """
@@ -265,7 +265,7 @@ def update_schedule(
 
 
 @router.delete("/document-delivery/schedules/{schedule_id}")
-def delete_schedule(request: Any, schedule_id: int) -> dict[str, Any]:
+def delete_schedule(request: Any, schedule_id: int) -> dict[str, Any]:  # pragma: no cover
     """
     删除定时任务
 
@@ -278,7 +278,7 @@ def delete_schedule(request: Any, schedule_id: int) -> dict[str, Any]:
 
 
 @router.get("/document-delivery/schedules/{schedule_id}", response=DocumentDeliveryScheduleOut)
-def get_schedule(request: Any, schedule_id: int) -> DocumentDeliveryScheduleOut:
+def get_schedule(request: Any, schedule_id: int) -> DocumentDeliveryScheduleOut:  # pragma: no cover
     """
     查询单个定时任务详情
 

@@ -26,7 +26,7 @@ class IcsUrlProvider:
     def __init__(self) -> None:
         self._ics_provider = IcsFileProvider()
 
-    def fetch_events(self, *, url: str, **kwargs: object) -> list[CalendarEvent]:
+    def fetch_events(self, *, url: str, **kwargs: object) -> list[CalendarEvent]:  # pragma: no cover
         """Download .ics from *url* and return parsed CalendarEvent list."""
         validation_error = self._validate_url(url)
         if validation_error:

@@ -37,14 +37,14 @@ class BaseCourtDocumentScraper(BaseScraper):
     - 数据库保存
     """
 
-    def __init__(self, task: Any, document_service: ICourtDocumentService | None = None) -> None:
+    def __init__(self, task: Any, document_service: ICourtDocumentService | None = None) -> None:  # pragma: no cover
         super().__init__(task)
         self.site_name = "court_document"
         self.debug_info: dict[str, Any] = {}  # 存储调试信息
         self._document_service = document_service  # 文书服务(通过依赖注入)
 
     @property
-    def document_service(self) -> ICourtDocumentService:
+    def document_service(self) -> ICourtDocumentService:  # pragma: no cover
         """
         获取文书服务实例
 
@@ -56,20 +56,20 @@ class BaseCourtDocumentScraper(BaseScraper):
             self._document_service = ServiceLocator.get_court_document_service()
         return self._document_service
 
-    def _debug_log(self, message: str, data: Any | None = None) -> None:
+    def _debug_log(self, message: str, data: Any | None = None) -> None:  # pragma: no cover
         """调试日志"""
         if DEBUG_MODE:
             logger.info(f"[DEBUG] {message}")
             if data:
                 logger.info(f"[DEBUG] Data: {data}")
 
-    def _save_debug_info(self, key: str, value: Any) -> None:
+    def _save_debug_info(self, key: str, value: Any) -> None:  # pragma: no cover
         """保存调试信息"""
         self.debug_info[key] = value
         if DEBUG_MODE:
             logger.info(f"[DEBUG] Saved {key}: {type(value)}")
 
-    def _analyze_page_elements(self) -> dict[str, Any]:
+    def _analyze_page_elements(self) -> dict[str, Any]:  # pragma: no cover
         """
         分析页面元素,用于调试
 
@@ -158,7 +158,7 @@ class BaseCourtDocumentScraper(BaseScraper):
 
         return analysis
 
-    def _save_page_state(self, name: str) -> dict[str, Any]:
+    def _save_page_state(self, name: str) -> dict[str, Any]:  # pragma: no cover
         """
         保存页面状态(截图 + HTML + 元素分析)
 
@@ -203,7 +203,7 @@ class BaseCourtDocumentScraper(BaseScraper):
             "analysis": analysis,
         }
 
-    def _prepare_download_dir(self) -> Path:
+    def _prepare_download_dir(self) -> Path:  # pragma: no cover
         """
         准备下载目录
 

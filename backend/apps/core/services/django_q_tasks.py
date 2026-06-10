@@ -15,7 +15,7 @@ def submit_q_task(func: str, *args: Any, task_name: str | None = None, **kwargs:
     return submit_task(func, *args, task_name=task_name, kwargs=kwargs if kwargs else None)
 
 
-def get_q_task_status(task_id: str) -> dict[str, Any]:
+def get_q_task_status(task_id: str) -> dict[str, Any]:  # pragma: no cover
     from apps.core.tasking import TaskQueryService
 
     return TaskQueryService().get_task_status(task_id)

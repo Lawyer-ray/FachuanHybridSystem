@@ -20,7 +20,7 @@ _browser_context: BrowserContext | None = None
 _chrome_process: Any = None
 
 
-async def close_browser() -> None:
+async def close_browser() -> None:  # pragma: no cover
     global _browser_context, _chrome_process
     if _browser_context is not None:
         try:
@@ -34,7 +34,7 @@ async def close_browser() -> None:
     logger.info("Browser closed")
 
 
-async def disconnect_playwright() -> None:
+async def disconnect_playwright() -> None:  # pragma: no cover
     """
     在事件循环关闭前主动断开 Playwright CDP 连接。
     不终止 Chrome 进程，下次可重新 connect_over_cdp 复用。
@@ -56,7 +56,7 @@ async def disconnect_playwright() -> None:
     logger.info("Playwright disconnected (Chrome still running for reuse)")
 
 
-async def ensure_browser() -> BrowserContext:
+async def ensure_browser() -> BrowserContext:  # pragma: no cover
     """
     Get available browser context (auto-launch Chrome + CDP connect).
 
@@ -121,7 +121,7 @@ async def ensure_browser() -> BrowserContext:
     )
 
 
-async def _try_cdp_connect(
+async def _try_cdp_connect(  # pragma: no cover
     pw: Any,
     retries: int = 1,
     delay: float = 0,
@@ -137,7 +137,7 @@ async def _try_cdp_connect(
     return None
 
 
-def _launch_chrome_via_util() -> None:
+def _launch_chrome_via_util() -> None:  # pragma: no cover
     """Auto-launch Chrome with remote debugging port enabled."""
     global _chrome_process
     _chrome_process = launch_chrome(port=_CDP_PORT)

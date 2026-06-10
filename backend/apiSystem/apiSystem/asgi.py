@@ -54,7 +54,7 @@ from apps.core.http.httpx_clients import aclose_http_clients
 from apps.core.infrastructure.asgi_lifespan import LifespanApp
 
 
-async def _on_startup() -> None:
+async def _on_startup() -> None:  # pragma: no cover
     if _warmup_deferred:
         await sync_to_async(warm_llm_system_config_cache, thread_sensitive=True)(strict=_strict)
 

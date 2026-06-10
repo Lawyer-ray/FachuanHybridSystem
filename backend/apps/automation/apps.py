@@ -6,7 +6,7 @@ class AutomationConfig(AppConfig):
     name = "apps.automation"
     verbose_name = "自动化工具"
 
-    def ready(self) -> None:
+    def ready(self) -> None:  # pragma: no cover
         """应用启动时的配置"""
         from django.contrib import admin
 

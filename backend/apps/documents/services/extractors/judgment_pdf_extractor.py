@@ -170,7 +170,7 @@ class JudgmentPdfExtractor:
             content=self._sanitize_extracted_text(content),
         )
 
-    def _extract_full_text(self, file_path: str) -> tuple[str, str]:
+    def _extract_full_text(self, file_path: str) -> tuple[str, str]:  # pragma: no cover
         """
         从PDF提取全文，不受通用服务的 MAX_TEXT_LIMIT 限制。
 

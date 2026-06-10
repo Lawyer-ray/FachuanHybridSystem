@@ -176,7 +176,7 @@ class DocumentDeliveryTokenService:
             logger.error(f"AutoTokenAcquisitionService 调用失败: {e!s}")
             return None
 
-    def refresh_token_if_expired(self, credential_id: int, current_token: str) -> str | None:
+    def refresh_token_if_expired(self, credential_id: int, current_token: str) -> str | None:  # pragma: no cover
         """
         检查 Token 是否过期，如果过期则刷新
 

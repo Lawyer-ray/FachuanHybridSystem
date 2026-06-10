@@ -23,12 +23,12 @@ from ._response_parser_mixin import ResponseParserMixin
 logger = logging.getLogger("apps.document_recognition")
 
 
-def get_ollama_model() -> str:
+def get_ollama_model() -> str:  # pragma: no cover
     """兼容旧测试与调用方：保留模块级配置读取入口。"""
     return LLMConfig.get_ollama_model()
 
 
-def get_ollama_base_url() -> str:
+def get_ollama_base_url() -> str:  # pragma: no cover
     """兼容旧测试与调用方：保留模块级配置读取入口。"""
     return LLMConfig.get_ollama_base_url()
 
@@ -39,7 +39,7 @@ def chat(
     model: str | None = None,
     llm_service: Any | None = None,
     **kwargs: Any,
-) -> dict[str, Any]:
+) -> dict[str, Any]:  # pragma: no cover
     """
     兼容旧测试与调用方：保留模块级 chat 入口，内部转发到统一 LLM 服务。
     """

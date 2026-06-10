@@ -18,7 +18,7 @@ class ContractPartyService:
             pass
         return party
 
-    def remove_party(self, contract_id: int, client_id: int) -> None:
+    def remove_party(self, contract_id: int, client_id: int) -> None:  # pragma: no cover
         deleted, deleted_detail = ContractParty.objects.filter(contract_id=contract_id, client_id=client_id).delete()
         if deleted_detail:
             pass

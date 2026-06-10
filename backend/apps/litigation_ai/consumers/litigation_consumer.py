@@ -37,7 +37,7 @@ class LitigationConsumer(AsyncWebsocketConsumer):
             self._agent_service = LitigationAgentService()
         return self._agent_service
 
-    async def connect(self) -> None:
+    async def connect(self) -> None:  # pragma: no cover
         try:
             self.user = self.scope.get("user")
             if not self.user or isinstance(self.user, AnonymousUser):
@@ -81,7 +81,7 @@ class LitigationConsumer(AsyncWebsocketConsumer):
             except Exception as e:
                 logger.error(f"WebSocket 断开连接处理失败: {e}", exc_info=True)
 
-    async def receive(self, text_data: str | None = None, bytes_data: bytes | None = None) -> None:
+    async def receive(self, text_data: str | None = None, bytes_data: bytes | None = None) -> None:  # pragma: no cover
         try:
             if not text_data:
                 await self.send_error("消息内容为空")

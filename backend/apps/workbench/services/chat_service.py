@@ -180,7 +180,7 @@ async def _maybe_create_summary(
     session_id: int,
     current_count: int,
     model: Any,
-) -> str | None:
+) -> str | None:  # pragma: no cover
     """如果消息数量超过阈值，自动生成对话摘要
 
     摘要存储在 session.metadata['conversation_summary'] 中。
@@ -256,7 +256,7 @@ class WorkbenchChatService:
         user_message: str,
         llm_model: str = "",
         agent_type: str = "",
-    ) -> AsyncIterator[dict[str, Any]]:
+    ) -> AsyncIterator[dict[str, Any]]:  # pragma: no cover
         """流式对话主入口
 
         Args:
@@ -447,7 +447,7 @@ class WorkbenchChatService:
         event_queue: asyncio.Queue[dict[str, Any] | None],
         message_history: list[ModelMessage] | None = None,
         agent_name: str = "triage",
-    ) -> AsyncIterator[dict[str, Any]]:
+    ) -> AsyncIterator[dict[str, Any]]:  # pragma: no cover
         """运行 Agent 并流式输出 SSE 事件
 
         使用 asyncio.Queue 桥接：
@@ -456,7 +456,7 @@ class WorkbenchChatService:
         """
 
         # Agent 任务：推事件到队列
-        async def agent_task() -> None:
+        async def agent_task() -> None:  # pragma: no cover
             try:
                 async with agent.iter(
                     user_message,

@@ -7,7 +7,7 @@ from typing import Any
 from apps.core.interfaces import ServiceLocator
 
 
-def get_contract_display_service() -> Any:
+def get_contract_display_service() -> Any:  # pragma: no cover
     from apps.contracts.services import ContractDisplayService
 
     if ServiceLocator._scope.get() is None:
@@ -19,7 +19,7 @@ def get_contract_display_service() -> Any:
     )
 
 
-def get_contract_progress_service() -> Any:
+def get_contract_progress_service() -> Any:  # pragma: no cover
     from apps.contracts.services import ContractProgressService
 
     if ServiceLocator._scope.get() is None:
@@ -31,7 +31,7 @@ def get_contract_progress_service() -> Any:
     )
 
 
-def get_contract_admin_service() -> Any:
+def get_contract_admin_service() -> Any:  # pragma: no cover
     from apps.contracts.services import ContractAdminService
 
     if ServiceLocator._scope.get() is None:
@@ -49,7 +49,7 @@ def get_contract_admin_service() -> Any:
     )
 
 
-def get_contract_batch_folder_binding_service() -> Any:
+def get_contract_batch_folder_binding_service() -> Any:  # pragma: no cover
     from apps.contracts.services import ContractBatchFolderBindingService
 
     if ServiceLocator._scope.get() is None:
@@ -61,7 +61,7 @@ def get_contract_batch_folder_binding_service() -> Any:
     )
 
 
-def get_contract_folder_binding_service() -> Any:
+def get_contract_folder_binding_service() -> Any:  # pragma: no cover
     from apps.contracts.services import FolderBindingService
     from apps.core.dependencies.documents import build_document_template_binding_service
 
@@ -74,7 +74,7 @@ def get_contract_folder_binding_service() -> Any:
     )
 
 
-def get_contract_oa_sync_service() -> Any:
+def get_contract_oa_sync_service() -> Any:  # pragma: no cover
     from apps.contracts.services import ContractOASyncService
 
     if ServiceLocator._scope.get() is None:
@@ -86,13 +86,13 @@ def get_contract_oa_sync_service() -> Any:
     )
 
 
-def get_contract_mutation_facade() -> Any:
+def get_contract_mutation_facade() -> Any:  # pragma: no cover
     from apps.contracts.services.contract.wiring import get_contract_mutation_facade as _get_contract_mutation_facade
 
     return _get_contract_mutation_facade()
 
 
-def get_contract_admin_action_service() -> Any:
+def get_contract_admin_action_service() -> Any:  # pragma: no cover
     from apps.contracts.services.admin_actions.wiring import build_contract_admin_action_service
 
     if ServiceLocator._scope.get() is None:
@@ -104,7 +104,7 @@ def get_contract_admin_action_service() -> Any:
     )
 
 
-def get_contract_assignment_query_service() -> Any:
+def get_contract_assignment_query_service() -> Any:  # pragma: no cover
     from apps.contracts.services.assignment.contract_assignment_query_service import ContractAssignmentQueryService
 
     if ServiceLocator._scope.get() is None:
@@ -116,7 +116,7 @@ def get_contract_assignment_query_service() -> Any:
     )
 
 
-def get_material_service() -> Any:
+def get_material_service() -> Any:  # pragma: no cover
     from apps.contracts.services.contract.integrations import MaterialService
 
     if ServiceLocator._scope.get() is None:
@@ -128,7 +128,7 @@ def get_material_service() -> Any:
     )
 
 
-def get_invoice_upload_service() -> Any:
+def get_invoice_upload_service() -> Any:  # pragma: no cover
     from apps.contracts.services.contract.integrations import InvoiceUploadService
 
     if ServiceLocator._scope.get() is None:

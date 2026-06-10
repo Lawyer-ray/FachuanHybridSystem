@@ -15,7 +15,7 @@ from .http_client import _CASE_LIST_URL, _HTTP_HEADERS
 logger = logging.getLogger("apps.oa_filing.jtn_case_import")
 
 
-class JtnSsoHandlerMixin:
+class JtnSsoHandlerMixin:  # pragma: no cover
     """SSO/飞连/企微登录处理。"""
 
     # --- 由 facade 或其他 mixin 提供 ---
@@ -27,7 +27,7 @@ class JtnSsoHandlerMixin:
     # ------------------------------------------------------------------
     # SSO 检测
     # ------------------------------------------------------------------
-    def _is_sso_login_page(self: Any, *, url: str, html_text: str) -> bool:
+    def _is_sso_login_page(self: Any, *, url: str, html_text: str) -> bool:  # pragma: no cover
         url_text = str(url or "").strip()
         parsed = urlparse(url_text)
         host = str(parsed.hostname or "").lower()
@@ -44,13 +44,13 @@ class JtnSsoHandlerMixin:
         )
         return any(marker in text_lower for marker in markers)
 
-    def _build_sso_blocking_message(self: Any, *, stage: str, login_url: str) -> str:
+    def _build_sso_blocking_message(self: Any, *, stage: str, login_url: str) -> str:  # pragma: no cover
         return str(
             "%(stage)s 触发飞连/企微单点登录（二维码），当前自动化无法完成无交互登录。"
             "请先在可见浏览器完成扫码登录后重试：%(login_url)s" % {"stage": stage, "login_url": login_url}
         )
 
-    def _raise_if_sso_blocking(self: Any, *, url: str, html_text: str, stage: str) -> None:
+    def _raise_if_sso_blocking(self: Any, *, url: str, html_text: str, stage: str) -> None:  # pragma: no cover
         if not self._is_sso_login_page(url=url, html_text=html_text):
             return
         login_url = str(url or "").strip()
@@ -58,11 +58,11 @@ class JtnSsoHandlerMixin:
         logger.warning("%s", message)
         raise RuntimeError(message)
 
-    def _is_sso_blocking_error(self: Any, exc: Exception) -> bool:
+    def _is_sso_blocking_error(self: Any, exc: Exception) -> bool:  # pragma: no cover
         text = str(exc or "")
         return "飞连/企微单点登录（二维码）" in text
 
-    def _extract_sso_login_url_from_text(self: Any, text: str) -> str:
+    def _extract_sso_login_url_from_text(self: Any, text: str) -> str:  # pragma: no cover
         message = str(text or "")
         matched = re.search(r"https://access\.jtn\.com/[^\s\"'<>]+", message)
         if matched:
@@ -72,7 +72,7 @@ class JtnSsoHandlerMixin:
     # ------------------------------------------------------------------
     # 飞连/企微交互登录
     # ------------------------------------------------------------------
-    def _complete_sso_interactive_login(self: Any, *, login_url: str) -> dict[str, str]:
+    def _complete_sso_interactive_login(self: Any, *, login_url: str) -> dict[str, str]:  # pragma: no cover
         target_url = str(login_url or "").strip() or "https://access.jtn.com/login"
         logger.warning("请在弹出的浏览器完成飞连/企微扫码登录（系统将自动检测登录成功），最多等待 180 秒")
 
@@ -116,7 +116,7 @@ class JtnSsoHandlerMixin:
             logger.info("交互登录成功，已回灌 cookie=%d", len(merged_cookies))
             return dict(merged_cookies)
 
-    def _is_ims_case_list_url(self: Any, url: str) -> bool:
+    def _is_ims_case_list_url(self: Any, url: str) -> bool:  # pragma: no cover
         parsed = urlparse(str(url or "").strip())
         host = (parsed.netloc or "").lower()
         path = (parsed.path or "").lower()
@@ -126,7 +126,7 @@ class JtnSsoHandlerMixin:
             return False
         return path.startswith("/project/")
 
-    def _is_access_portal_logged_in(self: Any, page: Page) -> bool:
+    def _is_access_portal_logged_in(self: Any, page: Page) -> bool:  # pragma: no cover
         current_url = str(page.url or "").lower()
         if "access.jtn.com" not in current_url:
             return False
@@ -139,14 +139,14 @@ class JtnSsoHandlerMixin:
         markers = ("推荐应用", "搜索应用/平台名称", "IMS", "aijagent")
         return any(marker in content_text for marker in markers)
 
-    def _collect_ims_cookies_from_browser_context(self: Any, context: BrowserContext) -> dict[str, str]:
+    def _collect_ims_cookies_from_browser_context(self: Any, context: BrowserContext) -> dict[str, str]:  # pragma: no cover
         return {
             str(item.get("name") or ""): str(item.get("value") or "")
             for item in context.cookies("https://ims.jtn.com")
             if str(item.get("name") or "").strip()
         }
 
-    def _can_access_case_list_with_cookies(self: Any, cookies: dict[str, str]) -> bool:
+    def _can_access_case_list_with_cookies(self: Any, cookies: dict[str, str]) -> bool:  # pragma: no cover
         import httpx
 
         if not cookies:

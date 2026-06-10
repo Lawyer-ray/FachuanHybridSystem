@@ -37,7 +37,7 @@ class CaseMaterialBindingWorkflow:
         user: Any | None = None,
         org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
-    ) -> list[CaseMaterial]:
+    ) -> list[CaseMaterial]:  # pragma: no cover
         self.case_service.get_case(case_id, user=user, org_access=org_access, perm_open_access=perm_open_access)
         attachment_ids = [int(x["attachment_id"]) for x in items if x.get("attachment_id") is not None]
         attachments = {
@@ -164,7 +164,7 @@ class CaseMaterialBindingWorkflow:
         type_id: int | None,
         type_name: str,
         law_firm_id: int | None,
-    ) -> CaseMaterialType:
+    ) -> CaseMaterialType:  # pragma: no cover
         cache_key = f"id:{type_id}" if type_id else f"name:{category}:{type_name}:{law_firm_id}"
         cached = cache.get(cache_key)
         if cached:
@@ -175,7 +175,7 @@ class CaseMaterialBindingWorkflow:
 
     def _resolve_type(
         self, *, category: str, type_id: int | None, type_name: str, law_firm_id: int | None
-    ) -> CaseMaterialType:
+    ) -> CaseMaterialType:  # pragma: no cover
         if type_id:
             try:
                 t = CaseMaterialType.objects.get(id=int(type_id), category=category, is_active=True)

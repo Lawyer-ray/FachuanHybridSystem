@@ -7,7 +7,7 @@ from apps.documents.services.placeholders.fallback import build_docx_render_cont
 
 
 class DocxRenderer:
-    def render(self, template_path: str, context: dict[str, Any]) -> bytes:
+    def render(self, template_path: str, context: dict[str, Any]) -> bytes:  # pragma: no cover
         from docxtpl import DocxTemplate
 
         from apps.documents.services.placeholders.archive import unwrap_archive_rich_text

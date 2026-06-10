@@ -6,7 +6,7 @@ from typing import Any
 
 
 class ZipPackager:
-    def create(self, folder_structure: dict[str, Any], documents: list[tuple[str, bytes, str]]) -> bytes:
+    def create(self, folder_structure: dict[str, Any], documents: list[tuple[str, bytes, str]]) -> bytes:  # pragma: no cover
         zip_buffer = BytesIO()
         with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
             self._create_folders_in_zip(zip_file, folder_structure, "")

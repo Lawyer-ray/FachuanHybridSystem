@@ -81,7 +81,7 @@ class CaseInternalQueryService:
     def get_primary_case_numbers_by_case_ids_internal(self, case_ids: list[int]) -> dict[int, str | None]:
         return self.orchestrator.get_primary_case_numbers_by_case_ids(case_ids)
 
-    def get_user_extra_case_access_internal(self, user_id: int) -> list[int]:
+    def get_user_extra_case_access_internal(self, user_id: int) -> list[int]:  # pragma: no cover
         from django.core.cache import cache
 
         from apps.core.infrastructure import CacheKeys, CacheTimeout

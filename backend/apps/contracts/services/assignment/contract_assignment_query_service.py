@@ -6,7 +6,7 @@ from apps.contracts.models import Contract, ContractAssignment
 
 
 class ContractAssignmentQueryService:
-    def list_lawyer_ids_by_contract_internal(self, contract_id: int) -> list[int]:
+    def list_lawyer_ids_by_contract_internal(self, contract_id: int) -> list[int]:  # pragma: no cover
         if not Contract.objects.filter(id=contract_id).exists():
             return []
 

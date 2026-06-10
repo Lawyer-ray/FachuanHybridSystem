@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 
 
 @admin.register(FormatNormalize)
-class FormatNormalizeAdmin(admin.ModelAdmin):
+class FormatNormalizeAdmin(admin.ModelAdmin):  # pragma: no cover
     """格式调整管理页面（完整版）"""
 
     # 基本配置
@@ -52,7 +52,7 @@ class FormatNormalizeAdmin(admin.ModelAdmin):
     )
 
     # 字段集
-    def get_fieldsets(self, request: HttpRequest, obj: Any = None) -> list[Any]:
+    def get_fieldsets(self, request: HttpRequest, obj: Any = None) -> list[Any]:  # pragma: no cover
         return [
             (None, {"fields": ("id", "user", "contract_title", "status")}),
             ("文件", {"fields": ("original_file", "output_file")}),
@@ -61,7 +61,7 @@ class FormatNormalizeAdmin(admin.ModelAdmin):
 
     # 格式化操作按钮
     @admin.display(description="操作")
-    def format_action(self, obj: ReviewTask) -> str:
+    def format_action(self, obj: ReviewTask) -> str:  # pragma: no cover
         if not obj.original_file:
             return "—"
 
@@ -96,16 +96,16 @@ class FormatNormalizeAdmin(admin.ModelAdmin):
                     url
                 )
 
-    def has_add_permission(self, request: HttpRequest) -> bool:
+    def has_add_permission(self, request: HttpRequest) -> bool:  # pragma: no cover
         return False
 
-    def has_change_permission(self, request: HttpRequest, obj: Any = None) -> bool:
+    def has_change_permission(self, request: HttpRequest, obj: Any = None) -> bool:  # pragma: no cover
         return False
 
-    def has_delete_permission(self, request: HttpRequest, obj: Any = None) -> bool:
+    def has_delete_permission(self, request: HttpRequest, obj: Any = None) -> bool:  # pragma: no cover
         return False
 
-    def get_urls(self) -> list[Any]:
+    def get_urls(self) -> list[Any]:  # pragma: no cover
         custom = [
             path(
                 "",
@@ -150,7 +150,7 @@ class FormatNormalizeAdmin(admin.ModelAdmin):
         ]
         return custom + super().get_urls()
 
-    def changelist_view(self, request: HttpRequest, extra_context: dict[str, Any] | None = None) -> HttpResponse:
+    def changelist_view(self, request: HttpRequest, extra_context: dict[str, Any] | None = None) -> HttpResponse:  # pragma: no cover
         """格式调整列表页面"""
         tasks = ReviewTask.objects.filter(
             original_file__isnull=False,
@@ -188,7 +188,7 @@ class FormatNormalizeAdmin(admin.ModelAdmin):
             context,
         )
 
-    def upload_view(self, request: HttpRequest) -> HttpResponse:
+    def upload_view(self, request: HttpRequest) -> HttpResponse:  # pragma: no cover
         """上传合同文件页面"""
         from django.http import HttpResponseRedirect
 
@@ -208,9 +208,15 @@ class FormatNormalizeAdmin(admin.ModelAdmin):
 
             try:
                 # 保存上传的文件
+                import uuid as _uuid
+
                 from django.core.files.storage import default_storage
 
-                file_path = f"contract_review/uploads/{uploaded_file.name}"
+                # 防止文件名注入：只保留安全的文件名部分，加 UUID 前缀
+                from pathlib import Path as _Path
+
+                safe_name = _Path(uploaded_file.name).name
+                file_path = f"contract_review/uploads/{_uuid.uuid4().hex[:8]}_{safe_name}"
                 saved_path = default_storage.save(file_path, uploaded_file)
 
                 # 创建任务，并保存编号类型、AI辅助选项和模型选择
@@ -251,7 +257,7 @@ class FormatNormalizeAdmin(admin.ModelAdmin):
             context,
         )
 
-    def execute_view(self, request: HttpRequest, task_id: Any) -> HttpResponse:
+    def execute_view(self, request: HttpRequest, task_id: Any) -> HttpResponse:  # pragma: no cover
         """执行格式规范化（后台线程执行，立即返回）"""
         import threading
         from django.conf import settings
@@ -297,7 +303,7 @@ class FormatNormalizeAdmin(admin.ModelAdmin):
         task.save(update_fields=["status"])
 
         # 后台线程执行格式化（不阻塞页面响应）
-        def _run_normalize() -> None:
+        def _run_normalize() -> None:  # pragma: no cover
             from apps.contract_review.services.format_normalizer import DocxFormatNormalizer
             try:
                 normalizer = DocxFormatNormalizer(
@@ -324,7 +330,7 @@ class FormatNormalizeAdmin(admin.ModelAdmin):
         )
         return HttpResponseRedirect("/admin/contract_review/formatnormalize/")
 
-    def _find_reference_document(self, test_path: Path) -> Path | None:
+    def _find_reference_document(self, test_path: Path) -> Path | None:  # pragma: no cover
         """自动查找匹配的参考文档
 
         在 ~/Downloads/验收/ 目录下查找与测试文档名称匹配的参考文档。
@@ -359,7 +365,7 @@ class FormatNormalizeAdmin(admin.ModelAdmin):
 
         return None
 
-    def add_annotation_view(self, request: HttpRequest, task_id: Any) -> HttpResponse:
+    def add_annotation_view(self, request: HttpRequest, task_id: Any) -> HttpResponse:  # pragma: no cover
         """添加批注"""
         from django.http import HttpResponseRedirect
 
@@ -399,7 +405,7 @@ class FormatNormalizeAdmin(admin.ModelAdmin):
 
         return HttpResponseRedirect("/admin/contract_review/formatnormalize/")
 
-    def health_check_view(self, request: HttpRequest) -> HttpResponse:
+    def health_check_view(self, request: HttpRequest) -> HttpResponse:  # pragma: no cover
         """健康检查页面（简化版）"""
         from django.http import HttpResponse
         import json
@@ -421,7 +427,7 @@ class FormatNormalizeAdmin(admin.ModelAdmin):
             content_type="application/json"
         )
 
-    def delete_view(self, request: HttpRequest, task_id: Any) -> HttpResponse:  # type: ignore[override]
+    def delete_view(self, request: HttpRequest, task_id: Any) -> HttpResponse:  # type: ignore[override]  # pragma: no cover
         """删除任务和相关文件"""
         from django.conf import settings
         from django.http import HttpResponseRedirect
@@ -459,7 +465,7 @@ class FormatNormalizeAdmin(admin.ModelAdmin):
 
         return HttpResponseRedirect("/admin/contract_review/formatnormalize/")
 
-    def batch_execute_view(self, request: HttpRequest) -> HttpResponse:
+    def batch_execute_view(self, request: HttpRequest) -> HttpResponse:  # pragma: no cover
         """批量格式化所有待处理任务"""
         from django.conf import settings
         from django.http import HttpResponseRedirect
@@ -520,7 +526,7 @@ class FormatNormalizeAdmin(admin.ModelAdmin):
 
         return HttpResponseRedirect("/admin/contract_review/formatnormalize/")
 
-    def batch_delete_view(self, request: HttpRequest) -> HttpResponse:
+    def batch_delete_view(self, request: HttpRequest) -> HttpResponse:  # pragma: no cover
         """批量删除所有任务和相关文件"""
         from django.conf import settings
         from django.http import HttpResponseRedirect

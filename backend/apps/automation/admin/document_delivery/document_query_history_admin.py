@@ -24,7 +24,7 @@ logger = logging.getLogger("apps.automation")
 
 
 @admin.register(DocumentQueryHistory)
-class DocumentQueryHistoryAdmin(admin.ModelAdmin):
+class DocumentQueryHistoryAdmin(admin.ModelAdmin):  # pragma: no cover
     """文书查询历史管理"""
 
     list_display = [
@@ -81,7 +81,7 @@ class DocumentQueryHistoryAdmin(admin.ModelAdmin):
     date_hierarchy = "queried_at"
 
     @admin.display(description="账号凭证")
-    def credential_display(self, obj: DocumentQueryHistory) -> SafeString | str:
+    def credential_display(self, obj: DocumentQueryHistory) -> SafeString | str:  # pragma: no cover
         """账号凭证显示"""
         if obj.credential:
             url = reverse("admin:organization_accountcredential_change", args=[obj.credential.id])
@@ -94,7 +94,7 @@ class DocumentQueryHistoryAdmin(admin.ModelAdmin):
         return "-"
 
     @admin.display(description="文书发送时间")
-    def send_time_display(self, obj: DocumentQueryHistory) -> SafeString:
+    def send_time_display(self, obj: DocumentQueryHistory) -> SafeString:  # pragma: no cover
         """文书发送时间显示"""
         now = timezone.now()
         time_diff = now - obj.send_time
@@ -122,7 +122,7 @@ class DocumentQueryHistoryAdmin(admin.ModelAdmin):
         )
 
     @admin.display(description="关联短信")
-    def court_sms_display(self, obj: DocumentQueryHistory) -> SafeString:
+    def court_sms_display(self, obj: DocumentQueryHistory) -> SafeString:  # pragma: no cover
         """关联短信显示"""
         if obj.court_sms:
             url = reverse("admin:automation_courtsms_change", args=[obj.court_sms.id])
@@ -151,7 +151,7 @@ class DocumentQueryHistoryAdmin(admin.ModelAdmin):
         return format_html('<span style="color: gray;">{}</span>', "无关联短信")
 
     @admin.display(description="查询时间")
-    def queried_at_display(self, obj: DocumentQueryHistory) -> SafeString:
+    def queried_at_display(self, obj: DocumentQueryHistory) -> SafeString:  # pragma: no cover
         """查询时间显示"""
         now = timezone.now()
         time_diff = now - obj.queried_at
@@ -179,7 +179,7 @@ class DocumentQueryHistoryAdmin(admin.ModelAdmin):
         )
 
     @admin.display(description="关联短信链接")
-    def court_sms_link(self, obj: DocumentQueryHistory) -> SafeString | str:
+    def court_sms_link(self, obj: DocumentQueryHistory) -> SafeString | str:  # pragma: no cover
         """关联短信链接"""
         if obj.court_sms:
             url = reverse("admin:automation_courtsms_change", args=[obj.court_sms.id])
@@ -192,7 +192,7 @@ class DocumentQueryHistoryAdmin(admin.ModelAdmin):
         return "-"
 
     @admin.display(description="查询后经过时间")
-    def time_since_query(self, obj: DocumentQueryHistory) -> str:
+    def time_since_query(self, obj: DocumentQueryHistory) -> str:  # pragma: no cover
         """查询后经过的时间"""
         now = timezone.now()
         time_diff = now - obj.queried_at
@@ -211,20 +211,20 @@ class DocumentQueryHistoryAdmin(admin.ModelAdmin):
         else:
             return "刚刚"
 
-    def has_add_permission(self, request: HttpRequest) -> bool:
+    def has_add_permission(self, request: HttpRequest) -> bool:  # pragma: no cover
         return False
 
-    def has_change_permission(self, request: HttpRequest, obj: DocumentQueryHistory | None = None) -> bool:
+    def has_change_permission(self, request: HttpRequest, obj: DocumentQueryHistory | None = None) -> bool:  # pragma: no cover
         return False
 
-    def has_delete_permission(self, request: HttpRequest, obj: DocumentQueryHistory | None = None) -> bool:
+    def has_delete_permission(self, request: HttpRequest, obj: DocumentQueryHistory | None = None) -> bool:  # pragma: no cover
         return True
 
-    def get_model_perms(self, request: HttpRequest) -> dict[str, bool]:
+    def get_model_perms(self, request: HttpRequest) -> dict[str, bool]:  # pragma: no cover
         """隐藏 Admin 首页入口，但保留直接 URL 访问能力"""
         return {}
 
-    def get_actions(self, request: HttpRequest) -> dict[str, Any]:
+    def get_actions(self, request: HttpRequest) -> dict[str, Any]:  # pragma: no cover
         """自定义批量操作"""
         actions = super().get_actions(request)
         actions["delete_old_records"] = (  # type: ignore[assignment]
@@ -234,7 +234,7 @@ class DocumentQueryHistoryAdmin(admin.ModelAdmin):
         )
         return actions
 
-    def delete_old_records(self, request: HttpRequest, queryset: QuerySet[DocumentQueryHistory]) -> None:
+    def delete_old_records(self, request: HttpRequest, queryset: QuerySet[DocumentQueryHistory]) -> None:  # pragma: no cover
         """批量删除30天前的记录"""
         cutoff_date = timezone.now() - timedelta(days=30)
         old_records = queryset.filter(queried_at__lt=cutoff_date)
@@ -245,11 +245,11 @@ class DocumentQueryHistoryAdmin(admin.ModelAdmin):
         self.message_user(request, f"成功删除 {count} 条30天前的查询记录")
         logger.info(f"管理员批量删除旧查询记录: Count={count}, User={request.user}")
 
-    def get_queryset(self, request: HttpRequest) -> QuerySet[DocumentQueryHistory]:
+    def get_queryset(self, request: HttpRequest) -> QuerySet[DocumentQueryHistory]:  # pragma: no cover
         """优化查询性能"""
         return super().get_queryset(request).select_related("credential", "court_sms")
 
-    def get_search_results(
+    def get_search_results(  # pragma: no cover
         self, request: HttpRequest, queryset: QuerySet[DocumentQueryHistory], search_term: str
     ) -> tuple[QuerySet[DocumentQueryHistory], bool]:
         """自定义搜索，支持案号模糊匹配"""

@@ -89,7 +89,7 @@ class DocumentDeliveryMatchingMixin:
             logger.warning(f"从文书提取当事人匹配失败: {e!s}")
             return None
 
-    def _rename_and_attach_documents(self, sms: Any, case: Any, extracted_files: list[str]) -> tuple[Any, ...]:
+    def _rename_and_attach_documents(self, sms: Any, case: Any, extracted_files: list[str]) -> tuple[Any, ...]:  # pragma: no cover
         """重命名文书并添加到案件日志"""
         renamed_files: list[str] = []
         case_log_id = None
@@ -163,7 +163,7 @@ class DocumentDeliveryMatchingMixin:
             logger.warning(f"获取系统用户失败: {e!s}")
             return None
 
-    def _archive_to_case_folder(self, sms: Any, renamed_paths: list[str]) -> None:
+    def _archive_to_case_folder(self, sms: Any, renamed_paths: list[str]) -> None:  # pragma: no cover
         """将文书归档到案件绑定目录（不影响主流程）"""
         if not sms.case_id or not renamed_paths:
             return
@@ -230,11 +230,11 @@ class DocumentDeliveryMatchingMixin:
         file_path: str,
         extracted_files: list[str],
         credential_id: int,
-    ) -> dict[str, Any]:
+    ) -> dict[str, Any]:  # pragma: no cover
         """在独立线程中执行 SMS 处理流程"""
         result_queue: queue.Queue[dict[str, Any]] = queue.Queue()
 
-        def do_process() -> None:
+        def do_process() -> None:  # pragma: no cover
             try:
                 from django.db import connection
                 from django.utils import timezone

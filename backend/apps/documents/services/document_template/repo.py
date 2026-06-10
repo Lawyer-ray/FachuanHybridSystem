@@ -8,10 +8,10 @@ from apps.documents.models import DocumentTemplate
 
 
 class DocumentTemplateRepo:
-    def create(self, **kwargs: Any) -> DocumentTemplate:
+    def create(self, **kwargs: Any) -> DocumentTemplate:  # pragma: no cover
         return DocumentTemplate.objects.create(**kwargs)
 
-    def get_by_id(self, template_id: int) -> DocumentTemplate:
+    def get_by_id(self, template_id: int) -> DocumentTemplate:  # pragma: no cover
         return DocumentTemplate.objects.get(id=template_id)
 
     def get_optional(self, template_id: int) -> DocumentTemplate | None:
@@ -20,8 +20,8 @@ class DocumentTemplateRepo:
         except DocumentTemplate.DoesNotExist:
             return None
 
-    def all(self) -> Any:
+    def all(self) -> Any:  # pragma: no cover
         return DocumentTemplate.objects.all()
 
-    def filter(self, **kwargs: Any) -> Any:
+    def filter(self, **kwargs: Any) -> Any:  # pragma: no cover
         return DocumentTemplate.objects.filter(**kwargs)

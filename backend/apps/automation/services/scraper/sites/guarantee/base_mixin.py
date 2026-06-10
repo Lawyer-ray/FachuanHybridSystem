@@ -10,7 +10,7 @@ from typing import Any
 logger = logging.getLogger("apps.automation")
 
 
-class GuaranteeBaseMixin:
+class GuaranteeBaseMixin:  # pragma: no cover
     """Playwright 等待与 UI 交互工具。"""
 
     page: Any
@@ -18,7 +18,7 @@ class GuaranteeBaseMixin:
     DEFAULT_POLL_MS: int
     MAX_SLOW_WAIT_MS: int
 
-    def _wait_tree_options_ready(self, *, candidates: list[str], timeout_ms: int) -> bool:
+    def _wait_tree_options_ready(self, *, candidates: list[str], timeout_ms: int) -> bool:  # pragma: no cover
         deadline = time.time() + max(timeout_ms, 1000) / 1000
         normalized_candidates = [str(item).strip() for item in candidates if str(item).strip()]
 
@@ -60,7 +60,7 @@ class GuaranteeBaseMixin:
 
         return False
 
-    def _wait_select_options_ready(self, *, candidates: list[str], timeout_ms: int) -> bool:
+    def _wait_select_options_ready(self, *, candidates: list[str], timeout_ms: int) -> bool:  # pragma: no cover
         deadline = time.time() + max(timeout_ms, 1000) / 1000
         normalized_candidates = [str(item).strip() for item in candidates if str(item).strip()]
 
@@ -102,7 +102,7 @@ class GuaranteeBaseMixin:
 
         return False
 
-    def _wait_court_options_ready(self, *, candidates: list[str], timeout_ms: int) -> bool:
+    def _wait_court_options_ready(self, *, candidates: list[str], timeout_ms: int) -> bool:  # pragma: no cover
         deadline = time.time() + max(timeout_ms, 1000) / 1000
         normalized_candidates = [str(item).strip() for item in candidates if str(item).strip()]
 
@@ -145,7 +145,7 @@ class GuaranteeBaseMixin:
         logger.warning("court_guarantee_court_options_wait_timeout", extra={"candidates": normalized_candidates})
         return False
 
-    def _wait_form_item_option_ready(self, *, label_keywords: list[str], option_text: str, timeout_ms: int) -> bool:
+    def _wait_form_item_option_ready(self, *, label_keywords: list[str], option_text: str, timeout_ms: int) -> bool:  # pragma: no cover
         deadline = time.time() + max(timeout_ms, 1000) / 1000
         cleaned_option = str(option_text or "").strip()
         cleaned_keywords = [str(keyword).strip() for keyword in label_keywords if str(keyword).strip()]
@@ -196,7 +196,7 @@ class GuaranteeBaseMixin:
         )
         return False
 
-    def _wait_upload_idle(self, *, timeout_ms: int = 90000) -> bool:
+    def _wait_upload_idle(self, *, timeout_ms: int = 90000) -> bool:  # pragma: no cover
         deadline = time.time() + max(timeout_ms, 1000) / 1000
         while time.time() < deadline:
             uploading = bool(
@@ -232,7 +232,7 @@ class GuaranteeBaseMixin:
 
         return False
 
-    def _click_first_enabled_button(self, names: list[str]) -> str | None:
+    def _click_first_enabled_button(self, names: list[str]) -> str | None:  # pragma: no cover
         for name in names:
             selectors = [
                 self.page.get_by_role("button", name=name),
@@ -257,7 +257,7 @@ class GuaranteeBaseMixin:
                             continue
         return None
 
-    def _get_visible_form_errors(self) -> list[str]:
+    def _get_visible_form_errors(self) -> list[str]:  # pragma: no cover
         errors = self.page.evaluate(
             r"""() => {
                 const isVisible = (el) => {

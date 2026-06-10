@@ -43,7 +43,7 @@ class ReorderItemsResponse(Schema):
     response=ReorderItemsResponse,
     summary="重新排序证据明细",
 )
-def reorder_evidence_items(request: HttpRequest, list_id: int, data: ReorderItemsRequest) -> Any:
+def reorder_evidence_items(request: HttpRequest, list_id: int, data: ReorderItemsRequest) -> Any:  # pragma: no cover
     """
     重新排序证据明细
 

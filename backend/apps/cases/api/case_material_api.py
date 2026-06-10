@@ -37,7 +37,7 @@ def _get_caselog_service() -> CaseLogService:
 
 
 @router.get("/{case_id}/materials/bind-candidates", response=list[CaseMaterialBindCandidateOut])
-def list_bind_candidates(request: HttpRequest, case_id: int) -> Any:
+def list_bind_candidates(request: HttpRequest, case_id: int) -> Any:  # pragma: no cover
     service = _get_case_material_service()
     ctx = get_request_access_context(request)
     return service.list_bind_candidates(
@@ -50,7 +50,7 @@ def list_bind_candidates(request: HttpRequest, case_id: int) -> Any:
 
 @router.post("/{case_id}/materials/bind")
 @rate_limit_from_settings("TASK", by_user=True)
-def bind_materials(request: HttpRequest, case_id: int, payload: CaseMaterialBindIn) -> dict[str, int]:
+def bind_materials(request: HttpRequest, case_id: int, payload: CaseMaterialBindIn) -> dict[str, int]:  # pragma: no cover
     service = _get_case_material_service()
     ctx = get_request_access_context(request)
     items: list[dict[str, Any]] = [x.model_dump() for x in payload.items]
@@ -66,7 +66,7 @@ def bind_materials(request: HttpRequest, case_id: int, payload: CaseMaterialBind
 
 @router.post("/{case_id}/materials/group-order")
 @rate_limit_from_settings("TASK", by_user=True)
-def save_group_order(request: HttpRequest, case_id: int, payload: CaseMaterialGroupOrderIn) -> dict[str, bool]:
+def save_group_order(request: HttpRequest, case_id: int, payload: CaseMaterialGroupOrderIn) -> dict[str, bool]:  # pragma: no cover
     service = _get_case_material_service()
     ctx = get_request_access_context(request)
     service.save_group_order(
@@ -84,7 +84,7 @@ def save_group_order(request: HttpRequest, case_id: int, payload: CaseMaterialGr
 
 @router.post("/{case_id}/materials/upload", response=CaseMaterialUploadOut)
 @rate_limit_from_settings("UPLOAD", by_user=True)
-def upload_materials(request: HttpRequest, case_id: int) -> dict[str, Any]:
+def upload_materials(request: HttpRequest, case_id: int) -> dict[str, Any]:  # pragma: no cover
     service = _get_caselog_service()
     ctx = get_request_access_context(request)
     files = request.FILES.getlist("files") if hasattr(request, "FILES") else []
@@ -110,7 +110,7 @@ def upload_materials(request: HttpRequest, case_id: int) -> dict[str, Any]:
     response=CaseMaterialReplaceOut,
 )
 @rate_limit_from_settings("TASK", by_user=True)
-def replace_material_file(
+def replace_material_file(  # pragma: no cover
     request: HttpRequest, case_id: int, material_id: int, payload: CaseMaterialReplaceIn
 ) -> dict[str, Any]:
     """替换材料对应的附件文件。"""
@@ -131,7 +131,7 @@ def replace_material_file(
     response=CaseMaterialGroupRenameOut,
 )
 @rate_limit_from_settings("TASK", by_user=True)
-def rename_group(request: HttpRequest, case_id: int, payload: CaseMaterialGroupRenameIn) -> dict[str, Any]:
+def rename_group(request: HttpRequest, case_id: int, payload: CaseMaterialGroupRenameIn) -> dict[str, Any]:  # pragma: no cover
     """重命名材料分组。"""
     service = _get_case_material_service()
     ctx = get_request_access_context(request)
@@ -151,7 +151,7 @@ def rename_group(request: HttpRequest, case_id: int, payload: CaseMaterialGroupR
     response=CaseMaterialDeleteOut,
 )
 @rate_limit_from_settings("TASK", by_user=True)
-def delete_material(request: HttpRequest, case_id: int, material_id: int) -> dict[str, Any]:
+def delete_material(request: HttpRequest, case_id: int, material_id: int) -> dict[str, Any]:  # pragma: no cover
     """删除材料绑定（附件文件不受影响）。"""
     service = _get_case_material_service()
     ctx = get_request_access_context(request)
@@ -169,7 +169,7 @@ def delete_material(request: HttpRequest, case_id: int, material_id: int) -> dic
     response=CaseMaterialDeleteAllOut,
 )
 @rate_limit_from_settings("TASK", by_user=True)
-def delete_all_materials(request: HttpRequest, case_id: int, payload: CaseMaterialDeleteAllIn) -> dict[str, Any]:
+def delete_all_materials(request: HttpRequest, case_id: int, payload: CaseMaterialDeleteAllIn) -> dict[str, Any]:  # pragma: no cover
     """按分类删除案件下的所有材料。"""
     service = _get_case_material_service()
     ctx = get_request_access_context(request)

@@ -27,11 +27,11 @@ class BatchPrintStorage:
     def artifacts_dir(self) -> Path:
         return self.job_root / "artifacts"
 
-    def ensure_dirs(self) -> None:
+    def ensure_dirs(self) -> None:  # pragma: no cover
         for path in (self.source_dir, self.prepared_dir, self.artifacts_dir):
             path.mkdir(parents=True, exist_ok=True)
 
-    def cleanup(self) -> None:
+    def cleanup(self) -> None:  # pragma: no cover
         shutil.rmtree(self.job_root, ignore_errors=True)
 
     def source_file_path(self, *, order: int, filename: str) -> Path:

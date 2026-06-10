@@ -12,10 +12,10 @@ from urllib.parse import parse_qs, urlparse
 logger = logging.getLogger("apps.automation")
 
 
-class ZxfwDirectApiMixin:
+class ZxfwDirectApiMixin:  # pragma: no cover
     """直接调用 API 下载文书（无需浏览器）"""
 
-    def _extract_url_params(self, url: str) -> dict[str, str] | None:
+    def _extract_url_params(self, url: str) -> dict[str, str] | None:  # pragma: no cover
         """从 URL 中提取 sdbh, qdbh, sdsin 参数"""
         try:
             parsed_url = urlparse(url)
@@ -35,7 +35,7 @@ class ZxfwDirectApiMixin:
             logger.error(f"解析 URL 参数失败: {e}")
             return None
 
-    def _fetch_documents_via_direct_api(self, params: dict[str, str]) -> list[dict[str, Any]]:
+    def _fetch_documents_via_direct_api(self, params: dict[str, str]) -> list[dict[str, Any]]:  # pragma: no cover
         """直接调用法院 API 获取文书列表（无需浏览器）"""
         import httpx
 
@@ -81,7 +81,7 @@ class ZxfwDirectApiMixin:
         logger.info(f"直接 API 获取到 {len(documents)} 个文书")
         return documents
 
-    def _download_document_directly(
+    def _download_document_directly(  # pragma: no cover
         self, document_data: dict[str, Any], download_dir: Path, download_timeout: int = 60000
     ) -> tuple[bool, str | None, str | None]:
         """直接下载文书文件，返回 (成功标志, 文件路径, 错误信息)"""
@@ -156,7 +156,7 @@ class ZxfwDirectApiMixin:
             )
             return False, None, error_msg
 
-    def _download_via_direct_api(self, url: str, download_dir: Path) -> dict[str, Any]:
+    def _download_via_direct_api(self, url: str, download_dir: Path) -> dict[str, Any]:  # pragma: no cover
         """通过直接调用 API 下载文书（无需浏览器，速度最快）"""
         params = self._extract_url_params(url)
         if not params:

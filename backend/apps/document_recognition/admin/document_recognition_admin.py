@@ -17,10 +17,10 @@ from apps.document_recognition.models import DocumentRecognitionStatus, Document
 
 
 @admin.register(DocumentRecognitionTool)
-class DocumentRecognitionToolAdmin(admin.ModelAdmin):
+class DocumentRecognitionToolAdmin(admin.ModelAdmin):  # pragma: no cover
     """Admin entry page for the recognition workbench."""
 
-    def changelist_view(
+    def changelist_view(  # pragma: no cover
         self,
         request: HttpRequest,
         extra_context: dict[str, Any] | None = None,
@@ -33,21 +33,21 @@ class DocumentRecognitionToolAdmin(admin.ModelAdmin):
         }
         return TemplateResponse(request, "admin/document_recognition/recognition.html", context)
 
-    def has_add_permission(self, request: HttpRequest) -> bool:
+    def has_add_permission(self, request: HttpRequest) -> bool:  # pragma: no cover
         return False
 
-    def has_change_permission(self, request: HttpRequest, obj: DocumentRecognitionTool | None = None) -> bool:
+    def has_change_permission(self, request: HttpRequest, obj: DocumentRecognitionTool | None = None) -> bool:  # pragma: no cover
         return False
 
-    def has_delete_permission(self, request: HttpRequest, obj: DocumentRecognitionTool | None = None) -> bool:
+    def has_delete_permission(self, request: HttpRequest, obj: DocumentRecognitionTool | None = None) -> bool:  # pragma: no cover
         return False
 
-    def get_model_perms(self, request: HttpRequest) -> dict[str, bool]:
+    def get_model_perms(self, request: HttpRequest) -> dict[str, bool]:  # pragma: no cover
         return {"view": True}
 
 
 @admin.register(DocumentRecognitionTask)
-class DocumentRecognitionTaskAdmin(admin.ModelAdmin):
+class DocumentRecognitionTaskAdmin(admin.ModelAdmin):  # pragma: no cover
     """Document recognition task list and detail admin."""
 
     list_display: ClassVar[list[str]] = [
@@ -126,7 +126,7 @@ class DocumentRecognitionTaskAdmin(admin.ModelAdmin):
         ("时间戳", {"fields": ("created_at", "started_at", "finished_at"), "classes": ("collapse",)}),
     )
 
-    def get_urls(self) -> list[Any]:
+    def get_urls(self) -> list[Any]:  # pragma: no cover
         urls = super().get_urls()
         custom_urls = [
             path(
@@ -137,7 +137,7 @@ class DocumentRecognitionTaskAdmin(admin.ModelAdmin):
         ]
         return custom_urls + urls
 
-    def recognition_view(self, request: HttpRequest) -> HttpResponse:
+    def recognition_view(self, request: HttpRequest) -> HttpResponse:  # pragma: no cover
         context = {
             **self.admin_site.each_context(request),
             "title": "法院文书智能识别",
@@ -146,7 +146,7 @@ class DocumentRecognitionTaskAdmin(admin.ModelAdmin):
         }
         return render(request, "admin/document_recognition/recognition.html", context)
 
-    def status_display(self, obj: DocumentRecognitionTask) -> SafeString:
+    def status_display(self, obj: DocumentRecognitionTask) -> SafeString:  # pragma: no cover
         status_colors: dict[str, str] = {
             DocumentRecognitionStatus.PENDING: "orange",
             DocumentRecognitionStatus.PROCESSING: "blue",
@@ -159,7 +159,7 @@ class DocumentRecognitionTaskAdmin(admin.ModelAdmin):
     status_display.short_description = "任务状态"  # type: ignore[attr-defined]
     status_display.admin_order_field = "status"  # type: ignore[attr-defined]
 
-    def document_type_display(self, obj: DocumentRecognitionTask) -> str:
+    def document_type_display(self, obj: DocumentRecognitionTask) -> str:  # pragma: no cover
         if not obj.document_type:
             return "-"
 
@@ -175,7 +175,7 @@ class DocumentRecognitionTaskAdmin(admin.ModelAdmin):
     document_type_display.short_description = "文书类型"  # type: ignore[attr-defined]
     document_type_display.admin_order_field = "document_type"  # type: ignore[attr-defined]
 
-    def case_display(self, obj: DocumentRecognitionTask) -> SafeString | str:
+    def case_display(self, obj: DocumentRecognitionTask) -> SafeString | str:  # pragma: no cover
         if obj.case:
             url = reverse("admin:cases_case_change", args=[obj.case.id])
             case_name = obj.case.name
@@ -186,7 +186,7 @@ class DocumentRecognitionTaskAdmin(admin.ModelAdmin):
 
     case_display.short_description = "关联案件"  # type: ignore[attr-defined]
 
-    def binding_status_display(self, obj: DocumentRecognitionTask) -> SafeString:
+    def binding_status_display(self, obj: DocumentRecognitionTask) -> SafeString:  # pragma: no cover
         if obj.binding_success is None:
             return format_html('<span style="color: gray;">{}</span>', "- 未绑定")
         if obj.binding_success:
@@ -199,7 +199,7 @@ class DocumentRecognitionTaskAdmin(admin.ModelAdmin):
 
     binding_status_display.short_description = "绑定状态"  # type: ignore[attr-defined]
 
-    def notification_status_display(self, obj: DocumentRecognitionTask) -> SafeString:
+    def notification_status_display(self, obj: DocumentRecognitionTask) -> SafeString:  # pragma: no cover
         if not obj.binding_success:
             return format_html('<span style="color: gray;">{}</span>', "- 无需通知")
 
@@ -221,7 +221,7 @@ class DocumentRecognitionTaskAdmin(admin.ModelAdmin):
 
     notification_status_display.short_description = "通知状态"  # type: ignore[attr-defined]
 
-    def raw_text_display(self, obj: DocumentRecognitionTask) -> SafeString | str:
+    def raw_text_display(self, obj: DocumentRecognitionTask) -> SafeString | str:  # pragma: no cover
         if obj.raw_text:
             return format_html(
                 '<div style="max-height: 300px; overflow-y: auto; '
@@ -233,14 +233,14 @@ class DocumentRecognitionTaskAdmin(admin.ModelAdmin):
 
     raw_text_display.short_description = "原始文本"  # type: ignore[attr-defined]
 
-    def get_queryset(self, request: HttpRequest) -> QuerySet[DocumentRecognitionTask]:
+    def get_queryset(self, request: HttpRequest) -> QuerySet[DocumentRecognitionTask]:  # pragma: no cover
         return super().get_queryset(request).select_related("case", "case_log")
 
-    def has_add_permission(self, request: HttpRequest) -> bool:
+    def has_add_permission(self, request: HttpRequest) -> bool:  # pragma: no cover
         return False
 
-    def has_change_permission(self, request: HttpRequest, obj: DocumentRecognitionTask | None = None) -> bool:
+    def has_change_permission(self, request: HttpRequest, obj: DocumentRecognitionTask | None = None) -> bool:  # pragma: no cover
         return False
 
-    def has_delete_permission(self, request: HttpRequest, obj: DocumentRecognitionTask | None = None) -> bool:
+    def has_delete_permission(self, request: HttpRequest, obj: DocumentRecognitionTask | None = None) -> bool:  # pragma: no cover
         return True

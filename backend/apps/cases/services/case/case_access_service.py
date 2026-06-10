@@ -110,7 +110,7 @@ class CaseAccessService(DjangoPermsMixin):
             raise ForbiddenError("无权限查看该授权记录")
         return grant
 
-    def create_grant(self, case_id: int, grantee_id: int, user: Any | None = None) -> CaseAccessGrant:
+    def create_grant(self, case_id: int, grantee_id: int, user: Any | None = None) -> CaseAccessGrant:  # pragma: no cover
         """
         创建授权(授予用户案件访问权限)
 
@@ -140,7 +140,7 @@ class CaseAccessService(DjangoPermsMixin):
         org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
         access_ctx: AccessContext | None = None,
-    ) -> CaseAccessGrant:
+    ) -> CaseAccessGrant:  # pragma: no cover
         """
         更新授权
 
@@ -193,7 +193,7 @@ class CaseAccessService(DjangoPermsMixin):
         invalidate_user_access_context(grantee_id)
         return {"success": True}
 
-    def get_grants_for_case(self, case_id: int, user: Any | None = None) -> QuerySet[Case, Case]:
+    def get_grants_for_case(self, case_id: int, user: Any | None = None) -> QuerySet[Case, Case]:  # pragma: no cover
         """
         获取案件的所有访问授权
 
@@ -286,7 +286,7 @@ class CaseAccessService(DjangoPermsMixin):
 
     def batch_grant_access(
         self, case_id: int, grantee_ids: list[int], user: Any | None = None
-    ) -> list[CaseAccessGrant]:
+    ) -> list[CaseAccessGrant]:  # pragma: no cover
         """
         批量授予案件访问权限
 

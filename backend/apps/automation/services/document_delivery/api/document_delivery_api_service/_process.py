@@ -48,7 +48,7 @@ class DocumentProcessMixin:
     @abstractmethod
     def notification_service(self) -> "SMSNotificationService": ...
 
-    def process_document(self, record: DocumentRecord, token: str, credential_id: int) -> DocumentProcessResult:
+    def process_document(self, record: DocumentRecord, token: str, credential_id: int) -> DocumentProcessResult:  # pragma: no cover
         """
         通过 API 处理单个文书
 
@@ -147,11 +147,11 @@ class DocumentProcessMixin:
 
     def _process_sms_in_thread(
         self, record: DocumentDeliveryRecord, file_path: str, extracted_files: list[str], credential_id: int
-    ) -> dict[str, Any]:
+    ) -> dict[str, Any]:  # pragma: no cover
         """在独立线程中执行 SMS 处理流程"""
         result_queue: queue.Queue[dict[str, Any]] = queue.Queue()
 
-        def do_process() -> None:
+        def do_process() -> None:  # pragma: no cover
             try:
                 from django.db import connection
 

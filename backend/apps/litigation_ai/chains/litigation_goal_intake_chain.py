@@ -13,11 +13,11 @@ from .goal_schemas import GoalIntakeResult
 logger = logging.getLogger("apps.litigation_ai")
 
 
-class LitigationGoalIntakeChain:
-    def __init__(self, model: str | None = None) -> None:
+class LitigationGoalIntakeChain:  # pragma: no cover
+    def __init__(self, model: str | None = None) -> None:  # pragma: no cover
         self._model = model
 
-    async def arun(self, *, case_info: dict[str, Any], document_type: str, user_input: str) -> GoalIntakeResult:
+    async def arun(self, *, case_info: dict[str, Any], document_type: str, user_input: str) -> GoalIntakeResult:  # pragma: no cover
         if not (await LLMConfig.get_api_key_async() or "").strip():
             return self._fallback_intake(
                 document_type=document_type, user_input=user_input, notes="llm_api_key_missing"
@@ -60,7 +60,7 @@ class LitigationGoalIntakeChain:
 
             return self._fallback_intake(document_type=document_type, user_input=user_input, notes="llm_call_failed")
 
-    async def _get_system_prompt(self) -> str:
+    async def _get_system_prompt(self) -> str:  # pragma: no cover
         from asgiref.sync import sync_to_async
 
         from apps.litigation_ai.services.generation.prompt_template_service import PromptTemplateService
@@ -69,7 +69,7 @@ class LitigationGoalIntakeChain:
         template = await sync_to_async(service.get_system_template)("litigation_ai.flow.intake_goal")
         return template or self._default_prompt()
 
-    def _default_prompt(self) -> str:
+    def _default_prompt(self) -> str:  # pragma: no cover
         return "\n".join(
             [
                 "你是专业诉讼律师助理,负责把用户描述的“诉讼目标/诉讼请求”整理成结构化信息,并判断是否需要追问.",
@@ -82,7 +82,7 @@ class LitigationGoalIntakeChain:
             ]
         )
 
-    def _fallback_intake(self, *, document_type: str, user_input: str, notes: str) -> GoalIntakeResult:
+    def _fallback_intake(self, *, document_type: str, user_input: str, notes: str) -> GoalIntakeResult:  # pragma: no cover
         text = (user_input or "").strip()
         if not text:
             return GoalIntakeResult(

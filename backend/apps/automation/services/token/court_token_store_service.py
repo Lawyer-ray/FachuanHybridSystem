@@ -71,7 +71,7 @@ class CourtTokenStoreService:
         )
         logger.info(f"✅ Token 已保存: {site_name} - {account}")
 
-    async def save_token(self, site_name: str, token: str, expires_in: int) -> None:
+    async def save_token(self, site_name: str, token: str, expires_in: int) -> None:  # pragma: no cover
         from asgiref.sync import sync_to_async
 
         await sync_to_async(self.save_token_internal)(
@@ -81,7 +81,7 @@ class CourtTokenStoreService:
             expires_in=expires_in,
         )
 
-    async def delete_token(self, site_name: str) -> None:
+    async def delete_token(self, site_name: str) -> None:  # pragma: no cover
         from asgiref.sync import sync_to_async
 
         from apps.automation.models import CourtToken

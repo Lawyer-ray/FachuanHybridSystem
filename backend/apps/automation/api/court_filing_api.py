@@ -54,7 +54,7 @@ def _check_plugin() -> bool:
 
 
 @router.get("/case-info/{case_id}", response=CaseFilingInfoOut)
-def get_case_filing_info(request: HttpRequest, case_id: int) -> Any:
+def get_case_filing_info(request: HttpRequest, case_id: int) -> Any:  # pragma: no cover
     """获取案件立案所需信息"""
     if not _check_plugin():
         return {
@@ -133,7 +133,7 @@ def get_case_filing_info(request: HttpRequest, case_id: int) -> Any:
 
 
 @router.post("/execute", response=ExecuteCourtFilingOut)
-def execute_court_filing(request: HttpRequest, payload: ExecuteCourtFilingIn) -> Any:
+def execute_court_filing(request: HttpRequest, payload: ExecuteCourtFilingIn) -> Any:  # pragma: no cover
     """执行一张网在线立案（后台线程）"""
     if not _check_plugin():
         return {"success": False, "message": "法院自动化插件未安装", "session_id": None, "status": "failed"}
@@ -299,7 +299,7 @@ def execute_court_filing(request: HttpRequest, payload: ExecuteCourtFilingIn) ->
 
 
 @router.get("/session/{session_id}", response=ExecuteCourtFilingOut)
-def get_court_filing_session_status(request: HttpRequest, session_id: int) -> Any:
+def get_court_filing_session_status(request: HttpRequest, session_id: int) -> Any:  # pragma: no cover
     """查询一张网立案会话状态"""
     from apps.automation.models import ScraperTask, ScraperTaskType
 

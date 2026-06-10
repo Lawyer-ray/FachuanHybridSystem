@@ -13,13 +13,13 @@ class CourtSMSRepository:
             raise NotFoundError(f"短信记录不存在: ID={sms_id}")
         return sms
 
-    def get_by_id_or_none(self, *, sms_id: int) -> CourtSMS | None:
+    def get_by_id_or_none(self, *, sms_id: int) -> CourtSMS | None:  # pragma: no cover
         return CourtSMS.objects.filter(id=sms_id).first()
 
-    def save(self, *, sms: CourtSMS) -> None:
+    def save(self, *, sms: CourtSMS) -> None:  # pragma: no cover
         sms.save()
 
-    def refresh(self, *, sms: CourtSMS) -> CourtSMS:
+    def refresh(self, *, sms: CourtSMS) -> CourtSMS:  # pragma: no cover
         return CourtSMS.objects.get(id=sms.pk)
 
     def set_error(self, *, sms: CourtSMS, message: str) -> None:

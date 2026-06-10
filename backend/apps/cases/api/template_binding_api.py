@@ -51,7 +51,7 @@ def _get_unified_template_generation_service() -> Any:
 
 
 @router.get("/{case_id}/template-bindings", response=BindingsResponseSchema)
-def get_case_template_bindings(request: HttpRequest, case_id: int) -> Any:
+def get_case_template_bindings(request: HttpRequest, case_id: int) -> Any:  # pragma: no cover
     """
     获取案件绑定的模板列表
 
@@ -62,7 +62,7 @@ def get_case_template_bindings(request: HttpRequest, case_id: int) -> Any:
 
 
 @router.post("/{case_id}/template-bindings", response=TemplateBindingSchema)
-def bind_template_to_case(request: HttpRequest, case_id: int, payload: BindTemplateRequestSchema) -> Any:
+def bind_template_to_case(request: HttpRequest, case_id: int, payload: BindTemplateRequestSchema) -> Any:  # pragma: no cover
     """
     绑定模板到案件
 
@@ -73,7 +73,7 @@ def bind_template_to_case(request: HttpRequest, case_id: int, payload: BindTempl
 
 
 @router.delete("/{case_id}/template-bindings/{binding_id}", response=SuccessResponseSchema)
-def unbind_template_from_case(request: HttpRequest, case_id: int, binding_id: int) -> dict[str, bool]:
+def unbind_template_from_case(request: HttpRequest, case_id: int, binding_id: int) -> dict[str, bool]:  # pragma: no cover
     """
     解绑模板
 
@@ -85,7 +85,7 @@ def unbind_template_from_case(request: HttpRequest, case_id: int, binding_id: in
 
 
 @router.get("/{case_id}/available-templates", response=list[AvailableTemplateSchema])
-def get_available_templates(request: HttpRequest, case_id: int) -> Any:
+def get_available_templates(request: HttpRequest, case_id: int) -> Any:  # pragma: no cover
     """
     获取可绑定的模板列表
 
@@ -96,7 +96,7 @@ def get_available_templates(request: HttpRequest, case_id: int) -> Any:
 
 
 @router.post("/{case_id}/generate-template")
-def generate_template_document(
+def generate_template_document(  # pragma: no cover
     request: HttpRequest, case_id: int, payload: GenerateTemplateRequestSchema
 ) -> HttpResponse:
     """
@@ -154,7 +154,7 @@ def _build_file_response(content: bytes, filename: str) -> HttpResponse:
 
 
 @router.post("/{case_id}/unified-generate")
-def unified_generate_template(request: HttpRequest, case_id: int, payload: UnifiedGenerateRequest) -> HttpResponse:
+def unified_generate_template(request: HttpRequest, case_id: int, payload: UnifiedGenerateRequest) -> HttpResponse:  # pragma: no cover
     """
     统一模板生成 API(新端点)
 

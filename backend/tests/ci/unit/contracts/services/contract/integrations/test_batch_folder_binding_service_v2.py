@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import Any
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -36,19 +36,12 @@ def _make_contract(*, contract_id: int = 1, name: str = "合同A", case_type: st
     c.law_firm_oa_case_number = oa_case_number
     for k, v in extra.items():
         setattr(c, k, v)
-    # Mock cases queryset for prefetch
     c.cases.all.return_value = []
     return c
 
 
-def _make_dir_mock(*, name: str = "folder", path: str = "/root/folder") -> MagicMock:
-    d = MagicMock()
-    d.name = name
-    d.as_posix.return_value = path
-    d.resolve.return_value = d
-    d.parent = MagicMock()
-    d.parent.as_posix.return_value = "/root"
-    return d
+def _make_candidate(*, name: str = "folder", path: str = "/root/folder") -> dict[str, str]:
+    return {"name": name, "path": path}
 
 
 # ---------------------------------------------------------------------------
@@ -206,7 +199,7 @@ class TestScoreCandidate:
         svc = _make_service()
         targets = [("12345", "合同编号", 1.0)]
         result = svc._score_candidate(candidate_name="12345", targets=targets)
-        assert result["score"] >= 0.3  # number_bonus = 0.3
+        assert result["score"] >= 0.3
 
 
 # ---------------------------------------------------------------------------
@@ -225,7 +218,7 @@ class TestRecommendFolder:
 
     def test_returns_recommendation_with_match(self):
         svc = _make_service()
-        candidates = [_make_dir_mock(name="合同A", path="/root/合同A")]
+        candidates = [_make_candidate(name="合同A", path="/root/合同A")]
         result = svc._recommend_folder(
             contract_name="合同A", contract_filing_number="", oa_case_number="",
             case_names=[], case_filing_numbers=[], candidates=candidates
@@ -235,12 +228,12 @@ class TestRecommendFolder:
 
     def test_non_contract_dir_penalized(self):
         svc = _make_service()
-        candidates = [_make_dir_mock(name="未成交", path="/root/未成交")]
+        candidates = [_make_candidate(name="未成交", path="/root/未成交")]
         result = svc._recommend_folder(
             contract_name="未成交", contract_filing_number="", oa_case_number="",
             case_names=[], case_filing_numbers=[], candidates=candidates
         )
-        assert result["confidence"] <= 0.75  # penalized
+        assert result["confidence"] <= 0.75
 
 
 # ---------------------------------------------------------------------------
@@ -304,25 +297,49 @@ class TestValidateSelectedFolder:
             with pytest.raises(ValidationException, match="一级子文件夹"):
                 svc._validate_selected_folder(root_path="/root", selected_folder_path="/root/a/b")
 
-
-# ---------------------------------------------------------------------------
-# _list_first_level_dirs
-# ---------------------------------------------------------------------------
-
-class TestListFirstLevelDirs:
-    def test_returns_sorted_dirs(self):
+    def test_cloud_valid_first_level(self):
         svc = _make_service()
-        root = MagicMock()
-        # Use plain objects with name attribute for sort compatibility
-        d1 = type("Dir", (), {"name": "b_folder", "is_dir": lambda s: True, "resolve": lambda s: s})()
-        d2 = type("Dir", (), {"name": "a_folder", "is_dir": lambda s: True, "resolve": lambda s: s})()
-        d3 = type("Dir", (), {"name": ".hidden", "is_dir": lambda s: True, "resolve": lambda s: s})()
-        d4 = type("Dir", (), {"name": "file.txt", "is_dir": lambda s: False, "resolve": lambda s: s})()
-        root.iterdir.return_value = [d1, d2, d3, d4]
-        result = svc._list_first_level_dirs(root)
-        assert len(result) == 2
-        assert result[0].name == "a_folder"
-        assert result[1].name == "b_folder"
+        result = svc._validate_selected_folder(
+            root_path="/contracts", selected_folder_path="/contracts/case1", storage_type="s3"
+        )
+        assert result == "/contracts/case1"
+
+    def test_cloud_rejects_not_child(self):
+        svc = _make_service()
+        from apps.core.exceptions import ValidationException
+        with pytest.raises(ValidationException, match="不在根目录"):
+            svc._validate_selected_folder(
+                root_path="/contracts", selected_folder_path="/other/path", storage_type="s3"
+            )
+
+    def test_cloud_rejects_deep_nesting(self):
+        svc = _make_service()
+        from apps.core.exceptions import ValidationException
+        with pytest.raises(ValidationException, match="一级子文件夹"):
+            svc._validate_selected_folder(
+                root_path="/contracts", selected_folder_path="/contracts/a/b", storage_type="webdav"
+            )
+
+
+# ---------------------------------------------------------------------------
+# _list_local_first_level_dirs
+# ---------------------------------------------------------------------------
+
+class TestListLocalFirstLevelDirs:
+    def test_returns_sorted_dicts(self):
+        svc = _make_service()
+        d1 = type("Dir", (), {"name": "b_folder", "is_dir": lambda s: True, "resolve": lambda s: s, "as_posix": lambda s: "/root/b_folder"})()
+        d2 = type("Dir", (), {"name": "a_folder", "is_dir": lambda s: True, "resolve": lambda s: s, "as_posix": lambda s: "/root/a_folder"})()
+        d3 = type("Dir", (), {"name": ".hidden", "is_dir": lambda s: True, "resolve": lambda s: s, "as_posix": lambda s: ""})()
+        d4 = type("Dir", (), {"name": "file.txt", "is_dir": lambda s: False, "resolve": lambda s: s, "as_posix": lambda s: ""})()
+        with patch.object(svc, "_ensure_accessible_directory") as mock_ensure:
+            mock_root = MagicMock()
+            mock_root.iterdir.return_value = [d1, d2, d3, d4]
+            mock_ensure.return_value = mock_root
+            result = svc._list_local_first_level_dirs("/root")
+            assert len(result) == 2
+            assert result[0]["name"] == "a_folder"
+            assert result[1]["name"] == "b_folder"
 
 
 # ---------------------------------------------------------------------------
@@ -333,8 +350,6 @@ class TestListUnboundCaseTypeCards:
     def test_returns_cards(self):
         svc = _make_service()
         data = [{"case_type": "litigation", "unbound_count": 5}]
-        # Build chain where each step returns self for fluent chaining
-        # Use a generator function so each __iter__ call returns a fresh iterator
         def _iter_factory():
             return iter(list(data))
         chain = MagicMock()
@@ -352,6 +367,7 @@ class TestListUnboundCaseTypeCards:
                 assert len(result) == 1
                 assert result[0]["case_type"] == "litigation"
                 assert result[0]["unbound_count"] == 5
+                assert result[0]["storage_type"] == "local"
 
 
 # ---------------------------------------------------------------------------
@@ -377,9 +393,6 @@ class TestPreview:
 
 class TestSave:
     def test_saves_root_presets(self):
-        from apps.contracts.services.contract.integrations.batch_folder_binding_service import (
-            ContractBatchFolderBindingService,
-        )
         svc = _make_service()
         with patch("apps.contracts.services.contract.integrations.batch_folder_binding_service.Contract") as MockContract:
             MockContract.objects.filter.return_value.only.return_value = []
@@ -393,9 +406,6 @@ class TestSave:
                     assert result["bound_count"] == 0
 
     def test_skips_when_no_apply(self):
-        from apps.contracts.services.contract.integrations.batch_folder_binding_service import (
-            ContractBatchFolderBindingService,
-        )
         svc = _make_service()
         with patch("apps.contracts.services.contract.integrations.batch_folder_binding_service.Contract") as MockContract:
             MockContract.objects.filter.return_value.only.return_value = []
@@ -414,13 +424,19 @@ class TestSave:
 # ---------------------------------------------------------------------------
 
 class TestOpenFolder:
-    def test_calls_subprocess_runner(self):
+    def test_calls_subprocess_runner(self, tmp_path):
         svc = _make_service()
         with patch("apps.contracts.services.contract.integrations.batch_folder_binding_service.SubprocessRunner") as MockRunner, \
              patch.object(svc, "_validate_selected_folder") as mock_validate:
-            mock_validate.return_value = MagicMock(as_posix=MagicMock(return_value="/target"))
+            mock_validate.return_value = tmp_path / "target"
             svc.open_folder(root_path="/root", folder_path="/root/sub")
             MockRunner.return_value.run.assert_called_once()
+
+    def test_cloud_skips_open(self):
+        svc = _make_service()
+        with patch("apps.contracts.services.contract.integrations.batch_folder_binding_service.SubprocessRunner") as MockRunner:
+            svc.open_folder(root_path="/root", folder_path="/root/sub", storage_type="webdav")
+            MockRunner.assert_not_called()
 
 
 # ---------------------------------------------------------------------------
@@ -460,12 +476,9 @@ class TestPreviewSingleCaseType:
         contract = _make_contract(name="合同A")
         with patch("apps.contracts.services.contract.integrations.batch_folder_binding_service.Contract") as MockContract:
             MockContract.objects.filter.return_value.prefetch_related.return_value.order_by.return_value = [contract]
-            with patch.object(svc, "_ensure_accessible_directory") as mock_ensure:
-                mock_root = MagicMock()
-                mock_ensure.return_value = mock_root
-                with patch.object(svc, "_list_first_level_dirs") as mock_list:
-                    mock_list.return_value = []
-                    result = svc._preview_single_case_type(case_type="litigation", root_path="/root")
-                    assert result["contract_count"] == 1
-                    assert len(result["rows"]) == 1
-                    assert result["rows"][0]["contract_id"] == 1
+            with patch.object(svc, "_list_first_level_dirs_for_storage") as mock_list:
+                mock_list.return_value = []
+                result = svc._preview_single_case_type(case_type="litigation", root_path="/root")
+                assert result["contract_count"] == 1
+                assert len(result["rows"]) == 1
+                assert result["rows"][0]["contract_id"] == 1

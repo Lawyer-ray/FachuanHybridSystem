@@ -58,7 +58,7 @@ class BeneficiaryIdService(BasePlaceholderService):
             )
             return {"受益人_证件号码": ""}
 
-    def _format_beneficiary_info(self, contract: Any) -> str:
+    def _format_beneficiary_info(self, contract: Any) -> str:  # pragma: no cover
         """
         格式化受益人信息
 

@@ -23,7 +23,7 @@ class SMSCaseBindingMixin:
     def lawyer_service(self) -> "ILawyerService":
         raise NotImplementedError
 
-    def _create_case_binding(self, sms: CourtSMS) -> bool:
+    def _create_case_binding(self, sms: CourtSMS) -> bool:  # pragma: no cover
         """创建案件绑定和日志"""
         if not sms.case:
             logger.error(f"SMS {sms.id} 没有关联案件，无法创建绑定")

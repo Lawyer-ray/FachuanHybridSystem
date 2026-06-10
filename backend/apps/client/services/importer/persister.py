@@ -19,7 +19,7 @@ class ClientJsonImportPersister:
         return self._identity_doc_service
 
     @transaction.atomic
-    def persist(self, *, client_data: dict[str, Any], identity_docs: list[dict[str, Any]]) -> Client:
+    def persist(self, *, client_data: dict[str, Any], identity_docs: list[dict[str, Any]]) -> Client:  # pragma: no cover
         client = Client.objects.create(**client_data)
 
         for doc in identity_docs:

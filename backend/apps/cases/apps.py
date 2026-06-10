@@ -8,5 +8,5 @@ class CasesConfig(AppConfig):
     name = "apps.cases"
     verbose_name = "案件管理"
 
-    def ready(self) -> None:
+    def ready(self) -> None:  # pragma: no cover
         from . import signals

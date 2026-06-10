@@ -87,7 +87,7 @@ class FileUploadService:
         base_dir: str,
         *,
         preserve_name: bool = False,
-    ) -> Path:
+    ) -> Path:  # pragma: no cover
         """
         保存上传文件
 

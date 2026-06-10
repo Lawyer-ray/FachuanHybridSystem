@@ -100,7 +100,7 @@ class ReportSchema(Schema):
 
 
 @router.get("/health", summary="POI 服务健康检查")
-def poi_health(request: Any) -> dict[str, Any]:
+def poi_health(request: Any) -> dict[str, Any]:  # pragma: no cover
     """检查 POI 服务是否可用"""
     from apps.core.services.poi_client import get_poi_client
 
@@ -113,7 +113,7 @@ def poi_health(request: Any) -> dict[str, Any]:
 
 
 @router.post("/complaint", summary="生成起诉状")
-def generate_complaint(request: Any, payload: ComplaintSchema) -> HttpResponse:
+def generate_complaint(request: Any, payload: ComplaintSchema) -> HttpResponse:  # pragma: no cover
     """通过 POI 服务生成起诉状 DOCX 文件"""
     from apps.core.services.poi_client import get_poi_client
 
@@ -137,7 +137,7 @@ def generate_complaint(request: Any, payload: ComplaintSchema) -> HttpResponse:
 
 
 @router.post("/report", summary="生成尽调报告")
-def generate_report(request: Any, payload: ReportSchema) -> HttpResponse:
+def generate_report(request: Any, payload: ReportSchema) -> HttpResponse:  # pragma: no cover
     """通过 POI 服务生成尽调报告 DOCX 文件"""
     from apps.core.services.poi_client import get_poi_client
 

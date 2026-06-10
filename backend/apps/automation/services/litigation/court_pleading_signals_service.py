@@ -40,7 +40,7 @@ class CourtPleadingSignalsService:
         # PromptVersionService 已移除，始终使用默认 prompt
         return None
 
-    def _classify_with_llm(self, system_prompt: str, doc_names: list[str]) -> Any:
+    def _classify_with_llm(self, system_prompt: str, doc_names: list[str]) -> Any:  # pragma: no cover
         from apps.automation.services.wiring import get_llm_service
 
         llm_service = get_llm_service()

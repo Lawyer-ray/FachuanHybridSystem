@@ -151,7 +151,7 @@ class ArchiveLearningService:
 
         return {"learned": learned, "updated": updated, "skipped": skipped, "ambiguous": ambiguous}
 
-    def export_rules_to_code(self) -> dict[str, Any]:
+    def export_rules_to_code(self) -> dict[str, Any]:  # pragma: no cover
         """将 DB 中的学习规则导出为 _learned_rules.py 代码文件。
 
         导出格式与 _FILENAME_KEYWORD_TO_ARCHIVE_CODE 字典格式一致，

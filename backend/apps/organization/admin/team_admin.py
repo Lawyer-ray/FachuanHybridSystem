@@ -6,7 +6,7 @@ from apps.organization.models import Team
 
 
 @admin.register(Team)
-class TeamAdmin(admin.ModelAdmin):
+class TeamAdmin(admin.ModelAdmin):  # pragma: no cover
     list_display = ("id", "name", "team_type", "law_firm")
     list_filter = ("team_type", "law_firm")
     search_fields = ("name",)

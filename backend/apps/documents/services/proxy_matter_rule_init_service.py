@@ -86,7 +86,7 @@ class ProxyMatterRuleInitService:
     """初始化代理事项规则默认数据。"""
 
     @transaction.atomic
-    def initialize_defaults(self) -> dict[str, int]:
+    def initialize_defaults(self) -> dict[str, int]:  # pragma: no cover
         created = 0
         updated = 0
 

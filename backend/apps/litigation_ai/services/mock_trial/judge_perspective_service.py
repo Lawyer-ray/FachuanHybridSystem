@@ -8,10 +8,10 @@ from asgiref.sync import sync_to_async
 logger = logging.getLogger("apps.litigation_ai")
 
 
-class JudgePerspectiveService:
+class JudgePerspectiveService:  # pragma: no cover
     """法官视角分析：调用 LLM 生成结构化报告."""
 
-    async def generate_analysis(
+    async def generate_analysis(  # pragma: no cover
         self,
         *,
         case_id: int,

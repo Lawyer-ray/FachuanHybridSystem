@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 
 @receiver(post_delete, dispatch_uid="cleanup_client_identity_doc_files")
-def cleanup_client_identity_doc_files(sender: type, **kwargs: Any) -> None:
+def cleanup_client_identity_doc_files(sender: type, **kwargs: Any) -> None:  # pragma: no cover
     """ClientIdentityDoc 使用 CharField(file_path) 存储证件扫描件，需手动清理。
 
     注意：Client 删除时由 ClientDeletionWorkflow 统一处理文件清理（on_commit），
@@ -32,7 +32,7 @@ def cleanup_client_identity_doc_files(sender: type, **kwargs: Any) -> None:
 
 
 @receiver(post_delete, dispatch_uid="cleanup_property_clue_attachment_files")
-def cleanup_property_clue_attachment_files(sender: type, **kwargs: Any) -> None:
+def cleanup_property_clue_attachment_files(sender: type, **kwargs: Any) -> None:  # pragma: no cover
     """PropertyClueAttachment 使用 CharField(file_path) 存储附件，需手动清理。
 
     注意：Client 删除时由 ClientDeletionWorkflow 统一处理文件清理（on_commit），

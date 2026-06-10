@@ -64,7 +64,7 @@ class LegalResearchTaskEventService:
         if normalized_task_id is None:
             return
 
-        def _operation() -> None:
+        def _operation() -> None:  # pragma: no cover
             LegalResearchTaskEvent.objects.create(
                 task_id=normalized_task_id,
                 stage=cls._normalize_stage(stage),

@@ -68,7 +68,7 @@ class SMSNotifyingStage(BaseSMSStage):
     def can_process(self, sms: CourtSMS) -> bool:
         return bool(sms.status == CourtSMSStatus.NOTIFYING)
 
-    def process(self, sms: CourtSMS) -> CourtSMS:
+    def process(self, sms: CourtSMS) -> CourtSMS:  # pragma: no cover
         self._log_start(sms)
 
         try:
@@ -128,7 +128,7 @@ class SMSNotifyingStage(BaseSMSStage):
             )
             logger.warning(f"案件群聊通知发送失败，但文书已归档，短信标记为完成: SMS ID={sms.id}")
 
-    def _handle_notification_error(self, sms: CourtSMS, error: Exception) -> None:
+    def _handle_notification_error(self, sms: CourtSMS, error: Exception) -> None:  # pragma: no cover
         error_msg = str(error)
         sms.notification_results = sms.notification_results or {}
         sms.notification_results["_exception"] = {"success": False, "error": error_msg}

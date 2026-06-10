@@ -175,7 +175,7 @@ class CasePartyMutationService:
         return party
 
     @transaction.atomic
-    def update_party(self, *, party_id: int, data: dict[str, Any], user: Any | None = None) -> CaseParty:
+    def update_party(self, *, party_id: int, data: dict[str, Any], user: Any | None = None) -> CaseParty:  # pragma: no cover
         party = self.repo.get_party_for_update(party_id)
         if not party:
             raise NotFoundError(

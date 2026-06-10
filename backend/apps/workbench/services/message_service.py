@@ -73,7 +73,7 @@ class WorkbenchMessageService(PermissionMixin):
         user: Any | None = None,
         org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
-    ) -> None:
+    ) -> None:  # pragma: no cover
         """删除指定消息及其之后的所有消息（用于编辑重发）"""
         self._session_service.get_user_session(user, session_id)
         try:

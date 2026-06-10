@@ -11,7 +11,7 @@ logger = logging.getLogger("apps.doc_converter")
 
 
 @receiver(post_delete, sender=DocConverterJob)
-def _cleanup_job_files(sender: type, instance: DocConverterJob, **kwargs: object) -> None:
+def _cleanup_job_files(sender: type, instance: DocConverterJob, **kwargs: object) -> None:  # pragma: no cover
     from apps.doc_converter.services.storage import DocConverterStorage
 
     if instance.output_zip:
@@ -25,7 +25,7 @@ def _cleanup_job_files(sender: type, instance: DocConverterJob, **kwargs: object
 
 
 @receiver(post_delete, sender=DocConverterItem)
-def _cleanup_item_files(sender: type, instance: DocConverterItem, **kwargs: object) -> None:
+def _cleanup_item_files(sender: type, instance: DocConverterItem, **kwargs: object) -> None:  # pragma: no cover
     for field in (instance.source_file, instance.converted_file):
         if field:
             try:

@@ -11,7 +11,7 @@ from apps.legal_research.services.sources import CaseDetail
 logger = logging.getLogger(__name__)
 
 
-class ExecutorSourceGatewayMixin:
+class ExecutorSourceGatewayMixin:  # pragma: no cover
     SEARCH_RETRY_ATTEMPTS: int
     DETAIL_RETRY_ATTEMPTS: int
     DOWNLOAD_RETRY_ATTEMPTS: int
@@ -21,7 +21,7 @@ class ExecutorSourceGatewayMixin:
     MAX_PAGE_WINDOW: int
 
     @classmethod
-    def _fetch_candidate_batch_with_retry(
+    def _fetch_candidate_batch_with_retry(  # pragma: no cover
         cls,
         *,
         source_client: Any,
@@ -70,7 +70,7 @@ class ExecutorSourceGatewayMixin:
         return []
 
     @classmethod
-    def _fetch_case_detail_with_retry(
+    def _fetch_case_detail_with_retry(  # pragma: no cover
         cls,
         *,
         source_client: Any,
@@ -109,7 +109,7 @@ class ExecutorSourceGatewayMixin:
         return None
 
     @classmethod
-    def _download_pdf_with_retry(
+    def _download_pdf_with_retry(  # pragma: no cover
         cls,
         *,
         source_client: Any,
@@ -165,7 +165,7 @@ class ExecutorSourceGatewayMixin:
         return None
 
     @classmethod
-    def _sleep_for_retry(cls, *, attempt: int) -> None:
+    def _sleep_for_retry(cls, *, attempt: int) -> None:  # pragma: no cover
         if cls.RETRY_BACKOFF_SECONDS <= 0:
             return
         base = float(cls.RETRY_BACKOFF_SECONDS)
@@ -177,7 +177,7 @@ class ExecutorSourceGatewayMixin:
         time.sleep(delay + jitter)
 
     @classmethod
-    def _fetch_candidate_batch(
+    def _fetch_candidate_batch(  # pragma: no cover
         cls,
         *,
         source_client: Any,
@@ -229,6 +229,6 @@ class ExecutorSourceGatewayMixin:
         return window[offset : offset + batch_size]  # type: ignore[no-any-return]
 
     @classmethod
-    def _estimate_max_pages(cls, *, offset: int, batch_size: int) -> int:
+    def _estimate_max_pages(cls, *, offset: int, batch_size: int) -> int:  # pragma: no cover
         required = ((offset + batch_size - 1) // cls.PAGE_SIZE_HINT) + 1
         return max(10, min(cls.MAX_PAGE_WINDOW, required + 2))

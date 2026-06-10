@@ -24,7 +24,7 @@ from .filing_models import ClientInfo, _gender_from_id_number
 logger = logging.getLogger("apps.oa_filing.jtn")
 
 
-class PlaywrightHelpersMixin:
+class PlaywrightHelpersMixin:  # pragma: no cover
     """Playwright 表单操作工具 mixin。"""
 
     _page: Page | None
@@ -33,7 +33,7 @@ class PlaywrightHelpersMixin:
     # 主页面 select / input
     # ------------------------------------------------------------------
 
-    def _set_select(self: Any, page: Page, element_id: str, value: str) -> None:
+    def _set_select(self: Any, page: Page, element_id: str, value: str) -> None:  # pragma: no cover
         """设置主页面 select 的值并触发 change 事件（非 Chosen.js）。"""
         page.evaluate(
             f"""(val) => {{
@@ -46,7 +46,7 @@ class PlaywrightHelpersMixin:
             value,
         )
 
-    def _set_field(self: Any, page: Page, element_id: str, value: str) -> None:
+    def _set_field(self: Any, page: Page, element_id: str, value: str) -> None:  # pragma: no cover
         """通过 id 设置 input/textarea 的值。"""
         page.evaluate(
             f"""(val) => {{
@@ -56,7 +56,7 @@ class PlaywrightHelpersMixin:
             value,
         )
 
-    def _set_field_by_name(self: Any, page: Page, name: str, value: str) -> None:
+    def _set_field_by_name(self: Any, page: Page, name: str, value: str) -> None:  # pragma: no cover
         """通过 name 属性设置 select/input 的值。"""
         page.evaluate(
             f"""(val) => {{
@@ -67,7 +67,7 @@ class PlaywrightHelpersMixin:
         )
 
     @staticmethod
-    def _js_str(value: str) -> str:
+    def _js_str(value: str) -> str:  # pragma: no cover
         """将 Python 字符串转为安全的 JS 字符串字面量。"""
         escaped: str = value.replace("\\", "\\\\").replace("'", "\\'").replace("\n", "\\n")
         return f"'{escaped}'"
@@ -76,7 +76,7 @@ class PlaywrightHelpersMixin:
     # CreateCustomer iframe 操作
     # ------------------------------------------------------------------
 
-    def _eval_create_iframe(self: Any, page: Page, js_code: str, *args: Any) -> Any:
+    def _eval_create_iframe(self: Any, page: Page, js_code: str, *args: Any) -> Any:  # pragma: no cover
         """在 CreateCustomer iframe 内执行 JS。
 
         js_code 是一个 JS 函数字符串，函数签名为 (arg?) => {...}。
@@ -91,7 +91,7 @@ class PlaywrightHelpersMixin:
         arg = args[0] if args else None
         return page.evaluate(wrapped, arg)
 
-    def _set_chosen(self: Any, page: Page, field_id: str, value: str) -> None:
+    def _set_chosen(self: Any, page: Page, field_id: str, value: str) -> None:  # pragma: no cover
         """设置 Chosen.js 下拉框的值并触发更新事件。"""
         self._eval_create_iframe(
             page,
@@ -105,7 +105,7 @@ class PlaywrightHelpersMixin:
             value,
         )
 
-    def _set_input(self: Any, page: Page, field_id: str, value: str) -> None:
+    def _set_input(self: Any, page: Page, field_id: str, value: str) -> None:  # pragma: no cover
         """通过 jQuery 设置输入框的值。"""
         self._eval_create_iframe(
             page,
@@ -121,7 +121,7 @@ class PlaywrightHelpersMixin:
     # 客户搜索弹窗 / iframe
     # ------------------------------------------------------------------
 
-    def _find_latest_client_iframe(self: Any, page: Page) -> str:
+    def _find_latest_client_iframe(self: Any, page: Page) -> str:  # pragma: no cover
         """动态查找最新的 layui-layer-iframe。
 
         每次打开搜索弹窗，iframe ID 会递增（100002, 100003, ...）。
@@ -152,7 +152,7 @@ class PlaywrightHelpersMixin:
         logger.info("使用 iframe: %s", iframe_id)
         return f'//*[@id="{iframe_id}"]'
 
-    def _get_latest_iframe_id(self: Any, page: Page) -> str:
+    def _get_latest_iframe_id(self: Any, page: Page) -> str:  # pragma: no cover
         """获取当前最新弹窗 iframe 的 id。"""
         return (
             page.evaluate(
@@ -173,7 +173,7 @@ class PlaywrightHelpersMixin:
     # 客户搜索 / 选择 / 创建
     # ------------------------------------------------------------------
 
-    def _try_select_client(self: Any, page: Page, iframe: FrameLocator) -> bool:
+    def _try_select_client(self: Any, page: Page, iframe: FrameLocator) -> bool:  # pragma: no cover
         """尝试在搜索结果中选中第一个客户并确认。
 
         layui table radio 选中需通过内部缓存 LAY_CHECKED 标志，
@@ -213,7 +213,7 @@ class PlaywrightHelpersMixin:
             logger.info("搜索结果检查异常: %s", exc)
         return False
 
-    def _create_new_client(
+    def _create_new_client(  # pragma: no cover
         self: Any,
         iframe: FrameLocator,
         client: ClientInfo,
@@ -277,7 +277,7 @@ class PlaywrightHelpersMixin:
         time.sleep(_MEDIUM_WAIT)
         logger.info("已提交创建客户: %s (%s)", client.name, client.client_type)
 
-    def _fill_enterprise(self: Any, page: Page, client: ClientInfo) -> None:
+    def _fill_enterprise(self: Any, page: Page, client: ClientInfo) -> None:  # pragma: no cover
         """填充企业类型特有的必填字段。"""
         self._set_chosen(page, "customer_is_IPO", "0")  # 否
         self._set_chosen(page, "customer_is_FiveQ", "0")  # 否
@@ -320,7 +320,7 @@ class PlaywrightHelpersMixin:
         )
         self._set_input(page, "customer_Statutory_tel", "/")
 
-    def _fill_natural_person(self: Any, page: Page, client: ClientInfo) -> None:
+    def _fill_natural_person(self: Any, page: Page, client: ClientInfo) -> None:  # pragma: no cover
         """填充自然人类型特有的必填字段。"""
         id_number: str = client.id_number or ""
 

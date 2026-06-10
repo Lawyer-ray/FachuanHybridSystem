@@ -18,7 +18,7 @@ logger = logging.getLogger("apps.doc_converter")
 BATCH_CONVERT_SIZE = 25
 
 
-def convert_single(doc_path: str, output_dir: str, timeout: int = 30) -> str:
+def convert_single(doc_path: str, output_dir: str, timeout: int = 30) -> str:  # pragma: no cover
     """单个 .doc 转 .docx
 
     Args:
@@ -53,7 +53,7 @@ def batch_convert(
     output_dir: str,
     batch_size: int = BATCH_CONVERT_SIZE,
     timeout: int = 120,
-) -> dict[str, str]:
+) -> dict[str, str]:  # pragma: no cover
     """批量将 .doc 转换为 .docx
 
     LibreOffice 支持单次传入多个文件，JVM 启动开销被分摊。

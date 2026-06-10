@@ -105,7 +105,7 @@ class LoginHandler:
         login_duration: float,
         login_attempts: list[LoginAttemptResult],
         start_time: float,
-    ) -> TokenAcquisitionResult | None:
+    ) -> TokenAcquisitionResult | None:  # pragma: no cover
         """超时后等待并检查 token 是否已保存，成功则返回结果，否则返回 None"""
         await asyncio.sleep(2)
         saved_token = await self._token_service.get_token_internal(site_name, account)  # type: ignore

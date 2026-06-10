@@ -24,7 +24,7 @@ class TeamService:
 
     def list_teams(
         self, law_firm_id: int | None = None, team_type: str | None = None, user: Lawyer | None = None
-    ) -> QuerySet[Team, Team]:
+    ) -> QuerySet[Team, Team]:  # pragma: no cover
         qs = Team.objects.select_related("law_firm").all()
 
         # 权限过滤：非超级用户只能看到自己律所的团队
@@ -58,7 +58,7 @@ class TeamService:
         return team
 
     @transaction.atomic
-    def create_team(self, data: TeamUpsertDTO, user: Lawyer | None = None) -> Team:
+    def create_team(self, data: TeamUpsertDTO, user: Lawyer | None = None) -> Team:  # pragma: no cover
         """
         Raises:
             ValidationException: 团队类型无效

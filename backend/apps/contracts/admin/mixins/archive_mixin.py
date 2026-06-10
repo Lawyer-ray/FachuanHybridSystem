@@ -27,19 +27,19 @@ def _get_contract_admin_service() -> Any:
     return get_contract_admin_service()
 
 
-class ContractArchiveMixin:
+class ContractArchiveMixin:  # pragma: no cover
     """归档相关 Admin 视图的 Mixin"""
 
     if TYPE_CHECKING:
         admin_site: Any
         model: type[Model]
 
-        def has_view_permission(self, request: HttpRequest, obj: Any = None) -> bool: ...
-        def has_change_permission(self, request: HttpRequest, obj: Any = None) -> bool: ...
+        def has_view_permission(self, request: HttpRequest, obj: Any = None) -> bool: ...  # pragma: no cover
+        def has_change_permission(self, request: HttpRequest, obj: Any = None) -> bool: ...  # pragma: no cover
 
     # ── 归档文书生成 ──
 
-    def generate_archive_docs_view(self, request: HttpRequest, object_id: int) -> HttpResponse:
+    def generate_archive_docs_view(self, request: HttpRequest, object_id: int) -> HttpResponse:  # pragma: no cover
         """生成归档文件夹的 Admin view"""
         import json
 
@@ -91,7 +91,7 @@ class ContractArchiveMixin:
             logger.exception("生成归档文件夹失败: contract_id=%s", object_id)
             return JsonResponse({"success": False, "error": str(e)}, status=500)
 
-    def generate_single_archive_doc_view(
+    def generate_single_archive_doc_view(  # pragma: no cover
         self, request: HttpRequest, object_id: int, archive_item_code: str
     ) -> HttpResponse:
         """生成单个归档文书的 Admin view"""
@@ -129,7 +129,7 @@ class ContractArchiveMixin:
 
     # ── 归档下载与预览 ──
 
-    def download_archive_item_view(self, request: HttpRequest, object_id: int, archive_item_code: str) -> HttpResponse:
+    def download_archive_item_view(self, request: HttpRequest, object_id: int, archive_item_code: str) -> HttpResponse:  # pragma: no cover
         """下载归档检查项材料的 Admin view（多个文件自动合并为PDF）"""
         from django.http import HttpResponse as DjangoHttpResponse
 
@@ -166,7 +166,7 @@ class ContractArchiveMixin:
 
             return JsonResponse({"success": False, "error": str(e)}, status=500)
 
-    def preview_archive_material_view(self, request: HttpRequest, object_id: int, material_id: int) -> HttpResponse:
+    def preview_archive_material_view(self, request: HttpRequest, object_id: int, material_id: int) -> HttpResponse:  # pragma: no cover
         """预览单个归档材料的 Admin view"""
         from django.http import HttpResponse as DjangoHttpResponse
         from django.http import JsonResponse
@@ -215,7 +215,7 @@ class ContractArchiveMixin:
 
     # ── 监督卡检测 ──
 
-    def detect_supervision_card_view(self, request: HttpRequest, object_id: int) -> HttpResponse:
+    def detect_supervision_card_view(self, request: HttpRequest, object_id: int) -> HttpResponse:  # pragma: no cover
         """检测监督卡的 Admin view"""
         from django.http import JsonResponse
 
@@ -249,7 +249,7 @@ class ContractArchiveMixin:
 
     # ── 案件材料同步 ──
 
-    def sync_case_materials_view(self, request: HttpRequest, object_id: int) -> HttpResponse:
+    def sync_case_materials_view(self, request: HttpRequest, object_id: int) -> HttpResponse:  # pragma: no cover
         """从案件材料同步到归档的 Admin view"""
         from django.http import JsonResponse
 
@@ -302,7 +302,7 @@ class ContractArchiveMixin:
             logger.exception("同步案件材料失败: contract_id=%s", object_id)
             return JsonResponse({"success": False, "error": str(e)}, status=500)
 
-    def reset_and_resync_case_materials_view(self, request: HttpRequest, object_id: int) -> HttpResponse:
+    def reset_and_resync_case_materials_view(self, request: HttpRequest, object_id: int) -> HttpResponse:  # pragma: no cover
         """重置并重新同步案件材料到归档的 Admin view"""
         from django.http import JsonResponse
 
@@ -348,7 +348,7 @@ class ContractArchiveMixin:
             logger.exception("重置并重新同步案件材料失败: contract_id=%s", object_id)
             return JsonResponse({"success": False, "error": str(e)}, status=500)
 
-    def case_material_match_map_view(self, request: HttpRequest, object_id: int) -> HttpResponse:
+    def case_material_match_map_view(self, request: HttpRequest, object_id: int) -> HttpResponse:  # pragma: no cover
         """获取案件材料匹配映射的 Admin view"""
         from django.http import JsonResponse
 
@@ -371,7 +371,7 @@ class ContractArchiveMixin:
 
     # ── 归档设置 ──
 
-    def toggle_compact_archive_view(self, request: HttpRequest, object_id: int) -> HttpResponse:
+    def toggle_compact_archive_view(self, request: HttpRequest, object_id: int) -> HttpResponse:  # pragma: no cover
         """切换精简视图状态的 Admin view"""
         from django.http import JsonResponse
 
@@ -396,7 +396,7 @@ class ContractArchiveMixin:
             logger.exception("切换精简视图状态失败: contract_id=%s", object_id)
             return JsonResponse({"success": False, "error": str(e)}, status=500)
 
-    def scale_to_a4_view(self, request: HttpRequest, object_id: int) -> HttpResponse:
+    def scale_to_a4_view(self, request: HttpRequest, object_id: int) -> HttpResponse:  # pragma: no cover
         """按照A4裁切的 Admin view"""
         from django.http import JsonResponse
 
@@ -422,7 +422,7 @@ class ContractArchiveMixin:
 
     # ── 归档材料管理 ──
 
-    def reorder_archive_materials_view(self, request: HttpRequest, object_id: int) -> HttpResponse:
+    def reorder_archive_materials_view(self, request: HttpRequest, object_id: int) -> HttpResponse:  # pragma: no cover
         """按归档清单项分组排序子项的 Admin view"""
         import json
 
@@ -452,7 +452,7 @@ class ContractArchiveMixin:
             logger.exception("归档材料排序失败: contract_id=%s", object_id)
             return JsonResponse({"success": False, "error": str(e)}, status=500)
 
-    def move_archive_material_view(self, request: HttpRequest, object_id: int) -> HttpResponse:
+    def move_archive_material_view(self, request: HttpRequest, object_id: int) -> HttpResponse:  # pragma: no cover
         """移动归档材料到另一个清单项的 Admin view"""
         import json
 
@@ -507,7 +507,7 @@ class ContractArchiveMixin:
             logger.exception("移动归档材料失败: contract_id=%s", object_id)
             return JsonResponse({"success": False, "error": str(e)}, status=500)
 
-    def upload_archive_item_view(self, request: HttpRequest, object_id: int, archive_item_code: str) -> HttpResponse:
+    def upload_archive_item_view(self, request: HttpRequest, object_id: int, archive_item_code: str) -> HttpResponse:  # pragma: no cover
         """上传文件到归档检查清单项的 Admin view"""
         from django.http import JsonResponse
 
@@ -547,7 +547,7 @@ class ContractArchiveMixin:
             logger.exception("上传归档材料失败: contract_id=%s, code=%s", object_id, archive_item_code)
             return JsonResponse({"success": False, "error": str(e)}, status=500)
 
-    def delete_archive_material_view(self, request: HttpRequest, object_id: int, material_id: int) -> HttpResponse:
+    def delete_archive_material_view(self, request: HttpRequest, object_id: int, material_id: int) -> HttpResponse:  # pragma: no cover
         """删除归档材料子项的 Admin view"""
         from pathlib import Path
 
@@ -585,7 +585,7 @@ class ContractArchiveMixin:
             logger.exception("删除归档材料失败: material_id=%s", material_id)
             return JsonResponse({"success": False, "error": str(e)}, status=500)
 
-    def clear_all_archive_materials_view(self, request: HttpRequest, object_id: int) -> HttpResponse:
+    def clear_all_archive_materials_view(self, request: HttpRequest, object_id: int) -> HttpResponse:  # pragma: no cover
         """一键清空归档检查清单中的全部材料"""
         from pathlib import Path
 

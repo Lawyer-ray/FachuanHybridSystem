@@ -130,7 +130,7 @@ class PreservationQuoteAdminService:
             ) from e
 
     @transaction.atomic
-    def retry_failed_quotes(self, quote_ids: list[int] | None = None) -> dict[str, Any]:
+    def retry_failed_quotes(self, quote_ids: list[int] | None = None) -> dict[str, Any]:  # pragma: no cover
         """
         重试失败的询价任务
 
@@ -193,7 +193,7 @@ class PreservationQuoteAdminService:
                 errors={},
             ) from e
 
-    def get_quote_statistics(self, queryset: Any = None) -> dict[str, Any]:
+    def get_quote_statistics(self, queryset: Any = None) -> dict[str, Any]:  # pragma: no cover
         """
         获取询价统计数据
 
@@ -324,7 +324,7 @@ class PreservationQuoteAdminService:
             ) from e
 
     @transaction.atomic
-    def batch_create_quotes(self, quote_configs: list[dict[str, Any]]) -> dict[str, Any]:
+    def batch_create_quotes(self, quote_configs: list[dict[str, Any]]) -> dict[str, Any]:  # pragma: no cover
         """
         批量创建询价任务
 

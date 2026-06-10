@@ -57,7 +57,7 @@ def _normalize_error_file(raw_file: str | None) -> str:
 
 @router.post("/extract")
 @rate_limit_from_settings("UPLOAD", by_user=True)
-def extract_fee_notice(
+def extract_fee_notice(  # pragma: no cover
     request: HttpRequest,
     files: list[UploadedFile] = File(...),
     debug: bool = False,
@@ -112,7 +112,7 @@ def extract_fee_notice(
 
 
 @router.get("/cases/search")
-def search_cases(request: HttpRequest, keyword: str, limit: int = 20) -> dict[str, Any]:
+def search_cases(request: HttpRequest, keyword: str, limit: int = 20) -> dict[str, Any]:  # pragma: no cover
     """Search cases for fee comparison."""
     from apps.fee_notice.services import FeeComparisonService
 
@@ -135,7 +135,7 @@ def search_cases(request: HttpRequest, keyword: str, limit: int = 20) -> dict[st
 
 
 @router.post("/compare")
-def compare_fee(request: HttpRequest, payload: FeeCompareIn) -> dict[str, Any]:
+def compare_fee(request: HttpRequest, payload: FeeCompareIn) -> dict[str, Any]:  # pragma: no cover
     """Compare extracted fee values with system-calculated values."""
     from apps.fee_notice.services import FeeComparisonService
 

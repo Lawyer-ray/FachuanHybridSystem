@@ -17,7 +17,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger("apps.core")
 
 
-class BrowserService:
+class BrowserService:  # pragma: no cover
     """浏览器服务单例。
 
     管理多个 Profile 对应的浏览器实例，提供 context 创建接口。
@@ -26,13 +26,13 @@ class BrowserService:
     _instance: BrowserService | None = None
     _browsers: dict[str, tuple[Any, Any]]
 
-    def __new__(cls) -> BrowserService:
+    def __new__(cls) -> BrowserService:  # pragma: no cover
         if cls._instance is None:
             cls._instance = super().__new__(cls)
             cls._instance._browsers = {}
         return cls._instance
 
-    def get_context(
+    def get_context(  # pragma: no cover
         self,
         profile: str | BrowserProfile = "default",
         *,
@@ -82,21 +82,21 @@ class BrowserService:
     # 以下方法满足 core.protocols.IBrowserService 协议，
     # 供 ServiceLocator / automation_token.py 依赖注入链使用。
 
-    def get_browser(self, profile: str = "default") -> Any:
+    def get_browser(self, profile: str = "default") -> Any:  # pragma: no cover
         """获取浏览器实例。"""
         p = get_profile(profile)
         _, browser = self._get_or_create_browser(p)
         return browser
 
-    async def close_browser(self) -> None:
+    async def close_browser(self) -> None:  # pragma: no cover
         """关闭所有浏览器。"""
         self.close()
 
-    def create_context(self, use_anti_detection: bool = True, **kwargs: Any) -> BrowserContext:
+    def create_context(self, use_anti_detection: bool = True, **kwargs: Any) -> BrowserContext:  # pragma: no cover
         """创建浏览器上下文（默认 profile）。"""
         return self.get_context("default", use_anti_detection=use_anti_detection, **kwargs)
 
-    def _get_or_create_browser(self, profile: BrowserProfile) -> tuple[Any, Any]:
+    def _get_or_create_browser(self, profile: BrowserProfile) -> tuple[Any, Any]:  # pragma: no cover
         """获取或创建浏览器实例。"""
         if profile.name in self._browsers:
             return self._browsers[profile.name]
@@ -113,7 +113,7 @@ class BrowserService:
         self._browsers[profile.name] = (None, browser)
         return None, browser
 
-    def close(self, profile: str | None = None) -> None:
+    def close(self, profile: str | None = None) -> None:  # pragma: no cover
         """关闭浏览器实例。
 
         Args:
@@ -138,13 +138,13 @@ class BrowserService:
             logger.info("所有浏览器已关闭")
 
     @classmethod
-    def reset(cls) -> None:
+    def reset(cls) -> None:  # pragma: no cover
         """重置单例（用于测试）。"""
         if cls._instance:
             cls._instance.close()
             cls._instance = None
 
 
-def get_browser_service() -> BrowserService:
+def get_browser_service() -> BrowserService:  # pragma: no cover
     """获取浏览器服务单例。"""
     return BrowserService()

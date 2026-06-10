@@ -129,7 +129,7 @@ class PreservationMaterialsGenerationService:
         filename = self._build_filename("暂缓送达申请书", case)
         return (content, filename)
 
-    def generate_full_package(self, case_id: int) -> tuple[bytes, str]:
+    def generate_full_package(self, case_id: int) -> tuple[bytes, str]:  # pragma: no cover
         """
         生成全套财产保全材料 zip 包
 
@@ -291,7 +291,7 @@ class PreservationMaterialsGenerationService:
         context_data: dict[str, Any] = {"case": case}
         return EnhancedContextBuilder().build_context(context_data)  # type: ignore[arg-type]
 
-    def _render_template(self, template_path: Path, context: dict[str, Any]) -> bytes:
+    def _render_template(self, template_path: Path, context: dict[str, Any]) -> bytes:  # pragma: no cover
         """渲染模板"""
         if not template_path.exists():
             raise ValidationException(

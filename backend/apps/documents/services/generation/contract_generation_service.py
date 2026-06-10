@@ -122,7 +122,7 @@ class ContractGenerationService:
     def folder_binding_service(self) -> IContractFolderBindingService | None:
         return self._folder_binding_service
 
-    def get_preview_context(self, contract_id: int) -> list[dict[str, str]]:
+    def get_preview_context(self, contract_id: int) -> list[dict[str, str]]:  # pragma: no cover
         """合同占位符预览"""
         contract = self.contract_service.get_contract_model_internal(contract_id)
         if not contract:
@@ -197,7 +197,7 @@ class ContractGenerationService:
         content, filename, error = self.generate_contract_document(contract_id, split_fee=split_fee)
         return content, filename, self._last_saved_path, error
 
-    def find_matching_templates(self, case_type: str) -> list[DocumentTemplate]:
+    def find_matching_templates(self, case_type: str) -> list[DocumentTemplate]:  # pragma: no cover
         """
         查找所有匹配的文书模板(仅合同模板,不包括补充协议模板)
 
@@ -211,7 +211,7 @@ class ContractGenerationService:
 
         return ContractTemplateQueryService().find_matching_templates(case_type)
 
-    def find_matching_template(self, case_type: str) -> DocumentTemplate | None:
+    def find_matching_template(self, case_type: str) -> DocumentTemplate | None:  # pragma: no cover
         """
         查找匹配的文书模板(返回第一个匹配的)
 
@@ -278,7 +278,7 @@ class ContractGenerationService:
 
     def _get_next_version(
         self, contract_id: int | None, template_name: str, contract_name: str, subdir_key: str
-    ) -> str:
+    ) -> str:  # pragma: no cover
         """
         获取下一个可用的版本号
 

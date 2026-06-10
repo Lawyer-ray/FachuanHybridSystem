@@ -9,7 +9,7 @@ from apps.legal_research.services.task.feedback_loop import LegalResearchFeedbac
 
 
 @admin.register(LegalResearchResult)
-class LegalResearchResultAdmin(admin.ModelAdmin):
+class LegalResearchResultAdmin(admin.ModelAdmin):  # pragma: no cover
     list_display: ClassVar[list[str]] = [
         "id",
         "task",
@@ -50,13 +50,13 @@ class LegalResearchResultAdmin(admin.ModelAdmin):
     ordering: ClassVar[list[str]] = ["-id"]
 
     @admin.display(description="PDF")
-    def has_pdf(self, obj: LegalResearchResult) -> bool:
+    def has_pdf(self, obj: LegalResearchResult) -> bool:  # pragma: no cover
         return bool(obj.pdf_file)
 
     has_pdf.boolean = True
 
     @admin.display(description="人工反馈")
-    def feedback_status(self, obj: LegalResearchResult) -> str:
+    def feedback_status(self, obj: LegalResearchResult) -> str:  # pragma: no cover
         value = str((obj.metadata or {}).get("human_feedback", "")).strip()
         if value == "relevant":
             return "真实命中"
@@ -65,7 +65,7 @@ class LegalResearchResultAdmin(admin.ModelAdmin):
         return "—"
 
     @admin.action(description="标记为真实命中（在线正反馈）")
-    def mark_as_relevant(self, request: Any, queryset: Any) -> None:
+    def mark_as_relevant(self, request: Any, queryset: Any) -> None:  # pragma: no cover
         service = LegalResearchFeedbackLoopService()
         operator = str(getattr(request.user, "id", "") or "")
         count = 0
@@ -75,7 +75,7 @@ class LegalResearchResultAdmin(admin.ModelAdmin):
         self.message_user(request, f"已标记 {count} 条为真实命中，并完成在线微调。")
 
     @admin.action(description="标记为误命中（在线负反馈）")
-    def mark_as_false_positive(self, request: Any, queryset: Any) -> None:
+    def mark_as_false_positive(self, request: Any, queryset: Any) -> None:  # pragma: no cover
         service = LegalResearchFeedbackLoopService()
         operator = str(getattr(request.user, "id", "") or "")
         count = 0

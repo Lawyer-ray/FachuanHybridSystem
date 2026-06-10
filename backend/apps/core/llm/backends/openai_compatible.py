@@ -223,10 +223,11 @@ class OpenAICompatibleBackend(SiliconFlowBackend):
             self._raise_mapped_error(error, request_timeout, base_url)
 
     def _build_sync_client(self, timeout_seconds: float | None = None) -> openai.OpenAI:
-        # Use httpx transport with SSL verification disabled to work around
-        # Python SSL handshake issues with some CDN/proxy configurations.
-        # NOTE: httpx.Client(verify=False) alone does NOT work; must use explicit transport.
-        transport = httpx.HTTPTransport(verify=False)
+        # SSL 验证可通过环境变量 LLM_SSL_VERIFY=false 关闭（仅用于特殊 CDN/代理环境）
+        import os
+
+        ssl_verify = os.environ.get("LLM_SSL_VERIFY", "true").lower() not in ("false", "0", "no")
+        transport = httpx.HTTPTransport(verify=ssl_verify)
         http_client = httpx.Client(transport=transport, timeout=timeout_seconds or self.timeout)
         return openai.OpenAI(
             api_key=self.api_key,
@@ -247,7 +248,10 @@ class OpenAICompatibleBackend(SiliconFlowBackend):
             else await LLMConfig.get_openai_compatible_base_url_async()
         )
         timeout_val = timeout_seconds or await LLMConfig.get_openai_compatible_timeout_async()
-        transport = httpx.AsyncHTTPTransport(verify=False)
+        import os
+
+        ssl_verify = os.environ.get("LLM_SSL_VERIFY", "true").lower() not in ("false", "0", "no")
+        transport = httpx.AsyncHTTPTransport(verify=ssl_verify)
         http_async_client = httpx.AsyncClient(transport=transport, timeout=timeout_val)
         return openai.AsyncOpenAI(
             api_key=api_key,

@@ -5,6 +5,8 @@ from __future__ import annotations
 import logging
 import os
 import tempfile
+import uuid
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -118,6 +120,16 @@ class AddressConfirmationMixin:
             items = []
         return items[0] if items else None
 
+    @staticmethod
+    def _sanitize(val: str | None) -> str | None:
+        """Return None for null-ish string values returned by the API."""
+        if val is None:
+            return None
+        s = str(val).strip()
+        if not s or s.lower() in ("null", "undefined", "none"):
+            return None
+        return s
+
     async def _fetch_signature_info(self: Any) -> tuple[str | None, str | None]:
         """获取用户级电子签名，返回 (下载URL, OSS路径)。"""
         data = await self._post(
@@ -131,18 +143,49 @@ class AddressConfirmationMixin:
         else:
             items = []
         if not items:
+            logger.info("dzqmList 返回空列表，用户未注册电子签名")
             return None, None
         item = items[0]
-        download_url = item.get("url") or item.get("qmPath") or item.get("path") or item.get("qmUrl")
-        oss_path = item.get("osspath") or item.get("qmPath") or item.get("path")
+        logger.info("dzqmList item keys=%s", list(item.keys()) if isinstance(item, dict) else type(item).__name__)
+        # 从多个可能的字段名中提取签名下载URL和OSS路径
+        # 优先使用专用下载字段，避免拿到 OSS 内部路径或元数据
+        download_url = (
+            self._sanitize(item.get("url"))
+            or self._sanitize(item.get("qmUrl"))
+            or self._sanitize(item.get("downUrl"))
+            or self._sanitize(item.get("downloadUrl"))
+            or self._sanitize(item.get("fileUrl"))
+            or self._sanitize(item.get("filePath"))
+        )
+        # OSS 路径用于 ssclfj/upload 的 qmPath 字段
+        oss_path = (
+            self._sanitize(item.get("qmPath"))
+            or self._sanitize(item.get("smqmPath"))
+            or self._sanitize(item.get("path"))
+            or self._sanitize(item.get("osspath"))
+        )
+        # 如果 download_url 仍未找到但有 oss_path，从 OSS 路径构造
+        if not download_url and oss_path:
+            if oss_path.startswith("http"):
+                download_url = oss_path
+            else:
+                download_url = f"{_OSS_BUCKET}/{oss_path.lstrip('/')}"
+        logger.info("签名信息: download_url=%s, oss_path=%s", download_url, oss_path)
         return download_url, oss_path
 
     async def _download_signature_image(self: Any, signature_path: str) -> str:
         """从 OSS 下载签名图片到临时文件。"""
+        if self._sanitize(signature_path) is None:
+            raise ValueError(f"签名路径无效: {signature_path!r}")
         if signature_path.startswith("http"):
             url = signature_path
         else:
             url = f"{_OSS_BUCKET}/{signature_path.lstrip('/')}"
+        # 防止 URL 中包含 /null 等无效路径段
+        from urllib.parse import urlparse
+        parsed = urlparse(url)
+        if "/null" in parsed.path or parsed.path.rstrip("/") == "":
+            raise ValueError(f"签名URL路径无效: {url}")
         async with httpx.AsyncClient(timeout=30.0) as client:
             r = await client.get(url)
             r.raise_for_status()
@@ -254,6 +297,38 @@ class AddressConfirmationMixin:
         slot_id_by_cllx = await self._extract_material_slot_ids(layyid)
         ssclid = slot_id_by_cllx.get(_CLLX)
 
+        # 构造 wjs 文件信息，ssclfj/upload 接口要求此字段非空
+        wj_id = uuid.uuid4().hex
+        now_str = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+        file_url = f"{oss_url.rstrip('/')}/{key}"
+        wj_entry: dict[str, Any] = {
+            "id": wj_id,
+            "wjbh": key,
+            "layyid": layyid,
+            "fyId": fyid,
+            "ymc": None,
+            "scsj": now_str,
+            "ssclid": ssclid or wj_id,
+            "path": file_url,
+            "cImageRelativePath": None,
+            "bccl": None,
+            "xh": 1,
+            "wjmc": f"{_CLMC}.pdf",
+            "url": file_url,
+            "name": f"{_CLMC}.pdf",
+            "extname": "pdf",
+            "ssryId": None,
+            "sfzxzz": None,
+            "sjly": None,
+            "qyzt": None,
+            "wjbhOld": None,
+            "detectStatus": None,
+            "detectResult": None,
+            "optimizeResult": None,
+            "wjbhBak": None,
+            "cllx": _CLLX,
+        }
+
         await self._post(
             "/yzw-zxfw-lafw/api/v3/layy/ssclfj/upload",
             {
@@ -263,7 +338,7 @@ class AddressConfirmationMixin:
                 "clmc": _CLMC,
                 "cllx": _CLLX,
                 "ssryId": ssryId,
-                "wjs": [],
+                "wjs": [wj_entry],
                 "ssclid": ssclid or "",
                 "ywlx": "layy",
                 "path": "layy",

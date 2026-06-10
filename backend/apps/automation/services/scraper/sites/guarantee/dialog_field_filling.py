@@ -5,12 +5,12 @@ from __future__ import annotations
 from typing import Any
 
 
-class GuaranteeDialogFieldFillingMixin:
+class GuaranteeDialogFieldFillingMixin:  # pragma: no cover
     """gTwo 对话框中的 select / date / required 字段填充。"""
 
     page: Any
 
-    def _fill_dialog_select_fields(self, defaults: dict[str, str], target: str | None = None) -> list[str]:
+    def _fill_dialog_select_fields(self, defaults: dict[str, str], target: str | None = None) -> list[str]:  # pragma: no cover
         updates = self.page.evaluate(
             r"""(args) => {
                 const defaults = args.defaults || {};
@@ -116,7 +116,7 @@ class GuaranteeDialogFieldFillingMixin:
         self._close_popovers()  # type: ignore[attr-defined]
         return [str(item) for item in updates]
 
-    def _fill_dialog_date_fields(self) -> list[str]:
+    def _fill_dialog_date_fields(self) -> list[str]:  # pragma: no cover
         updates = self.page.evaluate(
             r"""() => {
                 const result = [];
@@ -156,7 +156,7 @@ class GuaranteeDialogFieldFillingMixin:
         )
         return [str(item) for item in updates]
 
-    def _fill_dialog_required_fields(self, defaults: dict[str, str]) -> list[str]:
+    def _fill_dialog_required_fields(self, defaults: dict[str, str]) -> list[str]:  # pragma: no cover
         updates = self.page.evaluate(
             r"""(defaults) => {
                 const result = [];

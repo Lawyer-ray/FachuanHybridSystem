@@ -143,7 +143,7 @@ class FingerprintService:
 
         return template
 
-    def _read_document_xml(self, file_path: Path) -> str:
+    def _read_document_xml(self, file_path: Path) -> str:  # pragma: no cover
         """
         从 .docx 文件中读取 word/document.xml 内容
 

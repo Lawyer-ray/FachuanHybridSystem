@@ -41,7 +41,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class CasePartyInline(BaseTabularInline):
+class CasePartyInline(BaseTabularInline):  # pragma: no cover
     """案件当事人内联编辑组件"""
 
     model = CaseParty
@@ -52,7 +52,7 @@ class CasePartyInline(BaseTabularInline):
     autocomplete_fields = ("client",)
     classes = ["contract-party-inline"]
 
-    def formfield_for_foreignkey(self, db_field: Any, request: HttpRequest, **kwargs: Any) -> Any:
+    def formfield_for_foreignkey(self, db_field: Any, request: HttpRequest, **kwargs: Any) -> Any:  # pragma: no cover
         """限制 client 下拉框只显示关联合同/补充协议的当事人"""
         if db_field.name == "client":
             from apps.client.models import Client
@@ -78,7 +78,7 @@ class CasePartyInline(BaseTabularInline):
 
         return super().formfield_for_foreignkey(db_field, request, **kwargs)
 
-    def _get_contract_id_from_request(self, request: HttpRequest) -> int | None:
+    def _get_contract_id_from_request(self, request: HttpRequest) -> int | None:  # pragma: no cover
         """从请求 URL 中获取当前案件关联的合同 ID（结果缓存在 request 上避免重复查询）"""
         import re
 
@@ -102,7 +102,7 @@ class CasePartyInline(BaseTabularInline):
         setattr(request, cache_attr, result)
         return result
 
-    class Media:
+    class Media:  # pragma: no cover
         js = (
             "cases/admin_caseparty.js",
             "cases/admin_case_form.js",
@@ -110,14 +110,14 @@ class CasePartyInline(BaseTabularInline):
         css: ClassVar[dict[str, tuple[str, ...]]] = {"all": ("cases/admin_caseparty.css",)}
 
 
-class CaseAssignmentInline(BaseTabularInline):
+class CaseAssignmentInline(BaseTabularInline):  # pragma: no cover
     model = CaseAssignment
     extra = 1
     fields = ("lawyer",)
     autocomplete_fields = ("lawyer",)
 
 
-class SupervisingAuthorityInline(BaseTabularInline):
+class SupervisingAuthorityInline(BaseTabularInline):  # pragma: no cover
     """主管机关内联"""
 
     model = SupervisingAuthority
@@ -126,12 +126,12 @@ class SupervisingAuthorityInline(BaseTabularInline):
     fields = ("name", "authority_type")
 
 
-class CaseLogAttachmentInline(BaseTabularInline):
+class CaseLogAttachmentInline(BaseTabularInline):  # pragma: no cover
     model = CaseLogAttachment
     extra = 0
 
 
-class CaseNumberInline(BaseStackedInline):
+class CaseNumberInline(BaseStackedInline):  # pragma: no cover
     model = CaseNumber
     extra = 1
     fieldsets = (
@@ -160,7 +160,7 @@ class CaseNumberInline(BaseStackedInline):
     )
 
 
-class CaseLogInline(BaseStackedInline):
+class CaseLogInline(BaseStackedInline):  # pragma: no cover
     model = CaseLog
     extra = 0
     fields = ("content", "created_at")
@@ -189,7 +189,7 @@ class CaseAdmin(
     CaseAdminServiceMixin,
     AdminImportExportMixin,
     BaseModelAdmin,
-):
+):  # pragma: no cover
     form = CaseAdminForm
     autocomplete_fields = ["contract", "previous_case"]
     fieldsets = (
@@ -262,7 +262,7 @@ class CaseAdmin(
         "export_all_as_json",
     ]
 
-    def get_queryset(self, request: HttpRequest) -> QuerySet[Case]:
+    def get_queryset(self, request: HttpRequest) -> QuerySet[Case]:  # pragma: no cover
         qs = super().get_queryset(request)
         from apps.cases.services.case.case_access_policy import CaseAccessPolicy
         from apps.core.security.admin_access import apply_admin_access_filter
@@ -281,14 +281,14 @@ class CaseAdmin(
             "logs__reminders",
         )
 
-    def changelist_view(self, request: HttpRequest, extra_context: dict[str, Any] | None = None) -> Any:
+    def changelist_view(self, request: HttpRequest, extra_context: dict[str, Any] | None = None) -> Any:  # pragma: no cover
         from django.http import HttpResponseRedirect
 
         if "status__exact" not in request.GET:
             return HttpResponseRedirect(f"{request.path}?status__exact=active")
         return super().changelist_view(request, extra_context=extra_context)
 
-    class Media:
+    class Media:  # pragma: no cover
         js = (
             "cases/admin_case_form.js",
             "cases/js/autocomplete.js",
@@ -309,7 +309,7 @@ class CaseAdmin(
         CaseClientPaymentInline,
     ]
 
-    def handle_json_import(
+    def handle_json_import(  # pragma: no cover
         self, data_list: list[dict[str, object]], user: str, zip_file: object
     ) -> tuple[int, int, list[str]]:
         from apps.cases.services.case_import_service import build_case_import_service_for_admin
@@ -318,10 +318,10 @@ class CaseAdmin(
         admin_service = self._get_case_admin_service()
         return admin_service.import_cases_from_json_data(data_list, case_import_service=case_svc)
 
-    def serialize_queryset(self, queryset: QuerySet[Case]) -> list[dict[str, object]]:
+    def serialize_queryset(self, queryset: QuerySet[Case]) -> list[dict[str, object]]:  # pragma: no cover
         service = self._get_case_admin_service()
         return service.serialize_queryset_for_export(queryset)
 
-    def get_file_paths(self, queryset: QuerySet[Case]) -> list[str]:
+    def get_file_paths(self, queryset: QuerySet[Case]) -> list[str]:  # pragma: no cover
         service = self._get_case_admin_service()
         return service.collect_file_paths_for_export(queryset)

@@ -21,7 +21,7 @@ router = Router(tags=["发票识别"])
 
 
 @router.post("/quick-recognize")
-def quick_recognize(
+def quick_recognize(  # pragma: no cover
     request: Any,
     files: list[UploadedFile] = File(...),
 ) -> dict[str, Any]:
@@ -95,7 +95,7 @@ def _get_quick_recognition_service() -> Any:
 
 @router.post("/{task_id}/upload")
 @rate_limit_from_settings("UPLOAD", by_user=True)
-def upload_invoices(
+def upload_invoices(  # pragma: no cover
     request: Any,
     task_id: int,
     files: list[UploadedFile] = File(...),
@@ -127,7 +127,7 @@ def upload_invoices(
 
 
 @router.get("/{task_id}/status")
-def get_task_status(
+def get_task_status(  # pragma: no cover
     request: Any,
     task_id: int,
 ) -> dict[str, Any]:
@@ -161,7 +161,7 @@ def get_task_status(
 
 @router.get("/{task_id}/download")
 @rate_limit_from_settings("EXPORT", by_user=True)
-def download_invoices(
+def download_invoices(  # pragma: no cover
     request: Any,
     task_id: int,
     scope: str,

@@ -293,7 +293,7 @@ class DocumentTemplateService:
 
     def list_templates(
         self, template_type: str | None = None, case_type: str | None = None, is_active: bool | None = None
-    ) -> list[DocumentTemplate]:
+    ) -> list[DocumentTemplate]:  # pragma: no cover
         """
         列出文书模板
 

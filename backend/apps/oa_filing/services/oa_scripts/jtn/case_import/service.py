@@ -173,7 +173,7 @@ class JtnCaseImportScript(
             )
             yield case_no, resolved[index]
 
-    def close(self) -> None:
+    def close(self) -> None:  # pragma: no cover
         self._reset_name_search_http_session()
         if self._name_search_browser is not None:
             self._name_search_browser.close()

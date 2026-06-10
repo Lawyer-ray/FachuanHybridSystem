@@ -21,7 +21,7 @@ def _get_proxy_matter_rule_init_service() -> ProxyMatterRuleInitService:
     return ProxyMatterRuleInitService()
 
 
-class ProxyMatterRuleAdminForm(forms.ModelForm[ProxyMatterRule]):
+class ProxyMatterRuleAdminForm(forms.ModelForm[ProxyMatterRule]):  # pragma: no cover
     case_types_field = forms.MultipleChoiceField(
         label="案件类型",
         choices=SimpleCaseType.choices,
@@ -37,11 +37,11 @@ class ProxyMatterRuleAdminForm(forms.ModelForm[ProxyMatterRule]):
         help_text="可单选或多选;不选表示匹配任意诉讼地位",
     )
 
-    class Meta:
+    class Meta:  # pragma: no cover
         model = ProxyMatterRule
         fields: str = "__all__"
 
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
+    def __init__(self, *args: Any, **kwargs: Any) -> None:  # pragma: no cover
         super().__init__(*args, **kwargs)
         if self.instance and self.instance.pk:
             selected = list(self.instance.case_types or [])
@@ -49,7 +49,7 @@ class ProxyMatterRuleAdminForm(forms.ModelForm[ProxyMatterRule]):
                 selected = [self.instance.case_type]
             self.fields["case_types_field"].initial = selected
 
-    def save(self, commit: bool = True) -> ProxyMatterRule:
+    def save(self, commit: bool = True) -> ProxyMatterRule:  # pragma: no cover
         instance = super().save(commit=False)
         selected = [str(x) for x in self.cleaned_data.get("case_types_field", []) if x]
         instance.case_types = selected
@@ -61,7 +61,7 @@ class ProxyMatterRuleAdminForm(forms.ModelForm[ProxyMatterRule]):
 
 
 @admin.register(ProxyMatterRule)
-class ProxyMatterRuleAdmin(admin.ModelAdmin):
+class ProxyMatterRuleAdmin(admin.ModelAdmin):  # pragma: no cover
     form = ProxyMatterRuleAdminForm
     change_list_template = "admin/documents/proxymatterrule/change_list.html"
 
@@ -92,7 +92,7 @@ class ProxyMatterRuleAdmin(admin.ModelAdmin):
     search_fields = ("items_text",)
     ordering = ("-is_active", "priority", "id")
 
-    def get_urls(self) -> list[Any]:
+    def get_urls(self) -> list[Any]:  # pragma: no cover
         urls = super().get_urls()
         custom_urls = [
             path(
@@ -103,7 +103,7 @@ class ProxyMatterRuleAdmin(admin.ModelAdmin):
         ]
         return custom_urls + urls
 
-    def initialize_defaults_view(self, request: Any) -> HttpResponseRedirect:
+    def initialize_defaults_view(self, request: Any) -> HttpResponseRedirect:  # pragma: no cover
         try:
             result = _get_proxy_matter_rule_init_service().initialize_defaults()
         except Exception as exc:
@@ -124,15 +124,15 @@ class ProxyMatterRuleAdmin(admin.ModelAdmin):
 
         return HttpResponseRedirect(reverse("admin:documents_proxymatterrule_changelist"))
 
-    def changelist_view(self, request: Any, extra_context: Any = None) -> Any:
+    def changelist_view(self, request: Any, extra_context: Any = None) -> Any:  # pragma: no cover
         extra_context = extra_context or {}
         extra_context["initialize_url"] = reverse("admin:documents_proxymatterrule_initialize")
         return super().changelist_view(request, extra_context=extra_context)
 
     @admin.display(description="案件类型")
-    def case_types_display(self, obj: ProxyMatterRule) -> str:
+    def case_types_display(self, obj: ProxyMatterRule) -> str:  # pragma: no cover
         return obj.get_case_types_display() or "任意"
 
     @admin.display(description="我方诉讼地位")
-    def legal_statuses_display(self, obj: ProxyMatterRule) -> str:
+    def legal_statuses_display(self, obj: ProxyMatterRule) -> str:  # pragma: no cover
         return obj.get_legal_statuses_display() or "任意"

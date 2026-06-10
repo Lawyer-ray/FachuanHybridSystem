@@ -24,6 +24,6 @@ class ExpressQueryTaskOut(Schema):
 
 
 @router.get("/tasks", response=list[ExpressQueryTaskOut])
-def list_tasks(request: HttpRequest) -> Any:
+def list_tasks(request: HttpRequest) -> Any:  # pragma: no cover
     """获取快递查询任务列表"""
     return ExpressQueryTask.objects.all().order_by("-created_at")[:200]

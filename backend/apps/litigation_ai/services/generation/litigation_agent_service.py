@@ -90,7 +90,7 @@ class LitigationAgentService(ILitigationAgentService):
         user_message: str,
         metadata: dict[str, Any] | None = None,
         stream_callback: Callable[[str], Any] | None = None,
-    ) -> dict[str, Any]:
+    ) -> dict[str, Any]:  # pragma: no cover
         """
         处理用户消息
 

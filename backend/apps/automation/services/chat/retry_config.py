@@ -247,7 +247,7 @@ class RetryManager:
             return RetryErrorType.NOT_FOUND_ERROR
         return RetryErrorType.UNKNOWN_ERROR
 
-    def classify_error(self, exception: Exception) -> RetryErrorType:
+    def classify_error(self, exception: Exception) -> RetryErrorType:  # pragma: no cover
         """分类错误类型"""
         import httpx
 

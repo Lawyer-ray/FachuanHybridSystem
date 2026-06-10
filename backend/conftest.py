@@ -116,6 +116,7 @@ def authenticated_client(db: Any) -> Any:
         username="testuser",
         password="testpass123",
         is_admin=True,
+        is_superuser=True,
         law_firm=firm,
     )
     client.force_login(user)

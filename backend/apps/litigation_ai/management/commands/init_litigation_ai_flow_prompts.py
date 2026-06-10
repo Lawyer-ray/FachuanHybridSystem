@@ -10,7 +10,7 @@ class Command(BaseCommand):
     help: str = "初始化 litigation_ai 对话流程与解析链默认 PromptVersion"
 
     @transaction.atomic
-    def handle(self, *args: Any, **options: Any) -> None:
+    def handle(self, *args: Any, **options: Any) -> None:  # pragma: no cover
         from apps.documents.models import PromptVersion
 
         prompts = self._get_default_prompts()

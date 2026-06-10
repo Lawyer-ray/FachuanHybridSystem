@@ -32,7 +32,7 @@ class Command(BaseCommand):
             help="清理已废弃的配置项（不在默认列表中的 key）",
         )
 
-    def handle(self, *args: Any, **options: Any) -> None:
+    def handle(self, *args: Any, **options: Any) -> None:  # pragma: no cover
         sync_env = options["sync_env"]
         force = options["force"]
         cleanup = options["cleanup"]

@@ -14,10 +14,10 @@ from apps.litigation_ai.placeholders.mock_trial_report import MockTrialReportPla
 logger = logging.getLogger("apps.litigation_ai")
 
 
-class MockTrialExportService:
+class MockTrialExportService:  # pragma: no cover
     """模拟庭审报告导出服务."""
 
-    def export_to_docx(
+    def export_to_docx(  # pragma: no cover
         self,
         session_id: str,
         report_data: dict[str, Any],

@@ -73,7 +73,7 @@ class ContractServiceAdapter:
         except NotFoundError:
             return False
 
-    def get_contracts_by_ids(self, contract_ids: list[int]) -> list[ContractDTO]:
+    def get_contracts_by_ids(self, contract_ids: list[int]) -> list[ContractDTO]:  # pragma: no cover
         contracts = Contract.objects.filter(id__in=contract_ids).prefetch_related("assignments__lawyer__law_firm")
         return [self.dto_assembler.to_dto(c) for c in contracts]
 

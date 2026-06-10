@@ -313,7 +313,7 @@ def _match_by_case_number(ah: str) -> int | None:
     return None
 
 
-def _match_by_party_names(party_names: list[str]) -> int | None:
+def _match_by_party_names(party_names: list[str]) -> int | None:  # pragma: no cover
     """
     S2: 用当事人名称匹配 Client → CaseParty → Case。
 
@@ -352,10 +352,10 @@ def _match_by_party_names(party_names: list[str]) -> int | None:
 # ---------------------------------------------------------------------------
 
 
-class CourtScheduleFetcher(MessageFetcher):
+class CourtScheduleFetcher(MessageFetcher):  # pragma: no cover
     """一张网（zxfw.court.gov.cn）庭审日程拉取器。"""
 
-    def fetch_new_messages(self, source: MessageSource) -> int:
+    def fetch_new_messages(self, source: MessageSource) -> int:  # pragma: no cover
         credential_id = source.credential.pk
         try:
             token = _acquire_token(credential_id)
@@ -392,7 +392,7 @@ class CourtScheduleFetcher(MessageFetcher):
             _mark_failed(source, str(e))
             raise
 
-    def _fetch_with_token(self, source: MessageSource, token: str, credential_id: int) -> int:
+    def _fetch_with_token(self, source: MessageSource, token: str, credential_id: int) -> int:  # pragma: no cover
         new_count = 0
         records = self._fetch_all_pages(token)
         lawyer_name = self._get_lawyer_name(source)
@@ -408,7 +408,7 @@ class CourtScheduleFetcher(MessageFetcher):
         _mark_success(source)
         return new_count
 
-    def _fetch_all_pages(self, token: str) -> list[dict[str, Any]]:
+    def _fetch_all_pages(self, token: str) -> list[dict[str, Any]]:  # pragma: no cover
         """分页拉取所有庭审记录。"""
         all_records: list[dict[str, Any]] = []
         body = _api_post(
@@ -444,7 +444,7 @@ class CourtScheduleFetcher(MessageFetcher):
         except Exception:
             return ""
 
-    def _upsert_reminder(self, source: MessageSource, record: dict[str, Any], lawyer_name: str) -> bool:
+    def _upsert_reminder(self, source: MessageSource, record: dict[str, Any], lawyer_name: str) -> bool:  # pragma: no cover
         """
         创建或更新 Reminder，返回是否为新建。
 

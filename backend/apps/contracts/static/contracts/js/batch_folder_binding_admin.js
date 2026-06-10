@@ -27,6 +27,7 @@
     return {
       cards: [],
       config: {},
+      cloudAccounts: [],
       isPreviewing: false,
       isSaving: false,
       isOpening: false,
@@ -41,11 +42,14 @@
               options: [],
               rows: [],
               root_path: '',
+              storage_type: 'local',
+              storage_account_id: '',
             },
             card || {}
           );
         });
         this.config = parseScriptJson('batch-folder-binding-config') || {};
+        this.cloudAccounts = parseScriptJson('batch-folder-binding-cloud-accounts') || [];
       },
 
       goBack: function goBack() {
@@ -119,6 +123,8 @@
           return {
             case_type: card.case_type,
             root_path: (card.root_path || '').trim(),
+            storage_type: card.storage_type || 'local',
+            storage_account_id: card.storage_account_id || '',
           };
         });
       },
@@ -177,6 +183,10 @@
 
       openFolder: async function openFolder(card, row) {
         if (!card || !row || !row.selected_folder_path) return;
+        if ((card.storage_type || 'local') !== 'local') {
+          this.setMessage('info', '云存储文件夹不支持本地打开。');
+          return;
+        }
         this.isOpening = true;
         this.setMessage('', '');
 
@@ -191,6 +201,7 @@
             body: JSON.stringify({
               root_path: (card.root_path || '').trim(),
               folder_path: row.selected_folder_path,
+              storage_type: card.storage_type || 'local',
             }),
           });
           var data = await response.json().catch(function () {

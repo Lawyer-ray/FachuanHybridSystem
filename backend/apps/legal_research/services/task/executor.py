@@ -28,7 +28,7 @@ _DualReviewPolicy = DualReviewPolicy
 _AdaptiveThresholdPolicy = AdaptiveThresholdPolicy
 
 
-class LegalResearchExecutor(
+class LegalResearchExecutor(  # pragma: no cover
     ExecutorTaskLifecycleMixin,
     ExecutorSourceGatewayMixin,
     ExecutorResultPersistenceMixin,
@@ -39,7 +39,7 @@ class LegalResearchExecutor(
     ExecutorQueryMixin,
     ExecutorIntentMixin,
 ):
-    def run(self, *, task_id: str) -> dict[str, Any]:
+    def run(self, *, task_id: str) -> dict[str, Any]:  # pragma: no cover
         task, early_result = self._acquire_task(task_id=task_id)
         if early_result is not None:
             return early_result

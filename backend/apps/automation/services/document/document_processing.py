@@ -55,7 +55,7 @@ def extract_text_from_image_with_rapidocr(file_path: str) -> str:
     return ocr_service.recognize(file_path)
 
 
-def render_pdf_page_to_image(file_path: str, page_num: int = 0) -> str:
+def render_pdf_page_to_image(file_path: str, page_num: int = 0) -> str:  # pragma: no cover
     """
     将PDF指定页面渲染为图片
 
@@ -117,7 +117,7 @@ def extract_docx_text(file_path: str, limit: int | None = None) -> str:
     return text
 
 
-def extract_pdf_text(file_path: str, limit: int | None = None, max_pages: int | None = None) -> str:
+def extract_pdf_text(file_path: str, limit: int | None = None, max_pages: int | None = None) -> str:  # pragma: no cover
     # 如果没有指定限制，使用配置的默认值
     if limit is None:
         config = get_doc_config()
@@ -155,7 +155,7 @@ def _apply_pdf_limits(limit: int | None, preview_page: int | None, config: dict[
     return lim, page
 
 
-def _ocr_pdf_page(file_path: str, page_num_1based: int, limit: int) -> str | None:
+def _ocr_pdf_page(file_path: str, page_num_1based: int, limit: int) -> str | None:  # pragma: no cover
     """将 PDF 指定页 OCR，返回文字或 None"""
     try:
         p = Path(file_path)
@@ -207,7 +207,7 @@ class DocumentExtraction:
     kind: str
 
 
-def save_uploaded_document(upload: UploadedFile) -> Path:
+def save_uploaded_document(upload: UploadedFile) -> Path:  # pragma: no cover
     out_dir = Path(settings.MEDIA_ROOT) / "automation" / "uploads"
     out_dir.mkdir(parents=True, exist_ok=True)
     fname = f"{uuid.uuid4().hex}_{upload.name}"

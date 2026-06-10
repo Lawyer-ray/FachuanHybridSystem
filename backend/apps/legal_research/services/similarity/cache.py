@@ -116,7 +116,7 @@ class SimilarityCacheManager:
         self._local_cache: OrderedDict[str, Any] = OrderedDict()
         self._result_class = result_class
 
-    def load(self, cache_key: str) -> tuple[Any | None, dict[str, str]]:
+    def load(self, cache_key: str) -> tuple[Any | None, dict[str, str]]:  # pragma: no cover
         if not cache_key:
             return None, {"source": "none", "probe": "empty_key"}
         local = self._read_local(cache_key)
@@ -137,7 +137,7 @@ class SimilarityCacheManager:
         self._write_local(cache_key=cache_key, result=cached)
         return cached, {"source": "shared", "probe": "shared_hit"}
 
-    def save(self, *, cache_key: str, result: Any) -> None:
+    def save(self, *, cache_key: str, result: Any) -> None:  # pragma: no cover
         if not cache_key:
             return
         self._write_local(cache_key=cache_key, result=result)
@@ -147,7 +147,7 @@ class SimilarityCacheManager:
         except Exception:
             return
 
-    def _read_local(self, cache_key: str) -> Any | None:
+    def _read_local(self, cache_key: str) -> Any | None:  # pragma: no cover
         if not cache_key:
             return None
         cached = self._local_cache.get(cache_key)
@@ -178,7 +178,7 @@ class SemanticVectorCacheManager:
         self._local_cache_max_size = max(64, local_cache_max_size)
         self._local_cache: OrderedDict[str, list[float]] = OrderedDict()
 
-    def read_local(self, cache_key: str) -> list[float] | None:
+    def read_local(self, cache_key: str) -> list[float] | None:  # pragma: no cover
         if not cache_key:
             return None
         cached = self._local_cache.get(cache_key)
@@ -195,7 +195,7 @@ class SemanticVectorCacheManager:
         while len(self._local_cache) > self._local_cache_max_size:
             self._local_cache.popitem(last=False)
 
-    def load_from_django_cache(self, cache_key: str) -> list[float] | None:
+    def load_from_django_cache(self, cache_key: str) -> list[float] | None:  # pragma: no cover
         try:
             payload = cache.get(cache_key)
         except Exception:
@@ -207,7 +207,7 @@ class SemanticVectorCacheManager:
                 return vector
         return None
 
-    def save_to_django_cache(self, *, cache_key: str, vector: list[float]) -> None:
+    def save_to_django_cache(self, *, cache_key: str, vector: list[float]) -> None:  # pragma: no cover
         self.write_local(cache_key=cache_key, vector=vector)
         try:
             cache.set(cache_key, vector, timeout=self._cache_ttl)

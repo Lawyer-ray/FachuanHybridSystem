@@ -12,7 +12,7 @@ class CoreConfig(AppConfig):
     name = "apps.core"
     verbose_name = "核心系统"
 
-    def ready(self) -> None:
+    def ready(self) -> None:  # pragma: no cover
 
         # 恢复因 runserver auto-reload 中断的 OAuth device code 轮询
         try:

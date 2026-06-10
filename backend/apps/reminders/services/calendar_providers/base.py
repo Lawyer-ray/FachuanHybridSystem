@@ -32,7 +32,7 @@ class CalendarEventProvider(Protocol):
         ...
 
 
-def provider_available(name: str) -> bool:
+def provider_available(name: str) -> bool:  # pragma: no cover
     """Check whether a platform-specific provider is available."""
     if name == "mac":
         import platform

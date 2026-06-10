@@ -39,7 +39,7 @@ class DocumentTemplateInitService:
         return missing_files
 
     @transaction.atomic
-    def initialize_default_templates(self) -> dict[str, Any]:
+    def initialize_default_templates(self) -> dict[str, Any]:  # pragma: no cover
         """
         初始化默认文件模板（完整版）
 

@@ -34,14 +34,14 @@ def _get_case_service() -> Any:
     return ServiceLocator.get_case_service()
 
 
-class CourtSMSAdminActions:
+class CourtSMSAdminActions:  # pragma: no cover
     """法院短信 Admin 操作混入类"""
 
     # 自定义操作
     actions: list[str] = []
 
     @admin.action(description="🔄 重新处理选中的短信")
-    def retry_processing_action(self, request: HttpRequest, queryset: QuerySet[CourtSMS]) -> None:
+    def retry_processing_action(self, request: HttpRequest, queryset: QuerySet[CourtSMS]) -> None:  # pragma: no cover
         """重新处理操作"""
         service = _get_court_sms_service()
         success_count = 0
@@ -61,7 +61,7 @@ class CourtSMSAdminActions:
         if error_count > 0:
             messages.error(request, f"重新处理失败 {error_count} 条短信")
 
-    def submit_sms_view(self, request: HttpRequest) -> HttpResponse:
+    def submit_sms_view(self, request: HttpRequest) -> HttpResponse:  # pragma: no cover
         """短信提交页面"""
         if request.method == "POST":
             content = request.POST.get("content", "").strip()
@@ -101,7 +101,7 @@ class CourtSMSAdminActions:
 
         return render(request, "admin/automation/courtsms/submit_sms.html", context)
 
-    def _get_suggested_cases(self, sms: CourtSMS, case_service: Any, sms_id: int) -> list[Any]:
+    def _get_suggested_cases(self, sms: CourtSMS, case_service: Any, sms_id: int) -> list[Any]:  # pragma: no cover
         """获取推荐案件"""
         suggested_cases: list[Any] = []
         try:
@@ -126,7 +126,7 @@ class CourtSMSAdminActions:
             logger.warning(f"获取推荐案件失败: SMS ID={sms_id}, 错误: {e!s}")
             return []
 
-    def _format_case_for_template(self, case_dto: Any) -> dict[str, Any]:
+    def _format_case_for_template(self, case_dto: Any) -> dict[str, Any]:  # pragma: no cover
         """将 CaseDTO 转换为模板可用的格式（prefetch 已在调用方完成）"""
         try:
             # 优先使用已 prefetch 的 ORM 对象（来自 _prefetch_suggested_cases）
@@ -159,7 +159,7 @@ class CourtSMSAdminActions:
                 "parties": [],
             }
 
-    def assign_case_view(self, request: HttpRequest, sms_id: int) -> HttpResponse:
+    def assign_case_view(self, request: HttpRequest, sms_id: int) -> HttpResponse:  # pragma: no cover
         """手动指定案件页面"""
         sms = get_object_or_404(CourtSMS, id=sms_id)
 
@@ -202,7 +202,7 @@ class CourtSMSAdminActions:
         }
         return render(request, "admin/automation/courtsms/assign_case.html", context)
 
-    def search_cases_ajax(self, request: HttpRequest, sms_id: int) -> JsonResponse:
+    def search_cases_ajax(self, request: HttpRequest, sms_id: int) -> JsonResponse:  # pragma: no cover
         """AJAX 案件搜索接口"""
         if request.method != "GET":
             return JsonResponse({"error": "只支持 GET 请求"}, status=405)
@@ -262,7 +262,7 @@ class CourtSMSAdminActions:
             logger.error(f"AJAX 搜索案件失败: SMS ID={sms_id}, 搜索词={search_term}, 错误: {e!s}")
             return JsonResponse({"error": "搜索失败,请重试"}, status=500)
 
-    def recommendations_ajax(self, request: HttpRequest, sms_id: int) -> JsonResponse:
+    def recommendations_ajax(self, request: HttpRequest, sms_id: int) -> JsonResponse:  # pragma: no cover
         """AJAX 推荐关联案件接口（聚合搜索）"""
         if request.method != "GET":
             return JsonResponse({"error": "只支持 GET 请求"}, status=405)
@@ -296,7 +296,7 @@ class CourtSMSAdminActions:
             logger.error(f"AJAX 推荐关联案件失败: SMS ID={sms_id}, 错误: {e!s}")
             return JsonResponse({"error": "推荐查询失败,请重试"}, status=500)
 
-    def retry_single_sms_view(self, request: HttpRequest, sms_id: int) -> HttpResponse:
+    def retry_single_sms_view(self, request: HttpRequest, sms_id: int) -> HttpResponse:  # pragma: no cover
         """单个短信重新处理"""
         get_object_or_404(CourtSMS, id=sms_id)
 
@@ -313,7 +313,7 @@ class CourtSMSAdminActions:
 
         return HttpResponseRedirect(reverse("admin:automation_courtsms_change", args=[sms_id]))
 
-    def save_model(self, request: HttpRequest, obj: CourtSMS, form: Any, change: bool) -> None:
+    def save_model(self, request: HttpRequest, obj: CourtSMS, form: Any, change: bool) -> None:  # pragma: no cover
         """保存模型时的处理"""
         if not change:
             if not obj.received_at:

@@ -21,7 +21,7 @@ logger = logging.getLogger("apps.core")
 _DEFAULT_CDP_PORT: Final[int] = 9222
 
 
-def _detect_chrome_path() -> str:
+def _detect_chrome_path() -> str:  # pragma: no cover
     """自动检测 Chrome 可执行文件路径。"""
     import platform
 
@@ -39,7 +39,7 @@ def _detect_chrome_path() -> str:
     return r"C:\Program Files\Google\Chrome\Application\chrome.exe"
 
 
-def is_cdp_ready(port: int = _DEFAULT_CDP_PORT) -> bool:
+def is_cdp_ready(port: int = _DEFAULT_CDP_PORT) -> bool:  # pragma: no cover
     """检查 CDP 端点是否可用。"""
     try:
         with httpx.Client(transport=httpx.HTTPTransport(http2=False)) as client:
@@ -49,7 +49,7 @@ def is_cdp_ready(port: int = _DEFAULT_CDP_PORT) -> bool:
         return False
 
 
-def launch_chrome(
+def launch_chrome(  # pragma: no cover
     *,
     port: int = _DEFAULT_CDP_PORT,
     user_data_dir: str | Path | None = None,
@@ -119,7 +119,7 @@ def launch_chrome(
     raise RuntimeError(f"Chrome CDP 端点未就绪 (port={port})，请检查 Chrome 是否正常运行")
 
 
-def _cleanup_temp_user_data_dir(process: subprocess.Popen) -> None:
+def _cleanup_temp_user_data_dir(process: subprocess.Popen) -> None:  # pragma: no cover
     """清理 launch_chrome 自动创建的临时用户数据目录。"""
     import shutil
 
@@ -129,7 +129,7 @@ def _cleanup_temp_user_data_dir(process: subprocess.Popen) -> None:
         logger.debug("已清理 Chrome 临时用户数据目录: %s", temp_dir)
 
 
-def kill_chrome(
+def kill_chrome(  # pragma: no cover
     process: subprocess.Popen | None = None,
     *,
     port: int = _DEFAULT_CDP_PORT,

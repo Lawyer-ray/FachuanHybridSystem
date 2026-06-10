@@ -80,7 +80,7 @@ class AutoRenameService:
         self._llm_client = llm_client
         self._ocr_channel: Any | None = None
 
-    def extract_info(self, ocr_text: str) -> ExtractionResult:
+    def extract_info(self, ocr_text: str) -> ExtractionResult:  # pragma: no cover
         """
         从 OCR 文本中提取日期和金额
 

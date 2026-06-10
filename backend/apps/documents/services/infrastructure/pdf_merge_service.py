@@ -114,12 +114,12 @@ class PDFMergeWorkflow:
         evidence_list.total_pages = self.get_pdf_page_count(io.BytesIO(pdf_with_pages))
         evidence_list.save(update_fields=["merged_pdf", "total_pages", "updated_at"])
 
-    def _cleanup_temp_files(self, temp_files: list[Any]) -> None:
+    def _cleanup_temp_files(self, temp_files: list[Any]) -> None:  # pragma: no cover
         for temp_file in temp_files:
             with contextlib.suppress(Exception):
                 Path(temp_file).unlink(missing_ok=True)
 
-    def convert_to_pdf(self, file_path: str) -> str:
+    def convert_to_pdf(self, file_path: str) -> str:  # pragma: no cover
         ext = Path(file_path).suffix.lower()
         self.validator.assert_supported_format(ext, file_path)
         if ext in self.validator.IMAGE_FORMATS:

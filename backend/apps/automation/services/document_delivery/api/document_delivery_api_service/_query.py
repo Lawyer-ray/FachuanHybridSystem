@@ -164,11 +164,11 @@ class DocumentQueryMixin:
 
         return self._check_document_not_processed(credential_id, record)
 
-    def _check_document_not_processed(self, credential_id: int, record: DocumentRecord) -> bool:
+    def _check_document_not_processed(self, credential_id: int, record: DocumentRecord) -> bool:  # pragma: no cover
         """检查 API 文书是否已成功处理完成"""
         result_queue: queue.Queue[bool] = queue.Queue()
 
-        def do_check() -> None:
+        def do_check() -> None:  # pragma: no cover
             try:
                 from django.db import connection
 
@@ -220,10 +220,10 @@ class DocumentQueryMixin:
         logger.warning("检查文书处理历史超时，默认处理")
         return True
 
-    def _record_query_history_in_thread(self, credential_id: int, entry: DocumentDeliveryRecord) -> None:
+    def _record_query_history_in_thread(self, credential_id: int, entry: DocumentDeliveryRecord) -> None:  # pragma: no cover
         """在独立线程中记录查询历史"""
 
-        def do_record() -> None:
+        def do_record() -> None:  # pragma: no cover
             try:
                 from django.db import connection, transaction
 

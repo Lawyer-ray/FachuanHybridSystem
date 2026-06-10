@@ -23,7 +23,7 @@ class MockTrialConsumer(AsyncWebsocketConsumer):
         self.user: Any | None = None
         self.session: Any | None = None
 
-    async def connect(self) -> None:
+    async def connect(self) -> None:  # pragma: no cover
         try:
             self.user = self.scope.get("user")
             if not self.user or isinstance(self.user, AnonymousUser):
@@ -65,7 +65,7 @@ class MockTrialConsumer(AsyncWebsocketConsumer):
             except Exception as e:
                 logger.error(f"MockTrial WebSocket 断开失败: {e}", exc_info=True)
 
-    async def receive(self, text_data: str | None = None, bytes_data: bytes | None = None) -> None:
+    async def receive(self, text_data: str | None = None, bytes_data: bytes | None = None) -> None:  # pragma: no cover
         try:
             if not text_data:
                 await self._send_error("消息内容为空")

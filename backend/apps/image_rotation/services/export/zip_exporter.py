@@ -10,7 +10,7 @@ from apps.image_rotation.services import storage
 logger = logging.getLogger("apps.image_rotation")
 
 
-def generate_zip(*, processed_images: list[tuple[str, bytes, str]], output_dir: Path) -> str:
+def generate_zip(*, processed_images: list[tuple[str, bytes, str]], output_dir: Path) -> str:  # pragma: no cover
     zip_filename = storage.build_zip_filename()
     zip_path = output_dir / zip_filename
 

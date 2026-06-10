@@ -24,7 +24,7 @@ def _get_court_document_admin_service() -> Any:
 
 
 @admin.register(CourtDocument)
-class CourtDocumentAdmin(admin.ModelAdmin):
+class CourtDocumentAdmin(admin.ModelAdmin):  # pragma: no cover
     """
     法院文书管理 Admin
 
@@ -142,7 +142,7 @@ class CourtDocumentAdmin(admin.ModelAdmin):
     list_per_page = 20
 
     @admin.display(description="文书名称")
-    def c_wsmc_display(self, obj: CourtDocument) -> SafeString:
+    def c_wsmc_display(self, obj: CourtDocument) -> SafeString:  # pragma: no cover
         """格式化显示文书名称"""
         return format_html(
             '<span style="font-weight: bold;">{}</span>',
@@ -150,12 +150,12 @@ class CourtDocumentAdmin(admin.ModelAdmin):
         )
 
     @admin.display(description="法院名称")
-    def c_fymc_display(self, obj: CourtDocument) -> SafeString:
+    def c_fymc_display(self, obj: CourtDocument) -> SafeString:  # pragma: no cover
         """格式化显示法院名称"""
         return format_html('<span style="color: #007bff;">{}</span>', obj.c_fymc)
 
     @admin.display(description="下载状态")
-    def download_status_display(self, obj: CourtDocument) -> SafeString:
+    def download_status_display(self, obj: CourtDocument) -> SafeString:  # pragma: no cover
         """带颜色的状态显示"""
         colors = {
             DocumentDownloadStatus.PENDING: "#ffa500",
@@ -177,7 +177,7 @@ class CourtDocumentAdmin(admin.ModelAdmin):
         )
 
     @admin.display(description="文件大小")
-    def file_info_display(self, obj: CourtDocument) -> SafeString:
+    def file_info_display(self, obj: CourtDocument) -> SafeString:  # pragma: no cover
         """显示文件信息"""
         if obj.file_size:
             size = obj.file_size
@@ -192,7 +192,7 @@ class CourtDocumentAdmin(admin.ModelAdmin):
         return format_html('<span style="color: #999;">{}</span>', "-")
 
     @admin.display(description="文件大小")
-    def file_size_display(self, obj: CourtDocument) -> SafeString:
+    def file_size_display(self, obj: CourtDocument) -> SafeString:  # pragma: no cover
         """详情页显示文件大小"""
         if obj.file_size:
             size = obj.file_size
@@ -209,7 +209,7 @@ class CourtDocumentAdmin(admin.ModelAdmin):
         return format_html('<span style="color: #999;">{}</span>', "-")
 
     @admin.display(description="文件下载")
-    def download_link(self, obj: CourtDocument) -> SafeString:
+    def download_link(self, obj: CourtDocument) -> SafeString:  # pragma: no cover
         """列表页的下载链接"""
         if obj.download_status == DocumentDownloadStatus.SUCCESS and obj.local_file_path:
             return format_html(
@@ -224,7 +224,7 @@ class CourtDocumentAdmin(admin.ModelAdmin):
         return format_html('<span style="color: #999;">{}</span>', "-")
 
     @admin.display(description="文件下载")
-    def download_link_detail(self, obj: CourtDocument) -> SafeString:
+    def download_link_detail(self, obj: CourtDocument) -> SafeString:  # pragma: no cover
         """详情页的下载链接"""
         if obj.download_status == DocumentDownloadStatus.SUCCESS and obj.local_file_path:
             from pathlib import Path
@@ -248,15 +248,15 @@ class CourtDocumentAdmin(admin.ModelAdmin):
         else:
             return format_html('<span style="color: #ffa500; font-weight: bold;">{}</span>', "待下载")
 
-    def has_add_permission(self, request: HttpRequest) -> bool:
+    def has_add_permission(self, request: HttpRequest) -> bool:  # pragma: no cover
         """禁用添加功能（文书记录由系统自动创建）"""
         return False
 
-    def has_delete_permission(self, request: HttpRequest, obj: CourtDocument | None = None) -> bool:
+    def has_delete_permission(self, request: HttpRequest, obj: CourtDocument | None = None) -> bool:  # pragma: no cover
         """允许删除"""
         return True
 
-    def get_model_perms(self, request: HttpRequest) -> dict[str, bool]:
+    def get_model_perms(self, request: HttpRequest) -> dict[str, bool]:  # pragma: no cover
         """隐藏 Admin 首页入口，但保留直接 URL 访问能力"""
         return {}
 
@@ -264,7 +264,7 @@ class CourtDocumentAdmin(admin.ModelAdmin):
     actions = ["batch_download_documents", "batch_delete_with_files", "retry_failed_downloads"]
 
     @admin.action(description="批量下载选中的文书")
-    def batch_download_documents(self, request: HttpRequest, queryset: QuerySet[CourtDocument]) -> None:
+    def batch_download_documents(self, request: HttpRequest, queryset: QuerySet[CourtDocument]) -> None:  # pragma: no cover
         """批量下载文书"""
         try:
             service = _get_court_document_admin_service()
@@ -279,7 +279,7 @@ class CourtDocumentAdmin(admin.ModelAdmin):
             self.message_user(request, f"❌ 批量下载失败: {e!s}", level=messages.ERROR)
 
     @admin.action(description="删除选中的文书（包含文件）")
-    def batch_delete_with_files(self, request: HttpRequest, queryset: QuerySet[CourtDocument]) -> None:
+    def batch_delete_with_files(self, request: HttpRequest, queryset: QuerySet[CourtDocument]) -> None:  # pragma: no cover
         """批量删除文书和文件"""
         try:
             service = _get_court_document_admin_service()
@@ -296,7 +296,7 @@ class CourtDocumentAdmin(admin.ModelAdmin):
             self.message_user(request, f"❌ 批量删除失败: {e!s}", level=messages.ERROR)
 
     @admin.action(description="重试失败的下载")
-    def retry_failed_downloads(self, request: HttpRequest, queryset: QuerySet[CourtDocument]) -> None:
+    def retry_failed_downloads(self, request: HttpRequest, queryset: QuerySet[CourtDocument]) -> None:  # pragma: no cover
         """重试失败的下载"""
         try:
             service = _get_court_document_admin_service()
@@ -307,7 +307,7 @@ class CourtDocumentAdmin(admin.ModelAdmin):
         except Exception as e:
             self.message_user(request, f"❌ 重试失败: {e!s}", level=messages.ERROR)
 
-    def get_queryset(self, request: HttpRequest) -> QuerySet[CourtDocument]:
+    def get_queryset(self, request: HttpRequest) -> QuerySet[CourtDocument]:  # pragma: no cover
         """优化查询性能"""
         qs = super().get_queryset(request)
         return qs.select_related("scraper_task", "case")

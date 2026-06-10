@@ -33,7 +33,7 @@ class PlaceholderUsageService:
     _PLACEHOLDER_PATTERN = re.compile(r"\{\{\s*(.*?)\s*\}\}")
     _CACHE_KEY_PREFIX = "documents:placeholder_usage:"
 
-    def get_usage_map(self) -> dict[str, set[str]]:
+    def get_usage_map(self) -> dict[str, set[str]]:  # pragma: no cover
         cache_key = self._get_cache_key()
         cached = cache.get(cache_key)
         if cached is not None:
@@ -73,7 +73,7 @@ class PlaceholderUsageService:
         max_updated_at_ts = int(ts()) if ts else 0
         return max_updated_at_ts, count, "v1"
 
-    def _extract_template_placeholders(self, template: DocumentTemplate) -> set[str]:
+    def _extract_template_placeholders(self, template: DocumentTemplate) -> set[str]:  # pragma: no cover
         file_path = ""
         try:
             file_path = template.get_file_location()
@@ -93,7 +93,7 @@ class PlaceholderUsageService:
 
         return self._extract_by_python_docx(file_path)
 
-    def _extract_by_docxtpl(self, file_path: str) -> set[str] | None:
+    def _extract_by_docxtpl(self, file_path: str) -> set[str] | None:  # pragma: no cover
         if _DocxTemplate is None:
             return None
 

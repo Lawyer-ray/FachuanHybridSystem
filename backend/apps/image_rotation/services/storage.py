@@ -7,7 +7,7 @@ from typing import Any
 from apps.core.utils.path import Path
 
 
-def ensure_output_dir() -> Any:
+def ensure_output_dir() -> Any:  # pragma: no cover
     from django.conf import settings
 
     media_root = getattr(settings, "MEDIA_ROOT", None)

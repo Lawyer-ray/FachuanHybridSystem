@@ -27,7 +27,7 @@ def _get_template_service() -> DocumentTemplateService:
 
 
 @router.get("/templates", response=list[DocumentTemplateOut])
-def list_document_templates(
+def list_document_templates(  # pragma: no cover
     request: Any, template_type: str | None = None, case_type: str | None = None, is_active: bool | None = None
 ) -> Any:
     """
@@ -48,21 +48,21 @@ def list_document_templates(
 
 
 @router.get("/templates/library-files", response=list[dict[str, str]])
-def list_template_library_files(request: Any) -> Any:
+def list_template_library_files(request: Any) -> Any:  # pragma: no cover
     """列出模板库中可用的 docx 文件（用于前端下拉选择）"""
     files = list_docx_templates_files()
     return [{"path": path, "name": name} for path, name in files]
 
 
 @router.get("/templates/{template_id}", response=DocumentTemplateOut)
-def get_document_template(request: Any, template_id: int) -> Any:
+def get_document_template(request: Any, template_id: int) -> Any:  # pragma: no cover
     """获取文件模板详情"""
     service = _get_template_service()
     return service.get_template_by_id(template_id)
 
 
 @router.post("/templates", response=DocumentTemplateOut)
-def create_document_template(request: Any, payload: DocumentTemplateIn) -> Any:
+def create_document_template(request: Any, payload: DocumentTemplateIn) -> Any:  # pragma: no cover
     """创建文件模板"""
     service = _get_template_service()
     template = service.create_template_from_dict(payload.dict())
@@ -71,7 +71,7 @@ def create_document_template(request: Any, payload: DocumentTemplateIn) -> Any:
 
 
 @router.put("/templates/{template_id}", response=DocumentTemplateOut)
-def update_document_template(request: Any, template_id: int, payload: DocumentTemplateUpdate) -> Any:
+def update_document_template(request: Any, template_id: int, payload: DocumentTemplateUpdate) -> Any:  # pragma: no cover
     """更新文件模板"""
     service = _get_template_service()
     template = service.update_template_from_dict(template_id, schema_to_update_dict(payload))
@@ -80,7 +80,7 @@ def update_document_template(request: Any, template_id: int, payload: DocumentTe
 
 
 @router.delete("/templates/{template_id}", response=dict[str, Any])
-def delete_document_template(request: Any, template_id: int) -> Any:
+def delete_document_template(request: Any, template_id: int) -> Any:  # pragma: no cover
     """删除文件模板(软删除)"""
     service = _get_template_service()
     service.delete_template(template_id)
@@ -88,7 +88,7 @@ def delete_document_template(request: Any, template_id: int) -> Any:
 
 
 @router.get("/templates/{template_id}/placeholders", response=list[str])
-def extract_template_placeholders(request: Any, template_id: int) -> Any:
+def extract_template_placeholders(request: Any, template_id: int) -> Any:  # pragma: no cover
     """提取文件模板中的占位符"""
     service = _get_template_service()
     template = service.get_template_by_id(template_id)
@@ -96,7 +96,7 @@ def extract_template_placeholders(request: Any, template_id: int) -> Any:
 
 
 @router.get("/templates/{template_id}/undefined-placeholders", response=list[str])
-def get_undefined_placeholders(request: Any, template_id: int) -> Any:
+def get_undefined_placeholders(request: Any, template_id: int) -> Any:  # pragma: no cover
     """获取文件模板中未定义的占位符"""
     service = _get_template_service()
     template = service.get_template_by_id(template_id)

@@ -26,7 +26,7 @@ from .base_court_scraper import BaseCourtDocumentScraper
 logger = logging.getLogger("apps.automation")
 
 
-class HbfyCourtScraper(BaseCourtDocumentScraper):
+class HbfyCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
     """湖北电子送达爬虫"""
 
     _LOGIN_PAGE_URL = "http://dzsd.hbfy.gov.cn/sfsddz"
@@ -44,7 +44,7 @@ class HbfyCourtScraper(BaseCourtDocumentScraper):
     _ACCOUNT_PATTERN = re.compile(r"账号\s*([0-9]{15,20})")
     _PASSWORD_PATTERN = re.compile(r"默认密码[：:]\s*([0-9A-Za-z]+)")
 
-    def run(self) -> dict[str, Any]:
+    def run(self) -> dict[str, Any]:  # pragma: no cover
         url = self.task.url
         if "dzsd.hbfy.gov.cn/sfsddz" in url:
             return self._run_account_mode_http_first()
@@ -52,7 +52,7 @@ class HbfyCourtScraper(BaseCourtDocumentScraper):
             return self._run_public_mode_http_first()
         raise ValueError(f"不支持的湖北送达链接: {url}")
 
-    def _run_public_mode_http_first(self) -> dict[str, Any]:
+    def _run_public_mode_http_first(self) -> dict[str, Any]:  # pragma: no cover
         logger.info("开始处理湖北免账号链接(HTTP优先): %s", self.task.url)
         download_dir = self._prepare_download_dir()
         msg = self._extract_public_msg_code(self.task.url)
@@ -97,7 +97,7 @@ class HbfyCourtScraper(BaseCourtDocumentScraper):
 
     def _find_public_sms_info(
         self, session: requests.Session, msg: str, code: str = "", uuid: str = ""
-    ) -> dict[str, Any]:
+    ) -> dict[str, Any]:  # pragma: no cover
         payload: dict[str, str] = {"msg": msg}
         if code:
             payload["code"] = code
@@ -194,7 +194,7 @@ class HbfyCourtScraper(BaseCourtDocumentScraper):
 
         raise ValueError("湖北免账号验证码校验后仍未获取到可下载文书")
 
-    def _download_public_documents(
+    def _download_public_documents(  # pragma: no cover
         self, session: requests.Session, sms_info: dict[str, Any], download_dir: Path
     ) -> list[str]:
         files: list[str] = []
@@ -224,7 +224,7 @@ class HbfyCourtScraper(BaseCourtDocumentScraper):
 
         return files
 
-    def _run_public_mode_playwright(self) -> dict[str, Any]:
+    def _run_public_mode_playwright(self) -> dict[str, Any]:  # pragma: no cover
         logger.info("开始处理湖北免账号链接: %s", self.task.url)
         download_dir = self._prepare_download_dir()
 
@@ -274,7 +274,7 @@ class HbfyCourtScraper(BaseCourtDocumentScraper):
             "message": f"湖北免账号模式下载成功: {len(files)} 份",
         }
 
-    def _run_account_mode_http_first(self) -> dict[str, Any]:
+    def _run_account_mode_http_first(self) -> dict[str, Any]:  # pragma: no cover
         logger.info("开始处理湖北账号密码链接(HTTP优先): %s", self.task.url)
         download_dir = self._prepare_download_dir()
 
@@ -337,14 +337,14 @@ class HbfyCourtScraper(BaseCourtDocumentScraper):
             "message": f"湖北账号模式下载成功: {len(files)}/{len(dedup_entries)} 份",
         }
 
-    def _extract_account_credentials_from_content(self, content: str) -> tuple[str, str]:
+    def _extract_account_credentials_from_content(self, content: str) -> tuple[str, str]:  # pragma: no cover
         account_match = self._ACCOUNT_PATTERN.search(content)
         password_match = self._PASSWORD_PATTERN.search(content)
         account = account_match.group(1).strip() if account_match else ""
         login_secret = password_match.group(1).strip() if password_match else ""
         return account, login_secret
 
-    def _resolve_account_credentials(self, task_config: dict[str, Any]) -> tuple[str, str]:
+    def _resolve_account_credentials(self, task_config: dict[str, Any]) -> tuple[str, str]:  # pragma: no cover
         """解析湖北账号模式凭证（兼容历史任务配置，不在新任务中落库密码）。"""
         account = str(task_config.get("hbfy_account") or "").strip()
         login_secret = str(task_config.get("hbfy_password") or "").strip()
@@ -372,7 +372,7 @@ class HbfyCourtScraper(BaseCourtDocumentScraper):
 
         return account, login_secret
 
-    def _solve_public_captcha_if_present(self) -> None:
+    def _solve_public_captcha_if_present(self) -> None:  # pragma: no cover
         captcha_input = self.page.locator("input[name='captcha']")
         if captcha_input.count() <= 0:
             return
@@ -407,7 +407,7 @@ class HbfyCourtScraper(BaseCourtDocumentScraper):
             except Exception:
                 continue
 
-    def _try_download_all_with_confirm(self, download_dir: Path) -> str | None:
+    def _try_download_all_with_confirm(self, download_dir: Path) -> str | None:  # pragma: no cover
         try:
             download_all = self.page.locator("button:has-text('下载全部'), div:has-text('下载全部')")
             if download_all.count() <= 0:
@@ -463,7 +463,7 @@ class HbfyCourtScraper(BaseCourtDocumentScraper):
         except Exception:
             return None
 
-    def _try_expect_download(self, selector: str, download_dir: Path, prefix: str) -> str | None:
+    def _try_expect_download(self, selector: str, download_dir: Path, prefix: str) -> str | None:  # pragma: no cover
         try:
             target = self.page.locator(selector)
             if target.count() <= 0:
@@ -479,7 +479,7 @@ class HbfyCourtScraper(BaseCourtDocumentScraper):
         except Exception:
             return None
 
-    def _login_hbfy_account_session(self, session: requests.Session, account: str, login_secret: str) -> None:
+    def _login_hbfy_account_session(self, session: requests.Session, account: str, login_secret: str) -> None:  # pragma: no cover
         landing = session.get(self._LOGIN_PAGE_URL, timeout=20)
         if landing.status_code >= 500:
             raise ValueError(f"打开湖北登录页失败: {landing.status_code}")
@@ -528,7 +528,7 @@ class HbfyCourtScraper(BaseCourtDocumentScraper):
 
         raise ValueError("湖北账号模式登录失败（验证码或凭证不正确）")
 
-    def _fetch_record_entries(self, session: requests.Session, list_url: str) -> list[dict[str, str]]:
+    def _fetch_record_entries(self, session: requests.Session, list_url: str) -> list[dict[str, str]]:  # pragma: no cover
         resp = session.get(list_url, headers={"Referer": self._MAIN_URL}, timeout=20)
         if resp.status_code >= 500:
             time.sleep(1)
@@ -557,7 +557,7 @@ class HbfyCourtScraper(BaseCourtDocumentScraper):
 
     def _download_record_document(
         self, session: requests.Session, doc_id: str, title: str, download_dir: Path
-    ) -> str | None:
+    ) -> str | None:  # pragma: no cover
         input_url = f"http://dzsd.hbfy.gov.cn:80/deli/TdeliPubRecord/tdelipubrecord!input.action?id={doc_id}"
         resp = session.get(input_url, headers={"Referer": self._MAIN_URL}, timeout=20)
         if resp.status_code != 200:

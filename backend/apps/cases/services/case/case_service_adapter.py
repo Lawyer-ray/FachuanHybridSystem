@@ -162,7 +162,7 @@ class CaseServiceAdapter:
     def close_cases_by_contract_internal(self, contract_id: int) -> int:
         return self._command.close_cases_by_contract_internal(contract_id)
 
-    def create_case_assignment(self, case_id: int, lawyer_id: int) -> Any:
+    def create_case_assignment(self, case_id: int, lawyer_id: int) -> Any:  # pragma: no cover
         from apps.cases.services.party.case_assignment_service import CaseAssignmentService
 
         return CaseAssignmentService().create_assignment_internal(case_id=case_id, lawyer_id=lawyer_id)

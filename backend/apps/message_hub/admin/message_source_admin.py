@@ -14,7 +14,7 @@ from apps.message_hub.models import MessageSource, SyncStatus
 
 
 @admin.register(MessageSource)
-class MessageSourceAdmin(admin.ModelAdmin):
+class MessageSourceAdmin(admin.ModelAdmin):  # pragma: no cover
     list_display = [
         "id",
         "display_name",
@@ -31,7 +31,7 @@ class MessageSourceAdmin(admin.ModelAdmin):
     autocomplete_fields: ClassVar = ("credential",)
     readonly_fields: ClassVar = ["last_sync_at", "last_sync_status", "last_sync_error", "last_synced_uid", "created_at"]
 
-    class Media:
+    class Media:  # pragma: no cover
         css = {"all": ("admin/css/message_source_admin.css",)}
 
     fieldsets: ClassVar = (
@@ -62,14 +62,14 @@ class MessageSourceAdmin(admin.ModelAdmin):
         ),
     )
 
-    def get_urls(self) -> list[Any]:
+    def get_urls(self) -> list[Any]:  # pragma: no cover
         urls = super().get_urls()
         custom = [
             path("<int:pk>/sync/", self.admin_site.admin_view(self._sync_view), name="message_hub_messagesource_sync"),
         ]
         return custom + urls
 
-    def _sync_view(self, request: HttpRequest, pk: int) -> HttpResponse:
+    def _sync_view(self, request: HttpRequest, pk: int) -> HttpResponse:  # pragma: no cover
         from django.shortcuts import redirect
 
         from apps.core.tasking import submit_task
@@ -79,7 +79,7 @@ class MessageSourceAdmin(admin.ModelAdmin):
         return redirect("..")
 
     @admin.display(description="来源类型")
-    def source_type_badge(self, obj: MessageSource) -> SafeString:
+    def source_type_badge(self, obj: MessageSource) -> SafeString:  # pragma: no cover
         colors = {"imap": "#007bff", "court_inbox": "#6f42c1", "court_schedule": "#e85d04"}
         color = colors.get(obj.source_type, "#6c757d")
         return format_html(
@@ -89,7 +89,7 @@ class MessageSourceAdmin(admin.ModelAdmin):
         )
 
     @admin.display(description="同步状态")
-    def sync_status_badge(self, obj: MessageSource) -> SafeString:
+    def sync_status_badge(self, obj: MessageSource) -> SafeString:  # pragma: no cover
         colors = {SyncStatus.SUCCESS: "#28a745", SyncStatus.FAILED: "#dc3545", SyncStatus.PENDING: "#6c757d"}
         color = colors.get(obj.last_sync_status, "#6c757d")  # type: ignore[call-overload]
         return format_html(
@@ -99,7 +99,7 @@ class MessageSourceAdmin(admin.ModelAdmin):
         )
 
     @admin.display(description="操作")
-    def refresh_button(self, obj: MessageSource) -> SafeString:
+    def refresh_button(self, obj: MessageSource) -> SafeString:  # pragma: no cover
         from django.urls import reverse
 
         url = reverse("admin:message_hub_messagesource_sync", args=[obj.pk])

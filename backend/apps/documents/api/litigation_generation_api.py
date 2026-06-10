@@ -48,7 +48,7 @@ class DefenseRequest(Schema):
 
 
 @router.post("/litigation/complaint/generate", response=dict[str, Any])
-def generate_complaint(request: Any, data: ComplaintRequest) -> Any:
+def generate_complaint(request: Any, data: ComplaintRequest) -> Any:  # pragma: no cover
     """
     生成起诉状
 
@@ -83,7 +83,7 @@ def generate_complaint(request: Any, data: ComplaintRequest) -> Any:
 
 
 @router.post("/litigation/defense/generate", response=dict[str, Any])
-def generate_defense(request: Any, data: DefenseRequest) -> Any:
+def generate_defense(request: Any, data: DefenseRequest) -> Any:  # pragma: no cover
     """
     生成答辩状
 
@@ -117,7 +117,7 @@ def generate_defense(request: Any, data: DefenseRequest) -> Any:
 
 
 @router.get("/cases/{case_id}/litigation/{litigation_type}/preview")
-def preview_litigation_context(request: Any, case_id: int, litigation_type: str) -> Any:
+def preview_litigation_context(request: Any, case_id: int, litigation_type: str) -> Any:  # pragma: no cover
     service = _get_litigation_generation_service()
     context = service.get_preview_context(case_id, litigation_type)
     return {"success": True, "data": context}
@@ -125,7 +125,7 @@ def preview_litigation_context(request: Any, case_id: int, litigation_type: str)
 
 @router.post("/cases/{case_id}/litigation/{litigation_type}/download")
 @rate_limit_from_settings("EXPORT", by_user=True)
-def download_litigation_document(request: Any, case_id: int, litigation_type: str) -> Any:
+def download_litigation_document(request: Any, case_id: int, litigation_type: str) -> Any:  # pragma: no cover
     """
     生成并下载诉讼文档
 

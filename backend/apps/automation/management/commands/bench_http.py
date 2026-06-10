@@ -46,7 +46,7 @@ class Command(BaseCommand):
         parser.add_argument("--json", dest="json_body", default=None)
         parser.add_argument("--header", action="append", default=[])
 
-    def handle(self, *args, **options: Any) -> None:  # type: ignore[no-untyped-def]
+    def handle(self, *args, **options: Any) -> None:  # type: ignore[no-untyped-def]  # pragma: no cover
         url = options["url"]
         method = str(options["method"] or "GET").upper()
         total = int(options["requests"])

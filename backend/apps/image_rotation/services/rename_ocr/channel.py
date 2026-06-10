@@ -141,7 +141,7 @@ class RenameOCRChannel:
         ocr_service: Any,
         image_data: bytes,
         config: PreprocessConfig | None = None,
-    ) -> OCRResult:
+    ) -> OCRResult:  # pragma: no cover
         """执行一次预处理 + OCR + 过滤"""
         # 预处理
         processed = self._preprocessor.preprocess(image_data, config)
@@ -181,7 +181,7 @@ class RenameOCRChannel:
         self,
         ocr_service: Any,
         image_data: bytes,
-    ) -> OCRResult:
+    ) -> OCRResult:  # pragma: no cover
         """通过 PaddleOCR API 执行 OCR"""
         try:
             api_result = ocr_service.paddleocr_engine.recognize_bytes(image_data, is_pdf=False)

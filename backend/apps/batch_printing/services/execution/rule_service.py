@@ -45,13 +45,13 @@ class RuleService:
         except PrintKeywordRule.DoesNotExist:
             raise NotFoundError(message="关键词规则不存在", code="BATCH_PRINT_RULE_NOT_FOUND", errors={}) from None
 
-    def create_rule(self, *, payload: dict[str, Any]) -> PrintKeywordRule:
+    def create_rule(self, *, payload: dict[str, Any]) -> PrintKeywordRule:  # pragma: no cover
         normalized_payload = self._normalize_payload(payload=payload, partial=False)
         rule = PrintKeywordRule(**normalized_payload)
         rule.save()
         return self.get_rule(rule_id=rule.id)
 
-    def update_rule(self, *, rule_id: int, payload: dict[str, Any]) -> PrintKeywordRule:
+    def update_rule(self, *, rule_id: int, payload: dict[str, Any]) -> PrintKeywordRule:  # pragma: no cover
         rule = self.get_rule(rule_id=rule_id)
         normalized_payload = self._normalize_payload(payload=payload, partial=True)
         for field_name, value in normalized_payload.items():

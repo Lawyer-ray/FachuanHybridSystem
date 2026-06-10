@@ -52,7 +52,7 @@ class GsxtReportError(Exception):
 # ──────────────────────────────────────────────
 
 
-def _kill_existing_chrome() -> None:
+def _kill_existing_chrome() -> None:  # pragma: no cover
     """关闭使用同一 user-data-dir 的已有 Chrome 实例。"""
     try:
         result = subprocess.run(
@@ -73,7 +73,7 @@ def _kill_existing_chrome() -> None:
         pass
 
 
-def _ensure_chrome_running() -> None:
+def _ensure_chrome_running() -> None:  # pragma: no cover
     """确保 Chrome 以调试模式运行。"""
     from apps.core.services.browser.chrome_process import is_cdp_ready, launch_chrome
 
@@ -102,7 +102,7 @@ def _ensure_chrome_running() -> None:
 # ──────────────────────────────────────────────
 
 
-async def _cdp_navigate(url: str, wait_seconds: int = 8) -> str:
+async def _cdp_navigate(url: str, wait_seconds: int = 8) -> str:  # pragma: no cover
     """通过 CDP WebSocket 直接导航到目标 URL，避免 Playwright 注入自动化标记。
 
     gsxt 会检测 Playwright 注入的 navigator.webdriver=true 而白屏。
@@ -173,7 +173,7 @@ async def _cdp_navigate(url: str, wait_seconds: int = 8) -> str:
 # ──────────────────────────────────────────────
 
 
-async def _wait_captcha_success(page: Any, captcha_selector: str, timeout: int) -> bool:
+async def _wait_captcha_success(page: Any, captcha_selector: str, timeout: int) -> bool:  # pragma: no cover
     """轮询等待极验验证码完成。"""
     from playwright.async_api import Page
 
@@ -198,7 +198,7 @@ async def _wait_captcha_success(page: Any, captcha_selector: str, timeout: int) 
 # ──────────────────────────────────────────────
 
 
-async def _run_full_flow(credential: GsxtCredentialProtocol, task_id: int) -> None:
+async def _run_full_flow(credential: GsxtCredentialProtocol, task_id: int) -> None:  # pragma: no cover
     """在一个浏览器会话中完成：登录→搜索→详情→申请报告。"""
     from asgiref.sync import sync_to_async
     from playwright.async_api import BrowserContext, Page, async_playwright
@@ -393,7 +393,7 @@ async def _run_full_flow(credential: GsxtCredentialProtocol, task_id: int) -> No
 
             from apps.core.tasking import ScheduleQueryService
 
-            def _schedule_email_check() -> None:
+            def _schedule_email_check() -> None:  # pragma: no cover
                 ScheduleQueryService().create_once_schedule(
                     func="apps.automation.tasks.gsxt_tasks.check_gsxt_report_email",
                     args=f"{task_id},{task.company_name!r}",
@@ -414,7 +414,7 @@ async def _run_full_flow(credential: GsxtCredentialProtocol, task_id: int) -> No
             pass
 
 
-async def _click_company_detail(page: Any, company_name: str, context: Any) -> Any:
+async def _click_company_detail(page: Any, company_name: str, context: Any) -> Any:  # pragma: no cover
     """点击搜索结果中的企业链接，返回详情页 Page（通常在新标签页中打开）。
 
     gsxt 搜索结果页的每个结果是一个 ``a.search_list_item`` ，企业名称在 ``h1`` 中。
@@ -534,7 +534,7 @@ async def _click_company_detail(page: Any, company_name: str, context: Any) -> A
 # ──────────────────────────────────────────────
 
 
-def _run_in_thread(credential: GsxtCredentialProtocol, task_id: int) -> None:
+def _run_in_thread(credential: GsxtCredentialProtocol, task_id: int) -> None:  # pragma: no cover
     """在独立线程中运行完整流程。"""
     asyncio.run(_run_full_flow(credential, task_id))
 
@@ -542,7 +542,7 @@ def _run_in_thread(credential: GsxtCredentialProtocol, task_id: int) -> None:
 class GsxtLoginService:
     """Class-based facade for GSXT login workflow."""
 
-    def start_login(self, credential: GsxtCredentialProtocol, task_id: int) -> None:
+    def start_login(self, credential: GsxtCredentialProtocol, task_id: int) -> None:  # pragma: no cover
         start_login_gsxt(credential, task_id)
 
 
@@ -580,7 +580,7 @@ def _try_reverse_login(credential: GsxtCredentialProtocol, task_id: int) -> bool
     return True
 
 
-def start_login_gsxt(credential: GsxtCredentialProtocol, task_id: int) -> None:
+def start_login_gsxt(credential: GsxtCredentialProtocol, task_id: int) -> None:  # pragma: no cover
     """
     非阻塞入口：优先尝试 HTTP 逆向登录，失败则启动完整 Playwright 流程。
 

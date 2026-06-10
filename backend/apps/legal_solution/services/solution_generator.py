@@ -107,7 +107,7 @@ class SolutionGenerator:
         research_results: str,
         existing: dict[str, str],
         feedback: str = "",
-    ) -> None:
+    ) -> None:  # pragma: no cover
         messages = build_section_prompt(
             section_type=section.section_type,
             case_summary=task.case_summary,

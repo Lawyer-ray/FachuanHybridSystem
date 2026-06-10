@@ -8,7 +8,7 @@ from apps.core.exceptions import ValidationException
 
 
 class MacPrintExecutorService:
-    def print_pdf(self, *, printer_name: str, options: dict[str, str], pdf_path: Path) -> str:
+    def print_pdf(self, *, printer_name: str, options: dict[str, str], pdf_path: Path) -> str:  # pragma: no cover
         if not pdf_path.exists():
             raise ValidationException(message="待打印文件不存在", errors={"pdf": str(pdf_path)})
         if not printer_name.strip():

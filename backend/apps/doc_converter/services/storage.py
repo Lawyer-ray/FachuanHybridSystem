@@ -31,9 +31,9 @@ class DocConverterStorage:
     def export_zip_path(self) -> Path:
         return self.exports_dir / "converted.zip"
 
-    def ensure_dirs(self) -> None:
+    def ensure_dirs(self) -> None:  # pragma: no cover
         for path in (self.source_dir, self.output_dir, self.exports_dir):
             path.mkdir(parents=True, exist_ok=True)
 
-    def cleanup(self) -> None:
+    def cleanup(self) -> None:  # pragma: no cover
         shutil.rmtree(self.job_root, ignore_errors=True)

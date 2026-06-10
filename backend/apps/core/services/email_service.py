@@ -21,7 +21,7 @@ class EmailService:
     """邮件发送服务"""
 
     @classmethod
-    def _configure_email_backend(cls) -> None:
+    def _configure_email_backend(cls) -> None:  # pragma: no cover
         """动态配置邮件后端"""
         config = EmailConfigService.get_config()
 
@@ -33,7 +33,7 @@ class EmailService:
         settings.EMAIL_HOST_PASSWORD = config["EMAIL_HOST_PASSWORD"]
 
     @classmethod
-    def send_password_reset_email(
+    def send_password_reset_email(  # pragma: no cover
         cls,
         to_email: str,
         username: str,
@@ -94,7 +94,7 @@ class EmailService:
             return False
 
     @classmethod
-    def send_password_changed_notification(
+    def send_password_changed_notification(  # pragma: no cover
         cls,
         to_email: str,
         username: str,

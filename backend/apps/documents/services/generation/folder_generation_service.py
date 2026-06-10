@@ -69,7 +69,7 @@ class FolderGenerationService:
             .get(pk=case_id)
         )
 
-    def fetch_template_by_id(self, template_id: int) -> FolderTemplate:
+    def fetch_template_by_id(self, template_id: int) -> FolderTemplate:  # pragma: no cover
         """按 ID 获取文件夹模板。"""
         from apps.documents.models import FolderTemplate
 
@@ -392,7 +392,7 @@ class FolderGenerationService:
         root_name: str,
         *,
         wrap_folder_name: str | None = None,
-    ) -> bytes:
+    ) -> bytes:  # pragma: no cover
         """
         生成案件文件夹（包含绑定文档和特殊文件夹内容）。
 

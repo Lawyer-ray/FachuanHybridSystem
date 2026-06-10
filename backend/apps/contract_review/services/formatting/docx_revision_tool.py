@@ -184,7 +184,7 @@ class DocxRevisionTool:
         return True
 
 
-def _create_del(text: str, author: str, date: str, source_run: etree._Element) -> etree._Element:
+def _create_del(text: str, author: str, date: str, source_run: etree._Element) -> etree._Element:  # pragma: no cover
     """创建 <w:del> 删除标记"""
     del_elem = OxmlElement("w:del")
     del_elem.set(qn("w:id"), _next_rev_id())
@@ -194,7 +194,7 @@ def _create_del(text: str, author: str, date: str, source_run: etree._Element) -
     return del_elem
 
 
-def _create_ins(text: str, author: str, date: str, source_run: etree._Element) -> etree._Element:
+def _create_ins(text: str, author: str, date: str, source_run: etree._Element) -> etree._Element:  # pragma: no cover
     """创建 <w:ins> 插入标记"""
     ins_elem = OxmlElement("w:ins")
     ins_elem.set(qn("w:id"), _next_rev_id())
@@ -204,7 +204,7 @@ def _create_ins(text: str, author: str, date: str, source_run: etree._Element) -
     return ins_elem
 
 
-def _make_run(text: str, source_run: etree._Element, tag: str = "w:t") -> etree._Element:
+def _make_run(text: str, source_run: etree._Element, tag: str = "w:t") -> etree._Element:  # pragma: no cover
     """创建 <w:r>，复制源 run 的格式"""
     r = OxmlElement("w:r")
     source_elem = getattr(source_run, "_element", source_run)

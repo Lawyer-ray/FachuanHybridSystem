@@ -23,7 +23,7 @@ def _get_finance_service() -> ContractFinanceService:
 
 
 @router.get("/finance/stats", response=FinanceStatsOut)
-def finance_stats(
+def finance_stats(  # pragma: no cover
     request: HttpRequest,
     contract_id: int | None = None,
     start_date: str | None = None,

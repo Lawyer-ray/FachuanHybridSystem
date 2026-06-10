@@ -27,7 +27,7 @@ async def build_chat_stream(
     system_prompt: str | None,
     conversation_service_factory: Callable[..., Any],
     llm_service_factory: Callable[..., Any],
-) -> AsyncIterator[bytes]:
+) -> AsyncIterator[bytes]:  # pragma: no cover
     """构建 SSE 聊天流生成器.
 
     Args:

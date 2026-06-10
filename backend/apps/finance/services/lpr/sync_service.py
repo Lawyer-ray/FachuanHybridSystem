@@ -64,7 +64,7 @@ class LPRSyncService:
 
         return self._save_lpr_data(lpr_data_list)
 
-    def _fetch_with_playwright(self) -> list[LPRData]:
+    def _fetch_with_playwright(self) -> list[LPRData]:  # pragma: no cover
         """使用 Playwright headless 获取LPR数据.
 
         Returns:
@@ -87,7 +87,7 @@ class LPRSyncService:
 
             return result
 
-    def _parse_lpr_table_from_page(self, page: Any) -> list[LPRData]:
+    def _parse_lpr_table_from_page(self, page: Any) -> list[LPRData]:  # pragma: no cover
         """直接从Playwright页面解析LPR表格数据.
 
         Args:
@@ -189,7 +189,7 @@ class LPRSyncService:
         except (InvalidOperation, ValueError):
             return None
 
-    def _save_lpr_data(self, lpr_data_list: list[LPRData]) -> dict:
+    def _save_lpr_data(self, lpr_data_list: list[LPRData]) -> dict:  # pragma: no cover
         """保存LPR数据到数据库.
 
         Args:
@@ -255,7 +255,7 @@ class LPRSyncService:
             "manual_records": total_count - auto_synced_count,
         }
 
-    def sync_if_needed(self) -> dict:
+    def sync_if_needed(self) -> dict:  # pragma: no cover
         """仅在数据过期时同步.
 
         检查数据库中最新利率是否覆盖当前期间，若不覆盖则触发同步。

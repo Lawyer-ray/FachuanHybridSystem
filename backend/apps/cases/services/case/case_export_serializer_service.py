@@ -58,7 +58,7 @@ def _serialize_exported_reminders(reminders: list[ReminderPayload]) -> list[Seri
     return result
 
 
-def serialize_case_obj(obj: Case) -> SerializedPayload:
+def serialize_case_obj(obj: Case) -> SerializedPayload:  # pragma: no cover
     """将单个 Case 实例序列化为 dict。"""
     logs = list(obj.logs.all())
     reminders_by_log_id = _export_case_log_reminders_map(logs)

@@ -70,11 +70,19 @@ class TestPerformanceMonitorServiceAdapter:
     def test_get_token_acquisition_metrics(self):
         from apps.automation.services.token.performance_monitor_service_adapter import PerformanceMonitorServiceAdapter
 
-        adapter = PerformanceMonitorServiceAdapter()
-        # Model may not exist in test DB, should return fallback metrics
-        metrics = adapter.get_token_acquisition_metrics(hours=24)
-        assert "overall" in metrics
-        assert metrics["overall"]["total_attempts"] == 0
+        with patch("apps.automation.models.TokenAcquisitionHistory") as mock_history:
+            mock_qs = MagicMock()
+            mock_qs.count.return_value = 0
+            mock_qs.filter.return_value.count.return_value = 0
+            mock_qs.exclude.return_value.count.return_value = 0
+            mock_qs.values.return_value.annotate.return_value = []
+            mock_qs.filter.return_value.aggregate.return_value = {"avg_duration": None}
+            mock_history.objects.filter.return_value = mock_qs
+
+            adapter = PerformanceMonitorServiceAdapter()
+            metrics = adapter.get_token_acquisition_metrics(hours=24)
+            assert "overall" in metrics
+            assert metrics["overall"]["total_attempts"] == 0
 
     def test_get_api_performance_metrics(self):
         from apps.automation.services.token.performance_monitor_service_adapter import PerformanceMonitorServiceAdapter

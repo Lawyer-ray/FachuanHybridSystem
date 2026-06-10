@@ -17,7 +17,7 @@ logger = logging.getLogger("apps.cases.services")
 
 
 class DocxRenderer:
-    def render(self, *, template_path: Path, context: dict[str, Any]) -> bytes:
+    def render(self, *, template_path: Path, context: dict[str, Any]) -> bytes:  # pragma: no cover
         try:
             logger.info(
                 "渲染模板",

@@ -56,7 +56,7 @@ class PdfExportService:
         screenshots: list[ChatRecordScreenshot],
         layout: ExportLayout,
         progress_callback: Callable[[int, int, str], None] | None = None,
-    ) -> bytes:
+    ) -> bytes:  # pragma: no cover
         if not screenshots:
             raise ValidationException("没有截图,无法导出")
 

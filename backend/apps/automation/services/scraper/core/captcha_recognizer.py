@@ -82,7 +82,7 @@ class DdddocrRecognizer(CaptchaRecognizer):
         >>> logger.info(result)  # '1234'
     """
 
-    def __init__(self, show_ad: bool = False):
+    def __init__(self, show_ad: bool = False):  # pragma: no cover
         """
         初始化 ddddocr 识别器
 
@@ -101,7 +101,7 @@ class DdddocrRecognizer(CaptchaRecognizer):
             logger.error("❌ ddddocr 未安装，请运行: uv add ddddocr")
             raise ImportError("ddddocr 库未安装。请运行: uv add ddddocr") from e
 
-    def recognize(self, image_bytes: bytes) -> str | None:
+    def recognize(self, image_bytes: bytes) -> str | None:  # pragma: no cover
         """
         从图片字节流识别验证码
 
@@ -125,7 +125,7 @@ class DdddocrRecognizer(CaptchaRecognizer):
             logger.error(f"❌ 验证码识别失败: {e}", exc_info=True)
             return None
 
-    def recognize_from_element(self, page: Any, selector: str) -> str | None:
+    def recognize_from_element(self, page: Any, selector: str) -> str | None:  # pragma: no cover
         """
         从页面元素识别验证码
 

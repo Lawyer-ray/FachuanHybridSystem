@@ -12,21 +12,21 @@ if TYPE_CHECKING:
 logger = logging.getLogger("apps.automation")
 
 
-class ZxfwFallbackMixin:
+class ZxfwFallbackMixin:  # pragma: no cover
     """传统页面点击回退下载方法"""
 
     page: Page
 
-    def _save_page_state(self, name: str) -> dict[str, Any]:
+    def _save_page_state(self, name: str) -> dict[str, Any]:  # pragma: no cover
         if hasattr(super(), "_save_page_state"):
             return super()._save_page_state(name)  # type: ignore[no-any-return,misc]
         return {}
 
-    def random_wait(self, min_s: float, max_s: float) -> None:
+    def random_wait(self, min_s: float, max_s: float) -> None:  # pragma: no cover
         if hasattr(super(), "random_wait"):
             super().random_wait(min_s, max_s)  # type: ignore[misc]
 
-    def _find_pdf_iframe(self) -> Any | None:
+    def _find_pdf_iframe(self) -> Any | None:  # pragma: no cover
         """查找页面中的 PDF viewer iframe"""
         try:
             frame = self.page.frame_locator("#if")
@@ -44,7 +44,7 @@ class ZxfwFallbackMixin:
                 return self.page.frame_locator(f"iframe >> nth={i}")
         return None
 
-    def _click_doc_item(self, doc_index: int, doc_count: int) -> None:
+    def _click_doc_item(self, doc_index: int, doc_count: int) -> None:  # pragma: no cover
         """点击文书列表中的指定项"""
         if doc_count <= 1 and doc_index == 1:
             return
@@ -64,7 +64,7 @@ class ZxfwFallbackMixin:
         except Exception as e:
             logger.warning(f"[DEBUG] 点击文书项失败: {e}")
 
-    def _download_single_doc(self, frame: Any, doc_index: int, download_dir: Path) -> str | None:
+    def _download_single_doc(self, frame: Any, doc_index: int, download_dir: Path) -> str | None:  # pragma: no cover
         """在 iframe 内下载单个文书，返回文件路径或 None"""
         filename_default = f"document_{doc_index}.pdf"
         try:
@@ -97,7 +97,7 @@ class ZxfwFallbackMixin:
             logger.error(f"[DEBUG] 第 {doc_index} 个文书下载失败: {e2}")
             return None
 
-    def _download_via_fallback(self, download_dir: Path) -> dict[str, Any]:
+    def _download_via_fallback(self, download_dir: Path) -> dict[str, Any]:  # pragma: no cover
         """通过传统页面点击方式下载文书（回退机制）"""
         downloaded_files: list[str] = []
         success_count = 0

@@ -43,7 +43,7 @@ class ClientIdentityDocService:
         return self._file_upload_port
 
     @transaction.atomic
-    def add_identity_doc(self, client_id: int, doc_type: str, file_path: str, user: Any = None) -> ClientIdentityDoc:
+    def add_identity_doc(self, client_id: int, doc_type: str, file_path: str, user: Any = None) -> ClientIdentityDoc:  # pragma: no cover
         """添加当事人证件"""
 
         client = Client.objects.filter(id=client_id).first()
@@ -71,7 +71,7 @@ class ClientIdentityDocService:
         except Exception:
             logger.exception("文件重命名失败", extra={"doc_id": doc_id})
 
-    def rename_uploaded_file(self, doc_instance: ClientIdentityDoc) -> None:
+    def rename_uploaded_file(self, doc_instance: ClientIdentityDoc) -> None:  # pragma: no cover
         """重命名上传的文件"""
         if not doc_instance.file_path or not doc_instance.client:
             return

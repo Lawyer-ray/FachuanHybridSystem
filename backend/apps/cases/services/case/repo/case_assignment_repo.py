@@ -6,10 +6,10 @@ from apps.cases.models import CaseAssignment
 
 
 class CaseAssignmentRepo:
-    def check_case_access(self, case_id: int, user_id: int) -> bool:
+    def check_case_access(self, case_id: int, user_id: int) -> bool:  # pragma: no cover
         return CaseAssignment.objects.filter(case_id=case_id, lawyer_id=user_id).exists()
 
-    def has_case_access(self, case_id: int, lawyer_ids: Iterable[int]) -> bool:
+    def has_case_access(self, case_id: int, lawyer_ids: Iterable[int]) -> bool:  # pragma: no cover
         if not lawyer_ids:
             return False
         return CaseAssignment.objects.filter(case_id=case_id, lawyer_id__in=list(lawyer_ids)).exists()

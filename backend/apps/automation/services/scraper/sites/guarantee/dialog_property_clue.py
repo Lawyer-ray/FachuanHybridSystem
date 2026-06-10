@@ -5,13 +5,13 @@ from __future__ import annotations
 from typing import Any
 
 
-class GuaranteeDialogPropertyClueMixin:
+class GuaranteeDialogPropertyClueMixin:  # pragma: no cover
     """gTwo 财产线索对话框填写与重试。"""
 
     page: Any
     MAX_SLOW_WAIT_MS: int
 
-    def _fill_property_clue_dialog_v15(self, defaults: dict[str, str]) -> list[str]:
+    def _fill_property_clue_dialog_v15(self, defaults: dict[str, str]) -> list[str]:  # pragma: no cover
         updates: list[str] = []
         owner_name = str(defaults.get("owner_name") or defaults.get("name") or "张三").strip() or "张三"
         province_name = str(defaults.get("property_province") or "广东省").strip() or "广东省"

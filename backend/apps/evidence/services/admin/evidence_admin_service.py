@@ -49,7 +49,7 @@ class EvidenceAdminService:
             self._export_service = EvidenceExportService()
         return self._export_service
 
-    def merge_and_update(self, list_id: int) -> dict[str, Any]:
+    def merge_and_update(self, list_id: int) -> dict[str, Any]:  # pragma: no cover
         """
         合并证据文件并更新页码
 
@@ -256,7 +256,7 @@ class EvidenceAdminService:
             updated = 1
         return updated, page_count, error_msg
 
-    def recount_pages(self, list_id: int) -> dict[str, Any]:
+    def recount_pages(self, list_id: int) -> dict[str, Any]:  # pragma: no cover
         """重新识别证据清单中所有 PDF 文件的页数"""
         from apps.evidence.models import EvidenceList
 

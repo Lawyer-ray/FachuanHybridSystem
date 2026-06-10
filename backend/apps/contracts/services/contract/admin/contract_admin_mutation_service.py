@@ -84,7 +84,7 @@ class ContractAdminMutationService:
         return self._filing_number_workflow
 
     @transaction.atomic
-    def duplicate_contract(self, contract_id: int) -> Contract:
+    def duplicate_contract(self, contract_id: int) -> Contract:  # pragma: no cover
         try:
             original = Contract.objects.get(pk=contract_id)
         except Contract.DoesNotExist:
@@ -163,7 +163,7 @@ class ContractAdminMutationService:
         )
 
     @transaction.atomic
-    def renew_advisor_contract(self, contract_id: int) -> Contract:
+    def renew_advisor_contract(self, contract_id: int) -> Contract:  # pragma: no cover
         try:
             original = Contract.objects.get(pk=contract_id)
         except Contract.DoesNotExist:

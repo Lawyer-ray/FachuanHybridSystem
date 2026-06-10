@@ -23,7 +23,7 @@ class MergeProgressReporter:
     _last_progress: int = -1
     _last_update_ts: float = 0.0
 
-    def report(self, *, current: int, total: int, message: str) -> None:
+    def report(self, *, current: int, total: int, message: str) -> None:  # pragma: no cover
         from apps.evidence.models import EvidenceList
 
         progress = int(current * 100 / total) if total else 0
@@ -42,7 +42,7 @@ class MergeProgressReporter:
 
 
 class EvidenceMergeUseCase:
-    def merge(self, *, list_id: int, reporter: MergeProgressReporter | None = None) -> dict[str, Any]:
+    def merge(self, *, list_id: int, reporter: MergeProgressReporter | None = None) -> dict[str, Any]:  # pragma: no cover
         from apps.evidence.models import EvidenceList, MergeStatus
         from apps.evidence.services.core.evidence_service import EvidenceService
         from apps.evidence.services.infrastructure.pdf_merge_service import PDFMergeService

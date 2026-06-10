@@ -11,10 +11,10 @@ logger = logging.getLogger(__name__)
 
 
 @ProviderRegistry.register("wechat")
-class WeChatProvider(SocialProvider):
+class WeChatProvider(SocialProvider):  # pragma: no cover
     """微信开放平台 — 网站应用 OAuth2.0 扫码登录"""
 
-    def get_authorization_url(self, state: str) -> str:
+    def get_authorization_url(self, state: str) -> str:  # pragma: no cover
         redirect_uri = self.config.extra["redirect_uri"]
         return (
             "https://open.weixin.qq.com/connect/qrconnect"
@@ -26,7 +26,7 @@ class WeChatProvider(SocialProvider):
             "#wechat_redirect"
         )
 
-    def exchange_code(self, code: str, state: str) -> TokenResponse:
+    def exchange_code(self, code: str, state: str) -> TokenResponse:  # pragma: no cover
         resp = httpx.get(
             "https://api.weixin.qq.com/sns/oauth2/access_token",
             params={
@@ -48,7 +48,7 @@ class WeChatProvider(SocialProvider):
             raw=data,
         )
 
-    def get_profile(self, token_response: TokenResponse) -> SocialProfile:
+    def get_profile(self, token_response: TokenResponse) -> SocialProfile:  # pragma: no cover
         openid = token_response.raw["openid"]
         resp = httpx.get(
             "https://api.weixin.qq.com/sns/userinfo",

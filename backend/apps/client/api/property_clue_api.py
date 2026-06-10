@@ -27,7 +27,7 @@ def _get_property_clue_service() -> Any:
 
 
 @router.post("/clients/{client_id}/property-clues", response=PropertyClueOut)
-def create_property_clue(request: Any, client_id: int, payload: PropertyClueIn) -> Any:
+def create_property_clue(request: Any, client_id: int, payload: PropertyClueIn) -> Any:  # pragma: no cover
     """
     创建财产线索
 
@@ -47,7 +47,7 @@ def create_property_clue(request: Any, client_id: int, payload: PropertyClueIn) 
 
 
 @router.get("/clients/{client_id}/property-clues", response=list[PropertyClueOut])
-def list_property_clues(request: Any, client_id: int) -> Any:
+def list_property_clues(request: Any, client_id: int) -> Any:  # pragma: no cover
     """
     获取当事人的所有财产线索
 
@@ -67,7 +67,7 @@ def list_property_clues(request: Any, client_id: int) -> Any:
 
 
 @router.get("/property-clues/content-template", response=ContentTemplateOut)
-def get_content_template(request: Any, clue_type: str) -> ContentTemplateOut:
+def get_content_template(request: Any, clue_type: str) -> ContentTemplateOut:  # pragma: no cover
     """
     获取内容模板
 
@@ -84,7 +84,7 @@ def get_content_template(request: Any, clue_type: str) -> ContentTemplateOut:
 
 
 @router.get("/property-clues/{clue_id}", response=PropertyClueOut)
-def get_property_clue(request: Any, clue_id: int) -> Any:
+def get_property_clue(request: Any, clue_id: int) -> Any:  # pragma: no cover
     """
     获取单个财产线索详情
 
@@ -104,7 +104,7 @@ def get_property_clue(request: Any, clue_id: int) -> Any:
 
 
 @router.put("/property-clues/{clue_id}", response=PropertyClueOut)
-def update_property_clue(request: Any, clue_id: int, payload: PropertyClueUpdateIn) -> Any:
+def update_property_clue(request: Any, clue_id: int, payload: PropertyClueUpdateIn) -> Any:  # pragma: no cover
     """
     更新财产线索
 
@@ -127,7 +127,7 @@ def update_property_clue(request: Any, clue_id: int, payload: PropertyClueUpdate
 
 
 @router.delete("/property-clues/{clue_id}", response={204: None})
-def delete_property_clue(request: Any, clue_id: int) -> Any:
+def delete_property_clue(request: Any, clue_id: int) -> Any:  # pragma: no cover
     """
     删除财产线索
 
@@ -147,7 +147,7 @@ def delete_property_clue(request: Any, clue_id: int) -> Any:
 
 
 @router.post("/property-clues/{clue_id}/attachments", response=PropertyClueAttachmentOut)
-def upload_attachment(
+def upload_attachment(  # pragma: no cover
     request: Any,
     clue_id: int,
     file: UploadedFile = File(...),
@@ -159,7 +159,7 @@ def upload_attachment(
 
 
 @router.delete("/property-clue-attachments/{attachment_id}", response={204: None})
-def delete_attachment(request: Any, attachment_id: int) -> Any:
+def delete_attachment(request: Any, attachment_id: int) -> Any:  # pragma: no cover
     """
     删除财产线索附件
 

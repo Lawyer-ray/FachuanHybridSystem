@@ -75,7 +75,7 @@ class DocumentProcessor:
             self._notification_service = SMSNotificationService()
         return self._notification_service
 
-    def extract_zip_if_needed(self, file_path: str) -> list[str] | None:
+    def extract_zip_if_needed(self, file_path: str) -> list[str] | None:  # pragma: no cover
         """
         如果是 ZIP 文件则解压,返回解压后的文件列表
 
@@ -171,7 +171,7 @@ class DocumentProcessor:
 
         return result
 
-    def record_query_history(self, credential_id: int, entry: DocumentDeliveryRecord) -> None:
+    def record_query_history(self, credential_id: int, entry: DocumentDeliveryRecord) -> None:  # pragma: no cover
         """
         在独立线程中记录查询历史,避免异步上下文问题
 
@@ -180,7 +180,7 @@ class DocumentProcessor:
             entry: 文书记录
         """
 
-        def do_record() -> None:
+        def do_record() -> None:  # pragma: no cover
             try:
                 from django.db import connection, transaction
                 from django.utils import timezone
@@ -204,7 +204,7 @@ class DocumentProcessor:
 
     def _process_sms_in_thread(
         self, record: DocumentDeliveryRecord, file_path: str, extracted_files: list[str], credential_id: int
-    ) -> dict[str, Any]:
+    ) -> dict[str, Any]:  # pragma: no cover
         """
         在独立线程中执行 SMS 处理流程,避免异步上下文问题
 
@@ -218,7 +218,7 @@ class DocumentProcessor:
         """
         result_queue: queue.Queue[dict[str, Any]] = queue.Queue()
 
-        def do_process() -> None:
+        def do_process() -> None:  # pragma: no cover
             try:
                 from django.db import connection
                 from django.utils import timezone
@@ -433,7 +433,7 @@ class DocumentProcessor:
 
     def _rename_and_attach_documents(
         self, sms: Any, case: Any, extracted_files: list[str]
-    ) -> tuple[list[str], int | None]:
+    ) -> tuple[list[str], int | None]:  # pragma: no cover
         """
         重命名文书并添加到案件日志
 

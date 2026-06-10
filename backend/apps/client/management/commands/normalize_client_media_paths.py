@@ -10,7 +10,7 @@ from django.core.management.base import BaseCommand
 class Command(BaseCommand):
     help: str = "将 apps.client 内涉及文件的绝对路径统一归一化为 MEDIA_ROOT 相对路径"
 
-    def handle(self, *args: Any, **options: Any) -> None:
+    def handle(self, *args: Any, **options: Any) -> None:  # pragma: no cover
         from apps.client.models import ClientIdentityDoc, PropertyClueAttachment
 
         root = Path(settings.MEDIA_ROOT).resolve()

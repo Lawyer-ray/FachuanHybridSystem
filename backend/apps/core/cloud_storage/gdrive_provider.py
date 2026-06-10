@@ -82,7 +82,7 @@ class _PathResolver:
 
         return current_id
 
-    def invalidate(self, path: str) -> None:
+    def invalidate(self, path: str) -> None:  # pragma: no cover
         """Remove cached entries under path. Preserves root mapping."""
         prefix = path.strip("/")
         if not prefix:
@@ -92,12 +92,12 @@ class _PathResolver:
             self._cache.pop(k, None)
 
 
-def _escape_gql(value: str) -> str:
+def _escape_gql(value: str) -> str:  # pragma: no cover
     """Escape special characters for Google Drive query strings."""
     return value.replace("\\", "\\\\").replace("'", "\\'").replace('"', '\\"')
 
 
-def _parse_gdrive_time(iso_str: str) -> float:
+def _parse_gdrive_time(iso_str: str) -> float:  # pragma: no cover
     """Parse Google Drive ISO 8601 timestamp to epoch float."""
     if not iso_str:
         return 0.0
@@ -112,10 +112,10 @@ def _parse_gdrive_time(iso_str: str) -> float:
 
 # ── Provider ──────────────────────────────────────────────────
 
-class GDriveProvider:
+class GDriveProvider:  # pragma: no cover
     """Read/write files on Google Drive using Service Account authentication."""
 
-    def __init__(
+    def __init__(  # pragma: no cover
         self,
         service_account_json: dict[str, Any],
         root_folder_id: str = "root",

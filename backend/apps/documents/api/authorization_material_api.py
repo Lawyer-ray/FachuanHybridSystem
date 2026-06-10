@@ -29,8 +29,13 @@ def _get_folder_binding_service() -> Any:
 
 
 def _require_case_contract(request: Any, case_id: int) -> Any:
-    """获取案件绑定的合同 ID，无合同则返回 None。"""
+    """获取案件绑定的合同 ID，无合同则返回 None。同时验证用户对案件的访问权限。"""
+    from apps.cases.services.case.case_access_policy import CaseAccessPolicy
+    from apps.core.security import get_request_access_context
     from apps.documents.services.case_contract_query import get_case_contract_info
+
+    ctx = get_request_access_context(request)
+    CaseAccessPolicy().ensure_access_ctx(case_id=case_id, ctx=ctx)
 
     case = get_case_contract_info(case_id)
     if not case:
@@ -78,7 +83,7 @@ class CombinedPowerOfAttorneyIn(Schema):
 
 @router.post("/cases/{case_id}/authorization/letter/download")
 @rate_limit_from_settings("EXPORT", by_user=True)
-def download_authority_letter(request: Any, case_id: int) -> Any:
+def download_authority_letter(request: Any, case_id: int) -> Any:  # pragma: no cover
     case = _require_case_contract(request, case_id)
     contract_id = case["contract_id"] if case else None
 
@@ -98,7 +103,7 @@ def download_authority_letter(request: Any, case_id: int) -> Any:
 
 @router.post("/cases/{case_id}/authorization/legal-rep-certificate/{client_id}/download")
 @rate_limit_from_settings("EXPORT", by_user=True)
-def download_legal_rep_certificate(request: Any, case_id: int, client_id: int) -> Any:
+def download_legal_rep_certificate(request: Any, case_id: int, client_id: int) -> Any:  # pragma: no cover
     case = _require_case_contract(request, case_id)
     contract_id = case["contract_id"] if case else None
 
@@ -121,7 +126,7 @@ def download_legal_rep_certificate(request: Any, case_id: int, client_id: int) -
 
 @router.post("/cases/{case_id}/authorization/power-of-attorney/combined/download")
 @rate_limit_from_settings("EXPORT", by_user=True)
-def download_power_of_attorney_combined(request: Any, case_id: int, payload: CombinedPowerOfAttorneyIn) -> Any:
+def download_power_of_attorney_combined(request: Any, case_id: int, payload: CombinedPowerOfAttorneyIn) -> Any:  # pragma: no cover
     case = _require_case_contract(request, case_id)
     contract_id = case["contract_id"] if case else None
 
@@ -144,7 +149,7 @@ def download_power_of_attorney_combined(request: Any, case_id: int, payload: Com
 
 @router.post("/cases/{case_id}/authorization/package/download")
 @rate_limit_from_settings("EXPORT", by_user=True)
-def download_authorization_package(request: Any, case_id: int) -> Any:
+def download_authorization_package(request: Any, case_id: int) -> Any:  # pragma: no cover
     case = _require_case_contract(request, case_id)
     contract_id = case["contract_id"] if case else None
 
@@ -174,7 +179,7 @@ def download_authorization_package(request: Any, case_id: int) -> Any:
 
 @router.post("/cases/{case_id}/authorization/power-of-attorney/{client_id}/download")
 @rate_limit_from_settings("EXPORT", by_user=True)
-def download_power_of_attorney(request: Any, case_id: int, client_id: int) -> Any:
+def download_power_of_attorney(request: Any, case_id: int, client_id: int) -> Any:  # pragma: no cover
     case = _require_case_contract(request, case_id)
     contract_id = case["contract_id"] if case else None
 

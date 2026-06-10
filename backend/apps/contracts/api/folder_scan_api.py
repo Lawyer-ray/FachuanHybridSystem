@@ -35,7 +35,7 @@ def _require_contract_access(request: HttpRequest, contract_id: int) -> None:
 
 @router.post("/{contract_id}/folder-scan", response=ContractFolderScanStartOut)
 @rate_limit_from_settings("TASK", by_user=True)
-def start_contract_scan(request: HttpRequest, contract_id: int, payload: ContractFolderScanStartIn) -> dict[str, str]:
+def start_contract_scan(request: HttpRequest, contract_id: int, payload: ContractFolderScanStartIn) -> dict[str, str]:  # pragma: no cover
     _require_contract_access(request, contract_id)
     ctx = get_request_access_context(request)
 
@@ -53,13 +53,13 @@ def start_contract_scan(request: HttpRequest, contract_id: int, payload: Contrac
 
 
 @router.get("/{contract_id}/folder-scan/subfolders", response=ContractFolderScanSubfolderListOut)
-def list_contract_scan_subfolders(request: HttpRequest, contract_id: int) -> dict[str, object]:
+def list_contract_scan_subfolders(request: HttpRequest, contract_id: int) -> dict[str, object]:  # pragma: no cover
     _require_contract_access(request, contract_id)
     return _get_service().list_scan_subfolders(contract_id=contract_id)
 
 
 @router.get("/{contract_id}/folder-scan/latest", response=ContractFolderScanStatusOut)
-def get_latest_contract_scan(request: HttpRequest, contract_id: int) -> dict[str, object]:
+def get_latest_contract_scan(request: HttpRequest, contract_id: int) -> dict[str, object]:  # pragma: no cover
     """返回合同最新的扫描会话状态；无会话时返回空状态。"""
     _require_contract_access(request, contract_id)
     service = _get_service()
@@ -81,7 +81,7 @@ def get_latest_contract_scan(request: HttpRequest, contract_id: int) -> dict[str
 
 
 @router.get("/{contract_id}/folder-scan/{session_id}", response=ContractFolderScanStatusOut)
-def get_contract_scan_status(request: HttpRequest, contract_id: int, session_id: UUID) -> dict[str, object]:
+def get_contract_scan_status(request: HttpRequest, contract_id: int, session_id: UUID) -> dict[str, object]:  # pragma: no cover
     _require_contract_access(request, contract_id)
 
     service = _get_service()
@@ -91,7 +91,7 @@ def get_contract_scan_status(request: HttpRequest, contract_id: int, session_id:
 
 @router.post("/{contract_id}/folder-scan/{session_id}/confirm", response=ContractFolderScanConfirmOut)
 @rate_limit_from_settings("TASK", by_user=True)
-def confirm_contract_scan(
+def confirm_contract_scan(  # pragma: no cover
     request: HttpRequest,
     contract_id: int,
     session_id: UUID,

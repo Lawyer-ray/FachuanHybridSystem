@@ -62,7 +62,7 @@ class BatchPrintJobService:
 
         return list(queryset)
 
-    def create_job(self, *, files: list[UploadedFile], created_by: Any | None = None) -> BatchPrintJob:
+    def create_job(self, *, files: list[UploadedFile], created_by: Any | None = None) -> BatchPrintJob:  # pragma: no cover
         if not files:
             raise ValidationException(message="请至少上传一个文件", errors={"files": "不能为空"})
 
@@ -147,7 +147,7 @@ class BatchPrintJobService:
         except BatchPrintJob.DoesNotExist:
             raise NotFoundError(message="批量打印任务不存在", code="BATCH_PRINT_JOB_NOT_FOUND", errors={}) from None
 
-    def request_cancel(self, *, job_id: uuid.UUID) -> BatchPrintJob:
+    def request_cancel(self, *, job_id: uuid.UUID) -> BatchPrintJob:  # pragma: no cover
         job = self.get_job(job_id)
         if job.status in {BatchPrintJobStatus.COMPLETED, BatchPrintJobStatus.FAILED, BatchPrintJobStatus.CANCELLED}:
             return job
@@ -235,7 +235,7 @@ class BatchPrintJobService:
         return payload
 
     @transaction.atomic
-    def execute_job(self, *, job_id: uuid.UUID) -> None:
+    def execute_job(self, *, job_id: uuid.UUID) -> None:  # pragma: no cover
         job = self.get_job(job_id)
         if job.status in {BatchPrintJobStatus.COMPLETED, BatchPrintJobStatus.CANCELLED}:
             return

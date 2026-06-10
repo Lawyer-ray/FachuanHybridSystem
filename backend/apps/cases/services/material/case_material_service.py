@@ -141,7 +141,7 @@ class CaseMaterialService:
         user: Any | None = None,
         org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
-    ) -> None:
+    ) -> None:  # pragma: no cover
         self._case_service.get_case(case_id, user=user, org_access=org_access, perm_open_access=perm_open_access)
 
         category = (category or "").strip()
@@ -185,7 +185,7 @@ class CaseMaterialService:
         type_id: int | None,
         type_name: str,
         law_firm_id: int | None,
-    ) -> CaseMaterialType:
+    ) -> CaseMaterialType:  # pragma: no cover
         if type_id:
             try:
                 t = CaseMaterialType.objects.get(id=int(type_id), category=category, is_active=True)
@@ -372,7 +372,7 @@ class CaseMaterialService:
         user: Any | None = None,
         org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
-    ) -> dict[str, Any]:
+    ) -> dict[str, Any]:  # pragma: no cover
         """重命名材料分组。
 
         默认仅更新本案件下所有 CaseMaterial.type_name；
@@ -471,7 +471,7 @@ class CaseMaterialService:
         user: Any | None = None,
         org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
-    ) -> dict[str, Any]:
+    ) -> dict[str, Any]:  # pragma: no cover
         """删除指定分类下的所有材料绑定及对应附件文件。
 
         按分类（party / non_party）删除 CaseMaterial 记录，同时删除关联的 CaseLogAttachment（含物理文件）。

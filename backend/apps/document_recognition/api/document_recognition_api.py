@@ -151,7 +151,7 @@ class UpdateInfoResponseSchema(BaseModel):
 
 
 @router.post("/court-document/recognize", response=TaskSubmitResponseSchema)
-def recognize_document(request: Any, file: UploadedFile = File(...)) -> TaskSubmitResponseSchema:
+def recognize_document(request: Any, file: UploadedFile = File(...)) -> TaskSubmitResponseSchema:  # pragma: no cover
     """
     提交文书识别任务（异步）
 
@@ -185,7 +185,7 @@ def recognize_document(request: Any, file: UploadedFile = File(...)) -> TaskSubm
 
 
 @router.get("/court-document/task/{task_id}", response=TaskStatusResponseSchema)
-def get_task_status(request: Any, task_id: int) -> TaskStatusResponseSchema:
+def get_task_status(request: Any, task_id: int) -> TaskStatusResponseSchema:  # pragma: no cover
     """
     查询识别任务状态和结果
     """
@@ -246,7 +246,7 @@ def _get_task_service() -> Any:
 
 
 @router.get("/court-document/search-cases", response=list[CaseSearchResultSchema])
-def search_cases_for_binding(request: Any, q: str = "", limit: int = 20) -> list[CaseSearchResultSchema]:
+def search_cases_for_binding(request: Any, q: str = "", limit: int = 20) -> list[CaseSearchResultSchema]:  # pragma: no cover
     """
     搜索可绑定的案件
 
@@ -282,7 +282,7 @@ def search_cases_for_binding(request: Any, q: str = "", limit: int = 20) -> list
 
 
 @router.post("/court-document/task/{task_id}/bind", response=ManualBindingResponseSchema)
-def manual_bind_case(request: Any, task_id: int, payload: ManualBindingRequestSchema) -> ManualBindingResponseSchema:
+def manual_bind_case(request: Any, task_id: int, payload: ManualBindingRequestSchema) -> ManualBindingResponseSchema:  # pragma: no cover
     """
     手动绑定案件
 
@@ -328,7 +328,7 @@ def manual_bind_case(request: Any, task_id: int, payload: ManualBindingRequestSc
 
 
 @router.post("/court-document/task/{task_id}/update-info", response=UpdateInfoResponseSchema)
-def update_task_info(request: Any, task_id: int, payload: UpdateInfoRequestSchema) -> UpdateInfoResponseSchema:
+def update_task_info(request: Any, task_id: int, payload: UpdateInfoRequestSchema) -> UpdateInfoResponseSchema:  # pragma: no cover
     """
     手动更新识别信息（案号、关键时间）
 

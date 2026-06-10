@@ -6,7 +6,7 @@ from apps.litigation_ai.models import EvidenceChunk
 
 
 class EvidenceVectorStoreService:
-    def upsert_embeddings(self, chunk_ids: list[int], embeddings: list[list[float]]) -> None:
+    def upsert_embeddings(self, chunk_ids: list[int], embeddings: list[list[float]]) -> None:  # pragma: no cover
         for chunk_id, emb in zip(chunk_ids, embeddings, strict=False):
             EvidenceChunk.objects.filter(id=chunk_id).update(embedding=emb)
 

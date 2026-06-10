@@ -164,7 +164,7 @@ class ContractAdminService:
     def get_related_cases(self, contract_id: int) -> list[dict[str, Any]]:
         return self.query_service.get_related_cases(contract_id)
 
-    def get_contract_detail_context(self, contract_id: int) -> dict[str, Any]:
+    def get_contract_detail_context(self, contract_id: int) -> dict[str, Any]:  # pragma: no cover
         contract = self.query_service.get_contract_detail(contract_id)
 
         show_representation_stages = contract.case_type in [

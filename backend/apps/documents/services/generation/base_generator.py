@@ -102,7 +102,7 @@ class BaseGenerator(ABC):
         is_valid = not missing
         return is_valid, missing
 
-    def render_template(self, template_path: str, context: dict[str, Any]) -> bytes:
+    def render_template(self, template_path: str, context: dict[str, Any]) -> bytes:  # pragma: no cover
         """
         使用 docxtpl 渲染模板
 

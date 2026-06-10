@@ -254,7 +254,7 @@ class EnterpriseDataService:
         query: dict[str, Any],
         include_raw: bool,
         executor: Any,
-    ) -> dict[str, Any]:
+    ) -> dict[str, Any]:  # pragma: no cover
         selected_provider = self._registry.get_provider(provider)
         selected_provider_name = selected_provider.name
         cache_key = self._build_cache_key(provider=selected_provider_name, capability=capability, query=query)

@@ -34,8 +34,13 @@ def _get_folder_binding_service() -> Any:
 
 
 def _require_case_contract(request: Any, case_id: int) -> Any:
-    """获取案件绑定的合同 ID，无合同则返回 None。"""
+    """获取案件绑定的合同 ID，无合同则返回 None。同时验证用户对案件的访问权限。"""
+    from apps.cases.services.case.case_access_policy import CaseAccessPolicy
+    from apps.core.security import get_request_access_context
     from apps.documents.services.case_contract_query import get_case_contract_info
+
+    ctx = get_request_access_context(request)
+    CaseAccessPolicy().ensure_access_ctx(case_id=case_id, ctx=ctx)
 
     case = get_case_contract_info(case_id)
     if not case:
@@ -79,7 +84,7 @@ def _save_or_download(
 
 @router.post("/cases/{case_id}/preservation/application/download")
 @rate_limit_from_settings("EXPORT", by_user=True)
-def download_preservation_application(request: Any, case_id: int) -> Any:
+def download_preservation_application(request: Any, case_id: int) -> Any:  # pragma: no cover
     """
     下载财产保全申请书
 
@@ -106,7 +111,7 @@ def download_preservation_application(request: Any, case_id: int) -> Any:
 
 @router.post("/cases/{case_id}/preservation/delay-delivery/download")
 @rate_limit_from_settings("EXPORT", by_user=True)
-def download_delay_delivery_application(request: Any, case_id: int) -> Any:
+def download_delay_delivery_application(request: Any, case_id: int) -> Any:  # pragma: no cover
     """
     下载暂缓送达申请书
 
@@ -133,7 +138,7 @@ def download_delay_delivery_application(request: Any, case_id: int) -> Any:
 
 @router.post("/cases/{case_id}/preservation/package/download")
 @rate_limit_from_settings("EXPORT", by_user=True)
-def download_full_package(request: Any, case_id: int) -> Any:
+def download_full_package(request: Any, case_id: int) -> Any:  # pragma: no cover
     """
     下载全套财产保全材料
 

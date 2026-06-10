@@ -87,7 +87,7 @@ class CaseFilingNumberService:
                 errors={"detail": str(e)},
             ) from e
 
-    def _get_next_case_sequence(self, year: int) -> int:
+    def _get_next_case_sequence(self, year: int) -> int:  # pragma: no cover
         with transaction.atomic():
             qs: Any = CaseFilingNumberSequence.objects
             if connection.features.has_select_for_update:

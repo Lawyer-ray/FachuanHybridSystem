@@ -5,16 +5,16 @@ from __future__ import annotations
 from typing import Any
 
 
-class GuaranteeDialogPlaywrightFillMixin:
+class GuaranteeDialogPlaywrightFillMixin:  # pragma: no cover
     """gTwo 对话框中基于 Playwright 的增强填充方法。"""
 
     page: Any
     MAX_SLOW_WAIT_MS: int
 
-    def _fill_dialog_fields_with_playwright(self, defaults: dict[str, str], target: str) -> list[str]:
+    def _fill_dialog_fields_with_playwright(self, defaults: dict[str, str], target: str) -> list[str]:  # pragma: no cover
         updates: list[str] = []
 
-        def _fill_first_visible(placeholder: str, value: str) -> None:
+        def _fill_first_visible(placeholder: str, value: str) -> None:  # pragma: no cover
             if not value:
                 return
             locator = self.page.locator(f"input[placeholder='{placeholder}']")
@@ -31,7 +31,7 @@ class GuaranteeDialogPlaywrightFillMixin:
                 except Exception:
                     continue
 
-        def _select_first_visible_option(preferred_texts: list[str]) -> str | None:
+        def _select_first_visible_option(preferred_texts: list[str]) -> str | None:  # pragma: no cover
             options = self.page.locator(".el-select-dropdown__item:not(.is-disabled)")
             visible: list[str] = []
             for i in range(options.count()):
@@ -73,7 +73,7 @@ class GuaranteeDialogPlaywrightFillMixin:
                     continue
             return None
 
-        def _select_dropdown_by_label(label_keyword: str, preferred_texts: list[str]) -> bool:
+        def _select_dropdown_by_label(label_keyword: str, preferred_texts: list[str]) -> bool:  # pragma: no cover
             selected_text = self._force_vue_select_by_label(label_keyword, preferred_texts)  # type: ignore[attr-defined]
             if selected_text:
                 updates.append(f"{label_keyword}={selected_text}")

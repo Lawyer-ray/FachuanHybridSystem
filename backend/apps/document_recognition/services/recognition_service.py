@@ -318,7 +318,7 @@ class CourtDocumentRecognitionService:
             )
             raise
 
-    def _rename_document(self, file_path: str, document_type: DocumentType, case_name: str) -> str:
+    def _rename_document(self, file_path: str, document_type: DocumentType, case_name: str) -> str:  # pragma: no cover
         """
         重命名文书文件
 

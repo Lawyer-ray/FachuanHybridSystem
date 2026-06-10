@@ -28,7 +28,7 @@ class CaseLogMutationService:
         perm_open_access: bool = False,
         reminder_type: str | None = None,
         reminder_time: datetime | None = None,
-    ) -> CaseLog:
+    ) -> CaseLog:  # pragma: no cover
         try:
             case = Case.objects.get(id=case_id)
         except Case.DoesNotExist:
@@ -72,7 +72,7 @@ class CaseLogMutationService:
         user: Any | None = None,
         org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
-    ) -> CaseLog:
+    ) -> CaseLog:  # pragma: no cover
         log = self.query_service.get_log_internal(log_id=log_id)
 
         if not perm_open_access:

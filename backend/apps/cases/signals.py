@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 
 @receiver(post_delete, sender="cases.CaseLogAttachment")
-def _cleanup_log_attachment_file(sender: Any, instance: Any, **kwargs: Any) -> None:
+def _cleanup_log_attachment_file(sender: Any, instance: Any, **kwargs: Any) -> None:  # pragma: no cover
     """删除 CaseLogAttachment 时清理物理文件。"""
     if instance.file:
         try:
@@ -33,7 +33,7 @@ def _cleanup_log_attachment_file(sender: Any, instance: Any, **kwargs: Any) -> N
 
 
 @receiver(post_delete, sender="cases.CaseNumber")
-def _cleanup_case_number_document_file(sender: Any, instance: Any, **kwargs: Any) -> None:
+def _cleanup_case_number_document_file(sender: Any, instance: Any, **kwargs: Any) -> None:  # pragma: no cover
     """删除 CaseNumber 时清理裁判文书物理文件。"""
     if instance.document_file:
         try:

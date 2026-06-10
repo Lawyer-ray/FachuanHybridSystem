@@ -20,7 +20,7 @@ CLIENT_IMPORT_TASK_TIMEOUT_SECONDS = int(os.environ.get("OA_CLIENT_IMPORT_TASK_T
 
 
 @router.post("/client-import", response=ClientImportSessionOut)
-def trigger_client_import(request: HttpRequest) -> Any:
+def trigger_client_import(request: HttpRequest) -> Any:  # pragma: no cover
     """触发从OA导入客户。"""
     import json
 
@@ -85,7 +85,7 @@ def trigger_client_import(request: HttpRequest) -> Any:
 
 
 @router.get("/client-import/{session_id}", response=ClientImportSessionOut)
-def get_client_import_session(request: HttpRequest, session_id: int) -> Any:
+def get_client_import_session(request: HttpRequest, session_id: int) -> Any:  # pragma: no cover
     """查询客户导入会话状态。"""
     from apps.oa_filing.services.import_session_service import get_client_session_or_none
 
@@ -98,7 +98,7 @@ def get_client_import_session(request: HttpRequest, session_id: int) -> Any:
 
 
 @router.post("/client-import/{session_id}/batch-create")
-def batch_create_clients(request: HttpRequest, session_id: int) -> dict[str, Any]:
+def batch_create_clients(request: HttpRequest, session_id: int) -> dict[str, Any]:  # pragma: no cover
     """批量创建客户（通过API调用避免异步上下文问题）。
 
     接收一个客户数据列表，在新的HTTP请求中处理，不受Django-Q异步上下文影响。

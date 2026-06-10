@@ -24,7 +24,7 @@ def _configure_db_settings() -> None:
     connections._settings = configured_settings  # type: ignore
 
 
-async def _db_sync(func: Any, *args: Any, **kwargs: Any) -> Any:
+async def _db_sync(func: Any, *args: Any, **kwargs: Any) -> Any:  # pragma: no cover
     def _wrapped() -> Any:
         _configure_db_settings()
         return func(*args, **kwargs)
@@ -50,7 +50,7 @@ class PreservationQuoteRepository:
 
     def create_quote(
         self, *, preserve_amount: Decimal, corp_id: str, category_id: str, credential_id: int | None
-    ) -> PreservationQuote:
+    ) -> PreservationQuote:  # pragma: no cover
         _configure_db_settings()
         return PreservationQuote.objects.create(
             preserve_amount=preserve_amount,
@@ -68,7 +68,7 @@ class PreservationQuoteRepository:
 
     def list_quotes(
         self, *, page: int = 1, page_size: int | None = None, status: str | None = None
-    ) -> tuple[list[PreservationQuote], int]:
+    ) -> tuple[list[PreservationQuote], int]:  # pragma: no cover
         if page_size is None:
             page_size = get_config("pagination.default_page_size", 20)
 

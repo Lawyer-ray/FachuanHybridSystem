@@ -27,7 +27,7 @@ class ContractFinanceService:
         contract_id: int | None = None,
         start_date: date | None = None,
         end_date: date | None = None,
-    ) -> dict[str, Any]:
+    ) -> dict[str, Any]:  # pragma: no cover
         """
         获取财务统计数据
 

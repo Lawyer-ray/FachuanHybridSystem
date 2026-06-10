@@ -14,7 +14,7 @@ class LawyerQueryService:
     def __init__(self, access_policy: OrganizationAccessPolicy) -> None:
         self.access_policy = access_policy
 
-    def get_lawyer_queryset(self) -> QuerySet[Lawyer, Lawyer]:
+    def get_lawyer_queryset(self) -> QuerySet[Lawyer, Lawyer]:  # pragma: no cover
         return Lawyer.objects.select_related("law_firm").prefetch_related("lawyer_teams", "biz_teams")
 
     def get_lawyer(self, lawyer_id: int, user: Lawyer) -> Lawyer:

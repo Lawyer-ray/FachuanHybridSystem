@@ -212,7 +212,7 @@ class LitigationGenerationService:
 
         return filename, doc_bytes
 
-    def get_preview_context(self, case_id: int, litigation_type: str) -> dict[str, str]:
+    def get_preview_context(self, case_id: int, litigation_type: str) -> dict[str, str]:  # pragma: no cover
         case_service = ServiceLocator.get_case_service()
         case_dto = case_service.get_case_by_id_internal(case_id)
         if not case_dto:

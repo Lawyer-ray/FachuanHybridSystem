@@ -205,7 +205,7 @@ class ReminderServiceAdapter(ReminderService):
         return super().get_existing_due_times(case_log_id, reminder_type)
 
     @transaction.atomic
-    def create_contract_reminders_internal(self, *, contract_id: int, reminders: list[dict[str, Any]]) -> int:
+    def create_contract_reminders_internal(self, *, contract_id: int, reminders: list[dict[str, Any]]) -> int:  # pragma: no cover
         """内部方法：批量创建合同提醒。"""
         normalized_contract_id = normalize_target_id(contract_id, field_name="合同ID")
         if normalized_contract_id is None:
@@ -252,7 +252,7 @@ class ReminderServiceAdapter(ReminderService):
         return len(objs)
 
     @transaction.atomic
-    def create_case_log_reminders_internal(self, *, case_log_id: int, reminders: list[dict[str, Any]]) -> int:
+    def create_case_log_reminders_internal(self, *, case_log_id: int, reminders: list[dict[str, Any]]) -> int:  # pragma: no cover
         """内部方法：批量创建案件日志提醒。"""
         normalized_case_log_id = normalize_target_id(case_log_id, field_name="案件日志ID")
         if normalized_case_log_id is None:

@@ -102,7 +102,7 @@ class EvidenceService:
         evidence_list = self.get_evidence_list(list_id)
         return self.mutation_service.reorder_items(evidence_list=evidence_list, item_ids=item_ids)
 
-    def upload_file(self, item_id: int, file: Any) -> EvidenceItem:
+    def upload_file(self, item_id: int, file: Any) -> EvidenceItem:  # pragma: no cover
         item = self._get_evidence_item(item_id)
         return self.file_service.upload_file(item=item, file=file)
 

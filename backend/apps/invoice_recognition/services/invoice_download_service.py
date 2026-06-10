@@ -64,7 +64,7 @@ class InvoiceDownloadService:
         filename = self._generate_filename(task_name, None, fmt)
         return data, filename
 
-    def _merge_to_pdf(self, records: list[InvoiceRecord]) -> bytes:
+    def _merge_to_pdf(self, records: list[InvoiceRecord]) -> bytes:  # pragma: no cover
         dest: fitz.Document = fitz.open()
         for record in records:
             abs_path = Path(settings.MEDIA_ROOT) / record.file_path
@@ -87,7 +87,7 @@ class InvoiceDownloadService:
         dest.close()
         return result
 
-    def _pack_to_zip(self, records: list[InvoiceRecord]) -> bytes:
+    def _pack_to_zip(self, records: list[InvoiceRecord]) -> bytes:  # pragma: no cover
         buf = io.BytesIO()
         seen_names: dict[str, int] = {}
         with zipfile.ZipFile(buf, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:

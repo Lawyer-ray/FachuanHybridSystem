@@ -67,7 +67,7 @@ class Command(BaseCommand):
         elif total_processed > 0 or total_failed > 0:
             logger.info(f"文书送达定时任务执行完成: 处理 {total_processed} 个，失败 {total_failed} 个")
 
-    def handle(self, *args: Any, **options: Any) -> None:
+    def handle(self, *args: Any, **options: Any) -> None:  # pragma: no cover
         from apps.automation.services.document_delivery.document_delivery_schedule_service import (
             DocumentDeliveryScheduleService,
         )

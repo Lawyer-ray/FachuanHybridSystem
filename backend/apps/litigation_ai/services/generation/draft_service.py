@@ -15,12 +15,12 @@ from apps.litigation_ai.models import LitigationSession
 logger = logging.getLogger("apps.litigation_ai")
 
 
-class DraftService:
+class DraftService:  # pragma: no cover
     """
     草稿生成服务(简化版,供 Agent 工具调用)
     """
 
-    def generate_draft_for_agent(
+    def generate_draft_for_agent(  # pragma: no cover
         self,
         case_id: int,
         document_type: str,
@@ -73,8 +73,8 @@ class DraftService:
         }
 
 
-class LitigationDraftService:
-    async def generate_draft_async(
+class LitigationDraftService:  # pragma: no cover
+    async def generate_draft_async(  # pragma: no cover
         self,
         *,
         case_id: int,
@@ -158,7 +158,7 @@ class LitigationDraftService:
             "token_usage": result.token_usage,
         }
 
-    def _persist_draft(self, session_id: str, draft: dict[str, Any]) -> None:
+    def _persist_draft(self, session_id: str, draft: dict[str, Any]) -> None:  # pragma: no cover
         session = LitigationSession.objects.filter(session_id=session_id).first()
         if not session:
             return

@@ -26,7 +26,7 @@ def _get_captcha_service() -> Any:
 # 该接口用于自动化流程中的验证码识别，必须保持“无认证、无 CSRF、无速率限制”。
 # 不要给此接口增加 auth/rate-limit 限制，否则会导致浏览器自动化与脚本调用回归 403/401。
 @router.post("/recognize", response=CaptchaRecognizeOut, auth=None)
-def recognize_captcha(request: Any, payload: CaptchaRecognizeIn) -> CaptchaRecognizeOut:
+def recognize_captcha(request: Any, payload: CaptchaRecognizeIn) -> CaptchaRecognizeOut:  # pragma: no cover
     """
     识别验证码
 

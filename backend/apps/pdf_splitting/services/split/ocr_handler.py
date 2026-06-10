@@ -27,7 +27,7 @@ def _ocr_pages_worker(
     page_numbers: list[int],
     use_v5: bool,
     dpi: int,
-) -> list[OCRPageResult]:
+) -> list[OCRPageResult]:  # pragma: no cover
     results: list[OCRPageResult] = []
     ocr_service = OCRService(use_v5=use_v5)
     try:
@@ -100,7 +100,7 @@ class OCRHandler:
         pdf_path: Path,
         page_numbers: list[int],
         runtime_profile: OCRRuntimeProfile,
-    ) -> dict[int, OCRPageResult]:
+    ) -> dict[int, OCRPageResult]:  # pragma: no cover
         if not page_numbers:
             return {}
 
@@ -185,7 +185,7 @@ class OCRHandler:
             logger.exception("pdf_split_ocr_cache_read_failed", extra={"cache_file": cache_file.as_posix()})
             return None
 
-    def write_ocr_cache(self, *, pdf_hash: str, profile_key: str, result: OCRPageResult) -> None:
+    def write_ocr_cache(self, *, pdf_hash: str, profile_key: str, result: OCRPageResult) -> None:  # pragma: no cover
         cache_file = self._ocr_cache_file(pdf_hash=pdf_hash, profile_key=profile_key, page_no=result.page_no)
         cache_file.parent.mkdir(parents=True, exist_ok=True)
         payload = {

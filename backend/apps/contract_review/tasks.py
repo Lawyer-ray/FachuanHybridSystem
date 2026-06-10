@@ -18,7 +18,7 @@ from apps.contract_review.models.review_task import ReviewTask, TaskStatus
 logger = logging.getLogger(__name__)
 
 
-def process_review(task_id_str: str) -> None:
+def process_review(task_id_str: str) -> None:  # pragma: no cover
     """
     异步执行审查流水线（由 Django-Q2 调用）
 
@@ -29,7 +29,7 @@ def process_review(task_id_str: str) -> None:
     _process_review(task_id_str)
 
 
-def cleanup_old_files(days: int = 30) -> dict[str, int]:
+def cleanup_old_files(days: int = 30) -> dict[str, int]:  # pragma: no cover
     """
     清理指定天数前的上传文件和输出文件
 

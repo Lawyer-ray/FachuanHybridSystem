@@ -14,12 +14,12 @@ from apps.chat_records.models import ChatRecordExportTask, ChatRecordProject, Ch
 
 
 @admin.register(ChatRecordProject)
-class ChatRecordProjectAdmin(admin.ModelAdmin):
+class ChatRecordProjectAdmin(admin.ModelAdmin):  # pragma: no cover
     list_display = ("id", "name", "created_by", "created_at", "workbench_link")
     search_fields = ("name",)
     readonly_fields = ("created_at", "updated_at")
 
-    def get_urls(self) -> list[Any]:
+    def get_urls(self) -> list[Any]:  # pragma: no cover
         urls = super().get_urls()
         custom_urls = [
             path(
@@ -31,11 +31,11 @@ class ChatRecordProjectAdmin(admin.ModelAdmin):
         return custom_urls + urls
 
     @admin.display(description="工作台")
-    def workbench_link(self, obj: ChatRecordProject) -> str:
+    def workbench_link(self, obj: ChatRecordProject) -> str:  # pragma: no cover
         url = reverse("admin:chat_records_project_workbench", args=[obj.id])
         return format_html('<a href="{}">进入工作台</a>', url)
 
-    def workbench_view(self, request: HttpRequest, project_id: int) -> TemplateResponse:
+    def workbench_view(self, request: HttpRequest, project_id: int) -> TemplateResponse:  # pragma: no cover
         project = ChatRecordProject.objects.get(id=project_id)
         context = {
             "title": f"梳理聊天记录工作台:{project.name}",
@@ -48,7 +48,7 @@ class ChatRecordProjectAdmin(admin.ModelAdmin):
 
 
 @admin.register(ChatRecordScreenshot)
-class ChatRecordScreenshotAdmin(admin.ModelAdmin):
+class ChatRecordScreenshotAdmin(admin.ModelAdmin):  # pragma: no cover
     list_display = ("id", "project", "ordering", "title", "created_at")
     search_fields = ("title", "note", "sha256")
     list_filter = ("project",)
@@ -56,7 +56,7 @@ class ChatRecordScreenshotAdmin(admin.ModelAdmin):
 
 
 @admin.register(ChatRecordExportTask)
-class ChatRecordExportTaskAdmin(admin.ModelAdmin):
+class ChatRecordExportTaskAdmin(admin.ModelAdmin):  # pragma: no cover
     list_display = (
         "id",
         "project",
@@ -81,14 +81,14 @@ class ChatRecordExportTaskAdmin(admin.ModelAdmin):
     )
 
     @admin.display(description="文件")
-    def download_link(self, obj: ChatRecordExportTask) -> str:
+    def download_link(self, obj: ChatRecordExportTask) -> str:  # pragma: no cover
         if not obj.output_file:
             return "-"
         return format_html('<a href="/api/v1/chat-records/exports/{}/download">下载</a>', obj.id)
 
 
 @admin.register(ChatRecordRecording)
-class ChatRecordRecordingAdmin(admin.ModelAdmin):
+class ChatRecordRecordingAdmin(admin.ModelAdmin):  # pragma: no cover
     list_display = (
         "id",
         "project",

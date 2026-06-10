@@ -22,7 +22,7 @@ def _get_identity_doc_service() -> Any:
     return ClientIdentityDocService()
 
 
-class ClientIdentityDocForm(forms.ModelForm[ClientIdentityDoc]):
+class ClientIdentityDocForm(forms.ModelForm[ClientIdentityDoc]):  # pragma: no cover
     """当事人证件表单"""
 
     file_upload = forms.FileField(
@@ -31,18 +31,18 @@ class ClientIdentityDocForm(forms.ModelForm[ClientIdentityDoc]):
         help_text="上传后将自动重命名为：当事人名称_证件类型.扩展名",
     )
 
-    class Meta:
+    class Meta:  # pragma: no cover
         model = ClientIdentityDoc
         fields: ClassVar = ["client", "doc_type", "file_path"]
 
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
+    def __init__(self, *args: Any, **kwargs: Any) -> None:  # pragma: no cover
         super().__init__(*args, **kwargs)
         if self.instance and self.instance.pk:
             self.fields["file_upload"].help_text = "当前文件：" + Path(self.instance.file_path or "").name
 
 
 @admin.register(ClientIdentityDoc)
-class ClientIdentityDocAdmin(admin.ModelAdmin):
+class ClientIdentityDocAdmin(admin.ModelAdmin):  # pragma: no cover
     form = ClientIdentityDocForm
     list_display = ("id", "client", "doc_type", "uploaded_at", "file_link")
     search_fields = ("client__name", "file_path")
@@ -50,10 +50,10 @@ class ClientIdentityDocAdmin(admin.ModelAdmin):
     actions = ["rename_files"]
     fields = ("client", "doc_type", "file_upload", "file_path")
 
-    def get_queryset(self, request: HttpRequest) -> Any:
+    def get_queryset(self, request: HttpRequest) -> Any:  # pragma: no cover
         return super().get_queryset(request).select_related("client")
 
-    def file_link(self, obj: ClientIdentityDoc) -> str:
+    def file_link(self, obj: ClientIdentityDoc) -> str:  # pragma: no cover
         url = obj.media_url
         if url:
             return format_html('<a href="{}" target="_blank">{}</a>', url, Path(obj.file_path or "").name)
@@ -61,7 +61,7 @@ class ClientIdentityDocAdmin(admin.ModelAdmin):
 
     file_link.short_description = "文件"  # type: ignore[attr-defined]
 
-    def save_model(self, request: HttpRequest, obj: ClientIdentityDoc, form: Any, change: bool) -> None:
+    def save_model(self, request: HttpRequest, obj: ClientIdentityDoc, form: Any, change: bool) -> None:  # pragma: no cover
         """保存时处理文件上传并自动重命名"""
         service = _get_identity_doc_service()
         uploaded_file = form.cleaned_data.get("file_upload")
@@ -77,7 +77,7 @@ class ClientIdentityDocAdmin(admin.ModelAdmin):
         except Exception as e:
             messages.warning(request, "文件重命名失败: %(error)s" % {"error": str(e)})
 
-    def rename_files(self, request: HttpRequest, queryset: QuerySet[ClientIdentityDoc, ClientIdentityDoc]) -> None:
+    def rename_files(self, request: HttpRequest, queryset: QuerySet[ClientIdentityDoc, ClientIdentityDoc]) -> None:  # pragma: no cover
         """批量重命名文件"""
         service = _get_identity_doc_service()
         success_count = 0

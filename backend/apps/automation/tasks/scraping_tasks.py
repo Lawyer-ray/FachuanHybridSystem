@@ -238,6 +238,11 @@ def execute_preservation_quote_task(quote_id: int) -> dict[str, Any]:
 
     logger.info("🚀 开始执行询价任务 #%s", quote_id)
 
+    # 记录可能在任务入队后被用户删除，此时静默退出即可
+    if not PreservationQuote.objects.filter(id=quote_id).exists():
+        logger.info("询价任务 #%s 已不存在（可能已被删除），跳过执行", quote_id)
+        return {"quote_id": quote_id, "status": "skipped", "message": "记录已删除"}
+
     try:
         token_service = TokenService()
         insurance_client = CourtInsuranceClient(token_service)  # type: ignore[arg-type]
@@ -266,6 +271,11 @@ def execute_preservation_quote_task(quote_id: int) -> dict[str, Any]:
         return {"quote_id": quote_id, "status": "failed", "error": "token_error", "message": str(e)}
 
     except Exception as e:
+        # 记录可能在执行过程中被删除
+        if "matching query does not exist" in str(e) or "DoesNotExist" in type(e).__name__:
+            logger.info("询价任务 #%s 记录已不存在（可能已被删除），跳过", quote_id)
+            return {"quote_id": quote_id, "status": "skipped", "message": "记录已删除"}
+
         logger.error("❌ 询价任务 #%s 执行失败: %s", quote_id, e, exc_info=True)
 
         try:

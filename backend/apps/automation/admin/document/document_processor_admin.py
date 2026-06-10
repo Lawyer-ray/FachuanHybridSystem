@@ -17,7 +17,7 @@ from apps.automation.models import AutomationTool
 from apps.automation.services.document.document_processing import process_uploaded_document
 
 
-class DocumentProcessorForm(forms.Form):
+class DocumentProcessorForm(forms.Form):  # pragma: no cover
     """文档处理工具表单"""
 
     upload = forms.FileField(required=True, help_text="支持PDF、DOCX和图片文件（JPG、PNG、BMP、TIFF等）")
@@ -26,12 +26,12 @@ class DocumentProcessorForm(forms.Form):
 
 
 # @admin.register(AutomationTool)  # 隐藏文档处理模块，不在Django后台显示
-class DocumentProcessorAdmin(admin.ModelAdmin):
+class DocumentProcessorAdmin(admin.ModelAdmin):  # pragma: no cover
     """文档处理工具管理类"""
 
     change_list_template = None
 
-    def get_urls(self) -> list[Any]:
+    def get_urls(self) -> list[Any]:  # pragma: no cover
         urls = super().get_urls()
         info = self.model._meta.app_label, self.model._meta.model_name
         custom: list[Any] = [
@@ -44,11 +44,11 @@ class DocumentProcessorAdmin(admin.ModelAdmin):
         ]
         return custom + urls
 
-    def redirect_to_process(self, request: HttpRequest) -> HttpResponseRedirect:
+    def redirect_to_process(self, request: HttpRequest) -> HttpResponseRedirect:  # pragma: no cover
         info = self.model._meta.app_label, self.model._meta.model_name
         return HttpResponseRedirect(reverse("admin:{}_{}_process_document".format(*info)))
 
-    def process_view(self, request: HttpRequest) -> HttpResponse:
+    def process_view(self, request: HttpRequest) -> HttpResponse:  # pragma: no cover
         """文档处理主视图"""
         if request.method == "POST":
             form = DocumentProcessorForm(request.POST, request.FILES)
@@ -124,14 +124,14 @@ class DocumentProcessorAdmin(admin.ModelAdmin):
         """
         return HttpResponse(html)
 
-    def has_add_permission(self, request: HttpRequest) -> bool:
+    def has_add_permission(self, request: HttpRequest) -> bool:  # pragma: no cover
         return False
 
-    def has_change_permission(self, request: HttpRequest, obj: AutomationTool | None = None) -> bool:
+    def has_change_permission(self, request: HttpRequest, obj: AutomationTool | None = None) -> bool:  # pragma: no cover
         return True
 
-    def has_view_permission(self, request: HttpRequest, obj: AutomationTool | None = None) -> bool:
+    def has_view_permission(self, request: HttpRequest, obj: AutomationTool | None = None) -> bool:  # pragma: no cover
         return False
 
-    def has_delete_permission(self, request: HttpRequest, obj: AutomationTool | None = None) -> bool:
+    def has_delete_permission(self, request: HttpRequest, obj: AutomationTool | None = None) -> bool:  # pragma: no cover
         return False

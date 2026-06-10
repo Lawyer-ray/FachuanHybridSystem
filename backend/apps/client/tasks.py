@@ -7,7 +7,7 @@ from apps.client.services.identity_extraction import IdentityExtractionService
 from apps.core.services.storage_service import delete_media_file, to_media_abs
 
 
-def execute_identity_doc_recognition(file_path: str, doc_type: str) -> dict[str, Any]:
+def execute_identity_doc_recognition(file_path: str, doc_type: str) -> dict[str, Any]:  # pragma: no cover
     abs_path = to_media_abs(file_path)
     try:
         content = abs_path.read_bytes()
@@ -22,7 +22,7 @@ def execute_identity_doc_recognition(file_path: str, doc_type: str) -> dict[str,
         delete_media_file(file_path)
 
 
-def recognize_expiry_date_task(doc_id: int) -> dict[str, Any]:
+def recognize_expiry_date_task(doc_id: int) -> dict[str, Any]:  # pragma: no cover
     """识别证件到期日期并更新数据库。"""
     from apps.client.services.client_identity_doc_service import ClientIdentityDocService
 

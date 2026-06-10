@@ -26,7 +26,7 @@ class EvidenceListAdmin(
     EvidenceListAdminActionsMixin,
     EvidenceListAdminSaveMixin,
     admin.ModelAdmin,
-):
+):  # pragma: no cover
     form = EvidenceListForm
 
     list_display: tuple[Any, ...] = (
@@ -98,10 +98,10 @@ class EvidenceListAdmin(
     actions: ClassVar = ["merge_pdfs", "export_list_word", "export_list_zip"]
     list_select_related: tuple[Any, ...] = ("case", "created_by")
 
-    def get_queryset(self, request: Any) -> QuerySet:
+    def get_queryset(self, request: Any) -> QuerySet:  # pragma: no cover
         return super().get_queryset(request).annotate(item_count=Count("items"))  # type: ignore[no-any-return]
 
-    def changelist_view(self, request: HttpRequest, extra_context: dict[str, Any] | None = None) -> Any:
+    def changelist_view(self, request: HttpRequest, extra_context: dict[str, Any] | None = None) -> Any:  # pragma: no cover
         """覆写 changelist：批量预计算 start_order/start_page，消除链式遍历 N+1。
 
         对当前页涉及的每个 Case，一次性获取其所有 EvidenceList（含 item_count），
@@ -146,11 +146,11 @@ class EvidenceListAdmin(
         return response
 
     @admin.display(description="开庭")
-    def hearing_mode_link(self, obj: EvidenceList) -> str:
+    def hearing_mode_link(self, obj: EvidenceList) -> str:  # pragma: no cover
         url = reverse("admin:evidence_hearing_mode", args=[obj.case_id])
         return format_html('<a class="button" href="{}" target="_blank">⚖️</a>', url)
 
-    class Media:
+    class Media:  # pragma: no cover
         css: ClassVar = {"all": ("evidence/css/evidence_admin.css",)}
         js: tuple[Any, ...] = (
             "evidence/js/evidence_sortable.js",

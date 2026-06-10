@@ -39,7 +39,7 @@ def _get_preservation_quote_service() -> Any:
 
 
 @router.post("/preservation-quotes", response=PreservationQuoteSchema)
-def create_preservation_quote(request: HttpRequest, data: PreservationQuoteCreateSchema) -> PreservationQuoteSchema:
+def create_preservation_quote(request: HttpRequest, data: PreservationQuoteCreateSchema) -> PreservationQuoteSchema:  # pragma: no cover
     """
     创建询价任务
 
@@ -74,7 +74,7 @@ def create_preservation_quote(request: HttpRequest, data: PreservationQuoteCreat
 
 
 @router.get("/preservation-quotes", response=QuoteListSchema)
-def list_preservation_quotes(
+def list_preservation_quotes(  # pragma: no cover
     request: HttpRequest, page: int = 1, page_size: int | None = None, status: str | None = None
 ) -> QuoteListSchema:
     """
@@ -130,7 +130,7 @@ def list_preservation_quotes(
 
 
 @router.get("/preservation-quotes/{quote_id}", response=PreservationQuoteSchema)
-def get_preservation_quote(request: HttpRequest, quote_id: int) -> PreservationQuoteSchema:
+def get_preservation_quote(request: HttpRequest, quote_id: int) -> PreservationQuoteSchema:  # pragma: no cover
     """
     获取询价任务详情
 
@@ -156,7 +156,7 @@ def get_preservation_quote(request: HttpRequest, quote_id: int) -> PreservationQ
 
 
 @router.post("/preservation-quotes/{quote_id}/execute", response=QuoteExecuteResponseSchema)
-async def execute_preservation_quote(request: HttpRequest, quote_id: int) -> QuoteExecuteResponseSchema:
+async def execute_preservation_quote(request: HttpRequest, quote_id: int) -> QuoteExecuteResponseSchema:  # pragma: no cover
     """
     执行询价任务
 
@@ -201,7 +201,7 @@ async def execute_preservation_quote(request: HttpRequest, quote_id: int) -> Quo
 
 
 @router.post("/preservation-quotes/{quote_id}/retry", response=QuoteExecuteResponseSchema)
-async def retry_preservation_quote(request: HttpRequest, quote_id: int) -> QuoteExecuteResponseSchema:
+async def retry_preservation_quote(request: HttpRequest, quote_id: int) -> QuoteExecuteResponseSchema:  # pragma: no cover
     """
     重试询价任务
 

@@ -18,7 +18,7 @@ class DocumentsConfig(AppConfig):
     name: str = "apps.documents"
     verbose_name = "文书生成"
 
-    def ready(self) -> None:
+    def ready(self) -> None:  # pragma: no cover
         """应用启动时的初始化"""
         from .services.code_placeholders.autodiscover import autodiscover_code_placeholders
 

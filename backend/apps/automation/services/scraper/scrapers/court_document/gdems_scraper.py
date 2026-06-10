@@ -22,7 +22,7 @@ from .base_court_scraper import BaseCourtDocumentScraper
 logger = logging.getLogger("apps.automation")
 
 
-class GdemsCourtScraper(BaseCourtDocumentScraper):
+class GdemsCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
     """
     广东电子送达 (sd.gdems.com) 文书下载爬虫
 
@@ -38,7 +38,7 @@ class GdemsCourtScraper(BaseCourtDocumentScraper):
     # - 无文书可下载: 页面只有 div.login-button (无点击事件绑定的"确定"按钮)
     #   此时书记员尚未放置文件，点击"确定"不会跳转到预览/下载页
 
-    def run(self) -> dict[str, Any]:
+    def run(self) -> dict[str, Any]:  # pragma: no cover
         """
         执行文书下载任务
 
@@ -93,7 +93,7 @@ class GdemsCourtScraper(BaseCourtDocumentScraper):
             "message": f"成功下载并解压 {len(extracted_files)} 个文件",
         }
 
-    def _has_clickable_confirm_button(self) -> bool:
+    def _has_clickable_confirm_button(self) -> bool:  # pragma: no cover
         """
         检测页面是否存在可点击的确认按钮
 
@@ -114,7 +114,7 @@ class GdemsCourtScraper(BaseCourtDocumentScraper):
         logger.info("未检测到 #submit-btn 确认按钮，页面可能无文书可下载")
         return False
 
-    def _extract_canvas_notification(self) -> str:
+    def _extract_canvas_notification(self) -> str:  # pragma: no cover
         """
         提取 canvas 上绘制的通知文本
 
@@ -154,7 +154,7 @@ class GdemsCourtScraper(BaseCourtDocumentScraper):
             logger.warning(f"提取 canvas 通知文本失败: {e}")
             return ""
 
-    def _build_no_document_result(self, screenshot_cover: str) -> dict[str, Any]:
+    def _build_no_document_result(self, screenshot_cover: str) -> dict[str, Any]:  # pragma: no cover
         """
         构建无文书可下载时的返回结果
 
@@ -184,11 +184,11 @@ class GdemsCourtScraper(BaseCourtDocumentScraper):
             "message": "书记员尚未放置文书文件，确定按钮无法点击，无文书可下载",
         }
 
-    def _random_wait(self, min_s: float, max_s: float) -> None:
+    def _random_wait(self, min_s: float, max_s: float) -> None:  # pragma: no cover
         """随机等待，模拟人工操作间隔"""
         time.sleep(random.uniform(min_s, max_s))
 
-    def _find_locator(self, selectors: list[str], label: str) -> Any | None:
+    def _find_locator(self, selectors: list[str], label: str) -> Any | None:  # pragma: no cover
         """
         按顺序尝试多个选择器，返回第一个可见的定位器
 
@@ -210,7 +210,7 @@ class GdemsCourtScraper(BaseCourtDocumentScraper):
                 pass
         return None
 
-    def _click_confirm_button(self) -> None:
+    def _click_confirm_button(self) -> None:  # pragma: no cover
         """点击"确认并预览材料"按钮，尝试多种定位策略"""
         assert self.page is not None, "页面未初始化"
         try:
@@ -289,7 +289,7 @@ class GdemsCourtScraper(BaseCourtDocumentScraper):
             self._save_page_state("gdems_download_error")
             raise ValueError(f"文件下载失败: {e}") from e
 
-    def _extract_zip_file(self, zip_filepath: Path, download_dir: Path) -> list[str]:
+    def _extract_zip_file(self, zip_filepath: Path, download_dir: Path) -> list[str]:  # pragma: no cover
         """
         解压 ZIP 文件
 

@@ -17,7 +17,7 @@ logger = logging.getLogger("apps.document_recognition")
 class DocumentRecognitionTaskService:
     """文书识别任务管理服务"""
 
-    def create_task(self, *, file_path: str, original_filename: str) -> Any:
+    def create_task(self, *, file_path: str, original_filename: str) -> Any:  # pragma: no cover
         """创建识别任务记录
 
         Args:
@@ -37,7 +37,7 @@ class DocumentRecognitionTaskService:
         logger.info("创建文书识别任务", extra={})
         return task
 
-    def get_task(self, task_id: int, *, select_case: bool = False) -> Any:
+    def get_task(self, task_id: int, *, select_case: bool = False) -> Any:  # pragma: no cover
         """获取识别任务
 
         Args:

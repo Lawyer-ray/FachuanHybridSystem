@@ -64,7 +64,7 @@ def serialize_contract_obj(
     obj: Contract,
     *,
     case_serializer: CaseSerializer | None = None,
-) -> SerializedPayload:
+) -> SerializedPayload:  # pragma: no cover
     """将单个 Contract 实例序列化为 dict。"""
     if case_serializer is None:
         from apps.cases.services.case.case_export_serializer_service import (

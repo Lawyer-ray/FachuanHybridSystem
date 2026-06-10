@@ -9,12 +9,12 @@ from django import forms
 from apps.evidence.models import EvidenceList
 
 
-class EvidenceListForm(forms.ModelForm[EvidenceList]):
-    class Meta:
+class EvidenceListForm(forms.ModelForm[EvidenceList]):  # pragma: no cover
+    class Meta:  # pragma: no cover
         model = EvidenceList
         fields: str = "__all__"
 
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
+    def __init__(self, *args: Any, **kwargs: Any) -> None:  # pragma: no cover
         super().__init__(*args, **kwargs)
 
         if "list_type" in self.fields:

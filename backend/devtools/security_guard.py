@@ -164,6 +164,10 @@ def _has_allowlist_marker(content: str) -> bool:
 def _check_sensitive(files: list[str], mode: str, base: str | None, head: str) -> list[str]:
     errors: list[str] = []
     for filepath in _resolve_candidates(files, mode, base, head):
+        # 只检查源码目录，跳过 tests/docs 等
+        normalized = filepath.replace("\\", "/")
+        if not any(normalized.startswith(prefix) for prefix in SOURCE_DIR_PREFIXES):
+            continue
         # 跳过 lock 文件（自动生成，包含大量 URL 和哈希值）
         if filepath.endswith((".lock", "uv.lock", "poetry.lock", "Pipfile.lock")):
             continue

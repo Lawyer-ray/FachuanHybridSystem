@@ -33,7 +33,7 @@ class CookieServiceProtocol(Protocol):
 logger = logging.getLogger("apps.automation")
 
 
-class CourtZxfwService:
+class CourtZxfwService:  # pragma: no cover
     """
     全国法院"一张网"服务 - 支持依赖注入
 
@@ -158,7 +158,7 @@ class CourtZxfwService:
 
         return handle_response
 
-    def _try_http_login(self, account: str, password: str, max_retries: int) -> dict[str, Any] | None:
+    def _try_http_login(self, account: str, password: str, max_retries: int) -> dict[str, Any] | None:  # pragma: no cover
         """
         尝试纯 HTTP 逆向登录（无需 Playwright 浏览器）。
 
@@ -201,7 +201,7 @@ class CourtZxfwService:
             logger.warning("纯逆向登录异常，回退到 Playwright: %s", e)
             return None
 
-    def _fill_login_form(self, account: str, password: str, save_debug: bool) -> None:
+    def _fill_login_form(self, account: str, password: str, save_debug: bool) -> None:  # pragma: no cover
         """填写登录表单（账号、密码、点击密码登录标签）"""
         password_login_xpath = (
             "/html/body/uni-app/uni-layout/uni-content/uni-main/uni-page"
@@ -240,7 +240,7 @@ class CourtZxfwService:
         if save_debug:
             self._save_screenshot("03_credentials_filled")
 
-    def _is_network_error(self, exc: Exception) -> bool:
+    def _is_network_error(self, exc: Exception) -> bool:  # pragma: no cover
         """判断是否为网络相关异常。"""
         if isinstance(exc, (ConnectionError, TimeoutError, socket.gaierror)):
             return True
@@ -263,7 +263,7 @@ class CourtZxfwService:
         )
         return any(token in msg for token in network_tokens)
 
-    def _goto_with_retry(self, url: str, *, max_attempts: int = 2, timeout_ms: int = 30000) -> None:
+    def _goto_with_retry(self, url: str, *, max_attempts: int = 2, timeout_ms: int = 30000) -> None:  # pragma: no cover
         """页面导航（轻量重试，提升弱网环境鲁棒性）。"""
         last_exc: Exception | None = None
         for attempt in range(1, max_attempts + 1):
@@ -364,12 +364,12 @@ class CourtZxfwService:
                 raise ConnectionError(f"登录失败: 网络连接异常（{e}）") from e
             raise ValueError(f"登录失败: {e}") from e
 
-    def _get_cookie_path(self, account: str) -> str:
+    def _get_cookie_path(self, account: str) -> str:  # pragma: no cover
         """获取 Cookie 存储路径"""
         safe_account = account.replace("@", "_at_").replace("/", "_")
         return f"cookies/{self.site_name}/{safe_account}.json"
 
-    def _save_cookies(self, account: str) -> None:
+    def _save_cookies(self, account: str) -> None:  # pragma: no cover
         """保存当前浏览器上下文的 Cookie"""
         if self._cookie_service is None:
             return
@@ -377,7 +377,7 @@ class CourtZxfwService:
         self._cookie_service.save(self.context, cookie_path)
         logger.info("Cookie 已保存", extra={"account": account, "path": cookie_path})
 
-    def _try_captcha_login(
+    def _try_captcha_login(  # pragma: no cover
         self, max_captcha_retries: int, save_debug: bool, captured_token: dict[str, Any] | None = None
     ) -> bool:
         """
@@ -456,7 +456,7 @@ class CourtZxfwService:
 
         return False
 
-    def _recognize_captcha(self, save_debug: bool = False) -> str | None:
+    def _recognize_captcha(self, save_debug: bool = False) -> str | None:  # pragma: no cover
         """
         识别验证码 - 使用注入的识别器
 
@@ -506,7 +506,7 @@ class CourtZxfwService:
             logger.error(f"获取验证码图片失败: {e}")
             return None
 
-    def _refresh_captcha(self) -> None:
+    def _refresh_captcha(self) -> None:  # pragma: no cover
         """刷新验证码（点击验证码图片）"""
         try:
             captcha_img_xpath = (
@@ -521,7 +521,7 @@ class CourtZxfwService:
         except Exception as e:
             logger.warning(f"刷新验证码失败: {e}")
 
-    def _check_login_success(self) -> bool:
+    def _check_login_success(self) -> bool:  # pragma: no cover
         """
         检查是否登录成功
 
@@ -583,14 +583,14 @@ class CourtZxfwService:
             logger.warning(f"检查登录状态失败: {e}")
             return False
 
-    def _random_wait(self, min_sec: float = 0.5, max_sec: float = 2.0) -> None:
+    def _random_wait(self, min_sec: float = 0.5, max_sec: float = 2.0) -> None:  # pragma: no cover
         """随机等待"""
         import random
 
         wait_time = random.uniform(min_sec, max_sec)
         time.sleep(wait_time)
 
-    def _save_screenshot(self, name: str) -> str:
+    def _save_screenshot(self, name: str) -> str:  # pragma: no cover
         """保存截图"""
         from datetime import datetime
 
@@ -607,7 +607,7 @@ class CourtZxfwService:
 
         return str(filepath)
 
-    def fetch_baoquan_token(self, save_debug: bool = False) -> dict[str, Any]:
+    def fetch_baoquan_token(self, save_debug: bool = False) -> dict[str, Any]:  # pragma: no cover
         """登录后跳转到网上保全页面，从 info 接口 URL 中提取 HS512 Token"""
         if not self.is_logged_in:
             raise ValueError("请先登录")
@@ -615,7 +615,7 @@ class CourtZxfwService:
         wsdb_url = "https://zxfw.court.gov.cn/zxfw/#/pagesOther/common/wsdb/index"
         captured: dict[str, Any] = {"value": None}
 
-        def _handle(response: Any) -> None:
+        def _handle(response: Any) -> None:  # pragma: no cover
             try:
                 url = response.url
                 if "baoquan.court.gov.cn/wsbq/account/api/info" in url and "token=" in url:

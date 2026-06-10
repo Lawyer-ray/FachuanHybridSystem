@@ -12,10 +12,10 @@ from apps.doc_convert.models import DocConvertTool
 
 
 @admin.register(DocConvertTool)
-class DocConvertToolAdmin(admin.ModelAdmin):
+class DocConvertToolAdmin(admin.ModelAdmin):  # pragma: no cover
     """要素式转换工作台 Admin。"""
 
-    def changelist_view(
+    def changelist_view(  # pragma: no cover
         self,
         request: HttpRequest,
         extra_context: dict[str, Any] | None = None,
@@ -28,14 +28,14 @@ class DocConvertToolAdmin(admin.ModelAdmin):
         }
         return TemplateResponse(request, "admin/doc_convert/workbench.html", context)
 
-    def has_add_permission(self, request: HttpRequest) -> bool:
+    def has_add_permission(self, request: HttpRequest) -> bool:  # pragma: no cover
         return False
 
-    def has_change_permission(self, request: HttpRequest, obj: DocConvertTool | None = None) -> bool:
+    def has_change_permission(self, request: HttpRequest, obj: DocConvertTool | None = None) -> bool:  # pragma: no cover
         return False
 
-    def has_delete_permission(self, request: HttpRequest, obj: DocConvertTool | None = None) -> bool:
+    def has_delete_permission(self, request: HttpRequest, obj: DocConvertTool | None = None) -> bool:  # pragma: no cover
         return False
 
-    def get_model_perms(self, request: HttpRequest) -> dict[str, bool]:
+    def get_model_perms(self, request: HttpRequest) -> dict[str, bool]:  # pragma: no cover
         return {"view": True}

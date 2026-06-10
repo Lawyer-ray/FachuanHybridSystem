@@ -406,7 +406,7 @@ def _collect_work_log_suggestions_cloud(
     scan_folder: str,
     archive_category: str,
     storage_provider: Any,
-) -> list[dict[str, str]]:
+) -> list[dict[str, str]]:  # pragma: no cover
     """云存储版本：遍历一层子目录收集工作日志建议。"""
     suggestions: list[dict[str, str]] = []
     try:

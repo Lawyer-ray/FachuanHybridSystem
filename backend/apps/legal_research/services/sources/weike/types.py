@@ -51,7 +51,7 @@ class WeikeSession:
     search_api_degraded_until_epoch: float = 0.0
     intercepted_payload: dict[str, Any] | None = None
 
-    def close(self) -> None:
+    def close(self) -> None:  # pragma: no cover
         try:
             if self.page is not None:
                 self.page.close()

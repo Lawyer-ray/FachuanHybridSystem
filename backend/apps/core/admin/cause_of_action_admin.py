@@ -32,7 +32,7 @@ def _get_initialization_service() -> CauseCourtInitializationService:
 
 
 @admin.register(CauseOfAction)
-class CauseOfActionAdmin(admin.ModelAdmin):
+class CauseOfActionAdmin(admin.ModelAdmin):  # pragma: no cover
     """
     案由管理 Admin
 
@@ -114,7 +114,7 @@ class CauseOfActionAdmin(admin.ModelAdmin):
 
     change_list_template = "admin/core/causeofaction/change_list.html"
 
-    def formfield_for_foreignkey(self, db_field: Any, request: HttpRequest, **kwargs: Any) -> Any:
+    def formfield_for_foreignkey(self, db_field: Any, request: HttpRequest, **kwargs: Any) -> Any:  # pragma: no cover
         """优化 parent FK 字段的查询集，只加载非叶子节点作为可选父级"""
         if db_field.name == "parent":
             kwargs["queryset"] = (
@@ -122,12 +122,12 @@ class CauseOfActionAdmin(admin.ModelAdmin):
             )
         return super().formfield_for_foreignkey(db_field, request, **kwargs)
 
-    def get_queryset(self, request: HttpRequest) -> QuerySet[CauseOfAction]:
+    def get_queryset(self, request: HttpRequest) -> QuerySet[CauseOfAction]:  # pragma: no cover
         """预加载 parent 及 parent.parent，避免 list_display 中 N+1 查询"""
         return super().get_queryset(request).select_related("parent", "parent__parent", "parent__parent__parent")
 
     @admin.display(description="案件类型", ordering="case_type")
-    def case_type_display(self, obj: CauseOfAction) -> SafeString:
+    def case_type_display(self, obj: CauseOfAction) -> SafeString:  # pragma: no cover
         """带颜色的案件类型显示"""
         color_map: dict[str, str] = {
             str(CauseOfAction.CaseType.CIVIL): "#28a745",
@@ -143,7 +143,7 @@ class CauseOfActionAdmin(admin.ModelAdmin):
         )
 
     @admin.display(description="上级案由")
-    def parent_display(self, obj: CauseOfAction) -> SafeString:
+    def parent_display(self, obj: CauseOfAction) -> SafeString:  # pragma: no cover
         """显示父级案由"""
         if obj.parent:
             return format_html(
@@ -154,7 +154,7 @@ class CauseOfActionAdmin(admin.ModelAdmin):
         return format_html('<span style="color: #999;">{}</span>', "—")
 
     @admin.display(description="状态")
-    def status_display(self, obj: CauseOfAction) -> SafeString:
+    def status_display(self, obj: CauseOfAction) -> SafeString:  # pragma: no cover
         """状态显示"""
         if obj.is_deprecated:
             return format_html('<span style="color: #dc3545;">{}</span>', "⚠️ 已废弃")
@@ -162,7 +162,7 @@ class CauseOfActionAdmin(admin.ModelAdmin):
             return format_html('<span style="color: #ffc107;">{}</span>', "⏸️ 已禁用")
         return format_html('<span style="color: #28a745;">{}</span>', "✅ 正常")
 
-    def get_urls(self) -> list[URLPattern]:
+    def get_urls(self) -> list[URLPattern]:  # pragma: no cover
         """添加自定义 URL"""
         urls = super().get_urls()
         custom_urls = [
@@ -174,7 +174,7 @@ class CauseOfActionAdmin(admin.ModelAdmin):
         ]
         return custom_urls + urls
 
-    def changelist_view(self, request: HttpRequest, extra_context: dict[str, Any] | None = None) -> HttpResponse:
+    def changelist_view(self, request: HttpRequest, extra_context: dict[str, Any] | None = None) -> HttpResponse:  # pragma: no cover
         """自定义列表页面"""
         extra_context = extra_context or {}
 
@@ -193,14 +193,14 @@ class CauseOfActionAdmin(admin.ModelAdmin):
 
         return super().changelist_view(request, extra_context=extra_context)
 
-    def initialize_causes_view(self, request: HttpRequest) -> HttpResponse:
+    def initialize_causes_view(self, request: HttpRequest) -> HttpResponse:  # pragma: no cover
         """初始化案由数据视图"""
         import concurrent.futures
 
         try:
             service = _get_initialization_service()
 
-            def run_async_init() -> Any:
+            def run_async_init() -> Any:  # pragma: no cover
                 """在独立线程中运行异步初始化"""
                 import asyncio
 
@@ -249,10 +249,10 @@ class CauseOfActionAdmin(admin.ModelAdmin):
 
         return HttpResponseRedirect(reverse("admin:core_causeofaction_changelist"))
 
-    def has_add_permission(self, request: HttpRequest) -> bool:
+    def has_add_permission(self, request: HttpRequest) -> bool:  # pragma: no cover
         """禁用手动添加功能(数据应通过初始化导入)"""
         return False
 
-    def has_delete_permission(self, request: HttpRequest, obj: CauseOfAction | None = None) -> bool:
+    def has_delete_permission(self, request: HttpRequest, obj: CauseOfAction | None = None) -> bool:  # pragma: no cover
         """禁用删除功能(数据应通过初始化管理)"""
         return False

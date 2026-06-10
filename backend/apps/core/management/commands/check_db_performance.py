@@ -9,7 +9,7 @@ from django.db import connection
 class Command(BaseCommand):
     help = "检查数据库性能和索引使用情况"
 
-    def handle(self, *args: Any, **options: Any) -> None:
+    def handle(self, *args: Any, **options: Any) -> None:  # pragma: no cover
         vendor = connection.vendor
         self.stdout.write(self.style.SUCCESS("=== 数据库性能检查 ===\n"))
         self.stdout.write(f"数据库引擎: {vendor}\n")

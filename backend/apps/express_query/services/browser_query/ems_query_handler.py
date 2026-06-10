@@ -17,7 +17,7 @@ EMS_HOME_URL: Final[str] = "https://www.11183.com.cn/"
 EMS_QUERY_URL: Final[str] = "https://www.11183.com.cn/?to=%2Fquery_express_delivery"
 
 
-async def query_ems(page: Page, tracking_number: str) -> None:
+async def query_ems(page: Page, tracking_number: str) -> None:  # pragma: no cover
     """
     EMS 查询主流程：
     1. 用 ?to= 进入（未登录时自动弹登录框）
@@ -113,7 +113,7 @@ async def query_ems(page: Page, tracking_number: str) -> None:
     await _open_ems_waybill_detail(page, tracking_number)
 
 
-async def _dismiss_ems_overlays(page: Page) -> None:
+async def _dismiss_ems_overlays(page: Page) -> None:  # pragma: no cover
     close_selectors = [
         "button:has-text('知道了')",
         "button:has-text('我知道了')",
@@ -194,7 +194,7 @@ async def _dismiss_ems_overlays(page: Page) -> None:
             break
 
 
-async def _open_ems_waybill_detail(page: Page, tracking_number: str) -> None:
+async def _open_ems_waybill_detail(page: Page, tracking_number: str) -> None:  # pragma: no cover
     """
     EMS 打开详情 + 展开全部轨迹。
     分两步：先进入详情页，再展开全部物流轨迹确保 PDF 内容完整。
@@ -298,7 +298,7 @@ async def _open_ems_waybill_detail(page: Page, tracking_number: str) -> None:
     await _ems_expand_all_tracking(page)
 
 
-async def _ems_expand_all_tracking(page: Page) -> None:
+async def _ems_expand_all_tracking(page: Page) -> None:  # pragma: no cover
     """
     在 EMS 详情页中反复点击"展开全部"类按钮，直到所有物流轨迹都展开。
     EMS 的展开按钮可能不是 <button>，需要用多种选择器尝试。

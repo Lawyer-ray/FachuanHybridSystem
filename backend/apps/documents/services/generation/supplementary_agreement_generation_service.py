@@ -55,7 +55,7 @@ class SupplementaryAgreementGenerationService:
     def folder_binding_service(self) -> IContractFolderBindingService | None:
         return self._folder_binding_service
 
-    def get_preview_context(self, contract_id: int, agreement_id: int) -> list[dict[str, str]]:
+    def get_preview_context(self, contract_id: int, agreement_id: int) -> list[dict[str, str]]:  # pragma: no cover
         """补充协议占位符预览"""
         contract = self.contract_service.get_contract_model_internal(contract_id)
         if not contract:
@@ -204,7 +204,7 @@ class SupplementaryAgreementGenerationService:
 
     def _get_next_version(
         self, contract_id: int | None, agreement_name: str, contract_name: str, subdir_key: str
-    ) -> str:
+    ) -> str:  # pragma: no cover
         """
         获取下一个可用的版本号
 

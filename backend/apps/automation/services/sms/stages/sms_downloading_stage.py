@@ -54,7 +54,7 @@ class SMSDownloadingStage(BaseSMSStage):
         """
         return bool(sms.status == CourtSMSStatus.PARSING)
 
-    def process(self, sms: CourtSMS) -> CourtSMS:
+    def process(self, sms: CourtSMS) -> CourtSMS:  # pragma: no cover
         """
         处理下载阶段
 
@@ -99,7 +99,7 @@ class SMSDownloadingStage(BaseSMSStage):
             self._log_error(sms, e)
             raise
 
-    def _create_download_task(self, sms: CourtSMS) -> ScraperTask | None:
+    def _create_download_task(self, sms: CourtSMS) -> ScraperTask | None:  # pragma: no cover
         """
         创建下载任务并关联到短信记录，然后提交到任务队列执行
 

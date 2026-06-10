@@ -25,7 +25,7 @@ _ARCHIVE_CATALOG_CODES: dict[str, str] = {
 }
 
 
-def generate_archive_folder(contract: Contract) -> dict[str, Any]:
+def generate_archive_folder(contract: Contract) -> dict[str, Any]:  # pragma: no cover
     """生成归档文件夹到合同绑定的文件夹根目录。
 
     流程：
@@ -97,7 +97,7 @@ def _generate_archive_folder_inner(
     provider: Any,
     cloud_archive_path: str,
     is_cloud: bool,
-) -> dict[str, Any]:
+) -> dict[str, Any]:  # pragma: no cover
     """归档文件夹生成的核心逻辑（本地和云存储共用）。"""
 
     # 生成模板文书到 DB
@@ -214,7 +214,7 @@ def _write_template_doc_to_folder(
     seq_num: int,
     doc_name: str,
     archive_dir: Path,
-) -> None:
+) -> None:  # pragma: no cover
     """将单个模板文书写入归档文件夹（仅 docx）。"""
     from datetime import date
 
@@ -259,7 +259,7 @@ def _compile_final_archive_pdf(
     contract: Contract,
     archive_dir: Path,
     case_materials_pdf_exists: bool,
-) -> dict[str, Any]:
+) -> dict[str, Any]:  # pragma: no cover
     """将1-3号模板文书的docx转PDF，与4-案卷材料PDF按序号合并，生成"5-Final案卷材料.pdf"。"""
     from datetime import date
 

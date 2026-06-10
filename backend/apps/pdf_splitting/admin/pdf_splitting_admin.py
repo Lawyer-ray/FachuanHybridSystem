@@ -12,8 +12,8 @@ from apps.pdf_splitting.models import PdfSplitJob, PdfSplittingTool
 
 
 @admin.register(PdfSplittingTool)
-class PdfSplittingToolAdmin(admin.ModelAdmin):
-    def changelist_view(
+class PdfSplittingToolAdmin(admin.ModelAdmin):  # pragma: no cover
+    def changelist_view(  # pragma: no cover
         self,
         request: HttpRequest,
         extra_context: dict[str, Any] | None = None,
@@ -26,21 +26,21 @@ class PdfSplittingToolAdmin(admin.ModelAdmin):
         }
         return TemplateResponse(request, "admin/pdf_splitting/workbench.html", context)
 
-    def has_add_permission(self, request: HttpRequest) -> bool:
+    def has_add_permission(self, request: HttpRequest) -> bool:  # pragma: no cover
         return False
 
-    def has_change_permission(self, request: HttpRequest, obj: PdfSplittingTool | None = None) -> bool:
+    def has_change_permission(self, request: HttpRequest, obj: PdfSplittingTool | None = None) -> bool:  # pragma: no cover
         return False
 
-    def has_delete_permission(self, request: HttpRequest, obj: PdfSplittingTool | None = None) -> bool:
+    def has_delete_permission(self, request: HttpRequest, obj: PdfSplittingTool | None = None) -> bool:  # pragma: no cover
         return False
 
-    def get_model_perms(self, request: HttpRequest) -> dict[str, bool]:
+    def get_model_perms(self, request: HttpRequest) -> dict[str, bool]:  # pragma: no cover
         return {"view": True}
 
 
 @admin.register(PdfSplitJob)
-class PdfSplitJobAdmin(admin.ModelAdmin):
+class PdfSplitJobAdmin(admin.ModelAdmin):  # pragma: no cover
     list_display = [
         "id",
         "status_display",
@@ -84,10 +84,10 @@ class PdfSplitJobAdmin(admin.ModelAdmin):
     ]
     change_form_template = "admin/pdf_splitting/pdfsplitjob/change_form.html"
 
-    def has_add_permission(self, request: HttpRequest) -> bool:
+    def has_add_permission(self, request: HttpRequest) -> bool:  # pragma: no cover
         return False
 
-    def status_display(self, obj: PdfSplitJob) -> SafeString:
+    def status_display(self, obj: PdfSplitJob) -> SafeString:  # pragma: no cover
         color_map = {
             "pending": "#8d6e63",
             "processing": "#1565c0",
@@ -102,7 +102,7 @@ class PdfSplitJobAdmin(admin.ModelAdmin):
 
     status_display.short_description = "状态"  # type: ignore[attr-defined]
 
-    def change_view(
+    def change_view(  # pragma: no cover
         self,
         request: HttpRequest,
         object_id: str,

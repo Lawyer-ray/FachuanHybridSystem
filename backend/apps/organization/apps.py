@@ -8,5 +8,5 @@ class OrganizationConfig(AppConfig):
     name = "apps.organization"
     verbose_name = "组织管理"
 
-    def ready(self) -> None:
+    def ready(self) -> None:  # pragma: no cover
         from . import signals

@@ -51,7 +51,7 @@ class DocumentTemplateBindingService:
         folder_template: FolderTemplate,
         folder_node_id: str,
         is_active: bool = True,
-    ) -> DocumentTemplateFolderBinding:
+    ) -> DocumentTemplateFolderBinding:  # pragma: no cover
         """
         创建文件模板与文件夹节点绑定
 
@@ -80,7 +80,7 @@ class DocumentTemplateBindingService:
         binding: DocumentTemplateFolderBinding,
         folder_node_id: str | None = None,
         is_active: bool | None = None,
-    ) -> DocumentTemplateFolderBinding:
+    ) -> DocumentTemplateFolderBinding:  # pragma: no cover
         """
         更新绑定
 

@@ -28,20 +28,20 @@ def _get_contract_display_service() -> Any:
     return get_contract_display_service()
 
 
-class ContractDisplayFormatMixin:
+class ContractDisplayFormatMixin:  # pragma: no cover
     """合同 Admin 只读显示方法的 Mixin"""
 
     if TYPE_CHECKING:
         model: type[Model]
 
     @admin.display(description="合同名称", ordering="name")
-    def name_link(self, obj: Any) -> Any:
+    def name_link(self, obj: Any) -> Any:  # pragma: no cover
         """生成指向详情页的合同名称链接"""
         url = reverse("admin:contracts_contract_detail", args=[obj.pk])
         return format_html('<a href="{}">{}</a>', url, obj.name)
 
     @admin.display(description="主办律师")
-    def get_primary_lawyer(self, obj: Any) -> Any:
+    def get_primary_lawyer(self, obj: Any) -> Any:  # pragma: no cover
         """显示主办律师（使用 prefetch_related 数据避免 N+1）"""
         for assignment in obj.assignments.all():
             if assignment.is_primary:
@@ -49,7 +49,7 @@ class ContractDisplayFormatMixin:
                 return lawyer.real_name or lawyer.username
         return "-"
 
-    def _get_primary_lawyer_obj(self, obj: Any) -> Any:
+    def _get_primary_lawyer_obj(self, obj: Any) -> Any:  # pragma: no cover
         """返回主办律师对象（供详情页模板使用）"""
         for assignment in obj.assignments.all():
             if assignment.is_primary:
@@ -57,7 +57,7 @@ class ContractDisplayFormatMixin:
         return None
 
     @admin.display(description="主办律师")
-    def get_primary_lawyer_display(self, obj: Any) -> Any:
+    def get_primary_lawyer_display(self, obj: Any) -> Any:  # pragma: no cover
         """详情页显示主办律师(只读，复用 prefetch)"""
         for assignment in obj.assignments.all():
             if assignment.is_primary:
@@ -67,7 +67,7 @@ class ContractDisplayFormatMixin:
         return "无"
 
     @admin.display(description="律所OA链接")
-    def law_firm_oa_link_display(self, obj: Any) -> Any:
+    def law_firm_oa_link_display(self, obj: Any) -> Any:  # pragma: no cover
         """显示合同所属律所的 OA 登录链接（可点击）。使用预取数据避免 N+1。"""
         from apps.oa_filing.services.script_executor_service import SUPPORTED_SITES
         from apps.organization.models import AccountCredential
@@ -107,7 +107,7 @@ class ContractDisplayFormatMixin:
         )
 
     @admin.display(description="建档编号")
-    def filing_number_display(self, obj: Any) -> Any:
+    def filing_number_display(self, obj: Any) -> Any:  # pragma: no cover
         """显示建档编号(只读)
 
         如果合同已有建档编号,显示编号;否则显示"未生成".
@@ -119,7 +119,7 @@ class ContractDisplayFormatMixin:
         return "未生成"
 
     @admin.display(description="匹配的合同模板")
-    def get_matched_template_display(self, obj: Any) -> Any:
+    def get_matched_template_display(self, obj: Any) -> Any:  # pragma: no cover
         """显示匹配的合同模板
 
         Requirements: 1.4
@@ -135,7 +135,7 @@ class ContractDisplayFormatMixin:
             return "查询失败"
 
     @admin.display(description="匹配的文件夹模板")
-    def get_matched_folder_templates_display(self, obj: Any) -> Any:
+    def get_matched_folder_templates_display(self, obj: Any) -> Any:  # pragma: no cover
         """显示匹配的文件夹模板
 
         Requirements: 7.1

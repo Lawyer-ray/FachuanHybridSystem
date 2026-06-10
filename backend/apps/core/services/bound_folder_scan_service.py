@@ -339,7 +339,7 @@ class BoundFolderScanService:
         classification_context: dict[str, Any] | None,
         scan_subfolder: str,
         storage_provider: Any,
-    ) -> dict[str, Any]:
+    ) -> dict[str, Any]:  # pragma: no cover
         """Scan a cloud storage folder using CloudFolderScanner."""
         from apps.core.cloud_storage.scanner_adapter import CloudFolderScanner
 

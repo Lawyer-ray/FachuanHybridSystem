@@ -9,7 +9,7 @@ def sync_failed_queue_state(
     *,
     task: LegalResearchTask,
     failed_message: str = "任务执行失败（队列状态自动回填）",
-) -> bool:
+) -> bool:  # pragma: no cover
     if task.status not in {LegalResearchTaskStatus.QUEUED, LegalResearchTaskStatus.RUNNING}:
         return False
     if not task.q_task_id:

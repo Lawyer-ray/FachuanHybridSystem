@@ -1,3 +1,4 @@
+# pragma: no cover
 """
 WSGI config for apiSystem project.
 

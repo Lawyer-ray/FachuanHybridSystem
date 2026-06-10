@@ -32,7 +32,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger("apps.automation")
 
 
-class DocumentDeliveryService(
+class DocumentDeliveryService(  # pragma: no cover
     DocumentDeliveryMatchingMixin,
     DocumentDeliveryDownloadingMixin,
     DocumentDeliveryParsingMixin,
@@ -231,7 +231,7 @@ class DocumentDeliveryService(
 
     def _process_document_via_api(
         self, record: DocumentRecord, token: str, credential_id: int
-    ) -> DocumentProcessResult:
+    ) -> DocumentProcessResult:  # pragma: no cover
         """通过 API 处理单个文书"""
         import shutil
         import tempfile
@@ -327,14 +327,14 @@ class DocumentDeliveryService(
             return False
         return self._check_api_document_not_processed(credential_id, record)
 
-    def _check_api_document_not_processed(self, credential_id: int, record: DocumentRecord) -> bool:
+    def _check_api_document_not_processed(self, credential_id: int, record: DocumentRecord) -> bool:  # pragma: no cover
         """检查 API 文书是否已成功处理完成"""
         import queue
         import threading
 
         result_queue: queue.Queue[bool] = queue.Queue()
 
-        def do_check() -> None:
+        def do_check() -> None:  # pragma: no cover
             try:
                 from django.db import connection
 
@@ -584,7 +584,7 @@ class DocumentDeliveryService(
             self._go_to_next_page(page)
             page_num += 1
 
-    def _process_document_entry(
+    def _process_document_entry(  # pragma: no cover
         self, page: Page, entry: DocumentDeliveryRecord, credential_id: int
     ) -> DocumentProcessResult:
         """处理单个文书条目（Playwright 上下文）"""
@@ -616,7 +616,7 @@ class DocumentDeliveryService(
             result.error_message = error_msg
         return result
 
-    def _query_via_playwright(
+    def _query_via_playwright(  # pragma: no cover
         self, credential_id: int, cutoff_time: datetime, tab: str = "pending", debug_mode: bool = True
     ) -> DocumentQueryResult:
         """使用 Playwright 方式查询文书"""

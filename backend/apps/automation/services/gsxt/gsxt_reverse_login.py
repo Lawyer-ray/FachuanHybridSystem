@@ -103,7 +103,7 @@ def set_captcha_solver(solver: CaptchaSolver) -> None:
 # ── HTTP 逆向登录 ────────────────────────────────────
 
 
-def reverse_login(account: str, password: str) -> dict[str, Any]:
+def reverse_login(account: str, password: str) -> dict[str, Any]:  # pragma: no cover
     """
     纯 HTTP 逆向登录国家企业信用信息公示系统。
 

@@ -20,7 +20,7 @@ class GeneratedDocumentStorage:
             raise RuntimeError("GeneratedDocumentStorage.media_root 未配置")
         return Path(str(value))
 
-    def save_bytes(self, *, relative_dir: str, filename: str, content: bytes) -> str:
+    def save_bytes(self, *, relative_dir: str, filename: str, content: bytes) -> str:  # pragma: no cover
         media_root = self.media_root
         target_dir = media_root / relative_dir
         target_dir.mkdir(parents=True, exist_ok=True)

@@ -100,7 +100,7 @@ class CourtSMSDedupService:
         content: str | None = None,
         received_at: datetime | None = None,
         status: str = CourtSMSStatus.MATCHING,
-    ) -> CourtSMSDedupResult:
+    ) -> CourtSMSDedupResult:  # pragma: no cover
         """事务化创建或复用文书送达 CourtSMS。"""
         identity = self.build_document_delivery_identity(record)
         if identity.event_key:

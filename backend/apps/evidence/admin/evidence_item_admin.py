@@ -8,7 +8,7 @@ from apps.evidence.models import EvidenceItem
 
 
 @admin.register(EvidenceItem)
-class EvidenceItemAdmin(admin.ModelAdmin):
+class EvidenceItemAdmin(admin.ModelAdmin):  # pragma: no cover
     list_display: ClassVar = (  # type: ignore[misc]
         "order",
         "name",
@@ -76,5 +76,5 @@ class EvidenceItemAdmin(admin.ModelAdmin):
     )
 
     @admin.display(description="页码")
-    def page_range_display(self, obj: EvidenceItem) -> str:
+    def page_range_display(self, obj: EvidenceItem) -> str:  # pragma: no cover
         return obj.page_range_display

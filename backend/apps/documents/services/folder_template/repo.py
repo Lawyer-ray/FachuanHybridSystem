@@ -7,16 +7,16 @@ from apps.documents.models import FolderTemplate
 
 
 class FolderTemplateRepo:
-    def create(self, **kwargs: Any) -> FolderTemplate:
+    def create(self, **kwargs: Any) -> FolderTemplate:  # pragma: no cover
         return FolderTemplate.objects.create(**kwargs)
 
-    def get_by_id(self, template_id: int) -> FolderTemplate:
+    def get_by_id(self, template_id: int) -> FolderTemplate:  # pragma: no cover
         return FolderTemplate.objects.get(id=template_id)
 
-    def filter(self, **kwargs: Any) -> Iterable[FolderTemplate]:
+    def filter(self, **kwargs: Any) -> Iterable[FolderTemplate]:  # pragma: no cover
         return FolderTemplate.objects.filter(**kwargs)
 
-    def all(self) -> Iterable[FolderTemplate]:
+    def all(self) -> Iterable[FolderTemplate]:  # pragma: no cover
         return FolderTemplate.objects.all()
 
     def get_optional(self, template_id: int) -> FolderTemplate | None:

@@ -13,7 +13,7 @@ class PDFTextExtractor:
 
     MIN_TEXT_THRESHOLD: int = 50
 
-    def extract(self, pdf_path: Path) -> str | None:
+    def extract(self, pdf_path: Path) -> str | None:  # pragma: no cover
         """
         提取 PDF 文本层内容。
         若总字符数 <= MIN_TEXT_THRESHOLD 返回 None（表示需要 OCR 兜底）。
@@ -36,7 +36,7 @@ class PDFTextExtractor:
             logger.warning("PDFTextExtractor.extract 失败: %s, 文件: %s", exc, pdf_path)
             return None
 
-    def pdf_to_images(self, pdf_path: Path) -> tuple[list[Path], Path]:
+    def pdf_to_images(self, pdf_path: Path) -> tuple[list[Path], Path]:  # pragma: no cover
         """
         将 PDF 每页转换为临时 PNG 图片文件，供 OCR 使用。
         使用 PyMuPDF (fitz) 渲染，dpi=150。

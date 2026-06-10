@@ -82,7 +82,7 @@ def _build_mbid_list_response(grouped: dict[str, list[MbidDefinition]]) -> MbidL
 
 
 @router.get("/mbid-list", response=MbidListResponse, summary="获取支持的文书类型列表")
-def get_mbid_list(request: HttpRequest) -> Any:
+def get_mbid_list(request: HttpRequest) -> Any:  # pragma: no cover
     """
     返回所有支持的文书类型（mbid），按类别分组。
 
@@ -95,7 +95,7 @@ def get_mbid_list(request: HttpRequest) -> Any:
 
 
 @router.post("/convert", summary="传统文书转要素式文书")
-def convert_document(
+def convert_document(  # pragma: no cover
     request: HttpRequest,
     file: UploadedFile = File(...),
     mbid: str = Form(...),

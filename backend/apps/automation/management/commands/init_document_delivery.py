@@ -38,7 +38,7 @@ class Command(BaseCommand):
             help="只显示将要执行的操作，不实际执行",
         )
 
-    def handle(self, *args: Any, **options: Any) -> None:
+    def handle(self, *args: Any, **options: Any) -> None:  # pragma: no cover
         from apps.automation.services.document_delivery.document_delivery_schedule_service import (
             DocumentDeliveryScheduleService,
         )

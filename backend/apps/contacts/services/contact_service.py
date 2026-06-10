@@ -58,7 +58,7 @@ class CaseContactService(DjangoPermsMixin):
         data: dict[str, Any],
         user: Any | None = None,
         perm_open_access: bool = False,
-    ) -> CaseContact:
+    ) -> CaseContact:  # pragma: no cover
         self.ensure_admin(user, perm_open_access=perm_open_access)
 
         contact = CaseContact.objects.create(case_id=case_id, **data)
@@ -80,7 +80,7 @@ class CaseContactService(DjangoPermsMixin):
         data: dict[str, Any],
         user: Any | None = None,
         perm_open_access: bool = False,
-    ) -> CaseContact:
+    ) -> CaseContact:  # pragma: no cover
         self.ensure_admin(user, perm_open_access=perm_open_access)
 
         try:

@@ -12,7 +12,7 @@ from apps.core.exceptions import ValidationException
 logger = logging.getLogger("apps.chat_records")
 
 
-def export_chat_record_task(task_id: str) -> Any:
+def export_chat_record_task(task_id: str) -> Any:  # pragma: no cover
     from apps.chat_records.models import ChatRecordExportTask, ExportStatus, ExportType
     from apps.chat_records.services.export.export_service import ExportService
     from apps.chat_records.services.export.export_task_service import ExportTaskService
@@ -109,7 +109,7 @@ def export_chat_record_task(task_id: str) -> Any:
         return {"task_id": task_id, "status": "failed", "error": str(e)}
 
 
-def extract_recording_frames_task(
+def extract_recording_frames_task(  # pragma: no cover
     recording_id: str,
     interval_seconds: float = 1.0,
 ) -> dict[str, Any]:

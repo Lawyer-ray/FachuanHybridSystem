@@ -209,7 +209,7 @@
 
 .finder-column {
     flex: 0 0 200px;
-    min-width: 200px;
+    min-width: 0;
     border-right: 1px solid #e5e7eb;
     overflow-y: auto;
     background: white;
@@ -321,4 +321,46 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+
+/* 拖拽调整宽度 */
+.folder-browser-content {
+    position: relative;
+}
+
+.folder-browser-resize-handle {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 6px;
+    height: 100%;
+    cursor: col-resize;
+    background: transparent;
+    transition: background 0.15s;
+    z-index: 10;
+}
+
+.folder-browser-resize-handle:hover,
+.folder-browser-resize-handle.active {
+    background: rgba(59, 130, 246, 0.3);
+}
+
+/* 分栏拖拽 */
+.finder-column {
+    position: relative;
+}
+
+.column-resize-handle {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 4px;
+    height: 100%;
+    cursor: col-resize;
+    z-index: 10;
+}
+
+.column-resize-handle:hover,
+.column-resize-handle.active {
+    background: rgba(59, 130, 246, 0.35);
 }

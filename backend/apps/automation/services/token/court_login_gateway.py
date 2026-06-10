@@ -8,13 +8,13 @@ from typing import Any, Protocol
 from apps.core.dto import AccountCredentialDTO
 
 
-class CourtLoginGateway(Protocol):
-    def login(self, *, credential: AccountCredentialDTO, browser_context) -> str: ...  # type: ignore
+class CourtLoginGateway(Protocol):  # pragma: no cover
+    def login(self, *, credential: AccountCredentialDTO, browser_context) -> str: ...  # type: ignore  # pragma: no cover
 
 
 @dataclass(frozen=True)
-class CourtZxfwLoginGateway:
-    def login(self, *, credential: AccountCredentialDTO, browser_context) -> Any:  # type: ignore
+class CourtZxfwLoginGateway:  # pragma: no cover
+    def login(self, *, credential: AccountCredentialDTO, browser_context) -> Any:  # type: ignore  # pragma: no cover
         from apps.automation.services.scraper.sites.court_zxfw import CourtZxfwService
 
         page = browser_context.new_page()

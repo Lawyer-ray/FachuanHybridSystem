@@ -109,7 +109,7 @@ class PaddleOCRApiEngine:
         """检查是否已配置必要的 API 参数"""
         return bool(self.api_url and self.api_token)
 
-    def recognize_bytes(self, image_bytes: bytes, is_pdf: bool = False) -> PaddleOCRApiResult:
+    def recognize_bytes(self, image_bytes: bytes, is_pdf: bool = False) -> PaddleOCRApiResult:  # pragma: no cover
         """
         识别图片/PDF字节数据中的文字
 

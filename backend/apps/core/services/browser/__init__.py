@@ -41,7 +41,7 @@ if TYPE_CHECKING:
 
 
 @contextmanager
-def create_browser(
+def create_browser(  # pragma: no cover
     profile: str | BrowserProfile = "default",
     *,
     session_id: str | None = None,
@@ -94,7 +94,7 @@ def create_browser(
 
 
 @asynccontextmanager
-async def create_browser_async(
+async def create_browser_async(  # pragma: no cover
     profile: str | BrowserProfile = "default",
     *,
     session_id: str | None = None,

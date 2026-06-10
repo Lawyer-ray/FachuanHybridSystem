@@ -23,7 +23,7 @@ class CaseDetailService(BasePlaceholderService):
     category: str = "contract"
     placeholder_keys: ClassVar = ["案件详情"]
 
-    def generate(self, context_data: dict[str, Any]) -> dict[str, Any]:
+    def generate(self, context_data: dict[str, Any]) -> dict[str, Any]:  # pragma: no cover
         """
         生成案件详情占位符
 

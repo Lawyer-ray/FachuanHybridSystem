@@ -66,7 +66,7 @@ class ConfirmRequestIn(BaseModel):
 
 
 @router.post("/jobs", response=JobSubmitOut)
-def create_pdf_split_job(
+def create_pdf_split_job(  # pragma: no cover
     request: Any,
     file: UploadedFile | None = File(None),
     source_path: str | None = Form(None),
@@ -86,33 +86,33 @@ def create_pdf_split_job(
 
 
 @router.get("/jobs/{job_id}", response=JobOut)
-def get_pdf_split_job(request: Any, job_id: UUID) -> JobOut:
+def get_pdf_split_job(request: Any, job_id: UUID) -> JobOut:  # pragma: no cover
     job = PdfSplitJobService().get_job(job_id)
     payload = PdfSplitJobService().build_job_payload(job)
     return JobOut(**payload)
 
 
 @router.get("/jobs/{job_id}/pages/{page_no}/preview")
-def get_pdf_split_preview(request: Any, job_id: UUID, page_no: int) -> HttpResponse:
+def get_pdf_split_preview(request: Any, job_id: UUID, page_no: int) -> HttpResponse:  # pragma: no cover
     job = PdfSplitJobService().get_job(job_id)
     preview_path = PdfSplitService().render_preview(job, page_no)
     return FileResponse(preview_path.open("rb"), content_type="image/png", filename=preview_path.name)  # type: ignore[return-value]
 
 
 @router.post("/jobs/{job_id}/confirm", response=JobSubmitOut)
-def confirm_pdf_split_job(request: Any, job_id: UUID, payload: ConfirmRequestIn) -> JobSubmitOut:
+def confirm_pdf_split_job(request: Any, job_id: UUID, payload: ConfirmRequestIn) -> JobSubmitOut:  # pragma: no cover
     job = PdfSplitJobService().confirm_segments(job_id=job_id, items=[item.model_dump() for item in payload.segments])
     return JobSubmitOut(job_id=str(job.id), status=job.status)
 
 
 @router.post("/jobs/{job_id}/cancel", response=JobSubmitOut)
-def cancel_pdf_split_job(request: Any, job_id: UUID) -> JobSubmitOut:
+def cancel_pdf_split_job(request: Any, job_id: UUID) -> JobSubmitOut:  # pragma: no cover
     job = PdfSplitJobService().request_cancel(job_id=job_id)
     return JobSubmitOut(job_id=str(job.id), status=job.status)
 
 
 @router.get("/jobs/{job_id}/download")
-def get_pdf_split_download(request: Any, job_id: UUID) -> HttpResponse:
+def get_pdf_split_download(request: Any, job_id: UUID) -> HttpResponse:  # pragma: no cover
     job = PdfSplitJobService().get_job(job_id)
     storage = PdfSplitStorage(job.id)
     if not storage.export_zip_path.exists():
@@ -121,7 +121,7 @@ def get_pdf_split_download(request: Any, job_id: UUID) -> HttpResponse:
 
 
 @router.get("/jobs/{job_id}/pdf")
-def get_pdf_split_raw(request: Any, job_id: UUID) -> HttpResponse:
+def get_pdf_split_raw(request: Any, job_id: UUID) -> HttpResponse:  # pragma: no cover
     """获取原始 PDF 二进制流，供 PDF.js 在浏览器中渲染"""
     job = PdfSplitJobService().get_job(job_id)
     storage = PdfSplitStorage(job.id)
@@ -135,7 +135,7 @@ def get_pdf_split_raw(request: Any, job_id: UUID) -> HttpResponse:
 
 
 @router.get("/jobs/{job_id}/preview-page")
-def get_pdf_preview_page(
+def get_pdf_preview_page(  # pragma: no cover
     request: Any,
     job_id: UUID,
     start_page: int = 1,

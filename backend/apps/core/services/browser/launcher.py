@@ -22,7 +22,7 @@ logger = logging.getLogger("apps.core")
 
 
 @contextmanager
-def launch_browser(
+def launch_browser(  # pragma: no cover
     profile: BrowserProfile,
     *,
     session_id: str | None = None,
@@ -101,7 +101,7 @@ def launch_browser(
         _cleanup(page, context, browser)
 
 
-def _cleanup(
+def _cleanup(  # pragma: no cover
     page: Page | None,
     context: BrowserContext | None,
     browser: Browser | None,

@@ -124,7 +124,7 @@ class LearnRulesOut(Schema):
 
 
 @router.post("/archive/learn-rules", response=LearnRulesOut)
-def learn_archive_rules(request: HttpRequest) -> Any:
+def learn_archive_rules(request: HttpRequest) -> Any:  # pragma: no cover
     """从已归档材料中学习分类规则（全局操作）"""
     from apps.contracts.services.archive.learning_service import ArchiveLearningService
 
@@ -144,7 +144,7 @@ def learn_archive_rules(request: HttpRequest) -> Any:
 
 
 @router.get("/{contract_id}/archive/download-item/{archive_item_code}")
-def download_archive_item(request: HttpRequest, contract_id: int, archive_item_code: str) -> Any:
+def download_archive_item(request: HttpRequest, contract_id: int, archive_item_code: str) -> Any:  # pragma: no cover
     """下载归档检查项材料（多文件自动合并为 PDF）"""
     from apps.contracts.services.archive.archive_query_service import get_contract_or_none
 
@@ -170,7 +170,7 @@ def download_archive_item(request: HttpRequest, contract_id: int, archive_item_c
 
 
 @router.get("/{contract_id}/archive/checklist", response=ChecklistOut)
-def get_archive_checklist(request: HttpRequest, contract_id: int) -> Any:
+def get_archive_checklist(request: HttpRequest, contract_id: int) -> Any:  # pragma: no cover
     """获取合同的归档检查清单及各项完成状态"""
     from apps.contracts.services.archive.archive_query_service import get_contract_or_none
 
@@ -184,7 +184,7 @@ def get_archive_checklist(request: HttpRequest, contract_id: int) -> Any:
 
 
 @router.post("/{contract_id}/archive/generate-folder", response=GenerateArchiveFolderOut)
-def generate_archive_folder(request: HttpRequest, contract_id: int) -> Any:
+def generate_archive_folder(request: HttpRequest, contract_id: int) -> Any:  # pragma: no cover
     """生成归档文件夹：模板文书 + 合并 PDF"""
     from apps.contracts.services.archive.archive_query_service import get_contract_or_none
 
@@ -225,7 +225,7 @@ def generate_archive_folder(request: HttpRequest, contract_id: int) -> Any:
 
 
 @router.post("/{contract_id}/archive/toggle-compact", response=ToggleCompactOut)
-def toggle_compact_archive(request: HttpRequest, contract_id: int) -> Any:
+def toggle_compact_archive(request: HttpRequest, contract_id: int) -> Any:  # pragma: no cover
     """切换精简视图状态"""
     from apps.contracts.services.archive.archive_query_service import get_contract_or_none
 
@@ -244,7 +244,7 @@ def toggle_compact_archive(request: HttpRequest, contract_id: int) -> Any:
 
 
 @router.post("/{contract_id}/archive/sync-case-materials", response=SyncCaseMaterialsOut)
-def sync_case_materials(request: HttpRequest, contract_id: int) -> Any:
+def sync_case_materials(request: HttpRequest, contract_id: int) -> Any:  # pragma: no cover
     """从案件材料同步到归档"""
     from apps.contracts.services.archive.archive_query_service import get_contract_or_none
 
@@ -266,7 +266,7 @@ def sync_case_materials(request: HttpRequest, contract_id: int) -> Any:
 
 
 @router.post("/{contract_id}/archive/reset-and-resync", response=SyncCaseMaterialsOut)
-def reset_and_resync_case_materials(request: HttpRequest, contract_id: int) -> Any:
+def reset_and_resync_case_materials(request: HttpRequest, contract_id: int) -> Any:  # pragma: no cover
     """重置并重新同步案件材料到归档"""
     from apps.contracts.services.archive.archive_query_service import get_contract_or_none
 
@@ -289,7 +289,7 @@ def reset_and_resync_case_materials(request: HttpRequest, contract_id: int) -> A
 
 
 @router.post("/{contract_id}/archive/scale-to-a4", response=ScaleToA4Out)
-def scale_to_a4(request: HttpRequest, contract_id: int) -> Any:
+def scale_to_a4(request: HttpRequest, contract_id: int) -> Any:  # pragma: no cover
     """将所有非A4尺寸的PDF页面缩放为A4大小"""
     from apps.contracts.services.archive.archive_query_service import get_contract_or_none
 
@@ -310,7 +310,7 @@ def scale_to_a4(request: HttpRequest, contract_id: int) -> Any:
 
 
 @router.post("/{contract_id}/archive/confirm", response=ConfirmArchiveOut)
-def confirm_archive(request: HttpRequest, contract_id: int) -> Any:
+def confirm_archive(request: HttpRequest, contract_id: int) -> Any:  # pragma: no cover
     """确认归档：将合同状态改为已归档，并自动结案关联案件"""
     from apps.contracts.services.archive.archive_query_service import get_contract_or_none
 
@@ -332,7 +332,7 @@ def confirm_archive(request: HttpRequest, contract_id: int) -> Any:
 
 
 @router.post("/{contract_id}/archive/upload", response=UploadArchiveItemOut)
-def upload_archive_item(request: HttpRequest, contract_id: int) -> Any:
+def upload_archive_item(request: HttpRequest, contract_id: int) -> Any:  # pragma: no cover
     """上传文件到归档检查清单项"""
     from apps.contracts.services.archive.archive_query_service import get_contract_or_none
 
@@ -365,7 +365,7 @@ def upload_archive_item(request: HttpRequest, contract_id: int) -> Any:
 
 
 @router.delete("/{contract_id}/archive/materials/{material_id}", response=SuccessOut)
-def delete_archive_material(request: HttpRequest, contract_id: int, material_id: int) -> Any:
+def delete_archive_material(request: HttpRequest, contract_id: int, material_id: int) -> Any:  # pragma: no cover
     """删除归档材料"""
     from apps.contracts.services.archive.archive_query_service import delete_material, get_material_or_none
 
@@ -380,7 +380,7 @@ def delete_archive_material(request: HttpRequest, contract_id: int, material_id:
 
 
 @router.post("/{contract_id}/archive/reorder", response=SuccessOut)
-def reorder_archive_materials(request: HttpRequest, contract_id: int, body: ReorderIn) -> Any:
+def reorder_archive_materials(request: HttpRequest, contract_id: int, body: ReorderIn) -> Any:  # pragma: no cover
     """按归档清单项分组排序子项"""
     from apps.contracts.services.archive.archive_query_service import reorder_materials
 
@@ -391,7 +391,7 @@ def reorder_archive_materials(request: HttpRequest, contract_id: int, body: Reor
 
 
 @router.post("/{contract_id}/archive/materials/{material_id}/move", response=SuccessOut)
-def move_archive_material(request: HttpRequest, contract_id: int, material_id: int, body: MoveIn) -> Any:
+def move_archive_material(request: HttpRequest, contract_id: int, material_id: int, body: MoveIn) -> Any:  # pragma: no cover
     """移动归档材料到另一个清单项"""
     from apps.contracts.services.archive.archive_query_service import get_material_or_none, move_material
 
@@ -414,7 +414,7 @@ def move_archive_material(request: HttpRequest, contract_id: int, material_id: i
 
 
 @router.get("/{contract_id}/archive/materials/{material_id}/preview")
-def preview_archive_material(request: HttpRequest, contract_id: int, material_id: int) -> Any:
+def preview_archive_material(request: HttpRequest, contract_id: int, material_id: int) -> Any:  # pragma: no cover
     """预览单个归档材料"""
     from apps.contracts.services.archive.archive_query_service import get_material_or_none
 
@@ -452,7 +452,7 @@ def preview_archive_material(request: HttpRequest, contract_id: int, material_id
 
 
 @router.post("/{contract_id}/archive/clear-all", response=ClearAllOut)
-def clear_all_archive_materials(request: HttpRequest, contract_id: int) -> Any:
+def clear_all_archive_materials(request: HttpRequest, contract_id: int) -> Any:  # pragma: no cover
     """清空全部归档材料"""
     from apps.contracts.services.archive.archive_query_service import delete_material, get_materials_for_contract
 

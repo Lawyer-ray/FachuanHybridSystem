@@ -29,7 +29,7 @@ def _get_litigation_fee_calculator_service() -> Any:
 
 
 @router.post("/calculate-fee", response=FeeCalculationResponse)
-def calculate_fee(request: HttpRequest, data: FeeCalculationRequest) -> FeeCalculationResponse:
+def calculate_fee(request: HttpRequest, data: FeeCalculationRequest) -> FeeCalculationResponse:  # pragma: no cover
     """
     计算诉讼费用
 

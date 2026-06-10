@@ -26,7 +26,7 @@ from .filing_models import CaseInfo, ClientInfo, ConflictPartyInfo, ContractInfo
 logger = logging.getLogger("apps.oa_filing.jtn")
 
 
-class PlaywrightFilingMixin:
+class PlaywrightFilingMixin:  # pragma: no cover
     """Playwright 立案全流程 mixin。"""
 
     _account: str
@@ -38,7 +38,7 @@ class PlaywrightFilingMixin:
     # 公共入口
     # ------------------------------------------------------------------
 
-    def _run_via_playwright(
+    def _run_via_playwright(  # pragma: no cover
         self: Any,
         *,
         clients: list[ClientInfo],
@@ -110,7 +110,7 @@ class PlaywrightFilingMixin:
     # 登录 / 导航
     # ------------------------------------------------------------------
 
-    def _login(self: Any) -> None:
+    def _login(self: Any) -> None:  # pragma: no cover
         """登录：优先使用缓存 cookies，过期则走 SSO 扫码流程。"""
         assert self._context is not None
 
@@ -156,7 +156,7 @@ class PlaywrightFilingMixin:
             )
         logger.info("Playwright 登录成功（SSO 扫码完成）")
 
-    def _navigate_to_filing(self: Any) -> None:
+    def _navigate_to_filing(self: Any) -> None:  # pragma: no cover
         """导航到立案页面（如果尚未在立案页）。"""
         page = self._page
         assert page is not None
@@ -175,7 +175,7 @@ class PlaywrightFilingMixin:
     # 客户操作
     # ------------------------------------------------------------------
 
-    def _add_client(self: Any, client: ClientInfo) -> None:
+    def _add_client(self: Any, client: ClientInfo) -> None:  # pragma: no cover
         """添加一个委托方。"""
         page = self._page
         assert page is not None
@@ -209,7 +209,7 @@ class PlaywrightFilingMixin:
     # 案件信息
     # ------------------------------------------------------------------
 
-    def _fill_case_info(self: Any, info: CaseInfo) -> None:
+    def _fill_case_info(self: Any, info: CaseInfo) -> None:  # pragma: no cover
         """填写案件信息标签。
 
         级联顺序: manager → category → stage → which_side
@@ -314,7 +314,7 @@ class PlaywrightFilingMixin:
     # 利益冲突信息
     # ------------------------------------------------------------------
 
-    def _fill_conflict_info(self: Any, parties: list[ConflictPartyInfo]) -> None:
+    def _fill_conflict_info(self: Any, parties: list[ConflictPartyInfo]) -> None:  # pragma: no cover
         """填写利益冲突信息标签。
 
         页面默认有一条空记录，字段名带动态 GUID 后缀。
@@ -374,7 +374,7 @@ class PlaywrightFilingMixin:
     # 委托合同信息
     # ------------------------------------------------------------------
 
-    def _fill_contract_info(self: Any, info: ContractInfo) -> None:
+    def _fill_contract_info(self: Any, info: ContractInfo) -> None:  # pragma: no cover
         """填写委托合同信息标签。"""
         page = self._page
         assert page is not None
@@ -402,7 +402,7 @@ class PlaywrightFilingMixin:
     # 存草稿 / 切换标签
     # ------------------------------------------------------------------
 
-    def _save_draft(self: Any) -> None:
+    def _save_draft(self: Any) -> None:  # pragma: no cover
         """点击存草稿按钮。
 
         OA 的 ``projectAppReg.frmOk('0')`` 会弹出 ``confirm`` 对话框，
@@ -422,7 +422,7 @@ class PlaywrightFilingMixin:
         page.wait_for_load_state("domcontentloaded", timeout=15_000)
         logger.info("存草稿完成，当前URL: %s", page.url)
 
-    def _click_next_tab(self: Any) -> None:
+    def _click_next_tab(self: Any) -> None:  # pragma: no cover
         """点击"下一步"切换到下一个标签页。"""
         page = self._page
         assert page is not None

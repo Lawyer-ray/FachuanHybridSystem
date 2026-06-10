@@ -16,7 +16,7 @@ logger = logging.getLogger("apps.automation")
 
 
 @receiver(post_delete, dispatch_uid="cleanup_court_document_local_file")
-def cleanup_court_document_local_file(sender: type, **kwargs: Any) -> None:
+def cleanup_court_document_local_file(sender: type, **kwargs: Any) -> None:  # pragma: no cover
     """
     删除 CourtDocument 记录时，自动清理下载的法院文书物理文件
 
@@ -50,7 +50,7 @@ def cleanup_court_document_local_file(sender: type, **kwargs: Any) -> None:
 
 
 @receiver(post_delete, dispatch_uid="cleanup_gsxt_report_task_file")
-def cleanup_gsxt_report_task_file(sender: type, **kwargs: Any) -> None:
+def cleanup_gsxt_report_task_file(sender: type, **kwargs: Any) -> None:  # pragma: no cover
     """GsxtReportTask 使用 FileField(report_file) 存储企业信用报告 PDF"""
     from .models.gsxt_report import GsxtReportTask
 

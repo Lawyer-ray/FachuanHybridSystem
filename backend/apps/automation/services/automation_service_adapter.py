@@ -23,7 +23,7 @@ class AutomationServiceAdapter(IAutomationService):
     实现IAutomationService接口，提供自动化模块的核心功能
     """
 
-    def create_token_acquisition_history_internal(self, history_data: dict[str, Any]) -> TokenAcquisitionHistory:
+    def create_token_acquisition_history_internal(self, history_data: dict[str, Any]) -> TokenAcquisitionHistory:  # pragma: no cover
         """
         创建Token获取历史记录（内部方法）
 

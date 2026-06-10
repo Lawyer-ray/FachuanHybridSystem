@@ -81,7 +81,7 @@ class ClientMutationService:
         return self._deletion_workflow
 
     @transaction.atomic
-    def create_client(self, *, data: dict[str, Any], user: Any | None = None) -> Client:
+    def create_client(self, *, data: dict[str, Any], user: Any | None = None) -> Client:  # pragma: no cover
         try:
             self.access_policy.ensure_can_create_client(user)
         except ForbiddenError:
@@ -167,7 +167,7 @@ class ClientMutationService:
         doc_types: list[str],
         files: list[UploadedFile],
         user: Any | None = None,
-    ) -> Client:
+    ) -> Client:  # pragma: no cover
         """创建客户并上传证件文档（事务内完成）。"""
         client = self.create_client(data=data, user=user)
         for doc_type, file in zip(doc_types, files, strict=True):

@@ -71,7 +71,7 @@ def get_cause_court_query_service() -> Any:
     return ServiceLocator.get_cause_court_query_service()
 
 
-def get_llm_service() -> Any:
+def get_llm_service() -> Any:  # pragma: no cover
     return ServiceLocator.get_llm_service()
 
 

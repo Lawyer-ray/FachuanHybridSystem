@@ -41,6 +41,7 @@ dependencies = [
     "ddddocr==1.6.1",
     # --- 浏览器自动化 ---
     "playwright==1.59.0",
+    "nest-asyncio>=1.6.0",
     "cloakbrowser>=0.3.31",
     # --- 数据处理 ---
     "pandas==3.0.2",

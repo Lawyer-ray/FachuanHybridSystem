@@ -23,7 +23,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-def _run_async(coro: Coroutine[Any, Any, Any]) -> Any:
+def _run_async(coro: Coroutine[Any, Any, Any]) -> Any:  # pragma: no cover
     try:
         loop = asyncio.get_running_loop()
     except RuntimeError:

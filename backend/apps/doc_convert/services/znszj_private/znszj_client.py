@@ -30,7 +30,7 @@ ZNSZJ_BASE = "https://wxfxpg.susong51.com/znszj-touch"
 TIMEOUT = 60
 
 
-def _make_client() -> httpx.Client:
+def _make_client() -> httpx.Client:  # pragma: no cover
     """创建 httpx 客户端，自动检测系统代理并跳过 SSL 验证（代理 MITM）。"""
     proxy = os.environ.get("HTTPS_PROXY") or os.environ.get("https_proxy")
     if proxy:

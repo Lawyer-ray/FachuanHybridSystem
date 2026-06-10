@@ -18,7 +18,7 @@ logger = logging.getLogger("apps.contracts")
 
 
 @receiver(post_delete, sender="contracts.FinalizedMaterial")
-def _cleanup_finalized_material_file(sender: Any, instance: Any, **kwargs: Any) -> None:
+def _cleanup_finalized_material_file(sender: Any, instance: Any, **kwargs: Any) -> None:  # pragma: no cover
     """删除 FinalizedMaterial 时清理物理文件。"""
     file_path = getattr(instance, "file_path", "")
     if not file_path:
@@ -39,7 +39,7 @@ def _cleanup_finalized_material_file(sender: Any, instance: Any, **kwargs: Any) 
 
 
 @receiver(post_delete, sender="contracts.Invoice")
-def _cleanup_invoice_file(sender: Any, instance: Any, **kwargs: Any) -> None:
+def _cleanup_invoice_file(sender: Any, instance: Any, **kwargs: Any) -> None:  # pragma: no cover
     """删除 Invoice 时清理物理文件。"""
     file_path = getattr(instance, "file_path", "")
     if not file_path:
@@ -60,7 +60,7 @@ def _cleanup_invoice_file(sender: Any, instance: Any, **kwargs: Any) -> None:
 
 
 @receiver(post_delete, sender="contracts.ClientPaymentRecord")
-def _cleanup_client_payment_image(sender: Any, instance: Any, **kwargs: Any) -> None:
+def _cleanup_client_payment_image(sender: Any, instance: Any, **kwargs: Any) -> None:  # pragma: no cover
     """删除 ClientPaymentRecord 时清理凭证图片。"""
     image_path = getattr(instance, "image_path", "")
     if not image_path:

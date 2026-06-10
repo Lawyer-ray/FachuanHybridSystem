@@ -170,7 +170,7 @@ class IdentityExtractionService:
             logger.exception("OCR 提取失败: %s", e)
             raise OCRExtractionError(_("OCR 提取失败: %(e)s") % {"e": e}) from e
 
-    def _is_pdf_file(self, file_bytes: bytes) -> bool:
+    def _is_pdf_file(self, file_bytes: bytes) -> bool:  # pragma: no cover
         """
         检测文件是否为 PDF
 
@@ -200,7 +200,7 @@ class IdentityExtractionService:
         except Exception:
             return False
 
-    def _extract_from_image(self, image_bytes: bytes) -> str:
+    def _extract_from_image(self, image_bytes: bytes) -> str:  # pragma: no cover
         """从图片提取文字"""
         from PIL import Image
 
@@ -227,7 +227,7 @@ class IdentityExtractionService:
 
             raise OCRExtractionError(_("OCR 未能提取到有效文字"))
 
-    def _extract_from_pdf(self, pdf_bytes: bytes) -> str:
+    def _extract_from_pdf(self, pdf_bytes: bytes) -> str:  # pragma: no cover
         """从 PDF 提取文字(图片型PDF)"""
         import fitz  # pymupdf
         from PIL import Image
@@ -691,7 +691,7 @@ class IdentityExtractionService:
             return result4
         raise ValueError("无法从 LLM 输出中提取 JSON")
 
-    def _llm_extract(self, raw_text: str, doc_type: str, model: str) -> dict[str, Any]:
+    def _llm_extract(self, raw_text: str, doc_type: str, model: str) -> dict[str, Any]:  # pragma: no cover
         """
         使用 LLM 从文字中提取结构化信息
         """

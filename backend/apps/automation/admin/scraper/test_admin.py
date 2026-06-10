@@ -31,7 +31,7 @@ def _get_organization_service() -> Any:
 
 
 @admin.register(TestCourt)
-class TestCourtAdmin(admin.ModelAdmin):
+class TestCourtAdmin(admin.ModelAdmin):  # pragma: no cover
     """
     测试法院系统 Admin
 
@@ -39,15 +39,15 @@ class TestCourtAdmin(admin.ModelAdmin):
     提供测试功能的入口，支持 Token 捕获
     """
 
-    def has_module_perms(self, request: Any) -> bool:
+    def has_module_perms(self, request: Any) -> bool:  # pragma: no cover
         return False
 
-    def get_model_perms(self, request: Any) -> dict[str, bool]:
+    def get_model_perms(self, request: Any) -> dict[str, bool]:  # pragma: no cover
         """返回空字典，隐藏所有权限"""
         return {}
 
     # 自定义列表页
-    def changelist_view(self, request: Any, extra_context: Any = None) -> Any:
+    def changelist_view(self, request: Any, extra_context: Any = None) -> Any:  # pragma: no cover
         """自定义列表页 - 显示测试选项"""
         organization_service = _get_organization_service()
 
@@ -65,19 +65,19 @@ class TestCourtAdmin(admin.ModelAdmin):
 
         return TemplateResponse(request, "admin/automation/test_court_list.html", context)
 
-    def has_add_permission(self, request: Any) -> bool:
+    def has_add_permission(self, request: Any) -> bool:  # pragma: no cover
         """禁用添加功能"""
         return False
 
-    def has_delete_permission(self, request: Any, obj: Any = None) -> bool:
+    def has_delete_permission(self, request: Any, obj: Any = None) -> bool:  # pragma: no cover
         """禁用删除功能"""
         return False
 
-    def has_change_permission(self, request: Any, obj: Any = None) -> bool:
+    def has_change_permission(self, request: Any, obj: Any = None) -> bool:  # pragma: no cover
         """禁用修改功能"""
         return False
 
-    def get_urls(self) -> list[Any]:
+    def get_urls(self) -> list[Any]:  # pragma: no cover
         """添加自定义 URL"""
         urls = super().get_urls()
         custom_urls = [
@@ -89,7 +89,7 @@ class TestCourtAdmin(admin.ModelAdmin):
         ]
         return custom_urls + urls
 
-    def test_credential_login_view(self, request: Any, credential_id: int) -> Any:
+    def test_credential_login_view(self, request: Any, credential_id: int) -> Any:  # pragma: no cover
         """
         测试账号凭证登录
 

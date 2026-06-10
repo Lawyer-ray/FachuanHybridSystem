@@ -15,7 +15,7 @@ logger = logging.getLogger("apps.oa_filing.jtn")
 _COOKIE_PATH = Path.home() / ".fachuan" / "jtn_cookies.json"
 
 
-class SsoLoginMixin:
+class SsoLoginMixin:  # pragma: no cover
     """SSO 扫码登录 + Cookie 管理。"""
 
     _account: str
@@ -26,14 +26,14 @@ class SsoLoginMixin:
     # ------------------------------------------------------------------
 
     @staticmethod
-    def _save_cookies(cookies: list[dict[str, Any]]) -> None:
+    def _save_cookies(cookies: list[dict[str, Any]]) -> None:  # pragma: no cover
         """保存 cookies 到磁盘。"""
         _COOKIE_PATH.parent.mkdir(parents=True, exist_ok=True)
         _COOKIE_PATH.write_text(json.dumps(cookies, indent=2, ensure_ascii=False))
         logger.info("已保存 %d 个 cookies 到 %s", len(cookies), _COOKIE_PATH)
 
     @staticmethod
-    def _load_cookies() -> list[dict[str, Any]] | None:
+    def _load_cookies() -> list[dict[str, Any]] | None:  # pragma: no cover
         """从磁盘加载 cookies，过滤已过期的。"""
         if not _COOKIE_PATH.exists():
             return None
@@ -60,7 +60,7 @@ class SsoLoginMixin:
     # SSO 扫码登录（Playwright 有头模式）
     # ------------------------------------------------------------------
 
-    def _login_via_sso(self) -> list[dict[str, Any]]:
+    def _login_via_sso(self) -> list[dict[str, Any]]:  # pragma: no cover
         """完整的 SSO 扫码 + 凭证登录流程。
 
         打开有头浏览器 → 点击扫码图标 → 等待用户扫码 →
@@ -78,16 +78,19 @@ class SsoLoginMixin:
 
             # 1. 打开 OA 登录页（会重定向到 SSO）
             logger.info("SSO 登录: 打开 %s", _LOGIN_URL)
-            page.goto(_LOGIN_URL, wait_until="domcontentloaded", timeout=30_000)
+            page.goto(_LOGIN_URL, wait_until="domcontentloaded", timeout=60_000)
             time.sleep(3)
 
-            # 2. 点击扫码图标
-            self._click_qr_icon(page)
-            time.sleep(2)
-            logger.info("SSO 登录: 二维码已显示，请用企业微信扫码")
+            # 2. 尝试点击扫码图标（失败不阻塞，用户可手动点击）
+            try:
+                self._click_qr_icon(page)
+                time.sleep(2)
+            except RuntimeError:
+                logger.warning("未自动找到扫码图标，请在浏览器中手动点击扫码")
+            logger.info("SSO 登录: 请用企业微信扫码（等待 180 秒）")
 
             # 3. 等待扫码完成，跳转回 OA 登录页
-            page.wait_for_url("**/ims.jtn.com/**", timeout=120_000)
+            page.wait_for_url("**/ims.jtn.com/**", timeout=180_000)
             time.sleep(3)
             logger.info("SSO 登录: 扫码完成，回到 OA 登录页")
 
@@ -124,14 +127,48 @@ class SsoLoginMixin:
             pw.stop()
 
     @staticmethod
-    def _click_qr_icon(page: Any) -> None:
-        """点击 SSO 页面右上角的扫码图标。"""
-        all_els = page.query_selector_all("img, svg")
+    def _click_qr_icon(page: Any) -> None:  # pragma: no cover
+        """点击 SSO 页面右上角的扫码图标。
+
+        按优先级尝试多种选择器策略，坐标匹配仅作最后兜底。
+        """
+        # 策略 1: CSS 选择器（按 src/class/id 匹配常见扫码图标）
+        selectors = [
+            'img[src*="scan"]',
+            'img[src*="qr"]',
+            'img[src*="ewm"]',  # 二维码的拼音
+            'img[src*="code"]',
+            'img[class*="scan"]',
+            'img[class*="qr"]',
+            'a[class*="scan"] img',
+            'a[class*="qr"] img',
+            '#scanIcon',
+            '#qrIcon',
+            '.scan-icon img',
+            '.qr-code-icon',
+        ]
+        for sel in selectors:
+            try:
+                el = page.query_selector(sel)
+                if el and el.is_visible():
+                    el.click()
+                    logger.info("SSO 登录: 通过选择器 '%s' 找到扫码图标", sel)
+                    return
+            except Exception:
+                continue
+
+        # 策略 2: 宽松坐标匹配（页面右侧区域的小图标）
+        all_els = page.query_selector_all("img, svg, i[class*='icon'], span[class*='icon']")
         for el in all_els:
-            box = el.bounding_box()
-            if box and 750 < box["x"] < 800 and 220 < box["y"] < 280:
-                el.click()
-                return
+            try:
+                box = el.bounding_box()
+                if box and box["x"] > 600 and box["y"] < 350 and box["width"] < 80 and box["height"] < 80:
+                    el.click()
+                    logger.info("SSO 登录: 通过坐标匹配找到扫码图标 (x=%.0f, y=%.0f)", box["x"], box["y"])
+                    return
+            except Exception:
+                continue
+
         raise RuntimeError("未找到 SSO 扫码图标")
 
     # ------------------------------------------------------------------

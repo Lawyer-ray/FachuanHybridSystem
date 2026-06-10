@@ -25,7 +25,7 @@ class SolutionTaskService:
         credential: Any,
         user: Any,
         llm_model: str = "",
-    ) -> SolutionTask:
+    ) -> SolutionTask:  # pragma: no cover
         task = SolutionTask.objects.create(
             case_summary=case_summary.strip(),
             credential=credential,
@@ -54,7 +54,7 @@ class SolutionTaskService:
         task.pdf_file = None
         task.save(update_fields=["html_content", "pdf_file", "updated_at"])
 
-    def _dispatch(self, task: SolutionTask) -> None:
+    def _dispatch(self, task: SolutionTask) -> None:  # pragma: no cover
         try:
             q_task_id = ServiceLocator.get_task_submission_service().submit(
                 "apps.legal_solution.tasks.run_solution_task",

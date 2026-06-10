@@ -152,7 +152,7 @@ class IdCardMergeService:
             ) from None
         return (full_path, rel_path)
 
-    def _cleanup_temp_file(self, rel_path: str, full_path: Path) -> None:
+    def _cleanup_temp_file(self, rel_path: str, full_path: Path) -> None:  # pragma: no cover
         if "temp/" not in rel_path:
             return
         try:

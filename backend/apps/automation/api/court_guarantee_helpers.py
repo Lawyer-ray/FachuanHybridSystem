@@ -409,8 +409,8 @@ def _build_guarantee_material_paths(case: Any) -> list[dict[str, str]]:
 
     allowed_suffixes = {".pdf", ".doc", ".docx", ".png", ".jpg", ".jpeg", ".bmp", ".webp"}
 
-    def _collect(qs: Any) -> list[tuple[int, str, str, str]]:
-        files: list[tuple[int, str, str, str]] = []
+    def _collect(qs: Any) -> list[tuple[int, str, str, str, str]]:
+        files: list[tuple[int, str, str, str, str]] = []
         for material in qs.select_related("source_attachment").order_by("id"):
             attachment = getattr(material, "source_attachment", None)
             if attachment is None or not getattr(attachment, "file", None):
@@ -421,35 +421,39 @@ def _build_guarantee_material_paths(case: Any) -> list[dict[str, str]]:
                 continue
             if not file_path.exists() or file_path.suffix.lower() not in allowed_suffixes:
                 continue
+            original_name = str(getattr(attachment, "original_filename", "") or "").strip()
+            if not original_name:
+                original_name = file_path.name
             files.append(
                 (
                     int(getattr(material, "id", 0) or 0),
                     str(getattr(material, "type_name", "") or ""),
                     str(file_path.name),
                     file_path.as_posix(),
+                    original_name,
                 )
             )
         return files
 
     def _pick(
         *,
-        records: list[tuple[int, str, str, str]],
+        records: list[tuple[int, str, str, str, str]],
         keywords: list[str],
         used: set[str],
         type_name_keywords: list[str] | None = None,
-    ) -> tuple[str, str] | None:
+    ) -> tuple[str, str, str] | None:
         primary_keywords = type_name_keywords or keywords
-        for _, type_name, filename, path in records:
+        for _, type_name, filename, path, original_name in records:
             if path in used:
                 continue
             if any(keyword in type_name for keyword in primary_keywords):
-                return path, type_name
-        for _, type_name, filename, path in records:
+                return path, type_name, original_name
+        for _, type_name, filename, path, original_name in records:
             if path in used:
                 continue
             haystack = f"{type_name} {filename}"
             if any(keyword in haystack for keyword in keywords):
-                return path, type_name
+                return path, type_name, original_name
         return None
 
     our_party_qs = CaseMaterial.objects.filter(case=case, category=CaseMaterialCategory.PARTY).filter(
@@ -463,7 +467,7 @@ def _build_guarantee_material_paths(case: Any) -> list[dict[str, str]]:
     selected: list[dict[str, str]] = []
     used: set[str] = set()
 
-    required_rules: list[tuple[list[tuple[int, str, str, str]], list[str], list[str] | None]] = [
+    required_rules: list[tuple[list[tuple[int, str, str, str, str]], list[str], list[str] | None]] = [
         (our_files, ["财产保全申请书", "保全申请书"], ["保全申请", "保全", "保全申请书及保函"]),
         (our_files, ["起诉状", "起诉书", "起诉"], ["起诉状"]),
         (non_party_files, ["立案受理通知书", "受理通知书", "立案通知书", "受理通知", "立案通知"], None),
@@ -475,16 +479,16 @@ def _build_guarantee_material_paths(case: Any) -> list[dict[str, str]]:
         picked = _pick(records=records, keywords=keywords, used=used, type_name_keywords=type_name_keywords)
         if not picked:
             continue
-        path, type_name = picked
+        path, type_name, original_name = picked
         used.add(path)
-        selected.append({"path": path, "type_name": type_name})
+        selected.append({"path": path, "type_name": type_name, "original_name": original_name})
 
     for records in (our_files, non_party_files):
-        for _, type_name, _, path in records:
+        for _, type_name, _, path, original_name in records:
             if path in used:
                 continue
             used.add(path)
-            selected.append({"path": path, "type_name": type_name})
+            selected.append({"path": path, "type_name": type_name, "original_name": original_name})
             if len(selected) >= 12:
                 return selected
 

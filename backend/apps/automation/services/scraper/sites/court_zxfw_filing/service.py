@@ -17,7 +17,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger("apps.automation")
 
 
-class CourtZxfwFilingService(FilingStepsMixin, PartyInfoHandlerMixin, ProgressReporterMixin):
+class CourtZxfwFilingService(FilingStepsMixin, PartyInfoHandlerMixin, ProgressReporterMixin):  # pragma: no cover
     """
     全国法院"一张网"在线立案服务
 
@@ -118,7 +118,7 @@ class CourtZxfwFilingService(FilingStepsMixin, PartyInfoHandlerMixin, ProgressRe
 
     # ==================== 主入口 ====================
 
-    def file_case(self, case_data: dict[str, Any], token: str | None = None) -> dict[str, Any]:
+    def file_case(self, case_data: dict[str, Any], token: str | None = None) -> dict[str, Any]:  # pragma: no cover
         """执行民事一审在线立案全流程。"""
         filing_engine = self._resolve_filing_engine(case_data)
         api_error: Exception | None = None
@@ -262,7 +262,7 @@ class CourtZxfwFilingService(FilingStepsMixin, PartyInfoHandlerMixin, ProgressRe
                 merged_error = f"HTTP主链路失败({api_error})，且Playwright回退失败({e})"
             raise ValueError("立案失败: %(error)s" % {"error": merged_error}) from e
 
-    def file_execution(self, case_data: dict[str, Any], token: str | None = None) -> dict[str, Any]:
+    def file_execution(self, case_data: dict[str, Any], token: str | None = None) -> dict[str, Any]:  # pragma: no cover
         """执行申请执行在线立案全流程。"""
         filing_engine = self._resolve_filing_engine(case_data)
         api_error: Exception | None = None

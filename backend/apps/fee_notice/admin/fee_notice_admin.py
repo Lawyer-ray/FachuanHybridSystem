@@ -15,10 +15,10 @@ logger = logging.getLogger("apps.fee_notice")
 
 
 @admin.register(FeeNoticeTool)
-class FeeNoticeAdmin(admin.ModelAdmin):
+class FeeNoticeAdmin(admin.ModelAdmin):  # pragma: no cover
     """Admin entry for fee notice recognition test page."""
 
-    def changelist_view(self, request: HttpRequest, extra_context: dict[str, Any] | None = None) -> TemplateResponse:
+    def changelist_view(self, request: HttpRequest, extra_context: dict[str, Any] | None = None) -> TemplateResponse:  # pragma: no cover
         context = {
             "title": "交费通知书识别测试",
             "opts": self.model._meta,
@@ -32,11 +32,11 @@ class FeeNoticeAdmin(admin.ModelAdmin):
             context,
         )
 
-    def has_add_permission(self, request: HttpRequest) -> bool:
+    def has_add_permission(self, request: HttpRequest) -> bool:  # pragma: no cover
         return False
 
-    def has_delete_permission(self, request: HttpRequest, obj: Any = None) -> bool:
+    def has_delete_permission(self, request: HttpRequest, obj: Any = None) -> bool:  # pragma: no cover
         return False
 
-    def has_change_permission(self, request: HttpRequest, obj: Any = None) -> bool:
+    def has_change_permission(self, request: HttpRequest, obj: Any = None) -> bool:  # pragma: no cover
         return False

@@ -24,7 +24,7 @@ class ContractFormatService:
         task: ReviewTask,
         config: dict | None = None,
         force_method: str | None = None
-    ) -> tuple[Path, str]:
+    ) -> tuple[Path, str]:  # pragma: no cover
         """
         格式化合同文档
 

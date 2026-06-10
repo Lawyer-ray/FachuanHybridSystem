@@ -17,7 +17,7 @@ _BACKEND_LABELS = {
 }
 
 
-def verify_siliconflow_connectivity(*, model: str | None) -> None:
+def verify_siliconflow_connectivity(*, model: str | None) -> None:  # pragma: no cover
     """Validate LLM connectivity and optional model availability before queueing a task.
 
     Routes to the correct backend based on the model name:
@@ -58,7 +58,7 @@ def verify_siliconflow_connectivity(*, model: str | None) -> None:
     _check_siliconflow(base_url, api_key, selected_model)
 
 
-def _check_siliconflow(base_url: str, api_key: str, model: str) -> None:
+def _check_siliconflow(base_url: str, api_key: str, model: str) -> None:  # pragma: no cover
     try:
         import ssl
 
@@ -98,7 +98,7 @@ def _check_siliconflow(base_url: str, api_key: str, model: str) -> None:
         raise ValidationException(f"所选模型不可用: {model}")
 
 
-def _check_openai_compatible(base_url: str, api_key: str) -> None:
+def _check_openai_compatible(base_url: str, api_key: str) -> None:  # pragma: no cover
     try:
         import ssl
 
@@ -121,7 +121,7 @@ def _check_openai_compatible(base_url: str, api_key: str) -> None:
         raise ValidationException(f"OpenAI 兼容后端服务不可用 (HTTP {response.status_code})。")
 
 
-def _check_ollama(base_url: str, model: str) -> None:
+def _check_ollama(base_url: str, model: str) -> None:  # pragma: no cover
     try:
         response = httpx.get(f"{base_url.rstrip('/')}/api/tags", timeout=12.0)
     except httpx.RequestError as exc:

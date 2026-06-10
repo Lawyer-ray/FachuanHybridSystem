@@ -8,7 +8,7 @@ from ..models import BatchJob, BatchJobItem, WorkbenchMessage, WorkbenchSession
 
 
 @admin.register(WorkbenchSession)
-class WorkbenchSessionAdmin(admin.ModelAdmin):
+class WorkbenchSessionAdmin(admin.ModelAdmin):  # pragma: no cover
     list_display = ["session_id", "title", "user", "llm_model", "status", "created_at"]
     list_filter = ["status", "created_at"]
     search_fields = ["title", "session_id"]
@@ -17,7 +17,7 @@ class WorkbenchSessionAdmin(admin.ModelAdmin):
 
 
 @admin.register(WorkbenchMessage)
-class WorkbenchMessageAdmin(admin.ModelAdmin):
+class WorkbenchMessageAdmin(admin.ModelAdmin):  # pragma: no cover
     list_display = ["id", "session", "role", "tool_name", "created_at"]
     list_filter = ["role", "created_at"]
     search_fields = ["content", "tool_name"]
@@ -26,7 +26,7 @@ class WorkbenchMessageAdmin(admin.ModelAdmin):
 
 
 @admin.register(BatchJob)
-class BatchJobAdmin(admin.ModelAdmin):
+class BatchJobAdmin(admin.ModelAdmin):  # pragma: no cover
     list_display = [
         "id",
         "session",
@@ -45,7 +45,7 @@ class BatchJobAdmin(admin.ModelAdmin):
 
 
 @admin.register(BatchJobItem)
-class BatchJobItemAdmin(admin.ModelAdmin):
+class BatchJobItemAdmin(admin.ModelAdmin):  # pragma: no cover
     list_display = ["id", "job", "file_name", "status", "duration_ms", "created_at"]
     list_filter = ["status", "created_at"]
     search_fields = ["file_name", "result", "error"]

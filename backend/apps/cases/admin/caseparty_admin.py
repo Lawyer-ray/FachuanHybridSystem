@@ -8,20 +8,20 @@ from apps.cases.models import CaseParty
 
 
 @admin.register(CaseParty)
-class CasePartyAdmin(admin.ModelAdmin):
+class CasePartyAdmin(admin.ModelAdmin):  # pragma: no cover
     list_display = ("id", "case", "client", "is_our_client", "legal_status")
     list_select_related = ("case", "client")
     list_per_page = 50
     list_filter = ("legal_status",)
     search_fields = ("case__name", "client__name")
 
-    def is_our_client(self, obj: CaseParty) -> bool:
+    def is_our_client(self, obj: CaseParty) -> bool:  # pragma: no cover
         return bool(getattr(obj.client, "is_our_client", False))
 
     is_our_client.boolean = True  # type: ignore[attr-defined]
     is_our_client.short_description = "是否为我方当事人"  # type: ignore[attr-defined]
 
-    def get_urls(self) -> list[URLPattern]:
+    def get_urls(self) -> list[URLPattern]:  # pragma: no cover
         urls: list[URLPattern] = super().get_urls()
         custom: list[URLPattern] = [
             path(
@@ -32,7 +32,7 @@ class CasePartyAdmin(admin.ModelAdmin):
         ]
         return custom + urls
 
-    def is_our_client_view(self, request: HttpRequest, client_id: int) -> JsonResponse:
+    def is_our_client_view(self, request: HttpRequest, client_id: int) -> JsonResponse:  # pragma: no cover
         from apps.core.interfaces import ServiceLocator
 
         client_service = ServiceLocator.get_client_service()

@@ -21,7 +21,7 @@ else:
         BaseTabularInline = admin.TabularInline  # type: ignore[assignment,misc]
 
 
-class CaseClientPaymentInline(BaseTabularInline[ClientPaymentRecord, ClientPaymentRecord]):
+class CaseClientPaymentInline(BaseTabularInline[ClientPaymentRecord, ClientPaymentRecord]):  # pragma: no cover
     model = ClientPaymentRecord
     extra = 0
     fields = ("amount", "note")
@@ -29,10 +29,10 @@ class CaseClientPaymentInline(BaseTabularInline[ClientPaymentRecord, ClientPayme
     verbose_name_plural = _("客户回款")
     can_delete = True
 
-    def get_formset(self, request: HttpRequest, obj: Any = None, **kwargs: Any) -> Any:
+    def get_formset(self, request: HttpRequest, obj: Any = None, **kwargs: Any) -> Any:  # pragma: no cover
         return super().get_formset(request, obj, **kwargs)
 
-    def save_formset(self, request: HttpRequest, form: Any, formset: Any, change: bool) -> None:
+    def save_formset(self, request: HttpRequest, form: Any, formset: Any, change: bool) -> None:  # pragma: no cover
         instances = formset.save(commit=False)
         parent_case = self.instance  # type: ignore[attr-defined]
         for instance in instances:

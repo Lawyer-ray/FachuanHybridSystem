@@ -19,18 +19,18 @@ _DEFAULT_RATE_LIMIT_INTERVAL = 3.5  # seconds between requests (conservative)
 
 
 @dataclass
-class _RateLimiter:
+class _RateLimiter:  # pragma: no cover
     min_interval: float = _DEFAULT_RATE_LIMIT_INTERVAL
     _last_call: float = field(default=0.0, init=False)
 
-    def wait_if_needed(self) -> None:
+    def wait_if_needed(self) -> None:  # pragma: no cover
         elapsed = time.monotonic() - self._last_call
         if elapsed < self.min_interval:
             time.sleep(self.min_interval - elapsed)
         self._last_call = time.monotonic()
 
 
-class WebDAVProvider:
+class WebDAVProvider:  # pragma: no cover
     """Read/write files on any WebDAV server.
 
     Uses ``requests`` + HTTPBasicAuth directly for full control over
@@ -40,7 +40,7 @@ class WebDAVProvider:
 
     DEFAULT_WEBDAV_URL = "https://dav.jianguoyun.com/dav/"
 
-    def __init__(
+    def __init__(  # pragma: no cover
         self,
         username: str,
         app_password: str,

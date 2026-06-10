@@ -15,7 +15,7 @@ logger = logging.getLogger("apps.legal_solution")
 
 
 @receiver(post_delete, sender="legal_solution.SolutionTask", dispatch_uid="cleanup_solution_task_pdf")
-def _cleanup_solution_task_pdf(sender: Any, instance: Any, **kwargs: Any) -> None:
+def _cleanup_solution_task_pdf(sender: Any, instance: Any, **kwargs: Any) -> None:  # pragma: no cover
     """删除 SolutionTask 时清理 PDF 物理文件。"""
     if instance.pdf_file:
         try:

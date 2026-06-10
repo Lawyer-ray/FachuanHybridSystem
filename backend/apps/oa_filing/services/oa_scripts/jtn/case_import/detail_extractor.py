@@ -15,7 +15,7 @@ from .http_client import _BASE_URL, _DETAIL_URL_TEMPLATE, _MEDIUM_WAIT
 logger = logging.getLogger("apps.oa_filing.jtn_case_import")
 
 
-class JtnDetailExtractorMixin:
+class JtnDetailExtractorMixin:  # pragma: no cover
     """详情页 Tab 数据提取。"""
 
     # --- 由 facade 提供 ---
@@ -24,7 +24,7 @@ class JtnDetailExtractorMixin:
     # ------------------------------------------------------------------
     # 案件详情页提取
     # ------------------------------------------------------------------
-    def _fetch_case_detail(self: Any, search_item: CaseSearchItem) -> OACaseData | None:
+    def _fetch_case_detail(self: Any, search_item: CaseSearchItem) -> OACaseData | None:  # pragma: no cover
         """打开案件详情页，提取3个Tab的数据。
 
         注意：如果页面已经在详情页（由 _search_case_by_no 通过 JavaScript 导航后），
@@ -74,7 +74,7 @@ class JtnDetailExtractorMixin:
             logger.warning("提取案件详情异常 %s: %s", search_item.case_no, exc)
             return None
 
-    def _extract_customer_tab(self: Any) -> list[OACaseCustomerData]:
+    def _extract_customer_tab(self: Any) -> list[OACaseCustomerData]:  # pragma: no cover
         """提取客户信息Tab（Tab 1）。"""
         page = self._page
         assert page is not None
@@ -156,7 +156,7 @@ class JtnDetailExtractorMixin:
 
         return customers
 
-    def _extract_case_info_tab(self: Any) -> OACaseInfoData | None:
+    def _extract_case_info_tab(self: Any) -> OACaseInfoData | None:  # pragma: no cover
         """提取案件信息Tab（Tab 2）。"""
         page = self._page
         assert page is not None
@@ -229,7 +229,7 @@ class JtnDetailExtractorMixin:
 
         return None
 
-    def _extract_conflict_tab(self: Any) -> list[OAConflictData]:
+    def _extract_conflict_tab(self: Any) -> list[OAConflictData]:  # pragma: no cover
         """提取利益冲突信息Tab（Tab 3）。"""
         page = self._page
         assert page is not None

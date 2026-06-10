@@ -13,7 +13,7 @@ from apps.core.interfaces import ISecurityService
 logger = logging.getLogger("apps.automation")
 
 
-def get_config(key: str, default: str | None = None) -> str | None:
+def get_config(key: str, default: str | None = None) -> str | None:  # pragma: no cover
     """获取系统配置值（可被测试 monkeypatch）"""
     from apps.core.services.system_config_service import SystemConfigService
 

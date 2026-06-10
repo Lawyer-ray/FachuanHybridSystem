@@ -133,7 +133,7 @@ class FolderTemplateAdminService:
             return {"success": False, "error": str(e)}
 
     @transaction.atomic
-    def initialize_default_templates(self) -> dict[str, Any]:
+    def initialize_default_templates(self) -> dict[str, Any]:  # pragma: no cover
         """
         初始化默认文件夹模板
 
@@ -291,7 +291,7 @@ class FolderTemplateAdminService:
         html = self.render_structure_tree(structure)
         return mark_safe(f'<div class="folder-structure-preview">{html}</div>')
 
-    def duplicate_template(self, template: Any) -> Any:
+    def duplicate_template(self, template: Any) -> Any:  # pragma: no cover
         """
         复制文件夹模板
 

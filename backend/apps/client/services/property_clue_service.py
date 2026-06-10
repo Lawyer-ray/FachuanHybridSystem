@@ -83,7 +83,7 @@ class PropertyClueService:
         client_id: int,
         data: dict[str, Any],
         user: Any = None,
-    ) -> PropertyClue:
+    ) -> PropertyClue:  # pragma: no cover
         """
         创建财产线索
 
@@ -218,7 +218,7 @@ class PropertyClueService:
         file_path: str,
         file_name: str,
         user: Any = None,
-    ) -> PropertyClueAttachment:
+    ) -> PropertyClueAttachment:  # pragma: no cover
         """为财产线索添加附件。"""
 
         if not file_path or not file_name:

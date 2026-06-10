@@ -15,7 +15,7 @@ logger = logging.getLogger("apps.cases")
 
 
 class CasePartyQueryService:
-    def base_queryset(self) -> QuerySet[CaseParty, CaseParty]:
+    def base_queryset(self) -> QuerySet[CaseParty, CaseParty]:  # pragma: no cover
         return CaseParty.objects.select_related("case", "client").order_by("-id")
 
     def list_parties(self, *, case_id: int | None = None) -> QuerySet[CaseParty, CaseParty]:

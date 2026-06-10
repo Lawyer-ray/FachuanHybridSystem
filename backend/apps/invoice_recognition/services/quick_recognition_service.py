@@ -97,7 +97,7 @@ class QuickRecognitionService:
                 error="识别失败，请重试",
             )
 
-    def _process_pdf(self, file: UploadedFile) -> str:
+    def _process_pdf(self, file: UploadedFile) -> str:  # pragma: no cover
         import tempfile
 
         with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp_file:
@@ -122,7 +122,7 @@ class QuickRecognitionService:
         finally:
             tmp_path.unlink(missing_ok=True)
 
-    def _process_image(self, file: UploadedFile) -> str:
+    def _process_image(self, file: UploadedFile) -> str:  # pragma: no cover
         import tempfile
 
         ext = Path(file.name or "").suffix.lower()

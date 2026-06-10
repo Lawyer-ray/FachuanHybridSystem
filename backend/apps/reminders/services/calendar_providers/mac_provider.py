@@ -39,7 +39,7 @@ class MacCalendarProvider:
         "生日",
     ]
 
-    def list_calendars(self) -> list[dict[str, str | bool]]:
+    def list_calendars(self) -> list[dict[str, str | bool]]:  # pragma: no cover
         """Return available calendar names and their types."""
         script = """
 tell application "Calendar"
@@ -88,7 +88,7 @@ end tell"""
         excluded_calendars: list[str] | None = None,
         included_calendars: list[str] | None = None,
         **kwargs: object,
-    ) -> list[CalendarEvent]:
+    ) -> list[CalendarEvent]:  # pragma: no cover
         """Fetch events from macOS Calendar.app within the date range.
 
         Args:

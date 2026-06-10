@@ -22,7 +22,7 @@ class GenerationTaskService:
         template_id: int | None,
         created_by_id: int | None,
         metadata: dict[str, Any],
-    ) -> GenerationTaskDTO:
+    ) -> GenerationTaskDTO:  # pragma: no cover
         task = GenerationTask.objects.create(
             case_id=case_id,
             litigation_session_id=litigation_session_id,

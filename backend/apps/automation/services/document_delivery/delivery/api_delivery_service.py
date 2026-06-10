@@ -102,7 +102,7 @@ class ApiDeliveryService:
 
         return result
 
-    def fetch_page(self, token: str, page_num: int, page_size: int = 20) -> list[DocumentRecord]:
+    def fetch_page(self, token: str, page_num: int, page_size: int = 20) -> list[DocumentRecord]:  # pragma: no cover
         """
         获取指定页的文书列表
 
@@ -233,7 +233,7 @@ class ApiDeliveryService:
         logger.warning("检查文书处理历史超时,默认处理")
         return True
 
-    def download_document(self, record: DocumentRecord, token: str) -> tuple[list[str], str] | None:
+    def download_document(self, record: DocumentRecord, token: str) -> tuple[list[str], str] | None:  # pragma: no cover
         """
         通过 API 下载文书
 

@@ -29,7 +29,7 @@ class Command(BaseCommand):
         parser.add_argument("--optimize-concurrency", action="store_true", help="分析并优化并发配置")
         parser.add_argument("--reset-metrics", action="store_true", help="重置性能指标")
 
-    def handle(self, *args: Any, **options: Any) -> None:
+    def handle(self, *args: Any, **options: Any) -> None:  # pragma: no cover
         """执行优化任务"""
         self.stdout.write(self.style.SUCCESS(f"开始Token性能优化任务 - {timezone.now()}"))
 

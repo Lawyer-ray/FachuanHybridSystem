@@ -8,7 +8,7 @@ from typing import Any
 logger = logging.getLogger("apps.evidence")
 
 
-def merge_evidence_pdf_task(list_id: int) -> Any:
+def merge_evidence_pdf_task(list_id: int) -> Any:  # pragma: no cover
     from apps.evidence.services.mutation.evidence_merge_usecase import EvidenceMergeUseCase
 
     logger.info("merge_evidence_pdf_task_start", extra={"list_id": list_id})
@@ -17,7 +17,7 @@ def merge_evidence_pdf_task(list_id: int) -> Any:
     return result
 
 
-def ocr_evidence_item_task(item_id: int) -> None:
+def ocr_evidence_item_task(item_id: int) -> None:  # pragma: no cover
     """异步 OCR 提取证据文件文本"""
     from apps.evidence.services.ai.evidence_ocr_service import EvidenceOCRService
 

@@ -15,7 +15,7 @@ logger = logging.getLogger("apps.image_rotation")
 
 
 @admin.register(ImageRotationTool)
-class ImageRotationAdmin(admin.ModelAdmin):
+class ImageRotationAdmin(admin.ModelAdmin):  # pragma: no cover
     """
     图片自动旋转工具 Admin
 
@@ -23,7 +23,7 @@ class ImageRotationAdmin(admin.ModelAdmin):
     提供图片自动旋转功能的入口
     """
 
-    def changelist_view(self, request: Any, extra_context: Any = None) -> Any:
+    def changelist_view(self, request: Any, extra_context: Any = None) -> Any:  # pragma: no cover
         """
         自定义列表页 - 显示图片自动旋转工具页面
 
@@ -45,14 +45,14 @@ class ImageRotationAdmin(admin.ModelAdmin):
             context,
         )
 
-    def has_add_permission(self, request: Any) -> bool:
+    def has_add_permission(self, request: Any) -> bool:  # pragma: no cover
         return False
 
-    def has_delete_permission(self, request: Any, obj: Any = None) -> bool:
+    def has_delete_permission(self, request: Any, obj: Any = None) -> bool:  # pragma: no cover
         return False
 
-    def has_change_permission(self, request: Any, obj: Any = None) -> bool:
+    def has_change_permission(self, request: Any, obj: Any = None) -> bool:  # pragma: no cover
         return False
 
-    def get_model_perms(self, request: Any) -> dict[str, bool]:
+    def get_model_perms(self, request: Any) -> dict[str, bool]:  # pragma: no cover
         return {"view": True}

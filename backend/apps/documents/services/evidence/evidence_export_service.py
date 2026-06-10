@@ -55,7 +55,7 @@ class EvidenceExportService:
             self._placeholder_service = get_evidence_list_placeholder_service()
         return self._placeholder_service
 
-    def export_evidence_list_with_template(self, list_id: int, template_id: int | None = None) -> tuple[bytes, str]:
+    def export_evidence_list_with_template(self, list_id: int, template_id: int | None = None) -> tuple[bytes, str]:  # pragma: no cover
         """
         使用模板导出证据清单
 

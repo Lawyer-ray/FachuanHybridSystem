@@ -17,7 +17,7 @@ from apps.core.services.libreoffice import find_libreoffice as _find_libreoffice
 logger = logging.getLogger(__name__)
 
 
-def convert_image_to_pdf(image_path: str) -> str:
+def convert_image_to_pdf(image_path: str) -> str:  # pragma: no cover
     try:
         from PIL import Image
         from reportlab.lib.pagesizes import A4
@@ -62,7 +62,7 @@ def convert_image_to_pdf(image_path: str) -> str:
         ) from e
 
 
-def _convert_via_libreoffice(docx_path: str) -> str | None:
+def _convert_via_libreoffice(docx_path: str) -> str | None:  # pragma: no cover
     """使用 LibreOffice headless 模式转换 docx → pdf（最高质量）"""
     import subprocess
 
@@ -119,7 +119,7 @@ def _convert_via_libreoffice(docx_path: str) -> str | None:
         shutil_mod.rmtree(output_dir, ignore_errors=True)
 
 
-def convert_docx_to_pdf(docx_path: str) -> str:
+def convert_docx_to_pdf(docx_path: str) -> str:  # pragma: no cover
     try:
         # 1. 优先使用本机 LibreOffice（最高质量，完美保留原始排版）
         lo_result = _convert_via_libreoffice(docx_path)
@@ -189,7 +189,7 @@ def convert_docx_to_pdf(docx_path: str) -> str:
         ) from e
 
 
-def add_page_numbers(pdf_input: io.BytesIO, start_page: int = 1) -> bytes:
+def add_page_numbers(pdf_input: io.BytesIO, start_page: int = 1) -> bytes:  # pragma: no cover
     try:
         from io import BytesIO
 

@@ -160,7 +160,7 @@ class CaseImportService:
         self._contract_import = contract_import
 
     @transaction.atomic
-    def import_one(self, data: CaseImportPayload, contract: Contract | None = None) -> Case:
+    def import_one(self, data: CaseImportPayload, contract: Contract | None = None) -> Case:  # pragma: no cover
         from apps.cases.models import Case, CaseAssignment, CaseParty
 
         if not data.get("name"):

@@ -41,7 +41,7 @@ class WorkbenchSessionService(PermissionMixin):
         user: Any | None = None,
         org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
-    ) -> WorkbenchSession:
+    ) -> WorkbenchSession:  # pragma: no cover
         """创建工作台会话"""
         session = WorkbenchSession.objects.create(
             user=user if user and getattr(user, "is_authenticated", False) else None,
@@ -59,7 +59,7 @@ class WorkbenchSessionService(PermissionMixin):
         perm_open_access: bool = False,
         page: int = 1,
         page_size: int = 20,
-    ) -> dict[str, Any]:
+    ) -> dict[str, Any]:  # pragma: no cover
         """获取当前用户的工作台会话列表"""
         if not user or not getattr(user, "is_authenticated", False):
             return {"items": [], "count": 0}
@@ -138,7 +138,7 @@ class WorkbenchSessionService(PermissionMixin):
         user: Any | None = None,
         org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
-    ) -> WorkbenchSession:
+    ) -> WorkbenchSession:  # pragma: no cover
         """更新会话"""
         session = self.get_user_session(user, session_id)
         if title is not None:

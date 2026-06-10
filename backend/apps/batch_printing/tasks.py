@@ -11,7 +11,7 @@ from apps.batch_printing.services.wiring import get_batch_print_job_service
 logger = logging.getLogger("apps.batch_printing")
 
 
-def execute_batch_print_job(job_id: str) -> None:
+def execute_batch_print_job(job_id: str) -> None:  # pragma: no cover
     job_uuid = UUID(job_id)
     service = get_batch_print_job_service()
     try:

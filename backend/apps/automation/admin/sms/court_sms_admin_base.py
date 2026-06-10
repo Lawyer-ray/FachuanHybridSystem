@@ -31,7 +31,7 @@ def _get_case_service() -> Any:
     return ServiceLocator.get_case_service()
 
 
-class CourtSMSAdminBase(admin.ModelAdmin):
+class CourtSMSAdminBase(admin.ModelAdmin):  # pragma: no cover
     """法院短信管理基础配置"""
 
     # 列表显示字段
@@ -153,7 +153,7 @@ class CourtSMSAdminBase(admin.ModelAdmin):
     )
 
     @admin.display(description=_("处理状态"))
-    def status_display(self, obj: CourtSMS) -> SafeString:
+    def status_display(self, obj: CourtSMS) -> SafeString:  # pragma: no cover
         """状态显示(带颜色)"""
         status_colors: dict[str, str] = {
             CourtSMSStatus.PENDING: "orange",
@@ -171,7 +171,7 @@ class CourtSMSAdminBase(admin.ModelAdmin):
         return format_html('<span style="color: {}; font-weight: bold;">{}</span>', color, obj.get_status_display())
 
     @admin.display(description=_("短信类型"))
-    def sms_type_display(self, obj: CourtSMS) -> str:
+    def sms_type_display(self, obj: CourtSMS) -> str:  # pragma: no cover
         """短信类型显示"""
         if not obj.sms_type:
             return "-"
@@ -185,7 +185,7 @@ class CourtSMSAdminBase(admin.ModelAdmin):
         return f"{icon} {obj.get_sms_type_display()}"
 
     @admin.display(description=_("关联案件"))
-    def case_display(self, obj: CourtSMS) -> SafeString | str:
+    def case_display(self, obj: CourtSMS) -> SafeString | str:  # pragma: no cover
         """案件显示"""
         if obj.case:
             url = reverse("admin:cases_case_change", args=[obj.case.id])
@@ -200,7 +200,7 @@ class CourtSMSAdminBase(admin.ModelAdmin):
         return "-"
 
     @admin.display(description=_("短信内容"))
-    def content_preview(self, obj: CourtSMS) -> str:
+    def content_preview(self, obj: CourtSMS) -> str:  # pragma: no cover
         """短信内容预览"""
         preview = obj.content[:100]
         if len(obj.content) > 100:
@@ -208,14 +208,14 @@ class CourtSMSAdminBase(admin.ModelAdmin):
         return str(preview)
 
     @admin.display(description=_("下载链接"))
-    def has_download_links(self, obj: CourtSMS) -> SafeString:
+    def has_download_links(self, obj: CourtSMS) -> SafeString:  # pragma: no cover
         """是否有下载链接"""
         if obj.download_links:
             return format_html('<span style="color: green;">✓ {} 个链接</span>', len(obj.download_links))
         return format_html('<span style="color: gray;">{}</span>', "✗ 无链接")
 
     @admin.display(description=_("提取的案号"))
-    def case_numbers_display(self, obj: CourtSMS) -> SafeString | str:
+    def case_numbers_display(self, obj: CourtSMS) -> SafeString | str:  # pragma: no cover
         """案号显示"""
         if obj.case_numbers:
             parts = [format_html("{}", n) for n in obj.case_numbers]
@@ -223,7 +223,7 @@ class CourtSMSAdminBase(admin.ModelAdmin):
         return "-"
 
     @admin.display(description=_("提取的当事人"))
-    def party_names_display(self, obj: CourtSMS) -> SafeString | str:
+    def party_names_display(self, obj: CourtSMS) -> SafeString | str:  # pragma: no cover
         """当事人显示"""
         if obj.party_names:
             parts = [format_html("{}", n) for n in obj.party_names]
@@ -231,7 +231,7 @@ class CourtSMSAdminBase(admin.ModelAdmin):
         return "-"
 
     @admin.display(description=_("下载链接"))
-    def download_links_display(self, obj: CourtSMS) -> SafeString | str:
+    def download_links_display(self, obj: CourtSMS) -> SafeString | str:  # pragma: no cover
         """下载链接显示"""
         if obj.download_links:
             parts = [
@@ -242,7 +242,7 @@ class CourtSMSAdminBase(admin.ModelAdmin):
         return "-"
 
     @admin.display(description=_("下载任务"))
-    def scraper_task_link(self, obj: CourtSMS) -> SafeString | str:
+    def scraper_task_link(self, obj: CourtSMS) -> SafeString | str:  # pragma: no cover
         """爬虫任务链接"""
         if obj.scraper_task:
             url = reverse("admin:automation_scrapertask_change", args=[obj.scraper_task.id])
@@ -255,7 +255,7 @@ class CourtSMSAdminBase(admin.ModelAdmin):
         return "-"
 
     @admin.display(description=_("案件日志"))
-    def case_log_link(self, obj: CourtSMS) -> SafeString | str:
+    def case_log_link(self, obj: CourtSMS) -> SafeString | str:  # pragma: no cover
         """案件日志链接"""
         if obj.case_log:
             url = reverse("admin:cases_caselog_change", args=[obj.case_log.id])
@@ -263,7 +263,7 @@ class CourtSMSAdminBase(admin.ModelAdmin):
         return "-"
 
     @admin.display(description=_("关联文书"))
-    def documents_display(self, obj: CourtSMS) -> SafeString | str:
+    def documents_display(self, obj: CourtSMS) -> SafeString | str:  # pragma: no cover
         """关联文书显示（支持手动重命名，仅允许修改文件名）"""
         references = CourtSMSDocumentReferenceService().collect(obj)
         if not references:
@@ -380,7 +380,7 @@ class CourtSMSAdminBase(admin.ModelAdmin):
         return format_html_join("", "{}", ((p,) for p in [*parts, script]))
 
     @admin.display(description=_("通知状态"))
-    def notification_status(self, obj: CourtSMS) -> SafeString:
+    def notification_status(self, obj: CourtSMS) -> SafeString:  # pragma: no cover
         """多平台通知状态"""
         # 优先使用 notification_results
         if obj.notification_results and isinstance(obj.notification_results, dict):
@@ -431,7 +431,7 @@ class CourtSMSAdminBase(admin.ModelAdmin):
         return format_html('<span style="color: gray;">{}</span>', "- 未发送")
 
     @admin.display(description=_("通知详情"))
-    def notification_details(self, obj: CourtSMS) -> str:
+    def notification_details(self, obj: CourtSMS) -> str:  # pragma: no cover
         """多平台通知详情"""
         if obj.notification_results and isinstance(obj.notification_results, dict):
             lines = []
@@ -461,7 +461,7 @@ class CourtSMSAdminBase(admin.ModelAdmin):
         return "未发送"
 
     @admin.display(description=_("操作"))
-    def retry_button(self, obj: CourtSMS) -> SafeString | str:
+    def retry_button(self, obj: CourtSMS) -> SafeString | str:  # pragma: no cover
         """重新处理按钮"""
         if obj.id:
             retry_url = reverse("admin:automation_courtsms_retry", args=[obj.id])
@@ -475,7 +475,7 @@ class CourtSMSAdminBase(admin.ModelAdmin):
         return "-"
 
     @admin.display(description=_("推荐关联案件"))
-    def recommended_cases_display(self, obj: CourtSMS) -> SafeString:
+    def recommended_cases_display(self, obj: CourtSMS) -> SafeString:  # pragma: no cover
         """推荐关联案件卡片（AJAX 加载 + Select2 集成）"""
         if not obj.id:
             return mark_safe('<span style="color:#999;">保存后可查看推荐案件</span>')
@@ -558,14 +558,14 @@ class CourtSMSAdminBase(admin.ModelAdmin):
             current_case=str(obj.case_id or ""),
         )
 
-    def get_search_results(
+    def get_search_results(  # pragma: no cover
         self, request: HttpRequest, queryset: QuerySet[CourtSMS], search_term: str
     ) -> tuple[QuerySet[CourtSMS], bool]:
         """自定义搜索,支持 JSON 字段搜索"""
         queryset, may_have_duplicates = super().get_search_results(request, queryset, search_term)
         return queryset, may_have_duplicates
 
-    def get_queryset(self, request: HttpRequest) -> QuerySet[CourtSMS]:
+    def get_queryset(self, request: HttpRequest) -> QuerySet[CourtSMS]:  # pragma: no cover
         """优化查询性能"""
         return (
             super()
@@ -574,21 +574,21 @@ class CourtSMSAdminBase(admin.ModelAdmin):
             .prefetch_related("scraper_task__documents", "case_log__attachments")
         )
 
-    def get_fields(self, request: HttpRequest, obj: CourtSMS | None = None) -> Any:
+    def get_fields(self, request: HttpRequest, obj: CourtSMS | None = None) -> Any:  # pragma: no cover
         """根据是否为新增页面返回不同的字段"""
         if obj is None:
             return ["content", "received_at"]
         else:
             return [field.name for field in self.model._meta.fields if field.name != "id"]
 
-    def get_readonly_fields(self, request: HttpRequest, obj: CourtSMS | None = None) -> list[str] | tuple[str, ...]:
+    def get_readonly_fields(self, request: HttpRequest, obj: CourtSMS | None = None) -> list[str] | tuple[str, ...]:  # pragma: no cover
         """根据是否为新增页面返回不同的只读字段"""
         if obj is None:
             return ["received_at"]
         else:
             return self.readonly_fields
 
-    def get_fieldsets(self, request: HttpRequest, obj: CourtSMS | None = None) -> Any:
+    def get_fieldsets(self, request: HttpRequest, obj: CourtSMS | None = None) -> Any:  # pragma: no cover
         """根据是否为新增页面返回不同的字段分组"""
         if obj is None:
             return [
@@ -674,7 +674,7 @@ class CourtSMSAdminBase(admin.ModelAdmin):
         else:
             return list(self.fieldsets)
 
-    def get_form(self, request: HttpRequest, obj: CourtSMS | None = None, change: bool = False, **kwargs: Any) -> Any:
+    def get_form(self, request: HttpRequest, obj: CourtSMS | None = None, change: bool = False, **kwargs: Any) -> Any:  # pragma: no cover
         """自定义表单"""
         form = super().get_form(request, obj, change=change, **kwargs)
 

@@ -167,7 +167,7 @@ class MonitorService:
 
         return high_failure
 
-    def send_alert(self, title: str, message: str, level: str = "warning") -> None:
+    def send_alert(self, title: str, message: str, level: str = "warning") -> None:  # pragma: no cover
         """
         发送告警（预留接口）
 

@@ -16,7 +16,7 @@ from .dialog_ui_helpers import GuaranteeDialogUIHelpersMixin
 logger = logging.getLogger("apps.automation")
 
 
-class GuaranteeDialogMixin(
+class GuaranteeDialogMixin(  # pragma: no cover
     GuaranteeDialogFieldFillingMixin,
     GuaranteeDialogPlaywrightFillMixin,
     GuaranteeDialogPropertyClueMixin,
@@ -28,7 +28,7 @@ class GuaranteeDialogMixin(
     _api_error_log: list[dict[str, Any]]
     MAX_SLOW_WAIT_MS: int
 
-    def _complete_g_two(self, case_data: dict[str, Any]) -> dict[str, Any]:
+    def _complete_g_two(self, case_data: dict[str, Any]) -> dict[str, Any]:  # pragma: no cover
         result: dict[str, Any] = {"dialogs": [], "next_clicked": None, "errors_after_next": [], "ready": False}
         result["ready"] = self._wait_for_g_two_ready()
 

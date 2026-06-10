@@ -8,7 +8,7 @@ from apps.legal_research.services.task.case_download_service import CaseDownload
 from apps.legal_research.services.task.executor import LegalResearchExecutor
 
 
-def execute_legal_research_task(task_id: str) -> dict[str, Any]:
+def execute_legal_research_task(task_id: str) -> dict[str, Any]:  # pragma: no cover
     # Playwright 同步API内部会维护事件循环，执行过程中同步 ORM 读写
     # 可能触发 Django 的 async 上下文保护。任务是后台同步执行流程，
     # 这里显式放开该限制，避免误判失败。
@@ -21,7 +21,7 @@ def execute_legal_research_task(task_id: str) -> dict[str, Any]:
         return future.result()
 
 
-def execute_case_download_task(task_id: int) -> dict[str, Any]:
+def execute_case_download_task(task_id: int) -> dict[str, Any]:  # pragma: no cover
     """执行案例下载任务"""
     os.environ.setdefault("DJANGO_ALLOW_ASYNC_UNSAFE", "true")
     service = CaseDownloadService()

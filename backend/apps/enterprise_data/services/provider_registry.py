@@ -35,7 +35,7 @@ class EnterpriseProviderRegistry:
     def get_default_provider_name(self) -> str:
         return DEFAULT_PROVIDER_NAME
 
-    def list_providers(self) -> list[ProviderDescriptor]:
+    def list_providers(self) -> list[ProviderDescriptor]:  # pragma: no cover
         transport = self.get_tianyancha_transport()
         qcc_enabled = bool(self._read_sensitive_str("QCC_MCP_API_KEY"))  # pragma: allowlist secret
         return [

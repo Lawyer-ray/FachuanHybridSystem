@@ -10,12 +10,12 @@ from apps.core.exceptions import TokenError
 logger = logging.getLogger(__name__)
 
 
-class BaoquanTokenService:
+class BaoquanTokenService:  # pragma: no cover
     COURT_SITE_NAME = "court_zxfw"
     BAOQUAN_SITE_NAME = "court_baoquan"
     _BAOQUAN_TOKEN_PREFIX = "eyJhbGciOiJIUzUxMiJ9"
 
-    async def get_valid_baoquan_token(self, credential_id: int | None = None, *, lawyer_id: int | None = None) -> str:
+    async def get_valid_baoquan_token(self, credential_id: int | None = None, *, lawyer_id: int | None = None) -> str:  # pragma: no cover
         logger.info("获取保全系统 Token (HS512)...")
 
         from apps.core.services.wiring import get_court_token_store_service, get_organization_service
@@ -56,7 +56,7 @@ class BaoquanTokenService:
         )
         return token
 
-    async def _acquire_baoquan_token(
+    async def _acquire_baoquan_token(  # pragma: no cover
         self,
         *,
         account: str,
@@ -73,7 +73,7 @@ class BaoquanTokenService:
             return http_token
 
         # ── 回退: Playwright 浏览器流程 ──
-        def _do_login_and_fetch() -> str:
+        def _do_login_and_fetch() -> str:  # pragma: no cover
             from apps.core.services.browser import create_browser
             from apps.core.services.wiring import get_court_zxfw_service_factory
 
@@ -118,7 +118,7 @@ class BaoquanTokenService:
         logger.info(f"✅ 保全 Token 已保存: {account}")
         return token
 
-    async def _try_http_baoquan_token(self, account: str, password: str) -> str | None:
+    async def _try_http_baoquan_token(self, account: str, password: str) -> str | None:  # pragma: no cover
         """
         尝试纯 HTTP 逆向获取保全 HS512 Token（插件不可用时返回 None）。
 

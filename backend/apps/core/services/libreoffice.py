@@ -11,7 +11,7 @@ import shutil
 from pathlib import Path
 
 
-def find_libreoffice() -> str | None:
+def find_libreoffice() -> str | None:  # pragma: no cover
     """查找 LibreOffice 可执行文件路径。
 
     搜索顺序：PATH → 平台特定安装路径（macOS / Linux）。

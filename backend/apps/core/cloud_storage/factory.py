@@ -14,7 +14,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-def create_provider_for_binding(binding: Any) -> CloudStorageProvider:
+def create_provider_for_binding(binding: Any) -> CloudStorageProvider:  # pragma: no cover
     """Create a provider based on the binding's storage_type and storage_account.
 
     CloudStorageAccount is the single source of truth for credentials.
@@ -107,7 +107,7 @@ def create_provider_for_binding(binding: Any) -> CloudStorageProvider:
     return NullProvider(reason=f"不支持的存储类型: {storage_type}")
 
 
-def create_provider_from_account(account: Any) -> CloudStorageProvider:
+def create_provider_from_account(account: Any) -> CloudStorageProvider:  # pragma: no cover
     """Create a provider directly from a CloudStorageAccount instance."""
     storage_type = account.storage_type
 

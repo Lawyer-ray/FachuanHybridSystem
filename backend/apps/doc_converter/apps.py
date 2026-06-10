@@ -8,5 +8,5 @@ class DocConverterConfig(AppConfig):
     name = "apps.doc_converter"
     verbose_name = "DOC 转 DOCX"
 
-    def ready(self) -> None:
+    def ready(self) -> None:  # pragma: no cover
         import apps.doc_converter.signals

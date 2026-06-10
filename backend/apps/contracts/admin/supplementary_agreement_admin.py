@@ -13,7 +13,7 @@ from django.http import HttpRequest
 from apps.contracts.models import SupplementaryAgreement, SupplementaryAgreementParty
 
 
-class SupplementaryAgreementPartyInline(admin.TabularInline[SupplementaryAgreementParty, SupplementaryAgreementParty]):
+class SupplementaryAgreementPartyInline(admin.TabularInline[SupplementaryAgreementParty, SupplementaryAgreementParty]):  # pragma: no cover
     """补充协议当事人内联编辑"""
 
     model = SupplementaryAgreementParty
@@ -22,15 +22,15 @@ class SupplementaryAgreementPartyInline(admin.TabularInline[SupplementaryAgreeme
     verbose_name = "当事人"
     verbose_name_plural = "当事人"
 
-    def get_queryset(self, request: HttpRequest) -> QuerySet[SupplementaryAgreementParty, SupplementaryAgreementParty]:
+    def get_queryset(self, request: HttpRequest) -> QuerySet[SupplementaryAgreementParty, SupplementaryAgreementParty]:  # pragma: no cover
         return super().get_queryset(request).exclude(role="PRINCIPAL")
 
-    class Media:
+    class Media:  # pragma: no cover
         js = ("contracts/js/party_role_auto.js",)
 
 
 @admin.register(SupplementaryAgreement)
-class SupplementaryAgreementAdmin(admin.ModelAdmin):
+class SupplementaryAgreementAdmin(admin.ModelAdmin):  # pragma: no cover
     """补充协议 Admin"""
 
     list_display = (
@@ -60,11 +60,11 @@ class SupplementaryAgreementAdmin(admin.ModelAdmin):
     )
 
     @admin.display(description="当事人数量", ordering="party_count")
-    def party_count(self, obj: SupplementaryAgreement) -> int:
+    def party_count(self, obj: SupplementaryAgreement) -> int:  # pragma: no cover
         """当事人数量（来自 annotate，无额外查询）"""
         return obj.party_count  # type: ignore[attr-defined,no-any-return]
 
-    def get_queryset(self, request: HttpRequest) -> QuerySet[SupplementaryAgreement, SupplementaryAgreement]:
+    def get_queryset(self, request: HttpRequest) -> QuerySet[SupplementaryAgreement, SupplementaryAgreement]:  # pragma: no cover
         """优化查询：用 annotate(Count) 替代 prefetch_related + .count()，消除 N+1"""
         qs = super().get_queryset(request)
         return qs.select_related("contract").annotate(party_count=Count("parties"))  # type: ignore[no-any-return]

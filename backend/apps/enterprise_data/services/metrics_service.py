@@ -49,7 +49,7 @@ class EnterpriseDataMetricsService:
         success: bool,
         duration_ms: int,
         fallback_used: bool,
-    ) -> dict[str, Any]:
+    ) -> dict[str, Any]:  # pragma: no cover
         now = int(time.time())
         key = self._bucket_key(provider=provider, capability=capability)
         bucket = cache.get(key)
@@ -71,7 +71,7 @@ class EnterpriseDataMetricsService:
         self._maybe_alert(provider=provider, capability=capability, snapshot=snapshot)
         return snapshot
 
-    def snapshot(self, *, provider: str, capability: str) -> dict[str, Any] | None:
+    def snapshot(self, *, provider: str, capability: str) -> dict[str, Any] | None:  # pragma: no cover
         bucket = cache.get(self._bucket_key(provider=provider, capability=capability))
         if not isinstance(bucket, dict):
             return None

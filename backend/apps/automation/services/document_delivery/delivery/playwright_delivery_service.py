@@ -19,7 +19,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger("apps.automation")
 
 
-class PlaywrightDeliveryService:
+class PlaywrightDeliveryService:  # pragma: no cover
     """Playwright 方式文书投递服务"""
 
     # 页面 URL
@@ -62,11 +62,11 @@ class PlaywrightDeliveryService:
     # 页面加载等待时间(毫秒)
     PAGE_LOAD_WAIT = 3000
 
-    def __init__(self) -> None:
+    def __init__(self) -> None:  # pragma: no cover
         """初始化 Playwright 投递服务"""
         logger.debug("PlaywrightDeliveryService 初始化完成")
 
-    def navigate_to_delivery_page(self, page: Page, tab: str) -> None:
+    def navigate_to_delivery_page(self, page: Page, tab: str) -> None:  # pragma: no cover
         """
         导航到文书送达页面
 
@@ -97,7 +97,7 @@ class PlaywrightDeliveryService:
         except Exception as e:
             logger.warning(f"切换到{tab_name}标签页失败: {e!s}")
 
-    def _parse_send_time(self, send_time_str: str, index: int) -> Any:
+    def _parse_send_time(self, send_time_str: str, index: int) -> Any:  # pragma: no cover
         """解析发送时间字符串，返回 aware datetime 或 None"""
         if not send_time_str or send_time_str == "发送时间":
             logger.debug(f"条目 {index} 跳过标签文本: {send_time_str}")
@@ -117,7 +117,7 @@ class PlaywrightDeliveryService:
             logger.warning(f"条目 {index} 时间解析失败: {send_time_str}, 错误: {e!s}")
             return None
 
-    def _extract_single_entry(
+    def _extract_single_entry(  # pragma: no cover
         self,
         index: int,
         case_number_elements: list[Any],
@@ -148,7 +148,7 @@ class PlaywrightDeliveryService:
         logger.debug(f"❌ 条目 {index} 数据不完整: 案号={case_number}, 时间={send_time_str}")
         return None
 
-    def extract_document_entries(self, page: Page) -> list[DocumentDeliveryRecord]:
+    def extract_document_entries(self, page: Page) -> list[DocumentDeliveryRecord]:  # pragma: no cover
         """从页面提取文书条目 - 使用精确 XPath 遍历"""
         logger.info("开始提取文书条目")
         entries: list[Any] = []
@@ -270,7 +270,7 @@ class PlaywrightDeliveryService:
         logger.warning("检查文书处理历史超时,默认处理")
         return True
 
-    def download_document(self, page: Page, entry: DocumentDeliveryRecord) -> str | None:
+    def download_document(self, page: Page, entry: DocumentDeliveryRecord) -> str | None:  # pragma: no cover
         """
         点击下载按钮下载文书 - 使用精确 XPath
 
@@ -324,7 +324,7 @@ class PlaywrightDeliveryService:
             logger.error(f"下载文书失败: {e!s}")
             return None
 
-    def has_next_page(self, page: Page) -> bool:
+    def has_next_page(self, page: Page) -> bool:  # pragma: no cover
         """
         检查是否有下一页
 
@@ -341,7 +341,7 @@ class PlaywrightDeliveryService:
             logger.warning(f"检查下一页失败: {e!s}")
             return False
 
-    def go_to_next_page(self, page: Page) -> None:
+    def go_to_next_page(self, page: Page) -> None:  # pragma: no cover
         """
         翻到下一页
 

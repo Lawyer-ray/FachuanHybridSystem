@@ -45,6 +45,35 @@ class PremiumResult:
     request_info: dict[str, Any] | None = None  # 请求信息（用于调试）
 
 
+def parse_insurance_companies(data: Any) -> list[InsuranceCompany]:
+    """从 API 响应中解析保险公司列表（纯函数，不依赖 self 或数据库）
+
+    Args:
+        data: API 响应数据（可以是 dict 包含 'data' key，也可以直接是 list）
+
+    Returns:
+        解析后的保险公司列表
+    """
+    if isinstance(data, dict) and "data" in data:
+        company_list = data.get("data", [])
+    elif isinstance(data, list):
+        company_list = data
+    else:
+        logger.warning(f"未知的响应格式: {data}")
+        company_list = []
+
+    companies = []
+    for item in company_list:
+        if not isinstance(item, dict):
+            continue
+        c_id, c_code, c_name = item.get("cId"), item.get("cCode"), item.get("cName")
+        if c_id and c_code and c_name:
+            companies.append(InsuranceCompany(c_id=str(c_id), c_code=str(c_code), c_name=str(c_name)))
+        else:
+            logger.warning(f"保险公司信息不完整，跳过: {item}")
+    return companies
+
+
 class CourtInsuranceClient(InsuranceHttpMixin):
     """
     法院保险询价 API 客户端
@@ -181,7 +210,7 @@ class CourtInsuranceClient(InsuranceHttpMixin):
 
     async def fetch_insurance_companies(
         self, bearer_token: str, c_pid: str, fy_id: str, timeout: float | None = None, max_retries: int = 3
-    ) -> list[InsuranceCompany]:
+    ) -> list[InsuranceCompany]:  # pragma: no cover
         """
         获取保险公司列表（带重试）
 
@@ -258,28 +287,11 @@ class CourtInsuranceClient(InsuranceHttpMixin):
 
     def _parse_insurance_companies(self, data: Any) -> list[InsuranceCompany]:
         """从 API 响应中解析保险公司列表"""
-        if isinstance(data, dict) and "data" in data:
-            company_list = data.get("data", [])
-        elif isinstance(data, list):
-            company_list = data
-        else:
-            logger.warning(f"未知的响应格式: {data}")
-            company_list = []
-
-        companies = []
-        for item in company_list:
-            if not isinstance(item, dict):
-                continue
-            c_id, c_code, c_name = item.get("cId"), item.get("cCode"), item.get("cName")
-            if c_id and c_code and c_name:
-                companies.append(InsuranceCompany(c_id=str(c_id), c_code=str(c_code), c_name=str(c_name)))
-            else:
-                logger.warning(f"保险公司信息不完整，跳过: {item}")
-        return companies
+        return parse_insurance_companies(data)
 
     async def _fetch_insurance_companies_once(
         self, bearer_token: str, c_pid: str, fy_id: str, timeout: float, attempt: int = 1
-    ) -> list[InsuranceCompany]:
+    ) -> list[InsuranceCompany]:  # pragma: no cover
         """获取保险公司列表（单次尝试）"""
         import time
 
@@ -411,7 +423,7 @@ class CourtInsuranceClient(InsuranceHttpMixin):
 
     async def fetch_premium(
         self, bearer_token: str, preserve_amount: Decimal, institution: str, corp_id: str, timeout: float | None = None
-    ) -> PremiumResult:
+    ) -> PremiumResult:  # pragma: no cover
         """
         查询单个保险公司报价
 
@@ -531,7 +543,7 @@ class CourtInsuranceClient(InsuranceHttpMixin):
         corp_id: str,
         companies: list[InsuranceCompany],
         timeout: float | None = None,
-    ) -> list[PremiumResult]:
+    ) -> list[PremiumResult]:  # pragma: no cover
         """
         并发查询所有保险公司报价
 

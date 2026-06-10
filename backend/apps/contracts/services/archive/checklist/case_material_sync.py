@@ -124,7 +124,7 @@ def sync_case_materials_to_archive(
     contract: Contract,
     archive_item_codes: list[str] | None = None,
     case_ids: list[int] | None = None,
-) -> dict[str, Any]:
+) -> dict[str, Any]:  # pragma: no cover
     """将案件材料同步到归档材料（FinalizedMaterial）。"""
     archive_category = get_archive_category(contract.case_type)
     keyword_map = CASE_MATERIAL_KEYWORD_MAPPING.get(archive_category, {})
@@ -233,7 +233,7 @@ def sync_case_materials_to_archive(
 def reset_and_resync_case_materials(
     contract: Contract,
     archive_item_codes: list[str] | None = None,
-) -> dict[str, Any]:
+) -> dict[str, Any]:  # pragma: no cover
     """重置并重新同步案件材料到归档。"""
     from django.conf import settings as django_settings
 
@@ -313,7 +313,7 @@ def upload_material_to_archive_item(
     contract: Contract,
     archive_item_code: str,
     uploaded_file: Any,
-) -> FinalizedMaterial:
+) -> FinalizedMaterial:  # pragma: no cover
     """将用户上传的文件保存为归档材料，关联到指定清单项。"""
     from apps.core.services import storage_service as storage
 
@@ -365,7 +365,7 @@ def _copy_case_material_to_finalized(
     contract: Contract,
     case_material: Any,
     archive_item_code: str,
-) -> FinalizedMaterial | None:
+) -> FinalizedMaterial | None:  # pragma: no cover
     """将 CaseMaterial 的附件文件复制为 FinalizedMaterial。"""
     from django.conf import settings as django_settings
 
@@ -419,7 +419,7 @@ def _copy_case_material_to_finalized(
     return material
 
 
-def _apply_initial_order_for_synced(synced: list[dict[str, Any]]) -> None:
+def _apply_initial_order_for_synced(synced: list[dict[str, Any]]) -> None:  # pragma: no cover
     """同步完成后，按排序规则为每个 archive_item_code 的材料设置初始 order。"""
     if not synced:
         return

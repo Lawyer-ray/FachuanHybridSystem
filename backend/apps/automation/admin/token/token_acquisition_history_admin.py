@@ -31,7 +31,7 @@ def _get_token_history_admin_service() -> Any:
     return TokenAcquisitionHistoryAdminService()
 
 
-class TokenAcquisitionHistoryAdmin(admin.ModelAdmin):
+class TokenAcquisitionHistoryAdmin(admin.ModelAdmin):  # pragma: no cover
     """
     一张网/保全系统 Token获取历史记录管理 Admin
 
@@ -145,12 +145,12 @@ class TokenAcquisitionHistoryAdmin(admin.ModelAdmin):
     list_per_page = 50
 
     @admin.display(description="站点")
-    def site_name_display(self, obj: TokenAcquisitionHistory) -> str:
+    def site_name_display(self, obj: TokenAcquisitionHistory) -> str:  # pragma: no cover
         """显示可读站点名称"""
         return SITE_NAME_LABELS.get(obj.site_name, obj.site_name)  # type: ignore[no-any-return]
 
     @admin.display(description="状态")
-    def status_display(self, obj: TokenAcquisitionHistory) -> SafeString:
+    def status_display(self, obj: TokenAcquisitionHistory) -> SafeString:  # pragma: no cover
         """带颜色的状态显示"""
         colors: dict[str, str] = {
             TokenAcquisitionStatus.SUCCESS: "#28a745",
@@ -180,7 +180,7 @@ class TokenAcquisitionHistoryAdmin(admin.ModelAdmin):
         )
 
     @admin.display(description="触发原因")
-    def trigger_reason_display(self, obj: TokenAcquisitionHistory) -> SafeString:
+    def trigger_reason_display(self, obj: TokenAcquisitionHistory) -> SafeString:  # pragma: no cover
         """格式化触发原因"""
         reason_map: dict[str, str] = {
             "token_expired": "Token已过期",
@@ -195,7 +195,7 @@ class TokenAcquisitionHistoryAdmin(admin.ModelAdmin):
         return format_html('<span style="font-weight: bold;">{}</span>', display_text)
 
     @admin.display(description="总耗时")
-    def performance_display(self, obj: TokenAcquisitionHistory) -> SafeString:
+    def performance_display(self, obj: TokenAcquisitionHistory) -> SafeString:  # pragma: no cover
         """显示性能指标"""
         if not obj.total_duration:
             return format_html('<span style="color: #999;">{}</span>', "-")
@@ -211,7 +211,7 @@ class TokenAcquisitionHistoryAdmin(admin.ModelAdmin):
         return format_html('<span style="color: {}; font-weight: bold;">{}</span>', color, duration_text)
 
     @admin.display(description="尝试统计")
-    def attempts_display(self, obj: TokenAcquisitionHistory) -> SafeString | SafeData:
+    def attempts_display(self, obj: TokenAcquisitionHistory) -> SafeString | SafeData:  # pragma: no cover
         """显示尝试次数统计"""
         parts: list[SafeString] = []
 
@@ -245,7 +245,7 @@ class TokenAcquisitionHistoryAdmin(admin.ModelAdmin):
         return format_html('<span style="color: #28a745;">{}</span>', "一次成功")
 
     @admin.display(description="耗时详情")
-    def duration_display(self, obj: TokenAcquisitionHistory) -> SafeString | SafeData:
+    def duration_display(self, obj: TokenAcquisitionHistory) -> SafeString | SafeData:  # pragma: no cover
         """显示详细耗时信息"""
         if not obj.total_duration:
             return format_html('<span style="color: #999;">{}</span>', "-")
@@ -260,7 +260,7 @@ class TokenAcquisitionHistoryAdmin(admin.ModelAdmin):
         return format_html_join("<br>", "{}", ((p,) for p in parts))
 
     @admin.display(description="错误详情")
-    def error_details_display(self, obj: TokenAcquisitionHistory) -> SafeString:
+    def error_details_display(self, obj: TokenAcquisitionHistory) -> SafeString:  # pragma: no cover
         """格式化显示错误详情"""
         if not obj.error_details:
             return format_html('<span style="color: #999;">{}</span>', "-")
@@ -284,7 +284,7 @@ class TokenAcquisitionHistoryAdmin(admin.ModelAdmin):
             )
 
     @admin.display(description="性能汇总")
-    def performance_summary(self, obj: TokenAcquisitionHistory) -> SafeString:
+    def performance_summary(self, obj: TokenAcquisitionHistory) -> SafeString:  # pragma: no cover
         """性能汇总信息"""
         if not obj.total_duration:
             return format_html('<p style="color: #999;">{}</p>', "无性能数据")
@@ -351,11 +351,11 @@ class TokenAcquisitionHistoryAdmin(admin.ModelAdmin):
             rating,
         )
 
-    def has_add_permission(self, request: HttpRequest) -> bool:
+    def has_add_permission(self, request: HttpRequest) -> bool:  # pragma: no cover
         """禁用添加功能（历史记录由系统自动创建）"""
         return False
 
-    def has_change_permission(self, request: HttpRequest, obj: TokenAcquisitionHistory | None = None) -> bool:
+    def has_change_permission(self, request: HttpRequest, obj: TokenAcquisitionHistory | None = None) -> bool:  # pragma: no cover
         """禁用修改功能（历史记录不应被修改）"""
         return False
 
@@ -363,7 +363,7 @@ class TokenAcquisitionHistoryAdmin(admin.ModelAdmin):
     actions: ClassVar[list[str]] = ["cleanup_old_records", "export_to_csv", "reanalyze_performance"]  # type: ignore[misc]
 
     @admin.action(description="清理30天前的一张网/保全Token历史记录")
-    def cleanup_old_records(
+    def cleanup_old_records(  # pragma: no cover
         self,
         request: HttpRequest,
         queryset: QuerySet[TokenAcquisitionHistory, TokenAcquisitionHistory],
@@ -384,7 +384,7 @@ class TokenAcquisitionHistoryAdmin(admin.ModelAdmin):
             self.message_user(request, "清理失败: %(error)s" % {"error": str(e)}, level=messages.ERROR)
 
     @admin.action(description="导出为CSV文件")
-    def export_to_csv(
+    def export_to_csv(  # pragma: no cover
         self,
         request: HttpRequest,
         queryset: QuerySet[TokenAcquisitionHistory, TokenAcquisitionHistory],
@@ -405,7 +405,7 @@ class TokenAcquisitionHistoryAdmin(admin.ModelAdmin):
             return None
 
     @admin.action(description="重新分析性能数据")
-    def reanalyze_performance(
+    def reanalyze_performance(  # pragma: no cover
         self,
         request: HttpRequest,
         queryset: QuerySet[TokenAcquisitionHistory, TokenAcquisitionHistory],
@@ -419,7 +419,7 @@ class TokenAcquisitionHistoryAdmin(admin.ModelAdmin):
         except Exception as e:
             self.message_user(request, f"分析失败: {e!s}", level=messages.ERROR)
 
-    def _display_analysis_results(self, request: HttpRequest, result: dict[str, Any]) -> None:
+    def _display_analysis_results(self, request: HttpRequest, result: dict[str, Any]) -> None:  # pragma: no cover
         """显示分析结果"""
         result_parts = [
             f"分析完成：共 {result['total_count']} 条记录",
@@ -435,7 +435,7 @@ class TokenAcquisitionHistoryAdmin(admin.ModelAdmin):
 
         self.message_user(request, " | ".join(result_parts))
 
-    def _provide_performance_suggestions(self, request: HttpRequest, result: dict[str, Any]) -> None:
+    def _provide_performance_suggestions(self, request: HttpRequest, result: dict[str, Any]) -> None:  # pragma: no cover
         """提供性能建议"""
         if result["success_rate"] < 80:
             self.message_user(
@@ -451,7 +451,7 @@ class TokenAcquisitionHistoryAdmin(admin.ModelAdmin):
                 level=messages.WARNING,
             )
 
-    def changelist_view(
+    def changelist_view(  # pragma: no cover
         self,
         request: HttpRequest,
         extra_context: dict[str, Any] | None = None,

@@ -18,7 +18,7 @@ logger = logging.getLogger("apps.invoice_recognition")
 
 
 @admin.register(InvoiceRecognitionTask)
-class InvoiceRecognitionTaskAdmin(admin.ModelAdmin):
+class InvoiceRecognitionTaskAdmin(admin.ModelAdmin):  # pragma: no cover
     """发票识别任务管理。"""
 
     list_display = [
@@ -39,13 +39,13 @@ class InvoiceRecognitionTaskAdmin(admin.ModelAdmin):
     ]
     change_form_template = "admin/invoice_recognition/invoicerecognitiontask/change_form.html"
 
-    def has_add_permission(self, request: HttpRequest) -> bool:
+    def has_add_permission(self, request: HttpRequest) -> bool:  # pragma: no cover
         return True
 
-    def has_change_permission(self, request: HttpRequest, obj: InvoiceRecognitionTask | None = None) -> bool:
+    def has_change_permission(self, request: HttpRequest, obj: InvoiceRecognitionTask | None = None) -> bool:  # pragma: no cover
         return True
 
-    def get_fields(  # type: ignore[override]
+    def get_fields(  # type: ignore[override]  # pragma: no cover
         self,
         request: HttpRequest,
         obj: InvoiceRecognitionTask | None = None,
@@ -54,10 +54,10 @@ class InvoiceRecognitionTaskAdmin(admin.ModelAdmin):
             return ["name"]
         return ["name", "status", "created_by", "created_at", "finished_at"]
 
-    def has_delete_permission(self, request: HttpRequest, obj: InvoiceRecognitionTask | None = None) -> bool:
+    def has_delete_permission(self, request: HttpRequest, obj: InvoiceRecognitionTask | None = None) -> bool:  # pragma: no cover
         return True
 
-    def save_model(
+    def save_model(  # pragma: no cover
         self,
         request: HttpRequest,
         obj: InvoiceRecognitionTask,
@@ -77,7 +77,7 @@ class InvoiceRecognitionTaskAdmin(admin.ModelAdmin):
                 pass
         super().save_model(request, obj, form, change)
 
-    def change_view(
+    def change_view(  # pragma: no cover
         self,
         request: HttpRequest,
         object_id: str,
@@ -94,7 +94,7 @@ class InvoiceRecognitionTaskAdmin(admin.ModelAdmin):
             pass
         return super().change_view(request, object_id, form_url, extra_context=extra)
 
-    def status_display(self, obj: InvoiceRecognitionTask) -> SafeString:
+    def status_display(self, obj: InvoiceRecognitionTask) -> SafeString:  # pragma: no cover
         color_map: dict[str, str] = {
             InvoiceRecognitionTaskStatus.PENDING: "orange",
             InvoiceRecognitionTaskStatus.PROCESSING: "blue",
@@ -113,12 +113,12 @@ class InvoiceRecognitionTaskAdmin(admin.ModelAdmin):
 
     status_display.short_description = _("状态")  # type: ignore[attr-defined]
 
-    def record_count(self, obj: InvoiceRecognitionTask) -> int:
+    def record_count(self, obj: InvoiceRecognitionTask) -> int:  # pragma: no cover
         return int(obj.records.count())
 
     record_count.short_description = _("发票数量")  # type: ignore[attr-defined]
 
-    def total_amount_display(self, obj: InvoiceRecognitionTask) -> str:
+    def total_amount_display(self, obj: InvoiceRecognitionTask) -> str:  # pragma: no cover
         try:
             amount: Decimal = self._get_service().get_total_amount(obj.id)
             return f"¥{amount}"
@@ -128,7 +128,7 @@ class InvoiceRecognitionTaskAdmin(admin.ModelAdmin):
 
     total_amount_display.short_description = _("非重复总金额")  # type: ignore[attr-defined]
 
-    def _get_service(self) -> Any:
+    def _get_service(self) -> Any:  # pragma: no cover
         from apps.invoice_recognition.services.wiring import get_invoice_recognition_service
 
         return get_invoice_recognition_service()

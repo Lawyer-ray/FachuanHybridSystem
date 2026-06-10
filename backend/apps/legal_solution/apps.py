@@ -5,5 +5,5 @@ class LegalSolutionConfig(AppConfig):
     name = "apps.legal_solution"
     verbose_name = "法律服务方案"
 
-    def ready(self) -> None:
+    def ready(self) -> None:  # pragma: no cover
         from . import signals

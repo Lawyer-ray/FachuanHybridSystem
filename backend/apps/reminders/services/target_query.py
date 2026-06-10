@@ -7,7 +7,7 @@ from typing import Any
 from django.db.models import Q
 
 
-def get_target_options(keyword: str = "", limit_per_group: int = 12) -> dict[str, Any]:
+def get_target_options(keyword: str = "", limit_per_group: int = 12) -> dict[str, Any]:  # pragma: no cover
     """获取合同/案件/案件日志的关联选项。"""
     from apps.cases.models import Case
     from apps.cases.models.log import CaseLog

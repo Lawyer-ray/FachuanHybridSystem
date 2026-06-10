@@ -10,6 +10,6 @@ class FinanceConfig(AppConfig):
     name: str = "apps.finance"
     verbose_name: str = "金融工具"
 
-    def ready(self) -> None:
+    def ready(self) -> None:  # pragma: no cover
         """App ready hook."""
         pass

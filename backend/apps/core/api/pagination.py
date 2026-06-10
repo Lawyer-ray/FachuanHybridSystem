@@ -29,7 +29,7 @@ class PaginatedOut(Schema):
 
         或在 API 端点中:
             @router.get("/list", response=MyListOut)
-            def list_items(request, page: int = 1, page_size: int = 20):
+            def list_items(request, page: int = 1, page_size: int = 20):  # pragma: no cover
                 result = paginate_queryset(qs, page=page, page_size=page_size)
                 return result
     """

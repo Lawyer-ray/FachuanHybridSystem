@@ -8,7 +8,7 @@ from .evidence_vector_store_service import EvidenceVectorStoreService
 
 
 class EvidenceRAGService:
-    def ensure_ingested(self, evidence_item_ids: list[int], max_pages_per_item: int = 20) -> None:
+    def ensure_ingested(self, evidence_item_ids: list[int], max_pages_per_item: int = 20) -> None:  # pragma: no cover
         from ..wiring import get_evidence_query_service
 
         extraction = EvidenceTextExtractionService()

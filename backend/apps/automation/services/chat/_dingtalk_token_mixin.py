@@ -23,14 +23,14 @@ from apps.core.exceptions import ChatProviderException, ConfigurationException
 logger = logging.getLogger(__name__)
 
 
-class DingtalkTokenMixin:
+class DingtalkTokenMixin:  # pragma: no cover
     """负责钉钉配置加载和 access_token 获取"""
 
     config: dict[str, Any]
     _access_token: str | None
     _token_expires_at: datetime | None
 
-    def _load_config_from_db(self) -> dict[str, Any]:
+    def _load_config_from_db(self) -> dict[str, Any]:  # pragma: no cover
         """从 SystemConfig 加载钉钉配置"""
         try:
             from apps.core.config.utils import get_dingtalk_category_configs
@@ -51,7 +51,7 @@ class DingtalkTokenMixin:
             logger.debug(f"从 SystemConfig 加载配置失败，回退到 settings: {e!s}")
             return {}
 
-    def _load_config(self) -> dict[str, Any]:
+    def _load_config(self) -> dict[str, Any]:  # pragma: no cover
         """加载钉钉配置"""
         try:
             config = self._load_config_from_db()
@@ -78,7 +78,7 @@ class DingtalkTokenMixin:
                 message=f"无法加载钉钉配置: {e!s}", platform="dingtalk", errors={"original_error": str(e)}
             ) from e
 
-    def is_available(self) -> bool:
+    def is_available(self) -> bool:  # pragma: no cover
         """检查平台是否可用（至少需要 app_key + app_secret + default_owner_id）"""
         for config_key in ["APP_KEY", "APP_SECRET"]:
             if not self.config.get(config_key):
@@ -89,7 +89,7 @@ class DingtalkTokenMixin:
             return False
         return True
 
-    def _get_access_token(self) -> str:
+    def _get_access_token(self) -> str:  # pragma: no cover
         """获取钉钉 access_token，支持缓存和自动刷新
 
         钉钉获取企业内部应用 access_token：

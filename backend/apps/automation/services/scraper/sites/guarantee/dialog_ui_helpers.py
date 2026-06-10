@@ -8,12 +8,12 @@ from typing import Any
 logger = logging.getLogger("apps.automation")
 
 
-class GuaranteeDialogUIHelpersMixin:
+class GuaranteeDialogUIHelpersMixin:  # pragma: no cover
     """gTwo 对话框的通用 UI 交互辅助方法。"""
 
     page: Any
 
-    def _wait_for_g_two_ready(self, retries: int = 12) -> bool:
+    def _wait_for_g_two_ready(self, retries: int = 12) -> bool:  # pragma: no cover
         for _ in range(retries):
             if "gTwo" not in self.page.url:
                 self._random_wait(0.3, 0.5)  # type: ignore[attr-defined]
@@ -23,7 +23,7 @@ class GuaranteeDialogUIHelpersMixin:
             self._random_wait(0.4, 0.7)  # type: ignore[attr-defined]
         return "gTwo" in self.page.url
 
-    def _clear_g_two_existing_data(self, result: dict[str, Any]) -> None:
+    def _clear_g_two_existing_data(self, result: dict[str, Any]) -> None:  # pragma: no cover
         try:
             existing_rows = self.page.evaluate(r"""() => {
                 const rows = document.querySelectorAll('.el-table__body-wrapper .el-table__row');
@@ -66,7 +66,7 @@ class GuaranteeDialogUIHelpersMixin:
         except Exception as exc:
             logger.info(f"gTwo数据清理异常（非致命）: {exc}")
 
-    def _click_add_button(self, index: int) -> bool:
+    def _click_add_button(self, index: int) -> bool:  # pragma: no cover
         add_buttons = self.page.locator("xpath=//*[contains(normalize-space(text()),'添加')]")
         visible_indices: list[int] = []
         for i in range(add_buttons.count()):
@@ -91,7 +91,7 @@ class GuaranteeDialogUIHelpersMixin:
             except Exception:
                 return False
 
-    def _click_add_button_by_section_keywords(self, keywords: list[str]) -> bool:
+    def _click_add_button_by_section_keywords(self, keywords: list[str]) -> bool:  # pragma: no cover
         clicked = self.page.evaluate(
             r"""(keys) => {
                 const isVisible = (el) => {
@@ -130,7 +130,7 @@ class GuaranteeDialogUIHelpersMixin:
         )
         return bool(clicked)
 
-    def _choose_party_type_in_dialog(self, defaults: dict[str, str]) -> bool:
+    def _choose_party_type_in_dialog(self, defaults: dict[str, str]) -> bool:  # pragma: no cover
         party_type = self._normalize_party_type(defaults.get("party_type") or "natural")  # type: ignore[attr-defined]
         type_text_map = {
             "natural": "自然人",

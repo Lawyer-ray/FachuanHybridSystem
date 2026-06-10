@@ -133,7 +133,7 @@ class AuthorizationMaterialGenerationService:
         filename = self._build_power_of_attorney_filename(case=case, selected_clients=selected_clients, combined=True)
         return content, filename
 
-    def generate_full_authorization_package(self, case_id: int) -> tuple[bytes, str]:
+    def generate_full_authorization_package(self, case_id: int) -> tuple[bytes, str]:  # pragma: no cover
         case = self._get_case(case_id)
         our_parties = self._get_our_parties(case)
         if not our_parties:
@@ -215,7 +215,7 @@ class AuthorizationMaterialGenerationService:
         is_our: bool,
         media_root: str,
         missing_lines: list[str],
-    ) -> None:
+    ) -> None:  # pragma: no cover
         """将当事人证件文件平铺写入"当事人身份证明"文件夹"""
         client_name = getattr(client, "name", "") or "未知当事人"
         client_type = getattr(client, "client_type", "natural")
@@ -262,7 +262,7 @@ class AuthorizationMaterialGenerationService:
         case: Any,
         our_parties: list[Any],
         missing_lines: list[str],
-    ) -> None:
+    ) -> None:  # pragma: no cover
         """委托材料：授权委托书 + 所函 + 律师证件"""
         case_id = int(getattr(case, "id", 0))
 

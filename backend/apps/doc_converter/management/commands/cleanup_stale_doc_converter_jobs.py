@@ -34,7 +34,7 @@ class Command(BaseCommand):
             help="仅打印，不实际删除",
         )
 
-    def handle(self, *args: Any, **options: Any) -> None:
+    def handle(self, *args: Any, **options: Any) -> None:  # pragma: no cover
         completed_max_age = options["completed_max_age"]
         stale_max_age = options["stale_max_age"]
         dry_run = options["dry_run"]

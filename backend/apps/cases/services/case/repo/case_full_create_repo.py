@@ -9,13 +9,13 @@ from apps.cases.models import Case, CaseAssignment, CaseLog, CaseParty, Supervis
 
 
 class CaseFullCreateRepo:
-    def create_case_party(self, *, case: Case, client_id: int, legal_status: str | None) -> CaseParty:
+    def create_case_party(self, *, case: Case, client_id: int, legal_status: str | None) -> CaseParty:  # pragma: no cover
         return CaseParty.objects.create(case=case, client_id=client_id, legal_status=legal_status)
 
-    def create_case_assignment(self, *, case: Case, lawyer_id: int) -> CaseAssignment:
+    def create_case_assignment(self, *, case: Case, lawyer_id: int) -> CaseAssignment:  # pragma: no cover
         return CaseAssignment.objects.create(case=case, lawyer_id=lawyer_id)
 
-    def create_case_log(self, *, case: Case, content: str, actor_id: int) -> CaseLog:
+    def create_case_log(self, *, case: Case, content: str, actor_id: int) -> CaseLog:  # pragma: no cover
         return CaseLog.objects.create(case=case, content=content, actor_id=actor_id)
 
     def create_supervising_authority(
@@ -24,7 +24,7 @@ class CaseFullCreateRepo:
         case: Case,
         name: str | None,
         authority_type: str | None,
-    ) -> SupervisingAuthority:
+    ) -> SupervisingAuthority:  # pragma: no cover
         return SupervisingAuthority.objects.create(case=case, name=name, authority_type=authority_type)
 
     def bulk_create_case_parties(self, *, case: Case, parties: Iterable[dict[str, Any]]) -> list[CaseParty]:

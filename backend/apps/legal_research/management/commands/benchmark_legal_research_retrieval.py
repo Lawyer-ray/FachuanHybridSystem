@@ -165,7 +165,7 @@ class Command(BaseCommand):
             help="将样本模板写入 --dataset 后退出",
         )
 
-    def handle(self, *args: Any, **options: Any) -> None:
+    def handle(self, *args: Any, **options: Any) -> None:  # pragma: no cover
         dataset_path = Path(str(options["dataset"] or "").strip() or self.DEFAULT_DATASET)
         if options["write_template"]:
             self._write_template(path=dataset_path)

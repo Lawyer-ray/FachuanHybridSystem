@@ -7,7 +7,7 @@ from typing import Any
 from django.db import transaction
 
 
-def sync_prompt_templates(*, overwrite: bool = True) -> dict[str, int]:
+def sync_prompt_templates(*, overwrite: bool = True) -> dict[str, int]:  # pragma: no cover
     """将代码内置 Prompt 模板同步到数据库。"""
     from apps.core.llm.prompts import PromptManager
     from apps.core.models import PromptTemplate

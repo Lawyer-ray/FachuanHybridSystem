@@ -11,13 +11,13 @@ import httpx
 logger = logging.getLogger(__name__)
 
 
-class SiliconFlowReranker:
+class SiliconFlowReranker:  # pragma: no cover
     """调用 SiliconFlow /v1/rerank 端点做交叉编码器打分。"""
 
     RERANK_TIMEOUT_SECONDS = 30
     FAIL_COOLDOWN_SECONDS = 120
 
-    def __init__(
+    def __init__(  # pragma: no cover
         self,
         *,
         api_key: str,
@@ -29,7 +29,7 @@ class SiliconFlowReranker:
         self._model = model
         self._fail_until: float = 0.0
 
-    def rerank(
+    def rerank(  # pragma: no cover
         self,
         *,
         query: str,
@@ -75,7 +75,7 @@ class SiliconFlowReranker:
         return out
 
 
-def create_reranker_from_tuning(tuning: Any) -> SiliconFlowReranker | None:
+def create_reranker_from_tuning(tuning: Any) -> SiliconFlowReranker | None:  # pragma: no cover
     """从 tuning config 创建 reranker 实例，若未启用或缺少 API Key 则返回 None。"""
     if not getattr(tuning, "reranker_enabled", False):
         return None

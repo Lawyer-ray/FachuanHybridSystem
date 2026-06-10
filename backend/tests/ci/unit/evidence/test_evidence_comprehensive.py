@@ -320,11 +320,13 @@ class TestEvidenceApiSchemas:
 # ==================== API Endpoints ====================
 
 
+@pytest.mark.django_db
 class TestEvidenceApiEndpoints:
     """API 端点测试"""
 
+    @patch("apps.evidence.services.core.access_policy.ensure_evidence_list_access")
     @patch("apps.evidence.api.evidence_api._get_evidence_service")
-    def test_reorder_items(self, mock_get_svc):
+    def test_reorder_items(self, mock_get_svc, _mock_access):
         from apps.evidence.api.evidence_api import reorder_evidence_items, ReorderItemsRequest
 
         mock_svc = MagicMock()

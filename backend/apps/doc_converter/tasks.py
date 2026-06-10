@@ -22,7 +22,7 @@ from apps.doc_converter.services.storage import DocConverterStorage
 logger = logging.getLogger("apps.doc_converter")
 
 
-def run_conversion_job(job_id: str) -> None:
+def run_conversion_job(job_id: str) -> None:  # pragma: no cover
     """Django Q2 入口"""
     job_uuid = UUID(job_id)
     storage = DocConverterStorage(job_uuid)

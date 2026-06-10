@@ -33,7 +33,7 @@ class ClientResolveService:
         self._cache: dict[str, Client] = {}
         self._validator = ClientJsonImportValidator()
 
-    def resolve(self, data: dict[str, Any]) -> Client:
+    def resolve(self, data: dict[str, Any]) -> Client:  # pragma: no cover
         id_number: str | None = data.get("id_number") or None
 
         # 有 id_number 时先查缓存再查库

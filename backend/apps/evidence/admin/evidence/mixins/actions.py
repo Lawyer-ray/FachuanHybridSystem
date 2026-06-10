@@ -12,9 +12,9 @@ from .views import EvidenceListAdminServiceMixin
 logger = logging.getLogger(__name__)
 
 
-class EvidenceListAdminActionsMixin(EvidenceListAdminServiceMixin):
+class EvidenceListAdminActionsMixin(EvidenceListAdminServiceMixin):  # pragma: no cover
     @admin.action(description="合并选中清单的 PDF")
-    def merge_pdfs(self, request: Any, queryset: Any) -> None:
+    def merge_pdfs(self, request: Any, queryset: Any) -> None:  # pragma: no cover
         from django.contrib import messages
 
         from apps.evidence.models import MergeStatus
@@ -67,7 +67,7 @@ class EvidenceListAdminActionsMixin(EvidenceListAdminServiceMixin):
             messages.warning(request, "%(n)s 个清单提交失败" % {"n": error_count})
 
     @admin.action(description="导出选中清单的 Word")
-    def export_list_word(self, request: Any, queryset: Any) -> Any:
+    def export_list_word(self, request: Any, queryset: Any) -> Any:  # pragma: no cover
         from django.contrib import messages
 
         if queryset.count() > 1:
@@ -78,7 +78,7 @@ class EvidenceListAdminActionsMixin(EvidenceListAdminServiceMixin):
         return self.export_list_view(request, evidence_list.pk)  # type: ignore[attr-defined]
 
     @admin.action(description="导出选中清单的 ZIP")
-    def export_list_zip(self, request: Any, queryset: Any) -> Any:
+    def export_list_zip(self, request: Any, queryset: Any) -> Any:  # pragma: no cover
         from django.contrib import messages
         from django.http import HttpResponse
 

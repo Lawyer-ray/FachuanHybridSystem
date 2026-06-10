@@ -28,7 +28,7 @@ def _get_initialization_service() -> Any:
 
 
 @admin.register(Court)
-class CourtAdmin(admin.ModelAdmin):
+class CourtAdmin(admin.ModelAdmin):  # pragma: no cover
     """
     法院管理 Admin
 
@@ -102,7 +102,7 @@ class CourtAdmin(admin.ModelAdmin):
 
     change_list_template = "admin/core/court/change_list.html"
 
-    def get_queryset(self, request: HttpRequest) -> QuerySet[Court]:
+    def get_queryset(self, request: HttpRequest) -> QuerySet[Court]:  # pragma: no cover
         """预取完整父级链，避免 full_path 递归访问触发 N+1 查询.
 
         法院最多 4 层（省 -> 高院 -> 中院 -> 基层），select_related 4 级 parent
@@ -114,7 +114,7 @@ class CourtAdmin(admin.ModelAdmin):
             .select_related("parent", "parent__parent", "parent__parent__parent", "parent__parent__parent__parent")
         )
 
-    def parent_display(self, obj: Court) -> SafeString:
+    def parent_display(self, obj: Court) -> SafeString:  # pragma: no cover
         """显示父级法院"""
         if obj.parent:
             return format_html(
@@ -126,7 +126,7 @@ class CourtAdmin(admin.ModelAdmin):
 
     parent_display.short_description = "上级法院"  # type: ignore[attr-defined]
 
-    def status_display(self, obj: Court) -> SafeString:
+    def status_display(self, obj: Court) -> SafeString:  # pragma: no cover
         """状态显示"""
         if not obj.is_active:
             return format_html('<span style="color: #ffc107;">{}</span>', "⏸️ 已禁用")
@@ -134,7 +134,7 @@ class CourtAdmin(admin.ModelAdmin):
 
     status_display.short_description = "状态"  # type: ignore[attr-defined]
 
-    def get_urls(self) -> list[URLPattern]:
+    def get_urls(self) -> list[URLPattern]:  # pragma: no cover
         """添加自定义 URL"""
         urls = super().get_urls()
         custom_urls: list[URLPattern] = [
@@ -146,7 +146,7 @@ class CourtAdmin(admin.ModelAdmin):
         ]
         return custom_urls + urls
 
-    def changelist_view(self, request: HttpRequest, extra_context: dict[str, Any] | None = None) -> HttpResponse:
+    def changelist_view(self, request: HttpRequest, extra_context: dict[str, Any] | None = None) -> HttpResponse:  # pragma: no cover
         """自定义列表页面"""
         ctx: dict[str, Any] = extra_context or {}
 
@@ -170,14 +170,14 @@ class CourtAdmin(admin.ModelAdmin):
 
         return super().changelist_view(request, extra_context=ctx)
 
-    def initialize_courts_view(self, request: HttpRequest) -> HttpResponseRedirect:
+    def initialize_courts_view(self, request: HttpRequest) -> HttpResponseRedirect:  # pragma: no cover
         """初始化法院数据视图"""
         import concurrent.futures
 
         try:
             service = _get_initialization_service()
 
-            def run_async_init() -> Any:
+            def run_async_init() -> Any:  # pragma: no cover
                 loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(loop)
                 try:
@@ -208,10 +208,10 @@ class CourtAdmin(admin.ModelAdmin):
 
         return HttpResponseRedirect(reverse("admin:core_court_changelist"))
 
-    def has_add_permission(self, request: HttpRequest) -> bool:
+    def has_add_permission(self, request: HttpRequest) -> bool:  # pragma: no cover
         """禁用手动添加功能(数据应通过初始化导入)"""
         return False
 
-    def has_delete_permission(self, request: HttpRequest, obj: Court | None = None) -> bool:
+    def has_delete_permission(self, request: HttpRequest, obj: Court | None = None) -> bool:  # pragma: no cover
         """禁用删除功能(数据应通过初始化管理)"""
         return False

@@ -39,7 +39,7 @@ class SendNotificationUsecase:
         chat: Any,
         content: Any,
         document_paths: list[str] | None,
-    ) -> Any:
+    ) -> Any:  # pragma: no cover
         provider = self.provider_facade.get_provider_for_messaging(platform=platform, chat_id=chat.chat_id)
         result = self.provider_facade.send_message(provider=provider, chat_id=chat.chat_id, content=content)
 

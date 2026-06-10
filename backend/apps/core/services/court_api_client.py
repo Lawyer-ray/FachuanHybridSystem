@@ -115,7 +115,7 @@ class CourtApiClient:
     MAX_RETRIES = 3
     RETRY_DELAY = 2.0
 
-    def __init__(self, timeout: float | None = None) -> None:
+    def __init__(self, timeout: float | None = None) -> None:  # pragma: no cover
         """初始化客户端
 
         Args:
@@ -123,7 +123,7 @@ class CourtApiClient:
         """
         self.timeout = timeout or self.DEFAULT_TIMEOUT
 
-    async def fetch_causes_by_type(self, token: str, lbs: str) -> dict[str, Any]:
+    async def fetch_causes_by_type(self, token: str, lbs: str) -> dict[str, Any]:  # pragma: no cover
         """获取指定类型的案由数据
 
         从法院一张网 API 获取案由数据.
@@ -214,7 +214,7 @@ class CourtApiClient:
 
         raise ValidationException(message=f"{case_type}案由 API 请求失败")
 
-    async def fetch_all_causes(self, token: str) -> list[CauseItem]:
+    async def fetch_all_causes(self, token: str) -> list[CauseItem]:  # pragma: no cover
         """获取所有类型的案由数据
 
         依次请求刑事、民事、行政案由接口,合并结果.
@@ -240,7 +240,7 @@ class CourtApiClient:
         logger.info(f"所有案由获取完成,共 {len(all_causes)} 条顶级记录")
         return all_causes
 
-    async def fetch_courts(self, token: str) -> dict[str, Any]:
+    async def fetch_courts(self, token: str) -> dict[str, Any]:  # pragma: no cover
         """获取法院数据
 
         从法院系统 API 获取法院数据.

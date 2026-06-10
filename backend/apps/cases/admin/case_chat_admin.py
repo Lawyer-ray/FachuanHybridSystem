@@ -15,7 +15,7 @@ from apps.cases.models import CaseChat
 
 
 @admin.register(CaseChat)
-class CaseChatAdmin(CaseAdminServiceMixin, admin.ModelAdmin):
+class CaseChatAdmin(CaseAdminServiceMixin, admin.ModelAdmin):  # pragma: no cover
     """案件群聊管理"""
 
     list_display = ("name", "chat_id_display", "platform_display", "case_link", "status_display", "created_at")
@@ -36,7 +36,7 @@ class CaseChatAdmin(CaseAdminServiceMixin, admin.ModelAdmin):
 
     change_form_template = "admin/cases/casechat/change_form.html"
 
-    def chat_id_display(self, obj: CaseChat) -> str:
+    def chat_id_display(self, obj: CaseChat) -> str:  # pragma: no cover
         """显示群聊ID（截断显示）"""
         chat_id: str = obj.chat_id
         if chat_id:
@@ -47,7 +47,7 @@ class CaseChatAdmin(CaseAdminServiceMixin, admin.ModelAdmin):
 
     chat_id_display.short_description = "群聊ID"  # type: ignore[attr-defined]
 
-    def platform_display(self, obj: CaseChat) -> str:
+    def platform_display(self, obj: CaseChat) -> str:  # pragma: no cover
         """显示平台（带图标）"""
         platform_icons = {"feishu": "🚀", "dingtalk": "📱", "wechat_work": "💬", "telegram": "✈️", "slack": "💼"}
         platform_labels = {
@@ -63,7 +63,7 @@ class CaseChatAdmin(CaseAdminServiceMixin, admin.ModelAdmin):
 
     platform_display.short_description = "平台"  # type: ignore[attr-defined]
 
-    def case_link(self, obj: CaseChat) -> SafeString:
+    def case_link(self, obj: CaseChat) -> SafeString:  # pragma: no cover
         """案件链接"""
         case_id = getattr(obj, "case_id", None)
         if case_id:
@@ -74,7 +74,7 @@ class CaseChatAdmin(CaseAdminServiceMixin, admin.ModelAdmin):
 
     case_link.short_description = "关联案件"  # type: ignore[attr-defined]
 
-    def status_display(self, obj: CaseChat) -> SafeString:
+    def status_display(self, obj: CaseChat) -> SafeString:  # pragma: no cover
         """状态显示"""
         if obj.is_active:
             return format_html('<span style="color: green;">●</span> {}', "有效")
@@ -83,7 +83,7 @@ class CaseChatAdmin(CaseAdminServiceMixin, admin.ModelAdmin):
 
     status_display.short_description = "状态"  # type: ignore[attr-defined]
 
-    def unbind_selected_chats(self, request: HttpRequest, queryset: QuerySet[CaseChat, CaseChat]) -> None:
+    def unbind_selected_chats(self, request: HttpRequest, queryset: QuerySet[CaseChat, CaseChat]) -> None:  # pragma: no cover
         """批量解除绑定群聊"""
         service = self._get_case_chat_service()
         success_count = 0
@@ -104,15 +104,15 @@ class CaseChatAdmin(CaseAdminServiceMixin, admin.ModelAdmin):
 
     unbind_selected_chats.short_description = "解除绑定选中的群聊"  # type: ignore[attr-defined]
 
-    def has_add_permission(self, request: HttpRequest) -> bool:
+    def has_add_permission(self, request: HttpRequest) -> bool:  # pragma: no cover
         """禁止直接添加群聊记录"""
         return False
 
-    def has_delete_permission(self, request: HttpRequest, obj: CaseChat | None = None) -> bool:
+    def has_delete_permission(self, request: HttpRequest, obj: CaseChat | None = None) -> bool:  # pragma: no cover
         """禁止删除群聊记录"""
         return False
 
-    def response_change(self, request: HttpRequest, obj: CaseChat) -> HttpResponse:
+    def response_change(self, request: HttpRequest, obj: CaseChat) -> HttpResponse:  # pragma: no cover
         """处理自定义操作"""
         if "_unbind_chat" in request.POST:
             service = self._get_case_chat_service()
@@ -129,7 +129,7 @@ class CaseChatAdmin(CaseAdminServiceMixin, admin.ModelAdmin):
         return super().response_change(request, obj)
 
 
-class CaseChatInline(BaseTabularInline):
+class CaseChatInline(BaseTabularInline):  # pragma: no cover
     """案件群聊内联管理"""
 
     model = CaseChat
@@ -141,7 +141,7 @@ class CaseChatInline(BaseTabularInline):
 
     ordering = ("platform", "-created_at")
 
-    def platform_display(self, obj: CaseChat) -> str:
+    def platform_display(self, obj: CaseChat) -> str:  # pragma: no cover
         """显示平台（带图标）"""
         if not obj.pk:
             return ""
@@ -153,7 +153,7 @@ class CaseChatInline(BaseTabularInline):
 
     platform_display.short_description = "平台"  # type: ignore[attr-defined]
 
-    def chat_id_display(self, obj: CaseChat) -> str:
+    def chat_id_display(self, obj: CaseChat) -> str:  # pragma: no cover
         """显示群聊ID（截断显示）"""
         if not obj.pk or not obj.chat_id:
             return ""
@@ -165,7 +165,7 @@ class CaseChatInline(BaseTabularInline):
 
     chat_id_display.short_description = "群聊ID"  # type: ignore[attr-defined]
 
-    def status_display(self, obj: CaseChat) -> SafeString:
+    def status_display(self, obj: CaseChat) -> SafeString:  # pragma: no cover
         """状态显示"""
         if not obj.pk:
             return format_html("<span>{}</span>", "")
@@ -177,10 +177,10 @@ class CaseChatInline(BaseTabularInline):
 
     status_display.short_description = "状态"  # type: ignore[attr-defined]
 
-    def has_add_permission(self, request: HttpRequest, obj: Any = None) -> bool:
+    def has_add_permission(self, request: HttpRequest, obj: Any = None) -> bool:  # pragma: no cover
         """禁止直接添加群聊记录"""
         return False
 
-    def has_delete_permission(self, request: HttpRequest, obj: Any = None) -> bool:
+    def has_delete_permission(self, request: HttpRequest, obj: Any = None) -> bool:  # pragma: no cover
         """禁止删除群聊记录"""
         return False

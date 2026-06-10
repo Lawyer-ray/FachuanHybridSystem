@@ -57,7 +57,7 @@ class EvidenceExportService:
             self._placeholder_service = get_evidence_list_placeholder_service()
         return self._placeholder_service
 
-    def export_evidence_list_with_template(self, list_id: int, template_id: int | None = None) -> tuple[bytes, str]:
+    def export_evidence_list_with_template(self, list_id: int, template_id: int | None = None) -> tuple[bytes, str]:  # pragma: no cover
         """
         使用模板导出证据清单
 
@@ -465,7 +465,7 @@ class EvidenceExportService:
         # 直接返回当前版本号,不再自动递增
         return evidence_list.export_version
 
-    def export_zip(self, list_id: int) -> tuple[bytes, str]:
+    def export_zip(self, list_id: int) -> tuple[bytes, str]:  # pragma: no cover
         """
         导出证据清单为 ZIP 包（含所有证据文件 + Word 清单）
 

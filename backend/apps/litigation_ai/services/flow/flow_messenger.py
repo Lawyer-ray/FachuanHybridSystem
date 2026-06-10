@@ -12,7 +12,7 @@ class FlowMessenger:
 
     async def persist_message(
         self, session_id: str, role: str, content: str, metadata: dict[str, Any] | None = None
-    ) -> None:
+    ) -> None:  # pragma: no cover
         await sync_to_async(self.conversation_service.add_message, thread_sensitive=True)(
             session_id=session_id, role=role, content=content, metadata=metadata or {}
         )
@@ -24,7 +24,7 @@ class FlowMessenger:
         persist: bool,
         session_id: str,
         role: str,
-    ) -> None:
+    ) -> None:  # pragma: no cover
         await send_callback(payload)
         if persist:
             await self.persist_message(

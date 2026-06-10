@@ -128,6 +128,8 @@ _OPENAPI_TAGS: list[dict[str, str]] = [
     {"name": "社交登录", "description": "微信/Google 等社交平台登录"},
 ]
 
+from django.conf import settings as django_settings
+
 api_v1 = NinjaAPI(
     title="法穿AI Copilot API",
     version=API_VERSION,
@@ -136,6 +138,9 @@ api_v1 = NinjaAPI(
     renderer=UTF8JSONRenderer(),
     servers=[{"url": "/", "description": "当前服务器"}],
     openapi_extra={"tags": _OPENAPI_TAGS},
+    # 生产环境禁用交互式 API 文档，防止信息泄露
+    docs_url=None if not getattr(django_settings, "DEBUG", False) else "/docs",
+    openapi_url=None if not getattr(django_settings, "DEBUG", False) else "/openapi.json",
 )
 
 # 注册全局异常处理器

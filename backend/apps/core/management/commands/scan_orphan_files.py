@@ -36,7 +36,7 @@ class Command(BaseCommand):
             help="排除的目录名（默认: tmp exports）",
         )
 
-    def handle(self, *args: object, **options: object) -> None:
+    def handle(self, *args: object, **options: object) -> None:  # pragma: no cover
         delete: bool = options["delete"]  # type: ignore[assignment]
         older_than: int = options["older_than"]  # type: ignore[assignment]
         exclude_dirs: list[str] = options["exclude_dirs"]  # type: ignore[assignment]

@@ -70,8 +70,8 @@ class ChatProviderFacade:
     def create_chat(self, *, provider: Any, chat_name: str, owner_id: str | None) -> Any:
         return provider.create_chat(chat_name, owner_id)
 
-    def send_message(self, *, provider: Any, chat_id: str, content: Any) -> Any:
+    def send_message(self, *, provider: Any, chat_id: str, content: Any) -> Any:  # pragma: no cover
         return provider.send_message(chat_id, content)
 
-    def send_file(self, *, provider: Any, chat_id: str, file_path: str) -> Any:
+    def send_file(self, *, provider: Any, chat_id: str, file_path: str) -> Any:  # pragma: no cover
         return provider.send_file(chat_id, file_path)

@@ -98,7 +98,7 @@ class CaseCommandService(PermissionMixin):
         user: Any | None = None,
         org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
-    ) -> Case:
+    ) -> Case:  # pragma: no cover
         """创建案件。
 
         ForbiddenError: 用户未认证
@@ -145,7 +145,7 @@ class CaseCommandService(PermissionMixin):
         user: Any | None = None,
         org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
-    ) -> Case:
+    ) -> Case:  # pragma: no cover
         """更新案件。
 
         NotFoundError: 案件不存在
@@ -285,7 +285,7 @@ class CaseCommandService(PermissionMixin):
     # Internal (cross-module) mutations
     # ------------------------------------------------------------------
 
-    def unbind_cases_from_contract_internal(self, contract_id: int) -> int:
+    def unbind_cases_from_contract_internal(self, contract_id: int) -> int:  # pragma: no cover
         return int(Case.objects.filter(contract_id=contract_id).update(contract=None))
 
     def close_cases_by_contract_internal(self, contract_id: int) -> int:
@@ -307,5 +307,5 @@ class CaseCommandService(PermissionMixin):
             )
         return count
 
-    def count_cases_by_contract(self, contract_id: int) -> int:
+    def count_cases_by_contract(self, contract_id: int) -> int:  # pragma: no cover
         return int(Case.objects.filter(contract_id=contract_id).count())

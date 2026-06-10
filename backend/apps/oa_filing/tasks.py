@@ -12,7 +12,7 @@ from apps.core.tasking import TaskTimeoutError
 logger = logging.getLogger("apps.oa_filing.tasks")
 
 
-def run_client_import_task(session_id: int, headless: bool = True, limit: int | None = None) -> None:
+def run_client_import_task(session_id: int, headless: bool = True, limit: int | None = None) -> None:  # pragma: no cover
     """Django-Q 任务入口：执行 OA 客户导入。
 
     通过字符串路径 ``apps.oa_filing.tasks.run_client_import_task`` 调用。
@@ -64,7 +64,7 @@ def run_client_import_task(session_id: int, headless: bool = True, limit: int | 
         )
 
 
-def run_case_import_preview_task(session_id: int, file_path: str) -> None:
+def run_case_import_preview_task(session_id: int, file_path: str) -> None:  # pragma: no cover
     """Django-Q 任务入口：预览 OA 案件导入。
 
     解析Excel文件，预览匹配结果。
@@ -170,7 +170,7 @@ def run_case_import_preview_task(session_id: int, file_path: str) -> None:
         session.save()
 
 
-def run_case_import_task(
+def run_case_import_task(  # pragma: no cover
     session_id: int,
     case_nos: list[str],
     matched_case_nos: list[str] | None = None,

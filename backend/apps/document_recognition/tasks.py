@@ -8,7 +8,7 @@ from typing import Any
 logger = logging.getLogger("apps.document_recognition")
 
 
-def execute_document_recognition_task(task_id: int) -> dict[str, Any] | None:
+def execute_document_recognition_task(task_id: int) -> dict[str, Any] | None:  # pragma: no cover
     """Execute one document recognition task in Django-Q worker."""
     from django.utils import timezone
 

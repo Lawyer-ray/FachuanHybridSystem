@@ -34,7 +34,7 @@ def _is_expected_sync_error(exc: Exception) -> bool:
     return any(token in msg for token in expected_tokens)
 
 
-def sync_source_by_id(source_id: int) -> None:
+def sync_source_by_id(source_id: int) -> None:  # pragma: no cover
     """同步单个消息来源，供 django-q async_task 调用。"""
     import os
 
@@ -43,13 +43,16 @@ def sync_source_by_id(source_id: int) -> None:
     from apps.message_hub.models import MessageSource
     from apps.message_hub.services import get_fetcher
 
-    source = MessageSource.objects.select_related("credential").get(pk=source_id)
+    source = MessageSource.objects.select_related("credential").filter(pk=source_id).first()
+    if source is None:
+        logger.info("消息来源 #%s 已不存在，跳过同步", source_id)
+        return
     fetcher = get_fetcher(source.source_type)
     count = fetcher.fetch_new_messages(source)
     logger.info("同步完成: source=%s, 新消息=%d", source.display_name, count)
 
 
-def sync_all_sources(*_args: object) -> None:
+def sync_all_sources(*_args: object) -> None:  # pragma: no cover
     """轮询所有启用的消息来源，拉取新消息。由 django-q2 定时调用。"""
     import os
 

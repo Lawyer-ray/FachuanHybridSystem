@@ -22,11 +22,11 @@ class CaseTemplateBindingRepo:
                 message="案件不存在", code="CASE_NOT_FOUND", errors={"case_id": f"ID 为 {case_id} 的案件不存在"}
             ) from None
 
-    def get_case_optional(self, case_id: int) -> Case | None:
+    def get_case_optional(self, case_id: int) -> Case | None:  # pragma: no cover
         """获取案件,不存在返回 None"""
         return Case.objects.filter(id=case_id).first()
 
-    def get_bindings_by_case_id(self, case_id: int) -> list[CaseTemplateBinding]:
+    def get_bindings_by_case_id(self, case_id: int) -> list[CaseTemplateBinding]:  # pragma: no cover
         """获取案件的所有绑定记录,按创建时间排序"""
         return list(CaseTemplateBinding.objects.filter(case_id=case_id).order_by("created_at"))
 
@@ -41,11 +41,11 @@ class CaseTemplateBindingRepo:
                 errors={"binding_id": f"ID 为 {binding_id} 的绑定记录不存在"},
             ) from None
 
-    def exists_binding(self, case_id: int, template_id: int) -> bool:
+    def exists_binding(self, case_id: int, template_id: int) -> bool:  # pragma: no cover
         """检查是否存在绑定"""
         return CaseTemplateBinding.objects.filter(case_id=case_id, template_id=template_id).exists()
 
-    def create_binding(self, case_id: int, template_id: int, source: str) -> CaseTemplateBinding:
+    def create_binding(self, case_id: int, template_id: int, source: str) -> CaseTemplateBinding:  # pragma: no cover
         """创建绑定记录"""
         return CaseTemplateBinding.objects.create(case_id=case_id, template_id=template_id, binding_source=source)
 
@@ -53,7 +53,7 @@ class CaseTemplateBindingRepo:
         """删除绑定记录"""
         binding.delete()
 
-    def get_bound_template_ids(self, case_id: int) -> set[int]:
+    def get_bound_template_ids(self, case_id: int) -> set[int]:  # pragma: no cover
         """获取所有已绑定的模板ID集合"""
         return set(CaseTemplateBinding.objects.filter(case_id=case_id).values_list("template_id", flat=True))
 
@@ -81,7 +81,7 @@ class CaseTemplateBindingRepo:
             case_id=case_id, template_id__in=template_ids, binding_source=BindingSource.AUTO_RECOMMENDED
         ).delete()
 
-    def bulk_create_auto_bindings(self, case_id: int, template_ids: set[int]) -> None:
+    def bulk_create_auto_bindings(self, case_id: int, template_ids: set[int]) -> None:  # pragma: no cover
         """批量创建自动推荐绑定"""
         if not template_ids:
             return

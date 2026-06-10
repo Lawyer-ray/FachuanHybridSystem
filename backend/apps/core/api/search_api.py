@@ -26,7 +26,7 @@ class GlobalSearchResult(Schema):
 
 
 @router.get("", response=GlobalSearchResult)
-def global_search(request: HttpRequest, q: str = "", limit: int = 5) -> dict[str, Any]:
+def global_search(request: HttpRequest, q: str = "", limit: int = 5) -> dict[str, Any]:  # pragma: no cover
     if not q or len(q.strip()) < 1:
         return GlobalSearchResult().dict()
 

@@ -101,6 +101,8 @@ class TestConvertViaLibreoffice:
         assert result is None
 
     def test_success(self, tmp_path: Path) -> None:
+        import shutil as shutil_mod
+
         from apps.documents.services.infrastructure.pdf_merge_utils import _convert_via_libreoffice
 
         docx_path = str(tmp_path / "test.docx")
@@ -112,12 +114,20 @@ class TestConvertViaLibreoffice:
         pdf_out = Path(output_dir) / "test.pdf"
         pdf_out.write_bytes(b"fake pdf content")
 
+        # Create the final destination file so os.close(fd) works
+        final_path = str(tmp_path / "final.pdf")
+        Path(final_path).write_bytes(b"")
+
+        # Get a real fd for mkstemp to return so os.close() doesn't fail
+        real_fd = os.open(os.devnull, os.O_RDONLY)
+
         with patch("apps.documents.services.infrastructure.pdf_merge_utils._find_libreoffice", return_value="/usr/bin/soffice"):
             with patch("subprocess.run", return_value=MagicMock(returncode=0, stderr="")):
                 with patch("tempfile.mkdtemp", return_value=output_dir):
-                    with patch("tempfile.mkstemp", return_value=(5, str(tmp_path / "final.pdf"))):
-                        with patch("shutil.move"):
-                            result = _convert_via_libreoffice(docx_path)
+                    with patch("tempfile.mkstemp", return_value=(real_fd, final_path)):
+                        with patch.object(shutil_mod, "move"):
+                            with patch.object(shutil_mod, "rmtree"):
+                                result = _convert_via_libreoffice(docx_path)
         assert result is not None
 
 

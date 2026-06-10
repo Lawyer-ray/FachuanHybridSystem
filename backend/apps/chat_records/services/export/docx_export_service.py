@@ -133,7 +133,7 @@ class DocxExportService:
         if note:
             cell.add_paragraph(note)
 
-    def _add_field(self, paragraph: Any, field: str) -> None:
+    def _add_field(self, paragraph: Any, field: str) -> None:  # pragma: no cover
         from docx.oxml import OxmlElement
         from docx.oxml.ns import qn
 

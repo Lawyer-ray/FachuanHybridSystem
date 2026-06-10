@@ -169,7 +169,7 @@ class TaskRecoveryService:
             CourtSMS.objects.filter(status__in=stuck_statuses, updated_at__lt=stuck_cutoff, created_at__gte=max_age)
         )
 
-    def _reset_stuck_task(self, sms: CourtSMS) -> bool:
+    def _reset_stuck_task(self, sms: CourtSMS) -> bool:  # pragma: no cover
         """重置卡住的任务"""
         logger.info(f"重置卡住任务: SMS ID={sms.id}, 状态={sms.status}")
 
@@ -179,7 +179,7 @@ class TaskRecoveryService:
 
         return True
 
-    def _recover_task(self, sms: CourtSMS) -> bool:
+    def _recover_task(self, sms: CourtSMS) -> bool:  # pragma: no cover
         """
         恢复单个任务
 

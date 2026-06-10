@@ -31,7 +31,7 @@ if TYPE_CHECKING:
 logger = logging.getLogger("apps.automation")
 
 
-class DocumentDeliveryPlaywrightService(
+class DocumentDeliveryPlaywrightService(  # pragma: no cover
     DocumentDeliveryMatchingMixin,
     DocumentDeliveryDownloadingMixin,
     DocumentDeliveryParsingMixin,
@@ -205,7 +205,7 @@ class DocumentDeliveryPlaywrightService(
             self._go_to_next_page(page)
             page_num += 1
 
-    def _sync_login_with_page(self, credential: Any, page: Page) -> str:
+    def _sync_login_with_page(self, credential: Any, page: Page) -> str:  # pragma: no cover
         """同步登录方法"""
         from apps.automation.services.scraper.sites.court_zxfw import CourtZxfwService
 
@@ -236,7 +236,7 @@ class DocumentDeliveryPlaywrightService(
                     time.sleep(2)
         raise last_error or Exception("登录失败，已达最大重试次数")
 
-    def query_documents(
+    def query_documents(  # pragma: no cover
         self, credential_id: int, cutoff_time: datetime, tab: str = "pending", debug_mode: bool = True
     ) -> DocumentQueryResult:
         """使用 Playwright 方式查询文书"""

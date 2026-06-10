@@ -25,7 +25,7 @@ class CaseLogAttachmentService:
         user: Any | None = None,
         org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
-    ) -> list[CaseLogAttachment]:
+    ) -> list[CaseLogAttachment]:  # pragma: no cover
         log = self.query_service.get_log_internal(log_id=log_id)
 
         if not perm_open_access:

@@ -33,7 +33,7 @@ class GsxtReportError(Exception):
     """报告申请失败异常。"""
 
 
-def _ensure_chrome_running() -> None:
+def _ensure_chrome_running() -> None:  # pragma: no cover
     """确保 Chrome 以调试模式运行。"""
     from apps.core.services.browser.chrome_process import is_cdp_ready, launch_chrome
 
@@ -57,7 +57,7 @@ def _ensure_chrome_running() -> None:
         raise GsxtReportError("Chrome 启动失败，请先关闭所有 Chrome 窗口后重试") from e
 
 
-async def _cdp_navigate(url: str, wait_seconds: int = 8) -> str:
+async def _cdp_navigate(url: str, wait_seconds: int = 8) -> str:  # pragma: no cover
     """通过 CDP WebSocket 直接导航到目标 URL，避免 Playwright 注入自动化标记。"""
     import websockets
 
@@ -94,7 +94,7 @@ async def _cdp_navigate(url: str, wait_seconds: int = 8) -> str:
                 return str(msg.get("result", {}).get("result", {}).get("value", url))
 
 
-async def _wait_captcha_success(page: Any, captcha_selector: str, timeout: int = CAPTCHA_TIMEOUT) -> bool:
+async def _wait_captcha_success(page: Any, captcha_selector: str, timeout: int = CAPTCHA_TIMEOUT) -> bool:  # pragma: no cover
     deadline = asyncio.get_event_loop().time() + timeout
     while asyncio.get_event_loop().time() < deadline:
         await asyncio.sleep(2)
@@ -110,7 +110,7 @@ async def _wait_captcha_success(page: Any, captcha_selector: str, timeout: int =
     return False
 
 
-async def _click_company_detail(page: Any, company_name: str, context: Any) -> Any:
+async def _click_company_detail(page: Any, company_name: str, context: Any) -> Any:  # pragma: no cover
     """点击搜索结果中的企业链接，返回详情页 Page。
 
     gsxt 搜索结果页的每个结果是一个 ``a.search_list_item`` ，企业名称在 ``h1`` 中。
@@ -209,7 +209,7 @@ async def _click_company_detail(page: Any, company_name: str, context: Any) -> A
     raise GsxtReportError("详情页未打开，可能被 WAF 拦截")
 
 
-async def _run_full_flow(task_id: int) -> None:
+async def _run_full_flow(task_id: int) -> None:  # pragma: no cover
     """独立报告流程（逆向登录成功后，需要 Playwright 搜索+申请报告）。"""
     from asgiref.sync import sync_to_async
     from playwright.async_api import async_playwright
@@ -342,7 +342,7 @@ async def _run_full_flow(task_id: int) -> None:
 
             from apps.core.tasking import ScheduleQueryService
 
-            def _schedule_email_check() -> None:
+            def _schedule_email_check() -> None:  # pragma: no cover
                 ScheduleQueryService().create_once_schedule(
                     func="apps.automation.tasks.gsxt_tasks.check_gsxt_report_email",
                     args=f"{task_id},{task.company_name!r}",
@@ -359,7 +359,7 @@ async def _run_full_flow(task_id: int) -> None:
             logger.exception("任务 %d 失败: %s", task_id, e)
 
 
-def start_report_flow(task_id: int) -> None:
+def start_report_flow(task_id: int) -> None:  # pragma: no cover
     """非阻塞入口。"""
 
     def _run() -> None:
@@ -373,5 +373,5 @@ def start_report_flow(task_id: int) -> None:
 class GsxtReportService:
     """Class-based facade for GSXT report workflow."""
 
-    def start_report_flow(self, task_id: int) -> None:
+    def start_report_flow(self, task_id: int) -> None:  # pragma: no cover
         start_report_flow(task_id)

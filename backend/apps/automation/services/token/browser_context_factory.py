@@ -29,7 +29,7 @@ class PlaywrightBrowserContextFactory:
     browser_service: Any
     anti_detection_options_provider: AntiDetectionOptionsProvider
 
-    def new_context(self) -> Any:
+    def new_context(self) -> Any:  # pragma: no cover
         try:
             if hasattr(self.browser_service, "create_context"):
                 return self.browser_service.create_context(

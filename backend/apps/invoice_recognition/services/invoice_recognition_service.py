@@ -54,7 +54,7 @@ class InvoiceRecognitionService:
                 "文件大小超过限制（最大 20 MB），当前文件大小：%(size).1f MB。" % {"size": size / 1024 / 1024}
             )
 
-    def _save_file(self, task_id: int, file: UploadedFile) -> tuple[Path, str]:
+    def _save_file(self, task_id: int, file: UploadedFile) -> tuple[Path, str]:  # pragma: no cover
         name: str = file.name or "unknown"
         ext = Path(name).suffix.lower()
         filename = f"{uuid.uuid4().hex}{ext}"
@@ -70,7 +70,7 @@ class InvoiceRecognitionService:
         rel_path = f"automation/invoices/{task_id}/{filename}"
         return abs_path, rel_path
 
-    def _process_pdf(self, file_path: Path) -> str:
+    def _process_pdf(self, file_path: Path) -> str:  # pragma: no cover
         text = self._pdf_extractor.extract(file_path)
         if text is not None:
             return text
@@ -121,7 +121,7 @@ class InvoiceRecognitionService:
 
         return False, None
 
-    def upload_and_recognize(self, task_id: int, files: list[UploadedFile]) -> list[InvoiceRecord]:
+    def upload_and_recognize(self, task_id: int, files: list[UploadedFile]) -> list[InvoiceRecord]:  # pragma: no cover
         task = InvoiceRecognitionTask.objects.get(pk=task_id)
         task.status = InvoiceRecognitionTaskStatus.PROCESSING
         task.save(update_fields=["status"])

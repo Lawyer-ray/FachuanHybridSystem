@@ -60,7 +60,7 @@ class QuoteExecutionMixin:
         """由主类提供"""
         raise NotImplementedError  # pragma: no cover
 
-    async def _get_valid_token(self, credential_id: int | None = None) -> str:
+    async def _get_valid_token(self, credential_id: int | None = None) -> str:  # pragma: no cover
         """获取有效的 Token（集成自动获取功能）"""
         from asgiref.sync import sync_to_async
 
@@ -168,7 +168,7 @@ class QuoteExecutionMixin:
         self,
         quote: "PreservationQuote",
         results: "list[PremiumResult]",
-    ) -> tuple[int, int]:
+    ) -> tuple[int, int]:  # pragma: no cover
         """保存报价结果到数据库"""
         from asgiref.sync import sync_to_async
 

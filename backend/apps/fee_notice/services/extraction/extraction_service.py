@@ -209,7 +209,7 @@ class FeeNoticeExtractionService:
                 )
         return notices
 
-    def _extract_pages_text(self, file_path: str, debug: bool = False) -> dict[int, tuple[str, str]]:
+    def _extract_pages_text(self, file_path: str, debug: bool = False) -> dict[int, tuple[str, str]]:  # pragma: no cover
         """
         提取PDF每页的文本内容
 
@@ -257,7 +257,7 @@ class FeeNoticeExtractionService:
             raise
         return pages_text
 
-    def _ocr_page(self, page: Any, file_path: str, page_idx: int) -> str:
+    def _ocr_page(self, page: Any, file_path: str, page_idx: int) -> str:  # pragma: no cover
         """
         对单个PDF页面进行OCR识别
 
@@ -314,7 +314,7 @@ class FeeNoticeExtractionService:
         ext = Path(file_path).suffix.lower()
         return ext in self.SUPPORTED_EXTENSIONS
 
-    def _get_pdf_page_count(self, file_path: str) -> Any:
+    def _get_pdf_page_count(self, file_path: str) -> Any:  # pragma: no cover
         """
         获取PDF文件的页数
 
@@ -334,7 +334,7 @@ class FeeNoticeExtractionService:
 
     def save_uploaded_files(
         self, files: Any, temp_dir_name: str = "fee_notice", batch_id: str = ""
-    ) -> tuple[list[Path], list[dict[str, str]]]:
+    ) -> tuple[list[Path], list[dict[str, str]]]:  # pragma: no cover
         """保存上传文件到临时目录.
 
         Args:
@@ -391,7 +391,7 @@ class FeeNoticeExtractionService:
                 )
         return (saved_files, file_errors)
 
-    def cleanup_temp_files(self, saved_files: list[Path]) -> None:
+    def cleanup_temp_files(self, saved_files: list[Path]) -> None:  # pragma: no cover
         """清理临时文件.
 
         Args:

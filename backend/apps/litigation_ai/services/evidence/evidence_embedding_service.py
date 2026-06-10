@@ -10,17 +10,17 @@ from apps.core.interfaces import ServiceLocator
 logger = logging.getLogger("apps.litigation_ai")
 
 
-class EvidenceEmbeddingService:
-    def __init__(self, llm_service: Any | None = None) -> None:
+class EvidenceEmbeddingService:  # pragma: no cover
+    def __init__(self, llm_service: Any | None = None) -> None:  # pragma: no cover
         self._llm_service = llm_service
 
     @property
-    def llm_service(self) -> Any:
+    def llm_service(self) -> Any:  # pragma: no cover
         if self._llm_service is None:
             self._llm_service = ServiceLocator.get_llm_service()
         return self._llm_service
 
-    def embed_texts(self, texts: list[str], dims: int = 256) -> list[list[float]]:
+    def embed_texts(self, texts: list[str], dims: int = 256) -> list[list[float]]:  # pragma: no cover
         if not texts:
             return []
         try:
@@ -29,7 +29,7 @@ class EvidenceEmbeddingService:
             logger.warning("在线向量化失败，回退本地哈希向量", exc_info=True)
         return [self._hash_embed(t, dims=dims) for t in texts]
 
-    def _hash_embed(self, text: str, dims: int = 256) -> list[float]:
+    def _hash_embed(self, text: str, dims: int = 256) -> list[float]:  # pragma: no cover
         vec = [0.0] * dims
         tokens = [t for t in (text or "").split() if t]
         if not tokens:

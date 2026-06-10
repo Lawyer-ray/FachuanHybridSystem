@@ -27,7 +27,7 @@ class Command(BaseCommand):
             help="只显示待处理任务，不实际执行",
         )
 
-    def handle(self, *args: Any, **options: Any) -> None:
+    def handle(self, *args: Any, **options: Any) -> None:  # pragma: no cover
         from apps.automation.models import ScraperTask, ScraperTaskStatus
         from apps.automation.tasks import process_pending_tasks, reset_running_tasks
 

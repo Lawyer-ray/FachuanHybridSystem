@@ -10,7 +10,7 @@ from .types import WeikeSession
 logger = logging.getLogger(__name__)
 
 
-class WeikeAuthMixin:
+class WeikeAuthMixin:  # pragma: no cover
     LAW_LOGIN_BUTTON_SELECTOR = "button.wk-banner-action-bar-item.wkb-btn-green:has-text('登录')"
     LAW_LOGIN_MODAL_USERNAME_SELECTOR = "#login-username"
     LAW_LOGIN_MODAL_PASSWORD_SELECTOR = "#login-password"
@@ -19,7 +19,7 @@ class WeikeAuthMixin:
     LAW_LIST_URL: str  # defined in subclass
     LOGIN_URL: str  # defined in subclass
 
-    def _normalize_login_url(self, login_url: str | None) -> str | None:
+    def _normalize_login_url(self, login_url: str | None) -> str | None:  # pragma: no cover
         if not login_url:
             return None
 
@@ -34,7 +34,7 @@ class WeikeAuthMixin:
         )
         return None
 
-    def _ensure_playwright_session(self, session: WeikeSession) -> None:
+    def _ensure_playwright_session(self, session: WeikeSession) -> None:  # pragma: no cover
         if session.page is not None:
             return
 
@@ -77,7 +77,7 @@ class WeikeAuthMixin:
                 pass
             raise
 
-    def _login_and_enter_law(self, *, page: Page, username: str, password: str, login_url: str | None) -> None:
+    def _login_and_enter_law(self, *, page: Page, username: str, password: str, login_url: str | None) -> None:  # pragma: no cover
         self._login_via_legacy_home(page=page, username=username, password=password, login_url=login_url)
         page.goto(self.LAW_LIST_URL, wait_until="domcontentloaded", timeout=120000)
         page.wait_for_selector("input[name='keyword']", timeout=60000)
@@ -93,7 +93,7 @@ class WeikeAuthMixin:
         if not self._is_law_authenticated(page):
             raise RuntimeError("wk登录失败：账号未进入已登录状态")
 
-    def _login_via_legacy_home(self, *, page: Page, username: str, password: str, login_url: str | None) -> None:
+    def _login_via_legacy_home(self, *, page: Page, username: str, password: str, login_url: str | None) -> None:  # pragma: no cover
         page.goto(login_url or self.LOGIN_URL, wait_until="domcontentloaded", timeout=120000)
         page.wait_for_selector("#firstname", timeout=60000)
         page.fill("#firstname", username)
@@ -141,7 +141,7 @@ class WeikeAuthMixin:
         if self._contains_invalid_credential_hint(page):
             raise RuntimeError("wk登录失败：账号或密码错误")
 
-    def _login_via_law_modal(self, *, page: Page, username: str, password: str) -> None:
+    def _login_via_law_modal(self, *, page: Page, username: str, password: str) -> None:  # pragma: no cover
         if not self._has_visible_locator(page, self.LAW_LOGIN_BUTTON_SELECTOR):
             return
 
@@ -154,7 +154,7 @@ class WeikeAuthMixin:
         page.wait_for_timeout(3500)
 
     @staticmethod
-    def _check_law_login_agreement(page: Page) -> None:
+    def _check_law_login_agreement(page: Page) -> None:  # pragma: no cover
         page.evaluate(
             """
             (() => {
@@ -168,7 +168,7 @@ class WeikeAuthMixin:
             """
         )
 
-    def _contains_invalid_credential_hint(self, page: Page) -> bool:
+    def _contains_invalid_credential_hint(self, page: Page) -> bool:  # pragma: no cover
         body_text = page.locator("body").inner_text(timeout=30000)
         hints = (
             "用户名或密码输入错误",
@@ -180,7 +180,7 @@ class WeikeAuthMixin:
             return True
         return "message=login.validateerror" in page.url
 
-    def _is_law_authenticated(self, page: Page) -> bool:
+    def _is_law_authenticated(self, page: Page) -> bool:  # pragma: no cover
         body_text = page.locator("body").inner_text(timeout=30000)
         if self.LAW_LOGIN_REQUIRED_TEXT in body_text:
             return False
@@ -194,7 +194,7 @@ class WeikeAuthMixin:
         return True
 
     @staticmethod
-    def _has_visible_locator(page: Page, selector: str) -> bool:
+    def _has_visible_locator(page: Page, selector: str) -> bool:  # pragma: no cover
         locator = page.locator(selector)
         count = locator.count()
         for i in range(min(count, 5)):

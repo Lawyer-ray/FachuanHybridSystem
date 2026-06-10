@@ -19,16 +19,16 @@ if TYPE_CHECKING:
 logger = logging.getLogger("apps.express_query")
 
 
-class ExpressBrowserQueryService:
+class ExpressBrowserQueryService:  # pragma: no cover
     @staticmethod
-    async def close_browser() -> None:
+    async def close_browser() -> None:  # pragma: no cover
         await close_browser()
 
     @staticmethod
-    async def disconnect_playwright() -> None:
+    async def disconnect_playwright() -> None:  # pragma: no cover
         await disconnect_playwright()
 
-    async def query_and_save_pdf(self, carrier_type: str, tracking_number: str, output_pdf: Path) -> str:
+    async def query_and_save_pdf(self, carrier_type: str, tracking_number: str, output_pdf: Path) -> str:  # pragma: no cover
         output_pdf.parent.mkdir(parents=True, exist_ok=True)
 
         context = await ensure_browser()

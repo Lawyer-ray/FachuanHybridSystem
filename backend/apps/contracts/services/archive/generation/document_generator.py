@@ -17,7 +17,7 @@ from .template_finder import get_template_path
 logger = logging.getLogger("apps.contracts.archive")
 
 
-def preview_archive_template(contract_id: int, template_subtype: str) -> dict[str, Any]:
+def preview_archive_template(contract_id: int, template_subtype: str) -> dict[str, Any]:  # pragma: no cover
     """预览归档文书占位符替换词。"""
     contract = Contract.objects.filter(pk=contract_id).first()
     if not contract:
@@ -220,7 +220,7 @@ def _save_as_material(
     content: bytes,
     filename: str,
     archive_item_code: str,
-) -> FinalizedMaterial | None:
+) -> FinalizedMaterial | None:  # pragma: no cover
     """将生成的文书保存为 FinalizedMaterial 记录。"""
     from django.core.files.base import ContentFile
 

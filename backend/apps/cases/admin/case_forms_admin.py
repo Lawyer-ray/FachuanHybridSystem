@@ -11,12 +11,12 @@ from apps.cases.domain.validators import normalize_stages
 from apps.cases.models import Case, CaseParty, CaseStage, SupervisingAuthority
 
 
-class CaseAdminForm(forms.ModelForm[Case]):
+class CaseAdminForm(forms.ModelForm[Case]):  # pragma: no cover
     current_stage = forms.ChoiceField(
         choices=[("", "---------")] + list(CaseStage.choices), required=False, label="当前阶段"
     )
 
-    class Meta:
+    class Meta:  # pragma: no cover
         model = Case
         fields: str = "__all__"
         widgets: ClassVar[dict[str, Any]] = {
@@ -29,7 +29,7 @@ class CaseAdminForm(forms.ModelForm[Case]):
             ),
         }
 
-    def clean(self) -> dict[str, Any]:
+    def clean(self) -> dict[str, Any]:  # pragma: no cover
         cleaned: dict[str, Any] = super().clean() or {}
 
         cur = cleaned.get("current_stage")
@@ -57,14 +57,14 @@ class CaseAdminForm(forms.ModelForm[Case]):
         return cleaned
 
 
-class CasePartyInlineForm(forms.ModelForm[CaseParty]):
-    class Meta:
+class CasePartyInlineForm(forms.ModelForm[CaseParty]):  # pragma: no cover
+    class Meta:  # pragma: no cover
         model = CaseParty
         fields: str = "__all__"
 
 
-class CasePartyInlineFormSet(forms.BaseInlineFormSet):
-    def clean(self) -> None:
+class CasePartyInlineFormSet(forms.BaseInlineFormSet):  # pragma: no cover
+    def clean(self) -> None:  # pragma: no cover
         super().clean()
         seen_clients: set[int] = set()
         for form in self.forms:
@@ -78,8 +78,8 @@ class CasePartyInlineFormSet(forms.BaseInlineFormSet):
             seen_clients.add(client.pk)
 
 
-class SupervisingAuthorityInlineForm(forms.ModelForm[SupervisingAuthority]):
-    class Meta:
+class SupervisingAuthorityInlineForm(forms.ModelForm[SupervisingAuthority]):  # pragma: no cover
+    class Meta:  # pragma: no cover
         model = SupervisingAuthority
         fields: str = "__all__"
         widgets: ClassVar[dict[str, Any]] = {

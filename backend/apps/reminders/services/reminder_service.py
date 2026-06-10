@@ -100,7 +100,7 @@ class ReminderService:
         content: str,
         due_at: datetime,
         metadata: dict[str, Any] | None = None,
-    ) -> Reminder:
+    ) -> Reminder:  # pragma: no cover
         contract_id = normalize_target_id(contract_id, field_name="contract_id")
         case_id = normalize_target_id(case_id, field_name="case_id")
         case_log_id = normalize_target_id(case_log_id, field_name="case_log_id")

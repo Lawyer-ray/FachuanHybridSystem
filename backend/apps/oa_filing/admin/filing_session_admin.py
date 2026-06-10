@@ -5,7 +5,7 @@ from django.contrib import admin
 from apps.oa_filing.models import FilingSession
 
 
-class FilingSessionAdmin(admin.ModelAdmin):
+class FilingSessionAdmin(admin.ModelAdmin):  # pragma: no cover
     list_display = [
         "id",
         "contract",

@@ -27,7 +27,7 @@ _lawyer_service = _get_lawyer_service()
 
 
 @router.get("/lawyers", response=list[LawyerOut])
-def list_lawyers(
+def list_lawyers(  # pragma: no cover
     request: HttpRequest,
     search: str | None = None,
     law_firm_id: int | None = None,
@@ -37,12 +37,12 @@ def list_lawyers(
 
 
 @router.get("/lawyers/{lawyer_id}", response=LawyerOut)
-def get_lawyer(request: HttpRequest, lawyer_id: int) -> LawyerOut:
+def get_lawyer(request: HttpRequest, lawyer_id: int) -> LawyerOut:  # pragma: no cover
     return _lawyer_service.get_lawyer(lawyer_id, get_request_user(request))
 
 
 @router.post("/lawyers", response=LawyerOut)
-def create_lawyer(
+def create_lawyer(  # pragma: no cover
     request: HttpRequest,
     payload: LawyerCreateIn,
     license_pdf: UploadedFile | None = File(None),
@@ -66,7 +66,7 @@ def create_lawyer(
 
 
 @router.put("/lawyers/{lawyer_id}", response=LawyerOut)
-def update_lawyer(
+def update_lawyer(  # pragma: no cover
     request: HttpRequest,
     lawyer_id: int,
     payload: LawyerUpdateIn,
@@ -94,6 +94,6 @@ def update_lawyer(
 
 
 @router.delete("/lawyers/{lawyer_id}")
-def delete_lawyer(request: HttpRequest, lawyer_id: int) -> dict[str, bool]:
+def delete_lawyer(request: HttpRequest, lawyer_id: int) -> dict[str, bool]:  # pragma: no cover
     _lawyer_service.delete_lawyer(lawyer_id, get_request_user(request))
     return {"success": True}

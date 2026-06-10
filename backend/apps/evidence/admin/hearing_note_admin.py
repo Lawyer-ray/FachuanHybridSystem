@@ -9,7 +9,7 @@ from apps.evidence.models import HearingNote
 
 
 @admin.register(HearingNote)
-class HearingNoteAdmin(admin.ModelAdmin):
+class HearingNoteAdmin(admin.ModelAdmin):  # pragma: no cover
     list_display: ClassVar = ("case", "content_short", "evidence_count", "created_at")  # type: ignore[misc]
     list_select_related = ("case",)
     list_filter: ClassVar = ("case",)
@@ -19,12 +19,12 @@ class HearingNoteAdmin(admin.ModelAdmin):
     ordering: ClassVar = ["-created_at"]
 
     @admin.display(description="内容")
-    def content_short(self, obj: HearingNote) -> str:
+    def content_short(self, obj: HearingNote) -> str:  # pragma: no cover
         return obj.content[:50] + "..." if len(obj.content) > 50 else obj.content
 
-    def get_queryset(self, request: Any) -> QuerySet[HearingNote]:
+    def get_queryset(self, request: Any) -> QuerySet[HearingNote]:  # pragma: no cover
         return super().get_queryset(request).annotate(evidence_count=Count("evidence_items"))  # type: ignore[no-any-return]
 
     @admin.display(description="关联证据", ordering="evidence_count")
-    def evidence_count(self, obj: HearingNote) -> int:
+    def evidence_count(self, obj: HearingNote) -> int:  # pragma: no cover
         return obj.evidence_count  # type: ignore[attr-defined,no-any-return]

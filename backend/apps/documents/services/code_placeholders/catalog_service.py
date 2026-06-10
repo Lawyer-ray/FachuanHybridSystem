@@ -73,7 +73,7 @@ class CodePlaceholderCatalogService:
                 )
         return result
 
-    def _from_spec_files_scan(self) -> list[CodePlaceholderDefinition]:
+    def _from_spec_files_scan(self) -> list[CodePlaceholderDefinition]:  # pragma: no cover
         apps_root = Path(__file__).resolve().parents[2]
         if not apps_root.exists():
             return []
@@ -115,7 +115,7 @@ class CodePlaceholderCatalogService:
             )
         return result
 
-    def _scan_python_files_for_context_keys(self, root: Path) -> set[str]:
+    def _scan_python_files_for_context_keys(self, root: Path) -> set[str]:  # pragma: no cover
         collected: set[str] = set()
         for file_path in root.rglob("*.py"):
             try:

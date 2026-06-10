@@ -21,12 +21,12 @@ def _service() -> EnterpriseDataService:
 
 
 @router.get("/providers", response=EnterpriseProvidersOut)
-def list_providers(request: Any, include_tools: bool = False) -> EnterpriseProvidersOut:
+def list_providers(request: Any, include_tools: bool = False) -> EnterpriseProvidersOut:  # pragma: no cover
     return EnterpriseProvidersOut(**_service().list_providers(include_tools=include_tools))  # type: ignore[arg-type]
 
 
 @router.get("/companies/search", response=EnterpriseQueryOut)
-def search_companies(
+def search_companies(  # pragma: no cover
     request: Any,
     keyword: str,
     provider: str | None = None,
@@ -38,7 +38,7 @@ def search_companies(
 
 
 @router.get("/companies/{company_id}", response=EnterpriseQueryOut)
-def get_company_profile(
+def get_company_profile(  # pragma: no cover
     request: Any,
     company_id: str,
     provider: str | None = None,
@@ -50,7 +50,7 @@ def get_company_profile(
 
 
 @router.get("/companies/{company_id}/risks", response=EnterpriseQueryOut)
-def get_company_risks(
+def get_company_risks(  # pragma: no cover
     request: Any,
     company_id: str,
     risk_type: RiskType = "自身风险",
@@ -68,7 +68,7 @@ def get_company_risks(
 
 
 @router.get("/companies/{company_id}/shareholders", response=EnterpriseQueryOut)
-def get_company_shareholders(
+def get_company_shareholders(  # pragma: no cover
     request: Any,
     company_id: str,
     provider: str | None = None,
@@ -80,7 +80,7 @@ def get_company_shareholders(
 
 
 @router.get("/companies/{company_id}/personnel", response=EnterpriseQueryOut)
-def get_company_personnel(
+def get_company_personnel(  # pragma: no cover
     request: Any,
     company_id: str,
     provider: str | None = None,
@@ -92,7 +92,7 @@ def get_company_personnel(
 
 
 @router.get("/personnel/{hcgid}", response=EnterpriseQueryOut)
-def get_person_profile(
+def get_person_profile(  # pragma: no cover
     request: Any,
     hcgid: str,
     provider: str | None = None,
@@ -102,7 +102,7 @@ def get_person_profile(
 
 
 @router.get("/biddings/search", response=EnterpriseQueryOut)
-def search_bidding_info(
+def search_bidding_info(  # pragma: no cover
     request: Any,
     keyword: str,
     search_type: int = 1,

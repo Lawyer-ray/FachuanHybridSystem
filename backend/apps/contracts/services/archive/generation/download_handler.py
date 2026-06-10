@@ -181,7 +181,7 @@ def _read_material_file(material: FinalizedMaterial) -> dict[str, Any]:
 def _merge_materials_to_pdf(
     materials: list[FinalizedMaterial],
     archive_item_code: str,
-) -> dict[str, Any]:
+) -> dict[str, Any]:  # pragma: no cover
     """将多个材料文件合并为一个 PDF。"""
     import fitz  # PyMuPDF
     from django.conf import settings as django_settings

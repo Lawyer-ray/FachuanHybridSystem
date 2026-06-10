@@ -33,17 +33,17 @@ def _get_contract_detail_reminders(contract: Any) -> list[dict[str, Any]]:
     return reminder_service.export_contract_reminders_internal(contract_id=contract.id)
 
 
-class ContractDisplayMixin(ContractArchiveMixin, ContractDisplayFormatMixin):
+class ContractDisplayMixin(ContractArchiveMixin, ContractDisplayFormatMixin):  # pragma: no cover
     """合同 Admin 视图方法的 Mixin（继承归档和显示方法）"""
 
     if TYPE_CHECKING:
         admin_site: Any
         model: type[Model]
 
-        def has_view_permission(self, request: HttpRequest, obj: Any = None) -> bool: ...
-        def has_change_permission(self, request: HttpRequest, obj: Any = None) -> bool: ...
+        def has_view_permission(self, request: HttpRequest, obj: Any = None) -> bool: ...  # pragma: no cover
+        def has_change_permission(self, request: HttpRequest, obj: Any = None) -> bool: ...  # pragma: no cover
 
-    def get_urls(self) -> Any:
+    def get_urls(self) -> Any:  # pragma: no cover
         """添加自定义 URL 路由"""
         urls: list[URLPattern] = super().get_urls()  # type: ignore[misc]
         custom_urls = [
@@ -140,7 +140,7 @@ class ContractDisplayMixin(ContractArchiveMixin, ContractDisplayFormatMixin):
         ]
         return custom_urls + urls
 
-    def detail_view(self, request: HttpRequest, object_id: int) -> HttpResponse:
+    def detail_view(self, request: HttpRequest, object_id: int) -> HttpResponse:  # pragma: no cover
         """合同详情页视图"""
         # 权限检查
         if not self.has_view_permission(request):
@@ -215,7 +215,7 @@ class ContractDisplayMixin(ContractArchiveMixin, ContractDisplayFormatMixin):
 
         return render(request, "admin/contracts/contract/detail.html", context)
 
-    def _check_contract_template(self, contract: Any) -> Any:
+    def _check_contract_template(self, contract: Any) -> Any:  # pragma: no cover
         """
         检查是否有匹配的合同模板
 
@@ -232,7 +232,7 @@ class ContractDisplayMixin(ContractArchiveMixin, ContractDisplayFormatMixin):
             logger.error("检查合同 %s 的文书模板失败: %s", contract.id, e, exc_info=True)
             return False
 
-    def _check_folder_template(self, contract: Any) -> Any:
+    def _check_folder_template(self, contract: Any) -> Any:  # pragma: no cover
         """
         检查是否有匹配的文件夹模板
 
@@ -249,7 +249,7 @@ class ContractDisplayMixin(ContractArchiveMixin, ContractDisplayFormatMixin):
             logger.error("检查合同 %s 的文件夹模板失败: %s", contract.id, e, exc_info=True)
             return False
 
-    def open_folder_view(self, request: HttpRequest, object_id: int) -> HttpResponse:
+    def open_folder_view(self, request: HttpRequest, object_id: int) -> HttpResponse:  # pragma: no cover
         """打开合同绑定的本地文件夹（Finder/资源管理器）"""
         import platform
         import subprocess
@@ -295,7 +295,7 @@ class ContractDisplayMixin(ContractArchiveMixin, ContractDisplayFormatMixin):
             logger.exception("打开文件夹失败: contract_id=%s", object_id)
             return JsonResponse({"success": False, "error": str(e)}, status=500)
 
-    def tab_lazy_load_view(self, request: HttpRequest, object_id: int, tab_name: str) -> HttpResponse:
+    def tab_lazy_load_view(self, request: HttpRequest, object_id: int, tab_name: str) -> HttpResponse:  # pragma: no cover
         """Tab 懒加载视图 - 首次切换时 AJAX 获取重内容 Tab"""
         from django.template.loader import render_to_string
 

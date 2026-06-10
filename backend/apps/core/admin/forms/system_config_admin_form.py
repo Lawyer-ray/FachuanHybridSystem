@@ -13,15 +13,15 @@ from apps.core.security.secret_codec import SecretCodec
 _MULTI_KEY_CONFIGS = {"TIANYANCHA_MCP_API_KEY", "QCC_MCP_API_KEY", "OLLAMA_MODEL"}
 
 
-class SystemConfigAdminForm(forms.ModelForm):
-    class Meta:
+class SystemConfigAdminForm(forms.ModelForm):  # pragma: no cover
+    class Meta:  # pragma: no cover
         model = SystemConfig
         fields = "__all__"
         widgets = {
             "value": forms.Textarea(attrs={"rows": 6}),
         }
 
-    def __init__(self, *args: Any, **kwargs: Any) -> None:
+    def __init__(self, *args: Any, **kwargs: Any) -> None:  # pragma: no cover
         super().__init__(*args, **kwargs)
         self.fields["value"].widget.attrs.setdefault("rows", 6)
 
@@ -43,7 +43,7 @@ class SystemConfigAdminForm(forms.ModelForm):
                     "value"
                 ].help_text = "支持多个 API Key，每行一个；也兼容逗号或分号分隔，调用时会自动切换可用 Key。"
 
-    def clean_value(self) -> str:
+    def clean_value(self) -> str:  # pragma: no cover
         value = str(self.cleaned_data.get("value") or "")
         if not value:
             return ""

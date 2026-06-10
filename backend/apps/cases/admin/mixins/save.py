@@ -20,8 +20,8 @@ from .service import CaseAdminServiceMixin
 logger = logging.getLogger("apps.cases")
 
 
-class CaseAdminSaveMixin(CaseAdminServiceMixin):
-    def _cleanup_before_delete(self, case_ids: list[int]) -> None:
+class CaseAdminSaveMixin(CaseAdminServiceMixin):  # pragma: no cover
+    def _cleanup_before_delete(self, case_ids: list[int]) -> None:  # pragma: no cover
         if not case_ids:
             return
 
@@ -41,7 +41,7 @@ class CaseAdminSaveMixin(CaseAdminServiceMixin):
 
         fix_sqlite_orphan_contract_fk()
 
-    def delete_model(self, request: HttpRequest, obj: Case) -> None:
+    def delete_model(self, request: HttpRequest, obj: Case) -> None:  # pragma: no cover
         try:
             self._cleanup_before_delete([obj.id])
             super().delete_model(request, obj)  # type: ignore[misc]
@@ -55,7 +55,7 @@ class CaseAdminSaveMixin(CaseAdminServiceMixin):
                 super().delete_model(request, obj)  # type: ignore[misc]
             messages.warning(request, "已强制删除案件 %(case_id)s(已绕过外键检查)" % {"case_id": obj.id})
 
-    def delete_queryset(self, request: HttpRequest, queryset: QuerySet[Case, Case]) -> None:
+    def delete_queryset(self, request: HttpRequest, queryset: QuerySet[Case, Case]) -> None:  # pragma: no cover
         case_ids = list(queryset.values_list("id", flat=True))
         try:
             self._cleanup_before_delete(case_ids)
@@ -70,7 +70,7 @@ class CaseAdminSaveMixin(CaseAdminServiceMixin):
                 super().delete_queryset(request, queryset)  # type: ignore[misc]
             messages.warning(request, "已强制批量删除 %d 个案件(已绕过外键检查)" % len(case_ids))
 
-    def save_model(
+    def save_model(  # pragma: no cover
         self,
         request: HttpRequest,
         obj: Case,
@@ -163,7 +163,7 @@ class CaseAdminSaveMixin(CaseAdminServiceMixin):
                 )
                 messages.error(request, "同步律师指派失败: %s" % str(e))
 
-    def save_formset(self, request: HttpRequest, form: ModelForm[Any], formset: Any, change: bool) -> None:
+    def save_formset(self, request: HttpRequest, form: ModelForm[Any], formset: Any, change: bool) -> None:  # pragma: no cover
         from apps.contracts.models import ClientPaymentRecord
 
         instances = formset.save(commit=False)

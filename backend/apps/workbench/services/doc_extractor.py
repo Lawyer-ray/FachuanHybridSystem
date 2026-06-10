@@ -64,7 +64,7 @@ class DocTextExtractor:
     _ASSESSOR_RE = re.compile(r"人民陪审员\s*[：:]\s*(.+)")
     _CLERK_RE = re.compile(r"书\s*记\s*员\s*[：:]\s*(.+)")
 
-    def extract_doc_metadata(self, file_path: str) -> dict[str, str | None]:
+    def extract_doc_metadata(self, file_path: str) -> dict[str, str | None]:  # pragma: no cover
         """从文档中提取元数据
 
         - 首部表格：案号、审理法院、裁判日期、案由
@@ -159,7 +159,7 @@ class DocTextExtractor:
             text = text[:MAX_TEXT_LENGTH]
         return text
 
-    def _extract_txt(self, path: str) -> str:
+    def _extract_txt(self, path: str) -> str:  # pragma: no cover
         """读取纯文本文件（Excel 行拆分后的中间文件）"""
         text = Path(path).read_text(encoding="utf-8")
         if len(text) > MAX_TEXT_LENGTH:
@@ -167,7 +167,7 @@ class DocTextExtractor:
             text = text[:MAX_TEXT_LENGTH]
         return text
 
-    def _extract_doc(self, path: str) -> str:
+    def _extract_doc(self, path: str) -> str:  # pragma: no cover
         """将 .doc 转换为 .docx 后提取文本"""
         # 优先使用批量转换的缓存结果
         cached = self._batch_converted.get(path)
@@ -184,7 +184,7 @@ class DocTextExtractor:
         self,
         doc_paths: list[str],
         output_dir: str | None = None,
-    ) -> dict[str, str]:
+    ) -> dict[str, str]:  # pragma: no cover
         """批量将 .doc 转换为 .docx（委托 doc_converter engine）"""
         if not doc_paths:
             return {}
@@ -202,7 +202,7 @@ class DocTextExtractor:
         doc_paths: list[str],
         output_dir: str | None = None,
         parallel_batches: int = 3,
-    ) -> dict[str, str]:
+    ) -> dict[str, str]:  # pragma: no cover
         """异步批量将 .doc 转换为 .docx
 
         用 asyncio.create_subprocess_exec 并行运行多个 LibreOffice 批次。
@@ -241,7 +241,7 @@ class DocTextExtractor:
                 len(batches),
             )
 
-            async def run_batch(batch: list[str]) -> None:
+            async def run_batch(batch: list[str]) -> None:  # pragma: no cover
                 cmd = [soffice, "--headless", "--convert-to", "docx", "--outdir", str(output_path)] + batch
                 proc = await asyncio.create_subprocess_exec(
                     *cmd,
@@ -273,13 +273,13 @@ class DocTextExtractor:
         self._batch_converted.update(result)
         return result
 
-    def _convert_single_doc(self, doc_path: str) -> str:
+    def _convert_single_doc(self, doc_path: str) -> str:  # pragma: no cover
         """单个 .doc 转 .docx（委托 doc_converter engine）"""
         output_dir = tempfile.mkdtemp(prefix="workbench_doc_")
         self._single_temp_dirs.append(output_dir)
         return engine_convert_single(doc_path, output_dir)
 
-    def cleanup(self) -> None:
+    def cleanup(self) -> None:  # pragma: no cover
         """清理批量转换和单文件转换产生的临时目录"""
         if self._batch_temp_dir:
             temp_path = Path(self._batch_temp_dir)

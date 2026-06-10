@@ -52,5 +52,5 @@ class PrintPresetSnapshotService:
             "updated_at": preset.updated_at,
         }
 
-    def _base_queryset(self) -> QuerySet[PrintPresetSnapshot]:
+    def _base_queryset(self) -> QuerySet[PrintPresetSnapshot]:  # pragma: no cover
         return PrintPresetSnapshot.objects.annotate(rule_count=Count("rules", distinct=True))

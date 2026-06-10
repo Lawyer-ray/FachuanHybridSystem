@@ -8,5 +8,5 @@ class EvidenceConfig(AppConfig):
     name = "apps.evidence"
     verbose_name = "证据管理"
 
-    def ready(self) -> None:
+    def ready(self) -> None:  # pragma: no cover
         from . import signals

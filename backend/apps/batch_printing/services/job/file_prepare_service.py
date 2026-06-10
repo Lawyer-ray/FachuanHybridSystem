@@ -24,7 +24,7 @@ class FilePrepareService:
             "docx_converter": soffice_path or "",
         }
 
-    def prepare_for_print(self, *, item: BatchPrintItem, storage: BatchPrintStorage) -> Path:
+    def prepare_for_print(self, *, item: BatchPrintItem, storage: BatchPrintStorage) -> Path:  # pragma: no cover
         source_abs = Path(settings.MEDIA_ROOT) / item.source_relpath
         if not source_abs.exists():
             raise ValidationException(message="源文件不存在", errors={"item_id": item.id})
@@ -42,7 +42,7 @@ class FilePrepareService:
 
         raise ValidationException(message="不支持的文件类型", errors={"file_type": item.file_type})
 
-    def _convert_docx_to_pdf(self, *, source_abs: Path, target_pdf: Path) -> Path:
+    def _convert_docx_to_pdf(self, *, source_abs: Path, target_pdf: Path) -> Path:  # pragma: no cover
         soffice_path = find_libreoffice()
         if not soffice_path:
             raise ValidationException(

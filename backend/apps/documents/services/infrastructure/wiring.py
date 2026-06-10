@@ -51,7 +51,7 @@ def get_client_service() -> Any:
     return ServiceLocator.get_client_service()
 
 
-def get_llm_service() -> Any:
+def get_llm_service() -> Any:  # pragma: no cover
     """获取 LLM 服务实例"""
     from apps.core.infrastructure.service_locator import ServiceLocator
 
@@ -65,7 +65,7 @@ def get_document_service() -> Any:
     return build_document_service()
 
 
-def get_analysis_service() -> Any:
+def get_analysis_service() -> Any:  # pragma: no cover
     """获取外部模板分析服务实例"""
     from apps.documents.services.external_template.analysis_service import AnalysisService
     from apps.documents.services.external_template.fingerprint_service import FingerprintService
@@ -100,7 +100,7 @@ def get_evidence_list_placeholder_service() -> Any:
     return ServiceLocator.get_evidence_list_placeholder_service()
 
 
-def get_smart_fill_service() -> Any:
+def get_smart_fill_service() -> Any:  # pragma: no cover
     """获取智能填充服务实例"""
     from apps.documents.services.smart_fill.service import SmartFillService
 

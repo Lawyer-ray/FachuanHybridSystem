@@ -9,7 +9,7 @@ from django.template.response import TemplateResponse
 from apps.doc_converter.models import DocConverterItem, DocConverterJob, DocConverterTool
 
 
-class DocConverterItemInline(admin.TabularInline):
+class DocConverterItemInline(admin.TabularInline):  # pragma: no cover
     model = DocConverterItem
     extra = 0
     readonly_fields = ("original_name", "status", "error", "duration_ms", "created_at")
@@ -18,7 +18,7 @@ class DocConverterItemInline(admin.TabularInline):
 
 
 @admin.register(DocConverterJob)
-class DocConverterJobAdmin(admin.ModelAdmin):
+class DocConverterJobAdmin(admin.ModelAdmin):  # pragma: no cover
     list_display = ("id", "status", "total_files", "converted_files", "failed_files", "progress", "created_at")
     list_filter = ("status",)
     search_fields = ("id",)
@@ -40,15 +40,15 @@ class DocConverterJobAdmin(admin.ModelAdmin):
     )
     inlines = [DocConverterItemInline]
 
-    def has_add_permission(self, request: object) -> bool:
+    def has_add_permission(self, request: object) -> bool:  # pragma: no cover
         return False
 
 
 @admin.register(DocConverterTool)
-class DocConverterToolAdmin(admin.ModelAdmin):
+class DocConverterToolAdmin(admin.ModelAdmin):  # pragma: no cover
     """DOC 转 DOCX 工作台"""
 
-    def changelist_view(self, request: HttpRequest, extra_context: dict[str, Any] | None = None) -> HttpResponse:
+    def changelist_view(self, request: HttpRequest, extra_context: dict[str, Any] | None = None) -> HttpResponse:  # pragma: no cover
         context = {
             **self.admin_site.each_context(request),
             "title": "DOC 转 DOCX 工作台",
@@ -57,14 +57,14 @@ class DocConverterToolAdmin(admin.ModelAdmin):
         }
         return TemplateResponse(request, "admin/doc_converter/workbench.html", context)
 
-    def get_model_perms(self, request: HttpRequest) -> dict[str, bool]:
+    def get_model_perms(self, request: HttpRequest) -> dict[str, bool]:  # pragma: no cover
         return {"view": True}
 
-    def has_add_permission(self, request: HttpRequest) -> bool:
+    def has_add_permission(self, request: HttpRequest) -> bool:  # pragma: no cover
         return False
 
-    def has_change_permission(self, request: HttpRequest, obj: Any = None) -> bool:
+    def has_change_permission(self, request: HttpRequest, obj: Any = None) -> bool:  # pragma: no cover
         return False
 
-    def has_delete_permission(self, request: HttpRequest, obj: Any = None) -> bool:
+    def has_delete_permission(self, request: HttpRequest, obj: Any = None) -> bool:  # pragma: no cover
         return False

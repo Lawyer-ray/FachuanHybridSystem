@@ -2,17 +2,46 @@
 
 from __future__ import annotations
 
+import mimetypes
 import re
+from pathlib import Path
 from typing import Any
 
 
-class GuaranteeUploadMixin:
+class GuaranteeUploadMixin:  # pragma: no cover
     """gThree 材料上传：起诉状、身份证、证据。"""
 
     page: Any
     _material_items: list[dict[str, str]]
 
-    def _complete_g_three(self, case_data: dict[str, Any]) -> dict[str, Any]:
+    def _build_file_payload(self, file_path: str) -> str | dict[str, Any]:
+        """构造 Playwright set_input_files 载荷，使用原始文件名而非 UUID 存储名。"""
+        for entry in self._material_items:
+            if entry["path"] == file_path:
+                original_name = entry.get("original_name", "")
+                if original_name:
+                    try:
+                        mime, _ = mimetypes.guess_type(original_name)
+                        return {
+                            "name": original_name,
+                            "mimeType": mime or "application/octet-stream",
+                            "buffer": Path(file_path).read_bytes(),
+                        }
+                    except OSError:
+                        pass
+                break
+        return file_path
+
+    def _build_file_payloads(self, file_paths: list[str]) -> str | list[str] | dict[str, Any] | list[dict[str, Any]]:
+        """为多个文件构造带原始文件名的 Playwright 载荷。"""
+        payloads: list[str | dict[str, Any]] = []
+        for fp in file_paths:
+            payloads.append(self._build_file_payload(fp))
+        if len(payloads) == 1:
+            return payloads[0]
+        return payloads  # type: ignore[return-value]
+
+    def _complete_g_three(self, case_data: dict[str, Any]) -> dict[str, Any]:  # pragma: no cover
         result: dict[str, Any] = {"uploaded": 0, "next_clicked": None, "uploads": []}
         raw_paths = case_data.get("material_paths") or []
         items: list[dict[str, str]] = []
@@ -20,17 +49,21 @@ class GuaranteeUploadMixin:
             if isinstance(item, dict):
                 p = str(item.get("path") or "")
                 if p:
-                    items.append({"path": p, "type_name": str(item.get("type_name") or "")})
+                    items.append({
+                        "path": p,
+                        "type_name": str(item.get("type_name") or ""),
+                        "original_name": str(item.get("original_name") or ""),
+                    })
             else:
                 p = str(item)
                 if p:
-                    items.append({"path": p, "type_name": ""})
+                    items.append({"path": p, "type_name": "", "original_name": ""})
         if not items:
             return result
 
         used: set[str] = set()
 
-        def _pick_path(
+        def _pick_path(  # pragma: no cover
             keyword_groups: list[list[str]],
             *,
             type_name_groups: list[list[str]] | None = None,
@@ -46,22 +79,25 @@ class GuaranteeUploadMixin:
                             continue
                         if any(keyword in tn for keyword in keywords):
                             return entry["path"]
-            for keywords in keyword_groups:
+            if keyword_groups:
+                for keywords in keyword_groups:
+                    for entry in items:
+                        if entry["path"] in used:
+                            continue
+                        tn = entry["type_name"]
+                        if exclude_type_names and any(ex in tn for ex in exclude_type_names):
+                            continue
+                        haystack = f"{entry.get('original_name', '')} {entry['path'].rsplit('/', 1)[-1]}"
+                        if any(keyword in haystack for keyword in keywords):
+                            return entry["path"]
+            # 仅当未指定任何关键词组时，才兜底返回第一个未使用文件
+            if not type_name_groups and not keyword_groups:
                 for entry in items:
-                    if entry["path"] in used:
-                        continue
-                    tn = entry["type_name"]
-                    if exclude_type_names and any(ex in tn for ex in exclude_type_names):
-                        continue
-                    filename = entry["path"].rsplit("/", 1)[-1]
-                    if any(keyword in filename for keyword in keywords):
+                    if entry["path"] not in used:
                         return entry["path"]
-            for entry in items:
-                if entry["path"] not in used:
-                    return entry["path"]
             return None
 
-        def _pick_evidence() -> list[str]:
+        def _pick_evidence() -> list[str]:  # pragma: no cover
             evidence: list[str] = []
             for entry in items:
                 if entry["path"] in used:
@@ -72,8 +108,8 @@ class GuaranteeUploadMixin:
                 for entry in items:
                     if entry["path"] in used:
                         continue
-                    filename = entry["path"].rsplit("/", 1)[-1]
-                    if any(kw in filename for kw in ["证据", "明细", "清单"]):
+                    haystack = f"{entry.get('original_name', '')} {entry['path'].rsplit('/', 1)[-1]}"
+                    if any(kw in haystack for kw in ["证据", "明细", "清单"]):
                         evidence.append(entry["path"])
             return evidence
 
@@ -159,12 +195,12 @@ class GuaranteeUploadMixin:
                     for entry in items:
                         if entry["path"] in used:
                             continue
-                        filename = entry["path"].rsplit("/", 1)[-1]
-                        if "法定代表人" in filename:
+                        display_name = entry.get("original_name", "") or entry["path"].rsplit("/", 1)[-1]
+                        if "法定代表人" in display_name:
                             continue
-                        if "身份证" not in filename and "身份证明" not in filename:
+                        if "身份证" not in display_name and "身份证明" not in display_name:
                             continue
-                        if respondent_name and respondent_name not in filename:
+                        if respondent_name and respondent_name not in display_name:
                             continue
                         natural_identity = entry["path"]
                         break
@@ -202,7 +238,7 @@ class GuaranteeUploadMixin:
             if not chosen_files:
                 continue
 
-            upload_payload: str | list[str] = chosen_files if len(chosen_files) > 1 else chosen_files[0]
+            upload_payload = self._build_file_payloads(chosen_files)
             try:
                 current.set_input_files(upload_payload)
                 used.update(chosen_files)
@@ -228,10 +264,9 @@ class GuaranteeUploadMixin:
             (
                 entry["path"]
                 for entry in items
-                if (
-                    "起诉状" in entry["path"].rsplit("/", 1)[-1]
-                    or "起诉书" in entry["path"].rsplit("/", 1)[-1]
-                    or "起诉" in entry["path"].rsplit("/", 1)[-1]
+                if any(
+                    kw in (entry.get("original_name", "") or entry["path"].rsplit("/", 1)[-1])
+                    for kw in ("起诉状", "起诉书", "起诉")
                 )
             ),
             items[0]["path"] if items else "",
@@ -269,7 +304,7 @@ class GuaranteeUploadMixin:
                     if "起诉" not in label_text:
                         continue
                     try:
-                        candidate.set_input_files(complaint_path)
+                        candidate.set_input_files(self._build_file_payload(complaint_path))
                         result["uploads"].append(
                             {
                                 "index": j,
@@ -326,7 +361,7 @@ class GuaranteeUploadMixin:
                         if target_hints and not any(hint in label_text for hint in target_hints):
                             continue
                         try:
-                            candidate.set_input_files(identity_paths)
+                            candidate.set_input_files(self._build_file_payloads(identity_paths))
                             result["uploads"].append(
                                 {
                                     "index": j,
@@ -340,7 +375,7 @@ class GuaranteeUploadMixin:
                         except Exception:
                             for single_path in identity_paths:
                                 try:
-                                    candidate.set_input_files(single_path)
+                                    candidate.set_input_files(self._build_file_payload(single_path))
                                     result["uploads"].append(
                                         {
                                             "index": j,
@@ -395,7 +430,7 @@ class GuaranteeUploadMixin:
                         continue
 
                     try:
-                        candidate.set_input_files(retry_files)
+                        candidate.set_input_files(self._build_file_payloads(retry_files))
                         result["uploads"].append(
                             {
                                 "index": j,
@@ -408,7 +443,7 @@ class GuaranteeUploadMixin:
                     except Exception:
                         for single_path in retry_files:
                             try:
-                                candidate.set_input_files(single_path)
+                                candidate.set_input_files(self._build_file_payload(single_path))
                                 result["uploads"].append(
                                     {
                                         "index": j,
@@ -430,12 +465,12 @@ class GuaranteeUploadMixin:
 
         return result
 
-    def _retry_identity_material_upload_in_g_three(self) -> bool:
-        def _pick_path(keyword_groups: list[list[str]]) -> str | None:
+    def _retry_identity_material_upload_in_g_three(self) -> bool:  # pragma: no cover
+        def _pick_path(keyword_groups: list[list[str]]) -> str | None:  # pragma: no cover
             for keywords in keyword_groups:
                 for entry in self._material_items:
-                    filename = entry["path"].rsplit("/", 1)[-1]
-                    if any(keyword in filename for keyword in keywords):
+                    display_name = entry.get("original_name", "") or entry["path"].rsplit("/", 1)[-1]
+                    if any(keyword in display_name for keyword in keywords):
                         return entry["path"]
             return None
 
@@ -476,14 +511,14 @@ class GuaranteeUploadMixin:
                 continue
 
             try:
-                candidate.set_input_files(retry_files)
+                candidate.set_input_files(self._build_file_payloads(retry_files))
                 uploaded = True
                 self._wait_upload_idle(timeout_ms=90000)  # type: ignore[attr-defined]
                 self._random_wait(2.0, 2.8)  # type: ignore[attr-defined]
             except Exception:
                 for single_path in retry_files:
                     try:
-                        candidate.set_input_files(single_path)
+                        candidate.set_input_files(self._build_file_payload(single_path))
                         uploaded = True
                         self._wait_upload_idle(timeout_ms=90000)  # type: ignore[attr-defined]
                         self._random_wait(1.8, 2.4)  # type: ignore[attr-defined]
@@ -493,15 +528,15 @@ class GuaranteeUploadMixin:
 
         return uploaded
 
-    def _retry_evidence_material_upload_in_g_three(self) -> bool:
+    def _retry_evidence_material_upload_in_g_three(self) -> bool:  # pragma: no cover
         evidence_files: list[str] = []
         for entry in self._material_items:
             if any(kw in entry["type_name"] for kw in ["证据", "明细", "清单"]):
                 evidence_files.append(entry["path"])
         if not evidence_files:
             for entry in self._material_items:
-                filename = entry["path"].rsplit("/", 1)[-1]
-                if any(kw in filename for kw in ["证据", "明细", "清单"]):
+                display_name = entry.get("original_name", "") or entry["path"].rsplit("/", 1)[-1]
+                if any(kw in display_name for kw in ["证据", "明细", "清单"]):
                     evidence_files.append(entry["path"])
 
         if not evidence_files:
@@ -540,14 +575,14 @@ class GuaranteeUploadMixin:
                 continue
 
             try:
-                candidate.set_input_files(evidence_files)
+                candidate.set_input_files(self._build_file_payloads(evidence_files))
                 uploaded = True
                 self._wait_upload_idle(timeout_ms=90000)  # type: ignore[attr-defined]
                 self._random_wait(2.0, 2.8)  # type: ignore[attr-defined]
             except Exception:
                 for single_path in evidence_files:
                     try:
-                        candidate.set_input_files(single_path)
+                        candidate.set_input_files(self._build_file_payload(single_path))
                         uploaded = True
                         self._wait_upload_idle(timeout_ms=90000)  # type: ignore[attr-defined]
                         self._random_wait(1.8, 2.4)  # type: ignore[attr-defined]

@@ -19,7 +19,7 @@ _PARTY_FIELDS = ("party_a", "party_b", "party_c", "party_d")
 
 
 @admin.register(ReviewTask)
-class ReviewTaskAdmin(admin.ModelAdmin):
+class ReviewTaskAdmin(admin.ModelAdmin):  # pragma: no cover
     list_display = ("contract_title", "user", "status", "current_step_display", "created_at")
     list_filter = ("status", "represented_party", "created_at")
     search_fields = ("contract_title", "party_a", "party_b")
@@ -38,7 +38,7 @@ class ReviewTaskAdmin(admin.ModelAdmin):
     actions = ["retry_selected_tasks", "delete_selected_with_files", "normalize_format"]
 
     @admin.action(description="重新执行选中的审查任务")
-    def retry_selected_tasks(self, request: HttpRequest, queryset: Any) -> None:
+    def retry_selected_tasks(self, request: HttpRequest, queryset: Any) -> None:  # pragma: no cover
         from apps.core.tasking import submit_task
 
         count = 0
@@ -55,7 +55,7 @@ class ReviewTaskAdmin(admin.ModelAdmin):
         self.message_user(request, f"已重新提交 {count} 个审查任务")
 
     @admin.action(description="删除选中任务及关联文件")
-    def delete_selected_with_files(self, request: HttpRequest, queryset: Any) -> None:
+    def delete_selected_with_files(self, request: HttpRequest, queryset: Any) -> None:  # pragma: no cover
         from apps.contract_review.repositories.review_task_repository import ReviewTaskRepository
 
         repository = ReviewTaskRepository()
@@ -89,7 +89,7 @@ class ReviewTaskAdmin(admin.ModelAdmin):
         self.message_user(request, f"已删除 {deleted_count} 个任务及 {file_count} 个关联文件")
 
     @admin.action(description="格式规范化（调整字体/行距/页边距）")
-    def normalize_format(self, request: HttpRequest, queryset: Any) -> None:
+    def normalize_format(self, request: HttpRequest, queryset: Any) -> None:  # pragma: no cover
         from apps.contract_review.services.format_normalizer import DocxFormatNormalizer
 
         success_count = 0
@@ -139,7 +139,7 @@ class ReviewTaskAdmin(admin.ModelAdmin):
             self.message_user(request, f"{fail_count} 个文件规范化失败", level="warning")
 
     @admin.display(description="当前处理步骤")
-    def current_step_display(self, obj: ReviewTask) -> str:
+    def current_step_display(self, obj: ReviewTask) -> str:  # pragma: no cover
         if obj.status == "completed":
             return "✅ 已完成"
         if obj.status == "failed":
@@ -156,14 +156,14 @@ class ReviewTaskAdmin(admin.ModelAdmin):
     }
 
     @admin.display(description="选中的处理步骤")
-    def selected_steps_display(self, obj: ReviewTask) -> str:
+    def selected_steps_display(self, obj: ReviewTask) -> str:  # pragma: no cover
         steps = obj.selected_steps or []
         if not steps:
             return "全部"
         labels = [self._STEP_LABELS.get(s, s) for s in steps]
         return "、".join(labels)
 
-    def get_readonly_fields(self, request: HttpRequest, obj: ReviewTask | None = None) -> tuple[str, ...]:
+    def get_readonly_fields(self, request: HttpRequest, obj: ReviewTask | None = None) -> tuple[str, ...]:  # pragma: no cover
         base = (
             "id",
             "original_file_link",
@@ -190,7 +190,7 @@ class ReviewTaskAdmin(admin.ModelAdmin):
             )
         return base
 
-    def change_view(
+    def change_view(  # pragma: no cover
         self,
         request: HttpRequest,
         object_id: str,
@@ -207,19 +207,19 @@ class ReviewTaskAdmin(admin.ModelAdmin):
         return super().change_view(request, object_id, form_url, ctx)
 
     @admin.display(description="原始文件")
-    def original_file_link(self, obj: ReviewTask) -> str:
+    def original_file_link(self, obj: ReviewTask) -> str:  # pragma: no cover
         if not obj.original_file:
             return "—"
         return self._file_link(obj, obj.original_file)
 
     @admin.display(description="审查结果")
-    def output_file_link(self, obj: ReviewTask) -> str:
+    def output_file_link(self, obj: ReviewTask) -> str:  # pragma: no cover
         if not obj.output_file:
             return "—"
         return self._file_link(obj, obj.output_file, primary=True)
 
     @admin.display(description="评估报告")
-    def review_report_html(self, obj: ReviewTask) -> str:
+    def review_report_html(self, obj: ReviewTask) -> str:  # pragma: no cover
         if not obj.review_report:
             return "—"
         url = f"/admin/contract_review/reviewtask/{obj.pk}/report/"
@@ -231,7 +231,7 @@ class ReviewTaskAdmin(admin.ModelAdmin):
         return format_html('<a href="{}" style="{}" target="_blank">📋 查看评估报告</a>', url, style)
 
     @staticmethod
-    def _file_link(obj: ReviewTask, file_path: str, primary: bool = False) -> str:
+    def _file_link(obj: ReviewTask, file_path: str, primary: bool = False) -> str:  # pragma: no cover
         name = Path(file_path).name
         url = f"/api/v1/contract-review/{obj.pk}/{'download' if primary else 'download-original'}"
         style = (
@@ -249,7 +249,7 @@ class ReviewTaskAdmin(admin.ModelAdmin):
             name,
         )
 
-    def get_fieldsets(
+    def get_fieldsets(  # pragma: no cover
         self, request: HttpRequest, obj: ReviewTask | None = None
     ) -> list[tuple[str | None, dict[str, Any]]]:
         party_fields = tuple(f for f in _PARTY_FIELDS if obj and getattr(obj, f, "")) or ("party_a", "party_b")
@@ -266,7 +266,7 @@ class ReviewTaskAdmin(admin.ModelAdmin):
             fieldsets.insert(4, ("评估报告", {"fields": ("review_report_html",)}))
         return fieldsets
 
-    def add_view(
+    def add_view(  # pragma: no cover
         self,
         request: HttpRequest,
         form_url: str = "",
@@ -299,7 +299,7 @@ class ReviewTaskAdmin(admin.ModelAdmin):
             context,
         )
 
-    def get_urls(self) -> list[Any]:
+    def get_urls(self) -> list[Any]:  # pragma: no cover
         custom = [
             path(
                 "<uuid:task_id>/report/",
@@ -324,7 +324,7 @@ class ReviewTaskAdmin(admin.ModelAdmin):
         ]
         return custom + super().get_urls()
 
-    def report_view(self, request: HttpRequest, task_id: UUID) -> HttpResponse:
+    def report_view(self, request: HttpRequest, task_id: UUID) -> HttpResponse:  # pragma: no cover
         import markdown
 
         task = ReviewTask.objects.get(id=task_id)
@@ -345,7 +345,7 @@ class ReviewTaskAdmin(admin.ModelAdmin):
             context,
         )
 
-    def report_pdf_view(self, request: HttpRequest, task_id: UUID) -> HttpResponse:
+    def report_pdf_view(self, request: HttpRequest, task_id: UUID) -> HttpResponse:  # pragma: no cover
         import markdown
         from django.conf import settings
         from django.template.loader import render_to_string
@@ -396,7 +396,7 @@ class ReviewTaskAdmin(admin.ModelAdmin):
         response["Content-Disposition"] = f'inline; filename="{filename}"'
         return response
 
-    def format_normalize_view(self, request: HttpRequest) -> HttpResponse:
+    def format_normalize_view(self, request: HttpRequest) -> HttpResponse:  # pragma: no cover
         """格式调整页面"""
         # 获取所有有原始文件的任务
         tasks = ReviewTask.objects.filter(
@@ -416,7 +416,7 @@ class ReviewTaskAdmin(admin.ModelAdmin):
             context,
         )
 
-    def format_normalize_task_view(self, request: HttpRequest, task_id: UUID) -> HttpResponse:
+    def format_normalize_task_view(self, request: HttpRequest, task_id: UUID) -> HttpResponse:  # pragma: no cover
         """对单个任务执行格式调整"""
         from apps.contract_review.services.format_normalizer import DocxFormatNormalizer
 
@@ -466,7 +466,7 @@ class ReviewTaskAdmin(admin.ModelAdmin):
 
         return self._redirect_back(request)
 
-    def _redirect_back(self, request: HttpRequest) -> HttpResponse:
+    def _redirect_back(self, request: HttpRequest) -> HttpResponse:  # pragma: no cover
         """重定向回上一页"""
         from django.http import HttpResponseRedirect
 

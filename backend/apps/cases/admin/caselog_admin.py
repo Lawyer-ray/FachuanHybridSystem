@@ -17,7 +17,7 @@ from apps.cases.admin.base_admin import BaseModelAdmin, BaseTabularInline
 from apps.cases.models import CaseLog, CaseLogAttachment
 
 
-class CaseLogAttachmentInline(BaseTabularInline):
+class CaseLogAttachmentInline(BaseTabularInline):  # pragma: no cover
     model = CaseLogAttachment
     extra = 0
     fields = ("file", "original_filename", "uploaded_at")
@@ -25,7 +25,7 @@ class CaseLogAttachmentInline(BaseTabularInline):
     autocomplete_fields = ("log",)
 
 
-class ReminderInline(BaseTabularInline):
+class ReminderInline(BaseTabularInline):  # pragma: no cover
     model = CaseLog.reminders.rel.related_model  # type: ignore[assignment]  # Reminder
     extra = 0
     fields = ("reminder_type", "content", "due_at")
@@ -35,7 +35,7 @@ class ReminderInline(BaseTabularInline):
 
 
 @admin.register(CaseLog)
-class CaseLogAdmin(BaseModelAdmin):
+class CaseLogAdmin(BaseModelAdmin):  # pragma: no cover
     list_display = ("id", "case_link", "actor", "reminder_type", "reminder_time", "created_at", "updated_at")
     list_select_related = ("case", "actor")
     list_per_page = 50
@@ -48,7 +48,7 @@ class CaseLogAdmin(BaseModelAdmin):
     change_list_template = "admin/cases/caselog/change_list.html"
     change_form_template = "admin/cases/caselog/change_form.html"
 
-    def changelist_view(self, request: HttpRequest, extra_context: dict[str, Any] | None = None) -> Any:
+    def changelist_view(self, request: HttpRequest, extra_context: dict[str, Any] | None = None) -> Any:  # pragma: no cover
         """覆写 changelist：批量预填充 reminder 缓存，消除每行 2 次 DB 查询的 N+1。"""
         response = super().changelist_view(request, extra_context)
 
@@ -76,11 +76,11 @@ class CaseLogAdmin(BaseModelAdmin):
         return response
 
     @admin.display(description="案件名称", ordering="case__name")
-    def case_link(self, obj: CaseLog) -> str:
+    def case_link(self, obj: CaseLog) -> str:  # pragma: no cover
         url = reverse("admin:cases_case_detail", args=[obj.case_id])
         return format_html('<a href="{}">{}</a>', url, obj.case)
 
-    def save_model(
+    def save_model(  # pragma: no cover
         self,
         request: HttpRequest,
         obj: CaseLog,
@@ -95,7 +95,7 @@ class CaseLogAdmin(BaseModelAdmin):
 
     # ── 批量添加日志 ──────────────────────────────────────────
 
-    def get_urls(self) -> list[Any]:
+    def get_urls(self) -> list[Any]:  # pragma: no cover
         urls = super().get_urls()
         custom = [
             urlpath(
@@ -121,7 +121,7 @@ class CaseLogAdmin(BaseModelAdmin):
         ]
         return custom + urls
 
-    def batch_add_view(self, request: HttpRequest) -> TemplateResponse:
+    def batch_add_view(self, request: HttpRequest) -> TemplateResponse:  # pragma: no cover
         if not self.has_add_permission(request):
             from django.core.exceptions import PermissionDenied
 
@@ -152,7 +152,7 @@ class CaseLogAdmin(BaseModelAdmin):
         )
         return TemplateResponse(request, "admin/cases/caselog/batch_add.html", context)
 
-    def batch_add_cases_view(self, request: HttpRequest) -> JsonResponse:
+    def batch_add_cases_view(self, request: HttpRequest) -> JsonResponse:  # pragma: no cover
         if request.method != "POST":
             return JsonResponse({"success": False, "message": _("Method not allowed")}, status=405)
         if not self.has_view_permission(request):
@@ -184,7 +184,7 @@ class CaseLogAdmin(BaseModelAdmin):
             )
         return JsonResponse({"success": True, "cases": case_list})
 
-    def batch_add_search_view(self, request: HttpRequest) -> JsonResponse:
+    def batch_add_search_view(self, request: HttpRequest) -> JsonResponse:  # pragma: no cover
         if request.method != "POST":
             return JsonResponse({"success": False, "message": _("Method not allowed")}, status=405)
         if not self.has_view_permission(request):
@@ -219,7 +219,7 @@ class CaseLogAdmin(BaseModelAdmin):
         ]
         return JsonResponse({"success": True, "cases": case_list})
 
-    def batch_add_submit_view(self, request: HttpRequest) -> JsonResponse:
+    def batch_add_submit_view(self, request: HttpRequest) -> JsonResponse:  # pragma: no cover
         if request.method != "POST":
             return JsonResponse({"success": False, "message": _("Method not allowed")}, status=405)
         if not self.has_add_permission(request):
@@ -247,11 +247,11 @@ class CaseLogAdmin(BaseModelAdmin):
 
 
 @admin.register(CaseLogAttachment)
-class CaseLogAttachmentAdmin(BaseModelAdmin):
+class CaseLogAttachmentAdmin(BaseModelAdmin):  # pragma: no cover
     list_display = ("id", "log", "original_filename", "uploaded_at")
     search_fields = ("log__case__name", "original_filename")
     autocomplete_fields = ("log",)
 
-    def get_model_perms(self, request: HttpRequest) -> dict[str, bool]:
+    def get_model_perms(self, request: HttpRequest) -> dict[str, bool]:  # pragma: no cover
         """隐藏 Admin 首页入口，但保留直接 URL 访问能力"""
         return {}

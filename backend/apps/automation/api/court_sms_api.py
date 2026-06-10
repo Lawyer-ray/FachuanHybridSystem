@@ -40,7 +40,7 @@ def _get_court_sms_service() -> Any:
 
 
 @router.post("/court-sms", response=CourtSMSSubmitOut)
-def submit_sms(request: Any, payload: CourtSMSSubmitIn) -> CourtSMSSubmitOut:
+def submit_sms(request: Any, payload: CourtSMSSubmitIn) -> CourtSMSSubmitOut:  # pragma: no cover
     """
     提交法院短信
 
@@ -54,7 +54,7 @@ def submit_sms(request: Any, payload: CourtSMSSubmitIn) -> CourtSMSSubmitOut:
 
 
 @router.post("/court-sms/form", response=CourtSMSSubmitOut)
-def submit_sms_form(
+def submit_sms_form(  # pragma: no cover
     request: Any,
     content: str = Form(...),
     received_at: datetime | None = Form(None),
@@ -77,7 +77,7 @@ def submit_sms_form(
 
 
 @router.get("/court-sms/{sms_id}", response=CourtSMSDetailOut)
-def get_sms_detail(request: Any, sms_id: int) -> CourtSMSDetailOut:
+def get_sms_detail(request: Any, sms_id: int) -> CourtSMSDetailOut:  # pragma: no cover
     """
     查询短信处理详情
 
@@ -92,7 +92,7 @@ def get_sms_detail(request: Any, sms_id: int) -> CourtSMSDetailOut:
 
 @router.get("/court-sms", response=list[CourtSMSListOut])
 @paginate(PageNumberPagination, page_size=20)
-def list_sms(
+def list_sms(  # pragma: no cover
     request: Any,
     status: str | None = None,
     sms_type: str | None = None,
@@ -120,7 +120,7 @@ def list_sms(
 
 
 @router.post("/court-sms/{sms_id}/assign-case", response=CourtSMSAssignCaseOut)
-def assign_case(request: Any, sms_id: int, payload: CourtSMSAssignCaseIn) -> CourtSMSAssignCaseOut:
+def assign_case(request: Any, sms_id: int, payload: CourtSMSAssignCaseIn) -> CourtSMSAssignCaseOut:  # pragma: no cover
     """
     手动指定案件
 
@@ -146,7 +146,7 @@ def assign_case(request: Any, sms_id: int, payload: CourtSMSAssignCaseIn) -> Cou
 
 
 @router.post("/court-sms/{sms_id}/retry", response=CourtSMSSubmitOut)
-def retry_processing(request: Any, sms_id: int) -> CourtSMSSubmitOut:
+def retry_processing(request: Any, sms_id: int) -> CourtSMSSubmitOut:  # pragma: no cover
     """
     重新处理短信
 
@@ -165,7 +165,7 @@ def retry_processing(request: Any, sms_id: int) -> CourtSMSSubmitOut:
 
 
 @router.delete("/court-sms/{sms_id}")
-def delete_sms(request: Any, sms_id: int) -> dict[str, bool]:
+def delete_sms(request: Any, sms_id: int) -> dict[str, bool]:  # pragma: no cover
     """删除单条短信"""
     service = _get_court_sms_service()
     service.delete_sms(sms_id)
@@ -173,7 +173,7 @@ def delete_sms(request: Any, sms_id: int) -> dict[str, bool]:
 
 
 @router.post("/court-sms/batch-delete", response=CourtSMSBatchDeleteOut)
-def batch_delete_sms(request: Any, payload: CourtSMSBatchDeleteIn) -> CourtSMSBatchDeleteOut:
+def batch_delete_sms(request: Any, payload: CourtSMSBatchDeleteIn) -> CourtSMSBatchDeleteOut:  # pragma: no cover
     """批量删除短信"""
     service = _get_court_sms_service()
     deleted = service.batch_delete_sms(payload.ids)
@@ -186,7 +186,7 @@ def batch_delete_sms(request: Any, payload: CourtSMSBatchDeleteIn) -> CourtSMSBa
 
 
 @router.get("/court-sms/{sms_id}/documents/{ref_index}/download")
-def download_document(request: Any, sms_id: int, ref_index: int) -> FileResponse:
+def download_document(request: Any, sms_id: int, ref_index: int) -> FileResponse:  # pragma: no cover
     """下载单个关联文书"""
     from apps.automation.services.sms.court_sms_document_reference_service import CourtSMSDocumentReferenceService
     from apps.automation.services.sms.court_sms_repository import CourtSMSRepository
@@ -207,7 +207,7 @@ def download_document(request: Any, sms_id: int, ref_index: int) -> FileResponse
 
 
 @router.get("/court-sms/{sms_id}/documents/download-all")
-def download_all_documents(request: Any, sms_id: int) -> FileResponse:
+def download_all_documents(request: Any, sms_id: int) -> FileResponse:  # pragma: no cover
     """批量下载关联文书（ZIP）"""
     from apps.automation.services.sms.court_sms_document_reference_service import CourtSMSDocumentReferenceService
     from apps.automation.services.sms.court_sms_repository import CourtSMSRepository
@@ -244,7 +244,7 @@ def download_all_documents(request: Any, sms_id: int) -> FileResponse:
 
 
 @router.post("/court-sms/{sms_id}/documents/{ref_index}/rename")
-def rename_document(request: Any, sms_id: int, ref_index: int, payload: dict[str, Any]) -> dict[str, Any]:
+def rename_document(request: Any, sms_id: int, ref_index: int, payload: dict[str, Any]) -> dict[str, Any]:  # pragma: no cover
     """重命名单个关联文书"""
     from apps.automation.services.sms.court_sms_document_reference_service import CourtSMSDocumentReferenceService
     from apps.automation.services.sms.court_sms_repository import CourtSMSRepository

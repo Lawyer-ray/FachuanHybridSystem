@@ -141,7 +141,7 @@ def merge_llm_fallback(
     return changed
 
 
-def extract_with_ollama_fallback(main_text: str) -> dict[str, Any] | None:
+def extract_with_ollama_fallback(main_text: str) -> dict[str, Any] | None:  # pragma: no cover
     prompt = (
         "你是法律文书金额与利率解析助手。仅输出 JSON，不要输出其他文字。\n"
         "要求：所有金额统一换算为“元”（例如“52万元”=520000）；利率倍数用数字表示。\n"

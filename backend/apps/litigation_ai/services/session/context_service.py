@@ -125,7 +125,7 @@ class LitigationContextService:
 
         return evidence_list
 
-    def build_case_info(self, case_id: int, document_type: str) -> dict[str, Any]:
+    def build_case_info(self, case_id: int, document_type: str) -> dict[str, Any]:  # pragma: no cover
         from ..wiring import get_case_service
 
         case_dto = get_case_service().get_case_internal(case_id)

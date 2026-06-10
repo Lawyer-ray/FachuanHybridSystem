@@ -165,7 +165,7 @@ def _invalidate_template_matching_cache(sender: type[Any]) -> None:
 @receiver(post_delete, sender=FolderTemplate)
 @receiver(post_delete, sender=DocumentTemplate)
 @receiver(post_delete, sender=Placeholder)
-def log_delete(sender: type[Any], instance: Any, **kwargs: Any) -> None:
+def log_delete(sender: type[Any], instance: Any, **kwargs: Any) -> None:  # pragma: no cover
     """记录删除操作"""
     _create_audit_log(instance, TemplateAuditAction.DELETE)
 
@@ -204,7 +204,7 @@ def _delete_file_field(field_file: Any) -> None:
 
 
 @receiver(post_delete, dispatch_uid="cleanup_document_template_files")
-def cleanup_document_template_files(sender: type[Any], instance: Any, **kwargs: object) -> None:
+def cleanup_document_template_files(sender: type[Any], instance: Any, **kwargs: object) -> None:  # pragma: no cover
     """
     DocumentTemplate 有两个文件字段：
     - file (FileField): 上传的模板文件 → 用 .delete(save=False)
@@ -215,28 +215,28 @@ def cleanup_document_template_files(sender: type[Any], instance: Any, **kwargs: 
 
 
 @receiver(post_delete, dispatch_uid="cleanup_generation_task_result")
-def cleanup_generation_task_result(sender: type[Any], instance: Any, **kwargs: object) -> None:
+def cleanup_generation_task_result(sender: type[Any], instance: Any, **kwargs: object) -> None:  # pragma: no cover
     """GenerationTask.result_file (FileField): 文书生成结果文件"""
     if sender is GenerationTask:
         _delete_file_field(instance.result_file)
 
 
 @receiver(post_delete, dispatch_uid="cleanup_external_template_file")
-def cleanup_external_template_file(sender: type[Any], instance: Any, **kwargs: object) -> None:
+def cleanup_external_template_file(sender: type[Any], instance: Any, **kwargs: object) -> None:  # pragma: no cover
     """ExternalTemplate.file_path (CharField): 外部上传的 Word 模板文件，存于 MEDIA_ROOT 下"""
     if sender is ExternalTemplate:
         _delete_charfield_file(instance.file_path)
 
 
 @receiver(post_delete, dispatch_uid="cleanup_fill_record_file")
-def cleanup_fill_record_file(sender: type[Any], instance: Any, **kwargs: object) -> None:
+def cleanup_fill_record_file(sender: type[Any], instance: Any, **kwargs: object) -> None:  # pragma: no cover
     """FillRecord.file_path (CharField): 填充生成的文件，存于 MEDIA_ROOT 下"""
     if sender is FillRecord:
         _delete_charfield_file(instance.file_path)
 
 
 @receiver(post_delete, dispatch_uid="cleanup_batch_fill_task_zip")
-def cleanup_batch_fill_task_zip(sender: type[Any], instance: Any, **kwargs: object) -> None:
+def cleanup_batch_fill_task_zip(sender: type[Any], instance: Any, **kwargs: object) -> None:  # pragma: no cover
     """BatchFillTask.zip_file_path (CharField): 批量填充 ZIP 压缩包"""
     if sender is BatchFillTask:
         _delete_charfield_file(instance.zip_file_path)

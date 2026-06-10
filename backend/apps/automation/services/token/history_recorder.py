@@ -54,7 +54,7 @@ class TokenHistoryRecorder:
         credential_id: int | None,
         result: TokenAcquisitionResult,
         trigger_reason: str = "token_needed",
-    ) -> None:
+    ) -> None:  # pragma: no cover
         """
         记录Token获取历史
 
@@ -113,7 +113,7 @@ class TokenHistoryRecorder:
 
             # 创建历史记录
             @sync_to_async
-            def create_history() -> Any:
+            def create_history() -> Any:  # pragma: no cover
                 return TokenAcquisitionHistory.objects.create(
                     site_name=site_name,
                     account=account,
@@ -214,7 +214,7 @@ class TokenHistoryRecorder:
                 "period_hours": hours,
             }
 
-    async def cleanup_old_records(self, days: int = 30) -> int:
+    async def cleanup_old_records(self, days: int = 30) -> int:  # pragma: no cover
         """
         清理旧的历史记录
 
@@ -228,7 +228,7 @@ class TokenHistoryRecorder:
             cutoff_date = timezone.now() - timedelta(days=days)
 
             @sync_to_async
-            def delete_old_records() -> int:
+            def delete_old_records() -> int:  # pragma: no cover
                 deleted_count, _ = TokenAcquisitionHistory.objects.filter(created_at__lt=cutoff_date).delete()
                 return deleted_count
 

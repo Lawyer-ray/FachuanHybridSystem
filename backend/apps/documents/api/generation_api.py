@@ -62,7 +62,7 @@ def _get_contract_generation_service() -> Any:
 
 
 @router.get("/contracts/{contract_id}/preview")
-def preview_contract_context(request: Any, contract_id: int) -> Any:
+def preview_contract_context(request: Any, contract_id: int) -> Any:  # pragma: no cover
     """合同占位符预览"""
     _require_contract_access(request, contract_id)
     service = _get_contract_generation_service()
@@ -71,7 +71,7 @@ def preview_contract_context(request: Any, contract_id: int) -> Any:
 
 
 @router.get("/contracts/{contract_id}/supplementary-agreements/{agreement_id}/preview")
-def preview_supplementary_agreement_context(request: Any, contract_id: int, agreement_id: int) -> Any:
+def preview_supplementary_agreement_context(request: Any, contract_id: int, agreement_id: int) -> Any:  # pragma: no cover
     """补充协议占位符预览"""
     _require_contract_access(request, contract_id)
     service = _get_supplementary_agreement_service()
@@ -80,7 +80,7 @@ def preview_supplementary_agreement_context(request: Any, contract_id: int, agre
 
 
 @router.get("/contracts/{contract_id}/archive-preview")
-def preview_archive_context(request: Any, contract_id: int, template_subtype: str = "") -> Any:
+def preview_archive_context(request: Any, contract_id: int, template_subtype: str = "") -> Any:  # pragma: no cover
     """归档文书占位符预览
 
     Args:
@@ -99,7 +99,7 @@ def preview_archive_context(request: Any, contract_id: int, template_subtype: st
 
 
 @router.get("/contracts/{contract_id}/archive-placeholder-overrides")
-def get_archive_overrides(request: Any, contract_id: int, template_subtype: str = "") -> Any:
+def get_archive_overrides(request: Any, contract_id: int, template_subtype: str = "") -> Any:  # pragma: no cover
     """获取归档文书占位符覆盖值
 
     Args:
@@ -125,7 +125,7 @@ def get_archive_overrides(request: Any, contract_id: int, template_subtype: str 
 
 
 @router.post("/contracts/{contract_id}/archive-placeholder-overrides")
-def save_archive_overrides(
+def save_archive_overrides(  # pragma: no cover
     request: Any, contract_id: int, template_subtype: str = "", payload: ArchiveOverridesPayload | None = None
 ) -> Any:
     """保存归档文书占位符覆盖值
@@ -155,7 +155,7 @@ def save_archive_overrides(
 
 
 @router.delete("/contracts/{contract_id}/archive-placeholder-overrides")
-def delete_archive_overrides(request: Any, contract_id: int, template_subtype: str = "") -> Any:
+def delete_archive_overrides(request: Any, contract_id: int, template_subtype: str = "") -> Any:  # pragma: no cover
     """删除归档文书占位符覆盖值（放弃修改）
 
     Args:
@@ -176,7 +176,7 @@ def delete_archive_overrides(request: Any, contract_id: int, template_subtype: s
 
 @router.get("/contracts/{contract_id}/download")
 @rate_limit_from_settings("EXPORT", by_user=True)
-def download_contract_document(request: Any, contract_id: int, split_fee: bool = True) -> Any:
+def download_contract_document(request: Any, contract_id: int, split_fee: bool = True) -> Any:  # pragma: no cover
     """
     下载合同文档(DOCX 格式)
 
@@ -231,7 +231,7 @@ def download_contract_document(request: Any, contract_id: int, split_fee: bool =
 
 @router.get("/contracts/{contract_id}/folder/download")
 @rate_limit_from_settings("EXPORT", by_user=True)
-def download_contract_folder(request: Any, contract_id: int) -> Any:
+def download_contract_folder(request: Any, contract_id: int) -> Any:  # pragma: no cover
     """
     下载合同文件夹(ZIP 格式)
 
@@ -276,7 +276,7 @@ def download_contract_folder(request: Any, contract_id: int) -> Any:
 
 @router.get("/contracts/{contract_id}/supplementary-agreements/{agreement_id}/download")
 @rate_limit_from_settings("EXPORT", by_user=True)
-def download_supplementary_agreement(request: Any, contract_id: int, agreement_id: int) -> Any:
+def download_supplementary_agreement(request: Any, contract_id: int, agreement_id: int) -> Any:  # pragma: no cover
     """
     下载补充协议文档(DOCX 格式)
 

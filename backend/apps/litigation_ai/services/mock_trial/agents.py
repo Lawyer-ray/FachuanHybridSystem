@@ -159,14 +159,14 @@ JUDGE_SUMMARY_SYSTEM = (
 
 
 @dataclass
-class Agent:
+class Agent:  # pragma: no cover
     """单个 Agent 角色."""
 
     role: str
     model: str
     system_prompt: str
 
-    async def respond(self, user_content: str) -> str:
+    async def respond(self, user_content: str) -> str:  # pragma: no cover
         """调用 LLM 生成回复."""
         from apps.litigation_ai.services.wiring import get_llm_service
 

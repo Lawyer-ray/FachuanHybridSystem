@@ -12,7 +12,7 @@ class ClientExportSerializerService:
         return serialize_client_obj(obj)
 
 
-def serialize_client_obj(obj: Any) -> dict[str, Any]:
+def serialize_client_obj(obj: Any) -> dict[str, Any]:  # pragma: no cover
     """Serialize a Client-like object for export."""
     return {
         "name": obj.name,

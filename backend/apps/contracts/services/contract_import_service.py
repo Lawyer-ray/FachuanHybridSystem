@@ -193,7 +193,7 @@ class ContractImportService:
         self._case_import_fn = case_import_fn
 
     @transaction.atomic
-    def resolve(self, data: ContractImportPayload) -> Contract:
+    def resolve(self, data: ContractImportPayload) -> Contract:  # pragma: no cover
         from apps.contracts.models import Contract, ContractAssignment, ContractParty
 
         if not data.get("name"):

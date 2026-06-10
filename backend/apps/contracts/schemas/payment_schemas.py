@@ -9,6 +9,7 @@ from __future__ import annotations
 from typing import Any, ClassVar
 
 from ninja import ModelSchema, Schema
+from pydantic import Field
 
 from apps.contracts.models import ContractPayment, InvoiceStatus
 from apps.core.api.schemas import SchemaMixin
@@ -16,10 +17,10 @@ from apps.core.api.schemas import SchemaMixin
 
 class ContractPaymentIn(Schema):
     contract_id: int
-    amount: float
+    amount: float = Field(gt=0, description="收款金额，必须大于 0")
     received_at: str | None = None
     invoice_status: str | None = InvoiceStatus.UNINVOICED
-    invoiced_amount: float | None = 0
+    invoiced_amount: float = Field(0, ge=0, description="开票金额，不能为负")
     note: str | None = None
     confirm: bool = False
 

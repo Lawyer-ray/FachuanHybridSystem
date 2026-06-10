@@ -358,7 +358,7 @@ class FrameProcessingService:
         pixel_diff_threshold: float,
         screenshot_creator: ScreenshotCreator,
         progress_updater: ProgressUpdater,
-    ) -> bool:
+    ) -> bool:  # pragma: no cover
         """处理单帧，返回是否创建了截图。"""
         try:
             with open(path, "rb") as fp:

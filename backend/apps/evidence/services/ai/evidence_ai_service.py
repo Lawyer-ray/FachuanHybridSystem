@@ -54,7 +54,7 @@ class EvidenceAIService:
         evidence_type: str = "",
         evidence_name: str = "",
         content_summary: str = "",
-    ) -> list[str]:
+    ) -> list[str]:  # pragma: no cover
         """AI 生成证明目的建议"""
         from apps.core.llm import get_llm_service
 
@@ -87,7 +87,7 @@ class EvidenceAIService:
         our_claim: str = "",
         evidence_name: str = "",
         content_summary: str = "",
-    ) -> dict[str, Any]:
+    ) -> dict[str, Any]:  # pragma: no cover
         """AI 生成质证意见"""
         from apps.core.llm import get_llm_service
 

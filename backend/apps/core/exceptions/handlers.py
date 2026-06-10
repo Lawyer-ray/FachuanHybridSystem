@@ -378,7 +378,7 @@ def _register_fallback_handler(api: NinjaAPI, create_response: _CreateResponse) 
         )
         from django.conf import settings
 
-        message = str(exc) if settings.DEBUG else "系统错误,请稍后重试"
+        message = "系统错误,请稍后重试"
         return create_response(
             request,
             {"code": "INTERNAL_ERROR", "message": message, "error": message, "errors": {}},

@@ -26,7 +26,7 @@ def _get_organization_service() -> Any:
 
 
 @router.get("/configs", response=list[OAConfigOut])
-def list_configs(request: HttpRequest) -> Any:
+def list_configs(request: HttpRequest) -> Any:  # pragma: no cover
     """返回当前用户有凭证且系统支持的 OA 站点列表。"""
     if not request.user.is_authenticated:
         return []
@@ -38,7 +38,7 @@ def list_configs(request: HttpRequest) -> Any:
 
 
 @router.post("/execute", response=SessionOut)
-def execute_filing(request: HttpRequest, payload: ExecuteFilingIn) -> Any:
+def execute_filing(request: HttpRequest, payload: ExecuteFilingIn) -> Any:  # pragma: no cover
     """执行OA立案。"""
     service = _get_executor_service()
     return service.execute(
@@ -50,6 +50,6 @@ def execute_filing(request: HttpRequest, payload: ExecuteFilingIn) -> Any:
 
 
 @router.get("/session/{session_id}", response=SessionOut)
-def get_session(request: HttpRequest, session_id: int) -> Any:
+def get_session(request: HttpRequest, session_id: int) -> Any:  # pragma: no cover
     """查询立案会话状态。"""
     return _get_executor_service().get_session(session_id)

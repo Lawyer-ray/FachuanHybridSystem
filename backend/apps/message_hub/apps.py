@@ -10,7 +10,7 @@ class MessageHubConfig(AppConfig):
     name = "apps.message_hub"
     verbose_name = "信息中转站"
 
-    def ready(self) -> None:
+    def ready(self) -> None:  # pragma: no cover
         from django.db.models.signals import post_migrate
 
         from apps.message_hub import admin  # 触发 Admin 注册

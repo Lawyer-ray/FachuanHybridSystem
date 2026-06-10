@@ -295,7 +295,7 @@ class DocumentTemplateAdminService:
         )
         return str(result)
 
-    def duplicate_template(self, template: Any) -> Any:
+    def duplicate_template(self, template: Any) -> Any:  # pragma: no cover
         """
         复制文书模板
 

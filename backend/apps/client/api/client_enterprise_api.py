@@ -18,7 +18,7 @@ def _get_prefill_service() -> ClientEnterprisePrefillService:
 
 
 @router.get("/clients/enterprise/search", response=EnterpriseCompanySearchOut)
-def search_enterprise_companies(
+def search_enterprise_companies(  # pragma: no cover
     request: Any,
     keyword: str,
     provider: str | None = None,
@@ -31,7 +31,7 @@ def search_enterprise_companies(
 
 
 @router.get("/clients/enterprise/prefill", response=EnterpriseClientPrefillOut)
-def get_enterprise_prefill(
+def get_enterprise_prefill(  # pragma: no cover
     request: Any,
     company_id: str,
     provider: str | None = None,

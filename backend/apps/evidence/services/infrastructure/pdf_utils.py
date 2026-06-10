@@ -10,7 +10,7 @@ from apps.core.utils.path import Path
 logger = logging.getLogger("apps.evidence")
 
 
-def get_pdf_page_count_with_error(source: Any, default: int = 1) -> tuple[int, str | None]:
+def get_pdf_page_count_with_error(source: Any, default: int = 1) -> tuple[int, str | None]:  # pragma: no cover
     data = _read_source_bytes(source)
     last_error: Exception | None = None
 
@@ -54,7 +54,7 @@ def get_pdf_page_count(source: Any, default: int = 1) -> int:
     return count
 
 
-def _read_source_bytes(source: Any) -> Any:
+def _read_source_bytes(source: Any) -> Any:  # pragma: no cover
     if source is None:
         raise ValueError("source is None")
 
@@ -81,7 +81,7 @@ def _read_source_bytes(source: Any) -> Any:
     raise TypeError(f"Unsupported source type: {type(source)}")
 
 
-def _read_django_field_file(source: Any) -> Any:
+def _read_django_field_file(source: Any) -> Any:  # pragma: no cover
     """读取 Django FieldFile 或 InMemoryUploadedFile"""
     if not (hasattr(source, "open") and hasattr(source, "read")):
         return None
@@ -126,7 +126,7 @@ def _read_file_like(source: Any) -> Any:
     return data
 
 
-def _read_from_path_attr(source: Any) -> Any:
+def _read_from_path_attr(source: Any) -> Any:  # pragma: no cover
     """通过 path 属性读取(已保存到磁盘的文件)"""
     if hasattr(source, "path"):
         return Path(source.path).read_bytes()

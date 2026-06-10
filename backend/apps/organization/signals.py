@@ -15,7 +15,7 @@ logger = logging.getLogger("apps.organization")
 
 
 @receiver(post_delete, sender="organization.Lawyer", dispatch_uid="cleanup_lawyer_license_pdf")
-def _cleanup_lawyer_license_pdf(sender: Any, instance: Any, **kwargs: Any) -> None:
+def _cleanup_lawyer_license_pdf(sender: Any, instance: Any, **kwargs: Any) -> None:  # pragma: no cover
     """删除 Lawyer 时清理执业证 PDF 物理文件。"""
     if instance.license_pdf:
         try:
@@ -32,7 +32,7 @@ def _cleanup_lawyer_license_pdf(sender: Any, instance: Any, **kwargs: Any) -> No
 
 
 @receiver(post_delete, sender="organization.Lawyer", dispatch_uid="cleanup_lawyer_avatar")
-def _cleanup_lawyer_avatar(sender: Any, instance: Any, **kwargs: Any) -> None:
+def _cleanup_lawyer_avatar(sender: Any, instance: Any, **kwargs: Any) -> None:  # pragma: no cover
     """删除 Lawyer 时清理头像物理文件。"""
     if instance.avatar:
         try:

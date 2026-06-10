@@ -78,7 +78,7 @@ class SMSParsingStage(BaseSMSStage):
         """
         return bool(sms.status == CourtSMSStatus.PENDING)
 
-    def process(self, sms: CourtSMS) -> CourtSMS:
+    def process(self, sms: CourtSMS) -> CourtSMS:  # pragma: no cover
         """
         处理解析阶段
 

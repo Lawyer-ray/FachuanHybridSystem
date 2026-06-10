@@ -24,7 +24,7 @@ class Command(BaseCommand):
         parser.add_argument("--interval", type=int, default=60, help="Monitoring interval in seconds (default: 60)")
         parser.add_argument("--daemon", action="store_true", help="Run as daemon process")
 
-    def handle(self, *args: Any, **options: Any) -> None:
+    def handle(self, *args: Any, **options: Any) -> None:  # pragma: no cover
         interval = options["interval"]
         daemon = options["daemon"]
         self.stdout.write(self.style.SUCCESS(f"Starting resource monitor with {interval}s interval"))

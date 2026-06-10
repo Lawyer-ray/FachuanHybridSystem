@@ -16,10 +16,10 @@ from apps.evidence.models import EvidenceDirection, EvidenceItem, EvidenceList, 
 logger = logging.getLogger("apps.evidence")
 
 
-class HearingModeAdminMixin:
+class HearingModeAdminMixin:  # pragma: no cover
     """开庭模式 Admin Mixin，添加到 EvidenceListAdmin"""
 
-    def get_urls(self) -> list[Any]:
+    def get_urls(self) -> list[Any]:  # pragma: no cover
         urls = super().get_urls()  # type: ignore[misc]
         custom = [
             path(
@@ -35,7 +35,7 @@ class HearingModeAdminMixin:
         ]
         return custom + urls  # type: ignore[no-any-return]
 
-    def hearing_mode_view(self, request: HttpRequest, case_id: int) -> TemplateResponse:
+    def hearing_mode_view(self, request: HttpRequest, case_id: int) -> TemplateResponse:  # pragma: no cover
         from apps.cases.models import Case
 
         case = Case.objects.get(pk=case_id)
@@ -78,7 +78,7 @@ class HearingModeAdminMixin:
         }
         return TemplateResponse(request, "admin/evidence/hearing_mode.html", context)
 
-    def hearing_note_save_view(self, request: HttpRequest, case_id: int) -> JsonResponse:
+    def hearing_note_save_view(self, request: HttpRequest, case_id: int) -> JsonResponse:  # pragma: no cover
         if request.method != "POST":
             return JsonResponse({"success": False, "error": "Method not allowed"}, status=405)
 

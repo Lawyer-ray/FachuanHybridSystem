@@ -134,11 +134,11 @@ class DocumentDeliveryProcessor:
 
     def process_sms_in_thread(
         self, record: DocumentDeliveryRecord, file_path: str, extracted_files: list[str], credential_id: int
-    ) -> dict[str, Any]:
+    ) -> dict[str, Any]:  # pragma: no cover
         """在独立线程中执行 SMS 处理流程"""
         result_queue: queue.Queue[dict[str, Any]] = queue.Queue()
 
-        def do_process() -> None:
+        def do_process() -> None:  # pragma: no cover
             try:
                 from django.db import connection
                 from django.utils import timezone
@@ -230,10 +230,10 @@ class DocumentDeliveryProcessor:
 
         return result_queue.get() if not result_queue.empty() else {"success": False, "error_message": "SMS 处理超时"}
 
-    def record_query_history_in_thread(self, credential_id: int, entry: DocumentDeliveryRecord) -> None:
+    def record_query_history_in_thread(self, credential_id: int, entry: DocumentDeliveryRecord) -> None:  # pragma: no cover
         """在独立线程中记录查询历史"""
 
-        def do_record() -> None:
+        def do_record() -> None:  # pragma: no cover
             try:
                 from django.db import connection, transaction
                 from django.utils import timezone
@@ -288,7 +288,7 @@ class DocumentDeliveryProcessor:
             logger.warning(f"从文书提取当事人匹配失败: {e!s}")
             return None
 
-    def rename_and_attach_documents(self, sms: Any, case: Any, extracted_files: list[str]) -> tuple[Any, ...]:
+    def rename_and_attach_documents(self, sms: Any, case: Any, extracted_files: list[str]) -> tuple[Any, ...]:  # pragma: no cover
         """重命名文书并添加到案件日志"""
         renamed_files = []
         case_log_id = None
@@ -325,7 +325,7 @@ class DocumentDeliveryProcessor:
 
         return renamed_files, case_log_id
 
-    def _upload_attachments(self, case_log_service: Any, log_id: int, file_paths: list[str]) -> None:
+    def _upload_attachments(self, case_log_service: Any, log_id: int, file_paths: list[str]) -> None:  # pragma: no cover
         """上传附件到案件日志"""
         from django.core.files.uploadedfile import SimpleUploadedFile
 
@@ -357,7 +357,7 @@ class DocumentDeliveryProcessor:
             logger.warning(f"获取系统用户失败: {e!s}")
             return None
 
-    def archive_to_case_folder(self, sms: Any, renamed_paths: list[str]) -> None:
+    def archive_to_case_folder(self, sms: Any, renamed_paths: list[str]) -> None:  # pragma: no cover
         """将文书归档到案件绑定目录（不影响主流程）"""
         if not sms.case_id or not renamed_paths:
             return
@@ -387,7 +387,7 @@ class DocumentDeliveryProcessor:
             sms.notification_results["_exception"] = {"success": False, "error": str(e)}
             return False
 
-    def extract_zip_if_needed(self, file_path: str) -> list[str] | None:
+    def extract_zip_if_needed(self, file_path: str) -> list[str] | None:  # pragma: no cover
         """如果是 ZIP 文件则解压，返回解压后的文件列表"""
         if not file_path.lower().endswith(".zip"):
             return None

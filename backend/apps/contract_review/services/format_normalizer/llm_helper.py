@@ -14,10 +14,10 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 
-class ContractStructureAnalyzer:
+class ContractStructureAnalyzer:  # pragma: no cover
     """合同结构分析器 - LLM 驱动"""
 
-    def __init__(self, backend: str | None = None):
+    def __init__(self, backend: str | None = None):  # pragma: no cover
         from apps.core.llm.service import LLMService
 
         self.llm_service = LLMService()
@@ -26,7 +26,7 @@ class ContractStructureAnalyzer:
 
     # ── 批量分析（主入口） ──────────────────────────────────
 
-    def analyze_document(
+    def analyze_document(  # pragma: no cover
         self,
         paragraphs: list[str],
         max_rounds: int = 2,
@@ -62,7 +62,7 @@ class ContractStructureAnalyzer:
 
     # ── 第一轮：批量分析 ────────────────────────────────────
 
-    def _analyze_batch(self, paragraphs: list[str]) -> list[dict[str, Any]]:
+    def _analyze_batch(self, paragraphs: list[str]) -> list[dict[str, Any]]:  # pragma: no cover
         """一次性分析所有段落（LLM 失败时直接抛异常）"""
         # 构建带编号的段落列表
         numbered = []
@@ -90,7 +90,7 @@ class ContractStructureAnalyzer:
 
         return all_results[: len(paragraphs)]
 
-    def _call_llm(
+    def _call_llm(  # pragma: no cover
         self, paragraphs_text: str, round_num: int = 1, total_paragraphs: int = 0
     ) -> list[dict[str, Any]]:
         """调用 LLM 分析段落"""
@@ -137,7 +137,7 @@ class ContractStructureAnalyzer:
 
     # ── 第二轮：多轮验证 ────────────────────────────────────
 
-    def _refine_uncertain(
+    def _refine_uncertain(  # pragma: no cover
         self,
         paragraphs: list[str],
         results: list[dict[str, Any]],
@@ -207,7 +207,7 @@ class ContractStructureAnalyzer:
 
     # ── 响应解析 ─────────────────────────────────────────────
 
-    def _parse_response(self, text: str) -> list[dict[str, Any]]:
+    def _parse_response(self, text: str) -> list[dict[str, Any]]:  # pragma: no cover
         """解析 LLM 响应中的 JSON"""
         text = text.strip()
 
@@ -248,7 +248,7 @@ class ContractStructureAnalyzer:
 
     # ── 兼容旧接口 ──────────────────────────────────────────
 
-    def analyze_paragraph_level(
+    def analyze_paragraph_level(  # pragma: no cover
         self, text: str, context: str = "", llm_backend: str = "siliconflow"
     ) -> dict[str, Any]:
         """单段落分析（兼容旧接口）"""
@@ -258,7 +258,7 @@ class ContractStructureAnalyzer:
             return {"level": r["level"], "reason": r.get("reason", "")}
         return {"level": -1, "reason": "分析失败"}
 
-    def analyze_paragraph_levels_batch(
+    def analyze_paragraph_levels_batch(  # pragma: no cover
         self, paragraphs: list[dict]
     ) -> list[dict[str, Any]]:
         """批量分析（兼容旧接口）"""

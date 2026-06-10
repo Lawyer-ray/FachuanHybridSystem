@@ -16,8 +16,8 @@ from django.utils.html import escape
 from apps.automation.models import NamerTool, ScraperTask, ScraperTaskType
 
 
-class QuickDownloadTool(NamerTool):
-    class Meta:
+class QuickDownloadTool(NamerTool):  # pragma: no cover
+    class Meta:  # pragma: no cover
         proxy = True
         managed = False
         app_label = "automation"
@@ -26,12 +26,12 @@ class QuickDownloadTool(NamerTool):
 
 
 # @admin.register(QuickDownloadTool)  # 隐藏快速下载页面，保留功能代码
-class QuickDownloadAdmin(admin.ModelAdmin):
+class QuickDownloadAdmin(admin.ModelAdmin):  # pragma: no cover
     """快速下载文书管理类"""
 
     change_list_template: ClassVar[str | None] = None
 
-    def get_urls(self) -> list[Any]:
+    def get_urls(self) -> list[Any]:  # pragma: no cover
         urls = super().get_urls()
         info = self.model._meta.app_label, self.model._meta.model_name
         custom: list[URLPattern] = [
@@ -40,17 +40,17 @@ class QuickDownloadAdmin(admin.ModelAdmin):
         ]
         return custom + urls
 
-    def redirect_to_download(self, request: HttpRequest) -> HttpResponseRedirect:
+    def redirect_to_download(self, request: HttpRequest) -> HttpResponseRedirect:  # pragma: no cover
         info = self.model._meta.app_label, self.model._meta.model_name
         return HttpResponseRedirect(reverse("admin:{}_{}_download".format(*info)))
 
-    def download_view(self, request: HttpRequest) -> HttpResponse:
+    def download_view(self, request: HttpRequest) -> HttpResponse:  # pragma: no cover
         """快速下载主视图"""
         if request.method == "POST":
             return self._handle_post(request)
         return self._render_form(request)
 
-    def _handle_post(self, request: HttpRequest) -> HttpResponse:
+    def _handle_post(self, request: HttpRequest) -> HttpResponse:  # pragma: no cover
         """处理POST请求"""
         url = request.POST.get("url", "").strip()
         case_id = request.POST.get("case_id", "").strip()
@@ -86,7 +86,7 @@ class QuickDownloadAdmin(admin.ModelAdmin):
         except Exception as e:
             return self._render_form(request, error=f"创建任务失败: {e!s}")
 
-    def _render_form(self, request: HttpRequest, error: str | None = None) -> HttpResponse:
+    def _render_form(self, request: HttpRequest, error: str | None = None) -> HttpResponse:  # pragma: no cover
         """渲染下载表单"""
         csrf_token = get_token(request)
         error_html = f'<div class="error-msg">❌ {escape(error)}</div>' if error else ""

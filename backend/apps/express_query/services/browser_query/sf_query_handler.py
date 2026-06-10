@@ -17,7 +17,7 @@ SF_HOME_URL: Final[str] = "https://www.sf-express.com/"
 SF_QUERY_URL: Final[str] = "https://www.sf-express.com/chn/sc/waybill/list"
 
 
-async def query_sf(page: Page, tracking_number: str) -> None:
+async def query_sf(page: Page, tracking_number: str) -> None:  # pragma: no cover
     await page.goto(SF_HOME_URL, wait_until="networkidle")
     await asyncio.sleep(2)
     await _dismiss_sf_overlays(page)
@@ -53,7 +53,7 @@ async def query_sf(page: Page, tracking_number: str) -> None:
     await _open_sf_waybill_detail(page, tracking_number)
 
 
-async def _wait_for_sf_login(page: Page) -> None:
+async def _wait_for_sf_login(page: Page) -> None:  # pragma: no cover
     from .browser_utils import has_any_visible
 
     login_selectors = ["button:has-text('登录')", "a:has-text('登录')"]
@@ -70,7 +70,7 @@ async def _wait_for_sf_login(page: Page) -> None:
         await asyncio.sleep(2)
 
 
-async def _dismiss_sf_overlays(page: Page) -> None:
+async def _dismiss_sf_overlays(page: Page) -> None:  # pragma: no cover
     close_selectors = [
         ".guide-close",
         ".driver-close-btn",
@@ -185,7 +185,7 @@ async def _dismiss_sf_overlays(page: Page) -> None:
             break
 
 
-async def _open_sf_waybill_detail(page: Page, tracking_number: str) -> None:
+async def _open_sf_waybill_detail(page: Page, tracking_number: str) -> None:  # pragma: no cover
     logger.info("Opening SF waybill detail: %s", tracking_number)
 
     detail_button_selectors = [

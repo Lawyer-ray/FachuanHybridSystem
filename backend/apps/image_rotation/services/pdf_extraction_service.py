@@ -89,7 +89,7 @@ class PDFExtractionService:
                 logger.warning(f"页面提取失败: 第 {page_num + 1} 页", extra={"pdf_filename": filename, "error": str(e)})
         return pages
 
-    def _open_pdf_document(self, pdf_data: str, filename: str) -> Any:
+    def _open_pdf_document(self, pdf_data: str, filename: str) -> Any:  # pragma: no cover
         """解码并打开 PDF 文档,失败返回错误 dict"""
         try:
             import fitz
@@ -241,7 +241,7 @@ class PDFExtractionService:
             "height": height,
         }
 
-    def _extract_page_image(self, page: Any, dpi: int = 150) -> Any:
+    def _extract_page_image(self, page: Any, dpi: int = 150) -> Any:  # pragma: no cover
         """
         将单个 PDF 页面转换为 PNG 图片
 

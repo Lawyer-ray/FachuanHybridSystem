@@ -13,7 +13,7 @@ from apps.core.models.enums import ChatPlatform
 __all__ = ["ChatResult", "MessageContent", "ChatProvider"]
 
 
-class ChatProvider(ABC):
+class ChatProvider(ABC):  # pragma: no cover
     """群聊提供者抽象接口
 
     定义了所有群聊提供者必须实现的标准操作接口。
@@ -21,7 +21,7 @@ class ChatProvider(ABC):
     """
 
     @abstractmethod
-    def create_chat(self, chat_name: str, owner_id: str | None = None) -> ChatResult:
+    def create_chat(self, chat_name: str, owner_id: str | None = None) -> ChatResult:  # pragma: no cover
         """创建群聊
 
         Args:
@@ -37,7 +37,7 @@ class ChatProvider(ABC):
         pass
 
     @abstractmethod
-    def send_message(self, chat_id: str, content: MessageContent) -> ChatResult:
+    def send_message(self, chat_id: str, content: MessageContent) -> ChatResult:  # pragma: no cover
         """发送消息到群聊
 
         Args:

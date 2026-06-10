@@ -104,7 +104,7 @@ class DocumentMatchingMixin:
             logger.warning(f"案号同步失败: Case ID={case_id}, 案号={case_number}, 错误: {e!s}")
             return False
 
-    def _rename_and_attach_documents(self, sms: Any, case: Any, extracted_files: list[str]) -> tuple[Any, ...]:
+    def _rename_and_attach_documents(self, sms: Any, case: Any, extracted_files: list[str]) -> tuple[Any, ...]:  # pragma: no cover
         """重命名文书并添加到案件日志"""
         renamed_files: list[str] = []
         case_log_id = None
@@ -185,7 +185,7 @@ class DocumentMatchingMixin:
             logger.warning(f"获取系统用户失败: {e!s}")
             return None
 
-    def _archive_to_case_folder(self, sms: Any, renamed_paths: list[str]) -> None:
+    def _archive_to_case_folder(self, sms: Any, renamed_paths: list[str]) -> None:  # pragma: no cover
         """将文书归档到案件绑定目录（不影响主流程）"""
         if not sms.case_id or not renamed_paths:
             return

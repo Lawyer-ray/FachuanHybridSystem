@@ -18,7 +18,7 @@ router = Router()
 
 
 @router.post("/{case_id}/generate-folder")
-def generate_case_folder(request: HttpRequest, case_id: int) -> Any:
+def generate_case_folder(request: HttpRequest, case_id: int) -> Any:  # pragma: no cover
     """
     生成案件文件夹。
     - 若合同绑定了文件夹：在绑定路径下创建案件文件夹，返回 JSON

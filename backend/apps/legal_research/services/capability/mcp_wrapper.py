@@ -7,15 +7,15 @@ from apps.legal_research.schemas import AgentSearchRequestV1
 from .service import LegalResearchCapabilityService
 
 
-class LegalResearchCapabilityMcpWrapper:
+class LegalResearchCapabilityMcpWrapper:  # pragma: no cover
     """给上层 Agent/MCP 调用的轻量封装，输出保持与 capability v1 契约一致。"""
 
     CONTRACT_VERSION = "v1"
 
-    def __init__(self, *, capability_service: LegalResearchCapabilityService | None = None) -> None:
+    def __init__(self, *, capability_service: LegalResearchCapabilityService | None = None) -> None:  # pragma: no cover
         self._capability_service = capability_service or LegalResearchCapabilityService()
 
-    def search(
+    def search(  # pragma: no cover
         self,
         *,
         payload: AgentSearchRequestV1,
@@ -37,7 +37,7 @@ class LegalResearchCapabilityMcpWrapper:
         }
 
     @staticmethod
-    def _serialize_hit(hit: Any) -> dict[str, Any]:
+    def _serialize_hit(hit: Any) -> dict[str, Any]:  # pragma: no cover
         snippets = hit.snippets if hasattr(hit, "snippets") else None
         subscores = hit.subscores if hasattr(hit, "subscores") else None
         return {

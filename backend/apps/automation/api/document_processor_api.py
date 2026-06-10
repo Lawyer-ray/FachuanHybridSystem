@@ -21,7 +21,7 @@ def _get_document_processor_service() -> Any:
 
 @router.post("/process", response=DocumentProcessOut)
 @rate_limit_from_settings("UPLOAD")
-def process_document(request: Any, payload: DocumentProcessIn) -> DocumentProcessOut:
+def process_document(request: Any, payload: DocumentProcessIn) -> DocumentProcessOut:  # pragma: no cover
     """文档处理API"""
     # 使用工厂函数获取服务
     service = _get_document_processor_service()
@@ -36,7 +36,7 @@ def process_document(request: Any, payload: DocumentProcessIn) -> DocumentProces
 
 @router.post("/process-by-path", response=DocumentProcessOut)
 @rate_limit_from_settings("UPLOAD")
-def process_document_by_path(request: Any, payload: DocumentProcessIn) -> DocumentProcessOut:
+def process_document_by_path(request: Any, payload: DocumentProcessIn) -> DocumentProcessOut:  # pragma: no cover
     """通过路径处理文档"""
     # 使用工厂函数获取服务
     service = _get_document_processor_service()

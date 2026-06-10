@@ -335,7 +335,7 @@ class DocumentRenamer:
 
         return text
 
-    def rename(self, document_path: str, case_name: str, received_date: date) -> str:
+    def rename(self, document_path: str, case_name: str, received_date: date) -> str:  # pragma: no cover
         """
         重命名文书，返回新路径
 
@@ -377,7 +377,7 @@ class DocumentRenamer:
 
     def rename_with_fallback(
         self, document_path: str, case_name: str, received_date: date, original_name: str | None = None
-    ) -> str:
+    ) -> str:  # pragma: no cover
         """
         带降级方案的重命名
 

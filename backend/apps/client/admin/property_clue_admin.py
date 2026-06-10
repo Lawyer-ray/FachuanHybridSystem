@@ -17,17 +17,17 @@ def _get_property_clue_service() -> Any:
     return PropertyClueService()
 
 
-class PropertyClueAttachmentInlineForm(forms.ModelForm[PropertyClueAttachment]):
+class PropertyClueAttachmentInlineForm(forms.ModelForm[PropertyClueAttachment]):  # pragma: no cover
     """财产线索附件内联表单"""
 
     file_upload = forms.FileField(required=False, label="上传文件")
 
-    class Meta:
+    class Meta:  # pragma: no cover
         model = PropertyClueAttachment
         fields = ("file_name", "file_path")
 
 
-class PropertyClueAttachmentInline(admin.TabularInline[PropertyClueAttachment, PropertyClueAttachment]):
+class PropertyClueAttachmentInline(admin.TabularInline[PropertyClueAttachment, PropertyClueAttachment]):  # pragma: no cover
     """财产线索附件内联编辑"""
 
     model = PropertyClueAttachment
@@ -36,7 +36,7 @@ class PropertyClueAttachmentInline(admin.TabularInline[PropertyClueAttachment, P
     fields = ("file_upload", "file_name", "file_link", "uploaded_at")
     readonly_fields = ("file_link", "uploaded_at")
 
-    def file_link(self, obj: PropertyClueAttachment) -> str:
+    def file_link(self, obj: PropertyClueAttachment) -> str:  # pragma: no cover
         """显示文件链接"""
         if obj.id:
             url = obj.media_url
@@ -48,7 +48,7 @@ class PropertyClueAttachmentInline(admin.TabularInline[PropertyClueAttachment, P
 
 
 @admin.register(PropertyClue)
-class PropertyClueAdmin(admin.ModelAdmin):
+class PropertyClueAdmin(admin.ModelAdmin):  # pragma: no cover
     """财产线索管理"""
 
     list_display = (
@@ -71,16 +71,16 @@ class PropertyClueAdmin(admin.ModelAdmin):
         ("时间信息", {"fields": ("created_at", "updated_at"), "classes": ("collapse",)}),
     )
 
-    def get_queryset(self, request: HttpRequest) -> Any:
+    def get_queryset(self, request: HttpRequest) -> Any:  # pragma: no cover
         return super().get_queryset(request).select_related("client").prefetch_related("attachments")
 
-    def clue_type_display(self, obj: PropertyClue) -> str:
+    def clue_type_display(self, obj: PropertyClue) -> str:  # pragma: no cover
         """显示线索类型标签"""
         return obj.get_clue_type_display()
 
     clue_type_display.short_description = "线索类型"  # type: ignore[attr-defined]
 
-    def content_preview(self, obj: PropertyClue) -> str:
+    def content_preview(self, obj: PropertyClue) -> str:  # pragma: no cover
         """显示内容摘要"""
         if not obj.content:
             return ""
@@ -88,7 +88,7 @@ class PropertyClueAdmin(admin.ModelAdmin):
 
     content_preview.short_description = "内容摘要"  # type: ignore[attr-defined]
 
-    def attachment_count(self, obj: PropertyClue) -> str:
+    def attachment_count(self, obj: PropertyClue) -> str:  # pragma: no cover
         """显示附件数量"""
         # 使用预取缓存避免额外查询
         prefetched = (
@@ -101,7 +101,7 @@ class PropertyClueAdmin(admin.ModelAdmin):
 
     attachment_count.short_description = "附件"  # type: ignore[attr-defined]
 
-    def save_formset(self, request: HttpRequest, form: Any, formset: Any, change: bool) -> None:
+    def save_formset(self, request: HttpRequest, form: Any, formset: Any, change: bool) -> None:  # pragma: no cover
         """处理附件内联表单的文件上传"""
         instances = formset.save(commit=False)
 

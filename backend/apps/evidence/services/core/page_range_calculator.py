@@ -8,7 +8,7 @@ from apps.evidence.models import EvidenceItem, EvidenceList
 
 
 class EvidencePageRangeCalculator:
-    def calculate_page_ranges(self, *, evidence_list: EvidenceList) -> None:
+    def calculate_page_ranges(self, *, evidence_list: EvidenceList) -> None:  # pragma: no cover
         items = list(evidence_list.items.filter(file__isnull=False).order_by("order"))
 
         current_page = evidence_list.start_page

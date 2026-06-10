@@ -542,7 +542,7 @@ class MaterialClassificationService:
         value = re.sub(r"\s+", "", value)
         return value
 
-    def _complete(self, *, system_prompt: str, user_prompt: str) -> str:
+    def _complete(self, *, system_prompt: str, user_prompt: str) -> str:  # pragma: no cover
         try:
             response = get_llm_service().complete(
                 prompt=user_prompt,

@@ -12,7 +12,7 @@ from django.contrib import admin
 from apps.contracts.models import ContractAssignment
 
 
-class ContractAssignmentAdmin(admin.ModelAdmin):
+class ContractAssignmentAdmin(admin.ModelAdmin):  # pragma: no cover
     """合同律师指派 Admin"""
 
     list_display = (

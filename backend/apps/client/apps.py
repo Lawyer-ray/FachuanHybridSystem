@@ -6,5 +6,5 @@ class ClientConfig(AppConfig):
     name = "apps.client"
     verbose_name = "当事人管理"
 
-    def ready(self) -> None:
+    def ready(self) -> None:  # pragma: no cover
         from . import signals

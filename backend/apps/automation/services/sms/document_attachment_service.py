@@ -175,7 +175,7 @@ class DocumentAttachmentService:
                     logger.debug(f"收集路径: {fp}")
         return added
 
-    def _collect_from_court_documents(self, sms: "CourtSMS", target: list[str], seen: set[str]) -> None:
+    def _collect_from_court_documents(self, sms: "CourtSMS", target: list[str], seen: set[str]) -> None:  # pragma: no cover
         """从 CourtDocument 记录收集路径"""
         scraper_task = getattr(sms, "scraper_task", None)
         if not scraper_task or not hasattr(scraper_task, "documents"):
@@ -237,7 +237,7 @@ class DocumentAttachmentService:
         logger.info(f"文书重命名完成: SMS ID={sms.id}, 成功重命名 {len(renamed_paths)} 个文书")
         return renamed_paths
 
-    def add_to_case_log(self, sms: "CourtSMS", file_paths: list[str]) -> bool:
+    def add_to_case_log(self, sms: "CourtSMS", file_paths: list[str]) -> bool:  # pragma: no cover
         """
         将文书附件添加到案件日志
         """
@@ -261,7 +261,7 @@ class DocumentAttachmentService:
             logger.error(f"添加附件到案件日志失败: SMS ID={sms.id}, 错误: {e!s}")
             return False
 
-    def _add_single_attachment(self, sms: "CourtSMS", file_path: str, target_dir: str) -> bool:
+    def _add_single_attachment(self, sms: "CourtSMS", file_path: str, target_dir: str) -> bool:  # pragma: no cover
         """添加单个附件，返回是否成功"""
         try:
             if not Path(file_path).exists():

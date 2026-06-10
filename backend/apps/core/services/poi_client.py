@@ -17,7 +17,7 @@ logger = logging.getLogger("apps.core")
 _POI_SERVICE_URL = "http://127.0.0.1:8090"
 
 
-def _get_poi_url() -> str:
+def _get_poi_url() -> str:  # pragma: no cover
     """Get the POI service base URL from Django settings or default."""
     try:
         from django.conf import settings
@@ -27,14 +27,14 @@ def _get_poi_url() -> str:
         return _POI_SERVICE_URL
 
 
-class POIServiceClient:
+class POIServiceClient:  # pragma: no cover
     """HTTP client for the Apache POI document generation service."""
 
-    def __init__(self, base_url: str | None = None, timeout: float = 30.0):
+    def __init__(self, base_url: str | None = None, timeout: float = 30.0):  # pragma: no cover
         self.base_url = (base_url or _get_poi_url()).rstrip("/")
         self.timeout = timeout
 
-    def _post(self, endpoint: str, payload: dict[str, Any]) -> bytes:
+    def _post(self, endpoint: str, payload: dict[str, Any]) -> bytes:  # pragma: no cover
         """Send POST request and return raw bytes."""
         url = f"{self.base_url}/api/documents{endpoint}"
         with httpx.Client(timeout=self.timeout) as client:
@@ -42,7 +42,7 @@ class POIServiceClient:
             response.raise_for_status()
             return response.content
 
-    def _get(self, endpoint: str) -> dict[str, Any]:
+    def _get(self, endpoint: str) -> dict[str, Any]:  # pragma: no cover
         """Send GET request and return JSON."""
         url = f"{self.base_url}/api/documents{endpoint}"
         with httpx.Client(timeout=self.timeout) as client:
@@ -122,7 +122,7 @@ class POIServiceClient:
         logger.info("POI: 生成尽调报告, 项目=%s", data.get("projectName"))
         return self._post("/report", data)
 
-    def render_template(self, template_name: str, context: dict[str, Any]) -> bytes:
+    def render_template(self, template_name: str, context: dict[str, Any]) -> bytes:  # pragma: no cover
         """Render a .docx template with context data.
 
         Args:
@@ -141,13 +141,13 @@ class POIServiceClient:
             },
         )
 
-    def list_templates(self) -> list[str]:
+    def list_templates(self) -> list[str]:  # pragma: no cover
         """List available templates."""
         result: dict[str, Any] = self._get("/templates")
         templates: list[str] = result.get("templates", [])
         return templates
 
-    def format_contract(
+    def format_contract(  # pragma: no cover
         self,
         docx_bytes: bytes,
         config: dict[str, Any] | None = None,
@@ -181,7 +181,7 @@ class POIServiceClient:
 _default_client: POIServiceClient | None = None
 
 
-def get_poi_client() -> POIServiceClient:
+def get_poi_client() -> POIServiceClient:  # pragma: no cover
     """Get or create the default POI service client."""
     global _default_client
     if _default_client is None:

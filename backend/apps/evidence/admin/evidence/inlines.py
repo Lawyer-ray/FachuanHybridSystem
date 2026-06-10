@@ -11,7 +11,7 @@ from django.http import HttpRequest
 from apps.evidence.models import EvidenceItem
 
 
-class EvidenceItemInline(admin.TabularInline[EvidenceItem, EvidenceItem]):
+class EvidenceItemInline(admin.TabularInline[EvidenceItem, EvidenceItem]):  # pragma: no cover
     model = EvidenceItem
     extra: int = 1
     fields: ClassVar[tuple[Any, ...]] = (
@@ -28,23 +28,23 @@ class EvidenceItemInline(admin.TabularInline[EvidenceItem, EvidenceItem]):
     readonly_fields: ClassVar[tuple[Any, ...]] = ("global_order_display", "page_count", "page_range_display")
     ordering: ClassVar[list[str]] = ["order"]  # type: ignore[assignment]
 
-    def get_queryset(self, request: HttpRequest) -> QuerySet[EvidenceItem, EvidenceItem]:
+    def get_queryset(self, request: HttpRequest) -> QuerySet[EvidenceItem, EvidenceItem]:  # pragma: no cover
         return super().get_queryset(request)
 
     @admin.display(description="序号")
-    def global_order_display(self, obj: EvidenceItem) -> Any:
+    def global_order_display(self, obj: EvidenceItem) -> Any:  # pragma: no cover
         if not obj.pk:
             return "-"
         evidence_list = obj.evidence_list
         return evidence_list.start_order + obj.order - 1
 
     @admin.display(description="页码范围")
-    def page_range_display(self, obj: EvidenceItem) -> Any:
+    def page_range_display(self, obj: EvidenceItem) -> Any:  # pragma: no cover
         if obj.pk:
             return obj.page_range_display
         return "-"
 
-    class Media:
+    class Media:  # pragma: no cover
         css: ClassVar[dict[str, tuple[str, ...]]] = {"all": ("evidence/css/evidence_inline.css",)}
         js: ClassVar[tuple[str, ...]] = ("evidence/js/evidence_sortable.js",)
 

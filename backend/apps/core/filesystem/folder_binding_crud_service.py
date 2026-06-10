@@ -253,13 +253,17 @@ class FolderBindingCrudService(BaseFolderBindingService):
 
                 with zipfile.ZipFile(io.BytesIO(zip_content)) as zf:
                     for member in zf.infolist():
-                        if member.is_dir():
-                            provider.mkdir(f"{resolved_path.strip('/')}/{member.filename.rstrip('/')}")
+                        # 防止 ZipSlip：验证所有路径组件，拒绝 ..
+                        member_parts = [p for p in member.filename.split("/") if p]
+                        if any(p in (".", "..") or "\\" in p for p in member_parts):
+                            logger.warning("跳过不安全的 ZIP 条目: %s", member.filename)
                             continue
-                        safe_name = self.path_validator.sanitize_file_name(member.filename.split("/")[-1])
-                        # Build path relative to zip root
-                        parts = [p for p in member.filename.split("/") if p and p != safe_name]
-                        cloud_path = "/".join([resolved_path.strip("/")] + parts + [safe_name])
+                        if member.is_dir():
+                            cloud_dir = "/".join([resolved_path.strip("/")] + member_parts)
+                            provider.mkdir(cloud_dir)
+                            continue
+                        safe_name = self.path_validator.sanitize_file_name(member_parts[-1])
+                        cloud_path = "/".join([resolved_path.strip("/")] + member_parts[:-1] + [safe_name])
                         with zf.open(member) as f:
                             provider.write_file(cloud_path, f.read())
             except Exception as e:

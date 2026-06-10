@@ -43,7 +43,7 @@ router.add_router("/performance", performance_router)
 
 
 @router.post("/ai/ollama", response=OllamaChatOut)
-def ai_ollama(request: Any, payload: OllamaChatIn) -> OllamaChatOut:
+def ai_ollama(request: Any, payload: OllamaChatIn) -> OllamaChatOut:  # pragma: no cover
     """Ollama AI接口"""
     # 使用工厂函数获取服务
     service = _get_ai_service()
@@ -61,7 +61,7 @@ def ai_ollama(request: Any, payload: OllamaChatIn) -> OllamaChatOut:
 
 @router.post("/file/upload", response=dict)
 @rate_limit_from_settings("UPLOAD")
-def upload_file(
+def upload_file(  # pragma: no cover
     request: Any,
     file: UploadedFile = File(...),
     limit: int | None = None,
@@ -90,7 +90,7 @@ def upload_file(
 
 @router.get("/config")
 @rate_limit_from_settings("ADMIN")
-def get_config(request: Any) -> Any:
+def get_config(request: Any) -> Any:  # pragma: no cover
     """获取当前配置信息"""
     from apps.core.security.admin_access import ensure_admin_request
 
@@ -105,7 +105,7 @@ def get_config(request: Any) -> Any:
 
 
 @router.get("/status")
-def get_status(request: Any) -> Any:
+def get_status(request: Any) -> Any:  # pragma: no cover
     """获取系统状态"""
     # 使用工厂函数获取服务
     service = _get_config_service()

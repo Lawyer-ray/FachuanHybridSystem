@@ -14,7 +14,7 @@ logger = logging.getLogger("apps.evidence")
 class EvidenceOCRService:
     """从证据文件提取 OCR 文本并保存"""
 
-    def extract_and_save(self, item_id: int) -> None:
+    def extract_and_save(self, item_id: int) -> None:  # pragma: no cover
         from apps.evidence.models import EvidenceItem
 
         try:
@@ -43,7 +43,7 @@ class EvidenceOCRService:
             return self._extract_from_image(item.file)
         return ""
 
-    def _extract_from_pdf(self, file_field: Any) -> str:
+    def _extract_from_pdf(self, file_field: Any) -> str:  # pragma: no cover
         """PDF 逐页转图片后 OCR"""
         try:
             import fitz

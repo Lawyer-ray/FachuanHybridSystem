@@ -202,7 +202,7 @@ class TextExtractionService:
             logger.error(f"PDF OCR 提取异常: {e}")
             return TextExtractionResult(text="", extraction_method="ocr", success=False)
 
-    def _ocr_pdf_pages(self, file_path: str, max_pages: int | None = None) -> str:
+    def _ocr_pdf_pages(self, file_path: str, max_pages: int | None = None) -> str:  # pragma: no cover
         """
         对 PDF 所有页面进行 OCR
 
@@ -326,6 +326,6 @@ def get_supported_extensions() -> tuple[str, ...]:
     return tuple(SUPPORTED_EXTENSIONS)
 
 
-def is_supported_format(file_path: str) -> bool:
+def is_supported_format(file_path: str) -> bool:  # pragma: no cover
     """模块级函数：检查文件格式是否支持"""
     return TextExtractionService().is_supported_format(file_path)

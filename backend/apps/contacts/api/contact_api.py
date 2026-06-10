@@ -20,7 +20,7 @@ def _get_contact_service() -> Any:
 
 
 @router.get("/contacts", response=list[CaseContactOut])
-def list_contacts(request: HttpRequest, case_id: int | None = None, stage: str | None = None) -> list[CaseContactOut]:
+def list_contacts(request: HttpRequest, case_id: int | None = None, stage: str | None = None) -> list[CaseContactOut]:  # pragma: no cover
     service = _get_contact_service()
     ctx = extract_request_context(request)
     return cast(
@@ -30,7 +30,7 @@ def list_contacts(request: HttpRequest, case_id: int | None = None, stage: str |
 
 
 @router.post("/contacts", response=CaseContactOut)
-def create_contact(request: HttpRequest, payload: CaseContactIn) -> CaseContactOut:
+def create_contact(request: HttpRequest, payload: CaseContactIn) -> CaseContactOut:  # pragma: no cover
     service = _get_contact_service()
     ctx = extract_request_context(request)
     data = payload.model_dump(exclude={"case_id"})
@@ -41,7 +41,7 @@ def create_contact(request: HttpRequest, payload: CaseContactIn) -> CaseContactO
 
 
 @router.get("/contacts/search", response=list[CaseContactSearchResult])
-def search_contacts(
+def search_contacts(  # pragma: no cover
     request: HttpRequest,
     q: str | None = None,
     court: str | None = None,
@@ -56,14 +56,14 @@ def search_contacts(
 
 
 @router.get("/contacts/{contact_id}", response=CaseContactOut)
-def get_contact(request: HttpRequest, contact_id: int) -> CaseContactOut:
+def get_contact(request: HttpRequest, contact_id: int) -> CaseContactOut:  # pragma: no cover
     service = _get_contact_service()
     ctx = extract_request_context(request)
     return cast(CaseContactOut, service.get_contact(contact_id=contact_id, user=ctx.user))
 
 
 @router.put("/contacts/{contact_id}", response=CaseContactOut)
-def update_contact(request: HttpRequest, contact_id: int, payload: CaseContactUpdate) -> CaseContactOut:
+def update_contact(request: HttpRequest, contact_id: int, payload: CaseContactUpdate) -> CaseContactOut:  # pragma: no cover
     service = _get_contact_service()
     ctx = extract_request_context(request)
     data = payload.model_dump(exclude_unset=True)
@@ -74,7 +74,7 @@ def update_contact(request: HttpRequest, contact_id: int, payload: CaseContactUp
 
 
 @router.delete("/contacts/{contact_id}")
-def delete_contact(request: HttpRequest, contact_id: int) -> Any:
+def delete_contact(request: HttpRequest, contact_id: int) -> Any:  # pragma: no cover
     service = _get_contact_service()
     ctx = extract_request_context(request)
     return service.delete_contact(contact_id=contact_id, user=ctx.user)

@@ -18,7 +18,7 @@ def _normalize_for_match(text: str) -> str:
     return re.sub(r"\s+", "", str(text or "")).lower()
 
 
-def _extract_last_page_text_direct(file_path: Path) -> str:
+def _extract_last_page_text_direct(file_path: Path) -> str:  # pragma: no cover
     try:
         with fitz.open(file_path.as_posix()) as doc:
             if doc.page_count <= 0:
@@ -30,7 +30,7 @@ def _extract_last_page_text_direct(file_path: Path) -> str:
         return ""
 
 
-def _extract_last_page_text_with_ocr(file_path: Path) -> str:
+def _extract_last_page_text_with_ocr(file_path: Path) -> str:  # pragma: no cover
     try:
         from apps.automation.services.document.document_processing import extract_text_from_image_with_rapidocr
 

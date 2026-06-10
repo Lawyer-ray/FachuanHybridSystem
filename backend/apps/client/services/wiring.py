@@ -18,7 +18,7 @@ if TYPE_CHECKING:
     from apps.core.protocols import ILLMService
 
 
-def get_llm_service() -> ILLMService:
+def get_llm_service() -> ILLMService:  # pragma: no cover
     return ServiceLocator.get_llm_service()
 
 

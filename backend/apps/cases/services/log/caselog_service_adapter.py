@@ -140,7 +140,7 @@ class CaseLogServiceAdapter(ICaseLogService):
         user_id: int | None = None,
         reminder_type: str | None = None,
         reminder_time: Any | None = None,
-    ) -> int:
+    ) -> int:  # pragma: no cover
         """
         内部方法:创建案件日志,返回日志ID
 

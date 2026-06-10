@@ -15,7 +15,7 @@ class Command(BaseCommand):
         parser.add_argument("--case-id", type=int, default=None, help="仅同步指定案件 ID")
         parser.add_argument("--dry-run", action="store_true", help="只统计,不写入")
 
-    def handle(self, *args: Any, **options: Any) -> None:
+    def handle(self, *args: Any, **options: Any) -> None:  # pragma: no cover
         contract_id = options["contract_id"]
         case_id = options["case_id"]
         dry_run = bool(options["dry_run"])
