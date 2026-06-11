@@ -180,8 +180,6 @@ def check_law_references(request: Any, payload: dict[str, Any]) -> dict[str, Any
     请求: {"text": "文档全文", "credential_id": 6}
     响应: {"references": [...], "total": N}
     """
-    from ninja import Schema  # noqa: F811
-
     text = str(payload.get("text") or "").strip()
     credential_id = int(payload.get("credential_id") or 0)
 
