@@ -10,16 +10,10 @@ from uuid import uuid4
 
 import httpx
 
-from apps.core.services.system_config_service import SystemConfigService
 from apps.core.http.httpx_clients import get_sync_http_client
-from apps.document_parsing.exceptions import (
-    MineruAPIError,
-    ParsingTimeoutError,
-)
-from apps.document_parsing.protocols.document_parser_protocol import (
-    ParsedDocument,
-    TextExtractionResult,
-)
+from apps.core.services.system_config_service import SystemConfigService
+from apps.document_parsing.exceptions import MineruAPIError, ParsingTimeoutError
+from apps.document_parsing.protocols.document_parser_protocol import ParsedDocument, TextExtractionResult
 
 logger = logging.getLogger(__name__)
 _config_service = SystemConfigService()
@@ -42,7 +36,7 @@ class MineruBackend:
 
     def __init__(
         self,
-        api_key: str = None,
+        api_key: str | None = None,
         timeout: int = 30,
     ):
         """初始化 MinerU 后端
@@ -127,7 +121,7 @@ class MineruBackend:
     def extract_text(
         self,
         file_path: str,
-        max_length: Optional[int] = None,
+        max_length: int | None = None,
         **kwargs: Any,
     ) -> TextExtractionResult:
         """提取文档纯文本
@@ -168,7 +162,7 @@ class MineruBackend:
                 metadata={"error": str(e)},
             )
 
-    def get_supported_formats(self) -> List[str]:
+    def get_supported_formats(self) -> list[str]:
         """获取支持的文件格式"""
         return ["pdf", "doc", "docx", "ppt", "pptx", "xls", "xlsx", "jpg", "jpeg", "png"]
 
@@ -208,11 +202,9 @@ class MineruBackend:
             logger.debug("batch API 响应: %s", result)
 
             if result.get("code") != 0:
-                raise MineruAPIError(
-                    f"获取上传 URL 失败: {result.get('msg', '未知错误')}"
-                )
+                raise MineruAPIError(f"获取上传 URL 失败: {result.get('msg', '未知错误')}")
 
-            batch_id = result["data"]["batch_id"]
+            batch_id: str = result["data"]["batch_id"]
             urls = result["data"]["file_urls"]
 
             if not urls:
@@ -262,9 +254,7 @@ class MineruBackend:
         while True:
             elapsed = time.time() - start_time
             if elapsed > self.POLL_TIMEOUT:
-                raise ParsingTimeoutError(
-                    f"任务超时 ({self.POLL_TIMEOUT}秒): batch_id={batch_id}"
-                )
+                raise ParsingTimeoutError(f"任务超时 ({self.POLL_TIMEOUT}秒): batch_id={batch_id}")
 
             try:
                 response = client.get(
@@ -276,9 +266,7 @@ class MineruBackend:
                 result = response.json()
 
                 if result.get("code") != 0:
-                    raise MineruAPIError(
-                        f"查询结果失败: {result.get('msg', '未知错误')}"
-                    )
+                    raise MineruAPIError(f"查询结果失败: {result.get('msg', '未知错误')}")
 
                 extract_results = result.get("data", {}).get("extract_result", [])
                 if not extract_results:
@@ -287,7 +275,7 @@ class MineruBackend:
                     continue
 
                 # 取第一个文件的结果
-                file_result = extract_results[0]
+                file_result: dict = extract_results[0]
                 state = file_result.get("state", "")
 
                 if state == "done":
@@ -406,7 +394,7 @@ class MineruBackend:
         import json
 
         try:
-            with open(content_list_path, "r", encoding="utf-8") as f:
+            with open(content_list_path, encoding="utf-8") as f:
                 content_list = json.load(f)
 
             # 按顺序提取所有文本块
