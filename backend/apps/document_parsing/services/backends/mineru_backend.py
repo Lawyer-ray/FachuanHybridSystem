@@ -223,13 +223,21 @@ class MineruBackend:
                 raise MineruAPIError("未获取到上传 URL")
 
             upload_url = urls[0]
+            file_size = file_path_obj.stat().st_size
 
-            # 上传文件（不要设置 Content-Type，OSS 签名 URL 已包含签名）
+            # 上传文件到预签名 URL
             with open(file_path, "rb") as f:
                 upload_response = client.put(
                     upload_url,
                     content=f.read(),
+                    headers={"Content-Type": "application/octet-stream"},
                     timeout=self.timeout,
+                )
+                logger.debug(
+                    "PUT 上传响应: status=%d, headers=%s, file_size=%d",
+                    upload_response.status_code,
+                    dict(upload_response.headers),
+                    file_size,
                 )
                 upload_response.raise_for_status()
 
