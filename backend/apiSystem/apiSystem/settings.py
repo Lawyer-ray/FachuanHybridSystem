@@ -84,6 +84,7 @@ INSTALLED_APPS = [
     "apps.invoice_recognition",  # 5.2 发票识别（从 automation 拆分）
     "apps.fee_notice",  # 5.3 交费通知书识别（从 automation 拆分）
     "apps.document_recognition",  # 5.4 文书智能识别（从 automation 拆分）
+    "apps.document_parsing",  # 5.405 文档解析（MinerU 集成）
     "apps.express_query",  # 5.41 快递查询
     "apps.pdf_splitting",  # 5.45 PDF 拆解
     "apps.batch_printing",  # 5.455 批量打印

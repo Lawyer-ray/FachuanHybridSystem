@@ -33,6 +33,7 @@ class SystemConfig(models.Model):
         ENTERPRISE_DATA = "enterprise_data", "企业数据配置"
         SCRAPER = "scraper", "爬虫配置"
         OCR = "ocr", "OCR 服务配置"
+        DOCUMENT_PARSING = "document_parsing", "文档解析配置"
         EMAIL = "email", "邮件配置"
         CLOUD_STORAGE = "cloud_storage", "云存储配置"
         GENERAL = "general", "通用配置"

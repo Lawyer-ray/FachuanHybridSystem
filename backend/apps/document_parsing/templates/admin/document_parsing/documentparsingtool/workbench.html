@@ -1,0 +1,242 @@
+{% extends "admin/base_site.html" %}
+{% load static i18n %}
+
+{% block title %}文档解析{% endblock %}
+
+{% block extrastyle %}
+{{ block.super }}
+<style>
+/* 容器和介绍 */
+.parsing-container { max-width: 800px; margin: 0 auto; padding: 20px; }
+.parsing-intro { color: #666; margin-bottom: 24px; font-size: 14px; line-height: 1.6;
+    background: linear-gradient(135deg, #f0f7ff 0%, #e8f4f8 100%); padding: 16px 20px;
+    border-radius: 10px; border-left: 4px solid #417690; }
+
+/* 功能特性 */
+.features-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 12px;
+    margin-bottom: 24px;
+}
+.feature-item {
+    background: white;
+    border: 1px solid #e0e8ef;
+    border-radius: 10px;
+    padding: 14px;
+    text-align: center;
+    transition: all 0.2s;
+}
+.feature-item:hover {
+    border-color: #417690;
+    box-shadow: 0 4px 12px rgba(65, 118, 144, 0.1);
+}
+.feature-icon {
+    font-size: 24px;
+    margin-bottom: 8px;
+}
+.feature-text {
+    font-size: 13px;
+    color: #5a6c7d;
+    font-weight: 500;
+}
+
+/* 拖拽上传区域 */
+.upload-zone {
+    border: 3px dashed #b8d4e3; border-radius: 16px; padding: 60px 20px;
+    text-align: center; cursor: pointer; transition: all 0.3s;
+    background: linear-gradient(135deg, #f8fbfd 0%, #eef5f9 100%);
+}
+.upload-zone:hover, .upload-zone.dragging {
+    border-color: #417690;
+    background: #e3f2fd;
+    transform: scale(1.01);
+}
+.upload-zone svg { width: 72px; height: 72px; color: #417690; margin-bottom: 20px; opacity: 0.8; }
+.upload-zone h3 { margin: 0 0 10px; color: #2c3e50; font-size: 20px; font-weight: 600; }
+.upload-zone p { margin: 0 0 20px; color: #7f8c8d; font-size: 14px; }
+.upload-btn {
+    display: inline-block; padding: 14px 28px; background: linear-gradient(135deg, #417690 0%, #2c5f7c 100%);
+    color: white; border-radius: 10px; cursor: pointer; transition: all 0.3s; font-weight: 500;
+    box-shadow: 0 4px 15px rgba(65, 118, 144, 0.3);
+}
+.upload-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(65, 118, 144, 0.4); }
+.upload-btn input { display: none; }
+
+/* 支持的格式 */
+.supported-formats { margin-top: 16px; font-size: 13px; color: #999; }
+.supported-formats span {
+    display: inline-block;
+    background: #e3f2fd;
+    color: #1565c0;
+    padding: 4px 10px;
+    border-radius: 12px;
+    margin: 3px;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+/* 加载状态 */
+.loading-state {
+    text-align: center;
+    padding: 80px 20px;
+    background: white;
+    border-radius: 16px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+}
+.spinner {
+    width: 56px;
+    height: 56px;
+    border: 5px solid #e9ecef;
+    border-top-color: #417690;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin: 0 auto 20px;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.loading-state p { color: #555; font-size: 16px; }
+.loading-state .hint { color: #999; font-size: 13px; margin-top: 8px; }
+
+/* 历史记录按钮 */
+.history-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 20px;
+    background: white;
+    border: 1px solid #417690;
+    color: #417690;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.2s;
+    text-decoration: none;
+    margin-top: 16px;
+}
+.history-btn:hover {
+    background: #f0f7ff;
+    box-shadow: 0 2px 8px rgba(65, 118, 144, 0.15);
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="parsing-container">
+    <div class="parsing-intro">
+        <strong>📄 文档解析服务</strong><br>
+        上传文档文件，系统将自动调用 MinerU 进行智能解析，提取文本、Markdown 和结构化信息。<br>
+        解析结果将保存在数据库中，方便后续查阅和检索。
+    </div>
+
+    <!-- 功能特性展示 -->
+    <div class="features-grid">
+        <div class="feature-item">
+            <div class="feature-icon">📝</div>
+            <div class="feature-text">智能文本提取</div>
+        </div>
+        <div class="feature-item">
+            <div class="feature-icon">📋</div>
+            <div class="feature-text">Markdown 格式</div>
+        </div>
+        <div class="feature-item">
+            <div class="feature-icon">📊</div>
+            <div class="feature-text">表格识别</div>
+        </div>
+        <div class="feature-item">
+            <div class="feature-icon">🖼️</div>
+            <div class="feature-text">图片提取</div>
+        </div>
+    </div>
+
+    <div class="upload-zone" id="uploadZone">
+        <svg xmlns="http://www.w3.org/2000/svg" width="72" height="72" viewBox="0 0 24 24" fill="none"
+             stroke="#417690" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="17 8 12 3 7 8"/>
+            <line x1="12" y1="3" x2="12" y2="15"/>
+        </svg>
+        <h3>拖拽文件到此处，或点击选择文件</h3>
+        <p>支持多种文档格式，智能识别和解析</p>
+        <label class="upload-btn">
+            选择文件上传
+            <input type="file" id="fileInput" accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.jpg,.jpeg,.png,.bmp,.tiff">
+        </label>
+        <div class="supported-formats">
+            <span>PDF</span> <span>Word</span> <span>PPT</span> <span>Excel</span>
+            <span>JPG</span> <span>PNG</span> <span>BMP</span> <span>TIFF</span>
+        </div>
+    </div>
+
+    <form id="uploadForm" method="post" action="{% url 'admin:document_parsing_documentparsingtool_upload' %}" enctype="multipart/form-data" style="display: none;">
+        {% csrf_token %}
+        <input type="file" name="file" id="hiddenFileInput">
+    </form>
+
+    <div id="uploadingState" class="loading-state" style="display: none;">
+        <div class="spinner"></div>
+        <p>正在解析文档，请稍候...</p>
+        <p class="hint">MinerU 智能解析通常需要 5-10 秒</p>
+    </div>
+
+    <div style="text-align: center; margin-top: 20px;">
+        <a href="/admin/document_parsing/documentparsingtask/" class="history-btn">
+            📜 查看解析历史
+        </a>
+    </div>
+</div>
+
+<script>
+(function() {
+    const uploadZone = document.getElementById('uploadZone');
+    const fileInput = document.getElementById('fileInput');
+    const uploadForm = document.getElementById('uploadForm');
+    const hiddenFileInput = document.getElementById('hiddenFileInput');
+    const uploadingState = document.getElementById('uploadingState');
+
+    // 拖拽事件
+    uploadZone.addEventListener('dragover', function(e) {
+        e.preventDefault();
+        uploadZone.classList.add('dragging');
+    });
+    uploadZone.addEventListener('dragleave', function(e) {
+        e.preventDefault();
+        uploadZone.classList.remove('dragging');
+    });
+    uploadZone.addEventListener('drop', function(e) {
+        e.preventDefault();
+        uploadZone.classList.remove('dragging');
+        if (e.dataTransfer.files.length > 0) {
+            submitFile(e.dataTransfer.files[0]);
+        }
+    });
+
+    // 点击选择文件
+    uploadZone.addEventListener('click', function(e) {
+        if (e.target.tagName !== 'INPUT') {
+            fileInput.click();
+        }
+    });
+    fileInput.addEventListener('change', function() {
+        if (fileInput.files.length > 0) {
+            submitFile(fileInput.files[0]);
+        }
+    });
+
+    function submitFile(file) {
+        // 通过 DataTransfer 设置文件到 hidden input
+        const dt = new DataTransfer();
+        dt.items.add(file);
+        hiddenFileInput.files = dt.files;
+
+        // 显示上传中状态
+        uploadZone.style.display = 'none';
+        document.querySelector('.features-grid').style.display = 'none';
+        uploadingState.style.display = 'block';
+
+        // 提交表单
+        uploadForm.submit();
+    }
+})();
+</script>
+{% endblock %}

@@ -239,6 +239,10 @@ def _register_app_routers() -> None:
     api_v1.add_router("/contract-review/format", format_normalize_router, auth=JWTOrSessionAuth(), tags=["合同审查"])
     api_v1.add_router("/legal-research", legal_research_router, auth=JWTOrSessionAuth(), tags=["案例检索"])
 
+    from apps.document_parsing.api import router as document_parsing_router
+
+    api_v1.add_router("/document-parsing", document_parsing_router, auth=JWTOrSessionAuth(), tags=["文档解析"])
+
     from apps.oa_filing.api.filing_api import router as oa_filing_router
 
     api_v1.add_router("/oa-filing", oa_filing_router, auth=JWTOrSessionAuth(), tags=["OA立案"])

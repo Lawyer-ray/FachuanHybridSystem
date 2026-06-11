@@ -59,6 +59,7 @@ class SystemConfigAdmin(admin.ModelAdmin):  # pragma: no cover
             "enterprise_data": "#0f766e",
             "scraper": "#ff9800",
             "ocr": "#009688",
+            "document_parsing": "#795548",  # 棕色，代表文档解析
             "email": "#2196f3",
             "cloud_storage": "#1565c0",
             "general": "#607d8b",

@@ -84,6 +84,7 @@ _HIDDEN_APP_LABELS = {
     "automation",
     "fee_notice",
     "document_recognition",
+    "document_parsing",  # 文档解析（MinerU）
     "pdf_splitting",
     "batch_printing",
     "story_viz",
@@ -116,6 +117,7 @@ _OTHER_TOOLS_APPS = [
     {"app_label": "automation", "name": _("自动化工具"), "url": "/admin/automation/"},
     {"app_label": "fee_notice", "name": _("交费通知书识别"), "url": "/admin/fee_notice/"},
     {"app_label": "document_recognition", "name": _("文书智能识别"), "url": "/admin/document_recognition/"},
+    {"app_label": "document_parsing", "name": _("文档解析服务"), "url": "/admin/document_parsing/"},
     {"app_label": "pdf_splitting", "name": _("PDF 拆解"), "url": "/admin/pdf_splitting/"},
     {"app_label": "story_viz", "name": _("故事可视化"), "url": "/admin/story_viz/"},
     {"app_label": "documents", "name": _("文书生成"), "url": "/admin/documents/"},
