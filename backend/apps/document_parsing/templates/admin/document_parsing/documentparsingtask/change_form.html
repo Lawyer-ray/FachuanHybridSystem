@@ -1,0 +1,77 @@
+{% extends "admin/change_form.html" %}
+{% load i18n %}
+
+{% block after_field_sets %}
+{{ block.super }}
+
+{% if original.status == "completed" %}
+<style>
+.result-tabs { display: flex; gap: 0; margin: 16px 0 0; border-bottom: 2px solid #e0e0e0; }
+.result-tab { padding: 10px 20px; cursor: pointer; border: none; background: none;
+    font-size: 14px; font-weight: 500; color: #666; border-bottom: 2px solid transparent;
+    margin-bottom: -2px; transition: all 0.2s; }
+.result-tab:hover { color: #795548; }
+.result-tab.active { color: #795548; border-bottom-color: #795548; font-weight: 600; }
+.result-panel { display: none; padding: 20px; background: #fafafa; border-radius: 0 0 8px 8px;
+    border: 1px solid #e0e0e0; border-top: none; max-height: 600px; overflow-y: auto; }
+.result-panel.active { display: block; }
+.result-panel pre { white-space: pre-wrap; word-wrap: break-word; font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+    font-size: 13px; line-height: 1.6; margin: 0; color: #2c3e50; }
+.md-content { font-size: 14px; line-height: 1.8; color: #333; }
+.md-content h1, .md-content h2, .md-content h3 { margin: 16px 0 8px; color: #1a1a1a; }
+.md-content p { margin: 8px 0; }
+.md-content pre { background: #f0f0f0; padding: 12px; border-radius: 6px; overflow-x: auto; }
+.md-content table { border-collapse: collapse; width: 100%; margin: 12px 0; }
+.md-content th, .md-content td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+.md-content th { background: #f5f5f5; font-weight: 600; }
+.md-content img { max-width: 100%; height: auto; border-radius: 4px; }
+</style>
+
+<div class="result-tabs" id="resultTabs">
+    <button type="button" class="result-tab active" data-panel="text-panel">📝 纯文本</button>
+    <button type="button" class="result-tab" data-panel="markdown-panel">📋 Markdown</button>
+    <button type="button" class="result-tab" data-panel="metadata-panel">📊 元数据</button>
+</div>
+
+<div class="result-panel active" id="text-panel">
+    <pre>{{ original.text }}</pre>
+</div>
+
+<div class="result-panel" id="markdown-panel">
+    <div class="md-content">
+        <pre>{{ original.markdown }}</pre>
+    </div>
+</div>
+
+<div class="result-panel" id="metadata-panel">
+    <pre>{{ original.metadata_pprint }}</pre>
+</div>
+
+<script>
+document.querySelectorAll('.result-tab').forEach(function(tab) {
+    tab.addEventListener('click', function() {
+        document.querySelectorAll('.result-tab').forEach(function(t) { t.classList.remove('active'); });
+        document.querySelectorAll('.result-panel').forEach(function(p) { p.classList.remove('active'); });
+        tab.classList.add('active');
+        document.getElementById(tab.dataset.panel).classList.add('active');
+    });
+});
+</script>
+{% endif %}
+
+{% if original.status == "failed" %}
+<div style="background: #fff5f5; border: 1px solid #fed7d7; border-radius: 8px; padding: 16px; margin: 16px 0;">
+    <strong style="color: #c53030;">❌ 解析失败</strong>
+    <pre style="margin-top: 8px; color: #742a2a; white-space: pre-wrap;">{{ original.error_message }}</pre>
+</div>
+{% endif %}
+
+{% if original.status == "processing" %}
+<div style="text-align: center; padding: 40px;">
+    <div style="width: 40px; height: 40px; border: 4px solid #e9ecef; border-top-color: #795548;
+        border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 16px;"></div>
+    <p>正在解析中...</p>
+</div>
+<style>@keyframes spin { to { transform: rotate(360deg); } }</style>
+{% endif %}
+{% endblock %}
