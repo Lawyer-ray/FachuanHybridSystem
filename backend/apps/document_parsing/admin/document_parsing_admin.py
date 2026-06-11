@@ -80,7 +80,7 @@ class DocumentParsingToolAdmin(admin.ModelAdmin):  # pragma: no cover
             parser = get_document_parser()
             result = parser.parse_document(
                 file_path=str(file_path),
-                file_type=Path(uploaded_file.name).suffix.lstrip("."),
+                file_type=Path(uploaded_file.name or "uploaded").suffix.lstrip("."),
                 extract_tables=True,
                 extract_images=False,
                 return_markdown=True,

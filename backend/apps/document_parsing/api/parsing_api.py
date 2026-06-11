@@ -26,7 +26,7 @@ router = Router()
     summary="解析文档",
     auth=JWTOrSessionAuth(),
 )
-def parse_document(request: object, file: UploadedFile = File(...), body: ParseDocumentRequest | None = None):
+def parse_document(request: object, file: UploadedFile = File(...), body: ParseDocumentRequest | None = None) -> ParseDocumentResponse:
     """解析上传的文档，返回结构化的解析结果
 
     支持的文件格式：PDF、DOC、DOCX、PPT、PPTX、XLS、XLSX、JPG、PNG 等
@@ -80,7 +80,7 @@ def parse_document(request: object, file: UploadedFile = File(...), body: ParseD
     summary="提取文档文本",
     auth=JWTOrSessionAuth(),
 )
-def extract_text(request: object, file: UploadedFile = File(...), body: ExtractTextRequest | None = None):
+def extract_text(request: object, file: UploadedFile = File(...), body: ExtractTextRequest | None = None) -> ExtractTextResponse:
     """提取文档的纯文本内容"""
     try:
         # 保存上传的文件
