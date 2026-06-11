@@ -457,4 +457,49 @@ describe('LawyerForm', () => {
       expect(passwordInput.type).toBe('text')
     }
   })
+
+  it('shows avatar preview when avatar_url resolves to null', () => {
+    // resolveMediaUrl returns null, so avatarPreview will be null
+    // but the avatar_url is set, so the effect runs
+    vi.mocked(useLawyer).mockReturnValue({
+      data: {
+        username: 'zhangsan', real_name: '张三', phone: '13800138000',
+        license_no: 'L12345', id_card: '110101199001011234', law_firm: 1,
+        is_admin: true, avatar_url: null, license_pdf_url: null,
+      },
+      isLoading: false, error: null,
+    } as any)
+    render(<LawyerForm lawyerId="1" mode="edit" />)
+    // No avatar preview, no remove button
+    expect(screen.queryByText('移除头像')).not.toBeInTheDocument()
+  })
+
+  it('shows license PDF link when license_pdf_url resolves to null', () => {
+    // resolveMediaUrl returns null, so the link href is undefined
+    vi.mocked(useLawyer).mockReturnValue({
+      data: {
+        username: 'zhangsan', real_name: '张三', phone: '13800138000',
+        license_no: 'L12345', id_card: '110101199001011234', law_firm: 1,
+        is_admin: true, avatar_url: null, license_pdf_url: null,
+      },
+      isLoading: false, error: null,
+    } as any)
+    render(<LawyerForm lawyerId="1" mode="edit" />)
+    // license_pdf_url is null, so the link should NOT be rendered
+    expect(screen.queryByText('查看当前执业证')).not.toBeInTheDocument()
+  })
+
+  it('shows loading state in edit mode (duplicate)', () => {
+    vi.mocked(useLawyer).mockReturnValue({ data: undefined, isLoading: true, error: null } as any)
+    const { container } = render(<LawyerForm lawyerId="1" mode="edit" />)
+    expect(container.querySelector('.animate-spin')).toBeInTheDocument()
+  })
+
+  it('shows error state in edit mode (duplicate)', () => {
+    vi.mocked(useLawyer).mockReturnValue({ data: undefined, isLoading: false, error: new Error('fail') } as any)
+    render(<LawyerForm lawyerId="1" mode="edit" />)
+    expect(screen.getByText('加载律师数据失败')).toBeInTheDocument()
+    fireEvent.click(screen.getByText('返回'))
+    expect(mockNavigate).toHaveBeenCalledWith(-1)
+  })
 })

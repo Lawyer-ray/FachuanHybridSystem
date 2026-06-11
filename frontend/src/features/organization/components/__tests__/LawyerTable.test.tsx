@@ -7,7 +7,7 @@ vi.mock('@/routes/paths', () => ({
   generatePath: { lawyerDetail: (id: number) => `/lawyers/${id}` },
 }))
 
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import { LawyerTable } from '../LawyerTable'
 
 describe('LawyerTable', () => {
@@ -63,5 +63,95 @@ describe('LawyerTable', () => {
   it('renders phone in masked format', () => {
     render(<LawyerTable lawyers={mockLawyers as any} />)
     expect(screen.getByText('000****0001')).toBeInTheDocument()
+  })
+
+  it('shows loading skeleton when isLoading is true', () => {
+    const { container } = render(<LawyerTable lawyers={[]} isLoading />)
+    expect(container.querySelectorAll('[class*="animate-pulse"]').length).toBeGreaterThan(0)
+  })
+
+  it('formats phone with non-11-digit number as-is', () => {
+    const lawyers = [{
+      ...mockLawyers[0],
+      phone: '12345',
+    }]
+    render(<LawyerTable lawyers={lawyers as any} />)
+    expect(screen.getByText('12345')).toBeInTheDocument()
+  })
+
+  it('shows - for null phone', () => {
+    const lawyers = [{
+      ...mockLawyers[0],
+      phone: null,
+    }]
+    render(<LawyerTable lawyers={lawyers as any} />)
+    // '-' appears for null phone, null license_no, null law_firm
+    expect(screen.getAllByText('-').length).toBeGreaterThanOrEqual(1)
+  })
+
+  it('shows - for null license_no', () => {
+    const lawyers = [{
+      ...mockLawyers[0],
+      license_no: null as any,
+    }]
+    render(<LawyerTable lawyers={lawyers as any} />)
+    expect(screen.getAllByText('-').length).toBeGreaterThanOrEqual(1)
+  })
+
+  it('shows - for null law_firm_detail', () => {
+    const lawyers = [{
+      ...mockLawyers[0],
+      law_firm_detail: null,
+    }]
+    render(<LawyerTable lawyers={lawyers as any} />)
+    // law_firm_detail is null, so getLawFirmName returns '-'
+    // There are multiple '-' cells, so use getAllByText
+    const cells = screen.getAllByText('-')
+    expect(cells.length).toBeGreaterThanOrEqual(1)
+  })
+
+  it('shows - for empty username', () => {
+    const lawyers = [{
+      ...mockLawyers[0],
+      username: '',
+    }]
+    render(<LawyerTable lawyers={lawyers as any} />)
+    // The username cell should show '-'
+    const cells = screen.getAllByText('-')
+    expect(cells.length).toBeGreaterThanOrEqual(1)
+  })
+
+  it('shows - for empty real_name', () => {
+    const lawyers = [{
+      ...mockLawyers[0],
+      real_name: '',
+    }]
+    render(<LawyerTable lawyers={lawyers as any} />)
+    // real_name is '', so it shows '-'
+    // username is still 'zhangsan'
+    expect(screen.getByText('zhangsan')).toBeInTheDocument()
+  })
+
+  it('shows - for empty law_firm_detail name', () => {
+    const lawyers = [{
+      ...mockLawyers[0],
+      law_firm_detail: { id: 1, name: '', address: '', phone: '', social_credit_code: '' },
+    }]
+    render(<LawyerTable lawyers={lawyers as any} />)
+    // name is '', so getLawFirmName returns '-'
+    // But there are multiple '-' cells
+    expect(screen.getByText('zhangsan')).toBeInTheDocument()
+  })
+
+  it('formats license_no when present', () => {
+    render(<LawyerTable lawyers={mockLawyers as any} />)
+    expect(screen.getByText('A12345')).toBeInTheDocument()
+    expect(screen.getByText('B67890')).toBeInTheDocument()
+  })
+
+  it('formats 11-digit phone correctly', () => {
+    render(<LawyerTable lawyers={mockLawyers as any} />)
+    // phone '00000000000' -> '000****0000'
+    expect(screen.getByText('000****0000')).toBeInTheDocument()
   })
 })

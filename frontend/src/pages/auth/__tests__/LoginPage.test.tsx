@@ -1,4 +1,5 @@
 import { render, screen, fireEvent } from '@testing-library/react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { MemoryRouter } from 'react-router'
 import { LoginPage } from '../LoginPage'
 
@@ -41,13 +42,23 @@ vi.mock('react-router', async () => {
   }
 })
 
+const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+
+function renderWithProviders(ui: React.ReactElement) {
+  return render(
+    <QueryClientProvider client={queryClient}>
+      {ui}
+    </QueryClientProvider>,
+  )
+}
+
 describe('LoginPage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
   })
 
   it('renders the login form', () => {
-    render(
+    renderWithProviders(
       <MemoryRouter>
         <LoginPage />
       </MemoryRouter>,
@@ -57,7 +68,7 @@ describe('LoginPage', () => {
   })
 
   it('renders title "登录"', () => {
-    render(
+    renderWithProviders(
       <MemoryRouter>
         <LoginPage />
       </MemoryRouter>,
@@ -67,7 +78,7 @@ describe('LoginPage', () => {
   })
 
   it('renders description text', () => {
-    render(
+    renderWithProviders(
       <MemoryRouter>
         <LoginPage />
       </MemoryRouter>,
@@ -77,7 +88,7 @@ describe('LoginPage', () => {
   })
 
   it('renders forgot password link', () => {
-    render(
+    renderWithProviders(
       <MemoryRouter>
         <LoginPage />
       </MemoryRouter>,
@@ -87,7 +98,7 @@ describe('LoginPage', () => {
   })
 
   it('renders register link', () => {
-    render(
+    renderWithProviders(
       <MemoryRouter>
         <LoginPage />
       </MemoryRouter>,
@@ -98,7 +109,7 @@ describe('LoginPage', () => {
   })
 
   it('forgot password link points to correct path', () => {
-    render(
+    renderWithProviders(
       <MemoryRouter>
         <LoginPage />
       </MemoryRouter>,
@@ -109,7 +120,7 @@ describe('LoginPage', () => {
   })
 
   it('register link points to correct path', () => {
-    render(
+    renderWithProviders(
       <MemoryRouter>
         <LoginPage />
       </MemoryRouter>,
@@ -122,7 +133,7 @@ describe('LoginPage', () => {
   it('calls navigate with /dashboard on success without redirect param', async () => {
     const { toast } = await import('sonner')
 
-    render(
+    renderWithProviders(
       <MemoryRouter>
         <LoginPage />
       </MemoryRouter>,
@@ -136,7 +147,7 @@ describe('LoginPage', () => {
   it('calls toast.error on login error', async () => {
     const { toast } = await import('sonner')
 
-    render(
+    renderWithProviders(
       <MemoryRouter>
         <LoginPage />
       </MemoryRouter>,
