@@ -38,6 +38,8 @@ class MineruBackend:
     POLL_INTERVAL = 2  # 轮询间隔（秒）
     POLL_TIMEOUT = 300  # 超时时间（秒）
 
+    BATCH_RESULTS_URL = "https://mineru.net/api/v4/extract-results/batch"
+
     def __init__(
         self,
         api_key: str = None,
@@ -93,21 +95,13 @@ class MineruBackend:
         logger.info("开始 MinerU 解析: %s", file_path)
 
         try:
-            # 1. 上传文件到 MinerU
-            upload_info = self._upload_file(file_path)
+            # 1. 上传文件到 MinerU（上传后 MinerU 自动创建解析任务）
+            batch_id = self._upload_file(file_path)
 
-            # 2. 创建解析任务
-            task_id = self._create_task(
-                file_url=upload_info["upload_url"],
-                file_type=file_type,
-                extract_images=extract_images,
-                batch_id=upload_info["batch_id"],
-            )
+            # 2. 轮询批量结果
+            result = self._poll_batch_result(batch_id)
 
-            # 3. 轮询获取结果
-            result = self._poll_result(task_id)
-
-            # 4. 下载并解析 ZIP 结果
+            # 3. 下载并解析 ZIP 结果
             parsed = self._parse_result_zip(
                 result["full_zip_url"],
                 return_markdown=return_markdown,
@@ -178,19 +172,18 @@ class MineruBackend:
         """获取支持的文件格式"""
         return ["pdf", "doc", "docx", "ppt", "pptx", "xls", "xlsx", "jpg", "jpeg", "png"]
 
-    def _upload_file(self, file_path: str) -> dict:
-        """上传文件到 MinerU，获取文件引用
+    def _upload_file(self, file_path: str) -> str:
+        """上传文件到 MinerU，上传后 MinerU 自动创建解析任务
 
         Args:
             file_path: 本地文件路径
 
         Returns:
-            包含 batch_id 和 upload_url 的字典
+            batch_id（用于查询解析结果）
         """
         file_path_obj = Path(file_path)
         file_name = file_path_obj.name
 
-        # 请求上传 URL
         client = get_sync_http_client()
         headers = {
             "Content-Type": "application/json",
@@ -226,100 +219,33 @@ class MineruBackend:
                 raise MineruAPIError("未获取到上传 URL")
 
             upload_url = urls[0]
-            file_size = file_path_obj.stat().st_size
 
-            # 上传文件到预签名 URL（不要设置 Content-Type，签名不包含此 header）
+            # 上传文件到预签名 URL（不设置 Content-Type，签名不包含此 header）
             with open(file_path, "rb") as f:
                 upload_response = client.put(
                     upload_url,
                     content=f.read(),
                     timeout=self.timeout,
                 )
-                logger.debug(
-                    "PUT 上传响应: status=%d, headers=%s, file_size=%d",
-                    upload_response.status_code,
-                    dict(upload_response.headers),
-                    file_size,
-                )
                 upload_response.raise_for_status()
 
             logger.info("文件上传成功: %s (batch_id=%s)", file_name, batch_id)
 
-            return {"batch_id": batch_id, "upload_url": upload_url}
+            return batch_id
 
         except httpx.HTTPError as e:
             raise MineruAPIError(f"HTTP 请求失败: {e}") from e
 
-    def _create_task(
-        self,
-        file_url: str,
-        file_type: str = "pdf",
-        extract_images: bool = False,
-        batch_id: str = None,
-    ) -> str:
-        """创建 MinerU 解析任务
+    def _poll_batch_result(self, batch_id: str) -> dict:
+        """轮询批量任务结果
+
+        上传文件后 MinerU 自动创建解析任务，通过 batch_id 查询结果。
 
         Args:
-            file_url: 文件 URL（当 batch_id 存在时作为备用）
-            file_type: 文件类型
-            extract_images: 是否提取图片
             batch_id: 批次 ID（从 _upload_file 获取）
 
         Returns:
-            任务 ID
-        """
-        client = get_sync_http_client()
-        headers = {
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer {self.api_key}",
-        }
-
-        # 优先使用 batch_id，因为预签名 URL 可能无法被 MinerU 处理服务访问
-        if batch_id:
-            payload = {
-                "batch_id": batch_id,
-                "model_version": self.MODEL_VERSION,
-            }
-        else:
-            payload = {
-                "url": file_url,
-                "model_version": self.MODEL_VERSION,
-            }
-
-        try:
-            logger.debug("创建任务 payload: %s", payload)
-            response = client.post(
-                self.API_URL,
-                json=payload,
-                headers=headers,
-                timeout=self.timeout,
-            )
-            response.raise_for_status()
-            result = response.json()
-
-            logger.debug("创建任务响应: %s", result)
-
-            if result.get("code") != 0:
-                raise MineruAPIError(
-                    f"创建任务失败: {result.get('msg', '未知错误')}"
-                )
-
-            task_id = result["data"]["task_id"]
-            logger.info("MinerU 任务创建成功: task_id=%s", task_id)
-
-            return task_id
-
-        except httpx.HTTPError as e:
-            raise MineruAPIError(f"创建任务失败: {e}") from e
-
-    def _poll_result(self, task_id: str) -> dict:
-        """轮询获取解析结果
-
-        Args:
-            task_id: 任务 ID
-
-        Returns:
-            任务结果
+            包含 full_zip_url 的结果字典
 
         Raises:
             ParsingTimeoutError: 超时
@@ -330,14 +256,14 @@ class MineruBackend:
             "Authorization": f"Bearer {self.api_key}",
         }
 
-        url = f"{self.API_URL}/{task_id}"
+        url = f"{self.BATCH_RESULTS_URL}/{batch_id}"
         start_time = time.time()
 
         while True:
             elapsed = time.time() - start_time
             if elapsed > self.POLL_TIMEOUT:
                 raise ParsingTimeoutError(
-                    f"任务超时 ({self.POLL_TIMEOUT}秒): {task_id}"
+                    f"任务超时 ({self.POLL_TIMEOUT}秒): batch_id={batch_id}"
                 )
 
             try:
@@ -349,20 +275,33 @@ class MineruBackend:
                 response.raise_for_status()
                 result = response.json()
 
-                state = result.get("data", {}).get("state", "")
+                if result.get("code") != 0:
+                    raise MineruAPIError(
+                        f"查询结果失败: {result.get('msg', '未知错误')}"
+                    )
+
+                extract_results = result.get("data", {}).get("extract_result", [])
+                if not extract_results:
+                    logger.debug("批量结果为空，等待中 (elapsed=%.1fs)", elapsed)
+                    time.sleep(self.POLL_INTERVAL)
+                    continue
+
+                # 取第一个文件的结果
+                file_result = extract_results[0]
+                state = file_result.get("state", "")
 
                 if state == "done":
-                    logger.info("MinerU 任务完成: %s", task_id)
-                    return result["data"]
+                    logger.info("MinerU 批量任务完成: %s", batch_id)
+                    return file_result
 
                 elif state == "failed":
-                    err_msg = result.get("data", {}).get("err_msg", "未知错误")
+                    err_msg = file_result.get("err_msg", "未知错误")
                     raise MineruAPIError(f"任务失败: {err_msg}")
 
-                # 继续轮询
+                # waiting-file / pending / running — 继续轮询
                 logger.debug(
-                    "任务进行中: %s (state=%s, elapsed=%.1fs)",
-                    task_id,
+                    "任务进行中: batch_id=%s (state=%s, elapsed=%.1fs)",
+                    batch_id,
                     state,
                     elapsed,
                 )
