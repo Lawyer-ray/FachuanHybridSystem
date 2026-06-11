@@ -12,6 +12,7 @@ FachuanHybridSystem/
 ├── backend/            # Django 后端（详见 backend/CLAUDE.md）
 │   ├── apiSystem/      # Django 项目配置
 │   ├── apps/           # 业务模块
+│   ├── plugins/        # ⚠️ Git Submodule → FachuanPlugins 仓库
 │   └── tests/          # 测试
 ├── frontend/           # React 前端（详见 frontend/CLAUDE.md）
 │   └── src/
@@ -31,6 +32,33 @@ FachuanHybridSystem/
 ```
 
 ## 关键架构约定
+
+### backend/plugins 是 Git Submodule（独立仓库）
+
+`backend/plugins/` 是指向 `Lawyer-ray/FachuanPlugins` 的 **Git Submodule**，代码变更必须提交到子模块仓库，**绝对不能**直接提交到主仓库。
+
+**正确流程**：
+```bash
+# 1. 进入子模块目录
+cd backend/plugins
+
+# 2. 在子模块内 commit + push
+git add . && git commit -m "fix: xxx"
+git push origin <branch>
+
+# 3. 回到主仓库，更新 submodule 引用
+cd ../..
+git add backend/plugins
+git commit -m "chore: update plugins submodule"
+```
+
+**禁止模式**：
+```bash
+# ❌ 从主仓库直接 git add backend/plugins/xxx.py — 会导致文件泄露到主仓库
+git add backend/plugins/court_filing_http/xxx.py
+```
+
+**教训**：2026-06-11 发现 plugins 代码被直接提交到 FachuanHybridSystem 主仓库（GitHub 上可见），需要紧急修复。原因是在主仓库目录下对 plugins 文件执行了 `git add`，而非进入子模块目录操作。
 
 ### 文件名模板可配置化
 
