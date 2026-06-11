@@ -26,7 +26,7 @@ router = Router()
     summary="解析文档",
     auth=JWTOrSessionAuth(),
 )
-def parse_document(request, file: UploadedFile = File(...), body: ParseDocumentRequest = None):
+def parse_document(request: object, file: UploadedFile = File(...), body: ParseDocumentRequest | None = None):
     """解析上传的文档，返回结构化的解析结果
 
     支持的文件格式：PDF、DOC、DOCX、PPT、PPTX、XLS、XLSX、JPG、PNG 等
@@ -36,7 +36,8 @@ def parse_document(request, file: UploadedFile = File(...), body: ParseDocumentR
         upload_dir = Path("media/document_parsing/uploads")
         upload_dir.mkdir(parents=True, exist_ok=True)
 
-        file_path = upload_dir / file.name
+        file_name = file.name or "uploaded"
+        file_path = upload_dir / file_name
         with open(file_path, "wb") as f:
             for chunk in file.chunks():
                 f.write(chunk)
@@ -51,7 +52,7 @@ def parse_document(request, file: UploadedFile = File(...), body: ParseDocumentR
         parser = get_document_parser(backend=backend)
         result = parser.parse_document(
             file_path=str(file_path),
-            file_type=Path(file.name).suffix.lstrip("."),
+            file_type=Path(file_name).suffix.lstrip("."),
             extract_tables=extract_tables,
             extract_images=extract_images,
             return_markdown=return_markdown,
@@ -79,14 +80,15 @@ def parse_document(request, file: UploadedFile = File(...), body: ParseDocumentR
     summary="提取文档文本",
     auth=JWTOrSessionAuth(),
 )
-def extract_text(request, file: UploadedFile = File(...), body: ExtractTextRequest = None):
+def extract_text(request: object, file: UploadedFile = File(...), body: ExtractTextRequest | None = None):
     """提取文档的纯文本内容"""
     try:
         # 保存上传的文件
         upload_dir = Path("media/document_parsing/uploads")
         upload_dir.mkdir(parents=True, exist_ok=True)
 
-        file_path = upload_dir / file.name
+        file_name = file.name or "uploaded"
+        file_path = upload_dir / file_name
         with open(file_path, "wb") as f:
             for chunk in file.chunks():
                 f.write(chunk)

@@ -1,7 +1,7 @@
 """统一的文档解析服务"""
 
 import logging
-from typing import List, Optional
+from typing import Any, List, Optional
 
 from apps.document_parsing.protocols.document_parser_protocol import (
     IDocumentParserProtocol,
@@ -19,7 +19,7 @@ class DocumentParserService:
     提供统一的文档解析接口，支持多后端切换。
     """
 
-    def __init__(self, backend: str = "auto", **kwargs):
+    def __init__(self, backend: str = "auto", **kwargs: Any):
         """初始化文档解析服务
 
         Args:
@@ -46,7 +46,7 @@ class DocumentParserService:
         extract_tables: bool = True,
         extract_images: bool = False,
         return_markdown: bool = False,
-        **kwargs,
+        **kwargs: Any,
     ) -> ParsedDocument:
         """解析文档
 
@@ -74,7 +74,7 @@ class DocumentParserService:
         self,
         file_path: str,
         max_length: int | None = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> TextExtractionResult:
         """提取文档纯文本
 
@@ -100,7 +100,7 @@ class DocumentParserService:
 
 def get_document_parser(
     backend: str = "auto",
-    **kwargs,
+    **kwargs: Any,
 ) -> DocumentParserService:
     """获取文档解析服务的便捷函数
 

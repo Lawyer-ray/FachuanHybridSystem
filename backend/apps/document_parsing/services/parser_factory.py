@@ -1,7 +1,7 @@
 """文档解析器工厂"""
 
 import logging
-from typing import Optional
+from typing import Any
 
 from apps.core.services.system_config_service import SystemConfigService
 from apps.document_parsing.protocols.document_parser_protocol import IDocumentParserProtocol
@@ -19,7 +19,7 @@ class ParserFactory:
     @staticmethod
     def create_parser(
         backend: str = "auto",
-        **kwargs,
+        **kwargs: Any,
     ) -> IDocumentParserProtocol:
         """创建解析器
 
@@ -50,7 +50,7 @@ class ParserFactory:
             raise ValueError(f"未知的后端类型: {backend}")
 
     @staticmethod
-    def _create_mineru_backend(**kwargs) -> IDocumentParserProtocol:
+    def _create_mineru_backend(**kwargs: Any) -> IDocumentParserProtocol:
         """创建 MinerU 后端
 
         API Key 会从 SystemConfig 自动读取，不需要传入。
@@ -65,14 +65,14 @@ class ParserFactory:
             return MineruBackend()
 
     @staticmethod
-    def _create_local_backend(**kwargs) -> IDocumentParserProtocol:
+    def _create_local_backend(**kwargs: Any) -> IDocumentParserProtocol:
         """创建本地后端（PyMuPDF + OCR）"""
         from apps.document_parsing.services.backends.local_backend import LocalBackend
 
         return LocalBackend(**kwargs)
 
     @staticmethod
-    def _create_paddleocr_backend(**kwargs) -> IDocumentParserProtocol:
+    def _create_paddleocr_backend(**kwargs: Any) -> IDocumentParserProtocol:
         """创建 PaddleOCR 后端"""
         # TODO: 实现 PaddleOCR 后端
         raise NotImplementedError("PaddleOCR 后端暂未实现")

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import Any, ClassVar
+from typing import Any
 
 from django.conf import settings
 from django.contrib import admin, messages
@@ -59,14 +59,14 @@ class DocumentParsingToolAdmin(admin.ModelAdmin):  # pragma: no cover
         # 保存文件
         upload_dir = Path(settings.MEDIA_ROOT) / "document_parsing" / "uploads"
         upload_dir.mkdir(parents=True, exist_ok=True)
-        file_path = upload_dir / uploaded_file.name
+        file_path = upload_dir / (uploaded_file.name or "uploaded")
 
         with open(file_path, "wb") as f:
             for chunk in uploaded_file.chunks():
                 f.write(chunk)
 
         # 创建任务记录
-        task = DocumentParsingTask.objects.create(
+        task = DocumentParsingTask.objects.create(  # type: ignore[misc]
             file_name=uploaded_file.name,
             file_path=str(file_path),
             file_size=uploaded_file.size,
@@ -119,7 +119,7 @@ class DocumentParsingToolAdmin(admin.ModelAdmin):  # pragma: no cover
 class DocumentParsingTaskAdmin(admin.ModelAdmin):  # pragma: no cover
     """解析任务列表和详情 Admin"""
 
-    list_display: ClassVar[list[str]] = [
+    list_display = [
         "id",
         "status_display",
         "file_name",
@@ -129,12 +129,12 @@ class DocumentParsingTaskAdmin(admin.ModelAdmin):  # pragma: no cover
         "created_at",
         "completed_at",
     ]
-    list_filter: ClassVar[list[str]] = ["status", "backend_used", "created_at"]
-    search_fields: ClassVar[list[str]] = ["file_name"]
-    ordering: ClassVar[list[str]] = ["-created_at"]
+    list_filter = ["status", "backend_used", "created_at"]
+    search_fields = ["file_name"]
+    ordering = ["-created_at"]
     list_per_page = 20
 
-    readonly_fields: ClassVar[list[str]] = [
+    readonly_fields = [
         "id",
         "file_name",
         "file_path",
