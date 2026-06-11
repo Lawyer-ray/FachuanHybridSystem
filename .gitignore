@@ -246,6 +246,9 @@ playwright-report/
 # 软件著作权申请资料（含个人信息，不入库）
 软件著作权申请资料/
 
+# 误生成的嵌套 backend 目录（detect-secrets 等工具在错误目录运行的产物）
+backend/backend/
+
 # 误生成的 ~ 目录
 /~/
 backend/cookies.txt
