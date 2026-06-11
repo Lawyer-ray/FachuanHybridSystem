@@ -3,8 +3,10 @@
  * 测试财产保全询价列表组件
  */
 
+const mockNavigate = vi.fn()
+
 vi.mock('react-router', () => ({
-  useNavigate: () => vi.fn(),
+  useNavigate: () => mockNavigate,
 }))
 
 vi.mock('@/lib/utils', () => ({
@@ -52,7 +54,7 @@ vi.mock('@/components/ui/skeleton', () => ({
   Skeleton: ({ className }: { className: string }) => <div className={className} data-testid="skeleton" />,
 }))
 
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import { QuoteList } from '../QuoteList'
 import { useQuotes } from '../../hooks/use-quotes'
 
@@ -78,6 +80,7 @@ const mockQuotes = [
 describe('QuoteList', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockNavigate.mockClear()
   })
 
   it('renders create button when onCreateClick provided', () => {
@@ -126,5 +129,100 @@ describe('QuoteList', () => {
     expect(screen.getByText('状态')).toBeInTheDocument()
     expect(screen.getByText('成功/失败')).toBeInTheDocument()
     expect(screen.getByText('创建时间')).toBeInTheDocument()
+  })
+
+  // ===== Branch coverage: formatAmount =====
+
+  it('handles NaN amount gracefully', () => {
+    vi.mocked(useQuotes).mockReturnValue({
+      data: { items: [{ ...mockQuotes[0], preserve_amount: 'not-a-number' }], total: 1 },
+      isLoading: false,
+      isFetching: false,
+    } as any)
+    render(<QuoteList />)
+    expect(screen.getByText('-')).toBeInTheDocument()
+  })
+
+  // ===== Branch coverage: onCreateClick conditional =====
+
+  it('does not render create button when onCreateClick is not provided', () => {
+    vi.mocked(useQuotes).mockReturnValue({ data: { items: [], total: 0 }, isLoading: false, isFetching: false } as any)
+    render(<QuoteList />)
+    // Empty state has no onCreateClick, so no create button
+    const buttons = screen.queryAllByText('创建询价')
+    expect(buttons.length).toBe(0)
+  })
+
+  it('renders empty state create button when onCreateClick provided', () => {
+    const onCreate = vi.fn()
+    vi.mocked(useQuotes).mockReturnValue({ data: { items: [], total: 0 }, isLoading: false, isFetching: false } as any)
+    render(<QuoteList onCreateClick={onCreate} />)
+    // Both the top bar create button and the empty state create button
+    const buttons = screen.getAllByText('创建询价')
+    expect(buttons.length).toBe(2)
+  })
+
+  // ===== Branch coverage: pagination =====
+
+  it('shows pagination when total exceeds page size', () => {
+    const manyQuotes = Array.from({ length: 10 }, (_, i) => ({
+      ...mockQuotes[0],
+      id: i + 1,
+      preserve_amount: String((i + 1) * 100000),
+    }))
+    vi.mocked(useQuotes).mockReturnValue({
+      data: { items: manyQuotes, total: 25 },
+      isLoading: false,
+      isFetching: false,
+    } as any)
+    render(<QuoteList />)
+    expect(screen.getByText('上一页')).toBeInTheDocument()
+    expect(screen.getByText('下一页')).toBeInTheDocument()
+  })
+
+  it('shows page number buttons for multiple pages', () => {
+    vi.mocked(useQuotes).mockReturnValue({
+      data: { items: mockQuotes, total: 20 },
+      isLoading: false,
+      isFetching: false,
+    } as any)
+    render(<QuoteList />)
+    const buttons = screen.getAllByRole('button')
+    const pageButtons = buttons.filter(b => ['1', '2'].includes(b.textContent || ''))
+    expect(pageButtons.length).toBeGreaterThanOrEqual(2)
+  })
+
+  // ===== Branch coverage: row click navigation =====
+
+  it('navigates to detail page on row click', () => {
+    vi.mocked(useQuotes).mockReturnValue({
+      data: { items: mockQuotes, total: 2 },
+      isLoading: false,
+      isFetching: false,
+    } as any)
+    render(<QuoteList />)
+    fireEvent.click(screen.getByText(/500,000/))
+    expect(mockNavigate).toHaveBeenCalledWith('/admin/automation/preservation-quotes/1')
+  })
+
+  // ===== Branch coverage: isFetching disabling pagination =====
+
+  it('disables pagination buttons when fetching', () => {
+    vi.mocked(useQuotes).mockReturnValue({
+      data: { items: mockQuotes, total: 20 },
+      isLoading: false,
+      isFetching: true,
+    } as any)
+    render(<QuoteList />)
+    const nextBtn = screen.getByText('下一页').closest('button')
+    expect(nextBtn).toBeDisabled()
+  })
+
+  // ===== Branch coverage: empty data (total=0 pagination text) =====
+
+  it('shows "暂无数据" in pagination when total is 0', () => {
+    vi.mocked(useQuotes).mockReturnValue({ data: { items: [], total: 0 }, isLoading: false, isFetching: false } as any)
+    render(<QuoteList />)
+    expect(screen.getByText('暂无数据')).toBeInTheDocument()
   })
 })

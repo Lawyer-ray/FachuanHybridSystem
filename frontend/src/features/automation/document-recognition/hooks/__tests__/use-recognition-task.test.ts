@@ -65,4 +65,17 @@ describe('automation/document-recognition/hooks/use-recognition-task', () => {
       expect(isCompleted('processing')).toBe(false)
     })
   })
+
+  describe('shouldPoll edge cases', () => {
+    it('returns false for an unknown status', () => {
+      // TypeScript would not allow this, but test runtime behavior
+      expect(shouldPoll('unknown' as any)).toBe(false)
+    })
+  })
+
+  describe('isCompleted edge cases', () => {
+    it('returns false for an unknown status', () => {
+      expect(isCompleted('unknown' as any)).toBe(false)
+    })
+  })
 })

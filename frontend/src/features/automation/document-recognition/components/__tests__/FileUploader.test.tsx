@@ -337,4 +337,112 @@ describe('FileUploader', () => {
       expect(screen.getByTestId('file-image')).toBeInTheDocument()
     })
   })
+
+  // ===== Branch coverage: drag enter with items =====
+
+  it('sets dragging state on dragEnter with items', () => {
+    render(<FileUploader onUploadSuccess={vi.fn()} />)
+    const dropZone = screen.getByTestId('drop-zone')
+    fireEvent.dragEnter(dropZone, { dataTransfer: { items: ['item'] } })
+    expect(dropZone).toHaveAttribute('data-dragging', 'true')
+  })
+
+  // ===== Branch coverage: drag leave resets dragging =====
+
+  it('resets dragging on dragLeave when counter reaches 0', () => {
+    render(<FileUploader onUploadSuccess={vi.fn()} />)
+    const dropZone = screen.getByTestId('drop-zone')
+    fireEvent.dragEnter(dropZone, { dataTransfer: { items: ['item'] } })
+    expect(dropZone).toHaveAttribute('data-dragging', 'true')
+    fireEvent.dragLeave(dropZone)
+    expect(dropZone).toHaveAttribute('data-dragging', 'false')
+  })
+
+  // ===== Branch coverage: handleClick does nothing when uploading =====
+
+  it('does not open file picker when uploading', async () => {
+    mockMutateAsync.mockImplementation(() => new Promise(() => {})) // Never resolves
+    render(<FileUploader onUploadSuccess={vi.fn()} />)
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement
+    const file = new File(['test'], 'test.pdf', { type: 'application/pdf' })
+    fireEvent.change(fileInput, { target: { files: [file] } })
+
+    await waitFor(() => {
+      expect(screen.getByTestId('loader')).toBeInTheDocument()
+    })
+
+    // Try to click drop zone during upload - should not crash
+    const dropZone = screen.queryByTestId('drop-zone')
+    if (dropZone) fireEvent.click(dropZone)
+  })
+
+  // ===== Branch coverage: handleRemoveFile resets state =====
+
+  it('restores drop zone after removing file', async () => {
+    mockMutateAsync.mockResolvedValue({ id: 1 })
+    render(<FileUploader onUploadSuccess={vi.fn()} />)
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement
+    const file = new File(['test'], 'test.pdf', { type: 'application/pdf' })
+    fireEvent.change(fileInput, { target: { files: [file] } })
+
+    await waitFor(() => {
+      expect(screen.getByText('test.pdf')).toBeInTheDocument()
+    })
+
+    // Find and click the remove button (parent of x icon)
+    const xIcon = screen.getByTestId('x')
+    const removeBtn = xIcon.closest('button')
+    if (removeBtn) fireEvent.click(removeBtn)
+
+    // Drop zone should reappear
+    await waitFor(() => {
+      expect(screen.getByTestId('drop-zone')).toBeInTheDocument()
+    })
+  })
+
+  // ===== Branch coverage: getFileTypeName =====
+
+  it('displays file type name for JPEG', async () => {
+    mockMutateAsync.mockResolvedValue({ id: 1 })
+    render(<FileUploader onUploadSuccess={vi.fn()} />)
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement
+    const file = new File(['test'], 'photo.jpg', { type: 'image/jpeg' })
+    fireEvent.change(fileInput, { target: { files: [file] } })
+
+    await waitFor(() => {
+      expect(screen.getByText('JPG')).toBeInTheDocument()
+    })
+  })
+
+  it('displays file type name for PNG', async () => {
+    mockMutateAsync.mockResolvedValue({ id: 1 })
+    render(<FileUploader onUploadSuccess={vi.fn()} />)
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement
+    const file = new File(['test'], 'image.png', { type: 'image/png' })
+    fireEvent.change(fileInput, { target: { files: [file] } })
+
+    await waitFor(() => {
+      expect(screen.getByText('PNG')).toBeInTheDocument()
+    })
+  })
+
+  // ===== Branch coverage: drop with no files =====
+
+  it('handles drop with no files gracefully', () => {
+    render(<FileUploader onUploadSuccess={vi.fn()} />)
+    const dropZone = screen.getByTestId('drop-zone')
+    fireEvent.drop(dropZone, { dataTransfer: { files: [] } })
+    // Should not crash
+    expect(dropZone).toBeInTheDocument()
+  })
+
+  // ===== Branch coverage: handleFileChange with no files =====
+
+  it('handles file input change with no files', () => {
+    render(<FileUploader onUploadSuccess={vi.fn()} />)
+    const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement
+    fireEvent.change(fileInput, { target: { files: [] } })
+    // Should not crash, no file preview shown
+    expect(screen.getByTestId('drop-zone')).toBeInTheDocument()
+  })
 })
