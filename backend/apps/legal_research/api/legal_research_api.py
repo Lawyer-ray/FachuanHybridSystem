@@ -180,7 +180,7 @@ def check_law_references(request: Any, payload: dict[str, Any]) -> dict[str, Any
     请求: {"text": "文档全文", "credential_id": 6}
     响应: {"references": [...], "total": N}
     """
-    from ninja import Schema
+    from ninja import Schema  # noqa: F811
 
     text = str(payload.get("text") or "").strip()
     credential_id = int(payload.get("credential_id") or 0)
@@ -189,7 +189,7 @@ def check_law_references(request: Any, payload: dict[str, Any]) -> dict[str, Any
         return {"error": "text 不能为空", "references": [], "total": 0}
 
     # 检测插件是否可用
-    from plugins import has_law_verification_plugin
+    from plugins import has_law_verification_plugin  # type: ignore[attr-defined]
 
     if not has_law_verification_plugin():
         return {"error": "法规核查插件未安装", "references": [], "total": 0}
@@ -203,7 +203,8 @@ def check_law_references(request: Any, payload: dict[str, Any]) -> dict[str, Any
     except AccountCredential.DoesNotExist:
         return {"error": f"凭证 ID {credential_id} 不存在", "references": [], "total": 0}
 
-    password = SecretCodec.decrypt(cred.password) if cred.password.startswith("v1:") else cred.password
+    codec = SecretCodec()
+    password = codec.try_decrypt(cred.password)
 
     # 建立威科先行会话
     from plugins.weike_api_private.adapter import PrivateWeikeApiAdapter
@@ -223,11 +224,11 @@ def check_law_references(request: Any, payload: dict[str, Any]) -> dict[str, Any
         return {"error": f"威科先行登录失败: {e}", "references": [], "total": 0}
 
     # 定义回调函数
-    def search_laws(law_name: str) -> list[dict]:
-        return adapter.search_laws_via_api(session=session, keyword=law_name)
+    def search_laws(law_name: str) -> list[dict[str, Any]]:
+        return adapter.search_laws_via_api(session=session, keyword=law_name)  # type: ignore[no-any-return]
 
     def fetch_article(doc_id: str, article_num: int) -> str | None:
-        return adapter.fetch_law_article_via_api(session=session, doc_id=doc_id, article_num=article_num)
+        return adapter.fetch_law_article_via_api(session=session, doc_id=doc_id, article_num=article_num)  # type: ignore[no-any-return]
 
     # 执行核查
     from plugins.weike_api_private.law_verification import verify_references
