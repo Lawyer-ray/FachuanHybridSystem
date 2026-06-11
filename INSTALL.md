@@ -2,6 +2,8 @@
 
 本文档包含法穿系统的安装、初始化、启动与常见运维命令。
 
+> **最快的安装方式**：把本仓库地址和这份 INSTALL.md 丢给 AI Agent（WorkBuddy、Claude Code、Cursor 等），让它帮你执行安装。遇到报错也直接贴给它——AI Agent 处理环境问题比人快得多。
+
 ## 1. Docker 部署（推荐）
 
 适合快速体验与服务器部署。只需安装 [Docker Desktop](https://www.docker.com/products/docker-desktop/)。
