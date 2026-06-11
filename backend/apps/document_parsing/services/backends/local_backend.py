@@ -4,10 +4,7 @@ import logging
 from pathlib import Path
 from typing import Any, List, Optional
 
-from apps.document_parsing.protocols.document_parser_protocol import (
-    ParsedDocument,
-    TextExtractionResult,
-)
+from apps.document_parsing.protocols.document_parser_protocol import ParsedDocument, TextExtractionResult
 
 logger = logging.getLogger(__name__)
 
@@ -19,15 +16,16 @@ class LocalBackend:
     作为 MinerU 的 fallback 选项。
     """
 
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs: Any) -> None:
         """初始化本地后端"""
-        self._ocr_service = None
+        self._ocr_service: Any = None
 
-    def _get_ocr_service(self):
+    def _get_ocr_service(self) -> Any:
         """获取 OCR 服务（延迟加载）"""
         if self._ocr_service is None:
             try:
-                from apps.core.infrastructure import ServiceLocator
+                from apps.core.infrastructure import ServiceLocator  # type: ignore[attr-defined]
+
                 self._ocr_service = ServiceLocator.get_ocr_service()
             except Exception as e:
                 logger.warning("无法获取 OCR 服务: %s", e)
@@ -79,7 +77,7 @@ class LocalBackend:
     def extract_text(
         self,
         file_path: str,
-        max_length: Optional[int] = None,
+        max_length: int | None = None,
         **kwargs: Any,
     ) -> TextExtractionResult:
         """提取文档纯文本
@@ -120,7 +118,7 @@ class LocalBackend:
                 metadata={"error": str(e)},
             )
 
-    def get_supported_formats(self) -> List[str]:
+    def get_supported_formats(self) -> list[str]:
         """获取支持的文件格式"""
         return ["pdf", "jpg", "jpeg", "png", "bmp", "tiff"]
 
@@ -165,9 +163,8 @@ class LocalBackend:
 
                             # 保存图片到临时文件
                             import tempfile
-                            with tempfile.NamedTemporaryFile(
-                                suffix=f".{image_ext}", delete=False
-                            ) as tmp:
+
+                            with tempfile.NamedTemporaryFile(suffix=f".{image_ext}", delete=False) as tmp:
                                 tmp.write(image_bytes)
                                 images.append(tmp.name)
                         except Exception as e:

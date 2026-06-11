@@ -1,12 +1,9 @@
 """文档解析后端基类"""
 
 from abc import ABC, abstractmethod
-from typing import List, Optional
+from typing import Any, List, Optional
 
-from apps.document_parsing.protocols.document_parser_protocol import (
-    ParsedDocument,
-    TextExtractionResult,
-)
+from apps.document_parsing.protocols.document_parser_protocol import ParsedDocument, TextExtractionResult
 
 
 class BaseDocumentParser(ABC):
@@ -23,7 +20,7 @@ class BaseDocumentParser(ABC):
         extract_tables: bool = True,
         extract_images: bool = False,
         return_markdown: bool = False,
-        **kwargs,
+        **kwargs: Any,
     ) -> ParsedDocument:
         """解析文档"""
         ...
@@ -33,12 +30,12 @@ class BaseDocumentParser(ABC):
         self,
         file_path: str,
         max_length: Optional[int] = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> TextExtractionResult:
         """提取纯文本"""
         ...
 
     @abstractmethod
-    def get_supported_formats(self) -> List[str]:
+    def get_supported_formats(self) -> list[str]:
         """获取支持的文件格式"""
         ...
