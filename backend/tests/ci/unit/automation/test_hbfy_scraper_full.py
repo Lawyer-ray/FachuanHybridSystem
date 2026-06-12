@@ -17,6 +17,9 @@ def _make_scraper(url: str = "", config: dict | None = None):
     scraper = HbfyCourtScraper.__new__(HbfyCourtScraper)
     scraper.task = SimpleNamespace(url=url, config=config or {})
     scraper.debug_info = {}
+    mock_recognizer = MagicMock()
+    mock_recognizer.recognize.return_value = "ABCD"
+    scraper.captcha_recognizer = mock_recognizer
     return scraper
 
 
@@ -615,12 +618,9 @@ class TestLoginHbfyAccountSession:
         session.get.side_effect = [landing, captcha_img, main_resp]
         session.post.side_effect = [check_resp, login_resp]
 
-        with patch("ddddocr.DdddOcr") as MockOcr:
-            mock_ocr = MockOcr.return_value
-            mock_ocr.classification.return_value = "ABCD"
-            with patch.object(scraper, "_encode_user_code", return_value="encoded"):
-                with patch.object(scraper, "_encode_password", return_value="hashed"):
-                    scraper._login_hbfy_account_session(session, "account", "password")
+        with patch.object(scraper, "_encode_user_code", return_value="encoded"):
+            with patch.object(scraper, "_encode_password", return_value="hashed"):
+                scraper._login_hbfy_account_session(session, "account", "password")
 
     def test_landing_page_500_raises(self):
         scraper = _make_scraper()
@@ -648,11 +648,8 @@ class TestLoginHbfyAccountSession:
         session.get.side_effect = [landing] + [captcha_img_ok] * 12
         session.post.side_effect = [check_fail] * 12
 
-        with patch("ddddocr.DdddOcr") as MockOcr:
-            mock_ocr = MockOcr.return_value
-            mock_ocr.classification.return_value = "ABCD"
-            with pytest.raises(ValueError, match="验证码"):
-                scraper._login_hbfy_account_session(session, "account", "password")
+        with pytest.raises(ValueError, match="验证码"):
+            scraper._login_hbfy_account_session(session, "account", "password")
 
 
 # ======================================================================

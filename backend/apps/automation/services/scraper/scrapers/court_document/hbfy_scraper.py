@@ -18,8 +18,9 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import unquote, urljoin, urlparse
 
-import ddddocr
 import requests
+
+from apps.automation.services.scraper.core.captcha_recognizer import CaptchaRecognizer
 
 from .base_court_scraper import BaseCourtDocumentScraper
 
@@ -30,6 +31,21 @@ class HbfyCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
     """湖北电子送达爬虫"""
 
     _LOGIN_PAGE_URL = "http://dzsd.hbfy.gov.cn/sfsddz"
+
+    def __init__(
+        self,
+        task: Any,
+        captcha_recognizer: CaptchaRecognizer | None = None,
+        **kwargs: Any,
+    ) -> None:
+        super().__init__(task, **kwargs)
+        if captcha_recognizer is None:
+            from apps.automation.services.scraper.core.captcha_recognizer import DdddocrRecognizer
+
+            self.captcha_recognizer: CaptchaRecognizer = DdddocrRecognizer(show_ad=False)
+            logger.info("使用默认的 DdddocrRecognizer")
+        else:
+            self.captcha_recognizer = captcha_recognizer
     _CAPTCHA_IMAGE_URL = "http://dzsd.hbfy.gov.cn:80/deli/images/yanz.png"
     _CAPTCHA_CHECK_URL = "http://dzsd.hbfy.gov.cn:80/deli/deli-login!checkyzmAjaxp.action"
     _LOGIN_URL = "http://dzsd.hbfy.gov.cn:80/deli/easy-login!dologinAjax.action"
@@ -169,7 +185,6 @@ class HbfyCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
             return None
 
     def _find_public_sms_info_with_captcha(self, session: requests.Session, msg: str) -> dict[str, Any]:
-        ocr = ddddocr.DdddOcr(show_ad=False)
         last_sms_info: dict[str, Any] = {}
 
         for _ in range(12):
@@ -178,8 +193,8 @@ class HbfyCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
                 continue
 
             uuid, image_bytes = captcha_data
-            code = str(ocr.classification(image_bytes)).strip().replace(" ", "")
-            code = re.sub(r"[^0-9A-Za-z]", "", code)
+            recognized = self.captcha_recognizer.recognize(image_bytes)
+            code = re.sub(r"[^0-9A-Za-z]", "", recognized or "")
             if not code:
                 continue
 
@@ -380,15 +395,13 @@ class HbfyCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
         captcha_image = self.page.locator("img.code_img, img[src^='data:image'], img[src*='captcha']")
         submit_button = self.page.locator("button:has-text('提交验证'), button:has-text('提交')")
 
-        ocr = ddddocr.DdddOcr(show_ad=False)
-
         for _ in range(8):
             if captcha_image.count() <= 0 or submit_button.count() <= 0:
                 break
             try:
                 image_bytes = captcha_image.first.screenshot()
-                captcha_text = str(ocr.classification(image_bytes)).strip().replace(" ", "")
-                captcha_text = re.sub(r"[^0-9A-Za-z]", "", captcha_text)
+                recognized = self.captcha_recognizer.recognize(image_bytes)
+                captcha_text = re.sub(r"[^0-9A-Za-z]", "", recognized or "")
                 if not captcha_text:
                     captcha_image.first.click(force=True, timeout=1000)
                     self.page.wait_for_timeout(600)
@@ -484,16 +497,14 @@ class HbfyCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
         if landing.status_code >= 500:
             raise ValueError(f"打开湖北登录页失败: {landing.status_code}")
 
-        ocr = ddddocr.DdddOcr(show_ad=False)
-
         for _ in range(12):
             timestamp = str(int(time.time() * 1000))
             image_resp = session.get(f"{self._CAPTCHA_IMAGE_URL}?t={timestamp}", timeout=20)
             if image_resp.status_code != 200:
                 continue
 
-            captcha = str(ocr.classification(image_resp.content)).strip().replace(" ", "")
-            captcha = re.sub(r"[^0-9A-Za-z]", "", captcha)
+            recognized = self.captcha_recognizer.recognize(image_resp.content)
+            captcha = re.sub(r"[^0-9A-Za-z]", "", recognized or "")
             if not captcha:
                 continue
 
