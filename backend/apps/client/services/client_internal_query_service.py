@@ -27,7 +27,7 @@ class ClientInternalQueryService:
     def list_all_clients(self) -> list[Client]:  # pragma: no cover
         cached = cache.get(_CLIENT_CACHE_KEY)
         if cached is not None:
-            return cached  # type: ignore[return-value]
+            return cached  # type: ignore[no-any-return]
         result = list(Client.objects.prefetch_related("identity_docs").order_by("id"))
         cache.set(_CLIENT_CACHE_KEY, result, _CLIENT_CACHE_TTL)
         return result
