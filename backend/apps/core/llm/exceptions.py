@@ -84,14 +84,14 @@ class LLMAuthenticationError(LLMError, AuthenticationError):
 
     def __init__(
         self,
-        message: str = "SiliconFlow API Key 无效或缺失",
+        message: str = "LLM API Key 无效或缺失",
         code: str | None = None,
         errors: dict[str, Any] | None = None,
     ) -> None:
         super().__init__(
             message=message,
             code=code or "LLM_AUTH_ERROR",
-            errors=errors or {"api_key": "请检查 SILICONFLOW.API_KEY 配置"},
+            errors=errors or {"api_key": "请检查 API Key 配置"},
         )
 
 

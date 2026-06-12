@@ -25,35 +25,21 @@ class LLMService:
     统一 LLM 服务
 
     提供统一的 LLM 调用接口,支持:
-    - 多后端选择(siliconflow/ollama/openai_compatible)
+    - 多后端选择(openai_compatible/ollama)
     - 自动降级(按优先级尝试可用后端)
     - 统一的响应格式
-
-    Example:
-        service = LLMService()
-
-        # 使用默认后端
-        response = service.complete("你好")
-
-        # 指定后端
-        response = service.complete("你好", backend="ollama")
-
-        # 禁用降级
-        response = service.complete("你好", fallback=False)
 
     Requirements: 1.2, 1.4, 1.5
     """
 
     # 后端名称常量
-    BACKEND_SILICONFLOW = "siliconflow"
     BACKEND_OLLAMA = "ollama"
     BACKEND_OPENAI_COMPATIBLE = "openai_compatible"
 
     # 默认后端优先级(数字越小优先级越高)
     DEFAULT_PRIORITIES: ClassVar = {
-        BACKEND_SILICONFLOW: 1,
+        BACKEND_OPENAI_COMPATIBLE: 1,
         BACKEND_OLLAMA: 2,
-        BACKEND_OPENAI_COMPATIBLE: 3,
     }
 
     def __init__(
@@ -66,7 +52,7 @@ class LLMService:
 
         Args:
             backend_configs: 后端配置字典,键为后端名称
-            default_backend: 默认后端名称,None 时使用 siliconflow
+            default_backend: 默认后端名称,None 时使用 openai_compatible
         """
         self._backend_configs = backend_configs
         if default_backend:
@@ -78,7 +64,7 @@ class LLMService:
                 enabled.sort(key=lambda x: x[1].priority)
                 self._default_backend = enabled[0][0]
             else:
-                self._default_backend = self.BACKEND_SILICONFLOW
+                self._default_backend = self.BACKEND_OPENAI_COMPATIBLE
         else:
             from .config import LLMConfig
 
@@ -103,10 +89,7 @@ class LLMService:
             default_backend = await LLMConfig.get_default_backend_async()
 
         # 预热缓存：async 获取所有后端配置，写入 _config_cache
-        # 这样后续 is_available() 中的同步调用会命中缓存
         await asyncio.gather(
-            LLMConfig.get_api_key_async(),
-            LLMConfig.get_base_url_async(),
             LLMConfig.get_openai_compatible_api_key_async(),
             LLMConfig.get_openai_compatible_base_url_async(),
         )
@@ -114,39 +97,15 @@ class LLMService:
         return cls(backend_configs=backend_configs, default_backend=default_backend)
 
     def _get_backend_config(self, name: str) -> BackendConfig:
-        """
-        获取后端配置
-
-        Args:
-            name: 后端名称
-
-        Returns:
-            BackendConfig 配置对象
-        """
+        """获取后端配置"""
         return self._router.get_backend_config(name)
 
     def _get_backend(self, name: str) -> ILLMBackend:
-        """
-        获取后端实例(延迟初始化)
-
-        Args:
-            name: 后端名称
-
-        Returns:
-            ILLMBackend 后端实例
-
-        Raises:
-            ValueError: 未知的后端名称
-        """
+        """获取后端实例(延迟初始化)"""
         return self._router.get_backend(name)
 
     def _get_backends_by_priority(self) -> list[tuple[str, ILLMBackend]]:
-        """
-        按优先级获取所有后端
-
-        Returns:
-            (后端名称, 后端实例) 元组列表,按优先级排序
-        """
+        """按优先级获取所有后端"""
         return self._router.get_backends_by_priority()
 
     def complete(
@@ -160,23 +119,7 @@ class LLMService:
         fallback: bool = True,
         **kwargs: Any,
     ) -> LLMResponse:
-        """
-        简化的补全接口
-
-        Args:
-            prompt: 用户提示词
-            system_prompt: 系统提示词
-            backend: 指定后端 (siliconflow/ollama/openai_compatible),None 使用默认
-            model: 指定模型,None 使用后端默认模型
-            temperature: 温度参数
-            max_tokens: 最大输出 token 数
-            fallback: 是否启用降级
-
-        Returns:
-            LLMResponse 响应对象
-
-        Requirements: 1.2, 1.4, 1.5
-        """
+        """简化的补全接口"""
         return self._client.complete(
             fallback_policy=self._fallback_policy,
             prompt=prompt,
@@ -199,22 +142,7 @@ class LLMService:
         fallback: bool = True,
         **kwargs: Any,
     ) -> LLMResponse:
-        """
-        聊天接口
-
-        Args:
-            messages: 消息列表 [{"role": "user", "content": "..."}]
-            backend: 指定后端 (siliconflow/ollama/openai_compatible),None 使用默认
-            model: 指定模型,None 使用后端默认模型
-            temperature: 温度参数
-            max_tokens: 最大输出 token 数
-            fallback: 是否启用降级
-
-        Returns:
-            LLMResponse 响应对象
-
-        Requirements: 1.2, 1.4, 1.5
-        """
+        """聊天接口"""
         return self._client.chat(
             fallback_policy=self._fallback_policy,
             messages=messages,
@@ -236,20 +164,7 @@ class LLMService:
         fallback: bool = True,
         **kwargs: Any,
     ) -> LLMResponse:
-        """
-        异步聊天接口
-
-        Args:
-            messages: 消息列表 [{"role": "user", "content": "..."}]
-            backend: 指定后端 (siliconflow/ollama/openai_compatible),None 使用默认
-            model: 指定模型,None 使用后端默认模型
-            temperature: 温度参数
-            max_tokens: 最大输出 token 数
-            fallback: 是否启用降级
-
-        Returns:
-            LLMResponse 响应对象
-        """
+        """异步聊天接口"""
         return await self._client.achat(
             fallback_policy=self._fallback_policy,
             messages=messages,
@@ -324,17 +239,7 @@ class LLMService:
         )
 
     def get_backend(self, name: str) -> ILLMBackend:
-        """
-        获取指定后端实例
-
-        用于直接访问后端特有功能.
-
-        Args:
-            name: 后端名称
-
-        Returns:
-            ILLMBackend 后端实例
-        """
+        """获取指定后端实例"""
         return self._get_backend(name)
 
 

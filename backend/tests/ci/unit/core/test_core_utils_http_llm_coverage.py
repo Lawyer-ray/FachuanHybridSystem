@@ -223,31 +223,31 @@ class TestFallbackPolicy:
         with pytest.raises(LLMAuthenticationError):
             policy.execute(operation=op)
 
-    def test_diagnose_unavailable_siliconflow_no_key(self):
+    def test_diagnose_unavailable_openai_compatible_no_key(self):
         from apps.core.llm.fallback_policy import _diagnose_unavailable
 
         backend = MagicMock()
         backend.api_key = ""
         backend.default_model = "model"
-        result = _diagnose_unavailable("siliconflow", backend)
+        result = _diagnose_unavailable("openai_compatible", backend)
         assert "API Key" in result
 
-    def test_diagnose_unavailable_siliconflow_no_model(self):
+    def test_diagnose_unavailable_openai_compatible_no_model(self):
         from apps.core.llm.fallback_policy import _diagnose_unavailable
 
         backend = MagicMock()
         backend.api_key = "key"
         backend.default_model = ""
-        result = _diagnose_unavailable("siliconflow", backend)
+        result = _diagnose_unavailable("openai_compatible", backend)
         assert "默认模型" in result
 
-    def test_diagnose_unavailable_siliconflow_ok(self):
+    def test_diagnose_unavailable_openai_compatible_ok(self):
         from apps.core.llm.fallback_policy import _diagnose_unavailable
 
         backend = MagicMock()
         backend.api_key = "key"
         backend.default_model = "model"
-        result = _diagnose_unavailable("siliconflow", backend)
+        result = _diagnose_unavailable("openai_compatible", backend)
         assert "is_available" in result
 
     def test_diagnose_unavailable_ollama_no_url(self):

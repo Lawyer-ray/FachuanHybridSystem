@@ -20,20 +20,6 @@ def get_ai_configs() -> list[dict[str, Any]]:
     """获取 AI 配置项（仅保留用户必须配置的项，其余由代码默认值兜底）"""
     return [
         {
-            "key": "SILICONFLOW_API_KEY",
-            "category": "ai",
-            "description": "硅基流动 API Key",
-            "value": "<SILICONFLOW_API_KEY>",
-            "is_secret": True,
-        },
-        {
-            "key": "SILICONFLOW_DEFAULT_MODEL",
-            "category": "ai",
-            "description": "硅基流动默认对话模型名称（从在线模型列表中选择）",
-            "value": "Pro/Qwen/Qwen3-0.6B",
-            "is_secret": False,
-        },
-        {
             "key": "OPENAI_COMPATIBLE_API_KEY",
             "category": "ai",
             "description": "OpenAI-compatible API Key（kimi26 等 vLLM 部署）",

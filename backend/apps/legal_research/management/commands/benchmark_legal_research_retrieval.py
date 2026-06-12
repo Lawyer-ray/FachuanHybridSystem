@@ -1102,7 +1102,7 @@ class Command(BaseCommand):
             target_count=max(1, int(case.get("target_count") or 3)),
             max_candidates=max(1, int(case.get("max_candidates") or 100)),
             min_similarity_score=float(case.get("min_similarity_score") or 0.9),
-            llm_backend="siliconflow",
+            llm_backend="openai_compatible",
             llm_model=str(llm_model_override or case.get("llm_model") or "").strip(),
             status=LegalResearchTaskStatus.PENDING,
         )

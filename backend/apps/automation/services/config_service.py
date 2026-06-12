@@ -11,11 +11,6 @@ class AutomationConfigService:
 
         return {
             "default_backend": LLMConfig.get_default_backend(),
-            "siliconflow": {
-                "model": LLMConfig.get_default_model(),
-                "embedding_model": LLMConfig.get_embedding_model(),
-                "base_url": LLMConfig.get_base_url(),
-            },
             "ollama": {
                 "model": LLMConfig.get_ollama_model(),
                 "embedding_model": LLMConfig.get_ollama_embedding_model(),

@@ -98,30 +98,6 @@ def get_env_mappings() -> dict[str, dict[str, Any]]:
             "description": "Telegram 超级群组 ID",
             "is_secret": False,
         },
-        "SILICONFLOW_API_KEY": {
-            "key": "SILICONFLOW_API_KEY",
-            "category": "ai",
-            "description": "硅基流动 API Key",
-            "is_secret": True,
-        },
-        "SILICONFLOW_BASE_URL": {
-            "key": "SILICONFLOW_BASE_URL",
-            "category": "ai",
-            "description": "硅基流动 API 地址",
-            "is_secret": False,
-        },
-        "SILICONFLOW_DEFAULT_MODEL": {
-            "key": "SILICONFLOW_DEFAULT_MODEL",
-            "category": "ai",
-            "description": "硅基流动默认对话模型名称",
-            "is_secret": False,
-        },
-        "SILICONFLOW_EMBEDDING_MODEL": {
-            "key": "SILICONFLOW_EMBEDDING_MODEL",
-            "category": "ai",
-            "description": "硅基流动向量模型名称",
-            "is_secret": False,
-        },
         "OLLAMA_MODEL": {
             "key": "OLLAMA_MODEL",
             "category": "ai",

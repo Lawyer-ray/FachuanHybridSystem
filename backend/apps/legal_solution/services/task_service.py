@@ -32,7 +32,7 @@ class SolutionTaskService:
             created_by=user if hasattr(user, "id") else None,
             status=SolutionTaskStatus.PENDING,
             message=self.CREATE_PENDING_MESSAGE,
-            llm_model=(llm_model.strip() if llm_model else LLMConfig.get_default_model()),
+            llm_model=(llm_model.strip() if llm_model else LLMConfig.get_openai_compatible_model()),
         )
         self._dispatch(task)
         return task

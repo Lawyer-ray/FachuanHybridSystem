@@ -11,8 +11,8 @@ from apps.core.llm.config import LLMConfig
 
 logger = logging.getLogger(__name__)
 
-CACHE_KEY = "siliconflow_model_list"
-CACHE_KEY_STATUS = "siliconflow_model_list_status"
+CACHE_KEY = "llm_model_list"
+CACHE_KEY_STATUS = "llm_model_list_status"
 DEFAULT_CACHE_TTL = 3600
 
 # 预置默认模型列表（API 不可用时降级）
@@ -29,12 +29,6 @@ _KNOWN_CONTEXT_WINDOWS: dict[str, int] = {
     "claude-haiku-4-5": 200000,
     "deepseek-chat": 65536,
     "deepseek-reasoner": 65536,
-    "Qwen/Qwen3-8B": 32768,
-    "Qwen/Qwen2.5-7B-Instruct": 32768,
-    "Qwen/Qwen2.5-72B-Instruct": 131072,
-    "THUDM/glm-4-9b-chat": 32768,
-    "deepseek-ai/DeepSeek-V3": 65536,
-    "deepseek-ai/DeepSeek-R1": 65536,
     "kimi26": 262144,
 }
 
@@ -63,7 +57,7 @@ class ModelListResult:
 
 
 class ModelListService:
-    """模型列表公共服务（SiliconFlow + Ollama）"""
+    """模型列表公共服务（OpenAI-compatible + Ollama）"""
 
     def __init__(self, cache_ttl: int = DEFAULT_CACHE_TTL) -> None:
         self._cache_ttl = cache_ttl
@@ -120,7 +114,6 @@ class ModelListService:
 
         # 2. 各后端的默认模型（用户在 SystemConfig 中配置的默认模型）
         for default_model in [
-            LLMConfig.get_default_model(),
             LLMConfig.get_ollama_model(),
             LLMConfig.get_openai_compatible_model(),
         ]:
@@ -134,8 +127,6 @@ class ModelListService:
         configs = LLMConfig.get_backend_configs()
         all_models: list[dict[str, Any]] = []
 
-        if configs.get("siliconflow") and configs["siliconflow"].enabled:
-            all_models.extend(self._fetch_siliconflow_models())
         if configs.get("ollama") and configs["ollama"].enabled:
             all_models.extend(self._fetch_ollama_models())
 
@@ -147,42 +138,6 @@ class ModelListService:
             is_fallback=True,
             error_message="所有后端均不可用，使用默认模型列表",
         )
-
-    def _fetch_siliconflow_models(self) -> list[dict[str, Any]]:
-        """调用 SiliconFlow GET /v1/models API，提取 context_window"""
-        api_key = LLMConfig.get_api_key()
-        base_url = LLMConfig.get_base_url()
-        if not api_key:
-            logger.warning("SILICONFLOW_API_KEY 未配置")
-            return []
-
-        url = f"{base_url.rstrip('/')}/models"
-        try:
-            resp = httpx.get(
-                url,
-                headers={"Authorization": f"Bearer {api_key}"},
-                params={"sub_type": "chat"},
-                timeout=15.0,
-            )
-            resp.raise_for_status()
-            data: dict[str, Any] = resp.json()
-            models: list[dict[str, Any]] = []
-            for m in data.get("data", []):
-                if not m.get("id"):
-                    continue
-                model_id: str = m["id"]
-                # SiliconFlow 返回 max_model_len 字段
-                ctx = m.get("max_model_len") or m.get("context_length") or 0
-                models.append(_make_model(model_id, int(ctx) if ctx else 0))
-            if models:
-                logger.info("从 SiliconFlow API 获取到 %d 个模型", len(models))
-            return models
-        except (httpx.HTTPStatusError, httpx.ConnectError, httpx.TimeoutException) as exc:
-            logger.warning("SiliconFlow API 不可用: %s", exc)
-            return []
-        except Exception:
-            logger.exception("获取 SiliconFlow 模型列表时发生未知错误")
-            return []
 
     @staticmethod
     def _fetch_ollama_models() -> list[dict[str, Any]]:

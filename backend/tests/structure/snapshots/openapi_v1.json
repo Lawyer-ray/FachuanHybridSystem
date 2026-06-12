@@ -36111,7 +36111,7 @@
                 "type": "null"
               }
             ],
-            "description": "硅基流动模型ID",
+            "description": "LLM模型ID",
             "title": "Llm Model"
           },
           "llm_scoring_concurrency": {

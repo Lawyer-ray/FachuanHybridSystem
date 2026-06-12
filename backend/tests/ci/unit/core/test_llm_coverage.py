@@ -79,17 +79,17 @@ class TestRaiseAllUnavailable:
 
 
 class TestDiagnoseUnavailable:
-    def test_siliconflow_no_api_key(self) -> None:
+    def test_openai_compatible_no_api_key(self) -> None:
         backend = MagicMock()
         backend.api_key = ""
-        result = _diagnose_unavailable("siliconflow", backend)
+        result = _diagnose_unavailable("openai_compatible", backend)
         assert "API Key" in result
 
-    def test_siliconflow_with_key_no_model(self) -> None:
+    def test_openai_compatible_with_key_no_model(self) -> None:
         backend = MagicMock()
         backend.api_key = "key123"  # allowlist secret
         backend.default_model = ""
-        result = _diagnose_unavailable("siliconflow", backend)
+        result = _diagnose_unavailable("openai_compatible", backend)
         assert "默认模型" in result
 
     def test_ollama_no_base_url(self) -> None:

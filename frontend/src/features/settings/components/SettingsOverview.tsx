@@ -41,7 +41,7 @@ const sections: SettingSection[] = [
   {
     title: 'AI 与数据服务',
     items: [
-      { id: 'ai', icon: Brain, label: 'AI 服务配置', desc: 'SiliconFlow API Key、默认模型、Ollama 等 AI 接口参数', path: `${PATHS.ADMIN_SETTINGS}/config/ai` },
+      { id: 'ai', icon: Brain, label: 'AI 服务配置', desc: 'API Key、默认模型、Ollama 等 AI 接口参数', path: `${PATHS.ADMIN_SETTINGS}/config/ai` },
       { id: 'ocr', icon: ScanLine, label: 'OCR 服务配置', desc: 'PaddleOCR 的 API 地址、模型类型、Token 等参数', path: `${PATHS.ADMIN_SETTINGS}/config/ocr` },
       { id: 'enterprise', icon: Database, label: '企业数据配置', desc: '天眼查等企业信息查询接口的 API Key', path: `${PATHS.ADMIN_SETTINGS}/config/enterprise_data` },
       { id: 'scraper', icon: Globe, label: '爬虫配置', desc: '加密密钥、无头模式等网页爬取相关参数', path: `${PATHS.ADMIN_SETTINGS}/config/scraper` },

@@ -41,7 +41,7 @@ class _LLMEmbeddingClientAdapter:  # pragma: no cover
         model = kwargs.get("model")
         vectors = self._llm_service.embed_texts(
             texts=texts,
-            backend="siliconflow",
+            backend="openai_compatible",
             model=model,
             fallback=False,
         )
@@ -58,7 +58,7 @@ class SimilarityResult:  # pragma: no cover
 
 
 class CaseSimilarityService:  # pragma: no cover
-    """用硅基流动模型计算案例相似度。"""
+    """计算案例相似度。"""
 
     SCORE_MAX_TOKENS = 65536
     RESCORE_MAX_TOKENS = 32768

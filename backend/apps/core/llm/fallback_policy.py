@@ -71,22 +71,13 @@ def _raise_all_unavailable(
 def _diagnose_unavailable(name: str, backend: ILLMBackend) -> str:
     """诊断后端不可用的原因,返回可读描述"""
     try:
-        # SiliconFlow: 检查 API Key
-        if name == "siliconflow":
-            api_key = backend.api_key  # type: ignore[attr-defined]
-            if not api_key:
-                return "API Key 未配置"
-            model = backend.default_model  # type: ignore[attr-defined]
-            if not model:
-                return "默认模型未配置"
-            return f"is_available() 返回 False (api_key={'有' if api_key else '无'}, model={model!r})"
         # Ollama: 检查 base_url
         if name == "ollama":
             base_url = backend.base_url  # type: ignore[attr-defined]
             if not base_url:
                 return "Base URL 未配置"
             return f"is_available() 返回 False (base_url={base_url!r})"
-        # openai_compatible
+        # openai_compatible 及其他后端
         api_key = getattr(backend, "api_key", None)
         if not api_key:
             return "API Key 未配置"

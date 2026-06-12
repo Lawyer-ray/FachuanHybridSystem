@@ -138,7 +138,7 @@ class StoryAnimationAdmin(admin.ModelAdmin):  # pragma: no cover
         from apps.core.llm.config import LLMConfig
         from apps.core.llm.model_list_service import ModelListService
 
-        default_model = LLMConfig.get_default_model()
+        default_model = LLMConfig.get_openai_compatible_model()
         choices: list[tuple[str, str]] = []
         if default_model:
             choices.append((default_model, f"{default_model.split('/')[-1]}（默认）"))

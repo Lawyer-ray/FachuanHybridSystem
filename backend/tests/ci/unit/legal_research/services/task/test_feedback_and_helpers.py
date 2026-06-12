@@ -458,50 +458,50 @@ class TestStateSync:
 class TestLLMPreflight:
     @patch("apps.legal_research.services.llm_preflight.LLMConfig")
     def test_backend_not_enabled_raises(self, mock_llm_config) -> None:
-        from apps.legal_research.services.llm_preflight import verify_siliconflow_connectivity
+        from apps.legal_research.services.llm_preflight import verify_llm_connectivity
 
         config = MagicMock()
         config.enabled = False
-        mock_llm_config.resolve_backend_for_model.return_value = "siliconflow"
-        mock_llm_config.get_backend_configs.return_value = {"siliconflow": config}
+        mock_llm_config.resolve_backend_for_model.return_value = "openai_compatible"
+        mock_llm_config.get_backend_configs.return_value = {"openai_compatible": config}
 
         with pytest.raises(ValidationException, match="未启用"):
-            verify_siliconflow_connectivity(model="test/model")
+            verify_llm_connectivity(model="test/model")
 
     @patch("apps.legal_research.services.llm_preflight.LLMConfig")
     def test_no_base_url_raises(self, mock_llm_config) -> None:
-        from apps.legal_research.services.llm_preflight import verify_siliconflow_connectivity
+        from apps.legal_research.services.llm_preflight import verify_llm_connectivity
 
         config = MagicMock()
         config.enabled = True
         config.base_url = ""
         config.api_key = "key"
-        mock_llm_config.resolve_backend_for_model.return_value = "siliconflow"
-        mock_llm_config.get_backend_configs.return_value = {"siliconflow": config}
+        mock_llm_config.resolve_backend_for_model.return_value = "openai_compatible"
+        mock_llm_config.get_backend_configs.return_value = {"openai_compatible": config}
 
         with pytest.raises(ValidationException, match="未配置.*Base URL"):
-            verify_siliconflow_connectivity(model="test/model")
+            verify_llm_connectivity(model="test/model")
 
     @patch("apps.legal_research.services.llm_preflight.LLMConfig")
-    def test_no_api_key_for_siliconflow_raises(self, mock_llm_config) -> None:
-        from apps.legal_research.services.llm_preflight import verify_siliconflow_connectivity
+    def test_no_api_key_for_openai_compatible_raises(self, mock_llm_config) -> None:
+        from apps.legal_research.services.llm_preflight import verify_llm_connectivity
 
         config = MagicMock()
         config.enabled = True
         config.base_url = "https://api.example.com"
         config.api_key = ""
-        mock_llm_config.resolve_backend_for_model.return_value = "siliconflow"
-        mock_llm_config.get_backend_configs.return_value = {"siliconflow": config}
+        mock_llm_config.resolve_backend_for_model.return_value = "openai_compatible"
+        mock_llm_config.get_backend_configs.return_value = {"openai_compatible": config}
 
         with pytest.raises(ValidationException, match="未配置.*API Key"):
-            verify_siliconflow_connectivity(model="test/model")
+            verify_llm_connectivity(model="test/model")
 
     @patch("apps.legal_research.services.llm_preflight.httpx.get")
     @patch("apps.legal_research.services.llm_preflight.LLMConfig")
     def test_ollama_connection_failure(self, mock_llm_config, mock_get) -> None:
         import httpx as real_httpx
 
-        from apps.legal_research.services.llm_preflight import verify_siliconflow_connectivity
+        from apps.legal_research.services.llm_preflight import verify_llm_connectivity
 
         config = MagicMock()
         config.enabled = True
@@ -513,11 +513,11 @@ class TestLLMPreflight:
         mock_get.side_effect = real_httpx.ConnectError("connection refused")
 
         with pytest.raises(ValidationException, match="Ollama 连接失败"):
-            verify_siliconflow_connectivity(model="llama3:latest")
+            verify_llm_connectivity(model="llama3:latest")
 
     @patch("apps.legal_research.services.llm_preflight.LLMConfig")
     def test_ollama_non_200_raises(self, mock_llm_config) -> None:
-        from apps.legal_research.services.llm_preflight import verify_siliconflow_connectivity
+        from apps.legal_research.services.llm_preflight import verify_llm_connectivity
 
         config = MagicMock()
         config.enabled = True
@@ -531,11 +531,11 @@ class TestLLMPreflight:
 
         with patch("apps.legal_research.services.llm_preflight.httpx.get", return_value=mock_response):
             with pytest.raises(ValidationException, match="Ollama 服务不可用"):
-                verify_siliconflow_connectivity(model="llama3:latest")
+                verify_llm_connectivity(model="llama3:latest")
 
     @patch("apps.legal_research.services.llm_preflight.LLMConfig")
     def test_openai_compatible_auth_failure(self, mock_llm_config) -> None:
-        from apps.legal_research.services.llm_preflight import verify_siliconflow_connectivity
+        from apps.legal_research.services.llm_preflight import verify_llm_connectivity
 
         config = MagicMock()
         config.enabled = True
@@ -554,7 +554,7 @@ class TestLLMPreflight:
         with patch("apps.legal_research.services.llm_preflight.httpx.HTTPTransport"):
             with patch("apps.legal_research.services.llm_preflight.httpx.Client", return_value=mock_client):
                 with pytest.raises(ValidationException, match="鉴权失败"):
-                    verify_siliconflow_connectivity(model="gpt-4")
+                    verify_llm_connectivity(model="gpt-4")
 
 
 # ── source factory ─────────────────────────────────────────────────────────

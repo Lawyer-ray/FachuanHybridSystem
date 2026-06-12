@@ -38,16 +38,16 @@ class TestPassageAdditional:
 
 class TestRerankerAdditional:
     def test_init_custom_url(self):
-        from apps.legal_research.services.similarity.reranker import SiliconFlowReranker
+        from apps.legal_research.services.similarity.reranker import RerankerClient
 
-        r = SiliconFlowReranker(api_key="key", base_url="https://custom.com/v1/", model="custom-model")
+        r = RerankerClient(api_key="key", base_url="https://custom.com/v1/", model="custom-model")
         assert r._base_url == "https://custom.com/v1"
         assert r._model == "custom-model"
 
     def test_cooldown_resets(self):
-        from apps.legal_research.services.similarity.reranker import SiliconFlowReranker
+        from apps.legal_research.services.similarity.reranker import RerankerClient
 
-        r = SiliconFlowReranker(api_key="key")
+        r = RerankerClient(api_key="key")
         r._fail_until = 0.0
         # Just test it doesn't crash
         assert r._fail_until == 0.0
