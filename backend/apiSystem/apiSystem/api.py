@@ -300,10 +300,6 @@ def _register_app_routers() -> None:
 
     api_v1.add_router("/workflow", workflow_router, auth=JWTOrSessionAuth(), tags=["工作流引擎"])
 
-    from apps.workflow.api.template_api import router as template_router
-
-    api_v1.add_router("/workflow", template_router, auth=JWTOrSessionAuth(), tags=["工作流模板"])
-
 
 # 防止 uvicorn reload 导致重复注册 - 在 api_v1 对象上设置标志
 def _ensure_routers_registered() -> None:
