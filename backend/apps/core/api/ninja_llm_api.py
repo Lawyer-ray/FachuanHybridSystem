@@ -244,7 +244,7 @@ def list_available_models(request: Any) -> Any:
 @llm_router.post("/test-connection")
 def test_model_connection(request: Any, model_id: str = "") -> dict[str, Any]:
     """测试指定模型的连通性（仅管理员可用）"""
-    from apps.core.llm.model_list_service import ModelListService
+    from apps.core.llm.service import get_llm_service
 
     is_admin = request.user and (request.user.is_staff or request.user.is_superuser)
     if not is_admin:
@@ -253,4 +253,14 @@ def test_model_connection(request: Any, model_id: str = "") -> dict[str, Any]:
     if not model_id.strip():
         return {"ok": False, "error": "请指定模型 ID"}
 
-    return ModelListService.test_model_connection(model_id.strip())
+    try:
+        service = get_llm_service()
+        response = service.chat(
+            messages=[{"role": "user", "content": "ping"}],
+            model=model_id.strip(),
+            max_tokens=5,
+            fallback=False,
+        )
+        return {"ok": True, "model": response.model, "backend": response.backend}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
