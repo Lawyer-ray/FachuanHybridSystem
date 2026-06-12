@@ -68,6 +68,13 @@ def get_scraper_configs() -> list[dict[str, Any]]:
             "value": "true",
             "is_secret": False,
         },
+        {
+            "key": "CAPTCHA_AUTO_RECOGNIZE",
+            "category": "scraper",
+            "description": "验证码自动识别（true=ddddocr 自动识别，false=等待手动输入）",
+            "value": "false",
+            "is_secret": False,
+        },
     ]
 
 

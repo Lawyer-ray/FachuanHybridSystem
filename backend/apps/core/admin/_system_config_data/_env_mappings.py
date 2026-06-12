@@ -218,4 +218,10 @@ def get_env_mappings() -> dict[str, dict[str, Any]]:
             "description": "Playwright 有头模式（true=显示浏览器窗口）",
             "is_secret": False,
         },
+        "CAPTCHA_AUTO_RECOGNIZE": {
+            "key": "CAPTCHA_AUTO_RECOGNIZE",
+            "category": "scraper",
+            "description": "验证码自动识别（true=ddddocr 自动识别）",
+            "is_secret": False,
+        },
     }
