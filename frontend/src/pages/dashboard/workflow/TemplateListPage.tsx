@@ -147,9 +147,6 @@ export default function TemplateListPage() {
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-2">
-                      <div className={`p-2 rounded-lg ${CATEGORY_COLORS[t.category] || 'bg-gray-100'}`}>
-                        <Icon className="h-4 w-4" />
-                      </div>
                       <div>
                         <CardTitle className="text-base">{t.name}</CardTitle>
                         <div className="flex items-center gap-2 mt-1">
