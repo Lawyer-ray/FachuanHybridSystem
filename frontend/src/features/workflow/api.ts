@@ -30,6 +30,9 @@ export const workflowApi = {
   cancel: (runId: number) =>
     client.post(`runs/${runId}/cancel`).json<{ message: string }>(),
 
+  delete: (runId: number) =>
+    client.delete(`runs/${runId}`).json<{ message: string }>(),
+
   // ── 模板 CRUD ──────────────────────────────────────────────────────────────
   templates: {
     list: (params?: { category?: string; is_active?: boolean }) =>

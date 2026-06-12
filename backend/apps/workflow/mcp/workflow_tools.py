@@ -190,3 +190,32 @@ async def cancel_workflow(run_id: int) -> dict[str, Any]:
     await run.asave(update_fields=["status", "finished_at"])
 
     return {"run_id": run_id, "status": "cancelled", "message": "已取消"}
+
+
+async def delete_workflow_run(run_id: int) -> dict[str, Any]:
+    """删除诉讼工作流运行记录
+
+    Args:
+        run_id: 工作流运行 ID
+    """
+    from apps.workflow.models import WorkflowRun
+
+    try:
+        run = await WorkflowRun.objects.aget(pk=run_id)
+    except WorkflowRun.DoesNotExist:
+        return {"error": f"工作流运行 #{run_id} 不存在"}
+
+    # 如果还在运行中，先尝试取消 Temporal 工作流
+    if run.status in (WorkflowRun.Status.RUNNING, WorkflowRun.Status.WAITING_HUMAN, WorkflowRun.Status.WAITING_EVENT):
+        try:
+            client = await _get_client()
+            handle = client.get_workflow_handle(run.temporal_workflow_id)
+            await handle.cancel()
+        except Exception as e:
+            logger.info("删除前取消 Temporal 工作流失败（可能已结束）: %s", e)
+
+    run_id_display = run.id
+    template_name = run.template.name if run.template else "未知"
+    await run.adelete()
+
+    return {"run_id": run_id_display, "message": f"已删除工作流「{template_name}」"}

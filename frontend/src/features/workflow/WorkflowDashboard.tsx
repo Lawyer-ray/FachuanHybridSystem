@@ -5,8 +5,8 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { RefreshCw, GitBranch, Settings } from 'lucide-react'
-import { useWorkflows, useApproveWorkflow } from './hooks/useWorkflows'
+import { RefreshCw, GitBranch, Trash2 } from 'lucide-react'
+import { useWorkflows, useApproveWorkflow, useDeleteWorkflow } from './hooks/useWorkflows'
 import { StatusBadge } from './components/StatusBadge'
 import { GateApprovalDialog } from './components/GateApprovalDialog'
 import { WorkflowDetailPanel } from './WorkflowDetail'
@@ -18,6 +18,7 @@ export function WorkflowDashboard() {
   const [selectedRun, setSelectedRun] = useState<WorkflowRun | null>(null)
   const [approvalTarget, setApprovalTarget] = useState<WorkflowRun | null>(null)
   const approveMutation = useApproveWorkflow()
+  const deleteMutation = useDeleteWorkflow()
 
   if (isLoading) {
     return (
@@ -62,7 +63,22 @@ export function WorkflowDashboard() {
               <CardHeader className="pb-2">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-base">{run.template}</CardTitle>
-                  <StatusBadge status={run.status} />
+                  <div className="flex items-center gap-2">
+                    <StatusBadge status={run.status} />
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        if (confirm(`确定删除工作流「${run.template}」？此操作不可撤销。`)) {
+                          deleteMutation.mutate(run.run_id)
+                        }
+                      }}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
                 </div>
               </CardHeader>
               <CardContent>

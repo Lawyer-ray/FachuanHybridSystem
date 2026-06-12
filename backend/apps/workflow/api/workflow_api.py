@@ -18,6 +18,7 @@ from apps.core.security.auth import JWTOrSessionAuth
 from ..mcp.workflow_tools import (
     approve_workflow_step,
     cancel_workflow,
+    delete_workflow_run,
     get_workflow_detail,
     list_workflows,
     start_workflow,
@@ -74,6 +75,17 @@ async def approve_workflow_api(request: Any, run_id: int, payload: ApproveStepIn
 async def cancel_workflow_api(request: Any, run_id: int) -> dict[str, Any]:
     """取消诉讼工作流"""
     result = await cancel_workflow(run_id)
+    if "error" in result:
+        from ninja.errors import HttpError
+
+        raise HttpError(400, result["error"])
+    return result
+
+
+@router.delete("/runs/{run_id}")
+async def delete_workflow_api(request: Any, run_id: int) -> dict[str, Any]:
+    """删除诉讼工作流"""
+    result = await delete_workflow_run(run_id)
     if "error" in result:
         from ninja.errors import HttpError
 
