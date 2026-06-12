@@ -128,7 +128,7 @@ _OTHER_TOOLS_APPS = [
     {"app_label": "doc_convert", "name": _("文档转换"), "url": "/admin/doc_convert/"},
     {"app_label": "doc_converter", "name": _("DOC 转 DOCX"), "url": "/admin/doc_converter/"},
     {"app_label": "batch_printing", "name": _("批量打印"), "url": "/admin/batch_printing/"},
-    {"app_label": "evidence_sorting", "name": _("证据整理"), "url": "/admin/evidence_sorting/"},
+    {"app_label": "evidence_sorting", "name": _("案件材料整理"), "url": "/admin/evidence_sorting/"},
     {"app_label": "legal_research", "name": _("法律检索"), "url": "/admin/legal_research/"},
     {"app_label": "legal_solution", "name": _("法律方案"), "url": "/admin/legal_solution/"},
     {"app_label": "evidence", "name": _("证据管理"), "url": "/admin/evidence/"},
