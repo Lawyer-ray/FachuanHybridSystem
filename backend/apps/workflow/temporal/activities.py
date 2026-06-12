@@ -124,9 +124,14 @@ async def list_case_materials(case_id: int) -> list[dict]:
     """获取案件材料列表"""
     from apps.cases.models import CaseMaterial
 
-    materials = [m async for m in CaseMaterial.objects.filter(case_id=case_id).order_by("order")]
+    materials = [m async for m in CaseMaterial.objects.filter(case_id=case_id).order_by("type_name")]
     return [
-        {"id": m.id, "name": m.name, "file_path": m.file_path, "content_type": m.content_type}
+        {
+            "id": m.id,
+            "name": m.type_name,
+            "file_path": getattr(m, "file_path", ""),
+            "content_type": getattr(m, "content_type", ""),
+        }
         for m in materials
     ]
 
@@ -194,7 +199,7 @@ async def suggest_arrangement(summary: dict) -> list[dict]:
             text = text.split("```")[1]
             if text.startswith("json"):
                 text = text[4:]
-        return json.loads(text.strip())
+        return json.loads(text.strip())  # type: ignore[no-any-return]
     except (json.JSONDecodeError, IndexError):
         return [{"id": 0, "name": "解析失败", "reason": result}]
 
@@ -252,7 +257,7 @@ async def generate_complaint(context: dict, feedback: str | None = None) -> dict
     from apps.documents.services.litigation_service import LitigationService
 
     service = LitigationService()
-    return await service.generate_complaint(
+    return await service.generate_complaint(  # type: ignore[no-any-return]
         case_id=context["case"]["id"],
         context=context,
         revision_feedback=feedback,
@@ -288,7 +293,7 @@ async def review_complaint_quality(draft: dict, summary: dict) -> dict:
             text = text.split("```")[1]
             if text.startswith("json"):
                 text = text[4:]
-        return json.loads(text.strip())
+        return json.loads(text.strip())  # type: ignore[no-any-return]
     except (json.JSONDecodeError, IndexError):
         return {"score": 70, "issues": ["解析失败"], "suggestions": [result]}
 
@@ -302,7 +307,7 @@ async def execute_court_filing(case_id: int) -> dict:
     from apps.automation.services.litigation.filing_service import CourtFilingService
 
     service = CourtFilingService()
-    return await service.execute(case_id)
+    return await service.execute(case_id)  # type: ignore[no-any-return]
 
 
 @activity.defn
@@ -311,4 +316,4 @@ async def download_litigation_document(document_id: int) -> dict:
     from apps.documents.services.litigation_service import LitigationService
 
     service = LitigationService()
-    return await service.download(document_id)
+    return await service.download(document_id)  # type: ignore[no-any-return]

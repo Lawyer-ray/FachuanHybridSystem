@@ -89,26 +89,28 @@ class SalesContractDisputeWorkflow:
 
         self._gate = None
         await workflow.wait_condition(lambda: self._gate is not None)
+        assert self._gate is not None
+        gate = self._gate
 
         await workflow.execute_activity(
             act.record_step,
             args=(
                 run_id, "confirm_facts", "确认事实", "gate",
-                "success" if self._gate.approved else "failed",
-                {"comment": self._gate.comment},
+                "success" if gate.approved else "failed",
+                {"comment": gate.comment},
             ),
             start_to_close_timeout=QUICK_TIMEOUT,
             retry_policy=QUICK_RETRY,
         )
 
-        if not self._gate.approved:
+        if not gate.approved:
             await workflow.execute_activity(
                 act.update_run_status,
                 args=(run_id, "failed", "confirm_facts"),
                 start_to_close_timeout=QUICK_TIMEOUT,
                 retry_policy=QUICK_RETRY,
             )
-            return {"status": "rejected", "phase": "confirm_facts", "comment": self._gate.comment}
+            return {"status": "rejected", "phase": "confirm_facts", "comment": gate.comment}
 
         # Step 3: 生成起诉状
         await workflow.execute_activity(
@@ -152,26 +154,28 @@ class SalesContractDisputeWorkflow:
 
         self._gate = None
         await workflow.wait_condition(lambda: self._gate is not None)
+        assert self._gate is not None
+        gate = self._gate
 
         await workflow.execute_activity(
             act.record_step,
             args=(
                 run_id, "review_complaint", "审批起诉状", "gate",
-                "success" if self._gate.approved else "failed",
-                {"comment": self._gate.comment},
+                "success" if gate.approved else "failed",
+                {"comment": gate.comment},
             ),
             start_to_close_timeout=QUICK_TIMEOUT,
             retry_policy=QUICK_RETRY,
         )
 
-        if not self._gate.approved:
+        if not gate.approved:
             await workflow.execute_activity(
                 act.update_run_status,
                 args=(run_id, "failed", "review_complaint"),
                 start_to_close_timeout=QUICK_TIMEOUT,
                 retry_policy=QUICK_RETRY,
             )
-            return {"status": "rejected", "phase": "review_complaint", "comment": self._gate.comment}
+            return {"status": "rejected", "phase": "review_complaint", "comment": gate.comment}
 
         # Step 5: 完成
         await workflow.execute_activity(

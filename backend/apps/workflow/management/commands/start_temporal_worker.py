@@ -10,6 +10,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import signal
+from typing import Any
 
 from django.core.management.base import BaseCommand
 
@@ -53,9 +54,9 @@ class Command(BaseCommand):
         if logging_mod:
             cls = getattr(logging_mod, "RequestContextFilter", None)
             if cls:
-                cls.filter = lambda self, record: True  # type: ignore[assignment]
+                cls.filter = lambda self, record: True  # type: ignore[assignment,misc]
 
-    async def _run(self, options):
+    async def _run(self, options: dict[str, Any]) -> None:
         from temporalio.client import Client
         from temporalio.worker import Worker
         from temporalio.worker._workflow_instance import UnsandboxedWorkflowRunner

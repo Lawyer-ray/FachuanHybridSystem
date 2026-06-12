@@ -22,10 +22,10 @@ class StepExecutionOut(Schema):
     name: str
     type: str
     status: str
-    output_summary: Optional[str] = None
-    error: Optional[str] = None
-    started_at: Optional[str] = None
-    finished_at: Optional[str] = None
+    output_summary: str | None = None
+    error: str | None = None
+    started_at: str | None = None
+    finished_at: str | None = None
 
 
 class WorkflowRunOut(Schema):
@@ -44,7 +44,7 @@ class WorkflowDetailOut(Schema):
     case_name: str
     status: str
     current_step: str
-    result: Optional[dict] = None
+    result: dict | None = None
     steps: list[StepExecutionOut]
     started_at: str
-    finished_at: Optional[str] = None
+    finished_at: str | None = None
