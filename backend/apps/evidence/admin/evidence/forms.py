@@ -6,12 +6,12 @@ from typing import Any
 
 from django import forms
 
-from apps.evidence.models import EvidenceList
+from apps.evidence.models import EvidenceListProxy
 
 
-class EvidenceListForm(forms.ModelForm[EvidenceList]):  # pragma: no cover
+class EvidenceListForm(forms.ModelForm[EvidenceListProxy]):  # pragma: no cover
     class Meta:  # pragma: no cover
-        model = EvidenceList
+        model = EvidenceListProxy
         fields: str = "__all__"
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:  # pragma: no cover

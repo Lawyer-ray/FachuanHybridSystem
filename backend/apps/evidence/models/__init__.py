@@ -3,11 +3,13 @@
 from .enums import EvidenceDirection, EvidenceType, OriginalStatus
 from .evidence import LIST_TYPE_ORDER, LIST_TYPE_PREVIOUS, EvidenceItem, EvidenceList, ListType, MergeStatus
 from .group import EvidenceGroup
-from .hearing_note import HearingNote
+from .proxy import EvidenceItemProxy, EvidenceListProxy
 
 __all__ = [
     "EvidenceList",
     "EvidenceItem",
+    "EvidenceListProxy",
+    "EvidenceItemProxy",
     "MergeStatus",
     "ListType",
     "LIST_TYPE_PREVIOUS",
@@ -16,5 +18,4 @@ __all__ = [
     "EvidenceType",
     "OriginalStatus",
     "EvidenceGroup",
-    "HearingNote",
 ]

@@ -1,4 +1,4 @@
-"""Documents Evidence Admin Views Mixin 测试 - 覆盖 documents/admin/evidence/mixins/views.py"""
+"""Documents Evidence Admin Views Mixin 测试 - 覆盖 evidence/admin/evidence/mixins/views.py"""
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ from django.test import RequestFactory
 from django.http import JsonResponse, Http404
 from django.contrib.auth import get_user_model
 
-from apps.documents.admin.evidence.mixins.views import (
+from apps.evidence.admin.evidence.mixins.views import (
     EvidenceListAdminViewsMixin,
     EvidenceListAdminServiceMixin,
 )
@@ -121,7 +121,7 @@ class TestDocumentsEvidenceViewsMixinNextListType:
     def test_next_list_type_has_next(self):
         mixin = EvidenceListAdminViewsMixin()
         request = _make_request()
-        with patch("apps.documents.admin.evidence.mixins.views.EvidenceList") as MockEL:
+        with patch("apps.evidence.admin.evidence.mixins.views.EvidenceList") as MockEL:
             MockEL.objects.filter.return_value.values_list.return_value = []
             result = mixin.next_list_type_view(request, case_id=1)
             assert result.status_code == 200

@@ -4,7 +4,6 @@
 - apps/evidence/models/evidence.py
 - apps/evidence/models/enums.py
 - apps/evidence/models/group.py
-- apps/evidence/models/hearing_note.py
 - apps/evidence/api/evidence_api.py
 - apps/evidence/services/core/page_range_calculator.py
 - apps/evidence/services/wiring.py
@@ -207,22 +206,6 @@ class TestEvidenceGroupModel:
 
         assert EvidenceGroup._meta.app_label == "evidence"
         assert EvidenceGroup._meta.verbose_name == "证据分组"
-
-
-class TestHearingNoteModel:
-    """HearingNote 模型测试"""
-
-    def test_str(self, db, case):
-        from apps.evidence.models.hearing_note import HearingNote
-
-        note = HearingNote(case=case, content="这是一段庭审笔记内容，用于测试显示截断效果的文本")
-        assert str(note) == f"{case.id} - 这是一段庭审笔记内容，用于测试显示截断效果的文本"
-
-    def test_meta(self):
-        from apps.evidence.models.hearing_note import HearingNote
-
-        assert HearingNote._meta.app_label == "evidence"
-        assert HearingNote._meta.verbose_name == "庭审笔记"
 
 
 # ==================== PageRangeCalculator ====================

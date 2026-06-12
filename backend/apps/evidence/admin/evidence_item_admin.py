@@ -4,10 +4,10 @@ from typing import Any, ClassVar
 
 from django.contrib import admin
 
-from apps.evidence.models import EvidenceItem
+from apps.evidence.models import EvidenceItem, EvidenceItemProxy
 
 
-@admin.register(EvidenceItem)
+@admin.register(EvidenceItemProxy)
 class EvidenceItemAdmin(admin.ModelAdmin):  # pragma: no cover
     list_display: ClassVar = (  # type: ignore[misc]
         "order",

@@ -94,12 +94,12 @@ class TestDocumentsServices:
 
 class TestDocumentsAdmin:
     def test_evidence_views_import(self):
-        from apps.documents.admin.evidence.mixins.views import EvidenceListAdminViewsMixin
+        from apps.evidence.admin.evidence.mixins.views import EvidenceListAdminViewsMixin
 
         assert EvidenceListAdminViewsMixin is not None
 
     def test_evidence_save_import(self):
-        from apps.documents.admin.evidence.mixins.save import EvidenceListAdminSaveMixin
+        from apps.evidence.admin.evidence.mixins.save import EvidenceListAdminSaveMixin
 
         assert EvidenceListAdminSaveMixin is not None
 

@@ -351,28 +351,28 @@ class TestAutodiscover:
 
 
 class TestEvidenceAdminForms:
-    """apps/documents/admin/evidence/forms.py"""
+    """apps.evidence.admin.evidence/forms.py"""
 
     def test_form_import(self):
-        from apps.documents.admin.evidence.forms import EvidenceListForm
+        from apps.evidence.admin.evidence.forms import EvidenceListForm
 
         assert EvidenceListForm is not None
 
 
 class TestEvidenceAdminInlines:
-    """apps/documents/admin/evidence/inlines.py"""
+    """apps.evidence.admin.evidence/inlines.py"""
 
     def test_inline_import(self):
-        from apps.documents.admin.evidence.inlines import EvidenceItemInline
+        from apps.evidence.admin.evidence.inlines import EvidenceItemInline
 
         assert EvidenceItemInline is not None
 
 
 class TestEvidenceAdminMixins:
-    """apps/documents/admin/evidence/mixins/__init__.py"""
+    """apps.evidence.admin.evidence/mixins/__init__.py"""
 
     def test_mixins_import(self):
-        from apps.documents.admin.evidence.mixins import (
+        from apps.evidence.admin.evidence.mixins import (
             EvidenceListAdminActionsMixin,
             EvidenceListAdminSaveMixin,
             EvidenceListAdminViewsMixin,
