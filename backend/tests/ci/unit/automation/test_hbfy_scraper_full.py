@@ -437,6 +437,46 @@ class TestGetPublicCaptcha:
 
 
 # ======================================================================
+# _find_public_sms_info_with_captcha
+# ======================================================================
+
+class TestFindPublicSmsInfoWithCaptcha:
+    def test_success_on_first_try(self):
+        scraper = _make_scraper()
+        session = MagicMock()
+        sms_data = {"docList": [{"downloadPath": "/f.pdf", "docName": "doc"}]}
+        with patch.object(scraper, "_get_public_captcha", return_value=("uuid1", b"img")), \
+             patch.object(scraper, "_find_public_sms_info", return_value=sms_data), \
+             patch.object(scraper, "_public_has_downloadable_docs", return_value=True):
+            result = scraper._find_public_sms_info_with_captcha(session, "MSG")
+            assert result == sms_data
+            scraper.captcha_recognizer.recognize.assert_called_with(b"img")
+
+    def test_recognize_returns_none_retries(self):
+        """recognize() 返回 None 时应跳过该轮次"""
+        scraper = _make_scraper()
+        scraper.captcha_recognizer.recognize.side_effect = [None, "1234"]
+        session = MagicMock()
+        sms_data = {"docList": [{"downloadPath": "/f.pdf"}]}
+        with patch.object(scraper, "_get_public_captcha", return_value=("uuid1", b"img")), \
+             patch.object(scraper, "_find_public_sms_info", return_value=sms_data), \
+             patch.object(scraper, "_public_has_downloadable_docs", return_value=True):
+            result = scraper._find_public_sms_info_with_captcha(session, "MSG")
+            assert result == sms_data
+            assert scraper.captcha_recognizer.recognize.call_count == 2
+
+    def test_all_attempts_fail_raises(self):
+        scraper = _make_scraper()
+        scraper.captcha_recognizer.recognize.return_value = None
+        session = MagicMock()
+        with patch.object(scraper, "_get_public_captcha", return_value=("uuid1", b"img")), \
+             patch.object(scraper, "_find_public_sms_info", return_value={}), \
+             patch.object(scraper, "_public_has_downloadable_docs", return_value=False):
+            with pytest.raises(ValueError, match="验证码校验后仍未获取"):
+                scraper._find_public_sms_info_with_captcha(session, "MSG")
+
+
+# ======================================================================
 # _download_public_documents
 # ======================================================================
 
@@ -622,6 +662,9 @@ class TestLoginHbfyAccountSession:
             with patch.object(scraper, "_encode_password", return_value="hashed"):
                 scraper._login_hbfy_account_session(session, "account", "password")
 
+        # 验证 recognize 被调用且传入了正确的图片数据
+        scraper.captcha_recognizer.recognize.assert_called_with(b"captcha_img")
+
     def test_landing_page_500_raises(self):
         scraper = _make_scraper()
         session = MagicMock()
@@ -650,6 +693,41 @@ class TestLoginHbfyAccountSession:
 
         with pytest.raises(ValueError, match="验证码"):
             scraper._login_hbfy_account_session(session, "account", "password")
+
+        # recognize 应被调用 12 次
+        assert scraper.captcha_recognizer.recognize.call_count == 12
+
+    def test_recognize_returns_none_skips_attempt(self):
+        """recognize() 返回 None 时应跳过该轮次继续重试"""
+        scraper = _make_scraper()
+        scraper.captcha_recognizer.recognize.side_effect = [None, None, "ABCD"]
+        session = MagicMock()
+        landing = MagicMock()
+        landing.status_code = 200
+
+        captcha_img = MagicMock()
+        captcha_img.status_code = 200
+        captcha_img.content = b"img"
+
+        check_resp = MagicMock()
+        check_resp.text = "1"
+
+        login_resp = MagicMock()
+        login_resp.status_code = 200
+        login_resp.json.return_value = {"success": True, "message": {"result": True}}
+
+        main_resp = MagicMock()
+        main_resp.status_code = 200
+
+        # landing + 3 次 captcha image + main_resp = 5 次 session.get
+        session.get.side_effect = [landing] + [captcha_img] * 3 + [main_resp]
+        session.post.side_effect = [check_resp, login_resp]
+
+        with patch.object(scraper, "_encode_user_code", return_value="encoded"):
+            with patch.object(scraper, "_encode_password", return_value="hashed"):
+                scraper._login_hbfy_account_session(session, "account", "password")
+
+        assert scraper.captcha_recognizer.recognize.call_count == 3
 
 
 # ======================================================================
