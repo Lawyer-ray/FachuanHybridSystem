@@ -17,7 +17,9 @@ from urllib.parse import parse_qs, urljoin, urlparse
 
 import httpx
 from lxml import html as lxml_html
-from playwright.sync_api import BrowserContext, Page, sync_playwright
+from playwright.sync_api import BrowserContext, Page
+
+from apps.core.services.browser import create_browser
 
 logger = logging.getLogger("apps.oa_filing.jtn_client_import")
 
@@ -86,6 +88,7 @@ class JtnClientImportScript:  # pragma: no cover
         self._progress_callback = progress_callback
         self._page: Page | None = None
         self._context: BrowserContext | None = None
+        self._browser_cm: Any = None  # CloakBrowser context manager
 
     def run(self, *, limit: int | None = None) -> Generator[OACustomerData, None, None]:  # pragma: no cover
         """执行客户导入流程，yield 每条客户数据（HTTP主链路 + Playwright兜底）。"""
@@ -148,25 +151,10 @@ class JtnClientImportScript:  # pragma: no cover
 
     def _run_via_playwright(self, *, limit: int | None = None) -> Generator[OACustomerData, None, None]:  # pragma: no cover
         """Playwright 全量兜底流程。"""
-        pw = sync_playwright().start()
-        browser = None
+        cm = create_browser("default", headless=self._headless)
         try:
-            browser = pw.chromium.launch(headless=self._headless)
-            self._context = browser.new_context()
-
-            # 应用 playwright-stealth 反检测
-            try:
-                from playwright_stealth import Stealth
-
-                stealth = Stealth()
-                stealth.apply_stealth_sync(self._context)
-                logger.debug("已应用 playwright-stealth 反检测")
-            except ImportError:
-                logger.warning("playwright-stealth 未安装，跳过反检测")
-
-            self._context.set_default_timeout(30_000)
-            self._context.set_default_navigation_timeout(30_000)
-            self._page = self._context.new_page()
+            self._browser_cm = cm
+            self._page, self._context = cm.__enter__()
 
             self._login()
             self._navigate_to_client_list()
@@ -227,9 +215,7 @@ class JtnClientImportScript:  # pragma: no cover
             self._emit_progress("import_collected", total_count=len(all_items), message="当事人详情提取完成")
             logger.info("Playwright 兜底导入完成，共处理 %d 个客户", len(all_items))
         finally:
-            if browser is not None:
-                browser.close()
-            pw.stop()
+            cm.__exit__(None, None, None)
 
     def _resolve_detail_workers(self, *, total: int) -> int:  # pragma: no cover
         """解析客户详情并发数。"""
@@ -517,26 +503,11 @@ class JtnClientImportScript:  # pragma: no cover
         if not items:
             return {}
 
-        pw = sync_playwright().start()
-        browser = None
+        cm = create_browser("default", headless=self._headless)
         fallback_map: dict[str, OACustomerData | None] = {}
         try:
-            browser = pw.chromium.launch(headless=self._headless)
-            self._context = browser.new_context()
-
-            # 应用 playwright-stealth 反检测
-            try:
-                from playwright_stealth import Stealth
-
-                stealth = Stealth()
-                stealth.apply_stealth_sync(self._context)
-                logger.debug("已应用 playwright-stealth 反检测")
-            except ImportError:
-                logger.warning("playwright-stealth 未安装，跳过反检测")
-
-            self._context.set_default_timeout(30_000)
-            self._context.set_default_navigation_timeout(30_000)
-            self._page = self._context.new_page()
+            self._browser_cm = cm
+            self._page, self._context = cm.__enter__()
 
             self._login()
             self._navigate_to_client_list()
@@ -547,9 +518,7 @@ class JtnClientImportScript:  # pragma: no cover
                     logger.warning("Playwright 兜底客户详情异常 %s(%s): %s", item.name, item.key_id, exc)
                     fallback_map[item.key_id] = None
         finally:
-            if browser is not None:
-                browser.close()
-            pw.stop()
+            cm.__exit__(None, None, None)
         return fallback_map
 
     def _extract_text_from_html(self, html_text: str) -> str:

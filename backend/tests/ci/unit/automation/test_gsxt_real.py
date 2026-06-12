@@ -2,15 +2,11 @@
 
 from __future__ import annotations
 
-import asyncio
 from unittest.mock import MagicMock, patch
-
-import pytest
 
 from apps.automation.services.gsxt.gsxt_login_service import (
     GsxtLoginError,
     GsxtLoginService,
-    _kill_existing_chrome,
     start_login_gsxt,
 )
 from apps.automation.services.gsxt.gsxt_report_service import (
@@ -28,9 +24,8 @@ class TestGsxtLoginService:
         assert hasattr(svc, "start_login")
 
     @patch("apps.automation.services.gsxt.gsxt_login_service._try_reverse_login")
-    @patch("apps.automation.services.gsxt.gsxt_login_service._ensure_chrome_running")
     @patch("apps.automation.services.gsxt.gsxt_login_service.threading.Thread")
-    def test_start_login_gsxt_playwright_fallback(self, mock_thread, mock_chrome, mock_reverse):
+    def test_start_login_gsxt_playwright_fallback(self, mock_thread, mock_reverse):
         mock_reverse.return_value = False
         mock_thread_instance = MagicMock()
         mock_thread.return_value = mock_thread_instance
@@ -40,7 +35,6 @@ class TestGsxtLoginService:
         credential.password = "pass"
 
         start_login_gsxt(credential, task_id=1)
-        mock_chrome.assert_called_once()
         mock_thread_instance.start.assert_called_once()
 
     @patch("apps.automation.services.gsxt.gsxt_login_service._try_reverse_login")
@@ -49,17 +43,6 @@ class TestGsxtLoginService:
         credential = MagicMock()
         start_login_gsxt(credential, task_id=1)
         mock_reverse.assert_called_once_with(credential, 1)
-
-    @patch("apps.automation.services.gsxt.gsxt_login_service._try_reverse_login")
-    @patch("apps.automation.services.gsxt.gsxt_login_service._ensure_chrome_running")
-    @patch("apps.automation.services.gsxt.gsxt_login_service.threading.Thread")
-    def test_start_login_gsxt_chrome_failure(self, mock_thread, mock_chrome, mock_reverse):
-        mock_reverse.return_value = False
-        mock_chrome.side_effect = GsxtLoginError("Chrome failed")
-        credential = MagicMock()
-
-        with pytest.raises(GsxtLoginError):
-            start_login_gsxt(credential, task_id=1)
 
 
 class TestGsxtReportService:
@@ -85,16 +68,3 @@ class TestGsxtExceptions:
     def test_report_error(self):
         exc = GsxtReportError("report failed")
         assert str(exc) == "report failed"
-
-
-class TestKillExistingChrome:
-    @patch("apps.automation.services.gsxt.gsxt_login_service.subprocess.run")
-    def test_kill_existing_chrome_no_process(self, mock_run):
-        mock_run.return_value = MagicMock(stdout="", returncode=1)
-        _kill_existing_chrome()  # Should not raise
-
-    @patch("apps.automation.services.gsxt.gsxt_login_service.subprocess.run")
-    def test_kill_existing_chrome_with_process(self, mock_run):
-        mock_run.return_value = MagicMock(stdout="12345 chrome", returncode=0)
-        _kill_existing_chrome()
-        assert mock_run.call_count >= 2  # pgrep + pkill

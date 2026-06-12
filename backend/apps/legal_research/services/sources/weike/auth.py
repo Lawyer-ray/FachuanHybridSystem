@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from urllib.parse import urlparse
 
-from playwright.sync_api import Page, sync_playwright
+from playwright.sync_api import Page
 
 from .types import WeikeSession
 
@@ -41,21 +41,11 @@ class WeikeAuthMixin:  # pragma: no cover
         if not session.username or not session.password:
             raise RuntimeError("wk会话缺少账号信息，无法回退Playwright")
 
-        playwright = sync_playwright().start()
-        browser = playwright.chromium.launch(headless=True)
-        context = browser.new_context()
+        from apps.core.services.browser import create_browser
 
-        # 应用 playwright-stealth 反检测
-        try:
-            from playwright_stealth import Stealth
+        cm = create_browser("default")
+        page, context = cm.__enter__()
 
-            stealth = Stealth()
-            stealth.apply_stealth_sync(context)
-            logger.debug("已应用 playwright-stealth 反检测")
-        except ImportError:
-            logger.warning("playwright-stealth 未安装，跳过反检测")
-
-        page = context.new_page()
         try:
             self._login_and_enter_law(
                 page=page,
@@ -63,16 +53,12 @@ class WeikeAuthMixin:  # pragma: no cover
                 password=session.password,
                 login_url=session.login_url,
             )
-            session.playwright = playwright
-            session.browser = browser
-            session.context = context
             session.page = page
+            session.context = context
+            session.context_manager = cm
         except Exception:
             try:
-                page.close()
-                context.close()
-                browser.close()
-                playwright.stop()
+                cm.__exit__(None, None, None)
             except Exception:
                 pass
             raise
