@@ -206,7 +206,7 @@ async def delete_workflow_run(run_id: int) -> dict[str, Any]:
     from apps.workflow.models import WorkflowRun
 
     try:
-        run = await WorkflowRun.objects.aget(pk=run_id)
+        run = await WorkflowRun.objects.select_related("template").aget(pk=run_id)
     except WorkflowRun.DoesNotExist:
         return {"error": f"工作流运行 #{run_id} 不存在"}
 
