@@ -5,6 +5,7 @@ Automation App API 模块
 from ninja import Router
 
 from .auto_namer_api import router as auto_namer_router
+from .captcha_manual_api import router as captcha_manual_router
 from .captcha_recognition_api import router as captcha_recognition_router
 from .court_sms_api import router as court_sms_router
 from .document_delivery_api import router as document_delivery_router
@@ -19,6 +20,7 @@ router = Router()
 router.add_router("/document-processor", document_processor_router, tags=["文档处理"])
 router.add_router("/auto-namer", auto_namer_router, tags=["自动命名"])
 router.add_router("/captcha", captcha_recognition_router, tags=["验证码识别"])  # 验证码识别 API
+router.add_router("/captcha/manual", captcha_manual_router, tags=["手动验证码"])  # 手动验证码 API
 router.add_router("", preservation_quote_router, tags=["财产保全询价"])  # 财产保全询价 API
 router.add_router("", court_sms_router, tags=["法院短信处理"])  # 法院短信处理 API
 router.add_router("", document_delivery_router, tags=["文书送达自动下载"])  # 文书送达自动下载 API
