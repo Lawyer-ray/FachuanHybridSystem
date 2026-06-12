@@ -59,11 +59,15 @@
 
     .form-actions { display: flex; align-items: center; gap: 12px; margin-top: 24px; justify-content: center; }
 
-    .success-box { background: #f0fdf4; border: 1px solid #86efac; border-radius: 8px; padding: 24px; text-align: center; }
+    .success-box { background: #f0fdf4; border: 1px solid #86efac; border-radius: 8px; padding: 32px; text-align: center; }
     .success-icon { font-size: 56px; margin-bottom: 16px; }
-    .success-text { font-size: 18px; color: #166534; margin-bottom: 20px; }
-    .download-link { display: inline-flex; align-items: center; gap: 8px; background: #1d4ed8; color: #fff; padding: 14px 28px; border-radius: 6px; text-decoration: none; font-weight: 500; font-size: 16px; }
-    .download-link:hover { background: #1e40af; color: #fff; }
+    .success-text { font-size: 18px; color: #166534; margin-bottom: 24px; font-weight: 500; }
+    .success-actions { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; }
+    .success-actions a { display: inline-flex; align-items: center; gap: 8px; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 15px; color: #fff !important; }
+    .download-link { background: #1d4ed8; }
+    .download-link:hover { background: #1e40af; }
+    .back-client-link { background: #7c3aed; }
+    .back-client-link:hover { background: #6d28d9; }
 
     .loading-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(255,255,255,0.9); display: flex; align-items: center; justify-content: center; z-index: 9999; }
     .loading-spinner { width: 48px; height: 48px; border: 4px solid #e5e7eb; border-top-color: #417690; border-radius: 50%; animation: spin 0.8s linear infinite; }
@@ -194,10 +198,10 @@
                 <template x-if="savedToClient">
                     <p style="color:#166534;margin-bottom:16px">✅ {% trans "已自动保存到客户证件附件" %}</p>
                 </template>
-                <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap">
+                <div class="success-actions">
                     <a :href="pdfUrl" target="_blank" class="download-link">📥 {% trans "下载 PDF" %}</a>
                     <template x-if="clientId">
-                        <a :href="'/admin/client/client/' + clientId + '/change/'" class="download-link" style="background:#6d28d9">← {% trans "返回客户页面" %}</a>
+                        <a :href="'/admin/client/client/' + clientId + '/change/'" class="back-client-link">← {% trans "返回客户页面" %}</a>
                     </template>
                 </div>
             </div>
