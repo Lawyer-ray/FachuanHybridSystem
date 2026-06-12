@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 TEMPORAL_ADDRESS = "localhost:7233"
 TASK_QUEUE = "fachuan-workflow"
@@ -36,7 +39,11 @@ async def start_workflow(template_slug: str, case_id: int) -> dict[str, Any]:
 
     handle = await client.start_workflow(
         template.temporal_workflow_name,
-        args=[{"case_id": case_id, "run_id": run.id}],
+        args=[{
+            "case_id": case_id,
+            "run_id": run.id,
+            "template_id": template.id,
+        }],
         id=workflow_id,
         task_queue=TASK_QUEUE,
     )
@@ -137,16 +144,14 @@ async def approve_workflow_step(run_id: int, approved: bool, comment: str = "") 
     if run.status != WorkflowRun.Status.WAITING_HUMAN:
         return {"error": f"当前状态为 {run.status}，无需审批"}
 
-    signal_key = f"{run.current_step_id}_approved"
+    signal_key = "gate_approved"
+    signal_data = {"approved": approved, "step_id": run.current_step_id, "comment": comment}
 
     try:
         client = await _get_client()
         handle = client.get_workflow_handle(run.temporal_workflow_id)
 
-        await handle.signal(
-            signal_key,
-            {"approved": approved, "step_id": run.current_step_id, "comment": comment},
-        )
+        await handle.signal(signal_key, signal_data)
     except Exception as e:
         logger.warning("Temporal signal 发送失败: run_id=%s, error=%s", run_id, e)
         return {"error": f"Temporal 信号发送失败: {e}"}

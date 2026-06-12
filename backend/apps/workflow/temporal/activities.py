@@ -317,3 +317,144 @@ async def download_litigation_document(document_id: int) -> dict:
 
     service = LitigationService()
     return await service.download(document_id)  # type: ignore[no-any-return]
+
+
+# ── DynamicWorkflow 通用 Activity ────────────────────────────
+
+
+@activity.defn
+async def fetch_template_schema(template_id: int) -> dict:
+    """从 DB 读取 WorkflowTemplate 的 steps_schema（workflow 代码不能直接做 ORM）"""
+    from apps.workflow.models import WorkflowTemplate
+
+    tpl = await WorkflowTemplate.objects.aget(pk=template_id)
+    return {
+        "template_id": tpl.id,
+        "name": tpl.name,
+        "slug": tpl.slug,
+        "steps_schema": tpl.steps_schema,
+    }
+
+
+@activity.defn
+async def generic_delay(duration_minutes: float) -> None:
+    """延时等待（包装为 activity 保证 Temporal 确定性）"""
+    import asyncio
+    await asyncio.sleep(duration_minutes * 60)
+
+
+@activity.defn
+async def generic_llm_call(system_prompt: str, user_prompt: str) -> dict:
+    """通用 LLM 调用 activity"""
+    result = await _llm_chat(system=system_prompt, user=user_prompt)
+    return {"result": result}
+
+
+@activity.defn
+async def generic_http_request(method: str, url: str, headers: str = "", body: str = "") -> dict:
+    """通用 HTTP 请求 activity"""
+    import aiohttp
+
+    async with aiohttp.ClientSession() as session:
+        kwargs: dict = {"url": url}
+        if headers:
+            kwargs["headers"] = json.loads(headers)
+        if body:
+            kwargs["json"] = json.loads(body)
+
+        async with session.request(method, **kwargs) as resp:
+            text = await resp.text()
+            try:
+                data = json.loads(text)
+            except json.JSONDecodeError:
+                data = text
+            return {"status_code": resp.status, "data": data}
+
+
+@activity.defn
+async def generic_code_exec(code: str, context: dict | None = None) -> dict:
+    """受限 Python 代码执行 activity"""
+    safe_builtins = {
+        "len", "int", "float", "str", "bool", "list", "dict", "set", "tuple",
+        "min", "max", "sum", "abs", "round", "sorted", "reversed", "enumerate",
+        "zip", "map", "filter", "any", "all", "range", "isinstance", "getattr",
+        "hasattr", "json",
+    }
+    import builtins
+    restricted_globals = {"__builtins__": {k: getattr(builtins, k) for k in safe_builtins if hasattr(builtins, k)}}
+    restricted_globals["json"] = json
+    restricted_globals["context"] = context or {}
+
+    exec(code, restricted_globals)  # noqa: S102
+    return {k: v for k, v in restricted_globals.items() if not k.startswith("_") and k not in ("json", "context", "builtins")}
+
+
+@activity.defn
+async def execute_mcp_tool(mcp_tool_name: str, kwargs: dict) -> dict:
+    """通用 MCP 工具调度器 —— 根据 tool name 动态调用对应 MCP 函数
+
+    MCP 工具都是同步函数，这里用 asyncio.to_thread 包装。
+    """
+    import asyncio
+
+    # ── MCP 工具路由表 ──
+    MCP_TOOLS: dict[str, Any] = {}  # lazy init
+
+    if not MCP_TOOLS:
+        from mcp_server.tools.cases.cases import get_case
+        from mcp_server.tools.cases.litigation_fee import calculate_litigation_fee
+        from mcp_server.tools.cases.logs import create_case_log
+        from mcp_server.tools.cases.materials import list_bind_candidates
+        from mcp_server.tools.doc_convert.doc_convert import convert_document
+        from mcp_server.tools.documents.authorization import download_authorization_package
+        from mcp_server.tools.documents.litigation import (
+            download_litigation_document as mcp_download_litigation,
+            generate_complaint as mcp_generate_complaint,
+            generate_defense,
+        )
+        from mcp_server.tools.documents.preservation import download_full_preservation_package
+        from mcp_server.tools.enterprise_data.enterprise_data import (
+            get_company_profile,
+            get_company_risks,
+            search_companies,
+        )
+        from mcp_server.tools.finance.lpr import calculate_interest
+        from mcp_server.tools.automation.auto_namer import auto_namer_process
+        from mcp_server.tools.automation.court_filing import execute_court_filing as mcp_execute_court_filing
+        from mcp_server.tools.automation.court_guarantee import execute_guarantee
+        from mcp_server.tools.automation.court_sms import submit_court_sms
+        from mcp_server.tools.automation.document_processor import process_document
+        from mcp_server.tools.legal_research.legal_research import check_law_references, create_research_task
+        from mcp_server.tools.reminders.reminders import create_new_reminder
+
+        MCP_TOOLS = {
+            "get_case": get_case,
+            "generate_complaint": mcp_generate_complaint,
+            "generate_defense": generate_defense,
+            "download_litigation_document": mcp_download_litigation,
+            "download_authorization_package": download_authorization_package,
+            "download_full_preservation_package": download_full_preservation_package,
+            "list_bind_candidates": list_bind_candidates,
+            "create_case_log": create_case_log,
+            "execute_court_filing": mcp_execute_court_filing,
+            "execute_guarantee": execute_guarantee,
+            "submit_court_sms": submit_court_sms,
+            "search_companies": search_companies,
+            "get_company_profile": get_company_profile,
+            "get_company_risks": get_company_risks,
+            "create_research_task": create_research_task,
+            "check_law_references": check_law_references,
+            "create_new_reminder": create_new_reminder,
+            "auto_namer_process": auto_namer_process,
+            "process_document": process_document,
+            "convert_document": convert_document,
+            "calculate_litigation_fee": calculate_litigation_fee,
+            "calculate_interest": calculate_interest,
+        }
+
+    fn = MCP_TOOLS.get(mcp_tool_name)
+    if fn is None:
+        raise ValueError(f"未知 MCP 工具: {mcp_tool_name}")
+
+    result = await asyncio.to_thread(fn, **kwargs)
+    return result if isinstance(result, dict) else {"data": result}
