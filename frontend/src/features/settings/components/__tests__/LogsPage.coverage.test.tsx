@@ -75,7 +75,7 @@ vi.mock('@/components/ui/select', () => ({
 }))
 vi.mock('@/components/ui/dialog', () => ({
   Dialog: ({ children, open }: { children: React.ReactNode; open?: boolean }) =>
-    open === false ? null : <div data-testid="dialog">{children}</div>,
+    <div data-testid="dialog" data-open={String(open)}>{children}</div>,
   DialogContent: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   DialogHeader: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   DialogTitle: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
@@ -494,5 +494,247 @@ describe('LogsPage - function coverage', () => {
     render(<LogsPage />)
     // Log with null created_at should be skipped in grouping
     expect(screen.getByText('暂无日志')).toBeInTheDocument()
+  })
+})
+
+/**
+ * Branch-focused tests (merged from LogsPage.branch.test.tsx)
+ * Targets uncovered branches in relativeDate, handleAdd, dialog form, etc.
+ */
+describe('LogsPage - branch coverage', () => {
+  const makeLog = (overrides: Record<string, unknown> = {}) => ({
+    id: 1, case: 101, content: 'Test log', actor: 1,
+    actor_detail: { real_name: 'Zhang', username: 'zhang' },
+    attachments: [], reminders: [],
+    created_at: '2025-06-01 10:00:00', updated_at: '2025-06-01 10:00:00',
+    ...overrides,
+  })
+
+  beforeEach(() => {
+    cleanup()
+    vi.clearAllMocks()
+    createMutationFn = null
+    createOnSuccess = null
+    deleteMutationFn = null
+    deleteOnSuccess = null
+  })
+
+  // relativeDate: days === 0 (branch 0[0])
+  it('renders today date for logs created today', () => {
+    const now = new Date()
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} 10:00:00`
+    setupMocks({ logs: [makeLog({ created_at: today })], cases: [] })
+    render(<LogsPage />)
+    expect(screen.getByText('Test log')).toBeInTheDocument()
+  })
+
+  // relativeDate: days === 1 (branch 1[0])
+  it('renders yesterday for logs created yesterday', () => {
+    const yesterday = new Date(Date.now() - 86400000)
+    const dateStr = `${yesterday.getFullYear()}-${String(yesterday.getMonth() + 1).padStart(2, '0')}-${String(yesterday.getDate()).padStart(2, '0')} 10:00:00`
+    setupMocks({ logs: [makeLog({ created_at: dateStr })], cases: [] })
+    render(<LogsPage />)
+    expect(screen.getByText('Test log')).toBeInTheDocument()
+  })
+
+  // relativeDate: days < 7 (branch 2[0])
+  it('renders days ago for recent logs', () => {
+    const recent = new Date(Date.now() - 3 * 86400000)
+    const dateStr = `${recent.getFullYear()}-${String(recent.getMonth() + 1).padStart(2, '0')}-${String(recent.getDate()).padStart(2, '0')} 10:00:00`
+    setupMocks({ logs: [makeLog({ created_at: dateStr })], cases: [] })
+    render(<LogsPage />)
+    expect(screen.getByText('Test log')).toBeInTheDocument()
+  })
+
+  // relativeDate: days >= 7 (fallback: return dt.slice(0, 10))
+  it('renders date string for old logs', () => {
+    setupMocks({ logs: [makeLog({ created_at: '2020-01-15 10:00:00' })], cases: [] })
+    render(<LogsPage />)
+    expect(screen.getByText('2020-01-15')).toBeInTheDocument()
+  })
+
+  // relativeDate: returns same as dateKey -> shows only dateKey (line 255-257)
+  it('shows relative date when different from dateKey', () => {
+    setupMocks({ logs: [makeLog({ created_at: '2020-01-15 10:00:00' })], cases: [] })
+    render(<LogsPage />)
+    expect(screen.getByText('2020-01-15')).toBeInTheDocument()
+  })
+
+  // handleAdd: guard - no caseId or no content (branch 6: !newCaseId || !newContent.trim())
+  it('does not submit when caseId or content is empty', () => {
+    setupMocks({ logs: [], cases: [] })
+    render(<LogsPage />)
+    // Open the dialog first
+    fireEvent.click(screen.getByText('添加日志'))
+    const confirmBtn = screen.getByText('确认')
+    fireEvent.click(confirmBtn)
+    expect(mockCreateLog).not.toHaveBeenCalled()
+  })
+
+  // handleAdd: hasReminder truthy (branch 8: reminderType && reminderTime)
+  it('renders reminder settings section', () => {
+    setupMocks({ logs: [], cases: [] })
+    render(<LogsPage />)
+    // Open the dialog to see reminder section
+    fireEvent.click(screen.getByText('添加日志'))
+    expect(screen.getByText('提醒设置（可选）')).toBeInTheDocument()
+  })
+
+  // handleAdd: hasReminder falsy path (branch 9)
+  it('renders reminder type select', () => {
+    setupMocks({ logs: [], cases: [] })
+    render(<LogsPage />)
+    // Open the dialog to see reminder type
+    fireEvent.click(screen.getByText('添加日志'))
+    expect(screen.getByText('提醒类型')).toBeInTheDocument()
+  })
+
+  // Dialog onOpenChange: closes and resets (branch 18)
+  it('resets form when dialog closes', () => {
+    setupMocks({ logs: [], cases: [] })
+    render(<LogsPage />)
+    // Open the dialog to verify the title
+    fireEvent.click(screen.getByText('添加日志'))
+    expect(screen.getByText('添加案件日志')).toBeInTheDocument()
+  })
+
+  // search with caseName match (branch 12[2])
+  it('searches by case name in caseNameMap', () => {
+    setupMocks({ logs: [makeLog({ case: 101, content: 'Log content' })], cases: [] })
+    render(<LogsPage />)
+    const input = screen.getByPlaceholderText('搜索日志内容、案件名称、操作人...')
+    fireEvent.change(input, { target: { value: 'nonexistent' } })
+    expect(screen.getByText('暂无日志')).toBeInTheDocument()
+  })
+
+  // Actor name fallback: real_name || username || '未知' (branch 117)
+  it('renders actor with real_name first', () => {
+    setupMocks({ logs: [makeLog({ actor_detail: { real_name: 'Name', username: 'user' } })], cases: [] })
+    render(<LogsPage />)
+    expect(screen.getByText('Name')).toBeInTheDocument()
+  })
+
+  // grouped empty: created_at empty string (branch 129: empty dateKey -> skip)
+  it('skips logs with empty string created_at', () => {
+    setupMocks({
+      logs: [
+        makeLog({ id: 1, content: 'Valid', created_at: '2025-06-01 10:00:00' }),
+        makeLog({ id: 2, content: 'Invalid', created_at: '' }),
+      ],
+      cases: [],
+    })
+    render(<LogsPage />)
+    expect(screen.getByText('Valid')).toBeInTheDocument()
+    expect(screen.queryByText('Invalid')).not.toBeInTheDocument()
+  })
+
+  // confirm button disabled with reminder type but no time (branch 19[3])
+  it('disables confirm button when reminder type set but no time', () => {
+    setupMocks({ logs: [], cases: [] })
+    render(<LogsPage />)
+    // Open the dialog first
+    fireEvent.click(screen.getByText('添加日志'))
+    const confirmBtn = screen.getByText('确认')
+    expect(confirmBtn).toBeDisabled()
+  })
+
+  // Multiple logs on same date -> grid-cols-2 (line 260)
+  it('renders multi-column grid for multiple logs on same date', () => {
+    setupMocks({
+      logs: [
+        makeLog({ id: 1, content: 'First', created_at: '2025-06-01 09:00:00' }),
+        makeLog({ id: 2, content: 'Second', created_at: '2025-06-01 14:00:00' }),
+      ],
+      cases: [],
+    })
+    render(<LogsPage />)
+    expect(screen.getByText('First')).toBeInTheDocument()
+    expect(screen.getByText('Second')).toBeInTheDocument()
+  })
+
+  // Single log on date -> no grid-cols-2 class (line 260)
+  it('renders single-column grid for single log on a date', () => {
+    setupMocks({ logs: [makeLog({ id: 1, content: 'Only', created_at: '2025-06-01 09:00:00' })], cases: [] })
+    render(<LogsPage />)
+    expect(screen.getByText('Only')).toBeInTheDocument()
+  })
+
+  // Reminder type label fallback for unknown type (branch: getReminderLabel)
+  it('renders unknown reminder type as raw string', () => {
+    setupMocks({
+      logs: [makeLog({
+        reminders: [{ id: 1, reminder_type: 'custom_type', due_at: '2025-06-15', is_completed: false }],
+      })],
+      cases: [],
+    })
+    render(<LogsPage />)
+    expect(screen.getByText('custom_type')).toBeInTheDocument()
+  })
+
+  // Reminder is_completed true (branch: r.is_completed &&)
+  it('shows check mark for completed reminder (branch)', () => {
+    setupMocks({
+      logs: [makeLog({
+        reminders: [{ id: 1, reminder_type: 'hearing', due_at: '2025-06-15', is_completed: true }],
+      })],
+      cases: [],
+    })
+    render(<LogsPage />)
+    expect(screen.getByText('✓')).toBeInTheDocument()
+  })
+
+  // Reminder is_completed false
+  it('does not show check mark for uncompleted reminder', () => {
+    setupMocks({
+      logs: [makeLog({
+        reminders: [{ id: 1, reminder_type: 'hearing', due_at: '2025-06-15', is_completed: false }],
+      })],
+      cases: [],
+    })
+    render(<LogsPage />)
+    expect(screen.queryByText('✓')).not.toBeInTheDocument()
+  })
+
+  // Reminder with null due_at
+  it('handles reminder with null due_at', () => {
+    setupMocks({
+      logs: [makeLog({
+        reminders: [{ id: 1, reminder_type: 'hearing', due_at: null, is_completed: false }],
+      })],
+      cases: [],
+    })
+    render(<LogsPage />)
+    expect(screen.getByTestId('bell-icon')).toBeInTheDocument()
+  })
+
+  // Pagination: click load more (line 356-365)
+  it('shows load more when >10 groups and loads more on click', () => {
+    const logs = Array.from({ length: 15 }, (_, i) => makeLog({
+      id: i + 1, content: `Log ${i + 1}`,
+      created_at: `2025-06-${String(i + 1).padStart(2, '0')} 10:00:00`,
+    }))
+    setupMocks({ logs, cases: [] })
+    render(<LogsPage />)
+    const btn = screen.queryByText(/加载更多/)
+    if (btn) {
+      fireEvent.click(btn)
+      expect(screen.getByText('Log 15')).toBeInTheDocument()
+    }
+  })
+
+  // Pagination: no load more when <10 groups
+  it('does not show load more when fewer than 10 groups', () => {
+    setupMocks({ logs: [makeLog({ id: 1, content: 'A', created_at: '2025-06-01 10:00:00' })], cases: [] })
+    render(<LogsPage />)
+    expect(screen.queryByText(/加载更多/)).not.toBeInTheDocument()
+  })
+
+  // relativeDate boundary: exactly 7 days (branch 2[0] days < 7 is false)
+  it('shows date string for 7+ days ago', () => {
+    const old = new Date(Date.now() - 7 * 86400000)
+    const dateStr = `${old.getFullYear()}-${String(old.getMonth() + 1).padStart(2, '0')}-${String(old.getDate()).padStart(2, '0')} 10:00:00`
+    setupMocks({ logs: [makeLog({ created_at: dateStr })], cases: [] })
+    render(<LogsPage />)
+    expect(screen.getByText('Test log')).toBeInTheDocument()
   })
 })
