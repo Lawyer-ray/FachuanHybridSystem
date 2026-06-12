@@ -31,6 +31,7 @@ class ScraperTaskStatus(models.TextChoices):
 
     PENDING = "pending", "等待中"
     RUNNING = "running", "执行中"
+    WAITING_FOR_CAPTCHA = "waiting_for_captcha", "等待验证码"
     SUCCESS = "success", "成功"
     FAILED = "failed", "失败"
 
@@ -66,6 +67,12 @@ class ScraperTask(LifecycleModel):
     started_at = models.DateTimeField(null=True, blank=True, verbose_name="开始时间")
     finished_at = models.DateTimeField(null=True, blank=True, verbose_name="完成时间")
     scheduled_at = models.DateTimeField(null=True, blank=True, verbose_name="计划执行时间", help_text="留空则立即执行")
+    captcha_image_path = models.CharField(
+        max_length=500, null=True, blank=True, verbose_name="验证码图片路径", help_text="手动验证码模式下存储待识别图片路径"
+    )
+    captcha_answer = models.CharField(
+        max_length=64, null=True, blank=True, verbose_name="验证码答案", help_text="用户手动输入的验证码答案"
+    )
 
     class Meta:
         app_label = "automation"
