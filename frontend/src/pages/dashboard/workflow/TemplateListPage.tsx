@@ -139,16 +139,19 @@ export default function TemplateListPage() {
             return (
               <Card
                 key={t.id}
-                className={`group relative transition-shadow hover:shadow-md cursor-pointer ${
+                className={`group relative transition-shadow hover:shadow-md cursor-pointer overflow-hidden ${
                   !t.is_active ? 'opacity-60' : ''
                 }`}
                 onClick={() => navigate(`/admin/workflows/templates/${t.id}/edit`)}
               >
                 <CardHeader className="pb-3">
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-2">
-                      <div>
-                        <CardTitle className="text-base">{t.name}</CardTitle>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className={`p-2 rounded-lg shrink-0 ${CATEGORY_COLORS[t.category] || 'bg-gray-100'}`}>
+                        <Icon className="h-4 w-4" />
+                      </div>
+                      <div className="min-w-0">
+                        <CardTitle className="text-base line-clamp-1">{t.name}</CardTitle>
                         <div className="flex items-center gap-2 mt-1">
                           <Badge variant="secondary" className="text-xs">
                             {CATEGORY_LABELS[t.category] || t.category}
@@ -217,13 +220,13 @@ export default function TemplateListPage() {
                   {t.description && (
                     <p className="text-sm text-muted-foreground mb-3 line-clamp-2">{t.description}</p>
                   )}
-                  <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                    <span className="flex items-center gap-1">
+                  <div className="flex items-center gap-4 text-xs text-muted-foreground min-w-0">
+                    <span className="flex items-center gap-1 shrink-0">
                       <GitBranch className="h-3 w-3" />
                       {t.steps_count ?? 0} 个步骤
                     </span>
                     {t.temporal_workflow_name && (
-                      <span className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded">
+                      <span className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded truncate min-w-0">
                         {t.temporal_workflow_name}
                       </span>
                     )}
