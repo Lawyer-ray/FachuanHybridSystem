@@ -455,7 +455,7 @@ class TestLLMEmbeddingClientAdapter:
         assert len(result.data) == 2
         assert result.data[0].embedding == [0.1, 0.2]
         mock_llm.embed_texts.assert_called_once_with(
-            texts=["hello", "world"], backend="siliconflow", model="test", fallback=False,
+            texts=["hello", "world"], backend="openai_compatible", model="test", fallback=False,
         )
 
     def test_create_with_string_input(self) -> None:
@@ -466,5 +466,5 @@ class TestLLMEmbeddingClientAdapter:
         result = adapter.embeddings.create(input="hello world", model="test")
         assert len(result.data) == 1
         mock_llm.embed_texts.assert_called_once_with(
-            texts=["hello world"], backend="siliconflow", model="test", fallback=False,
+            texts=["hello world"], backend="openai_compatible", model="test", fallback=False,
         )

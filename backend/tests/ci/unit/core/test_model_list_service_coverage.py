@@ -51,8 +51,8 @@ class TestModelListService:
     def test_get_models_from_cache(self, mock_cache):
         svc = self._make()
         mock_cache.get.side_effect = lambda key: {
-            "siliconflow_model_list": [{"id": "m1", "name": "m1", "context_window": 0}],
-            "siliconflow_model_list_status": {"is_fallback": False, "error_message": ""},
+            "llm_model_list": [{"id": "m1", "name": "m1", "context_window": 0}],
+            "llm_model_list_status": {"is_fallback": False, "error_message": ""},
         }.get(key)
         with patch.object(svc, "_merge_system_config_models", return_value=[{"id": "m1"}]):
             result = svc.get_models()
@@ -62,8 +62,8 @@ class TestModelListService:
     def test_get_result_from_cache(self, mock_cache):
         svc = self._make()
         mock_cache.get.side_effect = lambda key: {
-            "siliconflow_model_list": [{"id": "m1"}],
-            "siliconflow_model_list_status": {"is_fallback": False, "error_message": ""},
+            "llm_model_list": [{"id": "m1"}],
+            "llm_model_list_status": {"is_fallback": False, "error_message": ""},
         }.get(key)
         with patch.object(svc, "_merge_system_config_models", return_value=[]):
             result = svc.get_result()
@@ -94,14 +94,6 @@ class TestModelListService:
         mock_config.get_backend_configs.return_value = {}
         result = svc._fetch_from_api()
         assert result.is_fallback is True
-
-    @patch("apps.core.llm.model_list_service.LLMConfig")
-    @patch("apps.core.llm.model_list_service.httpx")
-    def test_fetch_siliconflow_models_no_key(self, mock_httpx, mock_config):
-        svc = self._make()
-        mock_config.get_api_key.return_value = None
-        result = svc._fetch_siliconflow_models()
-        assert result == []
 
     @patch("apps.core.llm.model_list_service.LLMConfig")
     @patch("apps.core.llm.model_list_service.httpx")
