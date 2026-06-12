@@ -21,7 +21,7 @@ class RerankerClient:  # pragma: no cover
         self,
         *,
         api_key: str,
-        base_url: str,
+        base_url: str = "",
         model: str = "BAAI/bge-reranker-v2-m3",
     ) -> None:
         self._api_key = api_key

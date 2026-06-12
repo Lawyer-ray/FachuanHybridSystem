@@ -72,7 +72,7 @@ class LegalResearchTaskService:  # pragma: no cover
             status=LegalResearchTaskStatus.PENDING,
             message=self.CREATE_PENDING_MESSAGE,
             llm_backend=LLMConfig.get_default_backend(),
-            llm_model=(payload.llm_model.strip() if payload.llm_model else LLMConfig.get_default_model()),
+            llm_model=(payload.llm_model.strip() if payload.llm_model else LLMConfig.get_openai_compatible_model()),
             llm_scoring_concurrency=max(1, int(getattr(payload, "llm_scoring_concurrency", 5) or 5)),
         )
 
@@ -113,7 +113,7 @@ class LegalResearchTaskService:  # pragma: no cover
         task.source = "weike"
         task.llm_backend = LLMConfig.get_default_backend()
         if not task.llm_model:
-            task.llm_model = LLMConfig.get_default_model()
+            task.llm_model = LLMConfig.get_openai_compatible_model()
         task.save(
             update_fields=[
                 "status",

@@ -49,10 +49,10 @@ class TestLLMConfigNormalizeBaseUrl:
         assert LLMConfig._normalize_base_url("https://api.example.com/v1///") == "https://api.example.com/v1"
 
     def test_empty_returns_default(self):
-        assert LLMConfig._normalize_base_url("") == LLMConfig.DEFAULT_BASE_URL
+        assert LLMConfig._normalize_base_url("") == ""
 
     def test_none(self):
-        assert LLMConfig._normalize_base_url(None) == LLMConfig.DEFAULT_BASE_URL  # type: ignore[arg-type]
+        assert LLMConfig._normalize_base_url(None) == ""  # type: ignore[arg-type]
 
 
 class TestLLMConfigResolveBackendForModel:
@@ -128,11 +128,11 @@ class TestLLMConfigGetDefaultBackend:
 class TestLLMConfigMisc:
     @patch.object(LLMConfig, "_get_system_config", return_value="bad_int")
     def test_get_timeout_invalid(self, mock_sc):
-        assert LLMConfig.get_timeout() == LLMConfig.DEFAULT_TIMEOUT
+        assert LLMConfig.get_openai_compatible_timeout() == LLMConfig.DEFAULT_OPENAI_COMPATIBLE_TIMEOUT
 
     @patch.object(LLMConfig, "_get_system_config", return_value="300")
     def test_get_timeout_valid(self, mock_sc):
-        assert LLMConfig.get_timeout() == 300
+        assert LLMConfig.get_openai_compatible_timeout() == 300
 
     @patch.object(LLMConfig, "_get_system_config", return_value="bad_float")
     def test_get_temperature_invalid(self, mock_sc):
@@ -152,11 +152,11 @@ class TestLLMConfigMisc:
 
     @patch.object(LLMConfig, "_get_system_config", return_value="")
     def test_get_default_model_fallback(self, mock_sc):
-        assert LLMConfig.get_default_model() == LLMConfig.DEFAULT_MODEL
+        assert LLMConfig.get_openai_compatible_model() == LLMConfig.DEFAULT_OPENAI_COMPATIBLE_MODEL
 
     @patch.object(LLMConfig, "_get_system_config", return_value="custom-model")
     def test_get_default_model_custom(self, mock_sc):
-        assert LLMConfig.get_default_model() == "custom-model"
+        assert LLMConfig.get_openai_compatible_model() == "custom-model"
 
 
 # ===========================================================================

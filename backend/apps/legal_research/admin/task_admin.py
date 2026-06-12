@@ -175,7 +175,7 @@ class LegalResearchTaskAdmin(admin.ModelAdmin):  # pragma: no cover
 
         choices, _, _ = self._build_llm_model_choices()
         model_field.widget = forms.Select(choices=choices)
-        model_field.initial = choices[0][0] if choices else LLMConfig.get_default_model()
+        model_field.initial = choices[0][0] if choices else LLMConfig.get_openai_compatible_model()
         model_field.help_text = "选择用于案例相似度评估的模型。点击「测试连通性」验证所选模型是否可用。"
         self._attach_keyword_cleaner(form)
         return form
@@ -452,7 +452,7 @@ class LegalResearchTaskAdmin(admin.ModelAdmin):  # pragma: no cover
             seen.add(value)
             choices.append((value, label or value))
 
-        default_model = LLMConfig.get_default_model().strip()
+        default_model = LLMConfig.get_openai_compatible_model().strip()
         if default_model:
             append_choice(default_model, label=f"{default_model}（默认）")
 

@@ -18,7 +18,7 @@ class LitigationGoalIntakeChain:  # pragma: no cover
         self._model = model
 
     async def arun(self, *, case_info: dict[str, Any], document_type: str, user_input: str) -> GoalIntakeResult:  # pragma: no cover
-        if not (await LLMConfig.get_api_key_async() or "").strip():
+        if not (await LLMConfig.get_openai_compatible_api_key_async() or "").strip():
             return self._fallback_intake(
                 document_type=document_type, user_input=user_input, notes="llm_api_key_missing"
             )

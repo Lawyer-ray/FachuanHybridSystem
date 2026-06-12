@@ -210,7 +210,7 @@ class LegalResearchCapabilityService:  # pragma: no cover
             status=LegalResearchTaskStatus.PENDING,
             message="能力调用执行中",
             llm_backend=LLMConfig.get_default_backend(),
-            llm_model=LLMConfig.get_default_model(),
+            llm_model=LLMConfig.get_openai_compatible_model(),
         )
 
         acquired = self._DIRECT_SEMAPHORE.acquire(timeout=self.DIRECT_CONCURRENCY_WAIT_SECONDS)

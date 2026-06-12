@@ -42,14 +42,12 @@ class TestAutomationConfigService:
         """openai_compatible 部分包含 model/embedding_model/base_url。"""
         mock_llm_cfg = MagicMock()
         mock_llm_cfg.get_default_backend.return_value = "openai_compatible"
-        mock_llm_cfg.get_default_model.return_value = "m1"
-        mock_llm_cfg.get_embedding_model.return_value = "e1"
+        mock_llm_cfg.get_openai_compatible_model.return_value = "m1"
+        mock_llm_cfg.get_openai_compatible_embedding_model.return_value = "e1"
         mock_llm_cfg.get_openai_compatible_base_url.return_value = "http://116.196.92.175:8001/v1"
         mock_llm_cfg.get_ollama_model.return_value = ""
         mock_llm_cfg.get_ollama_embedding_model.return_value = ""
         mock_llm_cfg.get_ollama_base_url.return_value = ""
-        mock_llm_cfg.get_openai_compatible_model.return_value = ""
-        mock_llm_cfg.get_openai_compatible_embedding_model.return_value = ""
 
         with patch("apps.core.llm.config.LLMConfig", mock_llm_cfg):
             svc = self._make_service()

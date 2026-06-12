@@ -580,7 +580,7 @@ class TestLLMConfig:
         from apps.core.llm.config import LLMConfig
 
         assert LLMConfig._normalize_base_url("https://example.com/v1///") == "https://example.com/v1"
-        assert LLMConfig._normalize_base_url("") == LLMConfig.DEFAULT_BASE_URL
+        assert LLMConfig._normalize_base_url("") == ""
 
     def test_parse_bool(self) -> None:
         from apps.core.llm.config import LLMConfig
@@ -605,8 +605,8 @@ class TestLLMConfig:
         from apps.core.llm.config import LLMConfig
 
         models = LLMConfig.DEFAULT_AVAILABLE_MODELS
-        assert len(models) > 5
-        assert "Qwen/Qwen2.5-7B-Instruct" in models
+        assert len(models) >= 1
+        assert "kimi26" in models
 
     def test_valid_backends(self) -> None:
         from apps.core.llm.config import LLMConfig

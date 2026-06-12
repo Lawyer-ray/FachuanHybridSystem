@@ -829,7 +829,7 @@ class DocumentTemplateAdmin(admin.ModelAdmin):  # pragma: no cover
             seen.add(value)
             choices.append((value, label or value))
 
-        default_model = LLMConfig.get_default_model().strip()
+        default_model = LLMConfig.get_openai_compatible_model().strip()
         if default_model:
             append_choice(default_model, label=f"{default_model}（系统默认）")
 

@@ -130,7 +130,7 @@ class SolutionTaskAdmin(admin.ModelAdmin):  # pragma: no cover
         if model_field is not None:
             choices, is_fallback, error_message = self._build_model_choices()
             model_field.widget = forms.Select(choices=choices)
-            model_field.initial = choices[0][0] if choices else LLMConfig.get_default_model()
+            model_field.initial = choices[0][0] if choices else LLMConfig.get_openai_compatible_model()
             model_field.required = False
             if is_fallback:
                 messages.warning(
@@ -339,7 +339,7 @@ class SolutionTaskAdmin(admin.ModelAdmin):  # pragma: no cover
         """
         choices: list[tuple[str, str]] = []
         seen: set[str] = set()
-        default = LLMConfig.get_default_model().strip()
+        default = LLMConfig.get_openai_compatible_model().strip()
         if default:
             choices.append((default, f"{default}（默认）"))
             seen.add(default)

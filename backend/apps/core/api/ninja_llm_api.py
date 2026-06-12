@@ -213,7 +213,7 @@ def list_available_models(request: Any) -> Any:
     seen: set[str] = set()
 
     # 默认模型优先
-    default_model = LLMConfig.get_default_model().strip()
+    default_model = LLMConfig.get_openai_compatible_model().strip()
     if default_model:
         seen.add(default_model)
         models.append(
