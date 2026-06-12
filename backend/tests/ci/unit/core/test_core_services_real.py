@@ -547,10 +547,10 @@ class TestMaterialClassification:
 
 
 class TestLLMConfig:
-    def test_resolve_backend_siliconflow(self) -> None:
+    def test_resolve_backend_openai_compatible_default(self) -> None:
         from apps.core.llm.config import LLMConfig
 
-        assert LLMConfig.resolve_backend_for_model("Qwen/Qwen2.5-7B-Instruct") == "siliconflow"
+        assert LLMConfig.resolve_backend_for_model("Qwen/Qwen2.5-7B-Instruct") == "openai_compatible"
 
     def test_resolve_backend_ollama(self) -> None:
         from apps.core.llm.config import LLMConfig
@@ -566,9 +566,9 @@ class TestLLMConfig:
         from apps.core.llm.config import LLMConfig
 
         # Mock _get_system_config to avoid DB access
-        with patch.object(LLMConfig, "_get_system_config", return_value="siliconflow"):
+        with patch.object(LLMConfig, "_get_system_config", return_value="openai_compatible"):
             result = LLMConfig.resolve_backend_for_model("")
-            assert result in {"siliconflow", "ollama", "openai_compatible"}
+            assert result in {"ollama", "openai_compatible"}
 
     def test_normalize_api_key(self) -> None:
         from apps.core.llm.config import LLMConfig
@@ -580,7 +580,7 @@ class TestLLMConfig:
         from apps.core.llm.config import LLMConfig
 
         assert LLMConfig._normalize_base_url("https://example.com/v1///") == "https://example.com/v1"
-        assert LLMConfig._normalize_base_url("") == LLMConfig.DEFAULT_BASE_URL
+        assert LLMConfig._normalize_base_url("") == ""
 
     def test_parse_bool(self) -> None:
         from apps.core.llm.config import LLMConfig
@@ -605,13 +605,12 @@ class TestLLMConfig:
         from apps.core.llm.config import LLMConfig
 
         models = LLMConfig.DEFAULT_AVAILABLE_MODELS
-        assert len(models) > 5
-        assert "Qwen/Qwen2.5-7B-Instruct" in models
+        assert len(models) >= 1
+        assert "kimi26" in models
 
     def test_valid_backends(self) -> None:
         from apps.core.llm.config import LLMConfig
 
-        assert "siliconflow" in LLMConfig._VALID_BACKENDS
         assert "ollama" in LLMConfig._VALID_BACKENDS
         assert "openai_compatible" in LLMConfig._VALID_BACKENDS
 

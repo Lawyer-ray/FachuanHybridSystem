@@ -283,7 +283,7 @@ class ReviewTaskAdmin(admin.ModelAdmin):  # pragma: no cover
 
             messages.warning(
                 request,
-                "SiliconFlow 模型列表获取失败：%(error)s，当前显示默认模型列表" % {"error": result.error_message},
+                "模型列表获取失败：%(error)s，当前显示默认模型列表" % {"error": result.error_message},
             )
 
         context = {

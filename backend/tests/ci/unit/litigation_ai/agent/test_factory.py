@@ -150,7 +150,7 @@ class TestLitigationAgentFactory:
     @patch("apps.litigation_ai.agent.factory.LLMConfig")
     @patch("apps.litigation_ai.agent.factory.LitigationLLMProvider")
     def test_create_agent(self, MockProvider, MockConfig):
-        MockConfig.get_default_model.return_value = "test-model"
+        MockConfig.get_openai_compatible_model.return_value = "test-model"
         provider = MagicMock()
         provider.create_llm_with_tools.return_value = MagicMock()
         MockProvider.return_value = provider
@@ -167,7 +167,7 @@ class TestLitigationAgentFactory:
     @patch("apps.litigation_ai.agent.factory.LLMConfig")
     @patch("apps.litigation_ai.agent.factory.LitigationLLMProvider")
     def test_get_config(self, MockProvider, MockConfig):
-        MockConfig.get_default_model.return_value = "default"
+        MockConfig.get_openai_compatible_model.return_value = "default"
         provider = MagicMock()
         MockProvider.return_value = provider
         factory = LitigationAgentFactory(model="my-model", temperature=0.3)
@@ -178,7 +178,7 @@ class TestLitigationAgentFactory:
     @patch("apps.litigation_ai.agent.factory.LLMConfig")
     @patch("apps.litigation_ai.agent.factory.LitigationLLMProvider")
     def test_get_model_name_fallback(self, MockProvider, MockConfig):
-        MockConfig.get_default_model.return_value = "fallback-model"
+        MockConfig.get_openai_compatible_model.return_value = "fallback-model"
         provider = MagicMock()
         MockProvider.return_value = provider
         factory = LitigationAgentFactory()

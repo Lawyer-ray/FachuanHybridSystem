@@ -19,7 +19,7 @@ from apps.core.llm.model_list_service import ModelListService
 from apps.legal_research.models import LegalResearchResult, LegalResearchTask, LegalResearchTaskEvent
 from apps.legal_research.models.task import LegalResearchSearchMode, LegalResearchTaskStatus
 from apps.legal_research.services.keywords import KEYWORD_INPUT_HELP_TEXT, normalize_keyword_query
-from apps.legal_research.services.llm_preflight import verify_siliconflow_connectivity
+from apps.legal_research.services.llm_preflight import verify_llm_connectivity
 from apps.legal_research.services.task.feedback_loop import LegalResearchFeedbackLoopService
 from apps.legal_research.services.task.service import LegalResearchTaskService
 from apps.legal_research.services.task.state_sync import sync_failed_queue_state
@@ -175,7 +175,7 @@ class LegalResearchTaskAdmin(admin.ModelAdmin):  # pragma: no cover
 
         choices, _, _ = self._build_llm_model_choices()
         model_field.widget = forms.Select(choices=choices)
-        model_field.initial = choices[0][0] if choices else LLMConfig.get_default_model()
+        model_field.initial = choices[0][0] if choices else LLMConfig.get_openai_compatible_model()
         model_field.help_text = "选择用于案例相似度评估的模型。点击「测试连通性」验证所选模型是否可用。"
         self._attach_keyword_cleaner(form)
         return form
@@ -452,7 +452,7 @@ class LegalResearchTaskAdmin(admin.ModelAdmin):  # pragma: no cover
             seen.add(value)
             choices.append((value, label or value))
 
-        default_model = LLMConfig.get_default_model().strip()
+        default_model = LLMConfig.get_openai_compatible_model().strip()
         if default_model:
             append_choice(default_model, label=f"{default_model}（默认）")
 
@@ -751,7 +751,7 @@ class LegalResearchTaskAdmin(admin.ModelAdmin):  # pragma: no cover
             queued = task_service.dispatch_task(
                 task=obj,
                 queue_failure_message="任务重新提交失败",
-                precheck=verify_siliconflow_connectivity,
+                precheck=verify_llm_connectivity,
             )
             if queued:
                 messages.success(request, "任务已重新提交到队列。")
@@ -782,7 +782,7 @@ class LegalResearchTaskAdmin(admin.ModelAdmin):  # pragma: no cover
         queued = task_service.dispatch_task(
             task=obj,
             queue_failure_message="任务提交失败",
-            precheck=verify_siliconflow_connectivity,
+            precheck=verify_llm_connectivity,
         )
         if not queued:
             if obj.message == task_service.PRECHECK_FAILED_MESSAGE:

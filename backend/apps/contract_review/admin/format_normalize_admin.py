@@ -196,7 +196,7 @@ class FormatNormalizeAdmin(admin.ModelAdmin):  # pragma: no cover
             uploaded_file = request.FILES.get("contract_file")
             numbering_type = request.POST.get("numbering_type", "chinese")
             use_llm = request.POST.get("use_llm", "true") == "true"
-            llm_backend = request.POST.get("llm_backend", "siliconflow")
+            llm_backend = request.POST.get("llm_backend", "openai_compatible")
 
             if not uploaded_file:
                 messages.error(request, "请选择要上传的合同文件")
@@ -280,7 +280,7 @@ class FormatNormalizeAdmin(admin.ModelAdmin):  # pragma: no cover
 
         # 解析参数
         use_llm = True
-        llm_backend = "siliconflow"
+        llm_backend = "openai_compatible"
         if task.selected_steps and len(task.selected_steps) > 0:
             for step in task.selected_steps:
                 if step == "use_llm":

@@ -84,7 +84,7 @@ class LegalResearchTuningConfig:
     reranker_model: str = "BAAI/bge-reranker-v2-m3"
     reranker_top_k: int = 10
     reranker_score_weight: float = 0.4
-    reranker_api_base_url: str = "https://api.siliconflow.cn/v1"
+    reranker_api_base_url: str = ""
 
     @classmethod
     def load(cls) -> LegalResearchTuningConfig:

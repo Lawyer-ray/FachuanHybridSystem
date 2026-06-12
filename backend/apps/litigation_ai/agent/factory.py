@@ -365,7 +365,7 @@ class LitigationAgentFactory(IAgentFactory):  # pragma: no cover
     def get_model_name(self) -> str:  # pragma: no cover
         if self._model:
             return self._model
-        return LLMConfig.get_default_model()
+        return LLMConfig.get_openai_compatible_model()
 
     def get_config(self) -> dict[str, Any]:  # pragma: no cover
         return {

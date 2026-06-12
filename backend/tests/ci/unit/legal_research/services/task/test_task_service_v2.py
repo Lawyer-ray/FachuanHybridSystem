@@ -285,7 +285,7 @@ class TestResetTask:
     def test_resets_fields(self, mock_llm) -> None:
         from apps.legal_research.services.task.service import LegalResearchTaskService
 
-        mock_llm.get_default_backend.return_value = "siliconflow"
+        mock_llm.get_default_backend.return_value = "openai_compatible"
         mock_llm.get_default_model.return_value = "default-model"
 
         svc = LegalResearchTaskService()

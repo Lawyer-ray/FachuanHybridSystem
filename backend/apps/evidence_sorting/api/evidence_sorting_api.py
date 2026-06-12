@@ -201,17 +201,17 @@ def llm_options(request: HttpRequest) -> dict[str, Any]:  # pragma: no cover
     except Exception:
         pass
 
-    # SiliconFlow
+    # OpenAI-compatible
     try:
-        sf_backend = llm.get_backend("siliconflow")
+        oc_backend = llm.get_backend("openai_compatible")
         model_svc = ModelListService()
         result = model_svc.get_result()
         backends.append(
             {
-                "name": "siliconflow",
-                "label": "硅基流动",
-                "available": sf_backend.is_available(),
-                "default_model": sf_backend.get_default_model(),
+                "name": "openai_compatible",
+                "label": "在线模型",
+                "available": oc_backend.is_available(),
+                "default_model": oc_backend.get_default_model(),
                 "models": result.models,
                 "models_fallback": result.is_fallback,
                 "models_error": result.error_message,

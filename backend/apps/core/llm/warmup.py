@@ -21,11 +21,13 @@ def warm_llm_system_config_cache(keys: Iterable[str] | None = None, *, strict: b
         list(keys)
         if keys is not None
         else [
-            "SILICONFLOW_API_KEY",
-            "SILICONFLOW_BASE_URL",
-            "SILICONFLOW_DEFAULT_MODEL",
-            "SILICONFLOW_TIMEOUT",
-            "SILICONFLOW_ENABLE_TRACKING",
+            "OPENAI_COMPATIBLE_API_KEY",
+            "OPENAI_COMPATIBLE_BASE_URL",
+            "OPENAI_COMPATIBLE_DEFAULT_MODEL",
+            "OPENAI_COMPATIBLE_TIMEOUT",
+            "OLLAMA_MODEL",
+            "OLLAMA_BASE_URL",
+            "LLM_DEFAULT_BACKEND",
         ]
     )
 

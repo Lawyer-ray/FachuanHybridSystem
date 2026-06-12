@@ -24,27 +24,6 @@ class TestOllamaBackend:
         assert backend._config is not None
 
 
-# --- siliconflow backend ---
-
-class TestSiliconFlowBackend:
-    def test_init(self):
-        from apps.core.llm.backends.siliconflow import SiliconFlowBackend
-
-        backend = SiliconFlowBackend()
-        assert backend is not None
-        assert backend.BACKEND_NAME == "siliconflow"
-
-    def test_normalize_messages(self):
-        from apps.core.llm.backends.siliconflow import SiliconFlowBackend
-
-        backend = SiliconFlowBackend()
-        messages = [{"role": "user", "content": "hello"}, {"role": "invalid", "content": "test"}]
-        result = backend._normalize_messages(messages)
-        assert len(result) == 2
-        assert result[0]["role"] == "user"
-        assert result[1]["role"] == "user"
-
-
 # --- openai_compatible backend ---
 
 class TestOpenAICompatibleBackend:
@@ -52,7 +31,18 @@ class TestOpenAICompatibleBackend:
         from apps.core.llm.backends.openai_compatible import OpenAICompatibleBackend
 
         backend = OpenAICompatibleBackend()
+        assert backend is not None
         assert backend.BACKEND_NAME == "openai_compatible"
+
+    def test_normalize_messages(self):
+        from apps.core.llm.backends.openai_compatible import OpenAICompatibleBackend
+
+        backend = OpenAICompatibleBackend()
+        messages = [{"role": "user", "content": "hello"}, {"role": "invalid", "content": "test"}]
+        result = backend._normalize_messages(messages)
+        assert len(result) == 2
+        assert result[0]["role"] == "user"
+        assert result[1]["role"] == "user"
 
     def test_build_extra_body_thinking_disabled(self):
         from apps.core.llm.backends.openai_compatible import OpenAICompatibleBackend

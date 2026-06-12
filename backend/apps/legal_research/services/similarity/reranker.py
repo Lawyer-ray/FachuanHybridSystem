@@ -1,4 +1,4 @@
-"""交叉编码器重排序 — SiliconFlow Reranker API。"""
+"""交叉编码器重排序 — Reranker API。"""
 
 from __future__ import annotations
 
@@ -11,8 +11,8 @@ import httpx
 logger = logging.getLogger(__name__)
 
 
-class SiliconFlowReranker:  # pragma: no cover
-    """调用 SiliconFlow /v1/rerank 端点做交叉编码器打分。"""
+class RerankerClient:  # pragma: no cover
+    """调用 /v1/rerank 端点做交叉编码器打分。"""
 
     RERANK_TIMEOUT_SECONDS = 30
     FAIL_COOLDOWN_SECONDS = 120
@@ -21,7 +21,7 @@ class SiliconFlowReranker:  # pragma: no cover
         self,
         *,
         api_key: str,
-        base_url: str = "https://api.siliconflow.cn/v1",
+        base_url: str = "",
         model: str = "BAAI/bge-reranker-v2-m3",
     ) -> None:
         self._api_key = api_key
@@ -75,7 +75,7 @@ class SiliconFlowReranker:  # pragma: no cover
         return out
 
 
-def create_reranker_from_tuning(tuning: Any) -> SiliconFlowReranker | None:  # pragma: no cover
+def create_reranker_from_tuning(tuning: Any) -> RerankerClient | None:  # pragma: no cover
     """从 tuning config 创建 reranker 实例，若未启用或缺少 API Key 则返回 None。"""
     if not getattr(tuning, "reranker_enabled", False):
         return None
@@ -83,13 +83,16 @@ def create_reranker_from_tuning(tuning: Any) -> SiliconFlowReranker | None:  # p
         from apps.core.interfaces import ServiceLocator
 
         config_service = ServiceLocator.get_system_config_service()
-        api_key = str(config_service.get_value("SILICONFLOW_API_KEY", "") or "").strip()
+        api_key = str(config_service.get_value("OPENAI_COMPATIBLE_API_KEY", "") or "").strip()
     except (TypeError, ValueError):
         api_key = ""
     if not api_key:
         return None
-    return SiliconFlowReranker(
+    base_url = getattr(tuning, "reranker_api_base_url", "")
+    if not base_url:
+        return None
+    return RerankerClient(
         api_key=api_key,
-        base_url=getattr(tuning, "reranker_api_base_url", "https://api.siliconflow.cn/v1"),
+        base_url=base_url,
         model=getattr(tuning, "reranker_model", "BAAI/bge-reranker-v2-m3"),
     )

@@ -315,7 +315,7 @@ function evidenceSorting() {
         dragOverCategory: '',
 
         // LLM
-        selectedBackend: 'siliconflow',
+        selectedBackend: 'openai_compatible',
         selectedModel: '',
         llmBackends: [],
         availableModels: [],
@@ -517,7 +517,7 @@ function evidenceSorting() {
                             this.selectedBackend = available.name;
                             this.availableModels = available.models || [];
                             if (available.models_fallback) {
-                                this.errorMsg = 'SiliconFlow 模型列表获取失败：' + (available.models_error || '未知错误') + '，当前显示默认模型列表';
+                                this.errorMsg = '模型列表获取失败：' + (available.models_error || '未知错误') + '，当前显示默认模型列表';
                             }
                         }
                     }
