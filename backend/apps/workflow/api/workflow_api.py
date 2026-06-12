@@ -5,7 +5,10 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 from django.utils.text import slugify
 from ninja import Router
@@ -34,13 +37,13 @@ router = Router(auth=JWTOrSessionAuth())
 # ── 工作流运行 ────────────────────────────────────────────────────────────────
 
 
-@router.post("/start/")
+@router.post("/start")
 async def start_workflow_api(request: Any, payload: StartWorkflowIn) -> dict[str, Any]:
     """启动诉讼工作流"""
     return await start_workflow(payload.template_slug, payload.case_id)
 
 
-@router.get("/runs/")
+@router.get("/runs")
 async def list_workflows_api(
     request: Any,
     case_id: int | None = None,
@@ -50,19 +53,19 @@ async def list_workflows_api(
     return await list_workflows(case_id, status)
 
 
-@router.get("/runs/{run_id}/")
+@router.get("/runs/{run_id}")
 async def get_workflow_detail_api(request: Any, run_id: int) -> dict[str, Any]:
     """查看诉讼工作流详情"""
     return await get_workflow_detail(run_id)
 
 
-@router.post("/runs/{run_id}/approve/")
+@router.post("/runs/{run_id}/approve")
 async def approve_workflow_api(request: Any, run_id: int, payload: ApproveStepIn) -> dict[str, Any]:
     """审批诉讼工作流步骤"""
     return await approve_workflow_step(run_id, payload.approved, payload.comment)
 
 
-@router.post("/runs/{run_id}/cancel/")
+@router.post("/runs/{run_id}/cancel")
 async def cancel_workflow_api(request: Any, run_id: int) -> dict[str, Any]:
     """取消诉讼工作流"""
     return await cancel_workflow(run_id)
@@ -71,13 +74,13 @@ async def cancel_workflow_api(request: Any, run_id: int) -> dict[str, Any]:
 # ── 步骤注册表 ────────────────────────────────────────────────────────────────
 
 
-@router.get("/step-registry/")
+@router.get("/step-registry")
 def get_steps_registry(request: Any) -> list[dict[str, Any]]:
     """获取步骤注册表（按分类分组）"""
     return get_step_registry()
 
 
-@router.get("/step-registry/flat/")
+@router.get("/step-registry/flat")
 def get_steps_flat(request: Any) -> list[dict[str, Any]]:
     """获取扁平化步骤列表（用于搜索）"""
     return get_flat_step_list()
@@ -86,7 +89,7 @@ def get_steps_flat(request: Any) -> list[dict[str, Any]]:
 # ── 模板 CRUD ─────────────────────────────────────────────────────────────────
 
 
-@router.get("/templates/", response=list[dict])
+@router.get("/templates", response=list[dict])
 def list_templates(
     request: Any,
     category: str | None = None,
@@ -116,7 +119,7 @@ def list_templates(
     ]
 
 
-@router.post("/templates/")
+@router.post("/templates")
 def create_template(request: Any, payload: TemplateCreateIn) -> dict[str, Any]:
     """创建工作流模板"""
     slug = payload.slug or slugify(payload.name, allow_unicode=True)
@@ -145,7 +148,7 @@ def create_template(request: Any, payload: TemplateCreateIn) -> dict[str, Any]:
     }
 
 
-@router.get("/templates/{template_id}/")
+@router.get("/templates/{template_id}")
 def get_template(request: Any, template_id: int) -> dict[str, Any]:
     """获取模板详情"""
     template = WorkflowTemplate.objects.get(pk=template_id)
@@ -163,7 +166,7 @@ def get_template(request: Any, template_id: int) -> dict[str, Any]:
     }
 
 
-@router.put("/templates/{template_id}/")
+@router.put("/templates/{template_id}")
 def update_template(request: Any, template_id: int, payload: TemplateUpdateIn) -> dict[str, Any]:
     """更新工作流模板"""
     template = WorkflowTemplate.objects.get(pk=template_id)
@@ -187,7 +190,7 @@ def update_template(request: Any, template_id: int, payload: TemplateUpdateIn) -
     return {"id": template.id, "name": template.name, "message": "模板已更新"}
 
 
-@router.delete("/templates/{template_id}/")
+@router.delete("/templates/{template_id}")
 def delete_template(request: Any, template_id: int) -> dict[str, Any]:
     """删除工作流模板"""
     template = WorkflowTemplate.objects.get(pk=template_id)
@@ -196,7 +199,7 @@ def delete_template(request: Any, template_id: int) -> dict[str, Any]:
     return {"message": f"模板「{name}」已删除"}
 
 
-@router.post("/templates/{template_id}/duplicate/")
+@router.post("/templates/{template_id}/duplicate")
 def duplicate_template(request: Any, template_id: int) -> dict[str, Any]:
     """复制工作流模板"""
     source = WorkflowTemplate.objects.get(pk=template_id)
