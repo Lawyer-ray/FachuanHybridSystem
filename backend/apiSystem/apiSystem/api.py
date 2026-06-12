@@ -116,7 +116,6 @@ _OPENAPI_TAGS: list[dict[str, str]] = [
     {"name": "验证码识别", "description": "验证码 AI 识别"},
     {"name": "图片旋转", "description": "图片旋转校正"},
     {"name": "发票识别", "description": "发票 OCR 识别"},
-    {"name": "交费通知书识别", "description": "法院交费通知书识别"},
     {"name": "法院文书识别", "description": "法院文书 AI 识别"},
     {"name": "PDF 拆解", "description": "PDF 文件拆分"},
     {"name": "批量打印", "description": "批量打印管理"},
