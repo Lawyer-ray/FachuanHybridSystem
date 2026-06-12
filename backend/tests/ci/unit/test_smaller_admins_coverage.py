@@ -1,5 +1,5 @@
 """Smaller Admin Apps 测试 - workbench, oa_filing, message_hub, contracts, enterprise_data,
-fee_notice, pdf_splitting, chat_records, express_query, finance, image_rotation,
+pdf_splitting, chat_records, express_query, finance, image_rotation,
 invoice_recognition, doc_converter, organization"""
 
 from __future__ import annotations
@@ -169,20 +169,6 @@ class TestEnterpriseDataAdmin:
         from apps.enterprise_data.models import McpWorkbench
 
         admin_obj = McpWorkbenchAdmin(McpWorkbench, AdminSite())
-        assert admin_obj.list_display is not None
-
-
-# ==============================================================================
-# fee_notice
-# ==============================================================================
-
-@pytest.mark.django_db
-class TestFeeNoticeAdmin:
-    def test_fee_notice_admin_list_display(self):
-        from apps.fee_notice.admin import FeeNoticeAdmin
-        from apps.fee_notice.models import FeeNoticeTool
-
-        admin_obj = FeeNoticeAdmin(FeeNoticeTool, AdminSite())
         assert admin_obj.list_display is not None
 
 

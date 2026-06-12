@@ -51,7 +51,6 @@ _APP_ORDER = [
     "reminders",  # 4. 重要日期提醒
     "automation",  # 6. 自动化工具（已收纳到其他工具）
     "other_tools",  # 7. 其他工具
-    "fee_notice",  # 6.1 交费通知书识别
     "document_recognition",  # 6.2 文书智能识别
     "pdf_splitting",  # 6.25 PDF 拆解
     "documents",  # 7. 文书生成
@@ -82,7 +81,6 @@ _HIDDEN_APP_LABELS = {
     "cases",  # 已收纳到「办案」
     "contacts",  # 已收纳到「其他工具」
     "automation",
-    "fee_notice",
     "document_recognition",
     "document_parsing",  # 文档解析（MinerU）
     "pdf_splitting",
@@ -116,7 +114,6 @@ _HIDDEN_APP_LABELS = {
 _OTHER_TOOLS_APPS = [
     {"app_label": "contacts", "name": _("案件工作人员"), "url": "/admin/contacts/"},
     {"app_label": "automation", "name": _("自动化工具"), "url": "/admin/automation/"},
-    {"app_label": "fee_notice", "name": _("交费通知书识别"), "url": "/admin/fee_notice/"},
     {"app_label": "document_recognition", "name": _("文书智能识别"), "url": "/admin/document_recognition/"},
     {"app_label": "document_parsing", "name": _("文档解析服务"), "url": "/admin/document_parsing/"},
     {"app_label": "pdf_splitting", "name": _("PDF 拆解"), "url": "/admin/pdf_splitting/"},

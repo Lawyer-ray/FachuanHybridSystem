@@ -5,7 +5,6 @@
 - apps/express_query/models.py
 - apps/image_rotation/models.py
 - apps/pdf_splitting/models.py
-- apps/fee_notice/models.py, services/types.py
 - apps/invoice_recognition/models.py
 - apps/legal_solution/models/*.py
 - apps/batch_printing/models.py, schemas.py
@@ -101,34 +100,6 @@ class TestPdfSplitting:
         assert job_service is not None
         assert storage is not None
         assert template_registry is not None
-
-
-# ==================== fee_notice ====================
-
-
-class TestFeeNotice:
-    """fee_notice 模块测试"""
-
-    def test_models_module(self):
-        from apps.fee_notice import models
-
-        assert models is not None
-
-    def test_types_module(self):
-        from apps.fee_notice.services import types
-
-        assert types is not None
-
-    def test_services_modules(self):
-        from apps.fee_notice.services.comparison import comparison_service
-        from apps.fee_notice.services.comparison import check_service
-        from apps.fee_notice.services.detection import detector
-        from apps.fee_notice.services.detection import extractor
-
-        assert comparison_service is not None
-        assert check_service is not None
-        assert detector is not None
-        assert extractor is not None
 
 
 # ==================== invoice_recognition ====================

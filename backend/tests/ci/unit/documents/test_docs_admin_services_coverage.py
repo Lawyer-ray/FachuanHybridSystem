@@ -158,25 +158,6 @@ class TestCalendarProviders:
         assert MacCalendarProvider is not None
 
 
-# --- fee_notice ---
-
-class TestFeeNotice:
-    def test_extractor_import(self):
-        from apps.fee_notice.services.detection.extractor import FeeAmountExtractor
-
-        assert FeeAmountExtractor is not None
-
-    def test_extraction_service_import(self):
-        from apps.fee_notice.services.extraction.extraction_service import FeeNoticeExtractionService
-
-        assert FeeNoticeExtractionService is not None
-
-    def test_check_service_import(self):
-        from apps.fee_notice.services.comparison.check_service import FeeNoticeCheckService
-
-        assert FeeNoticeCheckService is not None
-
-
 # --- contracts ---
 
 class TestContracts:

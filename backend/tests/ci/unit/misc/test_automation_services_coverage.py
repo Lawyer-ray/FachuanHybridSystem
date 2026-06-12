@@ -63,14 +63,6 @@ class TestPreservationMaterialsGenerationServiceExtended:
         assert PreservationMaterialsGenerationService is not None
 
 
-# ── FeeNoticeExtractionService ────────────────────────────────────
-
-class TestFeeNoticeExtractionServiceExtended:
-    def test_import(self):
-        from apps.fee_notice.services.extraction.extraction_service import FeeNoticeExtractionService
-        assert FeeNoticeExtractionService is not None
-
-
 # ── FrameProcessingService ────────────────────────────────────────
 
 class TestFrameProcessingService:
