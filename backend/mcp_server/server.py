@@ -8,6 +8,7 @@ from mcp_server.tools import (
     add_case_party,
     assign_lawyer,
     assign_sms_case,
+    browse_folders,
     calculate_interest,
     cancel_pdf_split,
     capability_search,
@@ -18,20 +19,39 @@ from mcp_server.tools import (
     create_case_number,
     create_client,
     create_contract,
+    create_contract_with_cases,
+    create_credential,
     create_delivery_schedule,
     create_document_template,
     create_export,
+    create_folder_binding,
+    create_lawfirm,
+    create_lawyer,
     create_new_reminder,
+    create_payment,
     create_pdf_split_job,
     create_preservation_quote,
     create_project,
     create_property_clue,
     create_research_task,
+    create_supplementary_agreement,
+    create_team,
+    create_message_source,
+    delete_contract,
+    delete_credential,
+    delete_folder_binding,
+    delete_lawfirm,
+    delete_lawyer,
+    delete_payment,
     delete_reminder,
+    delete_supplementary_agreement,
+    delete_team,
+    delete_message_source,
     detect_orientation,
     download_all_research_results,
     download_contract_document,
     download_contract_folder,
+    download_inbox_attachment,
     download_invoices,
     download_pdf_split_result,
     download_research_result,
@@ -48,13 +68,20 @@ from mcp_server.tools import (
     get_company_risks,
     get_company_shareholders,
     get_contract,
+    get_contract_all_parties,
+    get_credential,
     get_court_sms_detail,
     get_document_template,
     get_export_task,
     get_filing_status,
+    get_folder_binding,
     get_finance_stats,
+    get_inbox_message,
     get_invoice_task_status,
     get_latest_lpr_rate,
+    get_lawfirm,
+    get_lawyer,
+    get_message_source,
     get_pdf_split_job,
     get_person_profile,
     get_preservation_quote,
@@ -62,6 +89,8 @@ from mcp_server.tools import (
     get_research_task,
     get_review_models,
     get_review_status,
+    get_supplementary_agreement,
+    get_team,
     list_all_reminders,
     list_case_assignments,
     list_case_logs,
@@ -69,15 +98,20 @@ from mcp_server.tools import (
     list_case_parties,
     list_cases,
     list_clients,
+    list_cloud_storage_accounts,
     list_contracts,
     list_court_sms,
+    list_credentials,
     list_delivery_schedules,
     list_doc_convert_types,
     list_document_templates,
     list_enterprise_providers,
     list_folder_templates,
+    list_inbox_messages,
+    list_lawfirms,
     list_lawyers,
     list_lpr_rates,
+    list_message_sources,
     list_oa_configs,
     list_payments,
     list_placeholders,
@@ -88,23 +122,37 @@ from mcp_server.tools import (
     list_reminder_types,
     list_research_results,
     list_screenshots,
+    list_supplementary_agreements,
     list_teams,
     parse_client_text,
     preview_contract_context,
+    preview_inbox_attachment,
     preview_placeholders,
     query_document_delivery,
     quick_recognize_invoice,
+    rename_inbox_attachment,
     retry_sms_processing,
     search_bidding_info,
     search_cases,
     search_companies,
     submit_court_sms,
     suggest_rename,
+    sync_all_message_sources,
+    sync_message_source,
     trigger_case_import,
     trigger_client_import,
     trigger_oa_filing,
     update_client,
+    update_contract,
+    update_contract_lawyers,
+    update_credential,
+    update_lawfirm,
+    update_lawyer,
+    update_message_source,
+    update_payment,
     update_reminder,
+    update_supplementary_agreement,
+    update_team,
     upload_contract_for_review,
     upload_invoices,
     web_search,
@@ -149,6 +197,30 @@ mcp.tool()(create_property_clue)
 mcp.tool()(list_contracts)
 mcp.tool()(get_contract)
 mcp.tool()(create_contract)
+mcp.tool()(create_contract_with_cases)
+mcp.tool()(update_contract)
+mcp.tool()(delete_contract)
+mcp.tool()(update_contract_lawyers)
+mcp.tool()(get_contract_all_parties)
+
+# 合同收款
+mcp.tool()(create_payment)
+mcp.tool()(update_payment)
+mcp.tool()(delete_payment)
+
+# 补充协议
+mcp.tool()(list_supplementary_agreements)
+mcp.tool()(get_supplementary_agreement)
+mcp.tool()(create_supplementary_agreement)
+mcp.tool()(update_supplementary_agreement)
+mcp.tool()(delete_supplementary_agreement)
+
+# 合同文件夹
+mcp.tool()(create_folder_binding)
+mcp.tool()(get_folder_binding)
+mcp.tool()(delete_folder_binding)
+mcp.tool()(browse_folders)
+mcp.tool()(list_cloud_storage_accounts)
 
 # 提醒
 mcp.tool()(list_all_reminders)
@@ -162,9 +234,33 @@ mcp.tool()(list_reminder_types)
 mcp.tool()(list_payments)
 mcp.tool()(get_finance_stats)
 
-# 组织架构
+# 组织架构 - 律师
 mcp.tool()(list_lawyers)
+mcp.tool()(get_lawyer)
+mcp.tool()(create_lawyer)
+mcp.tool()(update_lawyer)
+mcp.tool()(delete_lawyer)
+
+# 组织架构 - 律所
+mcp.tool()(list_lawfirms)
+mcp.tool()(get_lawfirm)
+mcp.tool()(create_lawfirm)
+mcp.tool()(update_lawfirm)
+mcp.tool()(delete_lawfirm)
+
+# 组织架构 - 团队
 mcp.tool()(list_teams)
+mcp.tool()(get_team)
+mcp.tool()(create_team)
+mcp.tool()(update_team)
+mcp.tool()(delete_team)
+
+# 组织架构 - 账号凭证
+mcp.tool()(list_credentials)
+mcp.tool()(get_credential)
+mcp.tool()(create_credential)
+mcp.tool()(update_credential)
+mcp.tool()(delete_credential)
 
 # OA 立案
 mcp.tool()(list_oa_configs)
@@ -265,6 +361,22 @@ mcp.tool()(calculate_interest)
 mcp.tool()(extract_pdf_pages)
 mcp.tool()(detect_orientation)
 mcp.tool()(suggest_rename)
+
+# 收件箱 - 消息
+mcp.tool()(list_inbox_messages)
+mcp.tool()(get_inbox_message)
+mcp.tool()(rename_inbox_attachment)
+mcp.tool()(download_inbox_attachment)
+mcp.tool()(preview_inbox_attachment)
+
+# 收件箱 - 来源
+mcp.tool()(list_message_sources)
+mcp.tool()(get_message_source)
+mcp.tool()(create_message_source)
+mcp.tool()(update_message_source)
+mcp.tool()(delete_message_source)
+mcp.tool()(sync_message_source)
+mcp.tool()(sync_all_message_sources)
 
 # 网络搜索
 mcp.tool()(web_search)

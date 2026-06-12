@@ -46,7 +46,29 @@ from mcp_server.tools.clients import (
     update_client,
 )
 from mcp_server.tools.contract_review import get_review_models, get_review_status, upload_contract_for_review
-from mcp_server.tools.contracts import create_contract, get_contract, list_contracts
+from mcp_server.tools.contracts import (
+    browse_folders,
+    create_contract,
+    create_contract_with_cases,
+    create_folder_binding,
+    create_payment,
+    create_supplementary_agreement,
+    delete_contract,
+    delete_folder_binding,
+    delete_payment,
+    delete_supplementary_agreement,
+    get_contract,
+    get_contract_all_parties,
+    get_folder_binding,
+    get_supplementary_agreement,
+    list_cloud_storage_accounts,
+    list_contracts,
+    list_supplementary_agreements,
+    update_contract,
+    update_contract_lawyers,
+    update_payment,
+    update_supplementary_agreement,
+)
 from mcp_server.tools.doc_convert import convert_document, list_doc_convert_types
 from mcp_server.tools.documents import (
     create_document_template,
@@ -85,6 +107,20 @@ from mcp_server.tools.legal_research import (
     get_research_task,
     list_research_results,
 )
+from mcp_server.tools.message_hub import (
+    create_message_source,
+    delete_message_source,
+    download_inbox_attachment,
+    get_inbox_message,
+    get_message_source,
+    list_inbox_messages,
+    list_message_sources,
+    preview_inbox_attachment,
+    rename_inbox_attachment,
+    sync_all_message_sources,
+    sync_message_source,
+    update_message_source,
+)
 from mcp_server.tools.oa_filing import (
     execute_case_import,
     get_case_import_preview,
@@ -94,11 +130,29 @@ from mcp_server.tools.oa_filing import (
     trigger_client_import,
 )
 from mcp_server.tools.organization import (
+    create_credential,
+    create_lawfirm,
+    create_lawyer,
+    create_team,
+    delete_credential,
+    delete_lawfirm,
+    delete_lawyer,
+    delete_team,
+    get_credential,
     get_filing_status,
+    get_lawfirm,
+    get_lawyer,
+    get_team,
+    list_credentials,
+    list_lawfirms,
     list_lawyers,
     list_oa_configs,
     list_teams,
     trigger_oa_filing,
+    update_credential,
+    update_lawfirm,
+    update_lawyer,
+    update_team,
 )
 from mcp_server.tools.pdf_splitting import (
     cancel_pdf_split,
@@ -145,6 +199,27 @@ __all__ = [
     "list_contracts",
     "get_contract",
     "create_contract",
+    "create_contract_with_cases",
+    "update_contract",
+    "delete_contract",
+    "update_contract_lawyers",
+    "get_contract_all_parties",
+    # 合同收款
+    "create_payment",
+    "update_payment",
+    "delete_payment",
+    # 补充协议
+    "list_supplementary_agreements",
+    "get_supplementary_agreement",
+    "create_supplementary_agreement",
+    "update_supplementary_agreement",
+    "delete_supplementary_agreement",
+    # 合同文件夹
+    "create_folder_binding",
+    "get_folder_binding",
+    "delete_folder_binding",
+    "browse_folders",
+    "list_cloud_storage_accounts",
     # 提醒与财务
     "list_all_reminders",
     "get_reminder",
@@ -154,9 +229,31 @@ __all__ = [
     "list_reminder_types",
     "list_payments",
     "get_finance_stats",
-    # 组织架构
+    # 组织架构 - 律师
     "list_lawyers",
+    "get_lawyer",
+    "create_lawyer",
+    "update_lawyer",
+    "delete_lawyer",
+    # 组织架构 - 律所
+    "list_lawfirms",
+    "get_lawfirm",
+    "create_lawfirm",
+    "update_lawfirm",
+    "delete_lawfirm",
+    # 组织架构 - 团队
     "list_teams",
+    "get_team",
+    "create_team",
+    "update_team",
+    "delete_team",
+    # 组织架构 - 账号凭证
+    "list_credentials",
+    "get_credential",
+    "create_credential",
+    "update_credential",
+    "delete_credential",
+    # OA 立案
     "list_oa_configs",
     "trigger_oa_filing",
     "get_filing_status",
@@ -239,6 +336,20 @@ __all__ = [
     "extract_pdf_pages",
     "detect_orientation",
     "suggest_rename",
+    # 收件箱 - 消息
+    "list_inbox_messages",
+    "get_inbox_message",
+    "rename_inbox_attachment",
+    "download_inbox_attachment",
+    "preview_inbox_attachment",
+    # 收件箱 - 来源
+    "list_message_sources",
+    "get_message_source",
+    "create_message_source",
+    "update_message_source",
+    "delete_message_source",
+    "sync_message_source",
+    "sync_all_message_sources",
     # 网络搜索
     "web_search",
 ]
