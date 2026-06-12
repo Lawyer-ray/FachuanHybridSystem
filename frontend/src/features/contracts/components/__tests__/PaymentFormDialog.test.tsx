@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react'
-import { PaymentFormDialog } from '../components/PaymentFormDialog'
+import { PaymentFormDialog } from '../PaymentFormDialog'
 
 vi.mock('@/components/ui/button', () => ({
   Button: ({ children, ...props }: Record<string, unknown>) => <button {...props}>{children}</button>,
@@ -26,7 +26,7 @@ vi.mock('@/components/ui/dialog', () => ({
   DialogFooter: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }))
 
-vi.mock('../types', () => ({
+vi.mock('../../types', () => ({
   INVOICE_STATUS_LABELS: {
     UNINVOICED: '未开票',
     PARTIAL: '部分开票',

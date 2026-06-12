@@ -1,7 +1,7 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
-import { FilingTab } from '../components/FilingTab'
-import { contractApi } from '../api'
-import type { Contract, OAConfig, FilingSession } from '../types'
+import { FilingTab } from '../FilingTab'
+import { contractApi } from '../../api'
+import type { Contract, OAConfig, FilingSession } from '../../types'
 
 // ── Mocks ──
 
@@ -22,7 +22,7 @@ vi.mock('react-router', () => ({
   useNavigate: () => vi.fn(),
 }))
 
-vi.mock('../api', () => ({
+vi.mock('../../api', () => ({
   contractApi: {
     fetchOAConfigs: vi.fn(),
     executeOAFiling: vi.fn(),

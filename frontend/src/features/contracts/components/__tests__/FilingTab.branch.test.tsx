@@ -3,9 +3,9 @@
  * Targets: pollSession branches, handleExecute branches, session status rendering
  */
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
-import { FilingTab } from '../components/FilingTab'
-import { contractApi } from '../api'
-import type { Contract, OAConfig, FilingSession } from '../types'
+import { FilingTab } from '../FilingTab'
+import { contractApi } from '../../api'
+import type { Contract, OAConfig, FilingSession } from '../../types'
 
 vi.mock('lucide-react', () => ({
   Briefcase: (p: Record<string, unknown>) => <svg data-testid="briefcase" {...p} />,
@@ -19,7 +19,7 @@ vi.mock('lucide-react', () => ({
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }))
 vi.mock('react-router', () => ({ useNavigate: () => vi.fn() }))
 
-vi.mock('../api', () => ({
+vi.mock('../../api', () => ({
   contractApi: {
     fetchOAConfigs: vi.fn(),
     executeOAFiling: vi.fn(),

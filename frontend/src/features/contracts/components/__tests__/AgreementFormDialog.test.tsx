@@ -1,6 +1,6 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
-import { AgreementFormDialog } from '../components/AgreementFormDialog'
-import type { SupplementaryAgreement } from '../types'
+import { AgreementFormDialog } from '../AgreementFormDialog'
+import type { SupplementaryAgreement } from '../../types'
 
 // ── Mocks ──
 
@@ -10,7 +10,7 @@ const mockClients = [
   { id: 3, name: 'Client C' },
 ]
 
-vi.mock('../hooks/use-clients-select', () => ({
+vi.mock('../../hooks/use-clients-select', () => ({
   useClientsSelect: () => ({ data: mockClients }),
 }))
 

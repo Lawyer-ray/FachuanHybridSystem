@@ -1,7 +1,7 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
-import { FolderScanPanel } from '../components/FolderScanPanel'
+import { FolderScanPanel } from '../FolderScanPanel'
 import { toast } from 'sonner'
-import type { FolderScanCandidate, FolderScanStatus } from '../types'
+import type { FolderScanCandidate, FolderScanStatus } from '../../types'
 
 // ── Mocks ──
 
@@ -21,7 +21,7 @@ vi.mock('sonner', () => ({
   toast: { success: vi.fn(), error: vi.fn() },
 }))
 
-vi.mock('../hooks/use-folder-scan', () => ({
+vi.mock('../../hooks/use-folder-scan', () => ({
   useFolderScan: () => ({
     subfolders: mockSubfolders,
     startScan: mockStartScan,

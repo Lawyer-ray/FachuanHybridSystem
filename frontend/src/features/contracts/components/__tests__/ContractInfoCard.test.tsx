@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react'
-import { ContractInfoCard } from '../components/ContractInfoCard'
-import type { Contract } from '../types'
+import { ContractInfoCard } from '../ContractInfoCard'
+import type { Contract } from '../../types'
 
 // ── Mocks ──
 
