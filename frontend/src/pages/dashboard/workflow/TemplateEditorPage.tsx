@@ -114,6 +114,53 @@ function getIcon(name?: string): LucideIcon {
 
 // ── 内联步骤卡片（用于拖拽预览和画布节点） ────────────────────────────────────
 
+// ── 场景分组映射 ──────────────────────────────────────────────────────────────
+
+interface ScenarioGroup {
+  id: string
+  name: string
+  icon: LucideIcon
+  /** 原始 category.id → 映射到哪个场景组 */
+  categoryIds: string[]
+}
+
+const SCENARIO_GROUPS: ScenarioGroup[] = [
+  { id: 'preparation', name: '起诉准备', icon: ScrollText, categoryIds: ['documents', 'cases'] },
+  { id: 'evidence', name: '证据处理', icon: Microscope, categoryIds: ['evidence'] },
+  { id: 'litigation', name: '诉讼流程', icon: Scale, categoryIds: ['litigation'] },
+  { id: 'investigation', name: '调查检索', icon: SearchCode, categoryIds: ['enterprise', 'legal_research'] },
+  { id: 'flow', name: '流程控制', icon: GitBranch, categoryIds: ['flow'] },
+  { id: 'automation', name: '自动化工具', icon: Zap, categoryIds: ['automation', 'notifications'] },
+]
+
+function groupRegistryByScenario(
+  registry: StepCategory[],
+  groups: ScenarioGroup[],
+): { group: ScenarioGroup; categories: StepCategory[] }[] {
+  const catMap = new Map(registry.map((c) => [c.id, c]))
+  const used = new Set<string>()
+  const result: { group: ScenarioGroup; categories: StepCategory[] }[] = []
+
+  for (const g of groups) {
+    const cats = g.categoryIds
+      .map((id) => catMap.get(id))
+      .filter((c): c is StepCategory => !!c)
+    if (cats.length > 0) {
+      result.push({ group: g, categories: cats })
+      g.categoryIds.forEach((id) => used.add(id))
+    }
+  }
+  // 未映射的分类放到最后
+  const remaining = registry.filter((c) => !used.has(c.id))
+  if (remaining.length > 0) {
+    result.push({
+      group: { id: 'other', name: '其他', icon: Play, categoryIds: [] },
+      categories: remaining,
+    })
+  }
+  return result
+}
+
 // ── 主组件 ────────────────────────────────────────────────────────────────────
 
 export default function TemplateEditorPage() {
@@ -138,9 +185,10 @@ export default function TemplateEditorPage() {
   const [steps, setSteps] = useState<StepNode[]>([])
   const [selectedStepId, setSelectedStepId] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
-  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set(['flow', 'cases', 'documents', 'litigation']))
+  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set(['preparation', 'evidence', 'litigation', 'flow']))
   const [dragActiveId, setDragActiveId] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  const [insertAtIndex, setInsertAtIndex] = useState<number | null>(null)
 
   // 加载模板数据
   useEffect(() => {
@@ -185,6 +233,12 @@ export default function TemplateEditorPage() {
       .filter((cat) => cat.steps.length > 0)
   }, [registry, searchQuery])
 
+  // 场景分组
+  const scenarioGroups = useMemo(
+    () => (filteredRegistry.length > 0 ? groupRegistryByScenario(filteredRegistry, SCENARIO_GROUPS) : []),
+    [filteredRegistry],
+  )
+
   // ── 操作 ─────────────────────────────────────────────────────────────────
 
   const generateStepId = (baseId: string) => {
@@ -193,7 +247,7 @@ export default function TemplateEditorPage() {
   }
 
   const addStep = useCallback(
-    (def: StepDefinition) => {
+    (def: StepDefinition, insertIndex?: number) => {
       const newStep: StepNode = {
         id: generateStepId(def.id),
         name: def.name,
@@ -206,9 +260,16 @@ export default function TemplateEditorPage() {
         retry_max: def.type === 'gate' || def.type === 'wait' ? 0 : 3,
         on_fail: 'abort',
         position_x: 0,
-        position_y: steps.length * 120,
+        position_y: (insertIndex ?? steps.length) * 120,
       }
-      setSteps((prev) => [...prev, newStep])
+      setSteps((prev) => {
+        if (insertIndex !== undefined && insertIndex >= 0 && insertIndex <= prev.length) {
+          const next = [...prev]
+          next.splice(insertIndex, 0, newStep)
+          return next
+        }
+        return [...prev, newStep]
+      })
       setSelectedStepId(newStep.id)
     },
     [steps]
@@ -377,55 +438,72 @@ export default function TemplateEditorPage() {
           </div>
           <ScrollArea className="flex-1">
             <div className="p-2">
-              {(filteredRegistry || []).map((cat) => {
-                const CatIcon = getIcon(cat.icon)
-                const isExpanded = expandedCategories.has(cat.id) || !!searchQuery
+              {scenarioGroups.map(({ group, categories }) => {
+                const GroupIcon = group.icon
+                const isExpanded = expandedCategories.has(group.id) || !!searchQuery
+                const totalSteps = categories.reduce((n, c) => n + c.steps.length, 0)
                 return (
-                  <div key={cat.id} className="mb-1">
+                  <div key={group.id} className="mb-1">
                     <button
                       className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-accent text-sm font-medium"
-                      onClick={() => toggleCategory(cat.id)}
+                      onClick={() => toggleCategory(group.id)}
                     >
                       {isExpanded ? (
                         <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
                       ) : (
                         <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
                       )}
-                      <CatIcon className="h-4 w-4 text-muted-foreground" />
-                      <span className="flex-1 text-left">{cat.name}</span>
+                      <GroupIcon className="h-4 w-4 text-muted-foreground" />
+                      <span className="flex-1 text-left">{group.name}</span>
                       <Badge variant="secondary" className="text-xs h-5 px-1.5">
-                        {cat.steps.length}
+                        {totalSteps}
                       </Badge>
                     </button>
                     {isExpanded && (
                       <div className="ml-4 space-y-0.5 mt-0.5">
-                        {cat.steps.map((step) => {
-                          const StepIcon = getIcon(step.icon)
-                          return (
-                            <button
-                              key={step.id}
-                              className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-accent text-left text-sm group"
-                              onClick={() => addStep(step)}
-                              title={step.description}
-                            >
-                              <StepIcon className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                              <div className="flex-1 min-w-0">
-                                <div className="truncate">{step.name}</div>
-                                {step.mcp_tool && (
-                                  <div className="text-xs text-muted-foreground font-mono truncate">
-                                    {step.mcp_tool}
-                                  </div>
-                                )}
+                        {categories.map((cat) => (
+                          <div key={cat.id}>
+                            {categories.length > 1 && (
+                              <div className="text-xs text-muted-foreground/60 px-2 pt-1.5 pb-0.5 font-medium">
+                                {cat.name}
                               </div>
-                              <Plus className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
-                            </button>
-                          )
-                        })}
+                            )}
+                            {cat.steps.map((step) => {
+                              const StepIcon = getIcon(step.icon)
+                              return (
+                                <button
+                                  key={step.id}
+                                  className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-accent text-left text-sm group"
+                                  onClick={() => addStep(step, insertAtIndex ?? undefined)}
+                                  title={step.description}
+                                >
+                                  <StepIcon className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                                  <div className="flex-1 min-w-0">
+                                    <div className="truncate">{step.name}</div>
+                                    {step.mcp_tool && (
+                                      <div className="text-xs text-muted-foreground font-mono truncate">
+                                        {step.mcp_tool}
+                                      </div>
+                                    )}
+                                  </div>
+                                  <Plus className="h-3.5 w-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                                </button>
+                              )
+                            })}
+                          </div>
+                        ))}
                       </div>
                     )}
                   </div>
                 )
               })}
+              {/* 插入模式提示 */}
+              {insertAtIndex !== null && (
+                <div className="mx-2 mt-2 p-2 bg-primary/10 border border-primary/30 rounded-lg text-xs text-primary flex items-center justify-between">
+                  <span>点击步骤插入到位置 {insertAtIndex + 1}</span>
+                  <button className="underline" onClick={() => setInsertAtIndex(null)}>取消</button>
+                </div>
+              )}
             </div>
           </ScrollArea>
         </aside>
@@ -494,10 +572,22 @@ export default function TemplateEditorPage() {
                   <div className="space-y-0">
                     {steps.map((step, index) => (
                       <div key={step.id}>
-                        {/* 连接线 */}
+                        {/* 连接线 + 插入按钮 */}
                         {index > 0 && (
-                          <div className="flex justify-center py-1">
+                          <div className="flex justify-center py-1 group/insert relative">
                             <div className="w-0.5 h-6 bg-border" />
+                            <button
+                              className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/insert:opacity-100 transition-opacity"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                setInsertAtIndex(index)
+                                setExpandedCategories(new Set(scenarioGroups.map((g) => g.group.id)))
+                              }}
+                            >
+                              <div className="bg-primary text-primary-foreground rounded-full h-5 w-5 flex items-center justify-center shadow-sm hover:scale-110 transition-transform">
+                                <Plus className="h-3 w-3" />
+                              </div>
+                            </button>
                           </div>
                         )}
                         <SortableStepNode
@@ -517,8 +607,8 @@ export default function TemplateEditorPage() {
                     <button
                       className="w-full border-2 border-dashed rounded-lg p-4 text-center hover:border-primary/50 hover:bg-accent/50 transition-colors"
                       onClick={() => {
-                        // 展开所有分类
-                        setExpandedCategories(new Set(registry?.map((c) => c.id) || []))
+                        setInsertAtIndex(null)
+                        setExpandedCategories(new Set(scenarioGroups.map((g) => g.group.id)))
                       }}
                     >
                       <Plus className="h-5 w-5 mx-auto mb-1 text-muted-foreground" />
