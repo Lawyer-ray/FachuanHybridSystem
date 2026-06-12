@@ -22,9 +22,11 @@ vi.mock('@/lib/date', () => ({
   formatDate: (d: string) => d ?? '',
 }))
 
+const mockShouldPoll = vi.fn().mockReturnValue(false)
+
 vi.mock('../hooks/use-quote', () => ({
   useQuote: vi.fn(() => ({ data: null, isLoading: false })),
-  shouldPoll: vi.fn(() => false),
+  shouldPoll: (...args: unknown[]) => mockShouldPoll(...args),
 }))
 
 vi.mock('../hooks/use-quote-mutations', () => ({
@@ -103,5 +105,178 @@ describe('QuoteDetail', () => {
     } as never)
     render(<MemoryRouter><QuoteDetail quoteId={1} /></MemoryRouter>)
     expect(screen.getByTestId('insurance-table')).toBeInTheDocument()
+  })
+
+  // ===== Branch coverage: error state =====
+
+  it('renders error state when there is an error', () => {
+    mockUseQuote.mockReturnValue({
+      data: undefined,
+      isLoading: false,
+      error: new Error('API failure'),
+    } as never)
+    render(<MemoryRouter><QuoteDetail quoteId={1} /></MemoryRouter>)
+    expect(screen.getByText('加载失败')).toBeInTheDocument()
+    expect(screen.getByText('API failure')).toBeInTheDocument()
+    expect(screen.getByText('返回列表')).toBeInTheDocument()
+  })
+
+  // ===== Branch coverage: pending status - execute button =====
+
+  it('renders execute button when status is pending', () => {
+    mockUseQuote.mockReturnValue({
+      data: {
+        id: 1,
+        status: 'pending',
+        preserve_amount: '100000',
+        quotes: [],
+        success_count: 0,
+        failed_count: 0,
+        total_companies: 5,
+        created_at: '2026-06-15',
+        started_at: null,
+        finished_at: null,
+      },
+      isLoading: false,
+    } as never)
+    render(<MemoryRouter><QuoteDetail quoteId={1} /></MemoryRouter>)
+    expect(screen.getByText('执行询价')).toBeInTheDocument()
+  })
+
+  // ===== Branch coverage: failed status - retry button =====
+
+  it('renders retry button when status is failed', () => {
+    mockUseQuote.mockReturnValue({
+      data: {
+        id: 1,
+        status: 'failed',
+        preserve_amount: '100000',
+        quotes: [],
+        success_count: 0,
+        failed_count: 5,
+        total_companies: 5,
+        created_at: '2026-06-15',
+        started_at: '2026-06-15',
+        finished_at: '2026-06-15',
+        error_message: '执行失败',
+      },
+      isLoading: false,
+    } as never)
+    render(<MemoryRouter><QuoteDetail quoteId={1} /></MemoryRouter>)
+    expect(screen.getByText('重试')).toBeInTheDocument()
+  })
+
+  // ===== Branch coverage: error_message display =====
+
+  it('renders error message when quote has error_message', () => {
+    mockUseQuote.mockReturnValue({
+      data: {
+        id: 1,
+        status: 'failed',
+        preserve_amount: '100000',
+        quotes: [],
+        success_count: 0,
+        failed_count: 3,
+        total_companies: 5,
+        created_at: '2026-06-15',
+        started_at: '2026-06-15',
+        finished_at: '2026-06-15',
+        error_message: '部分公司响应超时',
+      },
+      isLoading: false,
+    } as never)
+    render(<MemoryRouter><QuoteDetail quoteId={1} /></MemoryRouter>)
+    expect(screen.getByText('部分公司响应超时')).toBeInTheDocument()
+  })
+
+  // ===== Branch coverage: polling indicator =====
+
+  it('renders polling indicator when polling', () => {
+    mockShouldPoll.mockReturnValue(true)
+    mockUseQuote.mockReturnValue({
+      data: {
+        id: 1,
+        status: 'running',
+        preserve_amount: '100000',
+        quotes: [],
+        success_count: 0,
+        failed_count: 0,
+        total_companies: 5,
+        created_at: '2026-06-15',
+        started_at: null,
+        finished_at: null,
+      },
+      isLoading: false,
+      isFetching: true,
+    } as never)
+    render(<MemoryRouter><QuoteDetail quoteId={1} /></MemoryRouter>)
+    expect(screen.getByText('正在获取最新状态...')).toBeInTheDocument()
+    mockShouldPoll.mockReturnValue(false)
+  })
+
+  // ===== Branch coverage: success status has no action buttons =====
+
+  it('renders no action buttons for success status', () => {
+    mockUseQuote.mockReturnValue({
+      data: {
+        id: 1,
+        status: 'success',
+        preserve_amount: '100000',
+        quotes: [],
+        success_count: 5,
+        failed_count: 0,
+        total_companies: 5,
+        created_at: '2026-06-15',
+        started_at: '2026-06-15',
+        finished_at: '2026-06-15',
+      },
+      isLoading: false,
+    } as never)
+    render(<MemoryRouter><QuoteDetail quoteId={1} /></MemoryRouter>)
+    expect(screen.queryByText('执行询价')).not.toBeInTheDocument()
+    expect(screen.queryByText('重试')).not.toBeInTheDocument()
+  })
+
+  // ===== Branch coverage: formatAmount =====
+
+  it('renders formatted amount', () => {
+    mockUseQuote.mockReturnValue({
+      data: {
+        id: 1,
+        status: 'success',
+        preserve_amount: '500000',
+        quotes: [],
+        success_count: 5,
+        failed_count: 0,
+        total_companies: 5,
+        created_at: '2026-06-15',
+        started_at: '2026-06-15',
+        finished_at: '2026-06-15',
+      },
+      isLoading: false,
+    } as never)
+    render(<MemoryRouter><QuoteDetail quoteId={1} /></MemoryRouter>)
+    expect(screen.getByText(/500,000/)).toBeInTheDocument()
+  })
+
+  it('renders "-" for NaN amount', () => {
+    mockUseQuote.mockReturnValue({
+      data: {
+        id: 1,
+        status: 'success',
+        preserve_amount: 'not-a-number',
+        quotes: [],
+        success_count: 5,
+        failed_count: 0,
+        total_companies: 5,
+        created_at: '2026-06-15',
+        started_at: '2026-06-15',
+        finished_at: '2026-06-15',
+      },
+      isLoading: false,
+    } as never)
+    render(<MemoryRouter><QuoteDetail quoteId={1} /></MemoryRouter>)
+    // formatAmount returns '-' for NaN
+    expect(screen.getByText('保全金额')).toBeInTheDocument()
   })
 })

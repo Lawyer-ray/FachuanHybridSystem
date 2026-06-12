@@ -122,4 +122,39 @@ describe('PaymentList', () => {
     renderWithProviders(<PaymentList contractId={1} payments={[]} />)
     expect(screen.getByTestId('payment-form-dialog')).toBeInTheDocument()
   })
+
+  // --- Additional tests from coverage expansion ---
+
+  it('renders received_at fallback dash', () => {
+    const payments = [{ id: 1, amount: 1000, received_at: null, invoice_status_label: '-', invoiced_amount: 0, note: '', invoices: [] }]
+    renderWithProviders(<PaymentList contractId={1} payments={payments as any} />)
+    expect(screen.getAllByText('-').length).toBeGreaterThan(0)
+  })
+
+  it('renders invoices expand button when has invoices', () => {
+    const payments = [{
+      id: 1, amount: 10000, received_at: '2026-01-01', invoice_status_label: '已开票',
+      invoiced_amount: 10000, note: '',
+      invoices: [{ id: 1, original_filename: 'inv.pdf', invoice_number: 'INV-001', total_amount: 5000, uploaded_at: '2026-01-15' }],
+    }]
+    renderWithProviders(<PaymentList contractId={1} payments={payments as any} />)
+    // Click the expand button (chevron) to show invoices
+    const expandButton = document.querySelector('button .lucide-chevron-right')?.closest('button')
+    expect(expandButton).toBeInTheDocument()
+  })
+
+  it('renders invoice without invoice_number', () => {
+    const payments = [{
+      id: 1, amount: 10000, received_at: '2026-01-01', invoice_status_label: '已开票',
+      invoiced_amount: 10000, note: '',
+      invoices: [{ id: 1, original_filename: 'inv.pdf', invoice_number: null, total_amount: null, uploaded_at: null }],
+    }]
+    renderWithProviders(<PaymentList contractId={1} payments={payments as any} />)
+    // Click the expand button to show invoices
+    const expandButton = document.querySelector('button .lucide-chevron-right')?.closest('button')
+    if (expandButton) {
+      fireEvent.click(expandButton)
+    }
+    expect(screen.getByText('inv.pdf')).toBeInTheDocument()
+  })
 })

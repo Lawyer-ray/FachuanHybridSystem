@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import { QuoteCreateDialog } from '../components/QuoteCreateDialog'
 
 vi.mock('lucide-react', () => ({
@@ -9,10 +9,13 @@ vi.mock('../schemas', () => ({
   quoteCreateSchema: {},
 }))
 
+const mockCreateQuoteMutate = vi.fn()
+
 vi.mock('../hooks/use-quote-mutations', () => ({
   useCreateQuote: () => ({
-    mutate: vi.fn(),
+    mutate: mockCreateQuoteMutate,
     isPending: false,
+    isError: false,
   }),
 }))
 
@@ -83,6 +86,57 @@ describe('QuoteCreateDialog', () => {
   it('renders cancel button', () => {
     render(<QuoteCreateDialog open={true} onOpenChange={vi.fn()} />)
     expect(screen.getByText('取消')).toBeInTheDocument()
+  })
+
+  // ===== Branch coverage: dialog description =====
+
+  it('renders description text', () => {
+    render(<QuoteCreateDialog open={true} onOpenChange={vi.fn()} />)
+    expect(screen.getByText('填写以下信息创建新的财产保全询价任务')).toBeInTheDocument()
+  })
+
+  // ===== Branch coverage: cancel calls onOpenChange(false) =====
+
+  it('calls onOpenChange(false) on cancel', () => {
+    const onOpenChange = vi.fn()
+    render(<QuoteCreateDialog open={true} onOpenChange={onOpenChange} />)
+    fireEvent.click(screen.getByText('取消'))
+    expect(onOpenChange).toHaveBeenCalledWith(false)
+  })
+
+  // ===== Branch coverage: form submission (via mock) =====
+
+  it('renders form element', () => {
+    render(<QuoteCreateDialog open={true} onOpenChange={vi.fn()} />)
+    const formEl = document.querySelector('form')
+    expect(formEl).not.toBeNull()
+  })
+
+  // ===== Branch coverage: custom options =====
+
+  it('renders with custom corpOptions', () => {
+    const corpOptions = [{ value: 'c1', label: 'Custom Corp' }]
+    render(<QuoteCreateDialog open={true} onOpenChange={vi.fn()} corpOptions={corpOptions} />)
+    expect(screen.getByText('创建询价')).toBeInTheDocument()
+  })
+
+  it('renders with custom categoryOptions', () => {
+    const categoryOptions = [{ value: 'cat1', label: 'Custom Category' }]
+    render(<QuoteCreateDialog open={true} onOpenChange={vi.fn()} categoryOptions={categoryOptions} />)
+    expect(screen.getByText('创建询价')).toBeInTheDocument()
+  })
+
+  it('renders with custom credentialOptions', () => {
+    const credentialOptions = [{ value: 99, label: 'Custom Credential' }]
+    render(<QuoteCreateDialog open={true} onOpenChange={vi.fn()} credentialOptions={credentialOptions} />)
+    expect(screen.getByText('创建询价')).toBeInTheDocument()
+  })
+
+  // ===== Branch coverage: form field labels =====
+
+  it('renders form field labels', () => {
+    render(<QuoteCreateDialog open={true} onOpenChange={vi.fn()} />)
+    expect(screen.getByText(/保全金额/)).toBeInTheDocument()
   })
 
 })

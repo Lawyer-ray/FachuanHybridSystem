@@ -226,7 +226,7 @@ describe('router route structure', () => {
     const authLayout = guestRoute!.children![0]
     expect(authLayout.element).toBeDefined()
     expect(authLayout.children).toBeDefined()
-    expect(authLayout.children!.length).toBe(4) // login, register, forgot, reset
+    expect(authLayout.children!.length).toBe(5) // login, register, forgot, reset, social-callback
   })
 
   it('auth guard route has AdminLayout as child with errorElement', () => {

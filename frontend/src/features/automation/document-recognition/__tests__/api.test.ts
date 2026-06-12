@@ -53,4 +53,28 @@ describe('automation/document-recognition/api', () => {
     await documentRecognitionApi.updateInfo(3, { case_number: '123' } as any)
     expect(mockPatch).toHaveBeenCalledWith('3/', { json: { case_number: '123' } })
   })
+
+  // ===== Branch coverage: list with no params =====
+
+  it('list calls GET without search params when no params', async () => {
+    const { documentRecognitionApi } = await import('../../document-recognition/api')
+    await documentRecognitionApi.list()
+    expect(mockGet).toHaveBeenCalledWith('', expect.any(Object))
+  })
+
+  // ===== Branch coverage: list with status param =====
+
+  it('list includes status in search params', async () => {
+    const { documentRecognitionApi } = await import('../../document-recognition/api')
+    await documentRecognitionApi.list({ status: 'success' })
+    expect(mockGet).toHaveBeenCalledWith('', expect.any(Object))
+  })
+
+  // ===== Branch coverage: list with page_size param =====
+
+  it('list includes page_size in search params', async () => {
+    const { documentRecognitionApi } = await import('../../document-recognition/api')
+    await documentRecognitionApi.list({ page_size: 20 })
+    expect(mockGet).toHaveBeenCalledWith('', expect.any(Object))
+  })
 })

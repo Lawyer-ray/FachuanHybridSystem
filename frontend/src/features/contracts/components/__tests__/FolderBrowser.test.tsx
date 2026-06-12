@@ -1,5 +1,5 @@
 import { render, screen, fireEvent } from '@testing-library/react'
-import { FolderBrowser } from '../components/FolderBrowser'
+import { FolderBrowser } from '../FolderBrowser'
 
 vi.mock('lucide-react', () => ({
   Folder: (props: Record<string, unknown>) => <svg data-testid="folder-icon" {...props} />,
@@ -7,7 +7,7 @@ vi.mock('lucide-react', () => ({
   ArrowUp: (props: Record<string, unknown>) => <svg data-testid="arrow-up" {...props} />,
 }))
 
-vi.mock('../hooks/use-folder-binding', () => ({
+vi.mock('../../hooks/use-folder-binding', () => ({
   useFolderBrowse: vi.fn(() => ({
     data: { path: '/home/user', entries: [], browsable: true },
     isLoading: false,
@@ -31,7 +31,7 @@ vi.mock('@/components/ui/skeleton', () => ({
   Skeleton: (props: Record<string, unknown>) => <div data-testid="skeleton" {...props} />,
 }))
 
-import { useFolderBrowse } from '../hooks/use-folder-binding'
+import { useFolderBrowse } from '../../hooks/use-folder-binding'
 const mockUseFolderBrowse = vi.mocked(useFolderBrowse)
 
 describe('FolderBrowser', () => {

@@ -12,12 +12,15 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       include: ['src/**/*.{ts,tsx}'],
+      reporter: ['text', 'json-summary', 'json'],
+      reportsDirectory: 'coverage',
       exclude: [
         'src/components/ui/**',
         'src/**/*.test.{ts,tsx}',
         'src/**/*.d.ts',
         'src/main.tsx',
         'src/vite-env.d.ts',
+        'src/routes/index.tsx',  // lazy() imports cannot be covered in unit tests
       ],
     },
   },

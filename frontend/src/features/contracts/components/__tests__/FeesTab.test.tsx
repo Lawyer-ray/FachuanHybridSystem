@@ -159,4 +159,104 @@ describe('FeesTab', () => {
     expect(screen.getAllByText(/已收 ¥50000/).length).toBeGreaterThan(0)
     expect(screen.getAllByText(/已开票 ¥30000/).length).toBeGreaterThan(0)
   })
+
+  // --- Additional tests from coverage expansion ---
+
+  it('falls back to raw fee_mode for unknown mode', () => {
+    render(<FeesTab contract={{ ...baseContract, fee_mode: 'UNKNOWN' } as any} />)
+    expect(screen.getByText('UNKNOWN')).toBeInTheDocument()
+  })
+
+  it('hides fixed amount when null', () => {
+    render(<FeesTab contract={{ ...baseContract, fixed_amount: null } as any} />)
+    expect(screen.queryByText('固定/前期律师费')).not.toBeInTheDocument()
+  })
+
+  it('hides risk rate when null', () => {
+    render(<FeesTab contract={{ ...baseContract, risk_rate: null } as any} />)
+    expect(screen.queryByText('风险比例')).not.toBeInTheDocument()
+  })
+
+  it('hides custom terms when null', () => {
+    render(<FeesTab contract={{ ...baseContract, custom_terms: null } as any} />)
+    expect(screen.queryByText('自定义条款')).not.toBeInTheDocument()
+  })
+
+  it('hides unpaid amount when null', () => {
+    render(<FeesTab contract={{ ...baseContract, unpaid_amount: null } as any} />)
+    expect(screen.queryByText(/未收/)).not.toBeInTheDocument()
+  })
+
+  it('hides unpaid amount when 0', () => {
+    render(<FeesTab contract={{ ...baseContract, unpaid_amount: 0 } as any} />)
+    expect(screen.queryByText(/未收/)).not.toBeInTheDocument()
+  })
+
+  it('shows dash when no fixed amount for receivable', () => {
+    render(<FeesTab contract={{ ...baseContract, fixed_amount: null, total_received: 0 } as any} />)
+    expect(screen.getByText('应收 —')).toBeInTheDocument()
+  })
+
+  it('calculates invoice percent correctly', () => {
+    render(<FeesTab contract={{ ...baseContract, total_received: 100000, total_invoiced: 50000 } as any} />)
+    expect(screen.getByText('50%')).toBeInTheDocument()
+  })
+
+  it('hides "待开票" when invoice >= 100%', () => {
+    render(<FeesTab contract={{ ...baseContract, total_received: 100000, total_invoiced: 100000 } as any} />)
+    expect(screen.queryByText('待开票')).not.toBeInTheDocument()
+  })
+
+  it('hides "待开票" when received = 0', () => {
+    render(<FeesTab contract={{ ...baseContract, total_received: 0, total_invoiced: 0 } as any} />)
+    expect(screen.queryByText('待开票')).not.toBeInTheDocument()
+  })
+
+  it('renders invoices without invoice_number', () => {
+    const contract = {
+      ...baseContract,
+      payments: [
+        {
+          id: 1,
+          amount: 10000,
+          invoices: [{ id: 1, original_filename: 'inv.pdf', invoice_number: null, total_amount: null, uploaded_at: null }],
+        },
+      ],
+    }
+    render(<FeesTab contract={contract} />)
+    expect(screen.getByText('发票记录')).toBeInTheDocument()
+  })
+
+  it('renders invoice with uploaded_at', () => {
+    const contract = {
+      ...baseContract,
+      payments: [
+        {
+          id: 1,
+          amount: 10000,
+          invoices: [{ id: 1, original_filename: 'inv.pdf', invoice_number: null, total_amount: 5000, uploaded_at: '2024-06-01' }],
+        },
+      ],
+    }
+    render(<FeesTab contract={contract} />)
+    expect(screen.getByText('发票记录')).toBeInTheDocument()
+  })
+
+  it('renders client payment with image_path link', () => {
+    const contract = {
+      ...baseContract,
+      client_payment_records: [
+        { id: 1, amount: 1000, note: '', created_at: '2024-01-01', image_path: '/img/receipt.jpg' },
+      ],
+    }
+    render(<FeesTab contract={contract} />)
+    // The image icon is rendered as a link when image_path exists
+    const link = document.querySelector('a[href*="receipt.jpg"]')
+    expect(link).toBeInTheDocument()
+  })
+
+  it('renders payment percent capped at 100', () => {
+    render(<FeesTab contract={{ ...baseContract, fixed_amount: 100, total_received: 200 } as any} />)
+    expect(screen.getAllByText('100%').length).toBeGreaterThan(0)
+  })
 })

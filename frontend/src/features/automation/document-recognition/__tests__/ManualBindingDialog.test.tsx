@@ -1,13 +1,15 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import { ManualBindingDialog } from '../components/ManualBindingDialog'
 
 vi.mock('lucide-react', () => ({
   Loader2: () => <svg data-testid="loader" />,
 }))
 
+const mockBindCaseMutate = vi.fn()
+
 vi.mock('../hooks/use-recognition-mutations', () => ({
   useBindCase: () => ({
-    mutate: vi.fn(),
+    mutate: mockBindCaseMutate,
     isPending: false,
   }),
 }))
@@ -98,5 +100,75 @@ describe('ManualBindingDialog', () => {
   it('renders cancel button', () => {
     render(<ManualBindingDialog open={true} onOpenChange={vi.fn()} task={mockTask as never} />)
     expect(screen.getByText('取消')).toBeInTheDocument()
+  })
+
+  // ===== Branch coverage: onBindSuccess callback =====
+
+  it('renders with onBindSuccess prop', () => {
+    const onBindSuccess = vi.fn()
+    render(
+      <ManualBindingDialog
+        open={true}
+        onOpenChange={vi.fn()}
+        task={mockTask as never}
+        onBindSuccess={onBindSuccess}
+      />
+    )
+    expect(screen.getByText('确认绑定')).toBeInTheDocument()
+  })
+
+  // ===== Branch coverage: cancel button calls onOpenChange(false) =====
+
+  it('calls onOpenChange(false) when cancel is clicked', () => {
+    const onOpenChange = vi.fn()
+    render(<ManualBindingDialog open={true} onOpenChange={onOpenChange} task={mockTask as never} />)
+    fireEvent.click(screen.getByText('取消'))
+    expect(onOpenChange).toHaveBeenCalledWith(false)
+  })
+
+  // ===== Branch coverage: confirm button text =====
+
+  it('shows confirm button text when not pending', () => {
+    render(<ManualBindingDialog open={true} onOpenChange={vi.fn()} task={mockTask as never} />)
+    expect(screen.getByText('确认绑定')).toBeInTheDocument()
+  })
+
+  // ===== Branch coverage: empty task fields =====
+
+  it('handles task with null document_type and key_time', () => {
+    const taskWithNulls = { ...mockTask, document_type: null, key_time: null }
+    render(<ManualBindingDialog open={true} onOpenChange={vi.fn()} task={taskWithNulls as never} />)
+    expect(screen.getByText('手动绑定案件')).toBeInTheDocument()
+  })
+
+  // ===== Branch coverage: onOpenChange for dialog =====
+
+  it('passes onOpenChange to Dialog', () => {
+    const onOpenChange = vi.fn()
+    render(<ManualBindingDialog open={true} onOpenChange={onOpenChange} task={mockTask as never} />)
+    expect(screen.getByTestId('dialog')).toBeInTheDocument()
+  })
+
+  // ===== Branch coverage: dialog description =====
+
+  it('renders dialog description', () => {
+    render(<ManualBindingDialog open={true} onOpenChange={vi.fn()} task={mockTask as never} />)
+    expect(screen.getByText(/自动绑定失败/)).toBeInTheDocument()
+  })
+
+  // ===== Branch coverage: case search select rendered =====
+
+  it('renders case search select', () => {
+    render(<ManualBindingDialog open={true} onOpenChange={vi.fn()} task={mockTask as never} />)
+    expect(screen.getByTestId('case-search-select')).toBeInTheDocument()
+  })
+
+  // ===== Branch coverage: form labels =====
+
+  it('renders form field labels', () => {
+    render(<ManualBindingDialog open={true} onOpenChange={vi.fn()} task={mockTask as never} />)
+    expect(screen.getByText(/选择案件/)).toBeInTheDocument()
+    expect(screen.getByText('文书类型')).toBeInTheDocument()
+    expect(screen.getByText('关键时间')).toBeInTheDocument()
   })
 })

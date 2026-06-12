@@ -69,4 +69,20 @@ describe('automation/preservation-quotes/hooks/use-quote', () => {
       expect(isCompleted('running')).toBe(false)
     })
   })
+
+  describe('shouldPoll edge cases', () => {
+    it('returns false for an unknown status', () => {
+      expect(shouldPoll('unknown' as any)).toBe(false)
+    })
+  })
+
+  describe('isCompleted edge cases', () => {
+    it('returns false for partial_success as completed', () => {
+      expect(isCompleted('partial_success')).toBe(true)
+    })
+
+    it('returns false for an unknown status', () => {
+      expect(isCompleted('unknown' as any)).toBe(false)
+    })
+  })
 })

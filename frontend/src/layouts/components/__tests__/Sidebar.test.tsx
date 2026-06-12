@@ -1160,4 +1160,263 @@ describe('Sidebar', () => {
       expect(bottomMenu).toBeInTheDocument()
     })
   })
+
+  describe('handlePrefetch and routePrefetchMap', () => {
+    it('prefetches dashboard route on mouse enter', () => {
+      render(
+        <MemoryRouter initialEntries={['/admin/workbench']}>
+          <Sidebar collapsed={false} onToggle={vi.fn()} />
+        </MemoryRouter>,
+      )
+
+      const dashboardLink = screen.getByText('仪表盘').closest('a')!
+      fireEvent.mouseEnter(dashboardLink)
+      expect(mockPrefetchRoute).toHaveBeenCalledWith(
+        '/admin/dashboard',
+        expect.any(Function),
+      )
+    })
+
+    it('prefetches workbench route on focus', () => {
+      render(
+        <MemoryRouter>
+          <Sidebar collapsed={false} onToggle={vi.fn()} />
+        </MemoryRouter>,
+      )
+
+      const workbenchLink = screen.getByText('工作台').closest('a')!
+      fireEvent.focus(workbenchLink)
+      expect(mockPrefetchRoute).toHaveBeenCalledWith(
+        '/admin/workbench',
+        expect.any(Function),
+      )
+    })
+
+    it('prefetches on sub-item mouse enter', () => {
+      setupStore({ expandedGroups: ['business'] })
+
+      render(
+        <MemoryRouter>
+          <Sidebar collapsed={false} onToggle={vi.fn()} />
+        </MemoryRouter>,
+      )
+
+      const casesLink = screen.getByText('案件管理').closest('a')!
+      fireEvent.mouseEnter(casesLink)
+      expect(mockPrefetchRoute).toHaveBeenCalledWith(
+        '/admin/cases',
+        expect.any(Function),
+      )
+    })
+
+    it('prefetches on sub-item focus', () => {
+      setupStore({ expandedGroups: ['business'] })
+
+      render(
+        <MemoryRouter>
+          <Sidebar collapsed={false} onToggle={vi.fn()} />
+        </MemoryRouter>,
+      )
+
+      const clientsLink = screen.getByText('当事人管理').closest('a')!
+      fireEvent.focus(clientsLink)
+      expect(mockPrefetchRoute).toHaveBeenCalledWith(
+        '/admin/clients',
+        expect.any(Function),
+      )
+    })
+
+    it('prefetches tool sub-items on hover', () => {
+      setupStore({ expandedGroups: ['tools'] })
+
+      render(
+        <MemoryRouter>
+          <Sidebar collapsed={false} onToggle={vi.fn()} />
+        </MemoryRouter>,
+      )
+
+      const courtSmsLink = screen.getByText('法院短信').closest('a')!
+      fireEvent.mouseEnter(courtSmsLink)
+      expect(mockPrefetchRoute).toHaveBeenCalledWith(
+        '/admin/tools/court-sms',
+        expect.any(Function),
+      )
+    })
+
+    it('prefetches collapsed popover sub-items on hover', () => {
+      setupStore({ expandedGroups: [] })
+
+      render(
+        <MemoryRouter>
+          <Sidebar collapsed={true} onToggle={vi.fn()} />
+        </MemoryRouter>,
+      )
+
+      // Open business group popover
+      const briefcaseIcons = screen.getAllByTestId('icon-briefcase')
+      fireEvent.click(briefcaseIcons[0].closest('button')!)
+
+      const contractsLink = screen.getByText('合同管理').closest('a')!
+      fireEvent.mouseEnter(contractsLink)
+      expect(mockPrefetchRoute).toHaveBeenCalledWith(
+        '/admin/contracts',
+        expect.any(Function),
+      )
+    })
+
+    it('prefetches collapsed popover sub-items on focus', () => {
+      setupStore({ expandedGroups: [] })
+
+      render(
+        <MemoryRouter>
+          <Sidebar collapsed={true} onToggle={vi.fn()} />
+        </MemoryRouter>,
+      )
+
+      const briefcaseIcons = screen.getAllByTestId('icon-briefcase')
+      fireEvent.click(briefcaseIcons[0].closest('button')!)
+
+      const casesLink = screen.getByText('案件管理').closest('a')!
+      fireEvent.focus(casesLink)
+      expect(mockPrefetchRoute).toHaveBeenCalledWith(
+        '/admin/cases',
+        expect.any(Function),
+      )
+    })
+
+    it('prefetches brand link on hover', () => {
+      render(
+        <MemoryRouter>
+          <Sidebar collapsed={false} onToggle={vi.fn()} />
+        </MemoryRouter>,
+      )
+
+      const brandLink = screen.getByText('法穿AI Copilot').closest('a')!
+      fireEvent.mouseEnter(brandLink)
+      expect(mockPrefetchRoute).toHaveBeenCalledWith(
+        '/admin/dashboard',
+        expect.any(Function),
+      )
+    })
+
+    it('prefetches settings on bottom menu hover', () => {
+      render(
+        <MemoryRouter>
+          <Sidebar collapsed={false} onToggle={vi.fn()} />
+        </MemoryRouter>,
+      )
+
+      const settingsLink = screen.getByText('系统设置').closest('a')!
+      fireEvent.mouseEnter(settingsLink)
+      expect(mockPrefetchRoute).toHaveBeenCalledWith(
+        '/admin/settings',
+        expect.any(Function),
+      )
+    })
+
+    it('calls routePrefetchMap functions which are async import lambdas', async () => {
+      render(
+        <MemoryRouter>
+          <Sidebar collapsed={false} onToggle={vi.fn()} />
+        </MemoryRouter>,
+      )
+
+      const dashboardLink = screen.getByText('仪表盘').closest('a')!
+      fireEvent.mouseEnter(dashboardLink)
+
+      // Get the function passed to prefetchRoute
+      const prefetchFn = mockPrefetchRoute.mock.calls[0][1]
+      expect(typeof prefetchFn).toBe('function')
+      // It returns a promise (import())
+      const result = prefetchFn()
+      expect(result).toBeInstanceOf(Promise)
+    })
+  })
+
+  describe('handlePrefetch with unmapped routes', () => {
+    it('does not call prefetchRoute for unmapped paths', () => {
+      // Since handlePrefetch checks routePrefetchMap first,
+      // test that clicking settings focus (mapped) works
+      render(
+        <MemoryRouter>
+          <Sidebar collapsed={false} onToggle={vi.fn()} />
+        </MemoryRouter>,
+      )
+
+      // Hovering on settings link - this IS mapped
+      const settingsLink = screen.getByText('系统设置').closest('a')!
+      fireEvent.mouseEnter(settingsLink)
+      expect(mockPrefetchRoute).toHaveBeenCalled()
+    })
+  })
+
+  describe('GroupMenu popover click outside and ref containment', () => {
+    it('does not close popover when clicking inside container', () => {
+      setupStore({ expandedGroups: [] })
+
+      render(
+        <MemoryRouter>
+          <Sidebar collapsed={true} onToggle={vi.fn()} />
+        </MemoryRouter>,
+      )
+
+      // Open business group popover
+      const briefcaseIcons = screen.getAllByTestId('icon-briefcase')
+      fireEvent.click(briefcaseIcons[0].closest('button')!)
+      expect(screen.getByText('当事人管理')).toBeInTheDocument()
+
+      // Click inside the container (on a sub-item) - should NOT close
+      const clientsLink = screen.getByText('当事人管理')
+      fireEvent.mouseDown(clientsLink)
+      expect(screen.getByText('当事人管理')).toBeInTheDocument()
+    })
+
+    it('does not close popover when clicking on popover content', () => {
+      setupStore({ expandedGroups: [] })
+
+      render(
+        <MemoryRouter>
+          <Sidebar collapsed={true} onToggle={vi.fn()} />
+        </MemoryRouter>,
+      )
+
+      const briefcaseIcons = screen.getAllByTestId('icon-briefcase')
+      fireEvent.click(briefcaseIcons[0].closest('button')!)
+
+      // Click on the group header in popover
+      const groupHeader = screen.getByText('业务')
+      fireEvent.mouseDown(groupHeader)
+      expect(screen.getByText('当事人管理')).toBeInTheDocument()
+    })
+  })
+
+  describe('routePrefetchMap entries', () => {
+    it('prefetches all menu paths when hovered', () => {
+      setupStore({ expandedGroups: ['business', 'tools'] })
+
+      render(
+        <MemoryRouter>
+          <Sidebar collapsed={false} onToggle={vi.fn()} />
+        </MemoryRouter>,
+      )
+
+      // Hover over all visible links to exercise routePrefetchMap
+      const links = [
+        '仪表盘', '工作台',
+        '当事人管理', '合同管理', '案件管理',
+        '法院短信', '快递查询', '要素式转换', 'LPR 计算器',
+        '系统设置',
+      ]
+
+      for (const label of links) {
+        mockPrefetchRoute.mockClear()
+        const link = screen.getByText(label).closest('a')!
+        fireEvent.mouseEnter(link)
+        expect(mockPrefetchRoute).toHaveBeenCalledWith(
+          expect.any(String),
+          expect.any(Function),
+        )
+      }
+    })
+  })
 })

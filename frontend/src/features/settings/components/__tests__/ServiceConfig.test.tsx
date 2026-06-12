@@ -71,6 +71,41 @@ vi.mock('../../constants/config-hints', () => ({
     },
     system: { title: '系统连接', description: '' },
     nohints: { title: 'No Hints', description: 'No hints category' },
+    grouped: {
+      title: '分组配置',
+      description: '测试分组',
+      fields: {
+        KEY_A: { label: 'Key A' },
+        KEY_B: { label: 'Key B' },
+        KEY_C: { label: 'Key C' },
+      },
+      fieldOrder: ['KEY_A', 'KEY_B', 'KEY_C'],
+      groups: [
+        { label: '组1', keys: ['KEY_A', 'KEY_B'] },
+        { label: '组2', keys: ['KEY_C'] },
+      ],
+    },
+    with_remaining: {
+      title: '带剩余',
+      description: '',
+      fields: { KEY_X: { label: 'Key X' }, KEY_Y: { label: 'Key Y' } },
+      fieldOrder: ['KEY_X', 'KEY_Y'],
+      groups: [{ label: '主要组', keys: ['KEY_X'] }],
+    },
+    emptygroups: {
+      title: '空组',
+      description: '',
+      fields: {},
+      fieldOrder: [],
+      groups: [],
+    },
+    secret_no_value: {
+      title: 'Secret No Value',
+      description: '',
+      fields: { MY_SECRET: { label: 'Secret Key' } },
+      fieldOrder: ['MY_SECRET'],
+      groups: [],
+    },
   },
 }))
 
@@ -732,5 +767,86 @@ describe('ServiceConfig', () => {
     mockUseSystemConfigs.mockReturnValue({ data: [], isLoading: false })
     render(<ServiceConfig />)
     expect(screen.getByText('配置')).toBeInTheDocument()
+  })
+
+  // ─── Merged from ServiceConfig.branches.test.tsx ───
+
+  // renderGroups: hintGroups.length > 0 (branch 127)
+  it('renders grouped fields with group labels', () => {
+    mockUseParams.mockReturnValue({ category: 'grouped' })
+    mockUseSystemConfigs.mockReturnValue({
+      data: [{
+        category: 'grouped',
+        items: [
+          { key: 'KEY_A', value: 'a', category: 'grouped', description: 'A', is_secret: false, is_active: true, has_value: true },
+          { key: 'KEY_B', value: 'b', category: 'grouped', description: 'B', is_secret: false, is_active: true, has_value: true },
+          { key: 'KEY_C', value: 'c', category: 'grouped', description: 'C', is_secret: false, is_active: true, has_value: true },
+        ],
+      }],
+      isLoading: false,
+    })
+    render(<ServiceConfig />)
+    expect(screen.getByText('组1')).toBeInTheDocument()
+    expect(screen.getByText('组2')).toBeInTheDocument()
+  })
+
+  // renderGroups: remaining fields (branch 144)
+  it('renders remaining fields with 其他 group label', () => {
+    mockUseParams.mockReturnValue({ category: 'with_remaining' })
+    mockUseSystemConfigs.mockReturnValue({
+      data: [{
+        category: 'with_remaining',
+        items: [
+          { key: 'KEY_X', value: 'x', category: 'with_remaining', description: 'X', is_secret: false, is_active: true, has_value: true },
+          { key: 'KEY_Y', value: 'y', category: 'with_remaining', description: 'Y', is_secret: false, is_active: true, has_value: true },
+        ],
+      }],
+      isLoading: false,
+    })
+    render(<ServiceConfig />)
+    expect(screen.getByText('主要组')).toBeInTheDocument()
+    expect(screen.getByText('其他')).toBeInTheDocument()
+  })
+
+  // secret field with has_value false (branch 420-429)
+  it('renders secret field with has_value false as 未设置', () => {
+    mockUseParams.mockReturnValue({ category: 'secret_no_value' })
+    mockUseSystemConfigs.mockReturnValue({
+      data: [{
+        category: 'secret_no_value',
+        items: [
+          { key: 'MY_SECRET', value: '', category: 'secret_no_value', description: 'Secret Key', is_secret: true, is_active: true, has_value: false },
+        ],
+      }],
+      isLoading: false,
+    })
+    render(<ServiceConfig />)
+    expect(screen.getByText('未设置')).toBeInTheDocument()
+  })
+
+  // empty groups: all empty fields (branch 371)
+  it('renders empty state when all groups empty (branch)', () => {
+    mockUseParams.mockReturnValue({ category: 'emptygroups' })
+    mockUseSystemConfigs.mockReturnValue({ data: [{ category: 'emptygroups', items: [] }], isLoading: false })
+    render(<ServiceConfig />)
+    expect(screen.getByText('该类别暂无配置项')).toBeInTheDocument()
+  })
+
+  // system category: test connection with empty URL (branch 159-163)
+  it('shows error when testing connection with empty backend URL', () => {
+    mockUseParams.mockReturnValue({ category: 'system' })
+    render(<ServiceConfig />)
+    const backendInput = screen.getByDisplayValue('http://localhost:8002')
+    fireEvent.change(backendInput, { target: { value: '' } })
+    fireEvent.click(screen.getByText('测试连通性'))
+    expect(screen.getByText('请先填写后端地址')).toBeInTheDocument()
+  })
+
+  // No backendItem: no edit/delete buttons (branch 399)
+  it('does not show edit/delete for system category', () => {
+    mockUseParams.mockReturnValue({ category: 'system' })
+    render(<ServiceConfig />)
+    expect(screen.queryAllByTitle('编辑配置项').length).toBe(0)
+    expect(screen.queryAllByTitle('删除配置项').length).toBe(0)
   })
 })

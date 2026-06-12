@@ -160,4 +160,76 @@ describe('RecognitionResult', () => {
     render(<RecognitionResult task={createTask()} />)
     expect(screen.queryByText('编辑')).not.toBeInTheDocument()
   })
+
+  // ===== Branch coverage: editing mode =====
+
+  it('renders edit form when isEditing is true', () => {
+    render(
+      <RecognitionResult
+        task={createTask()}
+        isEditing={true}
+        onSave={vi.fn()}
+        onCancel={vi.fn()}
+      />
+    )
+    // Edit form shows save and cancel buttons
+    expect(screen.getByText('保存')).toBeInTheDocument()
+    expect(screen.getByText('取消')).toBeInTheDocument()
+  })
+
+  it('renders read-only values in edit form', () => {
+    render(
+      <RecognitionResult
+        task={createTask()}
+        isEditing={true}
+        onSave={vi.fn()}
+        onCancel={vi.fn()}
+      />
+    )
+    // Case number should still be visible
+    expect(screen.getByText('(2024)京0101民初12345号')).toBeInTheDocument()
+  })
+
+  // ===== Branch coverage: confidence null =====
+
+  it('renders placeholder for null confidence', () => {
+    render(<RecognitionResult task={createTask({ confidence: null })} />)
+    expect(screen.getByText('-')).toBeInTheDocument()
+  })
+
+  // ===== Branch coverage: null case_number and key_time in read-only =====
+
+  it('renders placeholders for null case_number and key_time', () => {
+    render(<RecognitionResult task={createTask({ case_number: null, key_time: null })} />)
+    const unrecognised = screen.getAllByText('未识别')
+    // At least document_type (present), case_number (null), key_time (null) = 2 nulls
+    expect(unrecognised.length).toBeGreaterThanOrEqual(2)
+  })
+
+  // ===== Branch coverage: EditForm submit with empty fields =====
+
+  it('renders edit form with null document_type and key_time', () => {
+    render(
+      <RecognitionResult
+        task={createTask({ document_type: null, key_time: null })}
+        isEditing={true}
+        onSave={vi.fn()}
+        onCancel={vi.fn()}
+      />
+    )
+    expect(screen.getByText('保存')).toBeInTheDocument()
+  })
+
+  // ===== Branch coverage: isEditing without onSave/onCancel =====
+
+  it('renders read-only when isEditing but no onSave', () => {
+    render(
+      <RecognitionResult
+        task={createTask()}
+        isEditing={true}
+      />
+    )
+    // Without onSave and onCancel, it should show read-only mode
+    expect(screen.getByText('文书类型')).toBeInTheDocument()
+  })
 })
