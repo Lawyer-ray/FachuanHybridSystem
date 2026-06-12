@@ -404,7 +404,7 @@ class TestDocumentTemplateAdminViews:
     def test_build_llm_model_choices_with_default(self) -> None:
         with patch("apps.core.llm.config.LLMConfig") as mock_config, \
              patch("apps.core.llm.model_list_service.ModelListService") as mock_model_svc:
-            mock_config.get_default_model.return_value = "test-model"
+            mock_config.get_openai_compatible_model.return_value = "test-model"
             mock_model_svc.return_value.get_result.return_value = MagicMock(models=[])
             choices = DocumentTemplateAdmin._build_llm_model_choices()
             assert len(choices) >= 1
@@ -414,7 +414,7 @@ class TestDocumentTemplateAdminViews:
     def test_build_llm_model_choices_with_models(self) -> None:
         with patch("apps.core.llm.config.LLMConfig") as mock_config, \
              patch("apps.core.llm.model_list_service.ModelListService") as mock_model_svc:
-            mock_config.get_default_model.return_value = "default-model"
+            mock_config.get_openai_compatible_model.return_value = "default-model"
             mock_result = MagicMock()
             mock_result.models = [
                 {"id": "model-1", "name": "Model One"},
