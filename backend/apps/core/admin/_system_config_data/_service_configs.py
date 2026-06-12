@@ -65,6 +65,13 @@ def get_scraper_configs() -> list[dict[str, Any]]:
             "key": "PLAYWRIGHT_HEADED",
             "category": "scraper",
             "description": "Playwright 浏览器有头模式（true=显示浏览器窗口，便于调试；false=无头后台运行）",
+            "value": "true",
+            "is_secret": False,
+        },
+        {
+            "key": "CAPTCHA_AUTO_RECOGNIZE",
+            "category": "scraper",
+            "description": "验证码自动识别（true=ddddocr 自动识别，false=等待手动输入）",
             "value": "false",
             "is_secret": False,
         },

@@ -19,6 +19,13 @@ from apps.core.interfaces import ICaptchaService
 logger = logging.getLogger("apps.automation")
 
 
+def _is_auto_recognize_enabled() -> bool:
+    """检查 CAPTCHA_AUTO_RECOGNIZE 全局配置"""
+    from apps.core.services.system_config_service import SystemConfigService
+
+    return SystemConfigService().get_value("CAPTCHA_AUTO_RECOGNIZE", "false").lower() in ("true", "1", "yes")
+
+
 @dataclass
 class CaptchaResult:
     """验证码识别结果"""
@@ -182,14 +189,23 @@ class CaptchaRecognitionService:
         start_time = time.time()
 
         try:
-            # 1. 验证输入
+            # 1. 验证输入（先于配置检查，确保基本校验不受配置影响）
             if not image_base64 or not image_base64.strip():
                 logger.warning("收到空的图片数据")
                 return CaptchaResult(
                     success=False, text=None, processing_time=time.time() - start_time, error="图片数据不能为空"
                 )
 
-            # 2. 解码 Base64
+            # 2. 检查全局配置
+            if not _is_auto_recognize_enabled():
+                return CaptchaResult(
+                    success=False,
+                    text=None,
+                    processing_time=time.time() - start_time,
+                    error="自动验证码识别已关闭（CAPTCHA_AUTO_RECOGNIZE=false），请手动输入",
+                )
+
+            # 3. 解码 Base64
             try:
                 image_bytes = self._decode_base64_image(image_base64)
             except ValueError as e:

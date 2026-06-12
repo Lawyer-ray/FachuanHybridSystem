@@ -2,7 +2,7 @@
 爬虫核心服务
 """
 
-from .captcha_recognizer import CaptchaRecognizer, DdddocrRecognizer
+from .captcha_recognizer import CaptchaRecognizer, DdddocrRecognizer, ManualCaptchaRecognizer, get_captcha_recognizer
 from .exceptions import (
     BrowserConfigurationError,
     BrowserCreationError,
@@ -18,6 +18,8 @@ from .validator_service import ValidatorService
 __all__ = [
     "CaptchaRecognizer",
     "DdddocrRecognizer",
+    "ManualCaptchaRecognizer",
+    "get_captcha_recognizer",
     "SecurityService",
     "ValidatorService",
     "MonitorService",

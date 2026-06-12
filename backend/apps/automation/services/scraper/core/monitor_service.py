@@ -76,6 +76,7 @@ class MonitorService:
             "total": tasks.count(),
             "pending": tasks.filter(status=ScraperTaskStatus.PENDING).count(),
             "running": tasks.filter(status=ScraperTaskStatus.RUNNING).count(),
+            "waiting_for_captcha": tasks.filter(status=ScraperTaskStatus.WAITING_FOR_CAPTCHA).count(),
             "success": tasks.filter(status=ScraperTaskStatus.SUCCESS).count(),
             "failed": tasks.filter(status=ScraperTaskStatus.FAILED).count(),
         }
@@ -93,6 +94,9 @@ class MonitorService:
         """
         检查卡住的任务（执行时间过长）
 
+        仅检查 RUNNING 状态的任务。WAITING_FOR_CAPTCHA 状态属于正常等待用户输入，
+        不视为卡住。
+
         Args:
             timeout_minutes: 超时时间（分钟）
 
@@ -101,7 +105,7 @@ class MonitorService:
         """
         timeout = timezone.now() - timedelta(minutes=timeout_minutes)
 
-        # 使用注入的任务服务或直接使用Model
+        # 仅检查 RUNNING 状态，WAITING_FOR_CAPTCHA 不视为卡住
         if hasattr(self.task_service, "objects"):
             stuck_tasks = self.task_service.objects.filter(status=ScraperTaskStatus.RUNNING, started_at__lte=timeout)
         else:
