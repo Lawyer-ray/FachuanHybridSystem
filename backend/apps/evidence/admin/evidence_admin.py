@@ -10,7 +10,7 @@ from django.http import HttpRequest
 from django.urls import reverse
 from django.utils.html import format_html
 
-from apps.evidence.models import EvidenceList
+from apps.evidence.models import EvidenceList, EvidenceListProxy
 
 from .evidence import EvidenceItemInline, EvidenceListForm
 from .evidence.mixins import EvidenceListAdminActionsMixin, EvidenceListAdminSaveMixin, EvidenceListAdminViewsMixin
@@ -19,7 +19,7 @@ from .hearing_mode import HearingModeAdminMixin
 logger = logging.getLogger(__name__)
 
 
-@admin.register(EvidenceList)
+@admin.register(EvidenceListProxy)
 class EvidenceListAdmin(
     HearingModeAdminMixin,
     EvidenceListAdminViewsMixin,

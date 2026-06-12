@@ -53,3 +53,13 @@ export function useCancelWorkflow() {
     },
   })
 }
+
+export function useDeleteWorkflow() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (runId: number) => workflowApi.delete(runId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['workflows'] })
+    },
+  })
+}

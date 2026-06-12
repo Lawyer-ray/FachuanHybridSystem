@@ -10,28 +10,6 @@ import pytest
 _MOD = "apps.automation.services.gsxt.gsxt_login_service"
 
 
-class TestModuleConstants:
-
-    def test_constants_defined(self):
-        from apps.automation.services.gsxt.gsxt_login_service import (
-            GSXT_LOGIN_URL,
-            GSXT_SEARCH_URL,
-            CDP_URL,
-            CHROME_PATH,
-            CHROME_USER_DATA_DIR,
-            LOGIN_CAPTCHA_TIMEOUT,
-            REPORT_CAPTCHA_TIMEOUT,
-        )
-
-        assert "gsxt.gov.cn" in GSXT_LOGIN_URL
-        assert "gsxt.gov.cn" in GSXT_SEARCH_URL
-        assert CDP_URL.startswith("http://")
-        assert CHROME_PATH
-        assert CHROME_USER_DATA_DIR
-        assert LOGIN_CAPTCHA_TIMEOUT > 0
-        assert REPORT_CAPTCHA_TIMEOUT > 0
-
-
 class TestGsxtLoginError:
 
     def test_is_exception(self):
@@ -50,119 +28,6 @@ class TestGsxtReportError:
         exc = GsxtReportError("report fail")
         assert isinstance(exc, Exception)
         assert str(exc) == "report fail"
-
-
-class TestKillExistingChrome:
-
-    @patch(f"{_MOD}.subprocess.run")
-    def test_pgrep_finds_process(self, mock_run):
-        from apps.automation.services.gsxt.gsxt_login_service import _kill_existing_chrome
-
-        # pgrep returns output (process found)
-        mock_run.side_effect = [
-            MagicMock(stdout="12345 chrome\n", returncode=0),
-            MagicMock(returncode=0),
-        ]
-        _kill_existing_chrome()
-        assert mock_run.call_count == 2
-
-    @patch(f"{_MOD}.subprocess.run")
-    def test_no_process_found(self, mock_run):
-        from apps.automation.services.gsxt.gsxt_login_service import _kill_existing_chrome
-
-        mock_run.return_value = MagicMock(stdout="", returncode=1)
-        _kill_existing_chrome()
-        # Only pgrep called, no pkill
-        assert mock_run.call_count == 1
-
-    @patch(f"{_MOD}.subprocess.run")
-    def test_exception_swallowed(self, mock_run):
-        from apps.automation.services.gsxt.gsxt_login_service import _kill_existing_chrome
-
-        mock_run.side_effect = OSError("not found")
-        _kill_existing_chrome()  # should not raise
-
-
-class TestEnsureChromeRunning:
-
-    @patch("apps.core.services.browser.chrome_process.is_cdp_ready", return_value=True)
-    def test_already_running(self, mock_cdp):
-        from apps.automation.services.gsxt.gsxt_login_service import _ensure_chrome_running
-
-        _ensure_chrome_running()
-        mock_cdp.assert_called_once_with(9222)
-
-    @patch("apps.core.services.browser.chrome_process.launch_chrome")
-    @patch(f"{_MOD}._kill_existing_chrome")
-    @patch("apps.core.services.browser.chrome_process.is_cdp_ready", return_value=False)
-    def test_launches_chrome(self, mock_cdp, mock_kill, mock_launch):
-        from apps.automation.services.gsxt.gsxt_login_service import _ensure_chrome_running
-
-        _ensure_chrome_running()
-        mock_kill.assert_called_once()
-        mock_launch.assert_called_once()
-
-    @patch("apps.core.services.browser.chrome_process.launch_chrome", side_effect=RuntimeError("cannot start"))
-    @patch(f"{_MOD}._kill_existing_chrome")
-    @patch("apps.core.services.browser.chrome_process.is_cdp_ready", return_value=False)
-    def test_launch_failure_raises_login_error(self, mock_cdp, mock_kill, mock_launch):
-        from apps.automation.services.gsxt.gsxt_login_service import (
-            GsxtLoginError,
-            _ensure_chrome_running,
-        )
-
-        with pytest.raises(GsxtLoginError):
-            _ensure_chrome_running()
-
-
-class TestCdpNavigate:
-
-    @pytest.mark.asyncio
-    async def test_no_tabs_raises(self):
-        from apps.automation.services.gsxt.gsxt_login_service import (
-            GsxtLoginError,
-            _cdp_navigate,
-        )
-
-        mock_client = MagicMock()
-        mock_client.get.return_value.json.return_value = []
-        with patch(f"{_MOD}.httpx.Client") as MockClient:
-            MockClient.return_value.__enter__ = MagicMock(return_value=mock_client)
-            MockClient.return_value.__exit__ = MagicMock(return_value=False)
-            with pytest.raises(GsxtLoginError, match="CDP 无可用页面"):
-                await _cdp_navigate("https://example.com")
-
-    @pytest.mark.asyncio
-    async def test_navigates_to_url(self):
-        from apps.automation.services.gsxt.gsxt_login_service import _cdp_navigate
-
-        tab = {"type": "page", "webSocketDebuggerUrl": "ws://localhost:9222/devtools/page/1"}
-        mock_client = MagicMock()
-        mock_client.get.return_value.json.return_value = [tab]
-
-        recv_messages = [
-            '{"id":1,"result":{}}',
-            '{"id":2,"result":{}}',
-            '{"id":3,"result":{"result":{"value":"https://shiming.gsxt.gov.cn/login"}}}',
-        ]
-        recv_iter = iter(recv_messages)
-
-        mock_ws = MagicMock()
-        mock_ws.send = AsyncMock()
-        mock_ws.recv = AsyncMock(side_effect=lambda: next(recv_iter))
-
-        # Build a proper async context manager mock for websockets.connect
-        mock_cm = MagicMock()
-        mock_cm.__aenter__ = AsyncMock(return_value=mock_ws)
-        mock_cm.__aexit__ = AsyncMock(return_value=False)
-
-        with patch(f"{_MOD}.httpx.Client") as MockClient:
-            MockClient.return_value.__enter__ = MagicMock(return_value=mock_client)
-            MockClient.return_value.__exit__ = MagicMock(return_value=False)
-
-            with patch("websockets.connect", return_value=mock_cm):
-                result = await _cdp_navigate("https://shiming.gsxt.gov.cn/login", wait_seconds=0)
-                assert "gsxt.gov.cn" in result
 
 
 class TestWaitCaptchaSuccess:
@@ -292,14 +157,13 @@ class TestStartLoginGsxt:
         mock_reverse.assert_called_once_with(credential, 1)
 
     @patch(f"{_MOD}.threading.Thread")
-    @patch(f"{_MOD}._ensure_chrome_running")
     @patch(f"{_MOD}._try_reverse_login", return_value=False)
-    def test_fallback_to_chrome(self, mock_reverse, mock_chrome, MockThread):
+    def test_fallback_to_chrome(self, mock_reverse, MockThread):
         from apps.automation.services.gsxt.gsxt_login_service import start_login_gsxt
 
         credential = MagicMock()
         start_login_gsxt(credential, 1)
-        mock_chrome.assert_called_once()
+        mock_reverse.assert_called_once_with(credential, 1)
         MockThread.assert_called_once()
         MockThread.return_value.start.assert_called_once()
 

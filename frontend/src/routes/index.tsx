@@ -89,6 +89,11 @@ const LprCalculatorPage = lazy(() => import('@/pages/dashboard/tools/LprCalculat
 // 工作台
 const WorkbenchPage = lazy(() => import('@/features/workbench/WorkbenchPage'))
 
+// 工作流页面
+const WorkflowPage = lazy(() => import('@/pages/dashboard/workflow/WorkflowPage'))
+const WorkflowTemplateListPage = lazy(() => import('@/pages/dashboard/workflow/TemplateListPage'))
+const WorkflowTemplateEditorPage = lazy(() => import('@/pages/dashboard/workflow/TemplateEditorPage'))
+
 // 404 页面
 const NotFoundPage = lazy(() => import('@/pages/NotFoundPage').then((m) => ({ default: m.NotFoundPage })))
 
@@ -389,6 +394,22 @@ export const router = createBrowserRouter([
           {
             path: PATHS.ADMIN_LOGS,
             element: <LogsPage />,
+          },
+          {
+            path: PATHS.ADMIN_WORKFLOWS,
+            element: <WorkflowPage />,
+          },
+          {
+            path: 'admin/workflows/templates',
+            element: <WorkflowTemplateListPage />,
+          },
+          {
+            path: 'admin/workflows/templates/new',
+            element: <WorkflowTemplateEditorPage />,
+          },
+          {
+            path: 'admin/workflows/templates/:id/edit',
+            element: <WorkflowTemplateEditorPage />,
           },
           // 404 页面 - 必须放在最后
           {

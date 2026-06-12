@@ -66,15 +66,11 @@ class SsoLoginMixin:  # pragma: no cover
         打开有头浏览器 → 点击扫码图标 → 等待用户扫码 →
         填写账号密码 → 捕获 cookies → 关闭浏览器。
         """
-        from playwright.sync_api import sync_playwright
+        from apps.core.services.browser import create_browser
 
-        pw = sync_playwright().start()
-        browser = None
+        cm = create_browser("default", headless=False)
         try:
-            browser = pw.chromium.launch(headless=False)
-            context = browser.new_context()
-            context.set_default_timeout(30_000)
-            page = context.new_page()
+            page, context = cm.__enter__()
 
             # 1. 打开 OA 登录页（会重定向到 SSO）
             logger.info("SSO 登录: 打开 %s", _LOGIN_URL)
@@ -122,9 +118,7 @@ class SsoLoginMixin:  # pragma: no cover
             self._save_cookies(cookies)
             return cookies
         finally:
-            if browser is not None:
-                browser.close()
-            pw.stop()
+            cm.__exit__(None, None, None)
 
     @staticmethod
     def _click_qr_icon(page: Any) -> None:  # pragma: no cover

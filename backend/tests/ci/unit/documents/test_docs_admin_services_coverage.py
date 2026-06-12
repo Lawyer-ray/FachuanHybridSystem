@@ -94,12 +94,12 @@ class TestDocumentsServices:
 
 class TestDocumentsAdmin:
     def test_evidence_views_import(self):
-        from apps.documents.admin.evidence.mixins.views import EvidenceListAdminViewsMixin
+        from apps.evidence.admin.evidence.mixins.views import EvidenceListAdminViewsMixin
 
         assert EvidenceListAdminViewsMixin is not None
 
     def test_evidence_save_import(self):
-        from apps.documents.admin.evidence.mixins.save import EvidenceListAdminSaveMixin
+        from apps.evidence.admin.evidence.mixins.save import EvidenceListAdminSaveMixin
 
         assert EvidenceListAdminSaveMixin is not None
 
@@ -156,25 +156,6 @@ class TestCalendarProviders:
         from apps.reminders.services.calendar_providers.mac_provider import MacCalendarProvider
 
         assert MacCalendarProvider is not None
-
-
-# --- fee_notice ---
-
-class TestFeeNotice:
-    def test_extractor_import(self):
-        from apps.fee_notice.services.detection.extractor import FeeAmountExtractor
-
-        assert FeeAmountExtractor is not None
-
-    def test_extraction_service_import(self):
-        from apps.fee_notice.services.extraction.extraction_service import FeeNoticeExtractionService
-
-        assert FeeNoticeExtractionService is not None
-
-    def test_check_service_import(self):
-        from apps.fee_notice.services.comparison.check_service import FeeNoticeCheckService
-
-        assert FeeNoticeCheckService is not None
 
 
 # --- contracts ---

@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
-from playwright.sync_api import Browser, BrowserContext, Page, Playwright
+from playwright.sync_api import BrowserContext, Page
 
 
 @dataclass
@@ -34,10 +34,9 @@ class WeikeCaseDetail:
 
 @dataclass
 class WeikeSession:
-    playwright: Playwright | None = None
-    browser: Browser | None = None
-    context: BrowserContext | None = None
     page: Page | None = None
+    context: BrowserContext | None = None
+    context_manager: Any | None = field(default=None, repr=False)
     http_client: Any | None = None
     username: str = ""
     password: str = ""
@@ -63,13 +62,8 @@ class WeikeSession:
         except Exception:
             pass
         try:
-            if self.browser is not None:
-                self.browser.close()
-        except Exception:
-            pass
-        try:
-            if self.playwright is not None:
-                self.playwright.stop()
+            if self.context_manager is not None:
+                self.context_manager.__exit__(None, None, None)
         except Exception:
             pass
         try:

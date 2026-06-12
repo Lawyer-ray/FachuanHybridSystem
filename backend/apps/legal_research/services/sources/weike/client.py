@@ -2,8 +2,6 @@ from __future__ import annotations
 
 import logging
 
-from playwright.sync_api import sync_playwright
-
 from apps.legal_research.services.similarity.tuning_config import LegalResearchTuningConfig
 
 from . import api_optional
@@ -73,21 +71,10 @@ class WeikeCaseClient(WeikeAuthMixin, WeikeSearchMixin, WeikeDocumentMixin, Weik
             except Exception:
                 logger.exception("私有wk API登录失败，回退Playwright登录")
 
-        playwright = sync_playwright().start()
-        browser = playwright.chromium.launch(headless=True)
-        context = browser.new_context()
+        from apps.core.services.browser import create_browser
 
-        # 应用 playwright-stealth 反检测
-        try:
-            from playwright_stealth import Stealth
-
-            stealth = Stealth()
-            stealth.apply_stealth_sync(context)
-            logger.debug("已应用 playwright-stealth 反检测")
-        except ImportError:
-            logger.warning("playwright-stealth 未安装，跳过反检测")
-
-        page = context.new_page()
+        cm = create_browser("default")
+        page, context = cm.__enter__()
 
         try:
             self._login_and_enter_law(
@@ -97,20 +84,16 @@ class WeikeCaseClient(WeikeAuthMixin, WeikeSearchMixin, WeikeDocumentMixin, Weik
                 login_url=normalized_login_url,
             )
             return WeikeSession(
-                playwright=playwright,
-                browser=browser,
-                context=context,
                 page=page,
+                context=context,
+                context_manager=cm,
                 username=username,
                 password=password,
                 login_url=normalized_login_url,
             )
         except Exception:
             try:
-                page.close()
-                context.close()
-                browser.close()
-                playwright.stop()
+                cm.__exit__(None, None, None)
             except Exception:
                 pass
             raise

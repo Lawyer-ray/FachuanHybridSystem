@@ -2,20 +2,23 @@
  * 诉讼流程看板
  */
 import { useState } from 'react'
+import { useNavigate } from 'react-router'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { RefreshCw } from 'lucide-react'
-import { useWorkflows, useApproveWorkflow } from './hooks/useWorkflows'
+import { RefreshCw, GitBranch, Trash2 } from 'lucide-react'
+import { useWorkflows, useApproveWorkflow, useDeleteWorkflow } from './hooks/useWorkflows'
 import { StatusBadge } from './components/StatusBadge'
 import { GateApprovalDialog } from './components/GateApprovalDialog'
 import { WorkflowDetailPanel } from './WorkflowDetail'
 import type { WorkflowRun } from './types'
 
 export function WorkflowDashboard() {
+  const navigate = useNavigate()
   const { data: runs, isLoading, refetch } = useWorkflows()
   const [selectedRun, setSelectedRun] = useState<WorkflowRun | null>(null)
   const [approvalTarget, setApprovalTarget] = useState<WorkflowRun | null>(null)
   const approveMutation = useApproveWorkflow()
+  const deleteMutation = useDeleteWorkflow()
 
   if (isLoading) {
     return (
@@ -29,10 +32,16 @@ export function WorkflowDashboard() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">诉讼流程</h1>
-        <Button variant="outline" size="sm" onClick={() => refetch()}>
-          <RefreshCw className="h-4 w-4 mr-2" />
-          刷新
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={() => navigate('/admin/workflows/templates')}>
+            <GitBranch className="h-4 w-4 mr-2" />
+            模板管理
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => refetch()}>
+            <RefreshCw className="h-4 w-4 mr-2" />
+            刷新
+          </Button>
+        </div>
       </div>
 
       {(!runs || runs.length === 0) ? (
@@ -54,7 +63,22 @@ export function WorkflowDashboard() {
               <CardHeader className="pb-2">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-base">{run.template}</CardTitle>
-                  <StatusBadge status={run.status} />
+                  <div className="flex items-center gap-2">
+                    <StatusBadge status={run.status} />
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        if (confirm(`确定删除工作流「${run.template}」？此操作不可撤销。`)) {
+                          deleteMutation.mutate(run.run_id)
+                        }
+                      }}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
                 </div>
               </CardHeader>
               <CardContent>

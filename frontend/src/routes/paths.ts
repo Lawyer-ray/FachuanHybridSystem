@@ -78,6 +78,9 @@ export const PATHS = {
   // 诉讼流程
   ADMIN_WORKFLOWS: '/admin/workflows',
   ADMIN_WORKFLOW_DETAIL: '/admin/workflows/:id',
+  ADMIN_WORKFLOW_TEMPLATES: '/admin/workflows/templates',
+  ADMIN_WORKFLOW_TEMPLATE_NEW: '/admin/workflows/templates/new',
+  ADMIN_WORKFLOW_TEMPLATE_EDIT: '/admin/workflows/templates/:id/edit',
 
   // 联系人搜索
   ADMIN_CONTACT_SEARCH: '/admin/contact-search',

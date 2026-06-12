@@ -68,8 +68,14 @@ class Command(BaseCommand):
             collect_case_facts,
             download_litigation_document,
             execute_court_filing,
+            execute_mcp_tool,
+            fetch_template_schema,
             generate_complaint,
             generate_complaint_simple,
+            generic_code_exec,
+            generic_delay,
+            generic_http_request,
+            generic_llm_call,
             list_case_materials,
             record_step,
             review_complaint_quality,
@@ -77,7 +83,7 @@ class Command(BaseCommand):
             summarize_evidence,
             update_run_status,
         )
-        from apps.workflow.temporal.workflows import SalesContractDisputeWorkflow
+        from apps.workflow.temporal.workflows import DynamicWorkflow, SalesContractDisputeWorkflow
 
         temporal_addr = options["temporal_address"]
         task_queue = options["task_queue"]
@@ -91,6 +97,7 @@ class Command(BaseCommand):
             task_queue=task_queue,
             workflows=[
                 SalesContractDisputeWorkflow,
+                DynamicWorkflow,
             ],
             activities=[
                 record_step,
@@ -107,6 +114,12 @@ class Command(BaseCommand):
                 review_complaint_quality,
                 execute_court_filing,
                 download_litigation_document,
+                fetch_template_schema,
+                generic_delay,
+                generic_llm_call,
+                generic_http_request,
+                generic_code_exec,
+                execute_mcp_tool,
             ],
             max_concurrent_activities=options["max_activities"],
             workflow_runner=UnsandboxedWorkflowRunner(),

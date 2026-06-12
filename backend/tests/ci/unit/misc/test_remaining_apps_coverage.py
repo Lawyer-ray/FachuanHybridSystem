@@ -1,4 +1,4 @@
-"""Comprehensive tests for oa_filing, client, message_hub, express_query, image_rotation, pdf_splitting, fee_notice."""
+"""Comprehensive tests for oa_filing, client, message_hub, express_query, image_rotation, pdf_splitting."""
 
 from __future__ import annotations
 
@@ -148,16 +148,6 @@ class TestImageRotationImports:
 class TestPDFSplittingImports:
     def test_pdf_splitting_imports(self):
         from apps.pdf_splitting import models
-
-        assert models is not None
-
-
-# ── Fee Notice tests ──
-
-
-class TestFeeNoticeImports:
-    def test_fee_notice_imports(self):
-        from apps.fee_notice import models
 
         assert models is not None
 

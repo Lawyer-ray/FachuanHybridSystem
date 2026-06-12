@@ -1,4 +1,4 @@
-"""Evidence Admin 测试 - EvidenceListAdmin, EvidenceItemAdmin, EvidenceGroupAdmin, HearingNoteAdmin"""
+"""Evidence Admin 测试 - EvidenceListAdmin, EvidenceItemAdmin, EvidenceGroupAdmin"""
 
 from __future__ import annotations
 
@@ -12,8 +12,7 @@ from django.test import RequestFactory
 from apps.evidence.admin.evidence_admin import EvidenceListAdmin
 from apps.evidence.admin.evidence_item_admin import EvidenceItemAdmin
 from apps.evidence.admin.group_admin import EvidenceGroupAdmin
-from apps.evidence.admin.hearing_note_admin import HearingNoteAdmin
-from apps.evidence.models import EvidenceGroup, EvidenceItem, EvidenceList, HearingNote
+from apps.evidence.models import EvidenceGroup, EvidenceItem, EvidenceList
 from apps.cases.models import Case
 from apps.contracts.models import Contract
 
@@ -124,56 +123,3 @@ class TestEvidenceGroupAdmin:
         qs = admin_obj.get_queryset(_make_request())
         obj = qs.first()
         assert admin_obj.item_count(obj) == 1
-
-
-@pytest.mark.django_db
-class TestHearingNoteAdmin:
-    """HearingNoteAdmin 测试"""
-
-    def test_list_display_fields(self) -> None:
-        """list_display 包含必要字段"""
-        admin_obj = HearingNoteAdmin(HearingNote, AdminSite())
-        assert "case" in admin_obj.list_display
-        assert "content_short" in admin_obj.list_display
-        assert "evidence_count" in admin_obj.list_display
-
-    def test_list_select_related(self) -> None:
-        """list_select_related 包含 case"""
-        admin_obj = HearingNoteAdmin(HearingNote, AdminSite())
-        assert "case" in admin_obj.list_select_related
-
-    def test_get_queryset_annotate_evidence_count(self) -> None:
-        """get_queryset 应使用 annotate(Count) 计算 evidence_count"""
-        case = _create_case("庭审笔记测试案件")
-        elist = EvidenceList.objects.create(
-            case=case, title="庭审笔记证据清单", list_type="previous", order=1
-        )
-        item = EvidenceItem.objects.create(evidence_list=elist, order=1, name="庭审笔记证据")
-        note = HearingNote.objects.create(case=case, content="庭审笔记内容")
-        note.evidence_items.add(item)
-
-        admin_obj = HearingNoteAdmin(HearingNote, AdminSite())
-        qs = admin_obj.get_queryset(_make_request())
-        results = list(qs)
-        assert len(results) == 1
-        assert results[0].evidence_count == 1
-
-    def test_content_short_truncation(self) -> None:
-        """content_short 应截断长内容"""
-        case = _create_case("截断测试案件")
-        long_content = "a" * 100
-        note = HearingNote.objects.create(case=case, content=long_content)
-
-        admin_obj = HearingNoteAdmin(HearingNote, AdminSite())
-        result = admin_obj.content_short(note)
-        assert len(result) <= 53  # 50 + "..."
-        assert result.endswith("...")
-
-    def test_content_short_no_truncation(self) -> None:
-        """content_short 不应截断短内容"""
-        case = _create_case("短内容测试案件")
-        note = HearingNote.objects.create(case=case, content="短内容")
-
-        admin_obj = HearingNoteAdmin(HearingNote, AdminSite())
-        result = admin_obj.content_short(note)
-        assert result == "短内容"

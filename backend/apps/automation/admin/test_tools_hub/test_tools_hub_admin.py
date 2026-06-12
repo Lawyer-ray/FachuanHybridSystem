@@ -45,13 +45,6 @@ class TestToolsHubAdmin(admin.ModelAdmin):  # pragma: no cover
 
         test_tools: list[Any] = [
             {
-                "name": "交费通知书识别",
-                "description": "测试交费通知书 PDF 的 OCR 识别和信息提取功能",
-                "url": "fee_notice_feenoticetool_changelist",
-                "icon": icon_document,
-                "color": "primary",
-            },
-            {
                 "name": "图片自动旋转",
                 "description": "批量处理图片方向,自动识别 EXIF 信息并旋转校正,支持手动调整和 ZIP 导出",
                 "url": "image_rotation_imagerotationtool_changelist",

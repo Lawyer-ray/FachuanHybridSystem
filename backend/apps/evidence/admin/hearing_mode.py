@@ -2,16 +2,15 @@
 
 from __future__ import annotations
 
-import json
 import logging
 from typing import Any
 
 from django.contrib import admin
-from django.http import HttpRequest, JsonResponse
+from django.http import HttpRequest
 from django.template.response import TemplateResponse
 from django.urls import path
 
-from apps.evidence.models import EvidenceDirection, EvidenceItem, EvidenceList, EvidenceType, HearingNote
+from apps.evidence.models import EvidenceItem, EvidenceList, EvidenceType
 
 logger = logging.getLogger("apps.evidence")
 
@@ -26,11 +25,6 @@ class HearingModeAdminMixin:  # pragma: no cover
                 "hearing-mode/<int:case_id>/",
                 self.admin_site.admin_view(self.hearing_mode_view),  # type: ignore[attr-defined]
                 name="evidence_hearing_mode",
-            ),
-            path(
-                "hearing-note/<int:case_id>/save/",
-                self.admin_site.admin_view(self.hearing_note_save_view),  # type: ignore[attr-defined]
-                name="evidence_hearing_note_save",
             ),
         ]
         return custom + urls  # type: ignore[no-any-return]
@@ -77,29 +71,6 @@ class HearingModeAdminMixin:  # pragma: no cover
             "site_title": admin.site.site_title,
         }
         return TemplateResponse(request, "admin/evidence/hearing_mode.html", context)
-
-    def hearing_note_save_view(self, request: HttpRequest, case_id: int) -> JsonResponse:  # pragma: no cover
-        if request.method != "POST":
-            return JsonResponse({"success": False, "error": "Method not allowed"}, status=405)
-
-        data = json.loads(request.body)
-        content = data.get("content", "").strip()
-        if not content:
-            return JsonResponse({"success": False, "error": "内容不能为空"})
-
-        note = HearingNote.objects.create(case_id=case_id, content=content)
-
-        evidence_order = data.get("evidence_order")
-        if evidence_order:
-            # 通过全局序号找到对应的 EvidenceItem
-            for el in EvidenceList.objects.filter(case_id=case_id).order_by("order"):
-                start = el.start_order
-                for item in el.items.order_by("order"):
-                    if start + item.order - 1 == int(evidence_order):
-                        note.evidence_items.add(item)
-                        break
-
-        return JsonResponse({"success": True, "note_id": note.pk})
 
 
 def _format_properties(data: dict[str, Any] | None) -> str:
