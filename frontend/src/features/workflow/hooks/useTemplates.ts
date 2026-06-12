@@ -3,7 +3,7 @@
  */
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { workflowApi } from '../api'
-import type { WorkflowTemplate, StepCategory } from '../types'
+import type { WorkflowTemplate } from '../types'
 
 const TEMPLATE_KEYS = {
   all: ['workflow', 'templates'] as const,

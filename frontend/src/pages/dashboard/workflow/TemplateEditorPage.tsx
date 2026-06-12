@@ -36,13 +36,10 @@ import {
   Save,
   Undo2,
   Redo2,
-  ZoomIn,
-  ZoomOut,
   Search,
   X,
   ChevronDown,
   ChevronRight,
-  GripVertical,
   Trash2,
   Copy,
   Plus,
@@ -93,9 +90,8 @@ import {
   useUpdateTemplate,
   useStepRegistry,
 } from '@/features/workflow/hooks/useTemplates'
-import type { StepNode, StepCategory, StepDefinition, StepType, ConfigField } from '@/features/workflow/types'
+import type { StepNode, StepCategory, StepDefinition, WorkflowTemplate } from '@/features/workflow/types'
 import { SortableStepNode } from './components/SortableStepNode'
-import { StepNodeCard } from './components/StepNodeCard'
 
 // ── 图标映射 ──────────────────────────────────────────────────────────────────
 
@@ -109,7 +105,7 @@ const ICON_MAP: Record<string, LucideIcon> = {
 }
 
 function getIcon(name?: string): LucideIcon {
-  return ICON_MAP[name] || Play
+  return (name && ICON_MAP[name]) || Play
 }
 
 // ── 内联步骤卡片（用于拖拽预览和画布节点） ────────────────────────────────────
@@ -338,7 +334,7 @@ export default function TemplateEditorPage() {
       const payload = {
         name,
         slug: slug || undefined,
-        category,
+        category: category as WorkflowTemplate['category'],
         description,
         temporal_workflow_name: temporalName || 'DynamicWorkflow',
         steps,

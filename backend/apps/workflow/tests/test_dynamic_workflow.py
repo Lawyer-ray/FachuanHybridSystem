@@ -12,11 +12,11 @@ import sys
 
 os.environ.setdefault("DJANGO_SETTINGS_MODULE", "apiSystem.settings")
 
-import django  # noqa: E402
+import django
 
 django.setup()
 
-from temporalio.client import Client  # noqa: E402
+from temporalio.client import Client
 
 TEMPORAL_ADDRESS = "localhost:7233"
 TASK_QUEUE = "fachuan-workflow"
@@ -191,7 +191,7 @@ async def run_dynamic_workflow_test() -> bool:
         if run.status == WorkflowRun.Status.COMPLETED:
             break
         if run.status == WorkflowRun.Status.FAILED:
-            print(f"❌ Workflow 失败")
+            print("❌ Workflow 失败")
             all_steps = [s async for s in run.step_executions.all()]
             for s in all_steps:
                 print(f"  {s.step_id}: {s.status} - {s.error_message or ''}")
