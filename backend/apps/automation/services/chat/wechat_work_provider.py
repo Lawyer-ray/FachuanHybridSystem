@@ -95,7 +95,7 @@ class WeChatWorkProvider(WeChatWorkTokenMixin, WeChatWorkFileMixin, ChatProvider
                 )
 
             # chatid：用 MD5 哈希生成唯一且合规的群聊 ID（避免中文被全替换为下划线）
-            chatid = hashlib.md5(f"case_{chat_name}_{uuid4().hex[:8]}".encode()).hexdigest()[:32]
+            chatid = hashlib.md5(f"case_{chat_name}_{uuid4().hex}".encode()).hexdigest()[:32]
 
             access_token = self._get_access_token()
             url = f"https://qyapi.weixin.qq.com/cgi-bin/appchat/create?access_token={access_token}"
