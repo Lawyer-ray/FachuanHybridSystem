@@ -16,8 +16,8 @@ API文档参考：
 - WECHAT_WORK.DEFAULT_OWNER_ID: 默认群主userid（建群必须）
 """
 
+import hashlib
 import logging
-import re
 from typing import Any
 from uuid import uuid4
 
@@ -94,9 +94,8 @@ class WeChatWorkProvider(WeChatWorkTokenMixin, WeChatWorkFileMixin, ChatProvider
                     errors={"userlist": userlist, "config_key": "WECHAT_WORK_DEFAULT_MEMBER_IDS"},
                 )
 
-            # chatid 必填，仅允许字母数字连字符下划线，最大 128 字符
-            safe_chatid = re.sub(r"[^a-zA-Z0-9_-]", "_", f"case_{chat_name[:50]}")
-            chatid = f"{safe_chatid}_{uuid4().hex[:8]}"[:128]
+            # chatid：用 MD5 哈希生成唯一且合规的群聊 ID（避免中文被全替换为下划线）
+            chatid = hashlib.md5(f"case_{chat_name}_{uuid4().hex[:8]}".encode()).hexdigest()[:32]
 
             access_token = self._get_access_token()
             url = f"https://qyapi.weixin.qq.com/cgi-bin/appchat/create?access_token={access_token}"

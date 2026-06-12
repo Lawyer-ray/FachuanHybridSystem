@@ -31,6 +31,9 @@ RUN uv sync --frozen --no-dev
 # 安装 CloakBrowser 浏览器二进制（替代 Playwright chromium，内置 C++ 级反检测）
 RUN uv run python -m cloakbrowser install
 
+# 自动安装 Chromium 所需的系统库（libnspr4 等 NSS 套件）
+RUN uv run playwright install-deps chromium
+
 # 复制项目代码
 COPY . .
 
