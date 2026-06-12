@@ -15,6 +15,28 @@ from temporalio import activity
 logger = logging.getLogger(__name__)
 
 
+# ── 辅助函数 ──────────────────────────────────────────────
+
+
+async def _llm_chat(system: str, user: str) -> str:
+    """LLM 聊天辅助: 处理初始化 + 消息构建 + 调用"""
+    from apps.core.llm.config import LLMConfig
+    from apps.core.llm.service import LLMService
+
+    llm = await LLMService.create()
+    messages = [
+        {"role": "system", "content": system},
+        {"role": "user", "content": user},
+    ]
+    # 使用配置的默认后端，显式传入避免 fallback 到无效后端
+    default_backend = await LLMConfig.get_default_backend_async()
+    response = await llm.achat(messages=messages, backend=default_backend, fallback=False)
+    return response.content
+
+
+# ── 状态管理 ──────────────────────────────────────────────
+
+
 @activity.defn
 async def record_step(
     run_id: int,
@@ -63,6 +85,9 @@ async def update_run_status(run_id: int, status: str, current_step_id: str = "")
     await run.asave(update_fields=["status", "current_step_id", "finished_at"])
 
 
+# ── 案件信息收集 ──────────────────────────────────────────
+
+
 @activity.defn
 async def collect_case_facts(case_id: int) -> dict:
     """收集案件基本事实"""
@@ -106,18 +131,19 @@ async def list_case_materials(case_id: int) -> list[dict]:
     ]
 
 
+# ── 证据分析 ──────────────────────────────────────────────
+
+
 @activity.defn
 async def analyze_single_evidence(material: dict) -> dict:
     """LLM 分析单份证据"""
-    from apps.core.llm.service import LLMService
     from apps.documents.services.text_extractor import extract_text
 
     text = await extract_text(material["file_path"])
     if not text:
         text = material.get("name", "")
 
-    llm = LLMService()
-    analysis = await llm.chat(
+    analysis = await _llm_chat(
         system=(
             "你是诉讼证据分析专家。请从以下证据中提取关键信息：\n"
             "1. 法律关系类型\n2. 关键事实（金额、日期、当事人）\n"
@@ -136,12 +162,9 @@ async def analyze_single_evidence(material: dict) -> dict:
 @activity.defn
 async def summarize_evidence(analyses: list[dict]) -> dict:
     """LLM 汇总所有证据分析"""
-    from apps.core.llm.service import LLMService
-
     combined = "\n\n".join(f"【{a['material_name']}】\n{a['analysis']}" for a in analyses)
 
-    llm = LLMService()
-    summary = await llm.chat(
+    summary = await _llm_chat(
         system=(
             "你是资深诉讼律师。请汇总以下所有证据分析，输出：\n"
             "1. 法律关系定性\n2. 争议焦点\n3. 诉讼时效分析\n"
@@ -156,10 +179,7 @@ async def summarize_evidence(analyses: list[dict]) -> dict:
 @activity.defn
 async def suggest_arrangement(summary: dict) -> list[dict]:
     """LLM 建议证据排列顺序"""
-    from apps.core.llm.service import LLMService
-
-    llm = LLMService()
-    result = await llm.chat(
+    result = await _llm_chat(
         system=(
             "你是诉讼证据排列专家。请根据以下证据分析，建议最优的证据排列顺序。\n"
             "返回 JSON 数组，每项包含: id, name, reason（排列理由）\n"
@@ -190,6 +210,9 @@ async def apply_arrangement(case_id: int, arrangement: list[dict]) -> None:
             await CaseMaterial.objects.filter(pk=mat_id, case_id=case_id).aupdate(order=i)
 
 
+# ── 起诉状生成 ────────────────────────────────────────────
+
+
 @activity.defn
 async def build_litigation_context(case_id: int, summary: dict, arrangement: list[dict]) -> dict:
     """构建起诉状上下文"""
@@ -197,7 +220,9 @@ async def build_litigation_context(case_id: int, summary: dict, arrangement: lis
     from apps.cases.models.party import CaseParty
 
     case = await Case.objects.select_related("contract").aget(pk=case_id)
-    parties = [p async for p in CaseParty.objects.filter(case_id=case_id)]
+    parties = [
+        p async for p in CaseParty.objects.filter(case_id=case_id).select_related("client")
+    ]
 
     return {
         "case": {
@@ -208,7 +233,12 @@ async def build_litigation_context(case_id: int, summary: dict, arrangement: lis
             "case_type": case.case_type,
         },
         "parties": [
-            {"name": p.name, "role": p.role, "id_number": p.id_number, "address": p.address}
+            {
+                "name": p.client.name if p.client else "",
+                "role": p.legal_status,
+                "id_number": getattr(p.client, "id_number", "") if p.client else "",
+                "address": getattr(p.client, "address", "") if p.client else "",
+            }
             for p in parties
         ],
         "evidence_summary": summary,
@@ -232,10 +262,7 @@ async def generate_complaint(context: dict, feedback: str | None = None) -> dict
 @activity.defn
 async def generate_complaint_simple(case_id: int, facts: dict) -> dict:
     """简化版起诉状生成（测试用）"""
-    from apps.core.llm.service import LLMService
-
-    llm = LLMService()
-    text = await llm.chat(
+    text = await _llm_chat(
         system="你是诉讼律师，请根据以下案件事实生成一份民事起诉状。",
         user=f"案件事实:\n{json.dumps(facts, ensure_ascii=False)}",
     )
@@ -245,10 +272,7 @@ async def generate_complaint_simple(case_id: int, facts: dict) -> dict:
 @activity.defn
 async def review_complaint_quality(draft: dict, summary: dict) -> dict:
     """LLM 审查起诉状质量"""
-    from apps.core.llm.service import LLMService
-
-    llm = LLMService()
-    result = await llm.chat(
+    result = await _llm_chat(
         system=(
             "你是资深诉讼律师，请审查以下起诉状的质量。评估维度：\n"
             "1. 诉讼请求是否完整、金额是否准确\n2. 事实与理由是否与证据一致\n"
@@ -267,6 +291,9 @@ async def review_complaint_quality(draft: dict, summary: dict) -> dict:
         return json.loads(text.strip())
     except (json.JSONDecodeError, IndexError):
         return {"score": 70, "issues": ["解析失败"], "suggestions": [result]}
+
+
+# ── 立案 ──────────────────────────────────────────────────
 
 
 @activity.defn
