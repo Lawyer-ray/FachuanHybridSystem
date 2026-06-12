@@ -33,9 +33,6 @@ import {
   Pause,
   GitBranch,
   RefreshCw,
-  FileText,
-  Scale,
-  Shield,
 } from 'lucide-react'
 import { useTemplates, useDeleteTemplate, useDuplicateTemplate, useUpdateTemplate } from '@/features/workflow/hooks/useTemplates'
 import type { WorkflowTemplate } from '@/features/workflow/types'
@@ -45,18 +42,6 @@ const CATEGORY_LABELS: Record<string, string> = {
   litigation: '诉讼',
   preservation: '保全',
   enforcement: '执行',
-}
-
-const CATEGORY_COLORS: Record<string, string> = {
-  litigation: 'bg-blue-100 text-blue-700',
-  preservation: 'bg-amber-100 text-amber-700',
-  enforcement: 'bg-red-100 text-red-700',
-}
-
-const CATEGORY_ICONS: Record<string, typeof GitBranch> = {
-  litigation: Scale,
-  preservation: Shield,
-  enforcement: FileText,
 }
 
 export default function TemplateListPage() {
@@ -135,7 +120,6 @@ export default function TemplateListPage() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {templates.map((t) => {
-            const Icon = CATEGORY_ICONS[t.category] || GitBranch
             return (
               <Card
                 key={t.id}
@@ -146,22 +130,17 @@ export default function TemplateListPage() {
               >
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between gap-2">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <div className={`p-2 rounded-lg shrink-0 ${CATEGORY_COLORS[t.category] || 'bg-gray-100'}`}>
-                        <Icon className="h-4 w-4" />
-                      </div>
-                      <div className="min-w-0">
-                        <CardTitle className="text-base line-clamp-1">{t.name}</CardTitle>
-                        <div className="flex items-center gap-2 mt-1">
-                          <Badge variant="secondary" className="text-xs">
-                            {CATEGORY_LABELS[t.category] || t.category}
+                    <div className="min-w-0">
+                      <CardTitle className="text-base line-clamp-1">{t.name}</CardTitle>
+                      <div className="flex items-center gap-2 mt-1">
+                        <Badge variant="secondary" className="text-xs">
+                          {CATEGORY_LABELS[t.category] || t.category}
+                        </Badge>
+                        {!t.is_active && (
+                          <Badge variant="outline" className="text-xs text-muted-foreground">
+                            已停用
                           </Badge>
-                          {!t.is_active && (
-                            <Badge variant="outline" className="text-xs text-muted-foreground">
-                              已停用
-                            </Badge>
-                          )}
-                        </div>
+                        )}
                       </div>
                     </div>
                     <DropdownMenu>
@@ -216,9 +195,9 @@ export default function TemplateListPage() {
                     </DropdownMenu>
                   </div>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="pt-0">
                   {t.description && (
-                    <p className="text-sm text-muted-foreground mb-3 line-clamp-2">{t.description}</p>
+                    <p className="text-sm text-muted-foreground mb-2 line-clamp-2">{t.description}</p>
                   )}
                   <div className="flex items-center gap-4 text-xs text-muted-foreground min-w-0">
                     <span className="flex items-center gap-1 shrink-0">
