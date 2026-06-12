@@ -17,7 +17,6 @@
     function init() {
         initFormEnhancements();
         initIdCardValidation();
-        initDocUploadDropzones();
     }
 
     /**
@@ -158,83 +157,6 @@
         return $('[name=csrfmiddlewaretoken]').val() ||
                $('meta[name=csrf-token]').attr('content') ||
                document.querySelector('[name=csrfmiddlewaretoken]')?.value;
-    }
-
-    /**
-     * 证件上传拖拽增强
-     * 将 inline 表格中的 file input 包裹为可视化的拖拽区域
-     */
-    function initDocUploadDropzones() {
-        function setupDropzones() {
-            $('#identity_docs-group td.field-upload input[type="file"]').each(function () {
-                var input = this;
-                if (input.dataset.dropzoneBound) return;
-                input.dataset.dropzoneBound = '1';
-
-                var $input = $(input);
-                var $td = $input.closest('td');
-
-                // 构建 dropzone
-                var $wrapper = $('<div class="dropzone-wrapper"></div>');
-                var $zone = $(
-                    '<div class="file-dropzone">' +
-                        '<span class="dropzone-icon">📎</span>' +
-                        '<span class="dropzone-text">拖拽文件到此处或点击选择</span>' +
-                    '</div>'
-                );
-                $wrapper.append($zone);
-                $td.empty().append($wrapper);
-                $wrapper.append($input); // input 覆盖整个 wrapper（opacity:0）
-
-                function showFile(file) {
-                    $wrapper.addClass('has-file');
-                    $zone.find('.dropzone-text').text(file.name);
-                    $zone.find('.dropzone-preview').remove();
-                    if (file.type && file.type.startsWith('image/')) {
-                        var reader = new FileReader();
-                        reader.onload = function (e) {
-                            $zone.prepend('<img class="dropzone-preview" src="' + e.target.result + '">');
-                        };
-                        reader.readAsDataURL(file);
-                    }
-                }
-
-                // 拖拽事件
-                $wrapper.on('dragenter dragover', function (e) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    $wrapper.addClass('drag-over');
-                });
-                $wrapper.on('dragleave drop', function (e) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    $wrapper.removeClass('drag-over');
-                });
-                $wrapper.on('drop', function (e) {
-                    var dt = e.originalEvent.dataTransfer;
-                    if (dt && dt.files && dt.files.length) {
-                        input.files = dt.files;
-                        showFile(dt.files[0]);
-                        $(input).trigger('change');
-                    }
-                });
-
-                // 手动选择文件后更新显示
-                $input.on('change', function () {
-                    if (input.files && input.files.length) {
-                        showFile(input.files[0]);
-                    }
-                });
-            });
-        }
-
-        setupDropzones();
-        // 新增 inline 行时重新绑定
-        $(document).on('formset:added', function (e, row) {
-            if ($(row).closest('#identity_docs-group').length) {
-                requestAnimationFrame(setupDropzones);
-            }
-        });
     }
 
 })(django.jQuery);
