@@ -94,6 +94,7 @@ from mcp_server.tools.cases import (
     list_causes_data,
     list_causes_tree,
     list_courts_data,
+    get_grant,
     list_grants,
     list_scan_subfolders,
     list_template_bindings,
@@ -414,6 +415,13 @@ from mcp_server.tools.core import (
     update_system_configs,
 )
 from mcp_server.tools.web_search import web_search
+from apps.workflow.mcp.workflow_tools import (
+    approve_workflow_step,
+    cancel_workflow,
+    get_workflow_detail,
+    list_workflows,
+    start_workflow,
+)
 
 __all__ = [
     # 案件
@@ -842,4 +850,10 @@ __all__ = [
     "generate_report",
     # 网络搜索
     "web_search",
+    # 工作流引擎
+    "start_workflow",
+    "list_workflows",
+    "get_workflow_detail",
+    "approve_workflow_step",
+    "cancel_workflow",
 ]

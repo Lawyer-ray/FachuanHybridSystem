@@ -1,0 +1,22 @@
+[
+  {
+    "model": "workflow.workflowtemplate",
+    "pk": 1,
+    "fields": {
+      "name": "买卖合同纠纷(测试)",
+      "slug": "sales-contract-dispute-test",
+      "category": "litigation",
+      "description": "测试用简化流程：收集事实 → 确认 → 生成起诉状 → 审批 → 完成",
+      "temporal_workflow_name": "SalesContractDisputeWorkflow",
+      "steps_schema": [
+        {"id": "collect_facts", "name": "收集案件事实", "type": "activity", "timeout": "30s", "retry_max": 3, "on_fail": "abort"},
+        {"id": "confirm_facts", "name": "确认事实", "type": "gate", "signal_key": "confirm_facts-approved"},
+        {"id": "draft_complaint", "name": "生成起诉状", "type": "activity", "timeout": "5m", "retry_max": 2, "on_fail": "abort"},
+        {"id": "review_complaint", "name": "审批起诉状", "type": "gate", "signal_key": "review_complaint-approved"}
+      ],
+      "is_active": true,
+      "created_at": "2026-06-12T00:00:00Z",
+      "updated_at": "2026-06-12T00:00:00Z"
+    }
+  }
+]

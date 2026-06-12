@@ -103,6 +103,7 @@ INSTALLED_APPS = [
     "apps.doc_convert",  # 6.7 要素式转换（传统文书转要素式文书）
     "apps.doc_converter",  # 6.71 DOC 批量转 DOCX
     "apps.workbench",  # 6.8 工作台（AI 对话式操作中心）
+    "apps.workflow",  # 6.9 工作流引擎（Temporal 集成）
     "apps.core",  # 7. 核心系统
     "apps.social_auth",  # 7.1 社交登录
     "django_q",  # 8. DJANGO Q

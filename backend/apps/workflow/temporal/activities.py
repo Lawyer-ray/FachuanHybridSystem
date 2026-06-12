@@ -1,0 +1,287 @@
+"""Temporal Activity 定义。
+
+Activity 是普通 Python 函数，没有确定性约束。
+可以直接调 Django ORM、LLM Service、其他 Django App。
+"""
+
+from __future__ import annotations
+
+import json
+import logging
+from typing import Any
+
+from temporalio import activity
+
+logger = logging.getLogger(__name__)
+
+
+@activity.defn
+async def record_step(
+    run_id: int,
+    step_id: str,
+    step_name: str,
+    step_type: str,
+    status: str,
+    output_data: Any = None,
+    error_message: str | None = None,
+) -> None:
+    """记录步骤执行状态"""
+    from django.utils import timezone
+
+    from apps.workflow.models import StepExecution
+
+    step_exec, created = await StepExecution.objects.aupdate_or_create(
+        workflow_run_id=run_id,
+        step_id=step_id,
+        defaults={
+            "step_name": step_name,
+            "step_type": step_type,
+            "status": status,
+            "output_data": output_data,
+            "error_message": error_message,
+            "started_at": timezone.now() if status == StepExecution.Status.RUNNING else None,
+            "finished_at": timezone.now() if status in (StepExecution.Status.SUCCESS, StepExecution.Status.FAILED) else None,
+        },
+    )
+    if not created:
+        step_exec.attempts = (step_exec.attempts or 0) + 1
+        await step_exec.asave(update_fields=["attempts"])
+
+
+@activity.defn
+async def update_run_status(run_id: int, status: str, current_step_id: str = "") -> None:
+    """更新 WorkflowRun 状态"""
+    from django.utils import timezone
+
+    from apps.workflow.models import WorkflowRun
+
+    run = await WorkflowRun.objects.aget(pk=run_id)
+    run.status = status
+    run.current_step_id = current_step_id
+    if status in (WorkflowRun.Status.COMPLETED, WorkflowRun.Status.FAILED, WorkflowRun.Status.CANCELLED):
+        run.finished_at = timezone.now()
+    await run.asave(update_fields=["status", "current_step_id", "finished_at"])
+
+
+@activity.defn
+async def collect_case_facts(case_id: int) -> dict:
+    """收集案件基本事实"""
+    from apps.cases.models import Case
+    from apps.cases.models.party import CaseParty
+
+    logger.info("collect_case_facts: case_id=%d", case_id)
+    case = await Case.objects.select_related("contract").aget(pk=case_id)
+    parties = [
+        p async for p in CaseParty.objects.filter(case_id=case_id).select_related("client")
+    ]
+
+    return {
+        "case_id": case.id,
+        "case_name": case.name,
+        "cause_of_action": case.cause_of_action,
+        "target_amount": str(case.target_amount) if case.target_amount else None,
+        "case_type": case.case_type,
+        "start_date": str(case.start_date) if case.start_date else None,
+        "parties": [
+            {
+                "name": p.client.name if p.client else "",
+                "role": p.legal_status,
+                "id_number": getattr(p.client, "id_number", "") if p.client else "",
+                "address": getattr(p.client, "address", "") if p.client else "",
+            }
+            for p in parties
+        ],
+    }
+
+
+@activity.defn
+async def list_case_materials(case_id: int) -> list[dict]:
+    """获取案件材料列表"""
+    from apps.cases.models import CaseMaterial
+
+    materials = [m async for m in CaseMaterial.objects.filter(case_id=case_id).order_by("order")]
+    return [
+        {"id": m.id, "name": m.name, "file_path": m.file_path, "content_type": m.content_type}
+        for m in materials
+    ]
+
+
+@activity.defn
+async def analyze_single_evidence(material: dict) -> dict:
+    """LLM 分析单份证据"""
+    from apps.core.llm.service import LLMService
+    from apps.documents.services.text_extractor import extract_text
+
+    text = await extract_text(material["file_path"])
+    if not text:
+        text = material.get("name", "")
+
+    llm = LLMService()
+    analysis = await llm.chat(
+        system=(
+            "你是诉讼证据分析专家。请从以下证据中提取关键信息：\n"
+            "1. 法律关系类型\n2. 关键事实（金额、日期、当事人）\n"
+            "3. 对我方有利/不利的点\n4. 证据证明力评估\n请用结构化格式回答。"
+        ),
+        user=text[:8000],
+    )
+
+    return {
+        "material_id": material["id"],
+        "material_name": material["name"],
+        "analysis": analysis,
+    }
+
+
+@activity.defn
+async def summarize_evidence(analyses: list[dict]) -> dict:
+    """LLM 汇总所有证据分析"""
+    from apps.core.llm.service import LLMService
+
+    combined = "\n\n".join(f"【{a['material_name']}】\n{a['analysis']}" for a in analyses)
+
+    llm = LLMService()
+    summary = await llm.chat(
+        system=(
+            "你是资深诉讼律师。请汇总以下所有证据分析，输出：\n"
+            "1. 法律关系定性\n2. 争议焦点\n3. 诉讼时效分析\n"
+            "4. 诉讼请求建议（金额、利息计算）\n5. 风险提示\n请用结构化格式回答。"
+        ),
+        user=combined[:16000],
+    )
+
+    return {"summary": summary, "evidence_count": len(analyses)}
+
+
+@activity.defn
+async def suggest_arrangement(summary: dict) -> list[dict]:
+    """LLM 建议证据排列顺序"""
+    from apps.core.llm.service import LLMService
+
+    llm = LLMService()
+    result = await llm.chat(
+        system=(
+            "你是诉讼证据排列专家。请根据以下证据分析，建议最优的证据排列顺序。\n"
+            "返回 JSON 数组，每项包含: id, name, reason（排列理由）\n"
+            "排列原则：按时间线 + 逻辑递进（先基础关系证据，再履行证据，再违约证据）"
+        ),
+        user=json.dumps(summary, ensure_ascii=False)[:8000],
+    )
+
+    try:
+        text = result
+        if "```" in text:
+            text = text.split("```")[1]
+            if text.startswith("json"):
+                text = text[4:]
+        return json.loads(text.strip())
+    except (json.JSONDecodeError, IndexError):
+        return [{"id": 0, "name": "解析失败", "reason": result}]
+
+
+@activity.defn
+async def apply_arrangement(case_id: int, arrangement: list[dict]) -> None:
+    """应用证据排列顺序"""
+    from apps.cases.models import CaseMaterial
+
+    for i, item in enumerate(arrangement):
+        mat_id = item.get("id")
+        if mat_id:
+            await CaseMaterial.objects.filter(pk=mat_id, case_id=case_id).aupdate(order=i)
+
+
+@activity.defn
+async def build_litigation_context(case_id: int, summary: dict, arrangement: list[dict]) -> dict:
+    """构建起诉状上下文"""
+    from apps.cases.models import Case
+    from apps.cases.models.party import CaseParty
+
+    case = await Case.objects.select_related("contract").aget(pk=case_id)
+    parties = [p async for p in CaseParty.objects.filter(case_id=case_id)]
+
+    return {
+        "case": {
+            "id": case.id,
+            "name": case.name,
+            "cause_of_action": case.cause_of_action,
+            "target_amount": str(case.target_amount) if case.target_amount else None,
+            "case_type": case.case_type,
+        },
+        "parties": [
+            {"name": p.name, "role": p.role, "id_number": p.id_number, "address": p.address}
+            for p in parties
+        ],
+        "evidence_summary": summary,
+        "arrangement": arrangement,
+    }
+
+
+@activity.defn
+async def generate_complaint(context: dict, feedback: str | None = None) -> dict:
+    """生成起诉状"""
+    from apps.documents.services.litigation_service import LitigationService
+
+    service = LitigationService()
+    return await service.generate_complaint(
+        case_id=context["case"]["id"],
+        context=context,
+        revision_feedback=feedback,
+    )
+
+
+@activity.defn
+async def generate_complaint_simple(case_id: int, facts: dict) -> dict:
+    """简化版起诉状生成（测试用）"""
+    from apps.core.llm.service import LLMService
+
+    llm = LLMService()
+    text = await llm.chat(
+        system="你是诉讼律师，请根据以下案件事实生成一份民事起诉状。",
+        user=f"案件事实:\n{json.dumps(facts, ensure_ascii=False)}",
+    )
+    return {"content": text, "case_id": case_id}
+
+
+@activity.defn
+async def review_complaint_quality(draft: dict, summary: dict) -> dict:
+    """LLM 审查起诉状质量"""
+    from apps.core.llm.service import LLMService
+
+    llm = LLMService()
+    result = await llm.chat(
+        system=(
+            "你是资深诉讼律师，请审查以下起诉状的质量。评估维度：\n"
+            "1. 诉讼请求是否完整、金额是否准确\n2. 事实与理由是否与证据一致\n"
+            "3. 法律依据是否正确\n4. 格式是否规范\n\n"
+            '返回 JSON: {"score": 0-100, "issues": [...], "suggestions": [...]}'
+        ),
+        user=f"起诉状:\n{json.dumps(draft, ensure_ascii=False)[:10000]}\n\n证据分析:\n{json.dumps(summary, ensure_ascii=False)[:5000]}",
+    )
+
+    try:
+        text = result
+        if "```" in text:
+            text = text.split("```")[1]
+            if text.startswith("json"):
+                text = text[4:]
+        return json.loads(text.strip())
+    except (json.JSONDecodeError, IndexError):
+        return {"score": 70, "issues": ["解析失败"], "suggestions": [result]}
+
+
+@activity.defn
+async def execute_court_filing(case_id: int) -> dict:
+    """执行网上立案"""
+    from apps.automation.services.litigation.filing_service import CourtFilingService
+
+    service = CourtFilingService()
+    return await service.execute(case_id)
+
+
+@activity.defn
+async def download_litigation_document(document_id: int) -> dict:
+    """下载已生成的诉讼文书"""
+    from apps.documents.services.litigation_service import LitigationService
+
+    service = LitigationService()
+    return await service.download(document_id)
