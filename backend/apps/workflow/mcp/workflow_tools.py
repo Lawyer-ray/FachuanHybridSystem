@@ -129,20 +129,27 @@ async def approve_workflow_step(run_id: int, approved: bool, comment: str = "") 
     """
     from apps.workflow.models import WorkflowRun
 
-    run = await WorkflowRun.objects.aget(pk=run_id)
+    try:
+        run = await WorkflowRun.objects.aget(pk=run_id)
+    except WorkflowRun.DoesNotExist:
+        return {"error": f"工作流运行 #{run_id} 不存在"}
 
     if run.status != WorkflowRun.Status.WAITING_HUMAN:
         return {"error": f"当前状态为 {run.status}，无需审批"}
 
     signal_key = f"{run.current_step_id}_approved"
 
-    client = await _get_client()
-    handle = client.get_workflow_handle(run.temporal_workflow_id)
+    try:
+        client = await _get_client()
+        handle = client.get_workflow_handle(run.temporal_workflow_id)
 
-    await handle.signal(
-        signal_key,
-        {"approved": approved, "step_id": run.current_step_id, "comment": comment},
-    )
+        await handle.signal(
+            signal_key,
+            {"approved": approved, "step_id": run.current_step_id, "comment": comment},
+        )
+    except Exception as e:
+        logger.warning("Temporal signal 发送失败: run_id=%s, error=%s", run_id, e)
+        return {"error": f"Temporal 信号发送失败: {e}"}
 
     run.status = WorkflowRun.Status.RUNNING
     await run.asave(update_fields=["status"])
@@ -165,11 +172,18 @@ async def cancel_workflow(run_id: int) -> dict[str, Any]:
 
     from apps.workflow.models import WorkflowRun
 
-    run = await WorkflowRun.objects.aget(pk=run_id)
+    try:
+        run = await WorkflowRun.objects.aget(pk=run_id)
+    except WorkflowRun.DoesNotExist:
+        return {"error": f"工作流运行 #{run_id} 不存在"}
 
-    client = await _get_client()
-    handle = client.get_workflow_handle(run.temporal_workflow_id)
-    await handle.cancel()
+    try:
+        client = await _get_client()
+        handle = client.get_workflow_handle(run.temporal_workflow_id)
+        await handle.cancel()
+    except Exception as e:
+        logger.warning("Temporal cancel 失败: run_id=%s, error=%s", run_id, e)
+        return {"error": f"Temporal 取消失败: {e}"}
 
     run.status = WorkflowRun.Status.CANCELLED
     run.finished_at = timezone.now()

@@ -62,13 +62,23 @@ async def get_workflow_detail_api(request: Any, run_id: int) -> dict[str, Any]:
 @router.post("/runs/{run_id}/approve")
 async def approve_workflow_api(request: Any, run_id: int, payload: ApproveStepIn) -> dict[str, Any]:
     """审批诉讼工作流步骤"""
-    return await approve_workflow_step(run_id, payload.approved, payload.comment)
+    result = await approve_workflow_step(run_id, payload.approved, payload.comment)
+    if "error" in result:
+        from ninja.errors import HttpError
+
+        raise HttpError(400, result["error"])
+    return result
 
 
 @router.post("/runs/{run_id}/cancel")
 async def cancel_workflow_api(request: Any, run_id: int) -> dict[str, Any]:
     """取消诉讼工作流"""
-    return await cancel_workflow(run_id)
+    result = await cancel_workflow(run_id)
+    if "error" in result:
+        from ninja.errors import HttpError
+
+        raise HttpError(400, result["error"])
+    return result
 
 
 # ── 步骤注册表 ────────────────────────────────────────────────────────────────
