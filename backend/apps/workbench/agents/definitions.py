@@ -149,7 +149,6 @@ def build_model(model_name: str) -> OpenAIChatModel:
     """根据模型名动态构建 Pydantic AI Model
 
     复用已有的 LLMConfig 后端路由逻辑：
-    - 包含 "/" → SiliconFlow
     - 包含 ":" → Ollama
     - 其他 → OpenAI Compatible
 
@@ -162,13 +161,10 @@ def build_model(model_name: str) -> OpenAIChatModel:
     if backend == "ollama":
         base_url = LLMConfig.get_ollama_base_url()
         api_key = "ollama"  # pragma: allowlist secret
-    elif backend == "openai_compatible":
+    else:
+        # 默认 openai_compatible
         api_key = LLMConfig.get_openai_compatible_api_key()
         base_url = LLMConfig.get_openai_compatible_base_url()
-    else:
-        # 默认 siliconflow
-        api_key = LLMConfig.get_api_key()
-        base_url = LLMConfig.get_base_url()
 
     if backend != "ollama" and not api_key:
         logger.warning("LLM API Key 未配置，backend=%s", backend)

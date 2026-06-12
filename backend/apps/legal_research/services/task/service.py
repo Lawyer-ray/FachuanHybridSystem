@@ -18,7 +18,7 @@ from apps.legal_research.models import (
 )
 from apps.legal_research.schemas import LegalResearchTaskCreateIn
 from apps.legal_research.services.keywords import normalize_keyword_query
-from apps.legal_research.services.llm_preflight import verify_siliconflow_connectivity
+from apps.legal_research.services.llm_preflight import verify_llm_connectivity
 from apps.legal_research.services.task.state_sync import sync_failed_queue_state
 
 logger = logging.getLogger(__name__)
@@ -141,7 +141,7 @@ class LegalResearchTaskService:  # pragma: no cover
         raise_on_submit_error: bool = False,
         precheck: Callable[..., None] | None = None,
     ) -> bool:
-        checker = precheck or verify_siliconflow_connectivity
+        checker = precheck or verify_llm_connectivity
         try:
             checker(model=task.llm_model)
         except ValidationException as exc:

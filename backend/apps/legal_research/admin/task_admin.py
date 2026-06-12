@@ -19,7 +19,7 @@ from apps.core.llm.model_list_service import ModelListService
 from apps.legal_research.models import LegalResearchResult, LegalResearchTask, LegalResearchTaskEvent
 from apps.legal_research.models.task import LegalResearchSearchMode, LegalResearchTaskStatus
 from apps.legal_research.services.keywords import KEYWORD_INPUT_HELP_TEXT, normalize_keyword_query
-from apps.legal_research.services.llm_preflight import verify_siliconflow_connectivity
+from apps.legal_research.services.llm_preflight import verify_llm_connectivity
 from apps.legal_research.services.task.feedback_loop import LegalResearchFeedbackLoopService
 from apps.legal_research.services.task.service import LegalResearchTaskService
 from apps.legal_research.services.task.state_sync import sync_failed_queue_state
@@ -751,7 +751,7 @@ class LegalResearchTaskAdmin(admin.ModelAdmin):  # pragma: no cover
             queued = task_service.dispatch_task(
                 task=obj,
                 queue_failure_message="任务重新提交失败",
-                precheck=verify_siliconflow_connectivity,
+                precheck=verify_llm_connectivity,
             )
             if queued:
                 messages.success(request, "任务已重新提交到队列。")
@@ -782,7 +782,7 @@ class LegalResearchTaskAdmin(admin.ModelAdmin):  # pragma: no cover
         queued = task_service.dispatch_task(
             task=obj,
             queue_failure_message="任务提交失败",
-            precheck=verify_siliconflow_connectivity,
+            precheck=verify_llm_connectivity,
         )
         if not queued:
             if obj.message == task_service.PRECHECK_FAILED_MESSAGE:

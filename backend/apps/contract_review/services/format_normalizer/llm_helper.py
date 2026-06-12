@@ -249,7 +249,7 @@ class ContractStructureAnalyzer:  # pragma: no cover
     # ── 兼容旧接口 ──────────────────────────────────────────
 
     def analyze_paragraph_level(  # pragma: no cover
-        self, text: str, context: str = "", llm_backend: str = "siliconflow"
+        self, text: str, context: str = "", llm_backend: str = "openai_compatible"
     ) -> dict[str, Any]:
         """单段落分析（兼容旧接口）"""
         results = self.analyze_document([text], max_rounds=1)

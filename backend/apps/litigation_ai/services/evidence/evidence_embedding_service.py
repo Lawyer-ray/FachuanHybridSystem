@@ -24,7 +24,7 @@ class EvidenceEmbeddingService:  # pragma: no cover
         if not texts:
             return []
         try:
-            return self.llm_service.embed_texts(texts=texts, backend="siliconflow", fallback=False)  # type: ignore[no-any-return]
+            return self.llm_service.embed_texts(texts=texts, backend="openai_compatible", fallback=False)  # type: ignore[no-any-return]
         except Exception:
             logger.warning("在线向量化失败，回退本地哈希向量", exc_info=True)
         return [self._hash_embed(t, dims=dims) for t in texts]

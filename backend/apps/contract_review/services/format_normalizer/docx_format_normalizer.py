@@ -39,7 +39,7 @@ class DocxFormatNormalizer:  # pragma: no cover
         # LLM 分析结果缓存：{para_index: {"level": int, "prefix": str}}
         self._llm_results: dict[int, dict[str, Any]] = {}
 
-    def normalize(self, use_llm: bool = True, llm_backend: str = "siliconflow") -> Path:  # pragma: no cover
+    def normalize(self, use_llm: bool = True, llm_backend: str = "openai_compatible") -> Path:  # pragma: no cover
         """执行格式规范化，返回输出文件路径"""
         logger.info("开始规范化: %s (use_llm=%s)", self.input_path, use_llm)
         self.doc = Document(str(self.input_path))

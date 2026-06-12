@@ -39,16 +39,12 @@ class LLMConfig:
     - ENABLE_TRACKING: 是否启用调用追踪
     """
 
-    DEFAULT_BASE_URL = "https://api.siliconflow.cn/v1"
-    DEFAULT_MODEL = "Qwen/Qwen2.5-7B-Instruct"
-    DEFAULT_TIMEOUT = 900
-
     # Ollama 默认值 (Requirements: 2.2, 2.3)
     DEFAULT_OLLAMA_MODEL = "qwen3:0.6b"
     DEFAULT_OLLAMA_BASE_URL = "http://localhost:11434"
     DEFAULT_OLLAMA_TIMEOUT = 300
 
-    # OpenAI-compatible 默认值（用于 kimi26 等 vLLM 部署）
+    # OpenAI-compatible 默认值
     DEFAULT_OPENAI_COMPATIBLE_MODEL = "kimi26"
     DEFAULT_OPENAI_COMPATIBLE_BASE_URL = "http://116.196.92.175:8001/v1"
     DEFAULT_OPENAI_COMPATIBLE_TIMEOUT = 120
@@ -57,41 +53,18 @@ class LLMConfig:
     _config_cache: ClassVar[dict[str, str]] = {}
 
     DEFAULT_AVAILABLE_MODELS: ClassVar[list[str]] = [
-        # Qwen 系列
-        "Qwen/Qwen2.5-7B-Instruct",
-        "Qwen/Qwen2.5-14B-Instruct",
-        "Qwen/Qwen2.5-32B-Instruct",
-        "Qwen/Qwen3-30B-A3B-Thinking-2507",
-        "Qwen/Qwen3-235B-A22B-Instruct-2507",
-        "Qwen/Qwen3-235B-A22B-Thinking-2507",
-        "Qwen/QwQ-32B-Preview",
-        # DeepSeek 系列
-        "deepseek-ai/DeepSeek-V2.5",
-        "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B",
-        "deepseek-ai/DeepSeek-R1",
-        # GLM 系列
-        "zai-org/GLM-4.6V",
-        "zai-org/GLM-4.7",
-        "zai-org/GLM-4-32B-0414",
-        "zai-org/GLM-Z1-32B-0414",
-        "THUDM/glm-4-9b-chat",
-        # 其他模型
-        "Pro/ByteDance/Seed-OSS-36B-Instruct",
-        "Pro/Tencent/Hunyuan-Translation-7B",
-        "Pro/inclusionAI/Ring-flash-2.0",
         # Kimi26 (vLLM self-hosted)
         "kimi26",
     ]
 
-    # 模型名 → 后端映射规则：含 "/" 的走 siliconflow，含 ":" 的走 ollama，其余走 openai_compatible
+    # 模型名 → 后端映射规则：含 ":" 的走 ollama，其余走 openai_compatible
     _MODEL_BACKEND_RULES: ClassVar[list[tuple[str, str]]] = [
-        ("/", "siliconflow"),
         (":", "ollama"),
     ]
 
     # 缓存 SystemConfigService 实例
     _config_service: SystemConfigService | None = None
-    _VALID_BACKENDS: ClassVar[set[str]] = {"siliconflow", "ollama", "openai_compatible"}
+    _VALID_BACKENDS: ClassVar[set[str]] = {"ollama", "openai_compatible"}
 
     @classmethod
     def _get_config_service(cls) -> SystemConfigService | None:
@@ -123,9 +96,23 @@ class LLMConfig:
         Returns:
             配置值
         """
-        siliconflow_config = getattr(settings, "SILICONFLOW", {} or {})
-        django_key = key.replace("SILICONFLOW_", "")
-        raw_value = siliconflow_config.get(django_key, default)
+        # 尝试读取 LLM 配置组
+        llm_config = getattr(settings, "LLM", {} or {})
+        # 尝试读取 OPENAI_COMPATIBLE 配置组
+        oc_config = getattr(settings, "OPENAI_COMPATIBLE", {} or {})
+        # 尝试读取 OLLAMA 配置组
+        ollama_config = getattr(settings, "OLLAMA", {} or {})
+
+        # 根据 key 前缀选择配置组
+        if key.startswith("OPENAI_COMPATIBLE_"):
+            django_key = key.replace("OPENAI_COMPATIBLE_", "")
+            raw_value = oc_config.get(django_key, default)
+        elif key.startswith("OLLAMA_"):
+            django_key = key.replace("OLLAMA_", "")
+            raw_value = ollama_config.get(django_key, default)
+        else:
+            raw_value = llm_config.get(key, default)
+
         fallback_value = raw_value if isinstance(raw_value, str) else ("" if raw_value is None else str(raw_value))
         return fallback_value
 
@@ -205,106 +192,13 @@ class LLMConfig:
         # Fallback 到 Django settings
         return cls._get_django_settings_fallback(key, default)
 
-    @classmethod
-    def get_api_key(cls) -> str:
-        """
-        获取 API Key
-
-        Returns:
-            API Key 字符串,未配置时返回空字符串
-        """
-        raw = cls._get_system_config("SILICONFLOW_API_KEY", "")
-        return cls._normalize_api_key(raw)
-
-    @classmethod
-    async def get_api_key_async(cls) -> str:
-        raw = await cls._get_system_config_async("SILICONFLOW_API_KEY", "")
-        return cls._normalize_api_key(raw)
-
-    @classmethod
-    def get_base_url(cls) -> str:
-        """
-        获取 API Base URL
-
-        Returns:
-            Base URL 字符串,默认为 https://api.siliconflow.cn/v1
-        """
-        raw = cls._get_system_config("SILICONFLOW_BASE_URL", cls.DEFAULT_BASE_URL)
-        return cls._normalize_base_url(raw)
-
-    @classmethod
-    async def get_base_url_async(cls) -> str:
-        raw = await cls._get_system_config_async("SILICONFLOW_BASE_URL", cls.DEFAULT_BASE_URL)
-        return cls._normalize_base_url(raw)
-
-    @classmethod
-    def get_default_model(cls) -> str:
-        """
-        获取默认模型
-
-        Returns:
-            默认模型名称,默认为 Qwen/Qwen2.5-7B-Instruct
-        """
-        raw = cls._get_system_config("SILICONFLOW_DEFAULT_MODEL", "")
-        return (raw or "").strip() or cls.DEFAULT_MODEL
-
-    @classmethod
-    async def get_default_model_async(cls) -> str:
-        raw = await cls._get_system_config_async("SILICONFLOW_DEFAULT_MODEL", "")
-        return (raw or "").strip() or cls.DEFAULT_MODEL
-
-    @classmethod
-    def get_embedding_model(cls) -> str:
-        raw = cls._get_system_config("SILICONFLOW_EMBEDDING_MODEL", "")
-        if not raw:
-            return cls.get_default_model()
-        return (raw or "").strip() or cls.get_default_model()
-
-    @classmethod
-    def _normalize_api_key(cls, value: str) -> str:
-        v = (value or "").strip()
-        lower = v.lower()
-        if lower.startswith("bearer "):
-            v = v[7:].strip()
-        return v
-
-    @classmethod
-    def _normalize_base_url(cls, value: str) -> str:
-        v = (value or "").strip()
-        while v.endswith("/"):
-            v = v[:-1]
-        return v or cls.DEFAULT_BASE_URL
-
-    @classmethod
-    def get_timeout(cls) -> int:
-        """
-        获取超时时间(秒)
-
-        Returns:
-            超时时间,默认 60 秒
-        """
-        timeout_str = cls._get_system_config("SILICONFLOW_TIMEOUT", str(cls.DEFAULT_TIMEOUT))
-        try:
-            return int(timeout_str)
-        except (ValueError, TypeError):
-            return cls.DEFAULT_TIMEOUT
-
-    @classmethod
-    async def get_timeout_async(cls) -> int:
-        timeout_str = await cls._get_system_config_async("SILICONFLOW_TIMEOUT", str(cls.DEFAULT_TIMEOUT))
-        try:
-            return int(timeout_str)
-        except (ValueError, TypeError):
-            return cls.DEFAULT_TIMEOUT
+    # ============================================================
+    # 通用配置方法
+    # ============================================================
 
     @classmethod
     def get_temperature(cls) -> float:
-        """
-        获取默认生成温度
-
-        Returns:
-            生成温度,默认 0.3
-        """
+        """获取默认生成温度"""
         temp_str = cls._get_system_config("LLM_TEMPERATURE", "0.3")
         try:
             return float(temp_str)
@@ -313,12 +207,7 @@ class LLMConfig:
 
     @classmethod
     def get_max_tokens(cls) -> int:
-        """
-        获取最大输出 Token 数
-
-        Returns:
-            最大 Token 数,默认 2000
-        """
+        """获取最大输出 Token 数"""
         tokens_str = cls._get_system_config("LLM_MAX_TOKENS", "2000")
         try:
             return int(tokens_str)
@@ -332,22 +221,11 @@ class LLMConfig:
 
     @classmethod
     def get_ollama_model(cls) -> str:
-        """
-        获取 Ollama 模型名称
-
-        优先级:SystemConfigService > Django settings.OLLAMA > 默认值
-
-        Returns:
-            Ollama 模型名称
-
-        Requirements: 2.2, 2.3
-        """
-        # 尝试从 SystemConfigService 读取
+        """获取 Ollama 模型名称"""
         model = cls._get_system_config("OLLAMA_MODEL", "")
         if model:
             return model
 
-        # Fallback 到 Django settings
         ollama_config = getattr(settings, "OLLAMA", {} or {})
         raw_value = ollama_config.get("MODEL")
         if isinstance(raw_value, str) and raw_value.strip():
@@ -356,22 +234,11 @@ class LLMConfig:
 
     @classmethod
     def get_ollama_base_url(cls) -> str:
-        """
-        获取 Ollama 服务地址
-
-        优先级:SystemConfigService > Django settings.OLLAMA > 默认值
-
-        Returns:
-            Ollama 服务地址
-
-        Requirements: 2.2, 2.3
-        """
-        # 尝试从 SystemConfigService 读取
+        """获取 Ollama 服务地址"""
         url = cls._get_system_config("OLLAMA_BASE_URL", "")
         if url:
             return url
 
-        # Fallback 到 Django settings
         ollama_config = getattr(settings, "OLLAMA", {} or {})
         raw_value = ollama_config.get("BASE_URL")
         if isinstance(raw_value, str) and raw_value.strip():
@@ -398,6 +265,25 @@ class LLMConfig:
         if isinstance(raw_value, str) and raw_value.strip():
             return raw_value.strip()
         return cls.get_ollama_model()
+
+    # ============================================================
+    # OpenAI-compatible 配置方法
+    # ============================================================
+
+    @classmethod
+    def _normalize_api_key(cls, value: str) -> str:
+        v = (value or "").strip()
+        lower = v.lower()
+        if lower.startswith("bearer "):
+            v = v[7:].strip()
+        return v
+
+    @classmethod
+    def _normalize_base_url(cls, value: str) -> str:
+        v = (value or "").strip()
+        while v.endswith("/"):
+            v = v[:-1]
+        return v
 
     @classmethod
     def get_openai_compatible_api_key(cls) -> str:
@@ -429,6 +315,11 @@ class LLMConfig:
         return (raw or "").strip() or cls.DEFAULT_OPENAI_COMPATIBLE_MODEL
 
     @classmethod
+    async def get_openai_compatible_model_async(cls) -> str:
+        raw = await cls._get_system_config_async("OPENAI_COMPATIBLE_DEFAULT_MODEL", "")
+        return (raw or "").strip() or cls.DEFAULT_OPENAI_COMPATIBLE_MODEL
+
+    @classmethod
     def get_openai_compatible_embedding_model(cls) -> str:
         raw = cls._get_system_config("OPENAI_COMPATIBLE_EMBEDDING_MODEL", "")
         if raw and raw.strip():
@@ -455,6 +346,10 @@ class LLMConfig:
                 return cls.DEFAULT_OPENAI_COMPATIBLE_TIMEOUT
         return cls.DEFAULT_OPENAI_COMPATIBLE_TIMEOUT
 
+    # ============================================================
+    # 后端选择
+    # ============================================================
+
     @classmethod
     def get_default_backend(cls) -> str:
         raw = cls._get_system_config("LLM_DEFAULT_BACKEND", "")
@@ -469,7 +364,7 @@ class LLMConfig:
             normalized = v2.strip().lower()
             if normalized in cls._VALID_BACKENDS:
                 return normalized
-        return "siliconflow"
+        return "openai_compatible"
 
     @classmethod
     async def get_default_backend_async(cls) -> str:
@@ -486,7 +381,7 @@ class LLMConfig:
             normalized = v2.strip().lower()
             if normalized in cls._VALID_BACKENDS:
                 return normalized
-        return "siliconflow"
+        return "openai_compatible"
 
     @classmethod
     def get_backend_configs(cls) -> dict[str, BackendConfig]:
@@ -498,11 +393,11 @@ class LLMConfig:
         def priority_key(name: str) -> str:
             return f"LLM_BACKEND_{name.upper()}_PRIORITY"
 
-        default_priorities = {"siliconflow": 1, "ollama": 2, "openai_compatible": 3}
-        default_enabled = {"siliconflow": True, "ollama": True, "openai_compatible": False}
+        default_priorities = {"ollama": 2, "openai_compatible": 1}
+        default_enabled = {"ollama": True, "openai_compatible": True}
 
         configs: dict[str, BackendConfig] = {}
-        for name in ("siliconflow", "ollama", "openai_compatible"):
+        for name in ("ollama", "openai_compatible"):
             enabled_raw = cls._get_system_config(enabled_key(name), "")
             enabled = cls._parse_bool(enabled_raw, default_enabled[name])
 
@@ -515,18 +410,7 @@ class LLMConfig:
             priority_raw = cls._get_system_config(priority_key(name), "")
             priority = cls._parse_int(priority_raw, default_priorities[name])
 
-            if name == "siliconflow":
-                configs[name] = BackendConfig(
-                    name=name,
-                    enabled=enabled,
-                    priority=priority,
-                    default_model=cls.get_default_model(),
-                    base_url=cls.get_base_url(),
-                    api_key=cls.get_api_key(),
-                    timeout=cls.get_timeout(),
-                    embedding_model=cls.get_embedding_model(),
-                )
-            elif name == "ollama":
+            if name == "ollama":
                 configs[name] = BackendConfig(
                     name=name,
                     enabled=enabled,
@@ -555,7 +439,6 @@ class LLMConfig:
         根据模型名称推断应使用的后端.
 
         规则:
-        - 模型名含 "/" → siliconflow（如 Qwen/Qwen2.5-7B-Instruct）
         - 模型名含 ":" → ollama（如 qwen3:0.6b）
         - 其余 → openai_compatible（如 kimi26）
 
@@ -615,7 +498,6 @@ class LLMConfig:
 
         # 各后端的默认模型也加入列表（确保当前配置的默认模型可选）
         for backend_name, default_model in [
-            ("siliconflow", cls.get_default_model()),
             ("ollama", cls.get_ollama_model()),
             ("openai_compatible", cls.get_openai_compatible_model()),
         ]:

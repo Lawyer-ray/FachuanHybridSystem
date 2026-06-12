@@ -135,7 +135,7 @@ class SolutionTaskAdmin(admin.ModelAdmin):  # pragma: no cover
             if is_fallback:
                 messages.warning(
                     request,
-                    "SiliconFlow 模型列表获取失败：%(error)s，当前显示默认模型列表" % {"error": error_message},
+                    "模型列表获取失败：%(error)s，当前显示默认模型列表" % {"error": error_message},
                 )
 
         return form
