@@ -2,7 +2,14 @@
 
 from __future__ import annotations
 
+import time
+
 from apps.client.models import Client, ClientIdentityDoc, PropertyClue
+
+# 模块级缓存：用于 list_all_clients
+_client_cache: list[Client] | None = None
+_client_cache_time: float = 0
+_client_cache_ttl: int = 300  # 缓存有效期 5 分钟（可调）
 
 
 class ClientInternalQueryService:
@@ -20,7 +27,12 @@ class ClientInternalQueryService:
         return Client.objects.prefetch_related("identity_docs").filter(name=name).first()
 
     def list_all_clients(self) -> list[Client]:  # pragma: no cover
-        return list(Client.objects.prefetch_related("identity_docs").order_by("id"))
+        global _client_cache, _client_cache_time
+        now = time.time()
+        if _client_cache is None or (now - _client_cache_time) > _client_cache_ttl:
+            _client_cache = list(Client.objects.prefetch_related("identity_docs").order_by("id"))
+            _client_cache_time = now
+        return _client_cache
 
     def search_clients_by_name(self, *, name: str, exact_match: bool = False) -> list[Client]:
         if not name:
