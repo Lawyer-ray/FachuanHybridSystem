@@ -355,10 +355,10 @@ class ConversationFlowService:  # pragma: no cover
                     [
                         "⚠️ 大模型鉴权失败(401 Invalid token),已中断生成.",
                         "",
-                        “请到 /admin/core/systemconfig/ 检查以下配置是否正确且启用:”,
-                        “- OPENAI_COMPATIBLE_API_KEY:不要保存成”Bearer xxx”,只填 token 本体;也不要填 **** 掩码”,
-                        f”- OPENAI_COMPATIBLE_BASE_URL:当前读取值为 {base_url}”,
-                        f”- OPENAI_COMPATIBLE_DEFAULT_MODEL:当前读取值为 {default_model}”,
+                        "请到 /admin/core/systemconfig/ 检查以下配置是否正确且启用:",
+                        "- OPENAI_COMPATIBLE_API_KEY:不要保存成 'Bearer xxx',只填 token 本体;也不要填 **** 掩码",
+                        f"- OPENAI_COMPATIBLE_BASE_URL:当前读取值为 {base_url}",
+                        f"- OPENAI_COMPATIBLE_DEFAULT_MODEL:当前读取值为 {default_model}",
                         "",
                         "修复后可回复「重试」或再次回复「无」继续生成.",
                     ]
@@ -450,7 +450,7 @@ class ConversationFlowService:  # pragma: no cover
     async def handle_confirm_generate(self, context: FlowContext, send_callback: Callable[..., Any]) -> None:  # pragma: no cover
         await self._send(
             send_callback,
-            {"type": "system_message", "content": "请在页面点击“生成文档”按钮生成并下载.", "metadata": {}},
+            {"type": "system_message", "content": "请在页面点击「生成文档」按钮生成并下载.", "metadata": {}},
             True,
             context.session_id,
             "system",
