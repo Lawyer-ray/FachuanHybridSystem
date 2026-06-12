@@ -12,9 +12,9 @@ def list_system_configs() -> list[dict[str, Any]]:
     return client.get("/config/system-configs")  # type: ignore[return-value]
 
 
-def update_system_configs(configs: list[dict[str, Any]]) -> dict[str, Any]:
+def update_system_configs(category: str, updates: dict[str, str]) -> dict[str, Any]:
     """批量更新系统配置项，不存在则自动创建。"""
-    return client.put("/config/system-configs", json=configs)  # type: ignore[return-value]
+    return client.put("/config/system-configs", json={"category": category, "updates": updates})  # type: ignore[return-value]
 
 
 def create_system_config(key: str, value: str, category: str = "general", description: str = "") -> dict[str, Any]:

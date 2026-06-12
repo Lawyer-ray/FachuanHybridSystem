@@ -18,20 +18,36 @@ def list_contacts(case_id: int | None = None, stage: str | None = None) -> list[
 
 
 def create_contact(
-    case_id: int, name: str, role: str, court: str | None = None, phone: str | None = None, **extra: Any
+    case_id: int,
+    name: str,
+    role: str,
+    authority_id: int | None = None,
+    phone: str | None = None,
+    address: str | None = None,
+    stage: str | None = None,
+    note: str | None = None,
 ) -> dict[str, Any]:
     """创建案件联系人。"""
     return client.post(
         "/contacts/contacts",
-        json={"case_id": case_id, "name": name, "role": role, "court": court, "phone": phone, **extra},
+        json={
+            "case_id": case_id,
+            "name": name,
+            "role": role,
+            "authority_id": authority_id,
+            "phone": phone,
+            "address": address,
+            "stage": stage,
+            "note": note,
+        },
     )  # type: ignore[return-value]
 
 
-def search_contacts(name: str | None = None, court: str | None = None, role: str | None = None) -> list[dict[str, Any]]:
+def search_contacts(q: str | None = None, court: str | None = None, role: str | None = None) -> list[dict[str, Any]]:
     """公开搜索联系人，按姓名、法院和角色筛选。"""
     params: dict[str, Any] = {}
-    if name is not None:
-        params["name"] = name
+    if q is not None:
+        params["q"] = q
     if court is not None:
         params["court"] = court
     if role is not None:

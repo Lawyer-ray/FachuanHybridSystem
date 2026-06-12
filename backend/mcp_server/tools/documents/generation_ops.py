@@ -20,19 +20,29 @@ def preview_archive_context(contract_id: int, template_subtype: str) -> dict[str
     )  # type: ignore[return-value]
 
 
-def get_archive_overrides(contract_id: int) -> dict[str, Any]:
+def get_archive_overrides(contract_id: int, template_subtype: str = "") -> dict[str, Any]:
     """获取归档文档保存的替换词覆盖值。"""
-    return client.get(f"/documents/contracts/{contract_id}/archive-placeholder-overrides")  # type: ignore[return-value]
+    return client.get(
+        f"/documents/contracts/{contract_id}/archive-placeholder-overrides",
+        params={"template_subtype": template_subtype},
+    )  # type: ignore[return-value]
 
 
-def save_archive_overrides(contract_id: int, overrides: dict[str, Any]) -> dict[str, Any]:
+def save_archive_overrides(contract_id: int, overrides: dict[str, Any], template_subtype: str = "") -> dict[str, Any]:
     """保存归档文档替换词覆盖值。"""
-    return client.post(f"/documents/contracts/{contract_id}/archive-placeholder-overrides", json=overrides)  # type: ignore[return-value]
+    return client.post(
+        f"/documents/contracts/{contract_id}/archive-placeholder-overrides",
+        params={"template_subtype": template_subtype},
+        json={"overrides": overrides},
+    )  # type: ignore[return-value]
 
 
-def delete_archive_overrides(contract_id: int) -> None:
+def delete_archive_overrides(contract_id: int, template_subtype: str = "") -> None:
     """删除（丢弃）归档文档替换词覆盖值。"""
-    client.delete(f"/documents/contracts/{contract_id}/archive-placeholder-overrides")
+    client.delete(
+        f"/documents/contracts/{contract_id}/archive-placeholder-overrides",
+        params={"template_subtype": template_subtype},
+    )
 
 
 def download_supplementary_agreement(contract_id: int, agreement_id: int) -> dict[str, Any]:

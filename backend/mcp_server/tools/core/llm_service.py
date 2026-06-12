@@ -27,9 +27,9 @@ def list_available_models() -> list[dict[str, Any]]:
     return client.get("/llm/models")  # type: ignore[return-value]
 
 
-def test_model_connection(model_id: int | None = None) -> dict[str, Any]:
+def test_model_connection(model_id: str = "") -> dict[str, Any]:
     """测试指定模型的连通性。"""
     params: dict[str, Any] = {}
-    if model_id is not None:
+    if model_id:
         params["model_id"] = model_id
     return client.post("/llm/test-connection", params=params, json={})  # type: ignore[return-value]

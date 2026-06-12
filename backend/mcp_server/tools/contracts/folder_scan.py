@@ -7,12 +7,12 @@ from typing import Any
 from mcp_server.client import client
 
 
-def start_contract_scan(contract_id: int, rescan: bool = False, subfolder: str | None = None) -> dict[str, Any]:
+def start_contract_scan(contract_id: int, rescan: bool = False, scan_subfolder: str | None = None) -> dict[str, Any]:
     """启动合同文件夹扫描任务。"""
-    params: dict[str, Any] = {"rescan": rescan}
-    if subfolder is not None:
-        params["subfolder"] = subfolder
-    return client.post(f"/contracts/{contract_id}/folder-scan", params=params, json={})  # type: ignore[return-value]
+    body: dict[str, Any] = {"rescan": rescan}
+    if scan_subfolder is not None:
+        body["scan_subfolder"] = scan_subfolder
+    return client.post(f"/contracts/{contract_id}/folder-scan", json=body)  # type: ignore[return-value]
 
 
 def list_contract_scan_subfolders(contract_id: int) -> list[dict[str, Any]]:
@@ -31,9 +31,13 @@ def get_contract_scan_status(contract_id: int, session_id: str) -> dict[str, Any
 
 
 def confirm_contract_scan(
-    contract_id: int, session_id: str, selected_items: list[dict[str, Any]] | None = None
+    contract_id: int,
+    session_id: str,
+    items: list[dict[str, Any]] | None = None,
+    work_log_suggestions: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
     """确认扫描结果：导入选中的候选文件和工作日志建议。"""
     return client.post(
-        f"/contracts/{contract_id}/folder-scan/{session_id}/confirm", json={"selected_items": selected_items or []}
+        f"/contracts/{contract_id}/folder-scan/{session_id}/confirm",
+        json={"items": items or [], "work_log_suggestions": work_log_suggestions or []},
     )  # type: ignore[return-value]

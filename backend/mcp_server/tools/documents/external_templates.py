@@ -13,9 +13,9 @@ def analyze_template(template_id: int) -> dict[str, Any]:
     return client.post(f"/documents/external-templates/{template_id}/analyze", json={})  # type: ignore[return-value]
 
 
-def confirm_mappings(template_id: int, mappings: list[dict[str, Any]]) -> dict[str, Any]:
+def confirm_mappings(template_id: int) -> dict[str, Any]:
     """确认模板字段映射。"""
-    return client.post(f"/documents/external-templates/{template_id}/confirm", json={"mappings": mappings})  # type: ignore[return-value]
+    return client.post(f"/documents/external-templates/{template_id}/confirm")  # type: ignore[return-value]
 
 
 def preview_fill(template_id: int, case_id: int, party_id: int | None = None) -> dict[str, Any]:
@@ -66,11 +66,22 @@ def list_mappings(template_id: int) -> list[dict[str, Any]]:
     return client.get(f"/documents/external-templates/{template_id}/mappings")  # type: ignore[return-value]
 
 
-def create_mapping(template_id: int, field_name: str, placeholder: str, **extra: Any) -> dict[str, Any]:
+def create_mapping(
+    template_id: int,
+    position_locator: dict[str, Any],
+    semantic_label: str,
+    position_description: str = "",
+    fill_type: str = "text",
+) -> dict[str, Any]:
     """手动创建新的字段映射。"""
     return client.post(
         f"/documents/external-templates/{template_id}/mappings",
-        json={"field_name": field_name, "placeholder": placeholder, **extra},
+        json={
+            "position_locator": position_locator,
+            "semantic_label": semantic_label,
+            "position_description": position_description,
+            "fill_type": fill_type,
+        },
     )  # type: ignore[return-value]
 
 

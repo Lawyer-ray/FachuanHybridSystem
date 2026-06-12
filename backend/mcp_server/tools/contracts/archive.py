@@ -61,15 +61,15 @@ def delete_archive_material(contract_id: int, material_id: int) -> None:
     client.delete(f"/contracts/{contract_id}/archive/materials/{material_id}")
 
 
-def reorder_archive_materials(contract_id: int, items: list[dict[str, Any]]) -> dict[str, Any]:
+def reorder_archive_materials(contract_id: int, orders: dict[str, list[int]]) -> dict[str, Any]:
     """重新排列归档材料在清单项目分组内的顺序。"""
-    return client.post(f"/contracts/{contract_id}/archive/reorder", json={"items": items})  # type: ignore[return-value]
+    return client.post(f"/contracts/{contract_id}/archive/reorder", json={"orders": orders})  # type: ignore[return-value]
 
 
 def move_archive_material(contract_id: int, material_id: int, target_item_code: str) -> dict[str, Any]:
     """将归档材料移动到不同的清单项目分类。"""
     return client.post(
-        f"/contracts/{contract_id}/archive/materials/{material_id}/move", json={"target_item_code": target_item_code}
+        f"/contracts/{contract_id}/archive/materials/{material_id}/move", json={"target_code": target_item_code}
     )  # type: ignore[return-value]
 
 
