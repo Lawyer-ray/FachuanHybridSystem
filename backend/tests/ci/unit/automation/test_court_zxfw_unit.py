@@ -138,7 +138,7 @@ class TestCourtZxfwGotoWithRetry:
         page.goto.side_effect = [ConnectionError("timeout"), None]
         page.url = "https://example.com"
         context = MagicMock()
-        service = CourtZxfwService(page=page, context=context, cookie_service=MagicMock())
+        service = CourtZxfwService(page=page, context=context, captcha_recognizer=MagicMock(), cookie_service=MagicMock())
         service._goto_with_retry("https://example.com", max_attempts=2)
         assert page.goto.call_count == 2
 
@@ -147,7 +147,7 @@ class TestCourtZxfwGotoWithRetry:
         page = MagicMock()
         page.goto.side_effect = ValueError("some error")
         context = MagicMock()
-        service = CourtZxfwService(page=page, context=context, cookie_service=MagicMock())
+        service = CourtZxfwService(page=page, context=context, captcha_recognizer=MagicMock(), cookie_service=MagicMock())
         with pytest.raises(ValueError):
             service._goto_with_retry("https://example.com", max_attempts=3)
 

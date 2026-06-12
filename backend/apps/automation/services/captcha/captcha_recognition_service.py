@@ -189,7 +189,14 @@ class CaptchaRecognitionService:
         start_time = time.time()
 
         try:
-            # 0. 检查全局配置
+            # 1. 验证输入（先于配置检查，确保基本校验不受配置影响）
+            if not image_base64 or not image_base64.strip():
+                logger.warning("收到空的图片数据")
+                return CaptchaResult(
+                    success=False, text=None, processing_time=time.time() - start_time, error="图片数据不能为空"
+                )
+
+            # 2. 检查全局配置
             if not _is_auto_recognize_enabled():
                 return CaptchaResult(
                     success=False,
@@ -198,14 +205,7 @@ class CaptchaRecognitionService:
                     error="自动验证码识别已关闭（CAPTCHA_AUTO_RECOGNIZE=false），请手动输入",
                 )
 
-            # 1. 验证输入
-            if not image_base64 or not image_base64.strip():
-                logger.warning("收到空的图片数据")
-                return CaptchaResult(
-                    success=False, text=None, processing_time=time.time() - start_time, error="图片数据不能为空"
-                )
-
-            # 2. 解码 Base64
+            # 3. 解码 Base64
             try:
                 image_bytes = self._decode_base64_image(image_base64)
             except ValueError as e:
