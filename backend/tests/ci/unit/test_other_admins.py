@@ -30,7 +30,6 @@ from apps.documents.admin.proxy_matter_rule_admin import ProxyMatterRuleAdmin
 from apps.enterprise_data.admin.mcp_workbench_admin import McpWorkbenchAdmin
 from apps.evidence_sorting.admin.evidence_sorting_admin import EvidenceSortingAdmin
 from apps.express_query.admin.express_query_task_admin import ExpressQueryToolAdmin, ExpressQueryTaskAdmin
-from apps.fee_notice.admin.fee_notice_admin import FeeNoticeAdmin
 from apps.image_rotation.admin.image_rotation_admin import ImageRotationAdmin
 from apps.invoice_recognition.admin.invoice_recognition_admin import InvoiceRecognitionTaskAdmin
 from apps.legal_research.admin.task_admin import LegalResearchTaskAdmin
@@ -54,7 +53,6 @@ from apps.documents.models import (
 from apps.enterprise_data.models import McpWorkbench
 from apps.evidence_sorting.models import EvidenceSorting
 from apps.express_query.models import ExpressQueryTool, ExpressQueryTask
-from apps.fee_notice.models import FeeNoticeTool
 from apps.image_rotation.models import ImageRotationTool
 from apps.invoice_recognition.models import InvoiceRecognitionTask
 from apps.legal_research.models import LegalResearchResult, LegalResearchTask
@@ -196,16 +194,6 @@ class TestExpressQueryAdmins:
         """ExpressQueryTaskAdmin list_display"""
         admin_obj = ExpressQueryTaskAdmin(ExpressQueryTask, AdminSite())
         assert "id" in admin_obj.list_display
-
-
-@pytest.mark.django_db
-class TestFeeNoticeAdmin:
-    """收费通知 Admin 测试"""
-
-    def test_list_display(self) -> None:
-        """FeeNoticeAdmin list_display"""
-        admin_obj = FeeNoticeAdmin(FeeNoticeTool, AdminSite())
-        assert len(admin_obj.list_display) > 0
 
 
 @pytest.mark.django_db

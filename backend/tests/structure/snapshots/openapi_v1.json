@@ -10166,134 +10166,6 @@
         ]
       }
     },
-    "/api/v1/fee-notice/extract": {
-      "post": {
-        "operationId": "apps_fee_notice_api_fee_notice_api_extract_fee_notice",
-        "summary": "Extract Fee Notice",
-        "parameters": [
-          {
-            "in": "query",
-            "name": "debug",
-            "schema": {
-              "default": false,
-              "title": "Debug",
-              "type": "boolean"
-            },
-            "required": false
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "description": "Extract fee notice information from uploaded PDF files.",
-        "tags": [
-          "交费通知书识别"
-        ],
-        "requestBody": {
-          "content": {
-            "multipart/form-data": {
-              "schema": {
-                "properties": {
-                  "files": {
-                    "items": {
-                      "format": "binary",
-                      "type": "string"
-                    },
-                    "title": "Files",
-                    "type": "array"
-                  }
-                },
-                "required": [
-                  "files"
-                ],
-                "title": "FileParams",
-                "type": "object"
-              }
-            }
-          },
-          "required": true
-        },
-        "security": [
-          {
-            "JWTOrSessionAuth": []
-          }
-        ]
-      }
-    },
-    "/api/v1/fee-notice/cases/search": {
-      "get": {
-        "operationId": "apps_fee_notice_api_fee_notice_api_search_cases",
-        "summary": "Search Cases",
-        "parameters": [
-          {
-            "in": "query",
-            "name": "keyword",
-            "schema": {
-              "title": "Keyword",
-              "type": "string"
-            },
-            "required": true
-          },
-          {
-            "in": "query",
-            "name": "limit",
-            "schema": {
-              "default": 20,
-              "title": "Limit",
-              "type": "integer"
-            },
-            "required": false
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "description": "Search cases for fee comparison.",
-        "tags": [
-          "交费通知书识别"
-        ],
-        "security": [
-          {
-            "JWTOrSessionAuth": []
-          }
-        ]
-      }
-    },
-    "/api/v1/fee-notice/compare": {
-      "post": {
-        "operationId": "apps_fee_notice_api_fee_notice_api_compare_fee",
-        "summary": "Compare Fee",
-        "parameters": [],
-        "responses": {
-          "200": {
-            "description": "OK"
-          }
-        },
-        "description": "Compare extracted fee values with system-calculated values.",
-        "tags": [
-          "交费通知书识别"
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/FeeCompareIn"
-              }
-            }
-          },
-          "required": true
-        },
-        "security": [
-          {
-            "JWTOrSessionAuth": []
-          }
-        ]
-      }
-    },
     "/api/v1/document-recognition/court-document/recognize": {
       "post": {
         "operationId": "apps_document_recognition_api_document_recognition_api_recognize_document",
@@ -30598,50 +30470,6 @@
         "title": "StatisticsReportOut",
         "type": "object"
       },
-      "FeeCompareIn": {
-        "description": "Fee comparison request payload.",
-        "properties": {
-          "case_id": {
-            "title": "Case Id",
-            "type": "integer"
-          },
-          "extracted_acceptance_fee": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Extracted Acceptance Fee"
-          },
-          "extracted_preservation_fee": {
-            "anyOf": [
-              {
-                "type": "number"
-              },
-              {
-                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Extracted Preservation Fee"
-          }
-        },
-        "required": [
-          "case_id"
-        ],
-        "title": "FeeCompareIn",
-        "type": "object"
-      },
       "TaskSubmitResponseSchema": {
         "description": "任务提交响应",
         "properties": {
@@ -39720,10 +39548,6 @@
     {
       "name": "发票识别",
       "description": "发票 OCR 识别"
-    },
-    {
-      "name": "交费通知书识别",
-      "description": "法院交费通知书识别"
     },
     {
       "name": "法院文书识别",

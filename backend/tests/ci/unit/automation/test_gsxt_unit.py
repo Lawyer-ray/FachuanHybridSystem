@@ -29,10 +29,6 @@ class TestGsxtLoginUrlConstants:
         from apps.automation.services.gsxt.gsxt_login_service import GSXT_SEARCH_URL
         assert "gsxt.gov.cn" in GSXT_SEARCH_URL
 
-    def test_cdp_url(self):
-        from apps.automation.services.gsxt.gsxt_login_service import CDP_URL
-        assert "localhost" in CDP_URL
-
 
 class TestWaitCaptchaSuccess:
 

@@ -7,7 +7,9 @@ import re
 import time
 from typing import Any
 
-from playwright.sync_api import FrameLocator, Page, sync_playwright
+from playwright.sync_api import FrameLocator, Page
+
+from apps.core.services.browser import create_browser
 
 from .constants import (
     _AJAX_WAIT,
@@ -47,28 +49,9 @@ class PlaywrightFilingMixin:  # pragma: no cover
         contract_info: ContractInfo | None,
     ) -> None:
         """Playwright 全量兜底流程。"""
-        pw = sync_playwright().start()
-        browser = None
+        cm = create_browser("default", headless=True)
         try:
-            from apps.core.services.system_config_service import SystemConfigService
-
-            headed = SystemConfigService().get_value("PLAYWRIGHT_HEADED", "").lower()
-            browser = pw.chromium.launch(headless=headed not in ("true", "1", "yes"))
-            self._context = browser.new_context()
-
-            # 应用 playwright-stealth 反检测
-            try:
-                from playwright_stealth import Stealth
-
-                stealth = Stealth()
-                stealth.apply_stealth_sync(self._context)
-                logger.info("已应用 playwright-stealth 反检测")
-            except ImportError:
-                logger.warning("playwright-stealth 未安装，跳过反检测")
-
-            self._context.set_default_timeout(30_000)
-            self._context.set_default_navigation_timeout(30_000)
-            self._page = self._context.new_page()
+            self._page, self._context = cm.__enter__()
 
             self._login()
             self._navigate_to_filing()
@@ -101,9 +84,7 @@ class PlaywrightFilingMixin:  # pragma: no cover
             self._save_draft()
             logger.info("Playwright 立案流程完成")
         finally:
-            if browser is not None:
-                browser.close()
-            pw.stop()
+            cm.__exit__(None, None, None)
             logger.info("Playwright 浏览器已关闭")
 
     # ------------------------------------------------------------------

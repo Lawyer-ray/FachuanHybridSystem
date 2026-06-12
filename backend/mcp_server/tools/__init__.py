@@ -418,9 +418,19 @@ from mcp_server.tools.web_search import web_search
 from apps.workflow.mcp.workflow_tools import (
     approve_workflow_step,
     cancel_workflow,
+    create_workflow_template,
+    delete_workflow_run,
+    delete_workflow_template,
+    duplicate_workflow_template,
+    get_step_registry,
+    get_step_registry_flat,
     get_workflow_detail,
+    get_workflow_template,
+    list_workflow_templates,
     list_workflows,
     start_workflow,
+    start_workflow_from_steps,
+    update_workflow_template,
 )
 
 __all__ = [
@@ -856,4 +866,15 @@ __all__ = [
     "get_workflow_detail",
     "approve_workflow_step",
     "cancel_workflow",
+    "delete_workflow_run",
+    # 工作流模板管理
+    "get_step_registry",
+    "get_step_registry_flat",
+    "create_workflow_template",
+    "update_workflow_template",
+    "list_workflow_templates",
+    "get_workflow_template",
+    "delete_workflow_template",
+    "duplicate_workflow_template",
+    "start_workflow_from_steps",
 ]

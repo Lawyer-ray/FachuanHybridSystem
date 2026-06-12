@@ -618,18 +618,17 @@ class TestWeikeTypes:
     def test_weike_session_close_with_mocks(self):
         from apps.legal_research.services.sources.weike.types import WeikeSession
 
+        mock_context_manager = MagicMock()
         session = WeikeSession(
             page=MagicMock(),
             context=MagicMock(),
-            browser=MagicMock(),
-            playwright=MagicMock(),
+            context_manager=mock_context_manager,
             http_client=MagicMock(),
         )
         session.close()
         session.page.close.assert_called_once()
         session.context.close.assert_called_once()
-        session.browser.close.assert_called_once()
-        session.playwright.stop.assert_called_once()
+        mock_context_manager.__exit__.assert_called_once()
         session.http_client.close.assert_called_once()
 
     def test_weike_session_close_with_exceptions(self):

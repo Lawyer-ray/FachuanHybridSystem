@@ -43,7 +43,6 @@ class ReminderServiceAdapter(ReminderService):
         "court_summons": "hearing",
         "hearing_summons": "hearing",
         "evidence_deadline_notice": "evidence_deadline",
-        "fee_notice": "payment_deadline",
         "submission_notice": "submission_deadline",
         "ruling": "appeal_deadline",
         "verdict": "appeal_deadline",

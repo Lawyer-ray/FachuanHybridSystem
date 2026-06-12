@@ -10,7 +10,9 @@ from typing import Any, Generator
 from urllib.parse import urlparse
 
 import httpx
-from playwright.sync_api import Browser, BrowserContext, Frame, Page, Playwright, sync_playwright
+from playwright.sync_api import BrowserContext, Frame, Page
+
+from apps.core.services.browser import create_browser
 
 from .. import html_parser
 from ..models import CaseSearchItem, OACaseData, OAListCaseCandidate
@@ -38,10 +40,8 @@ class JtnPlaywrightBrowserMixin:  # pragma: no cover
     _headless: bool
     _page: Page | None
     _context: BrowserContext | None
-    _http_cookies_cache: dict[str, str] | None
-    _name_search_pw: Playwright | None
-    _name_search_browser: Browser | None
-    _force_playwright_name_search: bool
+    _context_manager: Any  # CloakBrowser context manager
+    _name_search_cm: Any  # name search CloakBrowser context manager
 
     # ------------------------------------------------------------------
     # Playwright 兜底批量查询
@@ -51,26 +51,11 @@ class JtnPlaywrightBrowserMixin:  # pragma: no cover
         case_nos: list[str],
     ) -> list[tuple[str, OACaseData | None]]:
         """Playwright 兜底批量查询。"""
-        pw = sync_playwright().start()
-        browser = None
         fallback_results: list[tuple[str, OACaseData | None]] = []
+        cm = create_browser("default", headless=self._headless)
         try:
-            browser = pw.chromium.launch(headless=self._headless)
-            self._context = browser.new_context()
-
-            # 应用 playwright-stealth 反检测
-            try:
-                from playwright_stealth import Stealth
-
-                stealth = Stealth()
-                stealth.apply_stealth_sync(self._context)
-                logger.debug("已应用 playwright-stealth 反检测")
-            except ImportError:
-                logger.warning("playwright-stealth 未安装，跳过反检测")
-
-            self._context.set_default_timeout(30_000)
-            self._context.set_default_navigation_timeout(30_000)
-            self._page = self._context.new_page()
+            self._context_manager = cm
+            self._page, self._context = cm.__enter__()
 
             self._login()
             self._navigate_to_case_list()
@@ -94,9 +79,7 @@ class JtnPlaywrightBrowserMixin:  # pragma: no cover
                     fallback_results.append((case_no, None))
 
         finally:
-            if browser is not None:
-                browser.close()
-            pw.stop()
+            cm.__exit__(None, None, None)
         return fallback_results
 
     def _search_cases_by_name_via_playwright(self: Any, *, keyword: str, limit: int) -> list[OAListCaseCandidate]:  # pragma: no cover
@@ -134,29 +117,15 @@ class JtnPlaywrightBrowserMixin:  # pragma: no cover
             return []
 
     def _ensure_name_search_playwright_session(self: Any) -> None:  # pragma: no cover
-        if self._name_search_browser is not None and self._page is not None and self._context is not None:
+        if self._name_search_cm is not None and self._page is not None and self._context is not None:
             try:
                 self._ensure_case_list_ready()
                 return
             except Exception:
                 self.close()
 
-        self._name_search_pw = sync_playwright().start()
-        self._name_search_browser = self._name_search_pw.chromium.launch(headless=self._headless)
-        self._context = self._name_search_browser.new_context()
-
-        try:
-            from playwright_stealth import Stealth
-
-            stealth = Stealth()
-            stealth.apply_stealth_sync(self._context)
-            logger.debug("已应用 playwright-stealth 反检测")
-        except ImportError:
-            logger.warning("playwright-stealth 未安装，跳过反检测")
-
-        self._context.set_default_timeout(30_000)
-        self._context.set_default_navigation_timeout(30_000)
-        self._page = self._context.new_page()
+        self._name_search_cm = create_browser("default", headless=self._headless)
+        self._page, self._context = self._name_search_cm.__enter__()
 
         self._login()
         self._navigate_to_case_list()

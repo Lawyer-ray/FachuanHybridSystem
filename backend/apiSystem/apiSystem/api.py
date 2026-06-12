@@ -116,7 +116,6 @@ _OPENAPI_TAGS: list[dict[str, str]] = [
     {"name": "验证码识别", "description": "验证码 AI 识别"},
     {"name": "图片旋转", "description": "图片旋转校正"},
     {"name": "发票识别", "description": "发票 OCR 识别"},
-    {"name": "交费通知书识别", "description": "法院交费通知书识别"},
     {"name": "法院文书识别", "description": "法院文书 AI 识别"},
     {"name": "PDF 拆解", "description": "PDF 文件拆分"},
     {"name": "批量打印", "description": "批量打印管理"},
@@ -180,7 +179,6 @@ def _register_app_routers() -> None:
     from apps.enterprise_data.api import router as enterprise_data_router
     from apps.evidence.api import evidence_router
     from apps.evidence_sorting.api import router as evidence_sorting_router
-    from apps.fee_notice.api import router as fee_notice_router
     from apps.image_rotation.api import router as image_rotation_router
     from apps.invoice_recognition.api import router as invoice_recognition_router
     from apps.legal_research.api import router as legal_research_router
@@ -202,7 +200,6 @@ def _register_app_routers() -> None:
     api_v1.add_router("/automation", automation_router, auth=JWTOrSessionAuth())
     api_v1.add_router("/image-rotation", image_rotation_router, auth=JWTOrSessionAuth())
     api_v1.add_router("/invoice-recognition", invoice_recognition_router, auth=JWTOrSessionAuth())
-    api_v1.add_router("/fee-notice", fee_notice_router, auth=JWTOrSessionAuth())
     api_v1.add_router("/document-recognition", document_recognition_router, auth=JWTOrSessionAuth())
     api_v1.add_router("/pdf-splitting", pdf_splitting_router, auth=JWTOrSessionAuth())
     api_v1.add_router("/batch-printing", batch_printing_router, auth=JWTOrSessionAuth())

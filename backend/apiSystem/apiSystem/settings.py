@@ -82,7 +82,6 @@ INSTALLED_APPS = [
     "apps.message_hub.apps.MessageHubConfig",  # 5.1 信息中转站
     "apps.image_rotation",  # 5.1 图片自动旋转（从 automation 拆分）
     "apps.invoice_recognition",  # 5.2 发票识别（从 automation 拆分）
-    "apps.fee_notice",  # 5.3 交费通知书识别（从 automation 拆分）
     "apps.document_recognition",  # 5.4 文书智能识别（从 automation 拆分）
     "apps.document_parsing",  # 5.405 文档解析（MinerU 集成）
     "apps.express_query",  # 5.41 快递查询
