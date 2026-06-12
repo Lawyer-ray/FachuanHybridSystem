@@ -130,7 +130,7 @@
         <!-- 步骤2: 圈定区域 -->
         <div x-show="step === 2">
             <div class="hint-box">
-                ✏️ <strong>{% trans "钢笔工具" %}</strong>：{% trans "依次点击身份证的" %} <strong>{% trans "左上 → 右上 → 右下 → 左下" %}</strong> {% trans "四个角。点错可撤销或重置。" %}
+                ✏️ <strong>{% trans "钢笔工具" %}</strong>：{% trans "如需裁剪，依次点击身份证的" %} <strong>{% trans "左上 → 右上 → 右下 → 左下" %}</strong> {% trans "四个角。不圈点则使用旋转后的完整图片。" %}
             </div>
             <div class="editor-grid">
                 <!-- 正面编辑器 -->
@@ -182,7 +182,7 @@
             </div>
             <div class="form-actions">
                 <button class="btn-secondary" @click="step = 1">{% trans "上一步" %}</button>
-                <button class="btn-primary" @click="submitMerge()" :disabled="frontCorners.length < 4 || backCorners.length < 4">{% trans "合并生成 PDF" %}</button>
+                <button class="btn-primary" @click="submitMerge()" :disabled="loading">{% trans "合并生成 PDF" %}</button>
             </div>
         </div>
 
@@ -441,12 +441,17 @@ function idCardMergeApp() {
                 ctx.rotate(rotation * Math.PI / 180);
                 ctx.drawImage(img, -img.naturalWidth / 2, -img.naturalHeight / 2);
 
-                // 计算边界框
+                // 没有圈点 → 使用旋转后的完整图片
+                if (corners.length === 0) {
+                    resolve(tempCanvas.toDataURL('image/jpeg', 0.92));
+                    return;
+                }
+
+                // 有圈点 → 按边界框裁剪
                 const xs = corners.map(c => c[0]), ys = corners.map(c => c[1]);
                 const minX = Math.max(0, Math.min(...xs)), maxX = Math.min(tempCanvas.width, Math.max(...xs));
                 const minY = Math.max(0, Math.min(...ys)), maxY = Math.min(tempCanvas.height, Math.max(...ys));
 
-                // 裁剪输出
                 const outCanvas = document.createElement('canvas');
                 outCanvas.width = maxX - minX; outCanvas.height = maxY - minY;
                 outCanvas.getContext('2d').drawImage(tempCanvas, minX, minY, outCanvas.width, outCanvas.height, 0, 0, outCanvas.width, outCanvas.height);
