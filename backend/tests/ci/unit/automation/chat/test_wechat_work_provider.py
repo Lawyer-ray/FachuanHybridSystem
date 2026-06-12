@@ -135,10 +135,8 @@ class TestWeChatWorkProviderCreateChat:
         create_call = mock_post.call_args_list[0]
         payload = create_call.kwargs["json"]
         assert payload["userlist"] == ["owner_user", "member_a", "member_b"]
-        # 验证 chatid 合法：仅字母数字下划线连字符
-        assert re.match(r"^[a-zA-Z0-9_-]+$", payload["chatid"])
-        assert len(payload["chatid"]) <= 128
-        assert payload["chatid"].startswith("case_")
+        # 验证 chatid 合法：MD5 十六进制字符串，仅含 0-9 a-f
+        assert re.match(r"^[0-9a-f]{32}$", payload["chatid"])
         assert payload["owner"] == "owner_user"
 
     @patch("apps.automation.services.chat.wechat_work_provider.WeChatWorkProvider._load_config")
@@ -219,21 +217,24 @@ class TestWeChatWorkProviderCreateChat:
             WeChatWorkProvider().create_chat("无chatid")
 
     def test_chatid_format_with_chinese_name(self):
-        """验证中文群名生成的 chatid 无非法字符"""
-        chat_name = "张三诉李四民间借贷纠纷一案"
-        safe_chatid = re.sub(r"[^a-zA-Z0-9_-]", "_", f"case_{chat_name[:50]}")
-        chatid = f"{safe_chatid}_{'a' * 8}"[:128]
-        assert re.match(r"^[a-zA-Z0-9_-]+$", chatid)
-        assert len(chatid) <= 128
+        """验证中文群名生成的 chatid 是合法的 32 位十六进制字符串"""
+        import hashlib
+        from uuid import uuid4
 
-    def test_chatid_truncates_to_128_chars(self):
-        """超长群名的 chatid 不超过 128 字符"""
-        long_name = "A" * 200
-        safe_chatid = re.sub(r"[^a-zA-Z0-9_-]", "_", f"case_{long_name[:50]}")
-        # 模拟实际拼接逻辑：safe_chatid 最长 55 字符(case_ + 50) + _ + 8位UUID = 64，不会超
-        # 测试截断逻辑本身
-        chatid = f"{safe_chatid}_{'b' * 200}"[:128]
-        assert len(chatid) == 128
+        chat_name = "张三诉李四民间借贷纠纷一案"
+        chatid = hashlib.md5(f"case_{chat_name}_{uuid4().hex}".encode()).hexdigest()[:32]
+        assert re.match(r"^[0-9a-f]{32}$", chatid)
+        assert len(chatid) == 32
+
+    def test_chatid_always_32_chars_regardless_of_name_length(self):
+        """无论群名多长，chatid 始终 32 位（MD5 hex 截断）"""
+        import hashlib
+        from uuid import uuid4
+
+        for name in ["A", "A" * 200, "中文" * 50]:
+            chatid = hashlib.md5(f"case_{name}_{uuid4().hex}".encode()).hexdigest()[:32]
+            assert len(chatid) == 32
+            assert re.match(r"^[0-9a-f]{32}$", chatid)
 
     @patch("apps.automation.services.chat.wechat_work_provider.WeChatWorkProvider._load_config")
     def test_create_chat_owner_in_userlist_first_position(self, mock_load, full_config):
