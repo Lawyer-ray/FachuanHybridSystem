@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 class Command(BaseCommand):
     help = "启动 Temporal Worker 进程"
 
-    def add_arguments(self, parser):
+    def add_arguments(self, parser: Any) -> None:
         parser.add_argument(
             "--temporal-address",
             default="localhost:7233",
@@ -38,7 +38,7 @@ class Command(BaseCommand):
             help="最大并发 Activity 数 (默认: 5)",
         )
 
-    def handle(self, *args, **options):
+    def handle(self, *args: Any, **options: Any) -> None:
         self._setup_logging()
         asyncio.run(self._run(options))
 
@@ -54,7 +54,7 @@ class Command(BaseCommand):
         if logging_mod:
             cls = getattr(logging_mod, "RequestContextFilter", None)
             if cls:
-                cls.filter = lambda self, record: True  # type: ignore[assignment,misc]
+                cls.filter = lambda self, record: True
 
     async def _run(self, options: dict[str, Any]) -> None:
         from temporalio.client import Client

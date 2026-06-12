@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from django.core.management.base import BaseCommand
 
 from apps.workflow.models import WorkflowTemplate
@@ -10,7 +12,7 @@ from apps.workflow.models import WorkflowTemplate
 class Command(BaseCommand):
     help = "创建测试用工作流模板"
 
-    def handle(self, *args, **options):
+    def handle(self, *args: Any, **options: Any) -> None:
         template, created = WorkflowTemplate.objects.update_or_create(
             slug="sales-contract-dispute-test",
             defaults={
