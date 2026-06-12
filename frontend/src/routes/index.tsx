@@ -91,8 +91,8 @@ const WorkbenchPage = lazy(() => import('@/features/workbench/WorkbenchPage'))
 
 // 工作流页面
 const WorkflowPage = lazy(() => import('@/pages/dashboard/workflow/WorkflowPage'))
-const TemplateListPage = lazy(() => import('@/pages/dashboard/workflow/TemplateListPage'))
-const TemplateEditorPage = lazy(() => import('@/pages/dashboard/workflow/TemplateEditorPage'))
+const WorkflowTemplateListPage = lazy(() => import('@/pages/dashboard/workflow/TemplateListPage'))
+const WorkflowTemplateEditorPage = lazy(() => import('@/pages/dashboard/workflow/TemplateEditorPage'))
 
 // 404 页面
 const NotFoundPage = lazy(() => import('@/pages/NotFoundPage').then((m) => ({ default: m.NotFoundPage })))
@@ -401,15 +401,15 @@ export const router = createBrowserRouter([
           },
           {
             path: 'admin/workflows/templates',
-            element: <TemplateListPage />,
+            element: <WorkflowTemplateListPage />,
           },
           {
             path: 'admin/workflows/templates/new',
-            element: <TemplateEditorPage />,
+            element: <WorkflowTemplateEditorPage />,
           },
           {
             path: 'admin/workflows/templates/:id/edit',
-            element: <TemplateEditorPage />,
+            element: <WorkflowTemplateEditorPage />,
           },
           // 404 页面 - 必须放在最后
           {
