@@ -81,6 +81,8 @@ import {
   RefreshCw,
   Calculator,
   Percent,
+  GitBranch,
+  Scale,
   type LucideIcon,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
