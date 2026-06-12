@@ -6,6 +6,7 @@
 Requirements: 1.2, 1.4, 1.5
 """
 
+import asyncio
 import logging
 from collections.abc import AsyncIterator, Iterator
 from typing import Any, ClassVar
@@ -85,6 +86,32 @@ class LLMService:
         self._router = LLMBackendRouter(backend_configs=backend_configs)
         self._fallback_policy = LLMFallbackPolicy(router=self._router)
         self._client = LLMClient(default_backend=self._default_backend)
+
+    @classmethod
+    async def create(
+        cls,
+        backend_configs: dict[str, BackendConfig] | None = None,
+        default_backend: str | None = None,
+    ) -> "LLMService":
+        """异步工厂方法: 在 async 上下文中安全创建 LLMService
+
+        预热 LLMConfig 缓存，避免后续 is_available() 触发 SynchronousOnlyOperation。
+        """
+        from .config import LLMConfig
+
+        if not default_backend and not backend_configs:
+            default_backend = await LLMConfig.get_default_backend_async()
+
+        # 预热缓存：async 获取所有后端配置，写入 _config_cache
+        # 这样后续 is_available() 中的同步调用会命中缓存
+        await asyncio.gather(
+            LLMConfig.get_api_key_async(),
+            LLMConfig.get_base_url_async(),
+            LLMConfig.get_openai_compatible_api_key_async(),
+            LLMConfig.get_openai_compatible_base_url_async(),
+        )
+
+        return cls(backend_configs=backend_configs, default_backend=default_backend)
 
     def _get_backend_config(self, name: str) -> BackendConfig:
         """

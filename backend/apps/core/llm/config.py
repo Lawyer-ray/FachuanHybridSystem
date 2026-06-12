@@ -53,6 +53,9 @@ class LLMConfig:
     DEFAULT_OPENAI_COMPATIBLE_BASE_URL = "http://116.196.92.175:8001/v1"
     DEFAULT_OPENAI_COMPATIBLE_TIMEOUT = 120
 
+    # 跨调用缓存（async 预热后 sync 调用可复用，避免 SynchronousOnlyOperation）
+    _config_cache: ClassVar[dict[str, str]] = {}
+
     DEFAULT_AVAILABLE_MODELS: ClassVar[list[str]] = [
         # Qwen 系列
         "Qwen/Qwen2.5-7B-Instruct",
@@ -131,25 +134,32 @@ class LLMConfig:
         """
         从统一系统配置获取配置值
 
-        优先级:SystemConfigService(带缓存)> Django settings > 默认值
-
-        Args:
-            key: 配置键名
-            default: 默认值
-
-        Returns:
-            配置值
-
-        Requirements: 5.1, 5.3, 5.4
+        优先级: 缓存 > SystemConfigService(带缓存) > Django settings > 默认值
         """
+        # 先查缓存（async 预热后可直接命中）
+        cached = cls._config_cache.get(key)
+        if cached is not None:
+            return cached
+
+        # 如果在 async 上下文中，用 sync_to_async 包装 DB 调用
+        try:
+            import asyncio
+            asyncio.get_running_loop()
+            # 在 async 上下文中，不能直接调同步 DB
+            # 返回 fallback 或 default
+            fallback_value = cls._get_django_settings_fallback(key, default)
+            return fallback_value if fallback_value else default
+        except RuntimeError:
+            pass  # 不在 async 上下文，正常执行
+
         # 尝试使用 SystemConfigService(带缓存)
         config_service = cls._get_config_service()
         if config_service is not None:
             try:
-                # SystemConfigService.get_value 内部已实现缓存机制
                 raw_value = config_service.get_value(key, default="")
                 value = raw_value if isinstance(raw_value, str) else ("" if raw_value is None else str(raw_value))
                 if value:
+                    cls._config_cache[key] = value
                     return value
             except (KeyError, AttributeError, TypeError):
                 logger.warning("[LLMConfig] SystemConfigService 读取失败", extra={"key": key})
@@ -187,6 +197,7 @@ class LLMConfig:
 
                 value = await get_value_sync()
                 if value:
+                    cls._config_cache[key] = value
                     return value
             except (KeyError, AttributeError, TypeError):
                 logger.warning("[LLMConfig] 异步 SystemConfigService 读取失败", extra={"key": key})
@@ -447,6 +458,23 @@ class LLMConfig:
     @classmethod
     def get_default_backend(cls) -> str:
         raw = cls._get_system_config("LLM_DEFAULT_BACKEND", "")
+        if raw and isinstance(raw, str):
+            v = raw.strip().lower()
+            if v in cls._VALID_BACKENDS:
+                return v
+
+        llm_settings = getattr(settings, "LLM", {} or {})
+        v2 = llm_settings.get("DEFAULT_BACKEND")
+        if isinstance(v2, str) and v2.strip():
+            normalized = v2.strip().lower()
+            if normalized in cls._VALID_BACKENDS:
+                return normalized
+        return "siliconflow"
+
+    @classmethod
+    async def get_default_backend_async(cls) -> str:
+        """异步版本: 获取默认 LLM 后端"""
+        raw = await cls._get_system_config_async("LLM_DEFAULT_BACKEND", "")
         if raw and isinstance(raw, str):
             v = raw.strip().lower()
             if v in cls._VALID_BACKENDS:

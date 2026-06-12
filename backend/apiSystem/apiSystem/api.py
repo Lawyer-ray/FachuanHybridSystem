@@ -126,6 +126,7 @@ _OPENAPI_TAGS: list[dict[str, str]] = [
     {"name": "收件箱", "description": "消息收件箱"},
     {"name": "案件工作人员", "description": "案件工作人员联系方式管理"},
     {"name": "社交登录", "description": "微信/Google 等社交平台登录"},
+    {"name": "工作流引擎", "description": "诉讼工作流管理与审批"},
 ]
 
 from django.conf import settings as django_settings
@@ -294,6 +295,10 @@ def _register_app_routers() -> None:
     from apps.social_auth.api import router as social_auth_router
 
     api_v1.add_router("/social", social_auth_router, tags=["社交登录"])
+
+    from apps.workflow.api.workflow_api import router as workflow_router
+
+    api_v1.add_router("/workflow", workflow_router, auth=JWTOrSessionAuth(), tags=["工作流引擎"])
 
 
 # 防止 uvicorn reload 导致重复注册 - 在 api_v1 对象上设置标志

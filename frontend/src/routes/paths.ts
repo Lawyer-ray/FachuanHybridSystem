@@ -75,6 +75,10 @@ export const PATHS = {
   ADMIN_TOOLS_ELEMENT: '/admin/tools/element-convert',
   ADMIN_TOOLS_LPR: '/admin/tools/lpr-calculator',
 
+  // 诉讼流程
+  ADMIN_WORKFLOWS: '/admin/workflows',
+  ADMIN_WORKFLOW_DETAIL: '/admin/workflows/:id',
+
   // 联系人搜索
   ADMIN_CONTACT_SEARCH: '/admin/contact-search',
 

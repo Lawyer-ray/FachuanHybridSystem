@@ -170,6 +170,13 @@ from mcp_server.tools import (
     get_case_party,
     get_cache_statistics,
     get_cause,
+    get_client,
+    get_client_import_session,
+    get_company_personnel,
+    get_company_profile,
+    get_company_risks,
+    get_company_shareholders,
+    get_contact,
     get_conversation_history,
     get_contract,
     get_contract_all_parties,
@@ -177,6 +184,7 @@ from mcp_server.tools import (
     get_contract_scan_status,
     get_conversion_progress,
     get_credential,
+    get_grant,
     get_court_filing_case_info,
     get_court_filing_session,
     get_court_sms_detail,
@@ -333,6 +341,7 @@ from mcp_server.tools import (
     sync_case_materials,
     sync_lpr_rates,
     sync_message_source,
+    sync_prompt_templates,
     test_model_connection,
     toggle_compact_archive,
     trigger_case_import,
@@ -364,6 +373,7 @@ from mcp_server.tools import (
     update_reminder,
     update_screenshot,
     update_supplementary_agreement,
+    update_system_configs,
     update_team,
     upload_contract_for_review,
     upload_invoices,
@@ -371,6 +381,11 @@ from mcp_server.tools import (
     validate_id_card,
     warm_up_cache,
     web_search,
+    start_workflow,
+    list_workflows,
+    get_workflow_detail,
+    approve_workflow_step,
+    cancel_workflow,
 )
 
 mcp = FastMCP("法穿AI Copilot")
@@ -886,3 +901,10 @@ mcp.tool()(generate_report)
 
 # 网络搜索
 mcp.tool()(web_search)
+
+# 工作流引擎
+mcp.tool()(start_workflow)
+mcp.tool()(list_workflows)
+mcp.tool()(get_workflow_detail)
+mcp.tool()(approve_workflow_step)
+mcp.tool()(cancel_workflow)

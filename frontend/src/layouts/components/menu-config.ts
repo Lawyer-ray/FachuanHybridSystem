@@ -15,6 +15,7 @@ import {
   Calculator,
   Settings,
   Bot,
+  GitBranch,
   type LucideIcon,
 } from 'lucide-react'
 import { PATHS } from '@/routes/paths'
@@ -62,6 +63,14 @@ export const menuConfig: MenuConfig = [
     icon: Bot,
     label: '工作台',
     path: PATHS.ADMIN_WORKBENCH,
+  },
+
+  // 诉讼流程
+  {
+    id: 'workflows',
+    icon: GitBranch,
+    label: '诉讼流程',
+    path: PATHS.ADMIN_WORKFLOWS,
   },
 
   // 业务 - 菜单组
