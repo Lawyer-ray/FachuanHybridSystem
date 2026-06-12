@@ -109,6 +109,7 @@ _HIDDEN_APP_LABELS = {
     "reminders",
     "message_hub",
     "workbench",
+    "workflow",
 }
 
 # "其他工具"聚合页应用列表
@@ -150,6 +151,7 @@ _OTHER_TOOLS_APPS = [
     {"app_label": "reminders", "name": _("重要日期提醒"), "url": "/admin/reminders/"},
     {"app_label": "message_hub", "name": _("信息中转站"), "url": "/admin/message_hub/"},
     {"app_label": "workbench", "name": _("工作台"), "url": "/admin/workbench/"},
+    {"app_label": "workflow", "name": _("工作流引擎"), "url": "/admin/workflow/"},
 ]
 
 # 新用户默认收藏的子工具 URL（首次访问「其他工具」页时自动创建）
