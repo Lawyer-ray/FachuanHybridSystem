@@ -49,3 +49,42 @@ def create_case(
     if status:
         payload["status"] = status
     return client.post("/cases/cases", json=payload)  # type: ignore[return-value]
+
+
+def update_case(
+    case_id: int,
+    name: str | None = None,
+    case_type: str | None = None,
+    target_amount: float | None = None,
+    cause_of_action: str | None = None,
+    status: str | None = None,
+) -> dict[str, Any]:
+    """更新案件信息。只传需要修改的字段。"""
+    payload: dict[str, Any] = {}
+    if name is not None:
+        payload["name"] = name
+    if case_type is not None:
+        payload["case_type"] = case_type
+    if target_amount is not None:
+        payload["target_amount"] = target_amount
+    if cause_of_action is not None:
+        payload["cause_of_action"] = cause_of_action
+    if status is not None:
+        payload["status"] = status
+    return client.put(f"/cases/cases/{case_id}", json=payload)  # type: ignore[return-value]
+
+
+def delete_case(case_id: int) -> None:
+    """删除案件。此操作不可逆。"""
+    client.delete(f"/cases/cases/{case_id}")
+
+
+def create_full_case(
+    name: str,
+    case_type: str,
+    parties: list[dict[str, Any]],
+    **extra: Any,
+) -> dict[str, Any]:
+    """创建完整案件（含当事人、案号等）。parties 为当事人列表；其余字段通过 extra 透传。"""
+    payload: dict[str, Any] = {"name": name, "case_type": case_type, "parties": parties, **extra}
+    return client.post("/cases/cases/full", json=payload)  # type: ignore[return-value]

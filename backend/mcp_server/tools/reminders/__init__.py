@@ -5,8 +5,10 @@ from mcp_server.tools.reminders.reminders import (
     create_new_reminder,
     delete_reminder,
     get_reminder,
+    get_target_options,
     list_all_reminders,
     list_reminder_types,
+    parse_reminders_from_text,
     update_reminder,
 )
 
@@ -18,6 +20,8 @@ __all__ = [
     "update_reminder",
     "delete_reminder",
     "list_reminder_types",
+    "parse_reminders_from_text",
+    "get_target_options",
     # 财务
     "list_payments",
     "get_finance_stats",

@@ -2,6 +2,7 @@
 
 from mcp_server.tools.legal_research.legal_research import (
     capability_search,
+    check_law_references,
     create_research_task,
     download_all_research_results,
     download_research_result,
@@ -16,4 +17,5 @@ __all__ = [
     "list_research_results",
     "download_research_result",
     "download_all_research_results",
+    "check_law_references",
 ]

@@ -21,3 +21,8 @@ def trigger_client_import(
 def get_client_import_session(session_id: int) -> dict[str, Any]:
     """查询客户导入会话状态。status: pending/running/completed/failed。"""
     return client.get(f"/client-import/{session_id}")  # type: ignore[return-value]
+
+
+def batch_create_clients(session_id: int, customers: list[dict[str, Any]]) -> dict[str, Any]:
+    """从导入会话批量创建客户。customers 为客户列表，每项包含 name、client_type、phone 等字段。"""
+    return client.post(f"/client-import/{session_id}/batch-create", json={"customers": customers})  # type: ignore[return-value]

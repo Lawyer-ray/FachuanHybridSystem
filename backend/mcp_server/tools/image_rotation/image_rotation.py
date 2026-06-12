@@ -36,3 +36,34 @@ def suggest_rename(
         "/image-rotation/suggest-rename",
         json={"items": items},
     )
+
+
+def detect_single_page_orientation(data_base64: str) -> dict[str, Any]:
+    """检测单张图片的旋转方向。data_base64 为图片的 base64 编码。"""
+    return client.post(  # type: ignore[no-any-return]
+        "/image-rotation/detect-page-orientation",
+        json={"data": data_base64},
+    )
+
+
+def export_rotated_pdf(
+    pages: list[dict[str, str]],
+    paper_size: str = "A4",
+) -> dict[str, Any]:
+    """将旋转后的图片导出为 PDF。pages: [{filename, data, rotation}]。paper_size: A4/A3/B5。"""
+    return client.post(  # type: ignore[no-any-return]
+        "/image-rotation/export-pdf",
+        json={"pages": pages, "paper_size": paper_size},
+    )
+
+
+def export_rotated_images(
+    images: list[dict[str, str]],
+    format: str = "png",
+    paper_size: str = "A4",
+) -> dict[str, Any]:
+    """将旋转后的图片导出为图片文件。images: [{filename, data, rotation}]。format: png/jpg。"""
+    return client.post(  # type: ignore[no-any-return]
+        "/image-rotation/export",
+        json={"images": images, "format": format, "paper_size": paper_size},
+    )

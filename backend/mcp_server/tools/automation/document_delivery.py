@@ -50,3 +50,28 @@ def create_delivery_schedule(
             "is_active": is_active,
         },
     )  # type: ignore[return-value]
+
+
+def get_delivery_schedule(schedule_id: int) -> dict[str, Any]:
+    """获取单个文书送达定时任务详情。"""
+    return client.get(f"/automation/document-delivery/schedules/{schedule_id}")  # type: ignore[return-value]
+
+
+def update_delivery_schedule(
+    schedule_id: int,
+    runs_per_day: int | None = None,
+    hour_interval: int | None = None,
+    cutoff_hours: int | None = None,
+    is_active: bool | None = None,
+) -> dict[str, Any]:
+    """更新文书送达定时任务。只传需要修改的字段。"""
+    payload: dict[str, Any] = {}
+    if runs_per_day is not None:
+        payload["runs_per_day"] = runs_per_day
+    if hour_interval is not None:
+        payload["hour_interval"] = hour_interval
+    if cutoff_hours is not None:
+        payload["cutoff_hours"] = cutoff_hours
+    if is_active is not None:
+        payload["is_active"] = is_active
+    return client.put(f"/automation/document-delivery/schedules/{schedule_id}", json=payload)  # type: ignore[return-value]

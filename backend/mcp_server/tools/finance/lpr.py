@@ -44,3 +44,13 @@ def calculate_interest(
             "rate_multiplier": rate_multiplier,
         },
     )
+
+
+def sync_lpr_rates() -> dict[str, Any]:
+    """手动触发 LPR 利率同步（从央行网站抓取）。需要管理员权限。"""
+    return client.post("/lpr/sync", json={})  # type: ignore[no-any-return]
+
+
+def get_lpr_sync_status() -> dict[str, Any]:
+    """获取 LPR 利率同步状态，包含最新利率日期和记录统计。"""
+    return client.get("/lpr/sync/status")  # type: ignore[no-any-return]

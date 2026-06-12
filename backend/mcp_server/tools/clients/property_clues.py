@@ -18,3 +18,28 @@ def create_property_clue(client_id: int, clue_type: str, content: str) -> dict[s
         f"/client/clients/{client_id}/property-clues",
         json={"clue_type": clue_type, "content": content},
     )  # type: ignore[return-value]
+
+
+def get_property_clue(clue_id: int) -> dict[str, Any]:
+    """获取单条财产线索详情。"""
+    return client.get(f"/client/property-clues/{clue_id}")  # type: ignore[return-value]
+
+
+def update_property_clue(clue_id: int, clue_type: str | None = None, content: str | None = None) -> dict[str, Any]:
+    """更新财产线索。只传需要修改的字段。"""
+    payload: dict[str, Any] = {}
+    if clue_type is not None:
+        payload["clue_type"] = clue_type
+    if content is not None:
+        payload["content"] = content
+    return client.put(f"/client/property-clues/{clue_id}", json=payload)  # type: ignore[return-value]
+
+
+def delete_property_clue(clue_id: int) -> None:
+    """删除财产线索。此操作不可逆。"""
+    client.delete(f"/client/property-clues/{clue_id}")
+
+
+def get_property_clue_content_template() -> dict[str, Any]:
+    """获取财产线索的内容模板（预填格式）。"""
+    return client.get("/client/property-clues/content-template")  # type: ignore[return-value]

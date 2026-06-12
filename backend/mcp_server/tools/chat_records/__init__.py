@@ -1,12 +1,24 @@
 """聊天记录取证域 tools 导出"""
 
 from mcp_server.tools.chat_records.chat_records import (
+    cancel_extract_recording,
     create_export,
     create_project,
+    delete_recording,
+    delete_screenshot,
+    download_export,
+    extract_recording,
+    get_export_statuses,
     get_export_task,
+    get_export_types,
+    get_recording,
     list_projects,
     list_recordings,
     list_screenshots,
+    reorder_screenshots,
+    reset_extract_recording,
+    update_recording,
+    update_screenshot,
 )
 
 __all__ = [
@@ -16,4 +28,16 @@ __all__ = [
     "list_screenshots",
     "create_export",
     "get_export_task",
+    "get_export_types",
+    "get_export_statuses",
+    "download_export",
+    "get_recording",
+    "update_recording",
+    "delete_recording",
+    "extract_recording",
+    "cancel_extract_recording",
+    "reset_extract_recording",
+    "update_screenshot",
+    "delete_screenshot",
+    "reorder_screenshots",
 ]

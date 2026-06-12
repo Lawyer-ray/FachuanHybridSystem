@@ -51,3 +51,23 @@ def download_pdf_split_result(job_id: str) -> dict[str, Any]:
         "content_type": content_type,
         "data_base64": base64.b64encode(content).decode(),
     }
+
+
+def get_pdf_split_page_preview(job_id: str, page_no: int) -> dict[str, Any]:
+    """获取 PDF 拆解任务中某一页的图片预览。返回 {filename, content_type, data_base64}。"""
+    content, filename, content_type = client.download(f"/pdf-splitting/jobs/{job_id}/pages/{page_no}/preview")
+    return {
+        "filename": filename,
+        "content_type": content_type,
+        "data_base64": base64.b64encode(content).decode(),
+    }
+
+
+def download_pdf_split_raw(job_id: str) -> dict[str, Any]:
+    """下载 PDF 拆解任务的原始 PDF 文件。返回 {filename, content_type, data_base64}。"""
+    content, filename, content_type = client.download(f"/pdf-splitting/jobs/{job_id}/pdf")
+    return {
+        "filename": filename,
+        "content_type": content_type,
+        "data_base64": base64.b64encode(content).decode(),
+    }

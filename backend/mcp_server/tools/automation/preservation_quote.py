@@ -45,3 +45,8 @@ def get_preservation_quote(quote_id: int) -> dict[str, Any]:
 def execute_preservation_quote(quote_id: int) -> dict[str, Any]:
     """执行询价任务，并发查询所有保险公司报价。返回执行结果统计。"""
     return client.post(f"/automation/preservation-quotes/{quote_id}/execute", json={})  # type: ignore[return-value]
+
+
+def retry_preservation_quote(quote_id: int) -> dict[str, Any]:
+    """重试失败的询价任务。"""
+    return client.post(f"/automation/preservation-quotes/{quote_id}/retry", json={})  # type: ignore[return-value]

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import base64
 from typing import Any
 
 from mcp_server.client import client
@@ -56,3 +57,23 @@ def assign_sms_case(sms_id: int, case_id: int) -> dict[str, Any]:
 def retry_sms_processing(sms_id: int) -> dict[str, Any]:
     """重新处理法院短信（重置状态并重新执行完整处理流程）。"""
     return client.post(f"/automation/court-sms/{sms_id}/retry", json={})  # type: ignore[return-value]
+
+
+def delete_court_sms(sms_id: int) -> None:
+    """删除法院短信记录。此操作不可逆。"""
+    client.delete(f"/automation/court-sms/{sms_id}")
+
+
+def download_sms_documents(sms_id: int) -> list[dict[str, Any]]:
+    """下载法院短信关联的所有文书文档。返回文书列表。"""
+    return client.get(f"/automation/court-sms/{sms_id}/documents/download-all")  # type: ignore[return-value]
+
+
+def download_sms_document(sms_id: int, ref_index: int) -> dict[str, Any]:
+    """下载法院短信关联的单个文书。返回 {filename, content_type, data_base64}。"""
+    content, filename, content_type = client.download(f"/automation/court-sms/{sms_id}/documents/{ref_index}/download")
+    return {
+        "filename": filename,
+        "content_type": content_type,
+        "data_base64": base64.b64encode(content).decode(),
+    }

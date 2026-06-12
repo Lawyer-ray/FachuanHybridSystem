@@ -76,3 +76,16 @@ def delete_reminder(reminder_id: int) -> None:
 def list_reminder_types() -> list[dict[str, Any]]:
     """获取所有支持的提醒类型列表。"""
     return client.get("/reminders/types")  # type: ignore[return-value]
+
+
+def parse_reminders_from_text(text: str) -> list[dict[str, Any]]:
+    """从自由文本中解析提醒条目。返回结构化的提醒列表（content、type、due_at）。"""
+    return client.post("/reminders/parse", json={"text": text})  # type: ignore[return-value]
+
+
+def get_target_options(q: str = "") -> dict[str, Any]:
+    """搜索可关联提醒的目标（合同、案件、案件日志）。q 为关键词筛选。"""
+    params: dict[str, Any] = {}
+    if q:
+        params["q"] = q
+    return client.get("/reminders/target-options", params=params)  # type: ignore[return-value]

@@ -36,3 +36,55 @@ def get_review_models() -> list[dict[str, str]]:
     """获取可用的 LLM 模型列表。"""
     result: dict[str, Any] = client.get("/contract-review/models")
     return list(result.get("models", []))
+
+
+def confirm_party(task_id: str, party_name: str, party_type: str) -> dict[str, Any]:
+    """确认合同当事人信息。party_type: plaintiff（原告）/ defendant（被告）/ third_party（第三人）。"""
+    return client.post(  # type: ignore[return-value]
+        f"/contract-review/{task_id}/confirm-party",
+        json={"party_name": party_name, "party_type": party_type},
+    )
+
+
+def download_review_result(task_id: str) -> dict[str, Any]:
+    """下载合同审查结果文件。返回 {filename, content_type, data_base64}。"""
+    content, filename, content_type = client.download(f"/contract-review/{task_id}/download")
+    return {
+        "filename": filename,
+        "content_type": content_type,
+        "data_base64": base64.b64encode(content).decode(),
+    }
+
+
+def download_review_original(task_id: str) -> dict[str, Any]:
+    """下载合同审查的原始文件。返回 {filename, content_type, data_base64}。"""
+    content, filename, content_type = client.download(f"/contract-review/{task_id}/download-original")
+    return {
+        "filename": filename,
+        "content_type": content_type,
+        "data_base64": base64.b64encode(content).decode(),
+    }
+
+
+def normalize_contract_format(file_content_base64: str, filename: str) -> dict[str, Any]:
+    """将合同文件转换为标准化格式。返回 task_id。"""
+    file_bytes = base64.b64decode(file_content_base64)
+    content_type = (
+        "application/pdf"
+        if filename.endswith(".pdf")
+        else "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    )
+    return client.upload(  # type: ignore[return-value]
+        "/contract-review/normalize",
+        files={"file": (filename, file_bytes, content_type)},
+    )
+
+
+def download_normalized_result(task_id: str) -> dict[str, Any]:
+    """下载标准化后的合同文件。返回 {filename, content_type, data_base64}。"""
+    content, filename, content_type = client.download(f"/contract-review/{task_id}/download-normalized")
+    return {
+        "filename": filename,
+        "content_type": content_type,
+        "data_base64": base64.b64encode(content).decode(),
+    }

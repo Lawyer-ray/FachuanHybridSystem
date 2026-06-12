@@ -18,3 +18,22 @@ def add_case_party(case_id: int, client_id: int, legal_status: str | None = None
     if legal_status:
         payload["legal_status"] = legal_status
     return client.post("/cases/parties", json=payload)  # type: ignore[return-value]
+
+
+def get_case_party(party_id: int) -> dict[str, Any]:
+    """获取单个案件当事人详情。"""
+    return client.get(f"/cases/parties/{party_id}")  # type: ignore[return-value]
+
+
+def update_case_party(party_id: int, legal_status: str | None = None, **extra: Any) -> dict[str, Any]:
+    """更新案件当事人信息。只传需要修改的字段。"""
+    payload: dict[str, Any] = {}
+    if legal_status is not None:
+        payload["legal_status"] = legal_status
+    payload.update(extra)
+    return client.put(f"/cases/parties/{party_id}", json=payload)  # type: ignore[return-value]
+
+
+def delete_case_party(party_id: int) -> None:
+    """从案件中移除当事人。"""
+    client.delete(f"/cases/parties/{party_id}")

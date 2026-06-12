@@ -84,3 +84,11 @@ def download_all_research_results(task_id: int) -> dict[str, Any]:
         "content_type": content_type,
         "data_base64": base64.b64encode(content).decode(),
     }
+
+
+def check_law_references(text: str, credential_id: int) -> dict[str, Any]:
+    """校验文书中的法律条文引用是否有效。text 为文书全文；credential_id 为维科账号凭证ID。"""
+    return client.post(  # type: ignore[return-value]
+        "/legal-research/law-verification/check",
+        json={"text": text, "credential_id": credential_id},
+    )

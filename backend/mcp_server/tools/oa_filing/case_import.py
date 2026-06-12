@@ -38,3 +38,8 @@ def execute_case_import(
         "matched_case_nos": matched_case_nos or [],
     }
     return client.post(f"/case-import/{session_id}/execute", json=payload)  # type: ignore[return-value]
+
+
+def batch_create_cases(session_id: int, cases: list[dict[str, Any]]) -> dict[str, Any]:
+    """从导入会话批量创建案件。cases 为案件列表，每项包含 case_no 等字段。"""
+    return client.post(f"/case-import/{session_id}/batch-create", json={"cases": cases})  # type: ignore[return-value]
