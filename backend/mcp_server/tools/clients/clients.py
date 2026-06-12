@@ -82,3 +82,47 @@ def update_client(
     if is_our_client is not None:
         payload["is_our_client"] = is_our_client
     return client.put(f"/client/clients/{client_id}", json=payload)  # type: ignore[return-value]
+
+
+def delete_client(client_id: int) -> None:
+    """删除客户。"""
+    client.delete(f"/client/clients/{client_id}")
+
+
+def list_clients_with_docs(
+    client_type: str | None = None, is_our_client: bool | None = None, search: str | None = None
+) -> dict[str, Any]:
+    """创建客户并上传文档（需要文件，MCP 场景仅创建客户不附带文档）。"""
+    params: dict[str, Any] = {}
+    if client_type is not None:
+        params["client_type"] = client_type
+    if is_our_client is not None:
+        params["is_our_client"] = is_our_client
+    if search is not None:
+        params["search"] = search
+    return client.get("/client/clients", params=params)  # type: ignore[return-value]
+
+
+def get_identity_doc_task(task_id: str) -> dict[str, Any]:
+    """查询证件识别任务状态。"""
+    return client.get(f"/client/identity-doc/task/{task_id}")  # type: ignore[return-value]
+
+
+def submit_identity_doc_recognition() -> dict[str, Any]:
+    """提交证件识别异步任务（需文件，MCP 场景不可用，保留接口定义）。"""
+    return client.post("/client/identity-doc/recognize/submit", json={})  # type: ignore[return-value]
+
+
+def merge_id_card_manual(
+    front_image_path: str, back_image_path: str, front_corners: list[list[int]], back_corners: list[list[int]]
+) -> dict[str, Any]:
+    """手动指定四角坐标合并身份证正反面为 PDF。"""
+    return client.post(
+        "/client/identity-docs/merge-id-card-manual",
+        json={
+            "front_image_path": front_image_path,
+            "back_image_path": back_image_path,
+            "front_corners": front_corners,
+            "back_corners": back_corners,
+        },
+    )  # type: ignore[return-value]

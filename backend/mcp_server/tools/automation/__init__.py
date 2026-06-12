@@ -34,6 +34,20 @@ from mcp_server.tools.automation.document_delivery import (
     query_document_delivery,
     update_delivery_schedule,
 )
+from mcp_server.tools.automation.document_processor import process_document, process_document_by_path
+from mcp_server.tools.automation.main_api import ai_ollama, get_automation_config, get_automation_status
+from mcp_server.tools.automation.performance import (
+    cleanup_resources,
+    clear_cache,
+    get_cache_statistics,
+    get_performance_metrics,
+    get_resource_usage,
+    get_statistics_report,
+    health_check,
+    optimize_concurrency,
+    reset_performance_metrics,
+    warm_up_cache,
+)
 from mcp_server.tools.automation.preservation_quote import (
     create_preservation_quote,
     execute_preservation_quote,
@@ -83,4 +97,22 @@ __all__ = [
     "delete_guarantee_quote",
     "retry_guarantee_quote",
     "delete_guarantee_binding",
+    # 性能监控
+    "health_check",
+    "get_performance_metrics",
+    "get_statistics_report",
+    "get_resource_usage",
+    "get_cache_statistics",
+    "optimize_concurrency",
+    "warm_up_cache",
+    "clear_cache",
+    "reset_performance_metrics",
+    "cleanup_resources",
+    # 文档处理器
+    "process_document",
+    "process_document_by_path",
+    # 自动化主 API
+    "ai_ollama",
+    "get_automation_config",
+    "get_automation_status",
 ]

@@ -6,6 +6,8 @@ from mcp.server.fastmcp import FastMCP
 
 from mcp_server.tools import (
     add_case_party,
+    ai_ollama,
+    analyze_template,
     assign_lawyer,
     assign_sms_case,
     auto_namer_process,
@@ -18,19 +20,28 @@ from mcp_server.tools import (
     browse_folders,
     calculate_interest,
     calculate_litigation_fee,
+    cancel_conversion_job,
     cancel_extract_recording,
     cancel_pdf_split,
     capability_search,
     check_law_references,
     check_oa_credential,
-    confirm_pdf_split,
+    chat_with_context,
+    cleanup_resources,
+    clear_all_archive_materials,
+    clear_cache,
+    confirm_archive,
+    confirm_contract_scan,
+    confirm_mappings,
     confirm_party,
+    confirm_pdf_split,
     convert_document,
     create_case,
     create_case_folder_binding,
     create_case_log,
     create_case_number,
     create_client,
+    create_contact,
     create_contract,
     create_contract_with_cases,
     create_credential,
@@ -38,65 +49,94 @@ from mcp_server.tools import (
     create_document_template,
     create_export,
     create_folder_binding,
+    create_folder_template,
     create_full_case,
     create_grant,
     create_lawfirm,
     create_lawyer,
+    create_mapping,
     create_new_reminder,
     create_payment,
     create_pdf_split_job,
+    create_placeholder,
     create_preservation_quote,
     create_project,
     create_property_clue,
     create_research_task,
     create_scan_stage,
     create_supplementary_agreement,
+    create_system_config,
     create_team,
     create_template_binding,
     create_message_source,
     delete_all_materials,
+    delete_archive_material,
+    delete_archive_overrides,
     delete_case,
     delete_case_assignment,
     delete_case_folder_binding,
     delete_case_log,
     delete_case_number,
     delete_case_party,
+    delete_client,
+    delete_contact,
+    delete_conversion_job,
     delete_contract,
     delete_credential,
     delete_court_sms,
+    delete_document_template,
     delete_folder_binding,
+    delete_folder_template,
     delete_grant,
     delete_guarantee_binding,
     delete_guarantee_quote,
     delete_identity_doc,
     delete_lawfirm,
     delete_lawyer,
+    delete_mapping,
     delete_material,
     delete_payment,
+    delete_placeholder,
     delete_property_clue,
     delete_recording,
     delete_reminder,
+    delete_schedule,
     delete_screenshot,
     delete_supplementary_agreement,
+    delete_system_config,
+    delete_task,
     delete_team,
     delete_template_binding,
     delete_message_source,
     detect_orientation,
     detect_single_page_orientation,
+    doc_converter_health_check,
     download_all_research_results,
+    download_archive_item,
+    download_authorization_package,
+    download_authority_letter,
     download_contract_document,
     download_contract_folder,
+    download_converted_files,
+    download_delay_delivery_application,
     download_export,
+    download_full_preservation_package,
     download_inbox_attachment,
     download_invoices,
+    download_legal_rep_certificate,
+    download_litigation_document,
     download_normalized_result,
     download_pdf_split_raw,
     download_pdf_split_result,
+    download_power_of_attorney,
+    download_power_of_attorney_combined,
+    download_preservation_application,
     download_research_result,
     download_review_original,
     download_review_result,
     download_sms_document,
     download_sms_documents,
+    download_supplementary_agreement,
     enterprise_prefill,
     enterprise_search,
     ensure_guarantee_quote,
@@ -108,7 +148,17 @@ from mcp_server.tools import (
     export_rotated_pdf,
     extract_pdf_pages,
     extract_recording,
+    extract_template_placeholders,
+    generate_archive_folder,
     generate_case_template,
+    generate_complaint,
+    generate_defense,
+    generate_poi_complaint,
+    generate_report,
+    get_archive_checklist,
+    get_archive_overrides,
+    get_automation_config,
+    get_automation_status,
     get_captcha_image,
     get_case,
     get_case_assignment,
@@ -118,33 +168,37 @@ from mcp_server.tools import (
     get_case_log,
     get_case_number,
     get_case_party,
+    get_cache_statistics,
     get_cause,
-    get_court_filing_case_info,
-    get_court_filing_session,
-    get_client,
-    get_client_import_session,
-    get_company_personnel,
-    get_company_profile,
-    get_company_risks,
-    get_company_shareholders,
+    get_conversation_history,
     get_contract,
     get_contract_all_parties,
     get_contract_folder_path,
+    get_contract_scan_status,
+    get_conversion_progress,
     get_credential,
+    get_court_filing_case_info,
+    get_court_filing_session,
     get_court_sms_detail,
+    get_custom_fields,
+    get_dashboard_stats,
     get_delivery_schedule,
     get_document_template,
     get_export_statuses,
     get_export_task,
     get_export_types,
+    get_fill_history,
     get_filing_status,
     get_folder_binding,
+    get_folder_template,
     get_finance_stats,
     get_guarantee_case_info,
     get_guarantee_session,
     get_identity_doc,
+    get_identity_doc_task,
     get_inbox_message,
     get_invoice_task_status,
+    get_latest_contract_scan,
     get_latest_lpr_rate,
     get_lawfirm,
     get_lawyer,
@@ -152,20 +206,32 @@ from mcp_server.tools import (
     get_message_source,
     get_pdf_split_job,
     get_pdf_split_page_preview,
+    get_performance_metrics,
     get_person_profile,
+    get_placeholder,
+    get_placeholder_by_key,
+    get_preview_html,
     get_preservation_quote,
     get_property_clue,
     get_property_clue_content_template,
     get_recording,
     get_reminder,
     get_research_task,
+    get_resource_usage,
     get_review_models,
     get_review_status,
     get_scan_status,
+    get_statistics,
+    get_statistics_report,
     get_supplementary_agreement,
     get_target_options,
     get_team,
+    get_undefined_placeholders,
+    global_search,
+    health_check,
+    learn_archive_rules,
     list_all_reminders,
+    list_available_models,
     list_available_templates,
     list_bind_candidates,
     list_case_assignments,
@@ -177,8 +243,12 @@ from mcp_server.tools import (
     list_causes_data,
     list_causes_tree,
     list_clients,
+    list_clients_with_docs,
     list_cloud_storage_accounts,
+    list_completed_tasks,
+    list_contacts,
     list_contracts,
+    list_contract_scan_subfolders,
     list_court_sms,
     list_courts_data,
     list_credentials,
@@ -186,12 +256,14 @@ from mcp_server.tools import (
     list_doc_convert_types,
     list_document_templates,
     list_enterprise_providers,
+    list_failed_tasks,
     list_folder_templates,
     list_grants,
     list_inbox_messages,
     list_lawfirms,
     list_lawyers,
     list_lpr_rates,
+    list_mappings,
     list_message_sources,
     list_oa_configs,
     list_payments,
@@ -199,40 +271,70 @@ from mcp_server.tools import (
     list_preservation_quotes,
     list_projects,
     list_property_clues,
+    list_queued_tasks,
     list_recordings,
     list_reminder_types,
     list_research_results,
     list_scan_subfolders,
+    list_scheduled_tasks,
     list_screenshots,
     list_supplementary_agreements,
+    list_system_configs,
     list_teams,
     list_template_bindings,
+    list_template_library_files,
+    match_templates,
+    merge_id_card_manual,
+    move_archive_material,
     normalize_contract_format,
+    optimize_concurrency,
     parse_client_text,
     parse_reminders_from_text,
+    patch_system_config,
+    poi_health,
+    preview_archive_context,
     preview_contract_context,
+    preview_fill,
     preview_inbox_attachment,
+    preview_litigation_context,
     preview_placeholders,
+    preview_supplementary_agreement_context,
+    process_document,
+    process_document_by_path,
     query_document_delivery,
     quick_recognize_invoice,
     rename_inbox_attachment,
     rename_material_group,
+    reorder_archive_materials,
+    reorder_evidence_items,
     reorder_screenshots,
+    reset_and_resync_case_materials,
     reset_extract_recording,
+    reset_performance_metrics,
+    resubmit_task,
     retry_guarantee_quote,
     retry_preservation_quote,
     retry_sms_processing,
+    save_archive_overrides,
     save_group_order,
+    save_to_directory,
+    scale_to_a4,
     search_bidding_info,
     search_cases,
     search_companies,
+    search_contacts,
+    start_contract_scan,
     start_folder_scan,
     submit_captcha_answer,
     submit_court_sms,
+    submit_identity_doc_recognition,
     suggest_rename,
     sync_all_message_sources,
+    sync_case_materials,
     sync_lpr_rates,
     sync_message_source,
+    test_model_connection,
+    toggle_compact_archive,
     trigger_case_import,
     trigger_client_import,
     trigger_oa_filing,
@@ -243,15 +345,20 @@ from mcp_server.tools import (
     update_case_number,
     update_case_party,
     update_client,
+    update_contact,
     update_contract,
     update_contract_lawyers,
     update_credential,
     update_delivery_schedule,
+    update_document_template,
+    update_folder_template,
     update_grant,
     update_lawfirm,
     update_lawyer,
+    update_mapping,
     update_message_source,
     update_payment,
+    update_placeholder,
     update_property_clue,
     update_recording,
     update_reminder,
@@ -260,7 +367,9 @@ from mcp_server.tools import (
     update_team,
     upload_contract_for_review,
     upload_invoices,
+    validate_folder_structure,
     validate_id_card,
+    warm_up_cache,
     web_search,
 )
 
@@ -355,10 +464,15 @@ mcp.tool()(get_client)
 mcp.tool()(create_client)
 mcp.tool()(parse_client_text)
 mcp.tool()(update_client)
+mcp.tool()(delete_client)
+mcp.tool()(list_clients_with_docs)
 mcp.tool()(enterprise_search)
 mcp.tool()(enterprise_prefill)
 mcp.tool()(get_identity_doc)
 mcp.tool()(delete_identity_doc)
+mcp.tool()(get_identity_doc_task)
+mcp.tool()(submit_identity_doc_recognition)
+mcp.tool()(merge_id_card_manual)
 mcp.tool()(validate_id_card)
 mcp.tool()(check_oa_credential)
 
@@ -369,6 +483,14 @@ mcp.tool()(get_property_clue)
 mcp.tool()(update_property_clue)
 mcp.tool()(delete_property_clue)
 mcp.tool()(get_property_clue_content_template)
+
+# 联系人
+mcp.tool()(list_contacts)
+mcp.tool()(create_contact)
+mcp.tool()(search_contacts)
+mcp.tool()(get_contact)
+mcp.tool()(update_contact)
+mcp.tool()(delete_contact)
 
 # 合同
 mcp.tool()(list_contracts)
@@ -398,6 +520,28 @@ mcp.tool()(get_folder_binding)
 mcp.tool()(delete_folder_binding)
 mcp.tool()(browse_folders)
 mcp.tool()(list_cloud_storage_accounts)
+
+# 合同归档
+mcp.tool()(learn_archive_rules)
+mcp.tool()(get_archive_checklist)
+mcp.tool()(download_archive_item)
+mcp.tool()(generate_archive_folder)
+mcp.tool()(toggle_compact_archive)
+mcp.tool()(sync_case_materials)
+mcp.tool()(reset_and_resync_case_materials)
+mcp.tool()(scale_to_a4)
+mcp.tool()(confirm_archive)
+mcp.tool()(delete_archive_material)
+mcp.tool()(reorder_archive_materials)
+mcp.tool()(move_archive_material)
+mcp.tool()(clear_all_archive_materials)
+
+# 合同文件夹扫描
+mcp.tool()(start_contract_scan)
+mcp.tool()(list_contract_scan_subfolders)
+mcp.tool()(get_latest_contract_scan)
+mcp.tool()(get_contract_scan_status)
+mcp.tool()(confirm_contract_scan)
 
 # 提醒
 mcp.tool()(list_all_reminders)
@@ -512,6 +656,27 @@ mcp.tool()(delete_guarantee_quote)
 mcp.tool()(retry_guarantee_quote)
 mcp.tool()(delete_guarantee_binding)
 
+# 自动化 - 性能监控
+mcp.tool()(health_check)
+mcp.tool()(get_performance_metrics)
+mcp.tool()(get_statistics_report)
+mcp.tool()(get_resource_usage)
+mcp.tool()(get_cache_statistics)
+mcp.tool()(optimize_concurrency)
+mcp.tool()(warm_up_cache)
+mcp.tool()(clear_cache)
+mcp.tool()(reset_performance_metrics)
+mcp.tool()(cleanup_resources)
+
+# 自动化 - 文档处理器
+mcp.tool()(process_document)
+mcp.tool()(process_document_by_path)
+
+# 自动化 - 主 API
+mcp.tool()(ai_ollama)
+mcp.tool()(get_automation_config)
+mcp.tool()(get_automation_status)
+
 # PDF 拆解
 mcp.tool()(create_pdf_split_job)
 mcp.tool()(get_pdf_split_job)
@@ -534,6 +699,14 @@ mcp.tool()(batch_create_cases)
 # 要素式转换
 mcp.tool()(list_doc_convert_types)
 mcp.tool()(convert_document)
+
+# 文档转换
+mcp.tool()(get_conversion_progress)
+mcp.tool()(cancel_conversion_job)
+mcp.tool()(download_converted_files)
+mcp.tool()(delete_conversion_job)
+mcp.tool()(doc_converter_health_check)
+mcp.tool()(save_to_directory)
 
 # 发票识别
 mcp.tool()(quick_recognize_invoice)
@@ -571,7 +744,7 @@ mcp.tool()(download_review_original)
 mcp.tool()(normalize_contract_format)
 mcp.tool()(download_normalized_result)
 
-# 文书生产
+# 文书生产 - 基础查询
 mcp.tool()(list_document_templates)
 mcp.tool()(get_document_template)
 mcp.tool()(create_document_template)
@@ -581,6 +754,70 @@ mcp.tool()(preview_placeholders)
 mcp.tool()(preview_contract_context)
 mcp.tool()(download_contract_document)
 mcp.tool()(download_contract_folder)
+
+# 文书生产 - 模板操作
+mcp.tool()(update_document_template)
+mcp.tool()(delete_document_template)
+mcp.tool()(extract_template_placeholders)
+mcp.tool()(get_undefined_placeholders)
+mcp.tool()(list_template_library_files)
+
+# 文件夹模板操作
+mcp.tool()(get_folder_template)
+mcp.tool()(create_folder_template)
+mcp.tool()(update_folder_template)
+mcp.tool()(delete_folder_template)
+mcp.tool()(validate_folder_structure)
+
+# 替换词操作
+mcp.tool()(get_placeholder)
+mcp.tool()(get_placeholder_by_key)
+mcp.tool()(create_placeholder)
+mcp.tool()(update_placeholder)
+mcp.tool()(delete_placeholder)
+
+# 文档生成操作
+mcp.tool()(preview_supplementary_agreement_context)
+mcp.tool()(preview_archive_context)
+mcp.tool()(get_archive_overrides)
+mcp.tool()(save_archive_overrides)
+mcp.tool()(delete_archive_overrides)
+mcp.tool()(download_supplementary_agreement)
+
+# 诉讼文书生成
+mcp.tool()(generate_complaint)
+mcp.tool()(generate_defense)
+mcp.tool()(preview_litigation_context)
+mcp.tool()(download_litigation_document)
+
+# 授权委托材料
+mcp.tool()(download_authority_letter)
+mcp.tool()(download_legal_rep_certificate)
+mcp.tool()(download_power_of_attorney_combined)
+mcp.tool()(download_authorization_package)
+mcp.tool()(download_power_of_attorney)
+
+# 财产保全材料
+mcp.tool()(download_preservation_application)
+mcp.tool()(download_delay_delivery_application)
+mcp.tool()(download_full_preservation_package)
+
+# 外部模板
+mcp.tool()(analyze_template)
+mcp.tool()(confirm_mappings)
+mcp.tool()(preview_fill)
+mcp.tool()(match_templates)
+mcp.tool()(get_custom_fields)
+mcp.tool()(get_fill_history)
+mcp.tool()(get_statistics)
+mcp.tool()(get_preview_html)
+mcp.tool()(list_mappings)
+mcp.tool()(create_mapping)
+mcp.tool()(update_mapping)
+mcp.tool()(delete_mapping)
+
+# 证据管理
+mcp.tool()(reorder_evidence_items)
 
 # LPR 利率
 mcp.tool()(list_lpr_rates)
@@ -612,6 +849,40 @@ mcp.tool()(update_message_source)
 mcp.tool()(delete_message_source)
 mcp.tool()(sync_message_source)
 mcp.tool()(sync_all_message_sources)
+
+# 核心 - LLM 服务
+mcp.tool()(chat_with_context)
+mcp.tool()(get_conversation_history)
+mcp.tool()(sync_prompt_templates)
+mcp.tool()(list_available_models)
+mcp.tool()(test_model_connection)
+
+# 核心 - 系统配置
+mcp.tool()(list_system_configs)
+mcp.tool()(update_system_configs)
+mcp.tool()(create_system_config)
+mcp.tool()(patch_system_config)
+mcp.tool()(delete_system_config)
+
+# 核心 - 仪表盘
+mcp.tool()(get_dashboard_stats)
+
+# 核心 - 全局搜索
+mcp.tool()(global_search)
+
+# 核心 - 任务队列
+mcp.tool()(list_queued_tasks)
+mcp.tool()(list_completed_tasks)
+mcp.tool()(list_failed_tasks)
+mcp.tool()(list_scheduled_tasks)
+mcp.tool()(delete_task)
+mcp.tool()(delete_schedule)
+mcp.tool()(resubmit_task)
+
+# 核心 - POI 文档生成
+mcp.tool()(poi_health)
+mcp.tool()(generate_poi_complaint)
+mcp.tool()(generate_report)
 
 # 网络搜索
 mcp.tool()(web_search)
