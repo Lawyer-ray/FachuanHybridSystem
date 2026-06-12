@@ -544,7 +544,7 @@ class DynamicWorkflow:
                 args=(run_id, step_id, step_name, "llm", "success", result),
                 start_to_close_timeout=QUICK_TIMEOUT,
             )
-            return result
+            return result  # type: ignore[no-any-return]  # type: ignore[no-any-return]
 
         # ── http: HTTP 请求 ──
         if step_type == "http":
@@ -570,7 +570,7 @@ class DynamicWorkflow:
                 args=(run_id, step_id, step_name, "http", "success", result),
                 start_to_close_timeout=QUICK_TIMEOUT,
             )
-            return result
+            return result  # type: ignore[no-any-return]
 
         # ── code: 代码执行 ──
         if step_type == "code":
@@ -595,7 +595,7 @@ class DynamicWorkflow:
                 args=(run_id, step_id, step_name, "code", "success", result),
                 start_to_close_timeout=QUICK_TIMEOUT,
             )
-            return result
+            return result  # type: ignore[no-any-return]
 
         # ── activity: 业务步骤 ──
         # 优先走 MCP 工具，其次走 internal activity
@@ -641,7 +641,7 @@ class DynamicWorkflow:
             start_to_close_timeout=QUICK_TIMEOUT,
             retry_policy=QUICK_RETRY,
         )
-        return result
+        return result  # type: ignore[no-any-return]
 
     async def _execute_gate(
         self, step_id: str, step_name: str, run_id: int, context: dict, timeout_hours: float,

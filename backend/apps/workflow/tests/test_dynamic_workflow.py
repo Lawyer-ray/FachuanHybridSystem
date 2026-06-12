@@ -129,7 +129,7 @@ async def run_dynamic_workflow_test() -> bool:
             id=workflow_id,
             task_queue=TASK_QUEUE,
         )
-        run.temporal_run_id = handle.result_run_id
+        run.temporal_run_id = str(handle.result_run_id)
         await run.asave(update_fields=["temporal_run_id"])
         print(f"✅ DynamicWorkflow 启动: {workflow_id}")
     except Exception as e:

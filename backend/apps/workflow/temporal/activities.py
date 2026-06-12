@@ -382,7 +382,7 @@ async def generic_code_exec(code: str, context: dict | None = None) -> dict:
     }
     import builtins
     restricted_globals = {"__builtins__": {k: getattr(builtins, k) for k in safe_builtins if hasattr(builtins, k)}}
-    restricted_globals["json"] = json
+    restricted_globals["json"] = json  # type: ignore[assignment]
     restricted_globals["context"] = context or {}
 
     exec(code, restricted_globals)  # noqa: S102
