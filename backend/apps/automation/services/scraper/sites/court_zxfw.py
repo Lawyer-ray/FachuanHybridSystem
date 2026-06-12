@@ -180,13 +180,13 @@ class CourtZxfwService:  # pragma: no cover
             登录结果 dict（成功时），或 None（插件不可用/失败，触发 Playwright 回退）
         """
         try:
-            from apps.automation.services.scraper.sites.court_zxfw_login_private import is_available
+            from apps.automation.services.scraper.sites.court_zxfw_login_private import is_available  # type: ignore[attr-defined]
 
             if not is_available():
                 logger.info("纯逆向登录插件不可用，回退到 Playwright")
                 return None
 
-            from apps.automation.services.scraper.sites.court_zxfw_login_private import CourtZxfwHttpLoginService
+            from apps.automation.services.scraper.sites.court_zxfw_login_private import CourtZxfwHttpLoginService  # type: ignore[attr-defined]
 
             svc = CourtZxfwHttpLoginService(captcha_recognizer=self.captcha_recognizer)
             result_raw: object = svc.login(account, password, max_retries=max_retries)

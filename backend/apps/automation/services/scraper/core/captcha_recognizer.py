@@ -211,7 +211,7 @@ class ManualCaptchaRecognizer(CaptchaRecognizer):
 
                 answer = self.task.captcha_answer
                 if answer and answer.strip():
-                    cleaned = answer.strip().replace(" ", "")
+                    cleaned: str = answer.strip().replace(" ", "")
                     logger.info("✅ 收到手动验证码: task=%s, answer=%s", self.task.id, cleaned)
 
                     # 清理图片和状态

@@ -29,7 +29,7 @@ class CaptchaAnswerOut(Schema):
 
 
 @router.get("/{task_id}/image", auth=None)
-def get_captcha_image(request: Any, task_id: int) -> HttpResponse:
+def get_captcha_image(request: Any, task_id: int) -> HttpResponse | FileResponse:
     """
     获取待识别验证码图片
 
