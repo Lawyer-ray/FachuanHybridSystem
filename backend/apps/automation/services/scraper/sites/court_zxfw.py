@@ -86,10 +86,10 @@ class CourtZxfwService:  # pragma: no cover
 
         # 依赖注入：验证码识别器
         if captcha_recognizer is None:
-            from apps.automation.services.scraper.core.captcha_recognizer import DdddocrRecognizer
+            from apps.automation.services.scraper.core.captcha_recognizer import get_captcha_recognizer
 
-            self.captcha_recognizer: CaptchaRecognizer = DdddocrRecognizer(show_ad=False)
-            logger.info("使用默认的 DdddocrRecognizer")
+            self.captcha_recognizer: CaptchaRecognizer = get_captcha_recognizer()
+            logger.info("使用默认验证码识别器（由 CAPTCHA_AUTO_RECOGNIZE 配置决定）")
         else:
             self.captcha_recognizer = captcha_recognizer
             logger.info(f"使用注入的验证码识别器: {type(captcha_recognizer).__name__}")

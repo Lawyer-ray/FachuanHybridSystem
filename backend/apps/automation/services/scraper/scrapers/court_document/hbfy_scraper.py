@@ -40,10 +40,9 @@ class HbfyCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
     ) -> None:
         super().__init__(task, **kwargs)
         if captcha_recognizer is None:
-            from apps.automation.services.scraper.core.captcha_recognizer import DdddocrRecognizer
+            from apps.automation.services.scraper.core.captcha_recognizer import get_captcha_recognizer
 
-            self.captcha_recognizer: CaptchaRecognizer = DdddocrRecognizer(show_ad=False)
-            logger.info("使用默认的 DdddocrRecognizer")
+            self.captcha_recognizer: CaptchaRecognizer = get_captcha_recognizer(task=self.task)
         else:
             self.captcha_recognizer = captcha_recognizer
     _CAPTCHA_IMAGE_URL = "http://dzsd.hbfy.gov.cn:80/deli/images/yanz.png"
