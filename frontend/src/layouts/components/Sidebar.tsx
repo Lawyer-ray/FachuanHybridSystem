@@ -34,6 +34,7 @@ const routePrefetchMap: Record<string, () => Promise<unknown>> = {
   '/admin/tools/courier-tracking': () => import('@/pages/dashboard/tools/CourierTrackingPage'),
   '/admin/tools/element-convert': () => import('@/pages/dashboard/tools/ElementConvertPage'),
   '/admin/tools/lpr-calculator': () => import('@/pages/dashboard/tools/LprCalculatorPage'),
+  '/admin/workflows': () => import('@/pages/dashboard/workflow/WorkflowPage'),
   '/admin/reminders': () => import('@/pages/dashboard/reminders'),
   '/admin/task-queue': () => import('@/pages/dashboard/task-queue/TaskQueuePage'),
   '/admin/logs': () => import('@/pages/dashboard/logs/LogsPage'),
