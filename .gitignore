@@ -102,6 +102,7 @@ backend/test_output/
 frontend/coverage/
 # detect-secrets temporary artifact
 *.secrets.baseline.new
+.secrets.baseline
 # Playwright screenshots (keep folder, ignore images)
 backend/tests/screenshots/*.png
 backend/tests/screenshots/*.jpg
@@ -152,6 +153,8 @@ backend/tests/screenshots/
 
 # ONNX models (large files, not needed in Git)
 backend/apps/automation/services/ocr/models/*.onnx
+backend/models/
+backend/apps/models/
 
 # macOS paths (user-specific)
 MacOS_FC/
