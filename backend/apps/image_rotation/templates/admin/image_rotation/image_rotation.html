@@ -483,7 +483,7 @@ function imageRotationApp() {
 
                     const result = await response.json();
 
-                    if (result.rotation !== 0) {
+                    if (result.rotation !== 0 && result.can_auto_rotate) {
                         this.images[idx].autoRotation = result.rotation;
                         this.images[idx].rotation = result.rotation;
                         this.renderThumbnail(this.images[idx]);
@@ -531,7 +531,7 @@ function imageRotationApp() {
                         const img = images.find(i => i.filename === detection.filename);
                         if (!img) continue;
 
-                        if (detection.rotation !== 0 && detection.confidence > 0.2) {
+                        if (detection.rotation !== 0 && detection.can_auto_rotate) {
                             img.autoRotation = detection.rotation;
                             img.rotation = detection.rotation;
                             img.detectionMethod = detection.method;
