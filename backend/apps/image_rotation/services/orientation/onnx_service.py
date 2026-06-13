@@ -58,7 +58,7 @@ class ONNXOrientationService:
         self._model_path = model_path or str(MODEL_PATH)
 
     @property
-    def session(self):
+    def session(self) -> "ort.InferenceSession | None":  # type: ignore[name-defined]
         """懒加载 ONNX 推理会话，本地无模型时自动从 HuggingFace Hub 下载"""
         if self._session is None:
             try:
@@ -87,7 +87,7 @@ class ONNXOrientationService:
                 return None
         return self._session
 
-    def _download_from_hub(self):
+    def _download_from_hub(self) -> None:
         """从 HuggingFace Hub 下载模型"""
         try:
             from huggingface_hub import hf_hub_download

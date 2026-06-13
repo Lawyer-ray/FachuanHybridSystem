@@ -118,13 +118,11 @@ def detect_orientation(request: HttpRequest) -> dict[str, Any]:  # pragma: no co
             if method == "ocr_voting":
                 from apps.image_rotation.services.orientation.service import OrientationDetectionService
 
-                svc = OrientationDetectionService()
-                result = svc.detect_orientation_with_text(image_bytes)
+                result = OrientationDetectionService().detect_orientation_with_text(image_bytes)
             else:
                 from apps.image_rotation.services.orientation.onnx_service import get_onnx_orientation_service
 
-                svc = get_onnx_orientation_service()
-                result = svc.detect_orientation(image_bytes)
+                result = get_onnx_orientation_service().detect_orientation(image_bytes)
             result["elapsed_ms"] = round((time.perf_counter() - t0) * 1000, 1)
             result["filename"] = img.get("filename", "")
             results.append(result)
