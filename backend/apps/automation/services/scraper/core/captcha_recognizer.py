@@ -174,7 +174,7 @@ def get_captcha_recognizer(task: Any = None) -> CaptchaRecognizer:
         from plugins import has_captcha_ocr_plugin  # type: ignore[attr-defined]
 
         if has_captcha_ocr_plugin():
-            from plugins.captcha_ocr import DdddocrRecognizer  # type: ignore[attr-defined]
+            from plugins.captcha_ocr import DdddocrRecognizer
 
             logger.info("captcha_ocr 插件已安装，使用 DdddocrRecognizer")
             return cast(CaptchaRecognizer, DdddocrRecognizer(show_ad=False))

@@ -92,7 +92,7 @@ class CaptchaRecognitionService:
         from plugins import has_captcha_ocr_plugin  # type: ignore[attr-defined]
 
         if has_captcha_ocr_plugin():
-            from plugins.captcha_ocr import DdddocrRecognizer  # type: ignore[attr-defined]
+            from plugins.captcha_ocr import DdddocrRecognizer
 
             self._recognizer = DdddocrRecognizer(show_ad=self._config.get("show_ad", False))
             return self._recognizer
