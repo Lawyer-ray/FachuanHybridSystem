@@ -7,8 +7,10 @@ from unittest.mock import MagicMock, patch
 import httpx
 import pytest
 
-from apps.doc_convert.exceptions import ZnszjInvalidResponseError, ZnszjUnavailableError
-from plugins.doc_convert.znszj_client import (
+pytest.importorskip("plugins.doc_convert", reason="doc_convert plugin not installed")
+
+from apps.doc_convert.exceptions import ZnszjInvalidResponseError, ZnszjUnavailableError  # noqa: E402
+from plugins.doc_convert.znszj_client import (  # noqa: E402
     GDZQFY_URL,
     TIMEOUT,
     ZNSZJ_BASE,

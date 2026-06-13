@@ -14,9 +14,9 @@ from apps.doc_convert.models import DocConvertTool
 def _has_doc_convert_plugin() -> bool:
     """检测要素式转换插件是否可用。"""
     try:
-        from plugins import has_doc_convert_plugin
+        from plugins import has_doc_convert_plugin  # type: ignore[attr-defined]
 
-        return has_doc_convert_plugin()
+        return bool(has_doc_convert_plugin())
     except ImportError:
         return False
 

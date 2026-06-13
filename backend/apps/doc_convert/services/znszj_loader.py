@@ -57,7 +57,7 @@ def get_znszj_client() -> ZnszjClientProtocol | None:
         return _cached_client  # type: ignore[return-value]
 
     try:
-        from plugins import has_doc_convert_plugin
+        from plugins import has_doc_convert_plugin  # type: ignore[attr-defined]
 
         if not has_doc_convert_plugin():
             logger.info("doc_convert 插件未安装，要素式转换功能不可用")

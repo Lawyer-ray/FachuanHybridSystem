@@ -53,5 +53,5 @@ def test_convert_document_invalid_mbid(authenticated_client):
         "/api/v1/doc-convert/convert",
         {"file": f, "mbid": "invalid-mbid"},
     )
-    # Should get a 400 for invalid mbid (or 403 if ZNSZJ disabled)
-    assert resp.status_code in (400, 403)
+    # 插件未安装时返回 503；插件安装时 mbid 无效返回 400；ZNSZJ 关闭返回 403
+    assert resp.status_code in (400, 403, 503)
