@@ -28,9 +28,8 @@ def apply_rotation_for_pdf(image_bytes: bytes, rotation: int) -> bytes:
 
     try:
         img2: Image.Image = Image.open(io.BytesIO(image_bytes))
-        pillow_angle = (360 - rotation) % 360
-        if pillow_angle != 0:
-            img2 = img2.rotate(pillow_angle, expand=True)
+        if rotation != 0:
+            img2 = img2.rotate(rotation, expand=True)
 
         output = io.BytesIO()
         img2 = _ensure_rgb(img2)

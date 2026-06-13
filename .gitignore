@@ -102,6 +102,7 @@ backend/test_output/
 frontend/coverage/
 # detect-secrets temporary artifact
 *.secrets.baseline.new
+.secrets.baseline
 # Playwright screenshots (keep folder, ignore images)
 backend/tests/screenshots/*.png
 backend/tests/screenshots/*.jpg
@@ -152,6 +153,8 @@ backend/tests/screenshots/
 
 # ONNX models (large files, not needed in Git)
 backend/apps/automation/services/ocr/models/*.onnx
+backend/models/
+backend/apps/models/
 
 # macOS paths (user-specific)
 MacOS_FC/
@@ -203,7 +206,6 @@ media/
 
 # API 结构快照（含接口细节，不应公开）
 backend/tests/structure/snapshots/*
-!backend/tests/structure/snapshots/openapi_v1.json
 
 # legal_research 私有 API 检索实现（本地保留，不入库）
 backend/apps/legal_research/services/sources/weike/api_private/
@@ -254,3 +256,6 @@ backend/backend/
 backend/cookies.txt
 videos/
 .handbook/
+
+# ML training (not part of the application)
+ml-training/
