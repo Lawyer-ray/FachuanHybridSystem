@@ -45,6 +45,13 @@ def _body(request: HttpRequest) -> dict[str, Any]:
     return cast(dict[str, Any], json.loads(request.body or b"{}"))
 
 
+def _decode_image_data(data: str) -> bytes:
+    """从 Base64 字符串（可带 data URL 前缀）解码为字节数据。"""
+    if "," in data:
+        data = data.split(",", 1)[1]
+    return base64.b64decode(data)
+
+
 def _get_pdf_service() -> Any:
     from apps.image_rotation.services.pdf_extraction_service import PDFExtractionService
 
@@ -95,24 +102,55 @@ def detect_page_orientation(request: HttpRequest) -> dict[str, Any]:  # pragma: 
 def detect_orientation(request: HttpRequest) -> dict[str, Any]:  # pragma: no cover
     payload = _body(request)
     images: list[dict[str, Any]] = payload.get("images", [])
+    method: str = payload.get("method", "onnx")  # "onnx" | "ocr_voting"
     if not images:
         return {"success": False, "results": []}
-    pdf_service = _get_pdf_service()
     results = []
     for img in images:
         try:
-            data: str = img.get("data", "")
-            if "," in data:
-                data = data.split(",", 1)[1]
-            import base64 as _b64
+            image_bytes = _decode_image_data(img.get("data", ""))
+            if method == "ocr_voting":
+                from apps.image_rotation.services.orientation.service import OrientationDetectionService
 
-            image_bytes = _b64.b64decode(data)
-            result: dict[str, Any] = pdf_service.orientation_service.detect_orientation_with_text(image_bytes)
+                svc = OrientationDetectionService()
+                result = svc.detect_orientation_with_text(image_bytes)
+            else:
+                from apps.image_rotation.services.orientation.onnx_service import get_onnx_orientation_service
+
+                svc = get_onnx_orientation_service()
+                result = svc.detect_orientation(image_bytes)
             result["filename"] = img.get("filename", "")
             results.append(result)
         except Exception as exc:
             logger.error("detect_orientation 失败: %s", exc, exc_info=True)
             results.append({"filename": img.get("filename", ""), "rotation": 0, "confidence": 0, "ocr_text": ""})
+    return {"success": True, "results": results}
+
+
+@router.post("/extract-text")
+def extract_text(request: HttpRequest) -> dict[str, Any]:  # pragma: no cover
+    """提取图片文字（不检测方向），用于 OCR 重命名。"""
+    payload = _body(request)
+    images: list[dict[str, Any]] = payload.get("images", [])
+    provider: str = payload.get("provider", "local")  # "local" | "paddleocr_api"
+    if not images:
+        return {"success": True, "results": []}
+    from apps.automation.services.ocr.ocr_service import OCRService
+
+    ocr = OCRService(use_v5=True, provider=provider)
+    results = []
+    for img in images:
+        try:
+            image_bytes = _decode_image_data(img.get("data", ""))
+            text_result = ocr.extract_text(image_bytes)
+            results.append({
+                "filename": img.get("filename", ""),
+                "ocr_text": text_result.text,
+                "raw_texts": text_result.raw_texts,
+            })
+        except Exception as exc:
+            logger.error("extract_text 失败: %s", exc, exc_info=True)
+            results.append({"filename": img.get("filename", ""), "ocr_text": "", "raw_texts": []})
     return {"success": True, "results": results}
 
 

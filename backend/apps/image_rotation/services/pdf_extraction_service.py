@@ -268,27 +268,20 @@ class PDFExtractionService:
 
     def _detect_page_orientation(self, image_data: bytes) -> dict[str, Any]:
         """
-        检测页面方向
-
-        使用 OrientationDetectionService 的四方向 OCR 投票法检测图片方向.
+        检测页面方向（使用 ONNX 方向分类器）
 
         Args:
             image_data: PNG 图片字节数据
 
         Returns:
-            {
-                "rotation": 0/90/180/270,
-                "confidence": float,
-                "method": str
-            }
-
-        Requirements: 2.1, 2.2, 2.3
+            {"rotation": 0/90/180/270, "confidence": float, "method": str}
         """
         try:
-            result = self.orientation_service.detect_orientation(image_data)
-            return result
+            from apps.image_rotation.services.orientation.onnx_service import get_onnx_orientation_service
+
+            svc = get_onnx_orientation_service()
+            return svc.detect_orientation(image_data)
         except Exception as e:
-            # 检测失败时假设页面方向正确 (Requirement 2.3)
             logger.warning(f"页面方向检测失败,使用默认方向: {e}", extra={})
             return {
                 "rotation": 0,

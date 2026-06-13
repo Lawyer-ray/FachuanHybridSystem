@@ -13,7 +13,7 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageOps
 
 logger = logging.getLogger("apps.image_rotation")
 
@@ -107,6 +107,9 @@ class ONNXOrientationService:
         """
         # 打开图片
         img = Image.open(io.BytesIO(image_data))
+
+        # 应用 EXIF 方向转正，让模型看到视觉正确的图片
+        img = ImageOps.exif_transpose(img) or img
 
         # 转换为 RGB
         if img.mode != "RGB":
