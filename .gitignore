@@ -256,3 +256,6 @@ backend/backend/
 backend/cookies.txt
 videos/
 .handbook/
+
+# ML training (not part of the application)
+ml-training/

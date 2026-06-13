@@ -19,11 +19,12 @@ from PIL import Image
 
 logger = logging.getLogger("apps.image_rotation")
 
-# 模型路径 - 使用 HuggingFace 下载的预训练模型
+# 模型路径 - 优先使用 Fachuan 微调模型，回退到通用预训练模型
 MODEL_DIR = Path(__file__).parent.parent.parent.parent / "models" / "orientation"
-MODEL_PATH = MODEL_DIR / "beit-image-orientation.onnx"
+FACHUAN_MODEL_PATH = MODEL_DIR / "fachuan-orientation-classifier.onnx"
+LEGACY_MODEL_PATH = MODEL_DIR / "beit-image-orientation.onnx"
 
-# HuggingFace 模型 URL（用于自动下载）
+# HuggingFace 模型 URL（用于自动下载通用模型）
 MODEL_URL = "https://huggingface.co/poutche/beit-image-orientation-onnx/resolve/main/model.onnx"
 
 # 方向标签
@@ -56,8 +57,15 @@ class ONNXOrientationService:
 
     def __init__(self, model_path: str | None = None, auto_download: bool = True):
         self._session = None
-        self._model_path = model_path or str(MODEL_PATH)
+        self._model_path = model_path or self._resolve_model_path()
         self._auto_download = auto_download
+
+    @staticmethod
+    def _resolve_model_path() -> str:
+        """解析模型路径：优先 Fachuan 微调模型，回退到通用预训练模型"""
+        if FACHUAN_MODEL_PATH.exists():
+            return str(FACHUAN_MODEL_PATH)
+        return str(LEGACY_MODEL_PATH)
 
     @property
     def session(self):
@@ -66,7 +74,7 @@ class ONNXOrientationService:
             try:
                 import onnxruntime as ort
 
-                # 自动下载模型（如果启用）
+                # 自动下载通用模型（如果两种模型都不存在）
                 if self._auto_download and not Path(self._model_path).exists():
                     self._download_model()
 
@@ -79,7 +87,8 @@ class ONNXOrientationService:
                     self._model_path,
                     providers=["CPUExecutionProvider"],
                 )
-                logger.info(f"ONNX 方向分类器加载成功: {self._model_path}")
+                model_type = "Fachuan 微调" if "fachuan" in self._model_path else "通用预训练"
+                logger.info(f"ONNX 方向分类器加载成功 ({model_type}): {self._model_path}")
             except ImportError:
                 logger.error("onnxruntime 未安装")
                 return None
