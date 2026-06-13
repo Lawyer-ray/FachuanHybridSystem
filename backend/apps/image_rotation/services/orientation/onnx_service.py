@@ -150,6 +150,11 @@ class ONNXOrientationService:
             }
 
         try:
+            # 获取原始图片尺寸（用于宽高比启发式判断）
+            original_img = Image.open(io.BytesIO(image_data))
+            original_img = ImageOps.exif_transpose(original_img) or original_img
+            is_landscape = original_img.width > original_img.height
+
             # 预处理图片
             input_data = self.preprocess_image(image_data)
 
@@ -173,11 +178,19 @@ class ONNXOrientationService:
             label = ORIENTATION_LABELS[predicted_class]
 
             logger.info(
-                f"ONNX 方向检测: {label}, 置信度: {confidence:.4f}",
+                f"ONNX 方向检测: {label}, 置信度: {confidence:.4f}, landscape={is_landscape}",
             )
 
             # 判断是否可以自动旋转
-            can_auto_rotate = confidence >= self.AUTO_ROTATE_THRESHOLD and rotation != 0
+            # 1. 180° 旋转不改变宽高比，阈值 0.70 即可
+            # 2. 90°/270° 旋转会改变宽高比，横向图片不应旋转为纵向，阈值 0.85
+            if rotation == 180:
+                high_confidence = confidence >= 0.70
+                dimension_safe = True
+            else:
+                high_confidence = confidence >= 0.85
+                dimension_safe = not (is_landscape and rotation in (90, 270))
+            can_auto_rotate = high_confidence and dimension_safe and rotation != 0
 
             return {
                 "rotation": rotation,
