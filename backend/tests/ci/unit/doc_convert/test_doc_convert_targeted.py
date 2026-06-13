@@ -79,7 +79,7 @@ class TestDocConvertExceptions:
 
 class TestZnszjLoader:
     @patch("apps.doc_convert.services.znszj_loader._cached_client", new=False)
-    @patch("apps.doc_convert.services.znszj_private.get_znszj_client")
+    @patch("plugins.doc_convert.get_znszj_client")
     def test_get_znszj_client_success(self, mock_factory):
         import apps.doc_convert.services.znszj_loader as loader
 
@@ -91,15 +91,13 @@ class TestZnszjLoader:
         assert result is mock_client
 
     @patch("apps.doc_convert.services.znszj_loader._cached_client", new=False)
-    def test_get_znszj_client_import_error(self):
-        """When znszj_private is not available, should return None."""
+    def test_get_znszj_client_no_plugin(self):
+        """When doc_convert plugin is not available, should return None."""
         import apps.doc_convert.services.znszj_loader as loader
 
         loader._cached_client = False
-        with patch.dict("sys.modules", {"apps.doc_convert.services.znszj_private": None}):
-            # Force the import to fail
+        with patch.dict("sys.modules", {"plugins": None}):
             result = loader.get_znszj_client()
-            # Should be None after import error
             assert result is None
 
     @patch("apps.doc_convert.services.znszj_loader._cached_client", new=None)

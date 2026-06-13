@@ -11,6 +11,16 @@ from django.template.response import TemplateResponse
 from apps.doc_convert.models import DocConvertTool
 
 
+def _has_doc_convert_plugin() -> bool:
+    """检测要素式转换插件是否可用。"""
+    try:
+        from plugins import has_doc_convert_plugin
+
+        return has_doc_convert_plugin()
+    except ImportError:
+        return False
+
+
 @admin.register(DocConvertTool)
 class DocConvertToolAdmin(admin.ModelAdmin):  # pragma: no cover
     """要素式转换工作台 Admin。"""
@@ -36,6 +46,10 @@ class DocConvertToolAdmin(admin.ModelAdmin):  # pragma: no cover
 
     def has_delete_permission(self, request: HttpRequest, obj: DocConvertTool | None = None) -> bool:  # pragma: no cover
         return False
+
+    def has_view_permission(self, request: HttpRequest, obj: DocConvertTool | None = None) -> bool:
+        """插件未安装时禁用视图权限，Django 自动重定向到 app index。"""
+        return _has_doc_convert_plugin()
 
     def get_model_perms(self, request: HttpRequest) -> dict[str, bool]:  # pragma: no cover
         return {"view": True}

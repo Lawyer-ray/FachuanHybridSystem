@@ -1,4 +1,4 @@
-"""Tests for apps.doc_convert.services.znszj_private.znszj_client."""
+"""Tests for plugins.doc_convert.znszj_client."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ import httpx
 import pytest
 
 from apps.doc_convert.exceptions import ZnszjInvalidResponseError, ZnszjUnavailableError
-from apps.doc_convert.services.znszj_private.znszj_client import (
+from plugins.doc_convert.znszj_client import (
     GDZQFY_URL,
     TIMEOUT,
     ZNSZJ_BASE,
@@ -61,7 +61,7 @@ class TestZnszjClientAuthenticate:
         mock_resp3.json.return_value = {"success": True, "code": "sbbs456"}
         mock_resp3.raise_for_status = MagicMock()
 
-        with patch("apps.doc_convert.services.znszj_private.znszj_client._make_client") as mock_factory:
+        with patch("plugins.doc_convert.znszj_client._make_client") as mock_factory:
             mock_http = MagicMock()
             mock_http.post.side_effect = [mock_resp1, mock_resp2, mock_resp3]
             mock_http.__enter__ = MagicMock(return_value=mock_http)
@@ -80,7 +80,7 @@ class TestZnszjClientAuthenticate:
         mock_resp.json.return_value = {"code": "500", "message": "server error"}
         mock_resp.raise_for_status = MagicMock()
 
-        with patch("apps.doc_convert.services.znszj_private.znszj_client._make_client") as mock_factory:
+        with patch("plugins.doc_convert.znszj_client._make_client") as mock_factory:
             mock_http = MagicMock()
             mock_http.post.return_value = mock_resp
             mock_http.__enter__ = MagicMock(return_value=mock_http)
@@ -101,7 +101,7 @@ class TestZnszjClientAuthenticate:
         mock_resp2.json.return_value = {"success": False, "message": "invalid code"}
         mock_resp2.raise_for_status = MagicMock()
 
-        with patch("apps.doc_convert.services.znszj_private.znszj_client._make_client") as mock_factory:
+        with patch("plugins.doc_convert.znszj_client._make_client") as mock_factory:
             mock_http = MagicMock()
             mock_http.post.side_effect = [mock_resp1, mock_resp2]
             mock_http.__enter__ = MagicMock(return_value=mock_http)
