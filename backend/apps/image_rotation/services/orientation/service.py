@@ -53,8 +53,7 @@ class OrientationDetectionService:
                 if rotation == 0:
                     rotated_img = img
                 else:
-                    pillow_angle = (360 - rotation) % 360
-                    rotated_img = img.rotate(pillow_angle, expand=True)  # type: ignore[assignment]
+                    rotated_img = img.rotate(rotation, expand=True)  # type: ignore[assignment]
 
                 img_bytes = io.BytesIO()
                 rotated_img.save(img_bytes, format="JPEG", quality=85)
@@ -127,8 +126,7 @@ class OrientationDetectionService:
                 if rotation == 0:
                     rotated_img = img
                 else:
-                    pillow_angle = (360 - rotation) % 360
-                    rotated_img = img.rotate(pillow_angle, expand=True)  # type: ignore[assignment]
+                    rotated_img = img.rotate(rotation, expand=True)  # type: ignore[assignment]
 
                 img_bytes = io.BytesIO()
                 rotated_img.save(img_bytes, format="JPEG", quality=85)

@@ -120,10 +120,9 @@ class RenameOCRChannel:
         img = Image.open(io.BytesIO(image_data))
         original_format = img.format or "PNG"
 
-        # Pillow rotate 是逆时针，需要取反
-        pillow_angle = (360 - rotation) % 360
-        if pillow_angle != 0:
-            img = img.rotate(pillow_angle, expand=True)  # type: ignore[assignment]
+        # PIL rotate() 正值 = 逆时针（与训练时 prepare_data.py 的 rotate(angle) 一致）
+        if rotation != 0:
+            img = img.rotate(rotation, expand=True)  # type: ignore[assignment]
 
         buf = io.BytesIO()
         save_format = original_format.upper()
