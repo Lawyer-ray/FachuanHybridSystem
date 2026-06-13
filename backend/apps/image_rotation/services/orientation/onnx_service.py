@@ -1,12 +1,12 @@
-"""基于 ONNX Model Zoo 的图片方向检测服务
+"""基于微调 BEiT 的图片方向检测服务
 
-使用 HuggingFace 预训练的 BEiT 模型：
-- 模型来源: poutche/beit-image-orientation-onnx
+使用 Fachuan 微调的 BEiT 方向分类 ONNX 模型：
+- 模型来源: ml-training/train_model.py 微调导出
 - 输入: float32 [1, 3, 384, 384] (归一化: (x/255 - 0.5) / 0.5)
 - 输出: float32 [1, 4] → 0°/90°/180°/270°
 
-旋转公式: additional_rotation = (onnx_prediction - exif_rotation) % 360
-前端 canvas 已通过 EXIF 显示正确方向，后端返回额外需要的旋转量。
+推理流程: EXIF 转正 → ONNX 分类 → 返回旋转角度
+模型在 EXIF 转正后的像素上训练，推理时需保持一致。
 """
 
 import io
@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Any
 
 import numpy as np
-from PIL import Image
+from PIL import Image, ImageOps
 
 logger = logging.getLogger("apps.image_rotation")
 
@@ -27,33 +27,34 @@ LEGACY_MODEL_PATH = MODEL_DIR / "beit-image-orientation.onnx"
 # HuggingFace 模型 URL（用于自动下载通用模型）
 MODEL_URL = "https://huggingface.co/poutche/beit-image-orientation-onnx/resolve/main/model.onnx"
 
-# 方向标签
+# 方向标签（与 ImageFolder 目录排序一致: 0, 180, 270, 90）
 ORIENTATION_LABELS = {
     0: "0° (正常)",
-    1: "90° (顺时针)",
-    2: "180° (翻转)",
+    1: "180° (翻转)",
+    2: "90° (顺时针)",
     3: "270° (逆时针)",
 }
 
 # 方向到旋转角度的映射
+# ImageFolder 按目录名排序: '0'→0, '180'→1, '270'→2, '90'→3
+# 旋转角度对应 PIL rotate() 的逆向值: (360 - angle) % 360
 ORIENTATION_TO_ROTATION = {
     0: 0,
-    1: 90,
-    2: 180,
+    1: 180,
+    2: 90,
     3: 270,
 }
 
 
 class ONNXOrientationService:
-    """基于 ONNX 模型的方向检测服务
+    """基于微调 BEiT 的方向检测服务
 
-    使用 HuggingFace 预训练的 BEiT 模型检测图片方向。
-    模型在原始像素上运行，结合 EXIF 方向标签计算前端所需的旋转角度。
-    置信度阈值: ≥0.85 时可自动旋转。
+    推理时先 EXIF 转正，再运行 ONNX 分类器。
+    置信度阈值: ≥0.65 时可自动旋转（4分类随机基线 0.25，0.65 已有充足置信余量）。
     """
 
-    # 自动旋转的置信度阈值
-    AUTO_ROTATE_THRESHOLD = 0.85
+    # 自动旋转的置信度阈值（4分类随机基线 0.25，0.65 以上视为有把握）
+    AUTO_ROTATE_THRESHOLD = 0.65
 
     def __init__(self, model_path: str | None = None, auto_download: bool = True):
         self._session = None
@@ -113,15 +114,16 @@ class ONNXOrientationService:
     def preprocess_image(self, image_data: bytes) -> np.ndarray:
         """预处理图片为模型输入格式
 
-        在原始像素上运行（不做 EXIF 转正），让模型直接检测
-        存储像素的旋转状态，便于与 EXIF 方向标签组合计算。
+        先应用 EXIF 转正，使像素排列与训练时一致，再缩放和归一化。
 
         BEiT 模型要求:
         - 输入: float32 [1, 3, 384, 384]
         - 归一化: (x/255 - 0.5) / 0.5
         """
-        # 打开图片（不做 EXIF 转正，让模型在原始像素上检测方向）
         img = Image.open(io.BytesIO(image_data))
+
+        # EXIF 转正：与训练时 prepare_data.py 的 ImageOps.exif_transpose() 保持一致
+        img = ImageOps.exif_transpose(img) or img
 
         # 转换为 RGB
         if img.mode != "RGB":
@@ -147,12 +149,7 @@ class ONNXOrientationService:
     def detect_orientation(self, image_data: bytes) -> dict[str, Any]:
         """检测图片方向
 
-        在原始像素上运行 ONNX 方向分类器，并结合 EXIF 方向标签
-        计算前端需要额外应用的旋转角度。
-
-        前端 canvas 已通过 EXIF 显示正确方向。后端返回的旋转角度
-        是在此基础上还需额外应用的旋转量：
-          additional_rotation = (onnx_prediction - exif_rotation) % 360
+        EXIF 转正后运行 ONNX 分类器，返回使图片正向所需的旋转角度。
 
         Args:
             image_data: 图片的字节数据
@@ -169,15 +166,7 @@ class ONNXOrientationService:
             }
 
         try:
-            # 获取原始图片尺寸和 EXIF 方向标签
-            original_img = Image.open(io.BytesIO(image_data))
-            stored_width, stored_height = original_img.size
-            is_stored_landscape = stored_width > stored_height
-
-            # 提取 EXIF 方向旋转角度（0/90/180/270）
-            exif_rotation = self._get_exif_rotation(original_img)
-
-            # 预处理图片（不做 EXIF 转正，让模型在原始像素上检测方向）
+            # 预处理图片（EXIF 转正 + 缩放归一化）
             input_data = self.preprocess_image(image_data)
 
             # 运行推理（BEiT 模型输入名为 "pixel_values"）
@@ -195,28 +184,18 @@ class ONNXOrientationService:
             predicted_class = int(np.argmax(probabilities, axis=1)[0])
             confidence = float(probabilities[0][predicted_class])
 
-            # ONNX 在原始像素上预测的旋转角度
-            onnx_rotation = ORIENTATION_TO_ROTATION[predicted_class]
+            # ONNX 预测的旋转角度（EXIF 转正后像素上的预测，直接作为旋转角度）
+            rotation = ORIENTATION_TO_ROTATION[predicted_class]
             label = ORIENTATION_LABELS[predicted_class]
 
-            # 计算前端需要额外应用的旋转量
-            # canvas 已通过 EXIF 显示正确方向，只需应用 ONNX 相对于 EXIF 的增量
-            rotation = (onnx_rotation - exif_rotation) % 360
-
             logger.info(
-                f"ONNX 方向检测: {label}, 置信度: {confidence:.4f}, "
-                f"EXIF={exif_rotation}°, onnx={onnx_rotation}°, additional={rotation}°",
+                f"ONNX 方向检测: {label}, 置信度: {confidence:.4f}, rotation={rotation}°",
             )
 
             # 判断是否可以自动旋转
-            # 置信度阈值
-            high_confidence = confidence >= 0.85
+            high_confidence = confidence >= self.AUTO_ROTATE_THRESHOLD
 
-            # 宽高比安全：存储为横向的图片不应被旋转为纵向（ONNX 可能将
-            # EXIF 已修正的纵向图误判为需要 90°/270° 旋转）
-            dimension_safe = not (is_stored_landscape and rotation in (90, 270))
-
-            can_auto_rotate = high_confidence and dimension_safe and rotation != 0
+            can_auto_rotate = high_confidence and rotation != 0
 
             return {
                 "rotation": rotation,
@@ -224,7 +203,6 @@ class ONNXOrientationService:
                 "method": "onnx_classifier",
                 "label": label,
                 "can_auto_rotate": can_auto_rotate,
-                "exif_orientation": exif_rotation,
                 "probabilities": {
                     ORIENTATION_LABELS[i]: round(float(probabilities[0][i]), 4)
                     for i in range(4)
@@ -239,19 +217,6 @@ class ONNXOrientationService:
                 "method": "onnx_error",
                 "error": str(e),
             }
-
-    @staticmethod
-    def _get_exif_rotation(img: Image.Image) -> int:
-        """从 EXIF 方向标签提取旋转角度（0/90/180/270）"""
-        try:
-            exif_data = img.getexif()
-        except Exception:
-            return 0
-
-        # EXIF Orientation tag = 274 (0x0112)
-        orientation = exif_data.get(274, 1)
-        exif_map = {1: 0, 3: 180, 6: 90, 8: 270}
-        return exif_map.get(orientation, 0)
 
     def detect_orientation_from_file(self, image_path: str) -> dict[str, Any]:
         """从文件检测图片方向"""
