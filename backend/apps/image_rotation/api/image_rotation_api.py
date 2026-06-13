@@ -5,6 +5,7 @@ from __future__ import annotations
 import base64
 import json
 import logging
+import time
 from types import SimpleNamespace
 from typing import Any, cast
 
@@ -43,6 +44,13 @@ def _validate_image_file(file_obj: UploadedFile) -> None:
 
 def _body(request: HttpRequest) -> dict[str, Any]:
     return cast(dict[str, Any], json.loads(request.body or b"{}"))
+
+
+def _decode_image_data(data: str) -> bytes:
+    """从 Base64 字符串（可带 data URL 前缀）解码为字节数据。"""
+    if "," in data:
+        data = data.split(",", 1)[1]
+    return base64.b64decode(data)
 
 
 def _get_pdf_service() -> Any:
@@ -85,7 +93,10 @@ def detect_page_orientation(request: HttpRequest) -> dict[str, Any]:  # pragma: 
     if not data:
         return {"rotation": 0, "confidence": 0}
     try:
-        return cast(dict[str, Any], _get_pdf_service().detect_single_page_orientation(data))
+        t0 = time.perf_counter()
+        result = cast(dict[str, Any], _get_pdf_service().detect_single_page_orientation(data))
+        result["elapsed_ms"] = round((time.perf_counter() - t0) * 1000, 1)
+        return result
     except Exception as exc:
         logger.error("detect_page_orientation 失败: %s", exc, exc_info=True)
         return {"rotation": 0, "confidence": 0}
@@ -95,24 +106,57 @@ def detect_page_orientation(request: HttpRequest) -> dict[str, Any]:  # pragma: 
 def detect_orientation(request: HttpRequest) -> dict[str, Any]:  # pragma: no cover
     payload = _body(request)
     images: list[dict[str, Any]] = payload.get("images", [])
+    method: str = payload.get("method", "onnx")  # "onnx" | "ocr_voting"
     if not images:
         return {"success": False, "results": []}
-    pdf_service = _get_pdf_service()
     results = []
+    total_start = time.perf_counter()
     for img in images:
         try:
-            data: str = img.get("data", "")
-            if "," in data:
-                data = data.split(",", 1)[1]
-            import base64 as _b64
+            image_bytes = _decode_image_data(img.get("data", ""))
+            t0 = time.perf_counter()
+            if method == "ocr_voting":
+                from apps.image_rotation.services.orientation.service import OrientationDetectionService
 
-            image_bytes = _b64.b64decode(data)
-            result: dict[str, Any] = pdf_service.orientation_service.detect_orientation_with_text(image_bytes)
+                result = OrientationDetectionService().detect_orientation_with_text(image_bytes)
+            else:
+                from apps.image_rotation.services.orientation.onnx_service import get_onnx_orientation_service
+
+                result = get_onnx_orientation_service().detect_orientation(image_bytes)
+            result["elapsed_ms"] = round((time.perf_counter() - t0) * 1000, 1)
             result["filename"] = img.get("filename", "")
             results.append(result)
         except Exception as exc:
             logger.error("detect_orientation 失败: %s", exc, exc_info=True)
-            results.append({"filename": img.get("filename", ""), "rotation": 0, "confidence": 0, "ocr_text": ""})
+            results.append({"filename": img.get("filename", ""), "rotation": 0, "confidence": 0, "ocr_text": "", "elapsed_ms": 0})
+    total_elapsed_ms = round((time.perf_counter() - total_start) * 1000, 1)
+    return {"success": True, "results": results, "total_elapsed_ms": total_elapsed_ms}
+
+
+@router.post("/extract-text")
+def extract_text(request: HttpRequest) -> dict[str, Any]:  # pragma: no cover
+    """提取图片文字（不检测方向），用于 OCR 重命名。"""
+    payload = _body(request)
+    images: list[dict[str, Any]] = payload.get("images", [])
+    provider: str = payload.get("provider", "local")  # "local" | "paddleocr_api"
+    if not images:
+        return {"success": True, "results": []}
+    from apps.automation.services.ocr.ocr_service import OCRService
+
+    ocr = OCRService(use_v5=True, provider=provider)
+    results = []
+    for img in images:
+        try:
+            image_bytes = _decode_image_data(img.get("data", ""))
+            text_result = ocr.extract_text(image_bytes)
+            results.append({
+                "filename": img.get("filename", ""),
+                "ocr_text": text_result.text,
+                "raw_texts": text_result.raw_texts,
+            })
+        except Exception as exc:
+            logger.error("extract_text 失败: %s", exc, exc_info=True)
+            results.append({"filename": img.get("filename", ""), "ocr_text": "", "raw_texts": []})
     return {"success": True, "results": results}
 
 

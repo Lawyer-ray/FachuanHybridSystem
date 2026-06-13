@@ -106,9 +106,8 @@ def rotate_image_for_output(image_data: bytes, *, rotation: int, img_format: str
         rotation = 0
 
     img: Image.Image = Image.open(io.BytesIO(image_data))
-    pillow_angle = (360 - rotation) % 360
-    if pillow_angle != 0:
-        img = img.rotate(pillow_angle, expand=True)
+    if rotation != 0:
+        img = img.rotate(rotation, expand=True)
 
     output = io.BytesIO()
     fmt = (img_format or "jpeg").upper()

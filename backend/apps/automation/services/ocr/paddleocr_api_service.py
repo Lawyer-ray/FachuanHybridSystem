@@ -113,6 +113,8 @@ class PaddleOCRApiEngine:
         """
         识别图片/PDF字节数据中的文字
 
+        使用异步 Job 模式：提交任务 → 轮询状态 → 获取结果。
+
         Args:
             image_bytes: 图片或 PDF 字节数据
             is_pdf: 是否为 PDF 文件
@@ -120,59 +122,95 @@ class PaddleOCRApiEngine:
         Returns:
             PaddleOCRApiResult: 识别结果
         """
+        import time
+
         if not self._is_configured():
             raise RuntimeError("PaddleOCR API 未配置：请先在系统配置中设置 API URL 和 Token")
 
         model = self.model
-        file_data = base64.b64encode(image_bytes).decode("ascii")
         file_type = _FILE_TYPE_PDF if is_pdf else _FILE_TYPE_IMAGE
 
-        payload: dict[str, Any] = {
-            "file": file_data,
+        # 构建可选参数
+        optional_payload: dict[str, Any] = {
             "fileType": file_type,
         }
-
-        # 根据模型类型添加可选参数
         if model in _OCR_ENDPOINT_MODELS:
-            payload.update(
-                {
-                    "useDocOrientationClassify": False,
-                    "useDocUnwarping": False,
-                    "useTextlineOrientation": False,
-                }
-            )
+            optional_payload.update({
+                "useDocOrientationClassify": False,
+                "useDocUnwarping": False,
+                "useTextlineOrientation": False,
+            })
         elif model in _LAYOUT_ENDPOINT_MODELS:
-            payload.update(
-                {
-                    "useDocOrientationClassify": False,
-                    "useDocUnwarping": False,
-                    "useChartRecognition": False,
-                }
-            )
+            optional_payload.update({
+                "useDocOrientationClassify": False,
+                "useDocUnwarping": False,
+                "useChartRecognition": False,
+            })
 
         headers = {
-            "Authorization": f"token {self.api_token}",
-            "Content-Type": "application/json",
+            "Authorization": f"bearer {self.api_token}",
+        }
+
+        # multipart/form-data 上传
+        data = {
+            "model": model,
+            "optionalPayload": json.dumps(optional_payload),
+        }
+        files = {
+            "file": ("image.jpg", image_bytes, "image/jpeg"),
         }
 
         logger.info("PaddleOCR API 调用: model=%s, file_type=%s, data_size=%d", model, file_type, len(image_bytes))
 
         try:
-            with httpx.Client(timeout=_REQUEST_TIMEOUT) as client:
-                response = client.post(self.api_url, json=payload, headers=headers)
+            # 提交 Job
+            with httpx.Client(timeout=30) as client:
+                response = client.post(self.api_url, headers=headers, data=data, files=files)
 
             if response.status_code != 200:
                 logger.warning(
-                    "PaddleOCR API 调用失败: status=%d, body=%s",
+                    "PaddleOCR API 提交失败: status=%d, body=%s",
                     response.status_code,
                     response.text[:500],
                 )
                 raise RuntimeError(f"PaddleOCR API 返回错误: HTTP {response.status_code}")
 
-            response_data = response.json()
-            logger.info("PaddleOCR API 原始响应长度: %d", len(response.text))
-            logger.info("PaddleOCR API 原始响应数据: %s", json.dumps(response_data, ensure_ascii=False, default=str))
-            return self._parse_response(response_data, model)
+            resp_data = response.json()
+            job_id = resp_data.get("data", {}).get("jobId")
+            if not job_id:
+                raise RuntimeError(f"PaddleOCR API 未返回 jobId: {resp_data}")
+
+            logger.info("PaddleOCR API Job 已提交: jobId=%s", job_id)
+
+            # 轮询 Job 状态
+            max_polls = int(_REQUEST_TIMEOUT / 3)
+            for _ in range(max_polls):
+                time.sleep(3)
+                with httpx.Client(timeout=30) as client:
+                    poll_resp = client.get(f"{self.api_url}/{job_id}", headers=headers)
+
+                if poll_resp.status_code != 200:
+                    continue
+
+                poll_data = poll_resp.json()
+                state = poll_data.get("data", {}).get("state", "")
+
+                if state == "done":
+                    result_url = poll_data.get("data", {}).get("resultUrl", {})
+                    jsonl_url = result_url.get("jsonUrl", "")
+                    if not jsonl_url:
+                        raise RuntimeError("PaddleOCR API 完成但无 jsonUrl")
+
+                    # 下载 JSONL 结果
+                    with httpx.Client(timeout=30) as client:
+                        jsonl_resp = client.get(jsonl_url)
+                    return self._parse_jsonl_response(jsonl_resp.text, model)
+
+                elif state == "failed":
+                    error_msg = poll_data.get("data", {}).get("errorMsg", "未知错误")
+                    raise RuntimeError(f"PaddleOCR API Job 失败: {error_msg}")
+
+            raise RuntimeError(f"PaddleOCR API Job 超时（{_REQUEST_TIMEOUT}s）")
 
         except httpx.TimeoutException as e:
             logger.warning("PaddleOCR API 超时: %s", e)
@@ -180,6 +218,33 @@ class PaddleOCRApiEngine:
         except httpx.HTTPError as e:
             logger.warning("PaddleOCR API 网络错误: %s", e)
             raise RuntimeError(f"PaddleOCR API 网络错误: {e}") from e
+
+    def _parse_jsonl_response(self, jsonl_text: str, model: str) -> PaddleOCRApiResult:
+        """解析 JSONL 格式的 PaddleOCR API 结果。"""
+        all_texts: list[str] = []
+        for line in jsonl_text.strip().split("\n"):
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                item = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            # OCR 端点：rec_texts
+            rec_texts = item.get("rec_texts", [])
+            if isinstance(rec_texts, list):
+                all_texts.extend(t for t in rec_texts if isinstance(t, str) and t.strip())
+                continue
+            # Layout 端点：从 markdown 或 text 中提取
+            for key in ("markdown", "text", "content"):
+                val = item.get(key)
+                if isinstance(val, str) and val.strip():
+                    all_texts.append(val.strip())
+                    break
+
+        merged = "\n".join(all_texts)
+        logger.info("PaddleOCR API (JSONL) 识别完成: model=%s, text_len=%d", model, len(merged))
+        return PaddleOCRApiResult(text=merged, raw_texts=all_texts, model=model)
 
     def _parse_response(self, data: dict[str, Any], model: str) -> PaddleOCRApiResult:
         """

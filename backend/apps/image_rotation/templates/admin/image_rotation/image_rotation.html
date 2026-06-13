@@ -188,8 +188,20 @@
                     <span class="stat-label">已重命名:</span>
                     <span class="stat-value" x-text="images.filter(i => i.suggestedFilename).length"></span>
                 </div>
+                <div class="stat-item" x-show="totalDetectionTimeMs > 0">
+                    <span class="stat-label">ONNX 耗时:</span>
+                    <span class="stat-value" x-text="totalDetectionTimeMs >= 1000 ? (totalDetectionTimeMs / 1000).toFixed(1) + 's' : Math.round(totalDetectionTimeMs) + 'ms'" style="color: #16a34a;"></span>
+                </div>
                 <div style="flex: 1;"></div>
                 <button class="action-btn" @click="$refs.fileInput.click()">➕ 添加更多</button>
+            </div>
+
+            <!-- OCR 提取文字提示（ONNX 检测完成后显示） -->
+            <div class="hint-box success" x-show="showOcrPrompt && !ocrProcessing" style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                <span>✅ 方向检测完成（<span x-text="images.length"></span> 张），是否提取文字用于自动重命名？</span>
+                <button class="action-btn" @click="startOcrExtraction('local')" style="background: #fff; border-color: #86efac;">📝 本地 RapidOCR</button>
+                <button class="action-btn" @click="startOcrExtraction('paddleocr_api')" style="background: #fff; border-color: #86efac;">📝 PaddleOCR API</button>
+                <button class="action-btn" @click="showOcrPrompt = false" style="background: #fff;">跳过</button>
             </div>
 
             <!-- 图片网格 -->
@@ -220,6 +232,9 @@
                                 </template>
                                 <template x-if="image.rotation === 0 && image.autoRotation === 0 && image.sourceType !== 'pdf_page' && image.status !== 'detecting'">
                                     <span style="color: #9ca3af; font-size: 12px;">无需旋转</span>
+                                </template>
+                                <template x-if="image.detectionTimeMs > 0">
+                                    <span class="rotation-badge" style="background: #f0fdf4; color: #16a34a; font-size: 10px;">⚡ <span x-text="image.detectionTimeMs >= 1000 ? (image.detectionTimeMs / 1000).toFixed(1) + 's' : Math.round(image.detectionTimeMs) + 'ms'"></span></span>
                                 </template>
                             </div>
                         </div>
@@ -271,6 +286,9 @@ function imageRotationApp() {
         selectedImage: null,
         errors: [],
         paperSize: 'original',  // 导出纸张尺寸: original, a4, a3, letter
+        showOcrPrompt: false,   // ONNX 检测完成后显示"提取文字"提示
+        ocrProcessing: false,   // OCR 提取文字处理中
+        totalDetectionTimeMs: 0, // ONNX 检测总耗时（毫秒）
 
         // 配置
         MAX_SIZE: 20 * 1024 * 1024,  // 20MB
@@ -379,11 +397,10 @@ function imageRotationApp() {
                 }
             }
 
-            // 对没有 EXIF 数据的图片，调用后端检测方向（逐张异步，不阻塞）
-            const noExifImages = this.images.filter(img => img.autoRotation === 0 && img.needsDetection && img.sourceType !== 'pdf_page');
-            if (noExifImages.length > 0) {
-                // 异步检测，不等待完成
-                this.detectOrientationAsync(noExifImages);
+            // ONNX 方向检测：对所有非 PDF 图片批量检测方向
+            const nonPdfImages = this.images.filter(img => img.sourceType !== 'pdf_page');
+            if (nonPdfImages.length > 0) {
+                await this.detectAllOrientationOnnx(nonPdfImages);
             }
 
             this.progress = 100;
@@ -431,7 +448,8 @@ function imageRotationApp() {
                         format: 'png',
                         size: Math.round(page.data.length * 0.75),
                         status: 'detecting',  // 标记为正在检测
-                        needsDetection: true
+                        needsDetection: true,
+                        detectionTimeMs: 0
                     };
 
                     this.images.push(imageItem);
@@ -474,10 +492,14 @@ function imageRotationApp() {
 
                     const result = await response.json();
 
-                    if (result.rotation !== 0) {
+                    if (result.rotation !== 0 && result.can_auto_rotate) {
                         this.images[idx].autoRotation = result.rotation;
                         this.images[idx].rotation = result.rotation;
                         this.renderThumbnail(this.images[idx]);
+                    }
+
+                    if (result.elapsed_ms !== undefined) {
+                        this.images[idx].detectionTimeMs = result.elapsed_ms;
                     }
 
                     this.images[idx].status = 'processed';
@@ -490,61 +512,63 @@ function imageRotationApp() {
             }
         },
 
-        // 异步逐张检测图片方向（不阻塞 UI），检测完成后自动重命名
-        async detectOrientationAsync(images) {
-            const itemsForRename = [];  // 收集需要重命名的项目
+        // ONNX 批量方向检测（快速，~1秒/张），检测完成后显示 OCR 提示
+        async detectAllOrientationOnnx(images) {
+            if (images.length === 0) return;
 
-            for (const img of images) {
-                // 标记正在检测
-                img.detecting = true;
+            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || '';
 
-                try {
+            try {
+                // 准备 payload：发送原始文件 base64（后端会处理 EXIF）
+                const payloadItems = [];
+                for (const img of images) {
                     const base64 = await this.fileToBase64(img.file);
-                    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || '';
+                    payloadItems.push({ filename: img.filename, data: base64, id: img.id });
+                }
 
-                    const response = await fetch('/api/v1/image-rotation/detect-orientation', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'X-CSRFToken': csrfToken
-                        },
-                        body: JSON.stringify({
-                            images: [{ filename: img.filename, data: base64 }]
-                        })
-                    });
+                this.loadingText = 'ONNX 方向检测中...';
 
-                    const result = await response.json();
+                const response = await fetch('/api/v1/image-rotation/detect-orientation', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrfToken
+                    },
+                    body: JSON.stringify({ images: payloadItems, method: 'onnx' })
+                });
 
-                    if (result.success && result.results && result.results[0]) {
-                        const detection = result.results[0];
-                        if (detection.rotation !== 0 && detection.confidence > 0.2) {
+                const result = await response.json();
+
+                if (result.success && result.results) {
+                    for (const detection of result.results) {
+                        const img = images.find(i => i.filename === detection.filename);
+                        if (!img) continue;
+
+                        // 记录单张推理耗时
+                        if (detection.elapsed_ms !== undefined) {
+                            img.detectionTimeMs = detection.elapsed_ms;
+                        }
+
+                        if (detection.rotation !== 0 && detection.can_auto_rotate) {
                             img.autoRotation = detection.rotation;
                             img.rotation = detection.rotation;
                             img.detectionMethod = detection.method;
+                            await this.$nextTick();
                             this.renderThumbnail(img);
                         }
-
-                        // 保存 OCR 文本用于重命名
-                        if (detection.ocr_text) {
-                            img.ocrText = detection.ocr_text;
-                            itemsForRename.push({
-                                filename: img.filename,
-                                ocr_text: detection.ocr_text,
-                                image_data: base64,
-                                rotation: img.rotation || 0
-                            });
-                        }
                     }
-                } catch (err) {
-                    console.warn(`检测 ${img.filename} 方向失败:`, err);
-                } finally {
-                    img.detecting = false;
                 }
-            }
 
-            // 方向检测完成后，自动调用重命名
-            if (itemsForRename.length > 0) {
-                await this.autoRenameFromOcr(itemsForRename);
+                // 记录总耗时
+                if (result.total_elapsed_ms !== undefined) {
+                    this.totalDetectionTimeMs = result.total_elapsed_ms;
+                }
+
+                // ONNX 检测完成，显示 OCR 提示
+                this.showOcrPrompt = true;
+
+            } catch (err) {
+                console.warn('ONNX 方向检测失败:', err);
             }
         },
 
@@ -580,6 +604,61 @@ function imageRotationApp() {
                 }
             } catch (err) {
                 console.warn('自动重命名失败:', err);
+            }
+        },
+
+        // OCR 提取文字并重命名（用户点击提示后触发）
+        async startOcrExtraction(provider) {
+            this.ocrProcessing = true;
+            this.showOcrPrompt = false;
+            this.loading = true;
+            this.loadingText = provider === 'paddleocr_api' ? 'PaddleOCR API 提取文字中...' : '本地 OCR 提取文字中...';
+
+            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || '';
+            const itemsForRename = [];
+
+            try {
+                for (const img of this.images) {
+                    const base64 = await this.fileToBase64(img.file);
+
+                    const response = await fetch('/api/v1/image-rotation/extract-text', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': csrfToken
+                        },
+                        body: JSON.stringify({
+                            images: [{ filename: img.filename, data: base64 }],
+                            provider: provider
+                        })
+                    });
+
+                    const result = await response.json();
+
+                    if (result.success && result.results && result.results[0]) {
+                        const textResult = result.results[0];
+                        if (textResult.ocr_text) {
+                            img.ocrText = textResult.ocr_text;
+                            itemsForRename.push({
+                                filename: img.filename,
+                                ocr_text: textResult.ocr_text,
+                                image_data: base64,
+                                rotation: img.rotation || 0
+                            });
+                        }
+                    }
+                }
+
+                // 调用智能重命名
+                if (itemsForRename.length > 0) {
+                    await this.autoRenameFromOcr(itemsForRename);
+                }
+            } catch (err) {
+                console.warn('OCR 提取文字失败:', err);
+                this.errors.push('OCR 提取文字失败: ' + err.message);
+            } finally {
+                this.ocrProcessing = false;
+                this.loading = false;
             }
         },
 
@@ -623,7 +702,8 @@ function imageRotationApp() {
                                 needsDetection: needsDetection,  // 是否需要后端检测
                                 format: format,
                                 size: file.size,
-                                status: 'processed'
+                                status: 'processed',
+                                detectionTimeMs: 0  // ONNX 推理耗时
                             });
                         };
                         img.onerror = () => reject(new Error('图片加载失败'));
@@ -863,6 +943,9 @@ function imageRotationApp() {
             this.images = [];
             this.selectedImage = null;
             this.errors = [];
+            this.showOcrPrompt = false;
+            this.ocrProcessing = false;
+            this.totalDetectionTimeMs = 0;
         },
 
         // 全部恢复原始方向
