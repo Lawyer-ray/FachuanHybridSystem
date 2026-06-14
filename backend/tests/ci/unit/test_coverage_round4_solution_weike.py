@@ -265,7 +265,7 @@ class TestWeikeDocumentFunctions:
     def test_html_to_text_br_newline(self):
         from apps.legal_research.services.sources.weike.document import html_to_text
         result = html_to_text("line1<br>line2")
-        assert "line1\nline2" == result
+        assert result == "line1\nline2"
 
     def test_html_to_text_entities(self):
         from apps.legal_research.services.sources.weike.document import html_to_text
@@ -443,7 +443,7 @@ class TestWeikeDocumentMixinRestricted:
         m = self._make_mixin()
         session = MagicMock()
         session.restricted_until_epoch = time.time() + 60
-        with pytest.raises(RuntimeError, match="请.*秒后重试"):
+        with pytest.raises(RuntimeError, match=r"请.*秒后重试"):
             m._raise_if_session_restricted(session=session, stage="test")
 
     def test_resolve_cooldown_seconds_default(self):

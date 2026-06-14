@@ -54,10 +54,14 @@ class TestContractInNoFeeMode:
 class TestContractOutResolveCanArchive:
     def test_can_archive_with_extra_categories(self):
         obj = MagicMock()
-        m1 = MagicMock(); m1.category = "contract_original"
-        m2 = MagicMock(); m2.category = "archive_document"
-        m3 = MagicMock(); m3.category = "authorization_material"
-        m4 = MagicMock(); m4.category = "extra_category"
+        m1 = MagicMock()
+        m1.category = "contract_original"
+        m2 = MagicMock()
+        m2.category = "archive_document"
+        m3 = MagicMock()
+        m3.category = "authorization_material"
+        m4 = MagicMock()
+        m4.category = "extra_category"
         obj.finalized_materials.all.return_value = [m1, m2, m3, m4]
         with patch("apps.contracts.models.finalized_material.MaterialCategory") as MockCat:
             MockCat.CONTRACT_ORIGINAL = "contract_original"
@@ -71,8 +75,16 @@ class TestContractOutResolvePrimaryLawyerTieBreak:
         """When two assignments have the same order, lower id wins."""
         obj = MagicMock()
         obj.primary_lawyer_dto = None
-        a1 = MagicMock(); a1.is_primary = False; a1.order = 1; a1.id = 5; a1.lawyer = MagicMock()
-        a2 = MagicMock(); a2.is_primary = False; a2.order = 1; a2.id = 3; a2.lawyer = MagicMock()
+        a1 = MagicMock()
+        a1.is_primary = False
+        a1.order = 1
+        a1.id = 5
+        a1.lawyer = MagicMock()
+        a2 = MagicMock()
+        a2.is_primary = False
+        a2.order = 1
+        a2.id = 3
+        a2.lawyer = MagicMock()
         obj.assignments.all.return_value = [a1, a2]
         with patch("apps.contracts.schemas.contract_schemas.LawyerOut") as MockLO:
             MockLO.from_model.return_value = "winner"

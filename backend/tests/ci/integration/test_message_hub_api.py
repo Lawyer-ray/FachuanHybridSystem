@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import datetime, timezone, UTC
 
 import pytest
 
@@ -17,7 +17,7 @@ def _make_source(cred, name="测试邮箱"):
         source_type="imap",
         credential=cred,
         is_enabled=True,
-        sync_since=datetime(2024, 1, 1, tzinfo=timezone.utc),
+        sync_since=datetime(2024, 1, 1, tzinfo=UTC),
     )
 
 
@@ -28,7 +28,7 @@ def _make_message(source, message_id, subject, sender, body_text=""):
         subject=subject,
         sender=sender,
         body_text=body_text,
-        received_at=datetime(2024, 6, 1, tzinfo=timezone.utc),
+        received_at=datetime(2024, 6, 1, tzinfo=UTC),
     )
 
 

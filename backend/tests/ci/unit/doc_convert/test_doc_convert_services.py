@@ -30,7 +30,7 @@ class TestDocConvertServiceConvertDocument:
         valid_mbids = get_mbid_set()
         if not valid_mbids:
             pytest.skip("No valid mbids available")
-        mbid = list(valid_mbids)[0]
+        mbid = next(iter(valid_mbids))
         large_content = b"x" * (MAX_FILE_SIZE_BYTES + 1)
         with pytest.raises(FileTooLargeError):
             svc.convert_document(file_content=large_content, filename="test.docx", mbid=mbid)
@@ -40,7 +40,7 @@ class TestDocConvertServiceConvertDocument:
         valid_mbids = get_mbid_set()
         if not valid_mbids:
             pytest.skip("No valid mbids available")
-        mbid = list(valid_mbids)[0]
+        mbid = next(iter(valid_mbids))
         mock_client = MagicMock()
         mock_client.convert_document.return_value = b"converted"
         svc = self._make_service(client=mock_client)

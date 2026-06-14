@@ -10,15 +10,15 @@ from apps.enterprise_data.services.types import ProviderConfig, ProviderResponse
 
 
 def _make_config(**overrides):
-    defaults = dict(
-        name="test",
-        enabled=True,
-        transport="streamable_http",
-        base_url="http://localhost:8080",
-        sse_url="",
-        api_key="key123",
-        timeout_seconds=30,
-    )
+    defaults = {
+        "name": "test",
+        "enabled": True,
+        "transport": "streamable_http",
+        "base_url": "http://localhost:8080",
+        "sse_url": "",
+        "api_key": "key123",
+        "timeout_seconds": 30,
+    }
     defaults.update(overrides)
     return ProviderConfig(**defaults)
 

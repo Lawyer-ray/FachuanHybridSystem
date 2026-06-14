@@ -398,7 +398,7 @@ class TestCourtInboxFetcherDownloadAttachment:
             MockInbox.objects.get.side_effect = Exception("not found")
             fetcher = CourtInboxFetcher()
             source = MagicMock()
-            with pytest.raises(Exception):  # noqa: B017
+            with pytest.raises(Exception):
                 fetcher.download_attachment(source, "msg-1", 0)
 
     def test_local_file_exists(self) -> None:

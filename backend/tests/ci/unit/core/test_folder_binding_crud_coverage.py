@@ -439,7 +439,8 @@ class TestExtractZipToBoundFolder:
 
     def test_cloud_extract_success(self):
         from apps.core.filesystem.folder_binding_crud_service import FolderBindingCrudService
-        import io, zipfile
+        import io
+        import zipfile
 
         svc = FolderBindingCrudService()
         mock_binding = MagicMock()
@@ -465,7 +466,8 @@ class TestExtractZipToBoundFolder:
 
     def test_cloud_extract_skips_dangerous_paths(self):
         from apps.core.filesystem.folder_binding_crud_service import FolderBindingCrudService
-        import io, zipfile
+        import io
+        import zipfile
 
         svc = FolderBindingCrudService()
         mock_binding = MagicMock()
@@ -490,7 +492,8 @@ class TestExtractZipToBoundFolder:
 
     def test_cloud_extract_error(self):
         from apps.core.filesystem.folder_binding_crud_service import FolderBindingCrudService
-        import io, zipfile
+        import io
+        import zipfile
 
         svc = FolderBindingCrudService()
         mock_binding = MagicMock()

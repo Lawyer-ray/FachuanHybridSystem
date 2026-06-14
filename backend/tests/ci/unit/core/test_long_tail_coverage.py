@@ -816,10 +816,10 @@ class TestSteeringPerformanceMonitor:
         monitor.add_alert_callback(lambda a: alerts.append(a))
 
         def _make_data(**kwargs):
-            defaults = dict(
-                spec_path="test.py", start_time=0.0, end_time=0.0,
-                duration_ms=0, success=True, cache_hit=False, memory_usage_mb=0.0,
-            )
+            defaults = {
+                "spec_path": "test.py", "start_time": 0.0, "end_time": 0.0,
+                "duration_ms": 0, "success": True, "cache_hit": False, "memory_usage_mb": 0.0,
+            }
             defaults.update(kwargs)
             return LoadingPerformanceData(**defaults)
 

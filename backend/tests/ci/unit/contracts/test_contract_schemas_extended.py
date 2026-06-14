@@ -131,14 +131,17 @@ class TestContractOutResolvers:
 
     def test_resolve_total_received_normal(self):
         obj = MagicMock()
-        p1 = MagicMock(); p1.amount = 1000
-        p2 = MagicMock(); p2.amount = 2000
+        p1 = MagicMock()
+        p1.amount = 1000
+        p2 = MagicMock()
+        p2.amount = 2000
         obj.payments.all.return_value = [p1, p2]
         assert ContractOut.resolve_total_received(obj) == 3000.0
 
     def test_resolve_total_received_none_amount(self):
         obj = MagicMock()
-        p1 = MagicMock(); p1.amount = None
+        p1 = MagicMock()
+        p1.amount = None
         obj.payments.all.return_value = [p1]
         assert ContractOut.resolve_total_received(obj) == 0.0
 
@@ -156,14 +159,17 @@ class TestContractOutResolvers:
 
     def test_resolve_total_invoiced_normal(self):
         obj = MagicMock()
-        p1 = MagicMock(); p1.invoiced_amount = 500
-        p2 = MagicMock(); p2.invoiced_amount = 700
+        p1 = MagicMock()
+        p1.invoiced_amount = 500
+        p2 = MagicMock()
+        p2.invoiced_amount = 700
         obj.payments.all.return_value = [p1, p2]
         assert ContractOut.resolve_total_invoiced(obj) == 1200.0
 
     def test_resolve_total_invoiced_none(self):
         obj = MagicMock()
-        p1 = MagicMock(); p1.invoiced_amount = None
+        p1 = MagicMock()
+        p1.invoiced_amount = None
         obj.payments.all.return_value = [p1]
         assert ContractOut.resolve_total_invoiced(obj) == 0.0
 
@@ -315,8 +321,16 @@ class TestContractOutResolvers:
     def test_resolve_primary_lawyer_fallback_to_lowest_order(self):
         obj = MagicMock()
         obj.primary_lawyer_dto = None
-        a1 = MagicMock(); a1.is_primary = False; a1.order = 2; a1.id = 1; a1.lawyer = MagicMock()
-        a2 = MagicMock(); a2.is_primary = False; a2.order = 1; a2.id = 2; a2.lawyer = MagicMock()
+        a1 = MagicMock()
+        a1.is_primary = False
+        a1.order = 2
+        a1.id = 1
+        a1.lawyer = MagicMock()
+        a2 = MagicMock()
+        a2.is_primary = False
+        a2.order = 1
+        a2.id = 2
+        a2.lawyer = MagicMock()
         obj.assignments.all.return_value = [a1, a2]
         with patch("apps.contracts.schemas.contract_schemas.LawyerOut") as MockLO:
             MockLO.from_model.return_value = "fallback_lawyer"
@@ -334,7 +348,9 @@ class TestContractOutResolvers:
     def test_resolve_primary_lawyer_no_lawyer_on_assignment(self):
         obj = MagicMock()
         obj.primary_lawyer_dto = None
-        a = MagicMock(); a.is_primary = True; a.lawyer = None
+        a = MagicMock()
+        a.is_primary = True
+        a.lawyer = None
         obj.assignments.all.return_value = [a]
         result = ContractOut.resolve_primary_lawyer(obj)
         assert result is None
@@ -402,9 +418,12 @@ class TestContractOutResolvers:
 
     def test_resolve_can_archive_all_present(self):
         obj = MagicMock()
-        m1 = MagicMock(); m1.category = "contract_original"
-        m2 = MagicMock(); m2.category = "archive_document"
-        m3 = MagicMock(); m3.category = "authorization_material"
+        m1 = MagicMock()
+        m1.category = "contract_original"
+        m2 = MagicMock()
+        m2.category = "archive_document"
+        m3 = MagicMock()
+        m3.category = "authorization_material"
         obj.finalized_materials.all.return_value = [m1, m2, m3]
         with patch("apps.contracts.models.finalized_material.MaterialCategory") as MockCat:
             MockCat.CONTRACT_ORIGINAL = "contract_original"
@@ -414,7 +433,8 @@ class TestContractOutResolvers:
 
     def test_resolve_can_archive_missing(self):
         obj = MagicMock()
-        m1 = MagicMock(); m1.category = "contract_original"
+        m1 = MagicMock()
+        m1.category = "contract_original"
         obj.finalized_materials.all.return_value = [m1]
         with patch("apps.contracts.models.finalized_material.MaterialCategory") as MockCat:
             MockCat.CONTRACT_ORIGINAL = "contract_original"

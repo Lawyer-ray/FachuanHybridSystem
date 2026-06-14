@@ -119,7 +119,7 @@ class TestAcquireAndRelease:
             )
             if result:
                 asyncio.run(optimizer.release_resource("test_id", "test_site", "test_account"))
-        except (asyncio.TimeoutError, Exception):
+        except (TimeoutError, Exception):
             pass  # Some implementations might timeout
 
 

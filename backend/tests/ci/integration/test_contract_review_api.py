@@ -164,7 +164,7 @@ def test_get_models(mock_build, authenticated_client):
 def test_normalize_format_task_not_found(authenticated_client):
     fake_id = uuid.uuid4()
     resp = authenticated_client.post(
-        f"/api/v1/contract-review/format/normalize",
+        "/api/v1/contract-review/format/normalize",
         data=json.dumps({"task_id": str(fake_id)}),
         content_type="application/json",
     )

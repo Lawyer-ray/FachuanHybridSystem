@@ -170,6 +170,6 @@ class TestEmailFolderScanServiceUploadFileAsAttachment:
         svc = _make_service()
         log = MagicMock()
         log.id = 1
-        with patch("builtins.open", side_effect=IOError("disk error")):
+        with patch("builtins.open", side_effect=OSError("disk error")):
             result = svc._upload_file_as_attachment(log, Path("/fake/file.pdf"))
             assert result is None

@@ -22,8 +22,10 @@ class TestResolveBackends:
     def test_with_backend_no_fallback(self):
         from apps.core.llm.streaming import _resolve_backends
         mock_backend = MagicMock()
-        get_backend = lambda name: mock_backend
-        get_all = lambda: [("b1", mock_backend), ("b2", MagicMock())]
+        def get_backend(name):
+            return mock_backend
+        def get_all():
+            return [("b1", mock_backend), ("b2", MagicMock())]
         result = _resolve_backends(get_backend, get_all, "b1", False)
         assert len(result) == 1
         assert result[0][0] == "b1"
@@ -32,16 +34,20 @@ class TestResolveBackends:
         from apps.core.llm.streaming import _resolve_backends
         b1 = MagicMock()
         b2 = MagicMock()
-        get_backend = lambda name: b1 if name == "b1" else b2
-        get_all = lambda: [("b1", b1), ("b2", b2)]
+        def get_backend(name):
+            return b1 if name == "b1" else b2
+        def get_all():
+            return [("b1", b1), ("b2", b2)]
         result = _resolve_backends(get_backend, get_all, "b1", True)
         assert len(result) == 2
 
     def test_no_backend(self):
         from apps.core.llm.streaming import _resolve_backends
         b1 = MagicMock()
-        get_backend = lambda name: b1
-        get_all = lambda: [("b1", b1)]
+        def get_backend(name):
+            return b1
+        def get_all():
+            return [("b1", b1)]
         result = _resolve_backends(get_backend, get_all, None, False)
         assert len(result) == 1
 
@@ -114,8 +120,10 @@ class TestStreamWithFallback:
         from apps.core.llm.backends import LLMStreamChunk
         mock_backend = MagicMock()
         mock_backend.stream.return_value = iter([LLMStreamChunk(content="hello")])
-        get_backend = lambda name: mock_backend
-        get_all = lambda: [("b1", mock_backend)]
+        def get_backend(name):
+            return mock_backend
+        def get_all():
+            return [("b1", mock_backend)]
         chunks = list(stream_with_fallback(
             get_backend=get_backend, get_backends_by_priority=get_all,
             backend="b1", fallback=False, messages=[], model=None,
@@ -133,8 +141,10 @@ class TestStreamWithFallback:
         b2 = MagicMock()
         b2.is_available.return_value = True
         b2.stream.return_value = iter([LLMStreamChunk(content="fallback")])
-        get_backend = lambda name: b1 if name == "b1" else b2
-        get_all = lambda: [("b1", b1), ("b2", b2)]
+        def get_backend(name):
+            return b1 if name == "b1" else b2
+        def get_all():
+            return [("b1", b1), ("b2", b2)]
         with patch("apps.core.llm.fallback_policy._diagnose_unavailable", return_value="not ready"):
             chunks = list(stream_with_fallback(
                 get_backend=get_backend, get_backends_by_priority=get_all,
@@ -152,8 +162,10 @@ class TestStreamWithFallback:
         b2 = MagicMock()
         b2.is_available.return_value = True
         b2.stream.side_effect = LLMNetworkError("net")
-        get_backend = lambda name: b1 if name == "b1" else b2
-        get_all = lambda: [("b1", b1), ("b2", b2)]
+        def get_backend(name):
+            return b1 if name == "b1" else b2
+        def get_all():
+            return [("b1", b1), ("b2", b2)]
         with patch("apps.core.llm.fallback_policy._diagnose_unavailable", return_value="not ready"):
             with pytest.raises(LLMBackendUnavailableError):
                 list(stream_with_fallback(
@@ -170,8 +182,10 @@ class TestStreamWithFallback:
         b2 = MagicMock()
         b2.is_available.return_value = True
         b2.stream.return_value = iter([LLMStreamChunk(content="ok")])
-        get_backend = lambda name: b1 if name == "b1" else b2
-        get_all = lambda: [("b1", b1), ("b2", b2)]
+        def get_backend(name):
+            return b1 if name == "b1" else b2
+        def get_all():
+            return [("b1", b1), ("b2", b2)]
         with patch("apps.core.llm.fallback_policy._diagnose_unavailable", return_value="not ready"):
             chunks = list(stream_with_fallback(
                 get_backend=get_backend, get_backends_by_priority=get_all,
@@ -185,8 +199,10 @@ class TestStreamWithFallback:
         b1 = MagicMock()
         b1.is_available.return_value = True
         b1.stream.side_effect = LLMAuthenticationError("auth fail")
-        get_backend = lambda name: b1
-        get_all = lambda: [("b1", b1)]
+        def get_backend(name):
+            return b1
+        def get_all():
+            return [("b1", b1)]
         with pytest.raises(LLMAuthenticationError):
             list(stream_with_fallback(
                 get_backend=get_backend, get_backends_by_priority=get_all,
@@ -199,8 +215,10 @@ class TestStreamWithFallback:
         b1 = MagicMock()
         b1.is_available.return_value = True
         b1.stream.return_value = iter([])
-        get_backend = lambda name: b1
-        get_all = lambda: [("b1", b1)]
+        def get_backend(name):
+            return b1
+        def get_all():
+            return [("b1", b1)]
         with patch("apps.core.llm.fallback_policy._diagnose_unavailable", return_value="not ready"):
             chunks = list(stream_with_fallback(
                 get_backend=get_backend, get_backends_by_priority=get_all,
@@ -400,8 +418,10 @@ class TestAstreamWithFallback:
 
         mock_backend = MagicMock()
         mock_backend.astream.return_value = async_gen()
-        get_backend = lambda name: mock_backend
-        get_all = lambda: [("b1", mock_backend)]
+        def get_backend(name):
+            return mock_backend
+        def get_all():
+            return [("b1", mock_backend)]
         chunks = []
         async for chunk in astream_with_fallback(
             get_backend=get_backend, get_backends_by_priority=get_all,
@@ -423,8 +443,10 @@ class TestAstreamWithFallback:
         b1 = MagicMock()
         b1.is_available.return_value = True
         b1.astream.return_value = raise_auth()
-        get_backend = lambda name: b1
-        get_all = lambda: [("b1", b1)]
+        def get_backend(name):
+            return b1
+        def get_all():
+            return [("b1", b1)]
         with pytest.raises(LLMAuthenticationError):
             async for _ in astream_with_fallback(
                 get_backend=get_backend, get_backends_by_priority=get_all,
@@ -451,8 +473,10 @@ class TestAstreamWithFallback:
         b2 = MagicMock()
         b2.is_available.return_value = True
         b2.astream.return_value = gen_ok()
-        get_backend = lambda name: b1 if name == "b1" else b2
-        get_all = lambda: [("b1", b1), ("b2", b2)]
+        def get_backend(name):
+            return b1 if name == "b1" else b2
+        def get_all():
+            return [("b1", b1), ("b2", b2)]
         with patch("apps.core.llm.fallback_policy._diagnose_unavailable", return_value="not ready"):
             chunks = []
             async for chunk in astream_with_fallback(
@@ -475,8 +499,10 @@ class TestAstreamWithFallback:
         b1 = MagicMock()
         b1.is_available.return_value = True
         b1.astream.return_value = empty()
-        get_backend = lambda name: b1
-        get_all = lambda: [("b1", b1)]
+        def get_backend(name):
+            return b1
+        def get_all():
+            return [("b1", b1)]
         with patch("apps.core.llm.fallback_policy._diagnose_unavailable", return_value="not ready"):
             chunks = []
             async for chunk in astream_with_fallback(
@@ -498,8 +524,10 @@ class TestAstreamWithFallback:
         b1 = MagicMock()
         b1.is_available.return_value = True
         b1.astream.return_value = raise_timeout()
-        get_backend = lambda name: b1
-        get_all = lambda: [("b1", b1)]
+        def get_backend(name):
+            return b1
+        def get_all():
+            return [("b1", b1)]
         with patch("apps.core.llm.fallback_policy._diagnose_unavailable", return_value="not ready"):
             with pytest.raises(LLMBackendUnavailableError):
                 async for _ in astream_with_fallback(
@@ -522,8 +550,10 @@ class TestAstreamWithFallback:
         b2 = MagicMock()
         b2.is_available.return_value = True
         b2.astream.return_value = gen_ok()
-        get_backend = lambda name: b1 if name == "b1" else b2
-        get_all = lambda: [("b1", b1), ("b2", b2)]
+        def get_backend(name):
+            return b1 if name == "b1" else b2
+        def get_all():
+            return [("b1", b1), ("b2", b2)]
         with patch("apps.core.llm.fallback_policy._diagnose_unavailable", return_value="not ready"):
             chunks = []
             async for chunk in astream_with_fallback(

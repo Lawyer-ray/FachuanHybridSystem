@@ -24,7 +24,7 @@ Covers:
 from __future__ import annotations
 
 import re
-from datetime import timedelta
+from datetime import timedelta, UTC
 from typing import Any
 from unittest.mock import MagicMock, patch
 
@@ -171,9 +171,9 @@ class TestIsStaleActiveSession:
         session = MagicMock()
         session.status = "running"
         from datetime import datetime, timedelta, timezone
-        session.updated_at = datetime.now(timezone.utc) - timedelta(minutes=10)
+        session.updated_at = datetime.now(UTC) - timedelta(minutes=10)
         with patch("apps.contracts.services.contract.integrations.contract_oa_sync_service.timezone") as mock_tz:
-            mock_tz.now.return_value = datetime.now(timezone.utc)
+            mock_tz.now.return_value = datetime.now(UTC)
             result = svc._is_stale_active_session(session)
         assert result is True
 

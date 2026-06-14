@@ -17,16 +17,16 @@ from apps.core.llm.exceptions import (
 
 
 def _config(**overrides):
-    defaults = dict(
-        name="openai_compatible",
-        enabled=True,
-        priority=1,
-        default_model="gpt-4",
-        base_url="https://api.example.com/v1",
-        api_key="sk-test",
-        timeout=30,
-        embedding_model="text-embedding-ada-002",
-    )
+    defaults = {
+        "name": "openai_compatible",
+        "enabled": True,
+        "priority": 1,
+        "default_model": "gpt-4",
+        "base_url": "https://api.example.com/v1",
+        "api_key": "sk-test",
+        "timeout": 30,
+        "embedding_model": "text-embedding-ada-002",
+    }
     defaults.update(overrides)
     return BackendConfig(**defaults)
 

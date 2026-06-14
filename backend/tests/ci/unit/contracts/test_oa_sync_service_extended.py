@@ -362,7 +362,8 @@ class TestBuildNameSearchKeywords:
 class TestFilterCandidatesByContractName:
     def test_exact_match(self):
         svc = _make_service()
-        c = MagicMock(); c.case_name = "张某诉李某合同纠纷"
+        c = MagicMock()
+        c.case_name = "张某诉李某合同纠纷"
         result = svc._filter_candidates_by_contract_name(
             contract_name="张某诉李某合同纠纷", candidates=[c]
         )
@@ -370,7 +371,8 @@ class TestFilterCandidatesByContractName:
 
     def test_no_match_returns_empty(self):
         svc = _make_service()
-        c = MagicMock(); c.case_name = "完全不同的案件"
+        c = MagicMock()
+        c.case_name = "完全不同的案件"
         result = svc._filter_candidates_by_contract_name(
             contract_name="张某诉李某合同纠纷", candidates=[c]
         )
@@ -385,7 +387,8 @@ class TestFilterCandidatesByContractName:
 
     def test_party_match_strict(self):
         svc = _make_service()
-        c = MagicMock(); c.case_name = "张某诉李某民间借贷纠纷"
+        c = MagicMock()
+        c.case_name = "张某诉李某民间借贷纠纷"
         result = svc._filter_candidates_by_contract_name(
             contract_name="张某诉李某合同纠纷", candidates=[c]
         )
@@ -394,7 +397,8 @@ class TestFilterCandidatesByContractName:
     def test_party_match_relaxed(self):
         svc = _make_service()
         # When strict match fails, relaxed markers should be tried
-        c = MagicMock(); c.case_name = "张诉李合同纠纷"
+        c = MagicMock()
+        c.case_name = "张诉李合同纠纷"
         result = svc._filter_candidates_by_contract_name(
             contract_name="张某诉李某合同纠纷", candidates=[c]
         )
@@ -403,8 +407,10 @@ class TestFilterCandidatesByContractName:
 
     def test_no_sue_keyword_returns_all(self):
         svc = _make_service()
-        c1 = MagicMock(); c1.case_name = "test1"
-        c2 = MagicMock(); c2.case_name = "test2"
+        c1 = MagicMock()
+        c1.case_name = "test1"
+        c2 = MagicMock()
+        c2.case_name = "test2"
         result = svc._filter_candidates_by_contract_name(
             contract_name="合同审查", candidates=[c1, c2]
         )

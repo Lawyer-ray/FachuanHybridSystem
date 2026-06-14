@@ -43,19 +43,19 @@ def _make_case_number(**kwargs: Any) -> MagicMock:
     cn.document_content = kwargs.get("document_content", "")
     cn.execution_manual_text = kwargs.get("execution_manual_text", "")
     cn.is_active = kwargs.get("is_active", True)
-    cn.execution_paid_amount = kwargs.get("execution_paid_amount", None)
+    cn.execution_paid_amount = kwargs.get("execution_paid_amount")
     cn.execution_use_deduction_order = kwargs.get("execution_use_deduction_order", False)
-    cn.execution_year_days = kwargs.get("execution_year_days", None)
-    cn.execution_date_inclusion = kwargs.get("execution_date_inclusion", None)
-    cn.execution_cutoff_date = kwargs.get("execution_cutoff_date", None)
+    cn.execution_year_days = kwargs.get("execution_year_days")
+    cn.execution_date_inclusion = kwargs.get("execution_date_inclusion")
+    cn.execution_cutoff_date = kwargs.get("execution_cutoff_date")
     return cn
 
 
 def _make_case(**kwargs: Any) -> MagicMock:
     case = MagicMock()
     case.id = kwargs.get("id", 1)
-    case.target_amount = kwargs.get("target_amount", None)
-    case.specified_date = kwargs.get("specified_date", None)
+    case.target_amount = kwargs.get("target_amount")
+    case.specified_date = kwargs.get("specified_date")
     return case
 
 

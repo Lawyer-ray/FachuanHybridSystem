@@ -15,7 +15,7 @@ from apps.core.exceptions import NotFoundError, ValidationException
 # ============================================================================
 
 
-def _make_provider_config() -> "ProviderConfig":
+def _make_provider_config() -> ProviderConfig:
     from apps.enterprise_data.services.types import ProviderConfig
 
     return ProviderConfig(

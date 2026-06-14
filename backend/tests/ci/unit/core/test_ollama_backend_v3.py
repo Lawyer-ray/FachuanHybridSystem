@@ -47,7 +47,7 @@ def _mock_config(**kwargs: Any) -> BackendConfig:
     cfg.base_url = kwargs.get("base_url", "http://localhost:11434")
     cfg.default_model = kwargs.get("default_model", "qwen3:0.6b")
     cfg.timeout = kwargs.get("timeout", 120.0)
-    cfg.embedding_model = kwargs.get("embedding_model", None)
+    cfg.embedding_model = kwargs.get("embedding_model")
     cfg.enabled = kwargs.get("enabled", True)
     return cfg
 

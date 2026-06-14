@@ -13,13 +13,13 @@ from apps.enterprise_data.services.clients.mcp_tool_client import McpToolClient
 
 def _make_client(**overrides):
 
-    defaults = dict(
-        provider_name="test_provider",
-        transport="streamable_http",
-        base_url="http://example.com/api",
-        sse_url="http://example.com/sse",
-        api_key="test_key",
-    )
+    defaults = {
+        "provider_name": "test_provider",
+        "transport": "streamable_http",
+        "base_url": "http://example.com/api",
+        "sse_url": "http://example.com/sse",
+        "api_key": "test_key",
+    }
     defaults.update(overrides)
     return McpToolClient(**defaults)
 

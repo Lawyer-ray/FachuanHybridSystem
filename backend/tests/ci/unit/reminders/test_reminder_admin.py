@@ -37,13 +37,13 @@ class TestReminderAdminForm:
     def test_clean_metadata_invalid_json(self) -> None:
         form = ReminderAdminForm()
         form.cleaned_data = {"metadata": "not json"}
-        with pytest.raises(Exception):  # noqa: B017
+        with pytest.raises(Exception):
             form.clean_metadata()
 
     def test_clean_metadata_array_json(self) -> None:
         form = ReminderAdminForm()
         form.cleaned_data = {"metadata": "[1, 2, 3]"}
-        with pytest.raises(Exception):  # noqa: B017
+        with pytest.raises(Exception):
             form.clean_metadata()
 
 
