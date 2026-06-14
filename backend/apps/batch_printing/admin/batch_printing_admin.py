@@ -87,6 +87,7 @@ class PrintPresetSnapshotAdmin(admin.ModelAdmin):  # pragma: no cover
 class PrintKeywordRuleAdmin(admin.ModelAdmin):  # pragma: no cover
     form = PrintKeywordRuleAdminForm
     list_display = ["keyword", "priority", "enabled", "printer_name", "preset_snapshot", "updated_at"]
+    list_select_related = ("preset_snapshot",)
     list_filter = ["enabled", "printer_name"]
     search_fields = ["keyword", "printer_name", "notes"]
     ordering = ["priority", "id"]
@@ -138,6 +139,7 @@ class BatchPrintJobAdmin(admin.ModelAdmin):  # pragma: no cover
         "created_by",
         "created_at",
     ]
+    list_select_related = ("created_by",)
     list_filter = ["status", "created_at"]
     search_fields = ["id", "task_id", "error_message"]
     ordering = ["-created_at"]

@@ -52,6 +52,7 @@ class LegalResearchTaskAdmin(admin.ModelAdmin):  # pragma: no cover
         "matched_count",
         "created_at",
     ]
+    list_select_related: ClassVar[tuple[str, ...]] = ("credential",)
     list_filter: ClassVar[list[str]] = ["status", "llm_backend", "created_at"]
     search_fields: ClassVar[tuple[str, ...]] = (
         "id",

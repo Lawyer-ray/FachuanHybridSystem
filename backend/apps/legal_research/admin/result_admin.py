@@ -20,6 +20,7 @@ class LegalResearchResultAdmin(admin.ModelAdmin):  # pragma: no cover
         "has_pdf",
         "created_at",
     ]
+    list_select_related: ClassVar[tuple[str, ...]] = ("task",)
     list_filter: ClassVar[list[str]] = ["created_at"]
     actions: ClassVar[list[str]] = ["mark_as_relevant", "mark_as_false_positive"]
     search_fields: ClassVar[tuple[str, ...]] = (

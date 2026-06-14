@@ -11,6 +11,7 @@ from apps.evidence.models import EvidenceGroup
 @admin.register(EvidenceGroup)
 class EvidenceGroupAdmin(admin.ModelAdmin):  # pragma: no cover
     list_display: ClassVar = ("name", "case", "item_count", "sort_order", "created_at")  # type: ignore[misc]
+    list_select_related: ClassVar = ("case",)
     list_filter: ClassVar = ("case",)
     search_fields: ClassVar = ("name", "case__name")
     autocomplete_fields: ClassVar = ("case",)

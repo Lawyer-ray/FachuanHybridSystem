@@ -27,6 +27,7 @@ class WorkflowTemplateAdmin(admin.ModelAdmin):
 @admin.register(WorkflowRun)
 class WorkflowRunAdmin(admin.ModelAdmin):
     list_display = ("id", "template", "case", "status", "current_step_id", "started_at")
+    list_select_related = ("template", "case")
     list_filter = ("status", "template")
     readonly_fields = ("temporal_workflow_id", "temporal_run_id")
     inlines = [StepExecutionInline]

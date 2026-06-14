@@ -25,6 +25,7 @@ class StoryAnimationAdmin(admin.ModelAdmin):  # pragma: no cover
         "created_by",
         "created_at_display",
     ]
+    list_select_related = ("created_by",)
     list_filter = ["status", "viz_type", "current_stage", "created_at"]
     search_fields = ["source_title", "source_text", "id__icontains"]
     ordering = ["-created_at"]

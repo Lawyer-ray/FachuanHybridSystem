@@ -74,6 +74,7 @@ class CaseDownloadTaskAdmin(admin.ModelAdmin):  # pragma: no cover
         "created_at",
         "action_buttons",
     ]
+    list_select_related: ClassVar[tuple[str, ...]] = ("credential",)
     list_filter: ClassVar[list[str]] = ["status", "file_format", "created_at"]
     search_fields: ClassVar[tuple[str, ...]] = (
         "id",

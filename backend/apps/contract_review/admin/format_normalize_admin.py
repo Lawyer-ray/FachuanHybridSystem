@@ -36,6 +36,7 @@ class FormatNormalizeAdmin(admin.ModelAdmin):  # pragma: no cover
         "created_at",
         "format_action",
     )
+    list_select_related = ("user",)
     list_filter = ("status", "created_at")
     search_fields = ("contract_title",)
 

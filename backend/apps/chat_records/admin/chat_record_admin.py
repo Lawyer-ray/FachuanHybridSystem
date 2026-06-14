@@ -16,6 +16,7 @@ from apps.chat_records.models import ChatRecordExportTask, ChatRecordProject, Ch
 @admin.register(ChatRecordProject)
 class ChatRecordProjectAdmin(admin.ModelAdmin):  # pragma: no cover
     list_display = ("id", "name", "created_by", "created_at", "workbench_link")
+    list_select_related = ("created_by",)
     search_fields = ("name",)
     readonly_fields = ("created_at", "updated_at")
 

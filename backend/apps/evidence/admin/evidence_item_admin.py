@@ -19,6 +19,7 @@ class EvidenceItemAdmin(admin.ModelAdmin):  # pragma: no cover
         "page_range_display",
         "evidence_list",
     )
+    list_select_related: ClassVar = ("evidence_list",)
     list_filter: ClassVar = ("direction", "evidence_type", "original_status", "evidence_list__case")
     search_fields: ClassVar = ("name", "purpose", "ocr_text")
     readonly_fields: ClassVar = ("file_hash", "page_count", "page_start", "page_end", "created_at", "updated_at")
