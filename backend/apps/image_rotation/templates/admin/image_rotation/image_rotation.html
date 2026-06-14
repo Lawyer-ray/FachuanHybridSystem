@@ -102,6 +102,29 @@
         .image-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
         .stats-bar { flex-wrap: wrap; }
     }
+
+    /* Tab 导航 */
+    .tab-nav { display: flex; gap: 0; margin-bottom: 20px; border-bottom: 2px solid #e5e7eb; }
+    .tab-btn { padding: 12px 24px; background: none; border: none; cursor: pointer; font-size: 15px; font-weight: 500; color: #666; border-bottom: 2px solid transparent; margin-bottom: -2px; transition: all 0.2s; }
+    .tab-btn:hover { color: #417690; }
+    .tab-btn.active { border-bottom-color: #417690; color: #417690; }
+
+    /* 任务名称输入 */
+    .task-name-input { padding: 8px 12px; border: 1px solid #ddd; border-radius: 6px; width: 300px; font-size: 14px; }
+    .task-name-input:focus { border-color: #417690; outline: none; box-shadow: 0 0 0 2px rgba(65,118,144,0.15); }
+
+    /* 保存通知 */
+    .save-notification { background: #dcfce7; border: 1px solid #86efac; border-radius: 6px; padding: 10px 16px; margin-bottom: 16px; color: #166534; font-size: 14px; display: flex; align-items: center; gap: 8px; }
+    .save-notification a { color: #166534; font-weight: 600; text-decoration: underline; }
+
+    /* 历史列表 */
+    .history-item { display: flex; align-items: center; justify-content: space-between; padding: 16px; border: 1px solid #e5e7eb; border-radius: 8px; margin-bottom: 12px; transition: box-shadow 0.2s; }
+    .history-item:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+    .history-item-name { font-weight: 500; color: #1a1a1a; }
+    .history-item-meta { font-size: 13px; color: #666; margin-top: 4px; }
+    .history-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+    .history-empty { text-align: center; padding: 60px; color: #9ca3af; font-size: 15px; }
+    .pagination { text-align: center; margin-top: 20px; display: flex; align-items: center; justify-content: center; gap: 16px; }
 </style>
 {% endblock %}
 
@@ -127,13 +150,41 @@
             </div>
             <canvas x-ref="modalCanvas" class="modal-image"></canvas>
             <div class="modal-actions">
-                <button class="action-btn" @click="rotateLeft(selectedImage?.id)">↺ 左转90°</button>
-                <button class="action-btn" @click="rotateRight(selectedImage?.id)">↻ 右转90°</button>
-                <button class="action-btn" @click="rotate180(selectedImage?.id)">⟳ 旋转180°</button>
-                <button class="action-btn" @click="resetRotation(selectedImage?.id)">↩ 恢复原始</button>
+                <button class="action-btn" @click="rotateLeft(selectedImage?.id)">左转90°</button>
+                <button class="action-btn" @click="rotateRight(selectedImage?.id)">右转90°</button>
+                <button class="action-btn" @click="rotate180(selectedImage?.id)">旋转180°</button>
+                <button class="action-btn" @click="resetRotation(selectedImage?.id)">恢复原始</button>
             </div>
         </div>
     </div>
+
+    <!-- 删除确认弹窗 -->
+    <div class="modal-overlay" x-show="showDeleteConfirm" x-cloak>
+        <div class="modal-content" style="max-width: 420px; text-align: center; padding: 32px;">
+            <h3 style="margin: 0 0 12px;">确认删除</h3>
+            <p style="color: #666; margin: 0 0 24px;">删除后将无法恢复，所有文件也将被清除。</p>
+            <div style="display: flex; gap: 12px; justify-content: center;">
+                <button class="btn-secondary" @click="showDeleteConfirm = false">取消</button>
+                <button class="btn-primary" style="background: #dc2626 !important;" @click="executeDeleteJob()">确认删除</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tab 导航 -->
+    <div class="tab-nav">
+        <button class="tab-btn" :class="{ active: currentView === 'tool' }" @click="currentView = 'tool'">旋转工具</button>
+        <button class="tab-btn" :class="{ active: currentView === 'history' }" @click="currentView = 'history'; historyDetail = null; loadHistory()">历史记录</button>
+    </div>
+
+    <!-- ==================== 旋转工具 Tab ==================== -->
+    <div x-show="currentView === 'tool'">
+
+        <!-- 保存成功通知 -->
+        <div class="save-notification" x-show="showSaveNotification">
+            任务已保存到历史记录
+            <a href="#" @click.prevent="currentView = 'history'; loadHistory()">查看</a>
+            <button style="margin-left: auto; background: none; border: none; cursor: pointer; color: #166534; font-size: 16px;" @click="showSaveNotification = false">×</button>
+        </div>
 
     <div class="rotation-card">
         <div class="rotation-header">
@@ -146,7 +197,7 @@
 
         <!-- 提示信息 -->
         <div class="hint-box" x-show="images.length === 0">
-            📷 支持 JPG、JPEG、PNG、PDF 格式，图片最大 20MB，PDF 最大 50MB
+            支持 JPG、JPEG、PNG、PDF 格式，图片最大 20MB，PDF 最大 50MB
         </div>
 
         <!-- 错误提示 -->
@@ -162,7 +213,7 @@
              @dragleave.prevent="isDragging = false"
              @drop.prevent="handleDrop($event)"
              x-show="images.length === 0">
-            <div class="upload-box-icon">📁</div>
+            <div class="upload-box-icon"></div>
             <div class="upload-box-title">点击或拖拽上传图片/PDF</div>
             <div class="upload-box-hint">支持多选</div>
             <input type="file" x-ref="fileInput" @change="handleFileSelect($event)" accept="image/jpeg,image/jpg,image/png,.pdf" multiple style="display:none">
@@ -170,6 +221,21 @@
 
         <!-- 已上传图片区域 -->
         <div x-show="images.length > 0">
+            <!-- 任务名称输入 -->
+            <div style="margin-bottom: 16px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                <label style="font-size: 14px; color: #666; white-space: nowrap;">任务名称：</label>
+                <input type="text" class="task-name-input" x-model="taskName" placeholder="留空则显示为「未命名任务」">
+                <template x-if="currentJobId">
+                    <button class="action-btn" @click="updateJobName()" style="white-space: nowrap;">更新名称</button>
+                </template>
+                <template x-if="!currentJobId && onnxComplete">
+                    <span style="font-size: 13px; color: #9ca3af;">正在保存...</span>
+                </template>
+                <template x-if="currentJobId && !nameUpdatePending">
+                    <span style="font-size: 13px; color: #16a34a;">已保存</span>
+                </template>
+            </div>
+
             <!-- 统计栏 -->
             <div class="stats-bar">
                 <div class="stat-item">
@@ -193,14 +259,14 @@
                     <span class="stat-value" x-text="totalDetectionTimeMs >= 1000 ? (totalDetectionTimeMs / 1000).toFixed(1) + 's' : Math.round(totalDetectionTimeMs) + 'ms'" style="color: #16a34a;"></span>
                 </div>
                 <div style="flex: 1;"></div>
-                <button class="action-btn" @click="$refs.fileInput.click()">➕ 添加更多</button>
+                <button class="action-btn" @click="$refs.fileInput.click()">添加更多</button>
             </div>
 
             <!-- OCR 提取文字提示（ONNX 检测完成后显示） -->
             <div class="hint-box success" x-show="showOcrPrompt && !ocrProcessing" style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
-                <span>✅ 方向检测完成（<span x-text="images.length"></span> 张），是否提取文字用于自动重命名？</span>
-                <button class="action-btn" @click="startOcrExtraction('local')" style="background: #fff; border-color: #86efac;">📝 本地 RapidOCR</button>
-                <button class="action-btn" @click="startOcrExtraction('paddleocr_api')" style="background: #fff; border-color: #86efac;">📝 PaddleOCR API</button>
+                <span>方向检测完成（<span x-text="images.length"></span> 张），是否提取文字用于自动重命名？</span>
+                <button class="action-btn" @click="startOcrExtraction('local')" style="background: #fff; border-color: #86efac;">本地 RapidOCR</button>
+                <button class="action-btn" @click="startOcrExtraction('paddleocr_api')" style="background: #fff; border-color: #86efac;">PaddleOCR API</button>
                 <button class="action-btn" @click="showOcrPrompt = false" style="background: #fff;">跳过</button>
             </div>
 
@@ -215,14 +281,14 @@
                         <div class="image-info">
                             <div class="image-filename" :title="image.suggestedFilename || image.filename">
                                 <span x-text="image.suggestedFilename || image.filename"></span>
-                                <span x-show="image.suggestedFilename" style="color: #22c55e; font-size: 10px; margin-left: 4px;">✓ AI</span>
+                                <span x-show="image.suggestedFilename" style="color: #22c55e; font-size: 10px; margin-left: 4px;">AI</span>
                             </div>
                             <div class="image-status">
                                 <template x-if="image.sourceType === 'pdf_page'">
-                                    <span class="pdf-badge">📄 PDF</span>
+                                    <span class="pdf-badge">PDF</span>
                                 </template>
                                 <template x-if="image.status === 'detecting'">
-                                    <span class="rotation-badge" style="background: #e0e7ff; color: #4338ca;">🔄 检测中...</span>
+                                    <span class="rotation-badge" style="background: #e0e7ff; color: #4338ca;">检测中...</span>
                                 </template>
                                 <template x-if="image.autoRotation !== 0 && image.status !== 'detecting'">
                                     <span class="rotation-badge auto">自动 <span x-text="image.autoRotation + '°'"></span></span>
@@ -234,15 +300,15 @@
                                     <span style="color: #9ca3af; font-size: 12px;">无需旋转</span>
                                 </template>
                                 <template x-if="image.detectionTimeMs > 0">
-                                    <span class="rotation-badge" style="background: #f0fdf4; color: #16a34a; font-size: 10px;">⚡ <span x-text="image.detectionTimeMs >= 1000 ? (image.detectionTimeMs / 1000).toFixed(1) + 's' : Math.round(image.detectionTimeMs) + 'ms'"></span></span>
+                                    <span class="rotation-badge" style="background: #f0fdf4; color: #16a34a; font-size: 10px;"><span x-text="image.detectionTimeMs >= 1000 ? (image.detectionTimeMs / 1000).toFixed(1) + 's' : Math.round(image.detectionTimeMs) + 'ms'"></span></span>
                                 </template>
                             </div>
                         </div>
                         <div class="image-actions">
-                            <button class="action-btn" @click="rotateLeft(image.id)" title="左转90°">↺</button>
-                            <button class="action-btn" @click="rotateRight(image.id)" title="右转90°">↻</button>
-                            <button class="action-btn" @click="rotate180(image.id)" title="旋转180°">⟳</button>
-                            <button class="action-btn" @click="resetRotation(image.id)" title="恢复原始">↩</button>
+                            <button class="action-btn" @click="rotateLeft(image.id)" title="左转90°">←</button>
+                            <button class="action-btn" @click="rotateRight(image.id)" title="右转90°">→</button>
+                            <button class="action-btn" @click="rotate180(image.id)" title="旋转180°">180</button>
+                            <button class="action-btn" @click="resetRotation(image.id)" title="恢复原始">复位</button>
                         </div>
                     </div>
                 </template>
@@ -250,8 +316,8 @@
 
             <!-- 操作按钮 -->
             <div class="form-actions">
-                <button class="btn-secondary" @click="resetAllRotations()">↩ 全部恢复</button>
-                <button class="btn-secondary" @click="clearAll()">🗑️ 清除全部</button>
+                <button class="btn-secondary" @click="resetAllRotations()">全部恢复</button>
+                <button class="btn-secondary" @click="clearAll()">清除全部</button>
 
                 <!-- 尺寸选择 -->
                 <select x-model="paperSize" class="paper-size-select" style="padding: 10px 16px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; background: #fff; cursor: pointer; height: 44px; line-height: 1.4;">
@@ -262,17 +328,153 @@
                 </select>
 
                 <button class="btn-primary" @click="exportZip()" :disabled="images.length === 0 || processing">
-                    <span x-show="!processing">📦 导出 ZIP</span>
+                    <span x-show="!processing">导出 ZIP</span>
                     <span x-show="processing">处理中...</span>
                 </button>
                 <button class="btn-primary" @click="exportPdf()" :disabled="images.length === 0 || processing">
-                    <span x-show="!processing">📄 导出 PDF</span>
+                    <span x-show="!processing">导出 PDF</span>
                     <span x-show="processing">处理中...</span>
                 </button>
             </div>
         </div>
-    </div>
-</div>
+    </div><!-- .rotation-card -->
+
+    </div><!-- x-show="currentView === 'tool'" -->
+
+    <!-- ==================== 历史记录 Tab ==================== -->
+    <div x-show="currentView === 'history'">
+        <!-- 历史列表 -->
+        <div class="rotation-card" x-show="!historyDetail">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <h2 class="rotation-title" style="margin-bottom: 0;">历史记录</h2>
+                <button class="action-btn" @click="loadHistory()">刷新</button>
+            </div>
+
+            <div x-show="historyLoading" style="text-align: center; padding: 40px;">
+                <div class="loading-spinner" style="margin: 0 auto;"></div>
+            </div>
+
+            <div class="history-empty" x-show="!historyLoading && historyJobs.length === 0">
+                暂无历史记录
+            </div>
+
+            <template x-for="job in historyJobs" :key="job.id">
+                <div class="history-item">
+                    <div>
+                        <div class="history-item-name" x-text="job.display_name"></div>
+                        <div class="history-item-meta">
+                            <span x-text="job.total_pages + ' 页'"></span> ·
+                            <span x-text="new Date(job.created_at).toLocaleString('zh-CN')"></span>
+                            <span x-show="job.has_export_zip" style="margin-left: 8px; color: #16a34a;">ZIP</span>
+                            <span x-show="job.has_export_pdf" style="margin-left: 4px; color: #16a34a;">PDF</span>
+                        </div>
+                    </div>
+                    <div class="history-actions">
+                        <button class="action-btn" @click="viewJobDetail(job.id)">查看</button>
+                        <button class="action-btn" @click="renameJobFromHistory(job.id)">重命名</button>
+                        <button class="action-btn" @click="reOcrJob(job.id, 'local')" :disabled="reOcrProcessing && reOcrJobId === job.id">
+                            <span x-show="!(reOcrProcessing && reOcrJobId === job.id)">RapidOCR</span>
+                            <span x-show="reOcrProcessing && reOcrJobId === job.id">处理中...</span>
+                        </button>
+                        <button class="action-btn" @click="reOcrJob(job.id, 'paddleocr_api')" :disabled="reOcrProcessing && reOcrJobId === job.id">PaddleOCR</button>
+                        <button class="action-btn" @click="downloadJobFile(job.id, 'zip')" x-show="job.has_export_zip">ZIP</button>
+                        <button class="action-btn" @click="downloadJobFile(job.id, 'pdf')" x-show="job.has_export_pdf">PDF</button>
+                        <button class="action-btn danger" @click="confirmDeleteJob(job.id)">删除</button>
+                    </div>
+                </div>
+            </template>
+
+            <!-- 分页 -->
+            <div class="pagination" x-show="historyTotalCount > 20">
+                <button class="action-btn" @click="loadHistory(historyPage - 1)" :disabled="historyPage <= 1">上一页</button>
+                <span x-text="historyPage + ' / ' + Math.ceil(historyTotalCount / 20)" style="color: #666;"></span>
+                <button class="action-btn" @click="loadHistory(historyPage + 1)" :disabled="historyPage >= Math.ceil(historyTotalCount / 20)">下一页</button>
+            </div>
+        </div>
+
+        <!-- 任务详情面板 -->
+        <div class="rotation-card" x-show="historyDetail">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                <h2 class="rotation-title" style="margin-bottom: 0;" x-text="historyDetail?.display_name"></h2>
+                <div style="display: flex; gap: 8px;">
+                    <button class="btn-primary" style="padding: 8px 16px !important; font-size: 13px !important;" @click="loadJobToTool()">加载到工具</button>
+                    <button class="action-btn" @click="historyDetail = null; historyDetailPages = []">← 返回列表</button>
+                </div>
+            </div>
+            <div style="font-size: 13px; color: #666; margin-bottom: 12px;">
+                <span x-text="historyDetail?.total_pages + ' 页'"></span> ·
+                <span x-text="new Date(historyDetail?.created_at).toLocaleString('zh-CN')"></span>
+            </div>
+
+            <!-- 导出操作栏 -->
+            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px; padding: 12px 16px; background: #f8f9fa; border-radius: 8px;">
+                <span style="font-size: 14px; color: #666;">导出：</span>
+                <select x-model="historyPaperSize" style="padding: 6px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 13px;">
+                    <option value="original">原始尺寸</option>
+                    <option value="a4">A4</option>
+                    <option value="a3">A3</option>
+                    <option value="letter">Letter</option>
+                </select>
+                <button class="btn-primary" style="padding: 8px 16px !important; font-size: 13px !important;" @click="exportFromHistory('zip')" :disabled="historyExporting">
+                    <span x-show="!historyExporting">ZIP</span>
+                    <span x-show="historyExporting">导出中...</span>
+                </button>
+                <button class="btn-primary" style="padding: 8px 16px !important; font-size: 13px !important;" @click="exportFromHistory('pdf')" :disabled="historyExporting">
+                    <span x-show="!historyExporting">PDF</span>
+                    <span x-show="historyExporting">导出中...</span>
+                </button>
+            </div>
+
+            <div class="image-grid">
+                <template x-for="page in historyDetailPages" :key="page.id">
+                    <div class="image-item">
+                        <div class="image-preview" @click="openHistoryPreview(page)"
+                             :style="page.onnx_rotation && ((page.onnx_rotation + (page.detected_rotation || 0)) % 180 !== 0) ? 'aspect-ratio: 1/1' : ''">
+                            <img :src="page.source_image_url"
+                                 :style="'transform: rotate(' + (page.onnx_rotation ? (page.onnx_rotation + (page.detected_rotation || 0)) % 360 : 0) + 'deg); max-width: 100%; max-height: 100%; object-fit: contain;'"
+                                 loading="lazy">
+                        </div>
+                        <div class="image-info">
+                            <div class="image-filename" :title="page.suggested_filename || page.original_filename">
+                                <span x-text="page.suggested_filename || page.original_filename"></span>
+                                <span x-show="page.suggested_filename" style="color: #22c55e; font-size: 10px; margin-left: 4px;">AI</span>
+                            </div>
+                            <div class="image-status">
+                                <template x-if="page.source_type === 'pdf_page'">
+                                    <span class="pdf-badge">PDF</span>
+                                </template>
+                                <template x-if="page.detected_rotation !== 0">
+                                    <span class="rotation-badge auto">手动 <span x-text="page.detected_rotation + '°'"></span></span>
+                                </template>
+                                <template x-if="page.detection_confidence > 0">
+                                    <span class="rotation-badge" style="background: #f0fdf4; color: #16a34a; font-size: 10px;">
+                                        <span x-text="Math.round(page.detection_confidence * 100) + '%'"></span>
+                                    </span>
+                                </template>
+                            </div>
+                            <div x-show="page.ocr_text" style="font-size: 11px; color: #666; margin-top: 6px; max-height: 50px; overflow: hidden; line-height: 1.4;"
+                                 x-text="page.ocr_text.length > 80 ? page.ocr_text.substring(0, 80) + '...' : page.ocr_text">
+                            </div>
+                        </div>
+                    </div>
+                </template>
+            </div>
+        </div>
+
+        <!-- 历史图片预览模态框 -->
+        <div class="modal-overlay" x-show="historyPreviewPage" @click.self="historyPreviewPage = null" x-cloak>
+            <div class="modal-content">
+                <div class="modal-header">
+                    <span class="modal-title" x-text="historyPreviewPage?.suggested_filename || historyPreviewPage?.original_filename"></span>
+                    <button class="modal-close" @click="historyPreviewPage = null">×</button>
+                </div>
+                <img :src="historyPreviewPage?.source_image_url" class="modal-image"
+                     :style="'transform: rotate(' + (historyPreviewPage?.onnx_rotation ? (historyPreviewPage.onnx_rotation + (historyPreviewPage.detected_rotation || 0)) % 360 : 0) + 'deg)'">
+            </div>
+        </div>
+    </div><!-- x-show="currentView === 'history'" -->
+
+</div><!-- .rotation-container -->
 
 <script>
 function imageRotationApp() {
@@ -289,6 +491,31 @@ function imageRotationApp() {
         showOcrPrompt: false,   // ONNX 检测完成后显示"提取文字"提示
         ocrProcessing: false,   // OCR 提取文字处理中
         totalDetectionTimeMs: 0, // ONNX 检测总耗时（毫秒）
+
+        // 历史任务
+        currentView: 'tool',
+        taskName: '',
+        currentJobId: null,
+        showSaveNotification: false,
+        onnxComplete: false,
+        pdfPending: 0,
+        historyJobs: [],
+        historyLoading: false,
+        historyPage: 1,
+        historyTotalCount: 0,
+        historyDetail: null,
+        historyDetailPages: [],
+        reOcrProcessing: false,
+        reOcrJobId: null,
+        showDeleteConfirm: false,
+        deleteTargetJobId: null,
+        _savingHistory: false,
+        nameUpdatePending: false,
+        historyPaperSize: 'original',
+        historyExporting: false,
+        historyPreviewPage: null,
+        _changeBuffer: {},
+        _syncTimer: null,
 
         // 配置
         MAX_SIZE: 20 * 1024 * 1024,  // 20MB
@@ -401,6 +628,9 @@ function imageRotationApp() {
             const nonPdfImages = this.images.filter(img => img.sourceType !== 'pdf_page');
             if (nonPdfImages.length > 0) {
                 await this.detectAllOrientationOnnx(nonPdfImages);
+            } else {
+                this.onnxComplete = true;
+                await this.saveTaskToHistory();
             }
 
             this.progress = 100;
@@ -460,6 +690,7 @@ function imageRotationApp() {
                 }
 
                 // 异步检测每页方向（不阻塞 UI）
+                this.pdfPending += pdfPages.length;
                 this.detectPdfPagesOrientationAsync(pdfPages);
             } else {
                 throw new Error(result.message || 'PDF 解析失败');
@@ -471,11 +702,11 @@ function imageRotationApp() {
             const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || '';
 
             for (const page of pages) {
-                if (!page.needsDetection) continue;
+                if (!page.needsDetection) { this.pdfPending = Math.max(0, this.pdfPending - 1); continue; }
 
                 // 找到在 images 数组中的索引
                 const idx = this.images.findIndex(img => img.id === page.id);
-                if (idx === -1) continue;
+                if (idx === -1) { this.pdfPending = Math.max(0, this.pdfPending - 1); continue; }
 
                 // 更新状态
                 this.images[idx].status = 'detecting';
@@ -509,6 +740,13 @@ function imageRotationApp() {
                     this.images[idx].status = 'processed';
                     this.images[idx].needsDetection = false;
                 }
+
+                this.pdfPending = Math.max(0, this.pdfPending - 1);
+            }
+
+            // 所有 PDF 页面检测完毕，保存到历史（如果还没保存过）
+            if (!this.currentJobId && this.images.length > 0) {
+                await this.saveTaskToHistory();
             }
         },
 
@@ -567,8 +805,13 @@ function imageRotationApp() {
                 // ONNX 检测完成，显示 OCR 提示
                 this.showOcrPrompt = true;
 
+                // 立即保存到历史
+                this.onnxComplete = true;
+                await this.saveTaskToHistory();
+
             } catch (err) {
                 console.warn('ONNX 方向检测失败:', err);
+                this.onnxComplete = true;
             }
         },
 
@@ -877,6 +1120,7 @@ function imageRotationApp() {
                 if (this.selectedImage && this.selectedImage.id === id) {
                     this.renderModalPreview();
                 }
+                this.markChanged(id);
             }
         },
 
@@ -889,6 +1133,7 @@ function imageRotationApp() {
                 if (this.selectedImage && this.selectedImage.id === id) {
                     this.renderModalPreview();
                 }
+                this.markChanged(id);
             }
         },
 
@@ -901,6 +1146,7 @@ function imageRotationApp() {
                 if (this.selectedImage && this.selectedImage.id === id) {
                     this.renderModalPreview();
                 }
+                this.markChanged(id);
             }
         },
 
@@ -914,6 +1160,7 @@ function imageRotationApp() {
                 if (this.selectedImage && this.selectedImage.id === id) {
                     this.renderModalPreview();
                 }
+                this.markChanged(id);
             }
         },
 
@@ -946,6 +1193,12 @@ function imageRotationApp() {
             this.showOcrPrompt = false;
             this.ocrProcessing = false;
             this.totalDetectionTimeMs = 0;
+            this.taskName = '';
+            this.currentJobId = null;
+            this.showSaveNotification = false;
+            this.onnxComplete = false;
+            this.pdfPending = 0;
+            this._savingHistory = false;
         },
 
         // 全部恢复原始方向
@@ -1061,7 +1314,7 @@ function imageRotationApp() {
                     this.progress = 100;
                     this.loadingText = '下载中...';
 
-                    // 触发下载
+                    // 先触发下载，再关联导出（避免 attach 删除文件后下载 404）
                     const link = document.createElement('a');
                     link.href = result.pdf_url;
                     link.download = '';
@@ -1069,7 +1322,11 @@ function imageRotationApp() {
                     link.click();
                     document.body.removeChild(link);
 
-                    // 显示成功提示
+                    // 关联导出到历史任务（fire-and-forget，不阻塞下载）
+                    if (this.currentJobId) {
+                        this.saveExportUrl('pdf', result.pdf_url);
+                    }
+
                     this.errors = [];
                 } else {
                     this.errors.push('导出失败: ' + (result.message || '未知错误'));
@@ -1172,13 +1429,18 @@ function imageRotationApp() {
                     this.progress = 100;
                     this.loadingText = '下载中...';
 
-                    // 触发下载
+                    // 先触发下载，再关联导出
                     const link = document.createElement('a');
                     link.href = result.zip_url;
                     link.download = '';
                     document.body.appendChild(link);
                     link.click();
                     document.body.removeChild(link);
+
+                    // 关联导出到历史任务（fire-and-forget）
+                    if (this.currentJobId) {
+                        this.saveExportUrl('zip', result.zip_url);
+                    }
 
                     this.errors = [];
                 } else {
@@ -1190,6 +1452,412 @@ function imageRotationApp() {
                 this.processing = false;
                 this.loading = false;
                 this.progress = 0;
+            }
+        },
+
+        // ========== 历史任务方法 ==========
+
+        markChanged(imageId) {
+            if (!this.onnxComplete) return;
+            this._changeBuffer[imageId] = true;
+            clearTimeout(this._syncTimer);
+            this._syncTimer = setTimeout(() => this.syncChangesToBackend(), 800);
+        },
+
+        async syncChangesToBackend() {
+            const ids = Object.keys(this._changeBuffer);
+            this._changeBuffer = {};
+            if (ids.length === 0) return;
+
+            if (!this.currentJobId) {
+                if (this._savingHistory) {
+                    ids.forEach(id => this._changeBuffer[id] = true);
+                    this._syncTimer = setTimeout(() => this.syncChangesToBackend(), 1000);
+                    return;
+                }
+                this._savingHistory = true;
+                await this.saveTaskToHistory();
+                this._savingHistory = false;
+                if (Object.keys(this._changeBuffer).length > 0) {
+                    this._syncTimer = setTimeout(() => this.syncChangesToBackend(), 100);
+                }
+                return;
+            }
+
+            const pages = [];
+            for (const id of ids) {
+                const img = this.images.find(i => i.id === id);
+                if (!img || !img._historyPageId) continue;
+                // 发送手动调整量（delta = 当前旋转 - ONNX自动旋转）
+                const delta = ((img.rotation || 0) - (img.autoRotation || 0) + 360) % 360;
+                pages.push({
+                    page_id: img._historyPageId,
+                    detected_rotation: delta,
+                    suggested_filename: img.suggestedFilename || '',
+                });
+            }
+            if (pages.length === 0) return;
+
+            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || '';
+            try {
+                await fetch(`/api/v1/image-rotation/jobs/${this.currentJobId}/pages`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+                    body: JSON.stringify({ pages })
+                });
+            } catch (err) {
+                console.warn('同步变化失败:', err);
+            }
+        },
+
+        async saveTaskToHistory() {
+            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || '';
+
+            try {
+                const formData = new FormData();
+                formData.append('name', this.taskName || '');
+
+                // 构建页面元数据：detected_rotation=0（初始无手动调整），onnx_rotation=ONNX自动旋转角度
+                const pagesMeta = this.images.map((img, idx) => ({
+                    filename: img.filename,
+                    detected_rotation: 0,
+                    onnx_rotation: img.autoRotation || 0,
+                    detection_confidence: 0,
+                    source_type: img.sourceType || 'image',
+                    page_number: idx
+                }));
+                formData.append('pages', JSON.stringify(pagesMeta));
+
+                // 源图保存原始版本（不含旋转），以便后续手动调整正确叠加
+                for (let i = 0; i < this.images.length; i++) {
+                    const img = this.images[i];
+                    let blob;
+                    if (img.sourceType === 'pdf_page' && img.data) {
+                        // PDF 页面：无法获取原始文件，保存 data URL（已含 ONNX 旋转）
+                        const resp = await fetch(img.data);
+                        blob = await resp.blob();
+                        // 标记 onnx_rotation=0 表示源图已含旋转
+                        pagesMeta[i].onnx_rotation = 0;
+                    } else if (img.file) {
+                        // 图片：直接使用原始文件（未旋转）
+                        blob = img.file;
+                    } else {
+                        // 兜底：从 canvas 导出当前状态
+                        const canvas = document.createElement('canvas');
+                        const source = img.img;
+                        const srcW = source.naturalWidth || source.width;
+                        const srcH = source.naturalHeight || source.height;
+                        const renderRotation = img.autoRotation || 0;
+                        const isRightAngle = (renderRotation % 180 !== 0);
+                        canvas.width = isRightAngle ? srcH : srcW;
+                        canvas.height = isRightAngle ? srcW : srcH;
+                        const ctx = canvas.getContext('2d');
+                        ctx.translate(canvas.width / 2, canvas.height / 2);
+                        ctx.rotate(renderRotation * Math.PI / 180);
+                        ctx.drawImage(source, -srcW / 2, -srcH / 2);
+                        blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.85));
+                        pagesMeta[i].onnx_rotation = 0;
+                    }
+                    formData.append('source_' + i, blob, img.filename);
+                }
+
+                // 更新 pages JSON（可能被 PDF 兜底修改了 onnx_rotation）
+                formData.set('pages', JSON.stringify(pagesMeta));
+
+                const response = await fetch('/api/v1/image-rotation/jobs', {
+                    method: 'POST',
+                    headers: { 'X-CSRFToken': csrfToken },
+                    body: formData
+                });
+
+                const result = await response.json();
+                if (result.success) {
+                    this.currentJobId = result.job_id;
+                    this.showSaveNotification = true;
+                    if (result.page_ids) {
+                        for (let i = 0; i < this.images.length && i < result.page_ids.length; i++) {
+                            this.images[i]._historyPageId = result.page_ids[i];
+                        }
+                    }
+                }
+            } catch (err) {
+                console.warn('保存历史任务失败:', err);
+            }
+        },
+
+        async saveExportUrl(fileType, mediaUrl) {
+            // 如果没有 currentJobId，先创建新任务
+            if (!this.currentJobId && this.images.length > 0) {
+                await this.saveTaskToHistory();
+            }
+            const jobId = this.currentJobId;
+            if (!jobId) return;
+            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || '';
+            try {
+                await fetch(`/api/v1/image-rotation/jobs/${jobId}/save-export-url`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+                    body: JSON.stringify({ file_type: fileType, media_url: mediaUrl })
+                });
+            } catch (err) {
+                console.warn('保存导出 URL 失败:', err);
+            }
+        },
+
+        async updateJobName() {
+            if (!this.currentJobId) return;
+            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || '';
+            this.nameUpdatePending = true;
+            try {
+                const resp = await fetch(`/api/v1/image-rotation/jobs/${this.currentJobId}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+                    body: JSON.stringify({ name: this.taskName || '' })
+                });
+                const data = await resp.json();
+                if (data.success) {
+                    this.nameUpdatePending = false;
+                }
+            } catch (err) {
+                console.warn('更新名称失败:', err);
+                this.nameUpdatePending = false;
+            }
+        },
+
+        async renameJobFromHistory(jobId) {
+            const newName = prompt('请输入新的任务名称：');
+            if (newName === null) return;  // 用户取消
+            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || '';
+            try {
+                const resp = await fetch(`/api/v1/image-rotation/jobs/${jobId}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+                    body: JSON.stringify({ name: newName.trim() })
+                });
+                const data = await resp.json();
+                if (data.success) {
+                    // 更新列表中的显示
+                    const job = this.historyJobs.find(j => j.id === jobId);
+                    if (job) {
+                        job.display_name = data.display_name;
+                    }
+                    // 更新详情面板
+                    if (this.historyDetail && this.historyDetail.id === jobId) {
+                        this.historyDetail.display_name = data.display_name;
+                    }
+                }
+            } catch (err) {
+                console.warn('重命名失败:', err);
+            }
+        },
+
+        async exportFromHistory(fileType) {
+            if (!this.historyDetailPages || this.historyDetailPages.length === 0) return;
+            this.historyExporting = true;
+            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || '';
+
+            try {
+                if (fileType === 'zip') {
+                    const formData = new FormData();
+                    formData.append('paper_size', this.historyPaperSize);
+                    for (let i = 0; i < this.historyDetailPages.length; i++) {
+                        const page = this.historyDetailPages[i];
+                        const resp = await fetch(page.source_image_url);
+                        const blob = await resp.blob();
+                        formData.append('image_' + i, blob, page.original_filename);
+                        formData.append('filename_' + i, page.suggested_filename || page.original_filename);
+                        formData.append('format_' + i, 'jpeg');
+                        formData.append('rotation_' + i, String(page.onnx_rotation ? (page.onnx_rotation + (page.detected_rotation || 0)) % 360 : 0));
+                    }
+                    const resp = await fetch('/api/v1/image-rotation/export', {
+                        method: 'POST', headers: { 'X-CSRFToken': csrfToken }, body: formData
+                    });
+                    const result = await resp.json();
+                    if (result.success && result.zip_url) {
+                        window.open(result.zip_url, '_blank');
+                        if (this.historyDetail) {
+                            this.saveExportUrl('zip', result.zip_url);
+                        }
+                    }
+                } else {
+                    const formData = new FormData();
+                    formData.append('paper_size', this.historyPaperSize);
+                    for (let i = 0; i < this.historyDetailPages.length; i++) {
+                        const page = this.historyDetailPages[i];
+                        const resp = await fetch(page.source_image_url);
+                        const blob = await resp.blob();
+                        formData.append('page_' + i, blob, page.original_filename);
+                        formData.append('filename_' + i, page.original_filename);
+                        formData.append('rotation_' + i, String(page.onnx_rotation ? (page.onnx_rotation + (page.detected_rotation || 0)) % 360 : 0));
+                    }
+                    const resp = await fetch('/api/v1/image-rotation/export-pdf', {
+                        method: 'POST', headers: { 'X-CSRFToken': csrfToken }, body: formData
+                    });
+                    const result = await resp.json();
+                    if (result.success && result.pdf_url) {
+                        window.open(result.pdf_url, '_blank');
+                        if (this.historyDetail) {
+                            this.saveExportUrl('pdf', result.pdf_url);
+                        }
+                    }
+                }
+            } catch (err) {
+                console.warn('导出失败:', err);
+            } finally {
+                this.historyExporting = false;
+            }
+        },
+
+        async loadJobToTool() {
+            if (!this.historyDetail || !this.historyDetailPages.length) return;
+            this.loading = true;
+            this.loadingText = '加载任务...';
+
+            // 清空当前工具
+            this.images.forEach(img => { if (img.img) URL.revokeObjectURL(img.img.src); });
+            this.images = [];
+            this.selectedImage = null;
+            this.errors = [];
+            this.showOcrPrompt = false;
+            this.ocrProcessing = false;
+            this.totalDetectionTimeMs = 0;
+
+            // 设置任务信息（不设置 currentJobId，导出时创建新任务）
+            this.taskName = this.historyDetail.name || '';
+            this.currentJobId = null;
+            this.onnxComplete = true;
+            this.pdfPending = 0;
+            this._savingHistory = false;
+            this.showSaveNotification = false;
+
+            try {
+                for (const page of this.historyDetailPages) {
+                    const img = new Image();
+                    await new Promise((resolve, reject) => {
+                        img.onload = resolve;
+                        img.onerror = reject;
+                        img.src = page.source_image_url;
+                    });
+
+                    const imageItem = {
+                        id: this.generateId(),
+                        filename: page.suggested_filename || page.original_filename,
+                        img: img,
+                        data: null,
+                        // 源图是原始状态（onnx_rotation>0）时，rotation=delta；否则源图已含ONNX旋转，rotation=0
+                        rotation: page.onnx_rotation ? (page.detected_rotation || 0) : 0,
+                        autoRotation: page.onnx_rotation || 0,
+                        sourceType: page.source_type || 'image',
+                        format: 'jpeg',
+                        size: 0,
+                        status: 'processed',
+                        needsDetection: false,
+                        detectionTimeMs: 0,
+                        suggestedFilename: page.suggested_filename || '',
+                        ocrText: page.ocr_text || '',
+                        _historyPageId: page.id,
+                    };
+                    this.images.push(imageItem);
+                    await this.$nextTick();
+                    this.renderThumbnail(imageItem);
+                }
+
+                this.currentView = 'tool';
+                this.showOcrPrompt = false;
+            } catch (err) {
+                console.warn('加载任务失败:', err);
+            } finally {
+                this.loading = false;
+            }
+        },
+
+        openHistoryPreview(page) {
+            this.historyPreviewPage = page;
+        },
+
+        async loadHistory(page = 1) {
+            this.historyLoading = true;
+            try {
+                const resp = await fetch(`/api/v1/image-rotation/jobs?page=${page}&page_size=20`);
+                const data = await resp.json();
+                if (data.success) {
+                    this.historyJobs = data.jobs;
+                    this.historyPage = data.page;
+                    this.historyTotalCount = data.total_count;
+                }
+            } catch (err) {
+                console.warn('加载历史记录失败:', err);
+            } finally {
+                this.historyLoading = false;
+            }
+        },
+
+        async viewJobDetail(jobId) {
+            try {
+                const resp = await fetch(`/api/v1/image-rotation/jobs/${jobId}`);
+                const data = await resp.json();
+                if (data.success) {
+                    this.historyDetail = data.job;
+                    this.historyDetailPages = data.pages;
+                }
+            } catch (err) {
+                console.warn('加载任务详情失败:', err);
+            }
+        },
+
+        async reOcrJob(jobId, provider) {
+            this.reOcrProcessing = true;
+            this.reOcrJobId = jobId;
+            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || '';
+            try {
+                const resp = await fetch(`/api/v1/image-rotation/jobs/${jobId}/ocr`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+                    body: JSON.stringify({ provider })
+                });
+                const data = await resp.json();
+                if (data.success) {
+                    // 如果当前正在查看这个任务的详情，刷新它
+                    if (this.historyDetail && this.historyDetail.id === jobId) {
+                        this.historyDetailPages = data.pages;
+                    }
+                }
+            } catch (err) {
+                console.warn('OCR 重识别失败:', err);
+            } finally {
+                this.reOcrProcessing = false;
+                this.reOcrJobId = null;
+            }
+        },
+
+        downloadJobFile(jobId, fileType) {
+            window.open(`/api/v1/image-rotation/jobs/${jobId}/download/${fileType}`, '_blank');
+        },
+
+        confirmDeleteJob(jobId) {
+            this.deleteTargetJobId = jobId;
+            this.showDeleteConfirm = true;
+        },
+
+        async executeDeleteJob() {
+            const jobId = this.deleteTargetJobId;
+            this.showDeleteConfirm = false;
+            this.deleteTargetJobId = null;
+            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || '';
+            try {
+                await fetch(`/api/v1/image-rotation/jobs/${jobId}`, {
+                    method: 'DELETE',
+                    headers: { 'X-CSRFToken': csrfToken }
+                });
+                // 从列表中移除
+                this.historyJobs = this.historyJobs.filter(j => j.id !== jobId);
+                // 如果正在查看详情，清空
+                if (this.historyDetail && this.historyDetail.id === jobId) {
+                    this.historyDetail = null;
+                    this.historyDetailPages = [];
+                }
+            } catch (err) {
+                console.warn('删除任务失败:', err);
             }
         }
     }

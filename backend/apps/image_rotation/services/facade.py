@@ -10,7 +10,7 @@ from apps.core.exceptions import ValidationException
 
 from . import storage, validation
 from .export import generate_pdf, generate_zip
-from .transform import clean_image, resize_to_paper_size
+from .transform import clean_image, resize_to_paper_size, rotate_image_for_output
 
 logger = logging.getLogger("apps.image_rotation")
 
@@ -123,6 +123,7 @@ class ImageRotationService:
         filename = image_item.get("filename", "")
         data = image_item.get("data", "")
         img_format = image_item.get("format", "jpeg")
+        rotation = image_item.get("rotation", 0)
 
         normalized_format = validation.validate_image_format(
             img_format=img_format,
@@ -137,6 +138,12 @@ class ImageRotationService:
             img_format=normalized_format,
             exif_orientation_tag=self.EXIF_ORIENTATION_TAG,
         )
+
+        # 应用手动旋转（前端顺时针角度，PIL rotate 为逆时针，需取反）
+        if rotation in (90, 180, 270):
+            processed_bytes = rotate_image_for_output(
+                processed_bytes, rotation=(-rotation) % 360, img_format=normalized_format,
+            )
 
         if paper_size != "original":
             processed_bytes = resize_to_paper_size(
