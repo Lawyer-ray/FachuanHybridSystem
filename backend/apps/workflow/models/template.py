@@ -34,6 +34,9 @@ class WorkflowTemplate(models.Model):
         ordering = ["category", "name"]
         verbose_name = "流程模板"
         verbose_name_plural = verbose_name
+        indexes = [
+            models.Index(fields=["category", "is_active"]),
+        ]
 
     def __str__(self) -> str:
         return self.name

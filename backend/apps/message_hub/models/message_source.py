@@ -82,6 +82,7 @@ class MessageSource(models.Model):
         ordering: ClassVar = ["-created_at"]
         indexes: ClassVar = [
             models.Index(fields=["source_type"]),
+            models.Index(fields=["is_enabled"]),
         ]
 
     def __str__(self) -> str:
