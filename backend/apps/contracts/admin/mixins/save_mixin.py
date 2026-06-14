@@ -49,7 +49,7 @@ class ContractSaveMixin:  # pragma: no cover
             old_status = Contract.objects.filter(pk=obj.pk).values_list("status", flat=True).first()
 
         # 先保存对象以确保有 ID
-        super().save_model(request, obj, form, change)
+        super().save_model(request, obj, form, change)  # type: ignore[misc]
 
         # 处理建档编号逻辑
         try:
@@ -110,7 +110,7 @@ class ContractSaveMixin:  # pragma: no cover
                     messages.warning(request, "关联案件自动结案失败: %(err)s" % {"err": e})
 
     def save_related(self, request: Any, form: Any, formsets: Any, change: bool) -> None:  # pragma: no cover
-        super().save_related(request, form, formsets, change)
+        super().save_related(request, form, formsets, change)  # type: ignore[misc]
 
         contract = form.instance
         if not getattr(contract, "id", None):
@@ -128,7 +128,7 @@ class ContractSaveMixin:  # pragma: no cover
             messages.error(request, "同步关联案件律师指派失败: %(err)s" % {"err": e})
 
     def delete_model(self, request: Any, obj: Any) -> None:  # pragma: no cover
-        super().delete_model(request, obj)
+        super().delete_model(request, obj)  # type: ignore[misc]
 
     def delete_queryset(self, request: Any, queryset: Any) -> None:  # pragma: no cover
-        super().delete_queryset(request, queryset)
+        super().delete_queryset(request, queryset)  # type: ignore[misc]

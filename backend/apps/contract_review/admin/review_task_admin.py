@@ -250,12 +250,12 @@ class ReviewTaskAdmin(admin.ModelAdmin):  # pragma: no cover
             name,
         )
 
-    def get_fieldsets(  # pragma: no cover
+    def get_fieldsets(  # type: ignore[override]  # pragma: no cover
         self, request: HttpRequest, obj: ReviewTask | None = None
     ) -> list[tuple[str | None, dict[str, Any]]]:
-        party_fields = tuple(f for f in _PARTY_FIELDS if obj and getattr(obj, f, "")) or ("party_a", "party_b")
+        party_fields = tuple(f for f in _PARTY_FIELDS if obj and getattr(obj, f, None)) or ("party_a", "party_b")
 
-        fieldsets = [
+        fieldsets: list[tuple[str | None, dict[str, Any]]] = [
             (None, {"fields": ("id", "user", "contract_title", "model_name", "reviewer_name")}),
             ("当事人", {"fields": (*party_fields, "represented_party")}),
             ("处理步骤", {"fields": ("selected_steps_display",)}),
@@ -326,7 +326,7 @@ class ReviewTaskAdmin(admin.ModelAdmin):  # pragma: no cover
         return custom + super().get_urls()
 
     def report_view(self, request: HttpRequest, task_id: UUID) -> HttpResponse:  # pragma: no cover
-        import markdown
+        import markdown  # type: ignore[import-untyped]
 
         task = ReviewTask.objects.get(id=task_id)
         text = task.review_report or ""

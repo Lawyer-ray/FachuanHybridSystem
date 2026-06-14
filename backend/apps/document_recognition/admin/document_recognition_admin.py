@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, ClassVar
+from typing import Any
 
 from django.contrib import admin
 from django.db.models import QuerySet
@@ -50,7 +50,7 @@ class DocumentRecognitionToolAdmin(admin.ModelAdmin):  # pragma: no cover
 class DocumentRecognitionTaskAdmin(admin.ModelAdmin):  # pragma: no cover
     """Document recognition task list and detail admin."""
 
-    list_display: ClassVar[list[str]] = [
+    list_display = [
         "id",
         "status_display",
         "original_filename",
@@ -62,17 +62,17 @@ class DocumentRecognitionTaskAdmin(admin.ModelAdmin):  # pragma: no cover
         "notification_sent_at",
         "created_at",
     ]
-    list_filter: ClassVar[list[str]] = [
+    list_filter = [
         "status",
         "document_type",
         "binding_success",
         "notification_sent",
         "created_at",
     ]
-    search_fields: ClassVar[list[str]] = ["original_filename", "case_number", "case__name"]
-    ordering: ClassVar[list[str]] = ["-created_at"]
+    search_fields = ["original_filename", "case_number", "case__name"]
+    ordering = ["-created_at"]
     list_per_page = 20
-    readonly_fields: ClassVar[list[str]] = [
+    readonly_fields = [
         "id",
         "file_path",
         "original_filename",

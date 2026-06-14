@@ -95,7 +95,7 @@ class SMSMatchingStage(BaseSMSStage):
         return "匹配"
 
     def can_process(self, sms: CourtSMS) -> bool:
-        return cast(bool, sms.status == CourtSMSStatus.MATCHING)
+        return sms.status == CourtSMSStatus.MATCHING
 
     def process(self, sms: CourtSMS) -> CourtSMS:  # pragma: no cover
         """处理案件匹配阶段"""
@@ -148,6 +148,7 @@ class SMSMatchingStage(BaseSMSStage):
 
     def _handle_manual_case(self, sms: CourtSMS) -> CourtSMS:  # pragma: no cover
         """处理已手动指定案件的情况"""
+        assert sms.case is not None, "sms.case must be set before calling _handle_manual_case"
         logger.info(f"短信 {sms.id} 已手动指定案件: {sms.case.id}")
         if self._create_case_binding(sms):
             sms.status = CourtSMSStatus.RENAMING

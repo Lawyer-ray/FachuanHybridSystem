@@ -5,7 +5,7 @@ AccountCredential Admin - 账号凭证管理
 
 from __future__ import annotations
 
-from typing import Any, ClassVar
+from typing import Any
 
 from django import forms
 from django.contrib import admin
@@ -21,7 +21,7 @@ from apps.organization.models import AccountCredential
 
 @admin.register(AccountCredential)
 class AccountCredentialAdmin(admin.ModelAdmin):  # pragma: no cover
-    list_display: ClassVar[list[str]] = [
+    list_display = [
         "id",
         "lawyer",
         "site_name",
@@ -29,13 +29,13 @@ class AccountCredentialAdmin(admin.ModelAdmin):  # pragma: no cover
         "created_at",
     ]
 
-    search_fields: ClassVar[tuple[str, ...]] = ("site_name", "url", "account", "lawyer__username", "lawyer__real_name")
+    search_fields = ("site_name", "url", "account", "lawyer__username", "lawyer__real_name")
 
-    list_filter: ClassVar[list[str]] = ["site_name", "lawyer", "last_login_success_at", "created_at"]
+    list_filter = ["site_name", "lawyer", "last_login_success_at", "created_at"]
 
-    autocomplete_fields: ClassVar[tuple[str, ...]] = ("lawyer",)
+    autocomplete_fields = ("lawyer",)
 
-    readonly_fields: ClassVar[list[str]] = [
+    readonly_fields = [
         "id",
         "login_statistics_display",
         "success_rate_display",
@@ -44,7 +44,7 @@ class AccountCredentialAdmin(admin.ModelAdmin):  # pragma: no cover
         "updated_at",
     ]
 
-    fieldsets: ClassVar[tuple[Any, ...]] = (
+    fieldsets = (
         ("基本信息", {"fields": ("id", "lawyer", "site_name", "url", "account", "password")}),
         (
             "登录统计",
@@ -53,13 +53,13 @@ class AccountCredentialAdmin(admin.ModelAdmin):  # pragma: no cover
         ("时间信息", {"fields": ("created_at", "updated_at")}),
     )
 
-    ordering: ClassVar[list[str]] = ["-last_login_success_at", "-login_success_count", "login_failure_count"]
+    ordering = ["-last_login_success_at", "-login_success_count", "login_failure_count"]
 
     date_hierarchy = "last_login_success_at"
 
     list_per_page = 50
 
-    def get_form(  # pragma: no cover
+    def get_form(  # type: ignore[override]  # pragma: no cover
         self, request: HttpRequest, obj: AccountCredential | None = None, **kwargs: Any
     ) -> type[forms.ModelForm]:
         form = super().get_form(request, obj, **kwargs)

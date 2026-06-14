@@ -194,7 +194,7 @@ class CourtDocumentRecognitionService:
                         extraction_method=extraction_result.extraction_method,
                     ),
                     binding=BindingResult.failure_result(
-                        message="无法从文书中提取文字",  # type: ignore
+                        message="无法从文书中提取文字",
                         error_code=TEXT_EXTRACTION_FAILED,
                     ),
                     file_path=file_path,
