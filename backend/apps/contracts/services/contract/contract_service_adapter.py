@@ -162,7 +162,13 @@ class ContractServiceAdapter:
             stacklevel=2,
         )
         try:
-            return Contract.objects.prefetch_related("contract_parties__client", "assignments__lawyer").get(
+            return Contract.objects.prefetch_related(
+                "contract_parties__client",
+                "assignments__lawyer",
+                "cases__parties__client",
+                "cases__supervising_authorities",
+                "cases__case_numbers",
+            ).get(
                 pk=contract_id
             )
         except Contract.DoesNotExist:

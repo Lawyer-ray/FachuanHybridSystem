@@ -7,6 +7,8 @@ from decimal import Decimal
 from typing import Any
 
 from django.contrib import admin
+from django.db import models
+from django.db.models import Count, Sum
 from django.http import HttpRequest, HttpResponse
 from django.utils.html import format_html
 from django.utils.safestring import SafeString
@@ -41,6 +43,16 @@ class InvoiceRecognitionTaskAdmin(admin.ModelAdmin):  # pragma: no cover
 
     def has_add_permission(self, request: HttpRequest) -> bool:  # pragma: no cover
         return True
+
+    def get_queryset(self, request: HttpRequest) -> Any:  # pragma: no cover
+        return (
+            super()
+            .get_queryset(request)
+            .annotate(
+                _record_count=Count("records"),
+                _total_amount=Sum("records__total_amount", filter=models.Q(records__is_duplicate=False)),
+            )
+        )
 
     def has_change_permission(self, request: HttpRequest, obj: InvoiceRecognitionTask | None = None) -> bool:  # pragma: no cover
         return True
@@ -114,13 +126,13 @@ class InvoiceRecognitionTaskAdmin(admin.ModelAdmin):  # pragma: no cover
     status_display.short_description = _("状态")  # type: ignore[attr-defined]
 
     def record_count(self, obj: InvoiceRecognitionTask) -> int:  # pragma: no cover
-        return int(obj.records.count())
+        return int(obj._record_count)
 
     record_count.short_description = _("发票数量")  # type: ignore[attr-defined]
 
     def total_amount_display(self, obj: InvoiceRecognitionTask) -> str:  # pragma: no cover
         try:
-            amount: Decimal = self._get_service().get_total_amount(obj.id)
+            amount: Decimal = obj._total_amount or Decimal("0")
             return f"¥{amount}"
         except (TypeError, ValueError) as exc:
             logger.error("获取总金额失败: task_id=%s, error=%s", obj.id, exc)

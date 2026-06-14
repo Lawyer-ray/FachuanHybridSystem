@@ -256,7 +256,7 @@ class ArchivePlaceholderService(BasePlaceholderService):
     def _get_our_party_names(contract: Any) -> str:
         """获取合同我方当事人名称(顿号分隔)"""
         try:
-            parties = contract.contract_parties.select_related("client").all()
+            parties = contract.contract_parties.all()
         except Exception:
             logger.warning("获取合同当事人失败", extra={"contract_id": getattr(contract, "id", None)})
             return ""
@@ -279,7 +279,7 @@ class ArchivePlaceholderService(BasePlaceholderService):
     def _get_opposing_party_names(contract: Any) -> str:
         """获取合同对方当事人名称(顿号分隔)"""
         try:
-            parties = contract.contract_parties.select_related("client").all()
+            parties = contract.contract_parties.all()
         except Exception:
             logger.warning("获取合同当事人失败", extra={"contract_id": getattr(contract, "id", None)})
             return ""

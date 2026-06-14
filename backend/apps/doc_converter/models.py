@@ -95,6 +95,9 @@ class DocConverterItem(models.Model):
         verbose_name = "DOC 转换项"
         verbose_name_plural = "DOC 转换项"
         ordering: ClassVar[list[str]] = ["created_at"]
+        indexes: ClassVar[list[models.Index]] = [
+            models.Index(fields=["job", "created_at"], name="doc_conv_item_job_idx"),
+        ]
 
     def __str__(self) -> str:
         return self.original_name

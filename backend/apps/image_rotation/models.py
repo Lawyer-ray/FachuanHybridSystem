@@ -143,6 +143,9 @@ class ImageRotationPage(models.Model):
         verbose_name = "图片旋转页面"
         verbose_name_plural = "图片旋转页面"
         ordering: ClassVar[list[str]] = ["page_number"]
+        indexes: ClassVar[list[models.Index]] = [
+            models.Index(fields=["job", "page_number"], name="image_rot_page_job_idx"),
+        ]
 
     def __str__(self) -> str:
         return self.original_filename

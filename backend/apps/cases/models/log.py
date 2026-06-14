@@ -69,6 +69,7 @@ class CaseLog(models.Model):
         indexes: ClassVar = [
             models.Index(fields=["case", "-created_at"]),
             models.Index(fields=["actor"]),
+            models.Index(fields=["-created_at"], name="cases_caselog_created_idx"),
         ]
 
     def __str__(self) -> str:
