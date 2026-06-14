@@ -235,8 +235,13 @@ extensions/
 # 设计稿原型（本地参考，不入库）
 prototypes/
 
-# Playwright 报告
+# Playwright 报告和测试产物
 playwright-report/
+backend/tests/e2e/state.json
+backend/tests/e2e/test-results/
+frontend/e2e/state.json
+frontend/e2e/test-results/
+frontend/e2e/playwright-report/
 
 # Claude Code
 .claude/
