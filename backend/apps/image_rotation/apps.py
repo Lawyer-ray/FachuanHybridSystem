@@ -11,4 +11,4 @@ class ImageRotationConfig(AppConfig):
     verbose_name: str = "图片自动旋转"
 
     def ready(self) -> None:  # pragma: no cover
-        import apps.image_rotation.signals  # noqa: F401
+        import apps.image_rotation.signals
