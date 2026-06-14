@@ -9,3 +9,6 @@ class ImageRotationConfig(AppConfig):
     default_auto_field: str = "django.db.models.BigAutoField"
     name: str = "apps.image_rotation"
     verbose_name: str = "图片自动旋转"
+
+    def ready(self) -> None:  # pragma: no cover
+        import apps.image_rotation.signals

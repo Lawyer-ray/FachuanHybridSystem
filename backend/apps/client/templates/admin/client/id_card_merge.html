@@ -239,12 +239,69 @@ function idCardMergeApp() {
                 else this.backFile = file;
             }
         },
-        goToStep2() {
-            this.loading = true; this.loadingText = '加载图片...';
-            Promise.all([this.loadImage(this.frontFile, 'front'), this.loadImage(this.backFile, 'back')]).then(() => {
-                this.step = 2; this.loading = false;
-                this.$nextTick(() => { this.initCanvas('front'); this.initCanvas('back'); });
+
+        fileToBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result.split(',')[1]);
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
             });
+        },
+
+        async detectOrientation(file) {
+            try {
+                const base64 = await this.fileToBase64(file);
+                const resp = await fetch('/api/v1/image-rotation/detect-orientation', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]')?.value || ''
+                    },
+                    body: JSON.stringify({
+                        images: [{ data: base64, filename: file.name }],
+                        method: 'onnx'
+                    })
+                });
+                const data = await resp.json();
+                if (data.success && data.results?.length > 0) return data.results[0];
+            } catch (e) {
+                console.warn('方向检测跳过:', e);
+            }
+            return null;
+        },
+
+        normalizeRotation(deg) {
+            return ((deg % 360) + 360) % 360;
+        },
+
+        async goToStep2() {
+            this.loading = true;
+            this.loadingText = '正在检测方向...';
+
+            // 并行：ONNX 方向检测 + 图片加载
+            const [[frontResult, backResult]] = await Promise.all([
+                Promise.all([
+                    this.detectOrientation(this.frontFile),
+                    this.detectOrientation(this.backFile)
+                ]),
+                Promise.all([
+                    this.loadImage(this.frontFile, 'front'),
+                    this.loadImage(this.backFile, 'back')
+                ])
+            ]);
+
+            // 应用自动旋转（仅当置信度足够高且需要旋转时）
+            if (frontResult?.can_auto_rotate) {
+                this.frontRotation = this.normalizeRotation(frontResult.rotation);
+            }
+            if (backResult?.can_auto_rotate) {
+                this.backRotation = this.normalizeRotation(backResult.rotation);
+            }
+
+            this.step = 2;
+            this.loading = false;
+            this.$nextTick(() => { this.initCanvas('front'); this.initCanvas('back'); });
         },
         loadImage(file, side) {
             return new Promise((resolve) => {
