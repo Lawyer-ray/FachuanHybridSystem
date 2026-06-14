@@ -76,10 +76,10 @@ class EvidenceService:
         return self.mutation_service.delete_evidence_list(evidence_list=evidence_list)
 
     def get_evidence_list(self, list_id: int) -> EvidenceList:
-        return self.query_service.get_evidence_list(list_id)
+        return self.query_service.get_evidence_list(list_id)  # type: ignore[no-any-return, attr-defined]
 
     def list_evidence_lists(self, case_id: int) -> list[EvidenceList]:
-        return cast(list[EvidenceList], self.query_service.list_evidence_lists(case_id))
+        return cast(list[EvidenceList], self.query_service.list_evidence_lists(case_id))  # type: ignore[attr-defined]
 
     def create_evidence_item(self, list_id: int, data: dict[str, Any]) -> EvidenceItem:
         evidence_list = self.get_evidence_list(list_id)
@@ -96,7 +96,7 @@ class EvidenceService:
         return self.mutation_service.delete_evidence_item(item=item)
 
     def _get_evidence_item(self, item_id: int) -> EvidenceItem:
-        return self.query_service.get_evidence_item(item_id)
+        return self.query_service.get_evidence_item(item_id)  # type: ignore[no-any-return, attr-defined]
 
     def reorder_items(self, list_id: int, item_ids: list[int]) -> bool:
         evidence_list = self.get_evidence_list(list_id)

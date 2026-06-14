@@ -48,7 +48,7 @@ class CaseAccessService(DjangoPermsMixin):
         org_access: dict[str, Any] | None = None,
         perm_open_access: bool = False,
         access_ctx: AccessContext | None = None,
-    ) -> QuerySet[Case, Case]:
+    ) -> QuerySet[CaseAccessGrant, CaseAccessGrant]:
         """
         获取授权列表
 
@@ -193,7 +193,7 @@ class CaseAccessService(DjangoPermsMixin):
         invalidate_user_access_context(grantee_id)
         return {"success": True}
 
-    def get_grants_for_case(self, case_id: int, user: Any | None = None) -> QuerySet[Case, Case]:  # pragma: no cover
+    def get_grants_for_case(self, case_id: int, user: Any | None = None) -> QuerySet[CaseAccessGrant, CaseAccessGrant]:  # pragma: no cover
         """
         获取案件的所有访问授权
 
@@ -205,7 +205,7 @@ class CaseAccessService(DjangoPermsMixin):
         self.ensure_admin(user)
         return CaseAccessGrant.objects.filter(case_id=case_id).select_related("grantee")
 
-    def get_grants_for_user(self, user_id: int, user: Any | None = None) -> QuerySet[Case, Case]:
+    def get_grants_for_user(self, user_id: int, user: Any | None = None) -> QuerySet[CaseAccessGrant, CaseAccessGrant]:
         """
         获取用户的所有案件访问授权
 

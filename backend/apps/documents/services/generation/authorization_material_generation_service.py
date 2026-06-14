@@ -4,7 +4,7 @@ import io
 import logging
 import zipfile
 from pathlib import Path as StdPath
-from typing import Any, ClassVar, cast
+from typing import Any, ClassVar
 
 from django.utils import timezone
 
@@ -28,11 +28,11 @@ TEMPLATE_NAME_POWER_OF_ATTORNEY = "授权委托书"
 class AuthorizationMaterialGenerationService:
     def _authority_letter_template_path(self) -> Path:
         template_dir = get_docx_templates_root() / "2-案件材料" / "4-通用材料" / "1-授权委托材料"
-        return template_dir / "所函.docx"
+        return template_dir / "所函.docx"  # type: ignore[no-any-return]
 
     def _legal_rep_certificate_template_path(self) -> Path:
         template_dir = get_docx_templates_root() / "2-案件材料" / "4-通用材料" / "1-授权委托材料"
-        return template_dir / "法定代表人身份证明书.docx"
+        return template_dir / "法定代表人身份证明书.docx"  # type: ignore[no-any-return]
 
     def __init__(
         self, *, case_service: Any | None = None, client_service: Any | None = None, document_service: Any | None = None
@@ -335,7 +335,7 @@ class AuthorizationMaterialGenerationService:
         context_data: dict[str, Any] = {"case": case}
         if client is not None:
             context_data["client"] = client
-        return EnhancedContextBuilder().build_context(context_data)
+        return EnhancedContextBuilder().build_context(context_data)  # type: ignore[arg-type]
 
     def _build_power_of_attorney_context(self, *, case: Any, selected_clients: list[Any]) -> dict[str, Any]:
         context_data: dict[str, Any] = {
@@ -348,7 +348,7 @@ class AuthorizationMaterialGenerationService:
             "指定日期",
             "年份",
         ]
-        return EnhancedContextBuilder().build_context(context_data, required_placeholders=required_placeholders)
+        return EnhancedContextBuilder().build_context(context_data, required_placeholders=required_placeholders)  # type: ignore[arg-type]
 
     def _validate_power_of_attorney_context(self, context: dict[str, Any]) -> None:
         pass  # 代理事项为空时允许生成，占位符留空
@@ -444,7 +444,7 @@ class AuthorizationMaterialGenerationService:
             raise ValidationException(
                 message="模板文件路径为空",
                 code="TEMPLATE_FILE_EMPTY",
-                errors={"template_id": str(cast(int, template.pk))},
+                errors={"template_id": str(template.pk)},
             )
         return Path(location)
 
