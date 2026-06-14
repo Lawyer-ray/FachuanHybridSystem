@@ -15,7 +15,7 @@ from apps.contracts.services.archive.category_mapping import (
 from apps.documents.services.placeholders.litigation.party_formatter import PartyFormatter
 from apps.documents.services.placeholders.contract.fee_terms_service import FeeTermsService
 from apps.documents.services.document_template.placeholder_extractor import PLACEHOLDER_PATTERN
-from apps.client.services.id_card_merge.validation import order_corners, is_convex_quadrilateral
+from apps.client.services.id_card_merge.validation import order_corners, is_convex_quadrilateral, validate_corners
 
 VALID_CATEGORIES = {
     ArchiveCategory.NON_LITIGATION,
@@ -248,3 +248,39 @@ def test_is_convex_quadrilateral_wrong_count(n: int) -> None:
     else:
         corners = np.random.RandomState(42).randn(n, 2).astype(np.float32)
     assert is_convex_quadrilateral(corners) is False
+
+
+# ---------------------------------------------------------------------------
+# validate_corners
+# ---------------------------------------------------------------------------
+
+
+@settings(max_examples=200, deadline=None)
+@given(
+    x=st.integers(min_value=1, max_value=500),
+    y=st.integers(min_value=1, max_value=500),
+)
+def test_validate_corners_valid_rectangle_returns_none(x: int, y: int) -> None:
+    """A valid axis-aligned rectangle passes validation (returns None)."""
+    corners = [[0, 0], [x, 0], [x, y], [0, y]]
+    result = validate_corners(corners)
+    assert result is None
+
+
+@settings(max_examples=200, deadline=None)
+@given(text=st.just("junk"))
+def test_validate_corners_wrong_count_returns_string(text: str) -> None:
+    """Fewer than 4 corners always returns an error string."""
+    for n in (0, 1, 2, 3, 5):
+        result = validate_corners([[0, 0]] * n)
+        assert isinstance(result, str)
+        assert len(result) > 0
+
+
+@settings(max_examples=200, deadline=None)
+@given(n=st.integers(min_value=0, max_value=10))
+def test_validate_corners_output_type(n: int) -> None:
+    """validate_corners always returns None (valid) or a non-empty string (error)."""
+    corners = [[i, i] for i in range(n)]
+    result = validate_corners(corners)
+    assert result is None or (isinstance(result, str) and len(result) > 0)

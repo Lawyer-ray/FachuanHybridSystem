@@ -12,6 +12,7 @@ from apps.cases.services.template.unified.filename import FilenameInputs, Filena
 from apps.documents.services.generation.pipeline.naming import (
     _normalize_version,
     contract_docx_filename,
+    supplementary_agreement_docx_filename,
 )
 
 
@@ -138,3 +139,61 @@ def test_contract_docx_filename_ends_with_docx(template_name: str, contract_name
     ):
         result = contract_docx_filename(template_name=template_name, contract_name=contract_name)
     assert result.endswith(".docx"), f"expected .docx, got {result!r}"
+
+
+# ---------------------------------------------------------------------------
+# supplementary_agreement_docx_filename
+# ---------------------------------------------------------------------------
+
+
+@settings(max_examples=200, deadline=None)
+@given(
+    agreement_name=st.text(min_size=0, max_size=50),
+    contract_name=st.text(min_size=1, max_size=50).filter(lambda s: s.strip()),
+)
+def test_supplementary_agreement_docx_ends_with_docx(agreement_name: str, contract_name: str) -> None:
+    """supplementary_agreement_docx_filename always ends with '.docx'."""
+    with patch(
+        "apps.core.services.filename_template_service.FilenameTemplateService.get_template",
+        return_value="{doc_type}（{case_name}）V{version}_{date}",
+    ):
+        result = supplementary_agreement_docx_filename(
+            agreement_name=agreement_name, contract_name=contract_name,
+        )
+    assert result.endswith(".docx"), f"expected .docx, got {result!r}"
+
+
+@settings(max_examples=200, deadline=None)
+@given(
+    contract_name=st.text(min_size=1, max_size=50).filter(lambda s: s.strip()),
+)
+def test_supplementary_agreement_default_name_used(contract_name: str) -> None:
+    """When agreement_name is empty/None, the default '补充协议' appears in the filename."""
+    with patch(
+        "apps.core.services.filename_template_service.FilenameTemplateService.get_template",
+        return_value="{doc_type}（{case_name}）V{version}_{date}",
+    ):
+        result = supplementary_agreement_docx_filename(
+            agreement_name="", contract_name=contract_name,
+        )
+    assert "补充协议" in result
+
+
+@settings(max_examples=200, deadline=None)
+@given(
+    agreement_name=st.text(min_size=1, max_size=50).filter(lambda s: s.strip()),
+    contract_name=st.text(min_size=1, max_size=50).filter(lambda s: s.strip()),
+)
+def test_supplementary_agreement_deterministic(agreement_name: str, contract_name: str) -> None:
+    """Same inputs always produce the same filename."""
+    with patch(
+        "apps.core.services.filename_template_service.FilenameTemplateService.get_template",
+        return_value="{doc_type}（{case_name}）V{version}_{date}",
+    ):
+        r1 = supplementary_agreement_docx_filename(
+            agreement_name=agreement_name, contract_name=contract_name,
+        )
+        r2 = supplementary_agreement_docx_filename(
+            agreement_name=agreement_name, contract_name=contract_name,
+        )
+    assert r1 == r2

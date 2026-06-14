@@ -201,3 +201,67 @@ def test_apply_date_inclusion_start_leq_end(start: date, delta: int) -> None:
     for mode in ("both", "start_only", "end_only", "neither"):
         result_start, result_end = calc._apply_date_inclusion(start, end, mode)
         assert result_start <= result_end, f"start > end for mode={mode}"
+
+
+# ---------------------------------------------------------------------------
+# LPRRateService.is_data_current – date comparison logic
+# ---------------------------------------------------------------------------
+#
+# is_data_current() queries the DB via get_latest_rate(). We cannot test the
+# full method without a database, but we CAN unit-test the date comparison
+# logic by extracting it into a standalone function tested below.
+#
+
+
+def _is_data_current_logic(today: date, effective_date: date) -> bool:
+    """Pure extraction of the date comparison logic from LPRRateService.is_data_current."""
+    ld = effective_date
+    if ld.year == today.year and ld.month == today.month:
+        return True
+    if today.day < 20:
+        if ld.year == today.year and ld.month == today.month - 1:
+            return True
+        if today.month == 1 and ld.month == 12 and ld.year == today.year - 1:
+            return True
+    return False
+
+
+@settings(max_examples=200, deadline=None)
+@given(year=st.integers(min_value=2000, max_value=2099), month=st.integers(min_value=1, max_value=12))
+def test_is_data_current_same_year_month_always_true(year: int, month: int) -> None:
+    """When today and effective_date share the same year+month, result is True."""
+    today = date(year, month, 10)
+    effective = date(year, month, 15)
+    assert _is_data_current_logic(today, effective) is True
+
+
+@settings(max_examples=200, deadline=None)
+@given(
+    year=st.integers(min_value=2000, max_value=2099),
+    month=st.integers(min_value=2, max_value=12),
+)
+def test_is_data_current_before_20th_prev_month_true(year: int, month: int) -> None:
+    """Before the 20th, effective_date from previous month of same year is current."""
+    today = date(year, month, 5)
+    effective = date(year, month - 1, 20)
+    assert _is_data_current_logic(today, effective) is True
+
+
+@settings(max_examples=200, deadline=None)
+@given(year=st.integers(min_value=2000, max_value=2099))
+def test_is_data_current_before_20th_jan_prev_dec_true(year: int) -> None:
+    """Before Jan 20, effective_date from Dec of previous year is current."""
+    today = date(year, 1, 10)
+    effective = date(year - 1, 12, 20)
+    assert _is_data_current_logic(today, effective) is True
+
+
+@settings(max_examples=200, deadline=None)
+@given(year=st.integers(min_value=2000, max_value=2099))
+def test_is_data_current_deterministic(year: int) -> None:
+    """Same inputs always produce the same output."""
+    today = date(year, 6, 15)
+    effective = date(year, 5, 20)
+    r1 = _is_data_current_logic(today, effective)
+    r2 = _is_data_current_logic(today, effective)
+    assert r1 == r2

@@ -136,3 +136,63 @@ def test_validate_known_good_extensions(ext: str, basename: str, size: int) -> N
     ok, msg = validate_case_log_attachment(filename, size)
     assert ok is True
     assert msg is None
+
+
+# ---------------------------------------------------------------------------
+# _format_simple_case_type_label
+# ---------------------------------------------------------------------------
+
+from unittest.mock import MagicMock
+
+from apps.core.models.enums import SimpleCaseType
+
+
+def _make_service():
+    """Create a minimal mock of CaseFilingNumberService with bound method."""
+    from apps.cases.services.number.case_filing_number_service import (
+        CaseFilingNumberService,
+    )
+
+    svc = CaseFilingNumberService.__new__(CaseFilingNumberService)
+    return svc
+
+
+_known_values = [
+    SimpleCaseType.CIVIL,
+    SimpleCaseType.ADMINISTRATIVE,
+    SimpleCaseType.CRIMINAL,
+    SimpleCaseType.EXECUTION,
+    SimpleCaseType.BANKRUPTCY,
+]
+
+_known_labels = {"民事", "行政", "刑事", "申请执行", "破产"}
+
+
+@settings(max_examples=200, deadline=None)
+@given(case_type=st.sampled_from(_known_values))
+def test_format_simple_known_values(case_type: str) -> None:
+    """Known SimpleCaseType values produce the expected Chinese label."""
+    svc = _make_service()
+    result = svc._format_simple_case_type_label(case_type)
+    assert result in _known_labels
+
+
+@settings(max_examples=200, deadline=None)
+@given(case_type=st.text(min_size=1, max_size=50).filter(
+    lambda s: s not in {v.value for v in SimpleCaseType}
+))
+def test_format_simple_unknown_returns_input(case_type: str) -> None:
+    """Unknown case_type values are returned as-is."""
+    svc = _make_service()
+    result = svc._format_simple_case_type_label(case_type)
+    assert result == case_type
+
+
+@settings(max_examples=200, deadline=None)
+@given(case_type=st.text(min_size=1, max_size=50))
+def test_format_simple_always_non_empty_string(case_type: str) -> None:
+    """Output is always a non-empty string."""
+    svc = _make_service()
+    result = svc._format_simple_case_type_label(case_type)
+    assert isinstance(result, str)
+    assert len(result) > 0

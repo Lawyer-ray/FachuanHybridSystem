@@ -8,6 +8,7 @@ from hypothesis import given, settings, assume
 from hypothesis import strategies as st
 
 from apps.documents.services.placeholders.litigation.execution_request_parser import (
+    extract_party_burden_amount,
     parse_confirmed_amounts,
     parse_fee_items,
     should_include_fee,
@@ -128,3 +129,36 @@ def test_should_include_fee_returns_tuple(sentence: str, key: str) -> None:
     include, reason = result
     assert isinstance(include, bool)
     assert isinstance(reason, str)
+
+
+# ---------------------------------------------------------------------------
+# extract_party_burden_amount
+# ---------------------------------------------------------------------------
+
+
+PARTIES = ("原告", "被告", "申请人", "被申请人")
+
+
+@settings(max_examples=200, deadline=None)
+@given(st.text(max_size=500))
+def test_extract_party_burden_returns_none_or_positive_decimal(text: str) -> None:
+    """extract_party_burden_amount returns None or a positive Decimal."""
+    result = extract_party_burden_amount(text, parties=PARTIES)
+    assert result is None or (isinstance(result, Decimal) and result >= 0)
+
+
+@settings(max_examples=200, deadline=None)
+@given(st.text(max_size=500))
+def test_extract_party_burden_deterministic(text: str) -> None:
+    """Same inputs always produce the same result."""
+    r1 = extract_party_burden_amount(text, parties=PARTIES)
+    r2 = extract_party_burden_amount(text, parties=PARTIES)
+    assert r1 == r2
+
+
+@settings(max_examples=200, deadline=None)
+@given(st.just(""))
+def test_extract_party_burden_empty_parties(text: str) -> None:
+    """Empty parties tuple always returns None."""
+    result = extract_party_burden_amount(text, parties=())
+    assert result is None

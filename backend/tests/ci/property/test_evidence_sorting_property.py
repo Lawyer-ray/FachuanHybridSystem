@@ -248,3 +248,73 @@ def test_to_float_non_numeric_returns_none(text: str) -> None:
     """Non-numeric strings return None."""
     result = ReconcilerService._to_float(text)
     assert result is None
+
+
+# ---------------------------------------------------------------------------
+# ReconcilerService._match_delivery
+# ---------------------------------------------------------------------------
+
+from apps.evidence_sorting.services.reconciler import DeliveryNote, LineItem
+
+
+svc = ReconcilerService()
+
+
+def _make_delivery(date: str | None, amount: str | None) -> DeliveryNote:
+    return DeliveryNote(filename="test.pdf", date=date, amount=amount)
+
+
+def _make_line_item(date: str | None, amount: float | None) -> LineItem:
+    return LineItem(date=date, amount=amount, description="test")
+
+
+@settings(max_examples=200, deadline=None)
+@given(
+    date_str=st.from_regex(r"\d{8}", fullmatch=True),
+    amount=st.floats(min_value=0.01, max_value=1_000_000, allow_nan=False, allow_infinity=False),
+)
+def test_match_delivery_same_date_and_amount_returns_true(date_str: str, amount: float) -> None:
+    """Same date and same amount always match."""
+    li = _make_line_item(date=date_str, amount=amount)
+    dn = _make_delivery(date=date_str, amount=str(amount))
+    assert svc._match_delivery(li, dn) is True
+
+
+@settings(max_examples=200, deadline=None)
+@given(
+    date1=st.from_regex(r"\d{8}", fullmatch=True),
+    date2=st.from_regex(r"\d{8}", fullmatch=True),
+    amount=st.floats(min_value=100, max_value=1_000_000, allow_nan=False, allow_infinity=False),
+)
+def test_match_delivery_different_date_false(date1: str, date2: str, amount: float) -> None:
+    """Different dates (and amounts that are also different) → False."""
+    assume(date1 != date2)
+    li = _make_line_item(date=date1, amount=amount)
+    dn = _make_delivery(date=date2, amount=str(amount + 1_000_000))
+    assert svc._match_delivery(li, dn) is False
+
+
+@settings(max_examples=200, deadline=None)
+@given(
+    date_str=st.from_regex(r"\d{8}", fullmatch=True),
+    amount=st.floats(min_value=100, max_value=1_000_000, allow_nan=False, allow_infinity=False),
+    pct=st.floats(min_value=0.0001, max_value=0.0099),
+)
+def test_match_delivery_within_1pct_tolerance_true(date_str: str, amount: float, pct: float) -> None:
+    """Amount within 1% tolerance (and same date) matches."""
+    diff = amount * pct
+    delivery_amount = amount + diff
+    li = _make_line_item(date=date_str, amount=amount)
+    dn = _make_delivery(date=date_str, amount=str(delivery_amount))
+    assert svc._match_delivery(li, dn) is True
+
+
+@settings(max_examples=200, deadline=None)
+@given(
+    date_str=st.just(""),
+)
+def test_match_delivery_both_dates_none_false(date_str: str) -> None:
+    """When both dates are None → False (no date match, no amount fallback)."""
+    li = _make_line_item(date=None, amount=None)
+    dn = _make_delivery(date=None, amount=None)
+    assert svc._match_delivery(li, dn) is False
