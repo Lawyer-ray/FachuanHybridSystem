@@ -1,3 +1,5 @@
 .coverage.*
 *~
 models/
+**/test_*.docx
+**/test_*.pdf
