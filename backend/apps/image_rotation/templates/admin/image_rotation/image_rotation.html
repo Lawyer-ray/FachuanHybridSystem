@@ -429,9 +429,9 @@
                 <template x-for="page in historyDetailPages" :key="page.id">
                     <div class="image-item">
                         <div class="image-preview" @click="openHistoryPreview(page)"
-                             :style="page.onnx_rotation && ((page.onnx_rotation + (page.detected_rotation || 0)) % 180 !== 0) ? 'aspect-ratio: 1/1' : ''">
+                             :style="(((page.onnx_rotation || 0) + (page.detected_rotation || 0)) % 360) !== 0 && (((page.onnx_rotation || 0) + (page.detected_rotation || 0)) % 180 !== 0) ? 'aspect-ratio: 1/1' : ''">
                             <img :src="page.source_image_url"
-                                 :style="'transform: rotate(' + (page.onnx_rotation ? (page.onnx_rotation + (page.detected_rotation || 0)) % 360 : 0) + 'deg); max-width: 100%; max-height: 100%; object-fit: contain;'"
+                                 :style="'transform: rotate(' + (((page.onnx_rotation || 0) + (page.detected_rotation || 0)) % 360) + 'deg); max-width: 100%; max-height: 100%; object-fit: contain;'"
                                  loading="lazy">
                         </div>
                         <div class="image-info">
@@ -469,7 +469,7 @@
                     <button class="modal-close" @click="historyPreviewPage = null">×</button>
                 </div>
                 <img :src="historyPreviewPage?.source_image_url" class="modal-image"
-                     :style="'transform: rotate(' + (historyPreviewPage?.onnx_rotation ? (historyPreviewPage.onnx_rotation + (historyPreviewPage.detected_rotation || 0)) % 360 : 0) + 'deg)'">
+                     :style="'transform: rotate(' + (((historyPreviewPage?.onnx_rotation || 0) + (historyPreviewPage?.detected_rotation || 0)) % 360) + 'deg)'">
             </div>
         </div>
     </div><!-- x-show="currentView === 'history'" -->
@@ -1458,6 +1458,7 @@ function imageRotationApp() {
         // ========== 历史任务方法 ==========
 
         markChanged(imageId) {
+            console.log('[DEBUG] markChanged called:', { imageId, onnxComplete: this.onnxComplete });
             if (!this.onnxComplete) return;
             this._changeBuffer[imageId] = true;
             clearTimeout(this._syncTimer);
@@ -1490,6 +1491,13 @@ function imageRotationApp() {
                 if (!img || !img._historyPageId) continue;
                 // 发送手动调整量（delta = 当前旋转 - ONNX自动旋转）
                 const delta = ((img.rotation || 0) - (img.autoRotation || 0) + 360) % 360;
+                console.log('[DEBUG] syncChangesToBackend:', {
+                    id: id,
+                    rotation: img.rotation,
+                    autoRotation: img.autoRotation,
+                    delta: delta,
+                    pageId: img._historyPageId
+                });
                 pages.push({
                     page_id: img._historyPageId,
                     detected_rotation: delta,
@@ -1499,12 +1507,15 @@ function imageRotationApp() {
             if (pages.length === 0) return;
 
             const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value || '';
+            console.log('[DEBUG] Sending PATCH with pages:', pages);
             try {
-                await fetch(`/api/v1/image-rotation/jobs/${this.currentJobId}/pages`, {
+                const resp = await fetch(`/api/v1/image-rotation/jobs/${this.currentJobId}/pages`, {
                     method: 'PATCH',
                     headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
                     body: JSON.stringify({ pages })
                 });
+                const result = await resp.json();
+                console.log('[DEBUG] PATCH response:', result);
             } catch (err) {
                 console.warn('同步变化失败:', err);
             }
@@ -1526,6 +1537,11 @@ function imageRotationApp() {
                     source_type: img.sourceType || 'image',
                     page_number: idx
                 }));
+                console.log('[DEBUG] saveTaskToHistory pagesMeta (before):', pagesMeta.map(p => ({
+                    filename: p.filename,
+                    onnx_rotation: p.onnx_rotation,
+                    detected_rotation: p.detected_rotation
+                })));
                 formData.append('pages', JSON.stringify(pagesMeta));
 
                 // 源图保存原始版本（不含旋转），以便后续手动调整正确叠加
@@ -1563,6 +1579,11 @@ function imageRotationApp() {
 
                 // 更新 pages JSON（可能被 PDF 兜底修改了 onnx_rotation）
                 formData.set('pages', JSON.stringify(pagesMeta));
+                console.log('[DEBUG] saveTaskToHistory pagesMeta (after):', pagesMeta.map(p => ({
+                    filename: p.filename,
+                    onnx_rotation: p.onnx_rotation,
+                    detected_rotation: p.detected_rotation
+                })));
 
                 const response = await fetch('/api/v1/image-rotation/jobs', {
                     method: 'POST',
@@ -1571,6 +1592,7 @@ function imageRotationApp() {
                 });
 
                 const result = await response.json();
+                console.log('[DEBUG] saveTaskToHistory response:', result);
                 if (result.success) {
                     this.currentJobId = result.job_id;
                     this.showSaveNotification = true;
@@ -1579,6 +1601,7 @@ function imageRotationApp() {
                             this.images[i]._historyPageId = result.page_ids[i];
                         }
                     }
+                    console.log('[DEBUG] currentJobId:', this.currentJobId, 'pageIds:', this.images.map(i => ({id: i.id, pageId: i._historyPageId})));
                 }
             } catch (err) {
                 console.warn('保存历史任务失败:', err);
@@ -1667,7 +1690,7 @@ function imageRotationApp() {
                         formData.append('image_' + i, blob, page.original_filename);
                         formData.append('filename_' + i, page.suggested_filename || page.original_filename);
                         formData.append('format_' + i, 'jpeg');
-                        formData.append('rotation_' + i, String(page.onnx_rotation ? (page.onnx_rotation + (page.detected_rotation || 0)) % 360 : 0));
+                        formData.append('rotation_' + i, String(((page.onnx_rotation || 0) + (page.detected_rotation || 0)) % 360));
                     }
                     const resp = await fetch('/api/v1/image-rotation/export', {
                         method: 'POST', headers: { 'X-CSRFToken': csrfToken }, body: formData
@@ -1688,7 +1711,7 @@ function imageRotationApp() {
                         const blob = await resp.blob();
                         formData.append('page_' + i, blob, page.original_filename);
                         formData.append('filename_' + i, page.original_filename);
-                        formData.append('rotation_' + i, String(page.onnx_rotation ? (page.onnx_rotation + (page.detected_rotation || 0)) % 360 : 0));
+                        formData.append('rotation_' + i, String(((page.onnx_rotation || 0) + (page.detected_rotation || 0)) % 360));
                     }
                     const resp = await fetch('/api/v1/image-rotation/export-pdf', {
                         method: 'POST', headers: { 'X-CSRFToken': csrfToken }, body: formData
@@ -1744,8 +1767,8 @@ function imageRotationApp() {
                         filename: page.suggested_filename || page.original_filename,
                         img: img,
                         data: null,
-                        // 源图是原始状态（onnx_rotation>0）时，rotation=delta；否则源图已含ONNX旋转，rotation=0
-                        rotation: page.onnx_rotation ? (page.detected_rotation || 0) : 0,
+                        // rotation 存储手动调整量（detected_rotation），autoRotation 存储 ONNX 旋转
+                        rotation: page.detected_rotation || 0,
                         autoRotation: page.onnx_rotation || 0,
                         sourceType: page.source_type || 'image',
                         format: 'jpeg',
@@ -1796,9 +1819,16 @@ function imageRotationApp() {
             try {
                 const resp = await fetch(`/api/v1/image-rotation/jobs/${jobId}`);
                 const data = await resp.json();
+                console.log('[DEBUG] viewJobDetail response:', data);
                 if (data.success) {
                     this.historyDetail = data.job;
                     this.historyDetailPages = data.pages;
+                    console.log('[DEBUG] historyDetailPages:', data.pages.map(p => ({
+                        id: p.id,
+                        onnx_rotation: p.onnx_rotation,
+                        detected_rotation: p.detected_rotation,
+                        total: (p.onnx_rotation || 0) + (p.detected_rotation || 0)
+                    })));
                 }
             } catch (err) {
                 console.warn('加载任务详情失败:', err);
