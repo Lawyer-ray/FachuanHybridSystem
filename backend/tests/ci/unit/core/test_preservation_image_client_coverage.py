@@ -67,7 +67,7 @@ class TestImageRotationApi:
         file_obj = MagicMock()
         file_obj.content_type = "application/pdf"
         file_obj.size = 1024
-        with pytest.raises(Exception):  # noqa: B017
+        with pytest.raises(Exception):
             _validate_image_file(file_obj)
 
     def test_validate_image_file_too_large(self):
@@ -76,7 +76,7 @@ class TestImageRotationApi:
         file_obj = MagicMock()
         file_obj.content_type = "image/jpeg"
         file_obj.size = 21 * 1024 * 1024
-        with pytest.raises(Exception):  # noqa: B017
+        with pytest.raises(Exception):
             _validate_image_file(file_obj)
 
 
@@ -93,14 +93,14 @@ class TestIdentityExtractionService:
         from apps.client.services.identity_extraction.extraction_service import IdentityExtractionService
 
         service = IdentityExtractionService()
-        with pytest.raises(Exception):  # noqa: B017
+        with pytest.raises(Exception):
             service.extract(b"", "id_card")
 
     def test_extract_empty_doc_type(self):
         from apps.client.services.identity_extraction.extraction_service import IdentityExtractionService
 
         service = IdentityExtractionService()
-        with pytest.raises(Exception):  # noqa: B017
+        with pytest.raises(Exception):
             service.extract(b"some image data", "")
 
     def test_is_pdf_file(self):

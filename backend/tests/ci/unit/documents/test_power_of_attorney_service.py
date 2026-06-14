@@ -57,7 +57,7 @@ def _make_case(lawyers: list[MagicMock] | None = None, **kwargs: Any) -> MagicMo
     case.id = kwargs.get("id", 1)
     case.case_type = kwargs.get("case_type", "civil")
     case.current_stage = kwargs.get("current_stage", "litigation")
-    case.specified_date = kwargs.get("specified_date", None)
+    case.specified_date = kwargs.get("specified_date")
 
     # Set up parties
     parties = kwargs.get("parties", [])
@@ -101,9 +101,9 @@ def _make_rule(**kwargs: Any) -> MagicMock:
     rule = MagicMock()
     rule.is_active = kwargs.get("is_active", True)
     rule.case_types = kwargs.get("case_types", [])
-    rule.case_type = kwargs.get("case_type", None)
-    rule.case_stage = kwargs.get("case_stage", None)
-    rule.legal_statuses = kwargs.get("legal_statuses", None)
+    rule.case_type = kwargs.get("case_type")
+    rule.case_stage = kwargs.get("case_stage")
+    rule.legal_statuses = kwargs.get("legal_statuses")
     rule.legal_status_match_mode = kwargs.get("legal_status_match_mode", LegalStatusMatchMode.ANY)
     rule.items_text = kwargs.get("items_text", "代为提起诉讼、参与庭审")
     rule.priority = kwargs.get("priority", 100)

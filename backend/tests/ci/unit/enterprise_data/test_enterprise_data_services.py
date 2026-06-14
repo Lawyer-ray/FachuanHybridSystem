@@ -350,7 +350,8 @@ class TestMcpToolClientExtended:
         import httpx
         from apps.enterprise_data.services.clients.mcp_tool_client import McpToolClient
         client = McpToolClient(provider_name="t", transport="sse", base_url="", sse_url="", api_key="k")
-        resp = MagicMock(); resp.status_code = 500
+        resp = MagicMock()
+        resp.status_code = 500
         exc = httpx.HTTPStatusError("s", request=MagicMock(), response=resp)
         assert client._should_retry(exc) is True
 
@@ -358,7 +359,8 @@ class TestMcpToolClientExtended:
         import httpx
         from apps.enterprise_data.services.clients.mcp_tool_client import McpToolClient
         client = McpToolClient(provider_name="t", transport="sse", base_url="", sse_url="", api_key="k")
-        resp = MagicMock(); resp.status_code = 429
+        resp = MagicMock()
+        resp.status_code = 429
         exc = httpx.HTTPStatusError("r", request=MagicMock(), response=resp)
         assert client._should_retry(exc) is False
 
@@ -371,14 +373,19 @@ class TestMcpToolClientExtended:
     def test_extract_payload_structured(self):
         from apps.enterprise_data.services.clients.mcp_tool_client import McpToolClient
         client = McpToolClient(provider_name="t", transport="sse", base_url="", sse_url="", api_key="k")
-        result = MagicMock(); result.structuredContent = {"a": 1}; result.content = []
+        result = MagicMock()
+        result.structuredContent = {"a": 1}
+        result.content = []
         assert client._extract_payload(result) == {"a": 1}
 
     def test_extract_payload_single_text_json(self):
         from apps.enterprise_data.services.clients.mcp_tool_client import McpToolClient
         client = McpToolClient(provider_name="t", transport="sse", base_url="", sse_url="", api_key="k")
-        result = MagicMock(); result.structuredContent = None
-        item = MagicMock(); item.type = "text"; item.text = '{"a": 1}'
+        result = MagicMock()
+        result.structuredContent = None
+        item = MagicMock()
+        item.type = "text"
+        item.text = '{"a": 1}'
         result.content = [item]
         assert client._extract_payload(result) == {"a": 1}
 
@@ -409,13 +416,19 @@ class TestMcpToolClientExtended:
     def test_is_auth_like_http_error_401(self):
         import httpx
         from apps.enterprise_data.services.clients.mcp_tool_client import McpToolClient
-        resp = MagicMock(); resp.status_code = 401; resp.text = ""; resp.json.side_effect = Exception()
+        resp = MagicMock()
+        resp.status_code = 401
+        resp.text = ""
+        resp.json.side_effect = Exception()
         exc = httpx.HTTPStatusError("u", request=MagicMock(), response=resp)
         assert McpToolClient._is_auth_like_http_error(exc) is True
 
     def test_is_auth_like_http_error_500(self):
         import httpx
         from apps.enterprise_data.services.clients.mcp_tool_client import McpToolClient
-        resp = MagicMock(); resp.status_code = 500; resp.text = "err"; resp.json.side_effect = Exception()
+        resp = MagicMock()
+        resp.status_code = 500
+        resp.text = "err"
+        resp.json.side_effect = Exception()
         exc = httpx.HTTPStatusError("s", request=MagicMock(), response=resp)
         assert McpToolClient._is_auth_like_http_error(exc) is False

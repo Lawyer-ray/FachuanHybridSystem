@@ -20,7 +20,7 @@ def _make_script(**overrides: Any) -> JtnClientImportScript:
         account=overrides.get("account", "testuser"),
         password=overrides.get("password", "testpass"),
         headless=overrides.get("headless", True),
-        progress_callback=overrides.get("progress_callback", None),
+        progress_callback=overrides.get("progress_callback"),
     )
 
 
