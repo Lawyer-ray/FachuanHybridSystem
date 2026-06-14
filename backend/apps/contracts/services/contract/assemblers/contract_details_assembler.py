@@ -4,6 +4,16 @@ from __future__ import annotations
 
 from typing import Any
 
+# ---------------------------------------------------------------------------
+# prefetch 路径：调用方在遍历前应对此元组调用 queryset.prefetch_related()
+# ---------------------------------------------------------------------------
+CONTRACT_DETAILS_PREFETCHES: tuple[str, ...] = (
+    "contract_parties__client",
+    "assignments__lawyer__law_firm",
+    "cases__parties__client",
+    "cases__supervising_authorities",
+)
+
 
 class ContractDetailsAssembler:
     def to_dict(self, contract: Any) -> dict[str, Any]:

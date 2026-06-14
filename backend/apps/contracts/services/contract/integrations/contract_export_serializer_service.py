@@ -18,6 +18,28 @@ if TYPE_CHECKING:
 else:
     CaseSerializer = Callable[[object], SerializedPayload]
 
+# ---------------------------------------------------------------------------
+# prefetch 路径：调用方在遍历前应对此元组调用 queryset.prefetch_related()
+# ---------------------------------------------------------------------------
+CONTRACT_EXPORT_PREFETCHES: tuple[str, ...] = (
+    "contract_parties__client__identity_docs",
+    "contract_parties__client__property_clues__attachments",
+    "assignments__lawyer",
+    "finalized_materials",
+    "supplementary_agreements__parties__client",
+    "payments__invoices",
+    "finance_logs__actor",
+    "client_payment_records",
+    "cases__parties__client__identity_docs",
+    "cases__parties__client__property_clues__attachments",
+    "cases__assignments__lawyer",
+    "cases__supervising_authorities",
+    "cases__case_numbers",
+    "cases__chats",
+    "cases__logs__actor",
+    "cases__logs__attachments",
+)
+
 
 def _serialize_contract_client(client: Client) -> SerializedPayload:
     from apps.client.services.client_export_serializer_service import serialize_client_obj

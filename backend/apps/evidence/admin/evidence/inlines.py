@@ -29,7 +29,7 @@ class EvidenceItemInline(admin.TabularInline[EvidenceItem, EvidenceItem]):  # pr
     ordering: ClassVar[list[str]] = ["order"]  # type: ignore[assignment]
 
     def get_queryset(self, request: HttpRequest) -> QuerySet[EvidenceItem, EvidenceItem]:  # pragma: no cover
-        return super().get_queryset(request)
+        return super().get_queryset(request).select_related("evidence_list")
 
     @admin.display(description="序号")
     def global_order_display(self, obj: EvidenceItem) -> Any:  # pragma: no cover

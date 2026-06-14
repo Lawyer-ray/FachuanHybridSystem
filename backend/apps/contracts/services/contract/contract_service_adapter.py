@@ -12,7 +12,7 @@ from apps.core.exceptions import NotFoundError
 from apps.core.interfaces import ContractDTO, ICaseService, LawyerDTO
 from apps.core.security.access_context import AccessContext
 
-from .assemblers.contract_details_assembler import ContractDetailsAssembler
+from .assemblers.contract_details_assembler import CONTRACT_DETAILS_PREFETCHES, ContractDetailsAssembler
 from .assemblers.contract_dto_assembler import ContractDtoAssembler
 from .contract_service import ContractService
 

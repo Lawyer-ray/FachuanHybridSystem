@@ -249,6 +249,7 @@ class CaseLogAdmin(BaseModelAdmin):  # pragma: no cover
 @admin.register(CaseLogAttachment)
 class CaseLogAttachmentAdmin(BaseModelAdmin):  # pragma: no cover
     list_display = ("id", "log", "original_filename", "uploaded_at")
+    list_select_related = ("log",)
     search_fields = ("log__case__name", "original_filename")
     autocomplete_fields = ("log",)
 

@@ -936,18 +936,30 @@ class DocumentTemplateAdmin(admin.ModelAdmin):  # pragma: no cover
             )
         return format_html('<span style="color: #999;">{}</span>', "未设置")
 
+    def _get_cached_placeholders(self, obj: DocumentTemplate) -> tuple[list[str], set[str]]:  # pragma: no cover
+        """Cache extracted placeholders and undefined set on the object instance.
+
+        Returns:
+            (placeholders, undefined_set)
+        """
+        cache_attr = "_cached_placeholder_info"
+        if not hasattr(obj, cache_attr):
+            service = _get_template_service()
+            placeholders = service.extract_placeholders(obj)
+            undefined = set(service.get_undefined_placeholders(obj))
+            setattr(obj, cache_attr, (placeholders, undefined))
+        return getattr(obj, cache_attr)  # type: ignore[return-value]
+
     @admin.display(description="占位符")
     def placeholder_count_display(self, obj: DocumentTemplate) -> Any:  # pragma: no cover
         """显示占位符数量"""
         try:
-            service = _get_template_service()
-            placeholders = service.extract_placeholders(obj)
-            undefined = service.get_undefined_placeholders(obj)
+            placeholders, undefined = self._get_cached_placeholders(obj)
 
             all_placeholders_text = ", ".join(placeholders) if placeholders else "无占位符"
 
             if undefined:
-                undefined_names = ", ".join(undefined[:3])
+                undefined_names = ", ".join(sorted(undefined)[:3])
                 if len(undefined) > 3:
                     undefined_names += f" 等{len(undefined)}个"
 
@@ -955,7 +967,7 @@ class DocumentTemplateAdmin(admin.ModelAdmin):  # pragma: no cover
                     '<span style="color: #e65100;" title="所有占位符: {} | 未定义占位符: {}">'
                     "{} ({}个未定义: {})</span>",
                     all_placeholders_text,
-                    ", ".join(undefined),
+                    ", ".join(sorted(undefined)),
                     len(placeholders),
                     len(undefined),
                     undefined_names,
@@ -973,9 +985,7 @@ class DocumentTemplateAdmin(admin.ModelAdmin):  # pragma: no cover
             return "保存后可查看占位符"
 
         try:
-            service = _get_template_service()
-            placeholders = service.extract_placeholders(obj)
-            undefined = set(service.get_undefined_placeholders(obj))
+            placeholders, undefined = self._get_cached_placeholders(obj)
 
             admin_service = _get_admin_service()
             return admin_service.render_placeholders_table(placeholders, undefined)
@@ -990,8 +1000,7 @@ class DocumentTemplateAdmin(admin.ModelAdmin):  # pragma: no cover
             return "保存后可查看"
 
         try:
-            service = _get_template_service()
-            undefined = service.get_undefined_placeholders(obj)
+            _, undefined = self._get_cached_placeholders(obj)
 
             admin_service = _get_admin_service()
             return admin_service.render_undefined_placeholders_warning(undefined)

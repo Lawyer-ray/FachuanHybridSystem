@@ -51,6 +51,7 @@ class ChatRecordProjectAdmin(admin.ModelAdmin):  # pragma: no cover
 @admin.register(ChatRecordScreenshot)
 class ChatRecordScreenshotAdmin(admin.ModelAdmin):  # pragma: no cover
     list_display = ("id", "project", "ordering", "title", "created_at")
+    list_select_related = ("project",)
     search_fields = ("title", "note", "sha256")
     list_filter = ("project",)
     readonly_fields = ("created_at", "sha256")
@@ -67,6 +68,7 @@ class ChatRecordExportTaskAdmin(admin.ModelAdmin):  # pragma: no cover
         "created_at",
         "download_link",
     )
+    list_select_related = ("project",)
     list_filter = ("export_type", "status", "project")
     readonly_fields = (
         "created_at",
@@ -100,6 +102,7 @@ class ChatRecordRecordingAdmin(admin.ModelAdmin):  # pragma: no cover
         "extract_progress",
         "created_at",
     )
+    list_select_related = ("project",)
     list_filter = ("project", "extract_status")
     search_fields = ("original_name",)
     readonly_fields = (

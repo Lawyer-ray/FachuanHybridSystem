@@ -13,7 +13,7 @@ from simple_history.admin import SimpleHistoryAdmin
 
 from apps.client.models import Client, ClientIdentityDoc, PropertyClue, PropertyClueAttachment
 from apps.client.ports import CredentialPort, GsxtReportPort
-from apps.client.services.client_export_serializer_service import serialize_client_obj
+from apps.client.services.client_export_serializer_service import CLIENT_EXPORT_PREFETCHES, serialize_client_obj
 from apps.client.services.wiring import get_credential_port, get_gsxt_report_port
 from apps.core.admin.mixins import AdminImportExportMixin
 
@@ -435,13 +435,13 @@ class ClientAdmin(SimpleHistoryAdmin, AdminImportExportMixin, admin.ModelAdmin):
 
     def serialize_queryset(self, queryset: QuerySet[Client]) -> list[dict[str, Any]]:  # pragma: no cover
         result = []
-        for obj in queryset.prefetch_related("identity_docs", "property_clues__attachments"):
+        for obj in queryset.prefetch_related(*CLIENT_EXPORT_PREFETCHES):
             result.append(serialize_client_obj(obj))
         return result
 
     def get_file_paths(self, queryset: QuerySet[Client]) -> list[str]:  # pragma: no cover
         paths = []
-        for obj in queryset.prefetch_related("identity_docs", "property_clues__attachments"):
+        for obj in queryset.prefetch_related(*CLIENT_EXPORT_PREFETCHES):
             for doc in obj.identity_docs.all():
                 if doc.file_path:
                     paths.append(doc.file_path)
