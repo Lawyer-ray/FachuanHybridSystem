@@ -189,7 +189,7 @@ class TestCourtTokenModel:
             token="token1",  # allowlist secret
             expires_at=timezone.now() + timedelta(hours=1),
         )
-        with pytest.raises(Exception):  # noqa: B017
+        with pytest.raises(Exception):
             CourtToken.objects.create(
                 site_name="court_zxfw",
                 account="unique_account",

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import io
 import zipfile
-from datetime import datetime, timezone as tz
+from datetime import datetime, timezone as tz, UTC
 from pathlib import PurePosixPath
 from types import SimpleNamespace
 from unittest.mock import MagicMock, Mock, PropertyMock, patch, call
@@ -545,7 +545,7 @@ class TestBaseFolderBindingServiceMethods:
 # ============================================================================
 
 
-def _make_s3_provider(root: str = "") -> "S3Provider":
+def _make_s3_provider(root: str = "") -> S3Provider:
     """Create an S3Provider without actually connecting to S3."""
     from apps.core.cloud_storage.s3_provider import S3Provider
 
@@ -580,9 +580,9 @@ class TestS3ProviderListDirectory:
             {
                 "CommonPrefixes": [{"Prefix": "root/subdir1/"}],
                 "Contents": [
-                    {"Key": "root", "Size": 0, "LastModified": datetime(2024, 1, 1, tzinfo=tz.utc)},
-                    {"Key": "root/file1.txt", "Size": 100, "LastModified": datetime(2024, 1, 2, tzinfo=tz.utc)},
-                    {"Key": "root/subdir/nested.txt", "Size": 200, "LastModified": datetime(2024, 1, 3, tzinfo=tz.utc)},
+                    {"Key": "root", "Size": 0, "LastModified": datetime(2024, 1, 1, tzinfo=UTC)},
+                    {"Key": "root/file1.txt", "Size": 100, "LastModified": datetime(2024, 1, 2, tzinfo=UTC)},
+                    {"Key": "root/subdir/nested.txt", "Size": 200, "LastModified": datetime(2024, 1, 3, tzinfo=UTC)},
                 ],
             }
         ]
@@ -673,7 +673,7 @@ class TestS3ProviderGetFileInfo:
         provider = _make_s3_provider(root="")
         provider._client.head_object.return_value = {
             "ContentLength": 42,
-            "LastModified": datetime(2024, 6, 1, tzinfo=tz.utc),
+            "LastModified": datetime(2024, 6, 1, tzinfo=UTC),
         }
         result = provider.get_file_info("test.txt")
         assert result is not None
@@ -694,7 +694,7 @@ class TestS3ProviderGetFileInfo:
             call_count[0] += 1
             if call_count[0] == 1:
                 raise error
-            return {"LastModified": datetime(2024, 6, 1, tzinfo=tz.utc)}
+            return {"LastModified": datetime(2024, 6, 1, tzinfo=UTC)}
 
         provider._client.head_object.side_effect = mock_head
         result = provider.get_file_info("mydir")

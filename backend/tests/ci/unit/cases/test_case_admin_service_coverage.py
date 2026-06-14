@@ -106,7 +106,7 @@ class TestGetCaseFileTemplatesForDetail:
         case.case_type = ""
         svc = CaseAdminService()
         result = svc.get_case_file_templates_for_detail(case)
-        assert result == ([], str("未设置案件类型"))
+        assert result == ([], "未设置案件类型")
 
     def test_no_current_stage(self):
         from apps.cases.services.case.case_admin_service import CaseAdminService
@@ -116,7 +116,7 @@ class TestGetCaseFileTemplatesForDetail:
         case.current_stage = ""
         svc = CaseAdminService()
         result = svc.get_case_file_templates_for_detail(case)
-        assert result == ([], str("未设置案件阶段"))
+        assert result == ([], "未设置案件阶段")
 
     def test_success_with_authorities(self):
         from apps.cases.services.case.case_admin_service import CaseAdminService

@@ -74,8 +74,8 @@ def _make_session(**kwargs: Any) -> MagicMock:
     s.current_file = kwargs.get("current_file", "")
     s.result_payload = kwargs.get("result_payload", {"summary": {}, "candidates": [], "scan_scope": {}})
     s.error_message = kwargs.get("error_message", "")
-    s.started_by_id = kwargs.get("started_by_id", None)
-    s.started_by = kwargs.get("started_by", None)
+    s.started_by_id = kwargs.get("started_by_id")
+    s.started_by = kwargs.get("started_by")
     s.updated_at = MagicMock()
     s.created_at = MagicMock()
     return s

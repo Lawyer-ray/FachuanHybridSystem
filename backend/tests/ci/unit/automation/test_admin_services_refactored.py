@@ -197,7 +197,7 @@ class TestFormatCSVRow:
         record.captcha_attempts = kwargs.get("captcha_attempts", 0)
         record.network_retries = kwargs.get("network_retries", 0)
         record.token_preview = kwargs.get("token_preview", "abc123...")
-        record.error_message = kwargs.get("error_message", None)
+        record.error_message = kwargs.get("error_message")
         record.created_at = kwargs.get("created_at", datetime(2026, 6, 9, 10, 30, 0))
         record.started_at = kwargs.get("started_at", datetime(2026, 6, 9, 10, 30, 1))
         record.finished_at = kwargs.get("finished_at", datetime(2026, 6, 9, 10, 30, 5))

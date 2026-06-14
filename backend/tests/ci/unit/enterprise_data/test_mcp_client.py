@@ -17,7 +17,7 @@ def _make_client(**kwargs):
         base_url=kwargs.get("base_url", "https://mcp.example.com/mcp"),
         sse_url=kwargs.get("sse_url", "https://mcp.example.com/sse"),
         api_key=kwargs.get("api_key", "test-key-123"),
-        api_keys=kwargs.get("api_keys", None),
+        api_keys=kwargs.get("api_keys"),
         timeout_seconds=kwargs.get("timeout_seconds", 10),
         rate_limit_requests=kwargs.get("rate_limit_requests", 100),
         rate_limit_window_seconds=kwargs.get("rate_limit_window_seconds", 60),

@@ -106,5 +106,5 @@ class TestPlaceholderRegistry:
                 return {}
 
         PlaceholderRegistry.register(DupService)
-        with pytest.raises(Exception):  # noqa: B017
+        with pytest.raises(Exception):
             PlaceholderRegistry.register(DupService)

@@ -479,7 +479,7 @@ class TestLLMPreflight:
         mock_llm_config.resolve_backend_for_model.return_value = "openai_compatible"
         mock_llm_config.get_backend_configs.return_value = {"openai_compatible": config}
 
-        with pytest.raises(ValidationException, match="未配置.*Base URL"):
+        with pytest.raises(ValidationException, match=r"未配置.*Base URL"):
             verify_llm_connectivity(model="test/model")
 
     @patch("apps.legal_research.services.llm_preflight.LLMConfig")
@@ -493,7 +493,7 @@ class TestLLMPreflight:
         mock_llm_config.resolve_backend_for_model.return_value = "openai_compatible"
         mock_llm_config.get_backend_configs.return_value = {"openai_compatible": config}
 
-        with pytest.raises(ValidationException, match="未配置.*API Key"):
+        with pytest.raises(ValidationException, match=r"未配置.*API Key"):
             verify_llm_connectivity(model="test/model")
 
     @patch("apps.legal_research.services.llm_preflight.httpx.get")

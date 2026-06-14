@@ -295,7 +295,7 @@ class TestCleanupOrphanedFiles:
             court_dir.mkdir()
             doc_file = court_dir / "doc3.pdf"
             doc_file.write_bytes(b"test")
-            success_doc.local_file_path = f"court_documents/doc3.pdf"
+            success_doc.local_file_path = "court_documents/doc3.pdf"
             success_doc.save()
             mock_settings.MEDIA_ROOT = media
             result = service.cleanup_orphaned_files()

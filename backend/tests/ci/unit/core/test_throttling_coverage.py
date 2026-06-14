@@ -60,7 +60,8 @@ class TestRateLimiter:
 
     def test_get_cache_key_custom_func(self) -> None:
         request = MagicMock(spec=HttpRequest)
-        custom_func = lambda r: "custom_key"
+        def custom_func(r):
+            return "custom_key"
         key = self.limiter.get_cache_key(request, key_func=custom_func)
         assert "test:" in key
 

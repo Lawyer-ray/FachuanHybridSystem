@@ -21,7 +21,7 @@ def _make_session(**kwargs):
     session.search_api_degraded_until_epoch = kwargs.get("search_api_degraded_until_epoch", 0.0)
     session.search_api_empty_streak = kwargs.get("search_api_empty_streak", 0)
     session.search_api_error_streak = kwargs.get("search_api_error_streak", 0)
-    session.page = kwargs.get("page", None)
+    session.page = kwargs.get("page")
     session.intercepted_payload = None
     return session
 

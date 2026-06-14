@@ -162,7 +162,7 @@ class TestArchiveClassificationRuleModel:
         ArchiveClassificationRule.objects.create(
             archive_category="litigation", filename_keyword="起诉状", archive_item_code="lt_1"
         )
-        with pytest.raises(Exception):  # noqa: B017
+        with pytest.raises(Exception):
             ArchiveClassificationRule.objects.create(
                 archive_category="litigation", filename_keyword="起诉状", archive_item_code="lt_2"
             )

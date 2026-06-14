@@ -456,9 +456,9 @@ class TestFeeConstants:
     def test_preservation_fee_max(self):
         from apps.cases.services.data.litigation_fee_calculator_service import PRESERVATION_FEE_MAX
 
-        assert PRESERVATION_FEE_MAX == Decimal("5000")
+        assert Decimal("5000") == PRESERVATION_FEE_MAX
 
     def test_bankruptcy_fee_max(self):
         from apps.cases.services.data.litigation_fee_calculator_service import BANKRUPTCY_FEE_MAX
 
-        assert BANKRUPTCY_FEE_MAX == Decimal("300000")
+        assert Decimal("300000") == BANKRUPTCY_FEE_MAX

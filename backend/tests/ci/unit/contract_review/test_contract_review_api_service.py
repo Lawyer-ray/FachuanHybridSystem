@@ -269,7 +269,7 @@ class TestReviewService:
         mock_user = MagicMock()
         from apps.contract_review.services.exceptions import ContractReviewError
 
-        with pytest.raises(ContractReviewError, match="仅支持 .docx"):
+        with pytest.raises(ContractReviewError, match=r"仅支持 \.docx"):
             service.upload_contract(mock_file, mock_user)
 
     @patch("apps.contract_review.services.review.review_service.Document")
@@ -359,7 +359,8 @@ class TestReviewService:
         assert result == mock_task
 
     def test_get_result_file_success(self, service):
-        import tempfile, os
+        import tempfile
+        import os
         with tempfile.NamedTemporaryFile(suffix=".docx", delete=False) as f:
             f.write(b"test")
             tmp_path = f.name
