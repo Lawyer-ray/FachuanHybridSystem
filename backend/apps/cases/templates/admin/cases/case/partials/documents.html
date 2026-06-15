@@ -427,16 +427,16 @@
                         </div>
 
                         <div class="evidence-actions">
-                            <a href="{% url 'admin:documents_evidencelist_merge' evidence_list.pk %}"
+                            <a href="{% url 'admin:evidence_evidencelistproxy_merge' evidence_list.pk %}"
                                class="btn btn-sm btn-secondary">
                                 {% trans "合并PDF" %}
                             </a>
-                            <a href="{% url 'admin:documents_evidencelist_export_list' evidence_list.pk %}"
+                            <a href="{% url 'admin:evidence_evidencelistproxy_export_list' evidence_list.pk %}"
                                class="btn btn-sm btn-secondary">
                                 {% trans "导出清单" %}
                             </a>
                             {% if evidence_list.merged_pdf %}
-                            <a href="{% url 'admin:documents_evidencelist_download_pdf' evidence_list.pk %}"
+                            <a href="{% url 'admin:evidence_evidencelistproxy_download_pdf' evidence_list.pk %}"
                                class="btn btn-sm btn-primary">
                                 {% trans "下载PDF" %}
                             </a>
