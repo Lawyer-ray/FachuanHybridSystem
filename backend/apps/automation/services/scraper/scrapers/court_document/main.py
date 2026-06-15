@@ -98,6 +98,10 @@ class CourtDocumentScraper(BaseCourtDocumentScraper):  # pragma: no cover
             from .hbfy_scraper import HbfyCourtScraper
 
             return HbfyCourtScraper
+        if self._host_equals_or_subdomain(host, "sfsd.jxfy.gov.cn"):
+            from .jxfy_scraper import JxfyCourtScraper
+
+            return JxfyCourtScraper
         if self._host_equals_or_subdomain(host, "jysd.10102368.com"):
             self._ensure_playwright("简易送达")
             from .jysd_scraper import JysdCourtScraper
