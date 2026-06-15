@@ -35,7 +35,7 @@ class TestRun:
 
     def test_dispatches_to_account_mode(self):
         scraper = _make_scraper("http://dzsd.hbfy.gov.cn/sfsddz")
-        with patch.object(scraper, "_run_account_mode_http_first", return_value={"ok": True}):
+        with patch.object(scraper, "_run_account_mode", return_value={"ok": True}):
             result = scraper.run()
             assert result == {"ok": True}
 
@@ -177,12 +177,12 @@ class TestSafeFilename:
     def test_empty_fallback(self):
         scraper = _make_scraper()
         result = scraper._safe_filename("")
-        assert result.startswith("hbfy_")
+        assert result.startswith("dzsd_")
 
     def test_whitespace_only_fallback(self):
         scraper = _make_scraper()
         result = scraper._safe_filename("   ")
-        assert result.startswith("hbfy_")
+        assert result.startswith("dzsd_")
 
 
 # ======================================================================
@@ -631,7 +631,7 @@ class TestDownloadRecordDocument:
 
 
 # ======================================================================
-# _login_hbfy_account_session
+# _login_account_session
 # ======================================================================
 
 class TestLoginHbfyAccountSession:
@@ -660,7 +660,7 @@ class TestLoginHbfyAccountSession:
 
         with patch.object(scraper, "_encode_user_code", return_value="encoded"):
             with patch.object(scraper, "_encode_password", return_value="hashed"):
-                scraper._login_hbfy_account_session(session, "account", "password")
+                scraper._login_account_session(session, "account", "password")
 
         # 验证 recognize 被调用且传入了正确的图片数据
         scraper.captcha_recognizer.recognize.assert_called_with(b"captcha_img")
@@ -672,7 +672,7 @@ class TestLoginHbfyAccountSession:
         landing.status_code = 500
         session.get.return_value = landing
         with pytest.raises(ValueError, match="登录页"):
-            scraper._login_hbfy_account_session(session, "account", "password")
+            scraper._login_account_session(session, "account", "password")
 
     def test_captcha_check_fails_retries(self):
         scraper = _make_scraper()
@@ -692,7 +692,7 @@ class TestLoginHbfyAccountSession:
         session.post.side_effect = [check_fail] * 12
 
         with pytest.raises(ValueError, match="验证码"):
-            scraper._login_hbfy_account_session(session, "account", "password")
+            scraper._login_account_session(session, "account", "password")
 
         # recognize 应被调用 12 次
         assert scraper.captcha_recognizer.recognize.call_count == 12
@@ -725,7 +725,7 @@ class TestLoginHbfyAccountSession:
 
         with patch.object(scraper, "_encode_user_code", return_value="encoded"):
             with patch.object(scraper, "_encode_password", return_value="hashed"):
-                scraper._login_hbfy_account_session(session, "account", "password")
+                scraper._login_account_session(session, "account", "password")
 
         assert scraper.captcha_recognizer.recognize.call_count == 3
 
@@ -783,60 +783,60 @@ class TestRunPublicModeHttpFirst:
 
 
 # ======================================================================
-# _run_account_mode_http_first
+# _run_account_mode
 # ======================================================================
 
 class TestRunAccountModeHttpFirst:
     def test_success(self):
         scraper = _make_scraper("http://dzsd.hbfy.gov.cn/sfsddz", config={"hbfy_account": "u", "hbfy_password": "p"})
         with patch.object(scraper, "_prepare_download_dir", return_value=Path("/tmp")), \
-             patch.object(scraper, "_login_hbfy_account_session"), \
+             patch.object(scraper, "_login_account_session"), \
              patch.object(scraper, "_fetch_record_entries", return_value=[{"id": "D1", "title": "文书"}]), \
              patch.object(scraper, "_download_record_document", return_value="/tmp/doc.pdf"), \
              patch("requests.Session"):
-            result = scraper._run_account_mode_http_first()
+            result = scraper._run_account_mode(source_domain="dzsd.hbfy.gov.cn")
             assert result["downloaded_count"] == 1
             assert result["mode"] == "account_http"
 
     def test_no_entries_raises(self):
         scraper = _make_scraper("http://dzsd.hbfy.gov.cn/sfsddz", config={"hbfy_account": "u", "hbfy_password": "p"})
         with patch.object(scraper, "_prepare_download_dir", return_value=Path("/tmp")), \
-             patch.object(scraper, "_login_hbfy_account_session"), \
+             patch.object(scraper, "_login_account_session"), \
              patch.object(scraper, "_fetch_record_entries", return_value=[]), \
              patch("requests.Session"):
             with pytest.raises(ValueError, match="未发现可查阅文书"):
-                scraper._run_account_mode_http_first()
+                scraper._run_account_mode(source_domain="dzsd.hbfy.gov.cn")
 
     def test_dedup_entries(self):
         scraper = _make_scraper("http://dzsd.hbfy.gov.cn/sfsddz", config={"hbfy_account": "u", "hbfy_password": "p"})
         # Two lists return same ID
         entries = [{"id": "D1", "title": "文书"}, {"id": "D1", "title": "文书"}]
         with patch.object(scraper, "_prepare_download_dir", return_value=Path("/tmp")), \
-             patch.object(scraper, "_login_hbfy_account_session"), \
+             patch.object(scraper, "_login_account_session"), \
              patch.object(scraper, "_fetch_record_entries", return_value=entries), \
              patch.object(scraper, "_download_record_document", return_value="/tmp/doc.pdf"), \
              patch("requests.Session"):
-            result = scraper._run_account_mode_http_first()
+            result = scraper._run_account_mode(source_domain="dzsd.hbfy.gov.cn")
             assert result["document_count"] == 1
 
     def test_all_downloads_fail(self):
         scraper = _make_scraper("http://dzsd.hbfy.gov.cn/sfsddz", config={"hbfy_account": "u", "hbfy_password": "p"})
         with patch.object(scraper, "_prepare_download_dir", return_value=Path("/tmp")), \
-             patch.object(scraper, "_login_hbfy_account_session"), \
+             patch.object(scraper, "_login_account_session"), \
              patch.object(scraper, "_fetch_record_entries", return_value=[{"id": "D1", "title": "文书"}]), \
              patch.object(scraper, "_download_record_document", return_value=None), \
              patch("requests.Session"):
             with pytest.raises(ValueError, match="未下载成功"):
-                scraper._run_account_mode_http_first()
+                scraper._run_account_mode(source_domain="dzsd.hbfy.gov.cn")
 
     def test_partial_success(self):
         scraper = _make_scraper("http://dzsd.hbfy.gov.cn/sfsddz", config={"hbfy_account": "u", "hbfy_password": "p"})
         with patch.object(scraper, "_prepare_download_dir", return_value=Path("/tmp")), \
-             patch.object(scraper, "_login_hbfy_account_session"), \
+             patch.object(scraper, "_login_account_session"), \
              patch.object(scraper, "_fetch_record_entries", return_value=[{"id": "D1", "title": "A"}, {"id": "D2", "title": "B"}]), \
              patch.object(scraper, "_download_record_document", side_effect=["/tmp/a.pdf", Exception("fail")]), \
              patch("requests.Session"):
-            result = scraper._run_account_mode_http_first()
+            result = scraper._run_account_mode(source_domain="dzsd.hbfy.gov.cn")
             assert result["downloaded_count"] == 1
             assert result["failed_count"] == 1
 

@@ -618,6 +618,7 @@ class CourtSMSAdminBase(admin.ModelAdmin):  # pragma: no cover
                             "<span title='sd.gdems.com'>睿法智达</span>"
                             "<span title='jysd.10102368.com'>集约送达</span>"
                             "<span title='dzsd.hbfy.gov.cn'>湖北电子送达</span>"
+                            "<span title='sfsd.jxfy.gov.cn'>江西电子送达</span>"
                             "<span title='sfpt.cdfy12368.gov.cn'>司法送达网</span>"
                             "<span title='171.106.48.55:28083'>广西法院短信平台</span>"
                             "</div>"

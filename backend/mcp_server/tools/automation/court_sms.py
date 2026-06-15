@@ -55,7 +55,7 @@ def assign_sms_case(sms_id: int, case_id: int) -> dict[str, Any]:
 
 
 def retry_sms_processing(sms_id: int) -> dict[str, Any]:
-    """重新处理法院短信（重置状态并重新执行完整处理流程）。"""
+    """重新处理法院短信。已绑定案件的保留关联，仅重新执行下载/重命名/通知；未绑定的重新执行完整流程。"""
     return client.post(f"/automation/court-sms/{sms_id}/retry", json={})  # type: ignore[return-value]
 
 
