@@ -48,14 +48,14 @@ class TestFilenamePolicy:
         self.policy = FilenamePolicy(date_provider=_FixedDateProvider())
 
     def _make_inputs(self, **kwargs: object) -> FilenameInputs:
-        defaults = dict(
-            template_name="起诉状",
-            case_name="张三诉李四",
-            client_name="张三",
-            function_code=None,
-            mode=None,
-            our_party_count=1,
-        )
+        defaults = {
+            "template_name": "起诉状",
+            "case_name": "张三诉李四",
+            "client_name": "张三",
+            "function_code": None,
+            "mode": None,
+            "our_party_count": 1,
+        }
         defaults.update(kwargs)
         return FilenameInputs(**defaults)  # type: ignore[arg-type]
 

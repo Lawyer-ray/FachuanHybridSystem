@@ -123,7 +123,7 @@ _VALIDATION_ERROR: ValidationError | None = None
 
 
 def _get_validation_error() -> ValidationError:
-    global _VALIDATION_ERROR  # noqa: PLW0603
+    global _VALIDATION_ERROR
     if _VALIDATION_ERROR is None:
         from pydantic import BaseModel
 

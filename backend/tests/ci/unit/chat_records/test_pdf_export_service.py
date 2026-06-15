@@ -214,7 +214,7 @@ class TestBuildPdfBytes:
         shot = MagicMock()
         shot.title = ""
         shot.image = MagicMock()
-        shot.image.open.side_effect = IOError("cannot open")
+        shot.image.open.side_effect = OSError("cannot open")
 
         layout = MagicMock()
         layout.header_text = ""

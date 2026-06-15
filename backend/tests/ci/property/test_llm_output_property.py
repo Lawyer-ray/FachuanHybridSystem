@@ -17,8 +17,8 @@ from apps.core.llm.structured_output import clean_text, extract_json_text, parse
 @given(st.text(max_size=4096))
 def test_clean_text_removes_json_fences(text: str) -> None:
     result = clean_text(text)
-    assert "```json" not in result, f"```json found in cleaned output"
-    assert "```" not in result, f"``` found in cleaned output"
+    assert "```json" not in result, "```json found in cleaned output"
+    assert "```" not in result, "``` found in cleaned output"
 
 
 @settings(max_examples=200, deadline=None)

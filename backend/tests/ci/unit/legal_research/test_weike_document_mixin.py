@@ -44,7 +44,7 @@ def _make_mixin():
 
 def _make_session(**kwargs) -> WeikeSession:
     s = WeikeSession(
-        page=kwargs.get("page", None),
+        page=kwargs.get("page"),
         task_id=kwargs.get("task_id", "task-1"),
         restricted_until_epoch=kwargs.get("restricted_until_epoch", 0.0),
     )

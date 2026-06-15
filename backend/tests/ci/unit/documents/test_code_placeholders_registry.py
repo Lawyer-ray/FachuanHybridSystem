@@ -122,7 +122,7 @@ class TestExposePlaceholdersDecorator:
         def my_function():
             pass
 
-        defs = getattr(my_function, "__code_placeholder_definitions__")
+        defs = my_function.__code_placeholder_definitions__
         assert len(defs) == 2
         assert defs[0].key == "key1"
         assert defs[0].display_name == "Key One"
@@ -159,7 +159,7 @@ class TestExposePlaceholdersDecorator:
         def func():
             pass
 
-        defs = getattr(func, "__code_placeholder_definitions__")
+        defs = func.__code_placeholder_definitions__
         assert defs[0].key == "simple"
         assert defs[0].description == ""
 

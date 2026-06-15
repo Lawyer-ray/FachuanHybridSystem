@@ -98,8 +98,8 @@ def test_extract_gender_output_in_expected_set(prefix: str, suffix: str) -> None
 @given(st.text(max_size=100))
 def test_validate_id_card_always_has_required_keys(text: str) -> None:
     result = IdCardUtils.validate_id_card(text)
-    assert "valid" in result, f"Missing 'valid' key"
-    assert "message" in result, f"Missing 'message' key"
+    assert "valid" in result, "Missing 'valid' key"
+    assert "message" in result, "Missing 'message' key"
 
 
 @settings(max_examples=200, deadline=None)

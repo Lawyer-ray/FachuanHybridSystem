@@ -80,7 +80,7 @@ class TestFormatWithoutCases:
         contract = MagicMock()
         contract.contract_parties.all.side_effect = Exception("fail")
         result = svc._format_without_cases(contract)
-        assert "对方当事人名称：\n案由：\n审理机关：\n案件金额：" == result
+        assert result == "对方当事人名称：\n案由：\n审理机关：\n案件金额："
 
 
 class TestFormatWithCases:

@@ -561,7 +561,7 @@ class TestSubprocessRunner:
 
         runner = SubprocessRunner()
         with pytest.raises(ExternalServiceError, match="不安全"):
-            runner.popen(args=["echo"], shell=True)  # noqa: S604
+            runner.popen(args=["echo"], shell=True)
 
 
 # ============================================================
