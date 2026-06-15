@@ -159,6 +159,8 @@ omit = [
     "*/__pycache__/*",
     "*/.venv/*",
     "tests/*",
+    "*/management/commands/*",
+    "*/workflow/tests/*",
 ]
 
 [tool.coverage.report]
