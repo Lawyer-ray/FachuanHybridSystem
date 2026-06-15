@@ -2,7 +2,12 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any
+
+from apps.contracts.models import Contract
+
+logger = logging.getLogger("apps.contracts")
 
 # ---------------------------------------------------------------------------
 # prefetch 路径：调用方在遍历前应对此元组调用 queryset.prefetch_related()
@@ -16,6 +21,11 @@ CONTRACT_DETAILS_PREFETCHES: tuple[str, ...] = (
 
 
 class ContractDetailsAssembler:
+    @staticmethod
+    def get_contract_with_prefetches(contract_id: int) -> Contract:
+        """获取合同并预加载所有关联数据，避免 N+1 查询。"""
+        return Contract.objects.prefetch_related(*CONTRACT_DETAILS_PREFETCHES).get(id=contract_id)
+
     def to_dict(self, contract: Any) -> dict[str, Any]:
         contract_parties = []
         for party in contract.contract_parties.all():
