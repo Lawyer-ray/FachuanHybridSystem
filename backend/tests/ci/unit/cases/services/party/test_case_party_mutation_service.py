@@ -9,11 +9,6 @@ import pytest
 from apps.core.exceptions import ConflictError, NotFoundError, ValidationException
 
 
-@pytest.fixture(autouse=True)
-def _bypass_db_for_transaction():
-    """Bypass Django DB checks so @transaction.atomic methods work with mocked repos."""
-    with patch("django.db.backends.base.base.BaseDatabaseWrapper.ensure_connection"):
-        yield
 
 
 class TestCasePartyMutationServiceValidatePartyInContractScope:
@@ -123,6 +118,7 @@ class TestCasePartyMutationServiceValidateLegalStatusCompatibility:
         assert svc.validate_legal_status_compatibility(case_id=1, legal_status="plaintiff_side") is True
 
 
+@pytest.mark.django_db
 class TestCasePartyMutationServiceCreateParty:
     """create_party tests."""
 
@@ -188,6 +184,7 @@ class TestCasePartyMutationServiceCreateParty:
         repo.create_party.assert_called_once()
 
 
+@pytest.mark.django_db
 class TestCasePartyMutationServiceCreatePartyInternal:
     """create_party_internal tests."""
 
@@ -226,6 +223,7 @@ class TestCasePartyMutationServiceCreatePartyInternal:
         repo.create_party.assert_called_once()
 
 
+@pytest.mark.django_db
 class TestCasePartyMutationServiceDeleteParty:
     """delete_party tests."""
 

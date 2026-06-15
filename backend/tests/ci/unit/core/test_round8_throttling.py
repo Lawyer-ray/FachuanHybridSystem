@@ -175,7 +175,8 @@ class TestRateLimitDecorator:
         with pytest.raises(RateLimitError):
             my_view(request)
 
-    def test_async_allowed(self):
+    @pytest.mark.asyncio
+    async def test_async_allowed(self):
         import asyncio
         from apps.core.infrastructure.throttling import rate_limit
 
@@ -190,7 +191,8 @@ class TestRateLimitDecorator:
         result = asyncio.get_event_loop().run_until_complete(my_view(request))
         assert result == "ok"
 
-    def test_async_blocked(self):
+    @pytest.mark.asyncio
+    async def test_async_blocked(self):
         import asyncio
         from apps.core.infrastructure.throttling import rate_limit
 

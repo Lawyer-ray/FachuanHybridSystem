@@ -10,11 +10,6 @@ from apps.core.exceptions import NotFoundError, ValidationException
 from apps.core.models.enums import CaseType
 
 
-@pytest.fixture(autouse=True)
-def _bypass_db_for_transaction():
-    """Bypass Django DB checks so @transaction.atomic methods work with mocked repos."""
-    with patch("django.db.backends.base.base.BaseDatabaseWrapper.ensure_connection"):
-        yield
 
 
 class TestContractAdminMutationServiceInit:
@@ -132,6 +127,7 @@ class TestContractAdminMutationServiceCaseAllowedTypes:
         assert CaseType.INTL in ContractAdminMutationService.CASE_ALLOWED_TYPES
 
 
+@pytest.mark.django_db
 class TestContractAdminMutationServiceDuplicateContract:
     """duplicate_contract tests."""
 
@@ -181,6 +177,7 @@ class TestContractAdminMutationServiceDuplicateContract:
             )
 
 
+@pytest.mark.django_db
 class TestContractAdminMutationServiceCreateCaseFromContract:
     """create_case_from_contract tests."""
 
@@ -264,6 +261,7 @@ class TestContractAdminMutationServiceGenerateAdvisorContractName:
         assert "甲公司" in result
 
 
+@pytest.mark.django_db
 class TestContractAdminMutationServiceHandleContractFilingChange:
     """handle_contract_filing_change tests."""
 
