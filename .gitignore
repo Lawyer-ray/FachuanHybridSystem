@@ -179,6 +179,47 @@ backend/cookies/
 backend/data/
 
 # Document templates
+backend/court_templates/
+backend/court_templates_*/
+court_templates/
+backend/court_collection.log
+
+# 法院模板收集一次性脚本（本地运行，不入库）
+/PRACTICAL_PLAN.md
+/coverage.json
+/backend/collect_templates.py
+/backend/court_collection_standalone.py
+/backend/court_search_demo.py
+/backend/court_template_claude_analysis.py
+/backend/download_court_templates.py
+/backend/download_court.py
+/backend/download_all_courts.py
+/backend/download_with_cloak.py
+/backend/direct_access_courts.py
+/backend/direct_cloak_download.py
+/backend/real_court_downloader.py
+/backend/simple_court_search.py
+/backend/test_court_search.py
+/backend/visual_search.py
+/backend/google_search.py
+/backend/claude_analysis_demo.py
+/backend/start_download.py
+/backend/full_batch.py
+/backend/batch_download.py
+/backend/continue_guangdong.py
+/backend/batch3_guangdong.py
+/backend/batch4_guangdong.py
+/backend/batch5_guangdong.py
+/backend/batch6_guangdong.py
+/backend/batch7_other_provinces.py
+/backend/batch8_more_guangdong.py
+/backend/batch9_other_courts.py
+/backend/full_guangdong.py
+/backend/guangdong_courts.py
+/backend/zhejiang_courts.py
+backend/apps/core/management/commands/collect_court_templates.py
+backend/apps/core/management/commands/test_court_template_collection.py
+backend/tests/unit/
 
 *.mo
 .dmypy.json
