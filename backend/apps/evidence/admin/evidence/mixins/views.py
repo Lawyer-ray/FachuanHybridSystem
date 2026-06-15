@@ -224,14 +224,14 @@ class EvidenceListAdminViewsMixin(EvidenceListAdminServiceMixin):  # pragma: no 
                 if is_ajax:
                     return JsonResponse({"success": False, "error": "正在合并中,请稍候..."})
                 messages.warning(request, "正在合并中,请稍候...")
-                return redirect("admin:documents_evidencelist_change", pk)
+                return redirect("admin:evidence_evidencelistproxy_change", pk)
 
             items_with_files = evidence_list.items.filter(file__isnull=False).exclude(file="")
             if not items_with_files.exists():
                 if is_ajax:
                     return JsonResponse({"success": False, "error": "证据清单没有任何文件,无法合并"})
                 messages.error(request, "证据清单没有任何文件,无法合并")
-                return redirect("admin:documents_evidencelist_change", pk)
+                return redirect("admin:evidence_evidencelistproxy_change", pk)
 
             from apps.core.interfaces import ServiceLocator
             from apps.core.tasking import TaskContext
@@ -280,7 +280,7 @@ class EvidenceListAdminViewsMixin(EvidenceListAdminServiceMixin):  # pragma: no 
                 return JsonResponse({"success": False, "error": f"提交合并任务失败: {e!s}"})
             messages.error(request, "提交合并任务失败: %(e)s" % {"e": e})
 
-        return redirect("admin:documents_evidencelist_change", pk)
+        return redirect("admin:evidence_evidencelistproxy_change", pk)
 
     def merge_status_view(self, request: Any, pk: int) -> Any:  # pragma: no cover
         from django.http import JsonResponse
@@ -403,7 +403,7 @@ class EvidenceListAdminViewsMixin(EvidenceListAdminServiceMixin):  # pragma: no 
             logger.exception("EvidenceList recount_pages 失败", extra={"evidence_list_id": pk, "error": str(e)})
             messages.error(request, "识别页数失败: %(e)s" % {"e": e})
 
-        return redirect("admin:documents_evidencelist_changelist")
+        return redirect("admin:evidence_evidencelistproxy_changelist")
 
 
 __all__: list[str] = ["EvidenceListAdminServiceMixin", "EvidenceListAdminViewsMixin"]
