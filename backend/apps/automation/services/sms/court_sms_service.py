@@ -296,29 +296,47 @@ class CourtSMSService(SMSCaseBindingMixin, SMSDocumentMixin, SMSDownloadMixin):
         logger.info(f"已将 {len(renamed_files)} 个已有文书重新绑定到新案件日志: SMS ID={sms.id}")
 
     def retry_processing(self, sms_id: int) -> CourtSMS:  # pragma: no cover
-        """重新处理短信"""
+        """重新处理短信
+
+        如果已手动绑定案件，保留关联，仅重新执行下载/重命名/通知流程。
+        否则重置全部状态，重新执行完整处理流程（含匹配）。
+        """
         try:
             sms = CourtSMS.objects.get(id=sms_id)
         except CourtSMS.DoesNotExist as e:
             raise NotFoundError(f"短信记录不存在: ID={sms_id}") from e
 
         try:
+            has_manual_case = sms.case_id is not None
+
             sms.status = CourtSMSStatus.PENDING
             sms.error_message = None
             sms.retry_count += 1
             sms.scraper_task = None
-            sms.case = None
-            sms.case_log = None
             sms.notification_results = None
+            if has_manual_case:
+                # 保留手动绑定的案件关联，仅清除 case_log（由后续流程重新创建）
+                sms.case_log = None
+            else:
+                sms.case = None
+                sms.case_log = None
             sms.save()
 
-            logger.info(f"重置短信状态成功: SMS ID={sms_id}, 重试次数={sms.retry_count}")
+            logger.info(f"重置短信状态成功: SMS ID={sms_id}, 重试次数={sms.retry_count}, 保留案件关联={has_manual_case}")
 
-            task_id = submit_task(
-                "apps.automation.services.sms.court_sms_service.process_sms_async",
-                sms.id,
-                task_name=f"court_sms_retry_{sms.id}_{sms.retry_count}",
-            )
+            if has_manual_case:
+                # 已有案件，跳过匹配，从重命名阶段开始
+                task_id = submit_task(
+                    "apps.automation.services.sms.court_sms_service.process_sms_from_renaming",
+                    sms.id,
+                    task_name=f"court_sms_retry_{sms.id}_{sms.retry_count}",
+                )
+            else:
+                task_id = submit_task(
+                    "apps.automation.services.sms.court_sms_service.process_sms_async",
+                    sms.id,
+                    task_name=f"court_sms_retry_{sms.id}_{sms.retry_count}",
+                )
 
             logger.info(f"重新提交处理任务: SMS ID={sms.id}, Task ID={task_id}")
 

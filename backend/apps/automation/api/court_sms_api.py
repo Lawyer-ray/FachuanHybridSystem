@@ -150,7 +150,8 @@ def retry_processing(request: Any, sms_id: int) -> CourtSMSSubmitOut:  # pragma:
     """
     重新处理短信
 
-    重置状态并重新执行完整处理流程
+    如果短信已手动绑定案件，保留关联，仅重新执行下载/重命名/通知流程。
+    否则重置全部状态，重新执行完整处理流程（含匹配）。
     """
     service = _get_court_sms_service()
 

@@ -121,7 +121,7 @@ class TestHbfySafeFilename:
     def test_empty_fallback(self):
         scraper = self._make_scraper()
         result = scraper._safe_filename("")
-        assert result.startswith("hbfy_")
+        assert result.startswith("dzsd_")
 
 
 class TestHbfyEncodeUserCode:
