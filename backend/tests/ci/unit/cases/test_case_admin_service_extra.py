@@ -1,4 +1,3 @@
-pytestmark = pytest.mark.skip(reason='CI isolation issue - needs fix')
 
 """Tests for cases/services/case/case_admin_service.py — additional coverage."""
 
@@ -9,6 +8,8 @@ from unittest.mock import MagicMock, PropertyMock, patch, call
 import pytest
 
 from apps.cases.services.case.case_admin_service import (
+
+pytestmark = pytest.mark.skip(reason='CI isolation issue - needs fix')
     CaseAdminService,
     MaterialViewPayload,
 )

@@ -108,25 +108,19 @@ class CaseCommonPlaceholderService(BasePlaceholderService):
         if not case:
             return dict.fromkeys(self.placeholder_keys, "")
 
-        # Prefetch parties once to avoid repeated DB queries in helpers
-        try:
-            parties_cache: list[Any] = list(case.parties.select_related("client").all().order_by("id"))
-        except Exception:
-            parties_cache = []
-
-        our_party_names = self._get_party_names_from_list(parties_cache, is_our_client=True)
+        our_party_names = self._get_party_names(case, is_our_client=True)
         return {
             "案件审理机构": self._get_trial_authorities(case),
             "案件委托人名称": our_party_names,
             "案件我方当事人名称": our_party_names,
-            "案件我方当事人ID": self._get_party_values_from_list(parties_cache, is_our_client=True, field_name="id_number"),
-            "案件我方当事人电话": self._get_party_values_from_list(parties_cache, is_our_client=True, field_name="phone"),
-            "案件我方当事人地址": self._get_our_party_addresses_from_list(parties_cache),
-            "我方当事人签名盖章信息": self._get_our_party_signature_info(case, parties_cache),
+            "案件我方当事人ID": self._get_party_values(case, is_our_client=True, field_name="id_number"),
+            "案件我方当事人电话": self._get_party_values(case, is_our_client=True, field_name="phone"),
+            "案件我方当事人地址": self._get_our_party_addresses(case),
+            "我方当事人签名盖章信息": self._get_our_party_signature_info(case),
             "律师签名信息": self._get_lawyer_signature_info(case),
             "案件律师姓名": self._get_lawyer_names(case),
-            "案件对方当事人名称": self._get_party_names_from_list(parties_cache, is_our_client=False),
-            "案件对方当事人信息": self._get_opposing_party_info(case, parties_cache),
+            "案件对方当事人名称": self._get_party_names(case, is_our_client=False),
+            "案件对方当事人信息": self._get_opposing_party_info(case),
             "案件案由": self._format_cause_of_action(getattr(case, "cause_of_action", None)),
             "案件当前阶段": self._get_case_stage(case),
         }
@@ -152,17 +146,15 @@ class CaseCommonPlaceholderService(BasePlaceholderService):
         return "、".join(names)
 
     def _get_party_names(self, case: Any, *, is_our_client: bool) -> str:
+        parties: list[Any]
         try:
             parties = list(case.parties.select_related("client").all().order_by("id"))
         except Exception:
             logger.exception("操作失败")
             parties = []
-        return self._get_party_names_from_list(parties, is_our_client=is_our_client)
 
-    @staticmethod
-    def _get_party_names_from_list(parties: list[Any], *, is_our_client: bool) -> str:
         names: list[str] = []
-        seen: set[str] = set()
+        seen = set()
         for party in parties:
             client = getattr(party, "client", None)
             if not client:
@@ -177,17 +169,13 @@ class CaseCommonPlaceholderService(BasePlaceholderService):
         return "、".join(names)
 
     def _get_party_values(self, case: Any, *, is_our_client: bool, field_name: str) -> str:
+        parties: list[Any]
         try:
             parties = list(case.parties.select_related("client").all().order_by("id"))
         except Exception:
             logger.exception("操作失败")
             parties = []
-        return self._get_party_values_from_list(parties, is_our_client=is_our_client, field_name=field_name)
 
-    @staticmethod
-    def _get_party_values_from_list(
-        parties: list[Any], *, is_our_client: bool, field_name: str
-    ) -> str:
         values: list[str] = []
         seen: set[str] = set()
         for party in parties:
@@ -204,15 +192,13 @@ class CaseCommonPlaceholderService(BasePlaceholderService):
         return "、".join(values)
 
     def _get_our_party_addresses(self, case: Any) -> str:
+        parties: list[Any]
         try:
             parties = list(case.parties.select_related("client").all().order_by("id"))
         except Exception:
             logger.exception("操作失败")
             parties = []
-        return self._get_our_party_addresses_from_list(parties)
 
-    @staticmethod
-    def _get_our_party_addresses_from_list(parties: list[Any]) -> str:
         parts: list[str] = []
         seen: set[str] = set()
         for party in parties:
@@ -230,17 +216,17 @@ class CaseCommonPlaceholderService(BasePlaceholderService):
             return ""
         return f"{'；'.join(parts)}。"
 
-    def _get_our_party_signature_info(self, case: Any, parties_cache: list[Any] | None = None) -> str:
-        if parties_cache is None:
-            try:
-                parties_cache = list(case.parties.select_related("client").all().order_by("id"))
-            except Exception:
-                logger.exception("操作失败")
-                parties_cache = []
+    def _get_our_party_signature_info(self, case: Any) -> str:
+        parties: list[Any]
+        try:
+            parties = list(case.parties.select_related("client").all().order_by("id"))
+        except Exception:
+            logger.exception("操作失败")
+            parties = []
 
         our_parties: list[Any] = []
         seen: set[str] = set()
-        for party in parties_cache:
+        for party in parties:
             client = getattr(party, "client", None)
             if not client or not bool(getattr(client, "is_our_client", False)):
                 continue
@@ -314,17 +300,17 @@ class CaseCommonPlaceholderService(BasePlaceholderService):
 
         return f"{role_label}（盖章）：{name}\n法定代表人（签名）：{legal_representative}\n日期：{date_str}"
 
-    def _get_opposing_party_info(self, case: Any, parties_cache: list[Any] | None = None) -> str:
-        if parties_cache is None:
-            try:
-                parties_cache = list(case.parties.select_related("client").all().order_by("id"))
-            except Exception:
-                logger.exception("操作失败")
-                parties_cache = []
+    def _get_opposing_party_info(self, case: Any) -> str:
+        parties: list[Any]
+        try:
+            parties = list(case.parties.select_related("client").all().order_by("id"))
+        except Exception:
+            logger.exception("操作失败")
+            parties = []
 
         opposing_parties: list[Any] = []
         seen: set[str] = set()
-        for party in parties_cache:
+        for party in parties:
             client = getattr(party, "client", None)
             if not client or bool(getattr(client, "is_our_client", False)):
                 continue

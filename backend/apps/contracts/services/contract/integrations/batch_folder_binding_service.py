@@ -298,11 +298,10 @@ class ContractBatchFolderBindingService:
         rows: list[dict[str, Any]] = []
         auto_selected_count = 0
         for contract in contracts:
-            cases_qs = contract.cases.all()
-            case_names = [str(case.name or "").strip() for case in cases_qs if str(case.name or "").strip()]
+            case_names = [str(case.name or "").strip() for case in contract.cases.all() if str(case.name or "").strip()]
             case_filing_numbers = [
                 str(case.filing_number or "").strip()
-                for case in cases_qs
+                for case in contract.cases.all()
                 if str(case.filing_number or "").strip()
             ]
             recommend = self._recommend_folder(

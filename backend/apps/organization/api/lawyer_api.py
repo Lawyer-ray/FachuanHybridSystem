@@ -5,8 +5,6 @@
 
 from __future__ import annotations
 
-from typing import cast
-
 from django.http import HttpRequest
 from ninja import File, Router
 from ninja.files import UploadedFile
@@ -35,12 +33,12 @@ def list_lawyers(  # pragma: no cover
     law_firm_id: int | None = None,
 ) -> list[LawyerOut]:
     filters = LawyerListFiltersDTO(search=search, law_firm_id=law_firm_id)
-    return cast(list[LawyerOut], list(_lawyer_service.list_lawyers(filters=filters, user=get_request_user(request))))
+    return list(_lawyer_service.list_lawyers(filters=filters, user=get_request_user(request)))
 
 
 @router.get("/lawyers/{lawyer_id}", response=LawyerOut)
 def get_lawyer(request: HttpRequest, lawyer_id: int) -> LawyerOut:  # pragma: no cover
-    return cast(LawyerOut, _lawyer_service.get_lawyer(lawyer_id, get_request_user(request)))
+    return _lawyer_service.get_lawyer(lawyer_id, get_request_user(request))
 
 
 @router.post("/lawyers", response=LawyerOut)
@@ -62,9 +60,9 @@ def create_lawyer(  # pragma: no cover
         lawyer_team_ids=payload.lawyer_team_ids,
         biz_team_ids=payload.biz_team_ids,
     )
-    return cast(LawyerOut, _lawyer_service.create_lawyer(
+    return _lawyer_service.create_lawyer(
         data=dto, user=get_request_user(request), license_pdf=license_pdf, avatar=avatar
-    ))
+    )
 
 
 @router.put("/lawyers/{lawyer_id}", response=LawyerOut)
@@ -86,13 +84,13 @@ def update_lawyer(  # pragma: no cover
         lawyer_team_ids=payload.lawyer_team_ids,
         biz_team_ids=payload.biz_team_ids,
     )
-    return cast(LawyerOut, _lawyer_service.update_lawyer(
+    return _lawyer_service.update_lawyer(
         lawyer_id=lawyer_id,
         data=dto,
         user=get_request_user(request),
         license_pdf=license_pdf,
         avatar=avatar,
-    ))
+    )
 
 
 @router.delete("/lawyers/{lawyer_id}")

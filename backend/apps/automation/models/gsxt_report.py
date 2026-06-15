@@ -53,10 +53,6 @@ class GsxtReportTask(models.Model):
         verbose_name = "企业信用报告任务"
         verbose_name_plural = "企业信用报告任务"
         ordering: ClassVar = ["-created_at"]
-        indexes = [
-            models.Index(fields=["client"]),
-            models.Index(fields=["status", "-created_at"]),
-        ]
 
     def __str__(self) -> str:
         return ""

@@ -52,7 +52,6 @@ class LegalResearchTaskAdmin(admin.ModelAdmin):  # pragma: no cover
         "matched_count",
         "created_at",
     ]
-    list_select_related: ClassVar[tuple[str, ...]] = ("credential",)
     list_filter: ClassVar[list[str]] = ["status", "llm_backend", "created_at"]
     search_fields: ClassVar[tuple[str, ...]] = (
         "id",
@@ -506,15 +505,9 @@ class LegalResearchTaskAdmin(admin.ModelAdmin):  # pragma: no cover
             all_url,
         )
 
-    def _get_cached_private_api_events(self, obj: LegalResearchTask) -> list[LegalResearchTaskEvent]:  # pragma: no cover
-        cache_attr = "_cached_private_api_events"
-        if not hasattr(obj, cache_attr):
-            setattr(obj, cache_attr, self._get_private_api_events(obj=obj))
-        return getattr(obj, cache_attr)
-
     @admin.display(description="API阶段指标")
     def private_api_stage_metrics(self, obj: LegalResearchTask) -> str:  # pragma: no cover
-        events = self._get_cached_private_api_events(obj=obj)
+        events = self._get_private_api_events(obj=obj)
         if not events:
             return "—"
 
@@ -587,7 +580,7 @@ class LegalResearchTaskAdmin(admin.ModelAdmin):  # pragma: no cover
 
     @admin.display(description="流程时间线")
     def private_api_event_timeline(self, obj: LegalResearchTask) -> str:  # pragma: no cover
-        events = self._get_cached_private_api_events(obj=obj)
+        events = self._get_private_api_events(obj=obj)
         if not events:
             return "—"
 
@@ -608,7 +601,7 @@ class LegalResearchTaskAdmin(admin.ModelAdmin):  # pragma: no cover
 
     @admin.display(description="接口返回可视化")
     def private_api_event_panel(self, obj: LegalResearchTask) -> str:  # pragma: no cover
-        events = self._get_cached_private_api_events(obj=obj)
+        events = self._get_private_api_events(obj=obj)
         if not events:
             return "—"
 

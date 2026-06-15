@@ -203,7 +203,7 @@ class CaseImportService:
                     # 已存在，获取客户名称
                     customer_names: list[str] = []
                     for contract in existing_contracts:
-                        for cp in contract.contract_parties.all():
+                        for cp in contract.contract_parties.select_related("client").all():
                             if cp.client:
                                 customer_names.append(cp.client.name)
 

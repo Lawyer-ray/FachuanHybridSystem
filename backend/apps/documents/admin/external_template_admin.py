@@ -76,13 +76,13 @@ class ExternalTemplateFieldMappingInline(admin.TabularInline):  # pragma: no cov
 
     model = ExternalTemplateFieldMapping
     extra: int = 0
-    fields: tuple[str, ...] = (  # type: ignore[misc]
+    fields: tuple[str, ...] = (
         "sort_order",
         "position_description",
         "semantic_label",
         "fill_type",
     )
-    readonly_fields: tuple[str, ...] = (  # type: ignore[misc]
+    readonly_fields: tuple[str, ...] = (
         "position_description",
         "semantic_label",
         "fill_type",
@@ -98,9 +98,9 @@ class ExternalTemplateAdmin(admin.ModelAdmin):  # pragma: no cover
     通过工厂函数获取 Service, 不直接实例化.
     """
 
-    change_form_template: str = "admin/documents/external_template/change_form.html"  # type: ignore[misc]
+    change_form_template: str = "admin/documents/external_template/change_form.html"
 
-    list_display: ClassVar[list[str]] = [  # type: ignore[misc,assignment]
+    list_display: ClassVar[list[str]] = [
         "name",
         "source_name",
         "status",
@@ -108,7 +108,7 @@ class ExternalTemplateAdmin(admin.ModelAdmin):  # pragma: no cover
         "is_active",
         "updated_at",
     ]
-    list_filter: ClassVar[list[str]] = [  # type: ignore[assignment]
+    list_filter: ClassVar[list[str]] = [
         "status",
         "is_active",
     ]
@@ -116,7 +116,7 @@ class ExternalTemplateAdmin(admin.ModelAdmin):  # pragma: no cover
         "name",
         "source_name",
     ]
-    inlines: ClassVar[list[type[admin.TabularInline]]] = [  # type: ignore[assignment]
+    inlines: ClassVar[list[type[admin.TabularInline]]] = [
         ExternalTemplateFieldMappingInline,
     ]
 

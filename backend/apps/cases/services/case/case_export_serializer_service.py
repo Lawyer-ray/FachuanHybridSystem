@@ -12,20 +12,6 @@ if TYPE_CHECKING:
 ReminderPayload = dict[str, object]
 SerializedPayload = dict[str, object]
 
-# ---------------------------------------------------------------------------
-# prefetch 路径：调用方在遍历前应对此元组调用 queryset.prefetch_related()
-# ---------------------------------------------------------------------------
-CASE_EXPORT_PREFETCHES: tuple[str, ...] = (
-    "parties__client__identity_docs",
-    "parties__client__property_clues__attachments",
-    "assignments__lawyer",
-    "supervising_authorities",
-    "case_numbers",
-    "chats",
-    "logs__actor",
-    "logs__attachments",
-)
-
 
 def _serialize_client(client: Client) -> SerializedPayload:
     from apps.client.services.client_export_serializer_service import serialize_client_obj

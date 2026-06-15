@@ -77,7 +77,7 @@ class SolutionTaskAdmin(admin.ModelAdmin):  # pragma: no cover
         "regenerate_html_button",
     ]
 
-    def get_fields(self, request: HttpRequest, obj: SolutionTask | None = None) -> list[str]:  # type: ignore[override]  # pragma: no cover
+    def get_fields(self, request: HttpRequest, obj: SolutionTask | None = None) -> list[str]:  # pragma: no cover
         if obj is None:
             return list(self.add_fields)
         return [
@@ -106,7 +106,7 @@ class SolutionTaskAdmin(admin.ModelAdmin):  # pragma: no cover
             return []
         return list(self.readonly_fields) + ["case_summary", "credential"]
 
-    def get_form(self, request: HttpRequest, obj: SolutionTask | None = None, **kwargs: Any) -> type[forms.ModelForm]:  # type: ignore[override]  # pragma: no cover
+    def get_form(self, request: HttpRequest, obj: SolutionTask | None = None, **kwargs: Any) -> type[forms.ModelForm]:  # pragma: no cover
         form = super().get_form(request, obj, **kwargs)
         if obj is not None:
             return form
@@ -117,10 +117,10 @@ class SolutionTaskAdmin(admin.ModelAdmin):  # pragma: no cover
             from apps.legal_solution.models.task import SolutionTask as _T
 
             cred_model = _T._meta.get_field("credential").remote_field.model
-            qs = cred_model.objects.filter(WEIKE_FILTER)  # type: ignore[attr-defined]
+            qs = cred_model.objects.filter(WEIKE_FILTER)
             if not request.user.is_superuser:
                 qs = qs.filter(lawyer__law_firm_id=getattr(request.user, "law_firm_id", None))
-            cred_field.queryset = qs  # type: ignore[attr-defined]
+            cred_field.queryset = qs
             if qs.count() == 1:
                 cred_field.initial = qs.first().id
                 cred_field.widget = forms.HiddenInput()
@@ -284,7 +284,7 @@ class SolutionTaskAdmin(admin.ModelAdmin):  # pragma: no cover
         # 新建：设置创建人
         is_lawyer = getattr(getattr(request.user, "_meta", None), "label_lower", "") == "organization.lawyer"
         if is_lawyer and getattr(request.user, "id", None):
-            obj.created_by_id = int(request.user.id)  # type: ignore[arg-type]
+            obj.created_by_id = int(request.user.id)
 
         super().save_model(request, obj, form, change)
 

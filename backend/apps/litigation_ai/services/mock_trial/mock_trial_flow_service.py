@@ -609,13 +609,13 @@ class MockTrialFlowService:
         from apps.litigation_ai.services.evidence.evidence_digest_service import EvidenceDigestService
         from apps.litigation_ai.services.session.context_service import LitigationContextService
 
-        raw = await sync_to_async(LitigationContextService.get_evidence_list_for_agent, thread_sensitive=True)(case_id)  # type: ignore[call-arg, arg-type]
+        raw = await sync_to_async(LitigationContextService.get_evidence_list_for_agent, thread_sensitive=True)(case_id)
         if not raw:
             return ""
         list_ids = [e.get("list_id") for e in raw if e.get("list_id")]
         if not list_ids:
             return "\n".join([f"- {e.get('name', '未命名')}: {e.get('description', '')}" for e in raw])
-        result = await sync_to_async(EvidenceDigestService().build_evidence_text, thread_sensitive=True)(  # type: ignore[call-arg]
+        result = await sync_to_async(EvidenceDigestService().build_evidence_text, thread_sensitive=True)(
             list_ids=list_ids, item_ids=[]
         )
         return result

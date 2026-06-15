@@ -72,7 +72,7 @@ class BeneficiaryIdService(BasePlaceholderService):
         """
         try:
             # 获取所有合同当事人
-            contract_parties = contract.contract_parties.all()
+            contract_parties = contract.contract_parties.select_related("client").all()
 
             # 使用字符串常量代替直接导入 PartyRole 枚举
             # Requirements: 3.2

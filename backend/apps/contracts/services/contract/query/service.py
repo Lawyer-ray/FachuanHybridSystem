@@ -108,12 +108,13 @@ class ContractQueryService:
         return contract
 
     def get_contract_with_details_model_internal(self, contract_id: int) -> Any:
-        from ..assemblers.contract_details_assembler import CONTRACT_DETAILS_PREFETCHES
-
         try:
             return Contract.objects.prefetch_related(
-                *CONTRACT_DETAILS_PREFETCHES,
-                # 额外预取 assembler 未用但通用查询常用的关联
+                "contract_parties__client",
+                "assignments__lawyer",
+                "assignments__lawyer__law_firm",
+                "cases__parties__client",
+                "cases__supervising_authorities",
                 "payments__invoices",
                 "finalized_materials",
                 "client_payment_records",

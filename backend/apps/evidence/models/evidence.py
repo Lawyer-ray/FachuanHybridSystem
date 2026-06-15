@@ -414,9 +414,6 @@ class EvidenceItem(models.Model):
         verbose_name_plural = "证据明细"
         indexes: ClassVar = [
             models.Index(fields=["evidence_list", "order"]),
-            models.Index(fields=["direction"]),
-            models.Index(fields=["evidence_type"]),
-            models.Index(fields=["original_status"]),
         ]
 
     def __str__(self) -> str:

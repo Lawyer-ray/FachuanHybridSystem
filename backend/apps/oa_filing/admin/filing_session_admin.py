@@ -15,7 +15,6 @@ class FilingSessionAdmin(admin.ModelAdmin):  # pragma: no cover
         "status",
         "created_at",
     ]
-    list_select_related = ("contract", "case", "oa_config", "user")
     list_filter = ["status", "oa_config"]
     search_fields = ["contract__name", "case__case_name"]
     readonly_fields = [

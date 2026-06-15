@@ -124,7 +124,6 @@ class CourtSMS(models.Model):
             models.Index(fields=["status", "-received_at"]),
             models.Index(fields=["sms_type"]),
             models.Index(fields=["case"]),
-            models.Index(fields=["status", "created_at"]),
         ]
         constraints: ClassVar = [
             models.UniqueConstraint(

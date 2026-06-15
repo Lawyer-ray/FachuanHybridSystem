@@ -23,8 +23,6 @@ class ContractAssignmentAdmin(admin.ModelAdmin):  # pragma: no cover
         "order",
     )
 
-    list_select_related = ("contract", "lawyer")
-
     list_filter = ("is_primary",)
 
     search_fields = (

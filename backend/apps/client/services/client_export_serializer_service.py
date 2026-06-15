@@ -4,24 +4,12 @@ from __future__ import annotations
 
 from typing import Any
 
-# ---------------------------------------------------------------------------
-# prefetch 路径：调用方在遍历前应对此元组调用 queryset.prefetch_related()
-# ---------------------------------------------------------------------------
-CLIENT_EXPORT_PREFETCHES: tuple[str, ...] = (
-    "identity_docs",
-    "property_clues__attachments",
-)
-
 
 class ClientExportSerializerService:
     """Service facade for client export serialization."""
 
     def serialize_client_obj(self, obj: Any) -> dict[str, Any]:
         return serialize_client_obj(obj)
-
-
-# 便捷别名：外部模块可直接 from ... import CLIENT_EXPORT_PREFETCHES
-__all__ = ["CLIENT_EXPORT_PREFETCHES", "ClientExportSerializerService", "serialize_client_obj"]
 
 
 def serialize_client_obj(obj: Any) -> dict[str, Any]:  # pragma: no cover

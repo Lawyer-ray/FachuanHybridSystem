@@ -90,7 +90,7 @@ class DocumentTemplateAdminService:
         Returns:
             验证结果字典,包含 is_valid, error, cleaned_data
         """
-        result: dict[str, Any] = {
+        result = {
             "is_valid": True,
             "error": None,
             "cleaned_data": {"existing_file": existing_file, "file": uploaded_file, "file_path": file_path},
@@ -109,11 +109,10 @@ class DocumentTemplateAdminService:
             result["is_valid"] = False
             result["error"] = "只能选择一种文件来源:从模板库选择、上传新文件、或手动输入路径"
             return result
-        cleaned: dict[str, Any] = result["cleaned_data"]
         if existing_file:
-            cleaned["file_path"] = existing_file
-            cleaned["file"] = None
-            cleaned["existing_file"] = ""
+            result["cleaned_data"]["file_path"] = existing_file
+            result["cleaned_data"]["file"] = None
+            result["cleaned_data"]["existing_file"] = ""
         has_file_source = bool(existing_file) or bool(uploaded_file) or bool(file_path and file_path.strip())
         has_existing_file = is_editing and (instance.file or instance.file_path)
         if not has_file_source and (not has_existing_file):
@@ -144,7 +143,7 @@ class DocumentTemplateAdminService:
         Returns:
             验证结果字典
         """
-        result: dict[str, Any] = {
+        result = {
             "is_valid": True,
             "errors": {},
             "contract_sub_type": contract_sub_type,
@@ -421,7 +420,7 @@ class DocumentTemplateAdminService:
         Returns:
             实际启用的数量
         """
-        return int(queryset.filter(is_active=False).update(is_active=True))
+        return queryset.filter(is_active=False).update(is_active=True)
 
     def batch_deactivate(self, queryset: Any) -> int:
         """
@@ -433,4 +432,4 @@ class DocumentTemplateAdminService:
         Returns:
             实际禁用的数量
         """
-        return int(queryset.filter(is_active=True).update(is_active=False))
+        return queryset.filter(is_active=True).update(is_active=False)

@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 
 @admin.register(EvidenceListProxy)
-class EvidenceListAdmin(  # type: ignore[misc]
+class EvidenceListAdmin(
     HearingModeAdminMixin,
     EvidenceListAdminViewsMixin,
     EvidenceListAdminActionsMixin,
@@ -44,12 +44,12 @@ class EvidenceListAdmin(  # type: ignore[misc]
         "updated_at",
     )
 
-    list_filter: tuple[Any, ...] = ("case", "list_type")  # type: ignore[misc]
-    search_fields: tuple[Any, ...] = ("title", "case__name")  # type: ignore[misc]
+    list_filter: tuple[Any, ...] = ("case", "list_type")
+    search_fields: tuple[Any, ...] = ("title", "case__name")
     ordering: ClassVar = ["case", "order"]
-    autocomplete_fields: tuple[Any, ...] = ("export_template",)  # type: ignore[misc]
+    autocomplete_fields: tuple[Any, ...] = ("export_template",)
 
-    readonly_fields: tuple[Any, ...] = (  # type: ignore[misc]
+    readonly_fields: tuple[Any, ...] = (
         "list_type",
         "order",
         "page_range_display",
@@ -61,7 +61,7 @@ class EvidenceListAdmin(  # type: ignore[misc]
         "updated_at",
     )
 
-    fieldsets: tuple[Any, ...] = (  # type: ignore[misc]
+    fieldsets: tuple[Any, ...] = (
         (None, {"fields": ("case",)}),
         (
             "自动计算信息",
@@ -95,8 +95,8 @@ class EvidenceListAdmin(  # type: ignore[misc]
     )
 
     inlines: ClassVar = [EvidenceItemInline]
-    actions = ["merge_pdfs", "export_list_word", "export_list_zip"]
-    list_select_related: tuple[Any, ...] = ("case", "created_by")  # type: ignore[misc]
+    actions: ClassVar = ["merge_pdfs", "export_list_word", "export_list_zip"]
+    list_select_related: tuple[Any, ...] = ("case", "created_by")
 
     def get_queryset(self, request: Any) -> QuerySet:  # pragma: no cover
         return super().get_queryset(request).annotate(item_count=Count("items"))  # type: ignore[no-any-return]

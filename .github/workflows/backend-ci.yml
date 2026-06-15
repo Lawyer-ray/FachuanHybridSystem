@@ -378,7 +378,7 @@ jobs:
           TEST_DB_HOST: "127.0.0.1"
           TEST_DB_PORT: "5432"
           PYTHONPATH: "apiSystem:."
-        run: uv run pytest -c pytest.ini -o "addopts=--reuse-db --import-mode=importlib -q --tb=short --strict-markers --timeout=60" --no-cov -q tests/ci/integration/
+        run: uv run pytest -c pytest.ini --no-cov -q tests/ci/integration/
 
   backend-property-smoke:
     runs-on: ubuntu-latest

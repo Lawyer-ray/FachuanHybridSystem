@@ -81,7 +81,6 @@ class Reminder(models.Model):
             models.Index(fields=["contract"]),
             models.Index(fields=["case"]),
             models.Index(fields=["case_log"]),
-            models.Index(fields=["reminder_type", "due_at"], name="reminders_type_due_idx"),
         ]
 
     def clean(self) -> None:

@@ -21,7 +21,6 @@ _PARTY_FIELDS = ("party_a", "party_b", "party_c", "party_d")
 @admin.register(ReviewTask)
 class ReviewTaskAdmin(admin.ModelAdmin):  # pragma: no cover
     list_display = ("contract_title", "user", "status", "current_step_display", "created_at")
-    list_select_related = ("user",)
     list_filter = ("status", "represented_party", "created_at")
     search_fields = ("contract_title", "party_a", "party_b")
     readonly_fields = (
@@ -250,12 +249,12 @@ class ReviewTaskAdmin(admin.ModelAdmin):  # pragma: no cover
             name,
         )
 
-    def get_fieldsets(  # type: ignore[override]  # pragma: no cover
+    def get_fieldsets(  # pragma: no cover
         self, request: HttpRequest, obj: ReviewTask | None = None
     ) -> list[tuple[str | None, dict[str, Any]]]:
-        party_fields = tuple(f for f in _PARTY_FIELDS if obj and getattr(obj, f, None)) or ("party_a", "party_b")
+        party_fields = tuple(f for f in _PARTY_FIELDS if obj and getattr(obj, f, "")) or ("party_a", "party_b")
 
-        fieldsets: list[tuple[str | None, dict[str, Any]]] = [
+        fieldsets = [
             (None, {"fields": ("id", "user", "contract_title", "model_name", "reviewer_name")}),
             ("当事人", {"fields": (*party_fields, "represented_party")}),
             ("处理步骤", {"fields": ("selected_steps_display",)}),
@@ -326,7 +325,7 @@ class ReviewTaskAdmin(admin.ModelAdmin):  # pragma: no cover
         return custom + super().get_urls()
 
     def report_view(self, request: HttpRequest, task_id: UUID) -> HttpResponse:  # pragma: no cover
-        import markdown  # type: ignore[import-untyped]
+        import markdown
 
         task = ReviewTask.objects.get(id=task_id)
         text = task.review_report or ""

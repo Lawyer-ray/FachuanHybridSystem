@@ -26,7 +26,6 @@ class MessageSourceAdmin(admin.ModelAdmin):  # pragma: no cover
         "last_sync_at",
         "refresh_button",
     ]
-    list_select_related = ("credential",)
     list_filter: ClassVar = ["source_type", "is_enabled", "last_sync_status"]
     search_fields: ClassVar = ("display_name", "credential__account", "credential__site_name")
     autocomplete_fields: ClassVar = ("credential",)

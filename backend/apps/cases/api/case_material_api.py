@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, cast
+from typing import Any
 
 from django.http import HttpRequest
 from ninja import Router
@@ -88,7 +88,7 @@ def upload_materials(request: HttpRequest, case_id: int) -> dict[str, Any]:  # p
     service = _get_caselog_service()
     ctx = get_request_access_context(request)
     files = request.FILES.getlist("files") if hasattr(request, "FILES") else []
-    log = service.create_log(
+    log = service.create_log(  # type: ignore[call-arg, call-arg]
         case_id=case_id,
         content="上传材料",
         user=ctx.user,
@@ -102,7 +102,7 @@ def upload_materials(request: HttpRequest, case_id: int) -> dict[str, Any]:  # p
         org_access=ctx.org_access,
         perm_open_access=ctx.perm_open_access,
     )
-    return {"log_id": log.id, "attachment_ids": [x.id for x in created]}
+    return {"log_id": log.id, "attachment_ids": [x.id for x in created]}  # type: ignore[attr-defined]
 
 
 @router.post(
@@ -116,14 +116,14 @@ def replace_material_file(  # pragma: no cover
     """替换材料对应的附件文件。"""
     service = _get_case_material_service()
     ctx = get_request_access_context(request)
-    return cast(dict[str, Any], service.replace_material_file(
+    return service.replace_material_file(
         case_id=case_id,
         material_id=material_id,
         new_attachment_id=payload.new_attachment_id,
         user=ctx.user,
         org_access=ctx.org_access,
         perm_open_access=ctx.perm_open_access,
-    ))
+    )
 
 
 @router.post(
@@ -135,7 +135,7 @@ def rename_group(request: HttpRequest, case_id: int, payload: CaseMaterialGroupR
     """重命名材料分组。"""
     service = _get_case_material_service()
     ctx = get_request_access_context(request)
-    return cast(dict[str, Any], service.rename_group(
+    return service.rename_group(
         case_id=case_id,
         type_id=payload.type_id,
         new_type_name=payload.new_type_name,
@@ -143,7 +143,7 @@ def rename_group(request: HttpRequest, case_id: int, payload: CaseMaterialGroupR
         user=ctx.user,
         org_access=ctx.org_access,
         perm_open_access=ctx.perm_open_access,
-    ))
+    )
 
 
 @router.delete(
@@ -155,13 +155,13 @@ def delete_material(request: HttpRequest, case_id: int, material_id: int) -> dic
     """删除材料绑定（附件文件不受影响）。"""
     service = _get_case_material_service()
     ctx = get_request_access_context(request)
-    return cast(dict[str, Any], service.delete_material(
+    return service.delete_material(
         case_id=case_id,
         material_id=material_id,
         user=ctx.user,
         org_access=ctx.org_access,
         perm_open_access=ctx.perm_open_access,
-    ))
+    )
 
 
 @router.delete(
@@ -173,10 +173,10 @@ def delete_all_materials(request: HttpRequest, case_id: int, payload: CaseMateri
     """按分类删除案件下的所有材料。"""
     service = _get_case_material_service()
     ctx = get_request_access_context(request)
-    return cast(dict[str, Any], service.delete_all_materials(
+    return service.delete_all_materials(
         case_id=case_id,
         category=payload.category,
         user=ctx.user,
         org_access=ctx.org_access,
         perm_open_access=ctx.perm_open_access,
-    ))
+    )

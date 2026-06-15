@@ -28,13 +28,13 @@ class PrintKeywordRuleAdminForm(forms.ModelForm):  # pragma: no cover
         super().__init__(*args, **kwargs)
         preset_field = self.fields.get("preset_snapshot")
         if preset_field is not None:
-            preset_field.queryset = PrintPresetSnapshot.objects.order_by("printer_name", "preset_name")  # type: ignore[attr-defined]
+            preset_field.queryset = PrintPresetSnapshot.objects.order_by("printer_name", "preset_name")
             preset_field.help_text = "只需选择打印预置，实际打印机会自动取该预置所属打印机，无需单独选择。"
 
 
 @admin.register(BatchPrintingTool)
 class BatchPrintingToolAdmin(admin.ModelAdmin):  # pragma: no cover
-    def changelist_view(  # pragma: no cover
+    def changelist_view(  # type: ignore[override]  # pragma: no cover
         self,
         request: HttpRequest,
         extra_context: dict[str, Any] | None = None,
@@ -87,7 +87,6 @@ class PrintPresetSnapshotAdmin(admin.ModelAdmin):  # pragma: no cover
 class PrintKeywordRuleAdmin(admin.ModelAdmin):  # pragma: no cover
     form = PrintKeywordRuleAdminForm
     list_display = ["keyword", "priority", "enabled", "printer_name", "preset_snapshot", "updated_at"]
-    list_select_related = ("preset_snapshot",)
     list_filter = ["enabled", "printer_name"]
     search_fields = ["keyword", "printer_name", "notes"]
     ordering = ["priority", "id"]
@@ -97,7 +96,7 @@ class PrintKeywordRuleAdmin(admin.ModelAdmin):  # pragma: no cover
     def resolved_printer_name(self, obj: PrintKeywordRule | None) -> str:  # pragma: no cover
         if obj is None or not obj.preset_snapshot_id:
             return "保存后会自动同步为所选预置所属打印机"
-        return str(obj.preset_snapshot.printer_name)
+        return obj.preset_snapshot.printer_name
 
     resolved_printer_name.short_description = "实际打印机"  # type: ignore[attr-defined]
 
@@ -107,7 +106,7 @@ class PrintKeywordRuleAdmin(admin.ModelAdmin):  # pragma: no cover
         super().save_model(request, obj, form, change)
 
 
-class BatchPrintItemInline(admin.TabularInline):  # pragma: no cover
+class BatchPrintItemInline(admin.TabularInline[BatchPrintItem]):  # pragma: no cover
     model = BatchPrintItem
     extra = 0
     can_delete = False
@@ -139,7 +138,6 @@ class BatchPrintJobAdmin(admin.ModelAdmin):  # pragma: no cover
         "created_by",
         "created_at",
     ]
-    list_select_related = ("created_by",)
     list_filter = ["status", "created_at"]
     search_fields = ["id", "task_id", "error_message"]
     ordering = ["-created_at"]

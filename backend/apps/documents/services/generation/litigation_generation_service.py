@@ -42,11 +42,11 @@ class LitigationGenerationService:
 
     def _complaint_template_path(self) -> Path:
         template_dir = get_docx_templates_root() / "2-案件材料"
-        return template_dir / "1-起诉材料" / "1-起诉状和反诉答辩状" / "1-起诉状.docx"  # type: ignore[no-any-return]
+        return template_dir / "1-起诉材料" / "1-起诉状和反诉答辩状" / "1-起诉状.docx"
 
     def _defense_template_path(self) -> Path:
         template_dir = get_docx_templates_root() / "2-案件材料"
-        return template_dir / "2-答辩材料" / "1-答辩状和反诉状" / "1-答辩状.docx"  # type: ignore[no-any-return]
+        return template_dir / "2-答辩材料" / "1-答辩状和反诉状" / "1-答辩状.docx"
 
     def __init__(
         self,
@@ -226,8 +226,8 @@ class LitigationGenerationService:
         elif litigation_type == "defense":
             template_path = self._defense_template_path()
             case_data = self.context_builder.extract_defense_prompt_data(case_dto)
-            llm_result = self._get_mock_defense_output(case_data)  # type: ignore[assignment]
-            context = self.context_builder.build_defense_context(case_dto=case_dto, llm_result=llm_result)  # type: ignore[arg-type]
+            llm_result = self._get_mock_defense_output(case_data)
+            context = self.context_builder.build_defense_context(case_dto=case_dto, llm_result=llm_result)
         else:
             raise ValidationException(
                 message="不支持的诉讼类型: %(t)s" % {"t": litigation_type},

@@ -53,11 +53,6 @@ class WorkflowRun(models.Model):
         ordering = ["-started_at"]
         verbose_name = "工作流运行"
         verbose_name_plural = verbose_name
-        indexes = [
-            models.Index(fields=["case", "status"]),
-            models.Index(fields=["template"]),
-            models.Index(fields=["status", "-started_at"]),
-        ]
 
     def __str__(self) -> str:
         return f"{self.template.name} - {self.case.name} ({self.get_status_display()})"

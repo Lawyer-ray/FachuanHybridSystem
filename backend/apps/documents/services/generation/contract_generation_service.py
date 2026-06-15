@@ -240,7 +240,7 @@ class ContractGenerationService:
         context_builder = EnhancedContextBuilder()
         context_data = {"contract": contract}
 
-        return context_builder.build_context(context_data)  # type: ignore[arg-type]
+        return context_builder.build_context(context_data)
 
     def generate_filename(self, contract: Any, template: DocumentTemplate, contract_id: int | None = None) -> str:
         """
@@ -301,12 +301,12 @@ class ContractGenerationService:
 
         try:
             # 获取绑定信息
-            binding = self.folder_binding_service.get_binding(owner_id=contract_id)  # type: ignore[attr-defined]
+            binding = self.folder_binding_service.get_binding(owner_id=contract_id)
             if not binding or not binding.folder_path:
                 return "V1"
 
             # 构建子目录路径
-            subdir_path = self.folder_binding_service._resolve_subdir_path(  # type: ignore[attr-defined]
+            subdir_path = self.folder_binding_service._resolve_subdir_path(
                 owner_type=binding.contract.case_type if hasattr(binding, "contract") else "",
                 subdir_key=subdir_key,
             )
@@ -319,7 +319,7 @@ class ContractGenerationService:
                 from apps.core.cloud_storage.factory import create_provider_for_binding
 
                 provider = create_provider_for_binding(binding)
-                names: list[str] = []
+                names = []
                 for _d, _s, files in provider.walk(subdir_path):
                     names.extend(c.name for c in files if not c.is_dir)
             else:
@@ -365,7 +365,7 @@ class ContractGenerationService:
         if self.folder_binding_service is None:
             return None
         try:
-            saved_path = self.folder_binding_service.save_file_to_bound_folder(  # type: ignore[call-arg]
+            saved_path = self.folder_binding_service.save_file_to_bound_folder(
                 owner_id=contract_id,
                 file_content=file_content,
                 file_name=file_name,

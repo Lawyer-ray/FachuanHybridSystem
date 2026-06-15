@@ -12,7 +12,7 @@ from apps.core.exceptions import NotFoundError
 from apps.core.interfaces import ContractDTO, ICaseService, LawyerDTO
 from apps.core.security.access_context import AccessContext
 
-from .assemblers.contract_details_assembler import CONTRACT_DETAILS_PREFETCHES, ContractDetailsAssembler
+from .assemblers.contract_details_assembler import ContractDetailsAssembler
 from .assemblers.contract_dto_assembler import ContractDtoAssembler
 from .contract_service import ContractService
 
@@ -162,13 +162,7 @@ class ContractServiceAdapter:
             stacklevel=2,
         )
         try:
-            return Contract.objects.prefetch_related(
-                "contract_parties__client",
-                "assignments__lawyer",
-                "cases__parties__client",
-                "cases__supervising_authorities",
-                "cases__case_numbers",
-            ).get(
+            return Contract.objects.prefetch_related("contract_parties__client", "assignments__lawyer").get(
                 pk=contract_id
             )
         except Contract.DoesNotExist:

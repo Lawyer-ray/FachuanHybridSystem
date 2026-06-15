@@ -12,7 +12,6 @@ from ninja import Router
 
 from apps.core.security.auth import JWTOrSessionAuth
 from apps.finance.schemas.lpr_schemas import (
-    CalculationPeriodSchema,
     InterestCalculateRequest,
     InterestCalculateResponse,
     LPRRateListResponse,
@@ -88,9 +87,9 @@ def get_latest_lpr_rate(request: HttpRequest) -> LPRRateSchema:  # pragma: no co
     try:
         rate = LPRRateService().get_latest_rate()
     except Exception:
-        from apps.core.exceptions import NotFoundError
+        from apps.core.exceptions import NotFoundException
 
-        raise NotFoundError(message="暂无LPR利率数据", code="LPR_RATE_NOT_FOUND")
+        raise NotFoundException(message="暂无LPR利率数据", code="LPR_RATE_NOT_FOUND")
 
     return LPRRateSchema(
         id=rate.id,
@@ -125,9 +124,9 @@ def sync_lpr_rates(  # pragma: no cover
 
     # 检查权限
     if not user.is_staff:
-        from apps.core.exceptions import PermissionDenied
+        from apps.core.exceptions import PermissionDeniedException
 
-        raise PermissionDenied(message="需要管理员权限才能同步LPR数据", code="PERMISSION_DENIED")
+        raise PermissionDeniedException(message="需要管理员权限才能同步LPR数据", code="PERMISSION_DENIED")
 
     logger.info(f"[LPRSync] User {user.id} triggered manual LPR sync")
 
@@ -150,9 +149,6 @@ def sync_lpr_rates(  # pragma: no cover
         return LPRSyncResponse(
             success=False,
             message=f"同步失败: {e!s}",
-            created=0,
-            updated=0,
-            skipped=0,
         )
 
 
@@ -239,7 +235,6 @@ def calculate_interest(  # pragma: no cover
                 success=False,
                 message="固定本金模式需要填写开始日期、结束日期和本金金额",
                 code="MISSING_REQUIRED_FIELDS",
-                sync_info=None,
             )
 
         result = calculator.calculate(
@@ -262,16 +257,16 @@ def calculate_interest(  # pragma: no cover
         start_date=result.start_date,
         end_date=result.end_date,
         periods=[
-            CalculationPeriodSchema(
-                start_date=p.start_date,
-                end_date=p.end_date,
-                principal=p.principal,
-                rate=p.rate,
-                rate_unit=getattr(p, "rate_unit", None),
-                days=p.days,
-                year_days=p.year_days,
-                interest=p.interest,
-            )
+            {
+                "start_date": p.start_date,
+                "end_date": p.end_date,
+                "principal": p.principal,
+                "rate": p.rate,
+                "rate_unit": getattr(p, "rate_unit", None),
+                "days": p.days,
+                "year_days": p.year_days,
+                "interest": p.interest,
+            }
             for p in result.periods
         ],
         sync_info=sync_info,

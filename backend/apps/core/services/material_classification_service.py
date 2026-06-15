@@ -271,7 +271,7 @@ class MaterialClassificationService:
         parent_folder_hint: str = "",
     ) -> dict[str, Any]:
         context = context or {}
-        default: dict[str, Any] = {
+        default = {
             "category": "unknown",
             "side": "unknown",
             "type_name_hint": "",
@@ -509,10 +509,8 @@ class MaterialClassificationService:
     @staticmethod
     def _extract_primary_supervising_authority_id(context: dict[str, Any]) -> int | None:
         primary = context.get("primary_supervising_authority_id")
-        if primary is None:
-            return None
         try:
-            value = int(str(primary))
+            value = int(primary)
         except (TypeError, ValueError):
             return None
         if value <= 0:
@@ -588,7 +586,7 @@ class MaterialClassificationService:
     # 归档材料分类（合同域 → 归档清单项）
     # ================================================================
 
-    _ARCHIVE_FOLDER_KEYWORD_RULES: dict[str, dict[str, str]] = {
+    _ARCHIVE_FOLDER_KEYWORD_RULES: dict[str, dict[str, list[str]]] = {
         # 归档分类 → { 文件夹名关键词 → archive_item_code }
         # 匹配规则：文件夹路径中包含关键词时，该文件夹下的文件映射到对应清单项
         "litigation": {

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, ClassVar
 
 from django.contrib import admin
 
@@ -10,7 +10,7 @@ from apps.legal_research.services.task.feedback_loop import LegalResearchFeedbac
 
 @admin.register(LegalResearchResult)
 class LegalResearchResultAdmin(admin.ModelAdmin):  # pragma: no cover
-    list_display = [
+    list_display: ClassVar[list[str]] = [
         "id",
         "task",
         "rank",
@@ -20,17 +20,16 @@ class LegalResearchResultAdmin(admin.ModelAdmin):  # pragma: no cover
         "has_pdf",
         "created_at",
     ]
-    list_select_related = ("task",)
-    list_filter = ["created_at"]
-    actions = ["mark_as_relevant", "mark_as_false_positive"]
-    search_fields = (
+    list_filter: ClassVar[list[str]] = ["created_at"]
+    actions: ClassVar[list[str]] = ["mark_as_relevant", "mark_as_false_positive"]
+    search_fields: ClassVar[tuple[str, ...]] = (
         "id",
         "task__id",
         "title",
         "source_doc_id",
         "document_number",
     )
-    readonly_fields = [
+    readonly_fields: ClassVar[list[str]] = [
         "id",
         "task",
         "rank",
@@ -48,13 +47,13 @@ class LegalResearchResultAdmin(admin.ModelAdmin):  # pragma: no cover
         "created_at",
         "updated_at",
     ]
-    ordering = ["-id"]
+    ordering: ClassVar[list[str]] = ["-id"]
 
     @admin.display(description="PDF")
     def has_pdf(self, obj: LegalResearchResult) -> bool:  # pragma: no cover
         return bool(obj.pdf_file)
 
-    has_pdf.boolean = True  # type: ignore[attr-defined]
+    has_pdf.boolean = True
 
     @admin.display(description="人工反馈")
     def feedback_status(self, obj: LegalResearchResult) -> str:  # pragma: no cover
