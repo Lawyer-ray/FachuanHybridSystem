@@ -34,7 +34,7 @@ class EvidenceListAdminViewsMixin(EvidenceListAdminServiceMixin):  # pragma: no 
                     "file_keys": list(request.FILES.keys()),
                 },
             )
-        response = super().changeform_view(request, object_id, form_url, extra_context)
+        response = super().changeform_view(request, object_id, form_url, extra_context)  # type: ignore[misc]
 
         if request.method == "POST":
             logger.info(
@@ -58,10 +58,10 @@ class EvidenceListAdminViewsMixin(EvidenceListAdminServiceMixin):  # pragma: no 
                 template_type=DocumentTemplateType.CASE,
                 case_sub_type=DocumentCaseFileSubType.EVIDENCE_MATERIALS,
             )
-        return super().formfield_for_foreignkey(db_field, request, **kwargs)
+        return super().formfield_for_foreignkey(db_field, request, **kwargs)  # type: ignore[misc]
 
     def get_form(self, request: Any, obj: Any = None, **kwargs: Any) -> Any:  # pragma: no cover
-        form = super().get_form(request, obj=obj, **kwargs)
+        form = super().get_form(request, obj=obj, **kwargs)  # type: ignore[misc]
         if "export_template" not in form.base_fields:
             return form
 
@@ -72,47 +72,47 @@ class EvidenceListAdminViewsMixin(EvidenceListAdminServiceMixin):  # pragma: no 
         if field.queryset.filter(pk=obj.export_template_id).exists():
             return form
 
-        from apps.evidence.models import DocumentTemplate
+        from apps.documents.models import DocumentTemplate
 
         field.queryset = field.queryset | DocumentTemplate.objects.filter(pk=obj.export_template_id)
         return form
 
     def get_urls(self) -> Any:  # pragma: no cover
-        urls = super().get_urls()
+        urls = super().get_urls()  # type: ignore[misc]
         custom_urls = [
             path(
                 "next-list-type/<int:case_id>/",
-                self.admin_site.admin_view(self.next_list_type_view),
+                self.admin_site.admin_view(self.next_list_type_view),  # type: ignore[attr-defined]
                 name="documents_evidencelist_next_list_type",
             ),
             path(
                 "<int:pk>/merge/",
-                self.admin_site.admin_view(self.merge_view),
+                self.admin_site.admin_view(self.merge_view),  # type: ignore[attr-defined]
                 name="documents_evidencelist_merge",
             ),
             path(
                 "<int:pk>/merge-status/",
-                self.admin_site.admin_view(self.merge_status_view),
+                self.admin_site.admin_view(self.merge_status_view),  # type: ignore[attr-defined]
                 name="documents_evidencelist_merge_status",
             ),
             path(
                 "<int:pk>/export-list/",
-                self.admin_site.admin_view(self.export_list_view),
+                self.admin_site.admin_view(self.export_list_view),  # type: ignore[attr-defined]
                 name="documents_evidencelist_export_list",
             ),
             path(
                 "<int:pk>/download-pdf/",
-                self.admin_site.admin_view(self.download_pdf_view),
+                self.admin_site.admin_view(self.download_pdf_view),  # type: ignore[attr-defined]
                 name="documents_evidencelist_download_pdf",
             ),
             path(
                 "<int:pk>/reorder/",
-                self.admin_site.admin_view(self.reorder_view),
+                self.admin_site.admin_view(self.reorder_view),  # type: ignore[attr-defined]
                 name="documents_evidencelist_reorder",
             ),
             path(
                 "<int:pk>/recount-pages/",
-                self.admin_site.admin_view(self.recount_pages_view),
+                self.admin_site.admin_view(self.recount_pages_view),  # type: ignore[attr-defined]
                 name="documents_evidencelist_recount_pages",
             ),
         ]

@@ -488,7 +488,7 @@ class Command(BaseCommand):
         self.stdout.write(f"precision: {precision:.4f}")
         self.stdout.write(f"recall:    {recall:.4f}")
         self.stdout.write(f"f1:        {f1:.4f}")
-        self.stdout.write(f"ndcg@k:    {float(summary['ndcg_at_k']):.4f}")
+        self.stdout.write(f"ndcg@k:    {float(str(summary['ndcg_at_k'])):.4f}")
         if query_type_metrics:
             self.stdout.write("=== Query Type Contribution ===")
             for metric in query_type_metrics:
@@ -978,17 +978,17 @@ class Command(BaseCommand):
             return
 
         def _patched_load(patched_cls: type[LegalResearchTuningConfig]) -> LegalResearchTuningConfig:
-            base = original.__get__(None, patched_cls)()
+            base: LegalResearchTuningConfig = original.__get__(None, patched_cls)()
             filtered = {k: v for k, v in payload.items() if hasattr(base, k)}
             if not filtered:
                 return base
-            return replace(base, **filtered)
+            return replace(base, **filtered)  # type: ignore[arg-type]
 
-        LegalResearchTuningConfig.load = classmethod(_patched_load)
+        LegalResearchTuningConfig.load = classmethod(_patched_load)  # type: ignore[method-assign,assignment]
         try:
             yield
         finally:
-            LegalResearchTuningConfig.load = original
+            LegalResearchTuningConfig.load = original  # type: ignore[method-assign,assignment]
 
     @classmethod
     def _load_cases(cls, *, path: Path) -> list[dict[str, Any]]:

@@ -32,9 +32,9 @@ def _get_gsxt_report_task_model() -> type[Any]:
     return django_apps.get_model("automation", "GsxtReportTask")
 
 
-class GsxtReportTaskInlineForm(forms.ModelForm[Any]):  # type: ignore[misc]  # pragma: no cover
+class GsxtReportTaskInlineForm(forms.ModelForm[Any]):  # pragma: no cover
     class Meta:  # pragma: no cover
-        model = None  # type: ignore[misc]
+        model = None
         fields: list[str] = []
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:  # pragma: no cover
@@ -52,13 +52,13 @@ class GsxtReportTaskInline(admin.TabularInline[Any]):  # type: ignore[type-arg] 
     form = GsxtReportTaskInlineForm
     extra = 0
     can_delete = True
-    fields = ("created_at", "status", "error_message", "inbox_link")  # type: ignore[assignment]
-    readonly_fields = ("created_at", "status", "error_message", "inbox_link")  # type: ignore[assignment]
+    fields = ("created_at", "status", "error_message", "inbox_link")
+    readonly_fields = ("created_at", "status", "error_message", "inbox_link")
     ordering = ("-created_at",)
     verbose_name = "企业信用报告任务"
     verbose_name_plural = "企业信用报告任务"
 
-    def get_model(self) -> type[Any]:  # type: ignore[override]  # pragma: no cover
+    def get_model(self) -> type[Any]:  # pragma: no cover
         """延迟获取模型。"""
         return _get_gsxt_report_task_model()
 
@@ -147,8 +147,8 @@ class ClientIdentityDocInline(admin.TabularInline[ClientIdentityDoc]):  # type: 
     model = ClientIdentityDoc
     form = ClientIdentityDocInlineForm
     extra = 1
-    fields = ("doc_type", "file_link", "upload")  # type: ignore[assignment]
-    readonly_fields = ("file_link",)  # type: ignore[assignment]
+    fields = ("doc_type", "file_link", "upload")
+    readonly_fields = ("file_link",)
 
     def file_link(self, obj: ClientIdentityDoc) -> str:  # pragma: no cover
         url = obj.media_url
@@ -162,7 +162,7 @@ class ClientIdentityDocInline(admin.TabularInline[ClientIdentityDoc]):  # type: 
 class PropertyClueInline(admin.TabularInline[PropertyClue]):  # type: ignore[type-arg]  # pragma: no cover
     model = PropertyClue
     extra = 1
-    fields = ("clue_type", "content")  # type: ignore[assignment]
+    fields = ("clue_type", "content")
     verbose_name = "财产线索"
     verbose_name_plural = "财产线索"
 
@@ -190,16 +190,16 @@ class ClientAdminForm(forms.ModelForm[Client]):  # pragma: no cover
 
 @admin.register(Client)
 class ClientAdmin(SimpleHistoryAdmin, AdminImportExportMixin, admin.ModelAdmin):  # pragma: no cover
-    list_display = ("id", "name", "client_type", "is_our_client", "phone", "legal_representative")  # type: ignore[assignment]
+    list_display = ("id", "name", "client_type", "is_our_client", "phone", "legal_representative")
     list_per_page = 50
-    search_fields = ("name", "phone", "id_number")  # type: ignore[assignment]
-    list_filter = ("client_type", "is_our_client")  # type: ignore[assignment]
-    ordering = ("-pk",)  # type: ignore[assignment]
+    search_fields = ("name", "phone", "id_number")
+    list_filter = ("client_type", "is_our_client")
+    ordering = ("-pk",)
     form = ClientAdminForm
-    inlines: list[type[Any]] = []  # type: ignore[assignment,misc]
+    inlines: list[type[Any]] = []  # type: ignore[misc]
     export_model_name = "client"
     import_required_fields = ("name",)
-    actions = ["export_selected_as_json", "export_all_as_json"]  # type: ignore[assignment]
+    actions = ["export_selected_as_json", "export_all_as_json"]
 
     def get_urls(self) -> list[Any]:  # pragma: no cover
         from django.urls import path

@@ -95,7 +95,7 @@ def list_projects(request: Any) -> Any:  # pragma: no cover
 def list_recordings(request: Any, project_id: int) -> Any:  # pragma: no cover
     user = getattr(request, "user", None)
     service = _get_recording_service()
-    return service.list_recordings(user=user, project_id=project_id)
+    return service.list_recordings(user=user, project_id=project_id)  # type: ignore[arg-type]
 
 
 @router.post("/projects/{project_id}/recordings", response=RecordingOut)
@@ -103,14 +103,14 @@ def list_recordings(request: Any, project_id: int) -> Any:  # pragma: no cover
 def upload_recording(request: Any, project_id: int, file: UploadedFile = File(...)) -> Any:  # pragma: no cover
     user = getattr(request, "user", None)
     service = _get_recording_service()
-    return service.upload_recording(user=user, project_id=project_id, file=file)
+    return service.upload_recording(user=user, project_id=project_id, file=file)  # type: ignore[arg-type]
 
 
 @router.get("/recordings/{recording_id}", response=RecordingOut)
 def get_recording(request: Any, recording_id: str) -> Any:  # pragma: no cover
     user = getattr(request, "user", None)
     service = _get_recording_service()
-    return service.get_recording(user=user, recording_id=recording_id)
+    return service.get_recording(user=user, recording_id=recording_id)  # type: ignore[arg-type]
 
 
 @router.api_operation(["GET", "HEAD"], "/recordings/{recording_id}/stream")
@@ -119,7 +119,7 @@ def stream_recording(request: Any, recording_id: str) -> Any:  # pragma: no cove
 
     service = _get_recording_service()
     user = getattr(request, "user", None)
-    recording = service.get_recording(user=user, recording_id=recording_id)
+    recording = service.get_recording(user=user, recording_id=recording_id)  # type: ignore[arg-type]
     if not getattr(recording, "video", None):
         return HttpResponse(status=404)
 
@@ -133,14 +133,14 @@ def update_recording(request: Any, recording_id: str, payload: RecordingUpdate) 
     service = _get_recording_service()
     user = getattr(request, "user", None)
     data = schema_to_update_dict(payload)
-    return service.update_duration(user=user, recording_id=recording_id, duration_seconds=data.get("duration_seconds"))
+    return service.update_duration(user=user, recording_id=recording_id, duration_seconds=data.get("duration_seconds"))  # type: ignore[arg-type]
 
 
 @router.delete("/recordings/{recording_id}")
 def delete_recording(request: Any, recording_id: str) -> Any:  # pragma: no cover
     service = _get_recording_service()
     user = getattr(request, "user", None)
-    return service.delete_recording(user=user, recording_id=recording_id)
+    return service.delete_recording(user=user, recording_id=recording_id)  # type: ignore[arg-type]
 
 
 @router.post("/recordings/{recording_id}/extract", response=RecordingOut)
@@ -187,7 +187,7 @@ def reset_extract_recording(request: Any, recording_id: str) -> Any:  # pragma: 
 def list_screenshots(request: Any, project_id: int) -> Any:  # pragma: no cover
     user = getattr(request, "user", None)
     service = _get_screenshot_service()
-    return service.list_screenshots(user=user, project_id=project_id)
+    return service.list_screenshots(user=user, project_id=project_id)  # type: ignore[arg-type]
 
 
 @router.post("/projects/{project_id}/screenshots", response=list[ScreenshotOut])
@@ -201,7 +201,7 @@ def upload_screenshots(  # pragma: no cover
 ) -> Any:
     service = _get_screenshot_service()
     return service.upload_screenshots(
-        user=getattr(request, "user", None),
+        user=getattr(request, "user", None),  # type: ignore[arg-type]
         project_id=project_id,
         files=files,
         deduplicate=deduplicate,
@@ -215,21 +215,21 @@ def update_screenshot(request: Any, screenshot_id: str, payload: ScreenshotUpdat
     user = getattr(request, "user", None)
     data = schema_to_update_dict(payload)
     return service.update_screenshot(
-        user=user, screenshot_id=screenshot_id, title=data.get("title"), note=data.get("note")
+        user=user, screenshot_id=screenshot_id, title=data.get("title"), note=data.get("note")  # type: ignore[arg-type]
     )
 
 
 @router.delete("/screenshots/{screenshot_id}")
 def delete_screenshot(request: Any, screenshot_id: str) -> Any:  # pragma: no cover
     service = _get_screenshot_service()
-    return service.delete_screenshot(user=getattr(request, "user", None), screenshot_id=screenshot_id)
+    return service.delete_screenshot(user=getattr(request, "user", None), screenshot_id=screenshot_id)  # type: ignore[arg-type]
 
 
 @router.post("/projects/{project_id}/screenshots/reorder")
 def reorder_screenshots(request: Any, project_id: int, payload: ScreenshotReorderIn) -> Any:  # pragma: no cover
     service = _get_screenshot_service()
     return service.reorder_screenshots(
-        user=getattr(request, "user", None), project_id=project_id, screenshot_ids=payload.screenshot_ids
+        user=getattr(request, "user", None), project_id=project_id, screenshot_ids=payload.screenshot_ids  # type: ignore[arg-type]
     )
 
 
@@ -263,5 +263,5 @@ def download_export(request: Any, task_id: str) -> Any:  # pragma: no cover
     if not task.output_file:
         raise Http404("导出文件尚未生成")
 
-    filename = task.output_file.name.split("/")[-1]
+    filename = (task.output_file.name or "").split("/")[-1]
     return FileResponse(task.output_file.open("rb"), as_attachment=True, filename=filename)

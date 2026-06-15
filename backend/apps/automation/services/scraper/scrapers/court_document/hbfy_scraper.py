@@ -243,6 +243,7 @@ class HbfyCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
         download_dir = self._prepare_download_dir()
 
         self.navigate_to_url(timeout=30000)
+        assert self.page is not None
         self.page.wait_for_timeout(3000)
         self._solve_public_captcha_if_present()
 
@@ -387,6 +388,7 @@ class HbfyCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
         return account, login_secret
 
     def _solve_public_captcha_if_present(self) -> None:  # pragma: no cover
+        assert self.page is not None
         captcha_input = self.page.locator("input[name='captcha']")
         if captcha_input.count() <= 0:
             return
@@ -421,6 +423,7 @@ class HbfyCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
 
     def _try_download_all_with_confirm(self, download_dir: Path) -> str | None:  # pragma: no cover
         try:
+            assert self.page is not None
             download_all = self.page.locator("button:has-text('下载全部'), div:has-text('下载全部')")
             if download_all.count() <= 0:
                 return None
@@ -477,6 +480,7 @@ class HbfyCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
 
     def _try_expect_download(self, selector: str, download_dir: Path, prefix: str) -> str | None:  # pragma: no cover
         try:
+            assert self.page is not None
             target = self.page.locator(selector)
             if target.count() <= 0:
                 return None
