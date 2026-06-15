@@ -218,7 +218,7 @@ class TestSimpleTextSearch:
         for i in range(10):
             mc = MagicMock()
             mc.evidence_item_id = i
-            mc.text = "合同第{}份".format(i)
+            mc.text = f"合同第{i}份"
             chunks.append(mc)
         mock_chunk_cls.objects.filter.return_value.order_by.return_value = chunks
 

@@ -32,7 +32,7 @@ from apps.workflow.temporal.workflows import (
 # ── Timeout / Retry constants ─────────────────────────────────────────────────
 
 def test_quick_timeout():
-    assert QUICK_TIMEOUT == timedelta(seconds=30)
+    assert timedelta(seconds=30) == QUICK_TIMEOUT
 
 
 def test_quick_retry():
@@ -40,7 +40,7 @@ def test_quick_retry():
 
 
 def test_llm_timeout():
-    assert LLM_TIMEOUT == timedelta(minutes=5)
+    assert timedelta(minutes=5) == LLM_TIMEOUT
 
 
 def test_llm_retry():
@@ -48,7 +48,7 @@ def test_llm_retry():
 
 
 def test_long_timeout():
-    assert LONG_TIMEOUT == timedelta(hours=2)
+    assert timedelta(hours=2) == LONG_TIMEOUT
 
 
 def test_long_retry():

@@ -380,11 +380,11 @@
         <div x-show="expanded" x-transition>
             <div class="card-content">
                 <div class="evidence-actions" style="margin-bottom: 16px;">
-                    <a href="{% url 'admin:documents_evidencelist_add' %}?case={{ case.pk }}"
+                    <a href="{% url 'admin:evidence_evidencelistproxy_add' %}?case={{ case.pk }}"
                        class="btn btn-primary">
                         + {% trans "新建证据清单" %}
                     </a>
-                    <a href="{% url 'admin:documents_evidencelist_changelist' %}?case__id__exact={{ case.pk }}"
+                    <a href="{% url 'admin:evidence_evidencelistproxy_changelist' %}?case__id__exact={{ case.pk }}"
                        class="btn btn-secondary">
                         {% trans "查看全部" %}
                     </a>
@@ -396,7 +396,7 @@
                     <div class="evidence-card">
                         <div class="evidence-header">
                             <h3 class="evidence-title">
-                                <a href="{% url 'admin:documents_evidencelist_change' evidence_list.pk %}">
+                                <a href="{% url 'admin:evidence_evidencelistproxy_change' evidence_list.pk %}">
                                     {{ evidence_list.title }}
                                 </a>
                             </h3>
@@ -427,16 +427,16 @@
                         </div>
 
                         <div class="evidence-actions">
-                            <a href="{% url 'admin:documents_evidencelist_merge' evidence_list.pk %}"
+                            <a href="{% url 'admin:evidence_evidencelistproxy_merge' evidence_list.pk %}"
                                class="btn btn-sm btn-secondary">
                                 {% trans "合并PDF" %}
                             </a>
-                            <a href="{% url 'admin:documents_evidencelist_export_list' evidence_list.pk %}"
+                            <a href="{% url 'admin:evidence_evidencelistproxy_export_list' evidence_list.pk %}"
                                class="btn btn-sm btn-secondary">
                                 {% trans "导出清单" %}
                             </a>
                             {% if evidence_list.merged_pdf %}
-                            <a href="{% url 'admin:documents_evidencelist_download_pdf' evidence_list.pk %}"
+                            <a href="{% url 'admin:evidence_evidencelistproxy_download_pdf' evidence_list.pk %}"
                                class="btn btn-sm btn-primary">
                                 {% trans "下载PDF" %}
                             </a>

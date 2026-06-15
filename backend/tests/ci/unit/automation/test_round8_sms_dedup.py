@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from datetime import datetime, timezone
+from datetime import datetime, timezone, UTC
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -72,7 +72,7 @@ class TestNormalizeSendTime:
 
     def test_aware_datetime(self):
         svc = CourtSMSDedupService()
-        aware = datetime(2025, 1, 15, 10, 30, 0, tzinfo=timezone.utc)
+        aware = datetime(2025, 1, 15, 10, 30, 0, tzinfo=UTC)
         result = svc._normalize_send_time(aware)
         assert "2025-01-15" in result
 
@@ -81,7 +81,7 @@ class TestHashPayload:
     def test_basic(self):
         svc = CourtSMSDedupService()
         result = svc._hash_payload("test")
-        expected = hashlib.sha256("test".encode("utf-8")).hexdigest()
+        expected = hashlib.sha256(b"test").hexdigest()
         assert result == expected
 
     def test_unicode(self):
@@ -95,7 +95,7 @@ class TestBuildDocumentDeliveryIdentity:
         svc = CourtSMSDedupService()
         record = DocumentDeliveryRecord(
             case_number="2025-粤01民初1号",
-            send_time=datetime(2025, 1, 15, tzinfo=timezone.utc),
+            send_time=datetime(2025, 1, 15, tzinfo=UTC),
             element_index=0,
             delivery_event_id="evt_123",
         )
@@ -108,7 +108,7 @@ class TestBuildDocumentDeliveryIdentity:
         svc = CourtSMSDedupService()
         record = DocumentDeliveryRecord(
             case_number="2025-粤01民初1号",
-            send_time=datetime(2025, 1, 15, tzinfo=timezone.utc),
+            send_time=datetime(2025, 1, 15, tzinfo=UTC),
             element_index=0,
             delivery_event_id="",
         )

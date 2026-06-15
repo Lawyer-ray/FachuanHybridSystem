@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timezone, UTC
 from unittest.mock import patch
 
 import pytest
@@ -48,7 +48,7 @@ class TestDocumentDeliveryRecord:
         assert record.element_index == 1
 
     def test_from_dict_datetime_time(self):
-        dt = datetime(2024, 1, 1, tzinfo=timezone.utc)
+        dt = datetime(2024, 1, 1, tzinfo=UTC)
         data = {"case_number": "c1", "send_time": dt, "element_index": 0}
         record = DocumentDeliveryRecord.from_dict(data)
         assert record.send_time == dt

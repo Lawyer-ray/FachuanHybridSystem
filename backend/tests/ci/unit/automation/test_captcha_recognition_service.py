@@ -63,7 +63,7 @@ class TestCaptchaRecognitionServiceInit:
     def test_custom_config(self):
         svc = CaptchaRecognitionService(config={"max_file_size": 1000, "supported_formats": {"JPEG"}})
         assert svc.MAX_FILE_SIZE == 1000
-        assert svc.SUPPORTED_FORMATS == {"JPEG"}
+        assert {"JPEG"} == svc.SUPPORTED_FORMATS
 
 
 class TestRecognizerProperty:

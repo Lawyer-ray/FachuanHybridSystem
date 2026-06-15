@@ -83,37 +83,37 @@ class EvidenceListAdminViewsMixin(EvidenceListAdminServiceMixin):  # pragma: no 
             path(
                 "next-list-type/<int:case_id>/",
                 self.admin_site.admin_view(self.next_list_type_view),
-                name="documents_evidencelist_next_list_type",
+                name="evidence_evidencelistproxy_next_list_type",
             ),
             path(
                 "<int:pk>/merge/",
                 self.admin_site.admin_view(self.merge_view),
-                name="documents_evidencelist_merge",
+                name="evidence_evidencelistproxy_merge",
             ),
             path(
                 "<int:pk>/merge-status/",
                 self.admin_site.admin_view(self.merge_status_view),
-                name="documents_evidencelist_merge_status",
+                name="evidence_evidencelistproxy_merge_status",
             ),
             path(
                 "<int:pk>/export-list/",
                 self.admin_site.admin_view(self.export_list_view),
-                name="documents_evidencelist_export_list",
+                name="evidence_evidencelistproxy_export_list",
             ),
             path(
                 "<int:pk>/download-pdf/",
                 self.admin_site.admin_view(self.download_pdf_view),
-                name="documents_evidencelist_download_pdf",
+                name="evidence_evidencelistproxy_download_pdf",
             ),
             path(
                 "<int:pk>/reorder/",
                 self.admin_site.admin_view(self.reorder_view),
-                name="documents_evidencelist_reorder",
+                name="evidence_evidencelistproxy_reorder",
             ),
             path(
                 "<int:pk>/recount-pages/",
                 self.admin_site.admin_view(self.recount_pages_view),
-                name="documents_evidencelist_recount_pages",
+                name="evidence_evidencelistproxy_recount_pages",
             ),
         ]
         return custom_urls + urls
@@ -189,9 +189,9 @@ class EvidenceListAdminViewsMixin(EvidenceListAdminServiceMixin):  # pragma: no 
         return format_html('<span style="color: #999;">{}</span>', "未合并")
 
     def actions_display(self, obj: Any) -> Any:  # pragma: no cover
-        merge_url = reverse("admin:documents_evidencelist_merge", args=[obj.pk])
-        export_list_url = reverse("admin:documents_evidencelist_export_list", args=[obj.pk])
-        recount_url = reverse("admin:documents_evidencelist_recount_pages", args=[obj.pk])
+        merge_url = reverse("admin:evidence_evidencelistproxy_merge", args=[obj.pk])
+        export_list_url = reverse("admin:evidence_evidencelistproxy_export_list", args=[obj.pk])
+        recount_url = reverse("admin:evidence_evidencelistproxy_recount_pages", args=[obj.pk])
 
         buttons = [
             format_html('<a class="button" href="{}" title="合并PDF">合并</a>', merge_url),
@@ -200,7 +200,7 @@ class EvidenceListAdminViewsMixin(EvidenceListAdminServiceMixin):  # pragma: no 
         ]
 
         if obj.merged_pdf:
-            download_url = reverse("admin:documents_evidencelist_download_pdf", args=[obj.pk])
+            download_url = reverse("admin:evidence_evidencelistproxy_download_pdf", args=[obj.pk])
             buttons.append(
                 format_html('<a class="button" href="{}" title="下载证据明细PDF">下载明细</a>', download_url)
             )
@@ -224,14 +224,14 @@ class EvidenceListAdminViewsMixin(EvidenceListAdminServiceMixin):  # pragma: no 
                 if is_ajax:
                     return JsonResponse({"success": False, "error": "正在合并中,请稍候..."})
                 messages.warning(request, "正在合并中,请稍候...")
-                return redirect("admin:documents_evidencelist_change", pk)
+                return redirect("admin:evidence_evidencelistproxy_change", pk)
 
             items_with_files = evidence_list.items.filter(file__isnull=False).exclude(file="")
             if not items_with_files.exists():
                 if is_ajax:
                     return JsonResponse({"success": False, "error": "证据清单没有任何文件,无法合并"})
                 messages.error(request, "证据清单没有任何文件,无法合并")
-                return redirect("admin:documents_evidencelist_change", pk)
+                return redirect("admin:evidence_evidencelistproxy_change", pk)
 
             from apps.core.interfaces import ServiceLocator
             from apps.core.tasking import TaskContext
@@ -280,7 +280,7 @@ class EvidenceListAdminViewsMixin(EvidenceListAdminServiceMixin):  # pragma: no 
                 return JsonResponse({"success": False, "error": f"提交合并任务失败: {e!s}"})
             messages.error(request, "提交合并任务失败: %(e)s" % {"e": e})
 
-        return redirect("admin:documents_evidencelist_change", pk)
+        return redirect("admin:evidence_evidencelistproxy_change", pk)
 
     def merge_status_view(self, request: Any, pk: int) -> Any:  # pragma: no cover
         from django.http import JsonResponse
@@ -403,7 +403,7 @@ class EvidenceListAdminViewsMixin(EvidenceListAdminServiceMixin):  # pragma: no 
             logger.exception("EvidenceList recount_pages 失败", extra={"evidence_list_id": pk, "error": str(e)})
             messages.error(request, "识别页数失败: %(e)s" % {"e": e})
 
-        return redirect("admin:documents_evidencelist_changelist")
+        return redirect("admin:evidence_evidencelistproxy_changelist")
 
 
 __all__: list[str] = ["EvidenceListAdminServiceMixin", "EvidenceListAdminViewsMixin"]
