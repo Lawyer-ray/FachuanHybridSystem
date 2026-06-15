@@ -31,6 +31,7 @@ def _get_token_history_admin_service() -> Any:
     return TokenAcquisitionHistoryAdminService()
 
 
+@admin.register(TokenAcquisitionHistory)
 class TokenAcquisitionHistoryAdmin(admin.ModelAdmin):  # pragma: no cover
     """
     一张网/保全系统 Token获取历史记录管理 Admin
