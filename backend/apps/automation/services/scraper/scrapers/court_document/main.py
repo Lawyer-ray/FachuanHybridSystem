@@ -133,10 +133,8 @@ class CourtDocumentScraper(BaseCourtDocumentScraper):  # pragma: no cover
                 from .gdems_scraper import GdemsCourtScraper
 
                 return GdemsCourtScraper
-            if detected_platform == "hbfy":
-                from .hbfy_scraper import HbfyCourtScraper
-
-                return HbfyCourtScraper
+            if detected_platform == "daolv":
+                return self._resolve_daolv_scraper(host)
             if detected_platform == "jysd":
                 from .jysd_scraper import JysdCourtScraper
 
@@ -206,10 +204,10 @@ class CourtDocumentScraper(BaseCourtDocumentScraper):  # pragma: no cover
                 logger.info("结构识别命中广东电子送达特征")
                 return "gdems"
 
-            # 湖北电子送达：路径与入口特征
+            # 道律「司法送达网」平台：/sfsddz 账号入口 或 /hb/msg= 短信入口
             if "/hb/msg=" in current_url or "/sfsddz" in current_url:
-                logger.info("结构识别命中湖北电子送达特征")
-                return "hbfy"
+                logger.info("结构识别命中道律司法送达网特征（%s）", current_url)
+                return "daolv"
 
             # 人民法院在线服务网：hash 路由与 wssd 特征
             if "/pagesajkj/app/wssd/index" in current_url or "getwslistbysdbhnew" in content_lower:
@@ -230,3 +228,72 @@ class CourtDocumentScraper(BaseCourtDocumentScraper):  # pragma: no cover
             return int(self.page.locator(selector).count()) > 0
         except Exception:
             return False
+
+    # ── 道律平台动态解析 ─────────────────────────────────────────
+
+    _DAOLV_KNOWN_DOMAINS: dict[str, str] = {
+        "dzsd.hbfy.gov.cn": ".hbfy_scraper.HbfyCourtScraper",
+        "sfsd.jxfy.gov.cn": ".jxfy_scraper.JxfyCourtScraper",
+    }
+
+    def _resolve_daolv_scraper(self, host: str) -> type[BaseCourtDocumentScraper]:  # pragma: no cover
+        """根据域名解析道律平台爬虫。
+
+        已注册的域名返回对应的专用子类；未注册的域名自动创建
+        DaolvSifaSongdaScraper 子类，URL 常量从域名推导。
+        """
+        from .daolv_sifa_songda_scraper import DaolvSifaSongdaScraper
+
+        # 已注册域名 → 延迟导入对应子类
+        for domain_suffix, class_path in self._DAOLV_KNOWN_DOMAINS.items():
+            if self._host_equals_or_subdomain(host, domain_suffix):
+                module_path, class_name = class_path.rsplit(".", 1)
+                import importlib
+
+                module = importlib.import_module(module_path, package=__package__)
+                scraper_cls: type[BaseCourtDocumentScraper] = getattr(module, class_name)
+                logger.info("道律平台域名匹配: %s → %s", host, class_name)
+                return scraper_cls
+
+        # 未知域名 → 动态生成子类，URL 从域名推导
+        logger.info("道律平台未知域名，动态适配: %s", host)
+        return self._create_daolv_scraper_class(host)
+
+    @staticmethod
+    def _create_daolv_scraper_class(host: str) -> type[DaolvSifaSongdaScraper]:  # pragma: no cover
+        """为未知道律域名动态创建爬虫子类。
+
+        道律平台的 URL 结构完全一致，仅域名不同：
+          登录页: http://{host}/sfsddz
+          验证码: http://{host}:80/deli/images/yanz.png
+          ...
+        """
+        from .daolv_sifa_songda_scraper import DaolvSifaSongdaScraper
+
+        base = f"http://{host}:80"
+        cls_name = f"DaolvScraper_{host.replace('.', '_').replace('-', '_')}"
+        cls = type(cls_name, (DaolvSifaSongdaScraper,), {
+            "requires_browser": False,
+            "_DOMAIN": host,
+            "_LOGIN_PAGE_URL": f"http://{host}/sfsddz",
+            "_CAPTCHA_IMAGE_URL": f"{base}/deli/images/yanz.png",
+            "_CAPTCHA_CHECK_URL": f"{base}/deli/deli-login!checkyzmAjaxp.action",
+            "_LOGIN_URL": f"{base}/deli/easy-login!dologinAjax.action",
+            "_MAIN_URL": f"{base}/deli/login!main.action",
+            "_LIST_URLS": (
+                f"{base}/deli/TdeliPubRecord/tdelipubrecord!todoList.action",
+                f"{base}/deli/TdeliPubRecord/tdelipubrecord!doneList.action",
+                f"{base}/deli/TdeliPubRecord/tdelipubrecord!expiredList.action",
+            ),
+            "_PLATFORM_LABEL": host.split(".")[0],
+        })
+
+        # run() 方法：仅支持 /sfsddz 账号模式
+        def _run(self_inner: Any) -> dict[str, Any]:
+            url = self_inner.task.url
+            if f"{host}/sfsddz" in url:
+                return self_inner._run_account_mode(source_domain=host)
+            raise ValueError(f"不支持的道律平台链接: {url}")
+
+        cls.run = _run  # type: ignore[method-assign]
+        return cls
