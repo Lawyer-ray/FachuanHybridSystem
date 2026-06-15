@@ -34,7 +34,7 @@ class BatchPrintFileType(models.TextChoices):
 
 class BatchPrintingTool(models.Model):
     id: int
-    name: str = models.CharField(max_length=64, default="Batch Printing")
+    name = models.CharField(max_length=64, default="Batch Printing")
 
     class Meta:
         managed = False
@@ -43,16 +43,16 @@ class BatchPrintingTool(models.Model):
 
 
 class PrintPresetSnapshot(models.Model):
-    printer_name: str = models.CharField(max_length=255, verbose_name="打印机名称")
-    printer_display_name: str = models.CharField(max_length=255, blank=True, default="", verbose_name="打印机展示名称")
-    preset_name: str = models.CharField(max_length=255, verbose_name="预置名称")
-    preset_source: str = models.CharField(max_length=255, blank=True, default="", verbose_name="预置来源")
-    raw_settings_payload: Any = models.JSONField(default=dict, blank=True, verbose_name="原始设置")
-    executable_options_payload: Any = models.JSONField(default=dict, blank=True, verbose_name="可执行打印参数")
-    supported_option_names: Any = models.JSONField(default=list, blank=True, verbose_name="驱动支持参数名")
-    last_synced_at: datetime = models.DateTimeField(verbose_name="最近同步时间")
-    created_at: datetime = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
-    updated_at: datetime = models.DateTimeField(auto_now=True, verbose_name="更新时间")
+    printer_name = models.CharField(max_length=255, verbose_name="打印机名称")
+    printer_display_name = models.CharField(max_length=255, blank=True, default="", verbose_name="打印机展示名称")
+    preset_name = models.CharField(max_length=255, verbose_name="预置名称")
+    preset_source = models.CharField(max_length=255, blank=True, default="", verbose_name="预置来源")
+    raw_settings_payload = models.JSONField(default=dict, blank=True, verbose_name="原始设置")
+    executable_options_payload = models.JSONField(default=dict, blank=True, verbose_name="可执行打印参数")
+    supported_option_names = models.JSONField(default=list, blank=True, verbose_name="驱动支持参数名")
+    last_synced_at = models.DateTimeField(verbose_name="最近同步时间")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="更新时间")
 
     class Meta:
         verbose_name = "打印预置快照"
@@ -70,19 +70,19 @@ class PrintPresetSnapshot(models.Model):
 
 
 class PrintKeywordRule(models.Model):
-    keyword: str = models.CharField(max_length=255, verbose_name="关键词")
-    priority: int = models.PositiveIntegerField(default=100, verbose_name="优先级")
-    enabled: bool = models.BooleanField(default=True, verbose_name="启用")
-    printer_name: str = models.CharField(max_length=255, verbose_name="目标打印机")
-    preset_snapshot: Any = models.ForeignKey(
+    keyword = models.CharField(max_length=255, verbose_name="关键词")
+    priority = models.PositiveIntegerField(default=100, verbose_name="优先级")
+    enabled = models.BooleanField(default=True, verbose_name="启用")
+    printer_name = models.CharField(max_length=255, verbose_name="目标打印机")
+    preset_snapshot = models.ForeignKey(
         PrintPresetSnapshot,
         on_delete=models.PROTECT,
         related_name="rules",
         verbose_name="目标预置",
     )
-    notes: str = models.CharField(max_length=255, blank=True, default="", verbose_name="备注")
-    created_at: datetime = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
-    updated_at: datetime = models.DateTimeField(auto_now=True, verbose_name="更新时间")
+    notes = models.CharField(max_length=255, blank=True, default="", verbose_name="备注")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="更新时间")
 
     class Meta:
         verbose_name = "关键词打印规则"
@@ -97,21 +97,21 @@ class PrintKeywordRule(models.Model):
 
 
 class BatchPrintJob(models.Model):
-    id: UUID = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-    status: str = models.CharField(
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    status = models.CharField(
         max_length=32,
         choices=BatchPrintJobStatus.choices,
         default=BatchPrintJobStatus.PENDING,
         verbose_name="状态",
     )
-    total_count: int = models.PositiveIntegerField(default=0, verbose_name="总文件数")
-    processed_count: int = models.PositiveIntegerField(default=0, verbose_name="已处理数量")
-    success_count: int = models.PositiveIntegerField(default=0, verbose_name="成功数量")
-    failed_count: int = models.PositiveIntegerField(default=0, verbose_name="失败数量")
-    progress: int = models.PositiveIntegerField(default=0, verbose_name="进度")
-    task_id: str = models.CharField(max_length=64, blank=True, default="", verbose_name="任务ID")
-    cancel_requested: bool = models.BooleanField(default=False, verbose_name="请求取消")
-    created_by: Any = models.ForeignKey(
+    total_count = models.PositiveIntegerField(default=0, verbose_name="总文件数")
+    processed_count = models.PositiveIntegerField(default=0, verbose_name="已处理数量")
+    success_count = models.PositiveIntegerField(default=0, verbose_name="成功数量")
+    failed_count = models.PositiveIntegerField(default=0, verbose_name="失败数量")
+    progress = models.PositiveIntegerField(default=0, verbose_name="进度")
+    task_id = models.CharField(max_length=64, blank=True, default="", verbose_name="任务ID")
+    cancel_requested = models.BooleanField(default=False, verbose_name="请求取消")
+    created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
         null=True,
@@ -119,13 +119,13 @@ class BatchPrintJob(models.Model):
         related_name="batch_print_jobs",
         verbose_name="创建人",
     )
-    capability_payload: Any = models.JSONField(default=dict, blank=True, verbose_name="能力快照")
-    summary_payload: Any = models.JSONField(default=dict, blank=True, verbose_name="任务摘要")
-    error_message: str = models.TextField(blank=True, default="", verbose_name="错误信息")
-    started_at: datetime | None = models.DateTimeField(null=True, blank=True, verbose_name="开始时间")
-    finished_at: datetime | None = models.DateTimeField(null=True, blank=True, verbose_name="完成时间")
-    created_at: datetime = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
-    updated_at: datetime = models.DateTimeField(auto_now=True, verbose_name="更新时间")
+    capability_payload = models.JSONField(default=dict, blank=True, verbose_name="能力快照")
+    summary_payload = models.JSONField(default=dict, blank=True, verbose_name="任务摘要")
+    error_message = models.TextField(blank=True, default="", verbose_name="错误信息")
+    started_at = models.DateTimeField(null=True, blank=True, verbose_name="开始时间")
+    finished_at = models.DateTimeField(null=True, blank=True, verbose_name="完成时间")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="更新时间")
 
     class Meta:
         verbose_name = "批量打印任务"
@@ -141,18 +141,18 @@ class BatchPrintJob(models.Model):
 
 
 class BatchPrintItem(models.Model):
-    job: Any = models.ForeignKey(
+    job = models.ForeignKey(
         BatchPrintJob,
         on_delete=models.CASCADE,
         related_name="items",
         verbose_name="批次任务",
     )
-    order: int = models.PositiveIntegerField(default=1, verbose_name="排序")
-    source_original_name: str = models.CharField(max_length=255, verbose_name="原始文件名")
-    source_relpath: str = models.CharField(max_length=1024, verbose_name="源文件相对路径")
-    prepared_relpath: str = models.CharField(max_length=1024, blank=True, default="", verbose_name="打印文件相对路径")
-    file_type: str = models.CharField(max_length=16, choices=BatchPrintFileType.choices, verbose_name="文件类型")
-    matched_rule: Any = models.ForeignKey(
+    order = models.PositiveIntegerField(default=1, verbose_name="排序")
+    source_original_name = models.CharField(max_length=255, verbose_name="原始文件名")
+    source_relpath = models.CharField(max_length=1024, verbose_name="源文件相对路径")
+    prepared_relpath = models.CharField(max_length=1024, blank=True, default="", verbose_name="打印文件相对路径")
+    file_type = models.CharField(max_length=16, choices=BatchPrintFileType.choices, verbose_name="文件类型")
+    matched_rule = models.ForeignKey(
         PrintKeywordRule,
         on_delete=models.SET_NULL,
         null=True,
@@ -160,8 +160,8 @@ class BatchPrintItem(models.Model):
         related_name="batch_items",
         verbose_name="命中规则",
     )
-    matched_keyword: str = models.CharField(max_length=255, blank=True, default="", verbose_name="命中关键词")
-    target_preset: Any = models.ForeignKey(
+    matched_keyword = models.CharField(max_length=255, blank=True, default="", verbose_name="命中关键词")
+    target_preset = models.ForeignKey(
         PrintPresetSnapshot,
         on_delete=models.SET_NULL,
         null=True,
@@ -169,20 +169,20 @@ class BatchPrintItem(models.Model):
         related_name="batch_items",
         verbose_name="目标预置",
     )
-    target_printer_name: str = models.CharField(max_length=255, blank=True, default="", verbose_name="目标打印机")
-    target_preset_name: str = models.CharField(max_length=255, blank=True, default="", verbose_name="目标预置名称")
-    status: str = models.CharField(
+    target_printer_name = models.CharField(max_length=255, blank=True, default="", verbose_name="目标打印机")
+    target_preset_name = models.CharField(max_length=255, blank=True, default="", verbose_name="目标预置名称")
+    status = models.CharField(
         max_length=32,
         choices=BatchPrintItemStatus.choices,
         default=BatchPrintItemStatus.PENDING,
         verbose_name="状态",
     )
-    cups_job_id: str = models.CharField(max_length=64, blank=True, default="", verbose_name="CUPS 任务ID")
-    error_message: str = models.TextField(blank=True, default="", verbose_name="错误信息")
-    started_at: datetime | None = models.DateTimeField(null=True, blank=True, verbose_name="开始时间")
-    finished_at: datetime | None = models.DateTimeField(null=True, blank=True, verbose_name="完成时间")
-    created_at: datetime = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
-    updated_at: datetime = models.DateTimeField(auto_now=True, verbose_name="更新时间")
+    cups_job_id = models.CharField(max_length=64, blank=True, default="", verbose_name="CUPS 任务ID")
+    error_message = models.TextField(blank=True, default="", verbose_name="错误信息")
+    started_at = models.DateTimeField(null=True, blank=True, verbose_name="开始时间")
+    finished_at = models.DateTimeField(null=True, blank=True, verbose_name="完成时间")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="更新时间")
 
     class Meta:
         verbose_name = "批量打印明细"
