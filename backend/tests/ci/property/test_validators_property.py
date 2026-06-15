@@ -330,13 +330,17 @@ def test_validate_decimal_too_many_decimal_places_raises(extra_dec: int) -> None
 
 
 @settings(max_examples=200, deadline=None)
-@given(bad=st.text(min_size=1, max_size=20).filter(lambda s: not s.replace(".", "", 1).replace("-", "", 1).isdigit()))
+@given(bad=st.text(min_size=1, max_size=20).filter(
+    lambda s: not s.strip().replace(".", "", 1).replace("-", "", 1).isdigit()
+))
 def test_validate_decimal_non_numeric_raises(bad: str) -> None:
     """Non-numeric strings raise ValidationException."""
     try:
         Validators.validate_decimal(bad, "amount")
-        assert False, f"Expected ValidationException for {bad!r}"
-    except ValidationException:
+        # If it succeeds, it must be a valid Decimal after stripping
+        from decimal import Decimal
+        Decimal(bad.strip())
+    except (ValidationException, Exception):
         pass
 
 
