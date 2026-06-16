@@ -160,7 +160,7 @@ class CourtZxfwService:  # pragma: no cover
 
     def _try_http_login(self, account: str, password: str, max_retries: int) -> dict[str, Any] | None:  # pragma: no cover
         """
-        尝试纯 HTTP 逆向登录（无需 Playwright 浏览器）。
+        尝试HTTP 直接登录登录（无需 Playwright 浏览器）。
 
         这是一个可插拔的加速方案：
         - 插件位置: apps/automation/services/scraper/sites/court_zxfw_login_private/
@@ -174,19 +174,19 @@ class CourtZxfwService:  # pragma: no cover
         不可用时（以下任一情况）自动回退到 Playwright 登录:
         - 插件目录不存在（未部署）
         - gmssl 未安装
-        - 纯逆向登录过程中发生异常
+        - HTTP 直接登录过程中发生异常
 
         Returns:
             登录结果 dict（成功时），或 None（插件不可用/失败，触发 Playwright 回退）
         """
         try:
-            from apps.automation.services.scraper.sites.court_zxfw_login_private import is_available  # type: ignore[attr-defined]
+            from apps.automation.services.scraper.sites.court_zxfw_login_private import is_available
 
             if not is_available():
-                logger.info("纯逆向登录插件不可用，回退到 Playwright")
+                logger.info("HTTP 直接登录插件不可用，回退到 Playwright")
                 return None
 
-            from apps.automation.services.scraper.sites.court_zxfw_login_private import CourtZxfwHttpLoginService  # type: ignore[attr-defined]
+            from apps.automation.services.scraper.sites.court_zxfw_login_private import CourtZxfwHttpLoginService
 
             svc = CourtZxfwHttpLoginService(captcha_recognizer=self.captcha_recognizer)
             result_raw: object = svc.login(account, password, max_retries=max_retries)
@@ -194,11 +194,11 @@ class CourtZxfwService:  # pragma: no cover
                 return None
             result: dict[str, Any] = result_raw
             if result.get("success"):
-                result["message"] = "纯逆向登录成功"
+                result["message"] = "HTTP 直接登录成功"
                 result["url"] = self.page.url
             return result
         except Exception as e:
-            logger.warning("纯逆向登录异常，回退到 Playwright: %s", e)
+            logger.warning("HTTP 直接登录异常，回退到 Playwright: %s", e)
             return None
 
     def _fill_login_form(self, account: str, password: str, save_debug: bool) -> None:  # pragma: no cover
@@ -320,7 +320,7 @@ class CourtZxfwService:  # pragma: no cover
                         }
                     logger.info("Cookie 无效，执行完整登录流程")
 
-        # ── 第2优先: 纯 HTTP 逆向登录（可插拔插件，无需浏览器，更快）──
+        # ── 第2优先: HTTP 直接登录登录（可插拔插件，无需浏览器，更快）──
         # 插件位置: apps/automation/services/scraper/sites/court_zxfw_login_private/
         # 没有此目录或 gmssl 未安装时，自动跳过，走下面的 Playwright 登录
         http_result = self._try_http_login(account, password, max_captcha_retries)

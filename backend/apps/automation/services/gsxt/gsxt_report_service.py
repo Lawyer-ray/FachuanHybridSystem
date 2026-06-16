@@ -1,6 +1,6 @@
 """国家企业信用信息公示系统报告申请服务（独立模式）。
 
-仅用于逆向登录成功后需要 Playwright 完成报告申请的场景。
+仅用于直接登录成功后需要 Playwright 完成报告申请的场景。
 正常流程（手动验证码登录）已合并到 gsxt_login_service.py 的一体化流程中。
 
 使用 CloakBrowser 管理浏览器生命周期，所有反检测由底层 C++ 引擎处理。
@@ -143,7 +143,7 @@ async def _click_company_detail(page: Any, company_name: str, context: Any) -> A
 
 
 async def _run_full_flow(task_id: int) -> None:  # pragma: no cover
-    """独立报告流程（逆向登录成功后，需要 Playwright 搜索+申请报告）。"""
+    """独立报告流程（直接登录成功后，需要 Playwright 搜索+申请报告）。"""
     from asgiref.sync import sync_to_async
 
     from apps.automation.models.gsxt_report import GsxtReportStatus, GsxtReportTask

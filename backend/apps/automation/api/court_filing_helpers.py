@@ -744,8 +744,8 @@ def _run_filing(
     with create_browser(anti_detection=False) as (page, context):
         try:
             login_service = CourtZxfwService(page=page, context=context)
-            # Playwright 立案模式必须用浏览器登录，禁用 HTTP 逆向登录
-            # （HTTP 逆向登录不建立浏览器会话，会导致后续导航被重定向到登录页）
+            # Playwright 立案模式必须用浏览器登录，禁用 HTTP 直接登录
+            # （HTTP 直接登录不建立浏览器会话，会导致后续导航被重定向到登录页）
             login_service._try_http_login = lambda *args, **kwargs: None  # type: ignore[method-assign]
             login_result = login_service.login(account=account, password=password)
             if not login_result.get("success"):

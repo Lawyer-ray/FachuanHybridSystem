@@ -4,8 +4,10 @@
 提供可插拔的验证码识别功能，支持多种识别服务。
 """
 
+import json
 import logging
 import time
+import uuid
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any, cast
@@ -152,24 +154,118 @@ class ManualCaptchaRecognizer(CaptchaRecognizer):
             return None
 
 
+class FileBasedCaptchaRecognizer(CaptchaRecognizer):
+    """
+    基于文件系统的验证码识别器（无 task 依赖）
+
+    将验证码图片保存到临时目录，并创建一个 .answer 文件等待用户输入。
+    适用场景：消息中心同步等没有 ScraperTask 的场景。
+
+    工作流程：
+    1. 保存验证码图片到 {_CAPTCHA_DIR}/{uuid}.png
+    2. 创建 {_CAPTCHA_DIR}/{uuid}.answer 空文件
+    3. 轮询等待 .answer 文件中出现内容
+    4. 用户写入答案后返回
+
+    Attributes:
+        timeout: 等待超时秒数，默认 300 秒
+        poll_interval: 轮询间隔秒数，默认 2 秒
+    """
+
+    _CAPTCHA_DIR = "automation/captcha_pending"
+
+    def __init__(self, timeout: int = 300, poll_interval: float = 2.0) -> None:
+        self.timeout = timeout
+        self.poll_interval = poll_interval
+
+    def recognize(self, image_bytes: bytes) -> str | None:  # pragma: no cover
+        if not image_bytes:
+            logger.warning("⚠️ 图片字节流为空")
+            return None
+
+        try:
+            from django.conf import settings
+
+            # 1. 保存验证码图片
+            captcha_dir = Path(settings.MEDIA_ROOT) / self._CAPTCHA_DIR
+            captcha_dir.mkdir(parents=True, exist_ok=True)
+            captcha_id = uuid.uuid4().hex[:12]
+            filename = f"{captcha_id}.png"
+            image_path = captcha_dir / filename
+            image_path.write_bytes(image_bytes)
+
+            # 2. 创建 .answer 文件（用户需要写入答案）
+            answer_path = captcha_dir / f"{captcha_id}.answer"
+            answer_path.write_text("", encoding="utf-8")
+
+            logger.info(
+                "📸 验证码图片已保存，等待手动输入:\n"
+                "  图片: %s\n"
+                "  答案文件: %s\n"
+                "  请将验证码写入 .answer 文件",
+                image_path,
+                answer_path,
+            )
+
+            # 3. 轮询等待答案文件有内容
+            deadline = time.time() + self.timeout
+            while time.time() < deadline:
+                time.sleep(self.poll_interval)
+
+                if answer_path.exists():
+                    answer = answer_path.read_text(encoding="utf-8").strip()
+                    if answer:
+                        cleaned: str = answer.strip().replace(" ", "")
+                        logger.info("✅ 收到手动验证码: captcha_id=%s, answer=%s", captcha_id, cleaned)
+
+                        # 清理文件
+                        try:
+                            image_path.unlink(missing_ok=True)
+                            answer_path.unlink(missing_ok=True)
+                        except Exception:
+                            pass
+                        return cleaned
+
+            # 4. 超时
+            logger.warning("⏰ 手动验证码等待超时: captcha_id=%s, timeout=%ss", captcha_id, self.timeout)
+            try:
+                image_path.unlink(missing_ok=True)
+                answer_path.unlink(missing_ok=True)
+            except Exception:
+                pass
+            return None
+
+        except Exception as e:
+            logger.error("❌ 文件验证码识别异常: %s", e, exc_info=True)
+            return None
+
+    def recognize_from_element(self, page: Any, selector: str) -> str | None:  # pragma: no cover
+        try:
+            element = page.locator(selector)
+            element.wait_for(state="visible", timeout=5000)
+            image_bytes = element.screenshot()
+            return self.recognize(image_bytes)
+        except Exception as e:
+            logger.error(f"❌ 从页面元素获取验证码失败 (selector: {selector}): {e}", exc_info=True)
+            return None
+
+
 def get_captcha_recognizer(task: Any = None) -> CaptchaRecognizer:
     """
     根据插件可用性和 task 参数返回合适的验证码识别器。
 
     优先级：
-    1. captcha_ocr 插件已安装 → DdddocrRecognizer（自动识别）
-    2. 有 task 参数 → ManualCaptchaRecognizer（手动输入）
-    3. 都不满足 → 抛出 RuntimeError
+    1. captcha_ocr 插件已安装且 ddddocr 可用 → DdddocrRecognizer（自动识别）
+    2. 有 task 参数 → ManualCaptchaRecognizer（手动输入，依赖 task 状态）
+    3. 无 task 且插件不可用 → FileBasedCaptchaRecognizer（基于文件的手动输入）
 
     Args:
-        task: ScraperTask 实例（可选）。有 task 时可启用手动模式。
+        task: ScraperTask 实例（可选）。有 task 时可启用 task-based 手动模式。
 
     Returns:
         CaptchaRecognizer 实例
-
-    Raises:
-        RuntimeError: 插件未安装且无 task 参数
     """
+    # 1. 尝试自动识别插件
     try:
         from plugins import has_captcha_ocr_plugin  # type: ignore[attr-defined]
 
@@ -180,9 +276,15 @@ def get_captcha_recognizer(task: Any = None) -> CaptchaRecognizer:
             return cast(CaptchaRecognizer, DdddocrRecognizer(show_ad=False))
     except ImportError:
         pass  # plugins 子模块未安装，静默降级
+    except Exception as e:
+        # ddddocr 库未安装等其他异常
+        logger.debug("captcha_ocr 插件加载失败: %s", e)
 
+    # 2. 有 task 时使用 task-based 手动模式
     if task is not None:
         logger.info("使用 ManualCaptchaRecognizer (task=%s)", getattr(task, "id", "?"))
         return ManualCaptchaRecognizer(task=task)
 
-    raise RuntimeError("验证码识别需要 task 参数（captcha_ocr 插件未安装，请使用手动模式）")
+    # 3. 无 task 时使用基于文件的手动模式
+    logger.info("使用 FileBasedCaptchaRecognizer（无 task，基于文件系统等待手动输入）")
+    return FileBasedCaptchaRecognizer()
