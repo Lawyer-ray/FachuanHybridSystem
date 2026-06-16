@@ -4,7 +4,6 @@
 提供可插拔的验证码识别功能，支持多种识别服务。
 """
 
-import json
 import logging
 import time
 import uuid

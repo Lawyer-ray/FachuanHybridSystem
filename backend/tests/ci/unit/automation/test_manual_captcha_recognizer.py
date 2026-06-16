@@ -2,11 +2,8 @@
 
 from __future__ import annotations
 
-import time
 from types import SimpleNamespace
-from unittest.mock import MagicMock, patch, call
-
-import pytest
+from unittest.mock import MagicMock, patch
 
 
 # ======================================================================
@@ -127,7 +124,7 @@ class TestGetCaptchaRecognizer:
         mock_plugins.captcha_ocr.DdddocrRecognizer = mock_ocr
 
         with patch.dict("sys.modules", {"plugins": mock_plugins, "plugins.captcha_ocr": mock_plugins.captcha_ocr}):
-            result = get_captcha_recognizer()
+            get_captcha_recognizer()
         mock_ocr.assert_called_once_with(show_ad=False)
 
     def test_with_task_returns_manual(self):

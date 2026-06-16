@@ -10,7 +10,6 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Protocol
 
 from playwright.sync_api import BrowserContext
-from playwright.sync_api import Error as PlaywrightError
 from playwright.sync_api import Page
 
 if TYPE_CHECKING:
