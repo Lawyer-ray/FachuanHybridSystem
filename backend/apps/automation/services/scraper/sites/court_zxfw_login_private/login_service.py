@@ -1,5 +1,5 @@
 """
-一张网纯 HTTP 逆向登录服务
+一张网 HTTP 直接登录服务
 
 流程：
     1. GET  /api/v1/publicKey  → SM2 公钥
@@ -50,7 +50,7 @@ def _sm2_encrypt(plain: str, public_key_hex: str) -> str:  # pragma: no cover
     return ciphertext
 
 class CourtZxfwHttpLoginService:  # pragma: no cover
-    """纯 HTTP 逆向登录，不依赖 Playwright"""
+    """HTTP 直接登录，不依赖 Playwright"""
 
     def __init__(  # pragma: no cover
         self,
@@ -165,7 +165,7 @@ class CourtZxfwHttpLoginService:  # pragma: no cover
                 if result.get("code") == 200:
                     login_data = result.get("data", {})
                     token = login_data.get("token") if isinstance(login_data, dict) else None
-                    logger.info("纯逆向登录成功! token=%s...", str(token)[:20] if token else "N/A")
+                    logger.info("HTTP 直接登录成功! token=%s...", str(token)[:20] if token else "N/A")
                     return {
                         "success": True,
                         "token": token,

@@ -41,15 +41,17 @@ class TestGetCaptchaRecognizer:
 
     def test_no_plugin_no_task_raises(self):
         with patch.dict("sys.modules", {"plugins": None}):
-            with pytest.raises(RuntimeError, match="captcha_ocr 插件未安装"):
-                get_captcha_recognizer()
+            from apps.automation.services.scraper.core.captcha_recognizer import FileBasedCaptchaRecognizer
+            result = get_captcha_recognizer()
+            assert isinstance(result, FileBasedCaptchaRecognizer)
 
     def test_no_task_raises_when_plugin_unavailable(self):
         with patch.dict("sys.modules", {
             "plugins": MagicMock(has_captcha_ocr_plugin=lambda: False),
         }):
-            with pytest.raises(RuntimeError, match="task 参数"):
-                get_captcha_recognizer(task=None)
+            from apps.automation.services.scraper.core.captcha_recognizer import FileBasedCaptchaRecognizer
+            result = get_captcha_recognizer(task=None)
+            assert isinstance(result, FileBasedCaptchaRecognizer)
 
 
 class TestManualCaptchaRecognizerRecognizeSuccess:

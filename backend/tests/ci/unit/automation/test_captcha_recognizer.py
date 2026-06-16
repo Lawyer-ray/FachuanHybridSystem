@@ -144,8 +144,9 @@ class TestGetCaptchaRecognizer:
     def test_no_task_no_plugin_raises(self):
         with patch.dict("sys.modules", {"plugins": None}):
             with patch.dict("sys.modules", {"plugins.captcha_ocr": None}):
-                with pytest.raises(RuntimeError, match="task 参数"):
-                    get_captcha_recognizer(task=None)
+                result = get_captcha_recognizer(task=None)
+                from apps.automation.services.scraper.core.captcha_recognizer import FileBasedCaptchaRecognizer
+                assert isinstance(result, FileBasedCaptchaRecognizer)
 
 
 # ── CaptchaRecognizer ABC ──────────────────────────────────────────────────

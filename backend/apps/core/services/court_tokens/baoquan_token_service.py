@@ -65,7 +65,7 @@ class BaoquanTokenService:  # pragma: no cover
     ) -> str:
         logger.info(f"使用账号 {account} 登录获取保全系统 Token")
 
-        # ── 优先尝试纯 HTTP 逆向（插件可用时）──
+        # ── 优先尝试HTTP 直接登录（插件可用时）──
         # 插件位置: apps/automation/services/scraper/sites/court_zxfw_login_private/
         # 没有此目录时自动跳过，走下面的 Playwright 流程
         http_token = await self._try_http_baoquan_token(account, password)
@@ -120,7 +120,7 @@ class BaoquanTokenService:  # pragma: no cover
 
     async def _try_http_baoquan_token(self, account: str, password: str) -> str | None:  # pragma: no cover
         """
-        尝试纯 HTTP 逆向获取保全 HS512 Token（插件不可用时返回 None）。
+        尝试HTTP 直接登录获取保全 HS512 Token（插件不可用时返回 None）。
 
         插件位置: apps/automation/services/scraper/sites/court_zxfw_login_private/
         不可用时自动回退到 Playwright。
@@ -129,7 +129,7 @@ class BaoquanTokenService:  # pragma: no cover
             from apps.automation.services.scraper.sites.court_zxfw_login_private import is_available
 
             if not is_available():
-                logger.info("纯逆向插件不可用，回退到 Playwright 获取保全 Token")
+                logger.info("HTTP 直接插件不可用，回退到 Playwright 获取保全 Token")
                 return None
 
             import asyncio
@@ -143,12 +143,12 @@ class BaoquanTokenService:  # pragma: no cover
             if result.get("success"):
                 token = result["token"]
                 if token and token.startswith(self._BAOQUAN_TOKEN_PREFIX):
-                    logger.info("纯逆向获取保全 Token 成功: %s...", token[:30])
+                    logger.info("HTTP 直接获取保全 Token 成功: %s...", token[:30])
                     return token  # type: ignore[no-any-return]
-                logger.warning("纯逆向获取的保全 Token 格式不正确，回退到 Playwright")
+                logger.warning("HTTP 直接获取的保全 Token 格式不正确，回退到 Playwright")
             else:
-                logger.warning("纯逆向获取保全 Token 失败: %s，回退到 Playwright", result.get("message"))
+                logger.warning("HTTP 直接获取保全 Token 失败: %s，回退到 Playwright", result.get("message"))
             return None
         except Exception as e:
-            logger.warning("纯逆向获取保全 Token 异常，回退到 Playwright: %s", e)
+            logger.warning("HTTP 直接获取保全 Token 异常，回退到 Playwright: %s", e)
             return None

@@ -1,10 +1,10 @@
-"""国家企业信用信息公示系统 — 纯 HTTP 逆向登录服务。
+"""国家企业信用信息公示系统 — HTTP 直接登录登录服务。
 
 无需浏览器，通过 httpx 直接发送请求完成登录。
 RSA 加密账号密码，验证码部分预留打码平台接口。
 
 本文件为可插拔模块：
-- 存在时，系统自动使用 HTTP 逆向登录（无需 Chrome）
+- 存在时，系统自动使用 HTTP 直接登录（无需 Chrome）
 - 删除后，系统回退到 Playwright 手动验证码模式
 """
 
@@ -100,12 +100,12 @@ def set_captcha_solver(solver: CaptchaSolver) -> None:
     _solver = solver
 
 
-# ── HTTP 逆向登录 ────────────────────────────────────
+# ── HTTP 直接登录 ────────────────────────────────────
 
 
 def reverse_login(account: str, password: str) -> dict[str, Any]:  # pragma: no cover
     """
-    纯 HTTP 逆向登录国家企业信用信息公示系统。
+    HTTP 直接登录登录国家企业信用信息公示系统。
 
     Args:
         account: 手机号或身份证号。
@@ -164,9 +164,9 @@ def reverse_login(account: str, password: str) -> dict[str, Any]:  # pragma: no 
 
     value = result.get("value")
     if value == "1":
-        logger.info("逆向登录成功")
+        logger.info("直接登录成功")
     elif value == "0":
-        logger.warning("逆向登录失败: %s", result.get("message"))
+        logger.warning("直接登录失败: %s", result.get("message"))
         raise ValueError(result.get("message", "登录失败"))
     elif value == "2":
         logger.warning("账号未实名认证")

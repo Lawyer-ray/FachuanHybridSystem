@@ -1,6 +1,6 @@
 [project]
 name = "fachuan-backend"
-version = "26.51.8"
+version = "26.52.11"
 description = "法穿AI Copilot - Backend"
 requires-python = ">=3.12"
 dependencies = [
@@ -39,6 +39,8 @@ dependencies = [
     "Pillow==12.2.0",
     # --- OCR ---
     "rapidocr==3.8.1",
+    "onnxruntime>=1.25.0",
+    "ddddocr>=1.6.0",
     # --- 浏览器自动化 ---
     "playwright==1.59.0",
     "nest-asyncio>=1.6.0",
