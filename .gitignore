@@ -305,3 +305,6 @@ videos/
 
 # ML training (not part of the application)
 ml-training/
+
+# FastAPI rewrite (see feat/fastapi-rewrite branch)
+FastAPI_backend/
