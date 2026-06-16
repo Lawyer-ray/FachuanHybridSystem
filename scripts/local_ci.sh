@@ -34,8 +34,8 @@ echo ""
 echo "2/4 Mypy 类型检查..."
 CHANGED_FILES=$(git diff --name-only --diff-filter=ACMRT HEAD~1 HEAD | grep -E '^backend/apps/.*\.py$' | grep -Ev '/__init__\.py$' | sed 's|^backend/||' || true)
 if [ -n "$CHANGED_FILES" ]; then
-    cd backend
-    ../$PYTHON -m mypy --config-file=mypy.ini --follow-imports=silent $CHANGED_FILES 2>&1 || {
+    cd "$PROJECT_ROOT/backend"
+    PYTHONPATH="apiSystem:." ../$PYTHON -m mypy --config-file=mypy.ini --follow-imports=silent $CHANGED_FILES 2>&1 || {
         echo "⚠️ Mypy 类型检查有警告（继续执行）"
         cd "$PROJECT_ROOT"
     }
