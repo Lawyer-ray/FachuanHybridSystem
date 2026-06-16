@@ -39,6 +39,7 @@ dependencies = [
     "Pillow==12.2.0",
     # --- OCR ---
     "rapidocr==3.8.1",
+    "onnxruntime>=1.25.0",
     # --- 浏览器自动化 ---
     "playwright==1.59.0",
     "nest-asyncio>=1.6.0",
