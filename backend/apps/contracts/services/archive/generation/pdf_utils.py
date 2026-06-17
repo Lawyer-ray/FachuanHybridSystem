@@ -128,21 +128,86 @@ def scale_pages_to_a4(contract: Contract) -> dict[str, Any]:  # pragma: no cover
 
 
 def add_page_numbers(doc: Any, start_page: int = 1) -> None:  # pragma: no cover
-    """为PDF文档的每一页添加页码（居中底部）。"""
+    """为PDF文档的每一页添加页码（居中底部，带白色背景）。
+
+    支持旋转页面（rotation=90/180/270），使用 derotation_matrix 进行坐标转换。
+    参考: https://github.com/pymupdf/PyMuPDF/discussions/3366
+    """
     import fitz
+
+    fontsize = 9
+    margin = 4  # 白色背景边距(px)
 
     for i, page in enumerate(doc):
         page_num = start_page + i
         rect = page.rect
-        point = fitz.Point(rect.width / 2, rect.height - 30)
-        font = fitz.Font("helv")
-        page.insert_text(
-            point,
-            str(page_num),
-            fontname="helv",
-            fontsize=9,
-            color=(0, 0, 0),
+        text = str(page_num)
+        rotation = page.rotation
+
+        # 计算文本宽度以正确居中
+        text_width = fitz.get_text_length(text, fontname="helv", fontsize=fontsize)
+
+        # 可见坐标系中的页码位置（底部居中）
+        x_center = rect.width / 2
+        y_baseline = rect.height - 20  # 基线距底部20px
+
+        # 白色背景矩形（可见坐标系）
+        bg_rect = fitz.Rect(
+            x_center - text_width / 2 - margin,
+            y_baseline - fontsize - margin,
+            x_center + text_width / 2 + margin,
+            y_baseline + margin,
         )
+
+        if rotation == 0:
+            # 无旋转：直接操作
+            page.draw_rect(bg_rect, color=(1, 1, 1), fill=(1, 1, 1), width=0, overlay=True)
+            point = fitz.Point(x_center - text_width / 2, y_baseline)
+            page.insert_text(
+                point,
+                text,
+                fontname="helv",
+                fontsize=fontsize,
+                color=(0, 0, 0),
+                overlay=True,
+            )
+        else:
+            # 有旋转：使用 derotation_matrix 转换坐标
+            # PyMuPDF 官方推荐方案: point * page.derotation_matrix + rotate=rotation
+            derot = page.derotation_matrix
+
+            # 转换背景矩形四角到未旋转坐标系，取轴对齐外接矩形
+            corners = [
+                fitz.Point(bg_rect.x0, bg_rect.y0) * derot,
+                fitz.Point(bg_rect.x1, bg_rect.y0) * derot,
+                fitz.Point(bg_rect.x0, bg_rect.y1) * derot,
+                fitz.Point(bg_rect.x1, bg_rect.y1) * derot,
+            ]
+            bg_rect_unrotated = fitz.Rect(
+                min(p.x for p in corners),
+                min(p.y for p in corners),
+                max(p.x for p in corners),
+                max(p.y for p in corners),
+            )
+            page.draw_rect(
+                bg_rect_unrotated,
+                color=(1, 1, 1),
+                fill=(1, 1, 1),
+                width=0,
+                overlay=True,
+            )
+
+            # 转换文本插入点并旋转文本以匹配页面旋转
+            text_point = fitz.Point(x_center - text_width / 2, y_baseline) * derot
+            page.insert_text(
+                text_point,
+                text,
+                fontname="helv",
+                fontsize=fontsize,
+                color=(0, 0, 0),
+                rotate=rotation,
+                overlay=True,
+            )
 
 
 def merge_materials_to_single_pdf(materials: list[FinalizedMaterial]) -> dict[str, Any]:  # pragma: no cover
