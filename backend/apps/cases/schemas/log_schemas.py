@@ -39,15 +39,19 @@ class _CaseLogReminderMixin(Schema):
 
     @model_validator(mode="after")
     def validate_reminder_fields(self) -> _CaseLogReminderMixin:
-        fields_set: set[str] = getattr(self, "model_fields_set", set())
-        reminder_type_set = "reminder_type" in fields_set
-        reminder_time_set = "reminder_time" in fields_set
+        # Pydantic v2: self.field = ... in model_validator(mode="after")
+        # mutates model_fields_set, leaking defaults into exclude_unset=True.
+        # Snapshot the original set and restore after assignments.
+        original_fields_set = set(self.model_fields_set)
+        reminder_type_set = "reminder_type" in original_fields_set
+        reminder_time_set = "reminder_time" in original_fields_set
         if reminder_type_set != reminder_time_set:
             raise ValueError("提醒类型和提醒时间必须同时提供")
         if reminder_type_set and reminder_time_set:
             if (self.reminder_type is None) != (self.reminder_time is None):
                 raise ValueError("提醒类型和提醒时间必须同时为空或同时有值")
         self.reminder_type = _validate_reminder_type(self.reminder_type)
+        object.__setattr__(self, "__pydantic_fields_set__", original_fields_set)
         return self
 
 
