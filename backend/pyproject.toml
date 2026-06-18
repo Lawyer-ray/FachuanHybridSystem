@@ -17,7 +17,7 @@ dependencies = [
     "uvicorn[standard]==0.46.0",
     "channels==4.3.2",
     "channels-redis==4.3.0",
-    "valkey==6.0.0",
+    "valkey==6.1.1",
     # --- 数据库 ---
     "psycopg[binary]==3.3.4",
     # --- HTTP 客户端 ---
@@ -47,7 +47,7 @@ dependencies = [
     "cloakbrowser>=0.3.31",
     # --- 数据处理 ---
     "pandas==3.0.2",
-    "pydantic==2.13.3",
+    "pydantic==2.13.4",
     "pydantic-ai[mcp]==1.105.0",
     "python-dateutil==2.9.0.post0",
     "pyyaml==6.0.3",
@@ -93,9 +93,9 @@ dev = [
     # --- 代码格式化 ---
     "black==26.3.1",
     "isort==8.0.1",
-    "ruff==0.15.12",
+    "ruff==0.15.17",
     # --- 类型检查 ---
-    "mypy==1.20.2",
+    "mypy==2.1.0",
     "django-stubs==6.0.3",
     "django-stubs-ext==6.0.3",
     "types-python-dateutil",

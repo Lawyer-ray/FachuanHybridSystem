@@ -47,39 +47,23 @@ export default defineConfig({
     reportCompressedSize: false,
     rollupOptions: {
       output: {
-        manualChunks: {
-          // React 核心
-          'vendor-react': ['react', 'react-dom', 'react-router'],
-          // 动画库（较重，单独拆出）
-          'vendor-motion': ['framer-motion'],
-          // 数据层
-          'vendor-query': ['@tanstack/react-query'],
-          // 表单
-          'vendor-form': ['react-hook-form', '@hookform/resolvers', 'zod'],
-          // UI 基础组件（Radix）
-          'vendor-radix': [
-            '@radix-ui/react-dialog',
-            '@radix-ui/react-select',
-            '@radix-ui/react-tabs',
-            '@radix-ui/react-alert-dialog',
-            '@radix-ui/react-dropdown-menu',
-            '@radix-ui/react-tooltip',
-            '@radix-ui/react-label',
-            '@radix-ui/react-separator',
-            '@radix-ui/react-avatar',
-            '@radix-ui/react-progress',
-            '@radix-ui/react-slot',
-          ],
-          // HTTP + 工具
-          'vendor-utils': ['ky', 'date-fns', 'clsx', 'tailwind-merge', 'class-variance-authority', 'sonner'],
-          // 状态管理
-          'vendor-state': ['zustand'],
-          // 图表库（仅 Dashboard 使用）
-          'vendor-recharts': ['recharts'],
-          // Markdown 渲染链（仅工作台使用）
-          'vendor-markdown': ['react-markdown', 'rehype-highlight', 'remark-gfm', 'highlight.js'],
-          // 拖拽排序（仅合同归档使用）
-          'vendor-dnd': ['@dnd-kit/core', '@dnd-kit/sortable', '@dnd-kit/utilities'],
+        manualChunks(id: string) {
+          if (!id.includes('node_modules')) return
+          const chunks: Record<string, string[]> = {
+            'vendor-react': ['react', 'react-dom', 'react-router'],
+            'vendor-motion': ['framer-motion'],
+            'vendor-query': ['@tanstack/react-query'],
+            'vendor-form': ['react-hook-form', '@hookform/resolvers', 'zod'],
+            'vendor-radix': ['@radix-ui/'],
+            'vendor-utils': ['ky', 'date-fns', 'clsx', 'tailwind-merge', 'class-variance-authority', 'sonner'],
+            'vendor-state': ['zustand'],
+            'vendor-recharts': ['recharts'],
+            'vendor-markdown': ['react-markdown', 'rehype-highlight', 'remark-gfm', 'highlight.js'],
+            'vendor-dnd': ['@dnd-kit/'],
+          }
+          for (const [chunk, pkgs] of Object.entries(chunks)) {
+            if (pkgs.some((pkg) => id.includes(pkg))) return chunk
+          }
         },
       },
     },
