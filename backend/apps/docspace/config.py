@@ -19,9 +19,12 @@ def _get_system_config(key: str, default: str = "") -> str:
         if obj is None:
             return default
         if obj.is_secret:
-            from apps.core.encryption import SecretCodec
+            from apps.core.security.secret_codec import SecretCodec
 
-            return SecretCodec.decrypt(obj.value) or default
+            codec = SecretCodec()
+            if codec.is_encrypted(obj.value):
+                return codec.decrypt(obj.value) or default
+            return obj.value or default
         return obj.value or default
     except Exception:
         logger.debug("SystemConfig 未就绪，跳过读取 key=%s", key)

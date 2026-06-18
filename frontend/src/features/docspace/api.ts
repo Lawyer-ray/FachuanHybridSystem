@@ -31,9 +31,6 @@ export const docspaceApi = {
       URL.revokeObjectURL(url)
     }),
 
-  syncDocument: (id: number) => {
-    const form = new FormData()
-    form.append('doc_id', String(id))
-    return api.post('sync', { body: form }).json<DocSpaceDocument>()
-  },
+  syncDocument: (id: number) =>
+    api.post(`sync/${id}`).json<DocSpaceDocument>(),
 }

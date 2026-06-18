@@ -148,8 +148,8 @@ def download_document(request: HttpRequest, doc_id: int) -> FileResponse:
 # ── 同步 ──────────────────────────────────────────────────
 
 
-@router.post("/sync", summary="刷新文档元数据")
-def sync_document(request: HttpRequest, doc_id: int = Form(...)) -> DocSpaceDocumentOut:
+@router.post("/sync/{doc_id}", response=DocSpaceDocumentOut, summary="刷新文档元数据")
+def sync_document(request: HttpRequest, doc_id: int) -> DocSpaceDocumentOut:
     doc = _get_user_doc(request, doc_id)
     client = _get_client()
     ds_file = client.get_file_info(doc.docspace_file_id)
