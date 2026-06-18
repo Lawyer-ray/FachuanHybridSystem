@@ -2,14 +2,19 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from types import SimpleNamespace
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from django.utils import timezone
 
 from apps.automation.services.token.account_selection_strategy import AccountSelectionStrategy
 from apps.core.interfaces import AccountCredentialDTO
+
+# 固定当前时间，避免 recency_score 随真实时间漂移导致 flaky
+_FROZEN_NOW = datetime(2026, 6, 15, tzinfo=UTC)
 
 
 def _make_credential(
@@ -57,7 +62,8 @@ class TestSelectBestAccount:
             last_login_success_at="2026-06-14T00:00:00Z",
             login_success_count=1,
         )
-        result = strategy._select_best_account([old_cred, new_cred])
+        with patch.object(timezone, "now", return_value=_FROZEN_NOW):
+            result = strategy._select_best_account([old_cred, new_cred])
         assert result.account == "new@test.com"
 
     def test_prefers_higher_success_count(self) -> None:
