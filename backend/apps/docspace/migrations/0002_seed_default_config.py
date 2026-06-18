@@ -25,14 +25,6 @@ def _create_docspace_configs(apps, schema_editor):  # noqa: ARG001
             "is_secret": True,
             "is_active": True,
         },
-        {
-            "key": "DOCSPACE_ROOT_FOLDER_ID",
-            "value": "0",
-            "category": "docspace",
-            "description": "默认上传文件夹 ID（留空则自动从 DocSpace API 获取当前用户的「我的文档」文件夹 ID）",
-            "is_secret": False,
-            "is_active": True,
-        },
     ]
 
     for item in defaults:

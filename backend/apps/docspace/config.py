@@ -42,28 +42,12 @@ def get_api_token() -> str:
 
 
 def get_root_folder_id() -> int:
-    """默认上传文件夹 ID（"我的文档"）。
-
-    优先级：
-    1. SystemConfig 中手动配置的值（非 0 时生效）
-    2. 自动从 DocSpace API 获取当前用户的「我的文档」文件夹 ID
-    """
+    """默认上传文件夹 ID（自动从 DocSpace API 获取当前用户的「我的文档」）。"""
     global _discovered_folder_id  # noqa: PLW0603
 
-    # 1. 手动配置优先
-    raw = _get_system_config("DOCSPACE_ROOT_FOLDER_ID", "0")
-    try:
-        configured = int(raw)
-    except (ValueError, TypeError):
-        configured = 0
-    if configured:
-        return configured
-
-    # 2. 运行时缓存
     if _discovered_folder_id is not None:
         return _discovered_folder_id
 
-    # 3. 从 DocSpace API 自动获取
     _discovered_folder_id = _discover_my_folder_id()
     return _discovered_folder_id
 
