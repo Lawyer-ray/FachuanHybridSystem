@@ -100,7 +100,7 @@ def _review_file(filepath: str, added_lines: list[tuple[int, str]]) -> list[dict
 
     try:
         result = subprocess.run(
-            ["claude", "-p", "--output-format", "json", prompt],
+            ["claude", "-p", "--output-format", "json", prompt],  # noqa: S607
             capture_output=True,
             text=True,
             timeout=60,
