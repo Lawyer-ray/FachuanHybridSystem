@@ -1,7 +1,9 @@
 """LLM-based privacy review for changed files.
 
-Uses Claude to detect PII that regex cannot catch:
+Uses Claude Code CLI to detect PII that regex cannot catch:
 real person names, company names, court case numbers, addresses, etc.
+
+Requires: `claude` CLI installed locally (npm i -g @anthropic-ai/claude-code).
 """
 
 from __future__ import annotations
@@ -9,6 +11,8 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -68,7 +72,6 @@ def _get_added_lines(filepath: str, base: str, head: str) -> list[tuple[int, str
     current_line = 0
     for line in output.splitlines():
         if line.startswith("@@"):
-            import re
             match = re.search(r"\+(\d+)", line)
             if match:
                 current_line = int(match.group(1)) - 1
@@ -83,37 +86,53 @@ def _get_added_lines(filepath: str, base: str, head: str) -> list[tuple[int, str
     return lines
 
 
-def _review_file(filepath: str, added_lines: list[tuple[int, str]], client: object) -> list[dict]:
-    """Send added lines to Claude for privacy review."""
+def _review_file(filepath: str, added_lines: list[tuple[int, str]]) -> list[dict]:
+    """Send added lines to Claude Code CLI for privacy review."""
     if not added_lines:
         return []
 
-    # Only send lines that look like content (skip pure code structure)
     lines_text = "\n".join(f"+ {content}" for _, content in added_lines)
     if len(lines_text) > 8000:
         lines_text = lines_text[:8000] + "\n... (truncated)"
 
     user_msg = USER_PROMPT_TEMPLATE.format(filepath=filepath, added_lines=lines_text)
+    prompt = f"{SYSTEM_PROMPT}\n\n{user_msg}"
 
     try:
-        resp = client.messages.create(  # type: ignore[union-attr]
-            model="claude-haiku-4-5-20251001",
-            max_tokens=1024,
-            system=SYSTEM_PROMPT,
-            messages=[{"role": "user", "content": user_msg}],
+        result = subprocess.run(
+            ["claude", "-p", "--output-format", "json", prompt],
+            capture_output=True,
+            text=True,
+            timeout=60,
         )
-        text = resp.content[0].text.strip()
+        if result.returncode != 0:
+            print(f"  ⚠ Claude CLI failed for {filepath}: {result.stderr.strip()}", file=sys.stderr)
+            return []
+
+        data = json.loads(result.stdout)
+        # claude --output-format json returns {"result": "...", ...}
+        text = data.get("result", "").strip()
+        if not text:
+            return []
+
         # Strip markdown code block if present
         if text.startswith("```"):
             text = text.split("\n", 1)[1] if "\n" in text else text[3:]
         if text.endswith("```"):
             text = text[:-3]
         text = text.strip()
-        result = json.loads(text)
-        return result.get("issues", [])
-    except Exception as e:
-        print(f"  ⚠ LLM review failed for {filepath}: {e}", file=sys.stderr)
+
+        parsed = json.loads(text)
+        return parsed.get("issues", [])
+    except subprocess.TimeoutExpired:
+        print(f"  ⚠ Claude CLI timed out for {filepath}", file=sys.stderr)
         return []
+    except (json.JSONDecodeError, KeyError) as e:
+        print(f"  ⚠ Failed to parse Claude output for {filepath}: {e}", file=sys.stderr)
+        return []
+    except FileNotFoundError:
+        print("❌ `claude` CLI not found. Install with: npm i -g @anthropic-ai/claude-code", file=sys.stderr)
+        sys.exit(1)
 
 
 def main() -> None:
@@ -122,15 +141,10 @@ def main() -> None:
     parser.add_argument("--head", default="HEAD", help="Head commit SHA")
     args = parser.parse_args()
 
-    api_key = os.environ.get("ANTHROPIC_API_KEY", "")
-    if not api_key:
-        print("⚠ ANTHROPIC_API_KEY not set, skipping LLM privacy review.")
+    # Check claude CLI is available
+    if not shutil.which("claude"):
+        print("⚠ `claude` CLI not found, skipping LLM privacy review.")
         sys.exit(0)
-
-    # Lazy import so script loads without anthropic installed when key is missing
-    import anthropic
-
-    client = anthropic.Anthropic(api_key=api_key)
 
     changed_files = _get_changed_files(args.base, args.head)
     if not changed_files:
@@ -145,7 +159,7 @@ def main() -> None:
         if not added:
             continue
         print(f"  Checking {filepath} ({len(added)} added lines)...")
-        issues = _review_file(filepath, added, client)
+        issues = _review_file(filepath, added)
         all_issues.extend(issues)
 
     if all_issues:
