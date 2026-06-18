@@ -308,3 +308,7 @@ ml-training/
 
 # FastAPI rewrite (see feat/fastapi-rewrite branch)
 FastAPI_backend/
+
+# Local env backups
+backend/.env.bak*
+backend/.env.docker-backup
