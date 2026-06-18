@@ -16,6 +16,7 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
+from typing import Any
 
 SYSTEM_PROMPT = """\
 你是一个隐私信息审查专家。你的任务是检查代码/文档变更中是否包含真实的个人隐私信息。
@@ -122,8 +123,8 @@ def _review_file(filepath: str, added_lines: list[tuple[int, str]]) -> list[dict
             text = text[:-3]
         text = text.strip()
 
-        parsed = json.loads(text)
-        return parsed.get("issues", [])
+        parsed: dict[str, Any] = json.loads(text)
+        return list(parsed.get("issues", []))
     except subprocess.TimeoutExpired:
         print(f"  ⚠ Claude CLI timed out for {filepath}", file=sys.stderr)
         return []
