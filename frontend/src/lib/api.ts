@@ -110,11 +110,11 @@ async function getValidAccessToken(): Promise<string | null> {
  */
 export function createApiClient(options?: Options): KyInstance {
   return ky.create({
-    prefixUrl: API_BASE_URL,
+    prefix: API_BASE_URL,
     ...options,
     hooks: {
       beforeRequest: [
-        async (request) => {
+        async ({ request }) => {
           const token = await getValidAccessToken()
           if (token) {
             request.headers.set('Authorization', `Bearer ${token}`)
@@ -123,7 +123,7 @@ export function createApiClient(options?: Options): KyInstance {
         ...(options?.hooks?.beforeRequest || []),
       ],
       afterResponse: [
-        async (request, _options, response) => {
+        async ({ request, response }) => {
           if (response.status === 401 && !request.url.includes('/token/')) {
             try {
               const newToken = await refreshAccessToken()
@@ -156,7 +156,7 @@ export const api = createApiClient()
  * @param prefix 模块路径前缀，如 "cases"、"contracts"
  */
 export function createFeatureApiClient(prefix: string): KyInstance {
-  return createApiClient({ prefixUrl: `${API_BASE_URL}/${prefix}` })
+  return createApiClient({ prefix: `${API_BASE_URL}/${prefix}` })
 }
 
 export default api

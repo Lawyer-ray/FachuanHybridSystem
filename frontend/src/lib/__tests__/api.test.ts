@@ -92,10 +92,10 @@ describe('createApiClient', () => {
     expect(mockCreate).toHaveBeenCalled()
   })
 
-  it('passes prefixUrl to ky.create', () => {
+  it('passes prefix to ky.create', () => {
     createApiClient()
     const call = mockCreate.mock.calls[mockCreate.mock.calls.length - 1][0]
-    expect(call).toHaveProperty('prefixUrl')
+    expect(call).toHaveProperty('prefix')
   })
 })
 
@@ -105,16 +105,16 @@ describe('createFeatureApiClient', () => {
     mockCreate.mockReturnValue({})
   })
 
-  it('creates client with feature prefix in prefixUrl', () => {
+  it('creates client with feature prefix in prefix', () => {
     createFeatureApiClient('cases')
     const call = mockCreate.mock.calls[mockCreate.mock.calls.length - 1][0]
-    expect(call.prefixUrl).toContain('/cases')
+    expect(call.prefix).toContain('/cases')
   })
 
   it('creates client with different prefix', () => {
     createFeatureApiClient('contracts')
     const call = mockCreate.mock.calls[mockCreate.mock.calls.length - 1][0]
-    expect(call.prefixUrl).toContain('/contracts')
+    expect(call.prefix).toContain('/contracts')
   })
 })
 
@@ -145,7 +145,7 @@ describe('createApiClient hooks', () => {
     createApiClient({ timeout: 5000 })
     const call = mockCreate.mock.calls[0][0]
     expect(call.timeout).toBe(5000)
-    expect(call.prefixUrl).toBeDefined()
+    expect(call.prefix).toBeDefined()
     expect(call.hooks).toBeDefined()
   })
 
