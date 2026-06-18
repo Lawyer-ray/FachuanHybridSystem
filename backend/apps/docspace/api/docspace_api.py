@@ -56,7 +56,7 @@ def upload_file(
     doc, _ = DocSpaceDocument.objects.get_or_create(
         docspace_file_id=ds_file.id,
         defaults={
-            "lawyer": request.auth,  # type: ignore[arg-type]
+            "lawyer": request.auth,  # type: ignore[attr-defined]
             "title": ds_file.title,
             "docspace_folder_id": ds_file.folder_id,
             "file_ext": ds_file.file_ext,
@@ -95,7 +95,7 @@ def create_document(
     doc, _ = DocSpaceDocument.objects.get_or_create(
         docspace_file_id=ds_file.id,
         defaults={
-            "lawyer": request.auth,  # type: ignore[arg-type]
+            "lawyer": request.auth,  # type: ignore[attr-defined]
             "title": ds_file.title,
             "docspace_folder_id": ds_file.folder_id,
             "file_ext": ds_file.file_ext,

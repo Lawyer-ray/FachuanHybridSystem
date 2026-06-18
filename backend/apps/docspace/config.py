@@ -43,7 +43,7 @@ def get_api_token() -> str:
 
 def get_root_folder_id() -> int:
     """默认上传文件夹 ID（自动从 DocSpace API 获取当前用户的「我的文档」）。"""
-    global _discovered_folder_id  # noqa: PLW0603
+    global _discovered_folder_id
 
     if _discovered_folder_id is not None:
         return _discovered_folder_id
