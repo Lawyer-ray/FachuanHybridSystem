@@ -136,7 +136,9 @@ class ImapFetcher(MessageFetcher):  # pragma: no cover
                 errors.append((host, e))
                 continue
             except imaplib.IMAP4.error as e:
-                raise ValueError(f"IMAP 登录失败（账号或密码错误）: {e}") from e
+                raise ValueError(
+                    f"IMAP 登录失败: host={host}, account={account}, error={e}"
+                ) from e
 
         if errors:
             tried = ", ".join(host for host, _ in errors)
@@ -144,7 +146,9 @@ class ImapFetcher(MessageFetcher):  # pragma: no cover
                 raise ConnectionError(f"IMAP 主机无法解析（已尝试: {tried}）") from errors[-1][1]
             raise ConnectionError(f"IMAP 连接失败（已尝试: {tried}）: {errors[-1][1]}") from errors[-1][1]
 
-        raise ValueError("IMAP 主机配置无效，未找到可用候选主机")
+        raise ValueError(
+            f"IMAP 主机配置无效，未找到可用候选主机: candidates={hosts}, account={account}"
+        )
 
     def fetch_new_messages(self, source: MessageSource) -> int:  # pragma: no cover
         from apps.message_hub.models import InboxMessage
