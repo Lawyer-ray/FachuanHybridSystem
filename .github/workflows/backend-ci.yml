@@ -49,18 +49,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Install uv
-        uses: astral-sh/setup-uv@v5
-
-      - name: Setup Python
-        run: uv python install 3.12
-
-      - name: Install anthropic SDK
-        run: uv pip install anthropic --system
-
-      - name: LLM privacy review
-        env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      - name: LLM privacy review (requires claude CLI)
         run: |
           set -euo pipefail
           base=""
