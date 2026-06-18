@@ -52,14 +52,16 @@ def upload_file(
     client = _get_client()
     ds_file = client.upload_file(target_folder, file.name or "untitled", content)
 
-    # 创建本地映射记录
-    doc = DocSpaceDocument.objects.create(
-        lawyer=request.auth,  # type: ignore[attr-defined]
-        title=ds_file.title,
+    # 创建本地映射记录（DocSpace 对相同内容去重，可能已存在）
+    doc, _ = DocSpaceDocument.objects.get_or_create(
         docspace_file_id=ds_file.id,
-        docspace_folder_id=ds_file.folder_id,
-        file_ext=ds_file.file_ext,
-        content_length=ds_file.content_length,
+        defaults={
+            "lawyer": request.auth,  # type: ignore[arg-type]
+            "title": ds_file.title,
+            "docspace_folder_id": ds_file.folder_id,
+            "file_ext": ds_file.file_ext,
+            "content_length": ds_file.content_length,
+        },
     )
 
     return DocSpaceUploadOut(
@@ -89,13 +91,16 @@ def create_document(
     client = _get_client()
     ds_file = client.create_empty_docx(target_folder, title)
 
-    doc = DocSpaceDocument.objects.create(
-        lawyer=request.auth,  # type: ignore[attr-defined]
-        title=ds_file.title,
+    # DocSpace 对相同内容去重，可能已存在
+    doc, _ = DocSpaceDocument.objects.get_or_create(
         docspace_file_id=ds_file.id,
-        docspace_folder_id=ds_file.folder_id,
-        file_ext=ds_file.file_ext,
-        content_length=ds_file.content_length,
+        defaults={
+            "lawyer": request.auth,  # type: ignore[arg-type]
+            "title": ds_file.title,
+            "docspace_folder_id": ds_file.folder_id,
+            "file_ext": ds_file.file_ext,
+            "content_length": ds_file.content_length,
+        },
     )
 
     return DocSpaceUploadOut(
