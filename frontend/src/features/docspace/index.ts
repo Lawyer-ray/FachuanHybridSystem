@@ -1,0 +1,6 @@
+export { DocSpaceFrame } from './components/DocSpaceFrame'
+export { DocumentList } from './components/DocumentList'
+export { UploadButton } from './components/UploadButton'
+export { useDocSpaceConfig, useDocSpaceDocuments } from './hooks/use-documents'
+export { useUploadDocSpace } from './hooks/use-upload'
+export type { DocSpaceConfig, DocSpaceDocument, DocSpaceUploadResult } from './types'

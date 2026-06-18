@@ -103,6 +103,7 @@ INSTALLED_APPS = [
     "apps.doc_converter",  # 6.71 DOC 批量转 DOCX
     "apps.workbench",  # 6.8 工作台（AI 对话式操作中心）
     "apps.workflow",  # 6.9 工作流引擎（Temporal 集成）
+    "apps.docspace",  # 6.95 DocSpace 云文档
     "apps.core",  # 7. 核心系统
     "apps.social_auth",  # 7.1 社交登录
     "django_q",  # 8. DJANGO Q
@@ -421,6 +422,9 @@ ZNSZJ_ENABLED = (os.environ.get("ZNSZJ_ENABLED", "True") or "").lower() not in (
 LEGAL_RESEARCH_ADMIN_FEATURE_ENABLED = (
     os.environ.get("LEGAL_RESEARCH_ADMIN_FEATURE_ENABLED", "False") or ""
 ).lower() in ("true", "1", "yes")
+
+# 是否启用 OnlyOffice DocSpace 云文档编辑（默认关闭）
+DOCSPACE_ENABLED = (os.environ.get("DOCSPACE_ENABLED", "False") or "").lower() in ("true", "1", "yes")
 
 # ============================================================
 # Django Q 配置

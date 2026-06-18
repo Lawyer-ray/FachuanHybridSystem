@@ -36,6 +36,7 @@ class SystemConfig(models.Model):
         DOCUMENT_PARSING = "document_parsing", "文档解析配置"
         EMAIL = "email", "邮件配置"
         CLOUD_STORAGE = "cloud_storage", "云存储配置"
+        DOCSPACE = "docspace", "DocSpace 配置"
         GENERAL = "general", "通用配置"
 
     key = models.CharField(

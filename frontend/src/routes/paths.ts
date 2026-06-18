@@ -74,6 +74,7 @@ export const PATHS = {
   ADMIN_TOOLS_COURIER: '/admin/tools/courier-tracking',
   ADMIN_TOOLS_ELEMENT: '/admin/tools/element-convert',
   ADMIN_TOOLS_LPR: '/admin/tools/lpr-calculator',
+  ADMIN_TOOLS_DOCSPACE: '/admin/tools/docspace',
 
   // 诉讼流程
   ADMIN_WORKFLOWS: '/admin/workflows',
