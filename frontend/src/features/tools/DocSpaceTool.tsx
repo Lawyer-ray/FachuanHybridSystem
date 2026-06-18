@@ -46,8 +46,7 @@ export function DocSpaceTool() {
         <div className="flex-1 min-h-0">
           <DocSpaceFrame
             fileId={activeDoc.docspace_file_id}
-            portalUrl={config.portal_url}
-            mode="editor"
+            editorUrl={activeDoc.web_url}
             onClose={() => setActiveDoc(null)}
             className="h-full"
           />
