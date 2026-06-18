@@ -22,18 +22,25 @@ export function loadDocSpaceSDK(portalUrl: string): Promise<void> {
   if (sdkLoaded && window.DocSpace) return Promise.resolve()
   if (loadingPromise) return loadingPromise
 
+  const sdkUrl = `${portalUrl}/static/scripts/sdk/2.1.0/api.js`
+  console.log('[DocSpace] 开始加载 SDK:', sdkUrl)
+
   loadingPromise = new Promise<void>((resolve, reject) => {
-    const existed = document.querySelector(`script[src*="/static/scripts/sdk/"]`)
+    const existed = document.querySelector(`script[src="${sdkUrl}"]`)
     if (existed) {
-      // 脚本已存在，等 DocSpace 对象就绪
+      console.log('[DocSpace] 脚本已存在，等待 SDK 就绪…')
       _waitForSDK(resolve, reject)
       return
     }
 
     const script = document.createElement('script')
-    script.src = `${portalUrl}/static/scripts/sdk/2.1.0/api.js`
-    script.onload = () => _waitForSDK(resolve, reject)
-    script.onerror = () => {
+    script.src = sdkUrl
+    script.onload = () => {
+      console.log('[DocSpace] 脚本 onload 触发, window.DocSpace =', !!window.DocSpace)
+      _waitForSDK(resolve, reject)
+    }
+    script.onerror = (e) => {
+      console.error('[DocSpace] 脚本加载失败:', e)
       loadingPromise = null
       reject(new Error('DocSpace SDK 脚本加载失败'))
     }
@@ -49,10 +56,12 @@ function _waitForSDK(resolve: () => void, reject: (e: Error) => void) {
     if (window.DocSpace?.SDK) {
       clearInterval(timer)
       sdkLoaded = true
+      console.log('[DocSpace] SDK 就绪')
       resolve()
-    } else if (++tries > 50) { // 5 秒超时
+    } else if (++tries > 50) {
       clearInterval(timer)
       loadingPromise = null
+      console.error('[DocSpace] SDK 超时, window.DocSpace =', window.DocSpace)
       reject(new Error('DocSpace SDK 加载超时'))
     }
   }, 100)
