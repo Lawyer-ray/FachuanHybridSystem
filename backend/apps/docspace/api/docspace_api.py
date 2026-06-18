@@ -72,6 +72,42 @@ def upload_file(
     )
 
 
+# ── 新建 ──────────────────────────────────────────────────
+
+
+@router.post("/create", response=DocSpaceUploadOut, summary="新建空白文档")
+def create_document(
+    request: HttpRequest,
+    title: str = Form(default="新建文档.docx"),
+) -> DocSpaceUploadOut:
+    target_folder = config.get_root_folder_id()
+    if not target_folder:
+        from ninja.errors import HttpError
+
+        raise HttpError(400, "未配置默认文件夹")
+
+    client = _get_client()
+    ds_file = client.create_empty_docx(target_folder, title)
+
+    doc = DocSpaceDocument.objects.create(
+        lawyer=request.auth,  # type: ignore[attr-defined]
+        title=ds_file.title,
+        docspace_file_id=ds_file.id,
+        docspace_folder_id=ds_file.folder_id,
+        file_ext=ds_file.file_ext,
+        content_length=ds_file.content_length,
+    )
+
+    return DocSpaceUploadOut(
+        id=doc.id,
+        title=doc.title,
+        docspace_file_id=doc.docspace_file_id,
+        web_url=ds_file.web_url,
+        file_ext=doc.file_ext,
+        content_length=doc.content_length,
+    )
+
+
 # ── 文档列表 ──────────────────────────────────────────────
 
 

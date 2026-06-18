@@ -13,6 +13,12 @@ export const docspaceApi = {
     return api.post('upload', { body: form }).json<DocSpaceUploadResult>()
   },
 
+  createDocument: (title?: string) => {
+    const form = new FormData()
+    if (title) form.append('title', title)
+    return api.post('create', { body: form }).json<DocSpaceUploadResult>()
+  },
+
   listDocuments: () => api.get('documents').json<DocSpaceDocument[]>(),
 
   getDocument: (id: number) => api.get(`documents/${id}`).json<DocSpaceDocument>(),

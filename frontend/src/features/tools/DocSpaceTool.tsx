@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   DocSpaceFrame,
@@ -8,12 +8,14 @@ import {
   useDocSpaceConfig,
   useDocSpaceDocuments,
 } from '@/features/docspace'
+import { useCreateDocSpaceDocument } from '@/features/docspace/hooks/use-upload'
 import type { DocSpaceDocument } from '@/features/docspace'
 
 export function DocSpaceTool() {
   const { data: config, isLoading: configLoading } = useDocSpaceConfig()
   const { data: documents = [], isLoading: docsLoading } = useDocSpaceDocuments()
   const [activeDoc, setActiveDoc] = useState<DocSpaceDocument | null>(null)
+  const createMut = useCreateDocSpaceDocument()
 
   if (configLoading) {
     return <div className="p-6 text-muted-foreground">加载配置中…</div>
@@ -24,7 +26,7 @@ export function DocSpaceTool() {
       <div className="p-6 text-center text-muted-foreground">
         <p className="text-lg mb-2">DocSpace 未启用</p>
         <p className="text-sm">
-          请在系统设置 → DocSpace 配置中填写 Portal URL 和 API Token，并设置 DOCSPACE_ENABLED=True
+          请在系统设置 → DocSpace 配置中填写 Portal URL 和 API Token
         </p>
       </div>
     )
@@ -64,7 +66,31 @@ export function DocSpaceTool() {
             在线编辑 Word、Excel、PPT 文档
           </p>
         </div>
-        <UploadButton />
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            onClick={() => createMut.mutate(undefined, {
+              onSuccess: (result) => {
+                setActiveDoc({
+                  id: result.id,
+                  title: result.title,
+                  docspace_file_id: result.docspace_file_id,
+                  docspace_folder_id: 0,
+                  file_ext: result.file_ext,
+                  content_length: result.content_length,
+                  web_url: result.web_url,
+                  created_at: '',
+                  updated_at: '',
+                })
+              },
+            })}
+            disabled={createMut.isPending}
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            {createMut.isPending ? '创建中…' : '新建文档'}
+          </Button>
+          <UploadButton />
+        </div>
       </div>
       <DocumentList
         documents={documents}

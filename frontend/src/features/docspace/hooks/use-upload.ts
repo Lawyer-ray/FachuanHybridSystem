@@ -9,3 +9,11 @@ export function useUploadDocSpace() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['docspace', 'documents'] }),
   })
 }
+
+export function useCreateDocSpaceDocument() {
+  const qc = useQueryClient()
+  return useMutation<DocSpaceUploadResult, Error, string | undefined>({
+    mutationFn: (title) => docspaceApi.createDocument(title),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['docspace', 'documents'] }),
+  })
+}
