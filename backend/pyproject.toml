@@ -95,7 +95,7 @@ dev = [
     "isort==8.0.1",
     "ruff==0.15.17",
     # --- 类型检查 ---
-    "mypy==1.20.2",
+    "mypy==2.1.0",
     "django-stubs==6.0.3",
     "django-stubs-ext==6.0.3",
     "types-python-dateutil",
