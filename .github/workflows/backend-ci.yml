@@ -55,9 +55,6 @@ jobs:
       - name: Setup Python
         run: uv python install 3.12
 
-      - name: Install anthropic SDK
-        run: uv pip install anthropic --system
-
       - name: LLM privacy review
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
@@ -74,7 +71,7 @@ jobs:
             echo "No base commit found, skipping LLM privacy review."
             exit 0
           fi
-          python3 backend/devtools/privacy_review.py \
+          uv run --with anthropic python backend/devtools/privacy_review.py \
             --base "${base}" \
             --head HEAD
 
