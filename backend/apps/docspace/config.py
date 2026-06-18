@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 import logging
-from functools import lru_cache
 
 logger = logging.getLogger(__name__)
 
-_CACHE_TTL_SECONDS = 300  # 5 分钟缓存
+# 运行时缓存自动发现的 folder_id（进程生命周期内有效）
+_discovered_folder_id: int | None = None
 
 
 def _get_system_config(key: str, default: str = "") -> str:
@@ -42,11 +42,54 @@ def get_api_token() -> str:
 
 
 def get_root_folder_id() -> int:
-    """默认上传文件夹 ID（"我的文档"）。"""
+    """默认上传文件夹 ID（"我的文档"）。
+
+    优先级：
+    1. SystemConfig 中手动配置的值（非 0 时生效）
+    2. 自动从 DocSpace API 获取当前用户的「我的文档」文件夹 ID
+    """
+    global _discovered_folder_id  # noqa: PLW0603
+
+    # 1. 手动配置优先
     raw = _get_system_config("DOCSPACE_ROOT_FOLDER_ID", "0")
     try:
-        return int(raw)
+        configured = int(raw)
     except (ValueError, TypeError):
+        configured = 0
+    if configured:
+        return configured
+
+    # 2. 运行时缓存
+    if _discovered_folder_id is not None:
+        return _discovered_folder_id
+
+    # 3. 从 DocSpace API 自动获取
+    _discovered_folder_id = _discover_my_folder_id()
+    return _discovered_folder_id
+
+
+def _discover_my_folder_id() -> int:
+    """调用 DocSpace API 获取当前用户的「我的文档」文件夹 ID。"""
+    portal = get_portal_url()
+    token = get_api_token()
+    if not portal or not token:
+        return 0
+
+    try:
+        import httpx
+
+        resp = httpx.get(
+            f"{portal}/api/2.0/files/@my",
+            headers={"Authorization": f"Bearer {token}"},
+            timeout=10.0,
+        )
+        resp.raise_for_status()
+        folder_id = resp.json().get("response", {}).get("current", {}).get("id", 0)
+        if folder_id:
+            logger.info("DocSpace 自动发现「我的文档」folder_id=%s", folder_id)
+        return int(folder_id)
+    except Exception as e:
+        logger.warning("DocSpace 自动发现 folder_id 失败: %s", e)
         return 0
 
 
