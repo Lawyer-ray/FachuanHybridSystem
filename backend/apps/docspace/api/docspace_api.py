@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import logging
 
-from django.conf import settings
 from django.http import FileResponse, HttpRequest
 from ninja import File, Form, Router, UploadedFile
 
@@ -30,7 +29,7 @@ def _get_client() -> DocSpaceClient:
 def get_docspace_config(request: HttpRequest) -> DocSpaceConfigOut:
     return DocSpaceConfigOut(
         portal_url=config.get_portal_url(),
-        enabled=getattr(settings, "DOCSPACE_ENABLED", False) and config.is_configured(),
+        enabled=config.is_configured(),
     )
 
 
