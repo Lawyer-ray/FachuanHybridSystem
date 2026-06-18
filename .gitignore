@@ -182,6 +182,7 @@ backend/data/
 backend/court_templates/
 backend/court_templates_*/
 court_templates/
+backend/apps/documents/docx_templates/
 backend/court_collection.log
 
 # 法院模板收集一次性脚本（本地运行，不入库）
