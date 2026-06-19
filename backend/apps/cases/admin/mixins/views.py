@@ -33,9 +33,9 @@ def _get_case_stage_choices() -> list[tuple[str, str]]:
 
 def _has_court_filing_plugin() -> bool:
     try:
-        from plugins import has_court_automation_plugin
+        from plugins import has_court_automation_plugin  # type: ignore[attr-defined]
 
-        return has_court_automation_plugin()
+        return has_court_automation_plugin()  # type: ignore[no-any-return]
     except ImportError:
         return False
 
