@@ -270,7 +270,7 @@ jobs:
           TEST_DB_HOST: "127.0.0.1"
           TEST_DB_PORT: "5432"
           PYTHONPATH: "apiSystem:."
-        run: uv run pytest -c pytest.ini --capture=sys --no-cov -q tests/ci/unit/
+        run: uv run pytest -c pytest.ini --capture=no --no-cov -q tests/ci/unit/
 
       - name: Smoke check (minimal)
         env:
@@ -346,7 +346,7 @@ jobs:
           PYTHONPATH: "apiSystem:."
         run: |
           uv run pytest -c pytest.ini -o addopts="" \
-            --capture=sys \
+            --capture=no \
             --import-mode=importlib -q \
             --timeout=30 --timeout-method=thread \
             --cov=apps.cases.services.case.case_admin_export_bridge \
