@@ -45,7 +45,7 @@ class TestCaseAssignmentServiceInit:
         assert svc.contract_assignment_query_service is mock_caq
 
 
-@pytest.mark.django_db(transaction=True)
+@pytest.mark.django_db()
 class TestListAssignments:
     def test_list_no_filters(self) -> None:
         svc = CaseAssignmentService()
@@ -69,7 +69,7 @@ class TestListAssignments:
         assert qs is not None
 
 
-@pytest.mark.django_db(transaction=True)
+@pytest.mark.django_db()
 class TestGetAssignment:
     def test_not_found(self) -> None:
         svc = CaseAssignmentService()
@@ -79,7 +79,7 @@ class TestGetAssignment:
             svc.get_assignment(99999, user=mock_user)
 
 
-@pytest.mark.django_db(transaction=True)
+@pytest.mark.django_db()
 class TestDeleteAssignment:
     def test_not_found(self) -> None:
         svc = CaseAssignmentService()

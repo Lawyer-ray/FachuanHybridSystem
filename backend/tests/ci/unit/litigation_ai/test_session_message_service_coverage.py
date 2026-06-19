@@ -60,7 +60,7 @@ def svc() -> SessionMessageService:
         return s
 
 
-@pytest.mark.django_db(transaction=True)
+@pytest.mark.django_db()
 class TestAddMessage:
     def test_session_not_found(self, svc: SessionMessageService) -> None:
         svc._mock_repo.get_session_sync.return_value = None
@@ -138,7 +138,7 @@ class TestGetMessagesBatch:
             assert result == []
 
 
-@pytest.mark.django_db(transaction=True)
+@pytest.mark.django_db()
 class TestSaveConversationSummary:
     def test_session_not_found(self, svc: SessionMessageService) -> None:
         with patch("apps.litigation_ai.models.LitigationSession") as mock_model:
@@ -189,7 +189,7 @@ class TestGetConversationSummary:
             assert svc.get_conversation_summary("sess1") is None
 
 
-@pytest.mark.django_db(transaction=True)
+@pytest.mark.django_db()
 class TestAddMessagesBatch:
     def test_session_not_found(self, svc: SessionMessageService) -> None:
         with patch("apps.litigation_ai.models.LitigationSession") as mock_model:

@@ -24,9 +24,9 @@ class TestCaseFullCreateWorkflowInit:
         assert wf.repo is mock_repo
 
 
-@pytest.mark.django_db(transaction=True)
+@pytest.mark.django_db()
 class TestCaseFullCreateWorkflowRun:
-    """Tests that use transaction=True to get past the @transaction.atomic on run()."""
+    """Tests for run() — @transaction.atomic on the source method uses savepoints inside pytest-django's test transaction."""
 
     def test_logs_without_actor_raises(self) -> None:
         wf = CaseFullCreateWorkflow(case_service=MagicMock())
