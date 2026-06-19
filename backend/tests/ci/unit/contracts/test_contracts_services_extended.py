@@ -544,10 +544,10 @@ class TestOverrideServiceExtended:
 class TestCompositionExtended:
     """composition.py extended tests."""
 
-    @patch("apps.contracts.services.contract.usecases.composition.ContractService")
-    @patch("apps.contracts.services.contract.usecases.composition.ContractQueryFacade")
-    @patch("apps.contracts.services.contract.usecases.composition.ContractAccessPolicy")
-    @patch("apps.contracts.services.contract.usecases.composition.ContractQueryService")
+    @patch("apps.contracts.services.contract.wiring.ContractService")
+    @patch("apps.contracts.services.contract.wiring.ContractQueryFacade")
+    @patch("apps.contracts.services.contract.wiring.ContractAccessPolicy")
+    @patch("apps.contracts.services.contract.wiring.ContractQueryService")
     def test_build_without_services(self, MockQS: Any, MockAP: Any, MockQF: Any, MockCS: Any) -> None:
         from apps.contracts.services.contract.wiring import build_contract_service
 

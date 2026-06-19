@@ -17,6 +17,10 @@ class TestContractFolderScanServiceHelpers:
     def _make_service(self):
         return ContractFolderScanService(scan_service=MagicMock())
 
+    def _make_processor(self):
+        from apps.contracts.services.contract.integrations._candidate_post_processor import CandidatePostProcessor
+        return CandidatePostProcessor(scan_service=MagicMock())
+
     # ── _normalize_scan_subfolder ──
 
     def test_normalize_empty(self):
@@ -101,7 +105,7 @@ class TestContractFolderScanServiceHelpers:
     # ── _relative_path_str ──
 
     def test_relative_path_str(self):
-        svc = self._make_service()
+        svc = self._make_processor()
         from pathlib import Path
         result = svc._relative_path_str(
             source_path="/a/b/c/file.pdf",
@@ -110,7 +114,7 @@ class TestContractFolderScanServiceHelpers:
         assert result == "c"
 
     def test_relative_path_str_root_file(self):
-        svc = self._make_service()
+        svc = self._make_processor()
         from pathlib import Path
         result = svc._relative_path_str(
             source_path="/a/b/file.pdf",
