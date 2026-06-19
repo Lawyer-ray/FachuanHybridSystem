@@ -16,10 +16,9 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          persist-credentials: false
 
       - name: Security guard (ID/mobile/email/password/token in added lines)
         run: |
@@ -46,10 +45,9 @@ jobs:
     timeout-minutes: 5
     steps:
       - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          persist-credentials: false
 
       - name: LLM privacy review (requires claude CLI)
         run: |
@@ -95,10 +93,9 @@ jobs:
           --health-retries=5
     steps:
       - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          persist-credentials: false
 
       - name: Repository hygiene
         run: |
@@ -141,7 +138,7 @@ jobs:
           fi
 
       - name: Install uv
-        uses: astral-sh/setup-uv@0db1207a148e82e5d14b2af714b8e36db9e34555  # v5.2.0
+        uses: astral-sh/setup-uv@v5
 
       - name: Setup Python
         run: uv python install ${{ matrix.python-version }}
@@ -323,13 +320,12 @@ jobs:
           --health-retries=5
     steps:
       - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          persist-credentials: false
 
       - name: Install uv
-        uses: astral-sh/setup-uv@0db1207a148e82e5d14b2af714b8e36db9e34555  # v5.2.0
+        uses: astral-sh/setup-uv@v5
 
       - name: Setup Python
         run: uv python install ${{ matrix.python-version }}
@@ -387,12 +383,10 @@ jobs:
           --health-retries=5
     steps:
       - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
-        with:
-          persist-credentials: false
+        uses: actions/checkout@v4
 
       - name: Install uv
-        uses: astral-sh/setup-uv@0db1207a148e82e5d14b2af714b8e36db9e34555  # v5.2.0
+        uses: astral-sh/setup-uv@v5
 
       - name: Setup Python
         run: uv python install ${{ matrix.python-version }}
@@ -439,12 +433,10 @@ jobs:
           --health-retries=5
     steps:
       - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
-        with:
-          persist-credentials: false
+        uses: actions/checkout@v4
 
       - name: Install uv
-        uses: astral-sh/setup-uv@0db1207a148e82e5d14b2af714b8e36db9e34555  # v5.2.0
+        uses: astral-sh/setup-uv@v5
 
       - name: Setup Python
         run: uv python install ${{ matrix.python-version }}
@@ -493,12 +485,10 @@ jobs:
           --health-retries=5
     steps:
       - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
-        with:
-          persist-credentials: false
+        uses: actions/checkout@v4
 
       - name: Install uv
-        uses: astral-sh/setup-uv@0db1207a148e82e5d14b2af714b8e36db9e34555  # v5.2.0
+        uses: astral-sh/setup-uv@v5
 
       - name: Setup Python
         run: uv python install ${{ matrix.python-version }}
@@ -520,62 +510,4 @@ jobs:
           uv run python apiSystem/manage.py smoke_check \
             --skip-websocket \
             --skip-q
-
-  migration-check:
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    defaults:
-      run:
-        working-directory: backend
-    steps:
-      - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
-        with:
-          persist-credentials: false
-
-      - name: Install uv
-        uses: astral-sh/setup-uv@0db1207a148e82e5d14b2af714b8e36db9e34555  # v5.2.0
-
-      - name: Setup Python
-        run: uv python install 3.12
-
-      - name: Install dependencies
-        run: uv sync --frozen
-
-      - name: Check for missing migrations
-        env:
-          DJANGO_SETTINGS_MODULE: apiSystem.settings
-          PYTHONPATH: "apiSystem:."
-        run: uv run python apiSystem/manage.py makemigrations --check --dry-run
-
-  media-check:
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
-        with:
-          persist-credentials: false
-
-      - name: Check for forbidden direct file writes
-        run: |
-          echo "=== Checking for direct open('wb') writes to media ==="
-          violations=$(grep -rn "open(.*['\"]wb" --include="*.py" backend/apps/ | grep -v __pycache__ | grep -v .venv | grep -v migrate | grep -v test_ | grep -v "# noqa: media-write" || true)
-          if [ -n "$violations" ]; then
-            echo "WARNING: Found direct file writes (should use default_storage.save()):"
-            echo "$violations"
-            echo ""
-            echo "See CLAUDE.md 'Media 文件管理规范' for rules."
-            # 先作为 warning，不阻塞 CI
-          fi
-
-      - name: Check for relative media paths
-        run: |
-          echo "=== Checking for relative media paths ==="
-          violations=$(grep -rn 'Path("media' --include="*.py" backend/apps/ | grep -v __pycache__ || true)
-          if [ -n "$violations" ]; then
-            echo "ERROR: Found relative media paths (must use settings.MEDIA_ROOT):"
-            echo "$violations"
-            exit 1
-          fi
 

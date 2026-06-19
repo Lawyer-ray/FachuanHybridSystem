@@ -25,9 +25,7 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Checkout
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
-        with:
-          persist-credentials: false
+        uses: actions/checkout@v4
 
       - name: Build image (lite)
         run: |
@@ -43,7 +41,7 @@ jobs:
 
       - name: Scan image (os + library)
         if: hashFiles('backend/deploy/docker/Dockerfile') != ''
-        uses: aquasecurity/trivy-action@18f2510ee396bbf400402947e0f1c99f3b4c7b66  # v0.36.0
+        uses: aquasecurity/trivy-action@v0.36.0
         with:
           image-ref: "fachuan-backend:ci"
           format: "table"
