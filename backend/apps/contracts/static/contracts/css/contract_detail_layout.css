@@ -1,0 +1,113 @@
+/* 合同详情页 — 页面布局、头部、状态徽章、响应式 */
+
+/* 隐藏 Django admin 自动生成的页面标题 */
+#content > h1:first-child,
+#content > h2:first-child {
+    display: none;
+}
+
+/* 页面容器 */
+.contract-detail-page {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 24px;
+}
+
+/* 头部区域 */
+.detail-header {
+    background: var(--unfold-bg-card, #fff);
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 24px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.header-main {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+}
+
+.contract-title {
+    font-size: 24px;
+    font-weight: 600;
+    color: var(--unfold-text-primary, #1a1a1a);
+    margin: 0;
+}
+
+/* 状态徽章 */
+.status-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 12px;
+    border-radius: 16px;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.status-badge.status-unsigned {
+    background: var(--fc-warning-bg);
+    color: var(--fc-warning-text);
+}
+
+.status-badge.status-active {
+    background: var(--fc-info-bg);
+    color: var(--fc-info-text);
+}
+
+.status-badge.status-closed {
+    background: var(--fc-success-bg);
+    color: var(--fc-success-text);
+}
+
+.status-badge.status-archived {
+    background: var(--fc-bg-muted-light);
+    color: var(--fc-text-muted);
+}
+
+/* 类型标签 */
+.type-tag, .stage-tag {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 12px;
+    background: var(--fc-bg-muted-light);
+    color: var(--fc-text-secondary);
+}
+
+/* 头部元信息 */
+.header-meta {
+    font-size: 13px;
+    color: var(--fc-text-muted);
+    margin-bottom: 16px;
+}
+
+.header-meta strong {
+    color: var(--fc-text-secondary);
+}
+
+/* 操作按钮 */
+.header-actions {
+    display: flex;
+    gap: 12px;
+    margin-top: 16px;
+}
+
+/* 响应式 */
+@media (max-width: 768px) {
+    .contract-detail-page {
+        padding: 12px;
+    }
+
+    .header-main {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .contract-title {
+        font-size: 20px;
+    }
+}

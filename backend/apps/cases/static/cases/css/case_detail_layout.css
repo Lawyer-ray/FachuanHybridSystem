@@ -1,0 +1,255 @@
+/* case_detail_layout.css — 案件详情页布局、容器、头部和响应式 */
+
+/* 隐藏 Django admin 自动生成的页面标题 */
+#content > h1:first-child,
+#content > h2:first-child {
+    display: none;
+}
+
+/* 页面容器 */
+.case-detail-page {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 24px;
+}
+
+/* 头部区域 */
+.detail-header {
+    background: var(--fc-bg-card);
+    border-radius: 12px;
+    padding: 24px;
+    margin-bottom: 24px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.header-main {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+}
+
+.header-tags {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+}
+
+.case-title {
+    font-size: 24px;
+    font-weight: 600;
+    color: var(--fc-text-heading);
+    margin: 0;
+}
+
+/* 状态徽章 - 语义化颜色 */
+.status-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 12px;
+    border-radius: 16px;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.status-badge.status-active {
+    background: var(--fc-info-bg);
+    color: var(--fc-info-text);
+}
+
+.status-badge.status-closed {
+    background: var(--fc-success-bg);
+    color: var(--fc-success-text);
+}
+
+.status-badge.status-archived {
+    background: var(--fc-bg-muted-light);
+    color: var(--fc-text-muted);
+}
+
+/* 类型和阶段标签 */
+.type-tag, .stage-tag {
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 10px;
+    border-radius: 6px;
+    font-size: 12px;
+    background: var(--fc-bg-muted-light);
+    color: var(--fc-text-secondary);
+}
+
+/* 建档状态 */
+.archived-status {
+    font-size: 13px;
+    color: var(--fc-text-muted);
+}
+
+.archived-status.archived {
+    color: var(--fc-success-text);
+}
+
+/* ============ 窄屏幕响应式 ============ */
+@media (max-width: 768px) {
+    .info-grid.two-columns {
+        grid-template-columns: 1fr;
+    }
+
+    .info-grid.two-columns.documents-layout-grid {
+        grid-template-columns: 1fr;
+    }
+
+    /* 头部标签：标题独占一行，标签行内横排 */
+    .header-main {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+    }
+    .header-main .case-title {
+        font-size: 20px;
+        word-break: break-word;
+        overflow-wrap: break-word;
+    }
+    .header-main .status-badge,
+    .header-main .type-tag,
+    .header-main .stage-tag {
+        margin-right: 0;
+    }
+    /* 标签容器：横排展示 */
+    .header-tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+
+    /* Tab 导航横向滚动 + 图标+短文字 */
+    .tab-nav {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none; /* Firefox */
+    }
+    .tab-nav::-webkit-scrollbar {
+        display: none;
+    }
+    .tab-nav button {
+        white-space: nowrap;
+        flex-shrink: 0;
+        padding: 12px 14px;
+    }
+    /* 窄屏：显示图标+短文字，隐藏完整文字 */
+    .tab-icon {
+        display: block;
+    }
+    .tab-label {
+        display: none;
+    }
+    .tab-label-short {
+        display: inline;
+    }
+
+    /* 详情页减少 padding */
+    .case-detail-page {
+        padding: 12px;
+    }
+    .detail-header {
+        padding: 16px;
+    }
+    .tab-content {
+        padding: 16px;
+    }
+
+    /* 信息卡片窄屏防溢出 */
+    .info-card {
+        min-width: 0;
+        overflow: hidden;
+    }
+    .card-title {
+        word-break: break-word;
+        overflow-wrap: break-word;
+    }
+
+    /* 一张网立案：摘要信息改为竖排 */
+    .court-filing-summary-grid {
+        grid-template-columns: 1fr !important;
+    }
+
+    /* 担保摘要窄屏竖排 */
+    .court-guarantee-summary-grid {
+        grid-template-columns: 1fr;
+    }
+    .court-guarantee-summary-value {
+        white-space: normal;
+        word-break: break-word;
+    }
+
+    /* 担保表单行：三列堆叠，去掉 minmax 约束 */
+    .court-guarantee-form-row {
+        grid-template-columns: 1fr !important;
+        gap: 8px !important;
+    }
+    .court-guarantee-submit {
+        width: 100%;
+    }
+
+    /* 询价区域窄屏：防溢出 + 复用行竖排 */
+    .court-guarantee-quote-section {
+        overflow: hidden;
+    }
+    .court-guarantee-reuse-row {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .court-guarantee-reuse-row select,
+    .court-guarantee-reuse-row .btn {
+        max-width: 100%;
+        box-sizing: border-box;
+    }
+
+    /* 被申请人选择窄屏：减少间距 */
+    .court-guarantee-respondent-list {
+        gap: 6px 12px;
+    }
+
+    /* 窄屏下 x-show 容器防溢出 */
+    .tab-content [x-show] {
+        overflow: hidden;
+    }
+
+    /* 信息项标签自适应 */
+    .info-item {
+        grid-template-columns: auto 1fr;
+    }
+}
+
+@media (max-width: 480px) {
+    .header-main .case-title {
+        font-size: 18px;
+    }
+    .case-detail-page {
+        padding: 8px;
+    }
+    .detail-header {
+        padding: 12px;
+        border-radius: 8px;
+    }
+    .tab-panel {
+        border-radius: 8px;
+    }
+    .tab-nav button {
+        padding: 10px 10px;
+        font-size: 13px;
+        gap: 4px;
+    }
+    .tab-icon {
+        width: 14px;
+        height: 14px;
+    }
+    .header-actions {
+        flex-direction: column;
+        gap: 8px;
+    }
+    .header-actions .btn {
+        text-align: center;
+    }
+}

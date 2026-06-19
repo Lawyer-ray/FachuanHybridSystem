@@ -1,0 +1,66 @@
+/* 合同详情页 — 标签页导航 */
+
+/* 标签页导航 */
+.tab-panel {
+    background: var(--unfold-bg-card, #fff);
+    border-radius: 12px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+}
+
+.tab-nav {
+    display: flex;
+    border-bottom: 1px solid var(--fc-border);
+    padding: 0 16px;
+}
+
+.tab-nav button {
+    padding: 16px 20px;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--fc-text-muted);
+    background: none;
+    border: none;
+    cursor: pointer;
+    position: relative;
+    transition: color 0.2s ease;
+}
+
+.tab-nav button:hover {
+    color: var(--fc-text-secondary);
+}
+
+.tab-nav button.active {
+    color: var(--unfold-primary, #3b82f6);
+}
+
+.tab-nav button.active::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: var(--unfold-primary, #3b82f6);
+}
+
+.tab-content {
+    padding: 24px;
+}
+
+[x-cloak] {
+    display: none !important;
+}
+
+/* 响应式 */
+@media (max-width: 768px) {
+    .tab-nav {
+        flex-wrap: wrap;
+        padding: 0 8px;
+    }
+
+    .tab-nav button {
+        padding: 12px 14px;
+        font-size: 13px;
+    }
+}

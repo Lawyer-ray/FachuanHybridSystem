@@ -1,0 +1,549 @@
+/* case_detail_cards.css — 案件详情页信息卡片、列表、时间线和空状态 */
+
+/* 信息网格 */
+.info-grid {
+    display: grid;
+    gap: 20px;
+}
+
+.info-grid.two-columns {
+    grid-template-columns: repeat(2, 1fr);
+}
+
+/* 文档生成页：匹配模板卡片占 3/4，文件夹绑定占 1/4 */
+.info-grid.two-columns.documents-layout-grid {
+    grid-template-columns: 3fr 1fr;
+}
+
+/* 信息卡片 */
+.info-card {
+    background: var(--fc-bg-muted-light);
+    border-radius: 8px;
+    padding: 20px;
+    transition: box-shadow 0.2s ease;
+}
+
+.info-card:hover {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.info-card.full-width {
+    grid-column: 1 / -1;
+    min-width: 0;
+    overflow: hidden;
+}
+
+.card-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 16px;
+}
+
+.card-icon {
+    font-size: 18px;
+}
+
+.card-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--fc-text-secondary);
+    margin: 0;
+}
+
+/* 信息列表 */
+.info-list {
+    display: grid;
+    gap: 12px;
+    margin: 0;
+}
+
+.info-item {
+    display: grid;
+    grid-template-columns: 80px 1fr;
+    gap: 12px;
+    align-items: baseline;
+}
+
+.info-item dt {
+    font-size: 13px;
+    color: var(--fc-text-muted);
+    flex-shrink: 0;
+}
+
+.info-item dd {
+    font-size: 13px;
+    color: var(--fc-text-heading);
+    text-align: left;
+    margin: 0;
+    word-break: break-word;
+}
+
+/* 空状态 */
+.empty-state {
+    color: var(--fc-text-disabled);
+    font-size: 13px;
+    text-align: center;
+    padding: 20px;
+    margin: 0;
+}
+
+/* 合同链接 */
+.contract-link {
+    color: var(--unfold-primary, #3b82f6);
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.contract-link:hover {
+    text-decoration: underline;
+}
+
+/* 案号列表 */
+.case-number-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.case-number-list li {
+    padding: 8px 0;
+    border-bottom: 1px solid var(--fc-border);
+}
+
+.case-number-list li:last-child {
+    border-bottom: none;
+}
+
+.case-number {
+    font-weight: 500;
+    color: var(--fc-text-heading);
+}
+
+.case-number-doc-name {
+    font-size: 12px;
+    color: var(--fc-text-muted);
+    margin-left: 8px;
+}
+
+.case-number-active-badge,
+.case-number-inactive-badge {
+    display: inline-block;
+    font-size: 11px;
+    padding: 1px 6px;
+    border-radius: 3px;
+    margin-left: 6px;
+    font-weight: 500;
+    vertical-align: middle;
+}
+
+.case-number-active-badge {
+    background: var(--fc-success-bg);
+    color: var(--fc-success-text);
+}
+
+.case-number-inactive-badge {
+    background: var(--fc-bg-muted-light);
+    color: var(--fc-text-muted);
+}
+
+.remarks {
+    display: block;
+    font-size: 12px;
+    color: var(--fc-text-muted);
+    margin-top: 4px;
+}
+
+/* 主管机关列表 */
+.authority-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: grid;
+    gap: 8px;
+}
+
+.authority-list li {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.authority-type {
+    background: var(--fc-border);
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    color: var(--fc-text-secondary);
+}
+
+.authority-name {
+    color: var(--fc-text-heading);
+}
+
+/* 当事人列表 */
+.party-list, .lawyer-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.party-item, .lawyer-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--fc-border);
+}
+
+.party-item:last-child, .lawyer-item:last-child {
+    border-bottom: none;
+}
+
+.party-name, .lawyer-name {
+    font-weight: 500;
+    color: var(--fc-text-heading);
+}
+
+.legal-status {
+    font-size: 12px;
+    color: var(--fc-text-muted);
+    background: var(--fc-bg-muted-light);
+    padding: 2px 8px;
+    border-radius: 4px;
+}
+
+.our-client-badge {
+    background: var(--fc-info-bg);
+    color: var(--fc-info-text);
+    font-size: 11px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-weight: 500;
+}
+
+/* 对方当事人徽章 */
+.opposing-party-badge {
+    background: var(--fc-error-bg);
+    color: var(--fc-error-text);
+    font-size: 11px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-weight: 500;
+}
+
+/* 我方当事人高亮 */
+.party-item.our-client {
+    background: var(--fc-primary-subtle);
+    margin: 0 -12px;
+    padding: 10px 12px;
+    border-radius: 6px;
+}
+
+/* 时间线 */
+.timeline {
+    position: relative;
+    padding-left: 24px;
+    min-width: 0;
+    overflow: hidden;
+}
+
+.timeline::before {
+    content: '';
+    position: absolute;
+    left: 8px;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: var(--fc-border);
+}
+
+.timeline-item {
+    position: relative;
+    padding-bottom: 20px;
+    min-width: 0;
+}
+
+.timeline-item:last-child {
+    padding-bottom: 0;
+}
+
+.timeline-marker {
+    position: absolute;
+    left: -20px;
+    top: 4px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--unfold-primary, #3b82f6);
+    border: 2px solid var(--fc-text-on-primary);
+}
+
+.timeline-content {
+    background: var(--fc-bg-card);
+    border-radius: 8px;
+    padding: 16px;
+    border: 1px solid var(--fc-border);
+    overflow: hidden;
+    min-width: 0;
+}
+
+.timeline-header {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 8px;
+}
+
+.timeline-actor {
+    font-weight: 500;
+    color: var(--fc-text-secondary);
+}
+
+.timeline-time {
+    font-size: 12px;
+    color: var(--fc-text-disabled);
+}
+
+.timeline-body {
+    font-size: 14px;
+    color: var(--fc-text-secondary);
+    line-height: 1.6;
+    overflow-wrap: break-word;
+    word-break: break-word;
+}
+
+.timeline-body p {
+    margin: 0 0 8px 0;
+}
+
+.timeline-body p:last-child {
+    margin-bottom: 0;
+}
+
+.timeline-reminder {
+    margin-top: 12px;
+    padding: 8px 12px;
+    background: var(--fc-warning-bg);
+    border-radius: 6px;
+    font-size: 12px;
+}
+
+.reminder-type {
+    font-weight: 500;
+    color: var(--fc-warning-text);
+}
+
+.reminder-time {
+    color: var(--fc-warning-text);
+    margin-left: 8px;
+}
+
+.timeline-attachments {
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--fc-border);
+    overflow-wrap: break-word;
+    word-break: break-all;
+}
+
+.attachments-label {
+    font-size: 12px;
+    color: var(--fc-text-muted);
+}
+
+.attachment-link {
+    display: inline-block;
+    margin-left: 8px;
+    font-size: 12px;
+    color: var(--unfold-primary, #3b82f6);
+    text-decoration: none;
+    max-width: 100%;
+    overflow-wrap: break-word;
+    word-break: break-all;
+}
+
+.attachment-link:hover {
+    text-decoration: underline;
+}
+
+/* 群聊列表 */
+.chat-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.chat-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--fc-border);
+}
+
+.chat-item:last-child {
+    border-bottom: none;
+}
+
+.chat-platform {
+    background: var(--fc-border);
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    color: var(--fc-text-secondary);
+}
+
+.chat-name {
+    flex: 1;
+    font-weight: 500;
+    color: var(--fc-text-heading);
+}
+
+.chat-status {
+    font-size: 12px;
+    padding: 2px 8px;
+    border-radius: 4px;
+}
+
+.chat-status.active {
+    background: var(--fc-success-bg);
+    color: var(--fc-success-text);
+}
+
+.chat-status.inactive {
+    background: var(--fc-error-bg);
+    color: var(--fc-error-text);
+}
+
+/* 文件夹绑定 */
+.folder-binding {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.binding-status {
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.binding-status.bound {
+    color: var(--fc-success-text);
+}
+
+.folder-path {
+    font-size: 13px;
+    color: var(--fc-text-secondary);
+    word-break: break-all;
+}
+
+/* 当事人/律师项目可点击样式 */
+.party-item.clickable,
+.lawyer-item.clickable {
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.party-item.clickable:hover,
+.lawyer-item.clickable:hover {
+    background: var(--fc-bg-muted-light);
+    margin: 0 -12px;
+    padding: 10px 12px;
+    border-radius: 6px;
+}
+
+.party-item .view-detail-icon,
+.lawyer-item .view-detail-icon {
+    margin-left: auto;
+    color: var(--fc-text-disabled);
+    font-size: 14px;
+}
+
+.party-item:hover .view-detail-icon,
+.lawyer-item:hover .view-detail-icon {
+    color: var(--unfold-primary, #3b82f6);
+}
+
+/* 可折叠箭头旋转 */
+.rotate-180 {
+    transform: rotate(180deg);
+}
+
+/* 案件关联时间线 */
+.case-timeline {
+    padding: 10px 16px;
+    margin: 0 0 8px;
+    background: var(--fc-bg-card);
+    border: 1px solid var(--fc-border);
+    border-radius: 8px;
+}
+.case-timeline-head {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    margin-bottom: 10px;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--fc-text-secondary);
+}
+.case-timeline-head svg { color: var(--fc-primary); }
+.case-timeline-steps {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    overflow-x: auto;
+}
+.ct-step {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 8px;
+    border-radius: 6px;
+    text-decoration: none;
+    color: inherit;
+    white-space: nowrap;
+    transition: background .15s;
+    flex-shrink: 0;
+}
+a.ct-step:hover { background: var(--fc-bg-muted-light); }
+.ct-step.active {
+    background: var(--fc-primary-subtle);
+}
+.ct-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--fc-border-input);
+    flex-shrink: 0;
+}
+.ct-step.active .ct-dot {
+    background: var(--fc-primary);
+    box-shadow: 0 0 0 2px rgba(99,102,241,.25);
+}
+.ct-content {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+}
+.ct-stage {
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--fc-primary);
+    line-height: 1.3;
+}
+.ct-step.active .ct-stage { color: var(--fc-primary); }
+.ct-name {
+    font-size: 11px;
+    color: var(--fc-text-muted);
+    line-height: 1.3;
+    max-width: 120px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.ct-line {
+    width: 20px;
+    height: 2px;
+    background: var(--fc-border-input);
+    flex-shrink: 0;
+    margin: 0 2px;
+}

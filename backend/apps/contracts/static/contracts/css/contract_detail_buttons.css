@@ -1,0 +1,35 @@
+/* 合同详情页 — 按钮样式 */
+
+.btn {
+    display: inline-flex;
+    align-items: center;
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: none;
+    text-decoration: none;
+}
+
+.btn-primary {
+    background: var(--unfold-primary, #3b82f6);
+    color: var(--fc-text-on-primary) !important;
+    border: 1px solid var(--unfold-primary, #3b82f6);
+}
+
+.btn-primary:hover {
+    background: var(--unfold-primary-dark, #2563eb);
+    color: var(--fc-text-on-primary) !important;
+    border-color: var(--unfold-primary-dark, #2563eb);
+}
+
+.btn-secondary {
+    background: var(--fc-bg-muted-light);
+    color: var(--fc-text-secondary);
+}
+
+.btn-secondary:hover {
+    background: var(--fc-border);
+}

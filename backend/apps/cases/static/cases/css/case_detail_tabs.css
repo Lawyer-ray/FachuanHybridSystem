@@ -1,0 +1,64 @@
+/* case_detail_tabs.css — 案件详情页标签页导航和内容 */
+
+/* 标签页导航 */
+.tab-panel {
+    background: var(--fc-bg-card);
+    border-radius: 12px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    overflow: hidden;
+}
+
+.tab-nav {
+    display: flex;
+    border-bottom: 1px solid var(--fc-border);
+    padding: 0 16px;
+}
+
+.tab-nav button {
+    padding: 16px 20px;
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--fc-text-muted);
+    background: none;
+    border: none;
+    cursor: pointer;
+    position: relative;
+    transition: color 0.2s ease;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+/* 桌面端：隐藏图标和短标签，仅显示完整文字 */
+.tab-icon,
+.tab-label-short {
+    display: none;
+}
+
+.tab-icon {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+}
+
+.tab-nav button:hover {
+    color: var(--fc-text-secondary);
+}
+
+.tab-nav button.active {
+    color: var(--unfold-primary, #3b82f6);
+}
+
+.tab-nav button.active::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: var(--unfold-primary, #3b82f6);
+}
+
+.tab-content {
+    padding: 24px;
+}

@@ -1,0 +1,51 @@
+/* case_detail_tables.css — 案件详情页数据表格、标签和表格响应式 */
+
+/* ===== 工作人员联系方式 ===== */
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+.data-table th,
+.data-table td {
+    padding: 8px 12px;
+    text-align: left;
+    border-bottom: 1px solid var(--fc-border);
+}
+.data-table th {
+    background: var(--fc-bg-muted-light);
+    font-weight: 600;
+    color: var(--fc-text-secondary);
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.025em;
+}
+.data-table tbody tr:hover {
+    background: var(--fc-bg-muted-light);
+}
+.tag {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 11px;
+    font-weight: 500;
+    background: var(--fc-border);
+    color: var(--fc-text-secondary);
+}
+.table-responsive {
+    overflow-x: auto;
+}
+.btn-sm {
+    padding: 4px 10px;
+    font-size: 12px;
+}
+.btn-danger {
+    background: var(--fc-error-text);
+    color: var(--fc-text-on-primary);
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+}
+.btn-danger:hover {
+    background: var(--fc-error-text);
+}
