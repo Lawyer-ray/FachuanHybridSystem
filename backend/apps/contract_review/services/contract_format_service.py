@@ -5,6 +5,8 @@
 from pathlib import Path
 from typing import Optional, Tuple
 from django.conf import settings
+from django.core.files.base import ContentFile
+from django.core.files.storage import default_storage
 import logging
 
 from apps.core.services.poi_client import get_poi_client

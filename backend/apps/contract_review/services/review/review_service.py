@@ -260,7 +260,7 @@ def process_review(task_id_str: str) -> None:  # pragma: no cover
                         if kind == "review":
                             reviews = future.result()  # type: ignore[assignment]
                         else:
-                            report = future.result()  # type: ignore[assignment]
+                            report = future.result()
                     except Exception:
                         logger.exception("并行任务 %s 失败", kind)
 
@@ -275,7 +275,7 @@ def process_review(task_id_str: str) -> None:  # pragma: no cover
 
             if report:
                 repository.update(task.id, review_report=report)
-                logger.info("评估报告已生成 (%d 字)", len(report))
+                logger.info("评估报告已生成 (%d 字)", len(str(report)))
 
         elif need_review:
             _update_step(repository, task, ProcessStep.CONTRACT_REVIEW)

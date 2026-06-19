@@ -314,7 +314,7 @@ def save_uploaded_file(
         target_abs = base_dir / filename
 
     rel_path = Path(rel_dir) / filename
-    default_storage.save(str(rel_path), file=uploaded_file)
+    default_storage.save(str(rel_path), uploaded_file)
     return str(rel_path).replace("\\", "/"), safe_original_name
 
 
