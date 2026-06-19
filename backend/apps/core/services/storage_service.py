@@ -126,7 +126,7 @@ def validate_file(file: Any) -> None:
     file_size: int = int(getattr(file, "size", 0) or 0)
     if file_size > 20 * 1024 * 1024:
         raise ValidationException(
-            f"文件大小超过限制（最大 20MB）",
+            "文件大小超过限制（最大 20MB）",
             code="FILE_TOO_LARGE",
         )
 

@@ -11,6 +11,8 @@ from pathlib import Path
 from typing import Any
 
 from django.conf import settings
+from django.core.files.base import ContentFile
+from django.core.files.storage import default_storage
 
 from apps.legal_research.models import CaseDownloadFormat, CaseDownloadResult, CaseDownloadStatus, CaseDownloadTask
 from apps.legal_research.services.sources import CaseDetail, get_case_source_client
@@ -94,9 +96,6 @@ class CaseDownloadService:  # pragma: no cover
                 login_url=credential.url or None,
             )
 
-            task_dir = cls.DOWNLOAD_DIR / str(task.id)
-            task_dir.mkdir(parents=True, exist_ok=True)
-
             for i, case_number in enumerate(case_numbers, 1):
                 task.message = f"正在下载 {i}/{len(case_numbers)}: {case_number}"
                 task.save(update_fields=["message", "updated_at"])
@@ -107,7 +106,6 @@ class CaseDownloadService:  # pragma: no cover
                         session=session,
                         case_number=case_number,
                         file_format=file_format,
-                        task_dir=task_dir,
                         task=task,
                     )
                     if result_data["success"]:
@@ -174,7 +172,6 @@ class CaseDownloadService:  # pragma: no cover
         session: WeikeSession,
         case_number: str,
         file_format: str,
-        task_dir: Path,
         task: CaseDownloadTask,
     ) -> dict[str, Any]:
         """下载单个案例"""
@@ -227,10 +224,9 @@ class CaseDownloadService:  # pragma: no cover
         safe_case_number = re.sub(r'[\\\\/:*?"<>|]+', "_", case_number).strip("._ ")
         extension = "pdf" if file_format == CaseDownloadFormat.PDF else "doc"
         file_name = f"{safe_case_number}.{extension}"
-        file_path = task_dir / file_name
-
-        with open(file_path, "wb") as f:
-            f.write(file_bytes)
+        rel_path = f"legal_research/case_download/{task.id}/{file_name}"
+        saved_name = default_storage.save(rel_path, ContentFile(file_bytes))
+        file_path = Path(settings.MEDIA_ROOT) / saved_name
 
         # 5. 保存结果
         CaseDownloadResult.objects.create(

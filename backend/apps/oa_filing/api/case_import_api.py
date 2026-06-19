@@ -56,6 +56,7 @@ def trigger_case_import(request: HttpRequest) -> Any:  # pragma: no cover
 
     # 保存上传的文件
     import uuid
+    from pathlib import Path
 
     from django.conf import settings
     from django.core.files.storage import default_storage
