@@ -490,7 +490,7 @@ class TestPostProcessCandidates:
 
 class TestLearnFromImportCorrection:
     def test_empty_actual_code_skips(self):
-        svc = _make_processor()
+        svc = _make_service()
         # Should not raise
         svc._learn_from_import_correction(
             candidate={"archive_item_code": "old", "filename": "test.pdf", "suggested_category": "case_material"},
@@ -499,7 +499,7 @@ class TestLearnFromImportCorrection:
         )
 
     def test_same_code_skips(self):
-        svc = _make_processor()
+        svc = _make_service()
         svc._learn_from_import_correction(
             candidate={"archive_item_code": "c1", "filename": "test.pdf", "suggested_category": "case_material"},
             actual_archive_item_code="c1",
@@ -507,7 +507,7 @@ class TestLearnFromImportCorrection:
         )
 
     def test_non_case_material_skips(self):
-        svc = _make_processor()
+        svc = _make_service()
         svc._learn_from_import_correction(
             candidate={"archive_item_code": "old", "filename": "test.pdf", "suggested_category": "contract_original"},
             actual_archive_item_code="new",
@@ -515,7 +515,7 @@ class TestLearnFromImportCorrection:
         )
 
     def test_empty_filename_skips(self):
-        svc = _make_processor()
+        svc = _make_service()
         svc._learn_from_import_correction(
             candidate={"archive_item_code": "old", "filename": "", "suggested_category": "case_material"},
             actual_archive_item_code="new",
@@ -533,7 +533,7 @@ class TestLearnFromImportCorrection:
         mock_rule_objects.filter.return_value.exclude.return_value.first.return_value = None
         mock_rule_objects.get_or_create.return_value = (MagicMock(), True)
 
-        svc = _make_processor()
+        svc = _make_service()
         svc._learn_from_import_correction(
             candidate={"archive_item_code": "old", "filename": "测试文件.pdf", "suggested_category": "case_material"},
             actual_archive_item_code="new_code",
@@ -552,7 +552,7 @@ class TestLearnFromImportCorrection:
         existing_rule = MagicMock()
         mock_rule_objects.filter.return_value.exclude.return_value.first.return_value = existing_rule
 
-        svc = _make_processor()
+        svc = _make_service()
         svc._learn_from_import_correction(
             candidate={"archive_item_code": "old", "filename": "测试文件.pdf", "suggested_category": "case_material"},
             actual_archive_item_code="new_code",
