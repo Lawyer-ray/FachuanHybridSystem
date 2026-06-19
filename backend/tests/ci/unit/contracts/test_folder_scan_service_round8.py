@@ -456,14 +456,14 @@ class TestCollectDocxFiles:
 
 class TestLearnFromImportCorrection:
     def test_no_code_returns(self):
-        svc = _make_processor()
+        svc = _make_service()
         svc._learn_from_import_correction(
             candidate={}, actual_archive_item_code="", contract_id=1
         )
         # Should return without doing anything
 
     def test_same_code_returns(self):
-        svc = _make_processor()
+        svc = _make_service()
         candidate = {"archive_item_code": "l_1"}
         svc._learn_from_import_correction(
             candidate=candidate, actual_archive_item_code="l_1", contract_id=1
@@ -471,21 +471,21 @@ class TestLearnFromImportCorrection:
         # No learning needed
 
     def test_non_case_material_returns(self):
-        svc = _make_processor()
+        svc = _make_service()
         candidate = {"archive_item_code": "old", "suggested_category": "other"}
         svc._learn_from_import_correction(
             candidate=candidate, actual_archive_item_code="l_1", contract_id=1
         )
 
     def test_no_filename_returns(self):
-        svc = _make_processor()
+        svc = _make_service()
         candidate = {"archive_item_code": "old", "suggested_category": "case_material", "filename": ""}
         svc._learn_from_import_correction(
             candidate=candidate, actual_archive_item_code="l_1", contract_id=1
         )
 
     def test_successful_learning(self):
-        svc = _make_processor()
+        svc = _make_service()
         candidate = {
             "archive_item_code": "old_code",
             "suggested_category": "case_material",
