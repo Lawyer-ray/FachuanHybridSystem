@@ -348,7 +348,6 @@ jobs:
           uv run pytest -c pytest.ini -o addopts="" \
             --capture=no \
             --reuse-db --import-mode=importlib -q \
-            --timeout=30 \
             --cov=apps.cases.services.case.case_admin_export_bridge \
             --cov=apps.cases.services.case.case_contract_export_bridge \
             --cov=apps.contracts.services.contract.admin_workflows.clone_workflow \
