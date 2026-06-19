@@ -18,7 +18,7 @@
 <style>
     .cr-wrap { max-width: 780px; margin: 24px auto; }
     .cr-card {
-        background: var(--body-bg, #fff);
+        background: var(--body-bg, var(--fc-bg-card));
         border: 1px solid var(--hairline-color, #e0e0e0);
         border-radius: 16px;
         padding: 44px 48px;
@@ -34,7 +34,7 @@
         display: block;
         font-size: 13px;
         font-weight: 600;
-        color: var(--body-quiet-color, #666);
+        color: var(--body-quiet-color, var(--fc-text-muted));
         margin-bottom: 6px;
     }
     .cr-dropzone {
@@ -44,10 +44,10 @@
         text-align: center;
         cursor: pointer;
         transition: all .2s;
-        background: var(--darkened-bg, #fafafa);
+        background: var(--darkened-bg, var(--fc-bg-muted-light));
     }
     .cr-dropzone:hover, .cr-dropzone.active {
-        border-color: var(--primary, #417690);
+        border-color: var(--primary, var(--fc-admin-blue));
         background: rgba(65,118,144,.03);
     }
     .cr-dropzone-icon {
@@ -71,7 +71,7 @@
     .cr-info {
         border-radius: 14px;
         overflow: hidden;
-        background: var(--darkened-bg, #f8f9fa);
+        background: var(--darkened-bg, var(--fc-bg-muted));
         padding: 20px 24px;
         margin-bottom: 28px;
         display: none;
@@ -92,7 +92,7 @@
     }
     .cr-info-label {
         font-size: 12px;
-        color: var(--body-quiet-color, #999);
+        color: var(--body-quiet-color, var(--fc-text-disabled));
         font-weight: 500;
         text-transform: uppercase;
         letter-spacing: .5px;
@@ -100,7 +100,7 @@
     }
     .cr-info-value {
         font-size: 15px;
-        color: var(--body-fg, #333);
+        color: var(--body-fg, var(--fc-text-secondary));
         font-weight: 500;
         word-break: break-all;
     }
@@ -119,8 +119,8 @@
         border: none;
     }
     .cr-btn-primary {
-        background: var(--primary, #417690);
-        color: #fff;
+        background: var(--primary, var(--fc-admin-blue));
+        color: var(--fc-text-on-primary);
     }
     .cr-btn-primary:hover {
         filter: brightness(.9);
@@ -133,11 +133,11 @@
     .cr-btn-ghost {
         background: transparent;
         color: var(--body-quiet-color, #888);
-        border: 1px solid var(--border-color, #ddd);
+        border: 1px solid var(--border-color, var(--fc-border));
     }
     .cr-btn-ghost:hover {
-        background: var(--darkened-bg, #f5f5f5);
-        color: var(--body-fg, #555);
+        background: var(--darkened-bg, var(--fc-bg-muted-light));
+        color: var(--body-fg, var(--fc-text-muted));
     }
     .cr-actions {
         display: flex;
@@ -210,18 +210,18 @@
                 <div style="margin-bottom: 20px;">
                     <label class="cr-label">选择编号类型</label>
                     <div style="display: flex; gap: 15px; margin-top: 8px;">
-                        <label style="display: flex; align-items: center; cursor: pointer; padding: 12px 16px; border: 2px solid #ddd; border-radius: 8px; flex: 1; transition: all 0.2s;">
+                        <label style="display: flex; align-items: center; cursor: pointer; padding: 12px 16px; border: 2px solid var(--fc-border); border-radius: 8px; flex: 1; transition: all 0.2s;">
                             <input type="radio" name="numbering_type" value="chinese" checked style="margin-right: 10px;">
                             <div>
                                 <div style="font-weight: 600; margin-bottom: 4px;">中文编号</div>
-                                <div style="font-size: 12px; color: #666;">一、→1.→(1)</div>
+                                <div style="font-size: 12px; color: var(--fc-text-muted);">一、→1.→(1)</div>
                             </div>
                         </label>
-                        <label style="display: flex; align-items: center; cursor: pointer; padding: 12px 16px; border: 2px solid #ddd; border-radius: 8px; flex: 1; transition: all 0.2s;">
+                        <label style="display: flex; align-items: center; cursor: pointer; padding: 12px 16px; border: 2px solid var(--fc-border); border-radius: 8px; flex: 1; transition: all 0.2s;">
                             <input type="radio" name="numbering_type" value="digital" style="margin-right: 10px;">
                             <div>
                                 <div style="font-weight: 600; margin-bottom: 4px;">数字编号</div>
-                                <div style="font-size: 12px; color: #666;">1.→1.1.→1.1.1.</div>
+                                <div style="font-size: 12px; color: var(--fc-text-muted);">1.→1.1.→1.1.1.</div>
                             </div>
                         </label>
                     </div>
@@ -231,18 +231,18 @@
                 <div style="margin-bottom: 20px;">
                     <label class="cr-label">AI辅助格式化</label>
                     <div style="display: flex; gap: 15px; margin-top: 8px;">
-                        <label style="display: flex; align-items: center; cursor: pointer; padding: 12px 16px; border: 2px solid #ddd; border-radius: 8px; flex: 1; transition: all 0.2s;">
+                        <label style="display: flex; align-items: center; cursor: pointer; padding: 12px 16px; border: 2px solid var(--fc-border); border-radius: 8px; flex: 1; transition: all 0.2s;">
                             <input type="radio" name="use_llm" value="true" checked style="margin-right: 10px;">
                             <div>
                                 <div style="font-weight: 600; margin-bottom: 4px;">使用AI</div>
-                                <div style="font-size: 12px; color: #666;">智能识别段落层级，自动编排序号</div>
+                                <div style="font-size: 12px; color: var(--fc-text-muted);">智能识别段落层级，自动编排序号</div>
                             </div>
                         </label>
-                        <label style="display: flex; align-items: center; cursor: pointer; padding: 12px 16px; border: 2px solid #ddd; border-radius: 8px; flex: 1; transition: all 0.2s;">
+                        <label style="display: flex; align-items: center; cursor: pointer; padding: 12px 16px; border: 2px solid var(--fc-border); border-radius: 8px; flex: 1; transition: all 0.2s;">
                             <input type="radio" name="use_llm" value="false" style="margin-right: 10px;">
                             <div>
                                 <div style="font-weight: 600; margin-bottom: 4px;">不使用AI</div>
-                                <div style="font-size: 12px; color: #666;">仅格式化，不自动编排序号</div>
+                                <div style="font-size: 12px; color: var(--fc-text-muted);">仅格式化，不自动编排序号</div>
                             </div>
                         </label>
                     </div>
@@ -252,18 +252,18 @@
                 <div id="model-selection" style="margin-bottom: 20px;">
                     <label class="cr-label">选择AI模型</label>
                     <div style="display: flex; gap: 15px; margin-top: 8px;">
-                        <label style="display: flex; align-items: center; cursor: pointer; padding: 12px 16px; border: 2px solid #ddd; border-radius: 8px; flex: 1; transition: all 0.2s;">
+                        <label style="display: flex; align-items: center; cursor: pointer; padding: 12px 16px; border: 2px solid var(--fc-border); border-radius: 8px; flex: 1; transition: all 0.2s;">
                             <input type="radio" name="llm_backend" value="openai_compatible" checked style="margin-right: 10px;">
                             <div>
                                 <div style="font-weight: 600; margin-bottom: 4px;">mimo2.5pro</div>
-                                <div style="font-size: 12px; color: #666;">在线模型，速度快</div>
+                                <div style="font-size: 12px; color: var(--fc-text-muted);">在线模型，速度快</div>
                             </div>
                         </label>
-                        <label style="display: flex; align-items: center; cursor: pointer; padding: 12px 16px; border: 2px solid #ddd; border-radius: 8px; flex: 1; transition: all 0.2s;">
+                        <label style="display: flex; align-items: center; cursor: pointer; padding: 12px 16px; border: 2px solid var(--fc-border); border-radius: 8px; flex: 1; transition: all 0.2s;">
                             <input type="radio" name="llm_backend" value="ollama" style="margin-right: 10px;">
                             <div>
                                 <div style="font-weight: 600; margin-bottom: 4px;">本地模型</div>
-                                <div style="font-size: 12px; color: #666;">Ollama后端，隐私安全</div>
+                                <div style="font-size: 12px; color: var(--fc-text-muted);">Ollama后端，隐私安全</div>
                             </div>
                         </label>
                     </div>

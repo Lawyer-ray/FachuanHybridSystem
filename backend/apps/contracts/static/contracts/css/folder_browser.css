@@ -3,8 +3,8 @@
 .folder-binding-widget {
     margin: 20px 0;
     padding: 15px;
-    background: #f9fafb;
-    border: 1px solid #e5e7eb;
+    background: var(--fc-bg-muted-light);
+    border: 1px solid var(--fc-border);
     border-radius: 6px;
 }
 
@@ -31,22 +31,22 @@
 
 .binding-status .status-badge.bound {
     background: #d1fae5;
-    color: #065f46;
+    color: var(--fc-success-text);
 }
 
 .binding-status .status-badge.unbound {
-    background: #fee2e2;
-    color: #991b1b;
+    background: var(--fc-error-bg);
+    color: var(--fc-error-text);
 }
 
 .binding-path {
     padding: 10px;
-    background: white;
-    border: 1px solid #d1d5db;
+    background: var(--fc-bg-card);
+    border: 1px solid var(--fc-border-input);
     border-radius: 4px;
     font-family: monospace;
     font-size: 13px;
-    color: #1f2937;
+    color: var(--fc-text-primary);
     margin-bottom: 10px;
 }
 
@@ -57,9 +57,9 @@
 
 .btn-folder {
     padding: 8px 16px;
-    border: 1px solid #d1d5db;
+    border: 1px solid var(--fc-border-input);
     border-radius: 4px;
-    background: white;
+    background: var(--fc-bg-card);
     color: #374151;
     font-size: 13px;
     cursor: pointer;
@@ -67,19 +67,19 @@
 }
 
 .btn-folder:hover {
-    background: #f3f4f6;
-    border-color: #9ca3af;
+    background: var(--fc-bg-muted-light);
+    border-color: var(--fc-text-disabled);
 }
 
 .btn-folder.primary {
-    background: #3b82f6;
-    color: white;
-    border-color: #3b82f6;
+    background: var(--fc-primary);
+    color: var(--fc-text-on-primary);
+    border-color: var(--fc-primary);
 }
 
 .btn-folder.primary:hover {
-    background: #2563eb;
-    border-color: #2563eb;
+    background: var(--fc-primary);
+    border-color: var(--fc-primary);
 }
 
 .btn-folder.danger {
@@ -89,8 +89,8 @@
 }
 
 .btn-folder.danger:hover {
-    background: #dc2626;
-    border-color: #dc2626;
+    background: var(--fc-error-text);
+    border-color: var(--fc-error-text);
 }
 
 .btn-folder:disabled {
@@ -113,7 +113,7 @@
 }
 
 .folder-browser-content {
-    background: white;
+    background: var(--fc-bg-card);
     border-radius: 8px;
     width: 90%;
     max-width: 900px;
@@ -125,7 +125,7 @@
 
 .folder-browser-header {
     padding: 20px;
-    border-bottom: 1px solid #e5e7eb;
+    border-bottom: 1px solid var(--fc-border);
 }
 
 .folder-browser-header h2 {
@@ -142,7 +142,7 @@
     background: none;
     border: none;
     font-size: 24px;
-    color: #6b7280;
+    color: var(--fc-text-muted);
     cursor: pointer;
     padding: 0;
     width: 32px;
@@ -154,7 +154,7 @@
 }
 
 .folder-browser-close:hover {
-    background: #f3f4f6;
+    background: var(--fc-bg-muted-light);
     color: #111827;
 }
 
@@ -168,7 +168,7 @@
 .manual-path-input input {
     flex: 1;
     padding: 8px 12px;
-    border: 1px solid #d1d5db;
+    border: 1px solid var(--fc-border-input);
     border-radius: 4px;
     font-family: monospace;
     font-size: 13px;
@@ -176,7 +176,7 @@
 
 .manual-path-input input:focus {
     outline: none;
-    border-color: #3b82f6;
+    border-color: var(--fc-primary);
     box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
@@ -184,11 +184,11 @@
 .finder-columns {
     display: flex;
     height: 400px;
-    border: 1px solid #e5e7eb;
+    border: 1px solid var(--fc-border);
     border-radius: 4px;
     overflow-x: auto;
     overflow-y: hidden;
-    background: white;
+    background: var(--fc-bg-card);
     position: relative;
 }
 
@@ -210,9 +210,9 @@
 .finder-column {
     flex: 0 0 200px;
     min-width: 0;
-    border-right: 1px solid #e5e7eb;
+    border-right: 1px solid var(--fc-border);
     overflow-y: auto;
-    background: white;
+    background: var(--fc-bg-card);
     transition: all 0.15s ease;
     position: relative;
 }
@@ -237,7 +237,7 @@
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    color: #6b7280;
+    color: var(--fc-text-muted);
     font-size: 13px;
     z-index: 6;
 }
@@ -253,17 +253,17 @@
     gap: 8px;
     cursor: pointer;
     transition: background 0.1s ease;
-    border-bottom: 1px solid #f3f4f6;
+    border-bottom: 1px solid var(--fc-bg-muted-light);
     user-select: none;
 }
 
 .finder-item:hover {
-    background: #f9fafb;
+    background: var(--fc-bg-muted-light);
 }
 
 .finder-item.selected {
-    background: #3b82f6;
-    color: white;
+    background: var(--fc-primary);
+    color: var(--fc-text-on-primary);
     transition: background 0.1s ease;
 }
 
@@ -283,26 +283,26 @@
 .finder-empty {
     padding: 40px 20px;
     text-align: center;
-    color: #9ca3af;
+    color: var(--fc-text-disabled);
     font-size: 13px;
 }
 
 /* 底部操作栏 */
 .folder-browser-footer {
     padding: 15px 20px;
-    border-top: 1px solid #e5e7eb;
+    border-top: 1px solid var(--fc-border);
     display: flex;
     justify-content: space-between;
     align-items: center;
-    background: #f9fafb;
+    background: var(--fc-bg-muted-light);
 }
 
 .folder-browser-error {
     padding: 12px;
-    background: #fee2e2;
-    border: 1px solid #fecaca;
+    background: var(--fc-error-bg);
+    border: 1px solid var(--fc-error-border);
     border-radius: 4px;
-    color: #991b1b;
+    color: var(--fc-error-text);
     font-size: 13px;
     margin-bottom: 15px;
 }
@@ -310,13 +310,13 @@
 .folder-browser-loading {
     text-align: center;
     padding: 40px;
-    color: #6b7280;
+    color: var(--fc-text-muted);
 }
 
 .selected-path-display {
     font-family: monospace;
     font-size: 12px;
-    color: #6b7280;
+    color: var(--fc-text-muted);
     max-width: 400px;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -329,8 +329,8 @@
     border-radius: 4px;
     font-size: 11px;
     font-weight: 500;
-    background: #dbeafe;
-    color: #1e40af;
+    background: var(--fc-info-bg);
+    color: var(--fc-primary-darker);
 }
 
 .storage-selector {
@@ -342,17 +342,17 @@
 .storage-type-select,
 .storage-account-select {
     padding: 6px 10px;
-    border: 1px solid #d1d5db;
+    border: 1px solid var(--fc-border-input);
     border-radius: 4px;
     font-size: 13px;
-    background: white;
+    background: var(--fc-bg-card);
     color: #374151;
 }
 
 .storage-type-select:focus,
 .storage-account-select:focus {
     outline: none;
-    border-color: #3b82f6;
+    border-color: var(--fc-primary);
     box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.1);
 }
 

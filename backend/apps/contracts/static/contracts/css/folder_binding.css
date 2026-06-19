@@ -6,8 +6,8 @@
 .document-actions-container {
     margin-top: 15px;
     padding: 15px;
-    background: #f8f9fa;
-    border: 1px solid #e0e0e0;
+    background: var(--fc-bg-muted);
+    border: 1px solid var(--fc-border);
     border-radius: 6px;
 }
 
@@ -17,7 +17,7 @@
     align-items: flex-start;
     margin-bottom: 12px;
     padding-bottom: 12px;
-    border-bottom: 1px solid #e9ecef;
+    border-bottom: 1px solid var(--fc-border);
 }
 
 .action-group:last-child {
@@ -32,7 +32,7 @@
     width: 90px;
     font-size: 13px;
     font-weight: 600;
-    color: #555;
+    color: var(--fc-text-muted);
     padding-top: 6px;
 }
 
@@ -48,22 +48,22 @@
     padding: 6px 14px;
     font-size: 13px;
     border-radius: 4px;
-    border: 1px solid #417690;
-    background: #417690;
-    color: white;
+    border: 1px solid var(--fc-admin-blue);
+    background: var(--fc-admin-blue);
+    color: var(--fc-text-on-primary);
     cursor: pointer;
     transition: all 0.2s ease;
 }
 
 .action-buttons input[type="button"]:hover,
 #binding_actions input[type="button"].default:hover {
-    background: #2e5984;
-    border-color: #2e5984;
+    background: var(--fc-admin-blue-hover);
+    border-color: var(--fc-admin-blue-hover);
 }
 
 .action-buttons input[type="button"]:disabled {
-    background: #aaa;
-    border-color: #aaa;
+    background: var(--fc-text-muted);
+    border-color: var(--fc-text-muted);
     cursor: not-allowed;
     opacity: 0.6;
 }
@@ -85,26 +85,26 @@
 /* 绑定状态显示 */
 #binding_status {
     padding: 6px 12px;
-    background: white;
-    border: 1px solid #ddd;
+    background: var(--fc-bg-card);
+    border: 1px solid var(--fc-border);
     border-radius: 4px;
     min-width: 120px;
 }
 
 #binding_status_text {
-    color: #666;
+    color: var(--fc-text-muted);
     font-size: 13px;
     line-height: 1.4;
 }
 
 #binding_status_text strong {
-    color: #2e7d32;
+    color: var(--fc-success-text);
     font-weight: 600;
 }
 
 #binding_status_text small {
     display: block;
-    color: #999;
+    color: var(--fc-text-muted);
     font-size: 11px;
     margin-top: 2px;
 }
@@ -117,15 +117,15 @@
 }
 
 #binding_actions input[type="button"].default {
-    background: #417690;
-    color: white;
-    border-color: #417690;
+    background: var(--fc-admin-blue);
+    color: var(--fc-text-on-primary);
+    border-color: var(--fc-admin-blue);
 }
 
 #unbind_folder_btn {
-    background: #dc3545 !important;
-    color: white !important;
-    border-color: #dc3545 !important;
+    background: var(--fc-error-text) !important;
+    color: var(--fc-text-on-primary) !important;
+    border-color: var(--fc-error-text) !important;
 }
 
 #unbind_folder_btn:hover {
@@ -139,8 +139,8 @@
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    background: white;
-    border: 2px solid #ccc;
+    background: var(--fc-bg-card);
+    border: 2px solid var(--fc-border);
     border-radius: 8px;
     padding: 20px;
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
@@ -154,10 +154,10 @@
 #folder_binding_dialog h3 {
     margin-top: 0;
     margin-bottom: 20px;
-    color: #333;
+    color: var(--fc-text-secondary);
     font-size: 18px;
     font-weight: 600;
-    border-bottom: 1px solid #eee;
+    border-bottom: 1px solid var(--fc-border);
     padding-bottom: 10px;
 }
 
@@ -170,7 +170,7 @@
     display: block;
     margin-bottom: 8px;
     font-weight: bold;
-    color: #333;
+    color: var(--fc-text-secondary);
     font-size: 14px;
 }
 
@@ -184,7 +184,7 @@
 
 .quick-paths-label {
     font-size: 12px;
-    color: #666;
+    color: var(--fc-text-muted);
     flex-shrink: 0;
 }
 
@@ -197,21 +197,21 @@
 .quick-path-btn {
     padding: 4px 10px;
     font-size: 12px;
-    border: 1px solid #ddd;
+    border: 1px solid var(--fc-border);
     border-radius: 4px;
-    background: #f5f5f5;
-    color: #555;
+    background: var(--fc-bg-muted-light);
+    color: var(--fc-text-muted);
     cursor: pointer;
     transition: all 0.2s ease;
 }
 
 .quick-path-btn:hover {
-    background: #e9ecef;
+    background: var(--fc-border);
     border-color: #adb5bd;
 }
 
 .quick-path-btn:active {
-    background: #dee2e6;
+    background: var(--fc-border);
 }
 
 /* 路径输入框包装 */
@@ -224,7 +224,7 @@
 #folder_path_input {
     width: 100%;
     padding: 10px 35px 10px 12px;
-    border: 1px solid #ccc;
+    border: 1px solid var(--fc-border);
     border-radius: 4px;
     font-size: 14px;
     font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
@@ -234,7 +234,7 @@
 
 #folder_path_input:focus {
     outline: none;
-    border-color: #417690;
+    border-color: var(--fc-admin-blue);
     box-shadow: 0 0 0 2px rgba(65, 118, 144, 0.2);
 }
 
@@ -244,8 +244,8 @@
     width: 20px;
     height: 20px;
     border: none;
-    background: #ccc;
-    color: white;
+    background: var(--fc-border);
+    color: var(--fc-text-on-primary);
     border-radius: 50%;
     font-size: 14px;
     line-height: 1;
@@ -255,7 +255,7 @@
 }
 
 .clear-btn:hover {
-    background: #999;
+    background: var(--fc-text-muted);
 }
 
 #folder_path_input:not(:placeholder-shown) + .clear-btn {
@@ -266,10 +266,10 @@
 #folder_path_error {
     margin-top: 8px;
     padding: 8px 12px;
-    background: #ffebee;
+    background: var(--fc-error-bg);
     border: 1px solid #f44336;
     border-radius: 4px;
-    color: #c62828;
+    color: var(--fc-error-text);
     font-size: 13px;
     display: none;
 }
@@ -284,7 +284,7 @@
     text-align: right;
     margin-top: 20px;
     padding-top: 15px;
-    border-top: 1px solid #eee;
+    border-top: 1px solid var(--fc-border);
 }
 
 .dialog-buttons button {
@@ -298,30 +298,30 @@
 }
 
 #cancel_folder_dialog {
-    background: #f0f0f0;
-    color: #333;
-    border-color: #ccc;
+    background: var(--fc-bg-muted-light);
+    color: var(--fc-text-secondary);
+    border-color: var(--fc-border);
 }
 
 #cancel_folder_dialog:hover {
-    background: #e9ecef;
+    background: var(--fc-border);
     border-color: #adb5bd;
 }
 
 #confirm_folder_binding {
-    background: #417690;
-    color: white;
-    border-color: #417690;
+    background: var(--fc-admin-blue);
+    color: var(--fc-text-on-primary);
+    border-color: var(--fc-admin-blue);
 }
 
 #confirm_folder_binding:hover {
-    background: #2e5984;
-    border-color: #2e5984;
+    background: var(--fc-admin-blue-hover);
+    border-color: var(--fc-admin-blue-hover);
 }
 
 #confirm_folder_binding:disabled {
-    background: #6c757d;
-    border-color: #6c757d;
+    background: var(--fc-text-muted);
+    border-color: var(--fc-text-muted);
     cursor: not-allowed;
     opacity: 0.6;
 }
@@ -344,7 +344,7 @@
     top: 20px;
     right: 20px;
     background: #4caf50;
-    color: white;
+    color: var(--fc-text-on-primary);
     padding: 12px 20px;
     border-radius: 6px;
     z-index: 10001;
@@ -356,7 +356,7 @@
     min-width: 250px;
     word-wrap: break-word;
     line-height: 1.4;
-    border-left: 4px solid #2e7d32;
+    border-left: 4px solid var(--fc-success-text);
 }
 
 /* 错误消息样式 */
@@ -365,7 +365,7 @@
     top: 20px;
     right: 20px;
     background: #f44336;
-    color: white;
+    color: var(--fc-text-on-primary);
     padding: 12px 20px;
     border-radius: 6px;
     z-index: 10001;
@@ -377,7 +377,7 @@
     min-width: 250px;
     word-wrap: break-word;
     line-height: 1.4;
-    border-left: 4px solid #d32f2f;
+    border-left: 4px solid var(--fc-error-text);
 }
 
 @keyframes slideInRight {
@@ -395,14 +395,14 @@
     margin-top: 12px;
     border: 1px solid #e6e6e6;
     border-radius: 8px;
-    background: #fff;
+    background: var(--fc-bg-card);
     overflow: hidden;
 }
 
 .folder-browser-toolbar {
     padding: 10px;
-    border-bottom: 1px solid #f0f0f0;
-    background: #fafafa;
+    border-bottom: 1px solid var(--fc-bg-muted-light);
+    background: var(--fc-bg-muted-light);
     display: flex;
     flex-direction: column;
     gap: 8px;
@@ -418,7 +418,7 @@
     flex: 1;
     min-width: 0;
     padding: 8px 10px;
-    border: 1px solid #ddd;
+    border: 1px solid var(--fc-border);
     border-radius: 6px;
     font-size: 13px;
     font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
@@ -427,16 +427,16 @@
 .folder-browser-btn {
     padding: 6px 10px;
     font-size: 12px;
-    border: 1px solid #ddd;
+    border: 1px solid var(--fc-border);
     border-radius: 6px;
-    background: #f5f5f5;
-    color: #333;
+    background: var(--fc-bg-muted-light);
+    color: var(--fc-text-secondary);
     cursor: pointer;
     transition: all 0.15s ease;
 }
 
 .folder-browser-btn:hover {
-    background: #e9ecef;
+    background: var(--fc-border);
     border-color: #cfcfcf;
 }
 
@@ -446,14 +446,14 @@
 }
 
 .folder-browser-btn.primary {
-    border-color: #417690;
-    background: #417690;
-    color: #fff;
+    border-color: var(--fc-admin-blue);
+    background: var(--fc-admin-blue);
+    color: var(--fc-text-on-primary);
 }
 
 .folder-browser-btn.primary:hover {
-    background: #2e5984;
-    border-color: #2e5984;
+    background: var(--fc-admin-blue-hover);
+    border-color: var(--fc-admin-blue-hover);
 }
 
 .folder-browser-filters {
@@ -466,7 +466,7 @@
     flex: 1;
     min-width: 0;
     padding: 7px 10px;
-    border: 1px solid #ddd;
+    border: 1px solid var(--fc-border);
     border-radius: 6px;
     font-size: 13px;
 }
@@ -476,7 +476,7 @@
     gap: 6px;
     align-items: center;
     font-size: 12px;
-    color: #555;
+    color: var(--fc-text-muted);
     user-select: none;
 }
 
@@ -488,7 +488,7 @@
 
 .folder-browser-sidebar {
     width: 210px;
-    border-right: 1px solid #f0f0f0;
+    border-right: 1px solid var(--fc-bg-muted-light);
     background: #fcfcfc;
     padding: 10px;
     overflow: auto;
@@ -496,7 +496,7 @@
 
 .folder-browser-section-title {
     font-size: 11px;
-    color: #888;
+    color: var(--fc-text-muted);
     margin: 8px 0 6px;
     text-transform: uppercase;
     letter-spacing: 0.3px;
@@ -511,7 +511,7 @@
     background: transparent;
     cursor: pointer;
     font-size: 12px;
-    color: #333;
+    color: var(--fc-text-secondary);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -531,11 +531,11 @@
 
 .folder-browser-header {
     padding: 10px;
-    border-bottom: 1px solid #f0f0f0;
+    border-bottom: 1px solid var(--fc-bg-muted-light);
     display: flex;
     gap: 10px;
     align-items: center;
-    background: #fff;
+    background: var(--fc-bg-card);
 }
 
 .folder-browser-breadcrumbs {
@@ -553,7 +553,7 @@
     padding: 4px 6px;
     border-radius: 6px;
     font-size: 12px;
-    color: #417690;
+    color: var(--fc-admin-blue);
     cursor: pointer;
     white-space: nowrap;
 }
@@ -566,19 +566,19 @@
 .folder-browser-hint {
     padding: 8px 10px;
     font-size: 12px;
-    color: #6c757d;
+    color: var(--fc-text-muted);
 }
 
 .folder-browser-error {
     padding: 8px 10px;
     font-size: 12px;
-    color: #c62828;
+    color: var(--fc-error-text);
 }
 
 .folder-browser-loading {
     padding: 8px 10px;
     font-size: 12px;
-    color: #666;
+    color: var(--fc-text-muted);
 }
 
 .folder-browser-list {
@@ -593,7 +593,7 @@
     justify-content: space-between;
     gap: 10px;
     padding: 8px 10px;
-    border-top: 1px solid #f5f5f5;
+    border-top: 1px solid var(--fc-bg-muted-light);
     cursor: default;
 }
 
@@ -628,31 +628,31 @@
 .folder-browser-mini {
     padding: 4px 8px;
     font-size: 12px;
-    border: 1px solid #ddd;
+    border: 1px solid var(--fc-border);
     border-radius: 6px;
-    background: #f5f5f5;
+    background: var(--fc-bg-muted-light);
     cursor: pointer;
 }
 
 .folder-browser-mini:hover {
-    background: #e9ecef;
+    background: var(--fc-border);
     border-color: #cfcfcf;
 }
 
 .folder-browser-empty {
     padding: 14px 10px;
     font-size: 12px;
-    color: #888;
+    color: var(--fc-text-muted);
     text-align: center;
 }
 
 .folder-browser-footer {
     padding: 10px;
-    border-top: 1px solid #f0f0f0;
+    border-top: 1px solid var(--fc-bg-muted-light);
     display: flex;
     justify-content: flex-end;
     gap: 8px;
-    background: #fafafa;
+    background: var(--fc-bg-muted-light);
 }
 
 /* 响应式设计 */

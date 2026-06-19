@@ -56,23 +56,23 @@
 .mt-message-content { padding: 10px 14px; border-radius: 12px; background: var(--fc-bg-muted-light); font-size: 0.92em; line-height: 1.6; word-break: break-word; }
 .mt-message.user .mt-message-content { background: var(--fc-admin-blue); color: var(--fc-text-on-primary); border-radius: 12px 12px 2px 12px; }
 .mt-message.assistant .mt-message-content { background: #f0f7fb; border-radius: 12px 12px 12px 2px; }
-.mt-message.system .mt-message-content { background: #fff8e1; font-size: 0.88em; color: #666; }
+.mt-message.system .mt-message-content { background: #fff8e1; font-size: 0.88em; color: var(--fc-text-muted); }
 .mt-message-content h2, .mt-message-content h3, .mt-message-content h4 { margin: 12px 0 6px; }
 .mt-message-content h2 { font-size: 1.1em; }
 .mt-message-content h3 { font-size: 1em; }
 .mt-message-content ul { margin: 4px 0; padding-left: 20px; }
 .mt-message-content li { margin: 2px 0; }
 .mt-message-content strong { color: var(--fc-text-secondary); }
-.mt-message-time { font-size: 0.75em; color: #999; margin-top: 4px; }
+.mt-message-time { font-size: 0.75em; color: var(--fc-text-muted); margin-top: 4px; }
 .mt-message.user .mt-message-time { text-align: right; }
 
-.mt-loading { display: flex; align-items: center; gap: 10px; padding: 20px; color: #666; }
-.mt-loading .spinner { width: 20px; height: 20px; border: 2px solid #e0e0e0; border-top-color: var(--fc-admin-blue); border-radius: 50%; animation: spin 0.8s linear infinite; }
+.mt-loading { display: flex; align-items: center; gap: 10px; padding: 20px; color: var(--fc-text-muted); }
+.mt-loading .spinner { width: 20px; height: 20px; border: 2px solid var(--fc-border); border-top-color: var(--fc-admin-blue); border-radius: 50%; animation: spin 0.8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
 /* Input */
-.mt-input { display: flex; gap: 10px; padding: 15px; border-top: 1px solid #e0e0e0; background: #fafafa; }
-.mt-input textarea { flex: 1; border: 1px solid #ddd; border-radius: 8px; padding: 10px; font-size: 0.92em; resize: none; font-family: inherit; }
+.mt-input { display: flex; gap: 10px; padding: 15px; border-top: 1px solid var(--fc-border); background: var(--fc-bg-muted-light); }
+.mt-input textarea { flex: 1; border: 1px solid var(--fc-border); border-radius: 8px; padding: 10px; font-size: 0.92em; resize: none; font-family: inherit; }
 .mt-input textarea:focus { outline: none; border-color: var(--fc-admin-blue); }
 .btn-send { padding: 10px 20px; background: var(--fc-admin-blue); color: var(--fc-text-on-primary); border: none; border-radius: 8px; cursor: pointer; font-size: 0.92em; align-self: flex-end; }
 .btn-send:hover:not(:disabled) { background: #356580; }
@@ -80,38 +80,38 @@
 
 /* 导出按钮 */
 .mt-header-right { display: flex; align-items: center; gap: 10px; }
-.btn-export { padding: 6px 14px; background: #28a745; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 0.85em; }
+.btn-export { padding: 6px 14px; background: var(--fc-success-text); color: var(--fc-text-on-primary); border: none; border-radius: 6px; cursor: pointer; font-size: 0.85em; }
 .btn-export:hover:not(:disabled) { background: #218838; }
 .btn-export:disabled { opacity: 0.6; cursor: not-allowed; }
 
 /* 进度条 */
-.mt-progress-bar { padding: 12px 20px; background: #f8f9fa; border-bottom: 1px solid #e0e0e0; }
-.progress-info { display: flex; justify-content: space-between; font-size: 0.85em; color: #666; margin-bottom: 6px; }
-.progress-track { height: 6px; background: #e0e0e0; border-radius: 3px; overflow: hidden; }
+.mt-progress-bar { padding: 12px 20px; background: var(--fc-bg-muted); border-bottom: 1px solid var(--fc-border); }
+.progress-info { display: flex; justify-content: space-between; font-size: 0.85em; color: var(--fc-text-muted); margin-bottom: 6px; }
+.progress-track { height: 6px; background: var(--fc-border); border-radius: 3px; overflow: hidden; }
 .progress-fill { height: 100%; background: linear-gradient(90deg, #417690, #5a9ab8); border-radius: 3px; transition: width 0.3s ease; }
 
 /* 历史会话预览 */
-.history-preview { font-size: 0.75em; color: #999; margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; }
+.history-preview { font-size: 0.75em; color: var(--fc-text-muted); margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; }
 .history-item { flex-wrap: wrap; }
 .history-item .history-mode { flex: 0 0 auto; }
 .history-item .history-time { flex: 0 0 auto; }
 .history-item .history-delete { margin-left: auto; }
 
 /* 难度选择器 */
-.difficulty-selector { padding: 10px; background: #f8f9fa; border-radius: 6px; margin-top: 8px; }
-.difficulty-selector label { font-size: 0.85em; color: #666; margin-right: 8px; }
-.difficulty-selector select { padding: 6px 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 0.85em; }
+.difficulty-selector { padding: 10px; background: var(--fc-bg-muted); border-radius: 6px; margin-top: 8px; }
+.difficulty-selector label { font-size: 0.85em; color: var(--fc-text-muted); margin-right: 8px; }
+.difficulty-selector select { padding: 6px 10px; border: 1px solid var(--fc-border); border-radius: 4px; font-size: 0.85em; }
 
 /* ========== 多Agent对抗模式样式 ========== */
 
 /* 角色消息标识 */
-.msg-role-plaintiff { border-left: 4px solid #2563eb; background: #eff6ff; }
-.msg-role-defendant { border-left: 4px solid #dc2626; background: #fef2f2; }
-.msg-role-judge { border-left: 4px solid #7c3aed; background: #f5f3ff; }
+.msg-role-plaintiff { border-left: 4px solid var(--fc-primary); background: var(--fc-info-bg); }
+.msg-role-defendant { border-left: 4px solid var(--fc-error-text); background: var(--fc-error-bg); }
+.msg-role-judge { border-left: 4px solid var(--fc-primary); background: #f5f3ff; }
 
-.msg-role-plaintiff .msg-role-badge { background: #2563eb; color: #fff; }
-.msg-role-defendant .msg-role-badge { background: #dc2626; color: #fff; }
-.msg-role-judge .msg-role-badge { background: #7c3aed; color: #fff; }
+.msg-role-plaintiff .msg-role-badge { background: var(--fc-primary); color: var(--fc-text-on-primary); }
+.msg-role-defendant .msg-role-badge { background: var(--fc-error-text); color: var(--fc-text-on-primary); }
+.msg-role-judge .msg-role-badge { background: var(--fc-primary); color: var(--fc-text-on-primary); }
 
 .msg-role-badge {
     display: inline-flex; align-items: center; gap: 4px;
@@ -122,8 +122,8 @@
 /* 庭审阶段标题 */
 .trial-stage-header {
     text-align: center; padding: 12px 0; margin: 16px 0 8px;
-    font-size: 1.05em; font-weight: 700; color: #1e293b;
-    border-top: 2px solid #cbd5e1; border-bottom: 2px solid #cbd5e1;
+    font-size: 1.05em; font-weight: 700; color: var(--fc-text-primary);
+    border-top: 2px solid var(--fc-border-input); border-bottom: 2px solid var(--fc-border-input);
     background: linear-gradient(180deg, #f8fafc, #f1f5f9);
 }
 
@@ -137,33 +137,33 @@
 /* 角色切换按钮组 */
 .role-switch-bar {
     display: flex; gap: 8px; padding: 8px 12px;
-    background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0;
+    background: var(--fc-bg-muted); border-radius: 8px; border: 1px solid var(--fc-border);
     margin-bottom: 12px;
 }
 .role-switch-btn {
-    padding: 6px 14px; border-radius: 6px; border: 1px solid #cbd5e1;
-    background: #fff; cursor: pointer; font-size: 0.8em; font-weight: 500;
+    padding: 6px 14px; border-radius: 6px; border: 1px solid var(--fc-border-input);
+    background: var(--fc-bg-card); cursor: pointer; font-size: 0.8em; font-weight: 500;
     transition: all 0.15s;
 }
-.role-switch-btn:hover { border-color: #94a3b8; background: #f1f5f9; }
-.role-switch-btn.active-plaintiff { background: #2563eb; color: #fff; border-color: #2563eb; }
-.role-switch-btn.active-defendant { background: #dc2626; color: #fff; border-color: #dc2626; }
-.role-switch-btn.active-judge { background: #7c3aed; color: #fff; border-color: #7c3aed; }
-.role-switch-btn.active-observer { background: #64748b; color: #fff; border-color: #64748b; }
+.role-switch-btn:hover { border-color: var(--fc-text-disabled); background: var(--fc-bg-muted-light); }
+.role-switch-btn.active-plaintiff { background: var(--fc-primary); color: var(--fc-text-on-primary); border-color: var(--fc-primary); }
+.role-switch-btn.active-defendant { background: var(--fc-error-text); color: var(--fc-text-on-primary); border-color: var(--fc-error-text); }
+.role-switch-btn.active-judge { background: var(--fc-primary); color: var(--fc-text-on-primary); border-color: var(--fc-primary); }
+.role-switch-btn.active-observer { background: var(--fc-text-muted); color: var(--fc-text-on-primary); border-color: var(--fc-text-muted); }
 
 /* 模型配置面板 */
 .model-config-panel {
-    background: #fff; border: 1px solid #e2e8f0; border-radius: 10px;
+    background: var(--fc-bg-card); border: 1px solid var(--fc-border); border-radius: 10px;
     padding: 20px; margin: 12px 0;
 }
-.model-config-panel h3 { margin: 0 0 16px; font-size: 1em; color: #1e293b; }
+.model-config-panel h3 { margin: 0 0 16px; font-size: 1em; color: var(--fc-text-primary); }
 .model-config-row {
     display: flex; align-items: center; gap: 12px; margin-bottom: 12px;
 }
-.model-config-row label { width: 80px; font-weight: 600; font-size: 0.85em; color: #475569; }
+.model-config-row label { width: 80px; font-weight: 600; font-size: 0.85em; color: var(--fc-text-secondary); }
 .model-config-row select {
-    flex: 1; padding: 8px 12px; border: 1px solid #cbd5e1; border-radius: 6px;
-    font-size: 0.85em; background: #fff;
+    flex: 1; padding: 8px 12px; border: 1px solid var(--fc-border-input); border-radius: 6px;
+    font-size: 0.85em; background: var(--fc-bg-card);
 }
 
 /* 庭审进度条 */
@@ -171,9 +171,9 @@
     display: flex; gap: 4px; padding: 10px 0; margin-bottom: 12px;
 }
 .trial-progress-step {
-    flex: 1; height: 6px; border-radius: 3px; background: #e2e8f0;
+    flex: 1; height: 6px; border-radius: 3px; background: var(--fc-border);
     transition: background 0.3s;
 }
-.trial-progress-step.completed { background: #22c55e; }
-.trial-progress-step.active { background: #3b82f6; animation: pulse-step 1.5s infinite; }
+.trial-progress-step.completed { background: var(--fc-success-text); }
+.trial-progress-step.active { background: var(--fc-primary); animation: pulse-step 1.5s infinite; }
 @keyframes pulse-step { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }

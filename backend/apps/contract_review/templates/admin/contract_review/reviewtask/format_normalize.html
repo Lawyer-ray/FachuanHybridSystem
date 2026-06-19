@@ -10,16 +10,16 @@
         padding: 20px;
     }
     .card {
-        background: #fff;
-        border: 1px solid #ddd;
+        background: var(--fc-bg-card);
+        border: 1px solid var(--fc-border);
         border-radius: 8px;
         padding: 20px;
         margin-bottom: 20px;
     }
     .card h2 {
         margin-top: 0;
-        color: #333;
-        border-bottom: 2px solid #417690;
+        color: var(--fc-text-secondary);
+        border-bottom: 2px solid var(--fc-admin-blue);
         padding-bottom: 10px;
     }
     .task-list {
@@ -31,7 +31,7 @@
         justify-content: space-between;
         align-items: center;
         padding: 12px;
-        border-bottom: 1px solid #eee;
+        border-bottom: 1px solid var(--fc-border);
     }
     .task-item:last-child {
         border-bottom: none;
@@ -41,11 +41,11 @@
     }
     .task-title {
         font-weight: bold;
-        color: #333;
+        color: var(--fc-text-secondary);
     }
     .task-meta {
         font-size: 12px;
-        color: #666;
+        color: var(--fc-text-muted);
         margin-top: 4px;
     }
     .btn {
@@ -58,25 +58,25 @@
         border: none;
     }
     .btn-primary {
-        background: #417690;
-        color: #fff;
+        background: var(--fc-admin-blue);
+        color: var(--fc-text-on-primary);
     }
     .btn-primary:hover {
         background: #205067;
     }
     .btn-success {
         background: #28a745;
-        color: #fff;
+        color: var(--fc-text-on-primary);
     }
     .btn-success:hover {
         background: #218838;
     }
     .help-text {
-        background: #f8f9fa;
-        border-left: 4px solid #417690;
+        background: var(--fc-bg-muted);
+        border-left: 4px solid var(--fc-admin-blue);
         padding: 12px;
         margin-bottom: 20px;
-        color: #555;
+        color: var(--fc-text-muted);
     }
     .empty-state {
         text-align: center;

@@ -5,7 +5,7 @@
 {{ block.super }}
 <li>
     <a href="{% url 'admin:contract_review_reviewtask_format_normalize' %}"
-       style="background: #417690; color: #fff; padding: 8px 12px; border-radius: 4px; text-decoration: none;">
+       style="background: var(--fc-admin-blue); color: var(--fc-text-on-primary); padding: 8px 12px; border-radius: 4px; text-decoration: none;">
         📐 格式调整
     </a>
 </li>
@@ -13,12 +13,12 @@
 
 {% block result_list %}
 {{ block.super }}
-<div style="margin: 20px 0; padding: 15px; background: #f8f9fa; border-radius: 8px; border-left: 4px solid #417690;">
-    <h3 style="margin-top: 0; color: #333;">💡 格式调整功能</h3>
-    <p style="margin-bottom: 10px; color: #666;">
+<div style="margin: 20px 0; padding: 15px; background: var(--fc-bg-muted); border-radius: 8px; border-left: 4px solid var(--fc-admin-blue);">
+    <h3 style="margin-top: 0; color: var(--fc-text-secondary);">💡 格式调整功能</h3>
+    <p style="margin-bottom: 10px; color: var(--fc-text-muted);">
         点击上方的"📐 格式调整"按钮，可以批量处理合同格式：
     </p>
-    <ul style="margin: 0; padding-left: 20px; color: #555;">
+    <ul style="margin: 0; padding-left: 20px; color: var(--fc-text-muted);">
         <li>统一页边距（A4 标准）</li>
         <li>统一字号（正文 12 磅，标题 26 磅）</li>
         <li>统一行距（1.5 倍行距）</li>
@@ -26,7 +26,7 @@
     </ul>
     <p style="margin-bottom: 0; margin-top: 10px;">
         <a href="{% url 'admin:contract_review_reviewtask_format_normalize' %}"
-           style="color: #417690; text-decoration: underline;">
+           style="color: var(--fc-admin-blue); text-decoration: underline;">
             进入格式调整页面 →
         </a>
     </p>

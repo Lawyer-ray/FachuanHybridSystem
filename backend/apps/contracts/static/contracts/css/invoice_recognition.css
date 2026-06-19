@@ -2,8 +2,8 @@
 .invoice-recognition-module {
     margin-top: 20px;
     padding: 20px;
-    background: #f8f9fa;
-    border: 1px solid #dee2e6;
+    background: var(--fc-bg-muted);
+    border: 1px solid var(--fc-border);
     border-radius: 4px;
 }
 
@@ -12,7 +12,7 @@
     margin-bottom: 15px;
     font-size: 16px;
     font-weight: 600;
-    color: #333;
+    color: var(--fc-text-secondary);
 }
 
 /* 消息提示 */
@@ -24,21 +24,21 @@
 }
 
 .ir-message.success {
-    background-color: #d4edda;
-    border: 1px solid #c3e6cb;
-    color: #155724;
+    background-color: var(--fc-success-bg);
+    border: 1px solid var(--fc-success-border);
+    color: var(--fc-success-text);
 }
 
 .ir-message.error {
-    background-color: #f8d7da;
-    border: 1px solid #f5c6cb;
-    color: #721c24;
+    background-color: var(--fc-error-bg);
+    border: 1px solid var(--fc-error-border);
+    color: var(--fc-error-text);
 }
 
 .ir-message.warning {
-    background-color: #fff3cd;
+    background-color: var(--fc-warning-bg);
     border: 1px solid #ffeaa7;
-    color: #856404;
+    color: var(--fc-warning-text);
 }
 
 /* 上传区域 */
@@ -47,11 +47,11 @@
 }
 
 .ir-upload-zone {
-    border: 2px dashed #ced4da;
+    border: 2px dashed var(--fc-border-input);
     border-radius: 4px;
     padding: 30px;
     text-align: center;
-    background: #fff;
+    background: var(--fc-bg-card);
     cursor: pointer;
     transition: all 0.3s ease;
 }
@@ -62,8 +62,8 @@
 }
 
 .ir-upload-zone.dragging {
-    border-color: #417690;
-    background: #e3f2fd;
+    border-color: var(--fc-admin-blue);
+    background: var(--fc-info-bg);
 }
 
 .upload-icon {
@@ -74,21 +74,21 @@
 .upload-text {
     margin: 10px 0 5px;
     font-size: 14px;
-    color: #333;
+    color: var(--fc-text-secondary);
     font-weight: 500;
 }
 
 .upload-hint {
     margin: 5px 0 0;
     font-size: 12px;
-    color: #6c757d;
+    color: var(--fc-text-muted);
 }
 
 .ir-upload-btn {
     margin-top: 10px;
     padding: 8px 20px;
-    background-color: #417690;
-    color: white;
+    background-color: var(--fc-admin-blue);
+    color: var(--fc-text-on-primary);
     border: none;
     border-radius: 4px;
     cursor: pointer;
@@ -101,7 +101,7 @@
 }
 
 .ir-upload-btn:disabled {
-    background-color: #6c757d;
+    background-color: var(--fc-text-muted);
     cursor: not-allowed;
     opacity: 0.6;
 }
@@ -120,7 +120,7 @@
 .ir-progress-bar {
     width: 100%;
     height: 20px;
-    background-color: #e9ecef;
+    background-color: var(--fc-border);
     border-radius: 10px;
     overflow: hidden;
 }
@@ -134,10 +134,10 @@
 /* 识别结果 */
 .ir-results-section {
     margin-top: 20px;
-    background: #fff;
+    background: var(--fc-bg-card);
     padding: 15px;
     border-radius: 4px;
-    border: 1px solid #dee2e6;
+    border: 1px solid var(--fc-border);
 }
 
 .ir-results-section h3 {
@@ -145,7 +145,7 @@
     margin-bottom: 15px;
     font-size: 14px;
     font-weight: 600;
-    color: #333;
+    color: var(--fc-text-secondary);
 }
 
 .ir-results-table {
@@ -156,14 +156,14 @@
 }
 
 .ir-results-table thead {
-    background-color: #f8f9fa;
+    background-color: var(--fc-bg-muted);
 }
 
 .ir-results-table th,
 .ir-results-table td {
     padding: 8px 12px;
     text-align: left;
-    border: 1px solid #dee2e6;
+    border: 1px solid var(--fc-border);
 }
 
 .ir-results-table th {
@@ -172,21 +172,21 @@
 }
 
 .ir-results-table tr.error {
-    background-color: #fff5f5;
+    background-color: var(--fc-error-bg);
 }
 
 .ir-results-table td.success {
-    color: #28a745;
+    color: var(--fc-success-text);
     font-weight: 500;
 }
 
 .ir-results-table td.error {
-    color: #dc3545;
+    color: var(--fc-error-text);
     font-weight: 500;
 }
 
 .ir-results-table td.error-message {
-    color: #dc3545;
+    color: var(--fc-error-text);
     font-size: 12px;
 }
 
@@ -195,24 +195,24 @@
     display: flex;
     gap: 20px;
     padding: 12px;
-    background-color: #f8f9fa;
+    background-color: var(--fc-bg-muted);
     border-radius: 4px;
     font-size: 13px;
     margin-bottom: 15px;
 }
 
 .summary-label {
-    color: #6c757d;
+    color: var(--fc-text-muted);
     font-weight: 500;
 }
 
 .summary-value {
-    color: #333;
+    color: var(--fc-text-secondary);
     font-weight: 600;
 }
 
 .summary-amount {
-    color: #28a745;
+    color: var(--fc-success-text);
     font-weight: 700;
     font-size: 14px;
 }
@@ -220,8 +220,8 @@
 /* 提示信息 */
 .ir-hint {
     padding: 10px;
-    background-color: #e7f3ff;
-    border-left: 3px solid #417690;
+    background-color: var(--fc-info-bg);
+    border-left: 3px solid var(--fc-admin-blue);
     border-radius: 2px;
 }
 
