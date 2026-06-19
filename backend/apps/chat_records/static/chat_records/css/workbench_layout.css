@@ -207,22 +207,3 @@
   scrollbar-gutter: stable;
   overscroll-behavior: contain;
 }
-
-.crw-split {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-  align-items: end;
-}
-
-@media (max-width: 640px) {
-  .crw-split {
-    grid-template-columns: 1fr;
-  }
-}
-
-.crw-divider {
-  height: 1px;
-  background: var(--fc-border);
-  margin: 14px 0;
-}

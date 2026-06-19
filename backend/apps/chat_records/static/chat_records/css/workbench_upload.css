@@ -1,0 +1,229 @@
+.crw-dropzone {
+  width: 100%;
+  border-radius: 14px;
+  border: 2px solid rgba(65, 118, 144, 0.35);
+  background: linear-gradient(180deg, rgba(65, 118, 144, 0.04) 0%, rgba(255, 255, 255, 1) 100%);
+  padding: 22px 16px;
+  position: relative;
+  overflow: hidden;
+}
+
+.crw-dropzone-lg {
+  width: min(800px, 100%);
+  border-radius: 20px;
+  border: 1px dashed var(--fc-border-input);
+  background: var(--fc-bg-muted);
+  padding: 64px 24px;
+  box-shadow: none;
+  transition: all 0.2s ease;
+}
+
+.crw-dropzone-lg:hover {
+  border-color: var(--fc-text-disabled);
+  background: var(--fc-bg-muted-light);
+}
+
+.crw-dropzone-icon {
+  width: 64px;
+  height: 64px;
+  border-radius: 18px;
+  display: grid;
+  place-items: center;
+  background: var(--fc-bg-card);
+  color: var(--fc-text-muted);
+  border: 1px solid var(--fc-border);
+  margin-bottom: 16px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+}
+
+.crw-dropzone-title-lg {
+  font-size: 16px;
+  font-weight: 900;
+}
+
+.crw-dropzone-sub-lg {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.crw-dropzone-inner {
+  display: grid;
+  justify-items: center;
+  gap: 6px;
+  text-align: center;
+}
+
+.crw-dropzone-title {
+  font-size: 14px;
+  font-weight: 900;
+  color: var(--fc-text-primary);
+}
+
+.crw-dropzone-sub {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--fc-text-muted);
+}
+
+.crw-dropzone-input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.crw-uploading {
+  width: 100%;
+  display: grid;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--fc-bg-muted);
+  border: 1px solid var(--fc-border);
+}
+
+.crw-uploading.crw-uploading-lg {
+  width: min(980px, 100%);
+  padding: 14px 16px;
+  border-radius: 14px;
+  border-color: rgba(79, 70, 229, 0.18);
+  background: rgba(79, 70, 229, 0.03);
+}
+
+.crw-uploading-title {
+  font-size: 12px;
+  color: var(--fc-text-muted);
+  font-weight: 800;
+  text-align: center;
+}
+
+.crw-uploading-bar {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--fc-border);
+  overflow: hidden;
+}
+
+.crw-uploading-bar-fill {
+  height: 100%;
+  width: 40%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--fc-admin-blue) 0%, var(--fc-admin-blue-hover) 100%);
+  animation: crw-uploading 1.2s ease-in-out infinite;
+}
+
+@keyframes crw-uploading {
+  0% { transform: translateX(-20%); }
+  50% { transform: translateX(120%); }
+  100% { transform: translateX(-20%); }
+}
+
+.crw-video {
+  width: 100%;
+  max-height: 62vh;
+  background: #000;
+  border-radius: 12px;
+  display: block;
+}
+
+.crw-list-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 2px;
+}
+
+.crw-list {
+  display: grid;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.crw-wall {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(165px, 1fr));
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.crw-tile {
+  border: 1px solid var(--fc-border);
+  border-radius: 14px;
+  background: var(--fc-bg-card);
+  overflow: hidden;
+  box-shadow: 0 6px 18px rgba(17, 24, 39, 0.04);
+  transition: box-shadow 0.15s ease, transform 0.15s ease;
+}
+
+.crw-tile:hover {
+  box-shadow: 0 12px 26px rgba(17, 24, 39, 0.08);
+  transform: translateY(-1px);
+}
+
+.crw-tile-thumb {
+  width: 100%;
+  background: var(--fc-bg-muted);
+  cursor: zoom-in;
+  position: relative;
+}
+
+.crw-tile-thumb img {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.crw-tile-top {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  right: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.crw-new-badge {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  background: var(--fc-error-text);
+  color: var(--fc-text-on-primary);
+  font-size: 11px;
+  font-weight: 900;
+  padding: 3px 8px;
+  border-radius: 999px;
+  box-shadow: 0 10px 18px rgba(239, 68, 68, 0.25);
+  pointer-events: none;
+}
+
+.crw-time-badge {
+  pointer-events: none;
+  background: rgba(17, 24, 39, 0.74);
+  color: var(--fc-text-on-primary);
+  font-size: 12px;
+  font-weight: 800;
+  padding: 3px 9px;
+  border-radius: 999px;
+}
+
+.crw-index-badge {
+  pointer-events: none;
+  background: rgba(37, 99, 235, 0.85);
+  color: var(--fc-text-on-primary);
+  font-size: 12px;
+  font-weight: 900;
+  padding: 3px 9px;
+  border-radius: 999px;
+}
+
+.crw-tile-actions {
+  padding: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}

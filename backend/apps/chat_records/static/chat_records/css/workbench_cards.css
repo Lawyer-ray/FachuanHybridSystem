@@ -1,0 +1,228 @@
+.crw-card {
+  background: var(--fc-bg-card);
+  border: 1px solid var(--fc-border);
+  border-radius: 12px;
+  box-shadow: 0 6px 18px rgba(17, 24, 39, 0.06);
+  overflow: visible;
+}
+
+.crw-card-header {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--fc-border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  background: linear-gradient(180deg, var(--fc-bg-card) 0%, var(--fc-bg-muted-light) 100%);
+}
+
+.crw-card-title {
+  font-weight: 700;
+  color: var(--fc-text-heading);
+  font-size: 14px;
+}
+
+.crw-card-body {
+  padding: 14px;
+}
+
+.crw-section {
+  display: grid;
+  gap: 10px;
+}
+
+.crw-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.crw-row-actions {
+  justify-content: flex-end;
+  margin-top: 2px;
+}
+
+.crw-center {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  padding: 10px 0 2px;
+}
+
+.crw-tabs {
+  display: inline-flex;
+  padding: 4px;
+  border-radius: 999px;
+  background: var(--fc-bg-muted-light);
+  border: 1px solid var(--fc-border);
+  gap: 4px;
+}
+
+.crw-tab {
+  border-radius: 999px;
+  padding: 8px 14px;
+  font-weight: 800;
+  background: transparent !important;
+  border-color: transparent !important;
+  color: var(--fc-text-secondary) !important;
+}
+
+.crw-tab-active {
+  background: var(--fc-bg-card) !important;
+  color: var(--fc-text-heading) !important;
+  box-shadow: 0 8px 18px rgba(17, 24, 39, 0.08);
+}
+
+.crw-field {
+  display: grid;
+  gap: 6px;
+}
+
+.crw-label {
+  font-size: 12px;
+  color: var(--fc-text-muted);
+  font-weight: 600;
+}
+
+.crw-input,
+.crw-select,
+.crw-textarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0 10px;
+  border: 1px solid var(--fc-border);
+  border-radius: 10px;
+  background: var(--fc-bg-card);
+  font-size: 13px;
+  color: var(--fc-text-heading);
+  height: 40px;
+  line-height: 40px;
+  appearance: auto;
+}
+
+.crw-textarea {
+  resize: vertical;
+  height: auto;
+  line-height: 1.35;
+  padding: 9px 10px;
+}
+
+.crw-input:focus,
+.crw-select:focus,
+.crw-textarea:focus {
+  outline: none;
+  border-color: var(--fc-admin-blue);
+  box-shadow: 0 0 0 3px rgba(65, 118, 144, 0.15);
+}
+
+.crw-btn {
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-weight: 700;
+}
+
+.crw-btn-primary {
+  background: linear-gradient(135deg, var(--fc-admin-blue) 0%, var(--fc-admin-blue-hover) 100%) !important;
+  border-color: transparent !important;
+  color: var(--fc-text-on-primary) !important;
+  box-shadow: 0 6px 18px rgba(65, 118, 144, 0.22);
+}
+
+.crw-btn-primary:hover {
+  filter: brightness(1.02);
+}
+
+.crw-btn-ghost {
+  background: var(--fc-bg-card) !important;
+}
+
+.crw-btn-danger {
+  background: var(--fc-error-text) !important;
+  border-color: var(--fc-error-text) !important;
+  color: var(--fc-text-on-primary) !important;
+}
+
+.crw-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.crw-progress {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+  padding: 10px;
+  border-radius: 12px;
+  background: var(--fc-bg-muted);
+  border: 1px solid var(--fc-border);
+}
+
+.crw-progress-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.crw-progress-message {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--fc-text-heading);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.crw-progress-message span:last-child {
+  color: var(--fc-text-muted);
+  font-weight: 600;
+}
+
+.crw-progress-value {
+  font-size: 12px;
+  color: var(--fc-text-muted);
+  font-weight: 700;
+}
+
+.crw-progress-track {
+  height: 8px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--fc-bg-muted-light);
+}
+
+.crw-progress-fill {
+  height: 8px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--fc-success-text) 0%, var(--fc-success-text) 100%);
+}
+
+.crw-progress-fill-blue {
+  background: linear-gradient(90deg, var(--fc-primary) 0%, var(--fc-primary) 100%);
+}
+
+.crw-error {
+  color: var(--fc-error-text);
+  font-weight: 700;
+  font-size: 12px;
+}
+
+.crw-split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  align-items: end;
+}
+
+@media (max-width: 640px) {
+  .crw-split {
+    grid-template-columns: 1fr;
+  }
+}
+
+.crw-divider {
+  height: 1px;
+  background: var(--fc-border);
+  margin: 14px 0;
+}
