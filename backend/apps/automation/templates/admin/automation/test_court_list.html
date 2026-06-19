@@ -14,21 +14,21 @@
 <div style="max-width: 1400px; margin: 20px auto;">
     <h1>⚖️ 测试法院系统</h1>
 
-    <p style="color: #666; margin: 20px 0;">
+    <p style="color: var(--fc-text-muted); margin: 20px 0;">
         在这里可以测试全国法院"一张网"的各种功能，包括登录、立案、查询等。支持自动捕获和保存 Token。
     </p>
 
     <!-- 测试登录 -->
-    <div style="background: #fff; padding: 20px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #ddd;">
-        <h2 style="margin-top: 0; color: #417690;">🔐 测试登录（支持 Token 捕获）</h2>
-        <p style="color: #666; margin-bottom: 15px;">
+    <div style="background: var(--fc-bg-card); padding: 20px; border-radius: 8px; margin-bottom: 20px; border: 1px solid var(--fc-border);">
+        <h2 style="margin-top: 0; color: var(--fc-admin-blue);">🔐 测试登录（支持 Token 捕获）</h2>
+        <p style="color: var(--fc-text-muted); margin-bottom: 15px;">
             选择一个账号凭证，测试登录功能。系统会自动打开浏览器，执行登录操作，并捕获 Token 保存到 Redis 和数据库。
         </p>
 
         {% if credentials %}
         <table style="width: 100%; border-collapse: collapse; margin-top: 15px;">
             <thead>
-                <tr style="background: #f8f9fa; border-bottom: 2px solid #dee2e6;">
+                <tr style="background: var(--fc-bg-muted); border-bottom: 2px solid var(--fc-border);">
                     <th style="padding: 12px; text-align: left; font-weight: 600;">ID</th>
                     <th style="padding: 12px; text-align: left; font-weight: 600;">律师</th>
                     <th style="padding: 12px; text-align: left; font-weight: 600;">网站名称</th>
@@ -39,14 +39,14 @@
             </thead>
             <tbody>
                 {% for credential in credentials %}
-                <tr style="border-bottom: 1px solid #dee2e6;">
+                <tr style="border-bottom: 1px solid var(--fc-border);">
                     <td style="padding: 12px;">{{ credential.id }}</td>
                     <td style="padding: 12px;">
                         {{ credential.lawyer_name }}
                     </td>
                     <td style="padding: 12px;">{{ credential.site_name }}</td>
                     <td style="padding: 12px;">
-                        <code style="background: #f5f5f5; padding: 2px 6px; border-radius: 3px;">
+                        <code style="background: var(--fc-bg-muted-light); padding: 2px 6px; border-radius: 3px;">
                             {{ credential.account }}
                         </code>
                     </td>
@@ -68,8 +68,8 @@
             </tbody>
         </table>
         {% else %}
-        <div style="padding: 30px; text-align: center; background: #f8f9fa; border-radius: 4px; margin-top: 15px;">
-            <p style="color: #666; margin: 0;">
+        <div style="padding: 30px; text-align: center; background: var(--fc-bg-muted); border-radius: 4px; margin-top: 15px;">
+            <p style="color: var(--fc-text-muted); margin: 0;">
                 ⚠️ 暂无账号凭证，请先在
                 <a href="{% url 'admin:organization_accountcredential_changelist' %}" style="color: #0066cc;">
                     组织管理 → 账号密码

@@ -7,13 +7,13 @@
 {{ block.super }}
 <style>
 .eq-workbench { max-width: 880px; margin: 0 auto; padding: 24px 0 40px; }
-.eq-card { background: #fff; border-radius: 16px; box-shadow: 0 8px 28px rgba(31, 41, 55, 0.08); overflow: hidden; }
+.eq-card { background: var(--fc-bg-card); border-radius: 16px; box-shadow: 0 8px 28px rgba(31, 41, 55, 0.08); overflow: hidden; }
 .eq-card-head { padding: 24px 28px; background: linear-gradient(135deg, #12344d 0%, #1b4d73 100%); color: #fff; }
 .eq-card-head h1 { margin: 0; font-size: 24px; }
 .eq-card-head p { margin: 10px 0 0; line-height: 1.7; opacity: .92; }
 
 /* Tab 样式 */
-.eq-tabs { display: flex; gap: 2px; padding: 16px 28px 0; background: #f5f7f9; }
+.eq-tabs { display: flex; gap: 2px; padding: 16px 28px 0; background: var(--fc-bg-muted-light); }
 .eq-tab {
   flex: 1;
   padding: 12px 20px;
@@ -28,7 +28,7 @@
   position: relative;
 }
 .eq-tab:hover:not(.is-active) { color: #1b4d73; background: rgba(27,77,115,.06); }
-.eq-tab.is-active { color: #1b4d73; background: #fff; border-radius: 12px 12px 0 0; box-shadow: 0 -2px 6px rgba(31,41,55,.04); }
+.eq-tab.is-active { color: #1b4d73; background: var(--fc-bg-card); border-radius: 12px 12px 0 0; box-shadow: 0 -2px 6px rgba(31,41,55,.04); }
 .eq-tab.is-active::after {
   content: '';
   position: absolute;
@@ -45,13 +45,13 @@
 
 /* 基础表单 */
 .eq-field label { display: block; margin-bottom: 8px; font-weight: 700; color: #24435b; }
-.eq-field input[type="text"] { width: 100%; box-sizing: border-box; border: 1px solid #c9d7e3; border-radius: 10px; padding: 12px 14px; font-size: 14px; background: #fff; transition: border-color .2s; }
+.eq-field input[type="text"] { width: 100%; box-sizing: border-box; border: 1px solid var(--fc-border-input); border-radius: 10px; padding: 12px 14px; font-size: 14px; background: var(--fc-bg-card); transition: border-color .2s; }
 .eq-field input[type="text"]:focus { outline: none; border-color: #1b4d73; box-shadow: 0 0 0 3px rgba(27,77,115,.08); }
 
 /* 承运商选择 */
 .eq-carrier-group { display: flex; gap: 12px; margin-top: 4px; }
 .eq-carrier-label {
-  flex: 1; padding: 18px 20px; border: 2px solid #e2e8f0; border-radius: 12px;
+  flex: 1; padding: 18px 20px; border: 2px solid var(--fc-border); border-radius: 12px;
   cursor: pointer; text-align: center; transition: all .22s ease;
   user-select: none; position: relative;
 }
@@ -62,13 +62,13 @@
 .eq-carrier-hint { font-size: 12px; color: #889aab; line-height: 1.4; }
 
 /* 文件上传区 */
-.eq-drop-box { border: 1px dashed #9db4c8; border-radius: 12px; background: #f8fbfe; padding: 14px; display: grid; gap: 10px; }
+.eq-drop-box { border: 1px dashed #9db4c8; border-radius: 12px; background: var(--fc-bg-muted); padding: 14px; display: grid; gap: 10px; }
 .eq-drop-box.is-dragover { border-color: #1b4d73; background: #eef6fd; }
-.eq-file-btn { width: fit-content; border: 1px solid #1b4d73; background: #fff; color: #1b4d73; border-radius: 8px; padding: 8px 12px; font-weight: 700; cursor: pointer; }
+.eq-file-btn { width: fit-content; border: 1px solid #1b4d73; background: var(--fc-bg-card); color: #1b4d73; border-radius: 8px; padding: 8px 12px; font-weight: 700; cursor: pointer; }
 .eq-file-btn:hover { background: #f3f8fc; }
 .eq-drop-title { color: #24435b; font-weight: 700; line-height: 1.5; }
 .eq-help { margin: 0; color: #62788b; font-size: 13px; line-height: 1.6; }
-.eq-selected-file { color: #1f2937; font-size: 13px; line-height: 1.5; }
+.eq-selected-file { color: var(--fc-text-primary); font-size: 13px; line-height: 1.5; }
 .eq-selected-file.is-empty { color: #62788b; }
 
 /* 提示信息 */
@@ -78,9 +78,9 @@
 /* 操作按钮 */
 .eq-actions { display: flex; align-items: center; gap: 12px; }
 .eq-btn { display: inline-flex; align-items: center; justify-content: center; min-width: 140px; padding: 12px 18px; border: none; border-radius: 10px; font-weight: 700; cursor: pointer; text-decoration: none; }
-.eq-btn-primary { background: #1b4d73; color: #fff; }
+.eq-btn-primary { background: #1b4d73; color: var(--fc-text-on-primary); }
 .eq-btn-primary:hover { background: #143b59; }
-.eq-btn-secondary { background: #eef3f7; color: #1f2937; }
+.eq-btn-secondary { background: var(--fc-bg-muted); color: var(--fc-text-primary); }
 .eq-btn-secondary:hover { background: #dde6ee; }
 
 /* 错误提示 */

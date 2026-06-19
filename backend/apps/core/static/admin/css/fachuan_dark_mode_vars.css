@@ -1,0 +1,234 @@
+/*
+ * 法穿 AI — 项目级暗黑模式 CSS 变量
+ *
+ * 在 base_site.html 中全局引入，为所有自定义页面提供统一的颜色变量。
+ * 暗黑模式通过两种机制触发（与 Django 内置保持一致）：
+ *   1. html[data-theme="dark"]  — 用户手动切换
+ *   2. @media (prefers-color-scheme: dark) — 跟随系统偏好
+ *
+ * 变量命名规则：--fc-{语义}
+ *   fc = Fachuan，避免与 Django 内置变量冲突
+ */
+
+/* ============================================================
+   亮色模式（默认值）
+   ============================================================ */
+:root {
+  /* ── 背景 ── */
+  --fc-bg-card:          #ffffff;
+  --fc-bg-muted:         #f8fafc;
+  --fc-bg-muted-light:   #f1f5f9;
+  --fc-bg-elevated:      #ffffff;
+
+  /* ── 文字 ── */
+  --fc-text-heading:     #0f172a;
+  --fc-text-primary:     #1e293b;
+  --fc-text-secondary:   #334155;
+  --fc-text-label:       #475569;
+  --fc-text-muted:       #64748b;
+  --fc-text-disabled:    #94a3b8;
+  --fc-text-on-primary:  #ffffff;
+
+  /* ── 边框 ── */
+  --fc-border:           #e2e8f0;
+  --fc-border-input:     #cbd5e1;
+  --fc-border-strong:    #94a3b8;
+
+  /* ── 品牌主色（蓝色系） ── */
+  --fc-primary:          #2563eb;
+  --fc-primary-dark:     #1d4ed8;
+  --fc-primary-darker:   #1e40af;
+  --fc-primary-light:    #60a5fa;
+  --fc-primary-subtle:   #eff6ff;
+  --fc-primary-hover:    #dbeafe;
+  --fc-primary-ring:     rgba(37, 99, 235, 0.15);
+  --fc-primary-shadow:   rgba(37, 99, 235, 0.2);
+  --fc-primary-shadow-lg: rgba(37, 99, 235, 0.28);
+
+  /* ── Django Admin 蓝（标题栏、原生按钮） ── */
+  --fc-admin-blue:       #417690;
+  --fc-admin-blue-hover: #205067;
+  --fc-admin-blue-light: #79aec8;
+
+  /* ── 语义色：成功 ── */
+  --fc-success-bg:       #dcfce7;
+  --fc-success-border:   #86efac;
+  --fc-success-text:     #166534;
+
+  /* ── 语义色：错误 ── */
+  --fc-error-bg:         #fef2f2;
+  --fc-error-border:     #fecaca;
+  --fc-error-text:       #991b1b;
+
+  /* ── 语义色：警告 ── */
+  --fc-warning-bg:       #fef3c7;
+  --fc-warning-border:   #fcd34d;
+  --fc-warning-text:     #92400e;
+
+  /* ── 语义色：信息 ── */
+  --fc-info-bg:          #dbeafe;
+  --fc-info-border:      #93c5fd;
+  --fc-info-text:        #1e40af;
+
+  /* ── 搜索高亮 ── */
+  --fc-highlight-bg:     #fef08a;
+  --fc-highlight-text:   #854d0e;
+
+  /* ── 遮罩 / 阴影 ── */
+  --fc-overlay-bg:       rgba(15, 23, 42, 0.55);
+  --fc-shadow-card:      rgba(15, 23, 42, 0.1);
+  --fc-shadow-dropdown:  rgba(15, 23, 42, 0.18);
+
+  /* ── 反馈侧边栏（base_site.html） ── */
+  --fc-feedback-start:   #667eea;
+  --fc-feedback-end:     #764ba2;
+  --fc-feedback-start-hover: #5a6fd8;
+  --fc-feedback-end-hover:   #6a4190;
+  --fc-feedback-shadow:  rgba(102, 126, 234, 0.3);
+  --fc-feedback-shadow-lg: rgba(102, 126, 234, 0.5);
+  --fc-accent:           #667eea;
+
+  /* ── 成功 Toast ── */
+  --fc-toast-success:    #4caf50;
+}
+
+/* ============================================================
+   暗黑模式覆盖
+   两种机制同时定义，确保手动切换和系统偏好都能生效
+   ============================================================ */
+
+/* 机制 1：跟随系统偏好 */
+@media (prefers-color-scheme: dark) {
+  html:not([data-theme="light"]) {
+    --fc-bg-card:          #1e1e1e;
+    --fc-bg-muted:         #1a1a1a;
+    --fc-bg-muted-light:   #252525;
+    --fc-bg-elevated:      #2a2a2a;
+
+    --fc-text-heading:     #e2e8f0;
+    --fc-text-primary:     #cbd5e1;
+    --fc-text-secondary:   #94a3b8;
+    --fc-text-label:       #94a3b8;
+    --fc-text-muted:       #64748b;
+    --fc-text-disabled:    #475569;
+    --fc-text-on-primary:  #ffffff;
+
+    --fc-border:           #2d3748;
+    --fc-border-input:     #4a5568;
+    --fc-border-strong:    #4a5568;
+
+    --fc-primary:          #3b82f6;
+    --fc-primary-dark:     #2563eb;
+    --fc-primary-darker:   #1d4ed8;
+    --fc-primary-light:    #93c5fd;
+    --fc-primary-subtle:   #1e2a3a;
+    --fc-primary-hover:    #1e3a5f;
+    --fc-primary-ring:     rgba(59, 130, 246, 0.25);
+    --fc-primary-shadow:   rgba(59, 130, 246, 0.3);
+    --fc-primary-shadow-lg: rgba(59, 130, 246, 0.4);
+
+    --fc-admin-blue:       #5a9ab5;
+    --fc-admin-blue-hover: #417690;
+    --fc-admin-blue-light: #79aec8;
+
+    --fc-success-bg:       #064e3b;
+    --fc-success-border:   #065f46;
+    --fc-success-text:     #6ee7b7;
+
+    --fc-error-bg:         #450a0a;
+    --fc-error-border:     #7f1d1d;
+    --fc-error-text:       #fca5a5;
+
+    --fc-warning-bg:       #451a03;
+    --fc-warning-border:   #78350f;
+    --fc-warning-text:     #fcd34d;
+
+    --fc-info-bg:          #172554;
+    --fc-info-border:      #1e3a5f;
+    --fc-info-text:        #93c5fd;
+
+    --fc-highlight-bg:     #854d0e;
+    --fc-highlight-text:   #fef08a;
+
+    --fc-overlay-bg:       rgba(0, 0, 0, 0.7);
+    --fc-shadow-card:      rgba(0, 0, 0, 0.3);
+    --fc-shadow-dropdown:  rgba(0, 0, 0, 0.4);
+
+    --fc-feedback-start:   #818cf8;
+    --fc-feedback-end:     #a78bfa;
+    --fc-feedback-start-hover: #6366f1;
+    --fc-feedback-end-hover:   #8b5cf6;
+    --fc-feedback-shadow:  rgba(129, 140, 248, 0.3);
+    --fc-feedback-shadow-lg: rgba(129, 140, 248, 0.5);
+    --fc-accent:           #818cf8;
+
+    --fc-toast-success:    #22c55e;
+  }
+}
+
+/* 机制 2：手动切换 */
+html[data-theme="dark"] {
+  --fc-bg-card:          #1e1e1e;
+  --fc-bg-muted:         #1a1a1a;
+  --fc-bg-muted-light:   #252525;
+  --fc-bg-elevated:      #2a2a2a;
+
+  --fc-text-heading:     #e2e8f0;
+  --fc-text-primary:     #cbd5e1;
+  --fc-text-secondary:   #94a3b8;
+  --fc-text-label:       #94a3b8;
+  --fc-text-muted:       #64748b;
+  --fc-text-disabled:    #475569;
+  --fc-text-on-primary:  #ffffff;
+
+  --fc-border:           #2d3748;
+  --fc-border-input:     #4a5568;
+  --fc-border-strong:    #4a5568;
+
+  --fc-primary:          #3b82f6;
+  --fc-primary-dark:     #2563eb;
+  --fc-primary-darker:   #1d4ed8;
+  --fc-primary-light:    #93c5fd;
+  --fc-primary-subtle:   #1e2a3a;
+  --fc-primary-hover:    #1e3a5f;
+  --fc-primary-ring:     rgba(59, 130, 246, 0.25);
+  --fc-primary-shadow:   rgba(59, 130, 246, 0.3);
+  --fc-primary-shadow-lg: rgba(59, 130, 246, 0.4);
+
+  --fc-admin-blue:       #5a9ab5;
+  --fc-admin-blue-hover: #417690;
+  --fc-admin-blue-light: #79aec8;
+
+  --fc-success-bg:       #064e3b;
+  --fc-success-border:   #065f46;
+  --fc-success-text:     #6ee7b7;
+
+  --fc-error-bg:         #450a0a;
+  --fc-error-border:     #7f1d1d;
+  --fc-error-text:       #fca5a5;
+
+  --fc-warning-bg:       #451a03;
+  --fc-warning-border:   #78350f;
+  --fc-warning-text:     #fcd34d;
+
+  --fc-info-bg:          #172554;
+  --fc-info-border:      #1e3a5f;
+  --fc-info-text:        #93c5fd;
+
+  --fc-highlight-bg:     #854d0e;
+  --fc-highlight-text:   #fef08a;
+
+  --fc-overlay-bg:       rgba(0, 0, 0, 0.7);
+  --fc-shadow-card:      rgba(0, 0, 0, 0.3);
+  --fc-shadow-dropdown:  rgba(0, 0, 0, 0.4);
+
+  --fc-feedback-start:   #818cf8;
+  --fc-feedback-end:     #a78bfa;
+  --fc-feedback-start-hover: #6366f1;
+  --fc-feedback-end-hover:   #8b5cf6;
+  --fc-feedback-shadow:  rgba(129, 140, 248, 0.3);
+  --fc-feedback-shadow-lg: rgba(129, 140, 248, 0.5);
+  --fc-accent:           #818cf8;
+
+  --fc-toast-success:    #22c55e;
+}

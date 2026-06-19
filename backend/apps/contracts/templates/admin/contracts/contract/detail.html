@@ -140,28 +140,28 @@
                 </div>
                 <div x-show="!isLoadingPreview && previewRows.length">
                     <template x-for="row in previewRows" :key="row.key">
-                        <div style="padding: 8px 4px 8px 0; border-bottom: 1px solid #f3f4f6;">
+                        <div style="padding: 8px 4px 8px 0; border-bottom: 1px solid var(--fc-border);">
                             <div style="font-size: 12px; font-weight: 600; margin-bottom: 4px;"
-                                 :style="row.status === 'empty' ? 'color: #dc2626' : 'color: #6b7280'"
+                                 :style="row.status === 'empty' ? 'color: var(--fc-error-text)' : 'color: var(--fc-text-muted)'"
                                  x-text="row.key"></div>
                             <div x-show="!previewEditMode">
                                 <div x-show="row.status === 'ok'"
-                                     style="font-size: 13px; color: #1f2937; white-space: pre-wrap; word-break: break-all;"
+                                     style="font-size: 13px; color: var(--fc-text-primary); white-space: pre-wrap; word-break: break-all;"
                                      x-text="row.value"></div>
                                 <div x-show="row.status === 'empty'"
-                                     style="font-size: 13px; color: #9ca3af;">/</div>
+                                     style="font-size: 13px; color: var(--fc-text-disabled);">/</div>
                             </div>
                             <div x-show="previewEditMode">
                                 <textarea x-model="row.editValue"
                                     :rows="Math.max(3, Math.min(12, (row.editValue || row.value || '').split('\n').length + 1))"
-                                    style="width: 100%; font-size: 13px; border: 1px solid #d1d5db; border-radius: 4px; padding: 6px 10px; resize: vertical; font-family: inherit; box-sizing: border-box;"
+                                    style="width: 100%; font-size: 13px; border: 1px solid var(--fc-border-input); border-radius: 4px; padding: 6px 10px; resize: vertical; font-family: inherit; box-sizing: border-box;"
                                     :placeholder="row.value || '/'"></textarea>
                             </div>
                         </div>
                     </template>
                 </div>
                 <!-- 编辑模式操作栏 -->
-                <div x-show="previewEditMode" style="margin-top: 12px; padding: 8px; background: #f0f9ff; border-radius: 6px; font-size: 12px; color: #1e40af;">
+                <div x-show="previewEditMode" style="margin-top: 12px; padding: 8px; background: var(--fc-primary-subtle); border-radius: 6px; font-size: 12px; color: var(--fc-primary-dark);">
                     {% trans "编辑模式下，修改值后点击「保存」，预览和下载将使用修改后的值。点击「放弃修改」退出编辑且不保存。" %}
                 </div>
                 <div x-show="!previewEditMode && previewHasOverrides" style="margin-top: 12px; padding: 8px; background: #fffbeb; border-radius: 6px; font-size: 12px; color: #92400e;">
@@ -233,7 +233,7 @@ function partiesDrawer() {
             navigator.clipboard.writeText(text).then(() => {
                 const toast = document.createElement('div');
                 toast.textContent = '✓ 已复制到剪贴板';
-                toast.style.cssText = 'position:fixed;top:20px;right:24px;padding:12px 24px;border-radius:8px;font-size:14px;box-shadow:0 4px 12px rgba(0,0,0,0.15);z-index:9999;background:#dcfce7;color:#15803d;';
+                toast.style.cssText = 'position:fixed;top:20px;right:24px;padding:12px 24px;border-radius:8px;font-size:14px;box-shadow:0 4px 12px rgba(0,0,0,0.15);z-index:9999;background:var(--fc-success-bg);color:var(--fc-success-text);';
                 document.body.appendChild(toast);
                 setTimeout(() => toast.remove(), 2000);
             });
@@ -261,7 +261,7 @@ function partiesDrawer() {
                 navigator.clipboard.writeText(text).then(() => {
                     const toast = document.createElement('div');
                     toast.textContent = '✓ 已复制全部信息';
-                    toast.style.cssText = 'position:fixed;top:20px;right:24px;padding:12px 24px;border-radius:8px;font-size:14px;box-shadow:0 4px 12px rgba(0,0,0,0.15);z-index:9999;background:#dcfce7;color:#15803d;';
+                    toast.style.cssText = 'position:fixed;top:20px;right:24px;padding:12px 24px;border-radius:8px;font-size:14px;box-shadow:0 4px 12px rgba(0,0,0,0.15);z-index:9999;background:var(--fc-success-bg);color:var(--fc-success-text);';
                     document.body.appendChild(toast);
                     setTimeout(() => toast.remove(), 2000);
                 });
@@ -285,7 +285,7 @@ function partiesDrawer() {
                 navigator.clipboard.writeText(text).then(() => {
                     const toast = document.createElement('div');
                     toast.textContent = '✓ 已复制全部信息';
-                    toast.style.cssText = 'position:fixed;top:20px;right:24px;padding:12px 24px;border-radius:8px;font-size:14px;box-shadow:0 4px 12px rgba(0,0,0,0.15);z-index:9999;background:#dcfce7;color:#15803d;';
+                    toast.style.cssText = 'position:fixed;top:20px;right:24px;padding:12px 24px;border-radius:8px;font-size:14px;box-shadow:0 4px 12px rgba(0,0,0,0.15);z-index:9999;background:var(--fc-success-bg);color:var(--fc-success-text);';
                     document.body.appendChild(toast);
                     setTimeout(() => toast.remove(), 2000);
                 });

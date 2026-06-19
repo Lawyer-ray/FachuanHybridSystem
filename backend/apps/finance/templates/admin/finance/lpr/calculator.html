@@ -16,10 +16,10 @@
         align-items: center;
         margin-bottom: 20px;
         padding-bottom: 16px;
-        border-bottom: 1px solid #e5e7eb;
+        border-bottom: 1px solid var(--fc-border);
     }
-    .lpr-calc__nav-title { font-size: 18px; font-weight: 600; color: #111; }
-    .lpr-calc__nav-back { color: #417690; font-size: 13px; text-decoration: none; }
+    .lpr-calc__nav-title { font-size: 18px; font-weight: 600; color: var(--fc-text-heading); }
+    .lpr-calc__nav-back { color: var(--fc-admin-blue); font-size: 13px; text-decoration: none; }
     .lpr-calc__nav-back:hover { text-decoration: underline; }
 
     /* 上下布局 */
@@ -31,7 +31,7 @@
 
     /* 输入区 */
     .lpr-calc__input {
-        background: #fff;
+        background: var(--fc-bg-card);
         border-radius: 12px;
         box-shadow: 0 1px 3px rgba(0,0,0,0.08);
         padding: 24px;
@@ -41,7 +41,7 @@
         display: inline-flex;
         gap: 0;
         margin-bottom: 20px;
-        background: #f3f4f6;
+        background: var(--fc-bg-muted-light);
         padding: 4px;
         border-radius: 8px;
     }
@@ -49,27 +49,27 @@
         padding: 8px 20px;
         border: none;
         background: transparent;
-        color: #6b7280;
+        color: var(--fc-text-muted);
         font-size: 13px;
         cursor: pointer;
         border-radius: 6px;
     }
     .lpr-calc__mode-btn.active {
-        background: #fff;
-        color: #111;
+        background: var(--fc-bg-card);
+        color: var(--fc-text-heading);
         box-shadow: 0 1px 2px rgba(0,0,0,0.1);
     }
 
     .lpr-calc__section {
         margin-bottom: 20px;
         padding-bottom: 20px;
-        border-bottom: 1px solid #f3f4f6;
+        border-bottom: 1px solid var(--fc-bg-muted-light);
     }
     .lpr-calc__section:last-of-type { border-bottom: none; margin-bottom: 0; }
     .lpr-calc__section-title {
         font-size: 12px;
         font-weight: 600;
-        color: #9ca3af;
+        color: var(--fc-text-disabled);
         text-transform: uppercase;
         margin-bottom: 12px;
     }
@@ -87,14 +87,14 @@
         display: block;
         font-size: 12px;
         font-weight: 500;
-        color: #374151;
+        color: var(--fc-text-secondary);
         margin-bottom: 6px;
     }
     .lpr-calc__field input,
     .lpr-calc__field select {
         width: 100%;
         padding: 10px 12px;
-        border: 1px solid #d1d5db;
+        border: 1px solid var(--fc-border);
         border-radius: 8px;
         font-size: 14px;
         box-sizing: border-box;
@@ -102,7 +102,7 @@
     }
 
     .lpr-calc__changes {
-        background: #f9fafb;
+        background: var(--fc-bg-muted);
         border-radius: 8px;
         padding: 16px;
     }
@@ -126,10 +126,10 @@
     .lpr-calc__btn-add {
         width: 100%;
         padding: 10px;
-        background: #fff;
-        border: 1px dashed #d1d5db;
+        background: var(--fc-bg-card);
+        border: 1px dashed var(--fc-border);
         border-radius: 6px;
-        color: #6b7280;
+        color: var(--fc-text-muted);
         font-size: 13px;
         cursor: pointer;
         margin-top: 8px;
@@ -151,8 +151,8 @@
         height: 44px;
         white-space: nowrap;
     }
-    .lpr-calc__btn--primary { background: #417690; color: #fff; }
-    .lpr-calc__btn--secondary { background: #f3f4f6; color: #374151; }
+    .lpr-calc__btn--primary { background: var(--fc-admin-blue); color: var(--fc-text-on-primary); }
+    .lpr-calc__btn--secondary { background: var(--fc-bg-muted-light); color: var(--fc-text-secondary); }
 
     /* 结果区 */
     .lpr-calc__result-section {
@@ -160,7 +160,7 @@
     }
 
     .lpr-calc__result-card {
-        background: #fff;
+        background: var(--fc-bg-card);
         border-radius: 12px;
         box-shadow: 0 1px 3px rgba(0,0,0,0.08);
         padding: 24px;
@@ -170,10 +170,10 @@
         color: #fff;
     }
 
-    .lpr-calc__result-label { font-size: 13px; color: #6b7280; margin-bottom: 8px; }
+    .lpr-calc__result-label { font-size: 13px; color: var(--fc-text-muted); margin-bottom: 8px; }
     .lpr-calc__result-card--highlight .lpr-calc__result-label { color: rgba(255,255,255,0.8); }
 
-    .lpr-calc__result-value { font-size: 28px; font-weight: 600; color: #111; }
+    .lpr-calc__result-value { font-size: 28px; font-weight: 600; color: var(--fc-text-heading); }
     .lpr-calc__result-card--highlight .lpr-calc__result-value { color: #fff; }
 
     .lpr-calc__result-grid {
@@ -182,11 +182,11 @@
         gap: 16px;
         margin-top: 16px;
         padding-top: 16px;
-        border-top: 1px solid rgba(255,255,255,0.2);
+        border-top: 1px solid var(--fc-border);
     }
     .lpr-calc__result-item { text-align: center; }
-    .lpr-calc__result-item-value { font-size: 16px; font-weight: 600; color: #fff; }
-    .lpr-calc__result-item-label { font-size: 11px; color: rgba(255,255,255,0.7); margin-top: 4px; }
+    .lpr-calc__result-item-value { font-size: 16px; font-weight: 600; color: var(--fc-text-on-primary); }
+    .lpr-calc__result-item-label { font-size: 11px; color: var(--fc-text-muted); margin-top: 4px; }
 
     .lpr-calc__copy-btn {
         width: 100%;
@@ -194,7 +194,7 @@
         background: rgba(255,255,255,0.15);
         border: 1px solid rgba(255,255,255,0.25);
         border-radius: 6px;
-        color: #fff;
+        color: var(--fc-text-on-primary);
         font-size: 12px;
         cursor: pointer;
         margin-top: 16px;
@@ -207,10 +207,10 @@
         align-items: center;
         margin-bottom: 12px;
     }
-    .lpr-calc__detail-title { font-size: 14px; font-weight: 600; color: #374151; }
+    .lpr-calc__detail-title { font-size: 14px; font-weight: 600; color: var(--fc-text-secondary); }
     .lpr-calc__detail-toggle {
         font-size: 12px;
-        color: #417690;
+        color: var(--fc-admin-blue);
         background: none;
         border: none;
         cursor: pointer;
@@ -226,17 +226,17 @@
     .lpr-calc__detail-table td {
         padding: 12px 10px;
         text-align: left;
-        border-bottom: 1px solid #e5e7eb;
+        border-bottom: 1px solid var(--fc-border);
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
     }
     .lpr-calc__detail-table th {
-        color: #6b7280;
+        color: var(--fc-text-muted);
         font-weight: 500;
-        background: #f9fafb;
+        background: var(--fc-bg-muted);
     }
-    .lpr-calc__detail-table tr:hover { background: #f9fafb; }
+    .lpr-calc__detail-table tr:hover { background: var(--fc-bg-muted); }
     .lpr-calc__detail-table td:last-child { text-align: right; font-weight: 500; }
     /* 列宽分配 */
     .lpr-calc__detail-table th:nth-child(1),
@@ -251,19 +251,19 @@
     .lpr-calc__detail-table td:nth-child(5) { width: 18%; text-align: right; }
 
     .lpr-calc__table-summary {
-        background: #417690 !important;
-        color: #fff;
+        background: var(--fc-admin-blue) !important;
+        color: var(--fc-text-on-primary);
         font-weight: 600;
         font-size: 13px;
     }
     .lpr-calc__table-summary tr {
-        background: #417690 !important;
+        background: var(--fc-admin-blue) !important;
     }
     .lpr-calc__table-summary td {
-        border-top: 2px solid #fff;
+        border-top: 2px solid var(--fc-text-on-primary);
         padding: 14px 10px;
-        color: #fff !important;
-        background: #417690 !important;
+        color: var(--fc-text-on-primary) !important;
+        background: var(--fc-admin-blue) !important;
     }
     .lpr-calc__table-summary td:last-child {
         font-size: 15px;
@@ -272,12 +272,12 @@
 
     /* 参考利率 */
     .lpr-calc__ref-card {
-        background: #fff;
+        background: var(--fc-bg-card);
         border-radius: 12px;
         box-shadow: 0 1px 3px rgba(0,0,0,0.08);
         padding: 20px;
     }
-    .lpr-calc__ref-title { font-size: 13px; font-weight: 600; color: #374151; margin-bottom: 12px; }
+    .lpr-calc__ref-title { font-size: 13px; font-weight: 600; color: var(--fc-text-secondary); margin-bottom: 12px; }
     .lpr-calc__ref-table {
         width: 100%;
         border-collapse: collapse;
@@ -287,9 +287,9 @@
     .lpr-calc__ref-table td {
         padding: 8px;
         text-align: left;
-        border-bottom: 1px solid #e5e7eb;
+        border-bottom: 1px solid var(--fc-border);
     }
-    .lpr-calc__ref-table th { color: #6b7280; font-weight: 500; background: #f9fafb; }
+    .lpr-calc__ref-table th { color: var(--fc-text-muted); font-weight: 500; background: var(--fc-bg-muted); }
 
     .lpr-calc__error {
         background: #fef2f2;
@@ -319,18 +319,18 @@
     </div>
 
     <!-- LPR数据状态栏 -->
-    <div style="display: flex; align-items: center; gap: 16px; margin-bottom: 20px; padding: 16px 20px; border-radius: 10px; background: #f0f7fa; border: 1px solid #d0e8f0;">
+    <div style="display: flex; align-items: center; gap: 16px; margin-bottom: 20px; padding: 16px 20px; border-radius: 10px; background: var(--fc-bg-muted); border: 1px solid var(--fc-border);">
         <div style="flex: 1;">
-            <div style="font-size: 13px; font-weight: 600; color: #374151; margin-bottom: 4px;">
+            <div style="font-size: 13px; font-weight: 600; color: var(--fc-text-secondary); margin-bottom: 4px;">
                 {% trans "当前LPR利率" %}
                 {% if latest_rate %}
-                    <span style="font-weight: 400; color: #6b7280;">
+                    <span style="font-weight: 400; color: var(--fc-text-muted);">
                         ({% trans "生效日期" %}: {{ latest_rate.effective_date|date:"Y-m-d" }})
                     </span>
                 {% endif %}
             </div>
             {% if latest_rate %}
-                <div style="display: flex; gap: 24px; font-size: 13px; color: #4b5563;">
+                <div style="display: flex; gap: 24px; font-size: 13px; color: var(--fc-text-muted);">
                     <span>{% trans "一年期" %}: <strong>{{ latest_rate.rate_1y }}%</strong></span>
                     <span>{% trans "五年期" %}: <strong>{{ latest_rate.rate_5y }}%</strong></span>
                 </div>

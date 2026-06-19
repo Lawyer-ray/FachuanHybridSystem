@@ -32,24 +32,24 @@
     gap: 10px;
     margin: 0;
     padding: 10px 15px;
-    background: #417690;
-    color: white;
+    background: var(--fc-admin-blue);
+    color: var(--fc-text-on-primary);
 }
 
 /* 日志列表容器 */
 #logs-group .djn-items {
     padding: 10px 15px;
-    background: #f5f5f5;
+    background: var(--fc-bg-muted-light);
 }
 
 /* 优化日志条目布局 - 移除分割线，统一背景 */
 #logs-group .djn-inline-form fieldset.module {
     border: none;
-    background: white;
+    background: var(--fc-bg-card);
     border-radius: 4px;
     margin-bottom: 10px;
     padding: 12px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    box-shadow: var(--fc-shadow-card);
     clear: both;
 }
 
@@ -62,20 +62,20 @@
 
 #logs-group .djn-inline-form .form-row label {
     font-weight: 600;
-    color: #333;
+    color: var(--fc-text-secondary);
     margin-bottom: 4px;
 }
 
 /* 创建日期样式 */
 #logs-group .djn-inline-form .field-created_at p {
-    color: #666;
+    color: var(--fc-text-muted);
     font-size: 13px;
     margin: 0;
 }
 
 /* 日志内容文本框 */
 #logs-group .djn-inline-form textarea {
-    border: 1px solid #ddd;
+    border: 1px solid var(--fc-border);
     border-radius: 3px;
     padding: 8px;
 }
@@ -83,7 +83,7 @@
 /* 添加按钮区域 */
 #logs-group .djn-add-item {
     padding: 10px 15px;
-    background: #f5f5f5;
+    background: var(--fc-bg-muted-light);
     margin: 0;
 }
 
@@ -93,7 +93,7 @@
     padding: 0;
     margin-left: 10px;
     background: transparent;
-    color: white;
+    color: var(--fc-text-on-primary);
     border: none;
     cursor: pointer;
     font-size: 13px;

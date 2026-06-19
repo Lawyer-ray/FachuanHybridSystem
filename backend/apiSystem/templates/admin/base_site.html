@@ -35,6 +35,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
 {% block extrastyle %}
 {{ block.super }}
+<link rel="stylesheet" href="{% static 'admin/css/fachuan_dark_mode_vars.css' %}">
 <style>
     /* Alpine.js x-cloak 防止闪烁 */
     [x-cloak] { display: none !important; }
@@ -59,8 +60,8 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     .feedback-button {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
+        background: linear-gradient(135deg, var(--fc-feedback-start) 0%, var(--fc-feedback-end) 100%);
+        color: var(--fc-text-on-primary);
         border: none;
         padding: 15px 8px;
         writing-mode: vertical-rl;
@@ -69,7 +70,7 @@ document.addEventListener('DOMContentLoaded', function() {
         font-weight: 600;
         cursor: pointer;
         border-radius: 8px 0 0 8px;
-        box-shadow: -2px 2px 15px rgba(102, 126, 234, 0.3);
+        box-shadow: -2px 2px 15px var(--fc-feedback-shadow);
         transition: all 0.3s ease;
         letter-spacing: 2px;
         min-height: 120px;
@@ -79,8 +80,8 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     .feedback-button:hover {
-        background: linear-gradient(135deg, #5a6fd8 0%, #6a4190 100%);
-        box-shadow: -4px 4px 25px rgba(102, 126, 234, 0.5);
+        background: linear-gradient(135deg, var(--fc-feedback-start-hover) 0%, var(--fc-feedback-end-hover) 100%);
+        box-shadow: -4px 4px 25px var(--fc-feedback-shadow-lg);
         transform: translateX(-5px);
     }
 
@@ -89,16 +90,16 @@ document.addEventListener('DOMContentLoaded', function() {
         right: 100%;
         top: 50%;
         transform: translateY(-50%);
-        background: white;
+        background: var(--fc-bg-card);
         border-radius: 12px;
         padding: 20px;
-        box-shadow: -5px 5px 30px rgba(0,0,0,0.15);
+        box-shadow: -5px 5px 30px var(--fc-shadow-card);
         opacity: 0;
         visibility: hidden;
         transition: all 0.3s ease;
         width: 280px;
         margin-right: 10px;
-        border: 1px solid #e0e0e0;
+        border: 1px solid var(--fc-border);
     }
 
     .feedback-sidebar:hover .feedback-tooltip {
@@ -114,12 +115,12 @@ document.addEventListener('DOMContentLoaded', function() {
         top: 50%;
         transform: translateY(-50%);
         border: 8px solid transparent;
-        border-left-color: white;
+        border-left-color: var(--fc-bg-card);
     }
 
     .feedback-tooltip h4 {
         margin: 0 0 15px 0;
-        color: #333;
+        color: var(--fc-text-primary);
         font-size: 16px;
         font-weight: 600;
         text-align: center;
@@ -134,7 +135,7 @@ document.addEventListener('DOMContentLoaded', function() {
         width: 120px;
         height: 120px;
         border-radius: 8px;
-        border: 2px solid #f0f0f0;
+        border: 2px solid var(--fc-border);
     }
 
     .feedback-qrcodes {
@@ -153,7 +154,7 @@ document.addEventListener('DOMContentLoaded', function() {
         width: 100px;
         height: 100px;
         border-radius: 8px;
-        border: 2px solid #f0f0f0;
+        border: 2px solid var(--fc-border);
         transition: transform 0.2s ease;
     }
 
@@ -164,19 +165,19 @@ document.addEventListener('DOMContentLoaded', function() {
     .feedback-qrcode-item .qr-label {
         margin-top: 8px;
         font-size: 12px;
-        color: #666;
+        color: var(--fc-text-muted);
         font-weight: 500;
     }
 
     .feedback-text {
         text-align: center;
-        color: #666;
+        color: var(--fc-text-muted);
         font-size: 13px;
         line-height: 1.5;
     }
 
     .feedback-text .highlight {
-        color: #667eea;
+        color: var(--fc-accent);
         font-weight: 600;
     }
 

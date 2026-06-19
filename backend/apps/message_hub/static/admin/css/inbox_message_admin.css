@@ -41,9 +41,9 @@
 
 .mh-attachment-card {
   padding: 14px 16px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--fc-border);
   border-radius: 12px;
-  background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
+  background: linear-gradient(180deg, var(--fc-bg-card) 0%, var(--fc-bg-muted) 100%);
   box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
 }
 
@@ -64,7 +64,7 @@
 }
 
 .mh-attachment-name {
-  color: #111827;
+  color: var(--fc-text-heading);
   font-size: 15px;
   font-weight: 600;
   line-height: 1.5;
@@ -77,21 +77,21 @@
   min-height: 24px;
   padding: 0 10px;
   border-radius: 999px;
-  background: #f3f4f6;
-  color: #4b5563;
+  background: var(--fc-bg-muted-light);
+  color: var(--fc-text-secondary);
   font-size: 12px;
   line-height: 1;
   white-space: nowrap;
 }
 
 .mh-attachment-effective {
-  color: #6b7280;
+  color: var(--fc-text-muted);
   font-size: 12px;
   line-height: 1.6;
 }
 
 .mh-attachment-effective strong {
-  color: #111827;
+  color: var(--fc-text-heading);
   font-weight: 600;
   word-break: break-all;
 }
@@ -109,18 +109,18 @@
   width: 100%;
   min-height: 40px;
   padding: 0 14px;
-  border: 1px solid #d1d5db;
+  border: 1px solid var(--fc-border-input);
   border-radius: 10px;
-  background: #fff;
-  color: #111827;
+  background: var(--fc-bg-card);
+  color: var(--fc-text-heading);
   font-size: 14px;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .mh-attachment-input:focus {
-  border-color: #2563eb;
+  border-color: var(--fc-primary);
   outline: none;
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.14);
+  box-shadow: 0 0 0 3px var(--fc-primary-ring);
 }
 
 .mh-attachment-actions {
@@ -159,30 +159,30 @@
 }
 
 .mh-btn-primary {
-  background: #2563eb;
-  color: #fff;
+  background: var(--fc-primary);
+  color: var(--fc-text-on-primary);
 }
 
 .mh-btn-secondary {
-  border-color: #d1d5db;
-  background: #fff;
-  color: #374151;
+  border-color: var(--fc-border-input);
+  background: var(--fc-bg-card);
+  color: var(--fc-text-secondary);
 }
 
 .mh-btn-info {
-  background: #eff6ff;
-  color: #1d4ed8;
+  background: var(--fc-primary-subtle);
+  color: var(--fc-primary-dark);
 }
 
 .mh-btn-success {
-  background: #f0fdf4;
-  color: #15803d;
+  background: var(--fc-success-bg);
+  color: var(--fc-success-text);
 }
 
 .mh-attachment-msg {
   min-height: 18px;
   margin-top: 8px;
-  color: #6b7280;
+  color: var(--fc-text-muted);
   font-size: 12px;
   line-height: 1.5;
 }

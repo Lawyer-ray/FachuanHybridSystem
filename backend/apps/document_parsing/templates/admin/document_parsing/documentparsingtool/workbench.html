@@ -8,9 +8,9 @@
 <style>
 /* 容器和介绍 */
 .parsing-container { max-width: 800px; margin: 0 auto; padding: 20px; }
-.parsing-intro { color: #666; margin-bottom: 24px; font-size: 14px; line-height: 1.6;
+.parsing-intro { color: var(--fc-text-muted); margin-bottom: 24px; font-size: 14px; line-height: 1.6;
     background: linear-gradient(135deg, #f0f7ff 0%, #e8f4f8 100%); padding: 16px 20px;
-    border-radius: 10px; border-left: 4px solid #417690; }
+    border-radius: 10px; border-left: 4px solid var(--fc-admin-blue); }
 
 /* 功能特性 */
 .features-grid {
@@ -20,7 +20,7 @@
     margin-bottom: 24px;
 }
 .feature-item {
-    background: white;
+    background: var(--fc-bg-card);
     border: 1px solid #e0e8ef;
     border-radius: 10px;
     padding: 14px;
@@ -28,7 +28,7 @@
     transition: all 0.2s;
 }
 .feature-item:hover {
-    border-color: #417690;
+    border-color: var(--fc-admin-blue);
     box-shadow: 0 4px 12px rgba(65, 118, 144, 0.1);
 }
 .feature-icon {
@@ -37,7 +37,7 @@
 }
 .feature-text {
     font-size: 13px;
-    color: #5a6c7d;
+    color: var(--fc-text-muted);
     font-weight: 500;
 }
 
@@ -48,16 +48,16 @@
     background: linear-gradient(135deg, #f8fbfd 0%, #eef5f9 100%);
 }
 .upload-zone:hover, .upload-zone.dragging {
-    border-color: #417690;
+    border-color: var(--fc-admin-blue);
     background: #e3f2fd;
     transform: scale(1.01);
 }
-.upload-zone svg { width: 72px; height: 72px; color: #417690; margin-bottom: 20px; opacity: 0.8; }
-.upload-zone h3 { margin: 0 0 10px; color: #2c3e50; font-size: 20px; font-weight: 600; }
+.upload-zone svg { width: 72px; height: 72px; color: var(--fc-admin-blue); margin-bottom: 20px; opacity: 0.8; }
+.upload-zone h3 { margin: 0 0 10px; color: var(--fc-text-secondary); font-size: 20px; font-weight: 600; }
 .upload-zone p { margin: 0 0 20px; color: #7f8c8d; font-size: 14px; }
 .upload-btn {
-    display: inline-block; padding: 14px 28px; background: linear-gradient(135deg, #417690 0%, #2c5f7c 100%);
-    color: white; border-radius: 10px; cursor: pointer; transition: all 0.3s; font-weight: 500;
+    display: inline-block; padding: 14px 28px; background: linear-gradient(135deg, var(--fc-admin-blue) 0%, #2c5f7c 100%);
+    color: var(--fc-text-on-primary); border-radius: 10px; cursor: pointer; transition: all 0.3s; font-weight: 500;
     box-shadow: 0 4px 15px rgba(65, 118, 144, 0.3);
 }
 .upload-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(65, 118, 144, 0.4); }
@@ -80,7 +80,7 @@
 .loading-state {
     text-align: center;
     padding: 80px 20px;
-    background: white;
+    background: var(--fc-bg-card);
     border-radius: 16px;
     box-shadow: 0 4px 20px rgba(0,0,0,0.08);
 }
@@ -88,13 +88,13 @@
     width: 56px;
     height: 56px;
     border: 5px solid #e9ecef;
-    border-top-color: #417690;
+    border-top-color: var(--fc-admin-blue);
     border-radius: 50%;
     animation: spin 0.8s linear infinite;
     margin: 0 auto 20px;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
-.loading-state p { color: #555; font-size: 16px; }
+.loading-state p { color: var(--fc-text-muted); font-size: 16px; }
 .loading-state .hint { color: #999; font-size: 13px; margin-top: 8px; }
 
 /* 历史记录按钮 */
@@ -103,9 +103,9 @@
     align-items: center;
     gap: 8px;
     padding: 10px 20px;
-    background: white;
-    border: 1px solid #417690;
-    color: #417690;
+    background: var(--fc-bg-card);
+    border: 1px solid var(--fc-admin-blue);
+    color: var(--fc-admin-blue);
     border-radius: 8px;
     cursor: pointer;
     font-size: 14px;
@@ -151,7 +151,7 @@
 
     <div class="upload-zone" id="uploadZone">
         <svg xmlns="http://www.w3.org/2000/svg" width="72" height="72" viewBox="0 0 24 24" fill="none"
-             stroke="#417690" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+             stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
             <polyline points="17 8 12 3 7 8"/>
             <line x1="12" y1="3" x2="12" y2="15"/>

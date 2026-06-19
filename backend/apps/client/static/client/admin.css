@@ -2,8 +2,8 @@
 
 /* 文本解析区域样式 */
 .text-parser-section {
-    background: #f8f9fa;
-    border: 1px solid #dee2e6;
+    background: var(--fc-bg-muted);
+    border: 1px solid var(--fc-border);
     border-radius: 5px;
     padding: 15px;
     margin-bottom: 20px;
@@ -11,7 +11,7 @@
 
 .text-parser-section h3 {
     margin-top: 0;
-    color: #495057;
+    color: var(--fc-text-secondary);
     font-size: 14px;
     font-weight: bold;
 }
@@ -20,7 +20,7 @@
     width: 100%;
     height: 120px;
     padding: 8px;
-    border: 1px solid #ced4da;
+    border: 1px solid var(--fc-border-input);
     border-radius: 4px;
     font-family: monospace;
     font-size: 12px;
@@ -35,8 +35,8 @@
 }
 
 .parse-btn {
-    background-color: #007cba;
-    color: white;
+    background-color: var(--fc-primary);
+    color: var(--fc-text-on-primary);
     border: none;
     padding: 8px 16px;
     border-radius: 4px;
@@ -45,29 +45,29 @@
 }
 
 .parse-btn:hover {
-    background-color: #005a87;
+    background-color: var(--fc-primary-dark);
 }
 
 .parse-btn:disabled {
-    background-color: #6c757d;
+    background-color: var(--fc-text-muted);
     cursor: not-allowed;
 }
 
 .multiple-results {
     margin-top: 15px;
-    border: 1px solid #007cba;
+    border: 1px solid var(--fc-primary);
     border-radius: 4px;
-    background: #e7f3ff;
+    background: var(--fc-primary-subtle);
 }
 
 .result-item {
     padding: 10px;
-    border-bottom: 1px solid #b3d9ff;
+    border-bottom: 1px solid var(--fc-info-border);
     cursor: pointer;
 }
 
 .result-item:hover {
-    background: #cce7ff;
+    background: var(--fc-info-bg);
 }
 
 .result-item:last-child {
@@ -75,19 +75,19 @@
 }
 
 .success-message {
-    background: #d4edda;
-    color: #155724;
+    background: var(--fc-success-bg);
+    color: var(--fc-success-text);
     padding: 10px;
-    border: 1px solid #c3e6cb;
+    border: 1px solid var(--fc-success-border);
     border-radius: 4px;
     margin-top: 10px;
 }
 
 .error-message {
-    background: #f8d7da;
-    color: #721c24;
+    background: var(--fc-error-bg);
+    color: var(--fc-error-text);
     padding: 10px;
-    border: 1px solid #f5c6cb;
+    border: 1px solid var(--fc-error-border);
     border-radius: 4px;
     margin-top: 10px;
 }
@@ -101,8 +101,8 @@
 .form-row .field-box input[type="text"].highlight,
 .form-row .field-box select.highlight,
 .form-row .field-box textarea.highlight {
-    background-color: #e8f5e8 !important;
-    border-color: #4caf50 !important;
+    background-color: var(--fc-success-bg) !important;
+    border-color: var(--fc-toast-success) !important;
     box-shadow: 0 0 5px rgba(76, 175, 80, 0.3);
 }
 

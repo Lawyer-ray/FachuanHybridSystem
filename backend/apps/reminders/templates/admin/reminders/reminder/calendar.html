@@ -30,16 +30,16 @@
     .reminder-calendar-nav .button {
         display: inline-block;
         padding: 6px 10px;
-        border: 1px solid #cbd5e1;
+        border: 1px solid var(--fc-border-input);
         border-radius: 6px;
         text-decoration: none;
-        color: #1f2937;
-        background: #fff;
+        color: var(--fc-text-primary);
+        background: var(--fc-bg-card);
     }
     .reminder-calendar-title {
         font-size: 18px;
         font-weight: 700;
-        color: #0f172a;
+        color: var(--fc-text-heading);
         margin: 0 8px;
     }
     .reminder-calendar-actions {
@@ -60,21 +60,21 @@
         text-decoration: none !important;
     }
     .reminder-action-btn.import-btn {
-        background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
-        color: #fff !important;
-        box-shadow: 0 6px 14px rgba(37, 99, 235, 0.2);
+        background: linear-gradient(135deg, var(--fc-primary) 0%, var(--fc-primary-dark) 100%);
+        color: var(--fc-text-on-primary) !important;
+        box-shadow: 0 6px 14px var(--fc-primary-shadow);
     }
     .reminder-action-btn.import-btn:hover {
         transform: translateY(-1px);
-        box-shadow: 0 8px 18px rgba(37, 99, 235, 0.28);
+        box-shadow: 0 8px 18px var(--fc-primary-shadow-lg);
     }
     .reminder-action-btn.export-btn {
-        border: 1px solid #93c5fd;
-        background: #eff6ff;
-        color: #1d4ed8 !important;
+        border: 1px solid var(--fc-primary-light);
+        background: var(--fc-primary-subtle);
+        color: var(--fc-primary-dark) !important;
     }
     .reminder-action-btn.export-btn:hover {
-        background: #dbeafe;
+        background: var(--fc-primary-hover);
     }
     .reminder-calendar-filters {
         display: flex;
@@ -83,24 +83,24 @@
         flex-wrap: wrap;
         margin-bottom: 14px;
         padding: 12px;
-        border: 1px solid #e2e8f0;
+        border: 1px solid var(--fc-border);
         border-radius: 10px;
-        background: #f8fafc;
+        background: var(--fc-bg-muted);
     }
     .reminder-calendar-filters .default,
     .reminder-filter-btn {
         border: none;
-        background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
-        color: #fff;
+        background: linear-gradient(135deg, var(--fc-primary) 0%, var(--fc-primary-dark) 100%);
+        color: var(--fc-text-on-primary);
         border-radius: 8px;
         padding: 8px 14px;
         font-weight: 600;
-        box-shadow: 0 6px 14px rgba(37, 99, 235, 0.2);
+        box-shadow: 0 6px 14px var(--fc-primary-shadow);
     }
     .reminder-calendar-filters .default:hover,
     .reminder-filter-btn:hover {
         transform: translateY(-1px);
-        box-shadow: 0 8px 18px rgba(37, 99, 235, 0.28);
+        box-shadow: 0 8px 18px var(--fc-primary-shadow-lg);
     }
     .reminder-calendar-field {
         display: flex;
@@ -113,14 +113,14 @@
     }
     .reminder-create-tip {
         font-size: 12px;
-        color: #64748b;
+        color: var(--fc-text-muted);
         margin-bottom: 10px;
     }
     .reminder-calendar-grid {
-        border: 1px solid #e2e8f0;
+        border: 1px solid var(--fc-border);
         border-radius: 10px;
         overflow: hidden;
-        background: #fff;
+        background: var(--fc-bg-card);
     }
     .reminder-calendar-weekdays,
     .reminder-calendar-week {
@@ -128,36 +128,36 @@
         grid-template-columns: repeat(7, minmax(0, 1fr));
     }
     .reminder-calendar-weekdays {
-        background: #f1f5f9;
-        border-bottom: 1px solid #e2e8f0;
+        background: var(--fc-bg-muted-light);
+        border-bottom: 1px solid var(--fc-border);
     }
     .reminder-calendar-weekdays div {
         padding: 10px 8px;
         font-size: 12px;
-        color: #334155;
+        color: var(--fc-text-secondary);
         font-weight: 600;
         text-align: center;
     }
     .reminder-calendar-day {
         min-height: 136px;
-        border-right: 1px solid #e2e8f0;
-        border-bottom: 1px solid #e2e8f0;
+        border-right: 1px solid var(--fc-border);
+        border-bottom: 1px solid var(--fc-border);
         padding: 8px;
-        background: #fff;
+        background: var(--fc-bg-card);
         position: relative;
     }
     .reminder-calendar-week .reminder-calendar-day:last-child {
         border-right: none;
     }
     .reminder-calendar-day.is-muted {
-        background: #f8fafc;
-        color: #94a3b8;
+        background: var(--fc-bg-muted);
+        color: var(--fc-text-disabled);
     }
     .reminder-calendar-day.is-clickable {
         cursor: pointer;
     }
     .reminder-calendar-day.is-today {
-        box-shadow: inset 0 0 0 2px #2563eb;
+        box-shadow: inset 0 0 0 2px var(--fc-primary);
     }
     .reminder-calendar-day-head {
         display: flex;
@@ -171,12 +171,12 @@
     }
     .reminder-day-count {
         font-size: 11px;
-        color: #64748b;
+        color: var(--fc-text-muted);
     }
     .reminder-add-btn {
-        border: 1px dashed #93c5fd;
-        color: #1d4ed8;
-        background: #eff6ff;
+        border: 1px dashed var(--fc-primary-light);
+        color: var(--fc-primary-dark);
+        background: var(--fc-primary-subtle);
         border-radius: 999px;
         width: 20px;
         height: 20px;
@@ -192,18 +192,18 @@
     .reminder-event {
         display: block;
         width: 100%;
-        border: 1px solid #dbeafe;
-        background: #eff6ff;
+        border: 1px solid var(--fc-primary-hover);
+        background: var(--fc-primary-subtle);
         border-radius: 8px;
         padding: 6px;
         text-align: left;
         cursor: pointer;
-        color: #1e3a8a;
+        color: var(--fc-primary-darker);
     }
     .reminder-event.overdue {
-        border-color: #fecaca;
-        background: #fef2f2;
-        color: #991b1b;
+        border-color: var(--fc-error-border);
+        background: var(--fc-error-bg);
+        color: var(--fc-error-text);
     }
     .reminder-event-top {
         display: flex;
@@ -233,12 +233,12 @@
     }
     .reminder-empty {
         font-size: 12px;
-        color: #94a3b8;
+        color: var(--fc-text-disabled);
     }
     .reminder-modal {
         position: fixed;
         inset: 0;
-        background: rgba(15, 23, 42, 0.55);
+        background: var(--fc-overlay-bg);
         backdrop-filter: blur(2px);
         display: none;
         align-items: center;
@@ -252,10 +252,10 @@
         width: min(620px, calc(100vw - 24px));
         max-height: calc(100vh - 12px);
         overflow: auto;
-        background: #fff;
+        background: var(--fc-bg-card);
         border-radius: 14px;
-        border: 1px solid #e2e8f0;
-        box-shadow: 0 20px 40px rgba(15, 23, 42, 0.22);
+        border: 1px solid var(--fc-border);
+        box-shadow: 0 20px 40px var(--fc-shadow-card);
         padding: 18px;
     }
     #reminder-create-modal .reminder-modal-card {
@@ -280,30 +280,30 @@
     .reminder-modal-card label {
         font-size: 12px;
         font-weight: 700;
-        color: #334155;
+        color: var(--fc-text-secondary);
     }
     .reminder-modal-card input,
     .reminder-modal-card select {
         width: 100%;
         min-height: 38px;
-        border: 1px solid #cbd5e1;
+        border: 1px solid var(--fc-border-input);
         border-radius: 8px;
         padding: 8px 10px;
         box-sizing: border-box;
-        background: #fff;
-        color: #0f172a;
+        background: var(--fc-bg-card);
+        color: var(--fc-text-heading);
     }
     .reminder-modal-card input:focus,
     .reminder-modal-card select:focus {
         outline: none;
-        border-color: #2563eb;
-        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+        border-color: var(--fc-primary);
+        box-shadow: 0 0 0 3px var(--fc-primary-ring);
     }
     .reminder-modal-title {
         margin: 0 0 12px;
         font-size: 18px;
         font-weight: 700;
-        color: #0f172a;
+        color: var(--fc-text-heading);
     }
     .reminder-modal-grid {
         display: grid;
@@ -319,12 +319,12 @@
         grid-column: 1 / -1;
     }
     .reminder-modal-field small {
-        color: #64748b;
+        color: var(--fc-text-muted);
     }
     .reminder-target-hint {
         margin-top: 6px;
         font-size: 12px;
-        color: #64748b;
+        color: var(--fc-text-muted);
     }
     .reminder-combobox {
         position: relative;
@@ -336,10 +336,10 @@
         min-height: 220px;
         max-height: 360px;
         overflow-y: auto;
-        border: 1px solid #cbd5e1;
+        border: 1px solid var(--fc-border-input);
         border-radius: 10px;
-        background: #ffffff;
-        box-shadow: 0 12px 30px rgba(15, 23, 42, 0.18);
+        background: var(--fc-bg-card);
+        box-shadow: 0 12px 30px var(--fc-shadow-dropdown);
         z-index: 20;
         display: none;
         padding: 6px;
@@ -354,8 +354,8 @@
         padding: 6px 10px;
         font-size: 12px;
         font-weight: 700;
-        color: #475569;
-        background: #f8fafc;
+        color: var(--fc-text-label);
+        background: var(--fc-bg-muted);
         border-radius: 8px;
         margin-bottom: 2px;
     }
@@ -368,28 +368,28 @@
         padding: 8px 10px;
         border-radius: 8px;
         cursor: pointer;
-        color: #0f172a;
+        color: var(--fc-text-heading);
         font-size: 13px;
         line-height: 1.4;
     }
     .reminder-target-empty {
         cursor: default;
-        color: #94a3b8;
+        color: var(--fc-text-disabled);
     }
     .reminder-target-option-meta {
         font-size: 12px;
-        color: #64748b;
+        color: var(--fc-text-muted);
         margin-top: 2px;
     }
     .reminder-target-option mark {
-        background: #fef08a;
-        color: #854d0e;
+        background: var(--fc-highlight-bg);
+        color: var(--fc-highlight-text);
         padding: 0;
     }
     .reminder-target-option:hover,
     .reminder-target-option.is-active {
-        background: #eff6ff;
-        color: #1d4ed8;
+        background: var(--fc-primary-subtle);
+        color: var(--fc-primary-dark);
     }
     .reminder-modal-actions {
         display: flex;
@@ -416,44 +416,45 @@
         transition: all 0.18s ease;
     }
     .reminder-btn-secondary {
-        border: 1px solid #bfdbfe;
-        background: #fff;
-        color: #0f172a !important;
+        border: 1px solid var(--fc-primary-light);
+        background: var(--fc-bg-card);
+        color: var(--fc-text-heading) !important;
     }
     .reminder-btn-secondary:hover,
     .reminder-btn-secondary:focus-visible {
-        border-color: #93c5fd;
-        box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.16);
+        border-color: var(--fc-primary-light);
+        box-shadow: 0 0 0 3px var(--fc-primary-ring);
         outline: none;
     }
     .reminder-btn-primary {
-        border: 1px solid #1d4ed8;
-        background: #1d4ed8;
-        color: #ffffff !important;
-        box-shadow: 0 10px 20px rgba(29, 78, 216, 0.24);
+        border: 1px solid var(--fc-primary-dark);
+        background: var(--fc-primary-dark);
+        color: var(--fc-text-on-primary) !important;
+        box-shadow: 0 10px 20px var(--fc-primary-shadow);
     }
     .reminder-btn-primary:hover,
     .reminder-btn-primary:focus-visible {
-        background: #1e40af;
-        border-color: #1e40af;
-        box-shadow: 0 12px 24px rgba(30, 64, 175, 0.3);
+        background: var(--fc-primary-darker);
+        border-color: var(--fc-primary-darker);
+        box-shadow: 0 12px 24px var(--fc-primary-shadow-lg);
         outline: none;
     }
     .reminder-detail-item {
-        border: 1px solid #e2e8f0;
+        border: 1px solid var(--fc-border);
         border-radius: 8px;
-        background: #f8fafc;
+        background: var(--fc-bg-muted);
+    }
         padding: 10px;
         margin-bottom: 8px;
     }
     .reminder-detail-key {
         font-size: 12px;
-        color: #475569;
+        color: var(--fc-text-label);
     }
     .reminder-detail-value {
         margin-top: 2px;
         font-size: 14px;
-        color: #0f172a;
+        color: var(--fc-text-heading);
         font-weight: 600;
         word-break: break-word;
     }
@@ -461,7 +462,7 @@
     .reminder-sync-tabs {
         display: flex;
         gap: 2px;
-        background: #f1f5f9;
+        background: var(--fc-bg-muted-light);
         border-radius: 8px;
         padding: 3px;
         margin-bottom: 14px;
@@ -474,13 +475,13 @@
         border-radius: 6px;
         font-size: 13px;
         font-weight: 600;
-        color: #64748b;
+        color: var(--fc-text-muted);
         cursor: pointer;
         transition: all 0.15s ease;
     }
     .reminder-sync-tab.active {
-        background: #fff;
-        color: #1d4ed8;
+        background: var(--fc-bg-card);
+        color: var(--fc-primary-dark);
         box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
     }
     .reminder-sync-panel {
@@ -490,18 +491,18 @@
         display: block;
     }
     .reminder-dropzone {
-        border: 2px dashed #93c5fd;
+        border: 2px dashed var(--fc-primary-light);
         border-radius: 10px;
         padding: 28px 16px;
         text-align: center;
         cursor: pointer;
         transition: all 0.18s ease;
-        background: #f8faff;
+        background: var(--fc-primary-subtle);
     }
     .reminder-dropzone:hover,
     .reminder-dropzone.dragover {
-        border-color: #2563eb;
-        background: #eff6ff;
+        border-color: var(--fc-primary);
+        background: var(--fc-primary-subtle);
     }
     .reminder-dropzone-icon {
         font-size: 28px;
@@ -509,42 +510,42 @@
     }
     .reminder-dropzone-text {
         font-size: 13px;
-        color: #64748b;
+        color: var(--fc-text-muted);
     }
     .reminder-url-input {
         width: 100%;
         min-height: 38px;
-        border: 1px solid #cbd5e1;
+        border: 1px solid var(--fc-border-input);
         border-radius: 8px;
         padding: 8px 10px;
         box-sizing: border-box;
-        background: #fff;
-        color: #0f172a;
+        background: var(--fc-bg-card);
+        color: var(--fc-text-heading);
         font-size: 13px;
     }
     .reminder-url-input:focus {
         outline: none;
-        border-color: #2563eb;
-        box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+        border-color: var(--fc-primary);
+        box-shadow: 0 0 0 3px var(--fc-primary-ring);
     }
     .reminder-url-hint {
         font-size: 12px;
-        color: #64748b;
+        color: var(--fc-text-muted);
         margin-top: 6px;
     }
     .reminder-sync-provider-info {
         padding: 16px;
-        background: #f8fafc;
-        border: 1px solid #e2e8f0;
+        background: var(--fc-bg-muted);
+        border: 1px solid var(--fc-border);
         border-radius: 8px;
         font-size: 13px;
-        color: #475569;
+        color: var(--fc-text-label);
         line-height: 1.6;
     }
     .reminder-preview-list {
         max-height: 280px;
         overflow-y: auto;
-        border: 1px solid #e2e8f0;
+        border: 1px solid var(--fc-border);
         border-radius: 8px;
         margin-top: 12px;
     }
@@ -552,14 +553,14 @@
         padding: 24px;
         text-align: center;
         font-size: 13px;
-        color: #94a3b8;
+        color: var(--fc-text-disabled);
     }
     .reminder-preview-item {
         display: flex;
         align-items: center;
         gap: 8px;
         padding: 10px 12px;
-        border-bottom: 1px solid #f1f5f9;
+        border-bottom: 1px solid var(--fc-bg-muted-light);
         font-size: 13px;
     }
     .reminder-preview-item:last-child {
@@ -569,14 +570,14 @@
         flex: none;
         width: 16px;
         height: 16px;
-        accent-color: #2563eb;
+        accent-color: var(--fc-primary);
     }
     .reminder-preview-item.is-existing {
         opacity: 0.5;
     }
     .reminder-preview-time {
         flex: none;
-        color: #64748b;
+        color: var(--fc-text-muted);
         font-size: 12px;
         min-width: 90px;
     }
@@ -586,14 +587,14 @@
         overflow: hidden;
         text-overflow: ellipsis;
         white-space: nowrap;
-        color: #0f172a;
+        color: var(--fc-text-heading);
         font-weight: 600;
     }
     .reminder-preview-source {
         flex: none;
         font-size: 11px;
-        color: #64748b;
-        background: #f1f5f9;
+        color: var(--fc-text-muted);
+        background: var(--fc-bg-muted-light);
         padding: 2px 6px;
         border-radius: 4px;
     }
@@ -605,12 +606,12 @@
         font-weight: 600;
     }
     .reminder-preview-status.importable {
-        background: #dcfce7;
-        color: #166534;
+        background: var(--fc-success-bg);
+        color: var(--fc-success-text);
     }
     .reminder-preview-status.existing {
-        background: #f1f5f9;
-        color: #94a3b8;
+        background: var(--fc-bg-muted-light);
+        color: var(--fc-text-disabled);
     }
     .reminder-sync-footer {
         display: flex;
@@ -620,7 +621,7 @@
     }
     .reminder-sync-count {
         font-size: 13px;
-        color: #64748b;
+        color: var(--fc-text-muted);
     }
     .reminder-sync-actions {
         display: flex;
@@ -630,7 +631,7 @@
         text-align: center;
         padding: 20px;
         font-size: 14px;
-        color: #166534;
+        color: var(--fc-success-text);
         font-weight: 600;
     }
     .sync-calendar-chip {
@@ -638,20 +639,20 @@
         align-items: center;
         gap: 4px;
         padding: 4px 10px;
-        border: 1px solid #cbd5e1;
+        border: 1px solid var(--fc-border-input);
         border-radius: 16px;
         font-size: 12px;
-        color: #64748b;
-        background: #f8fafc;
+        color: var(--fc-text-muted);
+        background: var(--fc-bg-muted);
         cursor: pointer;
         user-select: none;
         transition: all 0.15s ease;
         white-space: nowrap;
     }
     .sync-calendar-chip.selected {
-        border-color: #93c5fd;
-        background: #eff6ff;
-        color: #1d4ed8;
+        border-color: var(--fc-primary-light);
+        background: var(--fc-primary-subtle);
+        color: var(--fc-primary-dark);
         font-weight: 600;
     }
     .sync-calendar-chip:hover {
@@ -660,14 +661,14 @@
     }
     .sync-calendar-chip-tag {
         font-size: 10px;
-        color: #94a3b8;
-        background: #f1f5f9;
+        color: var(--fc-text-disabled);
+        background: var(--fc-bg-muted-light);
         padding: 0 4px;
         border-radius: 3px;
     }
     .sync-calendar-chip.selected .sync-calendar-chip-tag {
-        color: #60a5fa;
-        background: #dbeafe;
+        color: var(--fc-primary-light);
+        background: var(--fc-primary-hover);
     }
     @media (max-width: 960px) {
         .reminder-calendar-day {
@@ -933,21 +934,21 @@
             <div id="sync-local-date-range" style="display:none;margin-top:12px;">
                 <div style="display:flex;gap:10px;align-items:end;">
                     <div style="flex:1;">
-                        <label style="font-size:12px;font-weight:700;color:#334155;display:block;margin-bottom:4px;">{% trans "开始日期" %}</label>
+                        <label style="font-size:12px;font-weight:700;color:var(--fc-text-secondary);display:block;margin-bottom:4px;">{% trans "开始日期" %}</label>
                         <input type="date" id="sync-start-date" class="reminder-url-input" style="min-height:34px;">
                     </div>
                     <div style="flex:1;">
-                        <label style="font-size:12px;font-weight:700;color:#334155;display:block;margin-bottom:4px;">{% trans "结束日期" %}</label>
+                        <label style="font-size:12px;font-weight:700;color:var(--fc-text-secondary);display:block;margin-bottom:4px;">{% trans "结束日期" %}</label>
                         <input type="date" id="sync-end-date" class="reminder-url-input" style="min-height:34px;">
                     </div>
                 </div>
-                <div style="font-size:11px;color:#64748b;margin-top:4px;">{% trans "默认同步最近3个月至未来6个月的事件" %}</div>
+                <div style="font-size:11px;color:var(--fc-text-muted);margin-top:4px;">{% trans "默认同步最近3个月至未来6个月的事件" %}</div>
 
                 <div id="sync-calendar-selector" style="display:none;margin-top:10px;">
-                    <div style="font-size:12px;font-weight:700;color:#334155;margin-bottom:6px;">{% trans "选择要同步的日历" %}</div>
-                    <div id="sync-calendar-list" style="display:flex;flex-wrap:wrap;gap:6px;border:1px solid #e2e8f0;border-radius:8px;padding:8px;"></div>
+                    <div style="font-size:12px;font-weight:700;color:var(--fc-text-secondary);margin-bottom:6px;">{% trans "选择要同步的日历" %}</div>
+                    <div id="sync-calendar-list" style="display:flex;flex-wrap:wrap;gap:6px;border:1px solid var(--fc-border);border-radius:8px;padding:8px;"></div>
                     <div style="margin-top:8px;display:flex;justify-content:flex-end;">
-                        <button type="button" id="sync-clear-btn" style="padding:5px 10px;border:1px solid #fecaca;background:#fef2f2;color:#991b1b;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;transition:all 0.15s;">{% trans "清空已同步日历" %}</button>
+                        <button type="button" id="sync-clear-btn" style="padding:5px 10px;border:1px solid var(--fc-error-border);background:var(--fc-error-bg);color:var(--fc-error-text);border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;transition:all 0.15s;">{% trans "清空已同步日历" %}</button>
                     </div>
                 </div>
             </div>
@@ -967,7 +968,7 @@
         </div>
 
         <div id="sync-loading" style="display:none;text-align:center;padding:24px;">
-            <div style="font-size:14px;color:#64748b;">{% trans "正在解析日历事件…" %}</div>
+            <div style="font-size:14px;color:var(--fc-text-muted);">{% trans "正在解析日历事件…" %}</div>
         </div>
 
         <div id="sync-result" style="display:none"></div>
@@ -1408,7 +1409,7 @@
     const checkLocalProviders = () => {
         if (!syncProvidersUrl) {
             localProviderName = '';
-            syncLocalInfo.innerHTML = '⚠️ 日历同步服务未就绪，请刷新页面重试。<br><span style="font-size:12px;color:#64748b">如问题持续，请检查 Django 服务器是否正常运行并已加载最新代码。</span>';
+            syncLocalInfo.innerHTML = '⚠️ 日历同步服务未就绪，请刷新页面重试。<br><span style="font-size:12px;color:var(--fc-text-muted)">如问题持续，请检查 Django 服务器是否正常运行并已加载最新代码。</span>';
             return;
         }
         fetch(syncProvidersUrl, { method: 'GET', credentials: 'same-origin' })
@@ -1432,22 +1433,22 @@
                     const label = localProviders.map((p) => p.label).join(' / ');
 
                     if (authStatus === 'authorized') {
-                        syncLocalInfo.innerHTML = '✅ ' + label + '<br><span style="color:#166534;font-size:12px">日历访问已授权，设置日期范围和日历后点击「预览事件」即可读取。</span>';
+                        syncLocalInfo.innerHTML = '✅ ' + label + '<br><span style="color:var(--fc-success-text);font-size:12px">日历访问已授权，设置日期范围和日历后点击「预览事件」即可读取。</span>';
                         syncLocalDateRange.style.display = '';
                         loadCalendarList();
                     } else if (authStatus === 'not_determined') {
                         syncLocalInfo.innerHTML = '🔔 ' + label + ' — <span style="color:#92400e;font-weight:600">需要授权日历访问</span><br>' +
-                            '<span style="font-size:12px;color:#64748b">点击下方按钮打开系统设置，在「日历」中找到 <b>Python</b> 或 <b>终端</b> 并开启权限，然后回到此页面点击「预览事件」。</span><br>' +
-                            '<button type="button" onclick="openCalendarPrivacy()" style="margin-top:8px;padding:6px 14px;border:1px solid #93c5fd;background:#eff6ff;color:#1d4ed8;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer">打开系统设置 → 隐私与安全性 → 日历</button>';
+                            '<span style="font-size:12px;color:var(--fc-text-muted)">点击下方按钮打开系统设置，在「日历」中找到 <b>Python</b> 或 <b>终端</b> 并开启权限，然后回到此页面点击「预览事件」。</span><br>' +
+                            '<button type="button" onclick="openCalendarPrivacy()" style="margin-top:8px;padding:6px 14px;border:1px solid var(--fc-primary-light);background:var(--fc-primary-subtle);color:var(--fc-primary-dark);border-radius:6px;font-size:12px;font-weight:600;cursor:pointer">打开系统设置 → 隐私与安全性 → 日历</button>';
                         syncLocalDateRange.style.display = '';
                         syncCalendarSelector.style.display = 'none';
                     } else if (authStatus === 'denied') {
-                        syncLocalInfo.innerHTML = '🚫 ' + label + ' — <span style="color:#991b1b;font-weight:600">日历访问被拒绝</span><br>' +
-                            '<span style="font-size:12px;color:#64748b">请在系统设置中开启日历权限：找到 <b>Python</b> 或 <b>终端</b>，开启日历访问后重试。</span><br>' +
-                            '<button type="button" onclick="openCalendarPrivacy()" style="margin-top:8px;padding:6px 14px;border:1px solid #fecaca;background:#fef2f2;color:#991b1b;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer">打开系统设置 → 隐私与安全性 → 日历</button>';
+                        syncLocalInfo.innerHTML = '🚫 ' + label + ' — <span style="color:var(--fc-error-text);font-weight:600">日历访问被拒绝</span><br>' +
+                            '<span style="font-size:12px;color:var(--fc-text-muted)">请在系统设置中开启日历权限：找到 <b>Python</b> 或 <b>终端</b>，开启日历访问后重试。</span><br>' +
+                            '<button type="button" onclick="openCalendarPrivacy()" style="margin-top:8px;padding:6px 14px;border:1px solid var(--fc-error-border);background:var(--fc-error-bg);color:var(--fc-error-text);border-radius:6px;font-size:12px;font-weight:600;cursor:pointer">打开系统设置 → 隐私与安全性 → 日历</button>';
                         syncLocalDateRange.style.display = 'none';
                     } else {
-                        syncLocalInfo.innerHTML = '✅ ' + label + '<br><span style="color:#166534;font-size:12px">设置日期范围后点击「预览事件」即可读取近期日历事件。</span>';
+                        syncLocalInfo.innerHTML = '✅ ' + label + '<br><span style="color:var(--fc-success-text);font-size:12px">设置日期范围后点击「预览事件」即可读取近期日历事件。</span>';
                         syncLocalDateRange.style.display = '';
                     }
                 } else {
@@ -1457,11 +1458,11 @@
                     const isWin = navigator.platform.toUpperCase().indexOf('WIN') >= 0;
                     let hint = '⚠️ 未检测到可用的本机日历应用。<br>';
                     if (isMac) {
-                        hint += '<span style="font-size:12px;color:#64748b">macOS 使用 <code style="background:#f1f5f9;padding:2px 4px;border-radius:3px">osascript</code>（系统自带）访问日历，请确保系统「日历」应用正常且已授权访问。</span>';
+                        hint += '<span style="font-size:12px;color:var(--fc-text-muted)">macOS 使用 <code style="background:var(--fc-bg-muted-light);padding:2px 4px;border-radius:3px">osascript</code>（系统自带）访问日历，请确保系统「日历」应用正常且已授权访问。</span>';
                     } else if (isWin) {
-                        hint += '<span style="font-size:12px;color:#64748b">Windows 需要安装依赖：<code style="background:#f1f5f9;padding:2px 4px;border-radius:3px">uv pip install pywin32</code>，并确保已安装 Outlook 桌面版</span>';
+                        hint += '<span style="font-size:12px;color:var(--fc-text-muted)">Windows 需要安装依赖：<code style="background:var(--fc-bg-muted-light);padding:2px 4px;border-radius:3px">uv pip install pywin32</code>，并确保已安装 Outlook 桌面版</span>';
                     } else {
-                        hint += '<span style="font-size:12px;color:#64748b">Linux 建议使用「上传文件」方式导入 .ics 文件</span>';
+                        hint += '<span style="font-size:12px;color:var(--fc-text-muted)">Linux 建议使用「上传文件」方式导入 .ics 文件</span>';
                     }
                     syncLocalInfo.innerHTML = hint;
                 }
@@ -1471,11 +1472,11 @@
                 const isMac = navigator.platform.toUpperCase().indexOf('MAC') >= 0;
                 const isWin = navigator.platform.toUpperCase().indexOf('WIN') >= 0;
                 let hint = '⚠️ 检测本机日历失败：' + (err.message || '未知错误') + '<br>';
-                hint += '<span style="font-size:12px;color:#64748b">可使用「上传文件」或「URL 导入」方式，或刷新页面后重试。</span><br>';
+                hint += '<span style="font-size:12px;color:var(--fc-text-muted)">可使用「上传文件」或「URL 导入」方式，或刷新页面后重试。</span><br>';
                 if (isMac) {
-                    hint += '<span style="font-size:12px;color:#64748b">macOS 同步依赖：<code style="background:#f1f5f9;padding:2px 4px;border-radius:3px">osascript</code>（系统自带）</span>';
+                    hint += '<span style="font-size:12px;color:var(--fc-text-muted)">macOS 同步依赖：<code style="background:var(--fc-bg-muted-light);padding:2px 4px;border-radius:3px">osascript</code>（系统自带）</span>';
                 } else if (isWin) {
-                    hint += '<span style="font-size:12px;color:#64748b">Windows 需要安装依赖：<code style="background:#f1f5f9;padding:2px 4px;border-radius:3px">uv pip install pywin32</code>，并确保已安装 Outlook 桌面版</span>';
+                    hint += '<span style="font-size:12px;color:var(--fc-text-muted)">Windows 需要安装依赖：<code style="background:var(--fc-bg-muted-light);padding:2px 4px;border-radius:3px">uv pip install pywin32</code>，并确保已安装 Outlook 桌面版</span>';
                 }
                 syncLocalInfo.innerHTML = hint;
             });
@@ -1601,9 +1602,9 @@
         const selectAllId = 'sync-select-all';
         const headerDiv = document.createElement('div');
         headerDiv.className = 'reminder-preview-item';
-        headerDiv.style.background = '#f8fafc';
+        headerDiv.style.background = 'var(--fc-bg-muted)';
         headerDiv.style.fontWeight = '600';
-        headerDiv.innerHTML = '<input type="checkbox" id="' + selectAllId + '" checked><label for="' + selectAllId + '" style="cursor:pointer;flex:1;color:#334155">全选</label><span style="flex:none;font-size:12px;color:#64748b">' + String(previewEvents.length) + ' 条事件</span>';
+        headerDiv.innerHTML = '<input type="checkbox" id="' + selectAllId + '" checked><label for="' + selectAllId + '" style="cursor:pointer;flex:1;color:var(--fc-text-secondary)">全选</label><span style="flex:none;font-size:12px;color:var(--fc-text-muted)">' + String(previewEvents.length) + ' 条事件</span>';
         syncPreviewList.appendChild(headerDiv);
 
         const selectAllCb = headerDiv.querySelector('#' + selectAllId);

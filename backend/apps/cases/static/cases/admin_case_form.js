@@ -143,7 +143,7 @@
         if (!loadingIndicator) {
           loadingIndicator = document.createElement('span');
           loadingIndicator.className = 'contract-party-loading';
-          loadingIndicator.style.cssText = 'margin-left: 8px; color: #666; font-size: 12px;';
+          loadingIndicator.style.cssText = 'margin-left: 8px; color: var(--fc-text-muted); font-size: 12px;';
           loadingIndicator.textContent = '加载中...';
           wrapper.appendChild(loadingIndicator);
         }

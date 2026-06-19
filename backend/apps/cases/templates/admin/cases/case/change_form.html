@@ -18,22 +18,22 @@
 #case_numbers-group > .djn-fieldset.module > h2 {
     /* 与其他 Django inline 标题栏保持一致 */
 }
-#case_numbers-group .djn-items { width: 100% !important; padding: 6px 0 !important; background: #f7f9fc; box-sizing: border-box; }
+#case_numbers-group .djn-items { width: 100% !important; padding: 6px 0 !important; background: var(--fc-bg-muted); box-sizing: border-box; }
 
 /* ── 卡片 ── */
 #case_numbers-group .inline-related {
     width: 100% !important;
     box-sizing: border-box !important;
-    border: 1px solid #e2e4e8;
+    border: 1px solid var(--fc-border);
     border-radius: 6px;
-    background: #fff;
+    background: var(--fc-bg-card);
     margin: 0 0 6px 0 !important;
     padding: 10px 12px 8px;
     box-shadow: 0 1px 2px rgba(15, 23, 42, 0.03);
 }
 #case_numbers-group .inline-related > h3 {
     margin: 0 0 6px 0; padding: 4px 8px; border-radius: 3px;
-    background: #f3f5f8; color: #374151; font-size: 12px; font-weight: 600; border: none;
+    background: var(--fc-bg-muted-light); color: var(--fc-text-secondary); font-size: 12px; font-weight: 600; border: none;
 }
 #case_numbers-group .inline-related fieldset.module { border: 0; margin: 0 0 4px 0; padding: 0; }
 #case_numbers-group .inline-related fieldset.module:last-child { margin-bottom: 0; }
@@ -54,7 +54,7 @@
 /* ── 字段标签与输入框 ── */
 #case_numbers-group label {
     font-size: 12px !important; font-weight: 500 !important;
-    color: #6b7280 !important; float: none !important;
+    color: var(--fc-text-muted) !important; float: none !important;
     padding: 0 !important; white-space: nowrap !important;
     margin: 0;
 }
@@ -63,12 +63,12 @@
 #case_numbers-group select,
 #case_numbers-group .vDateField {
     font-size: 13px; padding: 4px 8px !important;
-    border: 1px solid #d1d5db !important; border-radius: 4px !important;
+    border: 1px solid var(--fc-border-input) !important; border-radius: 4px !important;
     min-height: 30px; box-sizing: border-box;
 }
 #case_numbers-group input[type='text']:focus,
 #case_numbers-group select:focus {
-    border-color: #2563eb !important;
+    border-color: var(--fc-primary) !important;
     box-shadow: 0 0 0 2px rgba(37,99,235,0.1) !important;
     outline: none !important;
 }
@@ -139,7 +139,7 @@
 #case_numbers-group .form-row.field-execution_manual_text .help { display: none !important; }
 #case_numbers-group .form-row textarea {
     width: 100% !important; max-width: 100%; min-height: 52px;
-    border: 1px solid #e2e4e8 !important; border-radius: 4px;
+    border: 1px solid var(--fc-border) !important; border-radius: 4px;
     padding: 6px 8px; font-size: 13px; line-height: 1.5; resize: vertical;
 }
 #case_numbers-group .form-row > .flex-container:not(.form-multiline) {
@@ -149,7 +149,7 @@
 /* ── 执行参数区 ── */
 #case_numbers-group .case-number-execution-fieldset {
     margin-top: 2px; padding-top: 4px;
-    border-top: 1px solid #f0f1f3 !important;
+    border-top: 1px solid var(--fc-border) !important;
 }
 #case_numbers-group .case-number-execution-fieldset.is-hidden-by-stage { display: none !important; }
 .case-number-execution-controls {
@@ -157,22 +157,22 @@
 }
 .parse-execution-llm-label {
     display: inline-flex; align-items: center; gap: 6px;
-    color: #6b7280; font-size: 11.5px; user-select: none; cursor: pointer;
+    color: var(--fc-text-muted); font-size: 11.5px; user-select: none; cursor: pointer;
 }
 .parse-execution-llm-label input[type='checkbox'] { position: absolute; opacity: 0; width: 0; height: 0; }
 .parse-execution-switch-track {
     display: inline-block; position: relative; width: 28px; height: 16px;
-    background: #d1d5db; border-radius: 999px; transition: background-color 0.2s ease;
+    background: var(--fc-border-input); border-radius: 999px; transition: background-color 0.2s ease;
 }
 .parse-execution-switch-track::after {
     content: ""; position: absolute; top: 2px; left: 2px; width: 12px; height: 12px;
-    border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(15,23,42,0.2);
+    border-radius: 50%; background: var(--fc-bg-card); box-shadow: 0 1px 2px rgba(15,23,42,0.2);
     transition: transform 0.2s ease;
 }
 .parse-execution-llm-toggle:checked + .parse-execution-switch-track { background: #2f9962; }
 .parse-execution-llm-toggle:checked + .parse-execution-switch-track::after { transform: translateX(12px); }
 .parse-execution-llm-toggle:disabled + .parse-execution-switch-track { opacity: 0.5; }
-.parse-execution-llm-text { color: #6b7280; white-space: nowrap; }
+.parse-execution-llm-text { color: var(--fc-text-muted); white-space: nowrap; }
 
 /* ── 按钮 ── */
 #case_numbers-group .parse-document-btn,
@@ -184,31 +184,31 @@
     cursor: pointer; font-size: 12px; font-weight: 500;
     white-space: nowrap; user-select: none; transition: all 0.15s ease;
 }
-#case_numbers-group .parse-document-btn { color: #fff; background: #2563eb; }
-#case_numbers-group .parse-document-btn:hover { background: #1d4ed8; }
-#case_numbers-group .parse-document-btn:disabled { background: #e5e7eb; color: #9ca3af; cursor: not-allowed; }
-#case_numbers-group .parse-execution-btn { color: #fff; background: #059669; }
+#case_numbers-group .parse-document-btn { color: var(--fc-text-on-primary); background: var(--fc-primary); }
+#case_numbers-group .parse-document-btn:hover { background: var(--fc-primary-dark); }
+#case_numbers-group .parse-document-btn:disabled { background: var(--fc-border); color: var(--fc-text-disabled); cursor: not-allowed; }
+#case_numbers-group .parse-execution-btn { color: var(--fc-text-on-primary); background: #059669; }
 #case_numbers-group .parse-execution-btn:hover { background: #047857; }
-#case_numbers-group .parse-execution-btn:disabled { background: #e5e7eb; color: #9ca3af; cursor: not-allowed; }
-#case_numbers-group .open-folder-btn { color: #374151; background: #f9fafb; border: 1px solid #d1d5db; }
-#case_numbers-group .open-folder-btn:hover { background: #f3f4f6; border-color: #9ca3af; }
-#case_numbers-group .open-folder-btn:disabled { color: #d1d5db; border-color: #e5e7eb; cursor: not-allowed; }
+#case_numbers-group .parse-execution-btn:disabled { background: var(--fc-border); color: var(--fc-text-disabled); cursor: not-allowed; }
+#case_numbers-group .open-folder-btn { color: var(--fc-text-primary); background: var(--fc-bg-muted-light); border: 1px solid var(--fc-border-input); }
+#case_numbers-group .open-folder-btn:hover { background: var(--fc-bg-muted); border-color: var(--fc-text-disabled); }
+#case_numbers-group .open-folder-btn:disabled { color: var(--fc-border-input); border-color: var(--fc-border); cursor: not-allowed; }
 
 /* ── 拖拽上传 ── */
 .cn-dropzone {
-    border: 1.5px dashed #d1d5db; border-radius: 6px; padding: 5px 12px;
-    cursor: pointer; transition: all 0.2s ease; background: #fafbfc;
+    border: 1.5px dashed var(--fc-border-input); border-radius: 6px; padding: 5px 12px;
+    cursor: pointer; transition: all 0.2s ease; background: var(--fc-bg-muted-light);
     display: inline-flex; align-items: center; gap: 6px; min-height: 30px; box-sizing: border-box;
 }
-.cn-dropzone:hover { border-color: #2563eb; background: #eef4fa; }
-.cn-dropzone.cn-dropzone-active { border-color: #2563eb; background: #e0edf9; box-shadow: 0 0 0 3px rgba(37,99,235,0.1); }
+.cn-dropzone:hover { border-color: var(--fc-primary); background: var(--fc-primary-subtle); }
+.cn-dropzone.cn-dropzone-active { border-color: var(--fc-primary); background: var(--fc-primary-subtle); box-shadow: 0 0 0 3px rgba(37,99,235,0.1); }
 .cn-dropzone-inner { display: inline-flex; align-items: center; gap: 6px; pointer-events: none; white-space: nowrap; }
-.cn-dropzone-icon { width: 14px; height: 14px; color: #9ca3af; }
-.cn-dropzone:hover .cn-dropzone-icon { color: #2563eb; }
-.cn-dropzone-text { font-size: 12px; color: #6b7280; font-weight: 500; }
+.cn-dropzone-icon { width: 14px; height: 14px; color: var(--fc-text-disabled); }
+.cn-dropzone:hover .cn-dropzone-icon { color: var(--fc-primary); }
+.cn-dropzone-text { font-size: 12px; color: var(--fc-text-muted); font-weight: 500; }
 .cn-dropzone-text-uploaded { color: #059669; font-weight: 600; }
-.cn-dropzone-current { display: inline-block; margin-left: 6px; padding-left: 6px; border-left: 1px solid #e5e7eb; font-size: 11.5px; color: #6b7280; white-space: nowrap; }
-.cn-dropzone-current a { color: #2563eb; text-decoration: underline; }
+.cn-dropzone-current { display: inline-block; margin-left: 6px; padding-left: 6px; border-left: 1px solid var(--fc-border); font-size: 11.5px; color: var(--fc-text-muted); white-space: nowrap; }
+.cn-dropzone-current a { color: var(--fc-primary); text-decoration: underline; }
 
 /* ── 响应式 ── */
 @media (max-width: 1280px) {
@@ -220,7 +220,7 @@
 /* ── 其他 ── */
 #case_numbers-group .inline-related h3 .inline-deletelink { border: none !important; }
 .toast-container { position: fixed; top: 20px; right: 20px; z-index: 10000; }
-.toast { background: #333; color: white; padding: 12px 20px; border-radius: 4px; margin-bottom: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); opacity: 0; transform: translateX(100%); transition: all 0.3s ease; max-width: 350px; }
+.toast { background: var(--fc-text-secondary); color: var(--fc-text-on-primary); padding: 12px 20px; border-radius: 4px; margin-bottom: 10px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); opacity: 0; transform: translateX(100%); transition: all 0.3s ease; max-width: 350px; }
 .toast.show { opacity: 1; transform: translateX(0); }
 .toast.success { background: #28a745; }
 .toast.error { background: #dc3545; }

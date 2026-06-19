@@ -46,9 +46,9 @@ window.CONTRACTS_I18N = Object.assign(window.CONTRACTS_I18N || {}, {
 /* 统一自定义按钮样式 */
 .submit-row input[name="_save_and_duplicate"],
 .submit-row input[name="_save_and_create_case"] {
-    background: #f3f4f6;
-    color: #374151;
-    border: 1px solid #d1d5db;
+    background: var(--fc-bg-muted-light);
+    color: var(--fc-text-secondary);
+    border: 1px solid var(--fc-border-input);
     border-radius: 4px;
     padding: 6px 15px;
     font-size: 13px;
@@ -58,8 +58,8 @@ window.CONTRACTS_I18N = Object.assign(window.CONTRACTS_I18N || {}, {
 }
 .submit-row input[name="_save_and_duplicate"]:hover,
 .submit-row input[name="_save_and_create_case"]:hover {
-    background: #e5e7eb;
-    border-color: #9ca3af;
+    background: var(--fc-bg-muted);
+    border-color: var(--fc-text-disabled);
 }
 .submit-row input[name="_save_and_create_case"]:disabled {
     opacity: 0.5;

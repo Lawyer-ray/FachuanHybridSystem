@@ -7,81 +7,81 @@
 {{ block.super }}
 <style>
     .es-container { max-width: 1400px; margin: 20px auto; padding: 20px; }
-    .es-card { background: #fff; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); padding: 24px; margin-bottom: 20px; }
-    .es-title { font-size: 24px; font-weight: 600; color: #1a1a1a; margin-bottom: 8px; }
-    .es-subtitle { color: #666; margin: 0 0 20px; }
+    .es-card { background: var(--fc-bg-card); border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); padding: 24px; margin-bottom: 20px; }
+    .es-title { font-size: 24px; font-weight: 600; color: var(--fc-text-heading); margin-bottom: 8px; }
+    .es-subtitle { color: var(--fc-text-muted); margin: 0 0 20px; }
 
     /* 步骤指示器 */
     .steps { display: flex; gap: 8px; margin-bottom: 24px; }
-    .step { padding: 8px 16px; border-radius: 20px; font-size: 13px; background: #f3f4f6; color: #6b7280; cursor: pointer; }
-    .step.active { background: #417690; color: #fff; }
-    .step.done { background: #dcfce7; color: #166534; }
+    .step { padding: 8px 16px; border-radius: 20px; font-size: 13px; background: var(--fc-bg-muted-light); color: var(--fc-text-muted); cursor: pointer; }
+    .step.active { background: var(--fc-admin-blue); color: var(--fc-text-on-primary); }
+    .step.done { background: var(--fc-success-bg); color: var(--fc-success-text); }
 
     /* 上传区域 */
-    .upload-box { border: 2px dashed #d1d5db; border-radius: 8px; padding: 60px 20px; text-align: center; cursor: pointer; background: #fafafa; transition: all 0.2s; }
-    .upload-box:hover, .upload-box.dragover { border-color: #417690; background: #f0f7fa; }
+    .upload-box { border: 2px dashed var(--fc-border-input); border-radius: 8px; padding: 60px 20px; text-align: center; cursor: pointer; background: var(--fc-bg-muted-light); transition: all 0.2s; }
+    .upload-box:hover, .upload-box.dragover { border-color: var(--fc-admin-blue); background: var(--fc-bg-muted); }
     .upload-box-icon { font-size: 48px; margin-bottom: 12px; }
-    .upload-box-title { font-weight: 600; color: #333; margin-bottom: 8px; }
-    .upload-box-hint { font-size: 13px; color: #9ca3af; }
+    .upload-box-title { font-weight: 600; color: var(--fc-text-secondary); margin-bottom: 8px; }
+    .upload-box-hint { font-size: 13px; color: var(--fc-text-disabled); }
 
     /* 分类结果 */
     .category-section { margin-bottom: 20px; }
-    .category-header { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; background: #f8f9fa; border-radius: 8px; margin-bottom: 12px; cursor: pointer; }
+    .category-header { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; background: var(--fc-bg-muted); border-radius: 8px; margin-bottom: 12px; cursor: pointer; }
     .category-title { font-weight: 600; font-size: 15px; }
-    .category-count { background: #e5e7eb; padding: 2px 10px; border-radius: 10px; font-size: 12px; }
-    .category-count.statement { background: #dbeafe; color: #1e40af; }
-    .category-count.delivery { background: #dcfce7; color: #166534; }
-    .category-count.receipt { background: #fef3c7; color: #92400e; }
+    .category-count { background: var(--fc-border); padding: 2px 10px; border-radius: 10px; font-size: 12px; }
+    .category-count.statement { background: var(--fc-info-bg); color: #1e40af; }
+    .category-count.delivery { background: var(--fc-success-bg); color: var(--fc-success-text); }
+    .category-count.receipt { background: var(--fc-warning-bg); color: var(--fc-warning-text); }
 
     /* 图片网格 */
     .img-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; }
-    .img-card { background: #f8f9fa; border-radius: 6px; padding: 8px; position: relative; border: 2px solid transparent; cursor: grab; }
-    .img-card:hover { border-color: #417690; }
+    .img-card { background: var(--fc-bg-muted); border-radius: 6px; padding: 8px; position: relative; border: 2px solid transparent; cursor: grab; }
+    .img-card:hover { border-color: var(--fc-admin-blue); }
     .img-card.dragging { opacity: 0.5; }
-    .img-thumb { width: 100%; aspect-ratio: 1; background: #e5e7eb; border-radius: 4px; overflow: hidden; display: flex; align-items: center; justify-content: center; }
+    .img-thumb { width: 100%; aspect-ratio: 1; background: var(--fc-border); border-radius: 4px; overflow: hidden; display: flex; align-items: center; justify-content: center; }
     .img-thumb img { max-width: 100%; max-height: 100%; object-fit: contain; }
-    .img-name { font-size: 11px; color: #333; margin-top: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .img-meta { font-size: 10px; color: #9ca3af; margin-top: 2px; }
+    .img-name { font-size: 11px; color: var(--fc-text-secondary); margin-top: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .img-meta { font-size: 10px; color: var(--fc-text-disabled); margin-top: 2px; }
     .img-badge { position: absolute; top: 4px; right: 4px; padding: 1px 6px; border-radius: 8px; font-size: 10px; font-weight: 500; }
-    .img-badge.signed { background: #dcfce7; color: #166534; }
-    .img-badge.unsigned { background: #fef2f2; color: #dc2626; }
+    .img-badge.signed { background: var(--fc-success-bg); color: var(--fc-success-text); }
+    .img-badge.unsigned { background: var(--fc-error-bg); color: #dc2626; }
 
     /* 比对结果 */
-    .month-group { border: 1px solid #e5e7eb; border-radius: 8px; margin-bottom: 16px; overflow: hidden; }
-    .month-header { padding: 12px 16px; background: #f8f9fa; display: flex; justify-content: space-between; align-items: center; }
+    .month-group { border: 1px solid var(--fc-border); border-radius: 8px; margin-bottom: 16px; overflow: hidden; }
+    .month-header { padding: 12px 16px; background: var(--fc-bg-muted); display: flex; justify-content: space-between; align-items: center; }
     .month-title { font-weight: 600; }
     .month-status { font-size: 12px; padding: 2px 10px; border-radius: 10px; }
-    .month-status.ok { background: #dcfce7; color: #166534; }
-    .month-status.warn { background: #fef3c7; color: #92400e; }
-    .month-status.error { background: #fef2f2; color: #dc2626; }
+    .month-status.ok { background: var(--fc-success-bg); color: var(--fc-success-text); }
+    .month-status.warn { background: var(--fc-warning-bg); color: var(--fc-warning-text); }
+    .month-status.error { background: var(--fc-error-bg); color: #dc2626; }
     .month-body { padding: 12px 16px; }
-    .match-item { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid #f3f4f6; font-size: 13px; }
+    .match-item { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--fc-bg-muted-light); font-size: 13px; }
     .match-icon { width: 20px; text-align: center; }
     .match-icon.ok { color: #16a34a; }
     .match-icon.warn { color: #d97706; }
     .match-icon.error { color: #dc2626; }
 
     /* LLM 选择器 */
-    .llm-selector { display: flex; gap: 12px; align-items: center; margin-bottom: 16px; padding: 12px 16px; background: #f8f9fa; border-radius: 8px; }
+    .llm-selector { display: flex; gap: 12px; align-items: center; margin-bottom: 16px; padding: 12px 16px; background: var(--fc-bg-muted); border-radius: 8px; }
     .llm-selector label { font-size: 13px; font-weight: 500; }
-    .llm-selector select { padding: 6px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 13px; }
+    .llm-selector select { padding: 6px 12px; border: 1px solid var(--fc-border-input); border-radius: 6px; font-size: 13px; }
 
     /* 按钮 */
     .btn { padding: 10px 24px; border: none; border-radius: 6px; font-size: 14px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; }
-    .btn-primary { background: #417690; color: #fff; }
-    .btn-primary:hover { background: #365f73; }
-    .btn-primary:disabled { background: #9ca3af; cursor: not-allowed; }
+    .btn-primary { background: var(--fc-admin-blue); color: var(--fc-text-on-primary); }
+    .btn-primary:hover { background: var(--fc-admin-blue-hover); }
+    .btn-primary:disabled { background: var(--fc-text-disabled); cursor: not-allowed; }
     .btn-success { background: #16a34a; color: #fff; }
     .btn-success:hover { background: #15803d; }
-    .btn-outline { background: #fff; color: #417690; border: 1px solid #417690; }
-    .btn-outline:hover { background: #f0f7fa; }
+    .btn-outline { background: var(--fc-bg-card); color: var(--fc-admin-blue); border: 1px solid var(--fc-admin-blue); }
+    .btn-outline:hover { background: var(--fc-bg-muted); }
 
     /* 进度条 */
-    .progress-bar { height: 4px; background: #e5e7eb; border-radius: 2px; overflow: hidden; margin: 12px 0; }
-    .progress-fill { height: 100%; background: #417690; transition: width 0.3s; }
+    .progress-bar { height: 4px; background: var(--fc-border); border-radius: 2px; overflow: hidden; margin: 12px 0; }
+    .progress-fill { height: 100%; background: var(--fc-admin-blue); transition: width 0.3s; }
 
     /* 拖拽目标高亮 */
-    .drop-target { border: 2px dashed #417690 !important; background: #f0f7fa !important; }
+    .drop-target { border: 2px dashed var(--fc-admin-blue) !important; background: var(--fc-bg-muted) !important; }
 
     .actions-bar { display: flex; gap: 12px; justify-content: flex-end; margin-top: 20px; }
 </style>
@@ -118,7 +118,7 @@
 
         <template x-if="rawImages.length > 0">
             <div style="margin-top: 20px;">
-                <p style="color: #666; font-size: 14px;">已选择 <strong x-text="rawImages.length"></strong> 张图片</p>
+                <p style="color: var(--fc-text-muted); font-size: 14px;">已选择 <strong x-text="rawImages.length"></strong> 张图片</p>
                 <div class="actions-bar">
                     <button class="btn btn-outline" @click="rawImages = []">清空</button>
                     <button class="btn btn-primary" @click="startClassify()" :disabled="classifying">
@@ -137,7 +137,7 @@
 
     <!-- Step 2: 分类结果 -->
     <div class="es-card" x-show="step === 2">
-        <h3 style="margin-bottom: 16px;">分类结果 <span style="font-size: 13px; color: #666;">（可拖拽图片到其他分类）</span></h3>
+        <h3 style="margin-bottom: 16px;">分类结果 <span style="font-size: 13px; color: var(--fc-text-muted);">（可拖拽图片到其他分类）</span></h3>
 
         <!-- LLM 选择器 -->
         <div class="llm-selector">
@@ -260,7 +260,7 @@
         </template>
 
         <!-- 汇总 -->
-        <div style="margin-top: 16px; padding: 12px 16px; background: #f8f9fa; border-radius: 8px; font-size: 13px; color: #666;">
+        <div style="margin-top: 16px; padding: 12px 16px; background: var(--fc-bg-muted); border-radius: 8px; font-size: 13px; color: var(--fc-text-muted);">
             未签名对账单: <strong x-text="reconcileResult.unsigned_statements ? reconcileResult.unsigned_statements.length : 0"></strong> 张 |
             收款凭证: <strong x-text="reconcileResult.receipts_count || 0"></strong> 张 |
             其他文件: <strong x-text="reconcileResult.others_count || 0"></strong> 张
@@ -280,7 +280,7 @@
         <div style="text-align: center; padding: 40px;">
             <div style="font-size: 48px; margin-bottom: 16px;">✅</div>
             <h3>导出完成</h3>
-            <p style="color: #666; margin: 12px 0;">文件已整理完毕，点击下载</p>
+            <p style="color: var(--fc-text-muted); margin: 12px 0;">文件已整理完毕，点击下载</p>
             <a :href="exportUrl" class="btn btn-success" download>📥 下载 ZIP</a>
             <div style="margin-top: 20px;">
                 <button class="btn btn-outline" @click="reset()">开始新的整理</button>
@@ -290,9 +290,9 @@
 
     <!-- 错误提示 -->
     <template x-if="errorMsg">
-        <div style="position: fixed; bottom: 20px; right: 20px; background: #fef2f2; color: #dc2626; padding: 12px 20px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 9999; max-width: 400px;">
+        <div style="position: fixed; bottom: 20px; right: 20px; background: var(--fc-error-bg); color: var(--fc-error-text); padding: 12px 20px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 9999; max-width: 400px;">
             <span x-text="errorMsg"></span>
-            <button @click="errorMsg = ''" style="margin-left: 12px; background: none; border: none; color: #dc2626; cursor: pointer; font-weight: bold;">✕</button>
+            <button @click="errorMsg = ''" style="margin-left: 12px; background: none; border: none; color: var(--fc-error-text); cursor: pointer; font-weight: bold;">✕</button>
         </div>
     </template>
 </div>

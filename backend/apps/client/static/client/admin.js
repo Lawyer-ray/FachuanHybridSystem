@@ -48,7 +48,7 @@
         if ($idNumberField.length === 0) return;
 
         // 创建校验按钮容器（初始隐藏）
-        var $validateBtn = $('<button type="button" id="id-card-validate-btn" style="display:none; margin-left: 8px; padding: 6px 12px; background: #417690; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; vertical-align: middle;">校验</button>');
+        var $validateBtn = $('<button type="button" id="id-card-validate-btn" style="display:none; margin-left: 8px; padding: 6px 12px; background: var(--fc-admin-blue); color: var(--fc-text-on-primary); border: none; border-radius: 4px; cursor: pointer; font-size: 13px; vertical-align: middle;">校验</button>');
         var $validateResult = $('<span id="id-card-validate-result" style="margin-left: 8px; font-size: 13px;"></span>');
 
         $idNumberField.after($validateResult).after($validateBtn);
@@ -124,7 +124,7 @@
      * 显示校验结果
      */
     function showValidateResult($element, isValid, message) {
-        var color = isValid ? '#4caf50' : '#f44336';
+        var color = isValid ? 'var(--fc-toast-success)' : 'var(--fc-error-text)';
         var icon = isValid ? '✓' : '✗';
         $element.html('<span style="color: ' + color + ';">' + icon + ' ' + message + '</span>');
     }
@@ -135,7 +135,7 @@
     function showSuccessMessage(message) {
         var $message = $('<div class="success-message" style="' +
             'position: fixed; top: 20px; right: 20px; ' +
-            'background: #4caf50; color: white; padding: 15px 20px; ' +
+            'background: var(--fc-toast-success); color: var(--fc-text-on-primary); padding: 15px 20px; ' +
             'border-radius: 4px; z-index: 10001; ' +
             'box-shadow: 0 2px 4px rgba(0,0,0,0.2);' +
             '">' + message + '</div>');

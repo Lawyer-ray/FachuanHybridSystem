@@ -8,21 +8,21 @@
 <style>
 .dc-container { max-width: 860px; margin: 0 auto; padding: 20px; }
 .dc-intro {
-    color: #555; margin-bottom: 24px; font-size: 14px; line-height: 1.6;
+    color: var(--fc-text-muted); margin-bottom: 24px; font-size: 14px; line-height: 1.6;
     background: linear-gradient(135deg, #f0f7ff, #e8f4f8);
-    padding: 14px 18px; border-radius: 10px; border-left: 4px solid #417690;
+    padding: 14px 18px; border-radius: 10px; border-left: 4px solid var(--fc-admin-blue);
 }
 
 /* 文书类型选择 - 搜索下拉 */
 .dc-select-row { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 20px; flex-wrap: nowrap; }
-.dc-select-row label { font-weight: 600; color: #2c3e50; white-space: nowrap; line-height: 40px; flex-shrink: 0; }
+.dc-select-row label { font-weight: 600; color: var(--fc-text-secondary); white-space: nowrap; line-height: 40px; flex-shrink: 0; }
 .dc-combobox { position: relative; flex: 1; min-width: 0; }
 .dc-combobox-input {
-    width: 100%; padding: 9px 36px 9px 12px; border: 1px solid #d0dbe5; border-radius: 8px;
-    font-size: 14px; background: white; height: 40px; box-sizing: border-box;
+    width: 100%; padding: 9px 36px 9px 12px; border: 1px solid var(--fc-border-input); border-radius: 8px;
+    font-size: 14px; background: var(--fc-bg-card); height: 40px; box-sizing: border-box;
     transition: border-color 0.2s;
 }
-.dc-combobox-input:focus { border-color: #417690; outline: none; }
+.dc-combobox-input:focus { border-color: var(--fc-admin-blue); outline: none; }
 .dc-combobox-input::placeholder { color: #aaa; }
 .dc-combobox-arrow {
     position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
@@ -31,17 +31,17 @@
 .dc-combobox.open .dc-combobox-arrow { transform: translateY(-50%) rotate(180deg); }
 .dc-combobox-dropdown {
     position: absolute; top: calc(100% + 4px); left: 0; right: 0;
-    background: #fff; border: 1px solid #d0dbe5; border-radius: 10px;
+    background: var(--fc-bg-card); border: 1px solid var(--fc-border-input); border-radius: 10px;
     box-shadow: 0 8px 24px rgba(0,0,0,0.12); max-height: 280px; overflow-y: auto;
     z-index: 1000; display: none; padding: 4px 0;
 }
 .dc-combobox.open .dc-combobox-dropdown { display: block; }
 .dc-combobox-group-label {
-    padding: 8px 14px 4px; font-size: 12px; font-weight: 700; color: #417690;
+    padding: 8px 14px 4px; font-size: 12px; font-weight: 700; color: var(--fc-admin-blue);
     text-transform: uppercase; letter-spacing: 0.5px; user-select: none;
 }
 .dc-combobox-option {
-    padding: 8px 14px; font-size: 14px; color: #2c3e50; cursor: pointer;
+    padding: 8px 14px; font-size: 14px; color: var(--fc-text-secondary); cursor: pointer;
     transition: background 0.15s;
 }
 .dc-combobox-option:hover, .dc-combobox-option.highlighted { background: #e8f4f8; }
@@ -62,15 +62,15 @@
     align-items: center; justify-content: center;
 }
 .dc-upload-zone:hover, .dc-upload-zone.dragging {
-    border-color: #417690; background: #e3f2fd; transform: scale(1.01);
+    border-color: var(--fc-admin-blue); background: #e3f2fd; transform: scale(1.01);
 }
-.dc-upload-zone svg { width: 64px; height: 64px; color: #417690; margin-bottom: 16px; opacity: 0.8; }
-.dc-upload-zone h3 { margin: 0 0 8px; color: #2c3e50; font-size: 18px; font-weight: 600; }
+.dc-upload-zone svg { width: 64px; height: 64px; color: var(--fc-admin-blue); margin-bottom: 16px; opacity: 0.8; }
+.dc-upload-zone h3 { margin: 0 0 8px; color: var(--fc-text-secondary); font-size: 18px; font-weight: 600; }
 .dc-upload-zone p { margin: 0 0 18px; color: #7f8c8d; font-size: 13px; }
 .dc-upload-btn {
     display: inline-block; padding: 12px 24px;
-    background: linear-gradient(135deg, #417690, #2c5f7c);
-    color: white; border-radius: 10px; cursor: pointer; font-weight: 500;
+    background: linear-gradient(135deg, var(--fc-admin-blue), #2c5f7c);
+    color: var(--fc-text-on-primary); border-radius: 10px; cursor: pointer; font-weight: 500;
     box-shadow: 0 4px 12px rgba(65,118,144,0.3); transition: all 0.3s;
 }
 .dc-upload-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(65,118,144,0.4); }
@@ -79,28 +79,28 @@
 /* 加载 */
 .dc-loading { text-align: center; padding: 70px 20px; }
 .dc-spinner {
-    width: 52px; height: 52px; border: 5px solid #e9ecef; border-top-color: #417690;
+    width: 52px; height: 52px; border: 5px solid #e9ecef; border-top-color: var(--fc-admin-blue);
     border-radius: 50%; animation: dc-spin 0.8s linear infinite; margin: 0 auto 18px;
 }
 @keyframes dc-spin { to { transform: rotate(360deg); } }
-.dc-loading p { color: #555; font-size: 15px; }
+.dc-loading p { color: var(--fc-text-muted); font-size: 15px; }
 
 /* 结果 */
 .dc-result {
-    background: #fff; border-radius: 16px;
+    background: var(--fc-bg-card); border-radius: 16px;
     box-shadow: 0 4px 20px rgba(0,0,0,0.08); overflow: hidden;
 }
 .dc-result-header {
-    font-size: 17px; font-weight: 600; color: white; padding: 16px 22px;
-    background: linear-gradient(135deg, #417690, #2c5f7c);
+    font-size: 17px; font-weight: 600; color: var(--fc-text-on-primary); padding: 16px 22px;
+    background: linear-gradient(135deg, var(--fc-admin-blue), #2c5f7c);
     display: flex; align-items: center; gap: 8px;
 }
 .dc-result-body { padding: 22px; }
 .dc-info-row { display: flex; padding: 10px 0; border-bottom: 1px solid #f0f3f5; font-size: 14px; }
 .dc-info-row:last-child { border-bottom: none; }
-.dc-info-label { width: 110px; font-weight: 600; color: #5a6c7d; flex-shrink: 0; }
-.dc-info-value { flex: 1; color: #2c3e50; }
-.dc-actions { display: flex; gap: 12px; padding: 18px 22px; background: #f8fafc; border-top: 1px solid #e8eef3; align-items: center; }
+.dc-info-label { width: 110px; font-weight: 600; color: var(--fc-text-muted); flex-shrink: 0; }
+.dc-info-value { flex: 1; color: var(--fc-text-secondary); }
+.dc-actions { display: flex; gap: 12px; padding: 18px 22px; background: var(--fc-bg-muted); border-top: 1px solid var(--fc-border); align-items: center; }
 .dc-btn {
     padding: 10px 22px; border-radius: 8px; cursor: pointer; font-size: 14px;
     border: none; font-weight: 500; transition: all 0.2s; line-height: 1.4;
@@ -108,15 +108,15 @@
 }
 .dc-btn:active { transform: scale(0.97); }
 .dc-btn-primary {
-    background: #417690; color: white;
+    background: var(--fc-admin-blue); color: var(--fc-text-on-primary);
     box-shadow: 0 2px 6px rgba(65,118,144,0.35);
 }
 .dc-btn-primary:hover { background: #2c5f7c; box-shadow: 0 4px 10px rgba(65,118,144,0.4); }
 .dc-btn-secondary {
-    background: #fff; border: 1.5px solid #c5d5de; color: #4a6070;
+    background: var(--fc-bg-card); border: 1.5px solid #c5d5de; color: #4a6070;
     box-shadow: 0 1px 3px rgba(0,0,0,0.06);
 }
-.dc-btn-secondary:hover { border-color: #417690; color: #417690; background: #f4f9fc; }
+.dc-btn-secondary:hover { border-color: var(--fc-admin-blue); color: var(--fc-admin-blue); background: #f4f9fc; }
 .dc-btn-download {
     background: #2e7d32; color: #fff !important;
     text-decoration: none !important;

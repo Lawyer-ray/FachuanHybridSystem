@@ -7,50 +7,50 @@
 {{ block.super }}
 <style>
     .merge-container { max-width: 1100px; margin: 20px auto; padding: 20px; }
-    .merge-card { background: #fff; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); padding: 24px; margin-bottom: 20px; }
+    .merge-card { background: var(--fc-bg-card); border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); padding: 24px; margin-bottom: 20px; }
     .merge-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24px; }
-    .merge-title { font-size: 24px; font-weight: 600; color: #1a1a1a; margin-bottom: 8px; }
-    .merge-subtitle { color: #666; margin: 0; }
-    .back-link { display: inline-flex; align-items: center; gap: 6px; color: #417690; text-decoration: none; font-size: 14px; padding: 8px 12px; border-radius: 6px; background: #f0f7fa; }
+    .merge-title { font-size: 24px; font-weight: 600; color: var(--fc-text-heading); margin-bottom: 8px; }
+    .merge-subtitle { color: var(--fc-text-muted); margin: 0; }
+    .back-link { display: inline-flex; align-items: center; gap: 6px; color: var(--fc-admin-blue); text-decoration: none; font-size: 14px; padding: 8px 12px; border-radius: 6px; background: #f0f7fa; }
     .back-link:hover { background: #e0eff5; }
 
     .steps { display: flex; gap: 8px; margin-bottom: 24px; }
-    .step { display: flex; align-items: center; gap: 8px; padding: 8px 16px; border-radius: 20px; font-size: 14px; background: #f5f5f5; color: #666; }
-    .step.active { background: #417690; color: #fff; }
-    .step.done { background: #059669; color: #fff; }
+    .step { display: flex; align-items: center; gap: 8px; padding: 8px 16px; border-radius: 20px; font-size: 14px; background: var(--fc-bg-muted-light); color: var(--fc-text-muted); }
+    .step.active { background: var(--fc-admin-blue); color: var(--fc-text-on-primary); }
+    .step.done { background: #059669; color: var(--fc-text-on-primary); }
     .step-num { width: 24px; height: 24px; border-radius: 50%; background: rgba(255,255,255,0.3); display: flex; align-items: center; justify-content: center; font-weight: 600; }
 
     .upload-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-    .upload-box { border: 2px dashed #d1d5db; border-radius: 8px; padding: 40px 20px; text-align: center; cursor: pointer; background: #fafafa; min-height: 200px; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: all 0.2s; }
-    .upload-box:hover, .upload-box.dragover { border-color: #417690; background: #f0f7fa; }
-    .upload-box.has-file { border-color: #059669; background: #f0fdf4; border-style: solid; }
+    .upload-box { border: 2px dashed var(--fc-border-input); border-radius: 8px; padding: 40px 20px; text-align: center; cursor: pointer; background: var(--fc-bg-muted-light); min-height: 200px; display: flex; flex-direction: column; align-items: center; justify-content: center; transition: all 0.2s; }
+    .upload-box:hover, .upload-box.dragover { border-color: var(--fc-admin-blue); background: #f0f7fa; }
+    .upload-box.has-file { border-color: #059669; background: var(--fc-success-bg); border-style: solid; }
     .upload-box-icon { font-size: 48px; margin-bottom: 12px; }
-    .upload-box-title { font-weight: 600; color: #333; margin-bottom: 6px; }
-    .upload-box-hint { font-size: 12px; color: #9ca3af; }
+    .upload-box-title { font-weight: 600; color: var(--fc-text-secondary); margin-bottom: 6px; }
+    .upload-box-hint { font-size: 12px; color: var(--fc-text-disabled); }
 
     .editor-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
-    .editor-box { background: #f8f9fa; border-radius: 8px; padding: 16px; }
-    .editor-label { font-weight: 600; color: #333; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; }
+    .editor-box { background: var(--fc-bg-muted); border-radius: 8px; padding: 16px; }
+    .editor-label { font-weight: 600; color: var(--fc-text-secondary); margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; }
     .editor-canvas-wrap { position: relative; background: #1a1a1a; border-radius: 6px; overflow: hidden; }
     .editor-canvas { display: block; max-width: 100%; }
     .editor-tools { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
-    .tool-btn { padding: 8px 12px; border: 1px solid #ddd; border-radius: 6px; background: #fff; cursor: pointer; font-size: 13px; display: flex; align-items: center; gap: 6px; }
-    .tool-btn:hover { background: #f5f5f5; }
-    .tool-btn.active { background: #417690; color: #fff; border-color: #417690; }
+    .tool-btn { padding: 8px 12px; border: 1px solid var(--fc-border); border-radius: 6px; background: var(--fc-bg-card); cursor: pointer; font-size: 13px; display: flex; align-items: center; gap: 6px; }
+    .tool-btn:hover { background: var(--fc-bg-muted-light); }
+    .tool-btn.active { background: var(--fc-admin-blue); color: var(--fc-text-on-primary); border-color: var(--fc-admin-blue); }
     .tool-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
     /* 按钮样式 - 使用 !important 覆盖 Django Admin 默认样式 */
     .merge-container .btn-primary {
-        background: #417690 !important; color: #fff !important; border: none !important;
+        background: var(--fc-admin-blue) !important; color: var(--fc-text-on-primary) !important; border: none !important;
         padding: 12px 28px !important; border-radius: 6px !important; font-size: 14px !important;
         font-weight: 500 !important; cursor: pointer !important; line-height: 1.4 !important;
         display: inline-block !important; text-decoration: none !important;
     }
-    .merge-container .btn-primary:hover { background: #205067 !important; }
-    .merge-container .btn-primary:disabled { background: #9ca3af !important; cursor: not-allowed !important; }
+    .merge-container .btn-primary:hover { background: var(--fc-admin-blue-hover) !important; }
+    .merge-container .btn-primary:disabled { background: var(--fc-text-disabled) !important; cursor: not-allowed !important; }
 
     .merge-container .btn-secondary {
-        background: #f5f5f5 !important; color: #333 !important; border: 1px solid #ddd !important;
+        background: var(--fc-bg-muted-light) !important; color: var(--fc-text-secondary) !important; border: 1px solid var(--fc-border) !important;
         padding: 12px 28px !important; border-radius: 6px !important; font-size: 14px !important;
         cursor: pointer !important; line-height: 1.4 !important;
         display: inline-block !important; text-decoration: none !important;
@@ -59,27 +59,27 @@
 
     .form-actions { display: flex; align-items: center; gap: 12px; margin-top: 24px; justify-content: center; }
 
-    .success-box { background: #f0fdf4; border: 1px solid #86efac; border-radius: 8px; padding: 32px; text-align: center; }
+    .success-box { background: var(--fc-success-bg); border: 1px solid var(--fc-success-border); border-radius: 8px; padding: 32px; text-align: center; }
     .success-icon { font-size: 56px; margin-bottom: 16px; }
-    .success-text { font-size: 18px; color: #166534; margin-bottom: 24px; font-weight: 500; }
+    .success-text { font-size: 18px; color: var(--fc-success-text); margin-bottom: 24px; font-weight: 500; }
     .success-actions { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; }
-    .success-actions a { display: inline-flex; align-items: center; gap: 8px; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 15px; color: #fff !important; }
-    .download-link { background: #1d4ed8; }
+    .success-actions a { display: inline-flex; align-items: center; gap: 8px; padding: 14px 32px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 15px; color: var(--fc-text-on-primary) !important; }
+    .download-link { background: var(--fc-primary-dark); }
     .download-link:hover { background: #1e40af; }
     .back-client-link { background: #7c3aed; }
     .back-client-link:hover { background: #6d28d9; }
 
     .loading-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(255,255,255,0.9); display: flex; align-items: center; justify-content: center; z-index: 9999; }
-    .loading-spinner { width: 48px; height: 48px; border: 4px solid #e5e7eb; border-top-color: #417690; border-radius: 50%; animation: spin 0.8s linear infinite; }
+    .loading-spinner { width: 48px; height: 48px; border: 4px solid var(--fc-border); border-top-color: var(--fc-admin-blue); border-radius: 50%; animation: spin 0.8s linear infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }
-    .loading-text { margin-top: 16px; color: #666; font-size: 16px; }
+    .loading-text { margin-top: 16px; color: var(--fc-text-muted); font-size: 16px; }
 
-    .hint-box { background: #dbeafe; border: 1px solid #93c5fd; border-radius: 6px; padding: 12px 16px; margin-bottom: 20px; color: #1e40af; font-size: 14px; }
-    .hint-box.warning { background: #fef3c7; border-color: #fcd34d; color: #92400e; }
+    .hint-box { background: var(--fc-primary-subtle); border: 1px solid var(--fc-primary-light); border-radius: 6px; padding: 12px 16px; margin-bottom: 20px; color: var(--fc-info-text); font-size: 14px; }
+    .hint-box.warning { background: var(--fc-warning-bg); border-color: var(--fc-warning-border); color: var(--fc-warning-text); }
     .point-status { display: flex; gap: 8px; margin-top: 8px; }
-    .point-badge { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; background: #e5e7eb; color: #666; }
-    .point-badge.done { background: #059669; color: #fff; }
-    .point-badge.current { background: #417690; color: #fff; animation: pulse 1s infinite; }
+    .point-badge { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 600; background: var(--fc-border); color: var(--fc-text-muted); }
+    .point-badge.done { background: #059669; color: var(--fc-text-on-primary); }
+    .point-badge.current { background: var(--fc-admin-blue); color: var(--fc-text-on-primary); animation: pulse 1s infinite; }
     @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.1); } }
 
     @media (max-width: 900px) { .upload-grid, .editor-grid { grid-template-columns: 1fr; } }
@@ -141,7 +141,7 @@
                 <div class="editor-box">
                     <div class="editor-label">
                         <span>{% trans "正面图片" %}</span>
-                        <span style="font-size:12px;color:#666">点击 <span x-text="4 - frontCorners.length"></span> 个点</span>
+                        <span style="font-size:12px;color:var(--fc-text-muted)">点击 <span x-text="4 - frontCorners.length"></span> 个点</span>
                     </div>
                     <div class="point-status">
                         <template x-for="i in 4" :key="'fp'+i">
@@ -164,7 +164,7 @@
                 <div class="editor-box">
                     <div class="editor-label">
                         <span>{% trans "反面图片" %}</span>
-                        <span style="font-size:12px;color:#666">点击 <span x-text="4 - backCorners.length"></span> 个点</span>
+                        <span style="font-size:12px;color:var(--fc-text-muted)">点击 <span x-text="4 - backCorners.length"></span> 个点</span>
                     </div>
                     <div class="point-status">
                         <template x-for="i in 4" :key="'bp'+i">
@@ -196,7 +196,7 @@
                 <div class="success-icon">✅</div>
                 <div class="success-text">{% trans "身份证合并成功！" %}</div>
                 <template x-if="savedToClient">
-                    <p style="color:#166534;margin-bottom:16px">✅ {% trans "已自动保存到客户证件附件" %}</p>
+                    <p style="color:var(--fc-success-text);margin-bottom:16px">✅ {% trans "已自动保存到客户证件附件" %}</p>
                 </template>
                 <div class="success-actions">
                     <a :href="pdfUrl" target="_blank" class="download-link">📥 {% trans "下载 PDF" %}</a>

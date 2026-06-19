@@ -15,8 +15,8 @@
     <style>
         /* 文本解析区域样式 */
         .text-parser-section {
-            background: #f8f9fa;
-            border: 1px solid #dee2e6;
+            background: var(--fc-bg-muted);
+            border: 1px solid var(--fc-border);
             border-radius: 5px;
             margin-bottom: 20px;
             overflow: hidden;
@@ -32,7 +32,7 @@
         }
         .text-parser-header h3 {
             margin: 0;
-            color: #495057;
+            color: var(--fc-text-label);
             font-size: 14px;
             font-weight: bold;
         }
@@ -49,8 +49,8 @@
             position: absolute;
             top: 100%;
             left: 0;
-            background: #1e293b;
-            color: #e2e8f0;
+            background: var(--fc-text-primary);
+            color: var(--fc-border);
             padding: 12px 16px;
             border-radius: 8px;
             font-size: 13px;
@@ -68,14 +68,14 @@
             bottom: 100%;
             left: 20px;
             border: 6px solid transparent;
-            border-bottom-color: #1e293b;
+            border-bottom-color: var(--fc-text-primary);
         }
         .tooltip-trigger:hover .tooltip-content {
             display: block;
         }
         .text-parser-toggle {
             font-size: 16px;
-            color: #64748b;
+            color: var(--fc-text-muted);
             transform: rotate(-90deg);
             transition: transform 0.2s ease;
         }
@@ -85,13 +85,13 @@
         .text-parser-content {
             padding: 0 15px 15px;
             box-sizing: border-box;
-            border-top: 1px solid #e9ecef;
+            border-top: 1px solid var(--fc-border);
         }
         .text-parser-textarea {
             width: 100%;
             height: 120px;
             padding: 8px;
-            border: 1px solid #ced4da;
+            border: 1px solid var(--fc-border-input);
             border-radius: 4px;
             font-family: monospace;
             font-size: 12px;
@@ -104,8 +104,8 @@
             gap: 15px;
         }
         .parse-btn {
-            background-color: #007cba;
-            color: white;
+            background-color: var(--fc-primary);
+            color: var(--fc-text-on-primary);
             border: none;
             padding: 8px 16px;
             border-radius: 4px;
@@ -113,15 +113,15 @@
             font-size: 13px;
         }
         .parse-btn:hover {
-            background-color: #005a87;
+            background-color: var(--fc-primary-dark);
         }
         .parse-btn:disabled {
-            background-color: #6c757d;
+            background-color: var(--fc-text-muted);
             cursor: not-allowed;
         }
         .format-hint {
             font-size: 11px;
-            color: #6c757d;
+            color: var(--fc-text-muted);
             margin-top: 8px;
         }
         .format-badge {
@@ -133,44 +133,44 @@
             margin-left: 8px;
         }
         .format-badge.json {
-            background: #e3f2fd;
-            color: #1565c0;
+            background: var(--fc-info-bg);
+            color: var(--fc-info-text);
         }
         .format-badge.text {
             background: #f3e5f5;
             color: #7b1fa2;
         }
         .success-message, .info-message, .success-ai-message {
-            background: #d4edda;
-            color: #155724;
+            background: var(--fc-success-bg);
+            color: var(--fc-success-text);
             padding: 10px;
-            border: 1px solid #c3e6cb;
+            border: 1px solid var(--fc-success-border);
             border-radius: 4px;
             margin-top: 10px;
         }
         .success-ai-message {
-            background: #e3f2fd;
-            color: #1565c0;
-            border-color: #90caf9;
+            background: var(--fc-info-bg);
+            color: var(--fc-info-text);
+            border-color: var(--fc-info-border);
         }
         .info-message {
-            background: #fff3cd;
-            color: #856404;
-            border-color: #ffeeba;
+            background: var(--fc-warning-bg);
+            color: var(--fc-warning-text);
+            border-color: var(--fc-warning-border);
         }
         .warning-message {
-            background: #fff3cd;
-            color: #856404;
+            background: var(--fc-warning-bg);
+            color: var(--fc-warning-text);
             padding: 10px;
-            border: 1px solid #ffeeba;
+            border: 1px solid var(--fc-warning-border);
             border-radius: 4px;
             margin-top: 10px;
         }
         .error-message {
-            background: #f8d7da;
-            color: #721c24;
+            background: var(--fc-error-bg);
+            color: var(--fc-error-text);
             padding: 10px;
-            border: 1px solid #f5c6cb;
+            border: 1px solid var(--fc-error-border);
             border-radius: 4px;
             margin-top: 10px;
         }
@@ -180,8 +180,8 @@
             position: fixed;
             top: 20px;
             right: 20px;
-            background: #4caf50;
-            color: white;
+            background: var(--fc-toast-success);
+            color: var(--fc-text-on-primary);
             padding: 15px 20px;
             border-radius: 4px;
             z-index: 10001;
@@ -201,8 +201,8 @@
         }
 
         .enterprise-prefill-section {
-            background: #f8fafc;
-            border: 1px solid #dbeafe;
+            background: var(--fc-bg-muted);
+            border: 1px solid var(--fc-primary-hover);
             border-radius: 6px;
             padding: 15px;
             margin-bottom: 20px;
@@ -225,7 +225,7 @@
         }
         .provider-fav-btn {
             background: none;
-            border: 1px solid #e2e8f0;
+            border: 1px solid var(--fc-border);
             border-radius: 4px;
             cursor: pointer;
             font-size: 16px;
@@ -240,16 +240,16 @@
             flex: 1;
             min-width: 260px;
             height: 34px;
-            border: 1px solid #cbd5e1;
+            border: 1px solid var(--fc-border-input);
             border-radius: 4px;
             padding: 6px 10px;
             box-sizing: border-box;
         }
         .enterprise-prefill-results {
             margin-top: 12px;
-            border: 1px solid #dbeafe;
+            border: 1px solid var(--fc-primary-hover);
             border-radius: 6px;
-            background: #fff;
+            background: var(--fc-bg-card);
             max-height: 240px;
             overflow-y: auto;
         }
@@ -258,31 +258,31 @@
             text-align: left;
             padding: 10px 12px;
             border: 0;
-            border-bottom: 1px solid #eff6ff;
-            background: #fff;
+            border-bottom: 1px solid var(--fc-primary-subtle);
+            background: var(--fc-bg-card);
             cursor: pointer;
         }
         .enterprise-company-item:last-child {
             border-bottom: 0;
         }
         .enterprise-company-item:hover {
-            background: #eff6ff;
+            background: var(--fc-primary-subtle);
         }
         .enterprise-company-title {
             font-size: 13px;
             font-weight: 600;
-            color: #0f172a;
+            color: var(--fc-text-heading);
             margin-bottom: 2px;
         }
         .enterprise-company-meta {
             font-size: 12px;
-            color: #475569;
+            color: var(--fc-text-secondary);
             line-height: 1.5;
         }
         .enterprise-prefill-detail {
             margin-top: 12px;
-            background: #fff;
-            border: 1px solid #dbeafe;
+            background: var(--fc-bg-card);
+            border: 1px solid var(--fc-primary-hover);
             border-radius: 6px;
             padding: 12px;
         }
@@ -294,22 +294,22 @@
         }
         .enterprise-profile-item {
             font-size: 12px;
-            color: #334155;
+            color: var(--fc-text-secondary);
         }
         .enterprise-profile-item strong {
-            color: #1e293b;
+            color: var(--fc-text-primary);
         }
         .enterprise-existing-warning {
-            background: #fff7ed;
-            border: 1px solid #fed7aa;
-            color: #9a3412;
+            background: var(--fc-warning-bg);
+            border: 1px solid var(--fc-warning-border);
+            color: var(--fc-warning-text);
             border-radius: 4px;
             padding: 8px 10px;
             font-size: 12px;
             margin-bottom: 10px;
         }
         .enterprise-existing-warning a {
-            color: #1d4ed8;
+            color: var(--fc-primary-dark);
             text-decoration: underline;
         }
         .enterprise-prefill-highlight {
@@ -379,7 +379,7 @@
              @dragover.prevent="isDragOver = true"
              @dragleave.prevent="isDragOver = false"
              @drop.prevent="handleDrop($event)"
-             :style="isDragOver ? 'background:#e8f4ff;' : ''">
+             :style="isDragOver ? 'background:var(--fc-primary-subtle);' : ''">
             <textarea x-model="parseText"
                       @input="detectFormat()"
                       @paste="handlePaste($event)"
@@ -392,15 +392,15 @@
                         :disabled="isParsing"
                         x-text="isParsing ? '{% trans "解析中..." %}' : '{% trans "解析并填充" %}'">
                 </button>
-                <label style="font-size: 12px; color: #6c757d;">
+                <label style="font-size: 12px; color: var(--fc-text-muted);">
                     <input type="checkbox" x-model="autoParse"> {% trans "粘贴时自动解析" %}
                 </label>
-                <div style="display:flex; align-items:center; gap:6px; font-size: 12px; color: #6c757d;">
+                <div style="display:flex; align-items:center; gap:6px; font-size: 12px; color: var(--fc-text-muted);">
                     <span>{% trans "LLM 模型：" %}</span>
                     <select x-ref="modelSelect"
                             x-model="selectedModel"
                             @change="saveLastModel()"
-                            style="font-size:12px; padding:2px 4px; border:1px solid #ced4da; border-radius:4px; max-width:260px;">
+                            style="font-size:12px; padding:2px 4px; border:1px solid var(--fc-border-input); border-radius:4px; max-width:260px;">
                         <option value="">{% trans "不使用 LLM（仅 OCR + 规则）" %}</option>
                         <template x-for="m in models" :key="m.id">
                             <option :value="m.id" x-text="m.name + ' (' + m.id + ')'"></option>
@@ -709,8 +709,8 @@
                 ['name', 'phone', 'address', 'id_number', 'legal_representative'].forEach(fieldName => {
                     const field = document.getElementById('id_' + fieldName);
                     if (field && field.value) {
-                        field.style.backgroundColor = '#e8f5e8';
-                        field.style.borderColor = '#4caf50';
+                        field.style.backgroundColor = 'var(--fc-success-bg)';
+                        field.style.borderColor = 'var(--fc-toast-success)';
                         setTimeout(() => {
                             field.style.backgroundColor = '';
                             field.style.borderColor = '';

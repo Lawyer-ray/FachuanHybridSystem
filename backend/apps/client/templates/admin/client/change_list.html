@@ -62,12 +62,12 @@
     }
 
     .oa-import-option-card {
-        background: #fff;
+        background: var(--fc-bg-card);
         border-radius: 12px;
         padding: 22px 24px;
         width: min(460px, calc(100vw - 32px));
         box-shadow: 0 8px 28px rgba(0,0,0,0.2);
-        border: 1px solid #e5e7eb;
+        border: 1px solid var(--fc-border);
     }
 
     .oa-import-option-popover {
@@ -79,7 +79,7 @@
         margin: 0 0 16px;
         font-size: 20px;
         font-weight: 700;
-        color: #1f2937;
+        color: var(--fc-text-primary);
     }
 
     .oa-import-option-group {
@@ -89,7 +89,7 @@
     .oa-import-option-label {
         margin-bottom: 8px;
         font-size: 13px;
-        color: #6b7280;
+        color: var(--fc-text-muted);
     }
 
     .oa-import-option-row {
@@ -100,10 +100,10 @@
     }
 
     .oa-import-option-chip {
-        border: 1px solid #d1d5db;
+        border: 1px solid var(--fc-border-input);
         border-radius: 999px;
-        background: #fff;
-        color: #374151;
+        background: var(--fc-bg-card);
+        color: var(--fc-text-secondary);
         font-size: 14px;
         font-weight: 600;
         padding: 8px 14px;
@@ -111,15 +111,15 @@
     }
 
     .oa-import-option-chip.active {
-        border-color: #2563eb;
-        color: #2563eb;
-        background: #eff6ff;
+        border-color: var(--fc-primary);
+        color: var(--fc-primary);
+        background: var(--fc-primary-subtle);
     }
 
     .oa-import-option-input {
         width: 120px;
         height: 36px;
-        border: 1px solid #d1d5db;
+        border: 1px solid var(--fc-border-input);
         border-radius: 8px;
         padding: 0 10px;
         font-size: 14px;
@@ -144,13 +144,13 @@
     }
 
     .oa-import-option-btn.cancel {
-        background: #e5e7eb;
-        color: #374151;
+        background: var(--fc-border);
+        color: var(--fc-text-secondary);
     }
 
     .oa-import-option-btn.confirm {
-        background: #2563eb;
-        color: #fff;
+        background: var(--fc-primary);
+        color: var(--fc-text-on-primary);
     }
 
     .oa-import-stage {
@@ -162,9 +162,9 @@
 
     .oa-import-stage-item {
         font-size: 12px;
-        color: #7a7a7a;
+        color: var(--fc-text-muted);
         background: #f1f3f5;
-        border: 1px solid #e5e7eb;
+        border: 1px solid var(--fc-border);
         border-radius: 999px;
         padding: 4px 10px;
     }
@@ -183,29 +183,29 @@
 
     .oa-import-phase-block {
         text-align: left;
-        border: 1px solid #e5e7eb;
+        border: 1px solid var(--fc-border);
         border-radius: 10px;
         padding: 10px 12px;
         margin-bottom: 10px;
-        background: #fafafa;
+        background: var(--fc-bg-muted-light);
     }
 
     .oa-import-phase-title {
         font-size: 13px;
         font-weight: 700;
-        color: #1f2937;
+        color: var(--fc-text-primary);
         margin-bottom: 4px;
     }
 
     .oa-import-phase-text {
         font-size: 12px;
-        color: #6b7280;
+        color: var(--fc-text-muted);
         margin-bottom: 8px;
         min-height: 18px;
     }
 
     .oa-import-progress-track {
-        background: #e9ecef;
+        background: var(--fc-border);
         border-radius: 4px;
         height: 10px;
         overflow: hidden;
@@ -239,7 +239,7 @@
         top: 56px;
         left: 50%;
         transform: translateX(-50%);
-        background: #fff;
+        background: var(--fc-bg-card);
         border-radius: 8px;
         padding: 30px;
         width: min(680px, calc(100vw - 32px));
@@ -269,8 +269,8 @@
         position: fixed;
         top: 20px;
         right: 20px;
-        background: #4caf50;
-        color: white;
+        background: var(--fc-toast-success);
+        color: var(--fc-text-on-primary);
         padding: 15px 20px;
         border-radius: 4px;
         z-index: 10001;
@@ -354,7 +354,7 @@
                            class="oa-import-option-input"
                            x-model.number="oaImportOptions.limitValue"
                            placeholder="例如 100">
-                    <span x-show="oaImportOptions.importMode === 'partial'" style="font-size:13px;color:#6b7280;">条</span>
+                    <span x-show="oaImportOptions.importMode === 'partial'" style="font-size:13px;color:var(--fc-text-muted);">条</span>
                 </div>
             </div>
 
@@ -375,7 +375,7 @@
             <h3 style="margin:0 0 20px;font-size:18px;">从金诚同达OA导入当事人</h3>
             <template x-if="oaImport.status === 'pending'">
                 <div>
-                    <p style="color:#666;">正在启动导入任务...</p>
+                    <p style="color:var(--fc-text-muted);">正在启动导入任务...</p>
                     <div style="text-align:center;margin:20px 0">
                         <span style="font-size:32px">⏳</span>
                     </div>
@@ -422,7 +422,7 @@
                         </div>
                     </div>
 
-                    <div style="margin-top:8px;font-size:13px;color:#666;text-align:center;">
+                    <div style="margin-top:8px;font-size:13px;color:var(--fc-text-muted);text-align:center;">
                         <span x-text="'成功: ' + oaImport.successCount + ' | 跳过: ' + oaImport.skipCount"></span>
                     </div>
                 </div>
@@ -430,7 +430,7 @@
             <template x-if="oaImport.status === 'completed'">
                 <div>
                     <p style="color:#28a745;font-size:16px;font-weight:bold;">导入完成！</p>
-                    <div style="margin-top:15px;font-size:14px;color:#666;">
+                    <div style="margin-top:15px;font-size:14px;color:var(--fc-text-muted);">
                         步骤1（查找）：共发现 <span x-text="oaImport.discoveredCount || oaImport.total">0</span> 条<br>
                         步骤2（导入）：共处理 <span x-text="oaImport.total">0</span> 条<br>
                         成功: <span x-text="oaImport.successCount">0</span> 条<br>
@@ -438,7 +438,7 @@
                     </div>
                     <div style="margin-top:20px;text-align:right;">
                         <button type="button" onclick="(window.__clientAdminAppInstance || window.clientAdminApp()).closeOAImport();location.reload();"
-                                style="background:#007cba;color:white;border:none;padding:8px 20px;border-radius:4px;cursor:pointer">
+                                style="background:var(--fc-primary);color:var(--fc-text-on-primary);border:none;padding:8px 20px;border-radius:4px;cursor:pointer">
                             关闭
                         </button>
                     </div>
@@ -447,10 +447,10 @@
             <template x-if="oaImport.status === 'failed'">
                 <div>
                     <p style="color:#dc3545;font-size:16px;font-weight:bold;">导入失败</p>
-                    <p style="color:#666;font-size:13px;margin-top:10px;" x-text="oaImport.errorMessage"></p>
+                    <p style="color:var(--fc-text-muted);font-size:13px;margin-top:10px;" x-text="oaImport.errorMessage"></p>
                     <div style="margin-top:20px;text-align:right;">
                         <button type="button" onclick="(window.__clientAdminAppInstance || window.clientAdminApp()).closeOAImport()"
-                                style="background:#6c757d;color:white;border:none;padding:8px 20px;border-radius:4px;cursor:pointer">
+                                style="background:var(--fc-text-muted);color:var(--fc-text-on-primary);border:none;padding:8px 20px;border-radius:4px;cursor:pointer">
                             关闭
                         </button>
                     </div>

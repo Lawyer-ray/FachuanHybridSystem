@@ -14,7 +14,7 @@
             left: 0;
             right: 0;
             height: 50px;
-            background: #333;
+            background: var(--fc-text-secondary);
             display: flex;
             align-items: center;
             justify-content: center;
@@ -24,19 +24,19 @@
             box-shadow: 0 2px 8px rgba(0,0,0,.3);
         }
         .toolbar button {
-            background: #555;
+            background: var(--fc-text-muted);
             border: none;
-            color: #fff;
+            color: var(--fc-text-on-primary);
             padding: 8px 16px;
             border-radius: 6px;
             cursor: pointer;
             font-size: 13px;
             transition: background .15s;
         }
-        .toolbar button:hover:not(:disabled) { background: #666; }
+        .toolbar button:hover:not(:disabled) { background: var(--fc-text-secondary); }
         .toolbar button:disabled { opacity: .4; cursor: not-allowed; }
-        .toolbar span { color: #fff; font-size: 14px; min-width: 80px; text-align: center; }
-        .toolbar .title { color: #ccc; font-size: 13px; margin-right: auto; max-width: 300px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .toolbar span { color: var(--fc-text-on-primary); font-size: 14px; min-width: 80px; text-align: center; }
+        .toolbar .title { color: var(--fc-text-disabled); font-size: 13px; margin-right: auto; max-width: 300px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .canvas-wrap {
             margin-top: 50px;
             padding: 20px;
@@ -48,7 +48,7 @@
         canvas {
             max-width: 100%;
             box-shadow: 0 4px 20px rgba(0,0,0,.5);
-            background: #fff;
+            background: var(--fc-bg-card);
         }
         .page-range-hint {
             position: fixed;
@@ -56,7 +56,7 @@
             left: 50%;
             transform: translateX(-50%);
             background: rgba(0,0,0,.8);
-            color: #fff;
+            color: var(--fc-text-on-primary);
             padding: 10px 20px;
             border-radius: 8px;
             font-size: 13px;
@@ -116,7 +116,7 @@
                 renderPage(currentPage);
             } catch (err) {
                 console.error('PDF load error:', err);
-                document.body.innerHTML = '<div style="color:#fff;text-align:center;padding:100px;">PDF加载失败: ' + err.message + '</div>';
+                document.body.innerHTML = '<div style="color:var(--fc-text-on-primary);text-align:center;padding:100px;">PDF加载失败: ' + err.message + '</div>';
             }
         }
 
