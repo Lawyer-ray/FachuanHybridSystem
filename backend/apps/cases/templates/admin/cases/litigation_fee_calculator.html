@@ -27,18 +27,18 @@
     .calculator-title {
         font-size: 24px;
         font-weight: 600;
-        color: #1a1a1a;
+        color: var(--fc-text-heading);
         margin-bottom: 8px;
     }
     .calculator-subtitle {
-        color: #666;
+        color: var(--fc-text-muted);
         margin: 0;
     }
     .back-link {
         display: inline-flex;
         align-items: center;
         gap: 6px;
-        color: #417690;
+        color: var(--fc-admin-blue);
         text-decoration: none;
         font-size: 14px;
         padding: 8px 12px;
@@ -57,12 +57,12 @@
         display: block;
         font-weight: 500;
         margin-bottom: 8px;
-        color: #333;
+        color: var(--fc-text-secondary);
     }
     .form-group input, .form-group select {
         width: 100%;
         padding: 12px 14px;
-        border: 1px solid #ddd;
+        border: 1px solid var(--fc-border);
         border-radius: 6px;
         font-size: 14px;
         transition: border-color 0.2s;
@@ -71,7 +71,7 @@
     }
     .form-group input:focus, .form-group select:focus {
         outline: none;
-        border-color: #417690;
+        border-color: var(--fc-admin-blue);
         box-shadow: 0 0 0 3px rgba(65, 118, 144, 0.1);
     }
     .form-row {
@@ -90,8 +90,8 @@
         margin-top: 8px;
     }
     .btn-calculate {
-        background: #417690;
-        color: #fff;
+        background: var(--fc-admin-blue);
+        color: var(--fc-text-on-primary);
         border: none;
         padding: 12px 28px;
         border-radius: 6px;
