@@ -15,6 +15,7 @@ from django.http import HttpRequest
 
 from apps.core.exceptions import AuthenticationError, PermissionDenied
 from apps.organization.models import Lawyer
+from apps.organization.services.setup.first_user_setup_service import FirstUserSetupService
 
 AUTO_REGISTER_BOOTSTRAP_USERNAME = "法穿"
 AUTO_REGISTER_BOOTSTRAP_PASSWORD = "1234qwer"  # pragma: allowlist secret
@@ -87,6 +88,11 @@ class AuthService:
             is_admin=should_grant_admin,
             is_active=should_grant_admin,
         )
+
+        # 首位用户注册时自动初始化系统
+        if should_grant_admin:
+            FirstUserSetupService().execute(user)
+
         return RegisterResult(user=user)
 
     @transaction.atomic
@@ -107,4 +113,8 @@ class AuthService:
             is_admin=True,
             is_active=True,
         )
+
+        # 首位用户注册时自动初始化系统
+        FirstUserSetupService().execute(user)
+
         return RegisterResult(user=user)

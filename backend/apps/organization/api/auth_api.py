@@ -56,7 +56,7 @@ def register_view(request: HttpRequest, payload: RegisterIn) -> RegisterOut:  # 
     """
     用户注册
 
-    首位用户自动成为管理员，后续用户需要管理员审批。
+    首位用户自动成为管理员并触发系统初始化，后续用户需要管理员审批。
     """
     # 参数验证
     if not payload.username or len(payload.username) < 3:
@@ -82,7 +82,8 @@ def register_view(request: HttpRequest, payload: RegisterIn) -> RegisterOut:  # 
             success=True,
             user=LawyerOut.from_orm(user),
             requires_approval=not is_first,
-            message="注册成功，您是首位用户，已自动成为管理员" if is_first else "注册成功，请等待管理员审批",
+            setup_in_progress=is_first,
+            message="注册成功，系统正在初始化..." if is_first else "注册成功，请等待管理员审批",
         )
     except Exception as e:
         return RegisterOut(success=False, message=str(e))

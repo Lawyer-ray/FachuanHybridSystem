@@ -66,6 +66,7 @@ export interface RegisterResponse {
   success: boolean
   user?: User
   requires_approval: boolean
+  setup_in_progress: boolean
   message: string
 }
 

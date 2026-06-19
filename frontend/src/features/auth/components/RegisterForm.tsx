@@ -26,8 +26,8 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 
 interface RegisterFormProps {
-  /** 注册成功回调，参数表示是否需要审批 */
-  onSuccess?: (requiresApproval: boolean) => void
+  /** 注册成功回调，参数表示是否需要审批和系统是否在初始化 */
+  onSuccess?: (requiresApproval: boolean, setupInProgress?: boolean) => void
   /** 注册失败回调 */
   onError?: (error: string) => void
 }
@@ -88,7 +88,7 @@ export function RegisterForm({ onSuccess, onError }: RegisterFormProps) {
       },
       {
         onSuccess: (response) => {
-          onSuccess?.(response.requires_approval)
+          onSuccess?.(response.requires_approval, response.setup_in_progress)
         },
         onError: (error) => {
           // 处理注册错误

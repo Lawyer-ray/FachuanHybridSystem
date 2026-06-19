@@ -116,6 +116,7 @@ class RegisterOut(Schema):
     success: bool
     user: LawyerOut | None = None
     requires_approval: bool = True
+    setup_in_progress: bool = False
     message: str = ""
 
 

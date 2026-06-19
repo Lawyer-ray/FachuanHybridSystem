@@ -66,7 +66,7 @@ def register(request: HttpRequest) -> HttpResponse:
                     login(request, user)
                     messages.success(
                         request,
-                        "注册成功！您是第一个用户，已自动获得管理员权限。欢迎 %(name)s"
+                        "注册成功！您是第一个用户，已自动获得管理员权限。系统正在初始化中... %(name)s"
                         % {"name": user.real_name or user.username},
                     )
                     return redirect("admin:index")
