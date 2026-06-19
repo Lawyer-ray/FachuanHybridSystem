@@ -5,8 +5,8 @@
 
 from __future__ import annotations
 
-import os
 import tempfile
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -17,11 +17,10 @@ from django.http import HttpRequest
 @pytest.fixture
 def temp_file() -> str:
     """创建一个临时文件用于测试"""
-    fd, path = tempfile.mkstemp(suffix=".txt")
-    os.write(fd, b"Hello, World! This is a test file.")
-    os.close(fd)
-    yield path
-    os.unlink(path)
+    path = Path(tempfile.mktemp(suffix=".txt"))
+    path.write_bytes(b"Hello, World! This is a test file.")
+    yield str(path)
+    path.unlink(missing_ok=True)
 
 
 def _make_request(method: str = "GET", range_header: str = "") -> HttpRequest:

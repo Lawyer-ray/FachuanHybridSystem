@@ -118,13 +118,14 @@ class TestConvertViaLibreoffice:
         final_path = str(tmp_path / "final.pdf")
         Path(final_path).write_bytes(b"")
 
-        # Get a real fd for mkstemp to return so os.close() doesn't fail
-        real_fd = os.open(os.devnull, os.O_RDONLY)
+        # Get a safe fd (above stderr's fd 2) for mkstemp to return
+        # Use a temp file instead of os.open to avoid fd conflicts
+        safe_fd = tempfile.mkstemp(suffix=".tmp")[0]
 
         with patch("apps.documents.services.infrastructure.pdf_merge_utils._find_libreoffice", return_value="/usr/bin/soffice"):
             with patch("subprocess.run", return_value=MagicMock(returncode=0, stderr="")):
                 with patch("tempfile.mkdtemp", return_value=output_dir):
-                    with patch("tempfile.mkstemp", return_value=(real_fd, final_path)):
+                    with patch("tempfile.mkstemp", return_value=(safe_fd, final_path)):
                         with patch.object(shutil_mod, "move"):
                             with patch.object(shutil_mod, "rmtree"):
                                 result = _convert_via_libreoffice(docx_path)
