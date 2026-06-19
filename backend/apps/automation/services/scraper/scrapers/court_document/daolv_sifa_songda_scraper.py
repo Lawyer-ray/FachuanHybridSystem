@@ -23,6 +23,9 @@ from typing import Any
 from urllib.parse import unquote, urljoin, urlparse
 
 import requests
+from django.conf import settings
+from django.core.files.base import ContentFile
+from django.core.files.storage import default_storage
 
 from apps.automation.services.scraper.core.captcha_recognizer import CaptchaRecognizer
 
@@ -294,10 +297,11 @@ class DaolvSifaSongdaScraper(BaseCourtDocumentScraper):  # pragma: no cover
                 continue
 
             filename = self._guess_filename(file_resp, full_url, title)
-            filepath = download_dir / filename
-            filepath.write_bytes(file_resp.content)
-            logger.info("%s账号模式下载成功: %s", self._PLATFORM_LABEL, filepath)
-            return str(filepath)
+            rel_path = f"{download_dir.relative_to(settings.MEDIA_ROOT).as_posix()}/{filename}"
+            saved_name = default_storage.save(rel_path, ContentFile(file_resp.content))
+            abs_path = Path(settings.MEDIA_ROOT) / saved_name
+            logger.info("%s账号模式下载成功: %s", self._PLATFORM_LABEL, abs_path)
+            return str(abs_path)
 
         return None
 

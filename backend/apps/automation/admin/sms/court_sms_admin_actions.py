@@ -145,7 +145,7 @@ class CourtSMSAdminActions:  # pragma: no cover
             return {
                 "id": case.id,
                 "name": case.name,
-                "created_at": case.created_at,  # type: ignore[attr-defined]
+                "created_at": case.created_at,
                 "case_numbers": case.case_numbers.all(),
                 "parties": case.parties.all(),
             }
@@ -334,7 +334,7 @@ class CourtSMSAdminActions:  # pragma: no cover
                     process_options["sfdw_phone_tail6"] = sfdw_phone_tail6
 
                 task_id = submit_task(
-                    "apps.automation.services.sms.court_sms_service.process_sms_async",
+                    "apps.automation.workers.court_sms_tasks.process_sms",
                     obj.id,
                     process_options,
                     task_name=f"court_sms_processing_{obj.id}",

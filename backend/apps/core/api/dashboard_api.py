@@ -54,7 +54,7 @@ class DashboardStatsOut(Schema):
 @router.get("/stats", response=DashboardStatsOut)
 def get_dashboard_stats(request: HttpRequest) -> dict[str, Any]:  # pragma: no cover
     """返回仪表盘聚合统计数据。"""
-    from apps.core.services.dashboard_service import DashboardService
+    from apps.workbench.services.dashboard_service import DashboardService
 
     service = DashboardService()
     stats = service.get_stats()

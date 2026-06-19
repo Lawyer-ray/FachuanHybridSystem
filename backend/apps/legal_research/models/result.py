@@ -5,7 +5,7 @@ from uuid import uuid4
 
 from django.db import models
 
-from apps.core.filesystem.upload_paths import EntityIdPath
+from apps.core.filesystem.upload_paths import EntityIdPath, MediaEntity
 
 
 def _result_pdf_upload_to(instance: Any, filename: str) -> str:
@@ -36,7 +36,7 @@ class LegalResearchResult(models.Model):
     match_reason = models.TextField(blank=True, verbose_name="匹配理由")
 
     pdf_file = models.FileField(
-        upload_to=EntityIdPath("legal_research"),
+        upload_to=EntityIdPath(MediaEntity.LEGAL_RESEARCH),
         max_length=255,
         null=True,
         blank=True,

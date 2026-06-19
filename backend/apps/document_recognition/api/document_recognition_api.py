@@ -11,6 +11,7 @@ import logging
 from pathlib import Path
 from typing import Any
 
+from django.conf import settings
 from ninja import File, Router
 from ninja.files import UploadedFile
 from pydantic import BaseModel, Field
@@ -41,13 +42,13 @@ def _validate_file_format(filename: str) -> str:
 
 
 def _save_uploaded_file(file: UploadedFile) -> str:
-    """保存上传的文件（委托给 FileUploadService）"""
-    from apps.core.services.file_upload_service import FileUploadService
+    """保存上传的文件（委托给 storage_service）"""
+    from apps.core.services.storage_service import save_uploaded_file
 
-    upload_service = FileUploadService()
-    saved_path = upload_service.save_file(file, base_dir="document_recognition")
+    rel_path, _ = save_uploaded_file(file, rel_dir="document_recognition")
+    saved_path = str(Path(settings.MEDIA_ROOT) / rel_path)
     logger.info("文件已保存: %s", saved_path)
-    return str(saved_path)
+    return saved_path
 
 
 # ============================================================================

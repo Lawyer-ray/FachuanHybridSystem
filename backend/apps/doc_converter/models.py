@@ -6,7 +6,7 @@ from typing import Any, ClassVar
 from django.conf import settings
 from django.db import models
 
-from apps.core.filesystem.upload_paths import DatedUUIDPath
+from apps.core.filesystem.upload_paths import DatedUUIDPath, MediaEntity
 
 
 class DocConverterJobStatus(models.TextChoices):
@@ -43,7 +43,7 @@ class DocConverterJob(models.Model):
     progress = models.PositiveIntegerField("进度(0-100)", default=0)
     cancel_requested = models.BooleanField("请求取消", default=False)
     task_id = models.CharField("Django Q2 任务ID", max_length=255, blank=True, default="")
-    output_zip = models.FileField("结果ZIP", upload_to=DatedUUIDPath("doc_converter_zip"), blank=True, default="")
+    output_zip = models.FileField("结果ZIP", upload_to=DatedUUIDPath(MediaEntity.DOC_CONVERTER_ZIP), blank=True, default="")
     error_message = models.TextField(blank=True, default="", verbose_name="错误信息")
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
@@ -75,9 +75,9 @@ class DocConverterItem(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     job = models.ForeignKey(DocConverterJob, on_delete=models.CASCADE, related_name="items", verbose_name="任务")
     original_name = models.CharField("原始文件名", max_length=500)
-    source_file = models.FileField("源文件", upload_to=DatedUUIDPath("doc_converter_source"))
+    source_file = models.FileField("源文件", upload_to=DatedUUIDPath(MediaEntity.DOC_CONVERTER_SOURCE))
     converted_file = models.FileField(
-        "转换后文件", upload_to=DatedUUIDPath("doc_converter_output"), blank=True, default=""
+        "转换后文件", upload_to=DatedUUIDPath(MediaEntity.DOC_CONVERTER_OUTPUT), blank=True, default=""
     )
     status = models.CharField(
         max_length=20,

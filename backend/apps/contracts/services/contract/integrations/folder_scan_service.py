@@ -9,7 +9,6 @@ from pathlib import Path
 from typing import Any
 from uuid import UUID
 
-from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import transaction
 from django.utils import timezone
 
@@ -18,12 +17,9 @@ from apps.contracts.models import (
     ContractFolderBinding,
     ContractFolderScanSession,
     ContractFolderScanStatus,
-    FinalizedMaterial,
-    MaterialCategory,
 )
 from apps.contracts.services.archive.category_mapping import get_archive_category
 from apps.contracts.services.contract.integrations.archive_classifier import (
-    classify_archive_material,
     collect_archive_item_options,
     collect_work_log_suggestions,
 )
@@ -31,9 +27,8 @@ from apps.core.dependencies.core import build_task_submission_service
 from apps.core.exceptions import NotFoundError, ValidationException
 from apps.core.services.bound_folder_scan_service import BoundFolderScanService
 
-from .file_hash_utils import compute_file_hash, compute_file_hash_from_bytes
-from .material_service import MaterialService
-from .quality_card_detector import has_quality_card_on_last_page
+from ._candidate_post_processor import CandidatePostProcessor
+from ._import_pipeline import ImportPipeline
 
 logger = logging.getLogger(__name__)
 
@@ -46,11 +41,13 @@ class ContractFolderScanService:
         ContractFolderScanStatus.RUNNING,
         ContractFolderScanStatus.CLASSIFYING,
     }
-    _QUALITY_CARD_TITLE = "合同正本与律师办案服务质量监督卡"
 
     def __init__(self, *, scan_service: BoundFolderScanService | None = None) -> None:
         self._scan_service = scan_service or BoundFolderScanService()
-        self._material_service = MaterialService()
+        self._post_processor = CandidatePostProcessor(self._scan_service)
+        self._import_pipeline = ImportPipeline()
+
+    # ── Public API ──────────────────────────────────────────────────────
 
     def start_scan(
         self,
@@ -76,7 +73,7 @@ class ContractFolderScanService:
                 if existing_subfolder == scan_scope["scan_subfolder"]:
                     return existing
                 raise ValidationException(
-                    message="已有进行中的扫描任务，请等待完成或使用\u201c重新扫描\u201d",
+                    message="已有进行中的扫描任务，请等待完成或使用“重新扫描”",
                     errors={"session_id": str(existing.id)},
                 )
 
@@ -219,208 +216,14 @@ class ContractFolderScanService:
         storage_provider: Any | None = None,
     ) -> dict[str, Any]:  # pragma: no cover
         session = self.get_session(contract_id=contract_id, session_id=session_id)
-        if session.status == ContractFolderScanStatus.IMPORTED:
-            raise ValidationException(message="该扫描已导入，请重新扫描", errors={"status": session.status})
-        if session.status != ContractFolderScanStatus.COMPLETED:
-            raise ValidationException(message="扫描尚未完成", errors={"status": session.status})
-
-        payload = dict(session.result_payload or {})
-        candidates = payload.get("candidates") or []
-        candidate_map = {str(item.get("source_path") or ""): item for item in candidates}
-
-        imported_count = 0
-        skipped_dupes = 0
-        for item in items:
-            if not bool(item.get("selected", True)):
-                continue
-
-            source_path = str(item.get("source_path") or "").strip()
-            if not source_path or source_path not in candidate_map:
-                raise ValidationException(message="候选文件不存在", errors={"source_path": source_path})
-
-            category = str(item.get("category") or "archive_document").strip()
-            if category not in {
-                MaterialCategory.CONTRACT_ORIGINAL,
-                MaterialCategory.SUPPLEMENTARY_AGREEMENT,
-                MaterialCategory.INVOICE,
-                MaterialCategory.SUPERVISION_CARD,
-                MaterialCategory.CASE_MATERIAL,
-            }:
-                # archive_document / authorization_material 归入案件材料
-                category = MaterialCategory.CASE_MATERIAL
-
-            is_docx = bool(item.get("is_docx", False))
-            archive_item_code = str(item.get("archive_item_code") or "").strip()
-
-            # ── 读取文件内容（云存储 vs 本地）──
-            if storage_provider is not None:
-                from pathlib import PurePosixPath
-
-                from apps.core.cloud_storage.exceptions import CloudStorageError
-
-                try:
-                    file_bytes = storage_provider.read_file(source_path)
-                except CloudStorageError:
-                    raise
-                except Exception as e:
-                    raise CloudStorageError(
-                        f"读取云存储文件失败: {source_path}",
-                        provider="云存储",
-                    ) from e
-                file_name = PurePosixPath(source_path).name
-            else:
-                file_path = Path(source_path)
-                if not file_path.exists() or not file_path.is_file():
-                    raise ValidationException(message="源文件不存在", errors={"source_path": source_path})
-                file_bytes = file_path.read_bytes()
-                file_name = file_path.name
-
-            # docx → PDF 转换
-            temp_pdf_path: Path | None = None
-            if is_docx:
-                temp_pdf_path = self._convert_docx_to_temp_pdf_from_bytes(file_bytes, file_name)
-                if temp_pdf_path is None:
-                    logger.warning("docx_convert_failed_skip", extra={"source_path": source_path})
-                    continue
-
-            try:
-                if temp_pdf_path is not None:
-                    upload_content = temp_pdf_path.read_bytes()
-                    upload_name = (
-                        str(PurePosixPath(file_name).stem) + ".pdf" if storage_provider else temp_pdf_path.name
-                    )
-                else:
-                    upload_content = file_bytes
-                    upload_name = file_name
-
-                upload = SimpleUploadedFile(
-                    name=upload_name,
-                    content=upload_content,
-                    content_type="application/pdf",
-                )
-                rel_path, original_name = self._material_service.save_material_file(upload, contract_id)
-                display_name = original_name
-                # 如果原始文件是 docx，显示名保留原 docx 文件名
-                if is_docx:
-                    display_name = file_name
-
-                # 质量监督卡检测（需要读取 PDF 内容）
-                if category == MaterialCategory.CONTRACT_ORIGINAL and not is_docx:
-                    if storage_provider is not None:
-                        import tempfile
-
-                        with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
-                            tmp.write(file_bytes)
-                            tmp_path = Path(tmp.name)
-                        try:
-                            quality_card = has_quality_card_on_last_page(tmp_path)
-                        finally:
-                            tmp_path.unlink(missing_ok=True)
-                    else:
-                        quality_card = has_quality_card_on_last_page(Path(source_path))
-                    if quality_card:
-                        display_name = self._QUALITY_CARD_TITLE
-
-                material_kwargs: dict[str, Any] = {
-                    "contract_id": contract_id,
-                    "file_path": rel_path,
-                    "original_filename": display_name,
-                    "category": category,
-                }
-                if archive_item_code:
-                    material_kwargs["archive_item_code"] = archive_item_code
-
-                # 计算文件内容哈希
-                # 注意：docx 文件存入 DB 的哈希是原始 docx 的哈希（而非转换后 PDF），
-                # 这样扫描时也能用同一哈希值比对已导入状态
-                if is_docx:
-                    content_hash = compute_file_hash_from_bytes(file_bytes)
-                else:
-                    content_hash = compute_file_hash_from_bytes(file_bytes)
-                if content_hash:
-                    material_kwargs["content_hash"] = content_hash
-
-                # 去重：同一合同下内容哈希相同的材料视为重复跳过
-                if (
-                    content_hash
-                    and FinalizedMaterial.objects.filter(
-                        contract_id=contract_id,
-                        content_hash=content_hash,
-                    ).exists()
-                ):
-                    skipped_dupes += 1
-                    logger.info(
-                        "material_hash_duplicate_skipped",
-                        extra={
-                            "contract_id": contract_id,
-                            "file_name": display_name,
-                            "content_hash": content_hash[:16],
-                        },
-                    )
-                    continue
-
-                # 向后兼容：无哈希时回退到文件名比较
-                if (
-                    not content_hash
-                    and FinalizedMaterial.objects.filter(
-                        contract_id=contract_id,
-                        original_filename=display_name,
-                        category=category,
-                    ).exists()
-                ):
-                    skipped_dupes += 1
-                    logger.info(
-                        "material_name_duplicate_skipped",
-                        extra={"contract_id": contract_id, "file_name": display_name, "category": category},
-                    )
-                    continue
-
-                FinalizedMaterial.objects.create(**material_kwargs)
-                imported_count += 1
-
-                # 导入时自动学习：如果用户手动修改了 archive_item_code，记录为学习规则
-                self._learn_from_import_correction(
-                    candidate=candidate_map[source_path],
-                    actual_archive_item_code=archive_item_code,
-                    contract_id=contract_id,
-                )
-            finally:
-                # 清理临时 PDF 文件
-                if temp_pdf_path and temp_pdf_path.exists():
-                    temp_pdf_path.unlink(missing_ok=True)
-
-        # 保存确认的工作日志建议
-        confirmed_logs = work_log_suggestions or []
-        payload["import_result"] = {
-            "imported_count": imported_count,
-            "skipped_dupes": skipped_dupes,
-            "imported_at": timezone.now().isoformat(),
-        }
-        payload["confirmed_work_log_suggestions"] = confirmed_logs
-
-        # 将工作日志建议写入 CaseLog 模型，使模板可读取
-        work_log_imported = self._import_work_log_suggestions(
+        return self._import_pipeline.confirm_import(
             contract_id=contract_id,
-            confirmed_logs=confirmed_logs,
-            actor_id=(session.started_by_id if session.started_by_id else None),
+            session=session,
+            items=items,
+            work_log_suggestions=work_log_suggestions,
+            storage_provider=storage_provider,
+            learn_from_correction_fn=self._learn_from_import_correction,
         )
-        payload["import_result"]["work_log_imported"] = work_log_imported
-
-        ContractFolderScanSession.objects.filter(id=session.id).update(
-            status=ContractFolderScanStatus.IMPORTED,
-            progress=100,
-            current_file="",
-            result_payload=payload,
-            error_message="",
-            updated_at=timezone.now(),
-        )
-
-        return {
-            "session_id": str(session.id),
-            "status": ContractFolderScanStatus.IMPORTED,
-            "imported_count": imported_count,
-            "work_log_imported": work_log_imported,
-        }
 
     def run_scan_task(self, *, session_id: str) -> None:  # pragma: no cover
         session = ContractFolderScanSession.objects.select_related("contract").filter(id=session_id).first()
@@ -460,12 +263,11 @@ class ContractFolderScanService:
             )
             result["scan_scope"] = scan_scope
 
-            # ── 后处理：归档清单项匹配 + docx 收集 + 工作日志建议 ──
             contract = session.contract
             archive_category = get_archive_category(getattr(contract, "case_type", ""))
 
             candidates = result.get("candidates") or []
-            candidates = self._post_process_candidates(
+            candidates = self._post_processor.post_process_candidates(
                 candidates=candidates,
                 archive_category=archive_category,
                 scan_folder=scan_scope["scan_folder"],
@@ -507,60 +309,7 @@ class ContractFolderScanService:
                 updated_at=timezone.now(),
             )
 
-    def _import_work_log_suggestions(
-        self,
-        *,
-        contract_id: int,
-        confirmed_logs: list[dict[str, str]],
-        actor_id: int | None = None,
-    ) -> int:
-        """将确认的工作日志建议写入 CaseLog 模型，自动跳过已有相同内容的日志。"""
-        if not confirmed_logs:
-            return 0
-
-        from apps.core.interfaces import ServiceLocator
-
-        case_service = ServiceLocator.get_case_service()
-        cases_dto = case_service.get_cases_by_contract(contract_id)
-        if not cases_dto:
-            logger.warning("work_log_import_no_case", extra={"contract_id": contract_id})
-            return 0
-
-        # 取合同的第一个案件写入日志
-        case_id = int(cases_dto[0].id)
-
-        # 获取案件已有日志内容集合，用于去重
-        from apps.cases.models import CaseLog
-
-        existing_contents: set[str] = set(CaseLog.objects.filter(case_id=case_id).values_list("content", flat=True))
-
-        imported = 0
-        for suggestion in confirmed_logs:
-            content = str(suggestion.get("content") or "").strip()
-            if not content:
-                continue
-            if content in existing_contents:
-                logger.info("work_log_duplicate_skipped", extra={"case_id": case_id, "content": content})
-                continue
-            try:
-                case_service.create_case_log_internal(
-                    case_id=case_id,
-                    content=content,
-                    user_id=actor_id,
-                )
-                existing_contents.add(content)
-                imported += 1
-            except Exception:
-                logger.exception(
-                    "work_log_import_item_failed",
-                    extra={"case_id": case_id, "content": content},
-                )
-
-        logger.info(
-            "work_log_imported",
-            extra={"contract_id": contract_id, "case_id": case_id, "count": imported},
-        )
-        return imported
+    # ── Private helpers ─────────────────────────────────────────────────
 
     def _ensure_contract_exists(self, contract_id: int) -> None:  # pragma: no cover
         if Contract.objects.filter(id=contract_id).exists():
@@ -688,330 +437,6 @@ class ContractFolderScanService:
         except ValueError:
             return False
 
-    def _relative_path_str(self, *, source_path: str, scan_root: Path) -> str:
-        """计算文件父目录相对扫描根目录的路径，失败返回空字符串。"""
-        try:
-            file_path = Path(source_path).expanduser().resolve()
-            parent_rel = file_path.parent.relative_to(scan_root)
-            # 文件直接在根目录下时返回空
-            if str(parent_rel) == ".":
-                return ""
-            return parent_rel.as_posix()
-        except (ValueError, RuntimeError):
-            return ""
-
-    def _post_process_candidates(
-        self,
-        *,
-        candidates: list[dict[str, Any]],
-        archive_category: str,
-        scan_folder: str,
-        contract_id: int = 0,
-        storage_provider: Any | None = None,
-    ) -> list[dict[str, Any]]:
-        """扫描后处理：归档清单项匹配 + docx 文件收集 + 跳过项过滤。"""
-        processed: list[dict[str, Any]] = []
-        if storage_provider is not None:
-            from pathlib import PurePosixPath
-
-            scan_root_posix: PurePosixPath | None = PurePosixPath(scan_folder)
-        else:
-            scan_root_posix = None
-            scan_root = Path(scan_folder).expanduser().resolve()
-
-        for candidate in candidates:
-            suggested_category = str(candidate.get("suggested_category") or "")
-
-            if suggested_category == "archive_document":
-                # 对被分类为"归档文书"的文件，尝试匹配归档清单项
-                result = classify_archive_material(
-                    filename=str(candidate.get("filename") or ""),
-                    source_path=str(candidate.get("source_path") or ""),
-                    archive_category=archive_category,
-                )
-
-                if result["category"] == "skip":
-                    # 跳过规则命中，不导入
-                    candidate["selected"] = False
-                    candidate["skip_reason"] = result.get("reason", "跳过")
-                    processed.append(candidate)
-                    continue
-
-                if result["archive_item_code"]:
-                    candidate["suggested_category"] = "case_material"
-                    candidate["archive_item_code"] = result["archive_item_code"]
-                    candidate["archive_item_name"] = result["archive_item_name"]
-                    candidate["confidence"] = result["confidence"]
-                    candidate["reason"] = result["reason"]
-                else:
-                    # 未匹配，保留但标记，默认取消勾选
-                    candidate["suggested_category"] = "case_material"
-                    candidate["archive_item_code"] = ""
-                    candidate["archive_item_name"] = "未匹配"
-                    candidate["reason"] = result["reason"]
-                    candidate["selected"] = False
-
-            elif suggested_category == "authorization_material":
-                # 授权委托材料归入案件材料（兼容旧缓存），并尝试匹配归档清单项
-                candidate["suggested_category"] = "case_material"
-                result = classify_archive_material(
-                    filename=str(candidate.get("filename") or ""),
-                    source_path=str(candidate.get("source_path") or ""),
-                    archive_category=archive_category,
-                )
-                if result.get("archive_item_code"):
-                    candidate["archive_item_code"] = result["archive_item_code"]
-                    candidate["archive_item_name"] = result["archive_item_name"]
-                    candidate["confidence"] = result["confidence"]
-                    candidate["reason"] = result["reason"]
-                else:
-                    candidate["archive_item_code"] = ""
-                    candidate["archive_item_name"] = "未匹配"
-                    candidate["selected"] = False
-
-            elif suggested_category == "case_material":
-                # 案件材料 — 尝试匹配归档清单项
-                result = classify_archive_material(
-                    filename=str(candidate.get("filename") or ""),
-                    source_path=str(candidate.get("source_path") or ""),
-                    archive_category=archive_category,
-                )
-                if result.get("archive_item_code"):
-                    candidate["archive_item_code"] = result["archive_item_code"]
-                    candidate["archive_item_name"] = result["archive_item_name"]
-                    candidate["confidence"] = result["confidence"]
-                    candidate["reason"] = result["reason"]
-                else:
-                    candidate["archive_item_code"] = ""
-                    candidate["archive_item_name"] = "未匹配"
-                    candidate["selected"] = False
-
-            # 文件名含"保单"/"保函"的默认不勾选（保险类文件通常不需要归档）
-            filename_lower = str(candidate.get("filename") or "").lower()
-            if any(kw in filename_lower for kw in ("保单", "保函")):
-                candidate["selected"] = False
-
-            # 案件材料的 reason 统一替换为相对路径，方便用户定位文件
-            if candidate.get("suggested_category") == "case_material":
-                if storage_provider is not None:
-                    # 云存储：用 PurePosixPath 计算相对路径
-                    source = str(candidate.get("source_path") or "")
-                    try:
-                        from pathlib import PurePosixPath
-
-                        assert scan_root_posix is not None
-                        rel_path = str(PurePosixPath(source).relative_to(scan_root_posix))
-                    except ValueError:
-                        rel_path = source
-                else:
-                    rel_path = self._relative_path_str(
-                        source_path=str(candidate.get("source_path") or ""),
-                        scan_root=scan_root,
-                    )
-                if rel_path:
-                    candidate["reason"] = rel_path
-
-            processed.append(candidate)
-
-        # 仅非诉项目收集 docx 文件（修订版/批注版 → 转 PDF）
-        if archive_category == "non_litigation":
-            docx_candidates = self._collect_docx_files(scan_folder, archive_category, storage_provider=storage_provider)
-            processed.extend(docx_candidates)
-
-        # 标记已导入文件：计算文件哈希并比对已有材料
-        if contract_id:
-            self._mark_already_imported(processed, contract_id=contract_id, storage_provider=storage_provider)
-
-        return processed
-
-    def _collect_docx_files(
-        self,
-        scan_folder: str,
-        archive_category: str,
-        storage_provider: Any | None = None,
-    ) -> list[dict[str, Any]]:
-        """单独收集 docx/doc 文件，仅非诉项目且仅含修订版/批注版关键词。
-
-        诉讼/刑事项目不收集 docx，只有非诉常法才需要 docx→PDF 流程。
-        """
-        if archive_category != "non_litigation":
-            return []
-
-        _DOCX_REVISION_KEYWORDS = ("修订版", "批注版", "律师修订")
-
-        if storage_provider is not None:
-            return self._collect_docx_files_cloud(scan_folder, storage_provider, _DOCX_REVISION_KEYWORDS)
-
-        root = Path(scan_folder).expanduser().resolve()
-        if not root.exists() or not root.is_dir():
-            return []
-
-        docx_files = [
-            p
-            for p in root.rglob("*")
-            if p.is_file()
-            and p.suffix.lower() in (".docx", ".doc")
-            and any(kw in _normalize_docx_name(p.name) for kw in _DOCX_REVISION_KEYWORDS)
-        ]
-        docx_files.sort(key=lambda x: x.as_posix())
-
-        # 用与 PDF 相同的去重逻辑
-        deduped = self._scan_service._deduplicate_files(docx_files)
-
-        candidates: list[dict[str, Any]] = []
-        for item in deduped:
-            file_path = item["path"]
-            stat = file_path.stat()
-
-            archive_item_code = ""
-            archive_item_name = "未匹配"
-            reason = "常法docx（修订版/批注版）→ 转 PDF"
-            normalized_name = _normalize_docx_name(file_path.name)
-
-            if "律师函" in normalized_name:
-                archive_item_code = "nl_8"
-                archive_item_name = "法律意见书、律师函等"
-                reason = "常法docx（律师函）→ nl_8"
-            else:
-                archive_item_code = "nl_9"
-                archive_item_name = "案件其它关联材料"
-                reason = "常法docx（修订版/批注版）→ nl_9"
-
-            candidates.append(
-                {
-                    "source_path": file_path.as_posix(),
-                    "filename": file_path.name,
-                    "file_size": int(stat.st_size),
-                    "modified_at": "",
-                    "base_name": item["base_name"],
-                    "version_token": item["version_token"],
-                    "extract_method": "none",
-                    "text_excerpt": "",
-                    "suggested_category": "case_material",
-                    "confidence": 0.85,
-                    "reason": reason,
-                    "selected": True,
-                    "is_docx": True,
-                    "archive_item_code": archive_item_code,
-                    "archive_item_name": archive_item_name,
-                }
-            )
-
-        return candidates
-
-    def _collect_docx_files_cloud(
-        self,
-        scan_folder: str,
-        storage_provider: Any,
-        revision_keywords: tuple[str, ...],
-    ) -> list[dict[str, Any]]:  # pragma: no cover
-        """云存储版本的 docx 文件收集。使用 provider.walk() 替代 Path.rglob()。"""
-        from pathlib import PurePosixPath
-
-        all_files: list[dict[str, Any]] = []
-        for _dirpath, _subdirs, files in storage_provider.walk(scan_folder):
-            for f in files:
-                if not f.is_dir and PurePosixPath(f.name).suffix.lower() in (".docx", ".doc"):
-                    if any(kw in _normalize_docx_name(f.name) for kw in revision_keywords):
-                        all_files.append(
-                            {
-                                "name": f.name,
-                                "path": f.path,
-                                "size": f.size,
-                                "modified_at": f.modified_at,
-                            }
-                        )
-
-        if not all_files:
-            return []
-
-        all_files.sort(key=lambda x: x["path"])
-
-        # 简单去重：按文件名分组，取每个组最新的一个
-        from collections import defaultdict
-
-        grouped: dict[str, list[dict[str, Any]]] = defaultdict(list)
-        for item in all_files:
-            stem = PurePosixPath(item["name"]).stem
-            grouped[stem].append(item)
-
-        deduped: list[dict[str, Any]] = []
-        for group_items in grouped.values():
-            group_items.sort(key=lambda x: (-x["modified_at"], x["path"]))
-            deduped.append(group_items[0])
-
-        candidates: list[dict[str, Any]] = []
-        for item in deduped:
-            archive_item_code = ""
-            archive_item_name = "未匹配"
-            reason = "常法docx（修订版/批注版）→ 转 PDF"
-            normalized_name = _normalize_docx_name(item["name"])
-
-            if "律师函" in normalized_name:
-                archive_item_code = "nl_8"
-                archive_item_name = "法律意见书、律师函等"
-                reason = "常法docx（律师函）→ nl_8"
-            else:
-                archive_item_code = "nl_9"
-                archive_item_name = "案件其它关联材料"
-                reason = "常法docx（修订版/批注版）→ nl_9"
-
-            candidates.append(
-                {
-                    "source_path": item["path"],
-                    "filename": item["name"],
-                    "file_size": item["size"],
-                    "modified_at": "",
-                    "base_name": normalized_name,
-                    "version_token": "",
-                    "extract_method": "none",
-                    "text_excerpt": "",
-                    "suggested_category": "case_material",
-                    "confidence": 0.85,
-                    "reason": reason,
-                    "selected": True,
-                    "is_docx": True,
-                    "archive_item_code": archive_item_code,
-                    "archive_item_name": archive_item_name,
-                }
-            )
-
-        return candidates
-
-    def _convert_docx_to_temp_pdf(self, file_path: Path) -> Path | None:  # pragma: no cover
-        """将本地 docx 文件转换为临时 PDF 文件。返回临时 PDF 路径，失败返回 None。"""
-        try:
-            from apps.documents.services.infrastructure.pdf_merge_utils import convert_docx_to_pdf
-
-            pdf_path_str = convert_docx_to_pdf(file_path.as_posix())
-            if pdf_path_str:
-                return Path(pdf_path_str)
-            return None
-        except (OSError, RuntimeError):
-            logger.exception("docx_to_pdf_conversion_failed", extra={"path": file_path.as_posix()})
-            return None
-
-    def _convert_docx_to_temp_pdf_from_bytes(self, file_bytes: bytes, filename: str) -> Path | None:  # pragma: no cover
-        """将 docx bytes 转换为临时 PDF 文件（用于云存储场景）。"""
-        import tempfile
-
-        try:
-            from apps.documents.services.infrastructure.pdf_merge_utils import convert_docx_to_pdf
-
-            with tempfile.NamedTemporaryFile(suffix=".docx", delete=False) as tmp:
-                tmp.write(file_bytes)
-                docx_path = tmp.name
-            try:
-                pdf_path_str = convert_docx_to_pdf(docx_path)
-                if pdf_path_str:
-                    return Path(pdf_path_str)
-                return None
-            finally:
-                Path(docx_path).unlink(missing_ok=True)
-        except (OSError, RuntimeError):
-            logger.exception("docx_to_pdf_conversion_from_bytes_failed", extra={"file_name": filename})
-            return None
-
     def _learn_from_import_correction(
         self,
         *,
@@ -1075,56 +500,6 @@ class ContractFolderScanService:
                 )
         except (OSError, RuntimeError, ValueError):
             logger.exception("learn_from_import_correction_failed")
-
-    def _mark_already_imported(
-        self,
-        candidates: list[dict[str, Any]],
-        *,
-        contract_id: int,
-        storage_provider: Any | None = None,
-    ) -> None:  # pragma: no cover
-        """标记已导入文件：计算文件哈希，与已有材料比对。"""
-        existing_hashes: set[str] = set(
-            FinalizedMaterial.objects.filter(
-                contract_id=contract_id,
-                content_hash__gt="",
-            ).values_list("content_hash", flat=True)
-        )
-
-        if not existing_hashes:
-            # 没有任何已导入材料，全部标记为未导入
-            for candidate in candidates:
-                candidate["already_imported"] = False
-            return
-
-        for candidate in candidates:
-            # 被跳过的文件不需要标记
-            if candidate.get("skip_reason"):
-                candidate["already_imported"] = False
-                continue
-
-            source_path = str(candidate.get("source_path") or "").strip()
-            if not source_path:
-                continue
-
-            try:
-                if storage_provider is not None:
-                    file_bytes = storage_provider.read_file(source_path)
-                    content_hash = compute_file_hash_from_bytes(file_bytes)
-                else:
-                    file_path = Path(source_path)
-                    if not file_path.exists() or not file_path.is_file():
-                        continue
-                    content_hash = compute_file_hash(file_path)
-            except Exception:
-                logger.warning("mark_imported_hash_failed", extra={"source_path": source_path})
-                continue
-
-            if content_hash and content_hash in existing_hashes:
-                candidate["already_imported"] = True
-                candidate["selected"] = False
-            else:
-                candidate["already_imported"] = False
 
 
 def run_contract_folder_scan_task(session_id: str) -> None:  # pragma: no cover

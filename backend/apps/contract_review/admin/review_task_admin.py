@@ -6,6 +6,8 @@ from typing import Any
 from uuid import UUID
 
 from django.contrib import admin
+from django.core.files.base import ContentFile
+from django.core.files.storage import default_storage
 from django.http import HttpRequest, HttpResponse
 from django.template.response import TemplateResponse
 from django.urls import path
@@ -381,11 +383,9 @@ class ReviewTaskAdmin(admin.ModelAdmin):  # pragma: no cover
         pdf = HTML(string=html_string).write_pdf()
 
         # 保存到缓存
-        pdf_dir = Path(settings.MEDIA_ROOT) / "contract_review" / "pdf_cache"
-        pdf_dir.mkdir(parents=True, exist_ok=True)
-        cache_path = pdf_dir / f"{task_id}.pdf"
-        with open(cache_path, "wb") as f:
-            f.write(pdf)
+        rel_cache = f"contract_review/pdf_cache/{task_id}.pdf"
+        saved_name = default_storage.save(rel_cache, ContentFile(pdf))
+        cache_path = Path(settings.MEDIA_ROOT) / saved_name
 
         # 更新数据库记录
         task.pdf_cache_file = str(cache_path)

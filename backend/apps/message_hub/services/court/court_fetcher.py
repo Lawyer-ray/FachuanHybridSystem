@@ -12,6 +12,8 @@ from typing import TYPE_CHECKING, Any, Callable
 
 import httpx
 from django.conf import settings
+from django.core.files.base import ContentFile
+from django.core.files.storage import default_storage
 from django.utils import timezone
 
 from apps.message_hub.models import InboxMessage, SyncStatus
@@ -341,8 +343,6 @@ class CourtInboxFetcher(MessageFetcher):  # pragma: no cover
 
     def _download_attachments(self, meta: list[dict[str, Any]], sdbh: str) -> list[str]:  # pragma: no cover
         """下载文书附件，返回下载成功的本地路径列表。"""
-        save_dir = Path(settings.MEDIA_ROOT) / "message_hub" / "court_inbox" / sdbh
-        save_dir.mkdir(parents=True, exist_ok=True)
         downloaded: list[str] = []
 
         for att in meta:
@@ -350,16 +350,17 @@ class CourtInboxFetcher(MessageFetcher):  # pragma: no cover
             if not wjlj:
                 continue
             filename = att.get("filename", "unknown.pdf")
-            save_path = save_dir / filename
+            rel_path = f"message_hub/court_inbox/{sdbh}/{filename}"
             try:
                 with httpx.Client(timeout=60.0) as client:
                     resp = client.get(wjlj)
                     resp.raise_for_status()
-                    save_path.write_bytes(resp.content)
+                    saved_name = default_storage.save(rel_path, ContentFile(resp.content))
+                abs_path = Path(settings.MEDIA_ROOT) / saved_name
                 att["size"] = len(resp.content)
-                att["local_path"] = str(save_path)
-                downloaded.append(str(save_path))
-                logger.info("下载成功: %s → %s", filename, save_path)
+                att["local_path"] = str(abs_path)
+                downloaded.append(str(abs_path))
+                logger.info("下载成功: %s → %s", filename, abs_path)
             except Exception as e:
                 logger.warning("下载失败 %s: %s", filename, e)
 
@@ -429,10 +430,9 @@ class CourtInboxFetcher(MessageFetcher):  # pragma: no cover
                 resp = client.get(wjlj)
                 resp.raise_for_status()
 
-            save_dir = Path(settings.MEDIA_ROOT) / "message_hub" / "court_inbox" / message_id
-            save_dir.mkdir(parents=True, exist_ok=True)
-            save_path = save_dir / filename
-            save_path.write_bytes(resp.content)
+            rel_path = f"message_hub/court_inbox/{message_id}/{filename}"
+            saved_name = default_storage.save(rel_path, ContentFile(resp.content))
+            save_path = Path(settings.MEDIA_ROOT) / saved_name
 
             att["local_path"] = str(save_path)
             att["size"] = len(resp.content)

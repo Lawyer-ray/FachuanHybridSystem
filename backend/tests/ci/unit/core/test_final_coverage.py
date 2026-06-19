@@ -11,7 +11,6 @@ import pytest
 
 from apps.core.services.storage_service import (
     _DefaultFileValidator,
-    _MULTIPLE_UNDERSCORES,
     _WINDOWS_ABS_PATH,
     _get_media_root,
     delete_media_file,
@@ -351,7 +350,3 @@ class TestStorageRegex:
         assert _WINDOWS_ABS_PATH.match("D:\\path")
         assert not _WINDOWS_ABS_PATH.match("/unix/path")
         assert not _WINDOWS_ABS_PATH.match("relative")
-
-    def test_multiple_underscores_regex(self):
-        assert _MULTIPLE_UNDERSCORES.sub("_", "a___b") == "a_b"
-        assert _MULTIPLE_UNDERSCORES.sub("_", "a_b") == "a_b"

@@ -111,7 +111,7 @@ class SMSSubmissionService:
 
             # 提交异步处理任务
             task_id = submit_task(
-                "apps.automation.services.sms.court_sms_service.process_sms_async",
+                "apps.automation.workers.court_sms_tasks.process_sms",
                 sms.id,
                 task_name=f"court_sms_processing_{sms.id}",
             )
@@ -177,7 +177,7 @@ class SMSSubmissionService:
 
             # 触发后续处理流程（从重命名阶段开始）
             task_id = submit_task(
-                "apps.automation.services.sms.court_sms_service.process_sms_from_renaming",
+                "apps.automation.workers.court_sms_tasks.process_sms_from_renaming",
                 sms.id,
                 task_name=f"court_sms_continue_{sms.id}",
             )
@@ -229,7 +229,7 @@ class SMSSubmissionService:
 
             # 重新提交处理任务
             task_id = submit_task(
-                "apps.automation.services.sms.court_sms_service.process_sms_async",
+                "apps.automation.workers.court_sms_tasks.process_sms",
                 sms.id,
                 task_name=f"court_sms_retry_{sms.id}_{sms.retry_count}",
             )

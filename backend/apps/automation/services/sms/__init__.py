@@ -23,11 +23,11 @@ SMS 处理服务模块
 from .case_matcher import CaseMatcher, _get_case_matcher
 from .case_number_extractor_service import CaseNumberExtractorService
 
-# 异步任务入口函数（向后兼容 - 保持原有导入路径）
+# 异步任务入口函数（已迁移到 workers 层，保持向后兼容导入路径）
 from .court_sms_dedup_service import CourtSMSDedupIdentity, CourtSMSDedupResult, CourtSMSDedupService
-from .court_sms_service import (
-    CourtSMSService,
-    process_sms_async,
+from .court_sms_service import CourtSMSService
+from apps.automation.workers.court_sms_tasks import (
+    process_sms as process_sms_async,
     process_sms_from_matching,
     process_sms_from_renaming,
     retry_download_task,

@@ -5,7 +5,16 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from apps.core.protocols import ICourtSMSService
+    from apps.core.protocols import (
+        ICaseChatService,
+        ICaseLogService,
+        ICaseNumberService,
+        ICaseService,
+        IClientService,
+        ICourtSMSService,
+        IDocumentProcessingService,
+        ILawyerService,
+    )
 
 
 def build_court_sms_service_with_deps(
@@ -75,43 +84,43 @@ def build_court_sms_service_with_deps(
     )
 
 
-def build_sms_case_service() -> Any:
+def build_sms_case_service() -> ICaseService:
     from apps.core.infrastructure.service_locator import ServiceLocator
 
     return ServiceLocator.get_case_service()
 
 
-def build_sms_client_service() -> Any:
+def build_sms_client_service() -> IClientService:
     from apps.core.infrastructure.service_locator import ServiceLocator
 
     return ServiceLocator.get_client_service()
 
 
-def build_sms_lawyer_service() -> Any:
+def build_sms_lawyer_service() -> ILawyerService:
     from apps.core.infrastructure.service_locator import ServiceLocator
 
     return ServiceLocator.get_lawyer_service()
 
 
-def build_sms_case_chat_service() -> Any:
+def build_sms_case_chat_service() -> ICaseChatService:
     from apps.core.infrastructure.service_locator import ServiceLocator
 
     return ServiceLocator.get_case_chat_service()
 
 
-def build_sms_case_log_service() -> Any:
+def build_sms_case_log_service() -> ICaseLogService:
     from apps.core.infrastructure.service_locator import ServiceLocator
 
     return ServiceLocator.get_caselog_service()
 
 
-def build_sms_document_processing_service() -> Any:
+def build_sms_document_processing_service() -> IDocumentProcessingService:
     from apps.core.infrastructure.service_locator import ServiceLocator
 
     return ServiceLocator.get_document_processing_service()
 
 
-def build_sms_case_number_service() -> Any:
+def build_sms_case_number_service() -> ICaseNumberService:
     from apps.core.infrastructure.service_locator import ServiceLocator
 
     return ServiceLocator.get_case_number_service()

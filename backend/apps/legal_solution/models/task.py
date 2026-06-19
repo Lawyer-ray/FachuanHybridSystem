@@ -4,7 +4,7 @@ from typing import ClassVar
 
 from django.db import models
 
-from apps.core.filesystem.upload_paths import DatedUUIDPath
+from apps.core.filesystem.upload_paths import DatedUUIDPath, MediaEntity
 
 
 class SolutionTaskStatus(models.TextChoices):
@@ -45,7 +45,7 @@ class SolutionTask(models.Model):
     llm_model = models.CharField(max_length=128, blank=True, verbose_name="LLM模型")
     html_content = models.TextField(blank=True, verbose_name="HTML方案")
     pdf_file = models.FileField(
-        upload_to=DatedUUIDPath("legal_solution"),
+        upload_to=DatedUUIDPath(MediaEntity.LEGAL_SOLUTION),
         max_length=255,
         null=True,
         blank=True,

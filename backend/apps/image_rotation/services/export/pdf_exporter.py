@@ -15,25 +15,27 @@ logger = logging.getLogger("apps.image_rotation")
 
 
 def generate_pdf(*, processed_images: list[tuple[bytes, int]], output_dir: Path) -> str:  # pragma: no cover
+    from django.conf import settings
+    from django.core.files.base import ContentFile
+    from django.core.files.storage import default_storage
+
     pdf_filename = storage.build_pdf_filename()
-    pdf_path = output_dir / pdf_filename
 
     try:
         pdf_bytes = _create_pdf_from_images(processed_images)
-        with open(pdf_path, "wb") as f:
-            f.write(pdf_bytes)
+        media_root = Path(settings.MEDIA_ROOT)
+        rel_path = output_dir.relative_to(media_root).as_posix() + f"/{pdf_filename}"
+        default_storage.save(rel_path, ContentFile(pdf_bytes))
 
         logger.info(
             "PDF 文件生成成功",
             extra={
-                "pdf_path": str(pdf_path),
+                "pdf_path": rel_path,
                 "page_count": len(processed_images),
             },
         )
         return storage.to_media_url(pdf_filename)
     except Exception:
-        if pdf_path.exists():
-            pdf_path.unlink()
         raise
 
 

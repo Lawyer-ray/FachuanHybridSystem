@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any, cast
 
 from django.conf import settings
+from django.core.files.storage import default_storage
 from django.http import HttpRequest, JsonResponse
 from ninja import Router
 
@@ -97,19 +98,14 @@ def upload_temp_document(request: HttpRequest) -> dict[str, Any]:  # pragma: no 
         if ext not in [".pdf"]:
             return {"success": False, "error": "仅支持 PDF 格式"}
 
-        # 创建临时目录
-        temp_dir = Path(settings.MEDIA_ROOT) / "case_documents" / "temp"
-        temp_dir.mkdir(parents=True, exist_ok=True)
-
         # 防止 path traversal：只保留文件名部分，去掉路径分隔符
         safe_name = Path(str(file.name or "")).name
         temp_filename = f"{uuid.uuid4().hex}_{safe_name}"
-        temp_path = temp_dir / temp_filename
+        rel_path = f"case_documents/temp/{temp_filename}"
 
         # 保存文件
-        with open(temp_path, "wb+") as destination:
-            for chunk in file.chunks():
-                destination.write(chunk)
+        saved_name = default_storage.save(rel_path, file)
+        temp_path = Path(settings.MEDIA_ROOT) / saved_name
 
         return {
             "success": True,

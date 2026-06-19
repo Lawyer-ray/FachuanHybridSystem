@@ -11,7 +11,7 @@ from ninja.files import UploadedFile
 class FileUploadPort(Protocol):
     """文件上传服务端口。
 
-    封装对 core 模块 FileUploadService 的依赖。
+    封装对 core.storage_service 的依赖。
     """
 
     def validate_file(self, file: UploadedFile) -> None:

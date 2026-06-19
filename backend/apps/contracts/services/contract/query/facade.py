@@ -9,7 +9,7 @@ from django.db.models import QuerySet
 from apps.contracts.models import Contract
 from apps.core.security.access_context import AccessContext
 
-from ..assemblers.contract_list_assembler import ContractListAssembler
+from .contract_list_assembler import ContractListAssembler
 from ..domain import ContractAccessPolicy
 from .service import ContractQueryService
 

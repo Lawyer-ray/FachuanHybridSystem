@@ -3,29 +3,26 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
 from ninja.files import UploadedFile
 
-from apps.core.services.file_upload_service import FileUploadService
+from apps.core.services.storage_service import save_uploaded_file, validate_file
 
 
 class FileUploadAdapter:
     """文件上传服务适配器。
 
-    包装 FileUploadService，实现 FileUploadPort 接口。
+    委托给 storage_service 中的 validate_file / save_uploaded_file，
+    实现 FileUploadPort 接口。
     """
 
-    def __init__(self, service: FileUploadService | None = None) -> None:
-        """初始化适配器。
-
-        Args:
-            service: 可选的文件上传服务实例
-        """
-        self._service = service or FileUploadService()
+    def __init__(self, **_kwargs: Any) -> None:
+        """初始化适配器。"""
 
     def validate_file(self, file: UploadedFile) -> None:
         """验证上传文件。"""
-        self._service.validate_file(file)
+        validate_file(file)
 
     def save_file(
         self,
@@ -35,4 +32,11 @@ class FileUploadAdapter:
         preserve_name: bool = False,
     ) -> Path:
         """保存上传文件。"""
-        return self._service.save_file(file, base_dir, preserve_name=preserve_name)
+        rel_path, _ = save_uploaded_file(
+            file,
+            rel_dir=base_dir,
+            use_uuid_name=not preserve_name,
+        )
+        from django.conf import settings
+
+        return Path(settings.MEDIA_ROOT) / rel_path

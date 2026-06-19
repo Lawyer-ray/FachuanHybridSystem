@@ -193,7 +193,7 @@ class CourtSMSService(SMSCaseBindingMixin, SMSDocumentMixin, SMSDownloadMixin):
             logger.info(f"创建短信记录成功: ID={sms.id}, 长度={len(content)}")
 
             task_id = submit_task(
-                "apps.automation.services.sms.court_sms_service.process_sms_async",
+                "apps.automation.workers.court_sms_tasks.process_sms",
                 sms.id,
                 task_name=f"court_sms_processing_{sms.id}",
             )
@@ -249,7 +249,7 @@ class CourtSMSService(SMSCaseBindingMixin, SMSDocumentMixin, SMSDownloadMixin):
                 return sms
 
             task_id = submit_task(
-                "apps.automation.services.sms.court_sms_service.process_sms_from_renaming",
+                "apps.automation.workers.court_sms_tasks.process_sms_from_renaming",
                 sms.id,
                 task_name=f"court_sms_continue_{sms.id}",
             )
@@ -327,13 +327,13 @@ class CourtSMSService(SMSCaseBindingMixin, SMSDocumentMixin, SMSDownloadMixin):
             if has_manual_case:
                 # 已有案件，跳过匹配，从重命名阶段开始
                 task_id = submit_task(
-                    "apps.automation.services.sms.court_sms_service.process_sms_from_renaming",
+                    "apps.automation.workers.court_sms_tasks.process_sms_from_renaming",
                     sms.id,
                     task_name=f"court_sms_retry_{sms.id}_{sms.retry_count}",
                 )
             else:
                 task_id = submit_task(
-                    "apps.automation.services.sms.court_sms_service.process_sms_async",
+                    "apps.automation.workers.court_sms_tasks.process_sms",
                     sms.id,
                     task_name=f"court_sms_retry_{sms.id}_{sms.retry_count}",
                 )
@@ -622,31 +622,3 @@ class CourtSMSService(SMSCaseBindingMixin, SMSDocumentMixin, SMSDownloadMixin):
                 sms.error_message = f"案件群聊通知发送失败: {e!s}"
             sms.save()
             return sms
-
-
-def process_sms_async(sms_id: int, process_options: dict[str, Any] | None = None) -> Any:
-    """异步处理短信的入口函数"""
-    from apps.automation.workers import court_sms_tasks
-
-    return court_sms_tasks.process_sms(sms_id, process_options=process_options)
-
-
-def process_sms_from_matching(sms_id: int) -> Any:
-    """从匹配阶段开始处理短信"""
-    from apps.automation.workers import court_sms_tasks
-
-    return court_sms_tasks.process_sms_from_matching(sms_id)
-
-
-def process_sms_from_renaming(sms_id: int) -> Any:
-    """从重命名阶段开始处理短信"""
-    from apps.automation.workers import court_sms_tasks
-
-    return court_sms_tasks.process_sms_from_renaming(sms_id)
-
-
-def retry_download_task(sms_id: Any, **kwargs: Any) -> Any:
-    """重试下载任务"""
-    from apps.automation.workers import court_sms_tasks
-
-    return court_sms_tasks.retry_download_task(sms_id, **kwargs)

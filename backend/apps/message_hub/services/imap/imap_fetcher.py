@@ -12,6 +12,8 @@ from email.message import Message
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from django.core.files.base import ContentFile
+from django.core.files.storage import default_storage
 from django.utils import timezone
 from django.utils.timezone import make_aware
 
@@ -69,13 +71,14 @@ def _extract_body(msg: Message) -> tuple[str, str]:
     return text, html
 
 
-def _build_local_attachment_path(source_id: int, message_id: str, part_index: int, filename: str) -> Path:  # pragma: no cover
+def _build_local_attachment_path(source_id: int, message_id: str, part_index: int, filename: str) -> tuple[str, Path]:
+    """返回 (relative_path, absolute_path)。relative_path 用于 default_storage.save()，absolute_path 用于后续读取。"""
     from django.conf import settings
 
     safe_name = Path(filename).name or f"attachment_{part_index}"
-    save_dir = Path(settings.MEDIA_ROOT) / "message_hub" / "imap" / str(source_id) / message_id
-    save_dir.mkdir(parents=True, exist_ok=True)
-    return save_dir / f"{part_index}_{safe_name}"
+    rel_path = f"message_hub/imap/{source_id}/{message_id}/{part_index}_{safe_name}"
+    abs_path = Path(settings.MEDIA_ROOT) / rel_path
+    return rel_path, abs_path
 
 
 def _extract_attachments(msg: Message, source_id: int, message_id: str) -> list[dict[str, Any]]:  # pragma: no cover
@@ -88,8 +91,8 @@ def _extract_attachments(msg: Message, source_id: int, message_id: str) -> list[
         filename = _decode_header_value(part.get_filename()) or f"attachment_{idx}"
         payload = part.get_payload(decode=True)
         content = payload if isinstance(payload, bytes) else b""
-        local_path = _build_local_attachment_path(source_id, message_id, idx, filename)
-        local_path.write_bytes(content)
+        rel_path, local_path = _build_local_attachment_path(source_id, message_id, idx, filename)
+        default_storage.save(rel_path, ContentFile(content))
 
         attachments.append(
             {
@@ -259,8 +262,8 @@ class ImapFetcher(MessageFetcher):  # pragma: no cover
                     raise ValueError("附件内容为空")
 
                 filename = _decode_header_value(part.get_filename()) or f"attachment_{idx}"
-                file_path = _build_local_attachment_path(source.pk, message_id, idx, filename)
-                file_path.write_bytes(payload)
+                rel_path, file_path = _build_local_attachment_path(source.pk, message_id, idx, filename)
+                default_storage.save(rel_path, ContentFile(payload))
 
                 if inbox_msg and isinstance(inbox_msg.attachments_meta, list):
                     updated = False

@@ -850,8 +850,8 @@ class TestModuleLevelFunctions:
         import apps.automation.workers as _workers
         mock_tasks = MagicMock()
         with patch.object(_workers, "court_sms_tasks", mock_tasks):
-            from apps.automation.services.sms.court_sms_service import process_sms_async
-            process_sms_async(1, process_options={"key": "val"})
+            from apps.automation.workers.court_sms_tasks import process_sms
+            process_sms(1, process_options={"key": "val"})
             mock_tasks.process_sms.assert_called_once_with(1, process_options={"key": "val"})
 
     def test_process_sms_from_matching(self):
@@ -859,7 +859,7 @@ class TestModuleLevelFunctions:
         import apps.automation.workers as _workers
         mock_tasks = MagicMock()
         with patch.object(_workers, "court_sms_tasks", mock_tasks):
-            from apps.automation.services.sms.court_sms_service import process_sms_from_matching
+            from apps.automation.workers.court_sms_tasks import process_sms_from_matching
             process_sms_from_matching(1)
             mock_tasks.process_sms_from_matching.assert_called_once_with(1)
 
@@ -868,7 +868,7 @@ class TestModuleLevelFunctions:
         import apps.automation.workers as _workers
         mock_tasks = MagicMock()
         with patch.object(_workers, "court_sms_tasks", mock_tasks):
-            from apps.automation.services.sms.court_sms_service import process_sms_from_renaming
+            from apps.automation.workers.court_sms_tasks import process_sms_from_renaming
             process_sms_from_renaming(1)
             mock_tasks.process_sms_from_renaming.assert_called_once_with(1)
 
@@ -877,6 +877,6 @@ class TestModuleLevelFunctions:
         import apps.automation.workers as _workers
         mock_tasks = MagicMock()
         with patch.object(_workers, "court_sms_tasks", mock_tasks):
-            from apps.automation.services.sms.court_sms_service import retry_download_task
+            from apps.automation.workers.court_sms_tasks import retry_download_task
             retry_download_task(42, extra="data")
             mock_tasks.retry_download_task.assert_called_once_with(42, extra="data")

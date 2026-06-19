@@ -12,6 +12,8 @@ from typing import Any
 
 import fitz
 from django.conf import settings
+from django.core.files.base import ContentFile
+from django.core.files.storage import default_storage
 
 from apps.automation.services.ocr.ocr_service import OCRService
 from apps.pdf_splitting.models import PdfSplitOcrProfile
@@ -168,11 +170,12 @@ class OCRHandler:
         return digest.hexdigest()
 
     def read_ocr_cache(self, *, pdf_hash: str, profile_key: str, page_no: int) -> OCRPageResult | None:
-        cache_file = self._ocr_cache_file(pdf_hash=pdf_hash, profile_key=profile_key, page_no=page_no)
-        if not cache_file.exists():
+        rel_path = self._ocr_cache_rel_path(pdf_hash=pdf_hash, profile_key=profile_key, page_no=page_no)
+        if not default_storage.exists(rel_path):
             return None
         try:
-            payload = json.loads(cache_file.read_text(encoding="utf-8"))
+            with default_storage.open(rel_path) as f:
+                payload = json.loads(f.read().decode("utf-8"))
             text = str(payload.get("text") or "")
             ocr_failed = bool(payload.get("ocr_failed"))
             return OCRPageResult(
@@ -182,29 +185,21 @@ class OCRHandler:
                 ocr_failed=ocr_failed,
             )
         except (json.JSONDecodeError, OSError):
-            logger.exception("pdf_split_ocr_cache_read_failed", extra={"cache_file": cache_file.as_posix()})
+            logger.exception("pdf_split_ocr_cache_read_failed", extra={"cache_file": rel_path})
             return None
 
     def write_ocr_cache(self, *, pdf_hash: str, profile_key: str, result: OCRPageResult) -> None:  # pragma: no cover
-        cache_file = self._ocr_cache_file(pdf_hash=pdf_hash, profile_key=profile_key, page_no=result.page_no)
-        cache_file.parent.mkdir(parents=True, exist_ok=True)
+        rel_path = self._ocr_cache_rel_path(pdf_hash=pdf_hash, profile_key=profile_key, page_no=result.page_no)
         payload = {
             "text": result.text,
             "ocr_failed": result.ocr_failed,
             "source_method": result.source_method,
         }
-        cache_file.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+        default_storage.save(rel_path, ContentFile(json.dumps(payload, ensure_ascii=False).encode("utf-8")))
 
     @staticmethod
-    def _ocr_cache_file(*, pdf_hash: str, profile_key: str, page_no: int) -> Path:
-        return (
-            Path(settings.MEDIA_ROOT)
-            / "pdf_splitting"
-            / "ocr_cache"
-            / pdf_hash
-            / profile_key
-            / f"page_{page_no:04d}.json"
-        )
+    def _ocr_cache_rel_path(*, pdf_hash: str, profile_key: str, page_no: int) -> str:
+        return f"pdf_splitting/ocr_cache/{pdf_hash}/{profile_key}/page_{page_no:04d}.json"
 
     @staticmethod
     def _chunk_pages(*, page_numbers: list[int], chunk_count: int) -> list[list[int]]:

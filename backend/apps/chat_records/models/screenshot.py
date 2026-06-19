@@ -6,7 +6,7 @@ from typing import Any, ClassVar
 from django.db import models
 from django_lifecycle import BEFORE_UPDATE, LifecycleModel, hook
 
-from apps.core.filesystem.upload_paths import EntityIdPath
+from apps.core.filesystem.upload_paths import EntityIdPath, MediaEntity
 
 from .choices import ScreenshotSource
 
@@ -24,7 +24,7 @@ class ChatRecordScreenshot(LifecycleModel):
         related_name="screenshots",
         verbose_name="项目",
     )
-    image = models.ImageField(upload_to=EntityIdPath("chat_records/screenshots"), verbose_name="截图")
+    image = models.ImageField(upload_to=EntityIdPath(MediaEntity.CHAT_SCREENSHOTS), verbose_name="截图")
     ordering = models.PositiveIntegerField(default=0, verbose_name="顺序")
     title = models.CharField(max_length=255, blank=True, verbose_name="标题")
     note = models.TextField(blank=True, verbose_name="备注")

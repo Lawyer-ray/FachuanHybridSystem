@@ -208,14 +208,11 @@ class DocumentExtraction:
 
 
 def save_uploaded_document(upload: UploadedFile) -> Path:  # pragma: no cover
-    out_dir = Path(settings.MEDIA_ROOT) / "automation" / "uploads"
-    out_dir.mkdir(parents=True, exist_ok=True)
-    fname = f"{uuid.uuid4().hex}_{upload.name}"
-    dest = out_dir / fname
-    with dest.open("wb") as w:
-        for chunk in upload.chunks():
-            w.write(chunk)
-    return dest
+    """保存上传文档（委托给 storage_service）。"""
+    from apps.core.services.storage_service import save_uploaded_file
+
+    rel_path, _ = save_uploaded_file(upload, rel_dir="automation/uploads")
+    return Path(settings.MEDIA_ROOT) / rel_path
 
 
 def extract_document_content(

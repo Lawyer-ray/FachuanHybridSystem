@@ -96,13 +96,14 @@ class ManualCaptchaRecognizer(CaptchaRecognizer):
 
         try:
             from django.conf import settings
+            from django.core.files.base import ContentFile
+            from django.core.files.storage import default_storage
 
             # 1. 保存验证码图片
-            captcha_dir = Path(settings.MEDIA_ROOT) / self._CAPTCHA_DIR
-            captcha_dir.mkdir(parents=True, exist_ok=True)
             filename = f"{self.task.id}_{int(time.time() * 1000)}.png"
-            image_path = captcha_dir / filename
-            image_path.write_bytes(image_bytes)
+            rel_path = f"{self._CAPTCHA_DIR}/{filename}"
+            saved_name = default_storage.save(rel_path, ContentFile(image_bytes))
+            image_path = Path(settings.MEDIA_ROOT) / saved_name
 
             # 2. 更新任务状态
             from apps.automation.models import ScraperTaskStatus
@@ -127,7 +128,7 @@ class ManualCaptchaRecognizer(CaptchaRecognizer):
 
                     # 清理图片和状态
                     try:
-                        image_path.unlink(missing_ok=True)
+                        default_storage.delete(saved_name)
                     except Exception:
                         pass
                     return cleaned
@@ -184,18 +185,20 @@ class FileBasedCaptchaRecognizer(CaptchaRecognizer):
 
         try:
             from django.conf import settings
+            from django.core.files.base import ContentFile
+            from django.core.files.storage import default_storage
 
             # 1. 保存验证码图片
-            captcha_dir = Path(settings.MEDIA_ROOT) / self._CAPTCHA_DIR
-            captcha_dir.mkdir(parents=True, exist_ok=True)
             captcha_id = uuid.uuid4().hex[:12]
             filename = f"{captcha_id}.png"
-            image_path = captcha_dir / filename
-            image_path.write_bytes(image_bytes)
+            image_rel = f"{self._CAPTCHA_DIR}/{filename}"
+            saved_image = default_storage.save(image_rel, ContentFile(image_bytes))
+            image_path = Path(settings.MEDIA_ROOT) / saved_image
 
             # 2. 创建 .answer 文件（用户需要写入答案）
-            answer_path = captcha_dir / f"{captcha_id}.answer"
-            answer_path.write_text("", encoding="utf-8")
+            answer_rel = f"{self._CAPTCHA_DIR}/{captcha_id}.answer"
+            default_storage.save(answer_rel, ContentFile(b""))
+            answer_path = Path(settings.MEDIA_ROOT) / answer_rel
 
             logger.info(
                 "📸 验证码图片已保存，等待手动输入:\n"
@@ -211,16 +214,17 @@ class FileBasedCaptchaRecognizer(CaptchaRecognizer):
             while time.time() < deadline:
                 time.sleep(self.poll_interval)
 
-                if answer_path.exists():
-                    answer = answer_path.read_text(encoding="utf-8").strip()
+                if default_storage.exists(answer_rel):
+                    with default_storage.open(answer_rel) as f:
+                        answer = f.read().decode("utf-8").strip()
                     if answer:
                         cleaned: str = answer.strip().replace(" ", "")
                         logger.info("✅ 收到手动验证码: captcha_id=%s, answer=%s", captcha_id, cleaned)
 
                         # 清理文件
                         try:
-                            image_path.unlink(missing_ok=True)
-                            answer_path.unlink(missing_ok=True)
+                            default_storage.delete(saved_image)
+                            default_storage.delete(answer_rel)
                         except Exception:
                             pass
                         return cleaned
@@ -228,8 +232,8 @@ class FileBasedCaptchaRecognizer(CaptchaRecognizer):
             # 4. 超时
             logger.warning("⏰ 手动验证码等待超时: captcha_id=%s, timeout=%ss", captcha_id, self.timeout)
             try:
-                image_path.unlink(missing_ok=True)
-                answer_path.unlink(missing_ok=True)
+                default_storage.delete(saved_image)
+                default_storage.delete(answer_rel)
             except Exception:
                 pass
             return None

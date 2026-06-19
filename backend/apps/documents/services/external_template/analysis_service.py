@@ -19,6 +19,7 @@ from xml.etree import ElementTree as ET
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
+from django.core.files.storage import default_storage
 from django.db import transaction
 
 from .fingerprint_service import FingerprintService
@@ -149,21 +150,13 @@ class AnalysisService:
         Returns:
             (绝对路径, 相对于 MEDIA_ROOT 的路径)
         """
-        media_root = Path(settings.MEDIA_ROOT)
-        rel_dir = Path("documents") / "external_templates" / str(law_firm_id)
-        abs_dir = media_root / rel_dir
-        abs_dir.mkdir(parents=True, exist_ok=True)
-
         new_filename = f"{uuid.uuid4()}.docx"
-        rel_path = rel_dir / new_filename
-        abs_path = media_root / rel_path
-
-        with abs_path.open("wb") as dest:
-            for chunk in file.chunks():
-                dest.write(chunk)
+        rel_path = f"documents/external_templates/{law_firm_id}/{new_filename}"
+        saved_name = default_storage.save(rel_path, file)
+        abs_path = Path(settings.MEDIA_ROOT) / saved_name
 
         logger.info("文件已保存: %s", abs_path)
-        return abs_path, str(rel_path)
+        return abs_path, str(saved_name)
 
     # ------------------------------------------------------------------
     # 版本管理

@@ -11,7 +11,7 @@ import pytest
 
 class TestDocumentTemplateAdmin:
     def test_get_template_service(self):
-        from apps.documents.admin.document_template_admin import _get_template_service
+        from apps.documents.admin.template_admin_display_mixin import _get_template_service
 
         with patch("apps.documents.services.template.template_service.DocumentTemplateService") as mock_cls:
             mock_cls.return_value = MagicMock()
@@ -19,24 +19,24 @@ class TestDocumentTemplateAdmin:
             assert result is not None
 
     def test_to_django_relative_path(self, tmp_path):
-        from apps.documents.admin.document_template_admin import _to_django_relative_path
+        from apps.documents.admin.template_admin_views_mixin import _to_django_relative_path
 
         result = _to_django_relative_path(tmp_path / "test.txt")
         assert isinstance(result, str)
 
     def test_normalize_private_docx_root_empty(self):
-        from apps.documents.admin.document_template_admin import _normalize_private_docx_root
+        from apps.documents.admin.template_admin_views_mixin import _normalize_private_docx_root
 
         assert _normalize_private_docx_root("") == ""
 
     def test_normalize_private_docx_root_invalid(self):
-        from apps.documents.admin.document_template_admin import _normalize_private_docx_root
+        from apps.documents.admin.template_admin_views_mixin import _normalize_private_docx_root
 
         with pytest.raises(ValueError, match="不存在"):
             _normalize_private_docx_root("/nonexistent/path/that/does/not/exist")
 
     def test_normalize_private_docx_root_valid(self, tmp_path):
-        from apps.documents.admin.document_template_admin import _normalize_private_docx_root
+        from apps.documents.admin.template_admin_views_mixin import _normalize_private_docx_root
 
         result = _normalize_private_docx_root(str(tmp_path))
         assert tmp_path.exists()

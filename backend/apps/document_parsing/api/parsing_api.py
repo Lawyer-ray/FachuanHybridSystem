@@ -4,6 +4,8 @@ import logging
 from pathlib import Path
 from typing import Optional
 
+from django.conf import settings
+from django.core.files.storage import default_storage
 from ninja import File, Router, UploadedFile
 
 from apps.core.security.auth import JWTOrSessionAuth
@@ -33,14 +35,9 @@ def parse_document(request: object, file: UploadedFile = File(...), body: ParseD
     """
     try:
         # 保存上传的文件
-        upload_dir = Path("media/document_parsing/uploads")
-        upload_dir.mkdir(parents=True, exist_ok=True)
-
         file_name = file.name or "uploaded"
-        file_path = upload_dir / file_name
-        with open(file_path, "wb") as f:
-            for chunk in file.chunks():
-                f.write(chunk)
+        saved_name = default_storage.save(f"document_parsing/uploads/{file_name}", file)
+        file_path = Path(settings.MEDIA_ROOT) / saved_name
 
         # 获取解析参数
         backend = body.backend if body else "auto"
@@ -84,14 +81,9 @@ def extract_text(request: object, file: UploadedFile = File(...), body: ExtractT
     """提取文档的纯文本内容"""
     try:
         # 保存上传的文件
-        upload_dir = Path("media/document_parsing/uploads")
-        upload_dir.mkdir(parents=True, exist_ok=True)
-
         file_name = file.name or "uploaded"
-        file_path = upload_dir / file_name
-        with open(file_path, "wb") as f:
-            for chunk in file.chunks():
-                f.write(chunk)
+        saved_name = default_storage.save(f"document_parsing/uploads/{file_name}", file)
+        file_path = Path(settings.MEDIA_ROOT) / saved_name
 
         # 获取参数
         backend = body.backend if body else "auto"

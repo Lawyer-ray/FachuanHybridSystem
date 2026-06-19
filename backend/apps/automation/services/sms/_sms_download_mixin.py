@@ -393,7 +393,7 @@ class SMSDownloadMixin:
             logger.info("✅ 下载任务完成，继续匹配流程: SMS ID=%s, Task ID=%s", sms.id, scraper_task.id)
 
         task_id = submit_task(
-            "apps.automation.services.sms.court_sms_service.process_sms_async",
+            "apps.automation.workers.court_sms_tasks.process_sms",
             sms.id,
             task_name=f"court_sms_continue_{sms.id}",
         )
@@ -404,7 +404,7 @@ class SMSDownloadMixin:
         if sms.status == CourtSMSStatus.MATCHING:
             logger.info("下载失败但继续匹配流程: SMS ID=%s", sms.id)
             task_id = submit_task(
-                "apps.automation.services.sms.court_sms_service.process_sms_async",
+                "apps.automation.workers.court_sms_tasks.process_sms",
                 sms.id,
                 task_name=f"court_sms_continue_after_download_failed_{sms.id}",
             )
@@ -430,7 +430,7 @@ class SMSDownloadMixin:
 
             next_run = timezone.now() + timedelta(seconds=60)
             ScheduleQueryService().create_once_schedule(
-                func="apps.automation.services.sms.court_sms_service.retry_download_task",
+                func="apps.automation.workers.court_sms_tasks.retry_download_task",
                 args=str(sms.id),
                 name=f"court_sms_retry_download_{sms.id}",
                 next_run=next_run,

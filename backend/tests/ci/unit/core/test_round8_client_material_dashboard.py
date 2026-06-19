@@ -15,7 +15,7 @@ from apps.client.services.importer.mapper import (
     ClientIdentityDocCommand,
 )
 from apps.core.services.material_classification_service import MaterialClassificationService
-from apps.core.services.dashboard_service import DashboardService
+from apps.workbench.services.dashboard_service import DashboardService
 
 
 # ---------------------------------------------------------------------------

@@ -199,7 +199,7 @@ class Command(BaseCommand):
             sms.status = CourtSMSStatus.PARSING
             sms.save()
             submit_fn(
-                "apps.automation.services.sms.court_sms_service.process_sms_async",
+                "apps.automation.workers.court_sms_tasks.process_sms",
                 sms.id,
                 task_name=f"court_sms_reparse_recovery_{sms.id}",
             )
@@ -210,7 +210,7 @@ class Command(BaseCommand):
             sms.status = CourtSMSStatus.MATCHING
             sms.save()
             submit_fn(
-                "apps.automation.services.sms.court_sms_service.process_sms_async",
+                "apps.automation.workers.court_sms_tasks.process_sms",
                 sms.id,
                 task_name=f"court_sms_download_complete_recovery_{sms.id}",
             )
@@ -220,7 +220,7 @@ class Command(BaseCommand):
             sms.save()
             if sms.retry_count < 3:
                 submit_fn(
-                    "apps.automation.services.sms.court_sms_service.retry_download_task",
+                    "apps.automation.workers.court_sms_tasks.retry_download_task",
                     sms.id,
                     task_name=f"court_sms_download_retry_recovery_{sms.id}",
                 )
@@ -234,14 +234,14 @@ class Command(BaseCommand):
 
         if sms.status == CourtSMSStatus.PENDING:
             submit_fn(
-                "apps.automation.services.sms.court_sms_service.process_sms_async",
+                "apps.automation.workers.court_sms_tasks.process_sms",
                 sms.id,
                 task_name=f"court_sms_recovery_{sms.id}",
             )
         elif sms.status == CourtSMSStatus.DOWNLOAD_FAILED:
             if sms.retry_count < 3:
                 submit_fn(
-                    "apps.automation.services.sms.court_sms_service.retry_download_task",
+                    "apps.automation.workers.court_sms_tasks.retry_download_task",
                     sms.id,
                     task_name=f"court_sms_retry_recovery_{sms.id}",
                 )
@@ -252,7 +252,7 @@ class Command(BaseCommand):
                 return False
         elif sms.status in [CourtSMSStatus.MATCHING, CourtSMSStatus.RENAMING, CourtSMSStatus.NOTIFYING]:
             submit_fn(
-                "apps.automation.services.sms.court_sms_service.process_sms_async",
+                "apps.automation.workers.court_sms_tasks.process_sms",
                 sms.id,
                 task_name=f"court_sms_continue_recovery_{sms.id}",
             )
@@ -260,7 +260,7 @@ class Command(BaseCommand):
             return self._recover_single_downloading(sms, submit_fn)
         else:
             submit_fn(
-                "apps.automation.services.sms.court_sms_service.process_sms_async",
+                "apps.automation.workers.court_sms_tasks.process_sms",
                 sms.id,
                 task_name=f"court_sms_general_recovery_{sms.id}",
             )

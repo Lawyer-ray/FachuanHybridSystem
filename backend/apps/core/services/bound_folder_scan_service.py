@@ -7,12 +7,14 @@ import re
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Callable
+from typing import TYPE_CHECKING, Any, Callable
 
 from apps.core.exceptions import ValidationException
-from apps.document_recognition.services.text_extraction_service import TextExtractionService
 
 from .material_classification_service import MaterialClassificationService
+
+if TYPE_CHECKING:
+    from apps.document_recognition.services.text_extraction_service import TextExtractionService
 
 logger = logging.getLogger(__name__)
 
@@ -63,10 +65,15 @@ class BoundFolderScanService:
         classification_service: MaterialClassificationService | None = None,
     ) -> None:
         self._max_candidates = max_candidates  # 0 表示不限制数量
-        self._text_extraction_service = text_extraction_service or TextExtractionService(
-            text_limit=self._MAX_TEXT_EXCERPT,
-            max_pages=self._SCAN_MAX_PAGES,
-        )
+        if text_extraction_service is not None:
+            self._text_extraction_service = text_extraction_service
+        else:
+            from apps.document_recognition.services.text_extraction_service import TextExtractionService
+
+            self._text_extraction_service = TextExtractionService(
+                text_limit=self._MAX_TEXT_EXCERPT,
+                max_pages=self._SCAN_MAX_PAGES,
+            )
         self._classification_service = classification_service or MaterialClassificationService()
 
     def scan_folder(

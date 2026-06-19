@@ -8,11 +8,13 @@ from typing import Any
 
 from django.conf import settings
 from django.contrib import admin, messages
+from django.core.files.storage import default_storage
 from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
 from django.template.response import TemplateResponse
 from django.urls import path, reverse
 from django.utils.html import format_html
 
+from apps.core.services.storage_service import sanitize_upload_filename
 from apps.document_parsing.models import DocumentParsingTask, DocumentParsingTool
 
 logger = logging.getLogger(__name__)
@@ -57,13 +59,11 @@ class DocumentParsingToolAdmin(admin.ModelAdmin):  # pragma: no cover
             return HttpResponseRedirect(reverse("admin:document_parsing_documentparsingtool_changelist"))
 
         # 保存文件
-        upload_dir = Path(settings.MEDIA_ROOT) / "document_parsing" / "uploads"
-        upload_dir.mkdir(parents=True, exist_ok=True)
-        file_path = upload_dir / (uploaded_file.name or "uploaded")
-
-        with open(file_path, "wb") as f:
-            for chunk in uploaded_file.chunks():
-                f.write(chunk)
+        rel_dir = "document_parsing/uploads"
+        safe_name = sanitize_upload_filename(uploaded_file.name or "uploaded")
+        rel_path = f"{rel_dir}/{safe_name}"
+        saved_name = default_storage.save(rel_path, uploaded_file)
+        file_path = Path(settings.MEDIA_ROOT) / saved_name
 
         # 创建任务记录
         task = DocumentParsingTask.objects.create(  # type: ignore[misc]

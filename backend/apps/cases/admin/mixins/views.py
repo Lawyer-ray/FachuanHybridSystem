@@ -656,6 +656,7 @@ class CaseAdminViewsMixin:  # pragma: no cover
         from pathlib import Path
 
         from django.conf import settings
+        from django.core.files.storage import default_storage
         from django.http import JsonResponse
 
         try:
@@ -671,19 +672,14 @@ class CaseAdminViewsMixin:  # pragma: no cover
             if ext not in [".pdf"]:
                 return JsonResponse({"success": False, "error": "仅支持 PDF 格式"}, status=400)
 
-            # 创建临时目录
-            temp_dir = Path(settings.MEDIA_ROOT) / "case_documents" / "temp"
-            temp_dir.mkdir(parents=True, exist_ok=True)
-
             # 防止 path traversal：只保留文件名部分
             safe_name = Path(str(file.name or "")).name
             temp_filename = f"{uuid.uuid4().hex}_{safe_name}"
-            temp_path = temp_dir / temp_filename
+            rel_path = f"case_documents/temp/{temp_filename}"
 
             # 保存文件
-            with open(temp_path, "wb+") as destination:
-                for chunk in file.chunks():
-                    destination.write(chunk)
+            saved_name = default_storage.save(rel_path, file)
+            temp_path = Path(settings.MEDIA_ROOT) / saved_name
 
             logger.info("临时文件上传成功: %s", temp_path)
 

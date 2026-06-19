@@ -49,15 +49,3 @@ class TestToolsHub(models.Model):
         managed = False
         verbose_name = "测试工具"
         verbose_name_plural = "测试工具"
-
-
-class ImageRotation(models.Model):
-    """图片自动旋转工具虚拟模型"""
-
-    id: int
-    name = models.CharField(max_length=64, default="Image Rotation")
-
-    class Meta:
-        managed = False
-        verbose_name = "图片自动旋转"
-        verbose_name_plural = "图片自动旋转"

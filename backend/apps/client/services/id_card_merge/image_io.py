@@ -8,6 +8,8 @@ from typing import Any, cast
 
 import cv2
 import numpy as np
+from django.core.files.base import ContentFile
+from django.core.files.storage import default_storage
 from django.core.files.uploadedfile import UploadedFile
 from numpy.typing import NDArray
 
@@ -28,7 +30,7 @@ def read_uploaded_image(image: UploadedFile, *, logger: Any) -> NDArray[np.uint8
         return None
 
 
-def save_temp_image(image: UploadedFile, *, prefix: str, temp_dir: Path, logger: Any) -> str:  # pragma: no cover
+def save_temp_image(image: UploadedFile, *, prefix: str, logger: Any) -> str:  # pragma: no cover
     filename = getattr(image, "name", "image.jpg")
     ext = Path(filename).suffix
     if not ext:
@@ -36,14 +38,13 @@ def save_temp_image(image: UploadedFile, *, prefix: str, temp_dir: Path, logger:
 
     unique_id = uuid.uuid4().hex[:12]
     temp_filename = f"{prefix}_{unique_id}{ext}"
-    temp_path = temp_dir / temp_filename
 
     image.seek(0)
-    temp_path.write_bytes(image.read())
+    saved_name = default_storage.save(f"temp/{temp_filename}", ContentFile(image.read()))
     image.seek(0)
 
     logger.info(
         "临时图片保存成功",
-        extra={"path": str(temp_path), "prefix": prefix},
+        extra={"path": saved_name, "prefix": prefix},
     )
-    return f"temp/{temp_filename}"
+    return saved_name

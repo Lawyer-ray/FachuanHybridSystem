@@ -15,8 +15,9 @@ from apps.core.interfaces import CaseDTO
 from apps.core.models.enums import CaseType
 
 from ..wiring import get_case_service, get_reminder_service
-from .workflows import ContractCaseCreationWorkflow, ContractCloneWorkflow, ContractFilingNumberWorkflow
-from .workflows.clone_workflow import plus_one_year_due_at
+from .clone_workflow import ContractCloneWorkflow, plus_one_year_due_at
+from .case_creation_workflow import ContractCaseCreationWorkflow
+from .filing_number_workflow import ContractFilingNumberWorkflow
 
 logger = logging.getLogger("apps.contracts")
 

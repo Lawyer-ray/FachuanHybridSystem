@@ -23,8 +23,8 @@ from apps.contracts.services.assignment.filing_number_service import FilingNumbe
 from apps.contracts.services.contract.query.progress_service import ContractProgressService
 from apps.contracts.services.contract.query.display_service import ContractDisplayService
 from apps.contracts.services.contract.query.template_cache import ContractTemplateCache
-from apps.contracts.services.contract.assemblers.contract_list_assembler import ContractListAssembler
-from apps.contracts.services.contract.assemblers.contract_dto_assembler import ContractDtoAssembler
+from apps.contracts.services.contract.query.contract_list_assembler import ContractListAssembler
+from apps.contracts.services.contract.query.contract_dto_assembler import ContractDtoAssembler
 from apps.contracts.services.contract.query.facade import ContractQueryFacade
 from apps.contracts.services.contract.domain.validator import ContractValidator
 from apps.core.exceptions import NotFoundError, ValidationException

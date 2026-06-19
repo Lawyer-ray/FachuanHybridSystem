@@ -1,4 +1,4 @@
-"""apps/core/services/dashboard_service.py 单元测试。"""
+"""apps/workbench/services/dashboard_service.py 单元测试。"""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from apps.core.services.dashboard_service import DashboardService
+from apps.workbench.services.dashboard_service import DashboardService
 
 
 class TestDashboardServiceGetStats:
@@ -81,7 +81,7 @@ class TestContractCount:
     def test_returns_count(self) -> None:
         mock_model = MagicMock()
         mock_model.objects.count.return_value = 10
-        with patch("apps.core.services.dashboard_service.Contract", mock_model):
+        with patch("apps.workbench.services.dashboard_service.Contract", mock_model):
             assert DashboardService._contract_count() == 10
 
 
@@ -93,7 +93,7 @@ class TestActiveCaseCount:
         mock_qs.count.return_value = 7
         mock_model = MagicMock()
         mock_model.objects.filter.return_value = mock_qs
-        with patch("apps.core.services.dashboard_service.Case", mock_model):
+        with patch("apps.workbench.services.dashboard_service.Case", mock_model):
             result = DashboardService._active_case_count()
             assert result == 7
             mock_model.objects.filter.assert_called_once()
@@ -107,7 +107,7 @@ class TestMonthlyFee:
         mock_qs.aggregate.return_value = {"total": Decimal("5000")}
         mock_model = MagicMock()
         mock_model.objects.filter.return_value = mock_qs
-        with patch("apps.core.services.dashboard_service.ContractPayment", mock_model):
+        with patch("apps.workbench.services.dashboard_service.ContractPayment", mock_model):
             result = DashboardService._monthly_fee(date(2026, 1, 1), date(2026, 1, 31))
             assert result == Decimal("5000")
 
@@ -116,7 +116,7 @@ class TestMonthlyFee:
         mock_qs.aggregate.return_value = {"total": None}
         mock_model = MagicMock()
         mock_model.objects.filter.return_value = mock_qs
-        with patch("apps.core.services.dashboard_service.ContractPayment", mock_model):
+        with patch("apps.workbench.services.dashboard_service.ContractPayment", mock_model):
             result = DashboardService._monthly_fee(date(2026, 1, 1), date(2026, 1, 31))
             assert result == Decimal("0")
 
@@ -130,7 +130,7 @@ class TestOverdueCount:
         mock_model = MagicMock()
         mock_model.objects.filter.return_value = mock_qs
         now = datetime(2026, 6, 8, 12, 0, 0)
-        with patch("apps.core.services.dashboard_service.Reminder", mock_model):
+        with patch("apps.workbench.services.dashboard_service.Reminder", mock_model):
             result = DashboardService._overdue_count(now)
             assert result == 3
 
@@ -144,6 +144,6 @@ class TestTodayCount:
         mock_model = MagicMock()
         mock_model.objects.filter.return_value = mock_qs
         now = datetime(2026, 6, 8, 12, 0, 0)
-        with patch("apps.core.services.dashboard_service.Reminder", mock_model):
+        with patch("apps.workbench.services.dashboard_service.Reminder", mock_model):
             result = DashboardService._today_count(now)
             assert result == 2

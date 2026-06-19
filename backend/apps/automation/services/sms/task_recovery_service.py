@@ -195,7 +195,7 @@ class TaskRecoveryService:
         if sms.status == CourtSMSStatus.PENDING:
             # 待处理状态，直接提交处理任务
             submit_task(
-                "apps.automation.services.sms.court_sms_service.process_sms_async",
+                "apps.automation.workers.court_sms_tasks.process_sms",
                 sms.id,
                 task_name=f"court_sms_recovery_{sms.id}",
             )
@@ -204,7 +204,7 @@ class TaskRecoveryService:
             # 下载失败，检查是否可以重试
             if sms.retry_count < self.max_retry_count:
                 submit_task(
-                    "apps.automation.services.sms.court_sms_service.retry_download_task",
+                    "apps.automation.workers.court_sms_tasks.retry_download_task",
                     sms.id,
                     task_name=f"court_sms_retry_recovery_{sms.id}",
                 )
@@ -233,7 +233,7 @@ class TaskRecoveryService:
 
             # 处理中状态，继续处理
             submit_task(
-                "apps.automation.services.sms.court_sms_service.process_sms_async",
+                "apps.automation.workers.court_sms_tasks.process_sms",
                 sms.id,
                 task_name=f"court_sms_continue_recovery_{sms.id}",
             )
@@ -247,7 +247,7 @@ class TaskRecoveryService:
                     sms.save()
 
                     submit_task(
-                        "apps.automation.services.sms.court_sms_service.process_sms_async",
+                        "apps.automation.workers.court_sms_tasks.process_sms",
                         sms.id,
                         task_name=f"court_sms_download_complete_recovery_{sms.id}",
                     )
@@ -258,7 +258,7 @@ class TaskRecoveryService:
 
                     if sms.retry_count < self.max_retry_count:
                         submit_task(
-                            "apps.automation.services.sms.court_sms_service.retry_download_task",
+                            "apps.automation.workers.court_sms_tasks.retry_download_task",
                             sms.id,
                             task_name=f"court_sms_download_retry_recovery_{sms.id}",
                         )
@@ -276,7 +276,7 @@ class TaskRecoveryService:
                 sms.save()
 
                 submit_task(
-                    "apps.automation.services.sms.court_sms_service.process_sms_async",
+                    "apps.automation.workers.court_sms_tasks.process_sms",
                     sms.id,
                     task_name=f"court_sms_reparse_recovery_{sms.id}",
                 )
@@ -284,7 +284,7 @@ class TaskRecoveryService:
         else:
             # 其他状态，重新处理
             submit_task(
-                "apps.automation.services.sms.court_sms_service.process_sms_async",
+                "apps.automation.workers.court_sms_tasks.process_sms",
                 sms.id,
                 task_name=f"court_sms_general_recovery_{sms.id}",
             )

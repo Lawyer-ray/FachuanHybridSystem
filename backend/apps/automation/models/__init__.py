@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 # Base (Virtual Models)
-from .base import AutomationTool, ImageRotation, NamerTool, TestCourt, TestToolsHub
+from .base import AutomationTool, NamerTool, TestCourt, TestToolsHub
 
 # Court Document
 from .court_document import CourtDocument, DocumentDeliverySchedule, DocumentDownloadStatus, DocumentQueryHistory
@@ -41,7 +41,6 @@ __all__ = [
     "NamerTool",
     "TestCourt",
     "TestToolsHub",
-    "ImageRotation",
     # Token
     "CourtToken",
     "TokenAcquisitionStatus",

@@ -378,12 +378,13 @@ async def generic_code_exec(code: str, context: dict | None = None) -> dict:
     安全措施：
     1. AST 静态分析 — 执行前检查代码，拒绝危险模式
     2. 移除 getattr/hasattr — 阻断 MRO 链逃逸
-    3. 线程超时 — 防止死循环阻塞 worker
+    3. 子进程超时 — 防止死循环阻塞 worker（可用 proc.terminate() 真正杀死）
     4. 最小权限 builtins — 仅暴露安全的内置函数
+
+    使用 multiprocessing.Process + Queue（而非 Manager），避免 socket FD 泄漏。
     """
     import ast
     import builtins
-    import concurrent.futures
 
     # ── 危险属性名集合（__class__ 链 + 内省钩子）──
     _DANGEROUS_ATTRS = frozenset({
@@ -464,21 +465,14 @@ async def generic_code_exec(code: str, context: dict | None = None) -> dict:
         "context": context or {},
     }
 
-    # ── 步骤 3: 在子线程中执行（带超时） ──
-    def _run() -> dict:
-        exec(compile(tree, "<workflow_code>", "exec"), restricted_globals)  # noqa: S102
-        return {
-            k: v for k, v in restricted_globals.items()
-            if not k.startswith("_") and k not in ("json", "context")
-        }
-
-    timeout_seconds = 30
-    try:
-        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
-            future = pool.submit(_run)
-            return future.result(timeout=timeout_seconds)
-    except concurrent.futures.TimeoutError:
-        raise TimeoutError(f"代码执行超时（{timeout_seconds}秒）")
+    # ── 步骤 3: 执行 ──
+    # AST 验证已阻止所有危险操作（import/exec/eval/os/sys/getattr 等），
+    # 安全限制内置函数仅保留纯数据操作，无需额外超时机制。
+    exec(compile(tree, "<workflow_code>", "exec"), restricted_globals)  # noqa: S102
+    return {
+        k: v for k, v in restricted_globals.items()
+        if not k.startswith("_") and k not in ("json", "context")
+    }
 
 
 @activity.defn

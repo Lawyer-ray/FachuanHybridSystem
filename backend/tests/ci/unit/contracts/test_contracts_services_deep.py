@@ -24,7 +24,7 @@ from apps.contracts.services.contract.domain.validator import ContractValidator
 from apps.contracts.services.contract.mutation.service import ContractMutationService
 from apps.contracts.services.contract.query.service import ContractQueryService
 from apps.contracts.services.contract.domain.workflow_service import ContractWorkflowService
-from apps.contracts.services.contract.assemblers.contract_details_assembler import ContractDetailsAssembler
+from apps.contracts.services.contract.query.contract_details_assembler import ContractDetailsAssembler
 from apps.contracts.services.payment.contract_payment_service import ContractPaymentService
 from apps.contracts.services.payment.contract_finance_service import ContractFinanceService
 from apps.core.exceptions import NotFoundError, PermissionDenied, ValidationException

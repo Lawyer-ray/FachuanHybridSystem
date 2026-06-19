@@ -13,7 +13,7 @@ from django.utils.translation import gettext_lazy as _
 
 from apps.cases.utils import CASE_LOG_ALLOWED_EXTENSIONS, CASE_LOG_MAX_FILE_SIZE
 from apps.core.filesystem.storage import KeepOriginalNameStorage
-from apps.core.filesystem.upload_paths import DatedUUIDPath
+from apps.core.filesystem.upload_paths import DatedUUIDPath, MediaEntity
 
 _SENTINEL = object()
 
@@ -154,7 +154,7 @@ class CaseLogAttachment(models.Model):
     id: int
     log = models.ForeignKey(CaseLog, on_delete=models.CASCADE, related_name="attachments", verbose_name=_("日志"))
     file = models.FileField(
-        upload_to=DatedUUIDPath("case_logs"),
+        upload_to=DatedUUIDPath(MediaEntity.CASE_LOGS),
         storage=case_log_storage,
         validators=[validate_log_attachment],
         verbose_name=_("相关文书"),

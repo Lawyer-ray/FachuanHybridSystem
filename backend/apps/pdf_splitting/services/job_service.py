@@ -321,6 +321,10 @@ class PdfSplitJobService:
         return filled
 
     def _save_uploaded_pdf(self, file: UploadedFile, target_path: Path) -> str:  # pragma: no cover
+        from django.conf import settings
+        from django.core.files.base import ContentFile
+        from django.core.files.storage import default_storage
+
         file_name = file.name or "upload.pdf"
         ext = Path(file_name).suffix.lower()
         if ext != ".pdf":
@@ -333,10 +337,10 @@ class PdfSplitJobService:
                 message="文件大小超过限制",
                 errors={"file": f"文件大小不能超过 {self.MAX_FILE_SIZE // 1024 // 1024}MB"},
             )
-        target_path.parent.mkdir(parents=True, exist_ok=True)
-        with target_path.open("wb") as output:
-            for chunk in file.chunks():
-                output.write(chunk)
+        media_root = Path(settings.MEDIA_ROOT)
+        rel_path = target_path.relative_to(media_root).as_posix()
+        content = file.read()
+        default_storage.save(rel_path, ContentFile(content))
         return sanitize_upload_filename(file_name)
 
     def _validate_local_pdf_path(self, source_path: str) -> Path:

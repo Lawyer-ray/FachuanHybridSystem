@@ -4,7 +4,7 @@ from django.contrib.auth.models import AbstractUser, UserManager
 from django.core.validators import FileExtensionValidator
 from django.db import models
 
-from apps.core.filesystem.upload_paths import DatedOriginalPath, DatedUUIDPath
+from apps.core.filesystem.upload_paths import DatedOriginalPath, DatedUUIDPath, MediaEntity
 
 from .law_firm import LawFirm
 from .storage import KeepOriginalNameStorage
@@ -61,7 +61,7 @@ class Lawyer(AbstractUser):
     )
     is_admin = models.BooleanField(default=False, verbose_name="是否律所管理员")
     license_pdf = models.FileField(
-        upload_to=DatedOriginalPath("lawyers/licenses"),
+        upload_to=DatedOriginalPath(MediaEntity.LAWYER_LICENSES),
         storage=KeepOriginalNameStorage(),
         null=True,
         blank=True,
@@ -69,7 +69,7 @@ class Lawyer(AbstractUser):
         verbose_name="执业证文件",
     )
     avatar = models.ImageField(
-        upload_to=DatedUUIDPath("avatars"),
+        upload_to=DatedUUIDPath(MediaEntity.AVATARS),
         null=True,
         blank=True,
         verbose_name="头像",

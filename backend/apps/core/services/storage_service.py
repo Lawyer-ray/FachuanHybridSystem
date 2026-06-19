@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import mimetypes
 import re
 import uuid
 from pathlib import Path
@@ -10,12 +11,32 @@ from typing import Any, Protocol
 
 from apps.core.config import get_config
 from apps.core.exceptions import ValidationException
+from apps.core.filesystem.upload_paths import sanitize_filename
+from django.core.files.storage import default_storage
+
+# ┌─────────────────────────────────────────────────────────────┐
+# │ MEDIA FILE MANAGEMENT - UNIFIED ENTRY POINT                │
+# │                                                            │
+# │ 所有写入 media 目录的文件操作必须通过本模块的函数。           │
+# │ 禁止直接使用 open("wb") / write_bytes() / Path.write_*()。 │
+# │ 详见 CLAUDE.md「Media 文件管理规范」。                      │
+# └─────────────────────────────────────────────────────────────┘
 
 logger = logging.getLogger(__name__)
 
-_INVALID_FILENAME_CHARS = re.compile(r"[^0-9A-Za-z\u4e00-\u9fff._-]+")
-_MULTIPLE_UNDERSCORES = re.compile(r"_+")
 _WINDOWS_ABS_PATH = re.compile(r"^[A-Za-z]:[\\/]")
+
+# MIME 类型校验常量（从 file_upload_service 合并）
+ALLOWED_EXTENSIONS: frozenset[str] = frozenset({".pdf", ".jpg", ".jpeg", ".png", ".doc", ".docx"})
+ALLOWED_MIME_TYPES: frozenset[str] = frozenset(
+    {
+        "application/pdf",
+        "image/jpeg",
+        "image/png",
+        "application/msword",
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    }
+)
 
 
 class FileValidator(Protocol):
@@ -67,6 +88,18 @@ class _DefaultFileValidator:
                 errors={field_name: f"文件大小不能超过 {max_size_bytes} 字节"},
             )
 
+        # 校验 MIME 类型与扩展名一致性
+        filename = str(getattr(uploaded_file, "name", "") or "")
+        content_type = str(getattr(uploaded_file, "content_type", "") or "")
+        if content_type and "." in filename:
+            ext = ("." + filename.rsplit(".", 1)[-1].lower()).lower()
+            expected_mime, _ = mimetypes.guess_type(f"file{ext}")
+            if expected_mime and content_type != expected_mime:
+                raise ValidationException(
+                    "文件类型与扩展名不匹配",
+                    errors={field_name: f"MIME {content_type} 与扩展名 {ext} 不一致"},
+                )
+
         try:
             header: bytes = uploaded_file.read(8)
             uploaded_file.seek(0)
@@ -81,6 +114,46 @@ class _DefaultFileValidator:
         return uploaded_file
 
 
+def validate_file(file: Any) -> None:
+    """验证上传文件的扩展名和 MIME 类型。
+
+    从已废弃的 FileUploadService.validate_file() 合并而来，
+    提供 MIME 白名单校验 + MIME/扩展名一致性检查。
+
+    Raises:
+        ValidationException: 文件验证失败
+    """
+    file_size: int = int(getattr(file, "size", 0) or 0)
+    if file_size > 20 * 1024 * 1024:
+        raise ValidationException(
+            "文件大小超过限制（最大 20MB）",
+            code="FILE_TOO_LARGE",
+        )
+
+    file_name: str = str(getattr(file, "name", "") or "")
+    file_ext = Path(file_name).suffix.lower()
+    if file_ext not in ALLOWED_EXTENSIONS:
+        raise ValidationException(
+            f"不支持的文件类型：{file_ext}",
+            code="INVALID_FILE_TYPE",
+            errors={"allowed_types": sorted(ALLOWED_EXTENSIONS)},
+        )
+
+    content_type: str = str(getattr(file, "content_type", "") or "")
+    if content_type not in ALLOWED_MIME_TYPES:
+        raise ValidationException(
+            f"不支持的 MIME 类型：{content_type}",
+            code="INVALID_MIME_TYPE",
+        )
+
+    expected_mime, _ = mimetypes.guess_type(f"file{file_ext}")
+    if expected_mime and content_type != expected_mime:
+        raise ValidationException(
+            "文件类型与扩展名不匹配",
+            code="MIME_EXTENSION_MISMATCH",
+        )
+
+
 def sanitize_upload_filename(filename: str, max_length: int = 120) -> str:
     raw = (filename or "").replace("\\", "/").split("/")[-1].strip()
     raw = raw.strip(" .")
@@ -93,11 +166,11 @@ def sanitize_upload_filename(filename: str, max_length: int = 120) -> str:
     else:
         stem, ext = raw, ""
 
-    stem = _INVALID_FILENAME_CHARS.sub("_", stem)
-    stem = _MULTIPLE_UNDERSCORES.sub("_", stem)
-    stem = stem.strip("._-") or "file"
+    stem = sanitize_filename(stem, allow_chinese=True)
+    stem = stem or "file"
 
-    ext = _INVALID_FILENAME_CHARS.sub("", ext)
+    # sanitize_filename 已去除危险字符，扩展名只需简单清洗
+    ext = re.sub(r"[^A-Za-z0-9.]+", "", ext)
     ext = ext if ext.startswith(".") else ""
 
     safe = f"{stem}{ext}"
@@ -240,14 +313,8 @@ def save_uploaded_file(
         filename = f"{uuid.uuid4().hex}{ext}" if use_uuid_name else f"{uuid.uuid4().hex}_{preferred}"
         target_abs = base_dir / filename
 
-    with open(target_abs, "wb+") as f:
-        if hasattr(uploaded_file, "chunks"):
-            for chunk in uploaded_file.chunks():
-                f.write(chunk)
-        else:
-            f.write(uploaded_file.read())
-
     rel_path = Path(rel_dir) / filename
+    default_storage.save(str(rel_path), uploaded_file)
     return str(rel_path).replace("\\", "/"), safe_original_name
 
 
@@ -285,10 +352,13 @@ def delete_media_file(file_path: str) -> bool:  # pragma: no cover
 
 __all__ = [
     "_get_media_root",
+    "ALLOWED_EXTENSIONS",
+    "ALLOWED_MIME_TYPES",
     "delete_media_file",
     "is_absolute_path",
     "normalize_to_media_rel",
     "sanitize_upload_filename",
     "save_uploaded_file",
     "to_media_abs",
+    "validate_file",
 ]

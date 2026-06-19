@@ -5,6 +5,8 @@ import uuid
 from pathlib import Path
 from typing import Any
 
+from django.conf import settings
+from django.core.files.storage import default_storage
 from django.core.files.uploadedfile import UploadedFile
 from django.db import transaction
 from django.db.models import Q
@@ -95,10 +97,9 @@ class BatchPrintJobService:
                     )
 
                 source_path = storage.source_file_path(order=index, filename=original_name)
-                source_path.parent.mkdir(parents=True, exist_ok=True)
-                with source_path.open("wb") as fp:
-                    for chunk in upload.chunks():
-                        fp.write(chunk)
+                rel_path = f"batch_printing/jobs/{storage._job_id}/source/{source_path.name}"
+                saved_name = default_storage.save(rel_path, upload)
+                source_path = Path(settings.MEDIA_ROOT) / saved_name
 
                 relpath = normalize_to_media_rel(source_path.as_posix())
                 file_type = BatchPrintFileType.PDF if suffix == ".pdf" else BatchPrintFileType.DOCX

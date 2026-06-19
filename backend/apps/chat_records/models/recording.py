@@ -6,7 +6,7 @@ from typing import Any, ClassVar
 from django.db import models
 from django_lifecycle import BEFORE_UPDATE, LifecycleModel, hook
 
-from apps.core.filesystem.upload_paths import EntityIdPath
+from apps.core.filesystem.upload_paths import EntityIdPath, MediaEntity
 
 from .choices import ExtractStatus, ExtractStrategy
 
@@ -24,7 +24,7 @@ class ChatRecordRecording(LifecycleModel):
         related_name="recordings",
         verbose_name="项目",
     )
-    video = models.FileField(upload_to=EntityIdPath("chat_records/recordings"), verbose_name="录屏文件")
+    video = models.FileField(upload_to=EntityIdPath(MediaEntity.CHAT_RECORDINGS), verbose_name="录屏文件")
     original_name = models.CharField(max_length=255, blank=True, verbose_name="原始文件名")
     size_bytes = models.BigIntegerField(default=0, verbose_name="文件大小(字节)")
     duration_seconds = models.FloatField(null=True, blank=True, verbose_name="时长(秒)")

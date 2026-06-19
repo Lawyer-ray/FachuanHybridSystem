@@ -12,7 +12,7 @@ from typing import TYPE_CHECKING, Any, ClassVar
 
 from django.db import models
 
-from apps.core.filesystem.upload_paths import DatedUUIDPath
+from apps.core.filesystem.upload_paths import DatedUUIDPath, MediaEntity
 from apps.documents.models.choices import DocumentCaseFileSubType, DocumentTemplateType
 
 from .enums import EvidenceDirection, EvidenceType, OriginalStatus
@@ -128,7 +128,7 @@ class EvidenceList(models.Model):
         editable=False,
     )
     merged_pdf = models.FileField(
-        upload_to=DatedUUIDPath("evidence/merged"),
+        upload_to=DatedUUIDPath(MediaEntity.EVIDENCE_MERGED),
         storage=evidence_file_storage,
         blank=True,
         null=True,
@@ -309,7 +309,7 @@ class EvidenceItem(models.Model):
         verbose_name="证明内容",
     )
     file = models.FileField(
-        upload_to=DatedUUIDPath("evidence/files"),
+        upload_to=DatedUUIDPath(MediaEntity.EVIDENCE_FILES),
         blank=True,
         null=True,
         verbose_name="证据文件",

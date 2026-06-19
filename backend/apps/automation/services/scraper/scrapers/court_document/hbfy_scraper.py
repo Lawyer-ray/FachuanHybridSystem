@@ -16,6 +16,9 @@ from pathlib import Path
 from typing import Any
 
 import requests
+from django.conf import settings
+from django.core.files.base import ContentFile
+from django.core.files.storage import default_storage
 
 from .daolv_sifa_songda_scraper import DaolvSifaSongdaScraper
 
@@ -219,9 +222,10 @@ class HbfyCourtScraper(DaolvSifaSongdaScraper):  # pragma: no cover
             pdf_path = str(item.get("pdfPath") or "").strip()
             suffix = Path(pdf_path).suffix if pdf_path else ""
             filename = self._safe_filename(f"{doc_name}{suffix or '.pdf'}")
-            filepath = download_dir / filename
-            filepath.write_bytes(file_resp.content)
-            files.append(str(filepath))
+            rel_path = f"{download_dir.relative_to(settings.MEDIA_ROOT).as_posix()}/{filename}"
+            saved_name = default_storage.save(rel_path, ContentFile(file_resp.content))
+            abs_path = Path(settings.MEDIA_ROOT) / saved_name
+            files.append(str(abs_path))
 
         return files
 

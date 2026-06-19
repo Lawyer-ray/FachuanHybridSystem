@@ -13,7 +13,7 @@ from django.db import models
 from django.db.models.signals import post_delete
 from django.dispatch import receiver
 
-from apps.core.filesystem.upload_paths import DatedUUIDPath
+from apps.core.filesystem.upload_paths import DatedUUIDPath, MediaEntity
 
 
 class BatchJobStatus(models.TextChoices):
@@ -55,9 +55,9 @@ class BatchJob(models.Model):
     cancel_requested = models.BooleanField("请求取消", default=False)
     task_id = models.CharField("Django Q2 任务ID", max_length=255, blank=True, default="")
     summary = models.TextField("汇总结论", blank=True, default="")
-    summary_file = models.FileField("汇总文件", upload_to=DatedUUIDPath("workbench_summary"), blank=True, default="")
+    summary_file = models.FileField("汇总文件", upload_to=DatedUUIDPath(MediaEntity.WORKBENCH_SUMMARY), blank=True, default="")
     detail_zip_file = models.FileField(
-        "分析详情 ZIP", upload_to=DatedUUIDPath("workbench_detail"), blank=True, default=""
+        "分析详情 ZIP", upload_to=DatedUUIDPath(MediaEntity.WORKBENCH_DETAIL), blank=True, default=""
     )
     metadata = models.JSONField("元数据", default=dict, blank=True)
     error_message = models.TextField("错误信息", blank=True, default="")
@@ -92,7 +92,7 @@ class BatchJobItem(models.Model):
         verbose_name="所属任务",
     )
     file_name = models.CharField("文件名", max_length=500)
-    file = models.FileField("文件", upload_to=DatedUUIDPath("workbench_batch"))
+    file = models.FileField("文件", upload_to=DatedUUIDPath(MediaEntity.WORKBENCH_BATCH))
     status = models.CharField(
         "状态",
         max_length=20,

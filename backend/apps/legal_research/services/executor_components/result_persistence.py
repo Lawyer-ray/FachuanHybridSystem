@@ -7,6 +7,7 @@ from django.core.files.base import ContentFile
 from django.db import transaction
 from django.utils import timezone
 
+from apps.core.filesystem.upload_paths import sanitize_filename
 from apps.legal_research.models import LegalResearchResult, LegalResearchTask
 from apps.legal_research.services.sources import CaseDetail
 
@@ -112,10 +113,9 @@ class ExecutorResultPersistenceMixin:
         if not name.lower().endswith(".pdf"):
             name = f"{name}.pdf"
 
-        stem = name[:-4]
-        stem = re.sub(r"[^A-Za-z0-9._-]+", "_", stem).strip("._")
+        stem = sanitize_filename(name[:-4], allow_chinese=False)
         if not stem:
-            stem = re.sub(r"[^A-Za-z0-9._-]+", "_", fallback or "case").strip("._") or "case"
+            stem = sanitize_filename(fallback or "case", allow_chinese=False) or "case"
 
         # 上传路径里已包含 task_id/result_id，文件名需要显著收敛以避免超长。
         return f"{stem[:120]}.pdf"

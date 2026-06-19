@@ -52,10 +52,12 @@ class ExporterService:
 
             # 保存到 MEDIA_ROOT
             buf.seek(0)
-            output_dir = self._ensure_output_dir()
             filename = self._build_filename()
-            filepath = output_dir / filename
-            filepath.write_bytes(buf.getvalue())
+            rel_path = f"evidence_sorting/{filename}"
+            from django.core.files.base import ContentFile
+            from django.core.files.storage import default_storage
+
+            default_storage.save(rel_path, ContentFile(buf.getvalue()))
 
             url = f"/media/evidence_sorting/{filename}"
             logger.info("ZIP 导出成功: %s", url)

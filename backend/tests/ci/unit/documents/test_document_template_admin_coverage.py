@@ -12,6 +12,8 @@ from apps.documents.admin.document_template_admin import (
     DocumentTemplateAdmin,
     DocumentTemplateForm,
     DocumentTemplateFolderBindingInline,
+)
+from apps.documents.admin.template_admin_views_mixin import (
     _normalize_private_docx_root,
     _to_django_relative_path,
 )

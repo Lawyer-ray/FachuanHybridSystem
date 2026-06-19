@@ -6,7 +6,7 @@ from typing import Any, ClassVar
 from django.db import models
 from django_lifecycle import BEFORE_UPDATE, LifecycleModel, hook
 
-from apps.core.filesystem.upload_paths import EntityIdPath
+from apps.core.filesystem.upload_paths import EntityIdPath, MediaEntity
 
 from .choices import ExportStatus, ExportType
 
@@ -38,7 +38,7 @@ class ChatRecordExportTask(LifecycleModel):
     message = models.CharField(max_length=255, blank=True, verbose_name="进度信息")
     error = models.TextField(blank=True, verbose_name="错误信息")
     output_file = models.FileField(
-        upload_to=EntityIdPath("chat_records/exports"), null=True, blank=True, verbose_name="导出文件"
+        upload_to=EntityIdPath(MediaEntity.CHAT_EXPORTS), null=True, blank=True, verbose_name="导出文件"
     )
     started_at = models.DateTimeField(null=True, blank=True, verbose_name="开始时间")
     finished_at = models.DateTimeField(null=True, blank=True, verbose_name="完成时间")

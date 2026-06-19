@@ -8,6 +8,7 @@ from typing import Any, ClassVar
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
+from django.core.files.storage import default_storage
 from django.core.files.uploadedfile import UploadedFile
 from django.db.models import Sum
 from django.utils import timezone
@@ -59,16 +60,11 @@ class InvoiceRecognitionService:
         ext = Path(name).suffix.lower()
         filename = f"{uuid.uuid4().hex}{ext}"
 
-        save_dir = Path(settings.MEDIA_ROOT) / "automation" / "invoices" / str(task_id)
-        save_dir.mkdir(parents=True, exist_ok=True)
-
-        abs_path = save_dir / filename
-        with abs_path.open("wb") as f:
-            for chunk in file.chunks():
-                f.write(chunk)
-
         rel_path = f"automation/invoices/{task_id}/{filename}"
-        return abs_path, rel_path
+        saved_name = default_storage.save(rel_path, file)
+        abs_path = Path(settings.MEDIA_ROOT) / saved_name
+
+        return abs_path, saved_name
 
     def _process_pdf(self, file_path: Path) -> str:  # pragma: no cover
         text = self._pdf_extractor.extract(file_path)

@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Any
 from django import forms
 from django.apps import apps as django_apps
 from django.contrib import admin, messages
+from django.core.files.storage import default_storage
 from django.db.models import QuerySet
 from django.forms import ModelForm
 from django.http import HttpRequest, JsonResponse
@@ -115,11 +116,8 @@ class GsxtReportTaskInline(admin.TabularInline[Any]):  # type: ignore[type-arg] 
                 continue
             client = obj.client
             rel_path = f"client_docs/{client.pk}/{client.name[:20]}_企业信用报告.pdf"
-            abs_path = Path(settings.MEDIA_ROOT) / rel_path
-            abs_path.parent.mkdir(parents=True, exist_ok=True)
-            with abs_path.open("wb") as fp:
-                for chunk in uploaded.chunks():
-                    fp.write(chunk)
+            saved_name = default_storage.save(rel_path, uploaded)
+            rel_path = saved_name
             doc, _ = ClientIdentityDoc.objects.get_or_create(
                 client=client,
                 doc_type=ClientIdentityDoc.BUSINESS_LICENSE,
@@ -303,14 +301,12 @@ class ClientAdmin(SimpleHistoryAdmin, AdminImportExportMixin, admin.ModelAdmin):
         uploaded: Any = request.FILES["report_file"]
 
         rel_path = f"client_docs/{client.pk}/{client.name[:20]}_企业信用报告.pdf"
-        abs_path = Path(settings.MEDIA_ROOT) / rel_path
-        abs_path.parent.mkdir(parents=True, exist_ok=True)
+        saved_name = default_storage.save(rel_path, uploaded)
+        rel_path = saved_name
 
-        file_content = b""
-        with abs_path.open("wb") as f:
-            for chunk in uploaded.chunks():
-                f.write(chunk)
-                file_content += chunk
+        # 读取文件内容用于端口回调
+        abs_path = Path(settings.MEDIA_ROOT) / rel_path
+        file_content = abs_path.read_bytes()
 
         doc, _ = ClientIdentityDoc.objects.get_or_create(
             client=client,

@@ -283,6 +283,33 @@ class ContractService(ContractServiceQueryMixin):
         )
 
     def get_all_parties(self, contract_id: int) -> list[dict[str, Any]]:
-        from .usecases.get_contract_all_parties import GetContractAllPartiesUseCase
+        from apps.core.exceptions import NotFoundError
 
-        return GetContractAllPartiesUseCase(self.query_service).execute(contract_id)
+        contract = self.query_service.get_contract_internal(contract_id)
+        if not contract:
+            raise NotFoundError(message="合同不存在", code="CONTRACT_NOT_FOUND", errors={"contract_id": contract_id})
+
+        parties_dict: dict[int, dict[str, Any]] = {}
+
+        for party in contract.contract_parties.select_related("client").all():
+            client = party.client
+            if client.id not in parties_dict:
+                parties_dict[client.id] = {
+                    "id": client.id,
+                    "name": client.name,
+                    "source": "contract",
+                    "role": party.role,
+                }
+
+        for sa in contract.supplementary_agreements.prefetch_related("parties__client").all():
+            for sa_party in sa.parties.all():
+                client = sa_party.client
+                if client.id not in parties_dict:
+                    parties_dict[client.id] = {
+                        "id": client.id,
+                        "name": client.name,
+                        "source": "supplementary",
+                        "role": sa_party.role,
+                    }
+
+        return list(parties_dict.values())
