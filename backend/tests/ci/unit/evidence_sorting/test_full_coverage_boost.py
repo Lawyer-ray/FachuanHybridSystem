@@ -492,17 +492,15 @@ class TestExporterExportZipIntegration:
     def test_empty_result_produces_valid_zip(self) -> None:
         result = ReconcileResult()
         svc = ExporterService()
-        # Mock _ensure_output_dir and _build_filename to avoid disk writes
-        import tempfile
-        from pathlib import Path
-        from unittest.mock import patch
+        from unittest.mock import MagicMock, patch
 
-        tmpdir = Path(tempfile.mkdtemp())
-        with patch.object(ExporterService, "_ensure_output_dir", return_value=tmpdir), \
-             patch.object(ExporterService, "_build_filename", return_value="test.zip"):
+        mock_storage = MagicMock()
+        with patch("django.core.files.storage.default_storage", mock_storage):
             output = svc.export_zip(result)
             assert output["success"] is True
-            assert (tmpdir / "test.zip").exists()
+            assert output["zip_url"].startswith("/media/evidence_sorting/")
+            assert output["zip_url"].endswith(".zip")
+            mock_storage.save.assert_called_once()
 
 
 # ---------------------------------------------------------------------------

@@ -270,50 +270,52 @@ class TestOCRHandlerChunkPages:
 class TestOCRHandlerReadCache:
     def test_cache_miss(self):
         from apps.pdf_splitting.services.split.ocr_handler import OCRHandler
-        import tempfile
         handler = OCRHandler()
-        with tempfile.TemporaryDirectory() as tmpdir:
-            with patch.object(handler, '_ocr_cache_file', return_value=Path(tmpdir) / "nonexistent.json"):
-                result = handler.read_ocr_cache(pdf_hash="abc", profile_key="fast", page_no=1)
-                assert result is None
+        with patch("apps.pdf_splitting.services.split.ocr_handler.default_storage") as mock_storage:
+            mock_storage.exists.return_value = False
+            result = handler.read_ocr_cache(pdf_hash="abc", profile_key="fast", page_no=1)
+            assert result is None
 
     def test_cache_hit(self):
         from apps.pdf_splitting.services.split.ocr_handler import OCRHandler
-        import tempfile
         handler = OCRHandler()
         payload = {"text": "hello", "ocr_failed": False, "source_method": "ocr"}
-        with tempfile.TemporaryDirectory() as tmpdir:
-            cache_file = Path(tmpdir) / "page.json"
-            cache_file.write_text(json.dumps(payload))
-            with patch.object(handler, '_ocr_cache_file', return_value=cache_file):
-                result = handler.read_ocr_cache(pdf_hash="abc", profile_key="fast", page_no=1)
-                assert result is not None
-                assert result.text == "hello"
-                assert result.source_method == "ocr_cache"
+        mock_file = MagicMock()
+        mock_file.read.return_value = json.dumps(payload).encode("utf-8")
+        with patch("apps.pdf_splitting.services.split.ocr_handler.default_storage") as mock_storage:
+            mock_storage.exists.return_value = True
+            mock_storage.open.return_value.__enter__ = MagicMock(return_value=mock_file)
+            mock_storage.open.return_value.__exit__ = MagicMock(return_value=False)
+            result = handler.read_ocr_cache(pdf_hash="abc", profile_key="fast", page_no=1)
+            assert result is not None
+            assert result.text == "hello"
+            assert result.source_method == "ocr_cache"
 
     def test_cache_hit_empty_text(self):
         from apps.pdf_splitting.services.split.ocr_handler import OCRHandler
-        import tempfile
         handler = OCRHandler()
         payload = {"text": "", "ocr_failed": True, "source_method": "ocr_failed"}
-        with tempfile.TemporaryDirectory() as tmpdir:
-            cache_file = Path(tmpdir) / "page.json"
-            cache_file.write_text(json.dumps(payload))
-            with patch.object(handler, '_ocr_cache_file', return_value=cache_file):
-                result = handler.read_ocr_cache(pdf_hash="abc", profile_key="fast", page_no=1)
-                assert result is not None
-                assert result.source_method == "ocr_failed_cache"
+        mock_file = MagicMock()
+        mock_file.read.return_value = json.dumps(payload).encode("utf-8")
+        with patch("apps.pdf_splitting.services.split.ocr_handler.default_storage") as mock_storage:
+            mock_storage.exists.return_value = True
+            mock_storage.open.return_value.__enter__ = MagicMock(return_value=mock_file)
+            mock_storage.open.return_value.__exit__ = MagicMock(return_value=False)
+            result = handler.read_ocr_cache(pdf_hash="abc", profile_key="fast", page_no=1)
+            assert result is not None
+            assert result.source_method == "ocr_failed_cache"
 
     def test_cache_corrupt_json(self):
         from apps.pdf_splitting.services.split.ocr_handler import OCRHandler
-        import tempfile
         handler = OCRHandler()
-        with tempfile.TemporaryDirectory() as tmpdir:
-            cache_file = Path(tmpdir) / "page.json"
-            cache_file.write_text("not valid json!!!")
-            with patch.object(handler, '_ocr_cache_file', return_value=cache_file):
-                result = handler.read_ocr_cache(pdf_hash="abc", profile_key="fast", page_no=1)
-                assert result is None
+        mock_file = MagicMock()
+        mock_file.read.return_value = b"not valid json!!!"
+        with patch("apps.pdf_splitting.services.split.ocr_handler.default_storage") as mock_storage:
+            mock_storage.exists.return_value = True
+            mock_storage.open.return_value.__enter__ = MagicMock(return_value=mock_file)
+            mock_storage.open.return_value.__exit__ = MagicMock(return_value=False)
+            result = handler.read_ocr_cache(pdf_hash="abc", profile_key="fast", page_no=1)
+            assert result is None
 
 
 class TestOCRHandlerSha256:
