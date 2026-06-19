@@ -76,7 +76,7 @@
                 <label for="case-search">🔍 {% trans "搜索案件" %}:</label>
                 <input type="text" id="case-search" placeholder="{% trans '输入案件名称、案号或当事人姓名进行搜索...' %}"
                        style="width: 100%; padding: 8px; margin-bottom: 10px;">
-                <div id="search-results" style="display: none; border: 1px solid #ddd; border-radius: 4px; max-height: 300px; overflow-y: auto; background: white; margin-top: 5px;">
+                <div id="search-results" style="display: none; border: 1px solid var(--fc-border); border-radius: 4px; max-height: 300px; overflow-y: auto; background: var(--fc-bg-card); margin-top: 5px;">
                     <!-- AJAX 搜索结果将显示在这里 -->
                 </div>
                 <div id="search-loading" style="display: none; padding: 10px; text-align: center; color: #666;">
@@ -317,7 +317,7 @@
 .submit-row {
     margin-top: 30px;
     padding-top: 20px;
-    border-top: 1px solid #ddd;
+    border-top: 1px solid var(--fc-border);
 }
 
 .cancel-link {
@@ -325,7 +325,7 @@
 }
 
 #case-search {
-    border: 1px solid #ddd;
+    border: 1px solid var(--fc-border);
     border-radius: 4px;
 }
 </style>
