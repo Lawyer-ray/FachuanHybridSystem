@@ -290,7 +290,8 @@ class TestNormalizeDocxName:
 
 class TestPostProcessCandidates:
     def _make_service(self):
-        svc = ContractFolderScanService(scan_service=MagicMock())
+        from apps.contracts.services.contract.integrations._candidate_post_processor import CandidatePostProcessor
+        svc = CandidatePostProcessor(scan_service=MagicMock())
         return svc
 
     @patch("apps.contracts.services.contract.integrations._candidate_post_processor.classify_archive_material")
