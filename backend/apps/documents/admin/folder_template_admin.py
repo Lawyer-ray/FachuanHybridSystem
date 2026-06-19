@@ -255,7 +255,8 @@ class FolderTemplateAdmin(admin.ModelAdmin):  # pragma: no cover
     class Media:  # pragma: no cover
         css = {LegalStatusMatchMode.ALL: ("documents/css/folder_tree.css", "documents/css/multi_select.css")}
         js = (
-            "documents/js/folder_tree.js",
+            "documents/js/folder_editor.js",
+            "documents/js/id_validation_manager.js",
             "documents/js/template_type_toggle.js",
         )
 

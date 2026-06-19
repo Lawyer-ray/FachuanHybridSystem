@@ -185,7 +185,11 @@ class ContractAdmin(
     ]
 
     class Media:  # pragma: no cover
-        js = ("cases/admin_case_form.js",)
+        js = (
+            "cases/admin_case_form_utils.js",
+            "cases/admin_case_form_contract.js",
+            "cases/admin_case_form.js",
+        )
 
     change_form_template = "admin/contracts/contract/change_form.html"
     change_list_template = "admin/contracts/contract/change_list.html"

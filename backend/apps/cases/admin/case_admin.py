@@ -105,6 +105,8 @@ class CasePartyInline(BaseTabularInline):  # pragma: no cover
     class Media:  # pragma: no cover
         js = (
             "cases/admin_caseparty.js",
+            "cases/admin_case_form_utils.js",
+            "cases/admin_case_form_contract.js",
             "cases/admin_case_form.js",
         )
         css: ClassVar[dict[str, tuple[str, ...]]] = {"all": ("cases/admin_caseparty.css",)}
@@ -290,6 +292,8 @@ class CaseAdmin(
 
     class Media:  # pragma: no cover
         js = (
+            "cases/admin_case_form_utils.js",
+            "cases/admin_case_form_contract.js",
             "cases/admin_case_form.js",
             "cases/js/autocomplete.js",
             "cases/js/autocomplete_init.js",

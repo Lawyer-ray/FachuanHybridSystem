@@ -1,85 +1,24 @@
+/**
+ * case_materials_manage.js
+ * Main Alpine.js application for the case materials management page.
+ * Handles core row management, filtering, upload, and save logic.
+ * Scan-related methods are mixed in from CaseMaterialsScanMethods.
+ * Must be loaded AFTER case_materials_manage_utils.js and case_materials_manage_scan.js.
+ */
 (function () {
   'use strict';
 
-  function getCsrfToken() {
-    if (window.FachuanCSRF && window.FachuanCSRF.getToken) return window.FachuanCSRF.getToken() || '';
-    const tokenElement = document.querySelector('[name=csrfmiddlewaretoken]');
-    if (tokenElement && tokenElement.value) return tokenElement.value;
-    const cookies = document.cookie ? document.cookie.split(';') : [];
-    for (let i = 0; i < cookies.length; i++) {
-      const cookie = cookies[i].trim();
-      if (cookie.startsWith('csrftoken=')) return cookie.substring('csrftoken='.length);
-    }
-    return '';
-  }
-
-  function formatTime(value) {
-    const t = Date.parse(value);
-    if (!Number.isFinite(t)) return '';
-    const d = new Date(t);
-    const pad = (n) => String(n).padStart(2, '0');
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
-  }
-
-  function normalizeCandidate(candidate, prefill, defaultCategory, supervisingAuthorities) {
-    const material = candidate.material || null;
-    const draft = prefill || {};
-    const draftPartyIds = Array.isArray(draft.party_ids) ? draft.party_ids.map(String) : [];
-    const draftAuthorityId = draft.supervising_authority_id ? String(draft.supervising_authority_id) : '';
-    const dc = ['party', 'non_party'].includes(defaultCategory) ? defaultCategory : '';
-    const materialCategory = material ? (material.category || '') : '';
-    const singleAuthorityId = (supervisingAuthorities || []).length === 1 ? String(supervisingAuthorities[0].id) : '';
-    const row = {
-      attachmentId: candidate.attachment_id,
-      fileName: candidate.file_name,
-      fileUrl: candidate.file_url,
-      uploadedAt: candidate.uploaded_at,
-      uploadedAtDisplay: formatTime(candidate.uploaded_at),
-      isBound: Boolean(material),
-      materialId: material ? material.id : null,
-      category: materialCategory || (draft.category || dc || ''),
-      lastCategory: materialCategory || (draft.category || dc || ''),
-      side: material ? (material.side || '') : (draft.side || (dc === 'party' ? 'our' : '')),
-      partyIds: material ? (material.party_ids || []).map(String) : draftPartyIds,
-      supervisingAuthorityId: material ? (material.supervising_authority_id || '') : draftAuthorityId,
-      typeSelect: material && material.type_id ? String(material.type_id) : '',
-      customTypeName: material && !material.type_id ? (material.type_name || '') : (draft.type_name_hint || ''),
-    };
-    // 非当事人材料且只有一个主管机关时，自动选择
-    if (row.category === 'non_party' && !row.supervisingAuthorityId && singleAuthorityId) {
-      row.supervisingAuthorityId = singleAuthorityId;
-    }
-    if (!row.typeSelect && row.customTypeName) row.typeSelect = '__custom__';
-    return row;
-  }
-
-  function readQueryValue(name) {
-    try {
-      const url = new URL(window.location.href);
-      return url.searchParams.get(name) || '';
-    } catch (_) {
-      return '';
-    }
-  }
-
-  function mergeFiles(existing, incoming) {
-    const seen = new Set();
-    const all = [];
-    const push = (f) => {
-      if (!f) return;
-      const key = `${f.name || ''}__${String(f.size || 0)}__${String(f.lastModified || 0)}`;
-      if (seen.has(key)) return;
-      seen.add(key);
-      all.push(f);
-    };
-    (existing || []).forEach(push);
-    (incoming || []).forEach(push);
-    return all;
-  }
+  var utils = window.CaseMaterialsUtils;
+  var getCsrfToken = utils.getCsrfToken;
+  var normalizeCandidate = utils.normalizeCandidate;
+  var readQueryValue = utils.readQueryValue;
+  var mergeFiles = utils.mergeFiles;
+  var scanMethods = window.CaseMaterialsScanMethods;
 
   document.addEventListener('alpine:init', function () {
     Alpine.data('caseMaterialsManageApp', function (config) {
-      return {
+      return Object.assign({
+
         caseId: config.caseId,
         detailUrl: config.detailUrl || '',
         partyTypes: config.partyTypes || [],
@@ -153,7 +92,7 @@
           if (this.isUploading) return '请稍候，上传完成后会出现在下方列表';
           if (this.recentUploadedCount) return '文件已落到日志附件，请在下方完善分类并保存';
           const n = (this.pendingFiles || []).length;
-          if (n) return '点击右侧“上传”开始上传，或继续拖拽追加文件';
+          if (n) return '点击右侧"上传"开始上传，或继续拖拽追加文件';
           return '';
         },
 
@@ -322,7 +261,7 @@
             });
           }
           // 切换大类后，如果当前筛选为"未分类"，自动切到"全部"。
-          // 否则仅按当前分类过滤会让其余待处理文件看起来“消失”，影响连续处理。
+          // 否则仅按当前分类过滤会让其余待处理文件看起来"消失"，影响连续处理。
           if (category && this.filterCategory === 'unclassified') {
             this.filterCategory = 'all';
             this.onFilterCategoryChange();
@@ -555,293 +494,6 @@
             });
         },
 
-        clearScanPollTimer() {
-          if (!this.scanPollTimer) return;
-          window.clearTimeout(this.scanPollTimer);
-          this.scanPollTimer = null;
-        },
-
-        async loadScanSubfolders(forceReload) {
-          if (!forceReload && this.scanSubfoldersLoaded) return;
-          this.isLoadingScanSubfolders = true;
-          try {
-            const resp = await fetch(`/api/v1/cases/${this.caseId}/folder-scan/subfolders`, {
-              headers: { 'X-CSRFToken': getCsrfToken() },
-            });
-            const data = await resp.json().catch(() => ({}));
-            if (!resp.ok) {
-              throw new Error(data.message || data.detail || this.scanTexts.loadSubfoldersFailed || '加载子文件夹失败');
-            }
-
-            this.scanRootPath = (data && data.root_path) || '';
-            this.scanSubfolderOptions = Array.isArray(data && data.subfolders) ? data.subfolders : [];
-            const validSet = new Set((this.scanSubfolderOptions || []).map((item) => item.relative_path));
-            if (!validSet.has(this.scanSubfolder)) {
-              this.scanSubfolder = '';
-            }
-            if (!this.scanSubfolderOptions.length) {
-              this.scanScopeMode = 'all';
-            }
-            this.scanSubfoldersLoaded = true;
-          } catch (err) {
-            this.scanSubfolderOptions = [];
-            this.scanSubfolder = '';
-            this.scanScopeMode = 'all';
-            this.scanSubfoldersLoaded = false;
-            this.scanErrorMessage = (err && err.message) || (this.scanTexts.loadSubfoldersFailed || '加载子文件夹失败');
-          } finally {
-            this.isLoadingScanSubfolders = false;
-          }
-        },
-
-        buildScanPayload(rescan) {
-          const payload = {
-            rescan: Boolean(rescan),
-            scan_subfolder: '',
-            enable_recognition: Boolean(this.scanEnableRecognition),
-          };
-
-          if (this.scanScopeMode !== 'subfolder') return payload;
-          if (!Array.isArray(this.scanSubfolderOptions) || !this.scanSubfolderOptions.length) {
-            this.scanScopeMode = 'all';
-            this.scanSubfolder = '';
-            this.showMessage(this.scanTexts.noSubfolderOptions || '当前目录下没有可选子文件夹，将扫描全部内容', 'success');
-            return payload;
-          }
-          if (!this.scanSubfolder) {
-            this.scanErrorMessage = this.scanTexts.needSelectSubfolder || '请选择要扫描的子文件夹';
-            return null;
-          }
-
-          payload.scan_subfolder = this.scanSubfolder;
-          return payload;
-        },
-
-        async startFolderScan(rescan) {
-          this.scanPanelVisible = true;
-          this.scanErrorMessage = '';
-          this.scanStatusMessage = '';
-          await this.loadScanSubfolders(false);
-          const payload = this.buildScanPayload(rescan);
-          if (!payload) return;
-
-          this.isScanning = true;
-          this.clearScanPollTimer();
-          fetch(`/api/v1/cases/${this.caseId}/folder-scan`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'X-CSRFToken': getCsrfToken(),
-            },
-            body: JSON.stringify(payload),
-          })
-            .then(async (resp) => {
-              const data = await resp.json().catch(() => ({}));
-              if (!resp.ok) {
-                throw new Error(data.message || data.detail || this.scanTexts.failed || '扫描失败');
-              }
-              return data;
-            })
-            .then((data) => {
-              this.scanSessionId = (data && data.session_id) || '';
-              this.scanStatus = (data && data.status) || 'running';
-              this.scanProgress = 0;
-              this.scanCandidates = [];
-              this.scanPrefillMap = {};
-              this.prefillAppliedSessionId = '';
-              this.syncScanSessionToUrl(this.scanSessionId);
-              this.fetchScanStatus(this.scanSessionId, true);
-            })
-            .catch((err) => {
-              this.isScanning = false;
-              this.scanStatus = 'failed';
-              this.scanErrorMessage = (err && err.message) || (this.scanTexts.failed || '扫描失败');
-              this.showMessage(this.scanErrorMessage, 'error');
-            });
-        },
-
-        fetchScanStatus(sessionId, keepPolling) {
-          if (!sessionId) return;
-          fetch(`/api/v1/cases/${this.caseId}/folder-scan/${sessionId}`, {
-            headers: { 'X-CSRFToken': getCsrfToken() },
-          })
-            .then(async (resp) => {
-              const data = await resp.json().catch(() => ({}));
-              if (!resp.ok) {
-                throw new Error(data.message || data.detail || this.scanTexts.failed || '扫描失败');
-              }
-              return data;
-            })
-            .then((data) => {
-              this.scanStatus = (data && data.status) || '';
-              this.scanProgress = (data && data.progress) || 0;
-              this.scanCurrentFile = (data && data.current_file) || '';
-              this.scanSubfolder = (data && data.scan_subfolder) || '';
-              this.scanScopeMode = this.scanSubfolder ? 'subfolder' : 'all';
-              this.scanEnableRecognition = Boolean(data && data.enable_recognition);
-              this.scanSummary = (data && data.summary) || { total_files: 0, deduped_files: 0, classified_files: 0 };
-              this.scanCandidates = this.normalizeScanCandidates((data && data.candidates) || []);
-              this.scanErrorMessage = (data && data.error_message) || '';
-              if (data && data.prefill_map && typeof data.prefill_map === 'object') {
-                this.scanPrefillMap = data.prefill_map;
-              }
-
-              this.isScanning = ['pending', 'running', 'classifying'].includes(this.scanStatus);
-
-              if (this.scanStatus === 'staged' && this.prefillAppliedSessionId !== String(sessionId)) {
-                this.prefillAppliedSessionId = String(sessionId);
-                this.load();
-              }
-
-              if (keepPolling && this.isScanning) {
-                this.clearScanPollTimer();
-                this.scanPollTimer = window.setTimeout(() => {
-                  this.fetchScanStatus(sessionId, true);
-                }, 1200);
-              } else {
-                this.clearScanPollTimer();
-              }
-            })
-            .catch((err) => {
-              this.isScanning = false;
-              this.clearScanPollTimer();
-              this.scanStatus = 'failed';
-              this.scanErrorMessage = (err && err.message) || (this.scanTexts.failed || '扫描失败');
-              this.showMessage(this.scanErrorMessage, 'error');
-            });
-        },
-
-        normalizeScanCandidates(candidates) {
-          const dc = this.defaultCategory;
-          const singleAuthorityId = (this.supervisingAuthorities || []).length === 1 ? String(this.supervisingAuthorities[0].id) : '';
-          return (candidates || []).map((candidate) => {
-            let category = ['party', 'non_party'].includes(candidate.suggested_category) ? candidate.suggested_category : '';
-            let side = category === 'party' && ['our', 'opponent'].includes(candidate.suggested_side) ? candidate.suggested_side : '';
-            // 如果页面指定了 defaultCategory，覆盖扫描建议的分类
-            if (dc && category !== dc) {
-              category = dc;
-              side = dc === 'party' ? (side || 'our') : '';
-            }
-            const partyIds = Array.isArray(candidate.suggested_party_ids)
-              ? candidate.suggested_party_ids
-                  .map((item) => parseInt(item, 10))
-                  .filter((item) => Number.isInteger(item) && item > 0)
-              : [];
-            const supervisingAuthorityIdRaw = parseInt(candidate.suggested_supervising_authority_id, 10);
-            let authorityId =
-              category === 'non_party' && Number.isInteger(supervisingAuthorityIdRaw) && supervisingAuthorityIdRaw > 0
-                ? String(supervisingAuthorityIdRaw)
-                : '';
-            // 非当事人材料且只有一个主管机关时，自动选择
-            if (category === 'non_party' && !authorityId && singleAuthorityId) {
-              authorityId = singleAuthorityId;
-            }
-            return {
-              source_path: candidate.source_path,
-              filename: candidate.filename,
-              selected: candidate.selected !== false,
-              category: category,
-              side: side,
-              type_name_hint: candidate.type_name_hint || '',
-              party_ids: category === 'party' ? partyIds : [],
-              supervising_authority_id: authorityId,
-              reason: candidate.reason || '',
-            };
-          });
-        },
-
-        async stageSelectedScanCandidates(options) {
-          const silent = Boolean(options && options.silent);
-          if (this.isStaging || !this.scanSessionId) return null;
-          const items = (this.scanCandidates || [])
-            .filter((candidate) => candidate.selected)
-            .map((candidate) => ({
-              source_path: candidate.source_path,
-              selected: true,
-              category: candidate.category || 'unknown',
-              side: candidate.side || 'unknown',
-              type_name_hint: candidate.type_name_hint || '',
-              supervising_authority_id: candidate.category === 'non_party' ? (candidate.supervising_authority_id ? parseInt(candidate.supervising_authority_id, 10) || null : null) : null,
-              party_ids: candidate.category === 'party' ? candidate.party_ids || [] : [],
-            }));
-
-          if (!items.length) {
-            const message = this.scanTexts.noPdf || '未找到可导入的 PDF';
-            if (!silent) this.showMessage(message, 'error');
-            throw new Error(message);
-          }
-
-          this.isStaging = true;
-          try {
-            const resp = await fetch(`/api/v1/cases/${this.caseId}/folder-scan/${this.scanSessionId}/stage`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': getCsrfToken(),
-              },
-              body: JSON.stringify({ items }),
-            });
-            const data = await resp.json().catch(() => ({}));
-            if (!resp.ok) {
-              throw new Error(data.message || data.detail || this.scanTexts.importFailed || '导入失败，请稍后重试');
-            }
-
-            this.scanStatus = (data && data.status) || 'staged';
-            this.scanSessionId = (data && data.session_id) || this.scanSessionId;
-            this.scanPrefillMap = (data && data.prefill_map) || {};
-            this.prefillAppliedSessionId = this.scanSessionId;
-            this.lastUploadedIds = (data && data.attachment_ids) || [];
-
-            if (data && data.materials_url) {
-              const targetUrl = new URL(data.materials_url, window.location.href);
-              if (this.defaultCategory) {
-                targetUrl.searchParams.set('category', this.defaultCategory);
-              }
-              window.history.replaceState({}, '', targetUrl.toString());
-            } else {
-              this.syncScanSessionToUrl(this.scanSessionId);
-            }
-
-            await this.load();
-            if (!silent) {
-              this.showMessage('导入附件成功，请完善分类后保存', 'success');
-            }
-            return data;
-          } catch (err) {
-            if (!silent) {
-              this.showMessage((err && err.message) || (this.scanTexts.importFailed || '导入失败，请稍后重试'), 'error');
-            }
-            throw err;
-          } finally {
-            this.isStaging = false;
-          }
-        },
-
-        async ensureScanPreparedForSave() {
-          if (!this.scanSessionId || !(this.scanCandidates || []).length) return;
-          if (this.scanStatus === 'staged') return;
-          await this.stageSelectedScanCandidates({ silent: true });
-        },
-
-        syncScanSessionToUrl(sessionId) {
-          if (!window || !window.history || !window.location) return;
-          try {
-            const url = new URL(window.location.href);
-            if (sessionId) {
-              url.searchParams.set('scan_session', sessionId);
-            } else {
-              url.searchParams.delete('scan_session');
-            }
-            url.searchParams.delete('open_scan');
-            // 保留 category 参数
-            if (this.defaultCategory) {
-              url.searchParams.set('category', this.defaultCategory);
-            }
-            window.history.replaceState({}, '', url.toString());
-          } catch (_) {
-          }
-        },
-
         buildBindPayload() {
           const items = [];
           for (const row of this.rows) {
@@ -955,7 +607,8 @@
               this.isUploading = false;
             });
         },
-      };
+
+      }, scanMethods);
     });
   });
 })();
