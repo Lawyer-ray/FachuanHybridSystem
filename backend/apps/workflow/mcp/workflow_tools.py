@@ -4,10 +4,15 @@ from __future__ import annotations
 
 import logging
 from typing import Any
+from uuid import uuid4
 
 logger = logging.getLogger(__name__)
 
-TEMPORAL_ADDRESS = "localhost:7233"
+try:
+    from django.conf import settings
+    TEMPORAL_ADDRESS = getattr(settings, "TEMPORAL_ADDRESS", "localhost:7233")
+except Exception:
+    TEMPORAL_ADDRESS = "localhost:7233"
 TASK_QUEUE = "fachuan-workflow"
 
 
@@ -27,7 +32,7 @@ async def start_workflow(template_slug: str, case_id: int) -> dict[str, Any]:
 
     template = await WorkflowTemplate.objects.aget(slug=template_slug, is_active=True)
     client = await _get_client()
-    workflow_id = f"{template_slug}-{case_id}"
+    workflow_id = f"{template_slug}-{case_id}-{uuid4().hex[:8]}"
 
     run = await WorkflowRun.objects.acreate(
         template=template,

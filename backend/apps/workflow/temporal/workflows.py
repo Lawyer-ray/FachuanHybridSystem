@@ -282,7 +282,18 @@ def _eval_condition(step: dict, context: dict) -> bool:
     operator = cfg.get("operator", "eq")
     value = cfg.get("value", "")
 
-    actual = _resolve_dotted(context, field_path)
+    # 支持 previous_step.result.xxx 路径解析
+    if field_path.startswith("previous_step."):
+        sub_path = field_path[len("previous_step."):]
+        # 从 step_outputs 中找到上一个已执行步骤的输出
+        step_outputs = context.get("step_outputs", {})
+        prev_output = context.get("_last_output", {})
+        if not prev_output and step_outputs:
+            # 取最后一个 step_output 作为 fallback
+            prev_output = next(reversed(list(step_outputs.values())), {})
+        actual = _resolve_dotted(prev_output, sub_path)
+    else:
+        actual = _resolve_dotted(context, field_path)
 
     if operator == "eq":
         return str(actual) == str(value)
@@ -398,6 +409,21 @@ class DynamicWorkflow:
             on_fail: str = step.get("config", {}).get("on_fail", "abort")
             timeout_hours: float = step.get("config", {}).get("timeout_hours", 1)
 
+            # 处理条件跳过逻辑
+            if context.get("_skip_next"):
+                context.pop("_skip_next", None)
+                context["step_outputs"][step_id] = {"skipped": True, "reason": "condition_false_skip"}
+                logger.info("步骤 %s 被跳过（前一条件为 False）", step_id)
+                continue
+            if context.get("_skip_until"):
+                if step_id != context["_skip_until"]:
+                    context["step_outputs"][step_id] = {"skipped": True, "reason": "condition_goto_false"}
+                    logger.info("步骤 %s 被跳过（等待跳转目标 %s）", step_id, context["_skip_until"])
+                    continue
+                else:
+                    context.pop("_skip_until", None)
+                    logger.info("到达跳转目标步骤 %s，恢复执行", step_id)
+
             try:
                 result = await self._execute_step(
                     step=step,
@@ -438,13 +464,31 @@ class DynamicWorkflow:
                 )
                 return {"status": "rejected", "phase": step_id, "comment": result.get("comment", "")}
 
-            # condition 结果为 False → 标记后续步骤 skip（简单实现: 跳过下一个步骤）
+            # condition 结果为 False → 跳转到 goto_false 目标（或跳过下一个步骤）
+            skip_to_step_id: str | None = None
             if step_type == "condition" and result is not None and not result.get("met", True):
                 context["step_outputs"][step_id] = {"skipped": True, "condition_met": False}
+                goto_false = step.get("config", {}).get("goto_false")
+                if goto_false:
+                    skip_to_step_id = goto_false
+                else:
+                    # 没有 goto_false，标记跳过下一个步骤
+                    skip_to_step_id = "__skip_next__"
+
+            # 写入 _last_output 供后续步骤的 {{previous_step.*}} 引用
+            if result is not None:
+                context["_last_output"] = result
 
             # 累积输出
             if result is not None:
                 context["step_outputs"][step_id] = result
+
+            # 处理条件跳转：跳过后续步骤直到目标 step_id
+            if skip_to_step_id == "__skip_next__":
+                # 跳过下一个步骤（在 for 循环中设置标志，下次迭代检查）
+                context["_skip_next"] = True
+            elif skip_to_step_id is not None:
+                context["_skip_until"] = skip_to_step_id
 
         # 3) 完成
         await workflow.execute_activity(
@@ -718,9 +762,21 @@ class DynamicWorkflow:
         self._pending_gates.pop(step_id, None)
 
         # 复用 gate_approved 信号机制（wait 也通过审批 API 触发）
-        await workflow.wait_condition(
-            lambda: self._pending_gates.get(step_id) is not None,
-        )
+        try:
+            await workflow.wait_condition(
+                lambda: self._pending_gates.get(step_id) is not None,
+                timeout=timedelta(hours=timeout_hours),
+            )
+        except Exception as exc:
+            logger.warning("wait 步骤 %s 超时 (%s 小时): %s", step_id, timeout_hours, exc)
+            await workflow.execute_activity(
+                act.record_step,
+                args=(run_id, step_id, step_name, "wait", "timeout", None, f"等待超时: {timeout_hours}小时"),
+                start_to_close_timeout=QUICK_TIMEOUT,
+                retry_policy=QUICK_RETRY,
+            )
+            return {"received": False, "timeout": True, "comment": f"等待超时: {timeout_hours}小时"}
+
         event_data = self._pending_gates.pop(step_id)
         self._current_gate_step_id = None
 
