@@ -16,7 +16,7 @@ from typing import Any
 
 from django.http import HttpRequest
 from ninja import Router
-from ninja_jwt.authentication import JWTAuth
+from apps.core.security.auth import JWTOrSessionAuth
 
 from apps.automation.schemas import (
     PreservationQuoteCreateSchema,
@@ -28,8 +28,8 @@ from apps.automation.schemas import (
 
 logger = logging.getLogger("apps.automation")
 
-# 创建路由器，使用 JWT 认证
-router = Router(tags=["财产保全询价"], auth=JWTAuth())
+# 创建路由器，使用 JWT 或 Session 认证
+router = Router(tags=["财产保全询价"], auth=JWTOrSessionAuth())
 
 
 def _get_preservation_quote_service() -> Any:

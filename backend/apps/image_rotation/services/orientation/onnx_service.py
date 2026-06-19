@@ -21,7 +21,7 @@ from PIL import Image, ImageOps
 logger = logging.getLogger("apps.image_rotation")
 
 # 模型路径（仅使用微调模型）
-MODEL_DIR = Path(__file__).parent.parent.parent.parent / "models" / "orientation"
+MODEL_DIR = Path(__file__).parent.parent.parent.parent.parent / "assets" / "ml_models" / "orientation"
 MODEL_PATH = MODEL_DIR / "fachuan-orientation-classifier.onnx"
 
 # 方向标签（与 ImageFolder 目录排序一致: 0, 180, 270, 90）

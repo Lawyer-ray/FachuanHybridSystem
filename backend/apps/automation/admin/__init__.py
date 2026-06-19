@@ -19,7 +19,7 @@ from .scraper import CourtDocumentAdmin, QuickDownloadAdmin, ScraperTaskAdmin, T
 from .sms import CourtSMSAdmin
 
 # 测试工具 Admin
-from .test_tools_hub import TestToolsHubAdmin
+from .tools_hub_admin import TestToolsHubAdmin
 
 # Token 管理 Admin
 from .token import CourtTokenAdmin
