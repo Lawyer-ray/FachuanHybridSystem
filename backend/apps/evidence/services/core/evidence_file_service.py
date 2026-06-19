@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Any, ClassVar
 
 from django.db import transaction
 
+from apps.core.constants import LARGE_FILE_MAX_SIZE
 from apps.core.exceptions import ValidationException
 
 if TYPE_CHECKING:
@@ -16,7 +17,7 @@ if TYPE_CHECKING:
 
 class EvidenceFileService:
     SUPPORTED_FORMATS: ClassVar = [".pdf", ".doc", ".docx", ".jpg", ".jpeg", ".png", ".gif", ".bmp"]
-    MAX_FILE_SIZE = 50 * 1024 * 1024
+    MAX_FILE_SIZE = LARGE_FILE_MAX_SIZE
 
     @transaction.atomic
     def upload_file(self, *, item: EvidenceItem, file: Any) -> EvidenceItem:  # pragma: no cover

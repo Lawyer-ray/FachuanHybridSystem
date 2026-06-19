@@ -21,6 +21,7 @@ from apps.batch_printing.services.execution import MacPrintExecutorService, Rule
 from apps.batch_printing.services.job.file_prepare_service import FilePrepareService
 from apps.batch_printing.services.preset import PresetDiscoveryService
 from apps.batch_printing.services.storage import BatchPrintStorage
+from apps.core.constants import LARGE_FILE_MAX_SIZE
 from apps.core.dependencies.core import build_task_submission_service
 from apps.core.exceptions import NotFoundError, ValidationException
 from apps.core.services.storage_service import normalize_to_media_rel, sanitize_upload_filename
@@ -28,7 +29,7 @@ from apps.core.services.storage_service import normalize_to_media_rel, sanitize_
 logger = logging.getLogger("apps.batch_printing")
 
 _ALLOWED_SUFFIX = {".pdf", ".docx"}
-_MAX_FILE_SIZE = 50 * 1024 * 1024  # 50MB
+_MAX_FILE_SIZE = LARGE_FILE_MAX_SIZE
 
 
 class BatchPrintJobService:

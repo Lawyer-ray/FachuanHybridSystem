@@ -11,6 +11,7 @@ from django.core.files.uploadedfile import UploadedFile
 from django.db import transaction
 from django.utils import timezone
 
+from apps.core.constants import LARGE_FILE_MAX_SIZE
 from apps.core.dependencies.core import build_task_submission_service
 from apps.core.exceptions import NotFoundError, ValidationException
 from apps.core.services.storage_service import sanitize_upload_filename
@@ -21,7 +22,7 @@ logger = logging.getLogger("apps.doc_converter")
 
 
 class DocConverterService:
-    MAX_FILE_SIZE = 50 * 1024 * 1024  # 50MB per file
+    MAX_FILE_SIZE = LARGE_FILE_MAX_SIZE
     ALLOWED_EXTENSIONS = {".doc"}
 
     @transaction.atomic

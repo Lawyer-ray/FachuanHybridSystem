@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from django.conf import settings as django_settings
-from django.http import HttpRequest, HttpResponse
+from django.http import HttpRequest, HttpResponse, status as http_status
 from ninja import Router, Schema
 
 from apps.contracts.services.archive.checklist.checklist_query import get_checklist_with_status
@@ -150,7 +150,7 @@ def download_archive_item(request: HttpRequest, contract_id: int, archive_item_c
 
     contract = get_contract_or_none(contract_id)
     if not contract:
-        return HttpResponse(status=404)
+        return HttpResponse(status=http_status.HTTP_404_NOT_FOUND)
 
     from apps.contracts.services.archive import ArchiveGenerationService
 
@@ -158,7 +158,7 @@ def download_archive_item(request: HttpRequest, contract_id: int, archive_item_c
     result = gen_service.download_archive_item(contract, archive_item_code)
 
     if result.get("error"):
-        return HttpResponse(status=404)
+        return HttpResponse(status=http_status.HTTP_404_NOT_FOUND)
 
     import urllib.parse
 
@@ -176,7 +176,7 @@ def get_archive_checklist(request: HttpRequest, contract_id: int) -> Any:  # pra
 
     contract = get_contract_or_none(contract_id)
     if not contract:
-        return HttpResponse(status=404)
+        return HttpResponse(status=http_status.HTTP_404_NOT_FOUND)
 
     result = get_checklist_with_status(contract)
     result["archive_category_label"] = str(result["archive_category_label"])
@@ -190,7 +190,7 @@ def generate_archive_folder(request: HttpRequest, contract_id: int) -> Any:  # p
 
     contract = get_contract_or_none(contract_id)
     if not contract:
-        return HttpResponse(status=404)
+        return HttpResponse(status=http_status.HTTP_404_NOT_FOUND)
 
     from apps.contracts.models.folder_binding import ContractFolderBinding
 
@@ -231,7 +231,7 @@ def toggle_compact_archive(request: HttpRequest, contract_id: int) -> Any:  # pr
 
     contract = get_contract_or_none(contract_id)
     if not contract:
-        return HttpResponse(status=404)
+        return HttpResponse(status=http_status.HTTP_404_NOT_FOUND)
 
     contract.compact_archive = not contract.compact_archive
     contract.save(update_fields=["compact_archive"])
@@ -250,7 +250,7 @@ def sync_case_materials(request: HttpRequest, contract_id: int) -> Any:  # pragm
 
     contract = get_contract_or_none(contract_id)
     if not contract:
-        return HttpResponse(status=404)
+        return HttpResponse(status=http_status.HTTP_404_NOT_FOUND)
 
     from apps.contracts.services.archive.wiring import build_archive_checklist_service
 
@@ -272,7 +272,7 @@ def reset_and_resync_case_materials(request: HttpRequest, contract_id: int) -> A
 
     contract = get_contract_or_none(contract_id)
     if not contract:
-        return HttpResponse(status=404)
+        return HttpResponse(status=http_status.HTTP_404_NOT_FOUND)
 
     from apps.contracts.services.archive.wiring import build_archive_checklist_service
 
@@ -295,7 +295,7 @@ def scale_to_a4(request: HttpRequest, contract_id: int) -> Any:  # pragma: no co
 
     contract = get_contract_or_none(contract_id)
     if not contract:
-        return HttpResponse(status=404)
+        return HttpResponse(status=http_status.HTTP_404_NOT_FOUND)
 
     from apps.contracts.services.archive import ArchiveGenerationService
 
@@ -316,7 +316,7 @@ def confirm_archive(request: HttpRequest, contract_id: int) -> Any:  # pragma: n
 
     contract = get_contract_or_none(contract_id)
     if not contract:
-        return HttpResponse(status=404)
+        return HttpResponse(status=http_status.HTTP_404_NOT_FOUND)
 
     contract.status = "archived"
     contract.save(update_fields=["status"])
@@ -338,19 +338,19 @@ def upload_archive_item(request: HttpRequest, contract_id: int) -> Any:  # pragm
 
     contract = get_contract_or_none(contract_id)
     if not contract:
-        return HttpResponse(status=404)
+        return HttpResponse(status=http_status.HTTP_404_NOT_FOUND)
 
     uploaded_file = request.FILES.get("file")
     category = request.POST.get("category", "")
     if not uploaded_file:
-        return HttpResponse(status=400)
+        return HttpResponse(status=http_status.HTTP_400_BAD_REQUEST)
 
     from apps.core.services.file_upload_service import FileUploadService
 
     try:
         FileUploadService().validate_file(uploaded_file)  # type: ignore[arg-type]
     except Exception as exc:
-        return HttpResponse(str(exc), status=400)
+        return HttpResponse(str(exc), status=http_status.HTTP_400_BAD_REQUEST)
 
     from apps.contracts.services.archive.wiring import build_archive_checklist_service
 
@@ -372,7 +372,7 @@ def delete_archive_material(request: HttpRequest, contract_id: int, material_id:
     material = get_material_or_none(material_id, contract_id)
 
     if not material:
-        return HttpResponse(status=404)
+        return HttpResponse(status=http_status.HTTP_404_NOT_FOUND)
 
     delete_material(material)
     logger.info("已删除归档材料: material_id=%s, contract_id=%s", material_id, contract_id)
@@ -398,7 +398,7 @@ def move_archive_material(request: HttpRequest, contract_id: int, material_id: i
     material = get_material_or_none(material_id, contract_id)
 
     if not material:
-        return HttpResponse(status=404)
+        return HttpResponse(status=http_status.HTTP_404_NOT_FOUND)
 
     old_code = material.archive_item_code
     move_material(material, body.target_code)
@@ -421,14 +421,14 @@ def preview_archive_material(request: HttpRequest, contract_id: int, material_id
     material = get_material_or_none(material_id, contract_id)
 
     if not material:
-        return HttpResponse(status=404)
+        return HttpResponse(status=http_status.HTTP_404_NOT_FOUND)
 
     file_path = Path(material.file_path)
     if not file_path.is_absolute():
         file_path = Path(django_settings.MEDIA_ROOT) / file_path
 
     if not file_path.exists():
-        return HttpResponse(status=404)
+        return HttpResponse(status=http_status.HTTP_404_NOT_FOUND)
 
     content = file_path.read_bytes()
     suffix = file_path.suffix.lower()
