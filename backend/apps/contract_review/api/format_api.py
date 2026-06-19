@@ -74,6 +74,24 @@ def normalize_format(  # pragma: no cover
         reference_path = None
         if payload.reference_file:
             reference_path = Path(payload.reference_file)
+            # 安全：验证参考文档路径在 MEDIA_ROOT 内，防止路径遍历攻击
+            from django.conf import settings
+
+            media_root = Path(settings.MEDIA_ROOT).resolve()
+            try:
+                resolved_ref = reference_path.resolve()
+                if not resolved_ref.is_relative_to(media_root):
+                    return {
+                        "task_id": task.id,
+                        "status": "failed",
+                        "message": "无效的参考文档路径",
+                    }
+            except (ValueError, OSError):
+                return {
+                    "task_id": task.id,
+                    "status": "failed",
+                    "message": "无效的参考文档路径",
+                }
             if not reference_path.exists():
                 return {
                     "task_id": task.id,

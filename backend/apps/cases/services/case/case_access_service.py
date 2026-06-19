@@ -158,8 +158,12 @@ class CaseAccessService(DjangoPermsMixin):
         grant = self.get_grant(
             grant_id, user=user, org_access=org_access, perm_open_access=perm_open_access, access_ctx=access_ctx
         )
+        from apps.cases.schemas.access_schemas import CaseAccessGrantUpdate
+
+        updatable_fields = CaseAccessGrantUpdate.model_fields.keys()
         for key, value in data.items():
-            setattr(grant, key, value)
+            if key in updatable_fields:
+                setattr(grant, key, value)
         grant.save()
         invalidate_user_access_context(grant.grantee_id)
         return grant

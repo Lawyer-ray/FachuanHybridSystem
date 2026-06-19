@@ -111,9 +111,16 @@ def upload_temp_document(request: HttpRequest) -> dict[str, Any]:  # pragma: no 
             for chunk in file.chunks():
                 destination.write(chunk)
 
+        # 返回相对于 MEDIA_ROOT 的路径，防止服务器路径泄露
+        try:
+            relative_path = Path(temp_path).resolve().relative_to(Path(settings.MEDIA_ROOT).resolve())
+            safe_path = relative_path.as_posix()
+        except ValueError:
+            safe_path = temp_filename
+
         return {
             "success": True,
-            "temp_file_path": str(temp_path),
+            "temp_file_path": safe_path,
             "temp_file_name": file.name,
         }
 

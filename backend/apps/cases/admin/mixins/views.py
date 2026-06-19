@@ -731,10 +731,13 @@ class CaseAdminViewsMixin:  # pragma: no cover
                     {"success": False, "error": str("文件夹不存在: %(path)s" % {"path": folder_path})}, status=404
                 )
 
-            # 安全检查：只允许打开用户主目录或 /Volumes 下的目录（防止打开系统敏感目录）
+            # 安全检查：只允许打开用户主目录、MEDIA_ROOT 或 /Volumes 下的目录（防止打开系统敏感目录）
+            from django.conf import settings
+
             home = Path.home().resolve()
             volumes = Path("/Volumes").resolve()
-            if not (folder.is_relative_to(home) or folder.is_relative_to(volumes)):
+            media_root = Path(settings.MEDIA_ROOT).resolve()
+            if not (folder.is_relative_to(home) or folder.is_relative_to(volumes) or folder.is_relative_to(media_root)):
                 return JsonResponse({"success": False, "error": "不允许打开该目录"}, status=403)
 
             system = platform.system()

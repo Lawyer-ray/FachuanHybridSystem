@@ -95,8 +95,12 @@ class CaseLogMutationService:
         reminder_type = data.pop("reminder_type", None) if reminder_type_provided else None
         reminder_time = data.pop("reminder_time", None) if reminder_time_provided else None
 
+        from apps.cases.schemas.log_schemas import CaseLogUpdate
+
+        updatable_fields = CaseLogUpdate.model_fields.keys()
         for key, value in data.items():
-            setattr(log, key, value)
+            if key in updatable_fields:
+                setattr(log, key, value)
         log.save()
 
         if "content" in data and data.get("content") != old_content:

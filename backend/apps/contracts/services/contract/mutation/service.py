@@ -88,8 +88,12 @@ class ContractMutationService:
             case_type = data.get("case_type", contract.case_type)
             data["representation_stages"] = self.validator.validate_stages(data["representation_stages"], case_type)
 
+        from apps.contracts.schemas.contract_schemas import ContractUpdate
+
+        updatable_fields = ContractUpdate.model_fields.keys()
         for key, value in data.items():
-            setattr(contract, key, value)
+            if key in updatable_fields:
+                setattr(contract, key, value)
 
         contract.save()
 

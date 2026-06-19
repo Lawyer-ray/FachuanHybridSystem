@@ -184,8 +184,12 @@ class CaseCommandService(PermissionMixin):
             check_contract_id = contract_id if contract_id else case.contract_id
             data["current_stage"] = self._resolve_stage_from_contract(check_contract_id, current_stage)
 
+        from apps.cases.schemas import CaseUpdate
+
+        updatable_fields = CaseUpdate.model_fields.keys()
         for key, value in data.items():
-            setattr(case, key, value)
+            if key in updatable_fields:
+                setattr(case, key, value)
         case.save()
 
         logger.info(

@@ -128,8 +128,10 @@ def create_source(request: Any, payload: MessageSourceCreateIn) -> tuple[int, Me
 @router.put("/sources/{source_id}", response=MessageSourceOut)
 def update_source(request: Any, source_id: int, payload: MessageSourceUpdateIn) -> MessageSource:  # pragma: no cover
     source = get_object_or_404(MessageSource, pk=source_id)
+    updatable_fields = MessageSourceUpdateIn.model_fields.keys()
     for field, value in payload.dict(exclude_unset=True).items():
-        setattr(source, field, value)
+        if field in updatable_fields:
+            setattr(source, field, value)
     source.save()
     return source
 

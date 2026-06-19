@@ -56,6 +56,17 @@ def auto_namer_process_by_path(request: Any, payload: AutoToolProcessIn) -> Auto
     from pathlib import Path
 
     file_path = Path(payload.file_path)
+    # 安全：验证路径在 MEDIA_ROOT 内，防止路径遍历攻击
+    from django.conf import settings
+
+    media_root = Path(settings.MEDIA_ROOT).resolve()
+    try:
+        resolved_path = file_path.resolve()
+        if not resolved_path.is_relative_to(media_root):
+            return AutoToolProcessOut(text=None, ollama_response=None, error="无效的文件路径")
+    except (ValueError, OSError):
+        return AutoToolProcessOut(text=None, ollama_response=None, error="无效的文件路径")
+
     if not file_path.exists():
         return AutoToolProcessOut(
             text=None,
