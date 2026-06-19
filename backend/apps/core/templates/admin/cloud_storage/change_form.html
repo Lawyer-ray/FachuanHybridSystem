@@ -39,7 +39,7 @@
           <td style="padding: 6px 8px; font-weight: 500;">WebDAV 根路径</td>
           <td style="padding: 6px 8px;">
             默认 <code>/</code> 即可（指向坚果云 WebDAV 根目录）<br>
-            <span style="color: #6b7280;">如果只想绑定某个子文件夹，可填如 <code>我的坚果云/工作文件</code></span>
+            <span style="color: var(--fc-text-muted);">如果只想绑定某个子文件夹，可填如 <code>我的坚果云/工作文件</code></span>
           </td>
         </tr>
       </table>
@@ -85,7 +85,7 @@
           <td style="padding: 6px 8px; font-weight: 500;">WebDAV 根路径</td>
           <td style="padding: 6px 8px;">
             默认 <code>/</code> 即可（指向123云盘 WebDAV 根目录）<br>
-            <span style="color: #6b7280;">如果只想绑定某个子文件夹，可填如 <code>工作文件</code></span>
+            <span style="color: var(--fc-text-muted);">如果只想绑定某个子文件夹，可填如 <code>工作文件</code></span>
           </td>
         </tr>
       </table>
@@ -139,14 +139,14 @@
           <td style="padding: 6px 8px; font-weight: 500;">Tenant ID</td>
           <td style="padding: 6px 8px;">
             默认 <code>consumers</code>（个人账号）<br>
-            <span style="color: #6b7280;">如果是企业账号，填你的租户 ID（如 <code>xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx</code>）</span>
+            <span style="color: var(--fc-text-muted);">如果是企业账号，填你的租户 ID（如 <code>xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx</code>）</span>
           </td>
         </tr>
         <tr>
           <td style="padding: 6px 8px; font-weight: 500;">OneDrive 根路径</td>
           <td style="padding: 6px 8px;">
             默认 <code>/</code>（OneDrive 根目录）<br>
-            <span style="color: #6b7280;">如只想绑定某个文件夹，填如 <code>/工作/合同</code></span>
+            <span style="color: var(--fc-text-muted);">如只想绑定某个文件夹，填如 <code>/工作/合同</code></span>
           </td>
         </tr>
       </table>
@@ -189,7 +189,7 @@
     <form method="post" action="{% url 'admin:core_cloudstorageaccount_onedrive_start' onedrive_account_id %}">
       {% csrf_token %}
       <button type="submit" class="button">获取设备码</button>
-      <span style="color:#888; font-size:12px; margin-left:8px;">点击后在浏览器中完成微软授权</span>
+      <span style="color:var(--fc-text-disabled); font-size:12px; margin-left:8px;">点击后在浏览器中完成微软授权</span>
     </form>
   {% endif %}
 </div>
@@ -220,7 +220,7 @@
           <td style="padding: 6px 8px; font-weight: 500;">Endpoint URL</td>
           <td style="padding: 6px 8px;">
             留空使用 AWS S3 默认端点<br>
-            <span style="color: #6b7280;">
+            <span style="color: var(--fc-text-muted);">
               S3 兼容服务示例：<br>
               Cloudflare R2: <code>https://xxx.r2.cloudflarestorage.com</code><br>
               MinIO: <code>http://localhost:9000</code><br>
@@ -236,7 +236,7 @@
           <td style="padding: 6px 8px; font-weight: 500;">根路径</td>
           <td style="padding: 6px 8px;">
             默认 <code>/</code>（Bucket 根目录）<br>
-            <span style="color: #6b7280;">如果只想绑定某个子前缀，可填如 <code>work/contracts</code></span>
+            <span style="color: var(--fc-text-muted);">如果只想绑定某个子前缀，可填如 <code>work/contracts</code></span>
           </td>
         </tr>
       </table>
@@ -290,7 +290,7 @@
           <td style="padding: 6px 8px; font-weight: 500;">根文件夹 ID</td>
           <td style="padding: 6px 8px;">
             从共享文件夹的 URL 中获取，格式如 <code>https://drive.google.com/drive/folders/<b>文件夹ID</b></code><br>
-            <span style="color: #6b7280;">默认 <code>root</code> 表示 Service Account 的根目录</span>
+            <span style="color: var(--fc-text-muted);">默认 <code>root</code> 表示 Service Account 的根目录</span>
           </td>
         </tr>
         <tr>
@@ -333,7 +333,7 @@
           <td style="padding: 6px 8px; font-weight: 500;">根路径</td>
           <td style="padding: 6px 8px;">
             默认 <code>/</code>（Dropbox 根目录）<br>
-            <span style="color: #6b7280;">如只想绑定某个子文件夹，填如 <code>/工作/合同</code></span>
+            <span style="color: var(--fc-text-muted);">如只想绑定某个子文件夹，填如 <code>/工作/合同</code></span>
           </td>
         </tr>
       </table>
@@ -376,7 +376,7 @@
     <form method="post" action="{% url 'admin:core_cloudstorageaccount_dropbox_start' dropbox_account_id %}">
       {% csrf_token %}
       <button type="submit" class="button">获取设备码</button>
-      <span style="color:#888; font-size:12px; margin-left:8px;">点击后在浏览器中完成 Dropbox 授权</span>
+      <span style="color:var(--fc-text-disabled); font-size:12px; margin-left:8px;">点击后在浏览器中完成 Dropbox 授权</span>
     </form>
   {% endif %}
 </div>

@@ -8,8 +8,8 @@
    ======================================== */
 
 .identity-recognition-inline {
-    background: #f8f8f8;
-    border: 1px solid #ccc;
+    background: var(--fc-bg-muted);
+    border: 1px solid var(--fc-border);
     border-radius: 4px;
     margin: 0 0 20px 0;
 }
@@ -24,7 +24,7 @@
     justify-content: space-between;
     padding: 10px 15px;
     background: #417690;
-    color: #fff;
+    color: var(--fc-text-on-primary);
     cursor: pointer;
     user-select: none;
 }
@@ -245,7 +245,7 @@
 
 .result-section {
     background: #fff;
-    border: 1px solid #ccc;
+    border: 1px solid var(--fc-border);
     margin-bottom: 15px;
 }
 
@@ -258,7 +258,7 @@
     align-items: center;
     justify-content: space-between;
     padding: 8px 12px;
-    background: #f8f8f8;
+    background: var(--fc-bg-muted);
     border-bottom: 1px solid #ccc;
 }
 
@@ -333,7 +333,7 @@
     display: flex;
     gap: 10px;
     padding: 10px 12px;
-    background: #f8f8f8;
+    background: var(--fc-bg-muted);
     border-top: 1px solid #ccc;
 }
 
@@ -368,11 +368,11 @@
 .btn-secondary {
     background: #fff;
     color: #417690;
-    border: 1px solid #ccc;
+    border: 1px solid var(--fc-border);
 }
 
 .btn-secondary:hover:not(:disabled) {
-    background: #f8f8f8;
+    background: var(--fc-bg-muted);
     border-color: #417690;
 }
 
