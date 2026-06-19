@@ -417,7 +417,7 @@
 
 .fee-mode-tag.fee-mode-custom {
     background: #f3e8ff;
-    color: #7c3aed;
+    color: var(--fc-primary);
 }
 
 /* 金额样式 */
