@@ -1,0 +1,144 @@
+.cm-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: rgba(15, 23, 42, 0.8);
+}
+
+.cm-row-check {
+  width: 16px;
+  height: 16px;
+}
+
+.materials-table-wrapper {
+  overflow-x: auto;
+  background: var(--cm-card);
+  border: 1px solid var(--cm-border);
+  border-radius: 14px;
+}
+
+.materials-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.materials-table th,
+.materials-table td {
+  padding: 12px 12px;
+  border-bottom: 1px solid rgba(15, 23, 42, 0.06);
+  vertical-align: top;
+  font-size: 13px;
+  color: var(--cm-text);
+}
+
+.materials-table th {
+  background: rgba(15, 23, 42, 0.03);
+  font-weight: 800;
+  color: rgba(15, 23, 42, 0.75);
+  text-align: left;
+}
+
+.materials-table tr:hover td {
+  background: rgba(15, 23, 42, 0.02);
+}
+
+.materials-table tr.row-unfinished td {
+  background: var(--cm-warn-bg);
+}
+
+.file-cell {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.status-pill {
+  font-size: 12px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  white-space: nowrap;
+}
+
+.status-pill.bound {
+  background: rgba(22, 163, 74, 0.1);
+  border-color: rgba(22, 163, 74, 0.22);
+  color: var(--fc-success-text);
+}
+
+.status-pill.unbound {
+  background: rgba(220, 38, 38, 0.08);
+  border-color: rgba(220, 38, 38, 0.22);
+  color: var(--fc-error-text);
+}
+
+.type-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 140px;
+}
+
+.type-cell select {
+  width: 100%;
+}
+
+.type-cell input[type="text"] {
+  width: 100%;
+  height: 34px;
+  border-radius: 6px;
+  border: 1px solid var(--cm-border);
+  padding: 6px 10px;
+  font-size: 13px;
+  background: var(--fc-bg-card);
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.type-cell input[type="text"]:focus {
+  outline: none;
+  border-color: var(--cm-primary);
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
+}
+
+.type-cell input[type="text"]::placeholder {
+  color: var(--cm-muted);
+}
+
+/* 表格内所有 select 和 input 统一样式 */
+.materials-table select,
+.materials-table input[type="text"] {
+  height: 34px;
+  box-sizing: border-box;
+  border-radius: 6px;
+  border: 1px solid var(--cm-border);
+  padding: 6px 10px;
+  background: var(--fc-bg-card);
+  color: var(--cm-text);
+  font-size: 13px;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.materials-table select:focus,
+.materials-table input[type="text"]:focus {
+  outline: none;
+  border-color: var(--cm-primary);
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
+}
+
+.materials-table select[multiple] {
+  height: auto;
+  min-height: 70px;
+  padding: 4px;
+}
+
+.materials-table select[multiple] option {
+  padding: 4px 8px;
+  border-radius: 4px;
+  margin-bottom: 2px;
+}
+
+.materials-table select[multiple] option:checked {
+  background: linear-gradient(0deg, var(--cm-primary) 0%, var(--cm-primary) 100%);
+  color: var(--fc-text-on-primary);
+}
