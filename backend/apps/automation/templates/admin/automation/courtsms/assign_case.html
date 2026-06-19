@@ -551,7 +551,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
             // 高亮选中的案件
             caseItems.forEach(item => {
-                item.style.backgroundColor = item.dataset.caseId === caseId ? '#e7f3ff' : '#fff';
+                item.style.backgroundColor = item.dataset.caseId === caseId ? 'var(--fc-bg-muted)' : 'var(--fc-bg-card)';
             });
 
             // 滚动到表单

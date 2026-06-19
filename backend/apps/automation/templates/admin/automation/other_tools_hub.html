@@ -9,10 +9,10 @@
     --card-bg: rgba(255, 255, 255, 0.96);
     --line: #e6edf5;
     --line-strong: #d7e3f3;
-    --text-main: #0f172a;
-    --text-sub: #64748b;
-    --brand: #2563eb;
-    --brand-strong: #1d4ed8;
+    --text-main: var(--fc-text-heading);
+    --text-sub: var(--fc-text-muted);
+    --brand: var(--fc-primary);
+    --brand-strong: var(--fc-primary-dark);
     --brand-soft: #eff6ff;
     --success-soft: #ecfeff;
     --shadow-soft: 0 10px 30px rgba(37, 99, 235, 0.08);
@@ -223,7 +223,7 @@
     inset: 0 0 auto 0;
     height: 4px;
     border-radius: 18px 18px 0 0;
-    background: linear-gradient(90deg, #2563eb 0%, #38bdf8 100%);
+    background: linear-gradient(90deg, var(--fc-primary) 0%, #38bdf8 100%);
   }
 
   .tool-top {
