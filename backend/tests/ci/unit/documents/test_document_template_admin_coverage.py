@@ -255,7 +255,7 @@ class TestDocumentTemplateAdminDisplayMethods:
         admin = self._make_admin()
         obj = MagicMock()
         obj.pk = 1
-        with patch("apps.documents.admin.document_template_admin._get_template_service", side_effect=Exception("fail")):
+        with patch("apps.documents.admin.template_admin_display_mixin._get_template_service", side_effect=Exception("fail")):
             result = admin.placeholder_count_display(obj)
             assert "错误" in str(result)
 
@@ -277,7 +277,7 @@ class TestDocumentTemplateAdminDisplayMethods:
         admin = self._make_admin()
         obj = MagicMock()
         obj.pk = 1
-        with patch("apps.documents.admin.document_template_admin._get_template_service", side_effect=Exception("fail")):
+        with patch("apps.documents.admin.template_admin_display_mixin._get_template_service", side_effect=Exception("fail")):
             result = admin.placeholders_display(obj)
             assert "提取失败" in str(result)
 
@@ -285,7 +285,7 @@ class TestDocumentTemplateAdminDisplayMethods:
         admin = self._make_admin()
         obj = MagicMock()
         obj.pk = 1
-        with patch("apps.documents.admin.document_template_admin._get_template_service", side_effect=Exception("fail")):
+        with patch("apps.documents.admin.template_admin_display_mixin._get_template_service", side_effect=Exception("fail")):
             result = admin.undefined_placeholders_display(obj)
             assert "检查失败" in str(result)
 
@@ -305,7 +305,7 @@ class TestDocumentTemplateAdminActions:
         admin = self._make_admin()
         request = MagicMock()
         queryset = MagicMock()
-        with patch("apps.documents.admin.document_template_admin._get_admin_service") as mock_svc:
+        with patch("apps.documents.admin.template_admin_display_mixin._get_admin_service") as mock_svc:
             mock_svc.return_value.batch_activate.return_value = 3
             admin.activate_templates(request, queryset)
             mock_svc.return_value.batch_activate.assert_called_once_with(queryset)
@@ -314,7 +314,7 @@ class TestDocumentTemplateAdminActions:
         admin = self._make_admin()
         request = MagicMock()
         queryset = MagicMock()
-        with patch("apps.documents.admin.document_template_admin._get_admin_service") as mock_svc:
+        with patch("apps.documents.admin.template_admin_display_mixin._get_admin_service") as mock_svc:
             mock_svc.return_value.batch_deactivate.return_value = 2
             admin.deactivate_templates(request, queryset)
             mock_svc.return_value.batch_deactivate.assert_called_once_with(queryset)
