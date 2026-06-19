@@ -272,7 +272,7 @@ class TestCompositionUsecase:
     @patch("apps.contracts.services.contract.usecases.composition.ContractAccessPolicy")
     @patch("apps.contracts.services.contract.usecases.composition.ContractQueryService")
     def test_build_contract_service(self, MockQS, MockAP, MockQF, MockCS):
-        from apps.contracts.services.contract.usecases.composition import build_contract_service
+        from apps.contracts.services.contract.wiring import build_contract_service
 
         case_svc = MagicMock()
         lawyer_svc = MagicMock()

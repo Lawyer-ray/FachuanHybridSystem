@@ -56,19 +56,13 @@ def trigger_case_import(request: HttpRequest) -> Any:  # pragma: no cover
 
     # 保存上传的文件
     import uuid
-    from pathlib import Path
 
     from django.conf import settings
-
-    upload_dir = Path(settings.MEDIA_ROOT) / "oa_imports"  # type: ignore[misc]
-    upload_dir.mkdir(parents=True, exist_ok=True)
+    from django.core.files.storage import default_storage
 
     filename = f"{uuid.uuid4().hex}_{file.name}"
-    file_path = upload_dir / filename
-
-    with open(file_path, "wb") as f:
-        for chunk in file.chunks():
-            f.write(chunk)
+    saved_name = default_storage.save(f"oa_imports/{filename}", file)
+    file_path = Path(settings.MEDIA_ROOT) / saved_name
 
     # 创建导入会话
     from apps.oa_filing.services.import_session_service import create_case_session, get_lawyer

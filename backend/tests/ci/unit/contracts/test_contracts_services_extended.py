@@ -500,7 +500,7 @@ class TestCaseCreationWorkflow:
     """contracts/services/contract/admin/workflows/case_creation_workflow.py tests."""
 
     def test_module_importable(self) -> None:
-        from apps.contracts.services.contract.admin.workflows.case_creation_workflow import ContractCaseCreationWorkflow
+        from apps.contracts.services.contract.admin.case_creation_workflow import ContractCaseCreationWorkflow
 
         assert ContractCaseCreationWorkflow is not None
 
@@ -509,7 +509,7 @@ class TestCloneWorkflow:
     """contracts/services/contract/admin/workflows/clone_workflow.py tests."""
 
     def test_module_importable(self) -> None:
-        from apps.contracts.services.contract.admin.workflows.clone_workflow import ContractCloneWorkflow
+        from apps.contracts.services.contract.admin.clone_workflow import ContractCloneWorkflow
 
         assert ContractCloneWorkflow is not None
 
@@ -518,7 +518,7 @@ class TestFilingNumberWorkflow:
     """contracts/services/contract/admin/workflows/filing_number_workflow.py tests."""
 
     def test_module_importable(self) -> None:
-        from apps.contracts.services.contract.admin.workflows.filing_number_workflow import ContractFilingNumberWorkflow
+        from apps.contracts.services.contract.admin.filing_number_workflow import ContractFilingNumberWorkflow
 
         assert ContractFilingNumberWorkflow is not None
 
@@ -549,7 +549,7 @@ class TestCompositionExtended:
     @patch("apps.contracts.services.contract.usecases.composition.ContractAccessPolicy")
     @patch("apps.contracts.services.contract.usecases.composition.ContractQueryService")
     def test_build_without_services(self, MockQS: Any, MockAP: Any, MockQF: Any, MockCS: Any) -> None:
-        from apps.contracts.services.contract.usecases.composition import build_contract_service
+        from apps.contracts.services.contract.wiring import build_contract_service
 
         mock_instance = MagicMock()
         MockCS.return_value = mock_instance

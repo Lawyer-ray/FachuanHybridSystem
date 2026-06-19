@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, call, patch
 
 import pytest
 
-from apps.contracts.services.contract.admin.workflows.clone_workflow import ContractCloneWorkflow, plus_one_year_due_at
+from apps.contracts.services.contract.admin.clone_workflow import ContractCloneWorkflow, plus_one_year_due_at
 
 
 def _make_workflow() -> tuple[ContractCloneWorkflow, MagicMock]:
