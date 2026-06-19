@@ -9,6 +9,7 @@ from django.db import transaction
 from django.db.models import QuerySet
 
 from apps.cases.models import CaseParty
+from apps.cases.schemas.party_schemas import CasePartyUpdate
 from apps.core.config.business_config import business_config
 from apps.core.exceptions import ConflictError, NotFoundError, ValidationException
 from apps.core.interfaces import IClientService, IContractService
@@ -194,8 +195,9 @@ class CasePartyMutationService:
             )
         if new_case_id != party.case_id or new_client_id != party.client_id:
             self.validate_party_in_contract_scope(new_case_id, new_client_id)
+        allowed_keys = CasePartyUpdate.model_fields.keys()
         for key, value in data.items():
-            if hasattr(party, key):
+            if key in allowed_keys:
                 setattr(party, key, value)
         party.save()
         logger.info(

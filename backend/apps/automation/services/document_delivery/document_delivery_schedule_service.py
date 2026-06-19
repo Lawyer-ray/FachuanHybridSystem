@@ -157,19 +157,20 @@ class DocumentDeliveryScheduleService:
             raise NotFoundError(f"定时任务不存在: {schedule_id}") from e
 
         # 验证更新参数
-        runs_per_day = kwargs.get("runs_per_day", schedule.runs_per_day)
-        hour_interval = kwargs.get("hour_interval", schedule.hour_interval)
-        cutoff_hours = kwargs.get("cutoff_hours", schedule.cutoff_hours)
+        allowed_fields = {"runs_per_day", "hour_interval", "cutoff_hours", "is_active"}
+        filtered_kwargs = {k: v for k, v in kwargs.items() if k in allowed_fields}
+        runs_per_day = filtered_kwargs.get("runs_per_day", schedule.runs_per_day)
+        hour_interval = filtered_kwargs.get("hour_interval", schedule.hour_interval)
+        cutoff_hours = filtered_kwargs.get("cutoff_hours", schedule.cutoff_hours)
 
         self._validate_schedule_config(runs_per_day, hour_interval, cutoff_hours)
 
         # 检查是否需要重新计算下次运行时间
-        need_recalculate = "runs_per_day" in kwargs or "hour_interval" in kwargs or "is_active" in kwargs
+        need_recalculate = "runs_per_day" in filtered_kwargs or "hour_interval" in filtered_kwargs or "is_active" in filtered_kwargs
 
         # 更新字段
-        for field, value in kwargs.items():
-            if hasattr(schedule, field):
-                setattr(schedule, field, value)
+        for field, value in filtered_kwargs.items():
+            setattr(schedule, field, value)
 
         # 重新计算下次运行时间（如果需要）
         if need_recalculate and schedule.is_active:

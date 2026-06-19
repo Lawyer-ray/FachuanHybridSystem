@@ -9,6 +9,7 @@ from django.db import transaction
 from django.db.models import Count, QuerySet
 
 from apps.contacts.models import CaseContact
+from apps.contacts.schemas.contact_schemas import CaseContactUpdate
 from apps.core.exceptions import NotFoundError
 from apps.core.security import DjangoPermsMixin
 
@@ -92,8 +93,9 @@ class CaseContactService(DjangoPermsMixin):
                 errors={"contact_id": f"ID 为 {contact_id} 的工作人员不存在"},
             ) from None
 
+        allowed_keys = CaseContactUpdate.model_fields.keys()
         for key, value in data.items():
-            if hasattr(contact, key):
+            if key in allowed_keys:
                 setattr(contact, key, value)
         contact.save()
 

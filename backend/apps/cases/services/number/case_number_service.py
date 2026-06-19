@@ -9,6 +9,7 @@ from django.db import transaction
 from django.db.models import QuerySet
 
 from apps.cases.models import Case, CaseNumber
+from apps.cases.schemas.number_schemas import CaseNumberUpdate
 from apps.cases.services.case.case_access_policy import CaseAccessPolicy
 from apps.cases.utils import normalize_case_number as normalize_case_number_util
 from apps.core.exceptions import NotFoundError, ValidationException
@@ -292,8 +293,9 @@ class CaseNumberService(DjangoPermsMixin):
 
         # 更新案号
         original_number = case_number.number
+        allowed_keys = CaseNumberUpdate.model_fields.keys()
         for key, value in data.items():
-            if hasattr(case_number, key):
+            if key in allowed_keys:
                 setattr(case_number, key, value)
 
         case_number.save()

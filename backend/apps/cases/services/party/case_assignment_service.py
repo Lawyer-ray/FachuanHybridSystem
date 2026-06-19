@@ -9,6 +9,7 @@ from django.db import transaction
 from django.db.models import QuerySet
 
 from apps.cases.models import Case, CaseAssignment
+from apps.cases.schemas.assignment_schemas import CaseAssignmentUpdate
 from apps.core.exceptions import ConflictError, NotFoundError
 from apps.core.interfaces import ICaseService
 from apps.core.protocols import IContractAssignmentQueryService
@@ -279,8 +280,9 @@ class CaseAssignmentService(DjangoPermsMixin):
             )
 
         # 更新指派
+        allowed_keys = CaseAssignmentUpdate.model_fields.keys()
         for key, value in data.items():
-            if hasattr(assignment, key):
+            if key in allowed_keys:
                 setattr(assignment, key, value)
 
         assignment.save()
