@@ -283,7 +283,7 @@ class TestPostProcessCandidates:
         svc = ContractFolderScanService(scan_service=MagicMock())
         return svc
 
-    @patch("apps.contracts.services.contract.integrations.folder_scan_service.classify_archive_material")
+    @patch("apps.contracts.services.contract.integrations._candidate_post_processor.classify_archive_material")
     def test_archive_document_with_match(self, mock_classify):
         mock_classify.return_value = {
             "category": "archive_document",
@@ -304,7 +304,7 @@ class TestPostProcessCandidates:
             assert result[0]["archive_item_code"] == "c1"
             assert result[0]["suggested_category"] == "case_material"
 
-    @patch("apps.contracts.services.contract.integrations.folder_scan_service.classify_archive_material")
+    @patch("apps.contracts.services.contract.integrations._candidate_post_processor.classify_archive_material")
     def test_archive_document_skip(self, mock_classify):
         mock_classify.return_value = {
             "category": "skip",
@@ -325,7 +325,7 @@ class TestPostProcessCandidates:
             assert result[0]["selected"] is False
             assert result[0]["skip_reason"] == "skip rule"
 
-    @patch("apps.contracts.services.contract.integrations.folder_scan_service.classify_archive_material")
+    @patch("apps.contracts.services.contract.integrations._candidate_post_processor.classify_archive_material")
     def test_archive_document_no_match(self, mock_classify):
         mock_classify.return_value = {
             "category": "archive_document",
@@ -346,7 +346,7 @@ class TestPostProcessCandidates:
             assert result[0]["selected"] is False
             assert result[0]["archive_item_name"] == "未匹配"
 
-    @patch("apps.contracts.services.contract.integrations.folder_scan_service.classify_archive_material")
+    @patch("apps.contracts.services.contract.integrations._candidate_post_processor.classify_archive_material")
     def test_authorization_material_with_match(self, mock_classify):
         mock_classify.return_value = {
             "category": "case_material",
@@ -367,7 +367,7 @@ class TestPostProcessCandidates:
             assert result[0]["suggested_category"] == "case_material"
             assert result[0]["archive_item_code"] == "auth_1"
 
-    @patch("apps.contracts.services.contract.integrations.folder_scan_service.classify_archive_material")
+    @patch("apps.contracts.services.contract.integrations._candidate_post_processor.classify_archive_material")
     def test_authorization_material_no_match(self, mock_classify):
         mock_classify.return_value = {
             "category": "case_material",
@@ -387,7 +387,7 @@ class TestPostProcessCandidates:
             )
             assert result[0]["selected"] is False
 
-    @patch("apps.contracts.services.contract.integrations.folder_scan_service.classify_archive_material")
+    @patch("apps.contracts.services.contract.integrations._candidate_post_processor.classify_archive_material")
     def test_case_material_with_match(self, mock_classify):
         mock_classify.return_value = {
             "category": "case_material",
@@ -408,7 +408,7 @@ class TestPostProcessCandidates:
             assert result[0]["archive_item_code"] == "cm_1"
             assert result[0]["reason"] == "sub"
 
-    @patch("apps.contracts.services.contract.integrations.folder_scan_service.classify_archive_material")
+    @patch("apps.contracts.services.contract.integrations._candidate_post_processor.classify_archive_material")
     def test_case_material_no_match(self, mock_classify):
         mock_classify.return_value = {
             "category": "case_material",
@@ -434,7 +434,7 @@ class TestPostProcessCandidates:
             {"suggested_category": "contract_original", "filename": "保单.pdf", "source_path": "/root/保单.pdf"},
             {"suggested_category": "contract_original", "filename": "保函.pdf", "source_path": "/root/保函.pdf"},
         ]
-        with patch("apps.contracts.services.contract.integrations.folder_scan_service.classify_archive_material") as mock_c:
+        with patch("apps.contracts.services.contract.integrations._candidate_post_processor.classify_archive_material") as mock_c:
             mock_c.return_value = {"category": "case_material", "archive_item_code": "", "archive_item_name": "", "confidence": 0, "reason": ""}
             with patch.object(svc, "_relative_path_str", return_value=""):
                 result = svc._post_process_candidates(
@@ -457,7 +457,7 @@ class TestPostProcessCandidates:
             )
             assert result == []
 
-    @patch("apps.contracts.services.contract.integrations.folder_scan_service.classify_archive_material")
+    @patch("apps.contracts.services.contract.integrations._candidate_post_processor.classify_archive_material")
     def test_non_litigation_collects_docx(self, mock_classify):
         mock_classify.return_value = {"category": "case_material", "archive_item_code": "", "archive_item_name": "", "confidence": 0, "reason": ""}
         svc = self._make_service()

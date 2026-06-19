@@ -311,7 +311,7 @@ class TestPostProcessCandidates:
             }
         ]
         with patch(
-            "apps.contracts.services.contract.integrations.folder_scan_service.classify_archive_material"
+            "apps.contracts.services.contract.integrations._candidate_post_processor.classify_archive_material"
         ) as mock_classify:
             mock_classify.return_value = {
                 "category": "archive_document",
@@ -343,7 +343,7 @@ class TestPostProcessCandidates:
             }
         ]
         with patch(
-            "apps.contracts.services.contract.integrations.folder_scan_service.classify_archive_material"
+            "apps.contracts.services.contract.integrations._candidate_post_processor.classify_archive_material"
         ) as mock_classify:
             mock_classify.return_value = {
                 "category": "skip",
@@ -383,7 +383,7 @@ class TestMarkAlreadyImported:
         svc = _make_service()
         candidates = [{"filename": "a.pdf", "source_path": "/tmp/a.pdf"}]
         with patch(
-            "apps.contracts.services.contract.integrations.folder_scan_service.FinalizedMaterial"
+            "apps.contracts.services.contract.integrations._candidate_post_processor.FinalizedMaterial"
         ) as mock_model:
             mock_model.objects.filter.return_value.values_list.return_value = []
             svc._mark_already_imported(candidates, contract_id=1)

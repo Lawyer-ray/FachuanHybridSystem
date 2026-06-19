@@ -552,7 +552,7 @@ class TestMakeProviderForBinding:
 class TestPostProcessCandidates:
     def test_archive_document_matched(self):
         svc = _make_service()
-        with patch("apps.contracts.services.contract.integrations.folder_scan_service.classify_archive_material") as mock_classify:
+        with patch("apps.contracts.services.contract.integrations._candidate_post_processor.classify_archive_material") as mock_classify:
             mock_classify.return_value = {
                 "category": "matched",
                 "archive_item_code": "nl_1",
@@ -573,7 +573,7 @@ class TestPostProcessCandidates:
 
     def test_archive_document_skip(self):
         svc = _make_service()
-        with patch("apps.contracts.services.contract.integrations.folder_scan_service.classify_archive_material") as mock_classify:
+        with patch("apps.contracts.services.contract.integrations._candidate_post_processor.classify_archive_material") as mock_classify:
             mock_classify.return_value = {
                 "category": "skip",
                 "archive_item_code": "",
@@ -594,7 +594,7 @@ class TestPostProcessCandidates:
 
     def test_insurance_keywords_deselect(self):
         svc = _make_service()
-        with patch("apps.contracts.services.contract.integrations.folder_scan_service.classify_archive_material") as mock_classify:
+        with patch("apps.contracts.services.contract.integrations._candidate_post_processor.classify_archive_material") as mock_classify:
             mock_classify.return_value = {
                 "category": "matched",
                 "archive_item_code": "",

@@ -261,7 +261,7 @@ class TestPostProcessCandidates:
             "suggested_category": "archive_document",
         }
 
-        with patch("apps.contracts.services.contract.integrations.folder_scan_service.classify_archive_material") as mock_cls:
+        with patch("apps.contracts.services.contract.integrations._candidate_post_processor.classify_archive_material") as mock_cls:
             mock_cls.return_value = {
                 "category": "matched",
                 "archive_item_code": "l_0",
@@ -286,7 +286,7 @@ class TestPostProcessCandidates:
             "suggested_category": "archive_document",
         }
 
-        with patch("apps.contracts.services.contract.integrations.folder_scan_service.classify_archive_material") as mock_cls:
+        with patch("apps.contracts.services.contract.integrations._candidate_post_processor.classify_archive_material") as mock_cls:
             mock_cls.return_value = {"category": "skip", "reason": "不需要"}
             result = svc._post_process_candidates(
                 candidates=[candidate],
@@ -304,7 +304,7 @@ class TestPostProcessCandidates:
             "suggested_category": "archive_document",
         }
 
-        with patch("apps.contracts.services.contract.integrations.folder_scan_service.classify_archive_material") as mock_cls:
+        with patch("apps.contracts.services.contract.integrations._candidate_post_processor.classify_archive_material") as mock_cls:
             mock_cls.return_value = {
                 "category": "unmatched",
                 "archive_item_code": "",
@@ -327,7 +327,7 @@ class TestPostProcessCandidates:
             "suggested_category": "authorization_material",
         }
 
-        with patch("apps.contracts.services.contract.integrations.folder_scan_service.classify_archive_material") as mock_cls:
+        with patch("apps.contracts.services.contract.integrations._candidate_post_processor.classify_archive_material") as mock_cls:
             mock_cls.return_value = {
                 "category": "matched",
                 "archive_item_code": "l_2",
@@ -351,7 +351,7 @@ class TestPostProcessCandidates:
             "suggested_category": "case_material",
         }
 
-        with patch("apps.contracts.services.contract.integrations.folder_scan_service.classify_archive_material") as mock_cls:
+        with patch("apps.contracts.services.contract.integrations._candidate_post_processor.classify_archive_material") as mock_cls:
             mock_cls.return_value = {
                 "category": "matched",
                 "archive_item_code": "l_1",
@@ -377,7 +377,7 @@ class TestPostProcessCandidates:
             "selected": True,
         }
 
-        with patch("apps.contracts.services.contract.integrations.folder_scan_service.classify_archive_material") as mock_cls:
+        with patch("apps.contracts.services.contract.integrations._candidate_post_processor.classify_archive_material") as mock_cls:
             mock_cls.return_value = {"category": "matched", "archive_item_code": "x", "archive_item_name": "x", "confidence": 0.5, "reason": ""}
             result = svc._post_process_candidates(
                 candidates=[candidate],
@@ -412,7 +412,7 @@ class TestPostProcessCandidates:
             "suggested_category": "case_material",
         }
 
-        with patch("apps.contracts.services.contract.integrations.folder_scan_service.classify_archive_material") as mock_cls:
+        with patch("apps.contracts.services.contract.integrations._candidate_post_processor.classify_archive_material") as mock_cls:
             mock_cls.return_value = {"category": "matched", "archive_item_code": "x", "archive_item_name": "x", "confidence": 0.5, "reason": ""}
             result = svc._post_process_candidates(
                 candidates=[candidate],

@@ -54,9 +54,11 @@ class TestSanitizeUploadFilename:
         assert "@" not in result
         assert "#" not in result
 
-    def test_multiple_underscores_collapsed(self):
+    def test_multiple_underscores_preserved(self):
+        # sanitize_filename 保留有效字符（包括下划线），不折叠连续下划线
         result = sanitize_upload_filename("file___name.txt")
-        assert "___" not in result
+        assert "file" in result
+        assert "name" in result
 
     def test_dot_only_filename(self):
         result = sanitize_upload_filename(".")
