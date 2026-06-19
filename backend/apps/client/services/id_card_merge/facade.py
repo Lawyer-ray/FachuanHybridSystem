@@ -200,6 +200,4 @@ class IdCardMergeService:
         return validation.validate_corners(corners)
 
     def _save_temp_image(self, image: UploadedFile, prefix: str) -> str:
-        media_root = get_media_root()
-        temp_dir = ensure_temp_dir(media_root)
-        return image_io.save_temp_image(image, prefix=prefix, temp_dir=temp_dir, logger=logger)
+        return image_io.save_temp_image(image, prefix=prefix, logger=logger)

@@ -5,7 +5,6 @@ from pathlib import Path
 from typing import Optional
 
 from django.conf import settings
-from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
 from ninja import File, Router, UploadedFile
 

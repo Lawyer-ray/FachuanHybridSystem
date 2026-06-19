@@ -9,6 +9,10 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, urlparse
 
+from django.conf import settings
+from django.core.files.base import ContentFile
+from django.core.files.storage import default_storage
+
 logger = logging.getLogger("apps.automation")
 
 
@@ -118,9 +122,10 @@ class ZxfwDirectApiMixin:  # pragma: no cover
                 with httpx.Client(timeout=download_timeout / 1000.0, follow_redirects=True) as client:
                     response = client.get(url)
                     response.raise_for_status()
-                    with open(filepath, "wb") as f:
-                        f.write(response.content)
-                file_size = filepath.stat().st_size
+                    rel_path = filepath.relative_to(settings.MEDIA_ROOT).as_posix()
+                    saved_name = default_storage.save(rel_path, ContentFile(response.content))
+                    saved_path = Path(settings.MEDIA_ROOT) / saved_name
+                file_size = default_storage.size(saved_name)
                 download_time = (time.time() - start_time) * 1000
                 logger.info(
                     "文书下载成功",
@@ -132,7 +137,7 @@ class ZxfwDirectApiMixin:  # pragma: no cover
                         "download_time_ms": download_time,
                     },
                 )
-                return True, str(filepath), None
+                return True, str(saved_path), None
             except Exception as e:
                 error_msg = f"下载失败: {e!s}"
                 logger.error(

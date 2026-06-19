@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import logging
 from importlib import import_module
-from pathlib import Path
 
 from django.apps import apps as django_apps
 
@@ -16,8 +15,6 @@ def check_gsxt_report_email(task_id: int, company_name: str) -> None:
     Django-Q 任务：检查邮箱是否收到企业信用报告，收到则保存为营业执照附件。
     未收到时重新入队（60秒后再试），直到任务状态不再是 WAITING_EMAIL 为止。
     """
-    from django.conf import settings
-
     from apps.automation.models.gsxt_report import GsxtReportStatus, GsxtReportTask
     from apps.automation.services.gsxt.gsxt_email_service import EMAIL_CREDENTIAL_ID, _fetch_report_attachment
     from apps.core.tasking import ScheduleQueryService
@@ -35,9 +32,10 @@ def check_gsxt_report_email(task_id: int, company_name: str) -> None:
     if pdf_bytes:
         client = task.client
         rel_path = f"client_docs/{client.pk}/{company_name[:20]}_企业信用报告.pdf"
-        abs_path = Path(settings.MEDIA_ROOT) / rel_path
-        abs_path.parent.mkdir(parents=True, exist_ok=True)
-        abs_path.write_bytes(pdf_bytes)
+        from django.core.files.base import ContentFile
+        from django.core.files.storage import default_storage
+
+        default_storage.save(rel_path, ContentFile(pdf_bytes))
 
         identity_doc_service_cls = import_module(
             "apps.client.services.client_identity_doc_service"
