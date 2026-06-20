@@ -10,6 +10,8 @@ class TestCleanupLogAttachmentFile:
 
     def test_deletes_file_on_attachment_delete(self):
         """Deleting CaseLogAttachment triggers physical file deletion."""
+        from unittest.mock import patch as _patch
+
         from apps.cases.signals import _cleanup_log_attachment_file
 
         mock_file = MagicMock()
@@ -20,7 +22,9 @@ class TestCleanupLogAttachmentFile:
         instance.pk = 1
         instance.file = mock_file
 
-        _cleanup_log_attachment_file(sender=MagicMock, instance=instance)
+        with _patch("apps.cases.signals.transaction") as mock_txn:
+            mock_txn.on_commit.side_effect = lambda fn: fn()
+            _cleanup_log_attachment_file(sender=MagicMock, instance=instance)
         mock_file.delete.assert_called_once_with(save=False)
 
     def test_handles_no_file_gracefully(self):
@@ -57,6 +61,8 @@ class TestCleanupCaseNumberDocumentFile:
 
     def test_deletes_document_file_on_case_number_delete(self):
         """Deleting CaseNumber triggers document file deletion."""
+        from unittest.mock import patch as _patch
+
         from apps.cases.signals import _cleanup_case_number_document_file
 
         mock_file = MagicMock()
@@ -67,7 +73,9 @@ class TestCleanupCaseNumberDocumentFile:
         instance.pk = 1
         instance.document_file = mock_file
 
-        _cleanup_case_number_document_file(sender=MagicMock, instance=instance)
+        with _patch("apps.cases.signals.transaction") as mock_txn:
+            mock_txn.on_commit.side_effect = lambda fn: fn()
+            _cleanup_case_number_document_file(sender=MagicMock, instance=instance)
         mock_file.delete.assert_called_once_with(save=False)
 
     def test_handles_no_document_file(self):
