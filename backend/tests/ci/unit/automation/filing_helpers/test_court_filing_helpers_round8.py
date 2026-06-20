@@ -489,11 +489,11 @@ class TestBuildExecutionRequestText:
 
         MockSvc.return_value.generate.side_effect = TypeError("error")
         case = SimpleNamespace(id=1)
-        with patch("apps.automation.api.court_filing_helpers._resolve_original_case_number", return_value=""):
+        with patch("plugins.court_automation.filing.helpers._resolve_original_case_number", return_value=""):
             result = _build_execution_request_text(case=case)
             assert "请求依法强制执行" in result
 
-    @patch("apps.automation.api.court_filing_helpers._resolve_original_case_number")
+    @patch("plugins.court_automation.filing.helpers._resolve_original_case_number")
     @patch("apps.documents.services.placeholders.litigation.execution_request_service.ExecutionRequestService")
     def test_exception_and_case_number(self, MockSvc, mock_resolve):
         from plugins.court_automation.filing.helpers import _build_execution_request_text
@@ -523,7 +523,7 @@ class TestBuildExecutionRequestText:
         with patch("apps.documents.services.placeholders.litigation.execution_request_service.ExecutionRequestService") as MockSvc:
             MockSvc.return_value.generate.return_value = {}
             case = SimpleNamespace(id=1)
-            with patch("apps.automation.api.court_filing_helpers._resolve_original_case_number", return_value=""):
+            with patch("plugins.court_automation.filing.helpers._resolve_original_case_number", return_value=""):
                 result = _build_execution_request_text(case=case)
                 assert "请求依法强制执行" in result
 
@@ -790,8 +790,8 @@ class TestScoreSlotDeduplicated:
 
 
 class TestRunFiling:
-    @patch("apps.automation.api.court_filing_helpers._update_session_task")
-    @patch("apps.automation.services.scraper.sites.court_zxfw_filing.CourtZxfwFilingService")
+    @patch("plugins.court_automation.filing.helpers._update_session_task")
+    @patch("plugins.court_automation.filing.playwright_filing.CourtZxfwFilingService")
     @patch("apps.automation.services.scraper.sites.court_zxfw.CourtZxfwService")
     @patch("apps.core.services.browser.create_browser")
     def test_successful_filing(self, mock_browser, MockLogin, MockFiling, mock_update):
@@ -812,7 +812,7 @@ class TestRunFiling:
         _run_filing("acc", "pwd", {"case_id": 1}, session_id=1)
         assert mock_update.call_count >= 1
 
-    @patch("apps.automation.api.court_filing_helpers._update_session_task")
+    @patch("plugins.court_automation.filing.helpers._update_session_task")
     @patch("apps.automation.services.scraper.sites.court_zxfw.CourtZxfwService")
     @patch("apps.core.services.browser.create_browser")
     def test_login_failure(self, mock_browser, MockLogin, mock_update):
@@ -831,7 +831,7 @@ class TestRunFiling:
         last_call = mock_update.call_args_list[-1]
         assert "FAILED" in str(last_call) or "failed" in str(last_call).lower()
 
-    @patch("apps.automation.api.court_filing_helpers._update_session_task")
+    @patch("plugins.court_automation.filing.helpers._update_session_task")
     @patch("apps.automation.services.scraper.sites.court_zxfw.CourtZxfwService")
     @patch("apps.core.services.browser.create_browser")
     def test_exception_in_filing(self, mock_browser, MockLogin, mock_update):
@@ -849,8 +849,8 @@ class TestRunFiling:
         last_call = mock_update.call_args_list[-1]
         assert "FAILED" in str(last_call) or "failed" in str(last_call).lower()
 
-    @patch("apps.automation.api.court_filing_helpers._update_session_task")
-    @patch("apps.automation.services.scraper.sites.court_zxfw_filing.CourtZxfwFilingService")
+    @patch("plugins.court_automation.filing.helpers._update_session_task")
+    @patch("plugins.court_automation.filing.playwright_filing.CourtZxfwFilingService")
     @patch("apps.automation.services.scraper.sites.court_zxfw.CourtZxfwService")
     @patch("apps.core.services.browser.create_browser")
     def test_execution_filing_type(self, mock_browser, MockLogin, MockFiling, mock_update):
@@ -871,8 +871,8 @@ class TestRunFiling:
         _run_filing("acc", "pwd", {"case_id": 1}, filing_type="execution", session_id=4)
         filing_svc.file_execution.assert_called_once()
 
-    @patch("apps.automation.api.court_filing_helpers._update_session_task")
-    @patch("apps.automation.services.scraper.sites.court_zxfw_filing.CourtZxfwFilingService")
+    @patch("plugins.court_automation.filing.helpers._update_session_task")
+    @patch("plugins.court_automation.filing.playwright_filing.CourtZxfwFilingService")
     @patch("apps.automation.services.scraper.sites.court_zxfw.CourtZxfwService")
     @patch("apps.core.services.browser.create_browser")
     def test_filing_failure(self, mock_browser, MockLogin, MockFiling, mock_update):

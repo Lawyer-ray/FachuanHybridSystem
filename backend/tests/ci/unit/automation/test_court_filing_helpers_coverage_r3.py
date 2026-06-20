@@ -62,14 +62,14 @@ class TestNormalizeFilingTypeR3:
         result = _normalize_filing_type(requested_filing_type="execution", case=case, parties=[])
         assert result == "execution"
 
-    @patch("apps.automation.api.court_filing_helpers._infer_filing_type", return_value="civil")
+    @patch("plugins.court_automation.filing.helpers._infer_filing_type", return_value="civil")
     def test_invalid_falls_back_to_infer(self, mock_infer):
         case = MagicMock()
         result = _normalize_filing_type(requested_filing_type="invalid", case=case, parties=[])
         assert result == "civil"
         mock_infer.assert_called_once()
 
-    @patch("apps.automation.api.court_filing_helpers._infer_filing_type", return_value="execution")
+    @patch("plugins.court_automation.filing.helpers._infer_filing_type", return_value="execution")
     def test_none_falls_back_to_infer(self, mock_infer):
         case = MagicMock()
         result = _normalize_filing_type(requested_filing_type=None, case=case, parties=[])

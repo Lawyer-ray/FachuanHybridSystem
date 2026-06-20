@@ -61,7 +61,7 @@ class TestNormalizeFilingType:
         result = _normalize_filing_type(requested_filing_type="EXECUTION", case=case, parties=[])
         assert result == "execution"
 
-    @patch("apps.automation.api.court_filing_helpers._infer_filing_type", return_value="execution")
+    @patch("plugins.court_automation.filing.helpers._infer_filing_type", return_value="execution")
     def test_delegates_to_infer_when_invalid(self, mock_infer):
         from plugins.court_automation.filing.helpers import _normalize_filing_type
         case = SimpleNamespace()

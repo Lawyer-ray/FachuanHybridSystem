@@ -352,11 +352,11 @@ class TestMatchSlotFallback:
         file_path = Path("/test/执行申请书.pdf")
 
         with patch(
-            "apps.automation.api.court_filing_helpers._build_material_slot_signals",
+            "plugins.court_automation.filing.helpers._build_material_slot_signals",
             return_value=(["执行申请书"], ["/test/执行申请书.pdf"]),
         ):
             with patch(
-                "apps.automation.api.court_filing_helpers._score_slot_deduplicated",
+                "plugins.court_automation.filing.helpers._score_slot_deduplicated",
                 return_value=0,
             ):
                 result = self._fn()(material=material, file_path=file_path, filing_type="execution")
@@ -367,11 +367,11 @@ class TestMatchSlotFallback:
         file_path = Path("/test/送达地址确认书.pdf")
 
         with patch(
-            "apps.automation.api.court_filing_helpers._build_material_slot_signals",
+            "plugins.court_automation.filing.helpers._build_material_slot_signals",
             return_value=([], ["送达地址确认书"]),
         ):
             with patch(
-                "apps.automation.api.court_filing_helpers._score_slot_deduplicated",
+                "plugins.court_automation.filing.helpers._score_slot_deduplicated",
                 return_value=0,
             ):
                 result = self._fn()(material=material, file_path=file_path, filing_type="civil")
@@ -382,11 +382,11 @@ class TestMatchSlotFallback:
         file_path = Path("/test/保全申请书.pdf")
 
         with patch(
-            "apps.automation.api.court_filing_helpers._build_material_slot_signals",
+            "plugins.court_automation.filing.helpers._build_material_slot_signals",
             return_value=([], ["保全申请书"]),
         ):
             with patch(
-                "apps.automation.api.court_filing_helpers._score_slot_deduplicated",
+                "plugins.court_automation.filing.helpers._score_slot_deduplicated",
                 return_value=0,
             ):
                 result = self._fn()(material=material, file_path=file_path, filing_type="civil")

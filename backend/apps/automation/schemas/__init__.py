@@ -40,15 +40,18 @@ from .document_delivery import DocumentDeliveryRecord, DocumentProcessResult, Do
 # Performance Monitoring
 from .performance import HealthCheckOut, PerformanceMetricsOut, ResourceUsageOut, StatisticsReportOut
 
-# Preservation Quote
-from .preservation import (
-    InsuranceQuoteSchema,
-    PreservationQuoteCreateSchema,
-    PreservationQuoteSchema,
-    QuoteExecuteResponseSchema,
-    QuoteListItemSchema,
-    QuoteListSchema,
-)
+# Preservation Quote (已迁移到 plugin)
+try:
+    from plugins.court_automation.preservation_quote.schemas import (
+        InsuranceQuoteSchema,
+        PreservationQuoteCreateSchema,
+        PreservationQuoteSchema,
+        QuoteExecuteResponseSchema,
+        QuoteListItemSchema,
+        QuoteListSchema,
+    )
+except ImportError:
+    pass
 
 __all__ = [
     # Document Processing

@@ -1,4 +1,4 @@
-"""Tests for apps.automation.services.insurance.preservation_quote_service_adapter."""
+"""Tests for plugins.court_automation.preservation_quote.service_adapter."""
 
 from __future__ import annotations
 

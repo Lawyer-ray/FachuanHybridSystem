@@ -76,7 +76,7 @@ class TestGetCaseCourtNameFallback:
         case.supervising_authorities.all.return_value.order_by.return_value = qs
 
         with patch(
-            "apps.automation.api.court_guarantee_helpers._resolve_court_name",
+            "plugins.court_automation.guarantee.helpers._resolve_court_name",
             return_value="海珠区人民法院",
         ):
             result = _get_case_court_name(case)
@@ -203,7 +203,7 @@ class TestBuildSelectedRespondentPropertyClues:
         clue.content = "工商银行账户"
 
         with patch(
-            "apps.automation.api.court_guarantee_helpers._get_client_service"
+            "plugins.court_automation.guarantee.helpers._get_client_service"
         ) as mock_svc:
             svc = MagicMock()
             svc.get_property_clues_by_client_internal.return_value = [clue]
@@ -224,7 +224,7 @@ class TestBuildSelectedRespondentPropertyClues:
         party.client.address = ""
 
         with patch(
-            "apps.automation.api.court_guarantee_helpers._get_client_service"
+            "plugins.court_automation.guarantee.helpers._get_client_service"
         ) as mock_svc:
             svc = MagicMock()
             mock_svc.return_value = svc
@@ -246,7 +246,7 @@ class TestBuildSelectedRespondentPropertyClues:
         party.client.is_our_client = False
 
         with patch(
-            "apps.automation.api.court_guarantee_helpers._get_client_service"
+            "plugins.court_automation.guarantee.helpers._get_client_service"
         ) as mock_svc:
             svc = MagicMock()
             svc.get_property_clues_by_client_internal.return_value = []
@@ -268,7 +268,7 @@ class TestBuildPrimaryRespondentPropertyClue:
     def test_empty_case_parties_returns_default(self):
         from plugins.court_automation.guarantee.helpers import _build_primary_respondent_property_clue
         with patch(
-            "apps.automation.api.court_guarantee_helpers._get_client_service"
+            "plugins.court_automation.guarantee.helpers._get_client_service"
         ) as mock_svc:
             mock_svc.return_value = MagicMock()
             result = _build_primary_respondent_property_clue(
@@ -299,7 +299,7 @@ class TestBuildCaseQuoteContext:
         case.id = 1
         case.preservation_amount = Decimal("10000")
         with patch(
-            "apps.automation.api.court_guarantee_helpers._find_reusable_binding",
+            "plugins.court_automation.guarantee.helpers._find_reusable_binding",
             return_value=None,
         ):
             with patch(
@@ -545,16 +545,16 @@ class TestGuaranteeUpdateSessionTaskEdge:
     def test_with_event_loop(self):
         from plugins.court_automation.guarantee.helpers import _update_session_task
 
-        with patch("apps.automation.api.court_guarantee_helpers.asyncio") as mock_asyncio:
+        with patch("plugins.court_automation.guarantee.helpers.asyncio") as mock_asyncio:
             mock_asyncio.get_running_loop.return_value = MagicMock()
-            with patch("apps.automation.api.court_guarantee_helpers._SESSION_UPDATE_EXECUTOR") as mock_exec:
+            with patch("plugins.court_automation.guarantee.helpers._SESSION_UPDATE_EXECUTOR") as mock_exec:
                 _update_session_task(session_id=1, status="running", set_started=True)
                 mock_exec.submit.assert_called_once()
 
     def test_no_event_loop_direct_update(self):
         from plugins.court_automation.guarantee.helpers import _update_session_task
 
-        with patch("apps.automation.api.court_guarantee_helpers.asyncio") as mock_asyncio:
+        with patch("plugins.court_automation.guarantee.helpers.asyncio") as mock_asyncio:
             mock_asyncio.get_running_loop.side_effect = RuntimeError("no loop")
             with patch("apps.automation.models.ScraperTask") as MockTask, \
                  patch("django.db.close_old_connections"):
@@ -581,7 +581,7 @@ class TestRunGuarantee:
 
     def test_login_failure(self):
         with patch("apps.core.services.browser.create_browser") as mock_browser, \
-             patch("apps.automation.api.court_guarantee_helpers._update_session_task"):
+             patch("plugins.court_automation.guarantee.helpers._update_session_task"):
             page = MagicMock()
             context = MagicMock()
             mock_browser.return_value.__enter__ = MagicMock(return_value=(page, context))
@@ -600,7 +600,7 @@ class TestRunGuarantee:
 
     def test_exception_during_guarantee(self):
         with patch("apps.core.services.browser.create_browser") as mock_browser, \
-             patch("apps.automation.api.court_guarantee_helpers._update_session_task"):
+             patch("plugins.court_automation.guarantee.helpers._update_session_task"):
             page = MagicMock()
             context = MagicMock()
             mock_browser.return_value.__enter__ = MagicMock(return_value=(page, context))
@@ -624,7 +624,7 @@ class TestRunGuarantee:
 
     def test_guarantee_failure(self):
         with patch("apps.core.services.browser.create_browser") as mock_browser, \
-             patch("apps.automation.api.court_guarantee_helpers._update_session_task"):
+             patch("plugins.court_automation.guarantee.helpers._update_session_task"):
             page = MagicMock()
             context = MagicMock()
             mock_browser.return_value.__enter__ = MagicMock(return_value=(page, context))
@@ -648,7 +648,7 @@ class TestRunGuarantee:
 
     def test_guarantee_success(self):
         with patch("apps.core.services.browser.create_browser") as mock_browser, \
-             patch("apps.automation.api.court_guarantee_helpers._update_session_task"):
+             patch("plugins.court_automation.guarantee.helpers._update_session_task"):
             page = MagicMock()
             context = MagicMock()
             mock_browser.return_value.__enter__ = MagicMock(return_value=(page, context))

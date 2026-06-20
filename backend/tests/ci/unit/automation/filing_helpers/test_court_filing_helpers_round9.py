@@ -28,8 +28,8 @@ class TestRunFilingInnerHelpers:
     """Test the inner helper functions of _run_filing by running _run_filing
     with mocked browser and services, then inspecting the session task updates."""
 
-    @patch("apps.automation.api.court_filing_helpers._update_session_task")
-    @patch("apps.automation.services.scraper.sites.court_zxfw_filing.CourtZxfwFilingService")
+    @patch("plugins.court_automation.filing.helpers._update_session_task")
+    @patch("plugins.court_automation.filing.playwright_filing.CourtZxfwFilingService")
     @patch("apps.automation.services.scraper.sites.court_zxfw.CourtZxfwService")
     @patch("apps.core.services.browser.create_browser")
     def test_filing_success_with_fallback(
@@ -64,8 +64,8 @@ class TestRunFilingInnerHelpers:
         last_call = mock_update.call_args_list[-1]
         assert "SUCCESS" in str(last_call) or "success" in str(last_call).lower()
 
-    @patch("apps.automation.api.court_filing_helpers._update_session_task")
-    @patch("apps.automation.services.scraper.sites.court_zxfw_filing.CourtZxfwFilingService")
+    @patch("plugins.court_automation.filing.helpers._update_session_task")
+    @patch("plugins.court_automation.filing.playwright_filing.CourtZxfwFilingService")
     @patch("apps.automation.services.scraper.sites.court_zxfw.CourtZxfwService")
     @patch("apps.core.services.browser.create_browser")
     def test_filing_success_with_http_failure_fallback_message(
@@ -103,8 +103,8 @@ class TestRunFilingInnerHelpers:
                     assert "HTTP" in result_dict.get("message", "") or "回退" in result_dict.get("message", "")
                     break
 
-    @patch("apps.automation.api.court_filing_helpers._update_session_task")
-    @patch("apps.automation.services.scraper.sites.court_zxfw_filing.CourtZxfwFilingService")
+    @patch("plugins.court_automation.filing.helpers._update_session_task")
+    @patch("plugins.court_automation.filing.playwright_filing.CourtZxfwFilingService")
     @patch("apps.automation.services.scraper.sites.court_zxfw.CourtZxfwService")
     @patch("apps.core.services.browser.create_browser")
     def test_filing_failure_with_fallback_used(
@@ -148,8 +148,8 @@ class TestRunFilingInnerHelpers:
 
 
 class TestRunFilingProgressReporter:
-    @patch("apps.automation.api.court_filing_helpers._update_session_task")
-    @patch("apps.automation.services.scraper.sites.court_zxfw_filing.CourtZxfwFilingService")
+    @patch("plugins.court_automation.filing.helpers._update_session_task")
+    @patch("plugins.court_automation.filing.playwright_filing.CourtZxfwFilingService")
     @patch("apps.automation.services.scraper.sites.court_zxfw.CourtZxfwService")
     @patch("apps.core.services.browser.create_browser")
     def test_http_start_and_end_timing(
@@ -425,7 +425,7 @@ class TestUpdateSessionTaskAsyncio:
         """When an asyncio loop is running, the update is submitted to executor."""
         from plugins.court_automation.filing.helpers import _update_session_task, _SESSION_UPDATE_EXECUTOR
 
-        with patch("apps.automation.api.court_filing_helpers.asyncio") as mock_asyncio:
+        with patch("plugins.court_automation.filing.helpers.asyncio") as mock_asyncio:
             mock_asyncio.get_running_loop.return_value = MagicMock()  # loop exists
             with patch.object(_SESSION_UPDATE_EXECUTOR, "submit") as mock_submit:
                 _update_session_task(session_id=999, status="running")

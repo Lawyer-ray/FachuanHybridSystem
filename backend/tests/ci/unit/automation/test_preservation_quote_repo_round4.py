@@ -75,7 +75,7 @@ class TestGetQuoteWithItemsRound4:
 
         mock_quote = MagicMock()
         with patch(
-            "apps.automation.services.insurance.preservation_quote.repo.PreservationQuote"
+            "plugins.court_automation.preservation_quote.preservation_quote.repo.PreservationQuote"
         ) as MockModel:
             MockModel.objects.prefetch_related.return_value.get.return_value = mock_quote
             result = PreservationQuoteRepository().get_quote_with_items(quote_id=1)
@@ -96,10 +96,10 @@ class TestGetQuoteModel:
 
         mock_quote = MagicMock()
         with patch(
-            "apps.automation.services.insurance.preservation_quote.repo._db_sync",
+            "plugins.court_automation.preservation_quote.preservation_quote.repo._db_sync",
             new_callable=AsyncMock,
         ) as mock_sync, patch(
-            "apps.automation.services.insurance.preservation_quote.repo.PreservationQuote"
+            "plugins.court_automation.preservation_quote.preservation_quote.repo.PreservationQuote"
         ) as MockModel:
             mock_sync.return_value = mock_quote
             result = await PreservationQuoteRepository().get_quote_model(quote_id=1)
@@ -113,10 +113,10 @@ class TestGetQuoteModel:
         from apps.core.exceptions import NotFoundError
 
         with patch(
-            "apps.automation.services.insurance.preservation_quote.repo._db_sync",
+            "plugins.court_automation.preservation_quote.preservation_quote.repo._db_sync",
             new_callable=AsyncMock,
         ) as mock_sync, patch(
-            "apps.automation.services.insurance.preservation_quote.repo.PreservationQuote"
+            "plugins.court_automation.preservation_quote.preservation_quote.repo.PreservationQuote"
         ) as MockModel:
             MockModel.DoesNotExist = type("DoesNotExist", (Exception,), {})
             mock_sync.side_effect = MockModel.DoesNotExist
@@ -138,7 +138,7 @@ class TestMarkRunning:
 
         quote = MagicMock()
         with patch(
-            "apps.automation.services.insurance.preservation_quote.repo._db_sync",
+            "plugins.court_automation.preservation_quote.preservation_quote.repo._db_sync",
             new_callable=AsyncMock,
         ) as mock_sync:
             mock_sync.return_value = None
@@ -162,7 +162,7 @@ class TestSetTotalCompanies:
 
         quote = MagicMock()
         with patch(
-            "apps.automation.services.insurance.preservation_quote.repo._db_sync",
+            "plugins.court_automation.preservation_quote.preservation_quote.repo._db_sync",
             new_callable=AsyncMock,
         ) as mock_sync:
             mock_sync.return_value = None
@@ -201,10 +201,10 @@ class TestSavePremiumResultsEdge:
         ]
 
         with patch(
-            "apps.automation.services.insurance.preservation_quote.repo._db_sync",
+            "plugins.court_automation.preservation_quote.preservation_quote.repo._db_sync",
             new_callable=AsyncMock,
         ) as mock_sync, patch(
-            "apps.automation.services.insurance.preservation_quote.repo.InsuranceQuote"
+            "plugins.court_automation.preservation_quote.preservation_quote.repo.InsuranceQuote"
         ):
             mock_sync.return_value = None
             repo = PreservationQuoteRepository()
@@ -240,10 +240,10 @@ class TestSavePremiumResultsEdge:
         ]
 
         with patch(
-            "apps.automation.services.insurance.preservation_quote.repo._db_sync",
+            "plugins.court_automation.preservation_quote.preservation_quote.repo._db_sync",
             new_callable=AsyncMock,
         ) as mock_sync, patch(
-            "apps.automation.services.insurance.preservation_quote.repo.InsuranceQuote"
+            "plugins.court_automation.preservation_quote.preservation_quote.repo.InsuranceQuote"
         ):
             mock_sync.return_value = None
             repo = PreservationQuoteRepository()
@@ -261,10 +261,10 @@ class TestSavePremiumResultsEdge:
         quote.id = 1
 
         with patch(
-            "apps.automation.services.insurance.preservation_quote.repo._db_sync",
+            "plugins.court_automation.preservation_quote.preservation_quote.repo._db_sync",
             new_callable=AsyncMock,
         ) as mock_sync, patch(
-            "apps.automation.services.insurance.preservation_quote.repo.InsuranceQuote"
+            "plugins.court_automation.preservation_quote.preservation_quote.repo.InsuranceQuote"
         ):
             mock_sync.return_value = None
             repo = PreservationQuoteRepository()

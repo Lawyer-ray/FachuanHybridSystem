@@ -66,18 +66,18 @@ class TestNormalizeFilingType:
         assert result == "civil"
 
     def test_invalid_type_delegates_to_infer(self):
-        with patch("apps.automation.api.court_filing_helpers._infer_filing_type", return_value="execution") as m:
+        with patch("plugins.court_automation.filing.helpers._infer_filing_type", return_value="execution") as m:
             result = self._fn()(requested_filing_type="unknown", case=MagicMock(), parties=[])
             assert result == "execution"
             m.assert_called_once()
 
     def test_none_delegates_to_infer(self):
-        with patch("apps.automation.api.court_filing_helpers._infer_filing_type", return_value="civil") as m:
+        with patch("plugins.court_automation.filing.helpers._infer_filing_type", return_value="civil") as m:
             result = self._fn()(requested_filing_type=None, case=MagicMock(), parties=[])
             assert result == "civil"
 
     def test_whitespace_delegates_to_infer(self):
-        with patch("apps.automation.api.court_filing_helpers._infer_filing_type", return_value="civil"):
+        with patch("plugins.court_automation.filing.helpers._infer_filing_type", return_value="civil"):
             result = self._fn()(requested_filing_type="  ", case=MagicMock(), parties=[])
             assert result == "civil"
 
@@ -116,7 +116,7 @@ class TestInferFilingType:
         case = MagicMock()
         case.name = "test"
         case.cause_of_action = ""
-        with patch("apps.automation.api.court_filing_helpers._EXECUTION_HINT_STATUSES", {"applicant"}):
+        with patch("plugins.court_automation.filing.helpers._EXECUTION_HINT_STATUSES", {"applicant"}):
             with patch("apps.cases.models.CaseMaterial") as mock_cm:
                 mock_cm.objects.filter.return_value.values_list.return_value = []
                 assert self._fn()(case=case, parties=[party]) == "execution"
@@ -127,7 +127,7 @@ class TestInferFilingType:
         case = MagicMock()
         case.name = "申请执行纠纷"
         case.cause_of_action = ""
-        with patch("apps.automation.api.court_filing_helpers._EXECUTION_HINT_STATUSES", set()):
+        with patch("plugins.court_automation.filing.helpers._EXECUTION_HINT_STATUSES", set()):
             with patch("apps.cases.models.CaseMaterial") as mock_cm:
                 mock_cm.objects.filter.return_value.values_list.return_value = []
                 assert self._fn()(case=case, parties=[party]) == "execution"
@@ -138,7 +138,7 @@ class TestInferFilingType:
         case = MagicMock()
         case.name = ""
         case.cause_of_action = "申请执行"
-        with patch("apps.automation.api.court_filing_helpers._EXECUTION_HINT_STATUSES", set()):
+        with patch("plugins.court_automation.filing.helpers._EXECUTION_HINT_STATUSES", set()):
             with patch("apps.cases.models.CaseMaterial") as mock_cm:
                 mock_cm.objects.filter.return_value.values_list.return_value = []
                 assert self._fn()(case=case, parties=[party]) == "execution"
@@ -149,7 +149,7 @@ class TestInferFilingType:
         case = MagicMock()
         case.name = ""
         case.cause_of_action = ""
-        with patch("apps.automation.api.court_filing_helpers._EXECUTION_HINT_STATUSES", set()):
+        with patch("plugins.court_automation.filing.helpers._EXECUTION_HINT_STATUSES", set()):
             with patch("apps.cases.models.CaseMaterial") as mock_cm:
                 mock_cm.objects.filter.return_value.values_list.return_value = ["执行申请书"]
                 assert self._fn()(case=case, parties=[party]) == "execution"
@@ -160,7 +160,7 @@ class TestInferFilingType:
         case = MagicMock()
         case.name = ""
         case.cause_of_action = ""
-        with patch("apps.automation.api.court_filing_helpers._EXECUTION_HINT_STATUSES", set()):
+        with patch("plugins.court_automation.filing.helpers._EXECUTION_HINT_STATUSES", set()):
             with patch("apps.cases.models.CaseMaterial") as mock_cm:
                 mock_cm.objects.filter.return_value.values_list.return_value = []
                 assert self._fn()(case=case, parties=[party]) == "civil"
@@ -805,7 +805,7 @@ class TestBuildMaterialsMap:
         qs.select_related.return_value.order_by.return_value = qs
         mock_cm.objects.filter.return_value.filter.return_value.select_related.return_value.order_by.return_value = qs
 
-        with patch("apps.automation.api.court_filing_helpers._match_slot", return_value="0"):
+        with patch("plugins.court_automation.filing.helpers._match_slot", return_value="0"):
             with patch.object(Path, "exists", return_value=True):
                 result = self._fn()(case=MagicMock(), filing_type="civil")
         assert "0" in result
@@ -946,14 +946,14 @@ class TestUpdateSessionTask:
         self._fn()(session_id=None, status="running")
         # Should not raise
 
-    @patch("apps.automation.api.court_filing_helpers.asyncio.get_running_loop")
-    @patch("apps.automation.api.court_filing_helpers._SESSION_UPDATE_EXECUTOR")
+    @patch("plugins.court_automation.filing.helpers.asyncio.get_running_loop")
+    @patch("plugins.court_automation.filing.helpers._SESSION_UPDATE_EXECUTOR")
     def test_with_event_loop_submits_to_executor(self, mock_executor, mock_loop):
         mock_loop.return_value = MagicMock()
         self._fn()(session_id=1, status="running", set_started=True, set_finished=True)
         mock_executor.submit.assert_called_once()
 
-    @patch("apps.automation.api.court_filing_helpers.asyncio.get_running_loop", side_effect=RuntimeError)
+    @patch("plugins.court_automation.filing.helpers.asyncio.get_running_loop", side_effect=RuntimeError)
     def test_no_event_loop_runs_sync(self, mock_loop):
         with patch("apps.automation.models.ScraperTask") as mock_task:
             mock_task.objects.filter.return_value.update.return_value = 1

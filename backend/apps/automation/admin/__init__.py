@@ -9,8 +9,11 @@ from .document import DocumentProcessorAdmin
 # 文书送达 Admin
 from .document_delivery import DocumentDeliveryScheduleAdmin, DocumentQueryHistoryAdmin
 
-# 财产保全询价 Admin
-from .insurance import PreservationQuoteAdmin
+# 财产保全询价 Admin（已迁移到 plugin）
+try:
+    from plugins.court_automation.preservation_quote.admin import PreservationQuoteAdmin
+except ImportError:
+    pass
 
 # 爬虫 Admin
 from .scraper import CourtDocumentAdmin, QuickDownloadAdmin, ScraperTaskAdmin, TestCourtAdmin

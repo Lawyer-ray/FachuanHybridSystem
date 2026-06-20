@@ -127,7 +127,7 @@ class TestGetCaseCourtName:
 
         with patch("apps.core.models.enums.AuthorityType") as mock_at:
             mock_at.TRIAL = "trial"
-            with patch("apps.automation.api.court_guarantee_helpers._resolve_court_name", return_value="广州市天河区人民法院"):
+            with patch("plugins.court_automation.guarantee.helpers._resolve_court_name", return_value="广州市天河区人民法院"):
                 result = self._fn()(case)
         assert result == "广州市天河区人民法院"
 
@@ -142,7 +142,7 @@ class TestGetCaseCourtName:
 
         with patch("apps.core.models.enums.AuthorityType") as mock_at:
             mock_at.TRIAL = "trial"
-            with patch("apps.automation.api.court_guarantee_helpers._resolve_court_name", return_value="广州市海珠区人民法院"):
+            with patch("plugins.court_automation.guarantee.helpers._resolve_court_name", return_value="广州市海珠区人民法院"):
                 result = self._fn()(case)
         assert result == "广州市海珠区人民法院"
 
@@ -355,7 +355,7 @@ class TestBuildSelectedRespondentPropertyClues:
         party.client = client
         return party
 
-    @patch("apps.automation.api.court_guarantee_helpers._get_client_service")
+    @patch("plugins.court_automation.guarantee.helpers._get_client_service")
     def test_selected_parties_with_clues(self, mock_svc_fn):
         party = self._make_party()
         clue = MagicMock()
@@ -373,7 +373,7 @@ class TestBuildSelectedRespondentPropertyClues:
         assert len(result) == 1
         assert "银行账户" in result[0]["property_info"]
 
-    @patch("apps.automation.api.court_guarantee_helpers._get_client_service")
+    @patch("plugins.court_automation.guarantee.helpers._get_client_service")
     def test_no_clues_gets_default_entry(self, mock_svc_fn):
         party = self._make_party()
         mock_svc = MagicMock()
@@ -388,8 +388,8 @@ class TestBuildSelectedRespondentPropertyClues:
         assert len(result) == 1
         assert "张三名下财产线索" in result[0]["property_info"]
 
-    @patch("apps.automation.api.court_guarantee_helpers._get_client_service")
-    @patch("apps.automation.api.court_guarantee_helpers._list_opponent_case_parties")
+    @patch("plugins.court_automation.guarantee.helpers._get_client_service")
+    @patch("plugins.court_automation.guarantee.helpers._list_opponent_case_parties")
     def test_fallback_to_opponents(self, mock_opponents, mock_svc_fn):
         party = self._make_party(party_id=999)
         mock_opponents.return_value = [party]
@@ -415,13 +415,13 @@ class TestBuildPrimaryRespondentPropertyClue:
         from plugins.court_automation.guarantee.helpers import _build_primary_respondent_property_clue
         return _build_primary_respondent_property_clue
 
-    @patch("apps.automation.api.court_guarantee_helpers._build_selected_respondent_property_clues")
+    @patch("plugins.court_automation.guarantee.helpers._build_selected_respondent_property_clues")
     def test_returns_first_clue(self, mock_build):
         mock_build.return_value = [{"owner_name": "张三", "property_type": "其他"}]
         result = self._fn()(case_parties=[], selected_respondents=[], preserve_amount=None)
         assert result["owner_name"] == "张三"
 
-    @patch("apps.automation.api.court_guarantee_helpers._build_selected_respondent_property_clues")
+    @patch("plugins.court_automation.guarantee.helpers._build_selected_respondent_property_clues")
     def test_empty_clues_returns_default(self, mock_build):
         mock_build.return_value = []
         result = self._fn()(case_parties=[], selected_respondents=[], preserve_amount=Decimal("50000"))
@@ -444,7 +444,7 @@ class TestBuildCaseQuoteContext:
         case.preservation_amount = None
         assert self._fn()(case=case) is None
 
-    @patch("apps.automation.api.court_guarantee_helpers._find_reusable_binding")
+    @patch("plugins.court_automation.guarantee.helpers._find_reusable_binding")
     def test_no_binding(self, mock_find):
         case = MagicMock()
         case.preservation_amount = Decimal("100000")
@@ -456,7 +456,7 @@ class TestBuildCaseQuoteContext:
             result = self._fn()(case=case)
         assert result is None
 
-    @patch("apps.automation.api.court_guarantee_helpers._find_reusable_binding")
+    @patch("plugins.court_automation.guarantee.helpers._find_reusable_binding")
     def test_with_binding_and_items(self, mock_find):
         case = MagicMock()
         case.preservation_amount = Decimal("100000")
@@ -610,7 +610,7 @@ class TestResolveInsuranceCompanyDefaults:
         from plugins.court_automation.guarantee.helpers import _resolve_insurance_company_defaults
         return _resolve_insurance_company_defaults
 
-    @patch("apps.automation.api.court_guarantee_helpers._extract_quote_company_options")
+    @patch("plugins.court_automation.guarantee.helpers._extract_quote_company_options")
     def test_with_options_and_recommended(self, mock_extract):
         mock_extract.return_value = ["A", "B"]
         ctx = {"recommended_company": "B"}
@@ -618,14 +618,14 @@ class TestResolveInsuranceCompanyDefaults:
         assert company == "B"
         assert options == ["A", "B"]
 
-    @patch("apps.automation.api.court_guarantee_helpers._extract_quote_company_options")
+    @patch("plugins.court_automation.guarantee.helpers._extract_quote_company_options")
     def test_with_options_no_recommended(self, mock_extract):
         mock_extract.return_value = ["A", "B"]
         ctx = {}
         company, options = self._fn()(quote_context=ctx)
         assert company == "A"
 
-    @patch("apps.automation.api.court_guarantee_helpers._extract_quote_company_options")
+    @patch("plugins.court_automation.guarantee.helpers._extract_quote_company_options")
     def test_no_options(self, mock_extract):
         mock_extract.return_value = []
         from plugins.court_automation.guarantee.schemas import _DEFAULT_INSURANCE_COMPANY, _GUARANTEE_INSURANCE_COMPANY_OPTIONS
@@ -828,13 +828,13 @@ class TestPickPartyPayload:
         from plugins.court_automation.guarantee.helpers import _pick_party_payload
         return _pick_party_payload
 
-    @patch("apps.automation.api.court_guarantee_helpers._list_party_payloads")
+    @patch("plugins.court_automation.guarantee.helpers._list_party_payloads")
     def test_returns_first(self, mock_list):
         mock_list.return_value = [{"name": "A"}, {"name": "B"}]
         result = self._fn()(case_parties=[], preferred_statuses=set(), prefer_our=True)
         assert result["name"] == "A"
 
-    @patch("apps.automation.api.court_guarantee_helpers._list_party_payloads")
+    @patch("plugins.court_automation.guarantee.helpers._list_party_payloads")
     def test_empty_returns_default(self, mock_list):
         mock_list.return_value = []
         result = self._fn()(case_parties=[], preferred_statuses=set(), prefer_our=True)
@@ -918,8 +918,8 @@ class TestListOpponentPartyPayloads:
         from plugins.court_automation.guarantee.helpers import _list_opponent_party_payloads
         return _list_opponent_party_payloads
 
-    @patch("apps.automation.api.court_guarantee_helpers._list_opponent_case_parties")
-    @patch("apps.automation.api.court_guarantee_helpers._build_party_payload_from_case_party")
+    @patch("plugins.court_automation.guarantee.helpers._list_opponent_case_parties")
+    @patch("plugins.court_automation.guarantee.helpers._build_party_payload_from_case_party")
     def test_delegates(self, mock_build, mock_list):
         mock_list.return_value = [MagicMock()]
         mock_build.return_value = {"name": "test"}
@@ -937,7 +937,7 @@ class TestBuildRespondentOptions:
         from plugins.court_automation.guarantee.helpers import _build_respondent_options
         return _build_respondent_options
 
-    @patch("apps.automation.api.court_guarantee_helpers._list_opponent_case_parties")
+    @patch("plugins.court_automation.guarantee.helpers._list_opponent_case_parties")
     def test_builds_options(self, mock_list):
         party = MagicMock()
         party.id = 1
@@ -1125,14 +1125,14 @@ class TestGuaranteeUpdateSessionTask:
     def test_none_session_id(self):
         self._fn()(session_id=None, status="running")
 
-    @patch("apps.automation.api.court_guarantee_helpers.asyncio.get_running_loop")
-    @patch("apps.automation.api.court_guarantee_helpers._SESSION_UPDATE_EXECUTOR")
+    @patch("plugins.court_automation.guarantee.helpers.asyncio.get_running_loop")
+    @patch("plugins.court_automation.guarantee.helpers._SESSION_UPDATE_EXECUTOR")
     def test_with_event_loop(self, mock_executor, mock_loop):
         mock_loop.return_value = MagicMock()
         self._fn()(session_id=1, status="running", set_started=True)
         mock_executor.submit.assert_called_once()
 
-    @patch("apps.automation.api.court_guarantee_helpers.asyncio.get_running_loop", side_effect=RuntimeError)
+    @patch("plugins.court_automation.guarantee.helpers.asyncio.get_running_loop", side_effect=RuntimeError)
     def test_no_event_loop_sync(self, mock_loop):
         with patch("apps.automation.models.ScraperTask") as mock_task:
             mock_task.objects.filter.return_value.update.return_value = 1

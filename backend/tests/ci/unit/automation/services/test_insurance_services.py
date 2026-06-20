@@ -58,8 +58,8 @@ class TestPremiumResult:
 class TestParseInsuranceCompanies:
     """Tests for _parse_insurance_companies."""
 
-    @patch("apps.automation.services.insurance.court_insurance_client.get_config")
-    @patch("apps.automation.services.insurance.court_insurance_client.httpx")
+    @patch("plugins.court_automation.preservation_quote.court_insurance_client.get_config")
+    @patch("plugins.court_automation.preservation_quote.court_insurance_client.httpx")
     def _make_client(self, mock_httpx, mock_config):
         mock_config.return_value = 60.0
         mock_httpx.AsyncClient.return_value = AsyncMock()
@@ -119,8 +119,8 @@ class TestParseInsuranceCompanies:
 class TestFetchAllPremiumsEmpty:
     """Test fetch_all_premiums with empty companies."""
 
-    @patch("apps.automation.services.insurance.court_insurance_client.get_config")
-    @patch("apps.automation.services.insurance.court_insurance_client.httpx")
+    @patch("plugins.court_automation.preservation_quote.court_insurance_client.get_config")
+    @patch("plugins.court_automation.preservation_quote.court_insurance_client.httpx")
     def _make_client(self, mock_httpx, mock_config):
         mock_config.return_value = 60.0
         mock_httpx.AsyncClient.return_value = AsyncMock()

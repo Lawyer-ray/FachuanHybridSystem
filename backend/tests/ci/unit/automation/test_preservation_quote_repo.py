@@ -106,7 +106,7 @@ class TestGetQuoteWithItems:
         from apps.core.exceptions import NotFoundError
 
         with patch(
-            "apps.automation.services.insurance.preservation_quote.repo.PreservationQuote"
+            "plugins.court_automation.preservation_quote.preservation_quote.repo.PreservationQuote"
         ) as MockModel:
             MockModel.DoesNotExist = type("DoesNotExist", (Exception,), {})
             MockModel.objects.prefetch_related.return_value.get.side_effect = MockModel.DoesNotExist
@@ -130,7 +130,7 @@ class TestFinalizeQuote:
         quote.save = AsyncMock()
 
         with patch(
-            "apps.automation.services.insurance.preservation_quote.repo._db_sync",
+            "plugins.court_automation.preservation_quote.preservation_quote.repo._db_sync",
             new_callable=AsyncMock,
         ) as mock_sync:
             mock_sync.return_value = None
@@ -150,7 +150,7 @@ class TestFinalizeQuote:
         quote.save = AsyncMock()
 
         with patch(
-            "apps.automation.services.insurance.preservation_quote.repo._db_sync",
+            "plugins.court_automation.preservation_quote.preservation_quote.repo._db_sync",
             new_callable=AsyncMock,
         ) as mock_sync:
             mock_sync.return_value = None
@@ -170,7 +170,7 @@ class TestFinalizeQuote:
         quote.save = AsyncMock()
 
         with patch(
-            "apps.automation.services.insurance.preservation_quote.repo._db_sync",
+            "plugins.court_automation.preservation_quote.preservation_quote.repo._db_sync",
             new_callable=AsyncMock,
         ) as mock_sync:
             mock_sync.return_value = None
@@ -190,7 +190,7 @@ class TestFinalizeQuote:
         quote.save = AsyncMock()
 
         with patch(
-            "apps.automation.services.insurance.preservation_quote.repo._db_sync",
+            "plugins.court_automation.preservation_quote.preservation_quote.repo._db_sync",
             new_callable=AsyncMock,
         ) as mock_sync:
             mock_sync.return_value = None
@@ -219,7 +219,7 @@ class TestMarkFailed:
         quote.save = AsyncMock()
 
         with patch(
-            "apps.automation.services.insurance.preservation_quote.repo._db_sync",
+            "plugins.court_automation.preservation_quote.preservation_quote.repo._db_sync",
             new_callable=AsyncMock,
         ) as mock_sync:
             mock_sync.return_value = None
@@ -244,7 +244,7 @@ class TestResetForRetry:
         quote.save = AsyncMock()
 
         with patch(
-            "apps.automation.services.insurance.preservation_quote.repo._db_sync",
+            "plugins.court_automation.preservation_quote.preservation_quote.repo._db_sync",
             new_callable=AsyncMock,
         ) as mock_sync:
             mock_sync.return_value = None
@@ -294,10 +294,10 @@ class TestSavePremiumResultsCleanDecimal:
         ]
 
         with patch(
-            "apps.automation.services.insurance.preservation_quote.repo._db_sync",
+            "plugins.court_automation.preservation_quote.preservation_quote.repo._db_sync",
             new_callable=AsyncMock,
         ) as mock_sync, patch(
-            "apps.automation.services.insurance.preservation_quote.repo.InsuranceQuote"
+            "plugins.court_automation.preservation_quote.preservation_quote.repo.InsuranceQuote"
         ) as MockIQ:
             mock_sync.return_value = None
             repo = PreservationQuoteRepository()
@@ -330,10 +330,10 @@ class TestSavePremiumResultsCleanDecimal:
         ]
 
         with patch(
-            "apps.automation.services.insurance.preservation_quote.repo._db_sync",
+            "plugins.court_automation.preservation_quote.preservation_quote.repo._db_sync",
             new_callable=AsyncMock,
         ) as mock_sync, patch(
-            "apps.automation.services.insurance.preservation_quote.repo.InsuranceQuote"
+            "plugins.court_automation.preservation_quote.preservation_quote.repo.InsuranceQuote"
         ) as MockIQ:
             mock_sync.return_value = None
             repo = PreservationQuoteRepository()
@@ -353,7 +353,7 @@ class TestConfigureDbSettings:
             _configure_db_settings,
         )
 
-        with patch("apps.automation.services.insurance.preservation_quote.repo.connections") as mock_conn:
+        with patch("plugins.court_automation.preservation_quote.preservation_quote.repo.connections") as mock_conn:
             mock_conn._settings = "raw"
             mock_conn.configure_settings.return_value = "configured"
             _configure_db_settings()

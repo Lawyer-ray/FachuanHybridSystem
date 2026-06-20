@@ -65,7 +65,7 @@ class TestGetCaseCourtName:
         mock_ordered.exclude.return_value.first.return_value = None
         case = SimpleNamespace(supervising_authorities=MagicMock(all=MagicMock(return_value=mock_all)))
 
-        with patch("apps.automation.api.court_guarantee_helpers._resolve_court_name", return_value="天河区人民法院") as mock_resolve:
+        with patch("plugins.court_automation.guarantee.helpers._resolve_court_name", return_value="天河区人民法院") as mock_resolve:
             result = _get_case_court_name(case)
             assert result == "天河区人民法院"
             mock_resolve.assert_called_once()
@@ -112,7 +112,7 @@ class TestGetCaseCourtName:
         mock_ordered.exclude.return_value.first.return_value = fallback
         case = SimpleNamespace(supervising_authorities=MagicMock(all=MagicMock(return_value=mock_all)))
 
-        with patch("apps.automation.api.court_guarantee_helpers._resolve_court_name", return_value="番禺区人民法院") as mock_resolve:
+        with patch("plugins.court_automation.guarantee.helpers._resolve_court_name", return_value="番禺区人民法院") as mock_resolve:
             result = _get_case_court_name(case)
             assert result == "番禺区人民法院"
 
@@ -295,7 +295,7 @@ class TestBuildPrimaryRespondentPropertyClueEmpty:
     def test_no_parties_returns_default(self):
         from plugins.court_automation.guarantee.helpers import _build_primary_respondent_property_clue
 
-        with patch("apps.automation.api.court_guarantee_helpers._build_selected_respondent_property_clues", return_value=[]):
+        with patch("plugins.court_automation.guarantee.helpers._build_selected_respondent_property_clues", return_value=[]):
             result = _build_primary_respondent_property_clue(
                 case_parties=[], selected_respondents=[], preserve_amount=None
             )
@@ -374,9 +374,9 @@ class TestUpdateSessionTaskGuarantee:
     def test_set_started_and_finished(self):
         from plugins.court_automation.guarantee.helpers import _update_session_task
 
-        with patch("apps.automation.api.court_guarantee_helpers.timezone") as mock_tz:
+        with patch("plugins.court_automation.guarantee.helpers.timezone") as mock_tz:
             mock_tz.now.return_value = "now"
-            with patch("apps.automation.api.court_guarantee_helpers.asyncio") as mock_asyncio:
+            with patch("plugins.court_automation.guarantee.helpers.asyncio") as mock_asyncio:
                 mock_asyncio.get_running_loop.side_effect = RuntimeError("no loop")
                 _update_session_task(
                     session_id=1, status="running",

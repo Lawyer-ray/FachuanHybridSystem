@@ -313,7 +313,7 @@ class TestBuildSessionStatusPayloadExtra:
 # ---------------------------------------------------------------------------
 class TestUpdateSessionTaskExtra:
     def test_sync_update_with_started_and_finished(self):
-        with patch("apps.automation.api.court_filing_helpers.timezone") as mock_tz:
+        with patch("plugins.court_automation.filing.helpers.timezone") as mock_tz:
             mock_tz.now.return_value = "2025-01-01"
             with patch("apps.automation.models.ScraperTask") as MockTask:
                 with patch("django.db.close_old_connections"):
@@ -328,7 +328,7 @@ class TestUpdateSessionTaskExtra:
                     MockTask.objects.filter.return_value.update.assert_called_once()
 
     def test_no_error_no_result(self):
-        with patch("apps.automation.api.court_filing_helpers.timezone") as mock_tz:
+        with patch("plugins.court_automation.filing.helpers.timezone") as mock_tz:
             mock_tz.now.return_value = "2025-01-01"
             with patch("apps.automation.models.ScraperTask") as MockTask:
                 with patch("django.db.close_old_connections"):
@@ -403,7 +403,7 @@ class TestMatchSlotExtra:
 # _build_execution_request_text
 # ---------------------------------------------------------------------------
 class TestBuildExecutionRequestText:
-    @patch("apps.automation.api.court_filing_helpers._resolve_original_case_number", return_value="(2023)粤01民初1号")
+    @patch("plugins.court_automation.filing.helpers._resolve_original_case_number", return_value="(2023)粤01民初1号")
     def test_fallback_text(self, mock_resolve):
         mock_svc_instance = MagicMock()
         mock_svc_instance.generate.side_effect = TypeError("import error")
@@ -420,7 +420,7 @@ class TestBuildExecutionRequestText:
             assert "(2023)粤01民初1号" in result
             assert "执行费用" in result
 
-    @patch("apps.automation.api.court_filing_helpers._resolve_original_case_number", return_value="")
+    @patch("plugins.court_automation.filing.helpers._resolve_original_case_number", return_value="")
     def test_fallback_no_case_number(self, mock_resolve):
         mock_svc_instance = MagicMock()
         mock_svc_instance.generate.side_effect = ValueError("bad data")
@@ -440,7 +440,7 @@ class TestBuildExecutionRequestText:
 # _build_materials_map
 # ---------------------------------------------------------------------------
 class TestBuildMaterialsMapExtra:
-    @patch("apps.automation.api.court_filing_helpers._match_slot", return_value="5")
+    @patch("plugins.court_automation.filing.helpers._match_slot", return_value="5")
     def test_no_materials(self, mock_match):
         from apps.cases.models import CaseMaterial
 

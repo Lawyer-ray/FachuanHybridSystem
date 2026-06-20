@@ -20,7 +20,7 @@ class TestCourtFilingHelpers:
     def test_normalize_filing_type_invalid(self):
         from plugins.court_automation.filing.helpers import _normalize_filing_type
 
-        with patch("apps.automation.api.court_filing_helpers._infer_filing_type", return_value="civil"):
+        with patch("plugins.court_automation.filing.helpers._infer_filing_type", return_value="civil"):
             result = _normalize_filing_type(requested_filing_type="unknown", case=MagicMock(), parties=[])
             assert result == "civil"
 
@@ -124,14 +124,14 @@ class TestCourtGuaranteeHelpers:
     def test_normalize_insurance_company_valid(self):
         from plugins.court_automation.guarantee.helpers import _normalize_insurance_company
 
-        with patch("apps.automation.api.court_guarantee_helpers._GUARANTEE_INSURANCE_COMPANY_OPTIONS", ["阳光财险"]):
+        with patch("plugins.court_automation.guarantee.helpers._GUARANTEE_INSURANCE_COMPANY_OPTIONS", ["阳光财险"]):
             result = _normalize_insurance_company("阳光财险")
             assert result == "阳光财险"
 
     def test_normalize_insurance_company_empty(self):
         from plugins.court_automation.guarantee.helpers import _normalize_insurance_company
 
-        with patch("apps.automation.api.court_guarantee_helpers._DEFAULT_INSURANCE_COMPANY", "默认公司"):
+        with patch("plugins.court_automation.guarantee.helpers._DEFAULT_INSURANCE_COMPANY", "默认公司"):
             result = _normalize_insurance_company("")
             assert result == "默认公司"
 

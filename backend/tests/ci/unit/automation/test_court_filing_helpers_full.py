@@ -1,4 +1,4 @@
-"""Full coverage tests for apps.automation.api.court_filing_helpers."""
+"""Full coverage tests for plugins.court_automation.filing.helpers."""
 
 from __future__ import annotations
 
@@ -59,13 +59,13 @@ class TestNormalizeFilingType:
 
     def test_invalid_falls_to_infer(self):
         from plugins.court_automation.filing.helpers import _normalize_filing_type
-        with patch("apps.automation.api.court_filing_helpers._infer_filing_type", return_value="civil"):
+        with patch("plugins.court_automation.filing.helpers._infer_filing_type", return_value="civil"):
             result = _normalize_filing_type(requested_filing_type="bogus", case=MagicMock(), parties=[])
             assert result == "civil"
 
     def test_none_falls_to_infer(self):
         from plugins.court_automation.filing.helpers import _normalize_filing_type
-        with patch("apps.automation.api.court_filing_helpers._infer_filing_type", return_value="execution"):
+        with patch("plugins.court_automation.filing.helpers._infer_filing_type", return_value="execution"):
             result = _normalize_filing_type(requested_filing_type=None, case=MagicMock(), parties=[])
             assert result == "execution"
 
@@ -644,7 +644,7 @@ class TestUpdateSessionTask:
         # Should not raise
         _update_session_task(session_id=None, status="running")
 
-    @patch("apps.automation.api.court_filing_helpers.timezone")
+    @patch("plugins.court_automation.filing.helpers.timezone")
     def test_update_without_async(self, mock_tz):
         from plugins.court_automation.filing.helpers import _update_session_task
         mock_tz.now.return_value = "2026-01-01"
@@ -655,7 +655,7 @@ class TestUpdateSessionTask:
                     _update_session_task(session_id=10, status="success", set_started=True, set_finished=True)
                     MockTask.objects.filter.assert_called_once_with(id=10)
 
-    @patch("apps.automation.api.court_filing_helpers.timezone")
+    @patch("plugins.court_automation.filing.helpers.timezone")
     def test_update_in_async_context(self, mock_tz):
         from plugins.court_automation.filing.helpers import _update_session_task, _SESSION_UPDATE_EXECUTOR
         mock_tz.now.return_value = "2026-01-01"
@@ -706,7 +706,7 @@ class TestBuildMaterialsMap:
         with patch("apps.cases.models.CaseMaterial") as MockCM, \
              patch("apps.cases.models.CaseMaterialCategory") as MockCat, \
              patch("apps.cases.models.CaseMaterialSide") as MockSide, \
-             patch("apps.automation.api.court_filing_helpers.Path") as MockPath:
+             patch("plugins.court_automation.filing.helpers.Path") as MockPath:
             MockCat.PARTY = "party"
             MockSide.OUR = "our"
 

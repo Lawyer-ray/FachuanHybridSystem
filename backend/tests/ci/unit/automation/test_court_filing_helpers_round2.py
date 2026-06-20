@@ -327,7 +327,7 @@ class TestBuildMaterialsMapNoMaterials:
 
             mock_cm.objects.filter.side_effect = [party_filter1, all_filter]
 
-            with patch("apps.automation.api.court_filing_helpers._match_slot", return_value="5"), \
+            with patch("plugins.court_automation.filing.helpers._match_slot", return_value="5"), \
                  patch("pathlib.Path.exists", return_value=True):
                 result = self._fn()(case=case, filing_type="civil")
             assert isinstance(result, dict)
@@ -425,7 +425,7 @@ class TestBuildMaterialsMapNoMaterials:
             qs = self._build_qs_chain(materials)
             mock_cm.objects.filter.return_value = qs
 
-            with patch("apps.automation.api.court_filing_helpers._match_slot", return_value="5"), \
+            with patch("plugins.court_automation.filing.helpers._match_slot", return_value="5"), \
                  patch("pathlib.Path.exists", return_value=True):
                 result = self._fn()(case=case, filing_type="civil")
             # Should only have 1 entry despite 2 materials

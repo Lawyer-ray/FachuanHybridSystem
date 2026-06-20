@@ -336,9 +336,9 @@ class TestUpdateSessionTaskFlags:
     def test_set_started_and_finished(self):
         from plugins.court_automation.filing.helpers import _update_session_task
 
-        with patch("apps.automation.api.court_filing_helpers.timezone") as mock_tz:
+        with patch("plugins.court_automation.filing.helpers.timezone") as mock_tz:
             mock_tz.now.return_value = "now"
-            with patch("apps.automation.api.court_filing_helpers.asyncio") as mock_asyncio:
+            with patch("plugins.court_automation.filing.helpers.asyncio") as mock_asyncio:
                 mock_asyncio.get_running_loop.side_effect = RuntimeError("no loop")
                 _update_session_task(
                     session_id=1,

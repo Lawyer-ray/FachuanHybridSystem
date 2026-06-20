@@ -1,4 +1,4 @@
-"""Full coverage tests for apps.automation.api.court_guarantee_helpers."""
+"""Full coverage tests for plugins.court_automation.guarantee.helpers."""
 
 from __future__ import annotations
 
@@ -594,7 +594,7 @@ class TestUpdateSessionTask:
     def test_noop_when_none(self):
         helpers._update_session_task(session_id=None, status="running")
 
-    @patch("apps.automation.api.court_guarantee_helpers.timezone")
+    @patch("plugins.court_automation.guarantee.helpers.timezone")
     def test_sync_update(self, mock_tz):
         mock_tz.now.return_value = "2026-01-01"
         with patch("apps.automation.models.ScraperTask") as MockTask:
@@ -603,7 +603,7 @@ class TestUpdateSessionTask:
                     helpers._update_session_task(session_id=5, status="success", set_started=True, set_finished=True)
                     MockTask.objects.filter.assert_called_once_with(id=5)
 
-    @patch("apps.automation.api.court_guarantee_helpers.timezone")
+    @patch("plugins.court_automation.guarantee.helpers.timezone")
     def test_async_update(self, mock_tz):
         mock_tz.now.return_value = "2026-01-01"
         with patch("asyncio.get_running_loop", return_value=MagicMock()):

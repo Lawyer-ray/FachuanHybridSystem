@@ -655,7 +655,7 @@ class TestGetCaseCourtNameBranches:
 
         with patch("apps.core.models.enums.AuthorityType") as mock_enum:
             mock_enum.TRIAL = "trial"
-            with patch("apps.automation.api.court_guarantee_helpers._resolve_court_name", return_value="广州市天河区人民法院"):
+            with patch("plugins.court_automation.guarantee.helpers._resolve_court_name", return_value="广州市天河区人民法院"):
                 result = self._fn_import()(case=case)
         assert result == "广州市天河区人民法院"
 
@@ -672,7 +672,7 @@ class TestGetCaseCourtNameBranches:
 
         with patch("apps.core.models.enums.AuthorityType") as mock_enum:
             mock_enum.TRIAL = "trial"
-            with patch("apps.automation.api.court_guarantee_helpers._resolve_court_name", return_value="广州市海珠区人民法院"):
+            with patch("plugins.court_automation.guarantee.helpers._resolve_court_name", return_value="广州市海珠区人民法院"):
                 result = self._fn_import()(case=case)
         assert result == "广州市海珠区人民法院"
 

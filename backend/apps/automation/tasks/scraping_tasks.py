@@ -239,21 +239,10 @@ def execute_preservation_quote_task(quote_id: int) -> dict[str, Any]:
     """
     from ..models import PreservationQuote, QuoteStatus
 
-    try:
-        from plugins.court_automation.insurance.preservation_quote_service import (
-            PreservationQuoteService,
-        )
-        from plugins.court_automation.insurance.court_insurance_client import CourtInsuranceClient
-        from plugins.court_automation.insurance.exceptions import TokenError
-    except ImportError:
-        from ..services.insurance.court_insurance_client import CourtInsuranceClient
-        from ..services.insurance.exceptions import TokenError
-        from ..services.insurance.preservation_quote_service import PreservationQuoteService
-
-    try:
-        from plugins.court_automation.services.token_service import TokenService
-    except ImportError:
-        from ..services.scraper.core.token_service import TokenService
+    from plugins.court_automation.preservation_quote.service import PreservationQuoteService
+    from plugins.court_automation.preservation_quote.court_insurance_client import CourtInsuranceClient
+    from plugins.court_automation.preservation_quote.exceptions import TokenError
+    from ..services.scraper.core.token_service import TokenService
 
     logger.info("🚀 开始执行询价任务 #%s", quote_id)
 

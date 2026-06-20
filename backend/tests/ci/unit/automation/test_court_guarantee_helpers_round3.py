@@ -72,7 +72,7 @@ class TestGetCaseCourtName:
         case.supervising_authorities.all.return_value.order_by.return_value.filter.return_value.first.return_value = authority
 
         with patch(
-            "apps.automation.api.court_guarantee_helpers._resolve_court_name",
+            "plugins.court_automation.guarantee.helpers._resolve_court_name",
             return_value="天河区人民法院",
         ):
             result = _get_case_court_name(case)

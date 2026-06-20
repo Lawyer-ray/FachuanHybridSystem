@@ -83,7 +83,7 @@ class TestNormalizeFilingType:
         case = MagicMock()
         case.name = "普通案件"
         case.cause_of_action = ""
-        with patch("apps.automation.api.court_filing_helpers._infer_filing_type", return_value="civil"):
+        with patch("plugins.court_automation.filing.helpers._infer_filing_type", return_value="civil"):
             result = self._fn()(requested_filing_type="invalid", case=case, parties=[])
         assert result == "civil"
 
@@ -91,7 +91,7 @@ class TestNormalizeFilingType:
         case = MagicMock()
         case.name = "普通案件"
         case.cause_of_action = ""
-        with patch("apps.automation.api.court_filing_helpers._infer_filing_type", return_value="civil"):
+        with patch("plugins.court_automation.filing.helpers._infer_filing_type", return_value="civil"):
             result = self._fn()(requested_filing_type=None, case=case, parties=[])
         assert result == "civil"
 
@@ -425,11 +425,11 @@ class TestMatchSlotDefault:
         file_path = Path("/test/unknown.pdf")
 
         with patch(
-            "apps.automation.api.court_filing_helpers._build_material_slot_signals",
+            "plugins.court_automation.filing.helpers._build_material_slot_signals",
             return_value=([], []),
         ):
             with patch(
-                "apps.automation.api.court_filing_helpers._score_slot_deduplicated",
+                "plugins.court_automation.filing.helpers._score_slot_deduplicated",
                 return_value=0,
             ):
                 result = _match_slot(material=material, file_path=file_path, filing_type="civil")
@@ -442,11 +442,11 @@ class TestMatchSlotDefault:
         file_path = Path("/test/unknown.pdf")
 
         with patch(
-            "apps.automation.api.court_filing_helpers._build_material_slot_signals",
+            "plugins.court_automation.filing.helpers._build_material_slot_signals",
             return_value=([], []),
         ):
             with patch(
-                "apps.automation.api.court_filing_helpers._score_slot_deduplicated",
+                "plugins.court_automation.filing.helpers._score_slot_deduplicated",
                 return_value=0,
             ):
                 result = _match_slot(material=material, file_path=file_path, filing_type="execution")
@@ -502,9 +502,9 @@ class TestUpdateSessionTaskWithEventLoop:
         from plugins.court_automation.filing.helpers import _update_session_task
 
         # Simulate an event loop running
-        with patch("apps.automation.api.court_filing_helpers.asyncio") as mock_asyncio:
+        with patch("plugins.court_automation.filing.helpers.asyncio") as mock_asyncio:
             mock_asyncio.get_running_loop.return_value = MagicMock()  # loop exists
-            with patch("apps.automation.api.court_filing_helpers._SESSION_UPDATE_EXECUTOR") as mock_executor:
+            with patch("plugins.court_automation.filing.helpers._SESSION_UPDATE_EXECUTOR") as mock_executor:
                 _update_session_task(
                     session_id=1,
                     status="running",

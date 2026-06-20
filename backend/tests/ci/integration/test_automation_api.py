@@ -361,7 +361,7 @@ def test_performance_health(mock_build, authenticated_client):
 
 
 @pytest.mark.django_db
-@patch("apps.automation.api.court_filing_api._check_plugin")
+@patch("plugins.court_automation.filing.api_endpoint._check_plugin")
 def test_case_filing_info_no_plugin(mock_plugin, authenticated_client):
     mock_plugin.return_value = False
     case = _make_case()
@@ -373,7 +373,7 @@ def test_case_filing_info_no_plugin(mock_plugin, authenticated_client):
 
 
 @pytest.mark.django_db
-@patch("apps.automation.api.court_filing_api._check_plugin")
+@patch("plugins.court_automation.filing.api_endpoint._check_plugin")
 def test_court_filing_execute_no_plugin(mock_plugin, authenticated_client):
     mock_plugin.return_value = False
 
