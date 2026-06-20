@@ -147,6 +147,11 @@ def main() -> None:
         print("⚠ `claude` CLI not found, skipping LLM privacy review.")
         sys.exit(0)
 
+    # Check API key is available (avoids noisy failures when CLI exists but auth is missing)
+    if not os.environ.get("ANTHROPIC_API_KEY"):
+        print("⚠ ANTHROPIC_API_KEY not set, skipping LLM privacy review.")
+        sys.exit(0)
+
     changed_files = _get_changed_files(args.base, args.head)
     if not changed_files:
         print("No changed files found.")

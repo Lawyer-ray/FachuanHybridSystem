@@ -190,7 +190,8 @@ class CaseContactService(DjangoPermsMixin):
         )
         latest_map: dict[tuple[str, str, str], CaseContact] = {}
         for contact in latest_qs:
-            key = (contact.name, contact.role, contact.authority.name)
+            auth_name = contact.authority.name if contact.authority else ""
+            key = (contact.name, contact.role, auth_name)
             if key not in latest_map:
                 latest_map[key] = contact
 
