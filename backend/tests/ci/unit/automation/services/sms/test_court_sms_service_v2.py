@@ -845,38 +845,30 @@ class TestProcessNotifying:
 
 class TestModuleLevelFunctions:
 
-    def test_process_sms_async(self):
-        import apps.automation.workers.court_sms_tasks as _mod
-        import apps.automation.workers as _workers
-        mock_tasks = MagicMock()
-        with patch.object(_workers, "court_sms_tasks", mock_tasks):
-            from apps.automation.workers.court_sms_tasks import process_sms
-            process_sms(1, process_options={"key": "val"})
-            mock_tasks.process_sms.assert_called_once_with(1, process_options={"key": "val"})
+    @patch("apps.automation.usecases.court_sms.process_sms.ProcessSmsUsecase")
+    @patch("apps.automation.workers.court_sms_tasks.ServiceLocator")
+    def test_process_sms_async(self, mock_locator, mock_uc):
+        from apps.automation.workers.court_sms_tasks import process_sms
+        process_sms(1, process_options={"key": "val"})
+        mock_uc.return_value.execute.assert_called_once_with(sms_id=1, process_options={"key": "val"})
 
-    def test_process_sms_from_matching(self):
-        import apps.automation.workers.court_sms_tasks as _mod
-        import apps.automation.workers as _workers
-        mock_tasks = MagicMock()
-        with patch.object(_workers, "court_sms_tasks", mock_tasks):
-            from apps.automation.workers.court_sms_tasks import process_sms_from_matching
-            process_sms_from_matching(1)
-            mock_tasks.process_sms_from_matching.assert_called_once_with(1)
+    @patch("apps.automation.usecases.court_sms.process_sms.ProcessSmsFromMatchingUsecase")
+    @patch("apps.automation.workers.court_sms_tasks.ServiceLocator")
+    def test_process_sms_from_matching(self, mock_locator, mock_uc):
+        from apps.automation.workers.court_sms_tasks import process_sms_from_matching
+        process_sms_from_matching(1)
+        mock_uc.return_value.execute.assert_called_once_with(sms_id=1)
 
-    def test_process_sms_from_renaming(self):
-        import apps.automation.workers.court_sms_tasks as _mod
-        import apps.automation.workers as _workers
-        mock_tasks = MagicMock()
-        with patch.object(_workers, "court_sms_tasks", mock_tasks):
-            from apps.automation.workers.court_sms_tasks import process_sms_from_renaming
-            process_sms_from_renaming(1)
-            mock_tasks.process_sms_from_renaming.assert_called_once_with(1)
+    @patch("apps.automation.usecases.court_sms.process_sms.ProcessSmsFromRenamingUsecase")
+    @patch("apps.automation.workers.court_sms_tasks.ServiceLocator")
+    def test_process_sms_from_renaming(self, mock_locator, mock_uc):
+        from apps.automation.workers.court_sms_tasks import process_sms_from_renaming
+        process_sms_from_renaming(1)
+        mock_uc.return_value.execute.assert_called_once_with(sms_id=1)
 
-    def test_retry_download_task(self):
-        import apps.automation.workers.court_sms_tasks as _mod
-        import apps.automation.workers as _workers
-        mock_tasks = MagicMock()
-        with patch.object(_workers, "court_sms_tasks", mock_tasks):
-            from apps.automation.workers.court_sms_tasks import retry_download_task
-            retry_download_task(42, extra="data")
-            mock_tasks.retry_download_task.assert_called_once_with(42, extra="data")
+    @patch("apps.automation.usecases.court_sms.retry_download.RetryDownloadUsecase")
+    @patch("apps.automation.workers.court_sms_tasks.ServiceLocator")
+    def test_retry_download_task(self, mock_locator, mock_uc):
+        from apps.automation.workers.court_sms_tasks import retry_download_task
+        retry_download_task(42, extra="data")
+        mock_uc.return_value.execute.assert_called_once_with(sms_id=42)

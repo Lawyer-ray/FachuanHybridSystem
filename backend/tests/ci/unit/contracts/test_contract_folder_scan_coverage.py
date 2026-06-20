@@ -4,13 +4,12 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from unittest.mock import MagicMock, patch, PropertyMock
 from typing import Any
+from unittest.mock import MagicMock, PropertyMock, patch
 
 import pytest
 
 from apps.core.exceptions import NotFoundError, ValidationException
-
 
 # ── _normalize_scan_subfolder ─────────────────────────────────────
 
@@ -144,8 +143,8 @@ class TestEnsureContractExists:
 
 class TestRelativePathStr:
     def _make_service(self):
-        from apps.contracts.services.contract.integrations.folder_scan_service import ContractFolderScanService
-        return ContractFolderScanService()
+        from apps.contracts.services.contract.integrations._candidate_post_processor import CandidatePostProcessor
+        return CandidatePostProcessor(scan_service=MagicMock())
 
     def test_unresolvable_path(self):
         svc = self._make_service()
@@ -327,8 +326,8 @@ class TestNormalizeDocxName:
 
 class TestConstants:
     def test_quality_card_title(self):
-        from apps.contracts.services.contract.integrations.folder_scan_service import ContractFolderScanService
-        assert "监督卡" in ContractFolderScanService._QUALITY_CARD_TITLE
+        from apps.contracts.services.contract.integrations._import_pipeline import ImportPipeline
+        assert "监督卡" in ImportPipeline._QUALITY_CARD_TITLE
 
     def test_active_statuses(self):
         from apps.contracts.models import ContractFolderScanStatus
@@ -343,9 +342,7 @@ class TestConstants:
 
 class TestRunContractFolderScanTask:
     def test_delegates_to_service(self):
-        from apps.contracts.services.contract.integrations.folder_scan_service import (
-            run_contract_folder_scan_task,
-        )
+        from apps.contracts.services.contract.integrations.folder_scan_service import run_contract_folder_scan_task
 
         with patch("apps.contracts.services.contract.integrations.folder_scan_service.ContractFolderScanService") as mock_cls:
             mock_instance = MagicMock()

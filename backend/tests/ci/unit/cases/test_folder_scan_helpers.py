@@ -129,24 +129,24 @@ class TestContractFolderScanRelativePathStr:
     @pytest.fixture
     def svc(self):
         from apps.contracts.services.contract.integrations.folder_scan_service import ContractFolderScanService
-        return ContractFolderScanService.__new__(ContractFolderScanService)
+        return ContractFolderScanService(scan_service=MagicMock())
 
     def test_relative_path(self, svc):
-        result = svc._relative_path_str(
+        result = svc._post_processor._relative_path_str(
             source_path="/data/scan/sub/file.pdf",
             scan_root=Path("/data/scan"),
         )
         assert result == "sub"
 
     def test_direct_in_root(self, svc):
-        result = svc._relative_path_str(
+        result = svc._post_processor._relative_path_str(
             source_path="/data/scan/file.pdf",
             scan_root=Path("/data/scan"),
         )
         assert result == ""
 
     def test_invalid_path(self, svc):
-        result = svc._relative_path_str(
+        result = svc._post_processor._relative_path_str(
             source_path="/unrelated/path",
             scan_root=Path("/data/scan"),
         )

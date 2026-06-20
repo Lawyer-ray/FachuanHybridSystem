@@ -5,8 +5,8 @@ path_utils, output_storage, pipeline modules.
 from __future__ import annotations
 
 from datetime import date
-from unittest.mock import MagicMock, patch
 from pathlib import Path as RealPath
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -276,17 +276,22 @@ class TestOutputStorage:
         from apps.documents.services.generation.output_storage import GeneratedDocumentStorage
 
         store = GeneratedDocumentStorage(media_root=str(tmp_path))
-        result = store.save_bytes(relative_dir="sub", filename="test.txt", content=b"hello")
-        assert "test.txt" in result
-        assert (tmp_path / "sub" / "test.txt").read_bytes() == b"hello"
+        with patch("apps.documents.services.generation.output_storage.default_storage") as mock_storage:
+            mock_storage.save.return_value = "sub/test.txt"
+            result = store.save_bytes(relative_dir="sub", filename="test.txt", content=b"hello")
+            assert "test.txt" in result
+            mock_storage.save.assert_called_once()
+            call_args = mock_storage.save.call_args
+            assert call_args[0][0] == "sub/test.txt"
 
     def test_save_for_case(self, tmp_path):
         from apps.documents.services.generation.output_storage import GeneratedDocumentStorage
 
         store = GeneratedDocumentStorage(media_root=str(tmp_path))
-        result = store.save_for_case(case_id=42, filename="doc.docx", content=b"data")
-        assert "case_42" in result
-        assert "doc.docx" in result
+        with patch("apps.documents.services.generation.output_storage.default_storage") as mock_storage:
+            mock_storage.save.side_effect = lambda rel, f: rel
+            result = store.save_for_case(case_id=42, filename="doc.docx", content=b"data")
+            assert "case_42" in result
 
 
 class TestNaming:
@@ -311,9 +316,7 @@ class TestNaming:
             assert result.endswith(".docx")
 
     def test_supplementary_agreement_docx_filename(self):
-        from apps.documents.services.generation.pipeline.naming import (
-            supplementary_agreement_docx_filename,
-        )
+        from apps.documents.services.generation.pipeline.naming import supplementary_agreement_docx_filename
 
         with patch(
             "apps.documents.services.generation.pipeline.naming.FilenameTemplateService"

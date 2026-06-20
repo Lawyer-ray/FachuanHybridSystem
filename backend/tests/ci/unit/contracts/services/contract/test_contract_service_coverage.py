@@ -4,7 +4,7 @@ Covers: lazy property loading for all sub-services, delegated method calls.
 """
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock, PropertyMock, patch
 
 import pytest
 
@@ -133,7 +133,16 @@ class TestContractServiceDelegatedCalls:
     def test_get_all_parties(self):
         from apps.contracts.services.contract.contract_service import ContractService
         svc = ContractService()
-        with patch("apps.contracts.services.contract.usecases.get_contract_all_parties.GetContractAllPartiesUseCase") as MockUC:
-            MockUC.return_value.execute.return_value = [{"id": 1}]
-            result = svc.get_all_parties(1)
-            assert len(result) == 1
+        mock_contract = MagicMock()
+        mock_party = MagicMock()
+        mock_party.client.id = 1
+        mock_party.client.name = "客户A"
+        mock_party.role = "client"
+        mock_contract.contract_parties.select_related.return_value.all.return_value = [mock_party]
+        mock_contract.supplementary_agreements.prefetch_related.return_value.all.return_value = []
+
+        svc._query_service = MagicMock()
+        svc._query_service.get_contract_internal.return_value = mock_contract
+
+        result = svc.get_all_parties(1)
+        assert len(result) == 1

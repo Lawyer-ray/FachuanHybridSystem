@@ -6,22 +6,26 @@ import os
 import re
 from pathlib import Path, PurePosixPath
 from typing import Any
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock, PropertyMock, patch
 from uuid import UUID, uuid4
 
 import pytest
 
 from apps.contracts.models import ContractFolderScanStatus
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
+def _make_processor():
+    from unittest.mock import MagicMock
+
+    from apps.contracts.services.contract.integrations._candidate_post_processor import CandidatePostProcessor
+    return CandidatePostProcessor(scan_service=MagicMock())
+
+
 def _make_service(**overrides: Any) -> Any:
-    from apps.contracts.services.contract.integrations.folder_scan_service import (
-        ContractFolderScanService,
-    )
+    from apps.contracts.services.contract.integrations.folder_scan_service import ContractFolderScanService
     defaults: dict[str, Any] = {
         "scan_service": MagicMock(),
     }
@@ -266,22 +270,22 @@ class TestRelativePathStr:
             ))
         ))
         # Instead, patch Path for the actual logic
-        with patch("apps.contracts.services.contract.integrations.folder_scan_service.Path") as MockPath:
+        with patch("apps.contracts.services.contract.integrations._candidate_post_processor.Path") as MockPath:
             mock_file = MagicMock()
             mock_file.expanduser.return_value.resolve.return_value = mock_file
             mock_file.parent.relative_to.return_value = MagicMock(as_posix=MagicMock(return_value="sub"))
             MockPath.return_value = mock_file
-            result = svc._relative_path_str(source_path="/root/sub/file.pdf", scan_root=MagicMock())
+            result = svc._post_processor._relative_path_str(source_path="/root/sub/file.pdf", scan_root=MagicMock())
             assert result == "sub"
 
     def test_returns_empty_on_error(self):
         svc = _make_service()
-        with patch("apps.contracts.services.contract.integrations.folder_scan_service.Path") as MockPath:
+        with patch("apps.contracts.services.contract.integrations._candidate_post_processor.Path") as MockPath:
             mock_file = MagicMock()
             mock_file.expanduser.return_value.resolve.return_value = mock_file
             mock_file.parent.relative_to.side_effect = ValueError("not relative")
             MockPath.return_value = mock_file
-            result = svc._relative_path_str(source_path="/other/file.pdf", scan_root=MagicMock())
+            result = svc._post_processor._relative_path_str(source_path="/other/file.pdf", scan_root=MagicMock())
             assert result == ""
 
 
@@ -447,9 +451,7 @@ class TestConfirmImportValidation:
     """Test validation logic that happens inside confirm_import by testing the methods directly."""
 
     def test_get_session_delegates_to_orm(self):
-        from apps.contracts.services.contract.integrations.folder_scan_service import (
-            ContractFolderScanService,
-        )
+        from apps.contracts.services.contract.integrations.folder_scan_service import ContractFolderScanService
         svc = _make_service()
         session = _make_session()
         with patch("apps.contracts.services.contract.integrations.folder_scan_service.ContractFolderScanSession") as MockSession:
@@ -475,9 +477,7 @@ class TestConfirmImportValidation:
 
 class TestRunContractFolderScanTask:
     def test_calls_service(self):
-        from apps.contracts.services.contract.integrations.folder_scan_service import (
-            run_contract_folder_scan_task,
-        )
+        from apps.contracts.services.contract.integrations.folder_scan_service import run_contract_folder_scan_task
         with patch("apps.contracts.services.contract.integrations.folder_scan_service.ContractFolderScanService") as MockSvc:
             run_contract_folder_scan_task("test-id")
             MockSvc.return_value.run_scan_task.assert_called_once_with(session_id="test-id")
@@ -502,7 +502,7 @@ class TestConvertDocxToPdf:
         mock_path = MagicMock()
         mock_path.as_posix.return_value = "/tmp/bad.docx"
         with patch("apps.documents.services.infrastructure.pdf_merge_utils.convert_docx_to_pdf", side_effect=OSError("fail")):
-            result = svc._convert_docx_to_temp_pdf(mock_path)
+            result = svc._import_pipeline._convert_docx_to_temp_pdf(mock_path)
             assert result is None
 
 
@@ -552,7 +552,7 @@ class TestMakeProviderForBinding:
 class TestPostProcessCandidates:
     def test_archive_document_matched(self):
         svc = _make_service()
-        with patch("apps.contracts.services.contract.integrations.folder_scan_service.classify_archive_material") as mock_classify:
+        with patch("apps.contracts.services.contract.integrations._candidate_post_processor.classify_archive_material") as mock_classify:
             mock_classify.return_value = {
                 "category": "matched",
                 "archive_item_code": "nl_1",
@@ -565,7 +565,7 @@ class TestPostProcessCandidates:
                 "source_path": "/root/合同.pdf",
                 "suggested_category": "archive_document",
             }]
-            result = svc._post_process_candidates(
+            result = svc._post_processor.post_process_candidates(
                 candidates=candidates, archive_category="non_litigation", scan_folder="/root"
             )
             assert result[0]["suggested_category"] == "case_material"
@@ -573,7 +573,7 @@ class TestPostProcessCandidates:
 
     def test_archive_document_skip(self):
         svc = _make_service()
-        with patch("apps.contracts.services.contract.integrations.folder_scan_service.classify_archive_material") as mock_classify:
+        with patch("apps.contracts.services.contract.integrations._candidate_post_processor.classify_archive_material") as mock_classify:
             mock_classify.return_value = {
                 "category": "skip",
                 "archive_item_code": "",
@@ -586,7 +586,7 @@ class TestPostProcessCandidates:
                 "source_path": "/root/通知.pdf",
                 "suggested_category": "archive_document",
             }]
-            result = svc._post_process_candidates(
+            result = svc._post_processor.post_process_candidates(
                 candidates=candidates, archive_category="non_litigation", scan_folder="/root"
             )
             assert result[0]["selected"] is False
@@ -594,7 +594,7 @@ class TestPostProcessCandidates:
 
     def test_insurance_keywords_deselect(self):
         svc = _make_service()
-        with patch("apps.contracts.services.contract.integrations.folder_scan_service.classify_archive_material") as mock_classify:
+        with patch("apps.contracts.services.contract.integrations._candidate_post_processor.classify_archive_material") as mock_classify:
             mock_classify.return_value = {
                 "category": "matched",
                 "archive_item_code": "",
@@ -607,7 +607,7 @@ class TestPostProcessCandidates:
                 "source_path": "/root/保单.pdf",
                 "suggested_category": "case_material",
             }]
-            result = svc._post_process_candidates(
+            result = svc._post_processor.post_process_candidates(
                 candidates=candidates, archive_category="litigation", scan_folder="/root"
             )
             assert result[0]["selected"] is False

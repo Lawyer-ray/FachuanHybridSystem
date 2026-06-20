@@ -73,8 +73,10 @@ class TestCollectDocxFilesCloud:
     """Test the cloud variant of _collect_docx_files."""
 
     def _get_service(self):
-        from apps.contracts.services.contract.integrations.folder_scan_service import ContractFolderScanService
-        return ContractFolderScanService()
+        from unittest.mock import MagicMock
+
+        from apps.contracts.services.contract.integrations._candidate_post_processor import CandidatePostProcessor
+        return CandidatePostProcessor(scan_service=MagicMock())
 
     def test_returns_empty_for_litigation(self):
         service = self._get_service()
@@ -119,10 +121,10 @@ class TestConvertDocxToTempPdfFromBytes:
     """Test the bytes-based docx→PDF conversion."""
 
     def _get_service(self):
-        from apps.contracts.services.contract.integrations.folder_scan_service import ContractFolderScanService
-        return ContractFolderScanService()
+        from apps.contracts.services.contract.integrations._import_pipeline import ImportPipeline
+        return ImportPipeline()
 
-    @patch("apps.contracts.services.contract.integrations.folder_scan_service.ContractFolderScanService._convert_docx_to_temp_pdf_from_bytes")
+    @patch("apps.contracts.services.contract.integrations._import_pipeline.ImportPipeline._convert_docx_to_temp_pdf_from_bytes")
     def test_returns_none_on_conversion_failure(self, mock_convert):
         mock_convert.return_value = None
         service = self._get_service()
@@ -134,21 +136,24 @@ class TestConfirmImportProviderThreading:
     """Test that confirm_import properly threads storage_provider."""
 
     def test_signature_accepts_storage_provider(self):
-        from apps.contracts.services.contract.integrations.folder_scan_service import ContractFolderScanService
         import inspect
+
+        from apps.contracts.services.contract.integrations.folder_scan_service import ContractFolderScanService
         sig = inspect.signature(ContractFolderScanService.confirm_import)
         assert "storage_provider" in sig.parameters
 
     def test_mark_already_imported_accepts_storage_provider(self):
-        from apps.contracts.services.contract.integrations.folder_scan_service import ContractFolderScanService
         import inspect
-        sig = inspect.signature(ContractFolderScanService._mark_already_imported)
+
+        from apps.contracts.services.contract.integrations._candidate_post_processor import CandidatePostProcessor
+        sig = inspect.signature(CandidatePostProcessor._mark_already_imported)
         assert "storage_provider" in sig.parameters
 
     def test_collect_docx_files_accepts_storage_provider(self):
-        from apps.contracts.services.contract.integrations.folder_scan_service import ContractFolderScanService
         import inspect
-        sig = inspect.signature(ContractFolderScanService._collect_docx_files)
+
+        from apps.contracts.services.contract.integrations._candidate_post_processor import CandidatePostProcessor
+        sig = inspect.signature(CandidatePostProcessor._collect_docx_files)
         assert "storage_provider" in sig.parameters
 
 
@@ -156,18 +161,14 @@ class TestCollectWorkLogSuggestionsCloud:
     """Test the cloud variant of collect_work_log_suggestions."""
 
     def test_returns_empty_on_provider_error(self):
-        from apps.contracts.services.contract.integrations.archive_classifier import (
-            _collect_work_log_suggestions_cloud,
-        )
+        from apps.contracts.services.contract.integrations.archive_classifier import _collect_work_log_suggestions_cloud
         provider = MagicMock()
         provider.list_directory.side_effect = ConnectionError("timeout")
         result = _collect_work_log_suggestions_cloud("/", "litigation", provider)
         assert result == []
 
     def test_collects_date_prefixed_dirs(self):
-        from apps.contracts.services.contract.integrations.archive_classifier import (
-            _collect_work_log_suggestions_cloud,
-        )
+        from apps.contracts.services.contract.integrations.archive_classifier import _collect_work_log_suggestions_cloud
         provider = _make_mock_provider(
             dirs=[
                 _make_cloud_file("2026.01.15-立案", "/2026.01.15-立案", is_dir=True),

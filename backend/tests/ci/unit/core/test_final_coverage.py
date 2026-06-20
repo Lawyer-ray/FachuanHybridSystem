@@ -5,13 +5,14 @@ from __future__ import annotations
 import io
 import uuid
 from pathlib import Path
-from unittest.mock import MagicMock, Mock, patch, PropertyMock
+from unittest.mock import MagicMock, Mock, PropertyMock, patch
 
 import pytest
 
+from apps.core.exceptions import ValidationException
 from apps.core.services.storage_service import (
-    _DefaultFileValidator,
     _WINDOWS_ABS_PATH,
+    _DefaultFileValidator,
     _get_media_root,
     delete_media_file,
     is_absolute_path,
@@ -20,8 +21,6 @@ from apps.core.services.storage_service import (
     save_uploaded_file,
     to_media_abs,
 )
-from apps.core.exceptions import ValidationException
-
 
 # ============================================================================
 # sanitize_upload_filename tests
@@ -54,9 +53,11 @@ class TestSanitizeUploadFilename:
         assert "@" not in result
         assert "#" not in result
 
-    def test_multiple_underscores_collapsed(self):
+    def test_multiple_underscores_preserved(self):
+        # sanitize_filename 保留有效字符（包括下划线），不折叠连续下划线
         result = sanitize_upload_filename("file___name.txt")
-        assert "___" not in result
+        assert "file" in result
+        assert "name" in result
 
     def test_dot_only_filename(self):
         result = sanitize_upload_filename(".")
@@ -207,6 +208,7 @@ class TestDefaultFileValidator:
         f = Mock()
         f.name = "file.exe"
         f.size = 100
+        f.content_type = ""
         f.read.return_value = b"PK\x03\x04"
         f.seek.return_value = None
         with pytest.raises(ValidationException, match="不支持的文件格式"):
@@ -216,6 +218,7 @@ class TestDefaultFileValidator:
         f = Mock()
         f.name = "file.pdf"
         f.size = 100 * 1024 * 1024
+        f.content_type = ""
         f.read.return_value = b"%PDF"
         f.seek.return_value = None
         with pytest.raises(ValidationException, match="文件大小超限"):
@@ -225,6 +228,7 @@ class TestDefaultFileValidator:
         f = Mock()
         f.name = "file.pdf"
         f.size = 100
+        f.content_type = ""
         f.read.return_value = b"MZ\x90\x00"
         f.seek.return_value = None
         with pytest.raises(ValidationException, match="可执行文件"):
@@ -234,6 +238,7 @@ class TestDefaultFileValidator:
         f = Mock()
         f.name = "file.pdf"
         f.size = 100
+        f.content_type = ""
         f.read.return_value = b"%PDF-1.4"
         f.seek.return_value = None
         result = self.validator.validate_uploaded_file(f)
@@ -243,6 +248,7 @@ class TestDefaultFileValidator:
         f = Mock()
         f.name = "file.bin"
         f.size = 50
+        f.content_type = ""
         f.read.return_value = b"\x7fELF"
         f.seek.return_value = None
         with pytest.raises(ValidationException, match="可执行文件"):
@@ -260,12 +266,14 @@ class TestSaveUploadedFile:
         with pytest.raises(ValidationException, match="缺少文件名"):
             save_uploaded_file(f, "uploads")
 
+    @patch("apps.core.services.storage_service.default_storage")
     @patch("apps.core.services.storage_service._get_media_root")
-    def test_save_with_uuid(self, mock_root, tmp_path):
+    def test_save_with_uuid(self, mock_root, mock_storage, tmp_path):
         mock_root.return_value = str(tmp_path)
         f = Mock()
         f.name = "test.pdf"
         f.size = 100
+        f.content_type = ""
         f.read.return_value = b"%PDF"
         f.seek.return_value = None
         f.chunks.return_value = [b"%PDF"]
@@ -279,12 +287,14 @@ class TestSaveUploadedFile:
         assert rel_path.startswith("uploads/")
         assert safe_name == "test.pdf"
 
+    @patch("apps.core.services.storage_service.default_storage")
     @patch("apps.core.services.storage_service._get_media_root")
-    def test_save_without_uuid(self, mock_root, tmp_path):
+    def test_save_without_uuid(self, mock_root, mock_storage, tmp_path):
         mock_root.return_value = str(tmp_path)
         f = Mock()
         f.name = "report.docx"
         f.size = 200
+        f.content_type = ""
         f.read.return_value = b"content"
         f.seek.return_value = None
         f.chunks.return_value = [b"content"]

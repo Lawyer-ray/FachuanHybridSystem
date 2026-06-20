@@ -147,9 +147,11 @@ class TestContractFormatServiceFormatContract:
 
         with patch("apps.contract_review.services.contract_format_service.settings") as mock_settings:
             mock_settings.MEDIA_ROOT = "/tmp/media"
-            with patch("pathlib.Path.exists", return_value=True):
-                with patch("pathlib.Path.read_bytes", return_value=b"docx_data"):
-                    with patch("pathlib.Path.write_bytes"):
-                        output_path, method = svc.format_contract(task)
-                        assert method == "poi"
-                        task.save.assert_called_once_with(update_fields=["output_file"])
+            with patch("apps.contract_review.services.contract_format_service.default_storage") as mock_storage:
+                mock_storage.save.side_effect = lambda rel, f: rel
+                with patch("pathlib.Path.exists", return_value=True):
+                    with patch("pathlib.Path.read_bytes", return_value=b"docx_data"):
+                        with patch("pathlib.Path.write_bytes"):
+                            output_path, method = svc.format_contract(task)
+                            assert method == "poi"
+                            task.save.assert_called_once_with(update_fields=["output_file"])

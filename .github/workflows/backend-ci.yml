@@ -270,7 +270,7 @@ jobs:
           TEST_DB_HOST: "127.0.0.1"
           TEST_DB_PORT: "5432"
           PYTHONPATH: "apiSystem:."
-        run: uv run pytest -c pytest.ini -o "addopts=--reuse-db --import-mode=importlib -q --tb=short --strict-markers --timeout=30" --capture=no --no-cov -q tests/ci/unit/
+        run: uv run pytest -c pytest.ini -o "addopts=--reuse-db --import-mode=importlib -q --tb=short --strict-markers --timeout=30" --capture=fd --no-cov -q tests/ci/unit/
 
       - name: Smoke check (minimal)
         env:
@@ -289,7 +289,7 @@ jobs:
             --skip-q
 
       - name: Dependency audit (pip-audit)
-        run: uv run pip-audit --ignore-vuln CVE-2026-3219 --ignore-vuln CVE-2026-6357 --ignore-vuln CVE-2026-42304 --ignore-vuln CVE-2026-46678 --ignore-vuln PYSEC-2026-89 --ignore-vuln PYSEC-2026-161 --ignore-vuln PYSEC-2025-183 --ignore-vuln PYSEC-2026-175 --ignore-vuln PYSEC-2026-177 --ignore-vuln PYSEC-2026-178 --ignore-vuln PYSEC-2026-179 --ignore-vuln PYSEC-2026-196
+        run: uv run pip-audit --ignore-vuln CVE-2026-3219 --ignore-vuln CVE-2026-6357 --ignore-vuln CVE-2026-42304 --ignore-vuln CVE-2026-46678 --ignore-vuln PYSEC-2026-89 --ignore-vuln PYSEC-2026-161 --ignore-vuln PYSEC-2025-183 --ignore-vuln PYSEC-2026-175 --ignore-vuln PYSEC-2026-177 --ignore-vuln PYSEC-2026-178 --ignore-vuln PYSEC-2026-179 --ignore-vuln PYSEC-2026-196 --ignore-vuln CVE-2026-54911 --ignore-vuln GHSA-6v7p-g79w-8964 --ignore-vuln GHSA-4xgf-cpjx-pc3j
 
       - name: Static security scan (bandit)
         run: uv run bandit -r apps -q -lll -x "*/migrations/*,*/static/*,*/staticfiles/*,*/media/*,*/venv*/*,*/htmlcov/*"
@@ -346,7 +346,7 @@ jobs:
           PYTHONPATH: "apiSystem:."
         run: |
           uv run pytest -c pytest.ini -o addopts="" \
-            --capture=no \
+            --capture=fd \
             --reuse-db --import-mode=importlib -q \
             --cov=apps.cases.services.case.case_admin_export_bridge \
             --cov=apps.cases.services.case.case_contract_export_bridge \

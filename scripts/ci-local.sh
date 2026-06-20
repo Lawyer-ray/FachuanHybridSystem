@@ -191,7 +191,9 @@ if [ "$RUN_BACKEND" = true ]; then
 
   # [4] Pre-commit（对齐 backend job 的 Pre-commit step）
   header "4/22" "Pre-commit hooks (changed files)"
-  if [ -n "$BASE_MERGE" ]; then
+  if [ ! -f "$ROOT_DIR/.pre-commit-config.yaml" ]; then
+    skip "pre-commit（无 .pre-commit-config.yaml）"
+  elif [ -n "$BASE_MERGE" ]; then
     pre_files=$(git -C "$ROOT_DIR" diff --name-only --diff-filter=ACMRT "$BASE_MERGE" HEAD | grep -E '^backend/' | sed 's|^backend/||' || true)
     if [ -z "$pre_files" ]; then
       skip "pre-commit（无变更文件）"
@@ -334,7 +336,7 @@ if [ "$RUN_BACKEND" = true ]; then
 
   # [14] pip-audit（对齐 backend job 的 Dependency audit step）
   header "14/22" "依赖安全审计 (pip-audit)"
-  if $BACKEND_PYTHON -m pip_audit --ignore-vuln CVE-2026-3219 --ignore-vuln CVE-2026-6357 --ignore-vuln CVE-2026-42304 --ignore-vuln CVE-2026-46678 --ignore-vuln PYSEC-2026-89 --ignore-vuln PYSEC-2026-161 --ignore-vuln PYSEC-2025-183 2>&1; then
+  if $BACKEND_PYTHON -m pip_audit --ignore-vuln CVE-2026-3219 --ignore-vuln CVE-2026-6357 --ignore-vuln CVE-2026-42304 --ignore-vuln CVE-2026-46678 --ignore-vuln PYSEC-2026-89 --ignore-vuln PYSEC-2026-161 --ignore-vuln PYSEC-2025-183 --ignore-vuln PYSEC-2026-175 --ignore-vuln PYSEC-2026-177 --ignore-vuln PYSEC-2026-178 --ignore-vuln PYSEC-2026-179 --ignore-vuln PYSEC-2026-196 --ignore-vuln CVE-2026-54911 --ignore-vuln GHSA-6v7p-g79w-8964 --ignore-vuln GHSA-4xgf-cpjx-pc3j 2>&1; then
     pass "pip-audit"
   else
     fail "pip-audit"

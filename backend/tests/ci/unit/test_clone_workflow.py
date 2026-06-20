@@ -58,13 +58,13 @@ def test_clone_related_data_full_flow() -> None:
     workflow, reminder_service = _make_workflow()
 
     with (
-        patch("apps.contracts.services.contract.admin.workflows.clone_workflow.ContractParty") as MockParty,
-        patch("apps.contracts.services.contract.admin.workflows.clone_workflow.ContractAssignment") as MockAssignment,
+        patch("apps.contracts.services.contract.admin.clone_workflow.ContractParty") as MockParty,
+        patch("apps.contracts.services.contract.admin.clone_workflow.ContractAssignment") as MockAssignment,
         patch(
-            "apps.contracts.services.contract.admin.workflows.clone_workflow.SupplementaryAgreement"
+            "apps.contracts.services.contract.admin.clone_workflow.SupplementaryAgreement"
         ) as MockAgreement,
         patch(
-            "apps.contracts.services.contract.admin.workflows.clone_workflow.SupplementaryAgreementParty"
+            "apps.contracts.services.contract.admin.clone_workflow.SupplementaryAgreementParty"
         ) as MockAgreementParty,
     ):
         MockAgreement.objects.bulk_create.return_value = [MagicMock()]
@@ -86,13 +86,13 @@ def test_clone_related_data_no_agreements_skips_agreement_bulk_create() -> None:
     workflow, _ = _make_workflow()
 
     with (
-        patch("apps.contracts.services.contract.admin.workflows.clone_workflow.ContractParty"),
-        patch("apps.contracts.services.contract.admin.workflows.clone_workflow.ContractAssignment"),
+        patch("apps.contracts.services.contract.admin.clone_workflow.ContractParty"),
+        patch("apps.contracts.services.contract.admin.clone_workflow.ContractAssignment"),
         patch(
-            "apps.contracts.services.contract.admin.workflows.clone_workflow.SupplementaryAgreement"
+            "apps.contracts.services.contract.admin.clone_workflow.SupplementaryAgreement"
         ) as MockAgreement,
         patch(
-            "apps.contracts.services.contract.admin.workflows.clone_workflow.SupplementaryAgreementParty"
+            "apps.contracts.services.contract.admin.clone_workflow.SupplementaryAgreementParty"
         ) as MockAgreementParty,
     ):
         workflow.clone_related_data(source_contract=source, target_contract=target)
@@ -115,8 +115,8 @@ def test_clone_related_data_applies_due_at_transform() -> None:
     transform = MagicMock(return_value=datetime.date(2026, 1, 1))
 
     with (
-        patch("apps.contracts.services.contract.admin.workflows.clone_workflow.ContractParty"),
-        patch("apps.contracts.services.contract.admin.workflows.clone_workflow.ContractAssignment"),
+        patch("apps.contracts.services.contract.admin.clone_workflow.ContractParty"),
+        patch("apps.contracts.services.contract.admin.clone_workflow.ContractAssignment"),
     ):
         workflow.clone_related_data(source_contract=source, target_contract=target, due_at_transform=transform)
 

@@ -4,13 +4,12 @@ from __future__ import annotations
 
 import uuid
 from pathlib import Path
-from unittest.mock import MagicMock, patch, PropertyMock
 from typing import Any
+from unittest.mock import MagicMock, PropertyMock, patch
 
 import pytest
 
 from apps.core.exceptions import NotFoundError, ValidationException
-
 
 # ── PdfSplitJobService ────────────────────────────────────────────
 
@@ -165,7 +164,7 @@ class TestSaveUploadedPdf:
             svc._save_uploaded_pdf(file, Path("/tmp/test.pdf"))
 
     def test_successful_save(self):
-        import tempfile
+        from django.conf import settings
 
         from apps.pdf_splitting.services.job_service import PdfSplitJobService
 
@@ -173,13 +172,21 @@ class TestSaveUploadedPdf:
         file = MagicMock()
         file.name = "test.pdf"
         file.size = 1024
-        file.chunks.return_value = [b"PDF content"]
+        file.read.return_value = b"PDF content"
 
-        with tempfile.TemporaryDirectory() as tmpdir:
-            target = Path(tmpdir) / "test.pdf"
-            result = svc._save_uploaded_pdf(file, target)
-            assert result.endswith(".pdf")
-            assert target.exists()
+        target = Path(settings.MEDIA_ROOT) / "test_successful_save" / "test.pdf"
+        target.parent.mkdir(parents=True, exist_ok=True)
+        try:
+            mock_storage = MagicMock()
+            with patch("django.core.files.storage.default_storage", mock_storage), \
+                 patch("django.core.files.base.ContentFile") as mock_cf:
+                mock_cf.return_value = MagicMock()
+                result = svc._save_uploaded_pdf(file, target)
+                assert result.endswith(".pdf")
+                mock_storage.save.assert_called_once()
+        finally:
+            import shutil
+            shutil.rmtree(target.parent, ignore_errors=True)
 
 
 class TestGetJob:

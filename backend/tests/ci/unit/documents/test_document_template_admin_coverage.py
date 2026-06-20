@@ -10,14 +10,10 @@ from django import forms
 
 from apps.documents.admin.document_template_admin import (
     DocumentTemplateAdmin,
-    DocumentTemplateForm,
     DocumentTemplateFolderBindingInline,
+    DocumentTemplateForm,
 )
-from apps.documents.admin.template_admin_views_mixin import (
-    _normalize_private_docx_root,
-    _to_django_relative_path,
-)
-
+from apps.documents.admin.template_admin_views_mixin import _normalize_private_docx_root, _to_django_relative_path
 
 # ---------------------------------------------------------------------------
 # Helper / utility functions
@@ -27,7 +23,7 @@ from apps.documents.admin.template_admin_views_mixin import (
 class TestToDjangoRelativePath:
     def test_relative_path(self) -> None:
         """Should return a posix relative path from backend root."""
-        with patch("apps.documents.admin.document_template_admin.settings") as mock_settings:
+        with patch("django.conf.settings") as mock_settings:
             mock_settings.BASE_DIR = str(Path("/app/backend"))
             result = _to_django_relative_path(Path("/app/templates/foo.docx"))
             # result should be relative to backend's parent
@@ -35,7 +31,7 @@ class TestToDjangoRelativePath:
 
     def test_same_path(self) -> None:
         """When path equals backend root, returns '.' like relative."""
-        with patch("apps.documents.admin.document_template_admin.settings") as mock_settings:
+        with patch("django.conf.settings") as mock_settings:
             mock_settings.BASE_DIR = str(Path("/app/backend"))
             # path outside backend root should still return something
             result = _to_django_relative_path(Path("/other/path"))
@@ -51,7 +47,7 @@ class TestNormalizePrivateDocxRoot:
         with pytest.raises(ValueError, match="模板根目录不存在"):
             _normalize_private_docx_root("/nonexistent/path/xyz")
 
-    @patch("apps.documents.admin.document_template_admin.Path")
+    @patch("apps.documents.admin.template_admin_views_mixin.Path")
     def test_valid_dir(self, mock_path_cls: MagicMock) -> None:
         mock_candidate = MagicMock()
         mock_candidate.is_absolute.return_value = True
@@ -64,7 +60,7 @@ class TestNormalizePrivateDocxRoot:
 
     def test_relative_path_resolves(self) -> None:
         """Relative path should be resolved against backend root."""
-        with patch("apps.documents.admin.document_template_admin.settings") as mock_settings:
+        with patch("django.conf.settings") as mock_settings:
             mock_settings.BASE_DIR = str(Path(__file__).resolve().parent)
             # path that doesn't exist
             with pytest.raises(ValueError):
@@ -255,7 +251,7 @@ class TestDocumentTemplateAdminDisplayMethods:
         admin = self._make_admin()
         obj = MagicMock()
         obj.pk = 1
-        with patch("apps.documents.admin.document_template_admin._get_template_service", side_effect=Exception("fail")):
+        with patch("apps.documents.admin.template_admin_display_mixin._get_template_service", side_effect=Exception("fail")):
             result = admin.placeholder_count_display(obj)
             assert "错误" in str(result)
 
@@ -277,7 +273,7 @@ class TestDocumentTemplateAdminDisplayMethods:
         admin = self._make_admin()
         obj = MagicMock()
         obj.pk = 1
-        with patch("apps.documents.admin.document_template_admin._get_template_service", side_effect=Exception("fail")):
+        with patch("apps.documents.admin.template_admin_display_mixin._get_template_service", side_effect=Exception("fail")):
             result = admin.placeholders_display(obj)
             assert "提取失败" in str(result)
 
@@ -285,7 +281,7 @@ class TestDocumentTemplateAdminDisplayMethods:
         admin = self._make_admin()
         obj = MagicMock()
         obj.pk = 1
-        with patch("apps.documents.admin.document_template_admin._get_template_service", side_effect=Exception("fail")):
+        with patch("apps.documents.admin.template_admin_display_mixin._get_template_service", side_effect=Exception("fail")):
             result = admin.undefined_placeholders_display(obj)
             assert "检查失败" in str(result)
 
@@ -305,7 +301,7 @@ class TestDocumentTemplateAdminActions:
         admin = self._make_admin()
         request = MagicMock()
         queryset = MagicMock()
-        with patch("apps.documents.admin.document_template_admin._get_admin_service") as mock_svc:
+        with patch("apps.documents.admin.template_admin_display_mixin._get_admin_service") as mock_svc:
             mock_svc.return_value.batch_activate.return_value = 3
             admin.activate_templates(request, queryset)
             mock_svc.return_value.batch_activate.assert_called_once_with(queryset)
@@ -314,7 +310,7 @@ class TestDocumentTemplateAdminActions:
         admin = self._make_admin()
         request = MagicMock()
         queryset = MagicMock()
-        with patch("apps.documents.admin.document_template_admin._get_admin_service") as mock_svc:
+        with patch("apps.documents.admin.template_admin_display_mixin._get_admin_service") as mock_svc:
             mock_svc.return_value.batch_deactivate.return_value = 2
             admin.deactivate_templates(request, queryset)
             mock_svc.return_value.batch_deactivate.assert_called_once_with(queryset)
@@ -330,7 +326,7 @@ class TestDocumentTemplateAdminActions:
         admin = self._make_admin()
         request = MagicMock()
         queryset = MagicMock()
-        with patch("apps.documents.admin.document_template_admin._get_admin_service") as mock_svc:
+        with patch("apps.documents.admin.template_admin_display_mixin._get_admin_service") as mock_svc:
             mock_svc.return_value.batch_duplicate_templates.return_value = 3
             admin.duplicate_templates(request, queryset)
             mock_svc.return_value.batch_duplicate_templates.assert_called_once_with(queryset)

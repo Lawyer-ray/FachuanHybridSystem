@@ -1,9 +1,10 @@
 """Tests for ContractFolderScanService - pure logic methods."""
 
 import re
-import pytest
-from unittest.mock import MagicMock, patch
 from pathlib import Path
+from unittest.mock import MagicMock, patch
+
+import pytest
 
 from apps.contracts.services.contract.integrations.folder_scan_service import (
     ContractFolderScanService,
@@ -136,6 +137,7 @@ class TestResolveScanScope:
 
     def test_traversal_blocked(self):
         import tempfile
+
         from apps.core.exceptions import ValidationException
         with tempfile.TemporaryDirectory() as tmpdir:
             with pytest.raises(ValidationException, match="路径非法"):
@@ -143,6 +145,7 @@ class TestResolveScanScope:
 
     def test_not_exist_raises(self):
         import tempfile
+
         from apps.core.exceptions import ValidationException
         with tempfile.TemporaryDirectory() as tmpdir:
             with pytest.raises(ValidationException):
@@ -151,7 +154,8 @@ class TestResolveScanScope:
 
 class TestRelativePathStr:
     def setup_method(self):
-        self.service = ContractFolderScanService(scan_service=MagicMock())
+        from apps.contracts.services.contract.integrations._candidate_post_processor import CandidatePostProcessor
+        self.service = CandidatePostProcessor(scan_service=MagicMock())
 
     def test_relative_path(self):
         import tempfile
@@ -218,7 +222,8 @@ class TestMakeProviderForBindingCloud:
 
 class TestPostProcessCandidates:
     def setup_method(self):
-        self.service = ContractFolderScanService(scan_service=MagicMock())
+        from apps.contracts.services.contract.integrations._candidate_post_processor import CandidatePostProcessor
+        self.service = CandidatePostProcessor(scan_service=MagicMock())
 
     def test_insurance_files_deselected(self):
         candidates = [
@@ -226,7 +231,7 @@ class TestPostProcessCandidates:
             {"source_path": "/path/保函.pdf", "filename": "保函.pdf", "suggested_category": "other"},
             {"source_path": "/path/normal.pdf", "filename": "normal.pdf", "suggested_category": "other"},
         ]
-        result = self.service._post_process_candidates(
+        result = self.service.post_process_candidates(
             candidates=candidates,
             archive_category="litigation",
             scan_folder="/path",
@@ -238,7 +243,7 @@ class TestPostProcessCandidates:
             assert f.get("selected") is False
 
     def test_empty_candidates(self):
-        result = self.service._post_process_candidates(
+        result = self.service.post_process_candidates(
             candidates=[],
             archive_category="litigation",
             scan_folder="/path",

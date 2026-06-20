@@ -7,12 +7,11 @@ import json
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock, PropertyMock, patch
 
 import pytest
 
 from apps.contracts.models import Contract
-
 
 # ── Templatetags ────────────────────────────────────────────────────────────
 
@@ -542,17 +541,14 @@ class TestOverrideServiceExtended:
 
 
 class TestCompositionExtended:
-    """composition.py extended tests."""
+    """wiring.py extended tests."""
 
-    @patch("apps.contracts.services.contract.usecases.composition.ContractService")
-    @patch("apps.contracts.services.contract.usecases.composition.ContractQueryFacade")
-    @patch("apps.contracts.services.contract.usecases.composition.ContractAccessPolicy")
-    @patch("apps.contracts.services.contract.usecases.composition.ContractQueryService")
-    def test_build_without_services(self, MockQS: Any, MockAP: Any, MockQF: Any, MockCS: Any) -> None:
+    @patch("apps.contracts.services.contract.query.ContractQueryFacade")
+    @patch("apps.contracts.services.contract.domain.ContractAccessPolicy")
+    @patch("apps.contracts.services.contract.query.ContractQueryService")
+    def test_build_without_services(self, MockQS: Any, MockAP: Any, MockQF: Any) -> None:
         from apps.contracts.services.contract.wiring import build_contract_service
 
-        mock_instance = MagicMock()
-        MockCS.return_value = mock_instance
         with patch(
             "apps.contracts.services.assignment.lawyer_assignment_service.LawyerAssignmentService"
         ):

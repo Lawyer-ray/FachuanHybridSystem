@@ -11,7 +11,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-
 # =========================================================================
 # evidence_sorting exporter
 # =========================================================================
@@ -83,7 +82,7 @@ class TestExporterServiceWriteCategory:
 class TestExporterServiceBuildDeliveryFilename:
     def test_basic(self):
         from apps.evidence_sorting.services.exporter import ExporterService
-        from apps.evidence_sorting.services.reconciler import DeliveryNote, STATUS_MATCHED
+        from apps.evidence_sorting.services.reconciler import STATUS_MATCHED, DeliveryNote
         svc = ExporterService()
         dn = DeliveryNote(
             filename="note.jpg",
@@ -101,7 +100,7 @@ class TestExporterServiceBuildDeliveryFilename:
 
     def test_unmatched_with_remark(self):
         from apps.evidence_sorting.services.exporter import ExporterService
-        from apps.evidence_sorting.services.reconciler import DeliveryNote, STATUS_UNMATCHED
+        from apps.evidence_sorting.services.reconciler import STATUS_UNMATCHED, DeliveryNote
         svc = ExporterService()
         dn = DeliveryNote(
             filename="note.jpg",
@@ -118,7 +117,7 @@ class TestExporterServiceBuildDeliveryFilename:
 
     def test_no_date(self):
         from apps.evidence_sorting.services.exporter import ExporterService
-        from apps.evidence_sorting.services.reconciler import DeliveryNote, STATUS_MATCHED
+        from apps.evidence_sorting.services.reconciler import STATUS_MATCHED, DeliveryNote
         svc = ExporterService()
         dn = DeliveryNote(
             filename="note.jpg",
@@ -134,7 +133,7 @@ class TestExporterServiceBuildDeliveryFilename:
 
     def test_same_date_sequence(self):
         from apps.evidence_sorting.services.exporter import ExporterService
-        from apps.evidence_sorting.services.reconciler import DeliveryNote, STATUS_MATCHED
+        from apps.evidence_sorting.services.reconciler import STATUS_MATCHED, DeliveryNote
         svc = ExporterService()
         dn = DeliveryNote(
             filename="n.jpg", date="20250601", amount=None,
@@ -183,7 +182,7 @@ class TestExporterServiceExportZip:
         mock_result.receipts = []
         mock_result.others = []
         mock_result.unmatched_deliveries = []
-        with patch.object(svc, "_ensure_output_dir", side_effect=OSError("disk full")):
+        with patch("django.core.files.storage.default_storage.save", side_effect=OSError("disk full")):
             result = svc.export_zip(mock_result)
             assert result["success"] is False
 
@@ -195,24 +194,24 @@ class TestExporterServiceExportZip:
 
 class TestOCRHandlerResolveProfile:
     def test_fast(self):
-        from apps.pdf_splitting.services.split.ocr_handler import OCRHandler
         from apps.pdf_splitting.models import PdfSplitOcrProfile
+        from apps.pdf_splitting.services.split.ocr_handler import OCRHandler
         handler = OCRHandler()
         profile = handler.resolve_runtime_profile(PdfSplitOcrProfile.FAST)
         assert profile.use_v5 is False
         assert profile.dpi == 140
 
     def test_balanced(self):
-        from apps.pdf_splitting.services.split.ocr_handler import OCRHandler
         from apps.pdf_splitting.models import PdfSplitOcrProfile
+        from apps.pdf_splitting.services.split.ocr_handler import OCRHandler
         handler = OCRHandler()
         profile = handler.resolve_runtime_profile(PdfSplitOcrProfile.BALANCED)
         assert profile.use_v5 is True
         assert profile.dpi == 200
 
     def test_accurate(self):
-        from apps.pdf_splitting.services.split.ocr_handler import OCRHandler
         from apps.pdf_splitting.models import PdfSplitOcrProfile
+        from apps.pdf_splitting.services.split.ocr_handler import OCRHandler
         handler = OCRHandler()
         profile = handler.resolve_runtime_profile(PdfSplitOcrProfile.ACCURATE)
         assert profile.use_v5 is True
@@ -268,58 +267,58 @@ class TestOCRHandlerChunkPages:
 
 
 class TestOCRHandlerReadCache:
-    def test_cache_miss(self):
+    @patch("apps.pdf_splitting.services.split.ocr_handler.default_storage")
+    def test_cache_miss(self, mock_storage):
         from apps.pdf_splitting.services.split.ocr_handler import OCRHandler
-        import tempfile
+        mock_storage.exists.return_value = False
         handler = OCRHandler()
-        with tempfile.TemporaryDirectory() as tmpdir:
-            with patch.object(handler, '_ocr_cache_file', return_value=Path(tmpdir) / "nonexistent.json"):
-                result = handler.read_ocr_cache(pdf_hash="abc", profile_key="fast", page_no=1)
-                assert result is None
+        result = handler.read_ocr_cache(pdf_hash="abc", profile_key="fast", page_no=1)
+        assert result is None
 
-    def test_cache_hit(self):
+    @patch("apps.pdf_splitting.services.split.ocr_handler.default_storage")
+    def test_cache_hit(self, mock_storage):
+        from io import BytesIO
+
         from apps.pdf_splitting.services.split.ocr_handler import OCRHandler
-        import tempfile
-        handler = OCRHandler()
         payload = {"text": "hello", "ocr_failed": False, "source_method": "ocr"}
-        with tempfile.TemporaryDirectory() as tmpdir:
-            cache_file = Path(tmpdir) / "page.json"
-            cache_file.write_text(json.dumps(payload))
-            with patch.object(handler, '_ocr_cache_file', return_value=cache_file):
-                result = handler.read_ocr_cache(pdf_hash="abc", profile_key="fast", page_no=1)
-                assert result is not None
-                assert result.text == "hello"
-                assert result.source_method == "ocr_cache"
-
-    def test_cache_hit_empty_text(self):
-        from apps.pdf_splitting.services.split.ocr_handler import OCRHandler
-        import tempfile
+        mock_storage.exists.return_value = True
+        mock_storage.open.return_value = BytesIO(json.dumps(payload).encode())
         handler = OCRHandler()
+        result = handler.read_ocr_cache(pdf_hash="abc", profile_key="fast", page_no=1)
+        assert result is not None
+        assert result.text == "hello"
+        assert result.source_method == "ocr_cache"
+
+    @patch("apps.pdf_splitting.services.split.ocr_handler.default_storage")
+    def test_cache_hit_empty_text(self, mock_storage):
+        from io import BytesIO
+
+        from apps.pdf_splitting.services.split.ocr_handler import OCRHandler
         payload = {"text": "", "ocr_failed": True, "source_method": "ocr_failed"}
-        with tempfile.TemporaryDirectory() as tmpdir:
-            cache_file = Path(tmpdir) / "page.json"
-            cache_file.write_text(json.dumps(payload))
-            with patch.object(handler, '_ocr_cache_file', return_value=cache_file):
-                result = handler.read_ocr_cache(pdf_hash="abc", profile_key="fast", page_no=1)
-                assert result is not None
-                assert result.source_method == "ocr_failed_cache"
-
-    def test_cache_corrupt_json(self):
-        from apps.pdf_splitting.services.split.ocr_handler import OCRHandler
-        import tempfile
+        mock_storage.exists.return_value = True
+        mock_storage.open.return_value = BytesIO(json.dumps(payload).encode())
         handler = OCRHandler()
-        with tempfile.TemporaryDirectory() as tmpdir:
-            cache_file = Path(tmpdir) / "page.json"
-            cache_file.write_text("not valid json!!!")
-            with patch.object(handler, '_ocr_cache_file', return_value=cache_file):
-                result = handler.read_ocr_cache(pdf_hash="abc", profile_key="fast", page_no=1)
-                assert result is None
+        result = handler.read_ocr_cache(pdf_hash="abc", profile_key="fast", page_no=1)
+        assert result is not None
+        assert result.source_method == "ocr_failed_cache"
+
+    @patch("apps.pdf_splitting.services.split.ocr_handler.default_storage")
+    def test_cache_corrupt_json(self, mock_storage):
+        from io import BytesIO
+
+        from apps.pdf_splitting.services.split.ocr_handler import OCRHandler
+        mock_storage.exists.return_value = True
+        mock_storage.open.return_value = BytesIO(b"not valid json!!!")
+        handler = OCRHandler()
+        result = handler.read_ocr_cache(pdf_hash="abc", profile_key="fast", page_no=1)
+        assert result is None
 
 
 class TestOCRHandlerSha256:
     def test_sha256(self):
-        from apps.pdf_splitting.services.split.ocr_handler import OCRHandler
         import tempfile
+
+        from apps.pdf_splitting.services.split.ocr_handler import OCRHandler
         handler = OCRHandler()
         with tempfile.NamedTemporaryFile(delete=False, suffix=".txt") as f:
             f.write(b"hello world")

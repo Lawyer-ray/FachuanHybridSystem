@@ -26,18 +26,17 @@ import os
 import re
 from pathlib import Path
 from typing import Any
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock, PropertyMock, patch
 from uuid import uuid4
 
 import pytest
 
-from apps.core.exceptions import NotFoundError, ValidationException
 from apps.contracts.services.contract.integrations.folder_scan_service import (
     ContractFolderScanService,
     _normalize_docx_name,
     run_contract_folder_scan_task,
 )
-
+from apps.core.exceptions import NotFoundError, ValidationException
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -47,6 +46,17 @@ from apps.contracts.services.contract.integrations.folder_scan_service import (
 def _make_service(**kwargs: Any) -> ContractFolderScanService:
     kwargs.setdefault("scan_service", MagicMock())
     return ContractFolderScanService(**kwargs)
+
+
+def _make_processor(**kwargs: Any) -> Any:
+    from apps.contracts.services.contract.integrations._candidate_post_processor import CandidatePostProcessor
+    kwargs.setdefault("scan_service", MagicMock())
+    return CandidatePostProcessor(**kwargs)
+
+
+def _make_pipeline(**kwargs: Any) -> Any:
+    from apps.contracts.services.contract.integrations._import_pipeline import ImportPipeline
+    return ImportPipeline()
 
 
 def _make_contract(id: int = 1, name: str = "Test Contract") -> MagicMock:
@@ -210,12 +220,12 @@ class TestBuildStatusPayload:
 
 class TestImportWorkLogSuggestions:
     def test_empty_logs(self) -> None:
-        svc = _make_service()
+        svc = _make_pipeline()
         result = svc._import_work_log_suggestions(contract_id=1, confirmed_logs=[])
         assert result == 0
 
     def test_no_case(self) -> None:
-        svc = _make_service()
+        svc = _make_pipeline()
         with patch("apps.core.interfaces.ServiceLocator") as mock_sl:
             mock_sl.get_case_service.return_value.get_cases_by_contract.return_value = []
             result = svc._import_work_log_suggestions(
@@ -241,7 +251,7 @@ class TestNormalizeDocxName:
 
 class TestRelativePathStr:
     def test_nested(self, tmp_path: Path) -> None:
-        svc = _make_service()
+        svc = _make_processor()
         sub = tmp_path / "sub"
         sub.mkdir()
         f = sub / "test.pdf"
@@ -250,14 +260,14 @@ class TestRelativePathStr:
         assert result == "sub"
 
     def test_direct(self, tmp_path: Path) -> None:
-        svc = _make_service()
+        svc = _make_processor()
         f = tmp_path / "test.pdf"
         f.touch()
         result = svc._relative_path_str(source_path=str(f), scan_root=tmp_path)
         assert result == ""
 
     def test_error(self) -> None:
-        svc = _make_service()
+        svc = _make_processor()
         result = svc._relative_path_str(source_path="/other/path", scan_root=Path("/tmp/root"))
         assert result == ""
 
@@ -302,7 +312,7 @@ class TestRunContractFolderScanTask:
 
 class TestPostProcessCandidates:
     def test_archive_document_category(self) -> None:
-        svc = _make_service()
+        svc = _make_processor()
         candidates = [
             {
                 "filename": "contract.pdf",
@@ -311,7 +321,7 @@ class TestPostProcessCandidates:
             }
         ]
         with patch(
-            "apps.contracts.services.contract.integrations.folder_scan_service.classify_archive_material"
+            "apps.contracts.services.contract.integrations._candidate_post_processor.classify_archive_material"
         ) as mock_classify:
             mock_classify.return_value = {
                 "category": "archive_document",
@@ -324,7 +334,7 @@ class TestPostProcessCandidates:
                 "apps.contracts.services.contract.integrations.folder_scan_service.collect_archive_item_options",
                 return_value=[],
             ):
-                result = svc._post_process_candidates(
+                result = svc.post_process_candidates(
                     candidates=candidates,
                     archive_category="litigation",
                     scan_folder="/tmp",
@@ -334,7 +344,7 @@ class TestPostProcessCandidates:
         assert result[0]["archive_item_code"] == "lt_4"
 
     def test_skip_category(self) -> None:
-        svc = _make_service()
+        svc = _make_processor()
         candidates = [
             {
                 "filename": "skip.pdf",
@@ -343,7 +353,7 @@ class TestPostProcessCandidates:
             }
         ]
         with patch(
-            "apps.contracts.services.contract.integrations.folder_scan_service.classify_archive_material"
+            "apps.contracts.services.contract.integrations._candidate_post_processor.classify_archive_material"
         ) as mock_classify:
             mock_classify.return_value = {
                 "category": "skip",
@@ -352,7 +362,7 @@ class TestPostProcessCandidates:
                 "confidence": 0.0,
                 "reason": "skip rule",
             }
-            result = svc._post_process_candidates(
+            result = svc.post_process_candidates(
                 candidates=candidates,
                 archive_category="litigation",
                 scan_folder="/tmp",
@@ -362,7 +372,7 @@ class TestPostProcessCandidates:
         assert "skip_reason" in result[0]
 
     def test_insurance_keyword_deselected(self) -> None:
-        svc = _make_service()
+        svc = _make_processor()
         candidates = [
             {
                 "filename": "保单.pdf",
@@ -370,7 +380,7 @@ class TestPostProcessCandidates:
                 "suggested_category": "contract_original",
             }
         ]
-        result = svc._post_process_candidates(
+        result = svc.post_process_candidates(
             candidates=candidates,
             archive_category="litigation",
             scan_folder="/tmp",
@@ -380,10 +390,10 @@ class TestPostProcessCandidates:
 
 class TestMarkAlreadyImported:
     def test_no_hashes(self) -> None:
-        svc = _make_service()
+        svc = _make_processor()
         candidates = [{"filename": "a.pdf", "source_path": "/tmp/a.pdf"}]
         with patch(
-            "apps.contracts.services.contract.integrations.folder_scan_service.FinalizedMaterial"
+            "apps.contracts.services.contract.integrations._candidate_post_processor.FinalizedMaterial"
         ) as mock_model:
             mock_model.objects.filter.return_value.values_list.return_value = []
             svc._mark_already_imported(candidates, contract_id=1)

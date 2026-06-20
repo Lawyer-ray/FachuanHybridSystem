@@ -6,12 +6,11 @@ from datetime import datetime
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
-from unittest.mock import MagicMock, patch, PropertyMock
-
-from apps.core.api.schemas import SchemaMixin
+from unittest.mock import MagicMock, PropertyMock, patch
 
 import pytest
 
+from apps.core.api.schemas import SchemaMixin
 
 # ---------------------------------------------------------------------------
 # tests for apps.core.services.bound_folder_scan_service (30 missing)
@@ -22,9 +21,10 @@ class TestBoundFolderScanService:
     def _make_service(self, **kwargs):
         from apps.core.services.bound_folder_scan_service import BoundFolderScanService
 
-        with patch("apps.core.services.bound_folder_scan_service.TextExtractionService"):
-            with patch("apps.core.services.bound_folder_scan_service.MaterialClassificationService"):
-                return BoundFolderScanService(**kwargs)
+        # TextExtractionService is TYPE_CHECKING-only, so we inject it via the constructor
+        kwargs.setdefault("text_extraction_service", MagicMock())
+        with patch("apps.core.services.bound_folder_scan_service.MaterialClassificationService"):
+            return BoundFolderScanService(**kwargs)
 
     def test_parse_version_v_pattern(self):
         svc = self._make_service()
