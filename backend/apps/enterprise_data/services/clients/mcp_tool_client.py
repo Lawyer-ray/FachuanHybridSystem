@@ -2,16 +2,17 @@
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 import logging
+import threading
 import time
 from collections.abc import Callable
 from contextlib import asynccontextmanager
 from typing import Any, TypeVar, cast
 
 import httpx
-from asgiref.sync import async_to_sync
 from django.core.cache import cache
 from mcp import ClientSession, types
 from mcp.client.sse import sse_client
@@ -26,6 +27,40 @@ _TRANSPORT_STREAMABLE_HTTP = "streamable_http"
 _TRANSPORT_SSE = "sse"
 _ResultT = TypeVar("_ResultT")
 _TRANSPORT_UNHEALTHY_TTL_SECONDS = 10 * 60
+
+# Persistent event loop for running async coroutines from sync code.
+# Avoids creating a new event loop per MCP tool call (TCP/HTTP setup cost).
+_persistent_loop: asyncio.AbstractEventLoop | None = None
+_persistent_loop_thread: threading.Thread | None = None
+_persistent_loop_lock = threading.Lock()
+
+
+def _get_or_create_loop() -> asyncio.AbstractEventLoop:
+    """Return the module-level persistent event loop, creating it on first call."""
+    global _persistent_loop, _persistent_loop_thread  # noqa: PLW0603
+    if _persistent_loop is not None and not _persistent_loop.is_closed():
+        return _persistent_loop
+    with _persistent_loop_lock:
+        # Double-check after acquiring the lock.
+        if _persistent_loop is not None and not _persistent_loop.is_closed():
+            return _persistent_loop
+        _persistent_loop = asyncio.new_event_loop()
+        _persistent_loop_thread = threading.Thread(target=_persistent_loop.run_forever, daemon=True)
+        _persistent_loop_thread.start()
+        return _persistent_loop
+
+
+def shutdown_persistent_loop() -> None:
+    """Shut down the module-level persistent event loop (call on process exit)."""
+    global _persistent_loop, _persistent_loop_thread  # noqa: PLW0603
+    with _persistent_loop_lock:
+        if _persistent_loop is not None and not _persistent_loop.is_closed():
+            _persistent_loop.call_soon_threadsafe(_persistent_loop.stop)
+            if _persistent_loop_thread is not None:
+                _persistent_loop_thread.join(timeout=5)
+            _persistent_loop.close()
+        _persistent_loop = None
+        _persistent_loop_thread = None
 
 
 class McpToolClient:
@@ -67,12 +102,15 @@ class McpToolClient:
         started = time.perf_counter()
         result, execution_meta = self._execute_with_api_key_failover(
             action=f"call_tool:{tool_name}",
-            operation=lambda api_key, transport: async_to_sync(self._call_tool_async)(
-                transport=transport,
-                tool_name=tool_name,
-                arguments=arguments,
-                api_key=api_key,
-            ),
+            operation=lambda api_key, transport: asyncio.run_coroutine_threadsafe(
+                self._call_tool_async(
+                    transport=transport,
+                    tool_name=tool_name,
+                    arguments=arguments,
+                    api_key=api_key,
+                ),
+                _get_or_create_loop(),
+            ).result(timeout=self._timeout_seconds + 30),
             log_context={"tool": tool_name},
         )
 
@@ -105,10 +143,13 @@ class McpToolClient:
         self._acquire_rate_limit(action="describe_tools")
         tools, _meta = self._execute_with_api_key_failover(
             action="describe_tools",
-            operation=lambda api_key, transport: async_to_sync(self._describe_tools_async)(
-                transport=transport,
-                api_key=api_key,
-            ),
+            operation=lambda api_key, transport: asyncio.run_coroutine_threadsafe(
+                self._describe_tools_async(
+                    transport=transport,
+                    api_key=api_key,
+                ),
+                _get_or_create_loop(),
+            ).result(timeout=self._timeout_seconds + 30),
         )
         return tools
 

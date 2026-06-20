@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from typing import Any, cast
 from uuid import UUID
 
@@ -151,8 +152,10 @@ class AskResponse(BaseModel):
 
 
 @router.post("/animations/{animation_id}/ask", response=AskResponse)
-def ask_story_animation(request: Any, animation_id: UUID, payload: AskRequest) -> AskResponse:  # pragma: no cover
-    answer = get_story_animation_job_service().ask(
+async def ask_story_animation(request: Any, animation_id: UUID, payload: AskRequest) -> AskResponse:  # pragma: no cover
+    # .ask() 内部调用 LLM（同步 HTTP 请求），用 asyncio.to_thread 避免阻塞事件循环
+    answer = await asyncio.to_thread(
+        get_story_animation_job_service().ask,
         animation_id=animation_id,
         question=payload.question,
         model=payload.model or None,

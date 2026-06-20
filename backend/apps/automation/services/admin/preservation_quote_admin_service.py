@@ -66,7 +66,7 @@ class PreservationQuoteAdminService:
                 id__in=quote_ids, status__in=[QuoteStatus.PENDING, QuoteStatus.FAILED]
             )
 
-            if not executable_quotes.exists():
+            if not await executable_quotes.aexists():
                 raise ValidationException(
                     message="没有找到可执行的询价任务",
                     code="NO_EXECUTABLE_QUOTES",
@@ -79,7 +79,7 @@ class PreservationQuoteAdminService:
 
             self.logger.info(
                 "开始批量执行询价任务",
-                extra={"action": "execute_quotes", "quote_count": executable_quotes.count(), "quote_ids": quote_ids},
+                extra={"action": "execute_quotes", "quote_count": await executable_quotes.acount(), "quote_ids": quote_ids},
             )
 
             # 逐个执行询价任务
@@ -107,7 +107,7 @@ class PreservationQuoteAdminService:
 
             result = {
                 "total_requested": len(quote_ids),
-                "executable_count": executable_quotes.count(),
+                "executable_count": await executable_quotes.acount(),
                 "success_count": success_count,
                 "error_count": error_count,
                 "errors": errors,

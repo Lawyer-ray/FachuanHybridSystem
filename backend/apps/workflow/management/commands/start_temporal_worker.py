@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 import signal
 from typing import Any
@@ -15,6 +16,15 @@ from typing import Any
 from django.core.management.base import BaseCommand
 
 logger = logging.getLogger(__name__)
+
+
+async def _cleanup_db_connections() -> None:
+    """Periodically close stale DB connections while the worker is idle."""
+    from django.db import close_old_connections
+
+    while True:
+        await asyncio.sleep(300)  # every 5 minutes
+        close_old_connections()
 
 
 class Command(BaseCommand):
@@ -133,4 +143,10 @@ class Command(BaseCommand):
         for sig in (signal.SIGINT, signal.SIGTERM):
             loop.add_signal_handler(sig, lambda: asyncio.create_task(w.shutdown()))
 
-        await w.run()
+        cleanup_task = asyncio.create_task(_cleanup_db_connections())
+        try:
+            await w.run()
+        finally:
+            cleanup_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await cleanup_task
