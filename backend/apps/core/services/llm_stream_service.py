@@ -63,6 +63,14 @@ async def build_chat_stream(
 
     llm_service = await sync_to_async(llm_service_factory, thread_sensitive=True)()
 
+    from apps.core.services.system_config_service import SystemConfigService
+
+    debug_mode = await sync_to_async(SystemConfigService().get_value)("DEBUG_MODE", "false") in (
+        "true",
+        "1",
+        "yes",
+    )
+
     full: list[str] = []
     last_usage: Any | None = None
     last_model = ""
@@ -100,9 +108,6 @@ async def build_chat_stream(
         yield f"data: {done_json}\n\n".encode()
     except Exception as e:
         logger.exception("SSE 流处理失败")
-        from apps.core.services.system_config_service import SystemConfigService
-
-        debug_mode = SystemConfigService().get_value("DEBUG_MODE", "false").lower() in ("true", "1", "yes")
         envelope, _ = presenter.present(e, channel="sse", debug=debug_mode)
         error_payload = {
             "type": "error",
