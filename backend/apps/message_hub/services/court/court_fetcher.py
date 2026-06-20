@@ -279,32 +279,59 @@ class CourtInboxFetcher(MessageFetcher):  # pragma: no cover
     def _process_page(self, source: MessageSource, token: str, records: list[dict[str, Any]]) -> int:  # pragma: no cover
         new_count = 0
         credential_id = source.credential.pk
-        for record in records:
-            sdbh = record.get("sdbh", "")
-            if not sdbh:
-                continue
 
-            # 去重
-            if InboxMessage.objects.filter(source=source, message_id=sdbh).exists():
+        # 过滤掉没有 sdbh 的记录
+        valid_records = [r for r in records if r.get("sdbh")]
+        if not valid_records:
+            return 0
+
+        # 一次性查询已存在的 message_id，避免 N+1
+        sdbh_list = [r["sdbh"] for r in valid_records]
+        existing_ids = set(
+            InboxMessage.objects.filter(
+                source=source,
+                message_id__in=sdbh_list,
+            ).values_list("message_id", flat=True)
+        )
+
+        # 收集需要新建的消息对象，然后 bulk_create
+        pending_records: list[dict[str, Any]] = []
+        pending_metas: list[list[dict[str, Any]]] = []
+        unsaved_msgs: list[InboxMessage] = []
+        for record in valid_records:
+            sdbh = record["sdbh"]
+            if sdbh in existing_ids:
                 continue
 
             attachments_meta = _fetch_attachments_meta(token, sdbh)
 
-            inbox_msg = InboxMessage.objects.create(
-                source=source,
-                message_id=sdbh,
-                subject=_build_subject(record),
-                sender=f"{record.get('fymc', '')}（{record.get('fqr', '')}）",
-                received_at=_parse_datetime(record.get("fssj", "")),
-                body_text=_build_body(record),
-                has_attachments=bool(attachments_meta),
-                attachments_meta=attachments_meta,
+            unsaved_msgs.append(
+                InboxMessage(
+                    source=source,
+                    message_id=sdbh,
+                    subject=_build_subject(record),
+                    sender=f"{record.get('fymc', '')}（{record.get('fqr', '')}）",
+                    received_at=_parse_datetime(record.get("fssj", "")),
+                    body_text=_build_body(record),
+                    has_attachments=bool(attachments_meta),
+                    attachments_meta=attachments_meta,
+                )
             )
-            new_count += 1
+            pending_records.append(record)
+            pending_metas.append(attachments_meta)
 
+        if not unsaved_msgs:
+            return 0
+
+        # bulk_create 返回带 PK 的对象（PostgreSQL）
+        created_msgs = InboxMessage.objects.bulk_create(unsaved_msgs)
+        new_count = len(created_msgs)
+
+        # 批量创建后处理附件下载与推送流程
+        for inbox_msg, record, attachments_meta in zip(created_msgs, pending_records, pending_metas):
+            sdbh = record["sdbh"]
             delivery_record = self._build_delivery_record(record)
 
-            # 下载附件 + 触发推送流程
             if attachments_meta:
                 if delivery_record.case_number:
                     from apps.automation.services.sms.court_sms_dedup_service import CourtSMSDedupService
