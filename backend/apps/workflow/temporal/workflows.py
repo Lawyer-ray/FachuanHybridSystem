@@ -57,9 +57,10 @@ INTERNAL_ACTIVITY_MAP: dict[str, Any] = {
     "generate_complaint_simple": act.generate_complaint_simple,
     "generate_complaint": act.generate_complaint,
     "review_complaint_quality": act.review_complaint_quality,
-    "execute_court_filing": act.execute_court_filing,
     "download_litigation_document": act.download_litigation_document,
 }
+if act._HAS_COURT_FILING:
+    INTERNAL_ACTIVITY_MAP["execute_court_filing"] = act.execute_court_filing
 
 # 有 mcp_tool 的步骤 → MCP 工具名（DynamicWorkflow 走 execute_mcp_tool）
 MCP_TOOL_MAP: dict[str, str] = {
@@ -71,7 +72,6 @@ MCP_TOOL_MAP: dict[str, str] = {
     "download_litigation_document": "download_litigation_document",
     "download_authorization_package": "download_authorization_package",
     "download_preservation_docs": "download_full_preservation_package",
-    "execute_court_filing": "execute_court_filing",
     "execute_guarantee": "execute_guarantee",
     "submit_court_sms": "submit_court_sms",
     "search_companies": "search_companies",
@@ -86,6 +86,8 @@ MCP_TOOL_MAP: dict[str, str] = {
     "calculate_litigation_fee": "calculate_litigation_fee",
     "calculate_interest": "calculate_interest",
 }
+if act._HAS_COURT_FILING:
+    MCP_TOOL_MAP["execute_court_filing"] = "execute_court_filing"
 
 
 @workflow.defn

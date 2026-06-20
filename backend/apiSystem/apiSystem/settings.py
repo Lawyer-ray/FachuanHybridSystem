@@ -157,10 +157,19 @@ if not DEBUG:
 else:
     _template_loaders = None
 
+_TEMPLATE_DIRS: list[str | Path] = [BASE_DIR / "templates"]
+try:
+    from plugins import has_court_automation_plugin  # type: ignore[attr-defined]
+
+    if has_court_automation_plugin():
+        _TEMPLATE_DIRS.append(os.path.join(BASE_DIR, "..", "plugins", "court_automation", "templates"))
+except ImportError:
+    pass
+
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [BASE_DIR / "templates"],  # 全局模板目录
+        "DIRS": _TEMPLATE_DIRS,
         **({"APP_DIRS": True} if _template_loaders is None else {}),
         "OPTIONS": {
             **({"loaders": _template_loaders} if _template_loaders else {}),

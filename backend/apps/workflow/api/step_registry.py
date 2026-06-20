@@ -256,17 +256,6 @@ STEP_CATEGORIES: list[dict[str, Any]] = [
                 "config_schema": {},
             },
             {
-                "id": "execute_court_filing",
-                "name": "执行网上立案",
-                "type": "activity",
-                "description": "自动执行法院网上立案操作",
-                "icon": "Send",
-                "mcp_tool": "execute_court_filing",
-                "config_schema": {
-                    "case_id_source": {"type": "select", "required": True, "label": "案件ID来源", "options": ["workflow_input", "previous_step"], "default": "workflow_input"},
-                },
-            },
-            {
                 "id": "execute_guarantee",
                 "name": "执行诉讼保全",
                 "type": "activity",
@@ -436,6 +425,41 @@ STEP_CATEGORIES: list[dict[str, Any]] = [
         ],
     },
 ]
+
+# ── 条件性步骤：court_automation 插件可用时才注册 ────────────────
+try:
+    from plugins.court_automation.filing.helpers import _run_filing  # noqa: F401
+
+    _HAS_COURT_FILING = True
+except ImportError:
+    _HAS_COURT_FILING = False
+
+if _HAS_COURT_FILING:
+    _COURT_FILING_STEP = {
+        "id": "execute_court_filing",
+        "name": "执行网上立案",
+        "type": "activity",
+        "description": "自动执行法院网上立案操作",
+        "icon": "Send",
+        "mcp_tool": "execute_court_filing",
+        "config_schema": {
+            "case_id_source": {
+                "type": "select",
+                "required": True,
+                "label": "案件ID来源",
+                "options": ["workflow_input", "previous_step"],
+                "default": "workflow_input",
+            },
+        },
+    }
+    # 在诉讼流程分类中，build_litigation_context 之后插入
+    for _cat in STEP_CATEGORIES:
+        if _cat["id"] == "litigation":
+            _ctx_idx = next(
+                i for i, s in enumerate(_cat["steps"]) if s["id"] == "build_litigation_context"
+            )
+            _cat["steps"].insert(_ctx_idx + 1, _COURT_FILING_STEP)
+            break
 
 
 def get_step_registry() -> list[dict[str, Any]]:

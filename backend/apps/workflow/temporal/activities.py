@@ -317,12 +317,24 @@ async def review_complaint_quality(draft: dict, summary: dict) -> dict:
         return {"score": 70, "issues": ["解析失败"], "suggestions": [result]}
 
 
-# ── 立案 ──────────────────────────────────────────────────
+# ── 立案（条件性，依赖 court_automation 插件）───────────────────
+
+try:
+    from plugins.court_automation.filing.helpers import _run_filing  # noqa: F401
+
+    _HAS_COURT_FILING = True
+except ImportError:
+    _HAS_COURT_FILING = False
 
 
 @activity.defn
-async def execute_court_filing(case_id: int) -> dict:
-    """执行网上立案"""
+async def execute_court_filing(case_id: int, feedback: str | None = None) -> dict:
+    """执行网上立案（需要 court_automation 插件）"""
+    if not _HAS_COURT_FILING:
+        from temporalio.exceptions import ApplicationError
+
+        raise ApplicationError("Court filing plugin not installed", non_retryable=True)
+
     from apps.automation.services.litigation.filing_service import CourtFilingService
 
     service = CourtFilingService()
@@ -544,7 +556,10 @@ async def execute_mcp_tool(mcp_tool_name: str, kwargs: dict) -> dict:
         )
         from mcp_server.tools.finance.lpr import calculate_interest
         from mcp_server.tools.automation.auto_namer import auto_namer_process
-        from mcp_server.tools.automation.court_filing import execute_court_filing as mcp_execute_court_filing
+        if _HAS_COURT_FILING:
+            from mcp_server.tools.automation.court_filing import execute_court_filing as mcp_execute_court_filing
+
+            MCP_TOOLS["execute_court_filing"] = mcp_execute_court_filing
         from mcp_server.tools.automation.court_guarantee import execute_guarantee
         from mcp_server.tools.automation.court_sms import submit_court_sms
         from mcp_server.tools.automation.document_processor import process_document
@@ -560,7 +575,6 @@ async def execute_mcp_tool(mcp_tool_name: str, kwargs: dict) -> dict:
             "download_full_preservation_package": download_full_preservation_package,
             "list_bind_candidates": list_bind_candidates,
             "create_case_log": create_case_log,
-            "execute_court_filing": mcp_execute_court_filing,
             "execute_guarantee": execute_guarantee,
             "submit_court_sms": submit_court_sms,
             "search_companies": search_companies,

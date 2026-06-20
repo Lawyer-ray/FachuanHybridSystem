@@ -77,7 +77,6 @@ class Command(BaseCommand):
             build_litigation_context,
             collect_case_facts,
             download_litigation_document,
-            execute_court_filing,
             execute_mcp_tool,
             fetch_template_schema,
             generate_complaint,
@@ -93,6 +92,7 @@ class Command(BaseCommand):
             summarize_evidence,
             update_run_status,
         )
+        from apps.workflow.temporal.activities import _HAS_COURT_FILING  # noqa: F811
         from apps.workflow.temporal.workflows import DynamicWorkflow, SalesContractDisputeWorkflow
 
         temporal_addr = options["temporal_address"]
@@ -102,6 +102,32 @@ class Command(BaseCommand):
         self.stdout.write(f"已连接 Temporal Server: {temporal_addr}")
 
         # 使用 UnsandboxedWorkflowRunner 避免 Django 模块导入被 sandbox 拦截
+        activities_list = [
+            record_step,
+            update_run_status,
+            collect_case_facts,
+            list_case_materials,
+            analyze_single_evidence,
+            summarize_evidence,
+            suggest_arrangement,
+            apply_arrangement,
+            build_litigation_context,
+            generate_complaint,
+            generate_complaint_simple,
+            review_complaint_quality,
+            download_litigation_document,
+            fetch_template_schema,
+            generic_delay,
+            generic_llm_call,
+            generic_http_request,
+            generic_code_exec,
+            execute_mcp_tool,
+        ]
+        if _HAS_COURT_FILING:
+            from apps.workflow.temporal.activities import execute_court_filing
+
+            activities_list.append(execute_court_filing)
+
         w = Worker(
             client,
             task_queue=task_queue,
@@ -109,28 +135,7 @@ class Command(BaseCommand):
                 SalesContractDisputeWorkflow,
                 DynamicWorkflow,
             ],
-            activities=[
-                record_step,
-                update_run_status,
-                collect_case_facts,
-                list_case_materials,
-                analyze_single_evidence,
-                summarize_evidence,
-                suggest_arrangement,
-                apply_arrangement,
-                build_litigation_context,
-                generate_complaint,
-                generate_complaint_simple,
-                review_complaint_quality,
-                execute_court_filing,
-                download_litigation_document,
-                fetch_template_schema,
-                generic_delay,
-                generic_llm_call,
-                generic_http_request,
-                generic_code_exec,
-                execute_mcp_tool,
-            ],
+            activities=activities_list,
             max_concurrent_activities=options["max_activities"],
             workflow_runner=UnsandboxedWorkflowRunner(),
         )

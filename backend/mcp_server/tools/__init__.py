@@ -5,51 +5,75 @@ from mcp_server.tools.automation import (
     assign_sms_case,
     auto_namer_process,
     auto_namer_process_by_path,
-    bind_guarantee_quote,
     cleanup_resources,
     clear_cache,
     create_delivery_schedule,
-    create_preservation_quote,
     delete_court_sms,
-    delete_guarantee_binding,
-    delete_guarantee_quote,
-    ensure_guarantee_quote,
-    execute_court_filing,
-    execute_guarantee,
-    execute_preservation_quote,
+    download_sms_document,
+    download_sms_documents,
     get_captcha_image,
     get_cache_statistics,
-    get_court_filing_case_info,
-    get_court_filing_session,
     get_court_sms_detail,
     get_delivery_schedule,
-    get_guarantee_case_info,
-    get_guarantee_session,
     get_automation_config,
     get_automation_status,
     get_performance_metrics,
-    get_preservation_quote,
     get_resource_usage,
     get_statistics_report,
     health_check,
     list_court_sms,
     list_delivery_schedules,
-    list_preservation_quotes,
     optimize_concurrency,
     process_document,
     process_document_by_path,
     query_document_delivery,
     reset_performance_metrics,
-    retry_guarantee_quote,
-    retry_preservation_quote,
     retry_sms_processing,
     submit_captcha_answer,
     submit_court_sms,
     update_delivery_schedule,
-    download_sms_document,
-    download_sms_documents,
     warm_up_cache,
 )
+
+# 条件导入：网上立案
+try:
+    from mcp_server.tools.automation import (
+        execute_court_filing,
+        get_court_filing_case_info,
+        get_court_filing_session,
+    )
+    _HAS_FILING = True
+except ImportError:
+    _HAS_FILING = False
+
+# 条件导入：诉讼保全
+try:
+    from mcp_server.tools.automation import (
+        bind_guarantee_quote,
+        delete_guarantee_binding,
+        delete_guarantee_quote,
+        ensure_guarantee_quote,
+        execute_guarantee,
+        get_guarantee_case_info,
+        get_guarantee_session,
+        retry_guarantee_quote,
+    )
+    _HAS_GUARANTEE = True
+except ImportError:
+    _HAS_GUARANTEE = False
+
+# 条件导入：财产保全询价
+try:
+    from mcp_server.tools.automation import (
+        create_preservation_quote,
+        execute_preservation_quote,
+        get_preservation_quote,
+        list_preservation_quotes,
+        retry_preservation_quote,
+    )
+    _HAS_QUOTE = True
+except ImportError:
+    _HAS_QUOTE = False
 from mcp_server.tools.cases import (
     add_case_party,
     assign_lawyer,
@@ -627,11 +651,6 @@ __all__ = [
     "delete_court_sms",
     "download_sms_documents",
     "download_sms_document",
-    "create_preservation_quote",
-    "list_preservation_quotes",
-    "get_preservation_quote",
-    "execute_preservation_quote",
-    "retry_preservation_quote",
     "query_document_delivery",
     "list_delivery_schedules",
     "create_delivery_schedule",
@@ -641,17 +660,6 @@ __all__ = [
     "submit_captcha_answer",
     "auto_namer_process",
     "auto_namer_process_by_path",
-    "get_court_filing_case_info",
-    "get_court_filing_session",
-    "execute_court_filing",
-    "get_guarantee_case_info",
-    "get_guarantee_session",
-    "execute_guarantee",
-    "ensure_guarantee_quote",
-    "bind_guarantee_quote",
-    "delete_guarantee_quote",
-    "retry_guarantee_quote",
-    "delete_guarantee_binding",
     # 性能监控
     "health_check",
     "get_performance_metrics",
@@ -878,3 +886,34 @@ __all__ = [
     "duplicate_workflow_template",
     "start_workflow_from_steps",
 ]
+
+# 条件导出：网上立案
+if _HAS_FILING:
+    __all__ += [
+        "get_court_filing_case_info",
+        "get_court_filing_session",
+        "execute_court_filing",
+    ]
+
+# 条件导出：诉讼保全
+if _HAS_GUARANTEE:
+    __all__ += [
+        "get_guarantee_case_info",
+        "get_guarantee_session",
+        "execute_guarantee",
+        "ensure_guarantee_quote",
+        "bind_guarantee_quote",
+        "delete_guarantee_quote",
+        "retry_guarantee_quote",
+        "delete_guarantee_binding",
+    ]
+
+# 条件导出：财产保全询价
+if _HAS_QUOTE:
+    __all__ += [
+        "create_preservation_quote",
+        "list_preservation_quotes",
+        "get_preservation_quote",
+        "execute_preservation_quote",
+        "retry_preservation_quote",
+    ]

@@ -11,7 +11,16 @@ from .court_sms_api import router as court_sms_router
 from .document_delivery_api import router as document_delivery_router
 from .document_processor_api import router as document_processor_router
 from .main_api import router as main_router
-from .preservation_quote_api import router as preservation_quote_router
+
+try:
+    from plugins.court_automation.preservation_quote.api_endpoint import (
+        router as preservation_quote_router,
+    )
+except ImportError:
+    try:
+        from .preservation_quote_api import router as preservation_quote_router
+    except ImportError:
+        preservation_quote_router = None
 
 # 创建模块路由器
 router = Router()
@@ -21,7 +30,8 @@ router.add_router("/document-processor", document_processor_router, tags=["文�
 router.add_router("/auto-namer", auto_namer_router, tags=["自动命名"])
 router.add_router("/captcha", captcha_recognition_router, tags=["验证码识别"])  # 验证码识别 API
 router.add_router("/captcha/manual", captcha_manual_router, tags=["手动验证码"])  # 手动验证码 API
-router.add_router("", preservation_quote_router, tags=["财产保全询价"])  # 财产保全询价 API
+if preservation_quote_router is not None:
+    router.add_router("", preservation_quote_router, tags=["财产保全询价"])  # 财产保全询价 API
 router.add_router("", court_sms_router, tags=["法院短信处理"])  # 法院短信处理 API
 router.add_router("", document_delivery_router, tags=["文书送达自动下载"])  # 文书送达自动下载 API
 router.add_router("", main_router, tags=["AI工具"])
