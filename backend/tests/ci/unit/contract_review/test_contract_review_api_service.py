@@ -272,6 +272,7 @@ class TestReviewService:
         with pytest.raises(ContractReviewError, match=r"仅支持 \.docx"):
             service.upload_contract(mock_file, mock_user)
 
+    @patch("apps.contract_review.services.review.review_service.default_storage")
     @patch("apps.contract_review.services.review.review_service.Document")
     @patch("apps.contract_review.services.review.review_service.TitleExtractor")
     @patch("apps.contract_review.services.review.review_service.PartyIdentifier")
@@ -279,11 +280,12 @@ class TestReviewService:
     @patch("apps.contract_review.services.review.review_service.settings")
     def test_upload_contract_success(
         self, mock_settings, mock_extractor_cls, mock_party_id_cls,
-        mock_title_extractor_cls, mock_doc_cls, service, user
+        mock_title_extractor_cls, mock_doc_cls, mock_storage, service, user
     ):
         import tempfile
         with tempfile.TemporaryDirectory() as tmpdir:
             mock_settings.MEDIA_ROOT = tmpdir
+            mock_storage.save.side_effect = lambda rel, f: rel
 
             mock_file = MagicMock()
             mock_file.name = "contract.docx"
@@ -305,15 +307,17 @@ class TestReviewService:
             assert task.contract_title == "测试合同"
             assert task.party_a == "A公司"
 
+    @patch("apps.contract_review.services.review.review_service.default_storage")
     @patch("apps.contract_review.services.review.review_service.PartyIdentifier")
     @patch("apps.contract_review.services.review.review_service.ContentExtractor")
     @patch("apps.contract_review.services.review.review_service.settings")
-    def test_upload_contract_extraction_error(self, mock_settings, mock_extractor_cls, mock_party_id_cls, service, user):
+    def test_upload_contract_extraction_error(self, mock_settings, mock_extractor_cls, mock_party_id_cls, mock_storage, service, user):
         from apps.contract_review.services.exceptions import ExtractionError
 
         import tempfile
         with tempfile.TemporaryDirectory() as tmpdir:
             mock_settings.MEDIA_ROOT = tmpdir
+            mock_storage.save.side_effect = lambda rel, f: rel
 
             mock_file = MagicMock()
             mock_file.name = "bad.docx"

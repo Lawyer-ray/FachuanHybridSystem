@@ -154,34 +154,28 @@ class TestDocumentRenamerFilename:
 
 class TestSaveUploadedDocument:
     def test_save_file(self, tmp_path) -> None:
+        from django.core.files.uploadedfile import SimpleUploadedFile
         from apps.automation.services.document.document_processing import save_uploaded_document
 
-        upload = MagicMock()
-        upload.name = "test_upload.pdf"
-        upload.chunks.return_value = [b"chunk1", b"chunk2"]
+        upload = SimpleUploadedFile(name="test_upload.pdf", content=b"%PDF-1.4chunk2", content_type="application/pdf")
 
-        with patch("apps.automation.services.document.document_processing.settings") as mock_settings:
-            mock_settings.MEDIA_ROOT = str(tmp_path)
+        from django.test import override_settings
+        with override_settings(MEDIA_ROOT=str(tmp_path)):
             result = save_uploaded_document(upload)
 
         assert result.exists()
         assert result.suffix == ".pdf"
-        assert "test_upload" in result.name
         result.unlink(missing_ok=True)
 
     def test_unique_filenames(self, tmp_path) -> None:
+        from django.core.files.uploadedfile import SimpleUploadedFile
         from apps.automation.services.document.document_processing import save_uploaded_document
 
-        upload1 = MagicMock()
-        upload1.name = "same.pdf"
-        upload1.chunks.return_value = [b"data1"]
+        upload1 = SimpleUploadedFile(name="same.pdf", content=b"%PDF-1.4data1", content_type="application/pdf")
+        upload2 = SimpleUploadedFile(name="same.pdf", content=b"%PDF-1.4data2", content_type="application/pdf")
 
-        upload2 = MagicMock()
-        upload2.name = "same.pdf"
-        upload2.chunks.return_value = [b"data2"]
-
-        with patch("apps.automation.services.document.document_processing.settings") as mock_settings:
-            mock_settings.MEDIA_ROOT = str(tmp_path)
+        from django.test import override_settings
+        with override_settings(MEDIA_ROOT=str(tmp_path)):
             r1 = save_uploaded_document(upload1)
             r2 = save_uploaded_document(upload2)
 

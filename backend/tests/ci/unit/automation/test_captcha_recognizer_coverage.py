@@ -85,10 +85,12 @@ class TestManualCaptchaRecognizerRecognizeSuccess:
                 mock_settings.MEDIA_ROOT = "/tmp/media"
                 with patch("apps.automation.models.ScraperTaskStatus") as mock_status:
                     mock_status.WAITING_FOR_CAPTCHA = "WAITING_FOR_CAPTCHA"
-                    result = r.recognize(b"\x89PNG")
+                    with patch("django.core.files.storage.default_storage") as mock_storage:
+                        mock_storage.save.return_value = "automation/captcha_pending/test.png"
+                        result = r.recognize(b"\x89PNG")
 
         assert result == "1234"  # stripped and spaces removed
-        mock_image_path.unlink.assert_called_once_with(missing_ok=True)
+        mock_storage.delete.assert_called_once_with("automation/captcha_pending/test.png")
 
     def test_recognize_exception_returns_none(self):
         task = MagicMock()

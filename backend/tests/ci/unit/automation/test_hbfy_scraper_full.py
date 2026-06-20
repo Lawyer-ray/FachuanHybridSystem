@@ -495,10 +495,14 @@ class TestDownloadPublicDocuments:
             ]
         }
         download_dir = Path("/tmp/hbfy_test")
-        with patch.object(Path, "write_bytes"):
-            with patch.object(Path, "__truediv__", return_value=Path("/tmp/hbfy_test/文书1.pdf")):
-                result = scraper._download_public_documents(session, sms_info, download_dir)
-                assert len(result) >= 0  # depends on mock behavior
+        with patch("apps.automation.services.scraper.scrapers.court_document.hbfy_scraper.settings") as mock_settings, \
+             patch("apps.automation.services.scraper.scrapers.court_document.hbfy_scraper.default_storage") as mock_storage:
+            mock_settings.MEDIA_ROOT = "/tmp"
+            mock_storage.save.side_effect = lambda rel, f: rel
+            with patch.object(Path, "write_bytes"):
+                with patch.object(Path, "__truediv__", return_value=Path("/tmp/hbfy_test/文书1.pdf")):
+                    result = scraper._download_public_documents(session, sms_info, download_dir)
+                    assert len(result) >= 0  # depends on mock behavior
 
     def test_skips_empty_download_path(self):
         scraper = _make_scraper()
@@ -515,9 +519,13 @@ class TestDownloadPublicDocuments:
         file_resp.content = b"content"
         session.get.return_value = file_resp
         sms_info = {"docList": [{"downloadPath": "https://example.com/doc.pdf", "docName": "文档"}]}
-        with patch("pathlib.Path.write_bytes"):
-            with patch("pathlib.Path.__truediv__", return_value=Path("/tmp/test.pdf")):
-                scraper._download_public_documents(session, sms_info, Path("/tmp"))
+        with patch("apps.automation.services.scraper.scrapers.court_document.hbfy_scraper.settings") as mock_settings, \
+             patch("apps.automation.services.scraper.scrapers.court_document.hbfy_scraper.default_storage") as mock_storage:
+            mock_settings.MEDIA_ROOT = "/tmp"
+            mock_storage.save.side_effect = lambda rel, f: rel
+            with patch("pathlib.Path.write_bytes"):
+                with patch("pathlib.Path.__truediv__", return_value=Path("/tmp/test.pdf")):
+                    scraper._download_public_documents(session, sms_info, Path("/tmp"))
 
 
 # ======================================================================
@@ -593,9 +601,13 @@ class TestDownloadRecordDocument:
         file_resp.content = b"PDF"
         file_resp.headers = {"Content-Disposition": 'filename="test.pdf"', "Content-Type": "application/pdf"}
         session.get.side_effect = [input_resp, file_resp]
-        with patch("pathlib.Path.write_bytes"):
-            result = scraper._download_record_document(session, "DOC1", "标题", Path("/tmp"))
-            assert result is not None
+        with patch("apps.automation.services.scraper.scrapers.court_document.daolv_sifa_songda_scraper.settings") as mock_settings, \
+             patch("apps.automation.services.scraper.scrapers.court_document.daolv_sifa_songda_scraper.default_storage") as mock_storage:
+            mock_settings.MEDIA_ROOT = "/tmp"
+            mock_storage.save.side_effect = lambda rel, f: rel
+            with patch("pathlib.Path.write_bytes"):
+                result = scraper._download_record_document(session, "DOC1", "标题", Path("/tmp"))
+                assert result is not None
 
     def test_no_candidates(self):
         scraper = _make_scraper()
