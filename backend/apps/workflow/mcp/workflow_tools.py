@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from uuid import uuid4
+
+if TYPE_CHECKING:
+    from temporalio.client import Client
 
 logger = logging.getLogger(__name__)
 
@@ -16,9 +19,15 @@ except Exception:
 TASK_QUEUE = "fachuan-workflow"
 
 
+_client: Client | None = None
+
+
 async def _get_client():  # type: ignore[no-untyped-def]
-    from temporalio.client import Client
-    return await Client.connect(TEMPORAL_ADDRESS)
+    global _client
+    if _client is None:
+        from temporalio.client import Client
+        _client = await Client.connect(TEMPORAL_ADDRESS)
+    return _client
 
 
 async def start_workflow(template_slug: str, case_id: int) -> dict[str, Any]:

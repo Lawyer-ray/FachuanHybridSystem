@@ -35,13 +35,14 @@ class TokenRateLimitMiddleware:
             bucket_key = f"{cache_key}:{current_bucket}"
 
             try:
-                count = cache.get(bucket_key)
-                if count is None:
-                    cache.set(bucket_key, 1, timeout=_TOKEN_RATE_WINDOW + 5)
+                if cache.add(bucket_key, 1, timeout=_TOKEN_RATE_WINDOW + 5):
                     count = 1
                 else:
-                    count = int(count) + 1
-                    cache.set(bucket_key, count, timeout=_TOKEN_RATE_WINDOW + 5)
+                    try:
+                        count = int(cache.incr(bucket_key))
+                    except ValueError:
+                        cache.set(bucket_key, 1, timeout=_TOKEN_RATE_WINDOW + 5)
+                        count = 1
             except Exception:
                 count = 0  # 缓存故障时放行
 

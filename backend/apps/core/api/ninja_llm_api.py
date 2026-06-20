@@ -147,6 +147,7 @@ async def chat_with_context_stream(request: Any, payload: ChatRequest) -> Any:
 
     resp = StreamingHttpResponse(stream, content_type="text/event-stream")
     resp["Cache-Control"] = "no-cache"
+    resp["X-Accel-Buffering"] = "no"
     return resp
 
 
