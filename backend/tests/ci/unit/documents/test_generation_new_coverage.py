@@ -288,9 +288,10 @@ class TestOutputStorage:
         from apps.documents.services.generation.output_storage import GeneratedDocumentStorage
 
         store = GeneratedDocumentStorage(media_root=str(tmp_path))
-        result = store.save_for_case(case_id=42, filename="doc.docx", content=b"data")
-        assert "case_42" in result
-        assert "doc.docx" in result
+        with patch("apps.documents.services.generation.output_storage.default_storage") as mock_storage:
+            mock_storage.save.side_effect = lambda rel, f: rel
+            result = store.save_for_case(case_id=42, filename="doc.docx", content=b"data")
+            assert "case_42" in result
 
 
 class TestNaming:

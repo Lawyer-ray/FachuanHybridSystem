@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from unittest.mock import patch
+
 from apps.documents.services.code_placeholders.registry import (
     CodePlaceholderDefinition,
     CodePlaceholderRegistry,
@@ -104,24 +106,28 @@ class TestGeneratedDocumentStorage:
 
         with tempfile.TemporaryDirectory() as tmpdir:
             storage = GeneratedDocumentStorage(media_root=tmpdir)
-            result = storage.save_bytes(
-                relative_dir="test_dir",
-                filename="test.txt",
-                content=b"hello world",
-            )
-            assert "test_dir/test.txt" in result
+            with patch("apps.documents.services.generation.output_storage.default_storage") as mock_storage:
+                mock_storage.save.side_effect = lambda rel, f: rel
+                result = storage.save_bytes(
+                    relative_dir="test_dir",
+                    filename="test.txt",
+                    content=b"hello world",
+                )
+                assert "test_dir/test.txt" in result
 
     def test_save_for_case(self) -> None:
         import tempfile
 
         with tempfile.TemporaryDirectory() as tmpdir:
             storage = GeneratedDocumentStorage(media_root=tmpdir)
-            result = storage.save_for_case(
-                case_id=1,
-                filename="contract.docx",
-                content=b"fake docx",
-            )
-            assert "case_1" in result
+            with patch("apps.documents.services.generation.output_storage.default_storage") as mock_storage:
+                mock_storage.save.side_effect = lambda rel, f: rel
+                result = storage.save_for_case(
+                    case_id=1,
+                    filename="contract.docx",
+                    content=b"fake docx",
+                )
+                assert "case_1" in result
             assert "contract.docx" in result
 
     def test_media_root_from_config(self) -> None:
