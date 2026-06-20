@@ -4,13 +4,12 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
-from unittest.mock import MagicMock, patch, PropertyMock
 from typing import Any
+from unittest.mock import MagicMock, PropertyMock, patch
 
 import pytest
 
 from apps.core.exceptions import NotFoundError, ValidationException
-
 
 # ── _normalize_scan_subfolder ─────────────────────────────────────
 
@@ -343,9 +342,7 @@ class TestConstants:
 
 class TestRunContractFolderScanTask:
     def test_delegates_to_service(self):
-        from apps.contracts.services.contract.integrations.folder_scan_service import (
-            run_contract_folder_scan_task,
-        )
+        from apps.contracts.services.contract.integrations.folder_scan_service import run_contract_folder_scan_task
 
         with patch("apps.contracts.services.contract.integrations.folder_scan_service.ContractFolderScanService") as mock_cls:
             mock_instance = MagicMock()

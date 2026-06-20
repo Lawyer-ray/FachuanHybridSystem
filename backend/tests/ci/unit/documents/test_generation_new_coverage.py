@@ -5,8 +5,8 @@ path_utils, output_storage, pipeline modules.
 from __future__ import annotations
 
 from datetime import date
-from unittest.mock import MagicMock, patch
 from pathlib import Path as RealPath
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -315,9 +315,7 @@ class TestNaming:
             assert result.endswith(".docx")
 
     def test_supplementary_agreement_docx_filename(self):
-        from apps.documents.services.generation.pipeline.naming import (
-            supplementary_agreement_docx_filename,
-        )
+        from apps.documents.services.generation.pipeline.naming import supplementary_agreement_docx_filename
 
         with patch(
             "apps.documents.services.generation.pipeline.naming.FilenameTemplateService"

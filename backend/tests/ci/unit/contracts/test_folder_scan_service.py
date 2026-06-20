@@ -4,11 +4,11 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from apps.cases.services.material.folder_scan_service import CaseFolderScanService
 from apps.contracts.services.contract.integrations.folder_scan_service import (
     ContractFolderScanService,
     _normalize_docx_name,
 )
-from apps.cases.services.material.folder_scan_service import CaseFolderScanService
 
 
 class TestContractFolderScanServiceHelpers:

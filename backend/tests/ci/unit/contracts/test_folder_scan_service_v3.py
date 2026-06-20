@@ -26,18 +26,17 @@ import os
 import re
 from pathlib import Path
 from typing import Any
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock, PropertyMock, patch
 from uuid import uuid4
 
 import pytest
 
-from apps.core.exceptions import NotFoundError, ValidationException
 from apps.contracts.services.contract.integrations.folder_scan_service import (
     ContractFolderScanService,
     _normalize_docx_name,
     run_contract_folder_scan_task,
 )
-
+from apps.core.exceptions import NotFoundError, ValidationException
 
 # ---------------------------------------------------------------------------
 # Helpers

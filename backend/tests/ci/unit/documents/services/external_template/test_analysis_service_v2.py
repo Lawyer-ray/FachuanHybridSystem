@@ -29,13 +29,12 @@ from __future__ import annotations
 import json
 from pathlib import Path
 from typing import Any
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock, PropertyMock, patch
 
 import pytest
 from django.core.exceptions import ValidationError
 
 from apps.documents.services.external_template.analysis_service import AnalysisService
-
 
 # ---------------------------------------------------------------------------
 # Helpers

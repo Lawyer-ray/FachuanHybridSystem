@@ -4,7 +4,7 @@ Covers: lazy property loading for all sub-services, delegated method calls.
 """
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock, PropertyMock, patch
 
 import pytest
 

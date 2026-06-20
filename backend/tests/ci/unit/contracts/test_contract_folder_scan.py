@@ -1,9 +1,10 @@
 """Tests for ContractFolderScanService - pure logic methods."""
 
 import re
-import pytest
-from unittest.mock import MagicMock, patch
 from pathlib import Path
+from unittest.mock import MagicMock, patch
+
+import pytest
 
 from apps.contracts.services.contract.integrations.folder_scan_service import (
     ContractFolderScanService,
@@ -136,6 +137,7 @@ class TestResolveScanScope:
 
     def test_traversal_blocked(self):
         import tempfile
+
         from apps.core.exceptions import ValidationException
         with tempfile.TemporaryDirectory() as tmpdir:
             with pytest.raises(ValidationException, match="路径非法"):
@@ -143,6 +145,7 @@ class TestResolveScanScope:
 
     def test_not_exist_raises(self):
         import tempfile
+
         from apps.core.exceptions import ValidationException
         with tempfile.TemporaryDirectory() as tmpdir:
             with pytest.raises(ValidationException):

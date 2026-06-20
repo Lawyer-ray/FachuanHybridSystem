@@ -6,12 +6,11 @@ from datetime import datetime
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
-from unittest.mock import MagicMock, patch, PropertyMock
-
-from apps.core.api.schemas import SchemaMixin
+from unittest.mock import MagicMock, PropertyMock, patch
 
 import pytest
 
+from apps.core.api.schemas import SchemaMixin
 
 # ---------------------------------------------------------------------------
 # tests for apps.core.services.bound_folder_scan_service (30 missing)

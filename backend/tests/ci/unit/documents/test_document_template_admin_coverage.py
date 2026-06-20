@@ -10,14 +10,10 @@ from django import forms
 
 from apps.documents.admin.document_template_admin import (
     DocumentTemplateAdmin,
-    DocumentTemplateForm,
     DocumentTemplateFolderBindingInline,
+    DocumentTemplateForm,
 )
-from apps.documents.admin.template_admin_views_mixin import (
-    _normalize_private_docx_root,
-    _to_django_relative_path,
-)
-
+from apps.documents.admin.template_admin_views_mixin import _normalize_private_docx_root, _to_django_relative_path
 
 # ---------------------------------------------------------------------------
 # Helper / utility functions

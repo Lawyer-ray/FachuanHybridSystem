@@ -7,12 +7,11 @@ import json
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock, PropertyMock, patch
 
 import pytest
 
 from apps.contracts.models import Contract
-
 
 # ── Templatetags ────────────────────────────────────────────────────────────
 

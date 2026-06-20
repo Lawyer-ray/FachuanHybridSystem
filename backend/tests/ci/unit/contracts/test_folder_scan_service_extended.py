@@ -19,6 +19,7 @@ from apps.contracts.services.contract.integrations.folder_scan_service import (
 )
 from apps.core.exceptions import NotFoundError, ValidationException
 
+
 def _make_service():
     return ContractFolderScanService(scan_service=MagicMock())
 

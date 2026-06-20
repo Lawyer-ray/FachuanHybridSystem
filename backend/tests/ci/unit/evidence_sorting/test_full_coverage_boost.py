@@ -18,6 +18,7 @@ from apps.evidence_sorting.services.classifier import (
     ClassifierService,
     ClassifyResult,
 )
+from apps.evidence_sorting.services.exporter import ExporterService
 from apps.evidence_sorting.services.reconciler import (
     FOLDER_CONFIRMED,
     FOLDER_DELIVERY_MISMATCH,
@@ -33,8 +34,6 @@ from apps.evidence_sorting.services.reconciler import (
     ReconcilerService,
     StatementInfo,
 )
-from apps.evidence_sorting.services.exporter import ExporterService
-
 
 # ---------------------------------------------------------------------------
 # ClassifierService

@@ -5,13 +5,14 @@ from __future__ import annotations
 import io
 import uuid
 from pathlib import Path
-from unittest.mock import MagicMock, Mock, patch, PropertyMock
+from unittest.mock import MagicMock, Mock, PropertyMock, patch
 
 import pytest
 
+from apps.core.exceptions import ValidationException
 from apps.core.services.storage_service import (
-    _DefaultFileValidator,
     _WINDOWS_ABS_PATH,
+    _DefaultFileValidator,
     _get_media_root,
     delete_media_file,
     is_absolute_path,
@@ -20,8 +21,6 @@ from apps.core.services.storage_service import (
     save_uploaded_file,
     to_media_abs,
 )
-from apps.core.exceptions import ValidationException
-
 
 # ============================================================================
 # sanitize_upload_filename tests

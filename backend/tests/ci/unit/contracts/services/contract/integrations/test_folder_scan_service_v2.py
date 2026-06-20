@@ -6,28 +6,26 @@ import os
 import re
 from pathlib import Path, PurePosixPath
 from typing import Any
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock, PropertyMock, patch
 from uuid import UUID, uuid4
 
 import pytest
 
 from apps.contracts.models import ContractFolderScanStatus
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
 def _make_processor():
-    from apps.contracts.services.contract.integrations._candidate_post_processor import CandidatePostProcessor
     from unittest.mock import MagicMock
+
+    from apps.contracts.services.contract.integrations._candidate_post_processor import CandidatePostProcessor
     return CandidatePostProcessor(scan_service=MagicMock())
 
 
 def _make_service(**overrides: Any) -> Any:
-    from apps.contracts.services.contract.integrations.folder_scan_service import (
-        ContractFolderScanService,
-    )
+    from apps.contracts.services.contract.integrations.folder_scan_service import ContractFolderScanService
     defaults: dict[str, Any] = {
         "scan_service": MagicMock(),
     }
@@ -453,9 +451,7 @@ class TestConfirmImportValidation:
     """Test validation logic that happens inside confirm_import by testing the methods directly."""
 
     def test_get_session_delegates_to_orm(self):
-        from apps.contracts.services.contract.integrations.folder_scan_service import (
-            ContractFolderScanService,
-        )
+        from apps.contracts.services.contract.integrations.folder_scan_service import ContractFolderScanService
         svc = _make_service()
         session = _make_session()
         with patch("apps.contracts.services.contract.integrations.folder_scan_service.ContractFolderScanSession") as MockSession:
@@ -481,9 +477,7 @@ class TestConfirmImportValidation:
 
 class TestRunContractFolderScanTask:
     def test_calls_service(self):
-        from apps.contracts.services.contract.integrations.folder_scan_service import (
-            run_contract_folder_scan_task,
-        )
+        from apps.contracts.services.contract.integrations.folder_scan_service import run_contract_folder_scan_task
         with patch("apps.contracts.services.contract.integrations.folder_scan_service.ContractFolderScanService") as MockSvc:
             run_contract_folder_scan_task("test-id")
             MockSvc.return_value.run_scan_task.assert_called_once_with(session_id="test-id")
