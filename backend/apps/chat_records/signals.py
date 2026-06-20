@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from django.conf import settings
+from django.db import transaction
 from django.db.models.signals import post_delete
 from django.dispatch import receiver
 
@@ -87,14 +88,14 @@ def _delete_field_file_by_name(old_name: str | None) -> None:
 
 @receiver(post_delete, sender=ChatRecordRecording)
 def _delete_recording_file(sender: Any, instance: ChatRecordRecording, **kwargs: Any) -> None:  # pragma: no cover
-    _delete_field_file(getattr(instance, "video", None))
+    transaction.on_commit(lambda f=getattr(instance, "video", None): _delete_field_file(f))
 
 
 @receiver(post_delete, sender=ChatRecordScreenshot)
 def _delete_screenshot_file(sender: Any, instance: ChatRecordScreenshot, **kwargs: Any) -> None:  # pragma: no cover
-    _delete_field_file(getattr(instance, "image", None))
+    transaction.on_commit(lambda f=getattr(instance, "image", None): _delete_field_file(f))
 
 
 @receiver(post_delete, sender=ChatRecordExportTask)
 def _delete_export_file(sender: Any, instance: ChatRecordExportTask, **kwargs: Any) -> None:  # pragma: no cover
-    _delete_field_file(getattr(instance, "output_file", None))
+    transaction.on_commit(lambda f=getattr(instance, "output_file", None): _delete_field_file(f))

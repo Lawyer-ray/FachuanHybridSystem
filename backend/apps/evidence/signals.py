@@ -6,6 +6,7 @@ import logging
 from pathlib import Path
 from typing import Any
 
+from django.db import transaction
 from django.db.models.signals import post_delete
 from django.dispatch import receiver
 
@@ -28,7 +29,7 @@ def cleanup_evidence_item_file(sender: type, **kwargs: Any) -> None:  # pragma: 
 
     if sender is EvidenceItem:
         instance = kwargs["instance"]
-        _delete_file(instance.file)
+        transaction.on_commit(lambda f=instance.file: _delete_file(f))
 
 
 @receiver(post_delete, dispatch_uid="cleanup_evidence_list_merged_pdf")
@@ -37,4 +38,4 @@ def cleanup_evidence_list_merged_pdf(sender: type, **kwargs: Any) -> None:  # pr
 
     if sender is EvidenceList:
         instance = kwargs["instance"]
-        _delete_file(instance.merged_pdf)
+        transaction.on_commit(lambda f=instance.merged_pdf: _delete_file(f))

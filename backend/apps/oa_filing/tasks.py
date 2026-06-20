@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
+from typing import Any
 
 from django.utils import timezone
 
@@ -234,3 +235,131 @@ def run_case_import_task(  # pragma: no cover
         session.save(
             update_fields=["status", "phase", "error_message", "progress_message", "completed_at", "updated_at"]
         )
+
+
+def run_batch_create_cases_task(session_id: int, cases: list[dict[str, Any]]) -> None:  # pragma: no cover
+    """Django-Q 任务入口：批量创建案件。
+
+    从 ``batch_create_cases`` API 端点抽取的循环逻辑，
+    避免大批次请求阻塞 HTTP 线程。
+    """
+    from apps.oa_filing.models import CaseImportSession
+    from apps.oa_filing.services.case_import_service import CaseImportService
+    from apps.oa_filing.services.oa_scripts.jtn.case_import import OACaseData
+
+    try:
+        session = CaseImportSession.objects.select_related("credential", "lawyer").get(pk=session_id)
+    except CaseImportSession.DoesNotExist:
+        logger.error("案件导入会话不存在: session_id=%s", session_id)
+        return
+
+    service = CaseImportService(session)
+
+    success_count = 0
+    skip_count = 0
+    error_count = 0
+
+    for case_data in cases:
+        case_no = case_data.get("case_no", "")
+        try:
+            oa_data = OACaseData(case_no=case_no, keyid="")
+            contract_id = service._create_or_update_case(oa_data)
+
+            if contract_id:
+                success_count += 1
+            else:
+                error_count += 1
+        except Exception as exc:
+            logger.warning("批量创建案件异常 %s: %s", case_no, exc)
+            error_count += 1
+
+    # 更新会话
+    session.success_count = success_count
+    session.skip_count = skip_count
+    session.error_count = error_count
+    session.save()
+
+    logger.info(
+        "批量创建案件完成: session_id=%d success=%d skip=%d error=%d",
+        session_id,
+        success_count,
+        skip_count,
+        error_count,
+    )
+
+
+def run_batch_create_clients_task(session_id: int, customers: list[dict[str, Any]]) -> None:  # pragma: no cover
+    """Django-Q 任务入口：批量创建客户。
+
+    从 ``batch_create_clients`` API 端点抽取的循环逻辑，
+    避免大批次请求阻塞 HTTP 线程。
+    """
+    from apps.oa_filing.models import ClientImportSession
+    from apps.oa_filing.services.import_session_service import (
+        client_exists_by_id_number,
+        client_exists_by_name,
+        create_client_for_import,
+    )
+
+    try:
+        session = ClientImportSession.objects.select_related("credential", "lawyer").get(pk=session_id)
+    except ClientImportSession.DoesNotExist:
+        logger.error("客户导入会话不存在: session_id=%s", session_id)
+        return
+
+    success_count = 0
+    skip_count = 0
+    error_count = 0
+
+    for i, customer in enumerate(customers):
+        try:
+            name = customer.get("name", "").strip()
+            client_type = customer.get("client_type", "natural")
+            phone = customer.get("phone") or ""
+            address = customer.get("address") or ""
+            id_number_raw = customer.get("id_number")
+            # 空字符串转为None，避免唯一约束冲突
+            id_number = id_number_raw if id_number_raw and id_number_raw.strip() else None
+            legal_representative = customer.get("legal_representative") or ""
+
+            if not name:
+                continue
+
+            logger.info("[%d/%d] 处理: %s (type=%s)", i + 1, len(customers), name, client_type)
+
+            if client_exists_by_name(name):
+                skip_count += 1
+                continue
+
+            # 对于自然人，还要检查id_number是否已存在（避免身份证号冲突）
+            if client_type == "natural" and id_number:
+                if client_exists_by_id_number(id_number):
+                    skip_count += 1
+                    continue
+
+            create_client_for_import(
+                name=name,
+                client_type=client_type,
+                phone=phone,
+                address=address,
+                id_number=id_number,
+                legal_representative=legal_representative,
+            )
+            success_count += 1
+
+        except Exception as exc:
+            error_count += 1
+            logger.warning("  -> 创建客户失败: %s", exc)
+
+    # 更新会话状态
+    session.success_count = success_count
+    session.skip_count = skip_count
+    session.save()
+
+    logger.info(
+        "批量创建客户完成: session_id=%d success=%d skip=%d error=%d",
+        session_id,
+        success_count,
+        skip_count,
+        error_count,
+    )

@@ -9,6 +9,7 @@ import logging
 from pathlib import Path
 from typing import Any
 
+from django.db import transaction
 from django.db.models.signals import post_delete
 from django.dispatch import receiver
 
@@ -37,16 +38,26 @@ def cleanup_court_document_local_file(sender: type, **kwargs: Any) -> None:  # p
         file_path = Path(settings.MEDIA_ROOT) / instance.local_file_path
     if file_path.exists():
         try:
-            file_path.unlink()
-            logger.info(
-                "已清理法院文书物理文件",
-                extra={"file_path": str(file_path), "court_sms_id": instance.court_sms_id},
-            )
+            transaction.on_commit(lambda p=file_path: _unlink_court_doc(p, instance.court_sms_id))
         except OSError as exc:
             logger.error(
                 "清理法院文书物理文件失败",
                 extra={"file_path": str(file_path), "error": str(exc)},
             )
+
+
+def _unlink_court_doc(file_path: Path, court_sms_id: Any) -> None:
+    try:
+        file_path.unlink()
+        logger.info(
+            "已清理法院文书物理文件",
+            extra={"file_path": str(file_path), "court_sms_id": court_sms_id},
+        )
+    except OSError as exc:
+        logger.error(
+            "清理法院文书物理文件失败",
+            extra={"file_path": str(file_path), "error": str(exc)},
+        )
 
 
 @receiver(post_delete, dispatch_uid="cleanup_gsxt_report_task_file")
@@ -59,7 +70,7 @@ def cleanup_gsxt_report_task_file(sender: type, **kwargs: Any) -> None:  # pragm
     instance = kwargs["instance"]
     if instance.report_file:
         try:
-            instance.report_file.delete(save=False)
+            transaction.on_commit(lambda f=instance.report_file: f.delete(save=False))
             logger.info("已清理企业信用报告文件", extra={"file_path": str(instance.report_file)})
         except Exception:
             logger.exception("清理企业信用报告失败")

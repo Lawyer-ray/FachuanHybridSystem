@@ -2,6 +2,9 @@
 
 Activity 是普通 Python 函数，没有确定性约束。
 可以直接调 Django ORM、LLM Service、其他 Django App。
+
+所有涉及同步 I/O（LLM HTTP、ORM、文件）的 activity 必须使用
+``asyncio.to_thread()`` 包装，防止阻塞 Temporal worker 的事件循环。
 """
 
 from __future__ import annotations
@@ -252,16 +255,32 @@ async def build_litigation_context(case_id: int, summary: dict, arrangement: lis
 
 
 @activity.defn
-async def generate_complaint(context: dict, feedback: str | None = None) -> dict:
-    """生成起诉状"""
-    from apps.documents.services.litigation_service import LitigationService
+async def generate_complaint(case_id: int, feedback: str | None = None) -> dict:
+    """生成起诉状
 
-    service = LitigationService()
-    return await service.generate_complaint(  # type: ignore[no-any-return]
-        case_id=context["case"]["id"],
-        context=context,
-        revision_feedback=feedback,
-    )
+    通过 LitigationGenerationService 生成起诉状。
+    该服务是同步的（内部调用 LLM HTTP），用 asyncio.to_thread 防止阻塞事件循环。
+    """
+    import asyncio
+
+    from apps.documents.services.generation.litigation_generation_service import LitigationGenerationService
+    from apps.documents.services.generation.litigation_context_builder import LitigationContextBuilder
+
+    service = LitigationGenerationService()
+
+    def _generate() -> Any:
+        # 先用 context_builder 从 case_id 提取 LLM 所需的 case_data
+        builder = LitigationContextBuilder()
+        from apps.core.interfaces import ServiceLocator
+
+        case_dto = ServiceLocator.get_case_service().get_case_by_id_internal(case_id)
+        case_data = builder.extract_complaint_prompt_data(case_dto)
+        if feedback:
+            case_data["revision_feedback"] = feedback
+        return service.generate_complaint(case_data)
+
+    result = await asyncio.to_thread(_generate)
+    return {"result": result}  # type: ignore[return-value]
 
 
 @activity.defn
@@ -312,11 +331,22 @@ async def execute_court_filing(case_id: int) -> dict:
 
 @activity.defn
 async def download_litigation_document(document_id: int) -> dict:
-    """下载已生成的诉讼文书"""
-    from apps.documents.services.litigation_service import LitigationService
+    """下载已生成的诉讼文书
 
-    service = LitigationService()
-    return await service.download(document_id)  # type: ignore[no-any-return]
+    通过 LitigationGenerationService 生成文档。
+    该服务是同步的（ORM + 文件 I/O + LLM），用 asyncio.to_thread 防止阻塞。
+    """
+    import asyncio
+
+    from apps.documents.services.generation.litigation_generation_service import LitigationGenerationService
+
+    service = LitigationGenerationService()
+
+    def _download() -> dict:
+        filename, doc_bytes = service.generate_complaint_document(document_id)
+        return {"filename": filename, "size": len(doc_bytes)}
+
+    return await asyncio.to_thread(_download)
 
 
 # ── DynamicWorkflow 通用 Activity ────────────────────────────
@@ -465,14 +495,22 @@ async def generic_code_exec(code: str, context: dict | None = None) -> dict:
         "context": context or {},
     }
 
-    # ── 步骤 3: 执行 ──
-    # AST 验证已阻止所有危险操作（import/exec/eval/os/sys/getattr 等），
-    # 安全限制内置函数仅保留纯数据操作，无需额外超时机制。
-    exec(compile(tree, "<workflow_code>", "exec"), restricted_globals)  # noqa: S102
-    return {
-        k: v for k, v in restricted_globals.items()
-        if not k.startswith("_") and k not in ("json", "context")
-    }
+    # ── 步骤 3: 在子线程中执行（防止死循环阻塞事件循环）──
+    compiled = compile(tree, "<workflow_code>", "exec")
+
+    def _exec_in_thread() -> dict:
+        """在隔离线程中执行编译后的代码"""
+        exec(compiled, restricted_globals)  # noqa: S102
+        return {
+            k: v for k, v in restricted_globals.items()
+            if not k.startswith("_") and k not in ("json", "context")
+        }
+
+    import asyncio
+    return await asyncio.wait_for(
+        asyncio.to_thread(_exec_in_thread),
+        timeout=30,
+    )
 
 
 @activity.defn

@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Any
 
 from django.conf import settings
+from django.db import transaction
 from django.db.models.signals import post_delete
 from django.dispatch import receiver
 
@@ -25,16 +26,26 @@ def _cleanup_finalized_material_file(sender: Any, instance: Any, **kwargs: Any) 
         return
     try:
         abs_path = Path(settings.MEDIA_ROOT) / file_path
-        if abs_path.exists():
-            abs_path.unlink()
-            logger.info(
-                "post_delete: 已清理归档材料文件",
-                extra={"material_id": instance.pk, "file_path": file_path},
-            )
+        transaction.on_commit(lambda p=abs_path, mid=instance.pk, fp=file_path: _unlink_material(p, mid, fp))
     except (OSError, ValueError):
         logger.exception(
             "post_delete: 清理归档材料文件失败",
             extra={"material_id": instance.pk, "file_path": file_path},
+        )
+
+
+def _unlink_material(abs_path: Path, material_id: int, file_path: str) -> None:
+    try:
+        if abs_path.exists():
+            abs_path.unlink()
+            logger.info(
+                "post_delete: 已清理归档材料文件",
+                extra={"material_id": material_id, "file_path": file_path},
+            )
+    except (OSError, ValueError):
+        logger.exception(
+            "post_delete: 清理归档材料文件失败",
+            extra={"material_id": material_id, "file_path": file_path},
         )
 
 
@@ -44,18 +55,22 @@ def _cleanup_invoice_file(sender: Any, instance: Any, **kwargs: Any) -> None:  #
     file_path = getattr(instance, "file_path", "")
     if not file_path:
         return
+    transaction.on_commit(lambda fp=file_path, mid=instance.pk: _delete_invoice_file(fp, mid))
+
+
+def _delete_invoice_file(file_path: str, invoice_id: int) -> None:
     try:
         from apps.core.services import storage_service as storage
 
         storage.delete_media_file(file_path)
         logger.info(
             "post_delete: 已清理发票文件",
-            extra={"invoice_id": instance.pk, "file_path": file_path},
+            extra={"invoice_id": invoice_id, "file_path": file_path},
         )
     except Exception:
         logger.exception(
             "post_delete: 清理发票文件失败",
-            extra={"invoice_id": instance.pk, "file_path": file_path},
+            extra={"invoice_id": invoice_id, "file_path": file_path},
         )
 
 
@@ -65,16 +80,20 @@ def _cleanup_client_payment_image(sender: Any, instance: Any, **kwargs: Any) -> 
     image_path = getattr(instance, "image_path", "")
     if not image_path:
         return
+    transaction.on_commit(lambda ip=image_path, mid=instance.pk: _delete_payment_image(ip, mid))
+
+
+def _delete_payment_image(image_path: str, record_id: int) -> None:
     try:
         from apps.core.services import storage_service as storage
 
         storage.delete_media_file(image_path)
         logger.info(
             "post_delete: 已清理回款凭证图片",
-            extra={"record_id": instance.pk, "image_path": image_path},
+            extra={"record_id": record_id, "image_path": image_path},
         )
     except Exception:
         logger.exception(
             "post_delete: 清理回款凭证图片失败",
-            extra={"record_id": instance.pk, "image_path": image_path},
+            extra={"record_id": record_id, "image_path": image_path},
         )

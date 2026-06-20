@@ -99,10 +99,9 @@ def get_client_import_session(request: HttpRequest, session_id: int) -> Any:  # 
 
 @router.post("/client-import/{session_id}/batch-create")
 def batch_create_clients(request: HttpRequest, session_id: int) -> dict[str, Any]:  # pragma: no cover
-    """批量创建客户（通过API调用避免异步上下文问题）。
+    """批量创建客户。
 
-    接收一个客户数据列表，在新的HTTP请求中处理，不受Django-Q异步上下文影响。
-    对于企业客户且id_number为空的，自动调用企业数据API补全信息。
+    同步校验请求数据后，将实际的批量处理逻辑提交给后台任务执行，避免大批次请求阻塞 HTTP 线程。
     """
     from django.http import JsonResponse
 
@@ -122,88 +121,28 @@ def batch_create_clients(request: HttpRequest, session_id: int) -> dict[str, Any
     except json.JSONDecodeError:
         return JsonResponse({"error": "无效的请求数据"}, status=400)  # type: ignore[return-value]
 
-    success_count = 0
-    skip_count = 0
-    error_count = 0
-    enriched_count = 0  # 通过企业数据API补全的数量
-    errors = []
+    if not customers:
+        return JsonResponse({"error": "客户列表为空"}, status=400)  # type: ignore[return-value]
 
-    for i, customer in enumerate(customers):
-        try:
-            name = customer.get("name", "").strip()
-            client_type = customer.get("client_type", "natural")
-            phone = customer.get("phone") or ""
-            address = customer.get("address") or ""
-            id_number_raw = customer.get("id_number")
-            # 空字符串转为None，避免唯一约束冲突
-            id_number = id_number_raw if id_number_raw and id_number_raw.strip() else None
-            legal_representative = customer.get("legal_representative") or ""
+    # 提交后台任务
+    from apps.core.tasking import submit_task
 
-            if not name:
-                continue
-
-            logger.info("[%d/%d] 处理: %s (type=%s)", i + 1, len(customers), name, client_type)
-
-            # 检查是否已存在（按名称去重）
-            from apps.oa_filing.services.import_session_service import client_exists_by_id_number, client_exists_by_name
-
-            if client_exists_by_name(name):
-                skip_count += 1
-                continue
-
-            # 对于自然人，还要检查id_number是否已存在（避免身份证号冲突）
-            if client_type == "natural" and id_number:
-                if client_exists_by_id_number(id_number):
-                    skip_count += 1
-                    continue
-
-            # 对于企业客户且id_number为空的，调用企业数据API补全（暂时禁用，加快导入速度）
-            # if client_type == "legal" and not id_number:
-            #     prefill = _enrich_enterprise_data(name)
-            #     if prefill:
-            #         phone = prefill.get("phone") or phone
-            #         address = prefill.get("address") or address
-            #         id_number = prefill.get("id_number") or id_number
-            #         legal_representative = prefill.get("legal_representative") or legal_representative
-            #         enriched_count += 1
-            #         logger.info("  -> 企业数据补全成功: phone=%s, address=%s", phone, address)
-
-            # 创建客户
-            from apps.oa_filing.services.import_session_service import create_client_for_import
-
-            create_client_for_import(
-                name=name,
-                client_type=client_type,
-                phone=phone,
-                address=address,
-                id_number=id_number,
-                legal_representative=legal_representative,
-            )
-            success_count += 1
-
-        except Exception as exc:
-            error_count += 1
-            errors.append({"name": customer.get("name", ""), "error": str(exc)})
-            logger.warning("  -> 创建客户失败: %s", exc)
-
-    # 更新会话状态
-    session.success_count = success_count
-    session.skip_count = skip_count
-    session.save()
-
-    logger.info(
-        "导入完成: 成功=%d, 跳过=%d, 错误=%d, 企业数据补全=%d", success_count, skip_count, error_count, enriched_count
+    task_id = submit_task(
+        "apps.oa_filing.tasks.run_batch_create_clients_task",
+        session_id,
+        customers,
+        timeout=CLIENT_IMPORT_TASK_TIMEOUT_SECONDS,
+        task_name=f"oa_batch_create_clients_{session_id}",
     )
 
-    return JsonResponse(  # type: ignore[return-value]
-        {
-            "success_count": success_count,
-            "skip_count": skip_count,
-            "error_count": error_count,
-            "enriched_count": enriched_count,
-            "errors": errors[:10],  # 最多返回10个错误
-        }
-    )
+    logger.info("启动批量创建客户任务: session_id=%d customers=%d task_id=%s", session_id, len(customers), task_id)
+
+    return {  # type: ignore[return-value]
+        "message": "批量创建任务已启动",
+        "task_id": task_id,
+        "session_id": session_id,
+        "total": len(customers),
+    }
 
 
 def _enrich_enterprise_data(company_name: str) -> dict[str, Any] | None:

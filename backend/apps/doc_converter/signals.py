@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 
+from django.db import transaction
 from django.db.models.signals import post_delete
 from django.dispatch import receiver
 
@@ -14,21 +15,30 @@ logger = logging.getLogger("apps.doc_converter")
 def _cleanup_job_files(sender: type, instance: DocConverterJob, **kwargs: object) -> None:  # pragma: no cover
     from apps.doc_converter.services.storage import DocConverterStorage
 
-    if instance.output_zip:
-        try:
-            instance.output_zip.delete(save=False)
-        except Exception:
-            logger.exception("清理 job output_zip 失败: %s", instance.id)
-
+    zip_file = instance.output_zip
     storage = DocConverterStorage(instance.id)
-    storage.cleanup()
+
+    def _do_cleanup() -> None:
+        if zip_file:
+            try:
+                zip_file.delete(save=False)
+            except Exception:
+                logger.exception("清理 job output_zip 失败: %s", instance.id)
+        storage.cleanup()
+
+    transaction.on_commit(_do_cleanup)
 
 
 @receiver(post_delete, sender=DocConverterItem)
 def _cleanup_item_files(sender: type, instance: DocConverterItem, **kwargs: object) -> None:  # pragma: no cover
-    for field in (instance.source_file, instance.converted_file):
-        if field:
-            try:
-                field.delete(save=False)
-            except Exception:
-                logger.exception("清理 item 文件失败: %s", instance.id)
+    fields = (instance.source_file, instance.converted_file)
+
+    def _do_cleanup() -> None:
+        for field in fields:
+            if field:
+                try:
+                    field.delete(save=False)
+                except Exception:
+                    logger.exception("清理 item 文件失败: %s", instance.id)
+
+    transaction.on_commit(_do_cleanup)

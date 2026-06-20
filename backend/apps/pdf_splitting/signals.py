@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from django.db import transaction
 from django.db.models.signals import post_delete
 from django.dispatch import receiver
 
@@ -15,4 +16,4 @@ def delete_job_files(sender: type, instance: PdfSplitJob, **kwargs: object) -> N
     from apps.pdf_splitting.services.storage import PdfSplitStorage
 
     storage = PdfSplitStorage(instance.id)
-    storage.cleanup()
+    transaction.on_commit(storage.cleanup)

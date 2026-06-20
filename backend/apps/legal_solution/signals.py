@@ -8,6 +8,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from django.db import transaction
 from django.db.models.signals import post_delete
 from django.dispatch import receiver
 
@@ -19,7 +20,7 @@ def _cleanup_solution_task_pdf(sender: Any, instance: Any, **kwargs: Any) -> Non
     """删除 SolutionTask 时清理 PDF 物理文件。"""
     if instance.pdf_file:
         try:
-            instance.pdf_file.delete(save=False)
+            transaction.on_commit(lambda f=instance.pdf_file: f.delete(save=False))
             logger.info(
                 "已清理法律服务方案PDF文件",
                 extra={"task_id": instance.pk, "file_path": str(instance.pdf_file)},

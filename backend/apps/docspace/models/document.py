@@ -23,6 +23,7 @@ class DocSpaceDocument(models.Model):
     docspace_folder_id = models.PositiveIntegerField(verbose_name="DocSpace 文件夹 ID")
     file_ext = models.CharField(max_length=16, default=".docx", verbose_name="文件类型")
     content_length = models.PositiveIntegerField(default=0, verbose_name="文件大小(bytes)")
+    web_url = models.CharField(max_length=500, default="", blank=True, verbose_name="DocSpace 编辑器 URL")
 
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="更新时间")

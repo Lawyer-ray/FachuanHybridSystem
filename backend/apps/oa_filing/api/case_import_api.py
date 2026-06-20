@@ -11,8 +11,6 @@ from django.utils import timezone
 from ninja import Router, UploadedFile
 
 from apps.oa_filing.schemas.case_import_schemas import (
-    CaseImportResponse,
-    CaseImportResult,
     CaseImportSessionOut,
     CasePreviewItem,
     CasePreviewResponse,
@@ -194,9 +192,9 @@ def get_case_import_preview(request: HttpRequest, session_id: int) -> JsonRespon
 
 @router.post("/case-import/{session_id}/batch-create")
 def batch_create_cases(request: HttpRequest, session_id: int) -> Any:  # pragma: no cover
-    """批量创建案件（通过API调用避免异步上下文问题）。
+    """批量创建案件。
 
-    接收案件数据列表，在新的HTTP请求中处理，不受Django-Q异步上下文影响。
+    同步校验请求数据后，将实际的批量处理逻辑提交给后台任务执行，避免大批次请求阻塞 HTTP 线程。
     """
     import json
 
@@ -214,66 +212,25 @@ def batch_create_cases(request: HttpRequest, session_id: int) -> Any:  # pragma:
     except json.JSONDecodeError:
         return {"error": "无效的请求数据"}
 
-    from apps.oa_filing.services.case_import_service import CaseImportService
+    if not cases:
+        return {"error": "案件列表为空"}
 
-    service = CaseImportService(session)
+    # 提交后台任务
+    from apps.core.tasking import submit_task
 
-    results: list[CaseImportResult] = []
-    success_count = 0
-    skip_count = 0
-    error_count = 0
+    task_id = submit_task(
+        "apps.oa_filing.tasks.run_batch_create_cases_task",
+        session_id,
+        cases,
+        timeout=CASE_IMPORT_TASK_TIMEOUT_SECONDS,
+        task_name=f"oa_batch_create_cases_{session_id}",
+    )
 
-    for case_data in cases:
-        case_no = case_data.get("case_no", "")
-        try:
-            from apps.oa_filing.services.oa_scripts.jtn.case_import import OACaseData
+    logger.info("启动批量创建案件任务: session_id=%d cases=%d task_id=%s", session_id, len(cases), task_id)
 
-            # 构造 OACaseData
-            oa_data = OACaseData(case_no=case_no, keyid="")
-
-            # 创建/更新
-            contract_id = service._create_or_update_case(oa_data)
-
-            if contract_id:
-                results.append(
-                    CaseImportResult(
-                        case_no=case_no,
-                        status="created",
-                        contract_id=contract_id,
-                    )
-                )
-                success_count += 1
-            else:
-                results.append(
-                    CaseImportResult(
-                        case_no=case_no,
-                        status="error",
-                        message="创建合同失败",
-                    )
-                )
-                error_count += 1
-
-        except Exception as exc:
-            logger.warning("批量创建案件异常 %s: %s", case_no, exc)
-            results.append(
-                CaseImportResult(
-                    case_no=case_no,
-                    status="error",
-                    message=str(exc),
-                )
-            )
-            error_count += 1
-
-    # 更新会话
-    session.success_count = success_count
-    session.skip_count = skip_count
-    session.error_count = error_count
-    session.save()
-
-    return CaseImportResponse(
-        success=success_count,
-        failed=error_count,
-        skipped=skip_count,
-        total=len(cases),
-        details=results,
-    ).model_dump()
+    return {
+        "message": "批量创建任务已启动",
+        "task_id": task_id,
+        "session_id": session_id,
+        "total": len(cases),
+    }

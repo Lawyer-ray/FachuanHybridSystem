@@ -9,6 +9,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from django.db import transaction
 from django.db.models.signals import post_delete
 from django.dispatch import receiver
 
@@ -20,7 +21,7 @@ def _cleanup_log_attachment_file(sender: Any, instance: Any, **kwargs: Any) -> N
     """删除 CaseLogAttachment 时清理物理文件。"""
     if instance.file:
         try:
-            instance.file.delete(save=False)
+            transaction.on_commit(lambda f=instance.file: f.delete(save=False))
             logger.info(
                 "已清理日志附件物理文件",
                 extra={"attachment_id": instance.pk, "file_path": str(instance.file)},
@@ -37,7 +38,7 @@ def _cleanup_case_number_document_file(sender: Any, instance: Any, **kwargs: Any
     """删除 CaseNumber 时清理裁判文书物理文件。"""
     if instance.document_file:
         try:
-            instance.document_file.delete(save=False)
+            transaction.on_commit(lambda f=instance.document_file: f.delete(save=False))
             logger.info(
                 "已清理裁判文书物理文件",
                 extra={"case_number_id": instance.pk, "file_path": str(instance.document_file)},

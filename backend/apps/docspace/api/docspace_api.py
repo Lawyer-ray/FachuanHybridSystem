@@ -53,7 +53,7 @@ def upload_file(
     ds_file = client.upload_file(target_folder, file.name or "untitled", content)
 
     # 创建本地映射记录（DocSpace 对相同内容去重，可能已存在）
-    doc, _ = DocSpaceDocument.objects.get_or_create(
+    doc, created = DocSpaceDocument.objects.get_or_create(
         docspace_file_id=ds_file.id,
         defaults={
             "lawyer": request.auth,  # type: ignore[attr-defined]
@@ -61,14 +61,19 @@ def upload_file(
             "docspace_folder_id": ds_file.folder_id,
             "file_ext": ds_file.file_ext,
             "content_length": ds_file.content_length,
+            "web_url": ds_file.web_url or "",
         },
     )
+    # get_or_create 不更新已存在记录的 web_url，补丁更新
+    if not created and not doc.web_url and ds_file.web_url:
+        doc.web_url = ds_file.web_url
+        doc.save(update_fields=["web_url"])
 
     return DocSpaceUploadOut(
         id=doc.id,
         title=doc.title,
         docspace_file_id=doc.docspace_file_id,
-        web_url=ds_file.web_url,
+        web_url=doc.web_url,
         file_ext=doc.file_ext,
         content_length=doc.content_length,
     )
@@ -92,7 +97,7 @@ def create_document(
     ds_file = client.create_empty_docx(target_folder, title)
 
     # DocSpace 对相同内容去重，可能已存在
-    doc, _ = DocSpaceDocument.objects.get_or_create(
+    doc, created = DocSpaceDocument.objects.get_or_create(
         docspace_file_id=ds_file.id,
         defaults={
             "lawyer": request.auth,  # type: ignore[attr-defined]
@@ -100,14 +105,18 @@ def create_document(
             "docspace_folder_id": ds_file.folder_id,
             "file_ext": ds_file.file_ext,
             "content_length": ds_file.content_length,
+            "web_url": ds_file.web_url or "",
         },
     )
+    if not created and not doc.web_url and ds_file.web_url:
+        doc.web_url = ds_file.web_url
+        doc.save(update_fields=["web_url"])
 
     return DocSpaceUploadOut(
         id=doc.id,
         title=doc.title,
         docspace_file_id=doc.docspace_file_id,
-        web_url=ds_file.web_url,
+        web_url=doc.web_url,
         file_ext=doc.file_ext,
         content_length=doc.content_length,
     )
@@ -119,19 +128,7 @@ def create_document(
 @router.get("/documents", response=list[DocSpaceDocumentOut], summary="列出当前用户的文档")
 def list_documents(request: HttpRequest) -> list[DocSpaceDocumentOut]:
     docs = DocSpaceDocument.objects.filter(lawyer=request.auth).order_by("-updated_at")[:50]  # type: ignore[attr-defined]
-    results: list[DocSpaceDocumentOut] = []
-    for doc in docs:
-        out = DocSpaceDocumentOut.model_validate(doc)
-        # 尝试从缓存/DB 填充 web_url（首次查询时从 DocSpace 获取）
-        if not out.web_url:
-            try:
-                client = _get_client()
-                ds_file = client.get_file_info(doc.docspace_file_id)
-                out.web_url = ds_file.web_url
-            except Exception:
-                logger.debug("无法获取 DocSpace 文件信息: file_id=%s", doc.docspace_file_id)
-        results.append(out)
-    return results
+    return [DocSpaceDocumentOut.model_validate(doc) for doc in docs]
 
 
 # ── 文档详情 ──────────────────────────────────────────────
@@ -140,15 +137,7 @@ def list_documents(request: HttpRequest) -> list[DocSpaceDocumentOut]:
 @router.get("/documents/{doc_id}", response=DocSpaceDocumentOut, summary="获取文档详情")
 def get_document(request: HttpRequest, doc_id: int) -> DocSpaceDocumentOut:
     doc = _get_user_doc(request, doc_id)
-    out = DocSpaceDocumentOut.model_validate(doc)
-    if not out.web_url:
-        try:
-            client = _get_client()
-            ds_file = client.get_file_info(doc.docspace_file_id)
-            out.web_url = ds_file.web_url
-        except Exception:
-            logger.debug("无法获取 DocSpace 文件信息: file_id=%s", doc.docspace_file_id)
-    return out
+    return DocSpaceDocumentOut.model_validate(doc)
 
 
 # ── 删除 ──────────────────────────────────────────────────
@@ -197,11 +186,11 @@ def sync_document(request: HttpRequest, doc_id: int) -> DocSpaceDocumentOut:
     # 更新本地映射
     doc.title = ds_file.title
     doc.content_length = ds_file.content_length
+    doc.web_url = ds_file.web_url or ""
     doc.last_editor = request.auth  # type: ignore[attr-defined]
-    doc.save(update_fields=["title", "content_length", "last_editor", "updated_at"])
+    doc.save(update_fields=["title", "content_length", "web_url", "last_editor", "updated_at"])
 
     out = DocSpaceDocumentOut.model_validate(doc)
-    out.web_url = ds_file.web_url
     return out
 
 

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from django.db import transaction
 from django.db.models.signals import post_delete
 from django.dispatch import receiver
 
@@ -14,4 +15,5 @@ def delete_job_files(sender: type, instance: BatchPrintJob, **kwargs: object) ->
     """删除任务时清理关联文件目录。"""
     from apps.batch_printing.services.storage import BatchPrintStorage
 
-    BatchPrintStorage(instance.id).cleanup()
+    storage = BatchPrintStorage(instance.id)
+    transaction.on_commit(storage.cleanup)
