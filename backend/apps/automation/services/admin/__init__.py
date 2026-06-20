@@ -12,8 +12,10 @@ try:
 except ImportError:
     pass
 
-__all__ = [
+_admin_service_all = [
     "TokenAcquisitionHistoryAdminService",
     "CourtDocumentAdminService",
-    "PreservationQuoteAdminService",
 ]
+if "PreservationQuoteAdminService" in dir():
+    _admin_service_all.append("PreservationQuoteAdminService")
+__all__ = _admin_service_all

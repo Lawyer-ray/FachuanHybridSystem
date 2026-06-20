@@ -27,7 +27,7 @@ from .tools_hub_admin import TestToolsHubAdmin
 # Token 管理 Admin
 from .token import CourtTokenAdmin
 
-__all__ = [
+_admin_all = [
     # 文档处理
     "DocumentProcessorAdmin",
     # 爬虫
@@ -37,8 +37,6 @@ __all__ = [
     "TestCourtAdmin",
     # Token 管理
     "CourtTokenAdmin",
-    # 财产保全询价
-    "PreservationQuoteAdmin",
     # 法院短信
     "CourtSMSAdmin",
     # 文书送达
@@ -47,3 +45,6 @@ __all__ = [
     # 测试工具
     "TestToolsHubAdmin",
 ]
+if "PreservationQuoteAdmin" in dir():
+    _admin_all.append("PreservationQuoteAdmin")
+__all__ = _admin_all

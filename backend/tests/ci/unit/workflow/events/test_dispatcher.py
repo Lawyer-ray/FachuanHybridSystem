@@ -27,7 +27,7 @@ class _AsyncListIter:
 
 @pytest.mark.asyncio
 class TestOnCourtReplyNoRuns:
-    @patch("apps.workflow.events.dispatcher.Client")
+    @patch("temporalio.client.Client")
     @patch("apps.workflow.events.dispatcher.WorkflowRun")
     async def test_no_matching_runs(self, mock_model, mock_client_cls):
         from apps.workflow.events.dispatcher import on_court_reply
@@ -39,7 +39,7 @@ class TestOnCourtReplyNoRuns:
 
         mock_client_cls.connect.assert_not_called()
 
-    @patch("apps.workflow.events.dispatcher.Client")
+    @patch("temporalio.client.Client")
     @patch("apps.workflow.events.dispatcher.WorkflowRun")
     async def test_filters_correctly(self, mock_model, mock_client_cls):
         from apps.workflow.events.dispatcher import on_court_reply
@@ -56,7 +56,7 @@ class TestOnCourtReplyNoRuns:
 
 @pytest.mark.asyncio
 class TestOnCourtReplySignal:
-    @patch("apps.workflow.events.dispatcher.Client")
+    @patch("temporalio.client.Client")
     @patch("apps.workflow.events.dispatcher.WorkflowRun")
     async def test_signals_and_updates_status(self, mock_model, mock_client_cls):
         from apps.workflow.events.dispatcher import on_court_reply
@@ -88,7 +88,7 @@ class TestOnCourtReplySignal:
 
 @pytest.mark.asyncio
 class TestOnCourtReplyEmptyDocuments:
-    @patch("apps.workflow.events.dispatcher.Client")
+    @patch("temporalio.client.Client")
     @patch("apps.workflow.events.dispatcher.WorkflowRun")
     async def test_empty_documents_default(self, mock_model, mock_client_cls):
         from apps.workflow.events.dispatcher import on_court_reply
@@ -115,7 +115,7 @@ class TestOnCourtReplyEmptyDocuments:
             "gate_approved", {"step_id": "wait_court", "approved": True, "comment": "approved", "documents": []}
         )
 
-    @patch("apps.workflow.events.dispatcher.Client")
+    @patch("temporalio.client.Client")
     @patch("apps.workflow.events.dispatcher.WorkflowRun")
     async def test_empty_list_documents(self, mock_model, mock_client_cls):
         from apps.workflow.events.dispatcher import on_court_reply

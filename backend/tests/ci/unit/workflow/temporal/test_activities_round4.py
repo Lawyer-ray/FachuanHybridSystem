@@ -280,19 +280,32 @@ class TestGenerateComplaint:
     @pytest.mark.asyncio
     async def test_calls_litigation_service(self):
         mock_service = MagicMock()
-        mock_service.generate_complaint = AsyncMock(return_value={"content": "起诉状"})
+        mock_service.generate_complaint = MagicMock(return_value={"content": "起诉状"})
+
+        mock_builder = MagicMock()
+        mock_builder.extract_complaint_prompt_data = MagicMock(return_value={"facts": "test"})
+
+        mock_case_service = MagicMock()
+        mock_case_service.get_case_by_id_internal.return_value = MagicMock()
+
+        mock_service_locator = MagicMock()
+        mock_service_locator.get_case_service.return_value = mock_case_service
 
         with patch.dict("sys.modules", {
-            "apps.documents.services.litigation_service": MagicMock(
-                LitigationService=MagicMock(return_value=mock_service)
+            "apps.documents.services.generation.litigation_generation_service": MagicMock(
+                LitigationGenerationService=MagicMock(return_value=mock_service)
             ),
+            "apps.documents.services.generation.litigation_context_builder": MagicMock(
+                LitigationContextBuilder=MagicMock(return_value=mock_builder)
+            ),
+            "apps.core.interfaces": MagicMock(ServiceLocator=mock_service_locator),
         }):
             from apps.workflow.temporal.activities import generate_complaint
             result = await _fn(generate_complaint)(
-                context={"case": {"id": 1}},
+                case_id=1,
                 feedback="修改意见",
             )
-            assert result == {"content": "起诉状"}
+            assert result == {"result": {"content": "起诉状"}}
 
 
 # ---------------------------------------------------------------------------

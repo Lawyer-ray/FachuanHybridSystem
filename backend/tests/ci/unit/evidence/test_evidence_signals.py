@@ -4,6 +4,7 @@ import pytest
 from unittest.mock import MagicMock
 
 
+@pytest.mark.django_db
 class TestCleanupEvidenceItemFile:
     """Test cleanup_evidence_item_file signal handler."""
 
@@ -75,6 +76,7 @@ class TestCleanupEvidenceItemFile:
         mock_file.delete.assert_not_called()
 
 
+@pytest.mark.django_db
 class TestCleanupEvidenceListMergedPdf:
     """Test cleanup_evidence_list_merged_pdf signal handler."""
 
@@ -128,6 +130,7 @@ class TestCleanupEvidenceListMergedPdf:
         mock_pdf.delete.assert_not_called()
 
 
+@pytest.mark.django_db
 class TestDeleteFileHelper:
     """Test _delete_file helper."""
 

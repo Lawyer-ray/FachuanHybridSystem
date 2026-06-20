@@ -53,7 +53,7 @@ try:
 except ImportError:
     pass
 
-__all__ = [
+_schema_all = [
     # Document Processing
     "DocumentProcessIn",
     "DocumentProcessOut",
@@ -66,13 +66,6 @@ __all__ = [
     # Captcha
     "CaptchaRecognizeIn",
     "CaptchaRecognizeOut",
-    # Preservation
-    "PreservationQuoteCreateSchema",
-    "InsuranceQuoteSchema",
-    "PreservationQuoteSchema",
-    "QuoteListItemSchema",
-    "QuoteListSchema",
-    "QuoteExecuteResponseSchema",
     # Court Document
     "APIInterceptResponseSchema",
     "CourtDocumentSchema",
@@ -96,3 +89,18 @@ __all__ = [
     "DocumentQueryResult",
     "DocumentProcessResult",
 ]
+
+# Conditionally add preservation schema names
+_preservation_schemas = [
+    "PreservationQuoteCreateSchema",
+    "InsuranceQuoteSchema",
+    "PreservationQuoteSchema",
+    "QuoteListItemSchema",
+    "QuoteListSchema",
+    "QuoteExecuteResponseSchema",
+]
+for _name in _preservation_schemas:
+    if _name in dir():
+        _schema_all.append(_name)
+
+__all__ = _schema_all

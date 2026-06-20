@@ -17,10 +17,7 @@ try:
         router as preservation_quote_router,
     )
 except ImportError:
-    try:
-        from .preservation_quote_api import router as preservation_quote_router
-    except ImportError:
-        preservation_quote_router = None
+    preservation_quote_router = None
 
 # 创建模块路由器
 router = Router()
