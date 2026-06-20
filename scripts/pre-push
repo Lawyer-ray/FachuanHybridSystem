@@ -6,12 +6,12 @@
 
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+GIT_ROOT="$(git rev-parse --show-toplevel)"
 
 echo "▶ pre-push: 运行本地 CI（quick 模式）..."
 echo ""
 
-if bash "$SCRIPT_DIR/ci-local.sh" --quick; then
+if bash "$GIT_ROOT/scripts/ci-local.sh" --quick; then
   echo ""
   echo "✓ 本地 CI 通过，正在推送..."
 else
