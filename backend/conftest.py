@@ -90,9 +90,13 @@ def pytest_configure(config: Any) -> None:
             or lowered_name == "fachuan_ci_test"
         )
         if not is_test_db:
-            import warnings
+            import pytest
 
-            warnings.warn(f"⚠️ 测试正在使用非测试数据库: {db_name}", stacklevel=1)
+            pytest.fail(
+                f"🚨 DANGER: 测试正在使用非测试数据库 '{db_name}'！"
+                f"请设置 DB_NAME 环境变量为测试数据库名称（如 test_fachuan_dev）。",
+                pytrace=False,
+            )
 
 
 @pytest.fixture
