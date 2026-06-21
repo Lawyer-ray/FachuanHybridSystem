@@ -12,7 +12,7 @@ from apps.documents.services.evidence.evidence_list_placeholder_service import (
     LEGAL_STATUS_DISPLAY,
     LEGAL_STATUS_ORDER,
 )
-from apps.automation.services.token.court_login_gateway import (
+from plugins.court_automation.token.court_login_gateway import (
     CourtLoginGateway,
     CourtZxfwLoginGateway,
 )

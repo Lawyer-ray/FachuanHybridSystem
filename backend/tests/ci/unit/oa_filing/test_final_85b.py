@@ -274,7 +274,7 @@ class TestLoginHandler:
 
 class TestAutoTokenAcquisitionService:
     def test_module_imports(self):
-        from apps.automation.services.token.auto_token_acquisition_service import (
+        from plugins.court_automation.token.auto_token_acquisition_service import (
             AutoTokenAcquisitionService,
         )
 

@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from apps.automation.services.token.concurrency_optimizer import (
+from plugins.court_automation.token.concurrency_optimizer import (
     ConcurrencyConfig,
     ResourceUsage,
 )
-from apps.automation.services.token.browser_context_factory import (
+from plugins.court_automation.token.browser_context_factory import (
     DefaultAntiDetectionOptionsProvider,
     PlaywrightBrowserContextFactory,
 )

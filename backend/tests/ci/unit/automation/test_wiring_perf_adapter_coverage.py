@@ -54,7 +54,7 @@ class TestPerformanceMonitorServiceAdapter:
         self, mock_now, mock_logger, mock_load, mock_pids,
         mock_net, mock_disk, mock_mem, mock_cpu_count, mock_cpu_pct,
     ):
-        from apps.automation.services.token.performance_monitor_service_adapter import PerformanceMonitorServiceAdapter
+        from plugins.court_automation.token.performance_monitor_service_adapter import PerformanceMonitorServiceAdapter
 
         mock_now.return_value = MagicMock(isoformat=lambda: "2024-01-01")
         mock_mem.return_value = MagicMock(total=8e9, available=4e9, used=4e9, percent=50.0)
@@ -68,7 +68,7 @@ class TestPerformanceMonitorServiceAdapter:
 
     @pytest.mark.django_db
     def test_get_token_acquisition_metrics(self):
-        from apps.automation.services.token.performance_monitor_service_adapter import PerformanceMonitorServiceAdapter
+        from plugins.court_automation.token.performance_monitor_service_adapter import PerformanceMonitorServiceAdapter
 
         with patch("apps.automation.models.TokenAcquisitionHistory") as mock_history:
             mock_qs = MagicMock()
@@ -85,7 +85,7 @@ class TestPerformanceMonitorServiceAdapter:
             assert metrics["overall"]["total_attempts"] == 0
 
     def test_get_api_performance_metrics(self):
-        from apps.automation.services.token.performance_monitor_service_adapter import PerformanceMonitorServiceAdapter
+        from plugins.court_automation.token.performance_monitor_service_adapter import PerformanceMonitorServiceAdapter
 
         with patch("django.utils.timezone.now", return_value=MagicMock(isoformat=lambda: "2024-01-01")):
             adapter = PerformanceMonitorServiceAdapter()
@@ -93,7 +93,7 @@ class TestPerformanceMonitorServiceAdapter:
             assert "metrics" in metrics
 
     def test_record_performance_metric(self):
-        from apps.automation.services.token.performance_monitor_service_adapter import PerformanceMonitorServiceAdapter
+        from plugins.court_automation.token.performance_monitor_service_adapter import PerformanceMonitorServiceAdapter
 
         adapter = PerformanceMonitorServiceAdapter()
         adapter.record_performance_metric("test_metric", 42.0, {"tag": "value"})

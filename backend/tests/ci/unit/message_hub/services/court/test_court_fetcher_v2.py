@@ -23,7 +23,7 @@ from plugins.message_hub.services.court.court_fetcher import (
 )
 
 # Lazy-import patch targets (imported inside methods at runtime)
-_LAZY_CM = "apps.automation.services.token.cache_manager.cache_manager"
+_LAZY_CM = "plugins.court_automation.token.cache_manager.cache_manager"
 _LAZY_SL = "apps.core.interfaces.ServiceLocator"
 _LAZY_CT = "apps.automation.models.token.CourtToken"
 

@@ -25,7 +25,7 @@ from apps.core.exceptions import (
 
 class TestAutoTokenAcquisitionService:
     def _make_service(self):
-        from apps.automation.services.token.auto_token_acquisition_service import AutoTokenAcquisitionService
+        from plugins.court_automation.token.auto_token_acquisition_service import AutoTokenAcquisitionService
 
         svc = AutoTokenAcquisitionService(
             account_selection_strategy=MagicMock(),
@@ -36,7 +36,7 @@ class TestAutoTokenAcquisitionService:
         return svc
 
     def test_init_with_defaults(self):
-        from apps.automation.services.token.auto_token_acquisition_service import AutoTokenAcquisitionService
+        from plugins.court_automation.token.auto_token_acquisition_service import AutoTokenAcquisitionService
 
         svc = AutoTokenAcquisitionService()
         assert svc._acquisition_count == 0
@@ -60,7 +60,7 @@ class TestAutoTokenAcquisitionService:
         assert svc._failure_count == 0
 
     def test_clear_locks(self):
-        from apps.automation.services.token.auto_token_acquisition_service import AutoTokenAcquisitionService
+        from plugins.court_automation.token.auto_token_acquisition_service import AutoTokenAcquisitionService
 
         AutoTokenAcquisitionService._active_acquisitions.add("test")
         AutoTokenAcquisitionService._acquisition_locks["test"] = asyncio.Lock()
@@ -84,7 +84,7 @@ class TestAutoTokenAcquisitionService:
 
 class TestAutoLoginService:
     def _make_service(self, usecase=None):
-        from apps.automation.services.token.auto_login_service import AutoLoginService, RetryConfig
+        from plugins.court_automation.token.auto_login_service import AutoLoginService, RetryConfig
 
         return AutoLoginService(
             retry_config=RetryConfig(max_network_retries=1, max_captcha_retries=1, login_timeout=5.0),
@@ -93,7 +93,7 @@ class TestAutoLoginService:
         )
 
     def test_init_defaults(self):
-        from apps.automation.services.token.auto_login_service import AutoLoginService
+        from plugins.court_automation.token.auto_login_service import AutoLoginService
 
         svc = AutoLoginService()
         assert svc.retry_config.max_network_retries == 3
@@ -126,7 +126,7 @@ class TestAutoLoginService:
 
 class TestRetryConfig:
     def test_defaults(self):
-        from apps.automation.services.token.auto_login_service import RetryConfig
+        from plugins.court_automation.token.auto_login_service import RetryConfig
 
         config = RetryConfig()
         assert config.max_network_retries == 3
@@ -136,7 +136,7 @@ class TestRetryConfig:
         assert config.login_timeout == 60.0
 
     def test_custom_values(self):
-        from apps.automation.services.token.auto_login_service import RetryConfig
+        from plugins.court_automation.token.auto_login_service import RetryConfig
 
         config = RetryConfig(max_network_retries=5, login_timeout=120.0)
         assert config.max_network_retries == 5

@@ -1,9 +1,11 @@
-"""
-Token acquisition services
+"""Stub: Token services have been moved to plugins/court_automation/token/
+
+This file re-exports from the plugin for backward compatibility.
 """
 
-from .account_selection_strategy import AccountSelectionStrategy
-from .auto_login_service import AutoLoginService
-from .auto_token_acquisition_service import AutoTokenAcquisitionService
-
-__all__ = ["AccountSelectionStrategy", "AutoLoginService", "AutoTokenAcquisitionService"]
+from plugins.court_automation.token import *  # noqa: F401,F403
+from plugins.court_automation.token import (  # noqa: F401
+    AccountSelectionStrategy,
+    AutoLoginService,
+    AutoTokenAcquisitionService,
+)

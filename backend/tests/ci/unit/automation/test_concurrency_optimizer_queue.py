@@ -10,7 +10,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from apps.core.exceptions import TokenAcquisitionTimeoutError
-from apps.automation.services.token.concurrency_optimizer import (
+from plugins.court_automation.token.concurrency_optimizer import (
     ConcurrencyConfig,
     ConcurrencyOptimizer,
     ResourceUsage,
@@ -66,7 +66,7 @@ class TestConcurrencyOptimizerQueue:
     async def test_release_logs_error(self) -> None:
         """release_resource should handle errors gracefully."""
         opt = self._make()
-        with patch("apps.automation.services.token.concurrency_optimizer.logger"):
+        with patch("plugins.court_automation.token.concurrency_optimizer.logger"):
             # Force an error in _get_lock by mocking
             with patch.object(opt, "_get_lock", side_effect=RuntimeError("lock error")):
                 # Should not raise

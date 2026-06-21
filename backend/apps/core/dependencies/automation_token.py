@@ -22,7 +22,7 @@ if TYPE_CHECKING:
 
 
 def build_auto_token_acquisition_service() -> IAutoTokenAcquisitionService:
-    from apps.automation.services.token.auto_token_acquisition_service import AutoTokenAcquisitionService
+    from plugins.court_automation.token.auto_token_acquisition_service import AutoTokenAcquisitionService
 
     return AutoTokenAcquisitionService(
         account_selection_strategy=build_account_selection_strategy(),
@@ -32,13 +32,13 @@ def build_auto_token_acquisition_service() -> IAutoTokenAcquisitionService:
 
 
 def build_account_selection_strategy() -> IAccountSelectionStrategy:
-    from apps.automation.services.token.account_selection_strategy import AccountSelectionStrategy
+    from plugins.court_automation.token.account_selection_strategy import AccountSelectionStrategy
 
     return AccountSelectionStrategy()
 
 
 def build_auto_login_service() -> IAutoLoginService:
-    from apps.automation.services.token.auto_login_service import AutoLoginService
+    from plugins.court_automation.token.auto_login_service import AutoLoginService
     from apps.automation.usecases.token.auto_login_usecase import RetryConfig
 
     return AutoLoginService(
@@ -54,7 +54,7 @@ def build_token_service() -> ITokenService:
 
 
 def build_court_token_store_service() -> ICourtTokenStoreService:
-    from apps.automation.services.token.court_token_store_service import CourtTokenStoreService
+    from plugins.court_automation.token.court_token_store_service import CourtTokenStoreService
 
     return CourtTokenStoreService()
 

@@ -6,8 +6,8 @@ import hashlib
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
-from apps.automation.services.token.cache_manager import TokenCacheManager
-from apps.automation.services.token.account_selection_strategy import AccountSelectionStrategy
+from plugins.court_automation.token.cache_manager import TokenCacheManager
+from plugins.court_automation.token.account_selection_strategy import AccountSelectionStrategy
 
 
 class TestTokenCacheManager:
@@ -43,45 +43,45 @@ class TestTokenCacheManager:
         assert "account1" in key
         assert "site1" in key
 
-    @patch("apps.automation.services.token.cache_manager.cache")
-    @patch("apps.automation.services.token.cache_manager.performance_monitor")
-    @patch("apps.automation.services.token.cache_manager.record_cache_access")
+    @patch("plugins.court_automation.token.cache_manager.cache")
+    @patch("plugins.court_automation.token.cache_manager.performance_monitor")
+    @patch("plugins.court_automation.token.cache_manager.record_cache_access")
     def test_get_cached_token_hit(self, mock_record, mock_perf, mock_cache) -> None:
         """缓存命中。"""
         mock_cache.get.return_value = {"token": "test_token_123"}
         result = self.manager.get_cached_token("site1", "account1")
         assert result == "test_token_123"
 
-    @patch("apps.automation.services.token.cache_manager.cache")
-    @patch("apps.automation.services.token.cache_manager.performance_monitor")
-    @patch("apps.automation.services.token.cache_manager.record_cache_access")
+    @patch("plugins.court_automation.token.cache_manager.cache")
+    @patch("plugins.court_automation.token.cache_manager.performance_monitor")
+    @patch("plugins.court_automation.token.cache_manager.record_cache_access")
     def test_get_cached_token_miss(self, mock_record, mock_perf, mock_cache) -> None:
         """缓存未命中。"""
         mock_cache.get.return_value = None
         result = self.manager.get_cached_token("site1", "account1")
         assert result is None
 
-    @patch("apps.automation.services.token.cache_manager.cache")
+    @patch("plugins.court_automation.token.cache_manager.cache")
     def test_get_cached_token_exception(self, mock_cache) -> None:
         """缓存异常返回 None。"""
         mock_cache.get.side_effect = Exception("cache error")
         result = self.manager.get_cached_token("site1", "account1")
         assert result is None
 
-    @patch("apps.automation.services.token.cache_manager.cache")
+    @patch("plugins.court_automation.token.cache_manager.cache")
     def test_cache_token(self, mock_cache) -> None:
         """缓存 Token。"""
         self.manager.cache_token("site1", "account1", "test_token")
         mock_cache.set.assert_called_once()
 
-    @patch("apps.automation.services.token.cache_manager.cache")
+    @patch("plugins.court_automation.token.cache_manager.cache")
     def test_invalidate_token_cache(self, mock_cache) -> None:
         """使 Token 缓存失效。"""
         self.manager.invalidate_token_cache("site1", "account1")
         mock_cache.delete.assert_called_once()
 
-    @patch("apps.automation.services.token.cache_manager.cache")
-    @patch("apps.automation.services.token.cache_manager.performance_monitor")
+    @patch("plugins.court_automation.token.cache_manager.cache")
+    @patch("plugins.court_automation.token.cache_manager.performance_monitor")
     def test_get_cached_credentials_hit(self, mock_perf, mock_cache) -> None:
         """凭证缓存命中。"""
         mock_cache.get.return_value = [
@@ -94,43 +94,43 @@ class TestTokenCacheManager:
         assert result is not None
         assert len(result) == 1
 
-    @patch("apps.automation.services.token.cache_manager.cache")
-    @patch("apps.automation.services.token.cache_manager.performance_monitor")
+    @patch("plugins.court_automation.token.cache_manager.cache")
+    @patch("plugins.court_automation.token.cache_manager.performance_monitor")
     def test_get_cached_credentials_miss(self, mock_perf, mock_cache) -> None:
         """凭证缓存未命中。"""
         mock_cache.get.return_value = None
         result = self.manager.get_cached_credentials("site1")
         assert result is None
 
-    @patch("apps.automation.services.token.cache_manager.cache")
+    @patch("plugins.court_automation.token.cache_manager.cache")
     def test_cache_blacklist(self, mock_cache) -> None:
         """缓存黑名单。"""
         self.manager.cache_blacklist(["account1", "account2"])
         mock_cache.set.assert_called_once()
 
-    @patch("apps.automation.services.token.cache_manager.cache")
-    @patch("apps.automation.services.token.cache_manager.performance_monitor")
+    @patch("plugins.court_automation.token.cache_manager.cache")
+    @patch("plugins.court_automation.token.cache_manager.performance_monitor")
     def test_get_cached_blacklist_hit(self, mock_perf, mock_cache) -> None:
         """黑名单缓存命中。"""
         mock_cache.get.return_value = ["account1"]
         result = self.manager.get_cached_blacklist()
         assert result == ["account1"]
 
-    @patch("apps.automation.services.token.cache_manager.cache")
-    @patch("apps.automation.services.token.cache_manager.performance_monitor")
+    @patch("plugins.court_automation.token.cache_manager.cache")
+    @patch("plugins.court_automation.token.cache_manager.performance_monitor")
     def test_get_cached_blacklist_miss(self, mock_perf, mock_cache) -> None:
         """黑名单缓存未命中。"""
         mock_cache.get.return_value = None
         result = self.manager.get_cached_blacklist()
         assert result is None
 
-    @patch("apps.automation.services.token.cache_manager.cache")
+    @patch("plugins.court_automation.token.cache_manager.cache")
     def test_invalidate_blacklist_cache(self, mock_cache) -> None:
         """使黑名单缓存失效。"""
         self.manager.invalidate_blacklist_cache()
         mock_cache.delete.assert_called_once()
 
-    @patch("apps.automation.services.token.cache_manager.cache")
+    @patch("plugins.court_automation.token.cache_manager.cache")
     def test_invalidate_site_cache(self, mock_cache) -> None:
         """定向失效站点缓存。"""
         self.manager.invalidate_site_cache("site1", accounts=["acc1", "acc2"])
@@ -151,7 +151,7 @@ class TestAccountSelectionStrategy:
 
     def test_blacklist_add_remove(self) -> None:
         """添加和移除黑名单。"""
-        with patch("apps.automation.services.token.account_selection_strategy.cache_manager") as mock_cm:
+        with patch("plugins.court_automation.token.account_selection_strategy.cache_manager") as mock_cm:
             mock_cm.cache_blacklist = MagicMock()
             mock_cm.invalidate_blacklist_cache = MagicMock()
 
@@ -163,7 +163,7 @@ class TestAccountSelectionStrategy:
 
     def test_blacklist_add_duplicate(self) -> None:
         """重复添加黑名单。"""
-        with patch("apps.automation.services.token.account_selection_strategy.cache_manager") as mock_cm:
+        with patch("plugins.court_automation.token.account_selection_strategy.cache_manager") as mock_cm:
             mock_cm.cache_blacklist = MagicMock()
             self.strategy.add_to_blacklist("account1")
             self.strategy.add_to_blacklist("account1")
@@ -171,7 +171,7 @@ class TestAccountSelectionStrategy:
 
     def test_clear_blacklist(self) -> None:
         """清空黑名单。"""
-        with patch("apps.automation.services.token.account_selection_strategy.cache_manager") as mock_cm:
+        with patch("plugins.court_automation.token.account_selection_strategy.cache_manager") as mock_cm:
             mock_cm.cache_blacklist = MagicMock()
             mock_cm.invalidate_blacklist_cache = MagicMock()
 

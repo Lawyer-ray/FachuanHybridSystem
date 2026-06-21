@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
-from apps.automation.services.token.cache_manager import TokenCacheManager
+from plugins.court_automation.token.cache_manager import TokenCacheManager
 
 
 class TestTokenCacheManager:
@@ -32,10 +32,10 @@ class TestTokenCacheManager:
 
     # ─── get_cached_token ───
 
-    @patch("apps.automation.services.token.cache_manager.record_cache_result")
-    @patch("apps.automation.services.token.cache_manager.record_cache_access")
-    @patch("apps.automation.services.token.cache_manager.performance_monitor")
-    @patch("apps.automation.services.token.cache_manager.cache")
+    @patch("plugins.court_automation.token.cache_manager.record_cache_result")
+    @patch("plugins.court_automation.token.cache_manager.record_cache_access")
+    @patch("plugins.court_automation.token.cache_manager.performance_monitor")
+    @patch("plugins.court_automation.token.cache_manager.cache")
     def test_get_cached_token_hit(self, mock_cache: MagicMock, mock_pm: MagicMock,
                                    mock_rec_access: MagicMock, mock_rec_result: MagicMock) -> None:
         mgr = self._make_manager()
@@ -44,10 +44,10 @@ class TestTokenCacheManager:
         result = mgr.get_cached_token("site", "acct")
         assert result == "abc123"
 
-    @patch("apps.automation.services.token.cache_manager.record_cache_result")
-    @patch("apps.automation.services.token.cache_manager.record_cache_access")
-    @patch("apps.automation.services.token.cache_manager.performance_monitor")
-    @patch("apps.automation.services.token.cache_manager.cache")
+    @patch("plugins.court_automation.token.cache_manager.record_cache_result")
+    @patch("plugins.court_automation.token.cache_manager.record_cache_access")
+    @patch("plugins.court_automation.token.cache_manager.performance_monitor")
+    @patch("plugins.court_automation.token.cache_manager.cache")
     def test_get_cached_token_miss(self, mock_cache: MagicMock, mock_pm: MagicMock,
                                     mock_rec_access: MagicMock, mock_rec_result: MagicMock) -> None:
         mgr = self._make_manager()
@@ -56,10 +56,10 @@ class TestTokenCacheManager:
         result = mgr.get_cached_token("site", "acct")
         assert result is None
 
-    @patch("apps.automation.services.token.cache_manager.record_cache_result")
-    @patch("apps.automation.services.token.cache_manager.record_cache_access")
-    @patch("apps.automation.services.token.cache_manager.performance_monitor")
-    @patch("apps.automation.services.token.cache_manager.cache")
+    @patch("plugins.court_automation.token.cache_manager.record_cache_result")
+    @patch("plugins.court_automation.token.cache_manager.record_cache_access")
+    @patch("plugins.court_automation.token.cache_manager.performance_monitor")
+    @patch("plugins.court_automation.token.cache_manager.cache")
     def test_get_cached_token_exception(self, mock_cache: MagicMock, mock_pm: MagicMock,
                                          mock_rec_access: MagicMock, mock_rec_result: MagicMock) -> None:
         mgr = self._make_manager()
@@ -70,8 +70,8 @@ class TestTokenCacheManager:
 
     # ─── cache_token ───
 
-    @patch("apps.automation.services.token.cache_manager.timezone")
-    @patch("apps.automation.services.token.cache_manager.cache")
+    @patch("plugins.court_automation.token.cache_manager.timezone")
+    @patch("plugins.court_automation.token.cache_manager.cache")
     def test_cache_token_no_expiry(self, mock_cache: MagicMock, mock_tz: MagicMock) -> None:
         mgr = self._make_manager()
         mgr.cache_prefix = "auto_token"
@@ -81,8 +81,8 @@ class TestTokenCacheManager:
         call_kwargs = mock_cache.set.call_args
         assert call_kwargs[0][1]["token"] == "token123"
 
-    @patch("apps.automation.services.token.cache_manager.timezone")
-    @patch("apps.automation.services.token.cache_manager.cache")
+    @patch("plugins.court_automation.token.cache_manager.timezone")
+    @patch("plugins.court_automation.token.cache_manager.cache")
     def test_cache_token_with_future_expiry(self, mock_cache: MagicMock, mock_tz: MagicMock) -> None:
         mgr = self._make_manager()
         mgr.cache_prefix = "auto_token"
@@ -94,8 +94,8 @@ class TestTokenCacheManager:
         # 2 hours - 5 minutes = 7200 - 300 = 6900
         assert timeout == 6900
 
-    @patch("apps.automation.services.token.cache_manager.timezone")
-    @patch("apps.automation.services.token.cache_manager.cache")
+    @patch("plugins.court_automation.token.cache_manager.timezone")
+    @patch("plugins.court_automation.token.cache_manager.cache")
     def test_cache_token_expiring_soon_skipped(self, mock_cache: MagicMock, mock_tz: MagicMock) -> None:
         mgr = self._make_manager()
         mgr.cache_prefix = "auto_token"
@@ -104,8 +104,8 @@ class TestTokenCacheManager:
         mgr.cache_token("site", "acct", "tok", expires_at=expires)
         mock_cache.set.assert_not_called()
 
-    @patch("apps.automation.services.token.cache_manager.timezone")
-    @patch("apps.automation.services.token.cache_manager.cache")
+    @patch("plugins.court_automation.token.cache_manager.timezone")
+    @patch("plugins.court_automation.token.cache_manager.cache")
     def test_cache_token_exception(self, mock_cache: MagicMock, mock_tz: MagicMock) -> None:
         mgr = self._make_manager()
         mgr.cache_prefix = "auto_token"
@@ -116,14 +116,14 @@ class TestTokenCacheManager:
 
     # ─── invalidate_token_cache ───
 
-    @patch("apps.automation.services.token.cache_manager.cache")
+    @patch("plugins.court_automation.token.cache_manager.cache")
     def test_invalidate_token_cache(self, mock_cache: MagicMock) -> None:
         mgr = self._make_manager()
         mgr.cache_prefix = "auto_token"
         mgr.invalidate_token_cache("site", "acct")
         mock_cache.delete.assert_called_once()
 
-    @patch("apps.automation.services.token.cache_manager.cache")
+    @patch("plugins.court_automation.token.cache_manager.cache")
     def test_invalidate_token_cache_exception(self, mock_cache: MagicMock) -> None:
         mgr = self._make_manager()
         mgr.cache_prefix = "auto_token"
@@ -132,8 +132,8 @@ class TestTokenCacheManager:
 
     # ─── get_cached_credentials ───
 
-    @patch("apps.automation.services.token.cache_manager.performance_monitor")
-    @patch("apps.automation.services.token.cache_manager.cache")
+    @patch("plugins.court_automation.token.cache_manager.performance_monitor")
+    @patch("plugins.court_automation.token.cache_manager.cache")
     def test_get_cached_credentials_hit(self, mock_cache: MagicMock, mock_pm: MagicMock) -> None:
         mgr = self._make_manager()
         mgr.cache_prefix = "auto_token"
@@ -143,8 +143,8 @@ class TestTokenCacheManager:
         assert result is not None
         assert len(result) == 1
 
-    @patch("apps.automation.services.token.cache_manager.performance_monitor")
-    @patch("apps.automation.services.token.cache_manager.cache")
+    @patch("plugins.court_automation.token.cache_manager.performance_monitor")
+    @patch("plugins.court_automation.token.cache_manager.cache")
     def test_get_cached_credentials_miss(self, mock_cache: MagicMock, mock_pm: MagicMock) -> None:
         mgr = self._make_manager()
         mgr.cache_prefix = "auto_token"
@@ -152,8 +152,8 @@ class TestTokenCacheManager:
         result = mgr.get_cached_credentials("s")
         assert result is None
 
-    @patch("apps.automation.services.token.cache_manager.performance_monitor")
-    @patch("apps.automation.services.token.cache_manager.cache")
+    @patch("plugins.court_automation.token.cache_manager.performance_monitor")
+    @patch("plugins.court_automation.token.cache_manager.cache")
     def test_get_cached_credentials_exception(self, mock_cache: MagicMock, mock_pm: MagicMock) -> None:
         mgr = self._make_manager()
         mgr.cache_prefix = "auto_token"
@@ -163,7 +163,7 @@ class TestTokenCacheManager:
 
     # ─── cache_credentials ───
 
-    @patch("apps.automation.services.token.cache_manager.cache")
+    @patch("plugins.court_automation.token.cache_manager.cache")
     def test_cache_credentials(self, mock_cache: MagicMock) -> None:
         mgr = self._make_manager()
         mgr.cache_prefix = "auto_token"
@@ -173,7 +173,7 @@ class TestTokenCacheManager:
         saved = mock_cache.set.call_args[0][1]
         assert saved[0]["password"] == ""  # password blanked
 
-    @patch("apps.automation.services.token.cache_manager.cache")
+    @patch("plugins.court_automation.token.cache_manager.cache")
     def test_cache_credentials_exception(self, mock_cache: MagicMock) -> None:
         mgr = self._make_manager()
         mgr.cache_prefix = "auto_token"
@@ -182,14 +182,14 @@ class TestTokenCacheManager:
 
     # ─── invalidate_credentials_cache ───
 
-    @patch("apps.automation.services.token.cache_manager.cache")
+    @patch("plugins.court_automation.token.cache_manager.cache")
     def test_invalidate_credentials_cache(self, mock_cache: MagicMock) -> None:
         mgr = self._make_manager()
         mgr.cache_prefix = "auto_token"
         mgr.invalidate_credentials_cache("site")
         mock_cache.delete.assert_called_once()
 
-    @patch("apps.automation.services.token.cache_manager.cache")
+    @patch("plugins.court_automation.token.cache_manager.cache")
     def test_invalidate_credentials_cache_exception(self, mock_cache: MagicMock) -> None:
         mgr = self._make_manager()
         mgr.cache_prefix = "auto_token"
@@ -198,8 +198,8 @@ class TestTokenCacheManager:
 
     # ─── get_cached_account_stats ───
 
-    @patch("apps.automation.services.token.cache_manager.performance_monitor")
-    @patch("apps.automation.services.token.cache_manager.cache")
+    @patch("plugins.court_automation.token.cache_manager.performance_monitor")
+    @patch("plugins.court_automation.token.cache_manager.cache")
     def test_get_cached_account_stats_hit(self, mock_cache: MagicMock, mock_pm: MagicMock) -> None:
         mgr = self._make_manager()
         mgr.cache_prefix = "auto_token"
@@ -207,8 +207,8 @@ class TestTokenCacheManager:
         result = mgr.get_cached_account_stats("acct", "site")
         assert result == {"total": 10}
 
-    @patch("apps.automation.services.token.cache_manager.performance_monitor")
-    @patch("apps.automation.services.token.cache_manager.cache")
+    @patch("plugins.court_automation.token.cache_manager.performance_monitor")
+    @patch("plugins.court_automation.token.cache_manager.cache")
     def test_get_cached_account_stats_miss(self, mock_cache: MagicMock, mock_pm: MagicMock) -> None:
         mgr = self._make_manager()
         mgr.cache_prefix = "auto_token"
@@ -216,8 +216,8 @@ class TestTokenCacheManager:
         result = mgr.get_cached_account_stats("acct", "site")
         assert result is None
 
-    @patch("apps.automation.services.token.cache_manager.performance_monitor")
-    @patch("apps.automation.services.token.cache_manager.cache")
+    @patch("plugins.court_automation.token.cache_manager.performance_monitor")
+    @patch("plugins.court_automation.token.cache_manager.cache")
     def test_get_cached_account_stats_exception(self, mock_cache: MagicMock, mock_pm: MagicMock) -> None:
         mgr = self._make_manager()
         mgr.cache_prefix = "auto_token"
@@ -227,14 +227,14 @@ class TestTokenCacheManager:
 
     # ─── cache_account_stats ───
 
-    @patch("apps.automation.services.token.cache_manager.cache")
+    @patch("plugins.court_automation.token.cache_manager.cache")
     def test_cache_account_stats(self, mock_cache: MagicMock) -> None:
         mgr = self._make_manager()
         mgr.cache_prefix = "auto_token"
         mgr.cache_account_stats("acct", "site", {"total": 5})
         mock_cache.set.assert_called_once()
 
-    @patch("apps.automation.services.token.cache_manager.cache")
+    @patch("plugins.court_automation.token.cache_manager.cache")
     def test_cache_account_stats_exception(self, mock_cache: MagicMock) -> None:
         mgr = self._make_manager()
         mgr.cache_prefix = "auto_token"
@@ -243,14 +243,14 @@ class TestTokenCacheManager:
 
     # ─── invalidate_account_stats_cache ───
 
-    @patch("apps.automation.services.token.cache_manager.cache")
+    @patch("plugins.court_automation.token.cache_manager.cache")
     def test_invalidate_account_stats_cache(self, mock_cache: MagicMock) -> None:
         mgr = self._make_manager()
         mgr.cache_prefix = "auto_token"
         mgr.invalidate_account_stats_cache("acct", "site")
         mock_cache.delete.assert_called_once()
 
-    @patch("apps.automation.services.token.cache_manager.cache")
+    @patch("plugins.court_automation.token.cache_manager.cache")
     def test_invalidate_account_stats_cache_exception(self, mock_cache: MagicMock) -> None:
         mgr = self._make_manager()
         mgr.cache_prefix = "auto_token"
@@ -259,8 +259,8 @@ class TestTokenCacheManager:
 
     # ─── blacklist ───
 
-    @patch("apps.automation.services.token.cache_manager.performance_monitor")
-    @patch("apps.automation.services.token.cache_manager.cache")
+    @patch("plugins.court_automation.token.cache_manager.performance_monitor")
+    @patch("plugins.court_automation.token.cache_manager.cache")
     def test_get_cached_blacklist_hit(self, mock_cache: MagicMock, mock_pm: MagicMock) -> None:
         mgr = self._make_manager()
         mgr.cache_prefix = "auto_token"
@@ -268,44 +268,44 @@ class TestTokenCacheManager:
         result = mgr.get_cached_blacklist()
         assert result == ["bad1", "bad2"]
 
-    @patch("apps.automation.services.token.cache_manager.performance_monitor")
-    @patch("apps.automation.services.token.cache_manager.cache")
+    @patch("plugins.court_automation.token.cache_manager.performance_monitor")
+    @patch("plugins.court_automation.token.cache_manager.cache")
     def test_get_cached_blacklist_miss(self, mock_cache: MagicMock, mock_pm: MagicMock) -> None:
         mgr = self._make_manager()
         mgr.cache_prefix = "auto_token"
         mock_cache.get.return_value = None
         assert mgr.get_cached_blacklist() is None
 
-    @patch("apps.automation.services.token.cache_manager.performance_monitor")
-    @patch("apps.automation.services.token.cache_manager.cache")
+    @patch("plugins.court_automation.token.cache_manager.performance_monitor")
+    @patch("plugins.court_automation.token.cache_manager.cache")
     def test_get_cached_blacklist_exception(self, mock_cache: MagicMock, mock_pm: MagicMock) -> None:
         mgr = self._make_manager()
         mgr.cache_prefix = "auto_token"
         mock_cache.get.side_effect = RuntimeError("fail")
         assert mgr.get_cached_blacklist() is None
 
-    @patch("apps.automation.services.token.cache_manager.cache")
+    @patch("plugins.court_automation.token.cache_manager.cache")
     def test_cache_blacklist(self, mock_cache: MagicMock) -> None:
         mgr = self._make_manager()
         mgr.cache_prefix = "auto_token"
         mgr.cache_blacklist(["a", "b"])
         mock_cache.set.assert_called_once()
 
-    @patch("apps.automation.services.token.cache_manager.cache")
+    @patch("plugins.court_automation.token.cache_manager.cache")
     def test_cache_blacklist_exception(self, mock_cache: MagicMock) -> None:
         mgr = self._make_manager()
         mgr.cache_prefix = "auto_token"
         mock_cache.set.side_effect = RuntimeError("fail")
         mgr.cache_blacklist(["a"])
 
-    @patch("apps.automation.services.token.cache_manager.cache")
+    @patch("plugins.court_automation.token.cache_manager.cache")
     def test_invalidate_blacklist_cache(self, mock_cache: MagicMock) -> None:
         mgr = self._make_manager()
         mgr.cache_prefix = "auto_token"
         mgr.invalidate_blacklist_cache()
         mock_cache.delete.assert_called_once()
 
-    @patch("apps.automation.services.token.cache_manager.cache")
+    @patch("plugins.court_automation.token.cache_manager.cache")
     def test_invalidate_blacklist_cache_exception(self, mock_cache: MagicMock) -> None:
         mgr = self._make_manager()
         mgr.cache_prefix = "auto_token"
@@ -314,7 +314,7 @@ class TestTokenCacheManager:
 
     # ─── invalidate_site_cache ───
 
-    @patch("apps.automation.services.token.cache_manager.cache")
+    @patch("plugins.court_automation.token.cache_manager.cache")
     def test_invalidate_site_cache_no_accounts(self, mock_cache: MagicMock) -> None:
         mgr = self._make_manager()
         mgr.cache_prefix = "auto_token"
@@ -322,7 +322,7 @@ class TestTokenCacheManager:
         # Just credentials cache invalidated
         mock_cache.delete.assert_called()
 
-    @patch("apps.automation.services.token.cache_manager.cache")
+    @patch("plugins.court_automation.token.cache_manager.cache")
     def test_invalidate_site_cache_with_accounts(self, mock_cache: MagicMock) -> None:
         mgr = self._make_manager()
         mgr.cache_prefix = "auto_token"
@@ -362,7 +362,7 @@ class TestTokenCacheManager:
         with patch.dict("os.environ", {"ALLOW_CACHE_CLEAR": ""}):
             mgr.clear_all_cache()
 
-    @patch("apps.automation.services.token.cache_manager.cache")
+    @patch("plugins.court_automation.token.cache_manager.cache")
     @patch("django.conf.settings")
     def test_clear_all_cache_non_redis(self, mock_settings: MagicMock, mock_cache: MagicMock) -> None:
         mgr = self._make_manager()
@@ -372,14 +372,14 @@ class TestTokenCacheManager:
         mgr.clear_all_cache()
         mock_cache.clear.assert_called_once()
 
-    @patch("apps.automation.services.token.cache_manager.cache")
+    @patch("plugins.court_automation.token.cache_manager.cache")
     @patch("django.conf.settings")
     def test_clear_all_cache_redis(self, mock_settings: MagicMock, mock_cache: MagicMock) -> None:
         mgr = self._make_manager()
         mgr.cache_prefix = "auto_token"
         mock_settings.DEBUG = True
         mock_settings.CACHES = {"default": {"BACKEND": "django.core.cache.backends.redis.RedisCache", "LOCATION": "redis://localhost"}}
-        with patch("apps.automation.services.token.cache_manager.TokenCacheManager._clear_redis_namespace_cache") as mock_clear:
+        with patch("plugins.court_automation.token.cache_manager.TokenCacheManager._clear_redis_namespace_cache") as mock_clear:
             mgr.clear_all_cache()
             mock_clear.assert_called_once()
 
@@ -447,20 +447,20 @@ class TestTokenCacheManager:
 
     def test_warm_up_cache_success(self) -> None:
         mgr = self._make_manager()
-        with patch("apps.automation.services.token.account_selection_strategy.AccountSelectionStrategy"):
+        with patch("plugins.court_automation.token.account_selection_strategy.AccountSelectionStrategy"):
             mgr.warm_up_cache("site")
 
     def test_warm_up_cache_exception(self) -> None:
         mgr = self._make_manager()
-        with patch("apps.automation.services.token.account_selection_strategy.AccountSelectionStrategy", side_effect=RuntimeError("fail")):
+        with patch("plugins.court_automation.token.account_selection_strategy.AccountSelectionStrategy", side_effect=RuntimeError("fail")):
             mgr.warm_up_cache("site")
 
     # ─── get_cached_token cache_data with None token ───
 
-    @patch("apps.automation.services.token.cache_manager.record_cache_result")
-    @patch("apps.automation.services.token.cache_manager.record_cache_access")
-    @patch("apps.automation.services.token.cache_manager.performance_monitor")
-    @patch("apps.automation.services.token.cache_manager.cache")
+    @patch("plugins.court_automation.token.cache_manager.record_cache_result")
+    @patch("plugins.court_automation.token.cache_manager.record_cache_access")
+    @patch("plugins.court_automation.token.cache_manager.performance_monitor")
+    @patch("plugins.court_automation.token.cache_manager.cache")
     def test_get_cached_token_data_present_but_token_none(self, mock_cache: MagicMock, mock_pm: MagicMock,
                                                            mock_rec_access: MagicMock, mock_rec_result: MagicMock) -> None:
         mgr = self._make_manager()

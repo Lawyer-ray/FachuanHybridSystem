@@ -7,7 +7,7 @@ from unittest.mock import MagicMock, patch, AsyncMock
 
 import pytest
 
-from apps.automation.services.token.auto_login_service import (
+from plugins.court_automation.token.auto_login_service import (
     AutoLoginService,
     RetryConfig,
 )
@@ -83,14 +83,14 @@ class TestAutoTokenAcquisitionService:
     """AutoTokenAcquisitionService 关键方法测试。"""
 
     def test_init_defaults(self) -> None:
-        from apps.automation.services.token.auto_token_acquisition_service import AutoTokenAcquisitionService
+        from plugins.court_automation.token.auto_token_acquisition_service import AutoTokenAcquisitionService
         svc = AutoTokenAcquisitionService()
         assert svc._acquisition_count == 0
         assert svc._success_count == 0
         assert svc._failure_count == 0
 
     def test_init_with_deps(self) -> None:
-        from apps.automation.services.token.auto_token_acquisition_service import AutoTokenAcquisitionService
+        from plugins.court_automation.token.auto_token_acquisition_service import AutoTokenAcquisitionService
         mock_strategy = MagicMock()
         mock_login = MagicMock()
         mock_token = MagicMock()

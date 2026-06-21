@@ -13,7 +13,7 @@ from django.utils import timezone
 
 from apps.automation.admin.sms.court_sms_admin import CourtSMSAdmin
 from apps.automation.admin.scraper.scraper_task_admin import ScraperTaskAdmin
-from apps.automation.admin.token.token_admin import CourtTokenAdmin
+from plugins.court_automation.token_admin.token_admin import CourtTokenAdmin
 from apps.automation.models import CourtSMS, ScraperTask, CourtToken
 
 User = get_user_model()

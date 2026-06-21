@@ -8,7 +8,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from apps.automation.services.token.auto_login_service import AutoLoginService, RetryConfig
+from plugins.court_automation.token.auto_login_service import AutoLoginService, RetryConfig
 from apps.core.exceptions import (
     AutoTokenAcquisitionError,
     LoginFailedError,

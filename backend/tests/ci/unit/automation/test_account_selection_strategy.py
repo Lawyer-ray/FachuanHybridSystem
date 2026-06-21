@@ -8,7 +8,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from django.utils import timezone
 
-from apps.automation.services.token.account_selection_strategy import AccountSelectionStrategy
+from plugins.court_automation.token.account_selection_strategy import AccountSelectionStrategy
 from apps.core.exceptions import ValidationException
 from apps.core.interfaces import AccountCredentialDTO
 
@@ -23,36 +23,36 @@ def strategy():
 
 class TestBlacklistManagement:
     def test_add_to_blacklist(self, strategy):
-        with patch("apps.automation.services.token.account_selection_strategy.cache_manager"):
+        with patch("plugins.court_automation.token.account_selection_strategy.cache_manager"):
             strategy.add_to_blacklist("user1")
         assert "user1" in strategy.get_blacklist()
 
     def test_add_to_blacklist_no_duplicate(self, strategy):
-        with patch("apps.automation.services.token.account_selection_strategy.cache_manager"):
+        with patch("plugins.court_automation.token.account_selection_strategy.cache_manager"):
             strategy.add_to_blacklist("user1")
             strategy.add_to_blacklist("user1")
         assert strategy.get_blacklist().count("user1") == 1
 
     def test_remove_from_blacklist(self, strategy):
-        with patch("apps.automation.services.token.account_selection_strategy.cache_manager"):
+        with patch("plugins.court_automation.token.account_selection_strategy.cache_manager"):
             strategy.add_to_blacklist("user1")
             strategy.remove_from_blacklist("user1")
         assert "user1" not in strategy.get_blacklist()
 
     def test_remove_nonexistent_from_blacklist(self, strategy):
-        with patch("apps.automation.services.token.account_selection_strategy.cache_manager"):
+        with patch("plugins.court_automation.token.account_selection_strategy.cache_manager"):
             strategy.remove_from_blacklist("nonexistent")
         assert strategy.get_blacklist() == []
 
     def test_clear_blacklist(self, strategy):
-        with patch("apps.automation.services.token.account_selection_strategy.cache_manager"):
+        with patch("plugins.court_automation.token.account_selection_strategy.cache_manager"):
             strategy.add_to_blacklist("user1")
             strategy.add_to_blacklist("user2")
             strategy.clear_blacklist()
         assert strategy.get_blacklist() == []
 
     def test_get_blacklist_returns_copy(self, strategy):
-        with patch("apps.automation.services.token.account_selection_strategy.cache_manager"):
+        with patch("plugins.court_automation.token.account_selection_strategy.cache_manager"):
             strategy.add_to_blacklist("user1")
         bl = strategy.get_blacklist()
         bl.append("user2")
@@ -143,7 +143,7 @@ class TestSelectAccount:
 
     def test_no_accounts_returns_none(self, strategy):
         with patch(
-            "apps.automation.services.token.account_selection_strategy.cache_manager"
+            "plugins.court_automation.token.account_selection_strategy.cache_manager"
         ) as mock_cache, \
              patch.object(strategy, "_get_available_accounts", return_value=[]):
             mock_cache.get_cached_blacklist.return_value = None
@@ -153,7 +153,7 @@ class TestSelectAccount:
 
     def test_cached_blacklist_loaded(self, strategy):
         with patch(
-            "apps.automation.services.token.account_selection_strategy.cache_manager"
+            "plugins.court_automation.token.account_selection_strategy.cache_manager"
         ) as mock_cache:
             mock_cache.get_cached_blacklist.return_value = ["blocked_user"]
             mock_cache.get_cached_credentials.return_value = []
@@ -163,7 +163,7 @@ class TestSelectAccount:
     def test_cached_credentials_used(self, strategy):
         acc = _make_dto(account="cached_user")
         with patch(
-            "apps.automation.services.token.account_selection_strategy.cache_manager"
+            "plugins.court_automation.token.account_selection_strategy.cache_manager"
         ) as mock_cache:
             mock_cache.get_cached_blacklist.return_value = None
             mock_cache.get_cached_credentials.return_value = [acc]
@@ -175,7 +175,7 @@ class TestSelectAccount:
         acc1 = _make_dto(account="good_user")
         acc2 = _make_dto(account="bad_user", login_success_count=10)
         with patch(
-            "apps.automation.services.token.account_selection_strategy.cache_manager"
+            "plugins.court_automation.token.account_selection_strategy.cache_manager"
         ) as mock_cache:
             mock_cache.get_cached_blacklist.return_value = ["bad_user"]
             mock_cache.get_cached_credentials.return_value = [acc1, acc2]

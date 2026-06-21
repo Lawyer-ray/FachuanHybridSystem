@@ -1,8 +1,7 @@
-"""
-Token Admin 模块
+"""Stub: Token admin modules have been moved to plugins/court_automation/token_admin/
 
-包含 Token 管理和 Token 获取历史相关的 Django Admin 配置。
+This file re-exports from the plugin for backward compatibility.
 """
 
-from .token_acquisition_history_admin import *
-from .token_admin import *
+from plugins.court_automation.token_admin import *  # noqa: F401,F403
+from plugins.court_automation.token_admin import CourtTokenAdmin, TokenAcquisitionHistoryAdmin  # noqa: F401

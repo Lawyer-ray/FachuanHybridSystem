@@ -8,7 +8,7 @@ from typing import Any
 
 from django.core.management.base import BaseCommand, CommandError
 
-from apps.automation.services.token.cache_manager import TokenCacheManager
+from plugins.court_automation.token.cache_manager import TokenCacheManager
 
 
 class Command(BaseCommand):

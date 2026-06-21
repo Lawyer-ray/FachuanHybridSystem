@@ -7,7 +7,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from apps.automation.services.token.concurrency_optimizer import (
+from plugins.court_automation.token.concurrency_optimizer import (
     ConcurrencyConfig,
     ConcurrencyOptimizer,
     ResourceUsage,

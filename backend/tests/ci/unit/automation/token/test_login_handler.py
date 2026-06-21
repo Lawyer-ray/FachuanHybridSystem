@@ -5,7 +5,7 @@ from __future__ import annotations
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
-from apps.automation.services.token._login_handler import LoginHandler
+from plugins.court_automation.token._login_handler import LoginHandler
 
 
 class TestLoginHandler:

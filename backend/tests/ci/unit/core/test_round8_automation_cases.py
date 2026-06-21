@@ -19,7 +19,7 @@ from apps.core.dependencies.automation_sms_wiring import (
     build_sms_case_number_service,
 )
 from apps.core.tasking.submission import TaskSubmissionService
-from apps.automation.services.token.court_token_store_service import CourtTokenStoreService
+from plugins.court_automation.token.court_token_store_service import CourtTokenStoreService
 from apps.core.tasking.context import TaskContext
 from apps.cases.services.case.case_command_service import CaseCommandService
 from apps.pdf_splitting.services.split.segment_detector import SegmentDetector

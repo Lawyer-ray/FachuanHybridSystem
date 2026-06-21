@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from apps.automation.services.token.performance_monitor import (
+from plugins.court_automation.token.performance_monitor import (
     PerformanceMetrics,
     AlertThresholds,
 )

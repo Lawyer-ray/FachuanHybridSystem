@@ -12,8 +12,8 @@ import pytest
 @pytest.fixture
 def mock_service():
     """Create a service with mocked dependencies."""
-    from apps.automation.services.token.auto_token_acquisition_service import AutoTokenAcquisitionService
-    from apps.automation.services.token.concurrency_optimizer import ConcurrencyConfig
+    from plugins.court_automation.token.auto_token_acquisition_service import AutoTokenAcquisitionService
+    from plugins.court_automation.token.concurrency_optimizer import ConcurrencyConfig
 
     strategy = AsyncMock()
     login_svc = AsyncMock()
@@ -79,7 +79,7 @@ class TestLazyProperties:
     @patch("apps.core.dependencies.build_auto_login_service", return_value="login")
     @patch("apps.core.dependencies.build_token_service", return_value="token")
     def test_lazy_load_all(self, mock_token, mock_login, mock_strat):
-        from apps.automation.services.token.auto_token_acquisition_service import AutoTokenAcquisitionService
+        from plugins.court_automation.token.auto_token_acquisition_service import AutoTokenAcquisitionService
 
         svc = AutoTokenAcquisitionService()
         assert svc.account_selection_strategy == "strat"
@@ -170,7 +170,7 @@ class TestGetCachedOrDbToken:
     @pytest.mark.asyncio
     async def test_returns_cached_token(self, mock_service):
         svc, _, _, _ = mock_service
-        with patch("apps.automation.services.token.auto_token_acquisition_service.cache_manager") as cache:
+        with patch("plugins.court_automation.token.auto_token_acquisition_service.cache_manager") as cache:
             cache.get_cached_token.return_value = "cached"
             result = await svc._get_cached_or_db_token("site", "account")
             assert result == "cached"
@@ -178,7 +178,7 @@ class TestGetCachedOrDbToken:
     @pytest.mark.asyncio
     async def test_falls_back_to_db(self, mock_service):
         svc, _, _, token_svc = mock_service
-        with patch("apps.automation.services.token.auto_token_acquisition_service.cache_manager") as cache:
+        with patch("plugins.court_automation.token.auto_token_acquisition_service.cache_manager") as cache:
             cache.get_cached_token.return_value = None
             token_svc.get_token_internal.return_value = "db_token"
             result = await svc._get_cached_or_db_token("site", "account")
@@ -188,7 +188,7 @@ class TestGetCachedOrDbToken:
     @pytest.mark.asyncio
     async def test_returns_none_when_nothing_found(self, mock_service):
         svc, _, _, token_svc = mock_service
-        with patch("apps.automation.services.token.auto_token_acquisition_service.cache_manager") as cache:
+        with patch("plugins.court_automation.token.auto_token_acquisition_service.cache_manager") as cache:
             cache.get_cached_token.return_value = None
             token_svc.get_token_internal.return_value = None
             result = await svc._get_cached_or_db_token("site", "account")
@@ -265,6 +265,6 @@ class TestGetLoginHandler:
 
     def test_creates_login_handler(self, mock_service):
         svc, *_ = mock_service
-        with patch("apps.automation.services.token._login_handler.LoginHandler") as mock_cls:
+        with patch("plugins.court_automation.token._login_handler.LoginHandler") as mock_cls:
             handler = svc._get_login_handler()
             mock_cls.assert_called_once()

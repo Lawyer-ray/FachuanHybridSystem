@@ -10,7 +10,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 from django.utils import timezone
 
-from apps.automation.services.token.account_selection_strategy import AccountSelectionStrategy
+from plugins.court_automation.token.account_selection_strategy import AccountSelectionStrategy
 from apps.core.interfaces import AccountCredentialDTO
 
 # 固定当前时间，避免 recency_score 随真实时间漂移导致 flaky
@@ -150,7 +150,7 @@ class TestSelectAccountAsync:
     @pytest.mark.asyncio
     async def test_empty_site_name_raises(self) -> None:
         strategy = AccountSelectionStrategy()
-        with patch("apps.automation.services.token.account_selection_strategy.cache_manager") as mock_cache:
+        with patch("plugins.court_automation.token.account_selection_strategy.cache_manager") as mock_cache:
             mock_cache.get_cached_blacklist.return_value = []
             with pytest.raises(Exception):
                 await strategy.select_account("")
@@ -159,7 +159,7 @@ class TestSelectAccountAsync:
     async def test_no_accounts_available(self) -> None:
         strategy = AccountSelectionStrategy()
         with (
-            patch("apps.automation.services.token.account_selection_strategy.cache_manager") as mock_cache,
+            patch("plugins.court_automation.token.account_selection_strategy.cache_manager") as mock_cache,
         ):
             mock_cache.get_cached_blacklist.return_value = []
             mock_cache.get_cached_credentials.return_value = []
@@ -170,7 +170,7 @@ class TestSelectAccountAsync:
     async def test_cached_accounts_filtered(self) -> None:
         strategy = AccountSelectionStrategy()
         cred = _make_credential()
-        with patch("apps.automation.services.token.account_selection_strategy.cache_manager") as mock_cache:
+        with patch("plugins.court_automation.token.account_selection_strategy.cache_manager") as mock_cache:
             mock_cache.get_cached_blacklist.return_value = []
             mock_cache.get_cached_credentials.return_value = [cred]
             result = await strategy.select_account("court")
@@ -181,7 +181,7 @@ class TestSelectAccountAsync:
     async def test_blacklist_filters_accounts(self) -> None:
         strategy = AccountSelectionStrategy()
         cred = _make_credential(account="bad@test.com")
-        with patch("apps.automation.services.token.account_selection_strategy.cache_manager") as mock_cache:
+        with patch("plugins.court_automation.token.account_selection_strategy.cache_manager") as mock_cache:
             mock_cache.get_cached_blacklist.return_value = ["bad@test.com"]
             mock_cache.get_cached_credentials.return_value = [cred]
             result = await strategy.select_account("court")
@@ -191,7 +191,7 @@ class TestSelectAccountAsync:
     async def test_exclude_accounts(self) -> None:
         strategy = AccountSelectionStrategy()
         cred = _make_credential(account="excluded@test.com")
-        with patch("apps.automation.services.token.account_selection_strategy.cache_manager") as mock_cache:
+        with patch("plugins.court_automation.token.account_selection_strategy.cache_manager") as mock_cache:
             mock_cache.get_cached_blacklist.return_value = []
             mock_cache.get_cached_credentials.return_value = [cred]
             result = await strategy.select_account("court", exclude_accounts=["excluded@test.com"])
@@ -204,7 +204,7 @@ class TestUpdateAccountStatistics:
         strategy = AccountSelectionStrategy()
         cred = _make_credential()
         with (
-            patch("apps.automation.services.token.account_selection_strategy.cache_manager") as mock_cache,
+            patch("plugins.court_automation.token.account_selection_strategy.cache_manager") as mock_cache,
             patch("apps.core.interfaces.ServiceLocator") as mock_locator,
         ):
             org_svc = MagicMock()
@@ -220,7 +220,7 @@ class TestUpdateAccountStatistics:
         strategy = AccountSelectionStrategy()
         cred = _make_credential()
         with (
-            patch("apps.automation.services.token.account_selection_strategy.cache_manager") as mock_cache,
+            patch("plugins.court_automation.token.account_selection_strategy.cache_manager") as mock_cache,
             patch("apps.core.interfaces.ServiceLocator") as mock_locator,
         ):
             org_svc = MagicMock()
@@ -235,7 +235,7 @@ class TestUpdateAccountStatistics:
     async def test_exception_handled(self) -> None:
         strategy = AccountSelectionStrategy()
         with (
-            patch("apps.automation.services.token.account_selection_strategy.cache_manager") as mock_cache,
+            patch("plugins.court_automation.token.account_selection_strategy.cache_manager") as mock_cache,
             patch("apps.core.interfaces.ServiceLocator") as mock_locator,
         ):
             org_svc = MagicMock()

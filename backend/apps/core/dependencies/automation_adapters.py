@@ -34,7 +34,7 @@ def build_automation_service() -> IAutomationService:
 
 
 def build_performance_monitor_service() -> IPerformanceMonitorService:
-    from apps.automation.services.token.performance_monitor_service_adapter import PerformanceMonitorServiceAdapter
+    from plugins.court_automation.token.performance_monitor_service_adapter import PerformanceMonitorServiceAdapter
 
     return PerformanceMonitorServiceAdapter()
 

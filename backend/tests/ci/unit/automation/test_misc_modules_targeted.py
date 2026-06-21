@@ -179,13 +179,13 @@ class TestFileUtils:
 
 class TestConcurrencyOptimizerModule:
     def test_import(self):
-        from apps.automation.services.token.concurrency_optimizer import ConcurrencyOptimizer, ConcurrencyConfig
+        from plugins.court_automation.token.concurrency_optimizer import ConcurrencyOptimizer, ConcurrencyConfig
 
         assert ConcurrencyOptimizer is not None
         assert ConcurrencyConfig is not None
 
     def test_concurrency_config_defaults(self):
-        from apps.automation.services.token.concurrency_optimizer import ConcurrencyConfig
+        from plugins.court_automation.token.concurrency_optimizer import ConcurrencyConfig
 
         config = ConcurrencyConfig()
         assert config is not None
@@ -196,7 +196,7 @@ class TestConcurrencyOptimizerModule:
 
 class TestCacheManager:
     def test_import(self):
-        from apps.automation.services.token.cache_manager import TokenCacheManager
+        from plugins.court_automation.token.cache_manager import TokenCacheManager
 
         assert TokenCacheManager is not None
 
@@ -206,7 +206,7 @@ class TestCacheManager:
 
 class TestPerformanceMonitor:
     def test_import(self):
-        from apps.automation.services.token.performance_monitor import PerformanceMonitor
+        from plugins.court_automation.token.performance_monitor import PerformanceMonitor
 
         assert PerformanceMonitor is not None
 
@@ -216,7 +216,7 @@ class TestPerformanceMonitor:
 
 class TestHistoryRecorder:
     def test_import(self):
-        from apps.automation.services.token.history_recorder import TokenHistoryRecorder
+        from plugins.court_automation.token.history_recorder import TokenHistoryRecorder
 
         assert TokenHistoryRecorder is not None
 
@@ -261,7 +261,7 @@ class TestCaptchaService:
 
 class TestBrowserContextFactory:
     def test_import(self):
-        from apps.automation.services.token.browser_context_factory import BrowserContextFactory
+        from plugins.court_automation.token.browser_context_factory import BrowserContextFactory
 
         assert BrowserContextFactory is not None
 

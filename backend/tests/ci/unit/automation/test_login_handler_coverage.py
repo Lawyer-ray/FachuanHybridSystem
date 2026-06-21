@@ -8,7 +8,7 @@ import asyncio
 
 class TestLoginHandler:
     def _make(self):
-        from apps.automation.services.token._login_handler import LoginHandler
+        from plugins.court_automation.token._login_handler import LoginHandler
 
         account_strategy = AsyncMock()
         auto_login = AsyncMock()

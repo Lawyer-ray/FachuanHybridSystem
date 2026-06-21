@@ -81,13 +81,13 @@ class TestTokenServiceAdapter:
 
 class TestTokenHistoryRecorder:
     def test_init(self) -> None:
-        from apps.automation.services.token.history_recorder import TokenHistoryRecorder
+        from plugins.court_automation.token.history_recorder import TokenHistoryRecorder
 
         recorder = TokenHistoryRecorder()
         assert recorder._db_service is None
 
     def test_db_service_lazy_load(self) -> None:
-        from apps.automation.services.token.history_recorder import TokenHistoryRecorder
+        from plugins.court_automation.token.history_recorder import TokenHistoryRecorder
 
         recorder = TokenHistoryRecorder()
         svc = recorder.db_service
@@ -95,7 +95,7 @@ class TestTokenHistoryRecorder:
 
     @pytest.mark.asyncio
     async def test_cleanup_old_records_exception(self) -> None:
-        from apps.automation.services.token.history_recorder import TokenHistoryRecorder
+        from plugins.court_automation.token.history_recorder import TokenHistoryRecorder
 
         recorder = TokenHistoryRecorder()
         with patch("apps.automation.models.TokenAcquisitionHistory") as mock_hist:
@@ -109,7 +109,7 @@ class TestTokenHistoryRecorder:
 
 class TestRetryConfig:
     def test_defaults(self) -> None:
-        from apps.automation.services.token.auto_login_service import RetryConfig
+        from plugins.court_automation.token.auto_login_service import RetryConfig
 
         cfg = RetryConfig()
         assert cfg.max_network_retries == 3
@@ -119,20 +119,20 @@ class TestRetryConfig:
 
 class TestAutoLoginService:
     def test_init(self) -> None:
-        from apps.automation.services.token.auto_login_service import AutoLoginService
+        from plugins.court_automation.token.auto_login_service import AutoLoginService
 
         svc = AutoLoginService()
         assert svc.retry_config.max_network_retries == 3
         assert svc._login_attempts == []
 
     def test_get_login_attempts(self) -> None:
-        from apps.automation.services.token.auto_login_service import AutoLoginService
+        from plugins.court_automation.token.auto_login_service import AutoLoginService
 
         svc = AutoLoginService()
         assert svc.get_login_attempts() == []
 
     def test_clear_login_attempts(self) -> None:
-        from apps.automation.services.token.auto_login_service import AutoLoginService
+        from plugins.court_automation.token.auto_login_service import AutoLoginService
 
         svc = AutoLoginService()
         svc._login_attempts.append(MagicMock())
@@ -140,14 +140,14 @@ class TestAutoLoginService:
         assert svc._login_attempts == []
 
     def test_browser_service_lazy_load(self) -> None:
-        from apps.automation.services.token.auto_login_service import AutoLoginService
+        from plugins.court_automation.token.auto_login_service import AutoLoginService
 
         svc = AutoLoginService()
         assert svc._browser_service is None
 
     @pytest.mark.asyncio
     async def test_login_and_get_token_delegates_to_usecase(self) -> None:
-        from apps.automation.services.token.auto_login_service import AutoLoginService
+        from plugins.court_automation.token.auto_login_service import AutoLoginService
 
         mock_usecase = MagicMock()
         mock_usecase.execute = AsyncMock(return_value="token123")
@@ -531,7 +531,7 @@ class TestBaseScraper:
 
 class TestAutoTokenAcquisitionService:
     def test_get_statistics(self) -> None:
-        from apps.automation.services.token.auto_token_acquisition_service import AutoTokenAcquisitionService
+        from plugins.court_automation.token.auto_token_acquisition_service import AutoTokenAcquisitionService
 
         svc = AutoTokenAcquisitionService()
         stats = svc.get_statistics()
@@ -539,7 +539,7 @@ class TestAutoTokenAcquisitionService:
         assert stats["success_count"] == 0
 
     def test_reset_statistics(self) -> None:
-        from apps.automation.services.token.auto_token_acquisition_service import AutoTokenAcquisitionService
+        from plugins.court_automation.token.auto_token_acquisition_service import AutoTokenAcquisitionService
 
         svc = AutoTokenAcquisitionService()
         svc._acquisition_count = 5
@@ -547,7 +547,7 @@ class TestAutoTokenAcquisitionService:
         assert svc._acquisition_count == 0
 
     def test_clear_locks(self) -> None:
-        from apps.automation.services.token.auto_token_acquisition_service import AutoTokenAcquisitionService
+        from plugins.court_automation.token.auto_token_acquisition_service import AutoTokenAcquisitionService
 
         AutoTokenAcquisitionService._active_acquisitions.add("test")
         AutoTokenAcquisitionService.clear_locks()
@@ -555,7 +555,7 @@ class TestAutoTokenAcquisitionService:
 
     @pytest.mark.asyncio
     async def test_acquire_token_empty_site_name(self) -> None:
-        from apps.automation.services.token.auto_token_acquisition_service import AutoTokenAcquisitionService
+        from plugins.court_automation.token.auto_token_acquisition_service import AutoTokenAcquisitionService
         from apps.core.exceptions import ValidationException
 
         svc = AutoTokenAcquisitionService()
