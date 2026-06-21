@@ -20,7 +20,14 @@ class AuthzUserMixin:
         return self.is_authenticated(user)
 
     def is_superuser(self, user: Any | None) -> bool:
-        return bool(user and (getattr(user, "is_superuser", False) or getattr(user, "is_staff", False)))
+        return bool(
+            user
+            and (
+                getattr(user, "is_superuser", False)
+                or getattr(user, "is_staff", False)
+                or getattr(user, "is_admin", False)
+            )
+        )
 
     def get_user_id(self, user: Any | None) -> int | None:
         return getattr(user, "id", None) if user else None
