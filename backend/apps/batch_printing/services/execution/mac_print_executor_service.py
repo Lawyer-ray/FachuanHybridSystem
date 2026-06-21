@@ -24,7 +24,7 @@ class MacPrintExecutorService:
             command.extend(["-o", f"{key}={text}"])
 
         command.append(str(pdf_path))
-        result = subprocess.run(command, capture_output=True, text=True, check=False)
+        result = subprocess.run(command, capture_output=True, text=True, check=False, timeout=120)
         if result.returncode != 0:
             raise ValidationException(
                 message="静默打印失败",

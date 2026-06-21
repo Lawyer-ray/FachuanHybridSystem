@@ -174,7 +174,7 @@ class PresetDiscoveryService:
 
     def _read_supported_options(self, printer_name: str) -> set[str]:  # pragma: no cover
         command = ["lpoptions", "-p", printer_name, "-l"]
-        result = subprocess.run(command, capture_output=True, text=True, check=False)
+        result = subprocess.run(command, capture_output=True, text=True, check=False, timeout=30)
         if result.returncode != 0:
             return set()
 

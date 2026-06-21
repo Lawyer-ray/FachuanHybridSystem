@@ -60,7 +60,7 @@ class FilePrepareService:
             str(out_dir),
             str(source_abs),
         ]
-        result = subprocess.run(command, capture_output=True, text=True, check=False)
+        result = subprocess.run(command, capture_output=True, text=True, check=False, timeout=120)
         if result.returncode != 0:
             raise ValidationException(
                 message="DOCX 转 PDF 失败",
