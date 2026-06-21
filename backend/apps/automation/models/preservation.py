@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, ClassVar
 
 from django.conf import settings
 from django.db import models
-from django_lifecycle import AFTER_CREATE, LifecycleModel, hook
+from django_lifecycle import LifecycleModel
 
 if TYPE_CHECKING:
     from django.db.models.fields.related_descriptors import RelatedManager
@@ -80,36 +80,6 @@ class PreservationQuote(LifecycleModel):
         if self.total_companies == 0:
             return 0.0
         return (self.success_count / self.total_companies) * 100
-
-    @hook(AFTER_CREATE)
-    def on_create_auto_submit(self) -> None:
-        """创建时若 status=PENDING，自动提交异步询价任务"""
-        if self.status != QuoteStatus.PENDING:
-            return
-
-        try:
-            from apps.core.tasking import submit_task
-
-            task_id = submit_task(
-                "apps.automation.tasks.execute_preservation_quote_task",
-                self.id,
-                task_name=f"询价任务 #{self.id}",
-                timeout=600,
-            )
-            logger.info(
-                "✅ 询价任务 #%s 已自动提交到队列，Task ID: %s",
-                self.id,
-                task_id,
-                extra={"action": "auto_submit_quote", "quote_id": self.id, "task_id": task_id},
-            )
-        except Exception as e:
-            logger.error(
-                "❌ 自动提交询价任务 #%s 失败: %s",
-                self.id,
-                e,
-                extra={"action": "auto_submit_quote_failed", "quote_id": self.id, "error": str(e)},
-                exc_info=True,
-            )
 
 
 class InsuranceQuote(models.Model):
