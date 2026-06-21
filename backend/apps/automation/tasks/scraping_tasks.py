@@ -51,11 +51,11 @@ def _get_scraper_map() -> dict[str, type[Any]]:
             CourtZxfwFilingService as CourtFilingScraper,
         )
     except ImportError:
-        CourtFilingScraper = None  # type: ignore[assignment,misc]
+        CourtFilingScraper = None
 
     _scraper_map: dict[str, type[Any]] = {ScraperTaskType.COURT_DOCUMENT: CourtDocumentScraper}
     if CourtFilingScraper is not None:
-        _scraper_map[ScraperTaskType.COURT_FILING] = CourtFilingScraper  # type: ignore[assignment]
+        _scraper_map[ScraperTaskType.COURT_FILING] = CourtFilingScraper
     return _scraper_map
 
 
@@ -257,9 +257,9 @@ def execute_preservation_quote_task(quote_id: int) -> dict[str, Any]:
 
     try:
         token_service = TokenService()
-        insurance_client = CourtInsuranceClient(token_service)  # type: ignore[arg-type]
+        insurance_client = CourtInsuranceClient(token_service)
         quote_service = PreservationQuoteService(
-            token_service=token_service,  # type: ignore[arg-type]
+            token_service=token_service,
             insurance_client=insurance_client,
         )
 
