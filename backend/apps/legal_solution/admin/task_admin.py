@@ -236,7 +236,7 @@ class SolutionTaskAdmin(admin.ModelAdmin):  # pragma: no cover
         .btn:hover{{background:#2a3a5c;}}
         .btn-cancel{{background:#f3f4f6;color:#374151;margin-left:8px;padding:10px 24px;border-radius:2px;text-decoration:none;display:inline-block;font-size:14px;}}
         </style></head><body>
-        <h2>调整「{section.title}」</h2>
+        <h2>调整「{_html.escape(section.title or '')}」</h2>
         <p>当前版本：第{section.version}稿。请在下方查看已有内容，并描述你希望如何调整。</p>
         <div class="current-label">当前内容</div>
         <div class="current">{current_html if current_html else '<em style="color:#8a8a8a;">暂无内容</em>'}</div>

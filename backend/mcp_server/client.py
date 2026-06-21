@@ -90,6 +90,10 @@ class FachuanClient:
         resp = self._http.delete(path, headers=self._headers(), **kwargs)
         return self._handle(resp)
 
+    def patch(self, path: str, **kwargs: Any) -> Any:
+        resp = self._http.patch(path, headers=self._headers(), **kwargs)
+        return self._handle(resp)
+
     def upload(
         self,
         path: str,

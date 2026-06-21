@@ -153,7 +153,9 @@ class TestContactService:
         from apps.contacts.services.contact_service import CaseContactService
 
         service = CaseContactService()
-        result = service.search_contacts_public(q="nonexistent_xyz")
+        user = SimpleNamespace(is_staff=True, is_superuser=True)
+        with patch.object(service, "ensure_admin"):
+            result = service.search_contacts_public(q="nonexistent_xyz", user=user)
         assert isinstance(result, list)
 
 
@@ -241,5 +243,7 @@ class TestContactServiceDeep:
         from apps.contacts.services.contact_service import CaseContactService
 
         service = CaseContactService()
-        result = service.search_contacts_public(q="test", role="judge", limit=10)
+        user = SimpleNamespace(is_staff=True, is_superuser=True)
+        with patch.object(service, "ensure_admin"):
+            result = service.search_contacts_public(q="test", role="judge", limit=10, user=user)
         assert isinstance(result, list)

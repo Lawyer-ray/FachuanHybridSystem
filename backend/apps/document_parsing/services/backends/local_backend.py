@@ -175,6 +175,7 @@ class LocalBackend:
                                 e,
                             )
 
+            page_count = len(doc)
             doc.close()
 
             # 合并文本
@@ -183,7 +184,7 @@ class LocalBackend:
             return ParsedDocument(
                 text=full_text,
                 images=images if images else None,
-                metadata={"page_count": len(doc)},
+                metadata={"page_count": page_count},
                 parse_method="pymupdf",
             )
 

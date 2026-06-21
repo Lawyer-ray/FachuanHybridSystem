@@ -133,9 +133,7 @@ class CaseAdminService:
         """
         try:
             if legal_statuses:
-                return (
-                    self.document_service.get_matched_folder_templates_with_legal_status(case_type, legal_statuses),
-                )
+                return self.document_service.get_matched_folder_templates_with_legal_status(case_type, legal_statuses)
             return self.document_service.get_matched_folder_templates(case_type)
         except Exception:
             logger.exception(

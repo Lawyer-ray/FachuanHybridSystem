@@ -139,8 +139,12 @@ class CaseContactService(DjangoPermsMixin):
         court: str | None = None,
         role: str | None = None,
         limit: int = 20,
+        *,
+        user: Any | None = None,
+        perm_open_access: bool = False,
     ) -> list[dict[str, Any]]:
-        """跨案件搜索工作人员（公共接口，无需认证）"""
+        """跨案件搜索工作人员（需认证）"""
+        self.ensure_admin(user, perm_open_access=perm_open_access)
         qs = CaseContact.objects.select_related("authority")
 
         if q:

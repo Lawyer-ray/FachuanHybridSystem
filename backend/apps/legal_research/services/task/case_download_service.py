@@ -13,7 +13,9 @@ from typing import Any
 from django.conf import settings
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
+from django.utils import timezone
 
+from apps.core.security.secret_codec import SecretCodec
 from apps.legal_research.models import CaseDownloadFormat, CaseDownloadResult, CaseDownloadStatus, CaseDownloadTask
 from apps.legal_research.services.sources import CaseDetail, get_case_source_client
 from apps.legal_research.services.sources.weike import WeikeCaseClient, WeikeSession
@@ -75,7 +77,7 @@ class CaseDownloadService:  # pragma: no cover
             return {"status": "skipped", "error": "任务状态不允许执行"}
 
         task.status = CaseDownloadStatus.RUNNING
-        task.started_at = datetime.now()
+        task.started_at = timezone.now()
         task.save(update_fields=["status", "started_at", "updated_at"])
 
         case_numbers = cls.parse_case_numbers(task.case_numbers)
@@ -92,7 +94,7 @@ class CaseDownloadService:  # pragma: no cover
             source_client = get_case_source_client("weike")  # type: ignore[assignment]
             session = source_client.open_session(  # type: ignore[union-attr]
                 username=credential.account,
-                password=credential.password,
+                password=SecretCodec.try_decrypt(credential.password),
                 login_url=credential.url or None,
             )
 
@@ -132,7 +134,7 @@ class CaseDownloadService:  # pragma: no cover
                 task.status = CaseDownloadStatus.COMPLETED
                 task.message = f"部分成功 {success_count}/{len(case_numbers)}"
 
-            task.finished_at = datetime.now()
+            task.finished_at = timezone.now()
             task.save(
                 update_fields=[
                     "status",
@@ -156,7 +158,7 @@ class CaseDownloadService:  # pragma: no cover
             logger.exception("案例下载任务失败", extra={"task_id": task_id})
             task.status = CaseDownloadStatus.FAILED
             task.error = str(exc)
-            task.finished_at = datetime.now()
+            task.finished_at = timezone.now()
             task.save(update_fields=["status", "error", "finished_at", "updated_at"])
             return {"status": "failed", "error": str(exc)}
 

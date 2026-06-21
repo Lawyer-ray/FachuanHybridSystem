@@ -37,7 +37,7 @@ async def close_browser() -> None:  # pragma: no cover
         _context = None
     if _context_manager is not None:
         try:
-            _context_manager.__aexit__(None, None, None)  # type: ignore[attr-defined]
+            await _context_manager.__aexit__(None, None, None)  # type: ignore[attr-defined]
         except Exception:
             pass
         _context_manager = None

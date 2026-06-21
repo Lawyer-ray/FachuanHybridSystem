@@ -122,7 +122,11 @@ def _sync_llm_chat(  # pragma: no cover
 
 
 async def _increment_counter(job_id: UUID, field: str) -> None:  # pragma: no cover
-    """原子递增计数器并更新进度百分比（2 次查询代替原来 3 次）"""
+    """原子递增计数器并更新进度百分比（使用 F() 避免竞态条件）"""
+    await sync_to_async(
+        lambda: BatchJob.objects.filter(id=job_id).update(**{field: F(field) + 1})
+    )()
+    # 读取更新后的值来计算进度
     job: Any = await sync_to_async(
         lambda: (
             BatchJob.objects.filter(id=job_id)
@@ -136,17 +140,10 @@ async def _increment_counter(job_id: UUID, field: str) -> None:  # pragma: no co
     )()
     if not job or job["total_items"] == 0:
         return
-    new_count = job[field] + 1
-    # 计算新的已完成+失败数（当前值 + 本次递增的 1）
-    new_processed = job["completed_items"] + job["failed_items"] + 1
+    new_processed = job["completed_items"] + job["failed_items"]
     new_progress = min(int(new_processed * 100 / job["total_items"]), 100)
     await sync_to_async(
-        lambda: BatchJob.objects.filter(id=job_id).update(
-            **{
-                field: new_count,
-                "progress": new_progress,
-            }
-        )
+        lambda: BatchJob.objects.filter(id=job_id).update(progress=new_progress)
     )()
 
 

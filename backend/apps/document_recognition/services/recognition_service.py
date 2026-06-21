@@ -102,11 +102,11 @@ class CourtDocumentRecognitionService:
         """根据文书类型提取案号和关键时间"""
         case_number = None
         key_time = None
-        if doc_type.value == "summons":
+        if doc_type == DocumentType.SUMMONS:
             info = self.extractor.extract_summons_info(text)
             case_number = info.get("case_number")
             key_time = info.get("court_time")
-        elif doc_type.value == "execution_ruling":
+        elif doc_type == DocumentType.EXECUTION_RULING:
             info = self.extractor.extract_execution_info(text)
             case_number = info.get("case_number")
             key_time = info.get("preservation_deadline")

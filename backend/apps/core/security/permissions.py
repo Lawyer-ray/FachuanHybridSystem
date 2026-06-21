@@ -49,12 +49,10 @@ class PermissionMixin:
     ) -> None:
         """通用资源访问检查。
 
-        检查顺序：开放访问 → 管理员 → 认证状态 → 资源级权限。
+        检查顺序：开放访问 → 资源级权限。
         若所有检查均未通过，抛出 PermissionDenied。
         """
         if self.has_open_access(ctx):
-            return
-        if self.is_authenticated_user(ctx):
             return
         self.check_authenticated(ctx)
         if not resource_check(ctx):

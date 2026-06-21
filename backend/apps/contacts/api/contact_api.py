@@ -49,9 +49,10 @@ def search_contacts(  # pragma: no cover
     limit: int = 20,
 ) -> list[CaseContactSearchResult]:
     service = _get_contact_service()
+    ctx = extract_request_context(request)
     return cast(
         list[CaseContactSearchResult],
-        service.search_contacts_public(q=q, court=court, role=role, limit=limit),
+        service.search_contacts_public(q=q, court=court, role=role, limit=limit, user=ctx.user),
     )
 
 

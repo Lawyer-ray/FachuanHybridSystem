@@ -159,7 +159,7 @@ class GenerationService:
 
         task.folder_template_id = folder_template_id
         task.output_path = output_path
-        task.save(update_fields=["metadata"])
+        task.save(update_fields=["folder_template_id", "output_path"])
         return task
 
     def update_task_status(self, task_id: int, status: str, error_message: str | None = None) -> Any:
