@@ -60,7 +60,7 @@ def get_queue_length() -> int:
     if conn is None:
         return 0
     key = _get_queue_key()
-    return conn.llen(key)
+    return int(conn.llen(key))
 
 
 def list_tasks(limit: int = 200) -> list[QueuedTask]:
@@ -138,7 +138,7 @@ def delete_task_by_index(index: int) -> bool:
         return False
 
     removed = conn.lrem(key, 1, raw_bytes)
-    return removed > 0
+    return bool(removed > 0)
 
 
 def delete_tasks_by_ids(task_ids: set[str]) -> int:
@@ -196,7 +196,7 @@ def purge_queue() -> int:
         return 0
 
     key = _get_queue_key()
-    count = conn.llen(key)
+    count = int(conn.llen(key))
     if count > 0:
         conn.delete(key)
     return count

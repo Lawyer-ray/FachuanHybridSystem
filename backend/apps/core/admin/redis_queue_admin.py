@@ -9,7 +9,7 @@ from typing import Any
 
 from django.contrib import admin, messages
 from django.db import models
-from django.http import HttpRequest, HttpResponseRedirect
+from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
 from django.template.response import TemplateResponse
 from django.utils.translation import gettext_lazy as _
 
@@ -65,7 +65,7 @@ class RedisQueueAdmin(admin.ModelAdmin):  # pragma: no cover
 
     # ---- 主视图 ----
 
-    def changelist_view(self, request: HttpRequest, extra_context: dict[str, Any] | None = None) -> TemplateResponse:
+    def changelist_view(self, request: HttpRequest, extra_context: dict[str, Any] | None = None) -> HttpResponse:
         if not is_redis_broker():
             messages.warning(request, _("当前未使用 Valkey 作为任务队列，此功能不可用。"))
             return HttpResponseRedirect("/admin/")

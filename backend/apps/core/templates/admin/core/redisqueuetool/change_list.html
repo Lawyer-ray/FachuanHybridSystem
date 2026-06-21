@@ -12,88 +12,77 @@
 {% endblock %}
 
 {% block content %}
-<div style="margin-bottom: 16px; display: flex; align-items: center; gap: 16px;">
-  <h1 style="margin: 0; font-size: 20px;">Valkey 任务队列</h1>
-  <span style="font-size: 14px; color: var(--body-quiet-color);">
-    待处理：<strong>{{ queue_length }}</strong> 个
-  </span>
+<div id="content-main">
+  <div style="margin-bottom: 16px; display: flex; align-items: center; gap: 16px;">
+    <span style="font-size: 14px;">
+      待处理任务：<strong>{{ queue_length }}</strong> 个
+    </span>
 
-  {% if queue_length > 0 %}
-  <form method="post" style="display: inline;"
-        onsubmit="return confirm('确定要清空全部 {{ queue_length }} 个待处理任务吗？此操作不可撤销。');">
-    {% csrf_token %}
-    <input type="hidden" name="action" value="purge">
-    <button type="submit"
-            style="background: #ba2121; color: #fff; border: none; padding: 6px 14px;
-                   border-radius: 4px; cursor: pointer; font-size: 13px;">
-      清空全部
-    </button>
-  </form>
+    {% if queue_length > 0 %}
+    <form method="post" style="display: inline;"
+          onsubmit="return confirm('确定要清空全部 {{ queue_length }} 个待处理任务吗？此操作不可撤销。');">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="purge">
+      <button type="submit" class="button" style="background: #ba2121; border-color: #ba2121;">
+        清空全部
+      </button>
+    </form>
+    {% endif %}
+  </div>
+
+  {% if tasks %}
+  <div class="results">
+    <table id="result_list">
+      <thead>
+        <tr>
+          <th scope="col"><div class="text">#</div></th>
+          <th scope="col"><div class="text">任务名称</div></th>
+          <th scope="col"><div class="text">函数路径</div></th>
+          <th scope="col"><div class="text">参数</div></th>
+          <th scope="col"><div class="text">入队时间</div></th>
+          <th scope="col"><div class="text">操作</div></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for task in tasks %}
+        <tr>
+          <td>{{ forloop.counter }}</td>
+          <td><strong>{{ task.name|default:"-" }}</strong></td>
+          <td><code>{{ task.func }}</code></td>
+          <td style="max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+            {% if task.args %}<span title="{{ task.args }}">args={{ task.args }}</span>{% endif %}
+            {% if task.kwargs %}<span title="{{ task.kwargs }}"> kwargs={{ task.kwargs }}</span>{% endif %}
+            {% if not task.args and not task.kwargs %}-{% endif %}
+          </td>
+          <td>{% if task.started %}{{ task.started|date:"Y-m-d H:i:s" }}{% else %}-{% endif %}</td>
+          <td>
+            <form method="post" style="display: inline;"
+                  onsubmit="return confirm('确定要删除此任务吗？');">
+              {% csrf_token %}
+              <input type="hidden" name="action" value="delete_one">
+              <input type="hidden" name="index" value="{{ task.index }}">
+              <button type="submit" class="button" style="padding: 2px 8px; font-size: 12px;">
+                删除
+              </button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  {% if queue_length > tasks|length %}
+  <p class="paginator" style="margin-top: 8px;">
+    仅显示前 {{ tasks|length }} 条，队列共 {{ queue_length }} 个任务。
+  </p>
+  {% endif %}
+
+  {% else %}
+  <div style="text-align: center; padding: 60px 20px; color: var(--body-quiet-color);">
+    <p style="font-size: 16px; margin-bottom: 8px;">队列为空</p>
+    <p style="font-size: 13px;">当前没有待处理的异步任务。</p>
+  </div>
   {% endif %}
 </div>
-
-{% if tasks %}
-<table style="width: 100%; border-collapse: collapse;">
-  <thead>
-    <tr>
-      <th style="padding: 8px 10px; text-align: left; border-bottom: 2px solid var(--hairline-color);">#</th>
-      <th style="padding: 8px 10px; text-align: left; border-bottom: 2px solid var(--hairline-color);">任务名称</th>
-      <th style="padding: 8px 10px; text-align: left; border-bottom: 2px solid var(--hairline-color);">函数路径</th>
-      <th style="padding: 8px 10px; text-align: left; border-bottom: 2px solid var(--hairline-color);">参数</th>
-      <th style="padding: 8px 10px; text-align: left; border-bottom: 2px solid var(--hairline-color);">入队时间</th>
-      <th style="padding: 8px 10px; text-align: left; border-bottom: 2px solid var(--hairline-color);">操作</th>
-    </tr>
-  </thead>
-  <tbody>
-    {% for task in tasks %}
-    <tr style="border-bottom: 1px solid var(--hairline-color);">
-      <td style="padding: 8px 10px;">{{ forloop.counter }}</td>
-      <td style="padding: 8px 10px; font-weight: 600;">{{ task.name|default:"-" }}</td>
-      <td style="padding: 8px 10px;">
-        <code style="font-size: 12px; background: var(--darkened-bg); padding: 2px 6px; border-radius: 3px;">
-          {{ task.func }}
-        </code>
-      </td>
-      <td style="padding: 8px 10px; font-size: 12px; max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-        {% if task.args %}
-          <span title="{{ task.args }}">args={{ task.args }}</span>
-        {% endif %}
-        {% if task.kwargs %}
-          <span title="{{ task.kwargs }}">kwargs={{ task.kwargs }}</span>
-        {% endif %}
-        {% if not task.args and not task.kwargs %}-{% endif %}
-      </td>
-      <td style="padding: 8px 10px; font-size: 12px;">
-        {% if task.started %}{{ task.started|date:"Y-m-d H:i:s" }}{% else %}-{% endif %}
-      </td>
-      <td style="padding: 8px 10px;">
-        <form method="post" style="display: inline;"
-              onsubmit="return confirm('确定要删除此任务吗？');">
-          {% csrf_token %}
-          <input type="hidden" name="action" value="delete_one">
-          <input type="hidden" name="index" value="{{ task.index }}">
-          <button type="submit"
-                  style="background: none; border: 1px solid #ba2121; color: #ba2121;
-                         padding: 3px 10px; border-radius: 3px; cursor: pointer; font-size: 12px;">
-            删除
-          </button>
-        </form>
-      </td>
-    </tr>
-    {% endfor %}
-  </tbody>
-</table>
-
-{% if queue_length > tasks|length %}
-<p style="margin-top: 12px; color: var(--body-quiet-color); font-size: 13px;">
-  仅显示前 {{ tasks|length }} 条，队列共 {{ queue_length }} 个任务。
-</p>
-{% endif %}
-
-{% else %}
-<div style="text-align: center; padding: 60px 20px; color: var(--body-quiet-color);">
-  <p style="font-size: 16px; margin-bottom: 8px;">队列为空</p>
-  <p style="font-size: 13px;">当前没有待处理的异步任务。</p>
-</div>
-{% endif %}
 {% endblock %}
