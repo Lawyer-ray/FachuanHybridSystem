@@ -1,14 +1,21 @@
-{% extends "admin/change_list.html" %}
+{% extends "admin/base_site.html" %}
 {% load i18n %}
 
-{% block content_title %}
-  <h1>Redis 任务队列</h1>
+{% block title %}Redis 任务队列{% endblock %}
+
+{% block breadcrumbs %}
+<div class="breadcrumbs">
+    <a href="{% url 'admin:index' %}">{% trans "首页" %}</a>
+    &rsaquo; <a href="{% url 'admin:app_list' app_label='core' %}">{% trans "核心系统" %}</a>
+    &rsaquo; Redis 任务队列
+</div>
 {% endblock %}
 
-{% block result_list %}
+{% block content %}
 <div style="margin-bottom: 16px; display: flex; align-items: center; gap: 16px;">
-  <span style="font-size: 14px; color: var(--body-fg);">
-    队列中待处理任务：<strong>{{ queue_length }}</strong> 个
+  <h1 style="margin: 0; font-size: 20px;">Redis 任务队列</h1>
+  <span style="font-size: 14px; color: var(--body-quiet-color);">
+    待处理：<strong>{{ queue_length }}</strong> 个
   </span>
 
   {% if queue_length > 0 %}
@@ -26,7 +33,7 @@
 </div>
 
 {% if tasks %}
-<table id="result_list" style="width: 100%; border-collapse: collapse;">
+<table style="width: 100%; border-collapse: collapse;">
   <thead>
     <tr>
       <th style="padding: 8px 10px; text-align: left; border-bottom: 2px solid var(--hairline-color);">#</th>
@@ -90,7 +97,3 @@
 </div>
 {% endif %}
 {% endblock %}
-
-{% block pagination %}{% endblock %}
-{% block filters %}{% endblock %}
-{% block search %}{% endblock %}

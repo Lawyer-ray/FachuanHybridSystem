@@ -109,12 +109,11 @@ class RedisQueueAdmin(admin.ModelAdmin):  # pragma: no cover
         tasks = list_tasks(limit=500)
 
         context = {
-            **self.admin_site.each_context(request),
             "title": "Redis 任务队列",
             "tasks": tasks,
             "queue_length": queue_length,
-            "opts": self.model._meta,
-            "app_label": self.model._meta.app_label,
             "has_view_permission": True,
+            "site_header": self.admin_site.site_header,
+            "site_title": self.admin_site.site_title,
         }
         return TemplateResponse(request, "admin/core/redisqueuetool/change_list.html", context)
