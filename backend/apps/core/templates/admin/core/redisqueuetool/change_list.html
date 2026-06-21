@@ -1,19 +1,19 @@
 {% extends "admin/base_site.html" %}
 {% load i18n %}
 
-{% block title %}Redis 任务队列{% endblock %}
+{% block title %}Valkey 任务队列{% endblock %}
 
 {% block breadcrumbs %}
 <div class="breadcrumbs">
     <a href="{% url 'admin:index' %}">{% trans "首页" %}</a>
     &rsaquo; <a href="{% url 'admin:app_list' app_label='core' %}">{% trans "核心系统" %}</a>
-    &rsaquo; Redis 任务队列
+    &rsaquo; Valkey 任务队列
 </div>
 {% endblock %}
 
 {% block content %}
 <div style="margin-bottom: 16px; display: flex; align-items: center; gap: 16px;">
-  <h1 style="margin: 0; font-size: 20px;">Redis 任务队列</h1>
+  <h1 style="margin: 0; font-size: 20px;">Valkey 任务队列</h1>
   <span style="font-size: 14px; color: var(--body-quiet-color);">
     待处理：<strong>{{ queue_length }}</strong> 个
   </span>

@@ -29,8 +29,8 @@ class RedisQueueTool(models.Model):
     class Meta:
         app_label = "core"
         managed = False
-        verbose_name = "Redis 任务队列"
-        verbose_name_plural = "Redis 任务队列"
+        verbose_name = "Valkey 任务队列"
+        verbose_name_plural = "Valkey 任务队列"
 
 
 @admin.register(RedisQueueTool)
@@ -67,7 +67,7 @@ class RedisQueueAdmin(admin.ModelAdmin):  # pragma: no cover
 
     def changelist_view(self, request: HttpRequest, extra_context: dict[str, Any] | None = None) -> TemplateResponse:
         if not is_redis_broker():
-            messages.warning(request, _("当前未使用 Redis 作为任务队列，此功能不可用。"))
+            messages.warning(request, _("当前未使用 Valkey 作为任务队列，此功能不可用。"))
             return HttpResponseRedirect("/admin/")
 
         if request.method == "POST":
@@ -109,7 +109,7 @@ class RedisQueueAdmin(admin.ModelAdmin):  # pragma: no cover
         tasks = list_tasks(limit=500)
 
         context = {
-            "title": "Redis 任务队列",
+            "title": "Valkey 任务队列",
             "tasks": tasks,
             "queue_length": queue_length,
             "has_view_permission": True,
