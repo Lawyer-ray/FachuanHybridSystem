@@ -128,8 +128,8 @@ class TestGetCaseCourtName:
 class TestListPartyPayloads:
     def _make_party(self, pid, status, is_our=False):
         client = SimpleNamespace(
-            is_our_client=is_our, name=f"Client{pid}", id_number="",
-            phone="", address="", client_type="natural",
+            is_our_client=is_our, name=f"Client{pid}", id_number=f"11010119900101{pid:04d}",
+            phone="13800000000", address="测试地址", client_type="natural",
             legal_representative="", legal_representative_id_number=""
         )
         return SimpleNamespace(id=pid, client=client, legal_status=status, name=f"Party{pid}")
@@ -178,8 +178,8 @@ class TestListPartyPayloads:
 class TestPickPartyPayload:
     def _make_party(self, pid, status, is_our=False):
         client = SimpleNamespace(
-            is_our_client=is_our, name=f"Client{pid}", id_number="",
-            phone="", address="", client_type="natural",
+            is_our_client=is_our, name=f"Client{pid}", id_number=f"11010119900101{pid:04d}",
+            phone="13800000000", address="测试地址", client_type="natural",
             legal_representative="", legal_representative_id_number=""
         )
         return SimpleNamespace(id=pid, client=client, legal_status=status, name=f"Party{pid}")
@@ -195,15 +195,15 @@ class TestPickPartyPayload:
         )
         assert result["party_id"] == 1
 
-    def test_empty_returns_default(self):
+    def test_empty_raises_error(self):
         from plugins.court_automation.guarantee.helpers import _pick_party_payload
 
-        result = _pick_party_payload(
-            case_parties=[],
-            preferred_statuses={"plaintiff_side"},
-            prefer_our=True,
-        )
-        assert result["name"] == "张三"
+        with pytest.raises(ValueError, match="客户姓名不能为空"):
+            _pick_party_payload(
+                case_parties=[],
+                preferred_statuses={"plaintiff_side"},
+                prefer_our=True,
+            )
 
 
 # ── _list_opponent_case_parties ───────────────────────────────────────────────

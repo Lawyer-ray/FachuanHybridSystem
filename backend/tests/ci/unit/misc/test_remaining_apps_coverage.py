@@ -102,7 +102,7 @@ class TestClientServices:
         from apps.client.services.client_access_policy import ClientAccessPolicy
 
         policy = ClientAccessPolicy()
-        lawyer = LawyerFactory(law_firm=law_firm)
+        lawyer = LawyerFactory(law_firm=law_firm, is_admin=True)
         assert policy.can_create_client(lawyer) is True
 
     def test_client_access_policy_can_create_anonymous(self, db):

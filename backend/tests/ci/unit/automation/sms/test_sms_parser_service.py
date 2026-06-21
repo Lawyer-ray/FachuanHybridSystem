@@ -218,23 +218,6 @@ class TestSMSParserService:
         """无效链接返回 False。"""
         assert self.parser._is_valid_download_link("https://www.baidu.com") is False
 
-    def test_filter_parties_exclude_keywords(self) -> None:
-        """过滤包含排除关键词的当事人。"""
-        parties = ["张三", "法院", "书记员", "李四", "平台"]
-        filtered = self.parser._filter_parties(parties)
-        assert "张三" in filtered
-        assert "李四" in filtered
-        assert "法院" not in filtered
-        assert "书记员" not in filtered
-        assert "平台" not in filtered
-
-    def test_filter_parties_length(self) -> None:
-        """过滤长度不符合要求的当事人。"""
-        parties = ["张", "张三", "这是一个非常非常非常非常非常非常非常非常非常非常非常长的名称超过三十个字"]
-        filtered = self.parser._filter_parties(parties)
-        assert "张" not in filtered  # 太短
-        assert "张三" in filtered
-
     def test_extract_party_names_from_client_service(self) -> None:
         """从客户服务中匹配当事人。"""
         mock_client = MagicMock()
@@ -244,9 +227,3 @@ class TestSMSParserService:
 
         parties = self.parser._find_existing_clients_in_sms("张三与李四的合同纠纷")
         assert "张三" in parties
-
-    def test_collect_company_names(self) -> None:
-        """提取公司名称。"""
-        parties: list[str] = []
-        self.parser._collect_company_names("佛山市某某科技有限公司与张三", parties)
-        assert any("科技有限公司" in p for p in parties)

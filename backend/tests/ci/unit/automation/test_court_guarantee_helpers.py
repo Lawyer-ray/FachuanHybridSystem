@@ -377,20 +377,20 @@ class TestBuildPartyPayloadFromCaseParty:
         assert result["name"] == "某公司"
         assert result["party_type"] == "legal"
 
-    def test_none_party(self):
-        result = _build_party_payload_from_case_party(party=None)
-        assert result["name"] == "张三"  # fallback
+    def test_none_party_raises_error(self):
+        with pytest.raises(ValueError, match="客户姓名不能为空"):
+            _build_party_payload_from_case_party(party=None)
 
-    def test_empty_id_number_uses_default(self):
+    def test_empty_id_number_raises_error(self):
         client = SimpleNamespace(
             client_type="natural", name="王五",
-            id_number="", phone="",
+            id_number="", phone="13800000000",
             address="测试地址", legal_representative="",
             legal_representative_id_number="",
         )
         party = SimpleNamespace(id=3, client=client)
-        result = _build_party_payload_from_case_party(party=party)
-        assert result["id_number"] != ""  # should have default
+        with pytest.raises(ValueError, match="客户证件号不能为空"):
+            _build_party_payload_from_case_party(party=party)
 
 
 # ---------------------------------------------------------------------------
