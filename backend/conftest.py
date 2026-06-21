@@ -73,6 +73,14 @@ def pytest_configure(config: Any) -> None:
     This avoids the race condition of modifying ``DATABASES`` after settings
     are already cached.
     """
+    # macOS 26 EXC_GUARD workaround: pytest-xdist's execnet uses FD 3 for
+    # inter-process communication, but macOS 26 guards FD 3 (LaunchServices).
+    # When xdist tries dup2() on this guarded FD, the process crashes with
+    # EXC_GUARD. Disable xdist parallelism on macOS 26+ to avoid this.
+    if sys.platform == "darwin" and int(os.uname().release.split(".")[0]) >= 25:
+        config.option.numprocesses = 0
+        config.option.dist = "no"
+
     test_db_name = os.environ.get("TEST_DB_NAME")
     if test_db_name:
         os.environ["DB_NAME"] = test_db_name
