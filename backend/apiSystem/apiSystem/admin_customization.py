@@ -141,7 +141,7 @@ _OTHER_TOOLS_APPS = [
             {"name": _("LPR计算器"), "url": "/admin/finance/calculator/"},
         ],
     },
-    {"app_label": "django_q", "name": _("任务队列"), "url": "/admin/django_q/"},
+    {"app_label": "core", "name": _("Redis 任务队列"), "url": "/admin/core/redisqueuetool/"},
     {"app_label": "organization", "name": _("组织管理"), "url": "/admin/organization/"},
     {"app_label": "auth", "name": _("用户与权限"), "url": "/admin/auth/"},
     {"app_label": "core", "name": _("核心系统"), "url": "/admin/core/"},
