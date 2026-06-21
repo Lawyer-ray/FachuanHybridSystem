@@ -23,8 +23,6 @@ from plugins.message_hub.services.court.court_fetcher import (
 )
 
 # Lazy-import patch targets (imported inside methods at runtime)
-_LAZY_DR = "apps.automation.services.document_delivery.data_classes.DocumentDeliveryRecord"
-_LAZY_DP = "apps.automation.services.document_delivery.processor.document_delivery_processor.DocumentDeliveryProcessor"
 _LAZY_CM = "apps.automation.services.token.cache_manager.cache_manager"
 _LAZY_SL = "apps.core.interfaces.ServiceLocator"
 _LAZY_CT = "apps.automation.models.token.CourtToken"
@@ -335,16 +333,6 @@ class TestCourtInboxFetcherProcessPage:
             assert MockInbox.objects.bulk_create.call_count == 1
 
 
-class TestCourtInboxFetcherBuildDeliveryRecord:
-    @patch(_LAZY_DR)
-    def test_builds_record(self, MockDR: MagicMock) -> None:
-        fetcher = CourtInboxFetcher()
-        record = {"ah": "case-1", "fssj": "2024-06-01 10:00:00", "wsmc": "判决", "fymc": "法院", "sdbh": "sd-1"}
-        MockDR.return_value = MagicMock()
-        result = fetcher._build_delivery_record(record)
-        MockDR.assert_called_once()
-
-
 class TestCourtInboxFetcherDownloadAttachments:
     @patch("plugins.message_hub.services.court.court_fetcher.Path")
     def test_download_success(self, MockPath: MagicMock) -> None:
@@ -369,26 +357,6 @@ class TestCourtInboxFetcherDownloadAttachments:
                 mock_dl.return_value = ["/tmp/test.pdf"]
                 result = mock_dl(meta, "sdbh-1")
                 assert result == ["/tmp/test.pdf"]
-
-
-class TestCourtInboxFetcherTriggerSmsFlow:
-    @patch(_LAZY_DR)
-    @patch(_LAZY_DP)
-    def test_success(self, MockProcessor: MagicMock, MockDR: MagicMock) -> None:
-        MockDR.return_value = MagicMock(case_number="case-1")
-        MockProcessor.return_value.process_sms_in_thread.return_value = {"success": True, "case_id": 1}
-        fetcher = CourtInboxFetcher()
-        fetcher._trigger_sms_flow({"ah": "case-1", "fssj": "2024-01-01 00:00:00", "wsmc": "doc"}, ["/tmp/f.pdf"], 1)
-        MockProcessor.return_value.process_sms_in_thread.assert_called_once()
-
-    @patch(_LAZY_DR)
-    @patch(_LAZY_DP)
-    def test_exception_does_not_raise(self, MockProcessor: MagicMock, MockDR: MagicMock) -> None:
-        MockDR.return_value = MagicMock(case_number="case-1")
-        MockProcessor.return_value.process_sms_in_thread.side_effect = RuntimeError("processor error")
-        fetcher = CourtInboxFetcher()
-        # Should not raise
-        fetcher._trigger_sms_flow({"ah": "case-1", "fssj": "", "wsmc": ""}, ["/tmp/f.pdf"], 1)
 
 
 class TestCourtInboxFetcherDownloadAttachment:

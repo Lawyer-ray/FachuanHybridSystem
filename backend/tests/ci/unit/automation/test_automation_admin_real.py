@@ -50,12 +50,6 @@ class TestCourtSMSAdminBaseDisplayMethods:
         result = self.admin.content_preview(sms)
         assert len(result) <= 103  # 100 + "..."
 
-    def test_sms_type_display_document_delivery(self) -> None:
-        sms = self._make_sms(sms_type=CourtSMSType.DOCUMENT_DELIVERY)
-        sms.get_sms_type_display = lambda: "文书送达"
-        result = self.admin.sms_type_display(sms)
-        assert "文书送达" in result
-
     def test_sms_type_display_info(self) -> None:
         sms = self._make_sms(sms_type=CourtSMSType.INFO_NOTIFICATION)
         sms.get_sms_type_display = lambda: "信息通知"

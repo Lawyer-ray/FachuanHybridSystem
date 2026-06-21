@@ -63,7 +63,7 @@ class TestSMSParsingStage:
         """成功解析短信。"""
         sms = _make_sms(status="pending", content="测试短信内容")
         self.parser.parse.return_value = SMSParseResult(
-            sms_type="document_delivery",
+            sms_type="filing_notification",
             download_links=["https://example.com/doc"],
             case_numbers=["（2025）粤0604民初12345号"],
             party_names=["张三", "李四"],
@@ -71,7 +71,7 @@ class TestSMSParsingStage:
         )
 
         result = self.stage.process(sms)
-        assert result.sms_type == "document_delivery"
+        assert result.sms_type == "filing_notification"
         assert len(result.download_links) == 1
         assert len(result.case_numbers) == 1
         sms.save.assert_called()

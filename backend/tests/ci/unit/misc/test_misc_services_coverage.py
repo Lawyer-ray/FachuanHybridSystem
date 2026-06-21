@@ -1,4 +1,4 @@
-"""story_viz + document_delivery 补充覆盖测试。"""
+"""story_viz 补充覆盖测试。"""
 
 from __future__ import annotations
 
@@ -42,28 +42,3 @@ class TestStoryAnimationConstants:
         assert _MAX_ITEMS == 20
 
 
-# ── DocumentDelivery matching ─────────────────────────────────────
-
-class TestDocumentDeliveryMatching:
-    def test_import(self):
-        """Verify the matching module is importable."""
-        from apps.automation.services.document_delivery.api.document_delivery_api_service import _matching
-        assert _matching is not None
-
-
-# ── DocumentDelivery process ──────────────────────────────────────
-
-class TestDocumentDeliveryProcess:
-    def test_import(self):
-        """Verify the process module is importable."""
-        from apps.automation.services.document_delivery.api.document_delivery_api_service import _process
-        assert _process is not None
-
-
-# ── DocumentDelivery query ────────────────────────────────────────
-
-class TestDocumentDeliveryQuery:
-    def test_import(self):
-        """Verify the query module is importable."""
-        from apps.automation.services.document_delivery.api.document_delivery_api_service import _query
-        assert _query is not None

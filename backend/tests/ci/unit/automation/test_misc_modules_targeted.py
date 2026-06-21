@@ -266,53 +266,6 @@ class TestBrowserContextFactory:
         assert BrowserContextFactory is not None
 
 
-# ── Document delivery services ────────────────────────────────────
-
-
-class TestDocumentDeliveryServices:
-    def test_delivery_import(self):
-        from apps.automation.services.document_delivery.delivery import api_delivery_service
-
-        assert api_delivery_service is not None
-
-    def test_playwright_delivery(self):
-        from apps.automation.services.document_delivery.delivery.playwright_delivery_service import (
-            PlaywrightDeliveryService,
-        )
-
-        assert PlaywrightDeliveryService is not None
-
-    def test_court_api(self):
-        from apps.automation.services.document_delivery.court_api import court_document_api_coordinator
-
-        assert court_document_api_coordinator is not None
-
-    def test_token_service(self):
-        from apps.automation.services.document_delivery.token import document_delivery_token_service
-
-        assert document_delivery_token_service is not None
-
-
-# ── Document delivery data classes ────────────────────────────────
-
-
-class TestDataClasses:
-    def test_import(self):
-        from apps.automation.services.document_delivery.data_classes import DocumentDeliveryRecord
-
-        assert DocumentDeliveryRecord is not None
-
-
-# ── Document delivery query service ───────────────────────────────
-
-
-class TestDocumentDeliveryQueryService:
-    def test_importable(self):
-        import apps.automation.services.document_delivery.query_service as m
-
-        assert m is not None
-
-
 # ── Automation exceptions ─────────────────────────────────────────
 
 

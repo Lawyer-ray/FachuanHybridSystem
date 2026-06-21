@@ -1,4 +1,4 @@
-"""Coverage tests for automation services: sms_notification_service, document_delivery, scraper."""
+"""Coverage tests for automation services: sms_notification_service, scraper."""
 
 from unittest.mock import MagicMock, patch
 
@@ -47,15 +47,6 @@ class TestAutomationManagementCommands:
     def test_clear_token_cache_exists(self):
         from apps.automation.management.commands import clear_token_cache
         assert hasattr(clear_token_cache, "Command")
-
-    def test_setup_document_delivery_schedule_exists(self):
-        from apps.automation.management.commands import setup_document_delivery_schedule
-        assert hasattr(setup_document_delivery_schedule, "Command")
-
-    def test_init_document_delivery_exists(self):
-        from apps.automation.management.commands import init_document_delivery
-        assert hasattr(init_document_delivery, "Command")
-
 
 class TestScraperSecurityServiceConstants:
     def test_gsxt_constants(self):

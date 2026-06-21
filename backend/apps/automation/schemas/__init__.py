@@ -28,14 +28,11 @@ from .document import (
     AsyncTaskSubmitOut,
     AutoToolProcessIn,
     AutoToolProcessOut,
-    DocumentProcessIn,
-    DocumentProcessOut,
     OllamaChatIn,
     OllamaChatOut,
 )
 
 # Document Delivery
-from .document_delivery import DocumentDeliveryRecord, DocumentProcessResult, DocumentQueryResult
 
 # Performance Monitoring
 from .performance import HealthCheckOut, PerformanceMetricsOut, ResourceUsageOut, StatisticsReportOut
@@ -55,8 +52,6 @@ except ImportError:
 
 _schema_all = [
     # Document Processing
-    "DocumentProcessIn",
-    "DocumentProcessOut",
     "OllamaChatIn",
     "OllamaChatOut",
     "AutoToolProcessIn",
@@ -85,9 +80,6 @@ _schema_all = [
     "CourtSMSBatchDeleteIn",
     "CourtSMSBatchDeleteOut",
     # Document Delivery
-    "DocumentDeliveryRecord",
-    "DocumentQueryResult",
-    "DocumentProcessResult",
 ]
 
 # Conditionally add preservation schema names

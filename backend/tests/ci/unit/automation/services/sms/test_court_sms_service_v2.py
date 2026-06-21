@@ -652,7 +652,7 @@ class TestProcessParsing:
         svc = CourtSMSService()
         sms_obj = _make_sms(status="pending")
         parse_result = MagicMock()
-        parse_result.sms_type = "document_delivery"
+        parse_result.sms_type = "filing_notification"
         parse_result.download_links = ["http://example.com"]
         parse_result.case_numbers = ["(2025)001号"]
         parse_result.party_names = ["原告"]
@@ -660,7 +660,7 @@ class TestProcessParsing:
 
         result = svc._process_parsing(sms_obj)
         assert sms_obj.status == "parsing"
-        assert sms_obj.sms_type == "document_delivery"
+        assert sms_obj.sms_type == "filing_notification"
         assert sms_obj.download_links == ["http://example.com"]
 
     @patch(f"{_MOD}.SMSParserService")

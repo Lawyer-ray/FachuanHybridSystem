@@ -256,20 +256,6 @@ class TestScraperMonitorService:
 
 
 # ============================================================================
-# automation/services/document_delivery/
-# ============================================================================
-
-
-class TestDocumentDeliveryServices:
-    def test_api_delivery_service(self):
-        from apps.automation.services.document_delivery.delivery.api_delivery_service import (
-            ApiDeliveryService,
-        )
-
-        assert ApiDeliveryService is not None
-
-
-# ============================================================================
 # automation/services/token/_login_handler.py
 # ============================================================================
 

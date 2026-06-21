@@ -6,9 +6,6 @@ Admin模块主文件
 # 文档处理 Admin
 from .document import DocumentProcessorAdmin
 
-# 文书送达 Admin
-from .document_delivery import DocumentDeliveryScheduleAdmin, DocumentQueryHistoryAdmin
-
 # 财产保全询价 Admin（已迁移到 plugin）
 try:
     from plugins.court_automation.preservation_quote.admin import PreservationQuoteAdmin
@@ -39,9 +36,6 @@ _admin_all = [
     "CourtTokenAdmin",
     # 法院短信
     "CourtSMSAdmin",
-    # 文书送达
-    "DocumentDeliveryScheduleAdmin",
-    "DocumentQueryHistoryAdmin",
     # 测试工具
     "TestToolsHubAdmin",
 ]

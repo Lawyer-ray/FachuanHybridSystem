@@ -2,15 +2,14 @@
 
 覆盖 InsuranceQuote, PreservationQuote, GsxtReportTask, ScraperTask,
 CourtSMS, CourtDocument, InvoiceRecognitionTask, InvoiceRecord,
-CourtToken, TokenAcquisitionHistory, CasePreservationQuoteBinding,
-DocumentDeliverySchedule, DocumentQueryHistory。
+CourtToken, TokenAcquisitionHistory, CasePreservationQuoteBinding。
 """
 
 import pytest
 from django.utils import timezone
 from datetime import timedelta
 
-from apps.automation.models.court_document import CourtDocument, DocumentDownloadStatus, DocumentQueryHistory, DocumentDeliverySchedule
+from apps.automation.models.court_document import CourtDocument, DocumentDownloadStatus
 from apps.automation.models.court_sms import CourtSMS, CourtSMSStatus, CourtSMSType
 from apps.automation.models.gsxt_report import GsxtReportStatus, GsxtReportTask
 from apps.automation.models.invoice_recognition import (
@@ -398,22 +397,3 @@ class TestTokenAcquisitionHistory:
         assert TokenAcquisitionStatus.FAILED.value == "failed"
         assert TokenAcquisitionStatus.TIMEOUT.value == "timeout"
         assert TokenAcquisitionStatus.CREDENTIAL_ERROR.value == "credential_error"
-
-
-# ============================================================
-# DocumentDeliverySchedule
-# ============================================================
-
-
-@pytest.mark.django_db
-class TestDocumentDeliverySchedule:
-    def test_str_enabled(self):
-        lawyer = LawyerFactory()
-        schedule = DocumentDeliverySchedule(
-            credential=None,  # simplified
-            runs_per_day=2,
-            is_active=True,
-        )
-        # Test the display logic directly
-        assert schedule.runs_per_day == 2
-        assert schedule.is_active is True

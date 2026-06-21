@@ -9,7 +9,7 @@ from __future__ import annotations
 from .base import AutomationTool, NamerTool, TestCourt, TestToolsHub
 
 # Court Document
-from .court_document import CourtDocument, DocumentDeliverySchedule, DocumentDownloadStatus, DocumentQueryHistory
+from .court_document import CourtDocument, DocumentDownloadStatus
 
 # Court SMS
 from .court_sms import CourtSMS, CourtSMSStatus, CourtSMSType
@@ -58,8 +58,6 @@ __all__ = [
     # Court Document
     "DocumentDownloadStatus",
     "CourtDocument",
-    "DocumentQueryHistory",
-    "DocumentDeliverySchedule",
     # Court SMS
     "CourtSMSStatus",
     "CourtSMSType",

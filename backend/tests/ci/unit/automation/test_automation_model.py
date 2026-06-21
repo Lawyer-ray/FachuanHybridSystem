@@ -45,7 +45,6 @@ class TestCourtSMSModel:
 
     def test_sms_type_choices(self) -> None:
         """短信类型选项应完整"""
-        assert CourtSMSType.DOCUMENT_DELIVERY == "document_delivery"
         assert CourtSMSType.INFO_NOTIFICATION == "info_notification"
         assert CourtSMSType.FILING_NOTIFICATION == "filing_notification"
 

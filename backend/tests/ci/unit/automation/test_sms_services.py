@@ -15,7 +15,6 @@ from apps.automation.services.sms.court_sms_dedup_service import (
     CourtSMSDedupService,
 )
 from apps.automation.services.sms.case_matcher import CaseMatcher
-from apps.automation.services.document_delivery.data_classes import DocumentDeliveryRecord
 from apps.automation.services.sms.document_renamer import DocumentRenamer
 
 
@@ -40,67 +39,6 @@ class TestCourtSMSDedupService:
 
     def test_hash_payload_different_inputs(self) -> None:
         assert self.service._hash_payload("a") != self.service._hash_payload("b")
-
-    def test_build_identity_with_event_id(self) -> None:
-        """有 delivery_event_id 时使用 event_id 生成身份。"""
-        record = DocumentDeliveryRecord(
-            case_number="test",
-            send_time=datetime(2025, 1, 1),
-            element_index=0,
-            delivery_event_id="SD001",
-        )
-        identity = self.service.build_document_delivery_identity(record)
-        assert identity.event_id == "SD001"
-        assert identity.event_key is not None
-        assert identity.uses_fallback is False
-
-    def test_build_identity_fallback(self) -> None:
-        """无 delivery_event_id 时使用 case_number + send_time 生成身份。"""
-        record = DocumentDeliveryRecord(
-            case_number="（2025）粤0604民初1号",
-            send_time=datetime(2025, 1, 1, 12, 0, 0),
-            element_index=0,
-            court_name="测试法院",
-            document_name="判决书",
-        )
-        identity = self.service.build_document_delivery_identity(record)
-        assert identity.event_id is None
-        assert identity.event_key is not None
-        assert identity.uses_fallback is True
-
-    def test_build_identity_no_event_id_no_send_time(self) -> None:
-        """无 event_id 且无 send_time 时返回空身份。"""
-        record = DocumentDeliveryRecord(
-            case_number="test",
-            send_time=None,
-            element_index=0,
-        )
-        identity = self.service.build_document_delivery_identity(record)
-        assert identity.event_id is None
-        assert identity.event_key is None
-        assert identity.uses_fallback is False
-
-    def test_build_identity_no_case_number(self) -> None:
-        """无 case_number 且无 send_time 时返回空身份。"""
-        record = DocumentDeliveryRecord(
-            case_number="",
-            send_time=None,
-            element_index=0,
-        )
-        identity = self.service.build_document_delivery_identity(record)
-        assert identity.event_key is None
-
-    def test_build_identity_deterministic(self) -> None:
-        """相同输入生成相同身份。"""
-        record = DocumentDeliveryRecord(
-            case_number="test",
-            send_time=datetime(2025, 1, 1),
-            element_index=0,
-            delivery_event_id="SD001",
-        )
-        id1 = self.service.build_document_delivery_identity(record)
-        id2 = self.service.build_document_delivery_identity(record)
-        assert id1.event_key == id2.event_key
 
     def test_build_existing_sms_result_with_notification(self) -> None:
         """有通知结果时 notification_sent=True。"""

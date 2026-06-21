@@ -99,9 +99,7 @@
                             {% endif %}
                         </td>
                         <td>
-                            {% if sms.sms_type == 'document_delivery' %}
-                                📄 {{ sms.get_sms_type_display }}
-                            {% elif sms.sms_type == 'info_notification' %}
+                            {% if sms.sms_type == 'info_notification' %}
                                 📢 {{ sms.get_sms_type_display }}
                             {% elif sms.sms_type == 'filing_notification' %}
                                 📋 {{ sms.get_sms_type_display }}

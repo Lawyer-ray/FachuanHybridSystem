@@ -242,18 +242,6 @@ class TestSMSParserServiceParse:
             party_candidate_extractor=MagicMock(),
         )
 
-    def test_parse_document_delivery_sms(self) -> None:
-        """包含下载链接的短信识别为文书送达。"""
-        content = (
-            "您有新的文书送达 https://court.gov.cn/zxfw/#/pagesAjkj/app/wssd/index"
-            "?qdbh=1&sdbh=2&sdsin=3 （2025）粤0604民初41257号"
-        )
-        result = self.service.parse(content)
-        assert isinstance(result, SMSParseResult)
-        assert result.sms_type == CourtSMSType.DOCUMENT_DELIVERY
-        assert result.has_valid_download_link is True
-        assert len(result.download_links) >= 1
-
     def test_parse_filing_notification(self) -> None:
         """包含立案关键词的短信识别为立案通知。"""
         content = "您的案件已立案，请等待通知"

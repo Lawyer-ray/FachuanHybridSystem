@@ -41,12 +41,6 @@ class TestParseSmsTypeDetection:
         result = self.service.parse(content)
         assert result.sms_type == CourtSMSType.INFO_NOTIFICATION
 
-    def test_document_delivery(self):
-        content = "请查收 https://sd.gdcourts.gov.cn/v3/dzsd/ABC123"
-        result = self.service.parse(content)
-        assert result.sms_type == CourtSMSType.DOCUMENT_DELIVERY
-
-
 # ── extract_party_names — candidate extraction ────────────────────────────────
 
 

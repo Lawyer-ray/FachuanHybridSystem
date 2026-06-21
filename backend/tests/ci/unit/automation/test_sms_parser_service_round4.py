@@ -9,7 +9,6 @@ Targets remaining uncovered branches:
 - _filter_parties: ends with 财, ends with 案
 - _collect_versus_patterns: co-to-co, pe-to-co, co-to-pe, received pattern
 - _collect_name_contexts: 关于...诉... pattern, 诉 pattern
-- _is_document_delivery_without_parties: has party indicators
 - _sanitize_link: mixed trailing punctuation
 """
 from __future__ import annotations
@@ -230,41 +229,6 @@ class TestCollectNameContextsEdge:
         parties = []
         self.service._collect_name_contexts("被申请人：王五", parties)
         assert "王五" in parties
-
-
-# ---------------------------------------------------------------------------
-# _is_document_delivery_without_parties — has party indicators
-# ---------------------------------------------------------------------------
-
-
-class TestIsDocumentDeliveryWithoutPartiesEdge:
-    def setup_method(self):
-        self.service = SMSParserService(
-            client_service=MagicMock(),
-            party_matching_service=MagicMock(),
-            party_candidate_extractor=MagicMock(),
-        )
-
-    @patch("apps.automation.services.sms.sms_parser_service.TextUtils")
-    def test_has_yu_indicator(self, mock_utils):
-        mock_utils.extract_case_numbers.return_value = ["(2025)粤01民初1号"]
-        content = "请查收送达文书 https://sd.gdcourts.gov.cn/v3/dzsd/ABC123 原告与被告"
-        result = self.service._is_document_delivery_without_parties(content)
-        assert result is False
-
-    @patch("apps.automation.services.sms.sms_parser_service.TextUtils")
-    def test_has_shenqingren_indicator(self, mock_utils):
-        mock_utils.extract_case_numbers.return_value = ["(2025)粤01民初1号"]
-        content = "请查收送达文书 https://sd.gdcourts.gov.cn/v3/dzsd/ABC123 申请人张三"
-        result = self.service._is_document_delivery_without_parties(content)
-        assert result is False
-
-    @patch("apps.automation.services.sms.sms_parser_service.TextUtils")
-    def test_no_download_link(self, mock_utils):
-        mock_utils.extract_case_numbers.return_value = ["(2025)粤01民初1号"]
-        content = "请查收送达文书（2025）粤01民初1号"
-        result = self.service._is_document_delivery_without_parties(content)
-        assert result is False
 
 
 # ---------------------------------------------------------------------------

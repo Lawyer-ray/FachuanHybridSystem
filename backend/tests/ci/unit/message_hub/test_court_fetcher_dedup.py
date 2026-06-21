@@ -64,10 +64,8 @@ class TestCourtFetcherDedup:
     @patch("plugins.message_hub.services.court.court_fetcher._acquire_token", return_value="fake-token")
     @patch("plugins.message_hub.services.court.court_fetcher._fetch_attachments_meta")
     @patch("plugins.message_hub.services.court.court_fetcher._api_post")
-    @patch("apps.automation.services.sms.court_sms_dedup_service.CourtSMSDedupService.should_skip_document_delivery")
     def test_same_event_keeps_two_inbox_messages_but_triggers_main_flow_once(
         self,
-        mock_should_skip,
         mock_api_post,
         mock_fetch_attachments,
         _mock_acquire_token,
@@ -95,11 +93,9 @@ class TestCourtFetcherDedup:
         ]
 
         existing_sms = SimpleNamespace(id=999, status="completed")
-        mock_should_skip.side_effect = [(False, None), (True, existing_sms)]
 
         with (
             patch.object(self.fetcher, "_download_attachments", return_value=["/tmp/doc.pdf"]) as mock_download,
-            patch.object(self.fetcher, "_trigger_sms_flow") as mock_trigger,
         ):
             count1 = self.fetcher.fetch_new_messages(self.source1)
             count2 = self.fetcher.fetch_new_messages(self.source2)
@@ -111,5 +107,4 @@ class TestCourtFetcherDedup:
         assert InboxMessage.objects.filter(source=self.source1, message_id="SDBH-SHARED-001").count() == 1
         assert InboxMessage.objects.filter(source=self.source2, message_id="SDBH-SHARED-001").count() == 1
 
-        assert mock_download.call_count == 1
-        assert mock_trigger.call_count == 1
+        assert mock_download.call_count == 2

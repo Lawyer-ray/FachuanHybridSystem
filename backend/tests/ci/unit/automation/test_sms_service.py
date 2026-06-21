@@ -97,14 +97,6 @@ class TestSMSParserService:
         svc = self._make_service()
         assert svc._is_valid_download_link("https://example.com/random") is False
 
-    def test_parse_document_delivery_type(self) -> None:
-        svc = self._make_service()
-        content = "请查收文书 https://example.com/sd?key=abc123 （2025）粤0604民初123号"
-        result = svc.parse(content)
-        assert result.sms_type == "document_delivery"
-        assert result.has_valid_download_link is True
-        assert len(result.download_links) >= 1
-
     def test_parse_info_notification(self) -> None:
         svc = self._make_service()
         content = "您好，您的案件正在审理中"
@@ -167,48 +159,6 @@ class TestSMSParserService:
 
 class TestCourtSMSDedupService:
     """CourtSMSDedupService 测试"""
-
-    def test_build_identity_with_event_id(self) -> None:
-        from apps.automation.services.sms.court_sms_dedup_service import CourtSMSDedupService
-        from apps.automation.services.document_delivery.data_classes import DocumentDeliveryRecord
-
-        svc = CourtSMSDedupService()
-        record = DocumentDeliveryRecord(
-            case_number="test",
-            send_time=datetime(2025, 1, 1),
-            element_index=0,
-            delivery_event_id="EVT001",
-        )
-        identity = svc.build_document_delivery_identity(record)
-        assert identity.event_id == "EVT001"
-        assert identity.event_key is not None
-        assert identity.uses_fallback is False
-
-    def test_build_identity_fallback(self) -> None:
-        from apps.automation.services.sms.court_sms_dedup_service import CourtSMSDedupService
-        from apps.automation.services.document_delivery.data_classes import DocumentDeliveryRecord
-
-        svc = CourtSMSDedupService()
-        record = DocumentDeliveryRecord(
-            case_number="（2025）粤0604民初123号",
-            send_time=datetime(2025, 1, 1, 12, 0, 0),
-            element_index=0,
-            court_name="佛山法院",
-            document_name="判决书",
-        )
-        identity = svc.build_document_delivery_identity(record)
-        assert identity.event_id is None
-        assert identity.event_key is not None
-        assert identity.uses_fallback is True
-
-    def test_build_identity_no_key(self) -> None:
-        from apps.automation.services.sms.court_sms_dedup_service import CourtSMSDedupService
-        from apps.automation.services.document_delivery.data_classes import DocumentDeliveryRecord
-
-        svc = CourtSMSDedupService()
-        record = DocumentDeliveryRecord(case_number="", send_time=None, element_index=0)
-        identity = svc.build_document_delivery_identity(record)
-        assert identity.event_key is None
 
     def test_build_existing_sms_result_with_notification(self) -> None:
         from apps.automation.services.sms.court_sms_dedup_service import CourtSMSDedupService

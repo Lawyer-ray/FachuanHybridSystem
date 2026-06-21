@@ -18,7 +18,6 @@ from apps.automation.models.base import TestCourt
 from apps.automation.models.court_sms import CourtSMS
 from apps.automation.models.preservation import PreservationQuote
 from apps.automation.models.scraper import ScraperTask, ScraperTaskType
-from apps.automation.models.court_document import DocumentDeliverySchedule
 from apps.cases.models import Case, SupervisingAuthority
 from apps.contracts.models import Contract
 from apps.organization.models import AccountCredential
@@ -287,57 +286,6 @@ def test_batch_delete_sms(mock_build, authenticated_client):
     )
     # Due to route ordering, this may return 405 (matched by DELETE/{sms_id} first)
     assert resp.status_code in (200, 405)
-
-
-# ===================================================================
-# Document delivery schedules
-# ===================================================================
-
-
-@pytest.mark.django_db
-@patch("apps.automation.services.document_delivery.document_delivery_schedule_service.DocumentDeliveryScheduleService")
-def test_list_schedules(mock_svc_cls, authenticated_client):
-    mock_svc = MagicMock()
-    mock_svc.list_schedules.return_value = []
-    mock_svc_cls.return_value = mock_svc
-
-    resp = authenticated_client.get("/api/v1/automation/document-delivery/schedules")
-    assert resp.status_code == 200
-
-
-@pytest.mark.django_db
-@patch("apps.automation.services.document_delivery.document_delivery_schedule_service.DocumentDeliveryScheduleService")
-def test_create_schedule(mock_svc_cls, authenticated_client):
-    now = timezone.now()
-    mock_schedule = MagicMock()
-    mock_schedule.id = 1
-    mock_schedule.credential_id = 1
-    mock_schedule.runs_per_day = 2
-    mock_schedule.hour_interval = 12
-    mock_schedule.cutoff_hours = 24
-    mock_schedule.is_active = True
-    mock_schedule.last_run_at = None
-    mock_schedule.next_run_at = now
-    mock_schedule.created_at = now
-    mock_schedule.updated_at = now
-    mock_svc = MagicMock()
-    mock_svc.create_schedule.return_value = mock_schedule
-    mock_svc_cls.return_value = mock_svc
-
-    resp = authenticated_client.post(
-        "/api/v1/automation/document-delivery/schedules",
-        data=json.dumps({
-            "credential_id": 1,
-            "runs_per_day": 2,
-            "hour_interval": 12,
-            "cutoff_hours": 24,
-            "is_active": True,
-        }),
-        content_type="application/json",
-    )
-    assert resp.status_code == 200
-    data = resp.json()
-    assert data["credential_id"] == 1
 
 
 # ===================================================================

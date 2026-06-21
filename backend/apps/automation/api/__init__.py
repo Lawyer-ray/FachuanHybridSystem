@@ -8,7 +8,6 @@ from .auto_namer_api import router as auto_namer_router
 from .captcha_manual_api import router as captcha_manual_router
 from .captcha_recognition_api import router as captcha_recognition_router
 from .court_sms_api import router as court_sms_router
-from .document_delivery_api import router as document_delivery_router
 from .document_processor_api import router as document_processor_router
 from .main_api import router as main_router
 
@@ -30,7 +29,6 @@ router.add_router("/captcha/manual", captcha_manual_router, tags=["手动验证�
 if preservation_quote_router is not None:
     router.add_router("", preservation_quote_router, tags=["财产保全询价"])  # 财产保全询价 API
 router.add_router("", court_sms_router, tags=["法院短信处理"])  # 法院短信处理 API
-router.add_router("", document_delivery_router, tags=["文书送达自动下载"])  # 文书送达自动下载 API
 router.add_router("", main_router, tags=["AI工具"])
 
 __all__ = ["router"]

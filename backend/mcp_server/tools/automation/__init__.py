@@ -40,13 +40,6 @@ from mcp_server.tools.automation.court_sms import (
     retry_sms_processing,
     submit_court_sms,
 )
-from mcp_server.tools.automation.document_delivery import (
-    create_delivery_schedule,
-    get_delivery_schedule,
-    list_delivery_schedules,
-    query_document_delivery,
-    update_delivery_schedule,
-)
 from mcp_server.tools.automation.document_processor import process_document, process_document_by_path
 from mcp_server.tools.automation.main_api import ai_ollama, get_automation_config, get_automation_status
 from mcp_server.tools.automation.performance import (
@@ -86,7 +79,6 @@ __all__ = [
     "download_sms_documents",
     "download_sms_document",
     # 文书送达
-    "query_document_delivery",
     "list_delivery_schedules",
     "create_delivery_schedule",
     "get_delivery_schedule",

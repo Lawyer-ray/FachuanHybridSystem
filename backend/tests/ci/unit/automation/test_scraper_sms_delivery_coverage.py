@@ -1,4 +1,4 @@
-"""Coverage tests for automation scrapers, SMS, document delivery, insurance, GSXT, and admin services."""
+"""Coverage tests for automation scrapers, SMS, insurance, GSXT, and admin services."""
 from __future__ import annotations
 
 import re
@@ -223,53 +223,6 @@ class TestSMSServices:
         from apps.automation.services.sms.document_attachment_service import DocumentAttachmentService
 
         assert DocumentAttachmentService is not None
-
-
-# --- document_delivery ---
-
-class TestDocumentDelivery:
-    def test_service_import(self):
-        from apps.automation.services.document_delivery.document_delivery_service import DocumentDeliveryService
-
-        assert DocumentDeliveryService is not None
-
-    def test_schedule_service_import(self):
-        from apps.automation.services.document_delivery.document_delivery_schedule_service import (
-            DocumentDeliveryScheduleService,
-        )
-
-        assert DocumentDeliveryScheduleService is not None
-
-    def test_processor_import(self):
-        from apps.automation.services.document_delivery.processor.document_delivery_processor import (
-            DocumentDeliveryProcessor,
-        )
-
-        assert DocumentDeliveryProcessor is not None
-
-    def test_matching_mixin_import(self):
-        from apps.automation.services.document_delivery._matching_mixin import DocumentDeliveryMatchingMixin
-
-        assert DocumentDeliveryMatchingMixin is not None
-
-    def test_document_processor_import(self):
-        from apps.automation.services.document_delivery.delivery.document_processor import DocumentProcessor
-
-        assert DocumentProcessor is not None
-
-    def test_playwright_delivery_import(self):
-        from apps.automation.services.document_delivery.delivery.playwright_delivery_service import (
-            PlaywrightDeliveryService,
-        )
-
-        assert PlaywrightDeliveryService is not None
-
-    def test_playwright_service_import(self):
-        from apps.automation.services.document_delivery.playwright.document_delivery_playwright_service import (
-            DocumentDeliveryPlaywrightService,
-        )
-
-        assert DocumentDeliveryPlaywrightService is not None
 
 
 # --- insurance ---

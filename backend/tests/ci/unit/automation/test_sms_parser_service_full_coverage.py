@@ -4,7 +4,7 @@ Covers: parse, extract_download_links, _sanitize_link, _is_valid_download_link,
 extract_verification_code, extract_case_numbers, extract_party_names,
 _find_existing_clients_in_sms, _extract_party_names_with_ollama,
 _extract_party_names_with_regex, _collect_company_names, _collect_versus_patterns,
-_collect_name_contexts, _filter_parties, _is_document_delivery_without_parties,
+_collect_name_contexts, _filter_parties,
 lazy-loaded properties.
 """
 
@@ -512,32 +512,6 @@ class TestCollectMethods:
 
 
 # ---------------------------------------------------------------------------
-# _is_document_delivery_without_parties
-# ---------------------------------------------------------------------------
-
-
-class TestIsDocumentDeliveryWithoutParties:
-    def setup_method(self):
-        self.service = SMSParserService(
-            client_service=MagicMock(),
-            party_matching_service=MagicMock(),
-            party_candidate_extractor=MagicMock(),
-        )
-
-    @patch("apps.automation.services.sms.sms_parser_service.TextUtils")
-    def test_true_when_delivery_sms(self, mock_utils):
-        mock_utils.extract_case_numbers.return_value = ["(2025)粤01民初1号"]
-        content = "请查收送达文书 https://sd.gdcourts.gov.cn/v3/dzsd/ABC123 （2025）粤01民初1号"
-        result = self.service._is_document_delivery_without_parties(content)
-        assert result is True
-
-    def test_false_when_has_party_indicators(self):
-        content = "请查收送达文书 https://sd.gdcourts.gov.cn/v3/dzsd/ABC123 原告张三"
-        result = self.service._is_document_delivery_without_parties(content)
-        assert result is False
-
-
-# ---------------------------------------------------------------------------
 # parse (integration of all parts)
 # ---------------------------------------------------------------------------
 
@@ -549,13 +523,6 @@ class TestParse:
             party_matching_service=MagicMock(),
             party_candidate_extractor=MagicMock(),
         )
-
-    def test_document_delivery_type(self):
-        self.service._find_existing_clients_in_sms = MagicMock(return_value=[])
-        content = "请查收文书 https://sd.gdcourts.gov.cn/v3/dzsd/ABC123"
-        result = self.service.parse(content)
-        assert result.sms_type == CourtSMSType.DOCUMENT_DELIVERY
-        assert result.has_valid_download_link is True
 
     def test_filing_notification_type(self):
         self.service._find_existing_clients_in_sms = MagicMock(return_value=[])

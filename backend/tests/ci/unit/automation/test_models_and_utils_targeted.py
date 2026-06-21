@@ -16,7 +16,6 @@ from apps.automation.models import (
     CourtSMSStatus,
     CourtSMSType,
     CourtToken,
-    DocumentDeliverySchedule,
     DocumentDownloadStatus,
     InsuranceQuote,
     PreservationQuote,

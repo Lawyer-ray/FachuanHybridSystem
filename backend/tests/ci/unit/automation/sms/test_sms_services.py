@@ -14,7 +14,6 @@ from apps.automation.services.sms.court_sms_dedup_service import CourtSMSDedupSe
 from apps.automation.services.sms.task_recovery_service import TaskRecoveryService
 from apps.automation.services.sms.document_renamer import DocumentRenamer
 from apps.automation.services.sms.case_folder_archive_service import CaseFolderArchiveService
-from apps.automation.services.document_delivery.data_classes import DocumentDeliveryRecord, DocumentRecord, DocumentDetail, DocumentListResponse
 
 
 class TestCourtSMSDedupService:
@@ -22,43 +21,6 @@ class TestCourtSMSDedupService:
 
     def setup_method(self) -> None:
         self.service = CourtSMSDedupService()
-
-    def test_build_identity_with_event_id(self) -> None:
-        """有 event_id 时使用 event_id 构建身份。"""
-        record = DocumentDeliveryRecord(
-            case_number="（2025）粤0604民初12345号",
-            send_time=datetime(2025, 1, 1, 12, 0, 0),
-            element_index=0,
-            delivery_event_id="sdbh_123",
-        )
-        identity = self.service.build_document_delivery_identity(record)
-        assert identity.event_id == "sdbh_123"
-        assert identity.event_key is not None
-        assert identity.uses_fallback is False
-
-    def test_build_identity_without_event_id(self) -> None:
-        """无 event_id 时使用 fallback 构建身份。"""
-        record = DocumentDeliveryRecord(
-            case_number="（2025）粤0604民初12345号",
-            send_time=datetime(2025, 1, 1, 12, 0, 0),
-            element_index=0,
-            court_name="佛山市禅城区人民法院",
-            document_name="判决书",
-        )
-        identity = self.service.build_document_delivery_identity(record)
-        assert identity.event_id is None
-        assert identity.event_key is not None
-        assert identity.uses_fallback is True
-
-    def test_build_identity_no_case_number(self) -> None:
-        """无案号无 event_id 返回空身份。"""
-        record = DocumentDeliveryRecord(
-            case_number="",
-            send_time=None,
-            element_index=0,
-        )
-        identity = self.service.build_document_delivery_identity(record)
-        assert identity.event_key is None
 
     def test_normalize_text(self) -> None:
         """规范化文本。"""
@@ -86,119 +48,6 @@ class TestCourtSMSDedupService:
         assert result["deduplicated"] is True
         assert result["case_id"] == 1
         assert result["renamed_path"] == "/path/file.pdf"
-
-
-class TestDocumentRecord:
-    """DocumentRecord 数据类测试。"""
-
-    def test_from_api_response(self) -> None:
-        data = {
-            "ah": "（2025）粤0604民初12345号",
-            "sdbh": "123",
-            "ajzybh": "456",
-            "fssj": "2025-01-01 12:00:00",
-            "fymc": "佛山市禅城区人民法院",
-        }
-        record = DocumentRecord.from_api_response(data)
-        assert record.ah == "（2025）粤0604民初12345号"
-        assert record.sdbh == "123"
-
-    def test_parse_fssj(self) -> None:
-        record = DocumentRecord(
-            ah="", sdbh="", ajzybh="", fssj="2025-01-01 12:00:00", fymc=""
-        )
-        dt = record.parse_fssj()
-        assert dt is not None
-        assert dt.year == 2025
-
-    def test_parse_fssj_empty(self) -> None:
-        record = DocumentRecord(ah="", sdbh="", ajzybh="", fssj="", fymc="")
-        assert record.parse_fssj() is None
-
-    def test_parse_fssj_invalid(self) -> None:
-        record = DocumentRecord(ah="", sdbh="", ajzybh="", fssj="invalid", fymc="")
-        assert record.parse_fssj() is None
-
-    def test_to_dict(self) -> None:
-        record = DocumentRecord(ah="test", sdbh="1", ajzybh="2", fssj="2025-01-01 12:00:00", fymc="法院")
-        d = record.to_dict()
-        assert d["ah"] == "test"
-        assert d["sdbh"] == "1"
-
-
-class TestDocumentDetail:
-    """DocumentDetail 数据类测试。"""
-
-    def test_from_api_response(self) -> None:
-        data = {
-            "c_sdbh": "123",
-            "c_wsmc": "判决书",
-            "c_wjgs": "pdf",
-            "wjlj": "https://example.com/file.pdf",
-        }
-        detail = DocumentDetail.from_api_response(data)
-        assert detail.c_sdbh == "123"
-        assert detail.c_wsmc == "判决书"
-
-    def test_to_dict(self) -> None:
-        detail = DocumentDetail(c_sdbh="123", c_wsmc="test", c_wjgs="pdf", wjlj="url")
-        d = detail.to_dict()
-        assert d["c_sdbh"] == "123"
-
-
-class TestDocumentListResponse:
-    """DocumentListResponse 数据类测试。"""
-
-    def test_from_api_response(self) -> None:
-        data = {
-            "data": {
-                "total": 19,
-                "data": [
-                    {"ah": "test1", "sdbh": "1", "ajzybh": "2", "fssj": "", "fymc": ""},
-                ],
-            }
-        }
-        response = DocumentListResponse.from_api_response(data)
-        assert response.total == 19
-        assert len(response.documents) == 1
-
-    def test_to_dict(self) -> None:
-        response = DocumentListResponse(total=0, documents=[])
-        d = response.to_dict()
-        assert d["total"] == 0
-
-
-class TestDocumentDeliveryRecord:
-    """DocumentDeliveryRecord 数据类测试。"""
-
-    def test_to_dict(self) -> None:
-        record = DocumentDeliveryRecord(
-            case_number="test",
-            send_time=datetime(2025, 1, 1, 12, 0, 0),
-            element_index=0,
-        )
-        d = record.to_dict()
-        assert d["case_number"] == "test"
-        assert d["send_time"] is not None
-
-    def test_from_dict(self) -> None:
-        data = {
-            "case_number": "test",
-            "send_time": "2025-01-01T12:00:00",
-            "element_index": 0,
-        }
-        record = DocumentDeliveryRecord.from_dict(data)
-        assert record.case_number == "test"
-        assert record.send_time is not None
-
-    def test_from_dict_none_send_time(self) -> None:
-        data = {
-            "case_number": "test",
-            "send_time": None,
-            "element_index": 0,
-        }
-        record = DocumentDeliveryRecord.from_dict(data)
-        assert record.send_time is None
 
 
 class TestDocumentRenamer:

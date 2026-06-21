@@ -14,7 +14,6 @@ from apps.automation.services.sms.court_sms_dedup_service import (
     CourtSMSDedupResult,
     CourtSMSDedupService,
 )
-from apps.automation.services.document_delivery.data_classes import DocumentDeliveryRecord
 
 
 # ---------------------------------------------------------------------------
@@ -88,45 +87,6 @@ class TestHashPayload:
         svc = CourtSMSDedupService()
         result = svc._hash_payload("中文测试")
         assert len(result) == 64  # SHA-256 hex digest
-
-
-class TestBuildDocumentDeliveryIdentity:
-    def test_with_event_id(self):
-        svc = CourtSMSDedupService()
-        record = DocumentDeliveryRecord(
-            case_number="2025-粤01民初1号",
-            send_time=datetime(2025, 1, 15, tzinfo=UTC),
-            element_index=0,
-            delivery_event_id="evt_123",
-        )
-        identity = svc.build_document_delivery_identity(record)
-        assert identity.event_id == "evt_123"
-        assert identity.event_key is not None
-        assert identity.uses_fallback is False
-
-    def test_without_event_id(self):
-        svc = CourtSMSDedupService()
-        record = DocumentDeliveryRecord(
-            case_number="2025-粤01民初1号",
-            send_time=datetime(2025, 1, 15, tzinfo=UTC),
-            element_index=0,
-            delivery_event_id="",
-        )
-        identity = svc.build_document_delivery_identity(record)
-        assert identity.event_id is None or identity.event_id == ""
-        assert identity.event_key is not None
-        assert identity.uses_fallback is True
-
-    def test_no_event_id_no_case_number(self):
-        svc = CourtSMSDedupService()
-        record = DocumentDeliveryRecord(
-            case_number="",
-            send_time=None,
-            element_index=0,
-            delivery_event_id="",
-        )
-        identity = svc.build_document_delivery_identity(record)
-        assert identity.event_key is None
 
 
 class TestBuildExistingSmsResult:

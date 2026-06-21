@@ -295,7 +295,6 @@ from mcp_server.tools import (
     preview_supplementary_agreement_context,
     process_document,
     process_document_by_path,
-    query_document_delivery,
     quick_recognize_invoice,
     rename_inbox_attachment,
     rename_material_group,
@@ -667,7 +666,6 @@ if _HAS_QUOTE:
     mcp.tool()(retry_preservation_quote)
 
 # 自动化 - 文书送达
-mcp.tool()(query_document_delivery)
 mcp.tool()(list_delivery_schedules)
 mcp.tool()(create_delivery_schedule)
 mcp.tool()(get_delivery_schedule)
