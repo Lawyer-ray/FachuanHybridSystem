@@ -324,11 +324,10 @@ class TestBuildPartyPayloadFromCaseParty:
         assert result["party_type"] == "natural"
         assert result["id_number"] == "000000000000000000"
 
-    def test_none_party_uses_defaults(self):
+    def test_none_party_raises_error(self):
         from plugins.court_automation.guarantee.helpers import _build_party_payload_from_case_party
-        result = _build_party_payload_from_case_party(party=None)
-        assert result["name"] == "张三"
-        assert result["party_id"] == 0
+        with pytest.raises(ValueError, match="客户姓名不能为空"):
+            _build_party_payload_from_case_party(party=None)
 
     def test_legal_person(self):
         from plugins.court_automation.guarantee.helpers import _build_party_payload_from_case_party
