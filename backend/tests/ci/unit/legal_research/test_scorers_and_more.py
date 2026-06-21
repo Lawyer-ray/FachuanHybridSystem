@@ -345,9 +345,11 @@ class TestCaseDownloadService:
 
 
 class TestSignals:
-    def test_signal_handler_with_pdf(self) -> None:
+    @patch("apps.legal_research.signals.transaction")
+    def test_signal_handler_with_pdf(self, mock_txn: MagicMock) -> None:
         from apps.legal_research.signals import _cleanup_legal_research_pdf
 
+        mock_txn.on_commit.side_effect = lambda fn: fn()
         instance = MagicMock()
         instance.pdf_file = MagicMock()
         instance.pk = 1
@@ -355,9 +357,11 @@ class TestSignals:
         _cleanup_legal_research_pdf(sender=None, instance=instance)
         instance.pdf_file.delete.assert_called_once_with(save=False)
 
-    def test_signal_handler_no_pdf(self) -> None:
+    @patch("apps.legal_research.signals.transaction")
+    def test_signal_handler_no_pdf(self, mock_txn: MagicMock) -> None:
         from apps.legal_research.signals import _cleanup_legal_research_pdf
 
+        mock_txn.on_commit.side_effect = lambda fn: fn()
         instance = MagicMock()
         instance.pdf_file = None
         instance.pk = 1
@@ -365,9 +369,11 @@ class TestSignals:
         # Should not raise
         _cleanup_legal_research_pdf(sender=None, instance=instance)
 
-    def test_signal_handler_delete_fails(self) -> None:
+    @patch("apps.legal_research.signals.transaction")
+    def test_signal_handler_delete_fails(self, mock_txn: MagicMock) -> None:
         from apps.legal_research.signals import _cleanup_legal_research_pdf
 
+        mock_txn.on_commit.side_effect = lambda fn: fn()
         instance = MagicMock()
         instance.pdf_file = MagicMock()
         instance.pdf_file.delete.side_effect = OSError("permission denied")

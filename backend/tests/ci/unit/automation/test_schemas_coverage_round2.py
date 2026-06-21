@@ -6,6 +6,11 @@ import os
 from unittest.mock import patch
 
 import pytest
+try:
+    from plugins.court_automation import filing  # noqa: F401
+except ImportError:
+    pytest.skip("court_automation plugin not installed", allow_module_level=True)
+
 
 
 class TestReadIntEnv:

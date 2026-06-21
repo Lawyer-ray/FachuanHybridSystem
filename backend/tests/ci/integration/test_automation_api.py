@@ -7,6 +7,10 @@ from datetime import datetime
 from unittest.mock import MagicMock, patch
 
 import pytest
+try:
+    from plugins.court_automation import filing  # noqa: F401
+except ImportError:
+    pytest.skip("court_automation plugin not installed", allow_module_level=True)
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.utils import timezone
 

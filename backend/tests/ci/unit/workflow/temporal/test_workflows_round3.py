@@ -18,6 +18,7 @@ from apps.workflow.temporal.workflows import (
     _eval_condition,
     _resolve_dotted,
 )
+from apps.workflow.temporal.activities import _HAS_COURT_FILING
 
 
 # ---------------------------------------------------------------------------
@@ -175,7 +176,8 @@ class TestGateResult:
 
 class TestMapsCompletenessExtended:
     def test_mcp_tool_map_has_court_filing_keys(self):
-        assert "execute_court_filing" in MCP_TOOL_MAP
+        if _HAS_COURT_FILING:
+            assert "execute_court_filing" in MCP_TOOL_MAP
         assert "execute_guarantee" in MCP_TOOL_MAP
         assert "submit_court_sms" in MCP_TOOL_MAP
 

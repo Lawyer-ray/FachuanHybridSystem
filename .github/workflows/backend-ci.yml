@@ -49,9 +49,15 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: LLM privacy review (requires claude CLI)
+      - name: LLM privacy review (requires claude CLI + API key)
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
           set -euo pipefail
+          if ! command -v claude &>/dev/null || [ -z "${ANTHROPIC_API_KEY:-}" ]; then
+            echo "Claude CLI or API key not available, skipping LLM privacy review."
+            exit 0
+          fi
           base=""
           if [ "${GITHUB_EVENT_NAME}" = "pull_request" ] && [ -n "${GITHUB_BASE_REF:-}" ]; then
             git fetch origin "${GITHUB_BASE_REF}" --depth=1
@@ -384,7 +390,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
       - name: Install uv
         uses: astral-sh/setup-uv@v5
 
@@ -434,7 +439,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
       - name: Install uv
         uses: astral-sh/setup-uv@v5
 
@@ -486,7 +490,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
       - name: Install uv
         uses: astral-sh/setup-uv@v5
 

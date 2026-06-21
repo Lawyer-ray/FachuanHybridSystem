@@ -1,7 +1,7 @@
 """Tests for express_query/signals.py - post_delete file cleanup."""
 
 import pytest
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 
 class TestDeleteTaskFiles:
@@ -23,7 +23,9 @@ class TestDeleteTaskFiles:
         instance.waybill_image = mock_waybill
         instance.result_pdf = mock_pdf
 
-        delete_task_files(sender=MagicMock, instance=instance)
+        with patch("apps.express_query.signals.transaction") as mock_txn:
+            mock_txn.on_commit.side_effect = lambda fn: fn()
+            delete_task_files(sender=MagicMock, instance=instance)
 
         mock_waybill.delete.assert_called_once_with(save=False)
         mock_pdf.delete.assert_called_once_with(save=False)
@@ -36,8 +38,10 @@ class TestDeleteTaskFiles:
         instance.waybill_image = None
         instance.result_pdf = None
 
-        # Should not raise
-        delete_task_files(sender=MagicMock, instance=instance)
+        with patch("apps.express_query.signals.transaction") as mock_txn:
+            mock_txn.on_commit.side_effect = lambda fn: fn()
+            # Should not raise
+            delete_task_files(sender=MagicMock, instance=instance)
 
     def test_handles_file_not_found(self):
         """Handles FileNotFoundError gracefully."""
@@ -54,8 +58,10 @@ class TestDeleteTaskFiles:
         instance.waybill_image = mock_waybill
         instance.result_pdf = mock_pdf
 
-        # Should not raise
-        delete_task_files(sender=MagicMock, instance=instance)
+        with patch("apps.express_query.signals.transaction") as mock_txn:
+            mock_txn.on_commit.side_effect = lambda fn: fn()
+            # Should not raise
+            delete_task_files(sender=MagicMock, instance=instance)
         mock_pdf.delete.assert_called_once_with(save=False)
 
 

@@ -311,27 +311,28 @@ class TestCourtInboxFetcherProcessPage:
              patch("apps.message_hub.services.court.court_fetcher._fetch_attachments_meta", return_value=[]):
             MockInbox.objects.filter.return_value.exists.return_value = False
             mock_msg = MagicMock()
-            MockInbox.objects.create.return_value = mock_msg
+            MockInbox.objects.bulk_create.return_value = [mock_msg]
             fetcher = CourtInboxFetcher()
             source = MagicMock()
             source.credential.pk = 1
             count = fetcher._process_page(source, "tok", [{"sdbh": "s1", "ah": "case", "wsmc": "doc"}])
             assert count == 1
-            MockInbox.objects.create.assert_called_once()
+            MockInbox.objects.bulk_create.assert_called_once()
 
     def test_counts_new_messages(self) -> None:
         """Test that multiple new messages are counted."""
         with patch(self._PATCH_INBOX) as MockInbox, \
              patch("apps.message_hub.services.court.court_fetcher._fetch_attachments_meta", return_value=[]):
             MockInbox.objects.filter.return_value.exists.return_value = False
-            MockInbox.objects.create.return_value = MagicMock()
+            mock_msgs = [MagicMock() for _ in range(3)]
+            MockInbox.objects.bulk_create.return_value = mock_msgs
             fetcher = CourtInboxFetcher()
             source = MagicMock()
             source.credential.pk = 1
             records = [{"sdbh": f"s{i}", "ah": f"case-{i}"} for i in range(3)]
             count = fetcher._process_page(source, "tok", records)
             assert count == 3
-            assert MockInbox.objects.create.call_count == 3
+            assert MockInbox.objects.bulk_create.call_count == 1
 
 
 class TestCourtInboxFetcherBuildDeliveryRecord:

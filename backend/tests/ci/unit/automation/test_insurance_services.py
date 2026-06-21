@@ -6,6 +6,11 @@ from decimal import Decimal
 from unittest.mock import MagicMock, patch
 
 import pytest
+try:
+    from plugins.court_automation import filing  # noqa: F401
+except ImportError:
+    pytest.skip("court_automation plugin not installed", allow_module_level=True)
+
 
 from plugins.court_automation.preservation_quote.insurance_http_mixin import InsuranceHttpMixin
 from plugins.court_automation.preservation_quote.court_insurance_client import (

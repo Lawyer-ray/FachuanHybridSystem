@@ -9,6 +9,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from apps.workflow.temporal.activities import _HAS_COURT_FILING
 from apps.workflow.temporal.workflows import (
     INTERNAL_ACTIVITY_MAP,
     MCP_TOOL_MAP,
@@ -69,9 +70,10 @@ def test_internal_activity_map_keys():
         "generate_complaint_simple",
         "generate_complaint",
         "review_complaint_quality",
-        "execute_court_filing",
         "download_litigation_document",
     }
+    if _HAS_COURT_FILING:
+        expected_keys.add("execute_court_filing")
     assert set(INTERNAL_ACTIVITY_MAP.keys()) == expected_keys
 
 
@@ -85,10 +87,12 @@ def test_mcp_tool_map_has_all_expected():
     expected_tools = {
         "collect_case_facts", "list_case_materials", "create_case_log",
         "generate_complaint", "generate_defense", "download_litigation_document",
-        "execute_court_filing", "submit_court_sms", "search_companies",
+        "submit_court_sms", "search_companies",
         "calculate_litigation_fee", "calculate_interest", "auto_namer",
         "process_document", "convert_document",
     }
+    if _HAS_COURT_FILING:
+        expected_tools.add("execute_court_filing")
     assert expected_tools.issubset(set(MCP_TOOL_MAP.keys()))
 
 

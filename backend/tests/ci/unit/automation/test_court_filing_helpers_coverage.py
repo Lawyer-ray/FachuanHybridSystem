@@ -6,6 +6,11 @@ from unittest.mock import MagicMock, patch, PropertyMock
 from typing import Any
 
 import pytest
+try:
+    from plugins.court_automation import filing  # noqa: F401
+except ImportError:
+    pytest.skip("court_automation plugin not installed", allow_module_level=True)
+
 
 
 # ── _resolve_court_name ───────────────────────────────────────────

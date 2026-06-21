@@ -25,6 +25,7 @@ from apps.workflow.temporal.workflows import (
     _eval_condition,
     _resolve_dotted,
 )
+from apps.workflow.temporal.activities import _HAS_COURT_FILING
 
 
 # ── _resolve_dotted ───────────────────────────────────────────────────────────
@@ -130,7 +131,8 @@ class TestDynamicWorkflowMcpToolPath:
     def test_mcp_tool_map_has_key_entries(self):
         from apps.workflow.temporal.workflows import MCP_TOOL_MAP
         assert "get_case" in MCP_TOOL_MAP.values()
-        assert "execute_court_filing" in MCP_TOOL_MAP.values()
+        if _HAS_COURT_FILING:
+            assert "execute_court_filing" in MCP_TOOL_MAP.values()
 
     def test_build_mcp_kwargs_for_mcp_tool_step(self):
         from apps.workflow.temporal.workflows import _build_mcp_kwargs

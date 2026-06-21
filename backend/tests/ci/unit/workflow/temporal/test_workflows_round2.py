@@ -17,6 +17,7 @@ from apps.workflow.temporal.workflows import (
     _eval_condition,
     _resolve_dotted,
 )
+from apps.workflow.temporal.activities import _HAS_COURT_FILING
 
 
 # ── _resolve_dotted ──
@@ -128,8 +129,10 @@ class TestMapsCompleteness:
             "summarize_evidence", "suggest_arrangement", "apply_arrangement",
             "build_litigation_context", "generate_complaint_simple",
             "generate_complaint", "review_complaint_quality",
-            "execute_court_filing", "download_litigation_document",
+            "download_litigation_document",
         }
+        if _HAS_COURT_FILING:
+            expected.add("execute_court_filing")
         assert expected.issubset(set(INTERNAL_ACTIVITY_MAP.keys()))
 
     def test_mcp_tool_map_keys(self):

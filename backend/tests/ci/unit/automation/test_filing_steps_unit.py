@@ -5,6 +5,11 @@ from __future__ import annotations
 from types import SimpleNamespace
 
 import pytest
+try:
+    from plugins.court_automation import filing  # noqa: F401
+except ImportError:
+    pytest.skip("court_automation plugin not installed", allow_module_level=True)
+
 
 
 class TestExtractCourtKeyword:

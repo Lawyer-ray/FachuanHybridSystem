@@ -6,6 +6,11 @@ from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
+try:
+    from plugins.court_automation import filing  # noqa: F401
+except ImportError:
+    pytest.skip("court_automation plugin not installed", allow_module_level=True)
+
 
 
 # ── ChatProviderFactory ───────────────────────────────────────────

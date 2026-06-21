@@ -24,6 +24,7 @@ from apps.workflow.temporal.workflows import (
     _eval_condition,
     _resolve_dotted,
 )
+from apps.workflow.temporal.activities import _HAS_COURT_FILING
 
 
 class TestSimpleWorkflowInput:
@@ -261,9 +262,10 @@ class TestInternalActivityMap:
             "generate_complaint_simple",
             "generate_complaint",
             "review_complaint_quality",
-            "execute_court_filing",
             "download_litigation_document",
         }
+        if _HAS_COURT_FILING:
+            expected_keys.add("execute_court_filing")
         assert expected_keys.issubset(set(INTERNAL_ACTIVITY_MAP.keys()))
 
 
@@ -273,8 +275,9 @@ class TestMcpToolMap:
             "collect_case_facts",
             "create_case_log",
             "generate_complaint",
-            "execute_court_filing",
             "search_companies",
             "calculate_interest",
         }
+        if _HAS_COURT_FILING:
+            expected.add("execute_court_filing")
         assert expected.issubset(set(MCP_TOOL_MAP.keys()))

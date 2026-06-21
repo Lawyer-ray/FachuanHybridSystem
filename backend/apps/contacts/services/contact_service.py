@@ -179,7 +179,11 @@ class CaseContactService(DjangoPermsMixin):
         )
         case_id_map: dict[tuple[str, str, str], list[int]] = {}
         for cc in all_contacts:
-            key: tuple[str, str, str] = (cc["name"], cc["role"], cc["authority__name"])
+            key: tuple[str, str, str] = (
+                cc["name"],
+                cc["role"],
+                cc["authority__name"] or "",
+            )
             case_id_map.setdefault(key, []).append(cc["case_id"])
 
         # Batch query 2: fetch latest contact per group (one query, keep first per group)
@@ -190,23 +194,27 @@ class CaseContactService(DjangoPermsMixin):
         )
         latest_map: dict[tuple[str, str, str], CaseContact] = {}
         for contact in latest_qs:
-            key = (contact.name, contact.role, contact.authority.name)
+            auth_name: str = (contact.authority.name or "") if contact.authority else ""
+            key = (contact.name, contact.role, auth_name)
             if key not in latest_map:
                 latest_map[key] = contact
 
         # Assemble final results
         results: list[dict[str, Any]] = []
         for row in grouped:
-            key = (row["name"], row["role"], row["authority__name"])
+            key = (row["name"], row["role"], row["authority__name"] or "")
             latest = latest_map.get(key)
+            role_display = latest.get_role_display() if latest is not None else None
+            phone = latest.phone if latest is not None else None
+            address = latest.address if latest is not None else None
             results.append(
                 {
                     "authority_name": row["authority__name"],
                     "name": row["name"],
                     "role": row["role"],
-                    "role_display": latest.get_role_display() if latest else None,
-                    "phone": latest.phone if latest else None,
-                    "address": latest.address if latest else None,
+                    "role_display": role_display,
+                    "phone": phone,
+                    "address": address,
                     "occurrence_count": row["occurrence_count"],
                     "case_ids": case_id_map.get(key, []),
                 }

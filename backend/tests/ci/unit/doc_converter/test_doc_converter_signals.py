@@ -22,8 +22,12 @@ class TestCleanupJobFiles:
         instance.id = "test-job-id"
         instance.output_zip = mock_zip
 
-        with patch("apps.doc_converter.services.storage.DocConverterStorage") as MockStorage:
+        with (
+            patch("apps.doc_converter.services.storage.DocConverterStorage") as MockStorage,
+            patch("apps.doc_converter.signals.transaction") as mock_txn,
+        ):
             mock_storage = MockStorage.return_value
+            mock_txn.on_commit.side_effect = lambda fn: fn()
 
             _cleanup_job_files(sender=MagicMock, instance=instance)
 
@@ -38,8 +42,12 @@ class TestCleanupJobFiles:
         instance.id = "test-job-id"
         instance.output_zip = MagicMock(__bool__=lambda self: False)
 
-        with patch("apps.doc_converter.services.storage.DocConverterStorage") as MockStorage:
+        with (
+            patch("apps.doc_converter.services.storage.DocConverterStorage") as MockStorage,
+            patch("apps.doc_converter.signals.transaction") as mock_txn,
+        ):
             mock_storage = MockStorage.return_value
+            mock_txn.on_commit.side_effect = lambda fn: fn()
 
             _cleanup_job_files(sender=MagicMock, instance=instance)
 
@@ -57,8 +65,12 @@ class TestCleanupJobFiles:
         instance.id = "test-job-id"
         instance.output_zip = mock_zip
 
-        with patch("apps.doc_converter.services.storage.DocConverterStorage") as MockStorage:
+        with (
+            patch("apps.doc_converter.services.storage.DocConverterStorage") as MockStorage,
+            patch("apps.doc_converter.signals.transaction") as mock_txn,
+        ):
             mock_storage = MockStorage.return_value
+            mock_txn.on_commit.side_effect = lambda fn: fn()
 
             # Should not raise
             _cleanup_job_files(sender=MagicMock, instance=instance)
@@ -82,7 +94,9 @@ class TestCleanupItemFiles:
         instance.source_file = mock_source
         instance.converted_file = mock_converted
 
-        _cleanup_item_files(sender=MagicMock, instance=instance)
+        with patch("apps.doc_converter.signals.transaction") as mock_txn:
+            mock_txn.on_commit.side_effect = lambda fn: fn()
+            _cleanup_item_files(sender=MagicMock, instance=instance)
 
         mock_source.delete.assert_called_once_with(save=False)
         mock_converted.delete.assert_called_once_with(save=False)
@@ -96,8 +110,10 @@ class TestCleanupItemFiles:
         instance.source_file = MagicMock(__bool__=lambda self: False)
         instance.converted_file = MagicMock(__bool__=lambda self: False)
 
-        # Should not raise
-        _cleanup_item_files(sender=MagicMock, instance=instance)
+        with patch("apps.doc_converter.signals.transaction") as mock_txn:
+            mock_txn.on_commit.side_effect = lambda fn: fn()
+            # Should not raise
+            _cleanup_item_files(sender=MagicMock, instance=instance)
 
     def test_handles_file_delete_exception(self):
         """Catches exception from file.delete and continues."""
@@ -115,6 +131,8 @@ class TestCleanupItemFiles:
         instance.source_file = mock_source
         instance.converted_file = mock_converted
 
-        # Should not raise, still attempts to delete converted_file
-        _cleanup_item_files(sender=MagicMock, instance=instance)
+        with patch("apps.doc_converter.signals.transaction") as mock_txn:
+            mock_txn.on_commit.side_effect = lambda fn: fn()
+            # Should not raise, still attempts to delete converted_file
+            _cleanup_item_files(sender=MagicMock, instance=instance)
         mock_converted.delete.assert_called_once_with(save=False)

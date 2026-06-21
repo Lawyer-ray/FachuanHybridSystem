@@ -4,8 +4,11 @@ Covers: get_step_registry, get_flat_step_list, find_step — all branches.
 """
 from __future__ import annotations
 
+import pytest
+
 from apps.workflow.api.step_registry import (
     STEP_CATEGORIES,
+    _HAS_COURT_FILING,
     find_step,
     get_flat_step_list,
     get_step_registry,
@@ -73,6 +76,7 @@ class TestFindStep:
         assert step is not None
         assert step["category_id"] == "documents"
 
+    @pytest.mark.skipif(not _HAS_COURT_FILING, reason="court_automation plugin not installed")
     def test_find_step_with_mcp_tool(self):
         step = find_step("execute_court_filing")
         assert step is not None

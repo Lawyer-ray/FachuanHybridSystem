@@ -24,6 +24,7 @@ from apps.workflow.temporal.workflows import (
     _eval_condition,
     _resolve_dotted,
 )
+from apps.workflow.temporal.activities import _HAS_COURT_FILING
 
 
 # ---------------------------------------------------------------------------
@@ -200,9 +201,10 @@ class TestInternalActivityMapFull:
             "generate_complaint_simple",
             "generate_complaint",
             "review_complaint_quality",
-            "execute_court_filing",
             "download_litigation_document",
         }
+        if _HAS_COURT_FILING:
+            expected.add("execute_court_filing")
         assert set(INTERNAL_ACTIVITY_MAP.keys()) == expected
 
     def test_values_are_callable(self):
@@ -226,7 +228,6 @@ class TestMcpToolMapFull:
             "download_litigation_document",
             "download_authorization_package",
             "download_preservation_docs",
-            "execute_court_filing",
             "execute_guarantee",
             "submit_court_sms",
             "search_companies",
@@ -241,6 +242,8 @@ class TestMcpToolMapFull:
             "calculate_litigation_fee",
             "calculate_interest",
         }
+        if _HAS_COURT_FILING:
+            expected.add("execute_court_filing")
         assert set(MCP_TOOL_MAP.keys()) == expected
 
     def test_values_are_strings(self):

@@ -120,7 +120,11 @@ class TestSignalReceivers:
         instance = MagicMock()
         instance.video = MagicMock()
 
-        with patch("apps.chat_records.signals._delete_field_file") as mock_delete:
+        with (
+            patch("apps.chat_records.signals._delete_field_file") as mock_delete,
+            patch("apps.chat_records.signals.transaction") as mock_txn,
+        ):
+            mock_txn.on_commit.side_effect = lambda fn: fn()
             _delete_recording_file(sender=MagicMock, instance=instance)
             mock_delete.assert_called_once_with(instance.video)
 
@@ -131,7 +135,11 @@ class TestSignalReceivers:
         instance = MagicMock()
         instance.image = MagicMock()
 
-        with patch("apps.chat_records.signals._delete_field_file") as mock_delete:
+        with (
+            patch("apps.chat_records.signals._delete_field_file") as mock_delete,
+            patch("apps.chat_records.signals.transaction") as mock_txn,
+        ):
+            mock_txn.on_commit.side_effect = lambda fn: fn()
             _delete_screenshot_file(sender=MagicMock, instance=instance)
             mock_delete.assert_called_once_with(instance.image)
 
@@ -142,7 +150,11 @@ class TestSignalReceivers:
         instance = MagicMock()
         instance.output_file = MagicMock()
 
-        with patch("apps.chat_records.signals._delete_field_file") as mock_delete:
+        with (
+            patch("apps.chat_records.signals._delete_field_file") as mock_delete,
+            patch("apps.chat_records.signals.transaction") as mock_txn,
+        ):
+            mock_txn.on_commit.side_effect = lambda fn: fn()
             _delete_export_file(sender=MagicMock, instance=instance)
             mock_delete.assert_called_once_with(instance.output_file)
 
@@ -152,7 +164,11 @@ class TestSignalReceivers:
 
         instance = MagicMock(spec=[])  # No attributes
 
-        with patch("apps.chat_records.signals._delete_field_file") as mock_delete:
+        with (
+            patch("apps.chat_records.signals._delete_field_file") as mock_delete,
+            patch("apps.chat_records.signals.transaction") as mock_txn,
+        ):
+            mock_txn.on_commit.side_effect = lambda fn: fn()
             _delete_recording_file(sender=MagicMock, instance=instance)
             _delete_screenshot_file(sender=MagicMock, instance=instance)
             _delete_export_file(sender=MagicMock, instance=instance)
