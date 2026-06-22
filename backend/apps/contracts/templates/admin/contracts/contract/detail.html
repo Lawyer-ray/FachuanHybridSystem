@@ -172,7 +172,7 @@
                 <div x-show="previewEditMode" style="margin-top: 12px; padding: 8px; background: var(--fc-primary-subtle); border-radius: 6px; font-size: 12px; color: var(--fc-primary-dark);">
                     {% trans "编辑模式下，修改值后点击「保存」，预览和下载将使用修改后的值。点击「放弃修改」退出编辑且不保存。" %}
                 </div>
-                <div x-show="!previewEditMode && previewHasOverrides" style="margin-top: 12px; padding: 8px; background: #fffbeb; border-radius: 6px; font-size: 12px; color: #92400e;">
+                <div x-show="!previewEditMode && previewHasOverrides" style="margin-top: 12px; padding: 8px; background: var(--fc-warning-bg); border-radius: 6px; font-size: 12px; color: var(--fc-warning-text);">
                     {% trans "当前替换词已手动修改过。点击「撤销修改」可恢复为自动提取的值。" %}
                 </div>
             </div>

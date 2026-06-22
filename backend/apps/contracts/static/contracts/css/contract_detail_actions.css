@@ -18,7 +18,7 @@
     align-items: center;
     gap: 8px;
     padding: 12px 20px;
-    background: var(--unfold-primary, #3b82f6);
+    background: var(--fc-primary);
     color: var(--fc-text-on-primary);
     border: none;
     border-radius: 8px;
@@ -30,7 +30,7 @@
 }
 
 .btn-action:hover:not(:disabled) {
-    background: var(--unfold-primary-dark, #2563eb);
+    background: var(--fc-primary-dark);
 }
 
 .btn-action:disabled,

@@ -2,9 +2,9 @@
 
 /* 标签页导航 */
 .tab-panel {
-    background: var(--unfold-bg-card, #fff);
+    background: var(--fc-bg-card);
     border-radius: 12px;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 1px 3px var(--fc-shadow-card);
     overflow: hidden;
 }
 
@@ -31,7 +31,7 @@
 }
 
 .tab-nav button.active {
-    color: var(--unfold-primary, #3b82f6);
+    color: var(--fc-primary);
 }
 
 .tab-nav button.active::after {
@@ -41,7 +41,7 @@
     left: 0;
     right: 0;
     height: 2px;
-    background: var(--unfold-primary, #3b82f6);
+    background: var(--fc-primary);
 }
 
 .tab-content {

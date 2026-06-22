@@ -22,12 +22,12 @@
 
 .case-link {
     text-decoration: none;
-    color: var(--unfold-primary, #3b82f6);
+    color: var(--fc-primary);
     transition: color 0.2s;
 }
 
 .case-link:hover {
-    color: var(--unfold-primary-dark, #2563eb);
+    color: var(--fc-primary-dark);
     text-decoration: underline;
 }
 
@@ -106,7 +106,7 @@
 
 .progress-bar-fill {
     height: 100%;
-    background: linear-gradient(90deg, #3b82f6, #60a5fa);
+    background: linear-gradient(90deg, var(--fc-primary), var(--fc-primary-light));
     border-radius: 4px;
     transition: width 0.3s ease;
 }

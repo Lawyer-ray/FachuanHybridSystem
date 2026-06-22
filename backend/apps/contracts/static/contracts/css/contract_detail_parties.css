@@ -83,7 +83,7 @@
 
 .party-item:hover .view-detail-icon,
 .lawyer-item:hover .view-detail-icon {
-    color: var(--unfold-primary, #3b82f6);
+    color: var(--fc-primary);
 }
 
 /* 补充协议列表 */
@@ -168,8 +168,8 @@
 }
 
 .soon-badge {
-    background: #f59e0b;
-    color: #fff;
+    background: var(--fc-warning-border);
+    color: var(--fc-text-on-primary);
     padding: 2px 6px;
     border-radius: 3px;
     font-size: 10px;
@@ -177,8 +177,8 @@
 }
 
 .overdue-badge {
-    background: #ef4444;
-    color: #fff;
+    background: var(--fc-error-border);
+    color: var(--fc-text-on-primary);
     padding: 2px 6px;
     border-radius: 3px;
     font-size: 10px;
@@ -211,7 +211,7 @@
 
 .agreement-select-item.selected {
     background: var(--fc-info-bg);
-    border-color: var(--unfold-primary, #3b82f6);
+    border-color: var(--fc-primary);
 }
 
 .agreement-select-name {

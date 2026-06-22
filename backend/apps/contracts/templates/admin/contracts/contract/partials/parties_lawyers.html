@@ -167,7 +167,7 @@
                 <!-- 法人/非法人组织：法定代表人信息 -->
                 <template x-if="currentParty.clientType !== 'natural' && currentParty.legalRepName">
                     <div class="detail-section" style="margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--fc-border);">
-                        <div class="detail-label" style="font-weight: 600; color: #374151;">
+                        <div class="detail-label" style="font-weight: 600; color: var(--fc-text-secondary);">
                             <span x-text="currentParty.clientType === 'legal' ? '法定代表人信息' : '负责人信息'"></span>
                         </div>
                     </div>
