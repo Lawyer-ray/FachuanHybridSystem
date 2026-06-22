@@ -1,7 +1,5 @@
-"""
-验证码识别服务模块
-"""
+"""Stub: 验证码识别服务已迁移到 plugins/court_automation/captcha/"""
 
-from .captcha_recognition_service import CaptchaRecognitionService
+from plugins.court_automation.captcha import CaptchaRecognitionService, CaptchaServiceAdapter  # noqa: F401
 
-__all__ = ["CaptchaRecognitionService"]
+__all__ = ["CaptchaRecognitionService", "CaptchaServiceAdapter"]
