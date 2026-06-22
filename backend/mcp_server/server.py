@@ -44,7 +44,6 @@ from mcp_server.tools import (
     create_contract,
     create_contract_with_cases,
     create_credential,
-    create_delivery_schedule,
     create_document_template,
     create_export,
     create_folder_binding,
@@ -180,7 +179,6 @@ from mcp_server.tools import (
     get_court_sms_detail,
     get_custom_fields,
     get_dashboard_stats,
-    get_delivery_schedule,
     get_document_template,
     get_export_statuses,
     get_export_task,
@@ -247,7 +245,6 @@ from mcp_server.tools import (
     list_court_sms,
     list_courts_data,
     list_credentials,
-    list_delivery_schedules,
     list_doc_convert_types,
     list_document_templates,
     list_enterprise_providers,
@@ -341,7 +338,6 @@ from mcp_server.tools import (
     update_contract,
     update_contract_lawyers,
     update_credential,
-    update_delivery_schedule,
     update_document_template,
     update_folder_template,
     update_grant,
@@ -666,10 +662,6 @@ if _HAS_QUOTE:
     mcp.tool()(retry_preservation_quote)
 
 # 自动化 - 文书送达
-mcp.tool()(list_delivery_schedules)
-mcp.tool()(create_delivery_schedule)
-mcp.tool()(get_delivery_schedule)
-mcp.tool()(update_delivery_schedule)
 
 # 自动化 - 验证码
 mcp.tool()(get_captcha_image)
