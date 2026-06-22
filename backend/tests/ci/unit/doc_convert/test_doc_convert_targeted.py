@@ -5,6 +5,14 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+try:
+    from plugins import has_doc_convert_plugin  # type: ignore[import-untyped]
+    _HAS_DOC_CONVERT = has_doc_convert_plugin()
+except ImportError:
+    _HAS_DOC_CONVERT = False
+
+pytestmark = pytest.mark.skipif(not _HAS_DOC_CONVERT, reason="doc_convert plugin not installed")
+
 
 # ---------------------------------------------------------------------------
 # exceptions.py (94% coverage - already high)
