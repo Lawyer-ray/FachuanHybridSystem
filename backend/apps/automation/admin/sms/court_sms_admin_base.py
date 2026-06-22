@@ -478,11 +478,11 @@ class CourtSMSAdminBase(admin.ModelAdmin):  # pragma: no cover
     def recommended_cases_display(self, obj: CourtSMS) -> SafeString:  # pragma: no cover
         """推荐关联案件卡片（AJAX 加载 + Select2 集成）"""
         if not obj.id:
-            return mark_safe('<span style="color:#999;">保存后可查看推荐案件</span>')
+            return mark_safe('<span style="color:var(--fc-text-disabled);">保存后可查看推荐案件</span>')
 
         if not (obj.case_numbers or obj.party_names):
             return mark_safe(
-                '<p style="color:#999;margin:8px 0;">短信中未提取到案号或当事人信息，无法推荐关联案件。'
+                '<p style="color:var(--fc-text-disabled);margin:8px 0;">短信中未提取到案号或当事人信息，无法推荐关联案件。'
                 "请使用上方的搜索框手动查找。</p>"
             )
 
@@ -491,7 +491,7 @@ class CourtSMSAdminBase(admin.ModelAdmin):  # pragma: no cover
 
         return format_html(
             "<div id='{cid}' style='margin:10px 0;'>"
-            "<div style='color:#666;padding:10px;'>🔍 正在搜索推荐案件…</div>"
+            "<div style='color:var(--fc-text-muted);padding:10px;'>🔍 正在搜索推荐案件…</div>"
             "</div>"
             "<script>"
             "(function(){{"
@@ -503,30 +503,30 @@ class CourtSMSAdminBase(admin.ModelAdmin):  # pragma: no cover
             " fetch(url).then(function(r){{return r.json();}}).then(function(data){{"
             "  renderRecCases(box,data.recommendations||[]);"
             " }}).catch(function(){{"
-            "  box.innerHTML='<p style=\"color:#c00;padding:10px;\">推荐案件加载失败</p>';"
+            "  box.innerHTML='<p style=\"color:var(--fc-error-text);padding:10px;\">推荐案件加载失败</p>';"
             " }});"
             "}})();"
             "function renderRecCases(box,list){{"
             " if(!list.length){{"
-            "  box.innerHTML='<p style=\"color:#999;padding:10px;\">未找到匹配案件，建议通过上方搜索框手动查找。</p>';"
+            "  box.innerHTML='<p style=\"color:var(--fc-text-disabled);padding:10px;\">未找到匹配案件，建议通过上方搜索框手动查找。</p>';"
             "  return;"
             " }}"
             " var html='<div style=\"display:flex;flex-wrap:wrap;gap:10px;\">';"
             " list.forEach(function(r){{"
-            "  var borderColor=r.id==='{current_case}'?'#007cba':'#ddd';"
-            "  var statusLabel=r.status==='active'?'<span style=\"color:#28a745;font-size:12px;\">在办</span>':'<span style=\"color:#6c757d;font-size:12px;\">已结案</span>';"
-            "  var reasonsHtml=r.reasons.map(function(x){{return '<span style=\"background:#e7f3ff;color:#007cba;padding:2px 8px;border-radius:12px;font-size:12px;margin-right:4px;\">'+x+'</span>';}}).join('');"
-            "  var caseNums=r.case_numbers.length?'<div style=\"font-size:13px;color:#555;margin-top:4px;\"><b>案号：</b>'+r.case_numbers.join(', ')+'</div>':'';"
-            "  var parties=r.parties.length?'<div style=\"font-size:13px;color:#555;\"><b>当事人：</b>'+r.parties.join(', ')+'</div>':'';"
-            "  var courts=r.court_names.length?'<div style=\"font-size:13px;color:#555;\"><b>法院：</b>'+r.court_names.join(', ')+'</div>':'';"
+            "  var borderColor=r.id==='{current_case}'?'var(--fc-primary)':'var(--fc-border)';"
+            "  var statusLabel=r.status==='active'?'<span style=\"color:var(--fc-success-text);font-size:12px;\">在办</span>':'<span style=\"color:var(--fc-text-disabled);font-size:12px;\">已结案</span>';"
+            "  var reasonsHtml=r.reasons.map(function(x){{return '<span style=\"background:var(--fc-primary-subtle);color:var(--fc-primary);padding:2px 8px;border-radius:12px;font-size:12px;margin-right:4px;\">'+x+'</span>';}}).join('');"
+            "  var caseNums=r.case_numbers.length?'<div style=\"font-size:13px;color:var(--fc-text-secondary);margin-top:4px;\"><b>案号：</b>'+r.case_numbers.join(', ')+'</div>':'';"
+            "  var parties=r.parties.length?'<div style=\"font-size:13px;color:var(--fc-text-secondary);\"><b>当事人：</b>'+r.parties.join(', ')+'</div>':'';"
+            "  var courts=r.court_names.length?'<div style=\"font-size:13px;color:var(--fc-text-secondary);\"><b>法院：</b>'+r.court_names.join(', ')+'</div>':'';"
             "  var caseUrl='/admin/cases/case/'+r.id+'/change/';"
             "  html+="
-            "   '<div class=\"rec-card\" data-id=\"'+r.id+'\" style=\"flex:1 1 320px;max-width:100%;border:2px solid '+borderColor+';border-radius:6px;padding:12px 14px;background:#fff;box-sizing:border-box;position:relative;\">'"
+            "   '<div class=\"rec-card\" data-id=\"'+r.id+'\" style=\"flex:1 1 320px;max-width:100%;border:2px solid '+borderColor+';border-radius:6px;padding:12px 14px;background:var(--fc-bg-card);box-sizing:border-box;position:relative;\">'"
             "   +'<div style=\"position:absolute;top:10px;right:12px;text-align:center;\">'"
-            "   +'<div style=\"font-size:10px;color:#888;\">相关度</div>'"
-            "   +'<div style=\"background:#007cba;color:#fff;border-radius:10px;padding:2px 10px;font-size:13px;font-weight:bold;white-space:nowrap;\">'+r.score+'</div>'"
+            "   +'<div style=\"font-size:10px;color:var(--fc-text-disabled);\">相关度</div>'"
+            "   +'<div style=\"background:var(--fc-primary);color:var(--fc-bg-card);border-radius:10px;padding:2px 10px;font-size:13px;font-weight:bold;white-space:nowrap;\">'+r.score+'</div>'"
             "   +'</div>'"
-            "   +'<div style=\"padding-right:60px;\"><b style=\"font-size:14px;\">'+r.name+'</b> '+statusLabel+' <span style=\"color:#999;font-size:12px;\">#'+r.id+'</span></div>'"
+            "   +'<div style=\"padding-right:60px;\"><b style=\"font-size:14px;\">'+r.name+'</b> '+statusLabel+' <span style=\"color:var(--fc-text-disabled);font-size:12px;\">#'+r.id+'</span></div>'"
             "   +'<div style=\"margin-top:6px;\">'+reasonsHtml+'</div>'"
             "   +caseNums+parties+courts"
             "   +'<div style=\"margin-top:10px;display:flex;gap:8px;\">'"
@@ -550,7 +550,7 @@ class CourtSMSAdminBase(admin.ModelAdmin):  # pragma: no cover
             " }}else{{"
             "  s.value=caseId;s.dispatchEvent(new Event('change',{{bubbles:true}}));"
             " }}"
-            " document.querySelectorAll('.rec-card').forEach(function(c){{c.style.borderColor=c.dataset.id==String(caseId)?'#007cba':'#ddd';}});"
+            " document.querySelectorAll('.rec-card').forEach(function(c){{c.style.borderColor=c.dataset.id==String(caseId)?'var(--fc-primary)':'var(--fc-border)';}});"
             "}}"
             "</script>",
             cid=container_id,
