@@ -14,9 +14,8 @@ except ImportError:
 
 pytestmark = pytest.mark.skipif(not _HAS_MH, reason="message_hub plugin not installed")
 
-
-from plugins.message_hub.services.court.court_fetcher import _run_callable_with_timeout
-
+if _HAS_MH:
+    from plugins.message_hub.services.court.court_fetcher import _run_callable_with_timeout
 
 class TestRunCallableWithTimeout:
     """验证 Token 登录超时控制不会阻塞 worker。"""

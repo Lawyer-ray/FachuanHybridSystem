@@ -17,18 +17,19 @@ except ImportError:
 
 pytestmark = pytest.mark.skipif(not _HAS_MH, reason="message_hub plugin not installed")
 
-
 from apps.message_hub.models import SyncStatus
-from plugins.message_hub.services.court.court_fetcher import (
-    CourtInboxFetcher,
-    _api_post,
-    _build_body,
-    _build_subject,
-    _fetch_attachments_meta,
-    _mark_failed,
-    _mark_success,
-    _parse_datetime,
-    _run_callable_with_timeout,
+if _HAS_MH:
+    from plugins.message_hub.services.court.court_fetcher import (
+        CourtInboxFetcher,
+        _api_post,
+        _build_body,
+        _build_subject,
+        _fetch_attachments_meta,
+        _mark_failed,
+        _mark_success,
+        _parse_datetime,
+        _run_callable_with_timeout,
+
 )
 
 # Lazy-import patch targets (imported inside methods at runtime)
@@ -36,11 +37,9 @@ _LAZY_CM = "plugins.court_automation.token.cache_manager.cache_manager"
 _LAZY_SL = "apps.core.interfaces.ServiceLocator"
 _LAZY_CT = "apps.automation.models.token.CourtToken"
 
-
 # ===========================================================================
 # Helper function tests
 # ===========================================================================
-
 
 class TestBuildSubject:
     def test_with_ah_and_wsmc(self) -> None:
@@ -51,7 +50,6 @@ class TestBuildSubject:
 
     def test_empty(self) -> None:
         assert _build_subject({}) == "(无主题)"
-
 
 class TestBuildBody:
     def test_full_record(self) -> None:
@@ -74,7 +72,6 @@ class TestBuildBody:
         body = _build_body({})
         assert "案号：" in body
 
-
 class TestParseDatetime:
     def test_valid_format(self) -> None:
         dt = _parse_datetime("2024-06-01 10:30:00")
@@ -89,7 +86,6 @@ class TestParseDatetime:
     def test_empty_string(self) -> None:
         dt = _parse_datetime("")
         assert dt is not None
-
 
 class TestFetchAttachmentsMeta:
     @patch("plugins.message_hub.services.court.court_fetcher._api_post")
@@ -121,11 +117,9 @@ class TestFetchAttachmentsMeta:
         meta = _fetch_attachments_meta("token", "sdbh-1")
         assert meta == []
 
-
 # ===========================================================================
 # _api_post tests
 # ===========================================================================
-
 
 class TestApiPost:
     @patch("plugins.message_hub.services.court.court_fetcher.httpx.Client")
@@ -168,11 +162,9 @@ class TestApiPost:
         with pytest.raises(RuntimeError, match="API 错误"):
             _api_post("https://api.example.com", "tok", {})
 
-
 # ===========================================================================
 # Run callable with timeout
 # ===========================================================================
-
 
 class TestRunWithCallableTimeout:
     def test_success(self) -> None:
@@ -196,11 +188,9 @@ class TestRunWithCallableTimeout:
         with pytest.raises(ValueError, match="oops"):
             _run_callable_with_timeout(failing_func, timeout_seconds=5)
 
-
 # ===========================================================================
 # Mark success / failed
 # ===========================================================================
-
 
 class TestMarkSuccess:
     @patch("plugins.message_hub.services.court.court_fetcher.timezone")
@@ -211,7 +201,6 @@ class TestMarkSuccess:
         assert source.last_sync_status == SyncStatus.SUCCESS
         assert source.last_sync_error == ""
         source.save.assert_called_once()
-
 
 class TestMarkFailed:
     @patch("plugins.message_hub.services.court.court_fetcher.timezone")
@@ -231,11 +220,9 @@ class TestMarkFailed:
         _mark_failed(source, long_error)
         assert len(source.last_sync_error) == 1000
 
-
 # ===========================================================================
 # CourtInboxFetcher tests
 # ===========================================================================
-
 
 class TestCourtInboxFetcherFetchNewMessages:
     @patch("plugins.message_hub.services.court.court_fetcher._acquire_token")
@@ -261,7 +248,6 @@ class TestCourtInboxFetcherFetchNewMessages:
         with pytest.raises(RuntimeError):
             fetcher.fetch_new_messages(source)
         mock_inv.assert_called_once()
-
 
 class TestCourtInboxFetcherFetchWithToken:
     @patch("plugins.message_hub.services.court.court_fetcher._api_post")
@@ -290,7 +276,6 @@ class TestCourtInboxFetcherFetchWithToken:
         count = fetcher._fetch_with_token(source, "tok", 1)
         assert count == 0
         assert mock_post.call_count == 2
-
 
 class TestCourtInboxFetcherProcessPage:
     _PATCH_INBOX = "plugins.message_hub.services.court.court_fetcher.InboxMessage"
@@ -341,7 +326,6 @@ class TestCourtInboxFetcherProcessPage:
             assert count == 3
             assert MockInbox.objects.bulk_create.call_count == 1
 
-
 class TestCourtInboxFetcherDownloadAttachments:
     @patch("plugins.message_hub.services.court.court_fetcher.Path")
     def test_download_success(self, MockPath: MagicMock) -> None:
@@ -366,7 +350,6 @@ class TestCourtInboxFetcherDownloadAttachments:
                 mock_dl.return_value = ["/tmp/test.pdf"]
                 result = mock_dl(meta, "sdbh-1")
                 assert result == ["/tmp/test.pdf"]
-
 
 class TestCourtInboxFetcherDownloadAttachment:
     _PATCH_INBOX = "plugins.message_hub.services.court.court_fetcher.InboxMessage"
@@ -405,7 +388,6 @@ class TestCourtInboxFetcherDownloadAttachment:
             source = MagicMock()
             with pytest.raises(ValueError, match="未找到"):
                 fetcher.download_attachment(source, "msg-1", 0)
-
 
 class TestInvalidateToken:
     @patch(_LAZY_CT)

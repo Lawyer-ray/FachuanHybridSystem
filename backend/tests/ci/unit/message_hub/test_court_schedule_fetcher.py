@@ -17,22 +17,23 @@ pytestmark = pytest.mark.skipif(not _HAS_MH, reason="message_hub plugin not inst
 from django.utils import timezone
 
 from apps.message_hub.models import MessageSource, SourceType, SyncStatus
-from plugins.message_hub.services.court.court_schedule_fetcher import (
-    CourtScheduleFetcher,
-    ParsedHearing,
-    _extract_party_names,
-    _find_case_id,
-    _is_valid_party_name,
-    _match_by_case_number,
-    _match_by_party_names,
-    _parse_datetime,
+if _HAS_MH:
+    from plugins.message_hub.services.court.court_schedule_fetcher import (
+        CourtScheduleFetcher,
+        ParsedHearing,
+        _extract_party_names,
+        _find_case_id,
+        _is_valid_party_name,
+        _match_by_case_number,
+        _match_by_party_names,
+        _parse_datetime,
+
 )
 from apps.reminders.models import Reminder, ReminderType
 
 # ---------------------------------------------------------------------------
 # _parse_datetime 测试
 # ---------------------------------------------------------------------------
-
 
 class TestParseDatetime:
     """时间字符串解析测试。"""
@@ -59,11 +60,9 @@ class TestParseDatetime:
         dt = _parse_datetime(None)  # type: ignore[arg-type]
         assert dt is not None
 
-
 # ---------------------------------------------------------------------------
 # _extract_party_names 分词测试
 # ---------------------------------------------------------------------------
-
 
 class TestExtractPartyNames:
     """rcbt 日程标题分词测试。"""
@@ -114,11 +113,9 @@ class TestExtractPartyNames:
         assert "李四" in names
         assert "王五" in names
 
-
 # ---------------------------------------------------------------------------
 # _is_valid_party_name 测试
 # ---------------------------------------------------------------------------
-
 
 class TestIsValidPartyName:
     """当事人名称有效性过滤测试。"""
@@ -144,11 +141,9 @@ class TestIsValidPartyName:
     def test_government_bureau(self):
         assert _is_valid_party_name("国家税务总局海南省税务局第二稽查局") is True
 
-
 # ---------------------------------------------------------------------------
 # 案件关联策略测试
 # ---------------------------------------------------------------------------
-
 
 @pytest.mark.django_db
 class TestFindCaseId:
@@ -224,11 +219,9 @@ class TestFindCaseId:
         assert case_id is None
         assert strategy == "none"
 
-
 # ---------------------------------------------------------------------------
 # CourtScheduleFetcher 完整流程测试
 # ---------------------------------------------------------------------------
-
 
 @pytest.mark.django_db
 class TestCourtScheduleFetcher:
