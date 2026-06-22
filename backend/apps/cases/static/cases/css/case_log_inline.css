@@ -164,7 +164,7 @@
     background: var(--fc-warning-bg);
     border-radius: 3px;
     font-size: 11px;
-    color: #f57c00;
+    color: var(--fc-warning-text);
     display: flex;
     align-items: center;
     gap: 4px;

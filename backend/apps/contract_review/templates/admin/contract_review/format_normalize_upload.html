@@ -175,7 +175,7 @@
 
             {% if messages %}
                 {% for message in messages %}
-                    <p class="errornote" style="{% if message.tags == 'success' %}background: #dff0d8; border: 1px solid #d6e9c6; color: #3c763d;{% elif message.tags == 'error' %}background: #f2dede; border: 1px solid #ebccd1; color: #a94442;{% endif %} padding: 10px; margin-bottom: 15px; border-radius: 8px;">
+                    <p class="errornote" style="{% if message.tags == 'success' %}background: var(--fc-success-bg); border: 1px solid var(--fc-success-border); color: #3c763d;{% elif message.tags == 'error' %}background: var(--fc-error-bg); border: 1px solid var(--fc-error-border); color: #a94442;{% endif %} padding: 10px; margin-bottom: 15px; border-radius: 8px;">
                         {{ message }}
                     </p>
                 {% endfor %}

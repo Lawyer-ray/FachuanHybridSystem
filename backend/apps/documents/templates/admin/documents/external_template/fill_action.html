@@ -20,7 +20,7 @@
 /* Party checkboxes */
 .party-list { display: flex; flex-wrap: wrap; gap: 8px; }
 .party-item { display: flex; align-items: center; gap: 6px; padding: 6px 12px; border: 1px solid var(--fc-border); border-radius: 4px; cursor: pointer; transition: background 0.15s; }
-.party-item:hover { background: #f0f4f8; }
+.party-item:hover { background: var(--fc-bg-muted); }
 .party-item.selected { background: var(--fc-primary-subtle); border-color: var(--fc-admin-blue); }
 .party-item input[type="checkbox"] { margin: 0; }
 
@@ -41,7 +41,7 @@
 .btn-primary:hover { background: var(--fc-admin-blue-hover); }
 .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
 .btn-secondary { background: var(--fc-bg-muted); color: var(--fc-text-secondary); border: 1px solid var(--fc-border-input); padding: 10px 24px; border-radius: 4px; cursor: pointer; font-size: 0.875rem; }
-.btn-secondary:hover { background: #e8e8e8; }
+.btn-secondary:hover { background: var(--fc-border); }
 
 /* Results */
 .result-success { color: var(--fc-success-text); font-weight: 600; }

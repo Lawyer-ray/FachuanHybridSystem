@@ -174,29 +174,29 @@
     transition: background 0.15s, border-color 0.15s;
     white-space: nowrap;
 }
-.email-import-btn:hover { background: #dbeafe; border-color: #60a5fa; }
-.email-import-btn:disabled { opacity: 0.5; cursor: not-allowed; background: #f3f4f6; border-color: var(--fc-border-input); color: var(--fc-text-disabled); }
+.email-import-btn:hover { background: var(--fc-info-bg); border-color: var(--fc-info-border); }
+.email-import-btn:disabled { opacity: 0.5; cursor: not-allowed; background: var(--fc-bg-muted); border-color: var(--fc-border-input); color: var(--fc-text-disabled); }
 /* 弹窗 */
 .email-import-modal { position: fixed; inset: 0; z-index: 1000; display: flex; align-items: center; justify-content: center; }
-.email-import-modal-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,0.4); }
+.email-import-modal-backdrop { position: absolute; inset: 0; background: var(--fc-overlay-bg); }
 .email-import-modal-content {
     position: relative; background: var(--fc-bg-card); border-radius: 12px; padding: 24px;
     min-width: 360px; max-width: 480px; box-shadow: 0 20px 60px rgba(0,0,0,0.2);
 }
 .email-import-modal-content h3 { margin: 0 0 16px; font-size: 16px; }
 .email-import-empty { color: var(--fc-text-muted); font-size: 14px; margin: 8px 0; }
-.email-import-hint { font-size: 13px; color: #374151; margin: 0 0 10px; }
+.email-import-hint { font-size: 13px; color: var(--fc-text-secondary); margin: 0 0 10px; }
 .email-import-subfolder-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 16px; }
 .email-import-subfolder-item {
     display: flex; align-items: center; gap: 8px; padding: 8px 12px;
     border-radius: 6px; border: 1px solid var(--fc-border); cursor: pointer;
     font-size: 13px; transition: background 0.1s, border-color 0.1s;
 }
-.email-import-subfolder-item:hover { background: #f9fafb; border-color: var(--fc-border-input); }
+.email-import-subfolder-item:hover { background: var(--fc-bg-muted); border-color: var(--fc-border-input); }
 .email-import-subfolder-item input[type="radio"] { accent-color: var(--fc-primary); }
 .email-import-modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
 .email-import-result { text-align: center; }
-.email-import-result p { margin: 8px 0 16px; font-size: 14px; color: #374151; }
+.email-import-result p { margin: 8px 0 16px; font-size: 14px; color: var(--fc-text-secondary); }
 /* 日志删除按钮 */
 .log-delete-btn {
     margin-left: 6px;

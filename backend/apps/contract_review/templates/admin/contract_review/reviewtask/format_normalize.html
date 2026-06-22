@@ -62,14 +62,14 @@
         color: var(--fc-text-on-primary);
     }
     .btn-primary:hover {
-        background: #205067;
+        background: var(--fc-admin-blue-hover);
     }
     .btn-success {
-        background: #28a745;
+        background: var(--fc-success-text);
         color: var(--fc-text-on-primary);
     }
     .btn-success:hover {
-        background: #218838;
+        background: var(--fc-success-text);
     }
     .help-text {
         background: var(--fc-bg-muted);
@@ -81,7 +81,7 @@
     .empty-state {
         text-align: center;
         padding: 40px;
-        color: #999;
+        color: var(--fc-text-disabled);
     }
 </style>
 {% endblock %}
@@ -129,7 +129,7 @@
                                     格式规范化
                                 </a>
                             {% else %}
-                                <span style="color: #999;">无原始文件</span>
+                                <span style="color: var(--fc-text-disabled);">无原始文件</span>
                             {% endif %}
                         </div>
                     </li>

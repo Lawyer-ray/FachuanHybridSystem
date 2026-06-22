@@ -43,11 +43,11 @@
         font-size: 14px;
         padding: 8px 12px;
         border-radius: 6px;
-        background: #f0f7fa;
+        background: var(--fc-info-bg);
         transition: background 0.2s;
     }
     .back-link:hover {
-        background: #e0eff5;
+        background: var(--fc-primary-hover);
         text-decoration: none;
     }
     .form-group {
@@ -102,7 +102,7 @@
         height: 44px;
     }
     .btn-calculate:hover {
-        background: #205067;
+        background: var(--fc-admin-blue-hover);
     }
     .btn-reset {
         background: var(--fc-bg-muted-light);
@@ -116,7 +116,7 @@
         height: 44px;
     }
     .btn-reset:hover {
-        background: #eee;
+        background: var(--fc-bg-muted);
     }
     .results-section {
         margin-top: 24px;
@@ -138,7 +138,7 @@
         margin-bottom: 8px;
     }
     .result-item.highlight {
-        background: #e8f4f8;
+        background: var(--fc-info-bg);
         border: 1px solid #b8d4e3;
     }
     .result-label {
@@ -155,18 +155,18 @@
     .fee-rules {
         margin-top: 24px;
         padding: 16px;
-        background: #fffbeb;
+        background: var(--fc-warning-bg);
         border: 1px solid #fcd34d;
         border-radius: 6px;
     }
     .fee-rules-title {
         font-weight: 600;
-        color: #92400e;
+        color: var(--fc-warning-text);
         margin-bottom: 8px;
     }
     .fee-rules-content {
         font-size: 13px;
-        color: #78350f;
+        color: var(--fc-warning-text);
         line-height: 1.6;
     }
     .loading {
@@ -179,9 +179,9 @@
         display: block;
     }
     .error-message {
-        background: #fef2f2;
-        border: 1px solid #fecaca;
-        color: #dc2626;
+        background: var(--fc-error-bg);
+        border: 1px solid var(--fc-error-border);
+        color: var(--fc-error-text);
         padding: 12px 16px;
         border-radius: 6px;
         margin-top: 16px;
@@ -514,9 +514,9 @@ function displayResults(result, caseType) {
     // 计算说明
     if (result.calculation_details && result.calculation_details.length > 0) {
         html += `
-            <div class="result-item" style="background: #f0f9ff; border: 1px solid #bae6fd; flex-direction: column; gap: 4px;">
-                <span class="result-label" style="font-weight: 600; color: #0369a1;">计算说明</span>
-                <span class="result-value" style="font-size: 13px; color: #0c4a6e; font-weight: normal;">
+            <div class="result-item" style="background: var(--fc-info-bg); border: 1px solid var(--fc-info-border); flex-direction: column; gap: 4px;">
+                <span class="result-label" style="font-weight: 600; color: var(--fc-info-text);">计算说明</span>
+                <span class="result-value" style="font-size: 13px; color: var(--fc-info-text); font-weight: normal;">
                     ${result.calculation_details.join('<br>')}
                 </span>
             </div>

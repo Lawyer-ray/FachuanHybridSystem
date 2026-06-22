@@ -10,7 +10,7 @@
 
 body {
     font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif;
-    color: #1d2129;
+    color: var(--fc-text-heading);
     font-size: 14px;
     line-height: 1.8;
 }
@@ -20,7 +20,7 @@ body {
     background: linear-gradient(135deg, #0e1d3d 0%, #1a3a6b 50%, #2563a8 100%);
     border-radius: 12px;
     padding: 36px 40px 32px;
-    color: #fff;
+    color: var(--fc-text-on-primary);
     margin-bottom: 20px;
 }
 .hero-badge {
@@ -47,7 +47,7 @@ body {
     padding: 36px 40px 40px;
     line-height: 1.85;
     font-size: 14px;
-    color: #1d2129;
+    color: var(--fc-text-heading);
 }
 
 .report-body h1 {
@@ -66,15 +66,15 @@ body {
 }
 
 .report-body h3 { font-size: 14px; font-weight: 600; margin: 18px 0 8px; }
-.report-body p { margin: 6px 0; color: #4e5969; }
+.report-body p { margin: 6px 0; color: var(--fc-text-muted); }
 .report-body ul, .report-body ol { padding-left: 20px; margin: 8px 0; }
-.report-body li { margin: 6px 0; color: #4e5969; }
-.report-body strong { color: #1d2129; font-weight: 600; }
+.report-body li { margin: 6px 0; color: var(--fc-text-muted); }
+.report-body strong { color: var(--fc-text-heading); font-weight: 600; }
 
 .report-body blockquote {
     margin: 12px 0; padding: 10px 16px;
-    background: #f7f8fa; border-left: 4px solid #165dff;
-    color: #4e5969;
+    background: var(--fc-bg-muted); border-left: 4px solid #165dff;
+    color: var(--fc-text-muted);
 }
 
 .report-body table {
@@ -82,14 +82,14 @@ body {
     margin: 12px 0; font-size: 13px;
 }
 .report-body th {
-    background: #f7f8fa; padding: 8px 12px;
+    background: var(--fc-bg-muted); padding: 8px 12px;
     text-align: left; font-weight: 600;
     border: 1px solid #e5e6eb;
 }
 .report-body td { padding: 8px 12px; border: 1px solid #e5e6eb; }
 
 .report-body code {
-    background: #fff0f0; color: #cb2634;
+    background: var(--fc-error-bg); color: var(--fc-error-text);
     padding: 1px 4px; border-radius: 3px; font-size: 12px;
 }
 .report-body hr { border: none; height: 1px; background: #e5e6eb; margin: 24px 0; }
@@ -97,9 +97,9 @@ body {
 /* ── Footer ── */
 .report-footer {
     padding: 16px 40px;
-    background: #f7f8fa;
+    background: var(--fc-bg-muted);
     border-top: 1px solid #f2f3f5;
-    font-size: 12px; color: #86909c;
+    font-size: 12px; color: var(--fc-text-disabled);
     display: flex; justify-content: space-between;
 }
 </style>

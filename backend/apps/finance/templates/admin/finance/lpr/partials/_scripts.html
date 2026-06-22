@@ -397,62 +397,62 @@ function lprCalculator() {
                 // 展开状态 - 按本金分组复制
                 for (const group of this.groupedByPrincipal) {
                     // 分组标题行
-                    html += '<tr style="background-color: #417690; color: #ffffff; font-weight: bold;">';
-                    html += `<td colspan="4" style="border: 1px solid #000; padding: 8px; background-color: #417690; color: #ffffff; font-weight: bold;">${principalLabel}: ¥${this.formatMoney(group.principal)} | ${daysLabel}: ${group.totalDays} | ${interestLabel}: ¥${this.formatMoney(group.totalInterest)}</td>`;
+                    html += '<tr style="background-color: var(--fc-admin-blue); color: var(--fc-text-on-primary); font-weight: bold;">';
+                    html += `<td colspan="4" style="border: 1px solid var(--fc-border-strong); padding: 8px; background-color: var(--fc-admin-blue); color: var(--fc-text-on-primary); font-weight: bold;">${principalLabel}: ¥${this.formatMoney(group.principal)} | ${daysLabel}: ${group.totalDays} | ${interestLabel}: ¥${this.formatMoney(group.totalInterest)}</td>`;
                     html += '</tr>';
 
                     // 表头
-                    html += '<tr style="background-color: #f2f2f2; font-weight: bold;">';
-                    html += `<td style="border: 1px solid #000; padding: 8px;">${periodLabel}</td>`;
-                    html += `<td style="border: 1px solid #000; padding: 8px;">${daysLabel}</td>`;
-                    html += `<td style="border: 1px solid #000; padding: 8px;">${rateLabel}</td>`;
-                    html += `<td style="border: 1px solid #000; padding: 8px;">${interestLabel}</td>`;
+                    html += '<tr style="background-color: var(--fc-bg-muted); font-weight: bold;">';
+                    html += `<td style="border: 1px solid var(--fc-border-strong); padding: 8px;">${periodLabel}</td>`;
+                    html += `<td style="border: 1px solid var(--fc-border-strong); padding: 8px;">${daysLabel}</td>`;
+                    html += `<td style="border: 1px solid var(--fc-border-strong); padding: 8px;">${rateLabel}</td>`;
+                    html += `<td style="border: 1px solid var(--fc-border-strong); padding: 8px;">${interestLabel}</td>`;
                     html += '</tr>';
 
                     // 数据行
                     for (const p of group.periods) {
                         html += '<tr>';
-                        html += `<td style="border: 1px solid #000; padding: 8px;">${this.formatDate(p.start_date)} ~ ${this.formatDate(p.end_date)}</td>`;
-                        html += `<td style="border: 1px solid #000; padding: 8px;">${p.days}</td>`;
-                        html += `<td style="border: 1px solid #000; padding: 8px;">${this.formatRateDisplay(p.rate, p.rate_unit)}</td>`;
-                        html += `<td style="border: 1px solid #000; padding: 8px;">¥${this.formatMoney(p.interest)}</td>`;
+                        html += `<td style="border: 1px solid var(--fc-border-strong); padding: 8px;">${this.formatDate(p.start_date)} ~ ${this.formatDate(p.end_date)}</td>`;
+                        html += `<td style="border: 1px solid var(--fc-border-strong); padding: 8px;">${p.days}</td>`;
+                        html += `<td style="border: 1px solid var(--fc-border-strong); padding: 8px;">${this.formatRateDisplay(p.rate, p.rate_unit)}</td>`;
+                        html += `<td style="border: 1px solid var(--fc-border-strong); padding: 8px;">¥${this.formatMoney(p.interest)}</td>`;
                         html += '</tr>';
                     }
                 }
 
                 // 总计行
-                html += '<tr style="background-color: #417690; color: #ffffff; font-weight: bold;">';
-                html += `<td style="border: 1px solid #000; padding: 10px; background-color: #417690; color: #ffffff; font-weight: bold;">${totalLabel}</td>`;
-                html += `<td style="border: 1px solid #000; padding: 10px; background-color: #417690; color: #ffffff; font-weight: bold;">${this.result.total_days}</td>`;
-                html += `<td style="border: 1px solid #000; padding: 10px; background-color: #417690; color: #ffffff; font-weight: bold;">-</td>`;
-                html += `<td style="border: 1px solid #000; padding: 10px; background-color: #417690; color: #ffffff; font-weight: bold; font-size: 14px;">¥${this.formatMoney(this.result.total_interest)}</td>`;
+                html += '<tr style="background-color: var(--fc-admin-blue); color: var(--fc-text-on-primary); font-weight: bold;">';
+                html += `<td style="border: 1px solid var(--fc-border-strong); padding: 10px; background-color: var(--fc-admin-blue); color: var(--fc-text-on-primary); font-weight: bold;">${totalLabel}</td>`;
+                html += `<td style="border: 1px solid var(--fc-border-strong); padding: 10px; background-color: var(--fc-admin-blue); color: var(--fc-text-on-primary); font-weight: bold;">${this.result.total_days}</td>`;
+                html += `<td style="border: 1px solid var(--fc-border-strong); padding: 10px; background-color: var(--fc-admin-blue); color: var(--fc-text-on-primary); font-weight: bold;">-</td>`;
+                html += `<td style="border: 1px solid var(--fc-border-strong); padding: 10px; background-color: var(--fc-admin-blue); color: var(--fc-text-on-primary); font-weight: bold; font-size: 14px;">¥${this.formatMoney(this.result.total_interest)}</td>`;
                 html += '</tr>';
             } else {
                 // 收起状态 - 按本金汇总复制
-                html += '<tr style="background-color: #f2f2f2; font-weight: bold;">';
-                html += `<td style="border: 1px solid #000; padding: 8px;">${principalLabel}</td>`;
-                html += `<td style="border: 1px solid #000; padding: 8px;">${interestPeriodLabel}</td>`;
-                html += `<td style="border: 1px solid #000; padding: 8px;">${daysLabel}</td>`;
-                html += `<td style="border: 1px solid #000; padding: 8px;">${interestLabel}</td>`;
+                html += '<tr style="background-color: var(--fc-bg-muted); font-weight: bold;">';
+                html += `<td style="border: 1px solid var(--fc-border-strong); padding: 8px;">${principalLabel}</td>`;
+                html += `<td style="border: 1px solid var(--fc-border-strong); padding: 8px;">${interestPeriodLabel}</td>`;
+                html += `<td style="border: 1px solid var(--fc-border-strong); padding: 8px;">${daysLabel}</td>`;
+                html += `<td style="border: 1px solid var(--fc-border-strong); padding: 8px;">${interestLabel}</td>`;
                 html += '</tr>';
 
                 for (const group of this.groupedByPrincipal) {
                     const start = this.formatDate(group.periods[0].start_date);
                     const end = this.formatDate(group.periods[group.periods.length - 1].end_date);
                     html += '<tr>';
-                    html += `<td style="border: 1px solid #000; padding: 8px;">¥${this.formatMoney(group.principal)}</td>`;
-                    html += `<td style="border: 1px solid #000; padding: 8px;">${start} ~ ${end}</td>`;
-                    html += `<td style="border: 1px solid #000; padding: 8px;">${group.totalDays}</td>`;
-                    html += `<td style="border: 1px solid #000; padding: 8px;">¥${this.formatMoney(group.totalInterest)}</td>`;
+                    html += `<td style="border: 1px solid var(--fc-border-strong); padding: 8px;">¥${this.formatMoney(group.principal)}</td>`;
+                    html += `<td style="border: 1px solid var(--fc-border-strong); padding: 8px;">${start} ~ ${end}</td>`;
+                    html += `<td style="border: 1px solid var(--fc-border-strong); padding: 8px;">${group.totalDays}</td>`;
+                    html += `<td style="border: 1px solid var(--fc-border-strong); padding: 8px;">¥${this.formatMoney(group.totalInterest)}</td>`;
                     html += '</tr>';
                 }
 
                 // 汇总行
-                html += '<tr style="background-color: #417690; color: #ffffff; font-weight: bold;">';
-                html += `<td style="border: 1px solid #000; padding: 10px; background-color: #417690; color: #ffffff; font-weight: bold;">${sumLabel}</td>`;
-                html += `<td style="border: 1px solid #000; padding: 10px; background-color: #417690; color: #ffffff; font-weight: bold;">-</td>`;
-                html += `<td style="border: 1px solid #000; padding: 10px; background-color: #417690; color: #ffffff; font-weight: bold;">${this.result.total_days}</td>`;
-                html += `<td style="border: 1px solid #000; padding: 10px; background-color: #417690; color: #ffffff; font-weight: bold; font-size: 14px;">¥${this.formatMoney(this.result.total_interest)}</td>`;
+                html += '<tr style="background-color: var(--fc-admin-blue); color: var(--fc-text-on-primary); font-weight: bold;">';
+                html += `<td style="border: 1px solid var(--fc-border-strong); padding: 10px; background-color: var(--fc-admin-blue); color: var(--fc-text-on-primary); font-weight: bold;">${sumLabel}</td>`;
+                html += `<td style="border: 1px solid var(--fc-border-strong); padding: 10px; background-color: var(--fc-admin-blue); color: var(--fc-text-on-primary); font-weight: bold;">-</td>`;
+                html += `<td style="border: 1px solid var(--fc-border-strong); padding: 10px; background-color: var(--fc-admin-blue); color: var(--fc-text-on-primary); font-weight: bold;">${this.result.total_days}</td>`;
+                html += `<td style="border: 1px solid var(--fc-border-strong); padding: 10px; background-color: var(--fc-admin-blue); color: var(--fc-text-on-primary); font-weight: bold; font-size: 14px;">¥${this.formatMoney(this.result.total_interest)}</td>`;
                 html += '</tr>';
             }
 

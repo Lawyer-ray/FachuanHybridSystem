@@ -71,7 +71,7 @@
     .tool-card.primary { --card-color-start: var(--fc-admin-blue); --card-color-end: var(--fc-admin-blue-hover); }
     .tool-card.secondary { --card-color-start: var(--fc-primary); --card-color-end: var(--fc-primary-dark); }
     .tool-card.success { --card-color-start: var(--fc-success-text); --card-color-end: var(--fc-success-text); }
-    .tool-card.warning { --card-color-start: #f59e0b; --card-color-end: var(--fc-warning-text); }
+    .tool-card.warning { --card-color-start: var(--fc-warning-border); --card-color-end: var(--fc-warning-text); }
 
     .tool-icon {
         width: 56px;
@@ -99,7 +99,7 @@
         color: var(--fc-text-on-primary);
     }
     .tool-icon.warning {
-        background: linear-gradient(135deg, #f59e0b 0%, var(--fc-warning-text) 100%);
+        background: linear-gradient(135deg, var(--fc-warning-border) 0%, var(--fc-warning-text) 100%);
         color: var(--fc-text-on-primary);
     }
     .tool-name {

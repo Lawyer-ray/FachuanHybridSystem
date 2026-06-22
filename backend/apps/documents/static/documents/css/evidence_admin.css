@@ -266,7 +266,7 @@
 .evidence-merge-progress__bar {
     height: 10px;
     width: 0%;
-    background: linear-gradient(90deg, var(--fc-primary) 0%, #06b6d4 100%);
+    background: linear-gradient(90deg, var(--fc-primary) 0%, var(--fc-primary-light) 100%);
     border-radius: 999px;
 }
 
