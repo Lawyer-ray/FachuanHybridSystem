@@ -1,7 +1,7 @@
 """Stub: CaptchaRecognizer moved to plugins/court_automation/login/captcha_recognizer.py"""
 
 try:
-    from plugins.court_automation.login.captcha_recognizer import (  # noqa: F401
+    from plugins.court_automation.login.captcha_recognizer import (
         CaptchaRecognizer,
         FileBasedCaptchaRecognizer,
         ManualCaptchaRecognizer,

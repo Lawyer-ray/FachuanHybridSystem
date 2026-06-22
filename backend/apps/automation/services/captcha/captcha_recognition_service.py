@@ -1,7 +1,7 @@
 """Stub: captcha recognition service moved to plugins/court_automation/captcha/"""
 
 try:
-    from plugins.court_automation.captcha.captcha_recognition_service import (  # noqa: F401
+    from plugins.court_automation.captcha.captcha_recognition_service import (
         CaptchaRecognitionService,
         CaptchaResult,
         CaptchaServiceAdapter,
