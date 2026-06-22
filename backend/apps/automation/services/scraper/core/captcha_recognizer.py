@@ -1,16 +1,14 @@
-"""Stub: CaptchaRecognizer has been moved to plugins/court_automation/login/captcha_recognizer.py
-
-This file re-exports from the plugin for backward compatibility.
-"""
+"""Stub: CaptchaRecognizer moved to plugins/court_automation/login/captcha_recognizer.py"""
 
 try:
-    from plugins.court_automation.login.captcha_recognizer import *  # noqa: F403
-    from plugins.court_automation.login.captcha_recognizer import (
+    from plugins.court_automation.login.captcha_recognizer import (  # noqa: F401
         CaptchaRecognizer,
         FileBasedCaptchaRecognizer,
         ManualCaptchaRecognizer,
         get_captcha_recognizer,
     )
-
 except ImportError:
-    pass
+    CaptchaRecognizer = None  # type: ignore[assignment,misc]
+    FileBasedCaptchaRecognizer = None  # type: ignore[assignment,misc]
+    ManualCaptchaRecognizer = None  # type: ignore[assignment,misc]
+    get_captcha_recognizer = None  # type: ignore[assignment]

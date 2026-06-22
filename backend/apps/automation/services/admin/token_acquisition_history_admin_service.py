@@ -8,4 +8,4 @@ try:
     from plugins.court_automation.token_admin.token_acquisition_history_admin_service import TokenAcquisitionHistoryAdminService
 
 except ImportError:
-    pass
+    TokenAcquisitionHistoryAdminService = None  # type: ignore[assignment]

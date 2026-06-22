@@ -6,7 +6,15 @@ from unittest.mock import MagicMock, patch, PropertyMock
 
 import pytest
 
+try:
+    from plugins import has_court_login_plugin
+    _HAS_LOGIN = has_court_login_plugin()
+except ImportError:
+    _HAS_LOGIN = False
+
 from apps.automation.services.scraper.sites.court_zxfw import CourtZxfwService
+
+pytestmark = pytest.mark.skipif(not _HAS_LOGIN, reason="court_login plugin not installed")
 
 
 class TestExtractTokenFromBody:

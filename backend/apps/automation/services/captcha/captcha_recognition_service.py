@@ -8,4 +8,6 @@ try:
     )
 
 except ImportError:
-    pass
+    CaptchaRecognitionService = None  # type: ignore[assignment,misc]
+    CaptchaResult = None  # type: ignore[assignment,misc]
+    CaptchaServiceAdapter = None  # type: ignore[assignment,misc]

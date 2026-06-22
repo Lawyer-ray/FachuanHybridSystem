@@ -3,4 +3,4 @@
 try:
     from plugins.doc_convert.admin import DocConvertToolAdmin
 except ImportError:
-    pass
+    DocConvertToolAdmin = None  # type: ignore[assignment]

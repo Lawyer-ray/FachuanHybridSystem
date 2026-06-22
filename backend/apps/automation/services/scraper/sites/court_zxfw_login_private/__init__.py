@@ -8,4 +8,4 @@ try:
     from plugins.court_automation.login.http_login import is_available
 
 except ImportError:
-    pass
+    is_available = None  # type: ignore[assignment]
