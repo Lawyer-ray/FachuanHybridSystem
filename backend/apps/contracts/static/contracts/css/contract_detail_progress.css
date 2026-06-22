@@ -22,12 +22,12 @@
 
 .case-link {
     text-decoration: none;
-    color: var(--unfold-primary, #3b82f6);
+    color: var(--fc-primary);
     transition: color 0.2s;
 }
 
 .case-link:hover {
-    color: var(--unfold-primary-dark, #2563eb);
+    color: var(--fc-primary-dark);
     text-decoration: underline;
 }
 
@@ -106,13 +106,13 @@
 
 .progress-bar-fill {
     height: 100%;
-    background: linear-gradient(90deg, #3b82f6, #60a5fa);
+    background: linear-gradient(90deg, var(--fc-primary), var(--fc-primary-light));
     border-radius: 4px;
     transition: width 0.3s ease;
 }
 
 .progress-bar-fill.completed {
-    background: linear-gradient(90deg, #22c55e, #4ade80);
+    background: linear-gradient(90deg, var(--fc-success-text), var(--fc-success-border));
 }
 
 .progress-info {
@@ -190,7 +190,7 @@
 }
 
 .progress-bar-fill.invoice-progress {
-    background: linear-gradient(90deg, #8b5cf6, #a78bfa);
+    background: linear-gradient(90deg, var(--fc-primary), var(--fc-primary-light));
 }
 
 .invoice-info {

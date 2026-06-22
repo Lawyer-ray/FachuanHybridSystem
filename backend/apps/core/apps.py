@@ -23,6 +23,14 @@ class CoreConfig(AppConfig):
             # 数据库未就绪（如 migrate 阶段）时静默跳过
             logger.debug("跳过 device code 恢复（数据库可能未就绪）")
 
+        # 注册文件清理定时任务
+        try:
+            from .tasking.cleanup_tasks import _register_schedules
+
+            _register_schedules()
+        except Exception:
+            logger.debug("cleanup_tasks 调度注册跳过（未就绪）")
+
         # 注册 post_migrate 信号,首次 migrate 后自动加载种子数据
         from django.db.models.signals import post_migrate
 

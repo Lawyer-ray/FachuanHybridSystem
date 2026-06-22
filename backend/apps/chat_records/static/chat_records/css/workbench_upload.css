@@ -121,7 +121,7 @@
 .crw-video {
   width: 100%;
   max-height: 62vh;
-  background: #000;
+  background: var(--fc-bg-card);
   border-radius: 12px;
   display: block;
 }

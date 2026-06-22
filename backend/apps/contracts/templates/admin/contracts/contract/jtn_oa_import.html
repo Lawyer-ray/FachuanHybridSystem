@@ -21,11 +21,11 @@
 }
 .oa-import-dropzone:hover {
     border-color: var(--fc-primary);
-    background: #eff6ff;
+    background: var(--fc-info-bg);
 }
 .oa-import-dropzone.dragover {
     border-color: var(--fc-primary);
-    background: #dbeafe;
+    background: var(--fc-info-bg);
 }
 .oa-import-dropzone input { display: none; }
 
@@ -36,7 +36,7 @@
 .oa-import-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
 /* 弹窗 */
-.modal-overlay { display: none; position: fixed; top:0; left:0; right:0; bottom:0; background: rgba(0,0,0,0.5); z-index: 10000; align-items: center; justify-content: center; }
+.modal-overlay { display: none; position: fixed; top:0; left:0; right:0; bottom:0; background: var(--fc-overlay-bg); z-index: 10000; align-items: center; justify-content: center; }
 .modal-overlay.show { display: flex; }
 .modal-dialog { background: var(--fc-bg-card); border-radius: 12px; padding: 30px; width: min(600px, calc(100vw - 32px)); max-height: calc(100vh - 100px); overflow-y: auto; box-shadow: 0 4px 20px rgba(0,0,0,0.3); }
 .modal-title { font-size: 18px; font-weight: 700; color: var(--fc-text-primary); margin: 0 0 20px; }
@@ -51,13 +51,13 @@
 .preview-table { width: 100%; border-collapse: collapse; font-size: 13px; }
 .preview-table th, .preview-table td { border: 1px solid var(--fc-border); padding: 8px 12px; text-align: left; }
 .preview-table th { background: var(--fc-bg-muted-light); font-weight: 600; position: sticky; top: 0; z-index: 1; }
-.preview-table tr.matched { background: #ecfdf5; }
-.preview-table tr.unmatched { background: #fef3c7; }
+.preview-table tr.matched { background: var(--fc-success-bg); }
+.preview-table tr.unmatched { background: var(--fc-warning-bg); }
 
 .status-badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 12px; font-weight: 600; }
-.status-badge.matched { background: #d1fae5; color: #065f46; }
-.status-badge.unmatched { background: #fef3c7; color: #92400e; }
-.status-badge.error { background: #fee2e2; color: #991b1b; }
+.status-badge.matched { background: var(--fc-success-bg); color: var(--fc-success-text); }
+.status-badge.unmatched { background: var(--fc-warning-bg); color: var(--fc-warning-text); }
+.status-badge.error { background: var(--fc-error-bg); color: var(--fc-error-text); }
 </style>
 {% endblock %}
 

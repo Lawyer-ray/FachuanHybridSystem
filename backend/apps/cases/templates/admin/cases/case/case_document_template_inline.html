@@ -230,7 +230,7 @@ function caseDocumentTemplateApp(config) {
 /* 文件模板模块 */
 .case-document-template-section { margin-bottom: 10px; }
 .case-document-template-section h2 {
-    background: #79aec8;
+    background: var(--fc-admin-blue);
     color: var(--fc-text-on-primary);
     padding: 8px 10px;
     margin: 0;
@@ -291,8 +291,8 @@ function caseDocumentTemplateApp(config) {
     border-radius: 2px;
 }
 .tpl-tag-manual {
-    background: #e8f4e8;
-    color: #5a8a5a;
+    background: var(--fc-success-bg);
+    color: var(--fc-success-text);
 }
 .tpl-remove {
     color: var(--fc-text-disabled);
@@ -302,7 +302,7 @@ function caseDocumentTemplateApp(config) {
     margin-left: 2px;
 }
 .tpl-remove:hover {
-    color: #c00;
+    color: var(--fc-error-text);
 }
 
 /* 添加按钮卡片 */
@@ -314,7 +314,7 @@ function caseDocumentTemplateApp(config) {
 }
 .tpl-card-add:hover {
     background: var(--fc-primary-subtle);
-    border-color: #79aec8;
+    border-color: var(--fc-admin-blue);
     color: var(--fc-admin-blue);
 }
 
@@ -327,7 +327,7 @@ function caseDocumentTemplateApp(config) {
 .tpl-dialog-overlay {
     position: fixed;
     top: 0; left: 0; right: 0; bottom: 0;
-    background: rgba(0,0,0,0.4);
+    background: var(--fc-overlay-bg);
     z-index: 9999;
     display: flex;
     align-items: center;
@@ -345,7 +345,7 @@ function caseDocumentTemplateApp(config) {
 }
 .tpl-dialog-header {
     padding: 10px 12px;
-    background: #79aec8;
+    background: var(--fc-admin-blue);
     color: var(--fc-text-on-primary);
     font-weight: bold;
     font-size: 13px;
@@ -389,7 +389,7 @@ function caseDocumentTemplateApp(config) {
 }
 .tpl-avail-item:hover {
     background: var(--fc-primary-subtle);
-    border-color: #79aec8;
+    border-color: var(--fc-admin-blue);
 }
 .tpl-avail-name {
     flex: 1;

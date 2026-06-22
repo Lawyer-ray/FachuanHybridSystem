@@ -8,7 +8,7 @@
             <div class="lpr-calc__detail-title">{% trans "计算明细" %}</div>
             <div style="display: flex; gap: 12px; align-items: center;">
                 <button type="button" class="lpr-calc__detail-toggle" @click="showDetail = !showDetail" x-text="showDetail ? '{% trans "收起" %}' : '{% trans "展开" %}'"></button>
-                <button type="button" @click="copyDetail" style="font-size: 12px; color: var(--fc-admin-blue); background: #f0f7fa; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer;">
+                <button type="button" @click="copyDetail" style="font-size: 12px; color: var(--fc-admin-blue); background: var(--fc-info-bg); border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer;">
                     {% trans "复制明细" %}
                 </button>
             </div>
@@ -51,7 +51,7 @@
             <template x-for="(group, groupIndex) in groupedByPrincipal" :key="groupIndex">
                 <div style="margin-bottom: 16px;">
                     <!-- 分组标题 -->
-                    <div style="background: #f0f7fa; padding: 8px 12px; border-radius: 6px 6px 0 0; font-weight: 600; color: var(--fc-admin-blue); border: 1px solid #e0eff5; border-bottom: none;">
+                    <div style="background: var(--fc-info-bg); padding: 8px 12px; border-radius: 6px 6px 0 0; font-weight: 600; color: var(--fc-admin-blue); border: 1px solid #e0eff5; border-bottom: none;">
                         <span x-text="'{% trans "本金" %}: ¥' + formatMoney(group.principal) + ' | {% trans "天数" %}: ' + group.totalDays + ' | {% trans "利息" %}: ¥' + formatMoney(group.totalInterest)"></span>
                     </div>
                     <!-- 分组明细表格 -->

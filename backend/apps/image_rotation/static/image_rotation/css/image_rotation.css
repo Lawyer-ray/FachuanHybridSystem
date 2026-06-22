@@ -69,7 +69,7 @@
 .stat-value { font-size: 16px; font-weight: 600; color: var(--fc-text-secondary); }
 
 /* 加载状态 */
-.loading-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(255,255,255,0.9); display: flex; align-items: center; justify-content: center; z-index: 9999; }
+.loading-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: var(--fc-overlay-bg); display: flex; align-items: center; justify-content: center; z-index: 9999; }
 .loading-spinner { width: 48px; height: 48px; border: 4px solid var(--fc-border); border-top-color: var(--fc-admin-blue); border-radius: 50%; animation: spin 0.8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 .loading-text { margin-top: 16px; color: var(--fc-text-muted); font-size: 16px; }

@@ -91,9 +91,9 @@ class AutoNamerToolAdmin(admin.ModelAdmin):  # pragma: no cover
         html = f"""
         <h1>自动命名工具（上传文档 + 提示词 → 模型生成）</h1>
         <h2>❌ 处理失败</h2>
-        <div style='background:#fff3cd;border:1px solid #ffeaa7;
+        <div style='background:var(--fc-warning-bg);border:1px solid var(--fc-warning-bg);
             border-radius:5px;padding:15px;margin:15px 0;'>
-            <p style='color:#856404;margin:0;'>{error_msg}</p>
+            <p style='color:var(--fc-warning-text);margin:0;'>{error_msg}</p>
         </div>
         <p><strong>文件信息：</strong></p>
         <ul>
@@ -117,7 +117,7 @@ class AutoNamerToolAdmin(admin.ModelAdmin):  # pragma: no cover
 
             html = f"""
             <h1>自动命名工具（上传文档 + 提示词 → 模型生成）</h1>
-            <div style='background:#e7f3ff;border:1px solid #b8daff;
+            <div style='background:var(--fc-primary-subtle);border:1px solid var(--fc-primary-subtle);
                 border-radius:5px;padding:15px;margin:15px 0;'>
                 <p style='margin:0;'><strong>📄 文件信息：</strong></p>
                 <ul style='margin:5px 0 0 20px;'>
@@ -126,19 +126,19 @@ class AutoNamerToolAdmin(admin.ModelAdmin):  # pragma: no cover
                 </ul>
             </div>
             <h2>📝 提取的文字内容</h2>
-            <div style='background:#f8f9fa;padding:15px;border:1px solid #dee2e6;
+            <div style='background:var(--fc-bg-muted);padding:15px;border:1px solid var(--fc-border);
                 border-radius:5px;margin:10px 0;'>
                 <pre style='white-space:pre-wrap;max-height:400px;overflow:auto;
                     margin:0;font-family:monospace;'>{text}</pre>
             </div>
             <h2>🤖 Ollama 返回结果</h2>
-            <div style='background:#f0f8f0;padding:15px;border:1px solid #c3e6cb;
+            <div style='background:var(--fc-success-bg);padding:15px;border:1px solid var(--fc-success-bg);
                 border-radius:5px;margin:10px 0;'>
                 <pre style='white-space:pre-wrap;margin:0;font-family:monospace;'>{response_text}</pre>
             </div>
             <div style='margin-top:20px;'>
                 <a href='{return_url}' style='display:inline-block;padding:8px 16px;
-                    background:#007bff;color:white;text-decoration:none;
+                    background:var(--fc-primary);color:var(--fc-bg-card);text-decoration:none;
                     border-radius:4px;'>← 返回</a>
             </div>
             """
@@ -151,15 +151,15 @@ class AutoNamerToolAdmin(admin.ModelAdmin):  # pragma: no cover
             html = f"""
             <h1>自动命名工具（上传文档 + 提示词 → 模型生成）</h1>
             <h2>处理失败</h2>
-            <div style='color: red; margin: 20px 0;'>
+            <div style='color: var(--fc-error-text); margin: 20px 0;'>
                 <h2>错误信息：</h2>
-                <pre style='white-space:pre-wrap;background:#f5f5f5;padding:10px;
-                    border:1px solid #ddd;'>{error_detail}</pre>
+                <pre style='white-space:pre-wrap;background:var(--fc-bg-muted);padding:10px;
+                    border:1px solid var(--fc-border);'>{error_detail}</pre>
             </div>
             <details style='margin: 20px 0;'>
-                <summary style='cursor: pointer; color: #666;'>查看详细错误堆栈</summary>
-                <pre style='white-space:pre-wrap;background:#f5f5f5;padding:10px;
-                    border:1px solid #ddd;font-size:12px;'>{error_traceback}</pre>
+                <summary style='cursor: pointer; color: var(--fc-text-muted);'>查看详细错误堆栈</summary>
+                <pre style='white-space:pre-wrap;background:var(--fc-bg-muted);padding:10px;
+                    border:1px solid var(--fc-border);font-size:12px;'>{error_traceback}</pre>
             </details>
             <p><a href='{return_url}'>返回</a></p>
             """

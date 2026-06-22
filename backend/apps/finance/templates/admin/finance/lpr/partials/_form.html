@@ -146,11 +146,11 @@
         <div x-show="form.rate_mode === 'delay'" class="lpr-calc__row">
             <div class="lpr-calc__field">
                 <label>{% trans "利率单位" %}</label>
-                <input type="text" value="{% trans '万分之（‱/天）' %}" disabled style="background: #f3f4f6; color: var(--fc-text-muted);">
+                <input type="text" value="{% trans '万分之（‱/天）' %}" disabled style="background: var(--fc-bg-muted); color: var(--fc-text-muted);">
             </div>
             <div class="lpr-calc__field">
                 <label>{% trans "利率数值" %}</label>
-                <input type="number" value="1.75" disabled style="background: #f3f4f6; color: var(--fc-text-muted);">
+                <input type="number" value="1.75" disabled style="background: var(--fc-bg-muted); color: var(--fc-text-muted);">
             </div>
             <div class="lpr-calc__field">
                 <label>{% trans "计息基准" %}</label>
@@ -202,7 +202,7 @@
             <template x-for="item in history" :key="item.id">
                 <div style="display: flex; align-items: center; gap: 12px; padding: 10px; background: var(--fc-bg-card); border-radius: 6px; margin-bottom: 8px; border: 1px solid var(--fc-border);">
                     <div style="flex: 1; min-width: 0;">
-                        <div style="font-size: 12px; font-weight: 500; color: #111; margin-bottom: 2px;">
+                        <div style="font-size: 12px; font-weight: 500; color: var(--fc-text-heading); margin-bottom: 2px;">
                             <span x-text="item.useChanges ? '{% trans "变动本金" %}' : '{% trans "固定本金" %}'"></span>
                             <span x-text="'· ¥' + formatMoney(item.result.total_interest)" style="color: var(--fc-admin-blue);"></span>
                         </div>
@@ -211,7 +211,7 @@
                             <span x-text="'· ' + item.result.total_days + '{% trans "天" %}'"></span>
                         </div>
                         <div style="font-size: 10px; color: var(--fc-text-disabled);">
-                            <span x-text="item.rateInfo" style="background: #f3f4f6; padding: 1px 6px; border-radius: 4px;"></span>
+                            <span x-text="item.rateInfo" style="background: var(--fc-bg-muted); padding: 1px 6px; border-radius: 4px;"></span>
                         </div>
                     </div>
                     <button type="button" @click="loadFromHistory(item)" style="font-size: 11px; color: var(--fc-admin-blue); background: var(--fc-primary-subtle); border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; white-space: nowrap;">

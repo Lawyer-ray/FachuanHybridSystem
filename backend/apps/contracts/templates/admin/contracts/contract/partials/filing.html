@@ -17,7 +17,7 @@
                 </div>
                 <div x-show="!loading && configs.length > 0">
                     <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
-                        <label style="font-size: 13px; color: #374151; white-space: nowrap;">{% translate "OA系统" %}</label>
+                        <label style="font-size: 13px; color: var(--fc-text-secondary); white-space: nowrap;">{% translate "OA系统" %}</label>
                         <select x-model="selectedConfigId"
                                 style="flex: 1; padding: 6px 10px; border: 1px solid var(--fc-border-input); border-radius: 6px; font-size: 13px;">
                             <option value="">{% translate "请选择OA系统" %}</option>
@@ -39,7 +39,7 @@
                         </span>
                     </div>
                     <template x-if="lastResult">
-                        <div :style="lastResult.status === 'completed' ? 'background:var(--fc-success-bg);border:1px solid var(--fc-success-border);border-radius:8px;padding:12px;margin-bottom:16px;' : lastResult.status === 'in_progress' ? 'background:var(--fc-primary-subtle);border:1px solid #93c5fd;border-radius:8px;padding:12px;margin-bottom:16px;' : 'background:var(--fc-error-bg);border:1px solid #fca5a5;border-radius:8px;padding:12px;margin-bottom:16px;'">
+                        <div :style="lastResult.status === 'completed' ? 'background:var(--fc-success-bg);border:1px solid var(--fc-success-border);border-radius:8px;padding:12px;margin-bottom:16px;' : lastResult.status === 'in_progress' ? 'background:var(--fc-primary-subtle);border:1px solid var(--fc-info-border);border-radius:8px;padding:12px;margin-bottom:16px;' : 'background:var(--fc-error-bg);border:1px solid var(--fc-error-border);border-radius:8px;padding:12px;margin-bottom:16px;'">
                             <span x-show="lastResult.status === 'completed'" style="color:var(--fc-success-text);">✓ {% translate "立案成功" %}</span>
                             <span x-show="lastResult.status === 'in_progress'" style="color:var(--fc-primary-dark);">⏳ {% translate "正在执行中，浏览器已打开..." %}</span>
                             <span x-show="lastResult.status === 'failed'" style="color:var(--fc-error-text);">✗ {% translate "立案失败" %}</span>

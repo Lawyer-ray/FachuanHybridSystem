@@ -18,7 +18,7 @@
     align-items: center;
     gap: 8px;
     padding: 12px 20px;
-    background: var(--unfold-primary, #3b82f6);
+    background: var(--fc-primary);
     color: var(--fc-text-on-primary);
     border: none;
     border-radius: 8px;
@@ -30,7 +30,7 @@
 }
 
 .btn-action:hover:not(:disabled) {
-    background: var(--unfold-primary-dark, #2563eb);
+    background: var(--fc-primary-dark);
 }
 
 .btn-action:disabled,
@@ -123,7 +123,7 @@
     gap: 10px;
     padding: 12px 20px;
     border-radius: 8px;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    box-shadow: 0 4px 12px var(--fc-shadow-dropdown);
     min-width: 280px;
     max-width: 400px;
     animation: slideIn 0.3s ease;

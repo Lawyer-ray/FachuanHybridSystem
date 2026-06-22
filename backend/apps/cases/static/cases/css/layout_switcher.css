@@ -10,10 +10,10 @@
 /* ========== 可折叠区块样式 ========== */
 .collapsible-wrapper {
     margin-bottom: 16px;
-    border: 1px solid var(--hairline-color, #e8e8e8);
+    border: 1px solid var(--fc-border);
     border-radius: 8px;
     overflow: hidden;
-    background: var(--body-bg, #fff);
+    background: var(--fc-bg-card);
 }
 
 .collapsible-header {
@@ -22,7 +22,7 @@
     gap: 8px;
     padding: 12px 16px;
     margin: 0;
-    background: var(--darkened-bg, #f8f8f8);
+    background: var(--fc-bg-muted);
     cursor: pointer;
     user-select: none;
     transition: background 0.2s ease;
@@ -31,11 +31,11 @@
     text-align: left;
     font-size: 14px;
     font-weight: 600;
-    color: var(--body-fg, #333);
+    color: var(--fc-text-primary);
 }
 
 .collapsible-header:hover {
-    background: var(--selected-bg, #e8e8e8);
+    background: var(--fc-border);
 }
 
 .collapse-icon {
@@ -45,7 +45,7 @@
     width: 16px;
     height: 16px;
     transition: transform 0.2s ease;
-    color: var(--body-quiet-color, #666);
+    color: var(--fc-text-muted);
 }
 
 .collapsible-wrapper.collapsed .collapse-icon {
@@ -58,7 +58,7 @@
 
 /* 折叠内容 */
 .collapsible-content {
-    border-top: 1px solid var(--hairline-color, #e8e8e8);
+    border-top: 1px solid var(--fc-border);
 }
 
 /* 内部 fieldset 样式重置 */

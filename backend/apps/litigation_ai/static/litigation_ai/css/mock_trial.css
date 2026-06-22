@@ -107,7 +107,7 @@
 /* 角色消息标识 */
 .msg-role-plaintiff { border-left: 4px solid var(--fc-primary); background: var(--fc-info-bg); }
 .msg-role-defendant { border-left: 4px solid var(--fc-error-text); background: var(--fc-error-bg); }
-.msg-role-judge { border-left: 4px solid var(--fc-primary); background: #f5f3ff; }
+.msg-role-judge { border-left: 4px solid var(--fc-primary); background: var(--fc-primary-subtle); }
 
 .msg-role-plaintiff .msg-role-badge { background: var(--fc-primary); color: var(--fc-text-on-primary); }
 .msg-role-defendant .msg-role-badge { background: var(--fc-error-text); color: var(--fc-text-on-primary); }
@@ -124,13 +124,13 @@
     text-align: center; padding: 12px 0; margin: 16px 0 8px;
     font-size: 1.05em; font-weight: 700; color: var(--fc-text-primary);
     border-top: 2px solid var(--fc-border-input); border-bottom: 2px solid var(--fc-border-input);
-    background: linear-gradient(180deg, #f8fafc, #f1f5f9);
+    background: var(--fc-bg-muted);
 }
 
 /* 辩论轮次标记 */
 .debate-round-marker {
     text-align: center; padding: 6px 0; margin: 8px 0;
-    font-size: 0.85em; font-weight: 600; color: #ef4444;
+    font-size: 0.85em; font-weight: 600; color: var(--fc-error-text);
     letter-spacing: 1px;
 }
 

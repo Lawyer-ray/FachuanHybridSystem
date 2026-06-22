@@ -71,7 +71,7 @@ class DocumentProcessorAdmin(admin.ModelAdmin):  # pragma: no cover
                     <h1>文档处理（文件预览/文本抽取）</h1>
                     {file_info}
                     <h2>📝 提取的文本内容</h2>
-                    <div style='background:#f8f9fa;padding:15px;border:1px solid #dee2e6;border-radius:5px;'>
+                    <div style='background:var(--fc-bg-muted);padding:15px;border:1px solid var(--fc-border);border-radius:5px;'>
                         <pre style='white-space:pre-wrap;margin:0;font-family:monospace;'>{extraction.text}</pre>
                     </div>
                     <p><strong>文本长度:</strong> {len(extraction.text)} 字符</p>
@@ -84,10 +84,10 @@ class DocumentProcessorAdmin(admin.ModelAdmin):  # pragma: no cover
                     {file_info}
                     <h2>🖼️ 预览图（无法提取文本）</h2>
                     <p><em>该文件无法直接提取文字内容，已生成预览图供查看：</em></p>
-                    <div style='text-align:center;background:#f8f9fa;padding:15px;
-                        border:1px solid #dee2e6;border-radius:5px;'>
+                    <div style='text-align:center;background:var(--fc-bg-muted);padding:15px;
+                        border:1px solid var(--fc-border);border-radius:5px;'>
                         <img src='{extraction.image_url}'
-                            style='max-width:100%;max-height:600px;border:1px solid #ddd;'/>
+                            style='max-width:100%;max-height:600px;border:1px solid var(--fc-border);'/>
                     </div>
                     <p><a href='javascript:history.back()'>← 返回</a></p>
                     """
@@ -97,7 +97,7 @@ class DocumentProcessorAdmin(admin.ModelAdmin):  # pragma: no cover
                     <h1>文档处理（文件预览/文本抽取）</h1>
                     {file_info}
                     <h2>❌ 处理结果</h2>
-                    <p style='color:orange;'>未提取到可展示的内容。可能的原因：</p>
+                    <p style='color:var(--fc-warning-text);'>未提取到可展示的内容。可能的原因：</p>
                     <ul>
                         <li>文件为空或损坏</li>
                         <li>图片内容无法识别（如：纯图片、手写文字等）</li>

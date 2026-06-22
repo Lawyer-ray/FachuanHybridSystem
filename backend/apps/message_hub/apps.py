@@ -11,3 +11,11 @@ class MessageHubConfig(AppConfig):
     name = "apps.message_hub"
     label = "message_hub"
     verbose_name = "信息中转站"
+
+    def ready(self) -> None:  # pragma: no cover
+        try:
+            from plugins.message_hub.tasks import _register_schedule
+
+            _register_schedule()
+        except Exception:
+            pass

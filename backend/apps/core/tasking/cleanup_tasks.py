@@ -141,4 +141,3 @@ def _register_schedules() -> None:
         logger.debug("定时任务注册跳过（未就绪）")
 
 
-_register_schedules()

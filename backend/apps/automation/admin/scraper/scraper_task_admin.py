@@ -60,12 +60,12 @@ class ScraperTaskAdmin(admin.ModelAdmin):  # pragma: no cover
     def status_colored(self, obj: Any) -> SafeData:  # pragma: no cover
         """带颜色的状态显示"""
         colors = {
-            "pending": "#ffa500",
-            "running": "#007bff",
-            "success": "#28a745",
-            "failed": "#dc3545",
+            "pending": "var(--fc-warning-text)",
+            "running": "var(--fc-primary)",
+            "success": "var(--fc-success-text)",
+            "failed": "var(--fc-error-text)",
         }
-        color = colors.get(obj.status, "#666")
+        color = colors.get(obj.status, "var(--fc-text-muted)")
         return format_html(
             '<span style="color: {}; font-weight: bold;">{}</span>',
             color,
@@ -85,7 +85,7 @@ class ScraperTaskAdmin(admin.ModelAdmin):  # pragma: no cover
         """显示重试信息"""
         if obj.retry_count > 0:
             return format_html(
-                '<span style="color: #ffa500;">{}/{}</span>',
+                '<span style="color: var(--fc-warning-text);">{}/{}</span>',
                 obj.retry_count,
                 obj.max_retries,
             )
@@ -128,7 +128,7 @@ class ScraperTaskAdmin(admin.ModelAdmin):  # pragma: no cover
                 icon = self._file_icon(filename)
                 return format_html(
                     '<li style="margin: 5px 0;">'
-                    '<a href="{}" target="_blank" style="color: #0066cc; text-decoration: none;">'
+                    '<a href="{}" target="_blank" style="color: var(--fc-primary); text-decoration: none;">'
                     "{} {}</a></li>",
                     file_url,
                     icon,
@@ -157,7 +157,7 @@ class ScraperTaskAdmin(admin.ModelAdmin):  # pragma: no cover
             if ss.startswith(str(settings.MEDIA_ROOT)):
                 ss_url = ss.replace(str(settings.MEDIA_ROOT), settings.MEDIA_URL)
                 return format_html(
-                    '<br><img src="{}" style="max-width: 600px; border: 1px solid #ddd; margin-top: 10px;">',
+                    '<br><img src="{}" style="max-width: 600px; border: 1px solid var(--fc-border); margin-top: 10px;">',
                     ss_url,
                 )
             return format_html("{}", "")
@@ -177,7 +177,7 @@ class ScraperTaskAdmin(admin.ModelAdmin):  # pragma: no cover
         files: list[str] = obj.result.get("files", [])
 
         pre_block = format_html(
-            '<pre style="background: #f5f5f5; padding: 10px; border-radius: 4px;'
+            '<pre style="background: var(--fc-bg-muted); padding: 10px; border-radius: 4px;'
             ' max-height: 300px; overflow: auto;">{}</pre>',
             result_json,
         )
@@ -190,7 +190,7 @@ class ScraperTaskAdmin(admin.ModelAdmin):  # pragma: no cover
             if screenshot.startswith(str(settings.MEDIA_ROOT)):
                 screenshot_url = screenshot.replace(str(settings.MEDIA_ROOT), settings.MEDIA_URL)
                 single_screenshot_block = format_html(
-                    '<br><img src="{}" style="max-width: 600px; border: 1px solid #ddd;">',
+                    '<br><img src="{}" style="max-width: 600px; border: 1px solid var(--fc-border);">',
                     screenshot_url,
                 )
             else:

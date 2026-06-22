@@ -156,16 +156,16 @@ class CourtSMSAdminBase(admin.ModelAdmin):  # pragma: no cover
     def status_display(self, obj: CourtSMS) -> SafeString:  # pragma: no cover
         """状态显示(带颜色)"""
         status_colors: dict[str, str] = {
-            CourtSMSStatus.PENDING: "orange",
+            CourtSMSStatus.PENDING: "var(--fc-warning-text)",
             CourtSMSStatus.PARSING: "blue",
             CourtSMSStatus.DOWNLOADING: "blue",
-            CourtSMSStatus.DOWNLOAD_FAILED: "red",
+            CourtSMSStatus.DOWNLOAD_FAILED: "var(--fc-error-text)",
             CourtSMSStatus.MATCHING: "blue",
-            CourtSMSStatus.PENDING_MANUAL: "orange",
+            CourtSMSStatus.PENDING_MANUAL: "var(--fc-warning-text)",
             CourtSMSStatus.RENAMING: "blue",
             CourtSMSStatus.NOTIFYING: "blue",
-            CourtSMSStatus.COMPLETED: "green",
-            CourtSMSStatus.FAILED: "red",
+            CourtSMSStatus.COMPLETED: "var(--fc-success-text)",
+            CourtSMSStatus.FAILED: "var(--fc-error-text)",
         }
         color = status_colors.get(obj.status, "gray")
         return format_html('<span style="color: {}; font-weight: bold;">{}</span>', color, obj.get_status_display())
@@ -196,7 +196,7 @@ class CourtSMSAdminBase(admin.ModelAdmin):  # pragma: no cover
             )
         elif obj.status == CourtSMSStatus.PENDING_MANUAL:
             change_url = reverse("admin:automation_courtsms_change", args=[obj.id])
-            return format_html('<a href="{}" style="color: orange; font-weight: bold;">手动关联</a>', change_url)
+            return format_html('<a href="{}" style="color: var(--fc-warning-text); font-weight: bold;">手动关联</a>', change_url)
         return "-"
 
     @admin.display(description=_("短信内容"))
@@ -211,8 +211,8 @@ class CourtSMSAdminBase(admin.ModelAdmin):  # pragma: no cover
     def has_download_links(self, obj: CourtSMS) -> SafeString:  # pragma: no cover
         """是否有下载链接"""
         if obj.download_links:
-            return format_html('<span style="color: green;">✓ {} 个链接</span>', len(obj.download_links))
-        return format_html('<span style="color: gray;">{}</span>', "✗ 无链接")
+            return format_html('<span style="color: var(--fc-success-text);">✓ {} 个链接</span>', len(obj.download_links))
+        return format_html('<span style="color: var(--fc-text-disabled);">{}</span>', "✗ 无链接")
 
     @admin.display(description=_("提取的案号"))
     def case_numbers_display(self, obj: CourtSMS) -> SafeString | str:  # pragma: no cover
@@ -309,10 +309,10 @@ class CourtSMSAdminBase(admin.ModelAdmin):  # pragma: no cover
 
             parts.append(
                 format_html(
-                    "<div style='margin:8px 0;padding:8px 10px;border:1px solid #e6eaf2;border-radius:6px;'>"
+                    "<div style='margin:8px 0;padding:8px 10px;border:1px solid var(--fc-border);border-radius:6px;'>"
                     "<div style='margin-bottom:6px;'>"
                     "<a href='{}' target='_blank'>{}</a>"
-                    " <span style='color:#666;'>[{}/{}]</span>"
+                    " <span style='color:var(--fc-text-muted);'>[{}/{}]</span>"
                     "</div>"
                     "<div style='margin-bottom:8px;'>"
                     "{}"
@@ -320,9 +320,9 @@ class CourtSMSAdminBase(admin.ModelAdmin):  # pragma: no cover
                     "</div>"
                     "<div data-doc-rename-wrap='1' style='display:flex;align-items:center;gap:6px;flex-wrap:wrap;'>"
                     "<input data-rename-stem='1' type='text' value='{}' class='vTextField' style='width:280px;max-width:100%;' />"
-                    "<span style='color:#666;'>{}</span>"
+                    "<span style='color:var(--fc-text-muted);'>{}</span>"
                     "<button type='button' class='button' data-rename-url='{}'>重命名</button>"
-                    "<span style='color:#999;'>仅修改文件名，不改文件格式</span>"
+                    "<span style='color:var(--fc-text-disabled);'>仅修改文件名，不改文件格式</span>"
                     "</div>"
                     "</div>",
                     open_url,
@@ -389,7 +389,7 @@ class CourtSMSAdminBase(admin.ModelAdmin):  # pragma: no cover
             fail_platforms = [k for k, v in results.items() if isinstance(v, dict) and not v.get("success")]
 
             if success_platforms:
-                parts = [mark_safe('<span style="color: green;">✓ 通知成功</span>')]
+                parts = [mark_safe('<span style="color: var(--fc-success-text);">✓ 通知成功</span>')]
                 for p in success_platforms:
                     info = results[p]
                     sent_at = info.get("sent_at", "")
@@ -401,7 +401,7 @@ class CourtSMSAdminBase(admin.ModelAdmin):  # pragma: no cover
                         parts.append(format_html("<br><small>{}</small>", p))
                 if fail_platforms:
                     parts.append(
-                        format_html('<br><small style="color: #d63384;">失败: {}</small>', ", ".join(fail_platforms))
+                        format_html('<br><small style="color: var(--fc-error-text);">失败: {}</small>', ", ".join(fail_platforms))
                     )
                 return mark_safe("".join(str(p) for p in parts))
             elif fail_platforms:
@@ -412,23 +412,23 @@ class CourtSMSAdminBase(admin.ModelAdmin):  # pragma: no cover
                         first_error = err[:30] + ("..." if len(err) > 30 else "")
                         break
                 return format_html(
-                    '<span style="color: red;">✗ 通知失败</span><br><small style="color: #d63384;">{}</small>',
+                    '<span style="color: var(--fc-error-text);">✗ 通知失败</span><br><small style="color: var(--fc-error-text);">{}</small>',
                     first_error,
                 )
 
         # 向后兼容：检查旧的 feishu_sent_at / feishu_error 字段
         if obj.feishu_sent_at:
             return format_html(
-                '<span style="color: green;">✓ 通知成功</span><br><small>{}</small>',
+                '<span style="color: var(--fc-success-text);">✓ 通知成功</span><br><small>{}</small>',
                 obj.feishu_sent_at.strftime("%m-%d %H:%M"),
             )
         elif obj.feishu_error:
             error_preview = obj.feishu_error[:30] + ("..." if len(obj.feishu_error) > 30 else "")
             return format_html(
-                '<span style="color: red;">✗ 通知失败</span><br><small style="color: #d63384;">{}</small>',
+                '<span style="color: var(--fc-error-text);">✗ 通知失败</span><br><small style="color: var(--fc-error-text);">{}</small>',
                 error_preview,
             )
-        return format_html('<span style="color: gray;">{}</span>', "- 未发送")
+        return format_html('<span style="color: var(--fc-text-disabled);">{}</span>', "- 未发送")
 
     @admin.display(description=_("通知详情"))
     def notification_details(self, obj: CourtSMS) -> str:  # pragma: no cover
@@ -478,11 +478,11 @@ class CourtSMSAdminBase(admin.ModelAdmin):  # pragma: no cover
     def recommended_cases_display(self, obj: CourtSMS) -> SafeString:  # pragma: no cover
         """推荐关联案件卡片（AJAX 加载 + Select2 集成）"""
         if not obj.id:
-            return mark_safe('<span style="color:#999;">保存后可查看推荐案件</span>')
+            return mark_safe('<span style="color:var(--fc-text-disabled);">保存后可查看推荐案件</span>')
 
         if not (obj.case_numbers or obj.party_names):
             return mark_safe(
-                '<p style="color:#999;margin:8px 0;">短信中未提取到案号或当事人信息，无法推荐关联案件。'
+                '<p style="color:var(--fc-text-disabled);margin:8px 0;">短信中未提取到案号或当事人信息，无法推荐关联案件。'
                 "请使用上方的搜索框手动查找。</p>"
             )
 
@@ -491,7 +491,7 @@ class CourtSMSAdminBase(admin.ModelAdmin):  # pragma: no cover
 
         return format_html(
             "<div id='{cid}' style='margin:10px 0;'>"
-            "<div style='color:#666;padding:10px;'>🔍 正在搜索推荐案件…</div>"
+            "<div style='color:var(--fc-text-muted);padding:10px;'>🔍 正在搜索推荐案件…</div>"
             "</div>"
             "<script>"
             "(function(){{"
@@ -503,30 +503,30 @@ class CourtSMSAdminBase(admin.ModelAdmin):  # pragma: no cover
             " fetch(url).then(function(r){{return r.json();}}).then(function(data){{"
             "  renderRecCases(box,data.recommendations||[]);"
             " }}).catch(function(){{"
-            "  box.innerHTML='<p style=\"color:#c00;padding:10px;\">推荐案件加载失败</p>';"
+            "  box.innerHTML='<p style=\"color:var(--fc-error-text);padding:10px;\">推荐案件加载失败</p>';"
             " }});"
             "}})();"
             "function renderRecCases(box,list){{"
             " if(!list.length){{"
-            "  box.innerHTML='<p style=\"color:#999;padding:10px;\">未找到匹配案件，建议通过上方搜索框手动查找。</p>';"
+            "  box.innerHTML='<p style=\"color:var(--fc-text-disabled);padding:10px;\">未找到匹配案件，建议通过上方搜索框手动查找。</p>';"
             "  return;"
             " }}"
             " var html='<div style=\"display:flex;flex-wrap:wrap;gap:10px;\">';"
             " list.forEach(function(r){{"
-            "  var borderColor=r.id==='{current_case}'?'#007cba':'#ddd';"
-            "  var statusLabel=r.status==='active'?'<span style=\"color:#28a745;font-size:12px;\">在办</span>':'<span style=\"color:#6c757d;font-size:12px;\">已结案</span>';"
-            "  var reasonsHtml=r.reasons.map(function(x){{return '<span style=\"background:#e7f3ff;color:#007cba;padding:2px 8px;border-radius:12px;font-size:12px;margin-right:4px;\">'+x+'</span>';}}).join('');"
-            "  var caseNums=r.case_numbers.length?'<div style=\"font-size:13px;color:#555;margin-top:4px;\"><b>案号：</b>'+r.case_numbers.join(', ')+'</div>':'';"
-            "  var parties=r.parties.length?'<div style=\"font-size:13px;color:#555;\"><b>当事人：</b>'+r.parties.join(', ')+'</div>':'';"
-            "  var courts=r.court_names.length?'<div style=\"font-size:13px;color:#555;\"><b>法院：</b>'+r.court_names.join(', ')+'</div>':'';"
+            "  var borderColor=r.id==='{current_case}'?'var(--fc-primary)':'var(--fc-border)';"
+            "  var statusLabel=r.status==='active'?'<span style=\"color:var(--fc-success-text);font-size:12px;\">在办</span>':'<span style=\"color:var(--fc-text-disabled);font-size:12px;\">已结案</span>';"
+            "  var reasonsHtml=r.reasons.map(function(x){{return '<span style=\"background:var(--fc-primary-subtle);color:var(--fc-primary);padding:2px 8px;border-radius:12px;font-size:12px;margin-right:4px;\">'+x+'</span>';}}).join('');"
+            "  var caseNums=r.case_numbers.length?'<div style=\"font-size:13px;color:var(--fc-text-secondary);margin-top:4px;\"><b>案号：</b>'+r.case_numbers.join(', ')+'</div>':'';"
+            "  var parties=r.parties.length?'<div style=\"font-size:13px;color:var(--fc-text-secondary);\"><b>当事人：</b>'+r.parties.join(', ')+'</div>':'';"
+            "  var courts=r.court_names.length?'<div style=\"font-size:13px;color:var(--fc-text-secondary);\"><b>法院：</b>'+r.court_names.join(', ')+'</div>':'';"
             "  var caseUrl='/admin/cases/case/'+r.id+'/change/';"
             "  html+="
-            "   '<div class=\"rec-card\" data-id=\"'+r.id+'\" style=\"flex:1 1 320px;max-width:100%;border:2px solid '+borderColor+';border-radius:6px;padding:12px 14px;background:#fff;box-sizing:border-box;position:relative;\">'"
+            "   '<div class=\"rec-card\" data-id=\"'+r.id+'\" style=\"flex:1 1 320px;max-width:100%;border:2px solid '+borderColor+';border-radius:6px;padding:12px 14px;background:var(--fc-bg-card);box-sizing:border-box;position:relative;\">'"
             "   +'<div style=\"position:absolute;top:10px;right:12px;text-align:center;\">'"
-            "   +'<div style=\"font-size:10px;color:#888;\">相关度</div>'"
-            "   +'<div style=\"background:#007cba;color:#fff;border-radius:10px;padding:2px 10px;font-size:13px;font-weight:bold;white-space:nowrap;\">'+r.score+'</div>'"
+            "   +'<div style=\"font-size:10px;color:var(--fc-text-disabled);\">相关度</div>'"
+            "   +'<div style=\"background:var(--fc-primary);color:var(--fc-bg-card);border-radius:10px;padding:2px 10px;font-size:13px;font-weight:bold;white-space:nowrap;\">'+r.score+'</div>'"
             "   +'</div>'"
-            "   +'<div style=\"padding-right:60px;\"><b style=\"font-size:14px;\">'+r.name+'</b> '+statusLabel+' <span style=\"color:#999;font-size:12px;\">#'+r.id+'</span></div>'"
+            "   +'<div style=\"padding-right:60px;\"><b style=\"font-size:14px;\">'+r.name+'</b> '+statusLabel+' <span style=\"color:var(--fc-text-disabled);font-size:12px;\">#'+r.id+'</span></div>'"
             "   +'<div style=\"margin-top:6px;\">'+reasonsHtml+'</div>'"
             "   +caseNums+parties+courts"
             "   +'<div style=\"margin-top:10px;display:flex;gap:8px;\">'"
@@ -550,7 +550,7 @@ class CourtSMSAdminBase(admin.ModelAdmin):  # pragma: no cover
             " }}else{{"
             "  s.value=caseId;s.dispatchEvent(new Event('change',{{bubbles:true}}));"
             " }}"
-            " document.querySelectorAll('.rec-card').forEach(function(c){{c.style.borderColor=c.dataset.id==String(caseId)?'#007cba':'#ddd';}});"
+            " document.querySelectorAll('.rec-card').forEach(function(c){{c.style.borderColor=c.dataset.id==String(caseId)?'var(--fc-primary)':'var(--fc-border)';}});"
             "}}"
             "</script>",
             cid=container_id,
@@ -600,14 +600,14 @@ class CourtSMSAdminBase(admin.ModelAdmin):  # pragma: no cover
                             "请输入完整的法院短信内容。收到时间将自动设置为当前时间。"
                             "<br>"
                             "<style>"
-                            ".sms-platforms{margin-top:12px;padding:12px 14px;background:#f6f8fc;border-radius:10px;border:1px solid #e4eaf5;}"
-                            ".sms-platforms-title{font-size:13px;color:#445069;margin-bottom:8px;font-weight:600;}"
+                            ".sms-platforms{margin-top:12px;padding:12px 14px;background:var(--fc-bg-muted);border-radius:10px;border:1px solid var(--fc-border);}"
+                            ".sms-platforms-title{font-size:13px;color:var(--fc-text-muted);margin-bottom:8px;font-weight:600;}"
                             ".sms-platforms-tags{display:flex;flex-wrap:wrap;gap:8px;}"
-                            ".sms-platforms-tags span{background:#edf2ff;color:#2f57d8;padding:4px 10px;border-radius:999px;font-size:12px;border:0;white-space:nowrap;}"
-                            ".sms-platforms-tags span code{color:#5e78d6;font-size:11px;}"
+                            ".sms-platforms-tags span{background:var(--fc-primary-subtle);color:var(--fc-primary);padding:4px 10px;border-radius:999px;font-size:12px;border:0;white-space:nowrap;}"
+                            ".sms-platforms-tags span code{color:var(--fc-primary);font-size:11px;}"
                             ".sfdw-tail6-wrap{display:none;padding:12px 0 14px;border-top:0;}"
                             ".sfdw-tail6-row{display:grid;grid-template-columns:160px minmax(260px,420px);align-items:flex-start;}"
-                            ".sfdw-tail6-label{padding:4px 10px 0 0;color:#333;font-size:13px;font-weight:600;box-sizing:border-box;}"
+                            ".sfdw-tail6-label{padding:4px 10px 0 0;color:var(--fc-text-secondary);font-size:13px;font-weight:600;box-sizing:border-box;}"
                             ".sfdw-tail6-body{padding-right:12px;max-width:420px;}"
                             ".sfdw-tail6-wrap input{width:100%;max-width:420px;box-sizing:border-box;}"
                             "</style>"

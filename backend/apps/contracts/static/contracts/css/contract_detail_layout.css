@@ -15,11 +15,11 @@
 
 /* 头部区域 */
 .detail-header {
-    background: var(--unfold-bg-card, #fff);
+    background: var(--fc-bg-card);
     border-radius: 12px;
     padding: 24px;
     margin-bottom: 24px;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 1px 3px var(--fc-shadow-card);
 }
 
 .header-main {
@@ -33,7 +33,7 @@
 .contract-title {
     font-size: 24px;
     font-weight: 600;
-    color: var(--unfold-text-primary, #1a1a1a);
+    color: var(--fc-text-heading);
     margin: 0;
 }
 

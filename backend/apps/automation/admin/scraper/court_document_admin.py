@@ -152,16 +152,16 @@ class CourtDocumentAdmin(admin.ModelAdmin):  # pragma: no cover
     @admin.display(description="法院名称")
     def c_fymc_display(self, obj: CourtDocument) -> SafeString:  # pragma: no cover
         """格式化显示法院名称"""
-        return format_html('<span style="color: #007bff;">{}</span>', obj.c_fymc)
+        return format_html('<span style="color: var(--fc-primary);">{}</span>', obj.c_fymc)
 
     @admin.display(description="下载状态")
     def download_status_display(self, obj: CourtDocument) -> SafeString:  # pragma: no cover
         """带颜色的状态显示"""
         colors = {
-            DocumentDownloadStatus.PENDING: "#ffa500",
-            DocumentDownloadStatus.DOWNLOADING: "#007bff",
-            DocumentDownloadStatus.SUCCESS: "#28a745",
-            DocumentDownloadStatus.FAILED: "#dc3545",
+            DocumentDownloadStatus.PENDING: "var(--fc-warning-text)",
+            DocumentDownloadStatus.DOWNLOADING: "var(--fc-primary)",
+            DocumentDownloadStatus.SUCCESS: "var(--fc-success-text)",
+            DocumentDownloadStatus.FAILED: "var(--fc-error-text)",
         }
         icons = {
             DocumentDownloadStatus.PENDING: "⏳",
@@ -169,7 +169,7 @@ class CourtDocumentAdmin(admin.ModelAdmin):  # pragma: no cover
             DocumentDownloadStatus.SUCCESS: "✅",
             DocumentDownloadStatus.FAILED: "❌",
         }
-        color = colors.get(obj.download_status, "#666")  # type: ignore[call-overload]
+        color = colors.get(obj.download_status, "var(--fc-text-muted)")  # type: ignore[call-overload]
         icon = icons.get(obj.download_status, "")  # type: ignore[call-overload]
 
         return format_html(
@@ -188,8 +188,8 @@ class CourtDocumentAdmin(admin.ModelAdmin):  # pragma: no cover
             else:
                 size_str = f"{size} B"
 
-            return format_html('<span style="color: #666;">{}</span>', size_str)
-        return format_html('<span style="color: #999;">{}</span>', "-")
+            return format_html('<span style="color: var(--fc-text-muted);">{}</span>', size_str)
+        return format_html('<span style="color: var(--fc-text-disabled);">{}</span>', "-")
 
     @admin.display(description="文件大小")
     def file_size_display(self, obj: CourtDocument) -> SafeString:  # pragma: no cover
@@ -204,9 +204,9 @@ class CourtDocumentAdmin(admin.ModelAdmin):  # pragma: no cover
                 size_str = f"{size} B"
 
             return format_html(
-                '<span style="color: #007bff; font-weight: bold;">{}</span> ({} 字节)', size_str, f"{size:,}"
+                '<span style="color: var(--fc-primary); font-weight: bold;">{}</span> ({} 字节)', size_str, f"{size:,}"
             )
-        return format_html('<span style="color: #999;">{}</span>', "-")
+        return format_html('<span style="color: var(--fc-text-disabled);">{}</span>', "-")
 
     @admin.display(description="文件下载")
     def download_link(self, obj: CourtDocument) -> SafeString:  # pragma: no cover
@@ -214,14 +214,14 @@ class CourtDocumentAdmin(admin.ModelAdmin):  # pragma: no cover
         if obj.download_status == DocumentDownloadStatus.SUCCESS and obj.local_file_path:
             return format_html(
                 '<a href="/media/{}" target="_blank" '
-                'style="background-color: #28a745; color: white; padding: 2px 8px; '
+                'style="background-color: var(--fc-success-text); color: var(--fc-bg-card); padding: 2px 8px; '
                 "border-radius: 3px; text-decoration: none; display: inline-block; font-size: 12px; "
                 'line-height: 1.4; white-space: nowrap;">'
                 "{}</a>",
                 obj.local_file_path,
                 "下载",
             )
-        return format_html('<span style="color: #999;">{}</span>', "-")
+        return format_html('<span style="color: var(--fc-text-disabled);">{}</span>', "-")
 
     @admin.display(description="文件下载")
     def download_link_detail(self, obj: CourtDocument) -> SafeString:  # pragma: no cover
@@ -233,7 +233,7 @@ class CourtDocumentAdmin(admin.ModelAdmin):  # pragma: no cover
 
             return format_html(
                 '<a href="/media/{}" target="_blank" title="{}" '
-                'style="background-color: #28a745; color: white; padding: 6px 12px; '
+                'style="background-color: var(--fc-success-text); color: var(--fc-bg-card); padding: 6px 12px; '
                 "border-radius: 4px; text-decoration: none; display: inline-block; font-size: 13px; "
                 'line-height: 1.4; white-space: nowrap;">'
                 "{}</a>",
@@ -242,11 +242,11 @@ class CourtDocumentAdmin(admin.ModelAdmin):  # pragma: no cover
                 "下载文件",
             )
         elif obj.download_status == DocumentDownloadStatus.FAILED:
-            return format_html('<span style="color: #dc3545; font-weight: bold;">{}</span>', "下载失败")
+            return format_html('<span style="color: var(--fc-error-text); font-weight: bold;">{}</span>', "下载失败")
         elif obj.download_status == DocumentDownloadStatus.DOWNLOADING:
-            return format_html('<span style="color: #007bff; font-weight: bold;">{}</span>', "下载中...")
+            return format_html('<span style="color: var(--fc-primary); font-weight: bold;">{}</span>', "下载中...")
         else:
-            return format_html('<span style="color: #ffa500; font-weight: bold;">{}</span>', "待下载")
+            return format_html('<span style="color: var(--fc-warning-text); font-weight: bold;">{}</span>', "待下载")
 
     def has_add_permission(self, request: HttpRequest) -> bool:  # pragma: no cover
         """禁用添加功能（文书记录由系统自动创建）"""

@@ -23,7 +23,7 @@
           onsubmit="return confirm('确定要清空全部 {{ queue_length }} 个待处理任务吗？此操作不可撤销。');">
       {% csrf_token %}
       <input type="hidden" name="action" value="purge">
-      <button type="submit" class="button" style="background: #ba2121; border-color: #ba2121;">
+      <button type="submit" class="button" style="background: var(--fc-error-text); border-color: var(--fc-error-text);">
         清空全部
       </button>
     </form>

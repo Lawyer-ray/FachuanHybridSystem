@@ -10,8 +10,8 @@
 .oa-sync-page { max-width: 1200px; margin: 16px auto; }
 .oa-sync-actions { display: flex; gap: 10px; margin-bottom: 14px; }
 .oa-sync-message { margin-bottom: 12px; }
-.oa-sync-message.error { color: #b91c1c; }
-.oa-sync-message.success { color: #047857; }
+.oa-sync-message.error { color: var(--fc-error-text); }
+.oa-sync-message.success { color: var(--fc-success-text); }
 .oa-sync-card { background: var(--fc-bg-card); border: 1px solid var(--fc-border); border-radius: 8px; padding: 14px; margin-bottom: 14px; }
 .oa-sync-summary-inline { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0 12px; }
 .oa-sync-summary-inline .item { background: var(--fc-bg-muted-light); border-radius: 999px; padding: 4px 10px; font-size: 12px; color: var(--fc-text-secondary); }
@@ -19,7 +19,7 @@
 .oa-sync-table { width: 100%; border-collapse: collapse; font-size: 13px; }
 .oa-sync-table th, .oa-sync-table td { border: 1px solid var(--fc-border); padding: 8px; vertical-align: top; }
 .oa-sync-table th { background: var(--fc-bg-muted-light); }
-.oa-row-selected { background: #ecfdf5; }
+.oa-row-selected { background: var(--fc-success-bg); }
 .oa-input { width: 100%; min-width: 180px; box-sizing: border-box; }
 .oa-hint { margin: 0 0 12px; color: var(--fc-text-muted); font-size: 13px; }
 .oa-contract-name { font-weight: 500; }
@@ -29,10 +29,10 @@
 .oa-candidate-text { min-width: 0; line-height: 1.5; word-break: break-word; }
 .oa-candidate-actions { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
 .status-pill { display: inline-flex; align-items: center; white-space: nowrap; border-radius: 999px; padding: 2px 8px; font-size: 12px; }
-.status-pill.matched { background: #dcfce7; color: #166534; }
-.status-pill.multiple { background: #fef3c7; color: #92400e; }
+.status-pill.matched { background: var(--fc-success-bg); color: var(--fc-success-text); }
+.status-pill.multiple { background: var(--fc-warning-bg); color: var(--fc-warning-text); }
 .status-pill.not_found { background: var(--fc-border); color: var(--fc-text-secondary); }
-.status-pill.error { background: #fee2e2; color: #991b1b; }
+.status-pill.error { background: var(--fc-error-bg); color: var(--fc-error-text); }
 </style>
 {% endblock %}
 

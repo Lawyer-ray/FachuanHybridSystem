@@ -154,7 +154,7 @@
 
 .party-item:hover .view-detail-icon,
 .lawyer-item:hover .view-detail-icon {
-    color: var(--unfold-primary, #3b82f6);
+    color: var(--fc-primary);
 }
 
 /* 可折叠箭头旋转 */
