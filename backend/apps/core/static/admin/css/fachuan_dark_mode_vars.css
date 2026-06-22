@@ -213,6 +213,16 @@
     background: var(--fc-bg-muted);
     color: var(--fc-text-heading);
   }
+
+  html:not([data-theme="light"]) .collapse summary,
+  html:not([data-theme="light"]) fieldset.collapsed summary {
+    background: var(--fc-bg-muted);
+    color: var(--fc-text-heading);
+  }
+
+  html:not([data-theme="light"]) .collapse summary:hover {
+    background: var(--fc-bg-elevated);
+  }
 }
 
 /* 机制 2：手动切换 */
@@ -329,4 +339,14 @@ html[data-theme="dark"] .module caption,
 html[data-theme="dark"] .module h2 {
   background: var(--fc-bg-muted);
   color: var(--fc-text-heading);
+}
+
+html[data-theme="dark"] .collapse summary,
+html[data-theme="dark"] fieldset.collapsed summary {
+  background: var(--fc-bg-muted);
+  color: var(--fc-text-heading);
+}
+
+html[data-theme="dark"] .collapse summary:hover {
+  background: var(--fc-bg-elevated);
 }
