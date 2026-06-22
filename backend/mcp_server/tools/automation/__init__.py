@@ -78,11 +78,6 @@ __all__ = [
     "delete_court_sms",
     "download_sms_documents",
     "download_sms_document",
-    # 文书送达
-    "list_delivery_schedules",
-    "create_delivery_schedule",
-    "get_delivery_schedule",
-    "update_delivery_schedule",
     # 验证码
     "get_captcha_image",
     "submit_captcha_answer",

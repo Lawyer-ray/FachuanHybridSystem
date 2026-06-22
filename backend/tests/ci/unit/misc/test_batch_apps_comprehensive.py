@@ -4,7 +4,6 @@
 - apps/message_hub/models/*.py, schemas.py
 - apps/express_query/models.py
 - apps/image_rotation/models.py
-pytestmark = pytest.mark.skipif(not _HAS_MH, reason="message_hub plugin not installed")
 
 - apps/pdf_splitting/models.py
 - apps/invoice_recognition/models.py
@@ -31,6 +30,7 @@ try:
 except ImportError:
     _HAS_MH = False
 
+pytestmark = pytest.mark.skipif(not _HAS_MH, reason="message_hub plugin not installed")
 
 
 # ==================== message_hub ====================
