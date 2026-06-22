@@ -2,63 +2,72 @@
 
 from __future__ import annotations
 
-from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
+
+from apps.automation.services.scraper.core.cookie_service import CookieService
+
+_SKIP_COOKIE = pytest.mark.skipif(
+    CookieService is None,
+    reason="CookieService plugin not installed",
+)
 
 
 class TestCookieService:
     """Cover CookieService.load branches."""
 
-    def _svc(self):
-        from apps.automation.services.scraper.core.cookie_service import CookieService
-        return CookieService
-
+    @_SKIP_COOKIE
     def test_load_no_path_returns_false(self):
-        svc = self._svc()()
+        svc = CookieService()
         assert svc.load(MagicMock(), storage_path=None) is False
 
+    @_SKIP_COOKIE
     def test_load_file_not_exists(self):
-        svc = self._svc()(storage_path="/tmp/nonexistent.json")
-        with patch("apps.automation.services.scraper.core.cookie_service.Path") as mock_path:
+        svc = CookieService(storage_path="/tmp/nonexistent.json")
+        with patch("plugins.court_automation.login.cookie_service.Path") as mock_path:
             mock_path.return_value.exists.return_value = False
             assert svc.load(MagicMock()) is False
 
+    @_SKIP_COOKIE
     def test_load_no_cookies_key(self):
-        svc = self._svc()(storage_path="/tmp/test.json")
-        with patch("apps.automation.services.scraper.core.cookie_service.Path") as mock_path:
+        svc = CookieService(storage_path="/tmp/test.json")
+        with patch("plugins.court_automation.login.cookie_service.Path") as mock_path:
             mock_path.return_value.exists.return_value = True
             mock_path.return_value.read_text.return_value = '{"other": "data"}'
             assert svc.load(MagicMock()) is False
 
+    @_SKIP_COOKIE
     def test_load_empty_cookies(self):
-        svc = self._svc()(storage_path="/tmp/test.json")
-        with patch("apps.automation.services.scraper.core.cookie_service.Path") as mock_path:
+        svc = CookieService(storage_path="/tmp/test.json")
+        with patch("plugins.court_automation.login.cookie_service.Path") as mock_path:
             mock_path.return_value.exists.return_value = True
             mock_path.return_value.read_text.return_value = '{"cookies": []}'
             assert svc.load(MagicMock()) is False
 
+    @_SKIP_COOKIE
     def test_load_success(self):
-        svc = self._svc()(storage_path="/tmp/test.json")
+        svc = CookieService(storage_path="/tmp/test.json")
         context = MagicMock()
-        with patch("apps.automation.services.scraper.core.cookie_service.Path") as mock_path:
+        with patch("plugins.court_automation.login.cookie_service.Path") as mock_path:
             mock_path.return_value.exists.return_value = True
             mock_path.return_value.read_text.return_value = '{"cookies": [{"name": "sid", "value": "123"}]}'
             assert svc.load(context) is True
             context.add_cookies.assert_called_once_with([{"name": "sid", "value": "123"}])
 
+    @_SKIP_COOKIE
     def test_load_non_dict_json(self):
-        svc = self._svc()(storage_path="/tmp/test.json")
-        with patch("apps.automation.services.scraper.core.cookie_service.Path") as mock_path:
+        svc = CookieService(storage_path="/tmp/test.json")
+        with patch("plugins.court_automation.login.cookie_service.Path") as mock_path:
             mock_path.return_value.exists.return_value = True
             mock_path.return_value.read_text.return_value = '[1, 2, 3]'
             assert svc.load(MagicMock()) is False
 
+    @_SKIP_COOKIE
     def test_load_explicit_path(self):
-        svc = self._svc()()
+        svc = CookieService()
         context = MagicMock()
-        with patch("apps.automation.services.scraper.core.cookie_service.Path") as mock_path:
+        with patch("plugins.court_automation.login.cookie_service.Path") as mock_path:
             mock_path.return_value.exists.return_value = True
             mock_path.return_value.read_text.return_value = '{"cookies": [{"name": "c"}]}'
             assert svc.load(context, storage_path="/tmp/cookies.json") is True

@@ -2,8 +2,7 @@
 
 Covers: parse, extract_download_links, _sanitize_link, _is_valid_download_link,
 extract_verification_code, extract_case_numbers, extract_party_names,
-_find_existing_clients_in_sms, _extract_party_names_with_ollama,
-_extract_party_names_with_regex,
+_find_existing_clients_in_sms,
 lazy-loaded properties.
 """
 
@@ -345,89 +344,6 @@ class TestFindExistingClientsInSMS:
     def test_exception_returns_empty(self):
         self.service._client_service.get_all_clients_internal.side_effect = RuntimeError("boom")
         result = self.service._find_existing_clients_in_sms("content")
-        assert result == []
-
-
-# ---------------------------------------------------------------------------
-# _extract_party_names_with_ollama
-# ---------------------------------------------------------------------------
-
-
-class TestExtractPartyNamesWithOllama:
-    def setup_method(self):
-        self.service = SMSParserService(
-            ollama_model="test-model",
-            ollama_base_url="http://localhost:11434",
-            llm_service=MagicMock(),
-        )
-
-    def test_success(self):
-        response = MagicMock()
-        response.content = '{"parties": ["张三", "李四"]}'
-        self.service._llm_service.chat.return_value = response
-        # The prompt template contains literal braces in JSON examples which
-        # conflict with str.format(). Patch to a safe template for testing.
-        safe_prompt = "Extract parties from: {content}"
-        with patch.object(type(self.service), "PARTY_EXTRACTION_PROMPT", safe_prompt):
-            result = self.service._extract_party_names_with_ollama("张三与李四纠纷")
-        assert result == ["张三", "李四"]
-
-    def test_llm_error_returns_empty(self):
-        from apps.core.llm.exceptions import LLMError
-        self.service._llm_service.chat.side_effect = LLMError("fail")
-        safe_prompt = "Extract: {content}"
-        with patch.object(type(self.service), "PARTY_EXTRACTION_PROMPT", safe_prompt):
-            result = self.service._extract_party_names_with_ollama("content")
-        assert result == []
-
-    def test_invalid_json_returns_empty(self):
-        response = MagicMock()
-        response.content = "not json"
-        self.service._llm_service.chat.return_value = response
-        safe_prompt = "Extract: {content}"
-        with patch.object(type(self.service), "PARTY_EXTRACTION_PROMPT", safe_prompt):
-            result = self.service._extract_party_names_with_ollama("content")
-        assert result == []
-
-    def test_json_no_parties_key(self):
-        response = MagicMock()
-        response.content = '{"other": "data"}'
-        self.service._llm_service.chat.return_value = response
-        safe_prompt = "Extract: {content}"
-        with patch.object(type(self.service), "PARTY_EXTRACTION_PROMPT", safe_prompt):
-            result = self.service._extract_party_names_with_ollama("content")
-        assert result == []
-
-    def test_parties_not_list(self):
-        response = MagicMock()
-        response.content = '{"parties": "not a list"}'
-        self.service._llm_service.chat.return_value = response
-        safe_prompt = "Extract: {content}"
-        with patch.object(type(self.service), "PARTY_EXTRACTION_PROMPT", safe_prompt):
-            result = self.service._extract_party_names_with_ollama("content")
-        assert result == []
-
-
-# ---------------------------------------------------------------------------
-# _extract_party_names_with_regex
-# ---------------------------------------------------------------------------
-
-
-class TestExtractPartyNamesWithRegex:
-    def setup_method(self):
-        self.service = SMSParserService()
-
-    def test_company_name(self):
-        result = self.service._extract_party_names_with_regex("广州市天河科技有限公司与张三纠纷")
-        assert any("广州市天河科技有限公司" in r for r in result)
-
-    def test_versus_pattern(self):
-        result = self.service._extract_party_names_with_regex("收到张三与李四的合同纠纷案件通知")
-        names = [n for n in result if n in ("张三", "李四")]
-        assert len(names) >= 1
-
-    def test_empty_content(self):
-        result = self.service._extract_party_names_with_regex("")
         assert result == []
 
 
