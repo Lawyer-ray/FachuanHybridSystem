@@ -29,8 +29,17 @@ if _HAS_MH:
         _mark_success,
         _parse_datetime,
         _run_callable_with_timeout,
-
-)
+    )
+else:
+    CourtInboxFetcher = None  # type: ignore[assignment,misc]
+    _api_post = None  # type: ignore[assignment]
+    _build_body = None  # type: ignore[assignment]
+    _build_subject = None  # type: ignore[assignment]
+    _fetch_attachments_meta = None  # type: ignore[assignment]
+    _mark_failed = None  # type: ignore[assignment]
+    _mark_success = None  # type: ignore[assignment]
+    _parse_datetime = None  # type: ignore[assignment]
+    _run_callable_with_timeout = None  # type: ignore[assignment]
 
 # Lazy-import patch targets (imported inside methods at runtime)
 _LAZY_CM = "plugins.court_automation.token.cache_manager.cache_manager"
