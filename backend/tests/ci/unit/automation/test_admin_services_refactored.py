@@ -4,6 +4,8 @@ Refactored pure data processing tests for admin services.
 Tests the extracted data computation / formatting / validation logic
 from CourtDocumentAdminService, PreservationQuoteAdminService,
 and TokenAcquisitionHistoryAdminService that does NOT require database
+pytestmark = pytest.mark.skipif(not _HAS_LOGIN, reason="court_login plugin not installed")
+
 or model instances.
 """
 
@@ -15,6 +17,13 @@ from typing import Any
 from unittest.mock import MagicMock
 
 import pytest
+
+try:
+    from plugins import has_court_login_plugin
+    _HAS_LOGIN = has_court_login_plugin()
+except ImportError:
+    _HAS_LOGIN = False
+
 
 
 # ═══════════════════════════════════════════════════════════════════════════
