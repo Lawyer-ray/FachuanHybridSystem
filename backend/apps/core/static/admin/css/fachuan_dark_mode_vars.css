@@ -164,6 +164,55 @@
 
     --fc-toast-success:    #22c55e;
   }
+
+  /* 暗黑模式 — 表单元素覆盖 */
+  html:not([data-theme="light"]) input[type="text"],
+  html:not([data-theme="light"]) input[type="password"],
+  html:not([data-theme="light"]) input[type="email"],
+  html:not([data-theme="light"]) input[type="number"],
+  html:not([data-theme="light"]) input[type="url"],
+  html:not([data-theme="light"]) input[type="tel"],
+  html:not([data-theme="light"]) textarea,
+  html:not([data-theme="light"]) select {
+    background-color: var(--fc-bg-card);
+    color: var(--fc-text-primary);
+    border-color: var(--fc-border-input);
+  }
+
+  html:not([data-theme="light"]) input:focus,
+  html:not([data-theme="light"]) textarea:focus,
+  html:not([data-theme="light"]) select:focus {
+    border-color: var(--fc-primary);
+  }
+
+  html:not([data-theme="light"]) .submit-row {
+    background: var(--fc-bg-card);
+  }
+
+  html:not([data-theme="light"]) .submit-row input[type="submit"],
+  html:not([data-theme="light"]) .submit-row input[type="button"],
+  html:not([data-theme="light"]) .submit-row a {
+    color: var(--fc-text-on-primary);
+  }
+
+  html:not([data-theme="light"]) .form-row label {
+    color: var(--fc-text-secondary);
+  }
+
+  html:not([data-theme="light"]) .form-row .help {
+    color: var(--fc-text-muted);
+  }
+
+  html:not([data-theme="light"]) .module {
+    background: var(--fc-bg-card);
+    border-color: var(--fc-border);
+  }
+
+  html:not([data-theme="light"]) .module caption,
+  html:not([data-theme="light"]) .module h2 {
+    background: var(--fc-bg-muted);
+    color: var(--fc-text-heading);
+  }
 }
 
 /* 机制 2：手动切换 */
@@ -231,4 +280,53 @@ html[data-theme="dark"] {
   --fc-accent:           #818cf8;
 
   --fc-toast-success:    #22c55e;
+}
+
+/* 暗黑模式 — 表单元素覆盖 */
+html[data-theme="dark"] input[type="text"],
+html[data-theme="dark"] input[type="password"],
+html[data-theme="dark"] input[type="email"],
+html[data-theme="dark"] input[type="number"],
+html[data-theme="dark"] input[type="url"],
+html[data-theme="dark"] input[type="tel"],
+html[data-theme="dark"] textarea,
+html[data-theme="dark"] select {
+  background-color: var(--fc-bg-card);
+  color: var(--fc-text-primary);
+  border-color: var(--fc-border-input);
+}
+
+html[data-theme="dark"] input:focus,
+html[data-theme="dark"] textarea:focus,
+html[data-theme="dark"] select:focus {
+  border-color: var(--fc-primary);
+}
+
+html[data-theme="dark"] .submit-row {
+  background: var(--fc-bg-card);
+}
+
+html[data-theme="dark"] .submit-row input[type="submit"],
+html[data-theme="dark"] .submit-row input[type="button"],
+html[data-theme="dark"] .submit-row a {
+  color: var(--fc-text-on-primary);
+}
+
+html[data-theme="dark"] .form-row label {
+  color: var(--fc-text-secondary);
+}
+
+html[data-theme="dark"] .form-row .help {
+  color: var(--fc-text-muted);
+}
+
+html[data-theme="dark"] .module {
+  background: var(--fc-bg-card);
+  border-color: var(--fc-border);
+}
+
+html[data-theme="dark"] .module caption,
+html[data-theme="dark"] .module h2 {
+  background: var(--fc-bg-muted);
+  color: var(--fc-text-heading);
 }
