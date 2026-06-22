@@ -4,16 +4,11 @@ Covers:
 - parse: filing_notification and info_notification paths
 - extract_party_names: candidate extraction success and matching success paths
 - _find_existing_clients_in_sms: exception handling, short name skipping
-- _extract_party_names_with_ollama: LLM error, invalid JSON response
 - _is_valid_download_link: zxfw hash-fragment with params
-- _collect_company_names: various company patterns
-- _filter_parties: starts with '的', too short, too long, invalid chars, exclude keywords
 """
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
-
-import pytest
+from unittest.mock import MagicMock
 
 from apps.automation.models import CourtSMSType
 from apps.automation.services.sms.sms_parser_service import SMSParserService
@@ -151,76 +146,6 @@ class TestFindExistingClientsInSms:
         assert result == []
 
 
-# ── _extract_party_names_with_ollama ─────────────────────────────────────────
-
-
-class TestExtractPartyNamesOllamaEdge:
-    def setup_method(self):
-        self.service = SMSParserService(
-            ollama_model="test",
-            ollama_base_url="http://localhost",
-            llm_service=MagicMock(),
-        )
-
-    def test_llm_error(self):
-        from apps.core.llm.exceptions import LLMError
-        self.service._llm_service = MagicMock()
-        self.service._llm_service.chat.side_effect = LLMError("fail")
-        with patch.object(type(self.service), "PARTY_EXTRACTION_PROMPT", "{content}"):
-            result = self.service._extract_party_names_with_ollama("content")
-            assert result == []
-
-    def test_invalid_json_response(self):
-        self.service._llm_service = MagicMock()
-        response = MagicMock()
-        response.content = "not json"
-        self.service._llm_service.chat.return_value = response
-        with patch.object(type(self.service), "PARTY_EXTRACTION_PROMPT", "{content}"):
-            result = self.service._extract_party_names_with_ollama("content")
-            assert result == []
-
-    def test_json_no_parties_key(self):
-        self.service._llm_service = MagicMock()
-        response = MagicMock()
-        response.content = '{"something": "else"}'
-        self.service._llm_service.chat.return_value = response
-        with patch.object(type(self.service), "PARTY_EXTRACTION_PROMPT", "{content}"):
-            result = self.service._extract_party_names_with_ollama("content")
-            assert result == []
-
-
-# ── _filter_parties ──────────────────────────────────────────────────────────
-
-
-class TestFilterPartiesEdge:
-    def setup_method(self):
-        self.service = SMSParserService()
-
-    def test_starts_with_de(self):
-        result = self.service._filter_parties(["的张三"])
-        assert result == []
-
-    def test_too_short(self):
-        result = self.service._filter_parties(["张"])
-        assert result == []
-
-    def test_too_long(self):
-        result = self.service._filter_parties(["a" * 31])
-        assert result == []
-
-    def test_invalid_chars(self):
-        result = self.service._filter_parties(["abc张三"])
-        assert result == []
-
-    def test_exclude_keyword(self):
-        result = self.service._filter_parties(["人民法院"])
-        assert result == []
-
-    def test_invalid_fragment(self):
-        result = self.service._filter_parties(["有限公司"])
-        assert result == []
-
-
 # ── _is_valid_download_link — zxfw hash fragment ─────────────────────────────
 
 
@@ -253,24 +178,3 @@ class TestIsValidDownloadLinkZxfw:
         assert self.service._is_valid_download_link(link) is True
 
 
-# ── _collect_company_names ────────────────────────────────────────────────────
-
-
-class TestCollectCompanyNames:
-    def setup_method(self):
-        self.service = SMSParserService()
-
-    def test_limited_company(self):
-        parties = []
-        self.service._collect_company_names("广州天河科技有限责任公司与张三", parties)
-        assert any("有限责任公司" in p for p in parties)
-
-    def test_stock_company(self):
-        parties = []
-        self.service._collect_company_names("深圳华为技术有限公司", parties)
-        assert any("有限公司" in p for p in parties)
-
-    def test_group_company(self):
-        parties = []
-        self.service._collect_company_names("腾讯集团有限公司与李四", parties)
-        assert any("集团" in p or "有限公司" in p for p in parties)

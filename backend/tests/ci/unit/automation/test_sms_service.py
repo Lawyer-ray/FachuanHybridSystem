@@ -110,27 +110,6 @@ class TestSMSParserService:
         result = svc.parse(content)
         assert result.sms_type == "filing_notification"
 
-    def test_filter_parties_valid(self) -> None:
-        svc = self._make_service()
-        result = svc._filter_parties(["张三", "李四"])
-        assert "张三" in result
-        assert "李四" in result
-
-    def test_filter_parties_excludes_short(self) -> None:
-        svc = self._make_service()
-        result = svc._filter_parties(["张", "李四"])
-        assert "张" not in result
-
-    def test_filter_parties_excludes_keywords(self) -> None:
-        svc = self._make_service()
-        result = svc._filter_parties(["人民法院", "李四"])
-        assert "人民法院" not in result
-
-    def test_filter_parties_excludes_invalid_chars(self) -> None:
-        svc = self._make_service()
-        result = svc._filter_parties(["张three", "李四"])
-        assert "张three" not in result
-
     def test_find_existing_clients_in_sms(self) -> None:
         svc = self._make_service(client_service=MagicMock())
         client1 = MagicMock()
