@@ -248,7 +248,7 @@ jobs:
             apps/core/middleware/security.py \
             apps/organization/services/auth/auth_service.py \
             apps/organization/services/access/organization_access_policy.py \
-            apps/automation/services/token/cache_manager.py \
+            apps/automation/services/wiring.py \
             apps/automation/utils/logging_mixins/common.py \
             apiSystem/apiSystem/api.py
 

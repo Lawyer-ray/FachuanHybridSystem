@@ -16,7 +16,10 @@ from apps.chat_records.admin.chat_record_admin import (
     ChatRecordExportTaskAdmin,
     ChatRecordRecordingAdmin,
 )
-from apps.doc_convert.admin.doc_convert_tool_admin import DocConvertToolAdmin
+try:
+    from apps.doc_convert.admin.doc_convert_tool_admin import DocConvertToolAdmin
+except ImportError:
+    DocConvertToolAdmin = None  # type: ignore[assignment,misc]
 from apps.doc_converter.admin.doc_converter_admin import DocConverterJobAdmin, DocConverterToolAdmin
 from apps.document_recognition.admin.document_recognition_admin import (
     DocumentRecognitionToolAdmin,
@@ -96,6 +99,7 @@ class TestChatRecordAdmins:
 
 
 @pytest.mark.django_db
+@pytest.mark.skipif(DocConvertToolAdmin is None, reason="doc_convert plugin not installed")
 class TestDocConvertAdmins:
     """文档转换 Admin 测试"""
 
