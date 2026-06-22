@@ -5,6 +5,14 @@ from unittest.mock import MagicMock, AsyncMock, patch
 import pytest
 import asyncio
 
+try:
+    from plugins import has_court_login_plugin
+    _HAS_LOGIN = has_court_login_plugin()
+except ImportError:
+    _HAS_LOGIN = False
+
+pytestmark = pytest.mark.skipif(not _HAS_LOGIN, reason="court_login plugin not installed")
+
 
 class TestLoginHandler:
     def _make(self):

@@ -9,12 +9,20 @@ from unittest.mock import MagicMock, patch
 import pytest
 from PIL import Image
 
+try:
+    from plugins import has_court_login_plugin
+    _HAS_LOGIN = has_court_login_plugin()
+except ImportError:
+    _HAS_LOGIN = False
+
 from apps.automation.services.captcha.captcha_recognition_service import (
     CaptchaRecognitionService,
     CaptchaResult,
     CaptchaServiceAdapter,
     _is_auto_recognize_enabled,
 )
+
+pytestmark = pytest.mark.skipif(not _HAS_LOGIN, reason="court_login plugin not installed")
 
 
 def _make_valid_png_base64() -> str:

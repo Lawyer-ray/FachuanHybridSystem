@@ -2,6 +2,14 @@
 
 from __future__ import annotations
 
+import pytest
+
+try:
+    from plugins import has_court_login_plugin
+    _HAS_LOGIN = has_court_login_plugin()
+except ImportError:
+    _HAS_LOGIN = False
+
 from apps.documents.services.generation.outputs import (
     PartyInfo,
     ComplaintOutput,
@@ -12,10 +20,17 @@ from apps.documents.services.evidence.evidence_list_placeholder_service import (
     LEGAL_STATUS_DISPLAY,
     LEGAL_STATUS_ORDER,
 )
-from plugins.court_automation.token.court_login_gateway import (
-    CourtLoginGateway,
-    CourtZxfwLoginGateway,
-)
+
+if _HAS_LOGIN:
+    from plugins.court_automation.token.court_login_gateway import (
+        CourtLoginGateway,
+        CourtZxfwLoginGateway,
+    )
+else:
+    CourtLoginGateway = None  # type: ignore[assignment,misc]
+    CourtZxfwLoginGateway = None  # type: ignore[assignment,misc]
+
+pytestmark = pytest.mark.skipif(not _HAS_LOGIN, reason="court_login plugin not installed")
 
 
 class TestPartyInfo:

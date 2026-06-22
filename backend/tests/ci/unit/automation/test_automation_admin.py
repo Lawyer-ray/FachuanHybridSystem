@@ -11,12 +11,24 @@ from django.contrib.auth import get_user_model
 from django.test import RequestFactory
 from django.utils import timezone
 
+try:
+    from plugins import has_court_login_plugin
+    _HAS_LOGIN = has_court_login_plugin()
+except ImportError:
+    _HAS_LOGIN = False
+
 from apps.automation.admin.sms.court_sms_admin import CourtSMSAdmin
 from apps.automation.admin.scraper.scraper_task_admin import ScraperTaskAdmin
-from plugins.court_automation.token_admin.token_admin import CourtTokenAdmin
 from apps.automation.models import CourtSMS, ScraperTask, CourtToken
 
+if _HAS_LOGIN:
+    from plugins.court_automation.token_admin.token_admin import CourtTokenAdmin
+else:
+    CourtTokenAdmin = None  # type: ignore[assignment,misc]
+
 User = get_user_model()
+
+pytestmark = pytest.mark.skipif(not _HAS_LOGIN, reason="court_login plugin not installed")
 
 
 def _make_request(path: str = "/admin/") -> Any:

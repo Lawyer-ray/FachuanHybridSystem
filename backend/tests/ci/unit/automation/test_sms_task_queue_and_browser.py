@@ -6,7 +6,15 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+try:
+    from plugins import has_court_login_plugin
+    _HAS_LOGIN = has_court_login_plugin()
+except ImportError:
+    _HAS_LOGIN = False
+
 from apps.automation.services.sms.task_queue import DjangoQTaskQueue, TaskQueue
+
+pytestmark = pytest.mark.skipif(not _HAS_LOGIN, reason="court_login plugin not installed")
 
 
 # ── TaskQueue protocol ──

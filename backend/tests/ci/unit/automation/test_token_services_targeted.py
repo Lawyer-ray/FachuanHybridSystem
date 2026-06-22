@@ -7,17 +7,20 @@ from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-try:
-    from plugins.court_automation import filing  # noqa: F401
-except ImportError:
-    pytest.skip("court_automation plugin not installed", allow_module_level=True)
 
+try:
+    from plugins import has_court_login_plugin
+    _HAS_LOGIN = has_court_login_plugin()
+except ImportError:
+    _HAS_LOGIN = False
 
 from apps.core.exceptions import (
     AutoTokenAcquisitionError,
     NoAvailableAccountError,
     ValidationException,
 )
+
+pytestmark = pytest.mark.skipif(not _HAS_LOGIN, reason="court_login plugin not installed")
 
 
 # ── AutoTokenAcquisitionService ───────────────────────────────────

@@ -2,14 +2,30 @@
 
 from __future__ import annotations
 
-from plugins.court_automation.token.concurrency_optimizer import (
-    ConcurrencyConfig,
-    ResourceUsage,
-)
-from plugins.court_automation.token.browser_context_factory import (
-    DefaultAntiDetectionOptionsProvider,
-    PlaywrightBrowserContextFactory,
-)
+import pytest
+
+try:
+    from plugins import has_court_login_plugin
+    _HAS_LOGIN = has_court_login_plugin()
+except ImportError:
+    _HAS_LOGIN = False
+
+if _HAS_LOGIN:
+    from plugins.court_automation.token.concurrency_optimizer import (
+        ConcurrencyConfig,
+        ResourceUsage,
+    )
+    from plugins.court_automation.token.browser_context_factory import (
+        DefaultAntiDetectionOptionsProvider,
+        PlaywrightBrowserContextFactory,
+    )
+else:
+    ConcurrencyConfig = None  # type: ignore[assignment,misc]
+    ResourceUsage = None  # type: ignore[assignment,misc]
+    DefaultAntiDetectionOptionsProvider = None  # type: ignore[assignment,misc]
+    PlaywrightBrowserContextFactory = None  # type: ignore[assignment,misc]
+
+pytestmark = pytest.mark.skipif(not _HAS_LOGIN, reason="court_login plugin not installed")
 
 
 class TestConcurrencyConfig:

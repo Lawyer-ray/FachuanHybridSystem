@@ -12,6 +12,12 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+try:
+    from plugins import has_court_login_plugin
+    _HAS_LOGIN = has_court_login_plugin()
+except ImportError:
+    _HAS_LOGIN = False
+
 from apps.automation.exceptions import (
     AutoTokenAcquisitionError,
     LoginFailedError,
@@ -26,6 +32,8 @@ from apps.core.dto.auth import LoginAttemptResult
 from apps.core.dto.organization import AccountCredentialDTO
 
 _LOGGER_PATCH = "apps.automation.utils.logging.AutomationLogger"
+
+pytestmark = pytest.mark.skipif(not _HAS_LOGIN, reason="court_login plugin not installed")
 
 
 def _make_credential(account: str = "user@test.com", site_name: str = "test_site") -> AccountCredentialDTO:

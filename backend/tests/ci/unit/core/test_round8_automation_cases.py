@@ -8,6 +8,12 @@ from unittest.mock import MagicMock, patch, PropertyMock
 
 import pytest
 
+try:
+    from plugins import has_court_login_plugin
+    _HAS_LOGIN = has_court_login_plugin()
+except ImportError:
+    _HAS_LOGIN = False
+
 from apps.core.dependencies.automation_sms_wiring import (
     build_court_sms_service_with_deps,
     build_sms_case_service,
@@ -19,10 +25,16 @@ from apps.core.dependencies.automation_sms_wiring import (
     build_sms_case_number_service,
 )
 from apps.core.tasking.submission import TaskSubmissionService
-from plugins.court_automation.token.court_token_store_service import CourtTokenStoreService
 from apps.core.tasking.context import TaskContext
 from apps.cases.services.case.case_command_service import CaseCommandService
 from apps.pdf_splitting.services.split.segment_detector import SegmentDetector
+
+if _HAS_LOGIN:
+    from plugins.court_automation.token.court_token_store_service import CourtTokenStoreService
+else:
+    CourtTokenStoreService = None  # type: ignore[assignment,misc]
+
+pytestmark = pytest.mark.skipif(not _HAS_LOGIN, reason="court_login plugin not installed")
 
 
 # ---------------------------------------------------------------------------

@@ -8,7 +8,18 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from plugins.court_automation.token.auto_login_service import AutoLoginService, RetryConfig
+try:
+    from plugins import has_court_login_plugin
+    _HAS_LOGIN = has_court_login_plugin()
+except ImportError:
+    _HAS_LOGIN = False
+
+if _HAS_LOGIN:
+    from plugins.court_automation.token.auto_login_service import AutoLoginService, RetryConfig
+else:
+    AutoLoginService = None  # type: ignore[assignment,misc]
+    RetryConfig = None  # type: ignore[assignment,misc]
+
 from apps.core.exceptions import (
     AutoTokenAcquisitionError,
     LoginFailedError,
@@ -16,6 +27,8 @@ from apps.core.exceptions import (
     TokenAcquisitionTimeoutError,
 )
 from apps.core.interfaces import AccountCredentialDTO
+
+pytestmark = pytest.mark.skipif(not _HAS_LOGIN, reason="court_login plugin not installed")
 
 
 def _make_cred(account: str = "test@test.com", site_name: str = "court") -> AccountCredentialDTO:
