@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, cast
 
-from django.db.models import QuerySet
+from django.db.models import QuerySet, Sum
 
 from apps.contracts.models import Contract
 from apps.core.exceptions import NotFoundError
@@ -24,16 +24,23 @@ class ContractQueryService:
         return self._access_policy
 
     def get_contract_queryset(self) -> QuerySet[Contract, Contract]:
-        return Contract.objects.prefetch_related(
-            "cases",
-            "contract_parties__client",
-            "payments__invoices",
-            "reminders",
-            "assignments__lawyer",
-            "assignments__lawyer__law_firm",
-            "supplementary_agreements__parties__client",
-            "finalized_materials",
-            "client_payment_records",
+        return (
+            Contract.objects.prefetch_related(
+                "cases",
+                "contract_parties__client",
+                "payments__invoices",
+                "reminders",
+                "assignments__lawyer",
+                "assignments__lawyer__law_firm",
+                "supplementary_agreements__parties__client",
+                "finalized_materials",
+                "client_payment_records",
+            )
+            # 用 DB 层聚合替代 ContractOut.resolve_total_received/invoiced 中的 Python 循环求和
+            .annotate(
+                _total_received=Sum("payments__amount"),
+                _total_invoiced=Sum("payments__invoiced_amount"),
+            )
         )
 
     def _apply_list_filters(

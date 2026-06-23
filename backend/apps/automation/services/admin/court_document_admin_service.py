@@ -10,6 +10,7 @@ from typing import Any
 from django.conf import settings
 from django.db import transaction
 from django.db.models import Avg, Count, Q, QuerySet, Sum
+from django.db.models.functions import TruncDate
 from django.http import HttpResponse
 from django.utils import timezone
 
@@ -100,7 +101,9 @@ class CourtDocumentAdminService:
             ) from e
 
     @transaction.atomic
-    def batch_delete_documents(self, document_ids: list[int], delete_files: bool = False) -> dict[str, Any]:  # pragma: no cover
+    def batch_delete_documents(
+        self, document_ids: list[int], delete_files: bool = False
+    ) -> dict[str, Any]:  # pragma: no cover
         """
         批量删除文书记录
 
@@ -226,20 +229,33 @@ class CourtDocumentAdminService:
                 download_status=DocumentDownloadStatus.SUCCESS, file_size__isnull=False
             ).aggregate(total_size=Sum("file_size"), avg_size=Avg("file_size"), count=Count("id"))
 
-            # 按日期统计（最近30天）
+            # 按日期统计（最近30天）— 单条 TruncDate 查询替代 60 条逐日查询
             from datetime import timedelta
 
             now = timezone.now()
+            thirty_days_ago = now - timedelta(days=30)
+            date_stats_raw = (
+                queryset.filter(created_at__gte=thirty_days_ago)
+                .annotate(date=TruncDate("created_at"))
+                .values("date")
+                .annotate(
+                    total=Count("id"),
+                    success=Count("id", filter=Q(download_status=DocumentDownloadStatus.SUCCESS)),
+                )
+                .order_by("date")
+            )
+            # 构建 {date: {total, success}} 映射，再补齐缺失日期
+            date_map: dict[Any, dict[str, int]] = {}
+            for row in date_stats_raw:
+                date_map[row["date"]] = {"total": row["total"], "success": row["success"]}
+
             date_stats = []
             for i in range(30):
                 date = (now - timedelta(days=i)).date()
-                day_count = queryset.filter(created_at__date=date).count()
-                day_success = queryset.filter(
-                    created_at__date=date, download_status=DocumentDownloadStatus.SUCCESS
-                ).count()
-
-                date_stats.append({"date": date.strftime("%m-%d"), "total": day_count, "success": day_success})
-
+                counts = date_map.get(date, {"total": 0, "success": 0})
+                date_stats.append(
+                    {"date": date.strftime("%m-%d"), "total": counts["total"], "success": counts["success"]}
+                )
             date_stats.reverse()  # 按时间正序
 
             # 按爬虫任务统计

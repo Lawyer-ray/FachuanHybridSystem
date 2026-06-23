@@ -25,6 +25,8 @@ class CaseQuerySetManager:
         "case_numbers",
         "supervising_authorities",
         "contract__supplementary_agreements__parties__client",
+        "chats",
+        "contacts__authority",
     )
 
     @classmethod
