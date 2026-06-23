@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
-import time
 from pathlib import Path
 from typing import Any
 
@@ -60,42 +60,39 @@ class SsoLoginMixin:  # pragma: no cover
     # SSO 扫码登录（Playwright 有头模式）
     # ------------------------------------------------------------------
 
-    def _login_via_sso(self) -> list[dict[str, Any]]:  # pragma: no cover
+    async def _login_via_sso(self) -> list[dict[str, Any]]:  # pragma: no cover
         """完整的 SSO 扫码 + 凭证登录流程。
 
         打开有头浏览器 → 点击扫码图标 → 等待用户扫码 →
         填写账号密码 → 捕获 cookies → 关闭浏览器。
         """
-        from apps.core.services.browser import create_browser
+        from apps.core.services.browser import create_browser_async
 
-        cm = create_browser("default", headless=False)
-        try:
-            page, context = cm.__enter__()
-
+        async with create_browser_async("default", headless=False) as (page, context):
             # 1. 打开 OA 登录页（会重定向到 SSO）
             logger.info("SSO 登录: 打开 %s", _LOGIN_URL)
-            page.goto(_LOGIN_URL, wait_until="domcontentloaded", timeout=60_000)
-            time.sleep(3)
+            await page.goto(_LOGIN_URL, wait_until="domcontentloaded", timeout=60_000)
+            await asyncio.sleep(3)
 
             # 2. 尝试点击扫码图标（失败不阻塞，用户可手动点击）
             try:
-                self._click_qr_icon(page)
-                time.sleep(2)
+                await self._click_qr_icon(page)
+                await asyncio.sleep(2)
             except RuntimeError:
                 logger.warning("未自动找到扫码图标，请在浏览器中手动点击扫码")
             logger.info("SSO 登录: 请用企业微信扫码（等待 180 秒）")
 
             # 3. 等待扫码完成，跳转回 OA 登录页
-            page.wait_for_url("**/ims.jtn.com/**", timeout=180_000)
-            time.sleep(3)
+            await page.wait_for_url("**/ims.jtn.com/**", timeout=180_000)
+            await asyncio.sleep(3)
             logger.info("SSO 登录: 扫码完成，回到 OA 登录页")
 
             # 4. 填写账号密码并登录
-            page.fill('input[name="userid"]', self._account)
-            page.fill('input[name="password"]', self._password)
-            time.sleep(0.5)
-            page.click("button.input_btn")
-            time.sleep(5)
+            await page.fill('input[name="userid"]', self._account)
+            await page.fill('input[name="password"]', self._password)
+            await asyncio.sleep(0.5)
+            await page.click("button.input_btn")
+            await asyncio.sleep(5)
 
             # 5. 验证登录结果
             if "login" in page.url.lower():
@@ -104,7 +101,7 @@ class SsoLoginMixin:  # pragma: no cover
             logger.info("SSO 登录成功，当前页面: %s", page.url)
 
             # 6. 捕获 cookies 并转为可序列化的 dict 列表
-            raw_cookies: list[Any] = context.cookies()
+            raw_cookies: list[Any] = await context.cookies()
             cookies = [
                 {
                     "name": c["name"],
@@ -117,11 +114,9 @@ class SsoLoginMixin:  # pragma: no cover
             ]
             self._save_cookies(cookies)
             return cookies
-        finally:
-            cm.__exit__(None, None, None)
 
     @staticmethod
-    def _click_qr_icon(page: Any) -> None:  # pragma: no cover
+    async def _click_qr_icon(page: Any) -> None:  # pragma: no cover
         """点击 SSO 页面右上角的扫码图标。
 
         按优先级尝试多种选择器策略，坐标匹配仅作最后兜底。
@@ -143,21 +138,21 @@ class SsoLoginMixin:  # pragma: no cover
         ]
         for sel in selectors:
             try:
-                el = page.query_selector(sel)
-                if el and el.is_visible():
-                    el.click()
+                el = await page.query_selector(sel)
+                if el and await el.is_visible():
+                    await el.click()
                     logger.info("SSO 登录: 通过选择器 '%s' 找到扫码图标", sel)
                     return
             except Exception:
                 continue
 
         # 策略 2: 宽松坐标匹配（页面右侧区域的小图标）
-        all_els = page.query_selector_all("img, svg, i[class*='icon'], span[class*='icon']")
+        all_els = await page.query_selector_all("img, svg, i[class*='icon'], span[class*='icon']")
         for el in all_els:
             try:
-                box = el.bounding_box()
+                box = await el.bounding_box()
                 if box and box["x"] > 600 and box["y"] < 350 and box["width"] < 80 and box["height"] < 80:
-                    el.click()
+                    await el.click()
                     logger.info("SSO 登录: 通过坐标匹配找到扫码图标 (x=%.0f, y=%.0f)", box["x"], box["y"])
                     return
             except Exception:
@@ -169,9 +164,9 @@ class SsoLoginMixin:  # pragma: no cover
     # 获取有效 cookies（优先缓存，过期则重新登录）
     # ------------------------------------------------------------------
 
-    def _ensure_cookies(self) -> list[dict[str, Any]]:
+    async def _ensure_cookies(self) -> list[dict[str, Any]]:
         """确保有有效的 cookies，优先使用缓存。"""
         cached = self._load_cookies()
         if cached is not None:
             return cached
-        return self._login_via_sso()
+        return await self._login_via_sso()

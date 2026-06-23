@@ -58,7 +58,7 @@ class HttpFilingMixin:  # pragma: no cover
     # 公共入口
     # ------------------------------------------------------------------
 
-    def _run_via_http(  # pragma: no cover
+    async def _run_via_http(  # pragma: no cover
         self: Any,
         *,
         clients: list[ClientInfo],
@@ -70,12 +70,12 @@ class HttpFilingMixin:  # pragma: no cover
         if not clients:
             raise RuntimeError("HTTP 立案缺少委托方")
 
-        with httpx.Client(headers=_HTTP_HEADERS, follow_redirects=True, timeout=_DEFAULT_HTTP_TIMEOUT) as client:
-            self._http_login(client)
-            form_state = self._load_filing_form_state(client)
+        async with httpx.AsyncClient(headers=_HTTP_HEADERS, follow_redirects=True, timeout=_DEFAULT_HTTP_TIMEOUT) as client:
+            await self._http_login(client)
+            form_state = await self._load_filing_form_state(client)
             payload = dict(form_state.payload)
 
-            resolved_customers = self._resolve_customers_via_http(client=client, clients=clients)
+            resolved_customers = await self._resolve_customers_via_http(client=client, clients=clients)
             self._apply_client_payload(payload=payload, customers=resolved_customers)
 
             if case_info is not None:
@@ -85,13 +85,13 @@ class HttpFilingMixin:  # pragma: no cover
             if contract_info is not None:
                 self._apply_contract_payload(payload=payload, contract_info=contract_info)
 
-            self._submit_filing_form_http(client=client, action_url=form_state.action_url, payload=payload)
+            await self._submit_filing_form_http(client=client, action_url=form_state.action_url, payload=payload)
 
     # ------------------------------------------------------------------
     # 登录
     # ------------------------------------------------------------------
 
-    def _http_login(self: Any, client: httpx.Client) -> None:  # pragma: no cover
+    async def _http_login(self: Any, client: httpx.AsyncClient) -> None:  # pragma: no cover
         """HTTP 登录：优先使用缓存 cookies，过期则走 SSO 扫码流程。"""
         # 优先尝试缓存 cookies
         cached = self._load_cookies()
@@ -99,7 +99,7 @@ class HttpFilingMixin:  # pragma: no cover
             for c in cached:
                 client.cookies.set(c["name"], c["value"], domain=c["domain"])
             # 验证 cookies 是否有效
-            probe = client.get(_FILING_URL)
+            probe = await client.get(_FILING_URL)
             if "login" not in str(probe.url).lower() and "aspnetForm" in probe.text:
                 logger.info("HTTP 登录成功（使用缓存 cookies）")
                 return
@@ -109,7 +109,7 @@ class HttpFilingMixin:  # pragma: no cover
 
         # 走 SSO 扫码 + 凭证登录
         logger.info("SSO 登录 OA（需要扫码）")
-        self._login_via_sso()
+        await self._login_via_sso()
         # 将新 cookies 注入 httpx client
         new_cookies = self._load_cookies()
         if new_cookies is None:
@@ -122,8 +122,8 @@ class HttpFilingMixin:  # pragma: no cover
     # 表单加载 / 解析
     # ------------------------------------------------------------------
 
-    def _load_filing_form_state(self: Any, client: httpx.Client) -> FilingFormState:
-        response = client.get(_FILING_URL)
+    async def _load_filing_form_state(self: Any, client: httpx.AsyncClient) -> FilingFormState:
+        response = await client.get(_FILING_URL)
         response.raise_for_status()
         return self._extract_filing_form_state(html_text=response.text, base_url=str(response.url))  # type: ignore[no-any-return]
 
@@ -173,20 +173,20 @@ class HttpFilingMixin:  # pragma: no cover
     # 客户解析
     # ------------------------------------------------------------------
 
-    def _resolve_customers_via_http(
-        self: Any, *, client: httpx.Client, clients: list[ClientInfo]
+    async def _resolve_customers_via_http(
+        self: Any, *, client: httpx.AsyncClient, clients: list[ClientInfo]
     ) -> list[ResolvedCustomer]:  # pragma: no cover
         resolved: list[ResolvedCustomer] = []
         for client_info in clients:
-            customer = self._search_customer_http(client=client, client_info=client_info)
+            customer = await self._search_customer_http(client=client, client_info=client_info)
             if customer is None:
                 raise RuntimeError(f"OA 系统中未找到客户「{client_info.name}」，HTTP 无法创建新客户")
             resolved.append(customer)
         return resolved
 
-    def _search_customer_http(self: Any, *, client: httpx.Client, client_info: ClientInfo) -> ResolvedCustomer | None:
+    async def _search_customer_http(self: Any, *, client: httpx.AsyncClient, client_info: ClientInfo) -> ResolvedCustomer | None:
         customer_type = "B" if client_info.client_type == "natural" else "A"
-        response = client.post(
+        response = await client.post(
             self._handler_url("CustSeachGetList"),
             data={
                 "customerType": customer_type,
@@ -323,11 +323,11 @@ class HttpFilingMixin:  # pragma: no cover
     # 提交
     # ------------------------------------------------------------------
 
-    def _submit_filing_form_http(self: Any, *, client: httpx.Client, action_url: str, payload: dict[str, str]) -> None:
+    async def _submit_filing_form_http(self: Any, *, client: httpx.AsyncClient, action_url: str, payload: dict[str, str]) -> None:
         save_button_name = "ctl00$ctl00$mainContentPlaceHolder$projmainPlaceHolder$btnSave"
         payload[save_button_name] = "　存草稿　"
 
-        response = client.post(action_url, data=payload)
+        response = await client.post(action_url, data=payload)
         response.raise_for_status()
         self._assert_http_submit_success(response.text)
 

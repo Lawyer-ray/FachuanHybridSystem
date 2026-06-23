@@ -1,12 +1,11 @@
 from __future__ import annotations
 
+import asyncio
 import logging
-import os
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
 from django.apps import apps as django_apps
-from django.db import connection
 
 logger = logging.getLogger("apps.oa_filing")
 
@@ -71,23 +70,15 @@ class ScriptExecutorService:
         contract_id: int,
         case_id: int | None,
     ) -> None:  # pragma: no cover
-        """后台线程：执行脚本并更新会话状态。"""
+        """后台线程：执行脚本并更新会话状态。
+
+        asyncio.run() 在当前线程创建全新的事件循环，与 Django ASGI 的
+        主事件循环完全隔离，无需 nest_asyncio 或 DJANGO_ALLOW_ASYNC_UNSAFE。
+        """
         from apps.oa_filing.models import FilingSession, SessionStatus
 
-        # Playwright sync_playwright().start() 会在当前线程创建事件循环，
-        # 导致 Django 的 @async_unsafe 装饰器拒绝 ORM 操作。
-        # 在后台线程中绕过此检查是安全的，因为该线程由 ThreadPoolExecutor 管理。
-        os.environ["DJANGO_ALLOW_ASYNC_UNSAFE"] = "true"
-        connection.close()
-
-        # Django Ninja (ASGI) 在进程中留下事件循环，Playwright Sync API
-        # 检测到后会拒绝启动。nest_asyncio 允许在已有 loop 中嵌套调用。
-        import nest_asyncio
-
-        nest_asyncio.apply()
-
         try:
-            self._dispatch(site_name, credential, contract_id, case_id)
+            asyncio.run(self._dispatch(site_name, credential, contract_id, case_id))
             FilingSession.objects.filter(pk=session_id).update(status=SessionStatus.COMPLETED)
             logger.info("立案完成: session=%d", session_id)
         except Exception as exc:
@@ -96,10 +87,8 @@ class ScriptExecutorService:
                 error_message=str(exc),
             )
             logger.error("立案失败: session=%d, error=%s", session_id, exc)
-        finally:
-            connection.close()
 
-    def _dispatch(
+    async def _dispatch(
         self,
         site_name: str,
         credential: Any,
@@ -110,11 +99,11 @@ class ScriptExecutorService:
         from apps.oa_filing.services.exceptions import ScriptExecutionError
 
         if site_name == "金诚同达OA":
-            self._run_jtn(credential, contract_id, case_id)
+            await self._run_jtn(credential, contract_id, case_id)
         else:
             raise ScriptExecutionError(f"不支持的OA系统: {site_name}")
 
-    def _run_jtn(self, credential: Any, contract_id: int, case_id: int | None) -> None:
+    async def _run_jtn(self, credential: Any, contract_id: int, case_id: int | None) -> None:
         """执行金诚同达 OA 立案。"""
         from apps.oa_filing.services.exceptions import ScriptExecutionError
         from apps.oa_filing.services.oa_scripts.jtn.filing import (
@@ -241,7 +230,7 @@ class ScriptExecutorService:
             account=str(credential.account),
             password=str(credential.password),
         )
-        script.run(
+        await script.run(
             clients,
             case_info=case_info,
             conflict_parties=conflict_parties,

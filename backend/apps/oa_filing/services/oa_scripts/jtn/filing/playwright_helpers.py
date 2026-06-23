@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import re
-import time
 from typing import Any
 
-from playwright.sync_api import FrameLocator, Page
+from playwright.async_api import FrameLocator, Page
 
 from .constants import (
     _AJAX_WAIT,
@@ -33,9 +33,9 @@ class PlaywrightHelpersMixin:  # pragma: no cover
     # 主页面 select / input
     # ------------------------------------------------------------------
 
-    def _set_select(self: Any, page: Page, element_id: str, value: str) -> None:  # pragma: no cover
+    async def _set_select(self: Any, page: Page, element_id: str, value: str) -> None:  # pragma: no cover
         """设置主页面 select 的值并触发 change 事件（非 Chosen.js）。"""
-        page.evaluate(
+        await page.evaluate(
             f"""(val) => {{
             var el = document.getElementById('{element_id}');
             if (el) {{
@@ -46,9 +46,9 @@ class PlaywrightHelpersMixin:  # pragma: no cover
             value,
         )
 
-    def _set_field(self: Any, page: Page, element_id: str, value: str) -> None:  # pragma: no cover
+    async def _set_field(self: Any, page: Page, element_id: str, value: str) -> None:  # pragma: no cover
         """通过 id 设置 input/textarea 的值。"""
-        page.evaluate(
+        await page.evaluate(
             f"""(val) => {{
             var el = document.getElementById('{element_id}');
             if (el) el.value = val;
@@ -56,9 +56,9 @@ class PlaywrightHelpersMixin:  # pragma: no cover
             value,
         )
 
-    def _set_field_by_name(self: Any, page: Page, name: str, value: str) -> None:  # pragma: no cover
+    async def _set_field_by_name(self: Any, page: Page, name: str, value: str) -> None:  # pragma: no cover
         """通过 name 属性设置 select/input 的值。"""
-        page.evaluate(
+        await page.evaluate(
             f"""(val) => {{
             var el = document.querySelector('[name="{name}"]');
             if (el) el.value = val;
@@ -76,7 +76,7 @@ class PlaywrightHelpersMixin:  # pragma: no cover
     # CreateCustomer iframe 操作
     # ------------------------------------------------------------------
 
-    def _eval_create_iframe(self: Any, page: Page, js_code: str, *args: Any) -> Any:  # pragma: no cover
+    async def _eval_create_iframe(self: Any, page: Page, js_code: str, *args: Any) -> Any:  # pragma: no cover
         """在 CreateCustomer iframe 内执行 JS。
 
         js_code 是一个 JS 函数字符串，函数签名为 (arg?) => {...}。
@@ -89,11 +89,11 @@ class PlaywrightHelpersMixin:  # pragma: no cover
             return fn(arg);
         }}"""
         arg = args[0] if args else None
-        return page.evaluate(wrapped, arg)
+        return await page.evaluate(wrapped, arg)
 
-    def _set_chosen(self: Any, page: Page, field_id: str, value: str) -> None:  # pragma: no cover
+    async def _set_chosen(self: Any, page: Page, field_id: str, value: str) -> None:  # pragma: no cover
         """设置 Chosen.js 下拉框的值并触发更新事件。"""
-        self._eval_create_iframe(
+        await self._eval_create_iframe(
             page,
             f"""(val) => {{
             const $ = iframe.contentWindow.jQuery;
@@ -105,9 +105,9 @@ class PlaywrightHelpersMixin:  # pragma: no cover
             value,
         )
 
-    def _set_input(self: Any, page: Page, field_id: str, value: str) -> None:  # pragma: no cover
+    async def _set_input(self: Any, page: Page, field_id: str, value: str) -> None:  # pragma: no cover
         """通过 jQuery 设置输入框的值。"""
-        self._eval_create_iframe(
+        await self._eval_create_iframe(
             page,
             f"""(val) => {{
             const $ = iframe.contentWindow.jQuery;
@@ -121,14 +121,14 @@ class PlaywrightHelpersMixin:  # pragma: no cover
     # 客户搜索弹窗 / iframe
     # ------------------------------------------------------------------
 
-    def _find_latest_client_iframe(self: Any, page: Page) -> str:  # pragma: no cover
+    async def _find_latest_client_iframe(self: Any, page: Page) -> str:  # pragma: no cover
         """动态查找最新的 layui-layer-iframe。
 
         每次打开搜索弹窗，iframe ID 会递增（100002, 100003, ...）。
         取 ID 最大的那个即为当前弹窗。
         """
         iframe_id: str = (
-            page.evaluate(
+            await page.evaluate(
                 """() => {
             const iframes = document.querySelectorAll('iframe[id^="layui-layer-iframe"]');
             if (iframes.length === 0) return '';
@@ -152,10 +152,10 @@ class PlaywrightHelpersMixin:  # pragma: no cover
         logger.info("使用 iframe: %s", iframe_id)
         return f'//*[@id="{iframe_id}"]'
 
-    def _get_latest_iframe_id(self: Any, page: Page) -> str:  # pragma: no cover
+    async def _get_latest_iframe_id(self: Any, page: Page) -> str:  # pragma: no cover
         """获取当前最新弹窗 iframe 的 id。"""
         return (
-            page.evaluate(
+            await page.evaluate(
                 """() => {
             const iframes = document.querySelectorAll('iframe[id^="layui-layer-iframe"]');
             let maxId = '', maxNum = -1;
@@ -173,7 +173,7 @@ class PlaywrightHelpersMixin:  # pragma: no cover
     # 客户搜索 / 选择 / 创建
     # ------------------------------------------------------------------
 
-    def _try_select_client(self: Any, page: Page, iframe: FrameLocator) -> bool:  # pragma: no cover
+    async def _try_select_client(self: Any, page: Page, iframe: FrameLocator) -> bool:  # pragma: no cover
         """尝试在搜索结果中选中第一个客户并确认。
 
         layui table radio 选中需通过内部缓存 LAY_CHECKED 标志，
@@ -182,15 +182,15 @@ class PlaywrightHelpersMixin:  # pragma: no cover
         try:
             # 检查客户名称列（第4列，index=3）是否有实际内容
             name_cells = iframe.locator('xpath=//*[@id="form1"]/div[5]/div[2]/div[2]/table/tbody/tr/td[4]/div')
-            if name_cells.count() == 0:
+            if await name_cells.count() == 0:
                 return False
-            first_name = name_cells.first.inner_text().strip()
+            first_name = (await name_cells.first.inner_text()).strip()
             if not first_name:
                 return False
 
             # 通过 JS 设置 layui table 内部缓存的选中状态，然后调用确认逻辑
-            iframe_id = self._get_latest_iframe_id(page)
-            page.evaluate(
+            iframe_id = await self._get_latest_iframe_id(page)
+            await page.evaluate(
                 """(iframeId) => {
                 const iframe = document.getElementById(iframeId);
                 if (!iframe) return;
@@ -206,14 +206,14 @@ class PlaywrightHelpersMixin:  # pragma: no cover
             }""",
                 iframe_id,
             )
-            time.sleep(_MEDIUM_WAIT)
+            await asyncio.sleep(_MEDIUM_WAIT)
             logger.info("已选中已有客户: %s", first_name)
             return True
         except Exception as exc:
             logger.info("搜索结果检查异常: %s", exc)
         return False
 
-    def _create_new_client(  # pragma: no cover
+    async def _create_new_client(  # pragma: no cover
         self: Any,
         iframe: FrameLocator,
         client: ClientInfo,
@@ -224,8 +224,8 @@ class PlaywrightHelpersMixin:  # pragma: no cover
         通过 src 匹配 CreateCustomer.aspx 来定位。
         所有 Chosen.js 下拉框统一通过 jQuery 操作。
         """
-        iframe.locator(f"xpath={_XPATH_CREATE_NEW_BTN}").click()
-        time.sleep(_MEDIUM_WAIT)
+        await iframe.locator(f"xpath={_XPATH_CREATE_NEW_BTN}").click()
+        await asyncio.sleep(_MEDIUM_WAIT)
 
         assert self._page is not None
         page = self._page
@@ -234,7 +234,7 @@ class PlaywrightHelpersMixin:  # pragma: no cover
         is_natural: bool = client.client_type == "natural"
 
         # ── 1. 选择客户类型（触发 change 事件加载客户类型细分） ──
-        self._eval_create_iframe(
+        await self._eval_create_iframe(
             page,
             """(typeValue) => {
             const $ = iframe.contentWindow.jQuery;
@@ -245,28 +245,28 @@ class PlaywrightHelpersMixin:  # pragma: no cover
         }""",
             type_value,
         )
-        time.sleep(_AJAX_WAIT)
+        await asyncio.sleep(_AJAX_WAIT)
 
         # ── 2. 客户类型细分 ──
         type_sub: str = _CUSTOMER_TYPE_SUB_MAP.get(client.client_type, "01-08")
-        self._set_chosen(page, "customer_Type_zj", type_sub)
+        await self._set_chosen(page, "customer_Type_zj", type_sub)
 
         # ── 3. 基本信息 ──
-        self._set_input(page, "customer_name", client.name)
-        self._set_input(page, "customer_Address", client.address or "/")
-        self._set_input(page, "customer_callNo", client.phone or "/")
+        await self._set_input(page, "customer_name", client.name)
+        await self._set_input(page, "customer_Address", client.address or "/")
+        await self._set_input(page, "customer_callNo", client.phone or "/")
 
         # ── 4. 固定默认值下拉框 ──
-        self._set_chosen(page, "customer_country", "01")  # 中国
-        self._set_chosen(page, "customer_Source", "01")  # 主动开拓获得客户
+        await self._set_chosen(page, "customer_country", "01")  # 中国
+        await self._set_chosen(page, "customer_Source", "01")  # 主动开拓获得客户
 
         if is_natural:
-            self._fill_natural_person(page, client)
+            await self._fill_natural_person(page, client)
         else:
-            self._fill_enterprise(page, client)
+            await self._fill_enterprise(page, client)
 
         # ── 5. 点击确定提交（使用原生 click 确保事件冒泡到委托处理器） ──
-        self._eval_create_iframe(
+        await self._eval_create_iframe(
             page,
             """() => {
             const doc = iframe.contentDocument;
@@ -274,17 +274,17 @@ class PlaywrightHelpersMixin:  # pragma: no cover
             if (btn) btn.click();
         }""",
         )
-        time.sleep(_MEDIUM_WAIT)
+        await asyncio.sleep(_MEDIUM_WAIT)
         logger.info("已提交创建客户: %s (%s)", client.name, client.client_type)
 
-    def _fill_enterprise(self: Any, page: Page, client: ClientInfo) -> None:  # pragma: no cover
+    async def _fill_enterprise(self: Any, page: Page, client: ClientInfo) -> None:  # pragma: no cover
         """填充企业类型特有的必填字段。"""
-        self._set_chosen(page, "customer_is_IPO", "0")  # 否
-        self._set_chosen(page, "customer_is_FiveQ", "0")  # 否
-        self._set_chosen(page, "customer_is_ChinaTopFiveH", "0")  # 否
+        await self._set_chosen(page, "customer_is_IPO", "0")  # 否
+        await self._set_chosen(page, "customer_is_FiveQ", "0")  # 否
+        await self._set_chosen(page, "customer_is_ChinaTopFiveH", "0")  # 否
 
         # 行业 - 随便选"批发和零售业"，触发 change 加载行业细分
-        self._eval_create_iframe(
+        await self._eval_create_iframe(
             page,
             """() => {
             const $ = iframe.contentWindow.jQuery;
@@ -294,10 +294,10 @@ class PlaywrightHelpersMixin:  # pragma: no cover
             $('#customer_hangye', doc).trigger('change');
         }""",
         )
-        time.sleep(_AJAX_WAIT)
+        await asyncio.sleep(_AJAX_WAIT)
 
         # 行业细分 - 选第一个非空选项
-        self._eval_create_iframe(
+        await self._eval_create_iframe(
             page,
             """() => {
             const $ = iframe.contentWindow.jQuery;
@@ -311,26 +311,26 @@ class PlaywrightHelpersMixin:  # pragma: no cover
         )
 
         # 法定代表人信息
-        self._set_chosen(page, "customer_Statutory", "01")  # 法定代表人
-        self._set_chosen(page, "customer_Statutory_Positions", "01")  # 董事长
-        self._set_input(
+        await self._set_chosen(page, "customer_Statutory", "01")  # 法定代表人
+        await self._set_chosen(page, "customer_Statutory_Positions", "01")  # 董事长
+        await self._set_input(
             page,
             "customer_Statutory_name",
             client.legal_representative or "/",
         )
-        self._set_input(page, "customer_Statutory_tel", "/")
+        await self._set_input(page, "customer_Statutory_tel", "/")
 
-    def _fill_natural_person(self: Any, page: Page, client: ClientInfo) -> None:  # pragma: no cover
+    async def _fill_natural_person(self: Any, page: Page, client: ClientInfo) -> None:  # pragma: no cover
         """填充自然人类型特有的必填字段。"""
         id_number: str = client.id_number or ""
 
         gender: str = _gender_from_id_number(id_number)
-        self._set_chosen(page, "customer_PersonSex", gender)
+        await self._set_chosen(page, "customer_PersonSex", gender)
 
-        self._set_input(page, "customer_PersonCard", id_number)
+        await self._set_input(page, "customer_PersonCard", id_number)
         # 出生日期由 OA 页面的 getBirth 事件自动从身份证号提取，
         # 但需要触发 blur 事件
-        self._eval_create_iframe(
+        await self._eval_create_iframe(
             page,
             """() => {
             const $ = iframe.contentWindow.jQuery;
@@ -338,10 +338,10 @@ class PlaywrightHelpersMixin:  # pragma: no cover
             $('#customer_PersonCard', doc).trigger('blur');
         }""",
         )
-        time.sleep(_SHORT_WAIT)
+        await asyncio.sleep(_SHORT_WAIT)
 
         # 如果出生日期仍为空，手动从身份证号提取
-        self._eval_create_iframe(
+        await self._eval_create_iframe(
             page,
             f"""() => {{
             const $ = iframe.contentWindow.jQuery;
@@ -359,7 +359,7 @@ class PlaywrightHelpersMixin:  # pragma: no cover
         )
 
         # 身份证地址 = 客户地址
-        self._set_input(
+        await self._set_input(
             page,
             "customer_PersonAddress",
             client.address or "/",

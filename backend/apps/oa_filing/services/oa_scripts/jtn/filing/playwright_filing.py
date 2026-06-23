@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import re
-import time
 from typing import Any
 
-from playwright.sync_api import FrameLocator, Page
+from playwright.async_api import FrameLocator, Page
 
-from apps.core.services.browser import create_browser
+from apps.core.services.browser import create_browser_async
 
 from .constants import (
     _AJAX_WAIT,
@@ -40,7 +40,7 @@ class PlaywrightFilingMixin:  # pragma: no cover
     # 公共入口
     # ------------------------------------------------------------------
 
-    def _run_via_playwright(  # pragma: no cover
+    async def _run_via_playwright(  # pragma: no cover
         self: Any,
         *,
         clients: list[ClientInfo],
@@ -49,49 +49,46 @@ class PlaywrightFilingMixin:  # pragma: no cover
         contract_info: ContractInfo | None,
     ) -> None:
         """Playwright 全量兜底流程。"""
-        cm = create_browser("default", headless=True)
-        try:
-            self._page, self._context = cm.__enter__()
+        async with create_browser_async("default", headless=True) as (page, context):
+            self._page = page
+            self._context = context
 
-            self._login()
-            self._navigate_to_filing()
+            await self._login()
+            await self._navigate_to_filing()
 
             # ── Tab 0: 客户信息 ──
             for i, client in enumerate(clients):
-                self._add_client(client)
+                await self._add_client(client)
                 if i < len(clients) - 1:
-                    time.sleep(_MEDIUM_WAIT)
+                    await asyncio.sleep(_MEDIUM_WAIT)
 
             # ── Tab 1: 案件信息 ──
             if case_info is not None:
-                self._click_next_tab()
-                self._fill_case_info(case_info)
+                await self._click_next_tab()
+                await self._fill_case_info(case_info)
 
             # ── Tab 2: 利益冲突信息 ──
             if conflict_parties is not None:
-                self._click_next_tab()
-                self._fill_conflict_info(conflict_parties)
+                await self._click_next_tab()
+                await self._fill_conflict_info(conflict_parties)
 
             # ── Tab 3: 承办律师信息（跳过） ──
-            self._click_next_tab()
+            await self._click_next_tab()
 
             # ── Tab 4: 委托合同信息 ──
             if contract_info is not None:
-                self._click_next_tab()
-                self._fill_contract_info(contract_info)
+                await self._click_next_tab()
+                await self._fill_contract_info(contract_info)
 
             # ── 存草稿 ──
-            self._save_draft()
+            await self._save_draft()
             logger.info("Playwright 立案流程完成")
-        finally:
-            cm.__exit__(None, None, None)
-            logger.info("Playwright 浏览器已关闭")
 
     # ------------------------------------------------------------------
     # 登录 / 导航
     # ------------------------------------------------------------------
 
-    def _login(self: Any) -> None:  # pragma: no cover
+    async def _login(self: Any) -> None:  # pragma: no cover
         """登录：优先使用缓存 cookies，过期则走 SSO 扫码流程。"""
         assert self._context is not None
 
@@ -99,7 +96,7 @@ class PlaywrightFilingMixin:  # pragma: no cover
         cached = self._load_cookies()
         if cached is not None:
             for c in cached:
-                self._context.add_cookies(
+                await self._context.add_cookies(
                     [
                         {
                             "name": c["name"],
@@ -110,8 +107,8 @@ class PlaywrightFilingMixin:  # pragma: no cover
                     ]
                 )
             # 验证 cookies 是否有效
-            self._page.goto(_FILING_URL, wait_until="domcontentloaded", timeout=30_000)
-            time.sleep(_MEDIUM_WAIT)
+            await self._page.goto(_FILING_URL, wait_until="domcontentloaded", timeout=30_000)
+            await asyncio.sleep(_MEDIUM_WAIT)
             if "login" not in self._page.url.lower():
                 logger.info("Playwright 登录成功（使用缓存 cookies）")
                 return
@@ -119,13 +116,13 @@ class PlaywrightFilingMixin:  # pragma: no cover
 
         # 走 SSO 扫码 + 凭证登录
         logger.info("SSO 登录（需要扫码）")
-        self._login_via_sso()
+        await self._login_via_sso()
         # 将新 cookies 注入 Playwright context
         new_cookies = self._load_cookies()
         if new_cookies is None:
             raise RuntimeError("SSO 登录后未获取到 cookies")
         for c in new_cookies:
-            self._context.add_cookies(
+            await self._context.add_cookies(
                 [
                     {
                         "name": c["name"],
@@ -137,7 +134,7 @@ class PlaywrightFilingMixin:  # pragma: no cover
             )
         logger.info("Playwright 登录成功（SSO 扫码完成）")
 
-    def _navigate_to_filing(self: Any) -> None:  # pragma: no cover
+    async def _navigate_to_filing(self: Any) -> None:  # pragma: no cover
         """导航到立案页面（如果尚未在立案页）。"""
         page = self._page
         assert page is not None
@@ -148,49 +145,49 @@ class PlaywrightFilingMixin:  # pragma: no cover
             return
 
         logger.info("导航到立案页: %s", _FILING_URL)
-        page.goto(_FILING_URL, wait_until="domcontentloaded")
-        time.sleep(_MEDIUM_WAIT)
+        await page.goto(_FILING_URL, wait_until="domcontentloaded")
+        await asyncio.sleep(_MEDIUM_WAIT)
         logger.info("已进入立案页面")
 
     # ------------------------------------------------------------------
     # 客户操作
     # ------------------------------------------------------------------
 
-    def _add_client(self: Any, client: ClientInfo) -> None:  # pragma: no cover
+    async def _add_client(self: Any, client: ClientInfo) -> None:  # pragma: no cover
         """添加一个委托方。"""
         page = self._page
         assert page is not None
 
         logger.info("添加委托方: %s (%s)", client.name, client.client_type)
 
-        page.locator(f"xpath={_XPATH_ADD_CLIENT_BTN}").click()
-        time.sleep(_MEDIUM_WAIT)
+        await page.locator(f"xpath={_XPATH_ADD_CLIENT_BTN}").click()
+        await asyncio.sleep(_MEDIUM_WAIT)
 
-        iframe_xpath: str = self._find_latest_client_iframe(page)
+        iframe_xpath: str = await self._find_latest_client_iframe(page)
         iframe: FrameLocator = page.frame_locator(f"xpath={iframe_xpath}")
 
         is_natural: bool = client.client_type == "natural"
 
         if is_natural:
-            iframe.locator(f"xpath={_XPATH_PERSONAL_TAB}").click()
-            time.sleep(_SHORT_WAIT)
+            await iframe.locator(f"xpath={_XPATH_PERSONAL_TAB}").click()
+            await asyncio.sleep(_SHORT_WAIT)
 
-        iframe.locator(f"xpath={_XPATH_NAME_INPUT}").fill(client.name)
+        await iframe.locator(f"xpath={_XPATH_NAME_INPUT}").fill(client.name)
 
-        iframe.locator(f"xpath={_XPATH_SEARCH_BTN}").click()
-        time.sleep(_AJAX_WAIT)
+        await iframe.locator(f"xpath={_XPATH_SEARCH_BTN}").click()
+        await asyncio.sleep(_AJAX_WAIT)
 
-        found = self._try_select_client(page, iframe)
+        found = await self._try_select_client(page, iframe)
 
         if not found:
             logger.info("未找到客户 %s，进入创建流程", client.name)
-            self._create_new_client(iframe, client)
+            await self._create_new_client(iframe, client)
 
     # ------------------------------------------------------------------
     # 案件信息
     # ------------------------------------------------------------------
 
-    def _fill_case_info(self: Any, info: CaseInfo) -> None:  # pragma: no cover
+    async def _fill_case_info(self: Any, info: CaseInfo) -> None:  # pragma: no cover
         """填写案件信息标签。
 
         级联顺序: manager → category → stage → which_side
@@ -205,9 +202,9 @@ class PlaywrightFilingMixin:  # pragma: no cover
         # 案件负责人（触发 category 加载）
         # 优先按 empid 匹配，匹配不到按名字匹配
         if info.manager_id:
-            self._set_select(page, f"{_p}manager_id", info.manager_id)
+            await self._set_select(page, f"{_p}manager_id", info.manager_id)
         else:
-            page.evaluate(
+            await page.evaluate(
                 f"""(name) => {{
                 const sel = document.getElementById('{_p}manager_id');
                 if (!sel) return;
@@ -221,49 +218,49 @@ class PlaywrightFilingMixin:  # pragma: no cover
             }}""",
                 info.manager_name,
             )
-        time.sleep(_AJAX_WAIT)
+        await asyncio.sleep(_AJAX_WAIT)
 
         # 案件类型（触发 stage + kindtype 加载）
-        self._set_select(page, f"{_p}category_id", info.category)
-        time.sleep(_AJAX_WAIT)
+        await self._set_select(page, f"{_p}category_id", info.category)
+        await asyncio.sleep(_AJAX_WAIT)
 
         # 案件阶段（触发 which_side 加载）— 非诉类型无阶段
         if info.stage:
-            self._set_select(page, f"{_p}stage_id", info.stage)
-            time.sleep(_AJAX_WAIT)
+            await self._set_select(page, f"{_p}stage_id", info.stage)
+            await asyncio.sleep(_AJAX_WAIT)
 
         # 代理何方 — 非诉类型无此字段
         if info.stage:
-            self._set_select(page, f"{_p}which_side", info.which_side)
+            await self._set_select(page, f"{_p}which_side", info.which_side)
 
         # 业务类型三级级联
         if info.kindtype:
-            self._set_select(page, f"{_p}kindtype_id", info.kindtype)
-            time.sleep(_AJAX_WAIT)
+            await self._set_select(page, f"{_p}kindtype_id", info.kindtype)
+            await asyncio.sleep(_AJAX_WAIT)
         if info.kindtype_sed:
-            self._set_select(page, f"{_p}kindtypeSed_id", info.kindtype_sed)
-            time.sleep(_AJAX_WAIT)
+            await self._set_select(page, f"{_p}kindtypeSed_id", info.kindtype_sed)
+            await asyncio.sleep(_AJAX_WAIT)
         if info.kindtype_thr:
-            self._set_select(page, f"{_p}kindtypeThr_id", info.kindtype_thr)
+            await self._set_select(page, f"{_p}kindtypeThr_id", info.kindtype_thr)
 
         # 简单下拉框
-        self._set_select(page, f"{_p}resource_id", info.resource)
-        self._set_select(page, f"{_p}language_id", info.language)
-        self._set_select(page, f"{_p}is_foreign", info.is_foreign)
-        self._set_select(page, f"{_p}is_help", info.is_help)
-        self._set_select(page, f"{_p}is_publicgood", info.is_publicgood)
-        self._set_select(page, f"{_p}is_factory", info.is_factory)
-        self._set_select(page, f"{_p}is_secret", info.is_secret)
+        await self._set_select(page, f"{_p}resource_id", info.resource)
+        await self._set_select(page, f"{_p}language_id", info.language)
+        await self._set_select(page, f"{_p}is_foreign", info.is_foreign)
+        await self._set_select(page, f"{_p}is_help", info.is_help)
+        await self._set_select(page, f"{_p}is_publicgood", info.is_publicgood)
+        await self._set_select(page, f"{_p}is_factory", info.is_factory)
+        await self._set_select(page, f"{_p}is_secret", info.is_secret)
         # 是否加急 → 是，并填写原因
-        self._set_select(page, f"{_p}is_emergency", "1")
-        time.sleep(_SHORT_WAIT)
-        self._set_field(page, f"{_p}urgentmemo", "着急将合同盖章拿给客户付款")
-        self._set_select(page, f"{_p}isunion", info.isunion)
-        self._set_select(page, f"{_p}isforeigncoop", info.isforeigncoop)
+        await self._set_select(page, f"{_p}is_emergency", "1")
+        await asyncio.sleep(_SHORT_WAIT)
+        await self._set_field(page, f"{_p}urgentmemo", "着急将合同盖章拿给客户付款")
+        await self._set_select(page, f"{_p}isunion", info.isunion)
+        await self._set_select(page, f"{_p}isforeigncoop", info.isforeigncoop)
 
         # 文本字段
-        self._set_field(page, f"{_p}name", info.case_name)
-        self._set_field(page, f"{_p}desc", info.case_desc)
+        await self._set_field(page, f"{_p}name", info.case_name)
+        await self._set_field(page, f"{_p}desc", info.case_desc)
 
         # 收案日期（必填，空则取当天）
         start_date: str = info.start_date
@@ -271,18 +268,18 @@ class PlaywrightFilingMixin:  # pragma: no cover
             from datetime import date as _date
 
             start_date = _date.today().isoformat()
-        self._set_field(page, f"{_p}start_date", start_date)
+        await self._set_field(page, f"{_p}start_date", start_date)
 
         # 客户联系人（name 带动态 GUID，用 name 属性前缀匹配）
         if info.contact_name:
-            page.evaluate(
+            await page.evaluate(
                 f"""() => {{
                 var el = document.querySelector('input[name*="pro_pl_name"]');
                 if (el) el.value = {self._js_str(info.contact_name)};
             }}"""
             )
         if info.contact_phone:
-            page.evaluate(
+            await page.evaluate(
                 f"""() => {{
                 var el = document.querySelector('input[name*="pro_pl_phone"]');
                 if (el) el.value = {self._js_str(info.contact_phone)};
@@ -295,7 +292,7 @@ class PlaywrightFilingMixin:  # pragma: no cover
     # 利益冲突信息
     # ------------------------------------------------------------------
 
-    def _fill_conflict_info(self: Any, parties: list[ConflictPartyInfo]) -> None:  # pragma: no cover
+    async def _fill_conflict_info(self: Any, parties: list[ConflictPartyInfo]) -> None:  # pragma: no cover
         """填写利益冲突信息标签。
 
         页面默认有一条空记录，字段名带动态 GUID 后缀。
@@ -312,12 +309,12 @@ class PlaywrightFilingMixin:  # pragma: no cover
         for idx, party in enumerate(parties):
             if idx > 0:
                 # 点击"添加"按钮新增一条
-                page.click('a.legal_btn[data-type="addConfict"]')
-                time.sleep(_MEDIUM_WAIT)
+                await page.click('a.legal_btn[data-type="addConfict"]')
+                await asyncio.sleep(_MEDIUM_WAIT)
 
             # 获取第 idx 个利冲条目的 GUID
             guid: str = (
-                page.evaluate(
+                await page.evaluate(
                     f"""() => {{
                 var tables = document.querySelectorAll(
                     '#divConfict table[id^="table_confilct_"]'
@@ -335,19 +332,19 @@ class PlaywrightFilingMixin:  # pragma: no cover
                 continue
 
             # 下拉框
-            self._set_field_by_name(page, f"pro_pci_type_{guid}", party.category)
-            self._set_field_by_name(page, f"pro_pci_relation_{guid}", party.legal_position)
-            self._set_field_by_name(page, f"pro_pci_customertype_{guid}", party.customer_type)
-            self._set_field_by_name(page, f"pro_pci_payment_{guid}", party.is_payer)
+            await self._set_field_by_name(page, f"pro_pci_type_{guid}", party.category)
+            await self._set_field_by_name(page, f"pro_pci_relation_{guid}", party.legal_position)
+            await self._set_field_by_name(page, f"pro_pci_customertype_{guid}", party.customer_type)
+            await self._set_field_by_name(page, f"pro_pci_payment_{guid}", party.is_payer)
 
             # 文本
-            self._set_field_by_name(page, f"pro_pci_name_{guid}", party.name)
+            await self._set_field_by_name(page, f"pro_pci_name_{guid}", party.name)
             if party.id_number:
-                self._set_field_by_name(page, f"pro_pci_no_{guid}", party.id_number)
+                await self._set_field_by_name(page, f"pro_pci_no_{guid}", party.id_number)
             if party.contact_name:
-                self._set_field_by_name(page, f"pro_pci_linker_{guid}", party.contact_name)
+                await self._set_field_by_name(page, f"pro_pci_linker_{guid}", party.contact_name)
             if party.contact_phone:
-                self._set_field_by_name(page, f"pro_pci_phone_{guid}", party.contact_phone)
+                await self._set_field_by_name(page, f"pro_pci_phone_{guid}", party.contact_phone)
 
         logger.info("利冲信息填写完成")
 
@@ -355,7 +352,7 @@ class PlaywrightFilingMixin:  # pragma: no cover
     # 委托合同信息
     # ------------------------------------------------------------------
 
-    def _fill_contract_info(self: Any, info: ContractInfo) -> None:  # pragma: no cover
+    async def _fill_contract_info(self: Any, info: ContractInfo) -> None:  # pragma: no cover
         """填写委托合同信息标签。"""
         page = self._page
         assert page is not None
@@ -363,19 +360,19 @@ class PlaywrightFilingMixin:  # pragma: no cover
 
         logger.info("填写合同信息")
 
-        self._set_select(page, f"{_p}rec_type", info.rec_type)
-        self._set_select(page, f"{_p}currency", info.currency)
-        self._set_select(page, f"{_p}contract_type", info.contract_type)
-        self._set_select(page, f"{_p}IsFree", info.is_free)
+        await self._set_select(page, f"{_p}rec_type", info.rec_type)
+        await self._set_select(page, f"{_p}currency", info.currency)
+        await self._set_select(page, f"{_p}contract_type", info.contract_type)
+        await self._set_select(page, f"{_p}IsFree", info.is_free)
 
         if info.start_date:
-            self._set_field(page, f"{_p}start_date", info.start_date)
+            await self._set_field(page, f"{_p}start_date", info.start_date)
         if info.end_date:
-            self._set_field(page, f"{_p}end_date", info.end_date)
+            await self._set_field(page, f"{_p}end_date", info.end_date)
         if info.amount:
-            self._set_field(page, f"{_p}amount", info.amount)
+            await self._set_field(page, f"{_p}amount", info.amount)
 
-        self._set_field(page, f"{_p}stamp_count", str(info.stamp_count))
+        await self._set_field(page, f"{_p}stamp_count", str(info.stamp_count))
 
         logger.info("合同信息填写完成")
 
@@ -383,7 +380,7 @@ class PlaywrightFilingMixin:  # pragma: no cover
     # 存草稿 / 切换标签
     # ------------------------------------------------------------------
 
-    def _save_draft(self: Any) -> None:  # pragma: no cover
+    async def _save_draft(self: Any) -> None:  # pragma: no cover
         """点击存草稿按钮。
 
         OA 的 ``projectAppReg.frmOk('0')`` 会弹出 ``confirm`` 对话框，
@@ -395,17 +392,17 @@ class PlaywrightFilingMixin:  # pragma: no cover
         logger.info("点击存草稿")
 
         # 覆盖 confirm，自动返回 true
-        page.evaluate("window.confirm = () => true")
+        await page.evaluate("window.confirm = () => true")
 
-        page.click("#ctl00_ctl00_mainContentPlaceHolder_projmainPlaceHolder_btnSave")
-        time.sleep(_MEDIUM_WAIT)
+        await page.click("#ctl00_ctl00_mainContentPlaceHolder_projmainPlaceHolder_btnSave")
+        await asyncio.sleep(_MEDIUM_WAIT)
 
-        page.wait_for_load_state("domcontentloaded", timeout=15_000)
+        await page.wait_for_load_state("domcontentloaded", timeout=15_000)
         logger.info("存草稿完成，当前URL: %s", page.url)
 
-    def _click_next_tab(self: Any) -> None:  # pragma: no cover
+    async def _click_next_tab(self: Any) -> None:  # pragma: no cover
         """点击"下一步"切换到下一个标签页。"""
         page = self._page
         assert page is not None
-        page.click('a.legal_btn[data-type="tabNext"]')
-        time.sleep(_MEDIUM_WAIT)
+        await page.click('a.legal_btn[data-type="tabNext"]')
+        await asyncio.sleep(_MEDIUM_WAIT)

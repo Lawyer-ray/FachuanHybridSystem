@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from playwright.sync_api import BrowserContext, Page
+from playwright.async_api import BrowserContext, Page
 
 from .filing_models import CaseInfo, ClientInfo, ConflictPartyInfo, ContractInfo
 from .http_filing import HttpFilingMixin
@@ -25,7 +25,7 @@ class JtnFilingScript(SsoLoginMixin, PlaywrightFilingMixin, PlaywrightHelpersMix
         self._page: Page | None = None
         self._context: BrowserContext | None = None
 
-    def run(
+    async def run(
         self,
         clients: list[ClientInfo],
         case_info: CaseInfo | None = None,
@@ -34,7 +34,7 @@ class JtnFilingScript(SsoLoginMixin, PlaywrightFilingMixin, PlaywrightHelpersMix
     ) -> None:
         """执行完整立案流程（HTTP 主链路 + Playwright 兜底）。"""
         try:
-            self._run_via_http(
+            await self._run_via_http(
                 clients=clients,
                 case_info=case_info,
                 conflict_parties=conflict_parties,
@@ -45,7 +45,7 @@ class JtnFilingScript(SsoLoginMixin, PlaywrightFilingMixin, PlaywrightHelpersMix
         except Exception as exc:
             logger.warning("HTTP 立案失败，回退 Playwright: %s", exc, exc_info=True)
 
-        self._run_via_playwright(
+        await self._run_via_playwright(
             clients=clients,
             case_info=case_info,
             conflict_parties=conflict_parties,
