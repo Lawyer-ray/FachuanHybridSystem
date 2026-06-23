@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
+# 公共常量从 jtn.auth.constants 导入，避免重复定义
+from ..auth.constants import _DEFAULT_HTTP_TIMEOUT, _HTTP_HEADERS, _LOGIN_URL
+
 # ============================================================
-# URL
+# URL（立案特有）
 # ============================================================
-_LOGIN_URL = "https://ims.jtn.com/member/login.aspx"
 _FILING_URL = "https://ims.jtn.com/projflw/ProjectAppRegNew.aspx?t=1&&FirstModel=PROJECT&SecondModel=PROJECT003"
 _PROJECT_HANDLER_BASE = "https://ims.jtn.com/Handle/ProjectAppHandler.ashx"
-_HTTP_HEADERS = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
-_DEFAULT_HTTP_TIMEOUT = 20
 
 # ============================================================
 # XPath

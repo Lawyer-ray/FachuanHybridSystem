@@ -14,8 +14,6 @@ from apps.core.services.browser import create_browser_async
 from .constants import (
     _AJAX_WAIT,
     _FILING_URL,
-    _HTTP_HEADERS,
-    _LOGIN_URL,
     _MEDIUM_WAIT,
     _SHORT_WAIT,
     _XPATH_ADD_CLIENT_BTN,
@@ -93,19 +91,9 @@ class PlaywrightFilingMixin:  # pragma: no cover
         assert self._context is not None
 
         # 优先尝试缓存 cookies
-        cached = self._load_cookies()
+        cached = self._auth.load_cookies()
         if cached is not None:
-            for c in cached:
-                await self._context.add_cookies(
-                    [
-                        {
-                            "name": c["name"],
-                            "value": c["value"],
-                            "domain": c["domain"],
-                            "path": c.get("path", "/"),
-                        }
-                    ]
-                )
+            await self._auth.inject_to_context(self._context, cached)
             # 验证 cookies 是否有效
             await self._page.goto(_FILING_URL, wait_until="domcontentloaded", timeout=30_000)
             await asyncio.sleep(_MEDIUM_WAIT)
@@ -116,22 +104,12 @@ class PlaywrightFilingMixin:  # pragma: no cover
 
         # 走 SSO 扫码 + 凭证登录
         logger.info("SSO 登录（需要扫码）")
-        await self._login_via_sso()
+        await self._auth.sso_login()
         # 将新 cookies 注入 Playwright context
-        new_cookies = self._load_cookies()
+        new_cookies = self._auth.load_cookies()
         if new_cookies is None:
             raise RuntimeError("SSO 登录后未获取到 cookies")
-        for c in new_cookies:
-            await self._context.add_cookies(
-                [
-                    {
-                        "name": c["name"],
-                        "value": c["value"],
-                        "domain": c["domain"],
-                        "path": c.get("path", "/"),
-                    }
-                ]
-            )
+        await self._auth.inject_to_context(self._context, new_cookies)
         logger.info("Playwright 登录成功（SSO 扫码完成）")
 
     async def _navigate_to_filing(self: Any) -> None:  # pragma: no cover

@@ -12,7 +12,7 @@ from urllib.parse import urljoin
 import httpx
 from lxml import html as lxml_html
 
-from .constants import _DEFAULT_HTTP_TIMEOUT, _FILING_URL, _HTTP_HEADERS, _LOGIN_URL, _PROJECT_HANDLER_BASE
+from .constants import _DEFAULT_HTTP_TIMEOUT, _FILING_URL, _HTTP_HEADERS, _PROJECT_HANDLER_BASE
 from .filing_models import CaseInfo, ClientInfo, ConflictPartyInfo, ContractInfo, FilingFormState, ResolvedCustomer
 
 logger = logging.getLogger("apps.oa_filing.jtn")
@@ -94,28 +94,25 @@ class HttpFilingMixin:  # pragma: no cover
     async def _http_login(self: Any, client: httpx.AsyncClient) -> None:  # pragma: no cover
         """HTTP 登录：优先使用缓存 cookies，过期则走 SSO 扫码流程。"""
         # 优先尝试缓存 cookies
-        cached = self._load_cookies()
+        cached = self._auth.load_cookies()
         if cached is not None:
-            for c in cached:
-                client.cookies.set(c["name"], c["value"], domain=c["domain"])
+            self._auth.inject_to_httpx(client, cached)
             # 验证 cookies 是否有效
             probe = await client.get(_FILING_URL)
             if "login" not in str(probe.url).lower() and "aspnetForm" in probe.text:
                 logger.info("HTTP 登录成功（使用缓存 cookies）")
                 return
             logger.info("缓存 cookies 已失效，重新登录")
-            # 清除失效 cookies
             client.cookies.clear()
 
         # 走 SSO 扫码 + 凭证登录
         logger.info("SSO 登录 OA（需要扫码）")
-        await self._login_via_sso()
+        await self._auth.sso_login()
         # 将新 cookies 注入 httpx client
-        new_cookies = self._load_cookies()
+        new_cookies = self._auth.load_cookies()
         if new_cookies is None:
             raise RuntimeError("SSO 登录后未获取到 cookies")
-        for c in new_cookies:
-            client.cookies.set(c["name"], c["value"], domain=c["domain"])
+        self._auth.inject_to_httpx(client, new_cookies)
         logger.info("HTTP 登录成功（SSO 扫码完成）")
 
     # ------------------------------------------------------------------
