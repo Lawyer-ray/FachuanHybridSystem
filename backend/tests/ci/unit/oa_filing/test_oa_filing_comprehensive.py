@@ -174,11 +174,12 @@ class TestScriptExecutorService:
         kind1, kind2 = svc._map_kindtype("02", [party])
         assert kind1 == "KindType02_05"
 
+    @pytest.mark.asyncio
     @patch("apps.oa_filing.services.script_executor_service.django_apps")
-    def test_dispatch_unsupported_site(self, mock_apps) -> None:
+    async def test_dispatch_unsupported_site(self, mock_apps) -> None:
         svc = self._make_service()
         with pytest.raises(ScriptExecutionError, match="不支持的OA系统"):
-            svc._dispatch("UnsupportedSite", MagicMock(), 1, None)
+            await svc._dispatch("UnsupportedSite", MagicMock(), 1, None)
 
     def test_map_legal_position_plaintiff(self) -> None:
         svc = self._make_service()

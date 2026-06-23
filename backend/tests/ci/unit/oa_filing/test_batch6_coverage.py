@@ -180,10 +180,11 @@ class TestScriptExecutorServiceMapping:
         kind, kind2 = svc._map_kindtype("02", [party])
         assert kind == "KindType02_01"
 
-    def test_dispatch_unsupported_site(self):
+    @pytest.mark.asyncio
+    async def test_dispatch_unsupported_site(self):
         svc = self._make_service()
         with pytest.raises(Exception, match="不支持"):
-            svc._dispatch("未知站点", None, 1, None)
+            await svc._dispatch("未知站点", None, 1, None)
 
     def test_script_executor_supported_sites(self):
         from apps.oa_filing.services.script_executor_service import SUPPORTED_SITES

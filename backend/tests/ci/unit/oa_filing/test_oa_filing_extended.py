@@ -133,9 +133,10 @@ class TestScriptExecutorServiceMappings:
         principal, sed = self.service._map_kindtype("02", [party])
         assert principal == "KindType02_05"
 
-    def test_dispatch_unsupported_site(self):
+    @pytest.mark.asyncio
+    async def test_dispatch_unsupported_site(self):
         with pytest.raises(Exception):
-            self.service._dispatch("unsupported_site", MagicMock(), 1, None)
+            await self.service._dispatch("unsupported_site", MagicMock(), 1, None)
 
 
 # ── CaseImportService mapping methods ────────────────────────────────────────

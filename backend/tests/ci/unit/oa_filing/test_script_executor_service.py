@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -192,15 +192,17 @@ class TestMapKindtype:
 
 
 class TestDispatch:
-    def test_unsupported_site_raises(self, svc):
+    @pytest.mark.asyncio
+    async def test_unsupported_site_raises(self, svc):
         from apps.oa_filing.services.exceptions import ScriptExecutionError
         with pytest.raises(ScriptExecutionError, match="不支持"):
-            svc._dispatch("unsupported_site", MagicMock(), 1, None)
+            await svc._dispatch("unsupported_site", MagicMock(), 1, None)
 
-    @patch.object(ScriptExecutorService, "_run_jtn")
-    def test_jtn_dispatches(self, mock_run):
+    @pytest.mark.asyncio
+    @patch.object(ScriptExecutorService, "_run_jtn", new_callable=AsyncMock)
+    async def test_jtn_dispatches(self, mock_run):
         svc = ScriptExecutorService()
-        svc._dispatch("金诚同达OA", MagicMock(), 1, None)
+        await svc._dispatch("金诚同达OA", MagicMock(), 1, None)
         mock_run.assert_called_once()
 
 

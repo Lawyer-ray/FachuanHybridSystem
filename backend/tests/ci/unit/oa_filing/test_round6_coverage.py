@@ -248,11 +248,12 @@ class TestScriptExecutorMappings:
         result = svc._map_kindtype("01", [party])
         assert result == ("KindType01_01", "KindType01_0103")
 
-    def test_dispatch_unsupported_site(self, svc):
+    @pytest.mark.asyncio
+    async def test_dispatch_unsupported_site(self, svc):
         from apps.oa_filing.services.exceptions import ScriptExecutionError
 
         with pytest.raises(ScriptExecutionError, match="不支持"):
-            svc._dispatch("unsupported", MagicMock(), 1, None)
+            await svc._dispatch("unsupported", MagicMock(), 1, None)
 
 
 # ---------------------------------------------------------------------------
