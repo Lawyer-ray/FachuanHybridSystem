@@ -39,7 +39,7 @@ def get_docspace_config(request: HttpRequest) -> DocSpaceConfigOut:
 
 
 @router.post("/upload", response=DocSpaceUploadOut, summary="上传文件到 DocSpace")
-def upload_file(
+async def upload_file(
     request: HttpRequest,
     file: UploadedFile = File(...),
     folder_id: int | None = Form(default=None),
@@ -52,7 +52,7 @@ def upload_file(
 
     content = file.read()
     client = _get_client()
-    ds_file = client.upload_file(target_folder, file.name or "untitled", content)
+    ds_file = await client.aupload_file(target_folder, file.name or "untitled", content)
 
     # 创建本地映射记录（DocSpace 对相同内容去重，可能已存在）
     doc, created = DocSpaceDocument.objects.get_or_create(
@@ -85,7 +85,7 @@ def upload_file(
 
 
 @router.post("/create", response=DocSpaceUploadOut, summary="新建空白文档")
-def create_document(
+async def create_document(
     request: HttpRequest,
     title: str = Form(default="新建文档.docx"),
 ) -> DocSpaceUploadOut:
@@ -96,7 +96,7 @@ def create_document(
         raise HttpError(400, "未配置默认文件夹")
 
     client = _get_client()
-    ds_file = client.create_empty_docx(target_folder, title)
+    ds_file = await client.acreate_empty_docx(target_folder, title)
 
     # DocSpace 对相同内容去重，可能已存在
     doc, created = DocSpaceDocument.objects.get_or_create(
@@ -146,12 +146,12 @@ def get_document(request: HttpRequest, doc_id: int) -> DocSpaceDocumentOut:
 
 
 @router.delete("/documents/{doc_id}", summary="删除文档")
-def delete_document(request: HttpRequest, doc_id: int) -> dict[str, bool]:
+async def delete_document(request: HttpRequest, doc_id: int) -> dict[str, bool]:
     doc = _get_user_doc(request, doc_id)
     # 删除远端文件（忽略远端不存在的情况）
     try:
         client = _get_client()
-        client.delete_file(doc.docspace_file_id)
+        await client.adelete_file(doc.docspace_file_id)
     except Exception:
         logger.warning("DocSpace 远端删除失败，继续删除本地记录: file_id=%s", doc.docspace_file_id)
     doc.delete()
@@ -162,10 +162,10 @@ def delete_document(request: HttpRequest, doc_id: int) -> dict[str, bool]:
 
 
 @router.get("/documents/{doc_id}/download", summary="下载文档")
-def download_document(request: HttpRequest, doc_id: int) -> FileResponse:
+async def download_document(request: HttpRequest, doc_id: int) -> FileResponse:
     doc = _get_user_doc(request, doc_id)
     client = _get_client()
-    content, filename = client.download_file(doc.docspace_file_id)
+    content, filename = await client.adownload_file(doc.docspace_file_id)
 
     import io
 
@@ -180,10 +180,10 @@ def download_document(request: HttpRequest, doc_id: int) -> FileResponse:
 
 
 @router.post("/sync/{doc_id}", response=DocSpaceDocumentOut, summary="刷新文档元数据")
-def sync_document(request: HttpRequest, doc_id: int) -> DocSpaceDocumentOut:
+async def sync_document(request: HttpRequest, doc_id: int) -> DocSpaceDocumentOut:
     doc = _get_user_doc(request, doc_id)
     client = _get_client()
-    ds_file = client.get_file_info(doc.docspace_file_id)
+    ds_file = await client.aget_file_info(doc.docspace_file_id)
 
     # 更新本地映射
     doc.title = ds_file.title

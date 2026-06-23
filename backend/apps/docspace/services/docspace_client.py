@@ -60,7 +60,9 @@ class DocSpaceClient:
                 url,
                 headers=self._headers,
                 data={"title": title},
-                files={"file": (title, content, "application/vnd.openxmlformats-officedocument.wordprocessingml.document")},
+                files={
+                    "file": (title, content, "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+                },
             )
             resp.raise_for_status()
         data = resp.json()
@@ -107,6 +109,73 @@ class DocSpaceClient:
         url = f"{self._base}/api/2.0/files/file/{file_id}"
         with httpx.Client(timeout=_TIMEOUT) as client:
             resp = client.delete(url, headers=self._headers)
+            resp.raise_for_status()
+
+    # ── 异步方法 ──────────────────────────────────────────────
+
+    async def aupload_file(self, folder_id: int, filename: str, file_content: bytes) -> DocSpaceFile:
+        """异步上传文件到指定文件夹。"""
+        url = f"{self._base}/api/2.0/files/{folder_id}/upload"
+        async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
+            resp = await client.post(url, headers=self._headers, files={"file": (filename, file_content)})
+            resp.raise_for_status()
+        data = resp.json()
+        items: list[dict[str, Any]] = data.get("response", [])
+        if not items:
+            raise ValueError("DocSpace 上传失败：返回空结果")
+        return _parse_file_entry(items[0])
+
+    async def acreate_empty_docx(self, folder_id: int, title: str = "新建文档.docx") -> DocSpaceFile:
+        """异步创建空白 .docx 文档。"""
+        content = _make_empty_docx()
+        url = f"{self._base}/api/2.0/files/{folder_id}/insert"
+        async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
+            resp = await client.post(
+                url,
+                headers=self._headers,
+                data={"title": title},
+                files={
+                    "file": (title, content, "application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+                },
+            )
+            resp.raise_for_status()
+        data = resp.json()
+        return _parse_file_entry(data["response"])
+
+    async def aget_file_info(self, file_id: int) -> DocSpaceFile:
+        """异步获取文件元信息。"""
+        url = f"{self._base}/api/2.0/files/file/{file_id}"
+        async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
+            resp = await client.get(url, headers=self._headers)
+            resp.raise_for_status()
+        data = resp.json()
+        return _parse_file_entry(data["response"])
+
+    async def alist_files(self, folder_id: int) -> list[DocSpaceFile]:
+        """异步列出文件夹下的文件。"""
+        url = f"{self._base}/api/2.0/files/{folder_id}"
+        async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
+            resp = await client.get(url, headers=self._headers)
+            resp.raise_for_status()
+        data = resp.json()
+        files_raw = data.get("response", {}).get("files", [])
+        return [_parse_file_entry(f) for f in files_raw]
+
+    async def adownload_file(self, file_id: int) -> tuple[bytes, str]:
+        """异步下载文件，返回 (content, filename)。"""
+        url = f"{self._base}/filehandler.ashx?action=download&fileid={file_id}"
+        async with httpx.AsyncClient(timeout=_TIMEOUT, follow_redirects=True) as client:
+            resp = await client.get(url, headers=self._headers)
+            resp.raise_for_status()
+        cd = resp.headers.get("content-disposition", "")
+        filename = _extract_filename(cd) or f"file_{file_id}"
+        return resp.content, filename
+
+    async def adelete_file(self, file_id: int) -> None:
+        """异步删除 DocSpace 上的文件。"""
+        url = f"{self._base}/api/2.0/files/file/{file_id}"
+        async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
+            resp = await client.delete(url, headers=self._headers)
             resp.raise_for_status()
 
 

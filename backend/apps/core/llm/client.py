@@ -118,3 +118,22 @@ class LLMClient:
             list[list[float]],
             fallback_policy.execute(operation=operation, backend=backend_name, fallback=fallback),
         )
+
+    async def aembed_texts(
+        self,
+        *,
+        fallback_policy: Any,
+        texts: list[str],
+        backend: str | None = None,
+        model: str | None = None,
+        fallback: bool = True,
+        **kwargs: Any,
+    ) -> list[list[float]]:
+        async def operation(b: ILLMBackend) -> list[list[float]]:
+            return await b.aembed_texts(texts=texts, model=model, **kwargs)
+
+        backend_name = self._resolve_backend(backend, model, self._default_backend)
+        return cast(
+            list[list[float]],
+            await fallback_policy.execute_async(operation=operation, backend=backend_name, fallback=fallback),
+        )

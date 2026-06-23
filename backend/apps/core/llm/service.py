@@ -238,6 +238,23 @@ class LLMService:
             **kwargs,
         )
 
+    async def aembed_texts(
+        self,
+        texts: list[str],
+        backend: str | None = None,
+        model: str | None = None,
+        fallback: bool = True,
+        **kwargs: Any,
+    ) -> list[list[float]]:
+        return await self._client.aembed_texts(
+            fallback_policy=self._fallback_policy,
+            texts=texts,
+            backend=backend,
+            model=model,
+            fallback=fallback,
+            **kwargs,
+        )
+
     def get_backend(self, name: str) -> ILLMBackend:
         """获取指定后端实例"""
         return self._get_backend(name)

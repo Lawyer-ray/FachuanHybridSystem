@@ -192,6 +192,15 @@ class ILLMBackend(Protocol):
         """向量化文本列表。"""
         ...
 
+    async def aembed_texts(
+        self,
+        texts: list[str],
+        model: str | None = None,
+        **kwargs: Any,
+    ) -> list[list[float]]:
+        """异步向量化文本列表。"""
+        ...
+
     def is_available(self) -> bool:
         """
         检查后端是否可用

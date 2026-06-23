@@ -135,17 +135,21 @@ class PaddleOCRApiEngine:
             "fileType": file_type,
         }
         if model in _OCR_ENDPOINT_MODELS:
-            optional_payload.update({
-                "useDocOrientationClassify": False,
-                "useDocUnwarping": False,
-                "useTextlineOrientation": False,
-            })
+            optional_payload.update(
+                {
+                    "useDocOrientationClassify": False,
+                    "useDocUnwarping": False,
+                    "useTextlineOrientation": False,
+                }
+            )
         elif model in _LAYOUT_ENDPOINT_MODELS:
-            optional_payload.update({
-                "useDocOrientationClassify": False,
-                "useDocUnwarping": False,
-                "useChartRecognition": False,
-            })
+            optional_payload.update(
+                {
+                    "useDocOrientationClassify": False,
+                    "useDocUnwarping": False,
+                    "useChartRecognition": False,
+                }
+            )
 
         headers = {
             "Authorization": f"bearer {self.api_token}",
@@ -407,3 +411,112 @@ class PaddleOCRApiEngine:
             PaddleOCRApiResult: 识别结果
         """
         return self.recognize_bytes(pdf_bytes, is_pdf=True)
+
+    # ── 异步方法 ──────────────────────────────────────────────
+
+    async def arecognize_bytes(
+        self, image_bytes: bytes, is_pdf: bool = False
+    ) -> PaddleOCRApiResult:  # pragma: no cover
+        """
+        异步识别图片/PDF字节数据中的文字
+
+        使用异步 Job 模式：提交任务 → 异步轮询（asyncio.sleep） → 获取结果。
+        相比同步版本，轮询等待期间不阻塞事件循环。
+
+        Args:
+            image_bytes: 图片或 PDF 字节数据
+            is_pdf: 是否为 PDF 文件
+
+        Returns:
+            PaddleOCRApiResult: 识别结果
+        """
+        import asyncio
+
+        if not self._is_configured():
+            raise RuntimeError("PaddleOCR API 未配置：请先在系统配置中设置 API URL 和 Token")
+
+        model = self.model
+        file_type = _FILE_TYPE_PDF if is_pdf else _FILE_TYPE_IMAGE
+
+        optional_payload: dict[str, Any] = {"fileType": file_type}
+        if model in _OCR_ENDPOINT_MODELS:
+            optional_payload.update(
+                {
+                    "useDocOrientationClassify": False,
+                    "useDocUnwarping": False,
+                    "useTextlineOrientation": False,
+                }
+            )
+        elif model in _LAYOUT_ENDPOINT_MODELS:
+            optional_payload.update(
+                {
+                    "useDocOrientationClassify": False,
+                    "useDocUnwarping": False,
+                    "useChartRecognition": False,
+                }
+            )
+
+        headers = {"Authorization": f"bearer {self.api_token}"}
+        data = {"model": model, "optionalPayload": json.dumps(optional_payload)}
+        files = {"file": ("image.jpg", image_bytes, "image/jpeg")}
+
+        logger.info("PaddleOCR API 异步调用: model=%s, file_type=%s, data_size=%d", model, file_type, len(image_bytes))
+
+        try:
+            # 提交 Job
+            async with httpx.AsyncClient(timeout=30) as client:
+                response = await client.post(self.api_url, headers=headers, data=data, files=files)
+
+            if response.status_code != 200:
+                logger.warning("PaddleOCR API 提交失败: status=%d, body=%s", response.status_code, response.text[:500])
+                raise RuntimeError(f"PaddleOCR API 返回错误: HTTP {response.status_code}")
+
+            resp_data = response.json()
+            job_id = resp_data.get("data", {}).get("jobId")
+            if not job_id:
+                raise RuntimeError(f"PaddleOCR API 未返回 jobId: {resp_data}")
+
+            logger.info("PaddleOCR API Job 已提交: jobId=%s", job_id)
+
+            # 异步轮询 — 关键改进：await asyncio.sleep 替代 time.sleep，不阻塞事件循环
+            max_polls = int(_REQUEST_TIMEOUT / 3)
+            async with httpx.AsyncClient(timeout=30) as poll_client:
+                for _ in range(max_polls):
+                    await asyncio.sleep(3)
+                    poll_resp = await poll_client.get(f"{self.api_url}/{job_id}", headers=headers)
+
+                    if poll_resp.status_code != 200:
+                        continue
+
+                    poll_data = poll_resp.json()
+                    state = poll_data.get("data", {}).get("state", "")
+
+                    if state == "done":
+                        result_url = poll_data.get("data", {}).get("resultUrl", {})
+                        jsonl_url = result_url.get("jsonUrl", "")
+                        if not jsonl_url:
+                            raise RuntimeError("PaddleOCR API 完成但无 jsonUrl")
+
+                        jsonl_resp = await poll_client.get(jsonl_url)
+                        return self._parse_jsonl_response(jsonl_resp.text, model)
+
+                    elif state == "failed":
+                        error_msg = poll_data.get("data", {}).get("errorMsg", "未知错误")
+                        raise RuntimeError(f"PaddleOCR API Job 失败: {error_msg}")
+
+            raise RuntimeError(f"PaddleOCR API Job 超时（{_REQUEST_TIMEOUT}s）")
+
+        except httpx.TimeoutException as e:
+            logger.warning("PaddleOCR API 超时: %s", e)
+            raise RuntimeError(f"PaddleOCR API 超时: {e}") from e
+        except httpx.HTTPError as e:
+            logger.warning("PaddleOCR API 网络错误: %s", e)
+            raise RuntimeError(f"PaddleOCR API 网络错误: {e}") from e
+
+    async def aextract_text(self, image_bytes: bytes) -> PaddleOCRApiResult:
+        """异步提取图片中的文字。"""
+        return await self.arecognize_bytes(image_bytes, is_pdf=False)
+
+    async def aextract_text_from_pdf(self, pdf_bytes: bytes) -> PaddleOCRApiResult:
+        """异步提取 PDF 中的文字。"""
+        return await self.arecognize_bytes(pdf_bytes, is_pdf=True)

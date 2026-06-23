@@ -422,6 +422,28 @@ class OpenAICompatibleBackend:
             vectors.append([float(v) for v in (getattr(item, "embedding", None) or [])])
         return vectors
 
+    async def aembed_texts(
+        self,
+        texts: list[str],
+        model: str | None = None,
+        **kwargs: Any,
+    ) -> list[list[float]]:
+        """异步向量化文本列表。"""
+        if not texts:
+            return []
+        used_model = self._resolve_embedding_model(model)
+        request_timeout = float(kwargs.pop("timeout_seconds", self.timeout))
+        try:
+            client = await self._build_async_client(timeout_seconds=request_timeout)
+            response = await client.embeddings.create(model=used_model, input=texts)
+        except Exception as error:
+            self._raise_mapped_error(error, request_timeout, self.base_url)
+
+        vectors: list[list[float]] = []
+        for item in getattr(response, "data", None) or []:
+            vectors.append([float(v) for v in (getattr(item, "embedding", None) or [])])
+        return vectors
+
     def is_available(self) -> bool:
         if self._config and not self._config.enabled:
             logger.debug("OpenAI-compatible 后端不可用:已在配置中禁用")

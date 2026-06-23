@@ -51,6 +51,23 @@ class POIServiceClient:  # pragma: no cover
             result: dict[str, Any] = response.json()
             return result
 
+    async def _apost(self, endpoint: str, payload: dict[str, Any]) -> bytes:  # pragma: no cover
+        """异步 POST 请求，返回原始字节。"""
+        url = f"{self.base_url}/api/documents{endpoint}"
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            response = await client.post(url, json=payload)
+            response.raise_for_status()
+            return response.content
+
+    async def _aget(self, endpoint: str) -> dict[str, Any]:  # pragma: no cover
+        """异步 GET 请求，返回 JSON。"""
+        url = f"{self.base_url}/api/documents{endpoint}"
+        async with httpx.AsyncClient(timeout=self.timeout) as client:
+            response = await client.get(url)
+            response.raise_for_status()
+            result: dict[str, Any] = response.json()
+            return result
+
     def health_check(self) -> bool:
         """Check if the POI service is running.
 
@@ -148,10 +165,7 @@ class POIServiceClient:  # pragma: no cover
         return templates
 
     def format_contract(  # pragma: no cover
-        self,
-        docx_bytes: bytes,
-        config: dict[str, Any] | None = None,
-        output_filename: str = "formatted_contract.docx"
+        self, docx_bytes: bytes, config: dict[str, Any] | None = None, output_filename: str = "formatted_contract.docx"
     ) -> bytes:
         """格式化合同文档
 
@@ -165,15 +179,51 @@ class POIServiceClient:  # pragma: no cover
         """
         logger.info("POI: 格式化合同, 原始大小=%d bytes", len(docx_bytes))
 
-        payload = {
-            "docxBytes": list(docx_bytes),
-            "outputFileName": output_filename
-        }
+        payload = {"docxBytes": list(docx_bytes), "outputFileName": output_filename}
 
         if config:
             payload["config"] = config  # type: ignore[assignment]
 
         return self._post("/contract/format", payload)
+
+    # ── 异步方法 ──────────────────────────────────────────────
+
+    async def ahealth_check(self) -> bool:
+        """异步健康检查。"""
+        try:
+            result = await self._aget("/health")
+            return result.get("status") == "ok"
+        except Exception as e:
+            logger.warning("POI服务异步健康检查失败: %s", e)
+            return False
+
+    async def agenerate_complaint(self, data: dict[str, Any]) -> bytes:
+        """异步生成起诉状。"""
+        logger.info("POI: 异步生成起诉状, 原告=%s, 被告=%s", data.get("plaintiffName"), data.get("defendantName"))
+        return await self._apost("/complaint", data)
+
+    async def agenerate_report(self, data: dict[str, Any]) -> bytes:
+        """异步生成尽调报告。"""
+        logger.info("POI: 异步生成尽调报告, 项目=%s", data.get("projectName"))
+        return await self._apost("/report", data)
+
+    async def arender_template(self, template_name: str, context: dict[str, Any]) -> bytes:
+        """异步渲染模板。"""
+        logger.info("POI: 异步渲染模板, template=%s, keys=%s", template_name, list(context.keys()))
+        return await self._apost("/template/render", {"templateName": template_name, "context": context})
+
+    async def aformat_contract(
+        self,
+        docx_bytes: bytes,
+        config: dict[str, Any] | None = None,
+        output_filename: str = "formatted_contract.docx",
+    ) -> bytes:
+        """异步格式化合同。"""
+        logger.info("POI: 异步格式化合同, 原始大小=%d bytes", len(docx_bytes))
+        payload: dict[str, Any] = {"docxBytes": list(docx_bytes), "outputFileName": output_filename}
+        if config:
+            payload["config"] = config
+        return await self._apost("/contract/format", payload)
 
 
 # ── Singleton ──────────────────────────────────────────────────────────────
