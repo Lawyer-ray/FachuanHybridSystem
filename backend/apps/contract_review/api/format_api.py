@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import Any
 from uuid import UUID
 
+from asgiref.sync import sync_to_async
 from django.http import FileResponse, HttpRequest
 from ninja import Router
 
@@ -23,103 +24,107 @@ def _check_task_access(task: Any, user: Any) -> bool:
 
 
 @router.post("/normalize", response=FormatNormalizeOut)
-def normalize_format(  # pragma: no cover
+async def normalize_format(  # pragma: no cover
     request: HttpRequest,
     payload: FormatNormalizeIn,
 ) -> dict[str, Any]:
     """对合同文件进行格式规范化"""
-    try:
-        task = ReviewTask.objects.get(id=payload.task_id)
-    except ReviewTask.DoesNotExist:
-        return {
-            "task_id": payload.task_id,
-            "status": "failed",
-            "message": "任务不存在",
-        }
 
-    # 权限检查
-    if not _check_task_access(task, request.user):
-        return {
-            "task_id": payload.task_id,
-            "status": "failed",
-            "message": "无权操作此任务",
-        }
+    def _do_normalize() -> dict[str, Any]:
+        try:
+            task = ReviewTask.objects.get(id=payload.task_id)
+        except ReviewTask.DoesNotExist:
+            return {
+                "task_id": payload.task_id,
+                "status": "failed",
+                "message": "任务不存在",
+            }
 
-    # 检查原始文件是否存在
-    if not task.original_file:
-        return {
-            "task_id": task.id,
-            "status": "failed",
-            "message": "原始文件不存在",
-        }
+        # 权限检查
+        if not _check_task_access(task, request.user):
+            return {
+                "task_id": payload.task_id,
+                "status": "failed",
+                "message": "无权操作此任务",
+            }
 
-    original_path = Path(task.original_file)
-    if not original_path.exists():
-        return {
-            "task_id": task.id,
-            "status": "failed",
-            "message": f"原始文件不存在: {original_path}",
-        }
+        # 检查原始文件是否存在
+        if not task.original_file:
+            return {
+                "task_id": task.id,
+                "status": "failed",
+                "message": "原始文件不存在",
+            }
 
-    try:
-        # 执行格式规范化
-        from apps.contract_review.services.format_normalizer import DocxFormatNormalizer
+        original_path = Path(task.original_file)
+        if not original_path.exists():
+            return {
+                "task_id": task.id,
+                "status": "failed",
+                "message": f"原始文件不存在: {original_path}",
+            }
 
-        # 生成输出文件路径
-        output_dir = original_path.parent
-        output_filename = f"{original_path.stem}_规范化{original_path.suffix}"
-        output_path = output_dir / output_filename
+        try:
+            # 执行格式规范化
+            from apps.contract_review.services.format_normalizer import DocxFormatNormalizer
 
-        # 获取参考文档路径
-        reference_path = None
-        if payload.reference_file:
-            reference_path = Path(payload.reference_file)
-            # 安全：验证参考文档路径在 MEDIA_ROOT 内，防止路径遍历攻击
-            from django.conf import settings
+            # 生成输出文件路径
+            output_dir = original_path.parent
+            output_filename = f"{original_path.stem}_规范化{original_path.suffix}"
+            output_path = output_dir / output_filename
 
-            media_root = Path(settings.MEDIA_ROOT).resolve()
-            try:
-                resolved_ref = reference_path.resolve()
-                if not resolved_ref.is_relative_to(media_root):
+            # 获取参考文档路径
+            reference_path = None
+            if payload.reference_file:
+                reference_path = Path(payload.reference_file)
+                # 安全：验证参考文档路径在 MEDIA_ROOT 内，防止路径遍历攻击
+                from django.conf import settings
+
+                media_root = Path(settings.MEDIA_ROOT).resolve()
+                try:
+                    resolved_ref = reference_path.resolve()
+                    if not resolved_ref.is_relative_to(media_root):
+                        return {
+                            "task_id": task.id,
+                            "status": "failed",
+                            "message": "无效的参考文档路径",
+                        }
+                except (ValueError, OSError):
                     return {
                         "task_id": task.id,
                         "status": "failed",
                         "message": "无效的参考文档路径",
                     }
-            except (ValueError, OSError):
-                return {
-                    "task_id": task.id,
-                    "status": "failed",
-                    "message": "无效的参考文档路径",
-                }
-            if not reference_path.exists():
-                return {
-                    "task_id": task.id,
-                    "status": "failed",
-                    "message": f"参考文档不存在: {reference_path}",
-                }
+                if not reference_path.exists():
+                    return {
+                        "task_id": task.id,
+                        "status": "failed",
+                        "message": f"参考文档不存在: {reference_path}",
+                    }
 
-        normalizer = DocxFormatNormalizer(original_path, output_path, reference_path)
-        result_path = normalizer.normalize()
+            normalizer = DocxFormatNormalizer(original_path, output_path, reference_path)
+            result_path = normalizer.normalize()
 
-        # 更新任务的输出文件
-        task.output_file = str(result_path)
-        task.save(update_fields=["output_file"])
+            # 更新任务的输出文件
+            task.output_file = str(result_path)
+            task.save(update_fields=["output_file"])
 
-        return {
-            "task_id": task.id,
-            "status": "success",
-            "output_file": str(result_path),
-            "message": "格式规范化完成",
-        }
+            return {
+                "task_id": task.id,
+                "status": "success",
+                "output_file": str(result_path),
+                "message": "格式规范化完成",
+            }
 
-    except Exception as e:
-        logger.exception("格式规范化失败: %s", e)
-        return {
-            "task_id": task.id,
-            "status": "failed",
-            "message": f"格式规范化失败: {e!s}",
-        }
+        except Exception as e:
+            logger.exception("格式规范化失败: %s", e)
+            return {
+                "task_id": task.id,
+                "status": "failed",
+                "message": f"格式规范化失败: {e!s}",
+            }
+
+    return await sync_to_async(_do_normalize, thread_sensitive=False)()
 
 
 @router.get("/{task_id}/download-normalized")

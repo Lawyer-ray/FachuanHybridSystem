@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from asgiref.sync import sync_to_async
 from django.http import HttpRequest
 from ninja import Router, Schema
 
@@ -111,9 +112,9 @@ def _get_ai_service() -> Any:
     response=AIPurposeResponse,
     summary="AI 证明目的建议",
 )
-def ai_suggest_purpose(request: HttpRequest, data: AIPurposeRequest) -> Any:  # pragma: no cover
+async def ai_suggest_purpose(request: HttpRequest, data: AIPurposeRequest) -> Any:  # pragma: no cover
     svc = _get_ai_service()
-    suggestions = svc.suggest_purpose(
+    suggestions = await sync_to_async(svc.suggest_purpose, thread_sensitive=False)(
         cause_of_action=data.cause_of_action,
         evidence_type=data.evidence_type,
         evidence_name=data.evidence_name,
@@ -127,9 +128,9 @@ def ai_suggest_purpose(request: HttpRequest, data: AIPurposeRequest) -> Any:  # 
     response=AICrossExamResponse,
     summary="AI 质证意见生成",
 )
-def ai_generate_cross_examination(request: HttpRequest, data: AICrossExamRequest) -> Any:  # pragma: no cover
+async def ai_generate_cross_examination(request: HttpRequest, data: AICrossExamRequest) -> Any:  # pragma: no cover
     svc = _get_ai_service()
-    result = svc.generate_cross_examination(
+    result = await sync_to_async(svc.generate_cross_examination, thread_sensitive=False)(
         cause_of_action=data.cause_of_action,
         our_claim=data.our_claim,
         evidence_name=data.evidence_name,

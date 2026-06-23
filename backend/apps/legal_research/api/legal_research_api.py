@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import re
 import zipfile
+from asyncio import get_running_loop
 from io import BytesIO
 from typing import Any
 
+from asgiref.sync import sync_to_async
 from django.http import FileResponse, Http404, HttpResponse
 from ninja import Router
 
@@ -92,10 +94,11 @@ def create_task(request: Any, payload: LegalResearchTaskCreateIn) -> LegalResear
 
 
 @router.post("/capability/search", response=AgentSearchResponseV1)
-def capability_search(request: Any, payload: AgentSearchRequestV1) -> AgentSearchResponseV1:  # pragma: no cover
+async def capability_search(request: Any, payload: AgentSearchRequestV1) -> AgentSearchResponseV1:  # pragma: no cover
     headers = getattr(request, "headers", {}) or {}
     idempotency_key = str(headers.get("Idempotency-Key", "") or "").strip()
-    return _get_capability_service().search(
+    svc = _get_capability_service()
+    return await sync_to_async(svc.search, thread_sensitive=False)(
         payload=payload,
         user=getattr(request, "user", None),
         idempotency_key=idempotency_key,
@@ -174,81 +177,86 @@ def download_all_results(request: Any, task_id: int) -> HttpResponse:  # pragma:
 
 
 @router.post("/law-verification/check", response=dict[str, Any])
-def check_law_references(request: Any, payload: dict[str, Any]) -> dict[str, Any]:  # pragma: no cover
+async def check_law_references(request: Any, payload: dict[str, Any]) -> dict[str, Any]:  # pragma: no cover
     """核查文档中的法规引用.
 
     请求: {"text": "文档全文", "credential_id": 6}
     响应: {"references": [...], "total": N}
     """
-    text = str(payload.get("text") or "").strip()
-    credential_id = int(payload.get("credential_id") or 0)
 
-    if not text:
-        return {"error": "text 不能为空", "references": [], "total": 0}
+    def _do_check() -> dict[str, Any]:
+        text = str(payload.get("text") or "").strip()
+        credential_id = int(payload.get("credential_id") or 0)
 
-    # 检测插件是否可用
-    from plugins import has_law_verification_plugin  # type: ignore[attr-defined]
+        if not text:
+            return {"error": "text 不能为空", "references": [], "total": 0}
 
-    if not has_law_verification_plugin():
-        return {"error": "法规核查插件未安装", "references": [], "total": 0}
+        # 检测插件是否可用
+        from plugins import has_law_verification_plugin  # type: ignore[attr-defined]
 
-    # 获取威科先行凭证
-    from apps.organization.models import AccountCredential
-    from apps.core.security.secret_codec import SecretCodec
+        if not has_law_verification_plugin():
+            return {"error": "法规核查插件未安装", "references": [], "total": 0}
 
-    try:
-        cred = AccountCredential.objects.get(id=credential_id)
-    except AccountCredential.DoesNotExist:
-        return {"error": f"凭证 ID {credential_id} 不存在", "references": [], "total": 0}
+        # 获取威科先行凭证
+        from apps.organization.models import AccountCredential
+        from apps.core.security.secret_codec import SecretCodec
 
-    codec = SecretCodec()
-    password = codec.try_decrypt(cred.password)
+        try:
+            cred = AccountCredential.objects.get(id=credential_id)
+        except AccountCredential.DoesNotExist:
+            return {"error": f"凭证 ID {credential_id} 不存在", "references": [], "total": 0}
 
-    # 建立威科先行会话
-    from plugins.weike_api_private.adapter import PrivateWeikeApiAdapter
-    from apps.legal_research.services.sources.weike.client import WeikeCaseClient
+        codec = SecretCodec()
+        password = codec.try_decrypt(cred.password)
 
-    adapter = PrivateWeikeApiAdapter()
-    client = WeikeCaseClient()
+        # 建立威科先行会话
+        from plugins.weike_api_private.adapter import PrivateWeikeApiAdapter
+        from apps.legal_research.services.sources.weike.client import WeikeCaseClient
 
-    try:
-        session = adapter.open_http_session(
-            client=client,
-            username=cred.account,
-            password=password,
-            login_url=cred.url or None,
-        )
-    except Exception as e:
-        return {"error": f"威科先行登录失败: {e}", "references": [], "total": 0}
+        adapter = PrivateWeikeApiAdapter()
+        client = WeikeCaseClient()
 
-    # 定义回调函数
-    def search_laws(law_name: str) -> list[dict[str, Any]]:
-        return adapter.search_laws_via_api(session=session, keyword=law_name)  # type: ignore[no-any-return]
+        try:
+            session = adapter.open_http_session(
+                client=client,
+                username=cred.account,
+                password=password,
+                login_url=cred.url or None,
+            )
+        except Exception as e:
+            return {"error": f"威科先行登录失败: {e}", "references": [], "total": 0}
 
-    def fetch_article(doc_id: str, article_num: int) -> str | None:
-        return adapter.fetch_law_article_via_api(session=session, doc_id=doc_id, article_num=article_num)  # type: ignore[no-any-return]
+        # 定义回调函数
+        def search_laws(law_name: str) -> list[dict[str, Any]]:
+            return adapter.search_laws_via_api(session=session, keyword=law_name)  # type: ignore[no-any-return]
 
-    # 执行核查
-    from plugins.weike_api_private.law_verification import verify_references
+        def fetch_article(doc_id: str, article_num: int) -> str | None:
+            return adapter.fetch_law_article_via_api(session=session, doc_id=doc_id, article_num=article_num)  # type: ignore[no-any-return]
 
-    try:
-        results = verify_references(text, search_laws_fn=search_laws, fetch_article_fn=fetch_article)
-    except Exception as e:
-        return {"error": f"核查失败: {e}", "references": [], "total": 0}
+        # 执行核查
+        from plugins.weike_api_private.law_verification import verify_references
 
-    return {
-        "references": [
-            {
-                "law_name": r.law_name,
-                "article_num": r.article_num,
-                "status": r.status,
-                "validity": r.validity,
-                "article_text": r.article_text,
-                "reference_text": r.reference_text,
-                "similarity": r.similarity,
-                "weike_url": r.weike_url,
-            }
-            for r in results
-        ],
-        "total": len(results),
-    }
+        try:
+            results = verify_references(text, search_laws_fn=search_laws, fetch_article_fn=fetch_article)
+        except Exception as e:
+            return {"error": f"核查失败: {e}", "references": [], "total": 0}
+
+        return {
+            "references": [
+                {
+                    "law_name": r.law_name,
+                    "article_num": r.article_num,
+                    "status": r.status,
+                    "validity": r.validity,
+                    "article_text": r.article_text,
+                    "reference_text": r.reference_text,
+                    "similarity": r.similarity,
+                    "weike_url": r.weike_url,
+                }
+                for r in results
+            ],
+            "total": len(results),
+        }
+
+    loop = get_running_loop()
+    return await loop.run_in_executor(None, _do_check)

@@ -9,6 +9,7 @@ LLM Ninja API
 import logging
 from typing import Any, ClassVar
 
+from asgiref.sync import sync_to_async
 from ninja import Router
 from ninja.schema import Schema
 
@@ -199,7 +200,7 @@ def sync_prompt_templates(request: Any) -> Any:
 
 
 @llm_router.get("/models", response=ModelListResponse)
-def list_available_models(request: Any) -> Any:
+async def list_available_models(request: Any) -> Any:
     """
     获取所有已配置的可用模型列表.
 
@@ -209,7 +210,7 @@ def list_available_models(request: Any) -> Any:
     from apps.core.llm.model_list_service import ModelListService
 
     service = ModelListService()
-    result = service.get_result()
+    result = await sync_to_async(service.get_result, thread_sensitive=False)()
     models: list[dict[str, str]] = []
     seen: set[str] = set()
 
@@ -243,7 +244,7 @@ def list_available_models(request: Any) -> Any:
 
 
 @llm_router.post("/test-connection")
-def test_model_connection(request: Any, model_id: str = "") -> dict[str, Any]:
+async def test_model_connection(request: Any, model_id: str = "") -> dict[str, Any]:
     """测试指定模型的连通性（仅管理员可用）"""
     from apps.core.llm.service import get_llm_service
 
@@ -256,7 +257,7 @@ def test_model_connection(request: Any, model_id: str = "") -> dict[str, Any]:
 
     try:
         service = get_llm_service()
-        response = service.chat(
+        response = await sync_to_async(service.chat, thread_sensitive=False)(
             messages=[{"role": "user", "content": "ping"}],
             model=model_id.strip(),
             max_tokens=5,

@@ -3,6 +3,7 @@ from pathlib import Path
 from typing import Any
 from uuid import UUID
 
+from asgiref.sync import sync_to_async
 from django.http import FileResponse, HttpRequest
 from ninja import File, Form, Router
 from ninja.files import UploadedFile
@@ -39,13 +40,13 @@ def _check_task_access(task: Any, user: Any) -> bool:  # pragma: no cover
 
 @router.post("/upload", response=TaskCreatedOut)
 @rate_limit_from_settings("TASK", by_user=True)
-def upload_contract(  # pragma: no cover
+async def upload_contract(  # pragma: no cover
     request: HttpRequest,
     file: UploadedFile = File(...),
     model_name: str = Form(""),
 ) -> dict[str, Any]:
     svc = _get_review_service()
-    task = svc.upload_contract(file, request.user, model_name=model_name)
+    task = await sync_to_async(svc.upload_contract, thread_sensitive=False)(file, request.user, model_name=model_name)
     parties: dict[str, str] = {}
     for key in ("party_a", "party_b", "party_c", "party_d"):
         val = getattr(task, key, "")
@@ -142,9 +143,9 @@ def download_original(request: HttpRequest, task_id: UUID) -> FileResponse:  # p
 
 
 @router.get("/models")
-def get_models(request: HttpRequest) -> dict[str, Any]:  # pragma: no cover
+async def get_models(request: HttpRequest) -> dict[str, Any]:  # pragma: no cover
     svc = _get_model_list_service()
-    result = svc.get_result()
+    result = await sync_to_async(svc.get_result, thread_sensitive=False)()
     return {
         "models": result.models,
         "is_fallback": result.is_fallback,
