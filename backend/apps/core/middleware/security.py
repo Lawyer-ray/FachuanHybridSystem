@@ -2,25 +2,40 @@
 中间件模块
 
 提供安全头、权限策略、ServiceLocator 作用域等中间件。
+所有中间件均为双模：sync 链直接执行，async 链返回协程由 Django handler await。
 """
 
+from __future__ import annotations
+
+import asyncio
 from collections.abc import Callable, Iterable, Mapping
+from typing import Any
 
 from django.conf import settings
 from django.http import HttpRequest, HttpResponse
 
 
+def _is_async(get_response: Callable[..., Any]) -> bool:
+    return asyncio.iscoroutinefunction(get_response)
+
+
 class SecurityHeadersMiddleware:
     """按路径设置 Content-Security-Policy 响应头的中间件"""
 
-    # /api/v1/docs 等文档路径不使用 API 策略
     _DOCS_SUFFIXES = ("/docs", "/schema", "/redoc", "/swagger")
 
     def __init__(self, get_response: Callable[[HttpRequest], HttpResponse]) -> None:
         self.get_response = get_response
 
-    def __call__(self, request: HttpRequest) -> HttpResponse:
+    def __call__(self, request: HttpRequest) -> Any:
+        if _is_async(self.get_response):
+            return self._adispatch(request)
         response = self.get_response(request)
+        self._apply_csp(request, response)
+        return response
+
+    async def _adispatch(self, request: HttpRequest) -> HttpResponse:
+        response = await self.get_response(request)
         self._apply_csp(request, response)
         return response
 
@@ -49,12 +64,22 @@ class PermissionsPolicyMiddleware:
     def __init__(self, get_response: Callable[[HttpRequest], HttpResponse]) -> None:
         self.get_response = get_response
 
-    def __call__(self, request: HttpRequest) -> HttpResponse:
+    def __call__(self, request: HttpRequest) -> Any:
+        if _is_async(self.get_response):
+            return self._adispatch(request)
         response = self.get_response(request)
+        self._set_policy(response)
+        return response
+
+    async def _adispatch(self, request: HttpRequest) -> HttpResponse:
+        response = await self.get_response(request)
+        self._set_policy(response)
+        return response
+
+    def _set_policy(self, response: HttpResponse) -> None:
         policy = getattr(settings, "PERMISSIONS_POLICY", "")
         if policy:
             response["Permissions-Policy"] = self._serialize_policy(policy)
-        return response
 
     def _serialize_policy(self, policy: str | Mapping[str, object]) -> str:
         if isinstance(policy, str):
@@ -96,8 +121,16 @@ class ServiceLocatorScopeMiddleware:
     def __init__(self, get_response: Callable[[HttpRequest], HttpResponse]) -> None:
         self.get_response = get_response
 
-    def __call__(self, request: HttpRequest) -> HttpResponse:
+    def __call__(self, request: HttpRequest) -> Any:
+        from apps.core.interfaces import ServiceLocator
+
+        if _is_async(self.get_response):
+            return self._adispatch(request)
+        with ServiceLocator.scope():
+            return self.get_response(request)
+
+    async def _adispatch(self, request: HttpRequest) -> HttpResponse:
         from apps.core.interfaces import ServiceLocator
 
         with ServiceLocator.scope():
-            return self.get_response(request)
+            return await self.get_response(request)

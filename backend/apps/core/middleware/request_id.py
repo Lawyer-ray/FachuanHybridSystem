@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import contextlib
 import logging
 import re
@@ -18,16 +19,16 @@ logger = logging.getLogger(__name__)
 
 
 class RequestIdMiddleware:
+    """双模中间件：sync 链直接执行，async 链返回协程由 Django handler await。
+
+    这样 ASGI 模式下后续中间件可以原生 async 运行。
+    """
+
     def __init__(self, get_response: Callable[[HttpRequest], HttpResponse]) -> None:
         self.get_response = get_response
 
-    def __call__(self, request: HttpRequest) -> HttpResponse:
-        candidate = request.headers.get("X-Request-ID") or ""
-        candidate = str(candidate).strip()
-        if candidate and re.fullmatch(r"[A-Za-z0-9._-]{1,64}", candidate):
-            request_id = candidate
-        else:
-            request_id = generate_request_id()
+    def __call__(self, request: HttpRequest) -> Any:
+        request_id = self._extract_request_id(request)
         trace_id, span_id = get_current_trace_ids()
 
         set_request_context(
@@ -40,17 +41,49 @@ class RequestIdMiddleware:
         thread.request_id = request_id
         thread.trace_id = trace_id or request_id
 
+        # async 链：get_response 是协程函数，返回协程让 Django handler await
+        if asyncio.iscoroutinefunction(self.get_response):
+            return self._async_dispatch(request, request_id)
+
+        # sync 链：直接执行
+        return self._sync_dispatch(request, request_id)
+
+    async def _async_dispatch(self, request: HttpRequest, request_id: str) -> HttpResponse:
         try:
-            response = self.get_response(request)
-            try:
-                response.headers["X-Request-ID"] = request_id
-            except Exception:
-                with contextlib.suppress(Exception):
-                    response["X-Request-ID"] = request_id
+            response = await self.get_response(request)
+            self._set_response_id(response, request_id)
             return response
         finally:
-            clear_request_context()
-            for attr in ("request_id", "trace_id"):
-                if hasattr(threading.current_thread(), attr):
-                    with contextlib.suppress(Exception):
-                        delattr(threading.current_thread(), attr)
+            self._cleanup()
+
+    def _sync_dispatch(self, request: HttpRequest, request_id: str) -> HttpResponse:
+        try:
+            response = self.get_response(request)
+            self._set_response_id(response, request_id)
+            return response
+        finally:
+            self._cleanup()
+
+    @staticmethod
+    def _extract_request_id(request: HttpRequest) -> str:
+        candidate = request.headers.get("X-Request-ID") or ""
+        candidate = str(candidate).strip()
+        if candidate and re.fullmatch(r"[A-Za-z0-9._-]{1,64}", candidate):
+            return candidate
+        return generate_request_id()
+
+    @staticmethod
+    def _set_response_id(response: HttpResponse, request_id: str) -> None:
+        try:
+            response.headers["X-Request-ID"] = request_id
+        except Exception:
+            with contextlib.suppress(Exception):
+                response["X-Request-ID"] = request_id
+
+    @staticmethod
+    def _cleanup() -> None:
+        clear_request_context()
+        for attr in ("request_id", "trace_id"):
+            if hasattr(threading.current_thread(), attr):
+                with contextlib.suppress(Exception):
+                    delattr(threading.current_thread(), attr)

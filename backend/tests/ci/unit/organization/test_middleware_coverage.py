@@ -5,33 +5,36 @@ from __future__ import annotations
 from unittest.mock import MagicMock, patch
 
 import pytest
-from django.http import HttpRequest
+from django.http import HttpRequest, HttpResponse
 
 
 class TestOrgAccessMiddleware:
     def test_unauthenticated_user_skipped(self) -> None:
         from apps.organization.middleware import OrgAccessMiddleware
 
-        middleware = OrgAccessMiddleware(lambda r: None)
+        sentinel = HttpResponse()
+        middleware = OrgAccessMiddleware(lambda r: sentinel)
         request = MagicMock(spec=HttpRequest)
         request.user = MagicMock()
         request.user.is_authenticated = False
-        result = middleware.process_request(request)
-        assert result is None
+        result = middleware(request)
+        assert result is sentinel
 
     def test_no_user_skipped(self) -> None:
         from apps.organization.middleware import OrgAccessMiddleware
 
-        middleware = OrgAccessMiddleware(lambda r: None)
+        sentinel = HttpResponse()
+        middleware = OrgAccessMiddleware(lambda r: sentinel)
         request = MagicMock(spec=HttpRequest)
         request.user = None
-        result = middleware.process_request(request)
-        assert result is None
+        result = middleware(request)
+        assert result is sentinel
 
     def test_authenticated_user_sets_org_access(self) -> None:
         from apps.organization.middleware import OrgAccessMiddleware
 
-        middleware = OrgAccessMiddleware(lambda r: None)
+        sentinel = HttpResponse()
+        middleware = OrgAccessMiddleware(lambda r: sentinel)
         request = MagicMock(spec=HttpRequest)
         request.user = MagicMock()
         request.user.is_authenticated = True
@@ -45,14 +48,16 @@ class TestOrgAccessMiddleware:
             mock_cache.get.return_value = None
             mock_build.return_value.compute.return_value = {"org_ids": [1]}
             mock_settings.PERM_OPEN_ACCESS = False
-            middleware.process_request(request)
+            result = middleware(request)
             assert request.org_access == {"org_ids": [1]}
             assert request.perm_open_access is False
+            assert result is sentinel
 
     def test_cached_org_access(self) -> None:
         from apps.organization.middleware import OrgAccessMiddleware
 
-        middleware = OrgAccessMiddleware(lambda r: None)
+        sentinel = HttpResponse()
+        middleware = OrgAccessMiddleware(lambda r: sentinel)
         request = MagicMock(spec=HttpRequest)
         request.user = MagicMock()
         request.user.is_authenticated = True
@@ -64,46 +69,51 @@ class TestOrgAccessMiddleware:
         ):
             mock_cache.get.return_value = {"org_ids": [1]}
             mock_settings.PERM_OPEN_ACCESS = True
-            middleware.process_request(request)
+            result = middleware(request)
             assert request.org_access == {"org_ids": [1]}
             assert request.perm_open_access is True
+            assert result is sentinel
 
 
 class TestApiTrailingSlashMiddleware:
     def test_strips_trailing_slash_for_api(self) -> None:
         from apps.organization.middleware import ApiTrailingSlashMiddleware
 
-        middleware = ApiTrailingSlashMiddleware(lambda r: None)
+        sentinel = HttpResponse()
+        middleware = ApiTrailingSlashMiddleware(lambda r: sentinel)
         request = MagicMock(spec=HttpRequest)
         request.path_info = "/api/v1/cases/"
-        middleware.process_request(request)
+        middleware(request)
         assert request.path_info == "/api/v1/cases"
 
     def test_preserves_api_root_slash(self) -> None:
         from apps.organization.middleware import ApiTrailingSlashMiddleware
 
-        middleware = ApiTrailingSlashMiddleware(lambda r: None)
+        sentinel = HttpResponse()
+        middleware = ApiTrailingSlashMiddleware(lambda r: sentinel)
         request = MagicMock(spec=HttpRequest)
         request.path_info = "/api/"
-        middleware.process_request(request)
+        middleware(request)
         assert request.path_info == "/api/"
 
     def test_ignores_non_api_paths(self) -> None:
         from apps.organization.middleware import ApiTrailingSlashMiddleware
 
-        middleware = ApiTrailingSlashMiddleware(lambda r: None)
+        sentinel = HttpResponse()
+        middleware = ApiTrailingSlashMiddleware(lambda r: sentinel)
         request = MagicMock(spec=HttpRequest)
         request.path_info = "/admin/cases/"
-        middleware.process_request(request)
+        middleware(request)
         assert request.path_info == "/admin/cases/"
 
     def test_no_trailing_slash_unchanged(self) -> None:
         from apps.organization.middleware import ApiTrailingSlashMiddleware
 
-        middleware = ApiTrailingSlashMiddleware(lambda r: None)
+        sentinel = HttpResponse()
+        middleware = ApiTrailingSlashMiddleware(lambda r: sentinel)
         request = MagicMock(spec=HttpRequest)
         request.path_info = "/api/v1/cases"
-        middleware.process_request(request)
+        middleware(request)
         assert request.path_info == "/api/v1/cases"
 
 
