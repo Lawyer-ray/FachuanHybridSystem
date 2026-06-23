@@ -116,15 +116,24 @@ class ContractQueryService:
 
     def get_contract_with_details_model_internal(self, contract_id: int) -> Any:
         try:
-            return Contract.objects.prefetch_related(
-                "contract_parties__client",
-                "assignments__lawyer",
-                "assignments__lawyer__law_firm",
-                "cases__parties__client",
-                "cases__supervising_authorities",
-                "payments__invoices",
-                "finalized_materials",
-                "client_payment_records",
-            ).get(pk=contract_id)
+            return (
+                Contract.objects.prefetch_related(
+                    "contract_parties__client",
+                    "assignments__lawyer",
+                    "assignments__lawyer__law_firm",
+                    "cases__parties__client",
+                    "cases__supervising_authorities",
+                    "payments__invoices",
+                    "reminders",
+                    "supplementary_agreements__parties__client",
+                    "finalized_materials",
+                    "client_payment_records",
+                )
+                .annotate(
+                    _total_received=Sum("payments__amount"),
+                    _total_invoiced=Sum("payments__invoiced_amount"),
+                )
+                .get(pk=contract_id)
+            )
         except Contract.DoesNotExist:
             return None

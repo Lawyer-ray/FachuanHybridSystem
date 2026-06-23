@@ -131,6 +131,7 @@ class TestContractOutResolvers:
 
     def test_resolve_total_received_normal(self):
         obj = MagicMock()
+        obj._total_received = None  # 模拟无 DB annotate 的情况
         p1 = MagicMock()
         p1.amount = 1000
         p2 = MagicMock()
@@ -140,6 +141,7 @@ class TestContractOutResolvers:
 
     def test_resolve_total_received_none_amount(self):
         obj = MagicMock()
+        obj._total_received = None
         p1 = MagicMock()
         p1.amount = None
         obj.payments.all.return_value = [p1]
@@ -147,11 +149,13 @@ class TestContractOutResolvers:
 
     def test_resolve_total_received_empty(self):
         obj = MagicMock()
+        obj._total_received = None
         obj.payments.all.return_value = []
         assert ContractOut.resolve_total_received(obj) == 0.0
 
     def test_resolve_total_received_type_error(self):
         obj = MagicMock()
+        obj._total_received = None
         obj.payments.all.side_effect = TypeError("bad")
         assert ContractOut.resolve_total_received(obj) == 0.0
 
@@ -159,6 +163,7 @@ class TestContractOutResolvers:
 
     def test_resolve_total_invoiced_normal(self):
         obj = MagicMock()
+        obj._total_invoiced = None  # 模拟无 DB annotate 的情况
         p1 = MagicMock()
         p1.invoiced_amount = 500
         p2 = MagicMock()
@@ -168,6 +173,7 @@ class TestContractOutResolvers:
 
     def test_resolve_total_invoiced_none(self):
         obj = MagicMock()
+        obj._total_invoiced = None
         p1 = MagicMock()
         p1.invoiced_amount = None
         obj.payments.all.return_value = [p1]
@@ -175,6 +181,7 @@ class TestContractOutResolvers:
 
     def test_resolve_total_invoiced_error(self):
         obj = MagicMock()
+        obj._total_invoiced = None
         obj.payments.all.side_effect = ValueError("bad")
         assert ContractOut.resolve_total_invoiced(obj) == 0.0
 
@@ -266,14 +273,54 @@ class TestContractOutResolvers:
     # ── resolve_reminders ──
 
     def test_resolve_reminders(self):
+        """新版 resolve_reminders 从 prefetched reminders 读取，不再调用 ServiceLocator。"""
+        from datetime import datetime, timezone as dt_tz
+
         obj = MagicMock()
-        obj.id = 42
-        with patch("apps.core.interfaces.ServiceLocator") as MockSL:
-            mock_svc = MagicMock()
-            mock_svc.export_contract_reminders_internal.return_value = [{"id": 1}]
-            MockSL.get_reminder_service.return_value = mock_svc
-            result = ContractOut.resolve_reminders(obj)
-            assert len(result) == 1
+        # 构造两条提醒：一条 case_log_id=None（应保留），一条 case_log_id=1（应过滤）
+        r1 = SimpleNamespace(
+            id=10, contract_id=42, case_id=None, case_log_id=None,
+            reminder_type="hearing", content="开庭", due_at=datetime(2026, 7, 1, 9, 0, tzinfo=dt_tz.utc),
+            metadata={"key": "val"},
+        )
+        r2 = SimpleNamespace(
+            id=11, contract_id=42, case_id=5, case_log_id=1,
+            reminder_type="deadline", content="举证", due_at=datetime(2026, 7, 2, tzinfo=dt_tz.utc),
+            metadata=None,
+        )
+        # due_at=None 的提醒，验证排序不会崩溃
+        r3 = SimpleNamespace(
+            id=12, contract_id=42, case_id=None, case_log_id=None,
+            reminder_type="hearing", content="无期限", due_at=None,
+            metadata=None,
+        )
+        obj.reminders.all.return_value = [r1, r2, r3]
+
+        result = ContractOut.resolve_reminders(obj)
+
+        # r2 被过滤（case_log_id=1），只剩 r1 和 r3
+        assert len(result) == 2
+        # 排序：due_at 有效值排前面，due_at=None 排后面（PostgreSQL NULLS LAST 语义）
+        assert result[0]["id"] == 10  # due_at=2026-07-01 排第一
+        assert result[1]["id"] == 12  # due_at=None 排最后
+        # 验证所有字段存在
+        for key in ("id", "contract_id", "case_id", "case_log_id", "reminder_type",
+                     "content", "due_at", "metadata", "reminder_type_label"):
+            assert key in result[0]
+        # 验证 reminder_type_label 正确解析
+        assert result[1]["reminder_type_label"] == "hearing" or isinstance(result[1]["reminder_type_label"], str)
+
+    def test_resolve_reminders_none_type_fallback(self):
+        """reminder_type 为 None 时 label 应返回空字符串，非 None。"""
+        obj = MagicMock()
+        r = SimpleNamespace(
+            id=99, contract_id=42, case_id=None, case_log_id=None,
+            reminder_type=None, content="test", due_at=None, metadata=None,
+        )
+        obj.reminders.all.return_value = [r]
+        result = ContractOut.resolve_reminders(obj)
+        assert result[0]["reminder_type_label"] == ""
+        assert result[0]["reminder_type"] is None
 
     # ── resolve_supplementary_agreements ──
 

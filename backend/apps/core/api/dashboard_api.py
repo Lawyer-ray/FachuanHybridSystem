@@ -60,6 +60,7 @@ async def get_dashboard_stats(request: HttpRequest) -> dict[str, Any]:  # pragma
 
     9 条独立 DB 查询通过 asyncio.gather 并发执行，
     延迟从 9 次串行降低到最慢那一次。
+    用 Semaphore 限制并发为 4，避免线程池耗尽和 DB 连接暴涨。
     """
     import asyncio
 
@@ -69,6 +70,13 @@ async def get_dashboard_stats(request: HttpRequest) -> dict[str, Any]:  # pragma
 
     # thread_sensitive=False 让每个调用在独立线程中执行，实现真正并行
     stf = sync_to_async(thread_sensitive=False)
+
+    # M3 修复：限制并发线程数为 4，避免 9 线程同时抢占连接池
+    sem = asyncio.Semaphore(4)
+
+    async def _guarded(coro: Any) -> Any:
+        async with sem:
+            return await coro
 
     (
         case_type_dist_and_count,
@@ -81,17 +89,17 @@ async def get_dashboard_stats(request: HttpRequest) -> dict[str, Any]:  # pragma
         contract_count,
         contract_trend,
     ) = await asyncio.gather(
-        stf(service._case_type_stats)(),
-        stf(service._case_trend)(timezone.localdate() - timedelta(days=365)),
-        stf(service._case_status_distribution)(),
-        stf(service._fee_stats)(
+        _guarded(stf(service._case_type_stats)()),
+        _guarded(stf(service._case_trend)(timezone.localdate() - timedelta(days=365))),
+        _guarded(stf(service._case_status_distribution)()),
+        _guarded(stf(service._fee_stats)(
             timezone.localdate().replace(day=1), timezone.localdate(), timezone.localdate() - timedelta(days=365)
-        ),
-        stf(service._reminder_counts)(timezone.now()),
-        stf(service._upcoming_reminders)(timezone.now()),
-        stf(service._client_count)(),
-        stf(service._contract_count)(),
-        stf(service._contract_trend)(timezone.localdate() - timedelta(days=365)),
+        )),
+        _guarded(stf(service._reminder_counts)(timezone.now())),
+        _guarded(stf(service._upcoming_reminders)(timezone.now())),
+        _guarded(stf(service._client_count)()),
+        _guarded(stf(service._contract_count)()),
+        _guarded(stf(service._contract_trend)(timezone.localdate() - timedelta(days=365))),
     )
 
     case_type_dist, active_case_count = case_type_dist_and_count
