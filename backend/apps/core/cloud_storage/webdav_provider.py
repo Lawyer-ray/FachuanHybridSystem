@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import time
-from collections.abc import Iterator
+from collections.abc import AsyncIterator, Iterator
 from dataclasses import dataclass, field
 
+import httpx
 import requests
 from requests.auth import HTTPBasicAuth
 
@@ -27,6 +29,12 @@ class _RateLimiter:  # pragma: no cover
         elapsed = time.monotonic() - self._last_call
         if elapsed < self.min_interval:
             time.sleep(self.min_interval - elapsed)
+        self._last_call = time.monotonic()
+
+    async def await_if_needed(self) -> None:  # pragma: no cover
+        elapsed = time.monotonic() - self._last_call
+        if elapsed < self.min_interval:
+            await asyncio.sleep(self.min_interval - elapsed)
         self._last_call = time.monotonic()
 
 
@@ -58,6 +66,15 @@ class WebDAVProvider:  # pragma: no cover
         self._session = requests.Session()
         self._session.auth = self._auth
         self._session.headers.update({"Accept": "application/json"})
+        self._async_client: httpx.AsyncClient | None = None
+
+    def _get_async_client(self) -> httpx.AsyncClient:
+        if self._async_client is None or self._async_client.is_closed:
+            self._async_client = httpx.AsyncClient(
+                auth=httpx.BasicAuth(self._username, self._password),
+                headers={"Accept": "application/json"},
+            )
+        return self._async_client
 
     # ── Internal helpers ───────────────────────────────────────
 
@@ -74,6 +91,23 @@ class WebDAVProvider:  # pragma: no cover
         self._limiter.wait_if_needed()
         url = self._url(path)
         resp = self._session.request(method, url, timeout=30, **kwargs)
+        if resp.status_code == 503:
+            from .exceptions import CloudStorageRateLimitError
+
+            raise CloudStorageRateLimitError(
+                "云存储服务暂时不可用（请求过于频繁），请稍后重试",
+                provider="WebDAV",
+                retry_after=60,
+            )
+        if resp.status_code >= 400:
+            logger.error("WebDAV %s %s returned %d", method, url, resp.status_code)
+        return resp
+
+    async def _arequest(self, method: str, path: str, **kwargs: object) -> httpx.Response:
+        await self._limiter.await_if_needed()
+        url = self._url(path)
+        client = self._get_async_client()
+        resp = await client.request(method, url, timeout=30, **kwargs)
         if resp.status_code == 503:
             from .exceptions import CloudStorageRateLimitError
 
@@ -275,6 +309,112 @@ class WebDAVProvider:  # pragma: no cover
         for subdir in subdirs:
             sub_path = f"{path.rstrip('/')}/{subdir}"
             yield from self.walk(sub_path)
+
+    # ── Async protocol implementation ──────────────────────────
+
+    async def alist_directory(self, path: str) -> list[CloudFileInfo]:
+        """List immediate children using PROPFIND Depth:1 (async)."""
+        url = self._url(path).rstrip("/") + "/"
+        await self._limiter.await_if_needed()
+        client = self._get_async_client()
+        resp = await client.request(
+            "PROPFIND",
+            url,
+            headers={"Depth": "1"},
+            timeout=30,
+        )
+        if resp.status_code == 503:
+            from .exceptions import CloudStorageRateLimitError
+
+            raise CloudStorageRateLimitError(
+                "云存储服务暂时不可用（请求过于频繁），请稍后重试",
+                provider="WebDAV",
+                retry_after=60,
+            )
+        if resp.status_code == 404:
+            return []
+        if resp.status_code >= 400:
+            logger.error("PROPFIND %s returned %d", url, resp.status_code)
+            return []
+
+        return self._parse_propfind_response(resp.text, path)
+
+    async def aread_file(self, path: str) -> bytes:
+        resp = await self._arequest("GET", path)
+        resp.raise_for_status()
+        return resp.content
+
+    async def awrite_file(self, path: str, content: bytes) -> None:
+        parent = "/".join(path.strip("/").split("/")[:-1])
+        if parent:
+            await self.amkdir(parent)
+        resp = await self._arequest("PUT", path, content=content)
+        resp.raise_for_status()
+
+    async def amkdir(self, path: str) -> None:
+        parts = path.strip("/").split("/")
+        for i in range(1, len(parts) + 1):
+            sub = "/".join(parts[:i])
+            if not await self.aexists(sub):
+                resp = await self._arequest("MKCOL", sub)
+                if resp.status_code not in (201, 405):
+                    logger.warning("MKCOL %s returned %d", sub, resp.status_code)
+
+    async def aexists(self, path: str) -> bool:
+        resp = await self._arequest("HEAD", path)
+        return resp.status_code in (200, 207)
+
+    async def ais_dir(self, path: str) -> bool:
+        url = self._url(path).rstrip("/") + "/"
+        await self._limiter.await_if_needed()
+        client = self._get_async_client()
+        resp = await client.request("PROPFIND", url, headers={"Depth": "0"}, timeout=30)
+        if resp.status_code >= 400:
+            return False
+        from xml.etree import ElementTree
+
+        try:
+            root = ElementTree.fromstring(resp.text)
+        except ElementTree.ParseError:
+            return False
+        for elem in root.iter():
+            if elem.tag.endswith("}resourcetype") or elem.tag == "resourcetype":
+                for child in elem:
+                    c_tag = child.tag.split("}")[-1] if "}" in child.tag else child.tag
+                    if c_tag == "collection":
+                        return True
+        return False
+
+    async def adelete_file(self, path: str) -> None:
+        resp = await self._arequest("DELETE", path)
+        if resp.status_code not in (200, 204, 404):
+            logger.warning("DELETE %s returned %d", path, resp.status_code)
+
+    async def aget_file_info(self, path: str) -> CloudFileInfo | None:
+        url = self._url(path)
+        await self._limiter.await_if_needed()
+        client = self._get_async_client()
+        resp = await client.request("PROPFIND", url, headers={"Depth": "0"}, timeout=30)
+        if resp.status_code >= 400:
+            return None
+
+        infos = self._parse_propfind_response(resp.text, "/".join(path.strip("/").split("/")[:-1]))
+        name = path.strip("/").split("/")[-1]
+        for info in infos:
+            if info.name == name:
+                return info
+        return None
+
+    async def awalk(self, path: str) -> AsyncIterator[tuple[str, list[str], list[CloudFileInfo]]]:
+        """Recursively walk directory tree via WebDAV PROPFIND (async)."""
+        children = await self.alist_directory(path)
+        subdirs = [c.name for c in children if c.is_dir]
+        files = [c for c in children if not c.is_dir]
+        yield (path, subdirs, files)
+        for subdir in subdirs:
+            sub_path = f"{path.rstrip('/')}/{subdir}"
+            async for item in self.awalk(sub_path):
+                yield item
 
 
 # Backward-compat alias
