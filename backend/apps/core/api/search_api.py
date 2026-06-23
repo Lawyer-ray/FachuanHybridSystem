@@ -49,13 +49,15 @@ async def global_search(request: HttpRequest, q: str = "", limit: int = 5) -> di
     limit = min(limit, 10)
 
     # 6 个独立 DB 搜索并发执行，延迟降为最慢那一个
+    # W2 修复：thread_sensitive=False 让每个调用在独立线程中真正并行
+    stf = sync_to_async(thread_sensitive=False)
     clients_raw, cases_raw, contracts_raw, inbox_raw, court_sms_raw, contacts_raw = await asyncio.gather(
-        sync_to_async(search_clients)(q, limit),
-        sync_to_async(search_cases)(q, limit),
-        sync_to_async(search_contracts)(q, limit),
-        sync_to_async(search_inbox)(q, limit),
-        sync_to_async(search_court_sms)(q, limit),
-        sync_to_async(search_contacts)(q, limit),
+        stf(search_clients)(q, limit),
+        stf(search_cases)(q, limit),
+        stf(search_contracts)(q, limit),
+        stf(search_inbox)(q, limit),
+        stf(search_court_sms)(q, limit),
+        stf(search_contacts)(q, limit),
     )
 
     return {

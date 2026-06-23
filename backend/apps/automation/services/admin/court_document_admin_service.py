@@ -231,12 +231,15 @@ class CourtDocumentAdminService:
 
             # 按日期统计（最近30天）— 单条 TruncDate 查询替代 60 条逐日查询
             from datetime import timedelta
+            from zoneinfo import ZoneInfo
 
             now = timezone.now()
             thirty_days_ago = now - timedelta(days=30)
+            # M2 修复：TruncDate 需要显式指定 tzinfo，否则按 UTC 截断导致凌晨记录归到前一天
+            app_tz = ZoneInfo(settings.TIME_ZONE)
             date_stats_raw = (
                 queryset.filter(created_at__gte=thirty_days_ago)
-                .annotate(date=TruncDate("created_at"))
+                .annotate(date=TruncDate("created_at", tzinfo=app_tz))
                 .values("date")
                 .annotate(
                     total=Count("id"),

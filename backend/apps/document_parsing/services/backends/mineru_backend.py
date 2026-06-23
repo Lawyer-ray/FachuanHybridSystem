@@ -516,9 +516,8 @@ class MineruBackend:
 
             upload_url = urls[0]
 
-            # 上传文件到预签名 URL
-            with open(file_path, "rb") as f:
-                file_content = f.read()
+            # H2 修复：大文件读取改为异步，避免阻塞事件循环
+            file_content = await asyncio.to_thread(Path(file_path).read_bytes)
             upload_response = await async_client.put(upload_url, content=file_content, timeout=self.timeout)
             upload_response.raise_for_status()
 

@@ -286,7 +286,8 @@ class ContractOut(ModelSchema):
         # 优先使用上游已预取的 reminders 数据（ContractQuerySetManager 已包含 "reminders"）
         # 只处理直接关联到合同的提醒（case_log_id 为空），与 export_contract_reminders_internal 逻辑一致
         reminders = [r for r in obj.reminders.all() if r.case_log_id is None]
-        reminders.sort(key=lambda r: (r.due_at, r.id))
+        # H3 修复：due_at 可能为 None，Python 3 不能比较 None 与 datetime
+        reminders.sort(key=lambda r: (r.due_at is None, r.due_at or "", r.id))
         # 补充 reminder_type_label（_enrich_export_row 逻辑）
         from apps.reminders.models import ReminderType
 
@@ -301,7 +302,8 @@ class ContractOut(ModelSchema):
                 "content": r.content,
                 "due_at": r.due_at,
                 "metadata": r.metadata,
-                "reminder_type_label": type_label_map.get(r.reminder_type, r.reminder_type),
+                # C1 修复：reminder_type 为 None 时 fallback 应返回 "" 而非 None
+                "reminder_type_label": type_label_map.get(r.reminder_type, r.reminder_type or ""),
             }
             for r in reminders
         ]

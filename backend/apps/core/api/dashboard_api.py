@@ -63,7 +63,6 @@ async def get_dashboard_stats(request: HttpRequest) -> dict[str, Any]:  # pragma
     """
     import asyncio
 
-    from asgiref.sync import sync_to_async
     from apps.workbench.services.dashboard_service import DashboardService
 
     service = DashboardService()
