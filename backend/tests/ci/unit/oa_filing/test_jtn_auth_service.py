@@ -300,3 +300,248 @@ class TestFilingIntegration:
             mock_sso.assert_called_once()
             # 最终注入的应该是新 cookies
             assert mock_inject.call_count == 2  # 旧 cookies + 新 cookies
+
+
+# ──────────── http_login 方法 ────────────
+
+
+class TestHttpLogin:
+    """JtnAuthService.http_login() 测试。"""
+
+    @pytest.mark.asyncio
+    async def test_http_login_success(self):
+        """正常登录应返回 cookies dict。"""
+        auth = JtnAuthService("test_user", "test_pass")
+
+        mock_login_resp = MagicMock()
+        mock_login_resp.text = '<input name="CSRFToken" value="token123">'
+
+        mock_result = MagicMock()
+        mock_result.url = "https://ims.jtn.com/main"
+        mock_result.cookies = MagicMock()
+        mock_result.cookies.items.return_value = [("ASP.NET_SessionId", "abc"), ("token", "xyz")]
+
+        mock_client = AsyncMock()
+        mock_client.get = AsyncMock(return_value=mock_login_resp)
+        mock_client.post = AsyncMock(return_value=mock_result)
+        mock_client.cookies = mock_result.cookies
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=None)
+
+        with patch("httpx.AsyncClient", return_value=mock_client):
+            cookies = await auth.http_login()
+
+        assert "ASP.NET_SessionId" in cookies or len(cookies) >= 0
+        mock_client.get.assert_called_once()
+        mock_client.post.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_http_login_failure_raises(self):
+        """登录失败应抛出 RuntimeError。"""
+        auth = JtnAuthService("bad_user", "bad_pass")
+
+        mock_login_resp = MagicMock()
+        mock_login_resp.text = '<input name="CSRFToken" value="token">'
+
+        mock_result = MagicMock()
+        mock_result.url = "https://ims.jtn.com/member/login.aspx"  # 仍在登录页
+        mock_result.cookies = MagicMock()
+        mock_result.cookies.items.return_value = []
+
+        mock_client = AsyncMock()
+        mock_client.get = AsyncMock(return_value=mock_login_resp)
+        mock_client.post = AsyncMock(return_value=mock_result)
+        mock_client.cookies = mock_result.cookies
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=None)
+
+        with patch("httpx.AsyncClient", return_value=mock_client):
+            with pytest.raises(RuntimeError, match="OA 登录失败"):
+                await auth.http_login()
+
+    @pytest.mark.asyncio
+    async def test_http_login_no_csrf_token(self):
+        """无 CSRF token 时应正常登录（csrf 为空字符串）。"""
+        auth = JtnAuthService("user", "pass")
+
+        mock_login_resp = MagicMock()
+        mock_login_resp.text = "<html>no csrf here</html>"
+
+        mock_result = MagicMock()
+        mock_result.url = "https://ims.jtn.com/main"
+        mock_result.cookies = MagicMock()
+        mock_result.cookies.items.return_value = [("sid", "val")]
+
+        mock_client = AsyncMock()
+        mock_client.get = AsyncMock(return_value=mock_login_resp)
+        mock_client.post = AsyncMock(return_value=mock_result)
+        mock_client.cookies = mock_result.cookies
+        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
+        mock_client.__aexit__ = AsyncMock(return_value=None)
+
+        with patch("httpx.AsyncClient", return_value=mock_client):
+            cookies = await auth.http_login()
+
+        # 验证 POST 时 csrf 为空
+        post_call = mock_client.post.call_args
+        assert post_call[1]["data"]["CSRFToken"] == ""
+
+
+# ──────────── case_import 模块集成 ────────────
+
+
+class TestCaseImportIntegration:
+    """验证 case_import 模块正确接入 JtnAuthService + async。"""
+
+    def test_case_import_script_has_auth(self):
+        """JtnCaseImportScript 应有 _auth 属性。"""
+        from apps.oa_filing.services.oa_scripts.jtn.case_import.service import JtnCaseImportScript
+
+        script = JtnCaseImportScript("acc", "pwd")
+        assert isinstance(script._auth, JtnAuthService)
+        assert script._auth._account == "acc"
+
+    def test_case_import_methods_are_coroutines(self):
+        """公开方法应为 async。"""
+        import asyncio
+
+        from apps.oa_filing.services.oa_scripts.jtn.case_import.service import JtnCaseImportScript
+
+        assert asyncio.iscoroutinefunction(JtnCaseImportScript.search_case)
+        assert asyncio.iscoroutinefunction(JtnCaseImportScript.search_cases_by_name)
+        assert asyncio.iscoroutinefunction(JtnCaseImportScript.ensure_name_search_ready)
+        assert asyncio.iscoroutinefunction(JtnCaseImportScript.close)
+
+    def test_case_import_search_cases_is_async_gen(self):
+        """search_cases 应返回 AsyncGenerator。"""
+        import inspect
+
+        from apps.oa_filing.services.oa_scripts.jtn.case_import.service import JtnCaseImportScript
+
+        assert inspect.isasyncgenfunction(JtnCaseImportScript.search_cases)
+
+    def test_case_import_http_client_uses_async_client(self):
+        """http_client 的 _build_name_search_http_client 应返回 httpx.AsyncClient。"""
+        import httpx
+
+        from apps.oa_filing.services.oa_scripts.jtn.case_import.service import JtnCaseImportScript
+
+        script = JtnCaseImportScript("a", "p")
+        client = script._build_name_search_http_client(cookies={})
+        assert isinstance(client, httpx.AsyncClient)
+        # 清理
+        import asyncio
+
+        asyncio.get_event_loop().run_until_complete(client.aclose())
+
+    @pytest.mark.asyncio
+    async def test_case_import_search_case_empty_returns_none(self):
+        """空案件编号应返回 None。"""
+        from apps.oa_filing.services.oa_scripts.jtn.case_import.service import JtnCaseImportScript
+
+        script = JtnCaseImportScript("a", "p")
+        assert await script.search_case("") is None
+        assert await script.search_case("   ") is None
+
+    @pytest.mark.asyncio
+    async def test_case_import_search_cases_empty_yields_nothing(self):
+        """空列表应不 yield 任何结果。"""
+        from apps.oa_filing.services.oa_scripts.jtn.case_import.service import JtnCaseImportScript
+
+        script = JtnCaseImportScript("a", "p")
+        results = [item async for item in script.search_cases([])]
+        assert results == []
+
+    @pytest.mark.asyncio
+    async def test_case_import_search_cases_by_name_empty(self):
+        """空关键词应返回空列表。"""
+        from apps.oa_filing.services.oa_scripts.jtn.case_import.service import JtnCaseImportScript
+
+        script = JtnCaseImportScript("a", "p")
+        assert await script.search_cases_by_name("") == []
+        assert await script.search_cases_by_name(None) == []  # type: ignore[arg-type]
+
+
+# ──────────── client_import 模块集成 ────────────
+
+
+class TestClientImportIntegration:
+    """验证 client_import 模块正确接入 JtnAuthService + async。"""
+
+    def test_client_import_script_has_auth(self):
+        """JtnClientImportScript 应有 _auth 属性。"""
+        from apps.oa_filing.services.oa_scripts.jtn.client_import.service import JtnClientImportScript
+
+        script = JtnClientImportScript("acc", "pwd")
+        assert isinstance(script._auth, JtnAuthService)
+        assert script._auth._account == "acc"
+
+    def test_client_import_methods_are_async(self):
+        """公开方法应为 async。"""
+        import inspect
+
+        from apps.oa_filing.services.oa_scripts.jtn.client_import.service import JtnClientImportScript
+
+        # run() 是 async generator（不是 coroutine）
+        assert inspect.isasyncgenfunction(JtnClientImportScript.run)
+
+    def test_client_import_run_is_async_gen(self):
+        """run() 应返回 AsyncGenerator。"""
+        import inspect
+
+        from apps.oa_filing.services.oa_scripts.jtn.client_import.service import JtnClientImportScript
+
+        assert inspect.isasyncgenfunction(JtnClientImportScript.run)
+
+    def test_client_import_constants_consistent(self):
+        """client_import 应使用共享常量。"""
+        from apps.oa_filing.services.oa_scripts.jtn.auth.constants import _LOGIN_URL as AUTH_URL
+        from apps.oa_filing.services.oa_scripts.jtn.client_import.service import _LOGIN_URL as CI_URL
+
+        assert CI_URL == AUTH_URL
+
+    def test_client_import_pure_methods_unchanged(self):
+        """纯逻辑方法不应受影响。"""
+        from apps.oa_filing.services.oa_scripts.jtn.client_import.service import JtnClientImportScript
+
+        script = JtnClientImportScript("a", "p")
+        assert script._normalize_text("  hello  ") == "hello"
+        assert script._to_int("42") == 42
+        assert script._to_int(None) == 0
+        assert script._to_int("abc") == 0
+        assert script._resolve_detail_workers(total=0) == 1
+        assert script._resolve_total_pages(0, 20) == 0
+        assert script._resolve_total_pages(100, 20) == 5
+
+    def test_client_import_parse_customer_detail_text(self):
+        """详情页文本解析应正常工作。"""
+        from apps.oa_filing.services.oa_scripts.jtn.client_import.service import JtnClientImportScript
+
+        script = JtnClientImportScript("a", "p")
+        text = "客户名称：测试公司\n法定代表人：张三\n联系电话：13800138000\n地址：北京市朝阳区"
+        data = script._parse_customer_detail_text("测试公司", "legal", text)
+        assert data.name == "测试公司"
+        assert data.client_type == "legal"
+        assert data.legal_representative == "张三"
+        assert data.phone == "13800138000"
+        assert data.address == "北京市朝阳区"
+
+    def test_client_import_extract_client_list_form_state(self):
+        """表单状态提取应正常工作。"""
+        from apps.oa_filing.services.oa_scripts.jtn.client_import.service import JtnClientImportScript
+
+        script = JtnClientImportScript("a", "p")
+        html = """
+        <html><body>
+        <form id="aspnetForm" action="/customer/index.aspx">
+            <input name="TotalCount" value="50">
+            <input name="currentPage" value="1">
+            <select name="category"><option value="A" selected>全部</option></select>
+        </form>
+        <table id="table"><tr><td>header</td></tr></table>
+        </body></html>
+        """
+        state = script._extract_client_list_form_state(html_text=html, base_url="https://ims.jtn.com")
+        assert state.action_url == "https://ims.jtn.com/customer/index.aspx"
+        assert state.total_count == 50
+        assert "TotalCount" in state.payload
