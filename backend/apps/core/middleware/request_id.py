@@ -21,19 +21,13 @@ logger = logging.getLogger(__name__)
 class RequestIdMiddleware:
     """双模中间件：sync 链直接执行，async 链返回协程由 Django handler await。
 
-    这样 ASGI 模式下后续中间件可以原生 async 运行。
+    不设置 async_capable=True，让 Django 用 sync_to_async 包装本中间件。
+    __call__ 在线程中运行，async 路径返回协程由 Django handler await。
     """
-
-    async_capable = True
-    sync_capable = True
 
     def __init__(self, get_response: Callable[[HttpRequest], HttpResponse]) -> None:
         self.get_response = get_response
         self._is_async = asyncio.iscoroutinefunction(get_response)
-        if self._is_async:
-            from asgiref.sync import markcoroutinefunction
-
-            markcoroutinefunction(self)
 
     def __call__(self, request: HttpRequest) -> Any:
         request_id = self._extract_request_id(request)

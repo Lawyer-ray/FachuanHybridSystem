@@ -3,6 +3,9 @@
 
 提供安全头、权限策略、ServiceLocator 作用域等中间件。
 所有中间件均为双模：sync 链直接执行，async 链返回协程由 Django handler await。
+
+不设置 async_capable=True，让 Django 用 sync_to_async 包装中间件。
+__call__ 在线程中运行，async 路径返回协程由 Django handler await。
 """
 
 from __future__ import annotations
@@ -16,21 +19,15 @@ from django.http import HttpRequest, HttpResponse
 
 
 def _init_dual_mode(mw: Any, get_response: Callable[..., Any]) -> None:
-    """初始化双模中间件：设置 async_capable 标记并调用 markcoroutinefunction。"""
+    """初始化双模中间件：检测 async 链并缓存结果。"""
     mw.get_response = get_response
     mw._is_async = asyncio.iscoroutinefunction(get_response)
-    if mw._is_async:
-        from asgiref.sync import markcoroutinefunction
-
-        markcoroutinefunction(mw)
 
 
 class SecurityHeadersMiddleware:
     """按路径设置 Content-Security-Policy 响应头的中间件"""
 
     _DOCS_SUFFIXES = ("/docs", "/schema", "/redoc", "/swagger")
-    async_capable = True
-    sync_capable = True
 
     def __init__(self, get_response: Callable[[HttpRequest], HttpResponse]) -> None:
         _init_dual_mode(self, get_response)
@@ -68,9 +65,6 @@ class SecurityHeadersMiddleware:
 
 class PermissionsPolicyMiddleware:
     """设置 Permissions-Policy 响应头的中间件"""
-
-    async_capable = True
-    sync_capable = True
 
     def __init__(self, get_response: Callable[[HttpRequest], HttpResponse]) -> None:
         _init_dual_mode(self, get_response)
@@ -128,9 +122,6 @@ class ServiceLocatorScopeMiddleware:
     每个 HTTP 请求在独立的 ServiceLocator scope 中执行，
     确保请求间服务实例不互相污染（基于 ContextVar 实现）。
     """
-
-    async_capable = True
-    sync_capable = True
 
     def __init__(self, get_response: Callable[[HttpRequest], HttpResponse]) -> None:
         _init_dual_mode(self, get_response)

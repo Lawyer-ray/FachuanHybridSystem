@@ -24,16 +24,9 @@ from .services.wiring import build_org_access_computation_service
 class OrgAccessMiddleware:
     """为认证用户设置 request.org_access。双模：async 链使用 async cache + sync_to_async ORM。"""
 
-    async_capable = True
-    sync_capable = True
-
     def __init__(self, get_response: Any) -> None:
         self.get_response = get_response
         self._is_async = asyncio.iscoroutinefunction(get_response)
-        if self._is_async:
-            from asgiref.sync import markcoroutinefunction
-
-            markcoroutinefunction(self)
 
     def __call__(self, request: HttpRequest) -> Any:
         user = getattr(request, "user", None)
@@ -79,16 +72,9 @@ class OrgAccessMiddleware:
 class ApiTrailingSlashMiddleware:
     """去除 /api/ 路径的尾部斜杠。双模：纯 CPU 无 I/O。"""
 
-    async_capable = True
-    sync_capable = True
-
     def __init__(self, get_response: Any) -> None:
         self.get_response = get_response
         self._is_async = asyncio.iscoroutinefunction(get_response)
-        if self._is_async:
-            from asgiref.sync import markcoroutinefunction
-
-            markcoroutinefunction(self)
 
     def __call__(self, request: HttpRequest) -> Any:
         path = request.path_info or ""
