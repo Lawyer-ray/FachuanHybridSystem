@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import base64
 import json
 import logging
@@ -9,6 +10,7 @@ import time
 from types import SimpleNamespace
 from typing import Any, cast
 
+from asgiref.sync import sync_to_async
 from apps.core.security.auth import JWTOrSessionAuth
 
 from django.core.files.uploadedfile import UploadedFile
@@ -105,38 +107,50 @@ def detect_page_orientation(request: HttpRequest) -> dict[str, Any]:  # pragma: 
 
 
 @router.post("/detect-orientation")
-def detect_orientation(request: HttpRequest) -> dict[str, Any]:  # pragma: no cover
+async def detect_orientation(request: HttpRequest) -> dict[str, Any]:  # pragma: no cover
     payload = _body(request)
     images: list[dict[str, Any]] = payload.get("images", [])
     method: str = payload.get("method", "onnx")  # "onnx" | "ocr_voting"
     if not images:
         return {"success": False, "results": []}
-    results = []
     total_start = time.perf_counter()
-    for img in images:
+
+    async def _process_image(img: dict[str, Any]) -> dict[str, Any]:
         try:
             image_bytes = _decode_image_data(img.get("data", ""))
             t0 = time.perf_counter()
             if method == "ocr_voting":
                 from apps.image_rotation.services.orientation.service import OrientationDetectionService
 
-                result = OrientationDetectionService().detect_orientation_with_text(image_bytes)
+                result = await sync_to_async(
+                    OrientationDetectionService().detect_orientation_with_text, thread_sensitive=False
+                )(image_bytes)
             else:
                 from apps.image_rotation.services.orientation.onnx_service import get_onnx_orientation_service
 
-                result = get_onnx_orientation_service().detect_orientation(image_bytes)
+                result = await sync_to_async(get_onnx_orientation_service().detect_orientation, thread_sensitive=False)(
+                    image_bytes
+                )
             result["elapsed_ms"] = round((time.perf_counter() - t0) * 1000, 1)
             result["filename"] = img.get("filename", "")
-            results.append(result)
+            return result
         except Exception as exc:
             logger.error("detect_orientation 失败: %s", exc, exc_info=True)
-            results.append({"filename": img.get("filename", ""), "rotation": 0, "confidence": 0, "ocr_text": "", "elapsed_ms": 0})
+            return {
+                "filename": img.get("filename", ""),
+                "rotation": 0,
+                "confidence": 0,
+                "ocr_text": "",
+                "elapsed_ms": 0,
+            }
+
+    results = await asyncio.gather(*[_process_image(img) for img in images])
     total_elapsed_ms = round((time.perf_counter() - total_start) * 1000, 1)
-    return {"success": True, "results": results, "total_elapsed_ms": total_elapsed_ms}
+    return {"success": True, "results": list(results), "total_elapsed_ms": total_elapsed_ms}
 
 
 @router.post("/extract-text")
-def extract_text(request: HttpRequest) -> dict[str, Any]:  # pragma: no cover
+async def extract_text(request: HttpRequest) -> dict[str, Any]:  # pragma: no cover
     """提取图片文字（不检测方向），用于 OCR 重命名。"""
     payload = _body(request)
     images: list[dict[str, Any]] = payload.get("images", [])
@@ -146,25 +160,27 @@ def extract_text(request: HttpRequest) -> dict[str, Any]:  # pragma: no cover
     from apps.automation.services.ocr.ocr_service import OCRService
 
     ocr = OCRService(use_v5=True, provider=provider)
-    results = []
-    for img in images:
+
+    async def _extract_one(img: dict[str, Any]) -> dict[str, Any]:
         try:
             image_bytes = _decode_image_data(img.get("data", ""))
-            text_result = ocr.extract_text(image_bytes)
-            results.append({
+            text_result = await sync_to_async(ocr.extract_text, thread_sensitive=False)(image_bytes)
+            return {
                 "filename": img.get("filename", ""),
                 "ocr_text": text_result.text,
                 "raw_texts": text_result.raw_texts,
-            })
+            }
         except Exception as exc:
             logger.error("extract_text 失败: %s", exc, exc_info=True)
-            results.append({"filename": img.get("filename", ""), "ocr_text": "", "raw_texts": []})
-    return {"success": True, "results": results}
+            return {"filename": img.get("filename", ""), "ocr_text": "", "raw_texts": []}
+
+    results = await asyncio.gather(*[_extract_one(img) for img in images])
+    return {"success": True, "results": list(results)}
 
 
 @router.post("/suggest-rename")
 @rate_limit_from_settings("LLM", by_user=True)
-def suggest_rename(request: HttpRequest) -> dict[str, Any]:  # pragma: no cover
+async def suggest_rename(request: HttpRequest) -> dict[str, Any]:  # pragma: no cover
     payload = _body(request)
     items: list[dict[str, Any]] = payload.get("items", [])
     if not items:
@@ -186,7 +202,7 @@ def suggest_rename(request: HttpRequest) -> dict[str, Any]:  # pragma: no cover
                 except (TypeError, ValueError):
                     logger.warning("image_data Base64 解码失败: %s", i.get("filename", ""))
             requests.append(ns)
-        suggestions = service.suggest_rename_batch(requests)
+        suggestions = await sync_to_async(service.suggest_rename_batch, thread_sensitive=False)(requests)
         return {
             "success": True,
             "suggestions": [
@@ -425,13 +441,13 @@ def get_job_detail(request: HttpRequest, job_id: str) -> dict[str, Any]:  # prag
 
 
 @router.post("/jobs/{job_id}/ocr")
-def run_job_ocr(request: HttpRequest, job_id: str) -> dict[str, Any]:  # pragma: no cover
+async def run_job_ocr(request: HttpRequest, job_id: str) -> dict[str, Any]:  # pragma: no cover
     """对任务所有页面重跑 OCR"""
     try:
         payload = _body(request)
         provider: str = payload.get("provider", "local")
         service = _get_job_service()
-        pages = service.run_ocr(job_id, provider=provider)
+        pages = await sync_to_async(service.run_ocr, thread_sensitive=False)(job_id, provider=provider)
         return {
             "success": True,
             "pages": [_serialize_page(p) for p in pages],

@@ -8,6 +8,7 @@ import logging
 from pathlib import Path
 from typing import Any
 
+from asgiref.sync import sync_to_async
 from django.http import HttpResponse
 from ninja import File, Router
 from ninja.errors import HttpError
@@ -23,7 +24,7 @@ router = Router(tags=["发票识别"], auth=JWTOrSessionAuth())
 
 
 @router.post("/quick-recognize")
-def quick_recognize(  # pragma: no cover
+async def quick_recognize(  # pragma: no cover
     request: Any,
     files: list[UploadedFile] = File(...),
 ) -> dict[str, Any]:
@@ -34,7 +35,7 @@ def quick_recognize(  # pragma: no cover
     service = _get_quick_recognition_service()
 
     try:
-        results = service.recognize_files(files)
+        results = await sync_to_async(service.recognize_files, thread_sensitive=False)(files)
     except Exception as exc:
         logger.error("快速识别失败: %s", exc, exc_info=True)
         raise HttpError(500, "服务器内部错误")
@@ -97,7 +98,7 @@ def _get_quick_recognition_service() -> Any:
 
 @router.post("/{task_id}/upload")
 @rate_limit_from_settings("UPLOAD", by_user=True)
-def upload_invoices(  # pragma: no cover
+async def upload_invoices(  # pragma: no cover
     request: Any,
     task_id: int,
     files: list[UploadedFile] = File(...),
@@ -107,7 +108,7 @@ def upload_invoices(  # pragma: no cover
 
     service = _get_recognition_service()
     try:
-        records = service.upload_and_recognize(task_id, files)
+        records = await sync_to_async(service.upload_and_recognize, thread_sensitive=False)(task_id, files)
     except ObjectDoesNotExist:
         raise HttpError(404, "任务不存在")
     except ValidationError as exc:

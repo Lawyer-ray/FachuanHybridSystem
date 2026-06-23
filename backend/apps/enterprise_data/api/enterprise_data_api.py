@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import date
 from typing import Any, Literal
 
+from asgiref.sync import sync_to_async
 from ninja import Router
 
 from apps.core.security.auth import JWTOrSessionAuth
@@ -26,83 +27,89 @@ def list_providers(request: Any, include_tools: bool = False) -> EnterpriseProvi
 
 
 @router.get("/companies/search", response=EnterpriseQueryOut)
-def search_companies(  # pragma: no cover
+async def search_companies(  # pragma: no cover
     request: Any,
     keyword: str,
     provider: str | None = None,
     include_raw: bool = False,
 ) -> EnterpriseQueryOut:
-    return EnterpriseQueryOut(
-        **_service().search_companies(keyword=keyword, provider=provider, include_raw=include_raw)
+    result = await sync_to_async(_service().search_companies, thread_sensitive=False)(
+        keyword=keyword, provider=provider, include_raw=include_raw
     )
+    return EnterpriseQueryOut(**result)
 
 
 @router.get("/companies/{company_id}", response=EnterpriseQueryOut)
-def get_company_profile(  # pragma: no cover
+async def get_company_profile(  # pragma: no cover
     request: Any,
     company_id: str,
     provider: str | None = None,
     include_raw: bool = False,
 ) -> EnterpriseQueryOut:
-    return EnterpriseQueryOut(
-        **_service().get_company_profile(company_id=company_id, provider=provider, include_raw=include_raw)
+    result = await sync_to_async(_service().get_company_profile, thread_sensitive=False)(
+        company_id=company_id, provider=provider, include_raw=include_raw
     )
+    return EnterpriseQueryOut(**result)
 
 
 @router.get("/companies/{company_id}/risks", response=EnterpriseQueryOut)
-def get_company_risks(  # pragma: no cover
+async def get_company_risks(  # pragma: no cover
     request: Any,
     company_id: str,
     risk_type: RiskType = "自身风险",
     provider: str | None = None,
     include_raw: bool = False,
 ) -> EnterpriseQueryOut:
-    return EnterpriseQueryOut(
-        **_service().get_company_risks(
-            company_id=company_id,
-            risk_type=risk_type,
-            provider=provider,
-            include_raw=include_raw,
-        )
+    result = await sync_to_async(_service().get_company_risks, thread_sensitive=False)(
+        company_id=company_id,
+        risk_type=risk_type,
+        provider=provider,
+        include_raw=include_raw,
     )
+    return EnterpriseQueryOut(**result)
 
 
 @router.get("/companies/{company_id}/shareholders", response=EnterpriseQueryOut)
-def get_company_shareholders(  # pragma: no cover
+async def get_company_shareholders(  # pragma: no cover
     request: Any,
     company_id: str,
     provider: str | None = None,
     include_raw: bool = False,
 ) -> EnterpriseQueryOut:
-    return EnterpriseQueryOut(
-        **_service().get_company_shareholders(company_id=company_id, provider=provider, include_raw=include_raw)
+    result = await sync_to_async(_service().get_company_shareholders, thread_sensitive=False)(
+        company_id=company_id, provider=provider, include_raw=include_raw
     )
+    return EnterpriseQueryOut(**result)
 
 
 @router.get("/companies/{company_id}/personnel", response=EnterpriseQueryOut)
-def get_company_personnel(  # pragma: no cover
+async def get_company_personnel(  # pragma: no cover
     request: Any,
     company_id: str,
     provider: str | None = None,
     include_raw: bool = False,
 ) -> EnterpriseQueryOut:
-    return EnterpriseQueryOut(
-        **_service().get_company_personnel(company_id=company_id, provider=provider, include_raw=include_raw)
+    result = await sync_to_async(_service().get_company_personnel, thread_sensitive=False)(
+        company_id=company_id, provider=provider, include_raw=include_raw
     )
+    return EnterpriseQueryOut(**result)
 
 
 @router.get("/personnel/{hcgid}", response=EnterpriseQueryOut)
-def get_person_profile(  # pragma: no cover
+async def get_person_profile(  # pragma: no cover
     request: Any,
     hcgid: str,
     provider: str | None = None,
     include_raw: bool = False,
 ) -> EnterpriseQueryOut:
-    return EnterpriseQueryOut(**_service().get_person_profile(hcgid=hcgid, provider=provider, include_raw=include_raw))
+    result = await sync_to_async(_service().get_person_profile, thread_sensitive=False)(
+        hcgid=hcgid, provider=provider, include_raw=include_raw
+    )
+    return EnterpriseQueryOut(**result)
 
 
 @router.get("/biddings/search", response=EnterpriseQueryOut)
-def search_bidding_info(  # pragma: no cover
+async def search_bidding_info(  # pragma: no cover
     request: Any,
     keyword: str,
     search_type: int = 1,
@@ -112,14 +119,13 @@ def search_bidding_info(  # pragma: no cover
     provider: str | None = None,
     include_raw: bool = False,
 ) -> EnterpriseQueryOut:
-    return EnterpriseQueryOut(
-        **_service().search_bidding_info(
-            keyword=keyword,
-            search_type=search_type,
-            bid_type=bid_type,
-            start_date=start_date,
-            end_date=end_date,
-            provider=provider,
-            include_raw=include_raw,
-        )
+    result = await sync_to_async(_service().search_bidding_info, thread_sensitive=False)(
+        keyword=keyword,
+        search_type=search_type,
+        bid_type=bid_type,
+        start_date=start_date,
+        end_date=end_date,
+        provider=provider,
+        include_raw=include_raw,
     )
+    return EnterpriseQueryOut(**result)

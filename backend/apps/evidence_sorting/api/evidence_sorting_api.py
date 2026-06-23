@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 from typing import Any
 
+from asgiref.sync import sync_to_async
 from django.http import HttpRequest
 from ninja import Router
 
@@ -22,7 +24,7 @@ def _body(request: HttpRequest) -> dict[str, Any]:
 
 
 @router.post("/classify")
-def classify_images(request: HttpRequest) -> dict[str, Any]:  # pragma: no cover
+async def classify_images(request: HttpRequest) -> dict[str, Any]:  # pragma: no cover
     """OCR + 关键词分类"""
     payload = _body(request)
     images: list[dict[str, Any]] = payload.get("images", [])
@@ -32,7 +34,7 @@ def classify_images(request: HttpRequest) -> dict[str, Any]:  # pragma: no cover
     from apps.evidence_sorting.services.classifier import ClassifierService
 
     svc = ClassifierService()
-    result = svc.classify_images(images)
+    result = await sync_to_async(svc.classify_images, thread_sensitive=False)(images)
 
     return {
         "success": True,
@@ -54,7 +56,7 @@ def classify_images(request: HttpRequest) -> dict[str, Any]:  # pragma: no cover
 
 
 @router.post("/parse-statement")
-def parse_statement(request: HttpRequest) -> dict[str, Any]:  # pragma: no cover
+async def parse_statement(request: HttpRequest) -> dict[str, Any]:  # pragma: no cover
     """LLM 解析对账单"""
     payload = _body(request)
     ocr_text: str = payload.get("ocr_text", "")
@@ -67,7 +69,7 @@ def parse_statement(request: HttpRequest) -> dict[str, Any]:  # pragma: no cover
     from apps.evidence_sorting.services.reconciler import ReconcilerService
 
     svc = ReconcilerService()
-    info = svc.parse_statement(ocr_text, backend=backend, model=model)
+    info = await sync_to_async(svc.parse_statement, thread_sensitive=False)(ocr_text, backend=backend, model=model)
 
     return {
         "success": True,
@@ -79,7 +81,7 @@ def parse_statement(request: HttpRequest) -> dict[str, Any]:  # pragma: no cover
 
 
 @router.post("/reconcile")
-def reconcile(request: HttpRequest) -> dict[str, Any]:  # pragma: no cover
+async def reconcile(request: HttpRequest) -> dict[str, Any]:  # pragma: no cover
     """交叉比对"""
     payload = _body(request)
     statements: list[dict[str, Any]] = payload.get("statements", [])
@@ -92,7 +94,7 @@ def reconcile(request: HttpRequest) -> dict[str, Any]:  # pragma: no cover
     from apps.evidence_sorting.services.reconciler import ReconcilerService
 
     svc = ReconcilerService()
-    result = svc.reconcile(
+    result = await sync_to_async(svc.reconcile, thread_sensitive=False)(
         statements=statements,
         deliveries=deliveries,
         receipts=receipts,
@@ -150,7 +152,7 @@ def reconcile(request: HttpRequest) -> dict[str, Any]:  # pragma: no cover
 
 @router.post("/export")
 @rate_limit_from_settings("EXPORT", by_user=True)
-def export_zip(request: HttpRequest) -> dict[str, Any]:  # pragma: no cover
+async def export_zip(request: HttpRequest) -> dict[str, Any]:  # pragma: no cover
     """导出 ZIP"""
     payload = _body(request)
     statements = payload.get("statements", [])
@@ -164,7 +166,7 @@ def export_zip(request: HttpRequest) -> dict[str, Any]:  # pragma: no cover
     from apps.evidence_sorting.services.reconciler import ReconcilerService
 
     reconciler = ReconcilerService()
-    result = reconciler.reconcile(
+    result = await sync_to_async(reconciler.reconcile, thread_sensitive=False)(
         statements=statements,
         deliveries=deliveries,
         receipts=receipts,
@@ -174,12 +176,12 @@ def export_zip(request: HttpRequest) -> dict[str, Any]:  # pragma: no cover
     )
 
     exporter = ExporterService()
-    return exporter.export_zip(result)
+    return await sync_to_async(exporter.export_zip, thread_sensitive=False)(result)
 
 
 @router.get("/llm-options")
 @rate_limit_from_settings("LLM", by_user=True)
-def llm_options(request: HttpRequest) -> dict[str, Any]:  # pragma: no cover
+async def llm_options(request: HttpRequest) -> dict[str, Any]:  # pragma: no cover
     """获取可用的 LLM 后端和模型列表"""
     from apps.core.llm import get_llm_service
     from apps.core.llm.model_list_service import ModelListService
@@ -187,37 +189,44 @@ def llm_options(request: HttpRequest) -> dict[str, Any]:  # pragma: no cover
     llm = get_llm_service()
     backends: list[dict[str, Any]] = []
 
-    # Ollama
-    try:
-        ollama_backend = llm.get_backend("ollama")
-        backends.append(
-            {
+    async def _check_ollama() -> dict[str, Any] | None:
+        try:
+            ollama_backend = await sync_to_async(llm.get_backend, thread_sensitive=False)("ollama")
+            is_available = await sync_to_async(ollama_backend.is_available, thread_sensitive=False)()
+            default_model = await sync_to_async(ollama_backend.get_default_model, thread_sensitive=False)()
+            return {
                 "name": "ollama",
                 "label": "Ollama (本地)",
-                "available": ollama_backend.is_available(),
-                "default_model": ollama_backend.get_default_model(),
+                "available": is_available,
+                "default_model": default_model,
             }
-        )
-    except Exception:
-        pass
+        except Exception:
+            return None
 
-    # OpenAI-compatible
-    try:
-        oc_backend = llm.get_backend("openai_compatible")
-        model_svc = ModelListService()
-        result = model_svc.get_result()
-        backends.append(
-            {
+    async def _check_openai_compatible() -> dict[str, Any] | None:
+        try:
+            oc_backend = await sync_to_async(llm.get_backend, thread_sensitive=False)("openai_compatible")
+            model_svc = ModelListService()
+            is_available, default_model, model_result = await asyncio.gather(
+                sync_to_async(oc_backend.is_available, thread_sensitive=False)(),
+                sync_to_async(oc_backend.get_default_model, thread_sensitive=False)(),
+                sync_to_async(model_svc.get_result, thread_sensitive=False)(),
+            )
+            return {
                 "name": "openai_compatible",
                 "label": "在线模型",
-                "available": oc_backend.is_available(),
-                "default_model": oc_backend.get_default_model(),
-                "models": result.models,
-                "models_fallback": result.is_fallback,
-                "models_error": result.error_message,
+                "available": is_available,
+                "default_model": default_model,
+                "models": model_result.models,
+                "models_fallback": model_result.is_fallback,
+                "models_error": model_result.error_message,
             }
-        )
-    except Exception:
-        pass
+        except Exception:
+            return None
+
+    ollama_result, oc_result = await asyncio.gather(_check_ollama(), _check_openai_compatible())
+    for b in (ollama_result, oc_result):
+        if b is not None:
+            backends.append(b)
 
     return {"success": True, "backends": backends}
