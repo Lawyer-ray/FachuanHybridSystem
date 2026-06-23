@@ -119,6 +119,60 @@ class TelegramFileMixin:  # pragma: no cover
                 errors={"original_error": str(e), "file_path": file_path},
             ) from e
 
+    async def _asend_document(self, chat_id: str, file_path: str) -> ChatResult:  # pragma: no cover
+        """异步版本。使用 sendDocument API 发送文件
+
+        POST https://api.telegram.org/bot{token}/sendDocument
+        """
+        try:
+            url = self._get_bot_api_url("sendDocument")
+
+            file_name = Path(file_path).name
+            # 解析 chat_id 和 message_thread_id
+            target_chat_id, message_thread_id = self._parse_chat_id(chat_id)
+
+            with open(file_path, "rb") as file:
+                files = {"document": (file_name, file)}
+                data: dict[str, Any] = {"chat_id": target_chat_id}
+                if message_thread_id:
+                    data["message_thread_id"] = message_thread_id
+
+                timeout = self.config.get("TIMEOUT", 30)
+                async with httpx.AsyncClient(timeout=timeout) as client:
+                    response = await client.post(url, data=data, files=files)
+                    response.raise_for_status()
+
+                resp_data = response.json()
+
+            if not resp_data.get("ok"):
+                error_msg = resp_data.get("description", "未知错误")
+                error_code = resp_data.get("error_code", "unknown")
+                logger.error(f"发送 Telegram 文件失败: {error_msg} (error_code: {error_code})")
+                raise MessageSendException(
+                    message=f"文件发送失败: {error_msg}",
+                    platform="telegram",
+                    chat_id=chat_id,
+                    error_code=str(error_code),
+                    errors={"api_response": resp_data, "file_path": file_path},
+                )
+
+            logger.info(f"成功发送 Telegram 文件到群聊: {chat_id} (文件: {file_name})")
+
+            return ChatResult(
+                success=True, chat_id=chat_id, message=f"文件发送成功: {file_name}", raw_response=resp_data
+            )
+
+        except MessageSendException:
+            raise
+        except httpx.HTTPError as e:
+            logger.error(f"发送 Telegram 文件网络请求失败: {e!s}")
+            raise MessageSendException(
+                message=f"文件发送网络请求失败: {e!s}",
+                platform="telegram",
+                chat_id=chat_id,
+                errors={"original_error": str(e), "file_path": file_path},
+            ) from e
+
     def _parse_chat_id(self, chat_id: str) -> tuple[str, int | None]:  # pragma: no cover
         """解析 chat_id，支持 topic 格式
 

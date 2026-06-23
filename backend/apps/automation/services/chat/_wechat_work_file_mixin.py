@@ -25,6 +25,9 @@ class WeChatWorkFileMixin:  # pragma: no cover
     def _get_access_token(self) -> str:  # 由 WeChatWorkTokenMixin 提供  # pragma: no cover
         raise NotImplementedError
 
+    async def _aget_access_token(self) -> str:  # 由 WeChatWorkTokenMixin 提供  # pragma: no cover
+        raise NotImplementedError
+
     def send_file(self, chat_id: str, file_path: str) -> ChatResult:  # pragma: no cover
         """发送文件到群聊（上传临时素材 -> 发送文件消息）"""
         if not self.is_available():
@@ -130,6 +133,111 @@ class WeChatWorkFileMixin:  # pragma: no cover
             timeout = self.config.get("TIMEOUT", 30)
             response = httpx.post(url, json=payload, headers=headers, timeout=timeout)
             response.raise_for_status()
+
+            data = response.json()
+
+            errcode = data.get("errcode", 0)
+            if errcode != 0:
+                error_msg = data.get("errmsg", "未知错误")
+                logger.error(f"发送企业微信文件消息失败: {error_msg} (errcode: {errcode})")
+                raise MessageSendException(
+                    message=f"发送文件消息失败: {error_msg}",
+                    platform="wechat_work",
+                    chat_id=chat_id,
+                    errors={"api_response": data, "media_id": media_id, "file_path": file_path},
+                )
+
+            logger.info(f"成功发送企业微信文件到群聊: {chat_id} (文件: {file_name})")
+
+            return ChatResult(success=True, chat_id=chat_id, message=f"文件发送成功: {file_name}", raw_response=data)
+
+        except MessageSendException:
+            raise
+        except httpx.HTTPError as e:
+            logger.error(f"发送企业微信文件消息网络请求失败: {e!s}")
+            raise MessageSendException(
+                message=f"发送文件消息网络请求失败: {e!s}",
+                platform="wechat_work",
+                chat_id=chat_id,
+                errors={"original_error": str(e), "media_id": media_id, "file_path": file_path},
+            ) from e
+
+    async def _aupload_temp_material(self, file_path: str) -> str:  # pragma: no cover
+        """异步版本。上传临时素材到企业微信并获取 media_id"""
+        try:
+            access_token = await self._aget_access_token()
+            url = f"https://qyapi.weixin.qq.com/cgi-bin/media/upload?access_token={access_token}&type=file"
+            headers = {"Authorization": f"Bearer {access_token}"}
+
+            file_name = Path(file_path).name
+
+            with open(file_path, "rb") as file:
+                files = {"media": (file_name, file, self._get_mime_type(file_path))}
+                timeout = self.config.get("TIMEOUT", 30)
+                async with httpx.AsyncClient(timeout=timeout) as client:
+                    response = await client.post(url, headers=headers, files=files)
+                    response.raise_for_status()
+
+                resp_data = response.json()
+
+            errcode = resp_data.get("errcode", 0)
+            if errcode != 0:
+                error_msg = resp_data.get("errmsg", "未知错误")
+                logger.error(f"上传企业微信临时素材失败: {error_msg} (errcode: {errcode})")
+                raise MessageSendException(
+                    message=f"文件上传失败: {error_msg}",
+                    platform="wechat_work",
+                    errors={"api_response": resp_data, "file_path": file_path},
+                )
+
+            media_data = resp_data.get("data", resp_data)
+            media_id: str | None = media_data.get("media_id")
+
+            if not media_id:
+                raise MessageSendException(
+                    message="API 响应中缺少 media_id",
+                    platform="wechat_work",
+                    errors={"api_response": resp_data},
+                )
+
+            logger.debug(f"成功上传临时素材到企业微信: {file_name} (media_id: {media_id})")
+            return media_id
+
+        except MessageSendException:
+            raise
+        except httpx.HTTPError as e:
+            logger.error(f"上传企业微信临时素材网络请求失败: {e!s}")
+            raise MessageSendException(
+                message=f"文件上传网络请求失败: {e!s}",
+                platform="wechat_work",
+                errors={"original_error": str(e), "file_path": file_path},
+            ) from e
+        except Exception as e:
+            logger.error(f"上传企业微信临时素材时发生未知错误: {e!s}")
+            raise MessageSendException(
+                message=f"文件上传时发生未知错误: {e!s}",
+                platform="wechat_work",
+                errors={"original_error": str(e), "file_path": file_path},
+            ) from e
+
+    async def _asend_file_message(self, chat_id: str, media_id: str, file_path: str) -> ChatResult:  # pragma: no cover
+        """异步版本。发送文件消息到群聊"""
+        try:
+            access_token = await self._aget_access_token()
+            url = f"https://qyapi.weixin.qq.com/cgi-bin/appchat/send?access_token={access_token}"
+            headers = {"Content-Type": "application/json"}
+
+            file_name = Path(file_path).name
+            payload = {
+                "chatid": chat_id,
+                "msgtype": "file",
+                "file": {"media_id": media_id},
+            }
+
+            timeout = self.config.get("TIMEOUT", 30)
+            async with httpx.AsyncClient(timeout=timeout) as client:
+                response = await client.post(url, json=payload, headers=headers)
+                response.raise_for_status()
 
             data = response.json()
 

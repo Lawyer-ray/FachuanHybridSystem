@@ -331,6 +331,264 @@ class DingtalkProvider(DingtalkTokenMixin, DingtalkFileMixin, ChatProvider):  # 
                 errors={"original_error": str(e), "chat_id": chat_id},
             ) from e
 
+    async def acreate_chat(self, chat_name: str, owner_id: str | None = None) -> ChatResult:  # pragma: no cover
+        """异步版本。创建群聊"""
+        if not self.is_available():
+            raise ConfigurationException(
+                message="钉钉配置不完整，无法创建群聊",
+                platform="dingtalk",
+                missing_config="APP_KEY, APP_SECRET, DEFAULT_OWNER_ID",
+            )
+
+        effective_owner_id = owner_id or self.config.get("DEFAULT_OWNER_ID")
+        if not effective_owner_id:
+            raise ChatCreationException(
+                message="钉钉建群必须指定群主（owner_id）",
+                platform="dingtalk",
+                errors={"missing_config": "DEFAULT_OWNER_ID"},
+            )
+
+        try:
+            logger.info(f"创建钉钉群聊: {chat_name}, 群主: {effective_owner_id}")
+
+            access_token = await self._aget_access_token()
+            url = f"{self.API_BASE_URL}/v1.0/chat/groups"
+            headers = {
+                "x-acs-dingtalk-access-token": access_token,
+                "Content-Type": "application/json",
+            }
+
+            payload: dict[str, Any] = {
+                "title": chat_name,
+                "ownerUserId": effective_owner_id,
+                "userIdlist": [effective_owner_id],
+                "subadminIds": [],
+                "icon": "",
+                "searchable": 0,
+                "showHistoryPublic": 1,
+                "groupMode": 0,
+                "mentionAllAuthority": 0,
+                "chatBanned": 0,
+                "validationRequired": 0,
+            }
+
+            timeout = self.config.get("TIMEOUT", 30)
+            async with httpx.AsyncClient(timeout=timeout) as client:
+                response = await client.post(url, json=payload, headers=headers)
+                response.raise_for_status()
+
+            data = response.json()
+
+            open_conversation_id = data.get("openConversationId")
+            chat_id = data.get("chatId") or open_conversation_id
+
+            if not chat_id:
+                error_code = data.get("code")
+                error_msg = data.get("message", "未知错误")
+                if error_code:
+                    raise ChatCreationException(
+                        message=f"创建群聊失败: {error_msg}",
+                        platform="dingtalk",
+                        error_code=str(error_code),
+                        errors={
+                            "api_response": data,
+                            "chat_name": chat_name,
+                            "specified_owner_id": owner_id,
+                            "effective_owner_id": effective_owner_id,
+                        },
+                    )
+                raise ChatCreationException(
+                    message="API 响应中缺少群聊ID",
+                    platform="dingtalk",
+                    errors={"api_response": data},
+                )
+
+            logger.info(f"成功创建钉钉群聊: {chat_name} (ID: {chat_id}), 群主: {effective_owner_id}")
+
+            await self._asend_initial_message(chat_id, chat_name)
+
+            result = ChatResult(
+                success=True, chat_id=chat_id, chat_name=chat_name, message="群聊创建成功", raw_response=data
+            )
+            if result.raw_response:
+                result.raw_response["owner_info"] = {
+                    "specified_owner_id": owner_id,
+                    "effective_owner_id": effective_owner_id,
+                    "owner_set": bool(effective_owner_id),
+                }
+            return result
+
+        except ChatCreationException:
+            raise
+        except httpx.HTTPError as e:
+            logger.error(f"创建钉钉群聊网络请求失败: {e!s}")
+            raise ChatCreationException(
+                message=f"网络请求失败: {e!s}",
+                platform="dingtalk",
+                errors={"original_error": str(e), "chat_name": chat_name},
+            ) from e
+        except Exception as e:
+            logger.error(f"创建钉钉群聊时发生未知错误: {e!s}")
+            raise ChatCreationException(
+                message=f"创建群聊时发生未知错误: {e!s}",
+                platform="dingtalk",
+                errors={"original_error": str(e), "chat_name": chat_name},
+            ) from e
+
+    async def asend_message(self, chat_id: str, content: MessageContent) -> ChatResult:  # pragma: no cover
+        """异步版本。发送消息到群聊"""
+        if not self.is_available():
+            raise ConfigurationException(
+                message="钉钉配置不完整，无法发送消息",
+                platform="dingtalk",
+                missing_config="APP_KEY, APP_SECRET, AGENT_ID",
+            )
+
+        try:
+            access_token = await self._aget_access_token()
+            agent_id = self.config.get("AGENT_ID")
+            if not agent_id:
+                raise ConfigurationException(
+                    message="钉钉 AGENT_ID 未配置，无法发送消息",
+                    platform="dingtalk",
+                    missing_config="AGENT_ID",
+                )
+
+            url = f"{self.API_BASE_URL}/v1.0/robot/oToMessages/batchSend"
+            headers = {
+                "x-acs-dingtalk-access-token": access_token,
+                "Content-Type": "application/json",
+            }
+
+            message_text = self._build_text_message(content)
+            payload = {
+                "robotCode": agent_id,
+                "chatIds": [chat_id],
+                "msgKey": "sampleText",
+                "msgParam": f'{{"content":"{message_text}"}}',
+            }
+
+            logger.debug(f"发送钉钉消息请求: chat_id={chat_id}")
+
+            timeout = self.config.get("TIMEOUT", 30)
+            async with httpx.AsyncClient(timeout=timeout) as client:
+                response = await client.post(url, json=payload, headers=headers)
+                response.raise_for_status()
+
+            data = response.json()
+
+            error_code = data.get("code")
+            if error_code and error_code != "OK":
+                error_msg = data.get("message", "未知错误")
+                logger.error(f"发送钉钉消息失败: {error_msg} (code: {error_code})")
+                raise MessageSendException(
+                    message=f"发送消息失败: {error_msg}",
+                    platform="dingtalk",
+                    chat_id=chat_id,
+                    error_code=str(error_code),
+                    errors={"api_response": data},
+                )
+
+            logger.info(f"成功发送钉钉消息到群聊: {chat_id}")
+
+            return ChatResult(success=True, chat_id=chat_id, message="消息发送成功", raw_response=data)
+
+        except MessageSendException:
+            raise
+        except ConfigurationException:
+            raise
+        except httpx.HTTPError as e:
+            logger.error(f"发送钉钉消息网络请求失败: {e!s}")
+            raise MessageSendException(
+                message=f"网络请求失败: {e!s}",
+                platform="dingtalk",
+                chat_id=chat_id,
+                errors={"original_error": str(e)},
+            ) from e
+        except Exception as e:
+            logger.error(f"发送钉钉消息时发生未知错误: {e!s}")
+            raise MessageSendException(
+                message=f"发送消息时发生未知错误: {e!s}",
+                platform="dingtalk",
+                chat_id=chat_id,
+                errors={"original_error": str(e)},
+            ) from e
+
+    async def aget_chat_info(self, chat_id: str) -> ChatResult:  # pragma: no cover
+        """异步版本。获取群聊信息"""
+        if not self.is_available():
+            raise ConfigurationException(
+                message="钉钉配置不完整，无法获取群聊信息",
+                platform="dingtalk",
+                missing_config="APP_KEY, APP_SECRET",
+            )
+
+        try:
+            access_token = await self._aget_access_token()
+            url = f"{self.API_BASE_URL}/v1.0/chat/groups/{chat_id}"
+            headers = {
+                "x-acs-dingtalk-access-token": access_token,
+                "Content-Type": "application/json",
+            }
+
+            timeout = self.config.get("TIMEOUT", 30)
+            async with httpx.AsyncClient(timeout=timeout) as client:
+                response = await client.get(url, headers=headers)
+                response.raise_for_status()
+
+            data = response.json()
+
+            error_code = data.get("code")
+            if error_code and error_code != "OK":
+                error_msg = data.get("message", "未知错误")
+                logger.error(f"获取钉钉群聊信息失败: {error_msg} (code: {error_code})")
+                raise ChatProviderException(
+                    message=f"获取群聊信息失败: {error_msg}",
+                    platform="dingtalk",
+                    error_code=str(error_code),
+                    errors={"api_response": data, "chat_id": chat_id},
+                )
+
+            chat_name = data.get("title", "")
+            logger.debug(f"成功获取钉钉群聊信息: {chat_id} (名称: {chat_name})")
+
+            return ChatResult(
+                success=True,
+                chat_id=chat_id,
+                chat_name=chat_name,
+                message="获取群聊信息成功",
+                raw_response=data,
+            )
+
+        except ChatProviderException:
+            raise
+        except httpx.HTTPError as e:
+            logger.error(f"获取钉钉群聊信息网络请求失败: {e!s}")
+            raise ChatProviderException(
+                message=f"网络请求失败: {e!s}",
+                platform="dingtalk",
+                errors={"original_error": str(e), "chat_id": chat_id},
+            ) from e
+        except Exception as e:
+            logger.error(f"获取钉钉群聊信息时发生未知错误: {e!s}")
+            raise ChatProviderException(
+                message=f"获取群聊信息时发生未知错误: {e!s}",
+                platform="dingtalk",
+                errors={"original_error": str(e), "chat_id": chat_id},
+            ) from e
+
+    async def _asend_initial_message(self, chat_id: str, chat_name: str) -> None:  # pragma: no cover
+        """异步版本。新群创建后发送首条消息，确保群在客户端可见"""
+        try:
+            initial_content = MessageContent(
+                title="群聊已创建",
+                text=f"案件群聊「{chat_name}」已创建，后续法院文书通知将在此群推送。",
+            )
+            await self.asend_message(chat_id, initial_content)
+            logger.debug(f"已发送钉钉群初始消息: {chat_id}")
+        except Exception as e:
+            logger.warning(f"发送钉钉群初始消息失败（不影响主流程）: {chat_id}, 错误: {e!s}")
+
     def _build_text_message(self, content: MessageContent) -> str:  # pragma: no cover
         """构建文本消息"""
         message_parts = []

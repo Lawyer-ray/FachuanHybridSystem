@@ -288,6 +288,244 @@ class WeChatWorkProvider(WeChatWorkTokenMixin, WeChatWorkFileMixin, ChatProvider
                 raw_response={"error": str(e)},
             )
 
+    async def acreate_chat(self, chat_name: str, owner_id: str | None = None) -> ChatResult:  # pragma: no cover
+        """异步版本。创建群聊"""
+        if not self.is_available():
+            raise ConfigurationException(
+                message=_("企业微信配置不完整，无法创建群聊"),
+                platform="wechat_work",
+                missing_config="CORP_ID, AGENT_ID, SECRET, DEFAULT_OWNER_ID",
+            )
+
+        effective_owner_id = owner_id or self.config.get("DEFAULT_OWNER_ID")
+        if not effective_owner_id:
+            raise ChatCreationException(
+                message=_("企业微信建群必须指定群主（owner_id）"),
+                platform="wechat_work",
+                errors={"missing_config": "DEFAULT_OWNER_ID"},
+            )
+
+        try:
+            logger.info(f"创建企业微信群聊: {chat_name}, 群主: {effective_owner_id}")
+
+            extra_member_ids = self.config.get("DEFAULT_MEMBER_IDS", "")
+            initial_members = [m.strip() for m in extra_member_ids.split(",") if m.strip()]
+            userlist = list(dict.fromkeys([effective_owner_id, *initial_members]))
+
+            if len(userlist) < 2:
+                raise ChatCreationException(
+                    message=_("企业微信建群至少需要 2 人，请在系统配置中补充 WECHAT_WORK_DEFAULT_MEMBER_IDS"),
+                    platform="wechat_work",
+                    errors={"userlist": userlist, "config_key": "WECHAT_WORK_DEFAULT_MEMBER_IDS"},
+                )
+
+            chatid = hashlib.md5(f"case_{chat_name}_{uuid4().hex}".encode(), usedforsecurity=False).hexdigest()[:32]
+
+            access_token = await self._aget_access_token()
+            url = f"https://qyapi.weixin.qq.com/cgi-bin/appchat/create?access_token={access_token}"
+            headers = {"Content-Type": "application/json"}
+
+            payload: dict[str, Any] = {
+                "chatid": chatid,
+                "name": chat_name,
+                "owner": effective_owner_id,
+                "userlist": userlist,
+            }
+
+            timeout = self.config.get("TIMEOUT", 30)
+            async with httpx.AsyncClient(timeout=timeout) as client:
+                response = await client.post(url, json=payload, headers=headers)
+                response.raise_for_status()
+
+            data = response.json()
+
+            errcode = data.get("errcode", 0)
+            if errcode != 0:
+                error_msg = data.get("errmsg", "未知错误")
+                logger.error(f"创建企业微信群聊失败: {error_msg} (errcode: {errcode})")
+                raise ChatCreationException(
+                    message=f"创建群聊失败: {error_msg}",
+                    platform="wechat_work",
+                    error_code=str(errcode),
+                    errors={
+                        "api_response": data,
+                        "chat_name": chat_name,
+                        "specified_owner_id": owner_id,
+                        "effective_owner_id": effective_owner_id,
+                    },
+                )
+
+            chat_id = data.get("chatid")
+            if not chat_id:
+                raise ChatCreationException(
+                    message=_("API 响应中缺少群聊ID"),
+                    platform="wechat_work",
+                    errors={"api_response": data},
+                )
+
+            logger.info(f"成功创建企业微信群聊: {chat_name} (ID: {chat_id}), 群主: {effective_owner_id}")
+
+            await self._asend_initial_message(chat_id, chat_name)
+
+            result = ChatResult(
+                success=True, chat_id=chat_id, chat_name=chat_name, message=str(_("群聊创建成功")), raw_response=data
+            )
+            if result.raw_response:
+                result.raw_response["owner_info"] = {
+                    "specified_owner_id": owner_id,
+                    "effective_owner_id": effective_owner_id,
+                    "owner_set": bool(effective_owner_id),
+                }
+            return result
+
+        except ChatCreationException:
+            raise
+        except httpx.HTTPError as e:
+            logger.error(f"创建企业微信群聊网络请求失败: {e!s}")
+            raise ChatCreationException(
+                message=f"网络请求失败: {e!s}",
+                platform="wechat_work",
+                errors={"original_error": str(e), "chat_name": chat_name},
+            ) from e
+        except Exception as e:
+            logger.error(f"创建企业微信群聊时发生未知错误: {e!s}")
+            raise ChatCreationException(
+                message=f"创建群聊时发生未知错误: {e!s}",
+                platform="wechat_work",
+                errors={"original_error": str(e), "chat_name": chat_name},
+            ) from e
+
+    async def asend_message(self, chat_id: str, content: MessageContent) -> ChatResult:  # pragma: no cover
+        """异步版本。发送消息到群聊"""
+        if not self.is_available():
+            raise ConfigurationException(
+                message=_("企业微信配置不完整，无法发送消息"),
+                platform="wechat_work",
+                missing_config="CORP_ID, AGENT_ID, SECRET",
+            )
+
+        try:
+            access_token = await self._aget_access_token()
+            url = f"https://qyapi.weixin.qq.com/cgi-bin/appchat/send?access_token={access_token}"
+            headers = {"Content-Type": "application/json"}
+
+            message_text = self._build_text_message(content)
+            payload = {
+                "chatid": chat_id,
+                "msgtype": "text",
+                "text": {"content": message_text},
+            }
+
+            logger.debug(f"发送企业微信消息请求: chat_id={chat_id}")
+
+            timeout = self.config.get("TIMEOUT", 30)
+            async with httpx.AsyncClient(timeout=timeout) as client:
+                response = await client.post(url, json=payload, headers=headers)
+                response.raise_for_status()
+
+            data = response.json()
+
+            errcode = data.get("errcode", 0)
+            if errcode != 0:
+                error_msg = data.get("errmsg", "未知错误")
+                logger.error(f"发送企业微信消息失败: {error_msg} (errcode: {errcode})")
+                raise MessageSendException(
+                    message=f"发送消息失败: {error_msg}",
+                    platform="wechat_work",
+                    chat_id=chat_id,
+                    error_code=str(errcode),
+                    errors={"api_response": data},
+                )
+
+            msg_id = data.get("msgid", "")
+            logger.info(f"成功发送企业微信消息到群聊: {chat_id} (消息ID: {msg_id})")
+
+            return ChatResult(success=True, chat_id=chat_id, message=str(_("消息发送成功")), raw_response=data)
+
+        except MessageSendException:
+            raise
+        except httpx.HTTPError as e:
+            logger.error(f"发送企业微信消息网络请求失败: {e!s}")
+            raise MessageSendException(
+                message=f"网络请求失败: {e!s}",
+                platform="wechat_work",
+                chat_id=chat_id,
+                errors={"original_error": str(e)},
+            ) from e
+        except Exception as e:
+            logger.error(f"发送企业微信消息时发生未知错误: {e!s}")
+            raise MessageSendException(
+                message=f"发送消息时发生未知错误: {e!s}",
+                platform="wechat_work",
+                chat_id=chat_id,
+                errors={"original_error": str(e)},
+            ) from e
+
+    async def aget_chat_info(self, chat_id: str) -> ChatResult:  # pragma: no cover
+        """异步版本。获取群聊信息"""
+        if not self.is_available():
+            raise ConfigurationException(
+                message=_("企业微信配置不完整，无法获取群聊信息"),
+                platform="wechat_work",
+                missing_config="CORP_ID, AGENT_ID, SECRET",
+            )
+
+        try:
+            access_token = await self._aget_access_token()
+            url = f"https://qyapi.weixin.qq.com/cgi-bin/appchat/get?access_token={access_token}&chatid={chat_id}"
+            headers = {"Content-Type": "application/json"}
+
+            timeout = self.config.get("TIMEOUT", 30)
+            async with httpx.AsyncClient(timeout=timeout) as client:
+                response = await client.get(url, headers=headers)
+                response.raise_for_status()
+
+            data = response.json()
+
+            errcode = data.get("errcode", 0)
+            if errcode != 0:
+                error_msg = data.get("errmsg", "未知错误")
+                logger.error(f"获取企业微信群聊信息失败: {error_msg} (errcode: {errcode})")
+                return ChatResult(
+                    success=False,
+                    chat_id=chat_id,
+                    message=f"获取群聊信息失败: {error_msg}",
+                    error_code=str(errcode),
+                    raw_response=data,
+                )
+
+            chat_info = data.get("chat_info", {})
+            chat_name = chat_info.get("name", "")
+
+            return ChatResult(
+                success=True,
+                chat_id=chat_id,
+                chat_name=chat_name,
+                message=str(_("获取群聊信息成功")),
+                raw_response=data,
+            )
+
+        except Exception as e:
+            logger.error(f"获取企业微信群聊信息失败: {e!s}")
+            return ChatResult(
+                success=False,
+                chat_id=chat_id,
+                message=f"获取群聊信息失败: {e!s}",
+                raw_response={"error": str(e)},
+            )
+
+    async def _asend_initial_message(self, chat_id: str, chat_name: str) -> None:  # pragma: no cover
+        """异步版本。新群创建后发送首条消息，确保群在客户端可见"""
+        try:
+            initial_content = MessageContent(
+                title="群聊已创建",
+                text=f"案件群聊「{chat_name}」已创建，后续法院文书通知将在此群推送。",
+            )
+            await self.asend_message(chat_id, initial_content)
+            logger.debug(f"已发送企业微信群初始消息: {chat_id}")
+        except Exception as e:
+            logger.warning(f"发送企业微信群初始消息失败（不影响主流程）: {chat_id}, 错误: {e!s}")
+
     def _build_text_message(self, content: MessageContent) -> str:  # pragma: no cover
         """构建文本消息"""
         message_parts = []

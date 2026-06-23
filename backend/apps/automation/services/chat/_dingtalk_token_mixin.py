@@ -152,3 +152,64 @@ class DingtalkTokenMixin:  # pragma: no cover
             raise ChatProviderException(
                 message=f"API 响应格式错误: {e!s}", platform="dingtalk", errors={"original_error": str(e)}
             ) from e
+
+    async def _aget_access_token(self) -> str:  # pragma: no cover
+        """异步版本。获取钉钉 access_token，支持缓存和自动刷新"""
+        if (
+            self._access_token
+            and self._token_expires_at
+            and datetime.now() < self._token_expires_at - timedelta(minutes=5)
+        ):
+            return self._access_token
+
+        app_key = self.config.get("APP_KEY")
+        app_secret = self.config.get("APP_SECRET")
+
+        if not app_key or not app_secret:
+            raise ConfigurationException(
+                message="钉钉 APP_KEY 或 APP_SECRET 未配置",
+                platform="dingtalk",
+                missing_config="APP_KEY, APP_SECRET",
+            )
+
+        url = f"https://oapi.dingtalk.com/gettoken?appkey={app_key}&appsecret={app_secret}"
+
+        try:
+            timeout = self.config.get("TIMEOUT", 30)
+            async with httpx.AsyncClient(timeout=timeout) as client:
+                response = await client.post(url, headers={"Content-Type": "application/json"})
+                response.raise_for_status()
+
+            data = response.json()
+
+            errcode = data.get("errcode", 0)
+            if errcode != 0:
+                error_msg = data.get("errmsg", "未知错误")
+                raise ChatProviderException(
+                    message=f"获取钉钉 access_token 失败: {error_msg}",
+                    platform="dingtalk",
+                    error_code=str(errcode),
+                    errors={"api_response": data},
+                )
+
+            self._access_token = data["access_token"]
+            expires_in = data.get("expires_in", 7200)
+            self._token_expires_at = datetime.now() + timedelta(seconds=expires_in)
+
+            logger.debug("已获取钉钉 access_token")
+            if self._access_token is None:
+                raise ChatProviderException("钉钉 access_token 为空")
+            return self._access_token
+
+        except ChatProviderException:
+            raise
+        except httpx.HTTPError as e:
+            logger.error(f"请求钉钉 access_token 失败: {e!s}")
+            raise ChatProviderException(
+                message=f"网络请求失败: {e!s}", platform="dingtalk", errors={"original_error": str(e)}
+            ) from e
+        except (KeyError, ValueError) as e:
+            logger.error(f"解析钉钉 API 响应失败: {e!s}")
+            raise ChatProviderException(
+                message=f"API 响应格式错误: {e!s}", platform="dingtalk", errors={"original_error": str(e)}
+            ) from e

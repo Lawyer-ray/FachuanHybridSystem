@@ -321,6 +321,244 @@ class TelegramProvider(TelegramTokenMixin, TelegramFileMixin, ChatProvider):  # 
                 errors={"original_error": str(e), "chat_id": chat_id},
             ) from e
 
+    async def acreate_chat(self, chat_name: str, owner_id: str | None = None) -> ChatResult:  # pragma: no cover
+        """异步版本。创建群聊（在超级群组中创建论坛话题）"""
+        if not self.is_available():
+            raise ConfigurationException(
+                message="Telegram 配置不完整，无法创建话题",
+                platform="telegram",
+                missing_config="BOT_TOKEN, SUPERGROUP_ID",
+            )
+
+        try:
+            supergroup_id = self.config.get("SUPERGROUP_ID")
+            logger.info(f"创建 Telegram 论坛话题: {chat_name}, 超级群组: {supergroup_id}")
+
+            url = self._get_bot_api_url("createForumTopic")
+            payload = {
+                "chat_id": supergroup_id,
+                "name": chat_name,
+            }
+
+            timeout = self.config.get("TIMEOUT", 30)
+            async with httpx.AsyncClient(timeout=timeout) as client:
+                response = await client.post(url, json=payload)
+                response.raise_for_status()
+
+            data = response.json()
+
+            if not data.get("ok"):
+                error_msg = data.get("description", "未知错误")
+                error_code = data.get("error_code", "unknown")
+                logger.error(f"创建 Telegram 论坛话题失败: {error_msg} (error_code: {error_code})")
+                raise ChatCreationException(
+                    message=f"创建话题失败: {error_msg}",
+                    platform="telegram",
+                    error_code=str(error_code),
+                    errors={
+                        "api_response": data,
+                        "chat_name": chat_name,
+                        "supergroup_id": str(supergroup_id),
+                    },
+                )
+
+            result_data = data.get("result", {})
+            thread_id = result_data.get("message_thread_id")
+
+            if not thread_id:
+                raise ChatCreationException(
+                    message="API 响应中缺少话题 ID",
+                    platform="telegram",
+                    errors={"api_response": data},
+                )
+
+            combined_chat_id = f"{supergroup_id}:{thread_id}"
+
+            logger.info(f"成功创建 Telegram 论坛话题: {chat_name} (thread_id: {thread_id})")
+
+            # 发送初始消息到话题（异步）
+            await self._asend_initial_message(combined_chat_id, chat_name)
+
+            result = ChatResult(
+                success=True,
+                chat_id=combined_chat_id,
+                chat_name=chat_name,
+                message="话题创建成功",
+                raw_response=data,
+            )
+            if result.raw_response:
+                result.raw_response["topic_info"] = {
+                    "supergroup_id": str(supergroup_id),
+                    "thread_id": thread_id,
+                    "combined_chat_id": combined_chat_id,
+                }
+            return result
+
+        except ChatCreationException:
+            raise
+        except httpx.HTTPError as e:
+            logger.error(f"创建 Telegram 论坛话题网络请求失败: {e!s}")
+            raise ChatCreationException(
+                message=f"网络请求失败: {e!s}",
+                platform="telegram",
+                errors={"original_error": str(e), "chat_name": chat_name},
+            ) from e
+        except Exception as e:
+            logger.error(f"创建 Telegram 论坛话题时发生未知错误: {e!s}")
+            raise ChatCreationException(
+                message=f"创建话题时发生未知错误: {e!s}",
+                platform="telegram",
+                errors={"original_error": str(e), "chat_name": chat_name},
+            ) from e
+
+    async def asend_message(self, chat_id: str, content: MessageContent) -> ChatResult:  # pragma: no cover
+        """异步版本。发送消息到群聊"""
+        if not self.is_available():
+            raise ConfigurationException(
+                message="Telegram 配置不完整，无法发送消息",
+                platform="telegram",
+                missing_config="BOT_TOKEN",
+            )
+
+        try:
+            url = self._get_bot_api_url("sendMessage")
+
+            message_text = self._build_text_message(content)
+            target_chat_id, message_thread_id = self._parse_chat_id(chat_id)
+
+            payload: dict[str, Any] = {
+                "chat_id": target_chat_id,
+                "text": message_text,
+            }
+            if message_thread_id:
+                payload["message_thread_id"] = message_thread_id
+
+            timeout = self.config.get("TIMEOUT", 30)
+            async with httpx.AsyncClient(timeout=timeout) as client:
+                response = await client.post(url, json=payload)
+                response.raise_for_status()
+
+            data = response.json()
+
+            if not data.get("ok"):
+                error_msg = data.get("description", "未知错误")
+                error_code = data.get("error_code", "unknown")
+                logger.error(f"发送 Telegram 消息失败: {error_msg} (error_code: {error_code})")
+                raise MessageSendException(
+                    message=f"发送消息失败: {error_msg}",
+                    platform="telegram",
+                    chat_id=chat_id,
+                    error_code=str(error_code),
+                    errors={"api_response": data},
+                )
+
+            message_data = data.get("result", {})
+            message_id = message_data.get("message_id")
+            logger.info(f"成功发送 Telegram 消息到群聊: {chat_id} (消息ID: {message_id})")
+
+            return ChatResult(success=True, chat_id=chat_id, message="消息发送成功", raw_response=data)
+
+        except MessageSendException:
+            raise
+        except httpx.HTTPError as e:
+            logger.error(f"发送 Telegram 消息网络请求失败: {e!s}")
+            raise MessageSendException(
+                message=f"网络请求失败: {e!s}",
+                platform="telegram",
+                chat_id=chat_id,
+                errors={"original_error": str(e)},
+            ) from e
+        except Exception as e:
+            logger.error(f"发送 Telegram 消息时发生未知错误: {e!s}")
+            raise MessageSendException(
+                message=f"发送消息时发生未知错误: {e!s}",
+                platform="telegram",
+                chat_id=chat_id,
+                errors={"original_error": str(e)},
+            ) from e
+
+    async def aget_chat_info(self, chat_id: str) -> ChatResult:  # pragma: no cover
+        """异步版本。获取群聊信息"""
+        if not self.is_available():
+            raise ConfigurationException(
+                message="Telegram 配置不完整，无法获取群聊信息",
+                platform="telegram",
+                missing_config="BOT_TOKEN",
+            )
+
+        try:
+            target_chat_id, message_thread_id = self._parse_chat_id(chat_id)
+
+            url = self._get_bot_api_url("getChat")
+            payload = {"chat_id": target_chat_id}
+
+            timeout = self.config.get("TIMEOUT", 30)
+            async with httpx.AsyncClient(timeout=timeout) as client:
+                response = await client.post(url, json=payload)
+                response.raise_for_status()
+
+            data = response.json()
+
+            if not data.get("ok"):
+                error_msg = data.get("description", "未知错误")
+                error_code = data.get("error_code", "unknown")
+                logger.error(f"获取 Telegram 群聊信息失败: {error_msg} (error_code: {error_code})")
+                raise ChatProviderException(
+                    message=f"获取群聊信息失败: {error_msg}",
+                    platform="telegram",
+                    error_code=str(error_code),
+                    errors={"api_response": data, "chat_id": chat_id},
+                )
+
+            chat_data = data.get("result", {})
+            chat_name = chat_data.get("title", "")
+
+            result_data = dict(data)
+            if message_thread_id:
+                result_data["topic_info"] = {
+                    "message_thread_id": message_thread_id,
+                    "is_topic": True,
+                }
+
+            logger.debug(f"成功获取 Telegram 群聊信息: {target_chat_id} (名称: {chat_name})")
+
+            return ChatResult(
+                success=True,
+                chat_id=chat_id,
+                chat_name=chat_name,
+                message="获取群聊信息成功",
+                raw_response=result_data,
+            )
+
+        except ChatProviderException:
+            raise
+        except httpx.HTTPError as e:
+            logger.error(f"获取 Telegram 群聊信息网络请求失败: {e!s}")
+            raise ChatProviderException(
+                message=f"网络请求失败: {e!s}",
+                platform="telegram",
+                errors={"original_error": str(e), "chat_id": chat_id},
+            ) from e
+        except Exception as e:
+            logger.error(f"获取 Telegram 群聊信息时发生未知错误: {e!s}")
+            raise ChatProviderException(
+                message=f"获取群聊信息时发生未知错误: {e!s}",
+                platform="telegram",
+                errors={"original_error": str(e), "chat_id": chat_id},
+            ) from e
+
+    async def _asend_initial_message(self, chat_id: str, chat_name: str) -> None:  # pragma: no cover
+        """异步版本。新话题创建后发送首条消息"""
+        try:
+            initial_content = MessageContent(
+                title="话题已创建",
+                text=f"案件论坛话题「{chat_name}」已创建，后续法院文书通知将在此话题推送。",
+            )
+            await self.asend_message(chat_id, initial_content)
+            logger.debug(f"已发送 Telegram 初始消息: {chat_id}")
+        except Exception as e:
+            logger.warning(f"发送 Telegram 初始消息失败（不影响主流程）: {chat_id}, 错误: {e!s}")
+
     def _build_text_message(self, content: MessageContent) -> str:  # pragma: no cover
         """构建文本消息"""
         message_parts = []

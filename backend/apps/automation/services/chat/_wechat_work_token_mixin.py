@@ -136,3 +136,62 @@ class WeChatWorkTokenMixin:  # pragma: no cover
             raise ChatProviderException(
                 message=f"API 响应格式错误: {e!s}", platform="wechat_work", errors={"original_error": str(e)}
             ) from e
+
+    async def _aget_access_token(self) -> str:  # pragma: no cover
+        """异步版本。获取企业微信 access_token，支持缓存和自动刷新"""
+        if (
+            self._access_token
+            and self._token_expires_at
+            and datetime.now() < self._token_expires_at - timedelta(minutes=5)
+        ):
+            return self._access_token
+
+        corp_id = self.config.get("CORP_ID")
+        secret = self.config.get("SECRET")
+
+        if not corp_id or not secret:
+            raise ConfigurationException(
+                message="企业微信 CORP_ID 或 SECRET 未配置",
+                platform="wechat_work",
+                missing_config="CORP_ID, SECRET",
+            )
+
+        url = f"https://qyapi.weixin.qq.com/cgi-bin/gettoken?corpid={corp_id}&corpsecret={secret}"
+
+        try:
+            timeout = self.config.get("TIMEOUT", 30)
+            async with httpx.AsyncClient(timeout=timeout) as client:
+                response = await client.get(url)
+                response.raise_for_status()
+
+            data = response.json()
+
+            errcode = data.get("errcode", 0)
+            if errcode != 0:
+                error_msg = data.get("errmsg", "未知错误")
+                raise ChatProviderException(
+                    message=f"获取企业微信 access_token 失败: {error_msg}",
+                    platform="wechat_work",
+                    error_code=str(errcode),
+                    errors={"api_response": data},
+                )
+
+            self._access_token = data["access_token"]
+            expires_in = data.get("expires_in", 7200)
+            self._token_expires_at = datetime.now() + timedelta(seconds=expires_in)
+
+            logger.debug("已获取企业微信 access_token")
+            if self._access_token is None:
+                raise ChatProviderException("企业微信 access_token 为空")
+            return self._access_token
+
+        except httpx.HTTPError as e:
+            logger.error(f"请求企业微信 access_token 失败: {e!s}")
+            raise ChatProviderException(
+                message=f"网络请求失败: {e!s}", platform="wechat_work", errors={"original_error": str(e)}
+            ) from e
+        except (KeyError, ValueError) as e:
+            logger.error(f"解析企业微信 API 响应失败: {e!s}")
+            raise ChatProviderException(
+                message=f"API 响应格式错误: {e!s}", platform="wechat_work", errors={"original_error": str(e)}
+            ) from e

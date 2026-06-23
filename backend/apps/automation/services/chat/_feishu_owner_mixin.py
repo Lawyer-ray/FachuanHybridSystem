@@ -41,6 +41,9 @@ class FeishuOwnerMixin:  # pragma: no cover
     def _get_tenant_access_token(self) -> str:  # 由 FeishuTokenMixin 提供  # pragma: no cover
         raise NotImplementedError
 
+    async def _aget_tenant_access_token(self) -> str:  # 由 FeishuTokenMixin 提供  # pragma: no cover
+        raise NotImplementedError
+
     def get_chat_info(self, chat_id: str) -> ChatResult:  # pragma: no cover
         """获取群聊详细信息"""
         if not self.is_available():
@@ -98,6 +101,163 @@ class FeishuOwnerMixin:  # pragma: no cover
                 platform="feishu",
                 errors={"original_error": str(e), "chat_id": chat_id},
             ) from e
+
+    async def aget_chat_info(self, chat_id: str) -> ChatResult:  # pragma: no cover
+        """异步版本。获取群聊详细信息"""
+        if not self.is_available():
+            raise ConfigurationException(
+                message="飞书配置不完整，无法获取群聊信息", platform="feishu", missing_config="APP_ID, APP_SECRET"
+            )
+
+        try:
+            access_token = await self._aget_tenant_access_token()
+            url = f"{self.BASE_URL}{self.ENDPOINTS['get_chat'].format(chat_id=chat_id)}"
+            headers = {"Authorization": f"Bearer {access_token}", "Content-Type": "application/json"}
+
+            timeout = self.config.get("TIMEOUT", 30)
+            async with httpx.AsyncClient(timeout=timeout) as client:
+                response = await client.get(url, headers=headers)
+                response.raise_for_status()
+
+            data = response.json()
+
+            if data.get("code") != 0:
+                error_msg = data.get("msg", "未知错误")
+                error_code = str(data.get("code"))
+                logger.error(f"获取飞书群聊信息失败: {error_msg} (code: {error_code})")
+                raise ChatProviderException(
+                    message=f"获取群聊信息失败: {error_msg}",
+                    platform="feishu",
+                    error_code=error_code,
+                    errors={"api_response": data, "chat_id": chat_id},
+                )
+
+            chat_data = data.get("data", {})
+            chat_name = chat_data.get("name", "")
+            logger.debug(f"成功获取飞书群聊信息: {chat_id} (名称: {chat_name})")
+
+            return ChatResult(
+                success=True,
+                chat_id=chat_id,
+                chat_name=chat_name,
+                message="获取群聊信息成功",
+                raw_response=data,
+            )
+
+        except ChatProviderException:
+            raise
+        except httpx.HTTPError as e:
+            logger.error(f"获取飞书群聊信息网络请求失败: {e!s}")
+            raise ChatProviderException(
+                message=f"网络请求失败: {e!s}",
+                platform="feishu",
+                errors={"original_error": str(e), "chat_id": chat_id},
+            ) from e
+        except Exception as e:
+            logger.error(f"获取飞书群聊信息时发生未知错误: {e!s}")
+            raise ChatProviderException(
+                message=f"获取群聊信息时发生未知错误: {e!s}",
+                platform="feishu",
+                errors={"original_error": str(e), "chat_id": chat_id},
+            ) from e
+
+    async def aget_chat_owner_info(self, chat_id: str) -> dict[str, Any]:  # pragma: no cover
+        """异步版本。获取群聊群主信息"""
+        if not self.is_available():
+            raise ConfigurationException(
+                message="飞书配置不完整，无法获取群聊群主信息",
+                platform="feishu",
+                missing_config="APP_ID, APP_SECRET",
+            )
+
+        try:
+            access_token = await self._aget_tenant_access_token()
+            url = f"{self.BASE_URL}{self.ENDPOINTS['get_chat'].format(chat_id=chat_id)}"
+            params = {"user_id_type": "open_id"}
+            headers = {"Authorization": f"Bearer {access_token}", "Content-Type": "application/json"}
+
+            timeout = self.config.get("TIMEOUT", 30)
+            async with httpx.AsyncClient(timeout=timeout) as client:
+                response = await client.get(url, params=params, headers=headers)
+                response.raise_for_status()
+
+            data = response.json()
+
+            if data.get("code") != 0:
+                error_msg = data.get("msg", "未知错误")
+                error_code = str(data.get("code"))
+                logger.error(f"获取飞书群聊群主信息失败: {error_msg} (code: {error_code})")
+                raise ChatProviderException(
+                    message=f"获取群聊群主信息失败: {error_msg}",
+                    platform="feishu",
+                    error_code=error_code,
+                    errors={"api_response": data, "chat_id": chat_id},
+                )
+
+            chat_data = data.get("data", {})
+            owner_info = {
+                "chat_id": chat_id,
+                "owner_id": chat_data.get("owner_id"),
+                "owner_id_type": chat_data.get("owner_id_type", "open_id"),
+                "chat_name": chat_data.get("name"),
+                "chat_mode": chat_data.get("chat_mode"),
+                "chat_type": chat_data.get("chat_type"),
+                "member_count": len(chat_data.get("members", [])),
+                "raw_data": chat_data,
+            }
+
+            logger.debug(f"成功获取群聊群主信息: {chat_id}, 群主: {owner_info.get('owner_id')}")
+            return owner_info
+
+        except ChatProviderException:
+            raise
+        except httpx.HTTPError as e:
+            logger.error(f"获取飞书群聊群主信息网络请求失败: {e!s}")
+            raise ChatProviderException(
+                message=f"网络请求失败: {e!s}",
+                platform="feishu",
+                errors={"original_error": str(e), "chat_id": chat_id},
+            ) from e
+        except Exception as e:
+            logger.error(f"获取飞书群聊群主信息时发生未知错误: {e!s}")
+            raise ChatProviderException(
+                message=f"获取群聊群主信息时发生未知错误: {e!s}",
+                platform="feishu",
+                errors={"original_error": str(e), "chat_id": chat_id},
+            ) from e
+
+    async def _aconvert_union_id_to_open_id(self, union_id: str) -> str | None:  # pragma: no cover
+        """异步版本。转换 union_id 为 open_id"""
+        try:
+            access_token = await self._aget_tenant_access_token()
+            url = f"{self.BASE_URL}/contact/v3/users/{union_id}"
+            headers = {"Authorization": f"Bearer {access_token}", "Content-Type": "application/json"}
+            params = {"user_id_type": "union_id", "department_id_type": "department_id"}
+
+            timeout = self.config.get("TIMEOUT", 30)
+            async with httpx.AsyncClient(timeout=timeout) as client:
+                response = await client.get(url, params=params, headers=headers)
+                response.raise_for_status()
+
+            data = response.json()
+
+            if data.get("code") == 0:
+                user_data = data.get("data", {}).get("user", {})
+                open_id = user_data.get("open_id")
+                if open_id:
+                    logger.info(f"成功转换union_id为open_id: {union_id} -> {open_id}")
+                    return str(open_id)
+                else:
+                    logger.warning(f"API响应中缺少open_id: {union_id}")
+                    return None
+            else:
+                error_msg = data.get("msg", "未知错误")
+                logger.warning(f"转换union_id失败: {union_id}, 错误: {error_msg}")
+                return None
+
+        except Exception as e:
+            logger.error(f"转换union_id时发生错误: {union_id}, 错误: {e!s}")
+            return None
 
     def verify_owner_setting(self, chat_id: str, expected_owner_id: str) -> bool:  # pragma: no cover
         """验证群主设置是否正确"""
