@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
@@ -73,9 +74,15 @@ class ScriptExecutorService:
         """后台线程：执行脚本并更新会话状态。
 
         asyncio.run() 在当前线程创建全新的事件循环，与 Django ASGI 的
-        主事件循环完全隔离，无需 nest_asyncio 或 DJANGO_ALLOW_ASYNC_UNSAFE。
+        主事件循环完全隔离，无需 nest_asyncio。
+        DJANGO_ALLOW_ASYNC_UNSAFE 仍需设置，因为 asyncio.run() 创建的
+        event loop 会被 Django 检测到，拒绝同步 ORM 调用。
         """
         from apps.oa_filing.models import FilingSession, SessionStatus
+
+        # asyncio.run() 会创建 running event loop，Django 检测到后拒绝
+        # 同步 ORM。在隔离的工作线程中这是安全的。
+        os.environ["DJANGO_ALLOW_ASYNC_UNSAFE"] = "true"
 
         try:
             asyncio.run(self._dispatch(site_name, credential, contract_id, case_id))
