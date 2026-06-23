@@ -210,7 +210,7 @@ async def list_available_models(request: Any) -> Any:
     from apps.core.llm.model_list_service import ModelListService
 
     service = ModelListService()
-    result = await sync_to_async(service.get_result, thread_sensitive=False)()
+    result = await service.aget_result()
     models: list[dict[str, str]] = []
     seen: set[str] = set()
 
@@ -257,7 +257,7 @@ async def test_model_connection(request: Any, model_id: str = "") -> dict[str, A
 
     try:
         service = get_llm_service()
-        response = await sync_to_async(service.chat, thread_sensitive=False)(
+        response = await service.achat(
             messages=[{"role": "user", "content": "ping"}],
             model=model_id.strip(),
             max_tokens=5,

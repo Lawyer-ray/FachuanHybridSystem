@@ -100,20 +100,20 @@ class ReportSchema(Schema):
 
 
 @router.get("/health", summary="POI 服务健康检查")
-def poi_health(request: Any) -> dict[str, Any]:  # pragma: no cover
+async def poi_health(request: Any) -> dict[str, Any]:  # pragma: no cover
     """检查 POI 服务是否可用"""
     from apps.core.services.poi_client import get_poi_client
 
     try:
         client = get_poi_client()
-        result = client.health_check()
+        result = await client.ahealth_check()
         return {"status": "ok", "poi_service": result}
     except Exception as e:
         return {"status": "error", "message": str(e)}
 
 
 @router.post("/complaint", summary="生成起诉状")
-def generate_complaint(request: Any, payload: ComplaintSchema) -> HttpResponse:  # pragma: no cover
+async def generate_complaint(request: Any, payload: ComplaintSchema) -> HttpResponse:  # pragma: no cover
     """通过 POI 服务生成起诉状 DOCX 文件"""
     from apps.core.services.poi_client import get_poi_client
 
@@ -125,7 +125,7 @@ def generate_complaint(request: Any, payload: ComplaintSchema) -> HttpResponse: 
 
     try:
         client = get_poi_client()
-        docx_bytes = client.generate_complaint(camel_data)
+        docx_bytes = await client.agenerate_complaint(camel_data)
         response = HttpResponse(
             docx_bytes, content_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
         )
@@ -137,7 +137,7 @@ def generate_complaint(request: Any, payload: ComplaintSchema) -> HttpResponse: 
 
 
 @router.post("/report", summary="生成尽调报告")
-def generate_report(request: Any, payload: ReportSchema) -> HttpResponse:  # pragma: no cover
+async def generate_report(request: Any, payload: ReportSchema) -> HttpResponse:  # pragma: no cover
     """通过 POI 服务生成尽调报告 DOCX 文件"""
     from apps.core.services.poi_client import get_poi_client
 
@@ -148,7 +148,7 @@ def generate_report(request: Any, payload: ReportSchema) -> HttpResponse:  # pra
 
     try:
         client = get_poi_client()
-        docx_bytes = client.generate_report(camel_data)
+        docx_bytes = await client.agenerate_report(camel_data)
         response = HttpResponse(
             docx_bytes, content_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
         )

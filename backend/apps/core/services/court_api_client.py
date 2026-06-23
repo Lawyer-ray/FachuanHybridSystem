@@ -217,7 +217,7 @@ class CourtApiClient:
     async def fetch_all_causes(self, token: str) -> list[CauseItem]:  # pragma: no cover
         """获取所有类型的案由数据
 
-        依次请求刑事、民事、行政案由接口,合并结果.
+        并行请求刑事、民事、行政案由接口,合并结果.
 
         Args:
             token: JWT 认证令牌(HS256 格式)
@@ -228,11 +228,13 @@ class CourtApiClient:
         Raises:
             ValidationException: 请求失败或响应无效时抛出
         """
-        all_causes: list[CauseItem] = []
+        import asyncio
 
-        for lbs, case_type in self.LBS_TYPE_MAP.items():
-            logger.info(f"获取{case_type}案由 (lbs={lbs})...")
-            response = await self.fetch_causes_by_type(token, lbs)
+        # 并行获取所有案由类型，延迟从 N×T 降到 T
+        results = await asyncio.gather(*[self.fetch_causes_by_type(token, lbs) for lbs in self.LBS_TYPE_MAP])
+
+        all_causes: list[CauseItem] = []
+        for (lbs, case_type), response in zip(self.LBS_TYPE_MAP.items(), results):
             causes = self.parse_cause_response(response, lbs, case_type)
             all_causes.extend(causes)
             logger.info(f"{case_type}案由获取完成,共 {len(causes)} 条顶级记录")
