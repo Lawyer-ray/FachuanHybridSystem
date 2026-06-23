@@ -420,7 +420,8 @@ class TestCaseImportIntegration:
 
         assert inspect.isasyncgenfunction(JtnCaseImportScript.search_cases)
 
-    def test_case_import_http_client_uses_async_client(self):
+    @pytest.mark.asyncio
+    async def test_case_import_http_client_uses_async_client(self):
         """http_client 的 _build_name_search_http_client 应返回 httpx.AsyncClient。"""
         import httpx
 
@@ -429,10 +430,7 @@ class TestCaseImportIntegration:
         script = JtnCaseImportScript("a", "p")
         client = script._build_name_search_http_client(cookies={})
         assert isinstance(client, httpx.AsyncClient)
-        # 清理
-        import asyncio
-
-        asyncio.get_event_loop().run_until_complete(client.aclose())
+        await client.aclose()
 
     @pytest.mark.asyncio
     async def test_case_import_search_case_empty_returns_none(self):
