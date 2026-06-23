@@ -399,13 +399,23 @@ class CaseImportService:
         script: JtnCaseImportScript,
     ) -> list[tuple[str, OACaseData | None]]:
         """抓取OA案件数据（一次登录 + HTTP并发查询 + Playwright兜底）。"""
+        import asyncio
+
         workers = self._resolve_search_workers(len(case_nos))
         if workers > 1:
             self._update_session(
                 phase=CaseImportPhase.DISCOVERING,
                 progress_message=f"正在并发抓取OA案件信息（HTTP {workers}路，Playwright兜底）",
             )
-        return list(script.search_cases(case_nos, workers=workers, playwright_fallback=True))
+
+        # script.search_cases() 现在是 async generator，用 asyncio.run() 桥接
+        async def _collect() -> list[tuple[str, OACaseData | None]]:
+            results: list[tuple[str, OACaseData | None]] = []
+            async for case_no, oa_data in script.search_cases(case_nos, workers=workers, playwright_fallback=True):
+                results.append((case_no, oa_data))
+            return results
+
+        return asyncio.run(_collect())
 
     def _update_session(self, **fields: Any) -> None:  # pragma: no cover
         """更新会话状态。"""

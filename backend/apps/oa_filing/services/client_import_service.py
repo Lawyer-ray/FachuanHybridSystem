@@ -44,13 +44,14 @@ class ClientImportService:
 
     def run_import(self, *, headless: bool = True, limit: int | None = None) -> None:  # pragma: no cover
         """执行导入流程。"""
+        import asyncio
+
         import django
 
         from apps.oa_filing.services.oa_scripts.jtn.client_import import JtnClientImportScript
 
         logger.info("开始导入客户，session_id=%d headless=%s limit=%s", self._session.id, headless, limit)
 
-        # 先关闭所有数据库连接，因为 Playwright 会创建 asyncio 事件循环
         django.db.connections.close_all()
 
         try:
@@ -74,10 +75,14 @@ class ClientImportService:
                 progress_callback=self._handle_script_progress,
             )
 
-            # 先收集所有数据
-            all_customers: list[OACustomerData] = []
-            for customer_data in script.run(limit=limit):
-                all_customers.append(customer_data)
+            # script.run() 现在是 async generator，用 asyncio.run() 桥接
+            async def _collect_all() -> list[OACustomerData]:
+                collected: list[OACustomerData] = []
+                async for customer_data in script.run(limit=limit):
+                    collected.append(customer_data)
+                return collected
+
+            all_customers = asyncio.run(_collect_all())
 
             logger.info("共收集到 %d 个客户", len(all_customers))
 

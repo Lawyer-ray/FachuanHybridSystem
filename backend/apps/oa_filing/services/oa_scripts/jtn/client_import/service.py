@@ -6,20 +6,21 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
 import re
-import time
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
-from typing import Any, Callable, Generator
+from typing import Any, AsyncGenerator, Callable
 from urllib.parse import parse_qs, urljoin, urlparse
 
 import httpx
 from lxml import html as lxml_html
-from playwright.sync_api import BrowserContext, Page
+from playwright.async_api import BrowserContext, Page
 
-from apps.core.services.browser import create_browser
+from apps.core.services.browser import create_browser_async
+
+from ..auth.service import JtnAuthService
 
 logger = logging.getLogger("apps.oa_filing.jtn_client_import")
 
@@ -84,19 +85,19 @@ class JtnClientImportScript:  # pragma: no cover
     ) -> None:
         self._account = account
         self._password = password
+        self._auth = JtnAuthService(account, password)
         self._headless = bool(headless)
         self._progress_callback = progress_callback
         self._page: Page | None = None
         self._context: BrowserContext | None = None
-        self._browser_cm: Any = None  # CloakBrowser context manager
 
-    def run(self, *, limit: int | None = None) -> Generator[OACustomerData, None, None]:  # pragma: no cover
+    async def run(self, *, limit: int | None = None) -> AsyncGenerator[OACustomerData, None]:  # pragma: no cover
         """执行客户导入流程，yield 每条客户数据（HTTP主链路 + Playwright兜底）。"""
         self._emit_progress("discovery_started", message="正在登录OA并进入客户列表")
 
         try:
-            shared_cookies = self._http_login_and_get_cookies()
-            all_items = self._discover_clients_via_http(shared_cookies=shared_cookies, limit=limit)
+            shared_cookies = await self._auth.http_login()
+            all_items = await self._discover_clients_via_http(shared_cookies=shared_cookies, limit=limit)
 
             logger.info("HTTP 共收集到 %d 个客户", len(all_items))
             self._emit_progress(
@@ -112,7 +113,7 @@ class JtnClientImportScript:  # pragma: no cover
 
             detail_workers = self._resolve_detail_workers(total=len(all_items))
             self._emit_progress("import_started", total_count=len(all_items), message="开始导入当事人")
-            resolved_details = self._fetch_customer_details_via_http(
+            resolved_details = await self._fetch_customer_details_via_http(
                 items=all_items,
                 shared_cookies=shared_cookies,
                 workers=detail_workers,
@@ -122,7 +123,7 @@ class JtnClientImportScript:  # pragma: no cover
             if failed_indexes:
                 fallback_items = [all_items[idx] for idx in failed_indexes]
                 logger.info("客户详情触发 Playwright 兜底: failed=%d", len(fallback_items))
-                fallback_map = self._fetch_customer_details_via_playwright_fallback(fallback_items)
+                fallback_map = await self._fetch_customer_details_via_playwright_fallback(fallback_items)
                 for idx in failed_indexes:
                     resolved_details[idx] = fallback_map.get(all_items[idx].key_id)
 
@@ -147,22 +148,22 @@ class JtnClientImportScript:  # pragma: no cover
             return
         except Exception as exc:
             logger.warning("HTTP 客户导入异常，回退 Playwright 全量流程: %s", exc, exc_info=True)
-            yield from self._run_via_playwright(limit=limit)
+            async for item in self._run_via_playwright(limit=limit):
+                yield item
 
-    def _run_via_playwright(self, *, limit: int | None = None) -> Generator[OACustomerData, None, None]:  # pragma: no cover
+    async def _run_via_playwright(self, *, limit: int | None = None) -> AsyncGenerator[OACustomerData, None]:  # pragma: no cover
         """Playwright 全量兜底流程。"""
-        cm = create_browser("default", headless=self._headless)
-        try:
-            self._browser_cm = cm
-            self._page, self._context = cm.__enter__()
+        async with create_browser_async("default", headless=self._headless) as (page, context):
+            self._page = page
+            self._context = context
 
-            self._login()
-            self._navigate_to_client_list()
+            await self._login()
+            await self._navigate_to_client_list()
 
             all_items: list[CustomerListItem] = []
             page_index = 0
             while True:
-                items = self._extract_page_customers()
+                items = await self._extract_page_customers()
                 page_index += 1
                 all_items.extend(items)
                 logger.info("本页共 %d 个客户，已累计 %d 个", len(items), len(all_items))
@@ -185,7 +186,7 @@ class JtnClientImportScript:  # pragma: no cover
                     )
                     break
 
-                if not self._click_next_page():
+                if not await self._click_next_page():
                     break
 
             logger.info("Playwright 共收集到 %d 个客户", len(all_items))
@@ -207,15 +208,13 @@ class JtnClientImportScript:  # pragma: no cover
                     name=item.name,
                     message=f"正在导入当事人 ({i + 1}/{len(all_items)})",
                 )
-                data = self._fetch_customer_detail(item)
+                data = await self._fetch_customer_detail(item)
                 if data:
                     yield data
-                time.sleep(_SHORT_WAIT)
+                await asyncio.sleep(_SHORT_WAIT)
 
             self._emit_progress("import_collected", total_count=len(all_items), message="当事人详情提取完成")
             logger.info("Playwright 兜底导入完成，共处理 %d 个客户", len(all_items))
-        finally:
-            cm.__exit__(None, None, None)
 
     def _resolve_detail_workers(self, *, total: int) -> int:  # pragma: no cover
         """解析客户详情并发数。"""
@@ -229,25 +228,11 @@ class JtnClientImportScript:  # pragma: no cover
             configured = 6
         return max(1, min(configured, total))
 
-    def _http_login_and_get_cookies(self) -> dict[str, str]:  # pragma: no cover
-        """HTTP 登录并返回可复用 cookie。"""
-        logger.info("HTTP 登录 OA: %s", _LOGIN_URL)
-        with httpx.Client(headers=_HTTP_HEADERS, follow_redirects=True, timeout=15) as client:
-            login_page = client.get(_LOGIN_URL)
-            csrf_match = re.search(r'name=["\']CSRFToken["\'] value=["\']([^"\']+)["\']', login_page.text)
-            csrf = csrf_match.group(1) if csrf_match else ""
+    # ------------------------------------------------------------------
+    # HTTP 客户列表
+    # ------------------------------------------------------------------
 
-            login_result = client.post(
-                _LOGIN_URL,
-                data={"CSRFToken": csrf, "userid": self._account, "password": self._password},
-            )
-            if "login" in str(login_result.url).lower() or "logout" in login_result.text.lower()[:200]:
-                raise RuntimeError(f"OA 登录失败，账号或密码错误: {self._account}")
-            cookies = dict(client.cookies.items())
-        logger.info("HTTP 登录成功，获取 cookie=%d", len(cookies))
-        return cookies
-
-    def _discover_clients_via_http(  # pragma: no cover
+    async def _discover_clients_via_http(  # pragma: no cover
         self,
         *,
         shared_cookies: dict[str, str],
@@ -257,18 +242,18 @@ class JtnClientImportScript:  # pragma: no cover
         all_items: list[CustomerListItem] = []
         seen_key_ids: set[str] = set()
 
-        with httpx.Client(
+        async with httpx.AsyncClient(
             headers=_HTTP_HEADERS,
             follow_redirects=True,
             timeout=_DEFAULT_HTTP_TIMEOUT,
             cookies=shared_cookies,
         ) as client:
-            form_state = self._load_client_list_form_state(client)
+            form_state = await self._load_client_list_form_state(client)
             max_pages = self._resolve_total_pages(form_state.total_count, form_state.page_size)
             page_index = 1
 
             while True:
-                page_items, form_state = self._query_client_list_page(
+                page_items, form_state = await self._query_client_list_page(
                     client=client,
                     form_state=form_state,
                     page_index=page_index,
@@ -314,21 +299,21 @@ class JtnClientImportScript:  # pragma: no cover
             return 0
         return (total_count + page_size - 1) // page_size
 
-    def _load_client_list_form_state(self, client: httpx.Client) -> ClientListFormState:
-        response = client.get(_CLIENT_LIST_URL)
+    async def _load_client_list_form_state(self, client: httpx.AsyncClient) -> ClientListFormState:
+        response = await client.get(_CLIENT_LIST_URL)
         response.raise_for_status()
         return self._extract_client_list_form_state(html_text=response.text, base_url=str(response.url))
 
-    def _query_client_list_page(
+    async def _query_client_list_page(
         self,
         *,
-        client: httpx.Client,
+        client: httpx.AsyncClient,
         form_state: ClientListFormState,
         page_index: int,
     ) -> tuple[list[CustomerListItem], ClientListFormState]:  # pragma: no cover
         payload = dict(form_state.payload)
         payload[_LIST_CURRENT_PAGE_FIELD] = str(page_index)
-        response = client.post(form_state.action_url, data=payload)
+        response = await client.post(form_state.action_url, data=payload)
         response.raise_for_status()
 
         next_state = self._extract_client_list_form_state(html_text=response.text, base_url=str(response.url))
@@ -422,7 +407,11 @@ class JtnClientImportScript:  # pragma: no cover
         key_id = query.get("KeyID", query.get("keyid", [None]))[0]
         return str(key_id).strip() if key_id else None
 
-    def _fetch_customer_details_via_http(  # pragma: no cover
+    # ------------------------------------------------------------------
+    # HTTP 客户详情
+    # ------------------------------------------------------------------
+
+    async def _fetch_customer_details_via_http(  # pragma: no cover
         self,
         *,
         items: list[CustomerListItem],
@@ -434,7 +423,7 @@ class JtnClientImportScript:  # pragma: no cover
 
         indexed_items = list(enumerate(items))
         if workers <= 1:
-            ordered = self._fetch_customer_detail_chunk_via_http(
+            ordered = await self._fetch_customer_detail_chunk_via_http(
                 indexed_chunk=indexed_items,
                 shared_cookies=shared_cookies,
             )
@@ -443,30 +432,31 @@ class JtnClientImportScript:  # pragma: no cover
         chunk_size = (len(indexed_items) + workers - 1) // workers
         chunks = [indexed_items[start : start + chunk_size] for start in range(0, len(indexed_items), chunk_size)]
 
-        indexed_results: list[OACustomerData | None] = [None] * len(items)
-        with ThreadPoolExecutor(max_workers=workers, thread_name_prefix="oa-client-detail-http") as executor:
-            futures = [
-                executor.submit(
-                    self._fetch_customer_detail_chunk_via_http,
+        chunk_results = await asyncio.gather(
+            *[
+                self._fetch_customer_detail_chunk_via_http(
                     indexed_chunk=chunk,
                     shared_cookies=shared_cookies,
                 )
                 for chunk in chunks
             ]
-            for future in as_completed(futures):
-                for idx, data in future.result():
-                    indexed_results[idx] = data
+        )
 
-        return indexed_results
+        indexed_results: dict[int, OACustomerData | None] = {}
+        for chunk_result in chunk_results:
+            for idx, data in chunk_result:
+                indexed_results[idx] = data
 
-    def _fetch_customer_detail_chunk_via_http(  # pragma: no cover
+        return [indexed_results.get(i) for i in range(len(items))]
+
+    async def _fetch_customer_detail_chunk_via_http(  # pragma: no cover
         self,
         *,
         indexed_chunk: list[tuple[int, CustomerListItem]],
         shared_cookies: dict[str, str],
     ) -> list[tuple[int, OACustomerData | None]]:
         results: list[tuple[int, OACustomerData | None]] = []
-        with httpx.Client(
+        async with httpx.AsyncClient(
             headers=_HTTP_HEADERS,
             follow_redirects=True,
             timeout=_DEFAULT_HTTP_TIMEOUT,
@@ -474,28 +464,28 @@ class JtnClientImportScript:  # pragma: no cover
         ) as client:
             for idx, item in indexed_chunk:
                 try:
-                    data = self._fetch_customer_detail_via_http(client=client, item=item)
+                    data = await self._fetch_customer_detail_via_http(client=client, item=item)
                     results.append((idx, data))
                 except Exception as exc:
                     logger.warning("HTTP 提取客户详情异常 %s(%s): %s", item.name, item.key_id, exc)
                     results.append((idx, None))
         return results
 
-    def _fetch_customer_detail_via_http(  # pragma: no cover
+    async def _fetch_customer_detail_via_http(  # pragma: no cover
         self,
         *,
-        client: httpx.Client,
+        client: httpx.AsyncClient,
         item: CustomerListItem,
     ) -> OACustomerData:
         detail_url = (
             f"{_BASE_URL}/CustomerInfor.aspx?KeyID={item.key_id}&Category=A&FirstModel=PROJECT&SecondModel=PROJECT001"
         )
-        response = client.get(detail_url)
+        response = await client.get(detail_url)
         response.raise_for_status()
         text = self._extract_text_from_html(response.text)
         return self._parse_customer_detail_text(item.name, item.client_type, text)
 
-    def _fetch_customer_details_via_playwright_fallback(  # pragma: no cover
+    async def _fetch_customer_details_via_playwright_fallback(  # pragma: no cover
         self,
         items: list[CustomerListItem],
     ) -> dict[str, OACustomerData | None]:
@@ -503,22 +493,19 @@ class JtnClientImportScript:  # pragma: no cover
         if not items:
             return {}
 
-        cm = create_browser("default", headless=self._headless)
         fallback_map: dict[str, OACustomerData | None] = {}
-        try:
-            self._browser_cm = cm
-            self._page, self._context = cm.__enter__()
+        async with create_browser_async("default", headless=self._headless) as (page, context):
+            self._page = page
+            self._context = context
 
-            self._login()
-            self._navigate_to_client_list()
+            await self._login()
+            await self._navigate_to_client_list()
             for item in items:
                 try:
-                    fallback_map[item.key_id] = self._fetch_customer_detail(item)
+                    fallback_map[item.key_id] = await self._fetch_customer_detail(item)
                 except Exception as exc:
                     logger.warning("Playwright 兜底客户详情异常 %s(%s): %s", item.name, item.key_id, exc)
                     fallback_map[item.key_id] = None
-        finally:
-            cm.__exit__(None, None, None)
         return fallback_map
 
     def _extract_text_from_html(self, html_text: str) -> str:
@@ -534,24 +521,20 @@ class JtnClientImportScript:  # pragma: no cover
         normalized = self._normalize_text(text)
 
         try:
-            # 身份证号码
             m = re.search(r"身份证号码\s*[：:]\s*([A-Za-z0-9]{15,18})", normalized)
             if m:
                 data.id_number = m.group(1).upper()
 
-            # 性别
             m = re.search(r"性\s*别\s*[：:]\s*([男女])", normalized)
             if m:
                 data.gender = m.group(1)
 
-            # 联系电话
             for label in ("联系电话", "客户电话", "手机号码", "手机号"):
                 val = self._extract_labeled_value(normalized, label)
                 if self._is_valid_phone(val):
                     data.phone = val
                     break
 
-            # 地址
             id_addr = self._extract_labeled_value(normalized, "身份证地址")
             if self._is_valid_field_value(id_addr):
                 data.address = id_addr
@@ -562,14 +545,12 @@ class JtnClientImportScript:  # pragma: no cover
                         data.address = val
                         break
 
-            # 法定代表人 / 负责人
             for label in ("法定代表人", "负责人"):
                 val = self._extract_labeled_value(normalized, label)
                 if self._is_valid_field_value(val):
                     data.legal_representative = val
                     break
 
-            # 客户类型兜底确认
             if data.id_number:
                 data.client_type = "natural"
             elif data.legal_representative:
@@ -583,11 +564,7 @@ class JtnClientImportScript:  # pragma: no cover
 
         logger.info(
             "解析客户详情完成: %s, type=%s, phone=%s, address=%s, id=%s",
-            data.name,
-            data.client_type,
-            data.phone,
-            data.address,
-            data.id_number,
+            data.name, data.client_type, data.phone, data.address, data.id_number,
         )
         return data
 
@@ -609,13 +586,12 @@ class JtnClientImportScript:  # pragma: no cover
         if not self._is_valid_field_value(value):
             return False
         digits = re.sub(r"\D", "", value or "")
-        # 电话通常 7-13 位，避免将身份证号（15/18位）误识别为电话
         return 7 <= len(digits) <= 13
 
     @staticmethod
     def _normalize_text(value: Any) -> str:  # pragma: no cover
         text = str(value or "")
-        text = text.replace("\r", "\n").replace("\u00a0", " ").replace("\u3000", " ")
+        text = text.replace("\r", "\n").replace(" ", " ").replace("　", " ")
         text = re.sub(r"[ \t\f\v]+", " ", text)
         text = re.sub(r"\n{3,}", "\n\n", text)
         return text.strip()
@@ -645,18 +621,20 @@ class JtnClientImportScript:  # pragma: no cover
         except (TypeError, ValueError):
             logger.debug("进度回调处理异常: event=%s", event, exc_info=True)
 
-    def _login(self) -> None:  # pragma: no cover
+    # ------------------------------------------------------------------
+    # Playwright 登录 + 导航 + 提取
+    # ------------------------------------------------------------------
+
+    async def _login(self) -> None:  # pragma: no cover
         """通过 httpx 接口登录，将 cookie 注入 Playwright context。"""
         logger.info("接口登录: %s", _LOGIN_URL)
 
-        with httpx.Client(headers=_HTTP_HEADERS, follow_redirects=True, timeout=15) as client:
-            # 1. GET 登录页，拿 ASP.NET_SessionId + CSRFToken
-            r = client.get(_LOGIN_URL)
+        async with httpx.AsyncClient(headers=_HTTP_HEADERS, follow_redirects=True, timeout=15) as client:
+            r = await client.get(_LOGIN_URL)
             csrf_match = re.search(r'name=["\']CSRFToken["\'] value=["\']([^"\']+)["\']', r.text)
             csrf = csrf_match.group(1) if csrf_match else ""
 
-            # 2. POST 登录
-            r2 = client.post(
+            r2 = await client.post(
                 _LOGIN_URL,
                 data={"CSRFToken": csrf, "userid": self._account, "password": self._password},
             )
@@ -664,10 +642,9 @@ class JtnClientImportScript:  # pragma: no cover
             if "login" in str(r2.url).lower() or "logout" in r2.text.lower()[:200]:
                 raise RuntimeError(f"OA 登录失败，账号或密码错误: {self._account}")
 
-            # 3. 将 cookie 注入 Playwright context
             assert self._context is not None
             for cookie in client.cookies.jar:
-                self._context.add_cookies(
+                await self._context.add_cookies(
                     [
                         {
                             "name": cookie.name,
@@ -680,63 +657,50 @@ class JtnClientImportScript:  # pragma: no cover
 
         logger.info("接口登录成功，cookie 已注入，当前重定向URL: %s", r2.url)
 
-    def _navigate_to_client_list(self) -> None:  # pragma: no cover
+    async def _navigate_to_client_list(self) -> None:  # pragma: no cover
         """导航到客户列表页。"""
         page = self._page
         assert page is not None
 
         logger.info("导航到客户列表页: %s", _CLIENT_LIST_URL)
-        page.goto(_CLIENT_LIST_URL, wait_until="domcontentloaded")
-        time.sleep(_MEDIUM_WAIT)
+        await page.goto(_CLIENT_LIST_URL, wait_until="domcontentloaded")
+        await asyncio.sleep(_MEDIUM_WAIT)
         logger.info("已进入客户列表页面")
 
-    def _extract_page_customers(self) -> list[CustomerListItem]:  # pragma: no cover
-        """提取当前页所有客户信息。
-
-        Returns:
-            List of CustomerListItem.
-        """
+    async def _extract_page_customers(self) -> list[CustomerListItem]:  # pragma: no cover
+        """提取当前页所有客户信息。"""
         page = self._page
         assert page is not None
 
         customers: list[CustomerListItem] = []
 
-        # 等待表格加载
-        page.wait_for_selector("#table", timeout=15000)
-        time.sleep(_AJAX_WAIT)
+        await page.wait_for_selector("#table", timeout=15000)
+        await asyncio.sleep(_AJAX_WAIT)
 
-        # 查找表格中的客户名称单元格
-        # 表格结构: table#table > tbody > tr
-        # 客户名称在 td:nth-child(3)，客户类型在 td:nth-child(5)
-        rows = page.locator("#table tbody tr").all()
+        rows = await page.locator("#table tbody tr").all()
         for row in rows:
             try:
                 name_cell = row.locator("td:nth-child(3)")
                 type_cell = row.locator("td:nth-child(5)")
 
-                # 从 a 标签获取客户名称和 KeyID
                 name_link = name_cell.locator("a").first
-                if name_link.count() == 0:
+                if await name_link.count() == 0:
                     continue
 
-                name_text = name_link.inner_text().strip()
-                href = name_link.get_attribute("href") or ""
+                name_text = (await name_link.inner_text()).strip()
+                href = await name_link.get_attribute("href") or ""
 
-                # 从 href 中提取 KeyID
-                # 格式: CustomerInfor.aspx?KeyID=xxx&Category=...
                 key_id = ""
                 if "KeyID=" in href:
                     match = re.search(r"KeyID=([^&]+)", href)
                     if match:
                         key_id = match.group(1)
 
-                type_text = type_cell.inner_text().strip()
+                type_text = (await type_cell.inner_text()).strip()
 
                 if name_text and type_text:
-                    # 跳过表头行
                     if "客户类型" in type_text or "等级" in type_text or not key_id:
                         continue
-                    # 判断是企业还是自然人
                     client_type = "legal" if "企业" in type_text else "natural"
                     customers.append(CustomerListItem(name=name_text, client_type=client_type, key_id=key_id))
                     logger.info("发现客户: %s (%s), KeyID: %s", name_text, client_type, key_id)
@@ -746,7 +710,7 @@ class JtnClientImportScript:  # pragma: no cover
 
         return customers
 
-    def _fetch_customer_detail(self, item: CustomerListItem) -> OACustomerData | None:  # pragma: no cover
+    async def _fetch_customer_detail(self, item: CustomerListItem) -> OACustomerData | None:  # pragma: no cover
         """打开客户详情页，提取字段。"""
         page = self._page
         assert page is not None
@@ -754,61 +718,49 @@ class JtnClientImportScript:  # pragma: no cover
         logger.info("进入客户详情: %s (KeyID: %s)", item.name, item.key_id)
 
         try:
-            # 直接导航到详情页
             detail_url = f"{_BASE_URL}/CustomerInfor.aspx?KeyID={item.key_id}&Category=A&FirstModel=PROJECT&SecondModel=PROJECT001"
-            page.goto(detail_url, wait_until="domcontentloaded", timeout=30000)
-            time.sleep(_MEDIUM_WAIT)
+            await page.goto(detail_url, wait_until="domcontentloaded", timeout=30000)
+            await asyncio.sleep(_MEDIUM_WAIT)
 
-            # 提取详情页字段
-            data = self._parse_customer_detail(item.name, item.client_type)
+            data = await self._parse_customer_detail(item.name, item.client_type)
             return data
 
         except Exception as exc:
             logger.warning("提取客户详情异常 %s: %s", item.name, exc)
-            # 返回基础数据
-            return OACustomerData(
-                name=item.name,
-                client_type=item.client_type,
-            )
+            return OACustomerData(name=item.name, client_type=item.client_type)
 
-    def _parse_customer_detail(self, customer_name: str, client_type: str) -> OACustomerData:  # pragma: no cover
+    async def _parse_customer_detail(self, customer_name: str, client_type: str) -> OACustomerData:  # pragma: no cover
         """解析客户详情页，提取字段。"""
         page = self._page
         assert page is not None
 
         try:
-            text = page.inner_text("body")
+            text = await page.inner_text("body")
             return self._parse_customer_detail_text(customer_name, client_type, text)
         except Exception as exc:
             logger.warning("解析客户详情异常 %s: %s", customer_name, exc)
             return OACustomerData(name=customer_name, client_type=client_type)
 
-    def _click_next_page(self) -> bool:  # pragma: no cover
-        """点击下一页按钮。
-
-        Returns:
-            True if successfully clicked and loaded next page, False if no more pages.
-        """
+    async def _click_next_page(self) -> bool:  # pragma: no cover
+        """点击下一页按钮。"""
         page = self._page
         assert page is not None
 
         try:
-            # layui 分页组件的下一页按钮
             next_btn = page.locator(".layui-laypage-next")
-            if next_btn.count() == 0:
+            if await next_btn.count() == 0:
                 logger.info("未找到下一页按钮，已到最后一页")
                 return False
 
-            # 检查是否禁用（最后一页）
-            is_disabled = next_btn.get_attribute("class")
+            is_disabled = await next_btn.get_attribute("class")
             if "disabled" in (is_disabled or ""):
                 logger.info("下一页按钮已禁用，已到最后一页")
                 return False
 
-            next_btn.click()
-            time.sleep(_AJAX_WAIT)
-            page.wait_for_load_state("domcontentloaded")
-            time.sleep(_SHORT_WAIT)
+            await next_btn.click()
+            await asyncio.sleep(_AJAX_WAIT)
+            await page.wait_for_load_state("domcontentloaded")
+            await asyncio.sleep(_SHORT_WAIT)
             logger.info("已点击下一页")
             return True
 

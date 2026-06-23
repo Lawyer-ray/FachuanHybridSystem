@@ -191,6 +191,42 @@ class JtnAuthService:  # pragma: no cover
         return await self.sso_login()
 
     # ------------------------------------------------------------------
+    # HTTP POST 登录（无浏览器）
+    # ------------------------------------------------------------------
+
+    async def http_login(self) -> dict[str, str]:
+        """通过 HTTP POST 登录 OA，返回 cookies dict。
+
+        GET 登录页 → 提取 CSRFToken → POST 账号密码 → 返回 cookies。
+        适用于 case_import / client_import 等不需要浏览器扫码的场景。
+        """
+        import httpx
+        import re
+
+        from .constants import _HTTP_HEADERS
+
+        logger.info("HTTP 登录 OA: %s", _LOGIN_URL)
+
+        async with httpx.AsyncClient(headers=_HTTP_HEADERS, follow_redirects=True, timeout=15, trust_env=False) as client:
+            login_resp = await client.get(_LOGIN_URL)
+            csrf_match = re.search(r'name=["\']CSRFToken["\'] value=["\']([^"\']+)["\']', login_resp.text)
+            csrf = csrf_match.group(1) if csrf_match else ""
+
+            login_result = await client.post(
+                _LOGIN_URL,
+                data={"CSRFToken": csrf, "userid": self._account, "password": self._password},
+            )
+
+            url_lower = str(login_result.url).lower()
+            if "login" in url_lower:
+                raise RuntimeError(f"OA 登录失败，账号或密码错误: {self._account}")
+
+            cookies = dict(login_result.cookies.items()) if hasattr(login_result, 'cookies') else dict(client.cookies.items())
+
+        logger.info("HTTP 登录成功，获取 cookie=%d", len(cookies))
+        return cookies
+
+    # ------------------------------------------------------------------
     # Cookie 注入
     # ------------------------------------------------------------------
 

@@ -34,95 +34,111 @@ class TestJtnCaseImportScriptInit:
 
 
 class TestSearchCase:
-    def test_empty_case_no(self):
+    @pytest.mark.asyncio
+    async def test_empty_case_no(self):
         from apps.oa_filing.services.oa_scripts.jtn.case_import.service import JtnCaseImportScript
         svc = JtnCaseImportScript(account="a", password="p")
-        assert svc.search_case("") is None
-        assert svc.search_case("  ") is None
+        assert await svc.search_case("") is None
+        assert await svc.search_case("  ") is None
 
-    def test_found(self):
+    @pytest.mark.asyncio
+    async def test_found(self):
         from apps.oa_filing.services.oa_scripts.jtn.case_import.service import JtnCaseImportScript
         svc = JtnCaseImportScript(account="a", password="p")
         mock_case_data = MagicMock()
-        with patch.object(svc, 'search_cases', return_value=iter([("2024GZM0501", mock_case_data)])):
-            result = svc.search_case("2024GZM0501")
+        async def _fake_search(cases, **kwargs):
+            yield "2024GZM0501", mock_case_data
+        with patch.object(svc, 'search_cases', side_effect=_fake_search):
+            result = await svc.search_case("2024GZM0501")
             assert result is mock_case_data
 
-    def test_not_found(self):
+    @pytest.mark.asyncio
+    async def test_not_found(self):
         from apps.oa_filing.services.oa_scripts.jtn.case_import.service import JtnCaseImportScript
         svc = JtnCaseImportScript(account="a", password="p")
-        with patch.object(svc, 'search_cases', return_value=iter([])):
-            result = svc.search_case("2024GZM0501")
+        async def _empty_search(cases, **kwargs):
+            return
+            yield  # make it an async generator
+        with patch.object(svc, 'search_cases', side_effect=_empty_search):
+            result = await svc.search_case("2024GZM0501")
             assert result is None
 
 
 class TestSearchCasesByName:
-    def test_empty_keyword(self):
+    @pytest.mark.asyncio
+    async def test_empty_keyword(self):
         from apps.oa_filing.services.oa_scripts.jtn.case_import.service import JtnCaseImportScript
         svc = JtnCaseImportScript(account="a", password="p")
-        assert svc.search_cases_by_name("") == []
-        assert svc.search_cases_by_name(None) == []
+        assert await svc.search_cases_by_name("") == []
+        assert await svc.search_cases_by_name(None) == []
 
-    def test_force_playwright(self):
+    @pytest.mark.asyncio
+    async def test_force_playwright(self):
         from apps.oa_filing.services.oa_scripts.jtn.case_import.service import JtnCaseImportScript
         svc = JtnCaseImportScript(account="a", password="p")
         svc._force_playwright_name_search = True
         with patch.object(svc, '_search_cases_by_name_via_playwright', return_value=[MagicMock()]) as mock_pw:
-            result = svc.search_cases_by_name("test", limit=3)
+            result = await svc.search_cases_by_name("test", limit=3)
             assert len(result) == 1
             mock_pw.assert_called_once_with(keyword="test", limit=3)
 
-    def test_http_success(self):
+    @pytest.mark.asyncio
+    async def test_http_success(self):
         from apps.oa_filing.services.oa_scripts.jtn.case_import.service import JtnCaseImportScript
         svc = JtnCaseImportScript(account="a", password="p")
         mock_candidate = MagicMock()
         with patch.object(svc, '_search_cases_by_name_via_http', return_value=[mock_candidate]):
-            result = svc.search_cases_by_name("合同")
+            result = await svc.search_cases_by_name("合同")
             assert len(result) == 1
 
-    def test_http_error_sso_raises(self):
+    @pytest.mark.asyncio
+    async def test_http_error_sso_raises(self):
         from apps.oa_filing.services.oa_scripts.jtn.case_import.service import JtnCaseImportScript
         svc = JtnCaseImportScript(account="a", password="p")
         with patch.object(svc, '_search_cases_by_name_via_http', side_effect=RuntimeError("sso")):
             with patch.object(svc, '_is_sso_blocking_error', return_value=True):
                 with pytest.raises(RuntimeError):
-                    svc.search_cases_by_name("合同")
+                    await svc.search_cases_by_name("合同")
 
 
 class TestSearchCases:
-    def test_empty_case_nos(self):
+    @pytest.mark.asyncio
+    async def test_empty_case_nos(self):
         from apps.oa_filing.services.oa_scripts.jtn.case_import.service import JtnCaseImportScript
         svc = JtnCaseImportScript(account="a", password="p")
-        results = list(svc.search_cases([]))
+        results = [item async for item in svc.search_cases([])]
         assert results == []
 
-    def test_http_success(self):
+    @pytest.mark.asyncio
+    async def test_http_success(self):
         from apps.oa_filing.services.oa_scripts.jtn.case_import.service import JtnCaseImportScript
         svc = JtnCaseImportScript(account="a", password="p")
         mock_data = MagicMock()
         with patch.object(svc, '_search_cases_via_http', return_value=[(0, "2024GZM0501", mock_data)]):
             with patch.object(svc, '_emit_progress'):
-                results = list(svc.search_cases(["2024GZM0501"]))
+                results = [item async for item in svc.search_cases(["2024GZM0501"])]
                 assert len(results) == 1
                 assert results[0][1] is mock_data
 
-    def test_http_exception_fallback_to_playwright(self):
+    @pytest.mark.asyncio
+    async def test_http_exception_fallback_to_playwright(self):
         from apps.oa_filing.services.oa_scripts.jtn.case_import.service import JtnCaseImportScript
         svc = JtnCaseImportScript(account="a", password="p")
         mock_data = MagicMock()
         with patch.object(svc, '_search_cases_via_http', side_effect=RuntimeError("http fail")):
             with patch.object(svc, '_search_cases_via_playwright', return_value=[("2024GZM0501", mock_data)]):
                 with patch.object(svc, '_emit_progress'):
-                    results = list(svc.search_cases(["2024GZM0501"], playwright_fallback=True))
+                    results = [item async for item in svc.search_cases(["2024GZM0501"], playwright_fallback=True)]
                     assert len(results) == 1
                     assert results[0][1] is mock_data
 
-    def test_no_fallback(self):
+    @pytest.mark.asyncio
+    async def test_no_fallback(self):
         from apps.oa_filing.services.oa_scripts.jtn.case_import.service import JtnCaseImportScript
         svc = JtnCaseImportScript(account="a", password="p")
         with patch.object(svc, '_search_cases_via_http', side_effect=RuntimeError("fail")):
             with patch.object(svc, '_emit_progress'):
-                results = list(svc.search_cases(["2024GZM0501"], playwright_fallback=False))
+                results = [item async for item in svc.search_cases(["2024GZM0501"], playwright_fallback=False)]
                 assert len(results) == 1
                 assert results[0][1] is None
 
@@ -148,9 +164,10 @@ class TestEmitProgress:
 
 
 class TestEnsureNameSearchReady:
-    def test_sets_flag(self):
+    @pytest.mark.asyncio
+    async def test_sets_flag(self):
         from apps.oa_filing.services.oa_scripts.jtn.case_import.service import JtnCaseImportScript
         svc = JtnCaseImportScript(account="a", password="p")
         with patch.object(svc, '_ensure_name_search_playwright_session'):
-            svc.ensure_name_search_ready()
+            await svc.ensure_name_search_ready()
             assert svc._force_playwright_name_search is True

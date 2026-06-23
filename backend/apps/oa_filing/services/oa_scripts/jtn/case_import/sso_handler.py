@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import re
-import time
 from typing import Any
 from urllib.parse import urlparse
 
-from playwright.sync_api import BrowserContext, Page
+from playwright.async_api import BrowserContext, Page
 
 from .http_client import _CASE_LIST_URL, _HTTP_HEADERS
 
@@ -72,40 +72,40 @@ class JtnSsoHandlerMixin:  # pragma: no cover
     # ------------------------------------------------------------------
     # 飞连/企微交互登录
     # ------------------------------------------------------------------
-    def _complete_sso_interactive_login(self: Any, *, login_url: str) -> dict[str, str]:  # pragma: no cover
+    async def _complete_sso_interactive_login(self: Any, *, login_url: str) -> dict[str, str]:  # pragma: no cover
         target_url = str(login_url or "").strip() or "https://access.jtn.com/login"
         logger.warning("请在弹出的浏览器完成飞连/企微扫码登录（系统将自动检测登录成功），最多等待 180 秒")
 
-        from apps.core.services.browser import create_browser
+        from apps.core.services.browser import create_browser_async
 
-        with create_browser() as (page, context):
-            page.goto(target_url, wait_until="domcontentloaded", timeout=60_000)
+        async with create_browser_async() as (page, context):
+            await page.goto(target_url, wait_until="domcontentloaded", timeout=60_000)
 
-            deadline = time.time() + 180
+            deadline = asyncio.get_event_loop().time() + 180
             merged_cookies = dict(self._http_cookies_cache or {})
             has_triggered_case_list_navigation = False
-            while time.time() < deadline:
+            while asyncio.get_event_loop().time() < deadline:
                 if any(self._is_ims_case_list_url(str(candidate_page.url or "")) for candidate_page in context.pages):
                     logger.info("检测到浏览器已进入 OA 列表页，判定交互登录完成")
                     break
 
-                ims_cookies = self._collect_ims_cookies_from_browser_context(context)
+                ims_cookies = await self._collect_ims_cookies_from_browser_context(context)
                 if ims_cookies:
                     merged_cookies.update(ims_cookies)
-                    if self._can_access_case_list_with_cookies(merged_cookies):
+                    if await self._can_access_case_list_with_cookies(merged_cookies):
                         logger.info("检测到 OA 会话可用，判定交互登录完成")
                         break
 
-                if not has_triggered_case_list_navigation and self._is_access_portal_logged_in(page):
+                if not has_triggered_case_list_navigation and await self._is_access_portal_logged_in(page):
                     has_triggered_case_list_navigation = True
                     logger.info("检测到已登录飞连门户，自动跳转 OA 列表进行会话校验")
                     try:
-                        page.goto(_CASE_LIST_URL, wait_until="domcontentloaded", timeout=60_000)
+                        await page.goto(_CASE_LIST_URL, wait_until="domcontentloaded", timeout=60_000)
                         continue
                     except Exception:
                         logger.debug("门户跳转 OA 列表失败，等待用户继续操作", exc_info=True)
 
-                time.sleep(1)
+                await asyncio.sleep(1)
             else:
                 raise RuntimeError("等待扫码登录超时，请完成扫码后重试")
 
@@ -126,40 +126,41 @@ class JtnSsoHandlerMixin:  # pragma: no cover
             return False
         return path.startswith("/project/")
 
-    def _is_access_portal_logged_in(self: Any, page: Page) -> bool:  # pragma: no cover
+    async def _is_access_portal_logged_in(self: Any, page: Page) -> bool:  # pragma: no cover
         current_url = str(page.url or "").lower()
         if "access.jtn.com" not in current_url:
             return False
         if "/login" in current_url:
             return False
         try:
-            content_text = str(page.content() or "")
+            content_text = str(await page.content() or "")
         except Exception:
             return False
         markers = ("推荐应用", "搜索应用/平台名称", "IMS", "aijagent")
         return any(marker in content_text for marker in markers)
 
-    def _collect_ims_cookies_from_browser_context(self: Any, context: BrowserContext) -> dict[str, str]:  # pragma: no cover
+    async def _collect_ims_cookies_from_browser_context(self: Any, context: BrowserContext) -> dict[str, str]:  # pragma: no cover
+        cookies = await context.cookies("https://ims.jtn.com")
         return {
             str(item.get("name") or ""): str(item.get("value") or "")
-            for item in context.cookies("https://ims.jtn.com")
+            for item in cookies
             if str(item.get("name") or "").strip()
         }
 
-    def _can_access_case_list_with_cookies(self: Any, cookies: dict[str, str]) -> bool:  # pragma: no cover
+    async def _can_access_case_list_with_cookies(self: Any, cookies: dict[str, str]) -> bool:  # pragma: no cover
         import httpx
 
         if not cookies:
             return False
         try:
-            with httpx.Client(
+            async with httpx.AsyncClient(
                 headers=_HTTP_HEADERS,
                 follow_redirects=True,
                 timeout=10,
                 cookies=cookies,
                 trust_env=False,
             ) as client:
-                response = client.get(_CASE_LIST_URL)
+                response = await client.get(_CASE_LIST_URL)
                 response.raise_for_status()
                 return not self._is_sso_login_page(url=str(response.url), html_text=response.text)
         except Exception:

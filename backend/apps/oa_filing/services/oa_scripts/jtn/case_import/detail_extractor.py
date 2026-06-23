@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import re
-import time
 from typing import Any
 
-from playwright.sync_api import Page
+from playwright.async_api import Page
 
 from ..models import CaseSearchItem, OACaseCustomerData, OACaseData, OACaseInfoData, OAConflictData
 from .http_client import _BASE_URL, _DETAIL_URL_TEMPLATE, _MEDIUM_WAIT
@@ -24,12 +24,8 @@ class JtnDetailExtractorMixin:  # pragma: no cover
     # ------------------------------------------------------------------
     # 案件详情页提取
     # ------------------------------------------------------------------
-    def _fetch_case_detail(self: Any, search_item: CaseSearchItem) -> OACaseData | None:  # pragma: no cover
-        """打开案件详情页，提取3个Tab的数据。
-
-        注意：如果页面已经在详情页（由 _search_case_by_no 通过 JavaScript 导航后），
-        则不需要再次 goto。
-        """
+    async def _fetch_case_detail(self: Any, search_item: CaseSearchItem) -> OACaseData | None:  # pragma: no cover
+        """打开案件详情页，提取3个Tab的数据。"""
         page = self._page
         assert page is not None
 
@@ -37,30 +33,19 @@ class JtnDetailExtractorMixin:  # pragma: no cover
         logger.info("进入案件详情: %s (keyid: %s)", search_item.case_no, search_item.keyid)
 
         try:
-            # 检查当前页面是否已经是详情页（通过表格数量判断）
-            tables = page.locator("table").all()
-            if len(tables) < 20:  # 详情页应该有 28 个表格，列表页只有 7 个
+            tables = await page.locator("table").all()
+            if len(tables) < 20:
                 logger.info("当前不在详情页，执行 goto...")
-                page.goto(
-                    detail_url,
-                    wait_until="networkidle",
-                    timeout=60000,
-                )
-                time.sleep(_MEDIUM_WAIT)
+                await page.goto(detail_url, wait_until="networkidle", timeout=60000)
+                await asyncio.sleep(_MEDIUM_WAIT)
             else:
                 logger.info("当前已在详情页，直接提取数据...")
 
-            # 初始化返回数据
             case_data = OACaseData(case_no=search_item.case_no, keyid=search_item.keyid)
 
-            # Tab 1: 客户信息
-            case_data.customers = self._extract_customer_tab()
-
-            # Tab 2: 案件信息
-            case_data.case_info = self._extract_case_info_tab()
-
-            # Tab 3: 利益冲突信息
-            case_data.conflicts = self._extract_conflict_tab()
+            case_data.customers = await self._extract_customer_tab()
+            case_data.case_info = await self._extract_case_info_tab()
+            case_data.conflicts = await self._extract_conflict_tab()
 
             logger.info(
                 "解析案件详情完成: case_no=%s, customers=%d, conflicts=%d",
@@ -74,7 +59,7 @@ class JtnDetailExtractorMixin:  # pragma: no cover
             logger.warning("提取案件详情异常 %s: %s", search_item.case_no, exc)
             return None
 
-    def _extract_customer_tab(self: Any) -> list[OACaseCustomerData]:  # pragma: no cover
+    async def _extract_customer_tab(self: Any) -> list[OACaseCustomerData]:  # pragma: no cover
         """提取客户信息Tab（Tab 1）。"""
         page = self._page
         assert page is not None
@@ -82,36 +67,28 @@ class JtnDetailExtractorMixin:  # pragma: no cover
         customers: list[OACaseCustomerData] = []
 
         try:
-            # 所有Tab内容都在一页上，不需要switchTab
-            # 表格1 (索引1): 客户信息 - 47行
-
-            tables = page.locator("table").all()
+            tables = await page.locator("table").all()
             if len(tables) > 1:
-                customer_table = tables[1]  # 索引1是客户信息表
-                rows = customer_table.locator("tr").all()
+                customer_table = tables[1]
+                rows = await customer_table.locator("tr").all()
 
                 current_customer: OACaseCustomerData | None = None
 
                 for row in rows:
                     try:
-                        cells = row.locator("td").all()
+                        cells = await row.locator("td").all()
                         if not cells:
                             continue
 
-                        row_text = row.inner_text()
+                        row_text = await row.inner_text()
                         cell_count = len(cells)
 
-                        # 检查是否是标题行（包含"客户"和"信息"）
                         if "客户" in row_text and "信息" in row_text and "（" in row_text:
-                            # 保存上一个客户
                             if current_customer and current_customer.name:
                                 customers.append(current_customer)
-                            # 提取客户名称
-                            # 格式: "客户（XXX）信息"
                             name_match = re.search(r"客户（([^）]+)）信息", row_text)
                             if name_match:
                                 customer_name = name_match.group(1)
-                                # 判断是企业还是自然人
                                 is_legal = "企业" in row_text or "公司" in customer_name
                                 current_customer = OACaseCustomerData(
                                     name=customer_name,
@@ -121,14 +98,11 @@ class JtnDetailExtractorMixin:  # pragma: no cover
                                 current_customer = None
                             continue
 
-                        # 数据行解析
                         if current_customer and cell_count >= 2:
-                            # 尝试2列或4列布局
                             for i in range(0, cell_count - 1, 2):
-                                label_cell = cells[i].inner_text().strip()
-                                value_cell = cells[i + 1].inner_text().strip() if i + 1 < cell_count else ""
+                                label_cell = (await cells[i].inner_text()).strip()
+                                value_cell = (await cells[i + 1].inner_text()).strip() if i + 1 < cell_count else ""
 
-                                # 解析标签
                                 if "地址" in label_cell:
                                     current_customer.address = value_cell
                                 elif any(x in label_cell for x in ("电话", "号码")):
@@ -144,7 +118,6 @@ class JtnDetailExtractorMixin:  # pragma: no cover
                         logger.debug("解析客户行异常: %s", exc)
                         continue
 
-                # 保存最后一个客户
                 if current_customer and current_customer.name:
                     customers.append(current_customer)
 
@@ -156,39 +129,33 @@ class JtnDetailExtractorMixin:  # pragma: no cover
 
         return customers
 
-    def _extract_case_info_tab(self: Any) -> OACaseInfoData | None:  # pragma: no cover
+    async def _extract_case_info_tab(self: Any) -> OACaseInfoData | None:  # pragma: no cover
         """提取案件信息Tab（Tab 2）。"""
         page = self._page
         assert page is not None
 
         try:
-            # 所有Tab内容都在一页上，不需要switchTab
-            # 表格2 (索引2): 案件基本信息 - 24行
-            # 表格结构: 每个单元格交替包含标签和值
-
-            tables = page.locator("table").all()
+            tables = await page.locator("table").all()
             if len(tables) > 2:
-                case_table = tables[2]  # 索引2是案件基本信息表
-                rows = case_table.locator("tr").all()
+                case_table = tables[2]
+                rows = await case_table.locator("tr").all()
 
                 case_info = OACaseInfoData(case_no="")
 
                 for row in rows:
                     try:
-                        cells = row.locator("td").all()
+                        cells = await row.locator("td").all()
                         if len(cells) < 2:
                             continue
 
-                        row_text = row.inner_text().strip()
+                        row_text = (await row.inner_text()).strip()
 
-                        # 检查是否是案件基本信息标题行
                         if "案件基本信息" in row_text:
                             continue
 
-                        # 解析标签-值对（交错排列）
                         for i in range(0, len(cells) - 1, 2):
-                            label = cells[i].inner_text().strip()
-                            value = cells[i + 1].inner_text().strip()
+                            label = (await cells[i].inner_text()).strip()
+                            value = (await cells[i + 1].inner_text()).strip()
 
                             if not label:
                                 continue
@@ -229,7 +196,7 @@ class JtnDetailExtractorMixin:  # pragma: no cover
 
         return None
 
-    def _extract_conflict_tab(self: Any) -> list[OAConflictData]:  # pragma: no cover
+    async def _extract_conflict_tab(self: Any) -> list[OAConflictData]:  # pragma: no cover
         """提取利益冲突信息Tab（Tab 3）。"""
         page = self._page
         assert page is not None
@@ -237,40 +204,33 @@ class JtnDetailExtractorMixin:  # pragma: no cover
         conflicts: list[OAConflictData] = []
 
         try:
-            # 所有Tab内容都在一页上，不需要switchTab
-            # 表格3 (索引3): 利益冲突信息 - 21行
-            # 表格结构: 每行4列 [标签1, 值1, 标签2, 值2]
-
-            tables = page.locator("table").all()
+            tables = await page.locator("table").all()
             if len(tables) > 3:
-                conflict_table = tables[3]  # 索引3是利益冲突信息表
-                rows = conflict_table.locator("tr").all()
+                conflict_table = tables[3]
+                rows = await conflict_table.locator("tr").all()
 
                 current_name = None
                 current_type = None
 
                 for row in rows:
                     try:
-                        cells = row.locator("td").all()
+                        cells = await row.locator("td").all()
                         if not cells:
                             continue
 
-                        row_text = row.inner_text().strip()
+                        row_text = (await row.inner_text()).strip()
 
-                        # 检查是否是标题行
                         if "利益冲突" in row_text:
                             continue
 
-                        # 解析标签-值对
                         for i in range(0, len(cells) - 1, 2):
-                            label = cells[i].inner_text().strip()
-                            value = cells[i + 1].inner_text().strip() if i + 1 < len(cells) else ""
+                            label = (await cells[i].inner_text()).strip()
+                            value = (await cells[i + 1].inner_text()).strip() if i + 1 < len(cells) else ""
 
                             if not label:
                                 continue
 
                             if "中文名称" in label and value:
-                                # 保存上一个冲突方（如果有）
                                 if current_name:
                                     conflicts.append(
                                         OAConflictData(
@@ -289,7 +249,6 @@ class JtnDetailExtractorMixin:  # pragma: no cover
                         logger.debug("解析利益冲突行异常: %s", exc)
                         continue
 
-                # 保存最后一个冲突方
                 if current_name:
                     conflicts.append(
                         OAConflictData(
