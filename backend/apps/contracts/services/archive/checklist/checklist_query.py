@@ -81,10 +81,16 @@ def get_checklist_with_status(contract: Contract) -> dict[str, Any]:
     items_with_status: list[dict[str, Any]] = []
     for item in checklist_items:
         mat_ids = code_to_materials.get(item["code"], [])
+        has_materials = len(mat_ids) > 0
+        is_template = item.get("template") is not None
+        # template 项（如律师办案工作日记、办案小结）由系统自动生成，
+        # 无需手动上传材料，始终视为已完成。
+        completed = has_materials or is_template
+
         items_with_status.append(
             {
                 **item,
-                "completed": len(mat_ids) > 0,
+                "completed": completed,
                 "material_ids": mat_ids,
                 "materials": code_to_material_details.get(item["code"], []),
                 "has_case_material": item["source"] == "case" and item["code"] in case_material_match_codes,
