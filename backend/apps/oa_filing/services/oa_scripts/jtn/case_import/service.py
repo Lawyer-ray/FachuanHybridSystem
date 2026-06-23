@@ -41,7 +41,7 @@ class JtnCaseImportScript(
         self._progress_callback = progress_callback
         self._page: Page | None = None
         self._context: BrowserContext | None = None
-        self._http_cookies_cache: dict[str, str] | None = None
+        self._http_cookies_cache: dict[str, str] | None = None  # type: ignore[assignment]
         self._name_search_http_client: httpx.AsyncClient | None = None
         self._name_search_form_state: CaseListFormState | None = None
         self._name_search_cm: Any = None  # async context manager

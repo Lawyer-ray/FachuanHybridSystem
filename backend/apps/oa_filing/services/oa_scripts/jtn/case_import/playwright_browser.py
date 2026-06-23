@@ -106,7 +106,7 @@ class JtnPlaywrightBrowserMixin:  # pragma: no cover
 
             html_text = await target_frame.content()
             candidates = html_parser.extract_case_candidates_from_search_html(html_text)
-            return self._rank_name_candidates(keyword=keyword, candidates=candidates, limit=limit)
+            return self._rank_name_candidates(keyword=keyword, candidates=candidates, limit=limit)  # type: ignore[no-any-return]
         except Exception as exc:
             if self._is_sso_blocking_error(exc):
                 raise
@@ -143,7 +143,7 @@ class JtnPlaywrightBrowserMixin:  # pragma: no cover
                     if await locator.count() <= 0:
                         continue
                     await locator.first.wait_for(state="visible", timeout=300)
-                    return frame
+                    return frame  # type: ignore[no-any-return]
                 except Exception:
                     continue
             await asyncio.sleep(0.2)
@@ -325,7 +325,7 @@ class JtnPlaywrightBrowserMixin:  # pragma: no cover
         if login_frame is None:
             return False
         try:
-            return await login_frame.locator('input[type="password"]').first.is_visible(timeout=500)
+            return await login_frame.locator('input[type="password"]').first.is_visible(timeout=500)  # type: ignore[no-any-return]
         except Exception:
             return False
 
