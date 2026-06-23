@@ -7,7 +7,7 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
-_RESEARCH_POLL_INTERVAL = 10  # 秒
+_RESEARCH_POLL_INTERVAL = 2  # 秒（从 10s 降到 2s，减少 worker 空等时间）
 _RESEARCH_TIMEOUT = 600  # 10分钟
 
 

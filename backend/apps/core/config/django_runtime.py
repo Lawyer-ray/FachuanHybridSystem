@@ -244,7 +244,7 @@ def resolve_q_cluster() -> dict[str, object]:
     """
     base: dict[str, object] = {
         "name": "default",
-        "workers": int(os.environ.get("DJANGO_Q_WORKERS", "2") or "2"),
+        "workers": int(os.environ.get("DJANGO_Q_WORKERS", "4") or "4"),
         "timeout": int(os.environ.get("DJANGO_Q_TIMEOUT", "600") or "600"),
         "retry": int(os.environ.get("DJANGO_Q_RETRY", "1200") or "1200"),
         "queue_limit": int(os.environ.get("DJANGO_Q_QUEUE_LIMIT", "50") or "50"),
