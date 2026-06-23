@@ -128,8 +128,11 @@ async def create_document(
 
 
 @router.get("/documents", response=list[DocSpaceDocumentOut], summary="列出当前用户的文档")
-def list_documents(request: HttpRequest) -> list[DocSpaceDocumentOut]:
-    docs = DocSpaceDocument.objects.filter(lawyer=request.auth).order_by("-updated_at")[:50]  # type: ignore[attr-defined]
+async def list_documents(request: HttpRequest) -> list[DocSpaceDocumentOut]:
+    docs = [
+        doc
+        async for doc in DocSpaceDocument.objects.filter(lawyer=request.auth).order_by("-updated_at")[:50]  # type: ignore[attr-defined]
+    ]
     return [DocSpaceDocumentOut.model_validate(doc) for doc in docs]
 
 

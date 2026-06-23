@@ -119,6 +119,75 @@ class SubprocessRunner:
             returncode=int(cp.returncode or 0),
         )
 
+    async def arun(
+        self,
+        *,
+        args: list[str],
+        timeout_seconds: float = 60.0,
+        cwd: str | None = None,
+        env: dict[str, str] | None = None,
+    ) -> SubprocessOutput:
+        """异步执行子进程命令。"""
+        import asyncio
+
+        self._validate_args(args)
+        proc = await asyncio.create_subprocess_exec(
+            *args,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+            cwd=cwd,
+            env=env,
+        )
+        try:
+            stdout_bytes, stderr_bytes = await asyncio.wait_for(proc.communicate(), timeout=timeout_seconds)
+        except TimeoutError:
+            proc.kill()
+            await proc.wait()
+            raise ExternalServiceError(
+                message="外部命令执行超时",
+                code="SUBPROCESS_TIMEOUT",
+                errors={
+                    "command": scrub_text(str(args[0] if args else "")),
+                    "timeout_seconds": timeout_seconds,
+                },
+            )
+        except FileNotFoundError as e:
+            raise ExternalServiceError(
+                message="外部命令不存在",
+                code="SUBPROCESS_NOT_FOUND",
+                errors={
+                    "command": scrub_text(str(args[0] if args else "")),
+                    "detail": self._truncate(scrub_text(str(e))),
+                },
+            ) from e
+        except Exception as e:
+            raise ExternalServiceError(
+                message="外部命令执行失败",
+                code="SUBPROCESS_FAILED",
+                errors={
+                    "command": scrub_text(str(args[0] if args else "")),
+                    "detail": self._truncate(scrub_text(str(e))),
+                },
+            ) from e
+
+        if proc.returncode and proc.returncode != 0:
+            raise ExternalServiceError(
+                message="外部命令执行失败",
+                code="SUBPROCESS_NONZERO_EXIT",
+                errors={
+                    "command": scrub_text(str(args[0] if args else "")),
+                    "returncode": int(proc.returncode),
+                    "stdout": self._truncate(scrub_text(stdout_bytes.decode("utf-8", errors="replace"))),
+                    "stderr": self._truncate(scrub_text(stderr_bytes.decode("utf-8", errors="replace"))),
+                },
+            )
+
+        return SubprocessOutput(
+            stdout=self._truncate(scrub_text(stdout_bytes.decode("utf-8", errors="replace"))),
+            stderr=self._truncate(scrub_text(stderr_bytes.decode("utf-8", errors="replace"))),
+            returncode=int(proc.returncode or 0),
+        )
+
     def popen(self, *, args: list[str], **kwargs: Any) -> subprocess.Popen[Any]:
         self._validate_args(args)
         if "shell" in kwargs and kwargs.get("shell"):

@@ -390,6 +390,118 @@ class RetryManager:
                 },
             )
 
+    async def async_execute_with_retry(
+        self, operation: Callable[[], Any], operation_name: str = "operation", context: dict[str, Any] | None = None
+    ) -> Any:
+        """异步执行带重试的操作（用 asyncio.sleep 替代 time.sleep）
+
+        Args:
+            operation: 要执行的操作函数（同步或异步均可）
+            operation_name: 操作名称（用于日志）
+            context: 操作上下文信息
+
+        Returns:
+            Any: 操作结果
+
+        Raises:
+            Exception: 重试失败后抛出最后一次的异常
+        """
+        import asyncio
+
+        self.start_time = datetime.now()
+        self.attempts = []
+        context = context or {}
+
+        logger.info(f"开始执行异步带重试的操作: {operation_name}")
+
+        attempt_number = 0
+        last_exception = None
+
+        while True:
+            try:
+                # 检查总超时
+                if self._is_total_timeout():
+                    logger.error(f"操作总超时: {operation_name}, 耗时: {self._get_elapsed_time():.2f}秒")
+                    from apps.core.exceptions import owner_timeout_error
+
+                    raise owner_timeout_error(
+                        message=f"操作总超时: {operation_name}",
+                        timeout_seconds=self.config.get_timeout_seconds(),
+                        errors={
+                            "operation_name": operation_name,
+                            "elapsed_time": self._get_elapsed_time(),
+                            "attempts": len(self.attempts),
+                            "context": context,
+                        },
+                    )
+
+                # 执行操作（支持同步和异步函数）
+                logger.debug(f"执行操作尝试 {attempt_number + 1}: {operation_name}")
+                if asyncio.iscoroutinefunction(operation):
+                    result = await operation()
+                else:
+                    result = operation()
+
+                # 操作成功
+                if self.attempts:
+                    self.attempts[-1].success = True
+
+                logger.info(f"操作成功: {operation_name}, 尝试次数: {attempt_number + 1}")
+                return result
+
+            except Exception as e:
+                last_exception = e
+                error_type = self.classify_error(e)
+
+                logger.warning(
+                    f"操作失败: {operation_name}, 尝试 {attempt_number + 1}, 错误类型: {error_type.value}, 错误: {e!s}"
+                )
+
+                # 检查是否应该重试
+                if not self.config.should_retry(error_type, attempt_number):
+                    logger.error(f"不再重试: {operation_name}, 错误类型: {error_type.value}")
+                    break
+
+                # 计算延迟时间
+                delay = self.config.calculate_delay(error_type, attempt_number)
+
+                # 记录重试尝试
+                attempt = RetryAttempt(
+                    attempt_number=attempt_number + 1,
+                    timestamp=datetime.now(),
+                    error_type=error_type,
+                    error_message=str(e),
+                    delay_seconds=delay,
+                    success=False,
+                )
+                self.attempts.append(attempt)
+
+                # 如果有延迟，异步等待
+                if delay > 0:
+                    logger.info(f"等待重试: {operation_name}, 延迟 {delay:.2f} 秒")
+                    await asyncio.sleep(delay)
+
+                attempt_number += 1
+
+        # 所有重试都失败了
+        logger.error(f"操作最终失败: {operation_name}, 总尝试次数: {len(self.attempts)}")
+
+        if last_exception:
+            raise last_exception
+        else:
+            from apps.core.exceptions import owner_retry_error
+
+            raise owner_retry_error(
+                message=f"操作重试失败: {operation_name}",
+                retry_count=len(self.attempts),
+                max_retries=self.config.max_retries,
+                errors={
+                    "operation_name": operation_name,
+                    "attempts": [attempt.to_dict() for attempt in self.attempts],
+                    "context": context,
+                },
+            )
+
     def _is_total_timeout(self) -> bool:
         """检查是否总超时"""
         if not self.start_time:

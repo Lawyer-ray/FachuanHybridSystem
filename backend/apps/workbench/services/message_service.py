@@ -85,9 +85,12 @@ class WorkbenchMessageService(PermissionMixin):
             created_at__gte=msg.created_at,
         ).delete()
         # 重新计算 storage_bytes（删除是低频操作，全量重算可接受）
+        # 用 values() 只取 4 列，避免加载完整 model 实例
         remaining_bytes = sum(
-            _calc_message_bytes(m.content, m.tool_input, m.tool_output, m.metadata)
-            for m in WorkbenchMessage.objects.filter(session_id=session_id)
+            _calc_message_bytes(m["content"], m["tool_input"], m["tool_output"], m["metadata"])
+            for m in WorkbenchMessage.objects.filter(session_id=session_id).values(
+                "content", "tool_input", "tool_output", "metadata"
+            )
         )
         WorkbenchSession.objects.filter(id=session_id).update(storage_bytes=remaining_bytes)
 
