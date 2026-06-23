@@ -24,19 +24,23 @@ from .services.wiring import build_org_access_computation_service
 class OrgAccessMiddleware:
     """为认证用户设置 request.org_access。双模：async 链使用 async cache + sync_to_async ORM。"""
 
+    async_capable = True
+    sync_capable = True
+
     def __init__(self, get_response: Any) -> None:
         self.get_response = get_response
+        self._is_async = asyncio.iscoroutinefunction(get_response)
+        if self._is_async:
+            from asgiref.sync import markcoroutinefunction
+
+            markcoroutinefunction(self)
 
     def __call__(self, request: HttpRequest) -> Any:
         user = getattr(request, "user", None)
         if not user or not user.is_authenticated:
-            return (
-                self.get_response(request)
-                if not asyncio.iscoroutinefunction(self.get_response)
-                else self._pass(request)
-            )
+            return self.get_response(request) if not self._is_async else self._pass(request)
 
-        if asyncio.iscoroutinefunction(self.get_response):
+        if self._is_async:
             return self._async_dispatch(request, user)
         return self._sync_dispatch(request, user)
 
@@ -75,16 +79,22 @@ class OrgAccessMiddleware:
 class ApiTrailingSlashMiddleware:
     """去除 /api/ 路径的尾部斜杠。双模：纯 CPU 无 I/O。"""
 
+    async_capable = True
+    sync_capable = True
+
     def __init__(self, get_response: Any) -> None:
         self.get_response = get_response
+        self._is_async = asyncio.iscoroutinefunction(get_response)
+        if self._is_async:
+            from asgiref.sync import markcoroutinefunction
+
+            markcoroutinefunction(self)
 
     def __call__(self, request: HttpRequest) -> Any:
         path = request.path_info or ""
         if path.startswith("/api/") and path != "/api/" and path.endswith("/"):
             request.path_info = path.rstrip("/")
 
-        if asyncio.iscoroutinefunction(self.get_response):
-            return self.get_response(request)  # 返回协程
         return self.get_response(request)
 
 

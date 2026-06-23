@@ -24,6 +24,11 @@ _DEFAULT_RATE_LIMIT_INTERVAL = 3.5  # seconds between requests (conservative)
 class _RateLimiter:  # pragma: no cover
     min_interval: float = _DEFAULT_RATE_LIMIT_INTERVAL
     _last_call: float = field(default=0.0, init=False)
+    _lock: Any = field(default=None, init=False)  # asyncio.Lock 延迟创建
+
+    def _ensure_lock(self) -> None:
+        if self._lock is None:
+            self._lock = asyncio.Lock()
 
     def wait_if_needed(self) -> None:  # pragma: no cover
         elapsed = time.monotonic() - self._last_call
@@ -32,10 +37,12 @@ class _RateLimiter:  # pragma: no cover
         self._last_call = time.monotonic()
 
     async def await_if_needed(self) -> None:  # pragma: no cover
-        elapsed = time.monotonic() - self._last_call
-        if elapsed < self.min_interval:
-            await asyncio.sleep(self.min_interval - elapsed)
-        self._last_call = time.monotonic()
+        self._ensure_lock()
+        async with self._lock:  # type: ignore[union-attr]
+            elapsed = time.monotonic() - self._last_call
+            if elapsed < self.min_interval:
+                await asyncio.sleep(self.min_interval - elapsed)
+            self._last_call = time.monotonic()
 
 
 class WebDAVProvider:  # pragma: no cover

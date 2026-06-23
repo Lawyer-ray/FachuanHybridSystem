@@ -1,5 +1,6 @@
 """飞书 Token 与配置加载 Mixin"""
 
+import asyncio
 import logging
 from datetime import datetime, timedelta
 from typing import Any
@@ -19,6 +20,7 @@ class FeishuTokenMixin:  # pragma: no cover
     ENDPOINTS: dict[str, str]
     _access_token: str | None
     _token_expires_at: datetime | None
+    _async_token_lock: asyncio.Lock | None = None
 
     def _load_config_from_db(self) -> dict[str, Any]:  # pragma: no cover
         """从 SystemConfig 加载飞书配置"""
@@ -134,6 +136,7 @@ class FeishuTokenMixin:  # pragma: no cover
 
     async def _aget_tenant_access_token(self) -> str:  # pragma: no cover
         """异步版本。获取租户访问令牌，支持缓存和自动刷新"""
+        # Fast path: cached token still valid
         if (
             self._access_token
             and self._token_expires_at
@@ -141,50 +144,64 @@ class FeishuTokenMixin:  # pragma: no cover
         ):
             return self._access_token
 
-        app_id = self.config.get("APP_ID")
-        app_secret = self.config.get("APP_SECRET")
+        # Slow path: acquire lock and double-check
+        if self._async_token_lock is None:
+            self._async_token_lock = asyncio.Lock()
+        async with self._async_token_lock:
+            # Double-check after acquiring lock
+            if (
+                self._access_token
+                and self._token_expires_at
+                and datetime.now() < self._token_expires_at - timedelta(minutes=5)
+            ):
+                return self._access_token
 
-        if not app_id or not app_secret:
-            raise ConfigurationException(
-                message="飞书APP_ID或APP_SECRET未配置", platform="feishu", missing_config="APP_ID, APP_SECRET"
-            )
+            app_id = self.config.get("APP_ID")
+            app_secret = self.config.get("APP_SECRET")
 
-        url = f"{self.BASE_URL}{self.ENDPOINTS['tenant_access_token']}"
-        payload = {"app_id": app_id, "app_secret": app_secret}
-
-        try:
-            timeout = self.config.get("TIMEOUT", 30)
-            async with httpx.AsyncClient(timeout=timeout) as client:
-                response = await client.post(url, json=payload, headers={"Content-Type": "application/json"})
-                response.raise_for_status()
-
-            data = response.json()
-
-            if data.get("code") != 0:
-                error_msg = data.get("msg", "未知错误")
-                raise ChatProviderException(
-                    message=f"获取飞书访问令牌失败: {error_msg}",
+            if not app_id or not app_secret:
+                raise ConfigurationException(
+                    message="飞书APP_ID或APP_SECRET未配置",
                     platform="feishu",
-                    error_code=str(data.get("code")),
-                    errors={"api_response": data},
+                    missing_config="APP_ID, APP_SECRET",
                 )
 
-            self._access_token = data["tenant_access_token"]
-            expires_in = data.get("expire", 7200)
-            self._token_expires_at = datetime.now() + timedelta(seconds=expires_in)
+            url = f"{self.BASE_URL}{self.ENDPOINTS['tenant_access_token']}"
+            payload = {"app_id": app_id, "app_secret": app_secret}
 
-            logger.debug("已获取飞书访问令牌")
-            if self._access_token is None:
-                raise ChatProviderException("飞书访问令牌为空")
-            return self._access_token
+            try:
+                timeout = self.config.get("TIMEOUT", 30)
+                async with httpx.AsyncClient(timeout=timeout) as client:
+                    response = await client.post(url, json=payload, headers={"Content-Type": "application/json"})
+                    response.raise_for_status()
 
-        except httpx.HTTPError as e:
-            logger.error(f"请求飞书访问令牌失败: {e!s}")
-            raise ChatProviderException(
-                message=f"网络请求失败: {e!s}", platform="feishu", errors={"original_error": str(e)}
-            ) from e
-        except (KeyError, ValueError) as e:
-            logger.error(f"解析飞书API响应失败: {e!s}")
-            raise ChatProviderException(
-                message=f"API响应格式错误: {e!s}", platform="feishu", errors={"original_error": str(e)}
-            ) from e
+                data = response.json()
+
+                if data.get("code") != 0:
+                    error_msg = data.get("msg", "未知错误")
+                    raise ChatProviderException(
+                        message=f"获取飞书访问令牌失败: {error_msg}",
+                        platform="feishu",
+                        error_code=str(data.get("code")),
+                        errors={"api_response": data},
+                    )
+
+                self._access_token = data["tenant_access_token"]
+                expires_in = data.get("expire", 7200)
+                self._token_expires_at = datetime.now() + timedelta(seconds=expires_in)
+
+                logger.debug("已获取飞书访问令牌")
+                if self._access_token is None:
+                    raise ChatProviderException("飞书访问令牌为空")
+                return self._access_token
+
+            except httpx.HTTPError as e:
+                logger.error(f"请求飞书访问令牌失败: {e!s}")
+                raise ChatProviderException(
+                    message=f"网络请求失败: {e!s}", platform="feishu", errors={"original_error": str(e)}
+                ) from e
+            except (KeyError, ValueError) as e:
+                logger.error(f"解析飞书API响应失败: {e!s}")
+                raise ChatProviderException(
+                    message=f"API响应格式错误: {e!s}", platform="feishu", errors={"original_error": str(e)}
+                ) from e

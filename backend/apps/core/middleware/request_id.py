@@ -24,8 +24,16 @@ class RequestIdMiddleware:
     这样 ASGI 模式下后续中间件可以原生 async 运行。
     """
 
+    async_capable = True
+    sync_capable = True
+
     def __init__(self, get_response: Callable[[HttpRequest], HttpResponse]) -> None:
         self.get_response = get_response
+        self._is_async = asyncio.iscoroutinefunction(get_response)
+        if self._is_async:
+            from asgiref.sync import markcoroutinefunction
+
+            markcoroutinefunction(self)
 
     def __call__(self, request: HttpRequest) -> Any:
         request_id = self._extract_request_id(request)
@@ -42,7 +50,7 @@ class RequestIdMiddleware:
         thread.trace_id = trace_id or request_id
 
         # async 链：get_response 是协程函数，返回协程让 Django handler await
-        if asyncio.iscoroutinefunction(self.get_response):
+        if self._is_async:
             return self._async_dispatch(request, request_id)
 
         # sync 链：直接执行

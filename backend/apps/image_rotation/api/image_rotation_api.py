@@ -26,6 +26,9 @@ router = Router(tags=["图片旋转"], auth=JWTOrSessionAuth())
 _ALLOWED_IMAGE_TYPES = frozenset({"image/jpeg", "image/png", "image/webp", "image/tiff"})
 _MAX_UPLOAD_SIZE = 20 * 1024 * 1024  # 20MB
 
+# Module-level semaphore to limit concurrent image processing threads
+_IMAGE_SEM = asyncio.Semaphore(8)
+
 
 def _validate_image_file(file_obj: UploadedFile) -> None:
     """验证上传的图片文件类型和大小。"""
@@ -116,33 +119,34 @@ async def detect_orientation(request: HttpRequest) -> dict[str, Any]:  # pragma:
     total_start = time.perf_counter()
 
     async def _process_image(img: dict[str, Any]) -> dict[str, Any]:
-        try:
-            image_bytes = _decode_image_data(img.get("data", ""))
-            t0 = time.perf_counter()
-            if method == "ocr_voting":
-                from apps.image_rotation.services.orientation.service import OrientationDetectionService
+        async with _IMAGE_SEM:
+            try:
+                image_bytes = _decode_image_data(img.get("data", ""))
+                t0 = time.perf_counter()
+                if method == "ocr_voting":
+                    from apps.image_rotation.services.orientation.service import OrientationDetectionService
 
-                result = await sync_to_async(
-                    OrientationDetectionService().detect_orientation_with_text, thread_sensitive=False
-                )(image_bytes)
-            else:
-                from apps.image_rotation.services.orientation.onnx_service import get_onnx_orientation_service
+                    result = await sync_to_async(
+                        OrientationDetectionService().detect_orientation_with_text, thread_sensitive=False
+                    )(image_bytes)
+                else:
+                    from apps.image_rotation.services.orientation.onnx_service import get_onnx_orientation_service
 
-                result = await sync_to_async(get_onnx_orientation_service().detect_orientation, thread_sensitive=False)(
-                    image_bytes
-                )
-            result["elapsed_ms"] = round((time.perf_counter() - t0) * 1000, 1)
-            result["filename"] = img.get("filename", "")
-            return result
-        except Exception as exc:
-            logger.error("detect_orientation 失败: %s", exc, exc_info=True)
-            return {
-                "filename": img.get("filename", ""),
-                "rotation": 0,
-                "confidence": 0,
-                "ocr_text": "",
-                "elapsed_ms": 0,
-            }
+                    result = await sync_to_async(
+                        get_onnx_orientation_service().detect_orientation, thread_sensitive=False
+                    )(image_bytes)
+                result["elapsed_ms"] = round((time.perf_counter() - t0) * 1000, 1)
+                result["filename"] = img.get("filename", "")
+                return result
+            except Exception as exc:
+                logger.error("detect_orientation 失败: %s", exc, exc_info=True)
+                return {
+                    "filename": img.get("filename", ""),
+                    "rotation": 0,
+                    "confidence": 0,
+                    "ocr_text": "",
+                    "elapsed_ms": 0,
+                }
 
     results = await asyncio.gather(*[_process_image(img) for img in images])
     total_elapsed_ms = round((time.perf_counter() - total_start) * 1000, 1)
@@ -162,17 +166,18 @@ async def extract_text(request: HttpRequest) -> dict[str, Any]:  # pragma: no co
     ocr = OCRService(use_v5=True, provider=provider)
 
     async def _extract_one(img: dict[str, Any]) -> dict[str, Any]:
-        try:
-            image_bytes = _decode_image_data(img.get("data", ""))
-            text_result = await sync_to_async(ocr.extract_text, thread_sensitive=False)(image_bytes)
-            return {
-                "filename": img.get("filename", ""),
-                "ocr_text": text_result.text,
-                "raw_texts": text_result.raw_texts,
-            }
-        except Exception as exc:
-            logger.error("extract_text 失败: %s", exc, exc_info=True)
-            return {"filename": img.get("filename", ""), "ocr_text": "", "raw_texts": []}
+        async with _IMAGE_SEM:
+            try:
+                image_bytes = _decode_image_data(img.get("data", ""))
+                text_result = await sync_to_async(ocr.extract_text, thread_sensitive=False)(image_bytes)
+                return {
+                    "filename": img.get("filename", ""),
+                    "ocr_text": text_result.text,
+                    "raw_texts": text_result.raw_texts,
+                }
+            except Exception as exc:
+                logger.error("extract_text 失败: %s", exc, exc_info=True)
+                return {"filename": img.get("filename", ""), "ocr_text": "", "raw_texts": []}
 
     results = await asyncio.gather(*[_extract_one(img) for img in images])
     return {"success": True, "results": list(results)}

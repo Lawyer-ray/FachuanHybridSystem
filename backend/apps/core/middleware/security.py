@@ -15,20 +15,28 @@ from django.conf import settings
 from django.http import HttpRequest, HttpResponse
 
 
-def _is_async(get_response: Callable[..., Any]) -> bool:
-    return asyncio.iscoroutinefunction(get_response)
+def _init_dual_mode(mw: Any, get_response: Callable[..., Any]) -> None:
+    """初始化双模中间件：设置 async_capable 标记并调用 markcoroutinefunction。"""
+    mw.get_response = get_response
+    mw._is_async = asyncio.iscoroutinefunction(get_response)
+    if mw._is_async:
+        from asgiref.sync import markcoroutinefunction
+
+        markcoroutinefunction(mw)
 
 
 class SecurityHeadersMiddleware:
     """按路径设置 Content-Security-Policy 响应头的中间件"""
 
     _DOCS_SUFFIXES = ("/docs", "/schema", "/redoc", "/swagger")
+    async_capable = True
+    sync_capable = True
 
     def __init__(self, get_response: Callable[[HttpRequest], HttpResponse]) -> None:
-        self.get_response = get_response
+        _init_dual_mode(self, get_response)
 
     def __call__(self, request: HttpRequest) -> Any:
-        if _is_async(self.get_response):
+        if self._is_async:
             return self._adispatch(request)
         response = self.get_response(request)
         self._apply_csp(request, response)
@@ -61,11 +69,14 @@ class SecurityHeadersMiddleware:
 class PermissionsPolicyMiddleware:
     """设置 Permissions-Policy 响应头的中间件"""
 
+    async_capable = True
+    sync_capable = True
+
     def __init__(self, get_response: Callable[[HttpRequest], HttpResponse]) -> None:
-        self.get_response = get_response
+        _init_dual_mode(self, get_response)
 
     def __call__(self, request: HttpRequest) -> Any:
-        if _is_async(self.get_response):
+        if self._is_async:
             return self._adispatch(request)
         response = self.get_response(request)
         self._set_policy(response)
@@ -118,13 +129,16 @@ class ServiceLocatorScopeMiddleware:
     确保请求间服务实例不互相污染（基于 ContextVar 实现）。
     """
 
+    async_capable = True
+    sync_capable = True
+
     def __init__(self, get_response: Callable[[HttpRequest], HttpResponse]) -> None:
-        self.get_response = get_response
+        _init_dual_mode(self, get_response)
 
     def __call__(self, request: HttpRequest) -> Any:
         from apps.core.interfaces import ServiceLocator
 
-        if _is_async(self.get_response):
+        if self._is_async:
             return self._adispatch(request)
         with ServiceLocator.scope():
             return self.get_response(request)

@@ -294,7 +294,13 @@ class OneDriveProvider:  # pragma: no cover
         self._root = root_path.strip("/")
         self._headers = {"Authorization": f"Bearer {access_token}"}
         self._client = httpx.Client(timeout=60, headers=self._headers)
-        self._async_client = httpx.AsyncClient(timeout=60, headers=self._headers)
+        self._async_client: httpx.AsyncClient | None = None  # 延迟创建，避免泄漏
+
+    def _get_async_client(self) -> httpx.AsyncClient:
+        """延迟创建 AsyncClient，避免 __init__ 中泄漏连接。"""
+        if self._async_client is None or self._async_client.is_closed:
+            self._async_client = httpx.AsyncClient(timeout=60, headers=self._headers)
+        return self._async_client
 
     def _item_path(self, path: str) -> str:
         """Build Graph API item path from relative path."""
@@ -451,7 +457,7 @@ class OneDriveProvider:  # pragma: no cover
         next_url: str | None = url
 
         while next_url:
-            resp = await self._async_client.get(next_url, headers=self._headers)
+            resp = await self._get_async_client().get(next_url, headers=self._headers)
             if resp.status_code == 404:
                 return []
             resp.raise_for_status()
@@ -485,7 +491,7 @@ class OneDriveProvider:  # pragma: no cover
 
     async def aread_file(self, path: str) -> bytes:
         url = f"{self._item_url(path)}:/content"
-        resp = await self._async_client.get(url, headers=self._headers, follow_redirects=True)
+        resp = await self._get_async_client().get(url, headers=self._headers, follow_redirects=True)
         resp.raise_for_status()
         return resp.content
 
@@ -496,7 +502,7 @@ class OneDriveProvider:  # pragma: no cover
             await self.amkdir(parent)
 
         url = f"{self._item_url(path)}:/content"
-        resp = await self._async_client.put(url, content=content, headers=self._headers)
+        resp = await self._get_async_client().put(url, content=content, headers=self._headers)
         resp.raise_for_status()
 
     async def amkdir(self, path: str) -> None:
@@ -511,7 +517,7 @@ class OneDriveProvider:  # pragma: no cover
             self._children_url("/".join(parts[:-1])) if len(parts) > 1 else f"{GRAPH_BASE}/me/drive/root/children"
         )
         folder_name = parts[-1]
-        resp = await self._async_client.post(
+        resp = await self._get_async_client().post(
             parent_url,
             headers={**self._headers, "Content-Type": "application/json"},
             json={"name": folder_name, "folder": {}, "@microsoft.graph.conflictBehavior": "fail"},
@@ -521,25 +527,25 @@ class OneDriveProvider:  # pragma: no cover
 
     async def aexists(self, path: str) -> bool:
         url = self._item_url(path)
-        resp = await self._async_client.get(url, headers=self._headers)
+        resp = await self._get_async_client().get(url, headers=self._headers)
         return resp.status_code == 200
 
     async def ais_dir(self, path: str) -> bool:
         url = self._item_url(path)
-        resp = await self._async_client.get(url, headers=self._headers)
+        resp = await self._get_async_client().get(url, headers=self._headers)
         if resp.status_code != 200:
             return False
         return "folder" in resp.json()
 
     async def adelete_file(self, path: str) -> None:
         url = self._item_url(path)
-        resp = await self._async_client.delete(url, headers=self._headers)
+        resp = await self._get_async_client().delete(url, headers=self._headers)
         if resp.status_code not in (200, 204, 404):
             logger.warning("DELETE %s returned %d", path, resp.status_code)
 
     async def aget_file_info(self, path: str) -> CloudFileInfo | None:
         url = self._item_url(path)
-        resp = await self._async_client.get(url, headers=self._headers)
+        resp = await self._get_async_client().get(url, headers=self._headers)
         if resp.status_code != 200:
             return None
 

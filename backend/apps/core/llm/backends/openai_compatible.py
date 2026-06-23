@@ -433,11 +433,13 @@ class OpenAICompatibleBackend:
             return []
         used_model = self._resolve_embedding_model(model)
         request_timeout = float(kwargs.pop("timeout_seconds", self.timeout))
+        client = await self._build_async_client(timeout_seconds=request_timeout)
         try:
-            client = await self._build_async_client(timeout_seconds=request_timeout)
             response = await client.embeddings.create(model=used_model, input=texts)
         except Exception as error:
             self._raise_mapped_error(error, request_timeout, self.base_url)
+        finally:
+            await client.close()
 
         vectors: list[list[float]] = []
         for item in getattr(response, "data", None) or []:

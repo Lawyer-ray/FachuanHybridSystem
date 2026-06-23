@@ -25,22 +25,26 @@ _CACHE_PREFIX = "jwt_token_rl"
 class TokenRateLimitMiddleware:
     """对 /api/v1/token/ 路径的请求进行限速。双模：支持 sync 和 async 链。"""
 
+    async_capable = True
+    sync_capable = True
+
     def __init__(self, get_response: Any) -> None:
         self.get_response = get_response
+        self._is_async = asyncio.iscoroutinefunction(get_response)
+        if self._is_async:
+            from asgiref.sync import markcoroutinefunction
+
+            markcoroutinefunction(self)
 
     def __call__(self, request: Any) -> Any:
         # 非 token 路径直接放行（无 I/O，无需 async）
         if not (request.path.startswith("/api/v1/token/") and request.method == "POST"):
-            return (
-                self.get_response(request)
-                if not asyncio.iscoroutinefunction(self.get_response)
-                else self._pass(request)
-            )
+            return self.get_response(request) if not self._is_async else self._pass(request)
 
         ip = self._get_client_ip(request)
         bucket_key = self._bucket_key(ip)
 
-        if asyncio.iscoroutinefunction(self.get_response):
+        if self._is_async:
             return self._check_and_dispatch_async(request, bucket_key, ip)
         return self._check_and_dispatch_sync(request, bucket_key, ip)
 
