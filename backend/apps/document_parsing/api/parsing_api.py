@@ -3,6 +3,7 @@
 import logging
 from pathlib import Path
 
+from asgiref.sync import sync_to_async
 from django.conf import settings
 from django.core.files.storage import default_storage
 from ninja import File, Router, UploadedFile
@@ -58,7 +59,9 @@ def _save_upload(file: UploadedFile) -> tuple[str, Path]:
     summary="解析文档",
     auth=JWTOrSessionAuth(),
 )
-def parse_document(request: object, file: UploadedFile = File(...), body: ParseDocumentRequest | None = None) -> ParseDocumentResponse:
+async def parse_document(
+    request: object, file: UploadedFile = File(...), body: ParseDocumentRequest | None = None
+) -> ParseDocumentResponse:
     """解析上传的文档，返回结构化的解析结果。
 
     当 backend 显式设为 "mineru" 时，解析在后台异步执行，
@@ -77,7 +80,7 @@ def parse_document(request: object, file: UploadedFile = File(...), body: ParseD
         if _needs_async(backend):
             from apps.core.tasking import submit_task
 
-            task_id = submit_task(
+            task_id = await sync_to_async(submit_task, thread_sensitive=False)(
                 "apps.document_parsing.tasks.execute_parse_document",
                 str(file_path),
                 Path(file_name).suffix.lstrip("."),
@@ -97,7 +100,7 @@ def parse_document(request: object, file: UploadedFile = File(...), body: ParseD
 
         # --- 同步路径 ---
         parser = get_document_parser(backend=backend)
-        result = parser.parse_document(
+        result = await sync_to_async(parser.parse_document, thread_sensitive=False)(
             file_path=str(file_path),
             file_type=Path(file_name).suffix.lstrip("."),
             extract_tables=extract_tables,
@@ -132,7 +135,9 @@ def parse_document(request: object, file: UploadedFile = File(...), body: ParseD
     summary="提取文档文本",
     auth=JWTOrSessionAuth(),
 )
-def extract_text(request: object, file: UploadedFile = File(...), body: ExtractTextRequest | None = None) -> ExtractTextResponse:
+async def extract_text(
+    request: object, file: UploadedFile = File(...), body: ExtractTextRequest | None = None
+) -> ExtractTextResponse:
     """提取文档的纯文本内容。
 
     当 backend 显式设为 "mineru" 时，提取在后台异步执行。
@@ -147,7 +152,7 @@ def extract_text(request: object, file: UploadedFile = File(...), body: ExtractT
         if _needs_async(backend):
             from apps.core.tasking import submit_task
 
-            task_id = submit_task(
+            task_id = await sync_to_async(submit_task, thread_sensitive=False)(
                 "apps.document_parsing.tasks.execute_extract_text",
                 str(file_path),
                 backend,
@@ -165,7 +170,7 @@ def extract_text(request: object, file: UploadedFile = File(...), body: ExtractT
 
         # --- 同步路径 ---
         parser = get_document_parser(backend=backend)
-        result = parser.extract_text(
+        result = await sync_to_async(parser.extract_text, thread_sensitive=False)(
             file_path=str(file_path),
             max_length=max_length,
         )

@@ -54,7 +54,9 @@ def create_session(request: HttpRequest, payload: CreateMockTrialSessionRequest)
 
 
 @router.get("/sessions", response={200: MockTrialSessionListResponse, 403: ErrorResponse})
-def list_sessions(request: HttpRequest, case_id: int | None = None, limit: int = 20, offset: int = 0) -> Any:  # pragma: no cover
+def list_sessions(
+    request: HttpRequest, case_id: int | None = None, limit: int = 20, offset: int = 0
+) -> Any:  # pragma: no cover
     service = _get_service()
     user = getattr(request, "user", None)
     data = service.list_sessions(
@@ -94,12 +96,10 @@ def get_session(request: HttpRequest, session_id: str) -> Any:  # pragma: no cov
     "/sessions/{session_id}/report",
     response={200: MockTrialReportResponse, 404: ErrorResponse},
 )
-def get_report(request: HttpRequest, session_id: str) -> Any:  # pragma: no cover
-    from asgiref.sync import async_to_sync
-
+async def get_report(request: HttpRequest, session_id: str) -> Any:  # pragma: no cover
     from apps.litigation_ai.services.mock_trial.report_service import MockTrialReportService
 
-    report_data = async_to_sync(MockTrialReportService().get_report)(session_id)
+    report_data = await MockTrialReportService().get_report(session_id)
     return {
         "session_id": session_id,
         "mode": report_data.get("mode", ""),
@@ -123,17 +123,17 @@ def delete_session(request: HttpRequest, session_id: str) -> Any:  # pragma: no 
     response={200: None, 404: ErrorResponse, 500: ErrorResponse},
 )
 @rate_limit_from_settings("EXPORT", by_user=True)
-def export_report(request: HttpRequest, session_id: str) -> Any:  # pragma: no cover
+async def export_report(request: HttpRequest, session_id: str) -> Any:  # pragma: no cover
     """导出模拟庭审报告为Word文档."""
     from pathlib import Path
 
-    from asgiref.sync import async_to_sync
+    from asgiref.sync import sync_to_async
 
     from apps.litigation_ai.services.mock_trial.export_service import MockTrialExportService
     from apps.litigation_ai.services.mock_trial.report_service import MockTrialReportService
 
     # 获取报告数据
-    report_data = async_to_sync(MockTrialReportService().get_report)(session_id)
+    report_data = await MockTrialReportService().get_report(session_id)
     if not report_data:
         return Status(404, {"message": "报告不存在"})
 
@@ -141,13 +141,13 @@ def export_report(request: HttpRequest, session_id: str) -> Any:  # pragma: no c
     from apps.litigation_ai.services.flow.session_repository import LitigationSessionRepository
 
     repo = LitigationSessionRepository()
-    session = repo.get_session_sync(session_id)
+    session = await sync_to_async(repo.get_session_sync, thread_sensitive=False)(session_id)
     if not session:
         return Status(404, {"message": "会话不存在"})
 
     from apps.litigation_ai.services.wiring import get_case_service
 
-    case_dto = get_case_service().get_case(session.case_id)
+    case_dto = await sync_to_async(get_case_service().get_case, thread_sensitive=False)(session.case_id)
     if not case_dto:
         return Status(404, {"message": "案件不存在"})
 
@@ -160,7 +160,7 @@ def export_report(request: HttpRequest, session_id: str) -> Any:  # pragma: no c
     # 生成导出文件
     export_service = MockTrialExportService()
     try:
-        file_path = export_service.export_to_docx(
+        file_path = await sync_to_async(export_service.export_to_docx, thread_sensitive=False)(
             session_id=session_id,
             report_data=report_data,
             case_info=case_info,

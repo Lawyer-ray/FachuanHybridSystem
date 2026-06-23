@@ -47,6 +47,28 @@ class IcsUrlProvider:
 
         return self._ics_provider.fetch_events(ics_content=response.content)
 
+    async def afetch_events(self, *, url: str, **kwargs: object) -> list[CalendarEvent]:  # pragma: no cover
+        """异步版本。Download .ics from *url* and return parsed CalendarEvent list."""
+        validation_error = self._validate_url(url)
+        if validation_error:
+            logger.info("ICS URL validation failed: %s", validation_error)
+            return []
+
+        try:
+            async with httpx.AsyncClient(timeout=DOWNLOAD_TIMEOUT, follow_redirects=True) as client:
+                response = await client.get(url)
+                response.raise_for_status()
+        except httpx.HTTPError as exc:
+            logger.info("ICS URL download failed: %s", exc)
+            return []
+
+        content_length = len(response.content)
+        if content_length > MAX_ICS_SIZE:
+            logger.info("ICS URL content too large: %d bytes", content_length)
+            return []
+
+        return self._ics_provider.fetch_events(ics_content=response.content)
+
     def _validate_url(self, url: str) -> str:
         """Return an error message if the URL is invalid/unsafe, empty string if OK."""
         try:

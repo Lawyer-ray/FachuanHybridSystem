@@ -6,6 +6,7 @@ import logging
 import urllib.parse
 from typing import Any
 
+from asgiref.sync import sync_to_async
 from django.conf import settings
 from django.http import HttpRequest, HttpResponse
 from ninja import File, Form, Router, Schema
@@ -95,7 +96,7 @@ def get_mbid_list(request: HttpRequest) -> Any:  # pragma: no cover
 
 
 @router.post("/convert", summary="传统文书转要素式文书")
-def convert_document(  # pragma: no cover
+async def convert_document(  # pragma: no cover
     request: HttpRequest,
     file: UploadedFile = File(...),
     mbid: str = Form(...),
@@ -114,7 +115,7 @@ def convert_document(  # pragma: no cover
     file_content = file.read()
     filename = file.name or "document.docx"
 
-    result_bytes = service.convert_document(
+    result_bytes = await sync_to_async(service.convert_document, thread_sensitive=False)(
         file_content=file_content,
         filename=filename,
         mbid=mbid,

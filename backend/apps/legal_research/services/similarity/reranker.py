@@ -74,6 +74,51 @@ class RerankerClient:  # pragma: no cover
         out.sort(key=lambda x: x[1], reverse=True)
         return out
 
+    async def arerank(  # pragma: no cover
+        self,
+        *,
+        query: str,
+        documents: list[str],
+        top_k: int = 10,
+    ) -> list[tuple[int, float]]:
+        """异步版本。返回按相关性排序的 (原始索引, 分数) 列表。"""
+        if not query or not documents:
+            return []
+        now = time.time()
+        if now < self._fail_until:
+            return []
+
+        payload = {
+            "model": self._model,
+            "query": query,
+            "documents": documents,
+            "top_k": min(top_k, len(documents)),
+            "return_documents": False,
+        }
+        headers = {
+            "Authorization": f"Bearer {self._api_key}",
+            "Content-Type": "application/json",
+        }
+        try:
+            async with httpx.AsyncClient(timeout=self.RERANK_TIMEOUT_SECONDS) as client:
+                resp = await client.post(f"{self._base_url}/rerank", json=payload, headers=headers)
+                resp.raise_for_status()
+                data = resp.json()
+        except Exception as exc:
+            self._fail_until = time.time() + self.FAIL_COOLDOWN_SECONDS
+            logger.info("Reranker API 调用失败，回退", extra={"error": str(exc)})
+            return []
+
+        results = data.get("results") or []
+        out: list[tuple[int, float]] = []
+        for item in results:
+            idx = item.get("index")
+            score = item.get("relevance_score")
+            if isinstance(idx, int) and isinstance(score, (int, float)):
+                out.append((idx, max(0.0, min(1.0, float(score)))))
+        out.sort(key=lambda x: x[1], reverse=True)
+        return out
+
 
 def create_reranker_from_tuning(tuning: Any) -> RerankerClient | None:  # pragma: no cover
     """从 tuning config 创建 reranker 实例，若未启用或缺少 API Key 则返回 None。"""

@@ -173,3 +173,74 @@ def reverse_login(account: str, password: str) -> dict[str, Any]:  # pragma: no 
         raise ValueError("请先完成实名认证")
 
     return result
+
+
+async def async_reverse_login(account: str, password: str) -> dict[str, Any]:  # pragma: no cover
+    """异步版本。HTTP 直接登录登录国家企业信用信息公示系统。
+
+    Args:
+        account: 手机号或身份证号。
+        password: 明文密码。
+
+    Returns:
+        登录响应 JSON: {"value": "1"/"0"/"2", "message": "..."}
+
+    Raises:
+        NotImplementedError: 未配置打码平台。
+        httpx.HTTPError: 网络请求失败。
+        ValueError: 登录失败。
+    """
+    challenge = str(uuid.uuid4())
+
+    # 1. 求解验证码
+    logger.info("开始求解极验验证码, captcha_id=%s", CAPTCHA_ID)
+    captcha_result = _solver.solve_geetest_v4(CAPTCHA_ID, challenge)
+    logger.info("验证码求解完成")
+
+    # 2. RSA 加密
+    un = rsa_encrypt(account)
+    gp = rsa_encrypt(password)
+
+    # 3. 发送登录请求
+    data = {
+        "un": un,
+        "gp": gp,
+        "lot_number": captcha_result["lot_number"],
+        "captcha_output": captcha_result["captcha_output"],
+        "pass_token": captcha_result["pass_token"],
+        "gen_time": captcha_result["gen_time"],
+        "captchaId": CAPTCHA_ID,
+    }
+
+    async with httpx.AsyncClient(
+        base_url=GSXT_BASE,
+        headers={
+            "User-Agent": (
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/120.0.0.0 Safari/537.36"
+            ),
+            "Referer": f"{GSXT_BASE}/socialuser-use-rllogin.html",
+            "Origin": GSXT_BASE,
+        },
+        follow_redirects=True,
+        timeout=30,
+    ) as client:
+        # 先访问登录页获取 cookie
+        await client.get("/socialuser-use-rllogin.html")
+
+        resp = await client.post("/socialuser-use-login-request.html", data=data)
+        resp.raise_for_status()
+        result: dict[str, Any] = resp.json()
+
+    value = result.get("value")
+    if value == "1":
+        logger.info("直接登录成功")
+    elif value == "0":
+        logger.warning("直接登录失败: %s", result.get("message"))
+        raise ValueError(result.get("message", "登录失败"))
+    elif value == "2":
+        logger.warning("账号未实名认证")
+        raise ValueError("请先完成实名认证")
+
+    return result

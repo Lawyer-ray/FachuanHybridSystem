@@ -5,6 +5,7 @@
 
 from typing import Any
 
+from asgiref.sync import sync_to_async
 from ninja import File, Router
 from ninja.files import UploadedFile
 
@@ -43,13 +44,15 @@ router.add_router("/performance", performance_router)
 
 
 @router.post("/ai/ollama", response=OllamaChatOut)
-def ai_ollama(request: Any, payload: OllamaChatIn) -> OllamaChatOut:  # pragma: no cover
+async def ai_ollama(request: Any, payload: OllamaChatIn) -> OllamaChatOut:  # pragma: no cover
     """Ollama AI接口"""
     # 使用工厂函数获取服务
     service = _get_ai_service()
 
     # 调用服务处理Ollama聊天
-    result = service.chat_with_ollama(model=payload.model, prompt=payload.prompt, text=payload.text)
+    result = await sync_to_async(service.chat_with_ollama, thread_sensitive=False)(
+        model=payload.model, prompt=payload.prompt, text=payload.text
+    )
 
     return OllamaChatOut(data=result)
 

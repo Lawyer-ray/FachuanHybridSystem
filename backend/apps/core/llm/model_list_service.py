@@ -173,6 +173,80 @@ class ModelListService:
         return [_make_model(ollama_model, ctx_window)]
 
     @staticmethod
+    async def _afetch_ollama_models() -> list[dict[str, Any]]:
+        """异步版本。获取 Ollama 模型的 context_window。
+
+        只查询 SystemConfig 中配置的 Ollama 模型，不自动发现所有模型。
+        通过 /api/show 获取 context_length。
+        """
+        ollama_url = LLMConfig.get_ollama_base_url()
+        ollama_model = LLMConfig.get_ollama_model()
+        if not ollama_url or not ollama_model:
+            return []
+
+        # 查询 /api/show 获取 context_length
+        ctx_window = 0
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                resp = await client.post(f"{ollama_url}/api/show", json={"name": ollama_model})
+                resp.raise_for_status()
+                data = resp.json()
+            for key, val in data.get("model_info", {}).items():
+                if key.endswith(".context_length"):
+                    ctx_window = int(val)
+                    break
+        except (httpx.ConnectError, httpx.TimeoutException):
+            return []
+        except Exception:
+            pass
+
+        return [_make_model(ollama_model, ctx_window)]
+
+    async def aget_result(self) -> ModelListResult:
+        """异步版本。获取模型列表及连接状态，优先从缓存读取。"""
+        cached: list[dict[str, Any]] | None = cache.get(CACHE_KEY)
+        cached_status: dict[str, Any] | None = cache.get(CACHE_KEY_STATUS)
+        if cached is not None and cached_status is not None:
+            result = ModelListResult(
+                models=cached,
+                is_fallback=cached_status.get("is_fallback", False),
+                error_message=cached_status.get("error_message", ""),
+            )
+        else:
+            result = await self._afetch_from_api()
+            cache.set(CACHE_KEY, result.models, self._cache_ttl)
+            cache.set(
+                CACHE_KEY_STATUS,
+                {"is_fallback": result.is_fallback, "error_message": result.error_message},
+                self._cache_ttl,
+            )
+
+        result.models = self._merge_system_config_models(result.models)
+        return result
+
+    async def aget_models(self) -> list[dict[str, Any]]:
+        """异步版本。获取可用模型列表，优先从缓存读取。"""
+        result = await self.aget_result()
+        return result.models
+
+    async def _afetch_from_api(self) -> ModelListResult:
+        """异步版本。从各后端获取模型列表，合并结果。"""
+        configs = LLMConfig.get_backend_configs()
+        all_models: list[dict[str, Any]] = []
+
+        if configs.get("ollama") and configs["ollama"].enabled:
+            all_models.extend(await self._afetch_ollama_models())
+
+        if all_models:
+            return ModelListResult(models=all_models)
+
+        return ModelListResult(
+            models=self._get_fallback_models(),
+            is_fallback=True,
+            error_message="所有后端均不可用，使用默认模型列表",
+        )
+
+    @staticmethod
     def _get_fallback_models() -> list[dict[str, Any]]:
         """返回预置默认模型列表"""
         return list(_FALLBACK_MODELS)

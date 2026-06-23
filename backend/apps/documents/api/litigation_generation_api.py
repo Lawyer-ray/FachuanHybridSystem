@@ -8,6 +8,7 @@ import logging
 import time
 from typing import Any
 
+from asgiref.sync import sync_to_async
 from ninja import Router, Schema
 
 from apps.core.exceptions import ValidationException
@@ -48,7 +49,7 @@ class DefenseRequest(Schema):
 
 
 @router.post("/litigation/complaint/generate", response=dict[str, Any])
-def generate_complaint(request: Any, data: ComplaintRequest) -> Any:  # pragma: no cover
+async def generate_complaint(request: Any, data: ComplaintRequest) -> Any:  # pragma: no cover
     """
     生成起诉状
 
@@ -72,7 +73,7 @@ def generate_complaint(request: Any, data: ComplaintRequest) -> Any:  # pragma: 
         "litigation_request": data.litigation_request,
         "facts_and_reasons": data.facts_and_reasons,
     }
-    result = service.generate_complaint(case_data)
+    result = await sync_to_async(service.generate_complaint, thread_sensitive=False)(case_data)
 
     duration_ms = int((time.time() - start_time) * 1000)
     logger.info(
@@ -83,7 +84,7 @@ def generate_complaint(request: Any, data: ComplaintRequest) -> Any:  # pragma: 
 
 
 @router.post("/litigation/defense/generate", response=dict[str, Any])
-def generate_defense(request: Any, data: DefenseRequest) -> Any:  # pragma: no cover
+async def generate_defense(request: Any, data: DefenseRequest) -> Any:  # pragma: no cover
     """
     生成答辩状
 
@@ -107,7 +108,7 @@ def generate_defense(request: Any, data: DefenseRequest) -> Any:  # pragma: no c
         "defense_opinion": data.defense_opinion,
         "defense_reasons": data.defense_reasons,
     }
-    result = service.generate_defense(case_data)
+    result = await sync_to_async(service.generate_defense, thread_sensitive=False)(case_data)
     duration_ms = int((time.time() - start_time) * 1000)
     logger.info(
         "defense_generated",
@@ -125,7 +126,7 @@ def preview_litigation_context(request: Any, case_id: int, litigation_type: str)
 
 @router.post("/cases/{case_id}/litigation/{litigation_type}/download")
 @rate_limit_from_settings("EXPORT", by_user=True)
-def download_litigation_document(request: Any, case_id: int, litigation_type: str) -> Any:  # pragma: no cover
+async def download_litigation_document(request: Any, case_id: int, litigation_type: str) -> Any:  # pragma: no cover
     """
     生成并下载诉讼文档
 
@@ -143,9 +144,9 @@ def download_litigation_document(request: Any, case_id: int, litigation_type: st
     start_time = time.time()
     service = _get_litigation_generation_service()
     if litigation_type == "complaint":
-        filename, doc_bytes = service.generate_complaint_document(case_id)
+        filename, doc_bytes = await sync_to_async(service.generate_complaint_document, thread_sensitive=False)(case_id)
     elif litigation_type == "defense":
-        filename, doc_bytes = service.generate_defense_document(case_id)
+        filename, doc_bytes = await sync_to_async(service.generate_defense_document, thread_sensitive=False)(case_id)
     else:
         raise ValidationException(
             message="不支持的诉讼类型: %(t)s" % {"t": litigation_type}, code="INVALID_LITIGATION_TYPE"

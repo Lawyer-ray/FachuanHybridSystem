@@ -5,6 +5,7 @@
 
 from typing import Any
 
+from asgiref.sync import sync_to_async
 from ninja import File, Router
 from ninja.files import UploadedFile
 
@@ -23,7 +24,7 @@ def _get_auto_namer_service() -> Any:
 
 @router.post("/process", response=AutoToolProcessOut)
 @rate_limit_from_settings("UPLOAD")
-def auto_namer_process(  # pragma: no cover
+async def auto_namer_process(  # pragma: no cover
     request: Any,
     file: UploadedFile = File(...),
     prompt: str = DEFAULT_FILENAME_PROMPT,
@@ -36,7 +37,7 @@ def auto_namer_process(  # pragma: no cover
     service = _get_auto_namer_service()
 
     # 调用服务处理文档并生成命名建议
-    result = service.process_document_for_naming(
+    result = await sync_to_async(service.process_document_for_naming, thread_sensitive=False)(
         uploaded_file=file, prompt=prompt, model=model, limit=limit, preview_page=preview_page
     )
 
@@ -47,7 +48,9 @@ def auto_namer_process(  # pragma: no cover
 
 @router.post("/process-by-path", response=AutoToolProcessOut)
 @rate_limit_from_settings("UPLOAD")
-def auto_namer_process_by_path(request: Any, payload: AutoToolProcessIn) -> AutoToolProcessOut:  # pragma: no cover
+async def auto_namer_process_by_path(
+    request: Any, payload: AutoToolProcessIn
+) -> AutoToolProcessOut:  # pragma: no cover
     """通过路径处理自动命名工具"""
     # 使用工厂函数获取服务
     service = _get_auto_namer_service()
@@ -76,14 +79,16 @@ def auto_namer_process_by_path(request: Any, payload: AutoToolProcessIn) -> Auto
 
     from apps.automation.services.document.document_processing import extract_document_content
 
-    extraction = extract_document_content(file_path.as_posix(), limit=payload.limit, preview_page=payload.preview_page)
+    extraction = await sync_to_async(extract_document_content, thread_sensitive=False)(
+        file_path.as_posix(), limit=payload.limit, preview_page=payload.preview_page
+    )
 
     text_value = (extraction.text or "").strip()
     if not text_value:
         return AutoToolProcessOut(text=None, ollama_response=None, error="文档中没有提取到文字内容，无法生成命名")
 
     # 调用服务生成文件名
-    filename_suggestion = service.generate_filename(
+    filename_suggestion = await sync_to_async(service.generate_filename, thread_sensitive=False)(
         document_content=text_value, prompt=payload.prompt, model=payload.model
     )
 

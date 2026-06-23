@@ -435,7 +435,9 @@ def _generate_filtered_zip(job_id: UUID, *, only_relevant: bool) -> bytes:
 
 
 @router.get("/batch/{job_id}/download-detail")
-def download_batch_detail_zip(request: Any, job_id: UUID, relevant_only: bool = False) -> FileResponse:  # pragma: no cover
+def download_batch_detail_zip(
+    request: Any, job_id: UUID, relevant_only: bool = False
+) -> FileResponse:  # pragma: no cover
     """下载批量分析详情 ZIP 文件"""
     from ..tasks import build_detail_zip_sync
 
@@ -480,7 +482,9 @@ class BatchMessageItemIn(Schema):
 
 
 @router.post("/batch/{job_id}/messages")
-def save_batch_messages(request: Any, job_id: UUID, payload: list[BatchMessageItemIn]) -> dict[str, Any]:  # pragma: no cover
+def save_batch_messages(
+    request: Any, job_id: UUID, payload: list[BatchMessageItemIn]
+) -> dict[str, Any]:  # pragma: no cover
     """将批量分析结果持久化为工作台消息"""
     ctx = extract_request_context(request)
     batch_service = ServiceLocator.get_workbench_batch_service()
@@ -620,7 +624,7 @@ class OptimizePromptOut(Schema):
 
 
 @router.post("/optimize-prompt", response=OptimizePromptOut)
-def optimize_prompt(request: Any, payload: OptimizePromptIn) -> dict[str, str]:  # pragma: no cover
+async def optimize_prompt(request: Any, payload: OptimizePromptIn) -> dict[str, str]:  # pragma: no cover
     """使用 AI 优化批量分析的 prompt"""
     from apps.core.llm.service import get_llm_service
 
@@ -638,7 +642,7 @@ def optimize_prompt(request: Any, payload: OptimizePromptIn) -> dict[str, str]: 
 
 请直接输出优化后的 prompt，不要有任何解释或前缀。"""
 
-    result = llm.chat(
+    result = await sync_to_async(llm.chat, thread_sensitive=False)(
         messages=[
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": f"请优化以下批量文档分析需求：\n\n{payload.prompt}"},
@@ -653,12 +657,12 @@ def optimize_prompt(request: Any, payload: OptimizePromptIn) -> dict[str, str]: 
 
 
 @router.get("/models")
-def list_models(request: Any) -> dict[str, Any]:  # pragma: no cover
+async def list_models(request: Any) -> dict[str, Any]:  # pragma: no cover
     """获取可用的 LLM 模型列表（默认模型取列表第一个）"""
     from apps.core.llm.model_list_service import ModelListService
 
     service = ModelListService()
-    result = service.get_result()
+    result = await sync_to_async(service.get_result, thread_sensitive=False)()
 
     default_model = result.models[0]["id"] if result.models else ""
 
