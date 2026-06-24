@@ -57,7 +57,6 @@ async def create_folder_binding(request: HttpRequest, case_id: int, data: CaseFo
             lambda: CloudStorageAccount.objects.filter(
                 id=account_id, storage_type=data.storage_type, is_active=True
             ).first(),
-            thread_sensitive=False,
         )()
         if storage_account is None:
             from apps.core.exceptions import ValidationException
@@ -68,7 +67,7 @@ async def create_folder_binding(request: HttpRequest, case_id: int, data: CaseFo
                 errors={"storage_account_id": data.storage_account_id},
             )
 
-    binding = await sync_to_async(service.create_binding_ctx, thread_sensitive=False)(
+    binding = await sync_to_async(service.create_binding_ctx)(
         case_id=case_id,
         folder_path=data.folder_path,
         ctx=ctx,
@@ -77,11 +76,9 @@ async def create_folder_binding(request: HttpRequest, case_id: int, data: CaseFo
     )
     is_accessible: bool = await sync_to_async(
         lambda: service.check_folder_accessible(binding.resolved_folder_path, binding=binding),
-        thread_sensitive=False,
     )()
     display_path: str = await sync_to_async(
         lambda: service.format_path_for_display(binding.resolved_folder_path),
-        thread_sensitive=False,
     )()
 
     logger.info(
@@ -114,7 +111,7 @@ async def get_folder_binding(request: HttpRequest, case_id: int) -> CaseFolderBi
     service = _get_folder_binding_service()
     ctx = get_request_access_context(request)
 
-    binding = await sync_to_async(service.get_binding_ctx, thread_sensitive=False)(
+    binding = await sync_to_async(service.get_binding_ctx)(
         case_id=case_id, ctx=ctx
     )
 
@@ -123,16 +120,14 @@ async def get_folder_binding(request: HttpRequest, case_id: int) -> CaseFolderBi
 
     # 先尝试修复合同文件夹路径（合同路径修复后，案件的 resolved_folder_path 自动更新）
     contract_auto_repaired = await sync_to_async(
-        service.check_and_repair_contract_path, thread_sensitive=False
+        service.check_and_repair_contract_path
     )(binding)
 
     is_accessible: bool = await sync_to_async(
         lambda: service.check_folder_accessible(binding.resolved_folder_path, binding=binding),
-        thread_sensitive=False,
     )()
     display_path: str = await sync_to_async(
         lambda: service.format_path_for_display(binding.resolved_folder_path),
-        thread_sensitive=False,
     )()
 
     return CaseFolderBindingResponseSchema.from_binding(
@@ -149,7 +144,7 @@ async def delete_folder_binding(request: HttpRequest, case_id: int) -> dict[str,
     service = _get_folder_binding_service()
     ctx = get_request_access_context(request)
 
-    success: bool = await sync_to_async(service.delete_binding_ctx, thread_sensitive=False)(
+    success: bool = await sync_to_async(service.delete_binding_ctx)(
         case_id=case_id, ctx=ctx
     )
 
@@ -172,7 +167,7 @@ async def get_contract_folder_path(request: HttpRequest, case_id: int) -> Contra
     service = _get_folder_binding_service()
     ctx = get_request_access_context(request)
 
-    folder_path = await sync_to_async(service.get_contract_folder_path, thread_sensitive=False)(case_id)
+    folder_path = await sync_to_async(service.get_contract_folder_path)(case_id)
 
     logger.info(
         "case_contract_folder_path",
@@ -197,7 +192,7 @@ async def browse_folders(  # pragma: no cover
 ) -> Any:
     service = _get_folder_binding_service()
     ctx = get_request_access_context(request)
-    await sync_to_async(service.require_admin, thread_sensitive=False)(ctx)
+    await sync_to_async(service.require_admin)(ctx)
 
     # ── Cloud storage browse ──
     if storage_type and storage_type != "local" and storage_account_id:
@@ -210,7 +205,6 @@ async def browse_folders(  # pragma: no cover
                 path=path,
                 include_hidden=include_hidden,
             ),
-            thread_sensitive=False,
         )()
         return FolderBrowseResponseSchema(
             browsable=result["browsable"],
@@ -223,11 +217,11 @@ async def browse_folders(  # pragma: no cover
 
     # ── Local filesystem browse (existing logic) ──
     if not path or not str(path).strip():
-        default_path = await sync_to_async(service.get_default_browse_path, thread_sensitive=False)()
+        default_path = await sync_to_async(service.get_default_browse_path)()
         if default_path:
             path = str(default_path)
         else:
-            roots = await sync_to_async(service.get_browse_roots, thread_sensitive=False)()
+            roots = await sync_to_async(service.get_browse_roots)()
             entries = [FolderBrowseEntrySchema(name=(p.name or str(p)), path=str(p)) for p in roots]
             logger.info(
                 "case_folder_browse_roots",
@@ -243,7 +237,7 @@ async def browse_folders(  # pragma: no cover
             )
 
     browsable, browse_message = await sync_to_async(
-        service.is_browsable_path, thread_sensitive=False
+        service.is_browsable_path
     )(str(path))
     if not browsable:
         return FolderBrowseResponseSchema(
@@ -255,13 +249,12 @@ async def browse_folders(  # pragma: no cover
             storage_type="local",
         )
 
-    resolved = await sync_to_async(service.resolve_under_allowed_roots, thread_sensitive=False)(str(path))
+    resolved = await sync_to_async(service.resolve_under_allowed_roots)(str(path))
     raw_entries = await sync_to_async(
         lambda: service.list_subdirs(str(path), include_hidden=include_hidden),
-        thread_sensitive=False,
     )()
     entries = [FolderBrowseEntrySchema(**item) for item in raw_entries]
-    parent_path = await sync_to_async(service.compute_parent_path, thread_sensitive=False)(resolved)
+    parent_path = await sync_to_async(service.compute_parent_path)(resolved)
 
     logger.info(
         "case_folder_browse",
@@ -287,5 +280,5 @@ async def list_cloud_storage_accounts(request: HttpRequest) -> list[dict[str, An
 
     service = _get_folder_binding_service()
     ctx = get_request_access_context(request)
-    await sync_to_async(service.require_admin, thread_sensitive=False)(ctx)
-    return await sync_to_async(list_active_cloud_accounts, thread_sensitive=False)()
+    await sync_to_async(service.require_admin)(ctx)
+    return await sync_to_async(list_active_cloud_accounts)()

@@ -65,18 +65,18 @@ def _get_contract_generation_service() -> Any:
 @router.get("/contracts/{contract_id}/preview")
 async def preview_contract_context(request: Any, contract_id: int) -> Any:  # pragma: no cover
     """合同占位符预览"""
-    await sync_to_async(_require_contract_access, thread_sensitive=False)(request, contract_id)
+    await sync_to_async(_require_contract_access)(request, contract_id)
     service = _get_contract_generation_service()
-    rows = await sync_to_async(service.get_preview_context, thread_sensitive=False)(contract_id)
+    rows = await sync_to_async(service.get_preview_context)(contract_id)
     return {"success": True, "data": rows}
 
 
 @router.get("/contracts/{contract_id}/supplementary-agreements/{agreement_id}/preview")
 async def preview_supplementary_agreement_context(request: Any, contract_id: int, agreement_id: int) -> Any:  # pragma: no cover
     """补充协议占位符预览"""
-    await sync_to_async(_require_contract_access, thread_sensitive=False)(request, contract_id)
+    await sync_to_async(_require_contract_access)(request, contract_id)
     service = _get_supplementary_agreement_service()
-    rows = await sync_to_async(service.get_preview_context, thread_sensitive=False)(contract_id, agreement_id)
+    rows = await sync_to_async(service.get_preview_context)(contract_id, agreement_id)
     return {"success": True, "data": rows}
 
 
@@ -88,7 +88,7 @@ async def preview_archive_context(request: Any, contract_id: int, template_subty
         contract_id: 合同 ID
         template_subtype: 归档模板子类型，如 case_cover, closing_archive_register 等
     """
-    await sync_to_async(_require_contract_access, thread_sensitive=False)(request, contract_id)
+    await sync_to_async(_require_contract_access)(request, contract_id)
 
     if not template_subtype:
         return {"success": False, "error": "缺少 template_subtype 参数"}
@@ -96,7 +96,7 @@ async def preview_archive_context(request: Any, contract_id: int, template_subty
     from apps.contracts.services.archive import ArchiveGenerationService
 
     gen_service = ArchiveGenerationService()
-    return await sync_to_async(gen_service.preview_archive_template, thread_sensitive=False)(contract_id, template_subtype)
+    return await sync_to_async(gen_service.preview_archive_template)(contract_id, template_subtype)
 
 
 @router.get("/contracts/{contract_id}/archive-placeholder-overrides")
@@ -107,14 +107,14 @@ async def get_archive_overrides(request: Any, contract_id: int, template_subtype
         contract_id: 合同 ID
         template_subtype: 归档模板子类型
     """
-    await sync_to_async(_require_contract_access, thread_sensitive=False)(request, contract_id)
+    await sync_to_async(_require_contract_access)(request, contract_id)
 
     if not template_subtype:
         return {"success": False, "error": "缺少 template_subtype 参数"}
 
     from apps.contracts.services.archive.override_service import get_override
 
-    override_obj = await sync_to_async(get_override, thread_sensitive=False)(contract_id, template_subtype)
+    override_obj = await sync_to_async(get_override)(contract_id, template_subtype)
 
     return {
         "success": True,
@@ -136,7 +136,7 @@ async def save_archive_overrides(  # pragma: no cover
         template_subtype: 归档模板子类型
         payload: 包含 overrides 字段的请求体
     """
-    await sync_to_async(_require_contract_access, thread_sensitive=False)(request, contract_id)
+    await sync_to_async(_require_contract_access)(request, contract_id)
 
     if not template_subtype:
         return {"success": False, "error": "缺少 template_subtype 参数"}
@@ -145,7 +145,7 @@ async def save_archive_overrides(  # pragma: no cover
 
     from apps.contracts.services.archive.override_service import save_override
 
-    obj, created = await sync_to_async(save_override, thread_sensitive=False)(contract_id, template_subtype, overrides)
+    obj, created = await sync_to_async(save_override)(contract_id, template_subtype, overrides)
 
     logger.info(
         "保存归档占位符覆盖值",
@@ -163,14 +163,14 @@ async def delete_archive_overrides(request: Any, contract_id: int, template_subt
         contract_id: 合同 ID
         template_subtype: 归档模板子类型
     """
-    await sync_to_async(_require_contract_access, thread_sensitive=False)(request, contract_id)
+    await sync_to_async(_require_contract_access)(request, contract_id)
 
     if not template_subtype:
         return {"success": False, "error": "缺少 template_subtype 参数"}
 
     from apps.contracts.services.archive.override_service import delete_override
 
-    deleted_count = await sync_to_async(delete_override, thread_sensitive=False)(contract_id, template_subtype)
+    deleted_count = await sync_to_async(delete_override)(contract_id, template_subtype)
 
     return {"success": True, "data": {"deleted": deleted_count > 0}}
 
@@ -191,12 +191,12 @@ async def download_contract_document(request: Any, contract_id: int, split_fee: 
     Returns:
         DOCX 文件下载响应或 JSON 响应
     """
-    await sync_to_async(_require_contract_access, thread_sensitive=False)(request, contract_id)
+    await sync_to_async(_require_contract_access)(request, contract_id)
     service = _get_contract_generation_service()
 
     # 生成合同文档
     content, filename, saved_path, error = await sync_to_async(
-        service.generate_contract_document_result, thread_sensitive=False
+        service.generate_contract_document_result
     )(contract_id, split_fee=split_fee)
 
     if error:
@@ -246,12 +246,12 @@ async def download_contract_folder(request: Any, contract_id: int) -> Any:  # pr
     Returns:
         ZIP 文件下载响应
     """
-    await sync_to_async(_require_contract_access, thread_sensitive=False)(request, contract_id)
+    await sync_to_async(_require_contract_access)(request, contract_id)
     service = _get_folder_generation_service()
 
     # 生成文件夹 ZIP
     zip_content, zip_filename, extract_path, error = await sync_to_async(
-        service.generate_folder_with_documents_result, thread_sensitive=False
+        service.generate_folder_with_documents_result
     )(contract_id)
 
     if error:
@@ -296,12 +296,12 @@ async def download_supplementary_agreement(request: Any, contract_id: int, agree
     Returns:
         DOCX 文件下载响应或 JSON 响应
     """
-    await sync_to_async(_require_contract_access, thread_sensitive=False)(request, contract_id)
+    await sync_to_async(_require_contract_access)(request, contract_id)
     service = _get_supplementary_agreement_service()
 
     # 生成补充协议文档
     content, filename, saved_path, error = await sync_to_async(
-        service.generate_supplementary_agreement_result, thread_sensitive=False
+        service.generate_supplementary_agreement_result
     )(contract_id, agreement_id)
 
     if error:

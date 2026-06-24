@@ -81,7 +81,7 @@ class MappingCreateSchema(Schema):
 async def analyze_template(request: HttpRequest, template_id: int) -> dict[str, Any]:  # pragma: no cover
     """触发/重新触发 LLM 分析"""
     service = _get_analysis_service()
-    mappings = await sync_to_async(service.analyze_template, thread_sensitive=False)(template_id)
+    mappings = await sync_to_async(service.analyze_template)(template_id)
     logger.info(
         "模板分析完成",
         extra={"template_id": template_id, "mapping_count": len(mappings)},
@@ -97,7 +97,7 @@ async def analyze_template(request: HttpRequest, template_id: int) -> dict[str, 
 async def confirm_mappings(request: HttpRequest, template_id: int) -> dict[str, Any]:  # pragma: no cover
     """确认字段映射"""
     service = _get_analysis_service()
-    await sync_to_async(service.confirm_mappings, thread_sensitive=False)(template_id)
+    await sync_to_async(service.confirm_mappings)(template_id)
     logger.info("映射已确认", extra={"template_id": template_id})
     return {"success": True, "template_id": template_id}
 
@@ -108,7 +108,7 @@ async def fill_templates(request: HttpRequest, payload: FillRequestSchema) -> di
     service = _get_filling_service()
     user = getattr(request, "auth", None) or getattr(request, "user", None)
 
-    batch_task = await sync_to_async(service.batch_fill, thread_sensitive=False)(
+    batch_task = await sync_to_async(service.batch_fill)(
         case_id=payload.case_id,
         template_ids=payload.template_ids,
         party_ids=payload.party_ids,
@@ -141,7 +141,7 @@ async def preview_fill(  # pragma: no cover
 ) -> dict[str, Any]:
     """填充预览"""
     service = _get_filling_service()
-    items = await sync_to_async(service.generate_preview, thread_sensitive=False)(
+    items = await sync_to_async(service.generate_preview)(
         template_id=template_id,
         case_id=case_id,
         party_id=party_id,
@@ -179,9 +179,9 @@ async def match_templates(  # pragma: no cover
         return {"success": False, "message": "无法确定所属律所"}
 
     if case_id is not None:
-        results = await sync_to_async(service.match_by_case, thread_sensitive=False)(case_id=case_id, law_firm_id=law_firm_id)
+        results = await sync_to_async(service.match_by_case)(case_id=case_id, law_firm_id=law_firm_id)
     elif source_name is not None:
-        results = await sync_to_async(service.match_by_source_name, thread_sensitive=False)(
+        results = await sync_to_async(service.match_by_source_name)(
             source_name=source_name,
             law_firm_id=law_firm_id,
         )
@@ -198,7 +198,7 @@ async def match_templates(  # pragma: no cover
 async def get_custom_fields(request: HttpRequest, template_id: int) -> dict[str, Any]:  # pragma: no cover
     """获取需手动输入的自定义字段"""
     service = _get_filling_service()
-    fields = await sync_to_async(service.get_custom_fields, thread_sensitive=False)(template_id)
+    fields = await sync_to_async(service.get_custom_fields)(template_id)
     return {"template_id": template_id, "fields": fields}
 
 
@@ -212,9 +212,9 @@ async def get_fill_history(  # pragma: no cover
     service = _get_filling_service()
 
     if case_id is not None:
-        qs = await sync_to_async(service.get_fill_history_by_case, thread_sensitive=False)(case_id)
+        qs = await sync_to_async(service.get_fill_history_by_case)(case_id)
     elif template_id is not None:
-        qs = await sync_to_async(service.get_fill_history_by_template, thread_sensitive=False)(template_id)
+        qs = await sync_to_async(service.get_fill_history_by_template)(template_id)
     else:
         return {"success": False, "message": "请提供 case_id 或 template_id 参数"}
 
@@ -240,7 +240,7 @@ async def get_statistics(request: HttpRequest) -> dict[str, Any]:  # pragma: no 
     if law_firm_id is None:
         return {"success": False, "message": "无法确定所属律所"}
 
-    stats = await sync_to_async(service.get_template_statistics, thread_sensitive=False)(law_firm_id)
+    stats = await sync_to_async(service.get_template_statistics)(law_firm_id)
     return {"success": True, "statistics": stats}
 
 
@@ -294,7 +294,7 @@ async def list_mappings(request: HttpRequest, template_id: int) -> list[dict[str
 async def create_mapping(request: HttpRequest, template_id: int, payload: MappingCreateSchema) -> dict[str, Any]:  # pragma: no cover
     """手动添加字段映射"""
     service = _get_analysis_service()
-    m = await sync_to_async(service.create_manual_mapping, thread_sensitive=False)(
+    m = await sync_to_async(service.create_manual_mapping)(
         template_id=template_id,
         position_locator=payload.position_locator,
         position_description=payload.position_description,
@@ -333,7 +333,7 @@ async def update_mapping(request: HttpRequest, mapping_id: int, payload: Mapping
         m.save(update_fields=update_fields)
         return update_fields
 
-    await sync_to_async(_apply_updates, thread_sensitive=False)()
+    await sync_to_async(_apply_updates)()
     logger.info("更新映射: mapping_id=%d", mapping_id)
     return {
         "id": m.id,
@@ -349,6 +349,6 @@ async def update_mapping(request: HttpRequest, mapping_id: int, payload: Mapping
 async def delete_mapping(request: HttpRequest, mapping_id: int) -> dict[str, bool]:  # pragma: no cover
     """删除字段映射"""
     service = _get_analysis_service()
-    await sync_to_async(service.delete_mapping, thread_sensitive=False)(mapping_id)
+    await sync_to_async(service.delete_mapping)(mapping_id)
     logger.info("删除映射: mapping_id=%d", mapping_id)
     return {"success": True}

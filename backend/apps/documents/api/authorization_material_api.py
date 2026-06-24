@@ -36,9 +36,9 @@ async def _require_case_contract(request: Any, case_id: int) -> Any:
     from apps.documents.services.case_contract_query import get_case_contract_info
 
     ctx = get_request_access_context(request)
-    await sync_to_async(CaseAccessPolicy().ensure_access_ctx, thread_sensitive=False)(case_id=case_id, ctx=ctx)
+    await sync_to_async(CaseAccessPolicy().ensure_access_ctx)(case_id=case_id, ctx=ctx)
 
-    case = await sync_to_async(get_case_contract_info, thread_sensitive=False)(case_id)
+    case = await sync_to_async(get_case_contract_info)(case_id)
     if not case:
         return None
     return case
@@ -57,7 +57,7 @@ async def _save_or_download(
         return build_download_response(content=content, filename=filename, content_type=content_type)
 
     binding_service = _get_folder_binding_service()
-    saved_path = await sync_to_async(binding_service.save_file_for_contract, thread_sensitive=False)(
+    saved_path = await sync_to_async(binding_service.save_file_for_contract)(
         contract_id=contract_id,
         file_content=content,
         file_name=filename,
@@ -89,7 +89,7 @@ async def download_authority_letter(request: Any, case_id: int) -> Any:  # pragm
     contract_id = case["contract_id"] if case else None
 
     service = _get_authorization_material_generation_service()
-    content, filename = await sync_to_async(service.generate_authority_letter_document, thread_sensitive=False)(case_id)
+    content, filename = await sync_to_async(service.generate_authority_letter_document)(case_id)
 
     logger.info("所函生成成功", extra={"case_id": case_id, "doc_filename": filename})
     return await _save_or_download(
@@ -109,7 +109,7 @@ async def download_legal_rep_certificate(request: Any, case_id: int, client_id: 
     contract_id = case["contract_id"] if case else None
 
     service = _get_authorization_material_generation_service()
-    content, filename = await sync_to_async(service.generate_legal_rep_certificate_document, thread_sensitive=False)(
+    content, filename = await sync_to_async(service.generate_legal_rep_certificate_document)(
         case_id, client_id
     )
 
@@ -137,7 +137,7 @@ async def download_power_of_attorney_combined(
 
     service = _get_authorization_material_generation_service()
     content, filename = await sync_to_async(
-        service.generate_power_of_attorney_combined_document, thread_sensitive=False
+        service.generate_power_of_attorney_combined_document
     )(case_id, payload.client_ids)
 
     logger.info(
@@ -161,14 +161,14 @@ async def download_authorization_package(request: Any, case_id: int) -> Any:  # 
     contract_id = case["contract_id"] if case else None
 
     service = _get_authorization_material_generation_service()
-    content, filename = await sync_to_async(service.generate_full_authorization_package, thread_sensitive=False)(case_id)
+    content, filename = await sync_to_async(service.generate_full_authorization_package)(case_id)
 
     logger.info("全套授权委托材料生成成功", extra={"case_id": case_id, "zip_filename": filename})
 
     # ZIP 包使用 extract_zip 方式保存到合同文件夹根目录
     if contract_id is not None:
         binding_service = _get_folder_binding_service()
-        saved_path = await sync_to_async(binding_service.extract_zip_for_contract, thread_sensitive=False)(
+        saved_path = await sync_to_async(binding_service.extract_zip_for_contract)(
             contract_id=contract_id, zip_content=content
         )
         if saved_path:
@@ -193,7 +193,7 @@ async def download_power_of_attorney(request: Any, case_id: int, client_id: int)
     contract_id = case["contract_id"] if case else None
 
     service = _get_authorization_material_generation_service()
-    content, filename = await sync_to_async(service.generate_power_of_attorney_document, thread_sensitive=False)(
+    content, filename = await sync_to_async(service.generate_power_of_attorney_document)(
         case_id, client_id
     )
 

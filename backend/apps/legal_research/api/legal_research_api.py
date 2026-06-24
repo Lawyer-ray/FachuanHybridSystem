@@ -91,10 +91,14 @@ def _serialize_result(result: Any) -> LegalResearchResultOut:
 @router.post("/tasks", response=LegalResearchCreateOut)
 async def create_task(request: Any, payload: LegalResearchTaskCreateIn) -> LegalResearchCreateOut:  # pragma: no cover
     service = _get_service()
-    task = await sync_to_async(service.create_task, thread_sensitive=False)(
-        payload=payload, user=getattr(request, "user", None)
-    )
-    return LegalResearchCreateOut(task_id=task.id, status=task.status)
+
+    def _do():
+        task = service.create_task(
+            payload=payload, user=getattr(request, "user", None)
+        )
+        return LegalResearchCreateOut(task_id=task.id, status=task.status)
+
+    return await sync_to_async(_do)()
 
 
 @router.post("/capability/search", response=AgentSearchResponseV1)
@@ -102,7 +106,7 @@ async def capability_search(request: Any, payload: AgentSearchRequestV1) -> Agen
     headers = getattr(request, "headers", {}) or {}
     idempotency_key = str(headers.get("Idempotency-Key", "") or "").strip()
     svc = _get_capability_service()
-    return await sync_to_async(svc.search, thread_sensitive=False)(
+    return await sync_to_async(svc.search)(
         payload=payload,
         user=getattr(request, "user", None),
         idempotency_key=idempotency_key,
@@ -114,7 +118,7 @@ async def capability_search_mcp(request: Any, payload: AgentSearchRequestV1) -> 
     headers = getattr(request, "headers", {}) or {}
     idempotency_key = str(headers.get("Idempotency-Key", "") or "").strip()
     svc = _get_capability_mcp_wrapper()
-    return await sync_to_async(svc.search, thread_sensitive=False)(
+    return await sync_to_async(svc.search)(
         payload=payload,
         user=getattr(request, "user", None),
         idempotency_key=idempotency_key,
@@ -124,48 +128,65 @@ async def capability_search_mcp(request: Any, payload: AgentSearchRequestV1) -> 
 @router.get("/tasks/{task_id}", response=LegalResearchTaskOut)
 async def get_task(request: Any, task_id: int) -> LegalResearchTaskOut:  # pragma: no cover
     service = _get_service()
-    task = await sync_to_async(service.get_task, thread_sensitive=False)(
-        task_id=task_id, user=getattr(request, "user", None)
-    )
-    return _serialize_task(task)
+
+    def _do():
+        task = service.get_task(
+            task_id=task_id, user=getattr(request, "user", None)
+        )
+        return _serialize_task(task)
+
+    return await sync_to_async(_do)()
 
 
 @router.get("/tasks/{task_id}/results", response=list[LegalResearchResultOut])
 async def list_results(request: Any, task_id: int) -> list[LegalResearchResultOut]:  # pragma: no cover
     service = _get_service()
-    results = await sync_to_async(service.list_results, thread_sensitive=False)(
-        task_id=task_id, user=getattr(request, "user", None)
-    )
-    return [_serialize_result(x) for x in results]
+
+    def _do():
+        results = service.list_results(
+            task_id=task_id, user=getattr(request, "user", None)
+        )
+        return [_serialize_result(x) for x in results]
+
+    return await sync_to_async(_do)()
 
 
 @router.get("/tasks/{task_id}/results/{result_id}/download")
 @rate_limit_from_settings("EXPORT", by_user=True)
 async def download_single_result(request: Any, task_id: int, result_id: int) -> FileResponse:  # pragma: no cover
     service = _get_service()
-    result = await sync_to_async(service.get_result, thread_sensitive=False)(
-        task_id=task_id, result_id=result_id, user=getattr(request, "user", None)
-    )
-    if not result.pdf_file:
-        raise Http404("结果PDF不存在")
 
-    filename = (result.pdf_file.name or "").split("/")[-1]
-    return FileResponse(result.pdf_file.open("rb"), as_attachment=True, filename=filename)
+    def _do():
+        result = service.get_result(
+            task_id=task_id, result_id=result_id, user=getattr(request, "user", None)
+        )
+        if not result.pdf_file:
+            raise Http404("结果PDF不存在")
+
+        filename = (result.pdf_file.name or "").split("/")[-1]
+        return result.pdf_file.open("rb"), filename
+
+    file_obj, filename = await sync_to_async(_do)()
+    return FileResponse(file_obj, as_attachment=True, filename=filename)
 
 
 @router.get("/tasks/{task_id}/results/download")
 @rate_limit_from_settings("EXPORT", by_user=True)
 async def download_all_results(request: Any, task_id: int) -> HttpResponse:  # pragma: no cover
     service = _get_service()
-    await sync_to_async(service.ensure_task_ready_for_download, thread_sensitive=False)(
-        task_id=task_id, user=getattr(request, "user", None)
-    )
-    results = await sync_to_async(service.list_results, thread_sensitive=False)(
-        task_id=task_id, user=getattr(request, "user", None)
-    )
 
-    if not results:
-        raise Http404("任务暂无可下载结果")
+    def _do_download_prep():
+        service.ensure_task_ready_for_download(
+            task_id=task_id, user=getattr(request, "user", None)
+        )
+        results = service.list_results(
+            task_id=task_id, user=getattr(request, "user", None)
+        )
+        if not results:
+            raise Http404("任务暂无可下载结果")
+        return results
+
+    results = await sync_to_async(_do_download_prep)()
 
     def _build_zip() -> tuple[bytes, bool]:
         buffer = BytesIO()

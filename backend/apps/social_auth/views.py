@@ -105,7 +105,7 @@ class SocialCallbackView(View):  # pragma: no cover
             return HttpResponseRedirect(f"{frontend_base}/social-callback?error=no_code")
 
         try:
-            token_response = await sync_to_async(instance.exchange_code, thread_sensitive=False)(code, state)
+            token_response = await sync_to_async(instance.exchange_code)(code, state)
         except Exception as exc:
             logger.warning("Social auth exchange failed for %s: %s", provider, exc)
             return HttpResponseRedirect(
@@ -113,7 +113,7 @@ class SocialCallbackView(View):  # pragma: no cover
             )
 
         try:
-            profile = await sync_to_async(instance.get_profile, thread_sensitive=False)(token_response)
+            profile = await sync_to_async(instance.get_profile)(token_response)
         except Exception as exc:
             logger.warning("Social auth profile fetch failed for %s: %s", provider, exc)
             return HttpResponseRedirect(
@@ -121,7 +121,7 @@ class SocialCallbackView(View):  # pragma: no cover
             )
 
         try:
-            user = await sync_to_async(link_or_create_user, thread_sensitive=False)(profile)
+            user = await sync_to_async(link_or_create_user)(profile)
         except Exception as exc:
             logger.error("Social auth user creation failed for %s: %s", provider, exc)
             return HttpResponseRedirect(

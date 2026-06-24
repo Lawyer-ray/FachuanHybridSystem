@@ -32,7 +32,7 @@ async def generate_case_folder(request: HttpRequest, case_id: int) -> Any:  # pr
     svc = FolderGenerationService()
 
     try:
-        case = await sync_to_async(svc.fetch_case_for_folder, thread_sensitive=False)(case_id)
+        case = await sync_to_async(svc.fetch_case_for_folder)(case_id)
     except Case.DoesNotExist:
         return HttpResponse(status=404)
 
@@ -49,7 +49,6 @@ async def generate_case_folder(request: HttpRequest, case_id: int) -> Any:  # pr
     template_service = TemplateMatchingService()
     matched_candidates = await sync_to_async(
         template_service.find_matching_case_folder_templates_list,
-        thread_sensitive=False,
     )(
         case_type=case.case_type,
         legal_statuses=our_legal_statuses,
@@ -60,7 +59,7 @@ async def generate_case_folder(request: HttpRequest, case_id: int) -> Any:  # pr
 
     # 取第一个匹配的模板（已按优先级排序）
     matched_template_id = matched_candidates[0]["id"]
-    matched = await sync_to_async(svc.fetch_template_by_id, thread_sensitive=False)(matched_template_id)
+    matched = await sync_to_async(svc.fetch_template_by_id)(matched_template_id)
 
     # 生成文件夹名称：日期-案件名
     from datetime import date
@@ -76,7 +75,7 @@ async def generate_case_folder(request: HttpRequest, case_id: int) -> Any:  # pr
     if case.contract and hasattr(case.contract, "folder_binding") and case.contract.folder_binding:
         contract_folder_path = case.contract.folder_binding.folder_path
 
-    zip_bytes = await sync_to_async(svc.generate_case_folder_with_documents, thread_sensitive=False)(
+    zip_bytes = await sync_to_async(svc.generate_case_folder_with_documents)(
         case, matched, root_name
     )
     filename = f"{root_name}.zip"

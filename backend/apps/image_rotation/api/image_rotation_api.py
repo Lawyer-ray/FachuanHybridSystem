@@ -90,7 +90,7 @@ async def extract_pdf_fast(request: HttpRequest) -> dict[str, Any]:  # pragma: n
         service = _get_pdf_service()
         return cast(
             dict[str, Any],
-            await sync_to_async(service.extract_pages, thread_sensitive=False)(data, filename),
+            await sync_to_async(service.extract_pages)(data, filename),
         )
     except Exception as exc:
         logger.error("extract_pdf_fast 失败: %s", exc, exc_info=True)
@@ -108,7 +108,7 @@ async def detect_page_orientation(request: HttpRequest) -> dict[str, Any]:  # pr
         service = _get_pdf_service()
         result = cast(
             dict[str, Any],
-            await sync_to_async(service.detect_single_page_orientation, thread_sensitive=False)(data),
+            await sync_to_async(service.detect_single_page_orientation)(data),
         )
         result["elapsed_ms"] = round((time.perf_counter() - t0) * 1000, 1)
         return result
@@ -135,13 +135,13 @@ async def detect_orientation(request: HttpRequest) -> dict[str, Any]:  # pragma:
                     from apps.image_rotation.services.orientation.service import OrientationDetectionService
 
                     result = await sync_to_async(
-                        OrientationDetectionService().detect_orientation_with_text, thread_sensitive=False
+                        OrientationDetectionService().detect_orientation_with_text
                     )(image_bytes)
                 else:
                     from apps.image_rotation.services.orientation.onnx_service import get_onnx_orientation_service
 
                     result = await sync_to_async(
-                        get_onnx_orientation_service().detect_orientation, thread_sensitive=False
+                        get_onnx_orientation_service().detect_orientation
                     )(image_bytes)
                 result["elapsed_ms"] = round((time.perf_counter() - t0) * 1000, 1)
                 result["filename"] = img.get("filename", "")
@@ -177,7 +177,7 @@ async def extract_text(request: HttpRequest) -> dict[str, Any]:  # pragma: no co
         async with _IMAGE_SEM:
             try:
                 image_bytes = _decode_image_data(img.get("data", ""))
-                text_result = await sync_to_async(ocr.extract_text, thread_sensitive=False)(image_bytes)
+                text_result = await sync_to_async(ocr.extract_text)(image_bytes)
                 return {
                     "filename": img.get("filename", ""),
                     "ocr_text": text_result.text,
@@ -215,7 +215,7 @@ async def suggest_rename(request: HttpRequest) -> dict[str, Any]:  # pragma: no 
                 except (TypeError, ValueError):
                     logger.warning("image_data Base64 解码失败: %s", i.get("filename", ""))
             requests.append(ns)
-        suggestions = await sync_to_async(service.suggest_rename_batch, thread_sensitive=False)(requests)
+        suggestions = await sync_to_async(service.suggest_rename_batch)(requests)
         return {
             "success": True,
             "suggestions": [
@@ -460,10 +460,15 @@ async def run_job_ocr(request: HttpRequest, job_id: str) -> dict[str, Any]:  # p
         payload = _body(request)
         provider: str = payload.get("provider", "local")
         service = _get_job_service()
-        pages = await sync_to_async(service.run_ocr, thread_sensitive=False)(job_id, provider=provider)
+
+        def _do():
+            pages = service.run_ocr(job_id, provider=provider)
+            return [_serialize_page(p) for p in pages]
+
+        pages_data = await sync_to_async(_do)()
         return {
             "success": True,
-            "pages": [_serialize_page(p) for p in pages],
+            "pages": pages_data,
         }
     except Exception as exc:
         logger.error("run_job_ocr 失败: %s", exc, exc_info=True)

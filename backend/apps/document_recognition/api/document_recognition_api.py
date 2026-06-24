@@ -171,19 +171,21 @@ async def recognize_document(request: Any, file: UploadedFile = File(...)) -> Ta
     # 2. 保存文件
     file_path = _save_uploaded_file(file)
 
-    # 3. 创建任务记录
-    task = await sync_to_async(_get_task_service().create_task, thread_sensitive=False)(file_path=file_path, original_filename=filename)
+    # 3. 创建任务记录 + 提交异步任务
+    def _create_and_submit():
+        task = _get_task_service().create_task(file_path=file_path, original_filename=filename)
+        submit_task(
+            "apps.document_recognition.tasks.execute_document_recognition_task",
+            task.id,
+            task_name=f"document_recognition_{task.id}",
+        )
+        return task.id
 
-    # 4. 提交异步任务
-    await sync_to_async(submit_task, thread_sensitive=False)(
-        "apps.document_recognition.tasks.execute_document_recognition_task",
-        task.id,
-        task_name=f"document_recognition_{task.id}",
-    )
+    task_id = await sync_to_async(_create_and_submit)()
 
-    logger.info("文书识别任务已提交: task_id=%s", task.id)
+    logger.info("文书识别任务已提交: task_id=%s", task_id)
 
-    return TaskSubmitResponseSchema(task_id=task.id, status="pending", message="任务已提交，正在后台处理")
+    return TaskSubmitResponseSchema(task_id=task_id, status="pending", message="任务已提交，正在后台处理")
 
 
 @router.get("/court-document/task/{task_id}", response=TaskStatusResponseSchema)
@@ -191,41 +193,45 @@ async def get_task_status(request: Any, task_id: int) -> TaskStatusResponseSchem
     """
     查询识别任务状态和结果
     """
-    task = await sync_to_async(_get_task_service().get_task, thread_sensitive=False)(task_id, select_case=True)
 
-    # 构建响应
-    recognition = None
-    binding = None
+    def _do():
+        task = _get_task_service().get_task(task_id, select_case=True)
 
-    if task.status == "success":
-        recognition = RecognitionResultSchema(
-            document_type=task.document_type,
-            case_number=task.case_number,
-            key_time=task.key_time.isoformat() if task.key_time else None,
-            confidence=task.confidence,
-            extraction_method=task.extraction_method,
-        )
+        # 构建响应
+        recognition = None
+        binding = None
 
-        if task.binding_success is not None:
-            binding = BindingResultSchema(
-                success=task.binding_success,
-                case_id=task.case_id,
-                case_name=task.case.name if task.case else None,
-                case_log_id=task.case_log_id,
-                message=task.binding_message,
-                error_code=task.binding_error_code,
+        if task.status == "success":
+            recognition = RecognitionResultSchema(
+                document_type=task.document_type,
+                case_number=task.case_number,
+                key_time=task.key_time.isoformat() if task.key_time else None,
+                confidence=task.confidence,
+                extraction_method=task.extraction_method,
             )
 
-    return TaskStatusResponseSchema(
-        task_id=task.id,
-        status=task.status,
-        file_path=task.renamed_file_path or task.file_path,
-        recognition=recognition,
-        binding=binding,
-        error_message=task.error_message,
-        created_at=task.created_at.isoformat(),
-        finished_at=task.finished_at.isoformat() if task.finished_at else None,
-    )
+            if task.binding_success is not None:
+                binding = BindingResultSchema(
+                    success=task.binding_success,
+                    case_id=task.case_id,
+                    case_name=task.case.name if task.case else None,
+                    case_log_id=task.case_log_id,
+                    message=task.binding_message,
+                    error_code=task.binding_error_code,
+                )
+
+        return TaskStatusResponseSchema(
+            task_id=task.id,
+            status=task.status,
+            file_path=task.renamed_file_path or task.file_path,
+            recognition=recognition,
+            binding=binding,
+            error_message=task.error_message,
+            created_at=task.created_at.isoformat(),
+            finished_at=task.finished_at.isoformat() if task.finished_at else None,
+        )
+
+    return await sync_to_async(_do)()
 
 
 # ============================================================================
@@ -265,7 +271,7 @@ async def search_cases_for_binding(request: Any, q: str = "", limit: int = 20) -
     """
     limit = min(limit, 20)
     task_service = _get_task_service()
-    raw_results = await sync_to_async(task_service.search_cases_for_binding, thread_sensitive=False)(search_term=q.strip() if q else "", limit=limit)
+    raw_results = await sync_to_async(task_service.search_cases_for_binding)(search_term=q.strip() if q else "", limit=limit)
 
     results = [
         CaseSearchResultSchema(
@@ -299,23 +305,27 @@ async def manual_bind_case(request: Any, task_id: int, payload: ManualBindingReq
 
     Requirements: 3.1
     """
-    # 1. 获取任务
-    task = await sync_to_async(_get_task_service().get_task, thread_sensitive=False)(task_id, select_case=True)
+    # 1. 获取任务并检查是否已绑定（在 sync 上下文中）
+    def _check_bound():
+        task = _get_task_service().get_task(task_id, select_case=True)
+        if task.binding_success:
+            return ManualBindingResponseSchema(
+                success=False,
+                case_id=task.case_id,
+                case_name=task.case.name if task.case else None,
+                case_log_id=task.case_log_id,
+                message="任务已绑定到案件",
+                error_code="ALREADY_BOUND",
+            )
+        return None
 
-    # 2. 检查任务是否已绑定
-    if task.binding_success:
-        return ManualBindingResponseSchema(
-            success=False,
-            case_id=task.case_id,
-            case_name=task.case.name if task.case else None,
-            case_log_id=task.case_log_id,
-            message="任务已绑定到案件",
-            error_code="ALREADY_BOUND",
-        )
+    already_bound = await sync_to_async(_check_bound)()
+    if already_bound:
+        return already_bound
 
-    # 3. 调用服务层执行手动绑定
+    # 2. 调用服务层执行手动绑定（返回的是 dataclass，非 ORM 对象）
     binding_service = _get_case_binding_service()
-    result = await sync_to_async(binding_service.manual_bind_document_to_case, thread_sensitive=False)(
+    result = await sync_to_async(binding_service.manual_bind_document_to_case)(
         task_id=task_id, case_id=payload.case_id, user=getattr(request, "user", None)
     )
 
@@ -344,15 +354,17 @@ async def update_task_info(request: Any, task_id: int, payload: UpdateInfoReques
         更新结果
     """
 
-    task = await sync_to_async(_get_task_service().update_task_info, thread_sensitive=False)(
-        task_id,
-        case_number=payload.case_number,
-        key_time=payload.key_time,
-    )
+    def _do():
+        task = _get_task_service().update_task_info(
+            task_id,
+            case_number=payload.case_number,
+            key_time=payload.key_time,
+        )
+        return UpdateInfoResponseSchema(
+            success=True,
+            message="保存成功",
+            case_number=task.case_number,
+            key_time=task.key_time.isoformat() if task.key_time else None,
+        )
 
-    return UpdateInfoResponseSchema(
-        success=True,
-        message="保存成功",
-        case_number=task.case_number,
-        key_time=task.key_time.isoformat() if task.key_time else None,
-    )
+    return await sync_to_async(_do)()

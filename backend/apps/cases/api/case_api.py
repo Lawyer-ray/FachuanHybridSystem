@@ -48,7 +48,7 @@ async def _prefetch_log_reminders(cases: list[Any]) -> None:
         except (TypeError, ValueError):
             pass
 
-    await sync_to_async(_inner, thread_sensitive=False)()
+    await sync_to_async(_inner)()
 
 
 def _get_case_service() -> CaseService:
@@ -75,18 +75,21 @@ async def search_cases(  # pragma: no cover
     service = _get_case_query_facade()
     ctx = extract_request_context(request)
 
-    cases = list(
-        await sync_to_async(
-            lambda: service.search_cases(
+    cases = await sync_to_async(
+
+
+                lambda: list(service.search_cases(
                 query=q,
                 limit=limit,  # type: ignore[arg-type]
                 user=ctx.user,
                 org_access=ctx.org_access,
                 perm_open_access=ctx.perm_open_access,
-            ),
-            thread_sensitive=False,
-        )()
-    )
+            )),
+
+
+
+
+            )()
     await _prefetch_log_reminders(cases)
     return cast(list[CaseOut], cases)
 
@@ -103,30 +106,30 @@ async def list_cases(  # pragma: no cover
     ctx = extract_request_context(request)
 
     if case_number:
-        cases = list(
-            await sync_to_async(
-                lambda: service.search_by_case_number(
+        cases = await sync_to_async(
+
+                    lambda: list(service.search_by_case_number(
                     case_number=case_number,
                     user=ctx.user,
                     org_access=ctx.org_access,
                     perm_open_access=ctx.perm_open_access,
-                ),
-                thread_sensitive=False,
-            )()
-        )
+                )),
+
+
+                )()
     else:
-        cases = list(
-            await sync_to_async(
-                lambda: service.list_cases(
+        cases = await sync_to_async(
+
+                    lambda: list(service.list_cases(
                     case_type=case_type,
                     status=status,
                     user=ctx.user,
                     org_access=ctx.org_access,
                     perm_open_access=ctx.perm_open_access,
-                ),
-                thread_sensitive=False,
-            )()
-        )
+                )),
+
+
+                )()
 
     await _prefetch_log_reminders(cases)
     return cast(list[CaseOut], cases)
@@ -138,17 +141,16 @@ async def get_case(request: HttpRequest, case_id: int) -> CaseOut:  # pragma: no
     service = _get_case_query_facade()
     ctx = extract_request_context(request)
 
-    case = await sync_to_async(
-        lambda: service.get_case(
+    def _get() -> CaseOut:
+        case = service.get_case(
             case_id=case_id,
             user=ctx.user,
             org_access=ctx.org_access,
             perm_open_access=ctx.perm_open_access,
-        ),
-        thread_sensitive=False,
-    )()
-    await _prefetch_log_reminders([case])
-    return cast(CaseOut, case)
+        )
+        return CaseOut.from_orm(case)
+
+    return await sync_to_async(_get)()
 
 
 @router.post("/cases", response=CaseOut)
@@ -158,10 +160,11 @@ async def create_case(request: HttpRequest, payload: CaseIn) -> CaseOut:  # prag
     ctx = extract_request_context(request)
     data = payload.model_dump()
 
-    return cast(
-        CaseOut,
-        await sync_to_async(service.create_case, thread_sensitive=False)(data, user=ctx.user),
-    )
+    def _create() -> CaseOut:
+        case = service.create_case(data, user=ctx.user)
+        return CaseOut.from_orm(case)
+
+    return await sync_to_async(_create)()
 
 
 @router.put("/cases/{case_id}", response=CaseOut)
@@ -171,10 +174,11 @@ async def update_case(request: HttpRequest, case_id: int, payload: CaseUpdate) -
     ctx = extract_request_context(request)
     data = payload.model_dump(exclude_unset=True)
 
-    return cast(
-        CaseOut,
-        await sync_to_async(service.update_case, thread_sensitive=False)(case_id, data, user=ctx.user),
-    )
+    def _update() -> CaseOut:
+        case = service.update_case(case_id, data, user=ctx.user)
+        return CaseOut.from_orm(case)
+
+    return await sync_to_async(_update)()
 
 
 @router.delete("/cases/{case_id}")
@@ -183,7 +187,7 @@ async def delete_case(request: HttpRequest, case_id: int) -> dict[str, bool]:  #
     service = _get_case_mutation_facade()
     ctx = extract_request_context(request)
 
-    await sync_to_async(service.delete_case, thread_sensitive=False)(case_id, user=ctx.user)
+    await sync_to_async(service.delete_case)(case_id, user=ctx.user)
 
     return {"success": True}
 
@@ -205,15 +209,16 @@ async def create_case_full(request: HttpRequest, payload: CaseCreateFull) -> Cas
         ),
     }
 
-    result = await sync_to_async(service.create_case_full, thread_sensitive=False)(
-        data, actor_id=actor_id, user=ctx.user
-    )
+    def _create_full() -> dict[str, Any]:
+        result = service.create_case_full(data, actor_id=actor_id, user=ctx.user)
+        case_out = CaseOut.from_orm(result["case"]).model_dump()
+        return {
+            "case": case_out,
+            "parties": result["parties"],
+            "assignments": result["assignments"],
+            "logs": result["logs"],
+            "case_numbers": [],
+            "supervising_authorities": result.get("supervising_authorities", []),
+        }
 
-    return CaseFullOut(
-        case=result["case"],
-        parties=result["parties"],
-        assignments=result["assignments"],
-        logs=result["logs"],
-        case_numbers=[],
-        supervising_authorities=result.get("supervising_authorities", []),
-    )
+    return await sync_to_async(_create_full)()
