@@ -11,7 +11,9 @@ class GuaranteeDialogPlaywrightFillMixin:  # pragma: no cover
     page: Any
     MAX_SLOW_WAIT_MS: int
 
-    def _fill_dialog_fields_with_playwright(self, defaults: dict[str, str], target: str) -> list[str]:  # pragma: no cover
+    def _fill_dialog_fields_with_playwright(
+        self, defaults: dict[str, str], target: str
+    ) -> list[str]:  # pragma: no cover
         updates: list[str] = []
 
         def _fill_first_visible(placeholder: str, value: str) -> None:  # pragma: no cover

@@ -10,7 +10,9 @@ class GuaranteeDialogFieldFillingMixin:  # pragma: no cover
 
     page: Any
 
-    def _fill_dialog_select_fields(self, defaults: dict[str, str], target: str | None = None) -> list[str]:  # pragma: no cover
+    def _fill_dialog_select_fields(
+        self, defaults: dict[str, str], target: str | None = None
+    ) -> list[str]:  # pragma: no cover
         updates = self.page.evaluate(
             r"""(args) => {
                 const defaults = args.defaults || {};
