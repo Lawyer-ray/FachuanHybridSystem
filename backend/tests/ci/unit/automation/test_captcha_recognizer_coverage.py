@@ -82,7 +82,7 @@ class TestManualCaptchaRecognizerRecognizeSuccess:
 
         task.refresh_from_db = MagicMock(side_effect=refresh_side_effect)
 
-        with patch("apps.automation.services.scraper.core.captcha_recognizer.Path") as mock_path_cls:
+        with patch("plugins.court_automation.login.captcha_recognizer.Path") as mock_path_cls:
             mock_captcha_dir = MagicMock()
             mock_image_path = MagicMock()
             mock_image_path.__truediv__ = MagicMock(return_value=mock_image_path)
@@ -105,7 +105,7 @@ class TestManualCaptchaRecognizerRecognizeSuccess:
         task.id = "task_1"
         r = ManualCaptchaRecognizer(task=task, timeout=1, poll_interval=0.01)
 
-        with patch("apps.automation.services.scraper.core.captcha_recognizer.Path") as mock_path_cls:
+        with patch("plugins.court_automation.login.captcha_recognizer.Path") as mock_path_cls:
             mock_path_cls.side_effect = Exception("path error")
             with patch("django.conf.settings") as mock_settings:
                 mock_settings.MEDIA_ROOT = "/tmp/media"
@@ -125,7 +125,7 @@ class TestManualCaptchaRecognizerTimeoutWithStatusUpdate:
 
         r = ManualCaptchaRecognizer(task=task, timeout=0, poll_interval=0.01)
 
-        with patch("apps.automation.services.scraper.core.captcha_recognizer.Path") as mock_path_cls, \
+        with patch("plugins.court_automation.login.captcha_recognizer.Path") as mock_path_cls, \
              patch("django.conf.settings") as mock_settings:
             mock_settings.MEDIA_ROOT = "/tmp/media"
             mock_dir = MagicMock()
@@ -160,7 +160,7 @@ class TestManualCaptchaRecognizerUnlinkError:
 
         task.refresh_from_db = MagicMock(side_effect=refresh_side_effect)
 
-        with patch("apps.automation.services.scraper.core.captcha_recognizer.Path") as mock_path_cls:
+        with patch("plugins.court_automation.login.captcha_recognizer.Path") as mock_path_cls:
             mock_dir = MagicMock()
             mock_image_path = MagicMock()
             mock_image_path.unlink.side_effect = PermissionError("no access")

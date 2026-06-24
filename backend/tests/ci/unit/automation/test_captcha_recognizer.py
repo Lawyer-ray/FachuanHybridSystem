@@ -57,7 +57,7 @@ class TestManualCaptchaRecognizerRecognize:
 
         r = ManualCaptchaRecognizer(task=task, timeout=0, poll_interval=0.01)
 
-        with patch("apps.automation.services.scraper.core.captcha_recognizer.Path") as mock_path_cls:
+        with patch("plugins.court_automation.login.captcha_recognizer.Path") as mock_path_cls:
             mock_path_instance = MagicMock()
             mock_path_instance.__truediv__ = MagicMock(return_value=MagicMock())
             mock_path_cls.return_value = mock_path_instance

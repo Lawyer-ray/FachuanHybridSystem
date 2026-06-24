@@ -39,7 +39,7 @@ class TestTokenServiceAdapter:
         from apps.automation.services.scraper.core.token_service import TokenService, TokenServiceAdapter
         adapter = TokenServiceAdapter.__new__(TokenServiceAdapter)
         adapter._service = None
-        with patch("apps.automation.services.scraper.core.token_service.TokenService") as MockTS:
+        with patch("plugins.court_automation.login.token_service.TokenService") as MockTS:
             mock_instance = MagicMock()
             MockTS.return_value = mock_instance
             result = adapter.service

@@ -270,7 +270,7 @@ class TestScraperMonitorService:
 
 class TestLoginHandler:
     def test_module_imports(self):
-        from apps.automation.services.token import _login_handler
+        from plugins.court_automation.token import _login_handler
 
         assert _login_handler is not None
 

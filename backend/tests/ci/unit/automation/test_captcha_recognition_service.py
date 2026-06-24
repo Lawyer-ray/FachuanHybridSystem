@@ -148,26 +148,26 @@ class TestRecognizeFromBase64:
         result = svc.recognize_from_base64("   ")
         assert result.success is False
 
-    @patch("apps.automation.services.captcha.captcha_recognition_service._is_auto_recognize_enabled", return_value=False)
+    @patch("plugins.court_automation.captcha.captcha_recognition_service._is_auto_recognize_enabled", return_value=False)
     def test_auto_recognize_disabled(self, _mock):
         svc = CaptchaRecognitionService()
         result = svc.recognize_from_base64(_make_valid_png_base64())
         assert result.success is False
         assert "已关闭" in result.error
 
-    @patch("apps.automation.services.captcha.captcha_recognition_service._is_auto_recognize_enabled", return_value=True)
+    @patch("plugins.court_automation.captcha.captcha_recognition_service._is_auto_recognize_enabled", return_value=True)
     def test_decode_failure(self, _mock):
         svc = CaptchaRecognitionService()
         result = svc.recognize_from_base64("invalid_base64!!!")
         assert result.success is False
 
-    @patch("apps.automation.services.captcha.captcha_recognition_service._is_auto_recognize_enabled", return_value=True)
+    @patch("plugins.court_automation.captcha.captcha_recognition_service._is_auto_recognize_enabled", return_value=True)
     def test_size_exceeded(self, _mock):
         svc = CaptchaRecognitionService(config={"max_file_size": 10})
         result = svc.recognize_from_base64(_make_valid_png_base64())
         assert result.success is False
 
-    @patch("apps.automation.services.captcha.captcha_recognition_service._is_auto_recognize_enabled", return_value=True)
+    @patch("plugins.court_automation.captcha.captcha_recognition_service._is_auto_recognize_enabled", return_value=True)
     def test_successful_recognition(self, _mock):
         svc = CaptchaRecognitionService()
         mock_rec = MagicMock()
@@ -178,7 +178,7 @@ class TestRecognizeFromBase64:
             assert result.success is True
             assert result.text == "ABCD"
 
-    @patch("apps.automation.services.captcha.captcha_recognition_service._is_auto_recognize_enabled", return_value=True)
+    @patch("plugins.court_automation.captcha.captcha_recognition_service._is_auto_recognize_enabled", return_value=True)
     def test_recognition_returns_empty(self, _mock):
         svc = CaptchaRecognitionService()
         mock_rec = MagicMock()

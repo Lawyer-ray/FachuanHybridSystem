@@ -21,7 +21,7 @@ pytestmark = pytest.mark.skipif(not _HAS_LOGIN, reason="court_login plugin not i
 
 
 class TestTokenService:
-    @patch("apps.automation.services.scraper.core.token_service.cache")
+    @patch("plugins.court_automation.login.token_service.cache")
     def test_get_cache_key(self, mock_cache: MagicMock) -> None:
         from apps.automation.services.scraper.core.token_service import TokenService
 
@@ -31,7 +31,7 @@ class TestTokenService:
             key = svc._get_cache_key("site", "acct")
             assert key == "prefix:site:acct"
 
-    @patch("apps.automation.services.scraper.core.token_service.cache")
+    @patch("plugins.court_automation.login.token_service.cache")
     @patch("apps.automation.models.CourtToken")
     def test_get_token_from_redis(self, mock_ct: MagicMock, mock_cache: MagicMock) -> None:
         from apps.automation.services.scraper.core.token_service import TokenService
@@ -43,7 +43,7 @@ class TestTokenService:
             result = svc.get_token("site", "acct")
             assert result == "redis_token"
 
-    @patch("apps.automation.services.scraper.core.token_service.cache")
+    @patch("plugins.court_automation.login.token_service.cache")
     def test_get_token_redis_miss_db_miss(self, mock_cache: MagicMock) -> None:
         from apps.automation.services.scraper.core.token_service import TokenService
 
@@ -56,7 +56,7 @@ class TestTokenService:
                 result = svc.get_token("site", "acct")
                 assert result is None
 
-    @patch("apps.automation.services.scraper.core.token_service.cache")
+    @patch("plugins.court_automation.login.token_service.cache")
     def test_delete_token(self, mock_cache: MagicMock) -> None:
         from apps.automation.services.scraper.core.token_service import TokenService
 

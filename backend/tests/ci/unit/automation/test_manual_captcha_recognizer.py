@@ -53,8 +53,8 @@ class TestManualCaptchaRecognizer:
 
         r = self._make_recognizer(task=task, timeout=5, poll_interval=0.01)
 
-        with patch("apps.automation.services.scraper.core.captcha_recognizer.Path") as MockPath, \
-             patch("apps.automation.services.scraper.core.captcha_recognizer.time") as mock_time, \
+        with patch("plugins.court_automation.login.captcha_recognizer.Path") as MockPath, \
+             patch("plugins.court_automation.login.captcha_recognizer.time") as mock_time, \
              patch("django.core.files.storage.default_storage") as mock_storage:
             mock_time.time.return_value = 1000.0
             mock_time.sleep = MagicMock()
@@ -81,7 +81,7 @@ class TestManualCaptchaRecognizer:
 
         r = self._make_recognizer(task=task, timeout=1, poll_interval=0.1)
 
-        with patch("apps.automation.services.scraper.core.captcha_recognizer.Path") as MockPath, \
+        with patch("plugins.court_automation.login.captcha_recognizer.Path") as MockPath, \
              patch("django.core.files.storage.default_storage") as mock_storage:
             mock_file = MagicMock()
             MockPath.return_value.__truediv__ = MagicMock(return_value=MagicMock(
@@ -104,7 +104,7 @@ class TestManualCaptchaRecognizer:
 
         r = self._make_recognizer(task=task, timeout=5, poll_interval=0.01)
 
-        with patch("apps.automation.services.scraper.core.captcha_recognizer.Path") as MockPath, \
+        with patch("plugins.court_automation.login.captcha_recognizer.Path") as MockPath, \
              patch("django.core.files.storage.default_storage") as mock_storage:
             MockPath.return_value.__truediv__ = MagicMock(return_value=MagicMock(
                 mkdir=MagicMock(),

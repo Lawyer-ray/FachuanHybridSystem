@@ -83,7 +83,7 @@ class TestCleanupOldRecords:
         assert result == 1
         assert TokenAcquisitionHistory.objects.count() == 1
 
-    @patch("apps.automation.services.admin.token_acquisition_history_admin_service.TokenAcquisitionHistory")
+    @patch("plugins.court_automation.token_admin.token_acquisition_history_admin_service.TokenAcquisitionHistory")
     def test_exception_wraps_in_business_exception(self, mock_model, svc, db):
         mock_model.objects.filter.return_value.count.side_effect = RuntimeError("db error")
         with pytest.raises(BusinessException):
