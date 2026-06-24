@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from asgiref.sync import sync_to_async
 from playwright.sync_api import Page
 
 from .base_mixin import GuaranteeBaseMixin
@@ -217,7 +218,7 @@ class CourtZxfwGuaranteeService(  # pragma: no cover
 
         g_two_result: dict[str, Any] | None = None
         if "gTwo" in self.page.url:
-            g_two_result = self._complete_g_two(case_data)
+            g_two_result = await sync_to_async(self._complete_g_two)(case_data)
 
         upload_result: dict[str, Any] | None = None
         if "gThree" in self.page.url:

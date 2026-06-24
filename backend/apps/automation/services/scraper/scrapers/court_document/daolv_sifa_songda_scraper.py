@@ -367,6 +367,10 @@ class DaolvSifaSongdaScraper(BaseCourtDocumentScraper):  # pragma: no cover
 
     # ── 异步版本 ────────────────────────────────────────────────────
 
+    async def _arun(self) -> dict[str, Any]:
+        """异步主入口：调用异步账号模式。"""
+        return await self._arun_account_mode(source_domain=self._DOMAIN)
+
     async def _alogin_account_session(
         self, session: httpx.AsyncClient, account: str, login_secret: str
     ) -> None:  # pragma: no cover

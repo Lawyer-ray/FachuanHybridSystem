@@ -551,7 +551,7 @@ class JysdCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
         try:
             # 定位手机号输入框
             phone_input = iframe.locator("input[placeholder*='手机号']")
-            if phone_input.count() == 0:
+            if await phone_input.count() == 0:
                 logger.warning("[async] 简易送达: iframe 内未找到手机号输入框")
                 await self._ascreenshot("jysd_no_phone_input")
                 return False
@@ -568,7 +568,7 @@ class JysdCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
 
             # 点击登录按钮
             login_btn = iframe.locator("button:has-text('登录')")
-            if login_btn.count() > 0:
+            if await login_btn.count() > 0:
                 await login_btn.first.click(force=True, timeout=5000)
                 logger.info("[async] 简易送达: 已点击登录按钮")
             else:
@@ -628,7 +628,7 @@ class JysdCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
             logger.info("[async] 简易送达: 在中间页面，点击'查看文书详情'")
 
             view_btn = iframe.locator("button:has-text('查看文书详情')")
-            if view_btn.count() > 0:
+            if await view_btn.count() > 0:
                 await view_btn.first.click(force=True, timeout=5000)
                 await self.page.wait_for_timeout(self._PAGE_LOAD_WAIT_MS)
 
@@ -657,12 +657,12 @@ class JysdCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
 
         # 获取表格行数
         rows = iframe.locator(".el-table__body-wrapper tr.el-table__row")
-        total = rows.count()
+        total = await rows.count()
         logger.info("[async] 简易送达: 文书表格共 %d 行", total)
 
         if total == 0:
             rows = iframe.locator(".el-table__body tr")
-            total = rows.count()
+            total = await rows.count()
             logger.info("[async] 简易送达: 备选选择器找到 %d 行", total)
 
         for i in range(total):
@@ -670,7 +670,7 @@ class JysdCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
                 # 每次重新获取 iframe（下载可能触发页面变化）
                 iframe = (await self._aget_sifayun_iframe()) or iframe
                 rows = iframe.locator(".el-table__body-wrapper tr.el-table__row")
-                if rows.count() <= i:
+                if await rows.count() <= i:
                     rows = iframe.locator(".el-table__body tr")
 
                 row = rows.nth(i)
@@ -679,7 +679,7 @@ class JysdCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
                 doc_name = ""
                 try:
                     doc_name_cell = row.locator("td:nth-child(2) .cell")
-                    if doc_name_cell.count() > 0:
+                    if await doc_name_cell.count() > 0:
                         doc_name = (await doc_name_cell.first.inner_text()).strip()
                 except (TypeError, ValueError):
                     pass
@@ -712,7 +712,7 @@ class JysdCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
         # 策略1: Playwright click
         try:
             download_btn = row.locator("button:has-text('下载')")
-            if download_btn.count() > 0:
+            if await download_btn.count() > 0:
                 async with self.page.expect_download(timeout=15000) as download_info:
                     await download_btn.first.click(force=True, timeout=5000)
                 return self._save_download(await download_info.value, download_dir, doc_name, index)
@@ -733,7 +733,7 @@ class JysdCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
             confirm_btn = iframe.locator(
                 ".checkFileDialog .el-dialog__wrapper:not([style*='display: none']) button:has-text('下载文书并核验')"
             )
-            if confirm_btn.count() > 0 and await confirm_btn.first.is_visible():
+            if await confirm_btn.count() > 0 and await confirm_btn.first.is_visible():
                 logger.info("[async] 简易送达: 检测到下载确认对话框，点击'下载文书并核验'")
                 async with self.page.expect_download(timeout=30000) as download_info:
                     await confirm_btn.first.click(force=True, timeout=5000)

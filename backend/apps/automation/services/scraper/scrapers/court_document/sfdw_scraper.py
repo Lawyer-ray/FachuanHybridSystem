@@ -633,7 +633,7 @@ class SfdwCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
 
     async def _asave_download_file(self, download: Any, download_dir: Path, doc_name: str, index: int) -> str:
         """异步保存下载文件（Playwright async Download 需要 await save_as）"""
-        suggested = await download.suggested_filename if hasattr(download, "suggested_filename") else ""
+        suggested = download.suggested_filename or ""
         if doc_name and (doc_name.endswith(".pdf") or doc_name.endswith(".doc")):
             filename = self._safe_filename(doc_name)
         elif suggested:

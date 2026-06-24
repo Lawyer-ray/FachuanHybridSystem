@@ -8,6 +8,7 @@ import asyncio
 import logging
 from typing import TYPE_CHECKING, Any
 
+from asgiref.sync import sync_to_async
 from django.utils import timezone
 
 from apps.automation.models import ScraperTask, ScraperTaskStatus
@@ -37,6 +38,9 @@ def _safe_save_task(task: ScraperTask) -> None:  # pragma: no cover
         task.save()
     except Exception as e:
         logger.warning("保存任务状态时出错: %s", e, exc_info=True)
+
+
+_async_safe_save_task = sync_to_async(_safe_save_task)
 
 
 def is_playwright_available() -> bool:
@@ -176,7 +180,7 @@ class BaseScraper:
         # 更新状态为执行中
         self.task.status = ScraperTaskStatus.RUNNING
         self.task.started_at = timezone.now()
-        _safe_save_task(self.task)
+        await _async_safe_save_task(self.task)
 
         try:
             # 解密配置中的敏感信息
@@ -219,7 +223,7 @@ class BaseScraper:
         finally:
             # 清理资源
             self.task.finished_at = timezone.now()
-            _safe_save_task(self.task)
+            await _async_safe_save_task(self.task)
 
     async def _arun(self) -> dict[str, Any]:  # pragma: no cover
         """

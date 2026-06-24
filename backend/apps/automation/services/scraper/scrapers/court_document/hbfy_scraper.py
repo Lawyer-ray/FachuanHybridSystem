@@ -574,7 +574,7 @@ class HbfyCourtScraper(DaolvSifaSongdaScraper):  # pragma: no cover
         if not files:
             try:
                 preview_btn = self.page.locator("button:has-text('预览文书')")
-                if preview_btn.count() > 0:
+                if await preview_btn.count() > 0:
                     await preview_btn.first.click(force=True, timeout=3000)
                     await self.page.wait_for_timeout(1000)
                     preview_path = await self._atry_expect_download(
@@ -601,14 +601,14 @@ class HbfyCourtScraper(DaolvSifaSongdaScraper):  # pragma: no cover
     async def _asolve_public_captcha_if_present(self) -> None:  # pragma: no cover
         assert self.page is not None
         captcha_input = self.page.locator("input[name='captcha']")
-        if captcha_input.count() <= 0:
+        if await captcha_input.count() <= 0:
             return
 
         captcha_image = self.page.locator("img.code_img, img[src^='data:image'], img[src*='captcha']")
         submit_button = self.page.locator("button:has-text('提交验证'), button:has-text('提交')")
 
         for _ in range(8):
-            if captcha_image.count() <= 0 or submit_button.count() <= 0:
+            if await captcha_image.count() <= 0 or await submit_button.count() <= 0:
                 break
             try:
                 image_bytes = await captcha_image.first.screenshot()
@@ -625,9 +625,9 @@ class HbfyCourtScraper(DaolvSifaSongdaScraper):  # pragma: no cover
                 await submit_button.first.click(force=True, timeout=2000)
                 await self.page.wait_for_timeout(1500)
 
-                if self.page.locator("text=送达文书").count() > 0:
+                if await self.page.locator("text=送达文书").count() > 0:
                     return
-                if self.page.locator("button:has-text('下载全部')").count() > 0:
+                if await self.page.locator("button:has-text('下载全部')").count() > 0:
                     return
             except Exception:
                 continue
@@ -636,7 +636,7 @@ class HbfyCourtScraper(DaolvSifaSongdaScraper):  # pragma: no cover
         assert self.page is not None
         try:
             download_all = self.page.locator("button:has-text('下载全部'), div:has-text('下载全部')")
-            if download_all.count() <= 0:
+            if await download_all.count() <= 0:
                 return None
 
             captured: list[Any] = []
@@ -646,9 +646,9 @@ class HbfyCourtScraper(DaolvSifaSongdaScraper):  # pragma: no cover
             await self.page.wait_for_timeout(500)
 
             confirm_btn = self.page.locator("button:has-text('确认'), span:has-text('确认'), div:has-text('确认')")
-            if confirm_btn.count() > 0:
+            if await confirm_btn.count() > 0:
                 clicked = False
-                for index in range(min(confirm_btn.count(), 5)):
+                for index in range(min(await confirm_btn.count(), 5)):
                     target = confirm_btn.nth(index)
                     try:
                         if await target.is_visible():
@@ -695,7 +695,7 @@ class HbfyCourtScraper(DaolvSifaSongdaScraper):  # pragma: no cover
         assert self.page is not None
         try:
             target = self.page.locator(selector)
-            if target.count() <= 0:
+            if await target.count() <= 0:
                 return None
             async with self.page.expect_download(timeout=15000) as download_info:
                 await target.first.click(force=True, timeout=3000)
