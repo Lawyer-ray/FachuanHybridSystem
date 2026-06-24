@@ -231,7 +231,7 @@ async def get_task_status(request: Any, task_id: int) -> TaskStatusResponseSchem
             finished_at=task.finished_at.isoformat() if task.finished_at else None,
         )
 
-    return await sync_to_async(_do)()
+    return cast(TaskStatusResponseSchema, await sync_to_async(_do)())
 
 
 # ============================================================================
@@ -367,4 +367,4 @@ async def update_task_info(request: Any, task_id: int, payload: UpdateInfoReques
             key_time=task.key_time.isoformat() if task.key_time else None,
         )
 
-    return await sync_to_async(_do)()
+    return cast(UpdateInfoResponseSchema, await sync_to_async(_do)())
