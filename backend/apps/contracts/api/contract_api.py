@@ -40,7 +40,7 @@ def _get_access_policy() -> Any:
     return get_contract_domain_service().access_policy
 
 
-@router.get("/contracts", response=list[ContractOut])
+@router.get("/contracts")
 async def list_contracts(  # pragma: no cover
     request: HttpRequest,
     case_type: str | None = None,
@@ -68,7 +68,7 @@ async def list_contracts(  # pragma: no cover
             org_access=ctx.org_access,
             perm_open_access=ctx.perm_open_access,
         )
-        return [ContractOut.from_orm(c) for c in qs]
+        return [ContractOut.from_orm(c).model_dump() for c in qs]
 
     return await sync_to_async(_do)()
 
