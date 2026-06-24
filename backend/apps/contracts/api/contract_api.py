@@ -58,7 +58,7 @@ async def list_contracts(  # pragma: no cover
     ctx = await sync_to_async(extract_request_context)(request)
 
     def _do() -> Any:
-        return service.list_contracts(
+        qs = service.list_contracts(
             case_type=case_type,
             status=status,
             search=search,
@@ -68,6 +68,7 @@ async def list_contracts(  # pragma: no cover
             org_access=ctx.org_access,
             perm_open_access=ctx.perm_open_access,
         )
+        return [ContractOut.from_orm(c) for c in qs]
 
     return await sync_to_async(_do)()
 
