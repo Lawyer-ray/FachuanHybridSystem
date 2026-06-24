@@ -114,11 +114,9 @@ async def abrowse_cloud_folder(
     """
     from .factory import create_provider_from_account
 
-    account = await sync_to_async(
-        lambda: CloudStorageAccount.objects.filter(
-            id=storage_account_id, storage_type=storage_type, is_active=True
-        ).first()
-    )()
+    account = await CloudStorageAccount.objects.filter(
+        id=storage_account_id, storage_type=storage_type, is_active=True
+    ).afirst()
     if not account:
         return _error_result("云存储账号不存在", path, storage_type)
 

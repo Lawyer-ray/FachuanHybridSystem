@@ -53,11 +53,9 @@ async def create_folder_binding(request: HttpRequest, case_id: int, data: CaseFo
         from apps.core.cloud_storage.models import CloudStorageAccount
 
         account_id = int(data.storage_account_id)
-        storage_account = await sync_to_async(
-            lambda: CloudStorageAccount.objects.filter(
-                id=account_id, storage_type=data.storage_type, is_active=True
-            ).first(),
-        )()
+        storage_account = await CloudStorageAccount.objects.filter(
+            id=account_id, storage_type=data.storage_type, is_active=True
+        ).afirst()
         if storage_account is None:
             from apps.core.exceptions import ValidationException
 
