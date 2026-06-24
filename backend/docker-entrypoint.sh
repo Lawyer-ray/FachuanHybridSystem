@@ -66,4 +66,4 @@ echo "Collecting static files..."
 uv run python manage.py collectstatic --noinput
 
 echo "Starting server..."
-exec uv run uvicorn apiSystem.asgi:application --host 0.0.0.0 --port 8002 --workers ${UVICORN_WORKERS:-2}
+exec uv run uvicorn apiSystem.asgi:application --host 0.0.0.0 --port 8002 --workers ${UVICORN_WORKERS:-4}
