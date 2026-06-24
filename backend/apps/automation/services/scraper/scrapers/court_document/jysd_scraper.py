@@ -20,6 +20,8 @@ import time
 from pathlib import Path
 from typing import Any
 
+import aiofiles
+
 from .base_court_scraper import BaseCourtDocumentScraper
 
 logger = logging.getLogger("apps.automation")
@@ -527,7 +529,8 @@ class JysdCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
         # 保存 HTML
         html_path = download_dir / f"{name}_page.html"
         html_content = await self.page.content()
-        html_path.write_text(html_content, encoding="utf-8")
+        async with aiofiles.open(html_path, "w", encoding="utf-8") as f:
+            await f.write(html_content)
 
         logger.info("[async] 页面状态已保存: %s", name)
         return {"screenshot": str(screenshot_path), "html": str(html_path)}

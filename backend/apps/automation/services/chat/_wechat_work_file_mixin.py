@@ -5,6 +5,7 @@ import mimetypes
 from pathlib import Path
 from typing import Any
 
+import aiofiles
 import httpx
 
 from apps.core.exceptions import ConfigurationException, MessageSendException
@@ -171,8 +172,9 @@ class WeChatWorkFileMixin:  # pragma: no cover
 
             file_name = Path(file_path).name
 
-            with open(file_path, "rb") as file:
-                files = {"media": (file_name, file, self._get_mime_type(file_path))}
+            async with aiofiles.open(file_path, "rb") as file:
+                file_data = await file.read()
+                files = {"media": (file_name, file_data, self._get_mime_type(file_path))}
                 timeout = self.config.get("TIMEOUT", 30)
                 async with httpx.AsyncClient(timeout=timeout) as client:
                     response = await client.post(url, headers=headers, files=files)

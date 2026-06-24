@@ -16,6 +16,7 @@ import time
 from pathlib import Path
 from typing import Any
 
+import aiofiles
 import httpx
 import requests
 from django.conf import settings
@@ -725,7 +726,8 @@ class HbfyCourtScraper(DaolvSifaSongdaScraper):  # pragma: no cover
 
         html_path = download_dir / f"{name}_page.html"
         html_content = await self.page.content()
-        html_path.write_text(html_content, encoding="utf-8")
+        async with aiofiles.open(html_path, "w", encoding="utf-8") as f:
+            await f.write(html_content)
 
         logger.info("[async] 页面状态已保存: %s", name)
         return {"screenshot": str(screenshot_path), "html": str(html_path)}
