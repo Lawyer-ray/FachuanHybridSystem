@@ -116,7 +116,9 @@ async def fill_templates(request: HttpRequest, payload: FillRequestSchema) -> di
         filled_by=user,
     )
 
-    records = await sync_to_async(list)(batch_task.records.values_list("id", "original_output_name", "file_path", flat=False))
+    records: list[tuple[int, str, str]] = await sync_to_async(
+        lambda: list(batch_task.records.values_list("id", "original_output_name", "file_path", flat=False))
+    )()
     logger.info(
         "填充完成",
         extra={"batch_task_id": batch_task.id, "record_count": len(records)},
@@ -216,8 +218,7 @@ async def get_fill_history(  # pragma: no cover
     else:
         return {"success": False, "message": "请提供 case_id 或 template_id 参数"}
 
-    records = await sync_to_async(list)(
-        qs.values(
+    records: list[dict[str, Any]] = await sync_to_async(lambda: list(qs.values(
             "id",
             "case_id",
             "template_id",
@@ -225,8 +226,7 @@ async def get_fill_history(  # pragma: no cover
             "filled_at",
             "original_output_name",
             "file_available",
-        )
-    )
+        )))()
     return {"success": True, "records": records}
 
 

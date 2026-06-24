@@ -54,7 +54,7 @@ async def create_folder_binding(request: HttpRequest, case_id: int, data: CaseFo
 
         storage_account = await sync_to_async(
             lambda: CloudStorageAccount.objects.filter(
-                id=data.storage_account_id, storage_type=data.storage_type, is_active=True
+                id=int(data.storage_account_id), storage_type=data.storage_type, is_active=True
             ).first(),
             thread_sensitive=False,
         )()
