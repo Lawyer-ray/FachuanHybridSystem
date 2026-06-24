@@ -19,9 +19,9 @@ router = Router(auth=JWTOrSessionAuth())
 logger = logging.getLogger(__name__)
 
 
-def _get_client() -> DocSpaceClient:
-    """获取 DocSpace 客户端实例。"""
-    return DocSpaceClient(portal_url=config.get_portal_url(), api_token=config.get_api_token())
+async def _aget_client() -> DocSpaceClient:
+    """异步获取 DocSpace 客户端实例。"""
+    return DocSpaceClient(portal_url=await config.aget_portal_url(), api_token=await config.aget_api_token())
 
 
 # ── 配置 ──────────────────────────────────────────────────
@@ -44,14 +44,14 @@ async def upload_file(
     file: UploadedFile = File(...),
     folder_id: int | None = Form(default=None),
 ) -> DocSpaceUploadOut:
-    target_folder = folder_id or config.get_root_folder_id()
+    target_folder = folder_id or await config.aget_root_folder_id()
     if not target_folder:
         from ninja.errors import HttpError
 
         raise HttpError(400, "未配置默认文件夹，请指定 folder_id")
 
     content = file.read()
-    client = _get_client()
+    client = await _aget_client()
     ds_file = await client.aupload_file(target_folder, file.name or "untitled", content)
 
     # 创建本地映射记录（DocSpace 对相同内容去重，可能已存在）
@@ -89,13 +89,13 @@ async def create_document(
     request: HttpRequest,
     title: str = Form(default="新建文档.docx"),
 ) -> DocSpaceUploadOut:
-    target_folder = config.get_root_folder_id()
+    target_folder = await config.aget_root_folder_id()
     if not target_folder:
         from ninja.errors import HttpError
 
         raise HttpError(400, "未配置默认文件夹")
 
-    client = _get_client()
+    client = await _aget_client()
     ds_file = await client.acreate_empty_docx(target_folder, title)
 
     # DocSpace 对相同内容去重，可能已存在
@@ -153,7 +153,7 @@ async def delete_document(request: HttpRequest, doc_id: int) -> dict[str, bool]:
     doc = await _aget_user_doc(request, doc_id)
     # 删除远端文件（忽略远端不存在的情况）
     try:
-        client = _get_client()
+        client = await _aget_client()
         await client.adelete_file(doc.docspace_file_id)
     except Exception:
         logger.warning("DocSpace 远端删除失败，继续删除本地记录: file_id=%s", doc.docspace_file_id)
@@ -167,7 +167,7 @@ async def delete_document(request: HttpRequest, doc_id: int) -> dict[str, bool]:
 @router.get("/documents/{doc_id}/download", summary="下载文档")
 async def download_document(request: HttpRequest, doc_id: int) -> FileResponse:
     doc = await _aget_user_doc(request, doc_id)
-    client = _get_client()
+    client = await _aget_client()
     content, filename = await client.adownload_file(doc.docspace_file_id)
 
     import io
@@ -185,7 +185,7 @@ async def download_document(request: HttpRequest, doc_id: int) -> FileResponse:
 @router.post("/sync/{doc_id}", response=DocSpaceDocumentOut, summary="刷新文档元数据")
 async def sync_document(request: HttpRequest, doc_id: int) -> DocSpaceDocumentOut:
     doc = await _aget_user_doc(request, doc_id)
-    client = _get_client()
+    client = await _aget_client()
     ds_file = await client.aget_file_info(doc.docspace_file_id)
 
     # 更新本地映射

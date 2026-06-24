@@ -127,12 +127,13 @@ class ScriptExecutorService:
         contract_party_model = django_apps.get_model("contracts", "ContractParty")
 
         # ── 委托方（PRINCIPAL） ──
-        principal_parties: list[Any] = list(
-            contract_party_model.objects.filter(
+        principal_parties: list[Any] = [
+            party
+            async for party in contract_party_model.objects.filter(
                 contract_id=contract_id,
                 role="PRINCIPAL",
-            ).select_related("client")
-        )
+            ).select_related("client").aiterator()
+        ]
         clients: list[ClientInfo] = []
         for party in principal_parties:
             c = party.client
@@ -150,23 +151,23 @@ class ScriptExecutorService:
             raise ScriptExecutionError("合同没有委托方当事人")
 
         # ── 案件负责人（主办律师 real_name） ──
-        primary_assignment = (
+        primary_assignment = await (
             contract_assignment_model.objects.filter(
                 contract_id=contract_id,
                 is_primary=True,
             )
             .select_related("lawyer")
-            .first()
+            .afirst()
         )
         manager_name: str = ""
         if primary_assignment is not None:
             manager_name = primary_assignment.lawyer.real_name or ""
 
         # ── 案件信息 ──
-        contract = contract_model.objects.get(pk=contract_id)
+        contract = await contract_model.objects.aget(pk=contract_id)
 
         if case_id is not None:
-            case = case_model.objects.get(pk=case_id)
+            case = await case_model.objects.aget(pk=case_id)
             category = self._map_case_category(case)
             stage = self._map_case_stage(case)
             which_side = self._map_which_side(case, contract_id)
@@ -202,12 +203,13 @@ class ScriptExecutorService:
         )
 
         # ── 对方当事人（OPPOSING → 利冲） ──
-        opposing_parties: list[Any] = list(
-            contract_party_model.objects.filter(
+        opposing_parties: list[Any] = [
+            party
+            async for party in contract_party_model.objects.filter(
                 contract_id=contract_id,
                 role="OPPOSING",
-            ).select_related("client")
-        )
+            ).select_related("client").aiterator()
+        ]
         conflict_parties: list[ConflictPartyInfo] = []
         for party in opposing_parties:
             c = party.client

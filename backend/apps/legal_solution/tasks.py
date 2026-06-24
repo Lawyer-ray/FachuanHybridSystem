@@ -79,7 +79,7 @@ def run_solution_task(task_id: int) -> dict[str, Any]:  # pragma: no cover
                 LegalResearchTaskStatus.CANCELLED,
             ):
                 break
-            time.sleep(_RESEARCH_POLL_INTERVAL)
+            time.sleep(_RESEARCH_POLL_INTERVAL)  # 同步 Django-Q 任务，必须用 time.sleep；如改为 async 任务需换为 asyncio.sleep
         else:
             logger.warning("案例检索超时，继续生成方案（可能无类案）", extra={"task_id": task_id})
 

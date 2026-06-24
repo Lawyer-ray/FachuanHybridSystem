@@ -68,7 +68,7 @@ async def parse_document(
     立即返回 task_id；客户端可通过 GET /task/{task_id} 轮询结果。
     """
     try:
-        saved_name, file_path = _save_upload(file)
+        saved_name, file_path = await sync_to_async(_save_upload)(file)
         file_name = file.name or "uploaded"
 
         backend = body.backend if body else "auto"
@@ -143,7 +143,7 @@ async def extract_text(
     当 backend 显式设为 "mineru" 时，提取在后台异步执行。
     """
     try:
-        saved_name, file_path = _save_upload(file)
+        saved_name, file_path = await sync_to_async(_save_upload)(file)
 
         backend = body.backend if body else "auto"
         max_length = body.max_length if body is not None else None

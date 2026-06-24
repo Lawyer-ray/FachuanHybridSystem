@@ -24,6 +24,19 @@ logger = logging.getLogger(__name__)
 
 
 def _run_async(coro: Coroutine[Any, Any, Any]) -> Any:  # pragma: no cover
+    """从同步代码（如 Django Admin action）运行 async 协程。
+
+    约束与已知限制:
+    - **不能在已运行的 async 事件循环中调用**：Django ASGI 请求自带事件循环，
+      会导致 ``asyncio.run()`` 抛出 ``RuntimeError: This event loop is already running``。
+      此函数通过检测当前循环并在独立线程中执行 ``asyncio.run()`` 来缓解此问题。
+    - **嵌套 ``asyncio.run()`` 不安全**：如果被调用的协程内部再次调用 ``asyncio.run()``
+      仍会失败。所有需要嵌套调用的场景应改用 ``asyncio.get_event_loop().create_task()``。
+    - **线程池开销**：当已有事件循环时，每次调用会创建新的线程池执行器，批量操作时
+      应考虑复用或改用原生 async 调用链。
+    - **推荐用法**：仅用于 Django Admin action / 管理命令等同步入口点。
+      纯 async 代码（如 Django Ninja async view）应直接 ``await`` 而非使用此函数。
+    """
     try:
         loop = asyncio.get_running_loop()
     except RuntimeError:

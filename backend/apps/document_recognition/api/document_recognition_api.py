@@ -169,7 +169,7 @@ async def recognize_document(request: Any, file: UploadedFile = File(...)) -> Ta
     _validate_file_format(filename)
 
     # 2. 保存文件
-    file_path = _save_uploaded_file(file)
+    file_path = await sync_to_async(_save_uploaded_file)(file)
 
     # 3. 创建任务记录 + 提交异步任务
     def _create_and_submit() -> Any:
