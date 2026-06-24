@@ -1,4 +1,5 @@
 """Tests for executor_components: cache_mixin, result_persistence, policy_mixin, source_gateway, task_lifecycle."""
+
 from __future__ import annotations
 
 import time
@@ -95,9 +96,17 @@ class TestCacheMixin:
         from apps.legal_research.services.executor_components.cache_mixin import ExecutorCacheMixin
 
         detail = SimpleNamespace(
-            doc_id_raw="r", doc_id_unquoted="u", detail_url="", search_id="",
-            module="", title="", court_text="", document_number="",
-            judgment_date="", case_digest="", content_text="",
+            doc_id_raw="r",
+            doc_id_unquoted="u",
+            detail_url="",
+            search_id="",
+            module="",
+            title="",
+            court_text="",
+            document_number="",
+            judgment_date="",
+            case_digest="",
+            content_text="",
         )
         payload = ExecutorCacheMixin._serialize_case_detail(detail)
         assert "raw_meta" not in payload
@@ -230,9 +239,7 @@ class TestPolicyMixin:
         from apps.legal_research.services.similarity.tuning_config import LegalResearchTuningConfig
 
         tuning = LegalResearchTuningConfig(online_tuning_enabled=False)
-        result = ExecutorPolicyMixin._resolve_effective_min_similarity(
-            requested_min_similarity=0.7, tuning=tuning
-        )
+        result = ExecutorPolicyMixin._resolve_effective_min_similarity(requested_min_similarity=0.7, tuning=tuning)
         assert result == 0.7
 
     def test_resolve_effective_min_similarity_with_delta(self) -> None:
@@ -240,9 +247,7 @@ class TestPolicyMixin:
         from apps.legal_research.services.similarity.tuning_config import LegalResearchTuningConfig
 
         tuning = LegalResearchTuningConfig(online_tuning_enabled=True, online_min_similarity_delta=0.05)
-        result = ExecutorPolicyMixin._resolve_effective_min_similarity(
-            requested_min_similarity=0.7, tuning=tuning
-        )
+        result = ExecutorPolicyMixin._resolve_effective_min_similarity(requested_min_similarity=0.7, tuning=tuning)
         assert result == pytest.approx(0.75)
 
     def test_resolve_effective_min_similarity_clamped(self) -> None:
@@ -250,9 +255,7 @@ class TestPolicyMixin:
         from apps.legal_research.services.similarity.tuning_config import LegalResearchTuningConfig
 
         tuning = LegalResearchTuningConfig(online_tuning_enabled=True, online_min_similarity_delta=1.0)
-        result = ExecutorPolicyMixin._resolve_effective_min_similarity(
-            requested_min_similarity=0.9, tuning=tuning
-        )
+        result = ExecutorPolicyMixin._resolve_effective_min_similarity(requested_min_similarity=0.9, tuning=tuning)
         assert result == pytest.approx(0.99)
 
     def test_build_dual_review_policy_defaults(self) -> None:
@@ -279,9 +282,7 @@ class TestPolicyMixin:
         from apps.legal_research.services.similarity.tuning_config import LegalResearchTuningConfig
 
         tuning = LegalResearchTuningConfig(adaptive_threshold_enabled=False)
-        policy = ExecutorPolicyMixin._build_adaptive_threshold_policy(
-            baseline_min_similarity=0.7, tuning=tuning
-        )
+        policy = ExecutorPolicyMixin._build_adaptive_threshold_policy(baseline_min_similarity=0.7, tuning=tuning)
         assert policy.enabled is False
 
     def test_build_adaptive_threshold_policy_enabled(self) -> None:
@@ -289,9 +290,7 @@ class TestPolicyMixin:
         from apps.legal_research.services.similarity.tuning_config import LegalResearchTuningConfig
 
         tuning = LegalResearchTuningConfig(adaptive_threshold_enabled=True, adaptive_threshold_floor=0.5)
-        policy = ExecutorPolicyMixin._build_adaptive_threshold_policy(
-            baseline_min_similarity=0.7, tuning=tuning
-        )
+        policy = ExecutorPolicyMixin._build_adaptive_threshold_policy(baseline_min_similarity=0.7, tuning=tuning)
         assert policy.enabled is True
         assert policy.floor < 0.7
 
@@ -462,9 +461,7 @@ class TestTaskLifecycle:
         ):
             assert ExecutorTaskLifecycleMixin._is_cancel_requested("1") is True
 
-        with patch.object(
-            ExecutorTaskLifecycleMixin, "_run_orm_safely", return_value=LegalResearchTaskStatus.RUNNING
-        ):
+        with patch.object(ExecutorTaskLifecycleMixin, "_run_orm_safely", return_value=LegalResearchTaskStatus.RUNNING):
             assert ExecutorTaskLifecycleMixin._is_cancel_requested("1") is False
 
 
@@ -567,12 +564,17 @@ class TestSourceGateway:
 
         with patch.object(Concrete, "_sleep_for_retry"):
             with pytest.raises(RuntimeError, match="C_001_009"):
-                Concrete._download_pdf_with_retry(
-                    source_client=client, session=MagicMock(), detail=detail, task_id="1"
-                )
+                Concrete._download_pdf_with_retry(source_client=client, session=MagicMock(), detail=detail, task_id="1")
 
     def test_fetch_candidate_batch_with_retry_success(self) -> None:
         Concrete = self._make_concrete()
+
+        # Provide the sync _fetch_candidate_batch that _fetch_candidate_batch_with_retry delegates to
+        def _fetch_candidate_batch(cls, *, source_client, session, keyword, offset, batch_size, **kwargs):
+            return source_client.search_cases(session=session, keyword=keyword)
+
+        Concrete._fetch_candidate_batch = classmethod(_fetch_candidate_batch)
+
         client = MagicMock()
         client.search_cases.return_value = ["item1", "item2"]
 

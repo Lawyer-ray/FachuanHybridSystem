@@ -279,10 +279,18 @@ class TestReviewService:
     @patch("apps.contract_review.services.review.review_service.ContentExtractor")
     @patch("apps.contract_review.services.review.review_service.settings")
     def test_upload_contract_success(
-        self, mock_settings, mock_extractor_cls, mock_party_id_cls,
-        mock_title_extractor_cls, mock_doc_cls, mock_storage, service, user
+        self,
+        mock_settings,
+        mock_extractor_cls,
+        mock_party_id_cls,
+        mock_title_extractor_cls,
+        mock_doc_cls,
+        mock_storage,
+        service,
+        user,
     ):
         import tempfile
+
         with tempfile.TemporaryDirectory() as tmpdir:
             mock_settings.MEDIA_ROOT = tmpdir
             mock_storage.save.side_effect = lambda rel, f: rel
@@ -311,10 +319,13 @@ class TestReviewService:
     @patch("apps.contract_review.services.review.review_service.PartyIdentifier")
     @patch("apps.contract_review.services.review.review_service.ContentExtractor")
     @patch("apps.contract_review.services.review.review_service.settings")
-    def test_upload_contract_extraction_error(self, mock_settings, mock_extractor_cls, mock_party_id_cls, mock_storage, service, user):
+    def test_upload_contract_extraction_error(
+        self, mock_settings, mock_extractor_cls, mock_party_id_cls, mock_storage, service, user
+    ):
         from apps.contract_review.services.exceptions import ExtractionError
 
         import tempfile
+
         with tempfile.TemporaryDirectory() as tmpdir:
             mock_settings.MEDIA_ROOT = tmpdir
             mock_storage.save.side_effect = lambda rel, f: rel
@@ -348,8 +359,11 @@ class TestReviewService:
         service._repository.get_by_id.return_value = mock_task
 
         result = service.confirm_party(
-            uuid.uuid4(), "party_a", MagicMock(),
-            reviewer_name="律师", selected_steps=["typo_check"],
+            uuid.uuid4(),
+            "party_a",
+            MagicMock(),
+            reviewer_name="律师",
+            selected_steps=["typo_check"],
         )
         assert result == mock_task
         service._repository.update.assert_called_once()
@@ -365,6 +379,7 @@ class TestReviewService:
     def test_get_result_file_success(self, service):
         import tempfile
         import os
+
         with tempfile.NamedTemporaryFile(suffix=".docx", delete=False) as f:
             f.write(b"test")
             tmp_path = f.name
@@ -429,9 +444,7 @@ class TestPartyIdentifier:
     def test_identify_abbrev_format(self):
         from apps.contract_review.services.review.party_identifier import PartyIdentifier
 
-        paragraphs = [
-            "甲方：北京科技有限公司（以下简称甲方）与上海贸易有限公司（以下简称乙方）签订本合同"
-        ]
+        paragraphs = ["甲方：北京科技有限公司（以下简称甲方）与上海贸易有限公司（以下简称乙方）签订本合同"]
         result = PartyIdentifier().identify_parties(paragraphs)
         assert "party_a" in result
         assert "party_b" in result
@@ -491,9 +504,9 @@ class TestContractReviewer:
     def test_review_contract_success(self):
         reviewer, mock_llm = self._make_reviewer()
         mock_resp = MagicMock()
-        mock_resp.content = json.dumps([
-            {"original": "旧文本", "suggested": "新文本", "reason": "风险", "paragraph_index": 0}
-        ])
+        mock_resp.content = json.dumps(
+            [{"original": "旧文本", "suggested": "新文本", "reason": "风险", "paragraph_index": 0}]
+        )
         mock_llm.complete.return_value = mock_resp
 
         results = reviewer.review_contract(["旧文本"], "party_a", "A公司", "B公司")
@@ -587,9 +600,7 @@ class TestTypoChecker:
     def test_check_typos_single_batch(self):
         checker, mock_llm = self._make_checker()
         mock_resp = MagicMock()
-        mock_resp.content = json.dumps([
-            {"original": "错字", "corrected": "正确", "paragraph_index": 0}
-        ])
+        mock_resp.content = json.dumps([{"original": "错字", "corrected": "正确", "paragraph_index": 0}])
         mock_llm.complete.return_value = mock_resp
 
         results = checker.check_typos(["文本含错字"], model_name="gpt-4")
@@ -724,7 +735,8 @@ class TestReviewApiUpload:
     """upload_contract API 测试"""
 
     @patch("apps.contract_review.api.review_api._get_review_service")
-    def test_upload_contract(self, mock_get_svc):
+    @pytest.mark.asyncio
+    async def test_upload_contract(self, mock_get_svc):
         from apps.contract_review.api.review_api import upload_contract
 
         mock_svc = MagicMock()
@@ -740,7 +752,7 @@ class TestReviewApiUpload:
         mock_get_svc.return_value = mock_svc
 
         request = MagicMock()
-        result = upload_contract(request, MagicMock(), model_name="gpt-4")
+        result = await upload_contract(request, MagicMock(), model_name="gpt-4")
         assert result["task_id"] == mock_task.id
         assert result["status"] == "parties_identified"
         assert "party_a" in result["parties"]
@@ -828,7 +840,8 @@ class TestReviewApiGetModels:
     """get_models API 测试"""
 
     @patch("apps.contract_review.api.review_api._get_model_list_service")
-    def test_get_models(self, mock_get_svc):
+    @pytest.mark.asyncio
+    async def test_get_models(self, mock_get_svc):
         from apps.contract_review.api.review_api import get_models
 
         mock_svc = MagicMock()
@@ -840,7 +853,7 @@ class TestReviewApiGetModels:
         mock_get_svc.return_value = mock_svc
 
         request = MagicMock()
-        result = get_models(request)
+        result = await get_models(request)
         assert "models" in result
         assert result["models"] == ["gpt-4", "claude-3"]
 
@@ -852,7 +865,8 @@ class TestFormatApiNormalize:
     """normalize_format API 测试"""
 
     @patch("apps.contract_review.api.format_api.ReviewTask")
-    def test_task_not_found(self, mock_model):
+    @pytest.mark.asyncio
+    async def test_task_not_found(self, mock_model):
         from apps.contract_review.api.format_api import normalize_format
         from apps.contract_review.schemas.format_schemas import FormatNormalizeIn
 
@@ -861,12 +875,13 @@ class TestFormatApiNormalize:
 
         request = MagicMock()
         payload = FormatNormalizeIn(task_id=uuid.uuid4())
-        result = normalize_format(request, payload)
+        result = await normalize_format(request, payload)
         assert result["status"] == "failed"
         assert "不存在" in result["message"]
 
     @patch("apps.contract_review.api.format_api.ReviewTask")
-    def test_no_permission(self, mock_model):
+    @pytest.mark.asyncio
+    async def test_no_permission(self, mock_model):
         from apps.contract_review.api.format_api import normalize_format
         from apps.contract_review.schemas.format_schemas import FormatNormalizeIn
 
@@ -880,12 +895,13 @@ class TestFormatApiNormalize:
         request.user.id = 2
 
         payload = FormatNormalizeIn(task_id=uuid.uuid4())
-        result = normalize_format(request, payload)
+        result = await normalize_format(request, payload)
         assert result["status"] == "failed"
         assert "无权" in result["message"]
 
     @patch("apps.contract_review.api.format_api.ReviewTask")
-    def test_no_original_file(self, mock_model):
+    @pytest.mark.asyncio
+    async def test_no_original_file(self, mock_model):
         from apps.contract_review.api.format_api import normalize_format
         from apps.contract_review.schemas.format_schemas import FormatNormalizeIn
 
@@ -899,7 +915,7 @@ class TestFormatApiNormalize:
         request.user.is_superuser = True
 
         payload = FormatNormalizeIn(task_id=uuid.uuid4())
-        result = normalize_format(request, payload)
+        result = await normalize_format(request, payload)
         assert result["status"] == "failed"
         assert "原始文件不存在" in result["message"]
 

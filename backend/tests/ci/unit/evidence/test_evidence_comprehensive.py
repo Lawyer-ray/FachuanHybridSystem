@@ -218,13 +218,11 @@ class TestPageRangeCalculator:
         from apps.evidence.models.evidence import EvidenceList
         from apps.evidence.services.core.page_range_calculator import EvidencePageRangeCalculator
 
-        elist = EvidenceList.objects.create(
-            case=case, list_type="list_1", title="清单", total_pages=0
-        )
+        elist = EvidenceList.objects.create(case=case, list_type="list_1", title="清单", total_pages=0)
         elist.__dict__["_cached_start_page"] = 1
 
         calc = EvidencePageRangeCalculator()
-        with patch.object(type(elist), 'start_page', new_callable=lambda: property(lambda self: 1)):
+        with patch.object(type(elist), "start_page", new_callable=lambda: property(lambda self: 1)):
             calc.calculate_page_ranges(evidence_list=elist)
         assert elist.total_pages == 0
 
@@ -232,20 +230,14 @@ class TestPageRangeCalculator:
         from apps.evidence.models.evidence import EvidenceItem, EvidenceList
         from apps.evidence.services.core.page_range_calculator import EvidencePageRangeCalculator
 
-        elist = EvidenceList.objects.create(
-            case=case, list_type="list_1", title="清单", total_pages=0
-        )
+        elist = EvidenceList.objects.create(case=case, list_type="list_1", title="清单", total_pages=0)
         elist.__dict__["_cached_start_page"] = 1
 
-        item1 = EvidenceItem.objects.create(
-            evidence_list=elist, order=1, name="证据1", purpose="证明", page_count=3
-        )
-        item2 = EvidenceItem.objects.create(
-            evidence_list=elist, order=2, name="证据2", purpose="证明", page_count=2
-        )
+        item1 = EvidenceItem.objects.create(evidence_list=elist, order=1, name="证据1", purpose="证明", page_count=3)
+        item2 = EvidenceItem.objects.create(evidence_list=elist, order=2, name="证据2", purpose="证明", page_count=2)
 
         calc = EvidencePageRangeCalculator()
-        with patch.object(type(elist), 'start_page', new_callable=lambda: property(lambda self: 1)):
+        with patch.object(type(elist), "start_page", new_callable=lambda: property(lambda self: 1)):
             calc.calculate_page_ranges(evidence_list=elist)
 
         item1.refresh_from_db()
@@ -322,7 +314,8 @@ class TestEvidenceApiEndpoints:
         mock_svc.reorder_items.assert_called_once_with(1, [3, 1, 2])
 
     @patch("apps.evidence.api.evidence_api._get_ai_service")
-    def test_ai_suggest_purpose(self, mock_get_svc):
+    @pytest.mark.asyncio
+    async def test_ai_suggest_purpose(self, mock_get_svc):
         from apps.evidence.api.evidence_api import ai_suggest_purpose, AIPurposeRequest
 
         mock_svc = MagicMock()
@@ -331,11 +324,12 @@ class TestEvidenceApiEndpoints:
 
         request = MagicMock()
         data = AIPurposeRequest(cause_of_action="合同纠纷")
-        result = ai_suggest_purpose(request, data)
+        result = await ai_suggest_purpose(request, data)
         assert len(result.suggestions) == 2
 
     @patch("apps.evidence.api.evidence_api._get_ai_service")
-    def test_ai_generate_cross_examination(self, mock_get_svc):
+    @pytest.mark.asyncio
+    async def test_ai_generate_cross_examination(self, mock_get_svc):
         from apps.evidence.api.evidence_api import ai_generate_cross_examination, AICrossExamRequest
 
         mock_svc = MagicMock()
@@ -344,7 +338,7 @@ class TestEvidenceApiEndpoints:
 
         request = MagicMock()
         data = AICrossExamRequest(cause_of_action="合同纠纷")
-        result = ai_generate_cross_examination(request, data)
+        result = await ai_generate_cross_examination(request, data)
         assert result.cross_examination["opinion"] == "对真实性无异议"
 
 

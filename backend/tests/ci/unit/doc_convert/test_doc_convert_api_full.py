@@ -17,7 +17,6 @@ from apps.doc_convert.exceptions import ZnszjDisabledError, ZnszjNotConfiguredEr
 
 
 class TestCheckZnszjEnabled:
-
     def test_enabled_does_not_raise(self):
         with patch("apps.doc_convert.api.doc_convert_api.settings") as mock_settings:
             mock_settings.ZNSZJ_ENABLED = True
@@ -37,7 +36,6 @@ class TestCheckZnszjEnabled:
 
 
 class TestGetDocConvertService:
-
     def test_returns_service(self):
         mock_client = MagicMock()
         with patch("apps.doc_convert.api.doc_convert_api.get_znszj_client", return_value=mock_client):
@@ -51,7 +49,6 @@ class TestGetDocConvertService:
 
 
 class TestBuildMbidListResponse:
-
     def test_builds_response(self):
         grouped = {
             "cat1": [MbidDefinition(mbid="a", name="A", category="cat1")],
@@ -68,13 +65,14 @@ class TestBuildMbidListResponse:
 
 
 class TestConvertDocumentEndpoint:
-
-    def test_disabled_raises(self):
+    @pytest.mark.asyncio
+    async def test_disabled_raises(self):
         with patch("apps.doc_convert.api.doc_convert_api._check_znszj_enabled", side_effect=ZnszjDisabledError):
             with pytest.raises(ZnszjDisabledError):
-                convert_document(MagicMock(), file=MagicMock(), mbid="mjjdqsz")
+                await convert_document(MagicMock(), file=MagicMock(), mbid="mjjdqsz")
 
-    def test_success_returns_http_response(self):
+    @pytest.mark.asyncio
+    async def test_success_returns_http_response(self):
         mock_file = MagicMock()
         mock_file.read.return_value = b"result_bytes"
         mock_file.name = "test.docx"
@@ -84,7 +82,7 @@ class TestConvertDocumentEndpoint:
 
         with patch("apps.doc_convert.api.doc_convert_api._check_znszj_enabled"):
             with patch("apps.doc_convert.api.doc_convert_api._get_doc_convert_service", return_value=mock_service):
-                resp = convert_document(MagicMock(), file=mock_file, mbid="mjjdqsz")
+                resp = await convert_document(MagicMock(), file=mock_file, mbid="mjjdqsz")
                 assert resp.status_code == 200
                 assert b"result_bytes" in resp.content
                 assert "attachment" in resp["Content-Disposition"]

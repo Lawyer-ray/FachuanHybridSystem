@@ -59,9 +59,7 @@ class TestExtractPdfFast:
 
         req = MagicMock()
         req.body = json.dumps({"filename": "test.pdf", "data": "base64data"}).encode()
-        with patch(
-            "apps.image_rotation.api.image_rotation_api._get_pdf_service"
-        ) as mock_svc:
+        with patch("apps.image_rotation.api.image_rotation_api._get_pdf_service") as mock_svc:
             mock_svc.return_value.extract_pages.return_value = {"success": True, "pages": []}
             result = extract_pdf_fast(req)
             assert result["success"] is True
@@ -71,9 +69,7 @@ class TestExtractPdfFast:
 
         req = MagicMock()
         req.body = json.dumps({"data": "base64data"}).encode()
-        with patch(
-            "apps.image_rotation.api.image_rotation_api._get_pdf_service"
-        ) as mock_svc:
+        with patch("apps.image_rotation.api.image_rotation_api._get_pdf_service") as mock_svc:
             mock_svc.return_value.extract_pages.side_effect = RuntimeError("boom")
             result = extract_pdf_fast(req)
             assert result["success"] is False
@@ -98,9 +94,7 @@ class TestDetectPageOrientation:
 
         req = MagicMock()
         req.body = json.dumps({"data": "imgdata"}).encode()
-        with patch(
-            "apps.image_rotation.api.image_rotation_api._get_pdf_service"
-        ) as mock_svc:
+        with patch("apps.image_rotation.api.image_rotation_api._get_pdf_service") as mock_svc:
             mock_svc.return_value.detect_single_page_orientation.return_value = {
                 "rotation": 90,
                 "confidence": 0.95,
@@ -114,9 +108,7 @@ class TestDetectPageOrientation:
 
         req = MagicMock()
         req.body = json.dumps({"data": "bad"}).encode()
-        with patch(
-            "apps.image_rotation.api.image_rotation_api._get_pdf_service"
-        ) as mock_svc:
+        with patch("apps.image_rotation.api.image_rotation_api._get_pdf_service") as mock_svc:
             mock_svc.return_value.detect_single_page_orientation.side_effect = RuntimeError("err")
             result = detect_page_orientation(req)
             assert result["rotation"] == 0
@@ -126,61 +118,65 @@ class TestDetectPageOrientation:
 
 
 class TestDetectOrientation:
-    def test_no_images(self) -> None:
+    @pytest.mark.asyncio
+    async def test_no_images(self) -> None:
         from apps.image_rotation.api.image_rotation_api import detect_orientation
 
         req = MagicMock()
         req.body = json.dumps({}).encode()
-        result = detect_orientation(req)
+        result = await detect_orientation(req)
         assert result["success"] is False
 
-    def test_onnx_method(self) -> None:
+    @pytest.mark.asyncio
+    async def test_onnx_method(self) -> None:
         from apps.image_rotation.api.image_rotation_api import detect_orientation
 
         img_data = base64.b64encode(b"fakeimg").decode()
         req = MagicMock()
         req.body = json.dumps({"images": [{"data": img_data, "filename": "a.jpg"}], "method": "onnx"}).encode()
-        with patch(
-            "apps.image_rotation.services.orientation.onnx_service.get_onnx_orientation_service"
-        ) as mock_onnx:
+        with patch("apps.image_rotation.services.orientation.onnx_service.get_onnx_orientation_service") as mock_onnx:
             mock_onnx.return_value.detect_orientation.return_value = {
                 "rotation": 180,
                 "confidence": 0.9,
                 "ocr_text": "",
             }
-            result = detect_orientation(req)
+            result = await detect_orientation(req)
             assert result["success"] is True
             assert result["results"][0]["rotation"] == 180
 
-    def test_ocr_voting_method(self) -> None:
+    @pytest.mark.asyncio
+    async def test_ocr_voting_method(self) -> None:
         from apps.image_rotation.api.image_rotation_api import detect_orientation
 
         img_data = base64.b64encode(b"fakeimg").decode()
         req = MagicMock()
-        req.body = json.dumps({
-            "images": [{"data": img_data, "filename": "b.jpg"}],
-            "method": "ocr_voting",
-        }).encode()
-        with patch(
-            "apps.image_rotation.services.orientation.service.OrientationDetectionService"
-        ) as mock_od:
+        req.body = json.dumps(
+            {
+                "images": [{"data": img_data, "filename": "b.jpg"}],
+                "method": "ocr_voting",
+            }
+        ).encode()
+        with patch("apps.image_rotation.services.orientation.service.OrientationDetectionService") as mock_od:
             mock_od.return_value.detect_orientation_with_text.return_value = {
                 "rotation": 0,
                 "confidence": 0.8,
                 "ocr_text": "text",
             }
-            result = detect_orientation(req)
+            result = await detect_orientation(req)
             assert result["success"] is True
 
-    def test_exception_in_image(self) -> None:
+    @pytest.mark.asyncio
+    async def test_exception_in_image(self) -> None:
         from apps.image_rotation.api.image_rotation_api import detect_orientation
 
         req = MagicMock()
-        req.body = json.dumps({
-            "images": [{"data": "invalid_b64!!!", "filename": "bad.jpg"}],
-            "method": "onnx",
-        }).encode()
-        result = detect_orientation(req)
+        req.body = json.dumps(
+            {
+                "images": [{"data": "invalid_b64!!!", "filename": "bad.jpg"}],
+                "method": "onnx",
+            }
+        ).encode()
+        result = await detect_orientation(req)
         assert result["success"] is True
         assert result["results"][0]["rotation"] == 0  # fallback
 
@@ -189,16 +185,18 @@ class TestDetectOrientation:
 
 
 class TestExtractText:
-    def test_no_images(self) -> None:
+    @pytest.mark.asyncio
+    async def test_no_images(self) -> None:
         from apps.image_rotation.api.image_rotation_api import extract_text
 
         req = MagicMock()
         req.body = json.dumps({}).encode()
-        result = extract_text(req)
+        result = await extract_text(req)
         assert result["success"] is True
         assert result["results"] == []
 
-    def test_success(self) -> None:
+    @pytest.mark.asyncio
+    async def test_success(self) -> None:
         from apps.image_rotation.api.image_rotation_api import extract_text
 
         img_data = base64.b64encode(b"img").decode()
@@ -209,16 +207,17 @@ class TestExtractText:
             mock_result.text = "hello"
             mock_result.raw_texts = ["hello"]
             MockOCR.return_value.extract_text.return_value = mock_result
-            result = extract_text(req)
+            result = await extract_text(req)
             assert result["success"] is True
             assert result["results"][0]["ocr_text"] == "hello"
 
-    def test_exception(self) -> None:
+    @pytest.mark.asyncio
+    async def test_exception(self) -> None:
         from apps.image_rotation.api.image_rotation_api import extract_text
 
         req = MagicMock()
         req.body = json.dumps({"images": [{"data": "bad!!!", "filename": "x.jpg"}]}).encode()
-        result = extract_text(req)
+        result = await extract_text(req)
         assert result["success"] is True
         assert result["results"][0]["ocr_text"] == ""
 
@@ -227,24 +226,26 @@ class TestExtractText:
 
 
 class TestSuggestRename:
-    def test_no_items(self) -> None:
+    @pytest.mark.asyncio
+    async def test_no_items(self) -> None:
         from apps.image_rotation.api.image_rotation_api import suggest_rename
 
         req = MagicMock()
         req.body = json.dumps({}).encode()
-        result = suggest_rename(req)
+        result = await suggest_rename(req)
         assert result["success"] is True
 
-    def test_success(self) -> None:
+    @pytest.mark.asyncio
+    async def test_success(self) -> None:
         from apps.image_rotation.api.image_rotation_api import suggest_rename
 
         req = MagicMock()
-        req.body = json.dumps({
-            "items": [{"filename": "old.jpg", "ocr_text": "text"}],
-        }).encode()
-        with patch(
-            "apps.image_rotation.api.image_rotation_api._get_rename_service"
-        ) as mock_svc:
+        req.body = json.dumps(
+            {
+                "items": [{"filename": "old.jpg", "ocr_text": "text"}],
+            }
+        ).encode()
+        with patch("apps.image_rotation.api.image_rotation_api._get_rename_service") as mock_svc:
             suggestion = SimpleNamespace(
                 original_filename="old.jpg",
                 suggested_filename="new.pdf",
@@ -253,21 +254,22 @@ class TestSuggestRename:
                 success=True,
             )
             mock_svc.return_value.suggest_rename_batch.return_value = [suggestion]
-            result = suggest_rename(req)
+            result = await suggest_rename(req)
             assert result["success"] is True
             assert result["suggestions"][0]["suggested_filename"] == "new.pdf"
 
-    def test_with_image_data(self) -> None:
+    @pytest.mark.asyncio
+    async def test_with_image_data(self) -> None:
         from apps.image_rotation.api.image_rotation_api import suggest_rename
 
         img_b64 = base64.b64encode(b"raw").decode()
         req = MagicMock()
-        req.body = json.dumps({
-            "items": [{"filename": "a.jpg", "image_data": img_b64, "rotation": 90}],
-        }).encode()
-        with patch(
-            "apps.image_rotation.api.image_rotation_api._get_rename_service"
-        ) as mock_svc:
+        req.body = json.dumps(
+            {
+                "items": [{"filename": "a.jpg", "image_data": img_b64, "rotation": 90}],
+            }
+        ).encode()
+        with patch("apps.image_rotation.api.image_rotation_api._get_rename_service") as mock_svc:
             suggestion = SimpleNamespace(
                 original_filename="a.jpg",
                 suggested_filename="a.pdf",
@@ -276,33 +278,33 @@ class TestSuggestRename:
                 success=True,
             )
             mock_svc.return_value.suggest_rename_batch.return_value = [suggestion]
-            result = suggest_rename(req)
+            result = await suggest_rename(req)
             assert result["success"] is True
 
-    def test_bad_image_data_still_works(self) -> None:
+    @pytest.mark.asyncio
+    async def test_bad_image_data_still_works(self) -> None:
         from apps.image_rotation.api.image_rotation_api import suggest_rename
 
         req = MagicMock()
-        req.body = json.dumps({
-            "items": [{"filename": "a.jpg", "image_data": "not_valid_base64!!!"}],
-        }).encode()
-        with patch(
-            "apps.image_rotation.api.image_rotation_api._get_rename_service"
-        ) as mock_svc:
+        req.body = json.dumps(
+            {
+                "items": [{"filename": "a.jpg", "image_data": "not_valid_base64!!!"}],
+            }
+        ).encode()
+        with patch("apps.image_rotation.api.image_rotation_api._get_rename_service") as mock_svc:
             mock_svc.return_value.suggest_rename_batch.return_value = []
-            result = suggest_rename(req)
+            result = await suggest_rename(req)
             assert result["success"] is True
 
-    def test_exception(self) -> None:
+    @pytest.mark.asyncio
+    async def test_exception(self) -> None:
         from apps.image_rotation.api.image_rotation_api import suggest_rename
 
         req = MagicMock()
         req.body = json.dumps({"items": [{"filename": "x.jpg"}]}).encode()
-        with patch(
-            "apps.image_rotation.api.image_rotation_api._get_rename_service"
-        ) as mock_svc:
+        with patch("apps.image_rotation.api.image_rotation_api._get_rename_service") as mock_svc:
             mock_svc.return_value.suggest_rename_batch.side_effect = RuntimeError("fail")
-            result = suggest_rename(req)
+            result = await suggest_rename(req)
             assert result["success"] is False
 
 
@@ -325,9 +327,7 @@ class TestExportPdf:
         req = MagicMock()
         req.body = json.dumps({"pages": [{"data": "d"}]}).encode()
         req.content_type = "application/json"
-        with patch(
-            "apps.image_rotation.api.image_rotation_api._get_rotation_service"
-        ) as mock_svc:
+        with patch("apps.image_rotation.api.image_rotation_api._get_rotation_service") as mock_svc:
             mock_svc.return_value.export_as_pdf.return_value = {"success": True}
             result = export_pdf(req)
             assert result["success"] is True
@@ -338,9 +338,7 @@ class TestExportPdf:
         req = MagicMock()
         req.body = json.dumps({"pages": [{"data": "d"}]}).encode()
         req.content_type = "application/json"
-        with patch(
-            "apps.image_rotation.api.image_rotation_api._get_rotation_service"
-        ) as mock_svc:
+        with patch("apps.image_rotation.api.image_rotation_api._get_rotation_service") as mock_svc:
             mock_svc.return_value.export_as_pdf.side_effect = RuntimeError("err")
             result = export_pdf(req)
             assert result["success"] is False
@@ -350,9 +348,7 @@ class TestExportPdf:
 
         req = MagicMock()
         req.content_type = "multipart/form-data; boundary=xxx"
-        with patch(
-            "apps.image_rotation.api.image_rotation_api._handle_multipart_export_pdf"
-        ) as mock_mp:
+        with patch("apps.image_rotation.api.image_rotation_api._handle_multipart_export_pdf") as mock_mp:
             mock_mp.return_value = {"success": True}
             result = export_pdf(req)
             assert result["success"] is True
@@ -377,9 +373,7 @@ class TestExportImages:
         req = MagicMock()
         req.body = json.dumps({"images": [{"data": "d"}]}).encode()
         req.content_type = "application/json"
-        with patch(
-            "apps.image_rotation.api.image_rotation_api._get_rotation_service"
-        ) as mock_svc:
+        with patch("apps.image_rotation.api.image_rotation_api._get_rotation_service") as mock_svc:
             mock_svc.return_value.export_images.return_value = {"success": True}
             result = export_images(req)
             assert result["success"] is True
@@ -390,9 +384,7 @@ class TestExportImages:
         req = MagicMock()
         req.body = json.dumps({"images": [{"data": "d"}]}).encode()
         req.content_type = "application/json"
-        with patch(
-            "apps.image_rotation.api.image_rotation_api._get_rotation_service"
-        ) as mock_svc:
+        with patch("apps.image_rotation.api.image_rotation_api._get_rotation_service") as mock_svc:
             mock_svc.return_value.export_images.side_effect = RuntimeError("err")
             result = export_images(req)
             assert result["success"] is False
@@ -429,9 +421,7 @@ class TestHandleMultipartExport:
         }
         req.FILES = {"image_0": file_obj}
 
-        with patch(
-            "apps.image_rotation.api.image_rotation_api._get_rotation_service"
-        ) as mock_svc:
+        with patch("apps.image_rotation.api.image_rotation_api._get_rotation_service") as mock_svc:
             mock_svc.return_value.export_images.return_value = {"success": True}
             result = _handle_multipart_export(req)
             assert result["success"] is True
@@ -449,9 +439,7 @@ class TestHandleMultipartExport:
         req.POST = {}
         req.FILES = {"image_0": file_obj}
 
-        with patch(
-            "apps.image_rotation.api.image_rotation_api._get_rotation_service"
-        ) as mock_svc:
+        with patch("apps.image_rotation.api.image_rotation_api._get_rotation_service") as mock_svc:
             mock_svc.return_value.export_images.side_effect = RuntimeError("fail")
             result = _handle_multipart_export(req)
             assert result["success"] is False
@@ -483,9 +471,7 @@ class TestHandleMultipartExportPdf:
         req.POST = {"paper_size": "a4", "filename_0": "custom.jpg", "rotation_0": "90"}
         req.FILES = {"page_0": file_obj}
 
-        with patch(
-            "apps.image_rotation.api.image_rotation_api._get_rotation_service"
-        ) as mock_svc:
+        with patch("apps.image_rotation.api.image_rotation_api._get_rotation_service") as mock_svc:
             mock_svc.return_value.export_as_pdf.return_value = {"success": True}
             result = _handle_multipart_export_pdf(req)
             assert result["success"] is True
@@ -503,9 +489,7 @@ class TestHandleMultipartExportPdf:
         req.POST = {}
         req.FILES = {"page_0": file_obj}
 
-        with patch(
-            "apps.image_rotation.api.image_rotation_api._get_rotation_service"
-        ) as mock_svc:
+        with patch("apps.image_rotation.api.image_rotation_api._get_rotation_service") as mock_svc:
             mock_svc.return_value.export_as_pdf.side_effect = RuntimeError("fail")
             result = _handle_multipart_export_pdf(req)
             assert result["success"] is False
@@ -570,9 +554,7 @@ class TestListJobs:
         job.export_pdf_url = ""
         job.created_at = MagicMock(isoformat=MagicMock(return_value="2025-01-01T00:00:00"))
 
-        with patch(
-            "apps.image_rotation.api.image_rotation_api._get_job_service"
-        ) as mock_svc:
+        with patch("apps.image_rotation.api.image_rotation_api._get_job_service") as mock_svc:
             mock_svc.return_value.list_jobs.return_value = {
                 "jobs": [job],
                 "total_count": 1,
@@ -588,9 +570,7 @@ class TestListJobs:
 
         req = MagicMock()
         req.GET = {}
-        with patch(
-            "apps.image_rotation.api.image_rotation_api._get_job_service"
-        ) as mock_svc:
+        with patch("apps.image_rotation.api.image_rotation_api._get_job_service") as mock_svc:
             mock_svc.return_value.list_jobs.side_effect = RuntimeError("fail")
             result = list_jobs(req)
             assert result["success"] is False
@@ -626,9 +606,7 @@ class TestGetJobDetail:
         page.suggested_filename = ""
         page.source_type = "upload"
 
-        with patch(
-            "apps.image_rotation.api.image_rotation_api._get_job_service"
-        ) as mock_svc:
+        with patch("apps.image_rotation.api.image_rotation_api._get_job_service") as mock_svc:
             mock_svc.return_value.get_job_detail.return_value = (job, [page])
             result = get_job_detail(req, "1")
             assert result["success"] is True
@@ -637,9 +615,7 @@ class TestGetJobDetail:
         from apps.image_rotation.api.image_rotation_api import get_job_detail
 
         req = MagicMock()
-        with patch(
-            "apps.image_rotation.api.image_rotation_api._get_job_service"
-        ) as mock_svc:
+        with patch("apps.image_rotation.api.image_rotation_api._get_job_service") as mock_svc:
             mock_svc.return_value.get_job_detail.side_effect = RuntimeError("fail")
             result = get_job_detail(req, "1")
             assert result["success"] is False
@@ -656,9 +632,7 @@ class TestUpdateJobName:
         req.body = json.dumps({"name": "New Name"}).encode()
         job = MagicMock()
         job.name = "Old"
-        with patch(
-            "apps.image_rotation.api.image_rotation_api._get_job_service"
-        ) as mock_svc:
+        with patch("apps.image_rotation.api.image_rotation_api._get_job_service") as mock_svc:
             mock_svc.return_value.get_job.return_value = job
             result = update_job_name(req, "1")
             assert result["success"] is True
@@ -671,9 +645,7 @@ class TestUpdateJobName:
         req.body = json.dumps({"name": ""}).encode()
         job = MagicMock()
         job.name = ""
-        with patch(
-            "apps.image_rotation.api.image_rotation_api._get_job_service"
-        ) as mock_svc:
+        with patch("apps.image_rotation.api.image_rotation_api._get_job_service") as mock_svc:
             mock_svc.return_value.get_job.return_value = job
             result = update_job_name(req, "1")
             assert result["display_name"] == "未命名任务"
@@ -687,9 +659,7 @@ class TestDeleteJob:
         from apps.image_rotation.api.image_rotation_api import delete_job
 
         req = MagicMock()
-        with patch(
-            "apps.image_rotation.api.image_rotation_api._get_job_service"
-        ) as mock_svc:
+        with patch("apps.image_rotation.api.image_rotation_api._get_job_service") as mock_svc:
             result = delete_job(req, "1")
             assert result["status"] == "deleted"
             mock_svc.return_value.delete_job.assert_called_once_with("1")
@@ -713,9 +683,7 @@ class TestSaveExportUrl:
         req = MagicMock()
         req.body = json.dumps({"file_type": "zip", "media_url": "http://x.zip"}).encode()
         job = MagicMock()
-        with patch(
-            "apps.image_rotation.api.image_rotation_api._get_job_service"
-        ) as mock_svc:
+        with patch("apps.image_rotation.api.image_rotation_api._get_job_service") as mock_svc:
             mock_svc.return_value.get_job.return_value = job
             result = save_export_url(req, "1")
             assert result["success"] is True
@@ -727,9 +695,7 @@ class TestSaveExportUrl:
         req = MagicMock()
         req.body = json.dumps({"file_type": "pdf", "media_url": "http://x.pdf"}).encode()
         job = MagicMock()
-        with patch(
-            "apps.image_rotation.api.image_rotation_api._get_job_service"
-        ) as mock_svc:
+        with patch("apps.image_rotation.api.image_rotation_api._get_job_service") as mock_svc:
             mock_svc.return_value.get_job.return_value = job
             result = save_export_url(req, "1")
             assert result["success"] is True
@@ -762,9 +728,7 @@ class TestUpdateJobPages:
 
         req = MagicMock()
         req.body = json.dumps({"pages": [{"page_id": "10", "detected_rotation": 90}]}).encode()
-        with patch(
-            "apps.image_rotation.api.image_rotation_api._get_job_service"
-        ) as mock_svc:
+        with patch("apps.image_rotation.api.image_rotation_api._get_job_service") as mock_svc:
             mock_svc.return_value.get_job.return_value = job
             result = update_job_pages(req, "1")
             assert result["success"] is True
@@ -778,9 +742,7 @@ class TestUpdateJobPages:
 
         req = MagicMock()
         req.body = json.dumps({"pages": [{"page_id": "999", "detected_rotation": 45}]}).encode()
-        with patch(
-            "apps.image_rotation.api.image_rotation_api._get_job_service"
-        ) as mock_svc:
+        with patch("apps.image_rotation.api.image_rotation_api._get_job_service") as mock_svc:
             mock_svc.return_value.get_job.return_value = job
             result = update_job_pages(req, "1")
             assert result["success"] is True
