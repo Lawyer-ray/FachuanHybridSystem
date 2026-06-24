@@ -5,6 +5,7 @@
 
 from typing import cast
 
+from asgiref.sync import sync_to_async
 from django.http import HttpRequest
 from ninja import Router
 
@@ -38,8 +39,8 @@ _auth_service = _get_auth_service()
 
 @router.post("/login", response=LoginOut, auth=None)
 @rate_limit_from_settings("AUTH")
-def login_view(request: HttpRequest, payload: LoginIn) -> LoginOut:  # pragma: no cover
-    user = _auth_service.login(request, payload.username, payload.password)
+async def login_view(request: HttpRequest, payload: LoginIn) -> LoginOut:  # pragma: no cover
+    user = await sync_to_async(_auth_service.login, thread_sensitive=False)(request, payload.username, payload.password)
     user_out = LawyerOut.from_orm(user)
     return LoginOut(success=True, user=user_out)
 
@@ -52,7 +53,7 @@ def logout_view(request: HttpRequest) -> dict[str, bool]:  # pragma: no cover
 
 @router.post("/register", response=RegisterOut, auth=None)
 @rate_limit_from_settings("AUTH")
-def register_view(request: HttpRequest, payload: RegisterIn) -> RegisterOut:  # pragma: no cover
+async def register_view(request: HttpRequest, payload: RegisterIn) -> RegisterOut:  # pragma: no cover
     """
     用户注册
 
@@ -65,11 +66,11 @@ def register_view(request: HttpRequest, payload: RegisterIn) -> RegisterOut:  # 
         return RegisterOut(success=False, message="密码至少6个字符")
 
     # 检查用户名是否已存在
-    if _auth_service.username_exists(payload.username):
+    if await sync_to_async(_auth_service.username_exists, thread_sensitive=False)(payload.username):
         return RegisterOut(success=False, message="用户名已存在")
 
     try:
-        result = _auth_service.register(
+        result = await sync_to_async(_auth_service.register, thread_sensitive=False)(
             username=payload.username,
             password=payload.password,
             real_name=payload.real_name,
@@ -101,7 +102,7 @@ def me_view(request: HttpRequest) -> LawyerOut:  # pragma: no cover
 
 @router.post("/password-reset/request", response=PasswordResetOut, auth=None)
 @rate_limit_from_settings("AUTH")
-def request_password_reset(request: HttpRequest, payload: PasswordResetRequestIn) -> PasswordResetOut:  # pragma: no cover
+async def request_password_reset(request: HttpRequest, payload: PasswordResetRequestIn) -> PasswordResetOut:  # pragma: no cover
     """
     请求密码重置
 
@@ -111,8 +112,8 @@ def request_password_reset(request: HttpRequest, payload: PasswordResetRequestIn
     if not payload.email or "@" not in payload.email:
         return PasswordResetOut(success=False, message="请输入有效的邮箱地址")
 
-    # 调用服务
-    success, message = PasswordResetService.request_password_reset(payload.email)
+    # 调用服务（含邮件发送 IO）
+    success, message = await sync_to_async(PasswordResetService.request_password_reset, thread_sensitive=False)(payload.email)
 
     return PasswordResetOut(success=success, message=message)
 

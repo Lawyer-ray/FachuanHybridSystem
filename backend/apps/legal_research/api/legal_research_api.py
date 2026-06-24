@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import re
 import zipfile
 from asyncio import get_running_loop
@@ -88,8 +89,11 @@ def _serialize_result(result: Any) -> LegalResearchResultOut:
 
 
 @router.post("/tasks", response=LegalResearchCreateOut)
-def create_task(request: Any, payload: LegalResearchTaskCreateIn) -> LegalResearchCreateOut:  # pragma: no cover
-    task = _get_service().create_task(payload=payload, user=getattr(request, "user", None))
+async def create_task(request: Any, payload: LegalResearchTaskCreateIn) -> LegalResearchCreateOut:  # pragma: no cover
+    service = _get_service()
+    task = await sync_to_async(service.create_task, thread_sensitive=False)(
+        payload=payload, user=getattr(request, "user", None)
+    )
     return LegalResearchCreateOut(task_id=task.id, status=task.status)
 
 
@@ -106,10 +110,11 @@ async def capability_search(request: Any, payload: AgentSearchRequestV1) -> Agen
 
 
 @router.post("/capability/search/mcp", response=dict[str, Any])
-def capability_search_mcp(request: Any, payload: AgentSearchRequestV1) -> dict[str, Any]:  # pragma: no cover
+async def capability_search_mcp(request: Any, payload: AgentSearchRequestV1) -> dict[str, Any]:  # pragma: no cover
     headers = getattr(request, "headers", {}) or {}
     idempotency_key = str(headers.get("Idempotency-Key", "") or "").strip()
-    return _get_capability_mcp_wrapper().search(
+    svc = _get_capability_mcp_wrapper()
+    return await sync_to_async(svc.search, thread_sensitive=False)(
         payload=payload,
         user=getattr(request, "user", None),
         idempotency_key=idempotency_key,
@@ -117,21 +122,30 @@ def capability_search_mcp(request: Any, payload: AgentSearchRequestV1) -> dict[s
 
 
 @router.get("/tasks/{task_id}", response=LegalResearchTaskOut)
-def get_task(request: Any, task_id: int) -> LegalResearchTaskOut:  # pragma: no cover
-    task = _get_service().get_task(task_id=task_id, user=getattr(request, "user", None))
+async def get_task(request: Any, task_id: int) -> LegalResearchTaskOut:  # pragma: no cover
+    service = _get_service()
+    task = await sync_to_async(service.get_task, thread_sensitive=False)(
+        task_id=task_id, user=getattr(request, "user", None)
+    )
     return _serialize_task(task)
 
 
 @router.get("/tasks/{task_id}/results", response=list[LegalResearchResultOut])
-def list_results(request: Any, task_id: int) -> list[LegalResearchResultOut]:  # pragma: no cover
-    results = _get_service().list_results(task_id=task_id, user=getattr(request, "user", None))
+async def list_results(request: Any, task_id: int) -> list[LegalResearchResultOut]:  # pragma: no cover
+    service = _get_service()
+    results = await sync_to_async(service.list_results, thread_sensitive=False)(
+        task_id=task_id, user=getattr(request, "user", None)
+    )
     return [_serialize_result(x) for x in results]
 
 
 @router.get("/tasks/{task_id}/results/{result_id}/download")
 @rate_limit_from_settings("EXPORT", by_user=True)
-def download_single_result(request: Any, task_id: int, result_id: int) -> FileResponse:  # pragma: no cover
-    result = _get_service().get_result(task_id=task_id, result_id=result_id, user=getattr(request, "user", None))
+async def download_single_result(request: Any, task_id: int, result_id: int) -> FileResponse:  # pragma: no cover
+    service = _get_service()
+    result = await sync_to_async(service.get_result, thread_sensitive=False)(
+        task_id=task_id, result_id=result_id, user=getattr(request, "user", None)
+    )
     if not result.pdf_file:
         raise Http404("结果PDF不存在")
 
@@ -141,32 +155,40 @@ def download_single_result(request: Any, task_id: int, result_id: int) -> FileRe
 
 @router.get("/tasks/{task_id}/results/download")
 @rate_limit_from_settings("EXPORT", by_user=True)
-def download_all_results(request: Any, task_id: int) -> HttpResponse:  # pragma: no cover
+async def download_all_results(request: Any, task_id: int) -> HttpResponse:  # pragma: no cover
     service = _get_service()
-    service.ensure_task_ready_for_download(task_id=task_id, user=getattr(request, "user", None))
-    results = service.list_results(task_id=task_id, user=getattr(request, "user", None))
+    await sync_to_async(service.ensure_task_ready_for_download, thread_sensitive=False)(
+        task_id=task_id, user=getattr(request, "user", None)
+    )
+    results = await sync_to_async(service.list_results, thread_sensitive=False)(
+        task_id=task_id, user=getattr(request, "user", None)
+    )
 
     if not results:
         raise Http404("任务暂无可下载结果")
 
-    buffer = BytesIO()
-    with zipfile.ZipFile(buffer, "w", compression=zipfile.ZIP_DEFLATED) as zip_file:
-        has_file = False
-        for result in results:
-            if not result.pdf_file:
-                continue
-            has_file = True
-            raw_title = result.title or f"case_{result.rank}"
-            safe_title = re.sub(r"[^\w\u4e00-\u9fff-]+", "_", raw_title).strip("_") or f"case_{result.rank}"
-            entry_name = f"{result.rank:02d}_{safe_title}.pdf"
-            with result.pdf_file.open("rb") as fp:
-                zip_file.writestr(entry_name, fp.read())
+    def _build_zip() -> tuple[bytes, bool]:
+        buffer = BytesIO()
+        with zipfile.ZipFile(buffer, "w", compression=zipfile.ZIP_DEFLATED) as zip_file:
+            has_file = False
+            for result in results:
+                if not result.pdf_file:
+                    continue
+                has_file = True
+                raw_title = result.title or f"case_{result.rank}"
+                safe_title = re.sub(r"[^\w一-鿿-]+", "_", raw_title).strip("_") or f"case_{result.rank}"
+                entry_name = f"{result.rank:02d}_{safe_title}.pdf"
+                with result.pdf_file.open("rb") as fp:
+                    zip_file.writestr(entry_name, fp.read())
+        return buffer.getvalue(), has_file
 
-    if buffer.tell() == 0 or not has_file:
+    zip_bytes, has_file = await asyncio.to_thread(_build_zip)
+
+    if not has_file:
         raise Http404("任务暂无可下载PDF")
 
     filename = f"legal_research_{task_id}.zip"
-    response = HttpResponse(buffer.getvalue(), content_type="application/zip")
+    response = HttpResponse(zip_bytes, content_type="application/zip")
     response["Content-Disposition"] = f'attachment; filename="{filename}"'
     return response
 

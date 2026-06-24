@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from asgiref.sync import sync_to_async
 from django.http import HttpRequest
 from ninja import Router
 
@@ -41,7 +42,7 @@ def _get_folder_binding_service() -> Any:
 
 
 @router.post("/{case_id}/folder-binding", response=CaseFolderBindingResponseSchema)
-def create_folder_binding(request: HttpRequest, case_id: int, data: CaseFolderBindingCreateSchema) -> Any:  # pragma: no cover
+async def create_folder_binding(request: HttpRequest, case_id: int, data: CaseFolderBindingCreateSchema) -> Any:  # pragma: no cover
     """创建或更新案件文件夹绑定"""
     service = _get_folder_binding_service()
     ctx = get_request_access_context(request)
@@ -51,9 +52,12 @@ def create_folder_binding(request: HttpRequest, case_id: int, data: CaseFolderBi
     if data.storage_account_id and data.storage_type != "local":
         from apps.core.cloud_storage.models import CloudStorageAccount
 
-        storage_account = CloudStorageAccount.objects.filter(
-            id=data.storage_account_id, storage_type=data.storage_type, is_active=True
-        ).first()
+        storage_account = await sync_to_async(
+            lambda: CloudStorageAccount.objects.filter(
+                id=data.storage_account_id, storage_type=data.storage_type, is_active=True
+            ).first(),
+            thread_sensitive=False,
+        )()
         if storage_account is None:
             from apps.core.exceptions import ValidationException
 
@@ -63,15 +67,21 @@ def create_folder_binding(request: HttpRequest, case_id: int, data: CaseFolderBi
                 errors={"storage_account_id": data.storage_account_id},
             )
 
-    binding = service.create_binding_ctx(
+    binding = await sync_to_async(service.create_binding_ctx, thread_sensitive=False)(
         case_id=case_id,
         folder_path=data.folder_path,
         ctx=ctx,
         storage_type=data.storage_type,
         storage_account=storage_account,
     )
-    is_accessible: bool = service.check_folder_accessible(binding.resolved_folder_path, binding=binding)
-    display_path: str = service.format_path_for_display(binding.resolved_folder_path)
+    is_accessible: bool = await sync_to_async(
+        lambda: service.check_folder_accessible(binding.resolved_folder_path, binding=binding),
+        thread_sensitive=False,
+    )()
+    display_path: str = await sync_to_async(
+        lambda: service.format_path_for_display(binding.resolved_folder_path),
+        thread_sensitive=False,
+    )()
 
     logger.info(
         "case_folder_binding_upsert",
@@ -93,7 +103,7 @@ def create_folder_binding(request: HttpRequest, case_id: int, data: CaseFolderBi
 
 
 @router.get("/{case_id}/folder-binding", response=CaseFolderBindingResponseSchema | None)
-def get_folder_binding(request: HttpRequest, case_id: int) -> CaseFolderBindingResponseSchema | None:  # pragma: no cover
+async def get_folder_binding(request: HttpRequest, case_id: int) -> CaseFolderBindingResponseSchema | None:  # pragma: no cover
     """获取案件文件夹绑定信息
 
     自动修复链路：
@@ -103,16 +113,26 @@ def get_folder_binding(request: HttpRequest, case_id: int) -> CaseFolderBindingR
     service = _get_folder_binding_service()
     ctx = get_request_access_context(request)
 
-    binding = service.get_binding_ctx(case_id=case_id, ctx=ctx)
+    binding = await sync_to_async(service.get_binding_ctx, thread_sensitive=False)(
+        case_id=case_id, ctx=ctx
+    )
 
     if not binding:
         return None
 
     # 先尝试修复合同文件夹路径（合同路径修复后，案件的 resolved_folder_path 自动更新）
-    contract_auto_repaired = service.check_and_repair_contract_path(binding)
+    contract_auto_repaired = await sync_to_async(
+        service.check_and_repair_contract_path, thread_sensitive=False
+    )(binding)
 
-    is_accessible: bool = service.check_folder_accessible(binding.resolved_folder_path, binding=binding)
-    display_path: str = service.format_path_for_display(binding.resolved_folder_path)
+    is_accessible: bool = await sync_to_async(
+        lambda: service.check_folder_accessible(binding.resolved_folder_path, binding=binding),
+        thread_sensitive=False,
+    )()
+    display_path: str = await sync_to_async(
+        lambda: service.format_path_for_display(binding.resolved_folder_path),
+        thread_sensitive=False,
+    )()
 
     return CaseFolderBindingResponseSchema.from_binding(
         binding,
@@ -123,12 +143,14 @@ def get_folder_binding(request: HttpRequest, case_id: int) -> CaseFolderBindingR
 
 
 @router.delete("/{case_id}/folder-binding")
-def delete_folder_binding(request: HttpRequest, case_id: int) -> dict[str, bool | str]:  # pragma: no cover
+async def delete_folder_binding(request: HttpRequest, case_id: int) -> dict[str, bool | str]:  # pragma: no cover
     """删除案件文件夹绑定"""
     service = _get_folder_binding_service()
     ctx = get_request_access_context(request)
 
-    success: bool = service.delete_binding_ctx(case_id=case_id, ctx=ctx)
+    success: bool = await sync_to_async(service.delete_binding_ctx, thread_sensitive=False)(
+        case_id=case_id, ctx=ctx
+    )
 
     logger.info(
         "case_folder_binding_delete",
@@ -144,12 +166,12 @@ def delete_folder_binding(request: HttpRequest, case_id: int) -> dict[str, bool 
 
 
 @router.get("/{case_id}/contract-folder-path", response=ContractFolderPathSchema)
-def get_contract_folder_path(request: HttpRequest, case_id: int) -> ContractFolderPathSchema:  # pragma: no cover
+async def get_contract_folder_path(request: HttpRequest, case_id: int) -> ContractFolderPathSchema:  # pragma: no cover
     """获取案件关联合同的文件夹路径"""
     service = _get_folder_binding_service()
     ctx = get_request_access_context(request)
 
-    folder_path = service.get_contract_folder_path(case_id)
+    folder_path = await sync_to_async(service.get_contract_folder_path, thread_sensitive=False)(case_id)
 
     logger.info(
         "case_contract_folder_path",
@@ -165,7 +187,7 @@ def get_contract_folder_path(request: HttpRequest, case_id: int) -> ContractFold
 
 
 @router.get("/folder-browse", response=FolderBrowseResponseSchema)
-def browse_folders(  # pragma: no cover
+async def browse_folders(  # pragma: no cover
     request: HttpRequest,
     path: str | None = None,
     include_hidden: bool = False,
@@ -174,18 +196,21 @@ def browse_folders(  # pragma: no cover
 ) -> Any:
     service = _get_folder_binding_service()
     ctx = get_request_access_context(request)
-    service.require_admin(ctx)
+    await sync_to_async(service.require_admin, thread_sensitive=False)(ctx)
 
     # ── Cloud storage browse ──
     if storage_type and storage_type != "local" and storage_account_id:
         from apps.core.cloud_storage.browse_helper import browse_cloud_folder
 
-        result = browse_cloud_folder(
-            storage_type=storage_type,
-            storage_account_id=storage_account_id,
-            path=path,
-            include_hidden=include_hidden,
-        )
+        result = await sync_to_async(
+            lambda: browse_cloud_folder(
+                storage_type=storage_type,
+                storage_account_id=storage_account_id,
+                path=path,
+                include_hidden=include_hidden,
+            ),
+            thread_sensitive=False,
+        )()
         return FolderBrowseResponseSchema(
             browsable=result["browsable"],
             message=result["message"],
@@ -197,11 +222,11 @@ def browse_folders(  # pragma: no cover
 
     # ── Local filesystem browse (existing logic) ──
     if not path or not str(path).strip():
-        default_path = service.get_default_browse_path()
+        default_path = await sync_to_async(service.get_default_browse_path, thread_sensitive=False)()
         if default_path:
             path = str(default_path)
         else:
-            roots = service.get_browse_roots()
+            roots = await sync_to_async(service.get_browse_roots, thread_sensitive=False)()
             entries = [FolderBrowseEntrySchema(name=(p.name or str(p)), path=str(p)) for p in roots]
             logger.info(
                 "case_folder_browse_roots",
@@ -216,7 +241,9 @@ def browse_folders(  # pragma: no cover
                 browsable=True, message=None, path=None, parent_path=None, entries=entries, storage_type="local"
             )
 
-    browsable, browse_message = service.is_browsable_path(str(path))
+    browsable, browse_message = await sync_to_async(
+        service.is_browsable_path, thread_sensitive=False
+    )(str(path))
     if not browsable:
         return FolderBrowseResponseSchema(
             browsable=False,
@@ -227,11 +254,13 @@ def browse_folders(  # pragma: no cover
             storage_type="local",
         )
 
-    resolved = service.resolve_under_allowed_roots(str(path))
-    entries = [
-        FolderBrowseEntrySchema(**item) for item in service.list_subdirs(str(path), include_hidden=include_hidden)
-    ]
-    parent_path = service.compute_parent_path(resolved)
+    resolved = await sync_to_async(service.resolve_under_allowed_roots, thread_sensitive=False)(str(path))
+    raw_entries = await sync_to_async(
+        lambda: service.list_subdirs(str(path), include_hidden=include_hidden),
+        thread_sensitive=False,
+    )()
+    entries = [FolderBrowseEntrySchema(**item) for item in raw_entries]
+    parent_path = await sync_to_async(service.compute_parent_path, thread_sensitive=False)(resolved)
 
     logger.info(
         "case_folder_browse",
@@ -251,11 +280,11 @@ def browse_folders(  # pragma: no cover
 
 
 @router.get("/cloud-storage-accounts")
-def list_cloud_storage_accounts(request: HttpRequest) -> list[dict[str, Any]]:  # pragma: no cover
+async def list_cloud_storage_accounts(request: HttpRequest) -> list[dict[str, Any]]:  # pragma: no cover
     """List available cloud storage accounts for folder binding."""
     from apps.core.cloud_storage.browse_helper import list_active_cloud_accounts
 
     service = _get_folder_binding_service()
     ctx = get_request_access_context(request)
-    service.require_admin(ctx)
-    return list_active_cloud_accounts()
+    await sync_to_async(service.require_admin, thread_sensitive=False)(ctx)
+    return await sync_to_async(list_active_cloud_accounts, thread_sensitive=False)()

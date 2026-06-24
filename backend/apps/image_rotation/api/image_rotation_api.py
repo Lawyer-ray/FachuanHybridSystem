@@ -80,28 +80,36 @@ def _get_rename_service() -> Any:
 
 @router.post("/extract-pdf-fast")
 @rate_limit_from_settings("UPLOAD", by_user=True)
-def extract_pdf_fast(request: HttpRequest) -> dict[str, Any]:  # pragma: no cover
+async def extract_pdf_fast(request: HttpRequest) -> dict[str, Any]:  # pragma: no cover
     payload = _body(request)
     filename: str = payload.get("filename", "file.pdf")
     data: str = payload.get("data", "")
     if not data:
         return {"success": False, "message": "缺少 data 参数"}
     try:
-        return cast(dict[str, Any], _get_pdf_service().extract_pages(data, filename))
+        service = _get_pdf_service()
+        return cast(
+            dict[str, Any],
+            await sync_to_async(service.extract_pages, thread_sensitive=False)(data, filename),
+        )
     except Exception as exc:
         logger.error("extract_pdf_fast 失败: %s", exc, exc_info=True)
         return {"success": False, "message": str(exc)}
 
 
 @router.post("/detect-page-orientation")
-def detect_page_orientation(request: HttpRequest) -> dict[str, Any]:  # pragma: no cover
+async def detect_page_orientation(request: HttpRequest) -> dict[str, Any]:  # pragma: no cover
     payload = _body(request)
     data: str = payload.get("data", "")
     if not data:
         return {"rotation": 0, "confidence": 0}
     try:
         t0 = time.perf_counter()
-        result = cast(dict[str, Any], _get_pdf_service().detect_single_page_orientation(data))
+        service = _get_pdf_service()
+        result = cast(
+            dict[str, Any],
+            await sync_to_async(service.detect_single_page_orientation, thread_sensitive=False)(data),
+        )
         result["elapsed_ms"] = round((time.perf_counter() - t0) * 1000, 1)
         return result
     except Exception as exc:

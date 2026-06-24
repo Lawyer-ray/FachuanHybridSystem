@@ -11,6 +11,7 @@ import logging
 from pathlib import Path
 from typing import Any
 
+from asgiref.sync import sync_to_async
 from django.conf import settings
 from ninja import File, Router
 from ninja.files import UploadedFile
@@ -152,7 +153,7 @@ class UpdateInfoResponseSchema(BaseModel):
 
 
 @router.post("/court-document/recognize", response=TaskSubmitResponseSchema)
-def recognize_document(request: Any, file: UploadedFile = File(...)) -> TaskSubmitResponseSchema:  # pragma: no cover
+async def recognize_document(request: Any, file: UploadedFile = File(...)) -> TaskSubmitResponseSchema:  # pragma: no cover
     """
     提交文书识别任务（异步）
 
@@ -171,10 +172,10 @@ def recognize_document(request: Any, file: UploadedFile = File(...)) -> TaskSubm
     file_path = _save_uploaded_file(file)
 
     # 3. 创建任务记录
-    task = _get_task_service().create_task(file_path=file_path, original_filename=filename)
+    task = await sync_to_async(_get_task_service().create_task, thread_sensitive=False)(file_path=file_path, original_filename=filename)
 
     # 4. 提交异步任务
-    submit_task(
+    await sync_to_async(submit_task, thread_sensitive=False)(
         "apps.document_recognition.tasks.execute_document_recognition_task",
         task.id,
         task_name=f"document_recognition_{task.id}",
@@ -186,11 +187,11 @@ def recognize_document(request: Any, file: UploadedFile = File(...)) -> TaskSubm
 
 
 @router.get("/court-document/task/{task_id}", response=TaskStatusResponseSchema)
-def get_task_status(request: Any, task_id: int) -> TaskStatusResponseSchema:  # pragma: no cover
+async def get_task_status(request: Any, task_id: int) -> TaskStatusResponseSchema:  # pragma: no cover
     """
     查询识别任务状态和结果
     """
-    task = _get_task_service().get_task(task_id, select_case=True)
+    task = await sync_to_async(_get_task_service().get_task, thread_sensitive=False)(task_id, select_case=True)
 
     # 构建响应
     recognition = None
@@ -247,7 +248,7 @@ def _get_task_service() -> Any:
 
 
 @router.get("/court-document/search-cases", response=list[CaseSearchResultSchema])
-def search_cases_for_binding(request: Any, q: str = "", limit: int = 20) -> list[CaseSearchResultSchema]:  # pragma: no cover
+async def search_cases_for_binding(request: Any, q: str = "", limit: int = 20) -> list[CaseSearchResultSchema]:  # pragma: no cover
     """
     搜索可绑定的案件
 
@@ -264,7 +265,7 @@ def search_cases_for_binding(request: Any, q: str = "", limit: int = 20) -> list
     """
     limit = min(limit, 20)
     task_service = _get_task_service()
-    raw_results = task_service.search_cases_for_binding(search_term=q.strip() if q else "", limit=limit)
+    raw_results = await sync_to_async(task_service.search_cases_for_binding, thread_sensitive=False)(search_term=q.strip() if q else "", limit=limit)
 
     results = [
         CaseSearchResultSchema(
@@ -283,7 +284,7 @@ def search_cases_for_binding(request: Any, q: str = "", limit: int = 20) -> list
 
 
 @router.post("/court-document/task/{task_id}/bind", response=ManualBindingResponseSchema)
-def manual_bind_case(request: Any, task_id: int, payload: ManualBindingRequestSchema) -> ManualBindingResponseSchema:  # pragma: no cover
+async def manual_bind_case(request: Any, task_id: int, payload: ManualBindingRequestSchema) -> ManualBindingResponseSchema:  # pragma: no cover
     """
     手动绑定案件
 
@@ -299,7 +300,7 @@ def manual_bind_case(request: Any, task_id: int, payload: ManualBindingRequestSc
     Requirements: 3.1
     """
     # 1. 获取任务
-    task = _get_task_service().get_task(task_id, select_case=True)
+    task = await sync_to_async(_get_task_service().get_task, thread_sensitive=False)(task_id, select_case=True)
 
     # 2. 检查任务是否已绑定
     if task.binding_success:
@@ -314,7 +315,7 @@ def manual_bind_case(request: Any, task_id: int, payload: ManualBindingRequestSc
 
     # 3. 调用服务层执行手动绑定
     binding_service = _get_case_binding_service()
-    result = binding_service.manual_bind_document_to_case(
+    result = await sync_to_async(binding_service.manual_bind_document_to_case, thread_sensitive=False)(
         task_id=task_id, case_id=payload.case_id, user=getattr(request, "user", None)
     )
 
@@ -329,7 +330,7 @@ def manual_bind_case(request: Any, task_id: int, payload: ManualBindingRequestSc
 
 
 @router.post("/court-document/task/{task_id}/update-info", response=UpdateInfoResponseSchema)
-def update_task_info(request: Any, task_id: int, payload: UpdateInfoRequestSchema) -> UpdateInfoResponseSchema:  # pragma: no cover
+async def update_task_info(request: Any, task_id: int, payload: UpdateInfoRequestSchema) -> UpdateInfoResponseSchema:  # pragma: no cover
     """
     手动更新识别信息（案号、关键时间）
 
@@ -343,7 +344,7 @@ def update_task_info(request: Any, task_id: int, payload: UpdateInfoRequestSchem
         更新结果
     """
 
-    task = _get_task_service().update_task_info(
+    task = await sync_to_async(_get_task_service().update_task_info, thread_sensitive=False)(
         task_id,
         case_number=payload.case_number,
         key_time=payload.key_time,

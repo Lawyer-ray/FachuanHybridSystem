@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import zipfile
 from io import BytesIO
 from pathlib import Path
 from typing import Any
 
+from asgiref.sync import sync_to_async
 from django.http import HttpRequest, HttpResponse
 from ninja import Router
 
@@ -18,7 +20,7 @@ router = Router()
 
 
 @router.post("/{case_id}/generate-folder")
-def generate_case_folder(request: HttpRequest, case_id: int) -> Any:  # pragma: no cover
+async def generate_case_folder(request: HttpRequest, case_id: int) -> Any:  # pragma: no cover
     """
     生成案件文件夹。
     - 若合同绑定了文件夹：在绑定路径下创建案件文件夹，返回 JSON
@@ -30,7 +32,7 @@ def generate_case_folder(request: HttpRequest, case_id: int) -> Any:  # pragma: 
     svc = FolderGenerationService()
 
     try:
-        case = svc.fetch_case_for_folder(case_id)
+        case = await sync_to_async(svc.fetch_case_for_folder, thread_sensitive=False)(case_id)
     except Case.DoesNotExist:
         return HttpResponse(status=404)
 
@@ -45,7 +47,10 @@ def generate_case_folder(request: HttpRequest, case_id: int) -> Any:  # pragma: 
     from apps.documents.services.template.template_matching_service import TemplateMatchingService
 
     template_service = TemplateMatchingService()
-    matched_candidates = template_service.find_matching_case_folder_templates_list(
+    matched_candidates = await sync_to_async(
+        template_service.find_matching_case_folder_templates_list,
+        thread_sensitive=False,
+    )(
         case_type=case.case_type,
         legal_statuses=our_legal_statuses,
     )
@@ -55,7 +60,7 @@ def generate_case_folder(request: HttpRequest, case_id: int) -> Any:  # pragma: 
 
     # 取第一个匹配的模板（已按优先级排序）
     matched_template_id = matched_candidates[0]["id"]
-    matched = svc.fetch_template_by_id(matched_template_id)
+    matched = await sync_to_async(svc.fetch_template_by_id, thread_sensitive=False)(matched_template_id)
 
     # 生成文件夹名称：日期-案件名
     from datetime import date
@@ -71,7 +76,9 @@ def generate_case_folder(request: HttpRequest, case_id: int) -> Any:  # pragma: 
     if case.contract and hasattr(case.contract, "folder_binding") and case.contract.folder_binding:
         contract_folder_path = case.contract.folder_binding.folder_path
 
-    zip_bytes = svc.generate_case_folder_with_documents(case, matched, root_name)
+    zip_bytes = await sync_to_async(svc.generate_case_folder_with_documents, thread_sensitive=False)(
+        case, matched, root_name
+    )
     filename = f"{root_name}.zip"
 
     if contract_folder_path:
@@ -79,13 +86,16 @@ def generate_case_folder(request: HttpRequest, case_id: int) -> Any:  # pragma: 
         if not parent.exists():
             return {"success": False, "message": f"合同绑定文件夹不存在: {contract_folder_path}"}
         try:
-            with zipfile.ZipFile(BytesIO(zip_bytes), "r") as zf:
-                zf.extractall(str(parent))
+            def _extract() -> None:
+                with zipfile.ZipFile(BytesIO(zip_bytes), "r") as zf:
+                    zf.extractall(str(parent))
+
+            await asyncio.to_thread(_extract)
         except (OSError, zipfile.BadZipFile) as e:
             logger.error("ZIP 解压失败: %s", e, extra={"case_id": case_id})
             return {"success": False, "message": f"ZIP 解压失败: {e}"}
         logger.info("案件文件夹已解压到合同文件夹", extra={"case_id": case_id, "path": str(parent)})
         return {"success": True, "message": f"文件已保存到: {parent}", "folder_path": str(parent)}
 
-    # 无绑定 → 下载 ZIP
+    # 无绑定 -> 下载 ZIP
     return build_download_response(content=zip_bytes, filename=filename, content_type="application/zip")

@@ -7,6 +7,7 @@ Requirements: 2.1, 2.2, 3.1, 3.2, 3.3
 import logging
 from typing import Any
 
+from asgiref.sync import sync_to_async
 from ninja import Router
 
 from apps.core.infrastructure.throttling import rate_limit_from_settings
@@ -33,22 +34,22 @@ def _get_folder_binding_service() -> Any:
     return ServiceLocator.get_contract_folder_binding_service()
 
 
-def _require_case_contract(request: Any, case_id: int) -> Any:
+async def _require_case_contract(request: Any, case_id: int) -> Any:
     """获取案件绑定的合同 ID，无合同则返回 None。同时验证用户对案件的访问权限。"""
     from apps.cases.services.case.case_access_policy import CaseAccessPolicy
     from apps.core.security import get_request_access_context
     from apps.documents.services.case_contract_query import get_case_contract_info
 
     ctx = get_request_access_context(request)
-    CaseAccessPolicy().ensure_access_ctx(case_id=case_id, ctx=ctx)
+    await sync_to_async(CaseAccessPolicy().ensure_access_ctx, thread_sensitive=False)(case_id=case_id, ctx=ctx)
 
-    case = get_case_contract_info(case_id)
+    case = await sync_to_async(get_case_contract_info, thread_sensitive=False)(case_id)
     if not case:
         return None
     return case
 
 
-def _save_or_download(
+async def _save_or_download(
     contract_id: int | None,
     case_id: int,
     content: bytes,
@@ -61,7 +62,7 @@ def _save_or_download(
         return build_download_response(content=content, filename=filename, content_type=content_type)
 
     binding_service = _get_folder_binding_service()
-    saved_path = binding_service.save_file_for_contract(
+    saved_path = await sync_to_async(binding_service.save_file_for_contract, thread_sensitive=False)(
         contract_id=contract_id,
         file_content=content,
         file_name=filename,
@@ -84,7 +85,7 @@ def _save_or_download(
 
 @router.post("/cases/{case_id}/preservation/application/download")
 @rate_limit_from_settings("EXPORT", by_user=True)
-def download_preservation_application(request: Any, case_id: int) -> Any:  # pragma: no cover
+async def download_preservation_application(request: Any, case_id: int) -> Any:  # pragma: no cover
     """
     下载财产保全申请书
 
@@ -92,14 +93,14 @@ def download_preservation_application(request: Any, case_id: int) -> Any:  # pra
 
     Requirements: 2.1, 3.1
     """
-    case = _require_case_contract(request, case_id)
+    case = await _require_case_contract(request, case_id)
     contract_id = case["contract_id"] if case else None
 
     service = _get_preservation_materials_service()
-    content, filename = service.generate_preservation_application(case_id)
+    content, filename = await sync_to_async(service.generate_preservation_application, thread_sensitive=False)(case_id)
 
     logger.info("财产保全申请书生成成功", extra={"case_id": case_id, "doc_filename": filename})
-    return _save_or_download(
+    return await _save_or_download(
         contract_id=contract_id,
         case_id=case_id,
         content=content,
@@ -111,7 +112,7 @@ def download_preservation_application(request: Any, case_id: int) -> Any:  # pra
 
 @router.post("/cases/{case_id}/preservation/delay-delivery/download")
 @rate_limit_from_settings("EXPORT", by_user=True)
-def download_delay_delivery_application(request: Any, case_id: int) -> Any:  # pragma: no cover
+async def download_delay_delivery_application(request: Any, case_id: int) -> Any:  # pragma: no cover
     """
     下载暂缓送达申请书
 
@@ -119,14 +120,14 @@ def download_delay_delivery_application(request: Any, case_id: int) -> Any:  # p
 
     Requirements: 2.2, 3.2
     """
-    case = _require_case_contract(request, case_id)
+    case = await _require_case_contract(request, case_id)
     contract_id = case["contract_id"] if case else None
 
     service = _get_preservation_materials_service()
-    content, filename = service.generate_delay_delivery_application(case_id)
+    content, filename = await sync_to_async(service.generate_delay_delivery_application, thread_sensitive=False)(case_id)
 
     logger.info("暂缓送达申请书生成成功", extra={"case_id": case_id, "doc_filename": filename})
-    return _save_or_download(
+    return await _save_or_download(
         contract_id=contract_id,
         case_id=case_id,
         content=content,
@@ -138,7 +139,7 @@ def download_delay_delivery_application(request: Any, case_id: int) -> Any:  # p
 
 @router.post("/cases/{case_id}/preservation/package/download")
 @rate_limit_from_settings("EXPORT", by_user=True)
-def download_full_package(request: Any, case_id: int) -> Any:  # pragma: no cover
+async def download_full_package(request: Any, case_id: int) -> Any:  # pragma: no cover
     """
     下载全套财产保全材料
 
@@ -146,18 +147,20 @@ def download_full_package(request: Any, case_id: int) -> Any:  # pragma: no cove
 
     Requirements: 3.3, 10.1
     """
-    case = _require_case_contract(request, case_id)
+    case = await _require_case_contract(request, case_id)
     contract_id = case["contract_id"] if case else None
 
     service = _get_preservation_materials_service()
-    content, filename = service.generate_full_package(case_id)
+    content, filename = await sync_to_async(service.generate_full_package, thread_sensitive=False)(case_id)
 
     logger.info("全套财产保全材料生成成功", extra={"case_id": case_id, "zip_filename": filename})
 
     # ZIP 包使用 extract_zip 方式保存到合同文件夹根目录
     if contract_id is not None:
         binding_service = _get_folder_binding_service()
-        saved_path = binding_service.extract_zip_for_contract(contract_id=contract_id, zip_content=content)
+        saved_path = await sync_to_async(binding_service.extract_zip_for_contract, thread_sensitive=False)(
+            contract_id=contract_id, zip_content=content
+        )
         if saved_path:
             logger.info(
                 "全套财产保全材料已保存到合同文件夹",

@@ -45,33 +45,36 @@ class TestModuleConstants:
 
 
 class TestExtractPdfFast:
-    def test_no_data(self) -> None:
+    @pytest.mark.asyncio
+    async def test_no_data(self) -> None:
         from apps.image_rotation.api.image_rotation_api import extract_pdf_fast
 
         req = MagicMock()
         req.body = json.dumps({"filename": "test.pdf"}).encode()
-        result = extract_pdf_fast(req)
+        result = await extract_pdf_fast(req)
         assert result["success"] is False
         assert "缺少 data 参数" in result["message"]
 
-    def test_success(self) -> None:
+    @pytest.mark.asyncio
+    async def test_success(self) -> None:
         from apps.image_rotation.api.image_rotation_api import extract_pdf_fast
 
         req = MagicMock()
         req.body = json.dumps({"filename": "test.pdf", "data": "base64data"}).encode()
         with patch("apps.image_rotation.api.image_rotation_api._get_pdf_service") as mock_svc:
             mock_svc.return_value.extract_pages.return_value = {"success": True, "pages": []}
-            result = extract_pdf_fast(req)
+            result = await extract_pdf_fast(req)
             assert result["success"] is True
 
-    def test_exception_handling(self) -> None:
+    @pytest.mark.asyncio
+    async def test_exception_handling(self) -> None:
         from apps.image_rotation.api.image_rotation_api import extract_pdf_fast
 
         req = MagicMock()
         req.body = json.dumps({"data": "base64data"}).encode()
         with patch("apps.image_rotation.api.image_rotation_api._get_pdf_service") as mock_svc:
             mock_svc.return_value.extract_pages.side_effect = RuntimeError("boom")
-            result = extract_pdf_fast(req)
+            result = await extract_pdf_fast(req)
             assert result["success"] is False
             assert "boom" in result["message"]
 
@@ -80,16 +83,18 @@ class TestExtractPdfFast:
 
 
 class TestDetectPageOrientation:
-    def test_no_data(self) -> None:
+    @pytest.mark.asyncio
+    async def test_no_data(self) -> None:
         from apps.image_rotation.api.image_rotation_api import detect_page_orientation
 
         req = MagicMock()
         req.body = json.dumps({}).encode()
-        result = detect_page_orientation(req)
+        result = await detect_page_orientation(req)
         assert result["rotation"] == 0
         assert result["confidence"] == 0
 
-    def test_success(self) -> None:
+    @pytest.mark.asyncio
+    async def test_success(self) -> None:
         from apps.image_rotation.api.image_rotation_api import detect_page_orientation
 
         req = MagicMock()
@@ -99,18 +104,19 @@ class TestDetectPageOrientation:
                 "rotation": 90,
                 "confidence": 0.95,
             }
-            result = detect_page_orientation(req)
+            result = await detect_page_orientation(req)
             assert result["rotation"] == 90
             assert "elapsed_ms" in result
 
-    def test_exception(self) -> None:
+    @pytest.mark.asyncio
+    async def test_exception(self) -> None:
         from apps.image_rotation.api.image_rotation_api import detect_page_orientation
 
         req = MagicMock()
         req.body = json.dumps({"data": "bad"}).encode()
         with patch("apps.image_rotation.api.image_rotation_api._get_pdf_service") as mock_svc:
             mock_svc.return_value.detect_single_page_orientation.side_effect = RuntimeError("err")
-            result = detect_page_orientation(req)
+            result = await detect_page_orientation(req)
             assert result["rotation"] == 0
 
 

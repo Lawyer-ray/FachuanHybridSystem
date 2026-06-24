@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from asgiref.sync import sync_to_async
 from django.http import HttpRequest
 from ninja import Router
 
@@ -40,7 +41,7 @@ def _get_access_policy() -> Any:
 
 
 @router.get("/contracts", response=list[ContractOut])
-def list_contracts(  # pragma: no cover
+async def list_contracts(  # pragma: no cover
     request: HttpRequest,
     case_type: str | None = None,
     status: str | None = None,
@@ -54,9 +55,9 @@ def list_contracts(  # pragma: no cover
     Requirements: 6.1, 6.2, 6.3
     """
     service = _get_domain_service()
-    ctx = extract_request_context(request)
+    ctx = await sync_to_async(extract_request_context, thread_sensitive=False)(request)
 
-    return service.list_contracts(
+    return await sync_to_async(service.list_contracts, thread_sensitive=False)(
         case_type=case_type,
         status=status,
         search=search,
@@ -73,9 +74,9 @@ class ContractWithCasesIn(ContractIn):
 
 
 @router.post("/contracts/full", response=ContractOut)
-def create_contract_with_cases(request: HttpRequest, payload: ContractWithCasesIn) -> Any:  # pragma: no cover
+async def create_contract_with_cases(request: HttpRequest, payload: ContractWithCasesIn) -> Any:  # pragma: no cover
     service = _get_domain_service()
-    ctx = extract_request_context(request)
+    ctx = await sync_to_async(extract_request_context, thread_sensitive=False)(request)
     if not _get_access_policy().can_create_contract(ctx.user):
         from apps.core.exceptions import PermissionDenied
 
@@ -83,7 +84,7 @@ def create_contract_with_cases(request: HttpRequest, payload: ContractWithCasesI
     data = payload.model_dump()
     cases_data = data.pop("cases", None)
     lawyer_ids = data.pop("lawyer_ids", [])
-    return service.create_contract_with_cases(
+    return await sync_to_async(service.create_contract_with_cases, thread_sensitive=False)(
         contract_data=data,
         cases_data=cases_data,
         assigned_lawyer_ids=lawyer_ids,
@@ -92,16 +93,16 @@ def create_contract_with_cases(request: HttpRequest, payload: ContractWithCasesI
 
 
 @router.get("/contracts/{contract_id}", response=ContractOut)
-def get_contract(request: HttpRequest, contract_id: int) -> Any:  # pragma: no cover
+async def get_contract(request: HttpRequest, contract_id: int) -> Any:  # pragma: no cover
     """
     获取合同详情
 
     Requirements: 6.1, 6.2, 6.3
     """
     service = _get_domain_service()
-    ctx = extract_request_context(request)
+    ctx = await sync_to_async(extract_request_context, thread_sensitive=False)(request)
 
-    return service.get_contract(
+    return await sync_to_async(service.get_contract, thread_sensitive=False)(
         contract_id=contract_id,
         user=ctx.user,
         org_access=ctx.org_access,
@@ -110,7 +111,7 @@ def get_contract(request: HttpRequest, contract_id: int) -> Any:  # pragma: no c
 
 
 @router.put("/contracts/{contract_id}", response=ContractOut)
-def update_contract(  # pragma: no cover
+async def update_contract(  # pragma: no cover
     request: HttpRequest,
     contract_id: int,
     payload: ContractUpdate,
@@ -119,7 +120,7 @@ def update_contract(  # pragma: no cover
     new_payments: list[ContractPaymentIn] | None = None,
 ) -> Any:
     service = _get_domain_service()
-    ctx = extract_request_context(request)
+    ctx = await sync_to_async(extract_request_context, thread_sensitive=False)(request)
     _get_access_policy().ensure_access(
         contract_id=contract_id,
         user=ctx.user,
@@ -127,7 +128,7 @@ def update_contract(  # pragma: no cover
         perm_open_access=ctx.perm_open_access,
     )
     data = payload.model_dump(exclude_unset=True)
-    return service.update_contract_with_finance(
+    return await sync_to_async(service.update_contract_with_finance, thread_sensitive=False)(
         contract_id=contract_id,
         update_data=data,
         user=ctx.user,
@@ -137,17 +138,17 @@ def update_contract(  # pragma: no cover
 
 
 @router.post("/contracts", response=ContractOut)
-def create_contract(  # pragma: no cover
+async def create_contract(  # pragma: no cover
     request: HttpRequest,
     payload: ContractIn,
     payments: list[ContractPaymentIn] | None = None,
     confirm_finance: bool = False,
 ) -> Any:
     service = _get_domain_service()
-    ctx = extract_request_context(request)
+    ctx = await sync_to_async(extract_request_context, thread_sensitive=False)(request)
     data = payload.model_dump()
     lawyer_ids = data.pop("lawyer_ids", [])
-    return service.create_contract_with_cases(
+    return await sync_to_async(service.create_contract_with_cases, thread_sensitive=False)(
         contract_data=data,
         cases_data=None,
         assigned_lawyer_ids=lawyer_ids,
@@ -158,41 +159,43 @@ def create_contract(  # pragma: no cover
 
 
 @router.put("/contracts/{contract_id}/lawyers", response=list[ContractAssignmentOut])
-def update_contract_lawyers(request: HttpRequest, contract_id: int, payload: UpdateLawyersIn) -> Any:  # pragma: no cover
+async def update_contract_lawyers(request: HttpRequest, contract_id: int, payload: UpdateLawyersIn) -> Any:  # pragma: no cover
     service = _get_domain_service()
-    ctx = extract_request_context(request)
+    ctx = await sync_to_async(extract_request_context, thread_sensitive=False)(request)
     _get_access_policy().ensure_access(
         contract_id=contract_id,
         user=ctx.user,
         org_access=ctx.org_access,
         perm_open_access=ctx.perm_open_access,
     )
-    assignments = service.update_contract_lawyers(contract_id=contract_id, lawyer_ids=payload.lawyer_ids)
+    assignments = await sync_to_async(service.update_contract_lawyers, thread_sensitive=False)(
+        contract_id=contract_id, lawyer_ids=payload.lawyer_ids,
+    )
     return [ContractAssignmentOut.from_assignment(item) for item in assignments]
 
 
 @router.delete("/contracts/{contract_id}")
-def delete_contract(request: HttpRequest, contract_id: int) -> dict[str, bool]:  # pragma: no cover
+async def delete_contract(request: HttpRequest, contract_id: int) -> dict[str, bool]:  # pragma: no cover
     service = _get_domain_service()
-    ctx = extract_request_context(request)
+    ctx = await sync_to_async(extract_request_context, thread_sensitive=False)(request)
     _get_access_policy().ensure_access(
         contract_id=contract_id,
         user=ctx.user,
         org_access=ctx.org_access,
         perm_open_access=ctx.perm_open_access,
     )
-    service.delete_contract(contract_id)
+    await sync_to_async(service.delete_contract, thread_sensitive=False)(contract_id)
     return {"success": True}
 
 
 @router.get("/contracts/{contract_id}/all-parties", response=list[ContractPartySourceOut])
-def get_contract_all_parties(request: HttpRequest, contract_id: int) -> Any:  # pragma: no cover
+async def get_contract_all_parties(request: HttpRequest, contract_id: int) -> Any:  # pragma: no cover
     service = _get_domain_service()
-    ctx = extract_request_context(request)
+    ctx = await sync_to_async(extract_request_context, thread_sensitive=False)(request)
     _get_access_policy().ensure_access(
         contract_id=contract_id,
         user=ctx.user,
         org_access=ctx.org_access,
         perm_open_access=ctx.perm_open_access,
     )
-    return service.get_all_parties(contract_id)
+    return await sync_to_async(service.get_all_parties, thread_sensitive=False)(contract_id)

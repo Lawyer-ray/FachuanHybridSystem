@@ -9,6 +9,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from asgiref.sync import sync_to_async
 from ninja import Router, Schema
 
 from apps.core.exceptions import ValidationException
@@ -62,32 +63,32 @@ def _get_contract_generation_service() -> Any:
 
 
 @router.get("/contracts/{contract_id}/preview")
-def preview_contract_context(request: Any, contract_id: int) -> Any:  # pragma: no cover
+async def preview_contract_context(request: Any, contract_id: int) -> Any:  # pragma: no cover
     """合同占位符预览"""
-    _require_contract_access(request, contract_id)
+    await sync_to_async(_require_contract_access, thread_sensitive=False)(request, contract_id)
     service = _get_contract_generation_service()
-    rows = service.get_preview_context(contract_id)
+    rows = await sync_to_async(service.get_preview_context, thread_sensitive=False)(contract_id)
     return {"success": True, "data": rows}
 
 
 @router.get("/contracts/{contract_id}/supplementary-agreements/{agreement_id}/preview")
-def preview_supplementary_agreement_context(request: Any, contract_id: int, agreement_id: int) -> Any:  # pragma: no cover
+async def preview_supplementary_agreement_context(request: Any, contract_id: int, agreement_id: int) -> Any:  # pragma: no cover
     """补充协议占位符预览"""
-    _require_contract_access(request, contract_id)
+    await sync_to_async(_require_contract_access, thread_sensitive=False)(request, contract_id)
     service = _get_supplementary_agreement_service()
-    rows = service.get_preview_context(contract_id, agreement_id)
+    rows = await sync_to_async(service.get_preview_context, thread_sensitive=False)(contract_id, agreement_id)
     return {"success": True, "data": rows}
 
 
 @router.get("/contracts/{contract_id}/archive-preview")
-def preview_archive_context(request: Any, contract_id: int, template_subtype: str = "") -> Any:  # pragma: no cover
+async def preview_archive_context(request: Any, contract_id: int, template_subtype: str = "") -> Any:  # pragma: no cover
     """归档文书占位符预览
 
     Args:
         contract_id: 合同 ID
         template_subtype: 归档模板子类型，如 case_cover, closing_archive_register 等
     """
-    _require_contract_access(request, contract_id)
+    await sync_to_async(_require_contract_access, thread_sensitive=False)(request, contract_id)
 
     if not template_subtype:
         return {"success": False, "error": "缺少 template_subtype 参数"}
@@ -95,25 +96,25 @@ def preview_archive_context(request: Any, contract_id: int, template_subtype: st
     from apps.contracts.services.archive import ArchiveGenerationService
 
     gen_service = ArchiveGenerationService()
-    return gen_service.preview_archive_template(contract_id, template_subtype)
+    return await sync_to_async(gen_service.preview_archive_template, thread_sensitive=False)(contract_id, template_subtype)
 
 
 @router.get("/contracts/{contract_id}/archive-placeholder-overrides")
-def get_archive_overrides(request: Any, contract_id: int, template_subtype: str = "") -> Any:  # pragma: no cover
+async def get_archive_overrides(request: Any, contract_id: int, template_subtype: str = "") -> Any:  # pragma: no cover
     """获取归档文书占位符覆盖值
 
     Args:
         contract_id: 合同 ID
         template_subtype: 归档模板子类型
     """
-    _require_contract_access(request, contract_id)
+    await sync_to_async(_require_contract_access, thread_sensitive=False)(request, contract_id)
 
     if not template_subtype:
         return {"success": False, "error": "缺少 template_subtype 参数"}
 
     from apps.contracts.services.archive.override_service import get_override
 
-    override_obj = get_override(contract_id, template_subtype)
+    override_obj = await sync_to_async(get_override, thread_sensitive=False)(contract_id, template_subtype)
 
     return {
         "success": True,
@@ -125,7 +126,7 @@ def get_archive_overrides(request: Any, contract_id: int, template_subtype: str 
 
 
 @router.post("/contracts/{contract_id}/archive-placeholder-overrides")
-def save_archive_overrides(  # pragma: no cover
+async def save_archive_overrides(  # pragma: no cover
     request: Any, contract_id: int, template_subtype: str = "", payload: ArchiveOverridesPayload | None = None
 ) -> Any:
     """保存归档文书占位符覆盖值
@@ -135,7 +136,7 @@ def save_archive_overrides(  # pragma: no cover
         template_subtype: 归档模板子类型
         payload: 包含 overrides 字段的请求体
     """
-    _require_contract_access(request, contract_id)
+    await sync_to_async(_require_contract_access, thread_sensitive=False)(request, contract_id)
 
     if not template_subtype:
         return {"success": False, "error": "缺少 template_subtype 参数"}
@@ -144,7 +145,7 @@ def save_archive_overrides(  # pragma: no cover
 
     from apps.contracts.services.archive.override_service import save_override
 
-    obj, created = save_override(contract_id, template_subtype, overrides)
+    obj, created = await sync_to_async(save_override, thread_sensitive=False)(contract_id, template_subtype, overrides)
 
     logger.info(
         "保存归档占位符覆盖值",
@@ -155,28 +156,28 @@ def save_archive_overrides(  # pragma: no cover
 
 
 @router.delete("/contracts/{contract_id}/archive-placeholder-overrides")
-def delete_archive_overrides(request: Any, contract_id: int, template_subtype: str = "") -> Any:  # pragma: no cover
+async def delete_archive_overrides(request: Any, contract_id: int, template_subtype: str = "") -> Any:  # pragma: no cover
     """删除归档文书占位符覆盖值（放弃修改）
 
     Args:
         contract_id: 合同 ID
         template_subtype: 归档模板子类型
     """
-    _require_contract_access(request, contract_id)
+    await sync_to_async(_require_contract_access, thread_sensitive=False)(request, contract_id)
 
     if not template_subtype:
         return {"success": False, "error": "缺少 template_subtype 参数"}
 
     from apps.contracts.services.archive.override_service import delete_override
 
-    deleted_count = delete_override(contract_id, template_subtype)
+    deleted_count = await sync_to_async(delete_override, thread_sensitive=False)(contract_id, template_subtype)
 
     return {"success": True, "data": {"deleted": deleted_count > 0}}
 
 
 @router.get("/contracts/{contract_id}/download")
 @rate_limit_from_settings("EXPORT", by_user=True)
-def download_contract_document(request: Any, contract_id: int, split_fee: bool = True) -> Any:  # pragma: no cover
+async def download_contract_document(request: Any, contract_id: int, split_fee: bool = True) -> Any:  # pragma: no cover
     """
     下载合同文档(DOCX 格式)
 
@@ -190,11 +191,13 @@ def download_contract_document(request: Any, contract_id: int, split_fee: bool =
     Returns:
         DOCX 文件下载响应或 JSON 响应
     """
-    _require_contract_access(request, contract_id)
+    await sync_to_async(_require_contract_access, thread_sensitive=False)(request, contract_id)
     service = _get_contract_generation_service()
 
     # 生成合同文档
-    content, filename, saved_path, error = service.generate_contract_document_result(contract_id, split_fee=split_fee)
+    content, filename, saved_path, error = await sync_to_async(
+        service.generate_contract_document_result, thread_sensitive=False
+    )(contract_id, split_fee=split_fee)
 
     if error:
         logger.warning("生成合同文档失败: %s", error, extra={"contract_id": contract_id, "error": error})
@@ -231,7 +234,7 @@ def download_contract_document(request: Any, contract_id: int, split_fee: bool =
 
 @router.get("/contracts/{contract_id}/folder/download")
 @rate_limit_from_settings("EXPORT", by_user=True)
-def download_contract_folder(request: Any, contract_id: int) -> Any:  # pragma: no cover
+async def download_contract_folder(request: Any, contract_id: int) -> Any:  # pragma: no cover
     """
     下载合同文件夹(ZIP 格式)
 
@@ -243,11 +246,13 @@ def download_contract_folder(request: Any, contract_id: int) -> Any:  # pragma: 
     Returns:
         ZIP 文件下载响应
     """
-    _require_contract_access(request, contract_id)
+    await sync_to_async(_require_contract_access, thread_sensitive=False)(request, contract_id)
     service = _get_folder_generation_service()
 
     # 生成文件夹 ZIP
-    zip_content, zip_filename, extract_path, error = service.generate_folder_with_documents_result(contract_id)
+    zip_content, zip_filename, extract_path, error = await sync_to_async(
+        service.generate_folder_with_documents_result, thread_sensitive=False
+    )(contract_id)
 
     if error:
         logger.warning("生成合同文件夹失败: %s", error, extra={"contract_id": contract_id, "error": error})
@@ -276,7 +281,7 @@ def download_contract_folder(request: Any, contract_id: int) -> Any:  # pragma: 
 
 @router.get("/contracts/{contract_id}/supplementary-agreements/{agreement_id}/download")
 @rate_limit_from_settings("EXPORT", by_user=True)
-def download_supplementary_agreement(request: Any, contract_id: int, agreement_id: int) -> Any:  # pragma: no cover
+async def download_supplementary_agreement(request: Any, contract_id: int, agreement_id: int) -> Any:  # pragma: no cover
     """
     下载补充协议文档(DOCX 格式)
 
@@ -291,11 +296,13 @@ def download_supplementary_agreement(request: Any, contract_id: int, agreement_i
     Returns:
         DOCX 文件下载响应或 JSON 响应
     """
-    _require_contract_access(request, contract_id)
+    await sync_to_async(_require_contract_access, thread_sensitive=False)(request, contract_id)
     service = _get_supplementary_agreement_service()
 
     # 生成补充协议文档
-    content, filename, saved_path, error = service.generate_supplementary_agreement_result(contract_id, agreement_id)
+    content, filename, saved_path, error = await sync_to_async(
+        service.generate_supplementary_agreement_result, thread_sensitive=False
+    )(contract_id, agreement_id)
 
     if error:
         logger.warning(

@@ -5,6 +5,7 @@
 import logging
 from typing import Any
 
+from asgiref.sync import sync_to_async
 from ninja import Router, Schema
 
 from apps.core.infrastructure.throttling import rate_limit_from_settings
@@ -28,22 +29,22 @@ def _get_folder_binding_service() -> Any:
     return ServiceLocator.get_contract_folder_binding_service()
 
 
-def _require_case_contract(request: Any, case_id: int) -> Any:
+async def _require_case_contract(request: Any, case_id: int) -> Any:
     """获取案件绑定的合同 ID，无合同则返回 None。同时验证用户对案件的访问权限。"""
     from apps.cases.services.case.case_access_policy import CaseAccessPolicy
     from apps.core.security import get_request_access_context
     from apps.documents.services.case_contract_query import get_case_contract_info
 
     ctx = get_request_access_context(request)
-    CaseAccessPolicy().ensure_access_ctx(case_id=case_id, ctx=ctx)
+    await sync_to_async(CaseAccessPolicy().ensure_access_ctx, thread_sensitive=False)(case_id=case_id, ctx=ctx)
 
-    case = get_case_contract_info(case_id)
+    case = await sync_to_async(get_case_contract_info, thread_sensitive=False)(case_id)
     if not case:
         return None
     return case
 
 
-def _save_or_download(
+async def _save_or_download(
     contract_id: int | None,
     case_id: int,
     content: bytes,
@@ -56,7 +57,7 @@ def _save_or_download(
         return build_download_response(content=content, filename=filename, content_type=content_type)
 
     binding_service = _get_folder_binding_service()
-    saved_path = binding_service.save_file_for_contract(
+    saved_path = await sync_to_async(binding_service.save_file_for_contract, thread_sensitive=False)(
         contract_id=contract_id,
         file_content=content,
         file_name=filename,
@@ -83,15 +84,15 @@ class CombinedPowerOfAttorneyIn(Schema):
 
 @router.post("/cases/{case_id}/authorization/letter/download")
 @rate_limit_from_settings("EXPORT", by_user=True)
-def download_authority_letter(request: Any, case_id: int) -> Any:  # pragma: no cover
-    case = _require_case_contract(request, case_id)
+async def download_authority_letter(request: Any, case_id: int) -> Any:  # pragma: no cover
+    case = await _require_case_contract(request, case_id)
     contract_id = case["contract_id"] if case else None
 
     service = _get_authorization_material_generation_service()
-    content, filename = service.generate_authority_letter_document(case_id)
+    content, filename = await sync_to_async(service.generate_authority_letter_document, thread_sensitive=False)(case_id)
 
     logger.info("所函生成成功", extra={"case_id": case_id, "doc_filename": filename})
-    return _save_or_download(
+    return await _save_or_download(
         contract_id=contract_id,
         case_id=case_id,
         content=content,
@@ -103,18 +104,20 @@ def download_authority_letter(request: Any, case_id: int) -> Any:  # pragma: no 
 
 @router.post("/cases/{case_id}/authorization/legal-rep-certificate/{client_id}/download")
 @rate_limit_from_settings("EXPORT", by_user=True)
-def download_legal_rep_certificate(request: Any, case_id: int, client_id: int) -> Any:  # pragma: no cover
-    case = _require_case_contract(request, case_id)
+async def download_legal_rep_certificate(request: Any, case_id: int, client_id: int) -> Any:  # pragma: no cover
+    case = await _require_case_contract(request, case_id)
     contract_id = case["contract_id"] if case else None
 
     service = _get_authorization_material_generation_service()
-    content, filename = service.generate_legal_rep_certificate_document(case_id, client_id)
+    content, filename = await sync_to_async(service.generate_legal_rep_certificate_document, thread_sensitive=False)(
+        case_id, client_id
+    )
 
     logger.info(
         "法定代表人身份证明书生成成功",
         extra={"case_id": case_id, "client_id": client_id, "doc_filename": filename},
     )
-    return _save_or_download(
+    return await _save_or_download(
         contract_id=contract_id,
         case_id=case_id,
         content=content,
@@ -126,18 +129,22 @@ def download_legal_rep_certificate(request: Any, case_id: int, client_id: int) -
 
 @router.post("/cases/{case_id}/authorization/power-of-attorney/combined/download")
 @rate_limit_from_settings("EXPORT", by_user=True)
-def download_power_of_attorney_combined(request: Any, case_id: int, payload: CombinedPowerOfAttorneyIn) -> Any:  # pragma: no cover
-    case = _require_case_contract(request, case_id)
+async def download_power_of_attorney_combined(
+    request: Any, case_id: int, payload: CombinedPowerOfAttorneyIn
+) -> Any:  # pragma: no cover
+    case = await _require_case_contract(request, case_id)
     contract_id = case["contract_id"] if case else None
 
     service = _get_authorization_material_generation_service()
-    content, filename = service.generate_power_of_attorney_combined_document(case_id, payload.client_ids)
+    content, filename = await sync_to_async(
+        service.generate_power_of_attorney_combined_document, thread_sensitive=False
+    )(case_id, payload.client_ids)
 
     logger.info(
         "授权委托书(合并授权)生成成功",
         extra={"case_id": case_id, "client_ids": payload.client_ids, "doc_filename": filename},
     )
-    return _save_or_download(
+    return await _save_or_download(
         contract_id=contract_id,
         case_id=case_id,
         content=content,
@@ -149,19 +156,21 @@ def download_power_of_attorney_combined(request: Any, case_id: int, payload: Com
 
 @router.post("/cases/{case_id}/authorization/package/download")
 @rate_limit_from_settings("EXPORT", by_user=True)
-def download_authorization_package(request: Any, case_id: int) -> Any:  # pragma: no cover
-    case = _require_case_contract(request, case_id)
+async def download_authorization_package(request: Any, case_id: int) -> Any:  # pragma: no cover
+    case = await _require_case_contract(request, case_id)
     contract_id = case["contract_id"] if case else None
 
     service = _get_authorization_material_generation_service()
-    content, filename = service.generate_full_authorization_package(case_id)
+    content, filename = await sync_to_async(service.generate_full_authorization_package, thread_sensitive=False)(case_id)
 
     logger.info("全套授权委托材料生成成功", extra={"case_id": case_id, "zip_filename": filename})
 
     # ZIP 包使用 extract_zip 方式保存到合同文件夹根目录
     if contract_id is not None:
         binding_service = _get_folder_binding_service()
-        saved_path = binding_service.extract_zip_for_contract(contract_id=contract_id, zip_content=content)
+        saved_path = await sync_to_async(binding_service.extract_zip_for_contract, thread_sensitive=False)(
+            contract_id=contract_id, zip_content=content
+        )
         if saved_path:
             logger.info(
                 "全套授权委托材料已保存到合同文件夹",
@@ -179,18 +188,20 @@ def download_authorization_package(request: Any, case_id: int) -> Any:  # pragma
 
 @router.post("/cases/{case_id}/authorization/power-of-attorney/{client_id}/download")
 @rate_limit_from_settings("EXPORT", by_user=True)
-def download_power_of_attorney(request: Any, case_id: int, client_id: int) -> Any:  # pragma: no cover
-    case = _require_case_contract(request, case_id)
+async def download_power_of_attorney(request: Any, case_id: int, client_id: int) -> Any:  # pragma: no cover
+    case = await _require_case_contract(request, case_id)
     contract_id = case["contract_id"] if case else None
 
     service = _get_authorization_material_generation_service()
-    content, filename = service.generate_power_of_attorney_document(case_id, client_id)
+    content, filename = await sync_to_async(service.generate_power_of_attorney_document, thread_sensitive=False)(
+        case_id, client_id
+    )
 
     logger.info(
         "授权委托书生成成功",
         extra={"case_id": case_id, "client_id": client_id, "doc_filename": filename},
     )
-    return _save_or_download(
+    return await _save_or_download(
         contract_id=contract_id,
         case_id=case_id,
         content=content,

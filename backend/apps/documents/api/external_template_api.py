@@ -9,6 +9,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from asgiref.sync import sync_to_async
 from django.http import HttpRequest, HttpResponse
 from ninja import Router, Schema
 
@@ -77,10 +78,10 @@ class MappingCreateSchema(Schema):
 
 
 @router.post("/{template_id}/analyze")
-def analyze_template(request: HttpRequest, template_id: int) -> dict[str, Any]:  # pragma: no cover
+async def analyze_template(request: HttpRequest, template_id: int) -> dict[str, Any]:  # pragma: no cover
     """触发/重新触发 LLM 分析"""
     service = _get_analysis_service()
-    mappings = service.analyze_template(template_id)
+    mappings = await sync_to_async(service.analyze_template, thread_sensitive=False)(template_id)
     logger.info(
         "模板分析完成",
         extra={"template_id": template_id, "mapping_count": len(mappings)},
@@ -93,21 +94,21 @@ def analyze_template(request: HttpRequest, template_id: int) -> dict[str, Any]: 
 
 
 @router.post("/{template_id}/confirm")
-def confirm_mappings(request: HttpRequest, template_id: int) -> dict[str, Any]:  # pragma: no cover
+async def confirm_mappings(request: HttpRequest, template_id: int) -> dict[str, Any]:  # pragma: no cover
     """确认字段映射"""
     service = _get_analysis_service()
-    service.confirm_mappings(template_id)
+    await sync_to_async(service.confirm_mappings, thread_sensitive=False)(template_id)
     logger.info("映射已确认", extra={"template_id": template_id})
     return {"success": True, "template_id": template_id}
 
 
 @router.post("/fill")
-def fill_templates(request: HttpRequest, payload: FillRequestSchema) -> dict[str, Any] | HttpResponse:  # pragma: no cover
+async def fill_templates(request: HttpRequest, payload: FillRequestSchema) -> dict[str, Any] | HttpResponse:  # pragma: no cover
     """执行填充（单个或批量），返回文件信息"""
     service = _get_filling_service()
     user = getattr(request, "auth", None) or getattr(request, "user", None)
 
-    batch_task = service.batch_fill(
+    batch_task = await sync_to_async(service.batch_fill, thread_sensitive=False)(
         case_id=payload.case_id,
         template_ids=payload.template_ids,
         party_ids=payload.party_ids,
@@ -115,7 +116,7 @@ def fill_templates(request: HttpRequest, payload: FillRequestSchema) -> dict[str
         filled_by=user,
     )
 
-    records = list(batch_task.records.values_list("id", "original_output_name", "file_path", flat=False))
+    records = await sync_to_async(list)(batch_task.records.values_list("id", "original_output_name", "file_path", flat=False))
     logger.info(
         "填充完成",
         extra={"batch_task_id": batch_task.id, "record_count": len(records)},
@@ -130,7 +131,7 @@ def fill_templates(request: HttpRequest, payload: FillRequestSchema) -> dict[str
 
 
 @router.get("/{template_id}/preview")
-def preview_fill(  # pragma: no cover
+async def preview_fill(  # pragma: no cover
     request: HttpRequest,
     template_id: int,
     case_id: int,
@@ -138,7 +139,7 @@ def preview_fill(  # pragma: no cover
 ) -> dict[str, Any]:
     """填充预览"""
     service = _get_filling_service()
-    items = service.generate_preview(
+    items = await sync_to_async(service.generate_preview, thread_sensitive=False)(
         template_id=template_id,
         case_id=case_id,
         party_id=party_id,
@@ -162,7 +163,7 @@ def preview_fill(  # pragma: no cover
 
 
 @router.get("/match")
-def match_templates(  # pragma: no cover
+async def match_templates(  # pragma: no cover
     request: HttpRequest,
     case_id: int | None = None,
     source_name: str | None = None,
@@ -176,9 +177,9 @@ def match_templates(  # pragma: no cover
         return {"success": False, "message": "无法确定所属律所"}
 
     if case_id is not None:
-        results = service.match_by_case(case_id=case_id, law_firm_id=law_firm_id)
+        results = await sync_to_async(service.match_by_case, thread_sensitive=False)(case_id=case_id, law_firm_id=law_firm_id)
     elif source_name is not None:
-        results = service.match_by_source_name(
+        results = await sync_to_async(service.match_by_source_name, thread_sensitive=False)(
             source_name=source_name,
             law_firm_id=law_firm_id,
         )
@@ -192,15 +193,15 @@ def match_templates(  # pragma: no cover
 
 
 @router.get("/{template_id}/custom-fields")
-def get_custom_fields(request: HttpRequest, template_id: int) -> dict[str, Any]:  # pragma: no cover
+async def get_custom_fields(request: HttpRequest, template_id: int) -> dict[str, Any]:  # pragma: no cover
     """获取需手动输入的自定义字段"""
     service = _get_filling_service()
-    fields = service.get_custom_fields(template_id)
+    fields = await sync_to_async(service.get_custom_fields, thread_sensitive=False)(template_id)
     return {"template_id": template_id, "fields": fields}
 
 
 @router.get("/history")
-def get_fill_history(  # pragma: no cover
+async def get_fill_history(  # pragma: no cover
     request: HttpRequest,
     case_id: int | None = None,
     template_id: int | None = None,
@@ -209,13 +210,13 @@ def get_fill_history(  # pragma: no cover
     service = _get_filling_service()
 
     if case_id is not None:
-        qs = service.get_fill_history_by_case(case_id)
+        qs = await sync_to_async(service.get_fill_history_by_case, thread_sensitive=False)(case_id)
     elif template_id is not None:
-        qs = service.get_fill_history_by_template(template_id)
+        qs = await sync_to_async(service.get_fill_history_by_template, thread_sensitive=False)(template_id)
     else:
         return {"success": False, "message": "请提供 case_id 或 template_id 参数"}
 
-    records = list(
+    records = await sync_to_async(list)(
         qs.values(
             "id",
             "case_id",
@@ -230,7 +231,7 @@ def get_fill_history(  # pragma: no cover
 
 
 @router.get("/statistics")
-def get_statistics(request: HttpRequest) -> dict[str, Any]:  # pragma: no cover
+async def get_statistics(request: HttpRequest) -> dict[str, Any]:  # pragma: no cover
     """模板统计"""
     service = _get_matching_service()
     user = getattr(request, "auth", None) or getattr(request, "user", None)
@@ -239,7 +240,7 @@ def get_statistics(request: HttpRequest) -> dict[str, Any]:  # pragma: no cover
     if law_firm_id is None:
         return {"success": False, "message": "无法确定所属律所"}
 
-    stats = service.get_template_statistics(law_firm_id)
+    stats = await sync_to_async(service.get_template_statistics, thread_sensitive=False)(law_firm_id)
     return {"success": True, "statistics": stats}
 
 
@@ -249,7 +250,7 @@ def get_statistics(request: HttpRequest) -> dict[str, Any]:  # pragma: no cover
 
 
 @router.get("/{template_id}/preview-html")
-def get_preview_html(request: HttpRequest, template_id: int) -> dict[str, Any]:  # pragma: no cover
+async def get_preview_html(request: HttpRequest, template_id: int) -> dict[str, Any]:  # pragma: no cover
     """将 docx 转为 HTML 用于预览"""
     from pathlib import Path
 
@@ -258,11 +259,10 @@ def get_preview_html(request: HttpRequest, template_id: int) -> dict[str, Any]: 
 
     from apps.documents.services.external_template.query_service import get_template_or_raise
 
-    template = get_template_or_raise(template_id)
+    template = await sync_to_async(get_template_or_raise)(template_id)
     abs_path = Path(settings.MEDIA_ROOT) / template.file_path
 
-    with abs_path.open("rb") as f:
-        result = mammoth.convert_to_html(f)
+    result = await sync_to_async(mammoth.convert_to_html)(abs_path.open("rb"))
 
     return {
         "html": result.value,
@@ -271,11 +271,11 @@ def get_preview_html(request: HttpRequest, template_id: int) -> dict[str, Any]: 
 
 
 @router.get("/{template_id}/mappings")
-def list_mappings(request: HttpRequest, template_id: int) -> list[dict[str, Any]]:  # pragma: no cover
+async def list_mappings(request: HttpRequest, template_id: int) -> list[dict[str, Any]]:  # pragma: no cover
     """获取模板的所有字段映射"""
     from apps.documents.services.external_template.query_service import get_mappings_by_template
 
-    mappings = get_mappings_by_template(template_id)
+    mappings = await sync_to_async(get_mappings_by_template)(template_id)
 
     return [
         {
@@ -291,10 +291,10 @@ def list_mappings(request: HttpRequest, template_id: int) -> list[dict[str, Any]
 
 
 @router.post("/{template_id}/mappings")
-def create_mapping(request: HttpRequest, template_id: int, payload: MappingCreateSchema) -> dict[str, Any]:  # pragma: no cover
+async def create_mapping(request: HttpRequest, template_id: int, payload: MappingCreateSchema) -> dict[str, Any]:  # pragma: no cover
     """手动添加字段映射"""
     service = _get_analysis_service()
-    m = service.create_manual_mapping(
+    m = await sync_to_async(service.create_manual_mapping, thread_sensitive=False)(
         template_id=template_id,
         position_locator=payload.position_locator,
         position_description=payload.position_description,
@@ -313,24 +313,27 @@ def create_mapping(request: HttpRequest, template_id: int, payload: MappingCreat
 
 
 @router.put("/mappings/{mapping_id}")
-def update_mapping(request: HttpRequest, mapping_id: int, payload: MappingUpdateSchema) -> dict[str, Any]:  # pragma: no cover
+async def update_mapping(request: HttpRequest, mapping_id: int, payload: MappingUpdateSchema) -> dict[str, Any]:  # pragma: no cover
     """更新字段映射"""
     from apps.documents.services.external_template.query_service import get_mapping_or_raise
 
-    m = get_mapping_or_raise(mapping_id)
-    update_fields: list[str] = ["updated_at"]
+    m = await sync_to_async(get_mapping_or_raise)(mapping_id)
 
-    if payload.semantic_label is not None:
-        m.semantic_label = payload.semantic_label
-        update_fields.append("semantic_label")
-    if payload.fill_type is not None:
-        m.fill_type = payload.fill_type
-        update_fields.append("fill_type")
-    if payload.position_description is not None:
-        m.position_description = payload.position_description
-        update_fields.append("position_description")
+    def _apply_updates() -> list[str]:
+        update_fields: list[str] = ["updated_at"]
+        if payload.semantic_label is not None:
+            m.semantic_label = payload.semantic_label
+            update_fields.append("semantic_label")
+        if payload.fill_type is not None:
+            m.fill_type = payload.fill_type
+            update_fields.append("fill_type")
+        if payload.position_description is not None:
+            m.position_description = payload.position_description
+            update_fields.append("position_description")
+        m.save(update_fields=update_fields)
+        return update_fields
 
-    m.save(update_fields=update_fields)
+    await sync_to_async(_apply_updates, thread_sensitive=False)()
     logger.info("更新映射: mapping_id=%d", mapping_id)
     return {
         "id": m.id,
@@ -343,9 +346,9 @@ def update_mapping(request: HttpRequest, mapping_id: int, payload: MappingUpdate
 
 
 @router.delete("/mappings/{mapping_id}")
-def delete_mapping(request: HttpRequest, mapping_id: int) -> dict[str, bool]:  # pragma: no cover
+async def delete_mapping(request: HttpRequest, mapping_id: int) -> dict[str, bool]:  # pragma: no cover
     """删除字段映射"""
     service = _get_analysis_service()
-    service.delete_mapping(mapping_id)
+    await sync_to_async(service.delete_mapping, thread_sensitive=False)(mapping_id)
     logger.info("删除映射: mapping_id=%d", mapping_id)
     return {"success": True}

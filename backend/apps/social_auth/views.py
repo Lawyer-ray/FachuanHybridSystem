@@ -15,6 +15,7 @@ from django.http import (
 )
 from django.shortcuts import redirect
 from django.views import View
+from asgiref.sync import sync_to_async
 
 from apps.social_auth.models import TempAuth
 from apps.social_auth.providers import ProviderRegistry
@@ -67,7 +68,7 @@ class SocialLoginView(View):  # pragma: no cover
 class SocialCallbackView(View):  # pragma: no cover
     """GET /social/{provider}/callback/ — 接收 Provider 回调"""
 
-    def get(self, request: HttpRequest, provider: str) -> HttpResponse:  # pragma: no cover
+    async def get(self, request: HttpRequest, provider: str) -> HttpResponse:  # pragma: no cover
         frontend_base = getattr(settings, "FRONTEND_BASE_URL", "http://localhost:5173")
 
         session_data = request.session.get("oauth", {})
@@ -104,7 +105,7 @@ class SocialCallbackView(View):  # pragma: no cover
             return HttpResponseRedirect(f"{frontend_base}/social-callback?error=no_code")
 
         try:
-            token_response = instance.exchange_code(code, state)
+            token_response = await sync_to_async(instance.exchange_code, thread_sensitive=False)(code, state)
         except Exception as exc:
             logger.warning("Social auth exchange failed for %s: %s", provider, exc)
             return HttpResponseRedirect(
@@ -112,7 +113,7 @@ class SocialCallbackView(View):  # pragma: no cover
             )
 
         try:
-            profile = instance.get_profile(token_response)
+            profile = await sync_to_async(instance.get_profile, thread_sensitive=False)(token_response)
         except Exception as exc:
             logger.warning("Social auth profile fetch failed for %s: %s", provider, exc)
             return HttpResponseRedirect(
@@ -120,14 +121,14 @@ class SocialCallbackView(View):  # pragma: no cover
             )
 
         try:
-            user = link_or_create_user(profile)
+            user = await sync_to_async(link_or_create_user, thread_sensitive=False)(profile)
         except Exception as exc:
             logger.error("Social auth user creation failed for %s: %s", provider, exc)
             return HttpResponseRedirect(
                 f"{frontend_base}/social-callback?error=user_creation_failed"
             )
 
-        temp = TempAuth.objects.create(user=user)
+        temp = await sync_to_async(TempAuth.objects.create)(user=user)
 
         if "oauth" in request.session:
             del request.session["oauth"]
