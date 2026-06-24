@@ -484,6 +484,7 @@ class MineruBackend:
 
     async def _aupload_file(self, file_path: str) -> str:
         """异步上传文件到 MinerU。"""
+        import asyncio
         import uuid
 
         file_path_obj = Path(file_path)
