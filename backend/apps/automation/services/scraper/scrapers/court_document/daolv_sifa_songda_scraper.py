@@ -12,6 +12,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import base64
 import hashlib
 import html
@@ -22,6 +23,7 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import unquote, urljoin, urlparse
 
+import httpx
 import requests
 from django.conf import settings
 from django.core.files.base import ContentFile
@@ -197,7 +199,9 @@ class DaolvSifaSongdaScraper(BaseCourtDocumentScraper):  # pragma: no cover
 
     # ── 登录 ─────────────────────────────────────────────────────
 
-    def _login_account_session(self, session: requests.Session, account: str, login_secret: str) -> None:  # pragma: no cover
+    def _login_account_session(
+        self, session: requests.Session, account: str, login_secret: str
+    ) -> None:  # pragma: no cover
         label = self._PLATFORM_LABEL
         landing = session.get(self._LOGIN_PAGE_URL, timeout=20)
         if landing.status_code >= 500:
@@ -247,7 +251,9 @@ class DaolvSifaSongdaScraper(BaseCourtDocumentScraper):  # pragma: no cover
 
     # ── 文书列表 ─────────────────────────────────────────────────
 
-    def _fetch_record_entries(self, session: requests.Session, list_url: str) -> list[dict[str, str]]:  # pragma: no cover
+    def _fetch_record_entries(
+        self, session: requests.Session, list_url: str
+    ) -> list[dict[str, str]]:  # pragma: no cover
         resp = session.get(list_url, headers={"Referer": self._MAIN_URL}, timeout=20)
         if resp.status_code >= 500:
             time.sleep(1)
@@ -358,3 +364,204 @@ class DaolvSifaSongdaScraper(BaseCourtDocumentScraper):  # pragma: no cover
         algorithm = bytes((109, 100, 53)).decode("ascii")
         first = hashlib.new(algorithm, credential.encode("utf-8"), usedforsecurity=False).hexdigest()
         return hashlib.new(algorithm, f"{first}{nonce}".encode(), usedforsecurity=False).hexdigest()
+
+    # ── 异步版本 ────────────────────────────────────────────────────
+
+    async def _alogin_account_session(
+        self, session: httpx.AsyncClient, account: str, login_secret: str
+    ) -> None:  # pragma: no cover
+        """异步版登录。"""
+        label = self._PLATFORM_LABEL
+        landing = await session.get(self._LOGIN_PAGE_URL, timeout=20)
+        if landing.status_code >= 500:
+            raise ValueError(f"打开{label}登录页失败: {landing.status_code}")
+
+        for _ in range(12):
+            timestamp = str(int(time.time() * 1000))
+            image_resp = await session.get(f"{self._CAPTCHA_IMAGE_URL}?t={timestamp}", timeout=20)
+            if image_resp.status_code != 200:
+                continue
+
+            recognized = self.captcha_recognizer.recognize(image_resp.content)
+            captcha = re.sub(r"[^0-9A-Za-z]", "", recognized or "")
+            if not captcha:
+                continue
+
+            check_resp = await session.post(
+                self._CAPTCHA_CHECK_URL,
+                data={"yzm": captcha, "t": timestamp},
+                timeout=20,
+            )
+            if check_resp.text.strip() != "1":
+                continue
+
+            salt = str(int(time.time() * 1000))
+            payload = {
+                "yzm": captcha,
+                "user.userCode": self._encode_user_code(account),
+                "user.loginPwd": self._encode_password(login_secret, salt),
+                "t": salt,
+            }
+            login_resp = await session.post(self._LOGIN_URL, data=payload, timeout=20)
+            if login_resp.status_code != 200:
+                continue
+
+            try:
+                login_data = login_resp.json()
+            except (TypeError, ValueError):
+                continue
+
+            if bool(login_data.get("success")) and bool((login_data.get("message") or {}).get("result")):
+                await session.get(self._MAIN_URL, timeout=20)
+                logger.info("%s账号模式登录成功", label)
+                return
+
+        raise ValueError(f"{label}账号模式登录失败（验证码或凭证不正确）")
+
+    async def _afetch_record_entries(
+        self, session: httpx.AsyncClient, list_url: str
+    ) -> list[dict[str, str]]:  # pragma: no cover
+        """异步版获取记录列表。"""
+        resp = await session.get(list_url, headers={"Referer": self._MAIN_URL}, timeout=20)
+        if resp.status_code >= 500:
+            await asyncio.sleep(1)
+            resp = await session.get(list_url, headers={"Referer": self._MAIN_URL}, timeout=20)
+
+        if resp.status_code != 200:
+            return []
+
+        text = resp.text
+        pattern = re.compile(
+            r"<td\s+title=\"(?P<title>[^\"]*)\">.*?"
+            r"onclick=\"toViewInput\('(?P<id>[^']+)'\);return false;\"",
+            re.S,
+        )
+
+        entries: list[dict[str, str]] = []
+        for match in pattern.finditer(text):
+            title = html.unescape(match.group("title")).strip()
+            doc_id = match.group("id").strip()
+            if not doc_id:
+                continue
+            entries.append({"id": doc_id, "title": title or "未命名文书"})
+
+        logger.info("列表页 %s 发现文书条目: %s", list_url, len(entries))
+        return entries
+
+    async def _adownload_record_document(
+        self,
+        session: httpx.AsyncClient,
+        doc_id: str,
+        title: str,
+        download_dir: Path,
+    ) -> str | None:  # pragma: no cover
+        """异步版下载单个文档。"""
+        input_url = f"{self._MAIN_URL.rsplit('/', 1)[0]}/TdeliPubRecord/tdelipubrecord!input.action?id={doc_id}"
+        resp = await session.get(input_url, headers={"Referer": self._MAIN_URL}, timeout=20)
+        if resp.status_code != 200:
+            return None
+
+        html_text = resp.text
+        candidates = self._extract_download_candidates(html_text)
+        if not candidates:
+            return None
+
+        base_url = self._MAIN_URL.rsplit("/", 1)[0]
+        for target_url in candidates:
+            full_url = target_url if target_url.startswith("http") else urljoin(base_url, target_url)
+            file_resp = await session.get(full_url, headers={"Referer": input_url}, timeout=30)
+            if file_resp.status_code != 200 or not file_resp.content:
+                continue
+
+            filename = self._aguess_filename(file_resp, full_url, title)
+            rel_path = f"{download_dir.relative_to(settings.MEDIA_ROOT).as_posix()}/{filename}"
+            saved_name = default_storage.save(rel_path, ContentFile(file_resp.content))
+            abs_path = Path(settings.MEDIA_ROOT) / saved_name
+            logger.info("%s账号模式下载成功: %s", self._PLATFORM_LABEL, abs_path)
+            return str(abs_path)
+
+        return None
+
+    def _aguess_filename(self, response: httpx.Response, url: str, title: str) -> str:
+        """异步流程用的文件名猜测（纯计算，无需 await）。"""
+        disposition = response.headers.get("Content-Disposition", "")
+        filename_match = re.search(r"filename\*=UTF-8''([^;]+)", disposition, flags=re.IGNORECASE)
+        if filename_match:
+            return self._safe_filename(unquote(filename_match.group(1)))
+
+        filename_match = re.search(r"filename=\"?([^\";]+)\"?", disposition, flags=re.IGNORECASE)
+        if filename_match:
+            return self._safe_filename(unquote(filename_match.group(1)))
+
+        parsed = urlparse(url)
+        path_name = Path(parsed.path).name
+        if "." in path_name:
+            return self._safe_filename(unquote(path_name))
+
+        content_type = response.headers.get("Content-Type", "").lower()
+        ext = ".pdf" if "pdf" in content_type else ".bin"
+        return self._safe_filename(f"{title}{ext}")
+
+    async def _arun_account_mode(self, *, source_domain: str) -> dict[str, Any]:  # pragma: no cover
+        """异步版主流程。"""
+        label = self._PLATFORM_LABEL
+        logger.info("开始处理%s账号密码链接: %s", label, self.task.url)
+        download_dir = self._prepare_download_dir()
+
+        task_config = self.task.config if isinstance(self.task.config, dict) else {}
+        account, login_secret = self._resolve_account_credentials(task_config)
+
+        async with httpx.AsyncClient(
+            headers={
+                "User-Agent": (
+                    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+                    "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+                ),
+                "Referer": self._LOGIN_PAGE_URL,
+            },
+            follow_redirects=True,
+        ) as session:
+            await self._alogin_account_session(session, account, login_secret)
+
+            all_entries: list[dict[str, str]] = []
+            for list_url in self._LIST_URLS:
+                all_entries.extend(await self._afetch_record_entries(session, list_url))
+
+            dedup_entries: list[dict[str, str]] = []
+            seen_ids: set[str] = set()
+            for item in all_entries:
+                doc_id = item.get("id", "")
+                if not doc_id or doc_id in seen_ids:
+                    continue
+                seen_ids.add(doc_id)
+                dedup_entries.append(item)
+
+            if not dedup_entries:
+                raise ValueError(f"{label}账号模式登录成功，但未发现可查阅文书")
+
+            files: list[str] = []
+            errors: list[str] = []
+            for item in dedup_entries:
+                doc_id = item.get("id", "")
+                title = item.get("title", "未命名文书")
+                try:
+                    filepath = await self._adownload_record_document(session, doc_id, title, download_dir)
+                    if filepath:
+                        files.append(filepath)
+                except Exception as exc:
+                    errors.append(f"{doc_id}:{exc}")
+                    logger.warning("下载%s文书失败 id=%s, error=%s", label, doc_id, exc)
+
+        if not files:
+            raise ValueError(f"{label}账号模式未下载成功，失败原因: {'; '.join(errors[:3])}")
+
+        return {
+            "source": source_domain,
+            "mode": "account_http",
+            "files": files,
+            "document_count": len(dedup_entries),
+            "downloaded_count": len(files),
+            "failed_count": max(0, len(dedup_entries) - len(files)),
+            "errors": errors,
+            "message": f"{label}账号模式下载成功: {len(files)}/{len(dedup_entries)} 份",
+        }
