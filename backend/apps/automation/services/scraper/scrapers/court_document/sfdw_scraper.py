@@ -15,6 +15,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import re
 import time
@@ -235,7 +236,9 @@ class SfdwCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
 
     # ==================== 文书下载 ====================
 
-    def _download_all_documents(self, ws_list: list[dict[str, Any]], download_dir: Path) -> list[str]:  # pragma: no cover
+    def _download_all_documents(
+        self, ws_list: list[dict[str, Any]], download_dir: Path
+    ) -> list[str]:  # pragma: no cover
         """逐个下载所有文书
 
         使用 Vue 实例的 downloadFile 方法触发下载。
@@ -384,3 +387,261 @@ class SfdwCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
         """清理文件名中的非法字符"""
         cleaned = re.sub(r'[\\/:*?"<>|\n\r\t]+', "_", name).strip()
         return cleaned or f"sfdw_{int(time.time())}.pdf"
+
+    # ==================== Async 对应方法 ====================
+
+    async def _arun(self) -> dict[str, Any]:  # pragma: no cover
+        """异步执行文书下载任务"""
+        logger.info("[async] 开始处理司法送达网链接: %s", self.task.url)
+
+        download_dir = self._prepare_download_dir()
+
+        # 导航到目标页面
+        assert self.page is not None
+        await self.page.goto(self.task.url, timeout=30000, wait_until="domcontentloaded")
+        await self.page.wait_for_timeout(self._PAGE_LOAD_WAIT_MS)
+
+        # 优先使用手机号后6位候选（含手工输入）
+        tail6_candidates = self._get_phone_tail6_candidates()
+        if tail6_candidates:
+            ws_list = await self._atry_phone_tail6_candidates(tail6_candidates)
+        else:
+            # 无后6位候选时回退验证码模式
+            verification_code = self._get_verification_code()
+            if not verification_code:
+                raise ValueError("司法送达网链接需要验证码或手机号后6位，但均未找到")
+
+            logger.info("[async] 司法送达网: 使用验证码模式")
+            await self._ainput_verification_code(verification_code)
+            await self.page.wait_for_timeout(self._VERIFY_WAIT_MS)
+
+            ws_list = await self._aget_ws_list()
+            if not ws_list:
+                self._save_page_state("sfdw_no_ws_list")
+                raise ValueError("司法送达网: 验证后未获取到文书列表")
+
+        logger.info("[async] 司法送达网: 获取到 %d 份文书", len(ws_list))
+
+        # 下载文书
+        files = await self._adownload_all_documents(ws_list, download_dir)
+
+        if not files:
+            self._save_page_state("sfdw_no_downloads")
+            raise ValueError("司法送达网: 未下载到任何文书")
+
+        return {
+            "source": "sfpt.cdfy12368.gov.cn",
+            "mode": "playwright",
+            "files": files,
+            "downloaded_count": len(files),
+            "failed_count": len(ws_list) - len(files),
+            "message": f"司法送达网下载成功: {len(files)} 份",
+        }
+
+    async def _atry_phone_tail6_candidates(
+        self, tail6_candidates: list[str]
+    ) -> list[dict[str, Any]]:  # pragma: no cover
+        """异步依次尝试手机号后6位，直到成功拿到文书列表。"""
+        assert self.page is not None
+
+        candidates = tail6_candidates[: self._MAX_TAIL6_ATTEMPTS]
+        logger.info("[async] 司法送达网: 使用手机号后6位模式，候选数=%d", len(candidates))
+
+        for idx, tail6 in enumerate(candidates):
+            if idx > 0:
+                await self.page.reload(wait_until="domcontentloaded", timeout=30000)
+                await self.page.wait_for_timeout(self._PAGE_LOAD_WAIT_MS)
+
+            await self._ainput_verification_code(tail6)
+            await self.page.wait_for_timeout(self._VERIFY_WAIT_MS)
+
+            ws_list = await self._aget_ws_list()
+            if ws_list:
+                logger.info("[async] 司法送达网: 手机号后6位校验成功（第 %d 次尝试）", idx + 1)
+                return ws_list
+
+            logger.info("[async] 司法送达网: 手机号后6位校验失败，继续尝试（第 %d 次）", idx + 1)
+
+        self._save_page_state("sfdw_tail6_failed")
+        raise ValueError("司法送达网: 所有手机号后6位候选均校验失败")
+
+    async def _ainput_verification_code(self, code: str) -> None:  # pragma: no cover
+        """异步输入验证码并触发验证"""
+        assert self.page is not None
+
+        # 在验证码输入框中输入
+        check_code_input = self.page.locator("#checkCode")
+        if await check_code_input.count() == 0:
+            self.screenshot("sfdw_no_checkcode_input")
+            raise ValueError("司法送达网: 未找到验证码输入框 #checkCode")
+
+        await check_code_input.first.click(force=True, timeout=5000)
+        await check_code_input.first.fill("")
+        await check_code_input.first.fill(code)
+        logger.info("[async] 司法送达网: 已输入验证码")
+
+        await self.page.wait_for_timeout(500)
+
+        # 通过 JS 调用 Vue 实例的 checkYzm 方法
+        result = await self.page.evaluate("""() => {
+            try {
+                if (typeof app !== 'undefined' && app.checkYzm) {
+                    app.checkYzm();
+                    return 'called app.checkYzm()';
+                }
+                return 'app.checkYzm not found';
+            } catch(e) {
+                return 'error: ' + e.message;
+            }
+        }""")
+        logger.info("[async] 司法送达网: 验证码提交结果: %s", result)
+
+        # 等待验证完成
+        await self.page.wait_for_timeout(self._VERIFY_WAIT_MS)
+
+    async def _aget_ws_list(self) -> list[dict[str, Any]]:  # pragma: no cover
+        """异步获取验证后的文书列表"""
+        assert self.page is not None
+
+        vue_data_str = await self.page.evaluate("""() => {
+            try {
+                if (typeof app === 'undefined') return '{}';
+                return JSON.stringify(app.$data);
+            } catch(e) {
+                return '{}';
+            }
+        }""")
+
+        import json
+
+        try:
+            vue_data = json.loads(vue_data_str)
+        except (json.JSONDecodeError, TypeError):
+            logger.warning("[async] 司法送达网: 解析 Vue 数据失败")
+            return []
+
+        is_verified = vue_data.get("isVerified", False)
+        if not is_verified:
+            logger.warning("[async] 司法送达网: 验证码校验未通过 (isVerified=False)")
+
+        ws_list = vue_data.get("wsList", [])
+        if not isinstance(ws_list, list):
+            ws_list = []
+
+        # 提取案件信息用于日志
+        ah = vue_data.get("ah", "")
+        fymc = vue_data.get("fymc", "")
+        if ah or fymc:
+            logger.info("[async] 司法送达网: 案号=%s, 法院=%s", ah, fymc)
+
+        return ws_list
+
+    async def _adownload_all_documents(
+        self, ws_list: list[dict[str, Any]], download_dir: Path
+    ) -> list[str]:  # pragma: no cover
+        """异步逐个下载所有文书"""
+        assert self.page is not None
+        files: list[str] = []
+
+        for i, ws in enumerate(ws_list):
+            wjmc = ws.get("wjmc", f"sfdw_doc_{i + 1}")
+            wjgs = ws.get("wjgs", "pdf")
+            doc_name = f"{wjmc}.{wjgs}" if not wjmc.endswith(f".{wjgs}") else wjmc
+
+            logger.info("[async] 司法送达网: 下载第 %d/%d 个文书 (%s)", i + 1, len(ws_list), doc_name)
+
+            filepath = await self._adownload_single_document(ws, i, download_dir, doc_name)
+            if filepath:
+                files.append(filepath)
+
+            # 下载间隔
+            await self.page.wait_for_timeout(1500)
+
+        return files
+
+    async def _adownload_single_document(  # pragma: no cover
+        self, ws: dict[str, Any], index: int, download_dir: Path, doc_name: str
+    ) -> str | None:
+        """异步下载单个文书"""
+        assert self.page is not None
+
+        # 策略1: 通过 Vue 方法触发下载
+        try:
+            import json
+
+            ws_json = json.dumps(ws, ensure_ascii=False)
+            async with self.page.expect_download(timeout=30000) as download_info:
+                await self.page.evaluate(
+                    """(wsJson) => {
+                    try {
+                        const ws = JSON.parse(wsJson);
+                        if (typeof downloadFile === 'function') {
+                            downloadFile(app, ws);
+                            return 'called downloadFile';
+                        }
+                        return 'downloadFile not found';
+                    } catch(e) {
+                        return 'error: ' + e.message;
+                    }
+                }""",
+                    ws_json,
+                )
+            return await self._asave_download_file(download_info.value, download_dir, doc_name, index)
+        except Exception as exc:
+            logger.info("[async] 司法送达网: Vue downloadFile 方式下载失败，尝试备选方案: %s", exc)
+
+        # 策略2: 监听网络请求，通过 JS 触发下载后拦截
+        try:
+            import json
+
+            ws_json = json.dumps(ws, ensure_ascii=False)
+            captured_downloads: list[Any] = []
+
+            async def on_download(download: Any) -> None:  # pragma: no cover
+                captured_downloads.append(download)
+
+            self.page.on("download", on_download)
+
+            await self.page.evaluate(
+                """(wsJson) => {
+                try {
+                    const ws = JSON.parse(wsJson);
+                    if (typeof downloadFile === 'function') {
+                        downloadFile(app, ws);
+                    }
+                } catch(e) {}
+            }""",
+                ws_json,
+            )
+
+            # 等待下载事件
+            for _ in range(30):
+                if captured_downloads:
+                    break
+                await self.page.wait_for_timeout(1000)
+
+            self.page.remove_listener("download", on_download)
+
+            if captured_downloads:
+                return await self._asave_download_file(captured_downloads[0], download_dir, doc_name, index)
+
+        except Exception as exc:
+            logger.warning("[async] 司法送达网: 备选下载方案也失败: %s", exc)
+
+        logger.warning("[async] 司法送达网: 文书 %s 下载失败", doc_name)
+        return None
+
+    async def _asave_download_file(self, download: Any, download_dir: Path, doc_name: str, index: int) -> str:
+        """异步保存下载文件（Playwright async Download 需要 await save_as）"""
+        suggested = await download.suggested_filename if hasattr(download, "suggested_filename") else ""
+        if doc_name and (doc_name.endswith(".pdf") or doc_name.endswith(".doc")):
+            filename = self._safe_filename(doc_name)
+        elif suggested:
+            filename = self._safe_filename(suggested)
+        else:
+            filename = f"sfdw_doc_{index}_{int(time.time())}.pdf"
+
+        filepath = download_dir / filename
+        await download.save_as(str(filepath))
+        logger.info("[async] 司法送达网: 下载成功: %s", filepath)
+        return str(filepath)

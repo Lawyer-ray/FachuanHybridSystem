@@ -13,6 +13,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import re
 import time
@@ -419,3 +420,342 @@ class JysdCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
         """清理文件名中的非法字符"""
         cleaned = re.sub(r'[\\/:*?"<>|\n\r\t]+', "_", name).strip()
         return cleaned or f"jysd_{int(time.time())}.pdf"
+
+    # ==================== Async counterparts ====================
+
+    async def _arun(self) -> dict[str, Any]:  # pragma: no cover
+        """异步版文书下载任务，覆盖 BaseScraper._arun()"""
+        return await self.arun()
+
+    async def arun(self) -> dict[str, Any]:  # pragma: no cover
+        """异步执行文书下载任务"""
+        logger.info("[async] 开始处理简易送达链接: %s", self.task.url)
+
+        download_dir = self._prepare_download_dir()
+
+        # 获取律师手机号列表
+        lawyer_phones = self._get_lawyer_phones()
+        if not lawyer_phones:
+            raise ValueError("简易送达链接需要律师手机号登录，但未找到任何律师手机号")
+
+        logger.info("简易送达: 共 %d 个律师手机号待尝试", len(lawyer_phones))
+
+        # 导航到目标页面
+        assert self.page is not None
+        await self.page.goto(self.task.url, timeout=30000, wait_until="domcontentloaded")
+        await self.page.wait_for_timeout(self._PAGE_LOAD_WAIT_MS)
+
+        # 逐一尝试律师手机号登录
+        login_success = False
+        phones_to_try = lawyer_phones[: self._MAX_PHONE_ATTEMPTS]
+
+        for idx, phone in enumerate(phones_to_try):
+            logger.info(
+                "[async] 简易送达: 尝试第 %d/%d 个手机号 %s",
+                idx + 1,
+                len(phones_to_try),
+                self._mask_phone(phone),
+            )
+
+            # 每次尝试前刷新页面（除第一次），确保状态干净
+            if idx > 0:
+                await self.page.reload(wait_until="domcontentloaded", timeout=30000)
+                await self.page.wait_for_timeout(self._PAGE_LOAD_WAIT_MS)
+
+            # 获取 iframe
+            iframe = await self._aget_sifayun_iframe()
+            if iframe is None:
+                logger.warning("[async] 简易送达: iframe 未加载，跳过手机号 %s", self._mask_phone(phone))
+                continue
+
+            # 检查是否已经登录（可能是之前的 session）
+            if "checkLoginPc" not in (iframe.url or ""):
+                logger.info("[async] 简易送达: iframe 不在登录页（URL=%s），视为已登录", iframe.url[:80])
+                login_success = True
+                break
+
+            # 输入手机号并登录
+            login_success = await self._atry_login_with_phone(iframe, phone)
+            if login_success:
+                logger.info("[async] 简易送达: 手机号 %s 登录成功", self._mask_phone(phone))
+                break
+
+            logger.info("[async] 简易送达: 手机号 %s 登录失败，尝试下一个", self._mask_phone(phone))
+
+        if not login_success:
+            await self._asave_page_state("jysd_all_phones_failed")
+            raise ValueError(f"所有 {len(phones_to_try)} 个律师手机号均无法登录简易送达平台")
+
+        # 登录成功 → 处理中间页面 → 进入文书详情页
+        iframe = await self._anavigate_to_document_page()
+        if iframe is None:
+            await self._asave_page_state("jysd_no_doc_page")
+            raise ValueError("[async] 简易送达: 无法进入文书详情页面")
+
+        # 下载文书
+        files = await self._adownload_documents_from_table(iframe, download_dir)
+
+        if not files:
+            await self._asave_page_state("jysd_no_documents")
+            raise ValueError("[async] 简易送达: 文书详情页面未下载到任何文书")
+
+        return {
+            "source": "jysd.10102368.com",
+            "files": files,
+            "downloaded_count": len(files),
+            "failed_count": 0,
+            "message": f"简易送达下载成功: {len(files)} 份",
+        }
+
+    async def _asave_page_state(self, name: str) -> dict[str, Any]:  # pragma: no cover
+        """异步保存页面状态（截图 + HTML）"""
+        from django.conf import settings
+        from django.utils import timezone
+
+        download_dir = self._prepare_download_dir()
+
+        # 截图
+        screenshot_dir = Path(settings.MEDIA_ROOT) / "automation" / "screenshots"
+        screenshot_dir.mkdir(parents=True, exist_ok=True)
+        filename = f"{name}_{self.task.id}_{timezone.now().strftime('%Y%m%d_%H%M%S')}.png"
+        screenshot_path = screenshot_dir / filename
+
+        assert self.page is not None
+        await self.page.screenshot(path=str(screenshot_path))
+        logger.info("[async] 截图已保存: %s", screenshot_path)
+
+        # 保存 HTML
+        html_path = download_dir / f"{name}_page.html"
+        html_content = await self.page.content()
+        html_path.write_text(html_content, encoding="utf-8")
+
+        logger.info("[async] 页面状态已保存: %s", name)
+        return {"screenshot": str(screenshot_path), "html": str(html_path)}
+
+    async def _aget_sifayun_iframe(self) -> Any | None:  # pragma: no cover
+        """异步获取 sifayun.com 的 iframe frame 对象"""
+        assert self.page is not None
+
+        try:
+            for frame in self.page.frames:
+                frame_url = frame.url or ""
+                if "sifayun.com" in frame_url:
+                    return frame
+        except Exception as exc:
+            logger.warning("[async] 简易送达: 遍历 frames 时出错: %s", exc)
+
+        return None
+
+    async def _atry_login_with_phone(self, iframe: Any, phone: str) -> bool:  # pragma: no cover
+        """异步在 iframe 内输入手机号并登录"""
+        try:
+            # 定位手机号输入框
+            phone_input = iframe.locator("input[placeholder*='手机号']")
+            if phone_input.count() == 0:
+                logger.warning("[async] 简易送达: iframe 内未找到手机号输入框")
+                await self._ascreenshot("jysd_no_phone_input")
+                return False
+
+            # 清空并输入手机号
+            await phone_input.first.click(force=True, timeout=5000)
+            await phone_input.first.fill("")
+            await phone_input.first.fill(phone)
+            logger.info("[async] 简易送达: 已输入手机号")
+
+            # 等待一小段时间模拟人工操作
+            assert self.page is not None
+            await self.page.wait_for_timeout(500)
+
+            # 点击登录按钮
+            login_btn = iframe.locator("button:has-text('登录')")
+            if login_btn.count() > 0:
+                await login_btn.first.click(force=True, timeout=5000)
+                logger.info("[async] 简易送达: 已点击登录按钮")
+            else:
+                logger.warning("[async] 简易送达: 未找到登录按钮")
+                await self._ascreenshot("jysd_no_login_btn")
+                return False
+
+            # 等待页面响应
+            await self.page.wait_for_timeout(self._LOGIN_WAIT_MS)
+
+            # 检查登录结果
+            return await self._acheck_login_result()
+
+        except Exception as exc:
+            logger.warning("[async] 简易送达: 手机号登录过程出错: %s", exc)
+            return False
+
+    async def _acheck_login_result(self) -> bool:  # pragma: no cover
+        """异步检查登录是否成功"""
+        iframe = await self._aget_sifayun_iframe()
+        if iframe is None:
+            logger.info("[async] 简易送达: 登录后找不到 iframe，视为失败")
+            return False
+
+        iframe_url = iframe.url or ""
+        # 登录成功后 iframe 会跳转到 middlePagePc
+        if "middlePagePc" in iframe_url:
+            logger.info("[async] 简易送达: iframe 已跳转到中间页面，登录成功")
+            return True
+
+        # 检查是否还在登录页
+        if "checkLoginPc" in iframe_url:
+            logger.info("[async] 简易送达: iframe 仍在登录页，登录失败")
+            return False
+
+        # 其他 URL，可能是已登录状态
+        logger.info("[async] 简易送达: iframe URL=%s，可能已登录", iframe_url[:80])
+        return "home" in iframe_url or "middlePage" in iframe_url
+
+    async def _anavigate_to_document_page(self) -> Any | None:  # pragma: no cover
+        """异步从中间页面导航到文书详情页面"""
+        assert self.page is not None
+
+        iframe = await self._aget_sifayun_iframe()
+        if iframe is None:
+            return None
+
+        iframe_url = iframe.url or ""
+
+        # 已经在文书详情页
+        if "home" in iframe_url:
+            logger.info("[async] 简易送达: 已在文书详情页面")
+            return iframe
+
+        # 在中间页面，需要点击"查看文书详情"
+        if "middlePagePc" in iframe_url:
+            logger.info("[async] 简易送达: 在中间页面，点击'查看文书详情'")
+
+            view_btn = iframe.locator("button:has-text('查看文书详情')")
+            if view_btn.count() > 0:
+                await view_btn.first.click(force=True, timeout=5000)
+                await self.page.wait_for_timeout(self._PAGE_LOAD_WAIT_MS)
+
+                # 重新获取 iframe
+                iframe = await self._aget_sifayun_iframe()
+                if iframe is not None:
+                    logger.info("[async] 简易送达: 已进入文书详情页面, URL=%s", iframe.url[:80])
+                    return iframe
+
+            logger.warning("[async] 简易送达: 中间页面未找到'查看文书详情'按钮")
+            await self._ascreenshot("jysd_no_view_btn")
+            return iframe
+
+        # 还在登录页或其他页面
+        logger.warning("[async] 简易送达: iframe 不在预期的页面, URL=%s", iframe_url[:80])
+        return iframe
+
+    async def _adownload_documents_from_table(self, iframe: Any, download_dir: Path) -> list[str]:  # pragma: no cover
+        """异步从文书详情页面的 el-table 表格中下载文书"""
+        assert self.page is not None
+        files: list[str] = []
+
+        # 等待表格加载
+        await self.page.wait_for_timeout(3000)
+        await self._ascreenshot("jysd_doc_page")
+
+        # 获取表格行数
+        rows = iframe.locator(".el-table__body-wrapper tr.el-table__row")
+        total = rows.count()
+        logger.info("[async] 简易送达: 文书表格共 %d 行", total)
+
+        if total == 0:
+            rows = iframe.locator(".el-table__body tr")
+            total = rows.count()
+            logger.info("[async] 简易送达: 备选选择器找到 %d 行", total)
+
+        for i in range(total):
+            try:
+                # 每次重新获取 iframe（下载可能触发页面变化）
+                iframe = (await self._aget_sifayun_iframe()) or iframe
+                rows = iframe.locator(".el-table__body-wrapper tr.el-table__row")
+                if rows.count() <= i:
+                    rows = iframe.locator(".el-table__body tr")
+
+                row = rows.nth(i)
+
+                # 获取文书名称
+                doc_name = ""
+                try:
+                    doc_name_cell = row.locator("td:nth-child(2) .cell")
+                    if doc_name_cell.count() > 0:
+                        doc_name = (await doc_name_cell.first.inner_text()).strip()
+                except (TypeError, ValueError):
+                    pass
+
+                logger.info(
+                    "[async] 简易送达: 下载第 %d/%d 个文书%s",
+                    i + 1,
+                    total,
+                    f" ({doc_name})" if doc_name else "",
+                )
+
+                filepath = await self._adownload_row_document(row, iframe, download_dir, doc_name, i)
+                if filepath:
+                    files.append(filepath)
+
+                # 下载间隔
+                await self.page.wait_for_timeout(1500)
+
+            except Exception as exc:
+                logger.warning("[async] 简易送达: 下载第 %d 个文书失败: %s", i + 1, exc)
+
+        return files
+
+    async def _adownload_row_document(  # pragma: no cover
+        self, row: Any, iframe: Any, download_dir: Path, doc_name: str, index: int
+    ) -> str | None:
+        """异步下载单行文书"""
+        assert self.page is not None
+
+        # 策略1: Playwright click
+        try:
+            download_btn = row.locator("button:has-text('下载')")
+            if download_btn.count() > 0:
+                async with self.page.expect_download(timeout=15000) as download_info:
+                    await download_btn.first.click(force=True, timeout=5000)
+                return self._save_download(await download_info.value, download_dir, doc_name, index)
+        except Exception:
+            logger.info("[async] 简易送达: Playwright click 超时，尝试 JS click")
+
+        # 策略2: JS click
+        try:
+            async with self.page.expect_download(timeout=15000) as download_info:
+                await row.evaluate("r => r.querySelector('button')?.click()")
+            return self._save_download(await download_info.value, download_dir, doc_name, index)
+        except Exception:
+            logger.info("[async] 简易送达: JS click 也超时，检查确认对话框")
+
+        # 策略3: 检查是否弹出了确认对话框
+        try:
+            await self.page.wait_for_timeout(1000)
+            confirm_btn = iframe.locator(
+                ".checkFileDialog .el-dialog__wrapper:not([style*='display: none']) button:has-text('下载文书并核验')"
+            )
+            if confirm_btn.count() > 0 and await confirm_btn.first.is_visible():
+                logger.info("[async] 简易送达: 检测到下载确认对话框，点击'下载文书并核验'")
+                async with self.page.expect_download(timeout=30000) as download_info:
+                    await confirm_btn.first.click(force=True, timeout=5000)
+                return self._save_download(await download_info.value, download_dir, doc_name, index)
+        except Exception as exc:
+            logger.warning("[async] 简易送达: 确认对话框下载也失败: %s", exc)
+
+        return None
+
+    async def _ascreenshot(self, name: str = "screenshot") -> str:  # pragma: no cover
+        """异步截图（用于调试）"""
+        from django.conf import settings
+        from django.utils import timezone
+
+        screenshot_dir = Path(settings.MEDIA_ROOT) / "automation" / "screenshots"
+        screenshot_dir.mkdir(parents=True, exist_ok=True)
+
+        filename = f"{name}_{self.task.id}_{timezone.now().strftime('%Y%m%d_%H%M%S')}.png"
+        filepath = screenshot_dir / filename
+
+        assert self.page is not None
+        await self.page.screenshot(path=str(filepath))
+        logger.info("[async] 截图已保存: %s", filepath)
+
+        return str(filepath)

@@ -10,14 +10,18 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import random
 import time
 import zipfile
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from .base_court_scraper import BaseCourtDocumentScraper
+
+if TYPE_CHECKING:
+    from playwright.async_api import Page as AsyncPage
 
 logger = logging.getLogger("apps.automation")
 
@@ -322,3 +326,222 @@ class GdemsCourtScraper(BaseCourtDocumentScraper):  # pragma: no cover
             # 解压失败不影响主流程,返回空列表
             extracted_files: list[Any] = []  # type: ignore
         return extracted_files
+
+    # ── async counterparts ────────────────────────────────────────────
+
+    async def _arun(self) -> dict[str, Any]:  # pragma: no cover
+        """
+        异步版执行文书下载任务（覆盖 BaseScraper._arun）
+        """
+        from django.conf import settings
+
+        logger.info("=" * 60)
+        logger.info("处理 sd.gdems.com 链接...")
+        logger.info("=" * 60)
+
+        assert self.page is not None, "页面未初始化"
+        page: AsyncPage = self.page
+
+        # 导航到目标页面
+        logger.info("导航到: %s", self.task.url)
+        await page.goto(self.task.url, timeout=60000, wait_until="domcontentloaded")
+
+        # 等待页面加载
+        await page.wait_for_load_state("networkidle", timeout=30000)
+        await self._arandom_wait(3, 5)
+
+        # 截图保存封面页
+        screenshot_cover = await self._ascreenshot("gdems_cover")
+
+        # 检测页面状态
+        if not await self._ahas_clickable_confirm_button():
+            logger.warning("页面无可点击的确认按钮（#submit-btn），书记员可能未放置文书文件")
+            return await self._abuild_no_document_result(screenshot_cover)
+
+        # 点击"确认并预览材料"按钮
+        await self._aclick_confirm_button()
+
+        # 截图保存预览页
+        screenshot_preview = await self._ascreenshot("gdems_preview")
+
+        # 准备下载目录
+        download_dir = self._prepare_download_dir()
+
+        # 下载压缩包
+        zip_filepath = await self._adownload_zip_file(download_dir)
+
+        # 解压 ZIP 文件（纯文件 I/O，无需 async）
+        extracted_files = self._extract_zip_file(zip_filepath, download_dir)
+
+        # 构建文件列表
+        all_files: list[str] = []
+
+        return {
+            "source": "sd.gdems.com",
+            "zip_file": str(zip_filepath),
+            "extracted_files": extracted_files,
+            "files": all_files,
+            "file_count": len(extracted_files),
+            "screenshots": [screenshot_cover, screenshot_preview],
+            "message": f"成功下载并解压 {len(extracted_files)} 个文件",
+        }
+
+    async def _arandom_wait(self, min_s: float, max_s: float) -> None:  # pragma: no cover
+        """异步随机等待，模拟人工操作间隔"""
+        await asyncio.sleep(random.uniform(min_s, max_s))
+
+    async def _ascreenshot(self, name: str = "screenshot") -> str:  # pragma: no cover
+        """异步截图"""
+        from django.conf import settings
+        from django.utils import timezone
+
+        screenshot_dir = Path(settings.MEDIA_ROOT) / "automation" / "screenshots"
+        screenshot_dir.mkdir(parents=True, exist_ok=True)
+
+        filename = f"{name}_{self.task.id}_{timezone.now().strftime('%Y%m%d_%H%M%S')}.png"
+        filepath = screenshot_dir / filename
+
+        assert self.page is not None, "浏览器页面未初始化"
+        await self.page.screenshot(path=str(filepath))
+        logger.info("截图已保存: %s", filepath)
+        return str(filepath)
+
+    async def _ahas_clickable_confirm_button(self) -> bool:  # pragma: no cover
+        """异步版：检测页面是否存在可点击的确认按钮"""
+        assert self.page is not None, "页面未初始化"
+        submit_btn = self.page.locator("#submit-btn")
+        if await submit_btn.count() > 0 and await submit_btn.first.is_visible():
+            logger.info("检测到 #submit-btn 确认按钮，页面有文书可下载")
+            return True
+
+        logger.info("未检测到 #submit-btn 确认按钮，页面可能无文书可下载")
+        return False
+
+    async def _aextract_canvas_notification(self) -> str:  # pragma: no cover
+        """异步版：提取 canvas 上绘制的通知文本"""
+        assert self.page is not None, "页面未初始化"
+        try:
+            text: str = await self.page.evaluate("""() => {
+                var scripts = document.querySelectorAll('script:not([src])');
+                for (var s of scripts) {
+                    var content = s.textContent;
+                    var match = content.match(/var\\s+text\\s*=\\s*"((?:[^"\\\\]|\\\\.)*)"/);
+                    if (match) {
+                        try {
+                            return JSON.parse('"' + match[1] + '"');
+                        } catch(e) {
+                            return match[1]
+                                .replace(/\\\\n/g, '\\n')
+                                .replace(/\\\\t/g, '\\t')
+                                .replace(/\\\\"/g, '"');
+                        }
+                    }
+                }
+                return '';
+            }""")
+            if text:
+                logger.info("已提取 canvas 通知文本，长度: %d", len(text))
+            return text or ""
+        except Exception as e:
+            logger.warning(f"提取 canvas 通知文本失败: {e}")
+            return ""
+
+    async def _abuild_no_document_result(self, screenshot_cover: str) -> dict[str, Any]:  # pragma: no cover
+        """异步版：构建无文书可下载时的返回结果"""
+        notification_text = await self._aextract_canvas_notification()
+        if notification_text:
+            preview_text = notification_text[:200] + ("..." if len(notification_text) > 200 else "")
+            logger.info(f"通知内容摘要: {preview_text}")
+
+        self._save_page_state("gdems_no_document")
+
+        return {
+            "source": "sd.gdems.com",
+            "zip_file": "",
+            "extracted_files": [],
+            "files": [],
+            "file_count": 0,
+            "screenshots": [screenshot_cover],
+            "notification_text": notification_text,
+            "message": "书记员尚未放置文书文件，确定按钮无法点击，无文书可下载",
+        }
+
+    async def _afind_locator(self, selectors: list[str], label: str) -> Any | None:  # pragma: no cover
+        """异步版：按顺序尝试多个选择器，返回第一个可见的定位器"""
+        assert self.page is not None, "页面未初始化"
+        for selector in selectors:
+            try:
+                loc = self.page.locator(selector)
+                if await loc.count() > 0 and await loc.first.is_visible():
+                    logger.info(f"通过 '{selector}' 找到 {label}")
+                    return loc
+            except Exception:
+                pass
+        return None
+
+    async def _aclick_confirm_button(self) -> None:  # pragma: no cover
+        """异步版：点击"确认并预览材料"按钮"""
+        assert self.page is not None, "页面未初始化"
+        try:
+            selectors = [
+                "#submit-btn, #confirm-btn, .submit-btn, .confirm-btn",
+                "button:has-text('确认'), button:has-text('确定'), button:has-text('预览')",
+            ]
+            submit_button = await self._afind_locator(selectors, "确认按钮")
+
+            if not submit_button:
+                try:
+                    btn = self.page.get_by_text("确认并预览材料", exact=False)
+                    if await btn.count() > 0 and await btn.first.is_visible():
+                        submit_button = btn
+                        logger.info("通过文本找到确认按钮")
+                except Exception:
+                    pass
+
+            if submit_button and await submit_button.count() > 0:
+                await submit_button.first.click()
+                logger.info("已点击'确认并预览材料'按钮")
+                await self.page.wait_for_load_state("networkidle", timeout=30000)
+                await self._arandom_wait(5, 7)
+            else:
+                logger.warning("未找到确认按钮，可能页面已经在预览状态")
+        except Exception as e:
+            logger.warning(f"点击确认按钮时出错: {e}，继续尝试下载")
+
+    async def _adownload_zip_file(self, download_dir: Path) -> Path:  # pragma: no cover
+        """异步版：下载压缩包文件"""
+        download_xpath = "/html/body/div/div[1]/div[1]/label/a/img"
+        selectors = [
+            "a.downloadPackClass",
+            f"xpath={download_xpath}",
+            "label a:has(img)",
+            "a:has-text('送达材料')",
+            "a:has-text('下载'), button:has-text('下载'), [title*='下载']",
+        ]
+
+        assert self.page is not None, "页面未初始化"
+        try:
+            download_button = await self._afind_locator(selectors, "下载按钮")
+
+            if not download_button or await download_button.count() == 0:
+                self._save_page_state("gdems_no_download_button")
+                raise ValueError("找不到下载按钮")
+
+            await download_button.first.scroll_into_view_if_needed()
+            await self._arandom_wait(1, 2)
+
+            async with self.page.expect_download(timeout=60000) as download_info:
+                await download_button.first.click()
+                logger.info("已点击下载按钮，等待下载...")
+
+            download = await download_info.value
+            zip_filename = download.suggested_filename or "documents.zip"
+            zip_filepath = download_dir / zip_filename
+            await download.save_as(str(zip_filepath))
+            logger.info(f"ZIP 文件已保存: {zip_filepath}")
+            return zip_filepath
+
+        except Exception as e:
+            logger.error(f"下载失败: {e}")
+            self._save_page_state("gdems_download_error")
+            raise ValueError(f"文件下载失败: {e}") from e
