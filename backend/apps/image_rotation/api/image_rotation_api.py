@@ -461,7 +461,7 @@ async def run_job_ocr(request: HttpRequest, job_id: str) -> dict[str, Any]:  # p
         provider: str = payload.get("provider", "local")
         service = _get_job_service()
 
-        def _do():
+        def _do() -> Any:
             pages = service.run_ocr(job_id, provider=provider)
             return [_serialize_page(p) for p in pages]
 

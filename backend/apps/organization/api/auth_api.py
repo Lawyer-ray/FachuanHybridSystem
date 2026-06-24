@@ -40,7 +40,7 @@ _auth_service = _get_auth_service()
 @router.post("/login", response=LoginOut, auth=None)
 @rate_limit_from_settings("AUTH")
 async def login_view(request: HttpRequest, payload: LoginIn) -> LoginOut:  # pragma: no cover
-    def _do():
+    def _do() -> Any:
         user = _auth_service.login(request, payload.username, payload.password)
         user_out = LawyerOut.from_orm(user)
         return LoginOut(success=True, user=user_out)
@@ -73,7 +73,7 @@ async def register_view(request: HttpRequest, payload: RegisterIn) -> RegisterOu
         return RegisterOut(success=False, message="用户名已存在")
 
     try:
-        def _do():
+        def _do() -> Any:
             result = _auth_service.register(
                 username=payload.username,
                 password=payload.password,

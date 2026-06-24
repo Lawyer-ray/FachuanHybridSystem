@@ -92,7 +92,7 @@ def _serialize_result(result: Any) -> LegalResearchResultOut:
 async def create_task(request: Any, payload: LegalResearchTaskCreateIn) -> LegalResearchCreateOut:  # pragma: no cover
     service = _get_service()
 
-    def _do():
+    def _do() -> Any:
         task = service.create_task(
             payload=payload, user=getattr(request, "user", None)
         )
@@ -129,7 +129,7 @@ async def capability_search_mcp(request: Any, payload: AgentSearchRequestV1) -> 
 async def get_task(request: Any, task_id: int) -> LegalResearchTaskOut:  # pragma: no cover
     service = _get_service()
 
-    def _do():
+    def _do() -> Any:
         task = service.get_task(
             task_id=task_id, user=getattr(request, "user", None)
         )
@@ -142,7 +142,7 @@ async def get_task(request: Any, task_id: int) -> LegalResearchTaskOut:  # pragm
 async def list_results(request: Any, task_id: int) -> list[LegalResearchResultOut]:  # pragma: no cover
     service = _get_service()
 
-    def _do():
+    def _do() -> Any:
         results = service.list_results(
             task_id=task_id, user=getattr(request, "user", None)
         )
@@ -156,7 +156,7 @@ async def list_results(request: Any, task_id: int) -> list[LegalResearchResultOu
 async def download_single_result(request: Any, task_id: int, result_id: int) -> FileResponse:  # pragma: no cover
     service = _get_service()
 
-    def _do():
+    def _do() -> Any:
         result = service.get_result(
             task_id=task_id, result_id=result_id, user=getattr(request, "user", None)
         )
@@ -175,7 +175,7 @@ async def download_single_result(request: Any, task_id: int, result_id: int) -> 
 async def download_all_results(request: Any, task_id: int) -> HttpResponse:  # pragma: no cover
     service = _get_service()
 
-    def _do_download_prep():
+    def _do_download_prep() -> Any:
         service.ensure_task_ready_for_download(
             task_id=task_id, user=getattr(request, "user", None)
         )

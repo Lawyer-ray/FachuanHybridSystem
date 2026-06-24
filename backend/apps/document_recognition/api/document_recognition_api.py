@@ -172,7 +172,7 @@ async def recognize_document(request: Any, file: UploadedFile = File(...)) -> Ta
     file_path = _save_uploaded_file(file)
 
     # 3. 创建任务记录 + 提交异步任务
-    def _create_and_submit():
+    def _create_and_submit() -> Any:
         task = _get_task_service().create_task(file_path=file_path, original_filename=filename)
         submit_task(
             "apps.document_recognition.tasks.execute_document_recognition_task",
@@ -194,7 +194,7 @@ async def get_task_status(request: Any, task_id: int) -> TaskStatusResponseSchem
     查询识别任务状态和结果
     """
 
-    def _do():
+    def _do() -> Any:
         task = _get_task_service().get_task(task_id, select_case=True)
 
         # 构建响应
@@ -306,7 +306,7 @@ async def manual_bind_case(request: Any, task_id: int, payload: ManualBindingReq
     Requirements: 3.1
     """
     # 1. 获取任务并检查是否已绑定（在 sync 上下文中）
-    def _check_bound():
+    def _check_bound() -> Any:
         task = _get_task_service().get_task(task_id, select_case=True)
         if task.binding_success:
             return ManualBindingResponseSchema(
@@ -354,7 +354,7 @@ async def update_task_info(request: Any, task_id: int, payload: UpdateInfoReques
         更新结果
     """
 
-    def _do():
+    def _do() -> Any:
         task = _get_task_service().update_task_info(
             task_id,
             case_number=payload.case_number,

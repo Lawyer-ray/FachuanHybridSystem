@@ -57,7 +57,7 @@ async def list_contracts(  # pragma: no cover
     service = _get_domain_service()
     ctx = await sync_to_async(extract_request_context)(request)
 
-    def _do():
+    def _do() -> Any:
         return service.list_contracts(
             case_type=case_type,
             status=status,
@@ -88,7 +88,7 @@ async def create_contract_with_cases(request: HttpRequest, payload: ContractWith
     cases_data = data.pop("cases", None)
     lawyer_ids = data.pop("lawyer_ids", [])
 
-    def _do():
+    def _do() -> Any:
         contract = service.create_contract_with_cases(
             contract_data=data,
             cases_data=cases_data,
@@ -110,7 +110,7 @@ async def get_contract(request: HttpRequest, contract_id: int) -> Any:  # pragma
     service = _get_domain_service()
     ctx = await sync_to_async(extract_request_context)(request)
 
-    def _do():
+    def _do() -> Any:
         contract = service.get_contract(
             contract_id=contract_id,
             user=ctx.user,
@@ -141,7 +141,7 @@ async def update_contract(  # pragma: no cover
     )
     data = payload.model_dump(exclude_unset=True)
 
-    def _do():
+    def _do() -> Any:
         contract = service.update_contract_with_finance(
             contract_id=contract_id,
             update_data=data,
@@ -166,7 +166,7 @@ async def create_contract(  # pragma: no cover
     data = payload.model_dump()
     lawyer_ids = data.pop("lawyer_ids", [])
 
-    def _do():
+    def _do() -> Any:
         contract = service.create_contract_with_cases(
             contract_data=data,
             cases_data=None,
@@ -190,7 +190,7 @@ async def update_contract_lawyers(request: HttpRequest, contract_id: int, payloa
         org_access=ctx.org_access,
         perm_open_access=ctx.perm_open_access,
     )
-    def _do():
+    def _do() -> Any:
         assignments = service.update_contract_lawyers(
             contract_id=contract_id, lawyer_ids=payload.lawyer_ids,
         )
@@ -224,7 +224,7 @@ async def get_contract_all_parties(request: HttpRequest, contract_id: int) -> An
         perm_open_access=ctx.perm_open_access,
     )
 
-    def _do():
+    def _do() -> Any:
         return service.get_all_parties(contract_id)
 
     return await sync_to_async(_do)()

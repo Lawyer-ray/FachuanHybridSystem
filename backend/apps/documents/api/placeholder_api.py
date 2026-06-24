@@ -51,7 +51,7 @@ async def list_placeholders(request: Any, is_active: bool | None = None) -> Any:
     """
     service = _get_placeholder_service()
 
-    def _do():
+    def _do() -> Any:
         return service.list_placeholders(is_active=is_active)
 
     return await sync_to_async(_do)()
@@ -62,7 +62,7 @@ async def get_placeholder(request: Any, placeholder_id: int) -> Any:  # pragma: 
     """获取替换词详情"""
     service = _get_placeholder_service()
 
-    def _do():
+    def _do() -> Any:
         return service.get_placeholder_by_id(placeholder_id)
 
     return await sync_to_async(_do)()
@@ -73,7 +73,7 @@ async def get_placeholder_by_key(request: Any, key: str) -> Any:  # pragma: no c
     """根据键获取替换词"""
     service = _get_placeholder_service()
 
-    def _do():
+    def _do() -> Any:
         return service.get_placeholder_by_key(key)
 
     return await sync_to_async(_do)()
@@ -84,7 +84,7 @@ async def create_placeholder(request: Any, payload: PlaceholderIn) -> Any:  # pr
     """创建替换词"""
     service = _get_placeholder_service()
 
-    def _do():
+    def _do() -> Any:
         return service.create_placeholder(
             key=payload.key,
             display_name=payload.display_name,
@@ -101,7 +101,7 @@ async def update_placeholder(request: Any, placeholder_id: int, payload: Placeho
     """更新替换词"""
     service = _get_placeholder_service()
 
-    def _do():
+    def _do() -> Any:
         return service.update_placeholder(
             placeholder_id=placeholder_id,
             key=payload.key,

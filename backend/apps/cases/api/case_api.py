@@ -209,16 +209,15 @@ async def create_case_full(request: HttpRequest, payload: CaseCreateFull) -> Cas
         ),
     }
 
-    def _create_full() -> dict[str, Any]:
+    def _create_full() -> CaseFullOut:
         result = service.create_case_full(data, actor_id=actor_id, user=ctx.user)
-        case_out = CaseOut.from_orm(result["case"]).model_dump()
-        return {
-            "case": case_out,
-            "parties": result["parties"],
-            "assignments": result["assignments"],
-            "logs": result["logs"],
-            "case_numbers": [],
-            "supervising_authorities": result.get("supervising_authorities", []),
-        }
+        return CaseFullOut(
+            case=CaseOut.from_orm(result["case"]),
+            parties=result["parties"],
+            assignments=result["assignments"],
+            logs=result["logs"],
+            case_numbers=[],
+            supervising_authorities=result.get("supervising_authorities", []),
+        )
 
     return await sync_to_async(_create_full)()
