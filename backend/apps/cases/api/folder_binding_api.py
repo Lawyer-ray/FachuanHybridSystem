@@ -52,9 +52,10 @@ async def create_folder_binding(request: HttpRequest, case_id: int, data: CaseFo
     if data.storage_account_id and data.storage_type != "local":
         from apps.core.cloud_storage.models import CloudStorageAccount
 
+        account_id = int(data.storage_account_id)
         storage_account = await sync_to_async(
             lambda: CloudStorageAccount.objects.filter(
-                id=int(data.storage_account_id), storage_type=data.storage_type, is_active=True
+                id=account_id, storage_type=data.storage_type, is_active=True
             ).first(),
             thread_sensitive=False,
         )()
