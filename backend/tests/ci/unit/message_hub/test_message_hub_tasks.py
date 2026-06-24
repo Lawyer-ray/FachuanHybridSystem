@@ -102,25 +102,23 @@ class TestSyncAllSources:
     """Test sync_all_sources task."""
 
     def test_syncs_enabled_sources(self, db):
-        """Iterates over enabled sources and fetches messages."""
+        """Submits async tasks for each enabled source."""
         from plugins.message_hub.tasks import sync_all_sources
 
         with (
             patch("apps.message_hub.models.MessageSource") as MockSource,
-            patch("plugins.message_hub.services.get_fetcher") as mock_get_fetcher,
+            patch("django_q.tasks.async_task") as mock_async_task,
         ):
-            mock_source = MagicMock()
-            mock_source.display_name = "Test Source"
-            mock_source.source_type = "email"
-            MockSource.objects.filter.return_value.select_related.return_value = [mock_source]
-
-            mock_fetcher = MagicMock()
-            mock_fetcher.fetch_new_messages.return_value = 3
-            mock_get_fetcher.return_value = mock_fetcher
+            mock_qs = MagicMock()
+            mock_qs.values_list.return_value = [1, 2, 3]
+            MockSource.objects.filter.return_value = mock_qs
 
             sync_all_sources()
 
-            mock_fetcher.fetch_new_messages.assert_called_once_with(mock_source)
+            assert mock_async_task.call_count == 3
+            mock_async_task.assert_any_call(
+                "plugins.message_hub.tasks.sync_source_by_id", 1, q_options={"group": "message_hub"}
+            )
 
     def test_handles_not_implemented_source(self, db):
         """Skips sources that raise NotImplementedError."""
