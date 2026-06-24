@@ -3,7 +3,7 @@
 提供用户登录、登出和当前用户信息接口
 """
 
-from typing import cast
+from typing import Any, cast
 
 from asgiref.sync import sync_to_async
 from django.http import HttpRequest
@@ -45,7 +45,7 @@ async def login_view(request: HttpRequest, payload: LoginIn) -> LoginOut:  # pra
         user_out = LawyerOut.from_orm(user)
         return LoginOut(success=True, user=user_out)
 
-    return await sync_to_async(_do)()
+    return cast(LoginOut, await sync_to_async(_do)())
 
 
 @router.post("/logout", auth=None)
@@ -90,7 +90,7 @@ async def register_view(request: HttpRequest, payload: RegisterIn) -> RegisterOu
                 message="注册成功，系统正在初始化..." if is_first else "注册成功，请等待管理员审批",
             )
 
-        return await sync_to_async(_do)()
+        return cast(RegisterOut, await sync_to_async(_do)())
     except Exception as e:
         return RegisterOut(success=False, message=str(e))
 
