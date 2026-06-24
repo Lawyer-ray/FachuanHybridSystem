@@ -9,7 +9,7 @@ Requirements: 2.1, 2.2, 2.3, 8.1, 8.2, 8.3, 8.4
 
 import logging
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from asgiref.sync import sync_to_async
 from django.conf import settings
@@ -321,7 +321,7 @@ async def manual_bind_case(request: Any, task_id: int, payload: ManualBindingReq
 
     already_bound = await sync_to_async(_check_bound)()
     if already_bound:
-        return already_bound
+        return cast(ManualBindingResponseSchema, already_bound)
 
     # 2. 调用服务层执行手动绑定（返回的是 dataclass，非 ORM 对象）
     binding_service = _get_case_binding_service()
