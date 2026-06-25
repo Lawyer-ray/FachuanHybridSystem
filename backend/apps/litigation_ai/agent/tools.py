@@ -17,9 +17,10 @@ logger = logging.getLogger("apps.litigation_ai")
 
 
 class _SimpleTool:
-    def __init__(self, func: Any, args_schema: type[BaseModel] | None = None) -> None:
+    def __init__(self, func: Any, args_schema: type[BaseModel] | None = None, async_func: Any = None) -> None:
         update_wrapper(self, func)
         self._func = func
+        self._async_func = async_func
         self.args_schema = args_schema
         self.name = getattr(func, "__name__", "tool")
         self.description = (getattr(func, "__doc__", "") or "").strip()
@@ -43,15 +44,18 @@ class _SimpleTool:
         return self._func(**self._normalize_args(args))
 
     async def ainvoke(self, args: Any | None = None) -> Any:
-        return await sync_to_async(self.invoke, thread_sensitive=True)(args)
+        normalized = self._normalize_args(args)
+        if self._async_func is not None:
+            return await self._async_func(**normalized)
+        return await sync_to_async(self._func, thread_sensitive=True)(**normalized)
 
     def __call__(self, *args: Any, **kwargs: Any) -> Any:
         return self._func(*args, **kwargs)
 
 
-def tool(*, args_schema: type[BaseModel] | None = None) -> Any:
+def tool(*, args_schema: type[BaseModel] | None = None, async_func: Any = None) -> Any:
     def _decorator(func: Any) -> _SimpleTool:
-        return _SimpleTool(func=func, args_schema=args_schema)
+        return _SimpleTool(func=func, args_schema=args_schema, async_func=async_func)
 
     return _decorator
 
@@ -240,7 +244,46 @@ def get_recommended_document_types(case_id: int) -> list[str]:
         return []
 
 
-@tool(args_schema=GenerateDraftInput)
+async def _generate_draft_async(
+    case_id: int,
+    document_type: str,
+    litigation_goal: str,
+    evidence_context: str,
+) -> dict[str, Any]:
+    """generate_draft 的异步实现，避免 asyncio.run() 嵌套事件循环"""
+    logger.info(
+        "调用 generate_draft 工具(异步)",
+        extra={
+            "case_id": case_id,
+            "document_type": document_type,
+        },
+    )
+
+    try:
+        from apps.litigation_ai.services.generation.draft_service import DraftService
+
+        service = DraftService()
+        result = await service.generate_draft_for_agent(
+            case_id=case_id,
+            document_type=document_type,
+            litigation_goal=litigation_goal,
+            evidence_context=evidence_context,
+        )
+
+        return result
+    except Exception as e:
+        logger.error(
+            "generate_draft 工具执行失败",
+            extra={
+                "case_id": case_id,
+                "document_type": document_type,
+                "error": str(e),
+            },
+        )
+        return {"error": f"生成草稿失败: {e!s}"}
+
+
+@tool(args_schema=GenerateDraftInput, async_func=_generate_draft_async)
 def generate_draft(
     case_id: int,
     document_type: str,

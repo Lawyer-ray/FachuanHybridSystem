@@ -10,6 +10,8 @@ import logging
 from collections.abc import Callable
 from typing import Any
 
+from asgiref.sync import sync_to_async
+
 from apps.litigation_ai.models import LitigationSession
 
 logger = logging.getLogger("apps.litigation_ai")
@@ -20,7 +22,7 @@ class DraftService:  # pragma: no cover
     草稿生成服务(简化版,供 Agent 工具调用)
     """
 
-    def generate_draft_for_agent(  # pragma: no cover
+    async def generate_draft_for_agent(  # pragma: no cover
         self,
         case_id: int,
         document_type: str,
@@ -39,24 +41,20 @@ class DraftService:  # pragma: no cover
         Returns:
             生成结果,包含 display_text, draft, model 等字段
         """
-        import asyncio
-
         from apps.litigation_ai.chains import LitigationDraftChain
 
         from ..session.context_service import LitigationContextService
 
         context_service = LitigationContextService()
-        case_info = context_service.build_case_info(case_id, document_type)
+        case_info = await sync_to_async(context_service.build_case_info)(case_id, document_type)
 
         chain = LitigationDraftChain()
 
-        result = asyncio.run(
-            chain.arun(
-                case_info=case_info,
-                document_type=document_type,
-                litigation_goal=litigation_goal,
-                evidence_text=evidence_context,
-            )
+        result = await chain.arun(
+            case_info=case_info,
+            document_type=document_type,
+            litigation_goal=litigation_goal,
+            evidence_text=evidence_context,
         )
 
         return {
