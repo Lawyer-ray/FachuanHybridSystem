@@ -134,7 +134,8 @@ class TestSessionLifecycleServiceDeleteSession:
         svc = SessionLifecycleService.__new__(SessionLifecycleService)
         mock_session = Mock()
         mock_session._meta.related_objects = []
-        svc._detach_related_rows(mock_session)  # should not raise
+        with patch.object(svc, "_detach_legacy_tables"):
+            svc._detach_related_rows(mock_session)  # should not raise
 
 
 # ============================================================================

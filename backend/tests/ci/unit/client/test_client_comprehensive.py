@@ -509,7 +509,8 @@ class TestClientApi:
     """client_api.py 端点测试"""
 
     @patch("apps.client.api.client_api._get_query_facade")
-    def test_list_clients(self, mock_facade_cls):
+    @pytest.mark.asyncio
+    async def test_list_clients(self, mock_facade_cls):
         from apps.client.api.client_api import list_clients
 
         mock_facade = MagicMock()
@@ -518,7 +519,7 @@ class TestClientApi:
 
         request = MagicMock()
         request.auth = MagicMock()
-        result = list_clients(request, client_type="natural", is_our_client=True, search="test")
+        result = await list_clients(request, client_type="natural", is_our_client=True, search="test")
         assert result == []
 
     @patch("apps.client.api.client_api._get_query_facade")

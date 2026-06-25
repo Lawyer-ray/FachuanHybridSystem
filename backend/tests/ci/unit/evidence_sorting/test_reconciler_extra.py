@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -258,123 +258,132 @@ def test_build_folder_name_delivery_not_enough(svc: ReconcilerService) -> None:
     assert "数量不够" in result
 
 
-# ── reconcile (integration) ──────────────────────────────────────────────────
+# ── reconcile_async (integration) ─────────────────────────────────────────────
 
-def test_reconcile_empty_inputs(svc: ReconcilerService) -> None:
-    result = svc.reconcile([], [], [], [])
+@pytest.mark.asyncio
+async def test_reconcile_empty_inputs(svc: ReconcilerService) -> None:
+    result = await svc.reconcile_async([], [], [], [])
     assert result.month_groups == []
     assert result.unmatched_deliveries == []
     assert result.receipts == []
     assert result.others == []
 
 
-def test_reconcile_with_statements(svc: ReconcilerService) -> None:
-    # Mock parse_statement to return a parsed statement
+@pytest.mark.asyncio
+async def test_reconcile_with_statements(svc: ReconcilerService) -> None:
+    # Mock parse_statement_async to return a parsed statement
     parsed = StatementInfo(
         month="2022-08",
         total_amount=50000.0,
         signed=True,
         line_items=[LineItem(date="20220801", amount=50000.0, description="desc")],
     )
-    svc.parse_statement = MagicMock(return_value=parsed)
+    svc.parse_statement_async = AsyncMock(return_value=parsed)
 
     statements = [{"ocr_text": "test ocr", "filename": "stmt.pdf", "signed": True}]
-    result = svc.reconcile(statements, [], [], [])
+    result = await svc.reconcile_async(statements, [], [], [])
 
     assert len(result.month_groups) == 1
-    svc.parse_statement.assert_called_once()
+    svc.parse_statement_async.assert_called_once()
 
 
-def test_reconcile_with_matching_deliveries(svc: ReconcilerService) -> None:
+@pytest.mark.asyncio
+async def test_reconcile_with_matching_deliveries(svc: ReconcilerService) -> None:
     parsed = StatementInfo(
         month="2022-08",
         total_amount=50000.0,
         signed=True,
         line_items=[LineItem(date="20220801", amount=50000.0)],
     )
-    svc.parse_statement = MagicMock(return_value=parsed)
+    svc.parse_statement_async = AsyncMock(return_value=parsed)
 
     statements = [{"ocr_text": "test", "filename": "stmt.pdf"}]
     deliveries = [{"filename": "dn.pdf", "date": "20220801", "amount": "50000"}]
 
-    result = svc.reconcile(statements, deliveries, [], [])
+    result = await svc.reconcile_async(statements, deliveries, [], [])
     assert len(result.month_groups) == 1
     assert len(result.month_groups[0].deliveries) == 1
 
 
-def test_reconcile_with_unmatched_delivery(svc: ReconcilerService) -> None:
+@pytest.mark.asyncio
+async def test_reconcile_with_unmatched_delivery(svc: ReconcilerService) -> None:
     parsed = StatementInfo(
         month="2022-08",
         total_amount=50000.0,
         signed=True,
         line_items=[],
     )
-    svc.parse_statement = MagicMock(return_value=parsed)
+    svc.parse_statement_async = AsyncMock(return_value=parsed)
 
     statements = [{"ocr_text": "test", "filename": "stmt.pdf"}]
     deliveries = [{"filename": "dn.pdf", "date": "20220801", "amount": "50000"}]
 
-    result = svc.reconcile(statements, deliveries, [], [])
+    result = await svc.reconcile_async(statements, deliveries, [], [])
     # Delivery in same month but no line items to match
     assert len(result.month_groups) == 1
 
 
-def test_reconcile_unsigned_statement(svc: ReconcilerService) -> None:
+@pytest.mark.asyncio
+async def test_reconcile_unsigned_statement(svc: ReconcilerService) -> None:
     parsed = StatementInfo(
         month="2022-08",
         total_amount=50000.0,
         signed=False,
         line_items=[],
     )
-    svc.parse_statement = MagicMock(return_value=parsed)
+    svc.parse_statement_async = AsyncMock(return_value=parsed)
 
     statements = [{"ocr_text": "test", "filename": "stmt.pdf"}]
-    result = svc.reconcile(statements, [], [], [])
+    result = await svc.reconcile_async(statements, [], [], [])
 
     assert len(result.unsigned_statements) >= 1
 
 
-def test_reconcile_receipts_and_others(svc: ReconcilerService) -> None:
-    svc.parse_statement = MagicMock(return_value=StatementInfo())
+@pytest.mark.asyncio
+async def test_reconcile_receipts_and_others(svc: ReconcilerService) -> None:
+    svc.parse_statement_async = AsyncMock(return_value=StatementInfo())
 
     receipts = [{"filename": "receipt.pdf"}]
     others = [{"filename": "other.pdf"}]
 
-    result = svc.reconcile([], [], receipts, others)
+    result = await svc.reconcile_async([], [], receipts, others)
     assert result.receipts == receipts
     assert result.others == others
 
 
-def test_reconcile_statement_with_classification_signed(svc: ReconcilerService) -> None:
+@pytest.mark.asyncio
+async def test_reconcile_statement_with_classification_signed(svc: ReconcilerService) -> None:
     """LLM says not signed but classification says signed."""
     parsed = StatementInfo(month="2022-08", signed=False, line_items=[])
-    svc.parse_statement = MagicMock(return_value=parsed)
+    svc.parse_statement_async = AsyncMock(return_value=parsed)
 
     statements = [{"ocr_text": "test", "filename": "stmt.pdf", "signed": True}]
-    result = svc.reconcile(statements, [], [], [])
+    result = await svc.reconcile_async(statements, [], [], [])
 
     # The statement should have signed=True from classification
     assert len(result.month_groups) == 1
 
 
-def test_reconcile_unmatched_delivery_no_month(svc: ReconcilerService) -> None:
+@pytest.mark.asyncio
+async def test_reconcile_unmatched_delivery_no_month(svc: ReconcilerService) -> None:
     """Delivery with date outside statement months."""
     parsed = StatementInfo(month="2022-08", signed=True, line_items=[])
-    svc.parse_statement = MagicMock(return_value=parsed)
+    svc.parse_statement_async = AsyncMock(return_value=parsed)
 
     statements = [{"ocr_text": "test", "filename": "stmt.pdf"}]
     deliveries = [{"filename": "dn.pdf", "date": "20230101", "amount": "50000"}]
 
-    result = svc.reconcile(statements, deliveries, [], [])
+    result = await svc.reconcile_async(statements, deliveries, [], [])
     assert len(result.unmatched_deliveries) == 1
 
 
-def test_reconcile_statement_no_month_key(svc: ReconcilerService) -> None:
+@pytest.mark.asyncio
+async def test_reconcile_statement_no_month_key(svc: ReconcilerService) -> None:
     """Statement with no parseable month."""
     parsed = StatementInfo(month="", signed=False, line_items=[])
-    svc.parse_statement = MagicMock(return_value=parsed)
+    svc.parse_statement_async = AsyncMock(return_value=parsed)
 
     statements = [{"ocr_text": "test", "filename": "stmt.pdf"}]
-    result = svc.reconcile(statements, [], [], [])
+    result = await svc.reconcile_async(statements, [], [], [])
 
     assert len(result.unsigned_statements) >= 1
