@@ -3,6 +3,8 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 
+from asgiref.sync import sync_to_async
+
 
 @dataclass(frozen=True)
 class ProviderConfig:
@@ -55,6 +57,14 @@ class SocialProvider(ABC):
     @abstractmethod
     def get_profile(self, token_response: TokenResponse) -> SocialProfile:
         """获取用户信息"""
+
+    async def aexchange_code(self, code: str, state: str) -> TokenResponse:
+        """用授权码换 access_token（async 版本，默认回退到同步）"""
+        return await sync_to_async(self.exchange_code)(code, state)
+
+    async def aget_profile(self, token_response: TokenResponse) -> SocialProfile:
+        """获取用户信息（async 版本，默认回退到同步）"""
+        return await sync_to_async(self.get_profile)(token_response)
 
     def get_client_config(self) -> dict[str, str] | None:
         """返回前端渲染二维码需要的配置。默认 None 表示无需前端配置。"""
