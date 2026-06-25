@@ -219,7 +219,7 @@ class TestEnforcementCauseOfActionService:
 
         svc = EnforcementCauseOfActionService()
         result = svc.generate({})
-        assert result == {"案由": "民事纠纷"}
+        assert result == {"案由": ""}
 
     def test_resolve_cause_from_case(self):
         from apps.documents.services.placeholders.litigation.enforcement_basic_service import (

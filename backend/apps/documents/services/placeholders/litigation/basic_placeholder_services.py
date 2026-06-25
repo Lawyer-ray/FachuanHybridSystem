@@ -99,7 +99,7 @@ class LitigationCauseOfActionPlaceholderService(BasePlaceholderService):
 
     def generate(self, context_data: dict[str, Any]) -> dict[str, Any]:
         cause_of_action = self._resolve_cause_of_action(context_data)
-        return {LitigationPlaceholderKeys.CAUSE_OF_ACTION: cause_of_action or "民事纠纷"}
+        return {LitigationPlaceholderKeys.CAUSE_OF_ACTION: cause_of_action}
 
     def _resolve_cause_of_action(self, context_data: dict[str, Any]) -> str:
         case_obj = context_data.get("case")
