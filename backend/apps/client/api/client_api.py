@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from typing import Any, cast
 
+from asgiref.sync import sync_to_async
 from ninja import File, Router, Status
 from ninja.files import UploadedFile
 from pydantic import BaseModel
@@ -51,7 +52,7 @@ def _get_mutation_service() -> Any:
 
 
 @router.get("/clients", response=list[ClientOut])
-def list_clients(  # pragma: no cover
+async def list_clients(  # pragma: no cover
     request: Any,
     client_type: str | None = None,
     is_our_client: bool | None = None,
@@ -60,7 +61,7 @@ def list_clients(  # pragma: no cover
     """获取客户列表（前端做客户端分页）"""
     facade = _get_query_facade()
     user = getattr(request, "auth", None) or extract_request_context(request).user
-    return facade.list_clients(  # type: ignore[no-any-return]
+    return await sync_to_async(facade.list_clients)(  # type: ignore[no-any-return]
         client_type=client_type,
         is_our_client=is_our_client,
         search=search,

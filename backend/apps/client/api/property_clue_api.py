@@ -5,6 +5,7 @@
 
 from typing import Any
 
+from asgiref.sync import sync_to_async
 from ninja import File, Router, Status
 from ninja.files import UploadedFile
 
@@ -27,7 +28,7 @@ def _get_property_clue_service() -> Any:
 
 
 @router.post("/clients/{client_id}/property-clues", response=PropertyClueOut)
-def create_property_clue(request: Any, client_id: int, payload: PropertyClueIn) -> Any:  # pragma: no cover
+async def create_property_clue(request: Any, client_id: int, payload: PropertyClueIn) -> Any:  # pragma: no cover
     """
     创建财产线索
 
@@ -41,13 +42,13 @@ def create_property_clue(request: Any, client_id: int, payload: PropertyClueIn) 
     service = _get_property_clue_service()
     user = getattr(request, "auth", None) or getattr(request, "user", None)
 
-    clue = service.create_clue(client_id=client_id, data=payload.model_dump(), user=user)
+    clue = await sync_to_async(service.create_clue)(client_id=client_id, data=payload.model_dump(), user=user)
 
     return clue
 
 
 @router.get("/clients/{client_id}/property-clues", response=list[PropertyClueOut])
-def list_property_clues(request: Any, client_id: int) -> Any:  # pragma: no cover
+async def list_property_clues(request: Any, client_id: int) -> Any:  # pragma: no cover
     """
     获取当事人的所有财产线索
 
@@ -61,7 +62,7 @@ def list_property_clues(request: Any, client_id: int) -> Any:  # pragma: no cove
     service = _get_property_clue_service()
     user = getattr(request, "auth", None) or getattr(request, "user", None)
 
-    clues = service.list_clues_by_client(client_id=client_id, user=user)
+    clues = await sync_to_async(service.list_clues_by_client)(client_id=client_id, user=user)
 
     return list(clues)
 
