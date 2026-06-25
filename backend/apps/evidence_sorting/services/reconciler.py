@@ -138,6 +138,31 @@ class ReconcilerService:
             logger.warning("LLM 解析对账单失败: %s", e)
             return StatementInfo()
 
+    async def parse_statement_async(
+        self,
+        ocr_text: str,
+        backend: str | None = None,
+        model: str | None = None,
+    ) -> StatementInfo:  # pragma: no cover
+        """用 LLM 异步解析对账单 OCR 文本"""
+        from apps.core.llm import get_llm_service
+
+        llm = get_llm_service()
+        prompt = STATEMENT_PARSE_PROMPT.format(ocr_text=ocr_text)
+
+        try:
+            resp = await llm.achat(
+                messages=[{"role": "user", "content": prompt}],
+                backend=backend,
+                model=model,
+                temperature=0.1,
+                fallback=True,
+            )
+            return self._parse_llm_response(resp.content or "")
+        except Exception as e:
+            logger.warning("LLM 异步解析对账单失败: %s", e)
+            return StatementInfo()
+
     def _parse_llm_response(self, text: str) -> StatementInfo:
         """解析 LLM 返回的 JSON"""
         # 提取 JSON 块
@@ -221,18 +246,18 @@ class ReconcilerService:
             others=others,
         )
 
-        # 1. 用 LLM 解析每张对账单
+        # 1. 并发用 LLM 解析每张对账单
+        parse_tasks = [
+            self.parse_statement_async(st.get("ocr_text", ""), backend=backend, model=model)
+            for st in statements
+        ]
+        parsed_results = await asyncio.gather(*parse_tasks) if parse_tasks else []
+
         parsed_statements: list[StatementInfo] = []
-        for st in statements:
-            info = self.parse_statement(
-                st.get("ocr_text", ""),
-                backend=backend,
-                model=model,
-            )
+        for st, info in zip(statements, parsed_results):
             info.filename = st.get("filename", "")
             info.ocr_text = st.get("ocr_text", "")
             info.image_data = st.get("image_data", "")
-            # 如果 LLM 没检测到签名状态，用分类阶段的结果
             if not info.signed and st.get("signed"):
                 info.signed = True
             parsed_statements.append(info)
