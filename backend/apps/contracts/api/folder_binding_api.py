@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from asgiref.sync import sync_to_async
 from django.http import HttpRequest
 from ninja import Router
 
@@ -48,7 +49,7 @@ def _require_admin(request: HttpRequest) -> None:
 
 
 @router.post("/{contract_id}/folder-binding", response=FolderBindingResponseSchema)
-def create_folder_binding(request: HttpRequest, contract_id: int, data: FolderBindingCreateSchema) -> Any:  # pragma: no cover
+async def create_folder_binding(request: HttpRequest, contract_id: int, data: FolderBindingCreateSchema) -> Any:  # pragma: no cover
     """
     创建或更新文件夹绑定
 
@@ -74,9 +75,9 @@ def create_folder_binding(request: HttpRequest, contract_id: int, data: FolderBi
     if data.storage_account_id and data.storage_type != "local":
         from apps.core.cloud_storage.models import CloudStorageAccount
 
-        storage_account = CloudStorageAccount.objects.filter(
+        storage_account = await CloudStorageAccount.objects.filter(
             id=data.storage_account_id, storage_type=data.storage_type, is_active=True
-        ).first()
+        ).afirst()
         if storage_account is None:
             from apps.core.exceptions import ValidationException
 
@@ -86,15 +87,15 @@ def create_folder_binding(request: HttpRequest, contract_id: int, data: FolderBi
                 errors={"storage_account_id": data.storage_account_id},
             )
 
-    binding = service.create_binding(
+    binding = await sync_to_async(service.create_binding)(
         owner_id=contract_id,
         folder_path=data.folder_path,
         storage_type=data.storage_type,
         storage_account=storage_account,
     )
 
-    display_path = service.format_path_for_display(binding.folder_path)
-    is_accessible = service.check_folder_accessible(binding.folder_path, binding=binding)
+    display_path = await sync_to_async(service.format_path_for_display)(binding.folder_path)
+    is_accessible = await sync_to_async(service.check_folder_accessible)(binding.folder_path, binding=binding)
 
     logger.info(
         "contract_folder_binding_upsert",
@@ -117,7 +118,7 @@ def create_folder_binding(request: HttpRequest, contract_id: int, data: FolderBi
 
 
 @router.get("/{contract_id}/folder-binding", response=FolderBindingResponseSchema | None)
-def get_folder_binding(request: HttpRequest, contract_id: int) -> Any:  # pragma: no cover
+async def get_folder_binding(request: HttpRequest, contract_id: int) -> Any:  # pragma: no cover
     """
     获取文件夹绑定信息
 
@@ -132,15 +133,15 @@ def get_folder_binding(request: HttpRequest, contract_id: int) -> Any:  # pragma
     _require_contract_access(request, contract_id)
     service = _get_folder_binding_service()
 
-    binding = service.get_binding(owner_id=contract_id)
+    binding = await sync_to_async(service.get_binding)(owner_id=contract_id)
     if not binding:
         return None
 
     # 通过 inode 自动修复路径（如果需要）
-    is_accessible, path_auto_repaired = service.check_and_repair_path(binding)
+    is_accessible, path_auto_repaired = await sync_to_async(service.check_and_repair_path)(binding)
 
     # 格式化显示路径
-    display_path = service.format_path_for_display(binding.folder_path)
+    display_path = await sync_to_async(service.format_path_for_display)(binding.folder_path)
 
     return FolderBindingResponseSchema.from_binding(
         binding,
@@ -151,7 +152,7 @@ def get_folder_binding(request: HttpRequest, contract_id: int) -> Any:  # pragma
 
 
 @router.delete("/{contract_id}/folder-binding")
-def delete_folder_binding(request: HttpRequest, contract_id: int) -> Any:  # pragma: no cover
+async def delete_folder_binding(request: HttpRequest, contract_id: int) -> Any:  # pragma: no cover
     """
     删除文件夹绑定
 
@@ -168,7 +169,7 @@ def delete_folder_binding(request: HttpRequest, contract_id: int) -> Any:  # pra
     service = _get_folder_binding_service()
 
     ctx = get_request_access_context(request)
-    success = service.delete_binding(owner_id=contract_id)
+    success = await sync_to_async(service.delete_binding)(owner_id=contract_id)
 
     logger.info(
         "contract_folder_binding_delete",

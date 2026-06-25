@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from asgiref.sync import sync_to_async
 from django.http import HttpRequest
 from django.utils.dateparse import parse_date
 from ninja import Router
@@ -23,7 +24,7 @@ def _get_finance_service() -> ContractFinanceService:
 
 
 @router.get("/finance/stats", response=FinanceStatsOut)
-def finance_stats(  # pragma: no cover
+async def finance_stats(  # pragma: no cover
     request: HttpRequest,
     contract_id: int | None = None,
     start_date: str | None = None,
@@ -45,7 +46,7 @@ def finance_stats(  # pragma: no cover
     d2 = parse_date(end_date) if end_date else None
 
     # 调用 Service 层
-    result = service.get_finance_stats(
+    result = await sync_to_async(service.get_finance_stats)(
         contract_id=contract_id,
         start_date=d1,
         end_date=d2,

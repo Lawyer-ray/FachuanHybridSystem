@@ -8,6 +8,7 @@ from __future__ import annotations
 from decimal import Decimal
 from typing import Any
 
+from asgiref.sync import sync_to_async
 from django.http import HttpRequest
 from django.utils.dateparse import parse_date
 from ninja import Router
@@ -26,7 +27,7 @@ def _get_payment_service() -> Any:
 
 
 @router.get("/finance/payments", response=list[ContractPaymentOut])
-def list_payments(  # pragma: no cover
+async def list_payments(  # pragma: no cover
     request: HttpRequest,
     contract_id: int | None = None,
     invoice_status: str | None = None,
@@ -40,27 +41,26 @@ def list_payments(  # pragma: no cover
     d1 = parse_date(start_date) if start_date else None
     d2 = parse_date(end_date) if end_date else None
 
-    return list(
-        service.list_payments(
-            contract_id=contract_id,
-            invoice_status=invoice_status,
-            start_date=d1,
-            end_date=d2,
-            user=ctx.user,
-            perm_open_access=ctx.perm_open_access,
-        )
+    qs = await sync_to_async(service.list_payments)(
+        contract_id=contract_id,
+        invoice_status=invoice_status,
+        start_date=d1,
+        end_date=d2,
+        user=ctx.user,
+        perm_open_access=ctx.perm_open_access,
     )
+    return list(qs)
 
 
 @router.post("/finance/payments", response=ContractPaymentOut)
-def create_payment(request: HttpRequest, payload: ContractPaymentIn) -> Any:  # pragma: no cover
+async def create_payment(request: HttpRequest, payload: ContractPaymentIn) -> Any:  # pragma: no cover
     """创建收款记录"""
     service = _get_payment_service()
     ctx = extract_request_context(request)
 
     received_at = parse_date(payload.received_at) if payload.received_at else None
 
-    return service.create_payment(
+    return await sync_to_async(service.create_payment)(
         contract_id=payload.contract_id,
         amount=Decimal(str(payload.amount)),
         received_at=received_at,
@@ -73,7 +73,7 @@ def create_payment(request: HttpRequest, payload: ContractPaymentIn) -> Any:  # 
 
 
 @router.put("/finance/payments/{payment_id}", response=ContractPaymentOut)
-def update_payment(request: HttpRequest, payment_id: int, payload: ContractPaymentUpdate) -> Any:  # pragma: no cover
+async def update_payment(request: HttpRequest, payment_id: int, payload: ContractPaymentUpdate) -> Any:  # pragma: no cover
     """更新收款记录"""
     service = _get_payment_service()
     ctx = extract_request_context(request)
@@ -85,7 +85,7 @@ def update_payment(request: HttpRequest, payment_id: int, payload: ContractPayme
 
     confirm = data.pop("confirm", False)
 
-    return service.update_payment(
+    return await sync_to_async(service.update_payment)(
         payment_id=payment_id,
         data=data,
         user=ctx.user,
@@ -94,13 +94,13 @@ def update_payment(request: HttpRequest, payment_id: int, payload: ContractPayme
 
 
 @router.delete("/finance/payments/{payment_id}")
-def delete_payment(request: HttpRequest, payment_id: int) -> Any:  # pragma: no cover
+async def delete_payment(request: HttpRequest, payment_id: int) -> Any:  # pragma: no cover
     """删除收款记录"""
     service = _get_payment_service()
     ctx = extract_request_context(request)
     confirm = request.GET.get("confirm") == "true"
 
-    return service.delete_payment(
+    return await sync_to_async(service.delete_payment)(
         payment_id=payment_id,
         user=ctx.user,
         confirm=confirm,

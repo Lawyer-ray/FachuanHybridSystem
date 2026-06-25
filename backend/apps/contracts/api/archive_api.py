@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from pathlib import Path
 from typing import Any
 
+from asgiref.sync import sync_to_async
 from django.conf import settings as django_settings
 from django.http import HttpRequest, HttpResponse
 from ninja import Router, Schema
@@ -310,22 +312,23 @@ def scale_to_a4(request: HttpRequest, contract_id: int) -> Any:  # pragma: no co
 
 
 @router.post("/{contract_id}/archive/confirm", response=ConfirmArchiveOut)
-def confirm_archive(request: HttpRequest, contract_id: int) -> Any:  # pragma: no cover
+async def confirm_archive(request: HttpRequest, contract_id: int) -> Any:  # pragma: no cover
     """确认归档：将合同状态改为已归档，并自动结案关联案件"""
     from apps.contracts.services.archive.archive_query_service import get_contract_or_none
 
-    contract = get_contract_or_none(contract_id)
+    contract = await sync_to_async(get_contract_or_none)(contract_id)
     if not contract:
         return HttpResponse(status=404)
 
     contract.status = "archived"
-    contract.save(update_fields=["status"])
+    await sync_to_async(contract.save)(update_fields=["status"])
 
     # 自动结案关联案件
-    for case in contract.cases.all():
+    cases = await sync_to_async(list)(contract.cases.all())
+    for case in cases:
         if case.status != "closed":
             case.status = "closed"
-            case.save(update_fields=["status"])
+            await sync_to_async(case.save)(update_fields=["status"])
 
     logger.info("合同已归档: contract_id=%s", contract_id)
     return ConfirmArchiveOut(success=True, message="归档确认成功")
@@ -414,11 +417,11 @@ def move_archive_material(request: HttpRequest, contract_id: int, material_id: i
 
 
 @router.get("/{contract_id}/archive/materials/{material_id}/preview")
-def preview_archive_material(request: HttpRequest, contract_id: int, material_id: int) -> Any:  # pragma: no cover
+async def preview_archive_material(request: HttpRequest, contract_id: int, material_id: int) -> Any:  # pragma: no cover
     """预览单个归档材料"""
     from apps.contracts.services.archive.archive_query_service import get_material_or_none
 
-    material = get_material_or_none(material_id, contract_id)
+    material = await sync_to_async(get_material_or_none)(material_id, contract_id)
 
     if not material:
         return HttpResponse(status=404)
@@ -430,7 +433,7 @@ def preview_archive_material(request: HttpRequest, contract_id: int, material_id
     if not file_path.exists():
         return HttpResponse(status=404)
 
-    content = file_path.read_bytes()
+    content = await asyncio.to_thread(file_path.read_bytes)
     suffix = file_path.suffix.lower()
     if suffix == ".pdf":
         content_type = "application/pdf"
@@ -452,14 +455,14 @@ def preview_archive_material(request: HttpRequest, contract_id: int, material_id
 
 
 @router.post("/{contract_id}/archive/clear-all", response=ClearAllOut)
-def clear_all_archive_materials(request: HttpRequest, contract_id: int) -> Any:  # pragma: no cover
+async def clear_all_archive_materials(request: HttpRequest, contract_id: int) -> Any:  # pragma: no cover
     """清空全部归档材料"""
     from apps.contracts.services.archive.archive_query_service import delete_material, get_materials_for_contract
 
-    materials = get_materials_for_contract(contract_id)
+    materials = await sync_to_async(get_materials_for_contract)(contract_id)
     deleted_count = 0
     for material in materials:
-        delete_material(material)
+        await sync_to_async(delete_material)(material)
         deleted_count += 1
 
     logger.info("已清空全部归档材料: contract_id=%s, count=%s", contract_id, deleted_count)

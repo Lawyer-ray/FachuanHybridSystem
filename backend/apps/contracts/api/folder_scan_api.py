@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from uuid import UUID
 
+from asgiref.sync import sync_to_async
 from django.http import HttpRequest
 from ninja import Router
 
@@ -35,11 +36,12 @@ def _require_contract_access(request: HttpRequest, contract_id: int) -> None:
 
 @router.post("/{contract_id}/folder-scan", response=ContractFolderScanStartOut)
 @rate_limit_from_settings("TASK", by_user=True)
-def start_contract_scan(request: HttpRequest, contract_id: int, payload: ContractFolderScanStartIn) -> dict[str, str]:  # pragma: no cover
+async def start_contract_scan(request: HttpRequest, contract_id: int, payload: ContractFolderScanStartIn) -> dict[str, str]:  # pragma: no cover
     _require_contract_access(request, contract_id)
     ctx = get_request_access_context(request)
 
-    session = _get_service().start_scan(
+    service = _get_service()
+    session = await sync_to_async(service.start_scan)(
         contract_id=contract_id,
         started_by=ctx.user,
         rescan=bool(payload.rescan),
@@ -53,17 +55,18 @@ def start_contract_scan(request: HttpRequest, contract_id: int, payload: Contrac
 
 
 @router.get("/{contract_id}/folder-scan/subfolders", response=ContractFolderScanSubfolderListOut)
-def list_contract_scan_subfolders(request: HttpRequest, contract_id: int) -> dict[str, object]:  # pragma: no cover
+async def list_contract_scan_subfolders(request: HttpRequest, contract_id: int) -> dict[str, object]:  # pragma: no cover
     _require_contract_access(request, contract_id)
-    return _get_service().list_scan_subfolders(contract_id=contract_id)
+    service = _get_service()
+    return await sync_to_async(service.list_scan_subfolders)(contract_id=contract_id)
 
 
 @router.get("/{contract_id}/folder-scan/latest", response=ContractFolderScanStatusOut)
-def get_latest_contract_scan(request: HttpRequest, contract_id: int) -> dict[str, object]:  # pragma: no cover
+async def get_latest_contract_scan(request: HttpRequest, contract_id: int) -> dict[str, object]:  # pragma: no cover
     """返回合同最新的扫描会话状态；无会话时返回空状态。"""
     _require_contract_access(request, contract_id)
     service = _get_service()
-    session = service.get_latest_session(contract_id=contract_id)
+    session = await sync_to_async(service.get_latest_session)(contract_id=contract_id)
     if session is None:
         return {
             "session_id": "",
@@ -77,21 +80,21 @@ def get_latest_contract_scan(request: HttpRequest, contract_id: int) -> dict[str
             "archive_item_options": [],
             "work_log_suggestions": [],
         }
-    return service.build_status_payload(session=session)
+    return await sync_to_async(service.build_status_payload)(session=session)
 
 
 @router.get("/{contract_id}/folder-scan/{session_id}", response=ContractFolderScanStatusOut)
-def get_contract_scan_status(request: HttpRequest, contract_id: int, session_id: UUID) -> dict[str, object]:  # pragma: no cover
+async def get_contract_scan_status(request: HttpRequest, contract_id: int, session_id: UUID) -> dict[str, object]:  # pragma: no cover
     _require_contract_access(request, contract_id)
 
     service = _get_service()
-    session = service.get_session(contract_id=contract_id, session_id=session_id)
-    return service.build_status_payload(session=session)
+    session = await sync_to_async(service.get_session)(contract_id=contract_id, session_id=session_id)
+    return await sync_to_async(service.build_status_payload)(session=session)
 
 
 @router.post("/{contract_id}/folder-scan/{session_id}/confirm", response=ContractFolderScanConfirmOut)
 @rate_limit_from_settings("TASK", by_user=True)
-def confirm_contract_scan(  # pragma: no cover
+async def confirm_contract_scan(  # pragma: no cover
     request: HttpRequest,
     contract_id: int,
     session_id: UUID,
@@ -103,14 +106,14 @@ def confirm_contract_scan(  # pragma: no cover
 
     # 解析云存储 provider（从 session → contract → binding 链路）
     storage_provider = None
-    session = service.get_session(contract_id=contract_id, session_id=session_id)
+    session = await sync_to_async(service.get_session)(contract_id=contract_id, session_id=session_id)
     try:
-        binding = session.contract.folder_binding
-        storage_provider = service._make_provider_for_binding(binding)
+        binding = await sync_to_async(lambda: session.contract.folder_binding)()
+        storage_provider = await sync_to_async(service._make_provider_for_binding)(binding)
     except Exception:
         pass
 
-    return service.confirm_import(
+    return await sync_to_async(service.confirm_import)(
         contract_id=contract_id,
         session_id=session_id,
         items=[item.model_dump() for item in payload.items],
