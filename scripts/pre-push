@@ -1,23 +1,38 @@
 #!/usr/bin/env bash
-# pre-push hook — 推送前运行本地 CI（quick 模式）
+# pre-push hook — 推送前运行本地 CI（full 模式，含测试）
 #
 # 安装: make install-hooks
 # 跳过: git push --no-verify
+#
+# 行为:
+#   - PostgreSQL 可用 → --full（含单元/集成/property 测试 + 覆盖率）
+#   - PostgreSQL 不可用 → --quick（仅 lint + typecheck，提示启动 PG）
 
 set -euo pipefail
 
 GIT_ROOT="$(git rev-parse --show-toplevel)"
 
-echo "▶ pre-push: 运行本地 CI（quick 模式）..."
+# 检查 PostgreSQL 是否可用
+if pg_isready -h 127.0.0.1 -p 5432 -q 2>/dev/null; then
+  echo "▶ pre-push: PostgreSQL 可用，运行完整本地 CI（full 模式）..."
+  echo "  含: ruff + mypy + unit/integration/property tests + coverage + smoke check"
+  MODE="--full"
+else
+  echo "⚠ pre-push: PostgreSQL 不可用，降级为 quick 模式（不跑测试）"
+  echo "  建议: docker compose -f backend/docker-compose.yml up -d postgres"
+  echo "  或:   brew services start postgresql@16"
+  MODE="--quick"
+fi
+
 echo ""
 
-if bash "$GIT_ROOT/scripts/ci-local.sh" --quick; then
+if bash "$GIT_ROOT/scripts/ci-local.sh" $MODE; then
   echo ""
   echo "✓ 本地 CI 通过，正在推送..."
 else
   echo ""
   echo "✗ 本地 CI 失败，推送已阻止。"
-  echo "  修复上述问题后重试，或使用 'make ci-full' 跑完整检查。"
+  echo "  修复上述问题后重试。"
   echo "  紧急情况可用 'git push --no-verify' 跳过。"
   exit 1
 fi
