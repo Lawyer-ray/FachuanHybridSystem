@@ -130,6 +130,7 @@ _PROFILES: dict[str, BrowserProfile] = {
     "gsxt": BrowserProfile(
         name="gsxt",
         cdp_url="http://localhost:9222",
+        headless=False,
         anti_detection=False,
     ),
     "express": BrowserProfile(
