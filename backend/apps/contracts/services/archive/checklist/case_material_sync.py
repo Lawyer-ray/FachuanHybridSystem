@@ -505,7 +505,7 @@ def _apply_initial_order_for_synced(synced: list[dict[str, Any]]) -> None:  # pr
         if not keywords or len(materials) <= 1:
             continue
 
-        def _sort_key(mat: FinalizedMaterial, _keywords: tuple[str, ...] = tuple(keywords)) -> tuple[int, int]:  # type: ignore[arg-type]
+        def _sort_key(mat: FinalizedMaterial, _keywords: tuple[str, ...] = tuple(keywords)) -> tuple[int, int]:
             for i, keyword in enumerate(_keywords):
                 if keyword in mat.original_filename:
                     return (0, i)
