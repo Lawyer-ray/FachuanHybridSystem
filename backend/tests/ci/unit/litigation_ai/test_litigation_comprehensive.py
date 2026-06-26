@@ -630,7 +630,9 @@ class TestTools:
         mock_svc_cls.return_value = mock_svc
 
         result = generate_draft(case_id=1, document_type="complaint", litigation_goal="win", evidence_context="ctx")
-        assert "display_text" in result
+        # Sync generate_draft now raises NotImplementedError (async-only stub),
+        # which is caught and returned as an error dict.
+        assert "error" in result
 
     @patch("apps.litigation_ai.services.generation.draft_service.DraftService")
     def test_generate_draft_error(self, mock_svc_cls) -> None:

@@ -24,9 +24,9 @@ def _make_conversation_service(session_id: str = "sess_123") -> MagicMock:
     """创建模拟会话服务。"""
     svc = MagicMock()
     svc.session_id = session_id
-    svc.add_user_message = MagicMock()
+    svc.aadd_user_message = AsyncMock()
     svc.get_messages_for_llm = MagicMock(return_value=[{"role": "user", "content": "hi"}])
-    svc.add_assistant_message = MagicMock()
+    svc.aadd_assistant_message = AsyncMock()
     return svc
 
 
@@ -58,7 +58,13 @@ class TestBuildChatStream:
         factory_conv = MagicMock(return_value=conv_svc)
         factory_llm = MagicMock(return_value=llm_svc)
 
-        with patch("asgiref.sync.sync_to_async", side_effect=lambda fn, **kw: AsyncMock(return_value=fn())):
+        with (
+            patch(
+                "apps.core.services.system_config_service.SystemConfigService.aget_value",
+                new_callable=AsyncMock,
+                return_value="false",
+            ),
+        ):
             results = await _collect_stream(
                 build_chat_stream(
                     message="hello",
@@ -93,7 +99,13 @@ class TestBuildChatStream:
         factory_conv = MagicMock(return_value=conv_svc)
         factory_llm = MagicMock(return_value=llm_svc)
 
-        with patch("asgiref.sync.sync_to_async", side_effect=lambda fn, **kw: AsyncMock(return_value=fn())):
+        with (
+            patch(
+                "apps.core.services.system_config_service.SystemConfigService.aget_value",
+                new_callable=AsyncMock,
+                return_value="false",
+            ),
+        ):
             results = await _collect_stream(
                 build_chat_stream(
                     message="hi",
@@ -128,7 +140,13 @@ class TestBuildChatStream:
         factory_conv = MagicMock(return_value=conv_svc)
         factory_llm = MagicMock(return_value=llm_svc)
 
-        with patch("asgiref.sync.sync_to_async", side_effect=lambda fn, **kw: AsyncMock(return_value=fn())):
+        with (
+            patch(
+                "apps.core.services.system_config_service.SystemConfigService.aget_value",
+                new_callable=AsyncMock,
+                return_value="false",
+            ),
+        ):
             results = await _collect_stream(
                 build_chat_stream(
                     message="hi",
@@ -162,7 +180,13 @@ class TestBuildChatStream:
         factory_conv = MagicMock(return_value=conv_svc)
         factory_llm = MagicMock(return_value=llm_svc)
 
-        with patch("asgiref.sync.sync_to_async", side_effect=lambda fn, **kw: AsyncMock(return_value=fn())):
+        with (
+            patch(
+                "apps.core.services.system_config_service.SystemConfigService.aget_value",
+                new_callable=AsyncMock,
+                return_value="false",
+            ),
+        ):
             await _collect_stream(
                 build_chat_stream(
                     message="hi",
@@ -189,25 +213,24 @@ class TestBuildChatStream:
         factory_conv = MagicMock(return_value=conv_svc)
         factory_llm = MagicMock(return_value=llm_svc)
 
-        mock_scs = MagicMock()
-        mock_scs.return_value.get_value.return_value = "false"
+        mock_presenter_cls = MagicMock()
+        mock_presenter = MagicMock()
+        mock_envelope = MagicMock()
+        mock_envelope.to_payload.return_value = {"code": "INTERNAL_ERROR", "message": "LLM crashed"}
+        mock_presenter.present.return_value = (mock_envelope, None)
+        mock_presenter_cls.return_value = mock_presenter
 
         with (
-            patch("asgiref.sync.sync_to_async", side_effect=lambda fn, **kw: AsyncMock(return_value=fn())),
             patch(
-                "apps.core.services.llm_stream_service.ExceptionPresenter"
-            ) as mock_presenter_cls,
+                "apps.core.services.llm_stream_service.ExceptionPresenter",
+                mock_presenter_cls,
+            ),
             patch(
-                "apps.core.services.system_config_service.SystemConfigService",
-                mock_scs,
+                "apps.core.services.system_config_service.SystemConfigService.aget_value",
+                new_callable=AsyncMock,
+                return_value="false",
             ),
         ):
-            mock_presenter = MagicMock()
-            mock_envelope = MagicMock()
-            mock_envelope.to_payload.return_value = {"code": "INTERNAL_ERROR", "message": "LLM crashed"}
-            mock_presenter.present.return_value = (mock_envelope, None)
-            mock_presenter_cls.return_value = mock_presenter
-
             results = await _collect_stream(
                 build_chat_stream(
                     message="hi",

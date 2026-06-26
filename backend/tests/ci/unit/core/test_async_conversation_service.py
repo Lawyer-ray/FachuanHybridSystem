@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 
 
-@pytest.mark.django_db
+@pytest.mark.django_db(transaction=True)
 @pytest.mark.asyncio
 class TestConversationRepositoryAsync:
     async def test_acreate_persists_record(self):
@@ -43,7 +43,7 @@ class TestConversationRepositoryAsync:
         assert count == 0
 
 
-@pytest.mark.django_db
+@pytest.mark.django_db(transaction=True)
 @pytest.mark.asyncio
 class TestConversationServiceAsync:
     async def test_aadd_user_message(self):
