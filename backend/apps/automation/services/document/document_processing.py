@@ -47,11 +47,20 @@ def extract_text_from_image_with_rapidocr(file_path: str) -> str:
     """
     使用 OCR 从图片中提取文字
 
-    自动根据 SystemConfig 中的 OCR_PROVIDER 配置选择本地 RapidOCR 或 PaddleOCR API。
+    .. deprecated::
+        请改用 `ServiceLocator.get_ocr_service().recognize(file_path)`。
+        本函数将在后续版本移除。
     """
-    from apps.automation.services.ocr.ocr_service import OCRService
+    import warnings
 
-    ocr_service = OCRService()
+    warnings.warn(
+        "extract_text_from_image_with_rapidocr 已废弃，请改用 ServiceLocator.get_ocr_service().recognize()",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    from apps.core.infrastructure import ServiceLocator
+
+    ocr_service = ServiceLocator.get_ocr_service()
     return ocr_service.recognize(file_path)
 
 

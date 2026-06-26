@@ -24,6 +24,7 @@ from .automation_protocols import (
     IPreservationQuoteService,
     ITokenService,
 )
+from .ocr_types import OCRTextResult
 from .case_assignment_protocols import ICaseAssignmentService
 from .case_material_protocols import ICaseMaterialService
 from .case_protocols import (
@@ -113,6 +114,8 @@ __all__ = [
     "IDocumentProcessingService",
     "IAutoNamerService",
     "IPerformanceMonitorService",
+    # OCR types
+    "OCRTextResult",
     # Common protocols
     "ISystemConfigService",
     "ILLMService",

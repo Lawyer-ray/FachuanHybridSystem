@@ -217,7 +217,7 @@ class TextExtractionService:
         import fitz
         from django.conf import settings
 
-        from apps.automation.services.document.document_processing import extract_text_from_image_with_rapidocr
+        from apps.core.infrastructure import ServiceLocator
 
         all_text = []
         temp_files = []
@@ -240,7 +240,8 @@ class TextExtractionService:
                     temp_files.append(temp_path)
 
                     # OCR 识别
-                    page_text = extract_text_from_image_with_rapidocr(temp_path.as_posix())
+                    ocr_service = ServiceLocator.get_ocr_service()
+                    page_text = ocr_service.recognize(temp_path.as_posix())
                     if page_text:
                         all_text.append(page_text)
 
@@ -273,9 +274,10 @@ class TextExtractionService:
         Requirements: 3.4, 3.5
         """
         try:
-            from apps.automation.services.document.document_processing import extract_text_from_image_with_rapidocr
+            from apps.core.infrastructure import ServiceLocator
 
-            text = extract_text_from_image_with_rapidocr(file_path)
+            ocr_service = ServiceLocator.get_ocr_service()
+            text = ocr_service.recognize(file_path)
 
             if text and text.strip():
                 # 删除所有空格

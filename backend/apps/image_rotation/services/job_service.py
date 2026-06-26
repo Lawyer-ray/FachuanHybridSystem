@@ -8,6 +8,7 @@ from django.core.files.base import ContentFile
 from django.db import transaction
 
 from apps.core.exceptions import NotFoundError
+from apps.core.protocols import IOcrService
 
 from ..models import ImageRotationJob, ImageRotationJobStatus, ImageRotationPage
 
@@ -110,19 +111,31 @@ class ImageRotationJobService:
     # ------------------------------------------------------------------
 
     @staticmethod
-    def run_ocr(job_id: str | uuid.UUID, provider: str = "local") -> list[ImageRotationPage]:
+    def run_ocr(
+        job_id: str | uuid.UUID,
+        provider: str = "local",
+        ocr_service: IOcrService | None = None,
+    ) -> list[ImageRotationPage]:
         """对任务所有页面重跑 OCR + 建议重命名。"""
-        from apps.automation.services.ocr.ocr_service import OCRService
+        from apps.core.infrastructure import ServiceLocator
         from apps.image_rotation.services.auto_rename_service import AutoRenameService
 
         job, pages = ImageRotationJobService.get_job_detail(job_id)
-        ocr = OCRService(use_v5=True, provider=provider)
+
+        if ocr_service is None:
+            if provider != "local":
+                from apps.automation.services.ocr.ocr_service import OCRService
+
+                ocr_service = OCRService(use_v5=True, provider=provider)
+            else:
+                ocr_service = ServiceLocator.get_ocr_service()
+
         rename_service = AutoRenameService()
 
         for page in pages:
             try:
                 image_bytes = page.source_image.read()
-                text_result = ocr.extract_text(image_bytes)
+                text_result = ocr_service.extract_text(image_bytes)
                 page.ocr_text = text_result.text
 
                 if text_result.text.strip():

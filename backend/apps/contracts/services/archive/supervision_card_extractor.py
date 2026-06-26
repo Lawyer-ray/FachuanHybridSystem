@@ -140,13 +140,13 @@ class SupervisionCardExtractor:
             OCR 识别的文本内容，失败返回空字符串
         """
         try:
-            from apps.automation.services.ocr.ocr_service import OCRService
+            from apps.core.infrastructure import ServiceLocator
 
             # 将页面渲染为 PNG 图片
             pix = page.get_pixmap(dpi=150)
             img_bytes = pix.tobytes(output="png")
 
-            ocr_service = OCRService()
+            ocr_service = ServiceLocator.get_ocr_service()
             return ocr_service.recognize_bytes(img_bytes)
         except Exception as e:
             logger.warning("OCR 检测失败: %s", e)

@@ -98,6 +98,7 @@ from apps.core.protocols import (
     ITokenService,
     IValidatorService,
 )
+from apps.core.protocols.ocr_types import OCRTextResult
 
 # Service Locator and Event Bus
 from .service_locator import EventBus, Events, ServiceLocator
@@ -131,6 +132,8 @@ __all__ = [
     "GenerationTaskDTO",
     # Automation DTOs
     "CourtPleadingSignalsDTO",
+    # OCR types
+    "OCRTextResult",
     # Case Protocols
     "ICaseService",
     "ICaseSearchService",

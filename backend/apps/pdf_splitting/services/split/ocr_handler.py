@@ -15,7 +15,7 @@ from django.conf import settings
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
 
-from apps.automation.services.ocr.ocr_service import OCRService
+from apps.automation.services.ocr.ocr_service import OCRService  # 保留直接构造：需要运行时 use_v5 参数控制精度/速度
 from apps.pdf_splitting.models import PdfSplitOcrProfile
 
 from .split_models import OCRPageResult, OCRRuntimeProfile

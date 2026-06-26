@@ -15,18 +15,11 @@ OCR 服务 - 统一路由层
 import io
 import logging
 import re
-from dataclasses import dataclass
 from typing import Any
 
 from PIL import Image
 
-
-@dataclass(frozen=True)
-class OCRTextResult:
-    """OCR 文本识别结果"""
-
-    text: str  # 合并后的文本(用 | 分隔)
-    raw_texts: list[str]  # 原始文本列表
+from apps.core.protocols.ocr_types import OCRTextResult
 
 
 logger = logging.getLogger(__name__)
@@ -35,9 +28,12 @@ logger = logging.getLogger(__name__)
 _ocr_engine_cache: dict[bool, Any] = {}
 
 
-def get_ocr_engine(use_v5: bool = True) -> Any:
+def get_ocr_engine(use_v5: bool = True) -> Any:  # 内部实现，外部请通过 ServiceLocator.get_ocr_service() 获取
     """
     获取本地 OCR 引擎实例(单例模式)
+
+    注意：此函数为 OCRService 内部实现细节，外部模块不应直接调用。
+    请通过 ServiceLocator.get_ocr_service() 获取 IOcrService 实例。
 
     Args:
         use_v5: 是否使用 PP-OCRv5 模型(默认 True)
@@ -163,6 +159,20 @@ class OCRService:
                 boxes_with_text.append([box, txt, score])
             return boxes_with_text, list(result.scores)
         return None, None
+
+    def recognize_raw(self, image_bytes: bytes) -> Any:  # pragma: no cover
+        """
+        调用底层 OCR 引擎，返回原始结果对象
+
+        用于需要访问 boxes/scores 等原始数据的场景（如方向检测、重命名 OCR）。
+
+        Args:
+            image_bytes: 图片字节数据
+
+        Returns:
+            RapidOCR 原始结果对象，包含 .txts, .boxes, .scores 等属性
+        """
+        return self.ocr(image_bytes)
 
     def recognize_bytes(self, image_bytes: bytes) -> str:  # pragma: no cover
         """

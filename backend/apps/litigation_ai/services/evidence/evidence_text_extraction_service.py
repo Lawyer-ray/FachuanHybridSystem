@@ -13,9 +13,9 @@ class EvidenceTextExtractionService:
         doc = fitz.open(file_path)
         results: list[dict[str, Any]] = []
 
-        from apps.litigation_ai.dependencies import get_ocr_recognizer
+        from apps.litigation_ai.dependencies import get_ocr_service
 
-        ocr = get_ocr_recognizer()
+        ocr = get_ocr_service()
 
         page_count = doc.page_count
         limit = min(page_count, max_pages) if max_pages else page_count

@@ -208,10 +208,7 @@ class LocalBackend:
             # 使用 RapidOCR 提取文本
             result = ocr_service.recognize(file_path)
 
-            if result and result.get("text"):
-                text = "\n".join(result["text"])
-            else:
-                text = ""
+            text = result.strip() if result else ""
 
             return ParsedDocument(
                 text=text,

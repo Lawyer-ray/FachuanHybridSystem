@@ -7,6 +7,8 @@ from typing import Any
 
 from PIL import Image
 
+from apps.core.protocols import IOcrService
+
 logger = logging.getLogger("apps.image_rotation")
 
 
@@ -19,18 +21,18 @@ class OrientationDetectionService:
     哪个方向识别出的文字置信度最高就是正确方向.
     """
 
-    def __init__(self) -> None:
-        self._ocr_service: Any | None = None
+    def __init__(self, ocr_service: IOcrService | None = None) -> None:
+        self._ocr_service = ocr_service
 
     @property
-    def ocr_service(self) -> Any:
+    def ocr_service(self) -> IOcrService | None:
         if self._ocr_service is None:
             try:
-                from apps.automation.services.ocr.ocr_service import OCRService
+                from apps.core.infrastructure import ServiceLocator
 
-                self._ocr_service = OCRService(use_v5=True)
-            except ImportError:
-                logger.warning("OCR 服务未安装")
+                self._ocr_service = ServiceLocator.get_ocr_service()
+            except Exception:
+                logger.warning("OCR 服务未初始化")
                 return None
         return self._ocr_service
 
@@ -59,7 +61,7 @@ class OrientationDetectionService:
                 rotated_img.save(img_bytes, format="JPEG", quality=85)
                 img_bytes_data = img_bytes.getvalue()
 
-                result = self.ocr_service.ocr(img_bytes_data)
+                result = self.ocr_service.recognize_raw(img_bytes_data)
 
                 if result and result.txts and result.scores:
                     text_count = len(result.txts)
@@ -132,7 +134,7 @@ class OrientationDetectionService:
                 rotated_img.save(img_bytes, format="JPEG", quality=85)
                 img_bytes_data = img_bytes.getvalue()
 
-                result = self.ocr_service.ocr(img_bytes_data)
+                result = self.ocr_service.recognize_raw(img_bytes_data)
 
                 if result and result.txts and result.scores:
                     text_count = len(result.txts)

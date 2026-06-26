@@ -43,15 +43,15 @@ class RenameOCRChannel:
         self._init_failed = False
 
     def _init_ocr(self) -> Any | None:
-        """延迟初始化 OCR 服务（通过 OCRService 统一路由）"""
+        """延迟初始化 OCR 服务（通过 ServiceLocator 统一路由）"""
         if self._init_failed:
             return None
         if self._ocr is not None:
             return self._ocr
         try:
-            from apps.automation.services.ocr.ocr_service import OCRService
+            from apps.core.infrastructure import ServiceLocator
 
-            self._ocr = OCRService(use_v5=True)
+            self._ocr = ServiceLocator.get_ocr_service()
             return self._ocr
         except Exception:
             logger.warning("RenameOCRChannel: OCR 服务初始化失败", exc_info=True)
@@ -145,13 +145,15 @@ class RenameOCRChannel:
         # 预处理
         processed = self._preprocessor.preprocess(image_data, config)
 
-        # 通过 OCR_SERVICE 路由：paddleocr_api 走云端，local 走本地
-        if ocr_service.provider == "paddleocr_api":
-            return self._do_ocr_via_api(ocr_service, processed)
+        # 获取底层 OCRService（处理 ServiceLocator 返回 adapter 的情况）
+        concrete_service = getattr(ocr_service, "service", ocr_service)
+
+        # 通过 provider 路由：paddleocr_api 走云端，local 走本地
+        if getattr(concrete_service, "provider", "local") == "paddleocr_api":
+            return self._do_ocr_via_api(concrete_service, processed)
 
         # 本地 RapidOCR 引擎
-        engine = ocr_service.ocr
-        result = engine(processed)
+        result = concrete_service.recognize_raw(processed)
 
         if not result or not result.txts or not result.scores:
             return OCRResult(

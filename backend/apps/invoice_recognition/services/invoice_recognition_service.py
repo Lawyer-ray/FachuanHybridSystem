@@ -13,8 +13,8 @@ from django.core.files.uploadedfile import UploadedFile
 from django.db.models import Sum
 from django.utils import timezone
 
-from apps.automation.services.ocr.ocr_service import OCRService
 from apps.automation.services.ocr.pdf_text_extractor import PDFTextExtractor
+from apps.core.protocols import IOcrService
 from apps.invoice_recognition.models import (
     InvoiceCategory,
     InvoiceRecognitionTask,
@@ -36,7 +36,7 @@ class InvoiceRecognitionService:
 
     def __init__(
         self,
-        ocr_service: OCRService,
+        ocr_service: IOcrService,
         pdf_extractor: PDFTextExtractor,
         parser: InvoiceParser,
     ) -> None:

@@ -169,9 +169,15 @@ async def extract_text(request: HttpRequest) -> dict[str, Any]:  # pragma: no co
     provider: str = payload.get("provider", "local")  # "local" | "paddleocr_api"
     if not images:
         return {"success": True, "results": []}
-    from apps.automation.services.ocr.ocr_service import OCRService
 
-    ocr = OCRService(use_v5=True, provider=provider)
+    if provider != "local":
+        from apps.automation.services.ocr.ocr_service import OCRService
+
+        ocr = OCRService(use_v5=True, provider=provider)
+    else:
+        from apps.core.infrastructure import ServiceLocator
+
+        ocr = ServiceLocator.get_ocr_service()
 
     async def _extract_one(img: dict[str, Any]) -> dict[str, Any]:
         async with _IMAGE_SEM:

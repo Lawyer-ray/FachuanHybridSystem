@@ -10,13 +10,6 @@ def get_ocr_service() -> Any:
     return ServiceLocator.get_ocr_service()
 
 
-def get_ocr_recognizer() -> Any:
-    """获取 OCR 识别器实例(支持 recognize_bytes 方法)"""
-    from apps.automation.services.ocr.ocr_service import OCRService
-
-    return OCRService()
-
-
 def get_litigation_generation_service() -> Any:
     """获取诉讼文书生成服务实例"""
     from apps.documents.services.generation import LitigationGenerationService

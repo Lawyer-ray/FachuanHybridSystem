@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import cast
 
-from apps.automation.services.ocr import OCRService
+from apps.core.protocols import IOcrService
 from apps.express_query.models import ExpressCarrierType
 
 logger = logging.getLogger("apps.express_query")
@@ -23,8 +23,12 @@ class TrackingExtractionService:
     _sf_pattern = re.compile(r"(?<![A-Z0-9])SF\d{10,20}(?![A-Z0-9])", re.IGNORECASE)
     _ems_pattern = re.compile(r"(?<!\d)\d{13}(?!\d)")
 
-    def __init__(self, ocr_service: OCRService | None = None) -> None:
-        self._ocr_service = ocr_service or OCRService(use_v5=True)
+    def __init__(self, ocr_service: IOcrService | None = None) -> None:
+        if ocr_service is None:
+            from apps.core.infrastructure import ServiceLocator
+
+            ocr_service = ServiceLocator.get_ocr_service()
+        self._ocr_service = ocr_service
 
     def extract(self, waybill_file_path: Path) -> TrackingExtractionResult:
         image_bytes = self._load_waybill_bytes_for_ocr(waybill_file_path)

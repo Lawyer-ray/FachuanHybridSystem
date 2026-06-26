@@ -18,6 +18,7 @@ from apps.client.models import ClientIdentityDoc
 from apps.client.services.wiring import get_llm_service
 from apps.core.exceptions import ServiceUnavailableError, ValidationException
 from apps.core.llm.exceptions import LLMNetworkError, LLMTimeoutError
+from apps.core.protocols import IOcrService
 
 from .data_classes import ExtractionResult, OCRExtractionError, OllamaExtractionError
 from .prompts import PROMPT_MAPPING, get_prompt_for_doc_type
@@ -32,8 +33,17 @@ _MAX_LLM_OCR_LINES = 80
 class IdentityExtractionService:
     """证件信息提取服务 - 使用 RapidOCR (PP-OCRv5) + LLM"""
 
-    def __init__(self, recognizer: Any | None = None) -> None:
+    def __init__(
+        self,
+        recognizer: Any | None = None,
+        ocr_service: IOcrService | None = None,
+    ) -> None:
         self._recognizer = recognizer
+        if ocr_service is None:
+            from apps.core.infrastructure import ServiceLocator
+
+            ocr_service = ServiceLocator.get_ocr_service()
+        self._ocr_service = ocr_service
 
     def extract(
         self,
@@ -216,10 +226,7 @@ class IdentityExtractionService:
             img.save(tmp, format="JPEG", quality=95)
             tmp_path = tmp.name
 
-            from apps.automation.services.ocr.ocr_service import OCRService
-
-            ocr_service = OCRService()
-            raw_text = ocr_service.recognize(tmp_path)
+            raw_text = self._ocr_service.recognize(tmp_path)
 
             if raw_text and raw_text.strip():
                 logger.info("OCR 提取成功,文字长度: %s", len(raw_text))
@@ -232,8 +239,6 @@ class IdentityExtractionService:
         import fitz  # pymupdf
         from PIL import Image
 
-        from apps.automation.services.ocr.ocr_service import OCRService
-
         # 禁用 PIL 的解压炸弹检查，避免超大 PDF 页面触发 DecompressionBombError
         Image.MAX_IMAGE_PIXELS = None
 
@@ -241,7 +246,6 @@ class IdentityExtractionService:
 
         try:
             doc = fitz.open(stream=pdf_bytes, filetype="pdf")
-            ocr_service = OCRService()
 
             # 只处理前几页(证件通常只有1-2页)
             max_pages = min(len(doc), 3)
@@ -259,7 +263,7 @@ class IdentityExtractionService:
                     tmp_path = tmp.name
 
                 try:
-                    page_text = ocr_service.recognize(tmp_path)
+                    page_text = self._ocr_service.recognize(tmp_path)
                     if page_text:
                         all_texts.append(page_text)
                 finally:

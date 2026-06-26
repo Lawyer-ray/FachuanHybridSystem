@@ -7,8 +7,8 @@ from pathlib import Path
 from django.core.exceptions import ValidationError
 from django.core.files.uploadedfile import UploadedFile
 
-from apps.automation.services.ocr.ocr_service import OCRService
 from apps.automation.services.ocr.pdf_text_extractor import PDFTextExtractor
+from apps.core.protocols import IOcrService
 
 from .invoice_parser import InvoiceParser, ParsedInvoice
 from .recognition_result import RecognitionResult
@@ -24,7 +24,7 @@ class QuickRecognitionService:
 
     def __init__(
         self,
-        ocr_service: OCRService,
+        ocr_service: IOcrService,
         pdf_extractor: PDFTextExtractor,
         parser: InvoiceParser,
     ) -> None:

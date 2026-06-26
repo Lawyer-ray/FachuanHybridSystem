@@ -32,7 +32,7 @@ def _extract_last_page_text_direct(file_path: Path) -> str:  # pragma: no cover
 
 def _extract_last_page_text_with_ocr(file_path: Path) -> str:  # pragma: no cover
     try:
-        from apps.automation.services.document.document_processing import extract_text_from_image_with_rapidocr
+        from apps.core.infrastructure import ServiceLocator
 
         with fitz.open(file_path.as_posix()) as doc:
             if doc.page_count <= 0:
@@ -44,7 +44,8 @@ def _extract_last_page_text_with_ocr(file_path: Path) -> str:  # pragma: no cove
                 temp_path = Path(tmp.name)
             try:
                 pix.save(temp_path.as_posix())
-                return str(extract_text_from_image_with_rapidocr(temp_path.as_posix()) or "")
+                ocr_service = ServiceLocator.get_ocr_service()
+                return str(ocr_service.recognize(temp_path.as_posix()) or "")
             finally:
                 if temp_path.exists():
                     temp_path.unlink(missing_ok=True)

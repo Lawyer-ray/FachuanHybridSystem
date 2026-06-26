@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Any, Protocol
 
+from apps.core.protocols.ocr_types import OCRTextResult
+
 
 class IBrowserService(Protocol):
     """浏览器服务接口"""
@@ -22,4 +24,7 @@ class ICaptchaService(Protocol):
 
 
 class IOcrService(Protocol):
-    def extract_text(self, image_bytes: bytes) -> Any: ...
+    def recognize(self, image_path: str) -> str: ...
+    def recognize_bytes(self, image_bytes: bytes) -> str: ...
+    def extract_text(self, image_bytes: bytes) -> OCRTextResult: ...
+    def recognize_raw(self, image_bytes: bytes) -> Any: ...
