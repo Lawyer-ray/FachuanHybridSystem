@@ -117,7 +117,7 @@ class ImageRotationJobService:
         ocr_service: IOcrService | None = None,
     ) -> list[ImageRotationPage]:
         """对任务所有页面重跑 OCR + 建议重命名。"""
-        from apps.core.infrastructure import ServiceLocator
+        from apps.core.interfaces import ServiceLocator
         from apps.image_rotation.services.auto_rename_service import AutoRenameService
 
         job, pages = ImageRotationJobService.get_job_detail(job_id)

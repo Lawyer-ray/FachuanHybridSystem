@@ -24,7 +24,7 @@ class LocalBackend:
         """获取 OCR 服务（延迟加载）"""
         if self._ocr_service is None:
             try:
-                from apps.core.infrastructure import ServiceLocator  # type: ignore[attr-defined]
+                from apps.core.interfaces import ServiceLocator
 
                 self._ocr_service = ServiceLocator.get_ocr_service()
             except Exception as e:

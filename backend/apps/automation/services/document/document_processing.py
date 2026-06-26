@@ -58,7 +58,7 @@ def extract_text_from_image_with_rapidocr(file_path: str) -> str:
         DeprecationWarning,
         stacklevel=2,
     )
-    from apps.core.infrastructure import ServiceLocator
+    from apps.core.interfaces import ServiceLocator
 
     ocr_service = ServiceLocator.get_ocr_service()
     return ocr_service.recognize(file_path)

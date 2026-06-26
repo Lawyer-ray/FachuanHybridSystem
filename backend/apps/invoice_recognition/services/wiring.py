@@ -12,7 +12,7 @@ if TYPE_CHECKING:
 
 def get_invoice_recognition_service() -> InvoiceRecognitionService:  # pragma: no cover
     from apps.automation.services.ocr.pdf_text_extractor import PDFTextExtractor
-    from apps.core.infrastructure import ServiceLocator
+    from apps.core.interfaces import ServiceLocator
     from apps.invoice_recognition.services.invoice_parser import InvoiceParser
     from apps.invoice_recognition.services.invoice_recognition_service import InvoiceRecognitionService
 
@@ -31,7 +31,7 @@ def get_invoice_download_service() -> InvoiceDownloadService:
 
 def get_quick_recognition_service() -> QuickRecognitionService:  # pragma: no cover
     from apps.automation.services.ocr.pdf_text_extractor import PDFTextExtractor
-    from apps.core.infrastructure import ServiceLocator
+    from apps.core.interfaces import ServiceLocator
     from apps.invoice_recognition.services.invoice_parser import InvoiceParser
     from apps.invoice_recognition.services.quick_recognition_service import QuickRecognitionService
 

@@ -140,7 +140,7 @@ class SupervisionCardExtractor:
             OCR 识别的文本内容，失败返回空字符串
         """
         try:
-            from apps.core.infrastructure import ServiceLocator
+            from apps.core.interfaces import ServiceLocator
 
             # 将页面渲染为 PNG 图片
             pix = page.get_pixmap(dpi=150)

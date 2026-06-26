@@ -40,7 +40,7 @@ class IdentityExtractionService:
     ) -> None:
         self._recognizer = recognizer
         if ocr_service is None:
-            from apps.core.infrastructure import ServiceLocator
+            from apps.core.interfaces import ServiceLocator
 
             ocr_service = ServiceLocator.get_ocr_service()
         self._ocr_service = ocr_service

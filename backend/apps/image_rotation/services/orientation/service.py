@@ -28,7 +28,7 @@ class OrientationDetectionService:
     def ocr_service(self) -> IOcrService | None:
         if self._ocr_service is None:
             try:
-                from apps.core.infrastructure import ServiceLocator
+                from apps.core.interfaces import ServiceLocator
 
                 self._ocr_service = ServiceLocator.get_ocr_service()
             except Exception:

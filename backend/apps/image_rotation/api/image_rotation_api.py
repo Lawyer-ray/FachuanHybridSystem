@@ -175,7 +175,7 @@ async def extract_text(request: HttpRequest) -> dict[str, Any]:  # pragma: no co
 
         ocr = OCRService(use_v5=True, provider=provider)
     else:
-        from apps.core.infrastructure import ServiceLocator
+        from apps.core.interfaces import ServiceLocator
 
         ocr = ServiceLocator.get_ocr_service()
 

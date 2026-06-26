@@ -217,7 +217,7 @@ class TextExtractionService:
         import fitz
         from django.conf import settings
 
-        from apps.core.infrastructure import ServiceLocator
+        from apps.core.interfaces import ServiceLocator
 
         all_text = []
         temp_files = []
@@ -274,7 +274,7 @@ class TextExtractionService:
         Requirements: 3.4, 3.5
         """
         try:
-            from apps.core.infrastructure import ServiceLocator
+            from apps.core.interfaces import ServiceLocator
 
             ocr_service = ServiceLocator.get_ocr_service()
             text = ocr_service.recognize(file_path)

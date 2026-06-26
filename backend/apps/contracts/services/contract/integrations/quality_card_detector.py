@@ -32,7 +32,7 @@ def _extract_last_page_text_direct(file_path: Path) -> str:  # pragma: no cover
 
 def _extract_last_page_text_with_ocr(file_path: Path) -> str:  # pragma: no cover
     try:
-        from apps.core.infrastructure import ServiceLocator
+        from apps.core.interfaces import ServiceLocator
 
         with fitz.open(file_path.as_posix()) as doc:
             if doc.page_count <= 0:

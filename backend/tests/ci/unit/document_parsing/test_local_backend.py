@@ -148,7 +148,7 @@ class TestParseImage:
         img.write_bytes(b"\xff\xd8\xff\xe0")
 
         mock_ocr = MagicMock()
-        mock_ocr.recognize.return_value = {"text": ["line1", "line2"]}
+        mock_ocr.recognize.return_value = "line1\nline2"
 
         backend = LocalBackend()
         with patch.object(backend, "_get_ocr_service", return_value=mock_ocr):

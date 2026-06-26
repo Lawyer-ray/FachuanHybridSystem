@@ -208,11 +208,13 @@ class TestExtractText:
         img_data = base64.b64encode(b"img").decode()
         req = MagicMock()
         req.body = json.dumps({"images": [{"data": img_data, "filename": "a.jpg"}]}).encode()
-        with patch("apps.automation.services.ocr.ocr_service.OCRService") as MockOCR:
+        with patch("apps.core.infrastructure.service_locator.ServiceLocator.get_ocr_service") as mock_get:
+            mock_ocr = MagicMock()
             mock_result = MagicMock()
             mock_result.text = "hello"
             mock_result.raw_texts = ["hello"]
-            MockOCR.return_value.extract_text.return_value = mock_result
+            mock_ocr.extract_text.return_value = mock_result
+            mock_get.return_value = mock_ocr
             result = await extract_text(req)
             assert result["success"] is True
             assert result["results"][0]["ocr_text"] == "hello"

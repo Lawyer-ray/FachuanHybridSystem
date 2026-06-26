@@ -117,11 +117,12 @@ class TestDoOcr:
     def test_do_ocr_local_engine_empty_result(self) -> None:
         """Local engine returning empty result."""
         channel = RenameOCRChannel()
+        mock_concrete = MagicMock()
+        mock_concrete.provider = "local"
+        mock_concrete.recognize_raw.return_value = SimpleNamespace(txts=None, scores=None)
+
         mock_ocr_service = MagicMock()
-        mock_ocr_service.provider = "local"
-        mock_engine = MagicMock()
-        mock_engine.return_value = SimpleNamespace(txts=None, scores=None)
-        mock_ocr_service.ocr = mock_engine
+        mock_ocr_service.service = mock_concrete
 
         with patch.object(channel._preprocessor, "preprocess", return_value=b"data"):
             result = channel._do_ocr(mock_ocr_service, b"data")
@@ -132,11 +133,14 @@ class TestDoOcr:
     def test_do_ocr_api_provider(self) -> None:
         """PaddleOCR API path."""
         channel = RenameOCRChannel()
-        mock_ocr_service = MagicMock()
-        mock_ocr_service.provider = "paddleocr_api"
-        mock_ocr_service.paddleocr_engine.recognize_bytes.return_value = SimpleNamespace(
+        mock_concrete = MagicMock()
+        mock_concrete.provider = "paddleocr_api"
+        mock_concrete.paddleocr_engine.recognize_bytes.return_value = SimpleNamespace(
             raw_texts=["hello", "world"]
         )
+
+        mock_ocr_service = MagicMock()
+        mock_ocr_service.service = mock_concrete
 
         with patch.object(channel._preprocessor, "preprocess", return_value=b"data"):
             result = channel._do_ocr(mock_ocr_service, b"data")
@@ -146,11 +150,11 @@ class TestDoOcr:
     def test_do_ocr_api_failure_returns_empty(self) -> None:
         """PaddleOCR API failure returns empty result."""
         channel = RenameOCRChannel()
-        mock_ocr_service = MagicMock()
-        mock_ocr_service.provider = "paddleocr_api"
-        mock_ocr_service.paddleocr_engine.recognize_bytes.side_effect = RuntimeError("API down")
+        mock_concrete = MagicMock()
+        mock_concrete.provider = "paddleocr_api"
+        mock_concrete.paddleocr_engine.recognize_bytes.side_effect = RuntimeError("API down")
 
         with patch.object(channel._preprocessor, "preprocess", return_value=b"data"):
-            result = channel._do_ocr_via_api(mock_ocr_service, b"data")
+            result = channel._do_ocr_via_api(mock_concrete, b"data")
         assert result.text == ""
         assert result.overall_confidence == 0.0

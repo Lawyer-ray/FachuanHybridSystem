@@ -652,8 +652,8 @@ class TestOrientationDetectionServiceFull:
     def test_ocr_service_property_lazy_init(self):
         from apps.image_rotation.services.orientation.service import OrientationDetectionService
         svc = OrientationDetectionService()
-        with patch("apps.automation.services.ocr.ocr_service.OCRService") as mock_ocr:
-            mock_ocr.return_value = MagicMock()
+        with patch("apps.core.interfaces.ServiceLocator.get_ocr_service") as mock_get:
+            mock_get.return_value = MagicMock()
             result = svc.ocr_service
             assert result is not None
 
@@ -661,7 +661,7 @@ class TestOrientationDetectionServiceFull:
         from apps.image_rotation.services.orientation.service import OrientationDetectionService
         svc = OrientationDetectionService()
         svc._ocr_service = None
-        with patch.dict("sys.modules", {"apps.automation.services.ocr.ocr_service": None}):
+        with patch("apps.core.interfaces.ServiceLocator.get_ocr_service", side_effect=ImportError("no module")):
             result = svc.ocr_service
             assert result is None
 
@@ -675,7 +675,7 @@ class TestOrientationDetectionServiceFull:
         mock_result = MagicMock()
         mock_result.txts = texts
         mock_result.scores = [0.9] * 15
-        mock_ocr.ocr.return_value = mock_result
+        mock_ocr.recognize_raw.return_value = mock_result
         svc._ocr_service = mock_ocr
         result = svc.detect_orientation(_make_test_image())
         assert "rotation" in result
@@ -686,7 +686,7 @@ class TestOrientationDetectionServiceFull:
         from apps.image_rotation.services.orientation.service import OrientationDetectionService
         svc = OrientationDetectionService()
         mock_ocr = MagicMock()
-        mock_ocr.ocr.return_value = None
+        mock_ocr.recognize_raw.return_value = None
         svc._ocr_service = mock_ocr
         result = svc.detect_orientation(_make_test_image())
         assert result["rotation"] == 0
@@ -698,7 +698,7 @@ class TestOrientationDetectionServiceFull:
         mock_result = MagicMock()
         mock_result.txts = ["x"]
         mock_result.scores = [0.1]
-        mock_ocr.ocr.return_value = mock_result
+        mock_ocr.recognize_raw.return_value = mock_result
         svc._ocr_service = mock_ocr
         result = svc.detect_orientation(_make_test_image())
         assert result["method"] == "ocr_voting_low_score"
@@ -710,7 +710,7 @@ class TestOrientationDetectionServiceFull:
         mock_result = MagicMock()
         mock_result.txts = ["x"]
         mock_result.scores = [0.1]
-        mock_ocr.ocr.return_value = mock_result
+        mock_ocr.recognize_raw.return_value = mock_result
         svc._ocr_service = mock_ocr
         result = svc.detect_orientation_with_text(_make_test_image())
         assert result["method"] == "ocr_voting_low_score"
@@ -724,7 +724,7 @@ class TestOrientationDetectionServiceFull:
         mock_result = MagicMock()
         mock_result.txts = texts
         mock_result.scores = [0.9] * 15
-        mock_ocr.ocr.return_value = mock_result
+        mock_ocr.recognize_raw.return_value = mock_result
         svc._ocr_service = mock_ocr
         result = svc.detect_orientation_with_text(_make_test_image())
         assert result["method"] == "ocr_voting"
@@ -734,7 +734,7 @@ class TestOrientationDetectionServiceFull:
         from apps.image_rotation.services.orientation.service import OrientationDetectionService
         svc = OrientationDetectionService()
         mock_ocr = MagicMock()
-        mock_ocr.ocr.side_effect = RuntimeError("ocr fail")
+        mock_ocr.recognize_raw.side_effect = RuntimeError("ocr fail")
         svc._ocr_service = mock_ocr
         result = svc.detect_orientation(b"not an image")
         assert result["rotation"] == 0
@@ -744,7 +744,7 @@ class TestOrientationDetectionServiceFull:
         from apps.image_rotation.services.orientation.service import OrientationDetectionService
         svc = OrientationDetectionService()
         mock_ocr = MagicMock()
-        mock_ocr.ocr.side_effect = RuntimeError("fail")
+        mock_ocr.recognize_raw.side_effect = RuntimeError("fail")
         svc._ocr_service = mock_ocr
         result = svc.detect_orientation_with_text(b"bad data")
         assert result["rotation"] == 0

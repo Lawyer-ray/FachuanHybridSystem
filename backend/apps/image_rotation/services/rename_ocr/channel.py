@@ -49,7 +49,7 @@ class RenameOCRChannel:
         if self._ocr is not None:
             return self._ocr
         try:
-            from apps.core.infrastructure import ServiceLocator
+            from apps.core.interfaces import ServiceLocator
 
             self._ocr = ServiceLocator.get_ocr_service()
             return self._ocr
