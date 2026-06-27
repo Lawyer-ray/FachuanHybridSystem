@@ -359,14 +359,12 @@ class ScriptExecutorService:
         """异步版：从案件我方当事人诉讼地位推断代理何方。取第一个我方当事人的诉讼地位。"""
         case_party_model = django_apps.get_model("cases", "CaseParty")
         contract_party_model = django_apps.get_model("contracts", "ContractParty")
-        our_client_ids = set(
-            [
-                client_id
-                async for client_id in contract_party_model.objects.filter(
-                    contract_id=contract_id, role="PRINCIPAL"
-                ).values_list("client_id", flat=True).aiterator()
-            ]
-        )
+        our_client_ids = {
+            client_id
+            async for client_id in contract_party_model.objects.filter(
+                contract_id=contract_id, role="PRINCIPAL"
+            ).values_list("client_id", flat=True).aiterator()
+        }
         party = await case_party_model.objects.filter(case=case, client_id__in=our_client_ids).afirst()
         mapping = {"plaintiff": "01", "defendant": "02", "third": "09"}
         return mapping.get(getattr(party, "legal_status", None) or "", "01")
