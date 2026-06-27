@@ -30,6 +30,19 @@ def _get_contract_access_policy() -> Any:
     return get_contract_domain_service().access_policy
 
 
+async def _async_ensure_contract_access(request: Any, contract_id: int) -> None:  # pragma: no cover
+    """Async version: verify current user's access to the contract."""
+    from apps.core.security import get_request_access_context
+
+    ctx = await sync_to_async(get_request_access_context)(request)
+    await _get_contract_access_policy().aensure_access(
+        contract_id=contract_id,
+        user=ctx.user,
+        org_access=ctx.org_access,
+        perm_open_access=ctx.perm_open_access,
+    )
+
+
 def _ensure_contract_access(request: Any, contract_id: int) -> None:
     """验证当前用户对合同的访问权限。"""
     from apps.core.security import get_request_access_context
@@ -73,7 +86,7 @@ def _resolve_contract_id_from_agreement(agreement_id: int) -> int:
 async def create_supplementary_agreement(  # pragma: no cover
     request: HttpRequest, payload: SupplementaryAgreementIn
 ) -> SupplementaryAgreementOut:
-    _ensure_contract_access(request, payload.contract_id)
+    await _async_ensure_contract_access(request, payload.contract_id)
     service = _get_supplementary_agreement_service()
     return await sync_to_async(service.create_supplementary_agreement)(
         contract_id=payload.contract_id, name=payload.name, party_ids=payload.party_ids
@@ -83,14 +96,14 @@ async def create_supplementary_agreement(  # pragma: no cover
 @router.get("/supplementary-agreements/{agreement_id}", response=SupplementaryAgreementOut)
 async def get_supplementary_agreement(request: HttpRequest, agreement_id: int) -> SupplementaryAgreementOut:  # pragma: no cover
     contract_id = await _async_resolve_contract_id_from_agreement(agreement_id)
-    _ensure_contract_access(request, contract_id)
+    await _async_ensure_contract_access(request, contract_id)
     service = _get_supplementary_agreement_service()
     return await sync_to_async(service.get_supplementary_agreement)(agreement_id)  # type: ignore[return-value]
 
 
 @router.get("/contracts/{contract_id}/supplementary-agreements", response=list[SupplementaryAgreementOut])
 async def list_supplementary_agreements(request: HttpRequest, contract_id: int) -> list[SupplementaryAgreementOut]:  # pragma: no cover
-    _ensure_contract_access(request, contract_id)
+    await _async_ensure_contract_access(request, contract_id)
     service = _get_supplementary_agreement_service()
     return await sync_to_async(service.list_by_contract)(contract_id)  # type: ignore[return-value]
 
@@ -100,7 +113,7 @@ async def update_supplementary_agreement(  # pragma: no cover
     request: HttpRequest, agreement_id: int, payload: SupplementaryAgreementUpdate
 ) -> SupplementaryAgreementOut:
     contract_id = await _async_resolve_contract_id_from_agreement(agreement_id)
-    _ensure_contract_access(request, contract_id)
+    await _async_ensure_contract_access(request, contract_id)
     service = _get_supplementary_agreement_service()
     data = payload.model_dump(exclude_unset=True)
     return await sync_to_async(service.update_supplementary_agreement)(

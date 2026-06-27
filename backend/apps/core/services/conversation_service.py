@@ -351,6 +351,14 @@ class ConversationService:  # pragma: no cover
         if self._memory:
             self._memory.clear()
 
+    async def aclear_history(self) -> None:  # pragma: no cover
+        """异步清除对话历史"""
+        await self._repository.adelete_by_session_id(self.session_id)
+
+        # 清除会话记忆
+        if self._memory:
+            self._memory.clear()
+
     def get_history(self, limit: int = 50) -> list[ConversationHistory]:  # pragma: no cover
         """
         获取对话历史记录
