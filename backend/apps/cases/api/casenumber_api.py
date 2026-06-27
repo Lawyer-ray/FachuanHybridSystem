@@ -5,11 +5,11 @@
 
 from __future__ import annotations
 
-import asyncio
 import uuid
 from pathlib import Path
 from typing import Any, cast
 
+from asgiref.sync import sync_to_async
 from django.conf import settings
 from django.core.files.storage import default_storage
 from django.http import HttpRequest, JsonResponse
@@ -33,10 +33,17 @@ async def list_case_numbers(request: HttpRequest, case_id: int | None = None) ->
     """获取案号列表"""
     service = _get_case_number_service()
     ctx = extract_request_context(request)
-    return cast(list[CaseNumberOut], await asyncio.to_thread(
-        service.list_numbers,
-        case_id=case_id, user=ctx.user, org_access=ctx.org_access, perm_open_access=ctx.perm_open_access,
-    ))
+
+    @sync_to_async
+    def _fetch() -> list[Any]:
+        qs = service.list_numbers(
+            case_id=case_id, user=ctx.user, org_access=ctx.org_access, perm_open_access=ctx.perm_open_access,
+        )
+        # Eagerly evaluate queryset so Django Ninja serialization
+        # (which runs in the async event loop) won't trigger sync ORM calls.
+        return list(qs)
+
+    return cast(list[CaseNumberOut], await _fetch())
 
 
 @router.get("/case-numbers/{number_id}", response=CaseNumberOut)
@@ -44,10 +51,14 @@ async def get_case_number(request: HttpRequest, number_id: int) -> CaseNumberOut
     """获取单个案号"""
     service = _get_case_number_service()
     ctx = extract_request_context(request)
-    return cast(CaseNumberOut, await asyncio.to_thread(
-        service.get_number,
-        number_id=number_id, user=ctx.user, org_access=ctx.org_access, perm_open_access=ctx.perm_open_access,
-    ))
+
+    @sync_to_async
+    def _get() -> Any:
+        return service.get_number(
+            number_id=number_id, user=ctx.user, org_access=ctx.org_access, perm_open_access=ctx.perm_open_access,
+        )
+
+    return cast(CaseNumberOut, await _get())
 
 
 @router.post("/case-numbers", response=CaseNumberOut)
@@ -55,14 +66,15 @@ async def create_case_number(request: HttpRequest, payload: CaseNumberIn) -> Cas
     """创建案号"""
     service = _get_case_number_service()
     ctx = extract_request_context(request)
-    return cast(
-        CaseNumberOut,
-        await asyncio.to_thread(
-            service.create_number,
+
+    @sync_to_async
+    def _create() -> Any:
+        return service.create_number(
             case_id=payload.case_id, number=payload.number, remarks=payload.remarks,
             user=ctx.user, org_access=ctx.org_access, perm_open_access=ctx.perm_open_access,
-        ),
-    )
+        )
+
+    return cast(CaseNumberOut, await _create())
 
 
 @router.put("/case-numbers/{number_id}", response=CaseNumberOut)
@@ -71,11 +83,15 @@ async def update_case_number(request: HttpRequest, number_id: int, payload: Case
     service = _get_case_number_service()
     ctx = extract_request_context(request)
     data = payload.model_dump(exclude_unset=True)
-    return cast(CaseNumberOut, await asyncio.to_thread(
-        service.update_number,
-        number_id=number_id, data=data, user=ctx.user,
-        org_access=ctx.org_access, perm_open_access=ctx.perm_open_access,
-    ))
+
+    @sync_to_async
+    def _update() -> Any:
+        return service.update_number(
+            number_id=number_id, data=data, user=ctx.user,
+            org_access=ctx.org_access, perm_open_access=ctx.perm_open_access,
+        )
+
+    return cast(CaseNumberOut, await _update())
 
 
 @router.delete("/case-numbers/{number_id}")
@@ -83,10 +99,14 @@ async def delete_case_number(request: HttpRequest, number_id: int) -> Any:  # pr
     """删除案号"""
     service = _get_case_number_service()
     ctx = extract_request_context(request)
-    return await asyncio.to_thread(
-        service.delete_number,
-        number_id=number_id, user=ctx.user, org_access=ctx.org_access, perm_open_access=ctx.perm_open_access,
-    )
+
+    @sync_to_async
+    def _delete() -> Any:
+        return service.delete_number(
+            number_id=number_id, user=ctx.user, org_access=ctx.org_access, perm_open_access=ctx.perm_open_access,
+        )
+
+    return await _delete()
 
 
 @router.post("/upload-temp-document")
@@ -109,8 +129,12 @@ async def upload_temp_document(request: HttpRequest) -> dict[str, Any]:  # pragm
         temp_filename = f"{uuid.uuid4().hex}_{safe_name}"
         rel_path = f"case_documents/temp/{temp_filename}"
 
-        # 保存文件 — default_storage.save 本质是同步 I/O，用 to_thread 包装
-        saved_name = await asyncio.to_thread(default_storage.save, rel_path, file)
+        # 保存文件 — default_storage.save 本质是同步 I/O，用 sync_to_async 包装
+        @sync_to_async
+        def _save() -> str:
+            return default_storage.save(rel_path, file)
+
+        saved_name = await _save()
         temp_path = Path(settings.MEDIA_ROOT) / saved_name
 
         return {

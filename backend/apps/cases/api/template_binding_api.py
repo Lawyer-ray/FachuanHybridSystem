@@ -5,10 +5,10 @@
 
 from __future__ import annotations
 
-import asyncio
 from typing import Any
 from urllib.parse import quote
 
+from asgiref.sync import sync_to_async
 from django.http import HttpRequest, HttpResponse
 from ninja import Router
 
@@ -59,7 +59,12 @@ async def get_case_template_bindings(request: HttpRequest, case_id: int) -> Any:
     按模板分类(case_sub_type)分组返回.
     """
     service = _get_binding_service()
-    return await asyncio.to_thread(service.get_bindings_for_case, case_id)
+
+    @sync_to_async
+    def _fetch() -> Any:
+        return service.get_bindings_for_case(case_id)
+
+    return await _fetch()
 
 
 @router.post("/{case_id}/template-bindings", response=TemplateBindingSchema)
@@ -70,7 +75,12 @@ async def bind_template_to_case(request: HttpRequest, case_id: int, payload: Bin
     创建手动绑定记录(binding_source='manual_bound').
     """
     service = _get_binding_service()
-    return await asyncio.to_thread(service.bind_template, case_id, payload.template_id)
+
+    @sync_to_async
+    def _bind() -> Any:
+        return service.bind_template(case_id, payload.template_id)
+
+    return await _bind()
 
 
 @router.delete("/{case_id}/template-bindings/{binding_id}", response=SuccessResponseSchema)
@@ -81,7 +91,12 @@ async def unbind_template_from_case(request: HttpRequest, case_id: int, binding_
     删除指定的绑定记录.
     """
     service = _get_binding_service()
-    await asyncio.to_thread(service.unbind_template, case_id, binding_id)
+
+    @sync_to_async
+    def _unbind() -> None:
+        service.unbind_template(case_id, binding_id)
+
+    await _unbind()
     return {"success": True}
 
 
@@ -93,7 +108,12 @@ async def get_available_templates(request: HttpRequest, case_id: int) -> Any:  #
     返回所有活跃的案件模板,排除已绑定的模板.
     """
     service = _get_binding_service()
-    return await asyncio.to_thread(service.get_available_templates, case_id)
+
+    @sync_to_async
+    def _fetch() -> Any:
+        return service.get_available_templates(case_id)
+
+    return await _fetch()
 
 
 @router.post("/{case_id}/generate-template")
@@ -114,14 +134,18 @@ async def generate_template_document(  # pragma: no cover
     Requirements: 2.1, 2.2, 2.3, 2.4, 6.2, 6.3, 7.2, 7.3, 7.4
     """
     service = _get_generation_service()
-    content, filename = await asyncio.to_thread(
-        service.generate_document,
-        case_id=case_id,
-        template_id=payload.template_id,
-        client_id=payload.client_id,
-        client_ids=payload.client_ids,
-        mode=payload.mode,
-    )
+
+    @sync_to_async
+    def _generate() -> tuple[bytes, str]:
+        return service.generate_document(
+            case_id=case_id,
+            template_id=payload.template_id,
+            client_id=payload.client_id,
+            client_ids=payload.client_ids,
+            mode=payload.mode,
+        )
+
+    content, filename = await _generate()
 
     response = HttpResponse(
         content, content_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
@@ -174,13 +198,17 @@ async def unified_generate_template(request: HttpRequest, case_id: int, payload:
     Requirements: 1.5
     """
     service = _get_unified_template_generation_service()
-    content, filename = await asyncio.to_thread(
-        service.generate_document,
-        case_id=case_id,
-        template_id=payload.template_id,
-        function_code=payload.function_code,
-        client_id=payload.client_id,
-        client_ids=payload.client_ids,
-        mode=payload.mode,
-    )
+
+    @sync_to_async
+    def _generate() -> tuple[bytes, str]:
+        return service.generate_document(
+            case_id=case_id,
+            template_id=payload.template_id,
+            function_code=payload.function_code,
+            client_id=payload.client_id,
+            client_ids=payload.client_ids,
+            mode=payload.mode,
+        )
+
+    content, filename = await _generate()
     return _build_file_response(content, filename)
