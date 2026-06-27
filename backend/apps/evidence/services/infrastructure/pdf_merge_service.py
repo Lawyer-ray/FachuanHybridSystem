@@ -21,7 +21,7 @@ from apps.core.services.pdf_merge_service import (
 from apps.evidence.models import EvidenceList
 
 # 向后兼容：测试 mock 需要
-from pathlib import Path
+from pathlib import Path  # noqa: F401
 
 
 def _get_pdf_merge_utils_module() -> Any:

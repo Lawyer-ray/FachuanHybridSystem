@@ -9,12 +9,12 @@ import io
 import logging
 from typing import Any
 
-from apps.core.services.pdf_utils import (
+from apps.core.services.pdf_utils import (  # noqa: F401
     _read_django_field_file,
     _read_file_like,
     read_source_bytes,
 )
-from apps.core.utils.path import Path
+from apps.core.utils.path import Path  # noqa: F401 — 测试 mock 需要
 
 logger = logging.getLogger("apps.documents")
 

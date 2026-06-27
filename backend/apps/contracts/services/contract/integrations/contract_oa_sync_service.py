@@ -418,35 +418,35 @@ class ContractOASyncService:
         expanded_limit = max(effective_limit * 5, 30)
 
         for keyword in keywords:
-            candidates = script.search_cases_by_name(contract_name=keyword, limit=effective_limit)
+            candidates = script.search_cases_by_name(contract_name=keyword, limit=effective_limit)  # type: ignore[assignment]
             filtered_candidates = self._filter_candidates_by_contract_name(
                 contract_name=contract_name,
                 candidates=candidates,  # type: ignore[arg-type]
             )
-            sample_case_names = [str(item.case_name) for item in candidates[:3]]
+            sample_case_names = [str(item.case_name) for item in candidates[:3]]  # type: ignore[union-attr]
             logger.info(
                 "contract_oa_sync_name_search_attempt contract_id=%s keyword=%s candidate_count=%s filtered_candidate_count=%s sample_case_names=%s",
                 contract_id,
                 keyword,
-                len(candidates),
+                len(candidates),  # type: ignore[arg-type]
                 len(filtered_candidates),
                 sample_case_names,
             )
             if filtered_candidates:
                 return filtered_candidates[:effective_limit]
 
-            if len(candidates) >= effective_limit:
-                expanded_candidates = script.search_cases_by_name(contract_name=keyword, limit=expanded_limit)
+            if len(candidates) >= effective_limit:  # type: ignore[arg-type]
+                expanded_candidates = script.search_cases_by_name(contract_name=keyword, limit=expanded_limit)  # type: ignore[assignment]
                 expanded_filtered_candidates = self._filter_candidates_by_contract_name(
                     contract_name=contract_name,
-                    candidates=expanded_candidates,
+                    candidates=expanded_candidates,  # type: ignore[arg-type]
                 )
-                expanded_sample_case_names = [str(item.case_name) for item in expanded_candidates[:3]]
+                expanded_sample_case_names = [str(item.case_name) for item in expanded_candidates[:3]]  # type: ignore[union-attr]
                 logger.info(
                     "contract_oa_sync_name_search_expanded_attempt contract_id=%s keyword=%s candidate_count=%s filtered_candidate_count=%s sample_case_names=%s",
                     contract_id,
                     keyword,
-                    len(expanded_candidates),
+                    len(expanded_candidates),  # type: ignore[arg-type]
                     len(expanded_filtered_candidates),
                     expanded_sample_case_names,
                 )
