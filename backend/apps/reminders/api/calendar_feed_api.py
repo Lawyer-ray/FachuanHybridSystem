@@ -9,16 +9,27 @@ Token 由 CalendarFeedToken 模型管理，一对一分配给每个用户。
 from __future__ import annotations
 
 import logging
+import secrets
 from datetime import datetime, timedelta
 from typing import Any
 
+from asgiref.sync import sync_to_async
 from django.db.models import Q
 from django.http import HttpResponse
 from django.utils import timezone
 from ninja import Router
 
-class SessionAuth:
-    """仅使用 Django Session 认证（用于 Admin 后台 AJAX 调用）"""
+from apps.core.infrastructure.throttling import rate_limit_from_settings
+from apps.reminders.models import CalendarFeedToken, Reminder, ReminderType
+
+logger = logging.getLogger(__name__)
+
+router = Router(tags=["日历订阅"])
+
+
+class _SessionAuth:
+    """仅使用 Django Session 认证（用于 Admin 后台 AJAX 调用）。"""
+
     openapi_scheme: str = "session"
 
     def authenticate(self, request: Any) -> Any:
@@ -29,11 +40,8 @@ class SessionAuth:
     def __call__(self, request: Any) -> Any:
         return self.authenticate(request)
 
-from apps.reminders.models import CalendarFeedToken, Reminder, ReminderType
 
-logger = logging.getLogger(__name__)
-
-router = Router(tags=["日历订阅"])
+_session_auth = _SessionAuth()
 
 
 def _build_ics_feed(reminders: list[Reminder], user_display: str) -> bytes:
@@ -128,8 +136,50 @@ def _make_vevent(props: dict[str, Any]) -> Any:
     return ev
 
 
+# ── 同步查询函数（供 sync_to_async 包装） ─────────────────────
+
+
+def _fetch_feed_data(token: str) -> tuple[Any, list[Reminder]] | None:
+    """验证 token 并查询提醒数据。返回 (user, reminders) 或 None（token 无效）。"""
+    from apps.cases.models import CaseAccessGrant, CaseAssignment
+
+    try:
+        feed_token = CalendarFeedToken.objects.select_related("user").get(token=token)
+    except CalendarFeedToken.DoesNotExist:
+        return None
+
+    user = feed_token.user
+
+    # 两次查询 + set 合并（比 union 更可靠）
+    assigned = set(
+        CaseAssignment.objects.filter(lawyer=user).values_list("case_id", flat=True)
+    )
+    granted = set(
+        CaseAccessGrant.objects.filter(grantee=user).values_list("case_id", flat=True)
+    )
+    user_case_ids = assigned | granted
+
+    now = timezone.now()
+    cutoff = now + timedelta(days=365)
+
+    reminders = list(
+        Reminder.objects.select_related("contract", "case", "case_log", "case_log__case")
+        .filter(
+            Q(due_at__gte=now) & Q(due_at__lte=cutoff),
+            Q(case_id__in=user_case_ids) | Q(case_id__isnull=True),
+        )
+        .order_by("due_at", "id")
+    )
+
+    return user, reminders
+
+
+# ── 端点 ─────────────────────────────────────────────────────
+
+
 @router.get("/ics/feed")
-def calendar_feed(request: Any, token: str = "") -> HttpResponse:
+@rate_limit_from_settings("CALENDAR_FEED", by_user=False, key_func=lambda r: r.META.get("REMOTE_ADDR", ""))
+async def calendar_feed(request: Any, token: str = "") -> HttpResponse:
     """ICS 日历订阅端点。
 
     日历 App 订阅此 URL 后会定期拉取，自动同步所有未来提醒。
@@ -140,38 +190,14 @@ def calendar_feed(request: Any, token: str = "") -> HttpResponse:
     if not token:
         return HttpResponse("missing token", status=400)
 
-    # 验证 token
-    try:
-        feed_token = CalendarFeedToken.objects.select_related("user").get(token=token)
-    except CalendarFeedToken.DoesNotExist:
+    result = await sync_to_async(_fetch_feed_data)(token)
+    if result is None:
         return HttpResponse("invalid token", status=403)
 
-    user = feed_token.user
-
-    # 查询该用户有权访问的案件 ID（指派 + 授权访问）
-    from apps.cases.models import CaseAssignment, CaseAccessGrant
-
-    user_case_ids = list(
-        CaseAssignment.objects.filter(lawyer=user)
-        .values_list("case_id", flat=True)
-        .union(
-            CaseAccessGrant.objects.filter(grantee=user).values_list("case_id", flat=True)
-        )
-    )
-
+    user, reminders = result
     now = timezone.now()
-    cutoff = now + timedelta(days=365)  # 未来 1 年
 
-    reminders = (
-        Reminder.objects.select_related("contract", "case", "case_log", "case_log__case")
-        .filter(
-            Q(due_at__gte=now) & Q(due_at__lte=cutoff),
-            Q(case_id__in=user_case_ids) | Q(case_id__isnull=True),
-        )
-        .order_by("due_at", "id")
-    )
-
-    ics_bytes = _build_ics_feed(list(reminders), str(user))
+    ics_bytes = _build_ics_feed(reminders, str(user))
 
     response = HttpResponse(ics_bytes, content_type="text/calendar; charset=utf-8")
     # 告诉日历 App 每 4 小时重新拉取
@@ -180,13 +206,13 @@ def calendar_feed(request: Any, token: str = "") -> HttpResponse:
     return response
 
 
-@router.get("/ics/feed/token", auth=SessionAuth())
-def get_or_create_token(request: Any) -> dict[str, str]:
+@router.get("/ics/feed/token", auth=_session_auth)
+async def get_or_create_token(request: Any) -> dict[str, str]:
     """获取当前用户的日历订阅 Token（不存在则自动创建）。"""
     from apps.core.security import get_request_access_context
 
     ctx = get_request_access_context(request)
-    feed_token = CalendarFeedToken.get_or_create_for_user(ctx.user)
+    feed_token = await sync_to_async(CalendarFeedToken.get_or_create_for_user)(ctx.user)
 
     # 构造完整订阅 URL
     scheme = "https" if request.is_secure() else "http"
@@ -200,20 +226,25 @@ def get_or_create_token(request: Any) -> dict[str, str]:
     }
 
 
-@router.post("/ics/feed/token/regenerate", auth=SessionAuth())
-def regenerate_token(request: Any) -> dict[str, str]:
+@router.post("/ics/feed/token/regenerate", auth=_session_auth)
+async def regenerate_token(request: Any) -> dict[str, str]:
     """重新生成当前用户的日历订阅 Token（旧 Token 立即失效）。"""
-    import secrets
-
     from apps.core.security import get_request_access_context
 
     ctx = get_request_access_context(request)
     new_token = secrets.token_urlsafe(48)
 
-    CalendarFeedToken.objects.filter(user=ctx.user).update(token=new_token)
+    def _regenerate() -> CalendarFeedToken:
+        obj, created = CalendarFeedToken.objects.get_or_create(
+            user=ctx.user,
+            defaults={"token": new_token},
+        )
+        if not created:
+            obj.token = new_token
+            obj.save(update_fields=["token", "updated_at"])
+        return obj
 
-    # 重新获取
-    feed_token = CalendarFeedToken.objects.get(user=ctx.user)
+    feed_token = await sync_to_async(_regenerate)()
 
     scheme = "https" if request.is_secure() else "http"
     host = request.get_host()
