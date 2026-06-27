@@ -700,6 +700,10 @@
                 <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="12" height="11" rx="2"/><path d="M2 7h12M6 1v4M10 1v4M8 13V9M6 11l2-2 2 2"/></svg>
                 {% trans "导出" %}
             </a>
+            <button type="button" class="reminder-action-btn export-btn" id="btn-calendar-subscribe" title="{% trans '获取日历订阅链接，同步到 Apple Calendar / Google Calendar / Outlook' %}" style="background:var(--fc-bg-card);color:var(--fc-text-primary);">
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2"><circle cx="4" cy="12" r="1.5"/><circle cx="8" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><path d="M4 10.5V3a4 4 0 0 1 8 0v7.5"/></svg>
+                {% trans "获取订阅" %}
+            </button>
         </div>
     </div>
 
@@ -1767,6 +1771,52 @@
             if (!exportUrl) { alert('日历导出服务未就绪，请刷新页面重试'); return; }
             const url = exportUrl + '?' + params.toString();
             window.location.href = url;
+        });
+    }
+
+    // ===== Calendar Subscribe =====
+    const btnSubscribe = document.getElementById('btn-calendar-subscribe');
+    if (btnSubscribe) {
+        btnSubscribe.addEventListener('click', async () => {
+            try {
+                const tokenUrl = '{% url "admin:reminders_reminder_calendar_feed_token" %}';
+                const resp = await fetch(tokenUrl, {
+                    headers: { 'Accept': 'application/json', 'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]')?.value || '' },
+                    credentials: 'same-origin',
+                });
+                if (!resp.ok) throw new Error('获取订阅令牌失败');
+                const data = await resp.json();
+                const feedUrl = data.feed_url || '';
+                if (!feedUrl) throw new Error('未获取到订阅链接');
+
+                // 弹出对话框
+                const overlay = document.createElement('div');
+                overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:10000;display:flex;align-items:center;justify-content:center;';
+                overlay.innerHTML = `
+                    <div style="background:var(--fc-bg-card,#fff);border-radius:12px;padding:24px;max-width:540px;width:90%;box-shadow:0 8px 32px rgba(0,0,0,.18);">
+                        <h3 style="margin:0 0 12px;font-size:16px;">📅 日历订阅链接</h3>
+                        <p style="margin:0 0 8px;font-size:13px;color:var(--fc-text-secondary,#666);">
+                            将以下链接添加到日历 App 的"订阅日历"中，法穿提醒会自动同步。
+                        </p>
+                        <input type="text" readonly value="${feedUrl}" style="width:100%;padding:8px 10px;border:1px solid var(--fc-border-input,#d1d5db);border-radius:6px;font-size:12px;box-sizing:border-box;background:var(--fc-bg-secondary,#f9fafb);" id="sub-feed-url" />
+                        <div style="display:flex;gap:8px;margin-top:12px;justify-content:flex-end;">
+                            <button id="sub-copy-btn" style="padding:6px 14px;border-radius:6px;border:none;background:#2563eb;color:#fff;font-size:13px;cursor:pointer;">复制链接</button>
+                            <button id="sub-close-btn" style="padding:6px 14px;border-radius:6px;border:1px solid var(--fc-border-input,#d1d5db);background:var(--fc-bg-card,#fff);font-size:13px;cursor:pointer;">关闭</button>
+                        </div>
+                    </div>`;
+                document.body.appendChild(overlay);
+
+                document.getElementById('sub-close-btn').onclick = () => overlay.remove();
+                overlay.addEventListener('click', (ev) => { if (ev.target === overlay) overlay.remove(); });
+                document.getElementById('sub-copy-btn').onclick = () => {
+                    navigator.clipboard.writeText(feedUrl).then(() => {
+                        document.getElementById('sub-copy-btn').textContent = '✓ 已复制';
+                        setTimeout(() => { document.getElementById('sub-copy-btn').textContent = '复制链接'; }, 1500);
+                    });
+                };
+            } catch (err) {
+                alert(err.message || '获取订阅链接失败，请稍后重试');
+            }
         });
     }
 })();

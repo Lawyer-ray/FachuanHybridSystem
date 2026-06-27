@@ -99,3 +99,35 @@ class Reminder(models.Model):
         else:
             target = "unbound"
         return f"{target}-{self.reminder_type}-{self.due_at}"
+
+
+class CalendarFeedToken(models.Model):
+    """日历订阅 Token —— 用户专属的 ICS 订阅链接凭证。"""
+
+    user: Any = models.OneToOneField(
+        "organization.Lawyer",
+        on_delete=models.CASCADE,
+        related_name="calendar_feed_token",
+        verbose_name="用户",
+    )
+    token: Any = models.CharField(max_length=64, unique=True, verbose_name="订阅令牌")
+    created_at: Any = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
+    updated_at: Any = models.DateTimeField(auto_now=True, verbose_name="更新时间")
+
+    class Meta:
+        verbose_name = "日历订阅令牌"
+        verbose_name_plural = "日历订阅令牌"
+
+    def __str__(self) -> str:
+        return f"CalendarFeedToken(user={self.user_id}, token={self.token[:8]}...)"
+
+    @classmethod
+    def get_or_create_for_user(cls, user: Any) -> "CalendarFeedToken":
+        """获取或创建用户的订阅令牌。"""
+        import secrets
+
+        obj, _ = cls.objects.get_or_create(
+            user=user,
+            defaults={"token": secrets.token_urlsafe(48)},
+        )
+        return obj

@@ -174,6 +174,11 @@ class ReminderAdmin(SimpleHistoryAdmin, admin.ModelAdmin):  # pragma: no cover
                 self.admin_site.admin_view(self.calendar_export_view),
                 name="reminders_reminder_calendar_export",
             ),
+            path(
+                "calendar/feed-token/",
+                self.admin_site.admin_view(self.calendar_feed_token_view),
+                name="reminders_reminder_calendar_feed_token",
+            ),
         ]
         return custom_urls + urls
 
@@ -642,6 +647,25 @@ class ReminderAdmin(SimpleHistoryAdmin, admin.ModelAdmin):  # pragma: no cover
         response = HttpResponse(ics_bytes, content_type="text/calendar; charset=utf-8")
         response["Content-Disposition"] = f"attachment; filename*=UTF-8''{quote(filename)}"
         return response
+
+    def calendar_feed_token_view(self, request: HttpRequest) -> JsonResponse:  # pragma: no cover
+        """GET: 获取当前用户的日历订阅 Token（不存在则自动创建）。"""
+        if not request.user.is_authenticated:
+            return JsonResponse({"error": "未登录"}, status=401)
+
+        from apps.reminders.models import CalendarFeedToken
+
+        feed_token = CalendarFeedToken.get_or_create_for_user(request.user)
+
+        scheme = "https" if request.is_secure() else "http"
+        host = request.get_host()
+        feed_url = f"{scheme}://{host}/api/v1/reminders/ics/feed?token={feed_token.token}"
+
+        return JsonResponse({
+            "token": feed_token.token,
+            "feed_url": feed_url,
+            "created_at": feed_token.created_at.isoformat(),
+        })
 
     def _safe_return_url(self, *, request: HttpRequest) -> str:  # pragma: no cover
         fallback = reverse("admin:reminders_reminder_calendar")
