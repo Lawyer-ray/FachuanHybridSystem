@@ -12,6 +12,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from asgiref.sync import sync_to_async
 from django.db import transaction
 
 from apps.core.exceptions import NotFoundError, ValidationException
@@ -45,6 +46,22 @@ class SessionLifecycleService:
             create_payload["session_type"] = session_type
 
         session = LitigationSession.objects.create(**create_payload)
+        return self._to_session_dto(session)
+
+    async def acreate_session(self, case_id: int, user_id: int | None = None, session_type: str | None = None) -> SessionDTO:  # pragma: no cover
+        """异步版本 — 创建新会话."""
+        from apps.litigation_ai.models import LitigationSession
+
+        create_payload: dict[str, Any] = {
+            "case_id": case_id,
+            "user_id": user_id,
+            "status": "active",
+            "metadata": {},
+        }
+        if session_type:
+            create_payload["session_type"] = session_type
+
+        session = await LitigationSession.objects.acreate(**create_payload)
         return self._to_session_dto(session)
 
     def get_session(self, session_id: str) -> SessionDTO:

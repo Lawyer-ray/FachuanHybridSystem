@@ -13,6 +13,8 @@ Requirements: 3.1, 3.2, 3.5, 5.1, 5.2, 5.3, 5.4
 import logging
 from typing import TYPE_CHECKING, Any
 
+from asgiref.sync import sync_to_async
+
 from .interfaces import IMemoryMiddleware
 
 if TYPE_CHECKING:
@@ -196,6 +198,122 @@ class LitigationMemoryMiddleware(IMemoryMiddleware):  # pragma: no cover
         """
         try:
             self.conversation_service.add_message(
+                session_id=self.session_id,
+                role="user",
+                content=content,
+                metadata=metadata or {},
+            )
+        except Exception as e:
+            logger.error(
+                "保存用户消息失败",
+                extra={
+                    "session_id": self.session_id,
+                    "error": str(e),
+                },
+            )
+
+    async def abefore_agent(  # pragma: no cover
+        self,
+        state: dict[str, Any],
+        runtime: Any | None = None,
+    ) -> dict[str, Any] | None:
+        """异步版本 — Agent 执行前的钩子,加载历史消息."""
+        try:
+            history = await sync_to_async(self.conversation_service.get_messages)(
+                session_id=self.session_id,
+                limit=self.max_messages,
+            )
+
+            if history:
+                history_messages = []
+                for msg in history:
+                    history_messages.append(
+                        {
+                            "role": msg.role,
+                            "content": msg.content,
+                        }
+                    )
+
+                existing_messages = state.get("messages", [])
+                state["messages"] = history_messages + existing_messages
+
+                logger.info(
+                    "加载历史消息",
+                    extra={
+                        "session_id": self.session_id,
+                        "history_count": len(history_messages),
+                    },
+                )
+
+            return state
+
+        except Exception as e:
+            logger.error(
+                "加载历史消息失败",
+                extra={
+                    "session_id": self.session_id,
+                    "error": str(e),
+                },
+            )
+            return state
+
+    async def aafter_agent(  # pragma: no cover
+        self,
+        state: dict[str, Any],
+        runtime: Any | None = None,
+    ) -> dict[str, Any] | None:
+        """异步版本 — Agent 执行后的钩子,保存新消息."""
+        try:
+            messages = state.get("messages", [])
+            if not messages:
+                return state
+
+            last_message = messages[-1]
+
+            if hasattr(last_message, "type"):
+                role = last_message.type
+                content = last_message.content
+                tool_calls = getattr(last_message, "tool_calls", [])
+            elif isinstance(last_message, dict):
+                role = last_message.get("role", "assistant")
+                content = last_message.get("content", "")
+                tool_calls = last_message.get("tool_calls", [])
+            else:
+                return state
+
+            if role in ("assistant", "ai"):
+                await sync_to_async(self.conversation_service.add_message)(
+                    session_id=self.session_id,
+                    role="assistant",
+                    content=content,
+                    metadata={"tool_calls": tool_calls} if tool_calls else {},
+                )
+
+                logger.info(
+                    "保存 Assistant 消息",
+                    extra={
+                        "session_id": self.session_id,
+                        "content_length": len(content),
+                        "has_tool_calls": bool(tool_calls),
+                    },
+                )
+
+            return state
+
+        except Exception as e:
+            logger.error(
+                "保存消息失败",
+                extra={
+                    "session_id": self.session_id,
+                    "error": str(e),
+                },
+            )
+            return state
+
+    async def asave_user_message(self, content: str, metadata: dict[str, Any] | None = None) -> None:  # pragma: no cover
+        """异步版本 — 保存用户消息."""
+        try:
+            await sync_to_async(self.conversation_service.add_message)(
                 session_id=self.session_id,
                 role="user",
                 content=content,

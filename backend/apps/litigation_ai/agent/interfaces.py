@@ -147,3 +147,31 @@ class IMemoryMiddleware(ABC):
             修改后的状态,或 None 表示不修改
         """
         pass
+
+    async def abefore_agent(
+        self,
+        state: dict[str, Any],
+        runtime: Any,
+    ) -> dict[str, Any] | None:
+        """
+        异步版本 — Agent 执行前的钩子
+
+        默认实现回退到同步版本.子类应覆盖此方法以使用原生异步 ORM.
+        """
+        from asgiref.sync import sync_to_async
+
+        return await sync_to_async(self.before_agent)(state, runtime)
+
+    async def aafter_agent(
+        self,
+        state: dict[str, Any],
+        runtime: Any,
+    ) -> dict[str, Any] | None:
+        """
+        异步版本 — Agent 执行后的钩子
+
+        默认实现回退到同步版本.子类应覆盖此方法以使用原生异步 ORM.
+        """
+        from asgiref.sync import sync_to_async
+
+        return await sync_to_async(self.after_agent)(state, runtime)

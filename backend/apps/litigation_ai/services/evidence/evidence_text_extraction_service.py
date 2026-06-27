@@ -1,5 +1,6 @@
 """Business logic services."""
 
+import asyncio
 import logging
 from typing import Any
 
@@ -47,3 +48,7 @@ class EvidenceTextExtractionService:
                 )
 
         return results
+
+    async def aextract_chunks(self, file_path: str, max_pages: int | None = None) -> list[dict[str, Any]]:  # pragma: no cover
+        """异步版本 — 将 PDF 解析和 OCR 卸载到线程池."""
+        return await asyncio.to_thread(self.extract_chunks, file_path, max_pages)
