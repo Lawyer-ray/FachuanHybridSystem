@@ -9,13 +9,13 @@ import io
 import logging
 from typing import Any
 
-from apps.core.services.pdf_utils import (  # noqa: F401
+from apps.core.services.pdf_utils import (
     _read_django_field_file,
     _read_file_like,
     _read_from_path_attr,
     read_source_bytes,
 )
-from apps.core.utils.path import Path  # noqa: F401 — 测试 mock 需要
+from apps.core.utils.path import Path
 
 logger = logging.getLogger("apps.evidence")
 
