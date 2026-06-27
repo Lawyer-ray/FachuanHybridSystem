@@ -33,3 +33,23 @@ def retry_download_task(sms_id: Any, **kwargs: Any) -> None:
 
     sms_id = int(sms_id)
     RetryDownloadUsecase(court_sms_service=ServiceLocator.get_court_sms_service()).execute(sms_id=sms_id)
+
+
+def handle_scraper_task_status_change(task_id: int) -> None:
+    """Django-Q task: 处理 ScraperTask 状态变更后的 SMS 后续流程
+
+    从 ScraperTask @hook 中延迟提交，避免在 model save 事务内执行大量 ORM I/O。
+    """
+    from apps.automation.models import ScraperTask
+    from apps.automation.services.sms.court_sms_service import CourtSMSService
+
+    try:
+        task = ScraperTask.objects.get(id=task_id)
+        CourtSMSService().handle_scraper_task_status_change(task)
+    except ScraperTask.DoesNotExist:
+        from django.conf import settings
+
+        import logging
+
+        logger = logging.getLogger("apps.automation")
+        logger.warning("ScraperTask %s 不存在，跳过 SMS 后续处理", task_id)
