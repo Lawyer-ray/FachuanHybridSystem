@@ -10,6 +10,7 @@ Requirements: 6.1-6.10, 10.1-10.6, 11.3, 15.3, 15.4, 15.6,
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import uuid
 import zipfile
@@ -195,6 +196,19 @@ class FillingService:
     # ------------------------------------------------------------------
     # 单次填充
     # ------------------------------------------------------------------
+
+    async def fill_template_async(
+        self,
+        template_id: int,
+        case_id: int,
+        party_id: int | None = None,
+        custom_values: dict[str, str] | None = None,
+        filled_by: Any = None,
+    ) -> Any:  # pragma: no cover
+        """异步版本：文件 I/O + docx 操作在线程池中执行。"""
+        return await asyncio.to_thread(
+            self.fill_template, template_id, case_id, party_id, custom_values, filled_by
+        )
 
     def fill_template(
         self,
@@ -572,6 +586,19 @@ class FillingService:
     # ------------------------------------------------------------------
     # 批量填充
     # ------------------------------------------------------------------
+
+    async def batch_fill_async(
+        self,
+        case_id: int,
+        template_ids: list[int],
+        party_ids: list[int] | None = None,
+        custom_values: dict[str, dict[str, str]] | None = None,
+        filled_by: Any = None,
+    ) -> Any:  # pragma: no cover
+        """异步版本：批量文件 I/O 在线程池中执行。"""
+        return await asyncio.to_thread(
+            self.batch_fill, case_id, template_ids, party_ids, custom_values, filled_by
+        )
 
     def batch_fill(
         self,

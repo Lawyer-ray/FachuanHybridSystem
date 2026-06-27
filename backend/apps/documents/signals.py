@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from pathlib import Path
 from typing import Any
+
+from asgiref.sync import sync_to_async
 
 from django.conf import settings
 from django.db import transaction
@@ -166,12 +169,12 @@ def _invalidate_template_matching_cache(sender: type[Any]) -> None:
 @receiver(post_delete, sender=FolderTemplate)
 @receiver(post_delete, sender=DocumentTemplate)
 @receiver(post_delete, sender=Placeholder)
-def log_delete(sender: type[Any], instance: Any, **kwargs: Any) -> None:  # pragma: no cover
-    """记录删除操作"""
-    _create_audit_log(instance, TemplateAuditAction.DELETE)
+async def log_delete(sender: type[Any], instance: Any, **kwargs: Any) -> None:  # pragma: no cover
+    """记录删除操作（异步信号接收器，ORM 写入不阻塞事件循环）"""
+    await sync_to_async(_create_audit_log)(instance, TemplateAuditAction.DELETE)
 
     # 使模板匹配缓存失效（替代 Model 层的 delete() override）
-    _invalidate_template_matching_cache(sender)
+    await asyncio.to_thread(_invalidate_template_matching_cache, sender)
 
 
 # ============================================================

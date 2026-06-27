@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import Any, cast
 
@@ -265,3 +266,28 @@ class TemplateMatchingService:
         if case_stage in retrial_related:
             return [DocumentCaseStage.RETRIAL]
         return [case_stage]
+
+    # ------------------------------------------------------------------
+    # Async counterparts — 所有 ORM + cache 操作在线程池中执行
+    # ------------------------------------------------------------------
+
+    async def find_matching_case_document_template_names_async(self, case_type: str) -> list[str]:
+        return await asyncio.to_thread(self.find_matching_case_document_template_names, case_type)
+
+    async def find_matching_contract_templates_async(self, case_type: str) -> list[dict[str, Any]]:
+        return await asyncio.to_thread(self.find_matching_contract_templates, case_type)
+
+    async def find_matching_folder_templates_async(
+        self, template_type: str, case_type: str | None = None
+    ) -> list[dict[str, Any]]:
+        return await asyncio.to_thread(self.find_matching_folder_templates, template_type, case_type)
+
+    async def find_matching_case_file_templates_async(
+        self,
+        case_type: str,
+        case_stage: str,
+        applicable_institutions: list[str] | None = None,
+    ) -> list[dict[str, Any]]:
+        return await asyncio.to_thread(
+            self.find_matching_case_file_templates, case_type, case_stage, applicable_institutions
+        )

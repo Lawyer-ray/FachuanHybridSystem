@@ -5,8 +5,9 @@
 
 from __future__ import annotations
 
-from typing import Any, cast
+from typing import Any
 
+from asgiref.sync import sync_to_async
 from django.http import HttpRequest
 from ninja import Router
 
@@ -24,56 +25,53 @@ def _get_case_assignment_service() -> Any:
 
 
 @router.get("/assignments", response=list[CaseAssignmentOut])
-def list_assignments(  # pragma: no cover
+async def list_assignments(  # pragma: no cover
     request: HttpRequest, case_id: int | None = None, lawyer_id: int | None = None
 ) -> list[CaseAssignmentOut]:
     service = _get_case_assignment_service()
     ctx = extract_request_context(request)
-    return cast(list[CaseAssignmentOut], service.list_assignments(
+    return await sync_to_async(service.list_assignments)(
         case_id=case_id, lawyer_id=lawyer_id, user=ctx.user,
         perm_open_access=ctx.perm_open_access,
-    ))
+    )
 
 
 @router.post("/assignments", response=CaseAssignmentOut)
-def create_assignment(request: HttpRequest, payload: CaseAssignmentIn) -> CaseAssignmentOut:  # pragma: no cover
+async def create_assignment(request: HttpRequest, payload: CaseAssignmentIn) -> CaseAssignmentOut:  # pragma: no cover
     service = _get_case_assignment_service()
     ctx = extract_request_context(request)
-    return cast(
-        CaseAssignmentOut,
-        service.create_assignment(
-            case_id=payload.case_id, lawyer_id=payload.lawyer_id, user=ctx.user,
-            perm_open_access=ctx.perm_open_access,
-        ),
+    return await sync_to_async(service.create_assignment)(
+        case_id=payload.case_id, lawyer_id=payload.lawyer_id, user=ctx.user,
+        perm_open_access=ctx.perm_open_access,
     )
 
 
 @router.get("/assignments/{assignment_id}", response=CaseAssignmentOut)
-def get_assignment(request: HttpRequest, assignment_id: int) -> CaseAssignmentOut:  # pragma: no cover
+async def get_assignment(request: HttpRequest, assignment_id: int) -> CaseAssignmentOut:  # pragma: no cover
     service = _get_case_assignment_service()
     ctx = extract_request_context(request)
-    return cast(CaseAssignmentOut, service.get_assignment(
+    return await sync_to_async(service.get_assignment)(
         assignment_id=assignment_id, user=ctx.user,
         perm_open_access=ctx.perm_open_access,
-    ))
+    )
 
 
 @router.put("/assignments/{assignment_id}", response=CaseAssignmentOut)
-def update_assignment(request: HttpRequest, assignment_id: int, payload: CaseAssignmentUpdate) -> CaseAssignmentOut:  # pragma: no cover
+async def update_assignment(request: HttpRequest, assignment_id: int, payload: CaseAssignmentUpdate) -> CaseAssignmentOut:  # pragma: no cover
     service = _get_case_assignment_service()
     ctx = extract_request_context(request)
     data = payload.model_dump(exclude_unset=True)
-    return cast(CaseAssignmentOut, service.update_assignment(
+    return await sync_to_async(service.update_assignment)(
         assignment_id=assignment_id, data=data, user=ctx.user,
         perm_open_access=ctx.perm_open_access,
-    ))
+    )
 
 
 @router.delete("/assignments/{assignment_id}")
-def delete_assignment(request: HttpRequest, assignment_id: int) -> Any:  # pragma: no cover
+async def delete_assignment(request: HttpRequest, assignment_id: int) -> Any:  # pragma: no cover
     service = _get_case_assignment_service()
     ctx = extract_request_context(request)
-    return service.delete_assignment(
+    return await sync_to_async(service.delete_assignment)(
         assignment_id=assignment_id, user=ctx.user,
         perm_open_access=ctx.perm_open_access,
     )
