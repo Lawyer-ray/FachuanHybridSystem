@@ -206,13 +206,22 @@ async def calendar_feed(request: Any, token: str = "") -> HttpResponse:
     return response
 
 
-@router.get("/ics/feed/token", auth=_session_auth)
+def _require_session_user(request: Any) -> Any | None:
+    """检查请求是否带有 Django Session 认证的用户。返回 user 或 None。"""
+    if hasattr(request, "user") and request.user and request.user.is_authenticated:
+        return request.user
+    return None
+
+
+@router.get("/ics/feed/token")
 async def get_or_create_token(request: Any) -> dict[str, str]:
     """获取当前用户的日历订阅 Token（不存在则自动创建）。"""
-    from apps.core.security import get_request_access_context
+    user = _require_session_user(request)
+    if user is None:
+        from django.http import JsonResponse
+        return JsonResponse({"detail": "Authentication required"}, status=401)
 
-    ctx = get_request_access_context(request)
-    feed_token = await sync_to_async(CalendarFeedToken.get_or_create_for_user)(ctx.user)
+    feed_token = await sync_to_async(CalendarFeedToken.get_or_create_for_user)(user)
 
     # 构造完整订阅 URL
     scheme = "https" if request.is_secure() else "http"
@@ -226,17 +235,19 @@ async def get_or_create_token(request: Any) -> dict[str, str]:
     }
 
 
-@router.post("/ics/feed/token/regenerate", auth=_session_auth)
+@router.post("/ics/feed/token/regenerate")
 async def regenerate_token(request: Any) -> dict[str, str]:
     """重新生成当前用户的日历订阅 Token（旧 Token 立即失效）。"""
-    from apps.core.security import get_request_access_context
+    user = _require_session_user(request)
+    if user is None:
+        from django.http import JsonResponse
+        return JsonResponse({"detail": "Authentication required"}, status=401)
 
-    ctx = get_request_access_context(request)
     new_token = secrets.token_urlsafe(48)
 
     def _regenerate() -> CalendarFeedToken:
         obj, created = CalendarFeedToken.objects.get_or_create(
-            user=ctx.user,
+            user=user,
             defaults={"token": new_token},
         )
         if not created:
