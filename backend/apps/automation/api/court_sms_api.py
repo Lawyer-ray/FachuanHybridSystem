@@ -109,11 +109,14 @@ async def list_sms(  # pragma: no cover
     """
     service = _get_court_sms_service()
 
-    sms_qs = await sync_to_async(service.list_sms)(
-        status=status, sms_type=sms_type, has_case=has_case, date_from=date_from, date_to=date_to
-    )
+    @sync_to_async
+    def _list() -> list[CourtSMSListOut]:
+        sms_qs = service.list_sms(
+            status=status, sms_type=sms_type, has_case=has_case, date_from=date_from, date_to=date_to
+        )
+        return [CourtSMSListOut.from_model(sms) for sms in sms_qs]
 
-    return [CourtSMSListOut.from_model(sms) async for sms in sms_qs]
+    return await _list()
 
 
 # ============================================================================

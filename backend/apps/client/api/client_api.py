@@ -61,12 +61,20 @@ async def list_clients(  # pragma: no cover
     """获取客户列表（前端做客户端分页）"""
     facade = _get_query_facade()
     user = getattr(request, "auth", None) or extract_request_context(request).user
-    return await sync_to_async(facade.list_clients)(  # type: ignore[no-any-return]
-        client_type=client_type,
-        is_our_client=is_our_client,
-        search=search,
-        user=user,
-    )
+
+    @sync_to_async
+    def _fetch() -> list[Any]:
+        qs = facade.list_clients(
+            client_type=client_type,
+            is_our_client=is_our_client,
+            search=search,
+            user=user,
+        )
+        # Materialize queryset inside sync context so Django Ninja
+        # serialization won't trigger sync ORM calls.
+        return list(qs)
+
+    return cast(list[ClientOut], await _fetch())
 
 
 @router.post("/clients/parse-text")
