@@ -35,11 +35,7 @@ async def classify_images(request: HttpRequest) -> dict[str, Any]:  # pragma: no
 
     svc = ClassifierService()
 
-    @sync_to_async
-    def _classify() -> Any:
-        return svc.classify_images(images)
-
-    result = await _classify()
+    result = await svc.classify_images_async(images)
 
     return {
         "success": True,
@@ -75,11 +71,7 @@ async def parse_statement(request: HttpRequest) -> dict[str, Any]:  # pragma: no
 
     svc = ReconcilerService()
 
-    @sync_to_async
-    def _parse() -> Any:
-        return svc.parse_statement(ocr_text, backend=backend, model=model)
-
-    info = await _parse()
+    info = await svc.parse_statement_async(ocr_text, backend=backend, model=model)
 
     return {
         "success": True,
