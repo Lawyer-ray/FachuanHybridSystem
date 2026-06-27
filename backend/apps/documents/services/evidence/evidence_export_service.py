@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import io
 from typing import TYPE_CHECKING, Any
 
@@ -54,6 +55,12 @@ class EvidenceExportService:
 
             self._placeholder_service = get_evidence_list_placeholder_service()
         return self._placeholder_service
+
+    async def export_evidence_list_with_template_async(
+        self, list_id: int, template_id: int | None = None
+    ) -> tuple[bytes, str]:
+        """异步版本：文件 I/O + docx 渲染在线程池中执行。"""
+        return await asyncio.to_thread(self.export_evidence_list_with_template, list_id, template_id)
 
     def export_evidence_list_with_template(self, list_id: int, template_id: int | None = None) -> tuple[bytes, str]:  # pragma: no cover
         """
@@ -172,6 +179,10 @@ class EvidenceExportService:
                 errors={"template_id": f"ID 为 {template_id} 的模板不存在或已禁用"},
             ) from None
 
+    async def export_evidence_list_async(self, list_id: int) -> tuple[bytes, str]:
+        """异步版本：Word 文档创建在线程池中执行。"""
+        return await asyncio.to_thread(self.export_evidence_list, list_id)
+
     def export_evidence_list(self, list_id: int) -> tuple[bytes, str]:
         """
         导出证据清单为 Word 文档
@@ -223,6 +234,10 @@ class EvidenceExportService:
         buffer.seek(0)
 
         return buffer.read(), filename
+
+    async def export_evidence_detail_async(self, list_id: int) -> tuple[bytes, str]:
+        """异步版本：Word 文档创建在线程池中执行。"""
+        return await asyncio.to_thread(self.export_evidence_detail, list_id)
 
     def export_evidence_detail(self, list_id: int) -> tuple[bytes, str]:
         """

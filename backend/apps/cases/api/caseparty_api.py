@@ -5,8 +5,9 @@
 
 from __future__ import annotations
 
-from typing import Any, cast
+from typing import Any
 
+from asgiref.sync import sync_to_async
 from django.http import HttpRequest
 from ninja import Router
 
@@ -24,50 +25,47 @@ def _get_case_party_service() -> Any:
 
 
 @router.get("/parties", response=list[CasePartyOut])
-def list_parties(request: HttpRequest, case_id: int | None = None) -> list[CasePartyOut]:  # pragma: no cover
+async def list_parties(request: HttpRequest, case_id: int | None = None) -> list[CasePartyOut]:  # pragma: no cover
     service = _get_case_party_service()
     ctx = extract_request_context(request)
-    return cast(list[CasePartyOut], service.list_parties(
+    return await sync_to_async(service.list_parties)(
         case_id=case_id, user=ctx.user, org_access=ctx.org_access, perm_open_access=ctx.perm_open_access,
-    ))
+    )
 
 
 @router.post("/parties", response=CasePartyOut)
-def create_party(request: HttpRequest, payload: CasePartyIn) -> CasePartyOut:  # pragma: no cover
+async def create_party(request: HttpRequest, payload: CasePartyIn) -> CasePartyOut:  # pragma: no cover
     service = _get_case_party_service()
     ctx = extract_request_context(request)
-    return cast(
-        CasePartyOut,
-        service.create_party(
-            case_id=payload.case_id, client_id=payload.client_id, legal_status=payload.legal_status,
-            user=ctx.user, org_access=ctx.org_access, perm_open_access=ctx.perm_open_access,
-        ),
+    return await sync_to_async(service.create_party)(
+        case_id=payload.case_id, client_id=payload.client_id, legal_status=payload.legal_status,
+        user=ctx.user, org_access=ctx.org_access, perm_open_access=ctx.perm_open_access,
     )
 
 
 @router.get("/parties/{party_id}", response=CasePartyOut)
-def get_party(request: HttpRequest, party_id: int) -> CasePartyOut:  # pragma: no cover
+async def get_party(request: HttpRequest, party_id: int) -> CasePartyOut:  # pragma: no cover
     service = _get_case_party_service()
     ctx = extract_request_context(request)
-    return cast(CasePartyOut, service.get_party(
+    return await sync_to_async(service.get_party)(
         party_id=party_id, user=ctx.user, org_access=ctx.org_access, perm_open_access=ctx.perm_open_access,
-    ))
+    )
 
 
 @router.put("/parties/{party_id}", response=CasePartyOut)
-def update_party(request: HttpRequest, party_id: int, payload: CasePartyUpdate) -> CasePartyOut:  # pragma: no cover
+async def update_party(request: HttpRequest, party_id: int, payload: CasePartyUpdate) -> CasePartyOut:  # pragma: no cover
     service = _get_case_party_service()
     ctx = extract_request_context(request)
     data = payload.model_dump(exclude_unset=True)
-    return cast(CasePartyOut, service.update_party(
+    return await sync_to_async(service.update_party)(
         party_id=party_id, data=data, user=ctx.user, org_access=ctx.org_access, perm_open_access=ctx.perm_open_access,
-    ))
+    )
 
 
 @router.delete("/parties/{party_id}")
-def delete_party(request: HttpRequest, party_id: int) -> Any:  # pragma: no cover
+async def delete_party(request: HttpRequest, party_id: int) -> Any:  # pragma: no cover
     service = _get_case_party_service()
     ctx = extract_request_context(request)
-    return service.delete_party(
+    return await sync_to_async(service.delete_party)(
         party_id=party_id, user=ctx.user, org_access=ctx.org_access, perm_open_access=ctx.perm_open_access,
     )

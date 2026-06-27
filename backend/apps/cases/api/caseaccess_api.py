@@ -11,8 +11,9 @@ API 层职责：
 
 from __future__ import annotations
 
-from typing import Any, cast
+from typing import Any
 
+from asgiref.sync import sync_to_async
 from django.http import HttpRequest
 from ninja import Router
 
@@ -34,79 +35,67 @@ def _get_case_access_service() -> Any:
 
 
 @router.get("/grants", response=list[CaseAccessGrantOut])
-def list_grants(  # pragma: no cover
+async def list_grants(  # pragma: no cover
     request: HttpRequest, case_id: int | None = None, grantee_id: int | None = None
 ) -> list[CaseAccessGrantOut]:
     service = _get_case_access_service()
     ctx = extract_request_context(request)
 
-    return cast(
-        list[CaseAccessGrantOut],
-        service.list_grants(
-            case_id=case_id,
-            grantee_id=grantee_id,
-            user=ctx.user,
-            org_access=ctx.org_access,
-            perm_open_access=ctx.perm_open_access,
-        ),
+    return await sync_to_async(service.list_grants)(
+        case_id=case_id,
+        grantee_id=grantee_id,
+        user=ctx.user,
+        org_access=ctx.org_access,
+        perm_open_access=ctx.perm_open_access,
     )
 
 
 @router.post("/grants", response=CaseAccessGrantOut)
-def create_grant(request: HttpRequest, payload: CaseAccessGrantIn) -> CaseAccessGrantOut:  # pragma: no cover
+async def create_grant(request: HttpRequest, payload: CaseAccessGrantIn) -> CaseAccessGrantOut:  # pragma: no cover
     service = _get_case_access_service()
     ctx = extract_request_context(request)
 
-    return cast(
-        CaseAccessGrantOut,
-        service.create_grant(
-            case_id=payload.case_id,
-            grantee_id=payload.grantee_id,
-            user=ctx.user,
-        ),
+    return await sync_to_async(service.create_grant)(
+        case_id=payload.case_id,
+        grantee_id=payload.grantee_id,
+        user=ctx.user,
     )
 
 
 @router.get("/grants/{grant_id}", response=CaseAccessGrantOut)
-def get_grant(request: HttpRequest, grant_id: int) -> CaseAccessGrantOut:  # pragma: no cover
+async def get_grant(request: HttpRequest, grant_id: int) -> CaseAccessGrantOut:  # pragma: no cover
     service = _get_case_access_service()
     ctx = extract_request_context(request)
 
-    return cast(
-        CaseAccessGrantOut,
-        service.get_grant(
-            grant_id=grant_id,
-            user=ctx.user,
-            org_access=ctx.org_access,
-            perm_open_access=ctx.perm_open_access,
-        ),
+    return await sync_to_async(service.get_grant)(
+        grant_id=grant_id,
+        user=ctx.user,
+        org_access=ctx.org_access,
+        perm_open_access=ctx.perm_open_access,
     )
 
 
 @router.put("/grants/{grant_id}", response=CaseAccessGrantOut)
-def update_grant(request: HttpRequest, grant_id: int, payload: CaseAccessGrantUpdate) -> CaseAccessGrantOut:  # pragma: no cover
+async def update_grant(request: HttpRequest, grant_id: int, payload: CaseAccessGrantUpdate) -> CaseAccessGrantOut:  # pragma: no cover
     service = _get_case_access_service()
     ctx = extract_request_context(request)
     data = payload.model_dump(exclude_unset=True)
 
-    return cast(
-        CaseAccessGrantOut,
-        service.update_grant(
-            grant_id=grant_id,
-            data=data,
-            user=ctx.user,
-            org_access=ctx.org_access,
-            perm_open_access=ctx.perm_open_access,
-        ),
+    return await sync_to_async(service.update_grant)(
+        grant_id=grant_id,
+        data=data,
+        user=ctx.user,
+        org_access=ctx.org_access,
+        perm_open_access=ctx.perm_open_access,
     )
 
 
 @router.delete("/grants/{grant_id}")
-def delete_grant(request: HttpRequest, grant_id: int) -> Any:  # pragma: no cover
+async def delete_grant(request: HttpRequest, grant_id: int) -> Any:  # pragma: no cover
     service = _get_case_access_service()
     ctx = extract_request_context(request)
 
-    return service.delete_grant(
+    return await sync_to_async(service.delete_grant)(
         grant_id=grant_id,
         user=ctx.user,
         org_access=ctx.org_access,
