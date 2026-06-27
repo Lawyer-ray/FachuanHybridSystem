@@ -17,8 +17,6 @@ from django.http import HttpResponse
 from django.utils import timezone
 from ninja import Router
 
-from apps.core.security.auth import JWTOrSessionAuth
-
 class SessionAuth:
     """仅使用 Django Session 认证（用于 Admin 后台 AJAX 调用）"""
     openapi_scheme: str = "session"
@@ -150,10 +148,17 @@ def calendar_feed(request: Any, token: str = "") -> HttpResponse:
 
     user = feed_token.user
 
-    # 查询该用户有权限的所有未来提醒
-    # 策略：查询所有提醒（包括合同、案件、案件日志绑定的），过滤 due_at >= 现在
-    # 注意：当前实现返回该用户相关联的所有提醒，不做细粒度权限控制
-    # 因为日历订阅本身需要用户主动获取 token，安全边界在 token 生成环节
+    # 查询该用户有权访问的案件 ID（指派 + 授权访问）
+    from apps.cases.models import CaseAssignment, CaseAccessGrant
+
+    user_case_ids = list(
+        CaseAssignment.objects.filter(lawyer=user)
+        .values_list("case_id", flat=True)
+        .union(
+            CaseAccessGrant.objects.filter(grantee=user).values_list("case_id", flat=True)
+        )
+    )
+
     now = timezone.now()
     cutoff = now + timedelta(days=365)  # 未来 1 年
 
@@ -161,6 +166,7 @@ def calendar_feed(request: Any, token: str = "") -> HttpResponse:
         Reminder.objects.select_related("contract", "case", "case_log", "case_log__case")
         .filter(
             Q(due_at__gte=now) & Q(due_at__lte=cutoff),
+            Q(case_id__in=user_case_ids) | Q(case_id__isnull=True),
         )
         .order_by("due_at", "id")
     )
