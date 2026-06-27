@@ -111,6 +111,8 @@ class TestService:
                 result["logs"].append(f"✅ 收集到 {len(result['screenshots'])} 张截图")
 
                 # 6. 等待用户观察
+                # NOTE: time.sleep(30) 是有意为之 — 此方法仅从 Admin 测试按钮调用（sync 上下文），
+                # 阻塞是为了让管理员有机会观察浏览器状态，不适用于 async 场景。
                 result["logs"].append("⏳ 等待 30 秒供观察（用于检查浏览器）...")
                 time.sleep(30)
 
