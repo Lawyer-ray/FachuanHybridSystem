@@ -237,6 +237,7 @@ class ConversationService:  # pragma: no cover
             content=content,
             metadata=metadata or {},
         )
+        await self._ensure_memory_loaded()
         self.memory.chat_memory.add_user_message(content)
         return record
 
@@ -249,6 +250,7 @@ class ConversationService:  # pragma: no cover
             content=content,
             metadata=metadata or {},
         )
+        await self._ensure_memory_loaded()
         self.memory.chat_memory.add_ai_message(content)
         return record
 
@@ -264,6 +266,39 @@ class ConversationService:  # pragma: no cover
             step="",
         )
         return record
+
+    async def _ensure_memory_loaded(self) -> None:  # pragma: no cover
+        """异步安全地初始化 memory 并加载历史记录"""
+        if self._memory is None:
+            self._memory = _SimpleConversationBufferWindowMemory(
+                k=10,
+                return_messages=True,
+                memory_key="chat_history",
+            )
+            await self._aload_history_from_db()
+
+    async def _aload_history_from_db(self) -> None:  # pragma: no cover
+        """异步从数据库加载对话历史到会话记忆"""
+        if self._memory is None:
+            return
+
+        history = [
+            (record.role, record.content)
+            async for record in self._repository.get_by_session_id(
+                self.session_id
+            ).order_by("created_at")[:20]
+        ]
+
+        for role, content in history:
+            if role == "user":
+                message: Any = HumanMessage(content=content)
+            elif role == "assistant":
+                message = AIMessage(content=content)
+            elif role == "system":
+                message = SystemMessage(content=content)
+            else:
+                continue
+            self._memory.chat_memory.add_message(message)
 
     async def achat_with_context(self, user_message: str, system_prompt: str | None = None) -> str:  # pragma: no cover
         """异步带上下文的对话"""

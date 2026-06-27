@@ -96,8 +96,14 @@ class SupplementaryAgreementOut(ModelSchema, SchemaMixin):
 
     @staticmethod
     def resolve_parties(obj: Any) -> list[SupplementaryAgreementPartyOut]:
-        parties = obj.parties
-        return list(parties.select_related("client").all())
+        # Use prefetch cache when available to avoid synchronous DB queries
+        # in async contexts (SynchronousOnlyOperation).
+        prefetched = getattr(obj, "_prefetched_objects_cache", {})
+        if "parties" in prefetched:
+            parties_qs = prefetched["parties"]
+        else:
+            parties_qs = obj.parties.select_related("client").all()
+        return list(parties_qs)
 
     @staticmethod
     def resolve_created_at(obj: Any) -> str:

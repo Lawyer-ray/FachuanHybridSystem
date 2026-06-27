@@ -93,7 +93,10 @@ class SupplementaryAgreementService:
             },
         )
 
-        return agreement
+        # 5. Refresh with prefetch so async serialization doesn't hit the DB
+        return SupplementaryAgreement.objects.prefetch_related(
+            "parties__client__identity_docs"
+        ).get(id=agreement.id)
 
     @transaction.atomic
     def update_supplementary_agreement(
@@ -143,7 +146,10 @@ class SupplementaryAgreementService:
             },
         )
 
-        return agreement
+        # 5. Refresh with prefetch so async serialization doesn't hit the DB
+        return SupplementaryAgreement.objects.prefetch_related(
+            "parties__client__identity_docs"
+        ).get(id=agreement.id)
 
     def get_supplementary_agreement(self, agreement_id: int, prefetch: bool = True) -> SupplementaryAgreement:  # pragma: no cover
         """
@@ -162,7 +168,7 @@ class SupplementaryAgreementService:
         try:
             qs = SupplementaryAgreement.objects.all()
             if prefetch:
-                qs = qs.select_related("contract").prefetch_related("parties__client")
+                qs = qs.select_related("contract").prefetch_related("parties__client__identity_docs")
             return qs.get(id=agreement_id)
         except SupplementaryAgreement.DoesNotExist:
             raise NotFoundError("补充协议不存在") from None
@@ -180,7 +186,7 @@ class SupplementaryAgreementService:
         """
         qs = SupplementaryAgreement.objects.filter(contract_id=contract_id)
         if prefetch:
-            qs = qs.prefetch_related("parties__client")
+            qs = qs.prefetch_related("parties__client__identity_docs")
         return list(qs.order_by("-created_at"))
 
     @transaction.atomic

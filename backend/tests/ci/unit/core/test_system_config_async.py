@@ -12,7 +12,7 @@ from apps.core.services.system_config_service import SystemConfigService
 @pytest.mark.asyncio
 class TestAGetValue:
     async def test_returns_value_for_existing_key(self):
-        SystemConfig.objects.create(
+        await SystemConfig.objects.acreate(
             key="ASYNC_TEST_KEY_001", value="async_value", is_active=True
         )
         result = await SystemConfigService.aget_value("ASYNC_TEST_KEY_001")
@@ -23,7 +23,7 @@ class TestAGetValue:
         assert result == "fallback"
 
     async def test_ignores_inactive_configs(self):
-        SystemConfig.objects.create(
+        await SystemConfig.objects.acreate(
             key="INACTIVE_KEY_ASYNC", value="inactive_value", is_active=False
         )
         result = await SystemConfigService.aget_value("INACTIVE_KEY_ASYNC", default="none")
