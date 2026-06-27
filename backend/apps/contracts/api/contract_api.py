@@ -81,7 +81,7 @@ class ContractWithCasesIn(ContractIn):
 async def create_contract_with_cases(request: HttpRequest, payload: ContractWithCasesIn) -> Any:  # pragma: no cover
     service = _get_domain_service()
     ctx = await sync_to_async(extract_request_context)(request)
-    if not _get_access_policy().can_create_contract(ctx.user):
+    if not await sync_to_async(_get_access_policy().can_create_contract)(ctx.user):
         from apps.core.exceptions import PermissionDenied
 
         raise PermissionDenied(message="无权限创建合同", code="PERMISSION_DENIED")
@@ -134,7 +134,7 @@ async def update_contract(  # pragma: no cover
 ) -> Any:
     service = _get_domain_service()
     ctx = await sync_to_async(extract_request_context)(request)
-    _get_access_policy().ensure_access(
+    await _get_access_policy().aensure_access(
         contract_id=contract_id,
         user=ctx.user,
         org_access=ctx.org_access,
@@ -185,7 +185,7 @@ async def create_contract(  # pragma: no cover
 async def update_contract_lawyers(request: HttpRequest, contract_id: int, payload: UpdateLawyersIn) -> Any:  # pragma: no cover
     service = _get_domain_service()
     ctx = await sync_to_async(extract_request_context)(request)
-    _get_access_policy().ensure_access(
+    await _get_access_policy().aensure_access(
         contract_id=contract_id,
         user=ctx.user,
         org_access=ctx.org_access,
@@ -204,7 +204,7 @@ async def update_contract_lawyers(request: HttpRequest, contract_id: int, payloa
 async def delete_contract(request: HttpRequest, contract_id: int) -> dict[str, bool]:  # pragma: no cover
     service = _get_domain_service()
     ctx = await sync_to_async(extract_request_context)(request)
-    _get_access_policy().ensure_access(
+    await _get_access_policy().aensure_access(
         contract_id=contract_id,
         user=ctx.user,
         org_access=ctx.org_access,
@@ -218,7 +218,7 @@ async def delete_contract(request: HttpRequest, contract_id: int) -> dict[str, b
 async def get_contract_all_parties(request: HttpRequest, contract_id: int) -> Any:  # pragma: no cover
     service = _get_domain_service()
     ctx = await sync_to_async(extract_request_context)(request)
-    _get_access_policy().ensure_access(
+    await _get_access_policy().aensure_access(
         contract_id=contract_id,
         user=ctx.user,
         org_access=ctx.org_access,

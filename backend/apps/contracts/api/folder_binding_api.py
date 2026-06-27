@@ -66,9 +66,9 @@ async def create_folder_binding(request: HttpRequest, contract_id: int, data: Fo
     Requirements: 9.1, 9.4
     """
     _require_admin(request)
-    _require_contract_access(request, contract_id)
+    await sync_to_async(_require_contract_access)(request, contract_id)
     service = _get_folder_binding_service()
-    ctx = get_request_access_context(request)
+    ctx = await sync_to_async(get_request_access_context)(request)
 
     # Resolve storage_account if provided
     storage_account = None
@@ -130,7 +130,7 @@ async def get_folder_binding(request: HttpRequest, contract_id: int) -> Any:  # 
 
     Requirements: 9.2, 9.4
     """
-    _require_contract_access(request, contract_id)
+    await sync_to_async(_require_contract_access)(request, contract_id)
     service = _get_folder_binding_service()
 
     binding = await sync_to_async(service.get_binding)(owner_id=contract_id)
@@ -165,10 +165,10 @@ async def delete_folder_binding(request: HttpRequest, contract_id: int) -> Any: 
     Requirements: 9.3, 9.5
     """
     _require_admin(request)
-    _require_contract_access(request, contract_id)
+    await sync_to_async(_require_contract_access)(request, contract_id)
     service = _get_folder_binding_service()
 
-    ctx = get_request_access_context(request)
+    ctx = await sync_to_async(get_request_access_context)(request)
     success = await sync_to_async(service.delete_binding)(owner_id=contract_id)
 
     logger.info(

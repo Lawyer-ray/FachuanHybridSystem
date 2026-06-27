@@ -36,7 +36,7 @@ async def list_payments(  # pragma: no cover
 ) -> list[Any]:
     """获取收款列表"""
     service = _get_payment_service()
-    ctx = extract_request_context(request)
+    ctx = await sync_to_async(extract_request_context)(request)
 
     d1 = parse_date(start_date) if start_date else None
     d2 = parse_date(end_date) if end_date else None
@@ -56,7 +56,7 @@ async def list_payments(  # pragma: no cover
 async def create_payment(request: HttpRequest, payload: ContractPaymentIn) -> Any:  # pragma: no cover
     """创建收款记录"""
     service = _get_payment_service()
-    ctx = extract_request_context(request)
+    ctx = await sync_to_async(extract_request_context)(request)
 
     received_at = parse_date(payload.received_at) if payload.received_at else None
 
@@ -76,7 +76,7 @@ async def create_payment(request: HttpRequest, payload: ContractPaymentIn) -> An
 async def update_payment(request: HttpRequest, payment_id: int, payload: ContractPaymentUpdate) -> Any:  # pragma: no cover
     """更新收款记录"""
     service = _get_payment_service()
-    ctx = extract_request_context(request)
+    ctx = await sync_to_async(extract_request_context)(request)
 
     data = payload.model_dump(exclude_unset=True)
 
@@ -97,7 +97,7 @@ async def update_payment(request: HttpRequest, payment_id: int, payload: Contrac
 async def delete_payment(request: HttpRequest, payment_id: int) -> Any:  # pragma: no cover
     """删除收款记录"""
     service = _get_payment_service()
-    ctx = extract_request_context(request)
+    ctx = await sync_to_async(extract_request_context)(request)
     confirm = request.GET.get("confirm") == "true"
 
     return await sync_to_async(service.delete_payment)(

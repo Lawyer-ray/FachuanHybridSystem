@@ -37,8 +37,8 @@ def _require_contract_access(request: HttpRequest, contract_id: int) -> None:
 @router.post("/{contract_id}/folder-scan", response=ContractFolderScanStartOut)
 @rate_limit_from_settings("TASK", by_user=True)
 async def start_contract_scan(request: HttpRequest, contract_id: int, payload: ContractFolderScanStartIn) -> dict[str, str]:  # pragma: no cover
-    _require_contract_access(request, contract_id)
-    ctx = get_request_access_context(request)
+    await sync_to_async(_require_contract_access)(request, contract_id)
+    ctx = await sync_to_async(get_request_access_context)(request)
 
     service = _get_service()
     session = await sync_to_async(service.start_scan)(
@@ -56,7 +56,7 @@ async def start_contract_scan(request: HttpRequest, contract_id: int, payload: C
 
 @router.get("/{contract_id}/folder-scan/subfolders", response=ContractFolderScanSubfolderListOut)
 async def list_contract_scan_subfolders(request: HttpRequest, contract_id: int) -> dict[str, object]:  # pragma: no cover
-    _require_contract_access(request, contract_id)
+    await sync_to_async(_require_contract_access)(request, contract_id)
     service = _get_service()
     return await sync_to_async(service.list_scan_subfolders)(contract_id=contract_id)
 
@@ -64,7 +64,7 @@ async def list_contract_scan_subfolders(request: HttpRequest, contract_id: int) 
 @router.get("/{contract_id}/folder-scan/latest", response=ContractFolderScanStatusOut)
 async def get_latest_contract_scan(request: HttpRequest, contract_id: int) -> dict[str, object]:  # pragma: no cover
     """返回合同最新的扫描会话状态；无会话时返回空状态。"""
-    _require_contract_access(request, contract_id)
+    await sync_to_async(_require_contract_access)(request, contract_id)
     service = _get_service()
     session = await sync_to_async(service.get_latest_session)(contract_id=contract_id)
     if session is None:
@@ -85,7 +85,7 @@ async def get_latest_contract_scan(request: HttpRequest, contract_id: int) -> di
 
 @router.get("/{contract_id}/folder-scan/{session_id}", response=ContractFolderScanStatusOut)
 async def get_contract_scan_status(request: HttpRequest, contract_id: int, session_id: UUID) -> dict[str, object]:  # pragma: no cover
-    _require_contract_access(request, contract_id)
+    await sync_to_async(_require_contract_access)(request, contract_id)
 
     service = _get_service()
     session = await sync_to_async(service.get_session)(contract_id=contract_id, session_id=session_id)
@@ -100,7 +100,7 @@ async def confirm_contract_scan(  # pragma: no cover
     session_id: UUID,
     payload: ContractFolderScanConfirmIn,
 ) -> dict[str, object]:
-    _require_contract_access(request, contract_id)
+    await sync_to_async(_require_contract_access)(request, contract_id)
 
     service = _get_service()
 

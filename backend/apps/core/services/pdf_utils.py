@@ -213,6 +213,20 @@ def read_source_bytes(source: Any) -> bytes:  # pragma: no cover
     raise TypeError(f"Unsupported source type: {type(source)}")
 
 
+async def aread_source_bytes(source: Any) -> bytes:  # pragma: no cover
+    """Async version of read_source_bytes — delegates blocking I/O to thread pool."""
+    import asyncio
+
+    if source is None:
+        raise ValueError("source is None")
+
+    # bytes/bytearray are already in memory, no I/O needed
+    if isinstance(source, (bytes, bytearray)):
+        return bytes(source)
+
+    return await asyncio.to_thread(read_source_bytes, source)
+
+
 def _read_django_field_file(source: Any) -> bytes | None:  # pragma: no cover
     """读取 Django FieldFile 或 InMemoryUploadedFile"""
     if not (hasattr(source, "open") and hasattr(source, "read")):
