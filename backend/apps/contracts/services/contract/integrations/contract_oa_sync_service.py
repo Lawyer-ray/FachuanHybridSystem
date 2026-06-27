@@ -354,7 +354,7 @@ class ContractOASyncService:
                         },
                     )
             finally:
-                await script.close()
+                script.close()  # type: ignore[unused-coroutine]
 
             logger.info(
                 "contract_oa_sync_completed",
