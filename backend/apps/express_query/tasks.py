@@ -125,18 +125,8 @@ def _execute_browser_query(task: ExpressQueryTask) -> None:
         finally:
             await ExpressBrowserQueryService.disconnect_playwright()
 
-    # Django-Q2 worker 已有事件循环，不能直接用 asyncio.run()
-    try:
-        asyncio.get_running_loop()
-        # 已有运行中的循环 → 用线程隔离执行
-        import concurrent.futures
-
-        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
-            future = pool.submit(asyncio.run, _run_and_cleanup())
-            final_url = future.result(timeout=600)
-    except RuntimeError:
-        # 没有运行中的循环 → 直接用 asyncio.run()
-        final_url = asyncio.run(_run_and_cleanup())
+    # Django-Q2 worker 没有运行中的事件循环，直接用 asyncio.run()
+    final_url = asyncio.run(_run_and_cleanup())
 
     task.status = ExpressQueryTaskStatus.SUCCESS
     task.query_url = final_url

@@ -106,7 +106,8 @@ class CauseCourtQueryService:
 
     def list_causes_by_parent_internal(self, parent_id: int | None = None) -> list[dict[str, Any]]:
         if parent_id is None:
-            results: list[dict[str, Any]] = []
+            # 按 case_type 分组收集所有顶层 cause，一次性批量查询
+            all_top_causes: list[Any] = []
             for case_type in ["civil", "criminal", "administrative"]:
                 type_qs = self._repository.get_causes_by_parent(None, case_type)
                 top_level = type_qs.filter(parent__isnull=True)
@@ -116,26 +117,36 @@ class CauseCourtQueryService:
                     qs = type_qs.filter(parent__case_type__in=["civil", "criminal", "administrative"]).exclude(
                         parent__case_type=case_type
                     )
+                all_top_causes.extend(qs.order_by("code"))
 
-                for cause in qs.order_by("code"):
-                    has_children = self._repository.get_causes_by_parent(cause.id).exists()
-                    results.append(
-                        {
-                            "id": cause.id,
-                            "code": cause.code,
-                            "name": cause.name,
-                            "case_type": cause.case_type,
-                            "level": cause.level,
-                            "has_children": has_children,
-                            "full_path": cause.full_path,
-                        }
-                    )
+            # 批量查询哪些 cause 有子节点（1 次查询替代 N 次）
+            cause_ids = [cause.id for cause in all_top_causes]
+            parents_with_children = self._repository.get_parent_ids_with_children(cause_ids)
+
+            results: list[dict[str, Any]] = []
+            for cause in all_top_causes:
+                results.append(
+                    {
+                        "id": cause.id,
+                        "code": cause.code,
+                        "name": cause.name,
+                        "case_type": cause.case_type,
+                        "level": cause.level,
+                        "has_children": cause.id in parents_with_children,
+                        "full_path": cause.full_path,
+                    }
+                )
             return results
 
         qs = self._repository.get_causes_by_parent(parent_id)
+        causes_list = list(qs)
+
+        # 批量查询子节点存在性（1 次查询替代 N 次）
+        cause_ids = [cause.id for cause in causes_list]
+        parents_with_children = self._repository.get_parent_ids_with_children(cause_ids)
+
         parent_results: list[dict[str, Any]] = []
-        for cause in qs:
-            has_children = self._repository.get_causes_by_parent(cause.id).exists()
+        for cause in causes_list:
             parent_results.append(
                 {
                     "id": cause.id,
@@ -143,7 +154,7 @@ class CauseCourtQueryService:
                     "name": cause.name,
                     "case_type": cause.case_type,
                     "level": cause.level,
-                    "has_children": has_children,
+                    "has_children": cause.id in parents_with_children,
                     "full_path": cause.full_path,
                 }
             )

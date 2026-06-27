@@ -198,7 +198,6 @@ class CaseFolderScanService:
             "prefill_map": prefill_map,
         }
 
-    @transaction.atomic
     def stage_to_attachments(
         self,
         *,
@@ -234,14 +233,34 @@ class CaseFolderScanService:
         if not selected_items:
             raise ValidationException(message="未找到可导入的 PDF")
 
-        log = self._case_log_service.create_log(
+        # ── 在事务外完成所有文件 I/O ──────────────────────────────
+        uploads, prefill_entries = self._read_files_for_staging(
+            selected_items=selected_items,
+            candidate_map=candidate_map,
+            storage_provider=storage_provider,
+        )
+
+        # ── 事务内仅做 DB 写入 ────────────────────────────────────
+        return self._write_staging_to_db(
             case_id=case_id,
-            content="自动捕获材料",
+            session_id=session_id,
+            session=session,
+            payload=payload,
+            uploads=uploads,
+            prefill_entries=prefill_entries,
             user=user,
             org_access=org_access,
             perm_open_access=perm_open_access,
         )
 
+    def _read_files_for_staging(
+        self,
+        *,
+        selected_items: list[dict[str, Any]],
+        candidate_map: dict[str, Any],
+        storage_provider: Any | None,
+    ) -> tuple[list[SimpleUploadedFile], list[dict[str, Any]]]:
+        """在事务外读取所有文件并构建 prefill 元数据。"""
         uploads: list[SimpleUploadedFile] = []
         prefill_entries: list[dict[str, Any]] = []
 
@@ -312,6 +331,31 @@ class CaseFolderScanService:
                     "party_ids": party_ids,
                 }
             )
+
+        return uploads, prefill_entries
+
+    @transaction.atomic
+    def _write_staging_to_db(
+        self,
+        *,
+        case_id: int,
+        session_id: UUID,
+        session: CaseFolderScanSession,
+        payload: dict[str, Any],
+        uploads: list[SimpleUploadedFile],
+        prefill_entries: list[dict[str, Any]],
+        user: Any | None,
+        org_access: dict[str, Any] | None,
+        perm_open_access: bool,
+    ) -> dict[str, Any]:
+        """在事务内执行所有 DB 写入操作。"""
+        log = self._case_log_service.create_log(
+            case_id=case_id,
+            content="自动捕获材料",
+            user=user,
+            org_access=org_access,
+            perm_open_access=perm_open_access,
+        )
 
         created_attachments = self._case_log_service.upload_attachments(
             log_id=log.id,

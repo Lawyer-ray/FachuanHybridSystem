@@ -36,10 +36,10 @@ async def generate_case_folder(request: HttpRequest, case_id: int) -> Any:  # pr
     except Case.DoesNotExist:
         return HttpResponse(status=404)
 
-    # 获取我方当事人的诉讼地位
+    # 获取我方当事人的诉讼地位（async 友好：用 async for 遍历，select_related 避免 N+1）
     our_legal_statuses = [
         party.legal_status
-        for party in case.parties.all()
+        async for party in case.parties.select_related("client").all()
         if getattr(party.client, "is_our_client", False) and party.legal_status
     ]
 

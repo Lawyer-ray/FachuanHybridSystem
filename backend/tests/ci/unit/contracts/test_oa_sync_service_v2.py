@@ -304,13 +304,16 @@ class TestSaveManualContractOaFields:
     def test_success(self) -> None:
         svc = _make_service()
         with patch("apps.contracts.services.contract.integrations.contract_oa_sync_service.Contract") as mock_model:
-            mock_model.objects.filter.return_value.update.return_value = 1
+            mock_contract = MagicMock()
+            mock_contract.id = 1
+            mock_model.objects.filter.return_value = [mock_contract]
             with patch.object(svc, "list_missing_oa_contracts", return_value=[]):
                 result = svc.save_manual_contract_oa_fields(
                     updates=[{"id": 1, "law_firm_oa_case_number": "001", "law_firm_oa_url": "https://oa.example.com/case/1"}]
                 )
         assert result["updated_count"] == 1
         assert result["error_count"] == 0
+        mock_model.objects.bulk_update.assert_called_once()
 
     def test_invalid_url(self) -> None:
         svc = _make_service()
@@ -326,11 +329,12 @@ class TestSaveManualContractOaFields:
     def test_missing_contract(self) -> None:
         svc = _make_service()
         with patch("apps.contracts.services.contract.integrations.contract_oa_sync_service.Contract") as mock_model:
-            mock_model.objects.filter.return_value.update.return_value = 0
+            mock_model.objects.filter.return_value = []  # no contracts found
             with patch.object(svc, "list_missing_oa_contracts", return_value=[]):
                 result = svc.save_manual_contract_oa_fields(
                     updates=[{"id": 999, "law_firm_oa_case_number": "001"}]
                 )
+        assert result["updated_count"] == 0
         assert result["error_count"] == 1
         assert "不存在" in result["errors"][0]["message"]
 

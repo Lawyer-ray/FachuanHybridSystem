@@ -99,8 +99,10 @@ class CaseDownloadService:  # pragma: no cover
             )
 
             for i, case_number in enumerate(case_numbers, 1):
-                task.message = f"正在下载 {i}/{len(case_numbers)}: {case_number}"
-                task.save(update_fields=["message", "updated_at"])
+                # 每 5 次循环或首尾更新一次进度消息（减少 DB 写入频率）
+                if i == 1 or i == len(case_numbers) or i % 5 == 0:
+                    task.message = f"正在下载 {i}/{len(case_numbers)}: {case_number}"
+                    task.save(update_fields=["message", "updated_at"])
 
                 try:
                     result_data = cls._download_single_case(

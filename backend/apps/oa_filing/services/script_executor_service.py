@@ -170,7 +170,7 @@ class ScriptExecutorService:
             case = await case_model.objects.aget(pk=case_id)
             category = self._map_case_category(case)
             stage = self._map_case_stage(case)
-            which_side = self._map_which_side(case, contract_id)
+            which_side = await self._amap_which_side(case, contract_id)
             start_date = str(case.start_date) if case.start_date else ""
         else:
             case = None
@@ -216,7 +216,7 @@ class ScriptExecutorService:
             conflict_parties.append(
                 ConflictPartyInfo(
                     name=c.name,
-                    legal_position=self._map_legal_position(party),
+                    legal_position=await self._amap_legal_position(party),
                     customer_type="11" if c.client_type == "natural" else "01",
                     id_number=c.id_number,
                 )
@@ -355,10 +355,33 @@ class ScriptExecutorService:
         mapping = {"plaintiff": "01", "defendant": "02", "third": "09"}
         return mapping.get(getattr(party, "legal_status", None) or "", "01")
 
+    async def _amap_which_side(self, case: Any, contract_id: int) -> str:
+        """异步版：从案件我方当事人诉讼地位推断代理何方。取第一个我方当事人的诉讼地位。"""
+        case_party_model = django_apps.get_model("cases", "CaseParty")
+        contract_party_model = django_apps.get_model("contracts", "ContractParty")
+        our_client_ids = set(
+            [
+                client_id
+                async for client_id in contract_party_model.objects.filter(
+                    contract_id=contract_id, role="PRINCIPAL"
+                ).values_list("client_id", flat=True).aiterator()
+            ]
+        )
+        party = await case_party_model.objects.filter(case=case, client_id__in=our_client_ids).afirst()
+        mapping = {"plaintiff": "01", "defendant": "02", "third": "09"}
+        return mapping.get(getattr(party, "legal_status", None) or "", "01")
+
     def _map_legal_position(self, contract_party: Any) -> str:
         """从 CaseParty 取对方当事人诉讼地位，映射到 OA 法律地位值。"""
         case_party_model = django_apps.get_model("cases", "CaseParty")
         case_party = case_party_model.objects.filter(client_id=contract_party.client_id).first()
+        mapping = {"plaintiff": "01", "defendant": "02", "third": "09"}
+        return mapping.get(getattr(case_party, "legal_status", None) or "", "02")
+
+    async def _amap_legal_position(self, contract_party: Any) -> str:
+        """异步版：从 CaseParty 取对方当事人诉讼地位，映射到 OA 法律地位值。"""
+        case_party_model = django_apps.get_model("cases", "CaseParty")
+        case_party = await case_party_model.objects.filter(client_id=contract_party.client_id).afirst()
         mapping = {"plaintiff": "01", "defendant": "02", "third": "09"}
         return mapping.get(getattr(case_party, "legal_status", None) or "", "02")
 

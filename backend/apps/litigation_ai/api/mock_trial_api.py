@@ -3,6 +3,7 @@
 import logging
 from typing import Any
 
+from asgiref.sync import sync_to_async
 from django.http import HttpRequest
 from ninja import Router, Status
 
@@ -34,9 +35,9 @@ def _get_service() -> Any:
     response={200: MockTrialSessionDetailResponse, 400: ErrorResponse, 403: ErrorResponse},
 )
 @rate_limit_from_settings("TASK", by_user=True)
-def create_session(request: HttpRequest, payload: CreateMockTrialSessionRequest) -> Any:  # pragma: no cover
+async def create_session(request: HttpRequest, payload: CreateMockTrialSessionRequest) -> Any:  # pragma: no cover
     user = getattr(request, "user", None)
-    session = _get_service().create_session(
+    session = await sync_to_async(_get_service().create_session)(
         case_id=payload.case_id,
         user_id=user.id if user else None,
         session_type="mock_trial",
@@ -54,12 +55,12 @@ def create_session(request: HttpRequest, payload: CreateMockTrialSessionRequest)
 
 
 @router.get("/sessions", response={200: MockTrialSessionListResponse, 403: ErrorResponse})
-def list_sessions(
+async def list_sessions(
     request: HttpRequest, case_id: int | None = None, limit: int = 20, offset: int = 0
 ) -> Any:  # pragma: no cover
     service = _get_service()
     user = getattr(request, "user", None)
-    data = service.list_sessions(
+    data = await sync_to_async(service.list_sessions)(
         user_id=user.id if user else None,
         case_id=case_id,
         session_type="mock_trial",
@@ -73,10 +74,10 @@ def list_sessions(
     "/sessions/{session_id}",
     response={200: MockTrialSessionDetailResponse, 404: ErrorResponse},
 )
-def get_session(request: HttpRequest, session_id: str) -> Any:  # pragma: no cover
+async def get_session(request: HttpRequest, session_id: str) -> Any:  # pragma: no cover
     service = _get_service()
-    session = service.get_session(session_id)
-    messages = service.get_messages(session_id)
+    session = await sync_to_async(service.get_session)(session_id)
+    messages = await sync_to_async(service.get_messages)(session_id)
     return {
         "session_id": session.session_id,
         "case_id": session.case_id,
@@ -111,10 +112,10 @@ async def get_report(request: HttpRequest, session_id: str) -> Any:  # pragma: n
     "/sessions/{session_id}",
     response={204: None, 404: ErrorResponse},
 )
-def delete_session(request: HttpRequest, session_id: str) -> Any:  # pragma: no cover
+async def delete_session(request: HttpRequest, session_id: str) -> Any:  # pragma: no cover
     service = _get_service()
     user = getattr(request, "user", None)
-    service.delete_session(session_id, user)
+    await sync_to_async(service.delete_session)(session_id, user)
     return Status(204, None)
 
 

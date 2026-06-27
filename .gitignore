@@ -276,6 +276,9 @@ extensions/
 # 设计稿原型（本地参考，不入库）
 prototypes/
 
+# RFC 设计文档（本地参考，不入库）
+rfcs/
+
 # Playwright 报告和测试产物
 playwright-report/
 backend/tests/e2e/state.json

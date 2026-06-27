@@ -195,16 +195,27 @@ def calculate_interest(  # pragma: no cover
     from apps.finance.services.calculator import InterestCalculator
 
     # LPR 模式下自动同步过期数据
+    # sync_if_needed 内部可能调用 Playwright 同步 I/O（最长 60s+），
+    # 使用线程池 + 超时避免阻塞请求太长时间
     sync_info = None
     if data.rate_mode == "lpr":
+        from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeout
+
         from apps.finance.services.lpr import LPRSyncService
 
-        sync_result = LPRSyncService().sync_if_needed()
-        if sync_result["synced"]:
-            r = sync_result["sync_result"]
-            sync_info = f"LPR数据已自动同步（新增{r.get('created', 0)}条）"
-        elif sync_result["error"]:
-            logger.warning(f"[LPRCalc] Auto-sync failed, using existing data: {sync_result['error']}")
+        try:
+            with ThreadPoolExecutor(max_workers=1, thread_name_prefix="lpr-sync") as pool:
+                future = pool.submit(LPRSyncService().sync_if_needed)
+                sync_result = future.result(timeout=120)
+            if sync_result["synced"]:
+                r = sync_result["sync_result"]
+                sync_info = f"LPR数据已自动同步（新增{r.get('created', 0)}条）"
+            elif sync_result["error"]:
+                logger.warning("[LPRCalc] Auto-sync failed, using existing data: %s", sync_result["error"])
+        except FutureTimeout:
+            logger.warning("[LPRCalc] Auto-sync timed out after 120s, using existing data")
+        except Exception as e:
+            logger.warning("[LPRCalc] Auto-sync error, using existing data: %s", e)
 
     calculator = InterestCalculator()
 

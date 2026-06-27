@@ -128,6 +128,10 @@ class ContractOASyncService:
         errors: list[dict[str, str]] = []
         validate_url = URLValidator()
 
+        # 收集所有需要更新的对象，最后用 bulk_update 批量写入
+        contracts_to_update: list[Contract] = []
+        contract_ids: list[int] = []
+
         for row in updates:
             contract_id_raw = row.get("id", row.get("contract_id"))
             try:
@@ -146,16 +150,38 @@ class ContractOASyncService:
                     errors.append({"contract_id": str(contract_id), "message": "律所OA链接格式无效"})
                     continue
 
-            with transaction.atomic():
-                affected = Contract.objects.filter(id=contract_id).update(
-                    law_firm_oa_case_number=case_number or None,
-                    law_firm_oa_url=oa_url or None,
-                )
+            contract_ids.append(contract_id)
+            # 暂存待更新的字段值，在 bulk 查询后再赋值
+            contracts_to_update.append(
+                # 占位，稍后用真实对象替换；这里先保存元信息
+                {"_id": contract_id, "case_number": case_number or None, "oa_url": oa_url or None}
+            )
 
-            if affected == 0:
-                errors.append({"contract_id": str(contract_id), "message": "合同不存在"})
-                continue
-            updated_count += 1
+        if contracts_to_update:
+            # 批量查询所有涉及的合同
+            id_set = {item["_id"] for item in contracts_to_update}
+            contract_map = {c.id: c for c in Contract.objects.filter(id__in=id_set)}
+            found_ids: set[int] = set()
+
+            for item in contracts_to_update:
+                cid = item["_id"]
+                contract_obj = contract_map.get(cid)
+                if contract_obj is None:
+                    errors.append({"contract_id": str(cid), "message": "合同不存在"})
+                    continue
+                contract_obj.law_firm_oa_case_number = item["case_number"]
+                contract_obj.law_firm_oa_url = item["oa_url"]
+                found_ids.add(cid)
+                updated_count += 1
+
+            # 批量更新（仅更新有变更的字段）
+            if found_ids:
+                objs_to_update = [contract_map[cid] for cid in found_ids]
+                with transaction.atomic():
+                    Contract.objects.bulk_update(
+                        objs_to_update,
+                        ["law_firm_oa_case_number", "law_firm_oa_url"],
+                    )
 
         return {
             "updated_count": updated_count,

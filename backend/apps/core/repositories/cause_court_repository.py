@@ -71,6 +71,25 @@ class CauseCourtRepository:
             qs = qs.filter(case_type=case_type)
         return qs.order_by("name")
 
+    def get_parent_ids_with_children(self, cause_ids: list[int]) -> set[int]:
+        """批量查询哪些 parent_id 有子节点，避免 N+1 查询。
+
+        Args:
+            cause_ids: 需要检查的父级案由 ID 列表
+
+        Returns:
+            有子节点的 parent_id 集合
+        """
+        if not cause_ids:
+            return set()
+        return set(
+            CauseOfAction.objects.filter(
+                parent_id__in=cause_ids,
+                is_active=True,
+                is_deprecated=False,
+            ).values_list("parent_id", flat=True)
+        )
+
     def update_or_create_cause(self, code: str, defaults: dict[str, Any]) -> tuple[CauseOfAction, bool]:
         return CauseOfAction.objects.update_or_create(code=code, defaults=defaults)
 

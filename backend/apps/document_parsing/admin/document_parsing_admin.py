@@ -73,31 +73,51 @@ class DocumentParsingToolAdmin(admin.ModelAdmin):  # pragma: no cover
             status=DocumentParsingTask.Status.PROCESSING,
         )
 
-        # 同步调用 MinerU 解析（< 10 秒）
+        # 将解析提交为后台任务，避免阻塞 Admin 请求（MinerU 可能耗时 300s+）
         try:
-            from apps.document_parsing.services import get_document_parser
+            from apps.core.tasking import submit_task
 
-            parser = get_document_parser()
-            result = parser.parse_document(
-                file_path=str(file_path),
-                file_type=Path(uploaded_file.name or "uploaded").suffix.lstrip("."),
-                extract_tables=True,
-                extract_images=False,
-                return_markdown=True,
+            file_type = Path(uploaded_file.name or "uploaded").suffix.lstrip(".")
+            submit_task(
+                "apps.document_parsing.tasks.execute_parse_document",
+                str(file_path),
+                file_type,
+                "auto",
+                True,   # extract_tables
+                False,  # extract_images
+                True,   # return_markdown,
+                task_name=f"document_parsing_{task.id}",
+                timeout=600,
             )
-
-            task.mark_completed(
-                text=result.text,
-                markdown=result.markdown or "",
-                metadata=result.metadata or {},
-                backend_used=result.parse_method,
-            )
-            messages.success(request, f"解析完成：{uploaded_file.name}")
+            messages.success(request, f"文件已上传，正在后台解析：{uploaded_file.name}")
 
         except Exception as e:
-            logger.error("文档解析失败: %s - %s", uploaded_file.name, str(e))
-            task.mark_failed(str(e))
-            messages.error(request, f"解析失败：{e}")
+            logger.error("提交文档解析后台任务失败: %s - %s", uploaded_file.name, str(e))
+            # 回退：同步解析（兼容后台任务不可用的情况）
+            try:
+                from apps.document_parsing.services import get_document_parser
+
+                parser = get_document_parser()
+                result = parser.parse_document(
+                    file_path=str(file_path),
+                    file_type=Path(uploaded_file.name or "uploaded").suffix.lstrip("."),
+                    extract_tables=True,
+                    extract_images=False,
+                    return_markdown=True,
+                )
+
+                task.mark_completed(
+                    text=result.text,
+                    markdown=result.markdown or "",
+                    metadata=result.metadata or {},
+                    backend_used=result.parse_method,
+                )
+                messages.success(request, f"解析完成：{uploaded_file.name}")
+
+            except Exception as inner_e:
+                logger.error("文档解析失败: %s - %s", uploaded_file.name, str(inner_e))
+                task.mark_failed(str(inner_e))
+                messages.error(request, f"解析失败：{inner_e}")
 
         # 跳转到任务详情
         return HttpResponseRedirect(reverse("admin:document_parsing_documentparsingtask_change", args=[task.id]))

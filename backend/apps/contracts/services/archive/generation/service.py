@@ -1,10 +1,12 @@
 """归档文书批量生成服务 facade。
 
 保持 ArchiveGenerationService 的公共 API 不变，内部实现委托给子模块。
+新增 async 版本（_a 前缀），CPU 密集操作通过 asyncio.to_thread 卸载。
 """
 
 from __future__ import annotations
 
+import asyncio
 from pathlib import Path
 from typing import Any
 
@@ -58,7 +60,15 @@ class ArchiveGenerationService:
     def generate_archive_folder(self, contract: Contract) -> dict[str, Any]:
         return folder_builder.generate_archive_folder(contract)
 
+    async def agenerate_archive_folder(self, contract: Contract) -> dict[str, Any]:
+        """异步版归档文件夹生成（CPU 密集，卸载到线程池）。"""
+        return await asyncio.to_thread(folder_builder.generate_archive_folder, contract)
+
     # ---- PDF 工具 ----
 
     def scale_pages_to_a4(self, contract: Contract) -> dict[str, Any]:
         return pdf_utils.scale_pages_to_a4(contract)
+
+    async def ascale_pages_to_a4(self, contract: Contract) -> dict[str, Any]:
+        """异步版 A4 缩放（CPU 密集，卸载到线程池）。"""
+        return await asyncio.to_thread(pdf_utils.scale_pages_to_a4, contract)

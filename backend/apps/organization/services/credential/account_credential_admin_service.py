@@ -157,23 +157,39 @@ class AccountCredentialAdminService:
             },
         )
 
-        success_count = 0
-        error_count = 0
-        total_duration = 0.0
+        # 并发执行多个登录任务，最多 5 个并发
+        max_workers = min(5, total_count)
+        results: list[LoginResult] = []
+        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = {
+                executor.submit(
+                    self._execute_single_login,
+                    credential=credential,
+                    admin_user=admin_user,
+                    trigger_reason="batch_manual_trigger_admin",
+                ): credential
+                for credential in court_credentials
+            }
+            for future in concurrent.futures.as_completed(futures):
+                try:
+                    result = future.result()
+                except Exception as e:
+                    credential = futures[future]
+                    logger.error(
+                        "并发登录任务异常",
+                        extra={
+                            "credential_id": credential.id,
+                            "account": credential.account,
+                            "error": str(e),
+                        },
+                        exc_info=True,
+                    )
+                    result = LoginResult(success=False, duration=0, error_message=str(e))
+                results.append(result)
 
-        for credential in court_credentials:
-            result = self._execute_single_login(
-                credential=credential,
-                admin_user=admin_user,
-                trigger_reason="batch_manual_trigger_admin",
-            )
-
-            total_duration += result.duration
-
-            if result.success:
-                success_count += 1
-            else:
-                error_count += 1
+        success_count = sum(1 for r in results if r.success)
+        error_count = sum(1 for r in results if not r.success)
+        total_duration = sum(r.duration for r in results)
 
         # 汇总结果
         logger.info(

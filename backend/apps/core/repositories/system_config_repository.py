@@ -56,3 +56,43 @@ class SystemConfigRepository:
 
     def delete(self, config_id: int) -> tuple[int, dict[str, int]]:
         return SystemConfig.objects.filter(id=config_id).delete()
+
+    # ── async 版本 ──────────────────────────────────────────────
+
+    async def aget_by_key(self, key: str) -> SystemConfig | None:
+        return await SystemConfig.objects.filter(key=key).afirst()
+
+    async def aget_by_id(self, config_id: int) -> SystemConfig | None:
+        return await SystemConfig.objects.filter(id=config_id).afirst()
+
+    async def aget_by_keys(self, keys: list[str]) -> list[SystemConfig]:
+        return [c async for c in SystemConfig.objects.filter(key__in=keys, is_active=True)]
+
+    async def aget_all_active(self) -> list[SystemConfig]:
+        return [c async for c in SystemConfig.objects.filter(is_active=True)]
+
+    async def acreate(
+        self,
+        key: str,
+        value: str,
+        category: str = "general",
+        description: str = "",
+        is_secret: bool = False,
+        is_active: bool = True,
+    ) -> SystemConfig:
+        return await SystemConfig.objects.acreate(
+            key=key,
+            value=value,
+            category=category,
+            description=description,
+            is_secret=is_secret,
+            is_active=is_active,
+        )
+
+    async def aupdate_or_create(self, *, key: str, defaults: dict[str, Any]) -> SystemConfig:
+        config, _created = await SystemConfig.objects.aupdate_or_create(key=key, defaults=defaults)
+        return config
+
+    async def adelete(self, config_id: int) -> int:
+        count, _ = await SystemConfig.objects.filter(id=config_id).adelete()
+        return count
