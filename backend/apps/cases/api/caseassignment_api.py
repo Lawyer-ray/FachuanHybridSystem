@@ -30,7 +30,7 @@ async def list_assignments(  # pragma: no cover
 ) -> list[CaseAssignmentOut]:
     service = _get_case_assignment_service()
     ctx = extract_request_context(request)
-    return await sync_to_async(service.list_assignments)(
+    return await sync_to_async(service.list_assignments)(  # type: ignore[no-any-return]
         case_id=case_id, lawyer_id=lawyer_id, user=ctx.user,
         perm_open_access=ctx.perm_open_access,
     )
@@ -40,7 +40,7 @@ async def list_assignments(  # pragma: no cover
 async def create_assignment(request: HttpRequest, payload: CaseAssignmentIn) -> CaseAssignmentOut:  # pragma: no cover
     service = _get_case_assignment_service()
     ctx = extract_request_context(request)
-    return await sync_to_async(service.create_assignment)(
+    return await sync_to_async(service.create_assignment)(  # type: ignore[no-any-return]
         case_id=payload.case_id, lawyer_id=payload.lawyer_id, user=ctx.user,
         perm_open_access=ctx.perm_open_access,
     )
@@ -50,7 +50,7 @@ async def create_assignment(request: HttpRequest, payload: CaseAssignmentIn) -> 
 async def get_assignment(request: HttpRequest, assignment_id: int) -> CaseAssignmentOut:  # pragma: no cover
     service = _get_case_assignment_service()
     ctx = extract_request_context(request)
-    return await sync_to_async(service.get_assignment)(
+    return await sync_to_async(service.get_assignment)(  # type: ignore[no-any-return]
         assignment_id=assignment_id, user=ctx.user,
         perm_open_access=ctx.perm_open_access,
     )
@@ -61,7 +61,7 @@ async def update_assignment(request: HttpRequest, assignment_id: int, payload: C
     service = _get_case_assignment_service()
     ctx = extract_request_context(request)
     data = payload.model_dump(exclude_unset=True)
-    return await sync_to_async(service.update_assignment)(
+    return await sync_to_async(service.update_assignment)(  # type: ignore[no-any-return]
         assignment_id=assignment_id, data=data, user=ctx.user,
         perm_open_access=ctx.perm_open_access,
     )

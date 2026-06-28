@@ -41,7 +41,7 @@ async def list_grants(  # pragma: no cover
     service = _get_case_access_service()
     ctx = extract_request_context(request)
 
-    return await sync_to_async(service.list_grants)(
+    return await sync_to_async(service.list_grants)(  # type: ignore[no-any-return]
         case_id=case_id,
         grantee_id=grantee_id,
         user=ctx.user,
@@ -55,7 +55,7 @@ async def create_grant(request: HttpRequest, payload: CaseAccessGrantIn) -> Case
     service = _get_case_access_service()
     ctx = extract_request_context(request)
 
-    return await sync_to_async(service.create_grant)(
+    return await sync_to_async(service.create_grant)(  # type: ignore[no-any-return]
         case_id=payload.case_id,
         grantee_id=payload.grantee_id,
         user=ctx.user,
@@ -67,7 +67,7 @@ async def get_grant(request: HttpRequest, grant_id: int) -> CaseAccessGrantOut: 
     service = _get_case_access_service()
     ctx = extract_request_context(request)
 
-    return await sync_to_async(service.get_grant)(
+    return await sync_to_async(service.get_grant)(  # type: ignore[no-any-return]
         grant_id=grant_id,
         user=ctx.user,
         org_access=ctx.org_access,
@@ -81,7 +81,7 @@ async def update_grant(request: HttpRequest, grant_id: int, payload: CaseAccessG
     ctx = extract_request_context(request)
     data = payload.model_dump(exclude_unset=True)
 
-    return await sync_to_async(service.update_grant)(
+    return await sync_to_async(service.update_grant)(  # type: ignore[no-any-return]
         grant_id=grant_id,
         data=data,
         user=ctx.user,
