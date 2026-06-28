@@ -42,7 +42,7 @@ async def link_or_create_user(profile: SocialProfile) -> Lawyer:  # pragma: no c
     2. 如果没有关联，创建新用户（自动激活，无需审批）
     3. 创建 SocialAccount 关联记录
     """
-    async with transaction.atomic():
+    async with transaction.atomic():  # type: ignore[attr-defined]
         existing = await SocialAccount.objects.select_related("user").filter(
             provider=profile.provider,
             provider_uid=profile.provider_user_id,

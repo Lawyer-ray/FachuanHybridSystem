@@ -53,7 +53,7 @@ def _cleanup_http_clients() -> None:
         if not client.is_closed:
             try:
                 # 在 atexit 阶段没有事件循环，只能标记关闭
-                client.is_closed = True  # noqa: B003  # type: ignore[assignment]
+                client._is_closed = True  # type: ignore[attr-defined]
             except Exception:
                 pass
     _active_http_clients.clear()

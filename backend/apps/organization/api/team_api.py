@@ -28,24 +28,24 @@ _team_service = _get_team_service()
 
 @router.get("/teams", response=list[TeamOut])
 async def list_teams(request: HttpRequest, law_firm_id: int | None = None, team_type: str | None = None) -> list[TeamOut]:  # pragma: no cover
-    return await sync_to_async(lambda: list(_team_service.list_teams(law_firm_id=law_firm_id, team_type=team_type, user=get_request_user(request))))()
+    return await sync_to_async(lambda: list(_team_service.list_teams(law_firm_id=law_firm_id, team_type=team_type, user=get_request_user(request))))()  # type: ignore[return-value]
 
 
 @router.post("/teams", response=TeamOut)
 async def create_team(request: HttpRequest, payload: TeamIn) -> TeamOut:  # pragma: no cover
     dto = TeamUpsertDTO(name=payload.name, team_type=payload.team_type, law_firm_id=payload.law_firm_id)
-    return await sync_to_async(_team_service.create_team)(data=dto, user=get_request_user(request))
+    return await sync_to_async(_team_service.create_team)(data=dto, user=get_request_user(request))  # type: ignore[return-value]
 
 
 @router.get("/teams/{team_id}", response=TeamOut)
 async def get_team(request: HttpRequest, team_id: int) -> TeamOut:  # pragma: no cover
-    return await sync_to_async(_team_service.get_team)(team_id=team_id, user=get_request_user(request))
+    return await sync_to_async(_team_service.get_team)(team_id=team_id, user=get_request_user(request))  # type: ignore[return-value]
 
 
 @router.put("/teams/{team_id}", response=TeamOut)
 async def update_team(request: HttpRequest, team_id: int, payload: TeamIn) -> TeamOut:  # pragma: no cover
     dto = TeamUpsertDTO(name=payload.name, team_type=payload.team_type, law_firm_id=payload.law_firm_id)
-    return await sync_to_async(_team_service.update_team)(team_id=team_id, data=dto, user=get_request_user(request))
+    return await sync_to_async(_team_service.update_team)(team_id=team_id, data=dto, user=get_request_user(request))  # type: ignore[return-value]
 
 
 @router.delete("/teams/{team_id}")

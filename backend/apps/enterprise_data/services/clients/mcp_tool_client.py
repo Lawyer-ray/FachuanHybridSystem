@@ -37,7 +37,7 @@ _persistent_loop_lock = threading.Lock()
 
 def _get_or_create_loop() -> asyncio.AbstractEventLoop:
     """Return the module-level persistent event loop, creating it on first call."""
-    global _persistent_loop, _persistent_loop_thread  # noqa: PLW0603
+    global _persistent_loop, _persistent_loop_thread
     if _persistent_loop is not None and not _persistent_loop.is_closed():
         return _persistent_loop
     with _persistent_loop_lock:
@@ -52,7 +52,7 @@ def _get_or_create_loop() -> asyncio.AbstractEventLoop:
 
 def shutdown_persistent_loop() -> None:
     """Shut down the module-level persistent event loop (call on process exit)."""
-    global _persistent_loop, _persistent_loop_thread  # noqa: PLW0603
+    global _persistent_loop, _persistent_loop_thread
     with _persistent_loop_lock:
         if _persistent_loop is not None and not _persistent_loop.is_closed():
             _persistent_loop.call_soon_threadsafe(_persistent_loop.stop)
@@ -166,7 +166,7 @@ class McpToolClient:
         result["api_key_pool_size"] = max(1, int(execution_meta.get("api_key_pool_size", 1) or 1))
         result["api_key_attempt_count"] = max(1, int(execution_meta.get("api_key_attempt_count", 1) or 1))
         result["api_key_switched"] = bool(execution_meta.get("api_key_switched", False))
-        return result
+        return cast(dict[str, Any], result)
 
     def list_tools(self) -> list[str]:
         """获取远端 MCP 可用工具名列表。"""

@@ -129,7 +129,7 @@ class ConversationHistoryService:
         if user_id:
             qs = qs.filter(user_id=user_id)
         qs = qs.order_by("-created_at")[:limit]
-        history = await sync_to_async(list)(qs)
+        history: list[ConversationHistory] = await sync_to_async(lambda: list(qs))()
 
         messages: list[dict[str, Any]] = []
         for record in reversed(history):
