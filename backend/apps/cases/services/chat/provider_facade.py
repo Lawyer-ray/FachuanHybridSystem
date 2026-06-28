@@ -60,7 +60,7 @@ class ChatProviderFacade:
         async_fn = sync_to_async(fn)
         try:
             return await asyncio.wait_for(async_fn(*args, **kwargs), timeout=effective_timeout)
-        except asyncio.TimeoutError:
+        except TimeoutError:
             raise TimeoutError(
                 f"外部服务调用超时（{effective_timeout}秒）: {getattr(fn, '__name__', str(fn))}"
             ) from None
