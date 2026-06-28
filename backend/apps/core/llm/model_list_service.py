@@ -122,6 +122,34 @@ class ModelListService:
 
         return merged + api_models
 
+    @staticmethod
+    async def _amerge_system_config_models(api_models: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        """异步版本。将 SystemConfig 中用户显式配置的模型合并到 API 模型列表中."""
+        seen: set[str] = {m.get("id", "") for m in api_models}
+        merged: list[dict[str, Any]] = []
+
+        def _add(model_id: str) -> None:
+            mid = model_id.strip()
+            if mid and mid not in seen:
+                seen.add(mid)
+                merged.append(_make_model(mid))
+
+        # 1. LLM_EXTRA_MODELS（用户在 SystemConfig 中配置的额外模型）
+        extra_raw = await LLMConfig._get_system_config_async("LLM_EXTRA_MODELS", "")
+        if extra_raw:
+            for part in extra_raw.split(","):
+                _add(part)
+
+        # 2. 各后端的默认模型（用户在 SystemConfig 中配置的默认模型）
+        for default_model in [
+            await LLMConfig.get_ollama_model_async(),
+            await LLMConfig.get_openai_compatible_model_async(),
+        ]:
+            if default_model:
+                _add(default_model)
+
+        return merged + api_models
+
     def _fetch_from_api(self) -> ModelListResult:
         """从各后端获取模型列表，合并结果"""
         configs = LLMConfig.get_backend_configs()
@@ -204,8 +232,8 @@ class ModelListService:
 
     async def aget_result(self) -> ModelListResult:
         """异步版本。获取模型列表及连接状态，优先从缓存读取。"""
-        cached: list[dict[str, Any]] | None = cache.get(CACHE_KEY)
-        cached_status: dict[str, Any] | None = cache.get(CACHE_KEY_STATUS)
+        cached: list[dict[str, Any]] | None = await cache.aget(CACHE_KEY)
+        cached_status: dict[str, Any] | None = await cache.aget(CACHE_KEY_STATUS)
         if cached is not None and cached_status is not None:
             result = ModelListResult(
                 models=cached,
@@ -214,14 +242,14 @@ class ModelListService:
             )
         else:
             result = await self._afetch_from_api()
-            cache.set(CACHE_KEY, result.models, self._cache_ttl)
-            cache.set(
+            await cache.aset(CACHE_KEY, result.models, self._cache_ttl)
+            await cache.aset(
                 CACHE_KEY_STATUS,
                 {"is_fallback": result.is_fallback, "error_message": result.error_message},
                 self._cache_ttl,
             )
 
-        result.models = self._merge_system_config_models(result.models)
+        result.models = await self._amerge_system_config_models(result.models)
         return result
 
     async def aget_models(self) -> list[dict[str, Any]]:

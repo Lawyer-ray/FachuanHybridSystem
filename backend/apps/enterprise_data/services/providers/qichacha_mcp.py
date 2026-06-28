@@ -138,6 +138,20 @@ class QichachaMcpProvider:
             meta=self._build_response_meta(result),
         )
 
+    async def asearch_companies(self, *, keyword: str) -> ProviderResponse:
+        _, tool_name, client = self._get_client_for_capability("search_companies")
+        result = await client.acall_tool(tool_name=tool_name, arguments={"searchKey": keyword})
+        items = self._adapter.extract_items(result["payload"])
+        normalized_items = [self._adapter.normalize_company_summary(item) for item in items]
+        normalized_items = [item for item in normalized_items if item.get("company_id") or item.get("company_name")]
+        data = {"items": normalized_items, "total": len(normalized_items)}
+        return ProviderResponse(
+            data=data,
+            raw=result["raw"],
+            tool=tool_name,
+            meta=self._build_response_meta(result),
+        )
+
     def get_company_profile(self, *, company_id: str) -> ProviderResponse:
         _, tool_name, client = self._get_client_for_capability("get_company_profile")
         result = client.call_tool(tool_name=tool_name, arguments={"searchKey": company_id})
@@ -150,6 +164,31 @@ class QichachaMcpProvider:
         if not data.get("phone"):
             try:
                 contact_result = client.call_tool(tool_name="get_contact_info", arguments={"searchKey": company_id})
+                phone = self._extract_phone_from_contact(contact_result["payload"])
+                if phone:
+                    data["phone"] = phone
+            except Exception:
+                pass  # 电话获取失败不影响主流程
+
+        return ProviderResponse(
+            data=data,
+            raw=result["raw"],
+            tool=tool_name,
+            meta=self._build_response_meta(result),
+        )
+
+    async def aget_company_profile(self, *, company_id: str) -> ProviderResponse:
+        _, tool_name, client = self._get_client_for_capability("get_company_profile")
+        result = await client.acall_tool(tool_name=tool_name, arguments={"searchKey": company_id})
+        item = self._adapter.extract_primary_dict(result["payload"])
+        data = self._adapter.normalize_company_profile(item)
+        if not data["company_id"]:
+            data["company_id"] = company_id
+
+        # 补充电话号码（工商信息不含电话，需单独调 get_contact_info）
+        if not data.get("phone"):
+            try:
+                contact_result = await client.acall_tool(tool_name="get_contact_info", arguments={"searchKey": company_id})
                 phone = self._extract_phone_from_contact(contact_result["payload"])
                 if phone:
                     data["phone"] = phone
@@ -187,9 +226,45 @@ class QichachaMcpProvider:
             meta=self._build_response_meta(result),
         )
 
+    async def aget_company_risks(self, *, company_id: str, risk_type: str) -> ProviderResponse:
+        risk_tool_map = {
+            "dishonest": "get_dishonest_info",
+            "executed": "get_judgment_debtor_info",
+            "punishment": "get_administrative_penalty",
+            "court_document": "get_judicial_documents",
+            "abnormal": "get_business_exception",
+            "judicial_sale": "get_judicial_auction",
+            "high_consumption": "get_high_consumption_restriction",
+        }
+        tool_name = risk_tool_map.get(risk_type, "get_dishonest_info")
+        client = self._clients["risk"]
+        result = await client.acall_tool(tool_name=tool_name, arguments={"searchKey": company_id})
+        items = self._adapter.extract_items(result["payload"])
+        normalized_items = [self._adapter.normalize_risk_item(item, fallback_risk_type=risk_type) for item in items]
+        data = {"items": normalized_items, "total": len(normalized_items), "risk_type": risk_type}
+        return ProviderResponse(
+            data=data,
+            raw=result["raw"],
+            tool=tool_name,
+            meta=self._build_response_meta(result),
+        )
+
     def get_company_shareholders(self, *, company_id: str) -> ProviderResponse:
         _, tool_name, client = self._get_client_for_capability("get_company_shareholders")
         result = client.call_tool(tool_name=tool_name, arguments={"searchKey": company_id})
+        items = self._adapter.extract_items(result["payload"])
+        normalized_items = [self._adapter.normalize_shareholder_item(item) for item in items]
+        data = {"items": normalized_items, "total": len(normalized_items)}
+        return ProviderResponse(
+            data=data,
+            raw=result["raw"],
+            tool=tool_name,
+            meta=self._build_response_meta(result),
+        )
+
+    async def aget_company_shareholders(self, *, company_id: str) -> ProviderResponse:
+        _, tool_name, client = self._get_client_for_capability("get_company_shareholders")
+        result = await client.acall_tool(tool_name=tool_name, arguments={"searchKey": company_id})
         items = self._adapter.extract_items(result["payload"])
         normalized_items = [self._adapter.normalize_shareholder_item(item) for item in items]
         data = {"items": normalized_items, "total": len(normalized_items)}
@@ -213,9 +288,36 @@ class QichachaMcpProvider:
             meta=self._build_response_meta(result),
         )
 
+    async def aget_company_personnel(self, *, company_id: str) -> ProviderResponse:
+        _, tool_name, client = self._get_client_for_capability("get_company_personnel")
+        result = await client.acall_tool(tool_name=tool_name, arguments={"searchKey": company_id})
+        items = self._adapter.extract_items(result["payload"])
+        normalized_items = [self._adapter.normalize_personnel_item(item) for item in items]
+        data = {"items": normalized_items, "total": len(normalized_items)}
+        return ProviderResponse(
+            data=data,
+            raw=result["raw"],
+            tool=tool_name,
+            meta=self._build_response_meta(result),
+        )
+
     def get_person_profile(self, *, hcgid: str) -> ProviderResponse:
         _, tool_name, client = self._get_client_for_capability("get_person_profile")
         result = client.call_tool(tool_name=tool_name, arguments={"searchKey": hcgid})
+        item = self._adapter.extract_primary_dict(result["payload"])
+        data = self._adapter.normalize_person_profile(item)
+        if not data["hcgid"]:
+            data["hcgid"] = hcgid
+        return ProviderResponse(
+            data=data,
+            raw=result["raw"],
+            tool=tool_name,
+            meta=self._build_response_meta(result),
+        )
+
+    async def aget_person_profile(self, *, hcgid: str) -> ProviderResponse:
+        _, tool_name, client = self._get_client_for_capability("get_person_profile")
+        result = await client.acall_tool(tool_name=tool_name, arguments={"searchKey": hcgid})
         item = self._adapter.extract_primary_dict(result["payload"])
         data = self._adapter.normalize_person_profile(item)
         if not data["hcgid"]:
@@ -243,6 +345,32 @@ class QichachaMcpProvider:
         if end_date:
             args["endDate"] = end_date
         result = client.call_tool(tool_name=tool_name, arguments=args)
+        items = self._adapter.extract_items(result["payload"])
+        normalized_items = [self._adapter.normalize_bidding_item(item) for item in items]
+        data = {"items": normalized_items, "total": len(normalized_items)}
+        return ProviderResponse(
+            data=data,
+            raw=result["raw"],
+            tool=tool_name,
+            meta=self._build_response_meta(result),
+        )
+
+    async def asearch_bidding_info(
+        self,
+        *,
+        keyword: str,
+        search_type: int = 1,
+        bid_type: int = 4,
+        start_date: str | None = None,
+        end_date: str | None = None,
+    ) -> ProviderResponse:
+        _, tool_name, client = self._get_client_for_capability("search_bidding_info")
+        args: dict[str, Any] = {"searchKey": keyword}
+        if start_date:
+            args["startDate"] = start_date
+        if end_date:
+            args["endDate"] = end_date
+        result = await client.acall_tool(tool_name=tool_name, arguments=args)
         items = self._adapter.extract_items(result["payload"])
         normalized_items = [self._adapter.normalize_bidding_item(item) for item in items]
         data = {"items": normalized_items, "total": len(normalized_items)}

@@ -128,12 +128,18 @@ class LLMConfig:
         if cached is not None:
             return cached
 
-        # 如果在 async 上下文中，用 sync_to_async 包装 DB 调用
+        # 如果在 async 上下文中，使用 _get_system_config_async 的同步等价逻辑
+        # 注意: 此方法不应在 async 上下文中被直接调用，请使用 _get_system_config_async
         try:
             import asyncio
             asyncio.get_running_loop()
-            # 在 async 上下文中，不能直接调同步 DB
-            # 返回 fallback 或 default
+            # 在 async 上下文中，检测到 event loop
+            # 尝试从缓存和 settings 获取，DB 查询应走 _get_system_config_async
+            logger.debug(
+                "[LLMConfig] _get_system_config 在 async 上下文中被调用 (key=%s), "
+                "建议使用 _get_system_config_async",
+                key,
+            )
             fallback_value = cls._get_django_settings_fallback(key, default)
             return fallback_value if fallback_value else default
         except RuntimeError:
@@ -163,7 +169,7 @@ class LLMConfig:
         """
         异步版本:从统一系统配置获取配置值
 
-        复用 SystemConfigService,在异步上下文中使用 sync_to_async 包装
+        优先级: 缓存 > SystemConfigService(带缓存,用 sync_to_async 包装) > Django settings > 默认值
 
         Args:
             key: 配置键名
@@ -172,6 +178,11 @@ class LLMConfig:
         Returns:
             配置值
         """
+        # 先查缓存（sync 预热后可直接命中）
+        cached = cls._config_cache.get(key)
+        if cached is not None:
+            return cached
+
         config_service = cls._get_config_service()
         if config_service is not None:
             try:
@@ -190,7 +201,11 @@ class LLMConfig:
                 logger.warning("[LLMConfig] 异步 SystemConfigService 读取失败", extra={"key": key})
 
         # Fallback 到 Django settings
-        return cls._get_django_settings_fallback(key, default)
+        fallback_value = cls._get_django_settings_fallback(key, default)
+        if fallback_value:
+            return fallback_value
+
+        return default
 
     # ============================================================
     # 通用配置方法
@@ -223,6 +238,19 @@ class LLMConfig:
     def get_ollama_model(cls) -> str:
         """获取 Ollama 模型名称"""
         model = cls._get_system_config("OLLAMA_MODEL", "")
+        if model:
+            return model
+
+        ollama_config = getattr(settings, "OLLAMA", {} or {})
+        raw_value = ollama_config.get("MODEL")
+        if isinstance(raw_value, str) and raw_value.strip():
+            return raw_value.strip()
+        return cls.DEFAULT_OLLAMA_MODEL
+
+    @classmethod
+    async def get_ollama_model_async(cls) -> str:
+        """异步版本: 获取 Ollama 模型名称"""
+        model = await cls._get_system_config_async("OLLAMA_MODEL", "")
         if model:
             return model
 

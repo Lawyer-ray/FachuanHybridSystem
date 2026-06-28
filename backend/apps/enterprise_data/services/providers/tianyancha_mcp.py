@@ -87,8 +87,46 @@ class TianyanchaMcpProvider:
             meta=self._build_response_meta(result),
         )
 
+    async def asearch_companies(self, *, keyword: str) -> ProviderResponse:
+        result = await self._client.acall_tool(tool_name=self.TOOL_SEARCH_COMPANIES, arguments={"keyword": keyword})
+        items = self._adapter.extract_items(result["payload"])
+        normalized_items = [self._adapter.normalize_company_summary(item) for item in items]
+        normalized_items = [item for item in normalized_items if item.get("company_id") or item.get("company_name")]
+        if not normalized_items:
+            normalized_items = self._adapter.parse_search_companies_markdown(result["payload"])
+        data = {"items": normalized_items, "total": len(normalized_items)}
+        return ProviderResponse(
+            data=data,
+            raw=result["raw"],
+            tool=self.TOOL_SEARCH_COMPANIES,
+            meta=self._build_response_meta(result),
+        )
+
     def get_company_profile(self, *, company_id: str) -> ProviderResponse:
         result = self._client.call_tool(tool_name=self.TOOL_GET_COMPANY_INFO, arguments={"company_id": company_id})
+        item = self._adapter.extract_primary_dict(result["payload"])
+        data = self._adapter.normalize_company_profile(item)
+        has_key_fields = bool(
+            data.get("company_name")
+            or data.get("unified_social_credit_code")
+            or data.get("legal_person")
+            or data.get("address")
+        )
+        if not has_key_fields:
+            parsed_markdown_profile = self._adapter.parse_company_profile_markdown(result["payload"])
+            if parsed_markdown_profile:
+                data = parsed_markdown_profile
+        if not data["company_id"]:
+            data["company_id"] = company_id
+        return ProviderResponse(
+            data=data,
+            raw=result["raw"],
+            tool=self.TOOL_GET_COMPANY_INFO,
+            meta=self._build_response_meta(result),
+        )
+
+    async def aget_company_profile(self, *, company_id: str) -> ProviderResponse:
+        result = await self._client.acall_tool(tool_name=self.TOOL_GET_COMPANY_INFO, arguments={"company_id": company_id})
         item = self._adapter.extract_primary_dict(result["payload"])
         data = self._adapter.normalize_company_profile(item)
         has_key_fields = bool(
@@ -125,8 +163,38 @@ class TianyanchaMcpProvider:
             meta=self._build_response_meta(result),
         )
 
+    async def aget_company_risks(self, *, company_id: str, risk_type: str) -> ProviderResponse:
+        result = await self._client.acall_tool(
+            tool_name=self.TOOL_GET_COMPANY_RISKS,
+            arguments={"company_id": company_id, "risk_type": risk_type},
+        )
+        items = self._adapter.extract_items(result["payload"])
+        normalized_items = [self._adapter.normalize_risk_item(item, fallback_risk_type=risk_type) for item in items]
+        data = {"items": normalized_items, "total": len(normalized_items), "risk_type": risk_type}
+        return ProviderResponse(
+            data=data,
+            raw=result["raw"],
+            tool=self.TOOL_GET_COMPANY_RISKS,
+            meta=self._build_response_meta(result),
+        )
+
     def get_company_shareholders(self, *, company_id: str) -> ProviderResponse:
         result = self._client.call_tool(
+            tool_name=self.TOOL_GET_COMPANY_SHAREHOLDERS,
+            arguments={"company_id": company_id},
+        )
+        items = self._adapter.extract_items(result["payload"])
+        normalized_items = [self._adapter.normalize_shareholder_item(item) for item in items]
+        data = {"items": normalized_items, "total": len(normalized_items)}
+        return ProviderResponse(
+            data=data,
+            raw=result["raw"],
+            tool=self.TOOL_GET_COMPANY_SHAREHOLDERS,
+            meta=self._build_response_meta(result),
+        )
+
+    async def aget_company_shareholders(self, *, company_id: str) -> ProviderResponse:
+        result = await self._client.acall_tool(
             tool_name=self.TOOL_GET_COMPANY_SHAREHOLDERS,
             arguments={"company_id": company_id},
         )
@@ -155,8 +223,36 @@ class TianyanchaMcpProvider:
             meta=self._build_response_meta(result),
         )
 
+    async def aget_company_personnel(self, *, company_id: str) -> ProviderResponse:
+        result = await self._client.acall_tool(
+            tool_name=self.TOOL_GET_COMPANY_PERSONNEL,
+            arguments={"company_id": company_id},
+        )
+        items = self._adapter.extract_items(result["payload"])
+        normalized_items = [self._adapter.normalize_personnel_item(item) for item in items]
+        data = {"items": normalized_items, "total": len(normalized_items)}
+        return ProviderResponse(
+            data=data,
+            raw=result["raw"],
+            tool=self.TOOL_GET_COMPANY_PERSONNEL,
+            meta=self._build_response_meta(result),
+        )
+
     def get_person_profile(self, *, hcgid: str) -> ProviderResponse:
         result = self._client.call_tool(tool_name=self.TOOL_GET_PERSON_PROFILE, arguments={"hcgid": hcgid})
+        item = self._adapter.extract_primary_dict(result["payload"])
+        data = self._adapter.normalize_person_profile(item)
+        if not data["hcgid"]:
+            data["hcgid"] = hcgid
+        return ProviderResponse(
+            data=data,
+            raw=result["raw"],
+            tool=self.TOOL_GET_PERSON_PROFILE,
+            meta=self._build_response_meta(result),
+        )
+
+    async def aget_person_profile(self, *, hcgid: str) -> ProviderResponse:
+        result = await self._client.acall_tool(tool_name=self.TOOL_GET_PERSON_PROFILE, arguments={"hcgid": hcgid})
         item = self._adapter.extract_primary_dict(result["payload"])
         data = self._adapter.normalize_person_profile(item)
         if not data["hcgid"]:
@@ -183,6 +279,31 @@ class TianyanchaMcpProvider:
         if end_date:
             args["end_date"] = end_date
         result = self._client.call_tool(tool_name=self.TOOL_SEARCH_BIDDING_INFO, arguments=args)
+        items = self._adapter.extract_items(result["payload"])
+        normalized_items = [self._adapter.normalize_bidding_item(item) for item in items]
+        data = {"items": normalized_items, "total": len(normalized_items)}
+        return ProviderResponse(
+            data=data,
+            raw=result["raw"],
+            tool=self.TOOL_SEARCH_BIDDING_INFO,
+            meta=self._build_response_meta(result),
+        )
+
+    async def asearch_bidding_info(
+        self,
+        *,
+        keyword: str,
+        search_type: int = 1,
+        bid_type: int = 4,
+        start_date: str | None = None,
+        end_date: str | None = None,
+    ) -> ProviderResponse:
+        args: dict[str, Any] = {"keyword": keyword, "search_type": search_type, "bid_type": bid_type}
+        if start_date:
+            args["start_date"] = start_date
+        if end_date:
+            args["end_date"] = end_date
+        result = await self._client.acall_tool(tool_name=self.TOOL_SEARCH_BIDDING_INFO, arguments=args)
         items = self._adapter.extract_items(result["payload"])
         normalized_items = [self._adapter.normalize_bidding_item(item) for item in items]
         data = {"items": normalized_items, "total": len(normalized_items)}
