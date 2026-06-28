@@ -296,7 +296,7 @@ class SMSNotificationService:
 
         result = MultiPlatformNotificationResult()
         for platform, platform_result in zip(available_platforms, platform_results):
-            if isinstance(platform_result, Exception):
+            if isinstance(platform_result, BaseException):
                 # gather 中某个 task 抛了未捕获异常
                 logger.error(f"平台 {platform.value} 通知异常: {platform_result}")
                 platform_result = PlatformNotificationResult(
