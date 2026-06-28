@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+from asgiref.sync import sync_to_async
 from django.http import HttpRequest
 from ninja import Router
 
@@ -26,38 +27,38 @@ _lawfirm_service = _get_lawfirm_service()
 
 
 @router.get("/lawfirms", response=list[LawFirmOut])
-def list_lawfirms(request: HttpRequest, name: str | None = None) -> list[LawFirmOut]:  # pragma: no cover
-    return list(_lawfirm_service.list_lawfirms(name=name, user=get_request_user(request)))  # type: ignore[arg-type]
+async def list_lawfirms(request: HttpRequest, name: str | None = None) -> list[LawFirmOut]:  # pragma: no cover
+    return await sync_to_async(lambda: list(_lawfirm_service.list_lawfirms(name=name, user=get_request_user(request))))()
 
 
 @router.get("/lawfirms/{law_firm_id}", response=LawFirmOut)
-def get_lawfirm(request: HttpRequest, law_firm_id: int) -> LawFirmOut:  # pragma: no cover
-    return _lawfirm_service.get_lawfirm(law_firm_id, get_request_user(request))  # type: ignore[return-value]
+async def get_lawfirm(request: HttpRequest, law_firm_id: int) -> LawFirmOut:  # pragma: no cover
+    return await sync_to_async(_lawfirm_service.get_lawfirm)(law_firm_id, get_request_user(request))
 
 
 @router.post("/lawfirms", response=LawFirmOut)
-def create_lawfirm(request: HttpRequest, payload: LawFirmIn) -> LawFirmOut:  # pragma: no cover
+async def create_lawfirm(request: HttpRequest, payload: LawFirmIn) -> LawFirmOut:  # pragma: no cover
     dto = LawFirmCreateDTO(
         name=payload.name,
         address=payload.address,
         phone=payload.phone,
         social_credit_code=payload.social_credit_code,
     )
-    return _lawfirm_service.create_lawfirm(data=dto, user=get_request_user(request))  # type: ignore[return-value]
+    return await sync_to_async(_lawfirm_service.create_lawfirm)(data=dto, user=get_request_user(request))
 
 
 @router.put("/lawfirms/{law_firm_id}", response=LawFirmOut)
-def update_lawfirm(request: HttpRequest, law_firm_id: int, payload: LawFirmUpdateIn) -> LawFirmOut:  # pragma: no cover
+async def update_lawfirm(request: HttpRequest, law_firm_id: int, payload: LawFirmUpdateIn) -> LawFirmOut:  # pragma: no cover
     dto = LawFirmUpdateDTO(
         name=payload.name,
         address=payload.address,
         phone=payload.phone,
         social_credit_code=payload.social_credit_code,
     )
-    return _lawfirm_service.update_lawfirm(lawfirm_id=law_firm_id, data=dto, user=get_request_user(request))  # type: ignore[return-value]
+    return await sync_to_async(_lawfirm_service.update_lawfirm)(lawfirm_id=law_firm_id, data=dto, user=get_request_user(request))
 
 
 @router.delete("/lawfirms/{law_firm_id}")
-def delete_lawfirm(request: HttpRequest, law_firm_id: int) -> dict[str, bool]:  # pragma: no cover
-    _lawfirm_service.delete_lawfirm(law_firm_id, get_request_user(request))
+async def delete_lawfirm(request: HttpRequest, law_firm_id: int) -> dict[str, bool]:  # pragma: no cover
+    await sync_to_async(_lawfirm_service.delete_lawfirm)(law_firm_id, get_request_user(request))
     return {"success": True}
