@@ -80,7 +80,7 @@ class TestService:
                 result["logs"].append("✅ 浏览器已启动")
 
                 # 3. 创建服务
-                service = CourtZxfwService(page, context)
+                service = CourtZxfwService(page, context)  # type: ignore[misc]
                 result["logs"].append("✅ 服务实例已创建")
 
                 # 4. 执行登录
