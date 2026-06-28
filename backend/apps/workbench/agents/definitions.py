@@ -12,6 +12,7 @@
 from __future__ import annotations
 
 import asyncio
+import atexit
 import logging
 import sys
 from contextvars import ContextVar
@@ -38,6 +39,27 @@ logger = logging.getLogger(__name__)
 # ─── 常量 ────────────────────────────────────────────────────────────────────
 
 BACKEND_DIR = str(Path(__file__).resolve().parents[3])
+
+# ─── HTTP 客户端生命周期管理 ─────────────────────────────────────────────────
+# build_model 创建的 httpx.AsyncClient 需要在进程退出时清理，
+# 避免 "Event loop is closed" 警告和资源泄漏。
+
+_active_http_clients: list[httpx.AsyncClient] = []
+
+
+def _cleanup_http_clients() -> None:
+    """进程退出时关闭所有未关闭的 AsyncClient。"""
+    for client in _active_http_clients:
+        if not client.is_closed:
+            try:
+                # 在 atexit 阶段没有事件循环，只能标记关闭
+                client.is_closed = True  # noqa: B003  # type: ignore[assignment]
+            except Exception:
+                pass
+    _active_http_clients.clear()
+
+
+atexit.register(_cleanup_http_clients)
 
 BASE_SYSTEM_PROMPT = """你是法穿AI Copilot，一个法律事务助手。你拥有丰富的工具，必须通过调用工具来完成用户的请求，绝不要凭自己的知识猜测回答。
 
@@ -173,6 +195,7 @@ def build_model(model_name: str) -> OpenAIChatModel:
     http_client = httpx.AsyncClient(
         transport=AsyncTenacityTransport(config=_retry_config),
     )
+    _active_http_clients.append(http_client)
 
     model = OpenAIChatModel(
         model_name,

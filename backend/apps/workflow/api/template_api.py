@@ -40,7 +40,7 @@ def get_steps_flat(request: Any) -> list[dict[str, Any]]:
 
 
 @router.get("/templates/", response=list[TemplateListOut])
-def list_templates(
+async def list_templates(
     request: Any,
     category: str | None = None,
     is_active: bool | None = None,
@@ -65,23 +65,23 @@ def list_templates(
             "created_at": t.created_at.isoformat(),
             "updated_at": t.updated_at.isoformat(),
         }
-        for t in qs
+        async for t in qs
     ]
 
 
 @router.post("/templates/")
-def create_template(request: Any, payload: TemplateCreateIn) -> dict[str, Any]:
+async def create_template(request: Any, payload: TemplateCreateIn) -> dict[str, Any]:
     """创建工作流模板"""
     slug = payload.slug or slugify(payload.name, allow_unicode=True)
 
     # 确保 slug 唯一
     base_slug = slug
     counter = 1
-    while WorkflowTemplate.objects.filter(slug=slug).exists():
+    while await WorkflowTemplate.objects.filter(slug=slug).aexists():
         slug = f"{base_slug}-{counter}"
         counter += 1
 
-    template = WorkflowTemplate.objects.create(
+    template = await WorkflowTemplate.objects.acreate(
         name=payload.name,
         slug=slug,
         category=payload.category,
@@ -100,9 +100,9 @@ def create_template(request: Any, payload: TemplateCreateIn) -> dict[str, Any]:
 
 
 @router.get("/templates/{template_id}/")
-def get_template(request: Any, template_id: int) -> dict[str, Any]:
+async def get_template(request: Any, template_id: int) -> dict[str, Any]:
     """获取模板详情"""
-    template = WorkflowTemplate.objects.get(pk=template_id)
+    template = await WorkflowTemplate.objects.aget(pk=template_id)
     return {
         "id": template.id,
         "name": template.name,
@@ -118,9 +118,9 @@ def get_template(request: Any, template_id: int) -> dict[str, Any]:
 
 
 @router.put("/templates/{template_id}/")
-def update_template(request: Any, template_id: int, payload: TemplateUpdateIn) -> dict[str, Any]:
+async def update_template(request: Any, template_id: int, payload: TemplateUpdateIn) -> dict[str, Any]:
     """更新工作流模板"""
-    template = WorkflowTemplate.objects.get(pk=template_id)
+    template = await WorkflowTemplate.objects.aget(pk=template_id)
 
     if payload.name is not None:
         template.name = payload.name
@@ -137,31 +137,31 @@ def update_template(request: Any, template_id: int, payload: TemplateUpdateIn) -
     if payload.is_active is not None:
         template.is_active = payload.is_active
 
-    template.save()
+    await template.asave()
     return {"id": template.id, "name": template.name, "message": "模板已更新"}
 
 
 @router.delete("/templates/{template_id}/")
-def delete_template(request: Any, template_id: int) -> dict[str, Any]:
+async def delete_template(request: Any, template_id: int) -> dict[str, Any]:
     """删除工作流模板"""
-    template = WorkflowTemplate.objects.get(pk=template_id)
+    template = await WorkflowTemplate.objects.aget(pk=template_id)
     name = template.name
-    template.delete()
+    await template.adelete()
     return {"message": f"模板「{name}」已删除"}
 
 
 @router.post("/templates/{template_id}/duplicate/")
-def duplicate_template(request: Any, template_id: int) -> dict[str, Any]:
+async def duplicate_template(request: Any, template_id: int) -> dict[str, Any]:
     """复制工作流模板"""
-    source = WorkflowTemplate.objects.get(pk=template_id)
+    source = await WorkflowTemplate.objects.aget(pk=template_id)
 
     new_slug = f"{source.slug}-copy"
     counter = 1
-    while WorkflowTemplate.objects.filter(slug=new_slug).exists():
+    while await WorkflowTemplate.objects.filter(slug=new_slug).aexists():
         new_slug = f"{source.slug}-copy-{counter}"
         counter += 1
 
-    new_template = WorkflowTemplate.objects.create(
+    new_template = await WorkflowTemplate.objects.acreate(
         name=f"{source.name} (副本)",
         slug=new_slug,
         category=source.category,

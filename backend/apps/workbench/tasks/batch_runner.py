@@ -13,7 +13,6 @@ import time
 from typing import Any
 from uuid import UUID
 
-from asgiref.sync import sync_to_async
 from django.db.models import F
 from django.utils import timezone
 
@@ -33,9 +32,7 @@ async def _cancel_watcher(job_id: UUID, cancel_event: asyncio.Event) -> None:  #
     """每 2 秒检查一次 DB 的 cancel_requested 标志"""
     while not cancel_event.is_set():
         try:
-            cancelled = await sync_to_async(
-                lambda: BatchJob.objects.filter(id=job_id, cancel_requested=True).exists()
-            )()
+            cancelled = await BatchJob.objects.filter(id=job_id, cancel_requested=True).aexists()
             if cancelled:
                 logger.info("检测到取消请求: job=%s", job_id)
                 cancel_event.set()
@@ -123,28 +120,22 @@ def _sync_llm_chat(  # pragma: no cover
 
 async def _increment_counter(job_id: UUID, field: str) -> None:  # pragma: no cover
     """原子递增计数器并更新进度百分比（使用 F() 避免竞态条件）"""
-    await sync_to_async(
-        lambda: BatchJob.objects.filter(id=job_id).update(**{field: F(field) + 1})
-    )()
+    await BatchJob.objects.filter(id=job_id).aupdate(**{field: F(field) + 1})
     # 读取更新后的值来计算进度
-    job: Any = await sync_to_async(
-        lambda: (
-            BatchJob.objects.filter(id=job_id)
-            .values(
-                "total_items",
-                "completed_items",
-                "failed_items",
-            )
-            .first()
+    job: Any = await (
+        BatchJob.objects.filter(id=job_id)
+        .values(
+            "total_items",
+            "completed_items",
+            "failed_items",
         )
-    )()
+        .afirst()
+    )
     if not job or job["total_items"] == 0:
         return
     new_processed = job["completed_items"] + job["failed_items"]
     new_progress = min(int(new_processed * 100 / job["total_items"]), 100)
-    await sync_to_async(
-        lambda: BatchJob.objects.filter(id=job_id).update(progress=new_progress)
-    )()
+    await BatchJob.objects.filter(id=job_id).aupdate(progress=new_progress)
 
 
 # ─── 单文件分析 ──────────────────────────────────────────────────────────────
@@ -216,8 +207,8 @@ async def _run_batch_async(job_id: UUID) -> None:  # pragma: no cover
     Phase 2: 并发 LLM 分析（ThreadPoolExecutor + Semaphore 限流）
     Phase 3: 汇总报告
     """
-    job = await sync_to_async(BatchJob.objects.get)(id=job_id)
-    await sync_to_async(BatchJob.objects.filter(id=job_id).update)(
+    job = await BatchJob.objects.aget(id=job_id)
+    await BatchJob.objects.filter(id=job_id).aupdate(
         status=BatchJobStatus.RUNNING,
         started_at=timezone.now(),
     )
@@ -239,15 +230,15 @@ async def _run_batch_async(job_id: UUID) -> None:  # pragma: no cover
             i for i in items if i.file_name.lower().endswith(".doc") and not i.file_name.lower().endswith(".docx")
         ]
         if doc_items:
-            logger.info("Phase 1: 批量转换 %d 个 .doc 文件", len(doc_items))
+            logger.info("Phase 1: 异步批量转换 %d 个 .doc 文件", len(doc_items))
             doc_paths = [item.file.path for item in doc_items]
-            await sync_to_async(extractor.batch_convert_doc_to_docx)(doc_paths)
+            await extractor.batch_convert_doc_to_docx_async(doc_paths)
 
         # ── Phase 2: 并发 LLM 分析 ──
         from apps.core.llm.service import get_llm_service
 
         # 在 sync 上下文中初始化 LLM 服务（内部会读取 SystemConfig）
-        llm = await sync_to_async(get_llm_service)()
+        llm = await asyncio.to_thread(get_llm_service)
         concurrency = job.metadata.get("concurrency", 50)
         logger.info("Phase 2: 开始并发分析 %d 个文件 (concurrency=%d)", len(items), concurrency)
 
@@ -260,13 +251,13 @@ async def _run_batch_async(job_id: UUID) -> None:  # pragma: no cover
             if cancel_event.is_set():
                 return
 
-            await sync_to_async(BatchJobItem.objects.filter(id=item.id).update)(
+            await BatchJobItem.objects.filter(id=item.id).aupdate(
                 status=BatchJobStatus.RUNNING,
             )
             start = time.perf_counter()
 
             if index == 0:
-                await sync_to_async(BatchJob.objects.filter(id=job_id).update)(
+                await BatchJob.objects.filter(id=job_id).aupdate(
                     started_processing_at=timezone.now(),
                 )
 
@@ -283,7 +274,7 @@ async def _run_batch_async(job_id: UUID) -> None:  # pragma: no cover
                 )
 
                 duration = (time.perf_counter() - start) * 1000
-                await sync_to_async(BatchJobItem.objects.filter(id=item.id).update)(
+                await BatchJobItem.objects.filter(id=item.id).aupdate(
                     status=BatchJobStatus.COMPLETED,
                     result=final_result,
                     duration_ms=round(duration, 2),
@@ -302,7 +293,7 @@ async def _run_batch_async(job_id: UUID) -> None:  # pragma: no cover
                 else:
                     # 其他错误：保留完整 traceback 便于排查
                     logger.error("文件分析失败: %s - %s", item.file_name, e, exc_info=True)
-                await sync_to_async(BatchJobItem.objects.filter(id=item.id).update)(
+                await BatchJobItem.objects.filter(id=item.id).aupdate(
                     status=BatchJobStatus.FAILED,
                     error=str(e)[:2000],
                 )
@@ -340,7 +331,7 @@ async def _run_batch_async(job_id: UUID) -> None:  # pragma: no cover
             await generate_detail_zip(job_id, completed_items)
 
             final_status = BatchJobStatus.CANCELLED if is_cancelled else BatchJobStatus.COMPLETED
-            await sync_to_async(BatchJob.objects.filter(id=job_id).update)(
+            await BatchJob.objects.filter(id=job_id).aupdate(
                 status=final_status,
                 summary=summary,
                 progress=100,
@@ -352,13 +343,13 @@ async def _run_batch_async(job_id: UUID) -> None:  # pragma: no cover
             else:
                 logger.info("批量分析完成: job=%s", job_id)
         elif is_cancelled:
-            await sync_to_async(BatchJob.objects.filter(id=job_id).update)(
+            await BatchJob.objects.filter(id=job_id).aupdate(
                 status=BatchJobStatus.CANCELLED,
                 finished_at=timezone.now(),
             )
             logger.info("批量分析已取消（无已完成项）: job=%s", job_id)
         else:
-            await sync_to_async(BatchJob.objects.filter(id=job_id).update)(
+            await BatchJob.objects.filter(id=job_id).aupdate(
                 status=BatchJobStatus.FAILED,
                 error_message="所有文件分析失败",
                 finished_at=timezone.now(),
@@ -377,7 +368,7 @@ async def _run_batch_async(job_id: UUID) -> None:  # pragma: no cover
             if completed_items:
                 summary = await generate_summary(job_id, job.prompt, completed_items)
                 await generate_detail_zip(job_id, completed_items)
-                await sync_to_async(BatchJob.objects.filter(id=job_id).update)(
+                await BatchJob.objects.filter(id=job_id).aupdate(
                     status=BatchJobStatus.CANCELLED,
                     summary=summary,
                     progress=100,
@@ -385,19 +376,19 @@ async def _run_batch_async(job_id: UUID) -> None:  # pragma: no cover
                 )
                 logger.info("批量分析已取消（已生成汇总）: job=%s", job_id)
             else:
-                await sync_to_async(BatchJob.objects.filter(id=job_id).update)(
+                await BatchJob.objects.filter(id=job_id).aupdate(
                     status=BatchJobStatus.CANCELLED,
                     finished_at=timezone.now(),
                 )
         except Exception:
             logger.exception("取消时生成汇总失败: job=%s", job_id)
-            await sync_to_async(BatchJob.objects.filter(id=job_id).update)(
+            await BatchJob.objects.filter(id=job_id).aupdate(
                 status=BatchJobStatus.CANCELLED,
                 finished_at=timezone.now(),
             )
     except Exception as e:
         logger.exception("批量分析任务异常: job=%s", job_id)
-        await sync_to_async(BatchJob.objects.filter(id=job_id).update)(
+        await BatchJob.objects.filter(id=job_id).aupdate(
             status=BatchJobStatus.FAILED,
             error_message=str(e)[:4000],
             finished_at=timezone.now(),
@@ -413,11 +404,11 @@ async def _run_batch_async(job_id: UUID) -> None:  # pragma: no cover
 async def _run_batch_retry_async(job_id: UUID, item_ids: list[UUID]) -> None:  # pragma: no cover
     """只重试指定的失败 item"""
     try:
-        job = await sync_to_async(BatchJob.objects.get)(id=job_id)
+        job = await BatchJob.objects.aget(id=job_id)
     except BatchJob.DoesNotExist:
         logger.warning("batch_retry_job_not_found job_id=%s", job_id)
         return
-    await sync_to_async(BatchJob.objects.filter(id=job_id).update)(
+    await BatchJob.objects.filter(id=job_id).aupdate(
         status=BatchJobStatus.RUNNING,
     )
 
@@ -430,7 +421,7 @@ async def _run_batch_retry_async(job_id: UUID, item_ids: list[UUID]) -> None:  #
 
         from apps.core.llm.service import get_llm_service
 
-        llm = await sync_to_async(get_llm_service)()
+        llm = await asyncio.to_thread(get_llm_service)
         concurrency = job.metadata.get("concurrency", 50)
         loop = asyncio.get_running_loop()
         thread_pool = concurrent.futures.ThreadPoolExecutor(max_workers=concurrency)
@@ -440,7 +431,7 @@ async def _run_batch_retry_async(job_id: UUID, item_ids: list[UUID]) -> None:  #
             if cancel_event.is_set():
                 return
 
-            await sync_to_async(BatchJobItem.objects.filter(id=item.id).update)(
+            await BatchJobItem.objects.filter(id=item.id).aupdate(
                 status=BatchJobStatus.RUNNING,
                 error="",
             )
@@ -459,42 +450,38 @@ async def _run_batch_retry_async(job_id: UUID, item_ids: list[UUID]) -> None:  #
                 )
 
                 duration = (time.perf_counter() - start) * 1000
-                await sync_to_async(BatchJobItem.objects.filter(id=item.id).update)(
+                await BatchJobItem.objects.filter(id=item.id).aupdate(
                     status=BatchJobStatus.COMPLETED,
                     result=final_result,
                     duration_ms=round(duration, 2),
                 )
-                await sync_to_async(
-                    lambda: BatchJob.objects.filter(id=job_id).update(
-                        failed_items=F("failed_items") - 1,
-                        completed_items=F("completed_items") + 1,
-                    )
-                )()
+                await BatchJob.objects.filter(id=job_id).aupdate(
+                    failed_items=F("failed_items") - 1,
+                    completed_items=F("completed_items") + 1,
+                )
                 # 重试成功后更新 progress
-                job_info = await sync_to_async(
-                    lambda: (
-                        BatchJob.objects.filter(id=job_id)
-                        .values(
-                            "total_items",
-                            "completed_items",
-                            "failed_items",
-                        )
-                        .first()
+                job_info: Any = await (
+                    BatchJob.objects.filter(id=job_id)
+                    .values(
+                        "total_items",
+                        "completed_items",
+                        "failed_items",
                     )
-                )()
+                    .afirst()
+                )
                 if job_info and job_info["total_items"] > 0:
                     new_progress = min(
                         int((job_info["completed_items"] + job_info["failed_items"]) * 100 / job_info["total_items"]),
                         100,
                     )
-                    await sync_to_async(lambda: BatchJob.objects.filter(id=job_id).update(progress=new_progress))()
+                    await BatchJob.objects.filter(id=job_id).aupdate(progress=new_progress)
 
             except asyncio.CancelledError:
                 return
 
             except Exception as e:
                 logger.error("重试分析失败: %s - %s", item.file_name, e, exc_info=True)
-                await sync_to_async(BatchJobItem.objects.filter(id=item.id).update)(
+                await BatchJobItem.objects.filter(id=item.id).aupdate(
                     status=BatchJobStatus.FAILED,
                     error=str(e)[:2000],
                 )
@@ -523,14 +510,14 @@ async def _run_batch_retry_async(job_id: UUID, item_ids: list[UUID]) -> None:  #
             summary = await generate_summary(job_id, job.prompt, completed_items)
             await generate_detail_zip(job_id, completed_items)
             final_status = BatchJobStatus.CANCELLED if is_cancelled else BatchJobStatus.COMPLETED
-            await sync_to_async(BatchJob.objects.filter(id=job_id).update)(
+            await BatchJob.objects.filter(id=job_id).aupdate(
                 status=final_status,
                 summary=summary,
                 progress=100,
                 finished_at=timezone.now(),
             )
         elif is_cancelled:
-            await sync_to_async(BatchJob.objects.filter(id=job_id).update)(
+            await BatchJob.objects.filter(id=job_id).aupdate(
                 status=BatchJobStatus.CANCELLED,
                 finished_at=timezone.now(),
             )
@@ -545,25 +532,25 @@ async def _run_batch_retry_async(job_id: UUID, item_ids: list[UUID]) -> None:  #
             if completed_items:
                 summary = await generate_summary(job_id, job.prompt, completed_items)
                 await generate_detail_zip(job_id, completed_items)
-                await sync_to_async(BatchJob.objects.filter(id=job_id).update)(
+                await BatchJob.objects.filter(id=job_id).aupdate(
                     status=BatchJobStatus.CANCELLED,
                     summary=summary,
                     progress=100,
                     finished_at=timezone.now(),
                 )
             else:
-                await sync_to_async(BatchJob.objects.filter(id=job_id).update)(
+                await BatchJob.objects.filter(id=job_id).aupdate(
                     status=BatchJobStatus.CANCELLED,
                     finished_at=timezone.now(),
                 )
         except Exception:
-            await sync_to_async(BatchJob.objects.filter(id=job_id).update)(
+            await BatchJob.objects.filter(id=job_id).aupdate(
                 status=BatchJobStatus.CANCELLED,
                 finished_at=timezone.now(),
             )
     except Exception as e:
         logger.exception("重试任务异常: job=%s", job_id)
-        await sync_to_async(BatchJob.objects.filter(id=job_id).update)(
+        await BatchJob.objects.filter(id=job_id).aupdate(
             status=BatchJobStatus.FAILED,
             error_message=str(e)[:4000],
             finished_at=timezone.now(),

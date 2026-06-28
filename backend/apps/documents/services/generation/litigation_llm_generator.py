@@ -58,6 +58,35 @@ class LitigationLLMGenerator:
             raise RuntimeError("LLM structured invocation failed without error")
         raise last_error
 
+    async def _ainvoke_structured(
+        self,
+        *,
+        prompt: PromptSpec,
+        case_data: dict[str, Any],
+        output_model: type[TOutput],
+        max_retries: int = 3,
+    ) -> TOutput:
+        """异步版本：使用 LLMService.achat() 替代同步 chat()。"""
+        messages = [
+            {"role": "system", "content": prompt.system_prompt},
+            {"role": "user", "content": prompt.render_user_message(case_data)},
+        ]
+
+        last_error: Exception | None = None
+        for _attempt in range(max_retries):
+            try:
+                llm_response = await self.llm_service.achat(messages=messages)
+                return parse_model_content(llm_response.content, output_model)
+            except Exception as exc:
+                last_error = exc
+
+        if isinstance(last_error, ValidationError):
+            raise last_error
+
+        if last_error is None:
+            raise RuntimeError("LLM async structured invocation failed without error")
+        raise last_error
+
     def generate_complaint(self, case_data: dict[str, Any]) -> Any:
         try:
             prompt = get_complaint_prompt()
@@ -92,6 +121,64 @@ class LitigationLLMGenerator:
             logger.info("开始生成答辩状", extra={"case_data_keys": list(case_data.keys())})
             result = self._invoke_structured(prompt=prompt, case_data=case_data, output_model=DefenseOutput)
             logger.info("答辩状生成成功")
+            return result
+        except ValidationError as e:
+            logger.error(
+                "答辩状结构验证失败",
+                extra={"error": str(e), "error_type": "ValidationError"},
+                exc_info=True,
+            )
+            raise ValidationException(
+                message="答辩状结构验证失败:%(e)s" % {"e": e},
+                code="DEFENSE_VALIDATION_FAILED",
+                errors={"detail": str(e)},
+            ) from e
+        except Exception as e:
+            logger.error("答辩状生成失败", extra={"error": str(e), "error_type": type(e).__name__}, exc_info=True)
+            if isinstance(e, ValidationException):
+                raise
+            raise ValidationException(
+                message="答辩状生成失败:%(e)s" % {"e": e},
+                code="DEFENSE_GENERATION_FAILED",
+                errors={"detail": str(e)},
+            ) from e
+
+    async def agenerate_complaint(self, case_data: dict[str, Any]) -> Any:
+        """异步版本：使用 LLMService.achat() 生成起诉状。"""
+        try:
+            prompt = get_complaint_prompt()
+            logger.info("开始生成起诉状(异步)", extra={"case_data_keys": list(case_data.keys())})
+            result = await self._ainvoke_structured(prompt=prompt, case_data=case_data, output_model=ComplaintOutput)
+            logger.info("起诉状生成成功(异步)")
+            return result
+        except ValidationError as e:
+            logger.error(
+                "起诉状结构验证失败",
+                extra={"error": str(e), "error_type": "ValidationError"},
+                exc_info=True,
+            )
+            raise ValidationException(
+                message="起诉状结构验证失败:%(e)s" % {"e": e},
+                code="COMPLAINT_VALIDATION_FAILED",
+                errors={"detail": str(e)},
+            ) from e
+        except Exception as e:
+            logger.error("起诉状生成失败", extra={"error": str(e), "error_type": type(e).__name__}, exc_info=True)
+            if isinstance(e, ValidationException):
+                raise
+            raise ValidationException(
+                message="起诉状生成失败:%(e)s" % {"e": e},
+                code="COMPLAINT_GENERATION_FAILED",
+                errors={"detail": str(e)},
+            ) from e
+
+    async def agenerate_defense(self, case_data: dict[str, Any]) -> Any:
+        """异步版本：使用 LLMService.achat() 生成答辩状。"""
+        try:
+            prompt = get_defense_prompt()
+            logger.info("开始生成答辩状(异步)", extra={"case_data_keys": list(case_data.keys())})
+            result = await self._ainvoke_structured(prompt=prompt, case_data=case_data, output_model=DefenseOutput)
+            logger.info("答辩状生成成功(异步)")
             return result
         except ValidationError as e:
             logger.error(
