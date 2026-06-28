@@ -72,7 +72,7 @@ class CaseOut(ModelSchema):
     def _resolve_list_field(obj: Any, key: str) -> list:
         """Common helper: return list data whether obj is a Django model or dict."""
         if isinstance(obj, dict):
-            return obj.get(key, [])
+            return obj.get(key, [])  # type: ignore[no-any-return]
         return list(getattr(obj, key).all())
 
     @staticmethod
@@ -103,7 +103,7 @@ class CaseOut(ModelSchema):
     def resolve_contract_id(obj: Any) -> int | None:
         if isinstance(obj, dict):
             return obj.get("contract_id")
-        return obj.contract_id
+        return obj.contract_id  # type: ignore[no-any-return]
 
     @staticmethod
     def resolve_case_numbers(obj: Any) -> list:

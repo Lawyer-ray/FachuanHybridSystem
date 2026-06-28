@@ -53,13 +53,13 @@ class CaseContactOut(ModelSchema, SchemaMixin):
     def resolve_authority_id(obj: Any) -> int | None:
         if isinstance(obj, dict):
             return obj.get("authority_id")
-        return obj.authority_id
+        return obj.authority_id  # type: ignore[no-any-return]
 
     @staticmethod
     def resolve_role_display(obj: Any) -> str | None:
         if isinstance(obj, dict):
             return obj.get("role_display")
-        return obj.get_role_display()
+        return obj.get_role_display()  # type: ignore[no-any-return]
 
     @staticmethod
     def resolve_stage_display(obj: Any) -> str | None:

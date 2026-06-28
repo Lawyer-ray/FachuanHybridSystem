@@ -8,7 +8,7 @@
 
 from __future__ import annotations
 
-from typing import Any, cast
+from typing import Any
 
 from asgiref.sync import sync_to_async
 from django.http import HttpRequest
@@ -60,7 +60,7 @@ async def search_cases(  # pragma: no cover
         ))
         return [_serialize_case(c) for c in cases]
 
-    return cast(list[dict], await sync_to_async(_do)())
+    return await sync_to_async(_do)()
 
 
 @router.get("/cases", response=list[CaseOut])
@@ -92,7 +92,7 @@ async def list_cases(  # pragma: no cover
             ))
         return [_serialize_case(c) for c in raw]
 
-    return cast(list[dict], await sync_to_async(_do)())
+    return await sync_to_async(_do)()
 
 
 @router.get("/cases/{case_id}", response=CaseOut)

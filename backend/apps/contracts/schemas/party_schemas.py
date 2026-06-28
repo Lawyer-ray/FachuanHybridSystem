@@ -38,8 +38,8 @@ class ContractPartyOut(ModelSchema):
                 return ClientOut(**cd)
             if isinstance(cd, ClientOut):
                 return cd
-            return ClientOut()
-        return ClientOut.from_model(obj.client)
+            return ClientOut()  # type: ignore[call-arg]
+        return ClientOut.from_model(obj.client)  # type: ignore[no-any-return]
 
     @staticmethod
     def resolve_role_label(obj: Any) -> str:
