@@ -18,7 +18,7 @@ from apps.core.infrastructure.throttling import rate_limit_from_settings
 from apps.core.security.auth import JWTOrSessionAuth
 
 from .llm_common import achat_with_context as achat_with_context_impl
-from .llm_common import get_conversation_history as get_conversation_history_impl
+from .llm_common import aget_conversation_history as aget_conversation_history_impl
 
 logger = logging.getLogger(__name__)
 
@@ -154,7 +154,7 @@ async def chat_with_context_stream(request: Any, payload: ChatRequest) -> Any:
 
 @llm_router.get("/conversation/{session_id}/history", response=ConversationHistoryResponse)
 @rate_limit_from_settings("LLM_HISTORY", by_user=True)
-def get_conversation_history(request: Any, session_id: str) -> Any:
+async def get_conversation_history(request: Any, session_id: str) -> Any:
     """
     获取对话历史
 
@@ -168,7 +168,7 @@ def get_conversation_history(request: Any, session_id: str) -> Any:
         getattr(user, "is_admin", False) or getattr(user, "is_superuser", False) or getattr(user, "is_staff", False)
     )
 
-    result = get_conversation_history_impl(session_id=session_id, user_id=(None if is_admin else user_id), limit=50)
+    result = await aget_conversation_history_impl(session_id=session_id, user_id=(None if is_admin else user_id), limit=50)
     messages = [
         ConversationMessage(  # type: ignore[call-arg]
             role=m["role"],

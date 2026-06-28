@@ -68,5 +68,8 @@ class ConversationHistoryRepository:
             step=step,
         )
 
+    async def aget_by_session_id(self, session_id: str) -> QuerySet[ConversationHistory]:
+        return ConversationHistory.objects.filter(session_id=session_id)
+
     async def adelete_by_session_id(self, session_id: str) -> tuple[int, dict[str, int]]:
         return await ConversationHistory.objects.filter(session_id=session_id).adelete()

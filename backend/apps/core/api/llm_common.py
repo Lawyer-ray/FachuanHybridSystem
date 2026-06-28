@@ -58,3 +58,9 @@ def get_conversation_history(session_id: str, user_id: str | None = None, limit:
     service = _get_conversation_history_service()
     messages = service.get_conversation_history_messages(session_id=session_id, user_id=user_id, limit=limit)
     return {"session_id": session_id, "messages": messages}
+
+
+async def aget_conversation_history(session_id: str, user_id: str | None = None, limit: int = 50) -> dict[str, Any]:
+    service = _get_conversation_history_service()
+    messages = await service.aget_conversation_history_messages(session_id=session_id, user_id=user_id, limit=limit)
+    return {"session_id": session_id, "messages": messages}

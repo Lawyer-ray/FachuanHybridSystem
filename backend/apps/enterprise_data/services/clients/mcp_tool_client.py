@@ -134,6 +134,40 @@ class McpToolClient:
         result["api_key_switched"] = bool(execution_meta.get("api_key_switched", False))
         return result
 
+    async def acall_tool(self, *, tool_name: str, arguments: dict[str, Any]) -> dict[str, Any]:
+        """异步版本的 call_tool，直接 await _call_tool_async，避免 run_coroutine_threadsafe 阻塞。"""
+        self._acquire_rate_limit(action=f"call_tool:{tool_name}")
+        started = time.perf_counter()
+        result, execution_meta = await self._aexecute_with_api_key_failover(
+            action=f"call_tool:{tool_name}",
+            operation=lambda api_key, transport: self._call_tool_async(
+                transport=transport, tool_name=tool_name, arguments=arguments, api_key=api_key,
+            ),
+            log_context={"tool": tool_name},
+        )
+
+        payload = result["payload"]
+        raw = result["raw"]
+        if raw.get("is_error"):
+            raise ValidationException(
+                message=f"{self._provider_name} 工具调用返回错误",
+                code="MCP_TOOL_ERROR",
+                errors={"provider": self._provider_name, "tool": tool_name, "payload": payload},
+            )
+
+        elapsed_ms = (time.perf_counter() - started) * 1000
+        logger.info("MCP tool %s completed in %.1fms", tool_name, elapsed_ms)
+
+        result["transport"] = str(execution_meta.get("transport") or self._transport)
+        result["requested_transport"] = self._transport
+        result["fallback_used"] = result["transport"] != self._transport
+        result["duration_ms"] = max(0, int(elapsed_ms))
+        result["attempt_count"] = max(1, int(execution_meta.get("attempt_count", 1) or 1))
+        result["api_key_pool_size"] = max(1, int(execution_meta.get("api_key_pool_size", 1) or 1))
+        result["api_key_attempt_count"] = max(1, int(execution_meta.get("api_key_attempt_count", 1) or 1))
+        result["api_key_switched"] = bool(execution_meta.get("api_key_switched", False))
+        return result
+
     def list_tools(self) -> list[str]:
         """获取远端 MCP 可用工具名列表。"""
         return [item["name"] for item in self.describe_tools() if item.get("name")]
@@ -335,6 +369,136 @@ class McpToolClient:
                         delay = self._retry_backoff_seconds * (2**retry_index)
                         if delay > 0:
                             time.sleep(delay)
+                        logger.warning(
+                            "MCP request failed, retry with same transport: %s",
+                            exc,
+                            extra={
+                                "provider": self._provider_name,
+                                "action": action,
+                                "transport": transport,
+                                "retry_index": retry_index + 1,
+                                "retry_max_attempts": self._retry_max_attempts,
+                                "error_type": type(exc).__name__,
+                                **extra,
+                            },
+                        )
+                        continue
+                    break
+
+            has_fallback = index < len(attempts) - 1
+            if has_fallback and last_error is not None:
+                self._mark_transport_unhealthy(transport=transport, exc=last_error)
+                logger.warning(
+                    "MCP request failed on primary transport, retry with fallback: %s",
+                    last_error,
+                    extra={
+                        "provider": self._provider_name,
+                        "action": action,
+                        "primary_transport": transport,
+                        "fallback_transport": attempts[index + 1],
+                        "error_type": type(last_error).__name__,
+                        **extra,
+                    },
+                )
+                continue
+        return None, self._transport, total_attempt_count, last_error
+
+    async def _aexecute_with_api_key_failover(
+        self,
+        *,
+        action: str,
+        operation: Callable[[str, str], Any],
+        log_context: dict[str, Any] | None = None,
+    ) -> tuple[Any, dict[str, Any]]:
+        """异步版本的 _execute_with_api_key_failover，直接 await 而非 run_coroutine_threadsafe。"""
+        api_keys = self._api_key_pool.ordered_keys()
+        if not api_keys:
+            raise ExternalServiceError(
+                message=f"{self._provider_name} API Key 未配置",
+                code="MCP_API_KEY_MISSING",
+                errors={"provider": self._provider_name, "action": action},
+            )
+
+        total_attempt_count = 0
+        api_key_attempt_count = 0
+        last_error: Exception | None = None
+        extra = dict(log_context or {})
+        for api_key_index, api_key in enumerate(api_keys):
+            api_key_attempt_count += 1
+            fingerprint = self._api_key_pool.fingerprint(api_key)
+            result, transport_used, transport_attempt_count, current_error = await self._arun_transport_attempts(
+                action=action,
+                operation=operation,
+                api_key=api_key,
+                log_context=extra,
+            )
+            total_attempt_count += transport_attempt_count
+            if current_error is None and result is not None:
+                self._api_key_pool.mark_success(api_key)
+                return result, {
+                    "transport": transport_used,
+                    "attempt_count": total_attempt_count,
+                    "api_key_pool_size": len(api_keys),
+                    "api_key_attempt_count": api_key_attempt_count,
+                    "api_key_switched": api_key_attempt_count > 1,
+                }
+            if current_error is None:
+                continue
+            last_error = current_error
+            if self._should_switch_api_key(current_error):
+                self._mark_api_key_failure(api_key=api_key, exc=current_error)
+                has_more_keys = api_key_index < len(api_keys) - 1
+                if has_more_keys:
+                    logger.warning(
+                        "MCP request failed with current api key, switch to next key",
+                        extra={
+                            "provider": self._provider_name,
+                            "action": action,
+                            "api_key_fingerprint": fingerprint,
+                            "api_key_index": api_key_index + 1,
+                            "api_key_pool_size": len(api_keys),
+                            "error_type": type(current_error).__name__,
+                            **extra,
+                        },
+                    )
+                    continue
+            self._raise_transport_error(action=action, exc=current_error)
+
+        if last_error is not None:
+            self._raise_transport_error(action=action, exc=last_error)
+        raise ExternalServiceError(
+            message=f"{self._provider_name} 调用异常",
+            code="MCP_TRANSPORT_ERROR",
+            errors={"provider": self._provider_name, "action": action},
+        )
+
+    async def _arun_transport_attempts(
+        self,
+        *,
+        action: str,
+        operation: Callable[[str, str], Any],
+        api_key: str,
+        log_context: dict[str, Any] | None = None,
+    ) -> tuple[Any | None, str, int, Exception | None]:
+        """异步版本的 _run_transport_attempts，使用 asyncio.sleep 替代 time.sleep。"""
+        attempts = self._transport_attempts()
+        last_error: Exception | None = None
+        total_attempt_count = 0
+        extra = dict(log_context or {})
+        for index, transport in enumerate(attempts):
+            for retry_index in range(self._retry_max_attempts):
+                total_attempt_count += 1
+                try:
+                    result = await operation(api_key, transport)
+                    self._clear_transport_unhealthy(transport)
+                    return result, transport, total_attempt_count, None
+                except Exception as exc:
+                    last_error = exc
+                    has_more_retry = retry_index < self._retry_max_attempts - 1
+                    if has_more_retry and self._should_retry(exc):
+                        delay = self._retry_backoff_seconds * (2**retry_index)
+                        if delay > 0:
+                            await asyncio.sleep(delay)
                         logger.warning(
                             "MCP request failed, retry with same transport: %s",
                             exc,
