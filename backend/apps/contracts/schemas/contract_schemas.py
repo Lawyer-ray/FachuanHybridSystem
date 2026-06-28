@@ -258,20 +258,20 @@ class ContractOut(ModelSchema):
     @staticmethod
     def resolve_fee_mode(obj: Any) -> str:
         if isinstance(obj, dict):
-            return obj.get("fee_mode", "")
+            return obj.get("fee_mode", "")  # type: ignore[no-any-return]
         return str(obj.get_fee_mode_display())
 
     @staticmethod
     def resolve_contract_parties(obj: Any) -> list:
         if isinstance(obj, dict):
-            return obj.get("contract_parties", [])
+            return obj.get("contract_parties", [])  # type: ignore[no-any-return]
         contract_parties = obj.contract_parties
         return list(contract_parties.all())
 
     @staticmethod
     def resolve_representation_stages(obj: Any) -> list:
         if isinstance(obj, dict):
-            return obj.get("representation_stages", [])
+            return obj.get("representation_stages", [])  # type: ignore[no-any-return]
         label_map = {m.value: m.label for m in CaseStage}
         return [label_map.get(code, code) for code in (obj.representation_stages or [])]
 
@@ -296,7 +296,7 @@ class ContractOut(ModelSchema):
     @staticmethod
     def resolve_reminders(obj: Any) -> list:
         if isinstance(obj, dict):
-            return obj.get("reminders", [])
+            return obj.get("reminders", [])  # type: ignore[no-any-return]
         # 优先使用上游已预取的 reminders 数据（ContractQuerySetManager 已包含 "reminders"）
         # 只处理直接关联到合同的提醒（case_log_id 为空），与 export_contract_reminders_internal 逻辑一致
         reminders = [r for r in obj.reminders.all() if r.case_log_id is None]
@@ -325,7 +325,7 @@ class ContractOut(ModelSchema):
     @staticmethod
     def resolve_payments(obj: Any) -> list:
         if isinstance(obj, dict):
-            return obj.get("payments", [])
+            return obj.get("payments", [])  # type: ignore[no-any-return]
         try:
             return list(obj.payments.all())
         except Exception:
@@ -377,13 +377,13 @@ class ContractOut(ModelSchema):
     @staticmethod
     def resolve_supplementary_agreements(obj: Any) -> list:
         if isinstance(obj, dict):
-            return obj.get("supplementary_agreements", [])
+            return obj.get("supplementary_agreements", [])  # type: ignore[no-any-return]
         return list(obj.supplementary_agreements.all())
 
     @staticmethod
     def resolve_assignments(obj: Any) -> list:
         if isinstance(obj, dict):
-            return obj.get("assignments", [])
+            return obj.get("assignments", [])  # type: ignore[no-any-return]
         return [ContractAssignmentOut.from_assignment(a) for a in obj.assignments.all()]
 
     @staticmethod
@@ -430,7 +430,7 @@ class ContractOut(ModelSchema):
     @staticmethod
     def resolve_client_payment_records(obj: Any) -> list:
         if isinstance(obj, dict):
-            return obj.get("client_payment_records", [])
+            return obj.get("client_payment_records", [])  # type: ignore[no-any-return]
         try:
             return list(obj.client_payment_records.all())
         except Exception:
@@ -440,7 +440,7 @@ class ContractOut(ModelSchema):
     @staticmethod
     def resolve_finalized_materials(obj: Any) -> list:
         if isinstance(obj, dict):
-            return obj.get("finalized_materials", [])
+            return obj.get("finalized_materials", [])  # type: ignore[no-any-return]
         try:
             return list(obj.finalized_materials.all())
         except Exception:
