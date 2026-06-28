@@ -60,7 +60,7 @@ async def search_contacts(  # pragma: no cover
 
     @sync_to_async
     def _fetch() -> list[dict[str, Any]]:
-        return service.search_contacts_public(q=q, court=court, role=role, limit=limit, user=ctx.user)
+        return service.search_contacts_public(q=q, court=court, role=role, limit=limit, user=ctx.user)  # type: ignore[no-any-return]
 
     return await _fetch()  # type: ignore[return-value]
 
