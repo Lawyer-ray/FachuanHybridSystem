@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import ClassVar
+from typing import Any, ClassVar
 
 from ninja import ModelSchema, Schema
 
@@ -44,31 +44,45 @@ class CaseContactOut(ModelSchema, SchemaMixin):
         ]
 
     @staticmethod
-    def resolve_case_id(obj: CaseContact) -> int:
+    def resolve_case_id(obj: Any) -> int:
+        if isinstance(obj, dict):
+            return obj.get("case_id", 0)
         return obj.case_id
 
     @staticmethod
-    def resolve_authority_id(obj: CaseContact) -> int | None:
+    def resolve_authority_id(obj: Any) -> int | None:
+        if isinstance(obj, dict):
+            return obj.get("authority_id")
         return obj.authority_id
 
     @staticmethod
-    def resolve_role_display(obj: CaseContact) -> str | None:
+    def resolve_role_display(obj: Any) -> str | None:
+        if isinstance(obj, dict):
+            return obj.get("role_display")
         return obj.get_role_display()
 
     @staticmethod
-    def resolve_stage_display(obj: CaseContact) -> str | None:
+    def resolve_stage_display(obj: Any) -> str | None:
+        if isinstance(obj, dict):
+            return obj.get("stage_display")
         return obj.get_stage_display() if obj.stage else None
 
     @staticmethod
-    def resolve_authority_name(obj: CaseContact) -> str | None:
+    def resolve_authority_name(obj: Any) -> str | None:
+        if isinstance(obj, dict):
+            return obj.get("authority_name")
         return obj.authority.name if obj.authority else None
 
     @staticmethod
-    def resolve_created_at(obj: CaseContact) -> datetime | None:
+    def resolve_created_at(obj: Any) -> datetime | None:
+        if isinstance(obj, dict):
+            return obj.get("created_at")
         return SchemaMixin._resolve_datetime(getattr(obj, "created_at", None))
 
     @staticmethod
-    def resolve_updated_at(obj: CaseContact) -> datetime | None:
+    def resolve_updated_at(obj: Any) -> datetime | None:
+        if isinstance(obj, dict):
+            return obj.get("updated_at")
         return SchemaMixin._resolve_datetime(getattr(obj, "updated_at", None))
 
 

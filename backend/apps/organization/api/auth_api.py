@@ -43,7 +43,7 @@ async def login_view(request: HttpRequest, payload: LoginIn) -> LoginOut:  # pra
     def _do() -> Any:
         user = _auth_service.login(request, payload.username, payload.password)
         user_out = LawyerOut.from_orm(user)
-        return LoginOut(success=True, user=user_out)
+        return LoginOut(success=True, user=user_out).model_dump()
 
     return cast(LoginOut, await sync_to_async(_do)())
 
@@ -88,7 +88,7 @@ async def register_view(request: HttpRequest, payload: RegisterIn) -> RegisterOu
                 requires_approval=not is_first,
                 setup_in_progress=is_first,
                 message="注册成功，系统正在初始化..." if is_first else "注册成功，请等待管理员审批",
-            )
+            ).model_dump()
 
         return cast(RegisterOut, await sync_to_async(_do)())
     except Exception as e:

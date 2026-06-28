@@ -26,9 +26,9 @@ async def list_contacts(request: HttpRequest, case_id: int | None = None, stage:
     ctx = extract_request_context(request)
 
     @sync_to_async
-    def _fetch() -> list[CaseContactOut]:
+    def _fetch() -> list[dict]:
         qs = service.list_contacts(case_id=case_id, stage=stage, user=ctx.user)
-        return [CaseContactOut.from_orm(c) for c in qs]
+        return [CaseContactOut.from_orm(c).model_dump() for c in qs]
 
     return await _fetch()
 
@@ -40,9 +40,9 @@ async def create_contact(request: HttpRequest, payload: CaseContactIn) -> CaseCo
     data = payload.model_dump(exclude={"case_id"})
 
     @sync_to_async
-    def _create() -> CaseContactOut:
+    def _create() -> dict:
         contact = service.create_contact(case_id=payload.case_id, data=data, user=ctx.user)
-        return CaseContactOut.from_orm(contact)
+        return CaseContactOut.from_orm(contact).model_dump()
 
     return await _create()
 
@@ -71,9 +71,9 @@ async def get_contact(request: HttpRequest, contact_id: int) -> CaseContactOut: 
     ctx = extract_request_context(request)
 
     @sync_to_async
-    def _fetch() -> CaseContactOut:
+    def _fetch() -> dict:
         contact = service.get_contact(contact_id=contact_id, user=ctx.user)
-        return CaseContactOut.from_orm(contact)
+        return CaseContactOut.from_orm(contact).model_dump()
 
     return await _fetch()
 
@@ -85,9 +85,9 @@ async def update_contact(request: HttpRequest, contact_id: int, payload: CaseCon
     data = payload.model_dump(exclude_unset=True)
 
     @sync_to_async
-    def _update() -> CaseContactOut:
+    def _update() -> dict:
         contact = service.update_contact(contact_id=contact_id, data=data, user=ctx.user)
-        return CaseContactOut.from_orm(contact)
+        return CaseContactOut.from_orm(contact).model_dump()
 
     return await _update()
 

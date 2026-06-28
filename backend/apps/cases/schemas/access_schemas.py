@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import ClassVar
+from typing import Any, ClassVar
 
 from .base import CaseAccessGrant, ModelSchema, Schema, SchemaMixin
 
@@ -19,7 +19,9 @@ class CaseAccessGrantOut(ModelSchema, SchemaMixin):
         fields: ClassVar = ["id", "case", "grantee", "created_at"]
 
     @staticmethod
-    def resolve_created_at(obj: CaseAccessGrant) -> datetime | None:
+    def resolve_created_at(obj: Any) -> datetime | None:
+        if isinstance(obj, dict):
+            return obj.get("created_at")
         return SchemaMixin._resolve_datetime(getattr(obj, "created_at", None))
 
 

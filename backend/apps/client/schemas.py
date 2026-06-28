@@ -59,7 +59,13 @@ class ClientOut(ModelSchema, SchemaMixin):
         return SchemaMixin._get_display(obj, "client_type") or ""
 
     @staticmethod
-    def resolve_identity_docs(obj: Client) -> list[ClientIdentityDocOut]:
+    def resolve_identity_docs(obj: Any) -> list[ClientIdentityDocOut]:
+        # When called via DjangoGetter on a dict (model_validate re-validation)
+        if isinstance(obj, dict):
+            docs = obj.get("identity_docs", [])
+            if docs and isinstance(docs[0], dict):
+                return [ClientIdentityDocOut(**d) for d in docs]
+            return docs  # already ClientIdentityDocOut instances
         items: list[ClientIdentityDoc] = list(obj.identity_docs.all())
         return [
             ClientIdentityDocOut(

@@ -33,7 +33,7 @@ async def list_grants(  # pragma: no cover
     ctx = extract_request_context(request)
 
     @sync_to_async
-    def _fetch() -> list[CaseAccessGrantOut]:
+    def _fetch() -> list[dict]:
         qs = service.list_grants(
             case_id=case_id,
             grantee_id=grantee_id,
@@ -41,7 +41,7 @@ async def list_grants(  # pragma: no cover
             org_access=ctx.org_access,
             perm_open_access=ctx.perm_open_access,
         )
-        return [CaseAccessGrantOut.from_orm(g) for g in qs]
+        return [CaseAccessGrantOut.from_orm(g).model_dump(by_alias=True) for g in qs]
 
     return await _fetch()
 
@@ -52,13 +52,13 @@ async def create_grant(request: HttpRequest, payload: CaseAccessGrantIn) -> Any:
     ctx = extract_request_context(request)
 
     @sync_to_async
-    def _create() -> CaseAccessGrantOut:
+    def _create() -> dict:
         grant = service.create_grant(
             case_id=payload.case_id,
             grantee_id=payload.grantee_id,
             user=ctx.user,
         )
-        return CaseAccessGrantOut.from_orm(grant)
+        return CaseAccessGrantOut.from_orm(grant).model_dump(by_alias=True)
 
     return await _create()
 
@@ -69,14 +69,14 @@ async def get_grant(request: HttpRequest, grant_id: int) -> Any:  # pragma: no c
     ctx = extract_request_context(request)
 
     @sync_to_async
-    def _fetch() -> CaseAccessGrantOut:
+    def _fetch() -> dict:
         grant = service.get_grant(
             grant_id=grant_id,
             user=ctx.user,
             org_access=ctx.org_access,
             perm_open_access=ctx.perm_open_access,
         )
-        return CaseAccessGrantOut.from_orm(grant)
+        return CaseAccessGrantOut.from_orm(grant).model_dump(by_alias=True)
 
     return await _fetch()
 
@@ -88,7 +88,7 @@ async def update_grant(request: HttpRequest, grant_id: int, payload: CaseAccessG
     data = payload.model_dump(exclude_unset=True)
 
     @sync_to_async
-    def _update() -> CaseAccessGrantOut:
+    def _update() -> dict:
         grant = service.update_grant(
             grant_id=grant_id,
             data=data,
@@ -96,7 +96,7 @@ async def update_grant(request: HttpRequest, grant_id: int, payload: CaseAccessG
             org_access=ctx.org_access,
             perm_open_access=ctx.perm_open_access,
         )
-        return CaseAccessGrantOut.from_orm(grant)
+        return CaseAccessGrantOut.from_orm(grant).model_dump(by_alias=True)
 
     return await _update()
 

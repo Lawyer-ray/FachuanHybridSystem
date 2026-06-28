@@ -79,13 +79,13 @@ async def create_project(request: Any, payload: ProjectIn) -> Any:  # pragma: no
     service = _get_project_service()
 
     @sync_to_async
-    def _create() -> ProjectOut:
+    def _create() -> dict:
         project = service.create_project(
             name=payload.name,
             description=payload.description or "",
             created_by=user if getattr(user, "is_authenticated", False) else None,
         )
-        return ProjectOut.from_orm(project)
+        return ProjectOut.from_orm(project).model_dump(by_alias=True)
 
     return await _create()
 
@@ -96,9 +96,9 @@ async def list_projects(request: Any) -> Any:  # pragma: no cover
     service = _get_project_service()
 
     @sync_to_async
-    def _fetch() -> list[ProjectOut]:
+    def _fetch() -> list[dict]:
         qs = service.list_projects(user=user)
-        return [ProjectOut.from_orm(p) for p in qs]
+        return [ProjectOut.from_orm(p).model_dump(by_alias=True) for p in qs]
 
     return await _fetch()
 
@@ -109,9 +109,9 @@ async def list_recordings(request: Any, project_id: int) -> Any:  # pragma: no c
     service = _get_recording_service()
 
     @sync_to_async
-    def _fetch() -> list[RecordingOut]:
+    def _fetch() -> list[dict]:
         qs = service.list_recordings(user=user, project_id=project_id)
-        return [RecordingOut.from_orm(r) for r in qs]
+        return [RecordingOut.from_orm(r).model_dump(by_alias=True) for r in qs]
 
     return await _fetch()
 
@@ -123,9 +123,9 @@ async def upload_recording(request: Any, project_id: int, file: UploadedFile = F
     service = _get_recording_service()
 
     @sync_to_async
-    def _create() -> RecordingOut:
+    def _create() -> dict:
         recording = service.upload_recording(user=user, project_id=project_id, file=file)
-        return RecordingOut.from_orm(recording)
+        return RecordingOut.from_orm(recording).model_dump(by_alias=True)
 
     return await _create()
 
@@ -136,9 +136,9 @@ async def get_recording(request: Any, recording_id: str) -> Any:  # pragma: no c
     service = _get_recording_service()
 
     @sync_to_async
-    def _fetch() -> RecordingOut:
+    def _fetch() -> dict:
         recording = service.get_recording(user=user, recording_id=recording_id)
-        return RecordingOut.from_orm(recording)
+        return RecordingOut.from_orm(recording).model_dump(by_alias=True)
 
     return await _fetch()
 
@@ -165,9 +165,9 @@ async def update_recording(request: Any, recording_id: str, payload: RecordingUp
     data = schema_to_update_dict(payload)
 
     @sync_to_async
-    def _update() -> RecordingOut:
+    def _update() -> dict:
         recording = service.update_duration(user=user, recording_id=recording_id, duration_seconds=data.get("duration_seconds"))
-        return RecordingOut.from_orm(recording)
+        return RecordingOut.from_orm(recording).model_dump(by_alias=True)
 
     return await _update()
 
@@ -194,7 +194,7 @@ async def extract_recording(  # pragma: no cover
     facade = _get_recording_extract_facade()
 
     @sync_to_async
-    def _submit() -> RecordingOut:
+    def _submit() -> dict:
         recording = facade.submit(
             user=getattr(request, "user", None),
             recording_id=recording_id,
@@ -206,7 +206,7 @@ async def extract_recording(  # pragma: no cover
                 ocr_min_new_chars=ocr_min_new_chars,
             ),
         )
-        return RecordingOut.from_orm(recording)
+        return RecordingOut.from_orm(recording).model_dump(by_alias=True)
 
     return await _submit()
 
@@ -216,11 +216,11 @@ async def extract_recording(  # pragma: no cover
 async def cancel_extract_recording(request: Any, recording_id: str) -> Any:  # pragma: no cover
 
     @sync_to_async
-    def _cancel() -> RecordingOut:
+    def _cancel() -> dict:
         recording = _get_recording_extract_facade().request_cancel(
             user=getattr(request, "user", None), recording_id=recording_id,
         )
-        return RecordingOut.from_orm(recording)
+        return RecordingOut.from_orm(recording).model_dump(by_alias=True)
 
     return await _cancel()
 
@@ -230,11 +230,11 @@ async def cancel_extract_recording(request: Any, recording_id: str) -> Any:  # p
 async def reset_extract_recording(request: Any, recording_id: str) -> Any:  # pragma: no cover
 
     @sync_to_async
-    def _reset() -> RecordingOut:
+    def _reset() -> dict:
         recording = _get_recording_extract_facade().reset(
             user=getattr(request, "user", None), recording_id=recording_id,
         )
-        return RecordingOut.from_orm(recording)
+        return RecordingOut.from_orm(recording).model_dump(by_alias=True)
 
     return await _reset()
 
@@ -245,9 +245,9 @@ async def list_screenshots(request: Any, project_id: int) -> Any:  # pragma: no 
     service = _get_screenshot_service()
 
     @sync_to_async
-    def _fetch() -> list[ScreenshotOut]:
+    def _fetch() -> list[dict]:
         qs = service.list_screenshots(user=user, project_id=project_id)
-        return [ScreenshotOut.from_orm(s) for s in qs]
+        return [ScreenshotOut.from_orm(s).model_dump(by_alias=True) for s in qs]
 
     return await _fetch()
 
@@ -264,7 +264,7 @@ async def upload_screenshots(  # pragma: no cover
     service = _get_screenshot_service()
 
     @sync_to_async
-    def _create() -> list[ScreenshotOut]:
+    def _create() -> list[dict]:
         screenshots = service.upload_screenshots(
             user=getattr(request, "user", None),
             project_id=project_id,
@@ -272,9 +272,21 @@ async def upload_screenshots(  # pragma: no cover
             deduplicate=deduplicate,
             capture_time_seconds=capture_time_seconds,
         )
-        return [ScreenshotOut.from_orm(s) for s in screenshots]
+        return [ScreenshotOut.from_orm(s).model_dump(by_alias=True) for s in screenshots]
 
     return await _create()
+
+
+@router.post("/projects/{project_id}/screenshots/reorder")
+async def reorder_screenshots(request: Any, project_id: int, payload: ScreenshotReorderIn) -> Any:  # pragma: no cover
+    service = _get_screenshot_service()
+    user = getattr(request, "user", None)
+
+    @sync_to_async
+    def _reorder() -> Any:
+        return service.reorder_screenshots(user=user, project_id=project_id, screenshot_ids=payload.screenshot_ids)
+
+    return await _reorder()
 
 
 @router.patch("/screenshots/{screenshot_id}", response=ScreenshotOut)
@@ -284,11 +296,11 @@ async def update_screenshot(request: Any, screenshot_id: str, payload: Screensho
     data = schema_to_update_dict(payload)
 
     @sync_to_async
-    def _update() -> ScreenshotOut:
+    def _update() -> dict:
         screenshot = service.update_screenshot(
             user=user, screenshot_id=screenshot_id, title=data.get("title"), note=data.get("note"),
         )
-        return ScreenshotOut.from_orm(screenshot)
+        return ScreenshotOut.from_orm(screenshot).model_dump(by_alias=True)
 
     return await _update()
 
@@ -300,13 +312,13 @@ async def create_export(request: Any, project_id: int, payload: ExportCreateIn) 
     user = getattr(request, "user", None)
 
     @sync_to_async
-    def _create() -> ExportTaskOut:
+    def _create() -> dict:
         task = service.create_export_task(
             user=user, project_id=project_id, export_type=payload.export_type, layout=payload.layout,
         )
         service.submit_task(user=user, task_id=str(task.id))
         task.refresh_from_db()
-        return ExportTaskOut.from_orm(task)
+        return ExportTaskOut.from_orm(task).model_dump(by_alias=True)
 
     return await _create()
 
@@ -317,9 +329,9 @@ async def get_export_task(request: Any, task_id: str) -> Any:  # pragma: no cove
     service = _get_export_task_service()
 
     @sync_to_async
-    def _fetch() -> ExportTaskOut:
+    def _fetch() -> dict:
         task = service.get_task(user=getattr(request, "user", None), task_id=task_id)
-        return ExportTaskOut.from_orm(task)
+        return ExportTaskOut.from_orm(task).model_dump(by_alias=True)
 
     return await _fetch()
 

@@ -63,7 +63,7 @@ async def list_clients(  # pragma: no cover
     user = getattr(request, "auth", None) or extract_request_context(request).user
 
     @sync_to_async
-    def _fetch() -> list[Any]:
+    def _fetch() -> list[dict]:
         qs = facade.list_clients(
             client_type=client_type,
             is_our_client=is_our_client,
@@ -72,7 +72,7 @@ async def list_clients(  # pragma: no cover
         )
         # Materialize queryset AND trigger schema resolution inside sync context
         # so that lazy relationships (identity_docs) are accessed synchronously.
-        return [ClientOut.from_orm(c) for c in qs]
+        return [ClientOut.from_orm(c).model_dump() for c in qs]
 
     return cast(list[ClientOut], await _fetch())
 
@@ -125,9 +125,9 @@ async def get_client(request: Any, client_id: int) -> Any:  # pragma: no cover
     user = getattr(request, "auth", None) or extract_request_context(request).user
 
     @sync_to_async
-    def _fetch() -> ClientOut:
+    def _fetch() -> dict:
         client = facade.get_client(client_id=client_id, user=user)
-        return ClientOut.from_orm(client)
+        return ClientOut.from_orm(client).model_dump()
 
     return await _fetch()
 
@@ -139,9 +139,9 @@ async def create_client(request: Any, payload: ClientIn) -> Any:  # pragma: no c
     user = getattr(request, "auth", None) or extract_request_context(request).user
 
     @sync_to_async
-    def _create() -> ClientOut:
+    def _create() -> dict:
         client = service.create_client(data=payload.model_dump(), user=user)
-        return ClientOut.from_orm(client)
+        return ClientOut.from_orm(client).model_dump()
 
     return await _create()
 
@@ -165,14 +165,14 @@ async def create_client_with_docs(  # pragma: no cover
     user = getattr(request, "auth", None) or extract_request_context(request).user
 
     @sync_to_async
-    def _create() -> ClientOut:
+    def _create() -> dict:
         client = mutation_service.create_client_with_docs(
             data=payload.model_dump(),
             doc_types=doc_types,
             files=files,
             user=user,
         )
-        return ClientOut.from_orm(client)
+        return ClientOut.from_orm(client).model_dump()
 
     return await _create()
 
@@ -185,9 +185,9 @@ async def update_client(request: Any, client_id: int, payload: ClientUpdateIn) -
     user = getattr(request, "auth", None) or extract_request_context(request).user
 
     @sync_to_async
-    def _update() -> ClientOut:
+    def _update() -> dict:
         client = service.update_client(client_id=client_id, data=data, user=user)
-        return ClientOut.from_orm(client)
+        return ClientOut.from_orm(client).model_dump()
 
     return await _update()
 
@@ -206,4 +206,9 @@ async def delete_client(request: Any, client_id: int) -> Any:  # pragma: no cove
 async def get_related_items(request: Any, client_id: int) -> Any:  # pragma: no cover
     """获取客户关联的案件和合同"""
     facade = _get_query_facade()
-    return await sync_to_async(facade.get_related_items)(client_id=client_id)
+
+    @sync_to_async
+    def _fetch() -> Any:
+        return facade.get_related_items(client_id=client_id)
+
+    return await _fetch()
