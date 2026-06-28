@@ -9,6 +9,8 @@ Requirements: 2.3, 4.1, 4.3, 4.4
 import logging
 from typing import Any
 
+from asgiref.sync import sync_to_async
+
 logger = logging.getLogger("apps.litigation_ai")
 
 
@@ -93,6 +95,47 @@ class EvidenceDigestService:
                     {
                         "evidence_item_id": chunk.evidence_item_id,
                         "text": chunk.text[:500] if chunk.text else "",  # 限制长度
+                        "page_start": getattr(chunk, "page_start", None),
+                        "page_end": getattr(chunk, "page_end", None),
+                        "source_name": (
+                            getattr(chunk.evidence_item, "name", "") if hasattr(chunk, "evidence_item") else ""
+                        ),
+                        "relevance_score": getattr(chunk, "score", 0.0),
+                    }
+                )
+
+            return results
+
+        except ImportError:
+            logger.warning("RAG 服务不可用,使用简单文本匹配")
+            return self._simple_text_search(query, evidence_item_ids, top_k)
+        except Exception as e:
+            logger.error(f"RAG 检索失败: {e}")
+            return self._simple_text_search(query, evidence_item_ids, top_k)
+
+    async def asearch_evidence_for_agent(
+        self,
+        query: str,
+        evidence_item_ids: list[int],
+        top_k: int = 5,
+    ) -> list[dict[str, Any]]:
+        """异步版本：在指定证据中检索相关内容。"""
+        if not evidence_item_ids:
+            return []
+
+        try:
+            from .evidence_rag_service import EvidenceRAGService
+
+            rag_service = EvidenceRAGService()
+            await rag_service.aensure_ingested(evidence_item_ids)
+            chunks = await rag_service.aretrieve(query, evidence_item_ids, top_k)
+
+            results: list[Any] = []
+            for chunk in chunks:
+                results.append(
+                    {
+                        "evidence_item_id": chunk.evidence_item_id,
+                        "text": chunk.text[:500] if chunk.text else "",
                         "page_start": getattr(chunk, "page_start", None),
                         "page_end": getattr(chunk, "page_end", None),
                         "source_name": (
