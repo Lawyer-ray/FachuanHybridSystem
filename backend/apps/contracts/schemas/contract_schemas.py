@@ -248,7 +248,7 @@ class ContractOut(ModelSchema):
     @staticmethod
     def resolve_cases(obj: Any) -> list:
         if isinstance(obj, dict):
-            return obj.get("cases", [])
+            return obj.get("cases", [])  # type: ignore[no-any-return]
         dtos = getattr(obj, "case_dtos", None)
         if dtos is not None:
             return [CaseOut.from_dto(dto) for dto in dtos]

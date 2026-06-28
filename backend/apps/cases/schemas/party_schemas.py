@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import ClassVar
+from typing import Any, ClassVar
 
 from .base import CaseParty, ClientOut, ModelSchema, Schema
 

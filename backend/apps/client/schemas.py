@@ -65,7 +65,7 @@ class ClientOut(ModelSchema, SchemaMixin):
             docs = obj.get("identity_docs", [])
             if docs and isinstance(docs[0], dict):
                 return [ClientIdentityDocOut(**d) for d in docs]
-            return docs  # already ClientIdentityDocOut instances
+            return docs  # type: ignore[no-any-return]  # already ClientIdentityDocOut instances
         items: list[ClientIdentityDoc] = list(obj.identity_docs.all())
         return [
             ClientIdentityDocOut(

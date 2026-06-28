@@ -146,7 +146,7 @@ class RecordingOut(ModelSchema, SchemaMixin):
     @staticmethod
     def resolve_extract_status_label(obj: Any) -> str:
         if isinstance(obj, dict):
-            return obj.get("extract_status_label", "")
+            return obj.get("extract_status_label", "")  # type: ignore[no-any-return]
         return SchemaMixin._get_display(obj, "extract_status") or ""
 
     @staticmethod

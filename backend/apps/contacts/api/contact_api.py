@@ -30,7 +30,7 @@ async def list_contacts(request: HttpRequest, case_id: int | None = None, stage:
         qs = service.list_contacts(case_id=case_id, stage=stage, user=ctx.user)
         return [CaseContactOut.from_orm(c).model_dump() for c in qs]
 
-    return await _fetch()
+    return await _fetch()  # type: ignore[return-value]
 
 
 @router.post("/contacts", response=CaseContactOut)
@@ -44,7 +44,7 @@ async def create_contact(request: HttpRequest, payload: CaseContactIn) -> CaseCo
         contact = service.create_contact(case_id=payload.case_id, data=data, user=ctx.user)
         return CaseContactOut.from_orm(contact).model_dump()
 
-    return await _create()
+    return await _create()  # type: ignore[return-value]
 
 
 @router.get("/contacts/search", response=list[CaseContactSearchResult])
@@ -75,7 +75,7 @@ async def get_contact(request: HttpRequest, contact_id: int) -> CaseContactOut: 
         contact = service.get_contact(contact_id=contact_id, user=ctx.user)
         return CaseContactOut.from_orm(contact).model_dump()
 
-    return await _fetch()
+    return await _fetch()  # type: ignore[return-value]
 
 
 @router.put("/contacts/{contact_id}", response=CaseContactOut)
@@ -89,7 +89,7 @@ async def update_contact(request: HttpRequest, contact_id: int, payload: CaseCon
         contact = service.update_contact(contact_id=contact_id, data=data, user=ctx.user)
         return CaseContactOut.from_orm(contact).model_dump()
 
-    return await _update()
+    return await _update()  # type: ignore[return-value]
 
 
 @router.delete("/contacts/{contact_id}")
