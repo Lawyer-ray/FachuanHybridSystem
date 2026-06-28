@@ -34,12 +34,12 @@ async def list_lawyers(  # pragma: no cover
     law_firm_id: int | None = None,
 ) -> list[LawyerOut]:
     filters = LawyerListFiltersDTO(search=search, law_firm_id=law_firm_id)
-    return await sync_to_async(lambda: list(_lawyer_service.list_lawyers(filters=filters, user=get_request_user(request))))()
+    return await sync_to_async(lambda: list(_lawyer_service.list_lawyers(filters=filters, user=get_request_user(request))))()  # type: ignore[return-value]
 
 
 @router.get("/lawyers/{lawyer_id}", response=LawyerOut)
 async def get_lawyer(request: HttpRequest, lawyer_id: int) -> LawyerOut:  # pragma: no cover
-    return await sync_to_async(_lawyer_service.get_lawyer)(lawyer_id, get_request_user(request))
+    return await sync_to_async(_lawyer_service.get_lawyer)(lawyer_id, get_request_user(request))  # type: ignore[return-value]
 
 
 @router.post("/lawyers", response=LawyerOut)
@@ -61,7 +61,7 @@ async def create_lawyer(  # pragma: no cover
         lawyer_team_ids=payload.lawyer_team_ids,
         biz_team_ids=payload.biz_team_ids,
     )
-    return await sync_to_async(_lawyer_service.create_lawyer)(
+    return await sync_to_async(_lawyer_service.create_lawyer)(  # type: ignore[return-value]
         data=dto, user=get_request_user(request), license_pdf=license_pdf, avatar=avatar
     )
 
@@ -85,7 +85,7 @@ async def update_lawyer(  # pragma: no cover
         lawyer_team_ids=payload.lawyer_team_ids,
         biz_team_ids=payload.biz_team_ids,
     )
-    return await sync_to_async(_lawyer_service.update_lawyer)(
+    return await sync_to_async(_lawyer_service.update_lawyer)(  # type: ignore[return-value]
         lawyer_id=lawyer_id,
         data=dto,
         user=get_request_user(request),
