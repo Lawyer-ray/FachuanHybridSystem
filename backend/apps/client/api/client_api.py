@@ -63,22 +63,22 @@ async def list_clients(  # pragma: no cover
     user = getattr(request, "auth", None) or extract_request_context(request).user
 
     @sync_to_async
-    def _fetch() -> list[Any]:
+    def _fetch() -> list[dict]:
         qs = facade.list_clients(
             client_type=client_type,
             is_our_client=is_our_client,
             search=search,
             user=user,
         )
-        # Materialize queryset inside sync context so Django Ninja
-        # serialization won't trigger sync ORM calls.
-        return list(qs)
+        # Materialize queryset AND trigger schema resolution inside sync context
+        # so that lazy relationships (identity_docs) are accessed synchronously.
+        return [ClientOut.from_orm(c).model_dump() for c in qs]
 
     return cast(list[ClientOut], await _fetch())
 
 
 @router.post("/clients/parse-text")
-def parse_client_text(request: Any, payload: ParseTextRequest) -> dict[str, Any]:  # pragma: no cover
+async def parse_client_text(request: Any, payload: ParseTextRequest) -> dict[str, Any]:  # pragma: no cover
     """解析客户文本信息"""
     if payload.parse_multiple:
         results = [c for c in _parse_multi(payload.text) if c.get("name")]
@@ -92,20 +92,20 @@ def parse_client_text(request: Any, payload: ParseTextRequest) -> dict[str, Any]
 
 
 @router.get("/parse-text")
-def parse_text_get(request: Any, text: str = "") -> dict[str, Any]:  # pragma: no cover
+async def parse_text_get(request: Any, text: str = "") -> dict[str, Any]:  # pragma: no cover
     """解析客户文本（GET 方式）。"""
     return _parse_client(text)
 
 
 @router.post("/clients/validate-id-card", response=IdCardValidateResponse)
-def validate_id_card(request: Any, payload: IdCardValidateRequest) -> IdCardValidateResponse:  # pragma: no cover
+async def validate_id_card(request: Any, payload: IdCardValidateRequest) -> IdCardValidateResponse:  # pragma: no cover
     """校验身份证号码是否合法"""
     result = IdCardUtils.validate_id_card(payload.id_number)
     return IdCardValidateResponse(valid=bool(result["valid"]), message=str(result["message"]))
 
 
 @router.get("/clients/check-oa-credential", response=OACredentialCheckOut)
-def check_oa_credential(request: Any) -> OACredentialCheckOut:  # pragma: no cover
+async def check_oa_credential(request: Any) -> OACredentialCheckOut:  # pragma: no cover
     """检查当前用户是否有金诚同达OA凭证。"""
     from apps.organization.services.credential.account_credential_service import AccountCredentialService
 
@@ -113,29 +113,41 @@ def check_oa_credential(request: Any) -> OACredentialCheckOut:  # pragma: no cov
     if lawyer_id is None:
         return OACredentialCheckOut(has_credential=False)
 
-    has_credential = AccountCredentialService().has_jtn_credential(lawyer_id)
+    has_credential = await sync_to_async(AccountCredentialService().has_jtn_credential)(lawyer_id)
 
     return OACredentialCheckOut(has_credential=has_credential)
 
 
 @router.get("/clients/{client_id}", response=ClientOut)
-def get_client(request: Any, client_id: int) -> Any:  # pragma: no cover
+async def get_client(request: Any, client_id: int) -> Any:  # pragma: no cover
     """获取单个客户"""
     facade = _get_query_facade()
     user = getattr(request, "auth", None) or extract_request_context(request).user
-    return facade.get_client(client_id=client_id, user=user)
+
+    @sync_to_async
+    def _fetch() -> dict:
+        client = facade.get_client(client_id=client_id, user=user)
+        return ClientOut.from_orm(client).model_dump()
+
+    return await _fetch()
 
 
 @router.post("/clients", response=ClientOut)
-def create_client(request: Any, payload: ClientIn) -> Any:  # pragma: no cover
+async def create_client(request: Any, payload: ClientIn) -> Any:  # pragma: no cover
     """创建客户"""
     service = _get_mutation_service()
     user = getattr(request, "auth", None) or extract_request_context(request).user
-    return service.create_client(data=payload.model_dump(), user=user)
+
+    @sync_to_async
+    def _create() -> dict:
+        client = service.create_client(data=payload.model_dump(), user=user)
+        return ClientOut.from_orm(client).model_dump()
+
+    return await _create()
 
 
 @router.post("/clients-with-docs", response=ClientOut)
-def create_client_with_docs(  # pragma: no cover
+async def create_client_with_docs(  # pragma: no cover
     request: Any,
     payload: ClientIn,
     doc_types: list[str],
@@ -151,35 +163,52 @@ def create_client_with_docs(  # pragma: no cover
 
     mutation_service = _get_mutation_service()
     user = getattr(request, "auth", None) or extract_request_context(request).user
-    return mutation_service.create_client_with_docs(
-        data=payload.model_dump(),
-        doc_types=doc_types,
-        files=files,
-        user=user,
-    )
+
+    @sync_to_async
+    def _create() -> dict:
+        client = mutation_service.create_client_with_docs(
+            data=payload.model_dump(),
+            doc_types=doc_types,
+            files=files,
+            user=user,
+        )
+        return ClientOut.from_orm(client).model_dump()
+
+    return await _create()
 
 
 @router.put("/clients/{client_id}", response=ClientOut)
-def update_client(request: Any, client_id: int, payload: ClientUpdateIn) -> Any:  # pragma: no cover
+async def update_client(request: Any, client_id: int, payload: ClientUpdateIn) -> Any:  # pragma: no cover
     """更新客户"""
     service = _get_mutation_service()
     data = payload.model_dump(exclude_unset=True)
     user = getattr(request, "auth", None) or extract_request_context(request).user
-    return service.update_client(client_id=client_id, data=data, user=user)
+
+    @sync_to_async
+    def _update() -> dict:
+        client = service.update_client(client_id=client_id, data=data, user=user)
+        return ClientOut.from_orm(client).model_dump()
+
+    return await _update()
 
 
 @router.delete("/clients/{client_id}", response={204: None})
-def delete_client(request: Any, client_id: int) -> Any:  # pragma: no cover
+async def delete_client(request: Any, client_id: int) -> Any:  # pragma: no cover
     """删除客户"""
     service = _get_mutation_service()
     user = getattr(request, "auth", None) or extract_request_context(request).user
-    service.delete_client(client_id=client_id, user=user)
+    await sync_to_async(service.delete_client)(client_id=client_id, user=user)
 
     return Status(204, None)
 
 
 @router.get("/clients/{client_id}/related-items", response=RelatedItemsOut)
-def get_related_items(request: Any, client_id: int) -> Any:  # pragma: no cover
+async def get_related_items(request: Any, client_id: int) -> Any:  # pragma: no cover
     """获取客户关联的案件和合同"""
     facade = _get_query_facade()
-    return facade.get_related_items(client_id=client_id)
+
+    @sync_to_async
+    def _fetch() -> Any:
+        return facade.get_related_items(client_id=client_id)
+
+    return await _fetch()

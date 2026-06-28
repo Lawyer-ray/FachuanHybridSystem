@@ -3,6 +3,7 @@
 import mimetypes
 from typing import Any
 
+from asgiref.sync import sync_to_async
 from ninja import File, Form, Router
 from ninja.files import UploadedFile
 
@@ -62,55 +63,84 @@ def _get_recording_extract_facade() -> RecordingExtractFacade:
 
 @router.get("/export-types")
 @rate_limit_from_settings("EXPORT", by_user=True)
-def get_export_types(request: Any) -> Any:  # pragma: no cover
+async def get_export_types(request: Any) -> Any:  # pragma: no cover
     return list_export_types()
 
 
 @router.get("/export-statuses")
 @rate_limit_from_settings("EXPORT", by_user=True)
-def get_export_statuses(request: Any) -> Any:  # pragma: no cover
+async def get_export_statuses(request: Any) -> Any:  # pragma: no cover
     return list_export_statuses()
 
 
 @router.post("/projects", response=ProjectOut)
-def create_project(request: Any, payload: ProjectIn) -> Any:  # pragma: no cover
+async def create_project(request: Any, payload: ProjectIn) -> Any:  # pragma: no cover
     user = getattr(request, "user", None)
     service = _get_project_service()
-    project = service.create_project(
-        name=payload.name,
-        description=payload.description or "",
-        created_by=user if getattr(user, "is_authenticated", False) else None,
-    )
-    return project
+
+    @sync_to_async
+    def _create() -> dict:
+        project = service.create_project(
+            name=payload.name,
+            description=payload.description or "",
+            created_by=user if getattr(user, "is_authenticated", False) else None,
+        )
+        return ProjectOut.from_orm(project).model_dump(by_alias=True)
+
+    return await _create()
 
 
 @router.get("/projects", response=list[ProjectOut])
-def list_projects(request: Any) -> Any:  # pragma: no cover
+async def list_projects(request: Any) -> Any:  # pragma: no cover
     user = getattr(request, "user", None)
     service = _get_project_service()
-    return service.list_projects(user=user)
+
+    @sync_to_async
+    def _fetch() -> list[dict]:
+        qs = service.list_projects(user=user)
+        return [ProjectOut.from_orm(p).model_dump(by_alias=True) for p in qs]
+
+    return await _fetch()
 
 
 @router.get("/projects/{project_id}/recordings", response=list[RecordingOut])
-def list_recordings(request: Any, project_id: int) -> Any:  # pragma: no cover
+async def list_recordings(request: Any, project_id: int) -> Any:  # pragma: no cover
     user = getattr(request, "user", None)
     service = _get_recording_service()
-    return service.list_recordings(user=user, project_id=project_id)
+
+    @sync_to_async
+    def _fetch() -> list[dict]:
+        qs = service.list_recordings(user=user, project_id=project_id)
+        return [RecordingOut.from_orm(r).model_dump(by_alias=True) for r in qs]
+
+    return await _fetch()
 
 
 @router.post("/projects/{project_id}/recordings", response=RecordingOut)
 @rate_limit_from_settings("UPLOAD", by_user=True)
-def upload_recording(request: Any, project_id: int, file: UploadedFile = File(...)) -> Any:  # pragma: no cover
+async def upload_recording(request: Any, project_id: int, file: UploadedFile = File(...)) -> Any:  # pragma: no cover
     user = getattr(request, "user", None)
     service = _get_recording_service()
-    return service.upload_recording(user=user, project_id=project_id, file=file)
+
+    @sync_to_async
+    def _create() -> dict:
+        recording = service.upload_recording(user=user, project_id=project_id, file=file)
+        return RecordingOut.from_orm(recording).model_dump(by_alias=True)
+
+    return await _create()
 
 
 @router.get("/recordings/{recording_id}", response=RecordingOut)
-def get_recording(request: Any, recording_id: str) -> Any:  # pragma: no cover
+async def get_recording(request: Any, recording_id: str) -> Any:  # pragma: no cover
     user = getattr(request, "user", None)
     service = _get_recording_service()
-    return service.get_recording(user=user, recording_id=recording_id)
+
+    @sync_to_async
+    def _fetch() -> dict:
+        recording = service.get_recording(user=user, recording_id=recording_id)
+        return RecordingOut.from_orm(recording).model_dump(by_alias=True)
+
+    return await _fetch()
 
 
 @router.api_operation(["GET", "HEAD"], "/recordings/{recording_id}/stream")
@@ -129,23 +159,29 @@ def stream_recording(request: Any, recording_id: str) -> Any:  # pragma: no cove
 
 
 @router.patch("/recordings/{recording_id}", response=RecordingOut)
-def update_recording(request: Any, recording_id: str, payload: RecordingUpdate) -> Any:  # pragma: no cover
+async def update_recording(request: Any, recording_id: str, payload: RecordingUpdate) -> Any:  # pragma: no cover
     service = _get_recording_service()
     user = getattr(request, "user", None)
     data = schema_to_update_dict(payload)
-    return service.update_duration(user=user, recording_id=recording_id, duration_seconds=data.get("duration_seconds"))
+
+    @sync_to_async
+    def _update() -> dict:
+        recording = service.update_duration(user=user, recording_id=recording_id, duration_seconds=data.get("duration_seconds"))
+        return RecordingOut.from_orm(recording).model_dump(by_alias=True)
+
+    return await _update()
 
 
 @router.delete("/recordings/{recording_id}")
-def delete_recording(request: Any, recording_id: str) -> Any:  # pragma: no cover
+async def delete_recording(request: Any, recording_id: str) -> Any:  # pragma: no cover
     service = _get_recording_service()
     user = getattr(request, "user", None)
-    return service.delete_recording(user=user, recording_id=recording_id)
+    return await sync_to_async(service.delete_recording)(user=user, recording_id=recording_id)
 
 
 @router.post("/recordings/{recording_id}/extract", response=RecordingOut)
 @rate_limit_from_settings("TASK", by_user=True)
-def extract_recording(  # pragma: no cover
+async def extract_recording(  # pragma: no cover
     request: Any,
     recording_id: str,
     interval_seconds: float = Form(1.0),
@@ -156,43 +192,69 @@ def extract_recording(  # pragma: no cover
 ) -> Any:
 
     facade = _get_recording_extract_facade()
-    return facade.submit(
-        user=getattr(request, "user", None),
-        recording_id=recording_id,
-        params=RecordingExtractParams(
-            interval_seconds=float(interval_seconds or 1.0),
-            strategy=str(strategy or "interval"),
-            dedup_threshold=dedup_threshold,
-            ocr_similarity_threshold=ocr_similarity_threshold,
-            ocr_min_new_chars=ocr_min_new_chars,
-        ),
-    )
+
+    @sync_to_async
+    def _submit() -> dict:
+        recording = facade.submit(
+            user=getattr(request, "user", None),
+            recording_id=recording_id,
+            params=RecordingExtractParams(
+                interval_seconds=float(interval_seconds or 1.0),
+                strategy=str(strategy or "interval"),
+                dedup_threshold=dedup_threshold,
+                ocr_similarity_threshold=ocr_similarity_threshold,
+                ocr_min_new_chars=ocr_min_new_chars,
+            ),
+        )
+        return RecordingOut.from_orm(recording).model_dump(by_alias=True)
+
+    return await _submit()
 
 
 @router.post("/recordings/{recording_id}/extract/cancel", response=RecordingOut)
 @rate_limit_from_settings("TASK", by_user=True)
-def cancel_extract_recording(request: Any, recording_id: str) -> Any:  # pragma: no cover
-    return _get_recording_extract_facade().request_cancel(
-        user=getattr(request, "user", None), recording_id=recording_id
-    )
+async def cancel_extract_recording(request: Any, recording_id: str) -> Any:  # pragma: no cover
+
+    @sync_to_async
+    def _cancel() -> dict:
+        recording = _get_recording_extract_facade().request_cancel(
+            user=getattr(request, "user", None), recording_id=recording_id,
+        )
+        return RecordingOut.from_orm(recording).model_dump(by_alias=True)
+
+    return await _cancel()
 
 
 @router.post("/recordings/{recording_id}/extract/reset", response=RecordingOut)
 @rate_limit_from_settings("TASK", by_user=True)
-def reset_extract_recording(request: Any, recording_id: str) -> Any:  # pragma: no cover
-    return _get_recording_extract_facade().reset(user=getattr(request, "user", None), recording_id=recording_id)
+async def reset_extract_recording(request: Any, recording_id: str) -> Any:  # pragma: no cover
+
+    @sync_to_async
+    def _reset() -> dict:
+        recording = _get_recording_extract_facade().reset(
+            user=getattr(request, "user", None), recording_id=recording_id,
+        )
+        return RecordingOut.from_orm(recording).model_dump(by_alias=True)
+
+    return await _reset()
 
 
 @router.get("/projects/{project_id}/screenshots", response=list[ScreenshotOut])
-def list_screenshots(request: Any, project_id: int) -> Any:  # pragma: no cover
+async def list_screenshots(request: Any, project_id: int) -> Any:  # pragma: no cover
     user = getattr(request, "user", None)
     service = _get_screenshot_service()
-    return service.list_screenshots(user=user, project_id=project_id)
+
+    @sync_to_async
+    def _fetch() -> list[dict]:
+        qs = service.list_screenshots(user=user, project_id=project_id)
+        return [ScreenshotOut.from_orm(s).model_dump(by_alias=True) for s in qs]
+
+    return await _fetch()
 
 
 @router.post("/projects/{project_id}/screenshots", response=list[ScreenshotOut])
 @rate_limit_from_settings("UPLOAD", by_user=True)
-def upload_screenshots(  # pragma: no cover
+async def upload_screenshots(  # pragma: no cover
     request: Any,
     project_id: int,
     files: list[UploadedFile] = File(...),
@@ -200,57 +262,78 @@ def upload_screenshots(  # pragma: no cover
     capture_time_seconds: float | None = Form(None),
 ) -> Any:
     service = _get_screenshot_service()
-    return service.upload_screenshots(
-        user=getattr(request, "user", None),
-        project_id=project_id,
-        files=files,
-        deduplicate=deduplicate,
-        capture_time_seconds=capture_time_seconds,
-    )
 
+    @sync_to_async
+    def _create() -> list[dict]:
+        screenshots = service.upload_screenshots(
+            user=getattr(request, "user", None),
+            project_id=project_id,
+            files=files,
+            deduplicate=deduplicate,
+            capture_time_seconds=capture_time_seconds,
+        )
+        return [ScreenshotOut.from_orm(s).model_dump(by_alias=True) for s in screenshots]
 
-@router.patch("/screenshots/{screenshot_id}", response=ScreenshotOut)
-def update_screenshot(request: Any, screenshot_id: str, payload: ScreenshotUpdate) -> Any:  # pragma: no cover
-    service = _get_screenshot_service()
-    user = getattr(request, "user", None)
-    data = schema_to_update_dict(payload)
-    return service.update_screenshot(
-        user=user, screenshot_id=screenshot_id, title=data.get("title"), note=data.get("note")
-    )
-
-
-@router.delete("/screenshots/{screenshot_id}")
-def delete_screenshot(request: Any, screenshot_id: str) -> Any:  # pragma: no cover
-    service = _get_screenshot_service()
-    return service.delete_screenshot(user=getattr(request, "user", None), screenshot_id=screenshot_id)
+    return await _create()
 
 
 @router.post("/projects/{project_id}/screenshots/reorder")
-def reorder_screenshots(request: Any, project_id: int, payload: ScreenshotReorderIn) -> Any:  # pragma: no cover
+async def reorder_screenshots(request: Any, project_id: int, payload: ScreenshotReorderIn) -> Any:  # pragma: no cover
     service = _get_screenshot_service()
-    return service.reorder_screenshots(
-        user=getattr(request, "user", None), project_id=project_id, screenshot_ids=payload.screenshot_ids
-    )
+    user = getattr(request, "user", None)
+
+    @sync_to_async
+    def _reorder() -> Any:
+        return service.reorder_screenshots(user=user, project_id=project_id, screenshot_ids=payload.screenshot_ids)
+
+    return await _reorder()
+
+
+@router.patch("/screenshots/{screenshot_id}", response=ScreenshotOut)
+async def update_screenshot(request: Any, screenshot_id: str, payload: ScreenshotUpdate) -> Any:  # pragma: no cover
+    service = _get_screenshot_service()
+    user = getattr(request, "user", None)
+    data = schema_to_update_dict(payload)
+
+    @sync_to_async
+    def _update() -> dict:
+        screenshot = service.update_screenshot(
+            user=user, screenshot_id=screenshot_id, title=data.get("title"), note=data.get("note"),
+        )
+        return ScreenshotOut.from_orm(screenshot).model_dump(by_alias=True)
+
+    return await _update()
 
 
 @router.post("/projects/{project_id}/exports", response=ExportTaskOut)
 @rate_limit_from_settings("TASK", by_user=True)
-def create_export(request: Any, project_id: int, payload: ExportCreateIn) -> Any:  # pragma: no cover
+async def create_export(request: Any, project_id: int, payload: ExportCreateIn) -> Any:  # pragma: no cover
     service = _get_export_task_service()
     user = getattr(request, "user", None)
-    task = service.create_export_task(
-        user=user, project_id=project_id, export_type=payload.export_type, layout=payload.layout
-    )
-    service.submit_task(user=user, task_id=str(task.id))
-    task.refresh_from_db()
-    return task
+
+    @sync_to_async
+    def _create() -> dict:
+        task = service.create_export_task(
+            user=user, project_id=project_id, export_type=payload.export_type, layout=payload.layout,
+        )
+        service.submit_task(user=user, task_id=str(task.id))
+        task.refresh_from_db()
+        return ExportTaskOut.from_orm(task).model_dump(by_alias=True)
+
+    return await _create()
 
 
 @router.get("/exports/{task_id}", response=ExportTaskOut)
 @rate_limit_from_settings("EXPORT", by_user=True)
-def get_export_task(request: Any, task_id: str) -> Any:  # pragma: no cover
+async def get_export_task(request: Any, task_id: str) -> Any:  # pragma: no cover
     service = _get_export_task_service()
-    return service.get_task(user=getattr(request, "user", None), task_id=task_id)
+
+    @sync_to_async
+    def _fetch() -> dict:
+        task = service.get_task(user=getattr(request, "user", None), task_id=task_id)
+        return ExportTaskOut.from_orm(task).model_dump(by_alias=True)
+
+    return await _fetch()
 
 
 @router.get("/exports/{task_id}/download")

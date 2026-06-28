@@ -95,6 +95,25 @@ class EnterpriseDataService:
             executor=lambda selected: selected.search_companies(keyword=normalized_keyword),
         )
 
+    async def asearch_companies(
+        self,
+        *,
+        keyword: str,
+        provider: str | None = None,
+        include_raw: bool = False,
+    ) -> dict[str, Any]:
+        normalized_keyword = str(keyword or "").strip()
+        if not normalized_keyword:
+            raise ValidationException(message="keyword 不能为空", code="INVALID_KEYWORD")
+        query = {"keyword": normalized_keyword}
+        return await self._aexecute(
+            capability="search_companies",
+            provider=provider,
+            query=query,
+            include_raw=include_raw,
+            executor=lambda selected: selected.asearch_companies(keyword=normalized_keyword),
+        )
+
     def get_company_profile(
         self,
         *,
@@ -112,6 +131,25 @@ class EnterpriseDataService:
             query=query,
             include_raw=include_raw,
             executor=lambda selected: selected.get_company_profile(company_id=normalized_company_id),
+        )
+
+    async def aget_company_profile(
+        self,
+        *,
+        company_id: str,
+        provider: str | None = None,
+        include_raw: bool = False,
+    ) -> dict[str, Any]:
+        normalized_company_id = str(company_id or "").strip()
+        if not normalized_company_id:
+            raise ValidationException(message="company_id 不能为空", code="INVALID_COMPANY_ID")
+        query = {"company_id": normalized_company_id}
+        return await self._aexecute(
+            capability="get_company_profile",
+            provider=provider,
+            query=query,
+            include_raw=include_raw,
+            executor=lambda selected: selected.aget_company_profile(company_id=normalized_company_id),
         )
 
     def get_company_risks(
@@ -138,6 +176,30 @@ class EnterpriseDataService:
             ),
         )
 
+    async def aget_company_risks(
+        self,
+        *,
+        company_id: str,
+        risk_type: str = DEFAULT_RISK_TYPE,
+        provider: str | None = None,
+        include_raw: bool = False,
+    ) -> dict[str, Any]:
+        normalized_company_id = str(company_id or "").strip()
+        normalized_risk_type = str(risk_type or DEFAULT_RISK_TYPE).strip() or DEFAULT_RISK_TYPE
+        if not normalized_company_id:
+            raise ValidationException(message="company_id 不能为空", code="INVALID_COMPANY_ID")
+        query = {"company_id": normalized_company_id, "risk_type": normalized_risk_type}
+        return await self._aexecute(
+            capability="get_company_risks",
+            provider=provider,
+            query=query,
+            include_raw=include_raw,
+            executor=lambda selected: selected.aget_company_risks(
+                company_id=normalized_company_id,
+                risk_type=normalized_risk_type,
+            ),
+        )
+
     def get_company_shareholders(
         self,
         *,
@@ -155,6 +217,25 @@ class EnterpriseDataService:
             query=query,
             include_raw=include_raw,
             executor=lambda selected: selected.get_company_shareholders(company_id=normalized_company_id),
+        )
+
+    async def aget_company_shareholders(
+        self,
+        *,
+        company_id: str,
+        provider: str | None = None,
+        include_raw: bool = False,
+    ) -> dict[str, Any]:
+        normalized_company_id = str(company_id or "").strip()
+        if not normalized_company_id:
+            raise ValidationException(message="company_id 不能为空", code="INVALID_COMPANY_ID")
+        query = {"company_id": normalized_company_id}
+        return await self._aexecute(
+            capability="get_company_shareholders",
+            provider=provider,
+            query=query,
+            include_raw=include_raw,
+            executor=lambda selected: selected.aget_company_shareholders(company_id=normalized_company_id),
         )
 
     def get_company_personnel(
@@ -176,6 +257,25 @@ class EnterpriseDataService:
             executor=lambda selected: selected.get_company_personnel(company_id=normalized_company_id),
         )
 
+    async def aget_company_personnel(
+        self,
+        *,
+        company_id: str,
+        provider: str | None = None,
+        include_raw: bool = False,
+    ) -> dict[str, Any]:
+        normalized_company_id = str(company_id or "").strip()
+        if not normalized_company_id:
+            raise ValidationException(message="company_id 不能为空", code="INVALID_COMPANY_ID")
+        query = {"company_id": normalized_company_id}
+        return await self._aexecute(
+            capability="get_company_personnel",
+            provider=provider,
+            query=query,
+            include_raw=include_raw,
+            executor=lambda selected: selected.aget_company_personnel(company_id=normalized_company_id),
+        )
+
     def get_person_profile(
         self,
         *,
@@ -193,6 +293,25 @@ class EnterpriseDataService:
             query=query,
             include_raw=include_raw,
             executor=lambda selected: selected.get_person_profile(hcgid=normalized_hcgid),
+        )
+
+    async def aget_person_profile(
+        self,
+        *,
+        hcgid: str,
+        provider: str | None = None,
+        include_raw: bool = False,
+    ) -> dict[str, Any]:
+        normalized_hcgid = str(hcgid or "").strip()
+        if not normalized_hcgid:
+            raise ValidationException(message="hcgid 不能为空", code="INVALID_HCGID")
+        query = {"hcgid": normalized_hcgid}
+        return await self._aexecute(
+            capability="get_person_profile",
+            provider=provider,
+            query=query,
+            include_raw=include_raw,
+            executor=lambda selected: selected.aget_person_profile(hcgid=normalized_hcgid),
         )
 
     def search_bidding_info(
@@ -238,6 +357,57 @@ class EnterpriseDataService:
             query=query,
             include_raw=include_raw,
             executor=lambda selected: selected.search_bidding_info(
+                keyword=normalized_keyword,
+                search_type=search_type,
+                bid_type=bid_type,
+                start_date=(start_date.isoformat() if start_date else None),
+                end_date=(end_date.isoformat() if end_date else None),
+            ),
+        )
+
+    async def asearch_bidding_info(
+        self,
+        *,
+        keyword: str,
+        search_type: int = 1,
+        bid_type: int = 4,
+        start_date: date | None = None,
+        end_date: date | None = None,
+        provider: str | None = None,
+        include_raw: bool = False,
+    ) -> dict[str, Any]:
+        normalized_keyword = str(keyword or "").strip()
+        if not normalized_keyword:
+            raise ValidationException(message="keyword 不能为空", code="INVALID_KEYWORD")
+        if search_type not in _BIDDING_SEARCH_TYPES:
+            raise ValidationException(
+                message=f"search_type 必须为 {sorted(_BIDDING_SEARCH_TYPES)} 之一",
+                code="INVALID_SEARCH_TYPE",
+            )
+        if bid_type not in _BIDDING_BID_TYPES:
+            raise ValidationException(
+                message=f"bid_type 必须为 {sorted(_BIDDING_BID_TYPES)} 之一",
+                code="INVALID_BID_TYPE",
+            )
+        if start_date and end_date and start_date > end_date:
+            raise ValidationException(message="start_date 不能晚于 end_date", code="INVALID_DATE_RANGE")
+
+        query: dict[str, Any] = {
+            "keyword": normalized_keyword,
+            "search_type": search_type,
+            "bid_type": bid_type,
+        }
+        if start_date:
+            query["start_date"] = start_date.isoformat()
+        if end_date:
+            query["end_date"] = end_date.isoformat()
+
+        return await self._aexecute(
+            capability="search_bidding_info",
+            provider=provider,
+            query=query,
+            include_raw=include_raw,
+            executor=lambda selected: selected.asearch_bidding_info(
                 keyword=normalized_keyword,
                 search_type=search_type,
                 bid_type=bid_type,
@@ -329,6 +499,96 @@ class EnterpriseDataService:
         payload["meta"] = payload_meta
         cache_ttl = self._registry.get_cache_ttl_seconds()
         cache.set(cache_key, payload, timeout=cache_ttl)
+
+        if not include_raw:
+            payload = dict(payload)
+            payload["raw"] = None
+        return payload
+
+    async def _aexecute(
+        self,
+        *,
+        capability: str,
+        provider: str | None,
+        query: dict[str, Any],
+        include_raw: bool,
+        executor: Any,
+    ) -> dict[str, Any]:
+        """异步版本的 _execute，使用 cache.aget/aset 替代同步缓存调用。"""
+        selected_provider = self._registry.get_provider(provider)
+        selected_provider_name = selected_provider.name
+        cache_key = self._build_cache_key(provider=selected_provider_name, capability=capability, query=query)
+
+        cached = await cache.aget(cache_key)
+        if isinstance(cached, dict):
+            payload = dict(cached)
+            payload_meta = dict(payload.get("meta", {}))
+            payload_meta["cached"] = True
+            payload["meta"] = payload_meta
+            if not include_raw:
+                payload["raw"] = None
+            return payload
+
+        started = time.perf_counter()
+        try:
+            response: ProviderResponse = await executor(selected_provider)
+        except Exception as exc:
+            duration_ms = int((time.perf_counter() - started) * 1000)
+            # Stale cache fallback: return expired cached result when provider fails
+            stale = await cache.aget(cache_key)
+            if isinstance(stale, dict):
+                stale_meta = dict(stale.get("meta", {}))
+                stale_meta["cached"] = True
+                stale_meta["stale"] = True
+                stale["meta"] = stale_meta
+                self._metrics.record(
+                    provider=selected_provider_name,
+                    capability=capability,
+                    success=False,
+                    duration_ms=duration_ms,
+                    fallback_used=True,
+                )
+                logger.warning(
+                    "MCP 调用失败，返回过期缓存: provider=%s capability=%s error=%s",
+                    selected_provider_name,
+                    capability,
+                    exc,
+                )
+                if not include_raw:
+                    stale = dict(stale)
+                    stale["raw"] = None
+                return stale
+            self._metrics.record(
+                provider=selected_provider_name,
+                capability=capability,
+                success=False,
+                duration_ms=duration_ms,
+                fallback_used=False,
+            )
+            raise
+        payload = self._build_query_payload(
+            provider=selected_provider_name,
+            transport=selected_provider.transport,
+            capability=capability,
+            query=query,
+            response=response,
+            include_raw=include_raw,
+        )
+        measured_duration_ms = int((time.perf_counter() - started) * 1000)
+        duration_ms = int(response.meta.get("duration_ms", measured_duration_ms) or measured_duration_ms)
+        fallback_used = bool(response.meta.get("fallback_used", False))
+        observability = self._metrics.record(
+            provider=selected_provider_name,
+            capability=capability,
+            success=True,
+            duration_ms=duration_ms,
+            fallback_used=fallback_used,
+        )
+        payload_meta = dict(payload.get("meta", {}))
+        payload_meta["observability"] = observability
+        payload["meta"] = payload_meta
+        cache_ttl = self._registry.get_cache_ttl_seconds()
+        await cache.aset(cache_key, payload, timeout=cache_ttl)
 
         if not include_raw:
             payload = dict(payload)

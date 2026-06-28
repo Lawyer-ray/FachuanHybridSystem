@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from types import SimpleNamespace
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -19,7 +19,8 @@ import pytest
 
 
 class TestListTemplatesBranches:
-    def test_steps_schema_as_dict(self):
+    @pytest.mark.asyncio
+    async def test_steps_schema_as_dict(self):
         """steps_schema that's not a list should give steps_count=0."""
         from apps.workflow.api.template_api import list_templates
 
@@ -36,11 +37,14 @@ class TestListTemplatesBranches:
         mock_t.updated_at = datetime(2025, 1, 2)
 
         with patch("apps.workflow.api.template_api.WorkflowTemplate") as MockModel:
-            MockModel.objects.all.return_value = [mock_t]
-            result = list_templates(MagicMock(), category=None, is_active=None)
+            async def mock_aiter(self_list):
+                yield mock_t
+            MockModel.objects.all.return_value.__aiter__ = mock_aiter
+            result = await list_templates(MagicMock(), category=None, is_active=None)
         assert result[0]["steps_count"] == 0
 
-    def test_steps_schema_as_list(self):
+    @pytest.mark.asyncio
+    async def test_steps_schema_as_list(self):
         from apps.workflow.api.template_api import list_templates
 
         mock_t = MagicMock()
@@ -56,8 +60,10 @@ class TestListTemplatesBranches:
         mock_t.updated_at = datetime(2025, 1, 2)
 
         with patch("apps.workflow.api.template_api.WorkflowTemplate") as MockModel:
-            MockModel.objects.all.return_value = [mock_t]
-            result = list_templates(MagicMock(), category=None, is_active=None)
+            async def mock_aiter(self_list):
+                yield mock_t
+            MockModel.objects.all.return_value.__aiter__ = mock_aiter
+            result = await list_templates(MagicMock(), category=None, is_active=None)
         assert result[0]["steps_count"] == 2
 
 
@@ -67,7 +73,8 @@ class TestListTemplatesBranches:
 
 
 class TestCreateTemplateWithSteps:
-    def test_with_steps(self):
+    @pytest.mark.asyncio
+    async def test_with_steps(self):
         from apps.workflow.api.template_api import create_template
 
         step = MagicMock()
@@ -83,13 +90,13 @@ class TestCreateTemplateWithSteps:
         payload.is_active = True
 
         with patch("apps.workflow.api.template_api.WorkflowTemplate") as MockModel:
-            MockModel.objects.filter.return_value.exists.return_value = False
+            MockModel.objects.filter.return_value.aexists = AsyncMock(return_value=False)
             mock_t = MagicMock()
             mock_t.id = 1
             mock_t.name = "With Steps"
             mock_t.slug = "with-steps"
-            MockModel.objects.create.return_value = mock_t
-            result = create_template(MagicMock(), payload)
+            MockModel.objects.acreate = AsyncMock(return_value=mock_t)
+            result = await create_template(MagicMock(), payload)
 
         assert result["id"] == 1
 
@@ -100,7 +107,8 @@ class TestCreateTemplateWithSteps:
 
 
 class TestGetTemplateBranches:
-    def test_all_fields_present(self):
+    @pytest.mark.asyncio
+    async def test_all_fields_present(self):
         from apps.workflow.api.template_api import get_template
 
         mock_t = MagicMock()
@@ -116,8 +124,8 @@ class TestGetTemplateBranches:
         mock_t.updated_at = datetime(2025, 1, 2)
 
         with patch("apps.workflow.api.template_api.WorkflowTemplate") as MockModel:
-            MockModel.objects.get.return_value = mock_t
-            result = get_template(MagicMock(), template_id=1)
+            MockModel.objects.aget = AsyncMock(return_value=mock_t)
+            result = await get_template(MagicMock(), template_id=1)
 
         assert result["temporal_workflow_name"] == "DW"
         assert result["steps_schema"] == [{"id": "s1"}]
@@ -130,7 +138,8 @@ class TestGetTemplateBranches:
 
 
 class TestUpdateTemplateAllFields:
-    def test_update_all_fields(self):
+    @pytest.mark.asyncio
+    async def test_update_all_fields(self):
         from apps.workflow.api.template_api import update_template
 
         step = MagicMock()
@@ -148,11 +157,11 @@ class TestUpdateTemplateAllFields:
         mock_t = MagicMock()
         mock_t.id = 1
         mock_t.name = "Old"
-        mock_t.save = MagicMock()
+        mock_t.asave = AsyncMock()
 
         with patch("apps.workflow.api.template_api.WorkflowTemplate") as MockModel:
-            MockModel.objects.get.return_value = mock_t
-            result = update_template(MagicMock(), template_id=1, payload=payload)
+            MockModel.objects.aget = AsyncMock(return_value=mock_t)
+            result = await update_template(MagicMock(), template_id=1, payload=payload)
 
         assert mock_t.name == "New Name"
         assert mock_t.slug == "new-slug"
@@ -161,7 +170,7 @@ class TestUpdateTemplateAllFields:
         assert mock_t.temporal_workflow_name == "NewDW"
         assert mock_t.steps_schema == [{"id": "new_step"}]
         assert mock_t.is_active is False
-        mock_t.save.assert_called_once()
+        mock_t.asave.assert_called_once()
 
 
 # ---------------------------------------------------------------------------
@@ -170,15 +179,17 @@ class TestUpdateTemplateAllFields:
 
 
 class TestDeleteTemplate:
-    def test_returns_message_with_name(self):
+    @pytest.mark.asyncio
+    async def test_returns_message_with_name(self):
         from apps.workflow.api.template_api import delete_template
 
         mock_t = MagicMock()
         mock_t.name = "My Template"
+        mock_t.adelete = AsyncMock()
 
         with patch("apps.workflow.api.template_api.WorkflowTemplate") as MockModel:
-            MockModel.objects.get.return_value = mock_t
-            result = delete_template(MagicMock(), template_id=1)
+            MockModel.objects.aget = AsyncMock(return_value=mock_t)
+            result = await delete_template(MagicMock(), template_id=1)
 
         assert "My Template" in result["message"]
 
@@ -189,7 +200,8 @@ class TestDeleteTemplate:
 
 
 class TestDuplicateTemplateEdgeCases:
-    def test_multiple_collisions(self):
+    @pytest.mark.asyncio
+    async def test_multiple_collisions(self):
         from apps.workflow.api.template_api import duplicate_template
 
         source = MagicMock()
@@ -207,16 +219,16 @@ class TestDuplicateTemplateEdgeCases:
 
         call_count = 0
 
-        def mock_exists():
+        async def mock_aexists():
             nonlocal call_count
             call_count += 1
             return call_count <= 5  # first 5 collisions
 
         with patch("apps.workflow.api.template_api.WorkflowTemplate") as MockModel:
-            MockModel.objects.get.return_value = source
-            MockModel.objects.filter.return_value.exists = mock_exists
-            MockModel.objects.create.return_value = new_t
-            result = duplicate_template(MagicMock(), template_id=1)
+            MockModel.objects.aget = AsyncMock(return_value=source)
+            MockModel.objects.filter.return_value.aexists = mock_aexists
+            MockModel.objects.acreate = AsyncMock(return_value=new_t)
+            result = await duplicate_template(MagicMock(), template_id=1)
 
         assert result["slug"] == "original-copy-5"
         assert call_count == 6  # original + 5 collisions + final success

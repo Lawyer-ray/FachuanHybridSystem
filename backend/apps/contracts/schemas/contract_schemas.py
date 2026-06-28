@@ -246,7 +246,9 @@ class ContractOut(ModelSchema):
         ]
 
     @staticmethod
-    def resolve_cases(obj: Contract) -> list[Any]:
+    def resolve_cases(obj: Any) -> list:
+        if isinstance(obj, dict):
+            return obj.get("cases", [])  # type: ignore[no-any-return]
         dtos = getattr(obj, "case_dtos", None)
         if dtos is not None:
             return [CaseOut.from_dto(dto) for dto in dtos]
@@ -254,35 +256,47 @@ class ContractOut(ModelSchema):
         return [CaseOut.from_model(item) for item in cases.all()]
 
     @staticmethod
-    def resolve_fee_mode(obj: Contract) -> str:
+    def resolve_fee_mode(obj: Any) -> str:
+        if isinstance(obj, dict):
+            return obj.get("fee_mode", "")  # type: ignore[no-any-return]
         return str(obj.get_fee_mode_display())
 
     @staticmethod
-    def resolve_contract_parties(obj: Contract) -> list[Any]:
+    def resolve_contract_parties(obj: Any) -> list:
+        if isinstance(obj, dict):
+            return obj.get("contract_parties", [])  # type: ignore[no-any-return]
         contract_parties = obj.contract_parties
         return list(contract_parties.all())
 
     @staticmethod
-    def resolve_representation_stages(obj: Contract) -> list[str]:
+    def resolve_representation_stages(obj: Any) -> list:
+        if isinstance(obj, dict):
+            return obj.get("representation_stages", [])  # type: ignore[no-any-return]
         label_map = {m.value: m.label for m in CaseStage}
         return [label_map.get(code, code) for code in (obj.representation_stages or [])]
 
     @staticmethod
-    def resolve_case_type_label(obj: Contract) -> str | None:
+    def resolve_case_type_label(obj: Any) -> str | None:
+        if isinstance(obj, dict):
+            return obj.get("case_type_label", None)
         try:
             return str(obj.get_case_type_display())
         except (AttributeError, ValueError):
             return None
 
     @staticmethod
-    def resolve_status_label(obj: Contract) -> str | None:
+    def resolve_status_label(obj: Any) -> str | None:
+        if isinstance(obj, dict):
+            return obj.get("status_label", None)
         try:
             return str(obj.get_status_display())
         except (AttributeError, ValueError):
             return None
 
     @staticmethod
-    def resolve_reminders(obj: Contract) -> list[Any]:
+    def resolve_reminders(obj: Any) -> list:
+        if isinstance(obj, dict):
+            return obj.get("reminders", [])  # type: ignore[no-any-return]
         # 优先使用上游已预取的 reminders 数据（ContractQuerySetManager 已包含 "reminders"）
         # 只处理直接关联到合同的提醒（case_log_id 为空），与 export_contract_reminders_internal 逻辑一致
         reminders = [r for r in obj.reminders.all() if r.case_log_id is None]
@@ -309,7 +323,9 @@ class ContractOut(ModelSchema):
         ]
 
     @staticmethod
-    def resolve_payments(obj: Contract) -> list[Any]:
+    def resolve_payments(obj: Any) -> list:
+        if isinstance(obj, dict):
+            return obj.get("payments", [])  # type: ignore[no-any-return]
         try:
             return list(obj.payments.all())
         except Exception:
@@ -317,7 +333,9 @@ class ContractOut(ModelSchema):
             return []
 
     @staticmethod
-    def resolve_total_received(obj: Contract) -> float:
+    def resolve_total_received(obj: Any) -> float:
+        if isinstance(obj, dict):
+            return float(obj.get("total_received", 0.0))
         # 优先使用 queryset 层 annotate 的 _total_received（见 contract_api.py）
         annotated = getattr(obj, "_total_received", None)
         if annotated is not None:
@@ -329,7 +347,9 @@ class ContractOut(ModelSchema):
             return 0.0
 
     @staticmethod
-    def resolve_total_invoiced(obj: Contract) -> float:
+    def resolve_total_invoiced(obj: Any) -> float:
+        if isinstance(obj, dict):
+            return float(obj.get("total_invoiced", 0.0))
         # 优先使用 queryset 层 annotate 的 _total_invoiced
         annotated = getattr(obj, "_total_invoiced", None)
         if annotated is not None:
@@ -341,7 +361,9 @@ class ContractOut(ModelSchema):
             return 0.0
 
     @staticmethod
-    def resolve_unpaid_amount(obj: Contract) -> float | None:
+    def resolve_unpaid_amount(obj: Any) -> float | None:
+        if isinstance(obj, dict):
+            return obj.get("unpaid_amount", None)
         try:
             if obj.fixed_amount is None:
                 return None
@@ -353,18 +375,21 @@ class ContractOut(ModelSchema):
             return None
 
     @staticmethod
-    def resolve_supplementary_agreements(obj: Contract) -> list[Any]:
-        """解析补充协议列表（上游已预取 parties__client）"""
+    def resolve_supplementary_agreements(obj: Any) -> list:
+        if isinstance(obj, dict):
+            return obj.get("supplementary_agreements", [])  # type: ignore[no-any-return]
         return list(obj.supplementary_agreements.all())
 
     @staticmethod
-    def resolve_assignments(obj: Contract) -> list[ContractAssignmentOut]:
-        """解析律师指派列表（上游已预取 lawyer）"""
+    def resolve_assignments(obj: Any) -> list:
+        if isinstance(obj, dict):
+            return obj.get("assignments", [])  # type: ignore[no-any-return]
         return [ContractAssignmentOut.from_assignment(a) for a in obj.assignments.all()]
 
     @staticmethod
-    def resolve_primary_lawyer(obj: Contract) -> LawyerOut | None:
-        """解析主办律师（使用预取数据避免额外查询）"""
+    def resolve_primary_lawyer(obj: Any) -> LawyerOut | None:
+        if isinstance(obj, dict):
+            return obj.get("primary_lawyer", None)
         dto = getattr(obj, "primary_lawyer_dto", None)
         if dto is not None:
             return LawyerOut.from_dto(dto)
@@ -383,21 +408,29 @@ class ContractOut(ModelSchema):
         return LawyerOut.from_model(chosen.lawyer)
 
     @staticmethod
-    def resolve_matched_document_template(obj: Contract) -> str | None:
+    def resolve_matched_document_template(obj: Any) -> str | None:
+        if isinstance(obj, dict):
+            return obj.get("matched_document_template", None)
         value = getattr(obj, "_computed_matched_document_template", None)
         return None if value is None else str(value)
 
     @staticmethod
-    def resolve_matched_folder_templates(obj: Contract) -> str | None:
+    def resolve_matched_folder_templates(obj: Any) -> str | None:
+        if isinstance(obj, dict):
+            return obj.get("matched_folder_templates", None)
         value = getattr(obj, "_computed_matched_folder_templates", None)
         return None if value is None else str(value)
 
     @staticmethod
-    def resolve_has_matched_templates(obj: Contract) -> bool:
+    def resolve_has_matched_templates(obj: Any) -> bool:
+        if isinstance(obj, dict):
+            return bool(obj.get("has_matched_templates", False))
         return bool(getattr(obj, "_computed_has_matched_templates", False))
 
     @staticmethod
-    def resolve_client_payment_records(obj: Contract) -> list[Any]:
+    def resolve_client_payment_records(obj: Any) -> list:
+        if isinstance(obj, dict):
+            return obj.get("client_payment_records", [])  # type: ignore[no-any-return]
         try:
             return list(obj.client_payment_records.all())
         except Exception:
@@ -405,7 +438,9 @@ class ContractOut(ModelSchema):
             return []
 
     @staticmethod
-    def resolve_finalized_materials(obj: Contract) -> list[Any]:
+    def resolve_finalized_materials(obj: Any) -> list:
+        if isinstance(obj, dict):
+            return obj.get("finalized_materials", [])  # type: ignore[no-any-return]
         try:
             return list(obj.finalized_materials.all())
         except Exception:
@@ -413,7 +448,9 @@ class ContractOut(ModelSchema):
             return []
 
     @staticmethod
-    def resolve_can_archive(obj: Contract) -> bool:
+    def resolve_can_archive(obj: Any) -> bool:
+        if isinstance(obj, dict):
+            return bool(obj.get("can_archive", False))
         try:
             from apps.contracts.models.finalized_material import MaterialCategory
 

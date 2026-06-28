@@ -137,11 +137,16 @@ class RecordingOut(ModelSchema, SchemaMixin):
             return ""
 
     @staticmethod
-    def resolve_stream_url(obj: ChatRecordRecording) -> str:
+    def resolve_stream_url(obj: Any) -> str:
+        if isinstance(obj, dict):
+            obj_id = obj.get("id", "")
+            return f"/api/v1/chat-records/recordings/{obj_id}/stream"
         return f"/api/v1/chat-records/recordings/{obj.id}/stream"
 
     @staticmethod
-    def resolve_extract_status_label(obj: ChatRecordRecording) -> str:
+    def resolve_extract_status_label(obj: Any) -> str:
+        if isinstance(obj, dict):
+            return obj.get("extract_status_label", "")  # type: ignore[no-any-return]
         return SchemaMixin._get_display(obj, "extract_status") or ""
 
     @staticmethod

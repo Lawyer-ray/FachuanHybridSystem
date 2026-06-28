@@ -31,11 +31,20 @@ class ContractPartyOut(ModelSchema):
         fields: ClassVar = ["id", "contract", "client", "role"]
 
     @staticmethod
-    def resolve_client_detail(obj: ContractParty) -> ClientOut:
+    def resolve_client_detail(obj: Any) -> ClientOut:
+        if isinstance(obj, dict):
+            cd = obj.get("client_detail")
+            if isinstance(cd, dict):
+                return ClientOut(**cd)
+            if isinstance(cd, ClientOut):
+                return cd
+            return ClientOut()  # type: ignore[call-arg]
         return ClientOut.from_model(obj.client)
 
     @staticmethod
-    def resolve_role_label(obj: ContractParty) -> str:
+    def resolve_role_label(obj: Any) -> str:
+        if isinstance(obj, dict):
+            return obj.get("role_label", "")  # type: ignore[no-any-return]
         return obj.get_role_display() if obj.role else ""
 
 

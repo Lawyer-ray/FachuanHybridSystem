@@ -60,6 +60,37 @@ class WeChatWorkFileMixin:  # pragma: no cover
                 errors={"original_error": str(e), "file_path": file_path},
             ) from e
 
+    async def asend_file(self, chat_id: str, file_path: str) -> ChatResult:  # pragma: no cover
+        """异步发送文件到群聊（上传临时素材 -> 发送文件消息）"""
+        if not self.is_available():
+            raise ConfigurationException(
+                message="企业微信配置不完整，无法发送文件",
+                platform="wechat_work",
+                missing_config="CORP_ID, AGENT_ID, SECRET",
+            )
+
+        if not Path(file_path).exists():
+            raise MessageSendException(
+                message=f"文件不存在: {file_path}",
+                platform="wechat_work",
+                chat_id=chat_id,
+                errors={"file_path": file_path},
+            )
+
+        try:
+            media_id = await self._aupload_temp_material(file_path)
+            return await self._asend_file_message(chat_id, media_id, file_path)
+        except MessageSendException:
+            raise
+        except Exception as e:
+            logger.error(f"发送企业微信文件时发生未知错误: {e!s}")
+            raise MessageSendException(
+                message=f"发送文件时发生未知错误: {e!s}",
+                platform="wechat_work",
+                chat_id=chat_id,
+                errors={"original_error": str(e), "file_path": file_path},
+            ) from e
+
     def _upload_temp_material(self, file_path: str) -> str:  # pragma: no cover
         """上传临时素材到企业微信并获取 media_id"""
         try:

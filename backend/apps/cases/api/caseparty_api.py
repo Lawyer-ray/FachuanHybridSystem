@@ -2,13 +2,14 @@
 案件当事人 API
 符合四层架构规范：只做请求/响应处理，业务逻辑在 Service 层
 
-同步端点由 Django Ninja 自动包装到线程池执行，ORM 访问安全。
+异步端点，Service 层同步调用通过 sync_to_async 包装。
 """
 
 from __future__ import annotations
 
 from typing import Any
 
+from asgiref.sync import sync_to_async
 from django.http import HttpRequest
 from ninja import Router
 
@@ -25,48 +26,89 @@ def _get_case_party_service() -> Any:
     return CasePartyService()
 
 
+def _serialize_party(party: Any) -> dict:
+    """将 CaseParty 模型实例序列化为 dict，在同步上下文中调用。
+
+    返回的 dict 包含 by_alias 键名（case_id, client_id）以及
+    client_detail 和 legal_status 已解析的值，供 Django Ninja
+    response validation 直接使用。
+    """
+    schema = CasePartyOut.from_orm(party)
+    d = schema.model_dump(by_alias=True)
+    # Django Ninja's response validation re-runs resolve_client_detail via
+    # a DjangoGetter.  The resolver accesses ``getter.client`` (the FK name),
+    # so we must include a ``client`` key that points to the same pre-resolved
+    # client_detail data.  resolve_client_detail now handles dict/Schema inputs.
+    d["client"] = d.get("client_detail")
+    return d
+
+
 @router.get("/parties", response=list[CasePartyOut])
-def list_parties(request: HttpRequest, case_id: int | None = None) -> Any:  # pragma: no cover
+async def list_parties(request: HttpRequest, case_id: int | None = None) -> Any:  # pragma: no cover
     service = _get_case_party_service()
     ctx = extract_request_context(request)
-    return service.list_parties(
-        case_id=case_id, user=ctx.user, org_access=ctx.org_access, perm_open_access=ctx.perm_open_access,
-    )
+
+    @sync_to_async
+    def _fetch() -> list[dict]:
+        parties = service.list_parties(
+            case_id=case_id, user=ctx.user, org_access=ctx.org_access, perm_open_access=ctx.perm_open_access,
+        )
+        return [_serialize_party(p) for p in parties]
+
+    return await _fetch()
 
 
 @router.post("/parties", response=CasePartyOut)
-def create_party(request: HttpRequest, payload: CasePartyIn) -> Any:  # pragma: no cover
+async def create_party(request: HttpRequest, payload: CasePartyIn) -> Any:  # pragma: no cover
     service = _get_case_party_service()
     ctx = extract_request_context(request)
-    return service.create_party(
-        case_id=payload.case_id, client_id=payload.client_id, legal_status=payload.legal_status,
-        user=ctx.user, org_access=ctx.org_access, perm_open_access=ctx.perm_open_access,
-    )
+
+    @sync_to_async
+    def _create() -> dict:
+        party = service.create_party(
+            case_id=payload.case_id, client_id=payload.client_id, legal_status=payload.legal_status,
+            user=ctx.user, org_access=ctx.org_access, perm_open_access=ctx.perm_open_access,
+        )
+        return _serialize_party(party)
+
+    return await _create()
 
 
 @router.get("/parties/{party_id}", response=CasePartyOut)
-def get_party(request: HttpRequest, party_id: int) -> Any:  # pragma: no cover
+async def get_party(request: HttpRequest, party_id: int) -> Any:  # pragma: no cover
     service = _get_case_party_service()
     ctx = extract_request_context(request)
-    return service.get_party(
-        party_id=party_id, user=ctx.user, org_access=ctx.org_access, perm_open_access=ctx.perm_open_access,
-    )
+
+    @sync_to_async
+    def _fetch() -> dict:
+        party = service.get_party(
+            party_id=party_id, user=ctx.user, org_access=ctx.org_access, perm_open_access=ctx.perm_open_access,
+        )
+        return _serialize_party(party)
+
+    return await _fetch()
 
 
 @router.put("/parties/{party_id}", response=CasePartyOut)
-def update_party(request: HttpRequest, party_id: int, payload: CasePartyUpdate) -> Any:  # pragma: no cover
+async def update_party(request: HttpRequest, party_id: int, payload: CasePartyUpdate) -> Any:  # pragma: no cover
     service = _get_case_party_service()
     ctx = extract_request_context(request)
     data = payload.model_dump(exclude_unset=True)
-    return service.update_party(
-        party_id=party_id, data=data, user=ctx.user, org_access=ctx.org_access, perm_open_access=ctx.perm_open_access,
-    )
+
+    @sync_to_async
+    def _update() -> dict:
+        party = service.update_party(
+            party_id=party_id, data=data, user=ctx.user, org_access=ctx.org_access, perm_open_access=ctx.perm_open_access,
+        )
+        return _serialize_party(party)
+
+    return await _update()
 
 
 @router.delete("/parties/{party_id}")
-def delete_party(request: HttpRequest, party_id: int) -> Any:  # pragma: no cover
+async def delete_party(request: HttpRequest, party_id: int) -> Any:  # pragma: no cover
     service = _get_case_party_service()
     ctx = extract_request_context(request)
-    return service.delete_party(
+    return await sync_to_async(service.delete_party)(
         party_id=party_id, user=ctx.user, org_access=ctx.org_access, perm_open_access=ctx.perm_open_access,
     )

@@ -132,6 +132,107 @@ class StoryAnimationWorkflowService:
                 finished_at=timezone.now(),
             )
 
+    async def arun(self, *, animation_id: str) -> None:
+        """异步版本的工作流，所有 LLM 调用使用 async。"""
+        from asgiref.sync import sync_to_async
+
+        animation = await sync_to_async(self._get_animation)(animation_id=animation_id)
+        model = animation.llm_model or None
+        self._fact_service._model = model
+        self._script_service._model = model
+        self._fragment_service._model = model
+        try:
+            await sync_to_async(self._update_progress)(
+                animation=animation,
+                status=StoryAnimationStatus.PROCESSING,
+                stage=StoryAnimationStage.EXTRACTING_FACTS,
+                progress=10,
+                started_at=timezone.now(),
+            )
+
+            preprocess = self._preprocess_service.preprocess(
+                source_text=animation.source_text,
+                viz_type=animation.viz_type,
+            )
+            await sync_to_async(self._update_fields)(animation=animation, source_hash=preprocess.source_hash)
+
+            facts = await self._fact_service.aextract(
+                source_title=animation.source_title,
+                source_text=preprocess.cleaned_text,
+            )
+            await sync_to_async(self._update_progress)(
+                animation=animation,
+                status=StoryAnimationStatus.PROCESSING,
+                stage=StoryAnimationStage.DIRECTING_SCRIPT,
+                progress=35,
+                facts_payload=facts.model_dump(),
+            )
+
+            if await sync_to_async(self._cancel_requested)(animation=animation):
+                await sync_to_async(self._mark_cancelled)(animation=animation)
+                return
+
+            script = await self._script_service.agenerate_script(facts=facts, viz_type=animation.viz_type)
+            await sync_to_async(self._update_progress)(
+                animation=animation,
+                status=StoryAnimationStatus.PROCESSING,
+                stage=StoryAnimationStage.RENDERING_LAYOUT,
+                progress=60,
+                script_payload=script.model_dump(),
+            )
+
+            if await sync_to_async(self._cancel_requested)(animation=animation):
+                await sync_to_async(self._mark_cancelled)(animation=animation)
+                return
+
+            render_payload = self._renderer_service.render(script=script, viz_type=animation.viz_type)
+            await sync_to_async(self._update_progress)(
+                animation=animation,
+                status=StoryAnimationStatus.PROCESSING,
+                stage=StoryAnimationStage.GENERATING_FRAGMENTS,
+                progress=80,
+                render_payload=render_payload,
+            )
+
+            fragment_payload = await self._fragment_service.agenerate(script=script)
+            await sync_to_async(self._update_progress)(
+                animation=animation,
+                status=StoryAnimationStatus.PROCESSING,
+                stage=StoryAnimationStage.COMPOSING_HTML,
+                progress=90,
+            )
+
+            if await sync_to_async(self._cancel_requested)(animation=animation):
+                await sync_to_async(self._mark_cancelled)(animation=animation)
+                return
+
+            html = self._composer_service.compose(
+                title=animation.source_title,
+                viz_type=animation.viz_type,
+                render_payload=render_payload,
+                fragment_payload=fragment_payload,
+            )
+
+            await sync_to_async(self._update_progress)(
+                animation=animation,
+                status=StoryAnimationStatus.COMPLETED,
+                stage=StoryAnimationStage.COMPLETED,
+                progress=100,
+                animation_html=html,
+                error_message="",
+                finished_at=timezone.now(),
+            )
+        except Exception as exc:
+            logger.exception("story_viz_workflow_failed", extra={"animation_id": animation_id})
+            await sync_to_async(self._update_progress)(
+                animation=animation,
+                status=StoryAnimationStatus.FAILED,
+                stage=StoryAnimationStage.FAILED,
+                progress=100,
+                error_message=str(exc)[:4000],
+                finished_at=timezone.now(),
+            )
+
     def _get_animation(self, *, animation_id: str) -> StoryAnimation:  # pragma: no cover
         return StoryAnimation.objects.get(id=UUID(animation_id))
 

@@ -83,6 +83,16 @@ class WebDAVProvider:  # pragma: no cover
             )
         return self._async_client
 
+    def close(self) -> None:
+        """关闭同步 requests.Session。"""
+        self._session.close()
+
+    async def aclose(self) -> None:
+        """关闭异步 httpx.AsyncClient，防止资源泄漏。"""
+        if self._async_client is not None and not self._async_client.is_closed:
+            await self._async_client.aclose()
+            self._async_client = None
+
     # ── Internal helpers ───────────────────────────────────────
 
     def _full_path(self, path: str) -> str:

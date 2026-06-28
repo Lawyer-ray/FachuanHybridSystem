@@ -242,11 +242,11 @@ async def suggest_rename(request: HttpRequest) -> dict[str, Any]:  # pragma: no 
 
 @router.post("/export-pdf")
 @rate_limit_from_settings("EXPORT", by_user=True)
-def export_pdf(request: HttpRequest) -> dict[str, Any]:  # pragma: no cover
+async def export_pdf(request: HttpRequest) -> dict[str, Any]:  # pragma: no cover
     content_type = request.content_type or ""
 
     if "multipart/form-data" in content_type:
-        return _handle_multipart_export_pdf(request)
+        return await _handle_multipart_export_pdf_async(request)
     else:
         payload = _body(request)
         pages: list[dict[str, Any]] = payload.get("pages", [])
@@ -254,14 +254,17 @@ def export_pdf(request: HttpRequest) -> dict[str, Any]:  # pragma: no cover
         if not pages:
             return {"success": False, "message": "没有页面数据"}
         try:
-            return cast(dict[str, Any], _get_rotation_service().export_as_pdf(pages, paper_size))
+            return cast(
+                dict[str, Any],
+                await asyncio.to_thread(_get_rotation_service().export_as_pdf, pages, paper_size),
+            )
         except Exception as exc:
             logger.error("export_pdf 失败: %s", exc, exc_info=True)
             return {"success": False, "message": str(exc)}
 
 
-def _handle_multipart_export_pdf(request: HttpRequest) -> dict[str, Any]:
-    """处理 multipart/form-data 格式的 PDF 导出请求"""
+async def _handle_multipart_export_pdf_async(request: HttpRequest) -> dict[str, Any]:
+    """异步处理 multipart/form-data 格式的 PDF 导出请求"""
     try:
         paper_size = request.POST.get("paper_size", "original")
 
@@ -286,7 +289,10 @@ def _handle_multipart_export_pdf(request: HttpRequest) -> dict[str, Any]:
         if not pages:
             return {"success": False, "message": "没有页面数据"}
 
-        return cast(dict[str, Any], _get_rotation_service().export_as_pdf(pages, paper_size))
+        return cast(
+            dict[str, Any],
+            await asyncio.to_thread(_get_rotation_service().export_as_pdf, pages, paper_size),
+        )
     except Exception as exc:
         logger.error("multipart export-pdf 失败: %s", exc, exc_info=True)
         return {"success": False, "message": str(exc)}

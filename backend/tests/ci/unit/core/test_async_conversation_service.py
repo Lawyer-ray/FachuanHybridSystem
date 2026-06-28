@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from unittest.mock import MagicMock
+
 import pytest
 
 
@@ -72,3 +74,34 @@ class TestConversationServiceAsync:
 
         count, _ = await repo.adelete_by_session_id("multi_msg")
         assert count == 3
+
+
+@pytest.mark.django_db(transaction=True)
+@pytest.mark.asyncio
+async def test_aget_conversation_history_messages_returns_ordered_list():
+    from apps.core.services.conversation_history_service import ConversationHistoryService
+
+    record1 = MagicMock()
+    record1.role = "user"
+    record1.content = "hello"
+    record1.created_at.isoformat.return_value = "2026-01-01T00:00:00"
+    record1.metadata = {}
+
+    record2 = MagicMock()
+    record2.role = "assistant"
+    record2.content = "hi"
+    record2.created_at.isoformat.return_value = "2026-01-01T00:00:01"
+    record2.metadata = {}
+
+    mock_repo = MagicMock()
+    mock_qs = MagicMock()
+    mock_qs.filter.return_value = mock_qs
+    mock_qs.order_by.return_value.__getitem__ = MagicMock(return_value=[record2, record1])
+    mock_repo.get_by_session_id.return_value = mock_qs
+
+    service = ConversationHistoryService(repository=mock_repo)
+    result = await service.aget_conversation_history_messages(session_id="test", limit=50)
+    assert len(result) == 2
+    assert result[0]["role"] == "user"
+    assert result[0]["content"] == "hello"
+    assert result[1]["role"] == "assistant"

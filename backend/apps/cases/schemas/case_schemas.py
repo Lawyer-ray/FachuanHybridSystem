@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import ClassVar
+from typing import Any, ClassVar
 
 from .assignment_schemas import CaseAssignmentCreate, CaseAssignmentOut
 from .base import Case, CaseAssignment, CaseChat, CaseLog, CaseParty, ModelSchema, Schema
@@ -69,47 +69,59 @@ class CaseOut(ModelSchema):
         ]
 
     @staticmethod
-    def resolve_parties(obj: Case) -> list[CaseParty]:
-        return list(obj.parties.all())
+    def _resolve_list_field(obj: Any, key: str) -> list:
+        """Common helper: return list data whether obj is a Django model or dict."""
+        if isinstance(obj, dict):
+            return obj.get(key, [])  # type: ignore[no-any-return]
+        return list(getattr(obj, key).all())
 
     @staticmethod
-    def resolve_assignments(obj: Case) -> list[CaseAssignment]:
-        return list(obj.assignments.all())
+    def resolve_parties(obj: Any) -> list:
+        return CaseOut._resolve_list_field(obj, "parties")
 
     @staticmethod
-    def resolve_logs(obj: Case) -> list[CaseLog]:
-        return list(obj.logs.all())
+    def resolve_assignments(obj: Any) -> list:
+        return CaseOut._resolve_list_field(obj, "assignments")
 
     @staticmethod
-    def resolve_status(obj: Case) -> str | None:
+    def resolve_logs(obj: Any) -> list:
+        return CaseOut._resolve_list_field(obj, "logs")
+
+    @staticmethod
+    def resolve_status(obj: Any) -> str | None:
+        if isinstance(obj, dict):
+            return obj.get("status")
         return obj.get_status_display() if obj.status else None
 
     @staticmethod
-    def resolve_current_stage(obj: Case) -> str | None:
+    def resolve_current_stage(obj: Any) -> str | None:
+        if isinstance(obj, dict):
+            return obj.get("current_stage")
         return obj.get_current_stage_display() if obj.current_stage else None
 
     @staticmethod
-    def resolve_contract_id(obj: Case) -> int | None:
-        return obj.contract_id
+    def resolve_contract_id(obj: Any) -> int | None:
+        if isinstance(obj, dict):
+            return obj.get("contract_id")
+        return obj.contract_id  # type: ignore[no-any-return]
 
     @staticmethod
-    def resolve_case_numbers(obj: Case) -> list[CaseNumberOut]:
-        return list(obj.case_numbers.all())  # type: ignore[arg-type]
+    def resolve_case_numbers(obj: Any) -> list:
+        return CaseOut._resolve_list_field(obj, "case_numbers")
 
     @staticmethod
-    def resolve_supervising_authorities(obj: Case) -> list[SupervisingAuthorityOut]:
-        return list(obj.supervising_authorities.all())  # type: ignore[arg-type]
+    def resolve_supervising_authorities(obj: Any) -> list:
+        return CaseOut._resolve_list_field(obj, "supervising_authorities")
 
     @staticmethod
-    def resolve_chats(obj: Case) -> list[CaseChat]:
-        return list(obj.chats.all())
+    def resolve_chats(obj: Any) -> list:
+        return CaseOut._resolve_list_field(obj, "chats")
 
     @staticmethod
-    def resolve_contacts(obj: Case) -> list:
+    def resolve_contacts(obj: Any) -> list:
         if CaseContactOut is None:
             return []
-        # 上游已预取 contacts__authority，直接使用预取数据
-        return list(obj.contacts.all())
+        return CaseOut._resolve_list_field(obj, "contacts")
 
 
 class CaseUpdate(Schema):

@@ -2,6 +2,7 @@
 
 from typing import Any
 
+from asgiref.sync import sync_to_async
 from django.db.models import Count
 
 from apps.core.dto import ConversationHistoryDTO
@@ -106,6 +107,41 @@ class ConversationHistoryService:
             litigation_session_id=record.litigation_session_id,
             step=record.step or "",
         )
+
+    async def aget_conversation_history_messages(
+        self,
+        *,
+        session_id: str,
+        user_id: str | None = None,
+        limit: int = 50,
+    ) -> list[dict[str, Any]]:
+        """异步获取对话历史消息列表(用于 API 层)
+
+        Args:
+            session_id: 会话 ID
+            user_id: 用户 ID(可选)
+            limit: 返回数量限制
+
+        Returns:
+            消息列表,按时间正序排列
+        """
+        qs = self._repository.get_by_session_id(session_id)
+        if user_id:
+            qs = qs.filter(user_id=user_id)
+        qs = qs.order_by("-created_at")[:limit]
+        history: list[ConversationHistory] = await sync_to_async(lambda: list(qs))()
+
+        messages: list[dict[str, Any]] = []
+        for record in reversed(history):
+            messages.append(
+                {
+                    "role": record.role,
+                    "content": record.content,
+                    "created_at": record.created_at.isoformat(),
+                    "metadata": record.metadata,
+                }
+            )
+        return messages
 
     def get_conversation_history_messages(
         self,

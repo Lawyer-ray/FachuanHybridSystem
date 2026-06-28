@@ -1,13 +1,14 @@
 """
 案件访问授权 API
 
-同步端点由 Django Ninja 自动包装到线程池执行，ORM 访问安全。
+异步端点，Service 层同步调用通过 sync_to_async 包装。
 """
 
 from __future__ import annotations
 
 from typing import Any
 
+from asgiref.sync import sync_to_async
 from django.http import HttpRequest
 from ninja import Router
 
@@ -25,62 +26,86 @@ def _get_case_access_service() -> Any:
 
 
 @router.get("/grants", response=list[CaseAccessGrantOut])
-def list_grants(  # pragma: no cover
+async def list_grants(  # pragma: no cover
     request: HttpRequest, case_id: int | None = None, grantee_id: int | None = None
 ) -> Any:
     service = _get_case_access_service()
     ctx = extract_request_context(request)
-    return service.list_grants(
-        case_id=case_id,
-        grantee_id=grantee_id,
-        user=ctx.user,
-        org_access=ctx.org_access,
-        perm_open_access=ctx.perm_open_access,
-    )
+
+    @sync_to_async
+    def _fetch() -> list[dict]:
+        qs = service.list_grants(
+            case_id=case_id,
+            grantee_id=grantee_id,
+            user=ctx.user,
+            org_access=ctx.org_access,
+            perm_open_access=ctx.perm_open_access,
+        )
+        return [CaseAccessGrantOut.from_orm(g).model_dump(by_alias=True) for g in qs]
+
+    return await _fetch()
 
 
 @router.post("/grants", response=CaseAccessGrantOut)
-def create_grant(request: HttpRequest, payload: CaseAccessGrantIn) -> Any:  # pragma: no cover
+async def create_grant(request: HttpRequest, payload: CaseAccessGrantIn) -> Any:  # pragma: no cover
     service = _get_case_access_service()
     ctx = extract_request_context(request)
-    return service.create_grant(
-        case_id=payload.case_id,
-        grantee_id=payload.grantee_id,
-        user=ctx.user,
-    )
+
+    @sync_to_async
+    def _create() -> dict:
+        grant = service.create_grant(
+            case_id=payload.case_id,
+            grantee_id=payload.grantee_id,
+            user=ctx.user,
+        )
+        return CaseAccessGrantOut.from_orm(grant).model_dump(by_alias=True)
+
+    return await _create()
 
 
 @router.get("/grants/{grant_id}", response=CaseAccessGrantOut)
-def get_grant(request: HttpRequest, grant_id: int) -> Any:  # pragma: no cover
+async def get_grant(request: HttpRequest, grant_id: int) -> Any:  # pragma: no cover
     service = _get_case_access_service()
     ctx = extract_request_context(request)
-    return service.get_grant(
-        grant_id=grant_id,
-        user=ctx.user,
-        org_access=ctx.org_access,
-        perm_open_access=ctx.perm_open_access,
-    )
+
+    @sync_to_async
+    def _fetch() -> dict:
+        grant = service.get_grant(
+            grant_id=grant_id,
+            user=ctx.user,
+            org_access=ctx.org_access,
+            perm_open_access=ctx.perm_open_access,
+        )
+        return CaseAccessGrantOut.from_orm(grant).model_dump(by_alias=True)
+
+    return await _fetch()
 
 
 @router.put("/grants/{grant_id}", response=CaseAccessGrantOut)
-def update_grant(request: HttpRequest, grant_id: int, payload: CaseAccessGrantUpdate) -> Any:  # pragma: no cover
+async def update_grant(request: HttpRequest, grant_id: int, payload: CaseAccessGrantUpdate) -> Any:  # pragma: no cover
     service = _get_case_access_service()
     ctx = extract_request_context(request)
     data = payload.model_dump(exclude_unset=True)
-    return service.update_grant(
-        grant_id=grant_id,
-        data=data,
-        user=ctx.user,
-        org_access=ctx.org_access,
-        perm_open_access=ctx.perm_open_access,
-    )
+
+    @sync_to_async
+    def _update() -> dict:
+        grant = service.update_grant(
+            grant_id=grant_id,
+            data=data,
+            user=ctx.user,
+            org_access=ctx.org_access,
+            perm_open_access=ctx.perm_open_access,
+        )
+        return CaseAccessGrantOut.from_orm(grant).model_dump(by_alias=True)
+
+    return await _update()
 
 
 @router.delete("/grants/{grant_id}")
-def delete_grant(request: HttpRequest, grant_id: int) -> Any:  # pragma: no cover
+async def delete_grant(request: HttpRequest, grant_id: int) -> Any:  # pragma: no cover
     service = _get_case_access_service()
     ctx = extract_request_context(request)
-    return service.delete_grant(
+    return await sync_to_async(service.delete_grant)(
         grant_id=grant_id,
         user=ctx.user,
         org_access=ctx.org_access,

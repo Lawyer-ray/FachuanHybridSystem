@@ -1,17 +1,14 @@
 """
 案件 API
 
-API 层职责：
-1. 接收 HTTP 请求，验证参数（通过 Schema）
-2. 调用 Service 层方法
-3. 返回响应
-
-不包含：业务逻辑、权限检查、异常处理（依赖全局异常处理器）
+异步端点，Service 层同步调用通过 sync_to_async 包装。
+所有 ORM 访问和 Pydantic 序列化均在 sync_to_async 闭包内完成，
+防止 SynchronousOnlyOperation 和 Django Ninja re-validation 时的懒加载。
 """
 
 from __future__ import annotations
 
-from typing import Any, cast
+from typing import Any
 
 from asgiref.sync import sync_to_async
 from django.http import HttpRequest
@@ -24,31 +21,9 @@ from apps.core.dto.request_context import extract_request_context
 router = Router()
 
 
-async def _prefetch_log_reminders(cases: list[Any]) -> None:
-    """批量预加载案件日志的提醒数据，避免 N+1 查询。"""
-
-    def _inner() -> None:
-        log_ids: list[int] = []
-        all_logs = []
-        for case in cases:
-            for log in case.logs.all():
-                if log.id:
-                    log_ids.append(log.id)
-                    all_logs.append(log)
-        if not log_ids:
-            return
-
-        from apps.core.interfaces import ServiceLocator
-
-        try:
-            reminder_service = ServiceLocator.get_reminder_service()
-            reminders_map = reminder_service.export_case_log_reminders_batch_internal(case_log_ids=log_ids)
-            for log in all_logs:
-                log._cached_exported_reminders = reminders_map.get(log.id, [])
-        except (TypeError, ValueError):
-            pass
-
-    await sync_to_async(_inner)()
+def _serialize_case(case: Any) -> dict:
+    """Serialize a Case model to dict inside sync context (avoid lazy FK access in async)."""
+    return CaseOut.from_orm(case).model_dump()
 
 
 def _get_case_service() -> CaseService:
@@ -70,28 +45,22 @@ async def search_cases(  # pragma: no cover
     request: HttpRequest,
     q: str,
     limit: int | None = 10,
-) -> list[CaseOut]:
+) -> list[dict]:
     """搜索案件"""
     service = _get_case_query_facade()
     ctx = extract_request_context(request)
 
-    cases = await sync_to_async(
+    def _do() -> list[dict]:
+        cases = list(service.search_cases(
+            query=q,
+            limit=limit,  # type: ignore[arg-type]
+            user=ctx.user,
+            org_access=ctx.org_access,
+            perm_open_access=ctx.perm_open_access,
+        ))
+        return [_serialize_case(c) for c in cases]
 
-
-                lambda: list(service.search_cases(
-                query=q,
-                limit=limit,  # type: ignore[arg-type]
-                user=ctx.user,
-                org_access=ctx.org_access,
-                perm_open_access=ctx.perm_open_access,
-            )),
-
-
-
-
-            )()
-    await _prefetch_log_reminders(cases)
-    return cast(list[CaseOut], cases)
+    return await sync_to_async(_do)()
 
 
 @router.get("/cases", response=list[CaseOut])
@@ -100,83 +69,74 @@ async def list_cases(  # pragma: no cover
     case_type: str | None = None,
     status: str | None = None,
     case_number: str | None = None,
-) -> list[CaseOut]:
+) -> list[dict]:
     """获取案件列表"""
     service = _get_case_query_facade()
     ctx = extract_request_context(request)
 
-    if case_number:
-        cases = await sync_to_async(
+    def _do() -> list[dict]:
+        if case_number:
+            raw = list(service.search_by_case_number(
+                case_number=case_number,
+                user=ctx.user,
+                org_access=ctx.org_access,
+                perm_open_access=ctx.perm_open_access,
+            ))
+        else:
+            raw = list(service.list_cases(
+                case_type=case_type,
+                status=status,
+                user=ctx.user,
+                org_access=ctx.org_access,
+                perm_open_access=ctx.perm_open_access,
+            ))
+        return [_serialize_case(c) for c in raw]
 
-                    lambda: list(service.search_by_case_number(
-                    case_number=case_number,
-                    user=ctx.user,
-                    org_access=ctx.org_access,
-                    perm_open_access=ctx.perm_open_access,
-                )),
-
-
-                )()
-    else:
-        cases = await sync_to_async(
-
-                    lambda: list(service.list_cases(
-                    case_type=case_type,
-                    status=status,
-                    user=ctx.user,
-                    org_access=ctx.org_access,
-                    perm_open_access=ctx.perm_open_access,
-                )),
-
-
-                )()
-
-    await _prefetch_log_reminders(cases)
-    return cast(list[CaseOut], cases)
+    return await sync_to_async(_do)()
 
 
 @router.get("/cases/{case_id}", response=CaseOut)
-async def get_case(request: HttpRequest, case_id: int) -> CaseOut:  # pragma: no cover
+async def get_case(request: HttpRequest, case_id: int) -> dict:  # pragma: no cover
     """获取单个案件"""
     service = _get_case_query_facade()
     ctx = extract_request_context(request)
 
-    def _get() -> CaseOut:
+    def _get() -> dict:
         case = service.get_case(
             case_id=case_id,
             user=ctx.user,
             org_access=ctx.org_access,
             perm_open_access=ctx.perm_open_access,
         )
-        return CaseOut.from_orm(case)
+        return _serialize_case(case)
 
     return await sync_to_async(_get)()
 
 
 @router.post("/cases", response=CaseOut)
-async def create_case(request: HttpRequest, payload: CaseIn) -> CaseOut:  # pragma: no cover
+async def create_case(request: HttpRequest, payload: CaseIn) -> dict:  # pragma: no cover
     """创建案件"""
     service = _get_case_mutation_facade()
     ctx = extract_request_context(request)
     data = payload.model_dump()
 
-    def _create() -> CaseOut:
+    def _create() -> dict:
         case = service.create_case(data, user=ctx.user)
-        return CaseOut.from_orm(case)
+        return _serialize_case(case)
 
     return await sync_to_async(_create)()
 
 
 @router.put("/cases/{case_id}", response=CaseOut)
-async def update_case(request: HttpRequest, case_id: int, payload: CaseUpdate) -> CaseOut:  # pragma: no cover
+async def update_case(request: HttpRequest, case_id: int, payload: CaseUpdate) -> dict:  # pragma: no cover
     """更新案件"""
     service = _get_case_mutation_facade()
     ctx = extract_request_context(request)
     data = payload.model_dump(exclude_unset=True)
 
-    def _update() -> CaseOut:
+    def _update() -> dict:
         case = service.update_case(case_id, data, user=ctx.user)
-        return CaseOut.from_orm(case)
+        return _serialize_case(case)
 
     return await sync_to_async(_update)()
 
@@ -193,7 +153,7 @@ async def delete_case(request: HttpRequest, case_id: int) -> dict[str, bool]:  #
 
 
 @router.post("/cases/full", response=CaseFullOut)
-async def create_case_full(request: HttpRequest, payload: CaseCreateFull) -> CaseFullOut:  # pragma: no cover
+async def create_case_full(request: HttpRequest, payload: CaseCreateFull) -> dict:  # pragma: no cover
     """创建完整案件（包含当事人、指派、日志）"""
     service = _get_case_mutation_facade()
     ctx = extract_request_context(request)
@@ -209,7 +169,7 @@ async def create_case_full(request: HttpRequest, payload: CaseCreateFull) -> Cas
         ),
     }
 
-    def _create_full() -> CaseFullOut:
+    def _create_full() -> dict:
         result = service.create_case_full(data, actor_id=actor_id, user=ctx.user)
         return CaseFullOut(
             case=CaseOut.from_orm(result["case"]),
@@ -218,6 +178,6 @@ async def create_case_full(request: HttpRequest, payload: CaseCreateFull) -> Cas
             logs=result["logs"],
             case_numbers=[],
             supervising_authorities=result.get("supervising_authorities", []),
-        )
+        ).model_dump()
 
     return await sync_to_async(_create_full)()

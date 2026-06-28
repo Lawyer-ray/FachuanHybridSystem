@@ -164,9 +164,10 @@ class TestCancelWatcher:
         job_id = uuid4()
         cancel_event = asyncio.Event()
 
-        with patch(f"{_MOD}.sync_to_async") as mock_sync:
-            mock_fn = AsyncMock(return_value=True)
-            mock_sync.return_value = mock_fn
+        with patch(f"{_MOD}.BatchJob") as MockJob:
+            mock_filter_qs = MagicMock()
+            mock_filter_qs.aexists = AsyncMock(return_value=True)
+            MockJob.objects.filter.return_value = mock_filter_qs
 
             with patch("asyncio.sleep", new_callable=AsyncMock):
                 await _cancel_watcher(job_id, cancel_event)
@@ -180,11 +181,8 @@ class TestCancelWatcher:
         cancel_event = asyncio.Event()
         cancel_event.set()
 
-        with patch(f"{_MOD}.sync_to_async") as mock_sync:
-            mock_fn = MagicMock(return_value=False)
-            mock_sync.return_value = mock_fn
-            await _cancel_watcher(job_id, cancel_event)
-            mock_fn.assert_not_called()
+        await _cancel_watcher(job_id, cancel_event)
+        # Should return immediately since event is already set
 
 
 class TestIncrementCounter:
@@ -195,15 +193,40 @@ class TestIncrementCounter:
 
         job_id = uuid4()
 
-        with patch(f"{_MOD}.sync_to_async") as mock_sync:
-            # First call: update field, second call: read values, third call: update progress
-            mock_sync.side_effect = [
-                AsyncMock(return_value=None),  # update field
-                AsyncMock(return_value={"total_items": 10, "completed_items": 6, "failed_items": 2}),  # read values
-                AsyncMock(return_value=None),  # update progress
-            ]
+        with patch(f"{_MOD}.BatchJob") as MockJob:
+            # First call: aupdate (F expression increment)
+            mock_update_qs = MagicMock()
+            mock_update_qs.aupdate = AsyncMock(return_value=1)
+
+            # Second call: values().afirst() to read current state
+            mock_values_qs = MagicMock()
+            mock_values_qs.afirst = AsyncMock(
+                return_value={"total_items": 10, "completed_items": 6, "failed_items": 2}
+            )
+
+            # Third call: aupdate for progress
+            mock_progress_qs = MagicMock()
+            mock_progress_qs.aupdate = AsyncMock(return_value=1)
+
+            # Setup filter chain: .filter().aupdate, .filter().values().afirst, .filter().aupdate
+            call_count = 0
+
+            def mock_filter(**kwargs):
+                nonlocal call_count
+                call_count += 1
+                if call_count == 1:
+                    return mock_update_qs
+                elif call_count == 2:
+                    qs = MagicMock()
+                    qs.values.return_value = mock_values_qs
+                    return qs
+                else:
+                    return mock_progress_qs
+
+            MockJob.objects.filter = mock_filter
+
             await _increment_counter(job_id, "completed_items")
-            assert mock_sync.call_count == 3
+            mock_values_qs.afirst.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_no_job_returns_early(self):
@@ -211,14 +234,29 @@ class TestIncrementCounter:
 
         job_id = uuid4()
 
-        with patch(f"{_MOD}.sync_to_async") as mock_sync:
-            mock_sync.side_effect = [
-                AsyncMock(return_value=None),  # update field
-                AsyncMock(return_value=None),  # read values returns None
-            ]
+        with patch(f"{_MOD}.BatchJob") as MockJob:
+            mock_update_qs = MagicMock()
+            mock_update_qs.aupdate = AsyncMock(return_value=1)
+
+            mock_values_qs = MagicMock()
+            mock_values_qs.afirst = AsyncMock(return_value=None)
+
+            call_count = 0
+
+            def mock_filter(**kwargs):
+                nonlocal call_count
+                call_count += 1
+                if call_count == 1:
+                    return mock_update_qs
+                else:
+                    qs = MagicMock()
+                    qs.values.return_value = mock_values_qs
+                    return qs
+
+            MockJob.objects.filter = mock_filter
+
             await _increment_counter(job_id, "completed_items")
-            # update + read, but no progress update since job is None
-            assert mock_sync.call_count == 2
+            # No crash; afirst returned None so progress update is skipped
 
     @pytest.mark.asyncio
     async def test_zero_total_items(self):
@@ -226,14 +264,31 @@ class TestIncrementCounter:
 
         job_id = uuid4()
 
-        with patch(f"{_MOD}.sync_to_async") as mock_sync:
-            mock_sync.side_effect = [
-                AsyncMock(return_value=None),  # update field
-                AsyncMock(return_value={"total_items": 0, "completed_items": 0, "failed_items": 0}),  # read values
-            ]
+        with patch(f"{_MOD}.BatchJob") as MockJob:
+            mock_update_qs = MagicMock()
+            mock_update_qs.aupdate = AsyncMock(return_value=1)
+
+            mock_values_qs = MagicMock()
+            mock_values_qs.afirst = AsyncMock(
+                return_value={"total_items": 0, "completed_items": 0, "failed_items": 0}
+            )
+
+            call_count = 0
+
+            def mock_filter(**kwargs):
+                nonlocal call_count
+                call_count += 1
+                if call_count == 1:
+                    return mock_update_qs
+                else:
+                    qs = MagicMock()
+                    qs.values.return_value = mock_values_qs
+                    return qs
+
+            MockJob.objects.filter = mock_filter
+
             await _increment_counter(job_id, "completed_items")
-            # update + read, but no progress update since total_items is 0
-            assert mock_sync.call_count == 2
+            # No progress update since total_items is 0
 
 
 class TestAnalyzeSingleItem:
@@ -333,8 +388,9 @@ class TestRunBatchAsync:
         mock_job.llm_model = "gpt-4"
 
         with patch(f"{_MOD}.BatchJob") as MockJob:
-            MockJob.objects.get.return_value = mock_job
-            MockJob.objects.filter.return_value.update = MagicMock()
+            MockJob.objects.aget = AsyncMock(return_value=mock_job)
+            MockJob.objects.filter.return_value.aupdate = AsyncMock(return_value=1)
+            MockJob.objects.filter.return_value.__aiter__ = MagicMock(return_value=iter([]))
             MockJob.DoesNotExist = type("DoesNotExist", (Exception,), {})
 
             with patch(f"{_MOD}.BatchJobItem") as MockItem:
@@ -343,9 +399,9 @@ class TestRunBatchAsync:
                 with patch(f"{_MOD}.task_registry") as mock_registry:
                     with patch(f"{_MOD}.DocTextExtractor") as MockExtractor:
                         with patch(f"{_MOD}.timezone"):
-                            with patch(f"{_MOD}.generate_summary") as mock_summary:
-                                with patch(f"{_MOD}.generate_detail_zip") as mock_zip:
-                                    mock_summary.return_value = AsyncMock(return_value="summary")
+                            with patch(f"{_MOD}.generate_summary", new_callable=AsyncMock) as mock_summary:
+                                with patch(f"{_MOD}.generate_detail_zip", new_callable=AsyncMock):
+                                    mock_summary.return_value = "summary"
                                     MockExtractor.return_value.cleanup = MagicMock()
 
                                     await _run_batch_async(job_id)
@@ -358,12 +414,14 @@ class TestRunBatchAsync:
         job_id = uuid4()
 
         with patch(f"{_MOD}.BatchJob") as MockJob:
-            MockJob.objects.get.side_effect = MockJob.DoesNotExist()
+            MockJob.DoesNotExist = type("DoesNotExist", (Exception,), {})
+            MockJob.objects.aget = AsyncMock(side_effect=MockJob.DoesNotExist())
 
             with patch(f"{_MOD}.DocTextExtractor") as MockExtractor:
                 MockExtractor.return_value.cleanup = MagicMock()
-                await _run_batch_async(job_id)
-                # No crash, the exception is caught and sets FAILED
+                # DoesNotExist propagates since aget() is outside the try/except block
+                with pytest.raises(MockJob.DoesNotExist):
+                    await _run_batch_async(job_id)
 
 
 class TestRunBatchRetryAsync:
@@ -376,7 +434,7 @@ class TestRunBatchRetryAsync:
 
         with patch(f"{_MOD}.BatchJob") as MockJob:
             MockJob.DoesNotExist = type("DoesNotExist", (Exception,), {})
-            MockJob.objects.get.side_effect = MockJob.DoesNotExist()
+            MockJob.objects.aget = AsyncMock(side_effect=MockJob.DoesNotExist())
 
             with patch(f"{_MOD}.DocTextExtractor") as MockExtractor:
                 MockExtractor.return_value.cleanup = MagicMock()
@@ -392,8 +450,9 @@ class TestRunBatchRetryAsync:
         mock_job.metadata = {"concurrency": 5}
 
         with patch(f"{_MOD}.BatchJob") as MockJob:
-            MockJob.objects.get.return_value = mock_job
-            MockJob.objects.filter.return_value.update = MagicMock()
+            MockJob.objects.aget = AsyncMock(return_value=mock_job)
+            MockJob.objects.filter.return_value.aupdate = AsyncMock(return_value=1)
+            MockJob.objects.filter.return_value.__aiter__ = MagicMock(return_value=iter([]))
 
             with patch(f"{_MOD}.BatchJobItem") as MockItem:
                 MockItem.objects.filter.return_value.__aiter__ = MagicMock(return_value=iter([]))

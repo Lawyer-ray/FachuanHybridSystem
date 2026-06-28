@@ -59,6 +59,41 @@ class SvgFragmentGeneratorService:
             logger.exception("story_viz_svg_fragment_generation_failed")
             return self._fallback_fragments()
 
+    async def agenerate(self, *, script: AnimationScript) -> dict[str, object]:
+        """异步版本，使用 achat 替代 chat。"""
+        prompts = script.fragment_prompts[:3]
+        if not prompts:
+            return self._fallback_fragments()
+
+        system_prompt = "你是 SVG 片段生成助手。仅输出可嵌入 <g> 内的安全 SVG 片段字符串，不要包含 script。"
+        messages = [
+            {
+                "role": "system",
+                "content": "\n\n".join([system_prompt, json_schema_instructions(SvgFragmentBundle)]),
+            },
+            {
+                "role": "user",
+                "content": "\n".join(f"- {item}" for item in prompts),
+            },
+        ]
+
+        try:
+            llm_resp = await self._llm_service.achat(messages=messages, model=self._model, temperature=0.0)
+            parsed = parse_model_content(llm_resp.content, SvgFragmentBundle)
+            clean_fragments: list[dict[str, str]] = []
+            for item in parsed.fragments:
+                svg = item.svg.strip()
+                lowered = svg.lower()
+                if "<script" in lowered or "onload=" in lowered or "onclick=" in lowered:
+                    continue
+                clean_fragments.append({"name": item.name, "svg": svg})
+            if not clean_fragments:
+                return self._fallback_fragments()
+            return {"fragments": clean_fragments}
+        except Exception:
+            logger.exception("story_viz_svg_fragment_generation_failed")
+            return self._fallback_fragments()
+
     def _fallback_fragments(self) -> dict[str, object]:
         return {
             "fragments": [

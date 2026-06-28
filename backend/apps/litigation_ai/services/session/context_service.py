@@ -68,6 +68,38 @@ class LitigationContextService:
             "case_status": details.get("status") or "",
         }
 
+    async def aget_case_info_for_agent(self, case_id: int) -> dict[str, Any]:
+        """异步版本：获取案件详情供 Agent 使用。"""
+        from ..wiring import get_case_service
+
+        details = await sync_to_async(get_case_service().get_case_with_details_internal)(case_id)
+        if not details:
+            raise NotFoundError(message="案件不存在", code="CASE_NOT_FOUND", errors={"case_id": case_id})
+
+        parties = []
+        for party in details.get("case_parties", []) or []:
+            parties.append(
+                {
+                    "name": party.get("client_name") or "",
+                    "party_type": party.get("client_type") or "",
+                    "legal_status": party.get("legal_status") or "",
+                    "is_our_side": bool(party.get("is_our_client")),
+                }
+            )
+        court_info = None
+
+        return {
+            "case_id": case_id,
+            "case_name": details.get("name") or "",
+            "cause_of_action": details.get("cause_of_action") or "",
+            "target_amount": str(details.get("target_amount")) if details.get("target_amount") is not None else None,
+            "our_legal_status": None,
+            "parties": parties,
+            "court_info": court_info,
+            "case_stage": details.get("current_stage") or "",
+            "case_status": details.get("status") or "",
+        }
+
     def _get_parties_for_agent(self, case: Any) -> list[dict[str, Any]]:
         """
         获取案件当事人信息
@@ -112,6 +144,30 @@ class LitigationContextService:
         from ..wiring import get_evidence_query_service
 
         items = get_evidence_query_service().list_evidence_items_for_case_internal(case_id)
+        evidence_list = []
+        for item in items:
+            evidence_list.append(
+                {
+                    "evidence_item_id": item.id,
+                    "name": item.name or "",
+                    "evidence_type": None,
+                    "ownership": ownership,
+                    "description": item.purpose or "",
+                    "has_content": bool(item.file_path),
+                }
+            )
+
+        return evidence_list
+
+    async def aget_evidence_list_for_agent(
+        self,
+        case_id: int,
+        ownership: str | None = None,
+    ) -> list[dict[str, Any]]:
+        """异步版本：获取案件证据列表供 Agent 使用。"""
+        from ..wiring import get_evidence_query_service
+
+        items = await sync_to_async(get_evidence_query_service().list_evidence_items_for_case_internal)(case_id)
         evidence_list = []
         for item in items:
             evidence_list.append(

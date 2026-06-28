@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import io
 import logging
 import os
@@ -187,6 +188,26 @@ def convert_docx_to_pdf(docx_path: str) -> str:  # pragma: no cover
             code="DOCX_CONVERSION_FAILED",
             errors={"docx_path": docx_path, "error": str(e)},
         ) from e
+
+
+async def aconvert_docx_to_pdf(docx_path: str) -> str:
+    """异步版本：将阻塞的 subprocess.run + 文件 I/O 放入线程池。"""
+    return await asyncio.to_thread(convert_docx_to_pdf, docx_path)
+
+
+async def aconvert_image_to_pdf(image_path: str) -> str:
+    """异步版本：将阻塞的图片转 PDF 放入线程池。"""
+    return await asyncio.to_thread(convert_image_to_pdf, image_path)
+
+
+async def aresolve_material_to_temp_pdf(file_path: Path) -> tuple[Path | None, bool]:
+    """异步版本：将阻塞的材料解析为 PDF 放入线程池。"""
+    return await asyncio.to_thread(resolve_material_to_temp_pdf, file_path)
+
+
+async def aadd_page_numbers(pdf_input: io.BytesIO, start_page: int = 1) -> bytes:
+    """异步版本：将阻塞的页码添加操作放入线程池。"""
+    return await asyncio.to_thread(add_page_numbers, pdf_input, start_page)
 
 
 def resolve_material_to_temp_pdf(file_path: Path) -> tuple[Path | None, bool]:

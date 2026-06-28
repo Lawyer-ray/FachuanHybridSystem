@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any, cast
 
+from asgiref.sync import sync_to_async
 from django.http import HttpRequest
 from ninja import Router
 
@@ -20,28 +21,34 @@ def _get_contact_service() -> Any:
 
 
 @router.get("/contacts", response=list[CaseContactOut])
-def list_contacts(request: HttpRequest, case_id: int | None = None, stage: str | None = None) -> list[CaseContactOut]:  # pragma: no cover
+async def list_contacts(request: HttpRequest, case_id: int | None = None, stage: str | None = None) -> list[CaseContactOut]:  # pragma: no cover
     service = _get_contact_service()
     ctx = extract_request_context(request)
-    return cast(
-        list[CaseContactOut],
-        service.list_contacts(case_id=case_id, stage=stage, user=ctx.user),
-    )
+
+    @sync_to_async
+    def _fetch() -> list[dict]:
+        qs = service.list_contacts(case_id=case_id, stage=stage, user=ctx.user)
+        return [CaseContactOut.from_orm(c).model_dump() for c in qs]
+
+    return await _fetch()  # type: ignore[return-value]
 
 
 @router.post("/contacts", response=CaseContactOut)
-def create_contact(request: HttpRequest, payload: CaseContactIn) -> CaseContactOut:  # pragma: no cover
+async def create_contact(request: HttpRequest, payload: CaseContactIn) -> CaseContactOut:  # pragma: no cover
     service = _get_contact_service()
     ctx = extract_request_context(request)
     data = payload.model_dump(exclude={"case_id"})
-    return cast(
-        CaseContactOut,
-        service.create_contact(case_id=payload.case_id, data=data, user=ctx.user),
-    )
+
+    @sync_to_async
+    def _create() -> dict:
+        contact = service.create_contact(case_id=payload.case_id, data=data, user=ctx.user)
+        return CaseContactOut.from_orm(contact).model_dump()
+
+    return await _create()  # type: ignore[return-value]
 
 
 @router.get("/contacts/search", response=list[CaseContactSearchResult])
-def search_contacts(  # pragma: no cover
+async def search_contacts(  # pragma: no cover
     request: HttpRequest,
     q: str | None = None,
     court: str | None = None,
@@ -50,32 +57,43 @@ def search_contacts(  # pragma: no cover
 ) -> list[CaseContactSearchResult]:
     service = _get_contact_service()
     ctx = extract_request_context(request)
-    return cast(
-        list[CaseContactSearchResult],
-        service.search_contacts_public(q=q, court=court, role=role, limit=limit, user=ctx.user),
-    )
+
+    @sync_to_async
+    def _fetch() -> list[dict[str, Any]]:
+        return service.search_contacts_public(q=q, court=court, role=role, limit=limit, user=ctx.user)  # type: ignore[no-any-return]
+
+    return await _fetch()  # type: ignore[return-value]
 
 
 @router.get("/contacts/{contact_id}", response=CaseContactOut)
-def get_contact(request: HttpRequest, contact_id: int) -> CaseContactOut:  # pragma: no cover
+async def get_contact(request: HttpRequest, contact_id: int) -> CaseContactOut:  # pragma: no cover
     service = _get_contact_service()
     ctx = extract_request_context(request)
-    return cast(CaseContactOut, service.get_contact(contact_id=contact_id, user=ctx.user))
+
+    @sync_to_async
+    def _fetch() -> dict:
+        contact = service.get_contact(contact_id=contact_id, user=ctx.user)
+        return CaseContactOut.from_orm(contact).model_dump()
+
+    return await _fetch()  # type: ignore[return-value]
 
 
 @router.put("/contacts/{contact_id}", response=CaseContactOut)
-def update_contact(request: HttpRequest, contact_id: int, payload: CaseContactUpdate) -> CaseContactOut:  # pragma: no cover
+async def update_contact(request: HttpRequest, contact_id: int, payload: CaseContactUpdate) -> CaseContactOut:  # pragma: no cover
     service = _get_contact_service()
     ctx = extract_request_context(request)
     data = payload.model_dump(exclude_unset=True)
-    return cast(
-        CaseContactOut,
-        service.update_contact(contact_id=contact_id, data=data, user=ctx.user),
-    )
+
+    @sync_to_async
+    def _update() -> dict:
+        contact = service.update_contact(contact_id=contact_id, data=data, user=ctx.user)
+        return CaseContactOut.from_orm(contact).model_dump()
+
+    return await _update()  # type: ignore[return-value]
 
 
 @router.delete("/contacts/{contact_id}")
-def delete_contact(request: HttpRequest, contact_id: int) -> Any:  # pragma: no cover
+async def delete_contact(request: HttpRequest, contact_id: int) -> Any:  # pragma: no cover
     service = _get_contact_service()
     ctx = extract_request_context(request)
-    return service.delete_contact(contact_id=contact_id, user=ctx.user)
+    return await sync_to_async(service.delete_contact)(contact_id=contact_id, user=ctx.user)

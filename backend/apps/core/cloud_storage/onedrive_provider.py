@@ -302,6 +302,17 @@ class OneDriveProvider:  # pragma: no cover
             self._async_client = httpx.AsyncClient(timeout=60, headers=self._headers)
         return self._async_client
 
+    def close(self) -> None:
+        """关闭同步 httpx.Client。"""
+        if not self._client.is_closed:
+            self._client.close()
+
+    async def aclose(self) -> None:
+        """关闭异步 httpx.AsyncClient，防止资源泄漏。"""
+        if self._async_client is not None and not self._async_client.is_closed:
+            await self._async_client.aclose()
+            self._async_client = None
+
     def _item_path(self, path: str) -> str:
         """Build Graph API item path from relative path."""
         clean = path.strip("/")

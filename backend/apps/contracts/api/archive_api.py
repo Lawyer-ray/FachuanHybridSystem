@@ -126,13 +126,13 @@ class LearnRulesOut(Schema):
 
 
 @router.post("/archive/learn-rules", response=LearnRulesOut)
-def learn_archive_rules(request: HttpRequest) -> Any:  # pragma: no cover
+async def learn_archive_rules(request: HttpRequest) -> Any:  # pragma: no cover
     """从已归档材料中学习分类规则（全局操作）"""
     from apps.contracts.services.archive.learning_service import ArchiveLearningService
 
     try:
         service = ArchiveLearningService()
-        result = service.learn_from_archived_materials()
+        result = await sync_to_async(service.learn_from_archived_materials)()
         return LearnRulesOut(
             success=True,
             learned=result.get("learned", 0),
@@ -146,18 +146,18 @@ def learn_archive_rules(request: HttpRequest) -> Any:  # pragma: no cover
 
 
 @router.get("/{contract_id}/archive/download-item/{archive_item_code}")
-def download_archive_item(request: HttpRequest, contract_id: int, archive_item_code: str) -> Any:  # pragma: no cover
+async def download_archive_item(request: HttpRequest, contract_id: int, archive_item_code: str) -> Any:  # pragma: no cover
     """下载归档检查项材料（多文件自动合并为 PDF）"""
     from apps.contracts.services.archive.archive_query_service import get_contract_or_none
 
-    contract = get_contract_or_none(contract_id)
+    contract = await sync_to_async(get_contract_or_none)(contract_id)
     if not contract:
         return HttpResponse(status=404)
 
     from apps.contracts.services.archive import ArchiveGenerationService
 
     gen_service = ArchiveGenerationService()
-    result = gen_service.download_archive_item(contract, archive_item_code)
+    result = await sync_to_async(gen_service.download_archive_item)(contract, archive_item_code)
 
     if result.get("error"):
         return HttpResponse(status=404)
@@ -172,25 +172,25 @@ def download_archive_item(request: HttpRequest, contract_id: int, archive_item_c
 
 
 @router.get("/{contract_id}/archive/checklist", response=ChecklistOut)
-def get_archive_checklist(request: HttpRequest, contract_id: int) -> Any:  # pragma: no cover
+async def get_archive_checklist(request: HttpRequest, contract_id: int) -> Any:  # pragma: no cover
     """获取合同的归档检查清单及各项完成状态"""
     from apps.contracts.services.archive.archive_query_service import get_contract_or_none
 
-    contract = get_contract_or_none(contract_id)
+    contract = await sync_to_async(get_contract_or_none)(contract_id)
     if not contract:
         return HttpResponse(status=404)
 
-    result = get_checklist_with_status(contract)
+    result = await sync_to_async(get_checklist_with_status)(contract)
     result["archive_category_label"] = str(result["archive_category_label"])
     return ChecklistOut(**result)
 
 
 @router.post("/{contract_id}/archive/generate-folder", response=GenerateArchiveFolderOut)
-def generate_archive_folder(request: HttpRequest, contract_id: int) -> Any:  # pragma: no cover
+async def generate_archive_folder(request: HttpRequest, contract_id: int) -> Any:  # pragma: no cover
     """生成归档文件夹：模板文书 + 合并 PDF"""
     from apps.contracts.services.archive.archive_query_service import get_contract_or_none
 
-    contract = get_contract_or_none(contract_id)
+    contract = await sync_to_async(get_contract_or_none)(contract_id)
     if not contract:
         return HttpResponse(status=404)
 
@@ -210,7 +210,7 @@ def generate_archive_folder(request: HttpRequest, contract_id: int) -> Any:  # p
     from apps.contracts.services.archive import ArchiveGenerationService
 
     gen_service = ArchiveGenerationService()
-    result = gen_service.generate_archive_folder(contract)
+    result = await sync_to_async(gen_service.generate_archive_folder)(contract)
 
     if not result["success"]:
         return GenerateArchiveFolderOut(
@@ -227,16 +227,16 @@ def generate_archive_folder(request: HttpRequest, contract_id: int) -> Any:  # p
 
 
 @router.post("/{contract_id}/archive/toggle-compact", response=ToggleCompactOut)
-def toggle_compact_archive(request: HttpRequest, contract_id: int) -> Any:  # pragma: no cover
+async def toggle_compact_archive(request: HttpRequest, contract_id: int) -> Any:  # pragma: no cover
     """切换精简视图状态"""
     from apps.contracts.services.archive.archive_query_service import get_contract_or_none
 
-    contract = get_contract_or_none(contract_id)
+    contract = await sync_to_async(get_contract_or_none)(contract_id)
     if not contract:
         return HttpResponse(status=404)
 
     contract.compact_archive = not contract.compact_archive
-    contract.save(update_fields=["compact_archive"])
+    await sync_to_async(contract.save)(update_fields=["compact_archive"])
     logger.info(
         "切换精简视图状态: contract_id=%s, compact_archive=%s",
         contract_id,
@@ -246,18 +246,18 @@ def toggle_compact_archive(request: HttpRequest, contract_id: int) -> Any:  # pr
 
 
 @router.post("/{contract_id}/archive/sync-case-materials", response=SyncCaseMaterialsOut)
-def sync_case_materials(request: HttpRequest, contract_id: int) -> Any:  # pragma: no cover
+async def sync_case_materials(request: HttpRequest, contract_id: int) -> Any:  # pragma: no cover
     """从案件材料同步到归档"""
     from apps.contracts.services.archive.archive_query_service import get_contract_or_none
 
-    contract = get_contract_or_none(contract_id)
+    contract = await sync_to_async(get_contract_or_none)(contract_id)
     if not contract:
         return HttpResponse(status=404)
 
     from apps.contracts.services.archive.wiring import build_archive_checklist_service
 
     checklist_service = build_archive_checklist_service()
-    result = checklist_service.sync_case_materials_to_archive(contract)
+    result = await sync_to_async(checklist_service.sync_case_materials_to_archive)(contract)
 
     synced_count = len(result.get("synced", []))
     return SyncCaseMaterialsOut(
@@ -268,18 +268,18 @@ def sync_case_materials(request: HttpRequest, contract_id: int) -> Any:  # pragm
 
 
 @router.post("/{contract_id}/archive/reset-and-resync", response=SyncCaseMaterialsOut)
-def reset_and_resync_case_materials(request: HttpRequest, contract_id: int) -> Any:  # pragma: no cover
+async def reset_and_resync_case_materials(request: HttpRequest, contract_id: int) -> Any:  # pragma: no cover
     """重置并重新同步案件材料到归档"""
     from apps.contracts.services.archive.archive_query_service import get_contract_or_none
 
-    contract = get_contract_or_none(contract_id)
+    contract = await sync_to_async(get_contract_or_none)(contract_id)
     if not contract:
         return HttpResponse(status=404)
 
     from apps.contracts.services.archive.wiring import build_archive_checklist_service
 
     checklist_service = build_archive_checklist_service()
-    result = checklist_service.reset_and_resync_case_materials(contract)
+    result = await sync_to_async(checklist_service.reset_and_resync_case_materials)(contract)
 
     sync_result = result.get("sync_result", {})
     synced_count = len(sync_result.get("synced", []))
@@ -291,18 +291,18 @@ def reset_and_resync_case_materials(request: HttpRequest, contract_id: int) -> A
 
 
 @router.post("/{contract_id}/archive/scale-to-a4", response=ScaleToA4Out)
-def scale_to_a4(request: HttpRequest, contract_id: int) -> Any:  # pragma: no cover
+async def scale_to_a4(request: HttpRequest, contract_id: int) -> Any:  # pragma: no cover
     """将所有非A4尺寸的PDF页面缩放为A4大小"""
     from apps.contracts.services.archive.archive_query_service import get_contract_or_none
 
-    contract = get_contract_or_none(contract_id)
+    contract = await sync_to_async(get_contract_or_none)(contract_id)
     if not contract:
         return HttpResponse(status=404)
 
     from apps.contracts.services.archive import ArchiveGenerationService
 
     gen_service = ArchiveGenerationService()
-    result = gen_service.scale_pages_to_a4(contract)
+    result = await sync_to_async(gen_service.scale_pages_to_a4)(contract)
 
     return ScaleToA4Out(
         success=result.get("success", False),
@@ -335,11 +335,11 @@ async def confirm_archive(request: HttpRequest, contract_id: int) -> Any:  # pra
 
 
 @router.post("/{contract_id}/archive/upload", response=UploadArchiveItemOut)
-def upload_archive_item(request: HttpRequest, contract_id: int) -> Any:  # pragma: no cover
+async def upload_archive_item(request: HttpRequest, contract_id: int) -> Any:  # pragma: no cover
     """上传文件到归档检查清单项"""
     from apps.contracts.services.archive.archive_query_service import get_contract_or_none
 
-    contract = get_contract_or_none(contract_id)
+    contract = await sync_to_async(get_contract_or_none)(contract_id)
     if not contract:
         return HttpResponse(status=404)
 
@@ -358,7 +358,7 @@ def upload_archive_item(request: HttpRequest, contract_id: int) -> Any:  # pragm
     from apps.contracts.services.archive.wiring import build_archive_checklist_service
 
     checklist_service = build_archive_checklist_service()
-    material = checklist_service.upload_material_to_archive_item(
+    material = await sync_to_async(checklist_service.upload_material_to_archive_item)(
         contract=contract,
         archive_item_code=category,
         uploaded_file=uploaded_file,
@@ -368,43 +368,43 @@ def upload_archive_item(request: HttpRequest, contract_id: int) -> Any:  # pragm
 
 
 @router.delete("/{contract_id}/archive/materials/{material_id}", response=SuccessOut)
-def delete_archive_material(request: HttpRequest, contract_id: int, material_id: int) -> Any:  # pragma: no cover
+async def delete_archive_material(request: HttpRequest, contract_id: int, material_id: int) -> Any:  # pragma: no cover
     """删除归档材料"""
     from apps.contracts.services.archive.archive_query_service import delete_material, get_material_or_none
 
-    material = get_material_or_none(material_id, contract_id)
+    material = await sync_to_async(get_material_or_none)(material_id, contract_id)
 
     if not material:
         return HttpResponse(status=404)
 
-    delete_material(material)
+    await sync_to_async(delete_material)(material)
     logger.info("已删除归档材料: material_id=%s, contract_id=%s", material_id, contract_id)
     return SuccessOut()
 
 
 @router.post("/{contract_id}/archive/reorder", response=SuccessOut)
-def reorder_archive_materials(request: HttpRequest, contract_id: int, body: ReorderIn) -> Any:  # pragma: no cover
+async def reorder_archive_materials(request: HttpRequest, contract_id: int, body: ReorderIn) -> Any:  # pragma: no cover
     """按归档清单项分组排序子项"""
     from apps.contracts.services.archive.archive_query_service import reorder_materials
 
-    reorder_materials(contract_id, body.orders)
+    await sync_to_async(reorder_materials)(contract_id, body.orders)
 
     logger.info("归档材料排序已保存: contract_id=%s", contract_id)
     return SuccessOut()
 
 
 @router.post("/{contract_id}/archive/materials/{material_id}/move", response=SuccessOut)
-def move_archive_material(request: HttpRequest, contract_id: int, material_id: int, body: MoveIn) -> Any:  # pragma: no cover
+async def move_archive_material(request: HttpRequest, contract_id: int, material_id: int, body: MoveIn) -> Any:  # pragma: no cover
     """移动归档材料到另一个清单项"""
     from apps.contracts.services.archive.archive_query_service import get_material_or_none, move_material
 
-    material = get_material_or_none(material_id, contract_id)
+    material = await sync_to_async(get_material_or_none)(material_id, contract_id)
 
     if not material:
         return HttpResponse(status=404)
 
     old_code = material.archive_item_code
-    move_material(material, body.target_code)
+    await sync_to_async(move_material)(material, body.target_code)
 
     logger.info(
         "归档材料已移动: material_id=%s, %s → %s, contract_id=%s",

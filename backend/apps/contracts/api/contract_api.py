@@ -22,6 +22,11 @@ logger = logging.getLogger("apps.contracts.api")
 router = Router()
 
 
+def _serialize_contract(contract: Any) -> dict:
+    """Serialize a Contract model to dict in sync context (avoid lazy FK access in async)."""
+    return ContractOut.from_orm(contract).model_dump(by_alias=True)
+
+
 def _get_contract_service() -> Any:
     from apps.contracts.services.contract.wiring import get_contract_service
 
@@ -68,7 +73,7 @@ async def list_contracts(  # pragma: no cover
             org_access=ctx.org_access,
             perm_open_access=ctx.perm_open_access,
         )
-        return [ContractOut.from_orm(c).model_dump() for c in qs]
+        return [_serialize_contract(c) for c in qs]
 
     return await sync_to_async(_do)()
 
@@ -96,7 +101,7 @@ async def create_contract_with_cases(request: HttpRequest, payload: ContractWith
             assigned_lawyer_ids=lawyer_ids,
             user=ctx.user,
         )
-        return ContractOut.from_orm(contract)
+        return _serialize_contract(contract)
 
     return await sync_to_async(_do)()
 
@@ -118,7 +123,7 @@ async def get_contract(request: HttpRequest, contract_id: int) -> Any:  # pragma
             org_access=ctx.org_access,
             perm_open_access=ctx.perm_open_access,
         )
-        return ContractOut.from_orm(contract)
+        return _serialize_contract(contract)
 
     return await sync_to_async(_do)()
 
@@ -150,7 +155,7 @@ async def update_contract(  # pragma: no cover
             confirm_finance=confirm_finance,
             new_payments=[p.model_dump() for p in new_payments] if new_payments else None,
         )
-        return ContractOut.from_orm(contract)
+        return _serialize_contract(contract)
 
     return await sync_to_async(_do)()
 
@@ -176,7 +181,7 @@ async def create_contract(  # pragma: no cover
             confirm_finance=confirm_finance,
             user=ctx.user,
         )
-        return ContractOut.from_orm(contract)
+        return _serialize_contract(contract)
 
     return await sync_to_async(_do)()
 
@@ -195,7 +200,7 @@ async def update_contract_lawyers(request: HttpRequest, contract_id: int, payloa
         assignments = service.update_contract_lawyers(
             contract_id=contract_id, lawyer_ids=payload.lawyer_ids,
         )
-        return [ContractAssignmentOut.from_assignment(item) for item in assignments]
+        return [ContractAssignmentOut.from_assignment(item).model_dump() for item in assignments]
 
     return await sync_to_async(_do)()
 

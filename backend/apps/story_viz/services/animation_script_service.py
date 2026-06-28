@@ -43,6 +43,36 @@ class AnimationScriptService:
                 logger.exception("story_viz_animation_script_failed")
                 return self._build_fallback_script(facts=facts, viz_type=viz_type)
 
+    async def agenerate_script(self, *, facts: ExtractedFacts, viz_type: str) -> AnimationScript:
+        """异步版本，使用 achat 替代 chat。"""
+        system_prompt = "你是故事可视化导演助手。请将输入事实编排为可视化脚本。脚本需与 viz_type 对应并保持结构化。"
+        messages = [
+            {
+                "role": "system",
+                "content": "\n\n".join([system_prompt, json_schema_instructions(AnimationScript)]),
+            },
+            {
+                "role": "user",
+                "content": (f"viz_type={viz_type}\nfacts_json={facts.model_dump_json(ensure_ascii=False)}"),
+            },
+        ]
+
+        try:
+            llm_resp = await self._llm_service.achat(messages=messages, model=self._model, temperature=0.0)
+            parsed = parse_model_content(llm_resp.content, AnimationScript)
+            parsed.viz_type = viz_type
+            return parsed
+        except Exception:
+            logger.warning("story_viz_script_first_attempt_failed, retrying")
+            try:
+                llm_resp = await self._llm_service.achat(messages=messages, model=self._model, temperature=0.3)
+                parsed = parse_model_content(llm_resp.content, AnimationScript)
+                parsed.viz_type = viz_type
+                return parsed
+            except Exception:
+                logger.exception("story_viz_animation_script_failed")
+                return self._build_fallback_script(facts=facts, viz_type=viz_type)
+
     @staticmethod
     def _build_fallback_script(*, facts: ExtractedFacts, viz_type: str) -> AnimationScript:
         if viz_type == "claim_judgment":

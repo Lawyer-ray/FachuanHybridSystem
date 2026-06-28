@@ -46,7 +46,7 @@ class DraftService:  # pragma: no cover
         from ..session.context_service import LitigationContextService
 
         context_service = LitigationContextService()
-        case_info = await sync_to_async(context_service.build_case_info)(case_id, document_type)
+        case_info = await context_service.abuild_case_info(case_id, document_type)
 
         chain = LitigationDraftChain()
 
@@ -88,7 +88,7 @@ class LitigationDraftService:  # pragma: no cover
         context_service = LitigationContextService()
         evidence_service = EvidenceDigestService()
 
-        case_info = await sync_to_async(context_service.build_case_info)(case_id, document_type)
+        case_info = await context_service.abuild_case_info(case_id, document_type)
         our_evidence_item_ids = our_evidence_item_ids or []
         opponent_evidence_item_ids = opponent_evidence_item_ids or []
 
@@ -111,8 +111,8 @@ class LitigationDraftService:  # pragma: no cover
             from ..evidence.evidence_rag_service import EvidenceRAGService
 
             rag = EvidenceRAGService()
-            await sync_to_async(rag.ensure_ingested)(rag_ids)
-            retrieved = await sync_to_async(rag.retrieve)(
+            await rag.aensure_ingested(rag_ids)
+            retrieved = await rag.aretrieve(
                 f"{document_type};{case_info.get('cause_of_action', '')};{litigation_goal}",
                 rag_ids,
                 5,

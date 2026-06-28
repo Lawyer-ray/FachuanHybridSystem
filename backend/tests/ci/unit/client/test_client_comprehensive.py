@@ -522,21 +522,29 @@ class TestClientApi:
         result = await list_clients(request, client_type="natural", is_our_client=True, search="test")
         assert result == []
 
+    @patch("apps.client.api.client_api.ClientOut")
     @patch("apps.client.api.client_api._get_query_facade")
-    def test_get_client(self, mock_facade_cls):
+    @pytest.mark.asyncio
+    async def test_get_client(self, mock_facade_cls, mock_client_out):
         from apps.client.api.client_api import get_client
 
         mock_facade = MagicMock()
         mock_facade.get_client.return_value = SimpleNamespace(id=1, name="张三")
         mock_facade_cls.return_value = mock_facade
 
+        mock_instance = MagicMock()
+        mock_instance.model_dump.return_value = {"id": 1, "name": "张三"}
+        mock_client_out.from_orm.return_value = mock_instance
+
         request = MagicMock()
         request.auth = MagicMock()
-        result = get_client(request, client_id=1)
-        assert result.name == "张三"
+        result = await get_client(request, client_id=1)
+        assert result["name"] == "张三"
 
+    @patch("apps.client.api.client_api.ClientOut")
     @patch("apps.client.api.client_api._get_mutation_service")
-    def test_create_client(self, mock_svc_cls):
+    @pytest.mark.asyncio
+    async def test_create_client(self, mock_svc_cls, mock_client_out):
         from apps.client.api.client_api import create_client
         from apps.client.schemas import ClientIn
 
@@ -545,14 +553,20 @@ class TestClientApi:
         mock_svc.create_client.return_value = mock_client
         mock_svc_cls.return_value = mock_svc
 
+        mock_instance = MagicMock()
+        mock_instance.model_dump.return_value = {"id": 1, "name": "新客户", "client_type": "natural"}
+        mock_client_out.from_orm.return_value = mock_instance
+
         request = MagicMock()
         request.auth = MagicMock()
         payload = ClientIn(name="新客户", client_type="natural")
-        result = create_client(request, payload)
-        assert result.name == "新客户"
+        result = await create_client(request, payload)
+        assert result["name"] == "新客户"
 
+    @patch("apps.client.api.client_api.ClientOut")
     @patch("apps.client.api.client_api._get_mutation_service")
-    def test_update_client(self, mock_svc_cls):
+    @pytest.mark.asyncio
+    async def test_update_client(self, mock_svc_cls, mock_client_out):
         from apps.client.api.client_api import update_client
         from apps.client.schemas import ClientUpdateIn
 
@@ -561,14 +575,19 @@ class TestClientApi:
         mock_svc.update_client.return_value = mock_client
         mock_svc_cls.return_value = mock_svc
 
+        mock_instance = MagicMock()
+        mock_instance.model_dump.return_value = {"id": 1, "name": "更新后"}
+        mock_client_out.from_orm.return_value = mock_instance
+
         request = MagicMock()
         request.auth = MagicMock()
         payload = ClientUpdateIn(name="更新后")
-        result = update_client(request, client_id=1, payload=payload)
-        assert result.name == "更新后"
+        result = await update_client(request, client_id=1, payload=payload)
+        assert result["name"] == "更新后"
 
     @patch("apps.client.api.client_api._get_mutation_service")
-    def test_delete_client(self, mock_svc_cls):
+    @pytest.mark.asyncio
+    async def test_delete_client(self, mock_svc_cls):
         from apps.client.api.client_api import delete_client
 
         mock_svc = MagicMock()
@@ -576,60 +595,66 @@ class TestClientApi:
 
         request = MagicMock()
         request.auth = MagicMock()
-        result = delete_client(request, client_id=1)
+        result = await delete_client(request, client_id=1)
         mock_svc.delete_client.assert_called_once()
 
     @patch("apps.client.api.client_api._parse_client")
-    def test_parse_client_text_single(self, mock_parse):
+    @pytest.mark.asyncio
+    async def test_parse_client_text_single(self, mock_parse):
         from apps.client.api.client_api import parse_client_text
 
         mock_parse.return_value = {"name": "张三", "client_type": "natural"}
         request = MagicMock()
         payload = SimpleNamespace(text="张三", parse_multiple=False)
-        result = parse_client_text(request, payload)
+        result = await parse_client_text(request, payload)
         assert result["success"] is True
         assert "client" in result
 
     @patch("apps.client.api.client_api._parse_client")
-    def test_parse_client_text_no_name(self, mock_parse):
+    @pytest.mark.asyncio
+    async def test_parse_client_text_no_name(self, mock_parse):
         from apps.client.api.client_api import parse_client_text
 
         mock_parse.return_value = {"name": ""}
         request = MagicMock()
         payload = SimpleNamespace(text="无效文本", parse_multiple=False)
-        result = parse_client_text(request, payload)
+        result = await parse_client_text(request, payload)
         assert result["success"] is False
 
     @patch("apps.client.api.client_api._parse_multi")
-    def test_parse_client_text_multiple(self, mock_parse_multi):
+    @pytest.mark.asyncio
+    async def test_parse_client_text_multiple(self, mock_parse_multi):
         from apps.client.api.client_api import parse_client_text
 
         mock_parse_multi.return_value = [{"name": "张三"}, {"name": "李四"}]
         request = MagicMock()
         payload = SimpleNamespace(text="多当事人", parse_multiple=True)
-        result = parse_client_text(request, payload)
+        result = await parse_client_text(request, payload)
         assert result["success"] is True
         assert len(result["clients"]) == 2
 
-    def test_parse_text_get(self):
+    @pytest.mark.asyncio
+    async def test_parse_text_get(self):
         from apps.client.api.client_api import parse_text_get
 
         request = MagicMock()
-        result = parse_text_get(request, text="张三")
+        result = await parse_text_get(request, text="张三")
         assert isinstance(result, dict)
 
     @patch("apps.client.api.client_api.IdCardUtils")
-    def test_validate_id_card(self, mock_utils):
+    @pytest.mark.asyncio
+    async def test_validate_id_card(self, mock_utils):
         from apps.client.api.client_api import validate_id_card
 
         mock_utils.validate_id_card.return_value = {"valid": True, "message": "ok"}
         request = MagicMock()
         payload = SimpleNamespace(id_number="110101199001011234")  # pragma: allowlist secret
-        result = validate_id_card(request, payload)
+        result = await validate_id_card(request, payload)
         assert result.valid is True
 
     @patch("apps.client.api.client_api._get_query_facade")
-    def test_get_related_items(self, mock_facade_cls):
+    @pytest.mark.asyncio
+    async def test_get_related_items(self, mock_facade_cls):
         from apps.client.api.client_api import get_related_items
 
         mock_facade = MagicMock()
@@ -637,7 +662,7 @@ class TestClientApi:
         mock_facade_cls.return_value = mock_facade
 
         request = MagicMock()
-        result = get_related_items(request, client_id=1)
+        result = await get_related_items(request, client_id=1)
         assert result == {"cases": [], "contracts": []}
 
 

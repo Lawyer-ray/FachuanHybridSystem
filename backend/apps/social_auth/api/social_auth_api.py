@@ -53,26 +53,26 @@ def list_providers(request: HttpRequest) -> ProvidersListOut:  # pragma: no cove
 
 @router.post("/token-exchange", response=TokenExchangeOut, auth=None)
 @rate_limit_from_settings("AUTH")
-def token_exchange(request: HttpRequest, payload: TokenExchangeIn) -> TokenExchangeOut:  # pragma: no cover
+async def token_exchange(request: HttpRequest, payload: TokenExchangeIn) -> TokenExchangeOut:  # pragma: no cover
     try:
-        temp = TempAuth.objects.select_related("user").get(token=payload.code)
+        temp = await TempAuth.objects.select_related("user").aget(token=payload.code)
     except TempAuth.DoesNotExist:
         return TokenExchangeOut(success=False, message="授权码无效或已过期")
 
     if temp.is_expired:
-        temp.delete()
+        await temp.adelete()
         return TokenExchangeOut(success=False, message="授权码已过期，请重新扫码")
 
     user = temp.user
     if not user.is_active:
-        temp.delete()
+        await temp.adelete()
         return TokenExchangeOut(success=False, message="账号未激活，请联系管理员")
 
     from ninja_jwt.tokens import RefreshToken
 
     refresh = RefreshToken.for_user(user)
 
-    temp.delete()
+    await temp.adelete()
 
     return TokenExchangeOut(
         success=True,

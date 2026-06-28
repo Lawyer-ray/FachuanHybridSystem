@@ -110,7 +110,41 @@ class GenerateDraftInput(BaseModel):
 # ============================================================
 
 
-@tool(args_schema=GetCaseInfoInput)
+async def _get_case_info_async(case_id: int, **kwargs: Any) -> dict[str, Any]:
+    """get_case_info 的异步实现。"""
+    from apps.litigation_ai.services.session.context_service import LitigationContextService
+
+    return await LitigationContextService().aget_case_info_for_agent(case_id)
+
+
+async def _get_evidence_list_async(
+    case_id: int, ownership: str | None = None, **kwargs: Any
+) -> list[dict[str, Any]]:
+    """get_evidence_list 的异步实现。"""
+    from apps.litigation_ai.services.session.context_service import LitigationContextService
+
+    return await LitigationContextService().aget_evidence_list_for_agent(case_id, ownership)
+
+
+async def _search_evidence_async(
+    query: str, evidence_item_ids: list[int], top_k: int = 5, **kwargs: Any
+) -> list[dict[str, Any]]:
+    """search_evidence 的异步实现。"""
+    from apps.litigation_ai.services.evidence.evidence_digest_service import EvidenceDigestService
+
+    return await EvidenceDigestService().asearch_evidence_for_agent(
+        query=query, evidence_item_ids=evidence_item_ids, top_k=top_k
+    )
+
+
+async def _get_recommended_document_types_async(case_id: int, **kwargs: Any) -> list[str]:
+    """get_recommended_document_types 的异步实现。"""
+    from apps.litigation_ai.services.session.conversation_service import ConversationService
+
+    return await sync_to_async(ConversationService().get_recommended_document_types)(case_id)
+
+
+@tool(args_schema=GetCaseInfoInput, async_func=_get_case_info_async)
 def get_case_info(case_id: int) -> dict[str, Any]:
     """
     获取案件基本信息,包括当事人、案由、标的额等.
@@ -138,7 +172,7 @@ def get_case_info(case_id: int) -> dict[str, Any]:
         return {"error": f"获取案件信息失败: {e!s}"}
 
 
-@tool(args_schema=GetEvidenceListInput)
+@tool(args_schema=GetEvidenceListInput, async_func=_get_evidence_list_async)
 def get_evidence_list(
     case_id: int,
     ownership: str | None = None,
@@ -170,7 +204,7 @@ def get_evidence_list(
         return [{"error": f"获取证据列表失败: {e!s}"}]
 
 
-@tool(args_schema=SearchEvidenceInput)
+@tool(args_schema=SearchEvidenceInput, async_func=_search_evidence_async)
 def search_evidence(
     query: str,
     evidence_item_ids: list[int],
@@ -215,7 +249,7 @@ def search_evidence(
         return [{"error": f"证据检索失败: {e!s}"}]
 
 
-@tool(args_schema=GetRecommendedDocumentTypesInput)
+@tool(args_schema=GetRecommendedDocumentTypesInput, async_func=_get_recommended_document_types_async)
 def get_recommended_document_types(case_id: int) -> list[str]:
     """
     根据案件状态推荐适合生成的文书类型.

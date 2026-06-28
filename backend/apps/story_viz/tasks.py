@@ -13,3 +13,12 @@ def generate_story_animation(animation_id: str) -> None:  # pragma: no cover
     except Exception:
         logger.exception("story_viz_task_failed", extra={"animation_id": animation_id})
         raise
+
+
+async def agenerate_story_animation(animation_id: str) -> None:  # pragma: no cover
+    """异步版本的 task 入口。"""
+    try:
+        await get_story_animation_workflow_service().arun(animation_id=animation_id)
+    except Exception:
+        logger.exception("story_viz_task_failed", extra={"animation_id": animation_id})
+        raise
