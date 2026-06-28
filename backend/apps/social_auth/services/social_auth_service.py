@@ -5,6 +5,8 @@ from __future__ import annotations
 import secrets
 import string
 
+from django.db import transaction
+
 from apps.organization.models import Lawyer
 from apps.social_auth.models import SocialAccount
 
@@ -40,38 +42,39 @@ async def link_or_create_user(profile: SocialProfile) -> Lawyer:  # pragma: no c
     2. 如果没有关联，创建新用户（自动激活，无需审批）
     3. 创建 SocialAccount 关联记录
     """
-    existing = await SocialAccount.objects.select_related("user").filter(
-        provider=profile.provider,
-        provider_uid=profile.provider_user_id,
-    ).afirst()
-    if existing:
-        if profile.display_name:
-            existing.display_name = profile.display_name
-        if profile.avatar_url:
-            existing.avatar_url = profile.avatar_url
-        existing.raw_profile = profile.raw_data
-        await existing.asave()
-        return existing.user
+    async with transaction.atomic():
+        existing = await SocialAccount.objects.select_related("user").filter(
+            provider=profile.provider,
+            provider_uid=profile.provider_user_id,
+        ).afirst()
+        if existing:
+            if profile.display_name:
+                existing.display_name = profile.display_name
+            if profile.avatar_url:
+                existing.avatar_url = profile.avatar_url
+            existing.raw_profile = profile.raw_data
+            await existing.asave()
+            return existing.user
 
-    username = await _ensure_unique_username(_generate_username(profile.provider_user_id))
-    user: Lawyer = await Lawyer.objects.acreate_user(
-        username=username,
-        password=_generate_password(),
-        email=None,
-        real_name=profile.display_name or "",
-        is_active=True,
-        is_superuser=False,
-        is_staff=False,
-        is_admin=False,
-    )
+        username = await _ensure_unique_username(_generate_username(profile.provider_user_id))
+        user: Lawyer = await Lawyer.objects.acreate_user(
+            username=username,
+            password=_generate_password(),
+            email=None,
+            real_name=profile.display_name or "",
+            is_active=True,
+            is_superuser=False,
+            is_staff=False,
+            is_admin=False,
+        )
 
-    await SocialAccount.objects.acreate(
-        user=user,
-        provider=profile.provider,
-        provider_uid=profile.provider_user_id,
-        display_name=profile.display_name or "",
-        avatar_url=profile.avatar_url or "",
-        raw_profile=profile.raw_data,
-    )
+        await SocialAccount.objects.acreate(
+            user=user,
+            provider=profile.provider,
+            provider_uid=profile.provider_user_id,
+            display_name=profile.display_name or "",
+            avatar_url=profile.avatar_url or "",
+            raw_profile=profile.raw_data,
+        )
 
-    return user
+        return user

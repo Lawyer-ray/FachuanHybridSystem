@@ -2,6 +2,7 @@
 
 from typing import Any
 
+from asgiref.sync import sync_to_async
 from django.db.models import Count
 
 from apps.core.dto import ConversationHistoryDTO
@@ -124,11 +125,11 @@ class ConversationHistoryService:
         Returns:
             消息列表,按时间正序排列
         """
-        qs = await self._repository.aget_by_session_id(session_id)
+        qs = self._repository.get_by_session_id(session_id)
         if user_id:
             qs = qs.filter(user_id=user_id)
         qs = qs.order_by("-created_at")[:limit]
-        history = [record async for record in qs]
+        history = await sync_to_async(list)(qs)
 
         messages: list[dict[str, Any]] = []
         for record in reversed(history):
