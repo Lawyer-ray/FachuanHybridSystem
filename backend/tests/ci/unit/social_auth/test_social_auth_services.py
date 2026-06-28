@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 
 class TestSocialAuthServiceHelpers:
@@ -24,22 +24,28 @@ class TestSocialAuthServiceHelpers:
 
 
 class TestSocialAuthServiceEnsureUniqueUsername:
-    def test_unique_first_try(self):
+    @pytest.mark.asyncio
+    async def test_unique_first_try(self):
         from apps.social_auth.services.social_auth_service import _ensure_unique_username
         with patch("apps.social_auth.services.social_auth_service.Lawyer") as MockLawyer:
-            MockLawyer.objects.filter.return_value.exists.return_value = False
-            assert _ensure_unique_username("test_user") == "test_user"
+            mock_qs = MagicMock()
+            mock_qs.aexists = AsyncMock(return_value=False)
+            MockLawyer.objects.filter.return_value = mock_qs
+            assert await _ensure_unique_username("test_user") == "test_user"
 
-    def test_unique_second_try(self):
+    @pytest.mark.asyncio
+    async def test_unique_second_try(self):
         from apps.social_auth.services.social_auth_service import _ensure_unique_username
         with patch("apps.social_auth.services.social_auth_service.Lawyer") as MockLawyer:
-            MockLawyer.objects.filter.return_value.exists.side_effect = [True, False]
-            assert _ensure_unique_username("test_user") == "test_user_1"
+            mock_qs = MagicMock()
+            mock_qs.aexists = AsyncMock(side_effect=[True, False])
+            MockLawyer.objects.filter.return_value = mock_qs
+            assert await _ensure_unique_username("test_user") == "test_user_1"
 
 
 class TestSocialAuthServiceLinkOrCreateUser:
-    @pytest.mark.django_db
-    def test_existing_account_updates(self):
+    @pytest.mark.asyncio
+    async def test_existing_account_updates(self):
         from apps.social_auth.services.social_auth_service import link_or_create_user
         from apps.social_auth.providers.base import SocialProfile
 
@@ -55,9 +61,12 @@ class TestSocialAuthServiceLinkOrCreateUser:
         mock_account = MagicMock()
         mock_user = MagicMock()
         mock_account.user = mock_user
+        mock_account.asave = AsyncMock()
 
         with patch("apps.social_auth.services.social_auth_service.SocialAccount") as MockSA:
-            MockSA.objects.select_related.return_value.filter.return_value.first.return_value = mock_account
-            result = link_or_create_user(profile)
+            mock_qs = MagicMock()
+            mock_qs.afirst = AsyncMock(return_value=mock_account)
+            MockSA.objects.select_related.return_value.filter.return_value = mock_qs
+            result = await link_or_create_user(profile)
             assert result is mock_user
-            mock_account.save.assert_called_once()
+            mock_account.asave.assert_called_once()

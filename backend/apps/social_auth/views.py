@@ -15,8 +15,6 @@ from django.http import (
 )
 from django.shortcuts import redirect
 from django.views import View
-from asgiref.sync import sync_to_async
-
 from apps.social_auth.models import TempAuth
 from apps.social_auth.providers import ProviderRegistry
 
@@ -121,14 +119,14 @@ class SocialCallbackView(View):  # pragma: no cover
             )
 
         try:
-            user = await sync_to_async(link_or_create_user)(profile)
+            user = await link_or_create_user(profile)
         except Exception as exc:
             logger.error("Social auth user creation failed for %s: %s", provider, exc)
             return HttpResponseRedirect(
                 f"{frontend_base}/social-callback?error=user_creation_failed"
             )
 
-        temp = await sync_to_async(TempAuth.objects.create)(user=user)
+        temp = await TempAuth.objects.acreate(user=user)
 
         if "oauth" in request.session:
             del request.session["oauth"]

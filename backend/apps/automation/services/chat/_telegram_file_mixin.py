@@ -67,6 +67,36 @@ class TelegramFileMixin:  # pragma: no cover
                 errors={"original_error": str(e), "file_path": file_path},
             ) from e
 
+    async def asend_file(self, chat_id: str, file_path: str) -> ChatResult:  # pragma: no cover
+        """异步发送文件到群聊"""
+        if not self.is_available():
+            raise ConfigurationException(
+                message="Telegram 配置不完整，无法发送文件",
+                platform="telegram",
+                missing_config="BOT_TOKEN",
+            )
+
+        if not Path(file_path).exists():
+            raise MessageSendException(
+                message=f"文件不存在: {file_path}",
+                platform="telegram",
+                chat_id=chat_id,
+                errors={"file_path": file_path},
+            )
+
+        try:
+            return await self._asend_document(chat_id, file_path)
+        except MessageSendException:
+            raise
+        except Exception as e:
+            logger.error(f"发送 Telegram 文件时发生未知错误: {e!s}")
+            raise MessageSendException(
+                message=f"发送文件时发生未知错误: {e!s}",
+                platform="telegram",
+                chat_id=chat_id,
+                errors={"original_error": str(e), "file_path": file_path},
+            ) from e
+
     def _send_document(self, chat_id: str, file_path: str) -> ChatResult:  # pragma: no cover
         """使用 sendDocument API 发送文件
 

@@ -74,6 +74,44 @@ class FeishuFileMixin:  # pragma: no cover
                 errors={"original_error": str(e), "file_path": file_path},
             ) from e
 
+    async def asend_file(self, chat_id: str, file_path: str) -> ChatResult:  # pragma: no cover
+        """异步发送文件到群聊"""
+        if not self.is_available():
+            raise ConfigurationException(
+                message="飞书配置不完整，无法发送文件", platform="feishu", missing_config="APP_ID, APP_SECRET"
+            )
+
+        if not Path(file_path).exists():
+            raise MessageSendException(
+                message=f"文件不存在: {file_path}", platform="feishu", chat_id=chat_id, errors={"file_path": file_path}
+            )
+
+        file_size = Path(file_path).stat().st_size
+        if file_size > self.MAX_FILE_SIZE:
+            size_mb = file_size / (1024 * 1024)
+            max_mb = self.MAX_FILE_SIZE / (1024 * 1024)
+            raise MessageSendException(
+                message=f"文件过大 ({size_mb:.1f}MB)，飞书限制 {max_mb:.0f}MB",
+                platform="feishu",
+                chat_id=chat_id,
+                error_code="FILE_TOO_LARGE",
+                errors={"file_path": file_path, "file_size": file_size, "max_size": self.MAX_FILE_SIZE},
+            )
+
+        try:
+            file_key = await self._aupload_file(file_path)
+            return await self._asend_file_message(chat_id, file_key, file_path)
+        except MessageSendException:
+            raise
+        except Exception as e:
+            logger.error(f"发送飞书文件时发生未知错误: {e!s}")
+            raise MessageSendException(
+                message=f"发送文件时发生未知错误: {e!s}",
+                platform="feishu",
+                chat_id=chat_id,
+                errors={"original_error": str(e), "file_path": file_path},
+            ) from e
+
     def _upload_file(self, file_path: str) -> str:  # pragma: no cover
         """上传文件到飞书并获取 file_key"""
         try:
