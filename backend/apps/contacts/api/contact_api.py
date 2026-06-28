@@ -24,10 +24,13 @@ def _get_contact_service() -> Any:
 async def list_contacts(request: HttpRequest, case_id: int | None = None, stage: str | None = None) -> list[CaseContactOut]:  # pragma: no cover
     service = _get_contact_service()
     ctx = extract_request_context(request)
-    return cast(
-        list[CaseContactOut],
-        await sync_to_async(service.list_contacts)(case_id=case_id, stage=stage, user=ctx.user),
-    )
+
+    @sync_to_async
+    def _fetch() -> list[CaseContactOut]:
+        qs = service.list_contacts(case_id=case_id, stage=stage, user=ctx.user)
+        return [CaseContactOut.from_orm(c) for c in qs]
+
+    return await _fetch()
 
 
 @router.post("/contacts", response=CaseContactOut)
@@ -35,10 +38,13 @@ async def create_contact(request: HttpRequest, payload: CaseContactIn) -> CaseCo
     service = _get_contact_service()
     ctx = extract_request_context(request)
     data = payload.model_dump(exclude={"case_id"})
-    return cast(
-        CaseContactOut,
-        await sync_to_async(service.create_contact)(case_id=payload.case_id, data=data, user=ctx.user),
-    )
+
+    @sync_to_async
+    def _create() -> CaseContactOut:
+        contact = service.create_contact(case_id=payload.case_id, data=data, user=ctx.user)
+        return CaseContactOut.from_orm(contact)
+
+    return await _create()
 
 
 @router.get("/contacts/search", response=list[CaseContactSearchResult])
@@ -51,17 +57,25 @@ async def search_contacts(  # pragma: no cover
 ) -> list[CaseContactSearchResult]:
     service = _get_contact_service()
     ctx = extract_request_context(request)
-    return cast(
-        list[CaseContactSearchResult],
-        await sync_to_async(service.search_contacts_public)(q=q, court=court, role=role, limit=limit, user=ctx.user),
-    )
+
+    @sync_to_async
+    def _fetch() -> list[dict[str, Any]]:
+        return service.search_contacts_public(q=q, court=court, role=role, limit=limit, user=ctx.user)
+
+    return await _fetch()
 
 
 @router.get("/contacts/{contact_id}", response=CaseContactOut)
 async def get_contact(request: HttpRequest, contact_id: int) -> CaseContactOut:  # pragma: no cover
     service = _get_contact_service()
     ctx = extract_request_context(request)
-    return cast(CaseContactOut, await sync_to_async(service.get_contact)(contact_id=contact_id, user=ctx.user))
+
+    @sync_to_async
+    def _fetch() -> CaseContactOut:
+        contact = service.get_contact(contact_id=contact_id, user=ctx.user)
+        return CaseContactOut.from_orm(contact)
+
+    return await _fetch()
 
 
 @router.put("/contacts/{contact_id}", response=CaseContactOut)
@@ -69,10 +83,13 @@ async def update_contact(request: HttpRequest, contact_id: int, payload: CaseCon
     service = _get_contact_service()
     ctx = extract_request_context(request)
     data = payload.model_dump(exclude_unset=True)
-    return cast(
-        CaseContactOut,
-        await sync_to_async(service.update_contact)(contact_id=contact_id, data=data, user=ctx.user),
-    )
+
+    @sync_to_async
+    def _update() -> CaseContactOut:
+        contact = service.update_contact(contact_id=contact_id, data=data, user=ctx.user)
+        return CaseContactOut.from_orm(contact)
+
+    return await _update()
 
 
 @router.delete("/contacts/{contact_id}")

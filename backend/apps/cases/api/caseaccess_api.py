@@ -31,36 +31,54 @@ async def list_grants(  # pragma: no cover
 ) -> Any:
     service = _get_case_access_service()
     ctx = extract_request_context(request)
-    return await sync_to_async(service.list_grants)(
-        case_id=case_id,
-        grantee_id=grantee_id,
-        user=ctx.user,
-        org_access=ctx.org_access,
-        perm_open_access=ctx.perm_open_access,
-    )
+
+    @sync_to_async
+    def _fetch() -> list[CaseAccessGrantOut]:
+        qs = service.list_grants(
+            case_id=case_id,
+            grantee_id=grantee_id,
+            user=ctx.user,
+            org_access=ctx.org_access,
+            perm_open_access=ctx.perm_open_access,
+        )
+        return [CaseAccessGrantOut.from_orm(g) for g in qs]
+
+    return await _fetch()
 
 
 @router.post("/grants", response=CaseAccessGrantOut)
 async def create_grant(request: HttpRequest, payload: CaseAccessGrantIn) -> Any:  # pragma: no cover
     service = _get_case_access_service()
     ctx = extract_request_context(request)
-    return await sync_to_async(service.create_grant)(
-        case_id=payload.case_id,
-        grantee_id=payload.grantee_id,
-        user=ctx.user,
-    )
+
+    @sync_to_async
+    def _create() -> CaseAccessGrantOut:
+        grant = service.create_grant(
+            case_id=payload.case_id,
+            grantee_id=payload.grantee_id,
+            user=ctx.user,
+        )
+        return CaseAccessGrantOut.from_orm(grant)
+
+    return await _create()
 
 
 @router.get("/grants/{grant_id}", response=CaseAccessGrantOut)
 async def get_grant(request: HttpRequest, grant_id: int) -> Any:  # pragma: no cover
     service = _get_case_access_service()
     ctx = extract_request_context(request)
-    return await sync_to_async(service.get_grant)(
-        grant_id=grant_id,
-        user=ctx.user,
-        org_access=ctx.org_access,
-        perm_open_access=ctx.perm_open_access,
-    )
+
+    @sync_to_async
+    def _fetch() -> CaseAccessGrantOut:
+        grant = service.get_grant(
+            grant_id=grant_id,
+            user=ctx.user,
+            org_access=ctx.org_access,
+            perm_open_access=ctx.perm_open_access,
+        )
+        return CaseAccessGrantOut.from_orm(grant)
+
+    return await _fetch()
 
 
 @router.put("/grants/{grant_id}", response=CaseAccessGrantOut)
@@ -68,13 +86,19 @@ async def update_grant(request: HttpRequest, grant_id: int, payload: CaseAccessG
     service = _get_case_access_service()
     ctx = extract_request_context(request)
     data = payload.model_dump(exclude_unset=True)
-    return await sync_to_async(service.update_grant)(
-        grant_id=grant_id,
-        data=data,
-        user=ctx.user,
-        org_access=ctx.org_access,
-        perm_open_access=ctx.perm_open_access,
-    )
+
+    @sync_to_async
+    def _update() -> CaseAccessGrantOut:
+        grant = service.update_grant(
+            grant_id=grant_id,
+            data=data,
+            user=ctx.user,
+            org_access=ctx.org_access,
+            perm_open_access=ctx.perm_open_access,
+        )
+        return CaseAccessGrantOut.from_orm(grant)
+
+    return await _update()
 
 
 @router.delete("/grants/{grant_id}")
