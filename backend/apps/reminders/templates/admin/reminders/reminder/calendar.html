@@ -1799,6 +1799,13 @@
                             将以下链接添加到日历 App 的"订阅日历"中，法穿提醒会自动同步。
                         </p>
                         <input type="text" readonly value="${feedUrl}" style="width:100%;padding:8px 10px;border:1px solid var(--fc-border-input,#d1d5db);border-radius:6px;font-size:12px;box-sizing:border-box;background:var(--fc-bg-secondary,#f9fafb);" id="sub-feed-url" />
+                        <div style="margin-top:10px;padding:10px;background:var(--fc-bg-muted,#f3f4f6);border-radius:8px;font-size:12px;color:var(--fc-text-secondary,#666);line-height:1.7;">
+                            <strong style="display:block;margin-bottom:4px;color:var(--fc-text-primary,#333);">各平台添加方式：</strong>
+                            <b>Apple 日历 (macOS/iOS)：</b> 设置 → 日历 → 账户 → 添加订阅日历 → 粘贴链接<br>
+                            <b>Google 日历：</b> 左侧"其他日历"→ + → 来自网址 → 粘贴链接<br>
+                            <b>Outlook：</b> 添加日历 → 从 Internet 订阅 → 粘贴链接<br>
+                            <b>提醒数据：</b> 系统每隔4小时自动同步一次，仅含未来1年内的提醒。
+                        </div>
                         <div style="display:flex;gap:8px;margin-top:12px;justify-content:flex-end;">
                             <button id="sub-copy-btn" style="padding:6px 14px;border-radius:6px;border:none;background:#2563eb;color:#fff;font-size:13px;cursor:pointer;">复制链接</button>
                             <button id="sub-close-btn" style="padding:6px 14px;border-radius:6px;border:1px solid var(--fc-border-input,#d1d5db);background:var(--fc-bg-card,#fff);font-size:13px;cursor:pointer;">关闭</button>
