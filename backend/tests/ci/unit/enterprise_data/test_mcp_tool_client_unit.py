@@ -226,7 +226,14 @@ class TestMcpToolClientCollectRelatedExceptions:
 @pytest.mark.asyncio
 async def test_acall_tool_success():
     from apps.enterprise_data.services.clients.mcp_tool_client import McpToolClient
-    client = McpToolClient(base_url="http://test", api_keys=["key1"])
+    client = McpToolClient(
+        provider_name="test",
+        transport="streamable_http",
+        base_url="http://test",
+        sse_url="",
+        api_key="",
+        api_keys=["key1"],
+    )
     mock_result = {"payload": {"data": "test"}, "raw": {}}
     mock_meta = {"duration_ms": 100}
     client._acquire_rate_limit = MagicMock()

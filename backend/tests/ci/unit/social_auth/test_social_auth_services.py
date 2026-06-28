@@ -63,10 +63,15 @@ class TestSocialAuthServiceLinkOrCreateUser:
         mock_account.user = mock_user
         mock_account.asave = AsyncMock()
 
-        with patch("apps.social_auth.services.social_auth_service.SocialAccount") as MockSA:
-            mock_qs = MagicMock()
-            mock_qs.afirst = AsyncMock(return_value=mock_account)
-            MockSA.objects.select_related.return_value.filter.return_value = mock_qs
-            result = await link_or_create_user(profile)
-            assert result is mock_user
-            mock_account.asave.assert_called_once()
+        with patch("apps.social_auth.services.social_auth_service.transaction") as mock_txn:
+            # Make transaction.atomic() work as async context manager
+            mock_txn.atomic.return_value.__aenter__ = AsyncMock(return_value=None)
+            mock_txn.atomic.return_value.__aexit__ = AsyncMock(return_value=False)
+
+            with patch("apps.social_auth.services.social_auth_service.SocialAccount") as MockSA:
+                mock_qs = MagicMock()
+                mock_qs.afirst = AsyncMock(return_value=mock_account)
+                MockSA.objects.select_related.return_value.filter.return_value = mock_qs
+                result = await link_or_create_user(profile)
+                assert result is mock_user
+                mock_account.asave.assert_called_once()
