@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from types import SimpleNamespace
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -221,3 +221,16 @@ class TestMcpToolClientCollectRelatedExceptions:
         result = McpToolClient._collect_related_exceptions(exc)
         assert cause in result
         assert exc in result
+
+
+@pytest.mark.asyncio
+async def test_acall_tool_success():
+    from apps.enterprise_data.services.clients.mcp_tool_client import McpToolClient
+    client = McpToolClient(base_url="http://test", api_keys=["key1"])
+    mock_result = {"payload": {"data": "test"}, "raw": {}}
+    mock_meta = {"duration_ms": 100}
+    client._acquire_rate_limit = MagicMock()
+    client._aexecute_with_api_key_failover = AsyncMock(return_value=(mock_result, mock_meta))
+    result = await client.acall_tool(tool_name="search", arguments={"q": "test"})
+    assert result["payload"] == {"data": "test"}
+    client._aexecute_with_api_key_failover.assert_called_once()
