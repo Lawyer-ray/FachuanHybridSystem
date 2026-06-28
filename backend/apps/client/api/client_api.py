@@ -70,9 +70,9 @@ async def list_clients(  # pragma: no cover
             search=search,
             user=user,
         )
-        # Materialize queryset inside sync context so Django Ninja
-        # serialization won't trigger sync ORM calls.
-        return list(qs)
+        # Materialize queryset AND trigger schema resolution inside sync context
+        # so that lazy relationships (identity_docs) are accessed synchronously.
+        return [ClientOut.from_orm(c) for c in qs]
 
     return cast(list[ClientOut], await _fetch())
 
@@ -123,7 +123,13 @@ async def get_client(request: Any, client_id: int) -> Any:  # pragma: no cover
     """获取单个客户"""
     facade = _get_query_facade()
     user = getattr(request, "auth", None) or extract_request_context(request).user
-    return await sync_to_async(facade.get_client)(client_id=client_id, user=user)
+
+    @sync_to_async
+    def _fetch() -> ClientOut:
+        client = facade.get_client(client_id=client_id, user=user)
+        return ClientOut.from_orm(client)
+
+    return await _fetch()
 
 
 @router.post("/clients", response=ClientOut)
@@ -131,7 +137,13 @@ async def create_client(request: Any, payload: ClientIn) -> Any:  # pragma: no c
     """创建客户"""
     service = _get_mutation_service()
     user = getattr(request, "auth", None) or extract_request_context(request).user
-    return await sync_to_async(service.create_client)(data=payload.model_dump(), user=user)
+
+    @sync_to_async
+    def _create() -> ClientOut:
+        client = service.create_client(data=payload.model_dump(), user=user)
+        return ClientOut.from_orm(client)
+
+    return await _create()
 
 
 @router.post("/clients-with-docs", response=ClientOut)
@@ -151,12 +163,18 @@ async def create_client_with_docs(  # pragma: no cover
 
     mutation_service = _get_mutation_service()
     user = getattr(request, "auth", None) or extract_request_context(request).user
-    return await sync_to_async(mutation_service.create_client_with_docs)(
-        data=payload.model_dump(),
-        doc_types=doc_types,
-        files=files,
-        user=user,
-    )
+
+    @sync_to_async
+    def _create() -> ClientOut:
+        client = mutation_service.create_client_with_docs(
+            data=payload.model_dump(),
+            doc_types=doc_types,
+            files=files,
+            user=user,
+        )
+        return ClientOut.from_orm(client)
+
+    return await _create()
 
 
 @router.put("/clients/{client_id}", response=ClientOut)
@@ -165,7 +183,13 @@ async def update_client(request: Any, client_id: int, payload: ClientUpdateIn) -
     service = _get_mutation_service()
     data = payload.model_dump(exclude_unset=True)
     user = getattr(request, "auth", None) or extract_request_context(request).user
-    return await sync_to_async(service.update_client)(client_id=client_id, data=data, user=user)
+
+    @sync_to_async
+    def _update() -> ClientOut:
+        client = service.update_client(client_id=client_id, data=data, user=user)
+        return ClientOut.from_orm(client)
+
+    return await _update()
 
 
 @router.delete("/clients/{client_id}", response={204: None})
