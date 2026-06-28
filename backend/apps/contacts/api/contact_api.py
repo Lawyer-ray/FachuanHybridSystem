@@ -62,7 +62,7 @@ async def search_contacts(  # pragma: no cover
     def _fetch() -> list[dict[str, Any]]:
         return service.search_contacts_public(q=q, court=court, role=role, limit=limit, user=ctx.user)
 
-    return await _fetch()
+    return await _fetch()  # type: ignore[return-value]
 
 
 @router.get("/contacts/{contact_id}", response=CaseContactOut)
