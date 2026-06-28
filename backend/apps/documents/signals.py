@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from pathlib import Path
 from typing import Any
+
+from asgiref.sync import sync_to_async
 
 from django.conf import settings
 from django.db import transaction
@@ -166,12 +169,12 @@ def _invalidate_template_matching_cache(sender: type[Any]) -> None:
 @receiver(post_delete, sender=FolderTemplate)
 @receiver(post_delete, sender=DocumentTemplate)
 @receiver(post_delete, sender=Placeholder)
-def log_delete(sender: type[Any], instance: Any, **kwargs: Any) -> None:  # pragma: no cover
-    """记录删除操作"""
-    _create_audit_log(instance, TemplateAuditAction.DELETE)
+async def log_delete(sender: type[Any], instance: Any, **kwargs: Any) -> None:  # pragma: no cover
+    """记录删除操作（异步信号接收器，ORM 写入不阻塞事件循环）"""
+    await sync_to_async(_create_audit_log)(instance, TemplateAuditAction.DELETE)
 
     # 使模板匹配缓存失效（替代 Model 层的 delete() override）
-    _invalidate_template_matching_cache(sender)
+    await asyncio.to_thread(_invalidate_template_matching_cache, sender)
 
 
 # ============================================================
@@ -212,32 +215,32 @@ def cleanup_document_template_files(sender: type[Any], instance: Any, **kwargs: 
     - file_path (CharField): 引用静态目录的 docx 模板，不需要清理（非用户上传）
     """
     if sender is DocumentTemplate and instance.file:
-        transaction.on_commit(lambda f=instance.file: _delete_file_field(f))
+        transaction.on_commit(lambda f=instance.file: _delete_file_field(f))  # type: ignore[misc]
 
 
 @receiver(post_delete, dispatch_uid="cleanup_generation_task_result")
 def cleanup_generation_task_result(sender: type[Any], instance: Any, **kwargs: object) -> None:  # pragma: no cover
     """GenerationTask.result_file (FileField): 文书生成结果文件"""
     if sender is GenerationTask:
-        transaction.on_commit(lambda f=instance.result_file: _delete_file_field(f))
+        transaction.on_commit(lambda f=instance.result_file: _delete_file_field(f))  # type: ignore[misc]
 
 
 @receiver(post_delete, dispatch_uid="cleanup_external_template_file")
 def cleanup_external_template_file(sender: type[Any], instance: Any, **kwargs: object) -> None:  # pragma: no cover
     """ExternalTemplate.file_path (CharField): 外部上传的 Word 模板文件，存于 MEDIA_ROOT 下"""
     if sender is ExternalTemplate:
-        transaction.on_commit(lambda fp=instance.file_path: _delete_charfield_file(fp))
+        transaction.on_commit(lambda fp=instance.file_path: _delete_charfield_file(fp))  # type: ignore[misc]
 
 
 @receiver(post_delete, dispatch_uid="cleanup_fill_record_file")
 def cleanup_fill_record_file(sender: type[Any], instance: Any, **kwargs: object) -> None:  # pragma: no cover
     """FillRecord.file_path (CharField): 填充生成的文件，存于 MEDIA_ROOT 下"""
     if sender is FillRecord:
-        transaction.on_commit(lambda fp=instance.file_path: _delete_charfield_file(fp))
+        transaction.on_commit(lambda fp=instance.file_path: _delete_charfield_file(fp))  # type: ignore[misc]
 
 
 @receiver(post_delete, dispatch_uid="cleanup_batch_fill_task_zip")
 def cleanup_batch_fill_task_zip(sender: type[Any], instance: Any, **kwargs: object) -> None:  # pragma: no cover
     """BatchFillTask.zip_file_path (CharField): 批量填充 ZIP 压缩包"""
     if sender is BatchFillTask:
-        transaction.on_commit(lambda fp=instance.zip_file_path: _delete_charfield_file(fp))
+        transaction.on_commit(lambda fp=instance.zip_file_path: _delete_charfield_file(fp))  # type: ignore[misc]

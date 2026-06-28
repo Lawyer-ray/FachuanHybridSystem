@@ -9,6 +9,8 @@ Requirements: 2.1, 2.2
 import logging
 from typing import Any
 
+from asgiref.sync import sync_to_async
+
 from apps.core.exceptions import NotFoundError
 
 logger = logging.getLogger("apps.litigation_ai")
@@ -135,6 +137,31 @@ class LitigationContextService:
         from apps.litigation_ai.placeholders import LitigationPlaceholderContextService, LitigationPlaceholderKeys
 
         fixed_blocks = LitigationPlaceholderContextService().build_fixed_blocks(case_id, document_type)
+
+        return {
+            "case_id": case_id,
+            "case_name": case_dto.name or "",
+            "cause_of_action": case_dto.cause_of_action or "",
+            "target_amount": case_dto.target_amount,
+            "system_generated_party_block": fixed_blocks.get(LitigationPlaceholderKeys.COMPLAINT_PARTY)
+            or fixed_blocks.get(LitigationPlaceholderKeys.DEFENSE_PARTY, ""),
+            "system_generated_signature_block": fixed_blocks.get(LitigationPlaceholderKeys.COMPLAINT_SIGNATURE)
+            or fixed_blocks.get(LitigationPlaceholderKeys.DEFENSE_SIGNATURE, ""),
+            "system_generated_court_block": fixed_blocks.get(LitigationPlaceholderKeys.COURT, ""),
+            "system_generated_fixed_blocks": fixed_blocks,
+        }
+
+    async def abuild_case_info(self, case_id: int, document_type: str) -> dict[str, Any]:  # pragma: no cover
+        """异步版本 — 构建案件上下文信息."""
+        from ..wiring import get_case_service
+
+        case_dto = await sync_to_async(get_case_service().get_case_internal)(case_id)
+        if not case_dto:
+            raise NotFoundError(message="案件不存在", code="CASE_NOT_FOUND", errors={"case_id": case_id})
+
+        from apps.litigation_ai.placeholders import LitigationPlaceholderContextService, LitigationPlaceholderKeys
+
+        fixed_blocks = await sync_to_async(LitigationPlaceholderContextService().build_fixed_blocks)(case_id, document_type)
 
         return {
             "case_id": case_id,

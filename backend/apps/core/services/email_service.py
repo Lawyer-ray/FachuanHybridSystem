@@ -4,6 +4,7 @@
 提供密码重置邮件和通知邮件的发送功能。
 """
 
+import asyncio
 import logging
 from typing import Any
 
@@ -145,3 +146,27 @@ class EmailService:
         except (ConnectionError, OSError, RuntimeError) as e:
             logger.error(f"发送通知邮件失败: {e}", exc_info=True)
             return False
+
+    @classmethod
+    async def asend_password_reset_email(  # pragma: no cover
+        cls,
+        to_email: str,
+        username: str,
+        reset_url: str,
+        expires_minutes: int = 30,
+    ) -> bool:
+        """Async version of send_password_reset_email — delegates to thread pool to avoid blocking the event loop."""
+        return await asyncio.to_thread(
+            cls.send_password_reset_email, to_email, username, reset_url, expires_minutes
+        )
+
+    @classmethod
+    async def asend_password_changed_notification(  # pragma: no cover
+        cls,
+        to_email: str,
+        username: str,
+    ) -> bool:
+        """Async version of send_password_changed_notification — delegates to thread pool."""
+        return await asyncio.to_thread(
+            cls.send_password_changed_notification, to_email, username
+        )

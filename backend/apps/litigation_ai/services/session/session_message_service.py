@@ -12,6 +12,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from asgiref.sync import sync_to_async
 from django.db import transaction
 
 from apps.core.exceptions import NotFoundError
@@ -53,6 +54,12 @@ class SessionMessageService:
             step=(metadata or {}).get("step", ""),
         )
         return self._to_message_dto(msg)
+
+    async def aadd_message(
+        self, session_id: str, role: str, content: str, metadata: dict[str, Any] | None = None
+    ) -> MessageDTO:
+        """异步版本 — 添加消息.内部使用 sync_to_async 包装同步 ORM 操作."""
+        return await sync_to_async(self.add_message)(session_id, role, content, metadata)
 
     def get_messages(self, session_id: str, limit: int = 50, offset: int = 0) -> list[MessageDTO]:
         session = self.session_repo.get_session_sync(session_id)

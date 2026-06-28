@@ -1,11 +1,13 @@
 """
 案件指派 API
 符合四层架构规范：只做请求/响应处理，业务逻辑在 Service 层
+
+同步端点由 Django Ninja 自动包装到线程池执行，ORM 访问安全。
 """
 
 from __future__ import annotations
 
-from typing import Any, cast
+from typing import Any
 
 from django.http import HttpRequest
 from ninja import Router
@@ -26,47 +28,44 @@ def _get_case_assignment_service() -> Any:
 @router.get("/assignments", response=list[CaseAssignmentOut])
 def list_assignments(  # pragma: no cover
     request: HttpRequest, case_id: int | None = None, lawyer_id: int | None = None
-) -> list[CaseAssignmentOut]:
+) -> Any:
     service = _get_case_assignment_service()
     ctx = extract_request_context(request)
-    return cast(list[CaseAssignmentOut], service.list_assignments(
+    return service.list_assignments(
         case_id=case_id, lawyer_id=lawyer_id, user=ctx.user,
         perm_open_access=ctx.perm_open_access,
-    ))
+    )
 
 
 @router.post("/assignments", response=CaseAssignmentOut)
-def create_assignment(request: HttpRequest, payload: CaseAssignmentIn) -> CaseAssignmentOut:  # pragma: no cover
+def create_assignment(request: HttpRequest, payload: CaseAssignmentIn) -> Any:  # pragma: no cover
     service = _get_case_assignment_service()
     ctx = extract_request_context(request)
-    return cast(
-        CaseAssignmentOut,
-        service.create_assignment(
-            case_id=payload.case_id, lawyer_id=payload.lawyer_id, user=ctx.user,
-            perm_open_access=ctx.perm_open_access,
-        ),
+    return service.create_assignment(
+        case_id=payload.case_id, lawyer_id=payload.lawyer_id, user=ctx.user,
+        perm_open_access=ctx.perm_open_access,
     )
 
 
 @router.get("/assignments/{assignment_id}", response=CaseAssignmentOut)
-def get_assignment(request: HttpRequest, assignment_id: int) -> CaseAssignmentOut:  # pragma: no cover
+def get_assignment(request: HttpRequest, assignment_id: int) -> Any:  # pragma: no cover
     service = _get_case_assignment_service()
     ctx = extract_request_context(request)
-    return cast(CaseAssignmentOut, service.get_assignment(
+    return service.get_assignment(
         assignment_id=assignment_id, user=ctx.user,
         perm_open_access=ctx.perm_open_access,
-    ))
+    )
 
 
 @router.put("/assignments/{assignment_id}", response=CaseAssignmentOut)
-def update_assignment(request: HttpRequest, assignment_id: int, payload: CaseAssignmentUpdate) -> CaseAssignmentOut:  # pragma: no cover
+def update_assignment(request: HttpRequest, assignment_id: int, payload: CaseAssignmentUpdate) -> Any:  # pragma: no cover
     service = _get_case_assignment_service()
     ctx = extract_request_context(request)
     data = payload.model_dump(exclude_unset=True)
-    return cast(CaseAssignmentOut, service.update_assignment(
+    return service.update_assignment(
         assignment_id=assignment_id, data=data, user=ctx.user,
         perm_open_access=ctx.perm_open_access,
-    ))
+    )
 
 
 @router.delete("/assignments/{assignment_id}")

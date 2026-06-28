@@ -9,6 +9,7 @@ Requirements: 1.1, 1.2, 1.3, 1.6, 1.7, 1.8, 9.1, 9.2, 9.3, 9.4
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import re
@@ -51,6 +52,16 @@ class AnalysisService:
     # ------------------------------------------------------------------
     # 上传与校验
     # ------------------------------------------------------------------
+
+    async def upload_template_async(
+        self,
+        file: UploadedFile,
+        name: str,
+        source_name: str,
+        uploaded_by: Any,
+    ) -> ExternalTemplate:  # pragma: no cover
+        """异步版本：文件 I/O + ORM 写入在线程池中执行。"""
+        return await asyncio.to_thread(self.upload_template, file, name, source_name, uploaded_by)
 
     def upload_template(
         self,
@@ -466,6 +477,14 @@ class AnalysisService:
     # ------------------------------------------------------------------
     # LLM 分析 (Requirements: 3.3, 3.4, 3.5, 4.1–4.8, 5.6, 5.7, 11.2, 11.6)
     # ------------------------------------------------------------------
+
+    async def analyze_template_async(self, template_id: int) -> list[Any]:  # pragma: no cover
+        """异步版本：整个 analyze_template 在线程池中执行，避免阻塞事件循环。
+
+        LLM HTTP 调用最长可达 30 秒，同步 ORM + 文件 I/O 也会阻塞，
+        因此将整个方法放入 asyncio.to_thread()。
+        """
+        return await asyncio.to_thread(self.analyze_template, template_id)
 
     def analyze_template(self, template_id: int) -> list[Any]:  # pragma: no cover
         """

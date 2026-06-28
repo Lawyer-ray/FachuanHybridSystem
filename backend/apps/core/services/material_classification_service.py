@@ -557,6 +557,24 @@ class MaterialClassificationService:
             logger.exception("material_classification_failed")
             return ""
 
+    async def _acomplete(self, *, system_prompt: str, user_prompt: str) -> str:  # pragma: no cover
+        """Async version of _complete — uses async LLM client to avoid blocking the event loop."""
+        try:
+            response = await get_llm_service().achat(
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt},
+                ],
+                backend="ollama",
+                fallback=True,
+                temperature=0.1,
+                max_tokens=300,
+            )
+            return str(getattr(response, "content", "") or "")
+        except Exception:
+            logger.exception("material_classification_async_failed")
+            return ""
+
     @staticmethod
     def _extract_json(content: str) -> dict[str, Any] | None:
         text = (content or "").strip()

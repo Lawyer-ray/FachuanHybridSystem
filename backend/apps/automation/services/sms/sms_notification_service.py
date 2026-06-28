@@ -18,6 +18,7 @@
 - 聚合多平台通知结果
 """
 
+import asyncio
 import logging
 from datetime import datetime
 from typing import Any
@@ -231,3 +232,112 @@ class SMSNotificationService:
         except Exception as e:
             logger.warning(f"获取可用平台失败，回退到飞书: {e!s}")
             return [ChatPlatform.FEISHU]
+
+    async def asend_case_chat_notification(
+        self, sms: CourtSMS, document_paths: list[str] | None = None
+    ) -> MultiPlatformNotificationResult:
+        """异步发送案件群聊通知（多平台并行扇出）
+
+        使用 asyncio.gather() 并行调用所有平台，比同步版本更高效。
+        适用于异步上下文（如 Ninja API view），避免阻塞事件循环。
+
+        Args:
+            sms: CourtSMS 实例（必须已绑定案件）
+            document_paths: 文书文件路径列表（可选）
+
+        Returns:
+            MultiPlatformNotificationResult: 多平台通知聚合结果
+        """
+        if not sms.case:
+            error_msg = "短信未绑定案件，无法发送群聊通知"
+            logger.warning(f"{error_msg}: SMS ID={sms.id}")
+            return MultiPlatformNotificationResult(
+                attempts=[
+                    PlatformNotificationResult(
+                        platform="none",
+                        success=False,
+                        error=error_msg,
+                    )
+                ]
+            )
+
+        # 发现可用平台
+        available_platforms = self._get_available_platforms()
+        if not available_platforms:
+            error_msg = "没有可用的群聊平台"
+            logger.warning(f"{error_msg}: SMS ID={sms.id}")
+            return MultiPlatformNotificationResult(
+                attempts=[
+                    PlatformNotificationResult(
+                        platform="none",
+                        success=False,
+                        error=error_msg,
+                    )
+                ]
+            )
+
+        logger.info(
+            f"开始异步多平台群聊通知: SMS ID={sms.id}, "
+            f"Case ID={sms.case.id}, "
+            f"可用平台={[p.value for p in available_platforms]}"
+        )
+
+        # 并行扇出：所有平台同时发送
+        tasks = [
+            self._async_notify_single_platform(
+                sms=sms,
+                platform=platform,
+                document_paths=document_paths or [],
+            )
+            for platform in available_platforms
+        ]
+
+        platform_results = await asyncio.gather(*tasks, return_exceptions=True)
+
+        result = MultiPlatformNotificationResult()
+        for platform, platform_result in zip(available_platforms, platform_results):
+            if isinstance(platform_result, BaseException):
+                # gather 中某个 task 抛了未捕获异常
+                logger.error(f"平台 {platform.value} 通知异常: {platform_result}")
+                platform_result = PlatformNotificationResult(
+                    platform=platform.value,
+                    success=False,
+                    error=str(platform_result),
+                )
+            result.attempts.append(platform_result)
+
+            if platform_result.success:
+                logger.info(f"平台 {platform.value} 通知成功: SMS ID={sms.id}, Chat ID={platform_result.chat_id}")
+            else:
+                logger.warning(f"平台 {platform.value} 通知失败: SMS ID={sms.id}, 错误={platform_result.error}")
+
+        # 汇总日志
+        if result.any_success:
+            logger.info(
+                f"异步多平台通知完成（有成功）: SMS ID={sms.id}, "
+                f"成功平台={result.successful_platforms}, "
+                f"失败平台={result.failed_platforms}"
+            )
+        else:
+            logger.error(f"异步多平台通知全部失败: SMS ID={sms.id}, 失败平台={result.failed_platforms}")
+
+        return result
+
+    async def _async_notify_single_platform(
+        self,
+        sms: CourtSMS,
+        platform: ChatPlatform,
+        document_paths: list[str],
+    ) -> PlatformNotificationResult:
+        """异步版本：对单个平台执行通知流程
+
+        使用 sync_to_async 包装现有的同步方法，
+        配合 asyncio.gather 实现多平台并行。
+        """
+        from asgiref.sync import sync_to_async
+
+        return await sync_to_async(self._notify_single_platform)(
+            sms=sms,
+            platform=platform,
+            document_paths=document_paths,
+        )

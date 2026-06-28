@@ -109,23 +109,29 @@ async def convert_document(  # pragma: no cover
 
     需要 ZNSZJ_ENABLED=True。
     """
-    _check_znszj_enabled()
-    service = _get_doc_convert_service()
+    _file = file
+    _mbid = mbid
 
-    file_content = file.read()
-    filename = file.name or "document.docx"
+    def _do_convert() -> HttpResponse:
+        _check_znszj_enabled()
+        service = _get_doc_convert_service()
 
-    result_bytes = await sync_to_async(service.convert_document, thread_sensitive=False)(
-        file_content=file_content,
-        filename=filename,
-        mbid=mbid,
-    )
+        file_content = _file.read()
+        filename = _file.name or "document.docx"
 
-    # 构造下载文件名
-    encoded_name = urllib.parse.quote("要素式文书.docx", safe="")
-    response = HttpResponse(
-        content=result_bytes,
-        content_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-    )
-    response["Content-Disposition"] = f"attachment; filename*=UTF-8''{encoded_name}"
-    return response
+        result_bytes = service.convert_document(
+            file_content=file_content,
+            filename=filename,
+            mbid=_mbid,
+        )
+
+        # 构造下载文件名
+        encoded_name = urllib.parse.quote("要素式文书.docx", safe="")
+        response = HttpResponse(
+            content=result_bytes,
+            content_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        )
+        response["Content-Disposition"] = f"attachment; filename*=UTF-8''{encoded_name}"
+        return response
+
+    return await sync_to_async(_do_convert, thread_sensitive=False)()

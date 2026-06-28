@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import re
@@ -110,6 +111,10 @@ class JudgmentPdfExtractor:
 
     # 裁判文书提取的最大字符数（判决主文通常在文书末尾，必须读取全文）
     _MAX_EXTRACTION_CHARS = 200_000
+
+    async def extract_async(self, file_path: str) -> ExtractionResult:
+        """异步版本：PDF I/O + Ollama HTTP 在线程池中执行。"""
+        return await asyncio.to_thread(self.extract, file_path)
 
     def extract(self, file_path: str) -> ExtractionResult:
         """

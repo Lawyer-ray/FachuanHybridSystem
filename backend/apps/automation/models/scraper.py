@@ -103,19 +103,32 @@ class ScraperTask(LifecycleModel):
 
     @hook(AFTER_UPDATE, when="status", has_changed=True)
     def on_status_change_trigger_sms_flow(self) -> None:
-        """状态变为 SUCCESS/FAILED 时委托 Service 层处理 CourtSMS 后续流程"""
+        """状态变为 SUCCESS/FAILED 时委托 Service 层处理 CourtSMS 后续流程
+
+        使用 submit_task 将实际的 ORM 查询和后续处理提交到 Django-Q worker，
+        避免在 model save 事务内执行大量 ORM I/O 阻塞保存操作。
+        """
         if self.status not in [ScraperTaskStatus.SUCCESS, ScraperTaskStatus.FAILED]:
             return
 
         try:
-            from apps.automation.services.sms.court_sms_service import CourtSMSService
+            from apps.core.tasking import submit_task
 
-            CourtSMSService().handle_scraper_task_status_change(self)
+            task_id = submit_task(
+                "apps.automation.workers.court_sms_tasks.handle_scraper_task_status_change",
+                self.id,
+                task_name=f"scraper_sms_flow_{self.id}",
+            )
+            logger.info(
+                "提交 ScraperTask 状态变更后续处理: Task ID=%s, Queue Task ID=%s",
+                self.id,
+                task_id,
+            )
         except Exception as e:
             logger.error(
-                "❌ 处理下载完成信号失败: Task ID=%s, 错误: %s",
+                "❌ 提交下载完成信号处理任务失败: Task ID=%s, 错误: %s",
                 self.id,
                 e,
-                extra={"action": "download_signal_failed", "task_id": self.id, "error": str(e)},
+                extra={"action": "download_signal_submit_failed", "task_id": self.id, "error": str(e)},
                 exc_info=True,
             )

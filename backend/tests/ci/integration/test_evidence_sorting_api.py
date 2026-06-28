@@ -43,7 +43,7 @@ def test_classify_images(mock_svc_cls, authenticated_client):
     mock_result.errors = []
 
     mock_svc = MagicMock()
-    mock_svc.classify_images.return_value = mock_result
+    mock_svc.classify_images_async = AsyncMock(return_value=mock_result)
     mock_svc_cls.return_value = mock_svc
 
     resp = authenticated_client.post(
@@ -89,7 +89,7 @@ def test_parse_statement(mock_svc_cls, authenticated_client):
     mock_info.line_items = [mock_li]
 
     mock_svc = MagicMock()
-    mock_svc.parse_statement.return_value = mock_info
+    mock_svc.parse_statement_async = AsyncMock(return_value=mock_info)
     mock_svc_cls.return_value = mock_svc
 
     resp = authenticated_client.post(

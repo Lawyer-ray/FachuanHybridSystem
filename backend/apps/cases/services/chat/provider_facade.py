@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import concurrent.futures
 import logging
 from typing import Any
@@ -47,6 +48,22 @@ class ChatProviderFacade:
                 raise TimeoutError(
                     f"外部服务调用超时（{effective_timeout}秒）: {getattr(fn, '__name__', str(fn))}"
                 ) from None
+
+    async def _call_with_timeout_async(self, fn: Any, *args: Any, timeout: float | None = None, **kwargs: Any) -> Any:
+        """异步版本：使用 asyncio.wait_for() 替代 ThreadPoolExecutor。
+
+        从 async 上下文调用时使用此方法，避免嵌套线程池。
+        """
+        from asgiref.sync import sync_to_async
+
+        effective_timeout = timeout if timeout is not None else self.timeout
+        async_fn = sync_to_async(fn)
+        try:
+            return await asyncio.wait_for(async_fn(*args, **kwargs), timeout=effective_timeout)
+        except TimeoutError:
+            raise TimeoutError(
+                f"外部服务调用超时（{effective_timeout}秒）: {getattr(fn, '__name__', str(fn))}"
+            ) from None
 
     def get_provider_for_creation(self, *, platform: ChatPlatform) -> Any:
         try:
