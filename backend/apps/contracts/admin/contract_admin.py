@@ -121,7 +121,7 @@ class ContractAdmin(
     )
     list_per_page = 50
     list_filter = ("case_type", "status", "fee_mode", "is_filed", ("specified_date", admin.DateFieldListFilter))
-    search_fields = ("name", "filing_number", "contract_parties__client__name")
+    search_fields = ("name", "filing_number", "law_firm_oa_case_number", "contract_parties__client__name")
     date_hierarchy = "specified_date"
     readonly_fields = (
         "get_primary_lawyer_display",
