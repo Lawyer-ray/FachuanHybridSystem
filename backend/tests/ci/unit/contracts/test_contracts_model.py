@@ -175,7 +175,7 @@ class TestContractPartyModel:
     def test_create_party(self) -> None:
         """创建合同当事人"""
         contract = Contract.objects.create(name="合同当事人测试", case_type="civil")
-        client = Client.objects.create(name="合同当事人", client_type="natural")
+        client = Client.objects.create(name="合同当事人", client_type="natural", is_our_client=True)
         party = ContractParty.objects.create(
             contract=contract, client=client, role=PartyRole.PRINCIPAL
         )

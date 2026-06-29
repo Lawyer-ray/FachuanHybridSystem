@@ -238,7 +238,7 @@ class TestContractPartyModels:
         from apps.client.models import Client
 
         contract = Contract.objects.create(name="Party Test Contract")
-        client = Client.objects.create(name="Party Client", client_type=Client.NATURAL)
+        client = Client.objects.create(name="Party Client", client_type=Client.NATURAL, is_our_client=True)
         party = ContractParty.objects.create(
             contract=contract,
             client=client,

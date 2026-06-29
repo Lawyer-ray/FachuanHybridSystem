@@ -138,6 +138,7 @@ class TestContractAdminViews:
         request = MagicMock()
         request.GET = {}
         request.path = "/admin/contracts/contract/"
+        request.session = {}
         result = admin.changelist_view(request)
         assert result.status_code == 302
         assert "status__exact=active" in result.url
