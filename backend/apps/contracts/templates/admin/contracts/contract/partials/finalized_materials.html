@@ -131,6 +131,13 @@
                     </span>
                     <span class="ac-item-actions" @click.stop>
                         {% if item.template %}
+                        {% if item.template == 'lawyer_work_log' and contract.case_type == 'advisor' and contract.start_date and contract.end_date %}
+                        <button type="button" class="ac-btn-icon ac-btn-icon--generate"
+                                title="{% trans '自动生成工作日志内容' %}"
+                                onclick="generateWorkLogContent({{ contract.pk }})">
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v4m0 12v4M4.93 4.93l2.83 2.83m8.48 8.48l2.83 2.83M2 12h4m12 0h4M4.93 19.07l2.83-2.83m8.48-8.48l2.83-2.83"/></svg>
+                        </button>
+                        {% endif %}
                         <button type="button" class="ac-btn-icon" title="{% trans '预览替换词' %}"
                                 onclick="previewArchiveTemplate({{ contract.pk }}, '{{ item.template }}', '{{ item.name }}')">
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
@@ -453,6 +460,7 @@ html { scrollbar-gutter: stable; }
 }
 .ac-btn-icon:hover { background: var(--fc-info-bg); color: var(--fc-primary); }
 .ac-btn-icon--upload:hover { background: var(--fc-success-bg); color: var(--fc-success-text); }
+.ac-btn-icon--generate:hover { background: var(--fc-warning-bg, #fff3cd); color: #664d03; }
 
 .ac-badge {
     font-size: 12px;
@@ -970,6 +978,24 @@ function archiveChecklistApp(initialCompact, checklistItems) {
     function getCSRF() {
         return (window.FachuanCSRF && window.FachuanCSRF.getToken && window.FachuanCSRF.getToken()) || '';
     }
+
+    // 生成常法顾问工作日志内容
+    window.generateWorkLogContent = function(contractId) {
+        if (!confirm('将自动生成律师办案工作日记内容（如有案件日志将使用真实数据，否则生成示例内容）。确认生成？')) return;
+        fetch('/admin/contracts/contract/' + contractId + '/generate-work-log-content/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCSRF() },
+        })
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.success) {
+                previewArchiveTemplate(contractId, 'lawyer_work_log', '律师办案工作日记');
+            } else {
+                alert('生成失败: ' + (data.error || '未知错误'));
+            }
+        })
+        .catch(function(e) { alert('请求失败: ' + e.message); });
+    };
 
     // 生成归档文件夹
     window.generateArchiveDocs = function(contractId) {

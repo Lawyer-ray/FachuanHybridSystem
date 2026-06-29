@@ -6,7 +6,8 @@
 """
 
 import logging
-from datetime import date
+import random
+from datetime import date, timedelta
 from typing import Any, ClassVar
 
 from apps.documents.services.placeholders.base import BasePlaceholderService
@@ -757,3 +758,75 @@ class ArchivePlaceholderService(BasePlaceholderService):
             return 1
         else:
             return 1
+
+    # ── 常法顾问工作日志随机生成 ──
+
+    _ADVISOR_WORK_ITEMS: ClassVar[list[str]] = [
+        "为客户提供劳动合规培训；",
+        "审查客户劳动合同模板；",
+        "就合同纠纷提供法律咨询意见；",
+        "参与客户公司治理会议并出具法律意见；",
+        "为客户起草员工手册；",
+        "就知识产权保护事宜提供咨询；",
+        "审查供应商合同并提出修改建议；",
+        "为客户进行合规风险排查；",
+        "出具法律意见书；",
+        "就劳动仲裁事宜提供咨询；",
+        "协助客户处理工商变更登记事宜；",
+        "参加客户管理层法律培训会；",
+        "为客户审查招投标文件；",
+        "为客户修改买卖合同；",
+        "为客户总结当前用工风险。",
+    ]
+
+    @staticmethod
+    def _generate_random_work_log_content(start_date: date, end_date: date) -> str:
+        """为常法顾问合同生成随机的律师工作日志内容。
+
+        生成 5-7 条均匀分布在服务期内的工作日志条目，
+        第一条为"开始服务"，后续从活动池随机抽取。
+        """
+        total_days = (end_date - start_date).days + 1
+        if total_days <= 0:
+            return ""
+
+        count = min(random.randint(5, 7), total_days)
+
+        # 收集日期：第一条 = start_date，后续在等分区间内随机选
+        dates: list[date] = [start_date]
+        remaining = count - 1
+        if remaining > 0 and total_days > 1:
+            # 将 start_date+1 ~ end_date 等分为 remaining 个区间
+            day_range = total_days - 1  # 排除 start_date
+            segment_size = day_range / remaining
+            for i in range(remaining):
+                seg_start = int(i * segment_size) + 1
+                seg_end = min(int((i + 1) * segment_size), day_range)
+                if seg_start > seg_end:
+                    seg_start = seg_end
+                day_offset = random.randint(seg_start, seg_end)
+                dates.append(start_date + timedelta(days=day_offset))
+
+        dates.sort()
+
+        # 分配活动内容
+        pool = ArchivePlaceholderService._ADVISOR_WORK_ITEMS
+        if count <= len(pool):
+            activities = random.sample(pool, count)
+        else:
+            activities = random.sample(pool, len(pool))
+            while len(activities) < count:
+                activities.append(random.choice(pool))
+
+        # 构建文本
+        rt = _ArchiveMaterialsRichText()
+        for i, (d, activity) in enumerate(zip(dates, activities)):
+            if i > 0:
+                rt.add_break()
+            date_str = f"{d.year}年{d.month}月{d.day}日"
+            if i == 0:
+                rt.add(f"{date_str}，开始服务；")
+            else:
+                rt.add(f"{date_str}，{activity}")
+
+        return str(rt)
