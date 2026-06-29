@@ -286,7 +286,8 @@ class CaseAdmin(
     def changelist_view(self, request: HttpRequest, extra_context: dict[str, Any] | None = None) -> Any:  # pragma: no cover
         from django.http import HttpResponseRedirect
 
-        if "status__exact" not in request.GET and not request.GET:
+        if "status__exact" not in request.GET and not request.session.get("case_changelist_visited"):
+            request.session["case_changelist_visited"] = True
             return HttpResponseRedirect(f"{request.path}?status__exact=active")
         return super().changelist_view(request, extra_context=extra_context)
 
