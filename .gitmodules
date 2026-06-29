@@ -1,4 +1,4 @@
 [submodule "backend/plugins"]
 	path = backend/plugins
 	url = https://github.com/Lawyer-ray/FachuanPlugins.git
-	branch = feat/court-automation-migration
+	branch = main
