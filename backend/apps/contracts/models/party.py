@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from typing import ClassVar
+from typing import Any, ClassVar
 
 from django.db import models
 
@@ -43,7 +43,7 @@ class ContractParty(models.Model):
     def __str__(self) -> str:
         return f"{self.contract_id}-{self.client_id}-{self.role}"
 
-    def save(self, *args: object, **kwargs: object) -> None:
+    def save(self, *args: Any, **kwargs: Any) -> None:
         """保存前自动校正 role：非我方当事人的 role 不应为 PRINCIPAL。
 
         防止因前端 JS 未触发、API 直接创建、或 add_party 未传 role
