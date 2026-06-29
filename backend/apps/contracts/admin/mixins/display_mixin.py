@@ -128,6 +128,11 @@ class ContractDisplayMixin(ContractArchiveMixin, ContractDisplayFormatMixin):  #
                 name="contracts_contract_clear_all_archive_materials",
             ),
             path(
+                "<int:object_id>/generate-work-log-content/",
+                self.admin_site.admin_view(self.generate_work_log_content_view),
+                name="contracts_contract_generate_work_log_content",
+            ),
+            path(
                 "<int:object_id>/open-folder/",
                 self.admin_site.admin_view(self.open_folder_view),
                 name="contracts_contract_open_folder",

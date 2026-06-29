@@ -121,7 +121,7 @@ class ContractAdmin(
     )
     list_per_page = 50
     list_filter = ("case_type", "status", "fee_mode", "is_filed", ("specified_date", admin.DateFieldListFilter))
-    search_fields = ("name", "filing_number", "contract_parties__client__name")
+    search_fields = ("name", "filing_number", "law_firm_oa_case_number", "contract_parties__client__name")
     date_hierarchy = "specified_date"
     readonly_fields = (
         "get_primary_lawyer_display",
@@ -230,7 +230,8 @@ class ContractAdmin(
     def changelist_view(self, request: HttpRequest, extra_context: dict[str, Any] | None = None) -> Any:  # pragma: no cover
         from django.http import HttpResponseRedirect
 
-        if "status__exact" not in request.GET:
+        if "status__exact" not in request.GET and not request.session.get("contract_changelist_visited"):
+            request.session["contract_changelist_visited"] = True
             return HttpResponseRedirect(f"{request.path}?status__exact=active")
         # 保存筛选状态到 session，供详情页"返回列表"使用
         if request.GET:

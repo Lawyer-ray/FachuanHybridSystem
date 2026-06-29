@@ -617,3 +617,62 @@ class ContractArchiveMixin:  # pragma: no cover
         except Exception as e:
             logger.exception("清空归档材料失败: contract_id=%s", object_id)
             return JsonResponse({"success": False, "error": str(e)}, status=500)
+
+    # ── 常法顾问工作日志生成 ──
+
+    def generate_work_log_content_view(self, request: HttpRequest, object_id: int) -> HttpResponse:  # pragma: no cover
+        """为常法顾问合同自动生成律师办案工作日记内容
+
+        优先使用真实 CaseLog，无日志时根据合同起止日期随机生成。
+        生成结果保存为 ArchivePlaceholderOverride，供预览和编辑使用。
+        """
+        from django.http import JsonResponse
+
+        if request.method != "POST":
+            return JsonResponse({"success": False, "error": "仅支持 POST"}, status=405)
+
+        if not self.has_change_permission(request):
+            return JsonResponse({"success": False, "error": "无权限"}, status=403)
+
+        try:
+            admin_service = _get_contract_admin_service()
+            contract = admin_service.query_service.get_contract_detail(object_id)
+
+            # 校验：仅常法顾问 + 日期齐全
+            if contract.case_type != "advisor":
+                return JsonResponse({"success": False, "error": "仅适用于常法顾问合同"}, status=400)
+            if not contract.start_date or not contract.end_date:
+                return JsonResponse({"success": False, "error": "请先填写开始日期和结束日期"}, status=400)
+            if contract.start_date > contract.end_date:
+                return JsonResponse({"success": False, "error": "开始日期不能晚于结束日期"}, status=400)
+
+            # 尝试真实 CaseLog（contract.cases 已在 get_contract_detail 中 prefetch_related）
+            from apps.documents.services.placeholders.archive import ArchivePlaceholderService
+
+            has_real_log = False
+            content = ""
+            for case in contract.cases.all():
+                content = ArchivePlaceholderService._get_lawyer_work_log_content(case)
+                if content:
+                    has_real_log = True
+                    break
+
+            # Fallback：随机生成
+            if not content:
+                content = ArchivePlaceholderService._generate_random_work_log_content(
+                    contract.start_date, contract.end_date
+                )
+
+            if not content:
+                return JsonResponse({"success": False, "error": "无法生成内容"}, status=500)
+
+            # 持久化为 override
+            from apps.contracts.services.archive.override_service import save_override
+
+            save_override(contract.id, "lawyer_work_log", {"律师工作日志内容": content})
+
+            logger.info("已生成工作日志内容: contract_id=%s, is_real=%s", object_id, has_real_log)
+            return JsonResponse({"success": True, "content_preview": content[:200]})
+        except Exception as e:
+            logger.exception("生成工作日志失败: contract_id=%s", object_id)
+            return JsonResponse({"success": False, "error": str(e)}, status=500)
