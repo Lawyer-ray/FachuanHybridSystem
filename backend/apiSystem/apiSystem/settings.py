@@ -237,6 +237,10 @@ if DB_ENGINE in ("sqlite", "sqlite3", "django.db.backends.sqlite3"):
         }
     }
 elif DB_ENGINE in ("", "postgres", "postgresql", "django.db.backends.postgresql"):
+    # 开发环境：连接 60 秒后自动释放，避免连接数堆积
+    # 生产环境：保持 600 秒，复用连接提升性能
+    _conn_max_age = 60 if DEBUG else 600
+
     DATABASES = {
         "default": {
             "ENGINE": "django.db.backends.postgresql",
@@ -245,7 +249,7 @@ elif DB_ENGINE in ("", "postgres", "postgresql", "django.db.backends.postgresql"
             "PASSWORD": _get_env_str("DB_PASSWORD", "postgres", allow_empty=True),
             "HOST": _get_env_str("DB_HOST", "127.0.0.1"),
             "PORT": int(os.environ.get("DB_PORT", "5432") or "5432"),
-            "CONN_MAX_AGE": 600,
+            "CONN_MAX_AGE": _conn_max_age,
             "CONN_HEALTH_CHECKS": True,
             "OPTIONS": {
                 "connect_timeout": 10,
