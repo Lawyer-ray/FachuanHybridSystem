@@ -318,6 +318,7 @@ backend/_plugins_backup/
 # 审计报告临时文件
 async-audit-*.json
 async-audit-*.md
+audit/
 
 # 编译后的 gettext 文件
 *.mo
