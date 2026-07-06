@@ -564,7 +564,7 @@ class TestGuaranteeQuoteOperations:
         mock_case_manager.aget = AsyncMock(return_value=case)
         with patch("apps.cases.models.Case") as MockCase, \
              patch("plugins.court_automation.guarantee.api_endpoint._parse_preserve_amount", return_value=None), \
-             patch("plugins.court_automation.guarantee.api_endpoint._build_case_quote_context_a_a", return_value=None):
+             patch("plugins.court_automation.guarantee.api_endpoint._build_case_quote_context_a", return_value=None):
             MockCase.objects = mock_case_manager
             result = await ensure_case_quote(_make_request(), SimpleNamespace(case_id=1))
             assert result["success"] is False
@@ -581,7 +581,7 @@ class TestGuaranteeQuoteOperations:
         with patch("apps.cases.models.Case") as MockCase, \
              patch("plugins.court_automation.guarantee.api_endpoint._parse_preserve_amount", return_value=Decimal("10000")), \
              patch("plugins.court_automation.guarantee.api_endpoint._find_reusable_binding_a", return_value=SimpleNamespace(id=1)), \
-             patch("plugins.court_automation.guarantee.api_endpoint._build_case_quote_context_a_a", return_value={"status": "ok"}):
+             patch("plugins.court_automation.guarantee.api_endpoint._build_case_quote_context_a", return_value={"status": "ok"}):
             MockCase.objects = mock_case_manager
             result = await ensure_case_quote(_make_request(), SimpleNamespace(case_id=1))
             assert result["success"] is True
@@ -599,7 +599,7 @@ class TestGuaranteeQuoteOperations:
              patch("plugins.court_automation.guarantee.api_endpoint._parse_preserve_amount", return_value=Decimal("10000")), \
              patch("plugins.court_automation.guarantee.api_endpoint._find_reusable_binding_a", return_value=None), \
              patch("plugins.court_automation.guarantee.api_endpoint._get_organization_service") as MockOrg, \
-             patch("plugins.court_automation.guarantee.api_endpoint._build_case_quote_context_a_a", return_value=None):
+             patch("plugins.court_automation.guarantee.api_endpoint._build_case_quote_context_a", return_value=None):
             MockCase.objects = mock_case_manager
             MockOrg.return_value.get_credential_for_lawyer.return_value = None
             result = await ensure_case_quote(_make_request(), SimpleNamespace(case_id=1))
