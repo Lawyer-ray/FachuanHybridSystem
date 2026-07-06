@@ -578,14 +578,17 @@ class TestGuaranteeQuoteOperations:
         case = SimpleNamespace(id=1, preservation_amount=Decimal("10000"))
         mock_case_manager = MagicMock()
         mock_case_manager.aget = AsyncMock(return_value=case)
+        mock_quote = MagicMock()
+        mock_quote.status = "pending"
+        mock_binding = SimpleNamespace(id=1, preservation_quote=mock_quote)
         with patch("apps.cases.models.Case") as MockCase, \
              patch("plugins.court_automation.guarantee.api_endpoint._parse_preserve_amount", return_value=Decimal("10000")), \
-             patch("plugins.court_automation.guarantee.api_endpoint._find_reusable_binding_a", return_value=SimpleNamespace(id=1)), \
+             patch("plugins.court_automation.guarantee.api_endpoint._find_reusable_binding_a", return_value=mock_binding), \
              patch("plugins.court_automation.guarantee.api_endpoint._build_case_quote_context_a", return_value={"status": "ok"}):
             MockCase.objects = mock_case_manager
             result = await ensure_case_quote(_make_request(), SimpleNamespace(case_id=1))
             assert result["success"] is True
-            assert "复用" in result["message"]
+            assert "进行中" in result["message"]
 
     @pytest.mark.asyncio
     async def test_ensure_no_credential(self):
