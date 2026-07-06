@@ -4,6 +4,7 @@ from .case_import_session import CaseImportPhase, CaseImportSession, CaseImportS
 from .client_import_session import ClientImportPhase, ClientImportSession, ClientImportStatus
 from .filing_session import FilingSession, SessionStatus
 from .oa_config import OAConfig
+from .stamp_session import StampSession, StampSessionStatus
 
 __all__ = [
     "CaseImportSession",
@@ -15,4 +16,6 @@ __all__ = [
     "FilingSession",
     "OAConfig",
     "SessionStatus",
+    "StampSession",
+    "StampSessionStatus",
 ]

@@ -24,6 +24,75 @@ class ScriptExecutorService:
 
         return FilingSession.objects.get(pk=session_id)
 
+    def get_stamp_session(self, session_id: int) -> Any:  # pragma: no cover
+        from apps.oa_filing.models import StampSession
+
+        return StampSession.objects.get(pk=session_id)
+
+    def execute_stamp(self, file_path: str, user: Any) -> Any:  # pragma: no cover
+        """发起盖章申请：反查合同 → 创建 session → 提交后台任务。"""
+        from apps.oa_filing.models import StampSession, StampSessionStatus
+        from apps.oa_filing.services.stamp_lookup_service import StampLookupService
+
+        lookup = StampLookupService.lookup_by_file_path(file_path)
+
+        credential_model = django_apps.get_model("organization", "AccountCredential")
+        credential = credential_model.objects.filter(
+            lawyer=user,
+            site_name="金诚同达OA",
+        ).first()
+
+        session: StampSession = StampSession.objects.create(
+            contract_id=lookup.contract_id,
+            credential=credential,
+            user=user,
+            oa_case_number=lookup.oa_case_number,
+            file_path=file_path,
+            status=StampSessionStatus.IN_PROGRESS,
+        )
+        logger.info("开始盖章: session=%d, oa_no=%s", session.id, lookup.oa_case_number)
+
+        _executor.submit(self._run_stamp_in_thread, session.id)
+
+        return StampSession.objects.get(pk=session.id)
+
+    def _run_stamp_in_thread(self, session_id: int) -> None:  # pragma: no cover
+        """后台线程：执行盖章 Playwright 脚本并更新会话状态。"""
+        from apps.oa_filing.models import StampSession, StampSessionStatus
+
+        os.environ["DJANGO_ALLOW_ASYNC_UNSAFE"] = "true"
+
+        try:
+            asyncio.run(self._dispatch_stamp(session_id))
+            StampSession.objects.filter(pk=session_id).update(status=StampSessionStatus.COMPLETED)
+            logger.info("盖章完成: session=%d", session_id)
+        except Exception as exc:
+            StampSession.objects.filter(pk=session_id).update(
+                status=StampSessionStatus.FAILED,
+                error_message=str(exc),
+            )
+            logger.error("盖章失败: session=%d, error=%s", session_id, exc)
+
+    async def _dispatch_stamp(self, session_id: int) -> None:  # pragma: no cover
+        """异步：执行盖章 Playwright 脚本。"""
+        from apps.oa_filing.models import StampSession
+        from apps.oa_filing.services.oa_scripts.jtn.stamp import JtnStampScript, StampFormData
+
+        session = await StampSession.objects.select_related("credential").aget(pk=session_id)
+        credential = session.credential
+        if credential is None:
+            raise RuntimeError("盖章申请缺少 OA 登录凭证")
+
+        form_data = StampFormData(
+            oa_case_number=session.oa_case_number,
+            file_path=session.file_path,
+        )
+        script = JtnStampScript(
+            account=str(credential.account),
+            password=str(credential.password),
+        )
+        await script.run(form_data)
+
     def execute(
         self,
         site_name: str,
@@ -132,7 +201,9 @@ class ScriptExecutorService:
             async for party in contract_party_model.objects.filter(
                 contract_id=contract_id,
                 role="PRINCIPAL",
-            ).select_related("client").aiterator()
+            )
+            .select_related("client")
+            .aiterator()
         ]
         clients: list[ClientInfo] = []
         for party in principal_parties:
@@ -208,7 +279,9 @@ class ScriptExecutorService:
             async for party in contract_party_model.objects.filter(
                 contract_id=contract_id,
                 role="OPPOSING",
-            ).select_related("client").aiterator()
+            )
+            .select_related("client")
+            .aiterator()
         ]
         conflict_parties: list[ConflictPartyInfo] = []
         for party in opposing_parties:
@@ -361,9 +434,9 @@ class ScriptExecutorService:
         contract_party_model = django_apps.get_model("contracts", "ContractParty")
         our_client_ids = {
             client_id
-            async for client_id in contract_party_model.objects.filter(
-                contract_id=contract_id, role="PRINCIPAL"
-            ).values_list("client_id", flat=True).aiterator()
+            async for client_id in contract_party_model.objects.filter(contract_id=contract_id, role="PRINCIPAL")
+            .values_list("client_id", flat=True)
+            .aiterator()
         }
         party = await case_party_model.objects.filter(case=case, client_id__in=our_client_ids).afirst()
         mapping = {"plaintiff": "01", "defendant": "02", "third": "09"}
