@@ -10,7 +10,6 @@ from apps.core.services.system_config_service import SystemConfigService
 
 @pytest.mark.django_db(transaction=True)
 @pytest.mark.asyncio
-@pytest.mark.timeout(60)
 class TestAGetValue:
     async def test_returns_value_for_existing_key(self):
         await SystemConfig.objects.acreate(

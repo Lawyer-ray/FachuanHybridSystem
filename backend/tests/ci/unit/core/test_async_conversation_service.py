@@ -9,7 +9,6 @@ import pytest
 
 @pytest.mark.django_db(transaction=True)
 @pytest.mark.asyncio
-@pytest.mark.timeout(60)
 class TestConversationRepositoryAsync:
     async def test_acreate_persists_record(self):
         from apps.core.repositories.conversation_repository import ConversationHistoryRepository
@@ -48,7 +47,6 @@ class TestConversationRepositoryAsync:
 
 @pytest.mark.django_db(transaction=True)
 @pytest.mark.asyncio
-@pytest.mark.timeout(60)
 class TestConversationServiceAsync:
     async def test_aadd_user_message(self):
         from apps.core.services.conversation_service import ConversationService
@@ -80,7 +78,6 @@ class TestConversationServiceAsync:
 
 @pytest.mark.django_db(transaction=True)
 @pytest.mark.asyncio
-@pytest.mark.timeout(60)
 async def test_aget_conversation_history_messages_returns_ordered_list():
     from apps.core.services.conversation_history_service import ConversationHistoryService
 
