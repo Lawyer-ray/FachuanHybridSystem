@@ -294,7 +294,6 @@ if [ "$RUN_BACKEND" = true ]; then
       apps/core/middleware/request_id.py
       apps/core/middleware/security.py
       apps/organization/services/auth/auth_service.py
-      apps/automation/services/token/cache_manager.py
       apps/automation/utils/logging_mixins/common.py
     )
     if PYTHONPATH=apiSystem:. $BACKEND_PYTHON -m mypy --config-file=mypy.ini --follow-imports=silent "${MYPY_EXTRA[@]}" 2>&1; then
