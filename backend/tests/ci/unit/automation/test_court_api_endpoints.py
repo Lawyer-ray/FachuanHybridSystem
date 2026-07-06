@@ -7,6 +7,7 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+
 try:
     from plugins.court_automation import filing  # noqa: F401
 except ImportError:
@@ -36,7 +37,9 @@ class TestFilingCheckPlugin:
         sys.modules.pop("plugins", None)
         try:
             from importlib import reload
+
             import plugins.court_automation.filing.api_endpoint as mod
+
             # _check_plugin catches ImportError, returns False
             result = mod._check_plugin()
             assert isinstance(result, bool)
@@ -100,9 +103,9 @@ class TestGetCaseFilingInfoWithPlugin:
         mock_party_manager.filter.return_value.select_related.return_value = mock_party_qs
 
         with patch("plugins.court_automation.filing.api_endpoint._check_plugin", return_value=True), \
-             patch("plugins.court_automation.filing.api_endpoint._resolve_court_name", return_value="天河区人民法院"), \
+             patch("plugins.court_automation.filing.api_endpoint._aresolve_court_name", return_value="天河区人民法院"), \
              patch("plugins.court_automation.filing.api_endpoint._get_organization_service") as MockOrg, \
-             patch("plugins.court_automation.filing.api_endpoint._infer_filing_type", return_value="civil"), \
+             patch("plugins.court_automation.filing.api_endpoint._anormalize_filing_type", return_value="civil"), \
              patch("apps.cases.models.Case") as MockCase, \
              patch("apps.cases.models.SupervisingAuthority") as MockSA, \
              patch("apps.cases.models.CaseParty") as MockParty:
@@ -145,7 +148,7 @@ class TestGetCaseFilingInfoWithPlugin:
 
         with patch("plugins.court_automation.filing.api_endpoint._check_plugin", return_value=True), \
              patch("plugins.court_automation.filing.api_endpoint._get_organization_service") as MockOrg, \
-             patch("plugins.court_automation.filing.api_endpoint._infer_filing_type", return_value="civil"), \
+             patch("plugins.court_automation.filing.api_endpoint._anormalize_filing_type", return_value="civil"), \
              patch("apps.cases.models.Case") as MockCase, \
              patch("apps.cases.models.SupervisingAuthority") as MockSA, \
              patch("apps.cases.models.CaseParty") as MockParty:
@@ -224,7 +227,7 @@ class TestExecuteCourtFiling:
         mock_party_manager.filter.return_value.select_related.return_value = mock_party_qs
 
         with patch("plugins.court_automation.filing.api_endpoint._check_plugin", return_value=True), \
-             patch("plugins.court_automation.filing.api_endpoint._normalize_filing_type", return_value="civil"), \
+             patch("plugins.court_automation.filing.api_endpoint._anormalize_filing_type", return_value="civil"), \
              patch("plugins.court_automation.filing.api_endpoint._normalize_filing_engine", return_value="api"), \
              patch("plugins.court_automation.filing.api_endpoint._get_organization_service") as MockOrg, \
              patch("apps.cases.models.Case") as MockCase, \
@@ -257,7 +260,7 @@ class TestExecuteCourtFiling:
         mock_sa_manager.filter.return_value = mock_sa_qs
 
         with patch("plugins.court_automation.filing.api_endpoint._check_plugin", return_value=True), \
-             patch("plugins.court_automation.filing.api_endpoint._normalize_filing_type", return_value="civil"), \
+             patch("plugins.court_automation.filing.api_endpoint._anormalize_filing_type", return_value="civil"), \
              patch("plugins.court_automation.filing.api_endpoint._normalize_filing_engine", return_value="api"), \
              patch("plugins.court_automation.filing.api_endpoint._get_organization_service") as MockOrg, \
              patch("apps.cases.models.Case") as MockCase, \
@@ -295,9 +298,9 @@ class TestExecuteCourtFiling:
         mock_court_manager.filter.return_value = mock_court_qs
 
         with patch("plugins.court_automation.filing.api_endpoint._check_plugin", return_value=True), \
-             patch("plugins.court_automation.filing.api_endpoint._normalize_filing_type", return_value="civil"), \
+             patch("plugins.court_automation.filing.api_endpoint._anormalize_filing_type", return_value="civil"), \
              patch("plugins.court_automation.filing.api_endpoint._normalize_filing_engine", return_value="api"), \
-             patch("plugins.court_automation.filing.api_endpoint._resolve_court_name", return_value="天河区人民法院"), \
+             patch("plugins.court_automation.filing.api_endpoint._aresolve_court_name", return_value="天河区人民法院"), \
              patch("plugins.court_automation.filing.api_endpoint._get_organization_service") as MockOrg, \
              patch("plugins.court_automation.filing.api_endpoint._build_party_payloads", return_value=([], [{"d": 1}], [])), \
              patch("apps.cases.models.Case") as MockCase, \
@@ -336,9 +339,9 @@ class TestExecuteCourtFiling:
         mock_court_manager.filter.return_value = mock_court_qs
 
         with patch("plugins.court_automation.filing.api_endpoint._check_plugin", return_value=True), \
-             patch("plugins.court_automation.filing.api_endpoint._normalize_filing_type", return_value="civil"), \
+             patch("plugins.court_automation.filing.api_endpoint._anormalize_filing_type", return_value="civil"), \
              patch("plugins.court_automation.filing.api_endpoint._normalize_filing_engine", return_value="api"), \
-             patch("plugins.court_automation.filing.api_endpoint._resolve_court_name", return_value="天河区人民法院"), \
+             patch("plugins.court_automation.filing.api_endpoint._aresolve_court_name", return_value="天河区人民法院"), \
              patch("plugins.court_automation.filing.api_endpoint._get_organization_service") as MockOrg, \
              patch("plugins.court_automation.filing.api_endpoint._build_party_payloads", return_value=([{"p": 1}], [], [])), \
              patch("apps.cases.models.Case") as MockCase, \
@@ -377,12 +380,12 @@ class TestExecuteCourtFiling:
         mock_court_manager.filter.return_value = mock_court_qs
 
         with patch("plugins.court_automation.filing.api_endpoint._check_plugin", return_value=True), \
-             patch("plugins.court_automation.filing.api_endpoint._normalize_filing_type", return_value="civil"), \
+             patch("plugins.court_automation.filing.api_endpoint._anormalize_filing_type", return_value="civil"), \
              patch("plugins.court_automation.filing.api_endpoint._normalize_filing_engine", return_value="api"), \
-             patch("plugins.court_automation.filing.api_endpoint._resolve_court_name", return_value="天河区人民法院"), \
+             patch("plugins.court_automation.filing.api_endpoint._aresolve_court_name", return_value="天河区人民法院"), \
              patch("plugins.court_automation.filing.api_endpoint._get_organization_service") as MockOrg, \
              patch("plugins.court_automation.filing.api_endpoint._build_party_payloads", return_value=([{"p": 1}], [{"d": 1}], [])), \
-             patch("plugins.court_automation.filing.api_endpoint._build_agent_payloads", return_value=[]), \
+             patch("plugins.court_automation.filing.api_endpoint._abuild_agent_payloads", return_value=[]), \
              patch("apps.cases.models.Case") as MockCase, \
              patch("apps.cases.models.CaseParty") as MockParty, \
              patch("apps.cases.models.SupervisingAuthority") as MockSA, \
@@ -419,13 +422,13 @@ class TestExecuteCourtFiling:
         mock_court_manager.filter.return_value = mock_court_qs
 
         with patch("plugins.court_automation.filing.api_endpoint._check_plugin", return_value=True), \
-             patch("plugins.court_automation.filing.api_endpoint._normalize_filing_type", return_value="civil"), \
+             patch("plugins.court_automation.filing.api_endpoint._anormalize_filing_type", return_value="civil"), \
              patch("plugins.court_automation.filing.api_endpoint._normalize_filing_engine", return_value="api"), \
-             patch("plugins.court_automation.filing.api_endpoint._resolve_court_name", return_value="天河区人民法院"), \
+             patch("plugins.court_automation.filing.api_endpoint._aresolve_court_name", return_value="天河区人民法院"), \
              patch("plugins.court_automation.filing.api_endpoint._get_organization_service") as MockOrg, \
              patch("plugins.court_automation.filing.api_endpoint._build_party_payloads", return_value=([{"p": 1}], [{"d": 1}], [])), \
-             patch("plugins.court_automation.filing.api_endpoint._build_agent_payloads", return_value=[{"name": "律师"}]), \
-             patch("plugins.court_automation.filing.api_endpoint._build_materials_map", return_value={}), \
+             patch("plugins.court_automation.filing.api_endpoint._abuild_agent_payloads", return_value=[{"name": "律师"}]), \
+             patch("plugins.court_automation.filing.api_endpoint._abuild_materials_map", return_value={}), \
              patch("apps.cases.models.Case") as MockCase, \
              patch("apps.cases.models.CaseParty") as MockParty, \
              patch("apps.cases.models.SupervisingAuthority") as MockSA, \
@@ -521,7 +524,7 @@ class TestExecuteCourtGuarantee:
         mock_case_manager.aget = AsyncMock(return_value=case)
         with patch("plugins.court_automation.guarantee.api_endpoint._check_plugin", return_value=True), \
              patch("plugins.court_automation.guarantee.api_endpoint._get_organization_service") as MockOrg, \
-             patch("plugins.court_automation.guarantee.api_endpoint._get_case_court_name", return_value=None), \
+             patch("plugins.court_automation.guarantee.api_endpoint._get_case_court_name_a", return_value=None), \
              patch("apps.cases.models.Case") as MockCase:
             MockCase.objects = mock_case_manager
             MockOrg.return_value.get_credential_for_lawyer.return_value = SimpleNamespace(account="u", password="p")
@@ -537,7 +540,7 @@ class TestExecuteCourtGuarantee:
         mock_case_manager.aget = AsyncMock(return_value=case)
         with patch("plugins.court_automation.guarantee.api_endpoint._check_plugin", return_value=True), \
              patch("plugins.court_automation.guarantee.api_endpoint._get_organization_service") as MockOrg, \
-             patch("plugins.court_automation.guarantee.api_endpoint._get_case_court_name", return_value="天河区人民法院"), \
+             patch("plugins.court_automation.guarantee.api_endpoint._get_case_court_name_a", return_value="天河区人民法院"), \
              patch("apps.cases.models.Case") as MockCase:
             MockCase.objects = mock_case_manager
             MockOrg.return_value.get_credential_for_lawyer.return_value = SimpleNamespace(account="u", password="p")
@@ -553,14 +556,15 @@ class TestExecuteCourtGuarantee:
 class TestGuaranteeQuoteOperations:
     @pytest.mark.asyncio
     async def test_ensure_no_preserve_amount(self):
-        from plugins.court_automation.guarantee.api_endpoint import ensure_case_quote
         from decimal import Decimal
+
+        from plugins.court_automation.guarantee.api_endpoint import ensure_case_quote
         case = SimpleNamespace(id=1, preservation_amount=None)
         mock_case_manager = MagicMock()
         mock_case_manager.aget = AsyncMock(return_value=case)
         with patch("apps.cases.models.Case") as MockCase, \
              patch("plugins.court_automation.guarantee.api_endpoint._parse_preserve_amount", return_value=None), \
-             patch("plugins.court_automation.guarantee.api_endpoint._build_case_quote_context", return_value=None):
+             patch("plugins.court_automation.guarantee.api_endpoint._build_case_quote_context_a_a", return_value=None):
             MockCase.objects = mock_case_manager
             result = await ensure_case_quote(_make_request(), SimpleNamespace(case_id=1))
             assert result["success"] is False
@@ -568,15 +572,16 @@ class TestGuaranteeQuoteOperations:
 
     @pytest.mark.asyncio
     async def test_ensure_existing_binding(self):
-        from plugins.court_automation.guarantee.api_endpoint import ensure_case_quote
         from decimal import Decimal
+
+        from plugins.court_automation.guarantee.api_endpoint import ensure_case_quote
         case = SimpleNamespace(id=1, preservation_amount=Decimal("10000"))
         mock_case_manager = MagicMock()
         mock_case_manager.aget = AsyncMock(return_value=case)
         with patch("apps.cases.models.Case") as MockCase, \
              patch("plugins.court_automation.guarantee.api_endpoint._parse_preserve_amount", return_value=Decimal("10000")), \
-             patch("plugins.court_automation.guarantee.api_endpoint._find_reusable_binding", return_value=SimpleNamespace(id=1)), \
-             patch("plugins.court_automation.guarantee.api_endpoint._build_case_quote_context", return_value={"status": "ok"}):
+             patch("plugins.court_automation.guarantee.api_endpoint._find_reusable_binding_a", return_value=SimpleNamespace(id=1)), \
+             patch("plugins.court_automation.guarantee.api_endpoint._build_case_quote_context_a_a", return_value={"status": "ok"}):
             MockCase.objects = mock_case_manager
             result = await ensure_case_quote(_make_request(), SimpleNamespace(case_id=1))
             assert result["success"] is True
@@ -584,16 +589,17 @@ class TestGuaranteeQuoteOperations:
 
     @pytest.mark.asyncio
     async def test_ensure_no_credential(self):
-        from plugins.court_automation.guarantee.api_endpoint import ensure_case_quote
         from decimal import Decimal
+
+        from plugins.court_automation.guarantee.api_endpoint import ensure_case_quote
         case = SimpleNamespace(id=1, preservation_amount=Decimal("10000"))
         mock_case_manager = MagicMock()
         mock_case_manager.aget = AsyncMock(return_value=case)
         with patch("apps.cases.models.Case") as MockCase, \
              patch("plugins.court_automation.guarantee.api_endpoint._parse_preserve_amount", return_value=Decimal("10000")), \
-             patch("plugins.court_automation.guarantee.api_endpoint._find_reusable_binding", return_value=None), \
+             patch("plugins.court_automation.guarantee.api_endpoint._find_reusable_binding_a", return_value=None), \
              patch("plugins.court_automation.guarantee.api_endpoint._get_organization_service") as MockOrg, \
-             patch("plugins.court_automation.guarantee.api_endpoint._build_case_quote_context", return_value=None):
+             patch("plugins.court_automation.guarantee.api_endpoint._build_case_quote_context_a_a", return_value=None):
             MockCase.objects = mock_case_manager
             MockOrg.return_value.get_credential_for_lawyer.return_value = None
             result = await ensure_case_quote(_make_request(), SimpleNamespace(case_id=1))
@@ -602,8 +608,9 @@ class TestGuaranteeQuoteOperations:
 
     @pytest.mark.asyncio
     async def test_bind_quote_not_found(self):
-        from plugins.court_automation.guarantee.api_endpoint import bind_case_quote
         from decimal import Decimal
+
+        from plugins.court_automation.guarantee.api_endpoint import bind_case_quote
         case = SimpleNamespace(id=1, preservation_amount=Decimal("10000"))
         mock_case_manager = MagicMock()
         mock_case_manager.aget = AsyncMock(return_value=case)
@@ -612,7 +619,7 @@ class TestGuaranteeQuoteOperations:
         with patch("apps.cases.models.Case") as MockCase, \
              patch("plugins.court_automation.guarantee.api_endpoint._parse_preserve_amount", return_value=Decimal("10000")), \
              patch("apps.automation.models.PreservationQuote") as MockQuote, \
-             patch("plugins.court_automation.guarantee.api_endpoint._build_case_quote_context", return_value=None):
+             patch("plugins.court_automation.guarantee.api_endpoint._build_case_quote_context_a", return_value=None):
             MockCase.objects = mock_case_manager
             MockQuote.objects.filter.return_value = mock_quote_qs
             result = await bind_case_quote(_make_request(), quote_id=1, payload=SimpleNamespace(case_id=1))
@@ -621,8 +628,9 @@ class TestGuaranteeQuoteOperations:
 
     @pytest.mark.asyncio
     async def test_bind_amount_mismatch(self):
-        from plugins.court_automation.guarantee.api_endpoint import bind_case_quote
         from decimal import Decimal
+
+        from plugins.court_automation.guarantee.api_endpoint import bind_case_quote
         case = SimpleNamespace(id=1, preservation_amount=Decimal("10000"))
         quote = SimpleNamespace(id=1, preserve_amount=Decimal("20000"))
         mock_case_manager = MagicMock()
@@ -632,7 +640,7 @@ class TestGuaranteeQuoteOperations:
         with patch("apps.cases.models.Case") as MockCase, \
              patch("plugins.court_automation.guarantee.api_endpoint._parse_preserve_amount", return_value=Decimal("10000")), \
              patch("apps.automation.models.PreservationQuote") as MockQuote, \
-             patch("plugins.court_automation.guarantee.api_endpoint._build_case_quote_context", return_value=None):
+             patch("plugins.court_automation.guarantee.api_endpoint._build_case_quote_context_a", return_value=None):
             MockCase.objects = mock_case_manager
             MockQuote.objects.filter.return_value = mock_quote_qs
             result = await bind_case_quote(_make_request(), quote_id=1, payload=SimpleNamespace(case_id=1))
@@ -649,7 +657,7 @@ class TestGuaranteeQuoteOperations:
         mock_binding_qs.afirst = AsyncMock(return_value=None)
         with patch("apps.cases.models.Case") as MockCase, \
              patch("apps.automation.models.CasePreservationQuoteBinding") as MockBinding, \
-             patch("plugins.court_automation.guarantee.api_endpoint._build_case_quote_context", return_value=None):
+             patch("plugins.court_automation.guarantee.api_endpoint._build_case_quote_context_a", return_value=None):
             MockCase.objects = mock_case_manager
             MockBinding.objects.select_related.return_value.filter.return_value = mock_binding_qs
             result = await retry_case_quote(_make_request(), quote_id=1, payload=SimpleNamespace(case_id=1))
@@ -669,7 +677,7 @@ class TestGuaranteeQuoteOperations:
         with patch("apps.cases.models.Case") as MockCase, \
              patch("apps.automation.models.CasePreservationQuoteBinding") as MockBinding, \
              patch("apps.automation.models.PreservationQuote") as MockQuote, \
-             patch("plugins.court_automation.guarantee.api_endpoint._build_case_quote_context", return_value=None):
+             patch("plugins.court_automation.guarantee.api_endpoint._build_case_quote_context_a", return_value=None):
             MockCase.objects = mock_case_manager
             MockBinding.objects.select_related.return_value.filter.return_value = mock_binding_qs
             MockQuote.objects.filter.return_value = mock_quote_qs
@@ -686,7 +694,7 @@ class TestGuaranteeQuoteOperations:
         mock_binding_qs.afirst = AsyncMock(return_value=None)
         with patch("apps.cases.models.Case") as MockCase, \
              patch("apps.automation.models.CasePreservationQuoteBinding") as MockBinding, \
-             patch("plugins.court_automation.guarantee.api_endpoint._build_case_quote_context", return_value=None):
+             patch("plugins.court_automation.guarantee.api_endpoint._build_case_quote_context_a", return_value=None):
             MockCase.objects = mock_case_manager
             MockBinding.objects.filter.return_value = mock_binding_qs
             result = await delete_case_quote_binding(_make_request(), binding_id=1, payload=SimpleNamespace(case_id=1))
@@ -704,7 +712,7 @@ class TestGuaranteeQuoteOperations:
         with patch("apps.cases.models.Case") as MockCase, \
              patch("apps.automation.models.CasePreservationQuoteBinding") as MockBinding, \
              patch("apps.automation.models.PreservationQuote") as MockQuote, \
-             patch("plugins.court_automation.guarantee.api_endpoint._build_case_quote_context", return_value=None):
+             patch("plugins.court_automation.guarantee.api_endpoint._build_case_quote_context_a", return_value=None):
             MockCase.objects = mock_case_manager
             MockBinding.objects.filter.return_value = mock_binding_qs
             result = await delete_case_quote(_make_request(), quote_id=1, payload=SimpleNamespace(case_id=1))
