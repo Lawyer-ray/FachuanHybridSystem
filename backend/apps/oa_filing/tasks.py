@@ -13,7 +13,9 @@ from apps.core.tasking import TaskTimeoutError
 logger = logging.getLogger("apps.oa_filing.tasks")
 
 
-def run_client_import_task(session_id: int, headless: bool = True, limit: int | None = None) -> None:  # pragma: no cover
+def run_client_import_task(
+    session_id: int, headless: bool = True, limit: int | None = None
+) -> None:  # pragma: no cover
     """Django-Q 任务入口：执行 OA 客户导入。
 
     通过字符串路径 ``apps.oa_filing.tasks.run_client_import_task`` 调用。

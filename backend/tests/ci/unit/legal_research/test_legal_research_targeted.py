@@ -8,12 +8,12 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-
 # ---------------------------------------------------------------------------
 # tasks.py (0% coverage)
 # ---------------------------------------------------------------------------
 
 
+@pytest.mark.django_db
 class TestLegalResearchTasks:
     @patch("apps.legal_research.tasks.ThreadPoolExecutor")
     @patch("apps.legal_research.tasks.LegalResearchExecutor")
@@ -589,9 +589,8 @@ class TestApiOptional:
 
     @patch("importlib.import_module", side_effect=ModuleNotFoundError("no module"))
     def test_get_private_weike_api_module_not_found(self, mock_import):
-        from apps.legal_research.services.sources.weike.api_optional import _CACHE_UNSET
-
         import apps.legal_research.services.sources.weike.api_optional as mod
+        from apps.legal_research.services.sources.weike.api_optional import _CACHE_UNSET
 
         original = mod._adapter_cache
         mod._adapter_cache = _CACHE_UNSET

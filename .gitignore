@@ -322,3 +322,6 @@ audit/
 
 # 编译后的 gettext 文件
 *.mo
+
+# pre-commit config（实际在 backend/，根目录符号链接供 hook 查找）
+.pre-commit-config.yaml

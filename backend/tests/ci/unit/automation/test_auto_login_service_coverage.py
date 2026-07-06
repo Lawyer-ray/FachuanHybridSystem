@@ -20,12 +20,7 @@ else:
     AutoLoginService = None  # type: ignore[assignment,misc]
     RetryConfig = None  # type: ignore[assignment,misc]
 
-from apps.core.exceptions import (
-    AutoTokenAcquisitionError,
-    LoginFailedError,
-    NetworkError,
-    TokenAcquisitionTimeoutError,
-)
+from apps.core.exceptions import AutoTokenAcquisitionError, LoginFailedError, NetworkError, TokenAcquisitionTimeoutError
 from apps.core.interfaces import AccountCredentialDTO
 
 pytestmark = pytest.mark.skipif(not _HAS_LOGIN, reason="court_login plugin not installed")
@@ -39,7 +34,7 @@ def _make_cred(account: str = "test@test.com", site_name: str = "court") -> Acco
         site_name=site_name,
         url=None,
         account=account,
-        password="pass",
+        password="pass",  # pragma: allowlist secret
         last_login_success_at=None,
         login_success_count=0,
         login_failure_count=0,
@@ -147,21 +142,21 @@ class TestSingleLoginAttempt:
     @pytest.mark.asyncio
     async def test_success(self) -> None:
         svc = AutoLoginService()
-        with patch.object(svc, "_sync_login_attempt", return_value="token_ok"):
+        with patch.object(svc, "_sync_login_attempt_in_new_playwright", return_value="token_ok"):
             result = await svc._single_login_attempt(_make_cred())
             assert result == "token_ok"
 
     @pytest.mark.asyncio
     async def test_network_error_keyword(self) -> None:
         svc = AutoLoginService()
-        with patch.object(svc, "_sync_login_attempt", side_effect=Exception("connection refused")):
+        with patch.object(svc, "_sync_login_attempt_in_new_playwright", side_effect=Exception("connection refused")):
             with pytest.raises(NetworkError, match="网络连接错误"):
                 await svc._single_login_attempt(_make_cred())
 
     @pytest.mark.asyncio
     async def test_non_network_error(self) -> None:
         svc = AutoLoginService()
-        with patch.object(svc, "_sync_login_attempt", side_effect=Exception("验证码错误")):
+        with patch.object(svc, "_sync_login_attempt_in_new_playwright", side_effect=Exception("验证码错误")):
             with pytest.raises(Exception, match="验证码错误"):
                 await svc._single_login_attempt(_make_cred())
 

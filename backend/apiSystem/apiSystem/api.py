@@ -107,6 +107,7 @@ _OPENAPI_TAGS: list[dict[str, str]] = [
     {"name": "一张网立案", "description": "一张网在线立案"},
     {"name": "一张网担保", "description": "一张网担保信息查询"},
     {"name": "OA立案", "description": "OA 系统自动立案"},
+    {"name": "OA盖章", "description": "OA 系统文书盖章申请"},
     {"name": "要素式转换", "description": "传统文书转要素式文书"},
     {"name": "LLM 服务", "description": "大语言模型服务接口"},
     {"name": "性能监控", "description": "自动化性能监控"},
@@ -152,25 +153,28 @@ register_exception_handlers(api_v1)
 
 
 def _register_app_routers() -> None:
-    from apps.automation.api import router as automation_router
-
     from ninja import Router
+
+    from apps.automation.api import router as automation_router
 
     court_filing_router: Router | None = None
     court_guarantee_router: Router | None = None
     inbox_router: Router | None = None
     try:
         from plugins.court_automation.filing.api_endpoint import router as _filing_r
+
         court_filing_router = _filing_r
     except ImportError:
         pass
     try:
         from plugins.court_automation.guarantee.api_endpoint import router as _guarantee_r
+
         court_guarantee_router = _guarantee_r
     except ImportError:
         pass
     try:
         from plugins.message_hub.api import router as _inbox_r
+
         inbox_router = _inbox_r
     except ImportError:
         pass
@@ -278,6 +282,9 @@ def _register_app_routers() -> None:
     # case_import_router 内部路径已包含 /case-import，前缀保持空避免变成 /case-import/case-import
     api_v1.add_router("", case_import_router, auth=JWTOrSessionAuth(), tags=["案件导入"])
 
+    from apps.oa_filing.api.stamp_api import router as stamp_router
+
+    api_v1.add_router("/oa-stamp", stamp_router, auth=JWTOrSessionAuth(), tags=["OA盖章"])
 
     # LPR金融工具
     from apps.finance.api.lpr_api import router as lpr_router

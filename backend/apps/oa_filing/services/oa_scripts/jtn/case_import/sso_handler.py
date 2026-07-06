@@ -139,7 +139,9 @@ class JtnSsoHandlerMixin:  # pragma: no cover
         markers = ("推荐应用", "搜索应用/平台名称", "IMS", "aijagent")
         return any(marker in content_text for marker in markers)
 
-    async def _collect_ims_cookies_from_browser_context(self: Any, context: BrowserContext) -> dict[str, str]:  # pragma: no cover
+    async def _collect_ims_cookies_from_browser_context(
+        self: Any, context: BrowserContext
+    ) -> dict[str, str]:  # pragma: no cover
         cookies = await context.cookies("https://ims.jtn.com")
         return {
             str(item.get("name") or ""): str(item.get("value") or "")

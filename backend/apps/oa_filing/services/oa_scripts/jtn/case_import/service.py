@@ -82,7 +82,10 @@ class JtnCaseImportScript(
                 if attempt < 2:
                     logger.warning(
                         "HTTP 按名称查询异常，准备重试 HTTP: keyword=%s attempt=%d/%d err=%s",
-                        keyword, attempt, 2, exc,
+                        keyword,
+                        attempt,
+                        2,
+                        exc,
                     )
                     continue
 
@@ -92,7 +95,8 @@ class JtnCaseImportScript(
         if playwright_candidates:
             logger.info(
                 "按名称查询启用 Playwright 兜底成功: keyword=%s playwright_count=%d",
-                keyword, len(playwright_candidates),
+                keyword,
+                len(playwright_candidates),
             )
         return playwright_candidates
 
@@ -133,7 +137,8 @@ class JtnCaseImportScript(
             fallback_case_nos = [normalized_case_nos[index] for index in http_failed_indexes]
             logger.info(
                 "触发 Playwright 兜底: failed=%d total=%d",
-                len(fallback_case_nos), len(normalized_case_nos),
+                len(fallback_case_nos),
+                len(normalized_case_nos),
             )
             fallback_by_case_no: dict[str, OACaseData | None] = {}
             try:
