@@ -150,7 +150,9 @@ class JtnHttpClientMixin:
         """执行一次 HTTP 登录并返回可复用 cookie。"""
         logger.info("HTTP 登录 OA: %s", _LOGIN_URL)
 
-        async with httpx.AsyncClient(headers=_HTTP_HEADERS, follow_redirects=True, timeout=15, trust_env=False) as client:
+        async with httpx.AsyncClient(
+            headers=_HTTP_HEADERS, follow_redirects=True, timeout=15, trust_env=False
+        ) as client:
             login_resp = await client.get(_LOGIN_URL)
             csrf_token = html_parser.extract_hidden_input(login_resp.text, "CSRFToken")
 
@@ -191,7 +193,9 @@ class JtnHttpClientMixin:
         response = await client.post(form_state.action_url, data=payload)
         response.raise_for_status()
 
-        next_form_state = await self._extract_form_state(html_text=response.text, base_url=str(response.url), client=client)
+        next_form_state = await self._extract_form_state(
+            html_text=response.text, base_url=str(response.url), client=client
+        )
         keyid = html_parser.extract_case_keyid_from_search_html(html_text=response.text, case_no=case_no)
         if not keyid:
             return None, next_form_state
@@ -243,7 +247,9 @@ class JtnHttpClientMixin:
             await self._reset_name_search_http_session()
             raise
 
-    async def _ensure_name_search_http_session(self: Any) -> tuple[httpx.AsyncClient, CaseListFormState]:  # pragma: no cover
+    async def _ensure_name_search_http_session(
+        self: Any,
+    ) -> tuple[httpx.AsyncClient, CaseListFormState]:  # pragma: no cover
         if self._name_search_http_client is not None and self._name_search_form_state is not None:
             return self._name_search_http_client, self._name_search_form_state
 

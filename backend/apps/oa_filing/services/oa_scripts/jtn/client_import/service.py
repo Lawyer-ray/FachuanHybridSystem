@@ -151,7 +151,9 @@ class JtnClientImportScript:  # pragma: no cover
             async for item in self._run_via_playwright(limit=limit):
                 yield item
 
-    async def _run_via_playwright(self, *, limit: int | None = None) -> AsyncGenerator[OACustomerData, None]:  # pragma: no cover
+    async def _run_via_playwright(
+        self, *, limit: int | None = None
+    ) -> AsyncGenerator[OACustomerData, None]:  # pragma: no cover
         """Playwright 全量兜底流程。"""
         async with create_browser_async("default", headless=self._headless) as (page, context):
             self._page = page
@@ -564,7 +566,11 @@ class JtnClientImportScript:  # pragma: no cover
 
         logger.info(
             "解析客户详情完成: %s, type=%s, phone=%s, address=%s, id=%s",
-            data.name, data.client_type, data.phone, data.address, data.id_number,
+            data.name,
+            data.client_type,
+            data.phone,
+            data.address,
+            data.id_number,
         )
         return data
 

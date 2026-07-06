@@ -70,7 +70,9 @@ class HttpFilingMixin:  # pragma: no cover
         if not clients:
             raise RuntimeError("HTTP 立案缺少委托方")
 
-        async with httpx.AsyncClient(headers=_HTTP_HEADERS, follow_redirects=True, timeout=_DEFAULT_HTTP_TIMEOUT) as client:
+        async with httpx.AsyncClient(
+            headers=_HTTP_HEADERS, follow_redirects=True, timeout=_DEFAULT_HTTP_TIMEOUT
+        ) as client:
             await self._http_login(client)
             form_state = await self._load_filing_form_state(client)
             payload = dict(form_state.payload)
@@ -181,7 +183,9 @@ class HttpFilingMixin:  # pragma: no cover
             resolved.append(customer)
         return resolved
 
-    async def _search_customer_http(self: Any, *, client: httpx.AsyncClient, client_info: ClientInfo) -> ResolvedCustomer | None:
+    async def _search_customer_http(
+        self: Any, *, client: httpx.AsyncClient, client_info: ClientInfo
+    ) -> ResolvedCustomer | None:
         customer_type = "B" if client_info.client_type == "natural" else "A"
         response = await client.post(
             self._handler_url("CustSeachGetList"),
@@ -320,7 +324,9 @@ class HttpFilingMixin:  # pragma: no cover
     # 提交
     # ------------------------------------------------------------------
 
-    async def _submit_filing_form_http(self: Any, *, client: httpx.AsyncClient, action_url: str, payload: dict[str, str]) -> None:
+    async def _submit_filing_form_http(
+        self: Any, *, client: httpx.AsyncClient, action_url: str, payload: dict[str, str]
+    ) -> None:
         save_button_name = "ctl00$ctl00$mainContentPlaceHolder$projmainPlaceHolder$btnSave"
         payload[save_button_name] = "　存草稿　"
 

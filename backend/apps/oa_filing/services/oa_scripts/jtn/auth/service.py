@@ -150,10 +150,10 @@ class JtnAuthService:  # pragma: no cover
             'img[class*="qr"]',
             'a[class*="scan"] img',
             'a[class*="qr"] img',
-            '#scanIcon',
-            '#qrIcon',
-            '.scan-icon img',
-            '.qr-code-icon',
+            "#scanIcon",
+            "#qrIcon",
+            ".scan-icon img",
+            ".qr-code-icon",
         ]
         for sel in selectors:
             try:
@@ -200,14 +200,17 @@ class JtnAuthService:  # pragma: no cover
         GET 登录页 → 提取 CSRFToken → POST 账号密码 → 返回 cookies。
         适用于 case_import / client_import 等不需要浏览器扫码的场景。
         """
-        import httpx
         import re
+
+        import httpx
 
         from .constants import _HTTP_HEADERS
 
         logger.info("HTTP 登录 OA: %s", _LOGIN_URL)
 
-        async with httpx.AsyncClient(headers=_HTTP_HEADERS, follow_redirects=True, timeout=15, trust_env=False) as client:
+        async with httpx.AsyncClient(
+            headers=_HTTP_HEADERS, follow_redirects=True, timeout=15, trust_env=False
+        ) as client:
             login_resp = await client.get(_LOGIN_URL)
             csrf_match = re.search(r'name=["\']CSRFToken["\'] value=["\']([^"\']+)["\']', login_resp.text)
             csrf = csrf_match.group(1) if csrf_match else ""
@@ -221,7 +224,9 @@ class JtnAuthService:  # pragma: no cover
             if "login" in url_lower:
                 raise RuntimeError(f"OA 登录失败，账号或密码错误: {self._account}")
 
-            cookies = dict(login_result.cookies.items()) if hasattr(login_result, 'cookies') else dict(client.cookies.items())
+            cookies = (
+                dict(login_result.cookies.items()) if hasattr(login_result, "cookies") else dict(client.cookies.items())
+            )
 
         logger.info("HTTP 登录成功，获取 cookie=%d", len(cookies))
         return cookies

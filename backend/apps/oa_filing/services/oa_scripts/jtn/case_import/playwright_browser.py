@@ -79,7 +79,9 @@ class JtnPlaywrightBrowserMixin:  # pragma: no cover
 
         return fallback_results
 
-    async def _search_cases_by_name_via_playwright(self: Any, *, keyword: str, limit: int) -> list[OAListCaseCandidate]:  # pragma: no cover
+    async def _search_cases_by_name_via_playwright(
+        self: Any, *, keyword: str, limit: int
+    ) -> list[OAListCaseCandidate]:  # pragma: no cover
         try:
             await self._ensure_name_search_playwright_session()
             page = self._page
@@ -131,7 +133,9 @@ class JtnPlaywrightBrowserMixin:  # pragma: no cover
     # ------------------------------------------------------------------
     # Frame / 页面工具
     # ------------------------------------------------------------------
-    async def _find_visible_frame_for_selector(self: Any, *, selector: str, timeout_ms: int) -> Frame | None:  # pragma: no cover
+    async def _find_visible_frame_for_selector(
+        self: Any, *, selector: str, timeout_ms: int
+    ) -> Frame | None:  # pragma: no cover
         page = self._page
         assert page is not None
 
@@ -190,7 +194,9 @@ class JtnPlaywrightBrowserMixin:  # pragma: no cover
 
         logger.info("接口登录: %s", _LOGIN_URL)
 
-        async with httpx.AsyncClient(headers=_HTTP_HEADERS, follow_redirects=True, timeout=15, trust_env=False) as client:
+        async with httpx.AsyncClient(
+            headers=_HTTP_HEADERS, follow_redirects=True, timeout=15, trust_env=False
+        ) as client:
             r = await client.get(_LOGIN_URL)
             csrf_match = re.search(r'name=["\']CSRFToken["\'] value=["\']([^"\']+)["\']', r.text)
             csrf = csrf_match.group(1) if csrf_match else ""
@@ -454,7 +460,9 @@ class JtnPlaywrightBrowserMixin:  # pragma: no cover
             if self._is_ims_case_list_url(current_url):
                 return
 
-            is_ims_login_page = self._is_ims_login_form_page(current_url) or await self._has_visible_ims_login_form(page)
+            is_ims_login_page = self._is_ims_login_form_page(current_url) or await self._has_visible_ims_login_form(
+                page
+            )
             if is_ims_login_page and ims_login_try_count < 5:
                 now = asyncio.get_event_loop().time()
                 if now - last_ims_login_try_at >= 2:
