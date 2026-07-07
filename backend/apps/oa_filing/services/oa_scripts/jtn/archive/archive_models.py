@@ -11,4 +11,4 @@ class ArchiveFormData:
 
     oa_case_number: str
     file_paths: list[str] = field(default_factory=list)
-    description: str = "详见结案卷宗"
+    description: str = "详见卷宗"
