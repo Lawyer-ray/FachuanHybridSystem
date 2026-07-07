@@ -299,6 +299,15 @@ class ScriptExecutorService:
             .select_related("lawyer")
             .afirst()
         )
+        # 没有主办律师时，回退到第一个分配的律师
+        if primary_assignment is None:
+            primary_assignment = await (
+                contract_assignment_model.objects.filter(
+                    contract_id=contract_id,
+                )
+                .select_related("lawyer")
+                .afirst()
+            )
         manager_name: str = ""
         if primary_assignment is not None:
             manager_name = primary_assignment.lawyer.real_name or ""
