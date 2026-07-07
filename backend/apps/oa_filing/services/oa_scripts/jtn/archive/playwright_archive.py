@@ -176,17 +176,21 @@ class PlaywrightArchiveMixin:  # pragma: no cover
     async def _upload_files(self: Any, page: Page, file_paths: list[str]) -> None:  # pragma: no cover
         """上传归档文件到归档文件区域。
 
-        归档文件区域有两个 file input：
-        - 第一行（案件业务卷宗）：默认选中，上传主文件
-        - 第二行（请选择）：附加文件类型，如有多个文件则使用
+        归档文件区域在 #tblFiles 表格中：
+        - 第一行（案件业务卷宗）：默认选中，name="pfile"
+        - 第二行（请选择）：附加文件类型，name="pfile"
+
+        注意：页面顶层有一个隐藏的 file input（display:none），
+        必须用 #tblFiles input[type=file] 限定范围，跳过隐藏的。
         """
         if not file_paths:
             raise RuntimeError("没有要上传的文件")
 
-        file_inputs = page.locator('input[type="file"]')
+        # 限定在 #tblFiles 表格中，避免匹配到页面顶层的隐藏 file input
+        file_inputs = page.locator('#tblFiles input[type="file"]')
         fi_count = await file_inputs.count()
         if fi_count < 1:
-            raise RuntimeError("未找到文件上传区域")
+            raise RuntimeError("未找到归档文件上传区域 (#tblFiles)")
 
         # 上传第一个文件到"案件业务卷宗"行
         first_path = file_paths[0]
