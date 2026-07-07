@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from .archive_session import ArchiveSession, ArchiveSessionStatus
 from .case_import_session import CaseImportPhase, CaseImportSession, CaseImportStatus
 from .client_import_session import ClientImportPhase, ClientImportSession, ClientImportStatus
 from .filing_session import FilingSession, SessionStatus
@@ -7,6 +8,8 @@ from .oa_config import OAConfig
 from .stamp_session import StampSession, StampSessionStatus
 
 __all__ = [
+    "ArchiveSession",
+    "ArchiveSessionStatus",
     "CaseImportSession",
     "CaseImportPhase",
     "CaseImportStatus",
