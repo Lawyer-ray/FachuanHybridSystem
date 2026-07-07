@@ -93,6 +93,75 @@ class ScriptExecutorService:
         )
         await script.run(form_data)
 
+    def get_archive_session(self, session_id: int) -> Any:  # pragma: no cover
+        from apps.oa_filing.models import ArchiveSession
+
+        return ArchiveSession.objects.get(pk=session_id)
+
+    def execute_archive(self, file_paths: list[str], user: Any) -> Any:  # pragma: no cover
+        """发起归档材料提交：反查合同 → 创建 session → 提交后台任务。"""
+        from apps.oa_filing.models import ArchiveSession, ArchiveSessionStatus
+        from apps.oa_filing.services.stamp_lookup_service import StampLookupService
+
+        lookup = StampLookupService.lookup_by_file_path(file_paths[0])
+
+        credential_model = django_apps.get_model("organization", "AccountCredential")
+        credential = credential_model.objects.filter(
+            lawyer=user,
+            site_name="金诚同达OA",
+        ).first()
+
+        session: ArchiveSession = ArchiveSession.objects.create(
+            contract_id=lookup.contract_id,
+            credential=credential,
+            user=user,
+            oa_case_number=lookup.oa_case_number,
+            file_paths=file_paths,
+            status=ArchiveSessionStatus.IN_PROGRESS,
+        )
+        logger.info("开始归档: session=%d, oa_no=%s", session.id, lookup.oa_case_number)
+
+        _executor.submit(self._run_archive_in_thread, session.id)
+
+        return ArchiveSession.objects.get(pk=session.id)
+
+    def _run_archive_in_thread(self, session_id: int) -> None:  # pragma: no cover
+        """后台线程：执行归档 Playwright 脚本并更新会话状态。"""
+        from apps.oa_filing.models import ArchiveSession, ArchiveSessionStatus
+
+        os.environ["DJANGO_ALLOW_ASYNC_UNSAFE"] = "true"
+
+        try:
+            asyncio.run(self._dispatch_archive(session_id))
+            ArchiveSession.objects.filter(pk=session_id).update(status=ArchiveSessionStatus.COMPLETED)
+            logger.info("归档完成: session=%d", session_id)
+        except Exception as exc:
+            ArchiveSession.objects.filter(pk=session_id).update(
+                status=ArchiveSessionStatus.FAILED,
+                error_message=str(exc),
+            )
+            logger.error("归档失败: session=%d, error=%s", session_id, exc)
+
+    async def _dispatch_archive(self, session_id: int) -> None:  # pragma: no cover
+        """异步：执行归档 Playwright 脚本。"""
+        from apps.oa_filing.models import ArchiveSession
+        from apps.oa_filing.services.oa_scripts.jtn.archive import ArchiveFormData, JtnArchiveScript
+
+        session = await ArchiveSession.objects.select_related("credential").aget(pk=session_id)
+        credential = session.credential
+        if credential is None:
+            raise RuntimeError("归档申请缺少 OA 登录凭证")
+
+        form_data = ArchiveFormData(
+            oa_case_number=session.oa_case_number,
+            file_paths=session.file_paths,
+        )
+        script = JtnArchiveScript(
+            account=str(credential.account),
+            password=str(credential.password),
+        )
+        await script.run(form_data)
+
     def execute(
         self,
         site_name: str,

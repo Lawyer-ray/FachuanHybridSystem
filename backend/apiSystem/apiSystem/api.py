@@ -286,6 +286,10 @@ def _register_app_routers() -> None:
 
     api_v1.add_router("/oa-stamp", stamp_router, auth=JWTOrSessionAuth(), tags=["OA盖章"])
 
+    from apps.oa_filing.api.archive_api import router as archive_router
+
+    api_v1.add_router("/oa-archive", archive_router, auth=JWTOrSessionAuth(), tags=["OA归档"])
+
     # LPR金融工具
     from apps.finance.api.lpr_api import router as lpr_router
 
