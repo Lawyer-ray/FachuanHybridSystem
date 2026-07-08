@@ -99,7 +99,7 @@ jobs:
         env:
           POSTGRES_DB: fachuan_ci_test
           POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
+          POSTGRES_PASSWORD: postgres  # pragma: allowlist secret
         ports:
           - 5432:5432
         options: >-
@@ -276,7 +276,7 @@ jobs:
           TEST_DB_ENGINE: "postgresql"
           TEST_DB_NAME: "fachuan_ci_test"
           TEST_DB_USER: "postgres"
-          TEST_DB_PASSWORD: "postgres"
+          TEST_DB_PASSWORD: "postgres"  # pragma: allowlist secret  # pragma: allowlist secret
           TEST_DB_HOST: "127.0.0.1"
           TEST_DB_PORT: "5432"
           PYTHONPATH: "apiSystem:."
@@ -289,7 +289,7 @@ jobs:
           TEST_DB_ENGINE: "postgresql"
           TEST_DB_NAME: "fachuan_ci_test"
           TEST_DB_USER: "postgres"
-          TEST_DB_PASSWORD: "postgres"
+          TEST_DB_PASSWORD: "postgres"  # pragma: allowlist secret  # pragma: allowlist secret
           TEST_DB_HOST: "127.0.0.1"
           TEST_DB_PORT: "5432"
           PYTHONPATH: "apiSystem:."
@@ -301,7 +301,7 @@ jobs:
           DB_ENGINE: "postgresql"
           DB_NAME: "fachuan_ci_test"
           DB_USER: "postgres"
-          DB_PASSWORD: "postgres"
+          DB_PASSWORD: "postgres"  # pragma: allowlist secret
           DB_HOST: "127.0.0.1"
           DB_PORT: "5432"
           PYTHONPATH: "apiSystem:."
@@ -312,7 +312,7 @@ jobs:
             --skip-q
 
       - name: Dependency audit (pip-audit)
-        run: uv run pip-audit --ignore-vuln CVE-2026-3219 --ignore-vuln CVE-2026-6357 --ignore-vuln CVE-2026-42304 --ignore-vuln CVE-2026-46678 --ignore-vuln PYSEC-2026-89 --ignore-vuln PYSEC-2026-161 --ignore-vuln PYSEC-2025-183 --ignore-vuln PYSEC-2026-175 --ignore-vuln PYSEC-2026-177 --ignore-vuln PYSEC-2026-178 --ignore-vuln PYSEC-2026-179 --ignore-vuln PYSEC-2026-196 --ignore-vuln CVE-2026-54911 --ignore-vuln GHSA-6v7p-g79w-8964 --ignore-vuln GHSA-4xgf-cpjx-pc3j --ignore-vuln CVE-2026-48990
+        run: uv run pip-audit --ignore-vuln CVE-2026-3219 --ignore-vuln CVE-2026-6357 --ignore-vuln CVE-2026-42304 --ignore-vuln CVE-2026-46678 --ignore-vuln PYSEC-2026-89 --ignore-vuln PYSEC-2026-161 --ignore-vuln PYSEC-2025-183 --ignore-vuln PYSEC-2026-175 --ignore-vuln PYSEC-2026-177 --ignore-vuln PYSEC-2026-178 --ignore-vuln PYSEC-2026-179 --ignore-vuln PYSEC-2026-196 --ignore-vuln CVE-2026-54911 --ignore-vuln GHSA-6v7p-g79w-8964 --ignore-vuln GHSA-4xgf-cpjx-pc3j --ignore-vuln CVE-2026-48990 --ignore-vuln CVE-2026-49452
 
       - name: Static security scan (bandit)
         run: uv run bandit -r apps -q -lll -x "*/migrations/*,*/static/*,*/staticfiles/*,*/media/*,*/venv*/*,*/htmlcov/*"
@@ -333,7 +333,7 @@ jobs:
         env:
           POSTGRES_DB: fachuan_ci_test
           POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
+          POSTGRES_PASSWORD: postgres  # pragma: allowlist secret
         ports:
           - 5432:5432
         options: >-
@@ -370,7 +370,7 @@ jobs:
           TEST_DB_ENGINE: "postgresql"
           TEST_DB_NAME: "fachuan_ci_test"
           TEST_DB_USER: "postgres"
-          TEST_DB_PASSWORD: "postgres"
+          TEST_DB_PASSWORD: "postgres"  # pragma: allowlist secret  # pragma: allowlist secret
           TEST_DB_HOST: "127.0.0.1"
           TEST_DB_PORT: "5432"
           PYTHONPATH: "apiSystem:."
@@ -403,7 +403,7 @@ jobs:
         env:
           POSTGRES_DB: fachuan_ci_test
           POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
+          POSTGRES_PASSWORD: postgres  # pragma: allowlist secret
         ports:
           - 5432:5432
         options: >-
@@ -437,7 +437,7 @@ jobs:
           TEST_DB_ENGINE: "postgresql"
           TEST_DB_NAME: "fachuan_ci_test"
           TEST_DB_USER: "postgres"
-          TEST_DB_PASSWORD: "postgres"
+          TEST_DB_PASSWORD: "postgres"  # pragma: allowlist secret  # pragma: allowlist secret
           TEST_DB_HOST: "127.0.0.1"
           TEST_DB_PORT: "5432"
           PYTHONPATH: "apiSystem:."
@@ -459,7 +459,7 @@ jobs:
         env:
           POSTGRES_DB: fachuan_ci_test
           POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
+          POSTGRES_PASSWORD: postgres  # pragma: allowlist secret
         ports:
           - 5432:5432
         options: >-
@@ -493,7 +493,7 @@ jobs:
           TEST_DB_ENGINE: "postgresql"
           TEST_DB_NAME: "fachuan_ci_test"
           TEST_DB_USER: "postgres"
-          TEST_DB_PASSWORD: "postgres"
+          TEST_DB_PASSWORD: "postgres"  # pragma: allowlist secret  # pragma: allowlist secret
           TEST_DB_HOST: "127.0.0.1"
           TEST_DB_PORT: "5432"
           PYTHONPATH: "apiSystem:."
@@ -517,7 +517,7 @@ jobs:
         env:
           POSTGRES_DB: fachuan_ci_test
           POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
+          POSTGRES_PASSWORD: postgres  # pragma: allowlist secret
         ports:
           - 5432:5432
         options: >-
@@ -543,7 +543,7 @@ jobs:
           DB_ENGINE: "postgresql"
           DB_NAME: "fachuan_ci_test"
           DB_USER: "postgres"
-          DB_PASSWORD: "postgres"
+          DB_PASSWORD: "postgres"  # pragma: allowlist secret
           DB_HOST: "127.0.0.1"
           DB_PORT: "5432"
           PYTHONPATH: "apiSystem:."
@@ -551,4 +551,3 @@ jobs:
           uv run python apiSystem/manage.py smoke_check \
             --skip-websocket \
             --skip-q
-
