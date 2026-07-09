@@ -83,10 +83,11 @@ class DocumentParsingToolAdmin(admin.ModelAdmin):  # pragma: no cover
                 str(file_path),
                 file_type,
                 "auto",
-                True,   # extract_tables
+                True,  # extract_tables
                 False,  # extract_images
-                True,   # return_markdown,
+                True,  # return_markdown,
                 task_name=f"document_parsing_{task.id}",
+                hook="apps.document_parsing.tasks.document_parsing_hook",
                 timeout=600,
             )
             messages.success(request, f"文件已上传，正在后台解析：{uploaded_file.name}")

@@ -89,6 +89,7 @@ async def parse_document(
                 extract_images,
                 return_markdown,
                 task_name=f"parse_document_{saved_name}",
+                hook="apps.document_parsing.tasks.document_parsing_hook",
                 timeout=600,
             )
             logger.info("文档解析任务已提交: task_id=%s, file=%s", task_id, saved_name)
