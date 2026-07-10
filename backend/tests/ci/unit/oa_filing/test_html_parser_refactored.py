@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from apps.oa_filing.services.oa_scripts.jtn.html_parser import (
+from apps.oa_filing.services.oa_scripts.jtn.case_import.html_parser import (
     clean_case_name_text,
     extract_case_no_from_text,
     extract_hidden_input,

@@ -36,21 +36,16 @@ class TestOAFilingExceptions:
         assert err.message == "custom error"
 
     def test_script_execution_error_is_oa_filing_error(self):
-        from apps.oa_filing.services.exceptions import (
-            OAFilingError,
-            ScriptExecutionError,
-        )
+        from apps.oa_filing.services.exceptions import OAFilingError, ScriptExecutionError
 
         assert issubclass(ScriptExecutionError, OAFilingError)
 
 
-class TestScriptExecutorServiceMapping:
+class TestJTNAdapterMapping:
     def _make_service(self):
-        from apps.oa_filing.services.script_executor_service import (
-            ScriptExecutorService,
-        )
+        from apps.oa_filing.services.oa_scripts.jtn.adapter import JTNAdapter
 
-        return ScriptExecutorService()
+        return JTNAdapter("test", "test")
 
     def test_map_case_category_civil(self):
         svc = self._make_service()
@@ -182,11 +177,12 @@ class TestScriptExecutorServiceMapping:
 
     @pytest.mark.asyncio
     async def test_dispatch_unsupported_site(self):
-        svc = self._make_service()
-        with pytest.raises(Exception, match="不支持"):
-            await svc._dispatch("未知站点", None, 1, None)
+        from apps.oa_filing.services.oa_firm_registry import create_adapter
+
+        with pytest.raises(ValueError, match="不支持"):
+            create_adapter("未知站点", "acc", "pwd")
 
     def test_script_executor_supported_sites(self):
-        from apps.oa_filing.services.script_executor_service import SUPPORTED_SITES
+        from apps.oa_filing.services.oa_firm_registry import SUPPORTED_SITES
 
         assert "金诚同达OA" in SUPPORTED_SITES

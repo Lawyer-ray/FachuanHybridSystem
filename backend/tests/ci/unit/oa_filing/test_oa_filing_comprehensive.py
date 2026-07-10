@@ -2,21 +2,20 @@
 from __future__ import annotations
 
 from types import SimpleNamespace
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import AsyncMock, MagicMock, PropertyMock, patch
 
 import pytest
 
 from apps.oa_filing.services.exceptions import OAFilingError, ScriptExecutionError
 
-
 # ── script_executor_service ────────────────────────────────────────────────
 
 
-class TestScriptExecutorService:
+class TestJTNAdapter:
     def _make_service(self):
-        from apps.oa_filing.services.script_executor_service import ScriptExecutorService
+        from apps.oa_filing.services.oa_scripts.jtn.adapter import JTNAdapter
 
-        return ScriptExecutorService()
+        return JTNAdapter("test", "test")
 
     def test_map_case_category_civil(self) -> None:
         svc = self._make_service()
@@ -178,32 +177,34 @@ class TestScriptExecutorService:
     @patch("apps.oa_filing.services.script_executor_service.django_apps")
     async def test_dispatch_unsupported_site(self, mock_apps) -> None:
         svc = self._make_service()
-        with pytest.raises(ScriptExecutionError, match="不支持的OA系统"):
-            await svc._dispatch("UnsupportedSite", MagicMock(), 1, None)
+        with pytest.raises(ValueError, match="不支持"):
+            from apps.oa_filing.services.oa_firm_registry import create_adapter; create_adapter("UnsupportedSite", "t", "t")
 
-    def test_map_legal_position_plaintiff(self) -> None:
+    @pytest.mark.asyncio
+    async def test_map_legal_position_plaintiff(self) -> None:
         svc = self._make_service()
-        with patch("apps.oa_filing.services.script_executor_service.django_apps") as mock_apps:
+        with patch("apps.oa_filing.services.oa_scripts.jtn.adapter.django_apps") as mock_apps:
             mock_model = MagicMock()
             case_party = MagicMock()
             case_party.legal_status = "plaintiff"
-            mock_model.objects.filter.return_value.first.return_value = case_party
+            mock_model.objects.filter.return_value.afirst = AsyncMock(return_value=case_party)
             mock_apps.get_model.return_value = mock_model
 
             contract_party = MagicMock()
             contract_party.client_id = 1
-            assert svc._map_legal_position(contract_party) == "01"
+            assert await svc._async_map_legal_position(contract_party) == "01"
 
-    def test_map_legal_position_default(self) -> None:
+    @pytest.mark.asyncio
+    async def test_map_legal_position_default(self) -> None:
         svc = self._make_service()
-        with patch("apps.oa_filing.services.script_executor_service.django_apps") as mock_apps:
+        with patch("apps.oa_filing.services.oa_scripts.jtn.adapter.django_apps") as mock_apps:
             mock_model = MagicMock()
-            mock_model.objects.filter.return_value.first.return_value = None
+            mock_model.objects.filter.return_value.afirst = AsyncMock(return_value=None)
             mock_apps.get_model.return_value = mock_model
 
             contract_party = MagicMock()
             contract_party.client_id = 1
-            assert svc._map_legal_position(contract_party) == "02"
+            assert await svc._async_map_legal_position(contract_party) == "02"
 
 
 # ── import_session_service ─────────────────────────────────────────────────
@@ -556,49 +557,49 @@ class TestFilingModels:
 
 class TestHtmlParser:
     def test_normalize_text(self) -> None:
-        from apps.oa_filing.services.oa_scripts.jtn.html_parser import normalize_text
+        from apps.oa_filing.services.oa_scripts.jtn.case_import.html_parser import normalize_text
 
         assert normalize_text(None) == ""
         assert normalize_text("  hello  ") == "hello"
         assert normalize_text("hello\xa0world") == "hello world"
 
     def test_normalize_label(self) -> None:
-        from apps.oa_filing.services.oa_scripts.jtn.html_parser import normalize_label
+        from apps.oa_filing.services.oa_scripts.jtn.case_import.html_parser import normalize_label
 
         assert normalize_label("案件名称：") == "案件名称"
         assert normalize_label("案件名称:") == "案件名称"
 
     def test_extract_hidden_input(self) -> None:
-        from apps.oa_filing.services.oa_scripts.jtn.html_parser import extract_hidden_input
+        from apps.oa_filing.services.oa_scripts.jtn.case_import.html_parser import extract_hidden_input
 
         html = '<input name="__VIEWSTATE" value="abc123" />'
         assert extract_hidden_input(html, "__VIEWSTATE") == "abc123"
 
     def test_extract_hidden_input_not_found(self) -> None:
-        from apps.oa_filing.services.oa_scripts.jtn.html_parser import extract_hidden_input
+        from apps.oa_filing.services.oa_scripts.jtn.case_import.html_parser import extract_hidden_input
 
         assert extract_hidden_input("<p>no input</p>", "missing") == ""
 
     def test_extract_case_no_from_text(self) -> None:
-        from apps.oa_filing.services.oa_scripts.jtn.html_parser import extract_case_no_from_text
+        from apps.oa_filing.services.oa_scripts.jtn.case_import.html_parser import extract_case_no_from_text
 
         # The regex matches ASCII letter patterns, not Chinese chars
         assert extract_case_no_from_text("案件编号2024AH12345号") != ""
         assert extract_case_no_from_text("") == ""
 
     def test_extract_keyid_from_href(self) -> None:
-        from apps.oa_filing.services.oa_scripts.jtn.html_parser import extract_keyid_from_href
+        from apps.oa_filing.services.oa_scripts.jtn.case_import.html_parser import extract_keyid_from_href
 
         href = "projectView.aspx?keyid=abc123&FirstModel=PROJECT"
         assert extract_keyid_from_href(href) == "abc123"
 
     def test_extract_keyid_from_href_empty(self) -> None:
-        from apps.oa_filing.services.oa_scripts.jtn.html_parser import extract_keyid_from_href
+        from apps.oa_filing.services.oa_scripts.jtn.case_import.html_parser import extract_keyid_from_href
 
         assert extract_keyid_from_href("") is None
 
     def test_score_case_name_cell(self) -> None:
-        from apps.oa_filing.services.oa_scripts.jtn.html_parser import score_case_name_cell
+        from apps.oa_filing.services.oa_scripts.jtn.case_import.html_parser import score_case_name_cell
 
         assert score_case_name_cell("", case_no="") == -100
         assert score_case_name_cell("123", case_no="") == -90
@@ -607,21 +608,21 @@ class TestHtmlParser:
         assert score_case_name_cell("2024-01-01", case_no="") < 0
 
     def test_clean_case_name_text(self) -> None:
-        from apps.oa_filing.services.oa_scripts.jtn.html_parser import clean_case_name_text
+        from apps.oa_filing.services.oa_scripts.jtn.case_import.html_parser import clean_case_name_text
 
         assert clean_case_name_text("", case_no="") == ""
         result = clean_case_name_text("张某诉李某合同纠纷案 查看", case_no="")
         assert "查看" not in result
 
     def test_clean_case_name_text_removes_case_no(self) -> None:
-        from apps.oa_filing.services.oa_scripts.jtn.html_parser import clean_case_name_text
+        from apps.oa_filing.services.oa_scripts.jtn.case_import.html_parser import clean_case_name_text
 
         result = clean_case_name_text("(2024)京01民初123号张某诉李某", case_no="2024京01民初123")
         # case_no removed from text
         assert "2024京01民初123" not in result
 
     def test_iter_label_value_pairs(self) -> None:
-        from apps.oa_filing.services.oa_scripts.jtn.html_parser import iter_label_value_pairs
+        from apps.oa_filing.services.oa_scripts.jtn.case_import.html_parser import iter_label_value_pairs
 
         pairs = iter_label_value_pairs(["名称：", "测试案件", "编号：", "12345"])
         assert len(pairs) == 2
@@ -629,32 +630,34 @@ class TestHtmlParser:
         assert pairs[1] == ("编号", "12345")
 
     def test_iter_label_value_pairs_odd_count(self) -> None:
-        from apps.oa_filing.services.oa_scripts.jtn.html_parser import iter_label_value_pairs
+        from apps.oa_filing.services.oa_scripts.jtn.case_import.html_parser import iter_label_value_pairs
 
         pairs = iter_label_value_pairs(["名称：", "测试案件", "额外"])
         assert len(pairs) == 1
 
     def test_extract_case_candidates_from_empty_html(self) -> None:
-        from apps.oa_filing.services.oa_scripts.jtn.html_parser import extract_case_candidates_from_search_html
+        from apps.oa_filing.services.oa_scripts.jtn.case_import.html_parser import (
+            extract_case_candidates_from_search_html,
+        )
 
         assert extract_case_candidates_from_search_html("") == []
         assert extract_case_candidates_from_search_html("<p>no rows</p>") == []
 
     def test_extract_case_keyid_from_search_html_not_found(self) -> None:
-        from apps.oa_filing.services.oa_scripts.jtn.html_parser import extract_case_keyid_from_search_html
+        from apps.oa_filing.services.oa_scripts.jtn.case_import.html_parser import extract_case_keyid_from_search_html
 
         html = "<table><tr><td>no match</td></tr></table>"
         assert extract_case_keyid_from_search_html(html_text=html, case_no="CASE001") is None
 
     def test_extract_case_keyid_from_search_html_regex_fallback(self) -> None:
-        from apps.oa_filing.services.oa_scripts.jtn.html_parser import extract_case_keyid_from_search_html
+        from apps.oa_filing.services.oa_scripts.jtn.case_import.html_parser import extract_case_keyid_from_search_html
 
         html = "some text CASE001 more text projectView.aspx?keyid=abc_key&other=val"
         result = extract_case_keyid_from_search_html(html_text=html, case_no="CASE001")
         assert result == "abc_key"
 
     def test_parse_case_detail_html_invalid(self) -> None:
-        from apps.oa_filing.services.oa_scripts.jtn.html_parser import parse_case_detail_html
+        from apps.oa_filing.services.oa_scripts.jtn.case_import.html_parser import parse_case_detail_html
 
         result = parse_case_detail_html(html_text="invalid", case_no="c1", keyid="k1")
         # Should not raise, returns OACaseData or None
@@ -673,14 +676,14 @@ class TestModels:
         assert len(SessionStatus.choices) == 5
 
     def test_client_import_status_choices(self) -> None:
-        from apps.oa_filing.models.client_import_session import ClientImportStatus, ClientImportPhase
+        from apps.oa_filing.models.client_import_session import ClientImportPhase, ClientImportStatus
 
         assert ClientImportStatus.PENDING == "pending"
         assert ClientImportPhase.DISCOVERING == "discovering"
         assert ClientImportPhase.IMPORTING == "importing"
 
     def test_case_import_status_choices(self) -> None:
-        from apps.oa_filing.models.case_import_session import CaseImportStatus, CaseImportPhase
+        from apps.oa_filing.models.case_import_session import CaseImportPhase, CaseImportStatus
 
         assert CaseImportStatus.PENDING == "pending"
         assert CaseImportPhase.PARSING == "parsing"
@@ -717,7 +720,7 @@ class TestModels:
 
 class TestJtnModels:
     def test_import_models(self) -> None:
-        from apps.oa_filing.services.oa_scripts.jtn.models import (
+        from apps.oa_filing.services.oa_scripts.jtn.case_import.models import (
             OACaseCustomerData,
             OACaseData,
             OACaseInfoData,

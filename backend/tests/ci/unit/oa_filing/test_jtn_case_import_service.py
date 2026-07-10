@@ -7,8 +7,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from apps.oa_filing.services.oa_scripts.jtn.case_import.models import OACaseData, OAListCaseCandidate
 from apps.oa_filing.services.oa_scripts.jtn.case_import.service import JtnCaseImportScript
-from apps.oa_filing.services.oa_scripts.jtn.models import OACaseData, OAListCaseCandidate
 
 
 @pytest.fixture

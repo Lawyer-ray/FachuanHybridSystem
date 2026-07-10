@@ -3,18 +3,18 @@ from __future__ import annotations
 import pytest
 from lxml import html as lxml_html
 
-from apps.oa_filing.services.oa_scripts.jtn.html_parser import (
+from apps.oa_filing.services.oa_scripts.jtn.case_import.html_parser import (
     _BASE_URL,
     _CASE_LIST_URL,
     _DETAIL_URL_TEMPLATE,
     clean_case_name_text,
     extract_case_candidates_from_search_html,
+    extract_case_info_from_html,
     extract_case_keyid_from_search_html,
     extract_case_name_from_row,
     extract_case_no_from_text,
     extract_conflicts_from_html,
     extract_customers_from_html,
-    extract_case_info_from_html,
     extract_hidden_input,
     extract_keyid_from_href,
     extract_row_cells_text,
@@ -24,14 +24,13 @@ from apps.oa_filing.services.oa_scripts.jtn.html_parser import (
     parse_case_detail_html,
     score_case_name_cell,
 )
-from apps.oa_filing.services.oa_scripts.jtn.models import (
+from apps.oa_filing.services.oa_scripts.jtn.case_import.models import (
     OACaseCustomerData,
     OACaseData,
     OACaseInfoData,
     OAConflictData,
     OAListCaseCandidate,
 )
-
 
 # ── normalize_text ────────────────────────────────────────────────────────────
 

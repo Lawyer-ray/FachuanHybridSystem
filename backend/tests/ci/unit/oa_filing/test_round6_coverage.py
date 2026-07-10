@@ -13,19 +13,18 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-
 # ---------------------------------------------------------------------------
 # script_executor_service.py — mapping methods
 # ---------------------------------------------------------------------------
 
 
 class TestScriptExecutorMappings:
-    """Test the mapping helper methods of ScriptExecutorService."""
+    """Test the mapping helper methods of JTNAdapter."""
 
     @pytest.fixture()
     def svc(self):
-        from apps.oa_filing.services.script_executor_service import ScriptExecutorService
-        return ScriptExecutorService()
+        from apps.oa_filing.services.oa_scripts.jtn.adapter import JTNAdapter
+        return JTNAdapter("test", "test")
 
     def test_map_case_category_civil(self, svc):
         case = SimpleNamespace(case_type="civil")
@@ -252,8 +251,8 @@ class TestScriptExecutorMappings:
     async def test_dispatch_unsupported_site(self, svc):
         from apps.oa_filing.services.exceptions import ScriptExecutionError
 
-        with pytest.raises(ScriptExecutionError, match="不支持"):
-            await svc._dispatch("unsupported", MagicMock(), 1, None)
+        with pytest.raises(ValueError, match="不支持"):
+            from apps.oa_filing.services.oa_firm_registry import create_adapter; create_adapter("unsupported", "t", "t")
 
 
 # ---------------------------------------------------------------------------
@@ -619,6 +618,7 @@ class TestImageRotationApiHelpers:
 
     def test_validate_image_file_ok(self):
         from django.core.files.uploadedfile import SimpleUploadedFile
+
         from apps.image_rotation.api.image_rotation_api import _validate_image_file
 
         f = SimpleUploadedFile("test.jpg", b"data", content_type="image/jpeg")
@@ -627,8 +627,9 @@ class TestImageRotationApiHelpers:
 
     def test_validate_image_file_bad_type(self):
         from django.core.files.uploadedfile import SimpleUploadedFile
-        from apps.image_rotation.api.image_rotation_api import _validate_image_file
+
         from apps.core.exceptions import ValidationException
+        from apps.image_rotation.api.image_rotation_api import _validate_image_file
 
         f = SimpleUploadedFile("test.exe", b"data", content_type="application/exe")
         with pytest.raises(ValidationException, match="不支持的图片类型"):
@@ -636,9 +637,11 @@ class TestImageRotationApiHelpers:
 
     def test_validate_image_file_too_large(self):
         from io import BytesIO
+
         from django.core.files.uploadedfile import SimpleUploadedFile
-        from apps.image_rotation.api.image_rotation_api import _validate_image_file
+
         from apps.core.exceptions import ValidationException
+        from apps.image_rotation.api.image_rotation_api import _validate_image_file
 
         big_data = b"\x00" * (21 * 1024 * 1024)
         f = SimpleUploadedFile("big.jpg", big_data, content_type="image/jpeg")
@@ -647,6 +650,7 @@ class TestImageRotationApiHelpers:
 
     def test_decode_image_data_plain(self):
         import base64
+
         from apps.image_rotation.api.image_rotation_api import _decode_image_data
 
         encoded = base64.b64encode(b"hello").decode()
@@ -655,6 +659,7 @@ class TestImageRotationApiHelpers:
 
     def test_decode_image_data_with_data_url(self):
         import base64
+
         from apps.image_rotation.api.image_rotation_api import _decode_image_data
 
         encoded = base64.b64encode(b"test").decode()
@@ -664,6 +669,7 @@ class TestImageRotationApiHelpers:
 
     def test_body_empty(self):
         from django.test import RequestFactory
+
         from apps.image_rotation.api.image_rotation_api import _body
 
         rf = RequestFactory()
@@ -672,7 +678,9 @@ class TestImageRotationApiHelpers:
 
     def test_body_json(self):
         import json
+
         from django.test import RequestFactory
+
         from apps.image_rotation.api.image_rotation_api import _body
 
         rf = RequestFactory()

@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-import pytest
-from unittest.mock import patch, MagicMock, PropertyMock
+from unittest.mock import MagicMock, PropertyMock, patch
 
+import pytest
 
 # ---------------------------------------------------------------------------
 # html_parser pure functions
@@ -12,110 +12,111 @@ from unittest.mock import patch, MagicMock, PropertyMock
 
 class TestHtmlParserNormalizeText:
     def test_none_returns_empty(self):
-        from apps.oa_filing.services.oa_scripts.jtn.html_parser import normalize_text
+        from apps.oa_filing.services.oa_scripts.jtn.case_import.html_parser import normalize_text
         assert normalize_text(None) == ""
 
     def test_whitespace_collapsed(self):
-        from apps.oa_filing.services.oa_scripts.jtn.html_parser import normalize_text
+        from apps.oa_filing.services.oa_scripts.jtn.case_import.html_parser import normalize_text
         assert normalize_text("  hello   world  ") == "hello world"
 
     def test_nbsp_replaced(self):
-        from apps.oa_filing.services.oa_scripts.jtn.html_parser import normalize_text
+        from apps.oa_filing.services.oa_scripts.jtn.case_import.html_parser import normalize_text
         result = normalize_text("hello\xa0world")
         assert "\xa0" not in result
 
 
 class TestHtmlParserNormalizeLabel:
     def test_removes_colons(self):
-        from apps.oa_filing.services.oa_scripts.jtn.html_parser import normalize_label
+        from apps.oa_filing.services.oa_scripts.jtn.case_import.html_parser import normalize_label
         assert normalize_label("案件名称：") == "案件名称"
 
     def test_removes_spaces(self):
-        from apps.oa_filing.services.oa_scripts.jtn.html_parser import normalize_label
+        from apps.oa_filing.services.oa_scripts.jtn.case_import.html_parser import normalize_label
         assert normalize_label("案件 名称") == "案件名称"
 
 
 class TestHtmlParserExtractHiddenInput:
     def test_found(self):
-        from apps.oa_filing.services.oa_scripts.jtn.html_parser import extract_hidden_input
+        from apps.oa_filing.services.oa_scripts.jtn.case_import.html_parser import extract_hidden_input
         html = '<input name="CSRFToken" value="abc123" />'
         assert extract_hidden_input(html, "CSRFToken") == "abc123"
 
     def test_not_found(self):
-        from apps.oa_filing.services.oa_scripts.jtn.html_parser import extract_hidden_input
+        from apps.oa_filing.services.oa_scripts.jtn.case_import.html_parser import extract_hidden_input
         assert extract_hidden_input("<html></html>", "missing") == ""
 
 
 class TestHtmlParserExtractCaseNo:
     def test_standard_case_no(self):
-        from apps.oa_filing.services.oa_scripts.jtn.html_parser import extract_case_no_from_text
+        from apps.oa_filing.services.oa_scripts.jtn.case_import.html_parser import extract_case_no_from_text
+
         # Pattern: digit year + letters + digits
         result = extract_case_no_from_text("案件编号 2024abc001 号")
         assert result == "2024abc001"
 
     def test_empty_text(self):
-        from apps.oa_filing.services.oa_scripts.jtn.html_parser import extract_case_no_from_text
+        from apps.oa_filing.services.oa_scripts.jtn.case_import.html_parser import extract_case_no_from_text
         assert extract_case_no_from_text("") == ""
 
 
 class TestHtmlParserExtractKeyid:
     def test_from_href(self):
-        from apps.oa_filing.services.oa_scripts.jtn.html_parser import extract_keyid_from_href
+        from apps.oa_filing.services.oa_scripts.jtn.case_import.html_parser import extract_keyid_from_href
         result = extract_keyid_from_href("projectView.aspx?keyid=ABC123&FirstModel=PROJECT")
         assert result == "ABC123"
 
     def test_empty_href(self):
-        from apps.oa_filing.services.oa_scripts.jtn.html_parser import extract_keyid_from_href
+        from apps.oa_filing.services.oa_scripts.jtn.case_import.html_parser import extract_keyid_from_href
         assert extract_keyid_from_href("") is None
 
     def test_none_href(self):
-        from apps.oa_filing.services.oa_scripts.jtn.html_parser import extract_keyid_from_href
+        from apps.oa_filing.services.oa_scripts.jtn.case_import.html_parser import extract_keyid_from_href
         assert extract_keyid_from_href(None) is None
 
 
 class TestHtmlParserScoreCaseNameCell:
     def test_empty_text(self):
-        from apps.oa_filing.services.oa_scripts.jtn.html_parser import score_case_name_cell
+        from apps.oa_filing.services.oa_scripts.jtn.case_import.html_parser import score_case_name_cell
         assert score_case_name_cell("", case_no="X") == -100
 
     def test_digit_only(self):
-        from apps.oa_filing.services.oa_scripts.jtn.html_parser import score_case_name_cell
+        from apps.oa_filing.services.oa_scripts.jtn.case_import.html_parser import score_case_name_cell
         assert score_case_name_cell("12345", case_no="") == -90
 
     def test_action_word(self):
-        from apps.oa_filing.services.oa_scripts.jtn.html_parser import score_case_name_cell
+        from apps.oa_filing.services.oa_scripts.jtn.case_import.html_parser import score_case_name_cell
         assert score_case_name_cell("查看", case_no="") == -80
 
     def test_contains_sue_boosts_score(self):
-        from apps.oa_filing.services.oa_scripts.jtn.html_parser import score_case_name_cell
+        from apps.oa_filing.services.oa_scripts.jtn.case_import.html_parser import score_case_name_cell
         score = score_case_name_cell("张某诉李某借款纠纷", case_no="")
         assert score > 0
 
     def test_case_no_match(self):
-        from apps.oa_filing.services.oa_scripts.jtn.html_parser import score_case_name_cell
+        from apps.oa_filing.services.oa_scripts.jtn.case_import.html_parser import score_case_name_cell
         score = score_case_name_cell("2024民初001 张某诉李某", case_no="2024民初001")
         assert score >= 30
 
 
 class TestHtmlParserCleanCaseName:
     def test_removes_markers(self):
-        from apps.oa_filing.services.oa_scripts.jtn.html_parser import clean_case_name_text
+        from apps.oa_filing.services.oa_scripts.jtn.case_import.html_parser import clean_case_name_text
         result = clean_case_name_text("[诉讼]张某诉李某", case_no="")
         assert "[诉讼]" not in result
 
     def test_removes_case_no(self):
-        from apps.oa_filing.services.oa_scripts.jtn.html_parser import clean_case_name_text
+        from apps.oa_filing.services.oa_scripts.jtn.case_import.html_parser import clean_case_name_text
         result = clean_case_name_text("2024民初001 张某诉李某", case_no="2024民初001")
         assert "2024民初001" not in result
 
     def test_empty(self):
-        from apps.oa_filing.services.oa_scripts.jtn.html_parser import clean_case_name_text
+        from apps.oa_filing.services.oa_scripts.jtn.case_import.html_parser import clean_case_name_text
         assert clean_case_name_text("", case_no="") == ""
 
 
 class TestHtmlParserIterLabelValuePairs:
     def test_pairs(self):
-        from apps.oa_filing.services.oa_scripts.jtn.html_parser import iter_label_value_pairs
+        from apps.oa_filing.services.oa_scripts.jtn.case_import.html_parser import iter_label_value_pairs
         result = iter_label_value_pairs(["案件名称", "张某诉李某", "阶段", "一审"])
         assert len(result) == 2
         assert result[0][0] == "案件名称"
@@ -124,7 +125,8 @@ class TestHtmlParserIterLabelValuePairs:
 class TestHtmlParserExtractCustomers:
     def test_extracts_customer(self):
         from lxml import html as lxml_html
-        from apps.oa_filing.services.oa_scripts.jtn.html_parser import extract_customers_from_html
+
+        from apps.oa_filing.services.oa_scripts.jtn.case_import.html_parser import extract_customers_from_html
         html = """
         <div id="tab_con_1">
             <tr><td>客户（某公司）信息</td></tr>
@@ -138,7 +140,8 @@ class TestHtmlParserExtractCustomers:
 
     def test_empty_tab(self):
         from lxml import html as lxml_html
-        from apps.oa_filing.services.oa_scripts.jtn.html_parser import extract_customers_from_html
+
+        from apps.oa_filing.services.oa_scripts.jtn.case_import.html_parser import extract_customers_from_html
         root = lxml_html.fromstring('<div id="tab_con_1"></div>')
         assert extract_customers_from_html(root) == []
 
@@ -146,7 +149,8 @@ class TestHtmlParserExtractCustomers:
 class TestHtmlParserExtractCaseInfo:
     def test_extracts_fields(self):
         from lxml import html as lxml_html
-        from apps.oa_filing.services.oa_scripts.jtn.html_parser import extract_case_info_from_html
+
+        from apps.oa_filing.services.oa_scripts.jtn.case_import.html_parser import extract_case_info_from_html
         html = """
         <div id="tab_con_2">
             <tr><td>案件名称：</td><td>张某诉李某</td></tr>
@@ -163,7 +167,8 @@ class TestHtmlParserExtractCaseInfo:
 class TestHtmlParserExtractConflicts:
     def test_extracts_conflict(self):
         from lxml import html as lxml_html
-        from apps.oa_filing.services.oa_scripts.jtn.html_parser import extract_conflicts_from_html
+
+        from apps.oa_filing.services.oa_scripts.jtn.case_import.html_parser import extract_conflicts_from_html
         html = """
         <div id="tab_con_3">
             <tr><td>中文名称：</td><td>对方公司</td></tr>
@@ -177,20 +182,22 @@ class TestHtmlParserExtractConflicts:
 
 class TestHtmlParserExtractKeyidFromSearchHtml:
     def test_finds_keyid(self):
-        from apps.oa_filing.services.oa_scripts.jtn.html_parser import extract_case_keyid_from_search_html
+        from apps.oa_filing.services.oa_scripts.jtn.case_import.html_parser import extract_case_keyid_from_search_html
         html = '<tr><td>2024民初001</td><td><a href="projectView.aspx?keyid=XYZ789">查看</a></td></tr>'
         result = extract_case_keyid_from_search_html(html_text=html, case_no="2024民初001")
         assert result == "XYZ789"
 
     def test_not_found(self):
-        from apps.oa_filing.services.oa_scripts.jtn.html_parser import extract_case_keyid_from_search_html
+        from apps.oa_filing.services.oa_scripts.jtn.case_import.html_parser import extract_case_keyid_from_search_html
         result = extract_case_keyid_from_search_html(html_text="<html></html>", case_no="999")
         assert result is None
 
 
 class TestHtmlParserExtractCandidates:
     def test_extracts_candidates(self):
-        from apps.oa_filing.services.oa_scripts.jtn.html_parser import extract_case_candidates_from_search_html
+        from apps.oa_filing.services.oa_scripts.jtn.case_import.html_parser import (
+            extract_case_candidates_from_search_html,
+        )
         html = """<table><tr>
             <td>1</td><td>2024民初001</td>
             <td><a href="projectView.aspx?keyid=AAA111&FirstModel=PROJECT">张某诉李某</a></td>
@@ -200,7 +207,9 @@ class TestHtmlParserExtractCandidates:
         assert candidates[0].keyid == "AAA111"
 
     def test_empty_html(self):
-        from apps.oa_filing.services.oa_scripts.jtn.html_parser import extract_case_candidates_from_search_html
+        from apps.oa_filing.services.oa_scripts.jtn.case_import.html_parser import (
+            extract_case_candidates_from_search_html,
+        )
         assert extract_case_candidates_from_search_html("") == []
 
 

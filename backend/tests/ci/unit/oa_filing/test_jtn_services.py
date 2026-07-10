@@ -6,7 +6,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from apps.oa_filing.services.oa_scripts.jtn.html_parser import (
+from apps.oa_filing.services.oa_scripts.jtn.case_import.html_parser import (
     clean_case_name_text,
     extract_case_candidates_from_search_html,
     extract_case_keyid_from_search_html,

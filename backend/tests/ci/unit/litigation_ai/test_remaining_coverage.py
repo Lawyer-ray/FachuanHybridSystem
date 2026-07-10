@@ -6,7 +6,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-
 # --- litigation_ai mock_trial ---
 
 class TestMockTrialFlowService:
@@ -144,35 +143,35 @@ class TestOAFiling:
         assert PlaywrightFilingMixin is not None
 
     def test_html_parser_import(self):
-        from apps.oa_filing.services.oa_scripts.jtn.html_parser import normalize_text
+        from apps.oa_filing.services.oa_scripts.jtn.case_import.html_parser import normalize_text
 
         assert normalize_text("  hello  ") == "hello"
 
     def test_html_parser_normalize_label(self):
-        from apps.oa_filing.services.oa_scripts.jtn.html_parser import normalize_label
+        from apps.oa_filing.services.oa_scripts.jtn.case_import.html_parser import normalize_label
 
         assert isinstance(normalize_label("label"), str)
 
     def test_html_parser_extract_hidden_input(self):
-        from apps.oa_filing.services.oa_scripts.jtn.html_parser import extract_hidden_input
+        from apps.oa_filing.services.oa_scripts.jtn.case_import.html_parser import extract_hidden_input
 
         result = extract_hidden_input('<input name="token" value="abc123">', "token")
         assert result == "abc123"
 
     def test_html_parser_extract_case_no(self):
-        from apps.oa_filing.services.oa_scripts.jtn.html_parser import extract_case_no_from_text
+        from apps.oa_filing.services.oa_scripts.jtn.case_import.html_parser import extract_case_no_from_text
 
         result = extract_case_no_from_text("（2025）粤01民初1号")
         assert "2025" in result or result == ""
 
     def test_html_parser_extract_keyid(self):
-        from apps.oa_filing.services.oa_scripts.jtn.html_parser import extract_keyid_from_href
+        from apps.oa_filing.services.oa_scripts.jtn.case_import.html_parser import extract_keyid_from_href
 
         result = extract_keyid_from_href("projectView.aspx?keyid=ABC123&First=PROJECT")
         assert result == "ABC123"
 
     def test_html_parser_score_case_name_cell(self):
-        from apps.oa_filing.services.oa_scripts.jtn.html_parser import score_case_name_cell
+        from apps.oa_filing.services.oa_scripts.jtn.case_import.html_parser import score_case_name_cell
 
         result = score_case_name_cell("张三诉李四买卖合同纠纷", case_no="2025粤01民初1号")
         assert isinstance(result, int)

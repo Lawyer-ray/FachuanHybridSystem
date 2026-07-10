@@ -25,7 +25,7 @@ pytestmark = pytest.mark.skipif(not _HAS_LOGIN, reason="court_login plugin not i
 
 class TestJtnHtmlParser:
     def test_module_imports(self):
-        from apps.oa_filing.services.oa_scripts.jtn import html_parser
+        from apps.oa_filing.services.oa_scripts.jtn.case_import import html_parser
 
         assert html_parser is not None
 
@@ -282,8 +282,6 @@ class TestLoginHandler:
 
 class TestAutoTokenAcquisitionService:
     def test_module_imports(self):
-        from plugins.court_automation.token.auto_token_acquisition_service import (
-            AutoTokenAcquisitionService,
-        )
+        from plugins.court_automation.token.auto_token_acquisition_service import AutoTokenAcquisitionService
 
         assert AutoTokenAcquisitionService is not None
