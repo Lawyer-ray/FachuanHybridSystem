@@ -14,8 +14,7 @@ from playwright.async_api import BrowserContext, Frame, Page
 
 from apps.core.services.browser import create_browser_async
 
-from .. import html_parser
-from ..models import CaseSearchItem, OACaseData, OAListCaseCandidate
+from . import html_parser
 from .http_client import (
     _AJAX_WAIT,
     _BASE_URL,
@@ -27,6 +26,7 @@ from .http_client import (
     _MEDIUM_WAIT,
     _SHORT_WAIT,
 )
+from .models import CaseSearchItem, OACaseData, OAListCaseCandidate
 
 logger = logging.getLogger("apps.oa_filing.jtn_case_import")
 

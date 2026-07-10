@@ -1,21 +1,11 @@
-"""金诚同达 OA 案件导入 - 数据结构.
-
-数据类已迁移到 apps.oa_filing.services.oa_data_models，
-此处保留 re-export 以兼容现有 import。
-"""
+"""金诚同达 OA 案件导入 - 数据结构。"""
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 
 # re-export 通用数据类
-from apps.oa_filing.services.oa_data_models import (
-    OACaseCustomerData,
-    OACaseData,
-    OACaseInfoData,
-    OAConflictData,
-    OACustomerData,
-)
+from apps.oa_filing.services.oa_data_models import OACaseCustomerData, OACaseData, OACaseInfoData, OAConflictData
 
 
 @dataclass

@@ -9,9 +9,9 @@ import httpx
 from playwright.async_api import BrowserContext, Page
 
 from ..auth.service import JtnAuthService
-from ..models import CaseListFormState, OACaseData, OAListCaseCandidate
 from .detail_extractor import JtnDetailExtractorMixin
 from .http_client import JtnHttpClientMixin
+from .models import CaseListFormState, OACaseData, OAListCaseCandidate
 from .playwright_browser import JtnPlaywrightBrowserMixin
 from .sso_handler import JtnSsoHandlerMixin
 

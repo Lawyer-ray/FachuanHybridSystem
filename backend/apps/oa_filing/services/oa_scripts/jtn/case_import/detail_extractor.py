@@ -9,8 +9,8 @@ from typing import Any
 
 from playwright.async_api import Page
 
-from ..models import CaseSearchItem, OACaseCustomerData, OACaseData, OACaseInfoData, OAConflictData
 from .http_client import _BASE_URL, _DETAIL_URL_TEMPLATE, _MEDIUM_WAIT
+from .models import CaseSearchItem, OACaseCustomerData, OACaseData, OACaseInfoData, OAConflictData
 
 logger = logging.getLogger("apps.oa_filing.jtn_case_import")
 

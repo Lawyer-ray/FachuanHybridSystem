@@ -11,8 +11,8 @@ from urllib.parse import urljoin
 import httpx
 from lxml import html as lxml_html
 
-from .. import html_parser
-from ..models import CaseListFormState, CaseSearchItem, OACaseData, OAListCaseCandidate
+from . import html_parser
+from .models import CaseListFormState, CaseSearchItem, OACaseData, OAListCaseCandidate
 
 logger = logging.getLogger("apps.oa_filing.jtn_case_import")
 
