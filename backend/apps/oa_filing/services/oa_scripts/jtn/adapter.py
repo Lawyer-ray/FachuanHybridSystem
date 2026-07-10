@@ -269,9 +269,6 @@ class JTNAdapter(FilingAdapter, StampAdapter, ArchiveAdapter, CaseImportAdapter,
             # ── 填写案件小结 ──
             await self._fill_description(page, description)
 
-            # ── 点击结案申请按钮 ──
-            await self._click_close_case_button(page)
-
             logger.info("OA 页面已打开并填写完成，浏览器保持打开状态")
             # 不关闭浏览器，留给用户手动操作
 
@@ -362,22 +359,6 @@ class JTNAdapter(FilingAdapter, StampAdapter, ArchiveAdapter, CaseImportAdapter,
         if result != "ok":
             raise RuntimeError(f"填写案件小结失败: {result}")
         await asyncio.sleep(SHORT_WAIT)
-
-    async def _click_close_case_button(self, page: Any) -> None:
-        """点击结案申请按钮（#tblFiles 第三行第三列）。"""
-        import asyncio
-
-        from apps.oa_filing.services.oa_scripts.jtn.archive.constants import MEDIUM_WAIT
-
-        logger.info("点击结案申请按钮")
-        btn = page.locator('//*[@id="tblFiles"]/tbody/tr[3]/td[3]')
-        count = await btn.count()
-        if count == 0:
-            logger.warning("未找到结案申请按钮 (#tblFiles tbody tr[3] td[3])")
-            return
-        await btn.first.click()
-        await asyncio.sleep(MEDIUM_WAIT)
-        logger.info("结案申请按钮已点击")
 
     # ==================================================================
     # CaseImportAdapter
