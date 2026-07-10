@@ -281,6 +281,89 @@ class JTNAdapter(FilingAdapter, StampAdapter, ArchiveAdapter, CaseImportAdapter,
             await playwright.stop()
             raise
 
+    async def open_invoice_page(
+        self,
+        credential: Any,
+        oa_case_number: str,
+    ) -> None:
+        """打开 OA 发票管理页面，输入案件编号、搜索、点击申请对外开票，保持浏览器打开。"""
+        import asyncio
+
+        from playwright.async_api import async_playwright
+
+        _INVOICE_URL = (
+            "https://ims.jtn.com/invoice/ProjectFapiaoRequest.aspx"
+            "?FirstModel=FINANCE&SecondModel=FINANCE002&ThirdModel=FINANCE002-04"
+        )
+        _CASE_NO_INPUT = "#ctl00_ctl00_mainContentPlaceHolder_projmainPlaceHolder_project_no"
+        _SEARCH_BTN = "#wrap > div:nth-child(1) > div:nth-child(2) > div > div:nth-child(4) > div:nth-child(2) > table > tbody > tr:nth-child(5) > td:nth-child(3) > div > a"
+        _FIRST_APPLY_LINK = "#wrap > div:nth-child(1) > div:nth-child(2) > div > div:nth-child(5) > table > tbody > tr:nth-child(2) > td:nth-child(9) > a"
+
+        playwright = await async_playwright().start()
+        browser = await playwright.chromium.launch(headless=False)
+        context = await browser.new_context()
+        page = await context.new_page()
+
+        try:
+            # ── 登录 ──
+            cached = self._auth.load_cookies()
+            if cached:
+                logger.info("使用缓存 cookies 登录 OA")
+                await self._auth.inject_to_context(context, cached)
+                await page.goto(_INVOICE_URL, wait_until="domcontentloaded", timeout=60_000)
+                await asyncio.sleep(2)
+                if "login" not in page.url.lower():
+                    logger.info("Cookies 有效，已进入发票页面")
+                else:
+                    logger.warning("缓存 cookies 已失效，执行 SSO 扫码登录")
+                    cookies = await self._auth.sso_login()
+                    await self._auth.inject_to_context(context, cookies)
+            else:
+                logger.info("无缓存 cookies，执行 SSO 扫码登录")
+                cookies = await self._auth.sso_login()
+                await self._auth.inject_to_context(context, cookies)
+
+            # ── 导航到发票管理页面 ──
+            await page.goto(_INVOICE_URL, wait_until="domcontentloaded", timeout=60_000)
+            await asyncio.sleep(2)
+
+            if "login" in page.url.lower():
+                logger.warning("当前在登录页，等待 SSO 扫码...")
+                await page.wait_for_url("**/ims.jtn.com/invoice/**", timeout=180_000)
+                await asyncio.sleep(2)
+
+            logger.info("已进入发票管理页面: %s", page.url)
+
+            # ── 输入案件编号 ──
+            if oa_case_number:
+                logger.info("输入案件编号: %s", oa_case_number)
+                case_input = page.locator(_CASE_NO_INPUT)
+                await case_input.fill(oa_case_number)
+                await asyncio.sleep(0.5)
+
+                # ── 点击查找 ──
+                logger.info("点击查找按钮")
+                await page.locator(_SEARCH_BTN).click()
+                await asyncio.sleep(2)
+
+                # ── 点击第一个结果的"申请对外开票" ──
+                logger.info("点击申请对外开票")
+                apply_link = page.locator(_FIRST_APPLY_LINK)
+                count = await apply_link.count()
+                if count == 0:
+                    logger.warning("未找到申请对外开票按钮，请手动操作")
+                else:
+                    await apply_link.first.click()
+                    await asyncio.sleep(2)
+                    logger.info("已跳转到开票页面: %s", page.url)
+
+            logger.info("开票页面已打开，浏览器保持打开状态")
+
+        except Exception:
+            await browser.close()
+            await playwright.stop()
+            raise
+
     async def _search_and_select_case(self, page: Any, case_no: str) -> None:
         """搜索案件并选择（复用 archive 的逻辑）。"""
         import asyncio

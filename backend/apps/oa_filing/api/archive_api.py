@@ -9,7 +9,13 @@ from asgiref.sync import sync_to_async
 from django.http import HttpRequest
 from ninja import Router
 
-from apps.oa_filing.schemas.archive_schemas import ArchiveApplyIn, ArchiveLookupOut, ArchiveSessionOut, OpenOAIn
+from apps.oa_filing.schemas.archive_schemas import (
+    ArchiveApplyIn,
+    ArchiveLookupOut,
+    ArchiveSessionOut,
+    OpenInvoiceIn,
+    OpenOAIn,
+)
 
 logger = logging.getLogger("apps.oa_filing.api.archive")
 router = Router()
@@ -70,6 +76,18 @@ async def open_oa_page(request: HttpRequest, payload: OpenOAIn) -> dict[str, Any
         payload.contract_id,
         request.user,
         payload.description,
+        payload.site_name,
+    )
+    return {"success": True, "message": "浏览器已打开，请查看"}
+
+
+@router.post("/open-invoice")
+async def open_invoice_page(request: HttpRequest, payload: OpenInvoiceIn) -> dict[str, Any]:
+    """打开 OA 发票页面，输入案件编号并跳转到开票页面，保持浏览器打开。"""
+    service = _get_task_executor_service()
+    await sync_to_async(service.open_invoice_page, thread_sensitive=False)(
+        payload.contract_id,
+        request.user,
         payload.site_name,
     )
     return {"success": True, "message": "浏览器已打开，请查看"}

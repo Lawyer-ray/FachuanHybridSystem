@@ -52,6 +52,14 @@ class ArchiveAdapter(Protocol):
         """打开 OA 归档页面，填写案件编号和小结，保持浏览器打开。"""
         ...
 
+    async def open_invoice_page(
+        self,
+        credential: Any,
+        oa_case_number: str,
+    ) -> None:
+        """打开 OA 发票页面，输入案件编号并跳转到开票页面，保持浏览器打开。"""
+        ...
+
 
 @runtime_checkable
 class CaseImportAdapter(Protocol):

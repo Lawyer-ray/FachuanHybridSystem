@@ -2,6 +2,13 @@
 <!-- 收费与财务标签页 -->
 <div x-show="activeTab === 'finance'" x-cloak x-transition>
 
+    <div style="display: flex; gap: 8px; margin-bottom: 16px;">
+        <button type="button" class="btn btn-outline-info btn-sm" id="btn-open-invoice"
+                onclick="openInvoicePage({{ contract.pk }})">
+            🧾 {% trans "申请开票" %}
+        </button>
+    </div>
+
     <!-- 第一行：收费条款 + 收付款进度（合并） -->
     <div class="info-grid two-columns" style="align-items: stretch;">
         <!-- 收费条款卡片 -->
@@ -188,3 +195,32 @@
     </div>
 
 </div>
+
+<script>
+function openInvoicePage(contractId) {
+    var btn = document.getElementById('btn-open-invoice');
+    if (btn) { btn.disabled = true; btn.textContent = '⏳ 打开中...'; }
+    var csrf = (window.FachuanCSRF && window.FachuanCSRF.getToken && window.FachuanCSRF.getToken()) || '';
+    fetch('/api/v1/oa-archive/open-invoice', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf },
+        body: JSON.stringify({ contract_id: contractId }),
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (data.success) {
+            var toast = document.createElement('div');
+            toast.textContent = '✓ 浏览器已打开，请查看';
+            toast.style.cssText = 'position:fixed;top:20px;right:24px;padding:12px 24px;border-radius:8px;font-size:14px;box-shadow:0 4px 12px rgba(0,0,0,0.15);z-index:9999;background:var(--fc-success-bg);color:var(--fc-success-text);';
+            document.body.appendChild(toast);
+            setTimeout(function() { toast.remove(); }, 3000);
+        } else {
+            alert('打开失败: ' + (data.detail || data.message || '未知错误'));
+        }
+    })
+    .catch(function(e) { alert('请求失败: ' + e.message); })
+    .finally(function() {
+        if (btn) { btn.disabled = false; btn.textContent = '🧾 申请开票'; }
+    });
+}
+</script>

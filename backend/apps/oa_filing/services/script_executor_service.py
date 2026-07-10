@@ -232,3 +232,34 @@ class ScriptExecutorService:
             logger.info("OA 页面已打开")
         except Exception as exc:
             logger.error("打开 OA 页面失败: %s", exc, exc_info=True)
+
+    # ------------------------------------------------------------------
+    # 申请开票
+    # ------------------------------------------------------------------
+
+    def open_invoice_page(self, contract_id: int, user: Any, site_name: str = "金诚同达OA") -> None:
+        """打开 OA 发票页面，输入案件编号并跳转到开票页面，保持浏览器打开。"""
+        from apps.contracts.models import Contract
+
+        credential = self._find_credential(user, site_name)
+        if credential is None:
+            raise RuntimeError(f"未找到匹配凭证: 站点名称={site_name}")
+
+        contract = Contract.objects.filter(pk=contract_id).first()
+        oa_case_number = contract.law_firm_oa_case_number if contract else ""
+
+        _executor.submit(self._run_open_invoice_in_thread, site_name, credential, oa_case_number)
+
+    def _run_open_invoice_in_thread(
+        self,
+        site_name: str,
+        credential: Any,
+        oa_case_number: str,
+    ) -> None:
+        os.environ["DJANGO_ALLOW_ASYNC_UNSAFE"] = "true"
+        try:
+            adapter = create_adapter(site_name, str(credential.account), str(credential.password))
+            asyncio.run(adapter.open_invoice_page(credential, oa_case_number))
+            logger.info("开票页面已打开")
+        except Exception as exc:
+            logger.error("打开开票页面失败: %s", exc, exc_info=True)
