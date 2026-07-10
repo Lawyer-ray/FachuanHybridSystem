@@ -10,11 +10,7 @@ from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.utils import timezone
 from ninja import Router, UploadedFile
 
-from apps.oa_filing.schemas.case_import_schemas import (
-    CaseImportSessionOut,
-    CasePreviewItem,
-    CasePreviewResponse,
-)
+from apps.oa_filing.schemas.case_import_schemas import CaseImportSessionOut, CasePreviewItem, CasePreviewResponse
 
 logger = logging.getLogger("apps.oa_filing.api.case_import")
 router = Router()
@@ -32,7 +28,7 @@ def trigger_case_import(request: HttpRequest) -> Any:  # pragma: no cover
     """
     import json
 
-    from apps.oa_filing.services.import_session_service import get_jtn_credential
+    from apps.oa_filing.services.import_session_service import get_credential
 
     if not request.user.is_authenticated:
         return {"error": "未登录"}
@@ -41,11 +37,11 @@ def trigger_case_import(request: HttpRequest) -> Any:  # pragma: no cover
     if lawyer_id is None:
         return {"error": "无效用户"}
 
-    # 查找用户的 jtn.com 凭证
-    credential = get_jtn_credential(lawyer_id)
+    # 查找用户的 OA 凭证
+    credential = get_credential(lawyer_id, "金诚同达OA")
 
     if not credential:
-        return {"error": "未找到金诚同达OA账号凭证"}
+        return {"error": "未找到OA账号凭证"}
 
     # 获取上传的文件
     file: UploadedFile | None = request.FILES.get("file")  # type: ignore[assignment]

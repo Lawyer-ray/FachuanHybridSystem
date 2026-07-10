@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from typing import Any
 
-from django.db.models import Q
-
 from apps.oa_filing.models import CaseImportSession, ClientImportSession
 
 
@@ -45,13 +43,13 @@ def create_client_session(
     )
 
 
-def get_jtn_credential(lawyer_id: int) -> Any:
-    """获取金诚同达 OA 凭证，不存在返回 None。"""
+def get_credential(lawyer_id: int, site_name: str) -> Any:
+    """按 site_name 获取 OA 凭证，不存在返回 None。"""
     from apps.organization.models import AccountCredential
 
     return AccountCredential.objects.filter(
-        Q(account__icontains="jtn.com") | Q(url__icontains="jtn.com"),
         lawyer_id=lawyer_id,
+        site_name=site_name,
     ).first()
 
 

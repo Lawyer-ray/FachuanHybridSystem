@@ -111,11 +111,10 @@ class ScriptExecutorService:
     # 盖章
     # ------------------------------------------------------------------
 
-    def execute_stamp(self, file_path: str, user: Any) -> Any:
+    def execute_stamp(self, file_path: str, user: Any, site_name: str = "金诚同达OA") -> Any:
         from apps.oa_filing.models import StampSession, StampSessionStatus
         from apps.oa_filing.services.stamp_lookup_service import StampLookupService
 
-        site_name = "金诚同达OA"
         lookup = StampLookupService.lookup_by_file_path(file_path)
         credential = self._find_credential(user, site_name)
 
@@ -154,11 +153,10 @@ class ScriptExecutorService:
     # 归档
     # ------------------------------------------------------------------
 
-    def execute_archive(self, file_paths: list[str], user: Any) -> Any:
+    def execute_archive(self, file_paths: list[str], user: Any, site_name: str = "金诚同达OA") -> Any:
         from apps.oa_filing.models import ArchiveSession, ArchiveSessionStatus
         from apps.oa_filing.services.stamp_lookup_service import StampLookupService
 
-        site_name = "金诚同达OA"
         lookup = StampLookupService.lookup_by_file_path(file_paths[0])
         credential = self._find_credential(user, site_name)
 
@@ -199,11 +197,12 @@ class ScriptExecutorService:
     # 打开 OA 页面
     # ------------------------------------------------------------------
 
-    def open_oa_page(self, contract_id: int, user: Any, description: str = "详见卷宗") -> None:
+    def open_oa_page(
+        self, contract_id: int, user: Any, description: str = "详见卷宗", site_name: str = "金诚同达OA"
+    ) -> None:
         """打开 OA 归档页面，填写案件编号和小结，保持浏览器打开。"""
         from apps.contracts.models import Contract
 
-        site_name = "金诚同达OA"
         credential = self._find_credential(user, site_name)
         if credential is None:
             raise RuntimeError(f"未找到匹配凭证: 站点名称={site_name}")

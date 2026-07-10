@@ -43,6 +43,7 @@ async def apply_stamp(request: HttpRequest, payload: StampApplyIn) -> Any:
     return await sync_to_async(service.execute_stamp, thread_sensitive=False)(
         payload.file_path,
         request.user,
+        payload.site_name,
     )
 
 

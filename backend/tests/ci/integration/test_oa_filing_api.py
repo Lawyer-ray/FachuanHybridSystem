@@ -10,7 +10,6 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 
 from apps.organization.models import AccountCredential
 
-
 # ===================================================================
 # OA Filing configs
 # ===================================================================
@@ -44,7 +43,7 @@ def test_get_filing_session_not_found(authenticated_client):
 
 
 @pytest.mark.django_db
-@patch("apps.oa_filing.services.import_session_service.get_jtn_credential")
+@patch("apps.oa_filing.services.import_session_service.get_credential")
 def test_trigger_case_import_no_credential(mock_cred, authenticated_client):
     mock_cred.return_value = None
 
@@ -98,7 +97,7 @@ def test_batch_create_cases_session_not_found(authenticated_client):
 
 
 @pytest.mark.django_db
-@patch("apps.oa_filing.services.import_session_service.get_jtn_credential")
+@patch("apps.oa_filing.services.import_session_service.get_credential")
 def test_trigger_client_import_no_credential(mock_cred, authenticated_client):
     mock_cred.return_value = None
 

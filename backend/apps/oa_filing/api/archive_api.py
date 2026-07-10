@@ -51,6 +51,7 @@ async def apply_archive(request: HttpRequest, payload: ArchiveApplyIn) -> Any:
     return await sync_to_async(service.execute_archive, thread_sensitive=False)(
         payload.file_paths,
         request.user,
+        payload.site_name,
     )
 
 
@@ -69,5 +70,6 @@ async def open_oa_page(request: HttpRequest, payload: OpenOAIn) -> dict[str, Any
         payload.contract_id,
         request.user,
         payload.description,
+        payload.site_name,
     )
     return {"success": True, "message": "浏览器已打开，请查看"}

@@ -9,6 +9,7 @@ from ninja import Schema
 
 class StampApplyIn(Schema):
     file_path: str
+    site_name: str = "金诚同达OA"
 
 
 class StampLookupOut(Schema):
