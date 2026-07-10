@@ -296,8 +296,8 @@ class JTNAdapter(FilingAdapter, StampAdapter, ArchiveAdapter, CaseImportAdapter,
             "?FirstModel=FINANCE&SecondModel=FINANCE002&ThirdModel=FINANCE002-04"
         )
         _CASE_NO_INPUT = "#ctl00_ctl00_mainContentPlaceHolder_projmainPlaceHolder_project_no"
-        _SEARCH_BTN = "#wrap > div:nth-child(1) > div:nth-child(2) > div > div:nth-child(4) > div:nth-child(2) > table > tbody > tr:nth-child(5) > td:nth-child(3) > div > a"
-        _FIRST_APPLY_LINK = "#wrap > div:nth-child(1) > div:nth-child(2) > div > div:nth-child(5) > table > tbody > tr:nth-child(2) > td:nth-child(9) > a"
+        _SEARCH_BTN_XP = '//*[@id="wrap"]/div[1]/div[2]/div/div[4]/div[2]/table/tbody/tr[5]/td[3]/div/a'
+        _FIRST_APPLY_LINK_XP = '//*[@id="wrap"]/div[1]/div[2]/div/div[5]/table/tbody/tr[2]/td[9]/a'
 
         playwright = await async_playwright().start()
         browser = await playwright.chromium.launch(headless=False)
@@ -338,24 +338,27 @@ class JTNAdapter(FilingAdapter, StampAdapter, ArchiveAdapter, CaseImportAdapter,
             if oa_case_number:
                 logger.info("输入案件编号: %s", oa_case_number)
                 case_input = page.locator(_CASE_NO_INPUT)
+                await case_input.wait_for(state="visible", timeout=10_000)
                 await case_input.fill(oa_case_number)
                 await asyncio.sleep(0.5)
 
                 # ── 点击查找 ──
                 logger.info("点击查找按钮")
-                await page.locator(_SEARCH_BTN).click()
-                await asyncio.sleep(2)
+                search_btn = page.locator(f"xpath={_SEARCH_BTN_XP}")
+                await search_btn.wait_for(state="visible", timeout=10_000)
+                await search_btn.click()
+                await asyncio.sleep(3)
 
                 # ── 点击第一个结果的"申请对外开票" ──
                 logger.info("点击申请对外开票")
-                apply_link = page.locator(_FIRST_APPLY_LINK)
-                count = await apply_link.count()
-                if count == 0:
-                    logger.warning("未找到申请对外开票按钮，请手动操作")
-                else:
+                apply_link = page.locator(f"xpath={_FIRST_APPLY_LINK_XP}")
+                try:
+                    await apply_link.wait_for(state="visible", timeout=10_000)
                     await apply_link.first.click()
                     await asyncio.sleep(2)
                     logger.info("已跳转到开票页面: %s", page.url)
+                except Exception:
+                    logger.warning("未找到申请对外开票按钮，请手动操作")
 
             logger.info("开票页面已打开，浏览器保持打开状态")
 
