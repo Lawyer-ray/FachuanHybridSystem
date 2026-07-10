@@ -11,6 +11,10 @@ from typing import Any
 
 from django.apps import apps as django_apps
 
+# 保持"打开并留给用户操作"的浏览器会话存活，防止 GC 回收。
+# 每个元素是 (playwright, browser) 元组。
+_active_browser_sessions: list[tuple[Any, Any]] = []
+
 from apps.oa_filing.services.base_firm_adapter import (
     ArchiveAdapter,
     CaseImportAdapter,
@@ -273,10 +277,10 @@ class JTNAdapter(FilingAdapter, StampAdapter, ArchiveAdapter, CaseImportAdapter,
             await self._click_delete_button(page)
 
             logger.info("OA 页面已打开并填写完成，浏览器保持打开状态")
-            # 不关闭浏览器，留给用户手动操作
+            # 保持 playwright/browser 引用，防止 GC 回收关闭浏览器
+            _active_browser_sessions.append((playwright, browser))
 
         except Exception:
-            # 出错时关闭浏览器
             await browser.close()
             await playwright.stop()
             raise
@@ -381,6 +385,8 @@ class JTNAdapter(FilingAdapter, StampAdapter, ArchiveAdapter, CaseImportAdapter,
                     await asyncio.sleep(2)
 
             logger.info("开票页面已打开，浏览器保持打开状态")
+            # 保持 playwright/browser 引用，防止 GC 回收关闭浏览器
+            _active_browser_sessions.append((playwright, browser))
 
         except Exception:
             await browser.close()
