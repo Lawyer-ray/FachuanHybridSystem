@@ -1217,7 +1217,7 @@ function archiveChecklistApp(initialCompact, checklistItems) {
     window.openOAPage = function(contractId) {
         var btn = document.getElementById('btn-open-oa');
         if (btn) { btn.disabled = true; btn.textContent = '⏳ 打开中...'; }
-        fetch('/api/v1/oa-filing/oa-archive/open-oa', {
+        fetch('/api/v1/oa-archive/open-oa', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCSRF() },
             body: JSON.stringify({ contract_id: contractId }),
