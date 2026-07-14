@@ -123,6 +123,7 @@ class JtnPlaywrightBrowserMixin:  # pragma: no cover
             except Exception:
                 await self.close()
 
+        logger.info("创建 Playwright 浏览器: headless=%s", self._headless)
         self._name_search_cm = create_browser_async("default", headless=self._headless)
         self._page, self._context = await self._name_search_cm.__aenter__()
 

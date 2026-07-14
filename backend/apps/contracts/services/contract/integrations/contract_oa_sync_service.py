@@ -291,7 +291,6 @@ class ContractOASyncService:
         script = JtnCaseImportScript(
             account=credential.account,
             password=credential.password,
-            headless=_is_headless(),
         )
         ensure_name_search_ready = getattr(script, "ensure_name_search_ready", None)
         if callable(ensure_name_search_ready):
@@ -440,8 +439,17 @@ class ContractOASyncService:
         effective_limit = max(1, int(limit))
         expanded_limit = max(effective_limit * 5, 30)
 
+        _SEARCH_TIMEOUT = 60  # 单次搜索超时秒数
+
         for keyword in keywords:
-            candidates = await script.search_cases_by_name(contract_name=keyword, limit=effective_limit)
+            try:
+                candidates = await asyncio.wait_for(
+                    script.search_cases_by_name(contract_name=keyword, limit=effective_limit),
+                    timeout=_SEARCH_TIMEOUT,
+                )
+            except TimeoutError:
+                logger.warning("contract_oa_sync_search_timeout contract_id=%s keyword=%s", contract_id, keyword)
+                continue
             filtered_candidates = self._filter_candidates_by_contract_name(
                 contract_name=contract_name,
                 candidates=candidates,
@@ -459,7 +467,16 @@ class ContractOASyncService:
                 return filtered_candidates[:effective_limit]
 
             if len(candidates) >= effective_limit:
-                expanded_candidates = await script.search_cases_by_name(contract_name=keyword, limit=expanded_limit)
+                try:
+                    expanded_candidates = await asyncio.wait_for(
+                        script.search_cases_by_name(contract_name=keyword, limit=expanded_limit),
+                        timeout=_SEARCH_TIMEOUT,
+                    )
+                except TimeoutError:
+                    logger.warning(
+                        "contract_oa_sync_expanded_search_timeout contract_id=%s keyword=%s", contract_id, keyword
+                    )
+                    continue
                 expanded_filtered_candidates = self._filter_candidates_by_contract_name(
                     contract_name=contract_name,
                     candidates=expanded_candidates,
@@ -705,8 +722,10 @@ class ContractOASyncService:
             Contract.objects.filter(
                 Q(law_firm_oa_url__isnull=True)
                 | Q(law_firm_oa_url="")
+                | Q(law_firm_oa_url="None")
                 | Q(law_firm_oa_case_number__isnull=True)
                 | Q(law_firm_oa_case_number="")
+                | Q(law_firm_oa_case_number="None")
             )
             .only("id", "name", "law_firm_oa_url", "law_firm_oa_case_number")
             .order_by("id")
@@ -726,10 +745,12 @@ class ContractOASyncService:
     def _fill_contract_oa_fields(
         self, *, contract: Contract, candidate: OAListCaseCandidate
     ) -> None:  # pragma: no cover
+        case_no = str(candidate.case_no).strip() if candidate.case_no else ""
+        detail_url = str(candidate.detail_url).strip() if candidate.detail_url else ""
         with transaction.atomic():
             Contract.objects.filter(id=contract.id).update(
-                law_firm_oa_case_number=str(candidate.case_no),
-                law_firm_oa_url=str(candidate.detail_url),
+                law_firm_oa_case_number=case_no or None,
+                law_firm_oa_url=detail_url or None,
             )
 
     def _resolve_oa_credential(self, *, lawyer_id: int | None) -> AccountCredential:
