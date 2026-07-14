@@ -39,7 +39,7 @@ dependencies = [
     "xlrd>=2.0.1",
     # --- 图像处理 ---
     "opencv-python-headless==4.13.0.92",
-    "Pillow==12.2.0",
+    "Pillow==12.3.0",
     # --- OCR ---
     "rapidocr==3.8.1",
     "onnxruntime>=1.25.0",
