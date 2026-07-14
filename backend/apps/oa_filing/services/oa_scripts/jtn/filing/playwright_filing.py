@@ -9,7 +9,7 @@ from typing import Any
 
 from playwright.async_api import FrameLocator, Page
 
-from apps.core.services.browser import create_browser_async
+from apps.core.services.browser import BrowserProfile, create_browser_async
 
 from .constants import (
     _AJAX_WAIT,
@@ -24,6 +24,14 @@ from .constants import (
 from .filing_models import CaseInfo, ClientInfo, ConflictPartyInfo, ContractInfo
 
 logger = logging.getLogger("apps.oa_filing.jtn")
+
+_HEADED_PROFILE = BrowserProfile(
+    name="jtn_filing",
+    headless=False,
+    anti_detection=True,
+    timeout=60_000,
+    navigation_timeout=60_000,
+)
 
 
 class PlaywrightFilingMixin:  # pragma: no cover
@@ -47,7 +55,7 @@ class PlaywrightFilingMixin:  # pragma: no cover
         contract_info: ContractInfo | None,
     ) -> None:
         """Playwright 全量兜底流程。"""
-        async with create_browser_async("default", headless=True) as (page, context):
+        async with create_browser_async(_HEADED_PROFILE) as (page, context):
             self._page = page
             self._context = context
 
@@ -95,7 +103,7 @@ class PlaywrightFilingMixin:  # pragma: no cover
         if cached is not None:
             await self._auth.inject_to_context(self._context, cached)
             # 验证 cookies 是否有效
-            await self._page.goto(_FILING_URL, wait_until="domcontentloaded", timeout=30_000)
+            await self._page.goto(_FILING_URL, wait_until="domcontentloaded", timeout=60_000)
             await asyncio.sleep(_MEDIUM_WAIT)
             if "login" not in self._page.url.lower():
                 logger.info("Playwright 登录成功（使用缓存 cookies）")

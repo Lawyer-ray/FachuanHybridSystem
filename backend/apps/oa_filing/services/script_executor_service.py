@@ -21,6 +21,18 @@ logger = logging.getLogger("apps.oa_filing")
 _executor = ThreadPoolExecutor(max_workers=2)
 
 
+def _friendly_error_message(exc: Exception) -> str:
+    """将技术异常转换为用户友好的错误提示。"""
+    raw = str(exc).lower()
+    if "timeout" in raw or "connecttimeout" in raw or "timed out" in raw:
+        return "连接 OA 系统超时，请检查 VPN 是否已连接后重试"
+    if "name or service not known" in raw or "getaddrinfo failed" in raw or "nodename nor servname" in raw:
+        return "无法解析 OA 域名，请检查 VPN 是否已连接后重试"
+    if "connection refused" in raw or "connectionreset" in raw:
+        return "OA 服务器拒绝连接，请检查 VPN 是否已连接或 OA 系统是否正在维护"
+    return str(exc)
+
+
 class ScriptExecutorService:
     """OA 通用调度器。按 site_name 分发到对应律所适配器。"""
 
@@ -100,7 +112,9 @@ class ScriptExecutorService:
             FilingSession.objects.filter(pk=session_id).update(status=SessionStatus.COMPLETED)
             logger.info("立案完成: session=%d", session_id)
         except Exception as exc:
-            FilingSession.objects.filter(pk=session_id).update(status=SessionStatus.FAILED, error_message=str(exc))
+            FilingSession.objects.filter(pk=session_id).update(
+                status=SessionStatus.FAILED, error_message=_friendly_error_message(exc)
+            )
             logger.error("立案失败: session=%d, error=%s", session_id, exc)
 
     async def _dispatch_filing(self, site_name: str, credential: Any, contract_id: int, case_id: int | None) -> None:
@@ -139,7 +153,9 @@ class ScriptExecutorService:
             StampSession.objects.filter(pk=session_id).update(status=StampSessionStatus.COMPLETED)
             logger.info("盖章完成: session=%d", session_id)
         except Exception as exc:
-            StampSession.objects.filter(pk=session_id).update(status=StampSessionStatus.FAILED, error_message=str(exc))
+            StampSession.objects.filter(pk=session_id).update(
+                status=StampSessionStatus.FAILED, error_message=_friendly_error_message(exc)
+            )
             logger.error("盖章失败: session=%d, error=%s", session_id, exc)
 
     async def _dispatch_stamp(self, session_id: int, site_name: str) -> None:
@@ -182,7 +198,7 @@ class ScriptExecutorService:
             logger.info("归档完成: session=%d", session_id)
         except Exception as exc:
             ArchiveSession.objects.filter(pk=session_id).update(
-                status=ArchiveSessionStatus.FAILED, error_message=str(exc)
+                status=ArchiveSessionStatus.FAILED, error_message=_friendly_error_message(exc)
             )
             logger.error("归档失败: session=%d, error=%s", session_id, exc)
 
