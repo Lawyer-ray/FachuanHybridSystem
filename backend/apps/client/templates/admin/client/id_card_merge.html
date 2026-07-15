@@ -195,15 +195,26 @@
             <div class="success-box">
                 <div class="success-icon">✅</div>
                 <div class="success-text">{% trans "身份证合并成功！" %}</div>
-                <template x-if="savedToClient">
-                    <p style="color:var(--fc-success-text);margin-bottom:16px">✅ {% trans "已自动保存到客户证件附件" %}</p>
-                </template>
                 <div class="success-actions">
                     <a :href="pdfUrl" target="_blank" class="download-link">📥 {% trans "下载 PDF" %}</a>
-                    <template x-if="clientId">
-                        <a :href="'/admin/client/client/' + clientId + '/change/'" class="back-client-link">← {% trans "返回客户页面" %}</a>
-                    </template>
                 </div>
+
+                <!-- 绑定到当事人证件 -->
+                <template x-if="clientId && !bound">
+                    <div style="margin-top:20px;padding-top:20px;border-top:1px solid var(--fc-success-border)">
+                        <p style="color:var(--fc-text-secondary);margin-bottom:16px">{% trans "是否将合并后的 PDF 绑定到该当事人的「身份证」证件？" %}</p>
+                        <button class="btn-primary" @click="bindToClient()" :disabled="binding">
+                            <span x-show="!binding">🔗 {% trans "确认绑定到当事人证件" %}</span>
+                            <span x-show="binding">{% trans "绑定中..." %}</span>
+                        </button>
+                    </div>
+                </template>
+                <template x-if="clientId && bound">
+                    <div style="margin-top:20px;padding-top:20px;border-top:1px solid var(--fc-success-border)">
+                        <p style="color:var(--fc-success-text);margin-bottom:16px">✅ {% trans "已绑定到当事人证件" %}</p>
+                        <a :href="'/admin/client/client/' + clientId + '/change/'" class="back-client-link" style="display:inline-flex">← {% trans "返回当事人页面查看" %}</a>
+                    </div>
+                </template>
             </div>
             <div class="form-actions">
                 <button class="btn-secondary" @click="resetAll()">{% trans "继续合并" %}</button>
@@ -222,7 +233,9 @@ function idCardMergeApp() {
         frontCorners: [], backCorners: [],  // 原图坐标
         cursorPos: { front: null, back: null },
         clientId: new URLSearchParams(location.search).get('client_id') || '',
-        savedToClient: false,
+        pdfPath: '',
+        bound: false,
+        binding: false,
 
         handleSelect(e, side) {
             const file = e.target.files[0];
@@ -467,7 +480,6 @@ function idCardMergeApp() {
                 const formData = new FormData();
                 formData.append('front_image', this.dataURLtoBlob(frontData), 'front.jpg');
                 formData.append('back_image', this.dataURLtoBlob(backData), 'back.jpg');
-                if (this.clientId) formData.append('client_id', this.clientId);
 
                 const response = await fetch('/api/v1/client/identity-docs/merge-id-card-direct', {
                     method: 'POST', body: formData,
@@ -477,13 +489,33 @@ function idCardMergeApp() {
 
                 if (result.success || result.pdf_url) {
                     this.pdfUrl = result.pdf_url;
-                    this.savedToClient = !!result.doc_id;
+                    this.pdfPath = result.pdf_path || '';
+                    this.bound = false;
                     this.step = 3;
                 } else {
                     alert('合并失败: ' + (result.message || '未知错误'));
                 }
             } catch (err) { alert('请求失败: ' + err.message); }
             finally { this.loading = false; }
+        },
+
+        async bindToClient() {
+            if (!this.clientId || !this.pdfPath) return;
+            this.binding = true;
+            try {
+                const resp = await fetch('/api/v1/client/identity-docs/bind-merged', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]')?.value || ''
+                    },
+                    body: JSON.stringify({ client_id: Number(this.clientId), pdf_path: this.pdfPath })
+                });
+                const result = await resp.json();
+                this.bound = result.success;
+                if (!result.success) alert(result.message || '绑定失败');
+            } catch (err) { alert('绑定请求失败: ' + err.message); }
+            finally { this.binding = false; }
         },
 
         getCroppedImageData(side) {
@@ -532,6 +564,7 @@ function idCardMergeApp() {
             this.frontImg = null; this.backImg = null;
             this.frontCorners = []; this.backCorners = [];
             this.frontRotation = 0; this.backRotation = 0; this.pdfUrl = '';
+            this.pdfPath = ''; this.bound = false; this.binding = false;
         }
     }
 }

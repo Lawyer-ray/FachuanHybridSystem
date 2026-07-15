@@ -100,20 +100,10 @@ def merge_id_card(  # pragma: no cover
     request: Any,
     front_image: UploadedFile = File(...),
     back_image: UploadedFile = File(...),
-    client_id: int | None = None,
 ) -> dict[str, Any]:
-    """自动检测并合并身份证正反面为 PDF，可选保存到客户证件"""
+    """自动检测并合并身份证正反面为 PDF"""
     service = _get_id_card_merge_service()
-    result: dict[str, Any] = service.merge_id_card_with_detection(front_image, back_image)
-    if result.get("success") and client_id:
-        doc_service = _get_identity_doc_service()
-        doc = doc_service.add_identity_doc(
-            client_id=client_id,
-            doc_type="id_card",
-            file_path=result["pdf_path"],
-        )
-        result["doc_id"] = doc.id
-    return result
+    return service.merge_id_card_with_detection(front_image, back_image)
 
 
 @router.post("/identity-docs/merge-id-card-direct")
@@ -121,20 +111,10 @@ def merge_id_card_direct(  # pragma: no cover
     request: Any,
     front_image: UploadedFile = File(...),
     back_image: UploadedFile = File(...),
-    client_id: int | None = None,
 ) -> dict[str, Any]:
-    """直接合并已裁剪的身份证正反面为 PDF（前端已完成裁剪），可选保存到客户证件"""
+    """直接合并已裁剪的身份证正反面为 PDF（前端已完成裁剪）"""
     service = _get_id_card_merge_service()
-    result: dict[str, Any] = service.merge_id_card(front_image, back_image)
-    if result.get("success") and client_id:
-        doc_service = _get_identity_doc_service()
-        doc = doc_service.add_identity_doc(
-            client_id=client_id,
-            doc_type="id_card",
-            file_path=result["pdf_path"],
-        )
-        result["doc_id"] = doc.id
-    return result
+    return service.merge_id_card(front_image, back_image)
 
 
 @router.post("/identity-docs/merge-id-card-manual")
@@ -151,6 +131,34 @@ def merge_id_card_manual(  # pragma: no cover
         back_corners=data.back_corners,
     )
     return result
+
+
+class BindMergedDocIn(Schema):
+    """绑定合并证件请求体"""
+
+    client_id: int
+    pdf_path: str
+    doc_type: str = "id_card"
+
+
+@router.post("/identity-docs/bind-merged")
+def bind_merged_doc(  # pragma: no cover
+    request: Any,
+    data: BindMergedDocIn,
+) -> dict[str, Any]:
+    """将已合并的 PDF 绑定到当事人的证件记录"""
+    try:
+        doc_service = _get_identity_doc_service()
+        doc = doc_service.add_identity_doc(
+            client_id=data.client_id,
+            doc_type=data.doc_type,
+            file_path=data.pdf_path,
+        )
+        logger.info("合并证件绑定成功", extra={"client_id": data.client_id, "doc_id": doc.id})
+        return {"success": True, "doc_id": doc.id, "message": "证件绑定成功"}
+    except Exception:
+        logger.exception("合并证件绑定失败", extra={"client_id": data.client_id})
+        return {"success": False, "message": "证件绑定失败，请手动添加"}
 
 
 @router.get("/identity-docs/{doc_id}", response=IdentityDocDetailOut)
