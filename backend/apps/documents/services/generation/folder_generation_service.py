@@ -388,7 +388,7 @@ class FolderGenerationService:
                     contract_principals = [p.client for p in contract_model.contract_parties.filter(role="PRINCIPAL")]
                     agreement_opposing = [p.client for p in agreement.parties.filter(role="OPPOSING")]
                     context = PipelineContextBuilder().build_supplementary_agreement_context(
-                        contract_model,
+                        contract=contract_model,
                         supplementary_agreement=agreement,
                         agreement_principals=agreement_principals,
                         contract_principals=contract_principals,

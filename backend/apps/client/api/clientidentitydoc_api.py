@@ -103,7 +103,8 @@ def merge_id_card(  # pragma: no cover
 ) -> dict[str, Any]:
     """自动检测并合并身份证正反面为 PDF"""
     service = _get_id_card_merge_service()
-    return service.merge_id_card_with_detection(front_image, back_image)
+    result: dict[str, Any] = service.merge_id_card_with_detection(front_image, back_image)
+    return result
 
 
 @router.post("/identity-docs/merge-id-card-direct")
@@ -114,7 +115,8 @@ def merge_id_card_direct(  # pragma: no cover
 ) -> dict[str, Any]:
     """直接合并已裁剪的身份证正反面为 PDF（前端已完成裁剪）"""
     service = _get_id_card_merge_service()
-    return service.merge_id_card(front_image, back_image)
+    result: dict[str, Any] = service.merge_id_card(front_image, back_image)
+    return result
 
 
 @router.post("/identity-docs/merge-id-card-manual")
