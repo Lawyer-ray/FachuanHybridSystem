@@ -79,6 +79,101 @@ window.CONTRACTS_I18N = Object.assign(window.CONTRACTS_I18N || {}, {
 {% endif %}
 
 <script>
+// 合同名称日期解析按钮
+(function() {
+    var nameField = document.getElementById('id_name');
+    var startDateField = document.getElementById('id_start_date');
+    var endDateField = document.getElementById('id_end_date');
+    if (!nameField || !startDateField || !endDateField) return;
+
+    // 在 name 字段后面插入解析按钮
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.textContent = '📅 解析日期';
+    btn.title = '从合同名称中解析开始/结束日期';
+    btn.style.cssText = 'margin-left:8px;padding:4px 12px;font-size:13px;cursor:pointer;border:1px solid var(--fc-border-input);border-radius:4px;background:var(--fc-bg-muted-light);color:var(--fc-text-secondary);vertical-align:middle;';
+    btn.addEventListener('click', function() {
+        var name = nameField.value.trim();
+        if (!name) { alert('请先输入合同名称'); return; }
+        var dates = parseContractDates(name);
+        if (!dates) { alert('未能从合同名称中解析出日期'); return; }
+        startDateField.value = dates.start;
+        endDateField.value = dates.end;
+        // 触发 change 事件，确保 Django admin 感知到值变化
+        startDateField.dispatchEvent(new Event('change', {bubbles: true}));
+        endDateField.dispatchEvent(new Event('change', {bubbles: true}));
+    });
+    // 插入到 name 字段的父容器
+    nameField.parentNode.appendChild(btn);
+
+    function pad(n) { return n < 10 ? '0' + n : '' + n; }
+
+    function parseContractDates(name) {
+        var match, startYear, startMonth, startDay, endYear, endMonth, endDay;
+
+        // 格式1: 2024年4月20日至2025年4月19日 / 2024年4月20日到2025年4月19日
+        match = name.match(/(\d{4})\s*年\s*(\d{1,2})\s*月\s*(\d{1,2})\s*日\s*[至到-]\s*(\d{4})\s*年\s*(\d{1,2})\s*月\s*(\d{1,2})\s*日/);
+        if (match) {
+            return {
+                start: match[1] + '-' + pad(+match[2]) + '-' + pad(+match[3]),
+                end: match[4] + '-' + pad(+match[5]) + '-' + pad(+match[6])
+            };
+        }
+
+        // 格式2: 2025.11.20-2026.11.19 / 2025.11.20~2026.11.19 / 2025.11.20至2026.11.19
+        match = name.match(/(\d{4})\.(\d{1,2})\.(\d{1,2})\s*[-~至到]\s*(\d{4})\.(\d{1,2})\.(\d{1,2})/);
+        if (match) {
+            return {
+                start: match[1] + '-' + pad(+match[2]) + '-' + pad(+match[3]),
+                end: match[4] + '-' + pad(+match[5]) + '-' + pad(+match[6])
+            };
+        }
+
+        // 格式3: 2024-2025年度 / 2024—2025年度
+        match = name.match(/(\d{4})\s*[-—~]\s*(\d{4})\s*年度/);
+        if (match) {
+            return {
+                start: match[1] + '-01-01',
+                end: match[2] + '-12-31'
+            };
+        }
+
+        // 格式4: 2024年4月20日-2025年4月19日（月日相同或不同，无"至"字用短横线）
+        match = name.match(/(\d{4})\s*年\s*(\d{1,2})\s*月\s*(\d{1,2})\s*日\s*[-—~]\s*(\d{4})\s*年\s*(\d{1,2})\s*月\s*(\d{1,2})\s*日/);
+        if (match) {
+            return {
+                start: match[1] + '-' + pad(+match[2]) + '-' + pad(+match[3]),
+                end: match[4] + '-' + pad(+match[5]) + '-' + pad(+match[6])
+            };
+        }
+
+        // 格式5: 2024年1月-2024年12月（只有年月）
+        match = name.match(/(\d{4})\s*年\s*(\d{1,2})\s*月\s*[-—~至到]\s*(\d{4})\s*年\s*(\d{1,2})\s*月/);
+        if (match) {
+            var sy = +match[1], sm = +match[2], ey = +match[3], em = +match[4];
+            // 结束日期取当月最后一天
+            var lastDay = new Date(ey, em, 0).getDate();
+            return {
+                start: sy + '-' + pad(sm) + '-01',
+                end: ey + '-' + pad(em) + '-' + pad(lastDay)
+            };
+        }
+
+        // 格式6: 2026年01月01日至2026年12月31日（补充：纯年月日无分隔符）
+        match = name.match(/(\d{4})(\d{2})(\d{2})\s*[-—~至到]\s*(\d{4})(\d{2})(\d{2})/);
+        if (match) {
+            return {
+                start: match[1] + '-' + match[2] + '-' + match[3],
+                end: match[4] + '-' + match[5] + '-' + match[6]
+            };
+        }
+
+        return null;
+    }
+})();
+</script>
+
+<script>
 (function() {
     var submitRow = document.querySelector('.submit-row');
     if (!submitRow) return;
