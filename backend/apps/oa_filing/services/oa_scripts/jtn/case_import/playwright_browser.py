@@ -123,6 +123,7 @@ class JtnPlaywrightBrowserMixin:  # pragma: no cover
             except Exception:
                 await self.close()
 
+        logger.info("创建 Playwright 浏览器: headless=%s", self._headless)
         self._name_search_cm = create_browser_async("default", headless=self._headless)
         self._page, self._context = await self._name_search_cm.__aenter__()
 
@@ -185,35 +186,30 @@ class JtnPlaywrightBrowserMixin:  # pragma: no cover
         )
 
     async def _login(self: Any) -> None:  # pragma: no cover
-        """通过 httpx 接口登录，将 cookie 注入 Playwright context。"""
+        """通过 JtnAuthService 完成登录，将 cookie 注入 Playwright context。"""
         cached_cookies = self._http_cookies_cache or {}
         if cached_cookies:
-            logger.info("接口登录复用 HTTP cookie=%s", len(cached_cookies))
+            logger.info("登录复用已有 cookie=%s", len(cached_cookies))
             await self._inject_cookies_to_context(cached_cookies)
             return
 
-        logger.info("接口登录: %s", _LOGIN_URL)
+        logger.info("调用统一登录流程（SSO 扫码）")
+        cookies = await self._auth.ensure_cookies()
+        await self._auth.inject_to_context(self._context, cookies)
+        self._http_cookies_cache = {c["name"]: c["value"] for c in cookies}
+        logger.info("登录成功，已注入 %d 个 cookie", len(cookies))
 
-        async with httpx.AsyncClient(
-            headers=_HTTP_HEADERS, follow_redirects=True, timeout=15, trust_env=False
-        ) as client:
-            r = await client.get(_LOGIN_URL)
-            csrf_match = re.search(r'name=["\']CSRFToken["\'] value=["\']([^"\']+)["\']', r.text)
-            csrf = csrf_match.group(1) if csrf_match else ""
+    # ------------------------------------------------------------------
+    # SSO 统一登录
+    # ------------------------------------------------------------------
 
-            r2 = await client.post(
-                _LOGIN_URL,
-                data={"CSRFToken": csrf, "userid": self._account, "password": self._password},
-            )
-
-            if self._is_login_failed_response(r2):
-                raise RuntimeError(f"OA 登录失败，账号或密码错误: {self._account}")
-
-            cookies = dict(client.cookies.items())
-            self._http_cookies_cache = cookies
-            await self._inject_cookies_to_context(cookies)
-
-        logger.info("接口登录成功，cookie 已注入")
+    async def _do_sso_login_and_inject(self: Any) -> None:  # pragma: no cover
+        """调用 JtnAuthService.sso_login() 完成扫码登录，将新 cookies 注入当前 context。"""
+        new_cookies = await self._auth.sso_login()
+        await self._auth.inject_to_context(self._context, new_cookies)
+        # 同步到 http_cookies_cache（转为 dict[str, str] 供 HTTP 链路使用）
+        self._http_cookies_cache = {c["name"]: c["value"] for c in new_cookies}
+        logger.info("SSO 登录完成，已注入 %d 个 cookie 到 Playwright context", len(new_cookies))
 
     # ------------------------------------------------------------------
     # 导航到案件列表页
@@ -238,14 +234,14 @@ class JtnPlaywrightBrowserMixin:  # pragma: no cover
         except Exception as exc:
             if not self._is_sso_blocking_error(exc):
                 raise
-            logger.warning("Playwright 触发 SSO，等待当前浏览器完成交互登录")
-            await self._wait_for_playwright_sso_login()
+            logger.warning("Playwright 触发 SSO，调用统一 SSO 登录流程")
+            await self._do_sso_login_and_inject()
             await _goto_case_list_once()
             self._raise_if_sso_blocking(url=page.url, html_text=await page.content(), stage="Playwright 列表页访问")
 
         if self._is_ims_login_form_page(str(page.url or "")) or await self._has_visible_ims_login_form(page):
-            logger.warning("检测到 IMS 登录页，等待自动/人工登录完成")
-            await self._wait_for_playwright_sso_login()
+            logger.warning("检测到 IMS 登录页，调用统一 SSO 登录流程")
+            await self._do_sso_login_and_inject()
             await _goto_case_list_once()
 
         # 关闭可能存在的模态对话框
@@ -263,8 +259,8 @@ class JtnPlaywrightBrowserMixin:  # pragma: no cover
         target_frame = await self._find_visible_frame_for_selector(selector=selector, timeout_ms=15_000)
         if target_frame is None:
             if self._is_ims_login_form_page(str(page.url or "")) or await self._has_visible_ims_login_form(page):
-                logger.warning("搜索输入框未找到，当前仍在 IMS 登录页，等待登录后重试")
-                await self._wait_for_playwright_sso_login()
+                logger.warning("搜索输入框未找到，当前仍在 IMS 登录页，调用统一 SSO 登录流程")
+                await self._do_sso_login_and_inject()
                 await _goto_case_list_once()
                 target_frame = await self._find_visible_frame_for_selector(selector=selector, timeout_ms=15_000)
 

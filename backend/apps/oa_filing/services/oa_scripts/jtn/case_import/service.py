@@ -31,7 +31,7 @@ class JtnCaseImportScript(
         account: str,
         password: str,
         *,
-        headless: bool = True,
+        headless: bool = False,
         progress_callback: Callable[[dict[str, Any]], None] | None = None,
     ) -> None:
         self._account = account

@@ -16,7 +16,7 @@ class TestJtnCaseImportScriptInit:
         svc = JtnCaseImportScript(account="test", password="pass")
         assert svc._account == "test"
         assert svc._password == "pass"
-        assert svc._headless is True
+        assert svc._headless is False
         assert svc._progress_callback is None
         assert svc._page is None
         assert svc._context is None
