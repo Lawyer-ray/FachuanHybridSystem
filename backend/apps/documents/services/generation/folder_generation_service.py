@@ -33,6 +33,7 @@ class DocumentPlacement:
     document_template: DocumentTemplate
     folder_path: str  # 相对于根目录的路径
     file_name: str  # 生成的文件名
+    supplementary_agreement: Any | None = None  # 补充协议实例(仅补充协议模板时有值)
 
 
 class FolderGenerationService:
@@ -161,7 +162,8 @@ class FolderGenerationService:
         """
         获取文书放置配置
 
-        查询所有绑定到该文件夹模板的文件模板，并根据合同类型进行匹配
+        查询所有绑定到该文件夹模板的文件模板，并根据合同类型进行匹配.
+        补充协议模板仅在合同存在补充协议数据时才生成,每份补充协议各生成一个 placement.
 
         Args:
             contract: 合同数据(Contract 实例或 ContractDataWrapper)
@@ -170,10 +172,13 @@ class FolderGenerationService:
         Returns:
             文书放置配置列表
         """
+        from apps.contracts.models import SupplementaryAgreement
         from apps.documents.models import DocumentTemplateFolderBinding
+        from apps.documents.models.choices import DocumentContractSubType
 
         placements: list[Any] = []
         case_type = getattr(contract, "case_type", None)
+        contract_id = getattr(contract, "id", None)
 
         # 查询所有绑定到该文件夹模板的文件模板
         bindings = DocumentTemplateFolderBinding.objects.filter(
@@ -194,6 +199,44 @@ class FolderGenerationService:
 
             # 使用绑定配置的路径
             folder_path = binding.folder_node_path or ""
+
+            # 补充协议模板：仅在合同有补充协议数据时才生成，每份各一个 placement
+            if template.contract_sub_type == DocumentContractSubType.SUPPLEMENTARY_AGREEMENT:
+                if not contract_id:
+                    continue
+                agreements = list(
+                    SupplementaryAgreement.objects.filter(contract_id=contract_id)
+                    .prefetch_related("parties__client")
+                    .order_by("-created_at")
+                )
+                if not agreements:
+                    logger.info(
+                        "跳过补充协议模板(合同无补充协议数据): 模板=%s, 合同ID=%s",
+                        template.name,
+                        contract_id,
+                    )
+                    continue
+
+                from .supplementary_agreement_generation_service import SupplementaryAgreementGenerationService
+
+                sa_service = SupplementaryAgreementGenerationService(contract_service=self.contract_service)
+                for agreement in agreements:
+                    file_name = sa_service.generate_filename(contract, agreement, contract_id)
+                    placements.append(
+                        DocumentPlacement(
+                            document_template=template,
+                            folder_path=folder_path,
+                            file_name=file_name,
+                            supplementary_agreement=agreement,
+                        )
+                    )
+                    logger.info(
+                        "找到补充协议绑定: 模板=%s, 补充协议=%s, 路径=%s",
+                        template.name,
+                        agreement.name,
+                        folder_path,
+                    )
+                continue
 
             logger.info(
                 "找到绑定配置: 模板=%s, 节点ID=%s, 路径=%s",
@@ -338,8 +381,21 @@ class FolderGenerationService:
                     )
                     continue
 
-                # 构建上下文
-                context = PipelineContextBuilder().build_contract_context(contract_model)
+                # 根据模板类型构建上下文
+                if placement.supplementary_agreement is not None:
+                    agreement = placement.supplementary_agreement
+                    agreement_principals = [p.client for p in agreement.parties.filter(role="PRINCIPAL")]
+                    contract_principals = [p.client for p in contract_model.contract_parties.filter(role="PRINCIPAL")]
+                    agreement_opposing = [p.client for p in agreement.parties.filter(role="OPPOSING")]
+                    context = PipelineContextBuilder().build_supplementary_agreement_context(
+                        contract_model,
+                        supplementary_agreement=agreement,
+                        agreement_principals=agreement_principals,
+                        contract_principals=contract_principals,
+                        agreement_opposing=agreement_opposing,
+                    )
+                else:
+                    context = PipelineContextBuilder().build_contract_context(contract_model)
 
                 # 渲染模板
                 content = DocxRenderer().render(file_location, context)
