@@ -6,11 +6,12 @@ import re
 import time
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock, PropertyMock, patch
 
 import pytest
+
 try:
-    from plugins.court_automation import filing  # noqa: F401
+    from plugins.court_automation import filing
 except ImportError:
     pytest.skip("court_automation plugin not installed", allow_module_level=True)
 
@@ -646,6 +647,7 @@ class TestBuildSessionStatusPayload:
 class TestUpdateSessionTask:
     def test_noop_when_session_id_none(self):
         from plugins.court_automation.filing.helpers import _update_session_task
+
         # Should not raise
         _update_session_task(session_id=None, status="running")
 
@@ -662,7 +664,7 @@ class TestUpdateSessionTask:
 
     @patch("plugins.court_automation.filing.helpers.timezone")
     def test_update_in_async_context(self, mock_tz):
-        from plugins.court_automation.filing.helpers import _update_session_task, _SESSION_UPDATE_EXECUTOR
+        from plugins.court_automation.filing.helpers import _SESSION_UPDATE_EXECUTOR, _update_session_task
         mock_tz.now.return_value = "2026-01-01"
         mock_loop = MagicMock()
         with patch("asyncio.get_running_loop", return_value=mock_loop):

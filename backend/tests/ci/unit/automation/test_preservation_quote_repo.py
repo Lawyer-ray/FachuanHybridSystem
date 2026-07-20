@@ -8,11 +8,12 @@ from __future__ import annotations
 
 from decimal import Decimal
 from types import SimpleNamespace
-from unittest.mock import MagicMock, patch, AsyncMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+
 try:
-    from plugins.court_automation import filing  # noqa: F401
+    from plugins.court_automation import filing
 except ImportError:
     pytest.skip("court_automation plugin not installed", allow_module_level=True)
 
@@ -25,9 +26,7 @@ except ImportError:
 
 class TestValidateCreateParams:
     def _repo(self):
-        from plugins.court_automation.preservation_quote.preservation_quote.repo import (
-            PreservationQuoteRepository,
-        )
+        from plugins.court_automation.preservation_quote.preservation_quote.repo import PreservationQuoteRepository
         return PreservationQuoteRepository()
 
     def test_all_valid(self):
@@ -105,10 +104,8 @@ class TestValidateCreateParams:
 class TestGetQuoteWithItems:
     @pytest.mark.django_db
     def test_not_found_raises(self):
-        from plugins.court_automation.preservation_quote.preservation_quote.repo import (
-            PreservationQuoteRepository,
-        )
         from apps.core.exceptions import NotFoundError
+        from plugins.court_automation.preservation_quote.preservation_quote.repo import PreservationQuoteRepository
 
         with patch(
             "plugins.court_automation.preservation_quote.preservation_quote.repo.PreservationQuote"
@@ -127,9 +124,7 @@ class TestGetQuoteWithItems:
 class TestFinalizeQuote:
     @pytest.mark.asyncio
     async def test_all_success(self):
-        from plugins.court_automation.preservation_quote.preservation_quote.repo import (
-            PreservationQuoteRepository,
-        )
+        from plugins.court_automation.preservation_quote.preservation_quote.repo import PreservationQuoteRepository
 
         quote = MagicMock()
         quote.save = AsyncMock()
@@ -147,9 +142,7 @@ class TestFinalizeQuote:
 
     @pytest.mark.asyncio
     async def test_all_failed(self):
-        from plugins.court_automation.preservation_quote.preservation_quote.repo import (
-            PreservationQuoteRepository,
-        )
+        from plugins.court_automation.preservation_quote.preservation_quote.repo import PreservationQuoteRepository
 
         quote = MagicMock()
         quote.save = AsyncMock()
@@ -167,9 +160,7 @@ class TestFinalizeQuote:
 
     @pytest.mark.asyncio
     async def test_all_failed_no_error_message(self):
-        from plugins.court_automation.preservation_quote.preservation_quote.repo import (
-            PreservationQuoteRepository,
-        )
+        from plugins.court_automation.preservation_quote.preservation_quote.repo import PreservationQuoteRepository
 
         quote = MagicMock()
         quote.save = AsyncMock()
@@ -187,9 +178,7 @@ class TestFinalizeQuote:
 
     @pytest.mark.asyncio
     async def test_partial_success(self):
-        from plugins.court_automation.preservation_quote.preservation_quote.repo import (
-            PreservationQuoteRepository,
-        )
+        from plugins.court_automation.preservation_quote.preservation_quote.repo import PreservationQuoteRepository
 
         quote = MagicMock()
         quote.save = AsyncMock()
@@ -216,9 +205,7 @@ class TestFinalizeQuote:
 class TestMarkFailed:
     @pytest.mark.asyncio
     async def test_sets_status(self):
-        from plugins.court_automation.preservation_quote.preservation_quote.repo import (
-            PreservationQuoteRepository,
-        )
+        from plugins.court_automation.preservation_quote.preservation_quote.repo import PreservationQuoteRepository
 
         quote = MagicMock()
         quote.save = AsyncMock()
@@ -241,9 +228,7 @@ class TestMarkFailed:
 class TestResetForRetry:
     @pytest.mark.asyncio
     async def test_resets_fields(self):
-        from plugins.court_automation.preservation_quote.preservation_quote.repo import (
-            PreservationQuoteRepository,
-        )
+        from plugins.court_automation.preservation_quote.preservation_quote.repo import PreservationQuoteRepository
 
         quote = MagicMock()
         quote.save = AsyncMock()
@@ -269,9 +254,7 @@ class TestResetForRetry:
 class TestSavePremiumResultsCleanDecimal:
     @pytest.mark.asyncio
     async def test_clean_decimal_none_and_empty(self):
-        from plugins.court_automation.preservation_quote.preservation_quote.repo import (
-            PreservationQuoteRepository,
-        )
+        from plugins.court_automation.preservation_quote.preservation_quote.repo import PreservationQuoteRepository
 
         quote = MagicMock()
         quote.id = 1
@@ -312,9 +295,7 @@ class TestSavePremiumResultsCleanDecimal:
 
     @pytest.mark.asyncio
     async def test_non_dict_response_data(self):
-        from plugins.court_automation.preservation_quote.preservation_quote.repo import (
-            PreservationQuoteRepository,
-        )
+        from plugins.court_automation.preservation_quote.preservation_quote.repo import PreservationQuoteRepository
 
         quote = MagicMock()
         quote.id = 1
@@ -354,9 +335,7 @@ class TestSavePremiumResultsCleanDecimal:
 
 class TestConfigureDbSettings:
     def test_calls_configure(self):
-        from plugins.court_automation.preservation_quote.preservation_quote.repo import (
-            _configure_db_settings,
-        )
+        from plugins.court_automation.preservation_quote.preservation_quote.repo import _configure_db_settings
 
         with patch("plugins.court_automation.preservation_quote.preservation_quote.repo.connections") as mock_conn:
             mock_conn._settings = "raw"

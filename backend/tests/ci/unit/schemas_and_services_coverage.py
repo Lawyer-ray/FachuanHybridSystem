@@ -11,8 +11,9 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
+
 try:
-    from plugins.court_automation import filing  # noqa: F401
+    from plugins.court_automation import filing
 except ImportError:
     pytest.skip("court_automation plugin not installed", allow_module_level=True)
 
@@ -120,6 +121,7 @@ class TestQuoteListItemSchemaFromModel:
 class TestCaptchaRecognizeIn:
     def test_valid_base64(self) -> None:
         import base64
+
         from apps.automation.schemas.captcha import CaptchaRecognizeIn
         data = base64.b64encode(b"test image").decode()
         result = CaptchaRecognizeIn(image_base64=data)
@@ -127,6 +129,7 @@ class TestCaptchaRecognizeIn:
 
     def test_with_data_url_prefix(self) -> None:
         import base64
+
         from apps.automation.schemas.captcha import CaptchaRecognizeIn
         data = base64.b64encode(b"test").decode()
         result = CaptchaRecognizeIn(image_base64=f"data:image/png;base64,{data}")
@@ -191,8 +194,9 @@ class TestEstimateTokens:
 
 class TestConvertToModelMessages:
     def test_user_message(self) -> None:
-        from apps.workbench.services.chat_service import _convert_to_model_messages
         from pydantic_ai.messages import ModelRequest, UserPromptPart
+
+        from apps.workbench.services.chat_service import _convert_to_model_messages
         msg = SimpleNamespace(role="user", content="hello", tool_output=None, tool_call_id=None, tool_name=None)
         result = _convert_to_model_messages([msg])
         assert len(result) == 1
@@ -200,16 +204,18 @@ class TestConvertToModelMessages:
         assert isinstance(result[0].parts[0], UserPromptPart)
 
     def test_assistant_message(self) -> None:
-        from apps.workbench.services.chat_service import _convert_to_model_messages
         from pydantic_ai.messages import ModelResponse, TextPart
+
+        from apps.workbench.services.chat_service import _convert_to_model_messages
         msg = SimpleNamespace(role="assistant", content="response", tool_output=None, tool_call_id=None, tool_name=None)
         result = _convert_to_model_messages([msg])
         assert len(result) == 1
         assert isinstance(result[0], ModelResponse)
 
     def test_tool_message(self) -> None:
-        from apps.workbench.services.chat_service import _convert_to_model_messages
         from pydantic_ai.messages import ModelRequest, ToolReturnPart
+
+        from apps.workbench.services.chat_service import _convert_to_model_messages
         msg = SimpleNamespace(
             role="tool",
             content="result",
@@ -244,15 +250,15 @@ class TestBatchServiceHelpers:
         assert _is_excel("noext") is False
 
     def test_validate_files_empty(self) -> None:
-        from apps.workbench.services.batch_service import BatchAnalysisService
         from apps.core.exceptions import ValidationException
+        from apps.workbench.services.batch_service import BatchAnalysisService
         svc = BatchAnalysisService()
         with pytest.raises(ValidationException):
             svc.validate_files([])
 
     def test_validate_files_invalid_ext(self) -> None:
-        from apps.workbench.services.batch_service import BatchAnalysisService
         from apps.core.exceptions import ValidationException
+        from apps.workbench.services.batch_service import BatchAnalysisService
         svc = BatchAnalysisService()
         mock_file = MagicMock()
         mock_file.name = "test.pdf"

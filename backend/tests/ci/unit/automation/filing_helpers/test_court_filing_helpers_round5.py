@@ -21,8 +21,9 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
+
 try:
-    from plugins.court_automation import filing  # noqa: F401
+    from plugins.court_automation import filing
 except ImportError:
     pytest.skip("court_automation plugin not installed", allow_module_level=True)
 
@@ -36,7 +37,7 @@ class TestInferFilingType:
 
     @patch("apps.cases.models.CaseMaterial")
     def test_execution_from_party_statuses(self, mock_cm):
-        from plugins.court_automation.filing.helpers import _infer_filing_type, _FILING_TYPE_EXECUTION
+        from plugins.court_automation.filing.helpers import _FILING_TYPE_EXECUTION, _infer_filing_type
 
         party = SimpleNamespace(legal_status="applicant")
         case = SimpleNamespace(name="", cause_of_action="")
@@ -45,7 +46,7 @@ class TestInferFilingType:
 
     @patch("apps.cases.models.CaseMaterial")
     def test_execution_from_case_name(self, mock_cm):
-        from plugins.court_automation.filing.helpers import _infer_filing_type, _FILING_TYPE_EXECUTION
+        from plugins.court_automation.filing.helpers import _FILING_TYPE_EXECUTION, _infer_filing_type
 
         case = SimpleNamespace(name="申请执行案", cause_of_action="")
         result = _infer_filing_type(case=case, parties=[])
@@ -53,7 +54,7 @@ class TestInferFilingType:
 
     @patch("apps.cases.models.CaseMaterial")
     def test_execution_from_cause(self, mock_cm):
-        from plugins.court_automation.filing.helpers import _infer_filing_type, _FILING_TYPE_EXECUTION
+        from plugins.court_automation.filing.helpers import _FILING_TYPE_EXECUTION, _infer_filing_type
 
         case = SimpleNamespace(name="", cause_of_action="强制执行")
         result = _infer_filing_type(case=case, parties=[])
@@ -61,7 +62,7 @@ class TestInferFilingType:
 
     @patch("apps.cases.models.CaseMaterial")
     def test_execution_from_material_type_name(self, mock_cm):
-        from plugins.court_automation.filing.helpers import _infer_filing_type, _FILING_TYPE_EXECUTION
+        from plugins.court_automation.filing.helpers import _FILING_TYPE_EXECUTION, _infer_filing_type
 
         mock_qs = MagicMock()
         # The function iterates over `type_names` (a queryset), so we need to make it iterable
@@ -74,7 +75,7 @@ class TestInferFilingType:
 
     @patch("apps.cases.models.CaseMaterial")
     def test_civil_default(self, mock_cm):
-        from plugins.court_automation.filing.helpers import _infer_filing_type, _FILING_TYPE_CIVIL
+        from plugins.court_automation.filing.helpers import _FILING_TYPE_CIVIL, _infer_filing_type
 
         # patch the queryset to return no material type names
         mock_cm.objects.filter.return_value.values_list.return_value.__iter__ = MagicMock(return_value=iter([]))
@@ -241,21 +242,21 @@ class TestScoreSlotDeduplicatedEdge:
 
 class TestMatchSlotEdge:
     def test_execution_apply_hits_returns_slot_0(self):
-        from plugins.court_automation.filing.helpers import _match_slot, _FILING_TYPE_EXECUTION
+        from plugins.court_automation.filing.helpers import _FILING_TYPE_EXECUTION, _match_slot
 
         material = SimpleNamespace(type_name="执行申请书", type=None, source_attachment=None)
         result = _match_slot(material=material, file_path=Path("/tmp/执行申请书.pdf"), filing_type=_FILING_TYPE_EXECUTION)
         assert result == "0"
 
     def test_delivery_address_returns_slot_4(self):
-        from plugins.court_automation.filing.helpers import _match_slot, _FILING_TYPE_CIVIL
+        from plugins.court_automation.filing.helpers import _FILING_TYPE_CIVIL, _match_slot
 
         material = SimpleNamespace(type_name="送达地址确认书", type=None, source_attachment=None)
         result = _match_slot(material=material, file_path=Path("/tmp/送达地址.pdf"), filing_type=_FILING_TYPE_CIVIL)
         assert result == "4"
 
     def test_guarantee_returns_slot_5(self):
-        from plugins.court_automation.filing.helpers import _match_slot, _FILING_TYPE_CIVIL
+        from plugins.court_automation.filing.helpers import _FILING_TYPE_CIVIL, _match_slot
 
         material = SimpleNamespace(type_name="保全申请", type=None, source_attachment=None)
         result = _match_slot(material=material, file_path=Path("/tmp/保全申请.pdf"), filing_type=_FILING_TYPE_CIVIL)
@@ -309,16 +310,16 @@ class TestResolveCourtNameFiling:
 
 class TestBuildSessionStatusPayloadNoTiming:
     def test_failed_no_timing(self):
-        from plugins.court_automation.filing.helpers import _build_session_status_payload
         from apps.automation.models import ScraperTaskStatus
+        from plugins.court_automation.filing.helpers import _build_session_status_payload
 
         task = SimpleNamespace(id=1, status=ScraperTaskStatus.FAILED, result={}, error_message="err")
         payload = _build_session_status_payload(task=task)
         assert "timing" not in payload
 
     def test_success_with_timing(self):
-        from plugins.court_automation.filing.helpers import _build_session_status_payload
         from apps.automation.models import ScraperTaskStatus
+        from plugins.court_automation.filing.helpers import _build_session_status_payload
 
         task = SimpleNamespace(
             id=2, status=ScraperTaskStatus.SUCCESS,
@@ -334,6 +335,7 @@ class TestBuildSessionStatusPayloadNoTiming:
 class TestUpdateSessionTaskFlags:
     def test_none_session_id_noop(self):
         from plugins.court_automation.filing.helpers import _update_session_task
+
         # session_id=None is a noop, no DB access
         _update_session_task(session_id=None, status="running", set_started=True, set_finished=True)
 

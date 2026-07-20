@@ -33,40 +33,62 @@ class POIServiceClient:  # pragma: no cover
     def __init__(self, base_url: str | None = None, timeout: float = 30.0):  # pragma: no cover
         self.base_url = (base_url or _get_poi_url()).rstrip("/")
         self.timeout = timeout
+        self._client: httpx.Client | None = None
+        self._async_client: httpx.AsyncClient | None = None
+
+    def _get_sync_client(self) -> httpx.Client:
+        if self._client is None:
+            self._client = httpx.Client(timeout=self.timeout)
+        return self._client
+
+    def _get_async_client(self) -> httpx.AsyncClient:
+        if self._async_client is None:
+            self._async_client = httpx.AsyncClient(timeout=self.timeout)
+        return self._async_client
+
+    def close(self) -> None:
+        if self._client is not None:
+            self._client.close()
+            self._client = None
+
+    async def aclose(self) -> None:
+        if self._async_client is not None:
+            await self._async_client.aclose()
+            self._async_client = None
 
     def _post(self, endpoint: str, payload: dict[str, Any]) -> bytes:  # pragma: no cover
         """Send POST request and return raw bytes."""
         url = f"{self.base_url}/api/documents{endpoint}"
-        with httpx.Client(timeout=self.timeout) as client:
-            response = client.post(url, json=payload)
-            response.raise_for_status()
-            return response.content
+        client = self._get_sync_client()
+        response = client.post(url, json=payload)
+        response.raise_for_status()
+        return response.content
 
     def _get(self, endpoint: str) -> dict[str, Any]:  # pragma: no cover
         """Send GET request and return JSON."""
         url = f"{self.base_url}/api/documents{endpoint}"
-        with httpx.Client(timeout=self.timeout) as client:
-            response = client.get(url)
-            response.raise_for_status()
-            result: dict[str, Any] = response.json()
-            return result
+        client = self._get_sync_client()
+        response = client.get(url)
+        response.raise_for_status()
+        result: dict[str, Any] = response.json()
+        return result
 
     async def _apost(self, endpoint: str, payload: dict[str, Any]) -> bytes:  # pragma: no cover
         """异步 POST 请求，返回原始字节。"""
         url = f"{self.base_url}/api/documents{endpoint}"
-        async with httpx.AsyncClient(timeout=self.timeout) as client:
-            response = await client.post(url, json=payload)
-            response.raise_for_status()
-            return response.content
+        client = self._get_async_client()
+        response = await client.post(url, json=payload)
+        response.raise_for_status()
+        return response.content
 
     async def _aget(self, endpoint: str) -> dict[str, Any]:  # pragma: no cover
         """异步 GET 请求，返回 JSON。"""
         url = f"{self.base_url}/api/documents{endpoint}"
-        async with httpx.AsyncClient(timeout=self.timeout) as client:
-            response = await client.get(url)
-            response.raise_for_status()
-            result: dict[str, Any] = response.json()
-            return result
+        client = self._get_async_client()
+        response = await client.get(url)
+        response.raise_for_status()
+        result: dict[str, Any] = response.json()
+        return result
 
     def health_check(self) -> bool:
         """Check if the POI service is running.

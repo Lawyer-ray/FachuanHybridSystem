@@ -9,11 +9,12 @@ from __future__ import annotations
 import asyncio
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock, PropertyMock, patch
 
 import pytest
+
 try:
-    from plugins.court_automation import filing  # noqa: F401
+    from plugins.court_automation import filing
 except ImportError:
     pytest.skip("court_automation plugin not installed", allow_module_level=True)
 
@@ -23,7 +24,6 @@ from plugins.court_automation.filing.schemas import (
     _FILING_TYPE_CIVIL,
     _FILING_TYPE_EXECUTION,
 )
-
 
 # ── _resolve_court_name ────────────────────────────────────────────────
 
@@ -538,8 +538,8 @@ class TestBuildExecutionRequestText:
 
 class TestBuildSessionStatusPayload:
     def test_pending_status(self):
-        from plugins.court_automation.filing.helpers import _build_session_status_payload
         from apps.automation.models import ScraperTaskStatus
+        from plugins.court_automation.filing.helpers import _build_session_status_payload
 
         task = MagicMock()
         task.status = ScraperTaskStatus.PENDING
@@ -551,8 +551,8 @@ class TestBuildSessionStatusPayload:
         assert payload["success"] is True
 
     def test_running_status(self):
-        from plugins.court_automation.filing.helpers import _build_session_status_payload
         from apps.automation.models import ScraperTaskStatus
+        from plugins.court_automation.filing.helpers import _build_session_status_payload
 
         task = MagicMock()
         task.status = ScraperTaskStatus.RUNNING
@@ -564,8 +564,8 @@ class TestBuildSessionStatusPayload:
         assert "执行中" in payload["message"]
 
     def test_success_status(self):
-        from plugins.court_automation.filing.helpers import _build_session_status_payload
         from apps.automation.models import ScraperTaskStatus
+        from plugins.court_automation.filing.helpers import _build_session_status_payload
 
         task = MagicMock()
         task.status = ScraperTaskStatus.SUCCESS
@@ -577,8 +577,8 @@ class TestBuildSessionStatusPayload:
         assert payload["message"] == "完成"
 
     def test_failed_status_with_message(self):
-        from plugins.court_automation.filing.helpers import _build_session_status_payload
         from apps.automation.models import ScraperTaskStatus
+        from plugins.court_automation.filing.helpers import _build_session_status_payload
 
         task = MagicMock()
         task.status = ScraperTaskStatus.FAILED
@@ -591,8 +591,8 @@ class TestBuildSessionStatusPayload:
         assert payload["message"] == "网络错误"
 
     def test_failed_status_no_message(self):
-        from plugins.court_automation.filing.helpers import _build_session_status_payload
         from apps.automation.models import ScraperTaskStatus
+        from plugins.court_automation.filing.helpers import _build_session_status_payload
 
         task = MagicMock()
         task.status = ScraperTaskStatus.FAILED
@@ -604,8 +604,8 @@ class TestBuildSessionStatusPayload:
         assert payload["message"] == "from result"
 
     def test_failed_status_no_message_anywhere(self):
-        from plugins.court_automation.filing.helpers import _build_session_status_payload
         from apps.automation.models import ScraperTaskStatus
+        from plugins.court_automation.filing.helpers import _build_session_status_payload
 
         task = MagicMock()
         task.status = ScraperTaskStatus.FAILED
@@ -617,8 +617,8 @@ class TestBuildSessionStatusPayload:
         assert payload["message"] == "立案失败"
 
     def test_timing_dict_in_payload(self):
-        from plugins.court_automation.filing.helpers import _build_session_status_payload
         from apps.automation.models import ScraperTaskStatus
+        from plugins.court_automation.filing.helpers import _build_session_status_payload
 
         task = MagicMock()
         task.status = ScraperTaskStatus.PENDING
@@ -630,8 +630,8 @@ class TestBuildSessionStatusPayload:
         assert payload["timing"]["overall_start"] == 1.0
 
     def test_success_with_timing(self):
-        from plugins.court_automation.filing.helpers import _build_session_status_payload
         from apps.automation.models import ScraperTaskStatus
+        from plugins.court_automation.filing.helpers import _build_session_status_payload
 
         task = MagicMock()
         task.status = ScraperTaskStatus.SUCCESS
@@ -654,15 +654,15 @@ class TestUpdateSessionTask:
         _update_session_task(session_id=None, status="running")
 
     def test_basic_update(self):
-        from plugins.court_automation.filing.helpers import _update_session_task
         from apps.automation.models import ScraperTask
+        from plugins.court_automation.filing.helpers import _update_session_task
 
         _update_session_task(session_id=999999, status="running")
         # Should not raise
 
     def test_update_with_options(self):
-        from plugins.court_automation.filing.helpers import _update_session_task
         from apps.automation.models import ScraperTask
+        from plugins.court_automation.filing.helpers import _update_session_task
 
         _update_session_task(
             session_id=999999,

@@ -65,7 +65,9 @@ async def record_step(
             "output_data": output_data,
             "error_message": error_message,
             "started_at": timezone.now() if status == StepExecution.Status.RUNNING else None,
-            "finished_at": timezone.now() if status in (StepExecution.Status.SUCCESS, StepExecution.Status.FAILED) else None,
+            "finished_at": timezone.now()
+            if status in (StepExecution.Status.SUCCESS, StepExecution.Status.FAILED)
+            else None,
         },
     )
     if not created:
@@ -99,9 +101,7 @@ async def collect_case_facts(case_id: int) -> dict:
 
     logger.info("collect_case_facts: case_id=%d", case_id)
     case = await Case.objects.select_related("contract").aget(pk=case_id)
-    parties = [
-        p async for p in CaseParty.objects.filter(case_id=case_id).select_related("client")
-    ]
+    parties = [p async for p in CaseParty.objects.filter(case_id=case_id).select_related("client")]
 
     return {
         "case_id": case.id,
@@ -228,9 +228,7 @@ async def build_litigation_context(case_id: int, summary: dict, arrangement: lis
     from apps.cases.models.party import CaseParty
 
     case = await Case.objects.select_related("contract").aget(pk=case_id)
-    parties = [
-        p async for p in CaseParty.objects.filter(case_id=case_id).select_related("client")
-    ]
+    parties = [p async for p in CaseParty.objects.filter(case_id=case_id).select_related("client")]
 
     return {
         "case": {
@@ -263,8 +261,8 @@ async def generate_complaint(case_id: int, feedback: str | None = None) -> dict:
     """
     import asyncio
 
-    from apps.documents.services.generation.litigation_generation_service import LitigationGenerationService
     from apps.documents.services.generation.litigation_context_builder import LitigationContextBuilder
+    from apps.documents.services.generation.litigation_generation_service import LitigationGenerationService
 
     service = LitigationGenerationService()
 
@@ -280,7 +278,7 @@ async def generate_complaint(case_id: int, feedback: str | None = None) -> dict:
         return service.generate_complaint(case_data)
 
     result = await asyncio.to_thread(_generate)
-    return {"result": result}  # type: ignore[return-value]
+    return {"result": result}
 
 
 @activity.defn
@@ -320,7 +318,7 @@ async def review_complaint_quality(draft: dict, summary: dict) -> dict:
 # ── 立案（条件性，依赖 court_automation 插件）───────────────────
 
 try:
-    from plugins.court_automation.filing.helpers import _run_filing  # noqa: F401
+    from plugins.court_automation.filing.helpers import _run_filing
 
     _HAS_COURT_FILING = True
 except ImportError:
@@ -382,6 +380,7 @@ async def fetch_template_schema(template_id: int) -> dict:
 async def generic_delay(duration_minutes: float) -> None:
     """延时等待（包装为 activity 保证 Temporal 确定性）"""
     import asyncio
+
     await asyncio.sleep(duration_minutes * 60)
 
 
@@ -429,25 +428,87 @@ async def generic_code_exec(code: str, context: dict | None = None) -> dict:
     import builtins
 
     # ── 危险属性名集合（__class__ 链 + 内省钩子）──
-    _DANGEROUS_ATTRS = frozenset({
-        "__class__", "__bases__", "__base__", "__mro__", "__subclasses__",
-        "__builtins__", "__globals__", "__init__", "__import__", "__loader__",
-        "__spec__", "__file__", "__path__", "__dict__", "__getattr__",
-        "__setattr__", "__delattr__", "__reduce__", "__reduce_ex__",
-        "__getattribute__", "__new__", "__del__",
-    })
+    _DANGEROUS_ATTRS = frozenset(
+        {
+            "__class__",
+            "__bases__",
+            "__base__",
+            "__mro__",
+            "__subclasses__",
+            "__builtins__",
+            "__globals__",
+            "__init__",
+            "__import__",
+            "__loader__",
+            "__spec__",
+            "__file__",
+            "__path__",
+            "__dict__",
+            "__getattr__",
+            "__setattr__",
+            "__delattr__",
+            "__reduce__",
+            "__reduce_ex__",
+            "__getattribute__",
+            "__new__",
+            "__del__",
+        }
+    )
 
     # ── 危险函数/模块名 ──
-    _DANGEROUS_NAMES = frozenset({
-        "exec", "eval", "compile", "__import__", "breakpoint", "exit", "quit",
-        "open", "input", "globals", "locals", "vars", "dir", "type", "id",
-        "getattr", "hasattr", "delattr", "setattr", "super", "classmethod",
-        "staticmethod", "property", "object", "memoryview", "bytearray",
-        "os", "sys", "subprocess", "shutil", "pathlib", "importlib",
-        "socket", "http", "urllib", "requests", "tempfile", "ctypes",
-        "code", "ast", "inspect", "dis", "gc", "weakref", "threading",
-        "multiprocessing", "signal", "fcntl", "resource",
-    })
+    _DANGEROUS_NAMES = frozenset(
+        {
+            "exec",
+            "eval",
+            "compile",
+            "__import__",
+            "breakpoint",
+            "exit",
+            "quit",
+            "open",
+            "input",
+            "globals",
+            "locals",
+            "vars",
+            "dir",
+            "type",
+            "id",
+            "getattr",
+            "hasattr",
+            "delattr",
+            "setattr",
+            "super",
+            "classmethod",
+            "staticmethod",
+            "property",
+            "object",
+            "memoryview",
+            "bytearray",
+            "os",
+            "sys",
+            "subprocess",
+            "shutil",
+            "pathlib",
+            "importlib",
+            "socket",
+            "http",
+            "urllib",
+            "requests",
+            "tempfile",
+            "ctypes",
+            "code",
+            "ast",
+            "inspect",
+            "dis",
+            "gc",
+            "weakref",
+            "threading",
+            "multiprocessing",
+            "signal",
+            "fcntl",
+            "resource",
+        }
+    )
 
     def _validate_ast(node: ast.AST) -> None:
         """递归遍历 AST，拒绝危险模式。不安全则抛出 ValueError。"""
@@ -487,19 +548,43 @@ async def generic_code_exec(code: str, context: dict | None = None) -> dict:
 
     # ── 步骤 2: 构建受限执行环境 ──
     _SAFE_BUILTINS = {
-        "len", "int", "float", "str", "bool", "list", "dict", "set", "tuple",
-        "min", "max", "sum", "abs", "round", "sorted", "reversed", "enumerate",
-        "zip", "map", "filter", "any", "all", "range", "isinstance",
-        "repr", "print",
+        "len",
+        "int",
+        "float",
+        "str",
+        "bool",
+        "list",
+        "dict",
+        "set",
+        "tuple",
+        "min",
+        "max",
+        "sum",
+        "abs",
+        "round",
+        "sorted",
+        "reversed",
+        "enumerate",
+        "zip",
+        "map",
+        "filter",
+        "any",
+        "all",
+        "range",
+        "isinstance",
+        "repr",
+        "print",
     }
-    restricted_builtins = {
-        k: getattr(builtins, k) for k in _SAFE_BUILTINS if hasattr(builtins, k)
-    }
+    restricted_builtins = {k: getattr(builtins, k) for k in _SAFE_BUILTINS if hasattr(builtins, k)}
     # 提供安全的 json.loads / json.dumps 代理，不暴露 json 模块本身
-    _safe_json = type("SafeJson", (), {
-        "loads": staticmethod(json.loads),
-        "dumps": staticmethod(json.dumps),
-    })()
+    _safe_json = type(
+        "SafeJson",
+        (),
+        {
+            "loads": staticmethod(json.loads),
+            "dumps": staticmethod(json.dumps),
+        },
+    )()
 
     restricted_globals: dict[str, Any] = {
         "__builtins__": restricted_builtins,
@@ -513,12 +598,10 @@ async def generic_code_exec(code: str, context: dict | None = None) -> dict:
     def _exec_in_thread() -> dict:
         """在隔离线程中执行编译后的代码"""
         exec(compiled, restricted_globals)  # noqa: S102
-        return {
-            k: v for k, v in restricted_globals.items()
-            if not k.startswith("_") and k not in ("json", "context")
-        }
+        return {k: v for k, v in restricted_globals.items() if not k.startswith("_") and k not in ("json", "context")}
 
     import asyncio
+
     return await asyncio.wait_for(
         asyncio.to_thread(_exec_in_thread),
         timeout=30,
@@ -537,17 +620,16 @@ async def execute_mcp_tool(mcp_tool_name: str, kwargs: dict) -> dict:
     MCP_TOOLS: dict[str, Any] = {}  # lazy init
 
     if not MCP_TOOLS:
+        from mcp_server.tools.automation.auto_namer import auto_namer_process
         from mcp_server.tools.cases.cases import get_case
         from mcp_server.tools.cases.litigation_fee import calculate_litigation_fee
         from mcp_server.tools.cases.logs import create_case_log
         from mcp_server.tools.cases.materials import list_bind_candidates
         from mcp_server.tools.doc_convert.doc_convert import convert_document
         from mcp_server.tools.documents.authorization import download_authorization_package
-        from mcp_server.tools.documents.litigation import (
-            download_litigation_document as mcp_download_litigation,
-            generate_complaint as mcp_generate_complaint,
-            generate_defense,
-        )
+        from mcp_server.tools.documents.litigation import download_litigation_document as mcp_download_litigation
+        from mcp_server.tools.documents.litigation import generate_complaint as mcp_generate_complaint
+        from mcp_server.tools.documents.litigation import generate_defense
         from mcp_server.tools.documents.preservation import download_full_preservation_package
         from mcp_server.tools.enterprise_data.enterprise_data import (
             get_company_profile,
@@ -555,7 +637,7 @@ async def execute_mcp_tool(mcp_tool_name: str, kwargs: dict) -> dict:
             search_companies,
         )
         from mcp_server.tools.finance.lpr import calculate_interest
-        from mcp_server.tools.automation.auto_namer import auto_namer_process
+
         if _HAS_COURT_FILING:
             from mcp_server.tools.automation.court_filing import execute_court_filing as mcp_execute_court_filing
 

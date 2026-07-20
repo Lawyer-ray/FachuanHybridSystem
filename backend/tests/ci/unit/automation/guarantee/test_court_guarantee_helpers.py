@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
+from decimal import Decimal
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
-from decimal import Decimal
 
 import pytest
+
 try:
-    from plugins.court_automation import filing  # noqa: F401
+    from plugins.court_automation import filing
 except ImportError:
     pytest.skip("court_automation plugin not installed", allow_module_level=True)
 
@@ -51,8 +52,8 @@ class TestNormalizeInsuranceCompany:
 
     def test_known_company_returns_self(self):
         from plugins.court_automation.guarantee.helpers import (
-            _normalize_insurance_company,
             _GUARANTEE_INSURANCE_COMPANY_OPTIONS,
+            _normalize_insurance_company,
         )
         if _GUARANTEE_INSURANCE_COMPANY_OPTIONS:
             name = _GUARANTEE_INSURANCE_COMPANY_OPTIONS[0]
@@ -102,9 +103,9 @@ class TestNormalizeConsultantCode:
 
     def test_empty_code_for_sunshine(self):
         from plugins.court_automation.guarantee.helpers import (
-            _normalize_consultant_code,
-            _SUNSHINE_INSURANCE_COMPANY,
             _SUNSHINE_DEFAULT_CONSULTANT_CODE,
+            _SUNSHINE_INSURANCE_COMPANY,
+            _normalize_consultant_code,
         )
         result = _normalize_consultant_code(
             insurance_company_name=_SUNSHINE_INSURANCE_COMPANY, consultant_code=""
@@ -282,8 +283,8 @@ class TestResolveInsuranceCompanyDefaults:
 
     def test_no_context_returns_global_default(self):
         from plugins.court_automation.guarantee.helpers import (
-            _resolve_insurance_company_defaults,
             _DEFAULT_INSURANCE_COMPANY,
+            _resolve_insurance_company_defaults,
         )
         default, options = _resolve_insurance_company_defaults(quote_context=None)
         assert default == _DEFAULT_INSURANCE_COMPANY
@@ -346,8 +347,8 @@ class TestBuildPartyPayloadFromCaseParty:
 class TestGuaranteeSessionStatusPayload:
 
     def test_success_status(self):
-        from plugins.court_automation.guarantee.helpers import _build_session_status_payload
         from apps.automation.models import ScraperTaskStatus
+        from plugins.court_automation.guarantee.helpers import _build_session_status_payload
         task = SimpleNamespace(id=1, status=ScraperTaskStatus.SUCCESS, result={"message": "完成"}, error_message="")
         payload = _build_session_status_payload(task=task)
         assert payload["success"] is True
@@ -355,16 +356,16 @@ class TestGuaranteeSessionStatusPayload:
         assert "担保" in payload["message"] or "完成" in payload["message"]
 
     def test_pending_status(self):
-        from plugins.court_automation.guarantee.helpers import _build_session_status_payload
         from apps.automation.models import ScraperTaskStatus
+        from plugins.court_automation.guarantee.helpers import _build_session_status_payload
         task = SimpleNamespace(id=2, status=ScraperTaskStatus.PENDING, result=None, error_message=None)
         payload = _build_session_status_payload(task=task)
         assert payload["success"] is True
         assert payload["status"] == "in_progress"
 
     def test_failed_status(self):
-        from plugins.court_automation.guarantee.helpers import _build_session_status_payload
         from apps.automation.models import ScraperTaskStatus
+        from plugins.court_automation.guarantee.helpers import _build_session_status_payload
         task = SimpleNamespace(id=3, status=ScraperTaskStatus.FAILED, result=None, error_message="出错了")
         payload = _build_session_status_payload(task=task)
         assert payload["success"] is False
@@ -372,8 +373,8 @@ class TestGuaranteeSessionStatusPayload:
         assert payload["message"] == "出错了"
 
     def test_failed_default_message(self):
-        from plugins.court_automation.guarantee.helpers import _build_session_status_payload
         from apps.automation.models import ScraperTaskStatus
+        from plugins.court_automation.guarantee.helpers import _build_session_status_payload
         task = SimpleNamespace(id=4, status=ScraperTaskStatus.FAILED, result=None, error_message="")
         payload = _build_session_status_payload(task=task)
         assert "担保失败" in payload["message"]

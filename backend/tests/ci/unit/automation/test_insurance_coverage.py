@@ -2,13 +2,14 @@
 from __future__ import annotations
 
 import pytest
+
 try:
-    from plugins.court_automation import filing  # noqa: F401
+    from plugins.court_automation import filing
 except ImportError:
     pytest.skip("court_automation plugin not installed", allow_module_level=True)
 
-from unittest.mock import MagicMock, patch, AsyncMock
 from decimal import Decimal
+from unittest.mock import AsyncMock, MagicMock, patch
 
 
 class TestInsuranceExceptions:
@@ -97,8 +98,8 @@ class TestBaoquanTokenProvider:
 
     @pytest.mark.asyncio
     async def test_get_token_raises_when_no_token(self):
-        from plugins.court_automation.preservation_quote.preservation_quote.token_provider import BaoquanTokenProvider
         from plugins.court_automation.preservation_quote.exceptions import TokenError
+        from plugins.court_automation.preservation_quote.preservation_quote.token_provider import BaoquanTokenProvider
         token_svc = MagicMock()
         token_svc.get_token.return_value = None
         provider = BaoquanTokenProvider(token_service=token_svc)

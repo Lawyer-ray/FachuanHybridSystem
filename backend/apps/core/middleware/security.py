@@ -28,6 +28,8 @@ class SecurityHeadersMiddleware:
     """按路径设置 Content-Security-Policy 响应头的中间件"""
 
     _DOCS_SUFFIXES = ("/docs", "/schema", "/redoc", "/swagger")
+    _is_async: bool
+    get_response: Callable[..., Any]
 
     def __init__(self, get_response: Callable[[HttpRequest], HttpResponse]) -> None:
         _init_dual_mode(self, get_response)
@@ -39,7 +41,7 @@ class SecurityHeadersMiddleware:
         self._apply_csp(request, response)
         return response
 
-    async def _adispatch(self, request: HttpRequest) -> HttpResponse:
+    async def _adispatch(self, request: HttpRequest) -> Any:
         response = await self.get_response(request)
         self._apply_csp(request, response)
         return response
@@ -66,6 +68,9 @@ class SecurityHeadersMiddleware:
 class PermissionsPolicyMiddleware:
     """设置 Permissions-Policy 响应头的中间件"""
 
+    _is_async: bool
+    get_response: Callable[..., Any]
+
     def __init__(self, get_response: Callable[[HttpRequest], HttpResponse]) -> None:
         _init_dual_mode(self, get_response)
 
@@ -76,7 +81,7 @@ class PermissionsPolicyMiddleware:
         self._set_policy(response)
         return response
 
-    async def _adispatch(self, request: HttpRequest) -> HttpResponse:
+    async def _adispatch(self, request: HttpRequest) -> Any:
         response = await self.get_response(request)
         self._set_policy(response)
         return response
@@ -123,6 +128,9 @@ class ServiceLocatorScopeMiddleware:
     确保请求间服务实例不互相污染（基于 ContextVar 实现）。
     """
 
+    _is_async: bool
+    get_response: Callable[..., Any]
+
     def __init__(self, get_response: Callable[[HttpRequest], HttpResponse]) -> None:
         _init_dual_mode(self, get_response)
 
@@ -134,7 +142,7 @@ class ServiceLocatorScopeMiddleware:
         with ServiceLocator.scope():
             return self.get_response(request)
 
-    async def _adispatch(self, request: HttpRequest) -> HttpResponse:
+    async def _adispatch(self, request: HttpRequest) -> Any:
         from apps.core.interfaces import ServiceLocator
 
         with ServiceLocator.scope():

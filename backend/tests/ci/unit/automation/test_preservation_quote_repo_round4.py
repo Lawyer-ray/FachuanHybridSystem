@@ -17,11 +17,12 @@ from __future__ import annotations
 
 from decimal import Decimal
 from types import SimpleNamespace
-from unittest.mock import MagicMock, patch, AsyncMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+
 try:
-    from plugins.court_automation import filing  # noqa: F401
+    from plugins.court_automation import filing
 except ImportError:
     pytest.skip("court_automation plugin not installed", allow_module_level=True)
 
@@ -34,9 +35,7 @@ except ImportError:
 
 class TestValidateCreateParamsRound4:
     def test_positive_credential_id_passes(self):
-        from plugins.court_automation.preservation_quote.preservation_quote.repo import (
-            PreservationQuoteRepository,
-        )
+        from plugins.court_automation.preservation_quote.preservation_quote.repo import PreservationQuoteRepository
         repo = PreservationQuoteRepository()
         # Should not raise
         repo.validate_create_params(
@@ -47,10 +46,8 @@ class TestValidateCreateParamsRound4:
         )
 
     def test_multiple_errors_collected(self):
-        from plugins.court_automation.preservation_quote.preservation_quote.repo import (
-            PreservationQuoteRepository,
-        )
         from plugins.court_automation.preservation_quote.exceptions import ValidationError
+        from plugins.court_automation.preservation_quote.preservation_quote.repo import PreservationQuoteRepository
 
         repo = PreservationQuoteRepository()
         with pytest.raises(ValidationError) as exc_info:
@@ -74,9 +71,7 @@ class TestValidateCreateParamsRound4:
 
 class TestGetQuoteWithItemsRound4:
     def test_found_returns_quote(self):
-        from plugins.court_automation.preservation_quote.preservation_quote.repo import (
-            PreservationQuoteRepository,
-        )
+        from plugins.court_automation.preservation_quote.preservation_quote.repo import PreservationQuoteRepository
 
         mock_quote = MagicMock()
         with patch(
@@ -95,9 +90,7 @@ class TestGetQuoteWithItemsRound4:
 class TestGetQuoteModel:
     @pytest.mark.asyncio
     async def test_success(self):
-        from plugins.court_automation.preservation_quote.preservation_quote.repo import (
-            PreservationQuoteRepository,
-        )
+        from plugins.court_automation.preservation_quote.preservation_quote.repo import PreservationQuoteRepository
 
         mock_quote = MagicMock()
         with patch(
@@ -112,10 +105,8 @@ class TestGetQuoteModel:
 
     @pytest.mark.asyncio
     async def test_not_found(self):
-        from plugins.court_automation.preservation_quote.preservation_quote.repo import (
-            PreservationQuoteRepository,
-        )
         from apps.core.exceptions import NotFoundError
+        from plugins.court_automation.preservation_quote.preservation_quote.repo import PreservationQuoteRepository
 
         with patch(
             "plugins.court_automation.preservation_quote.preservation_quote.repo._db_sync",
@@ -137,9 +128,7 @@ class TestGetQuoteModel:
 class TestMarkRunning:
     @pytest.mark.asyncio
     async def test_sets_status_and_started_at(self):
-        from plugins.court_automation.preservation_quote.preservation_quote.repo import (
-            PreservationQuoteRepository,
-        )
+        from plugins.court_automation.preservation_quote.preservation_quote.repo import PreservationQuoteRepository
 
         quote = MagicMock()
         with patch(
@@ -161,9 +150,7 @@ class TestMarkRunning:
 class TestSetTotalCompanies:
     @pytest.mark.asyncio
     async def test_sets_total(self):
-        from plugins.court_automation.preservation_quote.preservation_quote.repo import (
-            PreservationQuoteRepository,
-        )
+        from plugins.court_automation.preservation_quote.preservation_quote.repo import PreservationQuoteRepository
 
         quote = MagicMock()
         with patch(
@@ -184,9 +171,7 @@ class TestSetTotalCompanies:
 class TestSavePremiumResultsEdge:
     @pytest.mark.asyncio
     async def test_clean_decimal_null_string(self):
-        from plugins.court_automation.preservation_quote.preservation_quote.repo import (
-            PreservationQuoteRepository,
-        )
+        from plugins.court_automation.preservation_quote.preservation_quote.repo import PreservationQuoteRepository
 
         quote = MagicMock()
         quote.id = 1
@@ -220,9 +205,7 @@ class TestSavePremiumResultsEdge:
     @pytest.mark.asyncio
     async def test_clean_decimal_type_error(self):
         """Test clean_decimal with TypeError (non-string non-None value that str() handles)."""
-        from plugins.court_automation.preservation_quote.preservation_quote.repo import (
-            PreservationQuoteRepository,
-        )
+        from plugins.court_automation.preservation_quote.preservation_quote.repo import PreservationQuoteRepository
 
         quote = MagicMock()
         quote.id = 1
@@ -258,9 +241,7 @@ class TestSavePremiumResultsEdge:
 
     @pytest.mark.asyncio
     async def test_empty_results(self):
-        from plugins.court_automation.preservation_quote.preservation_quote.repo import (
-            PreservationQuoteRepository,
-        )
+        from plugins.court_automation.preservation_quote.preservation_quote.repo import PreservationQuoteRepository
 
         quote = MagicMock()
         quote.id = 1
@@ -292,9 +273,7 @@ class TestListQuotes:
     @pytest.mark.django_db
     def test_happy_path_with_status_filter(self):
         """list_quotes with valid params works through Paginator."""
-        from plugins.court_automation.preservation_quote.preservation_quote.repo import (
-            PreservationQuoteRepository,
-        )
+        from plugins.court_automation.preservation_quote.preservation_quote.repo import PreservationQuoteRepository
 
         repo = PreservationQuoteRepository()
         # Just verify it doesn't crash with valid params (uses real DB, may return empty)

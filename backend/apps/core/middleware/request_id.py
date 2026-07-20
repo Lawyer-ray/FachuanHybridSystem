@@ -25,6 +25,9 @@ class RequestIdMiddleware:
     __call__ 在线程中运行，async 路径返回协程由 Django handler await。
     """
 
+    _is_async: bool
+    get_response: Callable[..., Any]
+
     def __init__(self, get_response: Callable[[HttpRequest], HttpResponse]) -> None:
         self.get_response = get_response
         self._is_async = asyncio.iscoroutinefunction(get_response)
@@ -50,7 +53,7 @@ class RequestIdMiddleware:
         # sync 链：直接执行
         return self._sync_dispatch(request, request_id)
 
-    async def _async_dispatch(self, request: HttpRequest, request_id: str) -> HttpResponse:
+    async def _async_dispatch(self, request: HttpRequest, request_id: str) -> Any:
         try:
             response = await self.get_response(request)
             self._set_response_id(response, request_id)
@@ -58,7 +61,7 @@ class RequestIdMiddleware:
         finally:
             self._cleanup()
 
-    def _sync_dispatch(self, request: HttpRequest, request_id: str) -> HttpResponse:
+    def _sync_dispatch(self, request: HttpRequest, request_id: str) -> Any:
         try:
             response = self.get_response(request)
             self._set_response_id(response, request_id)

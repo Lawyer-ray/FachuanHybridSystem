@@ -4,11 +4,12 @@ from __future__ import annotations
 
 import asyncio
 from decimal import Decimal
-from unittest.mock import MagicMock, patch, AsyncMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+
 try:
-    from plugins.court_automation import filing  # noqa: F401
+    from plugins.court_automation import filing
 except ImportError:
     pytest.skip("court_automation plugin not installed", allow_module_level=True)
 
@@ -111,6 +112,7 @@ class TestCourtInsuranceClient:
     @pytest.mark.asyncio
     async def test_fetch_insurance_companies_api_error_no_retry(self) -> None:
         import httpx
+
         from apps.core.exceptions import APIError
 
         client = self._make_client()
@@ -146,6 +148,7 @@ class TestCourtInsuranceClient:
     @pytest.mark.asyncio
     async def test_fetch_insurance_companies_timeout(self) -> None:
         import httpx
+
         from apps.core.exceptions import NetworkError
 
         client = self._make_client()

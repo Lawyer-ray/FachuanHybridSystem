@@ -6,13 +6,13 @@ import base64
 from datetime import datetime
 
 import pytest
+
 try:
-    from plugins.court_automation import filing  # noqa: F401
+    from plugins.court_automation import filing
 except ImportError:
     pytest.skip("court_automation plugin not installed", allow_module_level=True)
 
 from pydantic import ValidationError
-
 
 # ======================================================================
 # court_filing_schemas
@@ -334,6 +334,7 @@ class TestAPIInterceptResponseSchema:
 
     def test_validator_runs(self):
         from apps.automation.schemas.court_document import APIInterceptResponseSchema
+
         # Empty data should pass (validator doesn't reject)
         data = APIInterceptResponseSchema(code=200, msg="ok", data=[], success=True, totalRows=0)
         assert data.data == []

@@ -17,7 +17,6 @@ from pathlib import Path
 
 import pytest
 
-
 # ---------------------------------------------------------------------------
 # Helpers – read source files without importing heavy dependencies
 # (importing mcp_server.tools transitively pulls in httpx, Django, etc.)
@@ -120,7 +119,7 @@ def _plugin_tools_available() -> frozenset[str]:
     """Return the subset of ALL_PLUGIN_TOOLS that are actually importable."""
     available: set[str] = set()
     try:
-        from mcp_server.tools import automation  # noqa: F401
+        from mcp_server.tools import automation
     except (ImportError, Exception):
         # If the automation module itself can't be imported, no plugin tools
         return frozenset()

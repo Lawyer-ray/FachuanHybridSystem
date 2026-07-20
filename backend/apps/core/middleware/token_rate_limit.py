@@ -66,6 +66,10 @@ class TokenRateLimitMiddleware:
 
     @staticmethod
     def _sync_check_rate(bucket_key: str) -> int:
+        # NOTE: Django cache add+incr 不是原子操作。
+        # 在高并发下存在极小窗口（TOCTOU）可绕过限流。
+        # 当前项目部署为单进程 Gunicorn（非多进程），实际风险可控。
+        # 如需严格原子性，需替换为 Redis INCR 或 django-ratelimit。
         try:
             if cache.add(bucket_key, 1, timeout=_TOKEN_RATE_WINDOW + 5):
                 return 1

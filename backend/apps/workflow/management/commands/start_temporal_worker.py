@@ -11,6 +11,7 @@ import asyncio
 import contextlib
 import logging
 import signal
+from collections.abc import Callable, Sequence
 from typing import Any
 
 from django.core.management.base import BaseCommand
@@ -72,6 +73,7 @@ class Command(BaseCommand):
         from temporalio.worker._workflow_instance import UnsandboxedWorkflowRunner
 
         from apps.workflow.temporal.activities import (
+            _HAS_COURT_FILING,
             analyze_single_evidence,
             apply_arrangement,
             build_litigation_context,
@@ -92,7 +94,6 @@ class Command(BaseCommand):
             summarize_evidence,
             update_run_status,
         )
-        from apps.workflow.temporal.activities import _HAS_COURT_FILING  # noqa: F811
         from apps.workflow.temporal.workflows import DynamicWorkflow, SalesContractDisputeWorkflow
 
         temporal_addr = options["temporal_address"]
@@ -102,7 +103,7 @@ class Command(BaseCommand):
         self.stdout.write(f"已连接 Temporal Server: {temporal_addr}")
 
         # 使用 UnsandboxedWorkflowRunner 避免 Django 模块导入被 sandbox 拦截
-        activities_list = [
+        activities_list: list[Callable[..., Any]] = [
             record_step,
             update_run_status,
             collect_case_facts,
@@ -140,9 +141,11 @@ class Command(BaseCommand):
             workflow_runner=UnsandboxedWorkflowRunner(),
         )
 
-        self.stdout.write(self.style.SUCCESS(
-            f"Temporal Worker 启动 (task_queue={task_queue}, max_activities={options['max_activities']})"
-        ))
+        self.stdout.write(
+            self.style.SUCCESS(
+                f"Temporal Worker 启动 (task_queue={task_queue}, max_activities={options['max_activities']})"
+            )
+        )
 
         loop = asyncio.get_event_loop()
         for sig in (signal.SIGINT, signal.SIGTERM):

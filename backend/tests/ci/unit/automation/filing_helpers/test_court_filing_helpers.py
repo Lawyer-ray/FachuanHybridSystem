@@ -8,8 +8,9 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
+
 try:
-    from plugins.court_automation import filing  # noqa: F401
+    from plugins.court_automation import filing
 except ImportError:
     pytest.skip("court_automation plugin not installed", allow_module_level=True)
 
@@ -26,7 +27,6 @@ from plugins.court_automation.filing.schemas import (
     _VALID_FILING_ENGINES,
     _VALID_FILING_TYPES,
 )
-
 
 # ── _to_valid_mobile ─────────────────────────────────────────────────────────
 
@@ -204,6 +204,7 @@ class TestScoreSlotDeduplicated:
 
     def test_secondary_dedup_within_keyword(self):
         from plugins.court_automation.filing.helpers import _score_slot_deduplicated
+
         # 同一关键词在多个辅信号中只计一次
         score = _score_slot_deduplicated(
             primary_signals=[],
@@ -247,16 +248,16 @@ class TestBuildMaterialSlotSignals:
 class TestBuildFilingSessionStatusPayload:
 
     def test_pending_status(self):
-        from plugins.court_automation.filing.helpers import _build_session_status_payload
         from apps.automation.models import ScraperTaskStatus
+        from plugins.court_automation.filing.helpers import _build_session_status_payload
         task = SimpleNamespace(id=1, status=ScraperTaskStatus.PENDING, result=None, error_message=None)
         payload = _build_session_status_payload(task=task)
         assert payload["success"] is True
         assert payload["status"] == "in_progress"
 
     def test_success_status(self):
-        from plugins.court_automation.filing.helpers import _build_session_status_payload
         from apps.automation.models import ScraperTaskStatus
+        from plugins.court_automation.filing.helpers import _build_session_status_payload
         task = SimpleNamespace(id=2, status=ScraperTaskStatus.SUCCESS, result={"message": "完成"}, error_message="")
         payload = _build_session_status_payload(task=task)
         assert payload["success"] is True
@@ -264,8 +265,8 @@ class TestBuildFilingSessionStatusPayload:
         assert payload["message"] == "完成"
 
     def test_failed_status_uses_error_message(self):
-        from plugins.court_automation.filing.helpers import _build_session_status_payload
         from apps.automation.models import ScraperTaskStatus
+        from plugins.court_automation.filing.helpers import _build_session_status_payload
         task = SimpleNamespace(id=3, status=ScraperTaskStatus.FAILED, result=None, error_message="出错了")
         payload = _build_session_status_payload(task=task)
         assert payload["success"] is False
@@ -273,15 +274,15 @@ class TestBuildFilingSessionStatusPayload:
         assert payload["message"] == "出错了"
 
     def test_failed_status_no_error_message_uses_default(self):
-        from plugins.court_automation.filing.helpers import _build_session_status_payload
         from apps.automation.models import ScraperTaskStatus
+        from plugins.court_automation.filing.helpers import _build_session_status_payload
         task = SimpleNamespace(id=4, status=ScraperTaskStatus.FAILED, result=None, error_message="")
         payload = _build_session_status_payload(task=task)
         assert payload["message"] == "立案失败"
 
     def test_timing_included(self):
-        from plugins.court_automation.filing.helpers import _build_session_status_payload
         from apps.automation.models import ScraperTaskStatus
+        from plugins.court_automation.filing.helpers import _build_session_status_payload
         task = SimpleNamespace(id=5, status=ScraperTaskStatus.PENDING,
                               result={"timing": {"overall_start": 100.0}}, error_message=None)
         payload = _build_session_status_payload(task=task)
@@ -289,16 +290,16 @@ class TestBuildFilingSessionStatusPayload:
         assert payload["timing"]["overall_start"] == 100.0
 
     def test_result_message_used_for_running(self):
-        from plugins.court_automation.filing.helpers import _build_session_status_payload
         from apps.automation.models import ScraperTaskStatus
+        from plugins.court_automation.filing.helpers import _build_session_status_payload
         task = SimpleNamespace(id=6, status=ScraperTaskStatus.RUNNING,
                               result={"message": "正在立案中..."}, error_message="")
         payload = _build_session_status_payload(task=task)
         assert payload["message"] == "正在立案中..."
 
     def test_failed_from_result_message(self):
-        from plugins.court_automation.filing.helpers import _build_session_status_payload
         from apps.automation.models import ScraperTaskStatus
+        from plugins.court_automation.filing.helpers import _build_session_status_payload
         task = SimpleNamespace(id=7, status=ScraperTaskStatus.FAILED,
                               result={"message": "来自result的错误"}, error_message="")
         payload = _build_session_status_payload(task=task)
@@ -311,6 +312,7 @@ class TestUpdateSessionTask:
 
     def test_none_session_id_is_noop(self):
         from plugins.court_automation.filing.helpers import _update_session_task
+
         # 应该不抛异常
         _update_session_task(session_id=None, status="running")
 
@@ -411,6 +413,7 @@ class TestBuildExecutionRequestText:
     @pytest.mark.django_db
     def test_fallback_when_no_service(self):
         from plugins.court_automation.filing.helpers import _build_execution_request_text
+
         # 当 ExecutionRequestService 不可用时，使用 fallback 文本
         qs = MagicMock()
         qs.filter.return_value.order_by.return_value.values_list.return_value.first.return_value = "(2024)粤01民初100号"

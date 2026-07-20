@@ -25,8 +25,9 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
+
 try:
-    from plugins.court_automation import filing  # noqa: F401
+    from plugins.court_automation import filing
 except ImportError:
     pytest.skip("court_automation plugin not installed", allow_module_level=True)
 
@@ -348,7 +349,7 @@ class TestResolveInsuranceCompanyDefaultsEdge:
 
 class TestNormalizeInsuranceCompanyEdge:
     def test_empty_name_empty_allowed_returns_default(self):
-        from plugins.court_automation.guarantee.helpers import _normalize_insurance_company, _DEFAULT_INSURANCE_COMPANY
+        from plugins.court_automation.guarantee.helpers import _DEFAULT_INSURANCE_COMPANY, _normalize_insurance_company
         assert _normalize_insurance_company("", allowed_options=[]) == _DEFAULT_INSURANCE_COMPANY
 
     def test_empty_name_with_allowed_returns_first(self):
@@ -394,8 +395,8 @@ class TestUpdateSessionTaskGuarantee:
 
 class TestGuaranteeSessionStatusPayloadTiming:
     def test_failed_with_timing(self):
-        from plugins.court_automation.guarantee.helpers import _build_session_status_payload
         from apps.automation.models import ScraperTaskStatus
+        from plugins.court_automation.guarantee.helpers import _build_session_status_payload
 
         task = SimpleNamespace(
             id=1, status=ScraperTaskStatus.FAILED,
@@ -406,16 +407,16 @@ class TestGuaranteeSessionStatusPayloadTiming:
         assert payload["timing"]["overall_start"] == 1.0
 
     def test_failed_without_timing(self):
-        from plugins.court_automation.guarantee.helpers import _build_session_status_payload
         from apps.automation.models import ScraperTaskStatus
+        from plugins.court_automation.guarantee.helpers import _build_session_status_payload
 
         task = SimpleNamespace(id=1, status=ScraperTaskStatus.FAILED, result={}, error_message="fail")
         payload = _build_session_status_payload(task=task)
         assert "timing" not in payload
 
     def test_result_message_for_failed(self):
-        from plugins.court_automation.guarantee.helpers import _build_session_status_payload
         from apps.automation.models import ScraperTaskStatus
+        from plugins.court_automation.guarantee.helpers import _build_session_status_payload
 
         task = SimpleNamespace(
             id=1, status=ScraperTaskStatus.FAILED,
@@ -425,8 +426,8 @@ class TestGuaranteeSessionStatusPayloadTiming:
         assert payload["message"] == "result msg"
 
     def test_running_with_result_message(self):
-        from plugins.court_automation.guarantee.helpers import _build_session_status_payload
         from apps.automation.models import ScraperTaskStatus
+        from plugins.court_automation.guarantee.helpers import _build_session_status_payload
 
         task = SimpleNamespace(
             id=1, status=ScraperTaskStatus.RUNNING,
@@ -436,8 +437,8 @@ class TestGuaranteeSessionStatusPayloadTiming:
         assert payload["message"] == "running msg"
 
     def test_success_with_result_message(self):
-        from plugins.court_automation.guarantee.helpers import _build_session_status_payload
         from apps.automation.models import ScraperTaskStatus
+        from plugins.court_automation.guarantee.helpers import _build_session_status_payload
 
         task = SimpleNamespace(
             id=1, status=ScraperTaskStatus.SUCCESS,

@@ -5,13 +5,14 @@ from __future__ import annotations
 from types import SimpleNamespace
 
 import pytest
+
 try:
-    from plugins.court_automation import filing  # noqa: F401
+    from plugins.court_automation import filing
 except ImportError:
     pytest.skip("court_automation plugin not installed", allow_module_level=True)
 
-from plugins.court_automation.guarantee import helpers
 from apps.core.dto.client import PropertyClueDTO
+from plugins.court_automation.guarantee import helpers
 
 
 class _FakeClientService:

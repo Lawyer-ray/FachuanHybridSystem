@@ -9,8 +9,9 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
+
 try:
-    from plugins.court_automation import filing  # noqa: F401
+    from plugins.court_automation import filing
 except ImportError:
     pytest.skip("court_automation plugin not installed", allow_module_level=True)
 
@@ -31,11 +32,7 @@ from plugins.court_automation.filing.helpers import (
     _to_valid_mobile,
     _update_session_task,
 )
-from plugins.court_automation.filing.schemas import (
-    _FILING_ENGINE_API,
-    _FILING_TYPE_CIVIL,
-    _FILING_TYPE_EXECUTION,
-)
+from plugins.court_automation.filing.schemas import _FILING_ENGINE_API, _FILING_TYPE_CIVIL, _FILING_TYPE_EXECUTION
 
 
 class TestResolveCourtNameR3:

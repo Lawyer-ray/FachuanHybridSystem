@@ -14,11 +14,12 @@ import asyncio
 import time
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock, PropertyMock, patch
 
 import pytest
+
 try:
-    from plugins.court_automation import filing  # noqa: F401
+    from plugins.court_automation import filing
 except ImportError:
     pytest.skip("court_automation plugin not installed", allow_module_level=True)
 
@@ -245,7 +246,7 @@ class TestMatchSlotExtraBranches:
         the joined_signal fallback path should NOT return slot 0.
         However, the slot rules may give a positive score first.
         We test a material whose type_name only has exclude keywords."""
-        from plugins.court_automation.filing.helpers import _match_slot, _FILING_TYPE_EXECUTION
+        from plugins.court_automation.filing.helpers import _FILING_TYPE_EXECUTION, _match_slot
 
         # "限制高消费" is in exclude list, "申请执行" is in apply list
         # When only exclude hits via slot rules and no positive score,
@@ -262,7 +263,7 @@ class TestMatchSlotExtraBranches:
 
     def test_guarantee_via_joined_signal(self):
         """When guarantee keywords appear in type_name but not via slot rules, fallback returns slot 5."""
-        from plugins.court_automation.filing.helpers import _match_slot, _FILING_TYPE_CIVIL
+        from plugins.court_automation.filing.helpers import _FILING_TYPE_CIVIL, _match_slot
 
         material = SimpleNamespace(type_name="保函", type=None, source_attachment=None)
         result = _match_slot(
@@ -273,7 +274,11 @@ class TestMatchSlotExtraBranches:
 
     def test_execution_type_with_no_match_returns_default(self):
         """Execution type with no matching signals returns the default slot."""
-        from plugins.court_automation.filing.helpers import _match_slot, _FILING_TYPE_EXECUTION, _DEFAULT_SLOT_BY_FILING_TYPE
+        from plugins.court_automation.filing.helpers import (
+            _DEFAULT_SLOT_BY_FILING_TYPE,
+            _FILING_TYPE_EXECUTION,
+            _match_slot,
+        )
 
         material = SimpleNamespace(type_name="其他材料", type=None, source_attachment=None)
         result = _match_slot(
@@ -283,7 +288,7 @@ class TestMatchSlotExtraBranches:
 
     def test_unknown_filing_type_falls_back_to_civil_rules(self):
         """Unknown filing type falls back to civil rules."""
-        from plugins.court_automation.filing.helpers import _match_slot, _DEFAULT_SLOT_BY_FILING_TYPE
+        from plugins.court_automation.filing.helpers import _DEFAULT_SLOT_BY_FILING_TYPE, _match_slot
 
         material = SimpleNamespace(type_name="民事起诉状", type=None, source_attachment=None)
         result = _match_slot(
@@ -428,7 +433,7 @@ class TestBuildMaterialSlotSignalsExtra:
 class TestUpdateSessionTaskAsyncio:
     def test_asyncio_loop_running_uses_executor(self):
         """When an asyncio loop is running, the update is submitted to executor."""
-        from plugins.court_automation.filing.helpers import _update_session_task, _SESSION_UPDATE_EXECUTOR
+        from plugins.court_automation.filing.helpers import _SESSION_UPDATE_EXECUTOR, _update_session_task
 
         with patch("plugins.court_automation.filing.helpers.asyncio") as mock_asyncio:
             mock_asyncio.get_running_loop.return_value = MagicMock()  # loop exists
@@ -444,8 +449,8 @@ class TestUpdateSessionTaskAsyncio:
 
 class TestBuildSessionStatusPayloadExtra:
     def test_pending_no_result(self):
-        from plugins.court_automation.filing.helpers import _build_session_status_payload
         from apps.automation.models import ScraperTaskStatus
+        from plugins.court_automation.filing.helpers import _build_session_status_payload
 
         task = SimpleNamespace(id=10, status=ScraperTaskStatus.PENDING, result=None, error_message=None)
         payload = _build_session_status_payload(task=task)
@@ -453,24 +458,24 @@ class TestBuildSessionStatusPayloadExtra:
         assert "执行中" in payload["message"]
 
     def test_success_no_message_in_result(self):
-        from plugins.court_automation.filing.helpers import _build_session_status_payload
         from apps.automation.models import ScraperTaskStatus
+        from plugins.court_automation.filing.helpers import _build_session_status_payload
 
         task = SimpleNamespace(id=11, status=ScraperTaskStatus.SUCCESS, result={}, error_message="")
         payload = _build_session_status_payload(task=task)
         assert payload["message"] == "立案流程执行完成（已到预览页，未提交）"
 
     def test_failed_non_dict_result(self):
-        from plugins.court_automation.filing.helpers import _build_session_status_payload
         from apps.automation.models import ScraperTaskStatus
+        from plugins.court_automation.filing.helpers import _build_session_status_payload
 
         task = SimpleNamespace(id=12, status=ScraperTaskStatus.FAILED, result="string result", error_message="")
         payload = _build_session_status_payload(task=task)
         assert payload["message"] == "立案失败"
 
     def test_pending_timing_none(self):
-        from plugins.court_automation.filing.helpers import _build_session_status_payload
         from apps.automation.models import ScraperTaskStatus
+        from plugins.court_automation.filing.helpers import _build_session_status_payload
 
         task = SimpleNamespace(id=13, status=ScraperTaskStatus.PENDING, result={"timing": None}, error_message=None)
         payload = _build_session_status_payload(task=task)

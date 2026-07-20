@@ -34,8 +34,19 @@ class IcsUrlProvider:
             return []
 
         try:
-            response = httpx.get(url, timeout=DOWNLOAD_TIMEOUT, follow_redirects=True)
-            response.raise_for_status()
+            response = httpx.get(url, timeout=DOWNLOAD_TIMEOUT, follow_redirects=False)
+            if response.status_code in (301, 302, 303, 307, 308):
+                # Re-validate redirect target to prevent SSRF bypass
+                redirect_url = response.headers.get("location")
+                if redirect_url:
+                    validation_error = self._validate_url(redirect_url)
+                    if validation_error:
+                        logger.info("Redirect URL validation failed: %s", validation_error)
+                        return []
+                    response = httpx.get(redirect_url, timeout=DOWNLOAD_TIMEOUT, follow_redirects=False)
+                    response.raise_for_status()
+            else:
+                response.raise_for_status()
         except httpx.HTTPError as exc:
             logger.info("ICS URL download failed: %s", exc)
             return []
@@ -55,9 +66,19 @@ class IcsUrlProvider:
             return []
 
         try:
-            async with httpx.AsyncClient(timeout=DOWNLOAD_TIMEOUT, follow_redirects=True) as client:
+            async with httpx.AsyncClient(timeout=DOWNLOAD_TIMEOUT, follow_redirects=False) as client:
                 response = await client.get(url)
-                response.raise_for_status()
+                if response.status_code in (301, 302, 303, 307, 308):
+                    redirect_url = response.headers.get("location")
+                    if redirect_url:
+                        validation_error = self._validate_url(redirect_url)
+                        if validation_error:
+                            logger.info("Redirect URL validation failed: %s", validation_error)
+                            return []
+                        response = await client.get(redirect_url)
+                        response.raise_for_status()
+                else:
+                    response.raise_for_status()
         except httpx.HTTPError as exc:
             logger.info("ICS URL download failed: %s", exc)
             return []

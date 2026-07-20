@@ -178,7 +178,8 @@ class TestJTNAdapter:
     async def test_dispatch_unsupported_site(self, mock_apps) -> None:
         svc = self._make_service()
         with pytest.raises(ValueError, match="不支持"):
-            from apps.oa_filing.services.oa_firm_registry import create_adapter; create_adapter("UnsupportedSite", "t", "t")
+            from apps.oa_filing.services.oa_firm_registry import create_adapter
+            create_adapter("UnsupportedSite", "t", "t")
 
     @pytest.mark.asyncio
     async def test_map_legal_position_plaintiff(self) -> None:

@@ -138,7 +138,8 @@ class TestConnectCdpBrowser:
 
         profile = _make_profile(cdp_url=None)
 
-        with pytest.raises(ValueError, match="CDP 模式需要设置 profile.cdp_url"):
+        import re
+        with pytest.raises(ValueError, match=re.escape("CDP 模式需要设置 profile.cdp_url")):
             async with connect_cdp_browser(profile):
                 pass  # pragma: no cover
 
