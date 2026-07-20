@@ -125,13 +125,18 @@ class SMSDocumentMixin:
             sms.status = CourtSMSStatus.RENAMING
             sms.save()
 
-            if not sms.scraper_task:
-                logger.info(f"短信 {sms.id} 无下载任务，跳过重命名")
+            # 获取文书路径：优先从 scraper_task，否则从 document_file_paths
+            if sms.scraper_task:
+                document_paths = self.document_attachment.get_paths_for_renaming(sms)
+            elif isinstance(sms.document_file_paths, list) and sms.document_file_paths:
+                document_paths = [p for p in sms.document_file_paths if p and Path(p).exists()]
+                logger.info(f"短信 {sms.id} 无下载任务，使用 document_file_paths: {len(document_paths)} 个文件")
+            else:
+                logger.info(f"短信 {sms.id} 无下载任务且无文书文件，跳过重命名")
                 sms.status = CourtSMSStatus.NOTIFYING
                 sms.save()
                 return sms
 
-            document_paths = self.document_attachment.get_paths_for_renaming(sms)
             if not document_paths:
                 logger.info(f"短信 {sms.id} 无可重命名的文书，跳过重命名")
                 sms.status = CourtSMSStatus.NOTIFYING
