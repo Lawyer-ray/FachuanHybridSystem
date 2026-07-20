@@ -6,8 +6,8 @@
 
 from __future__ import annotations
 
-import threading
 import logging
+import threading
 from typing import TYPE_CHECKING, Any, cast
 
 from .profiles import BrowserProfile, get_profile
