@@ -53,7 +53,7 @@ class RequestIdMiddleware:
         # sync 链：直接执行
         return self._sync_dispatch(request, request_id)
 
-    async def _async_dispatch(self, request: HttpRequest, request_id: str) -> HttpResponse:
+    async def _async_dispatch(self, request: HttpRequest, request_id: str) -> Any:
         try:
             response = await self.get_response(request)
             self._set_response_id(response, request_id)
@@ -61,7 +61,7 @@ class RequestIdMiddleware:
         finally:
             self._cleanup()
 
-    def _sync_dispatch(self, request: HttpRequest, request_id: str) -> HttpResponse:
+    def _sync_dispatch(self, request: HttpRequest, request_id: str) -> Any:
         try:
             response = self.get_response(request)
             self._set_response_id(response, request_id)

@@ -41,7 +41,7 @@ class SecurityHeadersMiddleware:
         self._apply_csp(request, response)
         return response
 
-    async def _adispatch(self, request: HttpRequest) -> HttpResponse:
+    async def _adispatch(self, request: HttpRequest) -> Any:
         response = await self.get_response(request)
         self._apply_csp(request, response)
         return response
@@ -81,7 +81,7 @@ class PermissionsPolicyMiddleware:
         self._set_policy(response)
         return response
 
-    async def _adispatch(self, request: HttpRequest) -> HttpResponse:
+    async def _adispatch(self, request: HttpRequest) -> Any:
         response = await self.get_response(request)
         self._set_policy(response)
         return response
@@ -142,7 +142,7 @@ class ServiceLocatorScopeMiddleware:
         with ServiceLocator.scope():
             return self.get_response(request)
 
-    async def _adispatch(self, request: HttpRequest) -> HttpResponse:
+    async def _adispatch(self, request: HttpRequest) -> Any:
         from apps.core.interfaces import ServiceLocator
 
         with ServiceLocator.scope():
