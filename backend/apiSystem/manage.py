@@ -20,9 +20,10 @@ def main() -> None:
     """Run administrative tasks."""
     os.environ.setdefault("DJANGO_SETTINGS_MODULE", "apiSystem.settings")
 
-    # Django 4.1+ 支持 --watch 选项
-    if "--watch" not in sys.argv and _plugins_dir.is_dir():
-        sys.argv.extend(["--watch", str(_plugins_dir)])
+    # Django 4.1+ 支持 --watch 选项（仅用于 runserver）
+    if len(sys.argv) > 1 and sys.argv[1] == "runserver" and "--watch" not in sys.argv:
+        if _plugins_dir.is_dir():
+            sys.argv.extend(["--watch", str(_plugins_dir)])
 
     try:
         from django.core.management import execute_from_command_line
