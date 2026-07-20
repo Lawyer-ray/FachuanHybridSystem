@@ -252,7 +252,8 @@ class TestScriptExecutorMappings:
         from apps.oa_filing.services.exceptions import ScriptExecutionError
 
         with pytest.raises(ValueError, match="不支持"):
-            from apps.oa_filing.services.oa_firm_registry import create_adapter; create_adapter("unsupported", "t", "t")
+            from apps.oa_filing.services.oa_firm_registry import create_adapter
+            create_adapter("unsupported", "t", "t")
 
 
 # ---------------------------------------------------------------------------

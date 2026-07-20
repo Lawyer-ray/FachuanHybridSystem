@@ -320,7 +320,7 @@ async def review_complaint_quality(draft: dict, summary: dict) -> dict:
 # ── 立案（条件性，依赖 court_automation 插件）───────────────────
 
 try:
-    from plugins.court_automation.filing.helpers import _run_filing  # noqa: F401
+    from plugins.court_automation.filing.helpers import _run_filing
 
     _HAS_COURT_FILING = True
 except ImportError:

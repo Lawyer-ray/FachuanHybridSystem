@@ -26,6 +26,7 @@ from apps.contracts.schemas.contract_schemas import (
     UpdateLawyersIn,
 )
 from apps.contracts.models import FeeMode
+from datetime import UTC
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -280,12 +281,12 @@ class TestContractOutResolvers:
         # 构造两条提醒：一条 case_log_id=None（应保留），一条 case_log_id=1（应过滤）
         r1 = SimpleNamespace(
             id=10, contract_id=42, case_id=None, case_log_id=None,
-            reminder_type="hearing", content="开庭", due_at=datetime(2026, 7, 1, 9, 0, tzinfo=dt_tz.utc),
+            reminder_type="hearing", content="开庭", due_at=datetime(2026, 7, 1, 9, 0, tzinfo=UTC),
             metadata={"key": "val"},
         )
         r2 = SimpleNamespace(
             id=11, contract_id=42, case_id=5, case_log_id=1,
-            reminder_type="deadline", content="举证", due_at=datetime(2026, 7, 2, tzinfo=dt_tz.utc),
+            reminder_type="deadline", content="举证", due_at=datetime(2026, 7, 2, tzinfo=UTC),
             metadata=None,
         )
         # due_at=None 的提醒，验证排序不会崩溃

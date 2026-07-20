@@ -8,7 +8,7 @@ Fix: Snapshot model_fields_set before assignments and restore after.
 """
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timezone, UTC
 
 import pytest
 
@@ -34,7 +34,7 @@ class TestCaseLogReminderMixinFieldsSet:
 
     def test_update_both_reminders_no_leak(self) -> None:
         """CaseLogUpdate with both reminder fields should include both."""
-        now = datetime.now(tz=timezone.utc)
+        now = datetime.now(tz=UTC)
         schema = CaseLogUpdate(content="x", reminder_type="hearing", reminder_time=now)
         dumped = schema.model_dump(exclude_unset=True)
         assert "reminder_type" in dumped
@@ -65,12 +65,12 @@ class TestCaseLogReminderMixinFieldsSet:
 
     def test_update_reminder_time_without_type_rejected(self) -> None:
         """Providing only reminder_time (no type) should raise."""
-        now = datetime.now(tz=timezone.utc)
+        now = datetime.now(tz=UTC)
         with pytest.raises(Exception, match="提醒类型和提醒时间必须同时提供"):
             CaseLogUpdate(content="x", reminder_time=now)
 
     def test_reminder_type_validation_preserved(self) -> None:
         """Invalid reminder type should still be rejected."""
-        now = datetime.now(tz=timezone.utc)
+        now = datetime.now(tz=UTC)
         with pytest.raises(Exception, match="无效的提醒类型"):
             CaseLogUpdate(content="x", reminder_type="invalid_type", reminder_time=now)

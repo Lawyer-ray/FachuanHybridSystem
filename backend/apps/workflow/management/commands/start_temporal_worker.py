@@ -92,7 +92,7 @@ class Command(BaseCommand):
             summarize_evidence,
             update_run_status,
         )
-        from apps.workflow.temporal.activities import _HAS_COURT_FILING  # noqa: F811
+        from apps.workflow.temporal.activities import _HAS_COURT_FILING
         from apps.workflow.temporal.workflows import DynamicWorkflow, SalesContractDisputeWorkflow
 
         temporal_addr = options["temporal_address"]

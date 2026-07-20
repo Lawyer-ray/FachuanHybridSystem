@@ -270,9 +270,11 @@ class FolderTemplateAdminService:
             if level == 0:
                 prefix = "📁 "
 
+            from django.utils.html import escape
+
             html_parts.append('<li style="margin: 1px 0; white-space: nowrap;">')
             html_parts.append(f'<span style="color: #666; font-weight: normal;">{prefix}</span>')
-            html_parts.append(f'<span style="color: #333; font-weight: 500;">{name}</span>')
+            html_parts.append(f'<span style="color: #333; font-weight: 500;">{escape(name)}</span>')
 
             sub_html = self.render_structure_tree(child, level + 1)
             if sub_html:

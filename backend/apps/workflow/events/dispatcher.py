@@ -22,7 +22,7 @@ _client: Client | None = None
 async def _get_client() -> Client:
     global _client
     if _client is None:
-        from temporalio.client import Client  # noqa: F811
+        from temporalio.client import Client
         _client = await Client.connect(TEMPORAL_ADDRESS)
     return _client
 

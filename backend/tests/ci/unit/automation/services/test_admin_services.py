@@ -16,7 +16,7 @@ except ImportError:
 pytestmark = pytest.mark.skipif(not _HAS_LOGIN, reason="court_login plugin not installed")
 
 try:
-    from plugins.court_automation import filing  # noqa: F401
+    from plugins.court_automation import filing
 except ImportError:
     pytest.skip("court_automation plugin not installed", allow_module_level=True)
 

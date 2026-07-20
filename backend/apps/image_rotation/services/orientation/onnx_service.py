@@ -97,6 +97,7 @@ class ONNXOrientationService:
             hf_hub_download(
                 repo_id="Fachuan/orientation-classifier",
                 filename="fachuan-orientation-classifier.onnx",
+                revision="v1.0",  # 固定版本防止供应链投毒
                 local_dir=str(MODEL_DIR),
             )
             logger.info("模型下载完成")
