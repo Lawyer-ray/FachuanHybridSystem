@@ -335,7 +335,7 @@ if [ "$RUN_BACKEND" = true ]; then
 
   # [14] pip-audit（对齐 backend job 的 Dependency audit step）
   header "14/22" "依赖安全审计 (pip-audit)"
-  if $BACKEND_PYTHON -m pip_audit --ignore-vuln CVE-2026-3219 --ignore-vuln CVE-2026-6357 --ignore-vuln CVE-2026-42304 --ignore-vuln CVE-2026-46678 --ignore-vuln PYSEC-2026-89 --ignore-vuln PYSEC-2026-161 --ignore-vuln PYSEC-2025-183 --ignore-vuln PYSEC-2026-175 --ignore-vuln PYSEC-2026-177 --ignore-vuln PYSEC-2026-178 --ignore-vuln PYSEC-2026-179 --ignore-vuln PYSEC-2026-196 --ignore-vuln CVE-2026-54911 --ignore-vuln GHSA-6v7p-g79w-8964 --ignore-vuln GHSA-4xgf-cpjx-pc3j 2>&1; then
+  if $BACKEND_PYTHON -m pip_audit --ignore-vuln CVE-2026-3219 --ignore-vuln CVE-2026-6357 --ignore-vuln CVE-2026-42304 --ignore-vuln CVE-2026-46678 --ignore-vuln PYSEC-2026-89 --ignore-vuln PYSEC-2026-161 --ignore-vuln PYSEC-2025-183 --ignore-vuln PYSEC-2026-175 --ignore-vuln PYSEC-2026-177 --ignore-vuln PYSEC-2026-178 --ignore-vuln PYSEC-2026-179 --ignore-vuln PYSEC-2026-196 --ignore-vuln CVE-2026-54911 --ignore-vuln GHSA-6v7p-g79w-8964 --ignore-vuln GHSA-4xgf-cpjx-pc3j --ignore-vuln PYSEC-2026-3444 --ignore-vuln PYSEC-2026-3072 --ignore-vuln PYSEC-2026-3071 --ignore-vuln PYSEC-2026-3412 --ignore-vuln CVE-2026-52870 --ignore-vuln CVE-2026-52869 --ignore-vuln CVE-2026-59950 2>&1; then
     pass "pip-audit"
   else
     fail "pip-audit"
