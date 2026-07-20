@@ -175,6 +175,13 @@ try:
         _TEMPLATE_DIRS.append(os.path.join(BASE_DIR, "..", "plugins", "doc_convert", "templates"))
 except ImportError:
     pass
+try:
+    from plugins import has_message_hub_plugin as _has_mh_tpl  # type: ignore[attr-defined]
+
+    if _has_mh_tpl():
+        _TEMPLATE_DIRS.append(os.path.join(BASE_DIR, "..", "plugins", "message_hub", "templates"))
+except ImportError:
+    pass
 
 TEMPLATES = [
     {
