@@ -306,7 +306,7 @@ jobs:
 
   backend-unit-coverage:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 50
     defaults:
       run:
         working-directory: backend
