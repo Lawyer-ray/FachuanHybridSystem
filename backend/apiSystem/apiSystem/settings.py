@@ -38,9 +38,9 @@ except ImportError:
 # ============================================================
 
 # 安全的默认密钥（仅用于开发环境）
-_DEV_SECRET_KEY = "django-insecure-dev-only-do-not-use-in-production"
+_DEV_SECRET_KEY = "django-insecure-dev-only-do-not-use-in-production"  # pragma: allowlist secret
 
-_security = resolve_security_config(  # pragma: allowlist secret
+_security = resolve_security_config(
     dev_secret_key=_DEV_SECRET_KEY,
     default_allowed_hosts_dev=["*"],
     default_allowed_hosts_prod=["localhost", "127.0.0.1"],
