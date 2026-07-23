@@ -247,9 +247,9 @@ if DB_ENGINE in ("sqlite", "sqlite3", "django.db.backends.sqlite3"):
         }
     }
 elif DB_ENGINE in ("", "postgres", "postgresql", "django.db.backends.postgresql"):
-    # 开发环境：连接 60 秒后自动释放，避免连接数堆积
-    # 生产环境：保持 600 秒，复用连接提升性能
-    _conn_max_age = 60 if DEBUG else 600
+    # 开发环境：每个请求结束后立即释放连接，避免多进程堆积导致 "too many clients"
+    # 生产环境：保持 600 秒复用连接提升性能
+    _conn_max_age = 0 if DEBUG else 600
 
     DATABASES = {
         "default": {
