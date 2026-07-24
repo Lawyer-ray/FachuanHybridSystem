@@ -1,28 +1,23 @@
 #!/usr/bin/env bash
-# pre-push hook — 推送前运行本地 CI（full 模式，含测试）
+# pre-push hook — 推送前运行本地 CI
 #
 # 安装: make install-hooks
 # 跳过: git push --no-verify
 #
 # 行为:
-#   - PostgreSQL 可用 → --full（含单元/集成/property 测试 + 覆盖率）
-#   - PostgreSQL 不可用 → --quick（仅 lint + typecheck，提示启动 PG）
+#   - 默认 --quick（lint + typecheck，约 30 秒）
+#   - 完整测试（28000+ 用例）留给 CI，手动: bash scripts/ci-local.sh --full
 
 set -euo pipefail
 
 GIT_ROOT="$(git rev-parse --show-toplevel)"
 
-# 检查 PostgreSQL 是否可用
-if pg_isready -h 127.0.0.1 -p 5432 -q 2>/dev/null; then
-  echo "▶ pre-push: PostgreSQL 可用，运行完整本地 CI（full 模式）..."
-  echo "  含: ruff + mypy + unit/integration/property tests + coverage + smoke check"
-  MODE="--full"
-else
-  echo "⚠ pre-push: PostgreSQL 不可用，降级为 quick 模式（不跑测试）"
-  echo "  建议: docker compose -f backend/docker-compose.yml up -d postgres"
-  echo "  或:   brew services start postgresql@16"
-  MODE="--quick"
-fi
+# pre-push 默认 quick 模式
+# macOS 25+ 禁用 xdist 并行（FD 3 EXC_GUARD），28000+ 测试串行需 20+ 分钟
+# 完整测试留给 CI 环境，本地手动: bash scripts/ci-local.sh --full
+MODE="--quick"
+echo "▶ pre-push: 运行 quick 模式（lint + typecheck）"
+echo "  完整测试: bash scripts/ci-local.sh --full"
 
 echo ""
 
