@@ -76,6 +76,10 @@ def get_checklist_with_status(contract: Contract) -> dict[str, Any]:
 
     _apply_subitem_order(code_to_material_details)
 
+    # 同步 material_ids 顺序，确保与 materials 一致
+    for code, details in code_to_material_details.items():
+        code_to_materials[code] = [d["id"] for d in details]
+
     case_material_match_codes = find_case_material_match_codes(contract, archive_category)
 
     items_with_status: list[dict[str, Any]] = []
