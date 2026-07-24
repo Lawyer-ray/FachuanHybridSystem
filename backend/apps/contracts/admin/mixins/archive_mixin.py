@@ -129,7 +129,9 @@ class ContractArchiveMixin:  # pragma: no cover
 
     # ── 归档下载与预览 ──
 
-    def download_archive_item_view(self, request: HttpRequest, object_id: int, archive_item_code: str) -> HttpResponse:  # pragma: no cover
+    def download_archive_item_view(
+        self, request: HttpRequest, object_id: int, archive_item_code: str
+    ) -> HttpResponse:  # pragma: no cover
         """下载归档检查项材料的 Admin view（多个文件自动合并为PDF）"""
         from django.http import HttpResponse as DjangoHttpResponse
 
@@ -166,7 +168,9 @@ class ContractArchiveMixin:  # pragma: no cover
 
             return JsonResponse({"success": False, "error": str(e)}, status=500)
 
-    def preview_archive_material_view(self, request: HttpRequest, object_id: int, material_id: int) -> HttpResponse:  # pragma: no cover
+    def preview_archive_material_view(
+        self, request: HttpRequest, object_id: int, material_id: int
+    ) -> HttpResponse:  # pragma: no cover
         """预览单个归档材料的 Admin view"""
         from django.http import HttpResponse as DjangoHttpResponse
         from django.http import JsonResponse
@@ -302,7 +306,9 @@ class ContractArchiveMixin:  # pragma: no cover
             logger.exception("同步案件材料失败: contract_id=%s", object_id)
             return JsonResponse({"success": False, "error": str(e)}, status=500)
 
-    def reset_and_resync_case_materials_view(self, request: HttpRequest, object_id: int) -> HttpResponse:  # pragma: no cover
+    def reset_and_resync_case_materials_view(
+        self, request: HttpRequest, object_id: int
+    ) -> HttpResponse:  # pragma: no cover
         """重置并重新同步案件材料到归档的 Admin view"""
         from django.http import JsonResponse
 
@@ -438,13 +444,9 @@ class ContractArchiveMixin:  # pragma: no cover
             data = json.loads(request.body)
             orders: dict[str, list[int]] = data.get("orders", {})
 
-            for code, material_ids in orders.items():
-                for i, pk in enumerate(material_ids):
-                    FinalizedMaterial.objects.filter(
-                        pk=pk,
-                        contract_id=object_id,
-                        archive_item_code=code,
-                    ).update(order=i)
+            from apps.contracts.services.archive.archive_query_service import reorder_materials
+
+            reorder_materials(object_id, orders)
 
             logger.info("归档材料排序已保存: contract_id=%s", object_id)
             return JsonResponse({"success": True})
@@ -507,7 +509,9 @@ class ContractArchiveMixin:  # pragma: no cover
             logger.exception("移动归档材料失败: contract_id=%s", object_id)
             return JsonResponse({"success": False, "error": str(e)}, status=500)
 
-    def upload_archive_item_view(self, request: HttpRequest, object_id: int, archive_item_code: str) -> HttpResponse:  # pragma: no cover
+    def upload_archive_item_view(
+        self, request: HttpRequest, object_id: int, archive_item_code: str
+    ) -> HttpResponse:  # pragma: no cover
         """上传文件到归档检查清单项的 Admin view"""
         from django.http import JsonResponse
 
@@ -547,7 +551,9 @@ class ContractArchiveMixin:  # pragma: no cover
             logger.exception("上传归档材料失败: contract_id=%s, code=%s", object_id, archive_item_code)
             return JsonResponse({"success": False, "error": str(e)}, status=500)
 
-    def delete_archive_material_view(self, request: HttpRequest, object_id: int, material_id: int) -> HttpResponse:  # pragma: no cover
+    def delete_archive_material_view(
+        self, request: HttpRequest, object_id: int, material_id: int
+    ) -> HttpResponse:  # pragma: no cover
         """删除归档材料子项的 Admin view"""
         from pathlib import Path
 
@@ -585,7 +591,9 @@ class ContractArchiveMixin:  # pragma: no cover
             logger.exception("删除归档材料失败: material_id=%s", material_id)
             return JsonResponse({"success": False, "error": str(e)}, status=500)
 
-    def clear_all_archive_materials_view(self, request: HttpRequest, object_id: int) -> HttpResponse:  # pragma: no cover
+    def clear_all_archive_materials_view(
+        self, request: HttpRequest, object_id: int
+    ) -> HttpResponse:  # pragma: no cover
         """一键清空归档检查清单中的全部材料"""
         from pathlib import Path
 
