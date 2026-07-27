@@ -49,7 +49,6 @@ class CasePartyInline(BaseTabularInline):  # pragma: no cover
     formset = CasePartyInlineFormSet
     extra = 0
     fields = ("client", "legal_status")
-    autocomplete_fields = ("client",)
     classes = ["contract-party-inline"]
 
     def formfield_for_foreignkey(self, db_field: Any, request: HttpRequest, **kwargs: Any) -> Any:  # pragma: no cover
@@ -283,7 +282,9 @@ class CaseAdmin(
             "logs__reminders",
         )
 
-    def changelist_view(self, request: HttpRequest, extra_context: dict[str, Any] | None = None) -> Any:  # pragma: no cover
+    def changelist_view(
+        self, request: HttpRequest, extra_context: dict[str, Any] | None = None
+    ) -> Any:  # pragma: no cover
         from django.http import HttpResponseRedirect
 
         if "status__exact" not in request.GET and not request.session.get("case_changelist_visited"):
