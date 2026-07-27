@@ -37,11 +37,19 @@ def reorder_materials(contract_id: int, orders: dict[str, list[int]]) -> None:
     """按归档清单项分组排序子项。"""
     for code, material_ids in orders.items():
         for i, pk in enumerate(material_ids):
-            FinalizedMaterial.objects.filter(
+            mat = FinalizedMaterial.objects.filter(
                 pk=pk,
                 contract_id=contract_id,
-                archive_item_code=code,
-            ).update(order=i)
+            ).first()
+            if mat:
+                mat.order = i + 1
+                # 动态映射的材料（如合同正本）数据库中 archive_item_code 为空，
+                # 需要同步写入，否则 get_checklist_with_status 加载顺序会错乱。
+                if not mat.archive_item_code:
+                    mat.archive_item_code = code
+                    mat.save(update_fields=["order", "archive_item_code"])
+                else:
+                    mat.save(update_fields=["order"])
 
 
 def move_material(material: FinalizedMaterial, target_code: str) -> None:

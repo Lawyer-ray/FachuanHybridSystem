@@ -115,7 +115,9 @@ class LPRRateAdmin(BaseModelAdmin):  # pragma: no cover
         ]
         return custom_urls + urls
 
-    def changelist_view(self, request: HttpRequest, extra_context: dict | None = None) -> TemplateResponse:  # pragma: no cover
+    def changelist_view(
+        self, request: HttpRequest, extra_context: dict | None = None
+    ) -> TemplateResponse:  # pragma: no cover
         """列表页面视图，添加快捷操作按钮."""
         extra_context = extra_context or {}
         extra_context["sync_url"] = "sync/"
@@ -175,7 +177,7 @@ class LPRRateAdmin(BaseModelAdmin):  # pragma: no cover
             **self.admin_site.each_context(request),
             "title": "LPR利息计算器",
             "opts": self.model._meta,
-            "recent_rates": LPRRate.objects.all()[:10],
+            "recent_rates": LPRRate.objects.all()[:50],
             "latest_rate": latest_rate,
             "is_data_current": rate_service.is_data_current(),
             "sync_url": "sync/",

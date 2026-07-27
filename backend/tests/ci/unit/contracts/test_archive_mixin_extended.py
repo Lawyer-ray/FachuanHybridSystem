@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock, PropertyMock, patch
 
 import pytest
 
@@ -197,11 +197,11 @@ class TestContractArchiveMixinSuccessPaths:
         request = MagicMock()
         request.method = "POST"
         request.body = json.dumps({"orders": {"code1": [3, 1, 2]}}).encode()
-        with patch("apps.contracts.admin.mixins.archive_mixin.FinalizedMaterial") as mock_model:
-            mock_model.objects.filter.return_value.update.return_value = 3
+        with patch("apps.contracts.services.archive.archive_query_service.reorder_materials") as mock_reorder:
             result = mixin.reorder_archive_materials_view(request, 1)
             data = json.loads(result.content)
             assert data["success"] is True
+            mock_reorder.assert_called_once_with(1, {"code1": [3, 1, 2]})
 
     def test_move_archive_material_missing_params(self) -> None:
         mixin = self._make_mixin()
