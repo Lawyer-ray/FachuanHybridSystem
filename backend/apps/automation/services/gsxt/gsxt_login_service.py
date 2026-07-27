@@ -163,22 +163,33 @@ async def _click_company_detail(page: Any, company_name: str, context: Any) -> A
 
     # 新标签页优先
     if new_page and not new_page.is_closed():
-        # 详情页 #btn_send_pdf 初始可能不可见，等待加载完成
+        # URL 可能还未设置，等待页面有了 URL 再继续
+        try:
+            await new_page.wait_for_url("**/*gsxt.gov.cn**", timeout=15000)
+        except Exception:
+            logger.warning("新标签页等待 URL 超时，当前 URL: %s", new_page.url)
         try:
             await new_page.wait_for_load_state("domcontentloaded", timeout=30000)
         except Exception:
             pass
+        logger.info("新标签页就绪: %s", new_page.url[:80])
         return new_page
 
-    # 在 context 中查找详情页
-    for p in context.pages:
-        try:
-            url = p.url
-            if not p.is_closed() and "gsxt.gov.cn" in url and "search" not in url and "homepage" not in url:
-                logger.info("在 context 中找到详情页: %s", url[:80])
-                return p
-        except Exception:
-            continue
+    # 在 context 中查找详情页（等待新页面出现）
+    for _attempt in range(5):
+        for p in context.pages:
+            try:
+                url = p.url
+                if not p.is_closed() and "gsxt.gov.cn" in url and "search" not in url and "homepage" not in url:
+                    logger.info("在 context 中找到详情页: %s", url[:80])
+                    try:
+                        await p.wait_for_load_state("domcontentloaded", timeout=30000)
+                    except Exception:
+                        pass
+                    return p
+            except Exception:
+                continue
+        await asyncio.sleep(2)
 
     raise GsxtReportError("详情页未打开，可能被 WAF 拦截")
 
@@ -305,6 +316,32 @@ async def _run_full_flow(credential: GsxtCredentialProtocol, task_id: int) -> No
             target = detail_page or page
             # 详情页改版后，"发送报告"按钮藏在"更多"下拉菜单中
             # 流程：点击 #moreActionsToggle → 显示 #moreActionsMenu → 点击 #btn_send_pdf
+
+            # 等待详情页完全加载（可能因重定向/JS 渲染导致页面不稳定）
+            try:
+                await target.wait_for_load_state("domcontentloaded", timeout=30000)
+            except Exception:
+                logger.warning("等待详情页加载超时，继续尝试操作")
+            await asyncio.sleep(3)
+
+            logger.info("详情页 URL: %s", target.url)
+            # 先用 JS 检查页面上有哪些可交互元素（调试用）
+            try:
+                debug_info = await target.evaluate("""() => {
+                    const toggle = document.querySelector('#moreActionsToggle');
+                    const btnPdf = document.querySelector('#btn_send_pdf');
+                    return {
+                        hasToggle: !!toggle,
+                        toggleVisible: toggle ? toggle.offsetParent !== null : false,
+                        hasBtnPdf: !!btnPdf,
+                        btnPdfVisible: btnPdf ? btnPdf.offsetParent !== null : false,
+                        bodyLength: document.body ? document.body.innerHTML.length : 0,
+                    };
+                }""")
+                logger.info("详情页元素检查: %s", debug_info)
+            except Exception as e:
+                logger.warning("详情页元素检查失败: %s", e)
+
             try:
                 await target.wait_for_selector("#moreActionsToggle", timeout=30000)
                 # 用 force=True 绕过可能的遮挡层（如透明 overlay）

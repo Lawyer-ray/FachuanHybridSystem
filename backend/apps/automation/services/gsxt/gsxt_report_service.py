@@ -129,18 +129,28 @@ async def _click_company_detail(page: Any, company_name: str, context: Any) -> A
 
     if new_page and not new_page.is_closed():
         try:
+            await new_page.wait_for_url("**/*gsxt.gov.cn**", timeout=15000)
+        except Exception:
+            logger.warning("新标签页等待 URL 超时，当前 URL: %s", new_page.url)
+        try:
             await new_page.wait_for_load_state("domcontentloaded", timeout=30000)
         except Exception:
             pass
         return new_page
 
-    for p in context.pages:
-        try:
-            url = p.url
-            if not p.is_closed() and "gsxt.gov.cn" in url and "search" not in url and "homepage" not in url:
-                return p
-        except Exception:
-            continue
+    for _attempt in range(5):
+        for p in context.pages:
+            try:
+                url = p.url
+                if not p.is_closed() and "gsxt.gov.cn" in url and "search" not in url and "homepage" not in url:
+                    try:
+                        await p.wait_for_load_state("domcontentloaded", timeout=30000)
+                    except Exception:
+                        pass
+                    return p
+            except Exception:
+                continue
+        await asyncio.sleep(2)
 
     raise GsxtReportError("详情页未打开，可能被 WAF 拦截")
 
