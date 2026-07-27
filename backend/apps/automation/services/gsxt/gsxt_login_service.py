@@ -10,8 +10,8 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import time
 import threading
+import time
 from typing import Any, Protocol
 
 from django.utils import timezone
@@ -307,19 +307,21 @@ async def _run_full_flow(credential: GsxtCredentialProtocol, task_id: int) -> No
             # 流程：点击 #moreActionsToggle → 显示 #moreActionsMenu → 点击 #btn_send_pdf
             try:
                 await target.wait_for_selector("#moreActionsToggle", timeout=30000)
-                await target.click("#moreActionsToggle")
+                # 用 force=True 绕过可能的遮挡层（如透明 overlay）
+                await target.click("#moreActionsToggle", force=True)
                 logger.info("已点击'更多'按钮，等待下拉菜单显示...")
-                await asyncio.sleep(1)
+                # 等待下拉菜单实际可见（而非固定 sleep）
+                await target.wait_for_selector("#moreActionsMenu", state="visible", timeout=10000)
+                await asyncio.sleep(0.5)
             except Exception:
-                logger.warning("未找到'更多'按钮，尝试直接点击 #btn_send_pdf")
+                logger.warning("未找到'更多'按钮或下拉菜单未展开，尝试直接点击 #btn_send_pdf")
 
-            # 等待 #btn_send_pdf 出现（在下拉菜单中）
             try:
-                await target.wait_for_selector("#btn_send_pdf", timeout=15000)
+                await target.wait_for_selector("#btn_send_pdf", state="visible", timeout=15000)
             except Exception:
                 raise GsxtReportError("详情页未找到发送报告按钮，可能页面未完全加载")
 
-            await target.click("#btn_send_pdf")
+            await target.click("#btn_send_pdf", force=True)
             logger.info("已点击发送报告，等待用户完成验证码...")
 
             done = await _wait_captcha_success(
