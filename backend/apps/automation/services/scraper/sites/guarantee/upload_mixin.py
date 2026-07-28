@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import mimetypes
 import re
 from pathlib import Path
 from typing import Any
+
+logger = logging.getLogger("apps.automation")
 
 
 def _pick_identity_files_from_map(
