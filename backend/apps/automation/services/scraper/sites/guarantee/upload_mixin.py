@@ -223,6 +223,37 @@ class GuaranteeUploadMixin:  # pragma: no cover
                         return entry["path"]
             return None
 
+        def _pick_all_paths(  # pragma: no cover
+            keyword_groups: list[list[str]],
+            *,
+            type_name_groups: list[list[str]] | None = None,
+            exclude_type_names: list[str] | None = None,
+        ) -> list[str]:
+            """返回所有匹配的文件路径（用于起诉状等可能有多份同类材料的场景）。"""
+            found: list[str] = []
+            if type_name_groups:
+                for keywords in type_name_groups:
+                    for entry in items:
+                        if entry["path"] in used or entry["path"] in found:
+                            continue
+                        tn = entry["type_name"]
+                        if exclude_type_names and any(ex in tn for ex in exclude_type_names):
+                            continue
+                        if any(keyword in tn for keyword in keywords):
+                            found.append(entry["path"])
+            if keyword_groups:
+                for keywords in keyword_groups:
+                    for entry in items:
+                        if entry["path"] in used or entry["path"] in found:
+                            continue
+                        tn = entry["type_name"]
+                        if exclude_type_names and any(ex in tn for ex in exclude_type_names):
+                            continue
+                        haystack = f"{entry.get('original_name', '')} {entry['path'].rsplit('/', 1)[-1]}"
+                        if any(keyword in haystack for keyword in keywords):
+                            found.append(entry["path"])
+            return found
+
         def _pick_evidence() -> list[str]:  # pragma: no cover
             evidence: list[str] = []
             for entry in items:
@@ -272,12 +303,12 @@ class GuaranteeUploadMixin:  # pragma: no cover
                 if picked:
                     chosen_files = [picked]
             elif "起诉" in label_text:
-                picked = _pick_path(
+                all_picked = _pick_all_paths(
                     [["起诉状", "起诉书"], ["起诉"]],
                     type_name_groups=[["起诉状"]],
                 )
-                if picked:
-                    chosen_files = [picked]
+                if all_picked:
+                    chosen_files = all_picked
             elif "受理" in label_text or "立案" in label_text:
                 picked = _pick_path([["受理案件通知书", "受理通知书", "立案受理通知书", "立案通知书", "立案通知"]])
                 if picked:
@@ -784,6 +815,37 @@ class GuaranteeUploadMixin:  # pragma: no cover
                         return entry["path"]
             return None
 
+        def _pick_all_paths(  # pragma: no cover
+            keyword_groups: list[list[str]],
+            *,
+            type_name_groups: list[list[str]] | None = None,
+            exclude_type_names: list[str] | None = None,
+        ) -> list[str]:
+            """返回所有匹配的文件路径。"""
+            found: list[str] = []
+            if type_name_groups:
+                for keywords in type_name_groups:
+                    for entry in items:
+                        if entry["path"] in used or entry["path"] in found:
+                            continue
+                        tn = entry["type_name"]
+                        if exclude_type_names and any(ex in tn for ex in exclude_type_names):
+                            continue
+                        if any(keyword in tn for keyword in keywords):
+                            found.append(entry["path"])
+            if keyword_groups:
+                for keywords in keyword_groups:
+                    for entry in items:
+                        if entry["path"] in used or entry["path"] in found:
+                            continue
+                        tn = entry["type_name"]
+                        if exclude_type_names and any(ex in tn for ex in exclude_type_names):
+                            continue
+                        haystack = f"{entry.get('original_name', '')} {entry['path'].rsplit('/', 1)[-1]}"
+                        if any(keyword in haystack for keyword in keywords):
+                            found.append(entry["path"])
+            return found
+
         def _pick_evidence() -> list[str]:  # pragma: no cover
             evidence: list[str] = []
             for entry in items:
@@ -833,12 +895,12 @@ class GuaranteeUploadMixin:  # pragma: no cover
                 if picked:
                     chosen_files = [picked]
             elif "起诉" in label_text:
-                picked = _pick_path(
+                all_picked = _pick_all_paths(
                     [["起诉状", "起诉书"], ["起诉"]],
                     type_name_groups=[["起诉状"]],
                 )
-                if picked:
-                    chosen_files = [picked]
+                if all_picked:
+                    chosen_files = all_picked
             elif "受理" in label_text or "立案" in label_text:
                 picked = _pick_path([["受理案件通知书", "受理通知书", "立案受理通知书", "立案通知书", "立案通知"]])
                 if picked:
