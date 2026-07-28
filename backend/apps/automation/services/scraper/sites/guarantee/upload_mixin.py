@@ -360,7 +360,7 @@ class GuaranteeUploadMixin:  # pragma: no cover
                             {"index": i, "label": label_text[:80], "file": single_file.rsplit("/", 1)[-1]}
                         )
                         self._wait_upload_idle(timeout_ms=90000)  # type: ignore[attr-defined]
-                        self._random_wait(1.8, 2.8)  # type: ignore[attr-defined]
+                        self._random_wait(3.5, 5.0)  # type: ignore[attr-defined]
                     except Exception:
                         continue
             else:
@@ -910,7 +910,7 @@ class GuaranteeUploadMixin:  # pragma: no cover
                             {"index": i, "label": label_text[:80], "file": single_file.rsplit("/", 1)[-1]}
                         )
                         await self._async_wait_upload_idle(timeout_ms=90000)  # type: ignore[attr-defined]
-                        await self._async_random_wait(1.8, 2.8)  # type: ignore[attr-defined]
+                        await self._async_random_wait(3.5, 5.0)  # type: ignore[attr-defined]
                     except Exception:
                         continue
             else:
