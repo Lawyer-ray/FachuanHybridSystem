@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import mimetypes
 import re
 from pathlib import Path
 from typing import Any
+
+logger = logging.getLogger("apps.automation")
 
 
 def _pick_identity_files_from_map(
@@ -20,8 +23,18 @@ def _pick_identity_files_from_map(
 
     宁可不传，不乱传：只返回明确匹配到的材料路径。
     """
+    import logging as _logging
+
+    _log = _logging.getLogger("apps.automation")
+
     if not party_material_map:
+        _log.warning(f"[gThree] party_material_map 为空, label={label_text}")
         return []
+
+    _log.info(f"[gThree] 开始匹配: label={label_text}")
+    _log.info(f"[gThree] applicants={[p.get('name') for p in party_material_map.get('applicants', [])]}")
+    _log.info(f"[gThree] respondents={[p.get('name') for p in party_material_map.get('respondents', [])]}")
+    _log.info(f"[gThree] lawyers={[p.get('name') for p in party_material_map.get('lawyers', [])]}")
 
     def _paths_for(party_entry: dict[str, Any], *type_names: str) -> list[str]:
         materials: dict[str, list[str]] = party_entry.get("materials") or {}
@@ -30,6 +43,9 @@ def _pick_identity_files_from_map(
             for path in materials.get(tn, []):
                 if path not in used:
                     result.append(path)
+        _log.info(
+            f"[gThree] _paths_for({party_entry.get('name')}, {type_names}) → {result}, materials_keys={list(materials.keys())}"
+        )
         return result
 
     def _find_party(entries: list[dict[str, Any]], name: str) -> dict[str, Any] | None:
@@ -46,15 +62,17 @@ def _pick_identity_files_from_map(
 
     import re as _re
 
-    m = _re.search(r"申请人-(.*?)-(法人|非法人组织|自然人)", label_text)
+    m = _re.search(r"(?<!被)申请人-(.*?)-(法人|非法人组织|自然人)", label_text)
     if m:
         party_name = str(m.group(1) or "").strip()
         party_type = str(m.group(2) or "").strip()
+        _log.info(f"[gThree] 申请人匹配: name={party_name}, type={party_type}")
         party = _find_party(party_material_map.get("applicants", []), party_name)
         if not party:
+            _log.warning(f"[gThree] 未找到申请人 party: {party_name}")
             return []
         if party_type in ("法人", "非法人组织"):
-            return _paths_for(party, "法定代表人身份证明书", "营业执照")
+            return _paths_for(party, "法定代表人身份证明书", "法定代表人身份证", "营业执照")
         if party_type == "自然人":
             return _paths_for(party, "身份证")
 
@@ -62,8 +80,10 @@ def _pick_identity_files_from_map(
     if m:
         party_name = str(m.group(1) or "").strip()
         party_type = str(m.group(2) or "").strip()
+        _log.info(f"[gThree] 被申请人匹配: name={party_name}, type={party_type}")
         party = _find_party(party_material_map.get("respondents", []), party_name)
         if not party:
+            _log.warning(f"[gThree] 未找到被申请人 party: {party_name}")
             return []
         if party_type in ("法人", "非法人组织"):
             return _paths_for(party, "营业执照")
@@ -71,11 +91,31 @@ def _pick_identity_files_from_map(
             return _paths_for(party, "身份证")
 
     if "代理人" in label_text or "执业律师" in label_text:
-        lawyer = party_material_map.get("lawyer")
-        if not lawyer:
+        lawyers = party_material_map.get("lawyers") or []
+        # 从标签中提取律师姓名：原告代理人-房长波-执业律师 → 房长波
+        lawyer_name = ""
+        lm = _re.search(r"原告代理人-(.*?)-执业律师", label_text)
+        if lm:
+            lawyer_name = str(lm.group(1) or "").strip()
+        if not lawyer_name:
+            lm = _re.search(r"被告代理人-(.*?)-执业律师", label_text)
+            if lm:
+                lawyer_name = str(lm.group(1) or "").strip()
+
+        # 按姓名精确匹配律师条目
+        matched_lawyer = None
+        for lw in lawyers:
+            lw_name = str(lw.get("name") or "").strip()
+            if lawyer_name and lawyer_name in lw_name:
+                matched_lawyer = lw
+                break
+        if not matched_lawyer and lawyers:
+            matched_lawyer = lawyers[0]
+
+        if not matched_lawyer:
             return []
-        result = _paths_for(lawyer, "律师证")
-        result.extend(_paths_for(lawyer, "所函", "授权委托书", "授权委托"))
+        result = _paths_for(matched_lawyer, "律师证")
+        result.extend(_paths_for(matched_lawyer, "所函", "授权委托书", "授权委托", "委托材料"))
         return result
 
     if "申请人-" in label_text or "被申请人-" in label_text:
@@ -83,7 +123,7 @@ def _pick_identity_files_from_map(
             for party in party_material_map.get(group_key, []):
                 ct = str(party.get("client_type") or "legal").strip()
                 if ct in ("legal", "non_legal_org"):
-                    paths = _paths_for(party, "法定代表人身份证明书", "营业执照")
+                    paths = _paths_for(party, "法定代表人身份证明书", "法定代表人身份证", "营业执照")
                 else:
                     paths = _paths_for(party, "身份证")
                 if paths:
@@ -149,55 +189,62 @@ class GuaranteeUploadMixin:  # pragma: no cover
 
         used: set[str] = set()
 
-        def _pick_path(  # pragma: no cover
+        def _matches(entry: dict[str, str], keywords: list[str], *, by_type: bool) -> bool:
+            """检查 entry 是否匹配关键词（by_type=True 按 type_name，False 按文件名）。"""
+            if by_type:
+                return any(kw in entry["type_name"] for kw in keywords)
+            haystack = f"{entry.get('original_name', '')} {entry['path'].rsplit('/', 1)[-1]}"
+            return any(kw in haystack for kw in keywords)
+
+        def _pick_materials(  # pragma: no cover
             keyword_groups: list[list[str]],
             *,
             type_name_groups: list[list[str]] | None = None,
             exclude_type_names: list[str] | None = None,
-        ) -> str | None:
+            first_only: bool = True,
+        ) -> list[str]:
+            """从 items 中匹配材料。first_only=True 只返回第一个，False 返回全部。"""
+            result: list[str] = []
+
+            def _excluded(entry: dict[str, str]) -> bool:
+                if not exclude_type_names:
+                    return False
+                return any(ex in entry["type_name"] for ex in exclude_type_names)
+
+            def _already(path: str) -> bool:
+                return path in used or path in result
+
+            # 按 type_name 匹配（优先）
             if type_name_groups:
                 for keywords in type_name_groups:
                     for entry in items:
-                        if entry["path"] in used:
+                        if _already(entry["path"]) or _excluded(entry):
                             continue
-                        tn = entry["type_name"]
-                        if exclude_type_names and any(ex in tn for ex in exclude_type_names):
-                            continue
-                        if any(keyword in tn for keyword in keywords):
-                            return entry["path"]
+                        if _matches(entry, keywords, by_type=True):
+                            result.append(entry["path"])
+                            if first_only:
+                                return result
+
+            # 按文件名匹配
             if keyword_groups:
                 for keywords in keyword_groups:
                     for entry in items:
-                        if entry["path"] in used:
+                        if _already(entry["path"]) or _excluded(entry):
                             continue
-                        tn = entry["type_name"]
-                        if exclude_type_names and any(ex in tn for ex in exclude_type_names):
-                            continue
-                        haystack = f"{entry.get('original_name', '')} {entry['path'].rsplit('/', 1)[-1]}"
-                        if any(keyword in haystack for keyword in keywords):
-                            return entry["path"]
-            # 仅当未指定任何关键词组时，才兜底返回第一个未使用文件
+                        if _matches(entry, keywords, by_type=False):
+                            result.append(entry["path"])
+                            if first_only:
+                                return result
+
+            # 无关键词时兜底：返回第一个未使用文件
             if not type_name_groups and not keyword_groups:
                 for entry in items:
                     if entry["path"] not in used:
-                        return entry["path"]
-            return None
+                        result.append(entry["path"])
+                        if first_only:
+                            return result
 
-        def _pick_evidence() -> list[str]:  # pragma: no cover
-            evidence: list[str] = []
-            for entry in items:
-                if entry["path"] in used:
-                    continue
-                if any(kw in entry["type_name"] for kw in ["证据", "明细", "清单"]):
-                    evidence.append(entry["path"])
-            if not evidence:
-                for entry in items:
-                    if entry["path"] in used:
-                        continue
-                    haystack = f"{entry.get('original_name', '')} {entry['path'].rsplit('/', 1)[-1]}"
-                    if any(kw in haystack for kw in ["证据", "明细", "清单"]):
-                        evidence.append(entry["path"])
-            return evidence
+            return result
 
         file_inputs = self.page.locator("input[type='file']")
         total_inputs = min(file_inputs.count(), 10)
@@ -225,27 +272,26 @@ class GuaranteeUploadMixin:  # pragma: no cover
 
             chosen_files: list[str] = []
             if "保全申请" in label_text:
-                picked = _pick_path(
+                chosen_files = _pick_materials(
                     [["财产保全申请书", "保全申请书"], ["申请书"]],
                     type_name_groups=[["保全申请", "保全", "保全申请书及保函"]],
                 )
-                if picked:
-                    chosen_files = [picked]
             elif "起诉" in label_text:
-                picked = _pick_path(
+                chosen_files = _pick_materials(
                     [["起诉状", "起诉书"], ["起诉"]],
                     type_name_groups=[["起诉状"]],
+                    first_only=False,
                 )
-                if picked:
-                    chosen_files = [picked]
             elif "受理" in label_text or "立案" in label_text:
-                picked = _pick_path([["受理案件通知书", "受理通知书", "立案受理通知书", "立案通知书", "立案通知"]])
-                if picked:
-                    chosen_files = [picked]
+                chosen_files = _pick_materials(
+                    [["受理案件通知书", "受理通知书", "立案受理通知书", "立案通知书", "立案通知"]],
+                )
             elif "案件证据" in label_text:
-                evidence_files = _pick_evidence()
-                if evidence_files:
-                    chosen_files = evidence_files
+                chosen_files = _pick_materials(
+                    [["证据", "明细", "清单"]],
+                    type_name_groups=[["证据", "明细", "清单"]],
+                    first_only=False,
+                )
             elif "申请人-" in label_text or "被申请人-" in label_text or "身份证明" in label_text:
                 party_material_map = case_data.get("party_material_map")
                 identity_files = _pick_identity_files_from_map(
@@ -258,13 +304,11 @@ class GuaranteeUploadMixin:  # pragma: no cover
                     chosen_files = identity_files
                 elif not party_material_map:
                     # 兜底：无 party_material_map 时使用原有关键词匹配
-                    picked = _pick_path(
+                    chosen_files = _pick_materials(
                         [["身份证明", "身份证"], ["营业执照"], ["授权委托书", "所函"]],
                         type_name_groups=[["身份证明", "当事人身份证明"]],
                         exclude_type_names=["委托材料", "委托手续", "授权委托"],
                     )
-                    if picked:
-                        chosen_files = [picked]
             elif "代理人" in label_text or "执业律师" in label_text:
                 party_material_map = case_data.get("party_material_map")
                 agent_files = _pick_identity_files_from_map(
@@ -276,49 +320,71 @@ class GuaranteeUploadMixin:  # pragma: no cover
                 if agent_files:
                     chosen_files = agent_files
                 elif not party_material_map:
-                    picked = _pick_path(
+                    chosen_files = _pick_materials(
                         [["所函", "授权委托书", "律师证", "执业证"], ["身份证明", "身份证"]],
                         type_name_groups=[["委托材料", "委托手续", "授权委托", "所函", "律师"]],
                     )
-                    if picked:
-                        chosen_files = [picked]
             elif "证据" in label_text:
-                evidence_files2 = _pick_evidence()
-                if evidence_files2:
-                    chosen_files = evidence_files2
+                chosen_files = _pick_materials(
+                    [["证据", "明细", "清单"]],
+                    type_name_groups=[["证据", "明细", "清单"]],
+                    first_only=False,
+                )
             elif "其他" in label_text:
-                picked = _pick_path([["其他", "保函", "担保函"]])
-                if picked:
-                    chosen_files = [picked]
+                chosen_files = _pick_materials([["其他", "保函", "担保函"]])
             else:
-                picked = _pick_path([[]])
-                if picked:
-                    chosen_files = [picked]
+                chosen_files = _pick_materials([[]])
 
             if not chosen_files:
+                logger.warning(f"[gThree] 未匹配到文件: label={label_text[:80]}")
                 continue
 
-            upload_payload = self._build_file_payloads(chosen_files)
-            try:
-                current.set_input_files(upload_payload)
-                used.update(chosen_files)
-                result["uploaded"] = int(result["uploaded"]) + 1
-                if len(chosen_files) > 1:
-                    result["uploads"].append(
-                        {
-                            "index": i,
-                            "label": label_text[:80],
-                            "files": [path.rsplit("/", 1)[-1] for path in chosen_files],
-                        }
-                    )
-                else:
-                    result["uploads"].append(
-                        {"index": i, "label": label_text[:80], "file": chosen_files[0].rsplit("/", 1)[-1]}
-                    )
-                self._wait_upload_idle(timeout_ms=90000)  # type: ignore[attr-defined]
-                self._random_wait(1.8, 2.8)  # type: ignore[attr-defined]
-            except Exception:
-                continue
+            logger.info(
+                f"[gThree] 准备上传: label={label_text[:80]}, files={[f.rsplit('/', 1)[-1] for f in chosen_files]}"
+            )
+
+            # 身份证明材料逐个文件上传（Vue 上传组件多文件时可能只处理第一个）
+            if chosen_files and (
+                "申请人-" in label_text
+                or "被申请人-" in label_text
+                or "身份证明" in label_text
+                or "代理人" in label_text
+                or "执业律师" in label_text
+            ):
+                for single_file in chosen_files:
+                    try:
+                        current.set_input_files(self._build_file_payload(single_file))
+                        used.add(single_file)
+                        result["uploaded"] = int(result["uploaded"]) + 1
+                        result["uploads"].append(
+                            {"index": i, "label": label_text[:80], "file": single_file.rsplit("/", 1)[-1]}
+                        )
+                        self._wait_upload_idle(timeout_ms=90000)  # type: ignore[attr-defined]
+                        self._random_wait(3.5, 5.0)  # type: ignore[attr-defined]
+                    except Exception:
+                        continue
+            else:
+                upload_payload = self._build_file_payloads(chosen_files)
+                try:
+                    current.set_input_files(upload_payload)
+                    used.update(chosen_files)
+                    result["uploaded"] = int(result["uploaded"]) + 1
+                    if len(chosen_files) > 1:
+                        result["uploads"].append(
+                            {
+                                "index": i,
+                                "label": label_text[:80],
+                                "files": [path.rsplit("/", 1)[-1] for path in chosen_files],
+                            }
+                        )
+                    else:
+                        result["uploads"].append(
+                            {"index": i, "label": label_text[:80], "file": chosen_files[0].rsplit("/", 1)[-1]}
+                        )
+                    self._wait_upload_idle(timeout_ms=90000)  # type: ignore[attr-defined]
+                    self._random_wait(1.8, 2.8)  # type: ignore[attr-defined]
+                except Exception:
+                    continue
 
         complaint_path = next(
             (
@@ -379,12 +445,13 @@ class GuaranteeUploadMixin:  # pragma: no cover
 
             if any("身份证明材料" in err for err in errors):
                 identity_paths: list[str] = []
-                legal_identity = _pick_path([["法定代表人身份证明", "身份证明书", "身份证明", "身份证"]])
-                business_license = _pick_path([["营业执照"]])
+                legal_identity = _pick_materials([["法定代表人身份证明", "身份证明书", "身份证明", "身份证"]])
+                business_license = _pick_materials([["营业执照"]])
                 if legal_identity:
-                    identity_paths.append(legal_identity)
-                if business_license and business_license not in identity_paths:
-                    identity_paths.append(business_license)
+                    identity_paths.extend(legal_identity)
+                for bl in business_license:
+                    if bl not in identity_paths:
+                        identity_paths.append(bl)
 
                 target_hints: list[str] = []
                 for err in errors:
@@ -421,17 +488,19 @@ class GuaranteeUploadMixin:  # pragma: no cover
                         if target_hints and not any(hint in label_text for hint in target_hints):
                             continue
                         try:
-                            candidate.set_input_files(self._build_file_payloads(identity_paths))
-                            result["uploads"].append(
-                                {
-                                    "index": j,
-                                    "label": label_text[:80],
-                                    "files": [path.rsplit("/", 1)[-1] for path in identity_paths],
-                                    "retry": True,
-                                    "reason": "identity_material",
-                                }
-                            )
-                            self._random_wait(2.0, 2.8)  # type: ignore[attr-defined]
+                            # 逐个上传身份证明材料
+                            for ip in identity_paths:
+                                candidate.set_input_files(self._build_file_payload(ip))
+                                result["uploads"].append(
+                                    {
+                                        "index": j,
+                                        "label": label_text[:80],
+                                        "file": ip.rsplit("/", 1)[-1],
+                                        "retry": True,
+                                        "reason": "identity_material",
+                                    }
+                                )
+                                self._random_wait(2.0, 2.8)  # type: ignore[attr-defined]
                         except Exception:
                             for single_path in identity_paths:
                                 try:
@@ -456,13 +525,14 @@ class GuaranteeUploadMixin:  # pragma: no cover
 
         final_upload_errors = self._get_visible_form_errors()  # type: ignore[attr-defined]
         if any("身份证明材料" in err for err in final_upload_errors):
-            legal_identity = _pick_path([["法定代表人身份证明", "身份证明书", "身份证明", "身份证"]])
-            business_license = _pick_path([["营业执照"]])
+            legal_identity = _pick_materials([["法定代表人身份证明", "身份证明书", "身份证明", "身份证"]])
+            business_license = _pick_materials([["营业执照"]])
             retry_files: list[str] = []
             if legal_identity:
-                retry_files.append(legal_identity)
-            if business_license and business_license not in retry_files:
-                retry_files.append(business_license)
+                retry_files.extend(legal_identity)
+            for bl in business_license:
+                if bl not in retry_files:
+                    retry_files.append(bl)
 
             if retry_files:
                 for j in range(total_inputs):
@@ -678,54 +748,59 @@ class GuaranteeUploadMixin:  # pragma: no cover
 
         used: set[str] = set()
 
-        def _pick_path(  # pragma: no cover
+        def _matches(entry: dict[str, str], keywords: list[str], *, by_type: bool) -> bool:
+            """检查 entry 是否匹配关键词。"""
+            if by_type:
+                return any(kw in entry["type_name"] for kw in keywords)
+            haystack = f"{entry.get('original_name', '')} {entry['path'].rsplit('/', 1)[-1]}"
+            return any(kw in haystack for kw in keywords)
+
+        def _pick_materials(  # pragma: no cover
             keyword_groups: list[list[str]],
             *,
             type_name_groups: list[list[str]] | None = None,
             exclude_type_names: list[str] | None = None,
-        ) -> str | None:
+            first_only: bool = True,
+        ) -> list[str]:
+            """从 items 中匹配材料。first_only=True 只返回第一个，False 返回全部。"""
+            result: list[str] = []
+
+            def _excluded(entry: dict[str, str]) -> bool:
+                if not exclude_type_names:
+                    return False
+                return any(ex in entry["type_name"] for ex in exclude_type_names)
+
+            def _already(path: str) -> bool:
+                return path in used or path in result
+
             if type_name_groups:
                 for keywords in type_name_groups:
                     for entry in items:
-                        if entry["path"] in used:
+                        if _already(entry["path"]) or _excluded(entry):
                             continue
-                        tn = entry["type_name"]
-                        if exclude_type_names and any(ex in tn for ex in exclude_type_names):
-                            continue
-                        if any(keyword in tn for keyword in keywords):
-                            return entry["path"]
+                        if _matches(entry, keywords, by_type=True):
+                            result.append(entry["path"])
+                            if first_only:
+                                return result
+
             if keyword_groups:
                 for keywords in keyword_groups:
                     for entry in items:
-                        if entry["path"] in used:
+                        if _already(entry["path"]) or _excluded(entry):
                             continue
-                        tn = entry["type_name"]
-                        if exclude_type_names and any(ex in tn for ex in exclude_type_names):
-                            continue
-                        haystack = f"{entry.get('original_name', '')} {entry['path'].rsplit('/', 1)[-1]}"
-                        if any(keyword in haystack for keyword in keywords):
-                            return entry["path"]
+                        if _matches(entry, keywords, by_type=False):
+                            result.append(entry["path"])
+                            if first_only:
+                                return result
+
             if not type_name_groups and not keyword_groups:
                 for entry in items:
                     if entry["path"] not in used:
-                        return entry["path"]
-            return None
+                        result.append(entry["path"])
+                        if first_only:
+                            return result
 
-        def _pick_evidence() -> list[str]:  # pragma: no cover
-            evidence: list[str] = []
-            for entry in items:
-                if entry["path"] in used:
-                    continue
-                if any(kw in entry["type_name"] for kw in ["证据", "明细", "清单"]):
-                    evidence.append(entry["path"])
-            if not evidence:
-                for entry in items:
-                    if entry["path"] in used:
-                        continue
-                    haystack = f"{entry.get('original_name', '')} {entry['path'].rsplit('/', 1)[-1]}"
-                    if any(kw in haystack for kw in ["证据", "明细", "清单"]):
-                        evidence.append(entry["path"])
-            return evidence
+            return result
 
         file_inputs = self.page.locator("input[type='file']")
         total_inputs = min(await file_inputs.count(), 10)
@@ -753,27 +828,26 @@ class GuaranteeUploadMixin:  # pragma: no cover
 
             chosen_files: list[str] = []
             if "保全申请" in label_text:
-                picked = _pick_path(
+                chosen_files = _pick_materials(
                     [["财产保全申请书", "保全申请书"], ["申请书"]],
                     type_name_groups=[["保全申请", "保全", "保全申请书及保函"]],
                 )
-                if picked:
-                    chosen_files = [picked]
             elif "起诉" in label_text:
-                picked = _pick_path(
+                chosen_files = _pick_materials(
                     [["起诉状", "起诉书"], ["起诉"]],
                     type_name_groups=[["起诉状"]],
+                    first_only=False,
                 )
-                if picked:
-                    chosen_files = [picked]
             elif "受理" in label_text or "立案" in label_text:
-                picked = _pick_path([["受理案件通知书", "受理通知书", "立案受理通知书", "立案通知书", "立案通知"]])
-                if picked:
-                    chosen_files = [picked]
+                chosen_files = _pick_materials(
+                    [["受理案件通知书", "受理通知书", "立案受理通知书", "立案通知书", "立案通知"]],
+                )
             elif "案件证据" in label_text:
-                evidence_files = _pick_evidence()
-                if evidence_files:
-                    chosen_files = evidence_files
+                chosen_files = _pick_materials(
+                    [["证据", "明细", "清单"]],
+                    type_name_groups=[["证据", "明细", "清单"]],
+                    first_only=False,
+                )
             elif "申请人-" in label_text or "被申请人-" in label_text or "身份证明" in label_text:
                 party_material_map = case_data.get("party_material_map")
                 identity_files = _pick_identity_files_from_map(
@@ -785,13 +859,11 @@ class GuaranteeUploadMixin:  # pragma: no cover
                 if identity_files:
                     chosen_files = identity_files
                 elif not party_material_map:
-                    picked = _pick_path(
+                    chosen_files = _pick_materials(
                         [["身份证明", "身份证"], ["营业执照"], ["授权委托书", "所函"]],
                         type_name_groups=[["身份证明", "当事人身份证明"]],
                         exclude_type_names=["委托材料", "委托手续", "授权委托"],
                     )
-                    if picked:
-                        chosen_files = [picked]
             elif "代理人" in label_text or "执业律师" in label_text:
                 party_material_map = case_data.get("party_material_map")
                 agent_files = _pick_identity_files_from_map(
@@ -803,49 +875,66 @@ class GuaranteeUploadMixin:  # pragma: no cover
                 if agent_files:
                     chosen_files = agent_files
                 elif not party_material_map:
-                    picked = _pick_path(
+                    chosen_files = _pick_materials(
                         [["所函", "授权委托书", "律师证", "执业证"], ["身份证明", "身份证"]],
                         type_name_groups=[["委托材料", "委托手续", "授权委托", "所函", "律师"]],
                     )
-                    if picked:
-                        chosen_files = [picked]
             elif "证据" in label_text:
-                evidence_files2 = _pick_evidence()
-                if evidence_files2:
-                    chosen_files = evidence_files2
+                chosen_files = _pick_materials(
+                    [["证据", "明细", "清单"]],
+                    type_name_groups=[["证据", "明细", "清单"]],
+                    first_only=False,
+                )
             elif "其他" in label_text:
-                picked = _pick_path([["其他", "保函", "担保函"]])
-                if picked:
-                    chosen_files = [picked]
+                chosen_files = _pick_materials([["其他", "保函", "担保函"]])
             else:
-                picked = _pick_path([[]])
-                if picked:
-                    chosen_files = [picked]
+                chosen_files = _pick_materials([[]])
 
             if not chosen_files:
                 continue
 
-            upload_payload = self._build_file_payloads(chosen_files)
-            try:
-                await current.set_input_files(upload_payload)
-                used.update(chosen_files)
-                result["uploaded"] = int(result["uploaded"]) + 1
-                if len(chosen_files) > 1:
-                    result["uploads"].append(
-                        {
-                            "index": i,
-                            "label": label_text[:80],
-                            "files": [path.rsplit("/", 1)[-1] for path in chosen_files],
-                        }
-                    )
-                else:
-                    result["uploads"].append(
-                        {"index": i, "label": label_text[:80], "file": chosen_files[0].rsplit("/", 1)[-1]}
-                    )
-                await self._async_wait_upload_idle(timeout_ms=90000)  # type: ignore[attr-defined]
-                await self._async_random_wait(1.8, 2.8)  # type: ignore[attr-defined]
-            except Exception:
-                continue
+            # 身份证明材料逐个文件上传，其他材料一次传入
+            if chosen_files and (
+                "申请人-" in label_text
+                or "被申请人-" in label_text
+                or "身份证明" in label_text
+                or "代理人" in label_text
+                or "执业律师" in label_text
+            ):
+                for single_file in chosen_files:
+                    try:
+                        await current.set_input_files(self._build_file_payload(single_file))
+                        used.add(single_file)
+                        result["uploaded"] = int(result["uploaded"]) + 1
+                        result["uploads"].append(
+                            {"index": i, "label": label_text[:80], "file": single_file.rsplit("/", 1)[-1]}
+                        )
+                        await self._async_wait_upload_idle(timeout_ms=90000)  # type: ignore[attr-defined]
+                        await self._async_random_wait(3.5, 5.0)  # type: ignore[attr-defined]
+                    except Exception:
+                        continue
+            else:
+                upload_payload = self._build_file_payloads(chosen_files)
+                try:
+                    await current.set_input_files(upload_payload)
+                    used.update(chosen_files)
+                    result["uploaded"] = int(result["uploaded"]) + 1
+                    if len(chosen_files) > 1:
+                        result["uploads"].append(
+                            {
+                                "index": i,
+                                "label": label_text[:80],
+                                "files": [path.rsplit("/", 1)[-1] for path in chosen_files],
+                            }
+                        )
+                    else:
+                        result["uploads"].append(
+                            {"index": i, "label": label_text[:80], "file": chosen_files[0].rsplit("/", 1)[-1]}
+                        )
+                    await self._async_wait_upload_idle(timeout_ms=90000)  # type: ignore[attr-defined]
+                    await self._async_random_wait(1.8, 2.8)  # type: ignore[attr-defined]
+                except Exception:
+                    continue
 
         complaint_path = next(
             (
@@ -906,12 +995,13 @@ class GuaranteeUploadMixin:  # pragma: no cover
 
             if any("身份证明材料" in err for err in errors):
                 identity_paths: list[str] = []
-                legal_identity = _pick_path([["法定代表人身份证明", "身份证明书", "身份证明", "身份证"]])
-                business_license = _pick_path([["营业执照"]])
+                legal_identity = _pick_materials([["法定代表人身份证明", "身份证明书", "身份证明", "身份证"]])
+                business_license = _pick_materials([["营业执照"]])
                 if legal_identity:
-                    identity_paths.append(legal_identity)
-                if business_license and business_license not in identity_paths:
-                    identity_paths.append(business_license)
+                    identity_paths.extend(legal_identity)
+                for bl in business_license:
+                    if bl not in identity_paths:
+                        identity_paths.append(bl)
 
                 target_hints: list[str] = []
                 for err in errors:
@@ -948,17 +1038,18 @@ class GuaranteeUploadMixin:  # pragma: no cover
                         if target_hints and not any(hint in label_text for hint in target_hints):
                             continue
                         try:
-                            await candidate.set_input_files(self._build_file_payloads(identity_paths))
-                            result["uploads"].append(
-                                {
-                                    "index": j,
-                                    "label": label_text[:80],
-                                    "files": [path.rsplit("/", 1)[-1] for path in identity_paths],
-                                    "retry": True,
-                                    "reason": "identity_material",
-                                }
-                            )
-                            await self._async_random_wait(2.0, 2.8)  # type: ignore[attr-defined]
+                            for ip in identity_paths:
+                                await candidate.set_input_files(self._build_file_payload(ip))
+                                result["uploads"].append(
+                                    {
+                                        "index": j,
+                                        "label": label_text[:80],
+                                        "file": ip.rsplit("/", 1)[-1],
+                                        "retry": True,
+                                        "reason": "identity_material",
+                                    }
+                                )
+                                await self._async_random_wait(2.0, 2.8)  # type: ignore[attr-defined]
                         except Exception:
                             for single_path in identity_paths:
                                 try:
@@ -983,13 +1074,14 @@ class GuaranteeUploadMixin:  # pragma: no cover
 
         final_upload_errors = await self._async_get_visible_form_errors()  # type: ignore[attr-defined]
         if any("身份证明材料" in err for err in final_upload_errors):
-            legal_identity = _pick_path([["法定代表人身份证明", "身份证明书", "身份证明", "身份证"]])
-            business_license = _pick_path([["营业执照"]])
+            legal_identity = _pick_materials([["法定代表人身份证明", "身份证明书", "身份证明", "身份证"]])
+            business_license = _pick_materials([["营业执照"]])
             retry_files: list[str] = []
             if legal_identity:
-                retry_files.append(legal_identity)
-            if business_license and business_license not in retry_files:
-                retry_files.append(business_license)
+                retry_files.extend(legal_identity)
+            for bl in business_license:
+                if bl not in retry_files:
+                    retry_files.append(bl)
 
             if retry_files:
                 for j in range(total_inputs):

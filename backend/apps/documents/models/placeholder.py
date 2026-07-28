@@ -93,3 +93,13 @@ class Placeholder(LifecycleModel):
             _create_audit_log(self, action, changes)
         except Exception:
             logger.exception("更新审计日志失败: %s", self)
+
+
+class PlaceholderOverview(Placeholder):
+    """替换词总览（代理模型，只读）"""
+
+    class Meta:
+        proxy = True
+        app_label = "documents"
+        verbose_name = "替换词总览"
+        verbose_name_plural = "替换词总览"

@@ -14,8 +14,12 @@ logger = logging.getLogger(__name__)
 
 class CodePlaceholderCatalogService:
     _KEY_PATTERN = re.compile(r"^[\w\u4e00-\u9fff][\w\u4e00-\u9fff\.\(\)]*$")
+    _cached_definitions: list[CodePlaceholderDefinition] | None = None
 
     def list_definitions(self) -> list[CodePlaceholderDefinition]:
+        if self.__class__._cached_definitions is not None:
+            return self.__class__._cached_definitions
+
         definitions: dict[str, CodePlaceholderDefinition] = {}
 
         for definition in self._from_code_registry():
@@ -33,7 +37,9 @@ class CodePlaceholderCatalogService:
         for definition in self._from_generation_ast_scan():
             definitions.setdefault(definition.key, definition)
 
-        return sorted(definitions.values(), key=lambda d: d.key)
+        result = sorted(definitions.values(), key=lambda d: d.key)
+        self.__class__._cached_definitions = result
+        return result
 
     def get_definition(self, key: str) -> CodePlaceholderDefinition | None:
         for definition in self.list_definitions():

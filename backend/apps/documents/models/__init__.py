@@ -38,7 +38,7 @@ from .fill_record import BatchFillTask, FillRecord
 # 导入所有模型类
 from .folder_template import FolderTemplate
 from .generation import GenerationConfig, GenerationMethod, GenerationStatus, GenerationTask
-from .placeholder import Placeholder
+from .placeholder import Placeholder, PlaceholderOverview
 from .proxy_matter_rule import ProxyMatterRule
 
 # 统一导出
@@ -60,6 +60,7 @@ __all__ = [
     "DocumentTemplate",
     "DocumentTemplateFolderBinding",
     "Placeholder",
+    "PlaceholderOverview",
     "TemplateAuditLog",
     # 证据清单模型（向后兼容，实际定义在 apps.evidence）
     "EvidenceList",
