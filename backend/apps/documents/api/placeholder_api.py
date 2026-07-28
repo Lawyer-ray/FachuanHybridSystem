@@ -1,17 +1,18 @@
 """
 替换词 API
 
-提供替换词的 CRUD 接口.
+提供替换词的 CRUD 接口和总览接口.
 """
 
 from __future__ import annotations
 
 import logging
+from collections import OrderedDict
 from datetime import date, datetime
 from typing import Any
 
 from asgiref.sync import sync_to_async
-from ninja import Router
+from ninja import Router, Schema
 
 from apps.core.security.auth import JWTOrSessionAuth
 from apps.documents.schemas import PlaceholderIn, PlaceholderOut, PlaceholderPreviewOut, PlaceholderUpdate
@@ -144,3 +145,113 @@ async def preview_placeholders(request: Any, contract_id: int) -> Any:  # pragma
         "values": values,
         "missing_keys": missing_keys,
     }
+
+
+# ============================================================
+# 替换词总览
+# ============================================================
+
+
+class PlaceholderDefinitionOut(Schema):
+    """单个替换词定义"""
+
+    key: str
+    source: str = ""
+    category: str = ""
+    display_name: str = ""
+    description: str = ""
+    example_value: str = ""
+
+
+class PlaceholderCategoryGroupOut(Schema):
+    """按分类分组的替换词"""
+
+    category: str
+    label: str
+    count: int
+    items: list[PlaceholderDefinitionOut]
+
+
+class PlaceholderOverviewOut(Schema):
+    """替换词总览响应"""
+
+    total: int
+    groups: list[PlaceholderCategoryGroupOut]
+
+
+CATEGORY_LABELS: dict[str, str] = {
+    "basic": "基础信息",
+    "party": "当事人信息",
+    "contract": "合同信息",
+    "lawyer": "律师信息",
+    "litigation": "诉讼文书",
+    "supplementary": "补充协议",
+    "supplementary_agreement": "补充协议",
+    "authorization_materials": "授权材料",
+    "authorization_material": "授权材料",
+    "case": "案件信息",
+    "evidence": "证据清单",
+    "archive": "归档",
+    "generated": "代码扫描",
+    "general": "通用",
+}
+
+
+def _get_catalog_service() -> Any:
+    from apps.documents.services.code_placeholders.catalog_service import CodePlaceholderCatalogService
+
+    return CodePlaceholderCatalogService()
+
+
+@router.get("/placeholders/overview", response=PlaceholderOverviewOut)
+async def placeholder_overview(request: Any, q: str | None = None) -> Any:  # pragma: no cover
+    """
+    替换词总览
+
+    返回系统支持的所有替换词，按分类分组。
+    支持 q 参数搜索（匹配 key / display_name / description / source）。
+    """
+
+    def _do() -> Any:
+        catalog = _get_catalog_service()
+        definitions = catalog.list_definitions()
+
+        if q:
+            q_lower = q.lower()
+            definitions = [
+                d
+                for d in definitions
+                if q_lower in d.key.lower()
+                or q_lower in (d.display_name or "").lower()
+                or q_lower in (d.description or "").lower()
+                or q_lower in (d.source or "").lower()
+            ]
+
+        grouped: OrderedDict[str, list[Any]] = OrderedDict()
+        for d in definitions:
+            grouped.setdefault(d.category or "general", []).append(d)
+
+        groups: list[dict[str, Any]] = []
+        for cat, items in grouped.items():
+            groups.append(
+                {
+                    "category": cat,
+                    "label": CATEGORY_LABELS.get(cat, cat),
+                    "count": len(items),
+                    "items": [
+                        {
+                            "key": d.key,
+                            "source": d.source or "",
+                            "category": d.category or "",
+                            "display_name": d.display_name or "",
+                            "description": d.description or "",
+                            "example_value": d.example_value or "",
+                        }
+                        for d in items
+                    ],
+                }
+            )
+
+        return {"total": len(definitions), "groups": groups}
+
+    return await sync_to_async(_do)()
