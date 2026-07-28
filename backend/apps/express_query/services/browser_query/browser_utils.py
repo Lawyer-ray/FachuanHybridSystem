@@ -272,10 +272,17 @@ async def detect_page_state(
         if await has_any_visible(page, _login_selectors):
             return "loginRequired"
 
-    # 验证码检测
-    if await has_any_visible(page, _captcha_selectors):
-        return "captcha"
-    if any(kw in normalized for kw in _captcha_keywords):
+    # 验证码检测（仅检测真正的验证码输入框是否可见，不扫描页面文本
+    # 避免页面帮助文本中出现"验证码"三字导致误判）
+    _captcha_inputs = [
+        "input[placeholder*='验证码']",
+        "input[aria-label*='验证码']",
+        "input[type='tel'][maxlength='4']",
+        "input[type='tel'][maxlength='6']",
+        "img[src*='captcha']",
+        "img[src*='verify']",
+    ]
+    if await has_any_visible(page, _captcha_inputs):
         return "captcha"
 
     # 结果就绪检测
