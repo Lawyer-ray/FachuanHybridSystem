@@ -426,12 +426,13 @@ class GuaranteeUploadMixin:  # pragma: no cover
 
             if any("身份证明材料" in err for err in errors):
                 identity_paths: list[str] = []
-                legal_identity = _pick_path([["法定代表人身份证明", "身份证明书", "身份证明", "身份证"]])
-                business_license = _pick_path([["营业执照"]])
+                legal_identity = _pick_materials([["法定代表人身份证明", "身份证明书", "身份证明", "身份证"]])
+                business_license = _pick_materials([["营业执照"]])
                 if legal_identity:
-                    identity_paths.append(legal_identity)
-                if business_license and business_license not in identity_paths:
-                    identity_paths.append(business_license)
+                    identity_paths.extend(legal_identity)
+                for bl in business_license:
+                    if bl not in identity_paths:
+                        identity_paths.append(bl)
 
                 target_hints: list[str] = []
                 for err in errors:
@@ -505,13 +506,14 @@ class GuaranteeUploadMixin:  # pragma: no cover
 
         final_upload_errors = self._get_visible_form_errors()  # type: ignore[attr-defined]
         if any("身份证明材料" in err for err in final_upload_errors):
-            legal_identity = _pick_path([["法定代表人身份证明", "身份证明书", "身份证明", "身份证"]])
-            business_license = _pick_path([["营业执照"]])
+            legal_identity = _pick_materials([["法定代表人身份证明", "身份证明书", "身份证明", "身份证"]])
+            business_license = _pick_materials([["营业执照"]])
             retry_files: list[str] = []
             if legal_identity:
-                retry_files.append(legal_identity)
-            if business_license and business_license not in retry_files:
-                retry_files.append(business_license)
+                retry_files.extend(legal_identity)
+            for bl in business_license:
+                if bl not in retry_files:
+                    retry_files.append(bl)
 
             if retry_files:
                 for j in range(total_inputs):
@@ -954,12 +956,13 @@ class GuaranteeUploadMixin:  # pragma: no cover
 
             if any("身份证明材料" in err for err in errors):
                 identity_paths: list[str] = []
-                legal_identity = _pick_path([["法定代表人身份证明", "身份证明书", "身份证明", "身份证"]])
-                business_license = _pick_path([["营业执照"]])
+                legal_identity = _pick_materials([["法定代表人身份证明", "身份证明书", "身份证明", "身份证"]])
+                business_license = _pick_materials([["营业执照"]])
                 if legal_identity:
-                    identity_paths.append(legal_identity)
-                if business_license and business_license not in identity_paths:
-                    identity_paths.append(business_license)
+                    identity_paths.extend(legal_identity)
+                for bl in business_license:
+                    if bl not in identity_paths:
+                        identity_paths.append(bl)
 
                 target_hints: list[str] = []
                 for err in errors:
@@ -1032,13 +1035,14 @@ class GuaranteeUploadMixin:  # pragma: no cover
 
         final_upload_errors = await self._async_get_visible_form_errors()  # type: ignore[attr-defined]
         if any("身份证明材料" in err for err in final_upload_errors):
-            legal_identity = _pick_path([["法定代表人身份证明", "身份证明书", "身份证明", "身份证"]])
-            business_license = _pick_path([["营业执照"]])
+            legal_identity = _pick_materials([["法定代表人身份证明", "身份证明书", "身份证明", "身份证"]])
+            business_license = _pick_materials([["营业执照"]])
             retry_files: list[str] = []
             if legal_identity:
-                retry_files.append(legal_identity)
-            if business_license and business_license not in retry_files:
-                retry_files.append(business_license)
+                retry_files.extend(legal_identity)
+            for bl in business_license:
+                if bl not in retry_files:
+                    retry_files.append(bl)
 
             if retry_files:
                 for j in range(total_inputs):
