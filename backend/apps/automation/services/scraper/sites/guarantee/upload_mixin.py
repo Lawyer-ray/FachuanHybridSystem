@@ -70,7 +70,7 @@ def _pick_identity_files_from_map(
         if party_type == "自然人":
             return _paths_for(party, "身份证")
 
-    if "代理人" in label_text:
+    if "代理人" in label_text or "执业律师" in label_text:
         lawyer = party_material_map.get("lawyer")
         if not lawyer:
             return []
@@ -265,7 +265,7 @@ class GuaranteeUploadMixin:  # pragma: no cover
                     )
                     if picked:
                         chosen_files = [picked]
-            elif "代理人" in label_text:
+            elif "代理人" in label_text or "执业律师" in label_text:
                 party_material_map = case_data.get("party_material_map")
                 agent_files = _pick_identity_files_from_map(
                     label_text=label_text,
@@ -792,7 +792,7 @@ class GuaranteeUploadMixin:  # pragma: no cover
                     )
                     if picked:
                         chosen_files = [picked]
-            elif "代理人" in label_text:
+            elif "代理人" in label_text or "执业律师" in label_text:
                 party_material_map = case_data.get("party_material_map")
                 agent_files = _pick_identity_files_from_map(
                     label_text=label_text,
