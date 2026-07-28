@@ -7,10 +7,10 @@
 from __future__ import annotations
 
 from collections import OrderedDict
-from typing import Any, ClassVar
+from typing import Any
 
 from django.contrib import admin
-from django.http import HttpRequest
+from django.http import HttpRequest, HttpResponse
 from django.template.response import TemplateResponse
 
 from apps.documents.models import PlaceholderOverview
@@ -50,7 +50,7 @@ class PlaceholderOverviewAdmin(admin.ModelAdmin):  # pragma: no cover
 
     change_list_template = "admin/documents/placeholderoverview/change_list.html"
 
-    list_display: ClassVar[tuple[str, ...]] = ("key",)
+    list_display = ("key",)
 
     def has_add_permission(self, request: HttpRequest) -> bool:
         return False
@@ -65,7 +65,7 @@ class PlaceholderOverviewAdmin(admin.ModelAdmin):  # pragma: no cover
         """返回空查询集，实际数据在 changelist_view 中处理"""
         return PlaceholderOverview.objects.none()
 
-    def changelist_view(self, request: HttpRequest, extra_context: Any = None) -> TemplateResponse:
+    def changelist_view(self, request: HttpRequest, extra_context: Any = None) -> HttpResponse:
         """自定义 changelist 视图，展示替换词总览"""
         catalog = _get_catalog_service()
         definitions = catalog.list_definitions()
