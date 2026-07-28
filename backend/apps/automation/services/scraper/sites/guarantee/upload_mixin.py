@@ -62,7 +62,7 @@ def _pick_identity_files_from_map(
 
     import re as _re
 
-    m = _re.search(r"申请人-(.*?)-(法人|非法人组织|自然人)", label_text)
+    m = _re.search(r"(?<!被)申请人-(.*?)-(法人|非法人组织|自然人)", label_text)
     if m:
         party_name = str(m.group(1) or "").strip()
         party_type = str(m.group(2) or "").strip()
@@ -72,7 +72,7 @@ def _pick_identity_files_from_map(
             _log.warning(f"[gThree] 未找到申请人 party: {party_name}")
             return []
         if party_type in ("法人", "非法人组织"):
-            return _paths_for(party, "法定代表人身份证明书", "营业执照")
+            return _paths_for(party, "法定代表人身份证明书", "法定代表人身份证", "营业执照")
         if party_type == "自然人":
             return _paths_for(party, "身份证")
 
@@ -123,7 +123,7 @@ def _pick_identity_files_from_map(
             for party in party_material_map.get(group_key, []):
                 ct = str(party.get("client_type") or "legal").strip()
                 if ct in ("legal", "non_legal_org"):
-                    paths = _paths_for(party, "法定代表人身份证明书", "营业执照")
+                    paths = _paths_for(party, "法定代表人身份证明书", "法定代表人身份证", "营业执照")
                 else:
                     paths = _paths_for(party, "身份证")
                 if paths:
