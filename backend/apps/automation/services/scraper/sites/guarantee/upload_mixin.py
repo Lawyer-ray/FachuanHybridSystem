@@ -115,7 +115,7 @@ def _pick_identity_files_from_map(
         if not matched_lawyer:
             return []
         result = _paths_for(matched_lawyer, "律师证")
-        result.extend(_paths_for(matched_lawyer, "所函", "授权委托书", "授权委托"))
+        result.extend(_paths_for(matched_lawyer, "所函", "授权委托书", "授权委托", "委托材料"))
         return result
 
     if "申请人-" in label_text or "被申请人-" in label_text:
