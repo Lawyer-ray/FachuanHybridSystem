@@ -1,7 +1,4 @@
-"""顺丰查询全流程。
-
-选择器已外置到 selectors_config.py，改版时只需更新配置。
-"""
+"""顺丰查询全流程。"""
 
 from __future__ import annotations
 
@@ -9,8 +6,7 @@ import asyncio
 import logging
 from typing import TYPE_CHECKING, Final
 
-from .browser_utils import click_first, fill_first, has_any_visible
-from .selectors_config import get_sf_config
+from .browser_utils import click_first, fill_first
 
 if TYPE_CHECKING:
     from playwright.async_api import Page
@@ -21,56 +17,81 @@ SF_HOME_URL: Final[str] = "https://www.sf-express.com/"
 SF_QUERY_URL: Final[str] = "https://www.sf-express.com/chn/sc/waybill/list"
 
 
-def _sf_selectors(key: str) -> list[str]:
-    return list(get_sf_config().get("selectors", {}).get(key, []))
-
-
 async def query_sf(page: Page, tracking_number: str) -> None:  # pragma: no cover
-    cfg = get_sf_config()
-    home_url = cfg.get("homeUrl", SF_HOME_URL)
-    query_url = cfg.get("queryUrl", SF_QUERY_URL)
-    login_timeout = cfg.get("timeouts", {}).get("login", 300)
-
-    await page.goto(home_url, wait_until="networkidle")
+    await page.goto(SF_HOME_URL, wait_until="networkidle")
     await asyncio.sleep(2)
     await _dismiss_sf_overlays(page)
 
-    await click_first(page, _sf_selectors("loginButtons"))
+    await click_first(
+        page,
+        [
+            "button:has-text('登录')",
+            "a:has-text('登录')",
+            ".login-btn",
+        ],
+    )
 
     logger.info("SF page opened, please login in the browser")
-    await _wait_for_sf_login(page, timeout_seconds=login_timeout)
+    await _wait_for_sf_login(page)
 
-    await page.goto(query_url, wait_until="networkidle")
+    await page.goto(SF_QUERY_URL, wait_until="networkidle")
     await asyncio.sleep(3)
     await _dismiss_sf_overlays(page)
 
-    await fill_first(page, _sf_selectors("trackingInputs"), tracking_number)
-    if not await click_first(page, _sf_selectors("submitButtons")):
+    await fill_first(
+        page,
+        [
+            "input[placeholder*='查询']",
+            "input[type='text']",
+        ],
+        tracking_number,
+    )
+    if not await click_first(page, ["button:has-text('查')", "button.search-icon"]):
         await page.keyboard.press("Enter")
     await asyncio.sleep(3)
 
     await _open_sf_waybill_detail(page, tracking_number)
 
 
-async def _wait_for_sf_login(page: Page, *, timeout_seconds: int = 300) -> None:  # pragma: no cover
-    """等待顺丰登录完成（带负守卫）。"""
+async def _wait_for_sf_login(page: Page) -> None:  # pragma: no cover
+    from .browser_utils import has_any_visible
+
+    login_selectors = ["button:has-text('登录')", "a:has-text('登录')"]
+    user_selectors = ["[class*='user']", "[class*='avatar']", "text=退出登录"]
+    timeout_seconds = 300
+
     deadline = asyncio.get_running_loop().time() + timeout_seconds
 
-    login_selectors = _sf_selectors("loginButtons")
-    logged_in_selectors = _sf_selectors("loggedInIndicators")
-
     while asyncio.get_running_loop().time() < deadline:
-        # 负守卫
-        if await has_any_visible(page, logged_in_selectors):
-            return
         login_visible = await has_any_visible(page, login_selectors)
-        if not login_visible:
+        user_visible = await has_any_visible(page, user_selectors)
+        if user_visible or not login_visible:
             return
         await asyncio.sleep(2)
 
 
 async def _dismiss_sf_overlays(page: Page) -> None:  # pragma: no cover
-    close_selectors = _sf_selectors("dismissOverlayButtons")
+    close_selectors = [
+        ".guide-close",
+        ".driver-close-btn",
+        "[class*='guide'] [class*='close']",
+        "[class*='tour'] [class*='close']",
+        "[class*='mask'] [class*='close']",
+        "button[class*='skip']",
+        "button:has-text('下一步')",
+        "button:has-text('完成')",
+        "button:has-text('跳过')",
+        "button:has-text('知道了')",
+        "button:has-text('我知道了')",
+        "button:has-text('关闭')",
+        "button:has-text('暂不')",
+        "button:has-text('同意')",
+        "span:has-text('下一步')",
+        "span:has-text('完成')",
+        "span:has-text('同意')",
+        ".el-dialog__close",
+        ".el-message-box__close",
+    ]
 
     logger.info("  Dismissing SF overlays...")
     for _ in range(10):
@@ -167,9 +188,21 @@ async def _dismiss_sf_overlays(page: Page) -> None:  # pragma: no cover
 async def _open_sf_waybill_detail(page: Page, tracking_number: str) -> None:  # pragma: no cover
     logger.info("Opening SF waybill detail: %s", tracking_number)
 
-    detail_button_selectors = _sf_selectors("detailButtons")
-    verification_selectors = _sf_selectors("verificationSelectors")
-    expand_selectors = _sf_selectors("expandButtons")
+    detail_button_selectors = [
+        "button:has-text('展开详情')",
+        "[role='button']:has-text('展开详情')",
+        "span:has-text('展开详情')",
+        "text=展开详情",
+        "button:has-text('查看详情')",
+    ]
+    verification_selectors = [
+        "text=收起详情",
+        "text=物流轨迹",
+        "text=签收时间",
+        "text=签收详情",
+        "text=收方",
+        "text=寄方",
+    ]
 
     deadline = asyncio.get_running_loop().time() + 30
     while asyncio.get_running_loop().time() < deadline:
@@ -218,6 +251,18 @@ async def _open_sf_waybill_detail(page: Page, tracking_number: str) -> None:  # 
                 pass
 
         if detail_opened:
+            expand_selectors = [
+                "button:has-text('展开全部轨迹')",
+                "span:has-text('展开全部轨迹')",
+                "button:has-text('展开全部')",
+                "span:has-text('展开全部')",
+                "button:has-text('查看全部')",
+                "span:has-text('查看全部')",
+                "button:has-text('查看更多')",
+                "span:has-text('查看更多')",
+                "button:has-text('展开')",
+                "span:has-text('展开')",
+            ]
             for selector in expand_selectors:
                 if await click_first(page, [selector]):
                     await asyncio.sleep(1)
