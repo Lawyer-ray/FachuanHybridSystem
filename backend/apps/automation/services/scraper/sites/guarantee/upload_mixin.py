@@ -189,86 +189,62 @@ class GuaranteeUploadMixin:  # pragma: no cover
 
         used: set[str] = set()
 
-        def _pick_path(  # pragma: no cover
+        def _matches(entry: dict[str, str], keywords: list[str], *, by_type: bool) -> bool:
+            """检查 entry 是否匹配关键词（by_type=True 按 type_name，False 按文件名）。"""
+            if by_type:
+                return any(kw in entry["type_name"] for kw in keywords)
+            haystack = f"{entry.get('original_name', '')} {entry['path'].rsplit('/', 1)[-1]}"
+            return any(kw in haystack for kw in keywords)
+
+        def _pick_materials(  # pragma: no cover
             keyword_groups: list[list[str]],
             *,
             type_name_groups: list[list[str]] | None = None,
             exclude_type_names: list[str] | None = None,
-        ) -> str | None:
+            first_only: bool = True,
+        ) -> list[str]:
+            """从 items 中匹配材料。first_only=True 只返回第一个，False 返回全部。"""
+            result: list[str] = []
+
+            def _excluded(entry: dict[str, str]) -> bool:
+                if not exclude_type_names:
+                    return False
+                return any(ex in entry["type_name"] for ex in exclude_type_names)
+
+            def _already(path: str) -> bool:
+                return path in used or path in result
+
+            # 按 type_name 匹配（优先）
             if type_name_groups:
                 for keywords in type_name_groups:
                     for entry in items:
-                        if entry["path"] in used:
+                        if _already(entry["path"]) or _excluded(entry):
                             continue
-                        tn = entry["type_name"]
-                        if exclude_type_names and any(ex in tn for ex in exclude_type_names):
-                            continue
-                        if any(keyword in tn for keyword in keywords):
-                            return entry["path"]
+                        if _matches(entry, keywords, by_type=True):
+                            result.append(entry["path"])
+                            if first_only:
+                                return result
+
+            # 按文件名匹配
             if keyword_groups:
                 for keywords in keyword_groups:
                     for entry in items:
-                        if entry["path"] in used:
+                        if _already(entry["path"]) or _excluded(entry):
                             continue
-                        tn = entry["type_name"]
-                        if exclude_type_names and any(ex in tn for ex in exclude_type_names):
-                            continue
-                        haystack = f"{entry.get('original_name', '')} {entry['path'].rsplit('/', 1)[-1]}"
-                        if any(keyword in haystack for keyword in keywords):
-                            return entry["path"]
-            # 仅当未指定任何关键词组时，才兜底返回第一个未使用文件
+                        if _matches(entry, keywords, by_type=False):
+                            result.append(entry["path"])
+                            if first_only:
+                                return result
+
+            # 无关键词时兜底：返回第一个未使用文件
             if not type_name_groups and not keyword_groups:
                 for entry in items:
                     if entry["path"] not in used:
-                        return entry["path"]
-            return None
+                        result.append(entry["path"])
+                        if first_only:
+                            return result
 
-        def _pick_all_paths(  # pragma: no cover
-            keyword_groups: list[list[str]],
-            *,
-            type_name_groups: list[list[str]] | None = None,
-            exclude_type_names: list[str] | None = None,
-        ) -> list[str]:
-            """返回所有匹配的文件路径（用于起诉状等可能有多份同类材料的场景）。"""
-            found: list[str] = []
-            if type_name_groups:
-                for keywords in type_name_groups:
-                    for entry in items:
-                        if entry["path"] in used or entry["path"] in found:
-                            continue
-                        tn = entry["type_name"]
-                        if exclude_type_names and any(ex in tn for ex in exclude_type_names):
-                            continue
-                        if any(keyword in tn for keyword in keywords):
-                            found.append(entry["path"])
-            if keyword_groups:
-                for keywords in keyword_groups:
-                    for entry in items:
-                        if entry["path"] in used or entry["path"] in found:
-                            continue
-                        tn = entry["type_name"]
-                        if exclude_type_names and any(ex in tn for ex in exclude_type_names):
-                            continue
-                        haystack = f"{entry.get('original_name', '')} {entry['path'].rsplit('/', 1)[-1]}"
-                        if any(keyword in haystack for keyword in keywords):
-                            found.append(entry["path"])
-            return found
-
-        def _pick_evidence() -> list[str]:  # pragma: no cover
-            evidence: list[str] = []
-            for entry in items:
-                if entry["path"] in used:
-                    continue
-                if any(kw in entry["type_name"] for kw in ["证据", "明细", "清单"]):
-                    evidence.append(entry["path"])
-            if not evidence:
-                for entry in items:
-                    if entry["path"] in used:
-                        continue
-                    haystack = f"{entry.get('original_name', '')} {entry['path'].rsplit('/', 1)[-1]}"
-                    if any(kw in haystack for kw in ["证据", "明细", "清单"]):
-                        evidence.append(entry["path"])
-            return evidence
+            return result
 
         file_inputs = self.page.locator("input[type='file']")
         total_inputs = min(file_inputs.count(), 10)
@@ -296,27 +272,26 @@ class GuaranteeUploadMixin:  # pragma: no cover
 
             chosen_files: list[str] = []
             if "保全申请" in label_text:
-                picked = _pick_path(
+                chosen_files = _pick_materials(
                     [["财产保全申请书", "保全申请书"], ["申请书"]],
                     type_name_groups=[["保全申请", "保全", "保全申请书及保函"]],
                 )
-                if picked:
-                    chosen_files = [picked]
             elif "起诉" in label_text:
-                all_picked = _pick_all_paths(
+                chosen_files = _pick_materials(
                     [["起诉状", "起诉书"], ["起诉"]],
                     type_name_groups=[["起诉状"]],
+                    first_only=False,
                 )
-                if all_picked:
-                    chosen_files = all_picked
             elif "受理" in label_text or "立案" in label_text:
-                picked = _pick_path([["受理案件通知书", "受理通知书", "立案受理通知书", "立案通知书", "立案通知"]])
-                if picked:
-                    chosen_files = [picked]
+                chosen_files = _pick_materials(
+                    [["受理案件通知书", "受理通知书", "立案受理通知书", "立案通知书", "立案通知"]],
+                )
             elif "案件证据" in label_text:
-                evidence_files = _pick_evidence()
-                if evidence_files:
-                    chosen_files = evidence_files
+                chosen_files = _pick_materials(
+                    [["证据", "明细", "清单"]],
+                    type_name_groups=[["证据", "明细", "清单"]],
+                    first_only=False,
+                )
             elif "申请人-" in label_text or "被申请人-" in label_text or "身份证明" in label_text:
                 party_material_map = case_data.get("party_material_map")
                 identity_files = _pick_identity_files_from_map(
@@ -329,13 +304,11 @@ class GuaranteeUploadMixin:  # pragma: no cover
                     chosen_files = identity_files
                 elif not party_material_map:
                     # 兜底：无 party_material_map 时使用原有关键词匹配
-                    picked = _pick_path(
+                    chosen_files = _pick_materials(
                         [["身份证明", "身份证"], ["营业执照"], ["授权委托书", "所函"]],
                         type_name_groups=[["身份证明", "当事人身份证明"]],
                         exclude_type_names=["委托材料", "委托手续", "授权委托"],
                     )
-                    if picked:
-                        chosen_files = [picked]
             elif "代理人" in label_text or "执业律师" in label_text:
                 party_material_map = case_data.get("party_material_map")
                 agent_files = _pick_identity_files_from_map(
@@ -347,24 +320,20 @@ class GuaranteeUploadMixin:  # pragma: no cover
                 if agent_files:
                     chosen_files = agent_files
                 elif not party_material_map:
-                    picked = _pick_path(
+                    chosen_files = _pick_materials(
                         [["所函", "授权委托书", "律师证", "执业证"], ["身份证明", "身份证"]],
                         type_name_groups=[["委托材料", "委托手续", "授权委托", "所函", "律师"]],
                     )
-                    if picked:
-                        chosen_files = [picked]
             elif "证据" in label_text:
-                evidence_files2 = _pick_evidence()
-                if evidence_files2:
-                    chosen_files = evidence_files2
+                chosen_files = _pick_materials(
+                    [["证据", "明细", "清单"]],
+                    type_name_groups=[["证据", "明细", "清单"]],
+                    first_only=False,
+                )
             elif "其他" in label_text:
-                picked = _pick_path([["其他", "保函", "担保函"]])
-                if picked:
-                    chosen_files = [picked]
+                chosen_files = _pick_materials([["其他", "保函", "担保函"]])
             else:
-                picked = _pick_path([[]])
-                if picked:
-                    chosen_files = [picked]
+                chosen_files = _pick_materials([[]])
 
             if not chosen_files:
                 logger.warning(f"[gThree] 未匹配到文件: label={label_text[:80]}")
@@ -782,85 +751,59 @@ class GuaranteeUploadMixin:  # pragma: no cover
 
         used: set[str] = set()
 
-        def _pick_path(  # pragma: no cover
+        def _matches(entry: dict[str, str], keywords: list[str], *, by_type: bool) -> bool:
+            """检查 entry 是否匹配关键词。"""
+            if by_type:
+                return any(kw in entry["type_name"] for kw in keywords)
+            haystack = f"{entry.get('original_name', '')} {entry['path'].rsplit('/', 1)[-1]}"
+            return any(kw in haystack for kw in keywords)
+
+        def _pick_materials(  # pragma: no cover
             keyword_groups: list[list[str]],
             *,
             type_name_groups: list[list[str]] | None = None,
             exclude_type_names: list[str] | None = None,
-        ) -> str | None:
+            first_only: bool = True,
+        ) -> list[str]:
+            """从 items 中匹配材料。first_only=True 只返回第一个，False 返回全部。"""
+            result: list[str] = []
+
+            def _excluded(entry: dict[str, str]) -> bool:
+                if not exclude_type_names:
+                    return False
+                return any(ex in entry["type_name"] for ex in exclude_type_names)
+
+            def _already(path: str) -> bool:
+                return path in used or path in result
+
             if type_name_groups:
                 for keywords in type_name_groups:
                     for entry in items:
-                        if entry["path"] in used:
+                        if _already(entry["path"]) or _excluded(entry):
                             continue
-                        tn = entry["type_name"]
-                        if exclude_type_names and any(ex in tn for ex in exclude_type_names):
-                            continue
-                        if any(keyword in tn for keyword in keywords):
-                            return entry["path"]
+                        if _matches(entry, keywords, by_type=True):
+                            result.append(entry["path"])
+                            if first_only:
+                                return result
+
             if keyword_groups:
                 for keywords in keyword_groups:
                     for entry in items:
-                        if entry["path"] in used:
+                        if _already(entry["path"]) or _excluded(entry):
                             continue
-                        tn = entry["type_name"]
-                        if exclude_type_names and any(ex in tn for ex in exclude_type_names):
-                            continue
-                        haystack = f"{entry.get('original_name', '')} {entry['path'].rsplit('/', 1)[-1]}"
-                        if any(keyword in haystack for keyword in keywords):
-                            return entry["path"]
+                        if _matches(entry, keywords, by_type=False):
+                            result.append(entry["path"])
+                            if first_only:
+                                return result
+
             if not type_name_groups and not keyword_groups:
                 for entry in items:
                     if entry["path"] not in used:
-                        return entry["path"]
-            return None
+                        result.append(entry["path"])
+                        if first_only:
+                            return result
 
-        def _pick_all_paths(  # pragma: no cover
-            keyword_groups: list[list[str]],
-            *,
-            type_name_groups: list[list[str]] | None = None,
-            exclude_type_names: list[str] | None = None,
-        ) -> list[str]:
-            """返回所有匹配的文件路径。"""
-            found: list[str] = []
-            if type_name_groups:
-                for keywords in type_name_groups:
-                    for entry in items:
-                        if entry["path"] in used or entry["path"] in found:
-                            continue
-                        tn = entry["type_name"]
-                        if exclude_type_names and any(ex in tn for ex in exclude_type_names):
-                            continue
-                        if any(keyword in tn for keyword in keywords):
-                            found.append(entry["path"])
-            if keyword_groups:
-                for keywords in keyword_groups:
-                    for entry in items:
-                        if entry["path"] in used or entry["path"] in found:
-                            continue
-                        tn = entry["type_name"]
-                        if exclude_type_names and any(ex in tn for ex in exclude_type_names):
-                            continue
-                        haystack = f"{entry.get('original_name', '')} {entry['path'].rsplit('/', 1)[-1]}"
-                        if any(keyword in haystack for keyword in keywords):
-                            found.append(entry["path"])
-            return found
-
-        def _pick_evidence() -> list[str]:  # pragma: no cover
-            evidence: list[str] = []
-            for entry in items:
-                if entry["path"] in used:
-                    continue
-                if any(kw in entry["type_name"] for kw in ["证据", "明细", "清单"]):
-                    evidence.append(entry["path"])
-            if not evidence:
-                for entry in items:
-                    if entry["path"] in used:
-                        continue
-                    haystack = f"{entry.get('original_name', '')} {entry['path'].rsplit('/', 1)[-1]}"
-                    if any(kw in haystack for kw in ["证据", "明细", "清单"]):
-                        evidence.append(entry["path"])
-            return evidence
+            return result
 
         file_inputs = self.page.locator("input[type='file']")
         total_inputs = min(await file_inputs.count(), 10)
@@ -888,27 +831,26 @@ class GuaranteeUploadMixin:  # pragma: no cover
 
             chosen_files: list[str] = []
             if "保全申请" in label_text:
-                picked = _pick_path(
+                chosen_files = _pick_materials(
                     [["财产保全申请书", "保全申请书"], ["申请书"]],
                     type_name_groups=[["保全申请", "保全", "保全申请书及保函"]],
                 )
-                if picked:
-                    chosen_files = [picked]
             elif "起诉" in label_text:
-                all_picked = _pick_all_paths(
+                chosen_files = _pick_materials(
                     [["起诉状", "起诉书"], ["起诉"]],
                     type_name_groups=[["起诉状"]],
+                    first_only=False,
                 )
-                if all_picked:
-                    chosen_files = all_picked
             elif "受理" in label_text or "立案" in label_text:
-                picked = _pick_path([["受理案件通知书", "受理通知书", "立案受理通知书", "立案通知书", "立案通知"]])
-                if picked:
-                    chosen_files = [picked]
+                chosen_files = _pick_materials(
+                    [["受理案件通知书", "受理通知书", "立案受理通知书", "立案通知书", "立案通知"]],
+                )
             elif "案件证据" in label_text:
-                evidence_files = _pick_evidence()
-                if evidence_files:
-                    chosen_files = evidence_files
+                chosen_files = _pick_materials(
+                    [["证据", "明细", "清单"]],
+                    type_name_groups=[["证据", "明细", "清单"]],
+                    first_only=False,
+                )
             elif "申请人-" in label_text or "被申请人-" in label_text or "身份证明" in label_text:
                 party_material_map = case_data.get("party_material_map")
                 identity_files = _pick_identity_files_from_map(
@@ -920,13 +862,11 @@ class GuaranteeUploadMixin:  # pragma: no cover
                 if identity_files:
                     chosen_files = identity_files
                 elif not party_material_map:
-                    picked = _pick_path(
+                    chosen_files = _pick_materials(
                         [["身份证明", "身份证"], ["营业执照"], ["授权委托书", "所函"]],
                         type_name_groups=[["身份证明", "当事人身份证明"]],
                         exclude_type_names=["委托材料", "委托手续", "授权委托"],
                     )
-                    if picked:
-                        chosen_files = [picked]
             elif "代理人" in label_text or "执业律师" in label_text:
                 party_material_map = case_data.get("party_material_map")
                 agent_files = _pick_identity_files_from_map(
@@ -938,24 +878,20 @@ class GuaranteeUploadMixin:  # pragma: no cover
                 if agent_files:
                     chosen_files = agent_files
                 elif not party_material_map:
-                    picked = _pick_path(
+                    chosen_files = _pick_materials(
                         [["所函", "授权委托书", "律师证", "执业证"], ["身份证明", "身份证"]],
                         type_name_groups=[["委托材料", "委托手续", "授权委托", "所函", "律师"]],
                     )
-                    if picked:
-                        chosen_files = [picked]
             elif "证据" in label_text:
-                evidence_files2 = _pick_evidence()
-                if evidence_files2:
-                    chosen_files = evidence_files2
+                chosen_files = _pick_materials(
+                    [["证据", "明细", "清单"]],
+                    type_name_groups=[["证据", "明细", "清单"]],
+                    first_only=False,
+                )
             elif "其他" in label_text:
-                picked = _pick_path([["其他", "保函", "担保函"]])
-                if picked:
-                    chosen_files = [picked]
+                chosen_files = _pick_materials([["其他", "保函", "担保函"]])
             else:
-                picked = _pick_path([[]])
-                if picked:
-                    chosen_files = [picked]
+                chosen_files = _pick_materials([[]])
 
             if not chosen_files:
                 continue
