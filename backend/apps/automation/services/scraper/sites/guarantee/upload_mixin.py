@@ -71,11 +71,31 @@ def _pick_identity_files_from_map(
             return _paths_for(party, "身份证")
 
     if "代理人" in label_text or "执业律师" in label_text:
-        lawyer = party_material_map.get("lawyer")
-        if not lawyer:
+        lawyers = party_material_map.get("lawyers") or []
+        # 从标签中提取律师姓名：原告代理人-房长波-执业律师 → 房长波
+        lawyer_name = ""
+        lm = _re.search(r"原告代理人-(.*?)-执业律师", label_text)
+        if lm:
+            lawyer_name = str(lm.group(1) or "").strip()
+        if not lawyer_name:
+            lm = _re.search(r"被告代理人-(.*?)-执业律师", label_text)
+            if lm:
+                lawyer_name = str(lm.group(1) or "").strip()
+
+        # 按姓名精确匹配律师条目
+        matched_lawyer = None
+        for lw in lawyers:
+            lw_name = str(lw.get("name") or "").strip()
+            if lawyer_name and lawyer_name in lw_name:
+                matched_lawyer = lw
+                break
+        if not matched_lawyer and lawyers:
+            matched_lawyer = lawyers[0]
+
+        if not matched_lawyer:
             return []
-        result = _paths_for(lawyer, "律师证")
-        result.extend(_paths_for(lawyer, "所函", "授权委托书", "授权委托"))
+        result = _paths_for(matched_lawyer, "律师证")
+        result.extend(_paths_for(matched_lawyer, "所函", "授权委托书", "授权委托"))
         return result
 
     if "申请人-" in label_text or "被申请人-" in label_text:
