@@ -9,6 +9,89 @@ from pathlib import Path
 from typing import Any
 
 
+def _pick_identity_files_from_map(
+    *,
+    label_text: str,
+    party_material_map: dict[str, Any] | None,
+    items: list[dict[str, str]],
+    used: set[str],
+) -> list[str]:
+    """根据 label 文本和 party_material_map 精确匹配身份证明材料。
+
+    宁可不传，不乱传：只返回明确匹配到的材料路径。
+    """
+    if not party_material_map:
+        return []
+
+    def _paths_for(party_entry: dict[str, Any], *type_names: str) -> list[str]:
+        materials: dict[str, list[str]] = party_entry.get("materials") or {}
+        result: list[str] = []
+        for tn in type_names:
+            for path in materials.get(tn, []):
+                if path not in used:
+                    result.append(path)
+        return result
+
+    def _find_party(entries: list[dict[str, Any]], name: str) -> dict[str, Any] | None:
+        if not name:
+            return entries[0] if entries else None
+        for entry in entries:
+            if name in str(entry.get("name") or ""):
+                return entry
+        for entry in entries:
+            entry_name = str(entry.get("name") or "")
+            if entry_name and entry_name in name:
+                return entry
+        return None
+
+    import re as _re
+
+    m = _re.search(r"申请人-(.*?)-(法人|非法人组织|自然人)", label_text)
+    if m:
+        party_name = str(m.group(1) or "").strip()
+        party_type = str(m.group(2) or "").strip()
+        party = _find_party(party_material_map.get("applicants", []), party_name)
+        if not party:
+            return []
+        if party_type in ("法人", "非法人组织"):
+            return _paths_for(party, "法定代表人身份证明书", "营业执照")
+        if party_type == "自然人":
+            return _paths_for(party, "身份证")
+
+    m = _re.search(r"被申请人-(.*?)-(法人|非法人组织|自然人)", label_text)
+    if m:
+        party_name = str(m.group(1) or "").strip()
+        party_type = str(m.group(2) or "").strip()
+        party = _find_party(party_material_map.get("respondents", []), party_name)
+        if not party:
+            return []
+        if party_type in ("法人", "非法人组织"):
+            return _paths_for(party, "营业执照")
+        if party_type == "自然人":
+            return _paths_for(party, "身份证")
+
+    if "代理人" in label_text or "执业律师" in label_text:
+        lawyer = party_material_map.get("lawyer")
+        if not lawyer:
+            return []
+        result = _paths_for(lawyer, "律师证")
+        result.extend(_paths_for(lawyer, "所函", "授权委托书", "授权委托"))
+        return result
+
+    if "申请人-" in label_text or "被申请人-" in label_text:
+        for group_key in ("applicants", "respondents"):
+            for party in party_material_map.get(group_key, []):
+                ct = str(party.get("client_type") or "legal").strip()
+                if ct in ("legal", "non_legal_org"):
+                    paths = _paths_for(party, "法定代表人身份证明书", "营业执照")
+                else:
+                    paths = _paths_for(party, "身份证")
+                if paths:
+                    return paths
+
+    return []
+
+
 class GuaranteeUploadMixin:  # pragma: no cover
     """gThree 材料上传：起诉状、身份证、证据。"""
 
@@ -164,53 +247,17 @@ class GuaranteeUploadMixin:  # pragma: no cover
                 if evidence_files:
                     chosen_files = evidence_files
             elif "申请人-" in label_text or "被申请人-" in label_text or "身份证明" in label_text:
-                if "申请人-" in label_text and "-法人" in label_text:
-                    applicant_license = _pick_path(
-                        [["营业执照"]],
-                        type_name_groups=[["营业执照", "身份证明"]],
-                        exclude_type_names=["委托材料", "委托手续", "授权委托"],
-                    )
-                    applicant_legal_id = _pick_path(
-                        [["法定代表人身份证明", "身份证明书", "法人身份证明", "身份证"]],
-                        type_name_groups=[["身份证明", "法定代表人"]],
-                        exclude_type_names=["委托材料", "委托手续", "授权委托"],
-                    )
-                    chosen_files = [path for path in [applicant_license, applicant_legal_id] if path]
-                elif "被申请人-" in label_text and "-法人" in label_text:
-                    respondent_license = _pick_path(
-                        [["营业执照"]],
-                        type_name_groups=[["营业执照", "身份证明"]],
-                        exclude_type_names=["委托材料", "委托手续", "授权委托"],
-                    )
-                    respondent_legal_id = _pick_path(
-                        [["法定代表人身份证明", "身份证明书", "法人身份证明", "身份证"]],
-                        type_name_groups=[["身份证明", "法定代表人"]],
-                        exclude_type_names=["委托材料", "委托手续", "授权委托"],
-                    )
-                    chosen_files = [path for path in [respondent_license, respondent_legal_id] if path]
-                elif "被申请人-" in label_text and "-自然人" in label_text:
-                    respondent_name = ""
-                    match = re.search(r"被申请人-(.*?)-自然人", label_text)
-                    if match:
-                        respondent_name = str(match.group(1) or "").strip()
-
-                    natural_identity = ""
-                    for entry in items:
-                        if entry["path"] in used:
-                            continue
-                        display_name = entry.get("original_name", "") or entry["path"].rsplit("/", 1)[-1]
-                        if "法定代表人" in display_name:
-                            continue
-                        if "身份证" not in display_name and "身份证明" not in display_name:
-                            continue
-                        if respondent_name and respondent_name not in display_name:
-                            continue
-                        natural_identity = entry["path"]
-                        break
-
-                    if natural_identity:
-                        chosen_files = [natural_identity]
-                else:
+                party_material_map = case_data.get("party_material_map")
+                identity_files = _pick_identity_files_from_map(
+                    label_text=label_text,
+                    party_material_map=party_material_map,
+                    items=items,
+                    used=used,
+                )
+                if identity_files:
+                    chosen_files = identity_files
+                elif not party_material_map:
+                    # 兜底：无 party_material_map 时使用原有关键词匹配
                     picked = _pick_path(
                         [["身份证明", "身份证"], ["营业执照"], ["授权委托书", "所函"]],
                         type_name_groups=[["身份证明", "当事人身份证明"]],
@@ -218,13 +265,23 @@ class GuaranteeUploadMixin:  # pragma: no cover
                     )
                     if picked:
                         chosen_files = [picked]
-            elif "代理人" in label_text:
-                picked = _pick_path(
-                    [["所函", "授权委托书", "律师证", "执业证"], ["身份证明", "身份证"]],
-                    type_name_groups=[["委托材料", "委托手续", "授权委托", "所函", "律师"]],
+            elif "代理人" in label_text or "执业律师" in label_text:
+                party_material_map = case_data.get("party_material_map")
+                agent_files = _pick_identity_files_from_map(
+                    label_text=label_text,
+                    party_material_map=party_material_map,
+                    items=items,
+                    used=used,
                 )
-                if picked:
-                    chosen_files = [picked]
+                if agent_files:
+                    chosen_files = agent_files
+                elif not party_material_map:
+                    picked = _pick_path(
+                        [["所函", "授权委托书", "律师证", "执业证"], ["身份证明", "身份证"]],
+                        type_name_groups=[["委托材料", "委托手续", "授权委托", "所函", "律师"]],
+                    )
+                    if picked:
+                        chosen_files = [picked]
             elif "证据" in label_text:
                 evidence_files2 = _pick_evidence()
                 if evidence_files2:
@@ -718,53 +775,16 @@ class GuaranteeUploadMixin:  # pragma: no cover
                 if evidence_files:
                     chosen_files = evidence_files
             elif "申请人-" in label_text or "被申请人-" in label_text or "身份证明" in label_text:
-                if "申请人-" in label_text and "-法人" in label_text:
-                    applicant_license = _pick_path(
-                        [["营业执照"]],
-                        type_name_groups=[["营业执照", "身份证明"]],
-                        exclude_type_names=["委托材料", "委托手续", "授权委托"],
-                    )
-                    applicant_legal_id = _pick_path(
-                        [["法定代表人身份证明", "身份证明书", "法人身份证明", "身份证"]],
-                        type_name_groups=[["身份证明", "法定代表人"]],
-                        exclude_type_names=["委托材料", "委托手续", "授权委托"],
-                    )
-                    chosen_files = [path for path in [applicant_license, applicant_legal_id] if path]
-                elif "被申请人-" in label_text and "-法人" in label_text:
-                    respondent_license = _pick_path(
-                        [["营业执照"]],
-                        type_name_groups=[["营业执照", "身份证明"]],
-                        exclude_type_names=["委托材料", "委托手续", "授权委托"],
-                    )
-                    respondent_legal_id = _pick_path(
-                        [["法定代表人身份证明", "身份证明书", "法人身份证明", "身份证"]],
-                        type_name_groups=[["身份证明", "法定代表人"]],
-                        exclude_type_names=["委托材料", "委托手续", "授权委托"],
-                    )
-                    chosen_files = [path for path in [respondent_license, respondent_legal_id] if path]
-                elif "被申请人-" in label_text and "-自然人" in label_text:
-                    respondent_name = ""
-                    match = re.search(r"被申请人-(.*?)-自然人", label_text)
-                    if match:
-                        respondent_name = str(match.group(1) or "").strip()
-
-                    natural_identity = ""
-                    for entry in items:
-                        if entry["path"] in used:
-                            continue
-                        display_name = entry.get("original_name", "") or entry["path"].rsplit("/", 1)[-1]
-                        if "法定代表人" in display_name:
-                            continue
-                        if "身份证" not in display_name and "身份证明" not in display_name:
-                            continue
-                        if respondent_name and respondent_name not in display_name:
-                            continue
-                        natural_identity = entry["path"]
-                        break
-
-                    if natural_identity:
-                        chosen_files = [natural_identity]
-                else:
+                party_material_map = case_data.get("party_material_map")
+                identity_files = _pick_identity_files_from_map(
+                    label_text=label_text,
+                    party_material_map=party_material_map,
+                    items=items,
+                    used=used,
+                )
+                if identity_files:
+                    chosen_files = identity_files
+                elif not party_material_map:
                     picked = _pick_path(
                         [["身份证明", "身份证"], ["营业执照"], ["授权委托书", "所函"]],
                         type_name_groups=[["身份证明", "当事人身份证明"]],
@@ -772,13 +792,23 @@ class GuaranteeUploadMixin:  # pragma: no cover
                     )
                     if picked:
                         chosen_files = [picked]
-            elif "代理人" in label_text:
-                picked = _pick_path(
-                    [["所函", "授权委托书", "律师证", "执业证"], ["身份证明", "身份证"]],
-                    type_name_groups=[["委托材料", "委托手续", "授权委托", "所函", "律师"]],
+            elif "代理人" in label_text or "执业律师" in label_text:
+                party_material_map = case_data.get("party_material_map")
+                agent_files = _pick_identity_files_from_map(
+                    label_text=label_text,
+                    party_material_map=party_material_map,
+                    items=items,
+                    used=used,
                 )
-                if picked:
-                    chosen_files = [picked]
+                if agent_files:
+                    chosen_files = agent_files
+                elif not party_material_map:
+                    picked = _pick_path(
+                        [["所函", "授权委托书", "律师证", "执业证"], ["身份证明", "身份证"]],
+                        type_name_groups=[["委托材料", "委托手续", "授权委托", "所函", "律师"]],
+                    )
+                    if picked:
+                        chosen_files = [picked]
             elif "证据" in label_text:
                 evidence_files2 = _pick_evidence()
                 if evidence_files2:

@@ -28,7 +28,9 @@ class ExpressBrowserQueryService:  # pragma: no cover
     async def disconnect_playwright() -> None:  # pragma: no cover
         await disconnect_playwright()
 
-    async def query_and_save_pdf(self, carrier_type: str, tracking_number: str, output_pdf: Path) -> str:  # pragma: no cover
+    async def query_and_save_pdf(
+        self, carrier_type: str, tracking_number: str, output_pdf: Path
+    ) -> str:  # pragma: no cover
         output_pdf.parent.mkdir(parents=True, exist_ok=True)
 
         context = await ensure_browser()

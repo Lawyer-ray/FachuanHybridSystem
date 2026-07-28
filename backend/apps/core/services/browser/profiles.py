@@ -177,8 +177,8 @@ def _apply_headless_override(profile: BrowserProfile) -> BrowserProfile:  # prag
             return dataclasses.replace(profile, headless=False)
         if headed in ("false", "0", "no"):
             return dataclasses.replace(profile, headless=True)
-    except (TypeError, ValueError):
-        # Django 未初始化或 DB 不可用时，使用 profile 原始值
+    except Exception:
+        # Django 未初始化、DB 不可用、或 async 上下文中同步 ORM 被禁止时，使用 profile 原始值
         pass
 
     return profile

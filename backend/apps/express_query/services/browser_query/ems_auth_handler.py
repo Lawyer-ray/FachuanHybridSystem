@@ -112,7 +112,9 @@ async def wait_for_ems_login(  # pragma: no cover
         await asyncio.sleep(2)
 
 
-async def ems_handle_agreement_and_wait(context: BrowserContext, page: Page, timeout_seconds: int = 300) -> None:  # pragma: no cover
+async def ems_handle_agreement_and_wait(
+    context: BrowserContext, page: Page, timeout_seconds: int = 300
+) -> None:  # pragma: no cover
     """
     EMS 完整登录流程：
     - 检测弹窗可见性

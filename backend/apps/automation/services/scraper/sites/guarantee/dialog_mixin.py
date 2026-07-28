@@ -48,12 +48,18 @@ class GuaranteeDialogMixin(  # pragma: no cover
                 ("respondent", 1, ["被申请人"], self._build_party_dialog_defaults(source))  # type: ignore[attr-defined]
                 for source in respondent_sources
             ],
-            (
-                "plaintiff_agent",
-                2,
-                ["原告代理人", "代理人"],
-                self._build_agent_dialog_defaults(case_data.get("plaintiff_agent") or case_data.get("applicant") or {}),  # type: ignore[attr-defined]
-            ),
+            *[
+                (
+                    f"plaintiff_agent_{i}",
+                    2,
+                    ["原告代理人", "代理人"],
+                    self._build_agent_dialog_defaults(agent),  # type: ignore[attr-defined]
+                )
+                for i, agent in enumerate(
+                    case_data.get("plaintiff_agents")
+                    or [case_data.get("plaintiff_agent") or case_data.get("applicant") or {}]
+                )
+            ],
             *[
                 (
                     "property_clue",
