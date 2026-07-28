@@ -20,8 +20,18 @@ def _pick_identity_files_from_map(
 
     宁可不传，不乱传：只返回明确匹配到的材料路径。
     """
+    import logging as _logging
+
+    _log = _logging.getLogger("apps.automation")
+
     if not party_material_map:
+        _log.warning(f"[gThree] party_material_map 为空, label={label_text}")
         return []
+
+    _log.info(f"[gThree] 开始匹配: label={label_text}")
+    _log.info(f"[gThree] applicants={[p.get('name') for p in party_material_map.get('applicants', [])]}")
+    _log.info(f"[gThree] respondents={[p.get('name') for p in party_material_map.get('respondents', [])]}")
+    _log.info(f"[gThree] lawyers={[p.get('name') for p in party_material_map.get('lawyers', [])]}")
 
     def _paths_for(party_entry: dict[str, Any], *type_names: str) -> list[str]:
         materials: dict[str, list[str]] = party_entry.get("materials") or {}
@@ -30,6 +40,9 @@ def _pick_identity_files_from_map(
             for path in materials.get(tn, []):
                 if path not in used:
                     result.append(path)
+        _log.info(
+            f"[gThree] _paths_for({party_entry.get('name')}, {type_names}) → {result}, materials_keys={list(materials.keys())}"
+        )
         return result
 
     def _find_party(entries: list[dict[str, Any]], name: str) -> dict[str, Any] | None:
@@ -50,8 +63,10 @@ def _pick_identity_files_from_map(
     if m:
         party_name = str(m.group(1) or "").strip()
         party_type = str(m.group(2) or "").strip()
+        _log.info(f"[gThree] 申请人匹配: name={party_name}, type={party_type}")
         party = _find_party(party_material_map.get("applicants", []), party_name)
         if not party:
+            _log.warning(f"[gThree] 未找到申请人 party: {party_name}")
             return []
         if party_type in ("法人", "非法人组织"):
             return _paths_for(party, "法定代表人身份证明书", "营业执照")
@@ -62,8 +77,10 @@ def _pick_identity_files_from_map(
     if m:
         party_name = str(m.group(1) or "").strip()
         party_type = str(m.group(2) or "").strip()
+        _log.info(f"[gThree] 被申请人匹配: name={party_name}, type={party_type}")
         party = _find_party(party_material_map.get("respondents", []), party_name)
         if not party:
+            _log.warning(f"[gThree] 未找到被申请人 party: {party_name}")
             return []
         if party_type in ("法人", "非法人组织"):
             return _paths_for(party, "营业执照")
@@ -316,7 +333,12 @@ class GuaranteeUploadMixin:  # pragma: no cover
                     chosen_files = [picked]
 
             if not chosen_files:
+                logger.warning(f"[gThree] 未匹配到文件: label={label_text[:80]}")
                 continue
+
+            logger.info(
+                f"[gThree] 准备上传: label={label_text[:80]}, files={[f.rsplit('/', 1)[-1] for f in chosen_files]}"
+            )
 
             # 身份证明材料逐个文件上传（Vue 上传组件多文件时可能只处理第一个）
             if chosen_files and (
