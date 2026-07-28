@@ -318,27 +318,53 @@ class GuaranteeUploadMixin:  # pragma: no cover
             if not chosen_files:
                 continue
 
-            upload_payload = self._build_file_payloads(chosen_files)
-            try:
-                current.set_input_files(upload_payload)
-                used.update(chosen_files)
-                result["uploaded"] = int(result["uploaded"]) + 1
-                if len(chosen_files) > 1:
-                    result["uploads"].append(
-                        {
-                            "index": i,
-                            "label": label_text[:80],
-                            "files": [path.rsplit("/", 1)[-1] for path in chosen_files],
-                        }
-                    )
-                else:
-                    result["uploads"].append(
-                        {"index": i, "label": label_text[:80], "file": chosen_files[0].rsplit("/", 1)[-1]}
-                    )
-                self._wait_upload_idle(timeout_ms=90000)  # type: ignore[attr-defined]
-                self._random_wait(1.8, 2.8)  # type: ignore[attr-defined]
-            except Exception:
-                continue
+            # 身份证明材料逐个文件上传（Vue 上传组件多文件时可能只处理第一个）
+            if chosen_files and (
+                "申请人-" in label_text
+                or "被申请人-" in label_text
+                or "身份证明" in label_text
+                or "代理人" in label_text
+                or "执业律师" in label_text
+            ):
+                uploaded_count = 0
+                for single_file in chosen_files:
+                    upload_payload = self._build_file_payload(single_file)
+                    try:
+                        current.set_input_files(upload_payload)
+                        used.add(single_file)
+                        uploaded_count += 1
+                        result["uploaded"] = int(result["uploaded"]) + 1
+                        result["uploads"].append(
+                            {"index": i, "label": label_text[:80], "file": single_file.rsplit("/", 1)[-1]}
+                        )
+                        self._wait_upload_idle(timeout_ms=90000)  # type: ignore[attr-defined]
+                        self._random_wait(1.8, 2.8)  # type: ignore[attr-defined]
+                    except Exception:
+                        continue
+                if uploaded_count == 0:
+                    continue
+            elif chosen_files:
+                upload_payload = self._build_file_payloads(chosen_files)
+                try:
+                    current.set_input_files(upload_payload)
+                    used.update(chosen_files)
+                    result["uploaded"] = int(result["uploaded"]) + 1
+                    if len(chosen_files) > 1:
+                        result["uploads"].append(
+                            {
+                                "index": i,
+                                "label": label_text[:80],
+                                "files": [path.rsplit("/", 1)[-1] for path in chosen_files],
+                            }
+                        )
+                    else:
+                        result["uploads"].append(
+                            {"index": i, "label": label_text[:80], "file": chosen_files[0].rsplit("/", 1)[-1]}
+                        )
+                    self._wait_upload_idle(timeout_ms=90000)  # type: ignore[attr-defined]
+                    self._random_wait(1.8, 2.8)  # type: ignore[attr-defined]
+                except Exception:
+                    continue
 
         complaint_path = next(
             (
@@ -441,17 +467,19 @@ class GuaranteeUploadMixin:  # pragma: no cover
                         if target_hints and not any(hint in label_text for hint in target_hints):
                             continue
                         try:
-                            candidate.set_input_files(self._build_file_payloads(identity_paths))
-                            result["uploads"].append(
-                                {
-                                    "index": j,
-                                    "label": label_text[:80],
-                                    "files": [path.rsplit("/", 1)[-1] for path in identity_paths],
-                                    "retry": True,
-                                    "reason": "identity_material",
-                                }
-                            )
-                            self._random_wait(2.0, 2.8)  # type: ignore[attr-defined]
+                            # 逐个上传身份证明材料
+                            for ip in identity_paths:
+                                candidate.set_input_files(self._build_file_payload(ip))
+                                result["uploads"].append(
+                                    {
+                                        "index": j,
+                                        "label": label_text[:80],
+                                        "file": ip.rsplit("/", 1)[-1],
+                                        "retry": True,
+                                        "reason": "identity_material",
+                                    }
+                                )
+                                self._random_wait(2.0, 2.8)  # type: ignore[attr-defined]
                         except Exception:
                             for single_path in identity_paths:
                                 try:
@@ -845,27 +873,53 @@ class GuaranteeUploadMixin:  # pragma: no cover
             if not chosen_files:
                 continue
 
-            upload_payload = self._build_file_payloads(chosen_files)
-            try:
-                await current.set_input_files(upload_payload)
-                used.update(chosen_files)
-                result["uploaded"] = int(result["uploaded"]) + 1
-                if len(chosen_files) > 1:
-                    result["uploads"].append(
-                        {
-                            "index": i,
-                            "label": label_text[:80],
-                            "files": [path.rsplit("/", 1)[-1] for path in chosen_files],
-                        }
-                    )
-                else:
-                    result["uploads"].append(
-                        {"index": i, "label": label_text[:80], "file": chosen_files[0].rsplit("/", 1)[-1]}
-                    )
-                await self._async_wait_upload_idle(timeout_ms=90000)  # type: ignore[attr-defined]
-                await self._async_random_wait(1.8, 2.8)  # type: ignore[attr-defined]
-            except Exception:
-                continue
+            # 身份证明材料逐个文件上传
+            if chosen_files and (
+                "申请人-" in label_text
+                or "被申请人-" in label_text
+                or "身份证明" in label_text
+                or "代理人" in label_text
+                or "执业律师" in label_text
+            ):
+                uploaded_count = 0
+                for single_file in chosen_files:
+                    upload_payload = self._build_file_payload(single_file)
+                    try:
+                        await current.set_input_files(upload_payload)
+                        used.add(single_file)
+                        uploaded_count += 1
+                        result["uploaded"] = int(result["uploaded"]) + 1
+                        result["uploads"].append(
+                            {"index": i, "label": label_text[:80], "file": single_file.rsplit("/", 1)[-1]}
+                        )
+                        await self._async_wait_upload_idle(timeout_ms=90000)  # type: ignore[attr-defined]
+                        await self._async_random_wait(1.8, 2.8)  # type: ignore[attr-defined]
+                    except Exception:
+                        continue
+                if uploaded_count == 0:
+                    continue
+            elif chosen_files:
+                upload_payload = self._build_file_payloads(chosen_files)
+                try:
+                    await current.set_input_files(upload_payload)
+                    used.update(chosen_files)
+                    result["uploaded"] = int(result["uploaded"]) + 1
+                    if len(chosen_files) > 1:
+                        result["uploads"].append(
+                            {
+                                "index": i,
+                                "label": label_text[:80],
+                                "files": [path.rsplit("/", 1)[-1] for path in chosen_files],
+                            }
+                        )
+                    else:
+                        result["uploads"].append(
+                            {"index": i, "label": label_text[:80], "file": chosen_files[0].rsplit("/", 1)[-1]}
+                        )
+                    await self._async_wait_upload_idle(timeout_ms=90000)  # type: ignore[attr-defined]
+                    await self._async_random_wait(1.8, 2.8)  # type: ignore[attr-defined]
+                except Exception:
+                    continue
 
         complaint_path = next(
             (
@@ -968,17 +1022,18 @@ class GuaranteeUploadMixin:  # pragma: no cover
                         if target_hints and not any(hint in label_text for hint in target_hints):
                             continue
                         try:
-                            await candidate.set_input_files(self._build_file_payloads(identity_paths))
-                            result["uploads"].append(
-                                {
-                                    "index": j,
-                                    "label": label_text[:80],
-                                    "files": [path.rsplit("/", 1)[-1] for path in identity_paths],
-                                    "retry": True,
-                                    "reason": "identity_material",
-                                }
-                            )
-                            await self._async_random_wait(2.0, 2.8)  # type: ignore[attr-defined]
+                            for ip in identity_paths:
+                                await candidate.set_input_files(self._build_file_payload(ip))
+                                result["uploads"].append(
+                                    {
+                                        "index": j,
+                                        "label": label_text[:80],
+                                        "file": ip.rsplit("/", 1)[-1],
+                                        "retry": True,
+                                        "reason": "identity_material",
+                                    }
+                                )
+                                await self._async_random_wait(2.0, 2.8)  # type: ignore[attr-defined]
                         except Exception:
                             for single_path in identity_paths:
                                 try:
