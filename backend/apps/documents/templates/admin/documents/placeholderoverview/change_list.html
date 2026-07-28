@@ -1,0 +1,85 @@
+{% extends "admin/change_list.html" %}
+{% load i18n %}
+
+{% block content_title %}
+    <h1>替换词总览</h1>
+{% endblock %}
+
+{% block search %}{% endblock %}
+
+{% block pagination %}{% endblock %}
+
+{% block result_list %}
+
+<div style="margin: 0 0 16px 0; padding: 12px 16px; background: var(--body-bg); border: 1px solid var(--border-color); border-radius: 6px;">
+    <form method="get" style="display: flex; gap: 8px; align-items: center;">
+        <input type="text" name="q" value="{{ search_query }}" placeholder="搜索替换词（key / 描述 / 来源）" style="min-width: 360px; padding: 6px 10px;" />
+        <button type="submit" class="button">搜索</button>
+        {% if search_query %}
+            <a href="." class="button">清除</a>
+        {% endif %}
+        <span style="margin-left: auto; color: var(--body-quiet-color);">
+            共 <strong>{{ total_count }}</strong> 个替换词
+            {% if search_query %}
+                （搜索 "{{ search_query }}"）
+            {% endif %}
+        </span>
+    </form>
+</div>
+
+{% if category_stats %}
+<div style="margin: 0 0 16px 0; display: flex; gap: 8px; flex-wrap: wrap;">
+    {% for cat, count in category_stats.items %}
+    <span style="padding: 4px 10px; background: var(--selected-row); border-radius: 4px; font-size: 13px;">
+        {% for label_key, label_val in category_labels.items %}{% if label_key == cat %}{{ label_val }}{% endif %}{% endfor %}
+        <strong>{{ count }}</strong>
+    </span>
+    {% endfor %}
+</div>
+{% endif %}
+
+{% if grouped_definitions %}
+    {% for cat, items in grouped_definitions.items %}
+    <div style="margin-bottom: 20px; border: 1px solid var(--border-color); border-radius: 6px; overflow: hidden;">
+        <div style="padding: 10px 16px; background: var(--darkened-bg); border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center;">
+            <h3 style="margin: 0; font-size: 15px;">
+                {% for label_key, label_val in category_labels.items %}{% if label_key == cat %}{{ label_val }}{% endif %}{% endfor %}
+                <span style="color: var(--body-quiet-color); font-weight: normal; font-size: 13px;">（{{ cat }}）</span>
+            </h3>
+            <span style="color: var(--body-quiet-color); font-size: 13px;">{{ items|length }} 个</span>
+        </div>
+        <table style="width: 100%; border-collapse: collapse;">
+            <thead>
+                <tr>
+                    <th style="padding: 8px 12px; text-align: left; background: var(--darkened-bg); border-bottom: 1px solid var(--border-color); font-size: 13px; width: 25%;">Key</th>
+                    <th style="padding: 8px 12px; text-align: left; background: var(--darkened-bg); border-bottom: 1px solid var(--border-color); font-size: 13px; width: 18%;">来源服务</th>
+                    <th style="padding: 8px 12px; text-align: left; background: var(--darkened-bg); border-bottom: 1px solid var(--border-color); font-size: 13px;">描述</th>
+                    <th style="padding: 8px 12px; text-align: left; background: var(--darkened-bg); border-bottom: 1px solid var(--border-color); font-size: 13px; width: 15%;">示例值</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in items %}
+                <tr style="{% cycle '' 'background: var(--body-bg);' %}">
+                    <td style="padding: 6px 12px; border-bottom: 1px solid var(--border-color); font-family: monospace; font-size: 13px;">{{ item.key }}</td>
+                    <td style="padding: 6px 12px; border-bottom: 1px solid var(--border-color); font-size: 13px; color: var(--body-quiet-color);">{{ item.source|default:"-" }}</td>
+                    <td style="padding: 6px 12px; border-bottom: 1px solid var(--border-color); font-size: 13px;">{{ item.description|default:"-" }}</td>
+                    <td style="padding: 6px 12px; border-bottom: 1px solid var(--border-color); font-size: 13px; color: var(--body-quiet-color); font-style: italic;">{{ item.example_value|default:"-" }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endfor %}
+{% else %}
+    <div style="padding: 40px; text-align: center; color: var(--body-quiet-color);">
+        {% if search_query %}
+            没有找到匹配 "{{ search_query }}" 的替换词。
+        {% else %}
+            暂无替换词定义。
+        {% endif %}
+    </div>
+{% endif %}
+
+{% endblock %}
+
+{% block sidebar %}{% endblock %}
