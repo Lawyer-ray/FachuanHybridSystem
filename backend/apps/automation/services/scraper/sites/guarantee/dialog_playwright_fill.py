@@ -97,7 +97,7 @@ class GuaranteeDialogPlaywrightFillMixin:  # pragma: no cover
             if selected_unit_nature:
                 updates.append(f"单位性质={selected_unit_nature}")
 
-        if target == "plaintiff_agent":
+        if target.startswith("plaintiff_agent"):
             selected = self.page.evaluate(
                 r"""() => {
                     const isVisible = (el) => {
