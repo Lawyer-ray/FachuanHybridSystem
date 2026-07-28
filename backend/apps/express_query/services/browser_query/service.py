@@ -1,4 +1,7 @@
-"""ExpressBrowserQueryService facade — 组合各子模块。"""
+"""ExpressBrowserQueryService facade — 组合各子模块。
+
+支持 StageTracker（阶段追踪）和 AbortFlag（协作取消）。
+"""
 
 from __future__ import annotations
 
@@ -10,6 +13,7 @@ from typing import TYPE_CHECKING
 from apps.express_query.models import ExpressCarrierType
 
 from .browser_launcher import close_browser, disconnect_playwright, ensure_browser
+from .browser_utils import AbortFlag, StageTracker
 from .ems_query_handler import query_ems
 from .sf_query_handler import query_sf
 
@@ -28,17 +32,36 @@ class ExpressBrowserQueryService:  # pragma: no cover
     async def disconnect_playwright() -> None:  # pragma: no cover
         await disconnect_playwright()
 
-    async def query_and_save_pdf(self, carrier_type: str, tracking_number: str, output_pdf: Path) -> str:  # pragma: no cover
+    async def query_and_save_pdf(
+        self,
+        carrier_type: str,
+        tracking_number: str,
+        output_pdf: Path,
+        *,
+        abort: AbortFlag | None = None,
+    ) -> str:  # pragma: no cover
+        """查询快递并保存为 PDF。
+
+        Args:
+            carrier_type: 承运商类型 (sf / ems)
+            tracking_number: 运单号
+            output_pdf: 输出 PDF 路径
+            abort: 可选的取消标记，设置后可在任意阶段中断查询
+        """
         output_pdf.parent.mkdir(parents=True, exist_ok=True)
+        _abort = abort or AbortFlag()
+        tracker = StageTracker(tracking_number=tracking_number)
 
         context = await ensure_browser()
         page = await context.new_page()
 
         try:
             if carrier_type == ExpressCarrierType.SF:
+                tracker.set("sf_query")
                 await query_sf(page, tracking_number)
             elif carrier_type == ExpressCarrierType.EMS:
-                await query_ems(page, tracking_number)
+                tracker.set("ems_query")
+                await query_ems(page, tracking_number, abort=_abort, tracker=tracker)
             else:
                 raise ValueError(f"Unsupported carrier: {carrier_type}")
 
@@ -46,6 +69,7 @@ class ExpressBrowserQueryService:  # pragma: no cover
 
             # EMS 详情页加载较慢，等待完全加载
             if carrier_type == ExpressCarrierType.EMS:
+                tracker.set("wait_load")
                 try:
                     await page.wait_for_load_state("networkidle", timeout=30000)
                     logger.info("EMS page fully loaded")
@@ -54,6 +78,7 @@ class ExpressBrowserQueryService:  # pragma: no cover
                 await asyncio.sleep(2)
 
             # 注入日期时间 + URL 页眉
+            tracker.set("generate_pdf")
             from datetime import datetime
 
             now_str: str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -87,7 +112,11 @@ class ExpressBrowserQueryService:  # pragma: no cover
                 watermark_id,
             )
 
+            tracker.set("done")
             return final_url
+        except Exception as e:
+            logger.error("[query] failed at stage=%s: %s", tracker.stage, e)
+            raise
         finally:
             try:
                 await page.close()

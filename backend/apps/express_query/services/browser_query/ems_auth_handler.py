@@ -1,4 +1,7 @@
-"""EMS 登录/协议处理。"""
+"""EMS 登录/协议处理。
+
+选择器已外置到 selectors_config.py，EMS 改版时只需更新配置。
+"""
 
 from __future__ import annotations
 
@@ -6,14 +9,15 @@ import asyncio
 import logging
 from typing import TYPE_CHECKING, Final
 
-from .browser_utils import click_first, click_locator_if_visible
+from .browser_utils import click_first, click_locator_if_visible, has_any_visible
+from .selectors_config import get_ems_selectors
 
 if TYPE_CHECKING:
     from playwright.async_api import BrowserContext, Page
 
 logger = logging.getLogger("apps.express_query")
 
-# EMS 协议相关 XPath（与 test_ems_full_flow.py 保持一致）
+# EMS 协议相关 XPath — 从 selectors_config 加载，支持运行时覆盖
 EMS_LOGIN_AGREE_CHECKBOX_XPATH: Final[str] = (
     "//*[@id='app']/div[1]/div/header/div[1]/div/div/div[3]/div/div[2]/div/div[2]/div[3]/div[1]/label/span/span"
 )
@@ -23,39 +27,21 @@ EMS_AGREEMENT_ACCEPT_BUTTON_XPATH: Final[str] = "//*[@id='app']/div[2]/div/div[2
 
 
 async def is_ems_dialog_visible(page: Page) -> bool:  # pragma: no cover
-    """检测 EMS 登录弹窗是否正在显示。"""
-    # 方法1: el-dialog.scan 容器可见
-    try:
-        dialog = page.locator(".el-dialog.scan")
-        if await dialog.count() > 0 and await dialog.first.is_visible():
-            return True
-    except Exception:
-        pass
-    # 方法2: 可见的"扫码登录"文字
-    try:
-        qr = page.locator("text=扫码登录")
-        if await qr.count() > 0 and await qr.first.is_visible():
-            return True
-    except Exception:
-        pass
-    # 方法3: 协议文字
-    try:
-        agree = page.locator("text=请阅读并同意服务协议")
-        if await agree.count() > 0 and await agree.first.is_visible():
-            return True
-    except Exception:
-        pass
+    """检测 EMS 登录弹窗是否正在显示（从配置加载选择器）。"""
+    login_selectors = get_ems_selectors("loginIndicators")
+    for selector in login_selectors:
+        try:
+            locator = page.locator(selector)
+            if await locator.count() > 0 and await locator.first.is_visible():
+                return True
+        except Exception:
+            continue
     return False
 
 
 async def ems_click_login_button(page: Page) -> bool:  # pragma: no cover
     """点击 EMS 页面的「登录/注册」按钮。返回是否点击成功。"""
-    selectors: list[str] = [
-        "text=登录/注册",
-        "a:text('登录/注册')",
-        "div:text('登录/注册')",
-        "span:text('登录/注册')",
-    ]
+    selectors = get_ems_selectors("loginEntryButtons")
     for selector in selectors:
         loc = page.locator(selector)
         try:
@@ -92,27 +78,33 @@ async def wait_for_ems_login(  # pragma: no cover
     *,
     timeout_seconds: int,
 ) -> None:
-    from .browser_utils import has_any_visible
-
+    """等待 EMS 登录完成（带负守卫：登录关键词存在但已登录关键词也存在时不认为需要登录）。"""
     deadline = asyncio.get_running_loop().time() + timeout_seconds
 
+    login_selectors = get_ems_selectors("loginIndicators")
+    logged_in_keywords = get_ems_selectors("loggedInIndicators")
+
     while asyncio.get_running_loop().time() < deadline:
-        login_visible = await has_any_visible(
-            page,
-            ["text=扫码登录", ".el-dialog.scan"],
-        )
+        # 负守卫：已登录指标存在 → 登录成功
+        if await has_any_visible(page, logged_in_keywords):
+            return
+
+        login_visible = await has_any_visible(page, login_selectors)
         body = ""
         try:
             body = (await page.locator("body").text_content()) or ""
         except Exception:
             pass
-        user_visible = any(kw in body for kw in ("退出", "我的EMS", "个人中心", "我的快递"))
-        if user_visible or not login_visible:
+
+        logged_in_text = any(kw in body for kw in ("退出", "我的EMS", "个人中心", "我的快递"))
+        if logged_in_text or not login_visible:
             return
         await asyncio.sleep(2)
 
 
-async def ems_handle_agreement_and_wait(context: BrowserContext, page: Page, timeout_seconds: int = 300) -> None:  # pragma: no cover
+async def ems_handle_agreement_and_wait(
+    context: BrowserContext, page: Page, timeout_seconds: int = 300
+) -> None:  # pragma: no cover
     """
     EMS 完整登录流程：
     - 检测弹窗可见性
