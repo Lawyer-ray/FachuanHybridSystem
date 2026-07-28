@@ -67,10 +67,10 @@ async def ensure_browser() -> BrowserContext:  # pragma: no cover
         except Exception:
             _context = None
 
-    # 通过 CloakBrowser 启动新浏览器
+    # 通过 CloakBrowser 启动新浏览器（强制有头模式，快递查询需要用户扫码登录）
     from apps.core.services.browser import create_browser_async
 
-    cm = create_browser_async("default")
+    cm = create_browser_async("default", headless=False)
     page, context = await cm.__aenter__()
     _context = context
 
