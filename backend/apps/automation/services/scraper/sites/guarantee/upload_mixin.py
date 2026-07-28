@@ -343,29 +343,20 @@ class GuaranteeUploadMixin:  # pragma: no cover
                 f"[gThree] 准备上传: label={label_text[:80]}, files={[f.rsplit('/', 1)[-1] for f in chosen_files]}"
             )
 
-            # 所有材料统一用一次 set_input_files 传入所有文件
-            # （逐个 set_input_files 会导致后面的文件覆盖前面的）
-            upload_payload = self._build_file_payloads(chosen_files)
-            try:
-                current.set_input_files(upload_payload)
-                used.update(chosen_files)
-                result["uploaded"] = int(result["uploaded"]) + 1
-                if len(chosen_files) > 1:
+            # 逐个文件上传：每次 set_input_files 只传一个文件，
+            # Vue 上传组件处理完一个再传下一个，避免多文件时只处理第一个。
+            for single_file in chosen_files:
+                try:
+                    current.set_input_files(self._build_file_payload(single_file))
+                    used.add(single_file)
+                    result["uploaded"] = int(result["uploaded"]) + 1
                     result["uploads"].append(
-                        {
-                            "index": i,
-                            "label": label_text[:80],
-                            "files": [path.rsplit("/", 1)[-1] for path in chosen_files],
-                        }
+                        {"index": i, "label": label_text[:80], "file": single_file.rsplit("/", 1)[-1]}
                     )
-                else:
-                    result["uploads"].append(
-                        {"index": i, "label": label_text[:80], "file": chosen_files[0].rsplit("/", 1)[-1]}
-                    )
-                self._wait_upload_idle(timeout_ms=90000)  # type: ignore[attr-defined]
-                self._random_wait(1.8, 2.8)  # type: ignore[attr-defined]
-            except Exception:
-                continue
+                    self._wait_upload_idle(timeout_ms=90000)  # type: ignore[attr-defined]
+                    self._random_wait(1.8, 2.8)  # type: ignore[attr-defined]
+                except Exception:
+                    continue
 
         complaint_path = next(
             (
@@ -874,28 +865,19 @@ class GuaranteeUploadMixin:  # pragma: no cover
             if not chosen_files:
                 continue
 
-            # 所有材料统一用一次 set_input_files 传入所有文件
-            upload_payload = self._build_file_payloads(chosen_files)
-            try:
-                await current.set_input_files(upload_payload)
-                used.update(chosen_files)
-                result["uploaded"] = int(result["uploaded"]) + 1
-                if len(chosen_files) > 1:
+            # 逐个文件上传
+            for single_file in chosen_files:
+                try:
+                    await current.set_input_files(self._build_file_payload(single_file))
+                    used.add(single_file)
+                    result["uploaded"] = int(result["uploaded"]) + 1
                     result["uploads"].append(
-                        {
-                            "index": i,
-                            "label": label_text[:80],
-                            "files": [path.rsplit("/", 1)[-1] for path in chosen_files],
-                        }
+                        {"index": i, "label": label_text[:80], "file": single_file.rsplit("/", 1)[-1]}
                     )
-                else:
-                    result["uploads"].append(
-                        {"index": i, "label": label_text[:80], "file": chosen_files[0].rsplit("/", 1)[-1]}
-                    )
-                await self._async_wait_upload_idle(timeout_ms=90000)  # type: ignore[attr-defined]
-                await self._async_random_wait(1.8, 2.8)  # type: ignore[attr-defined]
-            except Exception:
-                continue
+                    await self._async_wait_upload_idle(timeout_ms=90000)  # type: ignore[attr-defined]
+                    await self._async_random_wait(1.8, 2.8)  # type: ignore[attr-defined]
+                except Exception:
+                    continue
 
         complaint_path = next(
             (
