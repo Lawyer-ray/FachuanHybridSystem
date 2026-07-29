@@ -140,3 +140,117 @@
 
 **P2（逐步优化）**：
 7. 其余 MEDIUM 级别问题，通过 guard clause 和 helper 函数逐步扁平化
+
+---
+
+# 第二轮深度扫描追加（opus agent 并行扫描）
+
+---
+
+## 六、HIGH 严重 — 新发现
+
+### `plugins/court_automation/token/history_recorder.py` L69-102
+- **结构**：`try > if > if/elif 链 > try > if > for > if > if` — **6 层**
+- `record_acquisition_history()` 中错误类型用字符串 `if/elif` 匹配，应改 dict dispatch
+
+### `plugins/court_automation/login/court_zxfw_service.py` L430-546
+- **结构**：`for > try > if/elif > for > if` — 4 层，**~130 行单体方法**
+- `_try_captcha_login()` 混杂验证码识别、JS 注入、按钮点击、token 轮询、截图保存
+- **修复**：拆分为 `_recognize_captcha()`、`_inject_captcha_js()`、`_poll_for_token()` 等子步骤
+
+### `plugins/court_automation/login/captcha_recognizer.py` L242-286 / L339-347
+- **结构**：`try > while > if > with > if > try` — **5 层**（sync + async 各一处）
+- while 轮询 + 文件读取 + 条件检查 + 资源清理交织
+- **修复**：将轮询逻辑提取为独立方法
+
+### `apps/workbench/services/chat_service.py` L468-534
+- **结构**：`async for > if > async for > if > if` — **6 层**
+- `_run_agent()` 单个 try 块内混合 agent 迭代、流处理、tool-call 分发、结果处理
+
+### `apps/workbench/api/workbench_api.py` L560-601
+- **结构**：`while True > for > if > if / elif > if` — **5 层**
+- SSE 事件生成器中的 for-in-for + 条件分支
+
+### `apps/litigation_ai/agent/factory.py` L153-184
+- **结构**：`for > async for > if > if` — **4 层**
+- `astream()` 方法中 LLM 迭代嵌套流式响应 + tool-call 处理
+- L43-85 和 L96-138 的 `invoke()`/`ainvoke()` 也存在相同三层嵌套且近乎重复
+
+### `apps/contracts/services/archive/generation/pdf_utils.py` L43-112
+- **结构**：`for > try > for > if/else` — **4 层**
+- `scale_pages_to_a4()` 中 `is_a4` 计算逻辑在两个 for 循环中重复
+
+### `apps/contracts/services/archive/generation/folder_builder.py` L276-349
+- **结构**：`for > if > if > for > with` — **5 层**
+- `_compile_final_archive_pdf()` 中 temp-file 清理逻辑嵌套在条件+循环内
+
+### `apps/automation/services/scraper/sites/guarantee/base_mixin.py` L238-261 / L517-541
+- **结构**：`for > for > for > try/if/except > try/except` — **4 层 for + 双重 try**
+- `_click_first_enabled_button()` sync/async 版本完全重复
+
+### `apps/automation/services/scraper/sites/guarantee/dialog_property_clue.py` L14-182
+- **结构**：`try > for > for(retry) > if/break` — **4 层**，3 个字段类型重复相同结构
+- 170 行方法内三段几乎相同的 try/except + for + retry 模式
+
+### `apps/organization/views.py` L34-75
+- **结构**：`if POST > if action > try/except > else: if` — **4 层**
+- `register()` 混杂请求方法分支、action 分发、表单验证、异常处理、角色检查
+
+---
+
+## 七、MEDIUM 严重 — 新发现
+
+| 文件 | 行号 | 结构 | 说明 |
+|------|------|------|------|
+| `workbench/services/chat_service.py` | L340-385 | `async for > if/elif > if` | 事件分发循环，与 L468 逻辑重复 |
+| `workbench/services/doc_extractor.py` | L96-104 | `for > for > if > if` | 表格/元数据提取，for-in-for |
+| `workbench/api/workbench_api.py` | L418-462 | `with > for > if > if` | ZIP 导出构建，与 summary.py 逻辑重复 |
+| `court_automation/preservation_quote/execution_mixin.py` | L75-128 | `try > if > try > if` | token 获取，字符串匹配错误类型 |
+| `court_automation/preservation_quote/admin_service.py` | L348-369 | `try > for > try > if` | 批量操作，per-item try/except |
+| `court_automation/login/court_zxfw_service.py` | L636-689 | `try > for > if` (×2) | 两段近乎重复的选择器可见性检查 |
+| `litigation_ai/services/mock_trial/mock_trial_flow_service.py` | L758-778 | `for > if > if/elif(6分支)` | 文本配置解析，应用 dict dispatch |
+| `finance/services/calculator/interest_calculator.py` | L296-309 | `for > for > if` | 本金期间 × 利率段的 O(n×m) 嵌套 |
+| `contracts/services/archive/generation/pdf_utils.py` | L291-346 | `for > try > finally > try` | 清理逻辑 5 层嵌套 |
+| `contracts/services/archive/supervision_card_extractor.py` | L59-93 | `for > try > if > if` | 监管卡检测提取 |
+| `contracts/services/archive/generation/download_handler.py` | L192-248 | `for > try > finally > try` | 同 pdf_utils 的 try-for-try-cleanup 模式 |
+| `automation/scraper/sites/guarantee/dialog_playwright_fill.py` | L36-76 | `for > try/if > for > for` | 三段重复的 iterate-try-filter |
+| `automation/scraper/sites/guarantee/guarantee_service.py` | L133-167 | `for > if > if any` | 错误检测用 fragile 字符串匹配 |
+| `automation/scraper/core/monitor_service.py` | L142-169 | `for > if > if > if/else` | queryset vs list 双路径分支 |
+| `automation/scraper/scrapers/court_document/hbfy_scraper.py` | L182-202 | `for > if×4` | 12 次重试循环内 4 个顺序 guard |
+| `mcp_server/tools/web_search/web_search.py` | L52-67 | `for > for > if > if` | CSS 选择器遍历 |
+| `organization/admin/accountcredential_admin.py` | L105-122 | `if/elif/else > if/else` | 时间格式化，应提取 helper |
+| `organization/views.py` | L34-75 | `if > if > try > if` | register 视图函数 |
+
+---
+
+## 八、跨文件重复模式（建议统一重构）
+
+| 模式 | 出现位置 | 建议 |
+|------|----------|------|
+| `try > for > finally > try` temp-file 清理 | `pdf_utils.py`、`download_handler.py` | 抽取为 context manager |
+| `for > for > keyword 匹配` | `archive_classifier.py`、`material_mapping.py` | 统一预建 `{keyword: code}` 反向索引 |
+| sync/async 双版本完全重复嵌套 | `captcha_recognizer.py`、`base_mixin.py`、`guarantee_service.py` | 用 async 统一，或提取共享核心逻辑 |
+| `for > if/elif 长链` 字段映射 | `detail_extractor.py`、`html_parser.py`、`mock_trial_flow_service.py` | 统一用 dict dispatch |
+| ZIP 导出逻辑重复 | `workbench_api.py` L418 与 `summary.py` L131 | 去重，提取公共函数 |
+
+---
+
+## 九、最终热点文件排名（HIGH 数量，含两轮扫描）
+
+| 文件 | HIGH 数 |
+|------|--------|
+| `automation/scraper/sites/guarantee/upload_mixin.py` | 15+ |
+| `automation/scraper/sites/guarantee/form_filling_mixin.py` | 6 |
+| `oa_filing/jtn/case_import/detail_extractor.py` | 3（13层） |
+| `oa_filing/jtn/case_import/html_parser.py` | 3（10层） |
+| `cases/services/log/email_folder_scan_service.py` | 3 |
+| `core/cloud_storage/webdav_provider.py` | 1（12层） |
+| `automation/admin/sms/court_sms_admin_actions.py` | 3 |
+| `oa_filing/jtn/case_import/playwright_browser.py` | 2 |
+| `automation/scraper/sites/guarantee/base_mixin.py` | 2（sync+async） |
+| `automation/scraper/sites/guarantee/dialog_property_clue.py` | 1（170行） |
+| `plugins/court_automation/login/court_zxfw_service.py` | 2 |
+| `workbench/services/chat_service.py` | 2 |
+| `litigation_ai/agent/factory.py` | 1（3方法重复） |
+| `contracts/services/archive/generation/pdf_utils.py` | 1 |
+| `contracts/services/archive/generation/folder_builder.py` | 1 |
