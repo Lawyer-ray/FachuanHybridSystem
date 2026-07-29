@@ -19,6 +19,21 @@ from django.utils.safestring import SafeString
 from apps.organization.models import AccountCredential
 
 
+def _format_time_ago(delta):  # type: ignore[no-untyped-def]
+    """将 timedelta 转为 (color, 时间文本)。"""
+    if delta.days > 30:
+        return "#dc3545", f"{delta.days}天前"
+    if delta.days > 7:
+        return "#ffc107", f"{delta.days}天前"
+    if delta.days > 0:
+        return "#007bff", f"{delta.days}天前"
+    hours = delta.seconds // 3600
+    if hours > 0:
+        return "#28a745", f"{hours}小时前"
+    minutes = delta.seconds // 60
+    return "#28a745", f"{minutes}分钟前"
+
+
 @admin.register(AccountCredential)
 class AccountCredentialAdmin(admin.ModelAdmin):  # pragma: no cover
     list_display: ClassVar[list[str]] = [
@@ -99,28 +114,8 @@ class AccountCredentialAdmin(admin.ModelAdmin):  # pragma: no cover
         if not obj.last_login_success_at:
             return format_html('<span style="color: #999;">{}</span>', "从未成功")
 
-        now = timezone.now()
-        delta = now - obj.last_login_success_at
-
-        if delta.days > 30:
-            color = "#dc3545"
-            time_str = "%(days)d天前" % {"days": delta.days}
-        elif delta.days > 7:
-            color = "#ffc107"
-            time_str = "%(days)d天前" % {"days": delta.days}
-        elif delta.days > 0:
-            color = "#007bff"
-            time_str = "%(days)d天前" % {"days": delta.days}
-        else:
-            hours = delta.seconds // 3600
-            if hours > 0:
-                color = "#28a745"
-                time_str = "%(hours)d小时前" % {"hours": hours}
-            else:
-                minutes = delta.seconds // 60
-                color = "#28a745"
-                time_str = "%(minutes)d分钟前" % {"minutes": minutes}
-
+        delta = timezone.now() - obj.last_login_success_at
+        color, time_str = _format_time_ago(delta)
         return format_html('<span style="color: {}; font-weight: bold;">{}</span>', color, time_str)
 
     @admin.display(description="操作")

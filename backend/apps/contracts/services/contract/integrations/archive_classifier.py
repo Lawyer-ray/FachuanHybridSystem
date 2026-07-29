@@ -443,24 +443,38 @@ def collect_archive_item_options(archive_category: str) -> list[dict[str, str]]:
 # ============================================================
 
 
+def _search_keyword_mapping(
+    mapping: dict[str, dict[str, list[str]]],
+    archive_category: str,
+    text: str,
+) -> tuple[str, str] | None:
+    """在 keyword mapping 中搜索，返回首次命中的 (code, keyword) 或 None。
+
+    将 for > for > if 三层嵌套收拢到一处。
+    """
+    for code, keywords in mapping.get(archive_category, {}).items():
+        for keyword in keywords:
+            if _normalize_for_match(keyword) in text:
+                return code, keyword
+    return None
+
+
 def _match_by_learned_rules(
     normalized_filename: str,
     archive_category: str,
 ) -> dict[str, Any] | None:
     """学习规则匹配（先查代码文件规则，再查DB规则）。"""
     # 1. 代码文件中的学习规则（模块级缓存，无DB查询）
-    code_mapping = _LEARNED_CODE_RULES.get(archive_category, {})
-    for code, keywords in code_mapping.items():
-        for keyword in keywords:
-            if _normalize_for_match(keyword) in normalized_filename:
-                name = _get_item_name(archive_category, code)
-                return {
-                    "archive_item_code": code,
-                    "archive_item_name": name,
-                    "category": "case_material",
-                    "confidence": 0.95,
-                    "reason": f"学习规则命中：{keyword}",
-                }
+    hit = _search_keyword_mapping(_LEARNED_CODE_RULES, archive_category, normalized_filename)
+    if hit:
+        code, keyword = hit
+        return {
+            "archive_item_code": code,
+            "archive_item_name": _get_item_name(archive_category, code),
+            "category": "case_material",
+            "confidence": 0.95,
+            "reason": f"学习规则命中：{keyword}",
+        }
 
     # 2. DB 中的学习规则
     db_result = _match_by_db_learned_rules(normalized_filename, archive_category)
@@ -538,18 +552,16 @@ def _match_by_folder_keywords(
     archive_category: str,
 ) -> dict[str, Any] | None:
     """文件夹路径关键词匹配。"""
-    mapping = _FOLDER_KEYWORD_TO_ARCHIVE_CODE.get(archive_category, {})
-    for code, keywords in mapping.items():
-        for keyword in keywords:
-            if _normalize_for_match(keyword) in normalized_path:
-                name = _get_item_name(archive_category, code)
-                return {
-                    "archive_item_code": code,
-                    "archive_item_name": name,
-                    "category": "case_material",
-                    "confidence": 0.92,
-                    "reason": f"文件夹路径关键词命中：{keyword}",
-                }
+    hit = _search_keyword_mapping(_FOLDER_KEYWORD_TO_ARCHIVE_CODE, archive_category, normalized_path)
+    if hit:
+        code, keyword = hit
+        return {
+            "archive_item_code": code,
+            "archive_item_name": _get_item_name(archive_category, code),
+            "category": "case_material",
+            "confidence": 0.92,
+            "reason": f"文件夹路径关键词命中：{keyword}",
+        }
     return None
 
 
@@ -558,18 +570,16 @@ def _match_by_filename_keywords(
     archive_category: str,
 ) -> dict[str, Any] | None:
     """文件名关键词匹配。"""
-    mapping = _FILENAME_KEYWORD_TO_ARCHIVE_CODE.get(archive_category, {})
-    for code, keywords in mapping.items():
-        for keyword in keywords:
-            if _normalize_for_match(keyword) in normalized_filename:
-                name = _get_item_name(archive_category, code)
-                return {
-                    "archive_item_code": code,
-                    "archive_item_name": name,
-                    "category": "case_material",
-                    "confidence": 0.90,
-                    "reason": f"文件名关键词命中：{keyword}",
-                }
+    hit = _search_keyword_mapping(_FILENAME_KEYWORD_TO_ARCHIVE_CODE, archive_category, normalized_filename)
+    if hit:
+        code, keyword = hit
+        return {
+            "archive_item_code": code,
+            "archive_item_name": _get_item_name(archive_category, code),
+            "category": "case_material",
+            "confidence": 0.90,
+            "reason": f"文件名关键词命中：{keyword}",
+        }
     return None
 
 

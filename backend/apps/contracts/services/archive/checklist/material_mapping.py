@@ -139,10 +139,16 @@ def match_type_name_to_code(
     """根据 CaseMaterial.type_name 匹配 archive_item_code。"""
     if not type_name:
         return None
-    for code, keywords in keyword_map.items():
+    hit = _search_keyword_map(keyword_map, type_name)
+    return hit[0] if hit else None
+
+
+def _search_keyword_map(mapping: dict[str, list[str]], text: str) -> tuple[str, str] | None:
+    """扁平 keyword mapping 搜索，返回 (code, keyword) 或 None。"""
+    for code, keywords in mapping.items():
         for keyword in keywords:
-            if keyword in type_name:
-                return code
+            if keyword in text:
+                return code, keyword
     return None
 
 
