@@ -27,12 +27,13 @@ class InvoiceParser:
     """通过正则表达式和关键词匹配从 OCR/PDF 文本中提取结构化发票字段"""
 
     _CODE_PATTERN: re.Pattern[str] = re.compile(r"(?:发票代码|No\.)[^\d]*(\d{10,12})")
-    _NUMBER_PATTERN: re.Pattern[str] = re.compile(r"(?:发票号码|No\.)[^\d]*(\d{20}|\d{8})(?!\d)")
+    _NUMBER_PATTERN: re.Pattern[str] = re.compile(r"(?:发\s*票\s*号\s*码|No\.)[^\d]*(\d{20}|\d{8})(?!\d)")
+    _NUMBER_FALLBACK_20: re.Pattern[str] = re.compile(r"(?<!\d)(\d{20})(?!\d)")
     _PROJECT_PATTERN: re.Pattern[str] = re.compile(r"\*[^*]+\*([^\s\n\r]{2,50})")
-    _DATE_CN_PATTERN: re.Pattern[str] = re.compile(r"(\d{4})年(\d{1,2})月(\d{1,2})日")
+    _DATE_CN_PATTERN: re.Pattern[str] = re.compile(r"(\d{4})\s*年\s*(\d{1,2})\s*月\s*(\d{1,2})\s*日")
     _DATE_ISO_PATTERN: re.Pattern[str] = re.compile(r"(\d{4})-(\d{2})-(\d{2})")
     _AMOUNT_PATTERN: re.Pattern[str] = re.compile(r"合\s*计\s*[¥￥]([\d,]+\.\d{2})\s*[¥￥]([\d,]+\.\d{2})")
-    _TOTAL_PATTERN: re.Pattern[str] = re.compile(r"[（(]小写[）)]\s*[¥￥]([\d,]+\.\d{2})")
+    _TOTAL_PATTERN: re.Pattern[str] = re.compile(r"[（(]\s*小写\s*[）)]\s*[¥￥]\s*([\d,]+\.\d{2})")
     _BUYER_PATTERN: re.Pattern[str] = re.compile(
         r"(?:购买方名称|购方名称)[：:]\s*([^\n\r]{2,50})"
         r"|(?:购\s*名称|买\s*名称)[：:]\s*([^销\n\r]{2,50})"
@@ -124,7 +125,15 @@ class InvoiceParser:
 
     def _extract_invoice_number(self, text: str) -> str:
         m = self._NUMBER_PATTERN.search(text)
-        return m.group(1) if m else ""
+        if m:
+            return m.group(1)
+        # 数电发票：发票号码在红色印章图片中，pdfplumber 提取的文本里
+        # 号码不紧跟在「发票号码」标签后，而是散落在文本中（如「制 264420…」）
+        if re.search(r"电⼦?发票", text):
+            m = self._NUMBER_FALLBACK_20.search(text)
+            if m:
+                return m.group(1)
+        return ""
 
     def _extract_date(self, text: str) -> date | None:
         m = self._DATE_CN_PATTERN.search(text)
