@@ -111,8 +111,17 @@ class PreservationPropertyClueService(BasePlaceholderService):
         if not content:
             return []
 
-        # 按行分割内容
         lines = [line.strip() for line in content.strip().split("\n") if line.strip()]
+
+        result: list[Any] = []
+        for line in lines:
+            if ":" in line:
+                result.append(line)
+            elif ":" in line:
+                result.append(line.replace(":", ":"))
+            else:
+                result.append(line)
+        return result
 
     def _format_clue_items(self, clue_list: list[Any], start_index: int) -> tuple[list[str], int]:
         """格式化线索项列表，返回 (formatted_lines, next_index)。"""
@@ -123,19 +132,6 @@ class PreservationPropertyClueService(BasePlaceholderService):
                 idx += 1
                 lines.append(f"({idx}){content_line}")
         return lines, idx
-
-        result: list[Any] = []
-        for line in lines:
-            if ":" in line:
-                # 保留原始格式
-                result.append(line)
-            elif ":" in line:
-                # 英文冒号转中文冒号
-                result.append(line.replace(":", ":"))
-            else:
-                result.append(line)
-
-        return result
 
     def generate_property_clue_info(self, case_id: int) -> str:
         """

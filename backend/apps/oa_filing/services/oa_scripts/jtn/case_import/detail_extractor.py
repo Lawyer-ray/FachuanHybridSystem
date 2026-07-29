@@ -24,7 +24,7 @@ _FIELD_RULES: list[tuple[tuple[str, ...], str]] = [
 ]
 
 
-def _apply_customer_field(customer: Any, label: str, value: str) -> None:  # type: ignore[no-untyped-def]
+def _apply_customer_field(customer: Any, label: str, value: str) -> None:
     """根据标签文本设置客户字段。"""
     for keywords, attr in _FIELD_RULES:
         if any(kw in label for kw in keywords):

@@ -238,7 +238,7 @@ async def _maybe_create_summary(
 # ─── 主服务 ───────────────────────────────────────────────────────────────────
 
 
-async def _handle_stream_event(event: Any, event_queue: Any, agent_name: str) -> None:  # type: ignore[no-untyped-def]
+async def _handle_stream_event(event: Any, event_queue: Any, agent_name: str) -> None:
     """处理 Agent 流式事件：工具调用/结果/handoff。"""
     if isinstance(event, FunctionToolCallEvent):
         args = event.part.args

@@ -37,7 +37,7 @@ if TYPE_CHECKING:
 logger: logging.Logger = logging.getLogger(__name__)
 
 
-def _set_paragraph_runs(paragraph: Any, value: str) -> None:  # type: ignore[no-untyped-def]
+def _set_paragraph_runs(paragraph: Any, value: str) -> None:
     """保留首 run 格式写入文本，清空后续 run。"""
     runs = paragraph.runs
     if not runs:

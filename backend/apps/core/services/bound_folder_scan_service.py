@@ -433,7 +433,6 @@ class BoundFolderScanService:
         deduped.sort(key=lambda x: x["scanned"].as_posix)
         return deduped
 
-    @staticmethod
     def _extract_text_from_bytes(self, file_bytes: bytes) -> tuple[str, str]:
         """从 PDF 字节流中提取文本，返回 (extraction_method, text_excerpt)。"""
         import os
@@ -450,6 +449,7 @@ class BoundFolderScanService:
         finally:
             os.unlink(tmp_path)
 
+    @staticmethod
     def _extract_parent_folder_hint_cloud(scanned: Any, scan_root: str) -> str:
         """Extract parent folder hint from cloud file path."""
         from pathlib import PurePosixPath
