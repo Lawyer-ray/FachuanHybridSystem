@@ -25,6 +25,13 @@ _ARCHIVE_CATALOG_CODES: dict[str, str] = {
 }
 
 
+def _cleanup_temp_files(temp_files: list[Path]) -> None:
+    """清理临时 PDF 文件。"""
+    for tmp in temp_files:
+        with contextlib.suppress(OSError):
+            tmp.unlink(missing_ok=True)
+
+
 def generate_archive_folder(contract: Contract) -> dict[str, Any]:  # pragma: no cover
     """生成归档文件夹到合同绑定的文件夹根目录。
 
@@ -280,9 +287,7 @@ def _compile_final_archive_pdf(
             pdf_path = archive_dir / f"{seq_num}-{doc_name}（{contract_name}）_{today_str}.pdf"
             if not case_materials_pdf_exists or not pdf_path.exists():
                 logger.info("4-案卷材料PDF不存在，跳过Final合并")
-                for tmp in temp_pdf_files:
-                    with contextlib.suppress(OSError):
-                        tmp.unlink(missing_ok=True)
+                _cleanup_temp_files(temp_pdf_files)
                 return {
                     "written": False,
                     "skipped": True,
@@ -307,9 +312,7 @@ def _compile_final_archive_pdf(
             logger.warning("docx转PDF失败: %s", docx_path.name)
 
     if not pdf_files_to_merge:
-        for tmp in temp_pdf_files:
-            with contextlib.suppress(OSError):
-                tmp.unlink(missing_ok=True)
+        _cleanup_temp_files(temp_pdf_files)
         return {"written": False, "skipped": True, "page_count": 0, "error": None, "reason": "无可合并的PDF文件"}
 
     merged_doc = fitz.open()

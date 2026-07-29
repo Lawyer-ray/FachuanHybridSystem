@@ -11,6 +11,17 @@ from apps.litigation_ai.placeholders.spec import LitigationPlaceholderKeys
 logger = logging.getLogger(__name__)
 
 
+def _collect_clue_lines(client_service: Any, client_id: int) -> list[str]:
+    """从客户的财产线索中提取所有非空行。"""
+    lines: list[str] = []
+    for clue in client_service.get_property_clues_by_client_internal(client_id):
+        for line in (clue.content or "").split("\n"):
+            stripped = line.strip()
+            if stripped:
+                lines.append(stripped)
+    return lines
+
+
 @PlaceholderRegistry.register
 class EnforcementApplicantPropertyClueService(BasePlaceholderService):
     """强制执行申请书申请人财产线索服务"""
@@ -60,14 +71,7 @@ class EnforcementApplicantPropertyClueService(BasePlaceholderService):
         lines: list[str] = []
 
         for party_dto in applicant_party_dtos:
-            client_id = party_dto.client_id
-            clue_dtos = client_service.get_property_clues_by_client_internal(client_id)
-            for clue in clue_dtos:
-                content = clue.content or ""
-                for line in content.split("\n"):
-                    stripped = line.strip()
-                    if stripped:
-                        lines.append(stripped)
+            lines.extend(_collect_clue_lines(client_service, party_dto.client_id))
 
         result = "\a".join(lines)
         logger.info("生成申请人财产线索成功: case_id=%s, 行数=%s", case_id, len(lines))

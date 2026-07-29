@@ -239,65 +239,29 @@ class AccountCredentialAdminService:
             duration = (end_time - start_time).total_seconds()
 
             if result:
-                self._record_login_history(
+                return self._finish_login(
                     credential=credential,
                     success=True,
                     duration=duration,
+                    trigger_reason=trigger_reason,
+                    start_time=start_time,
+                    end_time=end_time,
                     token=result,
-                    trigger_reason=trigger_reason,
-                    start_time=start_time,
-                    end_time=end_time,
-                )
-                self.credential_service.update_login_success(credential.id)
-
-                logger.info(
-                    "批量登录成功",
-                    extra={
-                        "admin_user": admin_user,
-                        "credential_id": credential.id,
-                        "account": credential.account,
-                        "duration": duration,
-                    },
                 )
 
-                return LoginResult(success=True, duration=duration, token=result)
-            else:
-                self._record_login_history(
-                    credential=credential,
-                    success=False,
-                    duration=duration,
-                    error_message="登录失败，未返回Token",
-                    trigger_reason=trigger_reason,
-                    start_time=start_time,
-                    end_time=end_time,
-                )
-                self.credential_service.update_login_failure(credential.id)
-
-                return LoginResult(
-                    success=False,
-                    duration=duration,
-                    error_message="登录失败，未返回Token",
-                )
+            return self._finish_login(
+                credential=credential,
+                success=False,
+                duration=duration,
+                trigger_reason=trigger_reason,
+                start_time=start_time,
+                end_time=end_time,
+                error_message="登录失败，未返回Token",
+            )
 
         except Exception as e:
             end_time = timezone.now()
             duration = (end_time - start_time).total_seconds()
-
-            self._record_login_history(
-                credential=credential,
-                success=False,
-                duration=duration,
-                error_message=str(e),
-                trigger_reason=trigger_reason,
-                start_time=start_time,
-                end_time=end_time,
-                error_details={
-                    "error_type": type(e).__name__,
-                    "admin_user": admin_user,
-                    "batch_operation": True,
-                },
-            )
-            self.credential_service.update_login_failure(credential.id)
 
             logger.error(
                 "批量登录失败",
@@ -311,7 +275,54 @@ class AccountCredentialAdminService:
                 exc_info=True,
             )
 
-            return LoginResult(success=False, duration=duration, error_message=str(e))
+            return self._finish_login(
+                credential=credential,
+                success=False,
+                duration=duration,
+                trigger_reason=trigger_reason,
+                start_time=start_time,
+                end_time=end_time,
+                error_message=str(e),
+                error_details={
+                    "error_type": type(e).__name__,
+                    "admin_user": admin_user,
+                    "batch_operation": True,
+                },
+            )
+
+    def _finish_login(
+        self,
+        credential: AccountCredential,
+        success: bool,
+        duration: float,
+        trigger_reason: str,
+        start_time: datetime,
+        end_time: datetime,
+        token: str | None = None,
+        error_message: str | None = None,
+        error_details: dict[str, object] | None = None,
+    ) -> LoginResult:
+        """记录登录历史 + 更新凭证状态 + 返回 LoginResult。"""
+        self._record_login_history(
+            credential=credential,
+            success=success,
+            duration=duration,
+            token=token,
+            trigger_reason=trigger_reason,
+            start_time=start_time,
+            end_time=end_time,
+            error_message=error_message,
+            error_details=error_details,
+        )
+        if success:
+            self.credential_service.update_login_success(credential.id)
+            logger.info(
+                "批量登录成功",
+                extra={"credential_id": credential.id, "account": credential.account, "duration": duration},
+            )
+        else:
+            self.credential_service.update_login_failure(credential.id)
+        return LoginResult(success=success, duration=duration, token=token, error_message=error_message)
 
     def _record_login_history(
         self,

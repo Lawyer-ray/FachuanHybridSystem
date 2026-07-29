@@ -23,79 +23,112 @@ from .execution_request_utils import (
 
 logger = logging.getLogger(__name__)
 
+_LPR_PATTERN = re.compile(
+    r"(?:LPR|贷款市场报价利率|一年期贷款市场报价利率)[^。；\n]{0,24}?([0-9]+(?:\.[0-9]+)?|[零一二两三四五六七八九十]+)\s*倍"
+)
+_LPR_MARKUP_PATTERN = re.compile(
+    r"(?:LPR|贷款市场报价利率|一年期贷款市场报价利率)[^。；\n]{0,24}?上浮\s*([0-9]+(?:\.[0-9]+)?)\s*%"
+)
+_FIXED_PATTERN = re.compile(r"(?:(?:按|起按|按照)\s*)?(年利率|年化率|年化利率)\s*([0-9]+(?:\.[0-9]+)?)\s*%")
+_UNIT_RATE_PATTERN = r"([0-9]+(?:\.[0-9]+)?|[零一二两三四五六七八九十]+)"
+_DAILY_PERMILLE_PATTERN = re.compile(rf"(?:日利率|每日)\s*千分之\s*{_UNIT_RATE_PATTERN}")
+_DAILY_PERMYRIAD_PATTERN = re.compile(rf"(?:日利率|每日)\s*万分之\s*{_UNIT_RATE_PATTERN}")
+_DAILY_PERCENT_PATTERN = re.compile(r"(?:日利率|每日)\s*([0-9]+(?:\.[0-9]+)?)\s*%")
+
+
+def _try_lpr_multiple(text: str, params: ParsedInterestParams) -> bool:
+    m = _LPR_PATTERN.search(text)
+    if not m:
+        return False
+    multiplier = parse_multiplier_value(m.group(1))
+    if multiplier is None:
+        return False
+    params.multiplier = multiplier
+    params.rate_type = "1y"
+    params.rate_description = f"全国银行间同业拆借中心公布的一年期贷款市场报价利率的{format_amount(multiplier)}倍"
+    return True
+
+
+def _try_lpr_markup(text: str, params: ParsedInterestParams) -> bool:
+    m = _LPR_MARKUP_PATTERN.search(text)
+    if not m:
+        return False
+    markup = parse_decimal(m.group(1))
+    if markup is None:
+        return False
+    params.multiplier = Decimal("1") + (markup / Decimal("100"))
+    params.rate_type = "1y"
+    params.rate_description = (
+        f"全国银行间同业拆借中心公布的一年期贷款市场报价利率的{format_amount(params.multiplier)}倍"
+    )
+    return True
+
+
+def _try_lpr_plain(text: str, params: ParsedInterestParams) -> bool:
+    if not re.search(r"(?:LPR|贷款市场报价利率|一年期贷款市场报价利率)", text):
+        return False
+    params.multiplier = Decimal("1")
+    params.rate_type = "1y"
+    params.rate_description = "全国银行间同业拆借中心公布的一年期贷款市场报价利率"
+    return True
+
+
+def _try_fixed_annual(text: str, params: ParsedInterestParams) -> bool:
+    m = _FIXED_PATTERN.search(text)
+    if not m:
+        return False
+    annual_rate = parse_decimal(m.group(2))
+    if annual_rate is None:
+        return False
+    params.custom_rate_unit = "percent"
+    params.custom_rate_value = annual_rate
+    params.rate_description = f"{m.group(1)}{format_amount(annual_rate)}%"
+    return True
+
+
+def _try_unit_rate(text: str, unit: str, label: str, params: ParsedInterestParams) -> bool:
+    pattern = _DAILY_PERMILLE_PATTERN if unit == "permille" else _DAILY_PERMYRIAD_PATTERN
+    m = pattern.search(text)
+    if not m:
+        return False
+    rate = parse_multiplier_value(m.group(1))
+    if rate is None:
+        return False
+    params.custom_rate_unit = unit
+    params.custom_rate_value = rate
+    params.rate_description = f"日利率{label}{format_amount(rate)}"
+    return True
+
+
+def _try_daily_percent(text: str, params: ParsedInterestParams) -> bool:
+    m = _DAILY_PERCENT_PATTERN.search(text)
+    if not m:
+        return False
+    rate = parse_decimal(m.group(1))
+    if rate is None:
+        return False
+    params.custom_rate_unit = "permyriad"
+    params.custom_rate_value = (rate * Decimal("100")).quantize(Decimal("0.0001"))
+    params.rate_description = f"日利率{format(rate.normalize(), 'f')}%"
+    return True
+
 
 def parse_interest_params(main_text: str) -> ParsedInterestParams:
     params = ParsedInterestParams()
     clause = extract_interest_clause(main_text)
     params.overdue_item_label = detect_overdue_item_label(main_text)
 
-    lpr_pattern = re.compile(
-        r"(?:LPR|贷款市场报价利率|一年期贷款市场报价利率)[^。；\n]{0,24}?([0-9]+(?:\.[0-9]+)?|[零一二两三四五六七八九十]+)\s*倍"
-    )
-    lpr_markup_pattern = re.compile(
-        r"(?:LPR|贷款市场报价利率|一年期贷款市场报价利率)[^。；\n]{0,24}?上浮\s*([0-9]+(?:\.[0-9]+)?)\s*%"
-    )
-    fixed_pattern = re.compile(r"(?:(?:按|起按|按照)\s*)?(年利率|年化率|年化利率)\s*([0-9]+(?:\.[0-9]+)?)\s*%")
-    unit_rate_pattern = r"([0-9]+(?:\.[0-9]+)?|[零一二两三四五六七八九十]+)"
-    daily_permille_pattern = re.compile(rf"(?:日利率|每日)\s*千分之\s*{unit_rate_pattern}")
-    daily_permyriad_pattern = re.compile(rf"(?:日利率|每日)\s*万分之\s*{unit_rate_pattern}")
-    daily_percent_pattern = re.compile(r"(?:日利率|每日)\s*([0-9]+(?:\.[0-9]+)?)\s*%")
-
     rate_text = clause or main_text
-    lpr_match = lpr_pattern.search(rate_text)
-    lpr_markup_match = lpr_markup_pattern.search(rate_text)
-    fixed_match = fixed_pattern.search(rate_text)
-    permille_match = daily_permille_pattern.search(rate_text)
-    permyriad_match = daily_permyriad_pattern.search(rate_text)
-    daily_percent_match = daily_percent_pattern.search(rate_text)
-
-    if lpr_match:
-        multiplier = parse_multiplier_value(lpr_match.group(1))
-        if multiplier is not None:
-            params.multiplier = multiplier
-            params.rate_type = "1y"
-            params.rate_description = (
-                f"全国银行间同业拆借中心公布的一年期贷款市场报价利率的{format_amount(multiplier)}倍"
-            )
-    elif lpr_markup_match:
-        markup_percent = parse_decimal(lpr_markup_match.group(1))
-        if markup_percent is not None:
-            multiplier = Decimal("1") + (markup_percent / Decimal("100"))
-            params.multiplier = multiplier
-            params.rate_type = "1y"
-            params.rate_description = (
-                f"全国银行间同业拆借中心公布的一年期贷款市场报价利率的{format_amount(multiplier)}倍"
-            )
-    elif re.search(r"(?:LPR|贷款市场报价利率|一年期贷款市场报价利率)", rate_text):
-        params.multiplier = Decimal("1")
-        params.rate_type = "1y"
-        params.rate_description = "全国银行间同业拆借中心公布的一年期贷款市场报价利率"
-    elif fixed_match:
-        annual_rate = parse_decimal(fixed_match.group(2))
-        if annual_rate is not None:
-            params.custom_rate_unit = "percent"
-            params.custom_rate_value = annual_rate
-            params.rate_description = f"{fixed_match.group(1)}{format_amount(annual_rate)}%"
-    elif permille_match:
-        unit_rate = parse_multiplier_value(permille_match.group(1))
-        if unit_rate is not None:
-            params.custom_rate_unit = "permille"
-            params.custom_rate_value = unit_rate
-            params.rate_description = f"日利率千分之{format_amount(unit_rate)}"
-    elif permyriad_match:
-        unit_rate = parse_multiplier_value(permyriad_match.group(1))
-        if unit_rate is not None:
-            params.custom_rate_unit = "permyriad"
-            params.custom_rate_value = unit_rate
-            params.rate_description = f"日利率万分之{format_amount(unit_rate)}"
-    elif daily_percent_match:
-        # 日利率 x% => 转换为万分之(x * 100)
-        percent_rate = parse_decimal(daily_percent_match.group(1))
-        if percent_rate is not None:
-            params.custom_rate_unit = "permyriad"
-            params.custom_rate_value = (percent_rate * Decimal("100")).quantize(Decimal("0.0001"))
-            percent_text = format(percent_rate.normalize(), "f")
-            params.rate_description = f"日利率{percent_text}%"
+    if (
+        _try_lpr_multiple(rate_text, params)
+        or _try_lpr_markup(rate_text, params)
+        or _try_lpr_plain(rate_text, params)
+        or _try_fixed_annual(rate_text, params)
+        or _try_unit_rate(rate_text, "permille", "千分之", params)
+        or _try_unit_rate(rate_text, "permyriad", "万分之", params)
+        or _try_daily_percent(rate_text, params)
+    ):
+        pass
 
     date_match = re.search(r"(?:自|从)\s*(\d{4})\s*年\s*(\d{1,2})\s*月\s*(\d{1,2})\s*日(?:起|开始|计)?", rate_text)
     if date_match:

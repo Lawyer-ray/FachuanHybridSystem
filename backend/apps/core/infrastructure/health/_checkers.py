@@ -21,6 +21,40 @@ logger = logging.getLogger(__name__)
 __all__ = ["check_database", "check_cache", "check_disk_space", "check_dependencies"]
 
 
+def _collect_db_error_diagnostics(
+    exc: Exception,
+    connection: Any,
+    diagnostic_info: dict[str, Any],
+) -> dict[str, Any]:
+    """收集数据库错误诊断信息。"""
+    try:
+        default_db = getattr(settings, "DATABASES", {}).get("default", {})
+        db_name = default_db.get("NAME", "")
+        diagnostic_info.update(
+            {
+                "database_name": db_name,
+                "error_type": type(exc).__name__,
+                "error_details": str(exc),
+                "connection_vendor": connection.vendor,
+            }
+        )
+        if connection.vendor == "sqlite":
+            db_file = Path(str(db_name)) if db_name else None
+            diagnostic_info["database_path"] = db_name
+            diagnostic_info["path_exists"] = db_file.exists() if db_file else False
+            if db_file and db_file.parent.exists():
+                db_dir = db_file.parent
+                diagnostic_info["directory_exists"] = True
+                diagnostic_info["directory_writable"] = os.access(str(db_dir), os.W_OK)
+        else:
+            diagnostic_info["database_host"] = default_db.get("HOST", "")
+            diagnostic_info["database_port"] = str(default_db.get("PORT", ""))
+    except Exception as diag_e:
+        logger.exception("操作失败")
+        diagnostic_info["diagnostic_collection_error"] = str(diag_e)
+    return diagnostic_info
+
+
 def check_database() -> ComponentHealth:
     """检查数据库连接"""
     start = time.time()
@@ -77,44 +111,7 @@ def check_database() -> ComponentHealth:
             diagnostic_info=diagnostic_info,
         )
     except Exception as e:
-        try:
-            default_db = getattr(settings, "DATABASES", {}).get("default", {})
-            db_name = default_db.get("NAME", "")
-            diagnostic_info.update(
-                {
-                    "database_name": db_name,
-                    "error_type": type(e).__name__,
-                    "error_details": str(e),
-                    "connection_vendor": connection.vendor,
-                }
-            )
-
-            if connection.vendor == "sqlite":
-                db_file = Path(str(db_name)) if db_name else None
-                diagnostic_info.update(
-                    {
-                        "database_path": db_name,
-                        "path_exists": db_file.exists() if db_file else False,
-                    }
-                )
-                if db_file:
-                    db_dir = db_file.parent
-                    diagnostic_info.update(
-                        {
-                            "directory_exists": db_dir.exists(),
-                            "directory_writable": os.access(str(db_dir), os.W_OK) if db_dir.exists() else False,
-                        }
-                    )
-            else:
-                diagnostic_info.update(
-                    {
-                        "database_host": default_db.get("HOST", ""),
-                        "database_port": str(default_db.get("PORT", "")),
-                    }
-                )
-        except Exception as diag_e:
-            logger.exception("操作失败")
-            diagnostic_info["diagnostic_collection_error"] = str(diag_e)
+        diagnostic_info = _collect_db_error_diagnostics(e, connection, diagnostic_info)
 
         return ComponentHealth(
             name="database",

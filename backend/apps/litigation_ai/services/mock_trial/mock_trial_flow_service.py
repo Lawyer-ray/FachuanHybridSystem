@@ -67,9 +67,7 @@ def format_judge_report(report: dict[str, Any]) -> str:
         lines.append("## 证据强弱对比\n")
         for c in comparisons:
             lines.append(f"**{c.get('focus', '')}**")
-            lines.append(
-                f"- 原告证据：{c.get('plaintiff_strength', '')} | 被告证据：{c.get('defendant_strength', '')}"
-            )
+            lines.append(f"- 原告证据：{c.get('plaintiff_strength', '')} | 被告证据：{c.get('defendant_strength', '')}")
             lines.append(f"- 分析：{c.get('analysis', '')}")
             lines.append("")
 
@@ -178,7 +176,9 @@ class MockTrialFlowService:
 
     # ---- MODE_SELECT ----
 
-    async def handle_mode_select(self, ctx: MockTrialContext, user_input: str, send_cb: Callable[..., Any]) -> None:  # pragma: no cover
+    async def handle_mode_select(
+        self, ctx: MockTrialContext, user_input: str, send_cb: Callable[..., Any]
+    ) -> None:  # pragma: no cover
         mode = self._parse_mode(user_input)
         if not mode:
             await self._send(
@@ -236,7 +236,9 @@ class MockTrialFlowService:
 
     # ---- SIMULATION dispatchers ----
 
-    async def handle_simulation(self, ctx: MockTrialContext, user_input: str, send_cb: Callable[..., Any]) -> None:  # pragma: no cover
+    async def handle_simulation(
+        self, ctx: MockTrialContext, user_input: str, send_cb: Callable[..., Any]
+    ) -> None:  # pragma: no cover
         metadata = await self.session_repo.get_metadata(ctx.session_id)
         mode = metadata.get("mock_trial_mode", "")
 
@@ -502,7 +504,9 @@ class MockTrialFlowService:
                 "system",
             )
 
-    async def _handle_debate_turn(self, ctx: MockTrialContext, user_input: str, send_cb: Callable[..., Any]) -> None:  # pragma: no cover
+    async def _handle_debate_turn(
+        self, ctx: MockTrialContext, user_input: str, send_cb: Callable[..., Any]
+    ) -> None:  # pragma: no cover
         from .debate_service import DebateService
 
         metadata = await self.session_repo.get_metadata(ctx.session_id)
@@ -609,14 +613,16 @@ class MockTrialFlowService:
         from apps.litigation_ai.services.evidence.evidence_digest_service import EvidenceDigestService
         from apps.litigation_ai.services.session.context_service import LitigationContextService
 
-        raw = await sync_to_async(LitigationContextService.get_evidence_list_for_agent, thread_sensitive=True)(case_id)
+        raw = await sync_to_async(LitigationContextService().get_evidence_list_for_agent, thread_sensitive=True)(
+            case_id
+        )
         if not raw:
             return ""
-        list_ids = [e.get("list_id") for e in raw if e.get("list_id")]
+        list_ids: list[int] = [int(e["list_id"]) for e in raw if e.get("list_id")]
         if not list_ids:
             return "\n".join([f"- {e.get('name', '未命名')}: {e.get('description', '')}" for e in raw])
         result = await sync_to_async(EvidenceDigestService().build_evidence_text, thread_sensitive=True)(
-            list_ids=list_ids, item_ids=[]
+            evidence_list_ids=list_ids, evidence_item_ids=[]
         )
         return result
 
@@ -636,7 +642,9 @@ class MockTrialFlowService:
 
     # ── 多 Agent 对抗 ──
 
-    async def _send_model_config_prompt(self, ctx: MockTrialContext, send_cb: Callable[..., Any]) -> None:  # pragma: no cover
+    async def _send_model_config_prompt(
+        self, ctx: MockTrialContext, send_cb: Callable[..., Any]
+    ) -> None:  # pragma: no cover
         """发送模型配置提示."""
         from apps.core.llm.config import LLMConfig
 
@@ -668,7 +676,9 @@ class MockTrialFlowService:
         )
         await self._set_step(ctx.session_id, MockTrialStep.MODEL_CONFIG)
 
-    async def handle_model_config(self, ctx: MockTrialContext, user_input: str, send_cb: Callable[..., Any]) -> None:  # pragma: no cover
+    async def handle_model_config(
+        self, ctx: MockTrialContext, user_input: str, send_cb: Callable[..., Any]
+    ) -> None:  # pragma: no cover
         """解析用户的模型配置并启动对抗庭审."""
         from apps.core.llm.config import LLMConfig
 
@@ -755,26 +765,32 @@ class MockTrialFlowService:
         role_map = {"原告": "plaintiff", "被告": "defendant", "法官": "judge", "观看": "observer"}
         level_map = {"一审": "first", "二审": "second"}
 
+        def _apply_rule(key: str, val: str) -> bool:
+            if "原告" in key and "模型" in key:
+                config.plaintiff_model = resolve_model(val)
+            elif "被告" in key and "模型" in key:
+                config.defendant_model = resolve_model(val)
+            elif "法官" in key and "模型" in key:
+                config.judge_model = resolve_model(val)
+            elif "轮数" in key:
+                try:
+                    config.debate_rounds = max(3, int(val))
+                except ValueError:
+                    pass
+            elif "角色" in key:
+                config.user_role = role_map.get(val, "observer")
+            elif "审级" in key:
+                config.trial_level = level_map.get(val, "first")
+            else:
+                return False
+            return True
+
         for line in text.split("\n"):
             line = line.strip()
-            if ":" in line or "：" in line:
-                key, _, val = line.replace("：", ":").partition(":")
-                key, val = key.strip(), val.strip()
-                if "原告" in key and "模型" in key:
-                    config.plaintiff_model = resolve_model(val)
-                elif "被告" in key and "模型" in key:
-                    config.defendant_model = resolve_model(val)
-                elif "法官" in key and "模型" in key:
-                    config.judge_model = resolve_model(val)
-                elif "轮数" in key:
-                    try:
-                        config.debate_rounds = max(3, int(val))
-                    except ValueError:
-                        pass
-                elif "角色" in key:
-                    config.user_role = role_map.get(val, "observer")
-                elif "审级" in key:
-                    config.trial_level = level_map.get(val, "first")
+            if ":" not in line and "：" not in line:
+                continue
+            key, _, val = line.replace("：", ":").partition(":")
+            _apply_rule(key.strip(), val.strip())
 
         return config
 
@@ -835,7 +851,9 @@ class MockTrialFlowService:
         if service:
             await service.handle_user_input(ctx, text, send_cb, self._set_step)
 
-    async def _export_adversarial_report(self, ctx: MockTrialContext, send_cb: Callable[..., Any]) -> None:  # pragma: no cover
+    async def _export_adversarial_report(
+        self, ctx: MockTrialContext, send_cb: Callable[..., Any]
+    ) -> None:  # pragma: no cover
         """生成并推送对抗庭审报告."""
         service = self._adversarial_services.get(ctx.session_id)
         if not service or not service.transcript:

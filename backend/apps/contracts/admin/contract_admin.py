@@ -46,6 +46,20 @@ from apps.core.models.enums import CaseStage
 # --- Prefetch 优化：共享 Client queryset，避免重复查询 ---
 _client_with_nested = Client.objects.prefetch_related("identity_docs", "property_clues__attachments")
 
+
+def _client_file_path(client: Client) -> list[str]:
+    """从 Client 的证件和财产线索附件中提取所有文件路径。"""
+    paths: list[str] = []
+    for doc in client.identity_docs.all():
+        if doc.file_path:
+            paths.append(doc.file_path)
+    for clue in client.property_clues.all():
+        for att in clue.attachments.all():
+            if att.file_path:
+                paths.append(att.file_path)
+    return paths
+
+
 if TYPE_CHECKING:
     BaseModelAdmin = admin.ModelAdmin
     from django.db.models import QuerySet
@@ -227,7 +241,9 @@ class ContractAdmin(
             Contract.objects.filter(id=contract_id).update(is_filed=True, filing_number=filing_number)
         self.message_user(request, "已建档 %(count)d 个合同" % {"count": len(to_save)})
 
-    def changelist_view(self, request: HttpRequest, extra_context: dict[str, Any] | None = None) -> Any:  # pragma: no cover
+    def changelist_view(
+        self, request: HttpRequest, extra_context: dict[str, Any] | None = None
+    ) -> Any:  # pragma: no cover
         from django.http import HttpResponseRedirect
 
         if "status__exact" not in request.GET and not request.session.get("contract_changelist_visited"):
@@ -634,9 +650,6 @@ class ContractAdmin(
                 for inv in p.invoices.all():
                     _add(inv.file_path)
             for p in obj.contract_parties.all():
-                for d in p.client.identity_docs.all():
-                    _add(d.file_path)
-                for c in p.client.property_clues.all():
-                    for a in c.attachments.all():
-                        _add(a.file_path)
+                for path in _client_file_path(p.client):
+                    _add(path)
         return paths

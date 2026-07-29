@@ -20,6 +20,43 @@ logger = logging.getLogger(__name__)
 _DEFAULT_RATE_LIMIT_INTERVAL = 3.5  # seconds between requests (conservative)
 
 
+def _local_tag(element: Any) -> str:  # type: ignore[no-untyped-def]
+    """获取 XML 元素的本地标签名（去掉命名空间前缀）。"""
+    tag = element.tag
+    return tag.split("}")[-1] if "}" in tag else tag
+
+
+def _parse_webdav_properties(propstat: Any) -> tuple[bool, int, float]:  # type: ignore[no-untyped-def]
+    """从 <propstat> 元素提取 (is_dir, size, modified)。
+
+    原始代码在 _parse_propfind_response 中有 4 层 for + 4 层 if（最深 8 层）。
+    此函数将 propstat 内部解析收拢到一处，调用方只需 2 层嵌套。
+    """
+    is_dir = False
+    size = 0
+    modified = 0.0
+    for prop_node in propstat:
+        if _local_tag(prop_node) != "prop":
+            continue
+        for p in prop_node:
+            p_tag = _local_tag(p)
+            if p_tag == "resourcetype":
+                is_dir = any(_local_tag(c) == "collection" for c in p.iter())
+            elif p_tag == "getcontentlength":
+                try:
+                    size = int(p.text or "0")
+                except ValueError:
+                    size = 0
+            elif p_tag == "getlastmodified":
+                try:
+                    from email.utils import parsedate_to_datetime
+
+                    modified = parsedate_to_datetime(p.text or "").timestamp()
+                except (ValueError, TypeError):
+                    modified = 0.0
+    return is_dir, size, modified
+
+
 @dataclass
 class _RateLimiter:  # pragma: no cover
     min_interval: float = _DEFAULT_RATE_LIMIT_INTERVAL
@@ -185,43 +222,18 @@ class WebDAVProvider:  # pragma: no cover
 
         base_href = self._full_path(base_path).rstrip("/")
         for response in root.iter():
-            if response.tag.endswith("}response") or response.tag == "response":
-                href = None
-                is_dir = False
-                size = 0
-                modified = 0.0
-                for child in response:
-                    tag = child.tag.split("}")[-1] if "}" in child.tag else child.tag
-                    if tag == "href":
-                        href = urllib.parse.unquote(child.text or "")
-                    elif tag == "propstat":
-                        for prop in child:
-                            prop_tag = prop.tag.split("}")[-1] if "}" in prop.tag else prop.tag
-                            if prop_tag == "prop":
-                                for p in prop:
-                                    p_tag = p.tag.split("}")[-1] if "}" in p.tag else p.tag
-                                    if p_tag == "resourcetype":
-                                        # Check for <d:collection/>
-                                        for collection in p.iter():
-                                            c_tag = (
-                                                collection.tag.split("}")[-1]
-                                                if "}" in collection.tag
-                                                else collection.tag
-                                            )
-                                            if c_tag == "collection":
-                                                is_dir = True
-                                    elif p_tag == "getcontentlength":
-                                        try:
-                                            size = int(p.text or "0")
-                                        except ValueError:
-                                            size = 0
-                                    elif p_tag == "getlastmodified":
-                                        try:
-                                            from email.utils import parsedate_to_datetime
-
-                                            modified = parsedate_to_datetime(p.text or "").timestamp()
-                                        except (ValueError, TypeError):
-                                            modified = 0.0
+            if not (response.tag.endswith("}response") or response.tag == "response"):
+                continue
+            href = None
+            is_dir = False
+            size = 0
+            modified = 0.0
+            for child in response:
+                tag = child.tag.split("}")[-1] if "}" in child.tag else child.tag
+                if tag == "href":
+                    href = urllib.parse.unquote(child.text or "")
+                elif tag == "propstat":
+                    is_dir, size, modified = _parse_webdav_properties(child)
 
                 if href:
                     # Strip WebDAV root prefix to get path relative to our root_path
