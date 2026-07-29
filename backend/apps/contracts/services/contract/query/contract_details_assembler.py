@@ -5,6 +5,29 @@ from __future__ import annotations
 from typing import Any
 
 
+def _serialize_parties(case: Any) -> list[dict[str, Any]]:
+    return [
+        {
+            "id": party.id,
+            "client_id": party.client.id,
+            "client_name": party.client.name,
+            "legal_status": party.legal_status,
+        }
+        for party in case.parties.all()
+    ]
+
+
+def _serialize_authorities(case: Any) -> list[dict[str, Any]]:
+    return [
+        {
+            "id": authority.id,
+            "name": authority.name,
+            "authority_type": authority.authority_type,
+        }
+        for authority in case.supervising_authorities.all()
+    ]
+
+
 class ContractDetailsAssembler:
     def to_dict(self, contract: Any) -> dict[str, Any]:
         contract_parties = []
@@ -42,36 +65,14 @@ class ContractDetailsAssembler:
 
         cases = []
         for case in contract.cases.all():
-            case_parties = []
-            for party in case.parties.all():
-                client = party.client
-                case_parties.append(
-                    {
-                        "id": party.id,
-                        "client_id": client.id,
-                        "client_name": client.name,
-                        "legal_status": party.legal_status,
-                    }
-                )
-
-            supervising_authorities = []
-            for authority in case.supervising_authorities.all():
-                supervising_authorities.append(
-                    {
-                        "id": authority.id,
-                        "name": authority.name,
-                        "authority_type": authority.authority_type,
-                    }
-                )
-
             cases.append(
                 {
                     "id": case.id,
                     "name": case.name,
                     "cause_of_action": case.cause_of_action,
                     "target_amount": float(case.target_amount) if case.target_amount else None,
-                    "parties": case_parties,
-                    "supervising_authorities": supervising_authorities,
+                    "parties": _serialize_parties(case),
+                    "supervising_authorities": _serialize_authorities(case),
                 }
             )
 
