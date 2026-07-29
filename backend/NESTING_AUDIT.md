@@ -254,3 +254,55 @@
 | `litigation_ai/agent/factory.py` | 1（3方法重复） |
 | `contracts/services/archive/generation/pdf_utils.py` | 1 |
 | `contracts/services/archive/generation/folder_builder.py` | 1 |
+
+---
+
+# 第三轮深度扫描追加（7 个 opus agent 并行全覆盖扫描）
+
+---
+
+## 十、HIGH 严重 — 新发现
+
+### `core/management/commands/scan_orphan_files.py` L110-127
+- **结构**：`for > try > for > if > try > for > if` — **3 层 for 循环**，遍历所有 Model × 所有 FileField × 所有行
+- **修复**：用 `values_list(field.name, flat=True)` 替代 `model.objects.all()`，加行数上限
+
+### `documents/services/generation/pipeline/preview.py` L29-43, L67-95
+- **结构**：两处 `for > if > if > if > for > if` — **6 层嵌套**
+- `_extract_context_preview` 和 `_extract_ordered_vars` 各一处
+- **修复**：提取 `_format_value(val)` helper + 拆分变量/块标签提取为两个函数
+
+### `documents/services/placeholders/litigation/preservation_property_clue_service.py` L165-205
+- **结构**：`for > for > for > if > for` — **5 层三层 for 循环**
+- 遍历当事人 > 线索类型 > 线索列表 > 内容行
+- **修复**：提取 `_format_clue_group(clue_type, clue_list, start_index)` helper
+
+---
+
+## 十一、MEDIUM 严重 — 新发现
+
+| 文件 | 行号 | 结构 | 说明 |
+|------|------|------|------|
+| `documents/services/generation/folder_generation_service.py` | L695-762 | `for > for > for > try > if` ×3段 | 3 段相同的三层 for + try，应提取 `_collect_identity_docs()` 等 helper |
+| `documents/services/external_template/filling_service.py` | L373-444 | `try > if > if > for` | 3 个分支做相同"设首行、清其余"逻辑，提取 `_set_paragraph_text()` |
+| `documents/services/extractors/judgment_pdf_extractor.py` | L342-374 | `for > if > for > if > if` | 提取 `_find_earliest_end_keyword()` |
+| `workbench/services/doc_extractor.py` | L88-103 | `try > for > for > if > if` | 提取 `_extract_table_metadata()` |
+| `workbench/tasks/parsing.py` | L30-38 | `while > if > for > if` | 提取 `_find_break_point()` |
+| `core/management/commands/analyze_performance.py` | L61-96 | `try > with > for > if > if > if` | 提取 `_parse_log_line()` |
+| `core/services/bound_folder_scan_service.py` | L367-391 | `for > if > try > with > try` | 提取 `_process_single_cloud_file()` |
+| `core/infrastructure/health/_checkers.py` | L79-107, L182-229 | `try > if > for > if > try` ×2 | 提取 `_collect_db_error_diagnostics()` 和 `_check_single_path()` |
+| `core/cloud_storage/dropbox_provider.py` | L224-238 | `for > try > except > try > if` | 提取 `_ensure_directory_exists()` |
+| `core/cloud_storage/admin.py` | L398-434 | `if > try > if > if/elif` | early return + 提取 `_set_auth_context()` |
+| `contracts/services/archive/supervision_card_extractor.py` | L59-93 | `for > if > if > if > try > if > if` | 提取 `_try_extract_from_material()` |
+| `contracts/services/archive/learning_service.py` | L82-145 | `for > if > for > if/else > if` | 提取 `_learn_keywords_for_material()` |
+| `contracts/services/archive/checklist/case_material_sync.py` | L114-158, L216-237, L242-287 | `for > for > if/else` ×3处 | 提取 `_match_case_materials()` 和 `_sync_single_material()` |
+| `contracts/admin/contract_admin.py` | L636-641 | `for > for > for > for` | **4 层 for 循环**，用 `values_list` 替代 ORM 嵌套遍历 |
+| `contracts/services/archive/archive_query_service.py` | L36-52 | `for > for > if > if` + N+1 查询 | 批量预取替代逐个查询 |
+| `court_filing_http/party_mixin.py` | L129-162 | `for > for > if > if` | 提取 `_find_matching_item()` |
+| `court_filing_http/execution_validation_mixin.py` | L144-194 | `if > for > if > if > if` | 提取 `_validate_party_fields()` |
+| `court_automation/filing/playwright_filing/party_info_handler.py` | L63-95 | `for > for > if > if > if` | 提取 `_process_single_party()` |
+| `court_automation/filing/playwright_filing/filing_steps.py` | L357-391 | `for > for > try > if` | 提取 `_upload_single_file()` |
+| `plugins/message_hub/services/court/court_fetcher.py` | L362-398, L636-674 | `for > if > for > if` sync+async | 提取 `_prepare_unsaved_messages()` |
+| `plugins/message_hub/services/imap/imap_fetcher.py` | L156-224, L268-278 | `try > try > for > if` | 提取 `_process_imap_uid_list()` |
+| `finance/services/lpr/sync_service.py` | L104-135 | `for > try > if > if` | 提取 `_parse_single_row()` |
+| `client/services/identity_extraction/extraction_service.py` | L247-270 | `try > for > try > if` | 提取 `_ocr_single_page()` |
