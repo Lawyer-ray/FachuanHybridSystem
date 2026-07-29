@@ -20,6 +20,14 @@ A4_W, A4_H = 595.0, 842.0
 TOLERANCE = 1.0
 
 
+def _is_a4(page: Any) -> bool:  # type: ignore[no-untyped-def]
+    """判断 PDF 页面是否为 A4 尺寸（含横竖旋转）。"""
+    w, h = page.rect.width, page.rect.height
+    return (abs(w - A4_W) < TOLERANCE and abs(h - A4_H) < TOLERANCE) or (
+        abs(w - A4_H) < TOLERANCE and abs(h - A4_W) < TOLERANCE
+    )
+
+
 def scale_pages_to_a4(contract: Contract) -> dict[str, Any]:  # pragma: no cover
     """将合同所有已上传的归档 PDF 材料按 A4 尺寸缩放。"""
     import fitz
@@ -56,17 +64,8 @@ def scale_pages_to_a4(contract: Contract) -> dict[str, Any]:  # pragma: no cover
             continue
 
         try:
-            has_non_a4 = False
-            for page in src_doc:
-                page_w, page_h = page.rect.width, page.rect.height
-                is_a4 = (abs(page_w - A4_W) < TOLERANCE and abs(page_h - A4_H) < TOLERANCE) or (
-                    abs(page_w - A4_H) < TOLERANCE and abs(page_h - A4_W) < TOLERANCE
-                )
-                if not is_a4:
-                    has_non_a4 = True
-                    break
-
-            if not has_non_a4:
+            # 检查是否有非 A4 页面，无需缩放则跳过
+            if all(_is_a4(page) for page in src_doc):
                 skipped_count += 1
                 continue
 
@@ -74,11 +73,8 @@ def scale_pages_to_a4(contract: Contract) -> dict[str, Any]:  # pragma: no cover
 
             for page in src_doc:
                 page_w, page_h = page.rect.width, page.rect.height
-                is_a4 = (abs(page_w - A4_W) < TOLERANCE and abs(page_h - A4_H) < TOLERANCE) or (
-                    abs(page_w - A4_H) < TOLERANCE and abs(page_h - A4_W) < TOLERANCE
-                )
 
-                if is_a4:
+                if _is_a4(page):
                     out_doc.insert_pdf(src_doc, from_page=page.number, to_page=page.number)
                 else:
                     if page_w > page_h:
