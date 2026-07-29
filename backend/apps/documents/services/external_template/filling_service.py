@@ -37,6 +37,17 @@ if TYPE_CHECKING:
 logger: logging.Logger = logging.getLogger(__name__)
 
 
+def _set_paragraph_runs(paragraph: Any, value: str) -> None:  # type: ignore[no-untyped-def]
+    """保留首 run 格式写入文本，清空后续 run。"""
+    runs = paragraph.runs
+    if not runs:
+        paragraph.add_run(value)
+        return
+    runs[0].text = value
+    for run in runs[1:]:
+        run.text = ""
+
+
 @dataclass(frozen=True)
 class FillPreviewItem:
     """填充预览项"""
@@ -206,9 +217,7 @@ class FillingService:
         filled_by: Any = None,
     ) -> Any:  # pragma: no cover
         """异步版本：文件 I/O + docx 操作在线程池中执行。"""
-        return await asyncio.to_thread(
-            self.fill_template, template_id, case_id, party_id, custom_values, filled_by
-        )
+        return await asyncio.to_thread(self.fill_template, template_id, case_id, party_id, custom_values, filled_by)
 
     def fill_template(
         self,
@@ -374,41 +383,19 @@ class FillingService:
             if locator_type == "paragraph":
                 para_index: int = locator.get("paragraph_index", 0)
                 if para_index >= len(doc.paragraphs):
-                    logger.warning(
-                        "段落索引越界: index=%d, total=%d",
-                        para_index,
-                        len(doc.paragraphs),
-                    )
+                    logger.warning("段落索引越界: index=%d, total=%d", para_index, len(doc.paragraphs))
                     return False
-
                 paragraph = doc.paragraphs[para_index]
-                runs = paragraph.runs
-                if not runs:
-                    # 无 run 时直接添加
-                    paragraph.add_run(value)
-                    return True
-
-                # 保留第一个 run 的格式，替换文本
-                first_run = runs[0]
-                first_run.text = value
-                # 清除后续 run 的文本
-                for run in runs[1:]:
-                    run.text = ""
+                _set_paragraph_runs(paragraph, value)
                 return True
 
             elif locator_type == "table_cell":
                 table_index: int = locator.get("table_index", 0)
                 row: int = locator.get("row", 0)
                 col: int = locator.get("col", 0)
-
                 if table_index >= len(doc.tables):
-                    logger.warning(
-                        "表格索引越界: index=%d, total=%d",
-                        table_index,
-                        len(doc.tables),
-                    )
+                    logger.warning("表格索引越界: index=%d, total=%d", table_index, len(doc.tables))
                     return False
-
                 table = doc.tables[table_index]
                 if row >= len(table.rows) or col >= len(table.columns):
                     logger.warning(
@@ -419,18 +406,9 @@ class FillingService:
                         len(table.columns),
                     )
                     return False
-
                 cell = table.cell(row, col)
-                # 写入单元格第一个段落
                 if cell.paragraphs:
-                    paragraph = cell.paragraphs[0]
-                    runs = paragraph.runs
-                    if not runs:
-                        paragraph.add_run(value)
-                    else:
-                        runs[0].text = value
-                        for run in runs[1:]:
-                            run.text = ""
+                    _set_paragraph_runs(cell.paragraphs[0], value)
                 else:
                     cell.text = value
                 return True
@@ -596,9 +574,7 @@ class FillingService:
         filled_by: Any = None,
     ) -> Any:  # pragma: no cover
         """异步版本：批量文件 I/O 在线程池中执行。"""
-        return await asyncio.to_thread(
-            self.batch_fill, case_id, template_ids, party_ids, custom_values, filled_by
-        )
+        return await asyncio.to_thread(self.batch_fill, case_id, template_ids, party_ids, custom_values, filled_by)
 
     def batch_fill(
         self,
