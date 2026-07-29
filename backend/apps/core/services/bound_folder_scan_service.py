@@ -375,18 +375,7 @@ class BoundFolderScanService:
                 self._notify(progress_callback, "extracting", progress, current_file)
                 try:
                     file_bytes = scanner.read_file_bytes(scanned)
-                    import os
-                    import tempfile
-
-                    with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
-                        tmp.write(file_bytes)
-                        tmp_path = tmp.name
-                    try:
-                        extraction = self._text_extraction_service.extract_text(tmp_path)
-                        extraction_method = extraction.extraction_method if extraction.success else "none"
-                        text_excerpt = (extraction.text or "")[: self._MAX_TEXT_EXCERPT]
-                    finally:
-                        os.unlink(tmp_path)
+                    extraction_method, text_excerpt = self._extract_text_from_bytes(file_bytes)
                 except Exception:
                     logger.exception("scan_extract_failed_cloud", extra={"path": scanned.as_posix})
 
@@ -445,6 +434,22 @@ class BoundFolderScanService:
         return deduped
 
     @staticmethod
+    def _extract_text_from_bytes(self, file_bytes: bytes) -> tuple[str, str]:
+        """从 PDF 字节流中提取文本，返回 (extraction_method, text_excerpt)。"""
+        import os
+        import tempfile
+
+        with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as tmp:
+            tmp.write(file_bytes)
+            tmp_path = tmp.name
+        try:
+            extraction = self._text_extraction_service.extract_text(tmp_path)
+            method = extraction.extraction_method if extraction.success else "none"
+            text = (extraction.text or "")[: self._MAX_TEXT_EXCERPT]
+            return method, text
+        finally:
+            os.unlink(tmp_path)
+
     def _extract_parent_folder_hint_cloud(scanned: Any, scan_root: str) -> str:
         """Extract parent folder hint from cloud file path."""
         from pathlib import PurePosixPath
