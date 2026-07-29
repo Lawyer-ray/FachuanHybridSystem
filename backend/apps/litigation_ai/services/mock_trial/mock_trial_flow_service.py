@@ -618,7 +618,7 @@ class MockTrialFlowService:
         )
         if not raw:
             return ""
-        list_ids = [e.get("list_id") for e in raw if e.get("list_id")]
+        list_ids: list[int] = [int(e["list_id"]) for e in raw if e.get("list_id")]
         if not list_ids:
             return "\n".join([f"- {e.get('name', '未命名')}: {e.get('description', '')}" for e in raw])
         result = await sync_to_async(EvidenceDigestService().build_evidence_text, thread_sensitive=True)(
