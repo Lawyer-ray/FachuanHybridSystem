@@ -7,6 +7,14 @@ from typing import Any, ClassVar
 from django.db import models
 
 
+def _safe_int(value: Any, default: int = -1) -> int:
+    """安全转换为 int，失败返回 default。"""
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
 class InboxMessage(models.Model):
     """统一收件箱消息，来自各数据源的消息聚合到此表。"""
 
@@ -53,24 +61,11 @@ class InboxMessage(models.Model):
 
             filename = str(item.get("filename") or item.get("original_filename") or "").strip()
             if not filename:
-                part_idx_raw = item.get("part_index", -1)
-                try:
-                    part_idx = int(part_idx_raw)
-                except (TypeError, ValueError):
-                    part_idx = -1
+                part_idx = _safe_int(item.get("part_index", -1))
                 filename = f"attachment_{part_idx if part_idx >= 0 else 0}"
 
-            size_raw = item.get("size", 0)
-            try:
-                size = int(size_raw)
-            except (TypeError, ValueError):
-                size = 0
-
-            part_index_raw = item.get("part_index", -1)
-            try:
-                part_index = int(part_index_raw)
-            except (TypeError, ValueError):
-                part_index = -1
+            size = _safe_int(item.get("size", 0), default=0)
+            part_index = _safe_int(item.get("part_index", -1))
 
             public_items.append(
                 {

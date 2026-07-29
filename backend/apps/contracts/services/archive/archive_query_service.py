@@ -35,21 +35,23 @@ def delete_material(material: FinalizedMaterial) -> None:  # pragma: no cover
 
 def reorder_materials(contract_id: int, orders: dict[str, list[int]]) -> None:
     """按归档清单项分组排序子项。"""
+    all_ids = [pk for ids in orders.values() for pk in ids]
+    if not all_ids:
+        return
+    mats = {m.pk: m for m in FinalizedMaterial.objects.filter(pk__in=all_ids, contract_id=contract_id)}
     for code, material_ids in orders.items():
         for i, pk in enumerate(material_ids):
-            mat = FinalizedMaterial.objects.filter(
-                pk=pk,
-                contract_id=contract_id,
-            ).first()
-            if mat:
-                mat.order = i + 1
-                # 动态映射的材料（如合同正本）数据库中 archive_item_code 为空，
-                # 需要同步写入，否则 get_checklist_with_status 加载顺序会错乱。
-                if not mat.archive_item_code:
-                    mat.archive_item_code = code
-                    mat.save(update_fields=["order", "archive_item_code"])
-                else:
-                    mat.save(update_fields=["order"])
+            mat = mats.get(pk)
+            if not mat:
+                continue
+            mat.order = i + 1
+            # 动态映射的材料（如合同正本）数据库中 archive_item_code 为空，
+            # 需要同步写入，否则 get_checklist_with_status 加载顺序会错乱。
+            update_fields = ["order"]
+            if not mat.archive_item_code:
+                mat.archive_item_code = code
+                update_fields.append("archive_item_code")
+            mat.save(update_fields=update_fields)
 
 
 def move_material(material: FinalizedMaterial, target_code: str) -> None:

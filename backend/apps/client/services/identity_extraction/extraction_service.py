@@ -251,23 +251,9 @@ class IdentityExtractionService:
             max_pages = min(len(doc), 3)
 
             for page_num in range(max_pages):
-                page = doc[page_num]
-
-                # 渲染为图片(300 DPI)
-                mat = fitz.Matrix(300 / 72, 300 / 72)
-                pix = page.get_pixmap(matrix=mat)
-
-                # 保存临时文件
-                with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp:
-                    pix.save(tmp.name)
-                    tmp_path = tmp.name
-
-                try:
-                    page_text = self._ocr_service.recognize(tmp_path)
-                    if page_text:
-                        all_texts.append(page_text)
-                finally:
-                    Path(tmp_path).unlink(missing_ok=True)
+                page_text = self._ocr_single_page(doc[page_num])
+                if page_text:
+                    all_texts.append(page_text)
 
             doc.close()
 
@@ -283,6 +269,20 @@ class IdentityExtractionService:
         except (OSError, ValueError) as e:
             logger.exception("PDF 处理失败: %s", e)
             raise OCRExtractionError(_("PDF 处理失败: %(e)s") % {"e": e}) from e
+
+    def _ocr_single_page(self, page: Any) -> str:  # type: ignore[no-untyped-def]
+        """渲染单页为图片并 OCR，返回文本或空字符串。"""
+        import fitz as _fitz
+
+        mat = _fitz.Matrix(300 / 72, 300 / 72)
+        pix = page.get_pixmap(matrix=mat)
+        with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp:
+            pix.save(tmp.name)
+            tmp_path = tmp.name
+        try:
+            return self._ocr_service.recognize(tmp_path) or ""
+        finally:
+            Path(tmp_path).unlink(missing_ok=True)
 
     def _looks_like_json_noise(self, line: str) -> bool:
         """判断是否为结构化 JSON/调试噪声行。"""

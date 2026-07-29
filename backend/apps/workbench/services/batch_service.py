@@ -72,26 +72,14 @@ def _split_excel_rows(uploaded_file: Any) -> list[tuple[str, str]]:
     base_name = Path(uploaded_file.name).stem
     results: list[tuple[str, str]] = []
 
-    for row_idx, row in df.iterrows():
-        # 跳过全空行
-        non_null = row.dropna()
-        if non_null.empty or all(str(v).strip() in ("", "nan", "None") for v in row.values):
+    def _row_to_text(row: Any) -> str | None:
+        cleaned = {k: str(v).strip() for k, v in row.items() if str(v).strip() not in ("", "nan", "None")}
+        return "\n".join(f"{k}: {v}" for k, v in cleaned.items()) if cleaned else None
+
+    for row_idx, text_content in enumerate(df.apply(_row_to_text, axis=1), start=1):
+        if text_content is None or not text_content:
             continue
-
-        # 格式化为 "列名: 值" 文本
-        lines: list[str] = []
-        for col_name, value in row.items():
-            val_str = str(value).strip()
-            if val_str in ("", "nan", "None"):
-                continue
-            lines.append(f"{col_name}: {val_str}")
-
-        if not lines:
-            continue
-
-        text_content = "\n".join(lines)
-        file_name = f"{base_name}_第{row_idx + 1}行.txt"
-        results.append((file_name, text_content))
+        results.append((f"{base_name}_第{row_idx}行.txt", text_content))
 
     logger.info("Excel 拆分完成: %s → %d 行", uploaded_file.name, len(results))
     return results

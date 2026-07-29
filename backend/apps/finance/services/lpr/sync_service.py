@@ -103,37 +103,9 @@ class LPRSyncService:
 
         for row in rows:
             try:
-                cells = row.query_selector_all("td, th")
-                if len(cells) < 3:
-                    continue
-
-                date_text = cells[0].inner_text().strip()
-                rate_1y_text = cells[1].inner_text().strip()
-                rate_5y_text = cells[2].inner_text().strip()
-
-                if date_text in ["LPR报价", "日期", ""] or not date_text:
-                    continue
-
-                effective_date = self._parse_date(date_text)
-                if not effective_date:
-                    continue
-
-                rate_1y = self._parse_rate(rate_1y_text)
-                rate_5y = self._parse_rate(rate_5y_text)
-
-                if rate_1y is None:
-                    continue
-
-                if rate_5y is None:
-                    logger.warning(
-                        "[LPRSync] 5年期利率解析失败，使用1年期利率替代: date=%s, rate_1y=%s",
-                        date_text, rate_1y,
-                    )
-
-                lpr_data_list.append(
-                    LPRData(effective_date=effective_date, rate_1y=rate_1y, rate_5y=rate_5y or rate_1y)
-                )
-
+                lpr = self._parse_single_row(row)
+                if lpr:
+                    lpr_data_list.append(lpr)
             except Exception as e:
                 logger.debug(f"[LPRSync] Failed to parse row: {e}")
                 continue
@@ -147,6 +119,31 @@ class LPRSyncService:
 
         logger.info(f"[LPRSync] Parsed {len(unique_data)} unique LPR records")
         return unique_data
+
+    def _parse_single_row(self, row: Any) -> LPRData | None:  # type: ignore[no-untyped-def]
+        """解析表格单行，返回 LPRData 或 None（跳过无效行）。"""
+        cells = row.query_selector_all("td, th")
+        if len(cells) < 3:
+            return None
+        date_text = cells[0].inner_text().strip()
+        rate_1y_text = cells[1].inner_text().strip()
+        rate_5y_text = cells[2].inner_text().strip()
+        if date_text in ("LPR报价", "日期", ""):
+            return None
+        effective_date = self._parse_date(date_text)
+        if not effective_date:
+            return None
+        rate_1y = self._parse_rate(rate_1y_text)
+        if rate_1y is None:
+            return None
+        rate_5y = self._parse_rate(rate_5y_text)
+        if rate_5y is None:
+            logger.warning(
+                "[LPRSync] 5年期利率解析失败，使用1年期利率替代: date=%s, rate_1y=%s",
+                date_text,
+                rate_1y,
+            )
+        return LPRData(effective_date=effective_date, rate_1y=rate_1y, rate_5y=rate_5y or rate_1y)
 
     def _parse_date(self, date_text: str) -> date | None:
         """解析日期文本.
