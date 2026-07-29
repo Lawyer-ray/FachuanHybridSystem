@@ -272,9 +272,9 @@ class IdentityExtractionService:
 
     def _ocr_single_page(self, page: Any) -> str:
         """渲染单页为图片并 OCR，返回文本或空字符串。"""
-        import fitz as _fitz
+        import fitz
 
-        mat = _fitz.Matrix(300 / 72, 300 / 72)
+        mat = fitz.Matrix(300 / 72, 300 / 72)
         pix = page.get_pixmap(matrix=mat)
         with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp:
             pix.save(tmp.name)

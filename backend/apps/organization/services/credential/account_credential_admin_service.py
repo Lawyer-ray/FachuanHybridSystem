@@ -246,6 +246,7 @@ class AccountCredentialAdminService:
                     trigger_reason=trigger_reason,
                     start_time=start_time,
                     end_time=end_time,
+                    admin_user=admin_user,
                     token=result,
                 )
 
@@ -256,6 +257,7 @@ class AccountCredentialAdminService:
                 trigger_reason=trigger_reason,
                 start_time=start_time,
                 end_time=end_time,
+                admin_user=admin_user,
                 error_message="登录失败，未返回Token",
             )
 
@@ -282,6 +284,7 @@ class AccountCredentialAdminService:
                 trigger_reason=trigger_reason,
                 start_time=start_time,
                 end_time=end_time,
+                admin_user=admin_user,
                 error_message=str(e),
                 error_details={
                     "error_type": type(e).__name__,
@@ -298,6 +301,7 @@ class AccountCredentialAdminService:
         trigger_reason: str,
         start_time: datetime,
         end_time: datetime,
+        admin_user: str = "",
         token: str | None = None,
         error_message: str | None = None,
         error_details: dict[str, object] | None = None,
@@ -318,7 +322,12 @@ class AccountCredentialAdminService:
             self.credential_service.update_login_success(credential.id)
             logger.info(
                 "批量登录成功",
-                extra={"credential_id": credential.id, "account": credential.account, "duration": duration},
+                extra={
+                    "admin_user": admin_user,
+                    "credential_id": credential.id,
+                    "account": credential.account,
+                    "duration": duration,
+                },
             )
         else:
             self.credential_service.update_login_failure(credential.id)

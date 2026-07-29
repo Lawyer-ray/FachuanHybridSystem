@@ -765,7 +765,7 @@ class MockTrialFlowService:
         role_map = {"原告": "plaintiff", "被告": "defendant", "法官": "judge", "观看": "observer"}
         level_map = {"一审": "first", "二审": "second"}
 
-        def _apply_rule(key: str, val: str) -> bool:
+        def _apply_rule(key: str, val: str) -> None:
             if "原告" in key and "模型" in key:
                 config.plaintiff_model = resolve_model(val)
             elif "被告" in key and "模型" in key:
@@ -781,9 +781,6 @@ class MockTrialFlowService:
                 config.user_role = role_map.get(val, "observer")
             elif "审级" in key:
                 config.trial_level = level_map.get(val, "first")
-            else:
-                return False
-            return True
 
         for line in text.split("\n"):
             line = line.strip()

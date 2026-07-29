@@ -119,7 +119,7 @@ def parse_interest_params(main_text: str) -> ParsedInterestParams:
     params.overdue_item_label = detect_overdue_item_label(main_text)
 
     rate_text = clause or main_text
-    if (
+    (
         _try_lpr_multiple(rate_text, params)
         or _try_lpr_markup(rate_text, params)
         or _try_lpr_plain(rate_text, params)
@@ -127,8 +127,7 @@ def parse_interest_params(main_text: str) -> ParsedInterestParams:
         or _try_unit_rate(rate_text, "permille", "千分之", params)
         or _try_unit_rate(rate_text, "permyriad", "万分之", params)
         or _try_daily_percent(rate_text, params)
-    ):
-        pass
+    )
 
     date_match = re.search(r"(?:自|从)\s*(\d{4})\s*年\s*(\d{1,2})\s*月\s*(\d{1,2})\s*日(?:起|开始|计)?", rate_text)
     if date_match:

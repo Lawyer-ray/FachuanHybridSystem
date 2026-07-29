@@ -34,14 +34,6 @@ class InvoiceParser:
     _DATE_ISO_PATTERN: re.Pattern[str] = re.compile(r"(\d{4})-(\d{2})-(\d{2})")
     _AMOUNT_PATTERN: re.Pattern[str] = re.compile(r"合\s*计\s*[¥￥]([\d,]+\.\d{2})\s*[¥￥]([\d,]+\.\d{2})")
     _TOTAL_PATTERN: re.Pattern[str] = re.compile(r"[（(]\s*小写\s*[）)]\s*[¥￥]\s*([\d,]+\.\d{2})")
-    _BUYER_PATTERN: re.Pattern[str] = re.compile(
-        r"(?:购买方名称|购方名称)[：:]\s*([^\n\r]{2,50})"
-        r"|(?:购\s*名称|买\s*名称)[：:]\s*([^销\n\r]{2,50})"
-        r"|名称[：:]\s*([^\n\r]{2,50})"
-    )
-    _SELLER_PATTERN: re.Pattern[str] = re.compile(
-        r"(?:销售方名称|销方名称)[：:]\s*([^\n\r]{2,50})" r"|销\s*名称[：:]\s*([^\n\r]{2,50})"
-    )
 
     _CATEGORY_KEYWORDS: list[tuple[str, str]] = [
         ("增值税专用发票", "vat_special"),
