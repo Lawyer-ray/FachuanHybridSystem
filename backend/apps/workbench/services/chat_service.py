@@ -266,7 +266,7 @@ async def _handle_stream_event(event: Any, event_queue: Any, agent_name: str) ->
             )
     elif isinstance(event, FunctionToolResultEvent):
         result_content = event.content
-        if hasattr(result_content, "content"):
+        if result_content is not None and hasattr(result_content, "content"):
             result_content = result_content.content
         result_str = str(result_content) if result_content else ""
         await event_queue.put(
