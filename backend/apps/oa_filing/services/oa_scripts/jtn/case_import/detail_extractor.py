@@ -14,6 +14,23 @@ from .models import CaseSearchItem, OACaseCustomerData, OACaseData, OACaseInfoDa
 
 logger = logging.getLogger("apps.oa_filing.jtn_case_import")
 
+# 标签到客户字段的映射规则（顺序优先级）
+_FIELD_RULES: list[tuple[tuple[str, ...], str]] = [
+    (("地址",), "address"),
+    (("电话", "号码"), "phone"),
+    (("身份证",), "id_number"),
+    (("行业",), "industry"),
+    (("法定代表", "负责人", "姓名"), "legal_representative"),
+]
+
+
+def _apply_customer_field(customer: Any, label: str, value: str) -> None:
+    """根据标签文本设置客户字段。"""
+    for keywords, attr in _FIELD_RULES:
+        if any(kw in label for kw in keywords):
+            setattr(customer, attr, value)
+            return
+
 
 class JtnDetailExtractorMixin:  # pragma: no cover
     """详情页 Tab 数据提取。"""
@@ -102,17 +119,7 @@ class JtnDetailExtractorMixin:  # pragma: no cover
                             for i in range(0, cell_count - 1, 2):
                                 label_cell = (await cells[i].inner_text()).strip()
                                 value_cell = (await cells[i + 1].inner_text()).strip() if i + 1 < cell_count else ""
-
-                                if "地址" in label_cell:
-                                    current_customer.address = value_cell
-                                elif any(x in label_cell for x in ("电话", "号码")):
-                                    current_customer.phone = value_cell
-                                elif "身份证" in label_cell:
-                                    current_customer.id_number = value_cell
-                                elif "行业" in label_cell:
-                                    current_customer.industry = value_cell
-                                elif any(x in label_cell for x in ("法定代表", "负责人", "姓名")):
-                                    current_customer.legal_representative = value_cell
+                                _apply_customer_field(current_customer, label_cell, value_cell)
 
                     except Exception as exc:
                         logger.debug("解析客户行异常: %s", exc)

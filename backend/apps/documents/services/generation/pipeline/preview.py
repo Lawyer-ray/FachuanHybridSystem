@@ -9,6 +9,22 @@ from typing import Any
 from apps.core.utils.path import Path
 
 
+def _format_value(val: Any) -> str:
+    """格式化变量值为可读文本。"""
+    plain = getattr(val, "plain_text", None)
+    if plain is not None:
+        return str(plain)
+    if isinstance(val, list):
+        lines = []
+        for item in val:
+            if isinstance(item, dict):
+                lines.append(" | ".join(f"{k}: {v}" for k, v in item.items()))
+            else:
+                lines.append(str(item))
+        return "\n".join(lines)
+    return str(val).replace("\a", "\n")
+
+
 class DocxPreviewService:
     """从 docx 模板提取占位符，与上下文匹配后返回键值对预览"""
 
@@ -28,24 +44,11 @@ class DocxPreviewService:
         rows: list[dict[str, str]] = []
         for var in ordered_vars:
             val = context.get(var)
-            if val:
-                # 优先使用 plain_text 属性（如 _ArchiveMaterialsRichText），否则用 str()
-                display_val = getattr(val, "plain_text", None)
-                if display_val is None:
-                    if isinstance(val, list):
-                        # 列表类型：格式化每项的字典为可读文本
-                        lines: list[str] = []
-                        for item in val:
-                            if isinstance(item, dict):
-                                lines.append(" | ".join(f"{k}: {v}" for k, v in item.items()))
-                            else:
-                                lines.append(str(item))
-                        display_val = "\n".join(lines)
-                    else:
-                        display_val = str(val).replace("\a", "\n")
-                rows.append({"key": var, "value": display_val, "status": "ok"})
-            else:
+            if not val:
                 rows.append({"key": var, "value": "", "status": "empty"})
+                continue
+            display_val = _format_value(val)
+            rows.append({"key": var, "value": display_val, "status": "ok"})
         return rows
 
     def _extract_ordered_vars(self, path: str) -> list[str]:  # pragma: no cover

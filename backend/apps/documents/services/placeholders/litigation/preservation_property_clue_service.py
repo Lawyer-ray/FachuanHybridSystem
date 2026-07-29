@@ -111,21 +111,27 @@ class PreservationPropertyClueService(BasePlaceholderService):
         if not content:
             return []
 
-        # 按行分割内容
         lines = [line.strip() for line in content.strip().split("\n") if line.strip()]
 
         result: list[Any] = []
         for line in lines:
             if ":" in line:
-                # 保留原始格式
                 result.append(line)
             elif ":" in line:
-                # 英文冒号转中文冒号
                 result.append(line.replace(":", ":"))
             else:
                 result.append(line)
-
         return result
+
+    def _format_clue_items(self, clue_list: list[Any], start_index: int) -> tuple[list[str], int]:
+        """格式化线索项列表，返回 (formatted_lines, next_index)。"""
+        lines: list[str] = []
+        idx = start_index
+        for clue in clue_list:
+            for content_line in self._parse_clue_content(clue.clue_type, clue.content):
+                idx += 1
+                lines.append(f"({idx}){content_line}")
+        return lines, idx
 
     def generate_property_clue_info(self, case_id: int) -> str:
         """
@@ -187,22 +193,12 @@ class PreservationPropertyClueService(BasePlaceholderService):
             # 构建该被申请人的财产线索内容
             clue_parts = [header]
 
+            item_index = 0
             for clue_type_index, (clue_type, clue_list) in enumerate(clues_by_type.items(), 1):
                 type_display = self.CLUE_TYPE_DISPLAY.get(clue_type, clue_type)
-
-                # 二级:阿拉伯数字 + 线索类型
-                type_header = f"{clue_type_index}。{type_display}："
-                clue_parts.append(type_header)
-
-                # 三级:带括号数字 + 具体内容
-                item_index = 0
-                for clue in clue_list:
-                    content_lines = self._parse_clue_content(clue.clue_type, clue.content)
-
-                    if content_lines:
-                        for line in content_lines:
-                            item_index += 1
-                            clue_parts.append(f"({item_index}){line}")
+                clue_parts.append(f"{clue_type_index}。{type_display}：")
+                formatted, item_index = self._format_clue_items(clue_list, item_index)
+                clue_parts.extend(formatted)
 
             # 使用 \a 换行符连接
             result_parts.append("\a".join(clue_parts))

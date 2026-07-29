@@ -238,6 +238,47 @@ async def _maybe_create_summary(
 # ─── 主服务 ───────────────────────────────────────────────────────────────────
 
 
+async def _handle_stream_event(event: Any, event_queue: Any, agent_name: str) -> None:
+    """处理 Agent 流式事件：工具调用/结果/handoff。"""
+    if isinstance(event, FunctionToolCallEvent):
+        args = event.part.args
+        if isinstance(args, str):
+            try:
+                args = json.loads(args)
+            except (json.JSONDecodeError, TypeError):
+                pass
+        tool_name = event.part.tool_name
+        await event_queue.put(
+            {
+                "type": "tool_call",
+                "tool_call_id": event.part.tool_call_id or "",
+                "name": tool_name,
+                "arguments": args,
+            }
+        )
+        if "handoff" in tool_name:
+            await event_queue.put(
+                {
+                    "type": "handoff",
+                    "from_agent": agent_name,
+                    "to_agent": tool_name.replace("_handoff_to_", ""),
+                }
+            )
+    elif isinstance(event, FunctionToolResultEvent):
+        result_content = event.content
+        if result_content is not None and hasattr(result_content, "content"):
+            result_content = result_content.content
+        result_str = str(result_content) if result_content else ""
+        await event_queue.put(
+            {
+                "type": "tool_result",
+                "tool_call_id": event.result.tool_call_id,
+                "name": event.result.tool_name,
+                "result": result_str[:2000],
+            }
+        )
+
+
 class WorkbenchChatService:
     """工作台对话编排服务"""
 
@@ -471,47 +512,7 @@ class WorkbenchChatService:
                             stream: AgentStream[WorkbenchDeps, str]
                             async with node.stream(run.ctx) as stream:
                                 async for event in stream:
-                                    if isinstance(event, FunctionToolCallEvent):
-                                        # 工具调用（执行前）
-                                        args = event.part.args
-                                        if isinstance(args, str):
-                                            try:
-                                                args = json.loads(args)
-                                            except (json.JSONDecodeError, TypeError):
-                                                pass
-                                        tool_name = event.part.tool_name
-                                        await event_queue.put(
-                                            {
-                                                "type": "tool_call",
-                                                "tool_call_id": event.part.tool_call_id or "",
-                                                "name": tool_name,
-                                                "arguments": args,
-                                            }
-                                        )
-                                        # 检测 handoff 工具调用
-                                        if "handoff" in tool_name:
-                                            target = tool_name.replace("_handoff_to_", "")
-                                            await event_queue.put(
-                                                {
-                                                    "type": "handoff",
-                                                    "from_agent": agent_name,
-                                                    "to_agent": target,
-                                                }
-                                            )
-                                    elif isinstance(event, FunctionToolResultEvent):
-                                        # 工具结果
-                                        result_content = event.content
-                                        if hasattr(result_content, "content"):
-                                            result_content = result_content.content
-                                        result_str = str(result_content) if result_content else ""
-                                        await event_queue.put(
-                                            {
-                                                "type": "tool_result",
-                                                "tool_call_id": event.result.tool_call_id,
-                                                "name": event.result.tool_name,
-                                                "result": result_str[:2000],
-                                            }
-                                        )
+                                    await _handle_stream_event(event, event_queue, agent_name)
 
                         elif Agent.is_call_tools_node(node):
                             # 工具执行节点：等待完成

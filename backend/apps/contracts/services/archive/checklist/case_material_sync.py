@@ -181,6 +181,34 @@ def get_case_material_match_map(
     }
 
 
+def _collect_matching_materials(
+    cases: Any, keyword_map: dict[str, list[str]], case_source_items: dict[str, Any]
+) -> tuple[dict[str, list[Any]], dict[str, int]]:
+    """收集所有案件中匹配的材料，返回 (code_to_materials, case_id_for_code)。"""
+    from apps.cases.models import CaseMaterial
+
+    code_to_case_materials: dict[str, list[Any]] = {}
+    case_id_for_code: dict[str, int] = {}
+
+    for case in cases:
+        case_materials = list(
+            CaseMaterial.objects.filter(case=case)
+            .select_related("source_attachment")
+            .only("id", "type_name", "category", "source_attachment_id", "source_attachment__file", "case_id")
+        )
+        for cm in case_materials:
+            matched_code = match_type_name_to_code(cm.type_name, keyword_map)
+            if not matched_code or matched_code not in case_source_items:
+                continue
+            if matched_code not in code_to_case_materials:
+                code_to_case_materials[matched_code] = []
+                case_id_for_code[matched_code] = case.id
+            if case_id_for_code[matched_code] == case.id:
+                code_to_case_materials[matched_code].append(cm)
+
+    return code_to_case_materials, case_id_for_code
+
+
 def sync_case_materials_to_archive(
     contract: Contract,
     archive_item_codes: list[str] | None = None,
@@ -213,27 +241,7 @@ def sync_case_materials_to_archive(
 
     from apps.cases.models import CaseMaterial
 
-    for case in cases:
-        case_materials = list(
-            CaseMaterial.objects.filter(case=case)
-            .select_related("source_attachment")
-            .only(
-                "id",
-                "type_name",
-                "category",
-                "source_attachment_id",
-                "source_attachment__file",
-                "case_id",
-            )
-        )
-        for cm in case_materials:
-            matched_code = match_type_name_to_code(cm.type_name, keyword_map)
-            if matched_code and matched_code in case_source_items:
-                if matched_code not in code_to_case_materials:
-                    code_to_case_materials[matched_code] = []
-                    case_id_for_code[matched_code] = case.id
-                if case_id_for_code[matched_code] == case.id:
-                    code_to_case_materials[matched_code].append(cm)
+    code_to_case_materials, case_id_for_code = _collect_matching_materials(cases, keyword_map, case_source_items)
 
     synced: list[dict[str, Any]] = []
     skipped: list[dict[str, Any]] = []

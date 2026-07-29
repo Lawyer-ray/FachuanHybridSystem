@@ -57,42 +57,44 @@ class SupervisionCardExtractor:
 
         # 2. 逐个检查PDF文件的最后2页
         for material in pdf_materials:
-            file_path = material.file_path
-            if not file_path:
-                continue
-
-            # 构建完整路径
-            full_path = self._resolve_file_path(file_path)
-            if not full_path or not full_path.exists():
-                continue
-
-            if not str(full_path).lower().endswith(".pdf"):
-                continue
-
-            try:
-                result = self._check_pdf_for_supervision_card(full_path)
-                if result["found"]:
-                    # 3. 提取监督卡页面
-                    extracted_pdf = self._extract_page(full_path, result["page_number"])
-                    if extracted_pdf:
-                        # 4. 保存为新的 FinalizedMaterial
-                        extracted_material = self._save_extracted_card(
-                            contract=contract,
-                            pdf_content=extracted_pdf,
-                            original_material=material,
-                            page_number=result["page_number"],
-                        )
-                        return {
-                            "found": True,
-                            "page_number": result["page_number"],
-                            "material_id": extracted_material.id if extracted_material else None,
-                            "error": None,
-                        }
-            except Exception as e:
-                logger.warning("检测监督卡失败: %s", e, extra={"file_path": str(full_path)})
-                continue
+            result = self._try_extract_from_material(material, contract)
+            if result is not None:
+                return result
 
         return {"found": False, "page_number": None, "material_id": None, "error": "未在合同PDF末尾检测到监督卡"}
+
+    def _try_extract_from_material(
+        self, material: Any, contract: Any
+    ) -> dict[str, Any] | None:  # pragma: no cover  # type: ignore[no-untyped-def]
+        """尝试从单个材料中检测并提取监督卡，成功返回结果 dict，失败返回 None。"""
+        file_path = material.file_path
+        if not file_path:
+            return None
+        full_path = self._resolve_file_path(file_path)
+        if not full_path or not full_path.exists() or not str(full_path).lower().endswith(".pdf"):
+            return None
+        try:
+            result = self._check_pdf_for_supervision_card(full_path)
+            if not result["found"]:
+                return None
+            extracted_pdf = self._extract_page(full_path, result["page_number"])
+            if not extracted_pdf:
+                return None
+            extracted_material = self._save_extracted_card(
+                contract=contract,
+                pdf_content=extracted_pdf,
+                original_material=material,
+                page_number=result["page_number"],
+            )
+            return {
+                "found": True,
+                "page_number": result["page_number"],
+                "material_id": extracted_material.id if extracted_material else None,
+                "error": None,
+            }
+        except Exception as e:
+            logger.warning("检测监督卡失败: %s", e, extra={"file_path": str(full_path)})
+            return None
 
     def _check_pdf_for_supervision_card(self, pdf_path: Path) -> dict[str, Any]:  # pragma: no cover
         """

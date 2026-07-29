@@ -20,6 +20,32 @@ logger = logging.getLogger(__name__)
 _LEARNED_RULES_PATH = Path(__file__).parent.parent / "contract" / "integrations" / "_learned_rules.py"
 
 
+def _learn_keywords_for_material(
+    archive_category: str,
+    material: Any,
+    keywords: list[str],
+    ambiguous_keys: set[tuple[str, str]],
+) -> tuple[int, int, int]:
+    """学习单个材料的关键词规则，返回 (learned, updated, ambiguous)。"""
+    learned = updated = ambiguous = 0
+    for kw in keywords:
+        if (archive_category, kw) in ambiguous_keys:
+            ambiguous += 1
+            continue
+        rule, created = ArchiveClassificationRule.objects.get_or_create(
+            archive_category=archive_category,
+            filename_keyword=kw,
+            defaults={"archive_item_code": material.archive_item_code, "source": "learned", "hit_count": 1},
+        )
+        if created:
+            learned += 1
+        elif rule.archive_item_code == material.archive_item_code:
+            rule.hit_count += 1
+            rule.save(update_fields=["hit_count", "updated_at"])
+            updated += 1
+    return learned, updated, ambiguous
+
+
 class ArchiveLearningService:
     """归档分类学习服务。
 
@@ -108,38 +134,11 @@ class ArchiveLearningService:
                 continue
 
             has_ambiguous = False
-            for kw in keywords:
-                if (archive_category, kw) in ambiguous_keys:
-                    ambiguous += 1
-                    has_ambiguous = True
-                    continue
-
-                rule, created = ArchiveClassificationRule.objects.get_or_create(
-                    archive_category=archive_category,
-                    filename_keyword=kw,
-                    defaults={
-                        "archive_item_code": material.archive_item_code,
-                        "source": "learned",
-                        "hit_count": 1,
-                    },
-                )
-
-                if created:
-                    learned += 1
-                    logger.info(
-                        "archive_rule_learned",
-                        extra={
-                            "archive_category": archive_category,
-                            "keyword": kw,
-                            "archive_item_code": material.archive_item_code,
-                        },
-                    )
-                else:
-                    # 已有规则，如果目标一致则累加命中次数，否则不覆盖
-                    if rule.archive_item_code == material.archive_item_code:
-                        rule.hit_count += 1
-                        rule.save(update_fields=["hit_count", "updated_at"])
-                        updated += 1
+            l, u, a = _learn_keywords_for_material(archive_category, material, keywords, ambiguous_keys)
+            learned += l
+            updated += u
+            ambiguous += a
+            has_ambiguous = a > 0
 
             if has_ambiguous and not any((archive_category, kw) not in ambiguous_keys for kw in keywords):
                 skipped += 1

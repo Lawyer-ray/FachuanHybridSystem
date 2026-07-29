@@ -36,6 +36,40 @@ class DocumentPlacement:
     supplementary_agreement: Any | None = None  # 补充协议实例(仅补充协议模板时有值)
 
 
+def _collect_single_file(
+    target_path: str,
+    file_field: Any,
+    path_resolver: Any,
+    documents: list[Any],
+    name_prefix: str | None,
+    logger: Any,
+    label: str,
+    fallback_name: str = "",
+) -> None:
+    """读取单个文件字段并追加到 documents 列表。"""
+    if not file_field:
+        return
+    try:
+        raw = str(getattr(file_field, "path", file_field) or "")
+        if not raw:
+            return
+        abs_path = path_resolver(raw) if callable(path_resolver) else Path(raw)
+        if not abs_path.exists():
+            return
+        content = abs_path.read_bytes()
+        if name_prefix:
+            suffix = abs_path.suffix or ".pdf"
+            filename = f"{name_prefix}{suffix}"
+        else:
+            filename = abs_path.name
+            if not filename.lower().endswith(".pdf"):
+                filename = f"{filename}.pdf"
+        documents.append((target_path, content, filename))
+        logger.info("案件文件夹 - %s已添加: %s → %s", label, filename, target_path)
+    except (OSError, ValueError) as e:
+        logger.warning("读取%s失败: %s - %s", label, fallback_name or file_field, e)
+
+
 class FolderGenerationService:
     """
     文件夹生成服务
@@ -695,71 +729,48 @@ class FolderGenerationService:
         for identity_path in identity_paths:
             for party in case.parties.select_related("client"):
                 for identity_doc in party.client.identity_docs.all():
-                    if not identity_doc.file_path:
-                        continue
-                    try:
-                        abs_path = to_media_abs(identity_doc.file_path)
-                        if abs_path.exists():
-                            content = abs_path.read_bytes()
-                            suffix = abs_path.suffix
-                            # 证件类型显示名称：去掉 "/" 避免路径问题，统一改为 "法定代表人身份证"
-                            doc_type_display = (
-                                identity_doc.get_doc_type_display()
-                                .replace("/", "身份证")
-                                .replace("负责人身份证", "法定代表人身份证")
-                            )
-                            filename = f"{party.client.name}_{doc_type_display}{suffix}"
-                            documents.append((identity_path, content, filename))
-                            logger.info(
-                                "案件文件夹 - 证件材料已添加: %s → %s",
-                                filename,
-                                identity_path,
-                            )
-                    except (OSError, ValueError) as e:
-                        logger.warning("读取证件文件失败: %s - %s", identity_doc.file_path, e)
+                    doc_type_display = (
+                        identity_doc.get_doc_type_display()
+                        .replace("/", "身份证")
+                        .replace("负责人身份证", "法定代表人身份证")
+                    )
+                    _collect_single_file(
+                        identity_path,
+                        identity_doc.file_path,
+                        to_media_abs,
+                        documents,
+                        f"{party.client.name}_{doc_type_display}",
+                        logger,
+                        "证件材料",
+                    )
 
         # 6. 放入律师执业证 → "委托材料"文件夹
         for attorney_path in attorney_paths:
             for assignment in case.assignments.select_related("lawyer"):
                 lawyer = assignment.lawyer
-                if not lawyer.license_pdf:
-                    continue
-                try:
-                    # license_pdf 是 FileField，.path 就是完整的文件系统路径
-                    abs_path = Path(lawyer.license_pdf.path)
-                    if abs_path.exists():
-                        content = abs_path.read_bytes()
-                        filename = f"{lawyer.real_name or lawyer.username}_执业证.pdf"
-                        documents.append((attorney_path, content, filename))
-                        logger.info(
-                            "案件文件夹 - 律师执业证已添加: %s → %s",
-                            filename,
-                            attorney_path,
-                        )
-                except (OSError, ValueError) as e:
-                    logger.warning("读取律师执业证失败: %s - %s", lawyer.username, e)
+                _collect_single_file(
+                    attorney_path,
+                    getattr(lawyer, "license_pdf", None),
+                    lambda p: Path(p),
+                    documents,
+                    f"{lawyer.real_name or lawyer.username}_执业证",
+                    logger,
+                    "律师执业证",
+                )
 
         # 7. 放入已生效案号裁判文书 → "执行依据及生效证明"文件夹
         for exec_path in execution_paths:
             for case_number in case.case_numbers.filter(is_active=True).exclude(document_file=""):
-                if not case_number.document_file:
-                    continue
-                try:
-                    # document_file 是 FileField，使用 .path 获取实际文件路径
-                    abs_path = Path(case_number.document_file.path)
-                    if abs_path.exists():
-                        content = abs_path.read_bytes()
-                        filename = abs_path.name
-                        if not filename.lower().endswith(".pdf"):
-                            filename = f"{filename}.pdf"
-                        documents.append((exec_path, content, filename))
-                        logger.info(
-                            "案件文件夹 - 执行依据已添加: %s → %s",
-                            filename,
-                            exec_path,
-                        )
-                except (OSError, ValueError) as e:
-                    logger.warning("读取案号裁判文书失败: %s - %s", case_number.number, e)
+                _collect_single_file(
+                    exec_path,
+                    getattr(case_number, "document_file", None),
+                    lambda p: Path(p),
+                    documents,
+                    None,
+                    logger,
+                    "案号裁判文书",
+                    fallback_name=case_number.number,
+                )
 
         # 8. 若有包裹文件夹，需要将所有文档路径加上包裹前缀
         if wrap_folder_name:
