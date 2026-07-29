@@ -120,7 +120,7 @@ class LPRSyncService:
         logger.info(f"[LPRSync] Parsed {len(unique_data)} unique LPR records")
         return unique_data
 
-    def _parse_single_row(self, row: Any) -> LPRData | None:  # type: ignore[no-untyped-def]
+    def _parse_single_row(self, row: Any) -> LPRData | None:
         """解析表格单行，返回 LPRData 或 None（跳过无效行）。"""
         cells = row.query_selector_all("td, th")
         if len(cells) < 3:

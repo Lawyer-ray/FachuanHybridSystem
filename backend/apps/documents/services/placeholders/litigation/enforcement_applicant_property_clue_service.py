@@ -11,7 +11,7 @@ from apps.litigation_ai.placeholders.spec import LitigationPlaceholderKeys
 logger = logging.getLogger(__name__)
 
 
-def _collect_clue_lines(client_service: Any, client_id: int) -> list[str]:  # type: ignore[no-untyped-def]
+def _collect_clue_lines(client_service: Any, client_id: int) -> list[str]:
     """从客户的财产线索中提取所有非空行。"""
     lines: list[str] = []
     for clue in client_service.get_property_clues_by_client_internal(client_id):

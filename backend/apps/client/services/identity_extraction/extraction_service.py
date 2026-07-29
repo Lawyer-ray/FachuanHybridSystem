@@ -270,7 +270,7 @@ class IdentityExtractionService:
             logger.exception("PDF 处理失败: %s", e)
             raise OCRExtractionError(_("PDF 处理失败: %(e)s") % {"e": e}) from e
 
-    def _ocr_single_page(self, page: Any) -> str:  # type: ignore[no-untyped-def]
+    def _ocr_single_page(self, page: Any) -> str:
         """渲染单页为图片并 OCR，返回文本或空字符串。"""
         import fitz as _fitz
 

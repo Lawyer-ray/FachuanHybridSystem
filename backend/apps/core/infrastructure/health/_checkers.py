@@ -24,7 +24,7 @@ __all__ = ["check_database", "check_cache", "check_disk_space", "check_dependenc
 def _collect_db_error_diagnostics(
     exc: Exception,
     connection: Any,
-    diagnostic_info: dict[str, Any],  # type: ignore[no-untyped-def]
+    diagnostic_info: dict[str, Any],
 ) -> dict[str, Any]:
     """收集数据库错误诊断信息。"""
     try:

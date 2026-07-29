@@ -20,12 +20,12 @@ A4_W, A4_H = 595.0, 842.0
 TOLERANCE = 1.0
 
 
-def _is_a4(page: Any) -> bool:  # type: ignore[no-untyped-def]
+def _is_a4(page: Any) -> bool:
     """判断 PDF 页面是否为 A4 尺寸（含横竖旋转）。"""
     w, h = page.rect.width, page.rect.height
     return (abs(w - A4_W) < TOLERANCE and abs(h - A4_H) < TOLERANCE) or (
         abs(w - A4_H) < TOLERANCE and abs(h - A4_W) < TOLERANCE
-    )
+    )  # type: ignore[no-any-return]
 
 
 def scale_pages_to_a4(contract: Contract) -> dict[str, Any]:  # pragma: no cover

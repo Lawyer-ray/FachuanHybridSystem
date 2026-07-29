@@ -44,7 +44,7 @@ class EvidenceTextExtractionService:
 
         return results
 
-    def _try_ocr_fallback(self, page: Any, ocr: Any) -> str:  # type: ignore[no-untyped-def]
+    def _try_ocr_fallback(self, page: Any, ocr: Any) -> str:
         """渲染页面为图片并 OCR，返回文本或空字符串。"""
         try:
             pix = page.get_pixmap(dpi=200)
