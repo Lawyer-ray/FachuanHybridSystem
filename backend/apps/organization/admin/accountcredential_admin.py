@@ -36,7 +36,7 @@ def _format_time_ago(delta):  # type: ignore[no-untyped-def]
 
 @admin.register(AccountCredential)
 class AccountCredentialAdmin(admin.ModelAdmin):  # pragma: no cover
-    list_display: ClassVar[list[str]] = [
+    list_display = [
         "id",
         "lawyer",
         "site_name",
@@ -46,11 +46,11 @@ class AccountCredentialAdmin(admin.ModelAdmin):  # pragma: no cover
 
     search_fields: ClassVar[tuple[str, ...]] = ("site_name", "url", "account", "lawyer__username", "lawyer__real_name")
 
-    list_filter: ClassVar[list[str]] = ["site_name", "lawyer", "last_login_success_at", "created_at"]
+    list_filter = ["site_name", "lawyer", "last_login_success_at", "created_at"]
 
     autocomplete_fields: ClassVar[tuple[str, ...]] = ("lawyer",)
 
-    readonly_fields: ClassVar[list[str]] = [
+    readonly_fields = [
         "id",
         "login_statistics_display",
         "success_rate_display",
@@ -68,14 +68,14 @@ class AccountCredentialAdmin(admin.ModelAdmin):  # pragma: no cover
         ("时间信息", {"fields": ("created_at", "updated_at")}),
     )
 
-    ordering: ClassVar[list[str]] = ["-last_login_success_at", "-login_success_count", "login_failure_count"]
+    ordering = ["-last_login_success_at", "-login_success_count", "login_failure_count"]
 
     date_hierarchy = "last_login_success_at"
 
     list_per_page = 50
 
     def get_form(  # pragma: no cover
-        self, request: HttpRequest, obj: AccountCredential | None = None, **kwargs: Any
+        self, request: HttpRequest, obj: AccountCredential | None = None, change: bool = False, **kwargs: Any
     ) -> type[forms.ModelForm]:
         form = super().get_form(request, obj, **kwargs)
         if "password" in form.base_fields:
