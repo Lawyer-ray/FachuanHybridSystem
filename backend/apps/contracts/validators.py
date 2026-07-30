@@ -2,6 +2,6 @@
 
 from __future__ import annotations
 
-from .domain.validators import normalize_representation_stages
+from .domain.validators import normalize_representation_stages, validate_advisor_contract_title_dates
 
-__all__: list[str] = ["normalize_representation_stages"]
+__all__: list[str] = ["normalize_representation_stages", "validate_advisor_contract_title_dates"]
