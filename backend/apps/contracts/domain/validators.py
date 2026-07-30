@@ -59,13 +59,13 @@ def validate_advisor_contract_title_dates(
 
     # ---- 1. 提取完整中文日期 ----
     raw_dates = _DATE_FULL_RE.findall(title)
-    specific_dates: list[tuple[int, int]] = []
+    specific_dates: list[int] = []
     for m_y, m_m, m_d in raw_dates:
         try:
             dt = date(int(m_y), int(m_m), int(m_d))
         except ValueError:
             continue
-        specific_dates.append((dt.year * 10000 + dt.month * 100 + dt.day,))
+        specific_dates.append(dt.year * 10000 + dt.month * 100 + dt.day)
 
     # ---- 2. 提取年份范围 (优先匹配短横线连接的) ----
     years: list[int] = []
@@ -99,18 +99,8 @@ def validate_advisor_contract_title_dates(
         actual_start_int = start_date.year * 10000 + start_date.month * 100 + start_date.day
         actual_end_int = end_date.year * 10000 + end_date.month * 100 + end_date.day
 
-        found_start: int | None = None
-        found_end: int | None = None
-        for di in sorted(specific_dates):
-            if di[0] <= actual_start_int:
-                found_start = di[0]
-            if found_end is None and di[0] >= actual_start_int:
-                found_end = di[0]
-
-        # 取第一个和最后一个日期
-        all_ints = [d[0] for d in specific_dates]
-        first_int = all_ints[0]
-        last_int = all_ints[-1]
+        first_int = specific_dates[0]
+        last_int = specific_dates[-1]
 
         def _fmt_date_int(v: int) -> str:
             y, rem = divmod(v, 10000)
