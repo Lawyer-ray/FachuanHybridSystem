@@ -112,6 +112,24 @@ class ContractAdmin(
 
         def clean(self) -> dict[str, Any]:  # pragma: no cover
             cleaned = super().clean() or {}
+
+            # 顾问合同标题-日期一致性校验
+            try:
+                from apps.contracts.domain.validators import validate_advisor_contract_title_dates
+
+                validate_advisor_contract_title_dates(
+                    case_type=cleaned.get("case_type"),
+                    title=cleaned.get("name"),
+                    start_date=cleaned.get("start_date"),
+                    end_date=cleaned.get("end_date"),
+                )
+            except Exception as exc:
+                from apps.core.exceptions import ValidationException
+
+                if isinstance(exc, ValidationException):
+                    raise forms.ValidationError(str(exc)) from exc
+                logger.exception("顾问合同标题日期校验异常")
+
             try:
                 from apps.contracts.validators import normalize_representation_stages
 
