@@ -132,10 +132,10 @@ def convert_contract_numbering(
                 # 显示失败详情
                 for r in verification['results']:
                     if not r['valid']:
-                        logger.warning("  [%d] 期望 L%d, 实际 %s: %s",
-                                     r['para_idx'], r['expected_level'],
-                                     f"L{r['actual_level']}" if r['actual_level'] is not None else "无",
-                                     r['text'])
+                        expected = f"L{r['expected_level']}" if r['expected_level'] is not None else "无编号"
+                        actual = f"L{r['actual_level']}" if r['actual_level'] is not None else "无"
+                        logger.warning("  [%d] 期望 %s, 实际 %s: %s",
+                                     r['para_idx'], expected, actual, r['text'])
 
                 if attempt < MAX_RETRIES:
                     logger.info("正在重试...")

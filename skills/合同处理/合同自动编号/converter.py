@@ -238,6 +238,31 @@ def convert_numbering(
     if hasattr(numbering_part, '_blob'):
         numbering_part._blob = etree.tostring(numbering_elem, xml_declaration=True, encoding='UTF-8', standalone=True)
 
+    # 创建已编号段落的索引集合
+    numbered_indices = {idx for idx, _, _, _ in numbered_paras}
+
+    # 首先清除所有非签名段落的旧编号
+    from .detector import is_signature_section
+    for i, para in enumerate(doc.paragraphs):
+        text = para.text.strip()
+        if not text:
+            continue
+
+        # 跳过已编号段落（后面会处理）
+        if i in numbered_indices:
+            continue
+
+        # 跳过签名部分
+        if is_signature_section(text):
+            continue
+
+        # 清除其他段落的编号
+        p_pr = para._element.find(qn('w:pPr'))
+        if p_pr is not None:
+            old_num_pr = p_pr.find(qn('w:numPr'))
+            if old_num_pr is not None:
+                p_pr.remove(old_num_pr)
+
     # 应用自动编号
     current_num_id = None
 
@@ -269,12 +294,19 @@ def verify_numbering(doc: Document, numbered_paras: list[tuple[int, int, str, st
     Returns:
         验证结果字典
     """
+    from .detector import is_signature_section
+
     results = []
     all_valid = True
 
-    for para_idx, expected_level, matched, original_text in numbered_paras:
-        para = doc.paragraphs[para_idx]
+    # 创建已编号段落的索引集合
+    numbered_indices = {idx for idx, _, _, _ in numbered_paras}
+
+    # 验证所有段落
+    for i, para in enumerate(doc.paragraphs):
         text = para.text.strip()
+        if not text:
+            continue
 
         p_pr = para._element.find(qn('w:pPr'))
         has_num = False
@@ -292,14 +324,28 @@ def verify_numbering(doc: Document, numbered_paras: list[tuple[int, int, str, st
                 if num_id_elem is not None:
                     num_id = num_id_elem.get(qn('w:val'))
 
-        is_valid = has_num and actual_level == expected_level
+        # 检查是否是签名部分
+        is_signature = is_signature_section(text)
+
+        # 判断是否有效
+        if i in numbered_indices:
+            # 应该编号的段落
+            expected_level = next(level for idx, level, _, _ in numbered_paras if idx == i)
+            is_valid = has_num and actual_level == expected_level
+        elif is_signature:
+            # 签名部分不应该编号
+            is_valid = not has_num
+        else:
+            # 其他段落不检查
+            is_valid = True
 
         results.append({
-            'para_idx': para_idx,
-            'expected_level': expected_level,
+            'para_idx': i,
+            'expected_level': expected_level if i in numbered_indices else None,
             'actual_level': actual_level,
             'has_num': has_num,
             'num_id': num_id,
+            'is_signature': is_signature,
             'text': text[:50],
             'valid': is_valid,
         })
@@ -312,5 +358,5 @@ def verify_numbering(doc: Document, numbered_paras: list[tuple[int, int, str, st
         'total': len(results),
         'valid_count': sum(1 for r in results if r['valid']),
         'invalid_count': sum(1 for r in results if not r['valid']),
-        'results': results,
+        'results': [r for r in results if not r['valid']],  # 只返回失败的
     }

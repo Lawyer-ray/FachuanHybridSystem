@@ -9,7 +9,7 @@ import re
 
 from docx import Document
 
-from .formats import SIGNATURE_KEYWORDS
+from .formats import SIGNATURE_KEYWORDS, SIGNATURE_PATTERNS
 
 logger = logging.getLogger(__name__)
 
@@ -23,9 +23,16 @@ def is_signature_section(text: str) -> bool:
     Returns:
         是否是签字盖章部分
     """
+    # 检查关键词
     for keyword in SIGNATURE_KEYWORDS:
         if keyword in text:
             return True
+
+    # 检查模式
+    for pattern in SIGNATURE_PATTERNS:
+        if re.match(pattern, text.strip()):
+            return True
+
     return False
 
 
