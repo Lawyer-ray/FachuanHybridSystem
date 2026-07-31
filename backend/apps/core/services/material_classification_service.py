@@ -174,9 +174,17 @@ class MaterialClassificationService:
     )
 
     # 文件夹路径关键词 — 路径包含这些时属于"合同发票"区域
-    _CONTRACT_INVOICE_FOLDER_KEYWORDS = (
+    # 支持多种文件夹命名方式：
+    # - 组合词：合同发票、合同及发票
+    # - 单独文件夹：1-合同、3-发票、合同、发票
+    # - 数字前缀变体：1-合同、2-补充协议、3-发票、4-监督卡
+    _CONTRACT_INVOICE_FOLDER_KEYWORDS: tuple[str, ...] = (
         "合同发票",
         "合同及发票",
+        "合同",
+        "发票",
+        "补充协议",
+        "监督卡",
     )
 
     def classify_contract_material(

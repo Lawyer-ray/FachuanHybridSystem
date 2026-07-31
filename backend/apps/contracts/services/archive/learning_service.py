@@ -11,6 +11,7 @@ from apps.contracts.models import ArchiveClassificationRule, FinalizedMaterial
 from apps.contracts.services.archive.category_mapping import get_archive_category
 from apps.contracts.services.contract.integrations.archive_classifier import (
     classify_archive_material,
+    invalidate_db_rules_cache,
     reload_learned_code_rules,
 )
 
@@ -142,6 +143,10 @@ class ArchiveLearningService:
 
             if has_ambiguous and not any((archive_category, kw) not in ambiguous_keys for kw in keywords):
                 skipped += 1
+
+        # 学习完成后刷新缓存，确保新规则立即生效
+        if learned > 0 or updated > 0:
+            invalidate_db_rules_cache()
 
         logger.info(
             "archive_learning_completed",

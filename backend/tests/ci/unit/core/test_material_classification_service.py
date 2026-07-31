@@ -46,7 +46,7 @@ class TestMaterialClassificationService:
     def test_classify_contract_not_in_invoice_folder(self):
         svc = self._make_service()
         result = svc.classify_contract_material(
-            filename="合同.docx", text_excerpt="", source_path="/案件材料/合同.docx"
+            filename="起诉状.docx", text_excerpt="", source_path="/案件材料/起诉状.docx"
         )
         assert result["category"] == "case_material"
 
