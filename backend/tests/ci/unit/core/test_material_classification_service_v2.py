@@ -17,7 +17,7 @@ def svc():
 class TestClassifyContractMaterial:
     def test_non_contract_invoice_folder_returns_case_material(self, svc):
         result = svc.classify_contract_material(
-            filename="合同.pdf", text_excerpt="", source_path="/data/案件材料/合同.pdf"
+            filename="起诉状.pdf", text_excerpt="", source_path="/data/案件材料/起诉状.pdf"
         )
         assert result["category"] == "case_material"
         assert result["confidence"] == 0.95
