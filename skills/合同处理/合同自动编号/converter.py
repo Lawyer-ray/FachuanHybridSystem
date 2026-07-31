@@ -29,7 +29,7 @@ def create_numbering_part(doc: Document) -> tuple[Part, etree._Element]:
     """
     try:
         return doc.part.numbering_part, doc.part.numbering_part.element
-    except:
+    except (AttributeError, Exception):
         package = doc.part.package
         partnames = {part.partname for part in package.iter_parts()}
         partname = PackURI('/word/numbering.xml')
