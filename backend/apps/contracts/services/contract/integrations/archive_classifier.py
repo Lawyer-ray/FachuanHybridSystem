@@ -77,13 +77,16 @@ _FOLDER_KEYWORD_TO_ARCHIVE_CODE: dict[str, dict[str, list[str]]] = {
     # non_litigation
     "non_litigation": {
         "nl_12": ["授权委托", "委托授权"],
+        "nl_4": ["合同", "委托合同", "风险告知"],  # 合同文件夹
+        "nl_5": ["发票", "收费凭证", "缴费"],  # 发票文件夹
         "nl_8": ["律师函", "法律意见"],
         "nl_9": ["修订版", "批注版", "律师修订"],
     },
     # litigation
     "litigation": {
         "lt_20": ["授权委托", "委托授权"],
-        "lt_4": ["框架合同"],
+        "lt_4": ["合同", "委托合同", "风险告知", "框架合同"],  # 合同文件夹
+        "lt_5": ["发票", "收费凭证", "缴费"],  # 发票文件夹
         "lt_7": ["起诉状", "起诉书", "上诉状", "上诉书", "答辩状", "答辩书", "执行申请"],
         "lt_8": ["阅卷"],
         "lt_9": ["会见当事人", "会见笔录", "谈话笔录", "询问笔录"],
@@ -113,6 +116,8 @@ _FOLDER_KEYWORD_TO_ARCHIVE_CODE: dict[str, dict[str, list[str]]] = {
     # criminal
     "criminal": {
         "cr_18": ["授权委托", "委托授权"],
+        "cr_4": ["合同", "委托合同", "风险告知"],  # 合同文件夹
+        "cr_5": ["发票", "收费凭证", "缴费"],  # 发票文件夹
         "cr_12": ["辩护词", "辩护意见", "代理词", "代理意见"],
         "cr_7": ["会见笔录", "会见被告人"],
         "cr_8": ["调查", "取证", "取保候审"],
@@ -131,12 +136,16 @@ _FOLDER_KEYWORD_TO_ARCHIVE_CODE: dict[str, dict[str, list[str]]] = {
 _FILENAME_KEYWORD_TO_ARCHIVE_CODE: dict[str, dict[str, list[str]]] = {
     "non_litigation": {
         "nl_12": ["授权委托书", "授权", "所函", "律师证"],
+        "nl_4": ["委托合同", "合同", "风险告知书"],  # 合同文件
+        "nl_5": ["发票", "收费凭证", "缴费单", "收据"],  # 发票文件
         "nl_7": ["委托人提供", "当事人提供", "我方材料"],
         "nl_8": ["律师函", "法律意见书"],
         "nl_9": ["修订版", "批注版", "律师修订", "证据清单", "证据明细", "材料清单"],
     },
     "litigation": {
         "lt_20": ["授权委托书", "授权", "所函", "律师证", "身份证", "营业执照", "法定代表人"],
+        "lt_4": ["委托合同", "合同", "风险告知书", "盖章"],  # 合同文件
+        "lt_5": ["发票", "收费凭证", "缴费单", "收据", "保全费"],  # 发票文件
         "lt_7": [
             "起诉状",
             "起诉书",
@@ -173,6 +182,8 @@ _FILENAME_KEYWORD_TO_ARCHIVE_CODE: dict[str, dict[str, list[str]]] = {
     },
     "criminal": {
         "cr_18": ["授权委托书", "授权", "所函", "律师证", "身份证", "户口本"],
+        "cr_4": ["委托合同", "合同", "风险告知书"],  # 合同文件
+        "cr_5": ["发票", "收费凭证", "缴费单", "收据"],  # 发票文件
         "cr_7": ["会见笔录", "会见被告人"],
         "cr_8": ["取保候审", "证据清单", "证据明细", "材料清单"],
         "cr_11": ["起诉书", "起诉状", "不起诉申请"],
@@ -551,7 +562,28 @@ def _match_by_folder_keywords(
     normalized_path: str,
     archive_category: str,
 ) -> dict[str, Any] | None:
-    """文件夹路径关键词匹配。"""
+    """文件夹路径关键词匹配。
+
+    优先匹配最近的父文件夹，避免父目录中的案由描述（如"合同纠纷"）干扰。
+    """
+    # 提取最近的父文件夹名（如 "3-发票"）
+    parts = normalized_path.rstrip("/").rsplit("/", 1)
+    parent_folder = parts[0].rsplit("/", 1)[-1] if len(parts) > 1 else ""
+
+    # 1. 优先匹配最近的父文件夹
+    if parent_folder:
+        hit = _search_keyword_mapping(_FOLDER_KEYWORD_TO_ARCHIVE_CODE, archive_category, parent_folder)
+        if hit:
+            code, keyword = hit
+            return {
+                "archive_item_code": code,
+                "archive_item_name": _get_item_name(archive_category, code),
+                "category": "case_material",
+                "confidence": 0.95,
+                "reason": f"父文件夹关键词命中：{keyword}",
+            }
+
+    # 2. 回退到全路径匹配（兼容没有明确子文件夹的情况）
     hit = _search_keyword_mapping(_FOLDER_KEYWORD_TO_ARCHIVE_CODE, archive_category, normalized_path)
     if hit:
         code, keyword = hit
