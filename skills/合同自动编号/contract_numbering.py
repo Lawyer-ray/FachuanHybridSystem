@@ -2,6 +2,10 @@
 """
 Contract Numbering Skill
 将合同文档中的手动编号转换为 Word 自动编号
+
+支持两种格式：
+1. 一、1.（1）① （中文格式）
+2. 1. 1.1 1.1.1 1.1.1.1 1.1.1.1.1 （纯数字格式）
 """
 
 import logging
@@ -32,6 +36,31 @@ SIGNATURE_KEYWORDS = [
     '丁方（盖章）',
 ]
 
+# 编号格式定义
+NUMBERING_FORMATS = {
+    'chinese': {
+        'name': '一、1.（1）①',
+        'description': '中文格式（一、二、三...）',
+        'levels': [
+            {'ilvl': '0', 'numFmt': 'chineseCounting', 'lvlText': '%1、', 'start': '1'},
+            {'ilvl': '1', 'numFmt': 'decimal', 'lvlText': '%2.', 'start': '1'},
+            {'ilvl': '2', 'numFmt': 'decimal', 'lvlText': '（%3）', 'start': '1'},
+            {'ilvl': '3', 'numFmt': 'decimalEnclosedCircle', 'lvlText': '%4', 'start': '1'},
+        ]
+    },
+    'decimal': {
+        'name': '1. 1.1 1.1.1 1.1.1.1',
+        'description': '纯数字格式（1. 2. 3...）',
+        'levels': [
+            {'ilvl': '0', 'numFmt': 'decimal', 'lvlText': '%1.', 'start': '1'},
+            {'ilvl': '1', 'numFmt': 'decimal', 'lvlText': '%1.%2.', 'start': '1'},
+            {'ilvl': '2', 'numFmt': 'decimal', 'lvlText': '%1.%2.%3.', 'start': '1'},
+            {'ilvl': '3', 'numFmt': 'decimal', 'lvlText': '%1.%2.%3.%4.', 'start': '1'},
+            {'ilvl': '4', 'numFmt': 'decimal', 'lvlText': '%1.%2.%3.%4.%5.', 'start': '1'},
+        ]
+    }
+}
+
 
 def is_signature_section(text: str) -> bool:
     """检测是否是签字盖章部分"""
@@ -41,9 +70,13 @@ def is_signature_section(text: str) -> bool:
     return False
 
 
-def detect_numbering_structure(doc: Document) -> list:
+def detect_numbering_structure(doc: Document, format_type: str = 'chinese') -> list:
     """
     AI 分析文档结构，识别编号层级
+
+    Args:
+        doc: Word 文档
+        format_type: 编号格式类型 ('chinese' 或 'decimal')
 
     Returns:
         list of (para_idx, level, matched_text, original_text)
@@ -54,9 +87,17 @@ def detect_numbering_structure(doc: Document) -> list:
         text = para.text.strip()
         if not text:
             continue
-        m = re.match(r'^([一二三四五六七八九十]+)、\s*', text)
-        if m:
-            level0_paras.append((i, m.group(0), text))
+
+        if format_type == 'chinese':
+            # 中文格式：一、二、三...
+            m = re.match(r'^([一二三四五六七八九十]+)、\s*', text)
+            if m:
+                level0_paras.append((i, m.group(0), text))
+        else:
+            # 纯数字格式：1. 2. 3...（只匹配顶级数字）
+            m = re.match(r'^(\d+)\.\s+', text)
+            if m and '.' not in text[len(m.group(0)):len(m.group(0))+5]:
+                level0_paras.append((i, m.group(0), text))
 
     # 识别所有编号段落
     numbered_paras = []
@@ -83,24 +124,42 @@ def detect_numbering_structure(doc: Document) -> list:
             if is_signature_section(text):
                 break
 
-            # Level 1: （一）（二）... 或 （1）（2）...
-            m = re.match(r'^[（(]([一二三四五六七八九十\d]+)[）)]\s*', text)
-            if m:
-                numbered_paras.append((i, 1, m.group(0), text))
-                has_level1_heading = True
-                prev_level = 1
-                continue
+            if format_type == 'chinese':
+                # 中文格式检测逻辑
 
-            # 数字编号：1. 2. 3... 或 1.1 1.2...
-            m = re.match(r'^(\d+\.\d+|\d+[.、])\s*', text)
-            if m:
-                if has_level1_heading:
-                    numbered_paras.append((i, 2, m.group(0), text))
-                    prev_level = 2
-                else:
+                # Level 1: （一）（二）... 或 （1）（2）...
+                m = re.match(r'^[（(]([一二三四五六七八九十\d]+)[）)]\s*', text)
+                if m:
                     numbered_paras.append((i, 1, m.group(0), text))
+                    has_level1_heading = True
                     prev_level = 1
-                continue
+                    continue
+
+                # 数字编号：1. 2. 3... 或 1.1 1.2...
+                m = re.match(r'^(\d+\.\d+|\d+[.、])\s*', text)
+                if m:
+                    if has_level1_heading:
+                        numbered_paras.append((i, 2, m.group(0), text))
+                        prev_level = 2
+                    else:
+                        numbered_paras.append((i, 1, m.group(0), text))
+                        prev_level = 1
+                    continue
+
+            else:
+                # 纯数字格式检测逻辑
+
+                # 检测数字层级：1.1.1.1.1 > 1.1.1.1 > 1.1.1 > 1.1 > 1.
+                m = re.match(r'^(\d+(?:\.\d+){0,4})\.\s+', text)
+                if m:
+                    num_str = m.group(1)
+                    level = num_str.count('.')  # 点号数量决定层级
+                    if level > 4:
+                        level = 4  # 最多5级
+
+                    numbered_paras.append((i, level, m.group(0), text))
+                    prev_level = level
+                    continue
 
             # 其他段落：继承上一个段落的级别
             if prev_level >= 1:
@@ -134,7 +193,7 @@ def create_numbering_part(doc: Document):
         return numbering_part, numbering_elem
 
 
-def create_abstract_numbering(numbering_elem, abstract_id: int) -> None:
+def create_abstract_numbering(numbering_elem, abstract_id: int, format_type: str = 'chinese') -> None:
     """创建 abstractNum 定义"""
     abstract_num = OxmlElement('w:abstractNum')
     abstract_num.set(qn('w:abstractNumId'), str(abstract_id))
@@ -143,13 +202,9 @@ def create_abstract_numbering(numbering_elem, abstract_id: int) -> None:
     multi_level.set(qn('w:val'), 'multilevel')
     abstract_num.append(multi_level)
 
-    # 一、1.（1）① 格式
-    levels = [
-        {'ilvl': '0', 'numFmt': 'chineseCounting', 'lvlText': '%1、', 'start': '1'},
-        {'ilvl': '1', 'numFmt': 'decimal', 'lvlText': '%2.', 'start': '1'},
-        {'ilvl': '2', 'numFmt': 'decimal', 'lvlText': '（%3）', 'start': '1'},
-        {'ilvl': '3', 'numFmt': 'decimalEnclosedCircle', 'lvlText': '%4', 'start': '1'},
-    ]
+    # 获取格式定义
+    format_def = NUMBERING_FORMATS.get(format_type, NUMBERING_FORMATS['chinese'])
+    levels = format_def['levels']
 
     for lvl_def in levels:
         lvl = OxmlElement('w:lvl')
@@ -189,10 +244,14 @@ def create_abstract_numbering(numbering_elem, abstract_id: int) -> None:
     numbering_elem.append(abstract_num)
 
 
-def create_num_instances(numbering_elem, abstract_id: int, level0_indices: list) -> dict:
+def create_num_instances(numbering_elem, abstract_id: int, level0_indices: list, format_type: str = 'chinese') -> dict:
     """为每个 Level 0 创建独立的 num 实例"""
     num_id_map = {}
     next_num_id = 1
+
+    # 获取格式定义中的最大层级
+    format_def = NUMBERING_FORMATS.get(format_type, NUMBERING_FORMATS['chinese'])
+    max_level = len(format_def['levels']) - 1
 
     for para_idx in level0_indices:
         num_elem = OxmlElement('w:num')
@@ -201,8 +260,8 @@ def create_num_instances(numbering_elem, abstract_id: int, level0_indices: list)
         abstract_ref.set(qn('w:val'), str(abstract_id))
         num_elem.append(abstract_ref)
 
-        # 重置 Level 1-3 的计数器
-        for reset_level in [1, 2, 3]:
+        # 重置 Level 1 到 max_level 的计数器
+        for reset_level in range(1, max_level + 1):
             lvl_override = OxmlElement('w:lvlOverride')
             lvl_override.set(qn('w:ilvl'), str(reset_level))
             start_override = OxmlElement('w:startOverride')
@@ -279,13 +338,31 @@ def apply_numbering(doc: Document, numbered_paras: list, num_id_map: dict) -> No
         p_pr.append(ind)
 
 
-def convert_contract_numbering(input_path: str, output_path: str = None) -> dict:
+def get_user_format_choice() -> str:
+    """询问用户选择编号格式"""
+    logger.info("\n请选择编号格式：")
+    logger.info("  1. 一、1.（1）① （中文格式）")
+    logger.info("  2. 1. 1.1 1.1.1 1.1.1.1 （纯数字格式）")
+    logger.info("")
+
+    while True:
+        choice = input("请输入选项 (1 或 2): ").strip()
+        if choice == '1':
+            return 'chinese'
+        elif choice == '2':
+            return 'decimal'
+        else:
+            logger.warning("无效选项，请输入 1 或 2")
+
+
+def convert_contract_numbering(input_path: str, output_path: str = None, format_type: str = None) -> dict:
     """
     转换合同文档的自动编号
 
     Args:
         input_path: 输入文档路径
         output_path: 输出文档路径（可选，默认为 {原文件名}_自动编号.docx）
+        format_type: 编号格式类型 ('chinese' 或 'decimal')，None 则询问用户
 
     Returns:
         dict: 转换结果信息
@@ -297,11 +374,15 @@ def convert_contract_numbering(input_path: str, output_path: str = None) -> dict
     if output_path is None:
         output_path = input_path.parent / f"{input_path.stem}_自动编号{input_path.suffix}"
 
+    # 如果未指定格式，询问用户
+    if format_type is None:
+        format_type = get_user_format_choice()
+
     # 读取文档
     doc = Document(input_path)
 
     # 分析文档结构
-    numbered_paras = detect_numbering_structure(doc)
+    numbered_paras = detect_numbering_structure(doc, format_type)
 
     # 提取 Level 0 索引
     level0_indices = [idx for idx, level, _, _ in numbered_paras if level == 0]
@@ -310,10 +391,10 @@ def convert_contract_numbering(input_path: str, output_path: str = None) -> dict
     numbering_part, numbering_elem = create_numbering_part(doc)
 
     # 创建 abstractNum
-    create_abstract_numbering(numbering_elem, abstract_id=0)
+    create_abstract_numbering(numbering_elem, abstract_id=0, format_type=format_type)
 
     # 创建 num 实例
-    num_id_map = create_num_instances(numbering_elem, abstract_id=0, level0_indices=level0_indices)
+    num_id_map = create_num_instances(numbering_elem, abstract_id=0, level0_indices=level0_indices, format_type=format_type)
 
     # 更新 numbering part
     if hasattr(numbering_part, '_blob'):
@@ -329,6 +410,8 @@ def convert_contract_numbering(input_path: str, output_path: str = None) -> dict
         'success': True,
         'input_path': str(input_path),
         'output_path': str(output_path),
+        'format_type': format_type,
+        'format_name': NUMBERING_FORMATS[format_type]['name'],
         'total_paragraphs': len(numbered_paras),
         'level0_count': len(level0_indices),
         'numbered_paras': numbered_paras,
@@ -340,18 +423,32 @@ def main():
     logging.basicConfig(level=logging.INFO, format='%(message)s')
 
     if len(sys.argv) < 2:
-        logger.error("用法: python contract_numbering.py <input_docx> [output_docx]")
+        logger.error("用法: python contract_numbering.py <input_docx> [output_docx] [--format chinese|decimal]")
         sys.exit(1)
 
     input_path = sys.argv[1]
-    output_path = sys.argv[2] if len(sys.argv) > 2 else None
+    output_path = None
+    format_type = None
 
-    result = convert_contract_numbering(input_path, output_path)
+    # 解析命令行参数
+    i = 2
+    while i < len(sys.argv):
+        if sys.argv[i] == '--format' and i + 1 < len(sys.argv):
+            format_type = sys.argv[i + 1]
+            i += 2
+        elif output_path is None:
+            output_path = sys.argv[i]
+            i += 1
+        else:
+            i += 1
+
+    result = convert_contract_numbering(input_path, output_path, format_type)
 
     if result['success']:
         logger.info("✓ 转换成功")
         logger.info("  输入: %s", result['input_path'])
         logger.info("  输出: %s", result['output_path'])
+        logger.info("  格式: %s", result['format_name'])
         logger.info("  总段落数: %d", result['total_paragraphs'])
         logger.info("  一级标题数: %d", result['level0_count'])
 
