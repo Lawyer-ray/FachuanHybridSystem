@@ -7,7 +7,7 @@ Skills 目录，存放所有可复用的技能模块。
 ```
 skills/
 ├── README.md                    # 本文件
-├── contract-numbering/          # 合同编号转换 skill
+├── 合同自动编号/                # 合同编号转换 skill
 │   ├── README.md               # skill 说明文档
 │   ├── CHANGELOG.md            # 变更日志
 │   └── contract_numbering.py   # 实现代码
@@ -18,20 +18,20 @@ skills/
 
 | Skill | 说明 | 版本 |
 |-------|------|------|
-| [contract-numbering](./contract-numbering/) | 合同文档自动编号转换 | 1.0.0 |
+| [合同自动编号](./合同自动编号/) | 合同文档自动编号转换 | 1.0.0 |
 
 ## 使用方式
 
 ### 命令行调用
 
 ```bash
-python skills/contract-numbering/contract_numbering.py /path/to/document.docx
+python skills/合同自动编号/contract_numbering.py /path/to/document.docx
 ```
 
 ### 在 Claude 中调用
 
 ```
-/contract-numbering /path/to/document.docx
+/合同自动编号 /path/to/document.docx
 ```
 
 ## 创建新 Skill
