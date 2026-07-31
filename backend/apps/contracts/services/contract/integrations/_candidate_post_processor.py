@@ -60,7 +60,8 @@ class CandidatePostProcessor:
         for candidate in candidates:
             suggested_category = str(candidate.get("suggested_category") or "")
 
-            if suggested_category == "archive_document":
+            # 所有非模板类别都需要经过跳过规则检查
+            if suggested_category in ("archive_document", "authorization_material", "case_material", "invoice"):
                 result = classify_archive_material(
                     filename=str(candidate.get("filename") or ""),
                     source_path=str(candidate.get("source_path") or ""),
@@ -70,6 +71,11 @@ class CandidatePostProcessor:
                 if result["category"] == "skip":
                     candidate["selected"] = False
                     candidate["skip_reason"] = result.get("reason", "跳过")
+                    processed.append(candidate)
+                    continue
+
+                # invoice 类别不需要进一步的归档项匹配
+                if suggested_category == "invoice":
                     processed.append(candidate)
                     continue
 
@@ -84,39 +90,6 @@ class CandidatePostProcessor:
                     candidate["archive_item_code"] = ""
                     candidate["archive_item_name"] = "未匹配"
                     candidate["reason"] = result["reason"]
-                    candidate["selected"] = False
-
-            elif suggested_category == "authorization_material":
-                candidate["suggested_category"] = "case_material"
-                result = classify_archive_material(
-                    filename=str(candidate.get("filename") or ""),
-                    source_path=str(candidate.get("source_path") or ""),
-                    archive_category=archive_category,
-                )
-                if result.get("archive_item_code"):
-                    candidate["archive_item_code"] = result["archive_item_code"]
-                    candidate["archive_item_name"] = result["archive_item_name"]
-                    candidate["confidence"] = result["confidence"]
-                    candidate["reason"] = result["reason"]
-                else:
-                    candidate["archive_item_code"] = ""
-                    candidate["archive_item_name"] = "未匹配"
-                    candidate["selected"] = False
-
-            elif suggested_category == "case_material":
-                result = classify_archive_material(
-                    filename=str(candidate.get("filename") or ""),
-                    source_path=str(candidate.get("source_path") or ""),
-                    archive_category=archive_category,
-                )
-                if result.get("archive_item_code"):
-                    candidate["archive_item_code"] = result["archive_item_code"]
-                    candidate["archive_item_name"] = result["archive_item_name"]
-                    candidate["confidence"] = result["confidence"]
-                    candidate["reason"] = result["reason"]
-                else:
-                    candidate["archive_item_code"] = ""
-                    candidate["archive_item_name"] = "未匹配"
                     candidate["selected"] = False
 
             filename_lower = str(candidate.get("filename") or "").lower()
