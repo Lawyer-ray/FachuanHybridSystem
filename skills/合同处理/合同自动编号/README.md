@@ -15,12 +15,15 @@
 ## 使用方式
 
 ```bash
-# 方式 1：直接调用（会询问格式）
-/合同自动编号 /path/to/document.docx
+# 命令行调用（会询问格式）
+python -m skills.合同处理.合同自动编号 /path/to/document.docx
 
-# 方式 2：指定格式
-python contract_numbering.py /path/to/document.docx --format chinese
-python contract_numbering.py /path/to/document.docx --format decimal
+# 指定格式
+python -m skills.合同处理.合同自动编号 /path/to/document.docx --format chinese
+python -m skills.合同处理.合同自动编号 /path/to/document.docx --format decimal
+
+# 在 Claude 中调用
+/合同自动编号 /path/to/document.docx
 ```
 
 ## 支持的编号格式
@@ -67,6 +70,18 @@ python contract_numbering.py /path/to/document.docx --format decimal
 - 新文档：`{原文件名}_自动编号.docx`
 - 显示转换映射供用户确认
 - 验证关键段落的编号设置
+
+## 模块结构
+
+```
+合同自动编号/
+├── __init__.py    # 入口文件，导出 convert_contract_numbering
+├── formats.py     # 格式定义和常量
+├── detector.py    # 编号检测逻辑
+├── converter.py   # 编号转换逻辑
+├── utils.py       # 工具函数
+└── cli.py         # 命令行入口
+```
 
 ## 技术实现
 

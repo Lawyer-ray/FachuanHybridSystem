@@ -1,0 +1,69 @@
+# 合同处理工作流
+
+合同文档处理的完整工作流，包括自动编号、格式调整、审查等步骤。
+
+## 工作流程
+
+1. **Step 1**: 合同自动编号 - 将手动编号转换为 Word 自动编号
+2. **Step 2**: 合同格式调整 - 调整合同格式（待实现）
+3. **Step 3**: 合同审查 - 审查合同内容（待实现）
+
+## 使用方式
+
+### 单独调用
+
+```bash
+# 命令行调用
+python -m skills.合同处理.合同自动编号 /path/to/document.docx
+
+# 在 Claude 中调用
+/合同自动编号 /path/to/document.docx
+```
+
+### 工作流调用
+
+```bash
+# 调用整个工作流（待实现）
+/合同处理 /path/to/document.docx
+```
+
+## Skills 列表
+
+| Skill | 说明 | 版本 | 状态 |
+|-------|------|------|------|
+| [合同自动编号](./合同自动编号/) | 将手动编号转换为 Word 自动编号 | 1.1.0 | ✅ 可用 |
+| 合同格式调整 | 调整合同格式 | - | 🚧 待实现 |
+| 合同审查 | 审查合同内容 | - | 🚧 待实现 |
+
+## 目录结构
+
+```
+合同处理/
+├── README.md              # 本文件
+├── CHANGELOG.md           # 工作流变更日志
+└── 合同自动编号/           # Step 1: 自动编号
+    ├── README.md          # Skill 说明
+    ├── CHANGELOG.md       # Skill 变更日志
+    ├── __init__.py        # 入口文件
+    ├── formats.py         # 格式定义
+    ├── detector.py        # 编号检测
+    ├── converter.py       # 编号转换
+    ├── utils.py           # 工具函数
+    └── cli.py             # 命令行入口
+```
+
+## 依赖
+
+```bash
+pip install python-docx lxml
+```
+
+## 限制
+
+- 不支持扫描版 PDF（需要 OCR）
+- 复杂的表格内编号可能需要手动调整
+- 混合格式（如 1.1, 1.2, 2.）可能需要特殊处理
+
+## Changelog
+
+详见 [CHANGELOG.md](./CHANGELOG.md)
