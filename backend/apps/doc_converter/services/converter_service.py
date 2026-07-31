@@ -59,7 +59,7 @@ class DocConverterService:
         # 避免竞态条件：任务在 job 记录写入数据库之前就开始执行
         job_id_str = str(job.id)
 
-        def _submit_task():
+        def _submit_task() -> None:
             task_id = build_task_submission_service().submit(
                 "apps.doc_converter.tasks.run_conversion_job",
                 args=[job_id_str],
