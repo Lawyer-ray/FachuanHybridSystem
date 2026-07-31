@@ -4,7 +4,7 @@
 
 ## 工作流程
 
-1. **Step 0**: 文档格式转换 - 将 .doc 转换为 .docx（如需要）
+1. **Step 0**: doc转docx - 将 .doc 转换为 .docx（如需要）
 2. **Step 1**: 合同自动编号 - 将手动编号转换为 Word 自动编号
 3. **Step 2**: 合同格式调整 - 调整合同格式（待实现）
 4. **Step 3**: 合同审查 - 审查合同内容（待实现）
@@ -14,14 +14,14 @@
 ### 单独调用
 
 ```bash
-# 文档格式转换（.doc → .docx）
-python -m skills.合同处理.文档格式转换 /path/to/document.doc
+# doc转docx（.doc → .docx）
+python -m skills.合同处理.doc转docx /path/to/document.doc
 
 # 合同自动编号
 python -m skills.合同处理.合同自动编号 /path/to/document.docx
 
 # 在 Claude 中调用
-/文档格式转换 /path/to/document.doc
+/doc转docx /path/to/document.doc
 /合同自动编号 /path/to/document.docx
 ```
 
@@ -36,7 +36,7 @@ python -m skills.合同处理.合同自动编号 /path/to/document.docx
 
 | Skill | 说明 | 版本 | 状态 |
 |-------|------|------|------|
-| [文档格式转换](./文档格式转换/) | 将 .doc 转换为 .docx | 1.0.0 | ✅ 可用 |
+| [doc转docx](./doc转docx/) | 将 .doc 转换为 .docx | 1.0.0 | ✅ 可用 |
 | [合同自动编号](./合同自动编号/) | 将手动编号转换为 Word 自动编号 | 1.1.0 | ✅ 可用 |
 | 合同格式调整 | 调整合同格式 | - | 🚧 待实现 |
 | 合同审查 | 审查合同内容 | - | 🚧 待实现 |
@@ -47,7 +47,7 @@ python -m skills.合同处理.合同自动编号 /path/to/document.docx
 合同处理/
 ├── README.md              # 本文件
 ├── CHANGELOG.md           # 工作流变更日志
-├── 文档格式转换/           # Step 0: 格式转换
+├── doc转docx/           # Step 0: 格式转换
 │   ├── README.md          # Skill 说明
 │   ├── CHANGELOG.md       # Skill 变更日志
 │   ├── __init__.py        # 入口文件
@@ -74,7 +74,7 @@ pip install python-docx lxml requests
 
 ## 限制
 
-- 文档格式转换需要后端服务运行且 LibreOffice 已安装
+- doc转docx需要后端服务运行且 LibreOffice 已安装
 - 合同自动编号不支持扫描版 PDF（需要 OCR）
 - 复杂的表格内编号可能需要手动调整
 

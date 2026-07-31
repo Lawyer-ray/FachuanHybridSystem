@@ -1,5 +1,5 @@
 """
-文档格式转换 Skill
+doc转docx Skill
 
 将 .doc 文件转换为 .docx 格式。
 调用后端 API 实现，底层使用 LibreOffice。

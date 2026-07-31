@@ -1,4 +1,4 @@
-# 文档格式转换 Skill
+# doc转docx Skill
 
 将 .doc 文件转换为 .docx 格式。
 
@@ -13,16 +13,16 @@
 
 ```bash
 # 命令行调用
-python -m skills.合同处理.文档格式转换 /path/to/document.doc
+python -m skills.合同处理.doc转docx /path/to/document.doc
 
 # 批量转换
-python -m skills.合同处理.文档格式转换 /path/to/*.doc
+python -m skills.合同处理.doc转docx /path/to/*.doc
 
 # 指定输出目录
-python -m skills.合同处理.文档格式转换 /path/to/document.doc --output-dir /path/to/output
+python -m skills.合同处理.doc转docx /path/to/document.doc --output-dir /path/to/output
 
 # 在 Claude 中调用
-/文档格式转换 /path/to/document.doc
+/doc转docx /path/to/document.doc
 ```
 
 ## API 接口

@@ -2,7 +2,7 @@
 """
 命令行入口模块
 
-提供文档格式转换的命令行接口。
+提供doc转docx的命令行接口。
 """
 
 import logging
@@ -20,11 +20,11 @@ def main():
     logging.basicConfig(level=logging.INFO, format='%(message)s')
 
     if len(sys.argv) < 2:
-        logger.error("用法: python -m 文档格式转换 <input_doc> [input_doc2 ...] [--output-dir DIR]")
+        logger.error("用法: python -m doc转docx <input_doc> [input_doc2 ...] [--output-dir DIR]")
         logger.error("")
         logger.error("示例:")
-        logger.error("  python -m 文档格式转换 /path/to/document.doc")
-        logger.error("  python -m 文档格式转换 /path/to/*.doc --output-dir /path/to/output")
+        logger.error("  python -m doc转docx /path/to/document.doc")
+        logger.error("  python -m doc转docx /path/to/*.doc --output-dir /path/to/output")
         sys.exit(1)
 
     # 解析参数

@@ -1,4 +1,4 @@
-# Changelog - 文档格式转换 Skill
+# Changelog - doc转docx Skill
 
 所有对此 skill 的更改都将记录在此文件中。
 

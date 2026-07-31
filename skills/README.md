@@ -27,7 +27,7 @@ skills/
 
 | 工作流 | Skill | 说明 | 版本 |
 |--------|-------|------|------|
-| 合同处理 | [文档格式转换](./合同处理/文档格式转换/) | 将 .doc 转换为 .docx | 1.0.0 |
+| 合同处理 | [doc转docx](./合同处理/doc转docx/) | 将 .doc 转换为 .docx | 1.0.0 |
 | 合同处理 | [合同自动编号](./合同处理/合同自动编号/) | 将手动编号转换为 Word 自动编号 | 1.1.0 |
 
 ## 使用方式
@@ -35,8 +35,8 @@ skills/
 ### 命令行调用
 
 ```bash
-# 文档格式转换
-python -m skills.合同处理.文档格式转换 /path/to/document.doc
+# doc转docx
+python -m skills.合同处理.doc转docx /path/to/document.doc
 
 # 合同自动编号
 python -m skills.合同处理.合同自动编号 /path/to/document.docx
@@ -49,7 +49,7 @@ python -m skills.合同处理.合同自动编号 /path/to/document.docx --format
 ### 在 Claude 中调用
 
 ```
-/文档格式转换 /path/to/document.doc
+/doc转docx /path/to/document.doc
 /合同自动编号 /path/to/document.docx
 ```
 
