@@ -215,7 +215,7 @@ def convert_numbering(
     Args:
         doc: Word 文档
         numbered_paras: 编号段落列表
-        num_id_map: {para_idx: num_id} 映射
+        num_id_map: {para_idx: num_id} 映射（如果为空则自动创建）
         format_type: 格式类型
     """
     # 创建 numbering part
@@ -226,7 +226,7 @@ def convert_numbering(
 
     # 创建 num 实例
     level0_indices = [idx for idx, level, _, _ in numbered_paras if level == 0]
-    create_num_instances(numbering_elem, abstract_id=0, level0_indices=level0_indices, format_type=format_type)
+    num_id_map = create_num_instances(numbering_elem, abstract_id=0, level0_indices=level0_indices, format_type=format_type)
 
     # 更新 numbering part
     if hasattr(numbering_part, '_blob'):
