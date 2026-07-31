@@ -81,6 +81,11 @@ def detect_chinese_sublevel(text: str, has_level1_heading: bool) -> tuple[int, s
     if m:
         return 1, m.group(0)
 
+    # Level 2: 1）2）... 或 (1)(2)...（无左括号）
+    m = re.match(r'^(\d+)[）)]\s*', text)
+    if m:
+        return 2, m.group(0)
+
     # 数字编号：1. 2. 3... 或 1.1 1.2...
     m = re.match(r'^(\d+\.\d+|\d+[.、])\s*', text)
     if m:
@@ -179,6 +184,13 @@ def detect_numbering_structure(doc: Document, format_type: str) -> list[tuple[in
                     numbered_paras.append((i, level, sub_matched, text))
                     prev_level = level
                     continue
+
+            # 启发式：检测是否应该重置为 Level 1
+            # 如果段落以"甲方/乙方有以下/下列行为"开头，应该是新的 Level 1
+            if re.match(r'^[甲乙丙丁]方有[以下下列]', text):
+                numbered_paras.append((i, 1, '', text))
+                prev_level = 1
+                continue
 
             # 其他段落：继承上一个段落的级别
             if prev_level >= 1:
