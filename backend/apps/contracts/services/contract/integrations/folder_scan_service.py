@@ -12,12 +12,7 @@ from uuid import UUID
 from django.db import transaction
 from django.utils import timezone
 
-from apps.contracts.models import (
-    Contract,
-    ContractFolderBinding,
-    ContractFolderScanSession,
-    ContractFolderScanStatus,
-)
+from apps.contracts.models import Contract, ContractFolderBinding, ContractFolderScanSession, ContractFolderScanStatus
 from apps.contracts.services.archive.category_mapping import get_archive_category
 from apps.contracts.services.contract.integrations.archive_classifier import (
     collect_archive_item_options,
@@ -464,9 +459,8 @@ class ContractFolderScanService:
         try:
             from apps.contracts.models import ArchiveClassificationRule
             from apps.contracts.services.archive.category_mapping import get_archive_category
-            from apps.contracts.services.archive.learning_service import (
-                extract_keywords,
-            )
+            from apps.contracts.services.archive.learning_service import extract_keywords
+            from apps.contracts.services.contract.integrations.archive_classifier import invalidate_db_rules_cache
 
             contract = Contract.objects.filter(id=contract_id).values_list("case_type", flat=True).first()
             if not contract:
@@ -476,6 +470,7 @@ class ContractFolderScanService:
                 return
 
             keywords = extract_keywords(filename)
+            learned_any = False
             for kw in keywords:
                 # 跳过歧义关键词：如果已有规则映射到不同 code，不覆盖
                 existing = (
@@ -489,7 +484,7 @@ class ContractFolderScanService:
                 if existing:
                     continue
 
-                ArchiveClassificationRule.objects.get_or_create(
+                _, created = ArchiveClassificationRule.objects.get_or_create(
                     archive_category=archive_category,
                     filename_keyword=kw,
                     defaults={
@@ -498,6 +493,12 @@ class ContractFolderScanService:
                         "hit_count": 1,
                     },
                 )
+                if created:
+                    learned_any = True
+
+            # 学习完成后刷新缓存，确保新规则立即生效
+            if learned_any:
+                invalidate_db_rules_cache()
         except (OSError, RuntimeError, ValueError):
             logger.exception("learn_from_import_correction_failed")
 

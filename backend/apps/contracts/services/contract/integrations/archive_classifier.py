@@ -525,6 +525,15 @@ _DB_RULES_CACHE: dict[str, list[tuple[str, str]]] = {}
 _DB_RULES_CACHE_LOADED_AT: float = 0.0
 
 
+def invalidate_db_rules_cache() -> None:
+    """使 DB 学习规则缓存失效，下次查询时重新加载。
+
+    学习新规则后调用此函数，确保新规则立即生效。
+    """
+    global _DB_RULES_CACHE_LOADED_AT
+    _DB_RULES_CACHE_LOADED_AT = 0.0
+
+
 def _get_db_learned_rules(archive_category: str) -> list[tuple[str, str]]:
     """获取 DB 学习规则，5 分钟内使用缓存。"""
     import time
@@ -536,13 +545,15 @@ def _get_db_learned_rules(archive_category: str) -> list[tuple[str, str]]:
         try:
             from apps.contracts.models import ArchiveClassificationRule
 
-            _DB_RULES_CACHE.clear()
+            # 先查询，成功后再更新缓存，避免查询失败时丢失旧缓存
+            new_cache: dict[str, list[tuple[str, str]]] = {}
             for cat, kw, code in ArchiveClassificationRule.objects.values_list(
                 "archive_category", "filename_keyword", "archive_item_code"
             ):
-                if cat not in _DB_RULES_CACHE:
-                    _DB_RULES_CACHE[cat] = []
-                _DB_RULES_CACHE[cat].append((kw, code))
+                if cat not in new_cache:
+                    new_cache[cat] = []
+                new_cache[cat].append((kw, code))
+            _DB_RULES_CACHE = new_cache
             _DB_RULES_CACHE_LOADED_AT = now
         except (OSError, RuntimeError):
             pass
