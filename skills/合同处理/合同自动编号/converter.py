@@ -123,7 +123,13 @@ def create_num_instances(
         {para_idx: num_id} 映射
     """
     num_id_map = {}
-    next_num_id = 1
+
+    # 找出已存在的最大 numId，避免冲突
+    existing_num_ids = [
+        int(num.get(qn('w:numId'), 0))
+        for num in numbering_elem.findall(qn('w:num'))
+    ]
+    next_num_id = max(existing_num_ids, default=0) + 1
 
     # 获取格式定义中的最大层级
     max_level = get_max_level(format_type)
@@ -251,3 +257,60 @@ def convert_numbering(
         # 应用自动编号
         num_id_to_use = current_num_id if level >= 1 else num_id_map.get(para_idx)
         apply_numbering_to_paragraph(para, level, num_id_to_use, new_text)
+
+
+def verify_numbering(doc: Document, numbered_paras: list[tuple[int, int, str, str]]) -> dict:
+    """验证自动编号是否正确应用
+
+    Args:
+        doc: Word 文档
+        numbered_paras: 编号段落列表
+
+    Returns:
+        验证结果字典
+    """
+    results = []
+    all_valid = True
+
+    for para_idx, expected_level, matched, original_text in numbered_paras:
+        para = doc.paragraphs[para_idx]
+        text = para.text.strip()
+
+        p_pr = para._element.find(qn('w:pPr'))
+        has_num = False
+        actual_level = None
+        num_id = None
+
+        if p_pr is not None:
+            num_pr = p_pr.find(qn('w:numPr'))
+            if num_pr is not None:
+                has_num = True
+                ilvl_elem = num_pr.find(qn('w:ilvl'))
+                num_id_elem = num_pr.find(qn('w:numId'))
+                if ilvl_elem is not None:
+                    actual_level = int(ilvl_elem.get(qn('w:val'), -1))
+                if num_id_elem is not None:
+                    num_id = num_id_elem.get(qn('w:val'))
+
+        is_valid = has_num and actual_level == expected_level
+
+        results.append({
+            'para_idx': para_idx,
+            'expected_level': expected_level,
+            'actual_level': actual_level,
+            'has_num': has_num,
+            'num_id': num_id,
+            'text': text[:50],
+            'valid': is_valid,
+        })
+
+        if not is_valid:
+            all_valid = False
+
+    return {
+        'all_valid': all_valid,
+        'total': len(results),
+        'valid_count': sum(1 for r in results if r['valid']),
+        'invalid_count': sum(1 for r in results if not r['valid']),
+        'results': results,
+    }

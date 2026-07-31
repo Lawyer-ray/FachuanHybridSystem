@@ -13,15 +13,18 @@ from pathlib import Path
 
 from docx import Document
 
-from .converter import convert_numbering
+from .converter import convert_numbering, verify_numbering
 from .detector import detect_numbering_structure
 from .formats import NUMBERING_FORMATS, get_format
 from .utils import format_numbering_mapping, generate_output_path, validate_input_path
 
 logger = logging.getLogger(__name__)
 
-__version__ = '1.1.0'
+__version__ = '1.2.0'
 __all__ = ['convert_contract_numbering', 'NUMBERING_FORMATS']
+
+# 最大重试次数
+MAX_RETRIES = 3
 
 
 def get_user_format_choice() -> str:
@@ -48,7 +51,8 @@ def get_user_format_choice() -> str:
 def convert_contract_numbering(
     input_path: str | Path,
     output_path: str | Path | None = None,
-    format_type: str | None = None
+    format_type: str | None = None,
+    verify: bool = True
 ) -> dict:
     """
     转换合同文档的自动编号
@@ -57,6 +61,7 @@ def convert_contract_numbering(
         input_path: 输入文档路径
         output_path: 输出文档路径（可选，默认为 {原文件名}_自动编号.docx）
         format_type: 编号格式类型 ('chinese' 或 'decimal')，None 则询问用户
+        verify: 是否验证转换结果
 
     Returns:
         dict: 转换结果信息
@@ -83,28 +88,78 @@ def convert_contract_numbering(
     except ValueError as e:
         return {'success': False, 'error': str(e)}
 
-    # 读取文档
-    doc = Document(input_path)
+    # 重试循环
+    for attempt in range(1, MAX_RETRIES + 1):
+        logger.info("尝试第 %d 次转换...", attempt)
 
-    # 分析文档结构
-    numbered_paras = detect_numbering_structure(doc, format_type)
+        # 读取文档
+        doc = Document(input_path)
 
-    # 提取 Level 0 索引
-    level0_indices = [idx for idx, level, _, _ in numbered_paras if level == 0]
+        # 分析文档结构
+        numbered_paras = detect_numbering_structure(doc, format_type)
 
-    # 转换编号
-    convert_numbering(doc, numbered_paras, {}, format_type)
+        # 提取 Level 0 索引
+        level0_indices = [idx for idx, level, _, _ in numbered_paras if level == 0]
 
-    # 保存文档
-    doc.save(output_path)
+        # 转换编号
+        convert_numbering(doc, numbered_paras, {}, format_type)
 
-    return {
-        'success': True,
-        'input_path': str(input_path),
-        'output_path': str(output_path),
-        'format_type': format_type,
-        'format_name': NUMBERING_FORMATS[format_type]['name'],
-        'total_paragraphs': len(numbered_paras),
-        'level0_count': len(level0_indices),
-        'numbered_paras': numbered_paras,
-    }
+        # 验证转换结果
+        if verify:
+            verification = verify_numbering(doc, numbered_paras)
+
+            if verification['all_valid']:
+                logger.info("✓ 验证通过！所有 %d 个段落编号正确", verification['total'])
+
+                # 保存文档
+                doc.save(output_path)
+
+                return {
+                    'success': True,
+                    'input_path': str(input_path),
+                    'output_path': str(output_path),
+                    'format_type': format_type,
+                    'format_name': NUMBERING_FORMATS[format_type]['name'],
+                    'total_paragraphs': len(numbered_paras),
+                    'level0_count': len(level0_indices),
+                    'numbered_paras': numbered_paras,
+                    'verification': verification,
+                }
+            else:
+                logger.warning("✗ 验证失败！%d/%d 个段落编号不正确",
+                             verification['invalid_count'], verification['total'])
+
+                # 显示失败详情
+                for r in verification['results']:
+                    if not r['valid']:
+                        logger.warning("  [%d] 期望 L%d, 实际 %s: %s",
+                                     r['para_idx'], r['expected_level'],
+                                     f"L{r['actual_level']}" if r['actual_level'] is not None else "无",
+                                     r['text'])
+
+                if attempt < MAX_RETRIES:
+                    logger.info("正在重试...")
+                else:
+                    logger.error("已达到最大重试次数 %d，转换失败", MAX_RETRIES)
+                    return {
+                        'success': False,
+                        'error': f'验证失败：{verification["invalid_count"]} 个段落编号不正确',
+                        'verification': verification,
+                    }
+        else:
+            # 不验证，直接保存
+            doc.save(output_path)
+
+            return {
+                'success': True,
+                'input_path': str(input_path),
+                'output_path': str(output_path),
+                'format_type': format_type,
+                'format_name': NUMBERING_FORMATS[format_type]['name'],
+                'total_paragraphs': len(numbered_paras),
+                'level0_count': len(level0_indices),
+                'numbered_paras': numbered_paras,
+            }
+
+    # 不应该到这里
+    return {'success': False, 'error': '未知错误'}
