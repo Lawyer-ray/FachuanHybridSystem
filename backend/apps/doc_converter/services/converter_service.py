@@ -55,16 +55,24 @@ class DocConverterService:
             items.append(item)
         DocConverterItem.objects.bulk_create(items)
 
-        task_id = build_task_submission_service().submit(
-            "apps.doc_converter.tasks.run_conversion_job",
-            args=[str(job.id)],
-            task_name=f"doc_converter_{job.id}",
-            timeout=7200,
-        )
-        DocConverterJob.objects.filter(id=job.id).update(
-            task_id=str(task_id),
-            started_at=timezone.now(),
-        )
+        # 使用 transaction.on_commit 确保任务在事务提交后才执行
+        # 避免竞态条件：任务在 job 记录写入数据库之前就开始执行
+        job_id_str = str(job.id)
+
+        def _submit_task():
+            task_id = build_task_submission_service().submit(
+                "apps.doc_converter.tasks.run_conversion_job",
+                args=[job_id_str],
+                task_name=f"doc_converter_{job_id_str}",
+                timeout=7200,
+            )
+            DocConverterJob.objects.filter(id=job_id_str).update(
+                task_id=str(task_id),
+                started_at=timezone.now(),
+            )
+
+        transaction.on_commit(_submit_task)
+
         job.refresh_from_db()
         return job
 
