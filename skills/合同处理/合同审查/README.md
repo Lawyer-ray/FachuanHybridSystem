@@ -1,56 +1,63 @@
 # 合同审查 Skill (Contract Review)
 
-专业合同审查 Skill，面向中国民商事合同，基于合同审查方法论体系构建。
+专业合同审查 Skill，面向中国民商事合同。审查后先列出发现供用户确认，确认后输出修订版 .docx。
 
 ## 功能概述
 
 | 功能 | 说明 | 状态 |
 |------|------|------|
-| 全文通读 | 系统梳理合同要素（主体、标的、价款、履行、违约等） | ✅ |
+| 全文通读 | 系统梳理合同 10 项要素 | ✅ |
 | 效力审查 | 名实不符、关联交易、格式条款、审批登记、成立要件 | ✅ |
 | 条款审查 | 正反两面法 + 五道门审查 | ✅ |
 | 立场感知 | 基于我方立场评估风险方向 | ✅ |
 | 缺失保护 | 检测缺少的关键保护条款 | ✅ |
 | 六维风险评估 | 风险性质、敞口、概率、可规避性、商业权衡、紧迫程度 | ✅ |
-| 市场基准 | 关键条款的行业标准参考 | ✅ |
-| 可谈判性评级 | 评估各条款的谈判空间 | ✅ |
-| 修订路由 | 自动决策用修订模式还是批注 | ✅ |
-| 三件套输出 | 审查标注版 + 法律意见书 + 法律分析 | ✅ |
-| Track Changes 输出 | Python 脚本生成带修订标记的 .docx | 🚧 待实现 |
+| 交互确认 | 列出发现 → 用户确认/反馈 → 再输出 | ✅ |
+| 修订版输出 | `{原文件名}[修订版]V1_{日期}.docx`，以 Lawyer 名义标注 | ✅ |
 
 ## 使用方式
 
 ```
 # 在 Claude 中调用
-/contract-review /path/to/合同.docx
-/合同审查 /path/to/合同.docx
+/合同审查 /path/to/买卖合同.docx
 
 # 也可以直接说
-帮我审查一下这个合同 /path/to/合同.docx
+帮我审查一下这个合同 /path/to/买卖合同.docx
 ```
 
 ## 审查流程
 
 ```
-Step 0: 客户识别 → 加载偏好规则
-Step 1: 建立审查状态 → 8 维度预分类
-Step 2: 全文通读 → 系统梳理 10 项要素
-Step 3: 效力审查 → 5 项必查（优先于条款优化）
-Step 4: 条款审查 → 正反两面法 + 五道门
-Step 5: 风险评估 → 六维评价 + 四级标识
-Step 6: 修订路由 → 修订模式 / 批注模式
-Step 7: 输出三件套 → .docx 格式
+阶段一：分析（自动）
+  Step 0: 客户识别
+  Step 1: 全文通读 → 梳理 10 项要素
+  Step 2: 效力审查 → 5 项必查（优先于条款优化）
+  Step 3: 条款审查 → 正反两面法 + 五道门
+  Step 4: 六维风险评估
+
+阶段二：交互确认（必须等用户确认）
+  → 列出所有发现（🔴🟡🟢⚪）
+  → 用户确认要修改哪些、跳过哪些、有无不同意见
+  → 有新意见则再次确认，直到用户说「确认」
+
+阶段三：输出（用户确认后）
+  → 生成 {原文件名}[修订版]V1_{YYYYMMDD}.docx
+  → 所有修订和批注以 "Lawyer" 身份标注
 ```
 
-## 输出
+## 输出文件
 
 ```
-审查报告_YYYYMMDD/
-├── 审查标注版_合同名.docx      # 修订模式 + 批注
-├── 法律意见书_合同名.docx      # 五模块法律意见
-├── 法律分析_合同名.docx        # 内部参考
-└── 审查摘要.md                 # 快速预览
+{原文件名}[修订版]V1_{YYYYMMDD}.docx
 ```
+
+| 字段 | 说明 |
+|------|------|
+| 原文件名 | 合同原始文件名（不含扩展名） |
+| V1 | 固定版本号（用户可指定 V2、V3 等） |
+| YYYYMMDD | 审查日期 |
+
+示例：`买卖合同[修订版]V1_20260801.docx`
 
 ## 风险等级
 
@@ -63,18 +70,16 @@ Step 7: 输出三件套 → .docx 格式
 
 ## 设计来源
 
-本 Skill 综合了以下开源项目的优点：
-
 | 来源 | 吸纳要素 |
 |------|----------|
-| [contract-review-pro](https://github.com/CSlawyer1985/contract-review-pro) (210⭐) | 7 步有状态流程、效力优先、正反两面法、六维风险评估、修订路由决策树、10 条禁令 |
-| [claude-legal-skill](https://github.com/evolsb/claude-legal-skill) (390⭐) | 立场感知、市场基准参考、可谈判性评级、缺失保护检测、CUAD 风险分类 |
-| [ai-legal-claude](https://github.com/zubair-trabzada/ai-legal-claude) (1602⭐) | 加权评分体系、颜色标识、多维度并行分析 |
+| [contract-review-pro](https://github.com/CSlawyer1985/contract-review-pro) (210⭐) | 效力优先、正反两面法、六维风险评估、修订路由决策树 |
+| [claude-legal-skill](https://github.com/evolsb/claude-legal-skill) (390⭐) | 立场感知、市场基准、可谈判性评级、缺失保护检测 |
+| [ai-legal-claude](https://github.com/zubair-trabzada/ai-legal-claude) (1602⭐) | 颜色标识、多维度分析 |
 
 ## 依赖
 
 - Claude Code 运行环境
-- python-docx（已在 `backend/pyproject.toml` 中声明，`uv sync` 统一管理）
+- python-docx（`backend/pyproject.toml` 中已声明，`uv sync` 统一管理）
 - LibreOffice（如需处理 .doc 格式）
 
 ## 目录结构
@@ -86,7 +91,7 @@ skills/合同处理/合同审查/
 ├── references/           # 参考资料
 │   └── risk-categories.md  # 风险分类详细参考
 └── scripts/              # 辅助脚本
-    └── generate_report.py  # .docx 报告生成
+    └── generate_report.py  # .docx 修订版生成（待完善）
 ```
 
 ## 局限性
@@ -95,7 +100,3 @@ skills/合同处理/合同审查/
 - 复杂表格内条款的审查可能需要手动调整
 - 不构成法律意见，仅供律师辅助参考
 - 长合同可能需要分段审查（受上下文窗口限制）
-
-## Changelog
-
-详见项目根目录 changelog。
