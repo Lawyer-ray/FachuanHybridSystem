@@ -91,9 +91,9 @@ python -m skills.合同处理.合同自动编号 /path/to/document.docx --format
 
 ## 依赖
 
-```bash
-pip install python-docx lxml
-```
+依赖已在 `backend/pyproject.toml` 中声明，通过 `uv sync` 统一管理，无需额外安装。
+
+> ⚠️ 不要使用 `pip install`，项目的包管理工具是 `uv`。
 
 ## 限制
 

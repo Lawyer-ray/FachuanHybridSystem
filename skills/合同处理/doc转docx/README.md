@@ -41,7 +41,7 @@ python -m skills.合同处理.doc转docx /path/to/document.doc --output-dir /pat
 
 - 后端服务运行在 `http://127.0.0.1:8002`
 - LibreOffice 已安装并在 PATH 中
-- Python 库：`requests`
+- 仅使用 Python 标准库，无需额外安装第三方包
 
 ## 输出
 
