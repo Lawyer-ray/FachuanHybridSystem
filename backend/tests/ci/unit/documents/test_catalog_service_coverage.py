@@ -13,10 +13,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from apps.documents.services.code_placeholders.registry import (
-    CodePlaceholderDefinition,
-    CodePlaceholderRegistry,
-)
+from apps.documents.services.code_placeholders.registry import CodePlaceholderDefinition, CodePlaceholderRegistry
 
 
 class TestContextDictKeyVisitor:
@@ -114,59 +111,50 @@ class TestSpecMetadata:
 
 class TestCatalogServiceHelpers:
     def test_is_placeholder_key_candidate_valid(self):
-        from apps.documents.services.code_placeholders.catalog_service import (
-            CodePlaceholderCatalogService,
-        )
+        from apps.documents.services.code_placeholders.catalog_service import CodePlaceholderCatalogService
 
         svc = CodePlaceholderCatalogService()
         assert svc._is_placeholder_key_candidate("plaintiff_name") is True
 
     def test_is_placeholder_key_candidate_chinese(self):
-        from apps.documents.services.code_placeholders.catalog_service import (
-            CodePlaceholderCatalogService,
-        )
+        from apps.documents.services.code_placeholders.catalog_service import CodePlaceholderCatalogService
 
         svc = CodePlaceholderCatalogService()
         assert svc._is_placeholder_key_candidate("原告姓名") is True
 
     def test_is_placeholder_key_candidate_empty(self):
-        from apps.documents.services.code_placeholders.catalog_service import (
-            CodePlaceholderCatalogService,
-        )
+        from apps.documents.services.code_placeholders.catalog_service import CodePlaceholderCatalogService
 
         svc = CodePlaceholderCatalogService()
         assert svc._is_placeholder_key_candidate("") is False
 
     def test_is_placeholder_key_candidate_no_match(self):
-        from apps.documents.services.code_placeholders.catalog_service import (
-            CodePlaceholderCatalogService,
-        )
+        from apps.documents.services.code_placeholders.catalog_service import CodePlaceholderCatalogService
 
         svc = CodePlaceholderCatalogService()
         assert svc._is_placeholder_key_candidate("@invalid") is False
 
     def test_looks_like_template_placeholder_chinese(self):
-        from apps.documents.services.code_placeholders.catalog_service import (
-            CodePlaceholderCatalogService,
-        )
+        from apps.documents.services.code_placeholders.catalog_service import CodePlaceholderCatalogService
 
         svc = CodePlaceholderCatalogService()
         assert svc._looks_like_template_placeholder("原告姓名") is True
 
     def test_looks_like_template_placeholder_english_only(self):
-        from apps.documents.services.code_placeholders.catalog_service import (
-            CodePlaceholderCatalogService,
-        )
+        from apps.documents.services.code_placeholders.catalog_service import CodePlaceholderCatalogService
 
         svc = CodePlaceholderCatalogService()
         assert svc._looks_like_template_placeholder("plaintiff_name") is False
 
 
 class TestCatalogServiceGetDefinition:
+    def setup_method(self):
+        from apps.documents.services.code_placeholders.catalog_service import CodePlaceholderCatalogService
+
+        CodePlaceholderCatalogService._cached_definitions = None
+
     def test_get_existing_definition(self):
-        from apps.documents.services.code_placeholders.catalog_service import (
-            CodePlaceholderCatalogService,
-        )
+        from apps.documents.services.code_placeholders.catalog_service import CodePlaceholderCatalogService
 
         reg = CodePlaceholderRegistry()
         reg.clear()
@@ -183,9 +171,7 @@ class TestCatalogServiceGetDefinition:
             assert result.display_name == "Find Me"
 
     def test_get_nonexistent_definition(self):
-        from apps.documents.services.code_placeholders.catalog_service import (
-            CodePlaceholderCatalogService,
-        )
+        from apps.documents.services.code_placeholders.catalog_service import CodePlaceholderCatalogService
 
         reg = CodePlaceholderRegistry()
         reg.clear()
@@ -198,9 +184,7 @@ class TestCatalogServiceGetDefinition:
             assert result is None
 
     def test_list_keys(self):
-        from apps.documents.services.code_placeholders.catalog_service import (
-            CodePlaceholderCatalogService,
-        )
+        from apps.documents.services.code_placeholders.catalog_service import CodePlaceholderCatalogService
 
         reg = CodePlaceholderRegistry()
         reg.clear()
@@ -220,9 +204,7 @@ class TestCatalogServiceGetDefinition:
 
 class TestExtractDefinitionsFromSpec:
     def test_extracts_from_spec(self):
-        from apps.documents.services.code_placeholders.catalog_service import (
-            _extract_definitions_from_spec,
-        )
+        from apps.documents.services.code_placeholders.catalog_service import _extract_definitions_from_spec
 
         content = textwrap.dedent('''\
             class CasePlaceholderKeys:
@@ -239,9 +221,7 @@ class TestExtractDefinitionsFromSpec:
                 assert "被告姓名" in keys
 
     def test_skips_non_placeholder_keys_classes(self):
-        from apps.documents.services.code_placeholders.catalog_service import (
-            _extract_definitions_from_spec,
-        )
+        from apps.documents.services.code_placeholders.catalog_service import _extract_definitions_from_spec
 
         content = textwrap.dedent('''\
             class SomeOtherClass:
@@ -252,18 +232,14 @@ class TestExtractDefinitionsFromSpec:
             assert len(defs) == 0
 
     def test_syntax_error_returns_empty(self):
-        from apps.documents.services.code_placeholders.catalog_service import (
-            _extract_definitions_from_spec,
-        )
+        from apps.documents.services.code_placeholders.catalog_service import _extract_definitions_from_spec
 
         with patch.object(Path, "read_text", return_value="invalid python {{{"):
             defs = _extract_definitions_from_spec(Path("/fake/spec.py"))
             assert len(defs) == 0
 
     def test_read_error_returns_empty(self):
-        from apps.documents.services.code_placeholders.catalog_service import (
-            _extract_definitions_from_spec,
-        )
+        from apps.documents.services.code_placeholders.catalog_service import _extract_definitions_from_spec
 
         with patch.object(Path, "read_text", side_effect=OSError("no file")):
             defs = _extract_definitions_from_spec(Path("/fake/spec.py"))
