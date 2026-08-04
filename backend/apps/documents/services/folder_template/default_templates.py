@@ -299,4 +299,108 @@ def get_default_folder_templates() -> list[dict[str, Any]]:
             "is_default": False,
             "is_active": True,
         },
+        {
+            "name": "民事二审上诉",
+            "template_type": "case",
+            "case_types": ["civil"],
+            "case_stages": ["second_trial"],
+            "contract_types": [],
+            "legal_statuses": ["appellant"],
+            "legal_status_match_mode": "any",
+            "structure": {
+                "children": [
+                    {
+                        "id": "folder_1785568721966_0vd5n3ae",
+                        "name": "二审",
+                        "children": [
+                            {
+                                "id": "folder_1785568721967_940tr3uc",
+                                "name": "1-上诉材料",
+                                "children": [
+                                    {
+                                        "id": "folder_1785568721968_0c8pq44e",
+                                        "name": "1-上诉状",
+                                        "children": [],
+                                    },
+                                    {
+                                        "id": "folder_1785568721969_nuty73s4",
+                                        "name": "2-当事人身份证明",
+                                        "children": [],
+                                    },
+                                    {
+                                        "id": "folder_1785568721970_7lknbi9s",
+                                        "name": "3-委托材料",
+                                        "children": [],
+                                    },
+                                    {
+                                        "id": "folder_1785568721971_orpd7x9h",
+                                        "name": "4-其他答辩材料",
+                                        "children": [],
+                                    },
+                                ],
+                            },
+                            {
+                                "id": "folder_1785568721972_1uqr3ufc",
+                                "name": "2-庭审准备",
+                                "children": [
+                                    {
+                                        "id": "folder_1785568721972_35d8mox8",
+                                        "name": "1-问题清单",
+                                        "children": [],
+                                    },
+                                    {
+                                        "id": "folder_1785568721973_40u6u2pf",
+                                        "name": "2-庭审提纲",
+                                        "children": [],
+                                    },
+                                    {
+                                        "id": "folder_1785568721974_9z443yw2",
+                                        "name": "3-质证意见",
+                                        "children": [],
+                                    },
+                                    {
+                                        "id": "folder_1785568721975_pzfmu3f0",
+                                        "name": "4-时间轴大事记",
+                                        "children": [],
+                                    },
+                                    {
+                                        "id": "folder_1785568721976_fq2aalr5",
+                                        "name": "5-代理意见",
+                                        "children": [],
+                                    },
+                                    {
+                                        "id": "folder_1785568721977_35kr70oz",
+                                        "name": "6-其他材料",
+                                        "children": [],
+                                    },
+                                ],
+                            },
+                            {
+                                "id": "folder_1785568721977_9hsgueyd",
+                                "name": "3-结案文书",
+                                "children": [
+                                    {
+                                        "id": "folder_1785568721978_bmpb686w",
+                                        "name": "1-和解(调解)协议",
+                                        "children": [],
+                                    },
+                                    {
+                                        "id": "folder_1785568721979_d3il064d",
+                                        "name": "2-其他结案文书",
+                                        "children": [],
+                                    },
+                                ],
+                            },
+                            {
+                                "id": "folder_1785568721980_j3s0tk29",
+                                "name": "4-邮件往来",
+                                "children": [],
+                            },
+                        ],
+                    }
+                ]
+            },
+            "is_default": False,
+            "is_active": True,
+        },
     ]

@@ -79,6 +79,16 @@ DEFAULT_PROXY_MATTER_RULES: tuple[ProxyMatterRuleSeed, ...] = (
         "priority": 100,
         "is_active": True,
     },
+    {
+        "case_types": ["civil"],
+        "case_type": "civil",
+        "case_stage": "second_trial",
+        "legal_statuses": ["appellant"],
+        "legal_status_match_mode": "any",
+        "items_text": "代为提起二审上诉；代为出庭参加诉讼；代为调查、收集、提交证据；代为进行举证、质证和辩论；代为承认、放弃、变更上诉请求；代为进行和解、调解；代为签收法律文书。",
+        "priority": 100,
+        "is_active": True,
+    },
 )
 
 
