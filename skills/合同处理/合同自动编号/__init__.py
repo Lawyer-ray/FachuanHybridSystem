@@ -20,7 +20,7 @@ from .utils import format_numbering_mapping, generate_output_path, validate_inpu
 
 logger = logging.getLogger(__name__)
 
-__version__ = '1.2.0'
+__version__ = '1.3.0'
 __all__ = ['convert_contract_numbering', 'NUMBERING_FORMATS']
 
 # 最大重试次数
@@ -64,7 +64,7 @@ def convert_contract_numbering(
         verify: 是否验证转换结果
 
     Returns:
-        dict: 转换结果信息
+        dict: 转换结果信息（含审计报告）
     """
     # 验证输入路径
     try:
@@ -88,11 +88,14 @@ def convert_contract_numbering(
     except ValueError as e:
         return {'success': False, 'error': str(e)}
 
+    # 预读取原始文档（供审计使用）
+    original_doc_for_audit = Document(input_path)
+
     # 重试循环
     for attempt in range(1, MAX_RETRIES + 1):
         logger.info("尝试第 %d 次转换...", attempt)
 
-        # 读取文档
+        # 读取文档（每次重新读取以重新开始）
         doc = Document(input_path)
 
         # 分析文档结构
@@ -106,7 +109,11 @@ def convert_contract_numbering(
 
         # 验证转换结果
         if verify:
-            verification = verify_numbering(doc, numbered_paras)
+            verification = verify_numbering(
+                doc, numbered_paras,
+                original_doc=original_doc_for_audit,
+                format_type=format_type,
+            )
 
             if verification['all_valid']:
                 logger.info("✓ 验证通过！所有 %d 个段落编号正确", verification['total'])
@@ -124,6 +131,7 @@ def convert_contract_numbering(
                     'level0_count': len(level0_indices),
                     'numbered_paras': numbered_paras,
                     'verification': verification,
+                    'audit': verification.get('audit'),
                 }
             else:
                 logger.warning("✗ 验证失败！%d/%d 个段落编号不正确",
@@ -137,6 +145,13 @@ def convert_contract_numbering(
                         logger.warning("  [%d] 期望 %s, 实际 %s: %s",
                                      r['para_idx'], expected, actual, r['text'])
 
+                # 显示审计报告（增强信息）
+                if verification.get('audit'):
+                    audit = verification['audit']
+                    if not audit['all_clear']:
+                        logger.warning("\n⚠ 审计发现以下问题：")
+                        logger.warning(audit['summary'])
+
                 if attempt < MAX_RETRIES:
                     logger.info("正在重试...")
                 else:
@@ -145,6 +160,7 @@ def convert_contract_numbering(
                         'success': False,
                         'error': f'验证失败：{verification["invalid_count"]} 个段落编号不正确',
                         'verification': verification,
+                        'audit': verification.get('audit'),
                     }
         else:
             # 不验证，直接保存

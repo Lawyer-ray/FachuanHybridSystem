@@ -4,7 +4,32 @@
 
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，
 
-## [1.1.0] - 2026-07-31
+## [1.3.0] - 2026-08-06
+
+### 修复
+
+- **致命 Bug：签名关键词误触发导致后续编号全部丢失**
+  - `detector.py`：将子级编号检测移到签名检测**之前**，段落匹配到（一）（二）等子级编号时直接 `continue`，不再进入签名判断逻辑
+  - `formats.py`：新增 `_has_number_prefix()` 函数 + 增强 `is_signature_section()`，行首有编号前缀（如"（四）"）的段落自动排除签名判定
+  - 移除宽泛的 `'授权代表签字'` 关键词（长尾匹配导致正文条款被误判）
+- **检查机制失效：遗漏的编号段落永远通过验证**
+  - 旧 `verify_numbering()` 对"既不在编号列表也非签名"的段落设 `is_valid = True`
+  - 新增 `auditor.py` 模块：对比原始文档和输出文档，**交叉验证**每个带手动编号前缀的段落是否在输出中设置了自动编号
+  - `converter.py`：`verify_numbering()` 现在传入 `original_doc` 和 `format_type`，审计发现遗漏时主动报失败
+
+### 新增
+
+- `auditor.py`：自动审计模块
+  - `audit_completeness()`：对比分析，检测"原文件有编号前缀但输出未设自动编号"的段落
+  - `audit_numbering_gaps()`：检测编号序列连续性（如一、二、三 → 是否缺四）
+  - 生成 AI 可读的审计摘要，方便进一步检查
+
+### 变更
+
+- `__init__.py`：`convert_contract_numbering()` 转换后自动运行审计，审计发现任何遗漏即标记为 `success=False`
+- 版本号：`1.2.0` → `1.3.0`
+
+## [1.2.0] - 2026-08-04
 
 ### 新增
 
