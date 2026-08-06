@@ -165,11 +165,8 @@ def detect_numbering_structure(doc: Document, format_type: str) -> list[tuple[in
             if not text:
                 continue
 
-            # 检测签字盖章部分，停止编号
-            if is_signature_section(text):
-                break
-
-            # 检测子级编号
+            # 先检测子级编号 — 必须优先于签名检测！
+            # 有编号前缀的段落绝不可能是签名页（即使文本包含"签字"等词）
             if format_type == 'chinese':
                 level, sub_matched = detect_chinese_sublevel(text, has_level1_heading)
                 if level is not None:
@@ -177,20 +174,25 @@ def detect_numbering_structure(doc: Document, format_type: str) -> list[tuple[in
                         has_level1_heading = True
                     numbered_paras.append((i, level, sub_matched, text))
                     prev_level = level
-                    continue
+                    continue  # ← 成功匹配编号，跳过后续所有检查
             else:
                 level, sub_matched = detect_decimal_sublevel(text)
                 if level is not None:
                     numbered_paras.append((i, level, sub_matched, text))
                     prev_level = level
-                    continue
+                    continue  # ← 成功匹配编号，跳过后续所有检查
 
-            # 启发式：检测是否应该重置为 Level 1
+            # 启发式：检测是否是以特殊关键词开头的新段落
             # 如果段落以"甲方/乙方有以下/下列行为"开头，应该是新的 Level 1
+            # 空matched表示继承上一级别
             if re.match(r'^[甲乙丙丁]方有[以下下列]', text):
                 numbered_paras.append((i, 1, '', text))
                 prev_level = 1
                 continue
+
+            # 签名盖章检测放在最后 — 只有前面都匹配不上的才是签名区
+            if is_signature_section(text):
+                break
 
             # 其他段落：继承上一个段落的级别
             if prev_level >= 1:

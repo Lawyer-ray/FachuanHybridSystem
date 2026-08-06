@@ -4,6 +4,8 @@
 将检测到的手动编号转换为 Word 自动编号。
 """
 
+from __future__ import annotations
+
 import logging
 
 from docx import Document
@@ -284,16 +286,19 @@ def convert_numbering(
         apply_numbering_to_paragraph(para, level, num_id_to_use, new_text)
 
 
-def verify_numbering(doc: Document, numbered_paras: list[tuple[int, int, str, str]]) -> dict:
-    """验证自动编号是否正确应用
+def verify_numbering(doc: Document, numbered_paras: list[tuple[int, int, str, str]], *, original_doc: Document | None = None, format_type: str = 'chinese') -> dict:
+    """验证自动编号是否正确应用（增强版，含审计检查）
 
     Args:
-        doc: Word 文档
+        doc: 输出文档
         numbered_paras: 编号段落列表
+        original_doc: 原始文档（用于审计对比）
+        format_type: 编号格式类型
 
     Returns:
         验证结果字典
     """
+    from .auditor import audit_completeness
     from .detector import is_signature_section
 
     results = []
@@ -336,7 +341,7 @@ def verify_numbering(doc: Document, numbered_paras: list[tuple[int, int, str, st
             # 签名部分不应该编号
             is_valid = not has_num
         else:
-            # 其他段落不检查
+            # 其他段落：允许无编号（如普通正文）
             is_valid = True
 
         results.append({
@@ -353,10 +358,21 @@ def verify_numbering(doc: Document, numbered_paras: list[tuple[int, int, str, st
         if not is_valid:
             all_valid = False
 
+    # 运行增强审计（优先使用，更强的可靠性）
+    audit_report = None
+    if original_doc is not None:
+        audit_report = audit_completeness(original_doc, doc, format_type)
+        # 审计报告优先：即使 basic verifictin 说 "all_valid"，
+        # 只要审计发现遗漏，就覆盖为 not valid
+        if not audit_report.all_clear:
+            all_valid = False
+            logger.warning("审计发现遗漏，recommend review:\n%s", audit_report.summary)
+
     return {
         'all_valid': all_valid,
         'total': len(results),
         'valid_count': sum(1 for r in results if r['valid']),
         'invalid_count': sum(1 for r in results if not r['valid']),
         'results': [r for r in results if not r['valid']],  # 只返回失败的
+        'audit': audit_report._asdict() if audit_report else None,
     }
