@@ -11,6 +11,7 @@ SDK 内部使用 httpx，与仓库风格一致。
 """
 
 import logging
+import re
 import time
 from pathlib import Path
 from typing import Any
@@ -356,10 +357,14 @@ class TextinBackend:
         metadata = result_data.get("metadata", {}) or {}
         success_count = result_data.get("success_count", 0) or 0
 
-        # 提取纯文本：从 elements 拼接所有 text 块
+        # 清理 markdown：删除 HTML 注释、独立数字行（页码）和已知页眉文本
+        header_texts = self._collect_header_texts(elements)
+        markdown = self._clean_page_artifacts(markdown, exclude_lines=header_texts)
+
+        # 提取纯文本：从 elements 拼接正文块（已排除 Footer 页码）
         text = self._extract_text_from_elements(elements)
 
-        # fallback 到 markdown（去标记的简单处理）
+        # fallback 到 markdown（去标记的简单处理，markdown 已清理页码）
         if not text and markdown:
             text = markdown
 
@@ -386,39 +391,134 @@ class TextinBackend:
             parse_method="textin",
         )
 
-    def _extract_text_from_elements(self, elements: list[Any]) -> str:
-        """从 elements 列表提取纯文本
+    # 正文类型：NarrativeText（正文段落）、Title（标题）
+    # 明确排除：Footer（页脚/页码）、Header（页眉）等非正文类型
+    _TEXT_ELEMENT_TYPES = frozenset({"NarrativeText", "Title"})
+    # 非正文元素类型（页眉页脚，fallback 路径排除）
+    _EXCLUDED_ELEMENT_TYPES = frozenset({"Footer", "Header"})
 
-        优先拼接 type=="text" 的 text 字段；若没有 text 块则拼接所有有 text 的元素。
+    # HTML 注释正则：TextinParse 在 <!-- --> 中存放页码等元信息
+    _HTML_COMMENT_RE = re.compile(r"<!--.*?-->", re.DOTALL)
+    # 独立成行的纯数字（页码）：仅匹配行首到行尾只有数字的行
+    _STANDALONE_PAGE_NUMBER_RE = re.compile(r"(?m)^\s*\d+\s*$")
+    # markdown 强调标记：**bold** / *italic* / __bold__ / _italic_
+    # 注意：要先匹配双符号再匹配单符号，避免误吃
+    _MD_BOLD_RE = re.compile(r"\*\*(.+?)\*\*|__(.+?)__", re.DOTALL)
+    _MD_ITALIC_RE = re.compile(r"\*(.+?)\*|_(.+?)_", re.DOTALL)
+
+    def _strip_markdown_emphasis(self, text: str) -> str:
+        """去除 markdown 强调标记，保留内部文本
+
+        TextinParse 的 element.text 有时会带 **bold** / *italic* 标记，
+        纯文本用途时应去除这些符号（保留文字内容）。
+
+        Args:
+            text: 可能含 markdown 强调标记的文本
+
+        Returns:
+            去除强调标记后的纯文本
+        """
+        if not text:
+            return text
+        # 先去粗体（** 或 __），保留组内文字
+        text = self._MD_BOLD_RE.sub(lambda m: m.group(1) or m.group(2) or "", text)
+        # 再去斜体（* 或 _），保留组内文字
+        text = self._MD_ITALIC_RE.sub(lambda m: m.group(1) or m.group(2) or "", text)
+        return text
+
+    def _collect_header_texts(self, elements: list[Any]) -> list[str]:
+        """从 elements 收集 Header 类型的文本（用于清理 markdown 残留）
+
+        elements 已按类型排除 Header，但服务端返回的 markdown 字段
+        可能仍包含页眉文本，需收集后从 markdown 中删除。
+
+        Args:
+            elements: ParseResponse.elements 列表
+
+        Returns:
+            页眉文本列表（去重）
+        """
+        header_texts: list[str] = []
+        seen: set[str] = set()
+        for el in elements:
+            if not isinstance(el, dict):
+                continue
+            if el.get("type") != "Header":
+                continue
+            text = (el.get("text") or "").strip()
+            if text and text not in seen:
+                seen.add(text)
+                header_texts.append(text)
+        return header_texts
+
+    def _clean_page_artifacts(self, markdown: str, exclude_lines: list[str] | None = None) -> str:
+        """清理 markdown 中的页眉页码痕迹
+
+        1. 删除 HTML 注释块（TextinParse 在 <!-- --> 中存放页码等元信息）
+        2. 删除独立成行的纯数字行（页码）
+        3. 删除已知页眉文本（从 elements Header 类型收集，解决 markdown 残留）
+
+        Args:
+            markdown: 原始 markdown 文本
+            exclude_lines: 已知页眉文本列表，从 markdown 中删除匹配的行
+
+        Returns:
+            清理后的 markdown
+        """
+        if not markdown:
+            return markdown
+        cleaned = self._HTML_COMMENT_RE.sub("", markdown)
+        cleaned = self._STANDALONE_PAGE_NUMBER_RE.sub("", cleaned)
+        # 删除已知页眉文本行
+        if exclude_lines:
+            for line in exclude_lines:
+                escaped = re.escape(line)
+                cleaned = re.sub(rf"(?m)^\s*{escaped}\s*$", "", cleaned)
+        # 清理因删除行产生的多余空行（保留单个换行）
+        cleaned = re.sub(r"\n{3,}", "\n\n", cleaned)
+        return cleaned.strip()
+
+    def _extract_text_from_elements(self, elements: list[Any]) -> str:
+        """从 elements 列表提取纯文本（排除页眉页脚）
+
+        TextinParse 元素类型参考 xparse-client parse.py 及实测：
+        - NarrativeText / Title：正文和标题，保留
+        - Footer：页脚（通常为页码），排除
+        - Header：页眉，排除
+        - Table / Image：结构化数据，不在纯文本中拼接
 
         Args:
             elements: ParseResponse.elements 列表（dict 形式）
 
         Returns:
-            拼接后的纯文本
+            拼接后的纯文本（不含页眉页脚）
         """
         if not elements:
             return ""
 
         texts: list[str] = []
 
-        # 第一轮：只取 type=="text" 的块
+        # 第一轮：只取正文/标题类型，排除 Footer（页脚）和 Header（页眉）
         for el in elements:
             if not isinstance(el, dict):
                 continue
-            if el.get("type") == "text":
+            el_type = el.get("type")
+            if el_type in self._TEXT_ELEMENT_TYPES:
                 el_text = el.get("text", "")
                 if el_text:
-                    texts.append(el_text)
+                    texts.append(self._strip_markdown_emphasis(el_text))
 
-        # fallback：如果没拿到任何 text 块，取所有有 text 的元素
+        # fallback：如果没拿到任何正文块，取所有非 Footer/Header 且有 text 的元素
+        # （避免完全无输出，但仍排除页眉页脚）
         if not texts:
             for el in elements:
                 if not isinstance(el, dict):
                     continue
+                if el.get("type") in self._EXCLUDED_ELEMENT_TYPES:
+                    continue
                 el_text = el.get("text", "")
                 if el_text:
-                    texts.append(el_text)
+                    texts.append(self._strip_markdown_emphasis(el_text))
 
         return "\n".join(texts)
 

@@ -1,6 +1,7 @@
 """MinerU API 后端实现"""
 
 import logging
+import re
 import tempfile
 import time
 import zipfile
@@ -345,17 +346,25 @@ class MineruBackend:
                     elif f.suffix in (".jpg", ".jpeg", ".png"):
                         image_files.append(f)
 
+                # 收集已知页眉文本（用于清理 markdown 残留）
+                header_texts: list[str] = []
+                if content_list_file:
+                    header_texts = self._collect_header_texts_from_content_list(content_list_file)
+
                 # 提取文本
                 text = ""
                 if content_list_file:
                     text = self._extract_text_from_content_list(content_list_file)
                 elif md_file:
-                    text = md_file.read_text(encoding="utf-8")
+                    # fallback 到 markdown，需清理页眉页码
+                    text = self._clean_page_artifacts(md_file.read_text(encoding="utf-8"), exclude_lines=header_texts)
 
                 # 提取 Markdown
                 markdown = None
                 if return_markdown and md_file:
-                    markdown = md_file.read_text(encoding="utf-8")
+                    markdown = self._clean_page_artifacts(
+                        md_file.read_text(encoding="utf-8"), exclude_lines=header_texts
+                    )
 
                 # 提取图片路径
                 images = None
@@ -383,13 +392,17 @@ class MineruBackend:
             raise MineruAPIError(f"解析结果失败: {e}") from e
 
     def _extract_text_from_content_list(self, content_list_path: Path) -> str:
-        """从 content_list.json 提取文本
+        """从 content_list.json 提取文本（排除页眉页脚）
+
+        MinerU 将页眉识别为 header 类型、页脚为 footer、页码为 page_number，
+        但部分页眉会被误识别为 text 类型。通过归一化匹配（去除标点后比较）
+        过滤被误识别的页眉。
 
         Args:
             content_list_path: content_list.json 文件路径
 
         Returns:
-            提取的文本
+            提取的文本（不含页眉页脚）
         """
         import json
 
@@ -397,13 +410,24 @@ class MineruBackend:
             with open(content_list_path, encoding="utf-8") as f:
                 content_list = json.load(f)
 
-            # 按顺序提取所有文本块
+            # 收集 header/footer 类型的归一化文本（已知页眉页脚）
+            excluded_norm: set[str] = set()
+            for block in content_list:
+                if block.get("type") in ("header", "footer"):
+                    text = (block.get("text") or "").strip()
+                    if text:
+                        excluded_norm.add(self._normalize_text(text))
+
+            # 提取 text 块，跳过匹配已知页眉页脚的
             texts = []
             for block in content_list:
                 block_type = block.get("type", "")
                 block_text = block.get("text", "")
 
                 if block_type == "text" and block_text:
+                    # 归一化后检查是否匹配已知页眉页脚
+                    if self._normalize_text(block_text) in excluded_norm:
+                        continue
                     texts.append(block_text)
 
             return "\n".join(texts)
@@ -411,6 +435,80 @@ class MineruBackend:
         except Exception as e:
             logger.warning("解析 content_list.json 失败: %s", e)
             return ""
+
+    def _collect_header_texts_from_content_list(self, content_list_path: Path) -> list[str]:
+        """从 content_list.json 收集 header 类型的文本（用于清理 markdown）
+
+        markdown 输出路径直接读取 md 文件，会包含页眉文本，
+        需收集已知页眉后从 markdown 中删除。
+
+        Args:
+            content_list_path: content_list.json 文件路径
+
+        Returns:
+            页眉文本列表（去重）
+        """
+        import json
+
+        try:
+            with open(content_list_path, encoding="utf-8") as f:
+                content_list = json.load(f)
+        except Exception as e:
+            logger.warning("读取 content_list.json 失败: %s", e)
+            return []
+
+        header_texts: list[str] = []
+        seen: set[str] = set()
+        for block in content_list:
+            if block.get("type") != "header":
+                continue
+            text = (block.get("text") or "").strip()
+            if text and text not in seen:
+                seen.add(text)
+                header_texts.append(text)
+        return header_texts
+
+    # 归一化正则：去除标点和空白，只保留字母数字汉字（用于页眉模糊匹配）
+    _NORMALIZE_RE = re.compile(r"[^\w\u4e00-\u9fff]")
+
+    def _normalize_text(self, text: str) -> str:
+        """归一化文本：去除标点和空白，只保留字母数字汉字
+
+        用于页眉模糊匹配（如"大笨蛋，蠢猪" vs "大笨蛋、蠢猪"归一化后相同）。
+        """
+        return self._NORMALIZE_RE.sub("", text)
+
+    # 独立成行的纯数字（页码）：仅匹配行首到行尾只有数字的行
+    _STANDALONE_PAGE_NUMBER_RE = re.compile(r"(?m)^\s*\d+\s*$")
+    # HTML 注释（MinerU 偶尔用 <!-- --> 标记页码等元信息）
+    _HTML_COMMENT_RE = re.compile(r"<!--.*?-->", re.DOTALL)
+
+    def _clean_page_artifacts(self, markdown: str, exclude_lines: list[str] | None = None) -> str:
+        """清理 markdown 中的页眉页码痕迹
+
+        1. 删除 HTML 注释块（可能存放页码等元信息）
+        2. 删除独立成行的纯数字行（页码）
+        3. 删除已知页眉文本（从 content_list header 类型收集）
+
+        Args:
+            markdown: 原始 markdown 文本
+            exclude_lines: 已知页眉文本列表，从 markdown 中删除匹配的行
+
+        Returns:
+            清理后的 markdown
+        """
+        if not markdown:
+            return markdown
+        cleaned = self._HTML_COMMENT_RE.sub("", markdown)
+        cleaned = self._STANDALONE_PAGE_NUMBER_RE.sub("", cleaned)
+        # 删除已知页眉文本行
+        if exclude_lines:
+            for line in exclude_lines:
+                escaped = re.escape(line)
+                cleaned = re.sub(rf"(?m)^\s*{escaped}\s*$", "", cleaned)
+        # 清理因删除行产生的多余空行（保留单个换行）
+        cleaned = re.sub(r"\n{3,}", "\n\n", cleaned)
+        return cleaned.strip()
 
     # ── 异步方法 ──────────────────────────────────────────────
 
@@ -622,15 +720,21 @@ class MineruBackend:
                 elif f.suffix in (".jpg", ".jpeg", ".png"):
                     image_files.append(f)
 
+            # 收集已知页眉文本（用于清理 markdown 残留）
+            header_texts: list[str] = []
+            if content_list_file:
+                header_texts = self._collect_header_texts_from_content_list(content_list_file)
+
             text = ""
             if content_list_file:
                 text = self._extract_text_from_content_list(content_list_file)
             elif md_file:
-                text = md_file.read_text(encoding="utf-8")
+                # fallback 到 markdown，需清理页眉页码
+                text = self._clean_page_artifacts(md_file.read_text(encoding="utf-8"), exclude_lines=header_texts)
 
             markdown = None
             if return_markdown and md_file:
-                markdown = md_file.read_text(encoding="utf-8")
+                markdown = self._clean_page_artifacts(md_file.read_text(encoding="utf-8"), exclude_lines=header_texts)
 
             images = None
             if extract_images:
