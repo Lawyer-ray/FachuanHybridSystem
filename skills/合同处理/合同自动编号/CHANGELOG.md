@@ -2,7 +2,28 @@
 
 所有对此 skill 的更改都将记录在此文件中。
 
-格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，
+格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0)，
+
+## [1.4.0] - 2026-08-07
+
+### 修复
+
+- **层级检测 Bug：（一）子标题后的内容段落全部被平铺到同一层级**
+  - `detector.py`：`detect_chinese_sublevel()` 分离 `（一）`（中文数字带括号 → level 1）和 `（1）`（阿拉伯数字带括号 → level 2）的检测，原先共用一条正则导致 `（1）` 被误判为 level 1
+  - `detector.py`：`detect_numbering_structure()` 中，`（一）` 型子标题检测为 level 1 后，`prev_level` 设为 `level + 1`（即 level 2），使后续无编号段落正确降为下一级，而非继承子标题的同级
+  - `detector.py`：`has_level1_heading` 标志仅由 `（一）` 型子标题设置，不再被 `1.` 型内容段落误设（原先 `1.` 也会触发 `has_level1_heading = True`，导致后续 `1.` 段落错误降级）
+
+### 新增
+
+- `auditor.py`：新增 `validate_hierarchy()` 层级结构验证函数
+  - 检测 `（一）` 子标题后的无编号内容段落是否错误地停留在同级（L1），应在下一级（L2）
+  - `AuditReport` 新增 `hierarchy_issues` 字段
+  - `audit_completeness()` 支持传入 `numbered_paras` 参数，执行层级结构验证
+
+### 变更
+
+- `converter.py`：`verify_numbering()` 将 `numbered_paras` 传给 `audit_completeness()`，审计发现的层级问题会覆盖 `all_valid` 为 False
+- 版本号：`1.3.0` → `1.4.0`
 
 ## [1.3.0] - 2026-08-06
 

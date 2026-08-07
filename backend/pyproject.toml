@@ -23,6 +23,7 @@ dependencies = [
     "psycopg[binary]==3.3.4",
     # --- HTTP 客户端 ---
     "httpx[http2]==0.28.1",
+    "h2>=4.4.1",
     # --- 异步 I/O ---
     "aiofiles>=24.1.0",
     # --- LLM / AI ---
