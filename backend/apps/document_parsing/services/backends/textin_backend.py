@@ -11,7 +11,6 @@ SDK 内部使用 httpx，与仓库风格一致。
 """
 
 import logging
-import re
 import time
 from pathlib import Path
 from typing import Any
@@ -27,6 +26,11 @@ from apps.document_parsing.exceptions import (
     TextinAPIError,
 )
 from apps.document_parsing.protocols.document_parser_protocol import ParsedDocument, TextExtractionResult
+from apps.document_parsing.services.backends._page_artifacts import (
+    clean_page_artifacts,
+    collect_header_texts,
+    strip_markdown_emphasis,
+)
 
 logger = logging.getLogger(__name__)
 _config_service = SystemConfigService()
@@ -44,6 +48,9 @@ class TextinBackend:
     POLL_TIMEOUT = 300  # 轮询总超时（秒）
     HTTP_TIMEOUT = 30  # 单次 HTTP 请求超时（秒）
     RESULT_DOWNLOAD_TIMEOUT = 60  # 结果文件下载超时（秒）
+
+    # 后端能力声明：云端后端含 HTTP 上传 + 轮询，阻塞时间长，需异步执行
+    requires_async_execution: bool = True
 
     def __init__(
         self,
@@ -358,8 +365,8 @@ class TextinBackend:
         success_count = result_data.get("success_count", 0) or 0
 
         # 清理 markdown：删除 HTML 注释、独立数字行（页码）和已知页眉文本
-        header_texts = self._collect_header_texts(elements)
-        markdown = self._clean_page_artifacts(markdown, exclude_lines=header_texts)
+        header_texts = collect_header_texts(elements, header_type="Header")
+        markdown = clean_page_artifacts(markdown, exclude_lines=header_texts)
 
         # 提取纯文本：从 elements 拼接正文块（已排除 Footer 页码）
         text = self._extract_text_from_elements(elements)
@@ -397,87 +404,6 @@ class TextinBackend:
     # 非正文元素类型（页眉页脚，fallback 路径排除）
     _EXCLUDED_ELEMENT_TYPES = frozenset({"Footer", "Header"})
 
-    # HTML 注释正则：TextinParse 在 <!-- --> 中存放页码等元信息
-    _HTML_COMMENT_RE = re.compile(r"<!--.*?-->", re.DOTALL)
-    # 独立成行的纯数字（页码）：仅匹配行首到行尾只有数字的行
-    _STANDALONE_PAGE_NUMBER_RE = re.compile(r"(?m)^\s*\d+\s*$")
-    # markdown 强调标记：**bold** / *italic* / __bold__ / _italic_
-    # 注意：要先匹配双符号再匹配单符号，避免误吃
-    _MD_BOLD_RE = re.compile(r"\*\*(.+?)\*\*|__(.+?)__", re.DOTALL)
-    _MD_ITALIC_RE = re.compile(r"\*(.+?)\*|_(.+?)_", re.DOTALL)
-
-    def _strip_markdown_emphasis(self, text: str) -> str:
-        """去除 markdown 强调标记，保留内部文本
-
-        TextinParse 的 element.text 有时会带 **bold** / *italic* 标记，
-        纯文本用途时应去除这些符号（保留文字内容）。
-
-        Args:
-            text: 可能含 markdown 强调标记的文本
-
-        Returns:
-            去除强调标记后的纯文本
-        """
-        if not text:
-            return text
-        # 先去粗体（** 或 __），保留组内文字
-        text = self._MD_BOLD_RE.sub(lambda m: m.group(1) or m.group(2) or "", text)
-        # 再去斜体（* 或 _），保留组内文字
-        text = self._MD_ITALIC_RE.sub(lambda m: m.group(1) or m.group(2) or "", text)
-        return text
-
-    def _collect_header_texts(self, elements: list[Any]) -> list[str]:
-        """从 elements 收集 Header 类型的文本（用于清理 markdown 残留）
-
-        elements 已按类型排除 Header，但服务端返回的 markdown 字段
-        可能仍包含页眉文本，需收集后从 markdown 中删除。
-
-        Args:
-            elements: ParseResponse.elements 列表
-
-        Returns:
-            页眉文本列表（去重）
-        """
-        header_texts: list[str] = []
-        seen: set[str] = set()
-        for el in elements:
-            if not isinstance(el, dict):
-                continue
-            if el.get("type") != "Header":
-                continue
-            text = (el.get("text") or "").strip()
-            if text and text not in seen:
-                seen.add(text)
-                header_texts.append(text)
-        return header_texts
-
-    def _clean_page_artifacts(self, markdown: str, exclude_lines: list[str] | None = None) -> str:
-        """清理 markdown 中的页眉页码痕迹
-
-        1. 删除 HTML 注释块（TextinParse 在 <!-- --> 中存放页码等元信息）
-        2. 删除独立成行的纯数字行（页码）
-        3. 删除已知页眉文本（从 elements Header 类型收集，解决 markdown 残留）
-
-        Args:
-            markdown: 原始 markdown 文本
-            exclude_lines: 已知页眉文本列表，从 markdown 中删除匹配的行
-
-        Returns:
-            清理后的 markdown
-        """
-        if not markdown:
-            return markdown
-        cleaned = self._HTML_COMMENT_RE.sub("", markdown)
-        cleaned = self._STANDALONE_PAGE_NUMBER_RE.sub("", cleaned)
-        # 删除已知页眉文本行
-        if exclude_lines:
-            for line in exclude_lines:
-                escaped = re.escape(line)
-                cleaned = re.sub(rf"(?m)^\s*{escaped}\s*$", "", cleaned)
-        # 清理因删除行产生的多余空行（保留单个换行）
-        cleaned = re.sub(r"\n{3,}", "\n\n", cleaned)
-        return cleaned.strip()
-
     def _extract_text_from_elements(self, elements: list[Any]) -> str:
         """从 elements 列表提取纯文本（排除页眉页脚）
 
@@ -506,7 +432,7 @@ class TextinBackend:
             if el_type in self._TEXT_ELEMENT_TYPES:
                 el_text = el.get("text", "")
                 if el_text:
-                    texts.append(self._strip_markdown_emphasis(el_text))
+                    texts.append(strip_markdown_emphasis(el_text))
 
         # fallback：如果没拿到任何正文块，取所有非 Footer/Header 且有 text 的元素
         # （避免完全无输出，但仍排除页眉页脚）
@@ -518,7 +444,7 @@ class TextinBackend:
                     continue
                 el_text = el.get("text", "")
                 if el_text:
-                    texts.append(self._strip_markdown_emphasis(el_text))
+                    texts.append(strip_markdown_emphasis(el_text))
 
         return "\n".join(texts)
 
@@ -555,91 +481,3 @@ class TextinBackend:
             return TextinAPIError(f"TextinParse SDK 配置错误: {message}")
 
         return TextinAPIError(f"TextinParse 解析失败: {message}")
-
-    # ── 异步方法 ──────────────────────────────────────────────
-
-    async def aparse_document(
-        self,
-        file_path: str,
-        file_type: str = "pdf",
-        extract_tables: bool = True,
-        extract_images: bool = False,
-        return_markdown: bool = False,
-        **kwargs: Any,
-    ) -> ParsedDocument:
-        """异步通过 TextinParse API 解析文档。
-
-        SDK 本身是同步实现（内部用 httpx.Client），这里用 asyncio.to_thread
-        把同步调用卸载到线程池，不阻塞事件循环。
-        """
-        import asyncio
-
-        file_path_obj = Path(file_path)
-        if not file_path_obj.exists():
-            raise FileNotFoundError(f"文件不存在: {file_path}")
-
-        start_time = time.time()
-        logger.info("开始 TextinParse 异步解析: %s", file_path)
-
-        try:
-            # SDK 是同步的，用 to_thread 卸载到线程池
-            parsed = await asyncio.to_thread(
-                self.parse_document,
-                file_path=file_path,
-                file_type=file_type,
-                extract_tables=extract_tables,
-                extract_images=extract_images,
-                return_markdown=return_markdown,
-                **kwargs,
-            )
-
-            duration = time.time() - start_time
-            logger.info(
-                "TextinParse 异步解析完成: %s (%.2fs, %d 字符)",
-                file_path,
-                duration,
-                len(parsed.text),
-            )
-            return parsed
-
-        except (TextinAPIError, ParsingTimeoutError, FileFormatNotSupportedError):
-            raise
-        except Exception as e:
-            logger.error("TextinParse 异步解析失败: %s - %s", file_path, str(e))
-            raise TextinAPIError(f"TextinParse 异步解析失败: {e}") from e
-
-    async def aextract_text(
-        self,
-        file_path: str,
-        max_length: int | None = None,
-        **kwargs: Any,
-    ) -> TextExtractionResult:
-        """异步提取文档纯文本。"""
-        try:
-            parsed = await self.aparse_document(
-                file_path=file_path,
-                extract_tables=False,
-                extract_images=False,
-                return_markdown=False,
-                **kwargs,
-            )
-
-            text = parsed.text
-            if max_length and len(text) > max_length:
-                text = text[:max_length]
-
-            return TextExtractionResult(
-                text=text,
-                success=True,
-                method="textin",
-                metadata=parsed.metadata,
-            )
-
-        except Exception as e:
-            logger.error("TextinParse 异步文本提取失败: %s - %s", file_path, str(e))
-            return TextExtractionResult(
-                text="",
-                success=False,
-                method="textin",
-                metadata={"error": str(e)},
-            )

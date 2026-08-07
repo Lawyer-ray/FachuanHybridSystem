@@ -27,18 +27,21 @@ router = Router()
 # 内部工具
 # ---------------------------------------------------------------------------
 
-_ASYNC_BACKENDS = {"mineru", "textin"}
-"""需要异步执行的后端集合 —— MinerU / TextinParse 含 HTTP 上传 + 轮询，阻塞时间长。"""
-
 
 def _needs_async(backend: str) -> bool:
     """判断是否需要异步执行。
 
-    当 backend 为 "auto" 时，如果 auto 解析最终会走 mineru/textin 也需要异步，
-    但这里无法预知 auto 选择结果，保守起见 auto 走同步（如果选到云端后端
-    仍然由 backend 内部处理，最多阻塞）。只有显式指定 mineru/textin 时才异步。
+    通过查询后端的 requires_async_execution 属性决定（后端自描述能力），
+    而非在此处硬编码后端名称集合。auto 模式会先解析出实际后端再查询。
+
+    Args:
+        backend: 后端名称（mineru / textin / local / auto）
+
+    Returns:
+        True 表示该后端需要异步执行（云端含 HTTP 上传 + 轮询）
     """
-    return backend in _ASYNC_BACKENDS
+    parser = get_document_parser(backend=backend)
+    return getattr(parser, "requires_async_execution", False)
 
 
 def _save_upload(file: UploadedFile) -> tuple[str, Path]:

@@ -62,7 +62,7 @@ def execute_parse_document(
     Args:
         file_path: 已保存的文件绝对路径
         file_type: 文件扩展名（不含点号）
-        backend: 解析后端（mineru / local / paddleocr / auto）
+        backend: 解析后端（mineru / textin / local / auto）
         extract_tables: 是否提取表格
         extract_images: 是否提取图片
         return_markdown: 是否返回 Markdown
