@@ -5,6 +5,7 @@ from apps.document_parsing.exceptions.parsing_exceptions import (
     FileFormatNotSupportedError,
     MineruAPIError,
     ParsingTimeoutError,
+    TextinAPIError,
 )
 
 __all__ = [
@@ -12,4 +13,5 @@ __all__ = [
     "FileFormatNotSupportedError",
     "MineruAPIError",
     "ParsingTimeoutError",
+    "TextinAPIError",
 ]

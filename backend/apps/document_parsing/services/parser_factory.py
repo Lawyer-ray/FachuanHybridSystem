@@ -26,6 +26,7 @@ class ParserFactory:
         Args:
             backend: 后端类型
                 - "mineru": MinerU API（云端）
+                - "textin": TextinParse API（云端，xparse-client SDK）
                 - "local": 本地 PyMuPDF + OCR
                 - "paddleocr": PaddleOCR API
                 - "auto": 根据 SystemConfig 自动选择
@@ -39,6 +40,9 @@ class ParserFactory:
 
         if backend == "mineru":
             return ParserFactory._create_mineru_backend(**kwargs)
+
+        elif backend == "textin":
+            return ParserFactory._create_textin_backend(**kwargs)
 
         elif backend == "local":
             return ParserFactory._create_local_backend(**kwargs)
@@ -63,6 +67,21 @@ class ParserFactory:
             return MineruBackend(timeout=timeout)
         else:
             return MineruBackend()
+
+    @staticmethod
+    def _create_textin_backend(**kwargs: Any) -> IDocumentParserProtocol:
+        """创建 TextinParse 后端
+
+        App ID / Secret Code 会从 SystemConfig 自动读取，不需要传入。
+        """
+        from apps.document_parsing.services.backends.textin_backend import TextinBackend
+
+        # 只传递 timeout 参数（如果有的话）
+        timeout = kwargs.get("timeout")
+        if timeout:
+            return TextinBackend(timeout=timeout)
+        else:
+            return TextinBackend()
 
     @staticmethod
     def _create_local_backend(**kwargs: Any) -> IDocumentParserProtocol:

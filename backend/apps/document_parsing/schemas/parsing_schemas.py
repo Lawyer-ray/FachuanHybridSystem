@@ -9,7 +9,7 @@ class ParseDocumentRequest(Schema):
     """文档解析请求"""
 
     backend: str = "auto"
-    """后端类型：mineru、local、paddleocr、auto"""
+    """后端类型：mineru、textin、local、paddleocr、auto"""
 
     extract_tables: bool = True
     """是否提取表格"""

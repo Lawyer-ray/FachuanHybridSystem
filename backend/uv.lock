@@ -1468,6 +1468,7 @@ dependencies = [
     { name = "weasyprint" },
     { name = "webdavclient3" },
     { name = "xlrd" },
+    { name = "xparse-client" },
 ]
 
 [package.dev-dependencies]
@@ -1565,6 +1566,7 @@ requires-dist = [
     { name = "weasyprint", specifier = ">=68.1" },
     { name = "webdavclient3", specifier = ">=3.14.7" },
     { name = "xlrd", specifier = ">=2.0.1" },
+    { name = "xparse-client", specifier = ">=0.3.0" },
 ]
 
 [package.metadata.requires-dev]
@@ -6145,6 +6147,19 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/07/5a/377161c2d3538d1990d7af382c79f3b2372e880b65de21b01b1a2b78691e/xlrd-2.0.2.tar.gz", hash = "sha256:08b5e25de58f21ce71dc7db3b3b8106c1fa776f3024c54e45b45b374e89234c9", size = 100167, upload-time = "2025-06-14T08:46:39.039Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/1a/62/c8d562e7766786ba6587d09c5a8ba9f718ed3fa8af7f4553e8f91c36f302/xlrd-2.0.2-py2.py3-none-any.whl", hash = "sha256:ea762c3d29f4cca48d82df517b6d89fbce4db3107f9d78713e48cd321d5c9aa9", size = 96555, upload-time = "2025-06-14T08:46:37.766Z" },
+]
+
+[[package]]
+name = "xparse-client"
+version = "0.3.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "httpx" },
+    { name = "pydantic" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/d6/1a/b77ac5258b3a92ec62206016bce3442cd0988b62e6f0b73f551efdd5bc5b/xparse_client-0.3.0.tar.gz", hash = "sha256:85f885bfa79e4c2864bcde23e13f65ffb5093a219c31fdb9f84350de023e603f", size = 94478, upload-time = "2026-04-02T11:38:31.794Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/a4/8f/f5ffec84007c9ba52ff6d2207516fe896b65a5f417615d4e4c963e46dd5e/xparse_client-0.3.0-py3-none-any.whl", hash = "sha256:40bcff2837736ed9451584d4eae13c861a48fe3beb42840bcd537a955143a9d6", size = 126706, upload-time = "2026-04-02T11:38:30.128Z" },
 ]
 
 [[package]]

@@ -24,7 +24,7 @@ def get_document_parsing_configs() -> list[dict[str, Any]]:
         {
             "key": "DOCUMENT_PARSING_BACKEND",
             "category": "document_parsing",
-            "description": "文档解析后端（mineru=MinerU云API, local=本地PyMuPDF+OCR）",
+            "description": "文档解析后端（mineru=MinerU云API, textin=TextinParse云API, local=本地PyMuPDF+OCR）",
             "value": "mineru",
             "is_secret": False,
         },
@@ -36,6 +36,20 @@ def get_document_parsing_configs() -> list[dict[str, Any]]:
             # DO NOT commit real API keys to version control.
             "description": "MinerU API Key（Bearer Token）。注意：这是测试/示例 key，生产环境请替换为你的真实 key",
             "value": "eyJ0eXBlIjoiSldUIiwiYWxnIjoiSFM1MTIifQ.eyJqdGkiOiI4MTIwMDIxNCIsInJvbCI6IlJPTEVfUkVHSVNURVIiLCJpc3MiOiJPcGVuWExhYiIsImlhdCI6MTc4MTE0MjM0MywiY2xpZW50SWQiOiJsa3pkeDU3bnZ5MjJqa3BxOXgydyIsInBob25lIjoiMTM3NjgxODU3MDIiLCJvcGVuSWQiOm51bGwsInV1aWQiOiIwZjY2M2ZlZi1iODQxLTRkN2YtYTc4Zi02MzA3NjkwN2Y3NDkiLCJlbWFpbCI6IiIsImV4cCI6MTc4ODkxODM0M30.hIhRedMLijyBvvNXP29sgWwIqVxACKjRw-2irYDnonhEarsZhlFusR_QQnYZaqBrSB2jV1mDn6O7wWRdXvyEfx",  # pragma: allowlist secret
+            "is_secret": True,
+        },
+        {
+            "key": "TEXTIN_APP_ID",
+            "category": "document_parsing",
+            "description": "TextinParse App ID（x-ti-app-id）。前往 https://www.textin.com/console/dashboard/setting 获取",
+            "value": "",
+            "is_secret": True,
+        },
+        {
+            "key": "TEXTIN_SECRET_CODE",
+            "category": "document_parsing",
+            "description": "TextinParse Secret Code（x-ti-secret-code）。前往 https://www.textin.com/console/dashboard/setting 获取",
+            "value": "",
             "is_secret": True,
         },
     ]

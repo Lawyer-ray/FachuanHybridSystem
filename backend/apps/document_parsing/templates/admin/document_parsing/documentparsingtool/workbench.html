@@ -118,6 +118,64 @@
     background: var(--fc-bg-muted-light);
     box-shadow: 0 2px 8px rgba(65, 118, 144, 0.15);
 }
+
+/* 后端选择器 */
+.backend-selector {
+    max-width: 800px;
+    margin: 0 auto 20px;
+    padding: 16px 20px;
+    background: var(--fc-bg-card);
+    border: 1px solid var(--fc-border);
+    border-radius: 10px;
+}
+.backend-selector-label {
+    display: block;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--fc-text-secondary);
+    margin-bottom: 10px;
+}
+.backend-options {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+.backend-option {
+    flex: 1;
+    min-width: 180px;
+    position: relative;
+    padding: 12px 16px;
+    border: 2px solid var(--fc-border);
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: var(--fc-bg-muted-light);
+}
+.backend-option:hover {
+    border-color: var(--fc-admin-blue);
+    background: var(--fc-primary-subtle);
+}
+.backend-option input[type="radio"] {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+.backend-option.selected {
+    border-color: var(--fc-admin-blue);
+    background: var(--fc-primary-subtle);
+    box-shadow: 0 2px 8px rgba(65, 118, 144, 0.15);
+}
+.backend-option-title {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--fc-text-secondary);
+    margin-bottom: 4px;
+}
+.backend-option-desc {
+    font-size: 12px;
+    color: var(--fc-text-muted);
+    line-height: 1.4;
+}
 </style>
 {% endblock %}
 
@@ -125,8 +183,25 @@
 <div class="parsing-container">
     <div class="parsing-intro">
         <strong>📄 文档解析服务</strong><br>
-        上传文档文件，系统将自动调用 MinerU 进行智能解析，提取文本、Markdown 和结构化信息。<br>
+        上传文档文件，选择解析引擎（MinerU 或 TextinParse），系统将进行智能解析，提取文本、Markdown 和结构化信息。<br>
         解析结果将保存在数据库中，方便后续查阅和检索。
+    </div>
+
+    <!-- 后端选择器 -->
+    <div class="backend-selector">
+        <label class="backend-selector-label">🔧 选择解析引擎</label>
+        <div class="backend-options" id="backendOptions">
+            <label class="backend-option selected" data-backend="mineru">
+                <input type="radio" name="backend" value="mineru" checked>
+                <div class="backend-option-title">🚀 MinerU</div>
+                <div class="backend-option-desc">VLM 视觉模型，擅长版面分析与复杂表格</div>
+            </label>
+            <label class="backend-option" data-backend="textin">
+                <input type="radio" name="backend" value="textin">
+                <div class="backend-option-title">📝 TextinParse</div>
+                <div class="backend-option-desc">支持 OFD/RTF/HTML/CSV 等更多格式，含标题树</div>
+            </label>
+        </div>
     </div>
 
     <!-- 功能特性展示 -->
@@ -160,23 +235,25 @@
         <p>支持多种文档格式，智能识别和解析</p>
         <label class="upload-btn">
             选择文件上传
-            <input type="file" id="fileInput" accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.jpg,.jpeg,.png,.bmp,.tiff">
+            <input type="file" id="fileInput" accept=".pdf,.doc,.docx,.ppt,.pptx,.xls,.xlsx,.jpg,.jpeg,.png,.bmp,.tiff,.gif,.webp,.ofd,.rtf,.html,.csv,.txt">
         </label>
         <div class="supported-formats">
             <span>PDF</span> <span>Word</span> <span>PPT</span> <span>Excel</span>
             <span>JPG</span> <span>PNG</span> <span>BMP</span> <span>TIFF</span>
+            <span>OFD</span> <span>RTF</span> <span>HTML</span> <span>CSV</span> <span>TXT</span>
         </div>
     </div>
 
     <form id="uploadForm" method="post" action="{% url 'admin:document_parsing_documentparsingtool_upload' %}" enctype="multipart/form-data" style="display: none;">
         {% csrf_token %}
         <input type="file" name="file" id="hiddenFileInput">
+        <input type="hidden" name="backend" id="hiddenBackendInput" value="mineru">
     </form>
 
     <div id="uploadingState" class="loading-state" style="display: none;">
         <div class="spinner"></div>
         <p>正在解析文档，请稍候...</p>
-        <p class="hint">MinerU 智能解析通常需要 5-10 秒</p>
+        <p class="hint" id="loadingHint">云端智能解析通常需要 5-30 秒</p>
     </div>
 
     <div style="text-align: center; margin-top: 20px;">
@@ -192,7 +269,28 @@
     const fileInput = document.getElementById('fileInput');
     const uploadForm = document.getElementById('uploadForm');
     const hiddenFileInput = document.getElementById('hiddenFileInput');
+    const hiddenBackendInput = document.getElementById('hiddenBackendInput');
     const uploadingState = document.getElementById('uploadingState');
+    const loadingHint = document.getElementById('loadingHint');
+    const backendOptions = document.getElementById('backendOptions');
+
+    // 后端选择交互
+    const backendLabels = backendOptions.querySelectorAll('.backend-option');
+    backendLabels.forEach(function(label) {
+        label.addEventListener('click', function(e) {
+            // 让原生 radio 先切换
+            const input = label.querySelector('input[type="radio"]');
+            if (e.target === input) {
+                // 原生点击已生效，仅需同步样式
+            } else {
+                input.checked = true;
+            }
+            // 同步 selected 样式
+            backendLabels.forEach(function(l) { l.classList.remove('selected'); });
+            label.classList.add('selected');
+            hiddenBackendInput.value = input.value;
+        });
+    });
 
     // 拖拽事件
     uploadZone.addEventListener('dragover', function(e) {
@@ -229,8 +327,25 @@
         dt.items.add(file);
         hiddenFileInput.files = dt.files;
 
+        // 同步当前选中的 backend 到 hidden input（防止用户没点 label）
+        const checked = backendOptions.querySelector('input[type="radio"]:checked');
+        if (checked) {
+            hiddenBackendInput.value = checked.value;
+        }
+
+        // 根据后端更新 loading 提示
+        const backend = hiddenBackendInput.value;
+        if (backend === 'mineru') {
+            loadingHint.textContent = 'MinerU 智能解析通常需要 5-30 秒';
+        } else if (backend === 'textin') {
+            loadingHint.textContent = 'TextinParse 解析通常需要 5-30 秒';
+        } else {
+            loadingHint.textContent = '云端智能解析通常需要 5-30 秒';
+        }
+
         // 显示上传中状态
         uploadZone.style.display = 'none';
+        document.querySelector('.backend-selector').style.display = 'none';
         document.querySelector('.features-grid').style.display = 'none';
         uploadingState.style.display = 'block';
 
