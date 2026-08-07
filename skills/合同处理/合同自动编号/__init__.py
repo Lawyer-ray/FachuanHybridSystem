@@ -20,7 +20,7 @@ from .utils import format_numbering_mapping, generate_output_path, validate_inpu
 
 logger = logging.getLogger(__name__)
 
-__version__ = '1.3.0'
+__version__ = '1.4.0'
 __all__ = ['convert_contract_numbering', 'NUMBERING_FORMATS']
 
 # 最大重试次数

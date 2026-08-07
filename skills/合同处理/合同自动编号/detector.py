@@ -69,6 +69,11 @@ def detect_decimal_level0(text: str) -> tuple[str, str] | tuple[None, None]:
 def detect_chinese_sublevel(text: str, has_level1_heading: bool) -> tuple[int, str] | tuple[None, None]:
     """检测中文格式的子级编号
 
+    层级映射（中文格式 一、1.（1）①）：
+      Level 1 → 1.    （来源：（一）（二）... 中文数字带括号）
+      Level 2 → （1）  （来源：（1）（2）... 阿拉伯数字带括号，或 1. 2. 当存在（一）子标题时）
+      Level 3 → ①     （来源：1）2）... 无左括号）
+
     Args:
         text: 待检测的文本
         has_level1_heading: 是否已经出现过 （一）子标题
@@ -76,15 +81,20 @@ def detect_chinese_sublevel(text: str, has_level1_heading: bool) -> tuple[int, s
     Returns:
         (level, matched_text) 或 (None, None)
     """
-    # Level 1: （一）（二）... 或 （1）（2）...
-    m = re.match(r'^[（(]([一二三四五六七八九十\d]+)[）)]\s*', text)
+    # Level 1: （一）（二）... （中文数字带括号 → 映射为 "1."）
+    m = re.match(r'^[（(]([一二三四五六七八九十]+)[）)]\s*', text)
     if m:
         return 1, m.group(0)
 
-    # Level 2: 1）2）... 或 (1)(2)...（无左括号）
-    m = re.match(r'^(\d+)[）)]\s*', text)
+    # Level 2: （1）（2）... （阿拉伯数字带括号 → 映射为 "（1）"）
+    m = re.match(r'^[（(](\d+)[）)]\s*', text)
     if m:
         return 2, m.group(0)
+
+    # Level 3: 1）2）... （无左括号）
+    m = re.match(r'^(\d+)[）)]\s*', text)
+    if m:
+        return 3, m.group(0)
 
     # 数字编号：1. 2. 3... 或 1.1 1.2...
     m = re.match(r'^(\d+\.\d+|\d+[.、])\s*', text)
@@ -170,10 +180,16 @@ def detect_numbering_structure(doc: Document, format_type: str) -> list[tuple[in
             if format_type == 'chinese':
                 level, sub_matched = detect_chinese_sublevel(text, has_level1_heading)
                 if level is not None:
-                    if level == 1:
+                    # 只有（一）型子标题才设置 has_level1_heading
+                    is_subheading = level == 1 and sub_matched and sub_matched[0] in '（('
+                    if is_subheading:
                         has_level1_heading = True
                     numbered_paras.append((i, level, sub_matched, text))
-                    prev_level = level
+                    # （一）型子标题后的无编号段落应为下一级（level + 1）
+                    if is_subheading:
+                        prev_level = level + 1
+                    else:
+                        prev_level = level
                     continue  # ← 成功匹配编号，跳过后续所有检查
             else:
                 level, sub_matched = detect_decimal_sublevel(text)

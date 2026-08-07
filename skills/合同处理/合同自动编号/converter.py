@@ -361,12 +361,12 @@ def verify_numbering(doc: Document, numbered_paras: list[tuple[int, int, str, st
     # 运行增强审计（优先使用，更强的可靠性）
     audit_report = None
     if original_doc is not None:
-        audit_report = audit_completeness(original_doc, doc, format_type)
-        # 审计报告优先：即使 basic verifictin 说 "all_valid"，
-        # 只要审计发现遗漏，就覆盖为 not valid
+        audit_report = audit_completeness(original_doc, doc, format_type, numbered_paras=numbered_paras)
+        # 审计报告优先：即使 basic verification 说 "all_valid"，
+        # 只要审计发现遗漏或层级问题，就覆盖为 not valid
         if not audit_report.all_clear:
             all_valid = False
-            logger.warning("审计发现遗漏，recommend review:\n%s", audit_report.summary)
+            logger.warning("审计发现问题，recommend review:\n%s", audit_report.summary)
 
     return {
         'all_valid': all_valid,

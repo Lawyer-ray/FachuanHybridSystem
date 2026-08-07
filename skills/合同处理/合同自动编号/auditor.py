@@ -44,6 +44,7 @@ class AuditReport(NamedTuple):
     missed_paras: list[ParagraphAudit]  # 遗漏的段落
     mismatch_paras: list[ParagraphAudit]  # 编号不匹配段落
     sequence_gaps: list[dict]  # 编号序列缺口
+    hierarchy_issues: list[dict]  # 层级结构问题
     all_clear: bool  # 是否全部通过
     summary: str  # AI 友好的摘要文本
 
@@ -149,18 +150,73 @@ def _detect_sequence_gaps(original_doc: Document) -> list[dict]:
     return gaps
 
 
-def audit_completeness(original_doc: Document, output_doc: Document, format_type: str) -> AuditReport:
+def validate_hierarchy(numbered_paras: list[tuple[int, int, str, str]]) -> list[dict]:
+    """验证编号层级结构的合理性
+
+    检查规则：
+    - （一）型子标题（level 1，matched 以（开头）后的无编号段落应在 level 2
+    - 如果子标题后的段落仍在 level 1，标记为层级错误
+
+    Args:
+        numbered_paras: 编号段落列表 (para_idx, level, matched, text)
+
+    Returns:
+        层级问题列表，每项含 para_idx, heading_idx, issue, text
+    """
+    issues = []
+
+    for i, (para_idx, level, matched, text) in enumerate(numbered_paras):
+        # 检测（一）型子标题（level 1，matched 以（或(开头）
+        is_subheading = level == 1 and matched and matched[0] in '（('
+
+        if not is_subheading:
+            continue
+
+        # 检查后续段落，直到遇到下一个同级或更高级标题
+        for j in range(i + 1, len(numbered_paras)):
+            next_idx, next_level, next_matched, next_text = numbered_paras[j]
+
+            # 遇到更高级别标题（level 更小），停止检查
+            if next_level < level:
+                break
+
+            # 遇到同级子标题（有编号前缀），停止检查
+            if next_level == level and next_matched:
+                break
+
+            # 同级无编号内容段落 → 层级错误（应在 level+1）
+            if next_level == level and not next_matched:
+                issues.append({
+                    'para_idx': next_idx,
+                    'heading_idx': para_idx,
+                    'heading_text': text[:50],
+                    'issue': f'段落在子标题"{text[:30]}"之后，'
+                             f'但层级相同（L{level}），应为 L{level + 1}',
+                    'text': next_text[:50],
+                })
+
+    return issues
+
+
+def audit_completeness(
+    original_doc: Document,
+    output_doc: Document,
+    format_type: str,
+    numbered_paras: list[tuple[int, int, str, str]] | None = None,
+) -> AuditReport:
     """审计输出文档的编号完整性
 
     核心检查项：
     1. 原文件中所有带编号前缀的段落，输出文件中是否都有自动编号
     2. 输出中有自动编号的段落，文本是否与原始文档一致（编号前缀被替换为自动编号）
     3. 编号序列是否连续
+    4. 层级结构是否合理（子标题后的内容应在更深层级）
 
     Args:
         original_doc: 原始文档
         output_doc: 输出文档
         format_type: 编号格式类型
+        numbered_paras: 编号段落列表（可选，用于层级结构验证）
 
     Returns:
         审计报告
@@ -248,9 +304,20 @@ def audit_completeness(original_doc: Document, output_doc: Document, format_type
     sequence_gaps = _detect_sequence_gaps(original_doc)
 
     # ------------------------------------------------------------------
+    # 检查4: 层级结构合理性
+    # ------------------------------------------------------------------
+    hierarchy_issues: list[dict] = []
+    if numbered_paras is not None:
+        hierarchy_issues = validate_hierarchy(numbered_paras)
+
+    # ------------------------------------------------------------------
     # 生成摘要
     # ------------------------------------------------------------------
-    all_clear = len(missed) == 0 and len(mismatched) == 0
+    all_clear = (
+        len(missed) == 0
+        and len(mismatched) == 0
+        and len(hierarchy_issues) == 0
+    )
 
     lines = []
     lines.append(f'审计完成：{len(original_numbered)} 个原文件编号段落，'
@@ -269,6 +336,11 @@ def audit_completeness(original_doc: Document, output_doc: Document, format_type
             for m in mismatched:
                 lines.append(f'   [{m.para_idx}] {m.output_text[:50]}')
 
+        if hierarchy_issues:
+            lines.append(f'⚠ 层级结构 {len(hierarchy_issues)} 处问题（子标题后内容层级错误）：')
+            for h in hierarchy_issues:
+                lines.append(f'   [{h["para_idx"]}] {h["issue"]}: {h["text"]}')
+
     if sequence_gaps:
         lines.append(f'ℹ 编号序列 {len(sequence_gaps)} 处可能不连续：')
         for g in sequence_gaps:
@@ -282,6 +354,7 @@ def audit_completeness(original_doc: Document, output_doc: Document, format_type
         missed_paras=missed,
         mismatch_paras=mismatched,
         sequence_gaps=sequence_gaps,
+        hierarchy_issues=hierarchy_issues,
         all_clear=all_clear,
         summary=summary,
     )
