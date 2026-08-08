@@ -472,6 +472,78 @@ class TestConfirmImportValidation:
 
 
 # ---------------------------------------------------------------------------
+# _auto_detect_supervision_card（同步→检测监督卡 串联）
+# ---------------------------------------------------------------------------
+
+class TestAutoDetectSupervisionCard:
+    """测试同步导入后自动检测监督卡。"""
+
+    def test_found_returns_triggered_and_count(self):
+        """检测到监督卡时返回 triggered=True, found=True, extracted_count=1。"""
+        svc = _make_service()
+        with (
+            patch(
+                "apps.contracts.services.contract.integrations.folder_scan_service.Contract"
+            ) as mock_contract_cls,
+            patch(
+                "apps.contracts.services.archive.supervision_card_extractor.SupervisionCardExtractor"
+            ) as mock_extractor_cls,
+        ):
+            mock_contract_cls.objects.get.return_value = MagicMock()
+            mock_extractor_cls.return_value.detect_and_extract.return_value = {
+                "found": True,
+                "page_number": 3,
+                "material_id": 99,
+                "error": None,
+            }
+            result = svc._auto_detect_supervision_card(contract_id=1)
+            assert result["triggered"] is True
+            assert result["found"] is True
+            assert result["extracted_count"] == 1
+
+    def test_not_found_returns_triggered_no_extract(self):
+        """未检测到监督卡时返回 triggered=True, found=False。"""
+        svc = _make_service()
+        with (
+            patch(
+                "apps.contracts.services.contract.integrations.folder_scan_service.Contract"
+            ) as mock_contract_cls,
+            patch(
+                "apps.contracts.services.archive.supervision_card_extractor.SupervisionCardExtractor"
+            ) as mock_extractor_cls,
+        ):
+            mock_contract_cls.objects.get.return_value = MagicMock()
+            mock_extractor_cls.return_value.detect_and_extract.return_value = {
+                "found": False,
+                "page_number": None,
+                "material_id": None,
+                "error": "未检测到",
+            }
+            result = svc._auto_detect_supervision_card(contract_id=1)
+            assert result["triggered"] is True
+            assert result["found"] is False
+            assert result["extracted_count"] == 0
+
+    def test_exception_returns_not_triggered(self):
+        """OCR 异常时返回 triggered=False，不影响导入。"""
+        svc = _make_service()
+        with (
+            patch(
+                "apps.contracts.services.contract.integrations.folder_scan_service.Contract"
+            ) as mock_contract_cls,
+            patch(
+                "apps.contracts.services.archive.supervision_card_extractor.SupervisionCardExtractor"
+            ) as mock_extractor_cls,
+        ):
+            mock_contract_cls.objects.get.side_effect = RuntimeError("DB error")
+            mock_extractor_cls.return_value.detect_and_extract.return_value = {"found": False}
+            result = svc._auto_detect_supervision_card(contract_id=1)
+            assert result["triggered"] is False
+            assert result["found"] is False
+            assert result["extracted_count"] == 0
+
+
+# ---------------------------------------------------------------------------
 # run_contract_folder_scan_task (module function)
 # ---------------------------------------------------------------------------
 

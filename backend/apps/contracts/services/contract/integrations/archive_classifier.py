@@ -570,8 +570,9 @@ def _get_db_learned_rules(archive_category: str) -> list[tuple[str, str]]:
             from apps.contracts.models import ArchiveClassificationRule
 
             # 先查询，成功后再更新缓存，避免查询失败时丢失旧缓存
+            # 按 hit_count 降序排列，高频规则优先匹配
             new_cache: dict[str, list[tuple[str, str]]] = {}
-            for cat, kw, code in ArchiveClassificationRule.objects.values_list(
+            for cat, kw, code in ArchiveClassificationRule.objects.order_by("-hit_count").values_list(
                 "archive_category", "filename_keyword", "archive_item_code"
             ):
                 if cat not in new_cache:
