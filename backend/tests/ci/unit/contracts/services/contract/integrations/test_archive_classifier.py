@@ -27,7 +27,6 @@ from apps.contracts.services.contract.integrations.archive_classifier import (
     reload_learned_code_rules,
 )
 
-
 # ============================================================
 # _normalize_for_match
 # ============================================================
@@ -164,6 +163,326 @@ class TestClassifyArchiveMaterial:
         assert result["confidence"] == 0.0
         assert "未匹配" in result["archive_item_name"]
 
+
+# ============================================================
+# 真实归档文件名模式匹配测试
+# 基于已归档合同中用户手动上传的文件名模式
+# 使用 monkeypatch 隔离学习规则，只测试硬编码规则
+# ============================================================
+
+
+class TestRealArchiveFilenamesLitigation:
+    """测试诉讼类归档合同中真实文件名的匹配。"""
+
+    @pytest.fixture(autouse=True)
+    def _isolate_hardcoded_rules(self, monkeypatch):
+        monkeypatch.setattr(
+            "apps.contracts.services.contract.integrations.archive_classifier._LEARNED_CODE_RULES",
+            {},
+        )
+        monkeypatch.setattr(
+            "apps.contracts.services.contract.integrations.archive_classifier._match_by_db_learned_rules",
+            lambda *args, **kwargs: None,
+        )
+
+    def test_authorization_with_practice_license(self):
+        """执业证应匹配到授权委托材料。"""
+        result = classify_archive_material(
+            filename="1.1-张三执业证_20220627.pdf",
+            source_path="/contracts/case1",
+            archive_category="litigation",
+        )
+        assert result["archive_item_code"] == "lt_20"
+
+    def test_authorization_with_legal_rep_certificate(self):
+        """法定代表人身份证明书应匹配到授权委托材料。"""
+        result = classify_archive_material(
+            filename="7-法定代表人身份证明书_某某机械有限公司_V1_2023.12.28.pdf",
+            source_path="/contracts/case1",
+            archive_category="litigation",
+        )
+        assert result["archive_item_code"] == "lt_20"
+
+    def test_authorization_with_business_license(self):
+        """营业执照应匹配到授权委托材料。"""
+        result = classify_archive_material(
+            filename="营业执照_某某科技有限公司.pdf",
+            source_path="/contracts/case1",
+            archive_category="litigation",
+        )
+        assert result["archive_item_code"] == "lt_20"
+
+    def test_complaint_with_number_prefix(self):
+        """数字前缀的起诉状应匹配到起诉书项。"""
+        result = classify_archive_material(
+            filename="1-起诉状_李四诉王五民间借贷纠纷案_V2_20250616.pdf",
+            source_path="/contracts/case1",
+            archive_category="litigation",
+        )
+        assert result["archive_item_code"] == "lt_7"
+
+    def test_evidence_list_with_prefix(self):
+        """起诉证据清单应匹配到调查材料项（非起诉书项）。"""
+        result = classify_archive_material(
+            filename="3-起诉证据清单_李四诉王五民间借贷纠纷案_V1_20250623.pdf",
+            source_path="/contracts/case1",
+            archive_category="litigation",
+        )
+        assert result["archive_item_code"] == "lt_10"
+
+    def test_evidence_detail(self):
+        """证据明细应匹配到调查材料项。"""
+        result = classify_archive_material(
+            filename="证据明细_李四与王五民间借贷纠纷_20250623.pdf",
+            source_path="/contracts/case1",
+            archive_category="litigation",
+        )
+        assert result["archive_item_code"] == "lt_10"
+
+    def test_preservation_application(self):
+        """财产保全申请书应匹配到保全申请项。"""
+        result = classify_archive_material(
+            filename="3-财产保全申请书_赵六诉某某建设_V1_2024.01.02.pdf",
+            source_path="/contracts/case1",
+            archive_category="litigation",
+        )
+        assert result["archive_item_code"] == "lt_11"
+
+    def test_judgment_with_date_suffix(self):
+        """带日期后缀的判决书应匹配到判决书项。"""
+        result = classify_archive_material(
+            filename="判决书_赵六诉某某建设_2024.07.16收.pdf",
+            source_path="/contracts/case1",
+            archive_category="litigation",
+        )
+        assert result["archive_item_code"] == "lt_17"
+
+    def test_civil_judgment(self):
+        """民事判决书应匹配到判决书项。"""
+        result = classify_archive_material(
+            filename="民事判决书_2022_粤0101民初12345号.pdf",
+            source_path="/contracts/case1",
+            archive_category="litigation",
+        )
+        assert result["archive_item_code"] == "lt_17"
+
+    def test_mediation_agreement(self):
+        """调解书应匹配到判决书项。"""
+        result = classify_archive_material(
+            filename="调解书_李四诉王五案_20250828收.pdf",
+            source_path="/contracts/case1",
+            archive_category="litigation",
+        )
+        assert result["archive_item_code"] == "lt_17"
+
+    def test_withdrawal_ruling(self):
+        """撤诉裁定应匹配到判决书项。"""
+        result = classify_archive_material(
+            filename="撤诉裁定_甲方诉乙方案件_20260331收.pdf",
+            source_path="/contracts/case1",
+            archive_category="litigation",
+        )
+        assert result["archive_item_code"] == "lt_17"
+
+    def test_sealing_ruling(self):
+        """查封裁定应匹配到保全申请项（lt_11 排在 lt_17 之前）。"""
+        result = classify_archive_material(
+            filename="查封裁定_甲方与乙方案_2024.3.4.pdf",
+            source_path="/contracts/case1",
+            archive_category="litigation",
+        )
+        assert result["archive_item_code"] == "lt_11"
+
+    def test_court_summon(self):
+        """传票应匹配到出庭通知书项。"""
+        result = classify_archive_material(
+            filename="传票_某某机械案件10.11_开庭_2024.08.08收.pdf",
+            source_path="/contracts/case1",
+            archive_category="litigation",
+        )
+        assert result["archive_item_code"] == "lt_14"
+
+    def test_court_notice(self):
+        """开庭通知应匹配到出庭通知书项。"""
+        result = classify_archive_material(
+            filename="开庭通知_1.pdf",
+            source_path="/contracts/case1",
+            archive_category="litigation",
+        )
+        assert result["archive_item_code"] == "lt_14"
+
+    def test_acceptance_notice(self):
+        """受理通知书应匹配到保全申请项（非调查材料项）。"""
+        result = classify_archive_material(
+            filename="受理通知书_赵六诉某某建设_2024.01.02.pdf",
+            source_path="/contracts/case1",
+            archive_category="litigation",
+        )
+        assert result["archive_item_code"] == "lt_11"
+
+    def test_invoice_file(self):
+        """发票应匹配到收费凭证项。"""
+        result = classify_archive_material(
+            filename="发票_钱七购房合同案_第5张__2024.3.19.pdf",
+            source_path="/contracts/case1",
+            archive_category="litigation",
+        )
+        assert result["archive_item_code"] == "lt_5"
+
+    def test_investigation_record(self):
+        """调查笔录应匹配到调查材料项。"""
+        result = classify_archive_material(
+            filename="周九调查笔录.pdf",
+            source_path="/contracts/case1",
+            archive_category="litigation",
+        )
+        assert result["archive_item_code"] == "lt_10"
+
+
+class TestRealArchiveFilenamesCriminal:
+    """测试刑事类归档合同中真实文件名的匹配。"""
+
+    @pytest.fixture(autouse=True)
+    def _isolate_hardcoded_rules(self, monkeypatch):
+        monkeypatch.setattr(
+            "apps.contracts.services.contract.integrations.archive_classifier._LEARNED_CODE_RULES",
+            {},
+        )
+        monkeypatch.setattr(
+            "apps.contracts.services.contract.integrations.archive_classifier._match_by_db_learned_rules",
+            lambda *args, **kwargs: None,
+        )
+
+    def test_criminal_judgment(self):
+        """刑事判决书应匹配到裁定书、判决书项。"""
+        result = classify_archive_material(
+            filename="刑事判决书_孙八涉嫌危险驾驶罪案件_20260416收_1.pdf",
+            source_path="/contracts/case1",
+            archive_category="criminal",
+        )
+        assert result["archive_item_code"] == "cr_14"
+
+    def test_defense_opinion(self):
+        """辩护意见应匹配到辩护词项。"""
+        result = classify_archive_material(
+            filename="辩护意见_孙八涉嫌醉驾案件_V1_20260413.pdf",
+            source_path="/contracts/case1",
+            archive_category="criminal",
+        )
+        assert result["archive_item_code"] == "cr_12"
+
+    def test_meeting_record(self):
+        """律师会见笔录应匹配到会见笔录项。"""
+        result = classify_archive_material(
+            filename="律师会见笔录_孙八案件_V1_20260202.pdf",
+            source_path="/contracts/case1",
+            archive_category="criminal",
+        )
+        assert result["archive_item_code"] == "cr_7"
+
+    def test_authorization_criminal(self):
+        """授权委托书应匹配到授权委托材料项。"""
+        result = classify_archive_material(
+            filename="授权委托书_孙八_孙八醉驾一案_V1_20260202.pdf",
+            source_path="/contracts/case1",
+            archive_category="criminal",
+        )
+        assert result["archive_item_code"] == "cr_18"
+
+    def test_indictment_with_plea_negotiation(self):
+        """认罪认罚起诉书应匹配到起诉书项。"""
+        result = classify_archive_material(
+            filename="起诉书_认罪认罚案件适用_自然人犯罪案件_.PDF-1_1.pdf",
+            source_path="/contracts/case1",
+            archive_category="criminal",
+        )
+        assert result["archive_item_code"] == "cr_11"
+
+
+class TestRealArchiveFilenamesNonLitigation:
+    """测试非诉类归档合同中真实文件名的匹配。"""
+
+    @pytest.fixture(autouse=True)
+    def _isolate_hardcoded_rules(self, monkeypatch):
+        monkeypatch.setattr(
+            "apps.contracts.services.contract.integrations.archive_classifier._LEARNED_CODE_RULES",
+            {},
+        )
+        monkeypatch.setattr(
+            "apps.contracts.services.contract.integrations.archive_classifier._match_by_db_learned_rules",
+            lambda *args, **kwargs: None,
+        )
+
+    def test_authorization_non_litigation(self):
+        """授权委托书应匹配到授权委托材料项。"""
+        result = classify_archive_material(
+            filename="1-_签字版_授权委托书-钱七案.pdf",
+            source_path="/contracts/case1",
+            archive_category="non_litigation",
+        )
+        assert result["archive_item_code"] == "nl_12"
+
+    def test_suo_letter_non_litigation(self):
+        """所函应匹配到授权委托材料项。"""
+        result = classify_archive_material(
+            filename="5-所函_某某机械有限公司_V1_2024.1.2.pdf",
+            source_path="/contracts/case1",
+            archive_category="non_litigation",
+        )
+        assert result["archive_item_code"] == "nl_12"
+
+    def test_practice_license_non_litigation(self):
+        """执业证应匹配到授权委托材料项。"""
+        result = classify_archive_material(
+            filename="1.1-张三执业证_20220627.pdf",
+            source_path="/contracts/case1",
+            archive_category="non_litigation",
+        )
+        assert result["archive_item_code"] == "nl_12"
+
+    def test_legal_rep_certificate_non_litigation(self):
+        """法定代表人身份证明书应匹配到授权委托材料项。"""
+        result = classify_archive_material(
+            filename="7-法定代表人身份证明书_某某机械有限公司_V1_2023.12.28.pdf",
+            source_path="/contracts/case1",
+            archive_category="non_litigation",
+        )
+        assert result["archive_item_code"] == "nl_12"
+
+    def test_business_license_non_litigation(self):
+        """营业执照应匹配到授权委托材料项。"""
+        result = classify_archive_material(
+            filename="营业执照_某某科技有限公司.pdf",
+            source_path="/contracts/case1",
+            archive_category="non_litigation",
+        )
+        assert result["archive_item_code"] == "nl_12"
+
+    def test_invoice_non_litigation(self):
+        """发票应匹配到收费凭证项。"""
+        result = classify_archive_material(
+            filename="发票_某某不锈钢有限公司及关联公司常年法律顾问服务项目_2024-2025.pdf",
+            source_path="/contracts/case1",
+            archive_category="non_litigation",
+        )
+        assert result["archive_item_code"] == "nl_5"
+
+    def test_lawyer_letter_non_litigation(self):
+        """律师函应匹配到法律意见书、律师函等项。"""
+        result = classify_archive_material(
+            filename="律师函_委托人委托律师发给对方_20260101发出_20260105签收.pdf",
+            source_path="/contracts/case1",
+            archive_category="non_litigation",
+        )
+        assert result["archive_item_code"] == "nl_8"
+
+
+# ============================================================
+# 学习规则匹配测试
+# ============================================================
+
+
+class TestLearnedRulesMatch:
     @patch(
         "apps.contracts.services.contract.integrations.archive_classifier._LEARNED_CODE_RULES",
         {"litigation": {"lt_15": ["律师代理词"]}},
