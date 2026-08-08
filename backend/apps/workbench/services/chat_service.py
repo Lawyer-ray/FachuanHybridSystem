@@ -269,11 +269,14 @@ async def _handle_stream_event(event: Any, event_queue: Any, agent_name: str) ->
         if result_content is not None and hasattr(result_content, "content"):
             result_content = result_content.content
         result_str = str(result_content) if result_content else ""
+        # pydantic-ai 2.0: FunctionToolResultEvent.result 被移除，
+        # tool_call_id 直接在 event 上，tool_name 从 part 获取
+        tool_name = getattr(event.part, "tool_name", "") or ""
         await event_queue.put(
             {
                 "type": "tool_result",
-                "tool_call_id": event.result.tool_call_id,
-                "name": event.result.tool_name,
+                "tool_call_id": event.tool_call_id,
+                "name": tool_name,
                 "result": result_str[:2000],
             }
         )
@@ -528,8 +531,9 @@ class WorkbenchChatService:
                                     await event_queue.put({"type": "delta", "content": output})
 
                             # 追踪 token 用量
-                            if run.result and run.result.usage():
-                                usage = run.result.usage()
+                            # pydantic-ai 2.0: usage 从方法变为属性
+                            if run.result and run.result.usage:
+                                usage = run.result.usage
                                 deps.prompt_tokens = usage.input_tokens or 0
                                 deps.completion_tokens = usage.output_tokens or 0
                                 deps.total_tokens = usage.total_tokens or 0

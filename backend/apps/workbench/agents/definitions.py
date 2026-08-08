@@ -6,7 +6,7 @@
 - contract_agent: 合同管理
 - research_agent: 法律检索
 
-所有 Agent 共享同一个 MCPServerStdio 实例（进程复用）。
+所有 Agent 共享同一个 MCPToolset 实例（进程复用）。
 """
 
 from __future__ import annotations
@@ -21,9 +21,10 @@ from typing import Any
 
 import httpx
 import tenacity
+from fastmcp.client import Client
 from pydantic_ai import Agent, ConcurrencyLimiter, RunContext, Tool, limit_model_concurrency
 from pydantic_ai.capabilities.instrumentation import Instrumentation
-from pydantic_ai.mcp import MCPServerStdio
+from pydantic_ai.mcp import MCPToolset, StdioTransport
 from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.profiles.openai import OpenAIModelProfile
 from pydantic_ai.providers.openai import OpenAIProvider
@@ -214,12 +215,17 @@ def build_model(model_name: str) -> OpenAIChatModel:
 
 # ─── MCP Server（共享实例，带审批回调） ───────────────────────────────────────
 
-mcp_server = MCPServerStdio(
-    sys.executable,
+# pydantic-ai 2.0：MCPServerStdio 被 MCPToolset + StdioTransport + fastmcp.Client 替代。
+# MCPToolset 第一个参数是 fastmcp.Client（pre-built），process_tool_call 通过关键字传入。
+# timeout 传给 Client（read_timeout），init_timeout 用默认值 5s。
+_mcp_transport = StdioTransport(
+    command=sys.executable,
     args=["-m", "mcp_server"],
     cwd=BACKEND_DIR,
-    tool_prefix="",
-    timeout=30,
+)
+_mcp_client = Client(_mcp_transport, timeout=30)
+mcp_server = MCPToolset(
+    _mcp_client,
     process_tool_call=_process_tool_call,
 )
 
