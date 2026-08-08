@@ -39,7 +39,7 @@ dependencies = [
     "openpyxl==3.1.5",
     "xlrd>=2.0.1",
     # --- 图像处理 ---
-    "opencv-python-headless==4.13.0.92",
+    "opencv-python-headless==5.0.0.93",
     "Pillow==12.3.0",
     # --- OCR ---
     "rapidocr==3.9.2",
