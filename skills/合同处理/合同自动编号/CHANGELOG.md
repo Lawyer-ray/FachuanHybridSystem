@@ -4,6 +4,23 @@
 
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0)，
 
+## [1.5.0] - 2026-08-08
+
+### 新增
+
+- **AI 辅助模式**：新增 `analyze_document()` 和 `apply_numbering_map()` 两个函数
+  - `analyze_document()`：提取文档段落结构，输出 JSON（含段落索引、文本、编号前缀、是否一级标题、是否签名区）
+  - `apply_numbering_map()`：接收 AI 生成的层级映射 JSON，直接应用 Word 自动编号
+  - CLI 支持 `--analyze` 和 `--apply-map <map.json>` 参数
+  - 适用于正则难以处理的复杂编号格式（如 `1、` 既是子标题又是内容段落的场景）
+  - AI 通过语义理解判断层级，不依赖正则穷举
+
+### 变更
+
+- 版本号：`1.4.0` → `1.5.0`
+- CLI 默认格式改为 `chinese`（原先需要手动指定或交互选择）
+- README 新增 AI 辅助模式使用说明
+
 ## [1.4.0] - 2026-08-07
 
 ### 修复

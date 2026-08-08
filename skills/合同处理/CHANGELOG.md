@@ -4,6 +4,31 @@
 
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)，
 
+## [1.5.0] - 2026-08-08
+
+### 新增
+
+- 合同自动编号 skill v1.5.0
+  - AI 辅助模式：`analyze_document()` 提取段落结构 JSON，`apply_numbering_map()` 接收 AI 层级映射
+  - CLI 支持 `--analyze` 和 `--apply-map` 参数
+  - 适用于正则难以处理的复杂编号格式（如 `1、` 既是子标题又是内容段落）
+
+## [1.4.0] - 2026-08-07
+
+### 修复
+
+- 合同自动编号 skill v1.4.0
+  - 修复 `（一）` 子标题后内容段落层级平铺 bug
+  - 新增 `validate_hierarchy()` 层级结构验证函数
+
+## [1.3.0] - 2026-08-06
+
+### 修复
+
+- 合同自动编号 skill v1.3.0
+  - 修复签名关键词误触发致命 bug
+  - 新增 auditor 审计模块
+
 ## [1.2.0] - 2026-08-01
 
 ### 新增
