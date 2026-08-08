@@ -1182,10 +1182,13 @@
             "case_types": [
                 "civil",
                 "administrative",
-                "execution"
+                "criminal",
+                "execution",
+                "bankruptcy",
+                "all"
             ],
             "case_stages": [
-                "first_trial"
+                "all"
             ],
             "legal_statuses": [
                 "plaintiff",
@@ -1403,6 +1406,16 @@
             "document_template_name": "所函",
             "folder_template_name": "民事二审上诉",
             "folder_node_id": "folder_1785568721970_7lknbi9s"
+        },
+        {
+            "document_template_name": "东莞第三法院账户确认书",
+            "folder_template_name": "民事一审起诉",
+            "folder_node_id": "folder_1767234166134_ap83tlcct"
+        },
+        {
+            "document_template_name": "东莞第三法院账户确认书",
+            "folder_template_name": "申请执行文件夹",
+            "folder_node_id": "folder_1774250377879_1tztdlni"
         }
     ]
 }

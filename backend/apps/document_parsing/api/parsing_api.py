@@ -6,6 +6,7 @@ from pathlib import Path
 from asgiref.sync import sync_to_async
 from django.conf import settings
 from django.core.files.storage import default_storage
+from django.http import HttpRequest
 from ninja import File, Router, UploadedFile
 
 from apps.core.security.auth import JWTOrSessionAuth
@@ -26,18 +27,21 @@ router = Router()
 # 内部工具
 # ---------------------------------------------------------------------------
 
-_ASYNC_BACKENDS = {"mineru"}
-"""需要异步执行的后端集合 —— MinerU 含 HTTP 上传 + 轮询，阻塞时间长。"""
-
 
 def _needs_async(backend: str) -> bool:
     """判断是否需要异步执行。
 
-    当 backend 为 "auto" 时，如果 auto 解析最终会走 mineru 也需要异步，
-    但这里无法预知 auto 选择结果，保守起见 auto 走同步（如果选到 mineru
-    仍然由 mineru_backend 内部处理，最多阻塞）。只有显式指定 mineru 时才异步。
+    通过查询后端的 requires_async_execution 属性决定（后端自描述能力），
+    而非在此处硬编码后端名称集合。auto 模式会先解析出实际后端再查询。
+
+    Args:
+        backend: 后端名称（mineru / textin / local / auto）
+
+    Returns:
+        True 表示该后端需要异步执行（云端含 HTTP 上传 + 轮询）
     """
-    return backend in _ASYNC_BACKENDS
+    parser = get_document_parser(backend=backend)
+    return getattr(parser, "requires_async_execution", False)
 
 
 def _save_upload(file: UploadedFile) -> tuple[str, Path]:
@@ -46,6 +50,39 @@ def _save_upload(file: UploadedFile) -> tuple[str, Path]:
     saved_name = default_storage.save(f"document_parsing/uploads/{file_name}", file)
     file_path = Path(settings.MEDIA_ROOT) / saved_name
     return saved_name, file_path
+
+
+def _form_str(request: HttpRequest, key: str, default: str) -> str:
+    """从 multipart form 字段读取字符串，缺省返回 default。"""
+    val = request.POST.get(key)
+    if val is None:
+        return default
+    val = val.strip()
+    return val if val else default
+
+
+def _form_bool(request: HttpRequest, key: str, default: bool) -> bool:
+    """从 multipart form 字段解析布尔值，缺省返回 default。"""
+    val = request.POST.get(key)
+    if val is None:
+        return default
+    val = val.strip().lower()
+    if val in ("true", "1", "yes", "on"):
+        return True
+    if val in ("false", "0", "no", "off"):
+        return False
+    return default
+
+
+def _form_int(request: HttpRequest, key: str, default: int | None) -> int | None:
+    """从 multipart form 字段解析整数，缺省返回 default。"""
+    val = request.POST.get(key)
+    if val is None:
+        return default
+    val = val.strip()
+    if not val.lstrip("-").isdigit():
+        return default
+    return int(val)
 
 
 # ---------------------------------------------------------------------------
@@ -60,21 +97,23 @@ def _save_upload(file: UploadedFile) -> tuple[str, Path]:
     auth=JWTOrSessionAuth(),
 )
 async def parse_document(
-    request: object, file: UploadedFile = File(...), body: ParseDocumentRequest | None = None
+    request: HttpRequest, file: UploadedFile = File(...), body: ParseDocumentRequest | None = None
 ) -> ParseDocumentResponse:
     """解析上传的文档，返回结构化的解析结果。
 
-    当 backend 显式设为 "mineru" 时，解析在后台异步执行，
+    当 backend 显式设为 "mineru" 或 "textin" 时，解析在后台异步执行，
     立即返回 task_id；客户端可通过 GET /task/{task_id} 轮询结果。
     """
     try:
         saved_name, file_path = await sync_to_async(_save_upload)(file)
         file_name = file.name or "uploaded"
 
-        backend = body.backend if body else "auto"
-        extract_tables = body.extract_tables if body is not None else True
-        extract_images = body.extract_images if body is not None else False
-        return_markdown = body.return_markdown if body is not None else True
+        # 参数解析：multipart 调用从 request.POST 读取（与 admin upload_view 一致），
+        # JSON 调用从 body 读取。form 字段优先，body 其次，默认值兜底。
+        backend = _form_str(request, "backend", body.backend if body else "auto")
+        extract_tables = _form_bool(request, "extract_tables", body.extract_tables if body else True)
+        extract_images = _form_bool(request, "extract_images", body.extract_images if body else False)
+        return_markdown = _form_bool(request, "return_markdown", body.return_markdown if body else True)
 
         # --- 异步路径 ---
         if _needs_async(backend):
@@ -137,17 +176,18 @@ async def parse_document(
     auth=JWTOrSessionAuth(),
 )
 async def extract_text(
-    request: object, file: UploadedFile = File(...), body: ExtractTextRequest | None = None
+    request: HttpRequest, file: UploadedFile = File(...), body: ExtractTextRequest | None = None
 ) -> ExtractTextResponse:
     """提取文档的纯文本内容。
 
-    当 backend 显式设为 "mineru" 时，提取在后台异步执行。
+    当 backend 显式设为 "mineru" 或 "textin" 时，提取在后台异步执行。
     """
     try:
         saved_name, file_path = await sync_to_async(_save_upload)(file)
 
-        backend = body.backend if body else "auto"
-        max_length = body.max_length if body is not None else None
+        # 参数解析：multipart 调用从 request.POST 读取，JSON 调用从 body 读取。
+        backend = _form_str(request, "backend", body.backend if body else "auto")
+        max_length = _form_int(request, "max_length", body.max_length if body else None)
 
         # --- 异步路径 ---
         if _needs_async(backend):
@@ -203,7 +243,7 @@ async def extract_text(
     summary="查询解析任务状态",
     auth=JWTOrSessionAuth(),
 )
-def get_task_status(request: object, task_id: str) -> TaskStatusResponse:
+def get_task_status(request: HttpRequest, task_id: str) -> TaskStatusResponse:
     """查询异步解析任务的状态和结果。
 
     轮询此端点直到 status 为 "success" 或 "failure"，

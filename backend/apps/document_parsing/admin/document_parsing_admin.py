@@ -49,7 +49,7 @@ class DocumentParsingToolAdmin(admin.ModelAdmin):  # pragma: no cover
         return TemplateResponse(request, "admin/document_parsing/documentparsingtool/workbench.html", context)
 
     def upload_view(self, request: HttpRequest) -> HttpResponse:
-        """处理文件上传，调用 MinerU 解析，存储结果"""
+        """处理文件上传，调用所选后端解析，存储结果"""
         if request.method != "POST":
             return HttpResponseRedirect(reverse("admin:document_parsing_documentparsingtool_changelist"))
 
@@ -57,6 +57,9 @@ class DocumentParsingToolAdmin(admin.ModelAdmin):  # pragma: no cover
         if not uploaded_file:
             messages.error(request, "请选择文件")
             return HttpResponseRedirect(reverse("admin:document_parsing_documentparsingtool_changelist"))
+
+        # 从表单读取后端选择（默认 auto，兼容旧表单）
+        backend = request.POST.get("backend", "auto").strip() or "auto"
 
         # 保存文件
         rel_dir = "document_parsing/uploads"
@@ -73,7 +76,7 @@ class DocumentParsingToolAdmin(admin.ModelAdmin):  # pragma: no cover
             status=DocumentParsingTask.Status.PROCESSING,
         )
 
-        # 将解析提交为后台任务，避免阻塞 Admin 请求（MinerU 可能耗时 300s+）
+        # 将解析提交为后台任务，避免阻塞 Admin 请求（云端后端可能耗时 300s+）
         try:
             from apps.core.tasking import submit_task
 
@@ -82,7 +85,7 @@ class DocumentParsingToolAdmin(admin.ModelAdmin):  # pragma: no cover
                 "apps.document_parsing.tasks.execute_parse_document",
                 str(file_path),
                 file_type,
-                "auto",
+                backend,
                 True,  # extract_tables
                 False,  # extract_images
                 True,  # return_markdown,
@@ -90,7 +93,7 @@ class DocumentParsingToolAdmin(admin.ModelAdmin):  # pragma: no cover
                 hook="apps.document_parsing.tasks.document_parsing_hook",
                 timeout=600,
             )
-            messages.success(request, f"文件已上传，正在后台解析：{uploaded_file.name}")
+            messages.success(request, f"文件已上传，正在后台解析（{backend}）：{uploaded_file.name}")
 
         except Exception as e:
             logger.error("提交文档解析后台任务失败: %s - %s", uploaded_file.name, str(e))
@@ -98,7 +101,7 @@ class DocumentParsingToolAdmin(admin.ModelAdmin):  # pragma: no cover
             try:
                 from apps.document_parsing.services import get_document_parser
 
-                parser = get_document_parser()
+                parser = get_document_parser(backend=backend)
                 result = parser.parse_document(
                     file_path=str(file_path),
                     file_type=Path(uploaded_file.name or "uploaded").suffix.lstrip("."),

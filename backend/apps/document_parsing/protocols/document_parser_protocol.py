@@ -1,7 +1,7 @@
 """文档解析 Protocol 接口定义"""
 
-from typing import Protocol, List, Optional, Any
 from dataclasses import dataclass, field
+from typing import Any, Protocol
 
 
 @dataclass
@@ -24,7 +24,7 @@ class ParsedDocument:
     """提取的图片文件路径列表"""
 
     parse_method: str = ""
-    """使用的解析方法（mineru、pymupdf、paddleocr 等）"""
+    """使用的解析方法（mineru、textin、pymupdf 等）"""
 
     layout: dict | None = None
     """文档布局信息（标题、段落、列表等结构）"""
@@ -55,6 +55,10 @@ class IDocumentParserProtocol(Protocol):
 
     任何文档解析后端都应实现此接口。
     """
+
+    # 后端能力声明：是否需要异步执行（含 HTTP 上传 + 轮询，阻塞时间长）
+    # 云端后端（MinerU、TextinParse）应为 True，本地后端（PyMuPDF）为 False
+    requires_async_execution: bool
 
     def parse_document(
         self,

@@ -325,3 +325,6 @@ audit/
 
 # pre-commit config（实际在 backend/，根目录符号链接供 hook 查找）
 .pre-commit-config.yaml
+
+# AI agent instructions
+AGENTS.md

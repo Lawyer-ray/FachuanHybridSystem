@@ -2,7 +2,7 @@
 
 import logging
 from pathlib import Path
-from typing import Any, List, Optional
+from typing import Any
 
 from apps.document_parsing.protocols.document_parser_protocol import ParsedDocument, TextExtractionResult
 
@@ -15,6 +15,9 @@ class LocalBackend:
     使用 PyMuPDF (fitz) 提取文本，必要时使用 OCR。
     作为 MinerU 的 fallback 选项。
     """
+
+    # 后端能力声明：本地解析不涉及网络 I/O，无需异步执行
+    requires_async_execution: bool = False
 
     def __init__(self, **kwargs: Any) -> None:
         """初始化本地后端"""

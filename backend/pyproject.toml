@@ -90,6 +90,7 @@ dependencies = [
     "dropbox>=12.0.0",
     "google-api-python-client>=2.150.0",
     "google-auth>=2.35.0",
+    "xparse-client>=0.3.0",
 ]
 
 [dependency-groups]

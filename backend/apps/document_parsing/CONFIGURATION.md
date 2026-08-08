@@ -1,10 +1,18 @@
 # Document Parsing Service 配置指南
 
+## 支持的解析后端
+
+| 后端 | 标识 | 类型 | 支持格式 | 说明 |
+|------|------|------|----------|------|
+| MinerU | `mineru` | 云端 | PDF/DOC/PPT/Excel/图片 | 通过 MinerU 云 API 解析，默认后端 |
+| TextinParse | `textin` | 云端 | PDF/DOC/图片/OFD/RTF/HTML/CSV/TXT | 通过 TextinParse 云 API（xparse-client SDK）解析，格式覆盖更广 |
+| 本地 | `local` | 本地 | PDF | 使用 PyMuPDF + RapidOCR，无网络依赖 |
+
+云端后端（`mineru` / `textin`）含 HTTP 上传 + 轮询，阻塞时间长，API 层会自动走异步路径（通过后端 `requires_async_execution` 属性判断）。
+
 ## 初始配置步骤
 
 ### 1. 初始化 SystemConfig
-
-运行以下命令初始化文档解析服务的默认配置：
 
 ```bash
 cd /Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend
@@ -12,37 +20,35 @@ source .venv/bin/activate
 python apiSystem/manage.py init_system_config
 ```
 
-这将创建以下配置项（在 http://127.0.0.1:8002/admin/core/systemconfig/ 中可见）：
+将创建以下配置项（在 http://127.0.0.1:8002/admin/core/systemconfig/ 中可见）：
 
 | 配置项 | 默认值 | 说明 |
 |--------|--------|------|
-| `DOCUMENT_PARSING_BACKEND` | `mineru` | 文档解析后端选择 |
-| `MINERU_API_KEY` | (空) | MinerU API Key（**必须配置**） |
-| `MINERU_API_URL` | `https://mineru.net/api/v4/extract/task` | MinerU API 端点 |
-| `MINERU_MODEL_VERSION` | `vlm` | MinerU 模型版本 |
-| `MINERU_RATE_LIMIT_PER_MINUTE` | `60` | 每分钟调用次数限制 |
-| `MINERU_RATE_LIMIT_PER_DAY` | `10000` | 每日调用次数限制 |
-| `MINERU_TASK_TIMEOUT_SECONDS` | `300` | 任务超时时间（秒） |
-| `MINERU_POLL_INTERVAL_SECONDS` | `2` | 结果轮询间隔（秒） |
+| `DOCUMENT_PARSING_BACKEND` | `mineru` | 默认解析后端（mineru / textin / local） |
+| `MINERU_API_KEY` | (空) | MinerU API Key（**使用 mineru 时必须配置**） |
+| `TEXTIN_APP_ID` | (空) | TextinParse App ID（**使用 textin 时必须配置**） |
+| `TEXTIN_SECRET_CODE` | (空) | TextinParse Secret Code（**使用 textin 时必须配置**） |
 
-### 2. 在 Admin 界面配置 API Key
+> 注：MinerU 的 API URL、模型版本、轮询间隔、超时时间等均为后端内部固定常量，无需在 SystemConfig 中配置。
+
+### 2. 在 Admin 界面配置凭证
 
 1. 访问 http://127.0.0.1:8002/admin/core/systemconfig/
-2. 找到 `MINERU_API_KEY` 配置项
-3. 点击编辑，输入你的 MinerU API Key
-4. 保存
+2. 根据选择的后端，编辑对应的凭证配置项：
+   - MinerU：`MINERU_API_KEY`
+   - TextinParse：`TEXTIN_APP_ID` 和 `TEXTIN_SECRET_CODE`
+3. 保存
 
 ### 3. 验证配置
-
-运行以下脚本验证配置是否正确：
 
 ```python
 # 在 Django shell 中测试
 python apiSystem/manage.py shell
 
->>> from apps.core.config.system_config import SystemConfig
->>> print("API Key:", SystemConfig.get("MINERU_API_KEY"))
->>> print("Backend:", SystemConfig.get("DOCUMENT_PARSING_BACKEND"))
+>>> from apps.document_parsing.services import get_document_parser
+>>> parser = get_document_parser(backend="mineru")  # 或 "textin"
+>>> result = parser.parse_document("/path/to/test.pdf")
+>>> print("文本长度:", len(result.text))
 ```
 
 ## 使用示例
@@ -52,14 +58,13 @@ python apiSystem/manage.py shell
 ```python
 from apps.document_parsing.services import get_document_parser
 
-# 自动从 SystemConfig 读取配置
+# 自动从 SystemConfig 读取 DOCUMENT_PARSING_BACKEND
 parser = get_document_parser(backend="auto")
 
-# 解析文档
 result = parser.parse_document(
     file_path="/path/to/document.pdf",
     extract_tables=True,
-    extract_images=True,
+    extract_images=False,
     return_markdown=True,
 )
 
@@ -67,33 +72,34 @@ print(f"文本长度: {len(result.text)}")
 print(f"Markdown:\n{result.markdown[:500]}...")
 ```
 
-### 方式 2：手动指定配置
+### 方式 2：手动指定后端
 
 ```python
 from apps.document_parsing.services import get_document_parser
 
-# 手动指定配置（覆盖 SystemConfig）
-parser = get_document_parser(
-    backend="mineru",
-    api_key="your_api_key",  # pragma: allowlist secret  # 可选，会覆盖 SystemConfig
-    model_version="vlm",     # 可选，会覆盖 SystemConfig
-)
+# 指定 textin 后端（凭证从 SystemConfig 自动读取）
+parser = get_document_parser(backend="textin")
+result = parser.parse_document("/path/to/document.pdf")
 
+# 指定 mineru 后端
+parser = get_document_parser(backend="mineru")
 result = parser.parse_document("/path/to/document.pdf")
 ```
 
 ### 方式 3：通过 REST API
 
 ```bash
-# 解析文档
+# 解析文档（multipart 上传）
 curl -X POST http://localhost:8002/api/v1/document-parsing/parse \
   -H "Authorization: Bearer <your-token>" \
   -F "file=@document.pdf" \
-  -d '{
-    "backend": "auto",
-    "extract_tables": true,
-    "return_markdown": true
-  }'
+  -F "backend=textin" \
+  -F "return_markdown=true"
+
+# 显式指定 mineru/textin 时走异步路径，返回 task_id
+# 用 GET /task/{task_id} 轮询结果
+curl http://localhost:8002/api/v1/document-parsing/task/{task_id} \
+  -H "Authorization: Bearer <your-token>"
 ```
 
 ## 配置管理
@@ -107,96 +113,34 @@ curl -X POST http://localhost:8002/api/v1/document-parsing/parse \
 
 **注意**：修改配置后，新创建的解析器会自动使用新配置。已创建的解析器实例不受影响（配置在初始化时读取）。
 
-### 查看配置
+### 切换默认后端
 
-```python
-from apps.core.config.system_config import SystemConfig
-
-# 查看单个配置
-api_key = SystemConfig.get("MINERU_API_KEY")
-
-# 查看所有文档解析配置
-from apps.core.admin._system_config_data import get_document_parsing_configs
-configs = get_document_parsing_configs()
-for config in configs:
-    print(f"{config['key']}: {SystemConfig.get(config['key'])}")
-```
-
-### 从环境变量同步配置
-
-```bash
-# 设置环境变量
-export MINERU_API_KEY="your_api_key"
-
-# 同步到 SystemConfig
-python apiSystem/manage.py init_system_config --sync-env --force
-```
+将 `DOCUMENT_PARSING_BACKEND` 改为 `textin` / `mineru` / `local`，之后所有 `backend="auto"` 的调用都会使用新后端。
 
 ## 故障排除
 
-### 问题 1：未配置 API Key
+### 未配置凭证
 
-**错误信息**：
 ```
 ValueError: 未配置 MinerU API Key。请在 SystemConfig 中设置 MINERU_API_KEY
+ValueError: 未配置 TextinParse 凭证。请在 SystemConfig 中设置 TEXTIN_APP_ID 和 TEXTIN_SECRET_CODE
 ```
 
-**解决方案**：
-1. 访问 http://127.0.0.1:8002/admin/core/systemconfig/
-2. 找到 `MINERU_API_KEY`，编辑并保存你的 API Key
+按错误提示在 SystemConfig 中配置对应凭证。
 
-### 问题 2：API 调用失败
+### API 调用失败
 
 **检查项**：
-1. API Key 是否正确
-2. 网络是否可以访问 mineru.net
-3. 配置的 API URL 是否正确
+1. 凭证是否正确
+2. 网络是否可访问对应服务（mineru.net / textin 云端）
+3. 文件格式是否在 `get_supported_formats()` 返回的列表中
 
-**调试方法**：
+## 凭证安全
 
-```python
-from apps.document_parsing.services import get_document_parser
-
-try:
-    parser = get_document_parser(backend="mineru")
-    result = parser.parse_document("/path/to/test.pdf")
-    print("成功:", result.text[:100])
-except Exception as e:
-    print("失败:", str(e))
-```
-
-## 高级配置
-
-### 切换到本地后端
-
-如果不想使用 MinerU API，可以切换到本地后端：
-
-```python
-# 在 SystemConfig 中修改
-DOCUMENT_PARSING_BACKEND = "local"
-
-# 或在代码中指定
-parser = get_document_parser(backend="local")
-```
-
-### 混合使用
-
-```python
-# 对于重要文档使用 MinerU
-mineru_parser = get_document_parser(backend="mineru")
-important_result = mineru_parser.parse_document("important.pdf")
-
-# 对于普通文档使用本地后端（免费、快速）
-local_parser = get_document_parser(backend="local")
-normal_result = local_parser.parse_document("normal.pdf")
-```
-
-## API Key 安全
-
-- MinerU API Key 存储在 SystemConfig 中，标记为 `is_secret=True`
+- API Key / App ID / Secret Code 均存储在 SystemConfig 中，标记为 `is_secret=True`
 - 在 Admin 界面中显示为密码字段（隐藏）
 - 不会在日志或错误信息中暴露
-- 建议定期轮换 API Key
+- 建议定期轮换凭证
 
 ## 相关文档
 

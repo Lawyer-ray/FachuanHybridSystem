@@ -1,7 +1,7 @@
 """统一的文档解析服务"""
 
 import logging
-from typing import Any, List, Optional
+from typing import Any
 
 from apps.document_parsing.protocols.document_parser_protocol import (
     IDocumentParserProtocol,
@@ -23,7 +23,7 @@ class DocumentParserService:
         """初始化文档解析服务
 
         Args:
-            backend: 后端类型（mineru、local、paddleocr、auto）
+            backend: 后端类型（mineru、textin、local、auto）
             **kwargs: 传递给后端的参数
         """
         self._backend_name = backend
@@ -38,6 +38,11 @@ class DocumentParserService:
                 **self._kwargs,
             )
         return self._parser
+
+    @property
+    def requires_async_execution(self) -> bool:
+        """代理后端的能力声明，供 API 层判断是否走异步路径"""
+        return getattr(self._get_parser(), "requires_async_execution", False)
 
     def parse_document(
         self,
