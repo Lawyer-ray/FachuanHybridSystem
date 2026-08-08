@@ -7,8 +7,8 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from apps.contracts.services.archive.learning_service import (
-    ArchiveLearningService,
     _DOCUMENT_KEYWORDS,
+    ArchiveLearningService,
     _contains_document_keyword,
     _is_non_keyword_attachment,
     _strip_non_keyword_parts,
@@ -112,8 +112,8 @@ class TestStripNonKeywordParts:
     def test_composite_name_preserved(self) -> None:
         """Composite names should return a keyword part."""
         result = _strip_non_keyword_parts("缴纳保全费通知书")
-        # The function finds the longest matching keyword "通知" in the text
-        # and strips non-keyword parts, so result may be just "通知"
+        # 收紧白名单后"通知"已移除，但"通知书"/"保全费"仍在白名单中
+        # 前缀"缴纳保全费"含关键词"保全费"重叠 → 保留原文
         assert len(result) >= 1
 
     def test_no_keyword_returns_original(self) -> None:
@@ -149,12 +149,12 @@ class TestDocumentKeywords:
         assert "判决书" in _DOCUMENT_KEYWORDS
 
     def test_contains_evidence_keywords(self) -> None:
-        assert "证据" in _DOCUMENT_KEYWORDS
-        assert "调查" in _DOCUMENT_KEYWORDS
+        assert "证据清单" in _DOCUMENT_KEYWORDS
+        assert "调查笔录" in _DOCUMENT_KEYWORDS
 
     def test_contains_archive_keywords(self) -> None:
-        assert "案卷" in _DOCUMENT_KEYWORDS
-        assert "封面" in _DOCUMENT_KEYWORDS
+        assert "案卷封面" in _DOCUMENT_KEYWORDS
+        assert "结案归档" in _DOCUMENT_KEYWORDS
 
     def test_is_tuple(self) -> None:
         assert isinstance(_DOCUMENT_KEYWORDS, tuple)
