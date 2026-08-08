@@ -71,7 +71,7 @@ dependencies = [
     "lxml>=6.1.1",
     "mammoth>=1.12.0",
     "markdown>=3.10.3",
-    "weasyprint>=68.1",
+    "weasyprint==69.0",
     # --- MCP Server ---
     "mcp[cli]>=1.27.0",
     "gmssl==3.2.2",
