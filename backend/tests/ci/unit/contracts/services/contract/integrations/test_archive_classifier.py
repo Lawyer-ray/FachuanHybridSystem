@@ -285,13 +285,13 @@ class TestRealArchiveFilenamesLitigation:
         assert result["archive_item_code"] == "lt_17"
 
     def test_sealing_ruling(self):
-        """查封裁定应匹配到判决书项。"""
+        """查封裁定应匹配到保全申请项（lt_11 排在 lt_17 之前）。"""
         result = classify_archive_material(
             filename="查封裁定_甲方与乙方案_2024.3.4.pdf",
             source_path="/contracts/case1",
             archive_category="litigation",
         )
-        assert result["archive_item_code"] == "lt_17"
+        assert result["archive_item_code"] == "lt_11"
 
     def test_court_summon(self):
         """传票应匹配到出庭通知书项。"""
