@@ -56,7 +56,7 @@ dependencies = [
     "python-dateutil==2.9.0.post0",
     "pyyaml==6.0.3",
     # --- 安全 / 加密 ---
-    "cryptography==48.0.1",
+    "cryptography==50.0.0",
     # --- 可观测性 ---
     "psutil==7.2.2",
     "sentry-sdk>=2.66.1",
