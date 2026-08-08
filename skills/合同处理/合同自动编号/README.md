@@ -8,11 +8,14 @@
 - 支持两种编号格式：
   - **中文格式**：一、1.（1）①
   - **纯数字格式**：1. 1.1 1.1.1 1.1.1.1 1.1.1.1.1
+- **AI 辅助模式**：输出段落结构 JSON，由 AI 判断层级，适合复杂格式合同
 - 智能推断缺失编号
 - 跳过签字盖章部分
 - 输出 Word 自动编号格式
 
 ## 使用方式
+
+### 自动模式（适合格式规范的合同）
 
 ```bash
 # 命令行调用（会询问格式）
@@ -25,6 +28,26 @@ python -m skills.合同处理.合同自动编号 /path/to/document.docx --format
 # 在 Claude 中调用
 /合同自动编号 /path/to/document.docx
 ```
+
+### AI 辅助模式（适合复杂格式合同）
+
+当正则自动检测无法正确识别层级时，使用 AI 辅助模式：
+
+```bash
+# 第一步：分析文档结构，输出 JSON
+python -m skills.合同处理.合同自动编号 /path/to/document.docx --analyze --format chinese
+
+# 第二步：AI 读取 JSON，根据语义理解分配层级（0=一级标题, 1=二级, 2=三级, 3=四级）
+# 生成 numbering_map.json: [{"index": 10, "level": 0}, {"index": 13, "level": 1}, ...]
+
+# 第三步：应用 AI 生成的层级映射
+python -m skills.合同处理.合同自动编号 /path/to/document.docx --apply-map map.json /path/to/output.docx --format chinese
+```
+
+AI 辅助模式的优势：
+- 不依赖正则穷举，通过语义理解判断层级
+- 能正确识别 `1、甲方责任` 是子标题（L1），`1.1、货物到达` 是其子项（L2）
+- 适合各种非标准编号格式的合同
 
 ## 支持的编号格式
 
@@ -75,10 +98,11 @@ python -m skills.合同处理.合同自动编号 /path/to/document.docx --format
 
 ```
 合同自动编号/
-├── __init__.py    # 入口文件，导出 convert_contract_numbering
+├── __init__.py    # 入口文件，导出 convert_contract_numbering / analyze_document / apply_numbering_map
 ├── formats.py     # 格式定义和常量
 ├── detector.py    # 编号检测逻辑
 ├── converter.py   # 编号转换逻辑
+├── auditor.py     # 转换后审计模块
 ├── utils.py       # 工具函数
 └── cli.py         # 命令行入口
 ```

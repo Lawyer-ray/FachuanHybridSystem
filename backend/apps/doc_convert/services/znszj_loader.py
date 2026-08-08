@@ -11,7 +11,7 @@ from typing import Protocol, cast, runtime_checkable
 logger = logging.getLogger(__name__)
 
 # 缓存加载结果，避免重复导入
-_cached_client: ZnszjClientProtocol | None | bool = False  # False 表示未初始化
+_cached_client: ZnszjClientProtocol | bool | None = False  # False 表示未初始化
 
 
 @runtime_checkable
@@ -57,7 +57,7 @@ def get_znszj_client() -> ZnszjClientProtocol | None:
         return _cached_client  # type: ignore[return-value]
 
     try:
-        from plugins import has_doc_convert_plugin  # type: ignore[attr-defined]
+        from plugins import has_doc_convert_plugin
 
         if not has_doc_convert_plugin():
             logger.info("doc_convert 插件未安装，要素式转换功能不可用")
