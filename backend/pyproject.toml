@@ -124,6 +124,8 @@ test = [
     "hypothesis==6.165.1",
     # --- 测试工厂 ---
     "factory-boy==3.3.3",
+    # --- Temporal workflow 测试 ---
+    "temporalio>=1.27.0",
 ]
 
 [tool.uv]
