@@ -41,7 +41,7 @@ python -m skills.合同处理.合同自动编号 /path/to/document.docx
 | Skill | 说明 | 版本 | 状态 |
 |-------|------|------|------|
 | [doc转docx](./doc转docx/) | 将 .doc 转换为 .docx | 1.0.0 | ✅ 可用 |
-| [合同自动编号](./合同自动编号/) | 将手动编号转换为 Word 自动编号 | 1.1.0 | ✅ 可用 |
+| [合同自动编号](./合同自动编号/) | 将手动编号转换为 Word 自动编号 | 1.5.0 | ✅ 可用 |
 | 合同格式调整 | 调整合同格式 | - | 🚧 待实现 |
 | [合同审查](./合同审查/) | 专业合同审查，输出三件套 | 1.0.0 | ✅ 可用 |
 
@@ -61,10 +61,11 @@ python -m skills.合同处理.合同自动编号 /path/to/document.docx
 └── 合同自动编号/           # Step 1: 自动编号
     ├── README.md          # Skill 说明
     ├── CHANGELOG.md       # Skill 变更日志
-    ├── __init__.py        # 入口文件
+    ├── __init__.py        # 入口文件（含 analyze_document / apply_numbering_map）
     ├── formats.py         # 格式定义
     ├── detector.py        # 编号检测
     ├── converter.py       # 编号转换
+    ├── auditor.py         # 转换后审计
     ├── utils.py           # 工具函数
     ├── cli.py             # 命令行入口
     └── __main__.py        # 模块执行入口
