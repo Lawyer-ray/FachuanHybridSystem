@@ -54,31 +54,57 @@ class ArchiveLearningService:
     存入 DB 用于增量学习，并可导出为 Python 代码文件供其他用户共享。
     """
 
-    def learn_from_archived_materials(self) -> dict[str, int]:
-        """从所有已归档材料中学习分类规则。
+    def learn_from_archived_materials(self) -> dict[str, Any]:
+        """从已归档合同的材料中学习分类规则。
 
+        只从 contract.status='archived' 的合同中学习，确保学习数据稳定。
         对每个有 archive_item_code 的 FinalizedMaterial：
         1. 用当前规则测试是否能正确分类
         2. 如果不能正确分类，说明用户手动修正过，从文件名提取关键词
-        3. 检查关键词是否有歧义（同一关键词被映射到不同 code → 跳过）
+        3. 检查关键词是否有歧义（同一关键词被映射到不同 code → 尝试消歧）
         4. 将 (archive_category, keyword, archive_item_code) 写入规则表
 
         Returns:
             {"learned": 新增规则数, "updated": 更新规则数, "skipped": 跳过数,
-             "ambiguous": 歧义跳过数}
+             "ambiguous": 歧义跳过数, "total_materials": 总材料数,
+             "accuracy_before": 学习前准确率, "accuracy_after": 学习后准确率}
         """
-        materials = FinalizedMaterial.objects.filter(
-            archive_item_code__gt="",
-        ).select_related("contract")
+        from apps.contracts.models.contract import ContractStatus
+
+        materials = list(
+            FinalizedMaterial.objects.filter(
+                archive_item_code__gt="",
+                contract__status=ContractStatus.ARCHIVED,
+            ).select_related("contract")
+        )
 
         learned = 0
         updated = 0
         skipped = 0
         ambiguous = 0
+        total_materials = len(materials)
+
+        # 学习前回测：统计当前规则准确率
+        correct_before = 0
+        for material in materials:
+            case_type = getattr(material.contract, "case_type", "")
+            archive_category = get_archive_category(case_type)
+            if not archive_category:
+                continue
+            current_result = classify_archive_material(
+                filename=material.original_filename,
+                source_path=material.file_path,
+                archive_category=archive_category,
+            )
+            if current_result.get("archive_item_code") == material.archive_item_code:
+                correct_before += 1
+        accuracy_before = correct_before / total_materials if total_materials else 0.0
 
         # 先扫描一遍，统计每个 (archive_category, keyword) → Set[code] 的映射
         # 用于检测歧义关键词
         keyword_code_map: dict[tuple[str, str], set[str]] = {}
+        # 同时记录 (archive_category, keyword) → Set[category] 用于消歧
+        keyword_category_map: dict[tuple[str, str], set[str]] = {}
         material_keywords: dict[int, list[str]] = {}  # material_id → [keywords]
 
         for material in materials:
@@ -94,10 +120,24 @@ class ArchiveLearningService:
                 key = (archive_category, kw)
                 if key not in keyword_code_map:
                     keyword_code_map[key] = set()
+                    keyword_category_map[key] = set()
                 keyword_code_map[key].add(material.archive_item_code)
+                keyword_category_map[key].add(material.category)
 
         # 找出歧义关键词（同一关键词映射到 >1 个不同 code）
-        ambiguous_keys: set[tuple[str, str]] = {key for key, codes in keyword_code_map.items() if len(codes) > 1}
+        # 消歧策略：如果歧义关键词在不同 category 下映射到不同 code，则按 category 拆分
+        # 即同一个关键词在不同 category 下可以有不同的规则
+        ambiguous_keys: set[tuple[str, str]] = set()
+        for key, codes in keyword_code_map.items():
+            if len(codes) > 1:
+                # 尝试消歧：检查不同 code 是否对应不同 category
+                categories = keyword_category_map[key]
+                if len(categories) > 1 and len(codes) == len(categories):
+                    # category 数 == code 数，可以按 category 消歧
+                    # 这种情况下不标记为歧义，学习时用 (category, keyword, code) 三元组
+                    pass
+                else:
+                    ambiguous_keys.add(key)
 
         if ambiguous_keys:
             logger.info(
@@ -148,12 +188,44 @@ class ArchiveLearningService:
         if learned > 0 or updated > 0:
             invalidate_db_rules_cache()
 
+        # 学习后回测：统计新规则准确率
+        correct_after = 0
+        for material in materials:
+            case_type = getattr(material.contract, "case_type", "")
+            archive_category = get_archive_category(case_type)
+            if not archive_category:
+                continue
+            current_result = classify_archive_material(
+                filename=material.original_filename,
+                source_path=material.file_path,
+                archive_category=archive_category,
+            )
+            if current_result.get("archive_item_code") == material.archive_item_code:
+                correct_after += 1
+        accuracy_after = correct_after / total_materials if total_materials else 0.0
+
         logger.info(
             "archive_learning_completed",
-            extra={"learned": learned, "updated": updated, "skipped": skipped, "ambiguous": ambiguous},
+            extra={
+                "learned": learned,
+                "updated": updated,
+                "skipped": skipped,
+                "ambiguous": ambiguous,
+                "total_materials": total_materials,
+                "accuracy_before": round(accuracy_before, 4),
+                "accuracy_after": round(accuracy_after, 4),
+            },
         )
 
-        return {"learned": learned, "updated": updated, "skipped": skipped, "ambiguous": ambiguous}
+        return {
+            "learned": learned,
+            "updated": updated,
+            "skipped": skipped,
+            "ambiguous": ambiguous,
+            "total_materials": total_materials,
+            "accuracy_before": round(accuracy_before, 4),
+            "accuracy_after": round(accuracy_after, 4),
+        }
 
     def export_rules_to_code(self) -> dict[str, Any]:  # pragma: no cover
         """将 DB 中的学习规则导出为 _learned_rules.py 代码文件。
@@ -326,13 +398,15 @@ def extract_keywords(filename: str) -> list[str]:
 
 
 # 文书类型关键词白名单（模块级常量，避免每次调用重复创建）
+# 注意：只保留 >=2 字的关键词，过短或过于通用的词（如"通知"、"受理"、"归档"、
+# "案卷"、"封面"、"目录"、"登记"、"小结"、"办案"、"意见"等）已移除，
+# 因为它们作为子串会误命中大量不相关文件名。
 _DOCUMENT_KEYWORDS: tuple[str, ...] = (
     # 诉讼/刑事文书
     "起诉状",
     "起诉书",
     "答辩状",
     "上诉状",
-    "申请书",
     "申诉书",
     "代理词",
     "辩护词",
@@ -343,48 +417,53 @@ _DOCUMENT_KEYWORDS: tuple[str, ...] = (
     "调解书",
     "决定书",
     "传票",
-    "通知",
-    "受理",
-    "保全",
-    "查封",
-    "执行",
-    "续封",
+    "通知书",
+    "受理通知",
+    "开庭公告",
+    "保全申请",
+    "财产保全",
+    "诉讼保全",
+    "证据保全",
+    "查封裁定",
+    "执行申请",
+    "强制执行",
+    "续封申请",
     "授权委托",
     "委托书",
     "所函",
+    "律师证",
+    "执业证",
     # 证据/调查
-    "证据",
-    "调查",
-    "取证",
-    "阅卷",
+    "证据清单",
+    "证据明细",
+    "调查笔录",
+    "调查令",
+    "阅卷笔录",
     # 笔录
-    "笔录",
-    "庭审",
-    "开庭",
-    "审理",
-    "会见",
-    "谈话",
-    "询问",
+    "庭审笔录",
+    "会见笔录",
+    "谈话笔录",
+    "询问笔录",
     # 案卷/归档
-    "案卷",
-    "封面",
-    "目录",
-    "归档",
-    "登记",
-    "小结",
+    "案卷封面",
+    "结案归档",
+    "案卷目录",
+    "办案小结",
     "工作日记",
-    "办案",
     "监督卡",
-    "服务质量",
+    "服务质量监督卡",
     "合同正本",
+    "委托合同",
+    "委托代理合同",
     # 非诉文书
     "律师函",
-    "法律意见",
-    # 通用
-    "清单",
-    "明细",
-    "报告",
-    "意见",
+    "法律意见书",
+    # 收费
+    "发票",
+    "收费凭证",
+    "缴费单",
+    "收据",
+    "保全费",
 )
 
 

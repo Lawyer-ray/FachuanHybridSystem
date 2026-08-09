@@ -61,6 +61,9 @@ class TestArchiveLearningServiceLearnFromArchivedMaterials:
             result = svc.learn_from_archived_materials()
             assert result["learned"] == 0
             assert result["skipped"] == 0
+            assert result["total_materials"] == 0
+            assert result["accuracy_before"] == 0.0
+            assert result["accuracy_after"] == 0.0
 
     def test_material_already_classified_correctly_skipped(self) -> None:
         from apps.contracts.services.archive.learning_service import ArchiveLearningService
@@ -116,6 +119,9 @@ class TestArchiveLearningServiceLearnFromArchivedMaterials:
             patch(
                 "apps.contracts.services.archive.learning_service.ArchiveClassificationRule"
             ) as mock_rule,
+            patch(
+                "apps.contracts.services.archive.learning_service.invalidate_db_rules_cache"
+            ),
         ):
             mock_fm.objects.filter.return_value.select_related.return_value = [material]
             mock_rule.objects.get_or_create.return_value = (MagicMock(), True)
@@ -132,6 +138,7 @@ class TestArchiveLearningServiceLearnFromArchivedMaterials:
         mat1.original_filename = "合同正本.pdf"
         mat1.archive_item_code = "lt_a"
         mat1.file_path = "/a/合同正本.pdf"
+        mat1.category = "case_material"
 
         mat2 = MagicMock()
         mat2.id = 11
@@ -139,6 +146,7 @@ class TestArchiveLearningServiceLearnFromArchivedMaterials:
         mat2.original_filename = "合同正本.pdf"
         mat2.archive_item_code = "lt_b"
         mat2.file_path = "/b/合同正本.pdf"
+        mat2.category = "case_material"
 
         materials = [mat1, mat2]
 
@@ -154,10 +162,50 @@ class TestArchiveLearningServiceLearnFromArchivedMaterials:
                 "apps.contracts.services.archive.learning_service.classify_archive_material",
                 return_value={"archive_item_code": "lt_wrong"},
             ),
+            patch(
+                "apps.contracts.services.archive.learning_service.ArchiveClassificationRule"
+            ) as mock_rule,
+            patch(
+                "apps.contracts.services.archive.learning_service.invalidate_db_rules_cache"
+            ),
         ):
             mock_fm.objects.filter.return_value.select_related.return_value = materials
+            mock_rule.objects.get_or_create.return_value = (MagicMock(), True)
             result = svc.learn_from_archived_materials()
             assert result["ambiguous"] >= 1
+            assert result["total_materials"] == 2
+
+    def test_accuracy_report_fields(self) -> None:
+        """学习结果应包含准确率回测字段。"""
+        from apps.contracts.services.archive.learning_service import ArchiveLearningService
+
+        svc = ArchiveLearningService()
+        material = MagicMock()
+        material.id = 20
+        material.contract.case_type = "civil"
+        material.original_filename = "起诉状.pdf"
+        material.archive_item_code = "lt_7"
+        material.file_path = "/path/起诉状.pdf"
+        material.category = "case_material"
+
+        with (
+            patch(
+                "apps.contracts.services.archive.learning_service.FinalizedMaterial"
+            ) as mock_fm,
+            patch(
+                "apps.contracts.services.archive.learning_service.get_archive_category",
+                return_value="litigation",
+            ),
+            patch(
+                "apps.contracts.services.archive.learning_service.classify_archive_material",
+                return_value={"archive_item_code": "lt_7"},
+            ),
+        ):
+            mock_fm.objects.filter.return_value.select_related.return_value = [material]
+            result = svc.learn_from_archived_materials()
+            assert result["total_materials"] == 1
+            assert result["accuracy_before"] == 1.0
+            assert result["accuracy_after"] == 1.0
 
 
 class TestContainsDocumentKeyword:
@@ -217,12 +265,13 @@ class TestStripNonKeywordParts:
         result = _strip_non_keyword_parts("张三起诉状")
         assert result == "起诉状"
 
-    def test_no_non_keyword_prefix_kept(self) -> None:
+    def test_compound_keyword_kept(self) -> None:
         from apps.contracts.services.archive.learning_service import _strip_non_keyword_parts
 
-        # "缴纳保全费" is a non-keyword prefix; "通知" is the longest match keyword
+        # "缴纳保全费通知书" — "保全费" and "通知书" both in whitelist,
+        # prefix "缴纳保全费" has keyword overlap → preserved as compound keyword
         result = _strip_non_keyword_parts("缴纳保全费通知书")
-        assert result == "通知"
+        assert result == "缴纳保全费通知书"
 
     def test_company_prefix_stripped(self) -> None:
         from apps.contracts.services.archive.learning_service import _strip_non_keyword_parts

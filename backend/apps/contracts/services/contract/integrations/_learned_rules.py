@@ -21,8 +21,7 @@ LEARNED_FILENAME_KEYWORD_TO_ARCHIVE_CODE: dict[str, dict[str, list[str]]] = {
     },
     "litigation": {
         "lt_1": ["案卷封面"],
-        "lt_11": ["受理通知", "通知"],
-        "lt_18": ["办案服务质量监督卡", "合同正本与律师办案服务质量监督卡"],
+        "lt_11": ["受理通知"],
         "lt_19": ["办案小结"],
         "lt_2": ["归档"],
         "lt_3": ["案卷目录"],

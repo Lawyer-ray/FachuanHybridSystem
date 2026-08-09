@@ -211,7 +211,7 @@ class ContractFolderScanService:
         storage_provider: Any | None = None,
     ) -> dict[str, Any]:  # pragma: no cover
         session = self.get_session(contract_id=contract_id, session_id=session_id)
-        return self._import_pipeline.confirm_import(
+        result = self._import_pipeline.confirm_import(
             contract_id=contract_id,
             session=session,
             items=items,
@@ -219,6 +219,35 @@ class ContractFolderScanService:
             storage_provider=storage_provider,
             learn_from_correction_fn=self._learn_from_import_correction,
         )
+
+        # 同步→检测监督卡 串联：导入完成后立即检测合同 PDF 末页监督卡
+        # OCR 失败不影响导入结果（异常被吞，导入数据随外层事务正常提交）
+        supervision_result = self._auto_detect_supervision_card(contract_id)
+        result["supervision_card_detection"] = supervision_result
+        return result
+
+    def _auto_detect_supervision_card(self, contract_id: int) -> dict[str, Any]:
+        """导入完成后自动检测监督卡，失败返回未触发状态。"""
+        try:
+            from apps.contracts.services.archive.supervision_card_extractor import SupervisionCardExtractor
+
+            contract = Contract.objects.get(pk=contract_id)
+            detect_result = SupervisionCardExtractor().detect_and_extract(contract)
+            found = bool(detect_result.get("found"))
+            if found:
+                logger.info(
+                    "supervision_card_auto_detected",
+                    extra={"contract_id": contract_id, "page_number": detect_result.get("page_number")},
+                )
+            return {
+                "triggered": True,
+                "found": found,
+                "extracted_count": 1 if found else 0,
+                "detail": detect_result,
+            }
+        except Exception:
+            logger.exception("supervision_card_auto_detect_failed", extra={"contract_id": contract_id})
+            return {"triggered": False, "found": False, "extracted_count": 0, "error": "检测失败"}
 
     def run_scan_task(self, *, session_id: str) -> None:  # pragma: no cover
         session = ContractFolderScanSession.objects.select_related("contract").filter(id=session_id).first()
