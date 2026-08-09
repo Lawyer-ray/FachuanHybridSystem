@@ -114,8 +114,9 @@ ci-check-full: ## 完整 CI 镜像 + 远端独立 Job（coverage 门槛 + 全量
 	@echo "🧪 [E4] Property-based 测试..."
 	$(TEST_ENV) HYPOTHESIS_PROFILE=default $(PYTEST) tests/ci/property/ -q --no-cov $(ARGS)
 	@echo "📊 [E5] 单元测试覆盖率门槛 (≥85%)..."
-	$(TEST_ENV) $(PYTEST) -c pytest.ini -q -o addopts="" \
-		--reuse-db --import-mode=importlib \
+	$(TEST_ENV) $(PYTEST) -c pytest.ini \
+		-o addopts="--import-mode=importlib -q --tb=short --strict-markers --timeout=60" \
+		--reuse-db \
 		--cov=apps.cases.services.case.case_admin_export_bridge \
 		--cov=apps.cases.services.case.case_contract_export_bridge \
 		--cov=apps.contracts.services.contract.admin_workflows.clone_workflow \
@@ -124,11 +125,12 @@ ci-check-full: ## 完整 CI 镜像 + 远端独立 Job（coverage 门槛 + 全量
 		--cov-report=term-missing --cov-fail-under=85 \
 		tests/ci/unit/
 	@echo "📊 [E6] 全局覆盖率基线 (≥25%)..."
-	$(TEST_ENV) $(PYTEST) -c pytest.ini -o addopts="" \
-		--reuse-db --import-mode=importlib \
+	$(TEST_ENV) $(PYTEST) -c pytest.ini \
+		-o addopts="--import-mode=importlib -q --tb=short --strict-markers --timeout=60" \
+		--reuse-db \
 		--cov=apps \
 		--cov-report=term-missing --cov-fail-under=25 \
-		-q tests/ci/unit/
+		tests/ci/unit/
 	@echo ""
 	@echo "$(GREEN)✅ 完整 CI 镜像 + 扩展检查全部通过!$(NC)"
 

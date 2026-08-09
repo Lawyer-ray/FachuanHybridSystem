@@ -352,8 +352,9 @@ if [ "$RUN_BACKEND" = true ]; then
   if [ "$MODE" = "full" ]; then
     # [16] Unit coverage（对齐 backend-unit-coverage job）
     header "16/22" "单元测试覆盖率 (≥85%)"
-    if $BACKEND_PYTEST -c pytest.ini -q -o addopts="" \
-      --reuse-db --import-mode=importlib \
+    if $BACKEND_PYTEST -c pytest.ini \
+      -o addopts="--import-mode=importlib -q --tb=short --strict-markers --timeout=60" \
+      --reuse-db \
       --cov=apps.cases.services.case.case_admin_export_bridge \
       --cov=apps.cases.services.case.case_contract_export_bridge \
       --cov=apps.contracts.services.contract.admin_workflows.clone_workflow \
@@ -384,11 +385,12 @@ if [ "$RUN_BACKEND" = true ]; then
 
     # [19] Apps coverage（对齐 backend-coverage job）
     header "19/22" "全局覆盖率基线 (≥25%)"
-    if $BACKEND_PYTEST -c pytest.ini -o addopts="" \
-      --reuse-db --import-mode=importlib \
+    if $BACKEND_PYTEST -c pytest.ini \
+      -o addopts="--import-mode=importlib -q --tb=short --strict-markers --timeout=60" \
+      --reuse-db \
       --cov=apps \
       --cov-report=term-missing --cov-fail-under=25 \
-      -q tests/ci/unit/ 2>&1; then
+      tests/ci/unit/ 2>&1; then
       pass "apps-coverage"
     else
       fail "apps-coverage"
