@@ -29,33 +29,6 @@
         margin: 0;
     }
 
-    /* 服务状态 */
-    .service-status {
-        display: flex;
-        align-items: center;
-        padding: 12px 15px;
-        margin-bottom: 20px;
-        background: var(--fc-bg-muted);
-        border: 1px solid var(--fc-border);
-        border-radius: 4px;
-    }
-    .status-dot {
-        width: 10px;
-        height: 10px;
-        border-radius: 50%;
-        margin-right: 10px;
-    }
-    .status-dot.online {
-        background: var(--fc-success-text);
-    }
-    .status-dot.offline {
-        background: var(--fc-error-text);
-    }
-    .status-text {
-        font-size: 14px;
-        color: var(--fc-text-secondary);
-    }
-
     /* 操作按钮 */
     .action-bar {
         display: flex;
@@ -199,15 +172,6 @@
             批量删除 ({{ tasks|length }} 个任务)
         </a>
         {% endif %}
-    </div>
-
-    <!-- 服务状态 -->
-    <div class="service-status">
-        <div class="status-dot {% if poi_status %}online{% else %}offline{% endif %}"></div>
-        <span class="status-text">
-            POI服务: {{ poi_status_text }}
-            {% if not poi_status %}（将使用Python格式化）{% endif %}
-        </span>
     </div>
 
     <!-- 任务列表 -->

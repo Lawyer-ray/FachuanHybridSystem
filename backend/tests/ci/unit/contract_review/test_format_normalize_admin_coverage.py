@@ -2,9 +2,8 @@
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock, PropertyMock, patch
 
 import pytest
 
@@ -74,29 +73,15 @@ class TestFormatNormalizeAdminDisplayMethods:
         assert "下载" in result_str
         assert "重新格式化" in result_str
 
-    def test_format_action_without_output_poi_available(self) -> None:
+    def test_format_action_without_output(self) -> None:
         admin = self._make_admin()
         obj = MagicMock()
         obj.pk = 1
         obj.original_file = "test.docx"
         obj.output_file = None
-        with patch("apps.core.services.poi_client.get_poi_client") as mock_poi:
-            mock_poi.return_value.health_check.return_value = True
-            result = admin.format_action(obj)
-            result_str = str(result)
-            assert "格式化" in result_str
-
-    def test_format_action_without_output_poi_unavailable(self) -> None:
-        admin = self._make_admin()
-        obj = MagicMock()
-        obj.pk = 1
-        obj.original_file = "test.docx"
-        obj.output_file = None
-        with patch("apps.core.services.poi_client.get_poi_client") as mock_poi:
-            mock_poi.return_value.health_check.return_value = False
-            result = admin.format_action(obj)
-            result_str = str(result)
-            assert "Python" in result_str
+        result = admin.format_action(obj)
+        result_str = str(result)
+        assert "格式化" in result_str
 
     def test_get_fieldsets(self) -> None:
         admin = self._make_admin()
@@ -211,37 +196,15 @@ class TestFormatNormalizeAdminViews:
             result = admin.batch_delete_view(request)
             assert result.status_code == 302
 
-    def test_health_check_view(self) -> None:
-        admin = self._make_admin()
-        request = MagicMock()
-        with patch("apps.core.services.poi_client.get_poi_client") as mock_poi:
-            mock_poi.return_value.health_check.return_value = True
-            result = admin.health_check_view(request)
-            data = json.loads(result.content)
-            assert data["poi_service"]["available"] is True
-            assert data["poi_service"]["status"] == "online"
-
-    def test_health_check_view_offline(self) -> None:
-        admin = self._make_admin()
-        request = MagicMock()
-        with patch("apps.core.services.poi_client.get_poi_client") as mock_poi:
-            mock_poi.return_value.health_check.return_value = False
-            result = admin.health_check_view(request)
-            data = json.loads(result.content)
-            assert data["poi_service"]["available"] is False
-            assert data["poi_service"]["status"] == "offline"
-
     def test_upload_view_not_post(self) -> None:
         admin = self._make_admin()
         request = MagicMock()
         request.method = "GET"
         request.FILES = {}
         request.POST = {}
-        with patch("apps.core.services.poi_client.get_poi_client") as mock_poi:
-            mock_poi.return_value.health_check.return_value = True
-            with patch.object(admin, "admin_site") as mock_site:
-                mock_site.each_context.return_value = {}
-                mock_site.name = "admin"
-                result = admin.upload_view(request)
-                # GET returns TemplateResponse
-                assert result.status_code == 200
+        with patch.object(admin, "admin_site") as mock_site:
+            mock_site.each_context.return_value = {}
+            mock_site.name = "admin"
+            result = admin.upload_view(request)
+            # GET returns TemplateResponse
+            assert result.status_code == 200

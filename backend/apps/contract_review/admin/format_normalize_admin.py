@@ -11,13 +11,12 @@ import logging
 from pathlib import Path
 from typing import Any
 
-from django.contrib import admin
-from django.contrib import messages
+from django.contrib import admin, messages
 from django.http import HttpRequest, HttpResponse
 from django.template.response import TemplateResponse
 from django.urls import path
-from django.utils.html import format_html
 from django.utils import timezone
+from django.utils.html import format_html
 
 from apps.contract_review.models import FormatNormalize, ReviewTask
 
@@ -74,27 +73,15 @@ class FormatNormalizeAdmin(admin.ModelAdmin):  # pragma: no cover
                 '<a href="{}" class="btn btn-success" download style="background: #4CAF50; color: white; padding: 5px 10px; border-radius: 3px; text-decoration: none; margin-right: 5px;">下载</a>'
                 '<a href="{}" class="btn btn-warning" onclick="return confirm(\'确定要重新格式化吗？\')" style="background: #FF9800; color: white; padding: 5px 10px; border-radius: 3px; text-decoration: none;">重新格式化</a>',
                 download_url,
-                reformat_url
+                reformat_url,
             )
         else:
             # 未处理：显示格式化按钮
             url = f"/admin/contract_review/formatnormalize/{obj.pk}/execute/"
-
-            # 检查POI服务状态
-            from apps.core.services.poi_client import get_poi_client
-            poi_client = get_poi_client()
-            is_poi_available = poi_client.health_check()
-
-            if is_poi_available:
-                return format_html(
-                    '<a href="{}" class="btn btn-primary" onclick="return confirm(\'使用POI服务格式化？\')" style="background: #417690; color: white; padding: 5px 10px; border-radius: 3px; text-decoration: none;">格式化</a>',
-                    url
-                )
-            else:
-                return format_html(
-                    '<a href="{}" class="btn btn-warning" onclick="return confirm(\'POI服务不可用，将使用Python格式化？\')" style="background: #FF9800; color: white; padding: 5px 10px; border-radius: 3px; text-decoration: none;">格式化(Python)</a>',
-                    url
-                )
+            return format_html(
+                '<a href="{}" class="btn btn-primary" onclick="return confirm(\'确定要格式化此合同吗？\')" style="background: #417690; color: white; padding: 5px 10px; border-radius: 3px; text-decoration: none;">格式化</a>',
+                url,
+            )
 
     def has_add_permission(self, request: HttpRequest) -> bool:  # pragma: no cover
         return False
@@ -142,15 +129,12 @@ class FormatNormalizeAdmin(admin.ModelAdmin):  # pragma: no cover
                 self.admin_site.admin_view(self.batch_delete_view),
                 name="contract_review_formatnormalize_batch_delete",
             ),
-            path(
-                "health-check/",
-                self.admin_site.admin_view(self.health_check_view),
-                name="contract_review_formatnormalize_health_check",
-            ),
         ]
         return custom + super().get_urls()
 
-    def changelist_view(self, request: HttpRequest, extra_context: dict[str, Any] | None = None) -> HttpResponse:  # pragma: no cover
+    def changelist_view(
+        self, request: HttpRequest, extra_context: dict[str, Any] | None = None
+    ) -> HttpResponse:  # pragma: no cover
         """格式调整列表页面"""
         tasks = ReviewTask.objects.filter(
             original_file__isnull=False,
@@ -164,20 +148,12 @@ class FormatNormalizeAdmin(admin.ModelAdmin):  # pragma: no cover
             output_file__isnull=True,
         ).count()
 
-        # 检查POI服务状态
-        from apps.core.services.poi_client import get_poi_client
-        poi_client = get_poi_client()
-        poi_status = poi_client.health_check()
-
         context = {
             **self.admin_site.each_context(request),
             "title": "合同格式调整",
             "opts": self.model._meta,
             "tasks": tasks,
             "pending_count": pending_count,
-            "poi_status": poi_status,
-            "poi_status_text": "在线" if poi_status else "离线",
-            "poi_status_color": "green" if poi_status else "red",
             "has_add_permission": False,
             "has_change_permission": False,
             "has_delete_permission": False,
@@ -210,10 +186,10 @@ class FormatNormalizeAdmin(admin.ModelAdmin):  # pragma: no cover
                 # 保存上传的文件
                 import uuid as _uuid
 
-                from django.core.files.storage import default_storage
-
                 # 防止文件名注入：只保留安全的文件名部分，加 UUID 前缀
                 from pathlib import Path as _Path
+
+                from django.core.files.storage import default_storage
 
                 safe_name = _Path(uploaded_file.name).name
                 file_path = f"contract_review/uploads/{_uuid.uuid4().hex[:8]}_{safe_name}"
@@ -225,11 +201,7 @@ class FormatNormalizeAdmin(admin.ModelAdmin):  # pragma: no cover
                     contract_title=uploaded_file.name.rsplit(".", 1)[0],
                     original_file=saved_path,
                     status="pending",
-                    selected_steps=[
-                        numbering_type,
-                        "use_llm" if use_llm else "no_llm",
-                        f"llm_{llm_backend}"
-                    ],
+                    selected_steps=[numbering_type, "use_llm" if use_llm else "no_llm", f"llm_{llm_backend}"],
                 )
                 messages.success(request, f"文件上传成功: {uploaded_file.name}")
                 return HttpResponseRedirect(f"/admin/contract_review/formatnormalize/{task.id}/execute/")
@@ -238,18 +210,10 @@ class FormatNormalizeAdmin(admin.ModelAdmin):  # pragma: no cover
                 messages.error(request, f"文件上传失败: {e!s}")
                 return HttpResponseRedirect("/admin/contract_review/formatnormalize/upload/")
 
-        # 检查POI服务状态
-        from apps.core.services.poi_client import get_poi_client
-        poi_client = get_poi_client()
-        poi_status = poi_client.health_check()
-
         context = {
             **self.admin_site.each_context(request),
             "title": "上传合同文件",
             "opts": self.model._meta,
-            "poi_status": poi_status,
-            "poi_status_text": "在线" if poi_status else "离线",
-            "poi_status_color": "green" if poi_status else "red",
         }
         return TemplateResponse(
             request,
@@ -260,6 +224,7 @@ class FormatNormalizeAdmin(admin.ModelAdmin):  # pragma: no cover
     def execute_view(self, request: HttpRequest, task_id: Any) -> HttpResponse:  # pragma: no cover
         """执行格式规范化（后台线程执行，立即返回）"""
         import threading
+
         from django.conf import settings
         from django.http import HttpResponseRedirect
 
@@ -305,10 +270,9 @@ class FormatNormalizeAdmin(admin.ModelAdmin):  # pragma: no cover
         # 后台线程执行格式化（不阻塞页面响应）
         def _run_normalize() -> None:  # pragma: no cover
             from apps.contract_review.services.format_normalizer import DocxFormatNormalizer
+
             try:
-                normalizer = DocxFormatNormalizer(
-                    original_path, output_path, reference_path=reference_path
-                )
+                normalizer = DocxFormatNormalizer(original_path, output_path, reference_path=reference_path)
                 result_path = normalizer.normalize(use_llm=use_llm, llm_backend=llm_backend)
                 task.output_file = str(result_path.relative_to(settings.MEDIA_ROOT))
                 task.status = "completed"
@@ -326,7 +290,7 @@ class FormatNormalizeAdmin(admin.ModelAdmin):  # pragma: no cover
         messages.success(
             request,
             f"✓ 格式规范化已开始处理（{llm_status}），请稍后刷新页面查看结果。<br>"
-            f"参考文档: {reference_path.name if reference_path else '无（使用默认格式）'}"
+            f"参考文档: {reference_path.name if reference_path else '无（使用默认格式）'}",
         )
         return HttpResponseRedirect("/admin/contract_review/formatnormalize/")
 
@@ -345,7 +309,7 @@ class FormatNormalizeAdmin(admin.ModelAdmin):  # pragma: no cover
         test_name = test_path.stem  # e.g., "电脑维护合同[测试集]"
 
         # 提取合同标题（去掉 [测试集] 等标记）
-        title_match = re.match(r'^(.+?)[\[【]', test_name)
+        title_match = re.match(r"^(.+?)[\[【]", test_name)
         if not title_match:
             return None
         title_prefix = title_match.group(1)
@@ -385,41 +349,19 @@ class FormatNormalizeAdmin(admin.ModelAdmin):  # pragma: no cover
                 annotation = {
                     "author": request.user.get_full_name() or request.user.username,  # type: ignore[union-attr]
                     "content": annotation_content,
-                    "created_at": timezone.now().isoformat()
+                    "created_at": timezone.now().isoformat(),
                 }
 
                 if not format_record.annotations:  # type: ignore[attr-defined]
                     format_record.annotations = []  # type: ignore[attr-defined]
                 format_record.annotations.append(annotation)  # type: ignore[attr-defined]
-                format_record.save(update_fields=["annotations"])
+                format_record.save(update_fields=["annotations"])  # type: ignore[misc]
 
                 messages.success(request, "批注添加成功")
             else:
                 messages.error(request, "批注内容不能为空")
 
         return HttpResponseRedirect("/admin/contract_review/formatnormalize/")
-
-    def health_check_view(self, request: HttpRequest) -> HttpResponse:  # pragma: no cover
-        """健康检查页面（简化版）"""
-        from django.http import HttpResponse
-        import json
-
-        from apps.core.services.poi_client import get_poi_client
-
-        poi_client = get_poi_client()
-        poi_status = poi_client.health_check()
-
-        response_data = {
-            "poi_service": {
-                "status": "online" if poi_status else "offline",
-                "available": poi_status
-            }
-        }
-
-        return HttpResponse(
-            json.dumps(response_data, ensure_ascii=False),
-            content_type="application/json"
-        )
 
     def delete_view(self, request: HttpRequest, task_id: Any) -> HttpResponse:  # type: ignore[override]  # pragma: no cover
         """删除任务和相关文件"""
@@ -564,7 +506,9 @@ class FormatNormalizeAdmin(admin.ModelAdmin):  # pragma: no cover
 
         # 显示结果
         if success_count > 0:
-            messages.success(request, f"✓ 批量删除完成！成功删除 {success_count} 个任务和相关文件，失败 {error_count} 个")
+            messages.success(
+                request, f"✓ 批量删除完成！成功删除 {success_count} 个任务和相关文件，失败 {error_count} 个"
+            )
         else:
             messages.error(request, f"批量删除失败，成功 0 个，失败 {error_count} 个")
 

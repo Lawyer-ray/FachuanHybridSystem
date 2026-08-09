@@ -7,7 +7,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-
 # ---------------------------------------------------------------------------
 # format_normalizer/paragraph_classifier.py (0% coverage)
 # ---------------------------------------------------------------------------
@@ -221,15 +220,3 @@ class TestFormatNormalizeDetail:
 
         assert FormatNormalizeDetail._meta.verbose_name == "格式调整详情"
         assert FormatNormalizeDetail._meta.ordering == ["-created_at"]
-
-
-# ---------------------------------------------------------------------------
-# services/contract_format_service.py (74% coverage)
-# ---------------------------------------------------------------------------
-
-
-class TestContractFormatService:
-    def test_import_service(self):
-        from apps.contract_review.services.contract_format_service import ContractFormatService
-
-        assert ContractFormatService is not None

@@ -316,11 +316,6 @@ def _register_app_routers() -> None:
     if court_guarantee_router is not None:
         api_v1.add_router("/court-guarantee", court_guarantee_router, auth=JWTOrSessionAuth(), tags=["一张网担保"])
 
-    # POI 文档生成服务（Apache POI microservice）
-    from apps.core.api.poi_api import router as poi_router
-
-    api_v1.add_router("/poi", poi_router, auth=JWTOrSessionAuth(), tags=["POI 文档生成"])
-
     from apps.social_auth.api import router as social_auth_router
 
     api_v1.add_router("/social", social_auth_router, tags=["社交登录"])
