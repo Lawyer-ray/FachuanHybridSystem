@@ -328,3 +328,6 @@ audit/
 
 # AI agent instructions
 AGENTS.md
+
+# Skills 本地配置（含账号密码等敏感信息，不入库）
+skills/**/config.py
