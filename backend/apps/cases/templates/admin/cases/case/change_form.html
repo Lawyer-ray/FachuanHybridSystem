@@ -155,24 +155,31 @@
 .case-number-execution-controls {
     display: flex; flex-direction: row; align-items: center; gap: 8px; margin: 0; padding: 2px 0;
 }
+
+/* ── 操作栏分组分隔线 ── */
+.action-bar-divider {
+    display: inline-block; width: 1px; height: 20px;
+    background: var(--fc-border-input); margin: 0 2px; flex: none;
+}
+
+/* ── LLM 选择器 ── */
+.parse-execution-llm-wrap {
+    display: inline-flex; align-items: center; gap: 4px;
+}
 .parse-execution-llm-label {
-    display: inline-flex; align-items: center; gap: 6px;
-    color: var(--fc-text-muted); font-size: 11.5px; user-select: none; cursor: pointer;
+    font-size: 11px; color: var(--fc-text-muted); white-space: nowrap;
 }
-.parse-execution-llm-label input[type='checkbox'] { position: absolute; opacity: 0; width: 0; height: 0; }
-.parse-execution-switch-track {
-    display: inline-block; position: relative; width: 28px; height: 16px;
-    background: var(--fc-border-input); border-radius: 999px; transition: background-color 0.2s ease;
+.parse-execution-llm-select {
+    height: 30px; padding: 0 8px; border-radius: 6px;
+    border: 1px solid var(--fc-border-input); background: var(--fc-bg-card);
+    color: var(--fc-text-primary); font-size: 12px; cursor: pointer;
+    max-width: 180px;
 }
-.parse-execution-switch-track::after {
-    content: ""; position: absolute; top: 2px; left: 2px; width: 12px; height: 12px;
-    border-radius: 50%; background: var(--fc-bg-card); box-shadow: 0 1px 2px rgba(15,23,42,0.2);
-    transition: transform 0.2s ease;
-}
-.parse-execution-llm-toggle:checked + .parse-execution-switch-track { background: var(--fc-success-text); }
-.parse-execution-llm-toggle:checked + .parse-execution-switch-track::after { transform: translateX(12px); }
-.parse-execution-llm-toggle:disabled + .parse-execution-switch-track { opacity: 0.5; }
-.parse-execution-llm-text { color: var(--fc-text-muted); white-space: nowrap; }
+.parse-execution-llm-select:disabled { background: var(--fc-bg-muted-light); color: var(--fc-text-disabled); cursor: not-allowed; }
+.parse-execution-llm-select:focus { outline: none; border-color: var(--fc-primary); }
+
+/* ── Help text 隐藏 ── */
+#case_numbers-group .form-row .help { display: none !important; }
 
 /* ── 按钮 ── */
 #case_numbers-group .parse-document-btn,

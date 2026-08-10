@@ -33,7 +33,10 @@
   function refreshSelect2(el) {
     var jq = window.django && window.django.jQuery;
     if (!jq || typeof jq.fn.select2 === 'undefined') return;
-    try { jq(el).select2('destroy'); } catch (_e) { /* 尚未初始化 */ }
+    // 仅当元素已初始化 Select2 时才销毁，避免控制台报错
+    if (el && el.hasAttribute && el.hasAttribute('data-select2-id')) {
+      try { jq(el).select2('destroy'); } catch (_e) { /* ignore */ }
+    }
     jq(el).select2();
   }
 

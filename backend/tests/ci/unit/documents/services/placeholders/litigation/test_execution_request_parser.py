@@ -25,7 +25,6 @@ from apps.documents.services.placeholders.litigation.execution_request_parser im
     should_include_fee,
 )
 
-
 # ---------------------------------------------------------------------------
 # parse_confirmed_amounts
 # ---------------------------------------------------------------------------
@@ -43,6 +42,20 @@ class TestParseConfirmedAmounts:
         result = parse_confirmed_amounts(text)
         assert result.principal == Decimal("500000")
         assert result.principal_label == "货款本金"
+
+    def test_principal_daichang(self) -> None:
+        """代偿款应被识别为本金（回归案件 361 场景）。"""
+        text = "被告应于本判决生效之日起十日内向原告偿还代偿款4376597.3元"
+        result = parse_confirmed_amounts(text)
+        assert result.principal == Decimal("4376597.3")
+        assert result.principal_label == "代偿款"
+
+    def test_principal_dianfu(self) -> None:
+        """垫付款应被识别为本金。"""
+        text = "被告支付垫付款100000元"
+        result = parse_confirmed_amounts(text)
+        assert result.principal == Decimal("100000")
+        assert result.principal_label == "垫付款"
 
     def test_interest(self) -> None:
         text = "被告支付利息10万元"

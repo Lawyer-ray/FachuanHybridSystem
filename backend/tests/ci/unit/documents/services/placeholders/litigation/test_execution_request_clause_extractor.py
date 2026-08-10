@@ -42,7 +42,6 @@ from apps.documents.services.placeholders.litigation.execution_request_models im
     ParsedInterestParams,
 )
 
-
 # ---------------------------------------------------------------------------
 # has_double_interest_clause
 # ---------------------------------------------------------------------------
@@ -318,6 +317,25 @@ class TestParseInterestSegments:
         text = "自2020年1月1日起，以100万元为基数，以50万元为本金，计算至2023年12月31日止"
         result = parse_interest_segments(text)
         assert len(result) >= 2
+
+    def test_date_first_with_independent_end_dates(self) -> None:
+        """日期在前 + 基数在后，每段有独立的 end_date（回归案件 361 场景）。
+
+        文书原文：自2025年5月31日起至2025年6月21日以4241725.08元为基数、
+                 自2025年6月22日起至实际清偿之日止以4376597.3元为基数
+        """
+        text = (
+            "其中自2025年5月31日起至2025年6月21日以4241725.08元为基数、"
+            "自2025年6月22日起至实际清偿之日止以4376597.3元为基数"
+        )
+        result = parse_interest_segments(text)
+        assert len(result) == 2
+        assert result[0].start_date == date(2025, 5, 31)
+        assert result[0].end_date == date(2025, 6, 21)
+        assert result[0].base_amount == Decimal("4241725.08")
+        assert result[1].start_date == date(2025, 6, 22)
+        assert result[1].end_date is None
+        assert result[1].base_amount == Decimal("4376597.3")
 
 
 # ---------------------------------------------------------------------------

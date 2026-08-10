@@ -21,6 +21,7 @@
 
     var showToast              = C.showToast;
     var getCSRFToken            = C.getCSRFToken;
+    var fetchLLMModels          = C.fetchLLMModels;
     var getCaseNumberInlineGroup = C.getCaseNumberInlineGroup;
     var getCaseNumberRows      = C.getCaseNumberRows;
     var toggleExecutionParameterSections = C.toggleExecutionParameterSections;
@@ -135,15 +136,17 @@
         var deductionInput = row.querySelector('input[name$="-execution_use_deduction_order"][type="checkbox"]');
         var yearDaysSelect = row.querySelector('select[name$="-execution_year_days"]');
         var dateInclusionSelect = row.querySelector('select[name$="-execution_date_inclusion"]');
-        var llmFallbackToggle = row.querySelector('.parse-execution-llm-toggle');
+        var llmModelSelect = row.querySelector('.parse-execution-llm-select');
 
+        var llmModelValue = llmModelSelect ? llmModelSelect.value.trim() : '';
         return {
             cutoff_date: cutoffInput ? cutoffInput.value.trim() : '',
             paid_amount: paidInput ? paidInput.value.trim() : '',
             use_deduction_order: deductionInput ? deductionInput.checked : false,
             year_days: yearDaysSelect ? yearDaysSelect.value : '',
             date_inclusion: dateInclusionSelect ? dateInclusionSelect.value : '',
-            enable_llm_fallback: llmFallbackToggle ? llmFallbackToggle.checked : true
+            enable_llm_fallback: Boolean(llmModelValue),
+            llm_model: llmModelValue
         };
     }
 
@@ -232,8 +235,13 @@
                     var data = JSON.parse(xhr.responseText);
                     if (data.success) {
                         applyExecutionPreview(row, data, overwrite);
+                        var hasPreview = Boolean(data.preview_text && data.preview_text.trim());
                         if (!silent) {
-                            showToast('申请执行事项解析成功，预览已更新。', 'success');
+                            if (hasPreview) {
+                                showToast('申请执行事项解析成功，预览已更新。', 'success');
+                            } else {
+                                showToast('解析未生成结果，请检查文书内容或查看警告信息。', 'error');
+                            }
                         }
                         if (Array.isArray(data.warnings) && data.warnings.length > 0) {
                             showToast(data.warnings.join('；'), 'error');
@@ -330,6 +338,12 @@
                 parseBtn.title = '解析裁判文书，提取执行依据主文';
                 parseBtn.disabled = !caseNumberId;
             }
+            // 分隔线：把「文件操作」和「解析操作」视觉分组
+            var divider = row.querySelector('.action-bar-divider');
+            if (!divider) {
+                divider = document.createElement('span');
+                divider.className = 'action-bar-divider';
+            }
 
             if (parseBtn) {
                 if (caseNumberId) {
@@ -350,6 +364,9 @@
                 if (actionBar && parseBtn.parentNode !== actionBar) {
                     actionBar.appendChild(parseBtn);
                 }
+            }
+            if (actionBar && divider.parentNode !== actionBar) {
+                actionBar.appendChild(divider);
             }
 
             // 解析执行事项按钮 - 在操作栏始终可见
@@ -375,28 +392,53 @@
             if (actionBar && parseExecutionBtn.parentNode !== actionBar) {
                 actionBar.appendChild(parseExecutionBtn);
             }
-            // Ollama 兜底开关 - 跟在解析执行事项按钮后面
-            var llmLabel = row.querySelector('.parse-execution-llm-label');
-            if (!llmLabel) {
-                llmLabel = document.createElement('label');
+            // LLM 模型选择器 - 跟在解析执行事项按钮后面（动态获取可用模型）
+            var llmWrap = row.querySelector('.parse-execution-llm-wrap');
+            if (!llmWrap) {
+                llmWrap = document.createElement('span');
+                llmWrap.className = 'parse-execution-llm-wrap';
+                var llmLabel = document.createElement('span');
                 llmLabel.className = 'parse-execution-llm-label';
-                var llmToggle = document.createElement('input');
-                llmToggle.type = 'checkbox';
-                llmToggle.className = 'parse-execution-llm-toggle';
-                llmToggle.checked = true;
-                llmToggle.title = '规则无法确定时，使用本地Qwen(Ollama)充当兜底';
-                var llmTrack = document.createElement('span');
-                llmTrack.className = 'parse-execution-switch-track';
-                var llmText = document.createElement('span');
-                llmText.className = 'parse-execution-llm-text';
-                llmText.textContent = 'Ollama';
-                llmLabel.appendChild(llmToggle);
-                llmLabel.appendChild(llmTrack);
-                llmLabel.appendChild(llmText);
-                if (!caseNumberId) { llmToggle.disabled = true; }
+                llmLabel.textContent = '兜底';
+                var llmSelect = document.createElement('select');
+                llmSelect.className = 'parse-execution-llm-select';
+                llmSelect.title = '规则无法确定时使用的 LLM 兜底模型（留空表示不启用 LLM 兜底）';
+                var placeholderOption = document.createElement('option');
+                placeholderOption.value = '';
+                placeholderOption.textContent = '加载中...';
+                llmSelect.appendChild(placeholderOption);
+                if (!caseNumberId) { llmSelect.disabled = true; }
+                llmWrap.appendChild(llmLabel);
+                llmWrap.appendChild(llmSelect);
+
+                // 异步获取可用模型列表
+                fetchLLMModels(function(models) {
+                    llmSelect.innerHTML = '';
+                    var noneOption = document.createElement('option');
+                    noneOption.value = '';
+                    noneOption.textContent = '不使用 LLM';
+                    llmSelect.appendChild(noneOption);
+                    if (models.length === 0) {
+                        llmSelect.disabled = true;
+                        noneOption.textContent = '（暂无可用 LLM 模型）';
+                        noneOption.selected = true;
+                        return;
+                    }
+                    for (var i = 0; i < models.length; i++) {
+                        var m = models[i];
+                        var opt = document.createElement('option');
+                        opt.value = m.id;
+                        opt.textContent = m.name || m.id;
+                        llmSelect.appendChild(opt);
+                    }
+                    // 默认选中第一个可用模型
+                    if (llmSelect.options.length > 1) {
+                        llmSelect.selectedIndex = 1;
+                    }
+                });
             }
-            if (actionBar && llmLabel.parentNode !== actionBar) {
-                actionBar.appendChild(llmLabel);
+            if (actionBar && llmWrap.parentNode !== actionBar) {
+                actionBar.appendChild(llmWrap);
             }
 
             // 设置 placeholder

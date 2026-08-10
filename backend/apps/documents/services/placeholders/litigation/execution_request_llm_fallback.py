@@ -14,7 +14,8 @@ from .execution_request_utils import format_amount, parse_decimal, safe_decimal
 
 logger = logging.getLogger(__name__)
 
-OLLAMA_FALLBACK_MODEL = "qwen3.5:0.8b"
+# 默认兜底模型（仅在前端未显式选择模型时使用，实际不推荐依赖此默认值）
+OLLAMA_FALLBACK_MODEL = "qwen3:0.6b"
 OLLAMA_MAX_TEXT_CHARS = 12000
 
 
@@ -26,6 +27,10 @@ def should_try_llm_fallback(
     principal_fallback_to_target: bool,
 ) -> bool:
     if principal_fallback_to_target:
+        return True
+
+    # 本金完全未解析出来（最需要 LLM 兜底的场景）
+    if amounts.principal is None:
         return True
 
     principal = amounts.principal or Decimal("0")
@@ -141,7 +146,17 @@ def merge_llm_fallback(
     return changed
 
 
-def extract_with_ollama_fallback(main_text: str) -> dict[str, Any] | None:  # pragma: no cover
+def extract_with_ollama_fallback(
+    main_text: str,
+    *,
+    model: str | None = None,
+) -> tuple[dict[str, Any] | None, str]:
+    """调用 LLM 兜底解析，返回 (parsed_data, error_message)。
+
+    - parsed_data: 解析成功返回 dict，解析失败或未拿到有效 JSON 返回 None
+    - error_message: 调用失败时的错误信息（空字符串表示无错误）
+    """
+    actual_model = (model or "").strip() or OLLAMA_FALLBACK_MODEL
     prompt = (
         "你是法律文书金额与利率解析助手。仅输出 JSON，不要输出其他文字。\n"
         "要求：所有金额统一换算为“元”（例如“52万元”=520000）；利率倍数用数字表示。\n"
@@ -170,7 +185,7 @@ def extract_with_ollama_fallback(main_text: str) -> dict[str, Any] | None:  # pr
         response = get_llm_service().complete(
             prompt=prompt,
             backend="ollama",
-            model=OLLAMA_FALLBACK_MODEL,
+            model=actual_model,
             temperature=0.1,
             max_tokens=500,
             fallback=False,
@@ -178,13 +193,16 @@ def extract_with_ollama_fallback(main_text: str) -> dict[str, Any] | None:  # pr
             num_predict=500,
         )
         content = str(getattr(response, "content", "") or "")
-    except Exception:
+    except Exception as exc:
         logger.exception("execution_request_ollama_fallback_failed")
-        return None
+        return None, f"LLM 调用失败（模型: {actual_model}）: {exc}"
+
+    if not content.strip():
+        return None, f"LLM 返回空响应（模型: {actual_model}）"
 
     payload = _extract_json_object(content)
     if not isinstance(payload, dict):
-        return None
+        return None, f"LLM 返回内容无法解析为 JSON（模型: {actual_model}）"
 
     parsed: dict[str, Any] = {
         "principal_amount": safe_decimal(payload.get("principal_amount_yuan")),
@@ -202,7 +220,7 @@ def extract_with_ollama_fallback(main_text: str) -> dict[str, Any] | None:  # pr
 
     start_date_value = payload.get("interest_start_date")
     parsed["interest_start_date"] = _parse_iso_date(start_date_value)
-    return parsed
+    return parsed, ""
 
 
 def _extract_json_object(content: str) -> dict[str, Any] | None:

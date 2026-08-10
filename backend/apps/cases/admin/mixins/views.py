@@ -143,6 +143,11 @@ class CaseAdminViewsMixin:  # pragma: no cover
                 name="cases_casenumber_parse_document_no_id",
             ),
             path(
+                "llm-models/",
+                self.admin_site.admin_view(self.llm_models_view),  # type: ignore[attr-defined]
+                name="cases_casenumber_llm_models",
+            ),
+            path(
                 "casenumber/upload-temp/",
                 self.admin_site.admin_view(self.upload_temp_document_view),  # type: ignore[attr-defined]
                 name="cases_casenumber_upload_temp",
@@ -544,7 +549,9 @@ class CaseAdminViewsMixin:  # pragma: no cover
             logger.exception("解析裁判文书失败: case_number_id=%s", casenumber_id)
             return JsonResponse({"success": False, "error": f"解析失败: {e}"}, status=500)
 
-    def parse_execution_request_view(self, request: HttpRequest, casenumber_id: int) -> HttpResponse:  # pragma: no cover
+    def parse_execution_request_view(
+        self, request: HttpRequest, casenumber_id: int
+    ) -> HttpResponse:  # pragma: no cover
         """解析执行依据主文并生成申请执行事项预览（规则引擎）"""
         from django.http import JsonResponse
 
@@ -569,6 +576,7 @@ class CaseAdminViewsMixin:  # pragma: no cover
             year_days = self._coerce_optional_int(body.get("year_days"))
             date_inclusion = self._coerce_optional_str(body.get("date_inclusion"))
             enable_llm_fallback = self._coerce_optional_bool(body.get("enable_llm_fallback"))
+            llm_model = self._coerce_optional_str(body.get("llm_model"))
 
             service = ExecutionRequestService()
             result = service.preview_for_case_number(
@@ -580,6 +588,7 @@ class CaseAdminViewsMixin:  # pragma: no cover
                 year_days=year_days,
                 date_inclusion=date_inclusion,
                 enable_llm_fallback=enable_llm_fallback,
+                llm_model=llm_model,
             )
 
             return JsonResponse(
@@ -595,6 +604,40 @@ class CaseAdminViewsMixin:  # pragma: no cover
         except Exception as e:
             logger.exception("解析申请执行事项失败: case_number_id=%s", casenumber_id)
             return JsonResponse({"success": False, "error": f"解析失败: {e}"}, status=500)
+
+    def llm_models_view(self, request: HttpRequest) -> HttpResponse:  # pragma: no cover
+        """返回当前可用的 LLM 模型列表（供执行事项解析下拉框使用）。
+
+        复用 ModelListService，仅返回真实可用的模型；后端不可用时返回空列表。
+        """
+        from django.http import JsonResponse
+
+        from apps.core.llm.model_list_service import ModelListService
+
+        try:
+            result = ModelListService().get_result()
+            models = [] if result.is_fallback else result.models
+            return JsonResponse(
+                {
+                    "success": True,
+                    "models": [
+                        {
+                            "id": str(m.get("id", "")),
+                            "name": str(m.get("name", "")),
+                            "context_window": int(m.get("context_window", 0) or 0),
+                        }
+                        for m in models
+                    ],
+                    "is_fallback": result.is_fallback,
+                    "error_message": result.error_message,
+                }
+            )
+        except Exception as e:
+            logger.exception("获取 LLM 模型列表失败")
+            return JsonResponse(
+                {"success": False, "error": f"获取模型列表失败: {e}", "models": [], "is_fallback": True},
+                status=500,
+            )
 
     def parse_document_view_no_id(self, request: HttpRequest) -> HttpResponse:  # pragma: no cover
         """解析裁判文书（无需caseNumberId，用于临时文件）"""
