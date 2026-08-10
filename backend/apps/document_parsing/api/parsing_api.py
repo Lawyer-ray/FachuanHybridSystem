@@ -39,6 +39,10 @@ def _needs_async(backend: str) -> bool:
 
     Returns:
         True 表示该后端需要异步执行（云端含 HTTP 上传 + 轮询）
+
+    注意:
+        本函数内部调用 get_document_parser,会触发 SystemConfig ORM 读取。
+        在 async 视图中必须通过 sync_to_async 调用本函数。
     """
     parser = get_document_parser(backend=backend)
     return getattr(parser, "requires_async_execution", False)
@@ -116,7 +120,9 @@ async def parse_document(
         return_markdown = _form_bool(request, "return_markdown", body.return_markdown if body else True)
 
         # --- 异步路径 ---
-        if _needs_async(backend):
+        # _needs_async 内部调用 get_document_parser 会触发 SystemConfig ORM 读取,
+        # 在 async 视图中必须通过 sync_to_async 调用,否则触发 SynchronousOnlyOperation
+        if await sync_to_async(_needs_async, thread_sensitive=False)(backend):
             from apps.core.tasking import submit_task
 
             task_id = await sync_to_async(submit_task, thread_sensitive=False)(
@@ -139,7 +145,9 @@ async def parse_document(
             )
 
         # --- 同步路径 ---
-        parser = get_document_parser(backend=backend)
+        # get_document_parser 内部通过 ParserFactory 读取 SystemConfig(ORM),
+        # 必须在 sync_to_async 中执行,否则在 async 视图里触发 SynchronousOnlyOperation
+        parser = await sync_to_async(get_document_parser, thread_sensitive=False)(backend=backend)
         result = await sync_to_async(parser.parse_document, thread_sensitive=False)(
             file_path=str(file_path),
             file_type=Path(file_name).suffix.lstrip("."),
@@ -190,7 +198,7 @@ async def extract_text(
         max_length = _form_int(request, "max_length", body.max_length if body else None)
 
         # --- 异步路径 ---
-        if _needs_async(backend):
+        if await sync_to_async(_needs_async, thread_sensitive=False)(backend):
             from apps.core.tasking import submit_task
 
             task_id = await sync_to_async(submit_task, thread_sensitive=False)(
@@ -210,7 +218,9 @@ async def extract_text(
             )
 
         # --- 同步路径 ---
-        parser = get_document_parser(backend=backend)
+        # get_document_parser 内部通过 ParserFactory 读取 SystemConfig(ORM),
+        # 必须在 sync_to_async 中执行,否则在 async 视图里触发 SynchronousOnlyOperation
+        parser = await sync_to_async(get_document_parser, thread_sensitive=False)(backend=backend)
         result = await sync_to_async(parser.extract_text, thread_sensitive=False)(
             file_path=str(file_path),
             max_length=max_length,
