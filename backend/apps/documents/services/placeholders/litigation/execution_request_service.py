@@ -92,6 +92,7 @@ class ExecutionRequestService(BasePlaceholderService):
         year_days: int | None = None,
         date_inclusion: str | None = None,
         enable_llm_fallback: bool | None = None,
+        llm_model: str | None = None,
     ) -> dict[str, Any]:
         result = self._build_execution_request(
             case=case,
@@ -102,6 +103,7 @@ class ExecutionRequestService(BasePlaceholderService):
             year_days=year_days,
             date_inclusion=date_inclusion,
             enable_llm_fallback=enable_llm_fallback,
+            llm_model=llm_model,
         )
         return {
             "preview_text": result.preview_text,
@@ -135,6 +137,7 @@ class ExecutionRequestService(BasePlaceholderService):
         year_days: int | None = None,
         date_inclusion: str | None = None,
         enable_llm_fallback: bool | None = None,
+        llm_model: str | None = None,
     ) -> ExecutionComputation:
         warnings: list[str] = []
         main_text = (case_number.document_content or "").strip()
@@ -149,6 +152,7 @@ class ExecutionRequestService(BasePlaceholderService):
         amounts = parser_mod.parse_confirmed_amounts(normalized_text)
         params = interest_mod.parse_interest_params(normalized_text)
         principal_fallback_to_target = False
+        principal_unresolved = False
         if amounts.principal is None:
             inferred_principal = interest_mod.infer_principal_from_interest_base(params)
             if inferred_principal is not None:
@@ -177,8 +181,8 @@ class ExecutionRequestService(BasePlaceholderService):
                         )
                     )
                     if not has_fee_only_items and amounts.confirmed_interest <= 0:
-                        warnings.append("未能确定本金，申请执行事项未生成。")
-                        return ExecutionComputation(preview_text="", warnings=warnings, structured_params={})
+                        # 标记本金未解决，先尝试 LLM 兜底；兜底失败后再返回
+                        principal_unresolved = True
 
         paid = paid_amount if paid_amount is not None else safe_decimal(case_number.execution_paid_amount)
         paid = max(paid, Decimal("0"))
@@ -190,13 +194,6 @@ class ExecutionRequestService(BasePlaceholderService):
             date_inclusion if date_inclusion is not None else case_number.execution_date_inclusion
         )
         calc_cutoff = cutoff_date or case_number.execution_cutoff_date or case.specified_date or date.today()
-
-        deduction_order = interest_mod.parse_deduction_order(normalized_text)
-        amounts, principal_paid, deduction_applied = interest_mod.apply_paid_amount(
-            amounts=amounts,
-            paid_amount=paid,
-            deduction_order=deduction_order if use_order else [],
-        )
 
         has_double_interest_clause = clause_extractor.has_double_interest_clause(normalized_text)
         interest_segments = clause_extractor.parse_interest_segments(normalized_text)
@@ -224,7 +221,7 @@ class ExecutionRequestService(BasePlaceholderService):
             params=params,
             principal_fallback_to_target=principal_fallback_to_target,
         ):
-            llm_data = llm_mod.extract_with_ollama_fallback(normalized_text)
+            llm_data, llm_error = llm_mod.extract_with_ollama_fallback(normalized_text, model=llm_model)
             if llm_data:
                 llm_fallback_used = llm_mod.merge_llm_fallback(
                     amounts=amounts,
@@ -236,6 +233,22 @@ class ExecutionRequestService(BasePlaceholderService):
                     has_double_interest_clause = True
                 if llm_fallback_used:
                     warnings.append("规则置信度不足，已使用本地Ollama兜底解析。")
+            elif llm_error:
+                warnings.append(llm_error)
+
+        # LLM 兜底后本金仍为 None 且无费用项时，无法生成执行事项
+        # （需在 apply_paid_amount 之前检查，否则 None 会被转成 0）
+        if principal_unresolved and amounts.principal is None:
+            if not any(w.startswith("LLM") or "Ollama" in w or "模型" in w for w in warnings):
+                warnings.append("未能确定本金，申请执行事项未生成。")
+            return ExecutionComputation(preview_text="", warnings=warnings, structured_params={})
+
+        deduction_order = interest_mod.parse_deduction_order(normalized_text)
+        amounts, principal_paid, deduction_applied = interest_mod.apply_paid_amount(
+            amounts=amounts,
+            paid_amount=paid,
+            deduction_order=deduction_order if use_order else [],
+        )
 
         interest_base = interest_mod.resolve_interest_base(
             case=case, amounts=amounts, params=params, principal_paid=principal_paid
@@ -351,7 +364,7 @@ class ExecutionRequestService(BasePlaceholderService):
             and llm_fallback_enabled
             and not has_multiple_overdue_interest_rules
         ):
-            llm_data = llm_mod.extract_with_ollama_fallback(normalized_text)
+            llm_data, llm_error = llm_mod.extract_with_ollama_fallback(normalized_text, model=llm_model)
             if llm_data:
                 llm_fallback_used = llm_mod.merge_llm_fallback(
                     amounts=amounts,
@@ -387,6 +400,8 @@ class ExecutionRequestService(BasePlaceholderService):
                     )
                 if llm_fallback_used:
                     warnings.append("规则利息解析失败，已使用本地Ollama兜底修正。")
+            elif llm_error:
+                warnings.append(llm_error)
 
         for fee in amounts.excluded_fees:
             warnings.append(f"{fee.label}{format_amount(fee.amount)}元已排除：{fee.reason}")

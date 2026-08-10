@@ -293,7 +293,7 @@ def test_execution_request_lpr_standard_clause_does_not_trigger_llm_fallback_whe
         execution_date_inclusion="both",
     )
 
-    def _should_not_call(_text: str) -> dict[str, object]:
+    def _should_not_call(_text: str, **kw: object) -> tuple[dict[str, object], str]:
         raise AssertionError("llm fallback should not be called")
 
     monkeypatch.setattr(llm_mod, "extract_with_ollama_fallback", _should_not_call)
@@ -465,20 +465,23 @@ def test_execution_request_ollama_fallback_merges_when_rules_low_confidence(
     monkeypatch.setattr(
         llm_mod,
         "extract_with_ollama_fallback",
-        lambda _text: {
-            "principal_amount": Decimal("520000"),
-            "principal_label": "借款本金",
-            "interest_start_date": date(2024, 6, 8),
-            "interest_base_amount": Decimal("520000"),
-            "lpr_multiplier": Decimal("4"),
-            "fixed_rate_percent": Decimal("0"),
-            "litigation_fee": Decimal("0"),
-            "preservation_fee": Decimal("0"),
-            "announcement_fee": Decimal("0"),
-            "attorney_fee": Decimal("0"),
-            "guarantee_fee": Decimal("0"),
-            "has_double_interest_clause": True,
-        },
+        lambda _text, **kw: (
+            {
+                "principal_amount": Decimal("520000"),
+                "principal_label": "借款本金",
+                "interest_start_date": date(2024, 6, 8),
+                "interest_base_amount": Decimal("520000"),
+                "lpr_multiplier": Decimal("4"),
+                "fixed_rate_percent": Decimal("0"),
+                "litigation_fee": Decimal("0"),
+                "preservation_fee": Decimal("0"),
+                "announcement_fee": Decimal("0"),
+                "attorney_fee": Decimal("0"),
+                "guarantee_fee": Decimal("0"),
+                "has_double_interest_clause": True,
+            },
+            "",
+        ),
     )
 
     result = service.preview_for_case_number(case=case, case_number=case_number)
@@ -513,7 +516,7 @@ def test_execution_request_ollama_fallback_can_be_disabled(
         execution_date_inclusion="both",
     )
 
-    def _should_not_call(_text: str) -> dict[str, object]:
+    def _should_not_call(_text: str, **kw: object) -> tuple[dict[str, object], str]:
         raise AssertionError("llm fallback should not be called")
 
     monkeypatch.setattr(llm_mod, "extract_with_ollama_fallback", _should_not_call)

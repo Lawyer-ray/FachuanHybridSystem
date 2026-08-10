@@ -363,6 +363,32 @@ def parse_interest_segments(main_text: str) -> list[InterestSegment]:
                 continue
             segments.append(candidate)
 
+    # 兼容"日期在前 + 基数在后"的写法：自{start}起至{end}以{amount}为基数
+    # 每个分段独立提取 start_date 和 end_date，避免全句共用第一个日期
+    if len(segments) < 2:
+        date_first_full_pattern = re.compile(
+            r"(?:自|从)\s*(\d{4})\s*年\s*(\d{1,2})\s*月\s*(\d{1,2})\s*日(?:起|起算|开始|计)?"
+            r"[^以]{0,60}?"
+            rf"以[^，,；。\n]{{0,30}}?{AMOUNT_WITH_UNIT_PATTERN}\s*为(?:基数|本金)"
+        )
+        for match in date_first_full_pattern.finditer(main_text):
+            base_amount = parse_amount_value(match.group(4), match.group(5))
+            start_date = build_date(match.group(1), match.group(2), match.group(3))
+            if base_amount is None or start_date is None:
+                continue
+            # 提取该分段前面的 end_date（"至{end}..."中 end 可能是具体日期或"实际清偿之日"）
+            segment_text = match.group(0)
+            end_date = _extract_segment_end_date(segment_text)
+            candidate = InterestSegment(base_amount=base_amount, start_date=start_date, end_date=end_date)
+            if any(
+                seg.base_amount == candidate.base_amount
+                and seg.start_date == candidate.start_date
+                and seg.end_date == candidate.end_date
+                for seg in segments
+            ):
+                continue
+            segments.append(candidate)
+
     # 兼容"日期在前 + 多基数在后"的写法
     if len(segments) < 2:
         date_first_pattern = re.compile(
@@ -412,6 +438,29 @@ def _extract_shared_segment_end_date(main_text: str) -> date | None:
         main_text,
     )
     if shared_actual_match:
+        return None
+
+    return None
+
+
+def _extract_segment_end_date(segment_text: str) -> date | None:
+    """从单个分段文本中提取 end_date。
+
+    支持"至2025年6月21日"和"至实际清偿之日止"两种格式。
+    后者返回 None（表示无截止日）。
+    """
+    fixed_end_match = re.search(
+        r"至\s*(\d{4})\s*年\s*(\d{1,2})\s*月\s*(\d{1,2})\s*日(?:止)?",
+        segment_text,
+    )
+    if fixed_end_match:
+        return build_date(fixed_end_match.group(1), fixed_end_match.group(2), fixed_end_match.group(3))
+
+    actual_end_match = re.search(
+        r"至\s*实际(?:清偿|付清|履行|还清)(?:之日)?(?:止)?",
+        segment_text,
+    )
+    if actual_end_match:
         return None
 
     return None

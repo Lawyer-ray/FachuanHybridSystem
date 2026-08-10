@@ -87,6 +87,12 @@ class DocConverterService:
         items = list(job.items.all())
         return job, items
 
+    def get_item(self, job_id: uuid.UUID, item_id: uuid.UUID) -> DocConverterItem:
+        try:
+            return DocConverterItem.objects.get(id=item_id, job_id=job_id)
+        except DocConverterItem.DoesNotExist:
+            raise NotFoundError(message="转换项不存在", code="DOC_CONVERTER_ITEM_NOT_FOUND", errors={}) from None
+
     def request_cancel(self, *, job_id: uuid.UUID) -> DocConverterJob:  # pragma: no cover
         job = self.get_job(job_id)
         if job.status in {
@@ -148,12 +154,17 @@ class DocConverterService:
         }
 
     def build_item_payload(self, item: DocConverterItem) -> dict[str, Any]:
+        download_url = ""
+        if item.status == DocConverterJobStatus.COMPLETED and item.converted_file:
+            download_url = f"/api/v1/doc-converter/jobs/{item.job_id}/items/{item.id}/download"
+
         return {
             "id": item.id,
             "original_name": item.original_name,
             "status": item.status,
             "error": item.error or "",
             "duration_ms": item.duration_ms,
+            "download_url": download_url,
         }
 
     def save_job_to_directory(

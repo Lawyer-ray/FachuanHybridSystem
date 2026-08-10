@@ -26,11 +26,7 @@ from apps.documents.services.placeholders.litigation.execution_request_llm_fallb
     merge_llm_fallback,
     should_try_llm_fallback,
 )
-from apps.documents.services.placeholders.litigation.execution_request_models import (
-    ParsedAmounts,
-    ParsedInterestParams,
-)
-
+from apps.documents.services.placeholders.litigation.execution_request_models import ParsedAmounts, ParsedInterestParams
 
 # ---------------------------------------------------------------------------
 # should_try_llm_fallback
@@ -92,6 +88,17 @@ class TestShouldTryLlmFallback:
         assert should_try_llm_fallback(
             text="被告支付10万元", amounts=amounts, params=params, principal_fallback_to_target=False
         ) is False
+
+    def test_principal_none_triggers_fallback(self) -> None:
+        """本金完全未解析出来时（principal is None），应触发 LLM 兜底。"""
+        amounts = ParsedAmounts()  # principal 默认为 None
+        params = ParsedInterestParams()
+        assert should_try_llm_fallback(
+            text="被告支付代偿款4376597.3元",
+            amounts=amounts,
+            params=params,
+            principal_fallback_to_target=False,
+        ) is True
 
 
 # ---------------------------------------------------------------------------

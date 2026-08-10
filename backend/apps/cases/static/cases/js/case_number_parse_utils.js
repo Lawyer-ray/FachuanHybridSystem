@@ -60,6 +60,53 @@
         return cookieValue;
     }
 
+    /** 缓存 LLM 模型列表，避免每行重复请求 */
+    var _llmModelsCache = null;
+    var _llmModelsFetching = null;
+
+    /**
+     * 获取可用 LLM 模型列表（带缓存）
+     * @param {function(Array)} callback - 回调，参数为模型数组 [{id, name, context_window}]
+     */
+    function fetchLLMModels(callback) {
+        if (_llmModelsCache !== null) {
+            callback(_llmModelsCache);
+            return;
+        }
+        if (_llmModelsFetching) {
+            _llmModelsFetching.push(callback);
+            return;
+        }
+        _llmModelsFetching = [callback];
+        var xhr = new XMLHttpRequest();
+        xhr.open('GET', '/admin/cases/case/llm-models/', true);
+        xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
+        xhr.onload = function() {
+            var models = [];
+            if (xhr.status === 200) {
+                try {
+                    var data = JSON.parse(xhr.responseText);
+                    if (data.success && Array.isArray(data.models)) {
+                        models = data.models;
+                    }
+                } catch (e) { /* ignore */ }
+            }
+            _llmModelsCache = models;
+            for (var i = 0; i < _llmModelsFetching.length; i++) {
+                _llmModelsFetching[i](models);
+            }
+            _llmModelsFetching = null;
+        };
+        xhr.onerror = function() {
+            _llmModelsCache = [];
+            for (var i = 0; i < _llmModelsFetching.length; i++) {
+                _llmModelsFetching[i]([]);
+            }
+            _llmModelsFetching = null;
+        };
+        xhr.send();
+    }
+
     // ============================================================
     // DOM 查询辅助
     // ============================================================
@@ -152,6 +199,7 @@
     window.CaseNumberParse = {
         showToast: showToast,
         getCSRFToken: getCSRFToken,
+        fetchLLMModels: fetchLLMModels,
         getCaseNumberInlineGroup: getCaseNumberInlineGroup,
         getCaseNumberRows: getCaseNumberRows,
         isExecutionStageSelected: isExecutionStageSelected,
