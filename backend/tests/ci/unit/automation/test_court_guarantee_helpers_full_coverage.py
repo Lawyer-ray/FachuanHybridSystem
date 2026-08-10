@@ -635,11 +635,11 @@ class TestResolveInsuranceCompanyDefaults:
     def test_no_options(self, mock_extract):
         mock_extract.return_value = []
         from plugins.court_automation.guarantee.schemas import (
-            _DEFAULT_INSURANCE_COMPANY,
             _GUARANTEE_INSURANCE_COMPANY_OPTIONS,
+            _SUNSHINE_INSURANCE_COMPANY,
         )
         company, options = self._fn()(quote_context=None)
-        assert company == _DEFAULT_INSURANCE_COMPANY
+        assert company == _SUNSHINE_INSURANCE_COMPANY
         assert options == _GUARANTEE_INSURANCE_COMPANY_OPTIONS
 
 

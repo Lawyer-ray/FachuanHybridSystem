@@ -527,7 +527,7 @@ class TestResolveInsuranceCompanyDefaults:
 
     def test_no_quote_returns_defaults(self):
         company, options = self._fn_import()(quote_context=None)
-        assert company == "中国平安财产保险股份有限公司"
+        assert company == "阳光财产保险股份有限公司"
 
     def test_recommended_in_options(self):
         ctx = {

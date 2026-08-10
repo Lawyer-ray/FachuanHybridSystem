@@ -92,7 +92,7 @@ class TestCourtGuaranteeSchemas:
             has_case_number=True,
         )
         assert obj.case_id == 1
-        assert obj.insurance_company_name == "中国平安财产保险股份有限公司"
+        assert obj.insurance_company_name == "阳光财产保险股份有限公司"
 
     def test_case_quote_operation_in(self):
         from plugins.court_automation.guarantee.schemas import CaseQuoteOperationIn

@@ -300,7 +300,7 @@ class TestResolveInsuranceCompanyDefaults:
     def test_no_quote_options(self):
         from plugins.court_automation.guarantee.helpers import _resolve_insurance_company_defaults
         default, options = _resolve_insurance_company_defaults(quote_context=None)
-        assert default == "中国平安财产保险股份有限公司"
+        assert default == "阳光财产保险股份有限公司"
 
 
 # ---------------------------------------------------------------------------
