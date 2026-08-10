@@ -1,0 +1,10 @@
+测试文件 - 案件处理文件识别 skill
+
+本文件用于端到端测试,验证文件识别 skill 能正确调用后端文档解析服务,
+将 txt 文件转为 Markdown 格式。
+
+测试时间:2026-08-10
+测试内容:
+1. 调用 POST /api/v1/document-parsing/parse 接口
+2. 验证返回的 markdown 内容
+3. 验证输出的 .md 文件正确生成

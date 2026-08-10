@@ -22,6 +22,7 @@ skills/
 | 工作流 | 说明 | Skills 数量 |
 |--------|------|-------------|
 | [合同处理](./合同处理/) | 合同文档处理工作流 | 2 |
+| [案件处理](./案件处理/) | 案件材料自动化处理工作流 | 1 |
 
 ## Skills 列表
 
@@ -29,6 +30,8 @@ skills/
 |--------|-------|------|------|
 | 合同处理 | [doc转docx](./合同处理/doc转docx/) | 将 .doc 转换为 .docx | 1.0.0 |
 | 合同处理 | [合同自动编号](./合同处理/合同自动编号/) | 将手动编号转换为 Word 自动编号 | 1.1.0 |
+| 案件处理 | [文件识别](./案件处理/文件识别/) | 接入文档解析服务,将各种格式统一转为 Markdown | 1.0.0 |
+| 案件处理 | [按标题拆分](./案件处理/按标题拆分/) | 将整篇 Markdown 按文书标题拆分为多个独立 .md | 1.0.0 |
 
 ## 使用方式
 
@@ -44,6 +47,10 @@ python -m skills.合同处理.合同自动编号 /path/to/document.docx
 # 指定格式
 python -m skills.合同处理.合同自动编号 /path/to/document.docx --format chinese
 python -m skills.合同处理.合同自动编号 /path/to/document.docx --format decimal
+
+# 案件处理 - 文件识别(将各种格式转为 Markdown)
+python -m skills.案件处理.文件识别 /path/to/file.pdf
+python -m skills.案件处理.文件识别 /path/to/case_folder --recursive
 ```
 
 ### 在 Claude 中调用
@@ -51,6 +58,7 @@ python -m skills.合同处理.合同自动编号 /path/to/document.docx --format
 ```
 /doc转docx /path/to/document.doc
 /合同自动编号 /path/to/document.docx
+/文件识别 /path/to/file.pdf
 ```
 
 ## 创建新 Skill
