@@ -43,19 +43,33 @@ def format_result_summary(results: list[dict]) -> str:
         results: recognize_files 返回的结果列表
 
     Returns:
-        可读的汇总字符串
+        可读的汇总字符串,含完整输出路径
     """
     total = len(results)
     success = sum(1 for r in results if r.get('success'))
     failed = total - success
 
+    # 提取输出目录(从第一个成功的结果取)
+    output_dir = ''
+    for r in results:
+        if r.get('success') and r.get('output'):
+            output_dir = str(Path(r['output']).parent)
+            break
+
     lines = [
-        '\n=== 识别完成 ===',
-        f'总计: {total} 个文件 | 成功: {success} | 失败: {failed}',
+        '',
+        '========================================',
+        '  识别完成',
+        '========================================',
+        f'  输出目录: {output_dir}' if output_dir else '',
+        f'  总计: {total} 个文件 | 成功: {success} | 失败: {failed}',
+        '----------------------------------------',
     ]
+    # 去掉空行(当 output_dir 为空时)
+    lines = [l for l in lines if l != '' or output_dir]
 
     if success:
-        lines.append('\n--- 成功 ---')
+        lines.append('--- 成功 ---')
         for r in results:
             if r.get('success'):
                 size = r.get('markdown_length', 0)
@@ -65,9 +79,17 @@ def format_result_summary(results: list[dict]) -> str:
                 )
 
     if failed:
-        lines.append('\n--- 失败 ---')
+        lines.append('--- 失败 ---')
         for r in results:
             if not r.get('success'):
                 lines.append(f'  ✗ {r["input"]}: {r.get("error", "未知错误")}')
+
+    if output_dir:
+        lines.extend([
+            '----------------------------------------',
+            f'  请到输出目录查看结果: {output_dir}',
+            '========================================',
+            '',
+        ])
 
     return '\n'.join(lines)

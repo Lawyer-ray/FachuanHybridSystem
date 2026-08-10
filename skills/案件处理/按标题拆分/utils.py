@@ -76,15 +76,25 @@ def format_split_summary(results: list[dict]) -> str:
         results: apply_split_map 返回的片段列表
 
     Returns:
-        可读的汇总字符串
+        可读的汇总字符串,含完整输出路径
     """
     total = len(results)
     total_chars = sum(r.get('char_count', 0) for r in results)
 
+    # 从第一个结果取输出目录(所有文件在同一目录)
+    output_dir = ''
+    if results:
+        output_dir = str(Path(results[0]['output']).parent)
+
     lines = [
-        '\n=== 拆分完成 ===',
-        f'共拆分为 {total} 个文件,总计 {total_chars} 字符',
         '',
+        '========================================',
+        '  拆分完成',
+        '========================================',
+        f'  输出目录: {output_dir}',
+        f'  文件数量: {total} 个',
+        f'  总字符数: {total_chars}',
+        '----------------------------------------',
     ]
 
     for r in results:
@@ -92,10 +102,22 @@ def format_split_summary(results: list[dict]) -> str:
         name = r['name']
         chars = r.get('char_count', 0)
         lines_b = r.get('line_count', 0)
-        out = Path(r['output']).name
+        out_path = Path(r['output'])
         doc_type = r.get('type', '')
+        is_noise = r.get('is_noise', False)
         type_tag = f' [{doc_type}]' if doc_type else ''
-        lines.append(f'  {idx + 1:2d}. {out}{type_tag} ({chars} 字符, {lines_b} 行)')
+        noise_tag = ' (噪音)' if is_noise else ''
+        # 显示完整路径,而非仅文件名
+        lines.append(
+            f'  {idx + 1:2d}. {out_path}{type_tag}{noise_tag} ({chars} 字符, {lines_b} 行)'
+        )
+
+    lines.extend([
+        '----------------------------------------',
+        f'  请到输出目录查看拆分结果: {output_dir}',
+        '========================================',
+        '',
+    ])
 
     return '\n'.join(lines)
 
