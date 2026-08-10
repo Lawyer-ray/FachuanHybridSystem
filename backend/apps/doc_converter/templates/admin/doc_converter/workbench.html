@@ -153,6 +153,13 @@
 .dc-item-table tr:last-child td { border-bottom: none; }
 .dc-status-ok { color: var(--fc-success-text); font-weight: 500; }
 .dc-status-fail { color: var(--fc-error-text); font-weight: 500; }
+.dc-item-download {
+    display: inline-block; padding: 4px 10px; border-radius: 6px;
+    background: var(--fc-success-text); color: var(--fc-text-on-primary) !important;
+    text-decoration: none !important; font-size: 12px; font-weight: 500;
+    transition: all 0.2s;
+}
+.dc-item-download:hover { background: var(--fc-success-text); opacity: 0.88; }
 
 /* 保存到目录 */
 .dc-save-dir {
@@ -282,7 +289,7 @@
             </div>
             <table class="dc-item-table">
                 <thead>
-                    <tr><th>文件名</th><th>状态</th><th>耗时</th><th>错误</th></tr>
+                    <tr><th>文件名</th><th>状态</th><th>耗时</th><th>错误</th><th style="width:90px">操作</th></tr>
                 </thead>
                 <tbody id="itemTableBody"></tbody>
             </table>
@@ -563,10 +570,14 @@
             var statusClass = item.status === 'completed' ? 'dc-status-ok' : 'dc-status-fail';
             var statusText  = item.status === 'completed' ? '成功' : '失败';
             var duration    = item.duration_ms ? (item.duration_ms / 1000).toFixed(1) + 's' : '—';
+            var actionCell  = item.download_url
+                ? '<a href="' + item.download_url + '" class="dc-item-download" title="下载 .docx">下载</a>'
+                : '—';
             tr.innerHTML = '<td>' + escHtml(item.original_name) + '</td>'
                 + '<td class="' + statusClass + '">' + statusText + '</td>'
                 + '<td>' + duration + '</td>'
-                + '<td>' + escHtml(item.error || '') + '</td>';
+                + '<td>' + escHtml(item.error || '') + '</td>'
+                + '<td>' + actionCell + '</td>';
             tbody.appendChild(tr);
         });
 

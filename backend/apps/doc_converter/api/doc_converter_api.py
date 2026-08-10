@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 from typing import Any
 from uuid import UUID
 
@@ -8,6 +9,8 @@ from django.http import FileResponse
 from ninja import File, Router
 from ninja.files import UploadedFile
 
+from apps.core.exceptions import NotFoundError
+from apps.doc_converter.models import DocConverterJobStatus
 from apps.doc_converter.schemas import HealthOut, JobProgressOut, JobSubmitOut, SaveToDirIn, SaveToDirOut
 from apps.doc_converter.services.converter_service import DocConverterService
 from apps.doc_converter.services.engine import find_libreoffice
@@ -55,8 +58,6 @@ def download_converted_files(request: Any, job_id: UUID) -> FileResponse:  # pra
     """下载转换完成的 ZIP 包。"""
     job = _service.get_job(job_id)
     if not job.output_zip:
-        from apps.core.exceptions import NotFoundError
-
         raise NotFoundError(message="转换结果不存在", code="ZIP_NOT_FOUND", errors={})
 
     return FileResponse(
@@ -64,6 +65,22 @@ def download_converted_files(request: Any, job_id: UUID) -> FileResponse:  # pra
         as_attachment=True,
         filename=f"doc_converter_{job_id}.zip",
         content_type="application/zip",
+    )
+
+
+@router.get("/jobs/{job_id}/items/{item_id}/download", summary="下载单个转换文件")
+def download_single_file(request: Any, job_id: UUID, item_id: UUID) -> FileResponse:  # pragma: no cover
+    """下载单个已转换的 .docx 文件。"""
+    item = _service.get_item(job_id=job_id, item_id=item_id)
+    if item.status != DocConverterJobStatus.COMPLETED or not item.converted_file:
+        raise NotFoundError(message="转换文件不存在", code="ITEM_NOT_CONVERTED", errors={})
+
+    filename = Path(item.original_name).stem + ".docx"
+    return FileResponse(
+        item.converted_file.open("rb"),
+        as_attachment=True,
+        filename=filename,
+        content_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     )
 
 

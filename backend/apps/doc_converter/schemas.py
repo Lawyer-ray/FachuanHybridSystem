@@ -18,6 +18,7 @@ class ItemOut(Schema):
     status: str
     error: str
     duration_ms: float | None = None
+    download_url: str = ""
 
 
 class JobOut(Schema):
