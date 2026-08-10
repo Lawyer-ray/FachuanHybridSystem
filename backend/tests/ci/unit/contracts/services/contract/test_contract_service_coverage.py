@@ -117,11 +117,14 @@ class TestContractServiceDelegatedCalls:
         svc._mutation_service.delete_contract.assert_called_once_with(1)
 
     def test_add_party(self):
+        from apps.contracts.models import PartyRole
         from apps.contracts.services.contract.contract_service import ContractService
         svc = ContractService()
         svc._party_service = MagicMock()
         svc.add_party(1, 2)
-        svc._party_service.add_party.assert_called_once_with(contract_id=1, client_id=2)
+        svc._party_service.add_party.assert_called_once_with(
+            contract_id=1, client_id=2, role=PartyRole.PRINCIPAL
+        )
 
     def test_remove_party(self):
         from apps.contracts.services.contract.contract_service import ContractService

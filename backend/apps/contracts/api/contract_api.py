@@ -11,6 +11,8 @@ from apps.contracts.schemas import (
     ContractAssignmentOut,
     ContractIn,
     ContractOut,
+    ContractPartyIn,
+    ContractPartyOut,
     ContractPartySourceOut,
     ContractPaymentIn,
     ContractUpdate,
@@ -187,7 +189,9 @@ async def create_contract(  # pragma: no cover
 
 
 @router.put("/contracts/{contract_id}/lawyers", response=list[ContractAssignmentOut])
-async def update_contract_lawyers(request: HttpRequest, contract_id: int, payload: UpdateLawyersIn) -> Any:  # pragma: no cover
+async def update_contract_lawyers(
+    request: HttpRequest, contract_id: int, payload: UpdateLawyersIn
+) -> Any:  # pragma: no cover
     service = _get_domain_service()
     ctx = await sync_to_async(extract_request_context)(request)
     await _get_access_policy().aensure_access(
@@ -196,9 +200,11 @@ async def update_contract_lawyers(request: HttpRequest, contract_id: int, payloa
         org_access=ctx.org_access,
         perm_open_access=ctx.perm_open_access,
     )
+
     def _do() -> Any:
         assignments = service.update_contract_lawyers(
-            contract_id=contract_id, lawyer_ids=payload.lawyer_ids,
+            contract_id=contract_id,
+            lawyer_ids=payload.lawyer_ids,
         )
         return [ContractAssignmentOut.from_assignment(item).model_dump() for item in assignments]
 
@@ -234,3 +240,45 @@ async def get_contract_all_parties(request: HttpRequest, contract_id: int) -> An
         return service.get_all_parties(contract_id)
 
     return await sync_to_async(_do)()
+
+
+@router.post("/contracts/{contract_id}/parties", response=ContractPartyOut)
+async def add_contract_party(  # pragma: no cover
+    request: HttpRequest, contract_id: int, payload: ContractPartyIn
+) -> Any:
+    """添加合同当事人（若已存在则更新其 role）。"""
+    service = _get_domain_service()
+    ctx = await sync_to_async(extract_request_context)(request)
+    await _get_access_policy().aensure_access(
+        contract_id=contract_id,
+        user=ctx.user,
+        org_access=ctx.org_access,
+        perm_open_access=ctx.perm_open_access,
+    )
+
+    def _do() -> Any:
+        party = service.add_party(contract_id=contract_id, client_id=payload.client_id, role=payload.role)
+        return ContractPartyOut.from_orm(party).model_dump(by_alias=True)
+
+    return await sync_to_async(_do)()
+
+
+@router.delete("/contracts/{contract_id}/parties/{client_id}")
+async def remove_contract_party(  # pragma: no cover
+    request: HttpRequest, contract_id: int, client_id: int
+) -> dict[str, bool]:
+    """移除合同当事人。"""
+    service = _get_domain_service()
+    ctx = await sync_to_async(extract_request_context)(request)
+    await _get_access_policy().aensure_access(
+        contract_id=contract_id,
+        user=ctx.user,
+        org_access=ctx.org_access,
+        perm_open_access=ctx.perm_open_access,
+    )
+
+    def _do() -> Any:
+        service.remove_party(contract_id=contract_id, client_id=client_id)
+
+    await sync_to_async(_do)()
+    return {"success": True}

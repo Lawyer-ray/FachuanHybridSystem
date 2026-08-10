@@ -163,12 +163,26 @@ class TestContractServiceDelegationMethods:
         svc._finance_mutation_service.get_finance_summary.assert_called_once_with(1)
 
     def test_add_party_delegates(self) -> None:
+        from apps.contracts.models import PartyRole
         from apps.contracts.services.contract.contract_service import ContractService
 
         svc = ContractService()
         svc._party_service = MagicMock()
         svc.add_party(1, 10)
-        svc._party_service.add_party.assert_called_once_with(contract_id=1, client_id=10)
+        svc._party_service.add_party.assert_called_once_with(
+            contract_id=1, client_id=10, role=PartyRole.PRINCIPAL
+        )
+
+    def test_add_party_delegates_with_role(self) -> None:
+        from apps.contracts.models import PartyRole
+        from apps.contracts.services.contract.contract_service import ContractService
+
+        svc = ContractService()
+        svc._party_service = MagicMock()
+        svc.add_party(1, 10, role=PartyRole.OPPOSING)
+        svc._party_service.add_party.assert_called_once_with(
+            contract_id=1, client_id=10, role=PartyRole.OPPOSING
+        )
 
     def test_remove_party_delegates(self) -> None:
         from apps.contracts.services.contract.contract_service import ContractService

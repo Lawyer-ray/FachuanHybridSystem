@@ -58,6 +58,14 @@ class TestContractApiEndpoints:
         from apps.contracts.api.contract_api import get_contract_all_parties
         assert callable(get_contract_all_parties)
 
+    def test_add_contract_party_endpoint(self) -> None:
+        from apps.contracts.api.contract_api import add_contract_party
+        assert callable(add_contract_party)
+
+    def test_remove_contract_party_endpoint(self) -> None:
+        from apps.contracts.api.contract_api import remove_contract_party
+        assert callable(remove_contract_party)
+
 
 class TestContractWithCasesIn:
     """测试 ContractWithCasesIn schema"""
