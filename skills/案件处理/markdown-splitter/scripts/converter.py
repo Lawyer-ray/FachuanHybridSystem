@@ -14,7 +14,7 @@ from pathlib import Path
 
 from .detector import detect_heading_candidates
 from .formats import MIN_CHUNK_CHARS
-from .utils import generate_output_path, sanitize_filename, validate_md_input
+from .utils import generate_output_path, validate_md_input
 
 logger = logging.getLogger(__name__)
 

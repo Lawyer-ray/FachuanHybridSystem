@@ -3,13 +3,13 @@
 
 用法:
     # 单文件
-    python -m skills.案件处理.文件识别 /path/to/document.pdf
+    python -m skills.案件处理.file-recognition.scripts /path/to/document.pdf
 
     # 目录(递归扫描)
-    python -m skills.案件处理.文件识别 /path/to/case_folder --recursive
+    python -m skills.案件处理.file-recognition.scripts /path/to/case_folder --recursive
 
     # 指定输出目录和后端
-    python -m skills.案件处理.文件识别 /path/to/file.pdf --output-dir /output --backend textin
+    python -m skills.案件处理.file-recognition.scripts /path/to/file.pdf --output-dir /output --backend textin
 
 认证(按优先级):
     1. --token 参数 或 FACHUAN_API_TOKEN 环境变量
@@ -24,7 +24,7 @@ import logging
 import sys
 from pathlib import Path
 
-from ..utils import build_api_client
+from ..._shared import build_api_client
 from .converter import recognize_file, recognize_files
 from .detector import is_format_supported, scan_directory
 from .formats import ALL_SUPPORTED_FORMATS, DEFAULT_BACKEND
@@ -36,7 +36,7 @@ logger = logging.getLogger(__name__)
 def build_parser() -> argparse.ArgumentParser:
     """构建命令行参数解析器"""
     parser = argparse.ArgumentParser(
-        prog='python -m skills.案件处理.文件识别',
+        prog='python -m skills.案件处理.file-recognition.scripts',
         description='文件识别:将各种格式(PDF/DOC/DOCX/图片等)统一转为 Markdown',
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=(

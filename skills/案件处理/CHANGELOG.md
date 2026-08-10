@@ -4,6 +4,31 @@
 
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/),
 
+## [1.2.0] - 2026-08-10
+
+### 重构
+
+- 全部 skill 改造为符合 [Agent Skills Specification](https://agentskills.io/specification)
+  - 每个 skill 入口为 `SKILL.md`(YAML frontmatter + 精简正文)
+  - 可执行代码迁移到 `scripts/` 子目录
+  - 参考文档迁移到 `references/` 子目录
+  - 静态资源迁移到 `assets/` 子目录
+  - 目录名改为 kebab-case(`file-recognition` / `markdown-splitter`),与 `name` 字段一致
+- HTTP 客户端从 `requests` 改为 `httpx`(与后端 `httpx[http2]==0.28.1` 一致)
+  - 公共客户端迁移到 `_shared/http_client.py`,跨 skill 复用
+  - `APIClient` 支持上下文管理器(`with` 语法)
+- 模块路径更新:
+  - `python -m skills.案件处理.文件识别` → `python -m skills.案件处理.file-recognition.scripts`
+  - `python -m skills.案件处理.按标题拆分` → `python -m skills.案件处理.markdown-splitter.scripts`
+- 工作流目录结构调整:
+  - `utils.py` → `_shared/http_client.py`
+  - `config.example.py` 保留在工作流根目录,file-recognition/assets/ 下也有副本
+
+### 工作流变更
+
+- README.md 更新为新结构,标注 SKILL.md 为入口
+- CHANGELOG.md 新增 1.2.0 重构记录
+
 ## [1.1.0] - 2026-08-10
 
 ### 新增

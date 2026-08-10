@@ -1,14 +1,30 @@
-# Changelog - 按标题拆分 Skill
+# Changelog - markdown-splitter Skill
 
 所有对此 Skill 的更改都将记录在此文件中。
 
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/),
 
+## [1.1.0] - 2026-08-10
+
+### 重构
+
+- 符合 [Anthropic Agent Skills 规范](https://agentskills.io/specification) 的目录结构
+- 新增 `SKILL.md`（含 YAML frontmatter：`name`、`description`、`metadata.author`、`metadata.version`），取代原 `README.md` 作为 skill 入口
+- Python 代码迁移至 `scripts/` 子目录（`__init__.py` / `__main__.py` / `cli.py` / `converter.py` / `detector.py` / `formats.py` / `utils.py`）
+- 模块执行入口更新为 `python -m skills.案件处理.markdown-splitter.scripts`
+- 详细的拆分策略（三种模式工作原理、适用场景、`split_map.json` schema）拆分至 `references/SPLIT_STRATEGY.md`
+- `tests/` 目录迁移至新结构
+- 移除 `README.md`（由 `SKILL.md` 取代）
+
+### 变更
+
+- `__init__.py` 版本号升至 `1.1.0`
+
 ## [1.0.0] - 2026-08-10
 
 ### 新增
 
-- 初始版本,将包含多份文书的 markdown 拆分为多个独立 .md 文件
+- 初始版本，将包含多份文书的 markdown 拆分为多个独立 .md 文件
 - 三种工作模式:
   - **规则模式**(兜底):按 markdown 指定层级标题切分,适合标题规范的文档
   - **分析模式**(`--analyze`):输出候选标题结构 JSON,含标题文本/层级/上下文/噪音标记
@@ -23,6 +39,6 @@
 
 ### 设计决策
 
-- **不内置 LLM 调用**:遵循项目约定(用 trade/claude code 的 token,不用后端 LLM)
+- **不内置 LLM 调用**:遵循项目约定(用 trae/claude code 的 token,不用后端 LLM)
 - **AI 辅助模式与合同编号 skill 一致**:输出 JSON → AI 判断 → 应用映射
 - **规则模式仅作兜底**:实测真实案件材料标题层级混乱,规则无法准确切分

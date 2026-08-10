@@ -4,6 +4,24 @@
 
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/),
 
+## [1.1.0] - 2026-08-10
+
+### 变更
+
+- 重构为符合 Anthropic Agent Skills 规范的结构（SKILL.md + frontmatter + scripts/ + references/ + assets/）
+- HTTP 客户端改用 httpx（由 skills/案件处理/_shared/http_client.py 统一封装），不再使用 requests
+- 目录重命名为 file-recognition/，代码迁移至 scripts/ 子目录
+- import 路径由 `from ..utils import ...` 改为 `from ..._shared import ...`
+- 模块执行入口改为 `python -m skills.案件处理.file-recognition.scripts`
+- README.md 被 SKILL.md 取代；详细格式列表移至 references/SUPPORTED_FORMATS.md
+- 配置模板移至 assets/config.example.py
+
+### 新增
+
+- SKILL.md（frontmatter：name / description / compatibility / metadata）
+- references/SUPPORTED_FORMATS.md（textin / mineru / local 三后端格式支持矩阵）
+- assets/config.example.py（配置模板，指向工作流根目录的 config.py）
+
 ## [1.0.0] - 2026-08-10
 
 ### 新增

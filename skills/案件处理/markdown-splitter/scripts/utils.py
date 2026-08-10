@@ -99,7 +99,6 @@ def format_split_summary(results: list[dict]) -> str:
 
     for r in results:
         idx = r['index']
-        name = r['name']
         chars = r.get('char_count', 0)
         lines_b = r.get('line_count', 0)
         out_path = Path(r['output'])

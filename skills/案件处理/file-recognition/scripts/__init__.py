@@ -10,7 +10,7 @@
 - recognize_files: 批量识别文件
 
 CLI 入口:
-    python -m skills.案件处理.文件识别 <file_or_dir> [options]
+    python -m skills.案件处理.file-recognition.scripts <file_or_dir> [options]
 """
 
 from __future__ import annotations
@@ -19,7 +19,7 @@ from .converter import recognize_file, recognize_files
 from .detector import detect_file_format, is_format_supported, scan_directory, select_backend
 from .formats import ALL_SUPPORTED_FORMATS, BACKEND_FEATURES, DEFAULT_BACKEND
 
-__version__ = '1.0.0'
+__version__ = '1.1.0'
 
 __all__ = [
     'recognize_file',

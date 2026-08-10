@@ -9,7 +9,7 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
-from ..utils import DEFAULT_POLL_INTERVAL, DEFAULT_POLL_TIMEOUT, APIClient, DocumentParsingClient, build_api_client
+from ..._shared import DEFAULT_POLL_INTERVAL, DEFAULT_POLL_TIMEOUT, APIClient, DocumentParsingClient, build_api_client
 from .detector import detect_file_format, is_format_supported, select_backend
 from .formats import DEFAULT_BACKEND
 from .utils import generate_md_output_path

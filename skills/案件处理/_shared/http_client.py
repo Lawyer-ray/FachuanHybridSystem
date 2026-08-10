@@ -1,11 +1,11 @@
-"""
-案件处理工作流公共工具
+"""案件处理工作流 - HTTP 客户端(httpx 封装)。
 
-封装后端 API 调用,供工作流内所有 skill 复用。
+与后端 `httpx[http2]==0.28.1` 依赖保持一致,不使用 requests。
 
 认证方式(按优先级):
 1. JWT Token(通过 `token` 参数或 `FACHUAN_API_TOKEN` 环境变量)
 2. Session 登录(通过 `username`/`password` 参数或 `FACHUAN_USERNAME`/`FACHUAN_PASSWORD` 环境变量)
+3. 本地 config.py(不入库,含默认账号)
 """
 
 from __future__ import annotations
@@ -15,35 +15,41 @@ import os
 import time
 from pathlib import Path
 
-import requests
+import httpx
 
 logger = logging.getLogger(__name__)
 
 DEFAULT_BASE_URL = os.environ.get('FACHUAN_BASE_URL', 'http://127.0.0.1:8002')
 DEFAULT_POLL_INTERVAL = 2.0
 DEFAULT_POLL_TIMEOUT = 600.0
+_DEFAULT_TIMEOUT = 30.0
+_LOGIN_TIMEOUT = 10.0
+_UPLOAD_TIMEOUT = 60.0
 
 # 尝试加载本地配置(config.py,不入库,含默认账号)
 # 优先级:CLI 参数 > 环境变量 > config.py
 try:
-    from . import config as _local_config  # type: ignore[import-not-found]
-except ImportError:
-    _local_config = None  # type: ignore[assignment]
+    # 相对 _shared/ 的上一级目录(工作流根目录)读取 config.py
+    _CONFIG_PATH = Path(__file__).resolve().parent.parent / 'config.py'
+    if _CONFIG_PATH.exists():
+        import importlib.util as _ilu
 
-__all__ = [
-    'APIClient',
-    'DocumentParsingClient',
-    'build_api_client',
-    'DEFAULT_BASE_URL',
-    'DEFAULT_POLL_INTERVAL',
-    'DEFAULT_POLL_TIMEOUT',
-]
+        _spec = _ilu.spec_from_file_location('_case_workflow_config', _CONFIG_PATH)
+        _local_config = _ilu.module_from_spec(_spec)  # type: ignore[arg-type]
+        if _spec and _spec.loader:
+            _spec.loader.exec_module(_local_config)
+        else:
+            _local_config = None  # type: ignore[assignment]
+    else:
+        _local_config = None
+except Exception:  # pragma: no cover - 配置加载失败不应阻塞
+    _local_config = None
 
 
 class APIClient:
     """后端 API 客户端
 
-    封装 requests.Session,统一处理认证(JWT/Session)和 CSRF。
+    封装 httpx.Client,统一处理认证(JWT/Session)和 CSRF。
 
     Args:
         base_url: 后端服务地址,默认读 `FACHUAN_BASE_URL` 环境变量
@@ -60,11 +66,15 @@ class APIClient:
         password: str | None = None,
     ) -> None:
         self.base_url = base_url.rstrip('/')
-        self.session = requests.Session()
+        self._client = httpx.Client(
+            base_url=self.base_url,
+            timeout=_DEFAULT_TIMEOUT,
+            follow_redirects=True,
+        )
         self._token = token
 
         if token:
-            self.session.headers['Authorization'] = f'Bearer {token}'
+            self._client.headers['Authorization'] = f'Bearer {token}'
 
         if username and password:
             self.login(username, password)
@@ -75,27 +85,26 @@ class APIClient:
         Raises:
             PermissionError: 登录失败(凭证错误或网络问题)
         """
-        login_url = f'{self.base_url}/admin/login/'
-        # 先 GET 拿 csrftoken
+        login_path = '/admin/login/'
         try:
-            r = self.session.get(login_url, timeout=10)
+            r = self._client.get(login_path, timeout=_LOGIN_TIMEOUT)
             r.raise_for_status()
-        except requests.RequestException as e:
-            raise PermissionError(f'无法连接登录页 {login_url}: {e}') from e
+        except httpx.HTTPError as e:
+            raise PermissionError(f'无法连接登录页 {login_path}: {e}') from e
 
-        csrf = self.session.cookies.get('csrftoken', '')
+        csrf = self._client.cookies.get('csrftoken', '')
         data = {
             'username': username,
             'password': password,
             'csrfmiddlewaretoken': csrf,
             'next': '/admin/',
         }
-        headers = {'Referer': login_url}
+        headers = {'Referer': f'{self.base_url}{login_path}'}
         try:
-            r = self.session.post(
-                login_url, data=data, headers=headers, timeout=10, allow_redirects=True
+            r = self._client.post(
+                login_path, data=data, headers=headers, timeout=_LOGIN_TIMEOUT
             )
-        except requests.RequestException as e:
+        except httpx.HTTPError as e:
             raise PermissionError(f'登录请求失败: {e}') from e
 
         if r.status_code >= 400:
@@ -109,7 +118,7 @@ class APIClient:
 
     def get(self, path: str, **kwargs) -> dict:
         """发送 GET 请求,返回 JSON"""
-        r = self.session.get(self._url(path), timeout=30, **kwargs)
+        r = self._client.get(path, **kwargs)
         return self._handle(r)
 
     def post_multipart(
@@ -131,21 +140,26 @@ class APIClient:
         with open(file_path, 'rb') as f:
             files = {file_field: (file_path.name, f, 'application/octet-stream')}
             headers = {}
-            csrf = self.session.cookies.get('csrftoken', '')
+            csrf = self._client.cookies.get('csrftoken', '')
             if csrf:
                 headers['X-CSRFToken'] = csrf
-            r = self.session.post(
-                self._url(path), data=fields, files=files, headers=headers, timeout=60
+            r = self._client.post(
+                path, data=fields, files=files, headers=headers, timeout=_UPLOAD_TIMEOUT
             )
         return self._handle(r)
 
-    def _url(self, path: str) -> str:
-        if path.startswith('http'):
-            return path
-        return f'{self.base_url}{path}'
+    def close(self) -> None:
+        """关闭底层 HTTP 连接"""
+        self._client.close()
+
+    def __enter__(self) -> APIClient:
+        return self
+
+    def __exit__(self, exc_type, exc, tb) -> None:
+        self.close()
 
     @staticmethod
-    def _handle(r: requests.Response) -> dict:
+    def _handle(r: httpx.Response) -> dict:
         if r.status_code >= 400:
             raise RuntimeError(f'API 调用失败: HTTP {r.status_code} - {r.text[:500]}')
         return r.json()

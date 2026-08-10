@@ -16,7 +16,7 @@ import json
 import logging
 from pathlib import Path
 
-from .formats import MARKDOWN_HEADING_PREFIXES, NOISE_KEYWORDS
+from .formats import NOISE_KEYWORDS
 from .utils import validate_md_input
 
 logger = logging.getLogger(__name__)

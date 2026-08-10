@@ -19,7 +19,7 @@ from .converter import apply_split_map, split_document
 from .detector import analyze_structure, detect_heading_candidates
 from .formats import DOCUMENT_TYPE_KEYWORDS, NOISE_KEYWORDS
 
-__version__ = '1.0.0'
+__version__ = '1.1.0'
 
 __all__ = [
     'analyze_structure',
