@@ -2,9 +2,9 @@
 按标题拆分 Skill - 命令行入口
 
 三种工作模式:
-1. 规则模式(默认):python -m skills.案件处理.markdown-splitter.scripts input.md [output_dir] [--level 2]
-2. 分析模式:python -m skills.案件处理.markdown-splitter.scripts input.md --analyze
-3. AI 映射模式:python -m skills.案件处理.markdown-splitter.scripts input.md --apply-map map.json [output_dir]
+1. 规则模式(默认):python -m skills.案件处理.按标题拆分.scripts input.md [output_dir] [--level 2]
+2. 分析模式:python -m skills.案件处理.按标题拆分.scripts input.md --analyze
+3. AI 映射模式:python -m skills.案件处理.按标题拆分.scripts input.md --apply-map map.json [output_dir]
 """
 
 from __future__ import annotations
@@ -25,7 +25,7 @@ logger = logging.getLogger(__name__)
 def build_parser() -> argparse.ArgumentParser:
     """构建命令行参数解析器"""
     parser = argparse.ArgumentParser(
-        prog='python -m skills.案件处理.markdown-splitter.scripts',
+        prog='python -m skills.案件处理.按标题拆分.scripts',
         description='按标题拆分:将包含多份文书的 markdown 拆分为多个独立 .md 文件',
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=(
@@ -34,9 +34,9 @@ def build_parser() -> argparse.ArgumentParser:
             '  分析模式: 输出候选标题 JSON,由 AI(trade/claude code)判断拆分点\n'
             '  AI 映射模式: 按 AI 生成的拆分方案执行切分\n\n'
             'AI 辅助模式流程:\n'
-            '  1. python -m skills.案件处理.markdown-splitter.scripts input.md --analyze > structure.json\n'
+            '  1. python -m skills.案件处理.按标题拆分.scripts input.md --analyze > structure.json\n'
             '  2. AI 读取 structure.json,理解文档结构,生成 split_map.json\n'
-            '  3. python -m skills.案件处理.markdown-splitter.scripts input.md --apply-map split_map.json output_dir\n\n'
+            '  3. python -m skills.案件处理.按标题拆分.scripts input.md --apply-map split_map.json output_dir\n\n'
             'split_map.json 格式:\n'
             '  [{"name": "民事起诉状", "start_line": 557, "end_line": 677, "type": "起诉状"}, ...]\n\n'
             '已知文书类型(供 AI 参考):\n  '

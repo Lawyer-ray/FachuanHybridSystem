@@ -4,6 +4,18 @@
 
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/),
 
+## [1.2.1] - 2026-08-10
+
+### 修复
+
+- skill 目录名改回中文(`文件识别/` / `按标题拆分/`),与 `合同处理/` 下其它 skill 保持一致
+  - 1.2.0 曾将目录名改为 kebab-case 英文(`file-recognition` / `markdown-splitter`),破坏了仓库既有约定
+  - `SKILL.md` frontmatter 的 `name` 字段保留英文(与 `合同审查` 的 `name: contract-review` 一致)
+- 模块路径相应回退:
+  - `python -m skills.案件处理.file-recognition.scripts` → `python -m skills.案件处理.文件识别.scripts`
+  - `python -m skills.案件处理.markdown-splitter.scripts` → `python -m skills.案件处理.按标题拆分.scripts`
+- 同步更新所有文档和代码中的模块路径引用(README/SKILL/references/config.example/scripts docstring)
+
 ## [1.2.0] - 2026-08-10
 
 ### 重构

@@ -1,8 +1,16 @@
-# Changelog - markdown-splitter Skill
+# Changelog - 按标题拆分 Skill
 
 所有对此 Skill 的更改都将记录在此文件中。
 
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/),
+
+## [1.1.1] - 2026-08-10
+
+### 修复
+
+- 目录名由 `markdown-splitter/` 改回 `按标题拆分/`，与 `合同处理/` 下其它 skill 保持一致
+- 模块执行入口回退为 `python -m skills.案件处理.按标题拆分.scripts`
+- `SKILL.md` frontmatter 的 `name: markdown-splitter` 保留英文（与 `合同审查` 的 `name: contract-review` 一致）
 
 ## [1.1.0] - 2026-08-10
 

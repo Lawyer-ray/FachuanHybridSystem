@@ -51,7 +51,7 @@ metadata:
 
 ```bash
 # 第一步：分析文档结构，输出候选标题 JSON
-python -m skills.案件处理.markdown-splitter.scripts input.md --analyze > structure.json
+python -m skills.案件处理.按标题拆分.scripts input.md --analyze > structure.json
 
 # 第二步：AI（trae/claude code）读取 structure.json
 # AI 根据候选标题的 text、level、context_before、context_after 理解文档结构
@@ -64,7 +64,7 @@ python -m skills.案件处理.markdown-splitter.scripts input.md --analyze > str
 #   ]
 
 # 第三步：按 AI 生成的拆分方案执行切分
-python -m skills.案件处理.markdown-splitter.scripts input.md --apply-map split_map.json output_dir/
+python -m skills.案件处理.按标题拆分.scripts input.md --apply-map split_map.json output_dir/
 ```
 
 在 Claude 中调用：
@@ -78,13 +78,13 @@ python -m skills.案件处理.markdown-splitter.scripts input.md --apply-map spl
 
 ```bash
 # 按 ## 标题切分（默认）
-python -m skills.案件处理.markdown-splitter.scripts input.md
+python -m skills.案件处理.按标题拆分.scripts input.md
 
 # 按 ### 标题切分
-python -m skills.案件处理.markdown-splitter.scripts input.md --level 3
+python -m skills.案件处理.按标题拆分.scripts input.md --level 3
 
 # 指定输出目录
-python -m skills.案件处理.markdown-splitter.scripts input.md output_dir/
+python -m skills.案件处理.按标题拆分.scripts input.md output_dir/
 ```
 
 > ⚠️ 规则模式对真实案件材料效果不好（标题层级混乱），建议优先使用 AI 辅助模式。
@@ -140,7 +140,7 @@ python -m skills.案件处理.markdown-splitter.scripts input.md output_dir/
 ## 模块结构
 
 ```
-markdown-splitter/
+按标题拆分/
 ├── SKILL.md                      # 本文件：metadata + 使用说明
 ├── CHANGELOG.md                  # 变更日志
 ├── scripts/                      # 可执行代码

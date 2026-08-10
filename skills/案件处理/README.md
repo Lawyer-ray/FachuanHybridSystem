@@ -6,8 +6,8 @@
 
 ## 工作流程
 
-1. **Step 0**: file-recognition - 将各种格式(PDF/DOC/DOCX/图片/OFD 等)统一转为 Markdown,为后续 AI 分析做准备
-2. **Step 1**: markdown-splitter - 将整篇 Markdown 按文书标题拆分为多个独立 .md(每份文书一个,AI 辅助)
+1. **Step 0**: 文件识别 - 将各种格式(PDF/DOC/DOCX/图片/OFD 等)统一转为 Markdown,为后续 AI 分析做准备
+2. **Step 1**: 按标题拆分 - 将整篇 Markdown 按文书标题拆分为多个独立 .md(每份文书一个,AI 辅助)
 3. **Step 2**: 案件信息提取 - 从 Markdown 中提取案件元信息(当事人、案号、法院、案由等,待实现)
 4. **Step 3**: 材料分类归档 - 按案件材料类型分类(起诉状、证据清单、判决书等,待实现)
 5. **Step 4**: 案件材料整理 - 输出全套可用的案件材料(待实现)
@@ -20,18 +20,18 @@
 
 ```bash
 # 文件识别(将单个文件转为 Markdown)
-python -m skills.案件处理.file-recognition.scripts /path/to/document.pdf
+python -m skills.案件处理.文件识别.scripts /path/to/document.pdf
 
 # 批量识别(扫描整个目录)
-python -m skills.案件处理.file-recognition.scripts /path/to/case_folder --recursive
+python -m skills.案件处理.文件识别.scripts /path/to/case_folder --recursive
 
 # 指定输出目录
-python -m skills.案件处理.file-recognition.scripts /path/to/document.pdf --output-dir /path/to/md_output
+python -m skills.案件处理.文件识别.scripts /path/to/document.pdf --output-dir /path/to/md_output
 
 # 按标题拆分(AI 辅助模式)
-python -m skills.案件处理.markdown-splitter.scripts /path/to/case_material.md --analyze > structure.json
+python -m skills.案件处理.按标题拆分.scripts /path/to/case_material.md --analyze > structure.json
 # AI 读取 structure.json 生成 split_map.json
-python -m skills.案件处理.markdown-splitter.scripts /path/to/case_material.md --apply-map split_map.json output_dir/
+python -m skills.案件处理.按标题拆分.scripts /path/to/case_material.md --apply-map split_map.json output_dir/
 ```
 
 ### 工作流调用
@@ -47,8 +47,8 @@ python -m skills.案件处理.markdown-splitter.scripts /path/to/case_material.m
 
 | Skill | 说明 | 版本 | 状态 |
 |-------|------|------|------|
-| [file-recognition](./file-recognition/) | 接入文档解析服务,将各种格式统一转为 Markdown | 1.1.0 | ✅ 可用 |
-| [markdown-splitter](./markdown-splitter/) | 将整篇 Markdown 按文书标题拆分为多个独立 .md | 1.1.0 | ✅ 可用 |
+| [文件识别](./文件识别/) | 接入文档解析服务,将各种格式统一转为 Markdown | 1.1.1 | ✅ 可用 |
+| [按标题拆分](./按标题拆分/) | 将整篇 Markdown 按文书标题拆分为多个独立 .md | 1.1.1 | ✅ 可用 |
 | 案件信息提取 | 从 Markdown 中提取案件元信息 | - | 🚧 待实现 |
 | 材料分类归档 | 按案件材料类型分类 | - | 🚧 待实现 |
 | 案件材料整理 | 输出全套可用的案件材料 | - | 🚧 待实现 |
@@ -63,7 +63,7 @@ python -m skills.案件处理.markdown-splitter.scripts /path/to/case_material.m
 ├── _shared/                       # 跨 skill 公共模块
 │   ├── __init__.py
 │   └── http_client.py             # httpx API 客户端(替代 requests)
-├── file-recognition/              # Step 0: 文件格式识别与转换
+├── 文件识别/                      # Step 0: 文件格式识别与转换
 │   ├── SKILL.md                   # Agent Skills 规范入口
 │   ├── CHANGELOG.md
 │   ├── scripts/                   # 可执行代码
@@ -80,7 +80,7 @@ python -m skills.案件处理.markdown-splitter.scripts /path/to/case_material.m
 │   │   └── config.example.py
 │   └── tests/
 │       └── fixtures/
-└── markdown-splitter/             # Step 1: 按文书标题拆分 markdown
+└── 按标题拆分/                    # Step 1: 按文书标题拆分 markdown
     ├── SKILL.md
     ├── CHANGELOG.md
     ├── scripts/
@@ -114,7 +114,7 @@ cd backend && uv sync
 
 ## 认证配置
 
-file-recognition skill 支持三种认证配置方式,按优先级(高 → 低):
+文件识别 skill 支持三种认证配置方式,按优先级(高 → 低):
 
 1. **CLI 参数**(单次调用):`--token` 或 `--username`/`--password`
 2. **环境变量**(会话级):
@@ -134,15 +134,15 @@ cp config.example.py config.py
 配置完成后,直接调用 skill 即可,无需任何参数:
 
 ```bash
-python -m skills.案件处理.file-recognition.scripts /path/to/file.pdf
+python -m skills.案件处理.文件识别.scripts /path/to/file.pdf
 ```
 
 ## 限制
 
-- file-recognition 需要后端服务运行(`http://127.0.0.1:8002`)
+- 文件识别 需要后端服务运行(`http://127.0.0.1:8002`)
 - 异步解析后端(mineru/textin)调用需在 SystemConfig 中配置对应 API Key
 - 单文件最大等待时间默认 600 秒(可配置)
-- markdown-splitter 无依赖,纯本地 Python 标准库即可运行
+- 按标题拆分 无依赖,纯本地 Python 标准库即可运行
 
 ## Changelog
 
