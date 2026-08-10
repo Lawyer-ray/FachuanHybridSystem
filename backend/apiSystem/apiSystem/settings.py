@@ -251,6 +251,13 @@ elif DB_ENGINE in ("", "postgres", "postgresql", "django.db.backends.postgresql"
     # 生产环境：保持 600 秒复用连接提升性能
     _conn_max_age = 0 if DEBUG else 600
 
+    # 测试/开发环境下添加数据库超时，防止 flaky test 在 psycopg socket wait 中 hang 住
+    # 导致 CI 60 分钟超时。statement_timeout 让长时间 SQL 自动失败，
+    # idle_in_transaction_session_timeout 让持有事务不释放的连接自动取消。
+    _pg_options: dict[str, object] = {"connect_timeout": 10}
+    if DEBUG:
+        _pg_options["options"] = "-c statement_timeout=30000 -c idle_in_transaction_session_timeout=60000"
+
     DATABASES = {
         "default": {
             "ENGINE": "django.db.backends.postgresql",
@@ -261,9 +268,7 @@ elif DB_ENGINE in ("", "postgres", "postgresql", "django.db.backends.postgresql"
             "PORT": int(os.environ.get("DB_PORT", "5432") or "5432"),
             "CONN_MAX_AGE": _conn_max_age,
             "CONN_HEALTH_CHECKS": True,
-            "OPTIONS": {
-                "connect_timeout": 10,
-            },
+            "OPTIONS": _pg_options,
         }
     }
 elif DB_ENGINE in ("mysql", "django.db.backends.mysql"):
