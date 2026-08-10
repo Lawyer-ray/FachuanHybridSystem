@@ -2,7 +2,7 @@
 
 import json
 import socket
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock, PropertyMock, patch
 
 import pytest
 
@@ -93,8 +93,9 @@ class TestIsNetworkError:
     def test_network_string_in_message(self):
         assert self.service._is_network_error(Exception("ERR_NAME_NOT_RESOLVED")) is True
 
-    def test_timeout_in_message(self):
-        assert self.service._is_network_error(Exception("request timeout occurred")) is True
+    def test_timeout_string_not_network_error(self):
+        # commit e2c813b 有意将 "timeout" 从 network_tokens 移除，普通异常不应误判为网络错误
+        assert self.service._is_network_error(Exception("request timeout occurred")) is False
 
     def test_not_network_error(self):
         assert self.service._is_network_error(ValueError("some value error")) is False

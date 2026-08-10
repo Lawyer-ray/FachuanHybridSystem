@@ -67,7 +67,8 @@ def test_build_selected_respondent_property_clues_returns_all_clues(monkeypatch)
     assert result[0]["property_info"] == "银行账户：户名: 测试户名A；银行账号: 6222"
     assert result[1]["property_info"] == "微信账户：微信号: test_wechat_123"
     assert result[2]["property_info"] == "其他：测试设备线索一批"
-    assert [item["property_value"] for item in result] == ["206135.64", "206135.64", "206135.64"]
+    # 财产线索价值平均分配保全金额（commit b580df3），206135.64 // 3 = 68711（向下取整）
+    assert [item["property_value"] for item in result] == ["68711", "68711", "68711"]
 
 
 def test_build_selected_respondent_property_clues_falls_back_when_no_clues(monkeypatch) -> None:

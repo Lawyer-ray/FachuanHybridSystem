@@ -283,11 +283,11 @@ class TestResolveInsuranceCompanyDefaults:
 
     def test_no_context_returns_global_default(self):
         from plugins.court_automation.guarantee.helpers import (
-            _DEFAULT_INSURANCE_COMPANY,
+            _SUNSHINE_INSURANCE_COMPANY,
             _resolve_insurance_company_defaults,
         )
         default, options = _resolve_insurance_company_defaults(quote_context=None)
-        assert default == _DEFAULT_INSURANCE_COMPANY
+        assert default == _SUNSHINE_INSURANCE_COMPANY
 
 
 # ── _normalize_selected_party_ids ────────────────────────────────────────────

@@ -510,7 +510,7 @@ class TestExtractQuoteCompanyOptions:
 class TestResolveInsuranceCompanyDefaults:
     def test_none_context(self):
         default, options = helpers._resolve_insurance_company_defaults(quote_context=None)
-        assert default == helpers._DEFAULT_INSURANCE_COMPANY
+        assert default == helpers._SUNSHINE_INSURANCE_COMPANY
 
     def test_with_recommended(self):
         context = {
