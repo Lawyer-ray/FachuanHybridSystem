@@ -12,7 +12,7 @@ def list_clients(
     client_type: str | None = None,
     is_our_client: bool | None = None,
 ) -> list[dict[str, Any]]:
-    """查询客户列表。支持按姓名/公司名搜索（search）、客户类型（client_type：individual/company）、是否我方客户（is_our_client）筛选。"""
+    """查询客户列表。支持按姓名/公司名搜索（search）、客户类型（client_type：natural/legal/non_legal_org）、是否我方客户（is_our_client）筛选。"""
     params: dict[str, Any] = {}
     if search:
         params["search"] = search
@@ -37,7 +37,7 @@ def create_client(
     legal_representative: str | None = None,
     is_our_client: bool = True,
 ) -> dict[str, Any]:
-    """创建新客户。client_type：individual（个人）或 company（公司）。legal_representative 仅公司客户需要填写。"""
+    """创建新客户。client_type：natural（自然人）、legal（法人）或 non_legal_org（非法人组织）。legal_representative 仅法人/非法人组织客户需要填写。"""
     payload: dict[str, Any] = {"name": name, "client_type": client_type, "is_our_client": is_our_client}
     if phone:
         payload["phone"] = phone
