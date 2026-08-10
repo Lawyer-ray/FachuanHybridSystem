@@ -49,23 +49,23 @@ metadata:
 
 ```bash
 # 基本用法（输出与输入同目录，文件名相同扩展名 .md）
-python -m skills.案件处理.file-recognition.scripts /path/to/起诉状.pdf
+python -m skills.案件处理.文件识别.scripts /path/to/起诉状.pdf
 
 # 指定输出目录
-python -m skills.案件处理.file-recognition.scripts /path/to/起诉状.pdf --output-dir /path/to/md_output
+python -m skills.案件处理.文件识别.scripts /path/to/起诉状.pdf --output-dir /path/to/md_output
 
 # 指定后端
-python -m skills.案件处理.file-recognition.scripts /path/to/起诉状.pdf --backend textin
+python -m skills.案件处理.文件识别.scripts /path/to/起诉状.pdf --backend textin
 ```
 
 ### 批量识别（目录扫描）
 
 ```bash
 # 扫描目录下所有支持的文件（不递归）
-python -m skills.案件处理.file-recognition.scripts /path/to/case_folder
+python -m skills.案件处理.文件识别.scripts /path/to/case_folder
 
 # 递归扫描子目录
-python -m skills.案件处理.file-recognition.scripts /path/to/case_folder --recursive
+python -m skills.案件处理.文件识别.scripts /path/to/case_folder --recursive
 ```
 
 ### 在 Claude 中调用
@@ -148,7 +148,7 @@ export FACHUAN_BASE_URL='http://127.0.0.1:8002'
 ## 模块结构
 
 ```
-file-recognition/
+文件识别/
 ├── SKILL.md                     # Skill 说明（本文件）
 ├── CHANGELOG.md                 # 变更日志
 ├── scripts/                     # 可执行脚本

@@ -10,7 +10,7 @@
 - recognize_files: 批量识别文件
 
 CLI 入口:
-    python -m skills.案件处理.file-recognition.scripts <file_or_dir> [options]
+    python -m skills.案件处理.文件识别.scripts <file_or_dir> [options]
 """
 
 from __future__ import annotations

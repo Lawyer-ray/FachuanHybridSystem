@@ -3,7 +3,7 @@
 
 使用方法:
 1. 复制本文件为 config.py,放到工作流根目录(skills/案件处理/config.py):
-   cp skills/案件处理/file-recognition/assets/config.example.py skills/案件处理/config.py
+   cp skills/案件处理/文件识别/assets/config.example.py skills/案件处理/config.py
 2. 填入你的后端账号信息
 3. config.py 已在 .gitignore 中,不会被提交
 

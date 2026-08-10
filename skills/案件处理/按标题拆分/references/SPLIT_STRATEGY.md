@@ -1,6 +1,6 @@
 # 拆分策略详解
 
-本文件详细说明 markdown-splitter 三种工作模式的工作原理、适用场景，以及 `split_map.json` 的 schema。
+本文件详细说明按标题拆分 skill 三种工作模式的工作原理、适用场景，以及 `split_map.json` 的 schema。
 
 ## 概览
 
@@ -39,7 +39,7 @@
 ### 调用
 
 ```bash
-python -m skills.案件处理.markdown-splitter.scripts input.md [--level N] [output_dir]
+python -m skills.案件处理.按标题拆分.scripts input.md [--level N] [output_dir]
 ```
 
 ---
@@ -107,7 +107,7 @@ python -m skills.案件处理.markdown-splitter.scripts input.md [--level N] [ou
 ### 调用
 
 ```bash
-python -m skills.案件处理.markdown-splitter.scripts input.md --analyze > structure.json
+python -m skills.案件处理.按标题拆分.scripts input.md --analyze > structure.json
 ```
 
 ---
@@ -133,7 +133,7 @@ python -m skills.案件处理.markdown-splitter.scripts input.md --analyze > str
 ### 调用
 
 ```bash
-python -m skills.案件处理.markdown-splitter.scripts input.md --apply-map split_map.json [output_dir]
+python -m skills.案件处理.按标题拆分.scripts input.md --apply-map split_map.json [output_dir]
 ```
 
 ---
