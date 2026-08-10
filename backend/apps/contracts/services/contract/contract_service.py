@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, cast
 
-from apps.contracts.models import Contract, ContractAssignment, ContractParty
+from apps.contracts.models import Contract, ContractAssignment, ContractParty, PartyRole
 from apps.contracts.services.party.contract_party_service import ContractPartyService
 from apps.contracts.services.payment.contract_finance_mutation_service import ContractFinanceMutationService
 from apps.core.config.business_config import BusinessConfig, business_config
@@ -204,9 +204,9 @@ class ContractService(ContractServiceQueryMixin):
         """获取合同财务汇总。"""
         return self.finance_mutation_service.get_finance_summary(contract_id)
 
-    def add_party(self, contract_id: int, client_id: int) -> ContractParty:
+    def add_party(self, contract_id: int, client_id: int, role: str = PartyRole.PRINCIPAL) -> ContractParty:
         """添加合同当事人。"""
-        return self.party_service.add_party(contract_id=contract_id, client_id=client_id)
+        return self.party_service.add_party(contract_id=contract_id, client_id=client_id, role=role)
 
     def remove_party(self, contract_id: int, client_id: int) -> None:
         """移除合同当事人。"""

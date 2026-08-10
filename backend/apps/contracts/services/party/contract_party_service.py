@@ -4,18 +4,21 @@ from __future__ import annotations
 
 from typing import Any
 
-from apps.contracts.models import Contract, ContractParty
+from apps.contracts.models import Contract, ContractParty, PartyRole
 from apps.core.exceptions import NotFoundError
 
 
 class ContractPartyService:
-    def add_party(self, contract_id: int, client_id: int) -> ContractParty:
+    def add_party(self, contract_id: int, client_id: int, role: str = PartyRole.PRINCIPAL) -> ContractParty:
         if not Contract.objects.filter(id=contract_id).exists():
             raise NotFoundError("合同 %(id)s 不存在" % {"id": contract_id})
 
-        party, created_flag = ContractParty.objects.get_or_create(contract_id=contract_id, client_id=client_id)
-        if created_flag:
-            pass
+        party, created_flag = ContractParty.objects.get_or_create(
+            contract_id=contract_id, client_id=client_id, defaults={"role": role}
+        )
+        if not created_flag and party.role != role:
+            party.role = role
+            party.save()
         return party
 
     def remove_party(self, contract_id: int, client_id: int) -> None:  # pragma: no cover
