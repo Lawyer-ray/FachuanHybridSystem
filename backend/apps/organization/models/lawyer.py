@@ -1,5 +1,7 @@
 """Module for lawyer."""
 
+from typing import Any, cast
+
 from django.contrib.auth.models import AbstractUser, UserManager
 from django.core.validators import FileExtensionValidator
 from django.db import models
@@ -33,10 +35,20 @@ class LawyerManager(UserManager):
             return user  # type: ignore[return-value]
         return super()._create_user(username, email, password, **extra_fields)  # type: ignore[misc,no-any-return]
 
+    def create_superuser(  # type: ignore[override]
+        self, username: str, email: str | None = None, password: str | None = None, **extra_fields: object
+    ) -> "Lawyer":
+        """创建 superuser 时同时设置 is_admin=True，确保 admin 在案件访问控制中拥有全部权限。
+
+        Django 默认的 create_superuser 只设置 is_staff 和 is_superuser，
+        不会设置自定义的 is_admin。覆盖此方法修复该缺陷。
+        """
+        extra_fields.setdefault("is_admin", True)
+        result: Any = super().create_superuser(username, email=email, password=password, **extra_fields)
+        return cast("Lawyer", result)
+
 
 class Lawyer(AbstractUser):
-    """律师模型，扩展自 Django AbstractUser，代表系统用户。"""
-
     objects: LawyerManager = LawyerManager()  # type: ignore[misc]
 
     def save(self, **kwargs: object) -> None:

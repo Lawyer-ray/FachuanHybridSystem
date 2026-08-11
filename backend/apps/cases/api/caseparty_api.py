@@ -20,10 +20,14 @@ router = Router()
 
 
 def _get_case_party_service() -> Any:
-    """工厂函数：创建 CasePartyService 实例"""
+    """工厂函数：创建 CasePartyService 实例（通过 ServiceLocator 注入依赖）"""
     from apps.cases.services.party.case_party_service import CasePartyService
+    from apps.core.interfaces import ServiceLocator
 
-    return CasePartyService()
+    return CasePartyService(
+        client_service=ServiceLocator.get_client_service(),
+        contract_service=ServiceLocator.get_contract_service(),
+    )
 
 
 def _serialize_party(party: Any) -> dict:
@@ -51,7 +55,10 @@ async def list_parties(request: HttpRequest, case_id: int | None = None) -> Any:
     @sync_to_async
     def _fetch() -> list[dict]:
         parties = service.list_parties(
-            case_id=case_id, user=ctx.user, org_access=ctx.org_access, perm_open_access=ctx.perm_open_access,
+            case_id=case_id,
+            user=ctx.user,
+            org_access=ctx.org_access,
+            perm_open_access=ctx.perm_open_access,
         )
         return [_serialize_party(p) for p in parties]
 
@@ -66,8 +73,12 @@ async def create_party(request: HttpRequest, payload: CasePartyIn) -> Any:  # pr
     @sync_to_async
     def _create() -> dict:
         party = service.create_party(
-            case_id=payload.case_id, client_id=payload.client_id, legal_status=payload.legal_status,
-            user=ctx.user, org_access=ctx.org_access, perm_open_access=ctx.perm_open_access,
+            case_id=payload.case_id,
+            client_id=payload.client_id,
+            legal_status=payload.legal_status,
+            user=ctx.user,
+            org_access=ctx.org_access,
+            perm_open_access=ctx.perm_open_access,
         )
         return _serialize_party(party)
 
@@ -82,7 +93,10 @@ async def get_party(request: HttpRequest, party_id: int) -> Any:  # pragma: no c
     @sync_to_async
     def _fetch() -> dict:
         party = service.get_party(
-            party_id=party_id, user=ctx.user, org_access=ctx.org_access, perm_open_access=ctx.perm_open_access,
+            party_id=party_id,
+            user=ctx.user,
+            org_access=ctx.org_access,
+            perm_open_access=ctx.perm_open_access,
         )
         return _serialize_party(party)
 
@@ -98,7 +112,11 @@ async def update_party(request: HttpRequest, party_id: int, payload: CasePartyUp
     @sync_to_async
     def _update() -> dict:
         party = service.update_party(
-            party_id=party_id, data=data, user=ctx.user, org_access=ctx.org_access, perm_open_access=ctx.perm_open_access,
+            party_id=party_id,
+            data=data,
+            user=ctx.user,
+            org_access=ctx.org_access,
+            perm_open_access=ctx.perm_open_access,
         )
         return _serialize_party(party)
 
@@ -110,5 +128,8 @@ async def delete_party(request: HttpRequest, party_id: int) -> Any:  # pragma: n
     service = _get_case_party_service()
     ctx = extract_request_context(request)
     return await sync_to_async(service.delete_party)(
-        party_id=party_id, user=ctx.user, org_access=ctx.org_access, perm_open_access=ctx.perm_open_access,
+        party_id=party_id,
+        user=ctx.user,
+        org_access=ctx.org_access,
+        perm_open_access=ctx.perm_open_access,
     )

@@ -11,7 +11,10 @@ def create_payment(
     contract_id: int,
     payment_data: dict[str, Any],
 ) -> dict[str, Any]:
-    """创建收款记录。payment_data 包含 amount（金额）、payment_date（日期）、payment_type（类型）等字段。"""
+    """创建收款记录。payment_data 需包含: amount（收款金额，float，>0）；可选字段:
+    received_at（收款日期，如 2026-01-01 字符串）、invoice_status（开票状态，如
+    UNINVOICED/INVOICED_PARTIAL/INVOICED_FULL）、invoiced_amount（已开票金额，float，
+    ≥0，默认 0）、note（备注字符串）、confirm（bool，必填为 True，否则后端拒绝）。"""
     payload: dict[str, Any] = {"contract_id": contract_id, **payment_data}
     return client.post("/contracts/finance/payments", json=payload)  # type: ignore[return-value]
 
