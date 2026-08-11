@@ -33,12 +33,8 @@ class CaseSearchServiceAdapter(ICaseSearchService):
         limit = min(limit, 20)
 
         if not query or not query.strip():
-            # 无搜索词时返回最近的案件
-            cases = (
-                Case.objects.select_related()
-                .prefetch_related("case_numbers", "parties__client")
-                .order_by("-id")[:limit]
-            )
+            # 无搜索词时返回最近的案件（不 select_related：循环内不访问单值关联字段）
+            cases = Case.objects.prefetch_related("case_numbers", "parties__client").order_by("-id")[:limit]
         else:
             search_term = query.strip()
 
@@ -56,10 +52,9 @@ class CaseSearchServiceAdapter(ICaseSearchService):
                 "case_id", flat=True
             )
 
-            # 合并查询
+            # 合并查询（不 select_related：循环内不访问单值关联字段）
             cases = (
                 Case.objects.filter(name_query | Q(id__in=case_ids_by_number) | Q(id__in=case_ids_by_party))
-                .select_related()
                 .prefetch_related("case_numbers", "parties__client")
                 .distinct()
                 .order_by("-id")[:limit]
