@@ -9,7 +9,7 @@ from typing import Any
 from django.conf import settings
 from django.contrib import admin, messages
 from django.core.files.storage import default_storage
-from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
+from django.http import Http404, HttpRequest, HttpResponse, HttpResponseRedirect
 from django.template.response import TemplateResponse
 from django.urls import path, reverse
 from django.utils.html import format_html
@@ -165,9 +165,6 @@ class DocumentParsingTaskAdmin(admin.ModelAdmin):  # pragma: no cover
         "file_size",
         "status",
         "backend_used",
-        "text",
-        "markdown",
-        "metadata",
         "error_message",
         "created_at",
         "completed_at",
@@ -181,15 +178,9 @@ class DocumentParsingTaskAdmin(admin.ModelAdmin):  # pragma: no cover
             },
         ),
         (
-            "解析结果",
+            "错误信息",
             {
-                "fields": ("text", "markdown"),
-            },
-        ),
-        (
-            "元数据",
-            {
-                "fields": ("metadata", "error_message"),
+                "fields": ("error_message",),
                 "classes": ("collapse",),
             },
         ),
@@ -203,6 +194,47 @@ class DocumentParsingTaskAdmin(admin.ModelAdmin):  # pragma: no cover
     )
 
     change_form_template = "admin/document_parsing/documentparsingtask/change_form.html"
+
+    def get_urls(self) -> list:
+        urls = super().get_urls()
+        custom_urls = [
+            path(
+                "<path:object_id>/download-markdown/",
+                self.admin_site.admin_view(self.download_markdown),
+                name="document_parsing_documentparsingtask_download_markdown",
+            ),
+        ]
+        return custom_urls + urls
+
+    def change_view(
+        self,
+        request: HttpRequest,
+        object_id: str,
+        form_url: str = "",
+        extra_context: dict[str, Any] | None = None,
+    ) -> TemplateResponse:
+        """注入下载文件名到模板上下文"""
+        extra = extra_context or {}
+        obj = self.get_object(request, object_id)
+        if obj and obj.file_name:
+            extra["download_filename"] = Path(obj.file_name).stem + ".md"
+        return super().change_view(request, object_id, form_url, extra)  # type: ignore[return-value]
+
+    def download_markdown(self, request: HttpRequest, object_id: str) -> HttpResponse:
+        """下载解析结果的 Markdown 文件"""
+        from apps.document_parsing.models import DocumentParsingTask
+
+        task = DocumentParsingTask.objects.filter(pk=object_id).first()
+        if not task or not task.markdown:
+            raise Http404("解析任务或 Markdown 内容不存在")
+
+        response = HttpResponse(
+            task.markdown,
+            content_type="text/markdown; charset=utf-8",
+        )
+        safe_name = Path(task.file_name).stem or f"task_{task.id}"
+        response["Content-Disposition"] = f'attachment; filename="{safe_name}.md"'
+        return response
 
     @admin.display(description="状态")
     def status_display(self, obj: DocumentParsingTask) -> str:

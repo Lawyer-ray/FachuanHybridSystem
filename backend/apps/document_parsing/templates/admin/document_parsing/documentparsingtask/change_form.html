@@ -38,6 +38,11 @@
 </div>
 
 <div class="result-panel" id="markdown-panel">
+    <div style="display: flex; justify-content: flex-end; margin-bottom: 12px;">
+        <a href="{% url 'admin:document_parsing_documentparsingtask_download_markdown' original.id %}"
+           class="button" style="padding: 8px 16px; text-decoration: none;"
+           download="{{ download_filename }}">⬇️ 下载 Markdown</a>
+    </div>
     <div class="md-content">
         <pre>{{ original.markdown }}</pre>
     </div>
