@@ -39,8 +39,11 @@ class CasePartyOut(ModelSchema):
             return client
         if isinstance(client, dict):
             return ClientOut(**client)
-        # Fallback: obj is a Django model instance with a client FK
-        return ClientOut.from_model(client)
+        if client is not None and hasattr(client, "_meta"):
+            # Fallback: obj is a Django model instance with a client FK
+            return ClientOut.from_model(client)
+        # Pydantic model or None — return as-is (Pydantic will coerce)
+        return client  # type: ignore[return-value]
 
     @staticmethod
     def resolve_legal_status(obj: Any) -> str | None:

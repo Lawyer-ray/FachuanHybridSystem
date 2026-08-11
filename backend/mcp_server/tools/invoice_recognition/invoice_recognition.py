@@ -34,7 +34,7 @@ def quick_recognize_invoice(files: list[dict[str, str]]) -> dict[str, Any]:
         except Exception:
             detail = resp.text
         raise RuntimeError(f"HTTP {resp.status_code}: {detail}")
-    return resp.json()  # type: ignore[return-value]
+    return resp.json()  # type: ignore[no-any-return]
 
 
 def upload_invoices(task_id: int, files: list[dict[str, str]]) -> dict[str, Any]:
@@ -51,12 +51,21 @@ def upload_invoices(task_id: int, files: list[dict[str, str]]) -> dict[str, Any]
         except Exception:
             detail = resp.text
         raise RuntimeError(f"HTTP {resp.status_code}: {detail}")
-    return resp.json()  # type: ignore[return-value]
+    return resp.json()  # type: ignore[no-any-return]
 
 
-def get_invoice_task_status(task_id: int) -> dict[str, Any]:
-    """查询发票识别任务状态和发票记录列表。"""
-    return client.get(f"/invoice-recognition/{task_id}/status")  # type: ignore[return-value]
+def get_invoice_task_status(task_id: int, include_raw_text: bool = False) -> dict[str, Any]:
+    """查询发票识别任务状态和发票记录列表。
+
+    Args:
+        task_id: 发票识别任务 ID。
+        include_raw_text: 是否返回每条记录的 raw_text（OCR 全文），默认 False 以减少返回体积。
+    """
+    data: dict[str, Any] = client.get(f"/invoice-recognition/{task_id}/status")
+    if not include_raw_text:
+        for record in data.get("records", []):
+            record.pop("raw_text", None)
+    return data
 
 
 def download_invoices(

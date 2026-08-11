@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import ClassVar
+from typing import Any, ClassVar
 
 from .base import CaseAssignment, ModelSchema, Schema
 from .lawyer_schemas import LawyerOutFromDTO
@@ -26,11 +26,27 @@ class CaseAssignmentOut(ModelSchema):
         fields: ClassVar = ["id", "case", "lawyer"]
 
     @staticmethod
-    def resolve_lawyer_detail(obj: CaseAssignment) -> LawyerOutFromDTO:
+    def resolve_lawyer_detail(obj: Any) -> LawyerOutFromDTO:
+        # Dict/Pydantic model (re-validation) — return pre-computed value
+        if isinstance(obj, dict):
+            detail = obj.get("lawyer_detail")
+            if isinstance(detail, dict):
+                return LawyerOutFromDTO(**detail)
+            return detail  # type: ignore[return-value]
+        # Django model — compute from FK
         lawyer = getattr(obj, "lawyer", None)
-        if lawyer is not None:
+        if lawyer is not None and hasattr(lawyer, "_meta"):
             return LawyerOutFromDTO.from_model(lawyer)
-        return LawyerOutFromDTO(id=obj.lawyer_id, username=f"lawyer_{obj.lawyer_id}", real_name=None, phone=None)
+        # Pydantic model or fallback — return pre-computed value
+        detail = getattr(obj, "lawyer_detail", None)
+        if detail is not None:
+            if isinstance(detail, dict):
+                return LawyerOutFromDTO(**detail)
+            return detail  # type: ignore[no-any-return]
+        lawyer_id = getattr(obj, "lawyer_id", None)
+        if lawyer_id:
+            return LawyerOutFromDTO(id=lawyer_id, username=f"lawyer_{lawyer_id}", real_name=None, phone=None)
+        raise ValueError("无法解析 lawyer_detail")
 
 
 class CaseAssignmentCreate(Schema):

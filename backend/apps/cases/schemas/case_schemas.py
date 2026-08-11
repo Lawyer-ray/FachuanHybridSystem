@@ -70,10 +70,15 @@ class CaseOut(ModelSchema):
 
     @staticmethod
     def _resolve_list_field(obj: Any, key: str) -> list:
-        """Common helper: return list data whether obj is a Django model or dict."""
+        """Common helper: return list data whether obj is a Django model, dict, or Pydantic model."""
         if isinstance(obj, dict):
             return obj.get(key, [])  # type: ignore[no-any-return]
-        return list(getattr(obj, key).all())
+        value = getattr(obj, key, None)
+        if value is None:
+            return []
+        if hasattr(value, "all"):
+            return list(value.all())  # Django QuerySet
+        return list(value)  # Pydantic model field or plain list
 
     @staticmethod
     def resolve_parties(obj: Any) -> list:
@@ -91,19 +96,23 @@ class CaseOut(ModelSchema):
     def resolve_status(obj: Any) -> str | None:
         if isinstance(obj, dict):
             return obj.get("status")
-        return obj.get_status_display() if obj.status else None
+        if hasattr(obj, "get_status_display"):
+            return obj.get_status_display() if obj.status else None
+        return getattr(obj, "status", None)
 
     @staticmethod
     def resolve_current_stage(obj: Any) -> str | None:
         if isinstance(obj, dict):
             return obj.get("current_stage")
-        return obj.get_current_stage_display() if obj.current_stage else None
+        if hasattr(obj, "get_current_stage_display"):
+            return obj.get_current_stage_display() if obj.current_stage else None
+        return getattr(obj, "current_stage", None)
 
     @staticmethod
     def resolve_contract_id(obj: Any) -> int | None:
         if isinstance(obj, dict):
             return obj.get("contract_id")
-        return obj.contract_id  # type: ignore[no-any-return]
+        return getattr(obj, "contract_id", None)
 
     @staticmethod
     def resolve_case_numbers(obj: Any) -> list:
