@@ -1,8 +1,12 @@
 FROM python:3.12-slim
 
+# 默认使用官方 PyPI，镜像构建时可通过 --build-arg 覆盖为国内源
+ARG UV_INDEX_URL=https://pypi.org/simple/
+ARG APT_MIRROR=deb.debian.org
+
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    UV_INDEX_URL=https://pypi.org/simple/ \
+    UV_INDEX_URL=${UV_INDEX_URL} \
     TZ=Asia/Shanghai
 
 WORKDIR /app
@@ -10,8 +14,8 @@ WORKDIR /app
 # 设置时区为上海（解决容器默认 UTC 导致时间偏差）
 RUN ln -snf /usr/share/zoneinfo/Asia/Shanghai /etc/localtime && echo "Asia/Shanghai" > /etc/timezone
 
-# 替换为清华镜像源（解决国内网络问题）
-RUN sed -i 's|deb.debian.org|mirrors.tuna.tsinghua.edu.cn|g' /etc/apt/sources.list.d/debian.sources
+# 替换为清华镜像源（解决国内网络问题，可通过 APT_MIRROR 参数覆盖）
+RUN sed -i "s|deb.debian.org|${APT_MIRROR}|g" /etc/apt/sources.list.d/debian.sources
 
 # 基础工具 + 字体 + xvfb + OpenCV 依赖（CloakBrowser 系统依赖）
 RUN apt-get update && apt-get install -y --no-install-recommends \
