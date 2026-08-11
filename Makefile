@@ -22,6 +22,19 @@ ci-frontend: ## 仅前端 CI（tsc + eslint + build）
 ci-backend-full: ## 仅后端 CI（完整模式，需要 PostgreSQL）
 	@bash scripts/ci-local.sh --full --backend
 
+# ============================================================
+# 开发服务器（前台运行，可直接 Ctrl+C 退出）
+# ============================================================
+
+frontend: ## 启动前端开发服务器（Vite，热重载，端口 5173）
+	cd frontend && pnpm dev
+
+backend: ## 启动后端开发服务器（Uvicorn，热重载，默认端口 8002，可用 PORT=8003 覆盖）
+	cd backend && $(MAKE) run-dev
+
+q: ## 启动 Django-Q 任务队列（文件变化自动重启）
+	cd backend && $(MAKE) qcluster-dev
+
 install-hooks: ## 安装 git pre-push hook（推送前自动运行本地 CI）
 	@ln -sf ../../scripts/pre-push .git/hooks/pre-push
 	@chmod +x scripts/pre-push
@@ -42,5 +55,6 @@ help: ## 显示帮助信息
 	@echo "推送前建议:  make ci-full"
 	@echo "日常开发:    make ci"
 	@echo "安装 hook:   make install-hooks"
+	@echo "启动服务:    make frontend / make backend / make q"
 
-.PHONY: help ci ci-full ci-backend ci-frontend ci-backend-full install-hooks
+.PHONY: help ci ci-full ci-backend ci-frontend ci-backend-full install-hooks frontend backend q
