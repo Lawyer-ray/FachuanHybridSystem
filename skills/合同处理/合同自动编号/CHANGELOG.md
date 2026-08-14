@@ -4,6 +4,29 @@
 
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0)，
 
+## [1.6.0] - 2026-08-14
+
+### 修复
+
+- **致命 Bug：旧编号没有被删除，导致双重编号**（如"一、第一条""1.1-1"）
+  - 根因：`apply_numbering_map()` 中 `_extract_prefix()` 正则无法识别 `1-1、` `4-1-1、` 等非标准格式，prefix 为空，旧编号残留
+  - `_extract_prefix()` 增强：新增连字符编号（`1-1、` `4.1.1.`）、第X条格式（`第一条  `）等支持
+
+### 改进
+
+- **AI 辅助模式：信任 AI 判断前缀，不再运行时猜测**
+  - `analyze_document()`：新增 `_analyze_prefix()` 智能提取，输出 `paragraphs[].prefix` 供 AI 确认/修正
+  - `apply_numbering_map()`：`numbering_map.json` 新增 `prefix` 字段，运行时直接使用 AI 提供的 prefix 切除旧编号
+  - AI 可修正 `4-1-6甲方无须...` 中 `4-1-6`（无标号）这类自动提取不完美的情况
+  - 向后兼容：`prefix` 为空时回退到自动提取，但打印警告提示
+- 新增 `suggested_level` 字段，给用户初始建议（-1/0/null）
+- 签名区段落 `suggested_level` 设为 `-1`（不编号）
+- 普通长文本段落 `suggested_level` 设为 `null`（AI 自主判断）
+
+### 变更
+
+- 版本号：`1.5.0` → `1.6.0`
+
 ## [1.5.0] - 2026-08-08
 
 ### 新增
