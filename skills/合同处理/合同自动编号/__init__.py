@@ -9,7 +9,7 @@
 
 支持两种工作模式：
 - 自动模式：正则检测编号结构（适合格式规范的合同）
-- AI 辅助模式：输出段落结构供 AI 判断层级，再应用编号（适合复杂格式）
+- AI 辅助模式：AI 判断前缀和层级，运行时直接使用（适合任何格式）
 """
 
 import json
@@ -26,7 +26,7 @@ from .utils import format_numbering_mapping, generate_output_path, validate_inpu
 
 logger = logging.getLogger(__name__)
 
-__version__ = '1.5.0'
+__version__ = '1.6.0'
 __all__ = ['convert_contract_numbering', 'analyze_document', 'apply_numbering_map', 'NUMBERING_FORMATS']
 
 # 最大重试次数
@@ -34,13 +34,19 @@ MAX_RETRIES = 3
 
 
 def _extract_prefix(text: str) -> str:
-    """提取段落开头的编号前缀（如"一、""1.""（一）""1.1、"等）"""
+    """提取段落开头的编号前缀（自动模式辅助用）
+
+    注意：AI 辅助模式下，前缀已由 AI 直接提供，不再使用此函数。
+    此函数仅用于自动模式，支持常见格式（一、1.（1）等）。
+    """
     patterns = [
+        r'^第[一二三四五六七八九十0-9]+[条项段款](?:\s*[：:]?\s+|\s+)',
+        r'^\d+[-\.·]\d+(?:[-\.·]\d+){0,3}(?:[、。！？：；\s．.])*',
         r'^[（(][一二三四五六七八九十]+[）)]\s*',
         r'^[（(]\d+[）)]\s*',
         r'^[一二三四五六七八九十]+、\s*',
-        r'^\d+\.\d+[.、]?\s*',
-        r'^\d+[.、]\s*',
+        r'^\d+\.\d+(?:\.\d+){0,3}[.、．.]?\s*',
+        r'^\d+[.、．.]\s*',
         r'^\d+[）)]\s*',
     ]
     for pattern in patterns:
@@ -209,27 +215,71 @@ def convert_contract_numbering(
 # ============================================================
 
 
-def analyze_document(input_path: str | Path, format_type: str = 'chinese') -> str:
-    """提取文档段落结构，输出 JSON 供 AI 分析层级
+def _analyze_prefix(text: str) -> tuple[str, str]:
+    """分析文本中的编号前缀，返回 (编号前缀, 去除编号后的正文)
 
-    流程：读取文档 → 提取每个段落的索引/文本/编号前缀 → 输出 JSON
-    AI 拿到 JSON 后，根据语义理解分配层级（0/1/2/3），生成 numbering_map
+    使用分段扫描策略，逐步识别段落开头的编号部分。
+    适用于任何格式，包括非标准编号如 "1-1、" "第一条" 等。
+    """
+    text = text.lstrip()
+    if not text:
+        return '', ''
+
+    # 前缀候选模式（按优先级从高到低）
+    prefix_patterns = [
+        # 「第」+ 汉字/数字 + 量词 + 标点/空格
+        r'^第[一二三四五六七八九十〇0-9]+(?:[条项款段章])+[、。：；\s]*',
+        # 连字符多级 1-1、 4-1-2. 3·1·4（允许末尾无标号）
+        r'^\d+[-·－]\d+(?:[-·－]\d+){0,3}(?:[、。：；．.，,（(\)\s])*',
+        # 括号中文（一）（二）
+        r'^[（(][一二三四五六七八九十]+[）)][、。：；\s]*',
+        # 括号数字（1）（2）
+        r'^[（(]\d+[）)][、。：；\s]*',
+        # 汉字顿号 一、 二、
+        r'^[一二三四五六七八九十]+、',
+        # 多级点号 1.1.1. 1.1.1.1
+        r'^\d+\.\d+(?:\.\d+){0,4}[.、。：；\s]*',
+        # 单级数字 1. 2、 3．
+        r'^\d+[.、．]',
+        # 中文圈号 ①②③
+        r'^[①②③④⑤⑥⑦⑧⑨⑩]+',
+        # 字母编号 a) b)
+        r'^[a-zA-Z][）).．]',
+    ]
+
+    for pattern in prefix_patterns:
+        m = re.match(pattern, text)
+        if m:
+            prefix = m.group(0)
+            body = text[len(prefix):].lstrip()
+            return prefix, body
+
+    return '', text
+
+
+def analyze_document(input_path: str | Path, format_type: str = 'chinese') -> str:
+    """分析文档段落结构，输出 JSON 供 AI 判断层级和前缀
+
+    流程：
+    1. 读取文档每个段落
+    2. 用 _analyze_prefix 提取文号前缀和正文
+    3. 输出结构化 JSON
+    4. AI 读取后，判断每个段落的层级并填入 prefix 字段
+    5. 生成 numbering_map.json
+
+    编号层级定义：
+    - level: -1 = 不编号（前后文/签名区）
+    - level: 0 = 一级标题（如"第一条""一、"）
+    - level: 1 = 二级标题（如"1-1、""1."）
+    - level: 2 = 三级标题（如"4-1-1、""（1）"）
+    - level: 3 = 四级标题（如"①"）
 
     Args:
         input_path: 输入文档路径
-        format_type: 编号格式类型（影响 Level 0 的检测方式）
+        format_type: 编号格式类型（影响输出格式建议）
 
     Returns:
-        JSON 字符串，结构为：
-        {
-            "format_type": "chinese",
-            "paragraphs": [
-                {"index": 0, "text": "合作协议", "prefix": "", "is_level0": false, "is_signature": false},
-                {"index": 10, "text": "一、合作期限", "prefix": "一、", "is_level0": true, "is_signature": false},
-                {"index": 13, "text": "（一）甲方权责", "prefix": "（一）", "is_level0": false, "is_signature": false},
-                ...
-            ]
-        }
+        JSON 字符串，含 "format_type" 和 "paragraphs" 列表
     """
     input_path = validate_input_path(input_path)
     get_format(format_type)  # 验证格式
@@ -241,31 +291,41 @@ def analyze_document(input_path: str | Path, format_type: str = 'chinese') -> st
         if not text:
             continue
 
-        prefix = _extract_prefix(text)
-
-        # 检测是否是 Level 0 标题
-        is_level0 = False
-        if format_type == 'chinese':
-            matched, _ = detect_chinese_level0(text)
-        else:
-            matched, _ = detect_decimal_level0(text)
-        if matched:
-            is_level0 = True
+        prefix, body = _analyze_prefix(text)
 
         # 检测是否是签名区
         is_sig = is_signature_section(text)
+        # 签名区以外的空 prefix + 短文本段落通常是不编号的前言/正文
+        is_plain = not is_sig and not prefix and len(text) > 20
+
+        # 初步判断是否是 Level 0（AI 可以覆盖这个判断）
+        if prefix and format_type == 'chinese':
+            matched, _ = detect_chinese_level0(text)
+            is_level0 = bool(matched)
+        elif prefix:
+            matched, _ = detect_decimal_level0(text)
+            is_level0 = bool(matched)
+        else:
+            is_level0 = False
 
         paragraphs.append({
             'index': i,
-            'text': text[:200],  # 截断长文本，AI 不需要看全文
+            'text': text[:150],
             'prefix': prefix,
+            'prefix_hint': 'AI 请修正：把编号部分（如"第一条 ""1-1、""4-1-1、"）完整填入',
             'is_level0': is_level0,
             'is_signature': is_sig,
+            'is_plain': is_plain,
+            'suggested_level': 0 if is_level0 else (-1 if is_sig else None),
         })
 
     result = {
         'format_type': format_type,
         'total_paragraphs': len(doc.paragraphs),
+        'note': 'AI 辅助模式：请读取每个段落的 prefix 字段，确认或修正层级后输出 numbering_map.json',
+        'numbering_map_format': [
+            {'index': '段落号', 'level': '层级', 'prefix': 'AI 填写的编号前缀（必须完整）'}
+        ],
         'paragraphs': paragraphs,
     }
     return json.dumps(result, ensure_ascii=False, indent=2)
@@ -280,14 +340,19 @@ def apply_numbering_map(
 ) -> dict:
     """根据 AI 提供的层级映射应用自动编号
 
-    流程：读取 AI 生成的 numbering_map → 构建 numbered_paras → 应用编号 → 验证 → 保存
+    关键改进：
+    - numbering_map 中每个条目必须有 "index"、"level" 和 "prefix"
+    - "prefix" 由 AI 填写，运行时直接用于切除旧编号
+    - 无需运行时正则猜测编号前缀
 
     Args:
         input_path: 输入文档路径
-        numbering_map: AI 生成的层级映射，可以是 JSON 字符串或已解析的列表
-                       格式: [{"index": 10, "level": 0}, {"index": 13, "level": 1}, ...]
-                       level: 0=一级标题, 1=二级, 2=三级, 3=四级
-                       不在列表中的段落不会被编号
+        numbering_map: AI 生成的层级映射，格式：
+            [{"index": 10, "level": 0, "prefix": "第一条 "},
+             {"index": 26, "level": 1, "prefix": "1-1、"},
+             ...]
+            level: -1=不编号 0=一级 1=二级 2=三级 3=四级
+            prefix: 必须完整，AI 直接判断的编号前缀
         output_path: 输出文档路径
         format_type: 编号格式类型
         verify: 是否验证转换结果
@@ -323,15 +388,34 @@ def apply_numbering_map(
     original_doc_for_audit = Document(input_path)
     doc = Document(input_path)
 
-    # 构建 numbered_paras: list of (para_idx, level, matched_text, original_text)
+    # ✅ 关键改进：使用 AI 提供的 prefix，直接切除旧编号
     numbered_paras = []
+    missing_prefix_items = []
     for item in mapping_data:
         idx = item['index']
         level = item['level']
         para = doc.paragraphs[idx]
         text = para.text.strip()
-        prefix = _extract_prefix(text)
+
+        # 获取 prefix：优先用 AI 提供的，否则回退（只允许 level>=0 的段落有 prefix）
+        prefix = item.get('prefix', '')
+        if not prefix and level >= 0:
+            # AI 没填 prefix，但指定了编号层级 → 尝试自动提取（作为兼容回退）
+            missing_prefix_items.append(item)
+            prefix = _extract_prefix(text)
+
         numbered_paras.append((idx, level, prefix, text))
+
+    if missing_prefix_items:
+        logger.warning(
+            "警告：%d 个编号段落的 prefix 为空，已使用自动提取结果。"
+            "建议在 numbering_map.json 中填写准确的 prefix，\n"
+            "参考样式：{\"index\": 26, \"level\": 1, \"prefix\": \"1-1、\"}",
+            len(missing_prefix_items)
+        )
+
+    # 只处理需要编号的段落（level >= 0）
+    numbered_paras = [(idx, lvl, pfx, txt) for idx, lvl, pfx, txt in numbered_paras if lvl >= 0]
 
     # 提取 Level 0 索引
     level0_indices = [idx for idx, level, _, _ in numbered_paras if level == 0]
@@ -343,6 +427,7 @@ def apply_numbering_map(
     convert_numbering(doc, numbered_paras, {}, format_type)
 
     # 验证
+    verification = None
     if verify:
         verification = verify_numbering(
             doc, numbered_paras,
@@ -365,5 +450,5 @@ def apply_numbering_map(
         'total_paragraphs': len(numbered_paras),
         'level0_count': len(level0_indices),
         'numbered_paras': numbered_paras,
-        'verification': verification if verify else None,
+        'verification': verification,
     }
