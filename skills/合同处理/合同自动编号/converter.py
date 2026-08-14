@@ -222,7 +222,9 @@ def convert_numbering(
 
     Args:
         doc: Word 文档
-        numbered_paras: 编号段落列表
+        numbered_paras: 编号段落列表，格式 (para_idx, level, clean_text, original_text)
+            clean_text: 段落正文（不含编号前缀），用于写入 Word
+            original_text: 原始完整文本，用于审计对比
         num_id_map: {para_idx: num_id} 映射（如果为空则自动创建）
         format_type: 格式类型
     """
@@ -268,22 +270,16 @@ def convert_numbering(
     # 应用自动编号
     current_num_id = None
 
-    for para_idx, level, matched, original_text in numbered_paras:
+    for para_idx, level, clean_text, original_text in numbered_paras:
         para = doc.paragraphs[para_idx]
-
-        # 去除手动编号
-        if matched:
-            new_text = original_text[len(matched):].lstrip()
-        else:
-            new_text = original_text
 
         # 确定 numId
         if level == 0:
             current_num_id = num_id_map.get(para_idx)
 
-        # 应用自动编号
+        # 应用自动编号（正文直接由 AI 提供，无需切除）
         num_id_to_use = current_num_id if level >= 1 else num_id_map.get(para_idx)
-        apply_numbering_to_paragraph(para, level, num_id_to_use, new_text)
+        apply_numbering_to_paragraph(para, level, num_id_to_use, clean_text)
 
 
 def verify_numbering(doc: Document, numbered_paras: list[tuple[int, int, str, str]], *, original_doc: Document | None = None, format_type: str = 'chinese') -> dict:
