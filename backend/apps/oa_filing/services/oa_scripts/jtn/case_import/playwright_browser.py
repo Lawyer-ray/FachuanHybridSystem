@@ -204,8 +204,10 @@ class JtnPlaywrightBrowserMixin:  # pragma: no cover
     # ------------------------------------------------------------------
 
     async def _do_sso_login_and_inject(self: Any) -> None:  # pragma: no cover
-        """调用 JtnAuthService.sso_login() 完成扫码登录，将新 cookies 注入当前 context。"""
-        new_cookies = await self._auth.sso_login()
+        """在当前浏览器页面中执行 SSO 扫码登录，将新 cookies 注入当前 context。"""
+        assert self._page is not None
+        assert self._context is not None
+        new_cookies = await self._auth.perform_sso_login(self._page, self._context)
         await self._auth.inject_to_context(self._context, new_cookies)
         # 同步到 http_cookies_cache（转为 dict[str, str] 供 HTTP 链路使用）
         self._http_cookies_cache = {c["name"]: c["value"] for c in new_cookies}

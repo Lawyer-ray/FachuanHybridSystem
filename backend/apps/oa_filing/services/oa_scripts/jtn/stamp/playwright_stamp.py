@@ -84,7 +84,7 @@ class PlaywrightStampMixin:  # pragma: no cover
     # ------------------------------------------------------------------
 
     async def _login_to_stamp(self: Any, page: Page, context: Any) -> None:  # pragma: no cover
-        """登录 OA：优先缓存 cookies，否则 SSO 扫码。"""
+        """登录 OA：优先缓存 cookies，否则在当前页面 SSO 扫码。"""
         cached = JtnAuthService.load_cookies()
         if cached:
             logger.info("使用缓存 cookies 登录盖章页面")
@@ -97,8 +97,8 @@ class PlaywrightStampMixin:  # pragma: no cover
                 return
             logger.warning("缓存 cookies 已失效，执行 SSO 扫码登录")
 
-        # SSO 扫码登录（内部会创建 headed browser 等用户扫码）
-        cookies = await self._auth.sso_login()
+        # 在当前页面执行 SSO 扫码登录（复用现有浏览器窗口）
+        cookies = await self._auth.perform_sso_login(page, context)
         await JtnAuthService.inject_to_context(context, cookies)
 
     # ------------------------------------------------------------------
