@@ -72,6 +72,27 @@ class RequestContextFilter(logging.Filter):
         return True
 
 
+class VerboseFormatter(logging.Formatter):
+    """安全格式化器：确保 request_id / trace_id / span_id / task_name 始终存在。
+
+    当 RequestContextFilter 未运行时（如测试环境），为缺失字段提供默认值，
+    避免 format 字符串中的 {request_id} 等字段抛出 KeyError。
+    """
+
+    _DEFAULTS: ClassVar[dict[str, str]] = {
+        "request_id": "",
+        "trace_id": "",
+        "span_id": "",
+        "task_name": "",
+    }
+
+    def format(self, record: logging.LogRecord) -> str:
+        for attr, default in self._DEFAULTS.items():
+            if not hasattr(record, attr):
+                setattr(record, attr, default)
+        return super().format(record)
+
+
 class SensitiveDataFilter(logging.Filter):
     """敏感数据过滤器，自动脱敏日志中的敏感信息"""
 
@@ -285,6 +306,7 @@ def get_logging_config(base_dir: Any, debug: bool = True) -> dict[str, Any]:
         "disable_existing_loggers": False,
         "formatters": {
             "verbose": {
+                "()": "apps.core.infrastructure.logging.VerboseFormatter",
                 "format": "[{asctime}] {levelname} [{request_id}] {name} {module}.{funcName}:{lineno} - {message}",
                 "style": "{",
                 "datefmt": "%Y-%m-%d %H:%M:%S",

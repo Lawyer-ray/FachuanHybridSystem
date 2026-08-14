@@ -254,9 +254,12 @@ elif DB_ENGINE in ("", "postgres", "postgresql", "django.db.backends.postgresql"
     # 测试/开发环境下添加数据库超时，防止 flaky test 在 psycopg socket wait 中 hang 住
     # 导致 CI 60 分钟超时。statement_timeout 让长时间 SQL 自动失败，
     # idle_in_transaction_session_timeout 让持有事务不释放的连接自动取消。
+    # 可通过 DB_STATEMENT_TIMEOUT_MS 环境变量覆盖（单位：毫秒），
+    # 默认 120000（2 分钟），避免 Django flush（TRUNCATE 所有表）在 CI 中超时。
     _pg_options: dict[str, object] = {"connect_timeout": 10}
     if DEBUG:
-        _pg_options["options"] = "-c statement_timeout=30000 -c idle_in_transaction_session_timeout=60000"
+        _stmt_timeout = os.environ.get("DB_STATEMENT_TIMEOUT_MS", "120000")
+        _pg_options["options"] = f"-c statement_timeout={_stmt_timeout} -c idle_in_transaction_session_timeout=60000"
 
     DATABASES = {
         "default": {
