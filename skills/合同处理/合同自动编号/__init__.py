@@ -130,6 +130,13 @@ def convert_contract_numbering(
         # 分析文档结构
         numbered_paras = detect_numbering_structure(doc, format_type)
 
+        # 统一元组格式：(idx, level, clean_text, original_text)
+        # clean_text 在此切除旧编号，converter 不再切片
+        numbered_paras = [
+            (idx, level, original_text[len(matched):].lstrip() if matched else original_text, original_text)
+            for idx, level, matched, original_text in numbered_paras
+        ]
+
         # 提取 Level 0 索引
         level0_indices = [idx for idx, level, _, _ in numbered_paras if level == 0]
 
@@ -229,8 +236,9 @@ def _analyze_prefix(text: str) -> tuple[str, str]:
     prefix_patterns = [
         # 「第」+ 汉字/数字 + 量词 + 标点/空格
         r'^第[一二三四五六七八九十〇0-9]+(?:[条项款段章])+[、。：；\s]*',
-        # 连字符多级 1-1、 4-1-2. 3·1·4（允许末尾无标号）
-        r'^\d+[-·－]\d+(?:[-·－]\d+){0,3}(?:[、。：；．.，,（(\)\s])*',
+        # 连字符多级 1-1、4-1-2. 3·1·4（允许末尾无标号）。
+        # 最小 guards：总长度 < 12（避免日期），第二段数字 < 12。
+        r'^(?!\d{4}-\d{2}-\d{2})(?!\d{3}-?\d{3}-?\d{4})\d{1,2}[-·－]\d{1,2}(?:[-·－]\d{1,2}){0,3}(?:[、。：；．.，,（(\)\s])*',
         # 括号中文（一）（二）
         r'^[（(][一二三四五六七八九十]+[）)][、。：；\s]*',
         # 括号数字（1）（2）
@@ -311,8 +319,9 @@ def analyze_document(input_path: str | Path, format_type: str = 'chinese') -> st
         paragraphs.append({
             'index': i,
             'text': text[:150],
-            'prefix': prefix,
-            'prefix_hint': 'AI 请修正：把编号部分（如"第一条 ""1-1、""4-1-1、"）完整填入',
+            'prefix': prefix,                # ← AI 可修正
+            'body': body[:150],              # ← 机器辅助提取的正文
+            'prefix_hint': 'AI 请把编号部分填入 prefix，把段落正文填入 body',
             'is_level0': is_level0,
             'is_signature': is_sig,
             'is_plain': is_plain,
@@ -322,9 +331,9 @@ def analyze_document(input_path: str | Path, format_type: str = 'chinese') -> st
     result = {
         'format_type': format_type,
         'total_paragraphs': len(doc.paragraphs),
-        'note': 'AI 辅助模式：请读取每个段落的 prefix 字段，确认或修正层级后输出 numbering_map.json',
+        'note': 'AI 辅助模式：请读取每个段落的 prefix 和 body 字段，确认或修正后输出 numbering_map.json',
         'numbering_map_format': [
-            {'index': '段落号', 'level': '层级', 'prefix': 'AI 填写的编号前缀（必须完整）'}
+            {'index': 0, 'level': 0, 'prefix': '第一条 ', 'body': '当事人信息（不含编号前缀）'}
         ],
         'paragraphs': paragraphs,
     }
@@ -388,31 +397,29 @@ def apply_numbering_map(
     original_doc_for_audit = Document(input_path)
     doc = Document(input_path)
 
-    # ✅ 关键改进：使用 AI 提供的 prefix，直接切除旧编号
+    # ✅ 关键：使用 AI 提供的 body/clean_text，不再运行时切片
     numbered_paras = []
-    missing_prefix_items = []
     for item in mapping_data:
         idx = item['index']
         level = item['level']
         para = doc.paragraphs[idx]
-        text = para.text.strip()
+        original_text = para.text.strip()
 
-        # 获取 prefix：优先用 AI 提供的，否则回退（只允许 level>=0 的段落有 prefix）
+        # 必须有 prefix（编号段落的旧编号前缀，用于审计对比）
         prefix = item.get('prefix', '')
         if not prefix and level >= 0:
-            # AI 没填 prefix，但指定了编号层级 → 尝试自动提取（作为兼容回退）
-            missing_prefix_items.append(item)
-            prefix = _extract_prefix(text)
+            raise ValueError(
+                f"段落 {idx} level={level} 但 prefix 为空。"
+                f"请在 numbering_map.json 中填写准确的 prefix，\n"
+                f"参考：{{\"index\": {idx}, \"level\": {level}, \"prefix\": \"...\"}}"
+            )
 
-        numbered_paras.append((idx, level, prefix, text))
+        # 正文来源：优先 AI 提供的 body/clean_text，否则回退到切片（向后兼容）
+        clean_text = item.get('body') or item.get('clean_text')
+        if clean_text is None:
+            clean_text = original_text[len(prefix):].lstrip()
 
-    if missing_prefix_items:
-        logger.warning(
-            "警告：%d 个编号段落的 prefix 为空，已使用自动提取结果。"
-            "建议在 numbering_map.json 中填写准确的 prefix，\n"
-            "参考样式：{\"index\": 26, \"level\": 1, \"prefix\": \"1-1、\"}",
-            len(missing_prefix_items)
-        )
+        numbered_paras.append((idx, level, clean_text, original_text))
 
     # 只处理需要编号的段落（level >= 0）
     numbered_paras = [(idx, lvl, pfx, txt) for idx, lvl, pfx, txt in numbered_paras if lvl >= 0]

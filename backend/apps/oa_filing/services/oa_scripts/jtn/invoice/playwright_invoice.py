@@ -52,11 +52,13 @@ class PlaywrightInvoiceMixin:
                     logger.info("Cookies 有效，已进入发票页面")
                 else:
                     logger.warning("缓存 cookies 已失效，执行 SSO 扫码登录")
-                    cookies = await self._auth.sso_login()
+                    # 在当前页面执行 SSO 扫码，复用已有浏览器窗口
+                    cookies = await self._auth.perform_sso_login(page, context)
                     await self._auth.inject_to_context(context, cookies)
             else:
                 logger.info("无缓存 cookies，执行 SSO 扫码登录")
-                cookies = await self._auth.sso_login()
+                # 在当前页面执行 SSO 扫码，复用已有浏览器窗口
+                cookies = await self._auth.perform_sso_login(page, context)
                 await self._auth.inject_to_context(context, cookies)
 
             # ── 导航到发票页面 ──

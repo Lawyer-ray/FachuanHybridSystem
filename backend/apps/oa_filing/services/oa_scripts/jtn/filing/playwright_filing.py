@@ -110,9 +110,9 @@ class PlaywrightFilingMixin:  # pragma: no cover
                 return
             logger.info("缓存 cookies 已失效，重新登录")
 
-        # 走 SSO 扫码 + 凭证登录
+        # 走 SSO 扫码 + 凭证登录（复用当前浏览器窗口）
         logger.info("SSO 登录（需要扫码）")
-        await self._auth.sso_login()
+        await self._auth.perform_sso_login(self._page, self._context)
         # 将新 cookies 注入 Playwright context
         new_cookies = self._auth.load_cookies()
         if new_cookies is None:

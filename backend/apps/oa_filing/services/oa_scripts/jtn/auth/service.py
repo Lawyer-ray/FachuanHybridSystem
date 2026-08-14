@@ -76,50 +76,58 @@ class JtnAuthService:  # pragma: no cover
     # SSO 扫码登录（Playwright 有头模式）
     # ------------------------------------------------------------------
 
-    async def sso_login(self) -> list[dict[str, Any]]:
-        """完整的 SSO 扫码 + 凭证登录流程。
+    async def perform_sso_login(self, page: Any, context: Any) -> list[dict[str, Any]]:
+        """在已有浏览器页面中执行 SSO 扫码 + 凭证登录。
 
-        打开有头浏览器 → 点击扫码图标 → 等待用户扫码 →
-        填写账号密码 → 捕获 cookies → 保存到磁盘。
+        复用传入的 page/context，不在内部创建新浏览器窗口。
+        调用方应确保 page 已打开到 OA 登录页（或会被重定向到登录页）。
+        """
+        # 1. 确保在当前页面操作
+        logger.info("SSO 登录: 打开 %s", _LOGIN_URL)
+        await page.goto(_LOGIN_URL, wait_until="domcontentloaded", timeout=60_000)
+        await asyncio.sleep(3)
+
+        # 2. 尝试点击扫码图标（失败不阻塞，用户可手动点击）
+        try:
+            await self._click_qr_icon(page)
+            await asyncio.sleep(2)
+        except RuntimeError:
+            logger.warning("未自动找到扫码图标，请在浏览器中手动点击扫码")
+        logger.info("SSO 登录: 请用企业微信扫码（等待 180 秒）")
+
+        # 3. 等待扫码完成，跳转回 OA 登录页
+        await page.wait_for_url("**/ims.jtn.com/**", timeout=180_000)
+        await asyncio.sleep(3)
+        logger.info("SSO 登录: 扫码完成，回到 OA 登录页")
+
+        # 4. 填写账号密码并登录
+        await page.fill('input[name="userid"]', self._account)
+        await page.fill('input[name="password"]', self._password)
+        await asyncio.sleep(0.5)
+        await page.click("button.input_btn")
+        await asyncio.sleep(5)
+
+        # 5. 验证登录结果
+        if "login" in page.url.lower():
+            raise RuntimeError("OA 登录失败，请检查账号密码")
+
+        logger.info("SSO 登录成功，当前页面: %s", page.url)
+
+        # 6. 捕获 cookies 并保存
+        cookies = await self._capture_cookies(context)
+        self.save_cookies(cookies)
+        return cookies
+
+    async def sso_login(self) -> list[dict[str, Any]]:
+        """完整的 SSO 扫码 + 凭证登录流程（新建浏览器窗口）。
+
+        适用于 standalone 场景（如首次登录或测试）。
+        已打开 OA 页面的场景应使用 perform_sso_login() 复用现有窗口。
         """
         from apps.core.services.browser import create_browser_async
 
         async with create_browser_async("default", headless=False) as (page, context):
-            # 1. 打开 OA 登录页（会重定向到 SSO）
-            logger.info("SSO 登录: 打开 %s", _LOGIN_URL)
-            await page.goto(_LOGIN_URL, wait_until="domcontentloaded", timeout=60_000)
-            await asyncio.sleep(3)
-
-            # 2. 尝试点击扫码图标（失败不阻塞，用户可手动点击）
-            try:
-                await self._click_qr_icon(page)
-                await asyncio.sleep(2)
-            except RuntimeError:
-                logger.warning("未自动找到扫码图标，请在浏览器中手动点击扫码")
-            logger.info("SSO 登录: 请用企业微信扫码（等待 180 秒）")
-
-            # 3. 等待扫码完成，跳转回 OA 登录页
-            await page.wait_for_url("**/ims.jtn.com/**", timeout=180_000)
-            await asyncio.sleep(3)
-            logger.info("SSO 登录: 扫码完成，回到 OA 登录页")
-
-            # 4. 填写账号密码并登录
-            await page.fill('input[name="userid"]', self._account)
-            await page.fill('input[name="password"]', self._password)
-            await asyncio.sleep(0.5)
-            await page.click("button.input_btn")
-            await asyncio.sleep(5)
-
-            # 5. 验证登录结果
-            if "login" in page.url.lower():
-                raise RuntimeError("OA 登录失败，请检查账号密码")
-
-            logger.info("SSO 登录成功，当前页面: %s", page.url)
-
-            # 6. 捕获 cookies 并保存
-            cookies = await self._capture_cookies(context)
-            self.save_cookies(cookies)
-            return cookies
+            return await self.perform_sso_login(page, context)
 
     async def _capture_cookies(self, context: Any) -> list[dict[str, Any]]:
         """从 Playwright context 捕获 cookies 并转为可序列化格式。"""

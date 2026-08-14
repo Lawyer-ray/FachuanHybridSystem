@@ -68,7 +68,7 @@ class PlaywrightArchiveMixin:  # pragma: no cover
             logger.info("归档材料提交完成")
 
     async def _login(self: Any, page: Page, context: Any) -> None:  # pragma: no cover
-        """登录 OA：优先缓存 cookies，否则 SSO 扫码。"""
+        """登录 OA：优先缓存 cookies，否则在当前页面 SSO 扫码。"""
         cached = JtnAuthService.load_cookies()
         if cached:
             logger.info("使用缓存 cookies 登录归档页面")
@@ -80,7 +80,8 @@ class PlaywrightArchiveMixin:  # pragma: no cover
                 return
             logger.warning("缓存 cookies 已失效，执行 SSO 扫码登录")
 
-        cookies = await self._auth.sso_login()
+        # 在当前页面执行 SSO 扫码登录（复用现有浏览器窗口）
+        cookies = await self._auth.perform_sso_login(page, context)
         await JtnAuthService.inject_to_context(context, cookies)
 
     async def _navigate(self: Any, page: Page) -> None:  # pragma: no cover
