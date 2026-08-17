@@ -15,6 +15,13 @@ from django.apps import apps as django_apps
 # 每个元素是 (playwright, browser) 元组。
 _active_browser_sessions: list[tuple[Any, Any]] = []
 
+
+def _cleanup_stale_sessions() -> None:
+    """移除已断开连接的浏览器会话。"""
+    global _active_browser_sessions
+    _active_browser_sessions[:] = [(pw, br) for pw, br in _active_browser_sessions if br.is_connected()]
+
+
 from apps.oa_filing.services.base_firm_adapter import (
     ArchiveAdapter,
     CaseImportAdapter,
@@ -220,6 +227,7 @@ class JTNAdapter(FilingAdapter, StampAdapter, ArchiveAdapter, CaseImportAdapter,
 
         script = JtnArchiveScript(account=str(credential.account), password=str(credential.password))
         playwright, browser = await script.open_page(oa_case_number, description)
+        _cleanup_stale_sessions()
         _active_browser_sessions.append((playwright, browser))
 
     async def open_invoice_page(
@@ -232,6 +240,7 @@ class JTNAdapter(FilingAdapter, StampAdapter, ArchiveAdapter, CaseImportAdapter,
 
         script = JtnInvoiceScript(account=str(credential.account), password=str(credential.password))
         playwright, browser = await script.open_page(oa_case_number)
+        _cleanup_stale_sessions()
         _active_browser_sessions.append((playwright, browser))
 
     async def open_stamp_page(
@@ -244,6 +253,7 @@ class JTNAdapter(FilingAdapter, StampAdapter, ArchiveAdapter, CaseImportAdapter,
 
         script = JtnStampScript(account=str(credential.account), password=str(credential.password))
         playwright, browser = await script.open_page(oa_case_number)
+        _cleanup_stale_sessions()
         _active_browser_sessions.append((playwright, browser))
 
     # ==================================================================

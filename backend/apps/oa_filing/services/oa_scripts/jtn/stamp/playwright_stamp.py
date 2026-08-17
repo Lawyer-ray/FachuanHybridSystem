@@ -14,7 +14,6 @@ from apps.core.services.browser import BrowserProfile, create_browser_async
 from ..auth.service import JtnAuthService
 from .constants import (
     _POPUP_IFRAME_KEYWORD,
-    AJAX_WAIT,
     DEFAULT_STAMP_COPIES,
     FILE_TYPE_SOUHAN,
     IFRAME_PROJECT_NO_SELECTOR,
@@ -136,7 +135,8 @@ class PlaywrightStampMixin:  # pragma: no cover
         if popup_frame is None:
             raise RuntimeError("未找到案件搜索弹窗 iframe")
 
-        # 3. 在 iframe 中搜索案件
+        # 3. 等待 iframe 内容加载完成，再操作 DOM
+        await popup_frame.wait_for_selector("#project_no", timeout=10_000)
         await popup_frame.evaluate(f"""() => {{
             const el = document.getElementById("project_no");
             el.removeAttribute("readonly");
@@ -145,14 +145,36 @@ class PlaywrightStampMixin:  # pragma: no cover
         await asyncio.sleep(SHORT_WAIT)
 
         await popup_frame.evaluate(IFRAME_SEARCH_FN)
-        await asyncio.sleep(AJAX_WAIT)
 
-        # 4. 选择第一个结果
-        radio_count = await popup_frame.locator('input[type="radio"]').count()
-        if radio_count == 0:
-            raise RuntimeError(f"未找到案件: {case_no}")
+        # 4. 轮询等待搜索结果中出现目标案件编号，校验后选择匹配行
+        import time as _time
 
-        await popup_frame.evaluate('document.querySelectorAll("input[type=radio]")[0].click()')
+        deadline = _time.monotonic() + 30
+        while True:
+            matched = await popup_frame.evaluate(
+                """(expected) => {{
+                const radios = document.querySelectorAll('input[type="radio"]');
+                for (const radio of radios) {{
+                    const row = radio.closest('tr');
+                    if (!row) continue;
+                    const tds = row.querySelectorAll('td');
+                    if (tds.length < 2) continue;
+                    const caseNo = tds[1].textContent.trim();
+                    if (caseNo === expected) {{
+                        radio.click();
+                        return true;
+                    }}
+                }}
+                return false;
+            }}""",
+                case_no,
+            )
+            if matched:
+                break
+            if _time.monotonic() > deadline:
+                raise RuntimeError(f"搜索结果中未找到案件: {case_no}")
+            await asyncio.sleep(1)
+
         await asyncio.sleep(SHORT_WAIT)
         logger.info("已选择案件: %s", case_no)
 
@@ -315,6 +337,15 @@ class PlaywrightStampMixin:  # pragma: no cover
         browser = await playwright.chromium.launch(headless=False)
         context = await browser.new_context()
         page = await context.new_page()
+
+        # 用户关闭浏览器时自动清理 playwright，释放进程
+        def _cleanup(_: Any = None) -> None:
+            try:
+                asyncio.run(playwright.stop())
+            except Exception:
+                pass
+
+        browser.on("disconnected", _cleanup)
 
         try:
             await self._login_to_stamp(page, context)
