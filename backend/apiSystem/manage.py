@@ -6,12 +6,16 @@ import os
 import sys
 from pathlib import Path
 
-# macOS 上 fork() 可能因 Objective-C 运行时冲突导致子进程 crash，
-# 使用 spawn 替代 fork 避免 django-q worker 崩溃重生。
+# macOS 上 fork() 可能因 Objective-C 运行时冲突导致子进程 crash。
+# 1. 设置 spawn 为默认 start method（通用最佳实践）。
+# 2. OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES 是 Apple 官方方案，
+#    让 fork 后的子进程跳过 ObjC 运行时安全检查。
+#    django-q 内部硬编码 get_context("fork")，仅靠 spawn 不够，必须加此变量。
 try:
     multiprocessing.set_start_method("spawn")
 except RuntimeError:
-    pass  # 已设置过则忽略
+    pass
+os.environ.setdefault("OBJC_DISABLE_INITIALIZE_FORK_SAFETY", "YES")
 
 _project_root = Path(__file__).resolve().parent.parent
 _project_root_str = str(_project_root)
