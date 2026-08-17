@@ -40,6 +40,15 @@ class PlaywrightInvoiceMixin:
         context = await browser.new_context()
         page = await context.new_page()
 
+        # 用户关闭浏览器时自动清理 playwright，释放进程
+        def _cleanup(_: Any = None) -> None:
+            try:
+                asyncio.run(playwright.stop())
+            except Exception:
+                pass
+
+        browser.on("disconnected", _cleanup)
+
         try:
             # ── 登录 ──
             cached = self._auth.load_cookies()
