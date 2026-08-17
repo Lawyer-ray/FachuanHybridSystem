@@ -14,6 +14,13 @@ class CoreConfig(AppConfig):
     verbose_name = "核心系统"
 
     def ready(self) -> None:  # pragma: no cover
+        try:
+            from .tasking.qcluster_spawn import patch_django_q_mp_context_for_macos
+
+            patch_django_q_mp_context_for_macos()
+        except Exception:
+            logger.debug("django-q spawn patch 跳过（未就绪）")
+
         # 恢复因 runserver auto-reload 中断的 OAuth device code 轮询
         try:
             from .cloud_storage.admin import resume_pending_device_code_polls

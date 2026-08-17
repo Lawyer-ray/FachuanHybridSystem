@@ -370,21 +370,23 @@ collectstatic: ## 收集静态文件
 # 后台任务
 # ============================================================
 
+# OBJC_DISABLE_INITIALIZE_FORK_SAFETY 必须在解释器启动前设置（libobjc 在 main 前读取），
+# 运行时设置无效；作为 apps/core/apps.py spawn patch 的兜底
 qcluster: migrate ## 启动 Django-Q 任务队列（与 Django Web 启动顺序不限）
 	@pkill -9 -f 'python.*manage.py qcluster' 2>/dev/null || true
 	@sleep 1
-	$(MANAGE) qcluster
+	OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES $(MANAGE) qcluster
 
 qcluster-start: migrate ## 启动 Django-Q 并处理待处理任务（与 Django Web 启动顺序不限）
 	@pkill -9 -f 'python.*manage.py qcluster' 2>/dev/null || true
 	@sleep 1
 	$(MANAGE) process_pending_tasks --reset
-	$(MANAGE) qcluster
+	OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES $(MANAGE) qcluster
 
 qcluster-dev: migrate ## 启动 Django-Q（文件变化自动重启）
 	@echo "$(GREEN)启动 qcluster-dev: 检测 Python 文件变化后自动重启 qcluster$(NC)"
 	@echo "$(YELLOW)监听目录: $(QCLUSTER_WATCH_PATHS)$(NC)"
-	@WATCHFILES_FORCE_POLLING=$(QCLUSTER_DEV_FORCE_POLLING) WATCHFILES_POLL_DELAY_MS=$(QCLUSTER_DEV_POLL_DELAY_MS) $(WATCHFILES) --target-type command --filter python --ignore-paths ".venv,node_modules,.git,__pycache__,media,staticfiles,logs,htmlcov,.pytest_cache" "$(MANAGE) qcluster" $(QCLUSTER_WATCH_PATHS)
+	@WATCHFILES_FORCE_POLLING=$(QCLUSTER_DEV_FORCE_POLLING) WATCHFILES_POLL_DELAY_MS=$(QCLUSTER_DEV_POLL_DELAY_MS) OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES $(WATCHFILES) --target-type command --filter python --ignore-paths ".venv,node_modules,.git,__pycache__,media,staticfiles,logs,htmlcov,.pytest_cache" "$(MANAGE) qcluster" $(QCLUSTER_WATCH_PATHS)
 
 process-tasks: ## 处理待处理的爬虫任务
 	$(MANAGE) process_pending_tasks
