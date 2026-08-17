@@ -1,4 +1,4 @@
-"""Tests for apps.core.apps: macOS 上 django-q mp context spawn patch."""
+"""Tests for apps.core.tasking.qcluster_spawn: macOS 上 django-q mp context spawn patch."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ import sys
 import pytest
 from django_q import cluster as django_q_cluster
 
-from apps.core.apps import CoreConfig
+from apps.core.tasking.qcluster_spawn import patch_django_q_mp_context_for_macos
 
 
 def _get_start_method() -> str:
@@ -25,7 +25,7 @@ class TestDjangoQSpawnPatch:
             lambda: multiprocessing.get_context("fork"),
         )
 
-        CoreConfig._patch_django_q_mp_context_for_macos()
+        patch_django_q_mp_context_for_macos()
 
         assert _get_start_method() == "spawn"
 
@@ -37,10 +37,10 @@ class TestDjangoQSpawnPatch:
             lambda: multiprocessing.get_context("fork"),
         )
 
-        CoreConfig._patch_django_q_mp_context_for_macos()
+        patch_django_q_mp_context_for_macos()
         patched_once = django_q_cluster.get_mp_context
         assert patched_once is not None
-        CoreConfig._patch_django_q_mp_context_for_macos()
+        patch_django_q_mp_context_for_macos()
 
         assert django_q_cluster.get_mp_context is patched_once
         assert _get_start_method() == "spawn"
@@ -49,7 +49,7 @@ class TestDjangoQSpawnPatch:
         monkeypatch.setattr(sys, "platform", "linux")
         original = django_q_cluster.get_mp_context
 
-        CoreConfig._patch_django_q_mp_context_for_macos()
+        patch_django_q_mp_context_for_macos()
 
         assert django_q_cluster.get_mp_context is original
 
@@ -62,6 +62,6 @@ class TestDjangoQSpawnPatch:
         _pre_patched._fachuan_spawn_patched = True  # type: ignore[attr-defined]
         monkeypatch.setattr(django_q_cluster, "get_mp_context", _pre_patched)
 
-        CoreConfig._patch_django_q_mp_context_for_macos()
+        patch_django_q_mp_context_for_macos()
 
         assert django_q_cluster.get_mp_context is _pre_patched
