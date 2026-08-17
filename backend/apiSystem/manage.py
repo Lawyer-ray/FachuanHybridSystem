@@ -1,9 +1,17 @@
 #!/usr/bin/env python
 """Django's command-line utility for administrative tasks."""
 
+import multiprocessing
 import os
 import sys
 from pathlib import Path
+
+# macOS 上 fork() 可能因 Objective-C 运行时冲突导致子进程 crash，
+# 使用 spawn 替代 fork 避免 django-q worker 崩溃重生。
+try:
+    multiprocessing.set_start_method("spawn")
+except RuntimeError:
+    pass  # 已设置过则忽略
 
 _project_root = Path(__file__).resolve().parent.parent
 _project_root_str = str(_project_root)
