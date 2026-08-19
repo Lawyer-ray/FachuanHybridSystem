@@ -85,9 +85,12 @@ class BaseCourtDocumentScraper(BaseScraper):
             "iframes": [],
         }
 
+        # 调试场景固定按同步页面处理，规避 Page|AsyncPage 联合类型下的索引/切片 mypy 误报
+        page = cast(Any, self.page)
+
         try:
             # 分析按钮
-            buttons = self.page.locator("button").all()  # type: ignore
+            buttons = page.locator("button").all()
             for i, btn in enumerate(buttons[:10]):
                 try:
                     analysis["buttons"].append(
@@ -103,7 +106,7 @@ class BaseCourtDocumentScraper(BaseScraper):
                     pass
 
             # 分析链接
-            links = self.page.locator("a").all()  # type: ignore
+            links = page.locator("a").all()
             for i, link in enumerate(links[:10]):
                 try:
                     analysis["links"].append(
@@ -120,7 +123,7 @@ class BaseCourtDocumentScraper(BaseScraper):
                     pass
 
             # 分析包含"下载"的元素
-            download_elements = self.page.locator('*:has-text("下载")').all()  # type: ignore
+            download_elements = page.locator('*:has-text("下载")').all()
             for i, elem in enumerate(download_elements[:10]):
                 try:
                     tag = elem.evaluate("el => el.tagName")
@@ -138,7 +141,7 @@ class BaseCourtDocumentScraper(BaseScraper):
                     pass
 
             # 分析 iframe
-            iframes = self.page.locator("iframe").all()  # type: ignore
+            iframes = page.locator("iframe").all()
             for i, iframe in enumerate(iframes):
                 try:
                     analysis["iframes"].append(
