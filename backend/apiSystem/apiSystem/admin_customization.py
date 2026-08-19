@@ -544,8 +544,20 @@ admin.site.get_urls = _get_urls_with_calculator  # type: ignore[method-assign]
 
 
 def _admin_index_redirect(request: HttpRequest) -> HttpResponseRedirect:
-    """Admin 首页自动重定向到提醒日历页。"""
-    return HttpResponseRedirect(reverse("admin:reminders_reminder_calendar"))
+    """Admin 首页自动重定向到提醒日历页。
+
+    提醒日历 URL 暂无法解析（如 reminders 模块未就绪）时，回退到默认
+    admin 首页，避免后台入口直接 500。
+    """
+    return HttpResponseRedirect(_resolve_admin_landing_url())
+
+
+def _resolve_admin_landing_url() -> str:
+    try:
+        return reverse("admin:reminders_reminder_calendar")
+    except Exception:  # NoReverseMatch / URL 配置构建失败等瞬态问题
+        logger.warning("reversed admin landing URL 失败，回退到默认 admin:index", exc_info=True)
+        return reverse("admin:index")
 
 
 admin.site.index = admin.site.admin_view(_admin_index_redirect)  # type: ignore[method-assign]

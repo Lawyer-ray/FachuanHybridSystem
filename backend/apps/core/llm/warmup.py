@@ -16,6 +16,19 @@ _LLM_WARMUP_STATE: dict[str, object] = {
 }
 
 
+def _is_external_outage(exc: BaseException) -> bool:
+    """外部依赖（Redis/数据库）临时不可用，属可自愈场景，无需打 ERROR 堆栈。"""
+    from django.db.utils import OperationalError
+
+    if isinstance(exc, OperationalError):
+        return True
+    try:
+        from redis.exceptions import ConnectionError as RedisConnectionError
+    except Exception:
+        return False
+    return isinstance(exc, RedisConnectionError)
+
+
 def warm_llm_system_config_cache(keys: Iterable[str] | None = None, *, strict: bool = False) -> dict[str, object]:
     llm_keys = (
         list(keys)
@@ -50,7 +63,13 @@ def warm_llm_system_config_cache(keys: Iterable[str] | None = None, *, strict: b
         )
         return dict(_LLM_WARMUP_STATE)
     except Exception as e:
-        logger.exception("llm_config_warmup_failed", extra={"error_type": type(e).__name__})
+        if _is_external_outage(e):
+            logger.warning(
+                "llm_config_warmup_skipped: %s 不可用，跳过预热（后续请求按需自愈）",
+                type(e).__name__,
+            )
+        else:
+            logger.exception("llm_config_warmup_failed", extra={"error_type": type(e).__name__})
         _LLM_WARMUP_STATE.update(
             {
                 "ok": False,
