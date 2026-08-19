@@ -170,6 +170,11 @@ class BaseCourtDocumentScraper(BaseScraper):
         """
         download_dir = self._prepare_download_dir()
 
+        # 浏览器页面未初始化时，跳过截图/HTML/元素分析，避免用断言掩盖真实下载错误
+        if self.page is None:
+            logger.warning(f"[DEBUG] 无法保存页面状态 {name}: 浏览器页面未初始化 (self.page is None)")
+            return {"name": name, "screenshot": None, "html": None, "analysis": None}
+
         # 保存截图
         screenshot_path = self.screenshot(name)
 

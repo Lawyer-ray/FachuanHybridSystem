@@ -106,6 +106,14 @@ class ZxfwInterceptMixin:
         self, timeout: int = 30000
     ) -> dict[str, Any] | None:  # pragma: no cover
         """在导航前注册监听器，拦截 API 响应"""
+        if self.page is None:
+            error_msg = (
+                "无法执行 API 拦截下载: 浏览器页面未初始化 (self.page is None)。"
+                "该任务可能处于纯 API 模式(requires_browser=False)且直接 API 已失败，"
+                "缺少浏览器上下文无法降级到 Playwright API 拦截。"
+            )
+            logger.error(error_msg, extra={"operation_type": "api_intercept_no_page", "timestamp": time.time()})
+            raise RuntimeError(error_msg)
         api_url = "https://zxfw.court.gov.cn/yzw/yzw-zxfw-sdfw/api/v1/sdfw/getWsListBySdbhNew"
         intercepted_data: dict[str, Any] | None = None
         start_time = time.time()
@@ -272,6 +280,14 @@ class ZxfwInterceptMixin:
             page: 异步 Playwright Page 对象。如果为 None，回退到 self.page。
         """
         _page: AsyncPage = page or self.page  # type: ignore[assignment]
+        if _page is None:
+            error_msg = (
+                "无法执行 API 拦截下载(异步): 浏览器页面未初始化 (page is None)。"
+                "该任务可能处于纯 API 模式(requires_browser=False)且直接 API 已失败，"
+                "缺少浏览器上下文无法降级到 Playwright API 拦截。"
+            )
+            logger.error(error_msg, extra={"operation_type": "api_intercept_no_page", "timestamp": time.time()})
+            raise RuntimeError(error_msg)
         api_url = "https://zxfw.court.gov.cn/yzw/yzw-zxfw-sdfw/api/v1/sdfw/getWsListBySdbhNew"
         intercepted_data: dict[str, Any] | None = None
         start_time = time.time()

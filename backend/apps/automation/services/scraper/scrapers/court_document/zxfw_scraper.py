@@ -174,13 +174,22 @@ class ZxfwCourtScraper(ZxfwDirectApiMixin, ZxfwInterceptMixin, ZxfwFallbackMixin
             )
             from apps.core.exceptions import ExternalServiceError
 
+            browser_initialized = getattr(self, "page", None) is not None
             raise ExternalServiceError(
                 message="所有下载方式均失败",
                 code="DOWNLOAD_ALL_METHODS_FAILED",
                 errors={
+                    "url": self.task.url,
+                    "browser_initialized": browser_initialized,
                     "direct_api_error": str(direct_api_error),
                     "api_intercept_error": str(api_intercept_error),
                     "fallback_error": str(fallback_error),
+                    "hint": (
+                        "直接 API 失败且未创建浏览器上下文(requires_browser=False)时，"
+                        "Playwright 拦截/页面点击两种回退策略因缺少页面而不可用。"
+                        "若送达文书需要浏览器渲染后才能获取，请在具备浏览器上下文的任务类型下重试，"
+                        "或确认该送达链接的文书类型是否被 API 下载逻辑支持。"
+                    ),
                 },
             ) from fallback_error
 
@@ -305,12 +314,21 @@ class ZxfwCourtScraper(ZxfwDirectApiMixin, ZxfwInterceptMixin, ZxfwFallbackMixin
             )
             from apps.core.exceptions import ExternalServiceError
 
+            browser_initialized = getattr(self, "page", None) is not None
             raise ExternalServiceError(
                 message="所有下载方式均失败",
                 code="DOWNLOAD_ALL_METHODS_FAILED",
                 errors={
+                    "url": self.task.url,
+                    "browser_initialized": browser_initialized,
                     "direct_api_error": str(direct_api_error),
                     "api_intercept_error": str(api_intercept_error),
                     "fallback_error": str(fallback_error),
+                    "hint": (
+                        "直接 API 失败且未创建浏览器上下文(requires_browser=False)时，"
+                        "Playwright 拦截/页面点击两种回退策略因缺少页面而不可用。"
+                        "若送达文书需要浏览器渲染后才能获取，请在具备浏览器上下文的任务类型下重试，"
+                        "或确认该送达链接的文书类型是否被 API 下载逻辑支持。"
+                    ),
                 },
             ) from fallback_error

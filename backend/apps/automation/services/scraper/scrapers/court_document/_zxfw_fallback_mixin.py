@@ -113,6 +113,16 @@ class ZxfwFallbackMixin:  # pragma: no cover
 
     def _download_via_fallback(self, download_dir: Path) -> dict[str, Any]:  # pragma: no cover
         """通过传统页面点击方式下载文书（回退机制）"""
+        if self.page is None:
+            error_msg = (
+                "无法执行传统页面点击下载: 浏览器页面未初始化 (self.page is None)。"
+                "该任务可能处于纯 API 模式(requires_browser=False)且直接 API、API 拦截均已失败，"
+                "缺少浏览器上下文无法回退到页面点击下载。"
+            )
+            logger.error(
+                error_msg, extra={"operation_type": "fallback_no_page", "timestamp": __import__("time").time()}
+            )
+            raise ValueError(error_msg)
         downloaded_files: list[str] = []
         success_count = 0
         failed_count = 0
@@ -251,6 +261,16 @@ class ZxfwFallbackMixin:  # pragma: no cover
         self, page: AsyncPage, download_dir: Path
     ) -> dict[str, Any]:
         """异步版：通过传统页面点击方式下载文书（回退机制）"""
+        if page is None:
+            error_msg = (
+                "无法执行传统页面点击下载(异步): 浏览器页面未初始化 (page is None)。"
+                "该任务可能处于纯 API 模式(requires_browser=False)且直接 API、API 拦截均已失败，"
+                "缺少浏览器上下文无法回退到页面点击下载。"
+            )
+            logger.error(
+                error_msg, extra={"operation_type": "fallback_no_page", "timestamp": __import__("time").time()}
+            )
+            raise ValueError(error_msg)
         downloaded_files: list[str] = []
         success_count = 0
         failed_count = 0
