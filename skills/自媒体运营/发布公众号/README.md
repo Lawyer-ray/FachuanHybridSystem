@@ -15,8 +15,8 @@
 ```bash
 cd skills/自媒体运营/发布公众号
 
-# 1. 安装依赖
-pip install -r requirements.txt
+# 1. 安装依赖（使用 uv）
+uv pip install -e .
 
 # 2. 复制配置并填写密钥
 cp .env.example .env
