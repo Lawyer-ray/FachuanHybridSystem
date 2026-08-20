@@ -146,7 +146,15 @@ class PlaywrightFilingMixin:  # pragma: no cover
 
         logger.info("添加委托方: %s (%s)", client.name, client.client_type)
 
-        await page.locator(f"xpath={_XPATH_ADD_CLIENT_BTN}").click()
+        add_btn = page.locator(f"xpath={_XPATH_ADD_CLIENT_BTN}")
+        if await add_btn.count() == 0:
+            # 绝对路径对 DOM 层级变化敏感，回退到按文案定位
+            alt = page.locator('#wrap >> a:has-text("委托")')
+            if await alt.count() == 0:
+                raise RuntimeError("无法定位「添加委托方」按钮")
+            logger.warning("绝对路径未命中，回退到文案定位「添加委托方」按钮")
+            add_btn = alt.first
+        await add_btn.click()
         await asyncio.sleep(_MEDIUM_WAIT)
 
         iframe_xpath: str = await self._find_latest_client_iframe(page)

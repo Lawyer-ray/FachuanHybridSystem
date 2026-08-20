@@ -14,7 +14,8 @@ _PROJECT_HANDLER_BASE = "https://ims.jtn.com/Handle/ProjectAppHandler.ashx"
 # ============================================================
 # XPath
 # ============================================================
-_XPATH_ADD_CLIENT_BTN = '//*[@id="wrap"]/div[1]/div[2]/div/div[5]/div/div[1]/div[2]/a'
+# 2026-08-20 起 OA 立案页委托方按钮从 div[5] 挪到 div[6]
+_XPATH_ADD_CLIENT_BTN = '//*[@id="wrap"]/div[1]/div[2]/div/div[6]/div/div[1]/div[2]/a'
 _XPATH_PERSONAL_TAB = '//*[@id="form1"]/div[3]/div/div[1]'
 _XPATH_NAME_INPUT = '//*[@id="form1"]/div[4]/div[1]/div/input'
 _XPATH_ID_INPUT = '//*[@id="form1"]/div[4]/div[2]/div/input'
