@@ -1,0 +1,24 @@
+# ===== 本地环境变量（密钥不外泄）=====
+.env
+.env.local
+.env.production
+
+# ===== Python =====
+__pycache__/
+*.pyc
+*.pyo
+.PyCache/
+
+# ===== 调试 / 输出 =====
+*.html
+*.md
+!example-article.html
+!README.md
+!CLAUDE.md
+*.jpg
+*.jpeg
+*.png
+*.gif
+*.svg
+*.pdf
+draft_log.txt
