@@ -7,9 +7,9 @@
     1. 复制 .env.example 为 .env，填写你家公众号的 AppID / AppSecret
     2. 写好文章（HTML 或 Markdown）+ 准备封面图（推荐 900×383，2.35:1）
     3. 运行:
-       python3 wechat_draft.py --title "标题" --digest "摘要" --html article.html --cover cover.jpg
+       python3 cli.py --title "标题" --digest "摘要" --html article.html --cover cover.jpg
        或
-       python3 wechat_draft.py --title "标题" --digest "摘要" --markdown article.md --cover cover.jpg
+       python3 cli.py --title "标题" --digest "摘要" --markdown article.md --cover cover.jpg
 
 前置条件:
     - 公众号已启用「开发→基本配置」，已获取 AppID 与 AppSecret

@@ -1,34 +1,47 @@
-# 自媒体运营 Skill
+# 自媒体运营
 
-微信公众号草稿箱发布工具，支持通过 API 将文章保存为草稿。
+律所自媒体内容运营工具集合，覆盖微信公众号、视频号等平台。
 
-## 前置条件
+## 工作流程
 
-```bash
-# 1. 安装依赖
-pip install httpx python-dotenv
+1. **发布公众号** — 通过微信公众号 API 保存图文草稿
 
-# 2. 复制配置模板并填写
+## 使用方式
 
-cp skills/自媒体运营/.env.example skills/自媒体运营/.env
-# 编辑 skills/自媒体运营/.env，填写你的 AppID、AppSecret、作者名称
-```
-
-## 快速使用
+### 单独调用
 
 ```bash
-cd skills/自媒体运营
-python3 wechat_draft.py \
+cd skills/自媒体运营/发布公众号
+pip install -r requirements.txt
+
+# 从 HTML 文件发布
+python3 cli.py \
     --title "文章标题" \
-    --digest "文章摘要" \
-    --html ./article.html \
-    --cover ./cover.jpg
+    --digest "摘要" \
+    --html article.html \
+    --cover cover.jpg
+
+# 从 Markdown 文件发布
+python3 cli.py \
+    --title "文章标题" \
+    --digest "摘要" \
+    --markdown article.md \
+    --cover cover.jpg
 ```
 
-## 功能
+### 命令行快捷调用
 
-- ✅ 自动获取 access_token（本地缓存，避免重复请求）
-- ✅ 上传封面图到微信服务器
-- ✅ 创建图文草稿
-- ✅ 纯 httpx 实现，异步高效
-- ✅ 密钥外置 .env，不上传 Git
+```bash
+cd skills/自媒体运营/发布公众号
+python3 cli.py --help
+```
+
+## Skills 列表
+
+| Skill | 说明 | 版本 |
+|-------|------|------|
+| [发布公众号](./发布公众号/) | 微信公众号图文草稿保存（HTML/Markdown） | 1.0.0 |
+
+## Changelog
+
+详见 [CHANGELOG.md](./CHANGELOG.md)
