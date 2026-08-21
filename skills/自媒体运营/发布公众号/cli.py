@@ -22,6 +22,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import mimetypes
 import os
 import sys
 import time
@@ -29,6 +30,25 @@ from pathlib import Path
 from typing import Any
 
 import httpx
+
+# httpx 0.28+ 将 proxies 参数改名为 proxy，运行时检测
+_HTTPX_PROXY_KW: str
+try:
+    httpx.Client(proxy="http://localhost")
+    _HTTPX_PROXY_KW = "proxy"
+except TypeError:
+    _HTTPX_PROXY_KW = "proxies"
+
+def _client_kwargs(timeout: float = 30) -> dict:
+    """组装 httpx.Client 关键字参数，兼容 0.28+ 与 0.27.x。"""
+    kwargs: dict[str, Any] = {"timeout": timeout, "follow_redirects": True}
+    if _HTTP_PROXY:
+        if _HTTPX_PROXY_KW == "proxy":
+            kwargs["proxy"] = _HTTP_PROXY
+        else:
+            kwargs["proxies"] = {"http://": _HTTP_PROXY, "https://": _HTTP_PROXY}
+    return kwargs
+
 
 # ============ Logging ============
 logger = logging.getLogger("wechat_draft")
@@ -70,15 +90,27 @@ _TOKEN_CACHE_FILE = _SCRIPT_DIR / "token_cache.json"
 
 # 微信接口常量
 TOKEN_URL = "https://api.weixin.qq.com/cgi-bin/token"
+UPLOAD_URL = "https://api.weixin.qq.com/cgi-bin/material/add_material"
 DRAFT_URL = "https://api.weixin.qq.com/cgi-bin/draft/add"
 
 
 # ============ Proxy 配置 ============
 def _get_proxies() -> dict[str, str] | None:
-    """返回 httpx 代理配置。"""
+    """返回 httpx 代理配置（旧版本兼容）。"""
     if _HTTP_PROXY:
         return {"http://": _HTTP_PROXY, "https://": _HTTP_PROXY}
     return None
+
+
+def _client_kwargs(timeout: float = 30) -> dict:
+    """组装 httpx.Client 关键字参数，兼容 0.28+ 与 0.27.x。"""
+    kwargs: dict[str, Any] = {"timeout": timeout, "follow_redirects": True}
+    if _HTTP_PROXY:
+        if _HTTPX_PROXY_KW == "proxy":
+            kwargs["proxy"] = _HTTP_PROXY
+        else:
+            kwargs["proxies"] = _get_proxies()
+    return kwargs
 
 
 # ============ Config 校验 ============
@@ -169,9 +201,9 @@ def get_access_token(force_refresh: bool = False) -> str:
         "appid": appid,
         "secret": appsecret,
     }
-    proxies = _get_proxies()
 
-    with httpx.Client(proxies=proxies, timeout=15, follow_redirects=True) as client:
+    kwargs = _client_kwargs(timeout=15)
+    with httpx.Client(**kwargs) as client:
         resp = client.get(TOKEN_URL, params=params)
         resp.raise_for_status()
         data = _parse_wechat_response(resp.json())
@@ -308,12 +340,61 @@ li {{ margin: 8px 0; }}
 """.replace("<body_html_placeholder>", body_html)
 
 
+# ============ 上传封面图 ============
+def upload_image(token: str, image_path: str) -> str:
+    """
+    上传封面图到微信服务器，返回 media_id。
+    原图上传，不裁剪；用户需自行确保比例正确（推荐 900×383，2.35:1）。
+    """
+    src = Path(image_path)
+    if not src.exists():
+        msg = f"封面图不存在: {image_path}"
+        raise RuntimeError(msg)
+
+    mime = mimetypes.guess_type(image_path)[0] or "image/jpeg"
+    filename = src.name
+
+    with open(image_path, "rb") as f:
+        file_bytes = f.read()
+
+    boundary = "----WechatFormBoundary"
+    body = b""
+    body += f"--{boundary}\r\n".encode()
+    body += (
+        f'Content-Disposition: form-data; name="media"; '
+        f'filename="{filename}"\r\n'
+    ).encode()
+    body += f"Content-Type: {mime}\r\n\r\n".encode()
+    body += file_bytes
+    body += b"\r\n"
+    body += f"--{boundary}--\r\n".encode()
+
+    headers = {"Content-Type": f"multipart/form-data; boundary={boundary}"}
+
+    kwargs = _client_kwargs(timeout=30)
+    url = f"{UPLOAD_URL}?access_token={token}"
+
+    with httpx.Client(**kwargs) as client:
+        resp = client.post(url, content=body, headers=headers)
+        resp.raise_for_status()
+        data = _parse_wechat_response(resp.json())
+
+    media_id = data.get("media_id")
+    url_in_resp = data.get("url")
+    if not media_id:
+        msg = f"上传图片未返回 media_id: {data}"
+        raise RuntimeError(msg)
+    logger.info("封面上传成功，media_id=%s", media_id)
+    return media_id
+
+
 # ============ 创建草稿 ============
 def create_draft(
     token: str,
     title: str,
     digest: str,
     content_html: str,
+    thumb_media_id: str,
     author: str | None = None,
 ) -> str:
     """调用微信公众号草稿接口，返回 draft media_id。"""
@@ -324,6 +405,7 @@ def create_draft(
                 "author": author or AUTHOR,
                 "digest": digest,
                 "content": content_html,
+                "thumb_media_id": thumb_media_id,
                 "need_open_comment": 1,
                 "only_fans_can_comment": 0,
             }
@@ -332,9 +414,9 @@ def create_draft(
 
     url = f"{DRAFT_URL}?access_token={token}"
     headers = {"Content-Type": "application/json; charset=utf-8"}
-    proxies = _get_proxies()
 
-    with httpx.Client(proxies=proxies, timeout=30, follow_redirects=True) as client:
+    kwargs = _client_kwargs(timeout=30)
+    with httpx.Client(**kwargs) as client:
         resp = client.post(url, json=payload, headers=headers)
         resp.raise_for_status()
         data = _parse_wechat_response(resp.json())
@@ -354,6 +436,9 @@ def main() -> int:
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument("--html", dest="html_file", help="正文 HTML 文件路径")
     group.add_argument("--markdown", dest="md_file", help="正文 Markdown 文件路径")
+    parser.add_argument(
+        "--cover", required=True, help="封面图路径（请先用外部工具裁剪为 900×383，2.35:1）"
+    )
     parser.add_argument(
         "--no-preview",
         action="store_true",
@@ -390,13 +475,18 @@ def main() -> int:
     logger.info("① 获取 access_token ...")
     token = get_access_token(force_refresh=args.force_refresh_token)
 
-    # ---- 3. 创建草稿 ----
-    logger.info("② 创建草稿 ...")
+    # ---- 3. 上传封面 ----
+    logger.info("② 上传封面图 ...")
+    thumb_media_id = upload_image(token, args.cover)
+
+    # ---- 4. 创建草稿 ----
+    logger.info("③ 创建草稿 ...")
     draft_id = create_draft(
         token=token,
         title=args.title,
         digest=args.digest,
         content_html=raw_html,
+        thumb_media_id=thumb_media_id,
     )
 
     # ---- 4. 输出结果 ----
