@@ -154,10 +154,17 @@ class PlaywrightFilingMixin:  # pragma: no cover
                 raise RuntimeError("无法定位「添加委托方」按钮")
             logger.warning("绝对路径未命中，回退到文案定位「添加委托方」按钮")
             add_btn = alt.first
-        await add_btn.click()
-        await asyncio.sleep(_MEDIUM_WAIT)
 
-        iframe_xpath: str = await self._find_latest_client_iframe(page)
+        # 点击触发弹窗可能偶发失效（事件未及时绑定），弹窗 iframe 未出现则重试点击
+        iframe_xpath: str | None = None
+        for attempt in range(2):
+            await add_btn.click()
+            iframe_xpath = await self._find_latest_client_iframe(page)
+            if iframe_xpath is not None:
+                break
+            logger.warning("第 %d 次点击后客户弹窗未出现，重试点击", attempt + 1)
+        if iframe_xpath is None:
+            raise RuntimeError("多次点击「添加委托方」后仍未出现客户搜索弹窗，请检查 OA 页面状态")
         iframe: FrameLocator = page.frame_locator(f"xpath={iframe_xpath}")
 
         is_natural: bool = client.client_type == "natural"
