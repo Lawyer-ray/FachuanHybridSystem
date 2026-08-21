@@ -5,11 +5,11 @@
 
 用法:
     1. 复制 .env.example 为 .env，填写你家公众号的 AppID / AppSecret
-    2. 用 Markdown 或 HTML 写好正文；用外部工具自行制作封面图（推荐 900×383，2.35:1）
+    2. 用 Markdown 或 HTML 写好正文
     3. 运行:
-       python3 cli.py --title "标题" --digest "摘要" --html article.html --cover cover.jpg
+       python3 cli.py --title "标题" --digest "摘要" --html article.html
        或
-       python3 cli.py --title "标题" --digest "摘要" --markdown article.md --cover cover.jpg
+       python3 cli.py --title "标题" --digest "摘要" --markdown article.md
 
 前置条件:
     - 公众号已启用「开发→基本配置」，已获取 AppID 与 AppSecret
@@ -22,7 +22,6 @@ from __future__ import annotations
 import argparse
 import json
 import logging
-import mimetypes
 import os
 import sys
 import time
@@ -71,7 +70,6 @@ _TOKEN_CACHE_FILE = _SCRIPT_DIR / "token_cache.json"
 
 # 微信接口常量
 TOKEN_URL = "https://api.weixin.qq.com/cgi-bin/token"
-UPLOAD_URL = "https://api.weixin.qq.com/cgi-bin/media/uploadimg"
 DRAFT_URL = "https://api.weixin.qq.com/cgi-bin/draft/add"
 
 
@@ -182,54 +180,6 @@ def get_access_token(force_refresh: bool = False) -> str:
     expires_in = data.get("expires_in", 7200)
     _save_token_cache(token, expires_in)
     return token
-
-
-# ============ 上传封面图 ============
-def upload_image(token: str, image_path: str) -> str:
-    """
-    上传封面图到微信服务器，返回 media_id。
-    使用 uploadimg 接口（临时素材，不占永久素材配额）。
-    """
-    src = Path(image_path)
-    if not src.exists():
-        msg = f"封面图不存在: {image_path}"
-        raise RuntimeError(msg)
-
-    mime = mimetypes.guess_type(image_path)[0] or "image/jpeg"
-    filename = src.name
-
-    with open(image_path, "rb") as f:
-        file_bytes = f.read()
-
-    boundary = "----WechatFormBoundary"
-    body = b""
-    body += f"--{boundary}\r\n".encode()
-    body += (
-        f'Content-Disposition: form-data; name="media"; '
-        f'filename="{filename}"\r\n'
-    ).encode()
-    body += f"Content-Type: {mime}\r\n\r\n".encode()
-    body += file_bytes
-    body += b"\r\n"
-    body += f"--{boundary}--\r\n".encode()
-
-    headers = {"Content-Type": f"multipart/form-data; boundary={boundary}"}
-
-    proxies = _get_proxies()
-    url = f"{UPLOAD_URL}?access_token={token}"
-
-    with httpx.Client(proxies=proxies, timeout=30, follow_redirects=True) as client:
-        resp = client.post(url, content=body, headers=headers)
-        resp.raise_for_status()
-        data = _parse_wechat_response(resp.json())
-
-    media_id = data.get("media_id")
-    url_in_resp = data.get("url")
-    if not media_id:
-        msg = f"上传图片未返回 media_id: {data}"
-        raise RuntimeError(msg)
-    logger.info("封面上传成功，media_id=%s, url=%s", media_id, url_in_resp)
-    return media_id
 
 
 # ============ Markdown → HTML 极简转换 ============
@@ -364,7 +314,6 @@ def create_draft(
     title: str,
     digest: str,
     content_html: str,
-    thumb_media_id: str,
     author: str | None = None,
 ) -> str:
     """调用微信公众号草稿接口，返回 draft media_id。"""
@@ -375,7 +324,6 @@ def create_draft(
                 "author": author or AUTHOR,
                 "digest": digest,
                 "content": content_html,
-                "thumb_media_id": thumb_media_id,
                 "need_open_comment": 1,
                 "only_fans_can_comment": 0,
             }
@@ -406,9 +354,6 @@ def main() -> int:
     group = parser.add_mutually_exclusive_group(required=True)
     group.add_argument("--html", dest="html_file", help="正文 HTML 文件路径")
     group.add_argument("--markdown", dest="md_file", help="正文 Markdown 文件路径")
-    parser.add_argument(
-        "--cover", required=True, help="封面图路径（请自行裁剪为 900×383，2.35:1）"
-    )
     parser.add_argument(
         "--no-preview",
         action="store_true",
@@ -445,21 +390,16 @@ def main() -> int:
     logger.info("① 获取 access_token ...")
     token = get_access_token(force_refresh=args.force_refresh_token)
 
-    # ---- 3. 上传封面 ----
-    logger.info("② 上传封面图 ...")
-    thumb_media_id = upload_image(token, args.cover)
-
-    # ---- 4. 创建草稿 ----
-    logger.info("③ 创建草稿 ...")
+    # ---- 3. 创建草稿 ----
+    logger.info("② 创建草稿 ...")
     draft_id = create_draft(
         token=token,
         title=args.title,
         digest=args.digest,
         content_html=raw_html,
-        thumb_media_id=thumb_media_id,
     )
 
-    # ---- 5. 输出结果 ----
+    # ---- 4. 输出结果 ----
     logger.info("草稿保存成功！")
     logger.info("   标题   : %s", args.title)
     logger.info("   摘要   : %s", args.digest)

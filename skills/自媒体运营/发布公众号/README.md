@@ -6,7 +6,6 @@
 
 - 支持 HTML / Markdown 两种正文输入格式
 - access_token 本地缓存复用（有效期约 2 小时）
-- 使用临时素材接口上传封面，不占永久素材配额
 - 密钥外置 `.env` 文件，不上传 Git
 
 ## 使用方式
@@ -25,15 +24,13 @@ cp .env.example .env
 python3 cli.py \
     --title "文章标题（≤64 字节）" \
     --digest "文章摘要（≤120 字节）" \
-    --html example-article.html \
-    --cover cover.jpg
+    --html example-article.html
 
 # 4. 或 Markdown 输入
 python3 cli.py \
     --title "文章标题" \
     --digest "文章摘要" \
-    --markdown article.md \
-    --cover cover.jpg
+    --markdown article.md
 ```
 
 ## 参数说明
@@ -44,7 +41,6 @@ python3 cli.py \
 | `--digest` | ✅ | 文章摘要，≤120 字节 |
 | `--html` | 二选一 | 正文 HTML 文件路径 |
 | `--markdown` | 二选一 | 正文 Markdown 文件路径 |
-| `--cover` | ✅ | 封面图路径（请先用外部工具裁剪为 900×383，2.35:1） |
 | `--no-preview` | ❌ | 不在终端打印正文预览 |
 | `--force-refresh-token` | ❌ | 强制刷新 access_token |
 
@@ -54,12 +50,14 @@ python3 cli.py \
 - 文章标题、摘要、草稿 ID
 - 提示前往 `mp.weixin.qq.com` 草稿箱发布
 
+**注意**：此工具只保存正文到草稿箱，不处理封面图。
+封面图需要在公众号后台手动上传和裁剪（或在另建的 Skill 中处理）。
+
 ## 限制说明
 
 - 仅支持已启用「开发→基本配置」的**认证订阅号或服务号**（个人订阅号无法用高级接口）
-- 封面图请先用外部工具裁剪为 **2.35:1**（如 900×383），微信对比例敏感，不对则报 "封面裁剪失败"
 - Markdown 转换器为极简实现，仅支持标题、段落、加粗、斜体、引用、有序列表和空行
-- 网络请求超时：token 15 秒，上传/草稿 30 秒
+- 网络请求超时：token 15 秒，草稿 30 秒
 
 ## Changelog
 
