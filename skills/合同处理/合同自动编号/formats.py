@@ -112,14 +112,14 @@ NUMBERING_FORMATS: dict[str, dict[str, Any]] = {
         ]
     },
     'decimal': {
-        'name': '1. 1.1 1.1.1 1.1.1.1',
+        'name': '1. 1.1 1.1.1 1.1.1.1 1.1.1.1.1',
         'description': '纯数字格式（1. 2. 3...）',
         'levels': [
             {'ilvl': '0', 'numFmt': 'decimal', 'lvlText': '%1.', 'start': '1'},
-            {'ilvl': '1', 'numFmt': 'decimal', 'lvlText': '%1.%2.', 'start': '1'},
-            {'ilvl': '2', 'numFmt': 'decimal', 'lvlText': '%1.%2.%3.', 'start': '1'},
-            {'ilvl': '3', 'numFmt': 'decimal', 'lvlText': '%1.%2.%3.%4.', 'start': '1'},
-            {'ilvl': '4', 'numFmt': 'decimal', 'lvlText': '%1.%2.%3.%4.%5.', 'start': '1'},
+            {'ilvl': '1', 'numFmt': 'decimal', 'lvlText': '%1.%2', 'start': '1'},
+            {'ilvl': '2', 'numFmt': 'decimal', 'lvlText': '%1.%2.%3', 'start': '1'},
+            {'ilvl': '3', 'numFmt': 'decimal', 'lvlText': '%1.%2.%3.%4', 'start': '1'},
+            {'ilvl': '4', 'numFmt': 'decimal', 'lvlText': '%1.%2.%3.%4.%5', 'start': '1'},
         ]
     }
 }

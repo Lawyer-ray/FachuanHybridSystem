@@ -50,6 +50,19 @@ def create_numbering_part(doc: Document) -> tuple[Part, etree._Element]:
         return numbering_part, numbering_elem
 
 
+def next_abstract_id(numbering_elem: etree._Element) -> int:
+    """计算可用的下一个 abstractNum id，避免与文档已有定义冲突
+
+    原实现硬编码 abstract_id=0，但源文档 numbering.xml 常已存在 id=0 的
+    旧 abstractNum，新增的同 id 定义会被忽略，导致编号样式错乱。
+    """
+    ids = [
+        int(a.get(qn('w:abstractNumId'), 0)) or 0
+        for a in numbering_elem.findall(qn('w:abstractNum'))
+    ]
+    return max(ids, default=-1) + 1
+
+
 def create_abstract_numbering(numbering_elem: etree._Element, abstract_id: int, format_type: str) -> None:
     """创建 abstractNum 定义
 
@@ -231,12 +244,13 @@ def convert_numbering(
     # 创建 numbering part
     numbering_part, numbering_elem = create_numbering_part(doc)
 
-    # 创建 abstractNum
-    create_abstract_numbering(numbering_elem, abstract_id=0, format_type=format_type)
+    # 创建 abstractNum（使用唯一 id，避免与文档已有定义冲突）
+    abstract_id = next_abstract_id(numbering_elem)
+    create_abstract_numbering(numbering_elem, abstract_id=abstract_id, format_type=format_type)
 
     # 创建 num 实例
     level0_indices = [idx for idx, level, _, _ in numbered_paras if level == 0]
-    num_id_map = create_num_instances(numbering_elem, abstract_id=0, level0_indices=level0_indices, format_type=format_type)
+    num_id_map = create_num_instances(numbering_elem, abstract_id=abstract_id, level0_indices=level0_indices, format_type=format_type)
 
     # 更新 numbering part
     if hasattr(numbering_part, '_blob'):
