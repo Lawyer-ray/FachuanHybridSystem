@@ -7,5 +7,5 @@ token_cache.json
 __pycache__/
 *.pyc
 
-# 临时输出（如果脚本生成日志）
+# 临时输出
 draft_log.txt
