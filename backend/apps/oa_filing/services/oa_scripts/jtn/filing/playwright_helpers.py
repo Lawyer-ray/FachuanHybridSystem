@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import re
+import time
 from typing import Any
 
 from playwright.async_api import FrameLocator, Page
@@ -77,19 +77,59 @@ class PlaywrightHelpersMixin:  # pragma: no cover
     # ------------------------------------------------------------------
 
     async def _eval_create_iframe(self: Any, page: Page, js_code: str, *args: Any) -> Any:  # pragma: no cover
-        """在 CreateCustomer iframe 内执行 JS。
+        """在 CreateCustomer iframe 内执行 JS，并等待 iframe 及其 jQuery 就绪。
 
+        点击"创建新客户"后新建的 iframe 需要时间加载 jQuery，
+        过早执行会让 ``$`` 拿到非函数而抛错（``$ is not a function``）。
+        本方法会重试直到 jQuery 可用或超时，而不是在首次尝试就失败。
         js_code 是一个 JS 函数字符串，函数签名为 (arg?) => {...}。
-        iframe 变量由本方法在 page.evaluate 的包装层注入。
         """
-        wrapped = f"""(arg) => {{
-            const iframe = document.querySelector('iframe[src*="CreateCustomer"]');
-            if (!iframe) return null;
-            const fn = {js_code};
-            return fn(arg);
-        }}"""
         arg = args[0] if args else None
-        return await page.evaluate(wrapped, arg)
+        # 点击"创建新客户"后，创建窗口是 id 最大的 layui-layer-iframe。
+        # 不能靠 src 含 CreateCustomer 定位：OA 慢加载时 src 最后才填上该值，
+        # 靠它匹配会一直错过。用 id 最大 + 表单 #customer_Type 已渲染来判定
+        # 真正的客户创建表单就绪，再执行填充。
+        wrapped = (
+            "(arg) => {"
+            "  let __f = null, __m = -1;"
+            "  for (const __i of document.querySelectorAll('iframe[id^=\"layui-layer-iframe\"]')) {"
+            "    const __n = parseInt((__i.id || '').replace('layui-layer-iframe', ''), 10);"
+            "    if (__n > __m) { __m = __n; __f = __i; }"
+            "  }"
+            '  if (!__f) return "__NO_IFRAME__";'
+            "  const iframe = __f;"
+            "  if (!iframe.contentWindow || typeof iframe.contentWindow.jQuery !== 'function') return false;"
+            "  const doc = iframe.contentDocument;"
+            "  if (!doc || !doc.getElementById('customer_Type')) return false;"
+            "  const fn = " + (js_code.strip() if js_code else "() => null") + ";"
+            "  return fn(arg);"
+            "}"
+        )
+        last_reason = "CreateCustomer iframe 未找到"
+        deadline = time.monotonic() + _MEDIUM_WAIT * 12  # 约 24s 等待 iframe 与 jQuery 就绪
+        while time.monotonic() < deadline:
+            try:
+                result = await page.evaluate(wrapped, arg)
+                if result == "__NO_IFRAME__":
+                    last_reason = "CreateCustomer iframe 未找到"
+                elif result is False:
+                    last_reason = "CreateCustomer iframe 的 jQuery/表单尚未就绪"
+                else:
+                    # js_code 大多无 return 语句，fn(arg) 返回 undefined → result 为 None，
+                    # 此时也算执行成功，不能当作"未找到"重试
+                    return result
+            except Exception as exc:
+                last_reason = str(exc)
+            await asyncio.sleep(_SHORT_WAIT)
+        # 放弃前 dump 当前 iframe，便于判断是"创建窗口加载过慢"还是"src 不再匹配"
+        try:
+            frames = await page.evaluate(
+                "() => Array.from(document.querySelectorAll('iframe')).map(f => ({ id: f.id, src: (f.src || '').split('?')[0] }))"
+            )
+            logger.error("等待 CreateCustomer iframe 超时，当前 iframe 列表: %s", frames)
+        except Exception:
+            pass
+        raise RuntimeError(f"等待 CreateCustomer iframe JS 执行超时: {last_reason}")
 
     async def _set_chosen(self: Any, page: Page, field_id: str, value: str) -> None:  # pragma: no cover
         """设置 Chosen.js 下拉框的值并触发更新事件。"""
@@ -121,36 +161,50 @@ class PlaywrightHelpersMixin:  # pragma: no cover
     # 客户搜索弹窗 / iframe
     # ------------------------------------------------------------------
 
-    async def _find_latest_client_iframe(self: Any, page: Page) -> str:  # pragma: no cover
-        """动态查找最新的 layui-layer-iframe。
+    async def _find_latest_client_iframe(self: Any, page: Page) -> str | None:  # pragma: no cover
+        """动态查找最新的 layui-layer-iframe，找不到时等待并重试。
 
-        每次打开搜索弹窗，iframe ID 会递增（100002, 100003, ...）。
-        取 ID 最大的那个即为当前弹窗。
+        每次打开搜索弹窗，iframe ID 会递增（100002, 100003, ...），
+        取 ID 最大的那个即为当前弹窗。点击"添加委托方"后弹窗 iframe 是
+        异步插入 DOM 的，不能只在点击后查一次就作罢，否则会因弹窗尚未
+        就绪而误判为"页面结构变了"。等待超时返回 None，并打印真实 iframe
+        列表；由调用方决定是否重试点击。
         """
-        iframe_id: str = (
-            await page.evaluate(
-                """() => {
-            const iframes = document.querySelectorAll('iframe[id^="layui-layer-iframe"]');
-            if (iframes.length === 0) return '';
-            let maxId = '';
-            let maxNum = -1;
-            for (const f of iframes) {
-                const num = parseInt(f.id.replace('layui-layer-iframe', ''), 10);
-                if (num > maxNum) {
-                    maxNum = num;
-                    maxId = f.id;
+        deadline = time.monotonic() + _MEDIUM_WAIT * 6  # 约 12s 等待弹窗 iframe 就绪
+        while True:
+            iframe_id: str = (
+                await page.evaluate(
+                    """() => {
+                const iframes = document.querySelectorAll('iframe[id^="layui-layer-iframe"]');
+                if (iframes.length === 0) return '';
+                let maxId = '';
+                let maxNum = -1;
+                for (const f of iframes) {
+                    const num = parseInt(f.id.replace('layui-layer-iframe', ''), 10);
+                    if (num > maxNum) {
+                        maxNum = num;
+                        maxId = f.id;
+                    }
                 }
-            }
-            return maxId;
-        }"""
+                return maxId;
+            }"""
+                )
+                or ""
             )
-            or ""
+            if iframe_id:
+                logger.info("使用 iframe: %s", iframe_id)
+                return f'//*[@id="{iframe_id}"]'
+            if time.monotonic() >= deadline:
+                break
+            await asyncio.sleep(_SHORT_WAIT)
+
+        # 超时：收集页面当前 iframe 的 id/src，便于判断是时序还是结构变更
+        iframes = await page.evaluate(
+            """() => Array.from(document.querySelectorAll('iframe'))
+                .map(f => ({ id: f.id, src: (f.src || '').split('/').pop() || '' }));"""
         )
-        if not iframe_id:
-            logger.warning("未找到 layui-layer-iframe，回退到默认 ID")
-            iframe_id = "layui-layer-iframe100002"
-        logger.info("使用 iframe: %s", iframe_id)
-        return f'//*[@id="{iframe_id}"]'
+        logger.warning("等待客户弹窗 iframe 超时，当前页面 iframe 列表: %s", iframes)
+        return None
 
     async def _get_latest_iframe_id(self: Any, page: Page) -> str:  # pragma: no cover
         """获取当前最新弹窗 iframe 的 id。"""

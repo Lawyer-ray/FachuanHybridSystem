@@ -1,0 +1,6 @@
+# 本地密钥（如果有工作流级配置才需要）
+.env
+.env.local
+
+# macOS
+.DS_Store

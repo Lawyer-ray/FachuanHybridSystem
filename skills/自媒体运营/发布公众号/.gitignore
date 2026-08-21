@@ -1,0 +1,11 @@
+# 密钥与缓存
+.env
+.env.local
+token_cache.json
+
+# Python
+__pycache__/
+*.pyc
+
+# 临时输出
+draft_log.txt
