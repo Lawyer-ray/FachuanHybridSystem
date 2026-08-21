@@ -312,6 +312,10 @@ ml-training/
 # FastAPI rewrite (see feat/fastapi-rewrite branch)
 FastAPI_backend/
 
+# Redis dump file
+dump.rdb
+backend/dump.rdb
+
 # Plugins 备份目录（与 backend/plugins 共享 gitdir，不应入库）
 backend/_plugins_backup/
 
