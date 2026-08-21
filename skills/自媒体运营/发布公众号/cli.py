@@ -5,7 +5,7 @@
 
 用法:
     1. 复制 .env.example 为 .env，填写你家公众号的 AppID / AppSecret
-    2. 写好文章（HTML 或 Markdown）+ 准备封面图（推荐 900×383，2.35:1）
+    2. 用 Markdown 或 HTML 写好正文；用外部工具自行制作封面图（推荐 900×383，2.35:1）
     3. 运行:
        python3 cli.py --title "标题" --digest "摘要" --html article.html --cover cover.jpg
        或
@@ -14,7 +14,7 @@
 前置条件:
     - 公众号已启用「开发→基本配置」，已获取 AppID 与 AppSecret
     - 本机公网 IP 已加入公众号白名单（如需）
-    - pip install -r requirements.txt
+    - uv pip install -e .
 """
 
 from __future__ import annotations
@@ -25,7 +25,6 @@ import logging
 import mimetypes
 import os
 import sys
-import tempfile
 import time
 from pathlib import Path
 from typing import Any
@@ -74,11 +73,6 @@ _TOKEN_CACHE_FILE = _SCRIPT_DIR / "token_cache.json"
 TOKEN_URL = "https://api.weixin.qq.com/cgi-bin/token"
 UPLOAD_URL = "https://api.weixin.qq.com/cgi-bin/media/uploadimg"
 DRAFT_URL = "https://api.weixin.qq.com/cgi-bin/draft/add"
-
-# 封面推荐尺寸（微信后台列表显示时正常裁切）
-COVER_RECOMMENDED_W = 900
-COVER_RECOMMENDED_H = 383
-COVER_RATIO = COVER_RECOMMENDED_W / COVER_RECOMMENDED_H  # ≈ 2.35:1
 
 
 # ============ Proxy 配置 ============
@@ -190,82 +184,19 @@ def get_access_token(force_refresh: bool = False) -> str:
     return token
 
 
-# ============ 封面图处理 ============
-def _make_cover(image_path: str) -> str:
-    """
-    校验/处理封面图，返回处理后的临时文件路径。
-    自动居中裁剪到推荐比例 2.35:1（900×383）。
-    """
-    src = Path(image_path)
-    if not src.exists():
-        msg = f"封面图不存在: {image_path}"
-        raise RuntimeError(msg)
-
-    try:
-        from PIL import Image
-    except ModuleNotFoundError:
-        logger.warning(
-            "Pillow 未安装 (pip install Pillow)，跳过封面比例裁剪"
-        )
-        return str(src)
-
-    img = Image.open(src)
-    orig_w, orig_h = img.size
-    orig_ratio = orig_w / orig_h
-
-    # 已在推荐尺寸 ±15% 内，无需处理
-    if abs(orig_ratio - COVER_RATIO) < 0.15 and max(orig_w, orig_h) >= 500:
-        logger.info("封面 %s×%s，比例合格，无需裁剪", orig_w, orig_h)
-        return str(src)
-
-    # 居中裁剪到推荐比例
-    logger.info(
-        "封面 %s×%s 比例 %.2f 不合适，裁剪至 %s×%s ...",
-        orig_w,
-        orig_h,
-        orig_ratio,
-        COVER_RECOMMENDED_W,
-        COVER_RECOMMENDED_H,
-    )
-
-    if orig_ratio > COVER_RATIO:
-        # 太宽了，裁左右
-        new_h = orig_h
-        new_w = int(round(orig_h * COVER_RATIO))
-        left = (orig_w - new_w) // 2
-        box = (left, 0, left + new_w, new_h)
-    else:
-        # 太高了，裁上下
-        new_w = orig_w
-        new_h = int(round(orig_w / COVER_RATIO))
-        top = (orig_h - new_h) // 2
-        box = (0, top, new_w, top + new_h)
-
-    cropped = img.crop(box)
-    # Pillow 10.0+ 推荐用 Resampling.LANCZOS，向下兼容旧版本
-    try:
-        lanczos = Image.Resampling.LANCZOS  # type: ignore[attr-defined]
-    except AttributeError:
-        lanczos = Image.LANCZOS  # type: ignore[attr-defined]
-    cropped = cropped.resize((COVER_RECOMMENDED_W, COVER_RECOMMENDED_H), lanczos)
-
-    suffix = src.suffix.lower() if src.suffix else ".jpg"
-    fd, tmp_path = tempfile.mkstemp(suffix=suffix, prefix="wechat_cover_")
-    os.close(fd)
-
-    cropped.save(tmp_path, quality=92)
-    logger.info("已裁剪并保存到: %s", tmp_path)
-    return tmp_path
-
-
 # ============ 上传封面图 ============
 def upload_image(token: str, image_path: str) -> str:
     """
     上传封面图到微信服务器，返回 media_id。
     使用 uploadimg 接口（临时素材，不占永久素材配额）。
     """
+    src = Path(image_path)
+    if not src.exists():
+        msg = f"封面图不存在: {image_path}"
+        raise RuntimeError(msg)
+
     mime = mimetypes.guess_type(image_path)[0] or "image/jpeg"
-    filename = Path(image_path).name
+    filename = src.name
 
     with open(image_path, "rb") as f:
         file_bytes = f.read()
@@ -476,7 +407,7 @@ def main() -> int:
     group.add_argument("--html", dest="html_file", help="正文 HTML 文件路径")
     group.add_argument("--markdown", dest="md_file", help="正文 Markdown 文件路径")
     parser.add_argument(
-        "--cover", required=True, help="封面图路径（推荐 900×383，2.35:1）"
+        "--cover", required=True, help="封面图路径（请自行裁剪为 900×383，2.35:1）"
     )
     parser.add_argument(
         "--no-preview",
@@ -514,14 +445,12 @@ def main() -> int:
     logger.info("① 获取 access_token ...")
     token = get_access_token(force_refresh=args.force_refresh_token)
 
-    # ---- 3. 处理并上传封面 ----
-    logger.info("② 处理封面图 ...")
-    cover_tmp = _make_cover(args.cover)
-    logger.info("③ 上传封面图 ...")
-    thumb_media_id = upload_image(token, cover_tmp)
+    # ---- 3. 上传封面 ----
+    logger.info("② 上传封面图 ...")
+    thumb_media_id = upload_image(token, args.cover)
 
     # ---- 4. 创建草稿 ----
-    logger.info("④ 创建草稿 ...")
+    logger.info("③ 创建草稿 ...")
     draft_id = create_draft(
         token=token,
         title=args.title,
@@ -543,14 +472,6 @@ def main() -> int:
         logger.info("   预览   : %s", preview)
     logger.info("   草稿ID : %s", draft_id)
     logger.info("   >>> 前往 mp.weixin.qq.com →「内容与互动」→「草稿箱」查看和发布")
-
-    # ---- 6. 清理临时封面 ----
-    if cover_tmp != args.cover and Path(cover_tmp).exists():
-        try:
-            os.unlink(cover_tmp)
-            logger.info("   已清理临时文件: %s", Path(cover_tmp).name)
-        except OSError:
-            pass
 
     return 0
 
