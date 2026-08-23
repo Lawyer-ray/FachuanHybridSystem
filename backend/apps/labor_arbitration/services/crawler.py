@@ -85,13 +85,16 @@ class FoshanLaborAwardCrawler:
         page_url: str | None = self.source.list_url
         page_idx = 0
         max_pages = max(self.source.max_pages, 1)
+        # 详情页图片体积大（可达数 MB），浏览器内不必真正加载图片，
+        # 我们只需从 DOM 读取 src，再通过 page.request.fetch 单独下载。
+        page.route("**/*", self._abort_images)
 
         while page_url and page_idx < max_pages:
             if page_url in visited:
                 break
             visited.add(page_url)
             logger.info("[劳动仲裁] 抓取列表页 %s", page_url)
-            page.goto(page_url, wait_until="domcontentloaded")
+            page.goto(page_url, wait_until="domcontentloaded", timeout=60000)
             items = self._extract_list_items(page)
             logger.info("[劳动仲裁] 本页发现 %d 条文书", len(items))
             self.stats["discovered"] += len(items)
@@ -210,7 +213,7 @@ class FoshanLaborAwardCrawler:
     def _crawl_detail(self, page: Any, item: dict[str, Any]) -> ArbitrationDocument:
         url = item["url"]
         logger.info("[劳动仲裁] 抓取详情 %s", url)
-        page.goto(url, wait_until="domcontentloaded")
+        page.goto(url, wait_until="domcontentloaded", timeout=60000)
         self._trigger_lazy_images(page)
 
         img_urls = self._extract_image_urls(page, url)
@@ -299,19 +302,39 @@ class FoshanLaborAwardCrawler:
         low = url.lower()
         return any(k in low for k in _TEMPLATE_KEYWORDS)
 
+    @staticmethod
+    def _abort_images(route: Any, request: Any) -> None:
+        """拦截图片资源加载，加速详情页导航（图片仍经 request.fetch 单独下载）。"""
+        try:
+            if request.resource_type == "image":
+                route.abort()
+            else:
+                route.continue_()
+        except Exception:
+            pass
+
     def _download_image(
         self, page: Any, doc: ArbitrationDocument, img_url: str, idx: int
     ) -> ArbitrationDocumentImage | None:
-        try:
-            resp = page.request.fetch(img_url, method="GET")
-            if resp.status >= 400:
-                logger.warning("[劳动仲裁] 图片下载失败 %s status=%s", img_url, resp.status)
-                return None
-            data = resp.body()
-            if not data:
-                return None
-        except Exception as exc:
-            logger.warning("[劳动仲裁] 图片下载异常 %s: %s", img_url, exc)
+        # 政府站点扫描件体积大（可达数 MB），慢链路下需更长超时并允许重试。
+        data: bytes | None = None
+        last_err = "unknown"
+        for attempt in range(2):
+            try:
+                resp = page.request.fetch(img_url, method="GET", timeout=90000)
+                if resp.status >= 400:
+                    last_err = f"HTTP {resp.status}"
+                    continue
+                body = resp.body()
+                if not body:
+                    last_err = "empty body"
+                    continue
+                data = body
+                break
+            except Exception as exc:
+                last_err = str(exc)
+        if not data:
+            logger.warning("[劳动仲裁] 图片下载失败 %s: %s", img_url, last_err)
             return None
 
         ext = self._guess_ext(img_url, data)
