@@ -78,3 +78,13 @@ def auto_resume_crawl(*_args: object) -> dict[str, Any]:
             resumed.append(source.id)
     logger.info("[劳动仲裁] 自愈续爬触发来源: %s", resumed)
     return {"resumed": resumed}
+
+
+def recrawl_document(doc_id: int) -> dict[str, Any]:
+    """重试抓取单篇文书的详情页 + 图片（供「重试」按钮调用）。"""
+    os.environ["DJANGO_ALLOW_ASYNC_UNSAFE"] = "true"
+    doc = ArbitrationDocument.objects.get(id=doc_id)
+    crawler = FoshanLaborAwardCrawler(doc.source)
+    crawler.recrawl_detail(doc)
+    logger.info("[劳动仲裁] 文书 %s 重试完成，图片数=%d", doc_id, doc.images.count())
+    return {"ok": True, "images": doc.images.count()}

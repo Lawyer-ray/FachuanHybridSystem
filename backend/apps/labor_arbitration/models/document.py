@@ -105,6 +105,20 @@ class ArbitrationDocument(models.Model):
         self.save(update_fields=["parse_status"])
         return task_id
 
+    def trigger_recrawl(self) -> str:
+        """提交「重试抓取图片」任务，返回任务 ID。"""
+        from apps.core.tasking import submit_task
+
+        task_id = submit_task(
+            "apps.labor_arbitration.tasks.recrawl_document",
+            self.id,
+            task_name=f"labor_recrawl_{self.id}",
+            timeout=600,
+        )
+        self.crawl_status = DocumentCrawlStatus.CRAWLING
+        self.save(update_fields=["crawl_status"])
+        return task_id
+
 
 class ArbitrationDocumentImage(models.Model):
     """仲裁文书的单个图片页（扫描件）。"""

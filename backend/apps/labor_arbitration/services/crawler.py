@@ -97,6 +97,18 @@ class FoshanLaborAwardCrawler:
             self._crawl_with_page(page)
         return self.stats
 
+    def recrawl_detail(self, doc: ArbitrationDocument) -> ArbitrationDocument:
+        """重试抓取单篇文书的详情页 + 图片（更新已有记录，供「重试」按钮调用）。"""
+        item = {
+            "url": doc.detail_url,
+            "title": doc.title,
+            "publish_date": doc.publish_date,
+        }
+        with create_browser() as (page, _context):
+            page.route("**/*", self._abort_images)
+            self._crawl_detail(page, item, existing=doc)
+        return doc
+
     def _crawl_with_page(self, page: Any) -> None:
         visited: set[str] = set()
         page_url: str | None = self.source.list_url
@@ -280,16 +292,17 @@ class FoshanLaborAwardCrawler:
     # ── 单条处理 ───────────────────────────────────────────────
     def _handle_item(self, page: Any, item: dict[str, Any]) -> None:
         url = item["url"]
-        if ArbitrationDocument.objects.filter(detail_url=url).exists():
+        existing = ArbitrationDocument.objects.filter(detail_url=url).first()
+        if existing is not None and existing.crawl_status == "success" and existing.images.exists():
+            # 已成功且有图片：跳过，仅回填缺的发布日期
             self.stats["skipped"] += 1
-            # 回填：已存在记录缺发布日期时，用本次列表页解析到的日期补上（不重下图片）
-            if item["publish_date"] is not None:
-                ArbitrationDocument.objects.filter(detail_url=url, publish_date__isnull=True).update(
-                    publish_date=item["publish_date"]
-                )
+            if item["publish_date"] is not None and existing.publish_date is None:
+                existing.publish_date = item["publish_date"]
+                existing.save(update_fields=["publish_date"])
             return
+        # 不存在 / failed / 有记录无图：都走抓取（重试）
         try:
-            self._crawl_detail(page, item)
+            self._crawl_detail(page, item, existing=existing)
             self.stats["new"] += 1
         except IntegrityError:
             # 并发：另一任务已插入同 detail_url，视为已爬取，跳过
@@ -297,23 +310,30 @@ class FoshanLaborAwardCrawler:
         except Exception as exc:
             logger.error("[劳动仲裁] 抓取详情失败 %s: %s", url, exc, exc_info=True)
             self.stats["failed"] += 1
-            try:
-                ArbitrationDocument.objects.create(
-                    source=self.source,
-                    title=item["title"],
-                    detail_url=url,
-                    publish_date=item["publish_date"],
-                    crawl_status="failed",
-                    error_message=str(exc)[:2000],
-                )
-            except IntegrityError:
-                # 并发下 failed 记录也可能撞唯一约束，忽略
-                pass
+            if existing is not None:
+                existing.crawl_status = "failed"
+                existing.error_message = str(exc)[:2000]
+                existing.save(update_fields=["crawl_status", "error_message"])
+            else:
+                try:
+                    ArbitrationDocument.objects.create(
+                        source=self.source,
+                        title=item["title"],
+                        detail_url=url,
+                        publish_date=item["publish_date"],
+                        crawl_status="failed",
+                        error_message=str(exc)[:2000],
+                    )
+                except IntegrityError:
+                    # 并发下 failed 记录也可能撞唯一约束，忽略
+                    pass
 
-    def _crawl_detail(self, page: Any, item: dict[str, Any]) -> ArbitrationDocument:
+    def _crawl_detail(
+        self, page: Any, item: dict[str, Any], existing: ArbitrationDocument | None = None
+    ) -> ArbitrationDocument:
         url = item["url"]
         logger.info("[劳动仲裁] 抓取详情 %s", url)
-        page.goto(url, wait_until="domcontentloaded", timeout=60000)
+        self._goto_with_retry(page, url)
         self._trigger_lazy_images(page)
 
         img_urls = self._extract_image_urls(page, url)
@@ -324,15 +344,36 @@ class FoshanLaborAwardCrawler:
         pdate, pdt = self._extract_publish_info(page, url)
         publish_date = pdate or item["publish_date"]
 
-        doc = ArbitrationDocument.objects.create(
-            source=self.source,
-            title=item["title"],
-            case_number=self._parse_case_number(item["title"]),
-            detail_url=url,
-            publish_date=publish_date,
-            publish_datetime=pdt,
-            crawl_status="success",
-        )
+        if existing is not None:
+            # 重试场景：更新已有记录（failed/无图），先清旧图片
+            existing.title = item["title"]
+            existing.case_number = self._parse_case_number(item["title"])
+            existing.publish_date = publish_date
+            existing.publish_datetime = pdt
+            existing.crawl_status = "success"
+            existing.error_message = ""
+            existing.save(
+                update_fields=[
+                    "title",
+                    "case_number",
+                    "publish_date",
+                    "publish_datetime",
+                    "crawl_status",
+                    "error_message",
+                ]
+            )
+            existing.images.all().delete()
+            doc = existing
+        else:
+            doc = ArbitrationDocument.objects.create(
+                source=self.source,
+                title=item["title"],
+                case_number=self._parse_case_number(item["title"]),
+                detail_url=url,
+                publish_date=publish_date,
+                publish_datetime=pdt,
+                crawl_status="success",
+            )
         for idx, img_url in enumerate(img_urls):
             self._download_image(page, doc, img_url, idx)
         return doc

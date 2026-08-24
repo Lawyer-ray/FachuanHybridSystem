@@ -26,6 +26,7 @@ class ArbitrationDocumentAdmin(admin.ModelAdmin):
         "publish_datetime",
         "image_count",
         "crawl_status",
+        "retry_button",
         "parse_status",
         "parsed_at",
     )
@@ -42,6 +43,7 @@ class ArbitrationDocumentAdmin(admin.ModelAdmin):
         "error_message",
         "image_count",
         "images_preview",
+        "retry_button",
         "parse_status",
         "parsed_at",
         "parsed_text_display",
@@ -120,6 +122,14 @@ class ArbitrationDocumentAdmin(admin.ModelAdmin):
         url = reverse("admin:labor_arbitration_arbitrationdocument_parse", args=[obj.pk])
         return format_html('<a class="button" href="{}">调用文档解析</a>', url)
 
+    @admin.display(description="重试抓取")
+    def retry_button(self, obj: ArbitrationDocument) -> SafeString:
+        if obj.pk is None:
+            return format_html("<span>{}</span>", "-")
+        url = reverse("admin:labor_arbitration_arbitrationdocument_retry", args=[obj.pk])
+        label = "重试抓取图片" if obj.images.count() == 0 else "重新抓取"
+        return format_html('<a class="button" href="{}">{}</a>', url, label)
+
     def get_urls(self) -> list[Any]:
         urls = super().get_urls()
         custom = [
@@ -128,6 +138,11 @@ class ArbitrationDocumentAdmin(admin.ModelAdmin):
                 self.admin_site.admin_view(self.parse_view),
                 name="labor_arbitration_arbitrationdocument_parse",
             ),
+            path(
+                "<pk>/retry/",
+                self.admin_site.admin_view(self.retry_view),
+                name="labor_arbitration_arbitrationdocument_retry",
+            ),
         ]
         return custom + urls
 
@@ -135,6 +150,12 @@ class ArbitrationDocumentAdmin(admin.ModelAdmin):
         doc = ArbitrationDocument.objects.get(pk=pk)
         task_id = doc.trigger_parse()
         self.message_user(request, f"已提交文档解析任务（任务ID: {task_id}）。")
+        return HttpResponseRedirect(reverse("admin:labor_arbitration_arbitrationdocument_change", args=[pk]))
+
+    def retry_view(self, request: HttpRequest, pk: str) -> HttpResponseRedirect:
+        doc = ArbitrationDocument.objects.get(pk=pk)
+        task_id = doc.trigger_recrawl()
+        self.message_user(request, f"已提交重试抓取任务（任务ID: {task_id}），完成后刷新查看图片。")
         return HttpResponseRedirect(reverse("admin:labor_arbitration_arbitrationdocument_change", args=[pk]))
 
     @admin.action(description="调用文档解析（选中文书）")
@@ -147,7 +168,15 @@ class ArbitrationDocumentAdmin(admin.ModelAdmin):
             count += 1
         self.message_user(request, f"已提交 {count} 个文书的解析任务")
 
-    actions = ["trigger_parse_action"]
+    @admin.action(description="重试抓取图片（选中文书）")
+    def retry_action(self, request: HttpRequest, queryset: Any) -> None:
+        count = 0
+        for doc in queryset:
+            doc.trigger_recrawl()
+            count += 1
+        self.message_user(request, f"已提交 {count} 个文书的重试抓取任务")
+
+    actions = ["trigger_parse_action", "retry_action"]
 
     def has_add_permission(self, request: HttpRequest) -> bool:
         return False
