@@ -130,6 +130,11 @@ class FoshanLaborAwardCrawler:
 
             # 先记录下一页（此时 page 仍在列表页）；处理详情会 goto 详情页，故必须在处理前取分页链接
             next_url = self._find_next_page(page, page_url, visited, page_idx + 1)
+            if next_url is None and page_idx + 1 < max_pages:
+                # 兜底：翻页偶发失败（列表页 DOM 未完整加载），重新加载列表页再试一次
+                logger.warning("[劳动仲裁] 翻页失败，重新加载列表页重试 %s", page_url)
+                self._goto_with_retry(page, page_url)
+                next_url = self._find_next_page(page, page_url, visited, page_idx + 1)
 
             for item in items:
                 if self._reached_limit():
