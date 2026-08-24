@@ -26,7 +26,6 @@ class ArbitrationDocumentAdmin(admin.ModelAdmin):
         "publish_datetime",
         "image_count",
         "crawl_status",
-        "retry_button",
         "parse_status",
         "parsed_at",
     )
