@@ -26,6 +26,9 @@ os.environ.setdefault("DJANGO_ALLOW_ASYNC_UNSAFE", "true")
 
 def crawl_source(source_id: int, limit: int | None = None) -> dict[str, Any]:
     """增量爬取某个来源的新文书。"""
+    # 与 legal_solution 一致：任务在 Django-Q worker（asyncio）+ Playwright sync 环境里跑，
+    # 需放行同步 ORM，否则 SynchronousOnlyOperation。函数内强制赋值，确保每次任务都生效。
+    os.environ["DJANGO_ALLOW_ASYNC_UNSAFE"] = "true"
     source = ArbitrationDocumentSource.objects.get(id=source_id)
     try:
         crawler = FoshanLaborAwardCrawler(source, limit=limit)
@@ -47,17 +50,19 @@ def crawl_source(source_id: int, limit: int | None = None) -> dict[str, Any]:
 
 def parse_document(doc_id: int, backend: str | None = None) -> dict[str, Any]:
     """解析某篇文书的图片（默认沿用来源的解析后端）。"""
+    os.environ["DJANGO_ALLOW_ASYNC_UNSAFE"] = "true"
     doc = ArbitrationDocument.objects.get(id=doc_id)
     chosen = backend or doc.source.parse_backend or "local"
     return parse_arbitration_document(doc, chosen)
 
 
-def auto_resume_crawl() -> dict[str, Any]:
+def auto_resume_crawl(*_args: object) -> dict[str, Any]:
     """自愈续爬：网络中断恢复后自动重爬失败/未完成的来源。
 
     供定时 Schedule 周期调用；幂等。仅对「上次爬取失败」或「存在 pending/failed 文书」且
     当前未在爬取中的来源触发增量更新，已成功的来源与正在跑的来源不会重复触发。
     """
+    os.environ["DJANGO_ALLOW_ASYNC_UNSAFE"] = "true"
     from apps.labor_arbitration.models import CrawlStatus
 
     resumed: list[int] = []

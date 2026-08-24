@@ -86,9 +86,17 @@ class ArbitrationDocumentSource(models.Model):
     def __str__(self) -> str:
         return f"{self.name} ({self.get_district_display()})"
 
-    def trigger_update(self, limit: int | None = None) -> str:
-        """提交增量爬取任务到后台队列，返回任务 ID。"""
+    def trigger_update(self, limit: int | None = None) -> str | None:
+        """提交增量爬取任务到后台队列，返回任务 ID。
+
+        若该来源已在爬取/排队中（last_crawl_status == RUNNING）则返回 None，防止
+        重复提交导致同一 detail_url 并发插入冲突。
+        """
         from apps.core.tasking import submit_task
+
+        if self.last_crawl_status == CrawlStatus.RUNNING:
+            logger.info("[劳动仲裁] 来源 %s 已在爬取中，跳过重复提交", self.id)
+            return None
 
         task_id = submit_task(
             "apps.labor_arbitration.tasks.crawl_source",

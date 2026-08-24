@@ -17,6 +17,7 @@ from urllib.parse import urljoin, urlparse
 
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
+from django.db import IntegrityError
 
 from apps.core.filesystem.upload_paths import DatedUUIDPath, MediaEntity
 from apps.core.services.browser import create_browser
@@ -284,17 +285,24 @@ class FoshanLaborAwardCrawler:
         try:
             self._crawl_detail(page, item)
             self.stats["new"] += 1
+        except IntegrityError:
+            # 并发：另一任务已插入同 detail_url，视为已爬取，跳过
+            self.stats["skipped"] += 1
         except Exception as exc:
             logger.error("[劳动仲裁] 抓取详情失败 %s: %s", url, exc, exc_info=True)
             self.stats["failed"] += 1
-            ArbitrationDocument.objects.create(
-                source=self.source,
-                title=item["title"],
-                detail_url=url,
-                publish_date=item["publish_date"],
-                crawl_status="failed",
-                error_message=str(exc)[:2000],
-            )
+            try:
+                ArbitrationDocument.objects.create(
+                    source=self.source,
+                    title=item["title"],
+                    detail_url=url,
+                    publish_date=item["publish_date"],
+                    crawl_status="failed",
+                    error_message=str(exc)[:2000],
+                )
+            except IntegrityError:
+                # 并发下 failed 记录也可能撞唯一约束，忽略
+                pass
 
     def _crawl_detail(self, page: Any, item: dict[str, Any]) -> ArbitrationDocument:
         url = item["url"]

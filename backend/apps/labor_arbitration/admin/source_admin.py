@@ -86,15 +86,24 @@ class ArbitrationDocumentSourceAdmin(admin.ModelAdmin):
     def update_view(self, request: HttpRequest, pk: str) -> HttpResponseRedirect:
         source = ArbitrationDocumentSource.objects.get(pk=pk)
         task_id = source.trigger_update()
-        self.message_user(request, f"已提交增量更新任务（任务ID: {task_id}），可在后台队列查看进度。")
+        if task_id is None:
+            self.message_user(request, "该来源已在爬取/排队中，已跳过重复提交。", level=messages.WARNING)
+        else:
+            self.message_user(request, f"已提交增量更新任务（任务ID: {task_id}），可在后台队列查看进度。")
         return HttpResponseRedirect(reverse("admin:labor_arbitration_arbitrationdocumentsource_change", args=[pk]))
 
     @admin.action(description="增量更新选中的来源")
     def trigger_update_action(self, request: HttpRequest, queryset: Any) -> None:
         count = 0
+        skipped = 0
         for src in queryset:
-            src.trigger_update()
-            count += 1
-        self.message_user(request, f"已提交 {count} 个来源的增量更新任务")
+            if src.trigger_update() is None:
+                skipped += 1
+            else:
+                count += 1
+        msg = f"已提交 {count} 个来源的增量更新任务"
+        if skipped:
+            msg += f"，{skipped} 个来源已在爬取中被跳过"
+        self.message_user(request, msg)
 
     actions = ["trigger_update_action"]
