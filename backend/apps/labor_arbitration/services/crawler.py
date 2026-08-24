@@ -29,7 +29,11 @@ _LIST_API = "https://hrss.foshan.gov.cn/postmeta/i/{category_id}.json"
 # 真实文书扫描件图：https://hrss.foshan.gov.cn/img/0/402/402072/5218478.png
 _IMG_URL_RE = re.compile(r"https://hrss\.foshan\.gov\.cn/img/\d+/\d+/\d+/\d+\.(?:png|jpe?g)", re.IGNORECASE)
 _PUBLISH_RE = re.compile(r"发布(?:时间|日期)[:：]\s*(\d{4}[-/]\d{1,2}[-/]\d{1,2})(?:\s*(\d{1,2}[:：]\d{1,2}))?")
-_CASE_NO_RE = re.compile(r"([一-龥]{1,2}劳人仲案字〔\d+〕\d+(?:-\d+)?号)")
+# 案号格式很杂：全角〔〕/半角[]/全角（）/方头【】/花括号{}、括号混用、括号前后空格、
+# 多案号顿号分隔、顺德「仲裁字」、高明「仲案终字/仲案案字」、部分无区名前缀、部分无「号」结尾
+_CASE_NO_RE = re.compile(
+    r"([一-龥]{0,3}劳人仲[案裁][终案]?字?\s*[〔\[（(【{]\s*\d{4}\s*[〕\]）)】}]\s*[\d、,，]+\s*号?)"
+)
 
 _HEADERS = {
     "User-Agent": (

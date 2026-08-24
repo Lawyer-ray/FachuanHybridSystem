@@ -24,6 +24,7 @@ class ArbitrationDocumentAdmin(admin.ModelAdmin):
         "source",
         "publish_date",
         "publish_datetime",
+        "created_at",
         "image_count",
         "crawl_status",
         "parse_status",
@@ -38,6 +39,7 @@ class ArbitrationDocumentAdmin(admin.ModelAdmin):
         "detail_url",
         "publish_date",
         "publish_datetime",
+        "created_at",
         "crawl_status",
         "error_message",
         "image_count",
@@ -60,6 +62,7 @@ class ArbitrationDocumentAdmin(admin.ModelAdmin):
                     "detail_url",
                     "publish_date",
                     "publish_datetime",
+                    "created_at",
                     "crawl_status",
                     "image_count",
                 )
