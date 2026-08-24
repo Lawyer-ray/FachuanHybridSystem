@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import logging
 import re
+from datetime import datetime
 from typing import Any
 from urllib.parse import urljoin, urlparse
 
@@ -24,6 +25,7 @@ from apps.labor_arbitration.models import ArbitrationDocument, ArbitrationDocume
 logger = logging.getLogger(__name__)
 
 _DATE_RE = re.compile(r"(\d{4}[-/]\d{1,2}[-/]\d{1,2})")
+_PUBLISH_RE = re.compile(r"发布(?:时间|日期)[:：]\s*(\d{4}[-/]\d{1,2}[-/]\d{1,2})(?:\s*(\d{1,2}[:：]\d{1,2}))?")
 _CASE_NO_RE = re.compile(r"([一-龥]{1,2}劳人仲案字〔\d+〕\d+(?:-\d+)?号)")
 _IMG_EXT_RE = re.compile(r"\.(png|jpe?g|bmp|tif{1,2}|webp)$", re.IGNORECASE)
 _TEMPLATE_KEYWORDS = (
@@ -142,11 +144,21 @@ class FoshanLaborAwardCrawler:
             text = raw_text.strip()
             if self._is_nav_title(text):
                 continue
+            # 列表页日期在兄弟 <span class="time"> 内（与标题不在同一节点），需读父级 <li>
+            try:
+                parent_text = (
+                    a.evaluate(
+                        "el => { const p = el.closest('li'); return p ? p.innerText : (el.parentElement ? el.parentElement.innerText : ''); }"
+                    )
+                    or ""
+                )
+            except Exception:
+                parent_text = ""
             items.append(
                 {
                     "url": full_url,
                     "title": self._parse_title(text),
-                    "publish_date": self._parse_date(text),
+                    "publish_date": self._parse_date(f"{text} {parent_text}"),
                 }
             )
 
@@ -158,6 +170,28 @@ class FoshanLaborAwardCrawler:
             seen.add(it["url"])
             unique.append(it)
         return unique
+
+    def _extract_publish_info(self, page: Any, detail_url: str) -> tuple[Any, Any]:
+        """从详情页正文 meta 行解析「发布时间：YYYY-MM-DD HH:MM」。"""
+        try:
+            text = page.evaluate("() => document.body.innerText || ''") or ""
+        except Exception:
+            text = ""
+        if not text:
+            return None, None
+        m = _PUBLISH_RE.search(text)
+        if not m:
+            return None, None
+        date_str = m.group(1).replace("/", "-")
+        time_str = (m.group(2) or "").replace("：", ":")
+        try:
+            if time_str:
+                dt = datetime.strptime(f"{date_str} {time_str}", "%Y-%m-%d %H:%M")
+            else:
+                dt = datetime.strptime(date_str, "%Y-%m-%d")
+        except ValueError:
+            return None, None
+        return dt.date(), dt
 
     @staticmethod
     def _is_nav_title(text: str) -> bool:
@@ -218,6 +252,11 @@ class FoshanLaborAwardCrawler:
         url = item["url"]
         if ArbitrationDocument.objects.filter(detail_url=url).exists():
             self.stats["skipped"] += 1
+            # 回填：已存在记录缺发布日期时，用本次列表页解析到的日期补上（不重下图片）
+            if item["publish_date"] is not None:
+                ArbitrationDocument.objects.filter(detail_url=url, publish_date__isnull=True).update(
+                    publish_date=item["publish_date"]
+                )
             return
         try:
             self._crawl_detail(page, item)
@@ -244,12 +283,17 @@ class FoshanLaborAwardCrawler:
         if not img_urls:
             raise RuntimeError("详情页未找到任何图片")
 
+        # 发布时间优先取详情页正文 meta（含时分），列表页日期作为兜底
+        pdate, pdt = self._extract_publish_info(page, url)
+        publish_date = pdate or item["publish_date"]
+
         doc = ArbitrationDocument.objects.create(
             source=self.source,
             title=item["title"],
             case_number=self._parse_case_number(item["title"]),
             detail_url=url,
-            publish_date=item["publish_date"],
+            publish_date=publish_date,
+            publish_datetime=pdt,
             crawl_status="success",
         )
         for idx, img_url in enumerate(img_urls):

@@ -23,12 +23,13 @@ class ArbitrationDocumentAdmin(admin.ModelAdmin):
         "case_number",
         "source",
         "publish_date",
+        "publish_datetime",
         "image_count",
         "crawl_status",
         "parse_status",
         "parsed_at",
     )
-    list_filter = ("source", "crawl_status", "parse_status", "publish_date")
+    list_filter = ("source", "crawl_status", "parse_status", "publish_date", "publish_datetime")
     search_fields = ("title", "case_number", "detail_url")
     readonly_fields = (
         "source",
@@ -36,6 +37,7 @@ class ArbitrationDocumentAdmin(admin.ModelAdmin):
         "case_number",
         "detail_url",
         "publish_date",
+        "publish_datetime",
         "crawl_status",
         "error_message",
         "image_count",
@@ -56,6 +58,7 @@ class ArbitrationDocumentAdmin(admin.ModelAdmin):
                     "case_number",
                     "detail_url",
                     "publish_date",
+                    "publish_datetime",
                     "crawl_status",
                     "image_count",
                 )
