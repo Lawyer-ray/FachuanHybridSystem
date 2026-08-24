@@ -12,6 +12,7 @@ from django.utils import timezone
 
 from apps.document_parsing.services import get_document_parser
 from apps.labor_arbitration.models import ArbitrationDocument, ParseStatus
+from apps.labor_arbitration.services.doxify_service import clean_markdown, clean_text
 
 logger = logging.getLogger(__name__)
 
@@ -84,12 +85,24 @@ def parse_arbitration_document(doc: ArbitrationDocument, backend: str) -> dict[s
                 if tmp_path and os.path.exists(tmp_path):
                     os.unlink(tmp_path)
 
-        doc.parsed_text = "\n\n".join(texts)
-        doc.parsed_markdown = "\n\n".join(marks)
+        # --- Doxify 后处理：去水印 / 段落接回 / 脚注归一化 / LaTeX 归一化 ---
+        raw_text = "\n\n".join(texts)
+        raw_md = "\n\n".join(marks)
+        cleaned_text, text_report = clean_text(raw_text)
+        cleaned_md, md_report = clean_markdown(raw_md)
+
+        doc.parsed_text = cleaned_text
+        doc.parsed_markdown = cleaned_md
         doc.parse_status = ParseStatus.DONE
         doc.parsed_at = timezone.now()
         doc.save(update_fields=["parsed_text", "parsed_markdown", "parse_status", "parsed_at"])
-        logger.info("[劳动仲裁] 文档 %s 解析完成，共 %d 页", doc.id, len(images))
+        logger.info(
+            "[劳动仲裁] 文档 %s 解析完成，共 %d 页，Doxify清洗: text=%s md=%s",
+            doc.id,
+            len(images),
+            text_report,
+            md_report,
+        )
         return {"success": True, "doc_id": doc.id, "pages": len(images)}
     except Exception as exc:
         logger.error("[劳动仲裁] 解析文档 %s 失败: %s", doc.id, exc, exc_info=True)
