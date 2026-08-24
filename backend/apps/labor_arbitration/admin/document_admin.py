@@ -7,7 +7,7 @@ from typing import Any
 from django.contrib import admin, messages
 from django.http import HttpRequest, HttpResponseRedirect
 from django.urls import path, reverse
-from django.utils.html import format_html
+from django.utils.html import format_html, format_html_join
 from django.utils.safestring import SafeString
 
 from apps.labor_arbitration.models import ArbitrationDocument
@@ -84,27 +84,25 @@ class ArbitrationDocumentAdmin(admin.ModelAdmin):
     def images_preview(self, obj: ArbitrationDocument) -> SafeString:
         from django.conf import settings
 
-        items: list[SafeString] = []
-        for img in obj.images.order_by("page_index"):
-            url = settings.MEDIA_URL + img.image.name
-            items.append(
-                format_html(
-                    '<div style="margin-bottom:10px;">'
-                    '<img src="{}" style="max-width:760px; border:1px solid #ccc;" />'
-                    '<div style="font-size:11px;color:#888;">第 {} 页 · {}</div></div>',
-                    url,
-                    img.page_index + 1,
-                    img.source_url,
-                )
-            )
-        if not items:
-            return format_html("<span>暂无图片</span>")
-        return format_html("{}", "".join(str(i) for i in items))
+        rows = [
+            (settings.MEDIA_URL + img.image.name, img.page_index + 1, img.source_url)
+            for img in obj.images.order_by("page_index")
+        ]
+        if not rows:
+            return format_html("<span>{}</span>", "暂无图片")
+        # 用 format_html_join 拼接：str(SafeString) 会退化为普通 str 而被转义，不可手工 join
+        return format_html_join(
+            "",
+            '<div style="margin-bottom:10px;">'
+            '<img src="{}" style="max-width:760px; border:1px solid #ccc;" />'
+            '<div style="font-size:11px;color:#888;">第 {} 页 · {}</div></div>',
+            rows,
+        )
 
     @admin.display(description="解析文本")
     def parsed_text_display(self, obj: ArbitrationDocument) -> SafeString:
         if not obj.parsed_text:
-            return format_html("<span>-</span>")
+            return format_html("<span>{}</span>", "-")
         return format_html(
             "<pre style='max-height:420px;overflow:auto;white-space:pre-wrap;'>{}</pre>",
             obj.parsed_text[:20000],
@@ -113,9 +111,9 @@ class ArbitrationDocumentAdmin(admin.ModelAdmin):
     @admin.display(description="文档解析")
     def parse_button(self, obj: ArbitrationDocument) -> SafeString:
         if obj.pk is None:
-            return format_html("<span>-</span>")
+            return format_html("<span>{}</span>", "-")
         if obj.images.count() == 0:
-            return format_html("<span style='color:#c0392b;'>无图片可解析</span>")
+            return format_html('<span style="color:#c0392b;">{}</span>', "无图片可解析")
         url = reverse("admin:labor_arbitration_arbitrationdocument_parse", args=[obj.pk])
         return format_html('<a class="button" href="{}">调用文档解析</a>', url)
 

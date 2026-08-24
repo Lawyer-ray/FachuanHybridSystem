@@ -61,14 +61,14 @@ class ArbitrationDocumentSourceAdmin(admin.ModelAdmin):
     @admin.display(description="上次爬取摘要")
     def last_crawl_summary_display(self, obj: ArbitrationDocumentSource) -> SafeString:
         if not obj.last_crawl_summary:
-            return format_html("<span>-</span>")
+            return format_html("<span>{}</span>", "-")
         pretty = json.dumps(obj.last_crawl_summary, indent=2, ensure_ascii=False)
         return format_html("<pre style='max-height:300px;overflow:auto;'>{}</pre>", pretty)
 
     @admin.display(description="增量更新")
     def update_button(self, obj: ArbitrationDocumentSource) -> SafeString:
         if obj.pk is None:
-            return format_html("<span>-</span>")
+            return format_html("<span>{}</span>", "-")
         url = reverse("admin:labor_arbitration_arbitrationdocumentsource_update", args=[obj.pk])
         return format_html('<a class="button" href="{}">增量更新（爬取新文书）</a>', url)
 
