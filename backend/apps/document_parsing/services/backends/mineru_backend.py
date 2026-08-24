@@ -84,10 +84,17 @@ class MineruBackend:
         )
 
     def _next_api_key(self) -> str:
-        """线程安全地轮转返回下一个 API key。"""
+        """线程安全地轮转返回下一个 API key。
+
+        注意：_key_index 是类级别 int（不可变），必须用 __class__ 显式修改，
+        否则 self._key_index += 1 会退化为实例属性，类属性永远为 0，导致每个
+        实例永远取 key 列表中的第 0 个。
+        """
         with self._key_lock:
-            key = self._api_keys[self._key_index % len(self._api_keys)]
-            self._key_index += 1
+            idx = self.__class__._key_index % len(self._api_keys)
+            key = self._api_keys[idx]
+            self.__class__._key_index += 1
+            logger.debug("MinerU key rotation: idx=%d key_suffix=...%s", idx, key[-12:])
             return key
 
     def parse_document(
