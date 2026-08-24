@@ -109,7 +109,7 @@ class FoshanLaborAwardCrawler:
                 break
             visited.add(page_url)
             logger.info("[劳动仲裁] 抓取列表页 %s", page_url)
-            page.goto(page_url, wait_until="domcontentloaded", timeout=60000)
+            self._goto_with_retry(page, page_url)
             items = self._extract_list_items(page)
             logger.info("[劳动仲裁] 本页发现 %d 条文书", len(items))
             self.stats["discovered"] += len(items)
@@ -126,6 +126,29 @@ class FoshanLaborAwardCrawler:
         if self.limit is None:
             return False
         return (self.stats["new"] + self.stats["skipped"]) >= self.limit
+
+    def _goto_with_retry(self, page: Any, url: str, *, attempts: int = 3) -> None:
+        """带指数退避的页面导航，抵御网络抖动；耗尽后抛出，交给任务层重试。"""
+        last_exc: Exception | None = None
+        for i in range(attempts):
+            try:
+                page.goto(url, wait_until="domcontentloaded", timeout=60000)
+                return
+            except Exception as exc:
+                last_exc = exc
+                if i < attempts - 1:
+                    wait_s = 2**i * 2  # 2s / 4s
+                    logger.warning(
+                        "[劳动仲裁] goto 失败 %s，%ds 后重试(%d/%d): %s",
+                        url,
+                        wait_s,
+                        i + 1,
+                        attempts,
+                        exc,
+                    )
+                    page.wait_for_timeout(wait_s * 1000)
+        assert last_exc is not None
+        raise last_exc
 
     # ── 列表解析 ──────────────────────────────────────────────
     def _extract_list_items(self, page: Any) -> list[dict[str, Any]]:
