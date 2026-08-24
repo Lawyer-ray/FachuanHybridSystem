@@ -3,14 +3,35 @@
 from __future__ import annotations
 
 import logging
+import os
+import tempfile
 from typing import Any
 
+import requests
 from django.utils import timezone
 
 from apps.document_parsing.services import get_document_parser
 from apps.labor_arbitration.models import ArbitrationDocument, ParseStatus
 
 logger = logging.getLogger(__name__)
+
+_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36"
+    ),
+}
+
+
+def _fetch_image_to_temp(source_url: str) -> str:
+    """把原图 URL 下载到临时文件，返回本地路径（供 OCR 使用）。"""
+    fd, path = tempfile.mkstemp(suffix=".png")
+    os.close(fd)
+    resp = requests.get(source_url, timeout=60, headers=_HEADERS)
+    resp.raise_for_status()
+    with open(path, "wb") as fh:
+        fh.write(resp.content)
+    return path
 
 
 def parse_arbitration_document(doc: ArbitrationDocument, backend: str) -> dict[str, Any]:
@@ -37,17 +58,31 @@ def parse_arbitration_document(doc: ArbitrationDocument, backend: str) -> dict[s
 
         parser = get_document_parser(backend=backend)
         for img in images:
-            local_path = img.image.path
+            # 图片不再下载到本地，OCR 时按需从 source_url 拉取到临时文件
+            tmp_path: str | None = None
+            if img.image and img.image.name:
+                local_path = img.image.path
+            elif img.source_url:
+                tmp_path = _fetch_image_to_temp(img.source_url)
+                local_path = tmp_path
+            else:
+                logger.warning("[劳动仲裁] 图片 %s 无本地文件也无 URL，跳过", img.id)
+                continue
+
             ext = local_path.rsplit(".", 1)[-1].lower() if "." in local_path else "png"
-            result = parser.parse_document(
-                file_path=local_path,
-                file_type=ext,
-                extract_tables=True,
-                extract_images=False,
-                return_markdown=True,
-            )
-            texts.append(result.text or "")
-            marks.append(result.markdown or "")
+            try:
+                result = parser.parse_document(
+                    file_path=local_path,
+                    file_type=ext,
+                    extract_tables=True,
+                    extract_images=False,
+                    return_markdown=True,
+                )
+                texts.append(result.text or "")
+                marks.append(result.markdown or "")
+            finally:
+                if tmp_path and os.path.exists(tmp_path):
+                    os.unlink(tmp_path)
 
         doc.parsed_text = "\n\n".join(texts)
         doc.parsed_markdown = "\n\n".join(marks)

@@ -86,12 +86,8 @@ class ArbitrationDocumentAdmin(admin.ModelAdmin):
 
     @admin.display(description="图片预览")
     def images_preview(self, obj: ArbitrationDocument) -> SafeString:
-        from django.conf import settings
-
-        rows = [
-            (settings.MEDIA_URL + img.image.name, img.page_index + 1, img.source_url)
-            for img in obj.images.order_by("page_index")
-        ]
+        # 图片不再下载到本地，直接用原图 URL 渲染预览
+        rows = [(img.source_url, img.page_index + 1, img.source_url) for img in obj.images.order_by("page_index")]
         if not rows:
             return format_html("<span>{}</span>", "暂无图片")
         # 用 format_html_join 拼接：str(SafeString) 会退化为普通 str 而被转义，不可手工 join

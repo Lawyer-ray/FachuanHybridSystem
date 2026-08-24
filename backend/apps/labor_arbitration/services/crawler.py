@@ -1,83 +1,51 @@
-"""佛山劳动仲裁文书爬虫（基于 Playwright，复用项目浏览器公共服务）。
+"""佛山劳动仲裁文书爬虫（纯 HTTP，无浏览器）。
 
 设计要点：
-- 列表页为服务端渲染的静态 HTML，条目形如 ``<a href=".../content/post_N.html">``。
-- 详情页正文为扫描图片，需要把图片下载到本地 media。
-- 增量：已存在的 detail_url 直接跳过，只爬取新条目。
-- 选择器可配置（容器 / 图片），否则使用默认启发式探测，避免硬猜。
+- 列表：调 ``postmeta/i/{category_id}.json`` 接口，一次返回全部文章（title/url/date/publish_time），
+  无需 cookie、无需翻页、无需浏览器，比 Playwright 快数个量级。
+- 详情：``requests`` 抓详情页 HTML，用正则提取扫描件图片 URL（``img/.../post_N.png``），
+  **不下载图片**，只保存原图 URL（供后续 OCR 按需拉取）。
+- 增量：已存在 ``detail_url`` 且 success 且有图片则跳过；failed / 无图记录则重试。
+- 容错：列表接口 / 详情页请求均带有限重试；失败标记 failed，由增量 / 重试按钮兜底。
 """
 
 from __future__ import annotations
 
 import logging
 import re
+import time
 from datetime import datetime
 from typing import Any
-from urllib.parse import urljoin, urlparse
 
-from django.core.files.base import ContentFile
-from django.core.files.storage import default_storage
+import requests
 from django.db import IntegrityError
 from django.utils import timezone
 
-from apps.core.filesystem.upload_paths import DatedUUIDPath, MediaEntity
-from apps.core.services.browser import create_browser
 from apps.labor_arbitration.models import ArbitrationDocument, ArbitrationDocumentImage, ArbitrationDocumentSource
 
 logger = logging.getLogger(__name__)
 
-_DATE_RE = re.compile(r"(\d{4}[-/]\d{1,2}[-/]\d{1,2})")
+_LIST_API = "https://hrss.foshan.gov.cn/postmeta/i/{category_id}.json"
+# 真实文书扫描件图：https://hrss.foshan.gov.cn/img/0/402/402072/5218478.png
+_IMG_URL_RE = re.compile(r"https://hrss\.foshan\.gov\.cn/img/\d+/\d+/\d+/\d+\.(?:png|jpe?g)", re.IGNORECASE)
 _PUBLISH_RE = re.compile(r"发布(?:时间|日期)[:：]\s*(\d{4}[-/]\d{1,2}[-/]\d{1,2})(?:\s*(\d{1,2}[:：]\d{1,2}))?")
 _CASE_NO_RE = re.compile(r"([一-龥]{1,2}劳人仲案字〔\d+〕\d+(?:-\d+)?号)")
-_IMG_EXT_RE = re.compile(r"\.(png|jpe?g|bmp|tif{1,2}|webp)$", re.IGNORECASE)
-_TEMPLATE_KEYWORDS = (
-    "logo",
-    "icon",
-    "banner",
-    "wechat",
-    "wxgzh",
-    "weixin",
-    "conac",
-    "jiucuo",
-    "red.png",
-    "nis",
-    "ewm",
-    "qrcode",
-    "subscribe",
-    "qr",
-    "favicon",
-    "/css/",
-    "/js/",
-    "arrow",
-    "share",
-    "top_",
-    "bottom_",
-)
-_CONTENT_SELECTORS = [
-    "#content",
-    ".content",
-    ".article",
-    ".TRS_Editor",
-    "div[class*='content']",
-    "div[class*='article']",
-]
-# 列表页页脚导航页（带 content/post_ 但非文书），必须排除
-_NAV_TITLE_KEYWORDS = (
-    "联系我们",
-    "隐私保护",
-    "隐私",
-    "免责声明",
-    "免责",
-    "网站地图",
-    "使用帮助",
-    "关于我们",
-    "站点导航",
-    "版权",
-)
+
+_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36"
+    ),
+    "X-Requested-With": "XMLHttpRequest",
+    "Accept": "*/*",
+}
+
+_RETRY_TIMES = 3
+_RETRY_SLEEP = 2  # 秒
 
 
 class FoshanLaborAwardCrawler:
-    """佛山市人社局仲裁裁决书爬虫。"""
+    """佛山市人社局仲裁裁决书爬虫（HTTP 版）。"""
 
     def __init__(self, source: ArbitrationDocumentSource, *, limit: int | None = None) -> None:
         self.source = source
@@ -89,272 +57,118 @@ class FoshanLaborAwardCrawler:
             "failed": 0,
             "images": 0,
         }
+        self.session = requests.Session()
+        self.session.headers.update(_HEADERS)
 
     # ── 公共入口 ──────────────────────────────────────────────
     def crawl(self) -> dict[str, int]:
-        """打开浏览器，爬取全部列表页并增量入库。"""
-        with create_browser() as (page, _context):
-            self._crawl_with_page(page)
+        """调列表接口拿全部文章，逐篇抓详情页图片 URL，增量入库。"""
+        articles = self._fetch_articles()
+        self.stats["discovered"] = len(articles)
+        for art in articles:
+            if self._reached_limit():
+                break
+            self._handle_article(art)
         return self.stats
 
     def recrawl_detail(self, doc: ArbitrationDocument) -> ArbitrationDocument:
-        """重试抓取单篇文书的详情页 + 图片（更新已有记录，供「重试」按钮调用）。"""
-        item = {
-            "url": doc.detail_url,
-            "title": doc.title,
-            "publish_date": doc.publish_date,
-        }
-        with create_browser() as (page, _context):
-            page.route("**/*", self._abort_images)
-            self._crawl_detail(page, item, existing=doc)
+        """重试抓取单篇文书的详情页（更新已有记录，供「重试」按钮调用）。"""
+        art = {"url": doc.detail_url, "title": doc.title}
+        self._crawl_detail(art, existing=doc)
         return doc
-
-    def _crawl_with_page(self, page: Any) -> None:
-        visited: set[str] = set()
-        page_url: str | None = self.source.list_url
-        page_idx = 0
-        max_pages = max(self.source.max_pages, 1)
-        # 详情页图片体积大（可达数 MB），浏览器内不必真正加载图片，
-        # 我们只需从 DOM 读取 src，再通过 page.request.fetch 单独下载。
-        page.route("**/*", self._abort_images)
-
-        while page_url and page_idx < max_pages:
-            if page_url in visited:
-                break
-            visited.add(page_url)
-            logger.info("[劳动仲裁] 抓取列表页 %s", page_url)
-            self._goto_with_retry(page, page_url)
-            items = self._extract_list_items(page)
-            logger.info("[劳动仲裁] 本页发现 %d 条文书", len(items))
-            self.stats["discovered"] += len(items)
-
-            # 先记录下一页（此时 page 仍在列表页）；处理详情会 goto 详情页，故必须在处理前取分页链接
-            next_url = self._find_next_page(page, page_url, visited, page_idx + 1)
-            if next_url is None and page_idx + 1 < max_pages:
-                # 兜底：翻页偶发失败（列表页 DOM 未完整加载），重新加载列表页再试一次
-                logger.warning("[劳动仲裁] 翻页失败，重新加载列表页重试 %s", page_url)
-                self._goto_with_retry(page, page_url)
-                next_url = self._find_next_page(page, page_url, visited, page_idx + 1)
-
-            for item in items:
-                if self._reached_limit():
-                    break
-                self._handle_item(page, item)
-
-            page_url = next_url
-            page_idx += 1
 
     def _reached_limit(self) -> bool:
         if self.limit is None:
             return False
         return (self.stats["new"] + self.stats["skipped"]) >= self.limit
 
-    def _goto_with_retry(self, page: Any, url: str, *, attempts: int = 3) -> None:
-        """带指数退避的页面导航，抵御网络抖动；耗尽后抛出，交给任务层重试。"""
+    # ── HTTP 请求（带重试）───────────────────────────────────
+    def _get(self, url: str, *, referer: str | None = None) -> requests.Response:
+        headers: dict[str, str] = {}
+        if referer:
+            headers["Referer"] = referer
         last_exc: Exception | None = None
-        for i in range(attempts):
+        for i in range(_RETRY_TIMES):
             try:
-                page.goto(url, wait_until="domcontentloaded", timeout=60000)
-                return
+                resp = self.session.get(url, timeout=60, headers=headers)
+                if resp.status_code == 403:
+                    # 可能限流，稍等重试
+                    time.sleep(_RETRY_SLEEP)
+                    continue
+                resp.raise_for_status()
+                return resp
             except Exception as exc:
                 last_exc = exc
-                if i < attempts - 1:
-                    wait_s = 2**i * 2  # 2s / 4s
-                    logger.warning(
-                        "[劳动仲裁] goto 失败 %s，%ds 后重试(%d/%d): %s",
-                        url,
-                        wait_s,
-                        i + 1,
-                        attempts,
-                        exc,
-                    )
-                    page.wait_for_timeout(wait_s * 1000)
+                if i < _RETRY_TIMES - 1:
+                    time.sleep(_RETRY_SLEEP)
         assert last_exc is not None
         raise last_exc
 
-    # ── 列表解析 ──────────────────────────────────────────────
-    def _extract_list_items(self, page: Any) -> list[dict[str, Any]]:
-        anchors = page.query_selector_all("a[href*='content/post_']")
-        items: list[dict[str, Any]] = []
-        for a in anchors:
-            href = a.get_attribute("href") or ""
-            if not href:
-                continue
-            full_url = urljoin(self.source.list_url, href)
-            # 只保留本来源列表目录下的真实文书链接，排除页脚导航
-            # （如 /wzdh/lxwm/content/post_*.html 的"联系我们/隐私保护/免责声明"）
-            if not self._is_same_list_dir(full_url):
-                continue
-            raw_text = a.get_attribute("title") or a.inner_text() or ""
-            text = raw_text.strip()
-            if self._is_nav_title(text):
-                continue
-            # 列表页日期在兄弟 <span class="time"> 内（与标题不在同一节点），需读父级 <li>
-            try:
-                parent_text = (
-                    a.evaluate(
-                        "el => { const p = el.closest('li'); return p ? p.innerText : (el.parentElement ? el.parentElement.innerText : ''); }"
-                    )
-                    or ""
-                )
-            except Exception:
-                parent_text = ""
-            items.append(
-                {
-                    "url": full_url,
-                    "title": self._parse_title(text),
-                    "publish_date": self._parse_date(f"{text} {parent_text}"),
-                }
-            )
+    # ── 列表 ──────────────────────────────────────────────────
+    def _fetch_articles(self) -> list[dict[str, Any]]:
+        if not self.source.category_id:
+            raise RuntimeError("来源未配置 category_id，无法用接口抓取")
+        url = _LIST_API.format(category_id=self.source.category_id)
+        data = self._get(url, referer=self.source.list_url).json()
+        articles = data.get("articles", [])
+        logger.info("[劳动仲裁] 来源 %s 接口返回 %d 篇文章", self.source.id, len(articles))
+        return articles
 
-        seen: set[str] = set()
-        unique: list[dict[str, Any]] = []
-        for it in items:
-            if it["url"] in seen:
-                continue
-            seen.add(it["url"])
-            unique.append(it)
-        return unique
-
-    def _extract_publish_info(self, page: Any, detail_url: str) -> tuple[Any, Any]:
-        """从详情页正文 meta 行解析「发布时间：YYYY-MM-DD HH:MM」。"""
-        try:
-            text = page.evaluate("() => document.body.innerText || ''") or ""
-        except Exception:
-            text = ""
-        if not text:
-            return None, None
-        m = _PUBLISH_RE.search(text)
-        if not m:
-            return None, None
-        date_str = m.group(1).replace("/", "-")
-        time_str = (m.group(2) or "").replace("：", ":")
-        try:
-            if time_str:
-                dt = datetime.strptime(f"{date_str} {time_str}", "%Y-%m-%d %H:%M")
-            else:
-                dt = datetime.strptime(date_str, "%Y-%m-%d")
-        except ValueError:
-            return None, None
-        # USE_TZ=True 下 DateTimeField 需 aware datetime，否则写入时告警且可能存错
-        dt = timezone.make_aware(dt)
-        return dt.date(), dt
-
-    @staticmethod
-    def _is_nav_title(text: str) -> bool:
-        t = text.strip()
-        return any(k in t for k in _NAV_TITLE_KEYWORDS)
-
-    @staticmethod
-    def _parse_date(text: str) -> Any:
-        match = _DATE_RE.search(text)
-        if not match:
-            return None
-        try:
-            from datetime import datetime
-
-            return datetime.strptime(match.group(1).replace("/", "-"), "%Y-%m-%d").date()
-        except ValueError:
-            return None
-
-    @staticmethod
-    def _parse_title(text: str) -> str:
-        cleaned = _DATE_RE.sub("", text).strip("[] ").strip()
-        return cleaned or text.strip()
-
-    def _find_next_page(self, page: Any, current_url: str, visited: set[str], current_page_no: int) -> str | None:
-        next_labels = ("下一页", "下页", "下一頁")
-        # 优先「下一页」
-        for a in page.query_selector_all("a"):
-            label = (a.inner_text() or "").strip()
-            href = a.get_attribute("href") or ""
-            if not href:
-                continue
-            abs_href = urljoin(current_url, href)
-            if abs_href in visited:
-                continue
-            if label in next_labels and self._is_same_list_dir(abs_href):
-                return abs_href
-        # 退而求其次：页码严格大于当前页
-        for a in page.query_selector_all("a"):
-            label = (a.inner_text() or "").strip()
-            href = a.get_attribute("href") or ""
-            if not href or not label.isdigit() or int(label) <= current_page_no:
-                continue
-            abs_href = urljoin(current_url, href)
-            if abs_href in visited:
-                continue
-            if self._is_same_list_dir(abs_href):
-                return abs_href
-        return None
-
-    def _is_same_list_dir(self, url: str) -> bool:
-        base = urlparse(self.source.list_url)
-        cur = urlparse(url)
-        prefix = base.path if base.path.endswith("/") else base.path + "/"
-        return base.netloc == cur.netloc and cur.path.startswith(prefix)
-
-    # ── 单条处理 ───────────────────────────────────────────────
-    def _handle_item(self, page: Any, item: dict[str, Any]) -> None:
-        url = item["url"]
-        existing = ArbitrationDocument.objects.filter(detail_url=url).first()
+    # ── 单条处理 ──────────────────────────────────────────────
+    def _handle_article(self, art: dict[str, Any]) -> None:
+        detail_url = art.get("url") or ""
+        if not detail_url:
+            return
+        existing = ArbitrationDocument.objects.filter(detail_url=detail_url).first()
         if existing is not None and existing.crawl_status == "success" and existing.images.exists():
-            # 已成功且有图片：跳过，仅回填缺的发布日期
             self.stats["skipped"] += 1
-            if item["publish_date"] is not None and existing.publish_date is None:
-                existing.publish_date = item["publish_date"]
-                existing.save(update_fields=["publish_date"])
             return
         # 不存在 / failed / 有记录无图：都走抓取（重试）
         try:
-            self._crawl_detail(page, item, existing=existing)
+            self._crawl_detail(art, existing=existing)
             self.stats["new"] += 1
         except IntegrityError:
-            # 并发：另一任务已插入同 detail_url，视为已爬取，跳过
             self.stats["skipped"] += 1
         except Exception as exc:
-            logger.error("[劳动仲裁] 抓取详情失败 %s: %s", url, exc, exc_info=True)
+            logger.error("[劳动仲裁] 抓取详情失败 %s: %s", detail_url, exc, exc_info=True)
             self.stats["failed"] += 1
-            if existing is not None:
-                existing.crawl_status = "failed"
-                existing.error_message = str(exc)[:2000]
-                existing.save(update_fields=["crawl_status", "error_message"])
-            else:
-                try:
-                    ArbitrationDocument.objects.create(
-                        source=self.source,
-                        title=item["title"],
-                        detail_url=url,
-                        publish_date=item["publish_date"],
-                        crawl_status="failed",
-                        error_message=str(exc)[:2000],
-                    )
-                except IntegrityError:
-                    # 并发下 failed 记录也可能撞唯一约束，忽略
-                    pass
+            self._mark_failed(art, existing, str(exc)[:2000])
 
-    def _crawl_detail(
-        self, page: Any, item: dict[str, Any], existing: ArbitrationDocument | None = None
-    ) -> ArbitrationDocument:
-        url = item["url"]
-        logger.info("[劳动仲裁] 抓取详情 %s", url)
-        self._goto_with_retry(page, url)
-        self._trigger_lazy_images(page)
+    def _mark_failed(self, art: dict[str, Any], existing: ArbitrationDocument | None, error_message: str) -> None:
+        if existing is not None:
+            existing.crawl_status = "failed"
+            existing.error_message = error_message
+            existing.save(update_fields=["crawl_status", "error_message"])
+            return
+        try:
+            ArbitrationDocument.objects.create(
+                source=self.source,
+                title=art.get("title", ""),
+                detail_url=art.get("url", ""),
+                publish_date=self._parse_date_only(art),
+                crawl_status="failed",
+                error_message=error_message,
+            )
+        except IntegrityError:
+            pass
 
-        img_urls = self._extract_image_urls(page, url)
+    def _crawl_detail(self, art: dict[str, Any], existing: ArbitrationDocument | None = None) -> ArbitrationDocument:
+        detail_url = art["url"]
+        html = self._get(detail_url, referer=self.source.list_url).text
+
+        img_urls = _IMG_URL_RE.findall(html)
+        img_urls = list(dict.fromkeys(img_urls))  # 去重保序
         if not img_urls:
-            raise RuntimeError("详情页未找到任何图片")
+            raise RuntimeError("详情页未找到图片")
 
-        # 发布时间优先取详情页正文 meta（含时分），列表页日期作为兜底
-        pdate, pdt = self._extract_publish_info(page, url)
-        publish_date = pdate or item["publish_date"]
+        publish_date, publish_datetime = self._parse_publish(html, art)
+        title = art.get("title") or (existing.title if existing else "")
 
         if existing is not None:
-            # 重试场景：更新已有记录（failed/无图），先清旧图片
-            existing.title = item["title"]
-            existing.case_number = self._parse_case_number(item["title"])
-            existing.publish_date = publish_date
-            existing.publish_datetime = pdt
+            existing.title = title
+            existing.case_number = self._parse_case_number(title)
+            existing.publish_date = publish_date or existing.publish_date
+            existing.publish_datetime = publish_datetime or existing.publish_datetime
             existing.crawl_status = "success"
             existing.error_message = ""
             existing.save(
@@ -372,147 +186,60 @@ class FoshanLaborAwardCrawler:
         else:
             doc = ArbitrationDocument.objects.create(
                 source=self.source,
-                title=item["title"],
-                case_number=self._parse_case_number(item["title"]),
-                detail_url=url,
+                title=title,
+                case_number=self._parse_case_number(title),
+                detail_url=detail_url,
                 publish_date=publish_date,
-                publish_datetime=pdt,
+                publish_datetime=publish_datetime,
                 crawl_status="success",
             )
+
+        # 只保存图片 URL，不下载到本地
         for idx, img_url in enumerate(img_urls):
-            self._download_image(page, doc, img_url, idx)
+            ArbitrationDocumentImage.objects.create(document=doc, page_index=idx, source_url=img_url)
+        self.stats["images"] += len(img_urls)
         return doc
+
+    # ── 解析辅助 ──────────────────────────────────────────────
+    def _parse_publish(self, html: str, art: dict[str, Any]) -> tuple[Any, Any]:
+        """返回 (date, datetime)，优先详情页正文 meta，其次列表接口字段。"""
+        m = _PUBLISH_RE.search(html)
+        if m:
+            date_str = m.group(1).replace("/", "-")
+            time_str = (m.group(2) or "").replace("：", ":")
+            try:
+                if time_str:
+                    dt = timezone.make_aware(datetime.strptime(f"{date_str} {time_str}", "%Y-%m-%d %H:%M"))
+                else:
+                    dt = timezone.make_aware(datetime.strptime(date_str, "%Y-%m-%d"))
+                return dt.date(), dt
+            except ValueError:
+                pass
+        publish_time = art.get("publish_time")
+        if publish_time:
+            try:
+                dt = datetime.fromtimestamp(int(publish_time), tz=timezone.get_current_timezone())
+                return dt.date(), dt
+            except (ValueError, OSError, OverflowError):
+                pass
+        date_str = art.get("date")
+        if date_str:
+            try:
+                return datetime.strptime(date_str, "%Y-%m-%d").date(), None
+            except ValueError:
+                pass
+        return None, None
+
+    def _parse_date_only(self, art: dict[str, Any]) -> Any:
+        date_str = art.get("date")
+        if date_str:
+            try:
+                return datetime.strptime(date_str, "%Y-%m-%d").date()
+            except ValueError:
+                pass
+        return None
 
     @staticmethod
     def _parse_case_number(title: str) -> str:
-        match = _CASE_NO_RE.search(title)
-        return match.group(1) if match else ""
-
-    def _trigger_lazy_images(self, page: Any) -> None:
-        """滚动页面以触发懒加载图片。"""
-        try:
-            for _ in range(3):
-                page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
-            page.wait_for_timeout(800)
-        except Exception as exc:  # pragma: no cover
-            logger.debug("[劳动仲裁] 触发懒加载失败（忽略）: %s", exc)
-
-    # ── 图片提取与下载 ────────────────────────────────────────
-    def _extract_image_urls(self, page: Any, detail_url: str) -> list[str]:
-        container_sel = self.source.detail_image_container_selector.strip()
-        base_imgs = None
-        if container_sel:
-            container = page.query_selector(container_sel)
-            if container is not None:
-                base_imgs = container.query_selector_all(self.source.detail_image_selector.strip() or "img")
-
-        if base_imgs is None:
-            for sel in _CONTENT_SELECTORS:
-                container = page.query_selector(sel)
-                if container is not None:
-                    found = container.query_selector_all("img")
-                    if found:
-                        base_imgs = found
-                        break
-
-        if base_imgs is None:
-            base_imgs = page.query_selector_all("img")
-
-        result: list[str] = []
-        seen: set[str] = set()
-        for img in base_imgs:
-            src = (
-                img.get_attribute("src") or img.get_attribute("data-src") or img.get_attribute("data-original") or ""
-            ).strip()
-            if not src:
-                continue
-            abs_url = urljoin(detail_url, src)
-            # 仅保留同源图片（政府站点文档扫描件与列表同域；站外徽标/二维码丢弃）
-            if not self._is_same_host(abs_url):
-                continue
-            if not _IMG_EXT_RE.search(abs_url):
-                low = abs_url.lower()
-                if any(k in low for k in ("logo", "icon", "banner")):
-                    continue
-            if self._is_template_asset(abs_url):
-                continue
-            if abs_url in seen:
-                continue
-            seen.add(abs_url)
-            result.append(abs_url)
-        return result
-
-    def _is_same_host(self, url: str) -> bool:
-        """图片必须与来源同域（含子域），丢弃站外模板资源。"""
-        base = urlparse(self.source.list_url).netloc
-        cur = urlparse(url).netloc
-        return cur == base or cur.endswith("." + base)
-
-    @staticmethod
-    def _is_template_asset(url: str) -> bool:
-        low = url.lower()
-        return any(k in low for k in _TEMPLATE_KEYWORDS)
-
-    @staticmethod
-    def _abort_images(route: Any, request: Any) -> None:
-        """拦截图片资源加载，加速详情页导航（图片仍经 request.fetch 单独下载）。"""
-        try:
-            if request.resource_type == "image":
-                route.abort()
-            else:
-                route.continue_()
-        except Exception:
-            pass
-
-    def _download_image(
-        self, page: Any, doc: ArbitrationDocument, img_url: str, idx: int
-    ) -> ArbitrationDocumentImage | None:
-        # 政府站点扫描件体积大（可达数 MB），慢链路下需更长超时并允许重试。
-        data: bytes | None = None
-        last_err = "unknown"
-        for attempt in range(2):
-            try:
-                resp = page.request.fetch(img_url, method="GET", timeout=90000)
-                if resp.status >= 400:
-                    last_err = f"HTTP {resp.status}"
-                    continue
-                body = resp.body()
-                if not body:
-                    last_err = "empty body"
-                    continue
-                data = body
-                break
-            except Exception as exc:
-                last_err = str(exc)
-        if not data:
-            logger.warning("[劳动仲裁] 图片下载失败 %s: %s", img_url, last_err)
-            return None
-
-        ext = self._guess_ext(img_url, data)
-        filename = f"page_{idx:03d}{ext}"
-        rel_path = DatedUUIDPath(MediaEntity.LABOR_ARBITRATION_DOCS)(None, filename)
-        saved_name = default_storage.save(rel_path, ContentFile(data))
-        img = ArbitrationDocumentImage.objects.create(
-            document=doc,
-            image=saved_name,
-            page_index=idx,
-            source_url=img_url,
-            file_size=len(data),
-        )
-        self.stats["images"] += 1
-        return img
-
-    @staticmethod
-    def _guess_ext(url: str, data: bytes) -> str:
-        match = _IMG_EXT_RE.search(url)
-        if match:
-            return "." + match.group(1).lower()
-        if data[:3] == b"\xff\xd8\xff":
-            return ".jpg"
-        if data[:8] == b"\x89PNG\r\n\x1a\n":
-            return ".png"
-        if data[:2] == b"BM":
-            return ".bmp"
-        if data[:4] in (b"II*\x00", b"MM\x00*"):
-            return ".tif"
-        return ".jpg"
+        m = _CASE_NO_RE.search(title or "")
+        return m.group(1) if m else ""

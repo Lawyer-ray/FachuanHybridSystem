@@ -46,6 +46,12 @@ class ArbitrationDocumentSource(models.Model):
     name = models.CharField("名称", max_length=128)
     district = models.CharField("区县", max_length=32, choices=District.choices, default=District.SHI_ZHI)
     list_url = models.URLField("列表页 URL", max_length=512, unique=True)
+    category_id = models.PositiveIntegerField(
+        "栏目 ID",
+        null=True,
+        blank=True,
+        help_text="列表接口 postmeta/i/{category_id}.json 的栏目 ID，用于 HTTP 快速抓取",
+    )
     enabled = models.BooleanField("启用", default=True)
     parse_backend = models.CharField(
         "解析后端", max_length=16, choices=ParseBackend.choices, default=ParseBackend.LOCAL
