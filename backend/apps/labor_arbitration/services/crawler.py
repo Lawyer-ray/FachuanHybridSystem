@@ -18,6 +18,7 @@ from urllib.parse import urljoin, urlparse
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage
 from django.db import IntegrityError
+from django.utils import timezone
 
 from apps.core.filesystem.upload_paths import DatedUUIDPath, MediaEntity
 from apps.core.services.browser import create_browser
@@ -115,12 +116,15 @@ class FoshanLaborAwardCrawler:
             logger.info("[劳动仲裁] 本页发现 %d 条文书", len(items))
             self.stats["discovered"] += len(items)
 
+            # 先记录下一页（此时 page 仍在列表页）；处理详情会 goto 详情页，故必须在处理前取分页链接
+            next_url = self._find_next_page(page, page_url, visited, page_idx + 1)
+
             for item in items:
                 if self._reached_limit():
                     break
                 self._handle_item(page, item)
 
-            page_url = self._find_next_page(page, page_url, visited, page_idx + 1)
+            page_url = next_url
             page_idx += 1
 
     def _reached_limit(self) -> bool:
@@ -215,6 +219,8 @@ class FoshanLaborAwardCrawler:
                 dt = datetime.strptime(date_str, "%Y-%m-%d")
         except ValueError:
             return None, None
+        # USE_TZ=True 下 DateTimeField 需 aware datetime，否则写入时告警且可能存错
+        dt = timezone.make_aware(dt)
         return dt.date(), dt
 
     @staticmethod
