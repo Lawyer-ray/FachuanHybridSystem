@@ -57,6 +57,19 @@ _CONTENT_SELECTORS = [
     "div[class*='content']",
     "div[class*='article']",
 ]
+# 列表页页脚导航页（带 content/post_ 但非文书），必须排除
+_NAV_TITLE_KEYWORDS = (
+    "联系我们",
+    "隐私保护",
+    "隐私",
+    "免责声明",
+    "免责",
+    "网站地图",
+    "使用帮助",
+    "关于我们",
+    "站点导航",
+    "版权",
+)
 
 
 class FoshanLaborAwardCrawler:
@@ -120,9 +133,15 @@ class FoshanLaborAwardCrawler:
             href = a.get_attribute("href") or ""
             if not href:
                 continue
+            full_url = urljoin(self.source.list_url, href)
+            # 只保留本来源列表目录下的真实文书链接，排除页脚导航
+            # （如 /wzdh/lxwm/content/post_*.html 的"联系我们/隐私保护/免责声明"）
+            if not self._is_same_list_dir(full_url):
+                continue
             raw_text = a.get_attribute("title") or a.inner_text() or ""
             text = raw_text.strip()
-            full_url = urljoin(self.source.list_url, href)
+            if self._is_nav_title(text):
+                continue
             items.append(
                 {
                     "url": full_url,
@@ -139,6 +158,11 @@ class FoshanLaborAwardCrawler:
             seen.add(it["url"])
             unique.append(it)
         return unique
+
+    @staticmethod
+    def _is_nav_title(text: str) -> bool:
+        t = text.strip()
+        return any(k in t for k in _NAV_TITLE_KEYWORDS)
 
     @staticmethod
     def _parse_date(text: str) -> Any:
@@ -186,7 +210,7 @@ class FoshanLaborAwardCrawler:
     def _is_same_list_dir(self, url: str) -> bool:
         base = urlparse(self.source.list_url)
         cur = urlparse(url)
-        prefix = base.path.rsplit("/", 1)[0]
+        prefix = base.path if base.path.endswith("/") else base.path + "/"
         return base.netloc == cur.netloc and cur.path.startswith(prefix)
 
     # ── 单条处理 ───────────────────────────────────────────────
