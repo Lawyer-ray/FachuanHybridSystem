@@ -7,7 +7,7 @@ import threading
 import time
 import zipfile
 from pathlib import Path
-from typing import Any, ClassVar
+from typing import Any
 from uuid import uuid4
 
 import httpx
@@ -36,8 +36,8 @@ class MineruBackend:
     API_URL = "https://mineru.net/api/v4/extract/task"
     BATCH_URL = "https://mineru.net/api/v4/file-urls/batch"
     MODEL_VERSION = "vlm"
-    POLL_INTERVAL = 2  # 轮询间隔（秒）
-    POLL_TIMEOUT = 300  # 超时时间（秒）
+    POLL_INTERVAL = 1  # 轮询间隔（秒）
+    POLL_TIMEOUT = 60  # 超时时间（秒）
 
     BATCH_RESULTS_URL = "https://mineru.net/api/v4/extract-results/batch"
 
@@ -45,9 +45,10 @@ class MineruBackend:
     requires_async_execution: bool = True
 
     # 类级别 key 列表与轮转索引（Django-Q 多进程各自独立维护）
-    _key_list: ClassVar[list[str] | None] = None
-    _key_index: ClassVar[int] = 0
-    _key_lock: ClassVar[threading.Lock] = threading.Lock()
+    # 注：不使用 ClassVar 泛型注解，避免 typing_extensions/某些序列化路径的兼容性错误。
+    _key_list: list[str] | None = None
+    _key_index: int = 0
+    _key_lock: threading.Lock = threading.Lock()
 
     def __init__(
         self,

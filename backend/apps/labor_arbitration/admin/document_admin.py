@@ -2,13 +2,16 @@
 
 from __future__ import annotations
 
+from html import escape as html_escape
 from typing import Any
 
 from django.contrib import admin, messages
+from django.contrib.postgres.search import SearchQuery, SearchRank
+from django.db import models as db_models
 from django.http import HttpRequest, HttpResponseRedirect
 from django.urls import path, reverse
-from django.utils.html import format_html, format_html_join
-from django.utils.safestring import SafeString
+from django.utils.html import format_html
+from django.utils.safestring import SafeString, mark_safe
 
 from apps.labor_arbitration.models import ArbitrationDocument
 
@@ -31,7 +34,7 @@ class ArbitrationDocumentAdmin(admin.ModelAdmin):
         "parsed_at",
     )
     list_filter = ("source", "crawl_status", "parse_status", "publish_date", "publish_datetime")
-    search_fields = ("title", "case_number", "detail_url")
+    search_fields = ("title", "case_number", "detail_url", "parsed_text")
     readonly_fields = (
         "source",
         "title",
@@ -89,18 +92,34 @@ class ArbitrationDocumentAdmin(admin.ModelAdmin):
 
     @admin.display(description="图片预览")
     def images_preview(self, obj: ArbitrationDocument) -> SafeString:
-        # 图片不再下载到本地，直接用原图 URL 渲染预览
-        rows = [(img.source_url, img.page_index + 1, img.source_url) for img in obj.images.order_by("page_index")]
-        if not rows:
+        images = list(obj.images.order_by("page_index"))
+        if not images:
             return format_html("<span>{}</span>", "暂无图片")
-        # 用 format_html_join 拼接：str(SafeString) 会退化为普通 str 而被转义，不可手工 join
-        return format_html_join(
-            "",
-            '<div style="margin-bottom:10px;">'
-            '<img src="{}" style="max-width:760px; border:1px solid #ccc;" />'
-            '<div style="font-size:11px;color:#888;">第 {} 页 · {}</div></div>',
-            rows,
+
+        preview_id = f"img-preview-{obj.pk}"
+        hidden_items = "".join(
+            f'<div style="display:none;" data-src="{html_escape(img.source_url)}" data-page="{img.page_index + 1}"></div>'
+            for img in images
         )
+
+        html = (
+            f'<div id="{preview_id}">'
+            f'{hidden_items}'
+            '<button type="button" class="button" onclick="'
+            "var el=this.parentNode;"
+            "el.querySelectorAll('[data-src]').forEach(function(item){"
+            "item.style.display='';"
+            "var i=document.createElement('img');i.src=item.dataset.src;"
+            "i.style.maxWidth='760px';i.style.border='1px solid #ccc';"
+            "var c=document.createElement('div');c.style.fontSize='11px';"
+            "c.style.color='#888';c.textContent='第 '+item.dataset.page+' 页 · '+item.dataset.src;"
+            "item.appendChild(i);item.appendChild(c);"
+            "});"
+            "this.style.display='none';"
+            f'">显示图片（共 {len(images)} 页）</button>'
+            "</div>"
+        )
+        return mark_safe(html)
 
     @admin.display(description="解析文本")
     def parsed_text_display(self, obj: ArbitrationDocument) -> SafeString:
@@ -178,3 +197,23 @@ class ArbitrationDocumentAdmin(admin.ModelAdmin):
 
     def has_add_permission(self, request: HttpRequest) -> bool:
         return False
+
+    def get_search_results(
+        self, request: HttpRequest, queryset: Any, search_term: str
+    ) -> tuple[Any, bool]:
+        """覆盖 Admin 默认搜索：优先 PostgreSQL 全文搜索，无结果时回退至传统 ILIKE。"""
+        if not search_term:
+            return super().get_search_results(request, queryset, search_term)
+
+        query = SearchQuery(search_term, config="simple", search_type="plain")
+
+        # 1. 先尝试全文搜索（按相关性排名）
+        ft_qs = queryset.filter(search_vector=query).annotate(
+            rank=SearchRank(db_models.F("search_vector"), query)
+        ).order_by("-rank")
+
+        if ft_qs.exists():
+            return ft_qs, False
+
+        # 2. 无 FTS 命中，回退到 search_fields 的 ILIKE 行为
+        return super().get_search_results(request, queryset, search_term)

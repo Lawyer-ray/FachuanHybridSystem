@@ -270,6 +270,9 @@ docs/refactor-plans/
 backend/.playwright-cli/
 extensions/
 
+# 项目内部 README（含数据来源等敏感信息，不入库）
+backend/apps/labor_arbitration/README.md
+
 # Local scratch notes
 .test/
 
