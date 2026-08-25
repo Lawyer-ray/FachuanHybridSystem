@@ -154,6 +154,7 @@ class FoshanLaborAwardCrawler:
                 error_message=error_message,
             )
         except IntegrityError:
+            # 并发写入冲突，同一条 URL 已被其他进程创建，忽略即可
             pass
 
     def _crawl_detail(self, art: dict[str, Any], existing: ArbitrationDocument | None = None) -> ArbitrationDocument:

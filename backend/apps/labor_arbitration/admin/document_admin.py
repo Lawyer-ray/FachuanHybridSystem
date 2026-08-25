@@ -5,7 +5,7 @@ from __future__ import annotations
 from html import escape as html_escape
 from typing import Any
 
-from django.contrib import admin, messages
+from django.contrib import admin
 from django.contrib.postgres.search import SearchQuery, SearchRank
 from django.db import models as db_models
 from django.http import HttpRequest, HttpResponseRedirect

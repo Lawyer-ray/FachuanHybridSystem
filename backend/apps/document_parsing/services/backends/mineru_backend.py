@@ -102,7 +102,7 @@ class MineruBackend:
             idx = self.__class__._key_index % len(self._api_keys)
             key = self._api_keys[idx]
             self.__class__._key_index += 1
-            logger.debug("MinerU key rotation: idx=%d key_suffix=...%s", idx, key[-12:])
+            logger.debug("MinerU key rotation: idx=%d", idx)
             return key
 
     def parse_document(

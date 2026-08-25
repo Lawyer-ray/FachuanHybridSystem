@@ -18,8 +18,6 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from django.db.models.fields.files import FieldFile
-
 # ┌─────────────────────────────────────────────────────────────┐
 # │ MEDIA PATH FACTORY - UNIFIED DIRECTORY NAMING              │
 # │                                                            │
