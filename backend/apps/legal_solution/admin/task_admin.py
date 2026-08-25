@@ -39,7 +39,7 @@ class SolutionSectionInline(admin.TabularInline):  # pragma: no cover
     @admin.display(description="操作")
     def adjust_button(self, obj: SolutionSection) -> str:  # pragma: no cover
         if obj.status == SectionStatus.GENERATING:
-            return format_html('<span style="color:#94a3b8;">生成中...</span>')
+            return format_html('<span style="color:#94a3b8;">{}</span>', "生成中...")
         if obj.status not in (SectionStatus.COMPLETED, SectionStatus.FAILED):
             return "—"
         url = reverse("admin:legal_solution_solutiontask_adjust_section", args=[obj.task_id, obj.id])
@@ -77,7 +77,7 @@ class SolutionTaskAdmin(admin.ModelAdmin):  # pragma: no cover
         "regenerate_html_button",
     ]
 
-    def get_fields(self, request: HttpRequest, obj: SolutionTask | None = None) -> list[str]:  # pragma: no cover
+    def get_fields(self, request: HttpRequest, obj: SolutionTask | None = None) -> list[str]:  # type: ignore[override]  # pragma: no cover
         if obj is None:
             return list(self.add_fields)
         return [
@@ -101,12 +101,16 @@ class SolutionTaskAdmin(admin.ModelAdmin):  # pragma: no cover
             "updated_at",
         ]
 
-    def get_readonly_fields(self, request: HttpRequest, obj: SolutionTask | None = None) -> list[str]:  # pragma: no cover
+    def get_readonly_fields(
+        self, request: HttpRequest, obj: SolutionTask | None = None
+    ) -> list[str]:  # pragma: no cover
         if obj is None:
             return []
         return list(self.readonly_fields) + ["case_summary", "credential"]
 
-    def get_form(self, request: HttpRequest, obj: SolutionTask | None = None, **kwargs: Any) -> type[forms.ModelForm]:  # pragma: no cover
+    def get_form(
+        self, request: HttpRequest, obj: SolutionTask | None = None, change: bool = False, **kwargs: Any
+    ) -> type[forms.ModelForm]:  # pragma: no cover
         form = super().get_form(request, obj, **kwargs)
         if obj is not None:
             return form
@@ -117,10 +121,10 @@ class SolutionTaskAdmin(admin.ModelAdmin):  # pragma: no cover
             from apps.legal_solution.models.task import SolutionTask as _T
 
             cred_model = _T._meta.get_field("credential").remote_field.model
-            qs = cred_model.objects.filter(WEIKE_FILTER)
+            qs = cred_model.objects.filter(WEIKE_FILTER)  # type: ignore[attr-defined]
             if not request.user.is_superuser:
                 qs = qs.filter(lawyer__law_firm_id=getattr(request.user, "law_firm_id", None))
-            cred_field.queryset = qs
+            cred_field.queryset = qs  # type: ignore[attr-defined]
             if qs.count() == 1:
                 cred_field.initial = qs.first().id
                 cred_field.widget = forms.HiddenInput()
@@ -202,7 +206,9 @@ class SolutionTaskAdmin(admin.ModelAdmin):  # pragma: no cover
         response["Content-Disposition"] = f'inline; filename="法律服务方案-{task.id}.pdf"'
         return response
 
-    def adjust_section_view(self, request: HttpRequest, task_id: int, section_id: int) -> HttpResponse:  # pragma: no cover
+    def adjust_section_view(
+        self, request: HttpRequest, task_id: int, section_id: int
+    ) -> HttpResponse:  # pragma: no cover
         section = SolutionSection.objects.get(id=section_id, task_id=task_id)
         if request.method == "POST":
             feedback = request.POST.get("feedback", "").strip()
@@ -236,7 +242,7 @@ class SolutionTaskAdmin(admin.ModelAdmin):  # pragma: no cover
         .btn:hover{{background:#2a3a5c;}}
         .btn-cancel{{background:#f3f4f6;color:#374151;margin-left:8px;padding:10px 24px;border-radius:2px;text-decoration:none;display:inline-block;font-size:14px;}}
         </style></head><body>
-        <h2>调整「{_html.escape(section.title or '')}」</h2>
+        <h2>调整「{_html.escape(section.title or "")}」</h2>
         <p>当前版本：第{section.version}稿。请在下方查看已有内容，并描述你希望如何调整。</p>
         <div class="current-label">当前内容</div>
         <div class="current">{current_html if current_html else '<em style="color:#8a8a8a;">暂无内容</em>'}</div>
@@ -283,8 +289,9 @@ class SolutionTaskAdmin(admin.ModelAdmin):  # pragma: no cover
 
         # 新建：设置创建人
         is_lawyer = getattr(getattr(request.user, "_meta", None), "label_lower", "") == "organization.lawyer"
-        if is_lawyer and getattr(request.user, "id", None):
-            obj.created_by_id = int(request.user.id)
+        user_id: int | None = getattr(request.user, "id", None)
+        if is_lawyer and isinstance(user_id, int):
+            obj.created_by_id = user_id
 
         super().save_model(request, obj, form, change)
 

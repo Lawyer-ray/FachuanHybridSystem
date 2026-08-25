@@ -27,8 +27,6 @@ from typing import Any
 # │ 详见 CLAUDE.md「Media 文件管理规范」。                      │
 # └─────────────────────────────────────────────────────────────┘
 
-from django.db.models.fields.files import FieldFile
-
 
 def sanitize_filename(name: str, *, allow_chinese: bool = True) -> str:
     """
@@ -125,6 +123,9 @@ class MediaEntity:
     OA_IMPORTS = "oa_imports"
     PROPERTY_CLUE_ATTACHMENTS = "property_clue_attachments"
     CANVAS_FILES = "canvas_files"
+
+    # ── 劳动仲裁文书爬虫 ──
+    LABOR_ARBITRATION_DOCS = "labor_arbitration/docs"
 
 
 class DatedUUIDPath:

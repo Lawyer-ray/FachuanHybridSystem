@@ -1,6 +1,6 @@
 .coverage.*
 *~
-models/
+/models/
 **/test_*.docx
 **/test_*.pdf
 backend/plugins.zip

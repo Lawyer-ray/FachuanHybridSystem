@@ -149,31 +149,31 @@ if [ "$RUN_BACKEND" = true ]; then
   header "2/22" "仓库卫生检查 (repository hygiene)"
   _hygiene_ok=true
 
-  banned=$(git -C "$ROOT_DIR" ls-files | grep -E '(^|/)(\.DS_Store|__pycache__/|[^/]+\.pyc)$' || true)
+  banned=$(git -C "$ROOT_DIR" -c core.quotePath=false ls-files | grep -E '(^|/)(\.DS_Store|__pycache__/|[^/]+\.pyc)$' || true)
   if [ -n "$banned" ]; then
     echo -e "  ${RED}发现禁止追踪的文件:${NC}"; echo "$banned" | sed 's/^/    /'
     _hygiene_ok=false
   fi
 
-  env_tracked=$(git -C "$ROOT_DIR" ls-files | grep -E '(^|/)\.env(\.[^/]+)?$' | grep -v -E '(^|/)\.env\.example$' || true)
+  env_tracked=$(git -C "$ROOT_DIR" -c core.quotePath=false ls-files | grep -E '(^|/)\.env(\.[^/]+)?$' | grep -v -E '(^|/)\.env\.example$' || true)
   if [ -n "$env_tracked" ]; then
     echo -e "  ${RED}发现已追踪的 .env 文件:${NC}"; echo "$env_tracked" | sed 's/^/    /'
     _hygiene_ok=false
   fi
 
-  media_tracked=$(git -C "$ROOT_DIR" ls-files backend/media backend/apiSystem/media 2>/dev/null | grep -v '\.gitkeep$' || true)
+  media_tracked=$(git -C "$ROOT_DIR" -c core.quotePath=false ls-files backend/media backend/apiSystem/media 2>/dev/null | grep -v '\.gitkeep$' || true)
   if [ -n "$media_tracked" ]; then
     echo -e "  ${RED}发现已追踪的 media 文件:${NC}"; echo "$media_tracked" | sed 's/^/    /'
     _hygiene_ok=false
   fi
 
-  venv_tracked=$(git -C "$ROOT_DIR" ls-files | grep -E '^(backend/)?(\.venv|venv(311|312)?)/' || true)
+  venv_tracked=$(git -C "$ROOT_DIR" -c core.quotePath=false ls-files | grep -E '^(backend/)?(\.venv|venv(311|312)?)/' || true)
   if [ -n "$venv_tracked" ]; then
     echo -e "  ${RED}发现已追踪的虚拟环境文件:${NC}"; echo "$venv_tracked" | sed 's/^/    /'
     _hygiene_ok=false
   fi
 
-  forbidden_binary=$(git -C "$ROOT_DIR" ls-files | grep -Ei '^(backend/(apps|apiSystem|scripts)/|scripts/).*\.(onnx|mp4|zip)$' || true)
+  forbidden_binary=$(git -C "$ROOT_DIR" -c core.quotePath=false ls-files | grep -Ei '^(backend/(apps|apiSystem|scripts)/|scripts/).*\.(onnx|mp4|zip)$' || true)
   if [ -n "$forbidden_binary" ]; then
     echo -e "  ${RED}发现禁止追踪的二进制文件:${NC}"; echo "$forbidden_binary" | sed 's/^/    /'
     _hygiene_ok=false

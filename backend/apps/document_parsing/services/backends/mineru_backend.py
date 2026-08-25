@@ -1,7 +1,9 @@
 """MinerU API 后端实现"""
 
 import logging
+import re
 import tempfile
+import threading
 import time
 import zipfile
 from pathlib import Path
@@ -34,13 +36,19 @@ class MineruBackend:
     API_URL = "https://mineru.net/api/v4/extract/task"
     BATCH_URL = "https://mineru.net/api/v4/file-urls/batch"
     MODEL_VERSION = "vlm"
-    POLL_INTERVAL = 2  # 轮询间隔（秒）
-    POLL_TIMEOUT = 300  # 超时时间（秒）
+    POLL_INTERVAL = 1  # 轮询间隔（秒）
+    POLL_TIMEOUT = 60  # 超时时间（秒）
 
     BATCH_RESULTS_URL = "https://mineru.net/api/v4/extract-results/batch"
 
     # 后端能力声明：云端后端含 HTTP 上传 + 轮询，阻塞时间长，需异步执行
     requires_async_execution: bool = True
+
+    # 类级别 key 列表与轮转索引（Django-Q 多进程各自独立维护）
+    # 注：不使用 ClassVar 泛型注解，避免 typing_extensions/某些序列化路径的兼容性错误。
+    _key_list: list[str] | None = None
+    _key_index: int = 0
+    _key_lock: threading.Lock = threading.Lock()
 
     def __init__(
         self,
@@ -50,22 +58,52 @@ class MineruBackend:
         """初始化 MinerU 后端
 
         Args:
-            api_key: MinerU API Key（Bearer Token）。如果未提供，从 SystemConfig 读取
+            api_key: MinerU API Key（Bearer Token）。
+                     支持逗号/换行/空格分隔的多 key，系统将轮询使用。
+                     如果未提供，从 SystemConfig 的 MINERU_API_KEY 读取。
             timeout: HTTP 请求超时时间（秒）
         """
-        self.api_key = api_key or _config_service.get_value_internal("MINERU_API_KEY")
-        if not self.api_key:
+        raw = api_key or _config_service.get_value_internal("MINERU_API_KEY")
+        if not raw:
             raise ValueError(
                 "未配置 MinerU API Key。"
                 "请在 SystemConfig 中设置 MINERU_API_KEY（http://127.0.0.1:8002/admin/core/systemconfig/）"
             )
 
+        # 解析逗号/换行/空格分隔的多 key
+        self._api_keys = [k.strip() for k in re.split(r"[,\s\r\n]+", raw) if k.strip()]
+        if not self._api_keys:
+            raise ValueError("MINERU_API_KEY 解析后为空，请检查配置内容。")
+
         self.timeout = timeout
+        self._active_key: str | None = None  # 由 parse_document 设置
 
         logger.info(
-            "初始化 MinerU 后端: timeout=%ds",
+            "初始化 MinerU 后端: keys=%d timeout=%ds",
+            len(self._api_keys),
             self.timeout,
         )
+
+    @property
+    def api_key(self) -> str:
+        """返回当前使用的 API key（兼容单 key 场景）。"""
+        if self._active_key is not None:
+            return self._active_key
+        return self._api_keys[0]
+
+    def _next_api_key(self) -> str:
+        """线程安全地轮转返回下一个 API key。
+
+        注意：_key_index 是类级别 int（不可变），必须用 __class__ 显式修改，
+        否则 self._key_index += 1 会退化为实例属性，类属性永远为 0，导致每个
+        实例永远取 key 列表中的第 0 个。
+        """
+        with self._key_lock:
+            idx = self.__class__._key_index % len(self._api_keys)
+            key = self._api_keys[idx]
+            self.__class__._key_index += 1
+            logger.debug("MinerU key rotation: idx=%d", idx)
+            return key
 
     def parse_document(
         self,
@@ -97,6 +135,9 @@ class MineruBackend:
         logger.info("开始 MinerU 解析: %s", file_path)
 
         try:
+            # 每次解析任务取一个 key，"_upload_file" 与 "_poll_batch_result" 共用该 key
+            self._active_key = self._next_api_key()
+
             # 1. 上传文件到 MinerU（上传后 MinerU 自动创建解析任务）
             batch_id = self._upload_file(file_path)
 
@@ -189,7 +230,7 @@ class MineruBackend:
         client = get_sync_http_client()
         headers = {
             "Content-Type": "application/json",
-            "Authorization": f"Bearer {self.api_key}",
+            "Authorization": f"Bearer {self._active_key}",
         }
 
         payload = {
@@ -253,7 +294,7 @@ class MineruBackend:
         """
         client = get_sync_http_client()
         headers = {
-            "Authorization": f"Bearer {self.api_key}",
+            "Authorization": f"Bearer {self._active_key}",
         }
 
         url = f"{self.BATCH_RESULTS_URL}/{batch_id}"
