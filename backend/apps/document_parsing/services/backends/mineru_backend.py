@@ -84,6 +84,13 @@ class MineruBackend:
             self.timeout,
         )
 
+    @property
+    def api_key(self) -> str:
+        """返回当前使用的 API key（兼容单 key 场景）。"""
+        if self._active_key is not None:
+            return self._active_key
+        return self._api_keys[0]
+
     def _next_api_key(self) -> str:
         """线程安全地轮转返回下一个 API key。
 
