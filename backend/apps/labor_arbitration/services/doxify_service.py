@@ -9,7 +9,7 @@ from __future__ import annotations
 import logging
 import sys
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 logger = logging.getLogger(__name__)
 
@@ -22,7 +22,7 @@ if str(_DOXIFY_DIR) not in sys.path:
 def _import_doxify_clean() -> tuple[Any, Any, Any, Any, Any]:
     """延迟导入 doxify 清洗函数，失败时抛出以便调用方降级处理。"""
     try:
-        from doxify import (  # type: ignore[import-untyped]
+        from doxify import (
             _normalize_vlm_latex,
             detect_residual_english,
             merge_broken_paragraphs,
@@ -119,7 +119,7 @@ def check_residual_english(text: str) -> list[str]:
         return []
     try:
         _, _, _, _, detect_func = _import_doxify_clean()
-        return detect_func(text)
+        return cast(list[str], detect_func(text))
     except Exception as exc:
         logger.warning("[Doxify] check_residual_english 失败: %s", exc)
         return []

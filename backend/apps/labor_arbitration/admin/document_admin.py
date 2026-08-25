@@ -104,7 +104,7 @@ class ArbitrationDocumentAdmin(admin.ModelAdmin):
 
         html = (
             f'<div id="{preview_id}">'
-            f'{hidden_items}'
+            f"{hidden_items}"
             '<button type="button" class="button" onclick="'
             "var el=this.parentNode;"
             "el.querySelectorAll('[data-src]').forEach(function(item){"
@@ -198,9 +198,7 @@ class ArbitrationDocumentAdmin(admin.ModelAdmin):
     def has_add_permission(self, request: HttpRequest) -> bool:
         return False
 
-    def get_search_results(
-        self, request: HttpRequest, queryset: Any, search_term: str
-    ) -> tuple[Any, bool]:
+    def get_search_results(self, request: HttpRequest, queryset: Any, search_term: str) -> tuple[Any, bool]:
         """覆盖 Admin 默认搜索：优先 PostgreSQL 全文搜索，无结果时回退至传统 ILIKE。"""
         if not search_term:
             return super().get_search_results(request, queryset, search_term)
@@ -208,9 +206,11 @@ class ArbitrationDocumentAdmin(admin.ModelAdmin):
         query = SearchQuery(search_term, config="simple", search_type="plain")
 
         # 1. 先尝试全文搜索（按相关性排名）
-        ft_qs = queryset.filter(search_vector=query).annotate(
-            rank=SearchRank(db_models.F("search_vector"), query)
-        ).order_by("-rank")
+        ft_qs = (
+            queryset.filter(search_vector=query)
+            .annotate(rank=SearchRank(db_models.F("search_vector"), query))
+            .order_by("-rank")
+        )
 
         if ft_qs.exists():
             return ft_qs, False

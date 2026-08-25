@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from django.core.management.base import BaseCommand
 
 from apps.labor_arbitration.models import ArbitrationDocumentSource, District
 
-SOURCES = [
+SOURCES: list[dict[str, Any]] = [
     {
         "name": "佛山市直仲裁文书",
         "district": District.SHI_ZHI,

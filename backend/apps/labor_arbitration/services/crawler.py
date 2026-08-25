@@ -113,8 +113,8 @@ class FoshanLaborAwardCrawler:
         if not self.source.category_id:
             raise RuntimeError("来源未配置 category_id，无法用接口抓取")
         url = _LIST_API.format(category_id=self.source.category_id)
-        data = self._get(url, referer=self.source.list_url).json()
-        articles = data.get("articles", [])
+        data: dict[str, Any] = self._get(url, referer=self.source.list_url).json()
+        articles: list[dict[str, Any]] = data.get("articles", [])
         logger.info("[劳动仲裁] 来源 %s 接口返回 %d 篇文章", self.source.id, len(articles))
         return articles
 
