@@ -67,6 +67,7 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "django.contrib.postgres",  # PostgreSQL 全文搜索扩展
     "nested_admin",
     "simple_history",
     "corsheaders",

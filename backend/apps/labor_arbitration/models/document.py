@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import logging
-from typing import ClassVar
+from typing import Any, ClassVar
 
+from django.contrib.postgres.indexes import GinIndex
+from django.contrib.postgres.search import SearchVector, SearchVectorField
 from django.db import models
 
 from apps.core.filesystem.upload_paths import DatedUUIDPath, MediaEntity
@@ -71,6 +73,8 @@ class ArbitrationDocument(models.Model):
     parsed_markdown = models.TextField("解析 Markdown", blank=True, default="")
     parse_error = models.TextField("解析错误", blank=True, default="")
     parsed_at = models.DateTimeField("解析时间", null=True, blank=True)
+    # PostgreSQL 全文搜索向量（中文用 simple 配置）
+    search_vector = SearchVectorField("全文搜索向量", null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -85,10 +89,23 @@ class ArbitrationDocument(models.Model):
             models.Index(fields=["parse_status"]),
             models.Index(fields=["-publish_datetime"]),
             models.Index(fields=["-publish_date"]),
+            GinIndex(fields=["search_vector"], name="labor_doc_search_gin"),
         ]
 
     def __str__(self) -> str:
         return self.title
+
+    def save(self, *args: Any, **kwargs: Any) -> None:
+        update_fields = kwargs.get("update_fields")
+        super().save(*args, **kwargs)
+        # 若 parsed_text 有值但 search_vector 为空，或刚刚更新了 parsed_text，则回填搜索向量
+        if self.parsed_text and (
+            not self.search_vector or (update_fields is not None and "parsed_text" in update_fields)
+        ):
+            # 使用数据库端函数构建搜索向量，保证一致
+            ArbitrationDocument.objects.filter(pk=self.pk).update(
+                search_vector=SearchVector("parsed_text", config="simple")
+            )
 
     def trigger_parse(self, backend: str | None = None) -> str:
         """提交文档解析任务，返回任务 ID。"""
