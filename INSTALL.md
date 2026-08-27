@@ -10,6 +10,41 @@
 
 适合快速体验与服务器部署。只需安装 [Docker Desktop](https://www.docker.com/products/docker-desktop/)。
 
+> **新手必读（平台差异）**
+> - **macOS / Linux**：装好 Docker Desktop（或 Docker Engine）即可，无需额外步骤，直接从 [1.1](#11-配置镜像加速器国内用户必做) 开始。
+> - **Windows**：Docker 在 Windows 上跑本项目这种 **Linux 容器**，**必须依赖 WSL2** 作为底层引擎（老一代 Hyper-V 后端已废弃，Windows 容器又跑不了 Linux 镜像）。**请先按下面 1.0 装好 WSL2，否则 `docker compose` 会直接报错。**
+
+### 1.0 Windows 前置：安装 WSL2（仅 Windows 需要）
+
+WSL2 只是 Docker 的「后台引擎」，**你全程还是在普通 Windows 终端里敲 Docker 命令，不需要进 Linux 环境操作**。安装只需一条命令：
+
+1. **以管理员身份**打开 PowerShell（开始菜单搜「PowerShell」→ 右键「以管理员身份运行」）。
+2. 执行（自动安装 WSL2 内核 + 默认 Ubuntu 发行版）：
+
+   ```powershell
+   wsl --install
+   ```
+
+3. **重启电脑**一次，让 WSL2 内核生效。
+4. 重启后验证是否成功（能看到版本号即正常）：
+
+   ```powershell
+   wsl --version
+   ```
+
+5. 确认默认版本为 2（避免个别机器默认是 1）：
+
+   ```powershell
+   wsl --set-default-version 2
+   ```
+
+> 常见问题：
+> - 若提示「无法解析服务器」，先确认已联网；公司内网可改用 `wsl --install -d Ubuntu` 指定发行版。
+> - 想更新/修复 WSL2：`wsl --update`；想重装：`wsl --unregister Ubuntu` 后重跑 `wsl --install`。
+> - **强烈建议把项目克隆进 WSL 的文件系统**（见 1.2 步骤 1 的「Windows 推荐做法」），可顺带规避 Windows 换行符(CRLF)把 `docker-entrypoint.sh` 脚本搞挂的经典坑。
+
+完成 1.0 后，回到正常 Windows 终端（无需管理员）继续下面的步骤即可。
+
 ### 1.1 配置镜像加速器（国内用户必做）
 
 国内访问 Docker Hub 经常超时（`Get "https://registry-1.docker.io/v2/": EOF`），需配置镜像源。
@@ -34,8 +69,22 @@
 
 ### 1.2 启动服务
 
+> **Windows 用户：推荐在 WSL 里执行后续命令**（规避 CRLF 与磁盘性能问题）：
+> 1. 打开 PowerShell，输入 `wsl` 进入 Linux 子系统；
+> 2. 进入家目录并克隆（`git clone` 下来默认就是 LF 换行，不会破坏 `.sh` 脚本）：
+>    ```bash
+>    cd ~
+>    git clone --depth 1 https://github.com/Lawyer-ray/FachuanHybridSystem.git
+>    cd FachuanHybridSystem/backend
+>    ```
+> 3. 之后的 `docker compose` 命令仍在 WSL 终端里跑，`docker` 会自动连到 Windows 上的 Docker Desktop。
+>
+> 如果你坚持在 Windows 原生终端(Cmd/PowerShell)操作，请确保用 **Git Bash** 或 PowerShell 执行、且克隆前已 `git config --global core.autocrlf input`，否则 `docker-entrypoint.sh` 可能因 CRLF 换行符启动失败。
+>
+> 本项目不依赖 `backend/plugins` 子模块，**无需** `--recurse-submodules`，直接 `git clone` 即可（相关高级功能会静默降级，不影响主流程）。
+
 ```bash
-# 1) 克隆项目
+# 1) 克隆项目（Windows 用户请在上一步的 WSL 终端里执行，不要带 --recurse-submodules）
 git clone --depth 1 https://github.com/Lawyer-ray/FachuanHybridSystem.git
 cd FachuanHybridSystem/backend
 
