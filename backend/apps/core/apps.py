@@ -14,6 +14,8 @@ class CoreConfig(AppConfig):
     verbose_name = "核心系统"
 
     def ready(self) -> None:  # pragma: no cover
+        from apps.core.utils.startup_db import allow_startup_db
+
         try:
             from .tasking.qcluster_spawn import patch_django_q_mp_context_for_macos
 
@@ -25,7 +27,8 @@ class CoreConfig(AppConfig):
         try:
             from .cloud_storage.admin import resume_pending_device_code_polls
 
-            resume_pending_device_code_polls()
+            with allow_startup_db():
+                resume_pending_device_code_polls()
         except Exception:
             # 数据库未就绪（如 migrate 阶段）时静默跳过
             logger.debug("跳过 device code 恢复（数据库可能未就绪）")
@@ -34,7 +37,8 @@ class CoreConfig(AppConfig):
         try:
             from .tasking.cleanup_tasks import _register_schedules
 
-            _register_schedules()
+            with allow_startup_db():
+                _register_schedules()
         except Exception:
             logger.debug("cleanup_tasks 调度注册跳过（未就绪）")
 

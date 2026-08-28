@@ -14,8 +14,10 @@ class MessageHubConfig(AppConfig):
 
     def ready(self) -> None:  # pragma: no cover
         try:
+            from apps.core.utils.startup_db import allow_startup_db
             from plugins.message_hub.tasks import _register_schedule
 
-            _register_schedule()
+            with allow_startup_db():
+                _register_schedule()
         except Exception:
             pass

@@ -79,7 +79,7 @@ class DocumentRecognitionTask(models.Model):
     finished_at: datetime | None = models.DateTimeField(null=True, blank=True, verbose_name="完成时间")
 
     class Meta:
-        managed = False
+        managed = True
         db_table = "automation_documentrecognitiontask"
         verbose_name = "文书识别任务"
         verbose_name_plural = "文书识别任务"
