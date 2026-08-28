@@ -28,7 +28,7 @@ dependencies = [
     "aiofiles>=24.1.0",
     # --- LLM / AI ---
     "openai>=2.53.0",
-    "huggingface_hub>=1.0.0",
+    "huggingface-hub>=1.0.0",
     # --- 文档处理 ---
     "docxtpl==0.20.2",
     "python-docx==1.2.0",
@@ -97,7 +97,7 @@ dependencies = [
 dev = [
     # --- 代码格式化 ---
     "black==26.5.1",
-    "isort==8.0.1",
+    "isort==9.0.1",
     "ruff==0.16.5",
     # --- 类型检查 ---
     "mypy==2.3.1",
@@ -119,7 +119,7 @@ test = [
     "pytest-cov==7.1.0",
     "pytest-asyncio==1.4.0",
     "pytest-xdist==3.8.0",
-    "pytest-timeout==2.5.0",
+    "pytest-timeout==2.4.0",
     # --- Property-Based Testing ---
     "hypothesis==6.165.10",
     # --- 测试工厂 ---
