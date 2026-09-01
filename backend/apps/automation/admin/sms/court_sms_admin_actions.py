@@ -321,7 +321,7 @@ class CourtSMSAdminActions:  # pragma: no cover
 
                 obj.received_at = timezone.now()
 
-            raw_tail6 = str(request.POST.get("sfdw_phone_tail6", "") or "").strip()
+            raw_tail6 = str(form.cleaned_data.get("sfdw_phone_tail6", "") or "").strip()
             sfdw_phone_tail6 = "".join(ch for ch in raw_tail6 if ch.isdigit())[-6:]
 
             super().save_model(request, obj, form, change)  # type: ignore[misc]
