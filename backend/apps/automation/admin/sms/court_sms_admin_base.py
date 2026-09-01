@@ -613,6 +613,10 @@ class CourtSMSAdminBase(admin.ModelAdmin):  # pragma: no cover
         return list(self.fieldsets)
 
     def get_form(self, request: HttpRequest, obj: CourtSMS | None = None, change: bool = False, **kwargs: Any) -> Any:
+        # 虚拟字段需要先从 ModelForm 生成中排除，生成后再注入
+        if obj is None and "fields" not in kwargs:
+            kwargs = {**kwargs, "fields": ("content", "received_at")}
+
         form = super().get_form(request, obj, change=change, **kwargs)
 
         if obj is None:
