@@ -208,7 +208,9 @@ class ICaseService(Protocol):
         """
         ...
 
-    def create_case_log_internal(self, case_id: int, content: str, user_id: int | None = None) -> int:
+    def create_case_log_internal(
+        self, case_id: int, content: str, user_id: int | None = None, event_date: str | None = None
+    ) -> int:
         """
         内部方法:创建案件日志,返回日志ID
 
@@ -216,6 +218,7 @@ class ICaseService(Protocol):
             case_id: 案件 ID
             content: 日志内容
             user_id: 用户 ID(可选)
+            event_date: 工作日志业务日期，ISO 字符串(如 "2024-09-11")(可选)
 
         Returns:
             创建的日志 ID

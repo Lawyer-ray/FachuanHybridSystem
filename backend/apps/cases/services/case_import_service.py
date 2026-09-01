@@ -255,6 +255,7 @@ class CaseImportService:
                 case=case,
                 content=log_data["content"],
                 actor=actor,
+                event_date=log_data.get("event_date"),
             )
             for att_data in log_data.get("attachments") or []:
                 file_path = att_data.get("file_path")

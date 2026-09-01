@@ -28,7 +28,10 @@ class CaseLogMutationService:
         perm_open_access: bool = False,
         reminder_type: str | None = None,
         reminder_time: datetime | None = None,
-    ) -> CaseLog:  # pragma: no cover
+        event_date: str | None = None,
+    ) -> CaseLog:
+        # pragma: no cover
+        # ... (header)
         try:
             case = Case.objects.get(id=case_id)
         except Case.DoesNotExist:
@@ -50,7 +53,7 @@ class CaseLogMutationService:
         if not actor_id:
             raise ValidationException("操作人不能为空", errors={"actor": "缺少有效的操作人"})
 
-        log = CaseLog.objects.create(case_id=case_id, content=content, actor_id=actor_id)
+        log = CaseLog.objects.create(case_id=case_id, content=content, actor_id=actor_id, event_date=event_date)
 
         self._sync_case_log_reminder(
             log=log,

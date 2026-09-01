@@ -9,14 +9,21 @@ from apps.cases.models import Case, CaseAssignment, CaseLog, CaseParty, Supervis
 
 
 class CaseFullCreateRepo:
-    def create_case_party(self, *, case: Case, client_id: int, legal_status: str | None) -> CaseParty:  # pragma: no cover
+    def create_case_party(
+        self, *, case: Case, client_id: int, legal_status: str | None
+    ) -> CaseParty:  # pragma: no cover
         return CaseParty.objects.create(case=case, client_id=client_id, legal_status=legal_status)
 
     def create_case_assignment(self, *, case: Case, lawyer_id: int) -> CaseAssignment:  # pragma: no cover
         return CaseAssignment.objects.create(case=case, lawyer_id=lawyer_id)
 
-    def create_case_log(self, *, case: Case, content: str, actor_id: int) -> CaseLog:  # pragma: no cover
-        return CaseLog.objects.create(case=case, content=content, actor_id=actor_id)
+    def create_case_log(
+        self, *, case: Case, content: str, actor_id: int, event_date: str | None = None
+    ) -> CaseLog:  # pragma: no cover
+        create_kwargs: dict[str, Any] = {"case": case, "content": content, "actor_id": actor_id}
+        if event_date:
+            create_kwargs["event_date"] = event_date
+        return CaseLog.objects.create(**create_kwargs)
 
     def create_supervising_authority(
         self,
@@ -60,6 +67,7 @@ class CaseFullCreateRepo:
                     case=case,
                     content=log["content"],
                     actor_id=actor_id,
+                    event_date=log.get("event_date"),
                 )
             )
         return results
