@@ -196,7 +196,9 @@ class CourtSMSAdminBase(admin.ModelAdmin):  # pragma: no cover
             )
         elif obj.status == CourtSMSStatus.PENDING_MANUAL:
             change_url = reverse("admin:automation_courtsms_change", args=[obj.id])
-            return format_html('<a href="{}" style="color: var(--fc-warning-text); font-weight: bold;">手动关联</a>', change_url)
+            return format_html(
+                '<a href="{}" style="color: var(--fc-warning-text); font-weight: bold;">手动关联</a>', change_url
+            )
         return "-"
 
     @admin.display(description=_("短信内容"))
@@ -211,7 +213,9 @@ class CourtSMSAdminBase(admin.ModelAdmin):  # pragma: no cover
     def has_download_links(self, obj: CourtSMS) -> SafeString:  # pragma: no cover
         """是否有下载链接"""
         if obj.download_links:
-            return format_html('<span style="color: var(--fc-success-text);">✓ {} 个链接</span>', len(obj.download_links))
+            return format_html(
+                '<span style="color: var(--fc-success-text);">✓ {} 个链接</span>', len(obj.download_links)
+            )
         return format_html('<span style="color: var(--fc-text-disabled);">{}</span>', "✗ 无链接")
 
     @admin.display(description=_("提取的案号"))
@@ -401,7 +405,10 @@ class CourtSMSAdminBase(admin.ModelAdmin):  # pragma: no cover
                         parts.append(format_html("<br><small>{}</small>", p))
                 if fail_platforms:
                     parts.append(
-                        format_html('<br><small style="color: var(--fc-error-text);">失败: {}</small>', ", ".join(fail_platforms))
+                        format_html(
+                            '<br><small style="color: var(--fc-error-text);">失败: {}</small>',
+                            ", ".join(fail_platforms),
+                        )
                     )
                 return mark_safe("".join(str(p) for p in parts))
             elif fail_platforms:
@@ -581,7 +588,9 @@ class CourtSMSAdminBase(admin.ModelAdmin):  # pragma: no cover
         else:
             return [field.name for field in self.model._meta.fields if field.name != "id"]
 
-    def get_readonly_fields(self, request: HttpRequest, obj: CourtSMS | None = None) -> list[str] | tuple[str, ...]:  # pragma: no cover
+    def get_readonly_fields(
+        self, request: HttpRequest, obj: CourtSMS | None = None
+    ) -> list[str] | tuple[str, ...]:  # pragma: no cover
         """根据是否为新增页面返回不同的只读字段"""
         if obj is None:
             return ["received_at"]
@@ -605,11 +614,11 @@ class CourtSMSAdminBase(admin.ModelAdmin):  # pragma: no cover
                             ".sms-platforms-tags{display:flex;flex-wrap:wrap;gap:8px;}"
                             ".sms-platforms-tags span{background:var(--fc-primary-subtle);color:var(--fc-primary);padding:4px 10px;border-radius:999px;font-size:12px;border:0;white-space:nowrap;}"
                             ".sms-platforms-tags span code{color:var(--fc-primary);font-size:11px;}"
-                            ".sfdw-tail6-wrap{display:none;padding:12px 0 14px;border-top:0;}"
-                            ".sfdw-tail6-row{display:grid;grid-template-columns:160px minmax(260px,420px);align-items:flex-start;}"
-                            ".sfdw-tail6-label{padding:4px 10px 0 0;color:var(--fc-text-secondary);font-size:13px;font-weight:600;box-sizing:border-box;}"
-                            ".sfdw-tail6-body{padding-right:12px;max-width:420px;}"
-                            ".sfdw-tail6-wrap input{width:100%;max-width:420px;box-sizing:border-box;}"
+                            ".sfdw-tail6-wrap{display:none;padding:10px 0;}"
+                            ".sfdw-tail6-row{display:flex;align-items:center;gap:10px;}"
+                            ".sfdw-tail6-label{white-space:nowrap;font-size:0.8125rem;color:var(--fc-text-secondary);font-weight:600;padding-right:10px;}"
+                            ".sfdw-tail6-body{flex:1;min-width:0;}"
+                            ".sfdw-tail6-body input{width:20em;max-width:100%;}"
                             "</style>"
                             "<div class='sms-platforms'>"
                             "<div class='sms-platforms-title'>📥 支持自动下载</div>"
@@ -623,7 +632,7 @@ class CourtSMSAdminBase(admin.ModelAdmin):  # pragma: no cover
                             "<span title='171.106.48.55:28083'>广西法院短信平台</span>"
                             "</div>"
                             "</div>"
-                            "<div id='sfdw-tail6-wrap' class='form-row sfdw-tail6-wrap'>"
+                            "<div id='sfdw-tail6-wrap' class='sfdw-tail6-wrap'>"
                             "<div class='sfdw-tail6-row'>"
                             "<label for='id_sfdw_phone_tail6' class='sfdw-tail6-label'>手机号后6位：</label>"
                             "<div class='sfdw-tail6-body'>"
@@ -633,39 +642,21 @@ class CourtSMSAdminBase(admin.ModelAdmin):  # pragma: no cover
                             "</div>"
                             "<script>"
                             "(function(){"
-                            "  const mount = function(){"
-                            "    const wrap = document.getElementById('sfdw-tail6-wrap');"
-                            "    const row = wrap ? wrap.querySelector('.sfdw-tail6-row') : null;"
-                            "    const input = document.getElementById('id_sfdw_phone_tail6');"
-                            "    const contentRow = document.querySelector('.form-row.field-content');"
-                            "    const receivedAtRow = document.querySelector('.form-row.field-received_at');"
-                            "    const contentLabel = contentRow ? contentRow.querySelector('label') : null;"
-                            "    if(!wrap || !row || !input){return;}"
-                            "    if(receivedAtRow && wrap.previousElementSibling !== contentRow){"
-                            "      receivedAtRow.insertAdjacentElement('beforebegin', wrap);"
-                            "    } else if(contentRow && wrap.previousElementSibling !== contentRow) {"
-                            "      contentRow.insertAdjacentElement('afterend', wrap);"
-                            "    }"
-                            "    wrap.style.display = 'block';"
-                            "    if(contentLabel){"
-                            "      const labelRect = contentLabel.getBoundingClientRect();"
-                            "      const rowRect = row.getBoundingClientRect();"
-                            "      const w = Math.ceil(labelRect.width);"
-                            "      const rawOffset = Math.round(labelRect.left - rowRect.left);"
-                            "      const offset = Math.max(0, Math.min(40, rawOffset));"
-                            "      if(w > 0){ row.style.gridTemplateColumns = w + 'px minmax(260px, 420px)'; }"
-                            "      row.style.paddingLeft = offset + 'px';"
-                            "    }"
-                            "    input.value = (input.value || '').replace(/\\D/g, '').slice(0, 6);"
-                            "    input.addEventListener('input', function(){"
-                            "      input.value = (input.value || '').replace(/\\D/g, '').slice(0, 6);"
+                            "  const mount=function(){"
+                            "    const wrap=document.getElementById('sfdw-tail6-wrap');"
+                            "    const input=document.getElementById('id_sfdw_phone_tail6');"
+                            "    const contentRow=document.querySelector('.form-row.field-content');"
+                            "    if(!wrap||!input||!contentRow){return;}"
+                            "    if(wrap.parentElement!==contentRow.parentElement){contentRow.after(wrap);}"
+                            "    wrap.style.display='block';"
+                            "    input.value=(input.value||'').replace(/\\D/g,'').slice(0,6);"
+                            "    input.addEventListener('input',function(){"
+                            "      input.value=(input.value||'').replace(/\\D/g,'').slice(0,6);"
                             "    });"
                             "  };"
-                            "  if(document.readyState === 'loading'){"
-                            "    document.addEventListener('DOMContentLoaded', mount);"
-                            "  } else {"
-                            "    mount();"
-                            "  }"
+                            "  if(document.readyState==='loading'){"
+                            "    document.addEventListener('DOMContentLoaded',mount);"
+                            "  }else{mount();}"
                             "})();"
                             "</script>"
                         ),
@@ -675,7 +666,9 @@ class CourtSMSAdminBase(admin.ModelAdmin):  # pragma: no cover
         else:
             return list(self.fieldsets)
 
-    def get_form(self, request: HttpRequest, obj: CourtSMS | None = None, change: bool = False, **kwargs: Any) -> Any:  # pragma: no cover
+    def get_form(
+        self, request: HttpRequest, obj: CourtSMS | None = None, change: bool = False, **kwargs: Any
+    ) -> Any:  # pragma: no cover
         """自定义表单"""
         form = super().get_form(request, obj, change=change, **kwargs)
 
