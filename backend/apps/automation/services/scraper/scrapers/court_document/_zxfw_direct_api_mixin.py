@@ -162,11 +162,55 @@ class ZxfwDirectApiMixin:  # pragma: no cover
             )
             return False, None, error_msg
 
+    def _confirm_receipt_via_direct_api(self, params: dict[str, str]) -> None:  # pragma: no cover
+        """向一张网发送签收确认，确保法院端产生查收记录。
+
+        必须在调用 getWsListBySdbhNew 之前执行。
+        """
+        import httpx
+
+        api_url = "https://zxfw.court.gov.cn/yzw/yzw-zxfw-sdfw/api/v1/sdfw/updateSdxxBySdzt"
+        headers = {
+            "Accept": "*/*",
+            "Accept-Language": "zh-CN,zh;q=0.9",
+            "Connection": "keep-alive",
+            "Content-Type": "application/json",
+            "DNT": "1",
+            "Origin": "https://zxfw.court.gov.cn",
+            "Referer": "https://zxfw.court.gov.cn/zxfw/",
+            "Sec-Fetch-Dest": "empty",
+            "Sec-Fetch-Mode": "cors",
+            "Sec-Fetch-Site": "same-origin",
+            "User-Agent": (
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+                " AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36"
+            ),
+        }
+        payload = {"sdbh": params.get("sdbh"), "qdbh": params.get("qdbh"), "sdsin": params.get("sdsin")}
+        logger.info(f"发送签收确认: {api_url}, payload: {payload}")
+        try:
+            with httpx.Client(headers=headers, timeout=30.0) as client:
+                resp = client.post(api_url, json=payload)
+                resp.raise_for_status()
+                data = resp.json()
+            if isinstance(data, dict) and data.get("code") == 200:
+                logger.info("签收确认成功", extra={"operation_type": "confirm_receipt_success"})
+            else:
+                logger.warning(
+                    "签收确认返回非成功码",
+                    extra={"code": data.get("code") if isinstance(data, dict) else None},
+                )
+        except Exception as exc:
+            # 签收确认失败不应阻塞下载流程，仅记录日志
+            logger.warning("签收确认失败，继续下载文书", extra={"error": str(exc)})
+
     def _download_via_direct_api(self, url: str, download_dir: Path) -> dict[str, Any]:  # pragma: no cover
         """通过直接调用 API 下载文书（无需浏览器，速度最快）"""
         params = self._extract_url_params(url)
         if not params:
             raise ValueError("无法从 URL 中提取必要参数 (sdbh, qdbh, sdsin)")
+        # 先签收确认，再下载
+        self._confirm_receipt_via_direct_api(params)
         documents = self._fetch_documents_via_direct_api(params)
         if len(documents) == 0:
             raise ValueError("API 返回的文书列表为空")
@@ -340,11 +384,51 @@ class ZxfwDirectApiMixin:  # pragma: no cover
             )
             return False, None, error_msg
 
+    async def _aconfirm_receipt_via_direct_api(self, params: dict[str, str]) -> None:  # pragma: no cover
+        """异步版向一张网发送签收确认。"""
+        import httpx
+
+        api_url = "https://zxfw.court.gov.cn/yzw/yzw-zxfw-sdfw/api/v1/sdfw/updateSdxxBySdzt"
+        headers = {
+            "Accept": "*/*",
+            "Accept-Language": "zh-CN,zh;q=0.9",
+            "Connection": "keep-alive",
+            "Content-Type": "application/json",
+            "DNT": "1",
+            "Origin": "https://zxfw.court.gov.cn",
+            "Referer": "https://zxfw.court.gov.cn/zxfw/",
+            "Sec-Fetch-Dest": "empty",
+            "Sec-Fetch-Mode": "cors",
+            "Sec-Fetch-Site": "same-origin",
+            "User-Agent": (
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+                " AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36"
+            ),
+        }
+        payload = {"sdbh": params.get("sdbh"), "qdbh": params.get("qdbh"), "sdsin": params.get("sdsin")}
+        logger.info(f"发送签收确认 (async): {api_url}, payload: {payload}")
+        try:
+            async with httpx.AsyncClient(headers=headers, timeout=30.0) as client:
+                resp = await client.post(api_url, json=payload)
+                resp.raise_for_status()
+                data = resp.json()
+            if isinstance(data, dict) and data.get("code") == 200:
+                logger.info("签收确认成功 (async)", extra={"operation_type": "confirm_receipt_success"})
+            else:
+                logger.warning(
+                    "签收确认返回非成功码",
+                    extra={"code": data.get("code") if isinstance(data, dict) else None},
+                )
+        except Exception as exc:
+            logger.warning("签收确认失败，继续下载文书", extra={"error": str(exc)})
+
     async def _adownload_via_direct_api(self, url: str, download_dir: Path) -> dict[str, Any]:  # pragma: no cover
         """异步版直接调用 API 下载文书（无需浏览器，速度最快）"""
         params = self._extract_url_params(url)
         if not params:
             raise ValueError("无法从 URL 中提取必要参数 (sdbh, qdbh, sdsin)")
+        # 先签收确认，再下载
+        await self._aconfirm_receipt_via_direct_api(params)
         documents = await self._afetch_documents_via_direct_api(params)
         if len(documents) == 0:
             raise ValueError("API 返回的文书列表为空")
