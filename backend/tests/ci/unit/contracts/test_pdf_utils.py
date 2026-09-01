@@ -53,7 +53,7 @@ class TestScalePagesToA4:
 
 class TestAddPageNumbers:
     def test_add_page_numbers(self):
-        import fitz
+        import pymupdf as fitz
 
         doc = fitz.open()
         doc.new_page(width=595, height=842)

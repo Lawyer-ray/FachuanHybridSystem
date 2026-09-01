@@ -6,7 +6,7 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
-import fitz
+import pymupdf as fitz
 from django.conf import settings
 from django.core.files.uploadedfile import UploadedFile
 from docx import Document

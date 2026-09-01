@@ -55,7 +55,7 @@ class TrackingExtractionService:
         if suffix != ".pdf":
             return waybill_file_path.read_bytes()
 
-        import fitz
+        import pymupdf as fitz
 
         with fitz.open(str(waybill_file_path)) as document:
             if document.page_count <= 0:
@@ -71,7 +71,7 @@ class TrackingExtractionService:
         将多页 PDF 截断为仅保留第一页，节省存储空间。
         如果 PDF 只有一页则不操作。返回 True 表示已截断。
         """
-        import fitz
+        import pymupdf as fitz
 
         if pdf_path.suffix.lower() != ".pdf":
             return False
