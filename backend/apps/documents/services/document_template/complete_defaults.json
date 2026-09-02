@@ -317,8 +317,7 @@
             "name": "申请执行文件夹",
             "template_type": "case",
             "case_types": [
-                "civil",
-                "execution"
+                "civil"
             ],
             "case_stages": [
                 "enforcement"
@@ -735,6 +734,7 @@
             "template_type": "contract",
             "contract_sub_type": "supplementary_agreement",
             "case_sub_type": null,
+            "archive_sub_type": null,
             "file_path": "1-合同模板/补充协议.docx",
             "contract_types": [
                 "all"
@@ -743,6 +743,7 @@
             "case_stages": [],
             "legal_statuses": [],
             "legal_status_match_mode": "any",
+            "applicable_institutions": [],
             "is_active": true
         },
         {
@@ -750,6 +751,7 @@
             "template_type": "case",
             "contract_sub_type": null,
             "case_sub_type": "power_of_attorney_materials",
+            "archive_sub_type": null,
             "file_path": "2-案件材料/4-通用材料/1-授权委托材料/所函.docx",
             "contract_types": [],
             "case_types": [
@@ -760,6 +762,7 @@
             ],
             "legal_statuses": [],
             "legal_status_match_mode": "any",
+            "applicable_institutions": [],
             "is_active": true
         },
         {
@@ -767,6 +770,7 @@
             "template_type": "case",
             "contract_sub_type": null,
             "case_sub_type": "power_of_attorney_materials",
+            "archive_sub_type": null,
             "file_path": "2-案件材料/4-通用材料/1-授权委托材料/授权委托书.docx",
             "contract_types": [],
             "case_types": [
@@ -777,6 +781,7 @@
             ],
             "legal_statuses": [],
             "legal_status_match_mode": "any",
+            "applicable_institutions": [],
             "is_active": true
         },
         {
@@ -784,6 +789,7 @@
             "template_type": "case",
             "contract_sub_type": null,
             "case_sub_type": "power_of_attorney_materials",
+            "archive_sub_type": null,
             "file_path": "2-案件材料/4-通用材料/1-授权委托材料/法定代表人身份证明书.docx",
             "contract_types": [],
             "case_types": [
@@ -794,6 +800,7 @@
             ],
             "legal_statuses": [],
             "legal_status_match_mode": "any",
+            "applicable_institutions": [],
             "is_active": true
         },
         {
@@ -801,15 +808,18 @@
             "template_type": "contract",
             "contract_sub_type": "contract",
             "case_sub_type": null,
+            "archive_sub_type": null,
             "file_path": "1-合同模板/民商事代理合同.docx",
             "contract_types": [
                 "civil",
+                "administrative",
                 "labor"
             ],
             "case_types": [],
             "case_stages": [],
             "legal_statuses": [],
             "legal_status_match_mode": "any",
+            "applicable_institutions": [],
             "is_active": true
         },
         {
@@ -817,6 +827,7 @@
             "template_type": "contract",
             "contract_sub_type": "contract",
             "case_sub_type": null,
+            "archive_sub_type": null,
             "file_path": "1-合同模板/顾问合同.docx",
             "contract_types": [
                 "advisor"
@@ -825,6 +836,7 @@
             "case_stages": [],
             "legal_statuses": [],
             "legal_status_match_mode": "any",
+            "applicable_institutions": [],
             "is_active": true
         },
         {
@@ -832,6 +844,7 @@
             "template_type": "contract",
             "contract_sub_type": "contract",
             "case_sub_type": null,
+            "archive_sub_type": null,
             "file_path": "1-合同模板/刑事代理合同.docx",
             "contract_types": [
                 "criminal"
@@ -840,6 +853,7 @@
             "case_stages": [],
             "legal_statuses": [],
             "legal_status_match_mode": "any",
+            "applicable_institutions": [],
             "is_active": true
         },
         {
@@ -847,6 +861,7 @@
             "template_type": "case",
             "contract_sub_type": null,
             "case_sub_type": "application_materials",
+            "archive_sub_type": null,
             "file_path": "2-案件材料/3-申请执行材料/强制执行申请书.docx",
             "contract_types": [],
             "case_types": [
@@ -860,6 +875,7 @@
                 "applicant"
             ],
             "legal_status_match_mode": "any",
+            "applicable_institutions": [],
             "is_active": true
         },
         {
@@ -867,6 +883,7 @@
             "template_type": "case",
             "contract_sub_type": null,
             "case_sub_type": "application_materials",
+            "archive_sub_type": null,
             "file_path": "2-案件材料/3-申请执行材料/限制性措施/纳入失信被执行人名单的申请书.docx",
             "contract_types": [],
             "case_types": [
@@ -880,6 +897,7 @@
                 "applicant"
             ],
             "legal_status_match_mode": "any",
+            "applicable_institutions": [],
             "is_active": true
         },
         {
@@ -887,6 +905,7 @@
             "template_type": "case",
             "contract_sub_type": null,
             "case_sub_type": "application_materials",
+            "archive_sub_type": null,
             "file_path": "2-案件材料/3-申请执行材料/限制性措施/通过媒体公布不履行义务信息的申请书.docx",
             "contract_types": [],
             "case_types": [
@@ -900,6 +919,7 @@
                 "applicant"
             ],
             "legal_status_match_mode": "any",
+            "applicable_institutions": [],
             "is_active": true
         },
         {
@@ -907,6 +927,7 @@
             "template_type": "case",
             "contract_sub_type": null,
             "case_sub_type": "application_materials",
+            "archive_sub_type": null,
             "file_path": "2-案件材料/3-申请执行材料/限制性措施/限制被执行人出境申请书.docx",
             "contract_types": [],
             "case_types": [
@@ -920,6 +941,7 @@
                 "applicant"
             ],
             "legal_status_match_mode": "any",
+            "applicable_institutions": [],
             "is_active": true
         },
         {
@@ -927,6 +949,7 @@
             "template_type": "case",
             "contract_sub_type": null,
             "case_sub_type": "application_materials",
+            "archive_sub_type": null,
             "file_path": "2-案件材料/3-申请执行材料/限制性措施/限制高消费申请书.docx",
             "contract_types": [],
             "case_types": [
@@ -940,6 +963,7 @@
                 "applicant"
             ],
             "legal_status_match_mode": "any",
+            "applicable_institutions": [],
             "is_active": true
         },
         {
@@ -947,6 +971,7 @@
             "template_type": "case",
             "contract_sub_type": null,
             "case_sub_type": "service_address_materials",
+            "archive_sub_type": null,
             "file_path": "2-案件材料/4-通用材料/3-送达地址确认书/广州电子送达地址确认书.docx",
             "contract_types": [],
             "case_types": [
@@ -957,6 +982,7 @@
             ],
             "legal_statuses": [],
             "legal_status_match_mode": "any",
+            "applicable_institutions": [],
             "is_active": true
         },
         {
@@ -964,6 +990,7 @@
             "template_type": "case",
             "contract_sub_type": null,
             "case_sub_type": "service_address_materials",
+            "archive_sub_type": null,
             "file_path": "2-案件材料/4-通用材料/3-送达地址确认书/广州对方当事人送达地址及相关信息确认书.docx",
             "contract_types": [],
             "case_types": [
@@ -974,6 +1001,7 @@
             ],
             "legal_statuses": [],
             "legal_status_match_mode": "any",
+            "applicable_institutions": [],
             "is_active": true
         },
         {
@@ -981,6 +1009,7 @@
             "template_type": "case",
             "contract_sub_type": null,
             "case_sub_type": "refund_account_materials",
+            "archive_sub_type": null,
             "file_path": "2-案件材料/4-通用材料/5-退费账户确认书/番禺法院领退转款账户确认书.docx",
             "contract_types": [],
             "case_types": [
@@ -994,17 +1023,18 @@
                 "applicant"
             ],
             "legal_status_match_mode": "any",
-            "is_active": true,
             "applicable_institutions": [
                 "广州市番禺区人民法院"
-            ]
+            ],
+            "is_active": true
         },
         {
-            "name": "禅城法院送达地址确认书",
+            "name": "佛山法院送达地址确认书",
             "template_type": "case",
             "contract_sub_type": null,
             "case_sub_type": "service_address_materials",
-            "file_path": "2-案件材料/4-通用材料/3-送达地址确认书/佛山禅城法院送达地址确认书.docx",
+            "archive_sub_type": null,
+            "file_path": "2-案件材料/4-通用材料/3-送达地址确认书/佛山法院送达地址确认书.docx",
             "contract_types": [],
             "case_types": [
                 "all"
@@ -1014,100 +1044,112 @@
             ],
             "legal_statuses": [],
             "legal_status_match_mode": "any",
-            "is_active": true,
             "applicable_institutions": [
-                "佛山市禅城区人民法院"
-            ]
+                "佛山市禅城区人民法院",
+                "广东省佛山市中级人民法院",
+                "佛山市三水区人民法院",
+                "佛山市南海区人民法院",
+                "佛山市顺德区人民法院",
+                "佛山市高明区人民法院"
+            ],
+            "is_active": true
         },
         {
             "name": "案卷封面",
             "template_type": "archive",
             "contract_sub_type": null,
             "case_sub_type": null,
+            "archive_sub_type": "case_cover",
             "file_path": "3-归档模板/1-案卷封面.docx",
             "contract_types": [],
             "case_types": [],
             "case_stages": [],
             "legal_statuses": [],
             "legal_status_match_mode": "any",
-            "is_active": true,
-            "archive_sub_type": "case_cover"
+            "applicable_institutions": [],
+            "is_active": true
         },
         {
             "name": "结案归档登记表",
             "template_type": "archive",
             "contract_sub_type": null,
             "case_sub_type": null,
+            "archive_sub_type": "closing_archive_register",
             "file_path": "3-归档模板/2-结案归档登记表.docx",
             "contract_types": [],
             "case_types": [],
             "case_stages": [],
             "legal_statuses": [],
             "legal_status_match_mode": "any",
-            "is_active": true,
-            "archive_sub_type": "closing_archive_register"
+            "applicable_institutions": [],
+            "is_active": true
         },
         {
             "name": "卷内目录",
             "template_type": "archive",
             "contract_sub_type": null,
             "case_sub_type": null,
+            "archive_sub_type": "inner_catalog",
             "file_path": "3-归档模板/3-卷内目录.docx",
             "contract_types": [],
             "case_types": [],
             "case_stages": [],
             "legal_statuses": [],
             "legal_status_match_mode": "any",
-            "is_active": true,
-            "archive_sub_type": "inner_catalog"
+            "applicable_institutions": [],
+            "is_active": true
         },
         {
             "name": "律师工作日志",
             "template_type": "archive",
             "contract_sub_type": null,
             "case_sub_type": null,
+            "archive_sub_type": "lawyer_work_log",
             "file_path": "3-归档模板/5-律师工作日志.docx",
             "contract_types": [],
             "case_types": [],
             "case_stages": [],
             "legal_statuses": [],
             "legal_status_match_mode": "any",
-            "is_active": true,
-            "archive_sub_type": "lawyer_work_log"
+            "applicable_institutions": [],
+            "is_active": true
         },
         {
             "name": "律师办案服务质量监督卡",
             "template_type": "archive",
             "contract_sub_type": null,
             "case_sub_type": null,
+            "archive_sub_type": "service_quality_card",
             "file_path": "3-归档模板/6-律师办案服务质量监督卡.docx",
             "contract_types": [],
             "case_types": [],
             "case_stages": [],
             "legal_statuses": [],
             "legal_status_match_mode": "any",
-            "is_active": true,
-            "archive_sub_type": "service_quality_card"
+            "applicable_institutions": [],
+            "is_active": true
         },
         {
             "name": "办案小结",
             "template_type": "archive",
             "contract_sub_type": null,
             "case_sub_type": null,
+            "archive_sub_type": "case_summary",
             "file_path": "3-归档模板/7-办案小结.docx",
             "contract_types": [],
             "case_types": [],
             "case_stages": [],
             "legal_statuses": [],
             "legal_status_match_mode": "any",
-            "is_active": true,
-            "archive_sub_type": "case_summary"
+            "applicable_institutions": [],
+            "is_active": true
         },
         {
             "name": "财产保全申请书",
             "template_type": "case",
             "contract_sub_type": null,
             "case_sub_type": "property_preservation_materials",
+            "archive_sub_type": null,
             "file_path": "2-案件材料/1-起诉材料/2-财产保全材料/财产保全申请书.docx",
             "contract_types": [],
             "case_types": [
@@ -1121,6 +1163,7 @@
                 "applicant"
             ],
             "legal_status_match_mode": "any",
+            "applicable_institutions": [],
             "is_active": true
         },
         {
@@ -1128,6 +1171,7 @@
             "template_type": "case",
             "contract_sub_type": null,
             "case_sub_type": "service_address_materials",
+            "archive_sub_type": null,
             "file_path": "2-案件材料/4-通用材料/3-送达地址确认书/东莞第三法院被告送达地址线索书.docx",
             "contract_types": [],
             "case_types": [
@@ -1144,16 +1188,17 @@
                 "applicant"
             ],
             "legal_status_match_mode": "any",
-            "is_active": true,
             "applicable_institutions": [
                 "东莞市第三人民法院"
-            ]
+            ],
+            "is_active": true
         },
         {
             "name": "东莞第三法院原告送达地址、送达方式确认书",
             "template_type": "case",
             "contract_sub_type": null,
             "case_sub_type": "service_address_materials",
+            "archive_sub_type": null,
             "file_path": "2-案件材料/4-通用材料/3-送达地址确认书/东莞第三法院原告送达地址、送达方式确认书.docx",
             "contract_types": [],
             "case_types": [
@@ -1167,16 +1212,17 @@
                 "plaintiff"
             ],
             "legal_status_match_mode": "any",
-            "is_active": true,
             "applicable_institutions": [
                 "东莞市第三人民法院"
-            ]
+            ],
+            "is_active": true
         },
         {
             "name": "东莞第三法院账户确认书",
             "template_type": "case",
             "contract_sub_type": null,
             "case_sub_type": "refund_account_materials",
+            "archive_sub_type": null,
             "file_path": "2-案件材料/4-通用材料/5-退费账户确认书/东莞第三法院账户确认书.docx",
             "contract_types": [],
             "case_types": [
@@ -1195,16 +1241,17 @@
                 "applicant"
             ],
             "legal_status_match_mode": "any",
-            "is_active": true,
             "applicable_institutions": [
                 "东莞市第三人民法院"
-            ]
+            ],
+            "is_active": true
         },
         {
             "name": "起诉状",
             "template_type": "case",
             "contract_sub_type": null,
             "case_sub_type": "pleading_materials",
+            "archive_sub_type": null,
             "file_path": "2-案件材料/1-起诉材料/1-起诉状和反诉答辩状/1-起诉状.docx",
             "contract_types": [],
             "case_types": [
@@ -1218,6 +1265,7 @@
                 "plaintiff"
             ],
             "legal_status_match_mode": "any",
+            "applicable_institutions": [],
             "is_active": true
         },
         {
@@ -1225,6 +1273,7 @@
             "template_type": "contract",
             "contract_sub_type": "contract",
             "case_sub_type": null,
+            "archive_sub_type": null,
             "file_path": "1-合同模板/专项合同.docx",
             "contract_types": [
                 "special"
@@ -1233,6 +1282,7 @@
             "case_stages": [],
             "legal_statuses": [],
             "legal_status_match_mode": "any",
+            "applicable_institutions": [],
             "is_active": true
         }
     ],
@@ -1343,7 +1393,7 @@
             "folder_node_id": "folder_1774250377876_a93zfd2s"
         },
         {
-            "document_template_name": "禅城法院送达地址确认书",
+            "document_template_name": "佛山法院送达地址确认书",
             "folder_template_name": "民事一审起诉",
             "folder_node_id": "folder_1767234153997_gsdc2w6bm"
         },
@@ -1416,6 +1466,16 @@
             "document_template_name": "东莞第三法院账户确认书",
             "folder_template_name": "申请执行文件夹",
             "folder_node_id": "folder_1774250377879_1tztdlni"
+        },
+        {
+            "document_template_name": "佛山法院送达地址确认书",
+            "folder_template_name": "民事二审答辩",
+            "folder_node_id": "folder_1780363145846_zzdlyu09"
+        },
+        {
+            "document_template_name": "佛山法院送达地址确认书",
+            "folder_template_name": "民事二审上诉",
+            "folder_node_id": "folder_1785568721971_orpd7x9h"
         }
     ]
 }
