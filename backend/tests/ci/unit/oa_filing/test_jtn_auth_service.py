@@ -5,7 +5,6 @@
 
 from __future__ import annotations
 
-import json
 import time
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -13,13 +12,12 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from apps.oa_filing.services.oa_scripts.jtn.auth.constants import (
-    _COOKIE_PATH,
     _DEFAULT_HTTP_TIMEOUT,
     _HTTP_HEADERS,
     _LOGIN_URL,
+    cookie_path,
 )
 from apps.oa_filing.services.oa_scripts.jtn.auth.service import JtnAuthService
-
 
 # ──────────── 常量一致性 ────────────
 
@@ -56,7 +54,7 @@ class TestJtnAuthServiceInit:
     def test_init_stores_credentials(self):
         auth = JtnAuthService("my_account", "my_password")
         assert auth._account == "my_account"
-        assert auth._password == "my_password"
+        assert auth._password == "my_password"  # pragma: allowlist secret
 
     def test_init_empty_credentials(self):
         auth = JtnAuthService("", "")
@@ -68,34 +66,41 @@ class TestJtnAuthServiceInit:
 
 
 class TestCookiePersistence:
+    def _make_auth(self, account: str = "my_account", cookie_file: Path | None = None):
+        """构造 auth 实例并指向临时 cookie 文件，避免污染真实缓存。"""
+        auth = JtnAuthService(account, "pw")
+        if cookie_file is not None:
+            auth._cookie_path = cookie_file
+        return auth
+
     def test_save_and_load_cookies(self, tmp_path: Path):
         """保存 cookies 到磁盘再加载回来。"""
-        cookie_file = tmp_path / "jtn_cookies.json"
+        auth = self._make_auth(cookie_file=tmp_path / "cookies.json")
         cookies = [
             {"name": "sid", "value": "abc123", "domain": ".jtn.com", "path": "/", "expires": 9999999999},
             {"name": "token", "value": "xyz", "domain": "ims.jtn.com", "path": "/", "expires": 9999999999},
         ]
 
-        with patch.object(JtnAuthService, "save_cookies") as mock_save:
-            # 直接测试 save 的实际逻辑
-            cookie_file.write_text(json.dumps(cookies, indent=2))
-            loaded = json.loads(cookie_file.read_text())
-            assert len(loaded) == 2
-            assert loaded[0]["name"] == "sid"
+        auth.save_cookies(cookies)
+        loaded = auth.load_cookies()
+
+        assert loaded is not None
+        assert len(loaded) == 2
+        assert loaded[0]["name"] == "sid"
 
     def test_load_cookies_filters_expired(self, tmp_path: Path):
         """过期 cookies 应被过滤。"""
-        cookie_file = tmp_path / "jtn_cookies.json"
+        cookie_file = tmp_path / "cookies.json"
+        auth = self._make_auth(cookie_file=cookie_file)
         now = time.time()
         cookies = [
             {"name": "valid", "value": "v", "domain": ".jtn.com", "path": "/", "expires": now + 9999},
             {"name": "expired", "value": "e", "domain": ".jtn.com", "path": "/", "expires": now - 100},
             {"name": "session", "value": "s", "domain": ".jtn.com", "path": "/", "expires": -1},  # 会话 cookie
         ]
-        cookie_file.write_text(json.dumps(cookies))
+        auth.save_cookies(cookies)
 
-        with patch("apps.oa_filing.services.oa_scripts.jtn.auth.service._COOKIE_PATH", cookie_file):
-            result = JtnAuthService.load_cookies()
+        result = auth.load_cookies()
 
         assert result is not None
         names = [c["name"] for c in result]
@@ -105,29 +110,37 @@ class TestCookiePersistence:
 
     def test_load_cookies_no_file(self, tmp_path: Path):
         """无缓存文件时返回 None。"""
-        nonexistent = tmp_path / "nonexistent.json"
-        with patch("apps.oa_filing.services.oa_scripts.jtn.auth.service._COOKIE_PATH", nonexistent):
-            result = JtnAuthService.load_cookies()
-        assert result is None
+        auth = self._make_auth(cookie_file=tmp_path / "nonexistent.json")
+        assert auth.load_cookies() is None
 
     def test_load_cookies_all_expired(self, tmp_path: Path):
         """全部过期时返回 None。"""
-        cookie_file = tmp_path / "jtn_cookies.json"
+        auth = self._make_auth(cookie_file=tmp_path / "cookies.json")
         cookies = [{"name": "old", "value": "v", "domain": ".jtn.com", "path": "/", "expires": 1}]
-        cookie_file.write_text(json.dumps(cookies))
-
-        with patch("apps.oa_filing.services.oa_scripts.jtn.auth.service._COOKIE_PATH", cookie_file):
-            result = JtnAuthService.load_cookies()
-        assert result is None
+        auth.save_cookies(cookies)
+        assert auth.load_cookies() is None
 
     def test_load_cookies_invalid_json(self, tmp_path: Path):
         """JSON 解析失败时返回 None。"""
-        cookie_file = tmp_path / "jtn_cookies.json"
-        cookie_file.write_text("not valid json {{{")
+        auth = self._make_auth(cookie_file=tmp_path / "cookies.json")
+        auth._cookie_path.write_text("not valid json {{{")
+        assert auth.load_cookies() is None
 
-        with patch("apps.oa_filing.services.oa_scripts.jtn.auth.service._COOKIE_PATH", cookie_file):
-            result = JtnAuthService.load_cookies()
-        assert result is None
+    def test_cookie_path_is_per_account(self):
+        """不同 OA 账号应使用不同的 cookie 缓存文件。"""
+        assert cookie_path("huangsong") != cookie_path("fangchangbo")
+        assert cookie_path("huangsong") == cookie_path("huangsong")
+        assert "huangsong" in str(cookie_path("huangsong"))
+
+    def test_save_load_isolated_by_account(self, tmp_path: Path):
+        """账号 A 保存的登录态不能被账号 B 读到。"""
+        account_a = self._make_auth("account_a", cookie_file=tmp_path / "a.json")
+        account_b = self._make_auth("account_b", cookie_file=tmp_path / "b.json")
+
+        account_a.save_cookies([{"name": "sid", "value": "A", "domain": ".jtn.com", "path": "/", "expires": -1}])
+
+        assert account_a.load_cookies() is not None
+        assert account_b.load_cookies() is None
 
 
 # ──────────── Cookie 注入 ────────────
@@ -195,22 +208,31 @@ class TestDelegationChain:
         assert script._auth._account == "acc"
 
     def test_sso_login_mixin_delegates_load_cookies(self):
-        """SsoLoginMixin._load_cookies 应委托给 JtnAuthService.load_cookies。"""
+        """SsoLoginMixin._load_cookies 应委托给 self._auth.load_cookies。"""
         from apps.oa_filing.services.oa_scripts.jtn.filing.sso_login import SsoLoginMixin
 
-        with patch.object(JtnAuthService, "load_cookies", return_value=[{"name": "test"}]) as mock:
-            result = SsoLoginMixin._load_cookies()
-            mock.assert_called_once()
-            assert result == [{"name": "test"}]
+        mixin = SsoLoginMixin()
+        auth = MagicMock()
+        auth.load_cookies.return_value = [{"name": "test"}]
+        mixin._auth = auth
+
+        result = mixin._load_cookies()
+
+        auth.load_cookies.assert_called_once_with()
+        assert result == [{"name": "test"}]
 
     def test_sso_login_mixin_delegates_save_cookies(self):
-        """SsoLoginMixin._save_cookies 应委托给 JtnAuthService.save_cookies。"""
+        """SsoLoginMixin._save_cookies 应委托给 self._auth.save_cookies。"""
         from apps.oa_filing.services.oa_scripts.jtn.filing.sso_login import SsoLoginMixin
 
+        mixin = SsoLoginMixin()
+        auth = MagicMock()
+        mixin._auth = auth
         cookies = [{"name": "test"}]
-        with patch.object(JtnAuthService, "save_cookies") as mock:
-            SsoLoginMixin._save_cookies(cookies)
-            mock.assert_called_once_with(cookies)
+
+        mixin._save_cookies(cookies)
+
+        auth.save_cookies.assert_called_once_with(cookies)
 
     @pytest.mark.asyncio
     async def test_sso_login_mixin_delegates_login_via_sso(self):

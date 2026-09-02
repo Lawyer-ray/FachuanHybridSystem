@@ -84,7 +84,7 @@ class PlaywrightStampMixin:  # pragma: no cover
 
     async def _login_to_stamp(self: Any, page: Page, context: Any) -> None:  # pragma: no cover
         """登录 OA：优先缓存 cookies，否则在当前页面 SSO 扫码。"""
-        cached = JtnAuthService.load_cookies()
+        cached = self._auth.load_cookies()
         if cached:
             logger.info("使用缓存 cookies 登录盖章页面")
             await JtnAuthService.inject_to_context(context, cached)
