@@ -1,8 +1,9 @@
 /* 合同详情页 — 页面布局、头部、状态徽章、响应式 */
 
-/* 隐藏 Django admin 自动生成的页面标题 */
+/* 隐藏 Django admin 自动生成的页面标题（Django 6.1 起 H1 渲染到 .titles-and-tools 容器内） */
 #content > h1:first-child,
-#content > h2:first-child {
+#content > h2:first-child,
+#content > .titles-and-tools {
     display: none;
 }
 

@@ -255,6 +255,30 @@ document.addEventListener('DOMContentLoaded', function() {
         color: var(--breadcrumbs-fg);
     }
 
+    /* Django 6.1: 恢复表单字段横向布局（label 左、控件右），消除升级后纵向堆叠 + 10px 间隙。
+       Django 6.1 在 fieldset 渲染中为每个字段套上 .flex-container（column+gap），
+       此处覆盖为 row，让标题与输入框回到同一行 */
+    .aligned .form-row:not(.form-multiline) > .flex-container:not(.checkbox-row) {
+        display: flex;
+        flex-direction: row;
+        flex-wrap: wrap;
+        align-items: baseline;
+        column-gap: 6px;
+        row-gap: 2px;
+    }
+    .aligned .form-row:not(.form-multiline) > .flex-container:not(.checkbox-row) > label {
+        min-width: 170px;
+        flex-shrink: 0;
+    }
+    .aligned .form-row.form-multiline > .flex-container.fieldBox {
+        display: flex;
+        flex-direction: row;
+        flex-wrap: wrap;
+        align-items: baseline;
+        column-gap: 6px;
+        row-gap: 2px;
+    }
+
     /* Django 6.1: 隐藏空 content-title 且不包含 object-tools 的容器
        自定义页面通常覆盖 content_title 为空，但 .titles-and-tools flex 容器仍会占位 */
     .titles-and-tools:has(.content-title:empty):not(:has(.object-tools)) {
