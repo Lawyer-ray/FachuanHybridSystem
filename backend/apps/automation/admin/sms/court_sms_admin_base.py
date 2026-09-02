@@ -635,7 +635,6 @@ class CourtSMSAdminBase(admin.ModelAdmin):  # pragma: no cover
             content_field = form.base_fields.get("content")
             if content_field:
                 content_field.required = True
-                content_field.help_text = "请粘贴完整的法院短信内容"
                 if hasattr(content_field, "widget") and hasattr(content_field.widget, "attrs"):
                     content_field.widget.attrs.update({"rows": 8, "placeholder": "请粘贴完整的法院短信内容..."})
 
@@ -651,7 +650,7 @@ class CourtSMSAdminBase(admin.ModelAdmin):  # pragma: no cover
                         "placeholder": "留空会自动回退律师手机号后6位",
                     }
                 ),
-                help_text="用于睿法智达下载加密文书时的身份验证",
+                help_text=None,
             )
 
         return form
