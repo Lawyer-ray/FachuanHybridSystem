@@ -15,7 +15,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-
 # ── services/ai/evidence_ocr_service.py ─────────────────────────
 
 
@@ -96,7 +95,7 @@ class TestEvidenceOCRServicePdfExtraction:
         mock_doc.__iter__ = MagicMock(return_value=iter([mock_page]))
         mock_doc.__len__ = MagicMock(return_value=1)
 
-        with patch("fitz.open", return_value=mock_doc):
+        with patch("pymupdf.open", return_value=mock_doc):
             with patch.object(svc, "_ocr_image_bytes", return_value="page text"):
                 file_field = MagicMock()
                 file_field.read.return_value = b"pdf_data"

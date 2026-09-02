@@ -140,7 +140,7 @@ class LocalBackend:
             ParsedDocument 解析结果
         """
         try:
-            import fitz  # PyMuPDF
+            import pymupdf as fitz  # PyMuPDF
 
             doc = fitz.open(file_path)
             texts = []

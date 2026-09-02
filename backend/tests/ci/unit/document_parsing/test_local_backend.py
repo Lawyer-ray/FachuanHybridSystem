@@ -5,10 +5,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from apps.document_parsing.protocols.document_parser_protocol import (
-    ParsedDocument,
-    TextExtractionResult,
-)
+from apps.document_parsing.protocols.document_parser_protocol import ParsedDocument, TextExtractionResult
 from apps.document_parsing.services.backends.local_backend import LocalBackend
 
 _PATCH_PREFIX = "apps.document_parsing.services.backends.local_backend"
@@ -82,7 +79,7 @@ class TestParsePdf:
         pdf = tmp_path / "test.pdf"
         pdf.write_bytes(b"%PDF-1.4 fake")
 
-        # Mock fitz — it's imported locally inside _parse_pdf via `import fitz`
+        # Mock pymupdf — it's imported locally inside _parse_pdf via `import pymupdf as fitz`
         mock_page = MagicMock()
         mock_page.get_text.return_value = "page text"
 
@@ -93,7 +90,7 @@ class TestParsePdf:
         import sys
         mock_fitz = MagicMock()
         mock_fitz.open.return_value = mock_doc
-        sys.modules["fitz"] = mock_fitz
+        sys.modules["pymupdf"] = mock_fitz
 
         try:
             backend = LocalBackend()
@@ -103,20 +100,21 @@ class TestParsePdf:
             assert "page text" in result.text
             assert result.parse_method == "pymupdf"
         finally:
-            sys.modules.pop("fitz", None)
+            sys.modules.pop("pymupdf", None)
 
     def test_import_error(self, tmp_path: Path) -> None:
         pdf = tmp_path / "test.pdf"
         pdf.write_bytes(b"%PDF-1.4 fake")
 
         import sys
-        # Remove fitz from sys.modules and make it fail to import
-        saved = sys.modules.pop("fitz", None)
+
+        # Remove pymupdf from sys.modules and make it fail to import
+        saved = sys.modules.pop("pymupdf", None)
         import builtins
         original_import = builtins.__import__
 
         def mock_import(name, *args, **kwargs):
-            if name == "fitz":
+            if name == "pymupdf":
                 raise ImportError("no fitz")
             return original_import(name, *args, **kwargs)
 
@@ -128,7 +126,7 @@ class TestParsePdf:
         finally:
             builtins.__import__ = original_import
             if saved is not None:
-                sys.modules["fitz"] = saved
+                sys.modules["pymupdf"] = saved
 
 
 class TestParseImage:

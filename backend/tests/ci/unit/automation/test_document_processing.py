@@ -4,8 +4,8 @@ Tests for apps.automation.services.document.document_processing
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -96,7 +96,7 @@ class TestDocumentProcessing:
         from apps.automation.services.document.document_processing import extract_pdf_text
 
         try:
-            import fitz
+            import pymupdf as fitz
             pdf_path = tmp_path / "test.pdf"
             doc = fitz.open()
             page = doc.new_page()
@@ -155,6 +155,7 @@ class TestDocumentRenamerFilename:
 class TestSaveUploadedDocument:
     def test_save_file(self, tmp_path) -> None:
         from django.core.files.uploadedfile import SimpleUploadedFile
+
         from apps.automation.services.document.document_processing import save_uploaded_document
 
         upload = SimpleUploadedFile(name="test_upload.pdf", content=b"%PDF-1.4chunk2", content_type="application/pdf")
@@ -169,6 +170,7 @@ class TestSaveUploadedDocument:
 
     def test_unique_filenames(self, tmp_path) -> None:
         from django.core.files.uploadedfile import SimpleUploadedFile
+
         from apps.automation.services.document.document_processing import save_uploaded_document
 
         upload1 = SimpleUploadedFile(name="same.pdf", content=b"%PDF-1.4data1", content_type="application/pdf")
@@ -186,7 +188,7 @@ class TestSaveUploadedDocument:
 
 class TestRenderPdfPageToImage:
     def test_basic_render(self, tmp_path) -> None:
-        import fitz
+        import pymupdf as fitz
 
         from apps.automation.services.document.document_processing import render_pdf_page_to_image
 
@@ -206,7 +208,7 @@ class TestRenderPdfPageToImage:
         assert url.endswith(".png")
 
     def test_negative_page_clamped(self, tmp_path) -> None:
-        import fitz
+        import pymupdf as fitz
 
         from apps.automation.services.document.document_processing import render_pdf_page_to_image
 
@@ -224,7 +226,7 @@ class TestRenderPdfPageToImage:
         assert url  # negative clamped to 0
 
     def test_page_exceeds_count(self, tmp_path) -> None:
-        import fitz
+        import pymupdf as fitz
 
         from apps.automation.services.document.document_processing import render_pdf_page_to_image
 
@@ -242,7 +244,7 @@ class TestRenderPdfPageToImage:
         assert url  # clamped to last page
 
     def test_render_first_page_alias(self, tmp_path) -> None:
-        import fitz
+        import pymupdf as fitz
 
         from apps.automation.services.document.document_processing import render_pdf_first_page_to_image
 
@@ -262,7 +264,7 @@ class TestRenderPdfPageToImage:
 
 class TestExtractDocumentContentExtended:
     def test_pdf_content(self, tmp_path) -> None:
-        import fitz
+        import pymupdf as fitz
 
         from apps.automation.services.document.document_processing import extract_pdf_text
 
@@ -311,7 +313,7 @@ class TestExtractDocumentContentExtended:
 
 class TestOcrPdfPage:
     def test_ocr_with_valid_pdf(self, tmp_path) -> None:
-        import fitz
+        import pymupdf as fitz
 
         from apps.automation.services.document.document_processing import _ocr_pdf_page
 
@@ -333,7 +335,7 @@ class TestOcrPdfPage:
         assert result == "OCR识别结果"
 
     def test_ocr_page_out_of_range(self, tmp_path) -> None:
-        import fitz
+        import pymupdf as fitz
 
         from apps.automation.services.document.document_processing import _ocr_pdf_page
 
@@ -363,7 +365,7 @@ class TestOcrPdfPage:
 
 class TestProcessPdfExtended:
     def test_text_pdf_returns_text(self, tmp_path) -> None:
-        import fitz
+        import pymupdf as fitz
 
         from apps.automation.services.document.document_processing import extract_pdf_text
 
@@ -378,7 +380,7 @@ class TestProcessPdfExtended:
         assert "Extractable Text Content" in text
 
     def test_empty_pdf_falls_back_to_ocr(self, tmp_path) -> None:
-        import fitz
+        import pymupdf as fitz
 
         from apps.automation.services.document.document_processing import process_pdf
 

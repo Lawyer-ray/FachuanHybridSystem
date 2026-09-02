@@ -33,7 +33,7 @@ class TestIdentityExtractionServiceTextProcessing:
         data = b"\xef\xbb\xbf%PDF-1.4 content"
         assert svc._is_pdf_file(data) is True
 
-    @patch("fitz.open")
+    @patch("pymupdf.open")
     def test_is_pdf_file_image_bytes(self, mock_fitz):
         mock_fitz.side_effect = Exception("not a pdf")
         svc = self._make_service()

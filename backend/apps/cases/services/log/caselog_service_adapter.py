@@ -140,7 +140,9 @@ class CaseLogServiceAdapter(ICaseLogService):
         user_id: int | None = None,
         reminder_type: str | None = None,
         reminder_time: Any | None = None,
-    ) -> int:  # pragma: no cover
+        event_date: str | None = None,
+    ) -> int:
+        # pragma: no cover
         """
         内部方法:创建案件日志,返回日志ID
 
@@ -151,6 +153,7 @@ class CaseLogServiceAdapter(ICaseLogService):
             user_id: 用户 ID(可选)
             reminder_type: 提醒类型(可选)
             reminder_time: 提醒时间(可选)
+            event_date: 工作日志日期(可选)
 
             创建的日志 ID
 
@@ -168,5 +171,6 @@ class CaseLogServiceAdapter(ICaseLogService):
             case_id=case_id,
             content=content,
             actor_id=user_id,  # type: ignore[misc]
+            event_date=event_date,
         )
         return int(log.id)

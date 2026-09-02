@@ -38,7 +38,7 @@ def get_pdf_page_count_with_error(source: Any, default: int = 1) -> tuple[int, s
         last_error = e
 
     try:
-        import fitz
+        import pymupdf as fitz
 
         doc = fitz.open(stream=data, filetype="pdf")
         try:
@@ -89,7 +89,7 @@ def render_page_to_image(
     Returns:
         图片字节数据
     """
-    import fitz
+    import pymupdf as fitz
 
     if isinstance(pdf_path_or_bytes, bytes):
         doc = fitz.open(stream=pdf_path_or_bytes, filetype="pdf")
@@ -119,7 +119,7 @@ def extract_text(
     Returns:
         提取的文本内容
     """
-    import fitz
+    import pymupdf as fitz
 
     if isinstance(pdf_path_or_bytes, bytes):
         doc = fitz.open(stream=pdf_path_or_bytes, filetype="pdf")
@@ -161,7 +161,7 @@ def merge_pdfs(
     Returns:
         合并后的 PDF 字节数据
     """
-    import fitz
+    import pymupdf as fitz
 
     merged = fitz.open()
     try:

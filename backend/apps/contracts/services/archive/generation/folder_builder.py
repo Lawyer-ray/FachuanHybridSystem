@@ -270,7 +270,7 @@ def _compile_final_archive_pdf(
     """将1-3号模板文书的docx转PDF，与4-案卷材料PDF按序号合并，生成"5-Final案卷材料.pdf"。"""
     from datetime import date
 
-    import fitz
+    import pymupdf as fitz
 
     from apps.documents.services.infrastructure.pdf_merge_utils import resolve_material_to_temp_pdf
 

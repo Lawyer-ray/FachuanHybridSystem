@@ -62,7 +62,7 @@ class TestReadSourceBytes:
 
 class TestGetPdfPageCount:
     def test_with_valid_pdf_bytes(self, tmp_path):
-        import fitz
+        import pymupdf as fitz
 
         doc = fitz.open()
         doc.new_page()
@@ -72,7 +72,7 @@ class TestGetPdfPageCount:
         assert count == 1
 
     def test_with_valid_pdf_file(self, tmp_path):
-        import fitz
+        import pymupdf as fitz
 
         doc = fitz.open()
         doc.new_page()
@@ -86,7 +86,7 @@ class TestGetPdfPageCount:
 
 class TestGetPdfPageCountWithError:
     def test_valid_pdf(self, tmp_path):
-        import fitz
+        import pymupdf as fitz
 
         doc = fitz.open()
         doc.new_page()

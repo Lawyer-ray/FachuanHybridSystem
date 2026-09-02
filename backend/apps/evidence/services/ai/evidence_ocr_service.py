@@ -46,7 +46,7 @@ class EvidenceOCRService:
     def _extract_from_pdf(self, file_field: Any) -> str:  # pragma: no cover
         """PDF 逐页转图片后 OCR"""
         try:
-            import fitz
+            import pymupdf as fitz
 
             file_field.seek(0)
             data = file_field.read()

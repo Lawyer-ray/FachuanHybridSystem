@@ -92,7 +92,7 @@ class PDFExtractionService:
     def _open_pdf_document(self, pdf_data: str, filename: str) -> Any:  # pragma: no cover
         """解码并打开 PDF 文档,失败返回错误 dict"""
         try:
-            import fitz
+            import pymupdf as fitz
         except ImportError:
             return {"success": False, "filename": filename, "message": "PDF 处理库未安装", "pages": []}
 
@@ -256,7 +256,7 @@ class PDFExtractionService:
         zoom = dpi / 72
 
         # 使用 fitz.Matrix 进行缩放
-        import fitz
+        import pymupdf as fitz
 
         mat = fitz.Matrix(zoom, zoom)
 

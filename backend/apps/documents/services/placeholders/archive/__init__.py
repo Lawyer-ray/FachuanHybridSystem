@@ -469,9 +469,10 @@ class ArchivePlaceholderService(BasePlaceholderService):
 
         从案件进展(CaseLog)中提取日志,排除自动捕获的短信/文书送达日志,
         格式为日期+描述,硬换行分隔.
+        优先使用 event_date(业务日期),无 event_date 回退到 created_at(数据库创建时间).
         """
         try:
-            logs = case.logs.select_related("actor").order_by("created_at")
+            logs = case.logs.select_related("actor").order_by("event_date", "created_at")
         except Exception:
             logger.warning("获取案件日志失败", extra={"case_id": getattr(case, "id", None)})
             return ""
@@ -484,11 +485,16 @@ class ArchivePlaceholderService(BasePlaceholderService):
             content = str(getattr(log, "content", "") or "").strip()
             if not content:
                 continue
-            created_at = getattr(log, "created_at", None)
-            if created_at:
-                date_str = f"{created_at.year}年{created_at.month}月{created_at.day}日"
+            # 优先使用 event_date（业务日期），无则回退到 created_at
+            event_date = getattr(log, "event_date", None)
+            if event_date:
+                date_str = f"{event_date.year}年{event_date.month}月{event_date.day}日"
             else:
-                date_str = "未知日期"
+                created_at = getattr(log, "created_at", None)
+                if created_at:
+                    date_str = f"{created_at.year}年{created_at.month}月{created_at.day}日"
+                else:
+                    date_str = "未知日期"
             lines.append(f"{date_str}，{content}")
 
         if not lines:

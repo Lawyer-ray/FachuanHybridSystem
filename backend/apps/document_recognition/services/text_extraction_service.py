@@ -214,7 +214,7 @@ class TextExtractionService:
         """
         import uuid
 
-        import fitz
+        import pymupdf as fitz
         from django.conf import settings
 
         from apps.core.interfaces import ServiceLocator

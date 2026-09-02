@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from datetime import date, datetime
 from typing import Any, cast
 
 from django.utils import timezone
@@ -16,7 +17,9 @@ logger = logging.getLogger("apps.cases")
 
 
 class CaseLogInternalService:
-    def create_case_log_internal(self, case_id: int, content: str, user_id: int | None = None) -> Any:  # pragma: no cover
+    def create_case_log_internal(
+        self, case_id: int, content: str, user_id: int | None = None, event_date: str | None = None
+    ) -> Any:  # pragma: no cover
         try:
             case = Case.objects.get(id=case_id)
         except Case.DoesNotExist:
@@ -30,7 +33,21 @@ class CaseLogInternalService:
                     code="NO_DEFAULT_ACTOR",
                     errors={"actor": "请先创建律师用户"},
                 )
-        case_log = CaseLog.objects.create(case=case, content=content, actor_id=actor_id)
+
+        # 解析 event_date
+        parsed_date: date | None = None
+        if event_date:
+            try:
+                parsed_date = date.fromisoformat(event_date)
+            except (TypeError, ValueError):
+                logger.warning("Invalid event_date format: %s, using None", event_date, exc_info=False)
+
+        case_log = CaseLog.objects.create(
+            case=case,
+            content=content,
+            actor_id=actor_id,
+            event_date=parsed_date,
+        )
         logger.info(
             "创建案件日志成功",
             extra={
@@ -38,11 +55,14 @@ class CaseLogInternalService:
                 "case_id": case_id,
                 "log_id": cast(int, case_log.id),  # type: ignore
                 "user_id": actor_id,
+                "event_date": str(parsed_date) if parsed_date else None,
             },
         )
         return case_log.id
 
-    def add_case_log_attachment_internal(self, case_log_id: int, file_path: str, file_name: str) -> bool:  # pragma: no cover
+    def add_case_log_attachment_internal(
+        self, case_log_id: int, file_path: str, file_name: str
+    ) -> bool:  # pragma: no cover
         try:
             case_log = CaseLog.objects.get(id=case_log_id)
         except CaseLog.DoesNotExist:

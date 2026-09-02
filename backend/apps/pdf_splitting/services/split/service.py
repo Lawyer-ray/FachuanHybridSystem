@@ -8,7 +8,7 @@ from dataclasses import asdict
 from pathlib import Path
 from typing import Any
 
-import fitz
+import pymupdf as fitz
 from django.utils import timezone
 
 from apps.core.services.storage_service import sanitize_upload_filename

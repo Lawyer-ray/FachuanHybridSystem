@@ -8,7 +8,7 @@ import uuid
 from pathlib import Path
 from typing import Any
 
-import fitz
+import pymupdf as fitz
 from django.core.files.uploadedfile import UploadedFile
 from django.db import transaction
 from django.utils import timezone

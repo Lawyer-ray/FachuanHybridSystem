@@ -112,7 +112,7 @@ class TestPdfUtils:
 
         # Patch all three PDF libraries to fail
         with patch("pikepdf.open", side_effect=ValueError("bad pdf")):
-            with patch("fitz.open", side_effect=ValueError("bad pdf")):
+            with patch("pymupdf.open", side_effect=ValueError("bad pdf")):
                 with patch("pdfplumber.open", side_effect=ValueError("bad pdf")):
                     count, error = get_pdf_page_count_with_error(b"corrupt", default=5)
                     assert count == 5

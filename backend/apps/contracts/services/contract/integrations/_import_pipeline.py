@@ -269,6 +269,7 @@ class ImportPipeline:
                     case_id=case_id,
                     content=content,
                     user_id=actor_id,
+                    event_date=str(suggestion.get("date") or "").strip() or None,
                 )
                 existing_contents.add(content)
                 imported += 1

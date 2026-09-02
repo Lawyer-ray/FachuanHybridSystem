@@ -179,8 +179,12 @@ class CaseServiceAdapter:
     # Log / Number mutations
     # ------------------------------------------------------------------
 
-    def create_case_log_internal(self, case_id: int, content: str, user_id: int | None = None) -> Any:
-        return self._log_internal.create_case_log_internal(case_id=case_id, content=content, user_id=user_id)
+    def create_case_log_internal(
+        self, case_id: int, content: str, user_id: int | None = None, event_date: str | None = None
+    ) -> Any:
+        return self._log_internal.create_case_log_internal(
+            case_id=case_id, content=content, user_id=user_id, event_date=event_date
+        )
 
     def add_case_log_attachment_internal(self, case_log_id: int, file_path: str, file_name: str) -> Any:
         return self._log_internal.add_case_log_attachment_internal(
