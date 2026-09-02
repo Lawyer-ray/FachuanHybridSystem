@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime
+from datetime import date, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Final, NotRequired, Protocol, TypedDict
 
@@ -251,11 +251,13 @@ class CaseImportService:
             actor = self._lawyer_resolve.resolve(actor_data)
             if actor is None:
                 continue
+            raw_event_date = log_data.get("event_date")
+            event_date = raw_event_date if isinstance(raw_event_date, (str, date)) else None
             log = CaseLog.objects.create(
                 case=case,
                 content=log_data["content"],
                 actor=actor,
-                event_date=log_data.get("event_date"),
+                event_date=event_date,
             )
             for att_data in log_data.get("attachments") or []:
                 file_path = att_data.get("file_path")

@@ -66,13 +66,13 @@ def scale_pages_to_a4(contract: Contract) -> dict[str, Any]:  # pragma: no cover
 
         try:
             # 检查是否有非 A4 页面，无需缩放则跳过
-            if all(_is_a4(page) for page in src_doc):
+            if all(_is_a4(page) for page in src_doc.pages()):
                 skipped_count += 1
                 continue
 
             out_doc = fitz.open()
 
-            for page in src_doc:
+            for page in src_doc.pages():
                 page_w, page_h = page.rect.width, page.rect.height
 
                 if _is_a4(page):

@@ -650,7 +650,6 @@ class CourtSMSAdminBase(admin.ModelAdmin):  # pragma: no cover
                         "placeholder": "留空会自动回退律师手机号后6位",
                     }
                 ),
-                help_text=None,
             )
 
         return form

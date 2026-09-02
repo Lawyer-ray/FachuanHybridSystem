@@ -54,7 +54,7 @@ class EvidenceOCRService:
 
             doc = fitz.open(stream=data, filetype="pdf")
             texts: list[str] = []
-            for page in doc:
+            for page in doc.pages():
                 pix = page.get_pixmap(dpi=200)
                 img_bytes = pix.tobytes("png")
                 text = self._ocr_image_bytes(img_bytes)
