@@ -10,7 +10,9 @@ import logging
 from pathlib import Path
 from typing import Any, ClassVar
 
+from django import forms
 from django.contrib import admin
+from django.core.validators import RegexValidator
 from django.db.models import QuerySet
 from django.http import HttpRequest
 from django.urls import reverse
@@ -196,7 +198,9 @@ class CourtSMSAdminBase(admin.ModelAdmin):  # pragma: no cover
             )
         elif obj.status == CourtSMSStatus.PENDING_MANUAL:
             change_url = reverse("admin:automation_courtsms_change", args=[obj.id])
-            return format_html('<a href="{}" style="color: var(--fc-warning-text); font-weight: bold;">手动关联</a>', change_url)
+            return format_html(
+                '<a href="{}" style="color: var(--fc-warning-text); font-weight: bold;">手动关联</a>', change_url
+            )
         return "-"
 
     @admin.display(description=_("短信内容"))
@@ -211,7 +215,9 @@ class CourtSMSAdminBase(admin.ModelAdmin):  # pragma: no cover
     def has_download_links(self, obj: CourtSMS) -> SafeString:  # pragma: no cover
         """是否有下载链接"""
         if obj.download_links:
-            return format_html('<span style="color: var(--fc-success-text);">✓ {} 个链接</span>', len(obj.download_links))
+            return format_html(
+                '<span style="color: var(--fc-success-text);">✓ {} 个链接</span>', len(obj.download_links)
+            )
         return format_html('<span style="color: var(--fc-text-disabled);">{}</span>', "✗ 无链接")
 
     @admin.display(description=_("提取的案号"))
@@ -401,7 +407,10 @@ class CourtSMSAdminBase(admin.ModelAdmin):  # pragma: no cover
                         parts.append(format_html("<br><small>{}</small>", p))
                 if fail_platforms:
                     parts.append(
-                        format_html('<br><small style="color: var(--fc-error-text);">失败: {}</small>', ", ".join(fail_platforms))
+                        format_html(
+                            '<br><small style="color: var(--fc-error-text);">失败: {}</small>',
+                            ", ".join(fail_platforms),
+                        )
                     )
                 return mark_safe("".join(str(p) for p in parts))
             elif fail_platforms:
@@ -581,102 +590,38 @@ class CourtSMSAdminBase(admin.ModelAdmin):  # pragma: no cover
         else:
             return [field.name for field in self.model._meta.fields if field.name != "id"]
 
-    def get_readonly_fields(self, request: HttpRequest, obj: CourtSMS | None = None) -> list[str] | tuple[str, ...]:  # pragma: no cover
+    def get_readonly_fields(
+        self, request: HttpRequest, obj: CourtSMS | None = None
+    ) -> list[str] | tuple[str, ...]:  # pragma: no cover
         """根据是否为新增页面返回不同的只读字段"""
         if obj is None:
             return ["received_at"]
         else:
             return self.readonly_fields
 
-    def get_fieldsets(self, request: HttpRequest, obj: CourtSMS | None = None) -> Any:  # pragma: no cover
-        """根据是否为新增页面返回不同的字段分组"""
+    def get_fieldsets(self, request: HttpRequest, obj: CourtSMS | None = None) -> Any:
         if obj is None:
             return [
                 (
                     str(_("短信信息")),
                     {
-                        "fields": ("content", "received_at"),
-                        "description": (
-                            "请输入完整的法院短信内容。收到时间将自动设置为当前时间。"
-                            "<br>"
-                            "<style>"
-                            ".sms-platforms{margin-top:12px;padding:12px 14px;background:var(--fc-bg-muted);border-radius:10px;border:1px solid var(--fc-border);}"
-                            ".sms-platforms-title{font-size:13px;color:var(--fc-text-muted);margin-bottom:8px;font-weight:600;}"
-                            ".sms-platforms-tags{display:flex;flex-wrap:wrap;gap:8px;}"
-                            ".sms-platforms-tags span{background:var(--fc-primary-subtle);color:var(--fc-primary);padding:4px 10px;border-radius:999px;font-size:12px;border:0;white-space:nowrap;}"
-                            ".sms-platforms-tags span code{color:var(--fc-primary);font-size:11px;}"
-                            ".sfdw-tail6-wrap{display:none;padding:12px 0 14px;border-top:0;}"
-                            ".sfdw-tail6-row{display:grid;grid-template-columns:160px minmax(260px,420px);align-items:flex-start;}"
-                            ".sfdw-tail6-label{padding:4px 10px 0 0;color:var(--fc-text-secondary);font-size:13px;font-weight:600;box-sizing:border-box;}"
-                            ".sfdw-tail6-body{padding-right:12px;max-width:420px;}"
-                            ".sfdw-tail6-wrap input{width:100%;max-width:420px;box-sizing:border-box;}"
-                            "</style>"
-                            "<div class='sms-platforms'>"
-                            "<div class='sms-platforms-title'>📥 支持自动下载</div>"
-                            "<div class='sms-platforms-tags'>"
-                            "<span title='zxfw.court.gov.cn'>人民法院在线服务网</span>"
-                            "<span title='sd.gdems.com'>睿法智达</span>"
-                            "<span title='jysd.10102368.com'>集约送达</span>"
-                            "<span title='dzsd.hbfy.gov.cn'>湖北电子送达</span>"
-                            "<span title='sfsd.jxfy.gov.cn'>江西电子送达</span>"
-                            "<span title='sfpt.cdfy12368.gov.cn'>司法送达网</span>"
-                            "<span title='171.106.48.55:28083'>广西法院短信平台</span>"
-                            "</div>"
-                            "</div>"
-                            "<div id='sfdw-tail6-wrap' class='form-row sfdw-tail6-wrap'>"
-                            "<div class='sfdw-tail6-row'>"
-                            "<label for='id_sfdw_phone_tail6' class='sfdw-tail6-label'>手机号后6位：</label>"
-                            "<div class='sfdw-tail6-body'>"
-                            "<input id='id_sfdw_phone_tail6' name='sfdw_phone_tail6' type='text' maxlength='6' inputmode='numeric' pattern='[0-9]{6}' class='vTextField' placeholder='留空会自动回退律师手机号后6位。' />"
-                            "</div>"
-                            "</div>"
-                            "</div>"
-                            "<script>"
-                            "(function(){"
-                            "  const mount = function(){"
-                            "    const wrap = document.getElementById('sfdw-tail6-wrap');"
-                            "    const row = wrap ? wrap.querySelector('.sfdw-tail6-row') : null;"
-                            "    const input = document.getElementById('id_sfdw_phone_tail6');"
-                            "    const contentRow = document.querySelector('.form-row.field-content');"
-                            "    const receivedAtRow = document.querySelector('.form-row.field-received_at');"
-                            "    const contentLabel = contentRow ? contentRow.querySelector('label') : null;"
-                            "    if(!wrap || !row || !input){return;}"
-                            "    if(receivedAtRow && wrap.previousElementSibling !== contentRow){"
-                            "      receivedAtRow.insertAdjacentElement('beforebegin', wrap);"
-                            "    } else if(contentRow && wrap.previousElementSibling !== contentRow) {"
-                            "      contentRow.insertAdjacentElement('afterend', wrap);"
-                            "    }"
-                            "    wrap.style.display = 'block';"
-                            "    if(contentLabel){"
-                            "      const labelRect = contentLabel.getBoundingClientRect();"
-                            "      const rowRect = row.getBoundingClientRect();"
-                            "      const w = Math.ceil(labelRect.width);"
-                            "      const rawOffset = Math.round(labelRect.left - rowRect.left);"
-                            "      const offset = Math.max(0, Math.min(40, rawOffset));"
-                            "      if(w > 0){ row.style.gridTemplateColumns = w + 'px minmax(260px, 420px)'; }"
-                            "      row.style.paddingLeft = offset + 'px';"
-                            "    }"
-                            "    input.value = (input.value || '').replace(/\\D/g, '').slice(0, 6);"
-                            "    input.addEventListener('input', function(){"
-                            "      input.value = (input.value || '').replace(/\\D/g, '').slice(0, 6);"
-                            "    });"
-                            "  };"
-                            "  if(document.readyState === 'loading'){"
-                            "    document.addEventListener('DOMContentLoaded', mount);"
-                            "  } else {"
-                            "    mount();"
-                            "  }"
-                            "})();"
-                            "</script>"
-                        ),
+                        "fields": ("content", "sfdw_phone_tail6", "received_at"),
+                        "description": "请输入完整的法院短信内容。收到时间将自动设置为当前时间。",
                     },
                 ),
             ]
-        else:
-            return list(self.fieldsets)
+        return list(self.fieldsets)
 
-    def get_form(self, request: HttpRequest, obj: CourtSMS | None = None, change: bool = False, **kwargs: Any) -> Any:  # pragma: no cover
-        """自定义表单"""
+    def get_form(self, request: HttpRequest, obj: CourtSMS | None = None, change: bool = False, **kwargs: Any) -> Any:
+        # 虚拟字段 sfdw_phone_tail6 仅用于 add 页面渲染、不进数据库。
+        # Django 6.1 的 _changeform_view 会把 get_fieldsets() 扁平化后的字段显式传入，
+        # 其中包含虚拟字段；构建 ModelForm 前必须先剔除，避免 Unknown field(s) FieldError。
+        if obj is None:
+            if kwargs.get("fields") is not None:
+                kwargs["fields"] = tuple(f for f in kwargs["fields"] if f != "sfdw_phone_tail6")
+            else:
+                kwargs.setdefault("fields", ("content", "received_at"))
+
         form = super().get_form(request, obj, change=change, **kwargs)
 
         if obj is None:
@@ -693,5 +638,20 @@ class CourtSMSAdminBase(admin.ModelAdmin):  # pragma: no cover
                 content_field.help_text = "请粘贴完整的法院短信内容"
                 if hasattr(content_field, "widget") and hasattr(content_field.widget, "attrs"):
                     content_field.widget.attrs.update({"rows": 8, "placeholder": "请粘贴完整的法院短信内容..."})
+
+            # 虚拟字段：手机号后6位（不进数据库，仅 add 页面使用）
+            form.base_fields["sfdw_phone_tail6"] = forms.CharField(
+                label="手机号后6位",
+                max_length=6,
+                required=False,
+                validators=[RegexValidator(r"^\d{0,6}$", "只能输入数字")],
+                widget=forms.TextInput(
+                    attrs={
+                        "inputmode": "numeric",
+                        "placeholder": "留空会自动回退律师手机号后6位",
+                    }
+                ),
+                help_text="用于睿法智达下载加密文书时的身份验证",
+            )
 
         return form
