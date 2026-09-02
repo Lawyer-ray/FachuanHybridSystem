@@ -613,9 +613,14 @@ class CourtSMSAdminBase(admin.ModelAdmin):  # pragma: no cover
         return list(self.fieldsets)
 
     def get_form(self, request: HttpRequest, obj: CourtSMS | None = None, change: bool = False, **kwargs: Any) -> Any:
-        # 虚拟字段需要先从 ModelForm 生成中排除，生成后再注入
-        if obj is None and "fields" not in kwargs:
-            kwargs = {**kwargs, "fields": ("content", "received_at")}
+        # 虚拟字段 sfdw_phone_tail6 仅用于 add 页面渲染、不进数据库。
+        # Django 6.1 的 _changeform_view 会把 get_fieldsets() 扁平化后的字段显式传入，
+        # 其中包含虚拟字段；构建 ModelForm 前必须先剔除，避免 Unknown field(s) FieldError。
+        if obj is None:
+            if kwargs.get("fields") is not None:
+                kwargs["fields"] = tuple(f for f in kwargs["fields"] if f != "sfdw_phone_tail6")
+            else:
+                kwargs.setdefault("fields", ("content", "received_at"))
 
         form = super().get_form(request, obj, change=change, **kwargs)
 
