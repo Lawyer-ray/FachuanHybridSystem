@@ -92,8 +92,7 @@ class TestEvidenceOCRServicePdfExtraction:
         mock_page.get_pixmap.return_value = mock_pix
 
         mock_doc = MagicMock()
-        mock_doc.__iter__ = MagicMock(return_value=iter([mock_page]))
-        mock_doc.__len__ = MagicMock(return_value=1)
+        mock_doc.pages = MagicMock(return_value=iter([mock_page]))
 
         with patch("pymupdf.open", return_value=mock_doc):
             with patch.object(svc, "_ocr_image_bytes", return_value="page text"):
