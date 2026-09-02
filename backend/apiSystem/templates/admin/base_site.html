@@ -217,6 +217,44 @@ document.addEventListener('DOMContentLoaded', function() {
     #container a:hover {
         text-decoration: none !important;
     }
+
+    /* ── Django 6.1 admin CSS 兼容层 ───────────────────────
+       项目 staticfiles/admin/css/*.css 未随 Django 升级同步，很多选择器
+       匹配不上新版 HTML 结构。这里只覆盖实际损坏的样式，等静态文件
+       正式 re-collect 后应删除。
+    ────────────────────────────────────────────────── */
+
+    /* breadcrumbs: div → ol+li 语义化迁移 */
+    ol.breadcrumbs {
+        background: var(--breadcrumbs-bg);
+        padding: 10px 40px;
+        border: none;
+        color: var(--breadcrumbs-fg);
+        font-size: 0.8125rem;
+        list-style: none;
+        margin: 0;
+    }
+    ol.breadcrumbs li {
+        display: inline;
+    }
+    ol.breadcrumbs li a {
+        color: var(--breadcrumbs-link-fg);
+        text-decoration: none;
+    }
+    ol.breadcrumbs li a:focus,
+    ol.breadcrumbs li a:hover {
+        color: var(--breadcrumbs-fg);
+        text-decoration: underline;
+    }
+    ol.breadcrumbs li[aria-current="page"] {
+        color: var(--breadcrumbs-fg);
+    }
+
+    /* Django 6.1: 隐藏空 content-title 且不包含 object-tools 的容器
+       自定义页面通常覆盖 content_title 为空，但 .titles-and-tools flex 容器仍会占位 */
+    .titles-and-tools:has(.content-title:empty):not(:has(.object-tools)) {
+        display: none;
+    }
 </style>
 {% endblock %}
 

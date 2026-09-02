@@ -2,12 +2,12 @@
 {% load i18n %}
 
 {% block breadcrumbs %}
-<div class="breadcrumbs">
-    <a href="{% url 'admin:index' %}">{% trans "首页" %}</a>
-    &rsaquo; <a href="{% url 'admin:app_list' app_label='reminders' %}">{% trans "提醒" %}</a>
-    &rsaquo; <a href="{{ changelist_url }}">{% trans "重要日期提醒" %}</a>
-    &rsaquo; {% trans "日历" %}
-</div>
+<ol class="breadcrumbs">
+    <li><a href="{% url 'admin:index' %}">{% trans "首页" %}</a></li>
+    <li><a href="{% url 'admin:app_list' app_label='reminders' %}">{% trans "提醒" %}</a></li>
+    <li><a href="{{ changelist_url }}">{% trans "重要日期提醒" %}</a></li>
+    <li aria-current="page">{% trans "日历" %}</li>
+</ol>
 {% endblock %}
 
 {% block extrahead %}
