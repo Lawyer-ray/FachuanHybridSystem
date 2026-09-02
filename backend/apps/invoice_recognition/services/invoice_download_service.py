@@ -9,7 +9,7 @@ import zipfile
 from datetime import date
 from pathlib import Path
 
-import fitz
+import pymupdf as fitz
 from django.conf import settings
 
 from apps.invoice_recognition.models import InvoiceCategory, InvoiceRecognitionTask, InvoiceRecord

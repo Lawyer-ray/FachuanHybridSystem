@@ -191,7 +191,7 @@ class JudgmentPdfExtractor:
         Returns:
             (清洗后文本, 提取方式) 元组
         """
-        import fitz
+        import pymupdf as fitz
 
         # 1. 先尝试 PyMuPDF 直接提取全文
         raw_parts: list[str] = []

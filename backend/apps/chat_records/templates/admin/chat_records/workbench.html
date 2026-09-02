@@ -14,11 +14,11 @@
 {% endblock %}
 
 {% block breadcrumbs %}
-<div class="breadcrumbs">
-    <a href="{% url 'admin:index' %}">{% trans "首页" %}</a>
-    &rsaquo; <a href="{% url 'admin:chat_records_chatrecordproject_changelist' %}">{% trans "梳理聊天记录" %}</a>
-    &rsaquo; {% trans "工作台" %}
-</div>
+<ol class="breadcrumbs">
+    <li><a href="{% url 'admin:index' %}">{% trans "首页" %}</a></li>
+    <li><a href="{% url 'admin:chat_records_chatrecordproject_changelist' %}">{% trans "梳理聊天记录" %}</a></li>
+    <li aria-current="page">{% trans "工作台" %}</li>
+</ol>
 {% endblock %}
 
 {% block content %}

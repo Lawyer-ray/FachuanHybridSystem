@@ -130,7 +130,7 @@ class TestOpenPdfDocument:
         b64 = base64.b64encode(small_pdf).decode()
         mock_fitz = MagicMock()
         mock_fitz.open.return_value = MagicMock()
-        with patch.dict("sys.modules", {"fitz": mock_fitz}):
+        with patch.dict("sys.modules", {"pymupdf": mock_fitz}):
             result = svc._open_pdf_document(f"data:application/pdf;base64,{b64}", "test.pdf")
             mock_fitz.open.assert_called_once()
 

@@ -201,7 +201,7 @@ class IdentityExtractionService:
 
         # 方法2: 尝试用 fitz 打开
         try:
-            import fitz
+            import pymupdf as fitz
 
             doc = fitz.open(stream=file_bytes, filetype="pdf")
             page_count = len(doc)
@@ -236,7 +236,7 @@ class IdentityExtractionService:
 
     def _extract_from_pdf(self, pdf_bytes: bytes) -> str:  # pragma: no cover
         """从 PDF 提取文字(图片型PDF)"""
-        import fitz  # pymupdf
+        import pymupdf as fitz  # pymupdf
         from PIL import Image
 
         # 禁用 PIL 的解压炸弹检查，避免超大 PDF 页面触发 DecompressionBombError
@@ -272,7 +272,7 @@ class IdentityExtractionService:
 
     def _ocr_single_page(self, page: Any) -> str:
         """渲染单页为图片并 OCR，返回文本或空字符串。"""
-        import fitz
+        import pymupdf as fitz
 
         mat = fitz.Matrix(300 / 72, 300 / 72)
         pix = page.get_pixmap(matrix=mat)

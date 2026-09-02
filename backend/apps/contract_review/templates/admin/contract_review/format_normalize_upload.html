@@ -6,11 +6,11 @@
 {% block content_title %}{% endblock %}
 
 {% block breadcrumbs %}
-<div class="breadcrumbs">
-    <a href="{% url 'admin:index' %}">首页</a>
-    &rsaquo; <a href="{% url 'admin:contract_review_formatnormalize_changelist' %}">合同格式调整</a>
-    &rsaquo; 上传合同文件
-</div>
+<ol class="breadcrumbs">
+    <li><a href="{% url 'admin:index' %}">首页</a></li>
+    <li><a href="{% url 'admin:contract_review_formatnormalize_changelist' %}">合同格式调整</a></li>
+    <li aria-current="page">上传合同文件</li>
+</ol>
 {% endblock %}
 
 {% block extrastyle %}

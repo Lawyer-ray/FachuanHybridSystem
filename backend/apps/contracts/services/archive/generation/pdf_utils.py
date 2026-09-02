@@ -31,7 +31,7 @@ def _is_a4(page: Any) -> bool:
 
 def scale_pages_to_a4(contract: Contract) -> dict[str, Any]:  # pragma: no cover
     """将合同所有已上传的归档 PDF 材料按 A4 尺寸缩放。"""
-    import fitz
+    import pymupdf as fitz
 
     pdf_materials = list(
         FinalizedMaterial.objects.filter(
@@ -66,13 +66,13 @@ def scale_pages_to_a4(contract: Contract) -> dict[str, Any]:  # pragma: no cover
 
         try:
             # 检查是否有非 A4 页面，无需缩放则跳过
-            if all(_is_a4(page) for page in src_doc):
+            if all(_is_a4(page) for page in src_doc.pages()):
                 skipped_count += 1
                 continue
 
             out_doc = fitz.open()
 
-            for page in src_doc:
+            for page in src_doc.pages():
                 page_w, page_h = page.rect.width, page.rect.height
 
                 if _is_a4(page):
@@ -130,7 +130,7 @@ def add_page_numbers(doc: Any, start_page: int = 1) -> None:  # pragma: no cover
     支持旋转页面（rotation=90/180/270），使用 derotation_matrix 进行坐标转换。
     参考: https://github.com/pymupdf/PyMuPDF/discussions/3366
     """
-    import fitz
+    import pymupdf as fitz
 
     fontsize = 9
     margin = 4  # 白色背景边距(px)
@@ -209,7 +209,7 @@ def add_page_numbers(doc: Any, start_page: int = 1) -> None:  # pragma: no cover
 
 def merge_materials_to_single_pdf(materials: list[FinalizedMaterial]) -> dict[str, Any]:  # pragma: no cover
     """将多个材料文件合并为一个 PDF（通用工具方法）。"""
-    import fitz
+    import pymupdf as fitz
     from django.conf import settings as django_settings
 
     merged_doc = fitz.open()
@@ -274,7 +274,7 @@ def compile_case_materials_pdf(
     Returns:
         {"written": bool, "page_count": int, "skipped": bool, "error": str|None}
     """
-    import fitz
+    import pymupdf as fitz
 
     from apps.contracts.services.archive import ArchiveChecklistService
 

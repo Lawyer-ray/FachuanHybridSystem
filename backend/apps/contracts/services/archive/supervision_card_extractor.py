@@ -103,7 +103,7 @@ class SupervisionCardExtractor:
         Returns:
             {"found": bool, "page_number": int | None}
         """
-        import fitz  # PyMuPDF
+        import pymupdf as fitz  # PyMuPDF
 
         doc = fitz.open(str(pdf_path))
         try:
@@ -165,7 +165,7 @@ class SupervisionCardExtractor:
         Returns:
             提取的PDF内容 (bytes)
         """
-        import fitz
+        import pymupdf as fitz
 
         doc = fitz.open(str(pdf_path))
         try:

@@ -225,6 +225,38 @@ def apply_numbering_to_paragraph(para, level: int, num_id: int, text: str) -> No
     p_pr.append(ind)
 
 
+def _remove_numPr(para) -> bool:
+    """清除段落的 numPr 列表编号属性，返回是否清除了"""
+    p_pr = para._element.find(qn('w:pPr'))
+    if p_pr is not None:
+        old_num_pr = p_pr.find(qn('w:numPr'))
+        if old_num_pr is not None:
+            p_pr.remove(old_num_pr)
+            return True
+    return False
+
+
+def _is_heading_style(para, heading_styles: set[str]) -> bool:
+    """判断段落是否为 Heading 样式"""
+    try:
+        style_name = para.style.name if para.style else ''
+        return style_name in heading_styles
+    except (AttributeError, KeyError):
+        return False
+
+
+def _should_skip_paragraph(text: str) -> bool:
+    """判断段落是否应该跳过（纯标题行/不应该编号）"""
+    if not text.strip():
+        return True
+
+    # 纯标题行：短文本，无冒号/说明内容，如"甲方信息""乙方/实控人信息"
+    if len(text.strip()) < 15 and ':' not in text and '：' not in text and '。' not in text:
+        return True
+
+    return False
+
+
 def convert_numbering(
     doc: Document,
     numbered_paras: list[tuple[int, int, str, str]],
@@ -241,45 +273,93 @@ def convert_numbering(
         num_id_map: {para_idx: num_id} 映射（如果为空则自动创建）
         format_type: 格式类型
     """
-    # 创建 numbering part
-    numbering_part, numbering_elem = create_numbering_part(doc)
+    # 收集 heading 样式名称
+    heading_styles = {'Heading ' + str(i) for i in range(1, 10)}
 
-    # 创建 abstractNum（使用唯一 id，避免与文档已有定义冲突）
-    abstract_id = next_abstract_id(numbering_elem)
-    create_abstract_numbering(numbering_elem, abstract_id=abstract_id, format_type=format_type)
+    # 构建已编号段落的索引映射
+    numbered_map = {idx: (level, clean_text, original_text)
+                    for idx, level, clean_text, original_text in numbered_paras}
+    numbered_indices = set(numbered_map.keys())
 
-    # 创建 num 实例
-    level0_indices = [idx for idx, level, _, _ in numbered_paras if level == 0]
-    num_id_map = create_num_instances(numbering_elem, abstract_id=abstract_id, level0_indices=level0_indices, format_type=format_type)
+    # 提取所有 Level 0 索引并排序
+    level0_indices = sorted(idx for idx, level, _, _ in numbered_paras if level == 0)
 
-    # 更新 numbering part
-    if hasattr(numbering_part, '_blob'):
-        numbering_part._blob = etree.tostring(numbering_elem, xml_declaration=True, encoding='UTF-8', standalone=True)
+    # ============================================================
+    # 阶段1：对一级标题之间的段落，自动推断级别并补充
+    # ============================================================
+    extra_paras = {}  # idx -> (level, clean_text, original_text)
 
-    # 创建已编号段落的索引集合
-    numbered_indices = {idx for idx, _, _, _ in numbered_paras}
-
-    # 首先清除所有非签名段落的旧编号
     from .detector import is_signature_section
+
+    for i in level0_indices:
+        next_idx = level0_indices[level0_indices.index(i) + 1] if level0_indices.index(i) < len(level0_indices) - 1 else len(doc.paragraphs)
+
+        in_signature_zone = False
+
+        for j in range(i + 1, next_idx):
+            if j in numbered_indices:
+                continue
+
+            para = doc.paragraphs[j]
+            text = para.text.strip()
+
+            if not text:
+                continue
+
+            # 签名区检测
+            if is_signature_section(text):
+                in_signature_zone = True
+                continue
+
+            if in_signature_zone:
+                continue
+
+            # 纯标题行（如"甲方信息"）-> 不编号
+            if _should_skip_paragraph(text):
+                continue
+
+            # 推断为二级（level 1）
+            extra_paras[j] = (1, text, text)
+
+    # 合并额外推断的段落到 numbered_paras
+    if extra_paras:
+        all_paras = []
+        all_idx_set = set(numbered_indices) | set(extra_paras.keys())
+        for j in sorted(all_idx_set):
+            if j in numbered_map:
+                all_paras.append((j, numbered_map[j][0], numbered_map[j][1], numbered_map[j][2]))
+            else:
+                all_paras.append((j, extra_paras[j][0], extra_paras[j][1], extra_paras[j][2]))
+        numbered_paras = all_paras
+        numbered_map = {idx: (level, clean, orig)
+                        for idx, level, clean, orig in numbered_paras}
+
+    # ============================================================
+    # 阶段2：清除所有不被编号段落的旧 numPr
+    # ============================================================
+    all_numbered_indices = {idx for idx, _, _, _ in numbered_paras}
     for i, para in enumerate(doc.paragraphs):
         text = para.text.strip()
         if not text:
             continue
-
-        # 跳过已编号段落（后面会处理）
-        if i in numbered_indices:
+        if i in all_numbered_indices:
             continue
+        _remove_numPr(para)
 
-        # 跳过签名部分
-        if is_signature_section(text):
-            continue
+    # ============================================================
+    # 阶段3：创建新的编号定义并应用
+    # ============================================================
+    numbering_part, numbering_elem = create_numbering_part(doc)
+    abstract_id = next_abstract_id(numbering_elem)
+    create_abstract_numbering(numbering_elem, abstract_id=abstract_id, format_type=format_type)
 
-        # 清除其他段落的编号
-        p_pr = para._element.find(qn('w:pPr'))
-        if p_pr is not None:
-            old_num_pr = p_pr.find(qn('w:numPr'))
-            if old_num_pr is not None:
-                p_pr.remove(old_num_pr)
+    level0_indices = [idx for idx, level, _, _ in numbered_paras if level == 0]
+    num_id_map = create_num_instances(numbering_elem, abstract_id=abstract_id,
+                                      level0_indices=level0_indices, format_type=format_type)
+
+    # 更新 numbering part
+    if hasattr(numbering_part, '_blob'):
+        numbering_part._blob = etree.tostring(numbering_elem, xml_declaration=True, encoding='UTF-8', standalone=True)
 
     # 应用自动编号
     current_num_id = None
@@ -291,7 +371,7 @@ def convert_numbering(
         if level == 0:
             current_num_id = num_id_map.get(para_idx)
 
-        # 应用自动编号（正文直接由 AI 提供，无需切除）
+        # 应用自动编号
         num_id_to_use = current_num_id if level >= 1 else num_id_map.get(para_idx)
         apply_numbering_to_paragraph(para, level, num_id_to_use, clean_text)
 

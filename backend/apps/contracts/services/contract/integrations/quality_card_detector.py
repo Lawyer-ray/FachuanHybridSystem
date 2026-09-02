@@ -7,7 +7,7 @@ import re
 import tempfile
 from pathlib import Path
 
-import fitz
+import pymupdf as fitz
 
 logger = logging.getLogger(__name__)
 

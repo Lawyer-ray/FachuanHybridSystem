@@ -45,7 +45,7 @@ class PDFTextExtractor:
             (image_paths, tmp_dir) — 调用方用完后需调用 shutil.rmtree(tmp_dir) 清理。
         """
         try:
-            import fitz
+            import pymupdf as fitz
 
             doc = fitz.open(str(pdf_path))
             image_paths: list[Path] = []

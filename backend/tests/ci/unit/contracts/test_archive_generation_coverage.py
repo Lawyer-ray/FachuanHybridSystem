@@ -4,17 +4,16 @@ from __future__ import annotations
 
 from io import BytesIO
 from pathlib import Path
-from unittest.mock import MagicMock, patch, PropertyMock
 from typing import Any
+from unittest.mock import MagicMock, PropertyMock, patch
 
 import pytest
-
 
 # ── pdf_utils: add_page_numbers ───────────────────────────────────
 
 class TestAddPageNumbers:
     def test_adds_numbers_to_pages(self):
-        import fitz
+        import pymupdf as fitz
 
         from apps.contracts.services.archive.generation.pdf_utils import add_page_numbers
 
@@ -27,7 +26,7 @@ class TestAddPageNumbers:
         doc.close()
 
     def test_custom_start_page(self):
-        import fitz
+        import pymupdf as fitz
 
         from apps.contracts.services.archive.generation.pdf_utils import add_page_numbers
 
@@ -50,7 +49,7 @@ class TestMergeMaterialsToSinglePdf:
 
     @patch("apps.contracts.services.archive.generation.pdf_utils.Path")
     def test_single_pdf_material(self, mock_path_cls):
-        import fitz
+        import pymupdf as fitz
 
         from apps.contracts.services.archive.generation.pdf_utils import merge_materials_to_single_pdf
 
@@ -73,7 +72,7 @@ class TestMergeMaterialsToSinglePdf:
         mock_path_instance.__str__ = lambda self: "/tmp/test.pdf"
         mock_path_cls.return_value = mock_path_instance
 
-        with patch("fitz.open") as mock_fitz_open:
+        with patch("pymupdf.open") as mock_fitz_open:
             mock_src_doc = MagicMock()
             mock_merged_doc = MagicMock()
             mock_merged_doc.__len__ = lambda self: 1

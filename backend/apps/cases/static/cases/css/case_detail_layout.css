@@ -1,8 +1,9 @@
 /* case_detail_layout.css — 案件详情页布局、容器、头部和响应式 */
 
-/* 隐藏 Django admin 自动生成的页面标题 */
+/* 隐藏 Django admin 自动生成的页面标题（Django 6.1 起 H1 渲染到 .titles-and-tools 容器内） */
 #content > h1:first-child,
-#content > h2:first-child {
+#content > h2:first-child,
+#content > .titles-and-tools {
     display: none;
 }
 

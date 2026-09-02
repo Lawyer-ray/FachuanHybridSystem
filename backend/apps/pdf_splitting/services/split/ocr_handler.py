@@ -10,7 +10,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 from typing import Any
 
-import fitz
+import pymupdf as fitz
 from django.conf import settings
 from django.core.files.base import ContentFile
 from django.core.files.storage import default_storage

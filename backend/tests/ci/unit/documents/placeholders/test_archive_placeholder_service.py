@@ -83,10 +83,7 @@ class TestUnwrapArchiveRichText:
         assert result == {"a": "plain", "b": 123}
 
     def test_replaces_rich_text_with_listing(self) -> None:
-        from apps.documents.services.placeholders.archive import (
-            _ArchiveMaterialsRichText,
-            unwrap_archive_rich_text,
-        )
+        from apps.documents.services.placeholders.archive import _ArchiveMaterialsRichText, unwrap_archive_rich_text
 
         rt = _ArchiveMaterialsRichText()
         rt.add("item1")
@@ -1011,17 +1008,17 @@ class TestGetLawyerWorkLogContent:
 
         log1 = MagicMock()
         log1.content = "签订委托合同"
-        log1.created_at = MagicMock()
-        log1.created_at.year = 2026
-        log1.created_at.month = 3
-        log1.created_at.day = 10
+        log1.event_date = MagicMock()
+        log1.event_date.year = 2026
+        log1.event_date.month = 3
+        log1.event_date.day = 10
 
         log2 = MagicMock()
         log2.content = "一审开庭"
-        log2.created_at = MagicMock()
-        log2.created_at.year = 2026
-        log2.created_at.month = 4
-        log2.created_at.day = 15
+        log2.event_date = MagicMock()
+        log2.event_date.year = 2026
+        log2.event_date.month = 4
+        log2.event_date.day = 15
 
         case = MagicMock()
         case.id = 1
@@ -1040,6 +1037,7 @@ class TestGetLawyerWorkLogContent:
 
         log2 = MagicMock()
         log2.content = "开庭"
+        log2.event_date = None
         log2.created_at = MagicMock()
         log2.created_at.year = 2026
         log2.created_at.month = 1
@@ -1072,6 +1070,7 @@ class TestGetLawyerWorkLogContent:
 
         log = MagicMock()
         log.content = "内容"
+        log.event_date = None
         log.created_at = None
 
         case = MagicMock()

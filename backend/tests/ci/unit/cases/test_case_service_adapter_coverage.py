@@ -187,7 +187,9 @@ class TestCaseServiceAdapterMutations:
     def test_create_case_log_internal(self, adapter: CaseServiceAdapter) -> None:
         adapter._log_internal = MagicMock()
         adapter.create_case_log_internal(1, "content", user_id=10)
-        adapter._log_internal.create_case_log_internal.assert_called_once_with(case_id=1, content="content", user_id=10)
+        adapter._log_internal.create_case_log_internal.assert_called_once_with(
+            case_id=1, content="content", user_id=10, event_date=None
+        )
 
     def test_add_case_log_attachment_internal(self, adapter: CaseServiceAdapter) -> None:
         adapter._log_internal = MagicMock()

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime
+from datetime import date, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar
 
@@ -55,6 +55,12 @@ class CaseLog(models.Model):
         max_length=500,
         verbose_name=_("来源子文件夹"),
         help_text=_("邮件往来导入时记录的来源子文件夹路径，用于去重"),
+    )
+    event_date = models.DateField(
+        blank=True,
+        null=True,
+        verbose_name=_("工作日志日期"),
+        help_text=_("扫描文件夹导入或手动指定的工作日志业务日期"),
     )
     created_at = models.DateTimeField(auto_now_add=True, verbose_name=_("创建日期"))
     updated_at = models.DateTimeField(auto_now=True, verbose_name=_("修改日期"))

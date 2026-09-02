@@ -4,12 +4,12 @@
 {% block title %}{{ title }} | {{ site_title|default:_('Django site admin') }}{% endblock %}
 
 {% block breadcrumbs %}
-<div class="breadcrumbs">
-    <a href="{% url 'admin:index' %}">{% trans 'Home' %}</a>
-    &rsaquo; <a href="{% url 'admin:app_list' app_label='automation' %}">{% trans "自动化工具" %}</a>
-    &rsaquo; <a href="{% url 'admin:automation_courtsms_changelist' %}">{% trans "法院短信" %}</a>
-    &rsaquo; {{ title }}
-</div>
+<ol class="breadcrumbs">
+    <li><a href="{% url 'admin:index' %}">{% trans 'Home' %}</a></li>
+    <li><a href="{% url 'admin:app_list' app_label='automation' %}">{% trans "自动化工具" %}</a></li>
+    <li><a href="{% url 'admin:automation_courtsms_changelist' %}">{% trans "法院短信" %}</a></li>
+    <li aria-current="page">{{ title }}</li>
+</ol>
 {% endblock %}
 
 {% block content %}

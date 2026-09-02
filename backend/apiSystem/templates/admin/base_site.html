@@ -217,6 +217,73 @@ document.addEventListener('DOMContentLoaded', function() {
     #container a:hover {
         text-decoration: none !important;
     }
+
+    /* ── Django 6.1 admin CSS 兼容层 ───────────────────────
+       项目 staticfiles/admin/css/*.css 未随 Django 升级同步，很多选择器
+       匹配不上新版 HTML 结构。这里只覆盖实际损坏的样式，等静态文件
+       正式 re-collect 后应删除。
+    ────────────────────────────────────────────────── */
+
+    /* breadcrumbs: div → ol+li 语义化迁移 */
+    ol.breadcrumbs {
+        background: var(--breadcrumbs-bg);
+        padding: 10px 40px;
+        border: none;
+        color: var(--breadcrumbs-fg);
+        font-size: 0.8125rem;
+        list-style: none;
+        margin: 0;
+    }
+    ol.breadcrumbs li {
+        display: inline;
+    }
+    ol.breadcrumbs li:not([aria-current="page"])::after {
+        content: " \203A ";
+        color: var(--breadcrumbs-fg);
+        margin: 0 0.25rem;
+    }
+    ol.breadcrumbs li a {
+        color: var(--breadcrumbs-link-fg);
+        text-decoration: none;
+    }
+    ol.breadcrumbs li a:focus,
+    ol.breadcrumbs li a:hover {
+        color: var(--breadcrumbs-fg);
+        text-decoration: underline;
+    }
+    ol.breadcrumbs li[aria-current="page"] {
+        color: var(--breadcrumbs-fg);
+    }
+
+    /* Django 6.1: 恢复表单字段横向布局（label 左、控件右），消除升级后纵向堆叠 + 10px 间隙。
+       Django 6.1 在 fieldset 渲染中为每个字段套上 .flex-container（column+gap），
+       此处覆盖为 row，让标题与输入框回到同一行 */
+    .aligned .form-row:not(.form-multiline) > .flex-container:not(.checkbox-row) {
+        display: flex;
+        flex-direction: row;
+        flex-wrap: wrap;
+        align-items: baseline;
+        column-gap: 6px;
+        row-gap: 2px;
+    }
+    .aligned .form-row:not(.form-multiline) > .flex-container:not(.checkbox-row) > label {
+        min-width: 170px;
+        flex-shrink: 0;
+    }
+    .aligned .form-row.form-multiline > .flex-container.fieldBox {
+        display: flex;
+        flex-direction: row;
+        flex-wrap: wrap;
+        align-items: baseline;
+        column-gap: 6px;
+        row-gap: 2px;
+    }
+
+    /* Django 6.1: 隐藏空 content-title 且不包含 object-tools 的容器
+       自定义页面通常覆盖 content_title 为空，但 .titles-and-tools flex 容器仍会占位 */
+    .titles-and-tools:has(.content-title:empty):not(:has(.object-tools)) {
+        display: none;
+    }
 </style>
 {% endblock %}
 

@@ -67,11 +67,11 @@
 {% endblock %}
 
 {% block breadcrumbs %}
-<div class="breadcrumbs">
-    <a href="{% url 'admin:index' %}">{% trans "首页" %}</a>
-    &rsaquo; <a href="/admin/contracts/contract/">{% trans "合同" %}</a>
-    &rsaquo; {% trans "从金诚同达OA导入" %}
-</div>
+<ol class="breadcrumbs">
+    <li><a href="{% url 'admin:index' %}">{% trans "首页" %}</a></li>
+    <li><a href="/admin/contracts/contract/">{% trans "合同" %}</a></li>
+    <li aria-current="page">{% trans "从金诚同达OA导入" %}</li>
+</ol>
 {% endblock %}
 
 {% block content_title %}{% endblock %}

@@ -3,7 +3,7 @@
 
 {% block extrahead %}
 {{ block.super }}
-<link rel="stylesheet" type="text/css" href="{% static 'cases/css/case_detail_layout.css' %}?v=20260507a">
+<link rel="stylesheet" type="text/css" href="{% static 'cases/css/case_detail_layout.css' %}?v=20260902a">
 <link rel="stylesheet" type="text/css" href="{% static 'cases/css/case_detail_tabs.css' %}?v=20260507a">
 <link rel="stylesheet" type="text/css" href="{% static 'cases/css/case_detail_cards.css' %}?v=20260507a">
 <link rel="stylesheet" type="text/css" href="{% static 'cases/css/case_detail_parties.css' %}?v=20260507a">
@@ -20,12 +20,12 @@
 {% endblock %}
 
 {% block breadcrumbs %}
-<div class="breadcrumbs">
-    <a href="{% url 'admin:index' %}">{% translate 'Home' %}</a>
-    › <a href="{% url 'admin:app_list' app_label=opts.app_label %}">{{ opts.app_config.verbose_name }}</a>
-    › <a href="{% url 'admin:cases_case_changelist' %}">{{ opts.verbose_name_plural|capfirst }}</a>
-    › {{ case.name }}
-</div>
+<ol class="breadcrumbs">
+    <li><a href="{% url 'admin:index' %}">{% translate 'Home' %}</a></li>
+    <li><a href="{% url 'admin:app_list' app_label=opts.app_label %}">{{ opts.app_config.verbose_name }}</a></li>
+    <li><a href="{% url 'admin:cases_case_changelist' %}">{{ opts.verbose_name_plural|capfirst }}</a></li>
+    <li aria-current="page">{{ case.name }}</li>
+</ol>
 {% endblock %}
 
 
