@@ -84,3 +84,59 @@
 }
 
 /* 下拉框继承 autocomplete.css 的 ac-dropdown 样式 */
+
+/* 全选操作栏 */
+.ac-select-all {
+    padding: 5px 10px;
+    border-bottom: 1px solid var(--fc-border);
+    background: var(--fc-bg-muted, #f6f8fa);
+    border-radius: 6px 6px 0 0;
+    font-size: 13px;
+    color: var(--fc-primary-dark);
+    cursor: pointer;
+}
+
+.ac-select-all label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+    font-weight: 500;
+}
+
+.ac-select-all input[type="checkbox"] {
+    width: 14px;
+    height: 14px;
+    margin: 0;
+    cursor: pointer;
+    accent-color: var(--fc-admin-blue);
+}
+
+/* 下拉条目支持勾选 */
+.ac-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    cursor: pointer;
+}
+
+.ac-item-checkbox {
+    width: 14px;
+    height: 14px;
+    margin: 0;
+    cursor: pointer;
+    flex-shrink: 0;
+    accent-color: var(--fc-admin-blue);
+}
+
+.ac-item-name {
+    flex: 1;
+    min-width: 0;
+}
+
+/* Django admin 默认给 .form-row 设 overflow:hidden，会裁剪绝对定位的下拉建议框，
+   导致适用机构候选项被遮住看不到，这里放开该字段所在 form-row 的裁剪 */
+.field-applicable_institutions_field.form-row {
+    overflow: visible !important;
+}

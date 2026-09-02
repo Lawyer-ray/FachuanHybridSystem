@@ -73,12 +73,24 @@
                          x-transition
                          class="ac-dropdown"
                          style="position:absolute;top:100%;left:0;right:0;z-index:1000;margin-top:2px;">
+                        <div class="ac-select-all">
+                            <label @click.prevent.stop="toggleAllResults()">
+                                <input type="checkbox"
+                                       :checked="isAllSelected()" />
+                                <span>全选当前结果（<span x-text="results.length"></span> 项）</span>
+                            </label>
+                        </div>
                         <div class="ac-list">
                             <template x-for="(item, index) in results" :key="item.id || index">
                                 <div class="ac-item"
                                      :class="{ 'ac-active': index === highlightedIndex }"
-                                     @click="selectItem(item)"
-                                     x-text="item.name"></div>
+                                     @click="selectItem(item)">
+                                    <input type="checkbox"
+                                           class="ac-item-checkbox"
+                                           :checked="isSelected(item.name)"
+                                           @click.stop.prevent="toggleItem(item)" />
+                                    <span class="ac-item-name" x-text="item.name"></span>
+                                </div>
                             </template>
                         </div>
                     </div>
@@ -133,6 +145,50 @@
                         this.query = '';
                         this.closeDropdown();
                     }
+                };
+
+                component.isSelected = function (name) {
+                    return !!name && this.tags.includes(name);
+                };
+
+                component.toggleItem = function (item) {
+                    if (!item || !item.name) return;
+                    if (this.tags.includes(item.name)) {
+                        this.tags = this.tags.filter(function (t) { return t !== item.name; });
+                    } else {
+                        this.addTag(item.name);
+                    }
+                    this.syncToHidden();
+                    // 勾选/取消时保持下拉打开，便于连续勾选多个
+                };
+
+                component.isAllSelected = function () {
+                    return this.results.length > 0 &&
+                        this.results.every(function (item) {
+                            return item && this.tags.includes(item.name);
+                        }, this);
+                };
+
+                component.toggleAllResults = function () {
+                    if (!this.results || this.results.length === 0) return;
+                    if (this.isAllSelected()) {
+                        // 已全选 -> 取消选择这些结果（不清空已勾选的其余机构）
+                        var names = this.results.map(function (r) { return r.name; });
+                        var removing = new Set(names);
+                        this.tags = this.tags.filter(function (t) { return !removing.has(t); });
+                    } else {
+                        // 未全选 -> 全部加入，已存在的会自动去重
+                        var self = this;
+                        this.results.forEach(function (item) {
+                            if (item && item.name) self.addTag(item.name);
+                        });
+                    }
+                    this.syncToHidden();
+                    if (this.tags.length > 0) {
+                        this.query = '';
+                    }
+                    // 全选或取消选择后关闭下拉，方便查看已生成的标签
+                    this.closeDropdown();
                 };
 
                 component.closeDropdown = function () {
