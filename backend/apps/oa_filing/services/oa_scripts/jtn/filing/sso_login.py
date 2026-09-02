@@ -26,15 +26,13 @@ class SsoLoginMixin:  # pragma: no cover
     # Cookie 持久化（委托）
     # ------------------------------------------------------------------
 
-    @staticmethod
-    def _save_cookies(cookies: list[dict[str, Any]]) -> None:  # pragma: no cover
+    def _save_cookies(self, cookies: list[dict[str, Any]]) -> None:  # pragma: no cover
         """保存 cookies 到磁盘。"""
-        JtnAuthService.save_cookies(cookies)
+        self._auth.save_cookies(cookies)
 
-    @staticmethod
-    def _load_cookies() -> list[dict[str, Any]] | None:  # pragma: no cover
+    def _load_cookies(self) -> list[dict[str, Any]] | None:  # pragma: no cover
         """从磁盘加载 cookies，过滤已过期的。"""
-        return JtnAuthService.load_cookies()
+        return self._auth.load_cookies()
 
     # ------------------------------------------------------------------
     # SSO 扫码登录（委托）

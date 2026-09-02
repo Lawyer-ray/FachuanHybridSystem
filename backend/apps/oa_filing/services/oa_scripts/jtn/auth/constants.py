@@ -20,6 +20,14 @@ _DEFAULT_HTTP_TIMEOUT = 20
 # ============================================================
 # Cookie 持久化
 # ============================================================
+import re
 from pathlib import Path
 
-_COOKIE_PATH = Path.home() / ".fachuan" / "jtn_cookies.json"
+
+def cookie_path(account: str) -> Path:
+    """返回指定金诚同达账号专属的 cookie 缓存文件路径。
+
+    Cookie 缓存必须按 OA 账号隔离，避免不同律师复用彼此的登录态。
+    """
+    safe = re.sub(r"[^A-Za-z0-9._-]", "_", account or "")
+    return Path.home() / ".fachuan" / f"jtn_cookies_{safe or 'default'}.json"

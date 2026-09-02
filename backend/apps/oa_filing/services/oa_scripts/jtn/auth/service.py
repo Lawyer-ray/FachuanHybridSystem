@@ -10,10 +10,9 @@ import asyncio
 import json
 import logging
 import time
-from pathlib import Path
 from typing import Any
 
-from .constants import _COOKIE_PATH, _HTTP_HEADERS, _LOGIN_URL
+from .constants import _HTTP_HEADERS, _LOGIN_URL, cookie_path
 
 logger = logging.getLogger("apps.oa_filing.jtn_auth")
 
@@ -38,25 +37,24 @@ class JtnAuthService:  # pragma: no cover
     def __init__(self, account: str, password: str) -> None:
         self._account = account
         self._password = password
+        self._cookie_path = cookie_path(account)
 
     # ------------------------------------------------------------------
-    # Cookie 持久化
+    # Cookie 持久化（按 OA 账号隔离）
     # ------------------------------------------------------------------
 
-    @staticmethod
-    def save_cookies(cookies: list[dict[str, Any]]) -> None:
+    def save_cookies(self, cookies: list[dict[str, Any]]) -> None:
         """保存 cookies 到磁盘。"""
-        _COOKIE_PATH.parent.mkdir(parents=True, exist_ok=True)
-        _COOKIE_PATH.write_text(json.dumps(cookies, indent=2, ensure_ascii=False))
-        logger.info("已保存 %d 个 cookies 到 %s", len(cookies), _COOKIE_PATH)
+        self._cookie_path.parent.mkdir(parents=True, exist_ok=True)
+        self._cookie_path.write_text(json.dumps(cookies, indent=2, ensure_ascii=False))
+        logger.info("已保存 %d 个 cookies 到 %s", len(cookies), self._cookie_path)
 
-    @staticmethod
-    def load_cookies() -> list[dict[str, Any]] | None:
+    def load_cookies(self) -> list[dict[str, Any]] | None:
         """从磁盘加载 cookies，过滤已过期的。"""
-        if not _COOKIE_PATH.exists():
+        if not self._cookie_path.exists():
             return None
         try:
-            cookies = json.loads(_COOKIE_PATH.read_text())
+            cookies = json.loads(self._cookie_path.read_text())
         except (json.JSONDecodeError, OSError):
             return None
 

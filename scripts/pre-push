@@ -21,7 +21,7 @@ echo "  完整测试: bash scripts/ci-local.sh --full"
 
 echo ""
 
-if bash "$GIT_ROOT/scripts/ci-local.sh" $MODE; then
+if env -u PYTHONHOME -u PYTHONPATH bash "$GIT_ROOT/scripts/ci-local.sh" $MODE; then
   echo ""
   echo "✓ 本地 CI 通过，正在推送..."
 else

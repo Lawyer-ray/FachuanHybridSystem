@@ -23,15 +23,22 @@ class EmailService:
 
     @classmethod
     def _configure_email_backend(cls) -> None:  # pragma: no cover
-        """动态配置邮件后端"""
+        """动态配置邮件后端（Django 6.1 MAILERS）"""
         config = EmailConfigService.get_config()
 
-        settings.EMAIL_HOST = config["EMAIL_HOST"]
-        settings.EMAIL_PORT = config["EMAIL_PORT"]
-        settings.EMAIL_USE_SSL = config["EMAIL_USE_SSL"]
-        settings.EMAIL_USE_TLS = config["EMAIL_USE_TLS"]
-        settings.EMAIL_HOST_USER = config["EMAIL_HOST_USER"]
-        settings.EMAIL_HOST_PASSWORD = config["EMAIL_HOST_PASSWORD"]
+        settings.MAILERS = {
+            "default": {
+                "BACKEND": "django.core.mail.backends.smtp.EmailBackend",
+                "OPTIONS": {
+                    "host": config["EMAIL_HOST"],
+                    "port": config["EMAIL_PORT"],
+                    "username": config["EMAIL_HOST_USER"],
+                    "password": config["EMAIL_HOST_PASSWORD"],
+                    "use_ssl": config["EMAIL_USE_SSL"],
+                    "use_tls": config["EMAIL_USE_TLS"],
+                },
+            }
+        }
 
     @classmethod
     def send_password_reset_email(  # pragma: no cover
@@ -84,7 +91,7 @@ class EmailService:
                 from_email=from_email,
                 recipient_list=[to_email],
                 html_message=html_message,
-                fail_silently=False,
+                using="default",
             )
 
             logger.info(f"密码重置邮件已发送至 {to_email[:3]}***{to_email[-4:]}")
@@ -137,7 +144,7 @@ class EmailService:
                 from_email=from_email,
                 recipient_list=[to_email],
                 html_message=html_message,
-                fail_silently=False,
+                using="default",
             )
 
             logger.info(f"密码修改通知已发送至 {to_email[:3]}***{to_email[-4:]}")
@@ -156,9 +163,7 @@ class EmailService:
         expires_minutes: int = 30,
     ) -> bool:
         """Async version of send_password_reset_email — delegates to thread pool to avoid blocking the event loop."""
-        return await asyncio.to_thread(
-            cls.send_password_reset_email, to_email, username, reset_url, expires_minutes
-        )
+        return await asyncio.to_thread(cls.send_password_reset_email, to_email, username, reset_url, expires_minutes)
 
     @classmethod
     async def asend_password_changed_notification(  # pragma: no cover
@@ -167,6 +172,4 @@ class EmailService:
         username: str,
     ) -> bool:
         """Async version of send_password_changed_notification — delegates to thread pool."""
-        return await asyncio.to_thread(
-            cls.send_password_changed_notification, to_email, username
-        )
+        return await asyncio.to_thread(cls.send_password_changed_notification, to_email, username)
