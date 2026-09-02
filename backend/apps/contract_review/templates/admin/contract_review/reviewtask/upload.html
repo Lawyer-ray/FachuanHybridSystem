@@ -6,11 +6,11 @@
 {% block content_title %}{% endblock %}
 
 {% block breadcrumbs %}
-<div class="breadcrumbs">
-    <a href="{% url 'admin:index' %}">{% trans "首页" %}</a>
-    &rsaquo; <a href="{% url 'admin:contract_review_reviewtask_changelist' %}">{% trans "合同审查任务" %}</a>
-    &rsaquo; {% trans "新建" %}
-</div>
+<ol class="breadcrumbs">
+    <li><a href="{% url 'admin:index' %}">{% trans "首页" %}</a></li>
+    <li><a href="{% url 'admin:contract_review_reviewtask_changelist' %}">{% trans "合同审查任务" %}</a></li>
+    <li aria-current="page">{% trans "新建" %}</li>
+</ol>
 {% endblock %}
 
 {% block extrastyle %}

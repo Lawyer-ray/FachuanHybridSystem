@@ -90,11 +90,11 @@
 {% endblock %}
 
 {% block breadcrumbs %}
-<div class="breadcrumbs">
-    <a href="{% url 'admin:index' %}">{% trans "首页" %}</a>
-    &rsaquo; <a href="{% url 'admin:app_list' app_label='express_query' %}">{% trans "快递查询" %}</a>
-    &rsaquo; {% trans "创建任务" %}
-</div>
+<ol class="breadcrumbs">
+    <li><a href="{% url 'admin:index' %}">{% trans "首页" %}</a></li>
+    <li><a href="{% url 'admin:app_list' app_label='express_query' %}">{% trans "快递查询" %}</a></li>
+    <li aria-current="page">{% trans "创建任务" %}</li>
+</ol>
 {% endblock %}
 
 {% block content %}

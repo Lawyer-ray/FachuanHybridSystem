@@ -237,6 +237,11 @@ document.addEventListener('DOMContentLoaded', function() {
     ol.breadcrumbs li {
         display: inline;
     }
+    ol.breadcrumbs li:not([aria-current="page"])::after {
+        content: " \203A ";
+        color: var(--breadcrumbs-fg);
+        margin: 0 0.25rem;
+    }
     ol.breadcrumbs li a {
         color: var(--breadcrumbs-link-fg);
         text-decoration: none;
