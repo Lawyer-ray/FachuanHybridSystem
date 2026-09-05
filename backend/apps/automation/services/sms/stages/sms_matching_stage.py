@@ -200,9 +200,6 @@ class SMSMatchingStage(BaseSMSStage):
 
     def _extract_and_update_sms_from_documents(self, sms: CourtSMS) -> None:  # pragma: no cover
         """从文书中提取案号和当事人并回写"""
-        if not sms.scraper_task:
-            return
-
         doc_paths = self._get_document_paths_for_extraction(sms)
         if not doc_paths:
             return
@@ -246,6 +243,11 @@ class SMSMatchingStage(BaseSMSStage):
         """获取文书路径列表"""
         paths = []
         try:
+            if isinstance(sms.document_file_paths, list):
+                for file_path in sms.document_file_paths:
+                    if file_path and Path(file_path).exists():
+                        paths.append(file_path)
+
             if sms.scraper_task and hasattr(sms.scraper_task, "documents"):
                 for doc in sms.scraper_task.documents.filter(download_status="success"):
                     if doc.local_file_path and Path(doc.local_file_path).exists():
@@ -259,7 +261,7 @@ class SMSMatchingStage(BaseSMSStage):
                             paths.append(f)
         except Exception as e:
             logger.warning(f"获取文书路径失败: SMS={sms.id}, 错误: {e}")
-        return paths
+        return list(dict.fromkeys(paths))
 
     def _create_case_binding(self, sms: CourtSMS) -> bool:  # pragma: no cover
         """创建案件绑定和日志"""
