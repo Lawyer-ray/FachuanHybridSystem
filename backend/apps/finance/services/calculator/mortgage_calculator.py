@@ -55,6 +55,14 @@ PREPAY_REDUCE_PAYMENT = "reduce_payment"
 VALID_ALLOCATION_KEYS = {"penalty", "interest", "compound", "principal"}
 DEFAULT_ALLOCATION_ORDER = ["penalty", "interest", "compound", "principal"]
 
+# 复利计算方式
+COMPOUND_METHOD_DAILY = "daily"  # 逐日按当日罚息利率分段计算
+COMPOUND_METHOD_FLAT = "flat"  # 不分段：积数 × 收取复利时适用的罚息利率（如交行 13.1）
+
+# 首期计息方式
+FIRST_PERIOD_PRORATE = "prorate"  # 按放款日→首期扣款日实际天数计息（含零头天数）
+FIRST_PERIOD_FULL_MONTH = "full_month"  # 首期按整月计息
+
 # 状态
 STATUS_PAID = "paid"
 STATUS_PARTIAL = "partial"
@@ -170,6 +178,8 @@ class ClaimSummary:
     compound_interest: Decimal
     total_claim: Decimal
     daily_accrual: Decimal
+    other_fees: Decimal = field(default_factory=lambda: Decimal("0"))  # 其他费用（律师费等）
+    fee_items: list[dict] = field(default_factory=list)  # 费用明细 [{"name", "amount"}]
 
 
 @dataclass
@@ -191,6 +201,8 @@ class MortgageDefaultResult:
                 "unpaid_interest": _str_money(self.claim.unpaid_interest),
                 "penalty_interest": _str_money(self.claim.penalty_interest),
                 "compound_interest": _str_money(self.claim.compound_interest),
+                "other_fees": _str_money(self.claim.other_fees),
+                "fee_items": self.claim.fee_items,
                 "total_claim": _str_money(self.claim.total_claim),
                 "daily_accrual": _str_money(self.claim.daily_accrual),
             },
@@ -275,9 +287,15 @@ class MortgageDefaultCalculator:
         penalty_rate: Decimal | None = None,
         compound_on_interest: bool = True,
         compound_on_penalty: bool = False,
+        compound_method: str = COMPOUND_METHOD_DAILY,
+        grace_period_days: int = 0,
+        first_period_interest: str = FIRST_PERIOD_PRORATE,
+        charge_interest_on_payment_day: bool = False,
         year_days: int = 360,
         allocation_order: list[str] | None = None,
         prepayment_handling: str = PREPAY_SHORTEN_TERM,
+        prepayment_compensation_rate: Decimal | None = None,
+        other_fees: list[dict] | None = None,
         payments: list[PaymentRecord] | None = None,
         claim_date: date | None = None,
     ) -> MortgageDefaultResult:
@@ -288,7 +306,7 @@ class MortgageDefaultCalculator:
             start_date: 放款日期
             term_months: 贷款期限（月）
             repayment_method: 还款方式，equal_installment=等额本息，equal_principal=等额本金
-            payment_day: 每月扣款日（1-28），None 表示放款日对应日
+            payment_day: 每月扣款日（1-31），None 表示放款日对应日；29-31 在无对应日的月份钳制到月末
             rate_mode: fixed=固定利率，lpr=LPR+基点浮动
             fixed_rate: 固定年利率（%），固定利率模式必填
             lpr_type: LPR 期限品种，1y 或 5y（LPR 模式）
@@ -299,9 +317,20 @@ class MortgageDefaultCalculator:
             penalty_rate: 罚息年利率（%），specified 模式必填
             compound_on_interest: 是否对欠付利息计收复利
             compound_on_penalty: 是否对罚息再计收复利
+            compound_method: 复利计算方式，daily=逐日按当日罚息利率分段，flat=不分段
+                （积数×收取复利时适用的罚息利率，如交行合同 13.1 条）
+            grace_period_days: 宽限期天数（还款日+宽限期内还款视为按时，不计罚息复利），默认 0
+            first_period_interest: 首期计息方式，prorate=按放款日→首期扣款日实际天数计息
+                （含零头天数），full_month=首期按整月计息
+            charge_interest_on_payment_day: 逾期天数是否包含还款日当日。
+                False=算至实际还款日前一日（如交行 13.2 条），True=含当日
             year_days: 罚息/复利计息基准天数（360 或 365）
             allocation_order: 冲抵顺序，默认 罚息→利息→复利→本金
             prepayment_handling: 提前还款重排方式，shorten_term=缩短期限，reduce_payment=月供递减
+            prepayment_compensation_rate: 提前还款补偿金率（%，如 1.00 表示本金 1%），
+                None 表示无；提前还款时计入 other_fees 性质的费用（不参与利息计算）
+            other_fees: 其他费用列表 [{"name": "律师费", "amount": 50000}]，
+                不参与利息计算，仅计入诉讼请求合计
             payments: 还款流水（实际还款记录）
             claim_date: 计算截止日（默认今天，即起诉日）
 
@@ -359,8 +388,13 @@ class MortgageDefaultCalculator:
         penalty_paid = Decimal("0")
         compound_accrued_total = Decimal("0")
         compound_paid = Decimal("0")
-        penalty_compound_total = Decimal("0")  # 对罚息计收的复利
+        penalty_compound_total = Decimal("0")  # 对罚息计收的复利（daily 模式）
+        compound_interest_accrued = Decimal("0")  # 欠息复利积数（flat 模式）
+        penalty_compound_accrued = Decimal("0")  # 罚息复利积数（flat 模式）
+        compound_days_total = 0  # 复利计息天数（flat 模式，用于展示）
         reschedule_count = 0
+        prepayment_compensation = Decimal("0")  # 提前还款补偿金累计
+        overdue_start_dates: dict[date, date] = {}  # 批次 due_date → 起罚日（含宽限期）
 
         schedule_rows: list[ScheduleRow] = []
         default_rows: list[DefaultRow] = []
@@ -390,29 +424,58 @@ class MortgageDefaultCalculator:
         period_no = 0
 
         def accrue(d_from: date, d_to: date) -> None:
-            """对逾期本金计罚息、对欠息计复利（按日）."""
+            """对逾期本金计罚息、对欠息计复利（按日）.
+
+            flat 复利模式下，复利按积数累计：Σ(欠息余额×天数) × 收取时罚息利率，
+            即积数在计息过程中逐日累计，利率在汇总时统一适用（复利不分段）。
+            各批次罚息/复利从其起罚日（还款日+宽限期次日）起算。
+            """
             nonlocal penalty_accrued_total, compound_accrued_total, penalty_compound_total
-            days = (d_to - d_from).days
-            if days <= 0:
+            nonlocal compound_interest_accrued, penalty_compound_accrued, compound_days_total
+            if d_to <= d_from:
                 return
             p_rate = penalty_annual(d_from) / Decimal("100") / Decimal(year_days)
+
+            def effective_days(lot_due: date) -> int:
+                """扣除宽限期后的实际计罚天数：起罚日 = 还款日+宽限期+1."""
+                start = overdue_start_dates.get(lot_due)
+                if start is None:
+                    return (d_to - d_from).days
+                # 计罚区间与 [start, d_to) 求交集
+                eff_from = max(d_from, start)
+                return max((d_to - eff_from).days, 0)
+
             for lot in principal_lots:
                 if lot.amount <= 0:
                     continue
-                x = lot.amount * p_rate * days
+                days_eff = effective_days(lot.due_date)
+                if days_eff <= 0:
+                    continue
+                x = lot.amount * p_rate * days_eff
                 lot.accrued_penalty += x
                 penalty_accrued_total += x
             if compound_on_interest:
                 for lot in interest_lots:
                     if lot.amount <= 0:
                         continue
-                    x = lot.amount * p_rate * days
-                    lot.accrued_compound += x
-                    compound_accrued_total += x
+                    days_eff = effective_days(lot.due_date)
+                    if days_eff <= 0:
+                        continue
+                    if compound_method == COMPOUND_METHOD_FLAT:
+                        # 积数法：累计欠息余额×天数，汇总时统一乘以收取时的罚息利率
+                        compound_interest_accrued += lot.amount * days_eff
+                        compound_days_total += days_eff
+                    else:
+                        x = lot.amount * p_rate * days_eff
+                        lot.accrued_compound += x
+                        compound_accrued_total += x
             if compound_on_penalty:
                 penalty_outstanding = penalty_accrued_total - penalty_paid
                 if penalty_outstanding > 0:
-                    penalty_compound_total += penalty_outstanding * p_rate * days
+                    if compound_method == COMPOUND_METHOD_FLAT:
+                        penalty_compound_accrued += penalty_outstanding * (d_to - d_from).days
+                    else:
+                        penalty_compound_total += penalty_outstanding * p_rate * (d_to - d_from).days
 
         def pay_toward(key: str, amount: Decimal, pay_date: date, alloc: AllocationDetail) -> Decimal:
             """向指定 bucket 支付，返回实际消耗金额."""
@@ -535,9 +598,11 @@ class MortgageDefaultCalculator:
         while not settled:
             period_no += 1
             due_date = add_months(first_due, period_no - 1)
+            # 宽限期截止日：还款日+宽限期内还款视为按时
+            grace_end = due_date + timedelta(days=grace_period_days) if grace_period_days else due_date
 
-            # 1) 处理本期内（上一事件日, due_date] 的还款事件
-            while payment_idx < len(pay_records) and pay_records[payment_idx].payment_date <= due_date:
+            # 1) 处理本期内（上一事件日, 宽限期截止日] 的还款事件
+            while payment_idx < len(pay_records) and pay_records[payment_idx].payment_date <= grace_end:
                 rec = pay_records[payment_idx]
                 payment_idx += 1
                 accrue(prev_event_date, rec.payment_date)
@@ -557,6 +622,9 @@ class MortgageDefaultCalculator:
                     if remaining_amt < rec.amount:
                         _attach_allocation(alloc)
                     if remaining_amt > 0:
+                        # 提前还款补偿金：提前归还本金 × 补偿金率
+                        if prepayment_compensation_rate is not None:
+                            prepayment_compensation += remaining_amt * prepayment_compensation_rate / Decimal("100")
                         balance -= remaining_amt
                         if balance <= 0:
                             balance = Decimal("0")
@@ -591,18 +659,27 @@ class MortgageDefaultCalculator:
             rate_changed = annual != current_rate and period_no > 1
             current_rate = annual
 
-            # 3) 本期应还
+            # 4) 本期应还
             if repayment_method == REPAYMENT_EQUAL_INSTALLMENT:
                 if period_no == 1 or rate_changed:
                     if rate_changed:
                         reschedule_count += 1
                     monthly_payment = annuity_payment(balance, annual, remaining_periods)
-                interest_due = _q(balance * i)
+                if period_no == 1 and first_period_interest == FIRST_PERIOD_PRORATE:
+                    # 首期不规则：按放款日→首期扣款日实际天数计息（含零头天数）
+                    stub_days = Decimal((due_date - start_date).days)
+                    interest_due = _q(balance * annual / Decimal("100") * stub_days / Decimal(year_days))
+                else:
+                    interest_due = _q(balance * i)
                 principal_due = monthly_payment - interest_due
                 if principal_due > balance:
                     principal_due = balance
             else:
-                interest_due = _q(balance * i)
+                if period_no == 1 and first_period_interest == FIRST_PERIOD_PRORATE:
+                    stub_days = Decimal((due_date - start_date).days)
+                    interest_due = _q(balance * annual / Decimal("100") * stub_days / Decimal(year_days))
+                else:
+                    interest_due = _q(balance * i)
                 principal_due = principal_part_plan if principal_part_plan <= balance else balance
 
             if principal_due <= 0:
@@ -632,13 +709,18 @@ class MortgageDefaultCalculator:
             paid_principal = due_alloc.to_principal
             credit = credit_remaining
 
-            # 5) 未付部分形成欠款批次
+            # 5) 未付部分形成欠款批次（起罚日 = 宽限期截止日次日起算）
             shortfall_interest = interest_due - paid_interest
             shortfall_principal = principal_due - paid_principal
+            penalty_start = grace_end + timedelta(days=1)
             if shortfall_interest > 0:
-                interest_lots.append(_Lot(due_date=due_date, amount=shortfall_interest))
+                lot = _Lot(due_date=due_date, amount=shortfall_interest)
+                interest_lots.append(lot)
+                overdue_start_dates[due_date] = penalty_start
             if shortfall_principal > 0:
-                principal_lots.append(_Lot(due_date=due_date, amount=shortfall_principal))
+                lot = _Lot(due_date=due_date, amount=shortfall_principal)
+                principal_lots.append(lot)
+                overdue_start_dates[due_date] = penalty_start
                 # 逾期本金仍计合同利息（包含在 balance 中），不再重复计提
 
             balance -= paid_principal
@@ -696,17 +778,38 @@ class MortgageDefaultCalculator:
         # ---- 汇总 ----
         unpaid_interest = sum((lot.amount for lot in interest_lots), Decimal("0"))
         penalty_outstanding = penalty_accrued_total - penalty_paid
-        compound_outstanding = compound_accrued_total - compound_paid + penalty_compound_total
+        if compound_method == COMPOUND_METHOD_FLAT:
+            # 复利不分段：积数 × 收取复利时（截止日）适用的罚息利率
+            flat_rate = penalty_annual(claim) / Decimal("100") / Decimal(year_days)
+            compound_from_interest = compound_interest_accrued * flat_rate
+            compound_from_penalty = penalty_compound_accrued * flat_rate
+            compound_outstanding = compound_from_interest + compound_from_penalty - compound_paid
+        else:
+            compound_outstanding = compound_accrued_total - compound_paid + penalty_compound_total
         outstanding_principal = max(balance, Decimal("0"))
         p_daily = penalty_annual(claim) / Decimal("100") / Decimal(year_days)
         daily_accrual = outstanding_principal * p_daily + unpaid_interest * p_daily
         if compound_on_penalty:
             daily_accrual += (penalty_accrued_total - penalty_paid) * p_daily
 
+        # 其他费用（律师费/诉讼费/提前还款补偿金等，不参与利息计算）
+        fee_items: list[dict] = list(other_fees or [])
+        if prepayment_compensation > 0:
+            fee_items.append({"name": "提前还款补偿金", "amount": _str_money(prepayment_compensation)})
+        other_fees_total = sum((Decimal(str(f.get("amount", 0))) for f in fee_items), Decimal("0"))
+
         if reschedule_count:
             warnings.append(f"因提前还款/利率重定价共重排还款计划 {reschedule_count} 次，明细以重排后计划为准")
         if compound_on_penalty:
             warnings.append("已开启「对罚息再计复利」，该口径依赖合同约定，请核对后再引用")
+        if compound_method == COMPOUND_METHOD_FLAT and (compound_on_interest or compound_on_penalty):
+            warnings.append("复利按「不分段」口径计算（积数×收取时罚息利率），如合同约定分段计收请改用逐日模式")
+        if grace_period_days:
+            warnings.append(
+                f"宽限期 {grace_period_days} 天：还款日+宽限期内还款视为按时，罚息/复利自宽限期届满次日起算"
+            )
+        if charge_interest_on_payment_day:
+            warnings.append("逾期天数包含还款日当日（算至实际还款日）口径")
 
         # 批次归属回填违约行：逾期天数、罚息/复利、还款冲抵金额
         row_by_due = {row.due_date: row for row in default_rows}
@@ -720,7 +823,11 @@ class MortgageDefaultCalculator:
             row.accrued_penalty += penalty_by_due.get(row.due_date, Decimal("0"))
             row.accrued_compound += compound_by_due.get(row.due_date, Decimal("0"))
             if row.status != STATUS_PAID:
-                row.overdue_days = max(row.overdue_days, (claim - row.due_date).days)
+                # 逾期天数：默认从计划还款日起算至实际还款日前一日/截止日；
+                # 有宽限期时从宽限期届满次日起算；charge_interest_on_payment_day 时含还款日当日
+                start = overdue_start_dates.get(row.due_date, row.due_date)
+                end_adj = claim + timedelta(days=1) if charge_interest_on_payment_day else claim
+                row.overdue_days = max(row.overdue_days, max((end_adj - start).days, 0))
             # 还款事件冲抵的利息/本金按期次并入行级已还金额（due_alloc 已直接计入）
             for alloc in row.allocations:
                 if alloc.direct:
@@ -735,9 +842,17 @@ class MortgageDefaultCalculator:
             penalty_interest=_q(penalty_outstanding),
             compound_interest=_q(compound_outstanding),
             total_claim=_q(
-                _q(outstanding_principal) + _q(unpaid_interest) + _q(penalty_outstanding) + _q(compound_outstanding)
+                _q(outstanding_principal)
+                + _q(unpaid_interest)
+                + _q(penalty_outstanding)
+                + _q(compound_outstanding)
+                + _q(other_fees_total)
             ),
             daily_accrual=_q(daily_accrual),
+            other_fees=_q(other_fees_total),
+            fee_items=[
+                {"name": f.get("name", ""), "amount": _str_money(Decimal(str(f.get("amount", 0))))} for f in fee_items
+            ],
         )
         # 逐期罚息/复利四舍五入展示
         for row in default_rows:
@@ -754,6 +869,10 @@ class MortgageDefaultCalculator:
                 "repayment_method": repayment_method,
                 "rate_mode": rate_mode,
                 "penalty_mode": penalty_mode,
+                "compound_method": compound_method,
+                "grace_period_days": grace_period_days,
+                "first_period_interest": first_period_interest,
+                "charge_interest_on_payment_day": charge_interest_on_payment_day,
                 "allocation_order": order,
                 "year_days": year_days,
                 "first_due_date": first_due.isoformat(),
@@ -776,9 +895,16 @@ class MortgageDefaultCalculator:
 
     @staticmethod
     def _first_due_date(start_date: date, payment_day: int | None) -> date:
-        """首期扣款日：payment_day 指定日或放款日对应日，至少在放款日之后一个月."""
+        """首期扣款日：payment_day 指定日（1-31）或放款日对应日，至少在放款日之后一个月.
+
+        指定日超出当月天数时钳制到月末（如每月31日，2月取28/29日）。
+        """
         day = payment_day or start_date.day
-        first_candidate = add_months(start_date.replace(day=1), 1).replace(day=min(day, 28))
+        first_candidate = add_months(start_date.replace(day=1), 1)
+        # 钳制到当月最后一天
+        if day > first_candidate.day:
+            day = first_candidate.day
+        first_candidate = first_candidate.replace(day=day)
         # 放款对应日场景：保证首期在放款日之后
         if first_candidate <= start_date:
             first_candidate = add_months(first_candidate, 1)
@@ -882,6 +1008,9 @@ class MortgageDefaultCalculator:
         penalty_mode: str,
         penalty_rate: Decimal | None,
         year_days: int,
+        compound_method: str = COMPOUND_METHOD_DAILY,
+        first_period_interest: str = FIRST_PERIOD_PRORATE,
+        grace_period_days: int = 0,
     ) -> None:
         if principal <= 0:
             raise ValidationException(message="贷款本金必须大于0", code="INVALID_PRINCIPAL")
@@ -900,3 +1029,11 @@ class MortgageDefaultCalculator:
             raise ValidationException(message="直接指定罚息利率时必须提供大于0的年利率", code="INVALID_PENALTY_RATE")
         if year_days not in (360, 365):
             raise ValidationException(message="计息基准仅支持 360 或 365 天", code="INVALID_YEAR_DAYS")
+        if compound_method not in (COMPOUND_METHOD_DAILY, COMPOUND_METHOD_FLAT):
+            raise ValidationException(message="复利计算方式仅支持 daily 或 flat", code="INVALID_COMPOUND_METHOD")
+        if first_period_interest not in (FIRST_PERIOD_PRORATE, FIRST_PERIOD_FULL_MONTH):
+            raise ValidationException(
+                message="首期计息方式仅支持 prorate 或 full_month", code="INVALID_FIRST_PERIOD_INTEREST"
+            )
+        if grace_period_days < 0:
+            raise ValidationException(message="宽限期天数不能为负", code="INVALID_GRACE_PERIOD")

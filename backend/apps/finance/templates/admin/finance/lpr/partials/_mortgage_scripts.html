@@ -1,11 +1,61 @@
 {% load i18n %}
 <script>
-const MORTGAGE_ALLOC_LABELS = {
-    penalty: "{% trans '罚息' %}",
-    interest: "{% trans '利息' %}",
-    compound: "{% trans '复利' %}",
-    principal: "{% trans '本金' %}"
+// 冲抵顺序配置（单一来源：模板预设下拉与脚本共用，避免两处散落硬编码）
+const MORTGAGE_ALLOCATION_CONFIG = {
+    order: ['penalty', 'interest', 'compound', 'principal'],
+    labels: {
+        penalty: "{% trans '罚息' %}",
+        interest: "{% trans '利息' %}",
+        compound: "{% trans '复利' %}",
+        principal: "{% trans '本金' %}"
+    },
+    presets: [
+        { value: 'penalty,interest,compound,principal', label: "{% trans '罚息→利息→复利→本金（默认）' %}" },
+        { value: 'interest,principal', label: "{% trans '先息后本' %}" },
+        { value: 'principal,interest', label: "{% trans '本金优先' %}" }
+    ]
 };
+
+// 重排数组中的一项到新位置（纯函数、无第三方依赖，供拖拽/箭头排序复用）
+function reorderArray(arr, from, to) {
+    if (!Array.isArray(arr)) return arr;
+    if (from < 0 || from >= arr.length || to < 0 || to >= arr.length || from === to) return arr;
+    const [item] = arr.splice(from, 1);
+    arr.splice(to, 0, item);
+    return arr;
+}
+
+// 表单默认值单一来源：init / reset 共用，避免新增字段时只改一处导致漂移
+function buildDefaultForm() {
+    return {
+        case_note: '',
+        principal: '',
+        start_date: '',
+        term_months: '',
+        repayment_method: 'equal_installment',
+        payment_day: '',
+        claim_date: '',
+        rate_mode: 'fixed',
+        fixed_rate: '',
+        lpr_type: '5y',
+        basis_points: 0,
+        repricing_day: '01-01',
+        penalty_mode: 'multiplier',
+        penalty_multiplier: 1.5,
+        penalty_rate: '',
+        compound_on_interest: true,
+        compound_on_penalty: false,
+        compound_method: 'daily',
+        grace_period_days: 0,
+        first_period_interest: 'prorate',
+        charge_interest_on_payment_day: 'false',
+        prepayment_compensation_rate: '',
+        year_days: 360,
+        allocation_order: [...MORTGAGE_ALLOCATION_CONFIG.order],
+        prepayment_handling: 'shorten_term',
+        payments: []
+    };
+}
 
 function mortgageCalc() {
     return {
@@ -17,30 +67,11 @@ function mortgageCalc() {
         mShowAll: false,
         expandRow: null,
         mResult: null,
+        // 冲抵顺序拖拽状态
+        dragIndex: null,
+        overIndex: null,
         history: [],
-        form: {
-            case_note: '',
-            principal: '',
-            start_date: '',
-            term_months: '',
-            repayment_method: 'equal_installment',
-            payment_day: '',
-            claim_date: '',
-            rate_mode: 'fixed',
-            fixed_rate: '',
-            lpr_type: '5y',
-            basis_points: 0,
-            repricing_day: '01-01',
-            penalty_mode: 'multiplier',
-            penalty_multiplier: 1.5,
-            penalty_rate: '',
-            compound_on_interest: true,
-            compound_on_penalty: false,
-            year_days: 360,
-            allocation_order: ['penalty', 'interest', 'compound', 'principal'],
-            prepayment_handling: 'shorten_term',
-            payments: []
-        },
+        form: buildDefaultForm(),
 
         init() {
             const today = new Date();
@@ -66,7 +97,7 @@ function mortgageCalc() {
         },
 
         allocLabel(key) {
-            return MORTGAGE_ALLOC_LABELS[key] || key;
+            return MORTGAGE_ALLOCATION_CONFIG.labels[key] || key;
         },
 
         statusLabel(s) {
@@ -83,14 +114,46 @@ function mortgageCalc() {
 
         // ---------- 冲抵顺序 ----------
         applyPreset(value) {
-            this.form.allocation_order = value.split(',').filter(Boolean);
+            // 补齐预设未包含的冲抵项，使前端展示与后端归一化结果一致（缺失项追加到末尾）
+            const selected = value.split(',').filter(Boolean);
+            const full = selected.slice();
+            for (const k of MORTGAGE_ALLOCATION_CONFIG.order) {
+                if (!full.includes(k)) full.push(k);
+            }
+            this.form.allocation_order = full;
         },
 
         moveOrder(idx, dir) {
-            const arr = this.form.allocation_order;
             const target = idx + dir;
-            if (target < 0 || target >= arr.length) return;
-            [arr[idx], arr[target]] = [arr[target], arr[idx]];
+            if (target < 0 || target >= this.form.allocation_order.length) return;
+            this.form.allocation_order = reorderArray(this.form.allocation_order, idx, target);
+        },
+
+        // 拖拽排序（HTML5 DnD），状态由 dragIndex / overIndex 驱动
+        onOrderDragStart(idx, ev) {
+            this.dragIndex = idx;
+            this.overIndex = idx;
+            if (ev.dataTransfer) {
+                ev.dataTransfer.effectAllowed = 'move';
+                ev.dataTransfer.setData('text/plain', String(idx));
+            }
+        },
+
+        onOrderDragOver(idx, ev) {
+            ev.preventDefault();
+            if (idx !== this.overIndex) this.overIndex = idx;
+        },
+
+        onOrderDrop(targetIdx) {
+            if (this.dragIndex !== null && this.dragIndex !== targetIdx) {
+                this.form.allocation_order = reorderArray(this.form.allocation_order, this.dragIndex, targetIdx);
+            }
+            this.onOrderDragEnd();
+        },
+
+        onOrderDragEnd() {
+            this.dragIndex = null;
+            this.overIndex = null;
         },
 
         // ---------- 还款流水 ----------
@@ -169,9 +232,14 @@ function mortgageCalc() {
                 penalty_multiplier: parseFloat(f.penalty_multiplier) || 1.5,
                 compound_on_interest: f.compound_on_interest,
                 compound_on_penalty: f.compound_on_penalty,
+                compound_method: f.compound_method,
+                grace_period_days: parseInt(f.grace_period_days) || 0,
+                first_period_interest: f.first_period_interest,
+                charge_interest_on_payment_day: f.charge_interest_on_payment_day === 'true',
                 year_days: parseInt(f.year_days),
                 allocation_order: f.allocation_order,
-                prepayment_handling: f.prepayment_handling
+                prepayment_handling: f.prepayment_handling,
+                prepayment_compensation_rate: parseFloat(f.prepayment_compensation_rate) || 0
             };
             if (f.payment_day) data.payment_day = parseInt(f.payment_day);
             if (f.rate_mode === 'fixed') data.fixed_rate = parseFloat(f.fixed_rate);
@@ -301,29 +369,9 @@ function mortgageCalc() {
 
         reset() {
             this.mResult = null;
-            this.form = {
-                case_note: '',
-                principal: '',
-                start_date: '',
-                term_months: '',
-                repayment_method: 'equal_installment',
-                payment_day: '',
-                claim_date: '',
-                rate_mode: 'fixed',
-                fixed_rate: '',
-                lpr_type: '5y',
-                basis_points: 0,
-                repricing_day: '01-01',
-                penalty_mode: 'multiplier',
-                penalty_multiplier: 1.5,
-                penalty_rate: '',
-                compound_on_interest: true,
-                compound_on_penalty: false,
-                year_days: 360,
-                allocation_order: ['penalty', 'interest', 'compound', 'principal'],
-                prepayment_handling: 'shorten_term',
-                payments: []
-            };
+            this.dragIndex = null;
+            this.overIndex = null;
+            this.form = buildDefaultForm();
             this.init();
         }
     }

@@ -386,9 +386,15 @@ def mortgage_default_calculate(  # pragma: no cover
             penalty_rate=data.penalty_rate,
             compound_on_interest=data.compound_on_interest,
             compound_on_penalty=data.compound_on_penalty,
+            compound_method=data.compound_method,
+            grace_period_days=data.grace_period_days,
+            first_period_interest=data.first_period_interest,
+            charge_interest_on_payment_day=data.charge_interest_on_payment_day,
             year_days=data.year_days,
             allocation_order=data.allocation_order,
             prepayment_handling=data.prepayment_handling,
+            prepayment_compensation_rate=data.prepayment_compensation_rate,
+            other_fees=[{"name": f.name, "amount": f.amount} for f in data.other_fees],
             payments=[
                 PaymentRecord(
                     payment_date=p.payment_date,

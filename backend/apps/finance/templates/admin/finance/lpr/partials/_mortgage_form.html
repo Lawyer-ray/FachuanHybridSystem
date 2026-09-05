@@ -1,5 +1,17 @@
 {% load i18n %}
 
+<style>
+    .order-chip {
+        display: inline-flex; align-items: center; gap: 6px;
+        background: var(--fc-bg-muted-light); border: 1px solid var(--fc-border);
+        border-radius: 6px; padding: 6px 10px; font-size: 12px;
+        cursor: grab; user-select: none; transition: box-shadow .15s ease, transform .15s ease, opacity .15s ease;
+    }
+    .order-chip__grip { cursor: grab; color: var(--fc-text-muted); font-size: 13px; line-height: 1; }
+    .order-chip--drag { opacity: .6; box-shadow: 0 4px 12px rgba(0,0,0,.18); transform: translateY(-2px); cursor: grabbing; }
+    .order-chip--over { border-color: var(--fc-admin-blue); box-shadow: 0 0 0 2px var(--fc-primary-subtle, #dbeafe); }
+</style>
+
 <div class="lpr-calc__input">
     <!-- ① 贷款合同信息 -->
     <div class="lpr-calc__section">
@@ -34,7 +46,7 @@
                 <label>{% trans "每月扣款日（不填取放款日对应日）" %}</label>
                 <select x-model="form.payment_day">
                     <option value="">{% trans "放款日对应日" %}</option>
-                    <template x-for="d in 28" :key="d">
+                    <template x-for="d in 31" :key="d">
                         <option :value="d" x-text="d + '{% trans "日" %}'"></option>
                     </template>
                 </select>
@@ -129,18 +141,45 @@
                 </div>
             </div>
         </div>
+        <div class="lpr-calc__row" style="margin-top: 10px;">
+            <div class="lpr-calc__field">
+                <label>{% trans "复利计算方式" %}</label>
+                <select x-model="form.compound_method">
+                    <option value="daily">{% trans "逐日分段（按当日罚息利率）" %}</option>
+                    <option value="flat">{% trans "不分段（积数×收取时利率，如交行）" %}</option>
+                </select>
+            </div>
+            <div class="lpr-calc__field">
+                <label>{% trans "宽限期（天，0=无）" %}</label>
+                <input type="number" x-model="form.grace_period_days" step="1" min="0" placeholder="{% trans '如 10' %}">
+            </div>
+            <div class="lpr-calc__field">
+                <label>{% trans "首期计息" %}</label>
+                <select x-model="form.first_period_interest">
+                    <option value="prorate">{% trans "按实际天数（含零头天数）" %}</option>
+                    <option value="full_month">{% trans "整月" %}</option>
+                </select>
+            </div>
+            <div class="lpr-calc__field">
+                <label>{% trans "逾期天数口径" %}</label>
+                <select x-model="form.charge_interest_on_payment_day">
+                    <option value="false">{% trans "算至还款日前一日" %}</option>
+                    <option value="true">{% trans "含还款日当日" %}</option>
+                </select>
+            </div>
+        </div>
     </div>
 
     <!-- ③ 还款冲抵 -->
     <div class="lpr-calc__section">
         <div class="lpr-calc__section-title">{% trans "③ 还款冲抵" %}</div>
-        <div class="lpr-calc__row lpr-calc__row--2">
+        <div class="lpr-calc__row">
             <div class="lpr-calc__field">
                 <label>{% trans "冲抵顺序预设" %}</label>
                 <select @change="applyPreset($event.target.value)">
-                    <option value="penalty,interest,compound,principal">{% trans "罚息→利息→复利→本金（默认）" %}</option>
-                    <option value="interest,principal">{% trans "先息后本" %}</option>
-                    <option value="principal,interest">{% trans "本金优先" %}</option>
+                    <template x-for="preset in MORTGAGE_ALLOCATION_CONFIG.presets" :key="preset.value">
+                        <option :value="preset.value" x-text="preset.label"></option>
+                    </template>
                 </select>
             </div>
             <div class="lpr-calc__field">
@@ -150,15 +189,27 @@
                     <option value="reduce_payment">{% trans "月供递减、期限不变" %}</option>
                 </select>
             </div>
+            <div class="lpr-calc__field">
+                <label>{% trans "提前还款补偿金率（%，不填=无）" %}</label>
+                <input type="number" x-model="form.prepayment_compensation_rate" step="0.01" placeholder="{% trans '如 1.00（交行 25.5 条）' %}">
+            </div>
+            <div class="lpr-calc__field"></div>
         </div>
         <div style="margin: 12px 0 16px;">
-            <div style="font-size: 12px; color: var(--fc-text-secondary); margin-bottom: 6px;">{% trans "冲抵顺序（用箭头调整）" %}</div>
+            <div style="font-size: 12px; color: var(--fc-text-secondary); margin-bottom: 6px;">{% trans "冲抵顺序（拖拽排序，也可用箭头微调）" %}</div>
             <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
                 <template x-for="(key, idx) in form.allocation_order" :key="key">
-                    <span style="display: inline-flex; align-items: center; gap: 6px; background: var(--fc-bg-muted-light); border: 1px solid var(--fc-border); border-radius: 6px; padding: 6px 10px; font-size: 12px;">
+                    <span class="order-chip" draggable="true"
+                          :class="{ 'order-chip--drag': dragIndex === idx, 'order-chip--over': overIndex === idx }"
+                          @dragstart="onOrderDragStart(idx, $event)"
+                          @dragover.prevent="onOrderDragOver(idx, $event)"
+                          @dragenter.prevent=""
+                          @drop.prevent="onOrderDrop(idx)"
+                          @dragend="onOrderDragEnd($event)">
+                        <span class="order-chip__grip" title="{% trans '拖动排序' %}">⠿</span>
                         <span x-text="allocLabel(key)"></span>
-                        <button type="button" @click="moveOrder(idx, -1)" :disabled="idx === 0" style="border: none; background: none; cursor: pointer; color: var(--fc-text-muted);">↑</button>
-                        <button type="button" @click="moveOrder(idx, 1)" :disabled="idx === form.allocation_order.length - 1" style="border: none; background: none; cursor: pointer; color: var(--fc-text-muted);">↓</button>
+                        <button type="button" @click.prevent.stop="moveOrder(idx, -1)" :disabled="idx === 0" style="border: none; background: none; cursor: pointer; color: var(--fc-text-muted);">↑</button>
+                        <button type="button" @click.prevent.stop="moveOrder(idx, 1)" :disabled="idx === form.allocation_order.length - 1" style="border: none; background: none; cursor: pointer; color: var(--fc-text-muted);">↓</button>
                     </span>
                 </template>
             </div>

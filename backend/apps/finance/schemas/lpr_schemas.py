@@ -164,6 +164,13 @@ class ScheduleRowSchema(Schema):
     rescheduled: bool
 
 
+class OtherFeeSchema(Schema):
+    """其他费用Schema."""
+
+    name: str = Field("", description="费用名称，如 律师费/诉讼费/提前还款补偿金")
+    amount: Decimal = Field(..., description="金额（元）")
+
+
 class MortgageDefaultRequest(MortgageAmortizeRequest):
     """房贷逾期违约债权计算请求."""
 
@@ -180,6 +187,22 @@ class MortgageDefaultRequest(MortgageAmortizeRequest):
     )
     prepayment_handling: Literal["shorten_term", "reduce_payment"] = Field(
         "shorten_term", description="提前还款重排方式"
+    )
+    prepayment_compensation_rate: Decimal | None = Field(
+        None, description="提前还款补偿金率(%)，如 1.00 表示提前归还本金的 1%，不填表示无"
+    )
+    compound_method: Literal["daily", "flat"] = Field(
+        "daily", description="复利计算方式: daily=逐日按当日罚息利率分段, flat=不分段(积数×收取时罚息利率，如交行)"
+    )
+    grace_period_days: int = Field(0, ge=0, description="宽限期天数（还款日+宽限期内还款视为按时）")
+    first_period_interest: Literal["prorate", "full_month"] = Field(
+        "prorate", description="首期计息: prorate=按放款日→首期扣款日实际天数, full_month=整月"
+    )
+    charge_interest_on_payment_day: bool = Field(
+        False, description="逾期天数是否含还款日当日（交行等约定算至还款日前一日则为 false）"
+    )
+    other_fees: list[OtherFeeSchema] = Field(
+        default_factory=list, description="其他费用（律师费/诉讼费等，仅计入合计）"
     )
     payments: list[MortgagePaymentSchema] = Field(default_factory=list, description="还款流水")
     claim_date: date | None = Field(None, description="计算截止日（默认今天）")
@@ -222,6 +245,8 @@ class ClaimSummarySchema(Schema):
     unpaid_interest: str
     penalty_interest: str
     compound_interest: str
+    other_fees: str = "0.00"
+    fee_items: list[OtherFeeSchema] = Field(default_factory=list)
     total_claim: str
     daily_accrual: str
 
