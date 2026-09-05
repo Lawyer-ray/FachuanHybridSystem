@@ -8,22 +8,16 @@ const MORTGAGE_ALLOCATION_CONFIG = {
         interest: "{% trans '利息' %}",
         compound: "{% trans '复利' %}",
         principal: "{% trans '本金' %}",
-        penalty_lump: "{% trans '违约金' %}",
-        fee: "{% trans '费用' %}"
+        penalty_lump: "{% trans '违约金' %}"
     },
     presets: [
         { value: 'penalty,interest,compound,principal,penalty_lump', label: "{% trans '罚息→利息→复利→本金→违约金（默认）' %}" },
         { value: 'interest,principal,penalty_lump', label: "{% trans '先息后本' %}" },
         { value: 'principal,interest,penalty_lump', label: "{% trans '本金优先（先本后息·担保物权立场）' %}" }
-    ],
-    stances: [
-        { value: '', label: "{% trans '自定义顺序（拖拽微调）' %}" },
-        { value: 'interest_first', label: "{% trans '先息后本（常规主张）' %}" },
-        { value: 'principal_first', label: "{% trans '先本后息（担保物权立场）' %}" }
     ]
 };
 
-// 重排数组中的一项到新位置（纯函数、无第三方依赖，供拖拽/箭头排序复用）
+// 重排数组中的一项到新位置（纯函数、无第三方依赖，供拖拽排序复用）
 function reorderArray(arr, from, to) {
     if (!Array.isArray(arr)) return arr;
     if (from < 0 || from >= arr.length || to < 0 || to >= arr.length || from === to) return arr;
@@ -31,9 +25,6 @@ function reorderArray(arr, from, to) {
     arr.splice(to, 0, item);
     return arr;
 }
-
-// 诉讼费用快捷分类（通用共项，各行/各案常见主张项）
-const FEE_CATEGORIES = ["律师费", "案件受理费", "保全费", "公证费", "催收邮寄费"];
 
 // 表单默认值单一来源：init / reset 共用，避免新增字段时只改一处导致漂移
 function buildDefaultForm() {
@@ -70,8 +61,6 @@ function buildDefaultForm() {
         shift_due_to_workday: false,
         holidays: '',
         prepayment_handling: 'shorten_term',
-        other_fees: [],
-        fees_offset: false,
         step_up_rate: '',
         step_up_trigger_days: 0,
         rounding_mode: 'period',
@@ -207,15 +196,8 @@ function mortgageCalc() {
         },
 
         _markCustomOrder() {
-            // 用户手动拖拽/箭头调整顺序后，立场预设不再适用，标记为自定义
+            // 用户手动拖拽后，立场预设不再适用，标记为自定义
             this.form.allocation_stance = '';
-        },
-
-        moveOrder(idx, dir) {
-            const target = idx + dir;
-            if (target < 0 || target >= this.form.allocation_order.length) return;
-            this.form.allocation_order = reorderArray(this.form.allocation_order, idx, target);
-            this._markCustomOrder();
         },
 
         // 拖拽排序（HTML5 DnD），状态由 dragIndex / overIndex 驱动
@@ -301,25 +283,7 @@ function mortgageCalc() {
             this.form.rate_events.splice(i, 1);
         },
 
-        // ---------- 诉讼费用主张合并 ----------
-        addFee(name) {
-            this.form.other_fees.push({name: name || '', amount: ''});
-        },
-
-        removeFee(i) {
-            this.form.other_fees.splice(i, 1);
-        },
-
-        // 费用是否参与冲抵：开启时把 fee 追加进冲抵顺序，关闭时移除
-        toggleFeesOffset() {
-            const has = this.form.allocation_order.includes('fee');
-            if (this.form.fees_offset && !has) {
-                this.form.allocation_order = [...this.form.allocation_order, 'fee'];
-            } else if (!this.form.fees_offset && has) {
-                this.form.allocation_order = this.form.allocation_order.filter(k => k !== 'fee');
-            }
-        },
-
+        // ---------- 分段利率 / 节假日 ----------
         _parseHolidays(text) {
             // 接受 2024-10-01,2024-10-02 或 2024-10-01 2024-10-02（逗号/空格/换行分隔）
             return String(text || '')
@@ -380,9 +344,6 @@ function mortgageCalc() {
                 holidays: this._parseHolidays(f.holidays),
                 prepayment_handling: f.prepayment_handling,
                 prepayment_compensation_rate: parseFloat(f.prepayment_compensation_rate) || 0,
-                other_fees: (f.other_fees || []).filter(t => t.name && t.amount !== '' && parseFloat(t.amount) >= 0)
-                    .map(t => ({name: t.name, amount: parseFloat(t.amount)})),
-                fees_offset: !!f.fees_offset,
                 step_up_rate: f.step_up_rate === '' ? null : parseFloat(f.step_up_rate),
                 step_up_trigger_days: parseInt(f.step_up_trigger_days) || 0,
                 rounding_mode: f.rounding_mode,
@@ -456,9 +417,6 @@ function mortgageCalc() {
                 + this.formatMoney(c.compound_interest) + '元';
             if (parseFloat(c.lump_penalty) > 0) {
                 text += '、违约金' + this.formatMoney(c.lump_penalty) + '元';
-            }
-            if (parseFloat(c.other_fees) > 0) {
-                text += '、其他费用' + this.formatMoney(c.other_fees) + '元';
             }
             text += '，合计' + this.formatMoney(c.total_claim) + '元，并支付自'
                 + dateCN + '起至实际清偿之日止的利息、罚息、复利（按合同约定标准计算）。';

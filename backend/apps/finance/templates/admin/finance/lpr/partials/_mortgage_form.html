@@ -244,7 +244,7 @@
             <div class="lpr-calc__field"></div>
         </div>
         <div style="margin: 12px 0 16px;">
-            <div style="font-size: 12px; color: var(--fc-text-secondary); margin-bottom: 6px;">{% trans "冲抵顺序（拖拽排序，也可用箭头微调）" %}</div>
+            <div style="font-size: 12px; color: var(--fc-text-secondary); margin-bottom: 6px;">{% trans "冲抵顺序（拖拽排序）" %}</div>
             <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
                 <template x-for="(key, idx) in form.allocation_order" :key="key">
                     <span class="order-chip" draggable="true"
@@ -256,8 +256,6 @@
                           @dragend="onOrderDragEnd($event)">
                         <span class="order-chip__grip" title="{% trans '拖动排序' %}">⠿</span>
                         <span x-text="allocLabel(key)"></span>
-                        <button type="button" @click.prevent.stop="moveOrder(idx, -1)" :disabled="idx === 0" style="border: none; background: none; cursor: pointer; color: var(--fc-text-muted);">↑</button>
-                        <button type="button" @click.prevent.stop="moveOrder(idx, 1)" :disabled="idx === form.allocation_order.length - 1" style="border: none; background: none; cursor: pointer; color: var(--fc-text-muted);">↓</button>
                     </span>
                 </template>
             </div>
@@ -333,9 +331,9 @@
         </div>
     </div>
 
-    <!-- ④ 主张口径与费用（通用共项，适配不同银行/合同主张差异） -->
+    <!-- ④ 主张口径（通用共项，适配不同银行/合同主张差异） -->
     <div class="lpr-calc__section">
-        <div class="lpr-calc__section-title">{% trans "④ 主张口径与费用" %}</div>
+        <div class="lpr-calc__section-title">{% trans "④ 主张口径" %}</div>
 
         <!-- 利息止算日 / 舍入规则 / 逾期自动加码 -->
         <div class="lpr-calc__row">
@@ -369,44 +367,6 @@
                 <input type="number" x-model="form.step_up_trigger_days" step="1" min="0" placeholder="{% trans '如 90' %}">
             </div>
             <div class="lpr-calc__field"></div>
-        </div>
-
-        <!-- 诉讼费用主张合并 -->
-        <div style="margin-top: 14px; background: var(--fc-bg-muted); border-radius: 8px; padding: 14px 16px;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-                <div style="font-size: 12px; font-weight: 600; color: var(--fc-text-secondary);">
-                    {% trans "诉讼费用主张（律师费/保全费/受理费/公证费/催收费等，并入诉讼请求合计）" %}
-                </div>
-                <label style="display: flex; align-items: center; gap: 8px; font-weight: 400; margin-bottom: 0; cursor: pointer; font-size: 12px; color: var(--fc-text-secondary);">
-                    <input type="checkbox" class="lpr-calc__switch" x-model="form.fees_offset" @change="toggleFeesOffset">
-                    {% trans "费用参与还款冲抵" %}
-                </label>
-            </div>
-            <div x-show="form.fees_offset" style="font-size: 11px; color: var(--fc-text-muted); margin-top: 2px;">
-                {% trans "参与冲抵后，「费用」会追加到下方冲抵顺序末尾，可拖拽自定义其核销位置（默认仅计入诉讼请求合计）。" %}
-            </div>
-            <div style="display: flex; gap: 6px; flex-wrap: wrap; margin: 8px 0;">
-                <template x-for="cat in FEE_CATEGORIES" :key="cat">
-                    <button type="button" @click="addFee(cat)" style="font-size: 11px; color: var(--fc-admin-blue); background: none; border: 1px solid var(--fc-border); padding: 3px 10px; border-radius: 20px; cursor: pointer;">+ <span x-text="cat"></span></button>
-                </template>
-            </div>
-            <div class="lpr-calc__change-row" style="grid-template-columns: 1.5fr 1fr auto;" x-show="form.other_fees.length > 0">
-                <div class="lpr-calc__field"><label>{% trans "费用名称" %}</label></div>
-                <div class="lpr-calc__field"><label>{% trans "金额（元）" %}</label></div>
-                <div></div>
-            </div>
-            <template x-for="(t, i) in form.other_fees" :key="i">
-                <div class="lpr-calc__change-row" style="grid-template-columns: 1.5fr 1fr auto;">
-                    <div class="lpr-calc__field">
-                        <input type="text" x-model="t.name" :placeholder="'{% trans '费用名称，如 律师费' %}'">
-                    </div>
-                    <div class="lpr-calc__field">
-                        <input type="number" x-model="t.amount" step="0.01" min="0" placeholder="{% trans '金额（元）' %}">
-                    </div>
-                    <button type="button" class="lpr-calc__btn-remove" @click="removeFee(i)">×</button>
-                </div>
-            </template>
-            <button type="button" class="lpr-calc__btn-add" @click="addFee('')">+ {% trans "添加费用" %}</button>
         </div>
     </div>
 
