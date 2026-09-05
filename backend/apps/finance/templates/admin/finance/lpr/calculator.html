@@ -7,6 +7,7 @@
 <ol class="breadcrumbs">
     <li><a href="{% url 'admin:index' %}">{% trans "首页" %}</a></li>
     <li><a href="{% url 'admin:app_list' app_label='finance' %}">{% trans "金融工具" %}</a></li>
+    <li><a href="{% url 'admin:finance_lprrate_changelist' %}">{% trans "LPR利率" %}</a></li>
     <li aria-current="page">{% trans "利息/违约金计算器" %}</li>
 </ol>
 {% endblock %}
@@ -400,7 +401,7 @@
         </div>
         {% endif %}
 
-        <form method="post" action="{{ sync_url }}" style="margin: 0;">
+        <form method="post" action="{% url 'admin:finance_lprrate_sync' %}" style="margin: 0;">
             {% csrf_token %}
             <button type="submit" class="lpr-calc__btn lpr-calc__btn--secondary" style="white-space: nowrap; font-size: 12px; padding: 8px 16px; height: auto;">
                 {% trans "同步LPR数据" %}

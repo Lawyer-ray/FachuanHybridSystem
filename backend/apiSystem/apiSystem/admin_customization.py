@@ -14,7 +14,6 @@ from typing import Any
 from django.conf import settings
 from django.contrib import admin
 from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
-from django.shortcuts import render
 from django.template.response import TemplateResponse
 from django.urls import URLPattern, URLResolver, path, reverse
 from django.utils.translation import gettext_lazy as _
@@ -142,7 +141,7 @@ _OTHER_TOOLS_APPS = [
         "url": "/admin/finance/",
         "children": [
             {"name": _("LPR利率"), "url": "/admin/finance/lprrate/"},
-            {"name": _("LPR计算器"), "url": "/admin/finance/calculator/"},
+            {"name": _("LPR计算器"), "url": "/admin/finance/lprrate/calculator/"},
         ],
     },
     {"app_label": "organization", "name": _("组织管理"), "url": "/admin/organization/"},
@@ -170,7 +169,7 @@ def _build_other_tools_list() -> list[dict[str, Any]]:
 
 # 新用户默认收藏的子工具 URL（首次打开「其他工具」页时自动创建）
 _DEFAULT_FAV_URLS = [
-    "/admin/finance/calculator/",
+    "/admin/finance/lprrate/calculator/",
     "/admin/express_query/expressquerytool/",
     "/admin/automation/courtsms/",
     "/admin/doc_convert/docconverttool/",
@@ -338,30 +337,9 @@ admin.site.__class__.get_app_list = _sorted_get_app_list  # type: ignore[method-
 # ============================================================
 
 
-def lpr_calculator_view(request: HttpRequest) -> HttpResponse:
-    """LPR利息计算器独立视图."""
-    from apps.finance.models.lpr_rate import LPRRate
-    from apps.finance.services.lpr.rate_service import LPRRateService
-
-    rate_service = LPRRateService()
-
-    try:
-        latest_rate = rate_service.get_latest_rate()
-    except Exception:
-        latest_rate = None
-
-    # 获取最新的几条利率记录用于参考
-    recent_rates = LPRRate.objects.all()[:10]
-
-    context: dict[str, Any] = {
-        **admin.site.each_context(request),
-        "title": _("利息/违约金计算器"),
-        "recent_rates": recent_rates,
-        "latest_rate": latest_rate,
-        "is_data_current": rate_service.is_data_current(),
-        "sync_url": "/admin/finance/lprrate/sync/",
-    }
-    return render(request, "admin/finance/lpr/calculator.html", context)
+def lpr_calculator_view(request: HttpRequest) -> HttpResponseRedirect:
+    """历史入口：重定向到 LPRRate 模型子页下的计算器（单一真实 URL）。"""
+    return HttpResponseRedirect(reverse("admin:finance_lprrate_calculator"))
 
 
 def case_handling_hub_view(request: HttpRequest) -> TemplateResponse:
