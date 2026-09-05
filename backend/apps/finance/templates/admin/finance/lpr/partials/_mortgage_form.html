@@ -31,7 +31,7 @@
                 <div style="font-size: 12px; color: var(--fc-text-muted); min-height: 40px; display: flex; align-items: center;"
                      x-init>
                     <span x-show="bankProfiles.length === 0">{% trans "加载中…" %}</span>
-                    <span x-show="bankProfiles.length > 0" x-text="selectedProfileDesc || '{% trans \'选择档案后自动填充银行常见口径，后续改动以手工为准（档案为起始模板，务必按实际合同核对）\' %}'" style="line-height: 1.5;"></span>
+                    <span x-show="bankProfiles.length > 0" x-text="selectedProfileDesc || '选择档案后自动填充银行常见口径，后续改动以手工为准（档案为起始模板，务必按实际合同核对）'" style="line-height: 1.5;"></span>
                 </div>
             </div>
         </div>
