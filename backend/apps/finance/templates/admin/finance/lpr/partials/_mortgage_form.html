@@ -117,12 +117,14 @@
             </div>
             <div class="lpr-calc__field">
                 <label>{% trans "复利" %}</label>
-                <div style="display: flex; flex-direction: column; gap: 6px; padding-top: 4px;">
-                    <label style="display: flex; align-items: center; gap: 6px; font-weight: 400; margin-bottom: 0;">
-                        <input type="checkbox" x-model="form.compound_on_interest"> {% trans "对欠付利息计复利" %}
+                <div style="display: flex; flex-direction: column; gap: 10px; padding-top: 4px;">
+                    <label style="display: flex; align-items: center; gap: 10px; font-weight: 400; margin-bottom: 0; cursor: pointer;">
+                        <input type="checkbox" class="lpr-calc__switch" x-model="form.compound_on_interest">
+                        <span style="font-size: 13px; color: var(--fc-text-secondary);">{% trans "对欠付利息计复利" %}</span>
                     </label>
-                    <label style="display: flex; align-items: center; gap: 6px; font-weight: 400; margin-bottom: 0;">
-                        <input type="checkbox" x-model="form.compound_on_penalty"> {% trans "对罚息再计复利" %}
+                    <label style="display: flex; align-items: center; gap: 10px; font-weight: 400; margin-bottom: 0; cursor: pointer;">
+                        <input type="checkbox" class="lpr-calc__switch" x-model="form.compound_on_penalty">
+                        <span style="font-size: 13px; color: var(--fc-text-secondary);">{% trans "对罚息再计复利" %}</span>
                     </label>
                 </div>
             </div>
