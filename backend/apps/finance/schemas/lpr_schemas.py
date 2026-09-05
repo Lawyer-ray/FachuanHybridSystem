@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date  # 别名规避 pydantic 字段名与类型同名冲突（rate 事件 date 字段）
+from datetime import date as Date
 from decimal import Decimal
 from typing import Literal
 
@@ -174,7 +175,7 @@ class OtherFeeSchema(Schema):
 class RateEventSchema(Schema):
     """分段利率事件Schema."""
 
-    date: date = Field(..., description="利率生效日（自该日起适用）")
+    date: Date = Field(..., description="利率生效日（自该日起适用）")
     annual_rate: Decimal = Field(..., description="该日起的合同年利率(%)，覆盖固定/LPR 基座")
 
 
