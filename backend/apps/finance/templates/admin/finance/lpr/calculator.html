@@ -312,10 +312,20 @@
 {% endblock %}
 
 {% block content %}
-<div class="lpr-calc" x-data="lprCalculator()" x-init="init()">
+<div class="lpr-calc" x-data="{tab: 'interest'}" x-init="$store.calc = $store.calc || {tab: 'interest'}">
     <div class="lpr-calc__nav">
         <h1 class="lpr-calc__nav-title">{% trans "利息/违约金计算器" %}</h1>
         <a href="{% url 'admin:finance_lprrate_changelist' %}" class="lpr-calc__nav-back">{% trans "← 返回" %}</a>
+    </div>
+
+    <!-- 顶层模式切换 -->
+    <div class="lpr-calc__mode" style="margin-bottom: 20px;" x-data>
+        <button type="button" class="lpr-calc__mode-btn" :class="{active: tab === 'interest'}" @click="tab = 'interest'">
+            {% trans "利息计算" %}
+        </button>
+        <button type="button" class="lpr-calc__mode-btn" :class="{active: tab === 'mortgage'}" @click="tab = 'mortgage'">
+            {% trans "房贷逾期诉讼" %}
+        </button>
     </div>
 
     <!-- LPR数据状态栏 -->
@@ -354,10 +364,33 @@
     </div>
 
     <div class="lpr-calc__main">
-        {% include "admin/finance/lpr/partials/_form.html" %}
-        {% include "admin/finance/lpr/partials/_result.html" %}
+        <!-- 利息计算 tab -->
+        <div x-show="tab === 'interest'">
+            <div x-data="lprCalculator()" x-init="init()">
+                {% include "admin/finance/lpr/partials/_form.html" %}
+            </div>
+        </div>
+
+        <!-- 房贷逾期诉讼 tab（表单+结果共用一个 Alpine 组件） -->
+        <div x-show="tab === 'mortgage'" style="display: none;" x-data="mortgageCalc()" x-init="init()">
+            <div x-show="tab === 'mortgage'">
+                {% include "admin/finance/lpr/partials/_mortgage_form.html" %}
+            </div>
+
+            {% include "admin/finance/lpr/partials/_mortgage_result.html" %}
+        </div>
+
+        <!-- 利息计算结果 -->
+        <div x-show="tab === 'interest'">
+            <div x-data="lprCalculator()">
+                {% include "admin/finance/lpr/partials/_result.html" %}
+            </div>
+        </div>
+
+        <!-- 房贷违约结果 -->
     </div>
 </div>
 
 {% include "admin/finance/lpr/partials/_scripts.html" %}
+{% include "admin/finance/lpr/partials/_mortgage_scripts.html" %}
 {% endblock %}

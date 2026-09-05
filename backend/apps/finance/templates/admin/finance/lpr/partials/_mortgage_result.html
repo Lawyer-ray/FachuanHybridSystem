@@ -1,0 +1,140 @@
+{% load i18n %}
+
+<!-- 房贷违约计算结果区 -->
+<div x-show="mResult && mResult.success" style="display: none; margin-top: 20px;">
+    <!-- 诉讼请求汇总 -->
+    <div class="lpr-calc__result-card lpr-calc__result-card--highlight">
+        <div class="lpr-calc__result-label">
+            {% trans "诉讼请求合计（截至" %} <span x-text="mResult.claim.claim_date"></span>{% trans "）" %}
+        </div>
+        <div class="lpr-calc__result-value" x-text="'¥' + formatMoney(mResult.claim.total_claim)"></div>
+        <div class="lpr-calc__result-grid" style="grid-template-columns: repeat(4, 1fr);">
+            <div class="lpr-calc__result-item">
+                <div class="lpr-calc__result-item-value" x-text="formatMoney(mResult.claim.outstanding_principal)"></div>
+                <div class="lpr-calc__result-item-label">{% trans "剩余本金" %}</div>
+            </div>
+            <div class="lpr-calc__result-item">
+                <div class="lpr-calc__result-item-value" x-text="formatMoney(mResult.claim.unpaid_interest)"></div>
+                <div class="lpr-calc__result-item-label">{% trans "未付利息" %}</div>
+            </div>
+            <div class="lpr-calc__result-item">
+                <div class="lpr-calc__result-item-value" x-text="formatMoney(mResult.claim.penalty_interest)"></div>
+                <div class="lpr-calc__result-item-label">{% trans "罚息" %}</div>
+            </div>
+            <div class="lpr-calc__result-item">
+                <div class="lpr-calc__result-item-value" x-text="formatMoney(mResult.claim.compound_interest)"></div>
+                <div class="lpr-calc__result-item-label">{% trans "复利" %}</div>
+            </div>
+        </div>
+        <div style="margin-top: 14px; padding: 10px 14px; background: rgba(255,255,255,0.12); border-radius: 8px; font-size: 13px;">
+            📌 {% trans "此后每日新增利息/罚息合计" %} <strong x-text="'¥' + formatMoney(mResult.claim.daily_accrual)"></strong>
+            <span style="opacity: 0.8;">（{% trans "可主张支付至实际清偿之日止" %}）</span>
+        </div>
+        <div style="display: flex; gap: 10px;">
+            <button type="button" class="lpr-calc__copy-btn" style="flex: 1;" @click="copyClaimText">{% trans "复制金额段文字（起诉状用）" %}</button>
+            <button type="button" class="lpr-calc__copy-btn" style="flex: 1;" @click="exportCsv">{% trans "导出明细 CSV" %}</button>
+        </div>
+    </div>
+
+    <!-- 警告条 -->
+    <div x-show="mResult.warnings && mResult.warnings.length > 0" style="display: none; margin-top: 14px;">
+        <template x-for="(w, i) in mResult.warnings" :key="i">
+            <div style="background: var(--fc-warning-subtle, #fef9c3); border: 1px solid var(--fc-warning-border, #fde68a); color: var(--fc-warning, #a16207); padding: 10px 14px; border-radius: 8px; font-size: 12px; margin-bottom: 8px;">
+                ⚠ <span x-text="w"></span>
+            </div>
+        </template>
+    </div>
+
+    <!-- 明细视图切换 -->
+    <div class="lpr-calc__result-card" style="margin-top: 14px;">
+        <div class="lpr-calc__detail-header">
+            <div class="lpr-calc__mode" style="margin-bottom: 0;">
+                <button type="button" class="lpr-calc__mode-btn" :class="{active: mDetailTab === 'default'}" @click="mDetailTab = 'default'">{% trans "违约明细" %}</button>
+                <button type="button" class="lpr-calc__mode-btn" :class="{active: mDetailTab === 'schedule'}" @click="mDetailTab = 'schedule'">{% trans "还款计划对照" %}</button>
+            </div>
+            <button type="button" class="lpr-calc__detail-toggle" @click="mShowAll = !mShowAll" x-text="mShowAll ? '{% trans "只看违约期" %}' : '{% trans "显示全部" %}'"></button>
+        </div>
+
+        <!-- 违约明细 -->
+        <div x-show="mDetailTab === 'default'">
+            <table class="lpr-calc__detail-table" style="font-size: 12px;">
+                <thead>
+                    <tr>
+                        <th>{% trans "期次" %}</th>
+                        <th>{% trans "应还日" %}</th>
+                        <th>{% trans "状态" %}</th>
+                        <th style="text-align: right;">{% trans "应还本金" %}</th>
+                        <th style="text-align: right;">{% trans "已还本金" %}</th>
+                        <th style="text-align: right;">{% trans "应还利息" %}</th>
+                        <th style="text-align: right;">{% trans "已还利息" %}</th>
+                        <th style="text-align: center;">{% trans "逾期天数" %}</th>
+                        <th style="text-align: right;">{% trans "罚息" %}</th>
+                        <th style="text-align: right;">{% trans "复利" %}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <template x-for="r in mFilteredDefaultRows" :key="r.period_no">
+                        <template x-if="true">
+                            <tbody>
+                            <tr @click="toggleExpand(r.period_no)" style="cursor: pointer;">
+                                <td x-text="r.period_no"></td>
+                                <td x-text="r.due_date"></td>
+                                <td><span :style="statusStyle(r.status)" x-text="statusLabel(r.status)"></span></td>
+                                <td style="text-align: right;" x-text="formatMoney(r.due_principal)"></td>
+                                <td style="text-align: right;" x-text="formatMoney(r.paid_principal)"></td>
+                                <td style="text-align: right;" x-text="formatMoney(r.due_interest)"></td>
+                                <td style="text-align: right;" x-text="formatMoney(r.paid_interest)"></td>
+                                <td style="text-align: center;" x-text="r.status === 'paid' ? '-' : r.overdue_days"></td>
+                                <td style="text-align: right;" x-text="r.status === 'paid' ? '-' : formatMoney(r.accrued_penalty)"></td>
+                                <td style="text-align: right;" x-text="r.status === 'paid' ? '-' : formatMoney(r.accrued_compound)"></td>
+                            </tr>
+                            <template x-for="(alloc, ai) in (expandRow === r.period_no ? r.allocations : [])" :key="ai">
+                                <tr style="background: var(--fc-bg-muted); font-size: 11px; color: var(--fc-text-secondary);">
+                                    <td colspan="2" x-text="'└ ' + alloc.payment_date + ' ' + '{% trans "还款" %}' + ' ¥' + formatMoney(alloc.amount)"></td>
+                                    <td colspan="8" x-text="'{% trans "冲抵: " %}罚息 ¥' + formatMoney(alloc.to_penalty) + ' / {% trans "利息" %} ¥' + formatMoney(alloc.to_interest) + ' / {% trans "复利" %} ¥' + formatMoney(alloc.to_compound) + ' / {% trans "本金" %} ¥' + formatMoney(alloc.to_principal)"></td>
+                                </tr>
+                            </template>
+                            </tbody>
+                        </template>
+                    </template>
+                </tbody>
+            </table>
+            <div x-show="mFilteredDefaultRows.length === 0" style="text-align: center; padding: 20px; color: var(--fc-success-text); font-size: 13px;">{% trans "无违约期次" %}</div>
+        </div>
+
+        <!-- 还款计划对照 -->
+        <div x-show="mDetailTab === 'schedule'" style="display: none;">
+            <table class="lpr-calc__detail-table" style="font-size: 12px;">
+                <thead>
+                    <tr>
+                        <th>{% trans "期次" %}</th>
+                        <th>{% trans "应还日" %}</th>
+                        <th style="text-align: right;">{% trans "月供" %}</th>
+                        <th style="text-align: right;">{% trans "本金" %}</th>
+                        <th style="text-align: right;">{% trans "利息" %}</th>
+                        <th style="text-align: center;">{% trans "年利率" %}</th>
+                        <th style="text-align: right;">{% trans "剩余本金" %}</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <template x-for="r in mResult.schedule_rows" :key="r.period_no">
+                        <tr :style="r.rescheduled ? 'background: var(--fc-primary-subtle, #eff6ff);' : ''">
+                            <td x-text="r.period_no + (r.rescheduled ? ' ⟳' : '')"></td>
+                            <td x-text="r.due_date"></td>
+                            <td style="text-align: right;" x-text="formatMoney(r.monthly_payment)"></td>
+                            <td style="text-align: right;" x-text="formatMoney(r.principal_part)"></td>
+                            <td style="text-align: right;" x-text="formatMoney(r.interest_part)"></td>
+                            <td style="text-align: center;" x-text="parseFloat(r.annual_rate).toFixed(2) + '%'"></td>
+                            <td style="text-align: right;" x-text="formatMoney(r.remaining_principal)"></td>
+                        </tr>
+                    </template>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- 房贷违约计算错误 -->
+<div x-show="mResult && !mResult.success" style="display: none; margin-top: 20px;" class="lpr-calc__result-card">
+    <div class="lpr-calc__error" x-text="mResult.message"></div>
+</div>

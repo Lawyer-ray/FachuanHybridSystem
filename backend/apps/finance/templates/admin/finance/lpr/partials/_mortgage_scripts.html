@@ -1,0 +1,331 @@
+{% load i18n %}
+<script>
+const MORTGAGE_ALLOC_LABELS = {
+    penalty: "{% trans '罚息' %}",
+    interest: "{% trans '利息' %}",
+    compound: "{% trans '复利' %}",
+    principal: "{% trans '本金' %}"
+};
+
+function mortgageCalc() {
+    return {
+        showHistory: false,
+        pasteOpen: false,
+        pasteText: '',
+        pastePreview: [],
+        mDetailTab: 'default',
+        mShowAll: false,
+        expandRow: null,
+        mResult: null,
+        history: [],
+        form: {
+            case_note: '',
+            principal: '',
+            start_date: '',
+            term_months: '',
+            repayment_method: 'equal_installment',
+            payment_day: '',
+            claim_date: '',
+            rate_mode: 'fixed',
+            fixed_rate: '',
+            lpr_type: '5y',
+            basis_points: 0,
+            repricing_day: '01-01',
+            penalty_mode: 'multiplier',
+            penalty_multiplier: 1.5,
+            penalty_rate: '',
+            compound_on_interest: true,
+            compound_on_penalty: false,
+            year_days: 360,
+            allocation_order: ['penalty', 'interest', 'compound', 'principal'],
+            prepayment_handling: 'shorten_term',
+            payments: []
+        },
+
+        init() {
+            const today = new Date();
+            this.form.claim_date = this.formatDate(today);
+            this.loadHistory();
+        },
+
+        // ---------- 工具 ----------
+        formatDate(d) {
+            if (typeof d === 'string' && d.includes('T')) d = new Date(d);
+            if (d instanceof Date) return d.toISOString().split('T')[0];
+            return d;
+        },
+
+        formatMoney(n) {
+            return parseFloat(n || 0).toLocaleString('zh-CN', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        },
+
+        formatHistoryTime(timestamp) {
+            return new Date(timestamp).toLocaleString('zh-CN', {
+                month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+            });
+        },
+
+        allocLabel(key) {
+            return MORTGAGE_ALLOC_LABELS[key] || key;
+        },
+
+        statusLabel(s) {
+            if (s === 'paid') return "{% trans '已结清' %}";
+            if (s === 'partial') return "{% trans '部分还款' %}";
+            return "{% trans '未还款' %}";
+        },
+
+        statusStyle(s) {
+            if (s === 'paid') return 'color: var(--fc-success-text, #16a34a);';
+            if (s === 'partial') return 'color: var(--fc-warning, #a16207);';
+            return 'color: var(--fc-danger, #dc2626); font-weight: 600;';
+        },
+
+        // ---------- 冲抵顺序 ----------
+        applyPreset(value) {
+            this.form.allocation_order = value.split(',').filter(Boolean);
+        },
+
+        moveOrder(idx, dir) {
+            const arr = this.form.allocation_order;
+            const target = idx + dir;
+            if (target < 0 || target >= arr.length) return;
+            [arr[idx], arr[target]] = [arr[target], arr[idx]];
+        },
+
+        // ---------- 还款流水 ----------
+        addPayment() {
+            this.form.payments.push({payment_date: '', amount: '', payment_type: 'normal', note: ''});
+        },
+
+        removePayment(i) {
+            this.form.payments.splice(i, 1);
+        },
+
+        parsePaste() {
+            this.pastePreview = [];
+            const lines = (this.pasteText || '').split('\n').map(l => l.trim()).filter(Boolean);
+            for (const line of lines) {
+                const item = {payment_date: '', amount: null, payment_type: 'normal', note: ''};
+                // 日期：2024-05-20 / 2024/5/20 / 2024.5.20
+                const dateMatch = line.match(/(\d{4})[-/.年](\d{1,2})[-/.月](\d{1,2})/);
+                if (dateMatch) {
+                    item.payment_date = `${dateMatch[1]}-${dateMatch[2].padStart(2, '0')}-${dateMatch[3].padStart(2, '0')}`;
+                }
+                // 金额：去掉千分位与"存入/还款/元"等字样后的数字
+                const rest = line.replace(dateMatch ? dateMatch[0] : '', '');
+                const amountMatch = rest.replace(/[,，]/g, '').match(/([\d.]+)/);
+                if (amountMatch) item.amount = parseFloat(amountMatch[1]);
+                // 类型识别
+                if (/提前|冲本|结清/.test(line)) item.payment_type = 'prepayment_principal';
+                // 备注：剩余文字
+                item.note = line.replace(dateMatch ? dateMatch[0] : '', '')
+                    .replace(/[\d.,，]+/g, '')
+                    .replace(/存入|还款|入账|元/g, '')
+                    .trim();
+                this.pastePreview.push(item);
+            }
+        },
+
+        get validPasteCount() {
+            return this.pastePreview.filter(p => p.payment_date && p.amount !== null).length;
+        },
+
+        confirmPaste() {
+            const valid = this.pastePreview.filter(p => p.payment_date && p.amount !== null);
+            for (const p of valid) this.form.payments.push({...p});
+            this.pasteOpen = false;
+            this.pasteText = '';
+            this.pastePreview = [];
+        },
+
+        // ---------- 计算 ----------
+        async calculate() {
+            this.mResult = null;
+            const f = this.form;
+            if (!f.principal || !f.start_date || !f.term_months) {
+                this.mResult = {success: false, message: "{% trans '请填写贷款本金、放款日期和期限' %}"};
+                return;
+            }
+            if (f.rate_mode === 'fixed' && !f.fixed_rate) {
+                this.mResult = {success: false, message: "{% trans '请填写固定年利率' %}"};
+                return;
+            }
+            if (f.penalty_mode === 'specified' && !f.penalty_rate) {
+                this.mResult = {success: false, message: "{% trans '请填写罚息年利率' %}"};
+                return;
+            }
+
+            const data = {
+                principal: parseFloat(f.principal),
+                start_date: f.start_date,
+                term_months: parseInt(f.term_months),
+                repayment_method: f.repayment_method,
+                rate_mode: f.rate_mode,
+                lpr_type: f.lpr_type,
+                basis_points: parseFloat(f.basis_points) || 0,
+                repricing_day: f.repricing_day,
+                penalty_mode: f.penalty_mode,
+                penalty_multiplier: parseFloat(f.penalty_multiplier) || 1.5,
+                compound_on_interest: f.compound_on_interest,
+                compound_on_penalty: f.compound_on_penalty,
+                year_days: parseInt(f.year_days),
+                allocation_order: f.allocation_order,
+                prepayment_handling: f.prepayment_handling
+            };
+            if (f.payment_day) data.payment_day = parseInt(f.payment_day);
+            if (f.rate_mode === 'fixed') data.fixed_rate = parseFloat(f.fixed_rate);
+            if (f.penalty_mode === 'specified') data.penalty_rate = parseFloat(f.penalty_rate);
+            if (f.claim_date) data.claim_date = f.claim_date;
+
+            const payments = f.payments
+                .filter(p => p.payment_date && parseFloat(p.amount) > 0)
+                .map(p => ({
+                    payment_date: p.payment_date,
+                    amount: parseFloat(p.amount),
+                    payment_type: p.payment_type,
+                    note: p.note || ''
+                }));
+            if (payments.length) data.payments = payments;
+
+            try {
+                const res = await fetch('/api/v1/lpr/mortgage-default-calculate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': document.cookie.match(/csrftoken=([^;]+)/)?.[1] || ''
+                    },
+                    credentials: 'same-origin',
+                    body: JSON.stringify(data)
+                });
+                if (!res.ok) {
+                    const err = await res.json().catch(() => ({}));
+                    let msg = err.message || res.statusText;
+                    if (res.status === 422 && err.detail) {
+                        msg = err.detail.map(d => `${d.loc?.join('.')} - ${d.msg}`).join('; ');
+                    }
+                    this.mResult = {success: false, message: "{% trans '计算失败' %}: " + msg};
+                    return;
+                }
+                this.mResult = await res.json();
+                if (this.mResult.success && !this._skipHistorySave) this.saveToHistory();
+                this._skipHistorySave = false;
+            } catch (e) {
+                this.mResult = {success: false, message: "{% trans '计算失败' %}: " + e.message};
+            }
+        },
+
+        // ---------- 派生数据 ----------
+        get mFilteredDefaultRows() {
+            if (!this.mResult?.default_rows) return [];
+            return this.mShowAll
+                ? this.mResult.default_rows
+                : this.mResult.default_rows.filter(r => r.status !== 'paid');
+        },
+
+        toggleExpand(periodNo) {
+            this.expandRow = this.expandRow === periodNo ? null : periodNo;
+        },
+
+        // ---------- 复制/导出 ----------
+        copyClaimText() {
+            if (!this.mResult?.success) return;
+            const c = this.mResult.claim;
+            const dateCN = c.claim_date.replaceAll('-', '年').replace(/(-)(\d{2})$/, '月$2日');
+            const text = '截至' + dateCN + '，被告尚欠原告借款本金'
+                + this.formatMoney(c.outstanding_principal) + '元、利息'
+                + this.formatMoney(c.unpaid_interest) + '元、罚息'
+                + this.formatMoney(c.penalty_interest) + '元、复利'
+                + this.formatMoney(c.compound_interest) + '元，合计'
+                + this.formatMoney(c.total_claim) + '元，并支付自'
+                + dateCN + '起至实际清偿之日止的利息、罚息、复利（按合同约定标准计算）。';
+            navigator.clipboard.writeText(text).then(() => alert("{% trans '已复制到剪贴板' %}"));
+        },
+
+        exportCsv() {
+            if (!this.mResult?.default_rows) return;
+            const BOM = '﻿';
+            const header = '期次,应还日,状态,应还本金,已还本金,应还利息,已还利息,逾期天数,罚息,复利,年利率%\n';
+            const rows = this.mResult.default_rows.map(r => {
+                const s = {paid: '已结清', partial: '部分还款', unpaid: '未还款'}[r.status] || r.status;
+                return [r.period_no, r.due_date, s, r.due_principal, r.paid_principal,
+                    r.due_interest, r.paid_interest, r.status === 'paid' ? '' : r.overdue_days,
+                    r.status === 'paid' ? '' : r.accrued_penalty, r.status === 'paid' ? '' : r.accrued_compound,
+                    r.annual_rate].join(',');
+            }).join('\n');
+            const blob = new Blob([BOM + header + rows], {type: 'text/csv;charset=utf-8'});
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = '违约明细_' + (this.form.case_note || '案件') + '_' + this.mResult.claim.claim_date + '.csv';
+            a.click();
+            URL.revokeObjectURL(a.href);
+        },
+
+        // ---------- 历史 ----------
+        loadHistory() {
+            const saved = localStorage.getItem('mortgage_calc_history');
+            this.history = saved ? JSON.parse(saved) : [];
+        },
+
+        saveToHistory() {
+            if (!this.mResult?.success) return;
+            this.history.unshift({
+                id: Date.now(),
+                timestamp: new Date().toISOString(),
+                note: this.form.case_note,
+                total: this.mResult.claim.total_claim,
+                form: JSON.parse(JSON.stringify(this.form))
+            });
+            if (this.history.length > 20) this.history = this.history.slice(0, 20);
+            localStorage.setItem('mortgage_calc_history', JSON.stringify(this.history));
+        },
+
+        loadFromHistory(item) {
+            this.form = JSON.parse(JSON.stringify(item.form));
+            this.showHistory = false;
+            this._skipHistorySave = true;
+            this.calculate();
+        },
+
+        deleteHistoryItem(id) {
+            this.history = this.history.filter(h => h.id !== id);
+            localStorage.setItem('mortgage_calc_history', JSON.stringify(this.history));
+        },
+
+        clearHistory() {
+            if (confirm('{% trans "确定要清空所有历史记录吗？" %}')) {
+                this.history = [];
+                localStorage.removeItem('mortgage_calc_history');
+            }
+        },
+
+        reset() {
+            this.mResult = null;
+            this.form = {
+                case_note: '',
+                principal: '',
+                start_date: '',
+                term_months: '',
+                repayment_method: 'equal_installment',
+                payment_day: '',
+                claim_date: '',
+                rate_mode: 'fixed',
+                fixed_rate: '',
+                lpr_type: '5y',
+                basis_points: 0,
+                repricing_day: '01-01',
+                penalty_mode: 'multiplier',
+                penalty_multiplier: 1.5,
+                penalty_rate: '',
+                compound_on_interest: true,
+                compound_on_penalty: false,
+                year_days: 360,
+                allocation_order: ['penalty', 'interest', 'compound', 'principal'],
+                prepayment_handling: 'shorten_term',
+                payments: []
+            };
+            this.init();
+        }
+    }
+}
+</script>

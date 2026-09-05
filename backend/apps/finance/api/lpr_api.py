@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING
 from django.http import HttpRequest
 from ninja import Router
 
+from apps.core.exceptions import ValidationException
 from apps.core.security.auth import JWTOrSessionAuth
 from apps.finance.schemas.lpr_schemas import (
     InterestCalculateRequest,
@@ -19,6 +20,10 @@ from apps.finance.schemas.lpr_schemas import (
     LPRSyncRequest,
     LPRSyncResponse,
     LPRSyncStatusResponse,
+    MortgageAmortizeRequest,
+    MortgageAmortizeResponse,
+    MortgageDefaultRequest,
+    MortgageDefaultResponse,
 )
 from apps.finance.services.lpr import PrincipalPeriod
 
@@ -199,7 +204,8 @@ def calculate_interest(  # pragma: no cover
     # 使用线程池 + 超时避免阻塞请求太长时间
     sync_info = None
     if data.rate_mode == "lpr":
-        from concurrent.futures import ThreadPoolExecutor, TimeoutError as FutureTimeout
+        from concurrent.futures import ThreadPoolExecutor
+        from concurrent.futures import TimeoutError as FutureTimeout
 
         from apps.finance.services.lpr import LPRSyncService
 
@@ -283,3 +289,118 @@ def calculate_interest(  # pragma: no cover
         ],
         sync_info=sync_info,
     )
+
+
+@router.post("/amortize", response=MortgageAmortizeResponse, auth=JWTOrSessionAuth())
+def amortize_mortgage(  # pragma: no cover
+    request: HttpRequest,
+    data: MortgageAmortizeRequest,
+) -> MortgageAmortizeResponse:
+    """房贷摊销计算（等额本息/等额本金还款计划）.
+
+    Args:
+        request: HTTP请求
+        data: 摊销计算参数
+
+    Returns:
+        还款计划
+    """
+    from apps.finance.services.calculator import MortgageDefaultCalculator
+
+    try:
+        calculator = MortgageDefaultCalculator()
+        # 复用违约计算器生成纯计划（无流水、截止日在首期前只截利息，故传截止日=首期前模拟纯计划）
+        result = calculator.calculate(
+            principal=data.principal,
+            start_date=data.start_date,
+            term_months=data.term_months,
+            repayment_method=data.repayment_method,
+            payment_day=data.payment_day,
+            rate_mode=data.rate_mode,
+            fixed_rate=data.fixed_rate,
+            lpr_type=data.lpr_type,
+            basis_points=data.basis_points,
+            repricing_day=data.repricing_day,
+            claim_date=date.max,
+        )
+    except ValidationException as e:
+        return MortgageAmortizeResponse(success=False, message=e.message, code=e.code)
+
+    schedule = [
+        {
+            "period_no": r.period_no,
+            "due_date": r.due_date,
+            "monthly_payment": r.monthly_payment,
+            "principal_part": r.principal_part,
+            "interest_part": r.interest_part,
+            "annual_rate": r.annual_rate,
+            "remaining_principal": r.remaining_principal,
+            "rescheduled": r.rescheduled,
+        }
+        for r in result.schedule_rows
+    ]
+    return MortgageAmortizeResponse(
+        success=True,
+        schedule_rows=schedule,
+        first_due_date=result.meta.get("first_due_date", ""),
+        total_periods=len(schedule),
+    )
+
+
+@router.post("/mortgage-default-calculate", response=MortgageDefaultResponse, auth=JWTOrSessionAuth())
+def mortgage_default_calculate(  # pragma: no cover
+    request: HttpRequest,
+    data: MortgageDefaultRequest,
+) -> MortgageDefaultResponse:
+    """房贷逾期违约债权计算（银行诉讼场景）.
+
+    基于等额本息/等额本金摊销 + 还款流水冲抵，输出：
+    - 诉讼请求金额汇总（剩余本金/未付利息/罚息/复利/合计/日增金额）
+    - 逐期违约明细（含每笔还款冲抵明细）
+    - 重排后的还款计划对照表
+
+    Args:
+        request: HTTP请求
+        data: 违约债权计算参数
+
+    Returns:
+        计算结果
+    """
+    from apps.finance.services.calculator import MortgageDefaultCalculator, PaymentRecord
+
+    try:
+        calculator = MortgageDefaultCalculator()
+        result = calculator.calculate(
+            principal=data.principal,
+            start_date=data.start_date,
+            term_months=data.term_months,
+            repayment_method=data.repayment_method,
+            payment_day=data.payment_day,
+            rate_mode=data.rate_mode,
+            fixed_rate=data.fixed_rate,
+            lpr_type=data.lpr_type,
+            basis_points=data.basis_points,
+            repricing_day=data.repricing_day,
+            penalty_mode=data.penalty_mode,
+            penalty_multiplier=data.penalty_multiplier,
+            penalty_rate=data.penalty_rate,
+            compound_on_interest=data.compound_on_interest,
+            compound_on_penalty=data.compound_on_penalty,
+            year_days=data.year_days,
+            allocation_order=data.allocation_order,
+            prepayment_handling=data.prepayment_handling,
+            payments=[
+                PaymentRecord(
+                    payment_date=p.payment_date,
+                    amount=p.amount,
+                    payment_type=p.payment_type,
+                    note=p.note,
+                )
+                for p in data.payments
+            ],
+            claim_date=data.claim_date,
+        )
+    except ValidationException as e:
+        return MortgageDefaultResponse(success=False, message=e.message, code=e.code)
+
+    return MortgageDefaultResponse(success=True, **result.to_dict())

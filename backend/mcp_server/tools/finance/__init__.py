@@ -7,6 +7,7 @@ from mcp_server.tools.finance.lpr import (
     list_lpr_rates,
     sync_lpr_rates,
 )
+from mcp_server.tools.finance.mortgage import mortgage_amortize, mortgage_default_calculate
 
 __all__ = [
     "list_lpr_rates",
@@ -14,4 +15,6 @@ __all__ = [
     "calculate_interest",
     "sync_lpr_rates",
     "get_lpr_sync_status",
+    "mortgage_amortize",
+    "mortgage_default_calculate",
 ]

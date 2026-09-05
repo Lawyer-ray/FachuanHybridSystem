@@ -116,3 +116,135 @@ class InterestCalculateResponse(Schema):
     message: str | None = None
     code: str | None = None
     sync_info: str | None = Field(None, description="自动同步提示信息")
+
+
+# ---------------------------------------------------------------------------
+# 房贷逾期违约债权计算（mortgage default）
+# ---------------------------------------------------------------------------
+
+
+class MortgagePaymentSchema(Schema):
+    """还款流水记录Schema."""
+
+    payment_date: date = Field(..., description="还款日期")
+    amount: Decimal = Field(..., description="还款金额（元）")
+    payment_type: Literal["normal", "prepayment_principal"] = Field(
+        "normal", description="类型: normal=正常还款, prepayment_principal=提前冲减本金"
+    )
+    note: str = Field("", description="备注")
+
+
+class MortgageAmortizeRequest(Schema):
+    """房贷摊销计算请求."""
+
+    principal: Decimal = Field(..., description="贷款本金（元）")
+    start_date: date = Field(..., description="放款日期")
+    term_months: int = Field(..., description="贷款期限（月）")
+    repayment_method: Literal["equal_installment", "equal_principal"] = Field(
+        "equal_installment", description="还款方式"
+    )
+    payment_day: int | None = Field(None, ge=1, le=28, description="每月扣款日（1-28），不填取放款日对应日")
+    rate_mode: Literal["fixed", "lpr"] = Field("fixed", description="利率模式")
+    fixed_rate: Decimal | None = Field(None, description="固定年利率(%)，fixed 模式必填")
+    lpr_type: Literal["1y", "5y"] = Field("5y", description="LPR 期限品种（lpr 模式）")
+    basis_points: Decimal = Field(Decimal("0"), description="LPR 加点（基点，100bp=1%，可为负）")
+    repricing_day: str = Field("01-01", description="重定价日：MM-DD 或 anniversary（放款对应日）")
+
+
+class ScheduleRowSchema(Schema):
+    """还款计划行Schema."""
+
+    period_no: int
+    due_date: date
+    monthly_payment: str
+    principal_part: str
+    interest_part: str
+    annual_rate: str
+    remaining_principal: str
+    rescheduled: bool
+
+
+class MortgageDefaultRequest(MortgageAmortizeRequest):
+    """房贷逾期违约债权计算请求."""
+
+    penalty_mode: Literal["multiplier", "specified"] = Field(
+        "multiplier", description="罚息利率模式: multiplier=执行利率×倍数, specified=直接指定"
+    )
+    penalty_multiplier: Decimal = Field(Decimal("1.5"), description="罚息倍数（multiplier 模式）")
+    penalty_rate: Decimal | None = Field(None, description="罚息年利率(%)（specified 模式必填）")
+    compound_on_interest: bool = Field(True, description="是否对欠付利息计收复利")
+    compound_on_penalty: bool = Field(False, description="是否对罚息再计收复利")
+    year_days: Literal[360, 365] = Field(360, description="罚息/复利计息基准天数")
+    allocation_order: list[str] | None = Field(
+        None, description="冲抵顺序，可选值 penalty/interest/compound/principal，默认 罚息→利息→复利→本金"
+    )
+    prepayment_handling: Literal["shorten_term", "reduce_payment"] = Field(
+        "shorten_term", description="提前还款重排方式"
+    )
+    payments: list[MortgagePaymentSchema] = Field(default_factory=list, description="还款流水")
+    claim_date: date | None = Field(None, description="计算截止日（默认今天）")
+
+
+class AllocationDetailSchema(Schema):
+    """冲抵明细Schema."""
+
+    payment_date: date
+    amount: str
+    to_penalty: str
+    to_interest: str
+    to_compound: str
+    to_principal: str
+
+
+class DefaultRowSchema(Schema):
+    """逐期违约明细Schema."""
+
+    period_no: int
+    due_date: date
+    due_principal: str
+    due_interest: str
+    paid_principal: str
+    paid_interest: str
+    status: str
+    overdue_days: int
+    accrued_penalty: str
+    accrued_compound: str
+    annual_rate: str
+    note: str
+    allocations: list[AllocationDetailSchema]
+
+
+class ClaimSummarySchema(Schema):
+    """诉讼请求金额汇总Schema."""
+
+    claim_date: date
+    outstanding_principal: str
+    unpaid_interest: str
+    penalty_interest: str
+    compound_interest: str
+    total_claim: str
+    daily_accrual: str
+
+
+class MortgageDefaultResponse(Schema):
+    """房贷逾期违约债权计算响应."""
+
+    success: bool
+    message: str | None = None
+    code: str | None = None
+    claim: ClaimSummarySchema | None = None
+    schedule_rows: list[ScheduleRowSchema] | None = None
+    default_rows: list[DefaultRowSchema] | None = None
+    warnings: list[str] | None = None
+    meta: dict | None = None
+
+
+class MortgageAmortizeResponse(Schema):
+    """房贷摊销计算响应."""
+
+    success: bool
+    message: str | None = None
+    code: str | None = None
+    schedule_rows: list[ScheduleRowSchema] | None = None
+    first_due_date: str = Field("", description="首期扣款日")
+    total_periods: int = Field(0, description="计划期数")

@@ -8,6 +8,7 @@ from mcp_server.tools import (
     add_case_party,
     ai_ollama,
     analyze_template,
+    approve_workflow_step,
     assign_lawyer,
     assign_sms_case,
     auto_namer_process,
@@ -22,10 +23,11 @@ from mcp_server.tools import (
     cancel_conversion_job,
     cancel_extract_recording,
     cancel_pdf_split,
+    cancel_workflow,
     capability_search,
+    chat_with_context,
     check_law_references,
     check_oa_credential,
-    chat_with_context,
     cleanup_resources,
     clear_all_archive_materials,
     clear_cache,
@@ -53,6 +55,7 @@ from mcp_server.tools import (
     create_lawfirm,
     create_lawyer,
     create_mapping,
+    create_message_source,
     create_new_reminder,
     create_payment,
     create_pdf_split_job,
@@ -65,7 +68,6 @@ from mcp_server.tools import (
     create_system_config,
     create_team,
     create_template_binding,
-    create_message_source,
     delete_all_materials,
     delete_archive_material,
     delete_archive_overrides,
@@ -77,10 +79,10 @@ from mcp_server.tools import (
     delete_case_party,
     delete_client,
     delete_contact,
-    delete_conversion_job,
     delete_contract,
-    delete_credential,
+    delete_conversion_job,
     delete_court_sms,
+    delete_credential,
     delete_document_template,
     delete_folder_binding,
     delete_folder_template,
@@ -90,6 +92,7 @@ from mcp_server.tools import (
     delete_lawyer,
     delete_mapping,
     delete_material,
+    delete_message_source,
     delete_payment,
     delete_placeholder,
     delete_property_clue,
@@ -102,14 +105,13 @@ from mcp_server.tools import (
     delete_task,
     delete_team,
     delete_template_binding,
-    delete_message_source,
     detect_orientation,
     detect_single_page_orientation,
     doc_converter_health_check,
     download_all_research_results,
     download_archive_item,
-    download_authorization_package,
     download_authority_letter,
+    download_authorization_package,
     download_contract_document,
     download_contract_folder,
     download_converted_files,
@@ -150,6 +152,7 @@ from mcp_server.tools import (
     get_archive_overrides,
     get_automation_config,
     get_automation_status,
+    get_cache_statistics,
     get_captcha_image,
     get_case,
     get_case_assignment,
@@ -159,7 +162,6 @@ from mcp_server.tools import (
     get_case_log,
     get_case_number,
     get_case_party,
-    get_cache_statistics,
     get_cause,
     get_client,
     get_client_import_session,
@@ -168,26 +170,26 @@ from mcp_server.tools import (
     get_company_risks,
     get_company_shareholders,
     get_contact,
-    get_conversation_history,
     get_contract,
     get_contract_all_parties,
     get_contract_folder_path,
     get_contract_scan_status,
+    get_conversation_history,
     get_conversion_progress,
-    get_credential,
-    get_grant,
     get_court_sms_detail,
+    get_credential,
     get_custom_fields,
     get_dashboard_stats,
     get_document_template,
     get_export_statuses,
     get_export_task,
     get_export_types,
-    get_fill_history,
     get_filing_status,
+    get_fill_history,
+    get_finance_stats,
     get_folder_binding,
     get_folder_template,
-    get_finance_stats,
+    get_grant,
     get_identity_doc,
     get_identity_doc_task,
     get_inbox_message,
@@ -220,6 +222,7 @@ from mcp_server.tools import (
     get_target_options,
     get_team,
     get_undefined_placeholders,
+    get_workflow_detail,
     global_search,
     health_check,
     learn_archive_rules,
@@ -240,8 +243,8 @@ from mcp_server.tools import (
     list_cloud_storage_accounts,
     list_completed_tasks,
     list_contacts,
-    list_contracts,
     list_contract_scan_subfolders,
+    list_contracts,
     list_court_sms,
     list_courts_data,
     list_credentials,
@@ -274,8 +277,11 @@ from mcp_server.tools import (
     list_teams,
     list_template_bindings,
     list_template_library_files,
+    list_workflows,
     match_templates,
     merge_id_card_manual,
+    mortgage_amortize,
+    mortgage_default_calculate,
     move_archive_material,
     normalize_contract_format,
     optimize_concurrency,
@@ -313,6 +319,7 @@ from mcp_server.tools import (
     search_contacts,
     start_contract_scan,
     start_folder_scan,
+    start_workflow,
     submit_captcha_answer,
     submit_court_sms,
     submit_identity_doc_recognition,
@@ -360,20 +367,12 @@ from mcp_server.tools import (
     validate_id_card,
     warm_up_cache,
     web_search,
-    start_workflow,
-    list_workflows,
-    get_workflow_detail,
-    approve_workflow_step,
-    cancel_workflow,
 )
 
 # 条件导入：网上立案
 try:
-    from mcp_server.tools import (
-        execute_court_filing,
-        get_court_filing_case_info,
-        get_court_filing_session,
-    )
+    from mcp_server.tools import execute_court_filing, get_court_filing_case_info, get_court_filing_session
+
     _HAS_FILING = True
 except ImportError:
     _HAS_FILING = False
@@ -390,6 +389,7 @@ try:
         get_guarantee_session,
         retry_guarantee_quote,
     )
+
     _HAS_GUARANTEE = True
 except ImportError:
     _HAS_GUARANTEE = False
@@ -403,6 +403,7 @@ try:
         list_preservation_quotes,
         retry_preservation_quote,
     )
+
     _HAS_QUOTE = True
 except ImportError:
     _HAS_QUOTE = False
@@ -857,6 +858,10 @@ mcp.tool()(get_latest_lpr_rate)
 mcp.tool()(calculate_interest)
 mcp.tool()(sync_lpr_rates)
 mcp.tool()(get_lpr_sync_status)
+
+# 房贷摊销 / 逾期违约债权（银行诉讼）
+mcp.tool()(mortgage_amortize)
+mcp.tool()(mortgage_default_calculate)
 
 # 图片旋转
 mcp.tool()(extract_pdf_pages)

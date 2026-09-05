@@ -10,11 +10,11 @@ from mcp_server.tools.automation import (
     delete_court_sms,
     download_sms_document,
     download_sms_documents,
-    get_captcha_image,
-    get_cache_statistics,
-    get_court_sms_detail,
     get_automation_config,
     get_automation_status,
+    get_cache_statistics,
+    get_captcha_image,
+    get_court_sms_detail,
     get_performance_metrics,
     get_resource_usage,
     get_statistics_report,
@@ -32,11 +32,8 @@ from mcp_server.tools.automation import (
 
 # 条件导入：网上立案
 try:
-    from mcp_server.tools.automation import (
-        execute_court_filing,
-        get_court_filing_case_info,
-        get_court_filing_session,
-    )
+    from mcp_server.tools.automation import execute_court_filing, get_court_filing_case_info, get_court_filing_session
+
     _HAS_FILING = True
 except ImportError:
     _HAS_FILING = False
@@ -53,6 +50,7 @@ try:
         get_guarantee_session,
         retry_guarantee_quote,
     )
+
     _HAS_GUARANTEE = True
 except ImportError:
     _HAS_GUARANTEE = False
@@ -66,12 +64,14 @@ try:
         list_preservation_quotes,
         retry_preservation_quote,
     )
+
     _HAS_QUOTE = True
 except ImportError:
     _HAS_QUOTE = False
 from mcp_server.tools.cases import (
     add_case_party,
     assign_lawyer,
+    bind_materials,
     browse_case_folders,
     calculate_litigation_fee,
     create_case,
@@ -101,6 +101,7 @@ from mcp_server.tools.cases import (
     get_case_party,
     get_cause,
     get_contract_folder_path,
+    get_grant,
     get_scan_status,
     list_available_templates,
     list_bind_candidates,
@@ -113,7 +114,6 @@ from mcp_server.tools.cases import (
     list_causes_data,
     list_causes_tree,
     list_courts_data,
-    get_grant,
     list_grants,
     list_scan_subfolders,
     list_template_bindings,
@@ -128,7 +128,6 @@ from mcp_server.tools.cases import (
     update_case_number,
     update_case_party,
     update_grant,
-    bind_materials,
 )
 from mcp_server.tools.chat_records import (
     cancel_extract_recording,
@@ -218,8 +217,8 @@ from mcp_server.tools.contracts import (
     get_supplementary_agreement,
     learn_archive_rules,
     list_cloud_storage_accounts,
-    list_contracts,
     list_contract_scan_subfolders,
+    list_contracts,
     list_supplementary_agreements,
     move_archive_material,
     reorder_archive_materials,
@@ -254,8 +253,8 @@ from mcp_server.tools.documents import (
     delete_folder_template,
     delete_mapping,
     delete_placeholder,
-    download_authorization_package,
     download_authority_letter,
+    download_authorization_package,
     download_contract_document,
     download_contract_folder,
     download_delay_delivery_application,
@@ -274,11 +273,11 @@ from mcp_server.tools.documents import (
     get_document_template,
     get_fill_history,
     get_folder_template,
+    get_placeholder,
+    get_placeholder_by_key,
     get_preview_html,
     get_statistics,
     get_undefined_placeholders,
-    get_placeholder,
-    get_placeholder_by_key,
     list_document_templates,
     list_folder_templates,
     list_mappings,
@@ -314,6 +313,8 @@ from mcp_server.tools.finance import (
     get_latest_lpr_rate,
     get_lpr_sync_status,
     list_lpr_rates,
+    mortgage_amortize,
+    mortgage_default_calculate,
     sync_lpr_rates,
 )
 from mcp_server.tools.image_rotation import (
@@ -339,6 +340,7 @@ from mcp_server.tools.legal_research import (
     get_research_task,
     list_research_results,
 )
+
 # 条件导入：信息中转站
 _HAS_MESSAGE_HUB = False
 try:
@@ -356,9 +358,51 @@ try:
         sync_message_source,
         update_message_source,
     )
+
     _HAS_MESSAGE_HUB = True
 except ImportError:
     pass
+from apps.workflow.mcp.workflow_tools import (
+    approve_workflow_step,
+    cancel_workflow,
+    create_workflow_template,
+    delete_workflow_run,
+    delete_workflow_template,
+    duplicate_workflow_template,
+    get_step_registry,
+    get_step_registry_flat,
+    get_workflow_detail,
+    get_workflow_template,
+    list_workflow_templates,
+    list_workflows,
+    start_workflow,
+    start_workflow_from_steps,
+    update_workflow_template,
+)
+from mcp_server.tools.core import (
+    chat_with_context,
+    create_system_config,
+    delete_schedule,
+    delete_system_config,
+    delete_task,
+    generate_poi_complaint,
+    generate_report,
+    get_conversation_history,
+    get_dashboard_stats,
+    global_search,
+    list_available_models,
+    list_completed_tasks,
+    list_failed_tasks,
+    list_queued_tasks,
+    list_scheduled_tasks,
+    list_system_configs,
+    patch_system_config,
+    poi_health,
+    resubmit_task,
+    sync_prompt_templates,
+    test_model_connection,
+    update_system_configs,
+)
 from mcp_server.tools.oa_filing import (
     batch_create_cases,
     batch_create_clients,
@@ -415,48 +459,7 @@ from mcp_server.tools.reminders import (
     parse_reminders_from_text,
     update_reminder,
 )
-from mcp_server.tools.core import (
-    chat_with_context,
-    create_system_config,
-    delete_schedule,
-    delete_system_config,
-    delete_task,
-    generate_poi_complaint,
-    generate_report,
-    get_conversation_history,
-    get_dashboard_stats,
-    global_search,
-    list_available_models,
-    list_completed_tasks,
-    list_failed_tasks,
-    list_queued_tasks,
-    list_scheduled_tasks,
-    list_system_configs,
-    patch_system_config,
-    poi_health,
-    resubmit_task,
-    sync_prompt_templates,
-    test_model_connection,
-    update_system_configs,
-)
 from mcp_server.tools.web_search import web_search
-from apps.workflow.mcp.workflow_tools import (
-    approve_workflow_step,
-    cancel_workflow,
-    create_workflow_template,
-    delete_workflow_run,
-    delete_workflow_template,
-    duplicate_workflow_template,
-    get_step_registry,
-    get_step_registry_flat,
-    get_workflow_detail,
-    get_workflow_template,
-    list_workflow_templates,
-    list_workflows,
-    start_workflow,
-    start_workflow_from_steps,
-    update_workflow_template,
-)
 
 __all__ = [
     # 案件
@@ -812,6 +815,9 @@ __all__ = [
     "calculate_interest",
     "sync_lpr_rates",
     "get_lpr_sync_status",
+    # 房贷摊销/违约债权
+    "mortgage_amortize",
+    "mortgage_default_calculate",
     # 图片旋转
     "extract_pdf_pages",
     "detect_orientation",
