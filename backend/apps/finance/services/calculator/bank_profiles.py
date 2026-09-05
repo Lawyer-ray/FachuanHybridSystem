@@ -16,8 +16,8 @@ from __future__ import annotations
 
 from typing import Any
 
-# 每个 profile 的 params 只含「与行方默认差异」的字段；未列出的字段走通用默认值。
-# 选中档案后，构建请求体时用 profile.params 覆盖默认表单，一次成档。
+# 仅保留「通用」档案。曾预置的银行口径（交行/工行/建行/中行/农行/招行）为
+# 未经验证的常识模板，已删除；如后续拿到真实合同条款，按同一结构增补。
 BANK_PROFILES: list[dict[str, Any]] = [
     {
         "id": "generic",
@@ -25,92 +25,6 @@ BANK_PROFILES: list[dict[str, Any]] = [
         "description": "不预设银行口径，按通用默认参数手工填写",
         "tags": ["默认"],
         "params": {},
-    },
-    {
-        "id": "bocom",
-        "name": "交通银行·房贷",
-        "description": "起参考：365 天计息、复利不分段（积数×收取时罚息利率）、对罚息再计复利、算至还款日前一日、首期按实际天数、提前还款补偿金 1%",
-        "tags": ["365天", "复利不分段", "含罚息复利", "提前还补偿金"],
-        "params": {
-            "year_days": 365,
-            "compound_method": "flat",
-            "compound_on_interest": True,
-            "compound_on_penalty": True,
-            "charge_interest_on_payment_day": False,
-            "first_period_interest": "prorate",
-            "prepayment_compensation_rate": 1.0,
-            "allocation_stance": "interest_first",
-        },
-    },
-    {
-        "id": "icbc",
-        "name": "工商银行·房贷",
-        "description": "起参考：360 天计息、复利逐日分段、对欠息计复利、算至还款日前一日",
-        "tags": ["360天", "复利逐日", "对欠息复利"],
-        "params": {
-            "year_days": 360,
-            "compound_method": "daily",
-            "compound_on_interest": True,
-            "compound_on_penalty": False,
-            "charge_interest_on_payment_day": False,
-            "allocation_stance": "interest_first",
-        },
-    },
-    {
-        "id": "ccb",
-        "name": "建设银行·房贷",
-        "description": "起参考：360 天计息、复利逐日分段、对欠息计复利、含还款日当日（逾期天数口径）",
-        "tags": ["360天", "复利逐日", "含还款日"],
-        "params": {
-            "year_days": 360,
-            "compound_method": "daily",
-            "compound_on_interest": True,
-            "compound_on_penalty": False,
-            "charge_interest_on_payment_day": True,
-            "allocation_stance": "interest_first",
-        },
-    },
-    {
-        "id": "boc",
-        "name": "中国银行·房贷",
-        "description": "起参考：360 天计息、复利逐日分段、对欠息计复利、算至还款日前一日",
-        "tags": ["360天", "复利逐日", "对欠息复利"],
-        "params": {
-            "year_days": 360,
-            "compound_method": "daily",
-            "compound_on_interest": True,
-            "compound_on_penalty": False,
-            "charge_interest_on_payment_day": False,
-            "allocation_stance": "interest_first",
-        },
-    },
-    {
-        "id": "abc",
-        "name": "农业银行·房贷",
-        "description": "起参考：360 天计息、复利逐日分段、对欠息计复利、算至还款日前一日",
-        "tags": ["360天", "复利逐日", "对欠息复利"],
-        "params": {
-            "year_days": 360,
-            "compound_method": "daily",
-            "compound_on_interest": True,
-            "compound_on_penalty": False,
-            "charge_interest_on_payment_day": False,
-            "allocation_stance": "interest_first",
-        },
-    },
-    {
-        "id": "cmb",
-        "name": "招商银行·房贷",
-        "description": "起参考：360 天计息、复利逐日分段、对欠息计复利、算至还款日前一日",
-        "tags": ["360天", "复利逐日", "对欠息复利"],
-        "params": {
-            "year_days": 360,
-            "compound_method": "daily",
-            "compound_on_interest": True,
-            "compound_on_penalty": False,
-            "charge_interest_on_payment_day": False,
-            "allocation_stance": "interest_first",
-        },
     },
 ]
 
