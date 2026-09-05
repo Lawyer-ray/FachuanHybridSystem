@@ -178,6 +178,14 @@ class RateEventSchema(Schema):
     annual_rate: Decimal = Field(..., description="该日起的合同年利率(%)，覆盖固定/LPR 基座")
 
 
+class PausePeriodSchema(Schema):
+    """停息区间Schema."""
+
+    start: date = Field(..., description="停息开始日（含当日）")
+    end: date = Field(..., description="停息结束日（含当日）")
+    note: str = Field("", description="备注，如 停息挂账/展期")
+
+
 class MortgageDefaultRequest(MortgageAmortizeRequest):
     """房贷逾期违约债权计算请求."""
 
@@ -255,6 +263,38 @@ class MortgageDefaultRequest(MortgageAmortizeRequest):
     )
     payments: list[MortgagePaymentSchema] = Field(default_factory=list, description="还款流水")
     claim_date: date | None = Field(None, description="计算截止日（默认今天）")
+    claim_mode: Literal["both", "either"] = Field(
+        "both", description="违约金与罚息主张口径: both=并行叠加, either=择一从高（取较大者计入诉请）"
+    )
+    accelerate_date: date | None = Field(
+        None,
+        description="加速到期日（银行按合同宣布全部本金提前到期之日）：自该日起全部剩余本金转已到期本金，"
+        "罚息/复利对全额计收并停止按月摊销；不填/不早于截止日=不触发",
+    )
+    accelerate_grace_days: int = Field(
+        0, ge=0, description="加速到期宽限天数（加速日后该天数内还款视为按时，罚息自宽限期届满次日起算）"
+    )
+    cap_penalty_annual: Decimal | None = Field(
+        None, description="罚息/复利年利率封顶(%)，实际罚息利率超过该上限时按封顶值计息；不填=不封顶"
+    )
+    cap_total_mode: Literal["none", "amount", "principal_ratio", "interest_ratio"] = Field(
+        "none",
+        description="总债权（违约金+罚息+复利）封顶模式: none=不封顶, amount=固定金额, "
+        "principal_ratio=未还本金的倍数, interest_ratio=未付利息的倍数",
+    )
+    cap_total_value: Decimal = Field(
+        Decimal("0"), description="总债权封顶值：amount 模式为固定金额（元），ratio 模式为倍数（如 1.5）"
+    )
+    interest_cut_inclusive: bool = Field(
+        False,
+        description="计息起止边界：是否含截止日当天（算头算尾），为 True 时利息/罚息/复利末日各 +1 天；"
+        "默认 False=算头不算尾（截止日当天不计息）",
+    )
+    pause_periods: list[PausePeriodSchema] = Field(
+        default_factory=list,
+        description="停息区间列表（停息挂账/展期）：区间内罚息/复利及按天截算的合同利息暂停计息，"
+        "interval 内还款流水照常核销；end 含当日",
+    )
 
 
 class AllocationDetailSchema(Schema):

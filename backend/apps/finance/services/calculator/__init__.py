@@ -18,6 +18,7 @@ from apps.finance.services.calculator.mortgage_calculator import (
     DefaultRow,
     MortgageDefaultCalculator,
     MortgageDefaultResult,
+    PausePeriod,
     PaymentRecord,
     ScheduleRow,
 )
@@ -33,4 +34,5 @@ __all__ = [
     "ScheduleRow",
     "AllocationDetail",
     "PaymentRecord",
+    "PausePeriod",
 ]

@@ -381,7 +381,7 @@ def mortgage_default_calculate(  # pragma: no cover
     Returns:
         计算结果
     """
-    from apps.finance.services.calculator import MortgageDefaultCalculator, PaymentRecord
+    from apps.finance.services.calculator import MortgageDefaultCalculator, PausePeriod, PaymentRecord
 
     try:
         calculator = MortgageDefaultCalculator()
@@ -422,6 +422,14 @@ def mortgage_default_calculate(  # pragma: no cover
             "step_up_rate": data.step_up_rate,
             "step_up_trigger_days": data.step_up_trigger_days,
             "rounding_mode": data.rounding_mode,
+            "claim_mode": data.claim_mode,
+            "accelerate_date": data.accelerate_date,
+            "accelerate_grace_days": data.accelerate_grace_days,
+            "cap_penalty_annual": data.cap_penalty_annual,
+            "cap_total_mode": data.cap_total_mode,
+            "cap_total_value": data.cap_total_value,
+            "interest_cut_inclusive": data.interest_cut_inclusive,
+            "pause_periods": [PausePeriod(start=p.start, end=p.end, note=p.note) for p in data.pause_periods],
             "payments": [
                 PaymentRecord(
                     payment_date=p.payment_date,
@@ -438,7 +446,10 @@ def mortgage_default_calculate(  # pragma: no cover
         payload = result.to_dict()
 
         cutoff = data.interest_cutoff_date
-        if cutoff is not None and cutoff < base_claim and cutoff > data.start_date:
+        # 加速到期与「利息止算」两步合并口径冲突（加速后本金全额到期、利息止算不再适用），
+        # 故加速将触发时跳过止算合并，直接以加速到期到截止日的整段结果为准
+        acceleration_active = data.accelerate_date is not None and data.accelerate_date < base_claim
+        if cutoff is not None and cutoff < base_claim and cutoff > data.start_date and not acceleration_active:
             cut = calculator.calculate(**base_kwargs, claim_date=cutoff)
             payload = _merge_interest_cutoff(
                 full=payload,

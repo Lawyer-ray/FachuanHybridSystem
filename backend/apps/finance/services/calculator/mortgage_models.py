@@ -35,6 +35,23 @@ def add_months(d: date, months: int) -> date:
     return date(year, month, min(d.day, last_day))
 
 
+def unpaused_days(d_from: date, d_to: date, ranges: list[tuple[date, date]]) -> int:
+    """返回 [d_from, d_to) 区间内未停息的天数.
+
+    ranges 为停息区间列表 (start, end)，end 含当日；停息区间外照常计息。
+    """
+    total = (d_to - d_from).days
+    if total <= 0 or not ranges:
+        return total
+    paused = 0
+    for start, end in ranges:
+        s = max(d_from, start)
+        e = min(d_to, end + timedelta(days=1))
+        if e > s:
+            paused += (e - s).days
+    return total - paused
+
+
 # 还款方式
 REPAYMENT_EQUAL_INSTALLMENT = "equal_installment"
 REPAYMENT_EQUAL_PRINCIPAL = "equal_principal"
@@ -90,6 +107,24 @@ CLAIM_MODE_BOTH = "both"  # 并行叠加：罚息与一次性违约金同时计�
 CLAIM_MODE_EITHER = "either"  # 择一从高：取罚息与违约金中较大者计入诉请
 VALID_CLAIM_MODES = {CLAIM_MODE_BOTH, CLAIM_MODE_EITHER}
 
+# 计息起止边界：是否计入截止日当天（算头算尾）
+#   interest_cut_inclusive = True  → 截止日当天计入息（+1 天，算头算尾）
+#   interest_cut_inclusive = False → 算头不算尾，截止日当天不计息（默认）
+CUT_EXCLUSIVE = "exclusive"
+CUT_INCLUSIVE = "inclusive"
+
+# 总债权（违约金+罚息+复利）封顶模式
+CAP_TOTAL_NONE = "none"  # 不封顶
+CAP_TOTAL_AMOUNT = "amount"  # 固定金额封顶
+CAP_TOTAL_PRINCIPAL_RATIO = "principal_ratio"  # 未还本金的倍数封顶
+CAP_TOTAL_INTEREST_RATIO = "interest_ratio"  # 未付利息的倍数封顶
+VALID_CAP_TOTAL_MODES = {
+    CAP_TOTAL_NONE,
+    CAP_TOTAL_AMOUNT,
+    CAP_TOTAL_PRINCIPAL_RATIO,
+    CAP_TOTAL_INTEREST_RATIO,
+}
+
 # 状态
 STATUS_PAID = "paid"
 STATUS_PARTIAL = "partial"
@@ -118,6 +153,18 @@ class PaymentRecord:
     payment_date: date
     amount: Decimal
     payment_type: str = PAYMENT_TYPE_NORMAL
+    note: str = ""
+
+
+@dataclass
+class PausePeriod:
+    """停息区间：区间内罚息/复利及按天截算的合同利息暂停计息（end 含当日）.
+
+    逐期合同利息（未付利息）仍按扣款日生成，不受停息区间影响。
+    """
+
+    start: date
+    end: date
     note: str = ""
 
 

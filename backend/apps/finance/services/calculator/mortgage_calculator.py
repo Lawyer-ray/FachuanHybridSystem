@@ -24,6 +24,10 @@ from apps.core.exceptions import ValidationException
 from apps.finance.services.calculator.mortgage_models import (
     _ALLOCATION_FILL_ORDER,
     ALLOCATION_STANCE_PRESETS,
+    CAP_TOTAL_AMOUNT,
+    CAP_TOTAL_INTEREST_RATIO,
+    CAP_TOTAL_NONE,
+    CAP_TOTAL_PRINCIPAL_RATIO,
     CENT,
     CLAIM_MODE_BOTH,
     CLAIM_MODE_EITHER,
@@ -48,6 +52,7 @@ from apps.finance.services.calculator.mortgage_models import (
     STATUS_PARTIAL,
     STATUS_UNPAID,
     VALID_ALLOCATION_KEYS,
+    VALID_CAP_TOTAL_MODES,
     VALID_CLAIM_MODES,
     VALID_PAYMENT_TYPES,
     VALID_REPAYMENT_METHODS,
@@ -56,12 +61,14 @@ from apps.finance.services.calculator.mortgage_models import (
     ClaimSummary,
     DefaultRow,
     MortgageDefaultResult,
+    PausePeriod,
     PaymentRecord,
     ScheduleRow,
     _Lot,
     _q,
     _str_money,
     add_months,
+    unpaused_days,
 )
 
 if TYPE_CHECKING:
@@ -125,6 +132,14 @@ class MortgageDefaultCalculator:
         step_up_rate: Decimal | None = None,
         step_up_trigger_days: int = 0,
         rounding_mode: str = ROUNDING_PERIOD,
+        claim_mode: str = CLAIM_MODE_BOTH,
+        accelerate_date: date | None = None,
+        accelerate_grace_days: int = 0,
+        cap_penalty_annual: Decimal | None = None,
+        cap_total_mode: str = CAP_TOTAL_NONE,
+        cap_total_value: Decimal = Decimal("0"),
+        interest_cut_inclusive: bool = False,
+        pause_periods: list[PausePeriod] | None = None,
         payments: list[PaymentRecord] | None = None,
         claim_date: date | None = None,
     ) -> MortgageDefaultResult:
@@ -178,6 +193,12 @@ class MortgageDefaultCalculator:
             step_up_trigger_days: 加码触发所需连续逾期天数；0=首个欠款批次起即加码
             rounding_mode: 舍入规则，period=逐期四舍五入到分再求和（默认），
                 cumulative=全程保持精度、仅在诉讼请求汇总时一次性四舍五入到分
+            claim_mode: 违约金与罚息主张口径，both=并行叠加（两者同时计入诉请，默认），
+                either=择一从高（取两者较大者计入诉请，避免重复主张）
+            accelerate_date: 加速到期日（银行按合同宣布全部本金提前到期之日）。
+                自该日起全部剩余本金转为「已到期本金」，罚息/复利对全额计收，不再按月摊销；
+                None/不早于截止日=不触发
+            accelerate_grace_days: 加速到期宽限天数（加速日后该天数内还款视为按时，罚息自宽限期届满次日起算），默认 0
             payments: 还款流水（实际还款记录）
             claim_date: 计算截止日（默认今天，即起诉日）
 
@@ -205,6 +226,30 @@ class MortgageDefaultCalculator:
             raise ValidationException(
                 message="舍入规则仅支持 period（逐期）或 cumulative（累计）", code="INVALID_ROUNDING_MODE"
             )
+        if claim_mode not in VALID_CLAIM_MODES:
+            raise ValidationException(
+                message="主张口径仅支持 both（并行叠加）或 either（择一从高）", code="INVALID_CLAIM_MODE"
+            )
+        if accelerate_grace_days < 0:
+            raise ValidationException(message="加速到期宽限天数不能为负", code="INVALID_ACCELERATE_GRACE")
+        if cap_penalty_annual is not None and cap_penalty_annual < 0:
+            raise ValidationException(message="罚息/复利年利率封顶值不能为负", code="INVALID_CAP_PENALTY_ANNUAL")
+        if cap_total_mode not in VALID_CAP_TOTAL_MODES:
+            raise ValidationException(
+                message="总债权封顶模式仅支持 none/amount/principal_ratio/interest_ratio",
+                code="INVALID_CAP_TOTAL_MODE",
+            )
+        if cap_total_mode != CAP_TOTAL_NONE and cap_total_value <= 0:
+            raise ValidationException(message="总债权封顶值必须大于 0", code="INVALID_CAP_TOTAL_VALUE")
+        pause_ranges: list[tuple[date, date]] = []
+        for p in pause_periods or []:
+            if p.start > p.end:
+                raise ValidationException(
+                    message=f"停息区间 {p.start}~{p.end} 起始日不能晚于结束日", code="INVALID_PAUSE_PERIOD"
+                )
+            pause_ranges.append((p.start, p.end))
+        # 计息起止边界：含截止日当天（算头算尾）时在末日补 1 天
+        _boundary_plus = 1 if interest_cut_inclusive else 0
 
         claim = claim_date or date.today()
         if claim <= start_date:
@@ -220,6 +265,19 @@ class MortgageDefaultCalculator:
         if fees_offset and "fee" not in order:
             order.append("fee")
         holidays_set = set(holidays or [])
+
+        # ---- 加速到期状态 ----
+        # 加速到期日必须为「放款后、截止日前」才生效；否则按未加速处理并提示
+        accelerated = False
+        accelerate_penalty_start: date | None = None
+        if accelerate_date is not None:
+            if accelerate_date <= start_date:
+                raise ValidationException(message="加速到期日必须晚于放款日期", code="INVALID_ACCELERATE_DATE")
+            if accelerate_date >= claim:
+                warnings.append(f"加速到期日 {accelerate_date} 不早于计算截止日，本次不触发加速到期")
+                accelerate_date = None
+            else:
+                accelerate_penalty_start = accelerate_date + timedelta(days=accelerate_grace_days) + timedelta(days=1)
 
         # ---- 分期利率事件（覆盖固定/LPR 基座）----
         rate_events_sorted = sorted((rate_events or []), key=lambda e: e.get("date", ""))
@@ -238,8 +296,12 @@ class MortgageDefaultCalculator:
         def penalty_annual(on: date) -> Decimal:
             if penalty_mode == PENALTY_MODE_SPECIFIED:
                 assert penalty_rate is not None  # _validate_inputs 已保证
-                return penalty_rate
-            return contract_annual(on) * penalty_multiplier
+                r = penalty_rate
+            else:
+                r = contract_annual(on) * penalty_multiplier
+            if cap_penalty_annual is not None and r > cap_penalty_annual:
+                r = cap_penalty_annual
+            return r
 
         # ---- 模拟状态 ----
         balance = principal  # 剩余本金（含逾期部分）
@@ -280,7 +342,7 @@ class MortgageDefaultCalculator:
             first_due = self._shift_workday(first_due, holidays_set)
         if first_due > claim:
             # 起诉日早于首期扣款日：仅截算一段合同利息
-            stub_days = (claim - start_date).days
+            stub_days = unpaused_days(start_date, claim, pause_ranges) + _boundary_plus
             annual = contract_annual(start_date)
             stub_interest = _q(principal * annual / Decimal("100") * stub_days / Decimal(year_days))
             claim_summary = ClaimSummary(
@@ -331,16 +393,22 @@ class MortgageDefaultCalculator:
                 base_p = penalty_annual(seg_from)
                 if uplifted and surcharge is not None:
                     base_p = base_p * (Decimal("1") + surcharge / Decimal("100"))
+                    if cap_penalty_annual is not None and base_p > cap_penalty_annual:
+                        base_p = cap_penalty_annual
                 p_rate = base_p / Decimal("100") / Decimal(year_days)
 
                 def effective_days(lot_due: date) -> int:
-                    """扣除宽限期后的实际计罚天数：起罚日 = 还款日+宽限期+1."""
+                    """扣除宽限期/停息区间后的实际计罚天数：起罚日 = 还款日+宽限期+1."""
                     start = overdue_start_dates.get(lot_due)
                     if start is None:
-                        return (seg_to - seg_from).days
-                    # 计罚区间与 [start, seg_to) 求交集
-                    eff_from = max(seg_from, start)
-                    return max((seg_to - eff_from).days, 0)
+                        days = unpaused_days(seg_from, seg_to, pause_ranges)
+                    else:
+                        # 计罚区间与 [start, seg_to) 求交集，再扣停息、补截止日当天
+                        eff_from = max(seg_from, start)
+                        days = unpaused_days(eff_from, seg_to, pause_ranges)
+                    if seg_to == claim:
+                        days += _boundary_plus
+                    return max(days, 0)
 
                 for lot in principal_lots:
                     if lot.amount <= 0:
@@ -379,10 +447,13 @@ class MortgageDefaultCalculator:
                 if compound_on_penalty:
                     penalty_outstanding = penalty_accrued_total - penalty_paid
                     if penalty_outstanding > 0:
+                        acc_days = unpaused_days(seg_from, seg_to, pause_ranges)
+                        if seg_to == claim:
+                            acc_days += _boundary_plus
                         if compound_method == COMPOUND_METHOD_FLAT:
-                            penalty_compound_accrued += penalty_outstanding * (seg_to - seg_from).days
+                            penalty_compound_accrued += penalty_outstanding * acc_days
                         else:
-                            penalty_compound_total += penalty_outstanding * p_rate * (seg_to - seg_from).days
+                            penalty_compound_total += penalty_outstanding * p_rate * acc_days
 
         def pay_toward(key: str, amount: Decimal, pay_date: date, alloc: AllocationDetail) -> Decimal:
             """向指定 bucket 支付，返回实际消耗金额."""
@@ -514,6 +585,76 @@ class MortgageDefaultCalculator:
             else:
                 monthly_payment = annuity_payment(balance, current_rate, remaining_periods)
 
+        # ---- 还款处理与加速到期 ----
+
+        def _process_payment(rec: PaymentRecord) -> None:
+            """处理单笔还款：先按冲抵顺序核销，余款入溢缴；提前还款冲减本金并重排."""
+            nonlocal prev_event_date, settled, credit, prepayment_compensation, balance
+            accrue(prev_event_date, rec.payment_date)
+            prev_event_date = rec.payment_date
+
+            if rec.payment_type == PAYMENT_TYPE_PREPAYMENT:
+                # 先按冲抵顺序清欠款（不含本金），余下直接冲减本金并重排
+                remaining_amt = rec.amount
+                alloc = AllocationDetail(payment_date=rec.payment_date, amount=rec.amount)
+                for key in order:
+                    if remaining_amt <= 0:
+                        break
+                    if key == "principal":
+                        break
+                    consumed = pay_toward(key, remaining_amt, rec.payment_date, alloc)
+                    remaining_amt -= consumed
+                if remaining_amt < rec.amount:
+                    _attach_allocation(alloc)
+                if remaining_amt > 0:
+                    # 提前还款补偿金：提前归还本金 × 补偿金率
+                    if prepayment_compensation_rate is not None:
+                        prepayment_compensation += remaining_amt * prepayment_compensation_rate / Decimal("100")
+                    balance -= remaining_amt
+                    if balance <= 0:
+                        balance = Decimal("0")
+                        settled = True
+                    else:
+                        reschedule(rec.payment_date, "提前还款")
+            else:
+                leftover, alloc = allocate_by_order(rec.amount, rec.payment_date, order)
+                if leftover > 0:
+                    credit += leftover
+                if (
+                    alloc.to_penalty
+                    or alloc.to_penalty_lump
+                    or alloc.to_interest
+                    or alloc.to_compound
+                    or alloc.to_principal
+                    or alloc.to_fee
+                ):
+                    _attach_allocation(alloc)
+
+        def _announce_acceleration() -> None:
+            """公告加速到期：全部剩余本金转为到期本金批次，停止后续按月摊销.
+
+            罚息/复利自加速宽限期届满次日起对全额本金按日计收；
+            合同利息只结算到加速日为止，加速日之后本金不再单独计合同利息。
+            """
+            nonlocal accelerated, first_penalty_start
+            accelerated = True
+            if balance > 0:
+                principal_lots.append(_Lot(due_date=accelerate_date, amount=balance))
+                overdue_start_dates[accelerate_date] = accelerate_penalty_start
+                if first_penalty_start is None or accelerate_penalty_start < first_penalty_start:
+                    first_penalty_start = accelerate_penalty_start
+                # 结算 [最近计息日, 加速日) 的合同利息并入欠息
+                if prev_event_date < accelerate_date:
+                    stub_days = unpaused_days(prev_event_date, accelerate_date, pause_ranges)
+                    annual = contract_annual(prev_event_date)
+                    stub_interest = _q(balance * annual / Decimal("100") * stub_days / Decimal(year_days))
+                    if stub_interest > 0:
+                        interest_lots.append(_Lot(due_date=accelerate_date, amount=stub_interest))
+            warnings.append(
+                f"已于 {accelerate_date} 公告加速到期：全部剩余本金 {_str_money(balance)} 转为已到期本金，"
+                f"罚息/复利自 {accelerate_penalty_start} 起对全额按日计收（加速后宽限 {accelerate_grace_days} 天）"
+            )
+
         # ---- 主事件循环 ----
         settled = False
         while not settled:
@@ -524,50 +665,18 @@ class MortgageDefaultCalculator:
             # 宽限期截止日：还款日+宽限期内还款视为按时
             grace_end = due_date + timedelta(days=grace_period_days) if grace_period_days else due_date
 
+            # 0) 到期日边界触发加速到期：全部本金转到期本金，停止摊销
+            if not accelerated and accelerate_date is not None and due_date >= accelerate_date:
+                _announce_acceleration()
+                if accelerated:
+                    settled = True
+                    break
+
             # 1) 处理本期内（上一事件日, 宽限期截止日] 的还款事件
             while payment_idx < len(pay_records) and pay_records[payment_idx].payment_date <= grace_end:
                 rec = pay_records[payment_idx]
                 payment_idx += 1
-                accrue(prev_event_date, rec.payment_date)
-                prev_event_date = rec.payment_date
-
-                if rec.payment_type == PAYMENT_TYPE_PREPAYMENT:
-                    # 先按冲抵顺序清欠款（不含本金），余下直接冲减本金并重排
-                    remaining_amt = rec.amount
-                    alloc = AllocationDetail(payment_date=rec.payment_date, amount=rec.amount)
-                    for key in order:
-                        if remaining_amt <= 0:
-                            break
-                        if key == "principal":
-                            break
-                        consumed = pay_toward(key, remaining_amt, rec.payment_date, alloc)
-                        remaining_amt -= consumed
-                    if remaining_amt < rec.amount:
-                        _attach_allocation(alloc)
-                    if remaining_amt > 0:
-                        # 提前还款补偿金：提前归还本金 × 补偿金率
-                        if prepayment_compensation_rate is not None:
-                            prepayment_compensation += remaining_amt * prepayment_compensation_rate / Decimal("100")
-                        balance -= remaining_amt
-                        if balance <= 0:
-                            balance = Decimal("0")
-                            settled = True
-                            break
-                        reschedule(rec.payment_date, "提前还款")
-                else:
-                    leftover, alloc = allocate_by_order(rec.amount, rec.payment_date, order)
-                    if leftover > 0:
-                        credit += leftover
-                    if (
-                        alloc.to_penalty
-                        or alloc.to_penalty_lump
-                        or alloc.to_interest
-                        or alloc.to_compound
-                        or alloc.to_principal
-                        or alloc.to_fee
-                    ):
-                        _attach_allocation(alloc)
-
+                _process_payment(rec)
                 if settled:
                     break
 
@@ -697,23 +806,34 @@ class MortgageDefaultCalculator:
                 break
 
         # ---- 尾期截算：从最后事件日到 claim ----
+
+        # 加速到期后：剩余还款（含加速当期宽限期内的还款）统一按冲抵顺序核销至截止日，
+        # 期间产生的罚息/复利随每次 accrue 计入；本阶段不再按月摊销
+        if accelerated:
+            while payment_idx < len(pay_records) and pay_records[payment_idx].payment_date <= claim:
+                rec = pay_records[payment_idx]
+                payment_idx += 1
+                _process_payment(rec)
+
         if prev_event_date < claim:
             accrue(prev_event_date, claim)
-            # 未到期期间的合同利息按天截算
-            if balance > 0 and remaining_periods > 0:
+            # 未到期期间的合同利息按天截算（加速到期后本金已全额到期，不再另计合同利息）
+            if balance > 0 and remaining_periods > 0 and not accelerated:
                 annual = contract_annual(prev_event_date)
-                stub_days = (claim - prev_event_date).days
+                stub_days = unpaused_days(prev_event_date, claim, pause_ranges) + _boundary_plus
                 stub_interest = balance * annual / Decimal("100") * stub_days / Decimal(year_days)
                 if stub_interest > 0:
                     interest_lots.append(_Lot(due_date=claim, amount=stub_interest))
 
         # ---- 汇总 ----
         def eff_penalty_annual(on: date) -> Decimal:
-            """罚息年利率（按 on 时的点判断是否已触发逾期自动加码）."""
+            """罚息年利率（按 on 时的点判断是否已触发逾期自动加码，并应用年利率封顶）."""
             r = penalty_annual(on)
             if step_up_rate is not None and first_penalty_start is not None:
                 if on >= first_penalty_start + timedelta(days=step_up_trigger_days):
                     r = r * (Decimal("1") + step_up_rate / Decimal("100"))
+            if cap_penalty_annual is not None and r > cap_penalty_annual:
+                r = cap_penalty_annual
             return r
 
         unpaid_interest = sum((lot.amount for lot in interest_lots), Decimal("0"))
@@ -739,6 +859,62 @@ class MortgageDefaultCalculator:
         other_fees_total = sum((Decimal(str(f.get("amount", 0))) for f in fee_items), Decimal("0"))
         other_fees_outstanding = other_fees_total - fees_paid
         lump_outstanding = lump_penalty_total - lump_penalty_paid
+
+        # 违约金 vs 罚息主张口径：both=并行叠加；either=择一从高（避免重复主张）
+        claim_taken = ""
+        if claim_mode == CLAIM_MODE_EITHER and lump_outstanding and penalty_outstanding:
+            if lump_outstanding >= penalty_outstanding:
+                claimed_penalty = Decimal("0")
+                claimed_lump = lump_outstanding
+                claim_taken = "违约金"
+            else:
+                claimed_penalty = penalty_outstanding
+                claimed_lump = Decimal("0")
+                claim_taken = "罚息"
+            warnings.append(
+                f"违约金与罚息择一从高：取【{claim_taken}】（违约金 {_str_money(lump_outstanding)} "
+                f"vs 罚息 {_str_money(penalty_outstanding)}）计入诉请，另一项不再叠加"
+            )
+        else:
+            claimed_penalty = penalty_outstanding
+            claimed_lump = lump_outstanding
+
+        # ---- 总债权封顶：违约金+罚息+复利合计不得超过封顶值 ----
+        # 削减顺序：复利 → 罚息 → 违约金（保留更主要的违约金主张）
+        capped_total = False
+        cap_value: Decimal | None = None
+        if cap_total_mode != CAP_TOTAL_NONE:
+            if cap_total_mode == CAP_TOTAL_AMOUNT:
+                cap_value = cap_total_value
+                basis_desc = f"固定金额 {_str_money(cap_total_value)}"
+            elif cap_total_mode == CAP_TOTAL_PRINCIPAL_RATIO:
+                cap_value = max(outstanding_principal, Decimal("0")) * cap_total_value
+                basis_desc = f"未还本金 {_str_money(max(outstanding_principal, Decimal('0')))} 的 {cap_total_value} 倍"
+            else:  # CAP_TOTAL_INTEREST_RATIO
+                cap_value = unpaid_interest * cap_total_value
+                basis_desc = f"未付利息 {_str_money(unpaid_interest)} 的 {cap_total_value} 倍"
+            responsive = claimed_lump + claimed_penalty + compound_outstanding
+            if cap_value is not None and responsive > cap_value:
+                reduction = responsive - cap_value
+                for bucket in ("compound", "penalty", "lump"):
+                    if reduction <= 0:
+                        break
+                    if bucket == "compound":
+                        take = min(reduction, compound_outstanding)
+                        compound_outstanding -= take
+                    elif bucket == "penalty":
+                        take = min(reduction, claimed_penalty)
+                        claimed_penalty -= take
+                    else:
+                        take = min(reduction, claimed_lump)
+                        claimed_lump -= take
+                    reduction -= take
+                capped_total = True
+                warnings.append(
+                    f"总债权封顶生效：违约金+罚息+复利合计超出封顶值（{basis_desc}），"
+                    f"已从 {_str_money(responsive)} 削减至 {_str_money(responsive - reduction)}，"
+                    "削减顺序为复利→罚息→违约金，请核对合同/裁判约定后引用"
+                )
 
         if reschedule_count:
             warnings.append(f"因提前还款/利率重定价共重排还款计划 {reschedule_count} 次，明细以重排后计划为准")
@@ -770,6 +946,12 @@ class MortgageDefaultCalculator:
             warnings.append("扣款日已按「逢周末/法定节假日顺延至下一工作日」口径处理")
         if rate_events:
             warnings.append(f"已应用 {len(rate_events)} 次分段利率调整，罚息/复利按调整后利率分段计算")
+        if cap_penalty_annual is not None:
+            warnings.append(f"罚息/复利年利率已封顶为 {cap_penalty_annual}%，超过该上限的利率按封顶值计息")
+        if interest_cut_inclusive:
+            warnings.append("计息口径：含截止日当天（算头算尾），利息/罚息/复利末日各 +1 天")
+        if pause_ranges:
+            warnings.append(f"已应用 {len(pause_ranges)} 段停息区间，区间内罚息/复利及按天截算的合同利息暂停计息")
 
         # 批次归属回填违约行：逾期天数、罚息/复利、还款冲抵金额
         row_by_due = {row.due_date: row for row in default_rows}
@@ -784,9 +966,10 @@ class MortgageDefaultCalculator:
             row.accrued_compound += compound_by_due.get(row.due_date, Decimal("0"))
             if row.status != STATUS_PAID:
                 # 逾期天数：默认从计划还款日起算至实际还款日前一日/截止日；
-                # 有宽限期时从宽限期届满次日起算；charge_interest_on_payment_day 时含还款日当日
+                # 有宽限期时从宽限期届满次日起算；charge_interest_on_payment_day
+                # 或 interest_cut_inclusive 时含截止日当天（+1 天）
                 start = overdue_start_dates.get(row.due_date, row.due_date)
-                end_adj = claim + timedelta(days=1) if charge_interest_on_payment_day else claim
+                end_adj = claim + timedelta(days=1 if (charge_interest_on_payment_day or interest_cut_inclusive) else 0)
                 row.overdue_days = max(row.overdue_days, max((end_adj - start).days, 0))
             # 还款事件冲抵的利息/本金按期次并入行级已还金额（due_alloc 已直接计入）
             for alloc in row.allocations:
@@ -799,18 +982,18 @@ class MortgageDefaultCalculator:
             total_claim = _q(
                 outstanding_principal
                 + unpaid_interest
-                + penalty_outstanding
+                + claimed_penalty
                 + compound_outstanding
-                + lump_outstanding
+                + claimed_lump
                 + other_fees_outstanding
             )
         else:
             total_claim = _q(
                 _q(outstanding_principal)
                 + _q(unpaid_interest)
-                + _q(penalty_outstanding)
+                + _q(claimed_penalty)
                 + _q(compound_outstanding)
-                + _q(lump_outstanding)
+                + _q(claimed_lump)
                 + _q(other_fees_outstanding)
             )
 
@@ -818,11 +1001,11 @@ class MortgageDefaultCalculator:
             claim_date=claim,
             outstanding_principal=_q(outstanding_principal),
             unpaid_interest=_q(unpaid_interest),
-            penalty_interest=_q(penalty_outstanding),
+            penalty_interest=_q(claimed_penalty),
             compound_interest=_q(compound_outstanding),
             total_claim=total_claim,
             daily_accrual=_q(daily_accrual),
-            lump_penalty=_q(lump_outstanding),
+            lump_penalty=_q(claimed_lump),
             other_fees=_q(other_fees_outstanding),
             fee_items=[
                 {"name": f.get("name", ""), "amount": _str_money(Decimal(str(f.get("amount", 0))))} for f in fee_items
@@ -857,8 +1040,21 @@ class MortgageDefaultCalculator:
                 "step_up_trigger_days": step_up_trigger_days,
                 "rounding_mode": rounding_mode,
                 "fees_offset": fees_offset,
+                "claim_mode": claim_mode,
+                "claim_taken": claim_taken,
+                "accelerated": accelerated,
+                "accelerate_date": accelerate_date.isoformat() if accelerated else "",
+                "accelerate_penalty_start": (
+                    accelerate_penalty_start.isoformat() if accelerated and accelerate_penalty_start else ""
+                ),
                 "first_due_date": first_due.isoformat(),
                 "term_months": term_months,
+                "cap_penalty_annual": (_str_money(cap_penalty_annual) if cap_penalty_annual is not None else ""),
+                "cap_total_mode": cap_total_mode,
+                "cap_total_value": _str_money(cap_total_value),
+                "capped_total": capped_total,
+                "interest_cut_inclusive": interest_cut_inclusive,
+                "pause_periods": [{"start": s.isoformat(), "end": e.isoformat()} for s, e in pause_ranges],
             },
         )
 

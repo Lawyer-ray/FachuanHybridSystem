@@ -12,7 +12,12 @@ from decimal import Decimal
 import pytest
 
 from apps.core.exceptions import ValidationException
-from apps.finance.services.calculator.mortgage_calculator import MortgageDefaultCalculator, PaymentRecord, add_months
+from apps.finance.services.calculator.mortgage_calculator import (
+    MortgageDefaultCalculator,
+    PausePeriod,
+    PaymentRecord,
+    add_months,
+)
 
 CENT = Decimal("0.01")
 
@@ -332,4 +337,260 @@ class TestValidation:
                 rate_mode="fixed",
                 fixed_rate=Decimal("4.0"),
                 claim_date=date(2023, 12, 1),
+            )
+
+
+class TestAcceleration:
+    """加速到期：全部本金提前到期、停止摊销、对全额计罚息."""
+
+    def _base_result(self, **overrides):
+        calc = make_calculator()
+        kwargs = {
+            "principal": Decimal("1000000"),
+            "start_date": date(2024, 1, 10),
+            "term_months": 120,
+            "rate_mode": "fixed",
+            "fixed_rate": Decimal("4.2"),
+        }
+        kwargs.update(overrides)
+        return calc.calculate(**kwargs)
+
+    def test_acceleration_transfers_principal_to_overdue(self):
+        # 断供数期后于 2024-06-01 宣布加速到期，截止 2024-12-31
+        result = self._base_result(
+            penalty_multiplier=Decimal("1.5"),
+            compound_on_interest=True,
+            payments=[PaymentRecord(date(2024, 2, 10), Decimal("20000"))],
+            accelerate_date=date(2024, 6, 1),
+            claim_date=date(2024, 12, 31),
+        )
+        c = result.claim
+        # 触发加速：meta 标记已加速，剩余本金为全部到期本金（>0）
+        assert result.meta["accelerated"] is True
+        assert c.outstanding_principal > Decimal("0")
+        # 加速后本金全额到期，罚息为正、按日对全额计收
+        assert c.penalty_interest > Decimal("0")
+        assert c.daily_accrual > Decimal("0")
+
+    def test_acceleration_stops_amortization_schedule(self):
+        # 加速后不再产出新摊销计划行（schedule 止于加速前的期次）
+        result = self._base_result(
+            accelerate_date=date(2024, 6, 1),
+            claim_date=date(2025, 1, 1),
+        )
+        # 未设置还款/断供时，加速后计划行明显少于按 120 期摊销
+        last_due = result.schedule_rows[-1].due_date if result.schedule_rows else None
+        assert last_due is None or last_due < date(2025, 1, 1)
+        assert result.meta["accelerated"] is True
+
+    def test_acceleration_after_claim_is_noop(self):
+        # 加速日不早于截止日 → 不触发加速（等同于普通计算）
+        result = self._base_result(
+            payments=[PaymentRecord(date(2024, 3, 10), Decimal("20000"))],
+            accelerate_date=date(2025, 1, 1),
+            claim_date=date(2024, 12, 31),
+        )
+        assert result.meta["accelerated"] is False
+        assert result.meta["accelerate_date"] == ""
+
+    def test_invalid_accelerate_date_before_start(self):
+        calc = make_calculator()
+        with pytest.raises(ValidationException):
+            calc.calculate(
+                principal=Decimal("100000"),
+                start_date=date(2024, 1, 1),
+                term_months=60,
+                rate_mode="fixed",
+                fixed_rate=Decimal("4.0"),
+                accelerate_date=date(2023, 6, 1),
+                claim_date=date(2024, 12, 31),
+            )
+
+
+class TestClaimMode:
+    """违约金与罚息主张口径：并行 or 择一从高."""
+
+    def _both_result(self, claim_mode):
+        calc = make_calculator()
+        return calc.calculate(
+            principal=Decimal("1000000"),
+            start_date=date(2024, 1, 10),
+            term_months=120,
+            rate_mode="fixed",
+            fixed_rate=Decimal("4.2"),
+            penalty_multiplier=Decimal("1.5"),
+            lump_penalty_rate=Decimal("1.0"),  # 逾期本金 1% 一次性违约金
+            lump_penalty_threshold_days=60,
+            compound_on_interest=True,
+            payments=[PaymentRecord(date(2024, 2, 10), Decimal("20000"))],
+            claim_mode=claim_mode,
+            claim_date=date(2024, 12, 31),
+        )
+
+    def test_both_sums_penalty_and_lump(self):
+        result = self._both_result("both")
+        c = result.claim
+        # 并行：罚息与违约金都计入，总行 = 各分项之和
+        assert result.meta["claim_mode"] == "both"
+        assert c.lump_penalty > Decimal("0")
+        assert c.penalty_interest > Decimal("0")
+        assert c.total_claim == (
+            c.outstanding_principal
+            + c.unpaid_interest
+            + c.penalty_interest
+            + c.compound_interest
+            + c.lump_penalty
+            + c.other_fees
+        )
+
+    def test_either_takes_higher(self):
+        result = self._both_result("either")
+        c = result.claim
+        assert result.meta["claim_mode"] == "either"
+        assert result.meta["claim_taken"] in ("罚息", "违约金")
+        # 择一从高后：罚息与违约金只保留其一
+        have_both = c.penalty_interest > Decimal("0") and c.lump_penalty > Decimal("0")
+        assert not have_both
+        # 总行 = 各分项之和（此时被择去的一项为 0）
+        assert c.total_claim == (
+            c.outstanding_principal
+            + c.unpaid_interest
+            + c.penalty_interest
+            + c.compound_interest
+            + c.lump_penalty
+            + c.other_fees
+        )
+
+    def test_invalid_claim_mode(self):
+        calc = make_calculator()
+        with pytest.raises(ValidationException):
+            calc.calculate(
+                principal=Decimal("100000"),
+                start_date=date(2024, 1, 1),
+                term_months=60,
+                rate_mode="fixed",
+                fixed_rate=Decimal("4.0"),
+                claim_mode="invalid_mode",
+                claim_date=date(2024, 12, 31),
+            )
+
+
+class TestCap:
+    """利率/总债权封顶."""
+
+    def _base(self, **overrides):
+        calc = make_calculator()
+        kwargs = {
+            "principal": Decimal("1000000"),
+            "start_date": date(2024, 1, 10),
+            "term_months": 120,
+            "rate_mode": "fixed",
+            "fixed_rate": Decimal("4.2"),
+            "penalty_multiplier": Decimal("1.5"),
+            "compound_on_interest": True,
+            "payments": [PaymentRecord(date(2024, 2, 10), Decimal("20000"))],
+            "claim_date": date(2024, 12, 31),
+        }
+        kwargs.update(overrides)
+        return calc.calculate(**kwargs)
+
+    def test_penalty_rate_cap_lowers_penalty(self):
+        uncapped = self._base()
+        capped = self._base(cap_penalty_annual=Decimal("5.0"))  # 实际罚息 4.2*1.5=6.3 > 5.0
+        assert capped.claim.penalty_interest < uncapped.claim.penalty_interest
+        assert capped.meta["cap_penalty_annual"] == "5.00"
+        assert any("封顶" in w for w in capped.warnings)
+
+    def test_total_cap_reduces_total_claim(self):
+        uncapped = self._base()
+        forced = self._base(cap_total_mode="amount", cap_total_value=Decimal("100"))
+        assert forced.claim.total_claim < uncapped.claim.total_claim
+        assert forced.meta["capped_total"] is True
+        responsive = forced.claim.penalty_interest + forced.claim.compound_interest + forced.claim.lump_penalty
+        assert responsive <= Decimal("100")
+
+    def test_total_cap_no_effect_when_not_exceeding(self):
+        result = self._base(cap_total_mode="principal_ratio", cap_total_value=Decimal("10"))
+        assert result.meta["capped_total"] is False
+
+    def test_invalid_cap_total_mode(self):
+        calc = make_calculator()
+        with pytest.raises(ValidationException):
+            calc.calculate(
+                principal=Decimal("100000"),
+                start_date=date(2024, 1, 1),
+                term_months=60,
+                rate_mode="fixed",
+                fixed_rate=Decimal("4.0"),
+                cap_total_mode="bad",
+                cap_total_value=Decimal("1"),
+                claim_date=date(2024, 12, 31),
+            )
+
+
+class TestInterestCut:
+    """计息起止边界：是否含截止日当天（算头算尾）. """
+
+    def _base(self, **overrides):
+        calc = make_calculator()
+        kwargs = {
+            "principal": Decimal("1000000"),
+            "start_date": date(2024, 1, 10),
+            "term_months": 120,
+            "rate_mode": "fixed",
+            "fixed_rate": Decimal("4.2"),
+            "penalty_multiplier": Decimal("1.5"),
+            "compound_on_interest": True,
+            "payments": [PaymentRecord(date(2024, 2, 10), Decimal("20000"))],
+            "claim_date": date(2024, 12, 31),
+        }
+        kwargs.update(overrides)
+        return calc.calculate(**kwargs)
+
+    def test_inclusive_adds_a_day(self):
+        excl = self._base()
+        incl = self._base(interest_cut_inclusive=True)
+        assert incl.claim.penalty_interest > excl.claim.penalty_interest
+        assert incl.meta["interest_cut_inclusive"] is True
+
+
+class TestPause:
+    """停息挂账：区间内罚息/复利及按天截算的合同利息暂停计息."""
+
+    def _base(self, **overrides):
+        calc = make_calculator()
+        kwargs = {
+            "principal": Decimal("1000000"),
+            "start_date": date(2024, 1, 10),
+            "term_months": 120,
+            "rate_mode": "fixed",
+            "fixed_rate": Decimal("4.2"),
+            "penalty_multiplier": Decimal("1.5"),
+            "compound_on_interest": True,
+            "payments": [PaymentRecord(date(2024, 2, 10), Decimal("20000"))],
+            "claim_date": date(2024, 12, 31),
+        }
+        kwargs.update(overrides)
+        return calc.calculate(**kwargs)
+
+    def test_pause_reduces_penalty(self):
+        no_pause = self._base()
+        with_pause = self._base(
+            pause_periods=[PausePeriod(date(2024, 6, 1), date(2024, 12, 31), note="停息挂账")]
+        )
+        assert with_pause.claim.penalty_interest < no_pause.claim.penalty_interest
+        assert with_pause.meta["pause_periods"]
+        assert any("停息" in w for w in with_pause.warnings)
+
+    def test_invalid_pause_period(self):
+        calc = make_calculator()
+        with pytest.raises(ValidationException):
+            calc.calculate(
+                principal=Decimal("100000"),
+                start_date=date(2024, 1, 1),
+                term_months=60,
+                rate_mode="fixed",
+                fixed_rate=Decimal("4.0"),
+                pause_periods=[PausePeriod(date(2024, 7, 1), date(2024, 6, 1))],
+                claim_date=date(2024, 12, 31),
             )

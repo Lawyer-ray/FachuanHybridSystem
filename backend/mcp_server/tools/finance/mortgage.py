@@ -101,6 +101,14 @@ def mortgage_default_calculate(
     cutoff_continues_penalty: bool = False,
     cutoff_continues_compound: bool = False,
     other_fees: list[dict[str, Any]] | None = None,
+    claim_mode: str = "both",
+    accelerate_date: str | None = None,
+    accelerate_grace_days: int = 0,
+    cap_penalty_annual: float | None = None,
+    cap_total_mode: str = "none",
+    cap_total_value: float = 0.0,
+    interest_cut_inclusive: bool = False,
+    pause_periods: list[dict[str, Any]] | None = None,
     payments: list[dict[str, Any]] | None = None,
     claim_date: str | None = None,
 ) -> dict[str, Any]:
@@ -159,6 +167,17 @@ def mortgage_default_calculate(
         payments: 借款人实际还款流水列表，每项 {"payment_date": "YYYY-MM-DD", "amount": 金额,
             "payment_type": "normal"(正常还款，可省略) 或 "prepayment_principal"(提前冲减本金), "note": 备注(可省略)}。
         claim_date: 计算截止日（起诉日），格式 YYYY-MM-DD，默认今天。
+        claim_mode: 违约金与罚息主张口径，both=并行叠加（默认），either=择一从高（取较大者计入诉请，避免重复主张）。
+        accelerate_date: 加速到期日（银行宣布全部本金提前到期之日，YYYY-MM-DD）。自该日起全部剩余本金转已到期本金，
+            罚息/复利对全额计收并停止按月摊销；不填或不早于截止日=不触发。
+        accelerate_grace_days: 加速到期宽限天数（加速日后该天数内还款视为按时，罚息自宽限期届满次日起算），默认 0。
+        cap_penalty_annual: 罚息/复利年利率封顶(%)，实际罚息利率超过该上限时按封顶值计息；不传=不封顶。
+        cap_total_mode: 总债权（违约金+罚息+复利）封顶模式，none=不封顶（默认）、amount=固定金额、
+            principal_ratio=未还本金倍数、interest_ratio=未付利息倍数。
+        cap_total_value: 总债权封顶值：amount 模式为固定金额（元），ratio 模式为倍数（如 1.5）。
+        interest_cut_inclusive: 计息起止边界：True=含截止日当天（算头算尾，末日各 +1 天），默认 False=算头不算尾。
+        pause_periods: 停息区间列表，每项 {"start": "YYYY-MM-DD", "end": "YYYY-MM-DD", "note": 备注}（end 含当日）；
+            区间内罚息/复利及按天截算的合同利息暂停计息，还款流水照常核销（停息挂账/展期场景）。
 
     Returns:
         claim: 诉讼请求金额汇总（outstanding_principal 剩余本金 / unpaid_interest 未付利息 /
@@ -227,6 +246,21 @@ def mortgage_default_calculate(
         payload["shift_due_to_workday"] = shift_due_to_workday
     if holidays:
         payload["holidays"] = holidays
+    if claim_mode and claim_mode != "both":
+        payload["claim_mode"] = claim_mode
+    if accelerate_date:
+        payload["accelerate_date"] = accelerate_date
+    if accelerate_grace_days:
+        payload["accelerate_grace_days"] = accelerate_grace_days
+    if cap_penalty_annual is not None:
+        payload["cap_penalty_annual"] = cap_penalty_annual
+    if cap_total_mode and cap_total_mode != "none":
+        payload["cap_total_mode"] = cap_total_mode
+        payload["cap_total_value"] = cap_total_value
+    if interest_cut_inclusive:
+        payload["interest_cut_inclusive"] = True
+    if pause_periods:
+        payload["pause_periods"] = pause_periods
     if payments:
         payload["payments"] = payments
     if claim_date:
