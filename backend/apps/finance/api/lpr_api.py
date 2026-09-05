@@ -13,6 +13,7 @@ from ninja import Router
 from apps.core.exceptions import ValidationException
 from apps.core.security.auth import JWTOrSessionAuth
 from apps.finance.schemas.lpr_schemas import (
+    BankProfileListResponse,
     InterestCalculateRequest,
     InterestCalculateResponse,
     LPRRateListResponse,
@@ -25,6 +26,7 @@ from apps.finance.schemas.lpr_schemas import (
     MortgageDefaultRequest,
     MortgageDefaultResponse,
 )
+from apps.finance.services.calculator.bank_profiles import list_bank_profiles
 from apps.finance.services.lpr import PrincipalPeriod
 
 if TYPE_CHECKING:
@@ -347,6 +349,19 @@ def amortize_mortgage(  # pragma: no cover
     )
 
 
+@router.get("/bank-profiles", response=BankProfileListResponse, auth=JWTOrSessionAuth())
+def list_mortgage_bank_profiles(request: HttpRequest) -> BankProfileListResponse:  # pragma: no cover
+    """返回银行房贷逾期口径档案列表（供计算器表单一键填充）.
+
+    Args:
+        request: HTTP请求
+
+    Returns:
+        银行口径档案元信息列表
+    """
+    return BankProfileListResponse(success=True, profiles=list_bank_profiles())
+
+
 @router.post("/mortgage-default-calculate", response=MortgageDefaultResponse, auth=JWTOrSessionAuth())
 def mortgage_default_calculate(  # pragma: no cover
     request: HttpRequest,
@@ -370,32 +385,44 @@ def mortgage_default_calculate(  # pragma: no cover
 
     try:
         calculator = MortgageDefaultCalculator()
-        result = calculator.calculate(
-            principal=data.principal,
-            start_date=data.start_date,
-            term_months=data.term_months,
-            repayment_method=data.repayment_method,
-            payment_day=data.payment_day,
-            rate_mode=data.rate_mode,
-            fixed_rate=data.fixed_rate,
-            lpr_type=data.lpr_type,
-            basis_points=data.basis_points,
-            repricing_day=data.repricing_day,
-            penalty_mode=data.penalty_mode,
-            penalty_multiplier=data.penalty_multiplier,
-            penalty_rate=data.penalty_rate,
-            compound_on_interest=data.compound_on_interest,
-            compound_on_penalty=data.compound_on_penalty,
-            compound_method=data.compound_method,
-            grace_period_days=data.grace_period_days,
-            first_period_interest=data.first_period_interest,
-            charge_interest_on_payment_day=data.charge_interest_on_payment_day,
-            year_days=data.year_days,
-            allocation_order=data.allocation_order,
-            prepayment_handling=data.prepayment_handling,
-            prepayment_compensation_rate=data.prepayment_compensation_rate,
-            other_fees=[{"name": f.name, "amount": f.amount} for f in data.other_fees],
-            payments=[
+        # 基础参数（不含止算日/截止日；供单次计算与止算二次计算复用，避免口径分叉）
+        base_kwargs: dict = {
+            "principal": data.principal,
+            "start_date": data.start_date,
+            "term_months": data.term_months,
+            "repayment_method": data.repayment_method,
+            "payment_day": data.payment_day,
+            "rate_mode": data.rate_mode,
+            "fixed_rate": data.fixed_rate,
+            "lpr_type": data.lpr_type,
+            "basis_points": data.basis_points,
+            "repricing_day": data.repricing_day,
+            "penalty_mode": data.penalty_mode,
+            "penalty_multiplier": data.penalty_multiplier,
+            "penalty_rate": data.penalty_rate,
+            "compound_on_interest": data.compound_on_interest,
+            "compound_on_penalty": data.compound_on_penalty,
+            "compound_method": data.compound_method,
+            "grace_period_days": data.grace_period_days,
+            "first_period_interest": data.first_period_interest,
+            "charge_interest_on_payment_day": data.charge_interest_on_payment_day,
+            "year_days": data.year_days,
+            "allocation_order": data.allocation_order,
+            "allocation_stance": data.allocation_stance,
+            "rate_events": [{"date": e.date.isoformat(), "annual_rate": e.annual_rate} for e in data.rate_events],
+            "lump_penalty_rate": data.lump_penalty_rate,
+            "lump_penalty_amount": data.lump_penalty_amount,
+            "lump_penalty_threshold_days": data.lump_penalty_threshold_days,
+            "shift_due_to_workday": data.shift_due_to_workday,
+            "holidays": [h.isoformat() for h in data.holidays],
+            "prepayment_handling": data.prepayment_handling,
+            "prepayment_compensation_rate": data.prepayment_compensation_rate,
+            "other_fees": [{"name": f.name, "amount": f.amount} for f in data.other_fees],
+            "fees_offset": data.fees_offset,
+            "step_up_rate": data.step_up_rate,
+            "step_up_trigger_days": data.step_up_trigger_days,
+            "rounding_mode": data.rounding_mode,
+            "payments": [
                 PaymentRecord(
                     payment_date=p.payment_date,
                     amount=p.amount,
@@ -404,9 +431,73 @@ def mortgage_default_calculate(  # pragma: no cover
                 )
                 for p in data.payments
             ],
-            claim_date=data.claim_date,
-        )
+        }
+
+        base_claim = data.claim_date or date.today()
+        result = calculator.calculate(**base_kwargs, claim_date=base_claim)
+        payload = result.to_dict()
+
+        cutoff = data.interest_cutoff_date
+        if cutoff is not None and cutoff < base_claim and cutoff > data.start_date:
+            cut = calculator.calculate(**base_kwargs, claim_date=cutoff)
+            payload = _merge_interest_cutoff(
+                full=payload,
+                cut=cut.to_dict(),
+                rounding_mode=data.rounding_mode,
+                cont_penalty=data.cutoff_continues_penalty,
+                cont_compound=data.cutoff_continues_compound,
+            )
     except ValidationException as e:
         return MortgageDefaultResponse(success=False, message=e.message, code=e.code)
 
-    return MortgageDefaultResponse(success=True, **result.to_dict())
+    return MortgageDefaultResponse(success=True, **payload)
+
+
+def _merge_interest_cutoff(
+    full: dict,
+    cut: dict,
+    rounding_mode: str,
+    cont_penalty: bool,
+    cont_compound: bool,
+) -> dict:
+    """把止算日口径合并进诉讼请求汇总.
+
+    本金/违约金/费用/每日新增以「整段」（到计算截止日）为准；
+    未付利息以止算日按段为准；罚息/复利按开关决定取止算日段还是整段。
+    """
+    from decimal import ROUND_HALF_UP
+
+    fc, cc = full["claim"], cut["claim"]
+    _c = Decimal("0.01")
+    cut_claim_date = cc["claim_date"]
+
+    def _r(x: Decimal) -> Decimal:
+        return x.quantize(_c, rounding=ROUND_HALF_UP)
+
+    principal = Decimal(fc["outstanding_principal"])
+    interest = Decimal(cc["unpaid_interest"])
+    penalty = Decimal(fc["penalty_interest"]) if cont_penalty else Decimal(cc["penalty_interest"])
+    compound = Decimal(fc["compound_interest"]) if cont_compound else Decimal(cc["compound_interest"])
+    lump = Decimal(fc["lump_penalty"])
+    fees = Decimal(fc["other_fees"])
+
+    if rounding_mode == "cumulative":
+        total = _r(principal + interest + penalty + compound + lump + fees)
+    else:
+        total = _r(_r(principal) + _r(interest) + _r(penalty) + _r(compound) + _r(lump) + _r(fees))
+
+    fc["unpaid_interest"] = str(_r(interest))
+    fc["penalty_interest"] = str(_r(penalty))
+    fc["compound_interest"] = str(_r(compound))
+    fc["total_claim"] = str(total)
+
+    continue_desc = []
+    if cont_penalty:
+        continue_desc.append("罚息")
+    if cont_compound:
+        continue_desc.append("复利")
+    suffix = "均止算" if not continue_desc else f"{'、'.join(continue_desc)}继续计算至计算截止日，其余止算"
+    full.setdefault("warnings", []).append(
+        f"利息止算日 {cut_claim_date}：合同利息计算至此日；{suffix}。诉讼请求汇总金额按止算口径列出（本金/违约金/费用仍按计算截止日）。"
+    )
+    return full

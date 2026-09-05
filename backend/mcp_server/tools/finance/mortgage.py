@@ -84,8 +84,22 @@ def mortgage_default_calculate(
     charge_interest_on_payment_day: bool = False,
     year_days: int = 360,
     allocation_order: list[str] | None = None,
+    allocation_stance: str | None = None,
+    rate_events: list[dict[str, Any]] | None = None,
+    lump_penalty_rate: float | None = None,
+    lump_penalty_amount: float | None = None,
+    lump_penalty_threshold_days: int = 0,
+    shift_due_to_workday: bool = False,
+    holidays: list[str] | None = None,
     prepayment_handling: str = "shorten_term",
     prepayment_compensation_rate: float | None = None,
+    fees_offset: bool = False,
+    step_up_rate: float | None = None,
+    step_up_trigger_days: int = 0,
+    rounding_mode: str = "period",
+    interest_cutoff_date: str | None = None,
+    cutoff_continues_penalty: bool = False,
+    cutoff_continues_compound: bool = False,
     other_fees: list[dict[str, Any]] | None = None,
     payments: list[dict[str, Any]] | None = None,
     claim_date: str | None = None,
@@ -133,6 +147,14 @@ def mortgage_default_calculate(
             默认 ["penalty", "interest", "compound", "principal"]，不同银行约定不同可自定义。
         prepayment_handling: 提前还款重排方式，shorten_term=缩短期限月供不变，reduce_payment=月供递减期限不变。
         prepayment_compensation_rate: 提前还款补偿金率(%)，如 1.0 表示提前归还本金的 1%，不传表示无。
+        fees_offset: 是否让诉讼费用参与还款冲抵（追加 fee 到冲抵顺序末尾按序核销），默认否（费用仅计入诉讼请求合计）。
+        step_up_rate: 逾期自动加码比例(%)，如 50 表示逾期触发后罚息/复利上浮 50%；不传=不加码。
+        step_up_trigger_days: 加码触发所需连续逾期天数，0=首个欠款批次起即加码。
+        rounding_mode: 舍入规则，period=逐期四舍五入到分再求和（默认），cumulative=汇总一次性舍入。
+        interest_cutoff_date: 利息止算日（YYYY-MM-DD，可选）。合同利息计算至此日；
+            默认=claim_date。止算日后罚息/复利是否继续由 cutoff_continues_penalty/compound 决定。
+        cutoff_continues_penalty: 止算日后罚息是否继续计算至计算截止日（默认否，即罚息止算）。
+        cutoff_continues_compound: 止算日后复利是否继续计算至计算截止日（默认否，即复利止算）。
         other_fees: 其他费用列表，每项 {"name": "律师费", "amount": 50000}，仅计入诉讼请求合计。
         payments: 借款人实际还款流水列表，每项 {"payment_date": "YYYY-MM-DD", "amount": 金额,
             "payment_type": "normal"(正常还款，可省略) 或 "prepayment_principal"(提前冲减本金), "note": 备注(可省略)}。
@@ -174,10 +196,37 @@ def mortgage_default_calculate(
         payload["penalty_rate"] = penalty_rate
     if prepayment_compensation_rate is not None:
         payload["prepayment_compensation_rate"] = prepayment_compensation_rate
+    if fees_offset:
+        payload["fees_offset"] = fees_offset
+    if step_up_rate is not None:
+        payload["step_up_rate"] = step_up_rate
+        payload["step_up_trigger_days"] = step_up_trigger_days
+    if rounding_mode and rounding_mode != "period":
+        payload["rounding_mode"] = rounding_mode
+    if interest_cutoff_date:
+        payload["interest_cutoff_date"] = interest_cutoff_date
+        if cutoff_continues_penalty:
+            payload["cutoff_continues_penalty"] = True
+        if cutoff_continues_compound:
+            payload["cutoff_continues_compound"] = True
     if other_fees:
         payload["other_fees"] = other_fees
     if allocation_order:
         payload["allocation_order"] = allocation_order
+    if allocation_stance:
+        payload["allocation_stance"] = allocation_stance
+    if rate_events:
+        payload["rate_events"] = rate_events
+    if lump_penalty_rate is not None:
+        payload["lump_penalty_rate"] = lump_penalty_rate
+    if lump_penalty_amount is not None:
+        payload["lump_penalty_amount"] = lump_penalty_amount
+    if lump_penalty_threshold_days:
+        payload["lump_penalty_threshold_days"] = lump_penalty_threshold_days
+    if shift_due_to_workday:
+        payload["shift_due_to_workday"] = shift_due_to_workday
+    if holidays:
+        payload["holidays"] = holidays
     if payments:
         payload["payments"] = payments
     if claim_date:

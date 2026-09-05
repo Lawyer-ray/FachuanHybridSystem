@@ -171,6 +171,13 @@ class OtherFeeSchema(Schema):
     amount: Decimal = Field(..., description="金额（元）")
 
 
+class RateEventSchema(Schema):
+    """分段利率事件Schema."""
+
+    date: date = Field(..., description="利率生效日（自该日起适用）")
+    annual_rate: Decimal = Field(..., description="该日起的合同年利率(%)，覆盖固定/LPR 基座")
+
+
 class MortgageDefaultRequest(MortgageAmortizeRequest):
     """房贷逾期违约债权计算请求."""
 
@@ -183,7 +190,29 @@ class MortgageDefaultRequest(MortgageAmortizeRequest):
     compound_on_penalty: bool = Field(False, description="是否对罚息再计收复利")
     year_days: Literal[360, 365] = Field(360, description="罚息/复利计息基准天数")
     allocation_order: list[str] | None = Field(
-        None, description="冲抵顺序，可选值 penalty/interest/compound/principal，默认 罚息→利息→复利→本金"
+        None,
+        description="冲抵顺序，可选值 penalty/penalty_lump/interest/compound/principal，默认 罚息→利息→复利→违约金→本金",
+    )
+    allocation_stance: Literal["interest_first", "principal_first"] | None = Field(
+        None,
+        description="冲抵立场快捷预设（与 allocation_order 二选一，显式 order 优先）：interest_first=先息后本，principal_first=先本后息（担保物权立场）",
+    )
+    rate_events: list[RateEventSchema] = Field(
+        default_factory=list,
+        description="分段利率事件（自生效日切换合同年利率，罚息/复利自动分段），按日期升序",
+    )
+    lump_penalty_rate: Decimal | None = Field(
+        None, description="一次性违约金率（逾期未还本金的 %），触发条件满足时一次性收取"
+    )
+    lump_penalty_amount: Decimal | None = Field(
+        None, description="一次性违约金固定金额（元），与 rate 二选一，rate 优先"
+    )
+    lump_penalty_threshold_days: int = Field(
+        0, ge=0, description="逾期连续天数达到该值触发一次性违约金（0=一旦逾期即触发）"
+    )
+    shift_due_to_workday: bool = Field(False, description="扣款日逢周末/法定节假日顺延至下一工作日")
+    holidays: list[date] = Field(
+        default_factory=list, description="法定节假日日期列表（仅 shift_due_to_workday 时启用）"
     )
     prepayment_handling: Literal["shorten_term", "reduce_payment"] = Field(
         "shorten_term", description="提前还款重排方式"
@@ -201,6 +230,26 @@ class MortgageDefaultRequest(MortgageAmortizeRequest):
     charge_interest_on_payment_day: bool = Field(
         False, description="逾期天数是否含还款日当日（交行等约定算至还款日前一日则为 false）"
     )
+    rounding_mode: Literal["period", "cumulative"] = Field(
+        "period", description="舍入规则: period=逐期四舍五入到分再求和, cumulative=汇总一次性舍入"
+    )
+    fees_offset: bool = Field(
+        False, description="诉讼费用是否参与还款冲抵（为 True 时把 fee 追加到冲抵顺序末尾按序核销）"
+    )
+    step_up_rate: Decimal | None = Field(
+        None, description="逾期自动加码比例(%)，如 50 表示逾期触发后罚息/复利上浮 50%；不填=不加码"
+    )
+    step_up_trigger_days: int = Field(0, ge=0, description="加码触发所需连续逾期天数（0=首个欠款批次起即加码）")
+    interest_cutoff_date: date | None = Field(
+        None,
+        description="利息止算日：合同利息计算至此日（默认=claim_date）；止算日后罚息/复利是否继续由下方两个开关决定",
+    )
+    cutoff_continues_penalty: bool = Field(
+        False, description="止算日后罚息是否继续计算至计算截止日（默认否，即罚息止算）"
+    )
+    cutoff_continues_compound: bool = Field(
+        False, description="止算日后复利是否继续计算至计算截止日（默认否，即复利止算）"
+    )
     other_fees: list[OtherFeeSchema] = Field(
         default_factory=list, description="其他费用（律师费/诉讼费等，仅计入合计）"
     )
@@ -214,9 +263,11 @@ class AllocationDetailSchema(Schema):
     payment_date: date
     amount: str
     to_penalty: str
+    to_penalty_lump: str
     to_interest: str
     to_compound: str
     to_principal: str
+    to_fee: str = "0.00"
 
 
 class DefaultRowSchema(Schema):
@@ -245,10 +296,28 @@ class ClaimSummarySchema(Schema):
     unpaid_interest: str
     penalty_interest: str
     compound_interest: str
+    lump_penalty: str = "0.00"
     other_fees: str = "0.00"
     fee_items: list[OtherFeeSchema] = Field(default_factory=list)
     total_claim: str
     daily_accrual: str
+
+
+class BankProfileSchema(Schema):
+    """银行口径档案Schema."""
+
+    id: str
+    name: str
+    description: str = ""
+    tags: list[str] = Field(default_factory=list)
+    params: dict = Field(default_factory=dict, description="应用到计算器表单的参数（API 字段名）")
+
+
+class BankProfileListResponse(Schema):
+    """银行口径档案列表响应."""
+
+    success: bool = True
+    profiles: list[BankProfileSchema] = Field(default_factory=list, description="银行口径档案列表")
 
 
 class MortgageDefaultResponse(Schema):

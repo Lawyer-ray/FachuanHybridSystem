@@ -2,17 +2,24 @@
 <script>
 // 冲抵顺序配置（单一来源：模板预设下拉与脚本共用，避免两处散落硬编码）
 const MORTGAGE_ALLOCATION_CONFIG = {
-    order: ['penalty', 'interest', 'compound', 'principal'],
+    order: ['penalty', 'interest', 'compound', 'principal', 'penalty_lump'],
     labels: {
         penalty: "{% trans '罚息' %}",
         interest: "{% trans '利息' %}",
         compound: "{% trans '复利' %}",
-        principal: "{% trans '本金' %}"
+        principal: "{% trans '本金' %}",
+        penalty_lump: "{% trans '违约金' %}",
+        fee: "{% trans '费用' %}"
     },
     presets: [
-        { value: 'penalty,interest,compound,principal', label: "{% trans '罚息→利息→复利→本金（默认）' %}" },
-        { value: 'interest,principal', label: "{% trans '先息后本' %}" },
-        { value: 'principal,interest', label: "{% trans '本金优先' %}" }
+        { value: 'penalty,interest,compound,principal,penalty_lump', label: "{% trans '罚息→利息→复利→本金→违约金（默认）' %}" },
+        { value: 'interest,principal,penalty_lump', label: "{% trans '先息后本' %}" },
+        { value: 'principal,interest,penalty_lump', label: "{% trans '本金优先（先本后息·担保物权立场）' %}" }
+    ],
+    stances: [
+        { value: '', label: "{% trans '自定义顺序（拖拽微调）' %}" },
+        { value: 'interest_first', label: "{% trans '先息后本（常规主张）' %}" },
+        { value: 'principal_first', label: "{% trans '先本后息（担保物权立场）' %}" }
     ]
 };
 
@@ -24,6 +31,9 @@ function reorderArray(arr, from, to) {
     arr.splice(to, 0, item);
     return arr;
 }
+
+// 诉讼费用快捷分类（通用共项，各行/各案常见主张项）
+const FEE_CATEGORIES = ["律师费", "案件受理费", "保全费", "公证费", "催收邮寄费"];
 
 // 表单默认值单一来源：init / reset 共用，避免新增字段时只改一处导致漂移
 function buildDefaultForm() {
@@ -52,7 +62,22 @@ function buildDefaultForm() {
         prepayment_compensation_rate: '',
         year_days: 360,
         allocation_order: [...MORTGAGE_ALLOCATION_CONFIG.order],
+        allocation_stance: '',
+        rate_events: [],
+        lump_penalty_rate: '',
+        lump_penalty_amount: '',
+        lump_penalty_threshold_days: 0,
+        shift_due_to_workday: false,
+        holidays: '',
         prepayment_handling: 'shorten_term',
+        other_fees: [],
+        fees_offset: false,
+        step_up_rate: '',
+        step_up_trigger_days: 0,
+        rounding_mode: 'period',
+        interest_cutoff_date: '',
+        cutoff_continues_penalty: false,
+        cutoff_continues_compound: false,
         payments: []
     };
 }
@@ -71,12 +96,60 @@ function mortgageCalc() {
         dragIndex: null,
         overIndex: null,
         history: [],
+        bankProfiles: [],
         form: buildDefaultForm(),
 
         init() {
             const today = new Date();
             this.form.claim_date = this.formatDate(today);
             this.loadHistory();
+            this.loadBankProfiles();
+        },
+
+        // ---------- 银行口径档案 ----------
+        async loadBankProfiles() {
+            try {
+                const res = await fetch('/api/v1/lpr/bank-profiles', {credentials: 'same-origin'});
+                if (!res.ok) return;
+                const data = await res.json();
+                this.bankProfiles = data.profiles || [];
+            } catch (e) {
+                this.bankProfiles = [];
+            }
+        },
+
+        applyBankProfile(id) {
+            const p = this.bankProfiles.find(x => x.id === id);
+            if (!p) return;
+            this._lastProfile = p;
+            this._applyProfileParams(p.params || {});
+        },
+
+        get selectedProfileDesc() {
+            return this._lastProfile ? (this._lastProfile.description || this._lastProfile.name) : '';
+        },
+
+        _applyProfileParams(params) {
+            // 把 API 字段名的档案参数映射到表单字段（含类型/取值转换）
+            const f = this.form;
+            if ('year_days' in params) f.year_days = params.year_days;
+            if ('compound_method' in params) f.compound_method = params.compound_method;
+            if ('compound_on_interest' in params) f.compound_on_interest = !!params.compound_on_interest;
+            if ('compound_on_penalty' in params) f.compound_on_penalty = !!params.compound_on_penalty;
+            if ('charge_interest_on_payment_day' in params) {
+                f.charge_interest_on_payment_day = params.charge_interest_on_payment_day ? 'true' : 'false';
+            }
+            if ('first_period_interest' in params) f.first_period_interest = params.first_period_interest;
+            if ('prepayment_compensation_rate' in params) f.prepayment_compensation_rate = params.prepayment_compensation_rate;
+            if ('allocation_stance' in params && params.allocation_stance) {
+                this.applyStance(params.allocation_stance);
+            }
+            if (params.grace_period_days != null) f.grace_period_days = params.grace_period_days;
+            if ('rounding_mode' in params) f.rounding_mode = params.rounding_mode;
+            if (params.step_up_rate != null && params.step_up_rate !== '') {
+                f.step_up_rate = params.step_up_rate;
+                if (params.step_up_trigger_days != null) f.step_up_trigger_days = params.step_up_trigger_days;
+            }
         },
 
         // ---------- 工具 ----------
@@ -123,10 +196,26 @@ function mortgageCalc() {
             this.form.allocation_order = full;
         },
 
+        applyStance(value) {
+            // 立场是冲抵顺序的快捷预设：选中则同步 order，清空则回到拖拽自定义
+            this.form.allocation_stance = value || '';
+            if (value === 'interest_first') {
+                this.applyPreset('penalty,interest,compound,penalty_lump,principal');
+            } else if (value === 'principal_first') {
+                this.applyPreset('principal,penalty,interest,compound,penalty_lump');
+            }
+        },
+
+        _markCustomOrder() {
+            // 用户手动拖拽/箭头调整顺序后，立场预设不再适用，标记为自定义
+            this.form.allocation_stance = '';
+        },
+
         moveOrder(idx, dir) {
             const target = idx + dir;
             if (target < 0 || target >= this.form.allocation_order.length) return;
             this.form.allocation_order = reorderArray(this.form.allocation_order, idx, target);
+            this._markCustomOrder();
         },
 
         // 拖拽排序（HTML5 DnD），状态由 dragIndex / overIndex 驱动
@@ -147,6 +236,7 @@ function mortgageCalc() {
         onOrderDrop(targetIdx) {
             if (this.dragIndex !== null && this.dragIndex !== targetIdx) {
                 this.form.allocation_order = reorderArray(this.form.allocation_order, this.dragIndex, targetIdx);
+                this._markCustomOrder();
             }
             this.onOrderDragEnd();
         },
@@ -202,6 +292,47 @@ function mortgageCalc() {
             this.pastePreview = [];
         },
 
+        // ---------- 分段利率 / 节假日 ----------
+        addRateEvent() {
+            this.form.rate_events.push({date: '', rate: ''});
+        },
+
+        removeRateEvent(i) {
+            this.form.rate_events.splice(i, 1);
+        },
+
+        // ---------- 诉讼费用主张合并 ----------
+        addFee(name) {
+            this.form.other_fees.push({name: name || '', amount: ''});
+        },
+
+        removeFee(i) {
+            this.form.other_fees.splice(i, 1);
+        },
+
+        // 费用是否参与冲抵：开启时把 fee 追加进冲抵顺序，关闭时移除
+        toggleFeesOffset() {
+            const has = this.form.allocation_order.includes('fee');
+            if (this.form.fees_offset && !has) {
+                this.form.allocation_order = [...this.form.allocation_order, 'fee'];
+            } else if (!this.form.fees_offset && has) {
+                this.form.allocation_order = this.form.allocation_order.filter(k => k !== 'fee');
+            }
+        },
+
+        _parseHolidays(text) {
+            // 接受 2024-10-01,2024-10-02 或 2024-10-01 2024-10-02（逗号/空格/换行分隔）
+            return String(text || '')
+                .split(/[\s,，、;；]+/)
+                .map(s => s.trim())
+                .filter(Boolean)
+                .filter(s => /^\d{4}-\d{1,2}-\d{1,2}$/.test(s))
+                .map(s => {
+                    const [y, m, d] = s.split('-');
+                    return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+                });
+        },
+
         // ---------- 计算 ----------
         async calculate() {
             this.mResult = null;
@@ -238,8 +369,26 @@ function mortgageCalc() {
                 charge_interest_on_payment_day: f.charge_interest_on_payment_day === 'true',
                 year_days: parseInt(f.year_days),
                 allocation_order: f.allocation_order,
+                allocation_stance: f.allocation_stance || null,
+                rate_events: (f.rate_events || []).filter(e => e.date && e.rate !== '' && e.rate != null)
+                    .map(e => ({date: e.date, annual_rate: parseFloat(e.rate)}))
+                    .sort((a, b) => a.date < b.date ? -1 : 1),
+                lump_penalty_rate: f.lump_penalty_rate === '' ? null : parseFloat(f.lump_penalty_rate),
+                lump_penalty_amount: f.lump_penalty_amount === '' ? null : parseFloat(f.lump_penalty_amount),
+                lump_penalty_threshold_days: parseInt(f.lump_penalty_threshold_days) || 0,
+                shift_due_to_workday: !!f.shift_due_to_workday,
+                holidays: this._parseHolidays(f.holidays),
                 prepayment_handling: f.prepayment_handling,
-                prepayment_compensation_rate: parseFloat(f.prepayment_compensation_rate) || 0
+                prepayment_compensation_rate: parseFloat(f.prepayment_compensation_rate) || 0,
+                other_fees: (f.other_fees || []).filter(t => t.name && t.amount !== '' && parseFloat(t.amount) >= 0)
+                    .map(t => ({name: t.name, amount: parseFloat(t.amount)})),
+                fees_offset: !!f.fees_offset,
+                step_up_rate: f.step_up_rate === '' ? null : parseFloat(f.step_up_rate),
+                step_up_trigger_days: parseInt(f.step_up_trigger_days) || 0,
+                rounding_mode: f.rounding_mode,
+                interest_cutoff_date: f.interest_cutoff_date || null,
+                cutoff_continues_penalty: !!f.cutoff_continues_penalty,
+                cutoff_continues_compound: !!f.cutoff_continues_compound
             };
             if (f.payment_day) data.payment_day = parseInt(f.payment_day);
             if (f.rate_mode === 'fixed') data.fixed_rate = parseFloat(f.fixed_rate);
@@ -300,12 +449,18 @@ function mortgageCalc() {
             if (!this.mResult?.success) return;
             const c = this.mResult.claim;
             const dateCN = c.claim_date.replaceAll('-', '年').replace(/(-)(\d{2})$/, '月$2日');
-            const text = '截至' + dateCN + '，被告尚欠原告借款本金'
+            let text = '截至' + dateCN + '，被告尚欠原告借款本金'
                 + this.formatMoney(c.outstanding_principal) + '元、利息'
                 + this.formatMoney(c.unpaid_interest) + '元、罚息'
                 + this.formatMoney(c.penalty_interest) + '元、复利'
-                + this.formatMoney(c.compound_interest) + '元，合计'
-                + this.formatMoney(c.total_claim) + '元，并支付自'
+                + this.formatMoney(c.compound_interest) + '元';
+            if (parseFloat(c.lump_penalty) > 0) {
+                text += '、违约金' + this.formatMoney(c.lump_penalty) + '元';
+            }
+            if (parseFloat(c.other_fees) > 0) {
+                text += '、其他费用' + this.formatMoney(c.other_fees) + '元';
+            }
+            text += '，合计' + this.formatMoney(c.total_claim) + '元，并支付自'
                 + dateCN + '起至实际清偿之日止的利息、罚息、复利（按合同约定标准计算）。';
             navigator.clipboard.writeText(text).then(() => alert("{% trans '已复制到剪贴板' %}"));
         },
