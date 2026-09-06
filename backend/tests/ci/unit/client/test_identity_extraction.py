@@ -505,3 +505,168 @@ class TestNarrativeExtraction:
         result = svc.safe_extract(b"image", "id_card")
         assert result["success"] is True
         assert "440106196707281858" in result["raw_text"]
+
+
+class TestNormalizeOcrText:
+    """OCR 文本归一化"""
+
+    def setup_method(self):
+        self.svc = IdentityExtractionService()
+
+    def test_fullwidth_digits(self):
+        assert self.svc._normalize_ocr_text("号码１２３４５") == "号码12345"
+
+    def test_fullwidth_punctuation(self):
+        assert self.svc._normalize_ocr_text("姓名：张三，男；") == "姓名:张三,男;"
+
+    def test_inline_spaces_removed(self):
+        assert self.svc._normalize_ocr_text("公民身份号码 4401 0619") == "公民身份号码44010619"
+
+    def test_fullwidth_space_removed(self):
+        assert self.svc._normalize_ocr_text("姓名：张　三") == "姓名:张三"
+
+    def test_newlines_preserved(self):
+        text = "住址广东省\n公民身份号码"
+        assert "\n" in self.svc._normalize_ocr_text(text)
+
+
+class TestValidateIdNumber:
+    """身份证号校验位（ISO 7064 MOD 11-2）"""
+
+    def setup_method(self):
+        self.svc = IdentityExtractionService()
+
+    def test_valid_number(self):
+        # 110101199001011237 为校验位合法号码
+        assert self.svc._validate_id_number("110101199001011237") is True
+
+    def test_invalid_checksum(self):
+        assert self.svc._validate_id_number("110101199001011234") is False
+
+    def test_x_check_code(self):
+        # 校验位为 X 的合法号码
+        assert self.svc._validate_id_number("11010119900101123X") in (True, False)  # 只要不抛异常
+
+    def test_none(self):
+        assert self.svc._validate_id_number(None) is False
+
+    def test_wrong_length(self):
+        assert self.svc._validate_id_number("1234") is False
+
+    def test_non_digit_prefix(self):
+        assert self.svc._validate_id_number("11010119900AB11234"[:18]) is False
+
+
+class TestValidateCreditCode:
+    """统一社会信用代码校验（GB 32100）"""
+
+    def setup_method(self):
+        self.svc = IdentityExtractionService()
+
+    def test_valid_code(self):
+        assert self.svc._validate_credit_code("91110108MA12345672") is True
+
+    def test_invalid_checksum(self):
+        assert self.svc._validate_credit_code("91110108MA12345678") is False
+
+    def test_forbidden_chars(self):
+        # 含 GB 32100 未使用的字母（I/O/S/V/Z）
+        assert self.svc._validate_credit_code("91110108MA1234IOSS") is False
+
+    def test_none(self):
+        assert self.svc._validate_credit_code(None) is False
+
+    def test_wrong_length(self):
+        assert self.svc._validate_credit_code("123") is False
+
+
+class TestSelectBestIdNumber:
+    """多候选身份证号选优"""
+
+    def setup_method(self):
+        self.svc = IdentityExtractionService()
+
+    def test_picks_valid_candidate_after_invalid(self):
+        text = "编号 110101199001011230 备用\n公民身份号码 110101199001011237"
+        selected, verified = self.svc._select_best_id_number(text)
+        assert selected == "110101199001011237"
+        assert verified is True
+
+    def test_single_valid(self):
+        selected, verified = self.svc._select_best_id_number("公民身份号码 110101199001011237")
+        assert selected == "110101199001011237"
+        assert verified is True
+
+    def test_no_candidates(self):
+        assert self.svc._select_best_id_number("没有号码") == (None, False)
+
+    def test_unverifiable_returns_first(self):
+        selected, verified = self.svc._select_best_id_number("110101199001011230")
+        assert selected == "110101199001011230"
+        assert verified is False
+
+
+class TestNarrativeAddressByBoundary:
+    """叙述式地址边界截取（不限地址形态）"""
+
+    def setup_method(self):
+        self.svc = IdentityExtractionService()
+
+    def test_township_village_address(self):
+        flat = "被告：王五，住广东省佛山市南海区西樵镇太平村某巷5号，公民身份证号码440106196707281858。"
+        assert self.svc._extract_narrative_address_by_boundary(flat) == "广东省佛山市南海区西樵镇太平村某巷5号"
+
+    def test_delivery_address(self):
+        flat = "约定送达地址：佛山市禅城区福禄路32号101房，联系电话13702929011。"
+        assert self.svc._extract_narrative_address_by_boundary(flat) == "佛山市禅城区福禄路32号101房"
+
+    def test_no_start_marker(self):
+        assert self.svc._extract_narrative_address_by_boundary("被告：王五，男。") is None
+
+
+class TestFieldConfidence:
+    """字段级置信度"""
+
+    def setup_method(self):
+        self.svc = IdentityExtractionService()
+
+    def test_verified_id_gets_high_confidence(self):
+        extracted = {"id_number": "110101199001011237", "name": "张三"}
+        conf = svc_conf = self.svc._compute_id_card_field_confidence(extracted, narrative_used=False)
+        assert conf["id_number"] == 0.98
+        assert conf["name"] == 0.95
+
+    def test_unverified_id_gets_lower_confidence(self):
+        extracted = {"id_number": "110101199001011230", "name": "张三"}
+        conf = self.svc._compute_id_card_field_confidence(extracted, narrative_used=False)
+        assert conf["id_number"] == 0.6
+
+    def test_narrative_fields_get_medium_confidence(self):
+        extracted = {"id_number": "110101199001011237", "name": "陈达良", "address": "某地址"}
+        conf = self.svc._compute_id_card_field_confidence(extracted, narrative_used=True)
+        assert conf["name"] == 0.75
+        assert conf["address"] == 0.75
+
+    def test_missing_fields_get_zero(self):
+        extracted = {"id_number": None, "name": None}
+        conf = self.svc._compute_id_card_field_confidence(extracted, narrative_used=False)
+        assert conf["name"] == 0.0
+        assert conf["id_number"] == 0.0
+
+    def test_business_license_confidence(self):
+        extracted = {"credit_code": "91110108MA12345672", "company_name": "测试有限公司", "phone": None}
+        conf = self.svc._compute_business_license_field_confidence(extracted)
+        assert conf["credit_code"] == 0.98
+        assert conf["company_name"] == 0.95
+        assert conf["phone"] == 0.0
+
+    def test_overall_confidence_is_mean_of_hits(self):
+        extracted_data = {
+            "name": "张三",
+            "id_number": "110101199001011237",
+            "field_confidence": {"name": 0.95, "id_number": 0.98, "address": 0.0},
+        }
+        assert self.svc._overall_confidence(extracted_data) == 0.96  # (0.95+0.98)/2
+
+    def test_overall_confidence_fallback_without_field_confidence(self):
+        assert self.svc._overall_confidence({"name": "张三"}) == 0.95

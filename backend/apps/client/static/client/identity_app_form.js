@@ -36,7 +36,13 @@ window._identityFormMethods = {
         }
 
         return Object.entries(this.recognitionResult.extracted_data)
-            .filter(([key, value]) => value && value.toString().trim())
+            .filter(([key, value]) => {
+                // 元字段不作为结果行展示（field_confidence 为内部置信度信息）
+                if (key === 'field_confidence' || key.endsWith('_verified')) {
+                    return false;
+                }
+                return value && value.toString().trim();
+            })
             .map(([key, value]) => ({
                 key,
                 label: this.getFieldLabel(key),

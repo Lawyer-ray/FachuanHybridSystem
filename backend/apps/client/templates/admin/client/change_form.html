@@ -608,7 +608,17 @@
                     }
 
                     this.fillFormWithData(mapped);
-                    this.showMessage('✅ OCR 识别成功，表单已自动填充！', 'success');
+
+                    // 字段级置信度提示：身份证/信用代码未经校验位验证时提醒人工核对
+                    const fieldConf = ed.field_confidence || {};
+                    const idConf = fieldConf.id_number !== undefined ? fieldConf.id_number : fieldConf.credit_code;
+                    if (mapped.id_number && idConf !== undefined && idConf < 0.9) {
+                        this.showMessage('✅ OCR 识别完成，已填充表单。⚠️ 证件号码未通过校验位验证，请人工核对。', 'warning');
+                    } else if (mapped.id_number && !mapped.name) {
+                        this.showMessage('✅ OCR 识别完成，已填充表单。部分字段（如姓名）未能识别，请人工补充。', 'info');
+                    } else {
+                        this.showMessage('✅ OCR 识别成功，表单已自动填充！', 'success');
+                    }
                 } catch (err) {
                     console.error('[TextParserApp] OCR 请求失败:', err);
                     this.showMessage('❌ OCR 请求失败，请检查网络连接', 'error');

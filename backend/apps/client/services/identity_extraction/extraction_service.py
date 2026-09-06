@@ -29,6 +29,20 @@ logger = logging.getLogger(__name__)
 _MAX_LLM_OCR_CHARS = 1800
 _MAX_LLM_OCR_LINES = 80
 
+# 身份证号校验位（ISO 7064 MOD 11-2）
+_ID_CARD_WEIGHTS = (7, 9, 10, 5, 8, 4, 2, 1, 6, 3, 7, 9, 10, 5, 8, 4, 2)
+_ID_CARD_CHECK_CODES = "10X98765432"
+
+# 统一社会信用代码校验字符集（GB 32100）
+_CREDIT_CODE_CHARS = "0123456789ABCDEFGHJKLMNPQRTUWXY"  # pragma: allowlist secret
+_CREDIT_CODE_WEIGHTS = (1, 3, 9, 27, 19, 26, 16, 17, 20, 29, 25, 13, 8, 24, 10, 30, 28)  # pragma: allowlist secret
+
+# 全角 → 半角映射（数字/字母/常见标点）
+_FULLWIDTH_TRANSLATION = str.maketrans(
+    "０１２３４５６７８９ＡＢＣＤＥＦＧＨＩＪＫＬＭＮＯＰＱＲＳＴＵＶＷＸＹＺａｂｃｄｅｆｇｈｉｊｋｌｍｎｏｐｑｒｓｔｕｖｗｘｙｚ：，；．（）",
+    "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz:,;.()",
+)
+
 
 class IdentityExtractionService:
     """证件信息提取服务 - 使用 RapidOCR (PP-OCRv5) + LLM"""
@@ -81,11 +95,10 @@ class IdentityExtractionService:
             # 2. 优先规则提取（身份证场景稳定且低延迟）
             extracted_data = self._extract_by_rules(raw_text, resolved_doc_type)
             if extracted_data is not None:
-                # 判断规则提取是否命中关键字段
+                # 判断规则提取是否命中关键字段（元字段不参与判定）
+                data_fields = {k: v for k, v in extracted_data.items() if k not in ("field_confidence",)}
                 key_field_hit = bool(
-                    extracted_data.get("id_number")
-                    or extracted_data.get("credit_code")
-                    or extracted_data.get("company_name")
+                    data_fields.get("id_number") or data_fields.get("credit_code") or data_fields.get("company_name")
                 )
                 if key_field_hit or not model:
                     logger.info(
@@ -95,11 +108,12 @@ class IdentityExtractionService:
                         model,
                         key_field_hit,
                     )
+                    overall = self._overall_confidence(extracted_data)
                     return ExtractionResult(
                         doc_type=resolved_doc_type,
                         raw_text=raw_text,
                         extracted_data=extracted_data,
-                        confidence=0.95,
+                        confidence=overall,
                         extraction_method="ocr_regex",
                     )
 
@@ -462,6 +476,64 @@ class IdentityExtractionService:
     )
     _NARRATIVE_PHONE_RE = re.compile(r"(?:联系电话|电话|手机|联系方式)\s*[:：]?\s*(1[3-9]\d{9}|\d{3,4}-\d{7,8})")
 
+    # 叙述式地址边界截取：起点标签 → 下一个字段标签或句读为止
+    _NARRATIVE_ADDRESS_START_RE = re.compile(r"(?:住|居住于|住所地|住址|约定送达地址|送达地址)[:：]?")
+    _ADDRESS_BOUNDARY_RE = re.compile(r"公民身份|身份证号|联系电话|电话|手机|联系方式|出生|民族|有效期|邮编")
+
+    @staticmethod
+    def _normalize_ocr_text(text: str) -> str:
+        """OCR 文本归一化：全角转半角、去除中文间空格，保留换行作为字段边界信号。"""
+        normalized = text.translate(_FULLWIDTH_TRANSLATION)
+        # 去除行内空白（OCR 常在中英文间插入空格），保留换行
+        lines = (re.sub(r"[ \t　]+", "", line) for line in normalized.splitlines())
+        return "\n".join(lines)
+
+    @staticmethod
+    def _validate_id_number(id_number: str | None) -> bool:
+        """身份证号校验位验证（ISO 7064 MOD 11-2）。"""
+        if not id_number or len(id_number) != 18:
+            return False
+        if not id_number[:17].isdigit():
+            return False
+        checksum = sum(int(c) * w for c, w in zip(id_number[:17], _ID_CARD_WEIGHTS))
+        return _ID_CARD_CHECK_CODES[checksum % 11] == id_number[17].upper()
+
+    @staticmethod
+    def _validate_credit_code(code: str | None) -> bool:
+        """统一社会信用代码校验（GB 32100）。"""
+        if not code or len(code) != 18:
+            return False
+        if any(ch not in _CREDIT_CODE_CHARS for ch in code):
+            return False
+        values = [_CREDIT_CODE_CHARS.index(ch) for ch in code[:17]]
+        checksum = sum(v * w for v, w in zip(values, _CREDIT_CODE_WEIGHTS)) % 31
+        return _CREDIT_CODE_CHARS[(31 - checksum) % 31] == code[17]
+
+    def _extract_id_number_candidates(self, text: str) -> list[str]:
+        """提取全部 18 位身份证号候选（按出现顺序），供校验位评分选优。"""
+        return [m.group(1).upper() for m in re.finditer(r"(?<!\d)(\d{17}[\dXx])(?!\d)", text)]
+
+    def _select_best_id_number(self, text: str) -> tuple[str | None, bool]:
+        """从候选中选校验位通过者；无候选返回 (None, False)。"""
+        candidates = self._extract_id_number_candidates(text)
+        if not candidates:
+            return None, False
+        for candidate in candidates:
+            if self._validate_id_number(candidate):
+                return candidate, True
+        return candidates[0], False
+
+    def _extract_narrative_address_by_boundary(self, flat: str) -> str | None:
+        """叙述式地址边界截取：从「住/送达地址」起截取到下一个字段标签，不限地址形态。"""
+        start = self._NARRATIVE_ADDRESS_START_RE.search(flat)
+        if not start:
+            return None
+        tail = flat[start.end() :]
+        boundary = self._ADDRESS_BOUNDARY_RE.search(tail)
+        addr = tail[: boundary.start()] if boundary else tail
+        addr = addr.strip("。，,;；、")
+        return addr or None
+
     def _extract_narrative_fields(self, text: str) -> dict[str, Any]:
         """从判决书/起诉状等叙述式文本中提取当事人信息（非证件卡片版式）。"""
         flat = text.replace("\n", "")
@@ -485,15 +557,82 @@ class IdentityExtractionService:
         if ethnicity_match:
             fields["ethnicity"] = ethnicity_match.group(1)
 
-        address_match = self._NARRATIVE_ADDRESS_RE.search(flat)
-        if address_match:
-            fields["address"] = address_match.group(1)
+        # 优先边界截取（覆盖任意地址形态），正则模式仅作兜底
+        fields["address"] = self._extract_narrative_address_by_boundary(flat)
+        if not fields["address"]:
+            address_match = self._NARRATIVE_ADDRESS_RE.search(flat)
+            if address_match:
+                fields["address"] = address_match.group(1)
 
         phone_match = self._NARRATIVE_PHONE_RE.search(flat)
         if phone_match:
             fields["phone"] = phone_match.group(1)
 
         return fields
+
+    # 字段级置信度：标签命中（卡片版式）> 叙述式命中 > 未命中；身份证号以校验位验证为准
+    _FIELD_CONF_LABEL = 0.95
+    _FIELD_CONF_NARRATIVE = 0.75
+    _FIELD_CONF_UNVERIFIED_ID = 0.6
+    _FIELD_CONF_ID_VERIFIED = 0.98
+    _FIELD_CONF_MISSING = 0.0
+
+    def _compute_id_card_field_confidence(self, extracted: dict[str, Any], narrative_used: bool) -> dict[str, float]:
+        """身份证路径字段级置信度。"""
+        if extracted.get("id_number"):
+            id_conf = (
+                self._FIELD_CONF_ID_VERIFIED
+                if self._validate_id_number(extracted.get("id_number"))
+                else self._FIELD_CONF_UNVERIFIED_ID
+            )
+        else:
+            id_conf = self._FIELD_CONF_MISSING
+
+        source_conf = self._FIELD_CONF_NARRATIVE if narrative_used else self._FIELD_CONF_LABEL
+        confidence: dict[str, float] = {"id_number": id_conf}
+        for key in ("name", "address", "gender", "ethnicity", "birth_date", "expiry_date", "phone"):
+            confidence[key] = source_conf if extracted.get(key) else self._FIELD_CONF_MISSING
+        return confidence
+
+    def _compute_business_license_field_confidence(self, extracted: dict[str, Any]) -> dict[str, float]:
+        """营业执照路径字段级置信度。"""
+        if extracted.get("credit_code"):
+            credit_conf = (
+                self._FIELD_CONF_ID_VERIFIED
+                if self._validate_credit_code(extracted.get("credit_code"))
+                else self._FIELD_CONF_UNVERIFIED_ID
+            )
+        else:
+            credit_conf = self._FIELD_CONF_MISSING
+
+        confidence: dict[str, float] = {"credit_code": credit_conf}
+        for key in ("company_name", "legal_representative", "address", "business_scope", "registration_date", "phone"):
+            confidence[key] = self._FIELD_CONF_LABEL if extracted.get(key) else self._FIELD_CONF_MISSING
+        return confidence
+
+    def _overall_confidence(self, extracted_data: dict[str, Any]) -> float:
+        """整包置信度 = 命中字段的字段级置信度均值（无字段级置信度时回退 0.95）。"""
+        field_conf = extracted_data.get("field_confidence")
+        if not field_conf:
+            return self._FIELD_CONF_LABEL
+        values = [v for v in field_conf.values() if v > self._FIELD_CONF_MISSING]
+        if not values:
+            return self._FIELD_CONF_MISSING
+        return round(sum(values) / len(values), 2)
+
+    def _compute_field_confidence(self, extracted: dict[str, Any], narrative_used: bool) -> dict[str, float]:
+        """按字段计算置信度；身份证号以校验位验证结果为准。"""
+        id_verified = bool(extracted.get("id_number")) and self._validate_id_number(extracted.get("id_number"))
+        if extracted.get("id_number"):
+            id_conf = 0.98 if id_verified else self._FIELD_CONF_UNVERIFIED_ID
+        else:
+            id_conf = self._FIELD_CONF_MISSING
+
+        source_conf = self._FIELD_CONF_NARRATIVE if narrative_used else self._FIELD_CONF_LABEL
+        confidence: dict[str, float] = {"id_number": id_conf}
+        for key in ("name", "address", "gender", "ethnicity", "birth_date", "expiry_date", "phone"):
+            confidence[key] = source_conf if extracted.get(key) else self._FIELD_CONF_MISSING
+        return confidence
 
     def _extract_by_rules(self, raw_text: str, doc_type: str) -> dict[str, Any] | None:
         """规则提取：覆盖身份证、法代身份证、营业执照。"""
@@ -502,11 +641,11 @@ class IdentityExtractionService:
         if doc_type not in {"id_card", "legal_rep_id_card"}:
             return None
 
-        text = self._prepare_text_for_llm(raw_text)
+        text = self._prepare_text_for_llm(self._normalize_ocr_text(raw_text))
         lines = [line.strip() for line in text.split("\n") if line.strip()]
         merged = "\n".join(lines)
 
-        id_number = self._extract_id_number(merged)
+        id_number, id_verified = self._select_best_id_number(merged)
         name = self._extract_name(lines)
         gender = self._extract_gender(lines)
         ethnicity = self._extract_ethnicity(lines)
@@ -516,12 +655,14 @@ class IdentityExtractionService:
         phone = self._NARRATIVE_PHONE_RE.search(text.replace("\n", ""))
 
         # 卡片版式未命中的字段，回退叙述式提取（判决书/起诉状文本）
+        narrative_used = False
         if not any([name, gender, ethnicity, address]):
             narrative = self._extract_narrative_fields(text)
             name = narrative["name"]
             gender = narrative["gender"]
             ethnicity = narrative["ethnicity"]
             address = narrative["address"]
+            narrative_used = any([name, gender, ethnicity, address])
 
         extracted: dict[str, Any] = {
             "name": name,
@@ -533,17 +674,26 @@ class IdentityExtractionService:
             "birth_date": birth_date,
             "phone": phone.group(1) if phone else None,
         }
+        extracted["field_confidence"] = self._compute_id_card_field_confidence(extracted, narrative_used)
 
         return extracted
 
     def _extract_business_license(self, raw_text: str) -> dict[str, Any] | None:
         """营业执照正则提取：企业名称、统一社会信用代码、法定代表人、地址、电话。"""
-        text = self._prepare_text_for_llm(raw_text)
+        text = self._prepare_text_for_llm(self._normalize_ocr_text(raw_text))
         lines = [line.strip() for line in text.split("\n") if line.strip()]
 
-        # 统一社会信用代码（18位字母数字）
-        credit_code_match = re.search(r"([0-9A-Z]{18})", text)
-        credit_code = credit_code_match.group(1) if credit_code_match else None
+        # 统一社会信用代码（18位字母数字），多候选时优先选校验通过者
+        credit_code = None
+        for code_match in re.finditer(r"(?<![0-9A-Z])([0-9A-Z]{18})(?![0-9A-Z])", text.upper()):
+            candidate = code_match.group(1)
+            if not any(ch.isalpha() for ch in candidate):
+                continue  # 纯数字串大概率是日期/号码，不是信用代码
+            if self._validate_credit_code(candidate):
+                credit_code = candidate
+                break
+            if credit_code is None:
+                credit_code = candidate
 
         # 企业名称（原告/被告/名称/公司 后面的内容）
         company_name = None
@@ -609,6 +759,7 @@ class IdentityExtractionService:
         if not any(extracted.values()):
             return None
 
+        extracted["field_confidence"] = self._compute_business_license_field_confidence(extracted)
         return extracted
 
     def _extract_id_number(self, text: str) -> str | None:
