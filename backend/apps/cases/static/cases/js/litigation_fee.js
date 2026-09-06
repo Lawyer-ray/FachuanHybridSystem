@@ -142,7 +142,7 @@
                 html += `<div><strong>支付令申请费：</strong>${formatCurrency(result.payment_order_fee)}</div>`;
             }
 
-            targetDisplay.innerHTML = html || '<div style="color: var(--fc-text-muted);">请输入涉案金额</div>';
+            targetDisplay.innerHTML = html;
         }
 
         // 财产保全费
