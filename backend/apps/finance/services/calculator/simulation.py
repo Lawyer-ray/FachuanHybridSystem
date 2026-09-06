@@ -234,6 +234,7 @@ def simulate(sim: Simulation) -> None:
         sim.current_rate = annual
 
         # 4) 本期应还
+        is_final_period = sim.remaining_periods <= 1
         if sim.repayment_method == REPAYMENT_EQUAL_INSTALLMENT:
             if sim.period_no == 1 or rate_changed:
                 if rate_changed:
@@ -246,6 +247,10 @@ def simulate(sim: Simulation) -> None:
                 interest_due = _q(sim.balance * i)
             principal_due = sim.monthly_payment - interest_due
             if principal_due > sim.balance:
+                principal_due = sim.balance
+            # 末期清尾：摊销公式累计误差（如首期按天计息与月供公式的口径差）
+            # 由最后一期全额吞掉，确保按计划还满全部期数后本金清零
+            if is_final_period:
                 principal_due = sim.balance
         else:
             if sim.period_no == 1 and sim.first_period_interest == FIRST_PERIOD_PRORATE:

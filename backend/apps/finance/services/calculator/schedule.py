@@ -39,9 +39,10 @@ def first_due_date(start_date: date, payment_day: int | None) -> date:
     """首期扣款日：payment_day 指定日（1-31）或放款日对应日，至少在放款日之后一个月."""
     day = payment_day or start_date.day
     first_candidate = add_months(start_date.replace(day=1), 1)
-    if day > first_candidate.day:
-        day = first_candidate.day
-    first_candidate = first_candidate.replace(day=day)
+    # 钳制目标：次月的月末天数（29-31 在无对应日的月份收拢到月末）
+    next_month_first = add_months(first_candidate, 1)
+    last_day = (next_month_first - timedelta(days=1)).day
+    first_candidate = first_candidate.replace(day=min(day, last_day))
     if first_candidate <= start_date:
         first_candidate = add_months(first_candidate, 1)
     return first_candidate
