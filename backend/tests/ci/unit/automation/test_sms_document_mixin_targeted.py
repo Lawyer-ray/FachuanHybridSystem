@@ -13,7 +13,6 @@ from django.utils import timezone
 
 from apps.automation.models import CourtSMS, CourtSMSStatus, ScraperTask, ScraperTaskType
 
-
 # ── SMSDocumentMixin tests ────────────────────────────────────────
 
 
@@ -66,19 +65,31 @@ def court_sms(db):
 
 @pytest.mark.django_db
 class TestExtractAndUpdateFromDocuments:
-    def test_no_scraper_task_skips(self, sms_document_mixin, court_sms):
-        court_sms.scraper_task = None
-        court_sms.save()
-        sms_document_mixin._extract_and_update_sms_from_documents(court_sms)
-        # No error means it returned early
-
     def test_no_document_paths_skips(self, sms_document_mixin, court_sms):
-        task = ScraperTask.objects.create(
-            task_type=ScraperTaskType.COURT_DOCUMENT, url="https://example.com"
-        )
-        court_sms.scraper_task = task
+        court_sms.scraper_task = None
+        court_sms.document_file_paths = []
         court_sms.save()
+        # 无 scraper_task 且无文书文件：应跳过且不报错
         sms_document_mixin._extract_and_update_sms_from_documents(court_sms)
+
+    def test_extracts_without_scraper_task_when_document_file_paths_exist(
+        self, sms_document_mixin, court_sms, tmp_path
+    ):
+        # 收件箱导入场景：scraper_task 为 None，但 document_file_paths 已有真实文书，
+        # 修复后仍应打开文书提取案号与当事人（不再因 scraper_task 为空而提前跳过）
+        doc = tmp_path / "inbox.pdf"
+        doc.write_bytes(b"test")
+        court_sms.scraper_task = None
+        court_sms.document_file_paths = [str(doc)]
+        court_sms.save()
+
+        sms_document_mixin.case_number_extractor.extract_from_document.return_value = ["（2026）粤0606民初50813号"]
+        sms_document_mixin.matcher.extract_parties_from_document.return_value = ["广东志承电器有限公司", "余相文"]
+
+        sms_document_mixin._extract_and_update_sms_from_documents(court_sms)
+        court_sms.refresh_from_db()
+        assert "（2026）粤0606民初50813号" in court_sms.case_numbers
+        assert "广东志承电器有限公司" in court_sms.party_names
 
     def test_extracts_from_documents(self, sms_document_mixin, court_sms, tmp_path):
         doc = tmp_path / "test.pdf"

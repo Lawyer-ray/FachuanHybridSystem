@@ -37,10 +37,6 @@ class SMSDocumentMixin:
 
     def _extract_and_update_sms_from_documents(self, sms: CourtSMS) -> None:  # pragma: no cover
         """从文书中提取案号和当事人，并回写到 CourtSMS 记录"""
-        if not sms.scraper_task:
-            logger.info(f"短信 {sms.id} 没有下载任务，跳过文书信息提取")
-            return
-
         document_paths = self._get_document_paths_for_extraction(sms)
         if not document_paths:
             logger.info(f"短信 {sms.id} 没有已下载的文书，跳过文书信息提取")

@@ -50,12 +50,22 @@ def _parse_registered_from_server() -> set[str]:
 
 def _parse_imports_from_server() -> set[str]:
     """Extract all function names imported in server.py (both unconditional
-    and conditional import blocks)."""
+    and conditional import blocks).
+
+    Handles both parenthesized multi-line imports and isort-collapsed
+    single-line imports (``from mcp_server.tools import a, b, c``)."""
     source = _SERVER_PY.read_text()
     imports: set[str] = set()
     for m in re.finditer(r"from mcp_server\.tools import \((.*?)\)", source, re.DOTALL):
         imports.update(re.findall(r"^\s*(\w+)\s*(?:,|$)", m.group(1), re.MULTILINE))
-    assert imports, "Could not find 'from mcp_server.tools import (...)' in server.py"
+    # 单行形式（isort 会在名字少时压平括号）：
+    # from mcp_server.tools import name_a, name_b
+    for m in re.finditer(r"from mcp_server\.tools import ([^\(\n][^\n]*)", source):
+        for name in m.group(1).split(","):
+            name = name.strip()
+            if name.isidentifier():
+                imports.add(name)
+    assert imports, "Could not find 'from mcp_server.tools import ...' in server.py"
     return imports
 
 

@@ -1,0 +1,407 @@
+{% load i18n %}
+
+<style>
+    .order-chip {
+        display: inline-flex; align-items: center; gap: 6px;
+        background: var(--fc-bg-muted-light); border: 1px solid var(--fc-border);
+        border-radius: 6px; padding: 6px 10px; font-size: 12px;
+        cursor: grab; user-select: none; transition: box-shadow .15s ease, transform .15s ease, opacity .15s ease;
+    }
+    .order-chip__grip { cursor: grab; color: var(--fc-text-muted); font-size: 13px; line-height: 1; }
+    .order-chip--drag { opacity: .6; box-shadow: 0 4px 12px rgba(0,0,0,.18); transform: translateY(-2px); cursor: grabbing; }
+    .order-chip--over { border-color: var(--fc-admin-blue); box-shadow: 0 0 0 2px var(--fc-primary-subtle, #dbeafe); }
+</style>
+
+<div class="lpr-calc__input">
+    <!-- 银行口径档案一键填充 -->
+    <div class="lpr-calc__section" style="padding-bottom: 16px;">
+        <div class="lpr-calc__section-title">{% trans "银行口径档案（一键填充，可在下方继续微调）" %}</div>
+        <div class="lpr-calc__row lpr-calc__row--3">
+            <div class="lpr-calc__field">
+                <label>{% trans "选择银行" %}</label>
+                <select @change="applyBankProfile($event.target.value)">
+                    <option value="">{% trans "-- 选择档案 --" %}</option>
+                    <template x-for="p in bankProfiles" :key="p.id">
+                        <option :value="p.id" x-text="p.name"></option>
+                    </template>
+                </select>
+            </div>
+            <div class="lpr-calc__field" style="grid-column: span 2;">
+                <label>{% trans "档案说明" %}</label>
+                <div style="font-size: 12px; color: var(--fc-text-muted); min-height: 40px; display: flex; align-items: center;"
+                     x-init>
+                    <span x-show="bankProfiles.length === 0">{% trans "加载中…" %}</span>
+                    <span x-show="bankProfiles.length > 0" x-text="selectedProfileDesc || '选择档案后自动填充银行常见口径，后续改动以手工为准（档案为起始模板，务必按实际合同核对）'" style="line-height: 1.5;"></span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ① 贷款合同信息 -->
+    <div class="lpr-calc__section">
+        <div class="lpr-calc__section-title">{% trans "① 贷款合同信息" %}</div>
+        <div class="lpr-calc__field" style="margin-bottom: 12px;">
+            <label>{% trans "案件备注（被告/案号，用于历史记录识别）" %}</label>
+            <input type="text" x-model="form.case_note" placeholder="{% trans '如：张三 (2026)粤0605民初1234号' %}">
+        </div>
+        <div class="lpr-calc__row">
+            <div class="lpr-calc__field">
+                <label>{% trans "贷款本金（元）" %}</label>
+                <input type="number" x-model="form.principal" step="0.01" placeholder="{% trans '如 1000000' %}">
+            </div>
+            <div class="lpr-calc__field">
+                <label>{% trans "放款日期" %}</label>
+                <input type="date" x-model="form.start_date">
+            </div>
+            <div class="lpr-calc__field">
+                <label>{% trans "贷款期限（月）" %}</label>
+                <input type="number" x-model="form.term_months" step="1" placeholder="{% trans '如 360' %}">
+            </div>
+            <div class="lpr-calc__field">
+                <label>{% trans "还款方式" %}</label>
+                <select x-model="form.repayment_method">
+                    <option value="equal_installment">{% trans "等额本息" %}</option>
+                    <option value="equal_principal">{% trans "等额本金" %}</option>
+                </select>
+            </div>
+        </div>
+        <div class="lpr-calc__row lpr-calc__row--2" style="margin-top: 10px;">
+            <div class="lpr-calc__field">
+                <label>{% trans "每月扣款日（不填取放款日对应日）" %}</label>
+                <select x-model="form.payment_day">
+                    <option value="">{% trans "放款日对应日" %}</option>
+                    <template x-for="d in 31" :key="d">
+                        <option :value="d" x-text="d + '{% trans "日" %}'"></option>
+                    </template>
+                </select>
+            </div>
+            <div class="lpr-calc__field">
+                <label>{% trans "计算截止日（起诉日）" %}</label>
+                <input type="date" x-model="form.claim_date">
+            </div>
+        </div>
+    </div>
+
+    <!-- ② 利率与罚息 -->
+    <div class="lpr-calc__section">
+        <div class="lpr-calc__section-title">{% trans "② 利率与罚息" %}</div>
+        <div class="lpr-calc__row">
+            <div class="lpr-calc__field">
+                <label>{% trans "执行利率" %}</label>
+                <select x-model="form.rate_mode">
+                    <option value="fixed">{% trans "固定利率" %}</option>
+                    <option value="lpr">{% trans "LPR + 基点" %}</option>
+                </select>
+            </div>
+            <template x-if="form.rate_mode === 'fixed'">
+                <div class="lpr-calc__field">
+                    <label>{% trans "固定年利率（%）" %}</label>
+                    <input type="number" x-model="form.fixed_rate" step="0.01" placeholder="{% trans '如 4.9' %}">
+                </div>
+            </template>
+            <template x-if="form.rate_mode === 'lpr'">
+                <div class="lpr-calc__field">
+                    <label>{% trans "LPR 品种" %}</label>
+                    <select x-model="form.lpr_type">
+                        <option value="5y">{% trans "五年期以上 LPR" %}</option>
+                        <option value="1y">{% trans "一年期 LPR" %}</option>
+                    </select>
+                </div>
+            </template>
+            <template x-if="form.rate_mode === 'lpr'">
+                <div class="lpr-calc__field">
+                    <label>{% trans "加点（基点，可为负）" %}</label>
+                    <input type="number" x-model="form.basis_points" step="1" placeholder="{% trans '如 30 或 -30' %}">
+                </div>
+            </template>
+            <template x-if="form.rate_mode === 'lpr'">
+                <div class="lpr-calc__field">
+                    <label>{% trans "重定价日" %}</label>
+                    <select x-model="form.repricing_day">
+                        <option value="01-01">{% trans "每年 1 月 1 日" %}</option>
+                        <option value="anniversary">{% trans "放款日对应日" %}</option>
+                    </select>
+                </div>
+            </template>
+        </div>
+        <div class="lpr-calc__row" style="margin-top: 10px;">
+            <div class="lpr-calc__field">
+                <label>{% trans "罚息利率" %}</label>
+                <select x-model="form.penalty_mode">
+                    <option value="multiplier">{% trans "执行利率 × 倍数" %}</option>
+                    <option value="specified">{% trans "直接指定罚息利率" %}</option>
+                </select>
+            </div>
+            <template x-if="form.penalty_mode === 'multiplier'">
+                <div class="lpr-calc__field">
+                    <label>{% trans "罚息倍数" %}</label>
+                    <input type="number" x-model="form.penalty_multiplier" step="0.1" placeholder="{% trans '如 1.5' %}">
+                </div>
+            </template>
+            <template x-if="form.penalty_mode === 'specified'">
+                <div class="lpr-calc__field">
+                    <label>{% trans "罚息年利率（%）" %}</label>
+                    <input type="number" x-model="form.penalty_rate" step="0.01" placeholder="{% trans '如 6.15' %}">
+                </div>
+            </template>
+            <div class="lpr-calc__field">
+                <label>{% trans "计息基准" %}</label>
+                <select x-model="form.year_days">
+                    <option value="360">{% trans "360 天/年" %}</option>
+                    <option value="365">{% trans "365 天/年" %}</option>
+                </select>
+            </div>
+            <div class="lpr-calc__field">
+                <label>{% trans "复利" %}</label>
+                <div style="display: flex; flex-direction: column; gap: 10px; padding-top: 4px;">
+                    <label style="display: flex; align-items: center; gap: 10px; font-weight: 400; margin-bottom: 0; cursor: pointer;">
+                        <input type="checkbox" class="lpr-calc__switch" x-model="form.compound_on_interest">
+                        <span style="font-size: 13px; color: var(--fc-text-secondary);">{% trans "对欠付利息计复利" %}</span>
+                    </label>
+                    <label style="display: flex; align-items: center; gap: 10px; font-weight: 400; margin-bottom: 0; cursor: pointer;">
+                        <input type="checkbox" class="lpr-calc__switch" x-model="form.compound_on_penalty">
+                        <span style="font-size: 13px; color: var(--fc-text-secondary);">{% trans "对罚息再计复利" %}</span>
+                    </label>
+                </div>
+            </div>
+        </div>
+        <div class="lpr-calc__row" style="margin-top: 10px;">
+            <div class="lpr-calc__field">
+                <label>{% trans "复利计算方式" %}</label>
+                <select x-model="form.compound_method">
+                    <option value="daily">{% trans "逐日分段（按当日罚息利率）" %}</option>
+                    <option value="flat">{% trans "不分段（积数×收取时利率，如交行）" %}</option>
+                </select>
+            </div>
+            <div class="lpr-calc__field">
+                <label>{% trans "宽限期（天，0=无）" %}</label>
+                <input type="number" x-model="form.grace_period_days" step="1" min="0" placeholder="{% trans '如 10' %}">
+            </div>
+            <div class="lpr-calc__field">
+                <label>{% trans "首期计息" %}</label>
+                <select x-model="form.first_period_interest">
+                    <option value="prorate">{% trans "按实际天数（含零头天数）" %}</option>
+                    <option value="full_month">{% trans "整月" %}</option>
+                </select>
+            </div>
+            <div class="lpr-calc__field">
+                <label>{% trans "逾期天数口径" %}</label>
+                <select x-model="form.charge_interest_on_payment_day">
+                    <option value="false">{% trans "算至还款日前一日" %}</option>
+                    <option value="true">{% trans "含还款日当日" %}</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- 分段利率事件 -->
+        <div style="margin-top: 14px; background: var(--fc-bg-muted); border-radius: 8px; padding: 14px 16px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <div style="font-size: 12px; font-weight: 600; color: var(--fc-text-secondary);">
+                    {% trans "分段利率事件（贷款期间多次调整利率，罚息/复利随执行利率自动分段）" %}
+                </div>
+                <button type="button" @click="addRateEvent" style="font-size: 12px; color: var(--fc-admin-blue); background: none; border: 1px solid var(--fc-border); padding: 4px 12px; border-radius: 6px; cursor: pointer;">+ {% trans "添加利率调整" %}</button>
+            </div>
+            <template x-for="(ev, i) in form.rate_events" :key="i">
+                <div class="lpr-calc__change-row" style="grid-template-columns: 1fr 1fr auto;">
+                    <div class="lpr-calc__field">
+                        <input type="date" x-model="ev.date" :style="ev.date ? '' : 'border-color: var(--fc-danger);'">
+                    </div>
+                    <div class="lpr-calc__field">
+                        <input type="number" x-model="ev.rate" step="0.01" :placeholder="'{% trans '年利率 %，如 5.5' %}'">
+                    </div>
+                    <button type="button" class="lpr-calc__btn-remove" @click="removeRateEvent(i)">×</button>
+                </div>
+            </template>
+            <div x-show="form.rate_events.length === 0" style="font-size: 12px; color: var(--fc-text-muted);">
+                {% trans "未添加利率调整（单利率计算）。如合同约定了 LPR 重定价后的利率变动，可在此逐段填写。首期固定利率即合同初始执行利率。" %}
+            </div>
+        </div>
+    </div>
+
+    <!-- ③ 还款冲抵 -->
+    <div class="lpr-calc__section">
+        <div class="lpr-calc__section-title">{% trans "③ 还款冲抵" %}</div>
+        <div class="lpr-calc__row">
+            <div class="lpr-calc__field">
+                <label>{% trans "冲抵顺序预设" %}</label>
+                <select @change="applyPreset($event.target.value)">
+                    <template x-for="preset in MORTGAGE_ALLOCATION_CONFIG.presets" :key="preset.value">
+                        <option :value="preset.value" x-text="preset.label"></option>
+                    </template>
+                </select>
+            </div>
+            <div class="lpr-calc__field">
+                <label>{% trans "提前还款重排方式" %}</label>
+                <select x-model="form.prepayment_handling">
+                    <option value="shorten_term">{% trans "缩短期限、月供不变" %}</option>
+                    <option value="reduce_payment">{% trans "月供递减、期限不变" %}</option>
+                </select>
+            </div>
+            <div class="lpr-calc__field">
+                <label>{% trans "提前还款补偿金率（%，不填=无）" %}</label>
+                <input type="number" x-model="form.prepayment_compensation_rate" step="0.01" placeholder="{% trans '如 1.00（交行 25.5 条）' %}">
+            </div>
+            <div class="lpr-calc__field"></div>
+        </div>
+        <div style="margin: 12px 0 16px;">
+            <div style="font-size: 12px; color: var(--fc-text-secondary); margin-bottom: 6px;">{% trans "冲抵顺序（拖拽排序）" %}</div>
+            <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center;">
+                <template x-for="(key, idx) in form.allocation_order" :key="key">
+                    <span class="order-chip" draggable="true"
+                          :class="{ 'order-chip--drag': dragIndex === idx, 'order-chip--over': overIndex === idx }"
+                          @dragstart="onOrderDragStart(idx, $event)"
+                          @dragover.prevent="onOrderDragOver(idx, $event)"
+                          @dragenter.prevent=""
+                          @drop.prevent="onOrderDrop(idx)"
+                          @dragend="onOrderDragEnd($event)">
+                        <span class="order-chip__grip" title="{% trans '拖动排序' %}">⠿</span>
+                        <span x-text="allocLabel(key)"></span>
+                    </span>
+                </template>
+            </div>
+        </div>
+
+        <!-- 还款流水 -->
+        <div class="lpr-calc__changes">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                <div style="font-size: 12px; font-weight: 600; color: var(--fc-text-disabled); text-transform: uppercase;">{% trans "还款流水（借方实际还款）" %}</div>
+                <button type="button" @click="pasteOpen = true" style="font-size: 12px; color: var(--fc-admin-blue); background: none; border: 1px solid var(--fc-border); padding: 5px 12px; border-radius: 6px; cursor: pointer;">
+                    📋 {% trans "批量粘贴导入" %}
+                </button>
+            </div>
+            <div class="lpr-calc__change-row" style="grid-template-columns: 1.2fr 1fr 1fr 1.2fr auto;">
+                <div class="lpr-calc__field"><label>{% trans "日期" %}</label></div>
+                <div class="lpr-calc__field"><label>{% trans "金额（元）" %}</label></div>
+                <div class="lpr-calc__field"><label>{% trans "类型" %}</label></div>
+                <div class="lpr-calc__field"><label>{% trans "备注" %}</label></div>
+                <div></div>
+            </div>
+            <template x-for="(p, i) in form.payments" :key="i">
+                <div class="lpr-calc__change-row" style="grid-template-columns: 1.2fr 1fr 1fr 1.2fr auto;">
+                    <div class="lpr-calc__field">
+                        <input type="date" x-model="p.payment_date">
+                    </div>
+                    <div class="lpr-calc__field">
+                        <input type="number" x-model="p.amount" step="0.01" placeholder="{% trans '金额' %}">
+                    </div>
+                    <div class="lpr-calc__field">
+                        <select x-model="p.payment_type">
+                            <option value="normal">{% trans "正常还款" %}</option>
+                            <option value="prepayment_principal">{% trans "提前冲本金" %}</option>
+                        </select>
+                    </div>
+                    <div class="lpr-calc__field">
+                        <input type="text" x-model="p.note" placeholder="{% trans '备注' %}">
+                    </div>
+                    <button type="button" class="lpr-calc__btn-remove" @click="removePayment(i)">×</button>
+                </div>
+            </template>
+            <button type="button" class="lpr-calc__btn-add" @click="addPayment">+ {% trans "添加还款" %}</button>
+        </div>
+
+        <!-- 批量粘贴模态框 -->
+        <div x-show="pasteOpen" x-cloak style="position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 999; display: flex; align-items: center; justify-content: center;" @click.self="pasteOpen = false">
+            <div style="background: var(--fc-bg-card); border-radius: 12px; padding: 24px; width: 640px; max-width: 92vw; max-height: 85vh; overflow-y: auto;">
+                <div style="font-size: 15px; font-weight: 600; margin-bottom: 8px;">{% trans "批量粘贴还款流水" %}</div>
+                <div style="font-size: 12px; color: var(--fc-text-muted); margin-bottom: 10px;">
+                    {% trans "每行一条：日期 金额 [备注]。支持 2024-05-20 3280 或 2024/5/20 存入3,280.00 等格式，含「提前/冲本」字样识别为提前冲本金。" %}
+                </div>
+                <textarea x-model="pasteText" @input="parsePaste" rows="7" style="width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1px solid var(--fc-border); border-radius: 8px; font-size: 13px; font-family: inherit;" placeholder="2024-05-20 3280.00
+2024-11-02 50000 提前冲本金"></textarea>
+                <div x-show="pastePreview.length > 0" style="margin-top: 12px; max-height: 220px; overflow-y: auto;">
+                    <table class="lpr-calc__detail-table">
+                        <thead><tr><th>{% trans "日期" %}</th><th>{% trans "金额" %}</th><th>{% trans "类型" %}</th><th>{% trans "备注" %}</th></tr></thead>
+                        <tbody>
+                            <template x-for="(p, i) in pastePreview" :key="i">
+                                <tr :style="p.amount === null ? 'color: var(--fc-danger);' : ''">
+                                    <td x-text="p.payment_date || '?'"></td>
+                                    <td x-text="p.amount === null ? '{% trans "无法解析" %}' : '¥' + formatMoney(p.amount)"></td>
+                                    <td x-text="p.payment_type === 'prepayment_principal' ? '{% trans "提前冲本金" %}' : '{% trans "正常还款" %}'"></td>
+                                    <td x-text="p.note"></td>
+                                </tr>
+                            </template>
+                        </tbody>
+                    </table>
+                </div>
+                <div style="display: flex; gap: 10px; margin-top: 16px; justify-content: flex-end;">
+                    <button type="button" class="lpr-calc__btn lpr-calc__btn--secondary" @click="pasteOpen = false">{% trans "取消" %}</button>
+                    <button type="button" class="lpr-calc__btn lpr-calc__btn--primary" @click="confirmPaste" :disabled="!validPasteCount">{% trans "导入（" %}<span x-text="validPasteCount"></span>{% trans "条）" %}</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ④ 主张口径（通用共项，适配不同银行/合同主张差异） -->
+    <div class="lpr-calc__section">
+        <div class="lpr-calc__section-title">{% trans "④ 主张口径" %}</div>
+
+        <!-- 利息止算日 / 舍入规则 / 逾期自动加码 -->
+        <div class="lpr-calc__row">
+            <div class="lpr-calc__field">
+                <label>{% trans "利息止算日（不填=计算截止日）" %}</label>
+                <input type="date" x-model="form.interest_cutoff_date" :max="form.claim_date">
+            </div>
+            <div class="lpr-calc__field" style="display: flex; flex-direction: column; gap: 10px; padding-top: 22px;">
+                <label style="display: flex; align-items: center; gap: 10px; font-weight: 400; margin-bottom: 0; cursor: pointer;">
+                    <input type="checkbox" class="lpr-calc__switch" x-model="form.cutoff_continues_penalty">
+                    <span style="font-size: 13px; color: var(--fc-text-secondary);">{% trans "止算日后罚息继续计算" %}</span>
+                </label>
+                <label style="display: flex; align-items: center; gap: 10px; font-weight: 400; margin-bottom: 0; cursor: pointer;">
+                    <input type="checkbox" class="lpr-calc__switch" x-model="form.cutoff_continues_compound">
+                    <span style="font-size: 13px; color: var(--fc-text-secondary);">{% trans "止算日后复利继续计算" %}</span>
+                </label>
+            </div>
+            <div class="lpr-calc__field">
+                <label>{% trans "舍入规则" %}</label>
+                <select x-model="form.rounding_mode">
+                    <option value="period">{% trans "逐期四舍五入到分再求和" %}</option>
+                    <option value="cumulative">{% trans "汇总一次性舍入（保持全程精度）" %}</option>
+                </select>
+            </div>
+            <div class="lpr-calc__field">
+                <label>{% trans "逾期自动加码（%，不填=不加码）" %}</label>
+                <input type="number" x-model="form.step_up_rate" step="0.1" min="0" placeholder="{% trans '如 50（罚息上浮50%）' %}">
+            </div>
+            <div class="lpr-calc__field">
+                <label>{% trans "加码触发天数（0=逾期即加码）" %}</label>
+                <input type="number" x-model="form.step_up_trigger_days" step="1" min="0" placeholder="{% trans '如 90' %}">
+            </div>
+            <div class="lpr-calc__field"></div>
+        </div>
+    </div>
+
+    <!-- 操作按钮 -->
+    <div class="lpr-calc__actions">
+        <button type="button" class="lpr-calc__btn lpr-calc__btn--primary" @click="calculate">
+            {% trans "计算违约金额" %}
+        </button>
+        <button type="button" class="lpr-calc__btn lpr-calc__btn--secondary" @click="reset">{% trans "重置表单" %}</button>
+        <button type="button" class="lpr-calc__btn lpr-calc__btn--secondary" @click="showHistory = !showHistory" style="margin-left: auto;">
+            {% trans "历史记录" %} <span x-show="history.length > 0" x-text="'(' + history.length + ')'" style="font-size: 11px; opacity: 0.7;"></span>
+        </button>
+    </div>
+
+    <!-- 历史记录 -->
+    <div x-show="showHistory" style="display: none; margin-top: 16px; background: var(--fc-bg-muted-light); border-radius: 8px; padding: 16px; border: 1px solid var(--fc-border);">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+            <div style="font-size: 13px; font-weight: 600; color: var(--fc-text-secondary);">{% trans "计算历史" %}</div>
+            <button type="button" @click="clearHistory" x-show="history.length > 0" style="font-size: 11px; color: var(--fc-error-text); background: none; border: none; cursor: pointer;">{% trans "清空" %}</button>
+        </div>
+        <div x-show="history.length === 0" style="text-align: center; padding: 20px; color: var(--fc-text-disabled); font-size: 13px;">{% trans "暂无历史记录" %}</div>
+        <div x-show="history.length > 0" style="max-height: 300px; overflow-y: auto;">
+            <template x-for="item in history" :key="item.id">
+                <div style="display: flex; align-items: center; gap: 12px; padding: 10px; background: var(--fc-bg-card); border-radius: 6px; margin-bottom: 8px; border: 1px solid var(--fc-border);">
+                    <div style="flex: 1; min-width: 0;">
+                        <div style="font-size: 12px; font-weight: 500; color: var(--fc-text-heading); margin-bottom: 2px;">
+                            <span x-text="item.note || '{% trans "未命名案件" %}'"></span>
+                            <span x-text="' · 合计 ¥' + formatMoney(item.total)" style="color: var(--fc-admin-blue);"></span>
+                        </div>
+                        <div style="font-size: 11px; color: var(--fc-text-muted);" x-text="formatHistoryTime(item.timestamp)"></div>
+                    </div>
+                    <button type="button" @click="loadFromHistory(item)" style="font-size: 11px; color: var(--fc-admin-blue); background: var(--fc-primary-subtle); border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; white-space: nowrap;">{% trans "加载" %}</button>
+                    <button type="button" @click="deleteHistoryItem(item.id)" style="font-size: 11px; color: var(--fc-error-text); background: var(--fc-error-bg); border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer;">×</button>
+                </div>
+            </template>
+        </div>
+    </div>
+</div>

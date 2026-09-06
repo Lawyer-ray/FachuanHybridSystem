@@ -7,12 +7,12 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from apps.automation.models import CourtSMSStatus
 from apps.automation.services.sms.stages.sms_matching_stage import (
     SMSMatchingStage,
     create_sms_matching_stage,
     filter_valid_case_numbers,
 )
-from apps.automation.models import CourtSMSStatus
 
 
 class TestFilterValidCaseNumbers:
@@ -163,7 +163,7 @@ class TestExtractFromSingleDoc:
 
 class TestGetDocumentPathsForExtraction:
     def test_no_scraper_task(self):
-        sms = SimpleNamespace(scraper_task=None)
+        sms = SimpleNamespace(id=1, document_file_paths=None, scraper_task=None)
         stage = SMSMatchingStage()
         paths = stage._get_document_paths_for_extraction(sms)
         assert paths == []
@@ -174,7 +174,7 @@ class TestGetDocumentPathsForExtraction:
         doc_qs.filter.return_value.__iter__ = MagicMock(return_value=iter([doc]))
         doc_qs.filter.return_value.exists.return_value = False
         scraper_task = SimpleNamespace(documents=doc_qs, result=None)
-        sms = SimpleNamespace(scraper_task=scraper_task)
+        sms = SimpleNamespace(id=1, document_file_paths=None, scraper_task=scraper_task)
         stage = SMSMatchingStage()
         with patch("apps.automation.services.sms.stages.sms_matching_stage.Path") as MockPath:
             MockPath.return_value.exists.return_value = True
@@ -186,7 +186,7 @@ class TestGetDocumentPathsForExtraction:
         doc_qs.filter.return_value.__iter__ = MagicMock(return_value=iter([]))
         doc_qs.filter.return_value.exists.return_value = False
         scraper_task = SimpleNamespace(documents=doc_qs, result={"files": ["/test/file.pdf"]})
-        sms = SimpleNamespace(scraper_task=scraper_task)
+        sms = SimpleNamespace(id=1, document_file_paths=None, scraper_task=scraper_task)
         stage = SMSMatchingStage()
         with patch("apps.automation.services.sms.stages.sms_matching_stage.Path") as MockPath:
             MockPath.return_value.exists.return_value = True
