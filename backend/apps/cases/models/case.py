@@ -75,7 +75,6 @@ class Case(models.Model):
         blank=True,
         related_name="next_cases",
         verbose_name=_("前序案件"),
-        help_text=_("该案的前一个审理阶段，如二审案件指向前一审案件"),
     )
     created_at = models.DateTimeField(auto_now_add=True, verbose_name=_("创建时间"))
     updated_at = models.DateTimeField(auto_now=True, verbose_name=_("更新时间"))
