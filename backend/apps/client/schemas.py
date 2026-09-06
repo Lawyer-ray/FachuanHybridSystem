@@ -257,6 +257,7 @@ class IdentityRecognizeOut(Schema):
     extracted_data: dict[str, str | None]
     confidence: float
     error: str | None = None
+    raw_text: str = ""
 
 
 class RelatedCaseOut(Schema):

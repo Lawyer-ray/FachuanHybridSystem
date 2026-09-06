@@ -452,6 +452,49 @@ class IdentityExtractionService:
         )
         return str(ClientIdentityDoc.ID_CARD)
 
+    _NARRATIVE_NAME_RE = re.compile(
+        r"(?:原告|被告|上诉人|被上诉人|申请人|被申请人|异议人|第三人)[一二三四五六七八九十]*[:：]\s*([一-龥·]{2,4})(?=[，,。；;])"
+    )
+    _NARRATIVE_GENDER_RE = re.compile(r"[，,]\s*(男|女)\s*[，,]")
+    _NARRATIVE_ETHNICITY_RE = re.compile(r"[，,]\s*([一-龥]{1,4}族)\s*[，,]")
+    _NARRATIVE_ADDRESS_RE = re.compile(
+        r"(?:住|居住于|住所地|住址)[:：]?\s*([一-龥0-9]{2,60}?(?:省|市|县)?[一-龥0-9]*?(?:区|镇|乡)?[一-龥0-9]*(?:路|街|道|巷|村)[一-龥0-9]*(?:号|号院)[一-龥0-9]*(?:房|室|楼|座|栋|单元)?)"
+    )
+    _NARRATIVE_PHONE_RE = re.compile(r"(?:联系电话|电话|手机|联系方式)\s*[:：]?\s*(1[3-9]\d{9}|\d{3,4}-\d{7,8})")
+
+    def _extract_narrative_fields(self, text: str) -> dict[str, Any]:
+        """从判决书/起诉状等叙述式文本中提取当事人信息（非证件卡片版式）。"""
+        flat = text.replace("\n", "")
+        fields: dict[str, Any] = {
+            "name": None,
+            "gender": None,
+            "ethnicity": None,
+            "address": None,
+            "phone": None,
+        }
+
+        name_match = self._NARRATIVE_NAME_RE.search(flat)
+        if name_match:
+            fields["name"] = name_match.group(1)
+
+        gender_match = self._NARRATIVE_GENDER_RE.search(flat)
+        if gender_match:
+            fields["gender"] = gender_match.group(1)
+
+        ethnicity_match = self._NARRATIVE_ETHNICITY_RE.search(flat)
+        if ethnicity_match:
+            fields["ethnicity"] = ethnicity_match.group(1)
+
+        address_match = self._NARRATIVE_ADDRESS_RE.search(flat)
+        if address_match:
+            fields["address"] = address_match.group(1)
+
+        phone_match = self._NARRATIVE_PHONE_RE.search(flat)
+        if phone_match:
+            fields["phone"] = phone_match.group(1)
+
+        return fields
+
     def _extract_by_rules(self, raw_text: str, doc_type: str) -> dict[str, Any] | None:
         """规则提取：覆盖身份证、法代身份证、营业执照。"""
         if doc_type == "business_license":
@@ -470,6 +513,15 @@ class IdentityExtractionService:
         address = self._extract_address(lines)
         expiry_date = self._extract_expiry_date(lines)
         birth_date = self._extract_birth_date(merged, id_number)
+        phone = self._NARRATIVE_PHONE_RE.search(text.replace("\n", ""))
+
+        # 卡片版式未命中的字段，回退叙述式提取（判决书/起诉状文本）
+        if not any([name, gender, ethnicity, address]):
+            narrative = self._extract_narrative_fields(text)
+            name = narrative["name"]
+            gender = narrative["gender"]
+            ethnicity = narrative["ethnicity"]
+            address = narrative["address"]
 
         extracted: dict[str, Any] = {
             "name": name,
@@ -479,6 +531,7 @@ class IdentityExtractionService:
             "gender": gender,
             "ethnicity": ethnicity,
             "birth_date": birth_date,
+            "phone": phone.group(1) if phone else None,
         }
 
         return extracted
@@ -781,6 +834,7 @@ class IdentityExtractionService:
             "extracted_data": {},
             "confidence": 0.0,
             "error": None,
+            "raw_text": "",
         }
         # Service 层内部允许 try/except（规范禁止的是 API 层）
         try:
@@ -794,6 +848,7 @@ class IdentityExtractionService:
             result["doc_type"] = extraction.doc_type
             result["extracted_data"] = extraction.extracted_data
             result["confidence"] = extraction.confidence
+            result["raw_text"] = extraction.raw_text
         except (OCRExtractionError, OllamaExtractionError) as e:
             result["error"] = str(e)
         except ServiceUnavailableError as e:

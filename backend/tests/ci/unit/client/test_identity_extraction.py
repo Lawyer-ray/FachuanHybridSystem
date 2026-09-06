@@ -1,18 +1,19 @@
 """Tests for client identity extraction service."""
 
 import json
-import pytest
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock, PropertyMock, patch
 
-from apps.client.services.identity_extraction.extraction_service import (
-    IdentityExtractionService,
-    _MAX_LLM_OCR_CHARS,
-    _MAX_LLM_OCR_LINES,
-)
+import pytest
+
 from apps.client.services.identity_extraction.data_classes import (
     ExtractionResult,
     OCRExtractionError,
     OllamaExtractionError,
+)
+from apps.client.services.identity_extraction.extraction_service import (
+    _MAX_LLM_OCR_CHARS,
+    _MAX_LLM_OCR_LINES,
+    IdentityExtractionService,
 )
 
 
@@ -451,3 +452,56 @@ class TestOcrExtractWithRecognizer:
         svc = IdentityExtractionService(recognizer=recognizer)
         with pytest.raises(OCRExtractionError):
             svc._ocr_extract(b"some bytes")
+
+
+class TestNarrativeExtraction:
+    """判决书/起诉状叙述式文本提取（快速填充 OCR 场景）"""
+
+    def setup_method(self):
+        self.svc = IdentityExtractionService()
+
+    def test_narrative_full_fields(self):
+        raw = (
+            "被告三：陈达良，男，汉族，1967年7月28日出生，住广东省\n"
+            "佛山市禅城区福禄路32号101房，公民身份证号码\n"
+            "440106196707281858。\n"
+            "约定送达地址：佛山市禅城区福禄路32号101房，联系电话\n"
+            "13702929011。"
+        )
+        result = self.svc._extract_by_rules(raw, "id_card")
+        assert result["name"] == "陈达良"
+        assert result["id_number"] == "440106196707281858"
+        assert result["gender"] == "男"
+        assert result["ethnicity"] == "汉族"
+        assert result["address"] == "广东省佛山市禅城区福禄路32号101房"
+        assert result["birth_date"] == "1967-07-28"
+        assert result["phone"] == "13702929011"
+
+    def test_narrative_plaintiff(self):
+        raw = "原告：李四，男，1980年1月1日出生，住北京市朝阳区某路1号，公民身份证号码110105198001011234。"
+        result = self.svc._extract_by_rules(raw, "id_card")
+        assert result["name"] == "李四"
+        assert result["id_number"] == "110105198001011234"
+
+    def test_narrative_phone_landline(self):
+        raw = "被告：王五，住广州市某路2号，公民身份证号码440106196707281858，联系电话020-88888888。"
+        result = self.svc._extract_by_rules(raw, "id_card")
+        assert result["phone"] == "020-88888888"
+
+    def test_card_format_unaffected(self):
+        raw = (
+            "姓名 张三\n性别 男\n民族 汉\n出生 1977年9月10日\n"
+            "住址 广东省广州市天河区体育西路123号\n公民身份号码 440106197709101234"
+        )
+        result = self.svc._extract_by_rules(raw, "id_card")
+        assert result["name"] == "张三"
+        assert result["address"] == "广东省广州市天河区体育西路123号"
+        assert result["id_number"] == "440106197709101234"
+
+    def test_safe_extract_returns_raw_text(self):
+        raw = "被告：陈达良，公民身份证号码440106196707281858。"
+        svc = IdentityExtractionService()
+        svc._ocr_extract = MagicMock(return_value=raw)
+        result = svc.safe_extract(b"image", "id_card")
+        assert result["success"] is True
+        assert "440106196707281858" in result["raw_text"]
