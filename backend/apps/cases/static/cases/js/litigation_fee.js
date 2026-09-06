@@ -151,7 +151,7 @@
             if (result.preservation_fee !== null && result.preservation_fee !== undefined) {
                 preservationDisplay.innerHTML = `<div><strong>财产保全费：</strong>${formatCurrency(result.preservation_fee)}</div>`;
             } else {
-                preservationDisplay.innerHTML = '<div style="color: var(--fc-text-muted);">请输入财产保全金额</div>';
+                preservationDisplay.innerHTML = '';
             }
         }
     }
