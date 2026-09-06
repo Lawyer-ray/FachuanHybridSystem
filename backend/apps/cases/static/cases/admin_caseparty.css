@@ -88,6 +88,22 @@ option[data-source="supplementary"]::after {
     box-sizing: border-box;
 }
 
+/* 案件工作人员 tabular：固定列宽布局，输入框撑满单元格，防止整表横向溢出 */
+#contacts-group table {
+    table-layout: fixed;
+    width: 100%;
+}
+#contacts-group td,
+#contacts-group th {
+    word-wrap: break-word;
+}
+#contacts-group input[type='text'],
+#contacts-group select {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box;
+}
+
 /* 隐藏案件日志 inline 每个条目的标题 */
 #logs-group .djn-inline-form > h3 {
     display: none !important;
