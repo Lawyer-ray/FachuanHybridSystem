@@ -10,10 +10,12 @@ from typing import TYPE_CHECKING
 from django.http import HttpRequest
 from ninja import Router
 
-from apps.core.exceptions import ValidationException
+from apps.core.exceptions import NotFoundError, PermissionDenied, ValidationException
 from apps.core.security.auth import JWTOrSessionAuth
 from apps.finance.schemas.lpr_schemas import (
     BankProfileListResponse,
+    BankProfileSchema,
+    CalculationPeriodSchema,
     InterestCalculateRequest,
     InterestCalculateResponse,
     LPRRateListResponse,
@@ -25,6 +27,7 @@ from apps.finance.schemas.lpr_schemas import (
     MortgageAmortizeResponse,
     MortgageDefaultRequest,
     MortgageDefaultResponse,
+    ScheduleRowSchema,
 )
 from apps.finance.services.calculator.bank_profiles import list_bank_profiles
 from apps.finance.services.lpr import PrincipalPeriod
@@ -94,9 +97,7 @@ def get_latest_lpr_rate(request: HttpRequest) -> LPRRateSchema:  # pragma: no co
     try:
         rate = LPRRateService().get_latest_rate()
     except Exception:
-        from apps.core.exceptions import NotFoundException
-
-        raise NotFoundException(message="暂无LPR利率数据", code="LPR_RATE_NOT_FOUND")
+        raise NotFoundError(message="暂无LPR利率数据", code="LPR_RATE_NOT_FOUND")
 
     return LPRRateSchema(
         id=rate.id,
@@ -131,9 +132,7 @@ def sync_lpr_rates(  # pragma: no cover
 
     # 检查权限
     if not user.is_staff:
-        from apps.core.exceptions import PermissionDeniedException
-
-        raise PermissionDeniedException(message="需要管理员权限才能同步LPR数据", code="PERMISSION_DENIED")
+        raise PermissionDenied(message="需要管理员权限才能同步LPR数据", code="PERMISSION_DENIED")
 
     logger.info(f"[LPRSync] User {user.id} triggered manual LPR sync")
 
@@ -277,16 +276,16 @@ def calculate_interest(  # pragma: no cover
         start_date=result.start_date,
         end_date=result.end_date,
         periods=[
-            {
-                "start_date": p.start_date,
-                "end_date": p.end_date,
-                "principal": p.principal,
-                "rate": p.rate,
-                "rate_unit": getattr(p, "rate_unit", None),
-                "days": p.days,
-                "year_days": p.year_days,
-                "interest": p.interest,
-            }
+            CalculationPeriodSchema(
+                start_date=p.start_date,
+                end_date=p.end_date,
+                principal=p.principal,
+                rate=p.rate,
+                rate_unit=getattr(p, "rate_unit", None),
+                days=p.days,
+                year_days=p.year_days,
+                interest=p.interest,
+            )
             for p in result.periods
         ],
         sync_info=sync_info,
@@ -326,19 +325,19 @@ def amortize_mortgage(  # pragma: no cover
             claim_date=date.max,
         )
     except ValidationException as e:
-        return MortgageAmortizeResponse(success=False, message=e.message, code=e.code)
+        return MortgageAmortizeResponse(success=False, message=str(e.message), code=e.code)
 
     schedule = [
-        {
-            "period_no": r.period_no,
-            "due_date": r.due_date,
-            "monthly_payment": r.monthly_payment,
-            "principal_part": r.principal_part,
-            "interest_part": r.interest_part,
-            "annual_rate": r.annual_rate,
-            "remaining_principal": r.remaining_principal,
-            "rescheduled": r.rescheduled,
-        }
+        ScheduleRowSchema(
+            period_no=r.period_no,
+            due_date=r.due_date,
+            monthly_payment=str(r.monthly_payment),
+            principal_part=str(r.principal_part),
+            interest_part=str(r.interest_part),
+            annual_rate=str(r.annual_rate),
+            remaining_principal=str(r.remaining_principal),
+            rescheduled=r.rescheduled,
+        )
         for r in result.schedule_rows
     ]
     return MortgageAmortizeResponse(
@@ -359,7 +358,10 @@ def list_mortgage_bank_profiles(request: HttpRequest) -> BankProfileListResponse
     Returns:
         银行口径档案元信息列表
     """
-    return BankProfileListResponse(success=True, profiles=list_bank_profiles())
+    return BankProfileListResponse(
+        success=True,
+        profiles=[BankProfileSchema(**p) for p in list_bank_profiles()],
+    )
 
 
 @router.post("/mortgage-default-calculate", response=MortgageDefaultResponse, auth=JWTOrSessionAuth())
@@ -459,7 +461,7 @@ def mortgage_default_calculate(  # pragma: no cover
                 cont_compound=data.cutoff_continues_compound,
             )
     except ValidationException as e:
-        return MortgageDefaultResponse(success=False, message=e.message, code=e.code)
+        return MortgageDefaultResponse(success=False, message=str(e.message), code=e.code)
 
     return MortgageDefaultResponse(success=True, **payload)
 

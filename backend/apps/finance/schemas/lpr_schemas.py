@@ -17,7 +17,7 @@ class LPRRateSchema(Schema):
     effective_date: date
     rate_1y: Decimal = Field(..., description="一年期LPR(%)")
     rate_5y: Decimal = Field(..., description="五年期LPR(%)")
-    source: str = Field("", description="数据来源")
+    source: str = Field(default="", description="数据来源")
     is_auto_synced: bool = Field(False, description="是否自动同步")
     created_at: str
     updated_at: str
@@ -41,10 +41,10 @@ class LPRSyncResponse(Schema):
 
     success: bool
     message: str
-    created: int = Field(0, description="新增记录数")
-    updated: int = Field(0, description="更新记录数")
-    skipped: int = Field(0, description="跳过记录数")
-    task_id: str | None = Field(None, description="后台任务ID（异步模式下返回）")
+    created: int = Field(default=0, description="新增记录数")
+    updated: int = Field(default=0, description="更新记录数")
+    skipped: int = Field(default=0, description="跳过记录数")
+    task_id: str | None = Field(default=None, description="后台任务ID（异步模式下返回）")
 
 
 class LPRSyncStatusResponse(Schema):
@@ -67,21 +67,21 @@ class PrincipalChangeSchema(Schema):
 class InterestCalculateRequest(Schema):
     """利息计算请求."""
 
-    start_date: date | None = Field(None, description="开始日期（固定本金模式必填）")
-    end_date: date | None = Field(None, description="结束日期（固定本金模式必填）")
-    principal: Decimal | None = Field(None, description="本金（固定本金模式必填）")
+    start_date: date | None = Field(default=None, description="开始日期（固定本金模式必填）")
+    end_date: date | None = Field(default=None, description="结束日期（固定本金模式必填）")
+    principal: Decimal | None = Field(default=None, description="本金（固定本金模式必填）")
     # 利率模式
-    rate_mode: Literal["lpr", "custom"] = Field("lpr", description="利率模式: lpr=LPR利率, custom=自定义利率")
+    rate_mode: Literal["lpr", "custom"] = Field(default="lpr", description="利率模式: lpr=LPR利率, custom=自定义利率")
     # LPR模式参数
-    rate_type: Literal["1y", "5y"] = Field("1y", description="利率类型（LPR模式）")
-    multiplier: Decimal = Field(Decimal("1"), description="利率倍数（LPR模式）")
+    rate_type: Literal["1y", "5y"] = Field(default="1y", description="利率类型（LPR模式）")
+    multiplier: Decimal = Field(default=Decimal("1"), description="利率倍数（LPR模式）")
     # 自定义利率模式参数
     custom_rate_unit: Literal["percent", "permille", "permyriad"] = Field(
         "percent", description="自定义利率单位: percent=百分之, permille=千分之, permyriad=万分之"
     )
-    custom_rate_value: Decimal | None = Field(None, description="自定义利率数值（如5表示千分之5）")
+    custom_rate_value: Decimal | None = Field(default=None, description="自定义利率数值（如5表示千分之5）")
     # 通用参数
-    year_days: int = Field(360, description="年基准天数(360/365/0实际天数)")
+    year_days: int = Field(default=360, description="年基准天数(360/365/0实际天数)")
     date_inclusion: Literal["both", "start_only", "end_only", "neither"] = Field(
         "both",
         description="日期计算方式: both=均计算在内, start_only=仅起始日期, end_only=仅截止日期, neither=均不计算",
@@ -98,7 +98,7 @@ class CalculationPeriodSchema(Schema):
     end_date: date
     principal: Decimal
     rate: Decimal
-    rate_unit: str | None = Field(None, description="利率单位: percent/permille/permyriad")
+    rate_unit: str | None = Field(default=None, description="利率单位: percent/permille/permyriad")
     days: int
     year_days: int
     interest: Decimal
@@ -116,7 +116,7 @@ class InterestCalculateResponse(Schema):
     periods: list[CalculationPeriodSchema] | None = None
     message: str | None = None
     code: str | None = None
-    sync_info: str | None = Field(None, description="自动同步提示信息")
+    sync_info: str | None = Field(default=None, description="自动同步提示信息")
 
 
 # ---------------------------------------------------------------------------
@@ -132,7 +132,7 @@ class MortgagePaymentSchema(Schema):
     payment_type: Literal["normal", "prepayment_principal"] = Field(
         "normal", description="类型: normal=正常还款, prepayment_principal=提前冲减本金"
     )
-    note: str = Field("", description="备注")
+    note: str = Field(default="", description="备注")
 
 
 class MortgageAmortizeRequest(Schema):
@@ -144,12 +144,12 @@ class MortgageAmortizeRequest(Schema):
     repayment_method: Literal["equal_installment", "equal_principal"] = Field(
         "equal_installment", description="还款方式"
     )
-    payment_day: int | None = Field(None, ge=1, le=28, description="每月扣款日（1-28），不填取放款日对应日")
-    rate_mode: Literal["fixed", "lpr"] = Field("fixed", description="利率模式")
-    fixed_rate: Decimal | None = Field(None, description="固定年利率(%)，fixed 模式必填")
-    lpr_type: Literal["1y", "5y"] = Field("5y", description="LPR 期限品种（lpr 模式）")
-    basis_points: Decimal = Field(Decimal("0"), description="LPR 加点（基点，100bp=1%，可为负）")
-    repricing_day: str = Field("01-01", description="重定价日：MM-DD 或 anniversary（放款对应日）")
+    payment_day: int | None = Field(default=None, ge=1, le=28, description="每月扣款日（1-28），不填取放款日对应日")
+    rate_mode: Literal["fixed", "lpr"] = Field(default="fixed", description="利率模式")
+    fixed_rate: Decimal | None = Field(default=None, description="固定年利率(%)，fixed 模式必填")
+    lpr_type: Literal["1y", "5y"] = Field(default="5y", description="LPR 期限品种（lpr 模式）")
+    basis_points: Decimal = Field(default=Decimal("0"), description="LPR 加点（基点，100bp=1%，可为负）")
+    repricing_day: str = Field(default="01-01", description="重定价日：MM-DD 或 anniversary（放款对应日）")
 
 
 class ScheduleRowSchema(Schema):
@@ -168,7 +168,7 @@ class ScheduleRowSchema(Schema):
 class OtherFeeSchema(Schema):
     """其他费用Schema."""
 
-    name: str = Field("", description="费用名称，如 律师费/诉讼费/提前还款补偿金")
+    name: str = Field(default="", description="费用名称，如 律师费/诉讼费/提前还款补偿金")
     amount: Decimal = Field(..., description="金额（元）")
 
 
@@ -184,7 +184,7 @@ class PausePeriodSchema(Schema):
 
     start: date = Field(..., description="停息开始日（含当日）")
     end: date = Field(..., description="停息结束日（含当日）")
-    note: str = Field("", description="备注，如 停息挂账/展期")
+    note: str = Field(default="", description="备注，如 停息挂账/展期")
 
 
 class MortgageDefaultRequest(MortgageAmortizeRequest):
@@ -193,11 +193,11 @@ class MortgageDefaultRequest(MortgageAmortizeRequest):
     penalty_mode: Literal["multiplier", "specified"] = Field(
         "multiplier", description="罚息利率模式: multiplier=执行利率×倍数, specified=直接指定"
     )
-    penalty_multiplier: Decimal = Field(Decimal("1.5"), description="罚息倍数（multiplier 模式）")
-    penalty_rate: Decimal | None = Field(None, description="罚息年利率(%)（specified 模式必填）")
+    penalty_multiplier: Decimal = Field(default=Decimal("1.5"), description="罚息倍数（multiplier 模式）")
+    penalty_rate: Decimal | None = Field(default=None, description="罚息年利率(%)（specified 模式必填）")
     compound_on_interest: bool = Field(True, description="是否对欠付利息计收复利")
     compound_on_penalty: bool = Field(False, description="是否对罚息再计收复利")
-    year_days: Literal[360, 365] = Field(360, description="罚息/复利计息基准天数")
+    year_days: Literal[360, 365] = Field(default=360, description="罚息/复利计息基准天数")
     allocation_order: list[str] | None = Field(
         None,
         description="冲抵顺序，可选值 penalty/penalty_lump/interest/compound/principal，默认 罚息→利息→复利→违约金→本金",
@@ -232,7 +232,7 @@ class MortgageDefaultRequest(MortgageAmortizeRequest):
     compound_method: Literal["daily", "flat"] = Field(
         "daily", description="复利计算方式: daily=逐日按当日罚息利率分段, flat=不分段(积数×收取时罚息利率，如交行)"
     )
-    grace_period_days: int = Field(0, ge=0, description="宽限期天数（还款日+宽限期内还款视为按时）")
+    grace_period_days: int = Field(default=0, ge=0, description="宽限期天数（还款日+宽限期内还款视为按时）")
     first_period_interest: Literal["prorate", "full_month"] = Field(
         "prorate", description="首期计息: prorate=按放款日→首期扣款日实际天数, full_month=整月"
     )
@@ -248,7 +248,7 @@ class MortgageDefaultRequest(MortgageAmortizeRequest):
     step_up_rate: Decimal | None = Field(
         None, description="逾期自动加码比例(%)，如 50 表示逾期触发后罚息/复利上浮 50%；不填=不加码"
     )
-    step_up_trigger_days: int = Field(0, ge=0, description="加码触发所需连续逾期天数（0=首个欠款批次起即加码）")
+    step_up_trigger_days: int = Field(default=0, ge=0, description="加码触发所需连续逾期天数（0=首个欠款批次起即加码）")
     interest_cutoff_date: date | None = Field(
         None,
         description="利息止算日：合同利息计算至此日（默认=claim_date）；止算日后罚息/复利是否继续由下方两个开关决定",
@@ -263,7 +263,7 @@ class MortgageDefaultRequest(MortgageAmortizeRequest):
         default_factory=list, description="其他费用（律师费/诉讼费等，仅计入合计）"
     )
     payments: list[MortgagePaymentSchema] = Field(default_factory=list, description="还款流水")
-    claim_date: date | None = Field(None, description="计算截止日（默认今天）")
+    claim_date: date | None = Field(default=None, description="计算截止日（默认今天）")
     claim_mode: Literal["both", "either"] = Field(
         "both", description="违约金与罚息主张口径: both=并行叠加, either=择一从高（取较大者计入诉请）"
     )
@@ -381,5 +381,5 @@ class MortgageAmortizeResponse(Schema):
     message: str | None = None
     code: str | None = None
     schedule_rows: list[ScheduleRowSchema] | None = None
-    first_due_date: str = Field("", description="首期扣款日")
-    total_periods: int = Field(0, description="计划期数")
+    first_due_date: str = Field(default="", description="首期扣款日")
+    total_periods: int = Field(default=0, description="计划期数")

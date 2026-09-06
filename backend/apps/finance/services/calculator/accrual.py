@@ -73,7 +73,7 @@ def accrue(sim: Simulation, d_from: date, d_to: date) -> None:
                     sim.lump_charged_due.add(lot.due_date)
                     if sim.lump_penalty_rate is not None:
                         sim.lump_penalty_total += _q(lot.amount * sim.lump_penalty_rate / Decimal("100"))
-                    else:
+                    elif sim.lump_penalty_amount is not None:
                         sim.lump_penalty_total += _q(sim.lump_penalty_amount)
         if sim.compound_on_interest:
             for lot in sim.interest_lots:

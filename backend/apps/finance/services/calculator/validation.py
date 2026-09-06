@@ -22,6 +22,7 @@ from apps.finance.services.calculator.mortgage_models import (
     VALID_PAYMENT_TYPES,
     VALID_REPAYMENT_METHODS,
     VALID_ROUNDING_MODES,
+    PausePeriod,
     PaymentRecord,
 )
 
@@ -127,16 +128,16 @@ def validate_claim_config(
         raise ValidationException(message="计算截止日必须晚于放款日期", code="INVALID_CLAIM_DATE")
 
 
-def build_pause_ranges(pause_periods: list | None) -> list[tuple[date, date]]:
+def build_pause_ranges(pause_periods: list[PausePeriod] | None) -> list[tuple[date, date]]:
     """把停息区间转换为 (start, end) 列表并做合法性校验（end 含当日）."""
     ranges: list[tuple[date, date]] = []
     for p in pause_periods or []:
-        if p.start > p.end:  # type: ignore[attr-defined]
+        if p.start > p.end:
             raise ValidationException(
-                message=f"停息区间 {p.start}~{p.end} 起始日不能晚于结束日",  # type: ignore[attr-defined]
+                message=f"停息区间 {p.start}~{p.end} 起始日不能晚于结束日",
                 code="INVALID_PAUSE_PERIOD",
             )
-        ranges.append((p.start, p.end))  # type: ignore[attr-defined]
+        ranges.append((p.start, p.end))
     return ranges
 
 

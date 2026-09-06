@@ -99,7 +99,7 @@ class RateResolver:
                     message="分段利率事件需同时提供 date 与 annual_rate",
                     code="INVALID_RATE_EVENT",
                 )
-        return sorted((rate_events or []), key=lambda e: e.get("date"))
+        return sorted((rate_events or []), key=lambda e: date.fromisoformat(str(e.get("date"))))
 
     def _base_contract_rate(self, on: date) -> Decimal:
         """无分段事件时的基座合同年利率（固定或 LPR+基点）."""
@@ -127,6 +127,8 @@ class RateResolver:
             ev_date = ev.get("date")
             if isinstance(ev_date, str):
                 ev_date = date.fromisoformat(ev_date)
+            if ev_date is None:
+                continue
             if on >= ev_date:
                 applied = Decimal(str(ev.get("annual_rate")))
             else:

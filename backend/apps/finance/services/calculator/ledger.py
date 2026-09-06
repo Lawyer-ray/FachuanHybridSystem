@@ -113,7 +113,8 @@ def attach_allocation(sim: Simulation, alloc: AllocationDetail) -> None:
 
 def process_payment(sim: Simulation, rec: PaymentRecord) -> None:
     """处理单笔还款：先按冲抵顺序核销，余款入溢缴；提前还款冲减本金并重排."""
-    accrue(sim, sim.prev_event_date, rec.payment_date)
+    if sim.prev_event_date is not None:
+        accrue(sim, sim.prev_event_date, rec.payment_date)
     sim.prev_event_date = rec.payment_date
 
     if rec.payment_type == PAYMENT_TYPE_PREPAYMENT:

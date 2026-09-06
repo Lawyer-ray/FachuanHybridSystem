@@ -139,18 +139,16 @@ def announce_acceleration(sim: Simulation) -> None:
     罚息/复利自加速宽限期届满次日起对全额本金按日计收；合同利息只结算到加速日为止。
     """
     sim.accelerated = True
+    if sim.accelerate_date is None:
+        return
     if sim.balance > 0:
-        sim.principal_lots.append(_Lot(due_date=sim.accelerate_date, amount=sim.balance))  # type: ignore[arg-type]
+        sim.principal_lots.append(_Lot(due_date=sim.accelerate_date, amount=sim.balance))
         start = sim.accelerate_penalty_start
         if start is not None:
-            sim.overdue_start_dates[sim.accelerate_date] = start  # type: ignore[arg-type]
+            sim.overdue_start_dates[sim.accelerate_date] = start
             if sim.first_penalty_start is None or start < sim.first_penalty_start:
                 sim.first_penalty_start = start
-        if (
-            sim.prev_event_date is not None
-            and sim.accelerate_date is not None
-            and sim.prev_event_date < sim.accelerate_date
-        ):
+        if sim.prev_event_date is not None and sim.prev_event_date < sim.accelerate_date:
             stub_days = unpaused_days(sim.prev_event_date, sim.accelerate_date, sim.pause_ranges)
             annual = sim.resolver.contract_annual(sim.prev_event_date)
             stub_interest = _q(sim.balance * annual / Decimal("100") * stub_days / Decimal(sim.year_days))
@@ -225,7 +223,8 @@ def simulate(sim: Simulation) -> None:
             break
 
         # 2) 罚息/复利按日累计至本期扣款日
-        accrue(sim, sim.prev_event_date, due_date)
+        if sim.prev_event_date is not None:
+            accrue(sim, sim.prev_event_date, due_date)
         sim.prev_event_date = due_date
 
         # 3) 计息：本期利率（以扣款日为准）
