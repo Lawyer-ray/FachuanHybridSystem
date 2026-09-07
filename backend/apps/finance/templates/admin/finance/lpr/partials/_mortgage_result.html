@@ -5,29 +5,29 @@
     <!-- 诉讼请求汇总 -->
     <div class="lpr-calc__result-card lpr-calc__result-card--highlight">
         <div class="lpr-calc__result-label">
-            {% trans "诉讼请求合计（截至" %} <span x-text="mResult.claim.claim_date"></span>{% trans "）" %}
+            {% trans "诉讼请求合计（截至" %} <span x-text="mResult?.claim?.claim_date"></span>{% trans "）" %}
         </div>
-        <div class="lpr-calc__result-value" x-text="'¥' + formatMoney(mResult.claim.total_claim)"></div>
+        <div class="lpr-calc__result-value" x-text="'¥' + formatMoney(mResult?.claim?.total_claim)"></div>
         <div class="lpr-calc__result-grid" style="grid-template-columns: repeat(4, 1fr);">
             <div class="lpr-calc__result-item">
-                <div class="lpr-calc__result-item-value" x-text="formatMoney(mResult.claim.outstanding_principal)"></div>
+                <div class="lpr-calc__result-item-value" x-text="formatMoney(mResult?.claim?.outstanding_principal)"></div>
                 <div class="lpr-calc__result-item-label">{% trans "剩余本金" %}</div>
             </div>
             <div class="lpr-calc__result-item">
-                <div class="lpr-calc__result-item-value" x-text="formatMoney(mResult.claim.unpaid_interest)"></div>
+                <div class="lpr-calc__result-item-value" x-text="formatMoney(mResult?.claim?.unpaid_interest)"></div>
                 <div class="lpr-calc__result-item-label">{% trans "未付利息" %}</div>
             </div>
             <div class="lpr-calc__result-item">
-                <div class="lpr-calc__result-item-value" x-text="formatMoney(mResult.claim.penalty_interest)"></div>
+                <div class="lpr-calc__result-item-value" x-text="formatMoney(mResult?.claim?.penalty_interest)"></div>
                 <div class="lpr-calc__result-item-label">{% trans "罚息" %}</div>
             </div>
             <div class="lpr-calc__result-item">
-                <div class="lpr-calc__result-item-value" x-text="formatMoney(mResult.claim.compound_interest)"></div>
+                <div class="lpr-calc__result-item-value" x-text="formatMoney(mResult?.claim?.compound_interest)"></div>
                 <div class="lpr-calc__result-item-label">{% trans "复利" %}</div>
             </div>
         </div>
         <div style="margin-top: 14px; padding: 10px 14px; background: rgba(255,255,255,0.12); border-radius: 8px; font-size: 13px;">
-            📌 {% trans "此后每日新增利息/罚息合计" %} <strong x-text="'¥' + formatMoney(mResult.claim.daily_accrual)"></strong>
+            📌 {% trans "此后每日新增利息/罚息合计" %} <strong x-text="'¥' + formatMoney(mResult?.claim?.daily_accrual)"></strong>
             <span style="opacity: 0.8;">（{% trans "可主张支付至实际清偿之日止" %}）</span>
         </div>
         <div style="display: flex; gap: 10px;">
@@ -37,8 +37,8 @@
     </div>
 
     <!-- 警告条 -->
-    <div x-show="mResult.warnings && mResult.warnings.length > 0" style="display: none; margin-top: 14px;">
-        <template x-for="(w, i) in mResult.warnings" :key="i">
+    <div x-show="mResult?.warnings && mResult.warnings.length > 0" style="display: none; margin-top: 14px;">
+        <template x-for="(w, i) in mResult?.warnings || []" :key="i">
             <div style="background: var(--fc-warning-subtle, #fef9c3); border: 1px solid var(--fc-warning-border, #fde68a); color: var(--fc-warning, #a16207); padding: 10px 14px; border-radius: 8px; font-size: 12px; margin-bottom: 8px;">
                 ⚠ <span x-text="w"></span>
             </div>
@@ -117,7 +117,7 @@
                     </tr>
                 </thead>
                 <tbody>
-                    <template x-for="r in mResult.schedule_rows" :key="r.period_no">
+                    <template x-for="r in mResult?.schedule_rows || []" :key="r.period_no">
                         <tr :style="r.rescheduled ? 'background: var(--fc-primary-subtle, #eff6ff);' : ''">
                             <td x-text="r.period_no + (r.rescheduled ? ' ⟳' : '')"></td>
                             <td x-text="r.due_date"></td>
@@ -136,5 +136,5 @@
 
 <!-- 房贷违约计算错误 -->
 <div x-show="mResult && !mResult.success" style="display: none; margin-top: 20px;" class="lpr-calc__result-card">
-    <div class="lpr-calc__error" x-text="mResult.message"></div>
+    <div class="lpr-calc__error" x-text="mResult?.message"></div>
 </div>

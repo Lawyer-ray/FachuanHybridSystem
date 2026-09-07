@@ -112,7 +112,7 @@ class CaseContactInlineForm(forms.ModelForm[CaseContact]):  # pragma: no cover
         return cleaned
 
 
-class CaseContactInline(BaseStackedInline):  # pragma: no cover
+class CaseContactInline(BaseTabularInline):  # pragma: no cover
     model = CaseContact
     form = CaseContactInlineForm
     extra = 1

@@ -142,7 +142,8 @@
                 html += `<div><strong>支付令申请费：</strong>${formatCurrency(result.payment_order_fee)}</div>`;
             }
 
-            targetDisplay.innerHTML = html || '<div style="color: var(--fc-text-muted);">请输入涉案金额</div>';
+            targetDisplay.innerHTML = html;
+            targetDisplay.style.display = html ? '' : 'none';
         }
 
         // 财产保全费
@@ -150,8 +151,10 @@
         if (preservationDisplay) {
             if (result.preservation_fee !== null && result.preservation_fee !== undefined) {
                 preservationDisplay.innerHTML = `<div><strong>财产保全费：</strong>${formatCurrency(result.preservation_fee)}</div>`;
+                preservationDisplay.style.display = '';
             } else {
-                preservationDisplay.innerHTML = '<div style="color: var(--fc-text-muted);">请输入财产保全金额</div>';
+                preservationDisplay.innerHTML = '';
+                preservationDisplay.style.display = 'none';
             }
         }
     }

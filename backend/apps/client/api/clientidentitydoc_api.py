@@ -59,12 +59,14 @@ async def recognize_identity_doc(  # pragma: no cover
         model=normalized_model,
         source_name=getattr(file, "name", None),
     )
+    raw_text = result.get("raw_text") or ""
     return IdentityRecognizeOut(
         success=result["success"],
         doc_type=result["doc_type"],
         extracted_data=result["extracted_data"],
         confidence=result["confidence"],
         error=result.get("error"),
+        raw_text=raw_text,
     )
 
 

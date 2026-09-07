@@ -254,9 +254,10 @@ class IdentityRecognizeOut(Schema):
 
     success: bool
     doc_type: str
-    extracted_data: dict[str, str | None]
+    extracted_data: dict[str, Any]
     confidence: float
     error: str | None = None
+    raw_text: str = ""
 
 
 class RelatedCaseOut(Schema):
