@@ -176,3 +176,47 @@ class TestModuleImports:
         assert callable(launch_chrome)
         assert callable(kill_chrome)
         assert callable(is_cdp_ready)
+
+
+class TestEnsureBrowserBinary:
+    """ensure_browser_binary 智能报错封装测试。"""
+
+    def test_returns_binary_path_when_ready(self) -> None:
+        from apps.core.services.browser.launcher import ensure_browser_binary
+
+        with patch("cloakbrowser.ensure_binary", return_value="/.cloakbrowser/chrome"):
+            assert ensure_browser_binary() == "/.cloakbrowser/chrome"
+
+    def test_network_error_gives_actionable_hint(self) -> None:
+        from pathlib import Path
+
+        import httpx
+
+        from apps.core.services.browser.launcher import CloakBrowserInstallError, ensure_browser_binary
+
+        with patch("cloakbrowser.ensure_binary", side_effect=httpx.ConnectTimeout("timed out")), \
+             patch("cloakbrowser.config.get_binary_path", return_value=Path("/.cloakbrowser/chromium/chrome.exe")):
+            with pytest.raises(CloakBrowserInstallError) as ei:
+                ensure_browser_binary()
+        msg = str(ei.value)
+        assert "下载失败" in msg
+        assert "CLOAKBROWSER_DOWNLOAD_URL" in msg
+        assert "CLOAKBROWSER_BINARY_PATH" in msg
+        assert "timed out" in msg  # 保留原始错误便于排查
+
+    def test_binary_path_non_existent_gives_hint(self) -> None:
+        from apps.core.services.browser.launcher import CloakBrowserInstallError, ensure_browser_binary
+
+        with patch("cloakbrowser.ensure_binary", side_effect=FileNotFoundError("no")), \
+             patch("cloakbrowser.config.get_local_binary_override", return_value="C:/nope/chrome.exe"):
+            with pytest.raises(CloakBrowserInstallError) as ei:
+                ensure_browser_binary()
+        assert "CLOAKBROWSER_BINARY_PATH" in str(ei.value)
+
+    def test_runtime_error_preserves_message(self) -> None:
+        from apps.core.services.browser.launcher import CloakBrowserInstallError, ensure_browser_binary
+
+        with patch("cloakbrowser.ensure_binary", side_effect=RuntimeError("Unsupported platform")):
+            with pytest.raises(CloakBrowserInstallError) as ei:
+                ensure_browser_binary()
+        assert "Unsupported platform" in str(ei.value)

@@ -12,6 +12,8 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+import httpx
+
 from .anti_detection import anti_detection
 from .profiles import BrowserProfile
 
@@ -19,6 +21,43 @@ if TYPE_CHECKING:
     from playwright.sync_api import Browser, BrowserContext, Page
 
 logger = logging.getLogger("apps.core")
+
+
+class CloakBrowserInstallError(RuntimeError):
+    """CloakBrowser 二进制不可用，携带可操作的修复指引。"""
+
+
+def ensure_browser_binary() -> str:
+    """确保 CloakBrowser 二进制可用，返回可执行文件路径。
+
+    包装 ``cloakbrowser.ensure_binary()``，把裸的网络/配置/平台异常翻译成可操作的
+    中文修复指引（而不是一句 ``timed out`` 或整屏堆栈），方便部署时直接照做。
+    """
+    from cloakbrowser import ensure_binary
+    from cloakbrowser.config import get_binary_path, get_local_binary_override
+
+    try:
+        return str(ensure_binary())
+    except httpx.HTTPError as exc:
+        expected = get_binary_path()
+        raise CloakBrowserInstallError(
+            "CloakBrowser 浏览器二进制下载失败（下载源不可达）。\n"
+            f"期望安装位置: {expected}\n"
+            "请任选其一修复：\n"
+            "  1) 设置 CLOAKBROWSER_DOWNLOAD_URL 为可访问的镜像地址"
+            "（注意：设置自定义源后将不再回退 GitHub）；\n"
+            "  2) 离线预置：把对应平台的安装包解压到上述缓存目录后重试；\n"
+            "  3) 设置 CLOAKBROWSER_BINARY_PATH 指向本机已安装的 Chromium/Chrome 可执行文件。\n"
+            f"原始错误: {exc}"
+        ) from exc
+    except FileNotFoundError as exc:
+        override = get_local_binary_override()
+        raise CloakBrowserInstallError(
+            f"已设置 CLOAKBROWSER_BINARY_PATH={override}，但该路径下不存在可执行文件，"
+            "请检查路径是否正确，或去掉该环境变量改用自动下载。"
+        ) from exc
+    except RuntimeError as exc:
+        raise CloakBrowserInstallError(f"CloakBrowser 安装失败（平台不支持/校验/解压问题）：{exc}") from exc
 
 
 @contextmanager
@@ -36,14 +75,14 @@ def launch_browser(  # pragma: no cover
     Yields:
         (page, context) 元组
     """
-    from cloakbrowser import ensure_binary, launch, launch_persistent_context
+    from cloakbrowser import launch, launch_persistent_context
 
     browser: Browser | None = None
     context: BrowserContext | None = None
     page: Page | None = None
 
     try:
-        ensure_binary()
+        ensure_browser_binary()
 
         logger.info("启动 CloakBrowser (profile=%s, headless=%s)", profile.name, profile.headless)
 
@@ -86,7 +125,7 @@ def launch_browser(  # pragma: no cover
 
         # dialog 处理（CloakBrowser 继承 Playwright 的 dialog 拦截行为）
         assert page is not None
-        page.on("dialog", lambda d: d.accept())  # type: ignore[attr-defined]
+        page.on("dialog", lambda d: d.accept())
 
         # macOS 补充指纹补丁（26→58 差异）
         anti_detection.apply_macos_patches(page)

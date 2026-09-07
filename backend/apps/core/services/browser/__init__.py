@@ -132,11 +132,12 @@ async def create_browser_async(  # pragma: no cover
             yield page, context
     else:
         # 原生 launch 的异步版本（CloakBrowser）
-        from cloakbrowser import ensure_binary, launch_async
+        from cloakbrowser import launch_async
 
         from .anti_detection import anti_detection
+        from .launcher import ensure_browser_binary
 
-        ensure_binary()
+        ensure_browser_binary()
         browser = await launch_async(
             headless=profile.headless,
             humanize=profile.anti_detection,
