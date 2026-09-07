@@ -20,14 +20,19 @@ from pathlib import Path
 _APPS_ROOT = Path(__file__).resolve().parents[3] / "apps"
 
 # ── Ratchet baselines ─────────────────────────────────────────
-# Current counts as of 2026-04-25. These set upper limits on
+# Current counts as of 2026-09-07. These set upper limits on
 # violations; the goal is to drive them toward zero.
+#
+# 注意：CI 仅对 tests/ci/structure/ 做 collect-only（见 backend-ci.yml），
+# 棘轮实际生效依赖本地全量 pytest，抬基线时须先跑真实计数。
 
 # API layer calling Model.objects directly
 API_MODEL_OBJECTS_RATCHET = 55
 
 # Service layer using @staticmethod
-SERVICE_STATIC_METHOD_RATCHET = 250
+# 2026-09-07 重校准：d93103c43 设立基线时实际已 251（同 commit 引入的
+# automation 60 文件被漏数），后续 finance/client/oa_filing 增长至 254。
+SERVICE_STATIC_METHOD_RATCHET = 254
 
 
 def _scan_api_model_objects() -> list[tuple[str, int, str]]:

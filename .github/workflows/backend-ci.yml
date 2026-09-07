@@ -269,7 +269,7 @@ jobs:
             apps/automation/utils/logging_mixins/common.py \
             apiSystem/apiSystem/api.py
 
-      - name: Tests (collection smoke)
+      - name: Tests (structure, real run)
         env:
           DJANGO_DEBUG: "1"
           DB_ENGINE: "postgresql"
@@ -280,7 +280,7 @@ jobs:
           TEST_DB_HOST: "127.0.0.1"
           TEST_DB_PORT: "5432"
           PYTHONPATH: "apiSystem:."
-        run: uv run pytest -c pytest.ini --no-cov --collect-only -q tests/ci/structure/
+        run: uv run pytest -c pytest.ini --no-cov -q tests/ci/structure/
 
       - name: Smoke check (minimal)
         env:
