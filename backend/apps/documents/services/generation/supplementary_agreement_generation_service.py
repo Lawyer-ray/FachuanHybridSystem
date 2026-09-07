@@ -242,7 +242,7 @@ class SupplementaryAgreementGenerationService:
             # 获取文件名列表（云存储 vs 本地）
             storage_type = getattr(binding, "storage_type", "local")
             if storage_type != "local":
-                from apps.core.cloud_storage.factory import create_provider_for_binding
+                from apps.cloud_storage.factory import create_provider_for_binding
 
                 provider = create_provider_for_binding(binding)
                 names: list[str] = []

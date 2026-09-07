@@ -126,7 +126,7 @@ class BaseFolderBindingService:
 
     def _get_provider_for_binding(self, binding: Any) -> Any:
         """Create the appropriate CloudStorageProvider for a binding."""
-        from apps.core.cloud_storage.factory import create_provider_for_binding
+        from apps.cloud_storage.factory import create_provider_for_binding
 
         return create_provider_for_binding(binding)
 

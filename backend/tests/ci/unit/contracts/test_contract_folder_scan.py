@@ -209,7 +209,7 @@ class TestMakeProviderForBindingCloud:
     def setup_method(self):
         self.service = ContractFolderScanService(scan_service=MagicMock())
 
-    @patch("apps.core.cloud_storage.factory.create_provider_for_binding")
+    @patch("apps.cloud_storage.factory.create_provider_for_binding")
     def test_cloud_returns_provider(self, mock_create):
         binding = MagicMock()
         binding.storage_type = "webdav"

@@ -80,6 +80,7 @@ _HIDDEN_APP_LABELS = {
     "cases",  # 已收纳到「办案」
     "contacts",  # 已收纳到「其他工具」
     "oa_filing",  # 已收纳到「其他工具」
+    "cloud_storage",  # 已收纳到「其他工具」（app 从 core 拆出后需显式隐藏）
     "automation",
     "document_recognition",
     "document_parsing",  # 文档解析（MinerU）
@@ -114,6 +115,7 @@ _HIDDEN_APP_LABELS = {
 # "其他工具"聚合页应用列表
 _OTHER_TOOLS_APPS = [
     {"app_label": "contacts", "name": _("案件工作人员"), "url": "/admin/contacts/"},
+    {"app_label": "cloud_storage", "name": _("云存储"), "url": "/admin/cloud_storage/"},
     {"app_label": "oa_filing", "name": _("OA 立案"), "url": "/admin/oa_filing/filingsession/"},
     {"app_label": "oa_filing", "name": _("OA 盖章"), "url": "/admin/oa_filing/stampsession/"},
     {"app_label": "automation", "name": _("自动化工具"), "url": "/admin/automation/"},

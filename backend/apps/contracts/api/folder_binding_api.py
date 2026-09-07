@@ -49,7 +49,9 @@ def _require_admin(request: HttpRequest) -> None:
 
 
 @router.post("/{contract_id}/folder-binding", response=FolderBindingResponseSchema)
-async def create_folder_binding(request: HttpRequest, contract_id: int, data: FolderBindingCreateSchema) -> Any:  # pragma: no cover
+async def create_folder_binding(
+    request: HttpRequest, contract_id: int, data: FolderBindingCreateSchema
+) -> Any:  # pragma: no cover
     """
     创建或更新文件夹绑定
 
@@ -73,7 +75,7 @@ async def create_folder_binding(request: HttpRequest, contract_id: int, data: Fo
     # Resolve storage_account if provided
     storage_account = None
     if data.storage_account_id and data.storage_type != "local":
-        from apps.core.cloud_storage.models import CloudStorageAccount
+        from apps.cloud_storage.models import CloudStorageAccount
 
         storage_account = await CloudStorageAccount.objects.filter(
             id=data.storage_account_id, storage_type=data.storage_type, is_active=True
@@ -197,7 +199,7 @@ def browse_folders(  # pragma: no cover
 
     # ── Cloud storage browse ──
     if storage_type and storage_type != "local" and storage_account_id:
-        from apps.core.cloud_storage.browse_helper import browse_cloud_folder
+        from apps.cloud_storage.browse_helper import browse_cloud_folder
 
         result = browse_cloud_folder(
             storage_type=storage_type,
@@ -277,6 +279,6 @@ def browse_folders(  # pragma: no cover
 def list_cloud_storage_accounts(request: HttpRequest) -> list[dict[str, Any]]:  # pragma: no cover
     """List available cloud storage accounts for folder binding."""
     _require_admin(request)
-    from apps.core.cloud_storage.browse_helper import list_active_cloud_accounts
+    from apps.cloud_storage.browse_helper import list_active_cloud_accounts
 
     return list_active_cloud_accounts()

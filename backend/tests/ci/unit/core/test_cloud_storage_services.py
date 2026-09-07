@@ -7,10 +7,10 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from apps.core.cloud_storage.local import LocalProvider
-from apps.core.cloud_storage.null_provider import NullProvider
-from apps.core.cloud_storage.factory import create_provider_for_binding, create_provider_from_account
-from apps.core.cloud_storage.protocols import CloudFileInfo
+from apps.cloud_storage.factory import create_provider_for_binding, create_provider_from_account
+from apps.cloud_storage.local import LocalProvider
+from apps.cloud_storage.null_provider import NullProvider
+from apps.cloud_storage.protocols import CloudFileInfo
 
 
 class TestLocalProvider:

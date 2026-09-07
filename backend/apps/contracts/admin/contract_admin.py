@@ -365,8 +365,8 @@ class ContractAdmin(
 
             raise PermissionDenied
 
+        from apps.cloud_storage.browse_helper import list_active_cloud_accounts
         from apps.contracts.admin.wiring_admin import get_contract_batch_folder_binding_service
-        from apps.core.cloud_storage.browse_helper import list_active_cloud_accounts
 
         service = get_contract_batch_folder_binding_service()
         context = self.admin_site.each_context(request)

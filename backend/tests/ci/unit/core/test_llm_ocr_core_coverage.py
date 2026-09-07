@@ -6,7 +6,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-
 # --- ollama backend ---
 
 class TestOllamaBackend:
@@ -173,7 +172,7 @@ class TestAutomationFactory:
 
 class TestGDriveProvider:
     def test_import(self):
-        from apps.core.cloud_storage.gdrive_provider import GDriveProvider
+        from apps.cloud_storage.gdrive_provider import GDriveProvider
 
         assert GDriveProvider is not None
 
@@ -182,7 +181,7 @@ class TestGDriveProvider:
 
 class TestDropboxProvider:
     def test_import(self):
-        from apps.core.cloud_storage.dropbox_provider import DropboxProvider
+        from apps.cloud_storage.dropbox_provider import DropboxProvider
 
         assert DropboxProvider is not None
 
@@ -191,7 +190,7 @@ class TestDropboxProvider:
 
 class TestCloudStorageAdmin:
     def test_import(self):
-        from apps.core.cloud_storage.admin import CloudStorageAccountAdmin
+        from apps.cloud_storage.admin import CloudStorageAccountAdmin
 
         assert CloudStorageAccountAdmin is not None
 
@@ -209,6 +208,8 @@ class TestFolderBindingBase:
 
 class TestTianyanchaResponseAdapter:
     def test_import(self):
-        from apps.enterprise_data.services.providers.adapters.tianyancha_response_adapter import TianyanchaResponseAdapter
+        from apps.enterprise_data.services.providers.adapters.tianyancha_response_adapter import (
+            TianyanchaResponseAdapter,
+        )
 
         assert TianyanchaResponseAdapter is not None

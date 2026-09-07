@@ -4,15 +4,15 @@ from __future__ import annotations
 
 import io
 import zipfile
-from datetime import datetime, timezone as tz, UTC
+from datetime import UTC, datetime
+from datetime import timezone as tz
 from pathlib import PurePosixPath
 from types import SimpleNamespace
-from unittest.mock import MagicMock, Mock, PropertyMock, patch, call
+from unittest.mock import MagicMock, Mock, PropertyMock, call, patch
 
 import pytest
 
 from apps.core.exceptions import NotFoundError, ValidationException
-
 
 # ============================================================================
 # folder_binding_crud_service.py — FolderBindingCrudService
@@ -369,8 +369,8 @@ class TestBaseFolderBindingServiceMethods:
             assert svc.check_folder_accessible("/cloud/path", binding=binding) is False
 
     def test_list_subdirs_cloud(self):
+        from apps.cloud_storage.protocols import CloudFileInfo
         from apps.core.filesystem.folder_binding_base import BaseFolderBindingService
-        from apps.core.cloud_storage.protocols import CloudFileInfo
 
         svc = BaseFolderBindingService()
         binding = SimpleNamespace(storage_type="s3", storage_account=Mock())
@@ -386,8 +386,8 @@ class TestBaseFolderBindingServiceMethods:
             assert result[0]["name"] == "subdir1"
 
     def test_list_subdirs_cloud_include_hidden(self):
+        from apps.cloud_storage.protocols import CloudFileInfo
         from apps.core.filesystem.folder_binding_base import BaseFolderBindingService
-        from apps.core.cloud_storage.protocols import CloudFileInfo
 
         svc = BaseFolderBindingService()
         binding = SimpleNamespace(storage_type="s3", storage_account=Mock())
@@ -547,7 +547,7 @@ class TestBaseFolderBindingServiceMethods:
 
 def _make_s3_provider(root: str = "") -> S3Provider:
     """Create an S3Provider without actually connecting to S3."""
-    from apps.core.cloud_storage.s3_provider import S3Provider
+    from apps.cloud_storage.s3_provider import S3Provider
 
     provider = object.__new__(S3Provider)
     provider._bucket = "test-bucket"
@@ -727,7 +727,7 @@ class TestS3ProviderGetFileInfo:
 
 class TestS3ProviderWalk:
     def test_walks_tree(self):
-        from apps.core.cloud_storage.protocols import CloudFileInfo
+        from apps.cloud_storage.protocols import CloudFileInfo
 
         provider = _make_s3_provider(root="")
 

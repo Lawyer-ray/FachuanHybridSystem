@@ -51,11 +51,15 @@ class CloudStorageAccount(models.Model):
     onedrive_refresh_token = models.TextField(blank=True, default="", verbose_name=_("OneDrive Refresh Token（加密）"))
     onedrive_token_expires_at = models.DateTimeField(null=True, blank=True, verbose_name=_("Token 过期时间"))
     onedrive_pending_device_code = models.TextField(
-        blank=True, default="", verbose_name=_("OneDrive 待轮询 Device Code"),
+        blank=True,
+        default="",
+        verbose_name=_("OneDrive 待轮询 Device Code"),
         help_text=_("授权流程中临时存储，进程重启后可恢复轮询"),
     )
     onedrive_pending_expires_at = models.DateTimeField(
-        null=True, blank=True, verbose_name=_("Device Code 过期时间"),
+        null=True,
+        blank=True,
+        verbose_name=_("Device Code 过期时间"),
     )
 
     # ── S3 fields ───────────────────────────────────────────────
@@ -87,10 +91,14 @@ class CloudStorageAccount(models.Model):
     dropbox_token_expires_at = models.DateTimeField(null=True, blank=True, verbose_name=_("Dropbox Token 过期时间"))
     dropbox_root_path = models.CharField(max_length=1000, blank=True, default="/", verbose_name=_("Dropbox 根路径"))
     dropbox_pending_device_code = models.TextField(
-        blank=True, default="", verbose_name=_("Dropbox 待轮询 Device Code"),
+        blank=True,
+        default="",
+        verbose_name=_("Dropbox 待轮询 Device Code"),
     )
     dropbox_pending_expires_at = models.DateTimeField(
-        null=True, blank=True, verbose_name=_("Dropbox Device Code 过期时间"),
+        null=True,
+        blank=True,
+        verbose_name=_("Dropbox Device Code 过期时间"),
     )
 
     # ── Local fields ───────────────────────────────────────────
@@ -103,6 +111,9 @@ class CloudStorageAccount(models.Model):
         verbose_name = _("云存储账号")
         verbose_name_plural = _("云存储账号")
         ordering = ["-created_at"]
+        # 钉死旧表名：app 从 core 拆出后避免 Django 默认生成 cloud_storage_cloudstorageaccount，
+        # 保证线上表零变更、零数据迁移。
+        db_table = "core_cloudstorageaccount"
         indexes: ClassVar = [
             models.Index(fields=["storage_type"]),
             models.Index(fields=["is_active"]),

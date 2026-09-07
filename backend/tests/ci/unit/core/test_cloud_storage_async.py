@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
-import pytest
 from pathlib import Path
 
-from apps.core.cloud_storage.local import LocalProvider
+import pytest
+
+from apps.cloud_storage.local import LocalProvider
 
 
 @pytest.mark.asyncio

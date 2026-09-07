@@ -124,7 +124,7 @@ class CaseFolderScanService:
         # Cloud storage: use provider to list subdirectories
         storage_type = getattr(binding, "storage_type", "local")
         if storage_type != "local":
-            from apps.core.cloud_storage.factory import create_provider_for_binding
+            from apps.cloud_storage.factory import create_provider_for_binding
 
             provider = create_provider_for_binding(binding)
             root_path = binding.resolved_folder_path
@@ -223,7 +223,7 @@ class CaseFolderScanService:
 
             binding = CaseFolderBinding.objects.filter(case_id=case_id).first()
             if binding and getattr(binding, "storage_type", "local") != "local":
-                from apps.core.cloud_storage.factory import create_provider_for_binding
+                from apps.cloud_storage.factory import create_provider_for_binding
 
                 storage_provider = create_provider_for_binding(binding)
         except Exception:
@@ -272,7 +272,7 @@ class CaseFolderScanService:
             if storage_provider is not None:
                 from pathlib import PurePosixPath
 
-                from apps.core.cloud_storage.exceptions import CloudStorageError
+                from apps.cloud_storage.exceptions import CloudStorageError
 
                 try:
                     file_bytes = storage_provider.read_file(source_path)
@@ -456,7 +456,7 @@ class CaseFolderScanService:
                 updated_at=timezone.now(),
             )
         except Exception as exc:
-            from apps.core.cloud_storage.exceptions import CloudStorageError
+            from apps.cloud_storage.exceptions import CloudStorageError
 
             if isinstance(exc, CloudStorageError):
                 error_msg = str(exc)
@@ -495,7 +495,7 @@ class CaseFolderScanService:
                     )
         else:
             # Cloud storage: use provider to check accessibility
-            from apps.core.cloud_storage.factory import create_provider_for_binding
+            from apps.cloud_storage.factory import create_provider_for_binding
 
             provider = create_provider_for_binding(binding)
             try:
@@ -562,7 +562,7 @@ class CaseFolderScanService:
         storage_type = getattr(binding, "storage_type", "local")
         if storage_type == "local":
             return None
-        from apps.core.cloud_storage.factory import create_provider_for_binding
+        from apps.cloud_storage.factory import create_provider_for_binding
 
         return create_provider_for_binding(binding)
 

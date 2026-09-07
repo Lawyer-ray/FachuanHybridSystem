@@ -6,11 +6,11 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from apps.core.cloud_storage.browse_helper import browse_cloud_folder, list_active_cloud_accounts
+from apps.cloud_storage.browse_helper import browse_cloud_folder, list_active_cloud_accounts
 
 
 class TestListActiveCloudAccounts:
-    @patch("apps.core.cloud_storage.browse_helper.CloudStorageAccount")
+    @patch("apps.cloud_storage.browse_helper.CloudStorageAccount")
     def test_returns_active_accounts(self, mock_csa):
         mock_qs = MagicMock()
         mock_csa.objects.filter.return_value = mock_qs
@@ -23,7 +23,7 @@ class TestListActiveCloudAccounts:
         result = list_active_cloud_accounts()
         mock_csa.objects.filter.assert_called_once_with(is_active=True)
 
-    @patch("apps.core.cloud_storage.browse_helper.CloudStorageAccount")
+    @patch("apps.cloud_storage.browse_helper.CloudStorageAccount")
     def test_empty_when_no_accounts(self, mock_csa):
         mock_qs = MagicMock()
         mock_csa.objects.filter.return_value = mock_qs
@@ -36,7 +36,7 @@ class TestListActiveCloudAccounts:
 
 
 class TestBrowseCloudFolder:
-    @patch("apps.core.cloud_storage.browse_helper.CloudStorageAccount")
+    @patch("apps.cloud_storage.browse_helper.CloudStorageAccount")
     def test_account_not_found(self, mock_csa):
         mock_csa.objects.filter.return_value.first.return_value = None
 
@@ -48,8 +48,8 @@ class TestBrowseCloudFolder:
         assert result["browsable"] is False
         assert "不存在" in result["message"]
 
-    @patch("apps.core.cloud_storage.factory.create_provider_from_account")
-    @patch("apps.core.cloud_storage.browse_helper.CloudStorageAccount")
+    @patch("apps.cloud_storage.factory.create_provider_from_account")
+    @patch("apps.cloud_storage.browse_helper.CloudStorageAccount")
     def test_successful_browse(self, mock_csa, mock_create_provider):
         mock_account = MagicMock()
         mock_csa.objects.filter.return_value.first.return_value = mock_account
@@ -77,8 +77,8 @@ class TestBrowseCloudFolder:
         assert result["entries"][1]["name"] == "folder2"
         assert result["path"] == "/docs"
 
-    @patch("apps.core.cloud_storage.factory.create_provider_from_account")
-    @patch("apps.core.cloud_storage.browse_helper.CloudStorageAccount")
+    @patch("apps.cloud_storage.factory.create_provider_from_account")
+    @patch("apps.cloud_storage.browse_helper.CloudStorageAccount")
     def test_provider_exception_returns_error(self, mock_csa, mock_create_provider):
         mock_account = MagicMock()
         mock_csa.objects.filter.return_value.first.return_value = mock_account
@@ -95,7 +95,7 @@ class TestBrowseCloudFolder:
         assert result["browsable"] is False
         assert "访问失败" in result["message"]
 
-    @patch("apps.core.cloud_storage.browse_helper.CloudStorageAccount")
+    @patch("apps.cloud_storage.browse_helper.CloudStorageAccount")
     def test_root_path_default(self, mock_csa):
         mock_csa.objects.filter.return_value.first.return_value = None
 
@@ -106,8 +106,8 @@ class TestBrowseCloudFolder:
         )
         assert result["browsable"] is False  # account not found
 
-    @patch("apps.core.cloud_storage.factory.create_provider_from_account")
-    @patch("apps.core.cloud_storage.browse_helper.CloudStorageAccount")
+    @patch("apps.cloud_storage.factory.create_provider_from_account")
+    @patch("apps.cloud_storage.browse_helper.CloudStorageAccount")
     def test_hidden_files_filtered(self, mock_csa, mock_create_provider):
         mock_account = MagicMock()
         mock_csa.objects.filter.return_value.first.return_value = mock_account
@@ -129,8 +129,8 @@ class TestBrowseCloudFolder:
         assert len(result["entries"]) == 1
         assert result["entries"][0]["name"] == "visible"
 
-    @patch("apps.core.cloud_storage.factory.create_provider_from_account")
-    @patch("apps.core.cloud_storage.browse_helper.CloudStorageAccount")
+    @patch("apps.cloud_storage.factory.create_provider_from_account")
+    @patch("apps.cloud_storage.browse_helper.CloudStorageAccount")
     def test_parent_path_computed(self, mock_csa, mock_create_provider):
         mock_account = MagicMock()
         mock_csa.objects.filter.return_value.first.return_value = mock_account
@@ -146,8 +146,8 @@ class TestBrowseCloudFolder:
         )
         assert result["parent_path"] == "/docs"
 
-    @patch("apps.core.cloud_storage.factory.create_provider_from_account")
-    @patch("apps.core.cloud_storage.browse_helper.CloudStorageAccount")
+    @patch("apps.cloud_storage.factory.create_provider_from_account")
+    @patch("apps.cloud_storage.browse_helper.CloudStorageAccount")
     def test_root_parent_is_slash(self, mock_csa, mock_create_provider):
         mock_account = MagicMock()
         mock_csa.objects.filter.return_value.first.return_value = mock_account

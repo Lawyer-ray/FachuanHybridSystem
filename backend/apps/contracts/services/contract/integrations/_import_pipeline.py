@@ -79,7 +79,7 @@ class ImportPipeline:
 
             # Read file content
             if storage_provider is not None:
-                from apps.core.cloud_storage.exceptions import CloudStorageError
+                from apps.cloud_storage.exceptions import CloudStorageError
 
                 try:
                     file_bytes = storage_provider.read_file(source_path)

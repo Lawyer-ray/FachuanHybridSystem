@@ -2,11 +2,10 @@
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 import pytest
-
 
 # ── system_update_service ───────────────────────────────────────
 
@@ -69,9 +68,9 @@ class TestSystemUpdateService:
         assert "T" in result
 
     def test_resolve_backend_root_with_backend(self) -> None:
-        from apps.core.services.system_update_service import SystemUpdateService
-
         import tempfile
+
+        from apps.core.services.system_update_service import SystemUpdateService
         with tempfile.TemporaryDirectory() as tmpdir:
             repo = Path(tmpdir)
             (repo / "backend").mkdir()
@@ -79,9 +78,9 @@ class TestSystemUpdateService:
             assert result == repo / "backend"
 
     def test_resolve_backend_root_without_backend(self) -> None:
-        from apps.core.services.system_update_service import SystemUpdateService
-
         import tempfile
+
+        from apps.core.services.system_update_service import SystemUpdateService
         with tempfile.TemporaryDirectory() as tmpdir:
             repo = Path(tmpdir)
             result = SystemUpdateService._resolve_backend_root(repo)
@@ -106,8 +105,8 @@ class TestSystemUpdateService:
         mock_cache.delete.assert_not_called()
 
     def test_append_step(self) -> None:
-        from apps.core.services.system_update_service import SystemUpdateService
         from apps.core.infrastructure.subprocess_runner import SubprocessOutput
+        from apps.core.services.system_update_service import SystemUpdateService
 
         svc = object.__new__(SystemUpdateService)
         svc._now_iso = lambda: "2024-01-01T00:00:00"
@@ -177,35 +176,35 @@ class TestConversationServiceAdditional:
 
 class TestS3Provider:
     def test_full_key_no_root(self) -> None:
-        from apps.core.cloud_storage.s3_provider import S3Provider
+        from apps.cloud_storage.s3_provider import S3Provider
 
         provider = object.__new__(S3Provider)
         provider._root = ""
         assert provider._full_key("path/to/file") == "path/to/file"
 
     def test_full_key_with_root(self) -> None:
-        from apps.core.cloud_storage.s3_provider import S3Provider
+        from apps.cloud_storage.s3_provider import S3Provider
 
         provider = object.__new__(S3Provider)
         provider._root = "root"
         assert provider._full_key("path/to/file") == "root/path/to/file"
 
     def test_full_key_strips_slashes(self) -> None:
-        from apps.core.cloud_storage.s3_provider import S3Provider
+        from apps.cloud_storage.s3_provider import S3Provider
 
         provider = object.__new__(S3Provider)
         provider._root = "root"
         assert provider._full_key("/path/to/file/") == "root/path/to/file"
 
     def test_full_key_empty_path(self) -> None:
-        from apps.core.cloud_storage.s3_provider import S3Provider
+        from apps.cloud_storage.s3_provider import S3Provider
 
         provider = object.__new__(S3Provider)
         provider._root = ""
         assert provider._full_key("") == ""
 
     def test_full_key_root_only(self) -> None:
-        from apps.core.cloud_storage.s3_provider import S3Provider
+        from apps.cloud_storage.s3_provider import S3Provider
 
         provider = object.__new__(S3Provider)
         provider._root = "bucket_root"

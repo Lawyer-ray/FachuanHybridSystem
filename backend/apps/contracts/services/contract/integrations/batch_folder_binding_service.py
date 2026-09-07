@@ -48,9 +48,7 @@ class ContractBatchFolderBindingService:
             .annotate(unbound_count=Count("id"))
             .order_by("case_type")
         )
-        presets = ContractTypeFolderRootPreset.objects.filter(
-            case_type__in=[str(row["case_type"]) for row in unbound]
-        )
+        presets = ContractTypeFolderRootPreset.objects.filter(case_type__in=[str(row["case_type"]) for row in unbound])
         preset_map: dict[str, dict[str, Any]] = {
             p.case_type: {
                 "root_path": p.root_path,
@@ -132,7 +130,7 @@ class ContractBatchFolderBindingService:
             # 持久化预设
             preset_defaults: dict[str, Any] = {"root_path": root_path, "storage_type": storage_type}
             if storage_type != "local" and storage_account_id:
-                from apps.core.cloud_storage.models import CloudStorageAccount
+                from apps.cloud_storage.models import CloudStorageAccount
 
                 preset_defaults["storage_account"] = CloudStorageAccount.objects.filter(
                     id=int(storage_account_id)
@@ -203,11 +201,9 @@ class ContractBatchFolderBindingService:
                     # 解析云存储账号对象
                     cloud_account = None
                     if storage_type_str != "local" and storage_account_id_val:
-                        from apps.core.cloud_storage.models import CloudStorageAccount
+                        from apps.cloud_storage.models import CloudStorageAccount
 
-                        cloud_account = CloudStorageAccount.objects.filter(
-                            id=int(storage_account_id_val)
-                        ).first()
+                        cloud_account = CloudStorageAccount.objects.filter(id=int(storage_account_id_val)).first()
 
                     self.folder_binding_service.create_binding(
                         owner_id=contract_id,
@@ -373,8 +369,8 @@ class ContractBatchFolderBindingService:
         storage_type: str,
         storage_account_id: str | int,
     ) -> list[dict[str, Any]]:
-        from apps.core.cloud_storage.factory import create_provider_from_account
-        from apps.core.cloud_storage.models import CloudStorageAccount
+        from apps.cloud_storage.factory import create_provider_from_account
+        from apps.cloud_storage.models import CloudStorageAccount
 
         account = CloudStorageAccount.objects.filter(
             id=int(storage_account_id),
@@ -548,7 +544,7 @@ class ContractBatchFolderBindingService:
         text = self._strip_leading_date(text)
         text = self._strip_leading_labels(text)
         text = re.sub(r"[（）()【】\[\]{}]", " ", text)
-        text = re.sub(r"[，。、""''；：,.!?！？\\-_/\\|]", " ", text)
+        text = re.sub(r"[，。、" "''；：,.!?！？\\-_/\\|]", " ", text)
         text = re.sub(r"\s+", " ", text).strip().lower()
         return text
 

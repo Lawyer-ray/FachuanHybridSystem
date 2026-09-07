@@ -64,7 +64,7 @@ def root_redirect(request: HttpRequest) -> HttpResponseRedirect:
 
 urlpatterns = [
     path("admin/register/", register, name="admin_register"),
-    path("admin/cloud-storage/", include("apps.core.cloud_storage.urls")),
+    path("admin/cloud-storage/", include("apps.cloud_storage.urls")),
     path("admin/", admin.site.urls),
     path("i18n/", include("django.conf.urls.i18n")),
     # 社交登录（放在 api/v1/ 之前，避免被 Ninja 路由匹配）

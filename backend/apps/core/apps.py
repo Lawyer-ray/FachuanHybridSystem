@@ -24,14 +24,7 @@ class CoreConfig(AppConfig):
             logger.debug("django-q spawn patch 跳过（未就绪）")
 
         # 恢复因 runserver auto-reload 中断的 OAuth device code 轮询
-        try:
-            from .cloud_storage.admin import resume_pending_device_code_polls
-
-            with allow_startup_db():
-                resume_pending_device_code_polls()
-        except Exception:
-            # 数据库未就绪（如 migrate 阶段）时静默跳过
-            logger.debug("跳过 device code 恢复（数据库可能未就绪）")
+        # （cloud_storage 已拆为独立 app，恢复逻辑迁至 apps/cloud_storage/apps.py）
 
         # 注册文件清理定时任务
         try:
