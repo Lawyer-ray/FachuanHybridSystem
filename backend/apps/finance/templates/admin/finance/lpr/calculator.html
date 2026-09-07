@@ -410,11 +410,12 @@
     </div>
 
     <div class="lpr-calc__main">
-        <!-- 利息计算 tab -->
-        <div x-show="tab === 'interest'">
-            <div x-data="lprCalculator()" x-init="init()">
-                {% include "admin/finance/lpr/partials/_form.html" %}
-            </div>
+        <!-- 利息计算 tab（表单+结果共用一个 Alpine 组件） -->
+        <div x-show="tab === 'interest'" x-data="lprCalculator()" x-init="init()">
+            {% include "admin/finance/lpr/partials/_form.html" %}
+
+            <!-- 利息计算结果 -->
+            {% include "admin/finance/lpr/partials/_result.html" %}
         </div>
 
         <!-- 房贷逾期诉讼 tab（表单+结果共用一个 Alpine 组件） -->
@@ -425,15 +426,6 @@
 
             {% include "admin/finance/lpr/partials/_mortgage_result.html" %}
         </div>
-
-        <!-- 利息计算结果 -->
-        <div x-show="tab === 'interest'">
-            <div x-data="lprCalculator()">
-                {% include "admin/finance/lpr/partials/_result.html" %}
-            </div>
-        </div>
-
-        <!-- 房贷违约结果 -->
     </div>
 </div>
 
