@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from typing import Any
-from unittest.mock import AsyncMock, MagicMock, patch, PropertyMock
+from unittest.mock import AsyncMock, MagicMock, PropertyMock, patch
 
 import httpx
 import pytest
@@ -18,6 +18,7 @@ except ImportError:
 pytestmark = pytest.mark.skipif(not _HAS_MH, reason="message_hub plugin not installed")
 
 from apps.message_hub.models import SyncStatus
+
 if _HAS_MH:
     from plugins.message_hub.services.court.court_fetcher import (
         CourtInboxFetcher,
@@ -371,22 +372,58 @@ class TestCourtInboxFetcherDownloadAttachment:
             with pytest.raises(Exception):
                 fetcher.download_attachment(source, "msg-1", 0)
 
-    def test_local_file_exists(self) -> None:
-        with patch(self._PATCH_INBOX) as MockInbox:
+    def test_local_file_exists(self, tmp_path) -> None:
+        # local_path 现在按 MEDIA_ROOT 解析（兼容历史 WSL/Windows 绝对路径），
+        # 用真实临时文件验证：把 MEDIA_ROOT 指向 tmp_path，local_path 写相对路径
+        real_file = tmp_path / "f.pdf"
+        real_file.write_bytes(b"content")
+
+        with patch(self._PATCH_INBOX) as MockInbox, patch(
+            "plugins.message_hub.services.base.settings"
+        ) as mock_settings:
+            mock_settings.MEDIA_ROOT = tmp_path
             mock_msg = MagicMock()
-            mock_msg.attachments_meta = [{"part_index": 0, "filename": "f.pdf", "content_type": "application/pdf", "local_path": "/tmp/f.pdf", "size": 100}]
+            mock_msg.attachments_meta = [
+                {"part_index": 0, "filename": "f.pdf", "content_type": "application/pdf", "local_path": "f.pdf", "size": 100}
+            ]
             MockInbox.objects.get.return_value = mock_msg
 
-            # Patch Path in the court_fetcher module so Path(local_path).exists() returns True
-            mock_path_instance = MagicMock()
-            mock_path_instance.exists.return_value = True
-            mock_path_instance.read_bytes.return_value = b"content"
-            with patch("plugins.message_hub.services.court.court_fetcher.Path", return_value=mock_path_instance):
-                fetcher = CourtInboxFetcher()
-                source = MagicMock()
-                content, fname, ctype = fetcher.download_attachment(source, "msg-1", 0)
-                assert content == b"content"
-                assert fname == "f.pdf"
+            fetcher = CourtInboxFetcher()
+            source = MagicMock()
+            content, fname, ctype = fetcher.download_attachment(source, "msg-1", 0)
+            assert content == b"content"
+            assert fname == "f.pdf"
+
+    def test_local_file_wsl_legacy_path(self, tmp_path) -> None:
+        """历史 WSL 绝对路径（/mnt/... 或 D:\\...）按 /media/ 截尾后能命中当前 MEDIA_ROOT 下同名文件。"""
+        sub = tmp_path / "court_inbox" / "msg-1"
+        sub.mkdir(parents=True)
+        (sub / "f.pdf").write_bytes(b"legacy-content")
+
+        with patch(self._PATCH_INBOX) as MockInbox, patch(
+            "plugins.message_hub.services.base.settings"
+        ) as mock_settings:
+            mock_settings.MEDIA_ROOT = tmp_path
+            mock_msg = MagicMock()
+            mock_msg.attachments_meta = [
+                {
+                    "part_index": 0,
+                    "filename": "f.pdf",
+                    "content_type": "application/pdf",
+                    # 历史绝对路径（WSL 或 Windows 坐标），/media/ 之后是 court_inbox/msg-1/f.pdf
+                    "local_path": "/mnt/d/proj/backend/apiSystem/media/court_inbox/msg-1/f.pdf",
+                    "size": 100,
+                }
+            ]
+            MockInbox.objects.get.return_value = mock_msg
+
+            fetcher = CourtInboxFetcher()
+            source = MagicMock()
+            content, fname, _ = fetcher.download_attachment(source, "msg-1", 0)
+            assert content == b"legacy-content"
+            assert fname == "f.pdf"
+            # 命中后 local_path 应回写为相对路径
+            assert mock_msg.attachments_meta[0]["local_path"] == "court_inbox/msg-1/f.pdf"
 
     def test_part_index_not_found(self) -> None:
         with patch(self._PATCH_INBOX) as MockInbox:
