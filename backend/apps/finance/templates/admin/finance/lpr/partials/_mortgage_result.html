@@ -37,7 +37,7 @@
     </div>
 
     <!-- 警告条 -->
-    <div x-show="mResult.warnings && mResult.warnings.length > 0" style="display: none; margin-top: 14px;">
+    <div x-show="mResult?.warnings && mResult.warnings.length > 0" style="display: none; margin-top: 14px;">
         <template x-for="(w, i) in mResult?.warnings || []" :key="i">
             <div style="background: var(--fc-warning-subtle, #fef9c3); border: 1px solid var(--fc-warning-border, #fde68a); color: var(--fc-warning, #a16207); padding: 10px 14px; border-radius: 8px; font-size: 12px; margin-bottom: 8px;">
                 ⚠ <span x-text="w"></span>
