@@ -39,8 +39,8 @@
                     <tr>
                         <td>{% trans "合计" %}</td>
                         <td>-</td>
-                        <td x-text="result.total_days"></td>
-                        <td x-text="'¥' + formatMoney(result.total_interest)"></td>
+                        <td x-text="result?.total_days"></td>
+                        <td x-text="'¥' + formatMoney(result?.total_interest)"></td>
                     </tr>
                 </tbody>
             </table>
@@ -82,9 +82,9 @@
                 <tbody class="lpr-calc__table-summary">
                     <tr>
                         <td>{% trans "总计" %}</td>
-                        <td x-text="result.total_days"></td>
+                        <td x-text="result?.total_days"></td>
                         <td>-</td>
-                        <td x-text="'¥' + formatMoney(result.total_interest)"></td>
+                        <td x-text="'¥' + formatMoney(result?.total_interest)"></td>
                     </tr>
                 </tbody>
             </table>
@@ -94,5 +94,5 @@
 
 <!-- 错误提示 -->
 <div class="lpr-calc__result-card" x-show="result && !result.success" style="display: none; margin-top: 20px;">
-    <div class="lpr-calc__error" x-text="result.message"></div>
+    <div class="lpr-calc__error" x-text="result?.message"></div>
 </div>
