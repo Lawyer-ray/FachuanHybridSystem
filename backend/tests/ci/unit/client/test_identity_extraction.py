@@ -398,21 +398,21 @@ class TestExtractValidation:
 class TestSafeExtract:
     def test_success(self):
         svc = IdentityExtractionService()
-        svc.extract = MagicMock(return_value=ExtractionResult(
+        with patch.object(svc, "extract", MagicMock(return_value=ExtractionResult(
             doc_type="id_card",
             raw_text="text",
             extracted_data={"name": "张三"},
             confidence=0.95,
             extraction_method="ocr_regex",
-        ))
-        result = svc.safe_extract(b"image", "id_card")
+        ))):
+            result = svc.safe_extract(b"image", "id_card")
         assert result["success"] is True
         assert result["doc_type"] == "id_card"
 
     def test_ocr_error(self):
         svc = IdentityExtractionService()
-        svc.extract = MagicMock(side_effect=OCRExtractionError("OCR failed"))
-        result = svc.safe_extract(b"image", "id_card")
+        with patch.object(svc, "extract", MagicMock(side_effect=OCRExtractionError("OCR failed"))):
+            result = svc.safe_extract(b"image", "id_card")
         assert result["success"] is False
         assert "OCR failed" in result["error"]
 
@@ -420,14 +420,14 @@ class TestSafeExtract:
         svc = IdentityExtractionService()
         from apps.core.exceptions import ValidationException
 
-        svc.extract = MagicMock(side_effect=ValidationException(message="invalid"))
-        result = svc.safe_extract(b"image", "id_card")
+        with patch.object(svc, "extract", MagicMock(side_effect=ValidationException(message="invalid"))):
+            result = svc.safe_extract(b"image", "id_card")
         assert result["success"] is False
 
     def test_unknown_error(self):
         svc = IdentityExtractionService()
-        svc.extract = MagicMock(side_effect=RuntimeError("unexpected"))
-        result = svc.safe_extract(b"image", "id_card")
+        with patch.object(svc, "extract", MagicMock(side_effect=RuntimeError("unexpected"))):
+            result = svc.safe_extract(b"image", "id_card")
         assert result["success"] is False
 
 
@@ -469,6 +469,7 @@ class TestNarrativeExtraction:
             "13702929011。"
         )
         result = self.svc._extract_by_rules(raw, "id_card")
+        assert result is not None
         assert result["name"] == "陈达良"
         assert result["id_number"] == "440106196707281858"
         assert result["gender"] == "男"
@@ -480,12 +481,14 @@ class TestNarrativeExtraction:
     def test_narrative_plaintiff(self):
         raw = "原告：李四，男，1980年1月1日出生，住北京市朝阳区某路1号，公民身份证号码110105198001011234。"
         result = self.svc._extract_by_rules(raw, "id_card")
+        assert result is not None
         assert result["name"] == "李四"
         assert result["id_number"] == "110105198001011234"
 
     def test_narrative_phone_landline(self):
         raw = "被告：王五，住广州市某路2号，公民身份证号码440106196707281858，联系电话020-88888888。"
         result = self.svc._extract_by_rules(raw, "id_card")
+        assert result is not None
         assert result["phone"] == "020-88888888"
 
     def test_card_format_unaffected(self):
@@ -494,6 +497,7 @@ class TestNarrativeExtraction:
             "住址 广东省广州市天河区体育西路123号\n公民身份号码 440106197709101234"
         )
         result = self.svc._extract_by_rules(raw, "id_card")
+        assert result is not None
         assert result["name"] == "张三"
         assert result["address"] == "广东省广州市天河区体育西路123号"
         assert result["id_number"] == "440106197709101234"
@@ -501,8 +505,8 @@ class TestNarrativeExtraction:
     def test_safe_extract_returns_raw_text(self):
         raw = "被告：陈达良，公民身份证号码440106196707281858。"
         svc = IdentityExtractionService()
-        svc._ocr_extract = MagicMock(return_value=raw)
-        result = svc.safe_extract(b"image", "id_card")
+        with patch.object(svc, "_ocr_extract", MagicMock(return_value=raw)):
+            result = svc.safe_extract(b"image", "id_card")
         assert result["success"] is True
         assert "440106196707281858" in result["raw_text"]
 

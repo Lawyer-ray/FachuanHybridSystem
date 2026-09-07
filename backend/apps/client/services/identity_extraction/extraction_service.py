@@ -612,7 +612,7 @@ class IdentityExtractionService:
 
     def _overall_confidence(self, extracted_data: dict[str, Any]) -> float:
         """整包置信度 = 命中字段的字段级置信度均值（无字段级置信度时回退 0.95）。"""
-        field_conf = extracted_data.get("field_confidence")
+        field_conf: dict[str, float] | None = extracted_data.get("field_confidence")
         if not field_conf:
             return self._FIELD_CONF_LABEL
         values = [v for v in field_conf.values() if v > self._FIELD_CONF_MISSING]
