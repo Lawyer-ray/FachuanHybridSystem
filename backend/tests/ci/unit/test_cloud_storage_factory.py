@@ -7,9 +7,9 @@ from typing import Any
 
 import pytest
 
-from apps.core.cloud_storage.factory import create_provider_for_binding
-from apps.core.cloud_storage.local import LocalProvider
-from apps.core.cloud_storage.null_provider import NullProvider
+from apps.cloud_storage.factory import create_provider_for_binding
+from apps.cloud_storage.local import LocalProvider
+from apps.cloud_storage.null_provider import NullProvider
 
 
 class TestFactoryNullProviderFallback:

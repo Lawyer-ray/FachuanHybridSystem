@@ -4,10 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from apps.core.cloud_storage.browse_helper import (
-    browse_cloud_folder,
-    _error_result,
-)
+from apps.cloud_storage.browse_helper import _error_result, browse_cloud_folder
 
 
 class TestErrorResult:

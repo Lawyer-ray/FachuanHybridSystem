@@ -6,8 +6,8 @@ from pathlib import Path
 
 import pytest
 
-from apps.core.cloud_storage.local import LocalProvider
-from apps.core.cloud_storage.protocols import CloudFileInfo
+from apps.cloud_storage.local import LocalProvider
+from apps.cloud_storage.protocols import CloudFileInfo
 
 
 @pytest.fixture

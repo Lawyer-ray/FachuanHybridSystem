@@ -21,7 +21,7 @@ from .case_log_query_service import CaseLogQueryService
 if TYPE_CHECKING:
     from django.contrib.auth.models import AbstractBaseUser
 
-    from apps.core.cloud_storage.protocols import CloudStorageProvider
+    from apps.cloud_storage.protocols import CloudStorageProvider
 
 logger = logging.getLogger("apps.cases")
 
@@ -147,7 +147,9 @@ class EmailFolderScanService:
     # 内部方法
     # ------------------------------------------------------------------
 
-    def _get_bound_case_root(self, case_id: int) -> tuple[Path | str | None, CloudStorageProvider | None]:  # pragma: no cover
+    def _get_bound_case_root(
+        self, case_id: int
+    ) -> tuple[Path | str | None, CloudStorageProvider | None]:  # pragma: no cover
         """获取案件绑定的文件夹根路径和可选的云存储 provider."""
         binding = CaseFolderBinding.objects.filter(case_id=case_id).first()
         if not binding or not binding.resolved_folder_path:
@@ -155,7 +157,7 @@ class EmailFolderScanService:
 
         storage_type = getattr(binding, "storage_type", "local")
         if storage_type != "local" and getattr(binding, "storage_account", None) is not None:
-            from apps.core.cloud_storage.factory import create_provider_for_binding
+            from apps.cloud_storage.factory import create_provider_for_binding
 
             provider = create_provider_for_binding(binding)
             return binding.resolved_folder_path, provider
@@ -215,9 +217,11 @@ class EmailFolderScanService:
                 result.append((child, files))
         return result
 
-    def _collect_subdirs_cloud(self, folder_path: str, provider: Any) -> list[tuple[str, list[str]]]:  # pragma: no cover
+    def _collect_subdirs_cloud(
+        self, folder_path: str, provider: Any
+    ) -> list[tuple[str, list[str]]]:  # pragma: no cover
         """云存储版本：收集子目录."""
-        from apps.core.cloud_storage.exceptions import CloudStorageError
+        from apps.cloud_storage.exceptions import CloudStorageError
 
         result: list[tuple[str, list[str]]] = []
         try:
@@ -268,7 +272,7 @@ class EmailFolderScanService:
 
     def _collect_allowed_files_cloud(self, folder_path: str, provider: Any) -> list[str]:  # pragma: no cover
         """云存储版本：递归收集合规文件."""
-        from apps.core.cloud_storage.exceptions import CloudStorageError
+        from apps.cloud_storage.exceptions import CloudStorageError
 
         result: list[str] = []
         try:

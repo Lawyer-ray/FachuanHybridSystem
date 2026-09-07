@@ -348,7 +348,7 @@ class BoundFolderScanService:
         storage_provider: Any,
     ) -> dict[str, Any]:  # pragma: no cover
         """Scan a cloud storage folder using CloudFolderScanner."""
-        from apps.core.cloud_storage.scanner_adapter import CloudFolderScanner
+        from apps.cloud_storage.scanner_adapter import CloudFolderScanner
 
         scanner = CloudFolderScanner(provider=storage_provider, root_path=folder_path)
 

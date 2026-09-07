@@ -268,7 +268,7 @@ class TestMakeProviderForBinding:
         binding.storage_type = "local"
         assert svc._make_provider_for_binding(binding) is None
 
-    @patch("apps.core.cloud_storage.factory.create_provider_for_binding")
+    @patch("apps.cloud_storage.factory.create_provider_for_binding")
     def test_cloud_returns_provider(self, mock_create):
         svc = self._make_service()
         binding = MagicMock()

@@ -42,7 +42,9 @@ def _get_folder_binding_service() -> Any:
 
 
 @router.post("/{case_id}/folder-binding", response=CaseFolderBindingResponseSchema)
-async def create_folder_binding(request: HttpRequest, case_id: int, data: CaseFolderBindingCreateSchema) -> Any:  # pragma: no cover
+async def create_folder_binding(
+    request: HttpRequest, case_id: int, data: CaseFolderBindingCreateSchema
+) -> Any:  # pragma: no cover
     """创建或更新案件文件夹绑定"""
     service = _get_folder_binding_service()
     ctx = get_request_access_context(request)
@@ -50,7 +52,7 @@ async def create_folder_binding(request: HttpRequest, case_id: int, data: CaseFo
     # Resolve storage_account if provided
     storage_account = None
     if data.storage_account_id and data.storage_type != "local":
-        from apps.core.cloud_storage.models import CloudStorageAccount
+        from apps.cloud_storage.models import CloudStorageAccount
 
         account_id = int(data.storage_account_id)
         storage_account = await CloudStorageAccount.objects.filter(
@@ -99,7 +101,9 @@ async def create_folder_binding(request: HttpRequest, case_id: int, data: CaseFo
 
 
 @router.get("/{case_id}/folder-binding", response=CaseFolderBindingResponseSchema | None)
-async def get_folder_binding(request: HttpRequest, case_id: int) -> CaseFolderBindingResponseSchema | None:  # pragma: no cover
+async def get_folder_binding(
+    request: HttpRequest, case_id: int
+) -> CaseFolderBindingResponseSchema | None:  # pragma: no cover
     """获取案件文件夹绑定信息
 
     自动修复链路：
@@ -109,17 +113,13 @@ async def get_folder_binding(request: HttpRequest, case_id: int) -> CaseFolderBi
     service = _get_folder_binding_service()
     ctx = get_request_access_context(request)
 
-    binding = await sync_to_async(service.get_binding_ctx)(
-        case_id=case_id, ctx=ctx
-    )
+    binding = await sync_to_async(service.get_binding_ctx)(case_id=case_id, ctx=ctx)
 
     if not binding:
         return None
 
     # 先尝试修复合同文件夹路径（合同路径修复后，案件的 resolved_folder_path 自动更新）
-    contract_auto_repaired = await sync_to_async(
-        service.check_and_repair_contract_path
-    )(binding)
+    contract_auto_repaired = await sync_to_async(service.check_and_repair_contract_path)(binding)
 
     is_accessible: bool = await sync_to_async(
         lambda: service.check_folder_accessible(binding.resolved_folder_path, binding=binding),
@@ -142,9 +142,7 @@ async def delete_folder_binding(request: HttpRequest, case_id: int) -> dict[str,
     service = _get_folder_binding_service()
     ctx = get_request_access_context(request)
 
-    success: bool = await sync_to_async(service.delete_binding_ctx)(
-        case_id=case_id, ctx=ctx
-    )
+    success: bool = await sync_to_async(service.delete_binding_ctx)(case_id=case_id, ctx=ctx)
 
     logger.info(
         "case_folder_binding_delete",
@@ -194,7 +192,7 @@ async def browse_folders(  # pragma: no cover
 
     # ── Cloud storage browse ──
     if storage_type and storage_type != "local" and storage_account_id:
-        from apps.core.cloud_storage.browse_helper import browse_cloud_folder
+        from apps.cloud_storage.browse_helper import browse_cloud_folder
 
         result = await sync_to_async(
             lambda: browse_cloud_folder(
@@ -234,9 +232,7 @@ async def browse_folders(  # pragma: no cover
                 browsable=True, message=None, path=None, parent_path=None, entries=entries, storage_type="local"
             )
 
-    browsable, browse_message = await sync_to_async(
-        service.is_browsable_path
-    )(str(path))
+    browsable, browse_message = await sync_to_async(service.is_browsable_path)(str(path))
     if not browsable:
         return FolderBrowseResponseSchema(
             browsable=False,
@@ -274,7 +270,7 @@ async def browse_folders(  # pragma: no cover
 @router.get("/cloud-storage-accounts")
 async def list_cloud_storage_accounts(request: HttpRequest) -> list[dict[str, Any]]:  # pragma: no cover
     """List available cloud storage accounts for folder binding."""
-    from apps.core.cloud_storage.browse_helper import list_active_cloud_accounts
+    from apps.cloud_storage.browse_helper import list_active_cloud_accounts
 
     service = _get_folder_binding_service()
     ctx = get_request_access_context(request)

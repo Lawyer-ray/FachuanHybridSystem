@@ -107,6 +107,7 @@ INSTALLED_APPS = [
     "apps.workflow",  # 6.9 工作流引擎（Temporal 集成）
     "apps.docspace",  # 6.95 DocSpace 云文档
     "apps.core",  # 7. 核心系统
+    "apps.cloud_storage",  # 7.0 云存储（自 core 拆分的独立 app，表名钉死 core_cloudstorageaccount）
     "apps.social_auth",  # 7.1 社交登录
     "django_q",  # 8. DJANGO Q
 ]

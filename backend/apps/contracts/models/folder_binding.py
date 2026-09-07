@@ -43,7 +43,7 @@ class ContractFolderBinding(models.Model):
         verbose_name=_("存储类型"),
     )
     storage_account = models.ForeignKey(
-        "core.CloudStorageAccount",
+        "cloud_storage.CloudStorageAccount",
         on_delete=models.SET_NULL,
         null=True,
         blank=True,

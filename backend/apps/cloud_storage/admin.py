@@ -113,7 +113,9 @@ def _poll_device_code(account_id: int, device_code: str, interval: int, max_atte
     _clear_onedrive_pending(account_id)
 
 
-def _poll_dropbox_device_code(account_id: int, device_code: str, interval: int, max_attempts: int) -> None:  # pragma: no cover
+def _poll_dropbox_device_code(
+    account_id: int, device_code: str, interval: int, max_attempts: int
+) -> None:  # pragma: no cover
     """Background thread: poll Dropbox token endpoint until user authorizes or timeout."""
     import httpx
 
@@ -282,12 +284,12 @@ class CloudStorageAccountAdmin(admin.ModelAdmin):  # pragma: no cover
             path(
                 "<int:object_id>/onedrive-start/",
                 self.admin_site.admin_view(self._start_auth_view),
-                name="core_cloudstorageaccount_onedrive_start",
+                name="cloud_storage_cloudstorageaccount_onedrive_start",
             ),
             path(
                 "<int:object_id>/dropbox-start/",
                 self.admin_site.admin_view(self._start_dropbox_auth_view),
-                name="core_cloudstorageaccount_dropbox_start",
+                name="cloud_storage_cloudstorageaccount_dropbox_start",
             ),
         ]
         return custom_urls + super().get_urls()
@@ -297,19 +299,21 @@ class CloudStorageAccountAdmin(admin.ModelAdmin):  # pragma: no cover
         from .onedrive_provider import OAuthTokenManager
 
         if request.method != "POST":
-            return redirect("admin:core_cloudstorageaccount_change", object_id)
+            return redirect("admin:cloud_storage_cloudstorageaccount_change", object_id)
 
         try:
             account = self.model.objects.get(pk=object_id)
         except self.model.DoesNotExist:
             messages.error(request, "账号不存在")
-            return redirect("admin:core_cloudstorageaccount_changelist")
+            return redirect("admin:cloud_storage_cloudstorageaccount_changelist")
 
         try:
             result = OAuthTokenManager.start_device_code_flow(account)
 
             # 持久化 device_code 到数据库（进程重启后可恢复轮询）
-            from datetime import UTC, timedelta, datetime as dt
+            from datetime import UTC
+            from datetime import datetime as dt
+            from datetime import timedelta
 
             account.onedrive_pending_device_code = result["device_code"]
             account.onedrive_pending_expires_at = dt.now(UTC) + timedelta(seconds=result.get("expires_in", 900))
@@ -340,18 +344,18 @@ class CloudStorageAccountAdmin(admin.ModelAdmin):  # pragma: no cover
         except Exception as e:
             messages.error(request, f"启动授权失败：{e}")
 
-        return redirect("admin:core_cloudstorageaccount_change", object_id)
+        return redirect("admin:cloud_storage_cloudstorageaccount_change", object_id)
 
     def _start_dropbox_auth_view(self, request: HttpRequest, object_id: int):  # type: ignore[no-untyped-def]  # pragma: no cover
         """POST endpoint: start Dropbox device code flow and redirect back to change form."""
         if request.method != "POST":
-            return redirect("admin:core_cloudstorageaccount_change", object_id)
+            return redirect("admin:cloud_storage_cloudstorageaccount_change", object_id)
 
         try:
             account = self.model.objects.get(pk=object_id)
         except self.model.DoesNotExist:
             messages.error(request, "账号不存在")
-            return redirect("admin:core_cloudstorageaccount_changelist")
+            return redirect("admin:cloud_storage_cloudstorageaccount_changelist")
 
         try:
             from .dropbox_provider import DropboxOAuthTokenManager
@@ -359,7 +363,9 @@ class CloudStorageAccountAdmin(admin.ModelAdmin):  # pragma: no cover
             result = DropboxOAuthTokenManager.start_device_code_flow(account)
 
             # 持久化 device_code 到数据库
-            from datetime import UTC, timedelta, datetime as dt
+            from datetime import UTC
+            from datetime import datetime as dt
+            from datetime import timedelta
 
             account.dropbox_pending_device_code = result["device_code"]
             account.dropbox_pending_expires_at = dt.now(UTC) + timedelta(seconds=result.get("expires_in", 900))
@@ -390,7 +396,7 @@ class CloudStorageAccountAdmin(admin.ModelAdmin):  # pragma: no cover
         except Exception as e:
             messages.error(request, f"启动授权失败：{e}")
 
-        return redirect("admin:core_cloudstorageaccount_change", object_id)
+        return redirect("admin:cloud_storage_cloudstorageaccount_change", object_id)
 
     def changeform_view(self, request, object_id=None, form_url="", extra_context=None):  # type: ignore[no-untyped-def]  # pragma: no cover
         extra_context = extra_context or {}
@@ -404,8 +410,7 @@ class CloudStorageAccountAdmin(admin.ModelAdmin):  # pragma: no cover
                 extra_context["show_onedrive_auth"] = is_onedrive
                 extra_context["onedrive_account_id"] = object_id
                 extra_context["onedrive_pending"] = is_onedrive and (
-                    object_id in _pending_auth
-                    or (obj.onedrive_pending_device_code and not obj.onedrive_refresh_token)
+                    object_id in _pending_auth or (obj.onedrive_pending_device_code and not obj.onedrive_refresh_token)
                 )
                 extra_context["onedrive_authorized"] = is_onedrive and bool(obj.onedrive_refresh_token)
                 if is_onedrive and object_id in _pending_auth:
@@ -420,8 +425,7 @@ class CloudStorageAccountAdmin(admin.ModelAdmin):  # pragma: no cover
                 extra_context["show_dropbox_auth"] = is_dropbox
                 extra_context["dropbox_account_id"] = object_id
                 extra_context["dropbox_pending"] = is_dropbox and (
-                    object_id in _pending_auth
-                    or (obj.dropbox_pending_device_code and not obj.dropbox_refresh_token)
+                    object_id in _pending_auth or (obj.dropbox_pending_device_code and not obj.dropbox_refresh_token)
                 )
                 extra_context["dropbox_authorized"] = is_dropbox and bool(obj.dropbox_refresh_token)
                 if is_dropbox and object_id in _pending_auth:
@@ -466,7 +470,7 @@ def resume_pending_device_code_polls() -> None:  # pragma: no cover
     from django.db.models import Q
     from django.utils import timezone
 
-    logger = logging.getLogger("apps.core.cloud_storage")
+    logger = logging.getLogger("apps.cloud_storage")
 
     now = timezone.now()
 
@@ -494,7 +498,10 @@ def resume_pending_device_code_polls() -> None:  # pragma: no cover
     )
     for account in dropbox_pending:
         logger.info("恢复 Dropbox device code 轮询: account_id=%d", account.id)
-        _pending_auth[account.id] = {"user_code": "(恢复中)", "verification_uri": "https://www.dropbox.com/oauth2/authorize"}
+        _pending_auth[account.id] = {
+            "user_code": "(恢复中)",
+            "verification_uri": "https://www.dropbox.com/oauth2/authorize",
+        }
         thread = threading.Thread(
             target=_poll_dropbox_device_code,
             args=(account.id, account.dropbox_pending_device_code, 5, 180),
@@ -503,17 +510,25 @@ def resume_pending_device_code_polls() -> None:  # pragma: no cover
         thread.start()
 
     # 清理已过期的 device_code
-    expired_count = CloudStorageAccount.objects.filter(
-        onedrive_pending_expires_at__lte=now,
-    ).exclude(onedrive_pending_device_code="").update(
-        onedrive_pending_device_code="",
-        onedrive_pending_expires_at=None,
+    expired_count = (
+        CloudStorageAccount.objects.filter(
+            onedrive_pending_expires_at__lte=now,
+        )
+        .exclude(onedrive_pending_device_code="")
+        .update(
+            onedrive_pending_device_code="",
+            onedrive_pending_expires_at=None,
+        )
     )
-    expired_count += CloudStorageAccount.objects.filter(
-        dropbox_pending_expires_at__lte=now,
-    ).exclude(dropbox_pending_device_code="").update(
-        dropbox_pending_device_code="",
-        dropbox_pending_expires_at=None,
+    expired_count += (
+        CloudStorageAccount.objects.filter(
+            dropbox_pending_expires_at__lte=now,
+        )
+        .exclude(dropbox_pending_device_code="")
+        .update(
+            dropbox_pending_device_code="",
+            dropbox_pending_expires_at=None,
+        )
     )
     if expired_count:
         logger.info("清理了 %d 个过期的 device code", expired_count)

@@ -31,7 +31,7 @@ class ContractTypeFolderRootPreset(models.Model):
         help_text="local / webdav / s3 / onedrive / google_drive / dropbox",
     )
     storage_account = models.ForeignKey(
-        "core.CloudStorageAccount",
+        "cloud_storage.CloudStorageAccount",
         on_delete=models.SET_NULL,
         null=True,
         blank=True,

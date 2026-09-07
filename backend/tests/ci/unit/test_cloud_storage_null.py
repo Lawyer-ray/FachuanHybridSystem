@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from apps.core.cloud_storage.null_provider import NullProvider
+from apps.cloud_storage.null_provider import NullProvider
 
 
 class TestNullProvider:

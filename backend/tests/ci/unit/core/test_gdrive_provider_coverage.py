@@ -9,11 +9,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from apps.core.cloud_storage.gdrive_provider import (
-    _PathResolver,
-    _escape_gql,
-    _parse_gdrive_time,
-)
+from apps.cloud_storage.gdrive_provider import _escape_gql, _parse_gdrive_time, _PathResolver
 
 
 class TestEscapeGql:

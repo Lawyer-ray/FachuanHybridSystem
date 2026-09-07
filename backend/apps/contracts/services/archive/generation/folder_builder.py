@@ -62,7 +62,7 @@ def generate_archive_folder(contract: Contract) -> dict[str, Any]:  # pragma: no
     is_cloud = storage_type != "local"
 
     if is_cloud:
-        from apps.core.cloud_storage.factory import create_provider_for_binding
+        from apps.cloud_storage.factory import create_provider_for_binding
 
         provider = create_provider_for_binding(binding)
         cloud_archive_path = f"{binding.folder_path.rstrip('/')}/{ARCHIVE_FOLDER_NAME}"

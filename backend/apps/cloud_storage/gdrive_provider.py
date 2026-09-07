@@ -31,13 +31,14 @@ def _execute_with_retry(request: Any) -> Any:
         except HttpError as e:
             if e.resp.status not in (429, 500, 502, 503) or attempt == _MAX_RETRIES - 1:
                 raise
-            wait = min(2 ** attempt + random.random(), _MAX_BACKOFF)
+            wait = min(2**attempt + random.random(), _MAX_BACKOFF)
             logger.warning("Drive API %d, retry %.1fs (attempt %d/%d)", e.resp.status, wait, attempt + 1, _MAX_RETRIES)
             time.sleep(wait)
     raise RuntimeError("unreachable")
 
 
 # ── Path resolver ─────────────────────────────────────────────
+
 
 class _PathResolver:
     """Resolves filesystem-like paths to Google Drive file IDs with caching."""
@@ -111,6 +112,7 @@ def _parse_gdrive_time(iso_str: str) -> float:  # pragma: no cover
 
 
 # ── Provider ──────────────────────────────────────────────────
+
 
 class GDriveProvider:  # pragma: no cover
     """Read/write files on Google Drive using Service Account authentication."""
@@ -285,7 +287,9 @@ class GDriveProvider:  # pragma: no cover
             return None
 
         request = self._service.files().get(
-            fileId=file_id, fields="name, mimeType, size, modifiedTime", supportsAllDrives=True,
+            fileId=file_id,
+            fields="name, mimeType, size, modifiedTime",
+            supportsAllDrives=True,
         )
         resp = _execute_with_retry(request)
 

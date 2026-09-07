@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import PurePosixPath
 
-from apps.core.cloud_storage.protocols import CloudFileInfo, CloudStorageProvider
+from apps.cloud_storage.protocols import CloudFileInfo, CloudStorageProvider
 
 
 @dataclass(frozen=True)

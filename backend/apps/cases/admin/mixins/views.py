@@ -814,7 +814,7 @@ class CaseAdminViewsMixin:  # pragma: no cover
                 storage_type = getattr(binding, "storage_type", "local")
 
                 if storage_type != "local" and getattr(binding, "storage_account", None) is not None:
-                    from apps.core.cloud_storage.factory import create_provider_for_binding
+                    from apps.cloud_storage.factory import create_provider_for_binding
 
                     provider = create_provider_for_binding(binding)
                     try:

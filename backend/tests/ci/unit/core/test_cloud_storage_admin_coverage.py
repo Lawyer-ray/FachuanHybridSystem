@@ -7,17 +7,17 @@ from unittest.mock import MagicMock, patch
 import pytest
 from django.contrib.admin.sites import AdminSite
 from django.contrib.auth import get_user_model
-from django.test import RequestFactory
 from django.http import HttpResponse
+from django.test import RequestFactory
 
-from apps.core.cloud_storage.admin import (
+from apps.cloud_storage.admin import (
     CloudStorageAccountAdmin,
-    _clear_onedrive_pending,
     _clear_dropbox_pending,
-    resume_pending_device_code_polls,
+    _clear_onedrive_pending,
     _pending_auth,
+    resume_pending_device_code_polls,
 )
-from apps.core.cloud_storage.models import CloudStorageAccount
+from apps.cloud_storage.models import CloudStorageAccount
 
 User = get_user_model()
 

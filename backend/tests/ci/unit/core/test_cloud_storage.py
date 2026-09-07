@@ -7,13 +7,12 @@ from __future__ import annotations
 
 import time
 from types import SimpleNamespace
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock, PropertyMock, patch
 
 import pytest
 
-from apps.core.cloud_storage.exceptions import CloudStorageError, CloudStorageRateLimitError
-from apps.core.cloud_storage.protocols import CloudFileInfo
-
+from apps.cloud_storage.exceptions import CloudStorageError, CloudStorageRateLimitError
+from apps.cloud_storage.protocols import CloudFileInfo
 
 # ============================================================
 # CloudFileInfo
@@ -69,17 +68,17 @@ class TestCloudStorageExceptions:
 class TestWebDAVProvider:
     """测试 WebDAVProvider"""
 
-    @patch("apps.core.cloud_storage.webdav_provider.requests.Session")
+    @patch("apps.cloud_storage.webdav_provider.requests.Session")
     def test_init(self, mock_session_cls: MagicMock) -> None:
-        from apps.core.cloud_storage.webdav_provider import WebDAVProvider
+        from apps.cloud_storage.webdav_provider import WebDAVProvider
 
         provider = WebDAVProvider(username="user", app_password="pass", root_path="/myroot")
         assert provider._root == "/myroot"
         assert provider._username == "user"
 
-    @patch("apps.core.cloud_storage.webdav_provider.requests")
+    @patch("apps.cloud_storage.webdav_provider.requests")
     def test_full_path(self, mock_requests: MagicMock) -> None:
-        from apps.core.cloud_storage.webdav_provider import WebDAVProvider
+        from apps.cloud_storage.webdav_provider import WebDAVProvider
 
         mock_requests.Session.return_value = MagicMock()
         provider = WebDAVProvider(username="u", app_password="p", root_path="root")
@@ -87,9 +86,9 @@ class TestWebDAVProvider:
         assert provider._full_path("sub/file.txt") == "/root/sub/file.txt"
         assert provider._full_path("/sub/") == "/root/sub"
 
-    @patch("apps.core.cloud_storage.webdav_provider.requests")
+    @patch("apps.cloud_storage.webdav_provider.requests")
     def test_url_construction(self, mock_requests: MagicMock) -> None:
-        from apps.core.cloud_storage.webdav_provider import WebDAVProvider
+        from apps.cloud_storage.webdav_provider import WebDAVProvider
 
         mock_requests.Session.return_value = MagicMock()
         provider = WebDAVProvider(
@@ -100,9 +99,9 @@ class TestWebDAVProvider:
         assert url.startswith("https://dav.example.com/dav/")
         assert "file.txt" in url
 
-    @patch("apps.core.cloud_storage.webdav_provider.requests")
+    @patch("apps.cloud_storage.webdav_provider.requests")
     def test_503_raises_rate_limit(self, mock_requests: MagicMock) -> None:
-        from apps.core.cloud_storage.webdav_provider import WebDAVProvider
+        from apps.cloud_storage.webdav_provider import WebDAVProvider
 
         mock_session = MagicMock()
         mock_requests.Session.return_value = mock_session
@@ -115,9 +114,9 @@ class TestWebDAVProvider:
         with pytest.raises(CloudStorageRateLimitError):
             provider._request("GET", "test")
 
-    @patch("apps.core.cloud_storage.webdav_provider.requests")
+    @patch("apps.cloud_storage.webdav_provider.requests")
     def test_exists_true(self, mock_requests: MagicMock) -> None:
-        from apps.core.cloud_storage.webdav_provider import WebDAVProvider
+        from apps.cloud_storage.webdav_provider import WebDAVProvider
 
         mock_session = MagicMock()
         mock_requests.Session.return_value = mock_session
@@ -126,9 +125,9 @@ class TestWebDAVProvider:
         provider = WebDAVProvider(username="u", app_password="p")
         assert provider.exists("file.txt") is True
 
-    @patch("apps.core.cloud_storage.webdav_provider.requests")
+    @patch("apps.cloud_storage.webdav_provider.requests")
     def test_exists_false(self, mock_requests: MagicMock) -> None:
-        from apps.core.cloud_storage.webdav_provider import WebDAVProvider
+        from apps.cloud_storage.webdav_provider import WebDAVProvider
 
         mock_session = MagicMock()
         mock_requests.Session.return_value = mock_session
@@ -137,9 +136,9 @@ class TestWebDAVProvider:
         provider = WebDAVProvider(username="u", app_password="p")
         assert provider.exists("missing.txt") is False
 
-    @patch("apps.core.cloud_storage.webdav_provider.requests")
+    @patch("apps.cloud_storage.webdav_provider.requests")
     def test_delete_file_success(self, mock_requests: MagicMock) -> None:
-        from apps.core.cloud_storage.webdav_provider import WebDAVProvider
+        from apps.cloud_storage.webdav_provider import WebDAVProvider
 
         mock_session = MagicMock()
         mock_requests.Session.return_value = mock_session
@@ -148,9 +147,9 @@ class TestWebDAVProvider:
         provider = WebDAVProvider(username="u", app_password="p")
         provider.delete_file("file.txt")  # 不抛异常
 
-    @patch("apps.core.cloud_storage.webdav_provider.requests")
+    @patch("apps.cloud_storage.webdav_provider.requests")
     def test_delete_file_404_ok(self, mock_requests: MagicMock) -> None:
-        from apps.core.cloud_storage.webdav_provider import WebDAVProvider
+        from apps.cloud_storage.webdav_provider import WebDAVProvider
 
         mock_session = MagicMock()
         mock_requests.Session.return_value = mock_session
@@ -159,9 +158,9 @@ class TestWebDAVProvider:
         provider = WebDAVProvider(username="u", app_password="p")
         provider.delete_file("missing.txt")  # 404 不报错
 
-    @patch("apps.core.cloud_storage.webdav_provider.requests")
+    @patch("apps.cloud_storage.webdav_provider.requests")
     def test_jianguoyun_alias(self, mock_requests: MagicMock) -> None:
-        from apps.core.cloud_storage.webdav_provider import JianguoyunProvider, WebDAVProvider
+        from apps.cloud_storage.webdav_provider import JianguoyunProvider, WebDAVProvider
 
         assert JianguoyunProvider is WebDAVProvider
 
@@ -174,35 +173,35 @@ class TestWebDAVProvider:
 class TestOneDriveProvider:
     """测试 OneDriveProvider"""
 
-    @patch("apps.core.cloud_storage.onedrive_provider.httpx.Client")
+    @patch("apps.cloud_storage.onedrive_provider.httpx.Client")
     def test_init(self, mock_client_cls: MagicMock) -> None:
-        from apps.core.cloud_storage.onedrive_provider import OneDriveProvider
+        from apps.cloud_storage.onedrive_provider import OneDriveProvider
 
         provider = OneDriveProvider(access_token="tok123", root_path="/docs")  # allowlist secret
         assert provider._token == "tok123"
         assert provider._root == "docs"
         assert "Bearer tok123" in provider._headers["Authorization"]
 
-    @patch("apps.core.cloud_storage.onedrive_provider.httpx.Client")
+    @patch("apps.cloud_storage.onedrive_provider.httpx.Client")
     def test_item_path(self, mock_client_cls: MagicMock) -> None:
-        from apps.core.cloud_storage.onedrive_provider import OneDriveProvider
+        from apps.cloud_storage.onedrive_provider import OneDriveProvider
 
         provider = OneDriveProvider(access_token="t", root_path="/myroot")
         assert provider._item_path("file.txt") == "myroot/file.txt"
         assert provider._item_path("") == "myroot"
 
-    @patch("apps.core.cloud_storage.onedrive_provider.httpx.Client")
+    @patch("apps.cloud_storage.onedrive_provider.httpx.Client")
     def test_item_url(self, mock_client_cls: MagicMock) -> None:
-        from apps.core.cloud_storage.onedrive_provider import OneDriveProvider
+        from apps.cloud_storage.onedrive_provider import OneDriveProvider
 
         provider = OneDriveProvider(access_token="t", root_path="/docs")
         url = provider._item_url("report.pdf")
         assert "graph.microsoft.com" in url
         assert "docs/report.pdf" in url
 
-    @patch("apps.core.cloud_storage.onedrive_provider.httpx.Client")
+    @patch("apps.cloud_storage.onedrive_provider.httpx.Client")
     def test_exists_true(self, mock_client_cls: MagicMock) -> None:
-        from apps.core.cloud_storage.onedrive_provider import OneDriveProvider
+        from apps.cloud_storage.onedrive_provider import OneDriveProvider
 
         mock_client = MagicMock()
         mock_client_cls.return_value = mock_client
@@ -211,9 +210,9 @@ class TestOneDriveProvider:
         provider = OneDriveProvider(access_token="t")
         assert provider.exists("file.txt") is True
 
-    @patch("apps.core.cloud_storage.onedrive_provider.httpx.Client")
+    @patch("apps.cloud_storage.onedrive_provider.httpx.Client")
     def test_exists_false(self, mock_client_cls: MagicMock) -> None:
-        from apps.core.cloud_storage.onedrive_provider import OneDriveProvider
+        from apps.cloud_storage.onedrive_provider import OneDriveProvider
 
         mock_client = MagicMock()
         mock_client_cls.return_value = mock_client
@@ -222,9 +221,9 @@ class TestOneDriveProvider:
         provider = OneDriveProvider(access_token="t")
         assert provider.exists("missing.txt") is False
 
-    @patch("apps.core.cloud_storage.onedrive_provider.httpx.Client")
+    @patch("apps.cloud_storage.onedrive_provider.httpx.Client")
     def test_delete_file_ok(self, mock_client_cls: MagicMock) -> None:
-        from apps.core.cloud_storage.onedrive_provider import OneDriveProvider
+        from apps.cloud_storage.onedrive_provider import OneDriveProvider
 
         mock_client = MagicMock()
         mock_client_cls.return_value = mock_client
@@ -233,9 +232,9 @@ class TestOneDriveProvider:
         provider = OneDriveProvider(access_token="t")
         provider.delete_file("file.txt")  # 不抛异常
 
-    @patch("apps.core.cloud_storage.onedrive_provider.httpx.Client")
+    @patch("apps.cloud_storage.onedrive_provider.httpx.Client")
     def test_children_url_root(self, mock_client_cls: MagicMock) -> None:
-        from apps.core.cloud_storage.onedrive_provider import OneDriveProvider
+        from apps.cloud_storage.onedrive_provider import OneDriveProvider
 
         provider = OneDriveProvider(access_token="t", root_path="")
         url = provider._children_url("")
@@ -246,21 +245,21 @@ class TestOAuthTokenManager:
     """测试 OAuthTokenManager"""
 
     def test_tenant_id_default(self) -> None:
-        from apps.core.cloud_storage.onedrive_provider import OAuthTokenManager
+        from apps.cloud_storage.onedrive_provider import OAuthTokenManager
 
         account = SimpleNamespace()
         mgr = OAuthTokenManager(account)
         assert mgr._tenant_id() == "consumers"
 
     def test_tenant_id_custom(self) -> None:
-        from apps.core.cloud_storage.onedrive_provider import OAuthTokenManager
+        from apps.cloud_storage.onedrive_provider import OAuthTokenManager
 
         account = SimpleNamespace(onedrive_tenant_id="abc-123")
         mgr = OAuthTokenManager(account)
         assert mgr._tenant_id() == "abc-123"
 
     def test_get_valid_token_raises_when_no_tokens(self) -> None:
-        from apps.core.cloud_storage.onedrive_provider import OAuthTokenManager
+        from apps.cloud_storage.onedrive_provider import OAuthTokenManager
 
         account = SimpleNamespace(
             get_decrypted_onedrive_access_token=MagicMock(return_value=None),
@@ -274,7 +273,7 @@ class TestOAuthTokenManager:
     def test_get_valid_token_valid_token(self) -> None:
         from datetime import UTC, datetime, timedelta
 
-        from apps.core.cloud_storage.onedrive_provider import OAuthTokenManager
+        from apps.cloud_storage.onedrive_provider import OAuthTokenManager
 
         account = SimpleNamespace(
             get_decrypted_onedrive_access_token=MagicMock(return_value="valid_token"),
@@ -293,7 +292,7 @@ class TestDropboxOAuthTokenManager:
     """测试 DropboxOAuthTokenManager"""
 
     def test_get_valid_token_raises_when_no_tokens(self) -> None:
-        from apps.core.cloud_storage.dropbox_provider import DropboxOAuthTokenManager
+        from apps.cloud_storage.dropbox_provider import DropboxOAuthTokenManager
 
         account = SimpleNamespace(
             get_decrypted_dropbox_access_token=MagicMock(return_value=None),
@@ -307,7 +306,7 @@ class TestDropboxOAuthTokenManager:
     def test_get_valid_token_valid(self) -> None:
         from datetime import UTC, datetime, timedelta
 
-        from apps.core.cloud_storage.dropbox_provider import DropboxOAuthTokenManager
+        from apps.cloud_storage.dropbox_provider import DropboxOAuthTokenManager
 
         account = SimpleNamespace(
             get_decrypted_dropbox_access_token=MagicMock(return_value="valid_token"),
@@ -327,9 +326,10 @@ class TestDropboxProviderPath:
 
     def test_full_path_concept(self) -> None:
         """测试 Dropbox 路径构建逻辑（不依赖 dropbox SDK）"""
-        from apps.core.cloud_storage.dropbox_provider import DropboxProvider
-
         import types
+
+        from apps.cloud_storage.dropbox_provider import DropboxProvider
+
         # 直接测试 _full_path 方法的逻辑
         mock_provider = types.SimpleNamespace()
         mock_provider._root = "myroot"
@@ -349,12 +349,12 @@ class TestS3ProviderPath:
 
     def test_full_key_concept(self) -> None:
         """测试 S3 key 构建逻辑（不依赖 boto3）"""
-        from apps.core.cloud_storage.s3_provider import S3Provider
-
         # 直接测试 _full_key 的逻辑，跳过 boto3 初始化
         # _full_key: clean = path.strip("/"); parts = [p for p in (self._root, clean) if p]; return "/".join(parts)
         # 通过创建 mock 对象来测试
         import types
+
+        from apps.cloud_storage.s3_provider import S3Provider
 
         mock_provider = types.SimpleNamespace()
         mock_provider._root = "prefix"
@@ -374,56 +374,56 @@ class TestNullProvider:
     """测试 NullProvider - 所有操作应抛出 RuntimeError"""
 
     def test_list_directory_raises(self) -> None:
-        from apps.core.cloud_storage.null_provider import NullProvider
+        from apps.cloud_storage.null_provider import NullProvider
 
         provider = NullProvider()
         with pytest.raises(RuntimeError, match="存储账号未配置"):
             provider.list_directory("/")
 
     def test_read_file_raises(self) -> None:
-        from apps.core.cloud_storage.null_provider import NullProvider
+        from apps.cloud_storage.null_provider import NullProvider
 
         provider = NullProvider()
         with pytest.raises(RuntimeError):
             provider.read_file("/file")
 
     def test_write_file_raises(self) -> None:
-        from apps.core.cloud_storage.null_provider import NullProvider
+        from apps.cloud_storage.null_provider import NullProvider
 
         provider = NullProvider()
         with pytest.raises(RuntimeError):
             provider.write_file("/file", b"data")
 
     def test_exists_raises(self) -> None:
-        from apps.core.cloud_storage.null_provider import NullProvider
+        from apps.cloud_storage.null_provider import NullProvider
 
         provider = NullProvider()
         with pytest.raises(RuntimeError):
             provider.exists("/anything")
 
     def test_is_dir_raises(self) -> None:
-        from apps.core.cloud_storage.null_provider import NullProvider
+        from apps.cloud_storage.null_provider import NullProvider
 
         provider = NullProvider()
         with pytest.raises(RuntimeError):
             provider.is_dir("/anything")
 
     def test_delete_file_raises(self) -> None:
-        from apps.core.cloud_storage.null_provider import NullProvider
+        from apps.cloud_storage.null_provider import NullProvider
 
         provider = NullProvider()
         with pytest.raises(RuntimeError):
             provider.delete_file("/file")
 
     def test_get_file_info_raises(self) -> None:
-        from apps.core.cloud_storage.null_provider import NullProvider
+        from apps.cloud_storage.null_provider import NullProvider
 
         provider = NullProvider()
         with pytest.raises(RuntimeError):
             provider.get_file_info("/file")
 
     def test_custom_reason(self) -> None:
-        from apps.core.cloud_storage.null_provider import NullProvider
+        from apps.cloud_storage.null_provider import NullProvider
 
         provider = NullProvider(reason="自定义错误信息")
         with pytest.raises(RuntimeError, match="自定义错误信息"):
@@ -439,47 +439,47 @@ class TestLocalProvider:
     """测试 LocalProvider"""
 
     def test_init(self, tmp_path: object) -> None:
-        from apps.core.cloud_storage.local import LocalProvider
+        from apps.cloud_storage.local import LocalProvider
 
         provider = LocalProvider(root=str(tmp_path))  # type: ignore[arg-type]
         assert provider._root.exists()
 
     def test_list_directory_empty(self, tmp_path: object) -> None:
-        from apps.core.cloud_storage.local import LocalProvider
+        from apps.cloud_storage.local import LocalProvider
 
         provider = LocalProvider(root=str(tmp_path))  # type: ignore[arg-type]
         result = provider.list_directory(".")
         assert result == []
 
     def test_write_and_read_file(self, tmp_path: object) -> None:
-        from apps.core.cloud_storage.local import LocalProvider
+        from apps.cloud_storage.local import LocalProvider
 
         provider = LocalProvider(root=str(tmp_path))  # type: ignore[arg-type]
         provider.write_file("test.txt", b"hello world")
         assert provider.read_file("test.txt") == b"hello world"
 
     def test_exists_true(self, tmp_path: object) -> None:
-        from apps.core.cloud_storage.local import LocalProvider
+        from apps.cloud_storage.local import LocalProvider
 
         provider = LocalProvider(root=str(tmp_path))  # type: ignore[arg-type]
         provider.write_file("file.txt", b"data")
         assert provider.exists("file.txt") is True
 
     def test_exists_false(self, tmp_path: object) -> None:
-        from apps.core.cloud_storage.local import LocalProvider
+        from apps.cloud_storage.local import LocalProvider
 
         provider = LocalProvider(root=str(tmp_path))  # type: ignore[arg-type]
         assert provider.exists("nonexistent.txt") is False
 
     def test_mkdir(self, tmp_path: object) -> None:
-        from apps.core.cloud_storage.local import LocalProvider
+        from apps.cloud_storage.local import LocalProvider
 
         provider = LocalProvider(root=str(tmp_path))  # type: ignore[arg-type]
         provider.mkdir("newdir")
         assert provider.is_dir("newdir") is True
 
     def test_delete_file(self, tmp_path: object) -> None:
-        from apps.core.cloud_storage.local import LocalProvider
+        from apps.cloud_storage.local import LocalProvider
 
         provider = LocalProvider(root=str(tmp_path))  # type: ignore[arg-type]
         provider.write_file("file.txt", b"data")
@@ -487,7 +487,7 @@ class TestLocalProvider:
         assert provider.exists("file.txt") is False
 
     def test_get_file_info(self, tmp_path: object) -> None:
-        from apps.core.cloud_storage.local import LocalProvider
+        from apps.cloud_storage.local import LocalProvider
 
         provider = LocalProvider(root=str(tmp_path))  # type: ignore[arg-type]
         provider.write_file("file.txt", b"hello")
@@ -498,7 +498,7 @@ class TestLocalProvider:
         assert info.is_dir is False
 
     def test_walk(self, tmp_path: object) -> None:
-        from apps.core.cloud_storage.local import LocalProvider
+        from apps.cloud_storage.local import LocalProvider
 
         provider = LocalProvider(root=str(tmp_path))  # type: ignore[arg-type]
         provider.mkdir("subdir")
@@ -507,7 +507,7 @@ class TestLocalProvider:
         assert len(walk_results) >= 1
 
     def test_path_traversal_prevention(self, tmp_path: object) -> None:
-        from apps.core.cloud_storage.local import LocalProvider
+        from apps.cloud_storage.local import LocalProvider
 
         provider = LocalProvider(root=str(tmp_path))  # type: ignore[arg-type]
         with pytest.raises(OSError, match="路径逃逸"):

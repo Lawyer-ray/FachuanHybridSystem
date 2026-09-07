@@ -153,7 +153,9 @@ class DropboxOAuthTokenManager:  # pragma: no cover
 class DropboxProvider:  # pragma: no cover
     """Read/write files on Dropbox using the official Python SDK."""
 
-    def __init__(self, access_token: str, app_key: str, app_secret: str, root_path: str = "/") -> None:  # pragma: no cover
+    def __init__(
+        self, access_token: str, app_key: str, app_secret: str, root_path: str = "/"
+    ) -> None:  # pragma: no cover
         import dropbox
 
         self._dbx = dropbox.Dropbox(

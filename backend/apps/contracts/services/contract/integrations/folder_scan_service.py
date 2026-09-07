@@ -320,7 +320,7 @@ class ContractFolderScanService:
                 updated_at=timezone.now(),
             )
         except Exception as exc:
-            from apps.core.cloud_storage.exceptions import CloudStorageError
+            from apps.cloud_storage.exceptions import CloudStorageError
 
             if isinstance(exc, CloudStorageError):
                 error_msg = str(exc)
@@ -352,7 +352,7 @@ class ContractFolderScanService:
                 raise ValidationException(message="绑定文件夹不可访问", errors={"folder_path": binding.folder_path})
         else:
             # Cloud storage: use provider to check accessibility
-            from apps.core.cloud_storage.factory import create_provider_for_binding
+            from apps.cloud_storage.factory import create_provider_for_binding
 
             provider = create_provider_for_binding(binding)
             try:
@@ -369,7 +369,7 @@ class ContractFolderScanService:
         storage_type = getattr(binding, "storage_type", "local")
         if storage_type == "local":
             return None
-        from apps.core.cloud_storage.factory import create_provider_for_binding
+        from apps.cloud_storage.factory import create_provider_for_binding
 
         return create_provider_for_binding(binding)
 

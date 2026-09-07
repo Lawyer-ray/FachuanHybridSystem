@@ -3,14 +3,15 @@
 from __future__ import annotations
 
 import logging
-from asgiref.sync import sync_to_async
 from pathlib import PurePosixPath
 from typing import Any
+
+from asgiref.sync import sync_to_async
 
 from .exceptions import CloudStorageRateLimitError
 from .models import CloudStorageAccount
 
-logger = logging.getLogger("apps.core.cloud_storage")
+logger = logging.getLogger("apps.cloud_storage")
 
 
 def list_active_cloud_accounts() -> list[dict[str, Any]]:

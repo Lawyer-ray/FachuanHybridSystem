@@ -1,7 +1,7 @@
 """Coverage tests for core.tasking.cleanup_tasks and core.cloud_storage.scanner_adapter."""
 
-from unittest.mock import MagicMock, patch
 from pathlib import PurePosixPath
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -9,8 +9,8 @@ import pytest
 class TestCleanupTasks:
     @patch("apps.core.tasking.cleanup_tasks.settings")
     def test_cleanup_temp_files_no_dir(self, mock_settings):
-        import tempfile
         import os
+        import tempfile
         tmp = tempfile.mkdtemp()
         mock_settings.MEDIA_ROOT = tmp
         from apps.core.tasking.cleanup_tasks import cleanup_temp_files
@@ -53,7 +53,7 @@ class TestCleanupTasks:
 
 class TestScannedFile:
     def test_properties(self):
-        from apps.core.cloud_storage.scanner_adapter import ScannedFile, _FakeStat
+        from apps.cloud_storage.scanner_adapter import ScannedFile, _FakeStat
 
         info = MagicMock()
         info.name = "doc.pdf"
@@ -70,7 +70,7 @@ class TestScannedFile:
         assert sf.stat.size == 1024
 
     def test_relative_to(self):
-        from apps.core.cloud_storage.scanner_adapter import ScannedFile
+        from apps.cloud_storage.scanner_adapter import ScannedFile
 
         info = MagicMock()
         info.name = "doc.pdf"
@@ -82,7 +82,7 @@ class TestScannedFile:
 
 class TestFakeStat:
     def test_attributes(self):
-        from apps.core.cloud_storage.scanner_adapter import _FakeStat
+        from apps.cloud_storage.scanner_adapter import _FakeStat
 
         stat = _FakeStat(size=512, mtime=100.0)
         assert stat.size == 512
@@ -91,13 +91,13 @@ class TestFakeStat:
 
 class TestFakeParent:
     def test_name(self):
-        from apps.core.cloud_storage.scanner_adapter import _FakeParent
+        from apps.cloud_storage.scanner_adapter import _FakeParent
 
         parent = _FakeParent(path="/root/sub/file.txt")
         assert parent.name == "sub"
 
     def test_relative_to(self):
-        from apps.core.cloud_storage.scanner_adapter import _FakeParent
+        from apps.cloud_storage.scanner_adapter import _FakeParent
 
         parent = _FakeParent(path="/root/sub/file.txt")
         result = parent.relative_to("/root")
@@ -106,7 +106,7 @@ class TestFakeParent:
 
 class TestCloudFolderScanner:
     def test_collect_pdf_files(self):
-        from apps.core.cloud_storage.scanner_adapter import CloudFolderScanner
+        from apps.cloud_storage.scanner_adapter import CloudFolderScanner
 
         mock_provider = MagicMock()
         mock_file = MagicMock()
@@ -121,7 +121,7 @@ class TestCloudFolderScanner:
         assert len(results) == 1
 
     def test_read_file_bytes(self):
-        from apps.core.cloud_storage.scanner_adapter import CloudFolderScanner, ScannedFile
+        from apps.cloud_storage.scanner_adapter import CloudFolderScanner, ScannedFile
 
         mock_provider = MagicMock()
         mock_provider.read_file.return_value = b"pdf content"
