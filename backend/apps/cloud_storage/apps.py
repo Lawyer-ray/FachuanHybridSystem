@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
+import logging
+
 from django.apps import AppConfig
+
+logger = logging.getLogger(__name__)
 
 
 class CloudStorageConfig(AppConfig):
@@ -11,24 +15,24 @@ class CloudStorageConfig(AppConfig):
     label = "cloud_storage"
     verbose_name = "云存储"
 
-    def ready(self) -> None:
+    def ready(self) -> None:  # pragma: no cover
         # 恢复因 runserver auto-reload 中断的 OAuth device code 轮询
         # （原逻辑位于 apps/core/apps.py，随拆分迁入本 app）
         import sys
 
-        from django.db import OperationalError, ProgrammingError
-
         # migrate 前表尚不存在 / 测试环境跳过，与原 core/apps.py 行为一致
         if "migrate" in sys.argv or "makemigrations" in sys.argv or "test" in sys.argv:
             return
+        # ASGI（uvicorn）下 AppConfig.ready 运行在事件循环内，同步 ORM 会抛
+        # SynchronousOnlyOperation——原 core 版以宽 except 静默跳过该场景，此处保持一致。
         try:
             from .admin import resume_pending_device_code_polls
 
             with allow_startup_db():
                 resume_pending_device_code_polls()
-        except (OperationalError, ProgrammingError):
-            # 数据库尚未就绪（如表未建），跳过恢复
-            pass
+        except Exception:
+            # 数据库未就绪（如 migrate 阶段）或运行在异步上下文时静默跳过
+            logger.debug("跳过 device code 恢复（数据库可能未就绪或处于异步上下文）")
 
 
 def allow_startup_db():
