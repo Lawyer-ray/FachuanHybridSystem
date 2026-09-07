@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Iterator
+from contextlib import AbstractContextManager
 
 from django.apps import AppConfig
 
@@ -35,7 +37,7 @@ class CloudStorageConfig(AppConfig):
             logger.debug("跳过 device code 恢复（数据库可能未就绪或处于异步上下文）")
 
 
-def allow_startup_db():
+def allow_startup_db() -> AbstractContextManager[None]:
     """Allow DB access during AppConfig.ready() startup.
 
     保留 core/apps.py 原实现语义：项目自定义的启动期数据库访问放行器。
