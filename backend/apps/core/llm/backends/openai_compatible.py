@@ -7,7 +7,7 @@ import time
 from collections.abc import AsyncIterator, Iterator
 from typing import TYPE_CHECKING, Any
 
-import httpx
+import httpx2 as httpx
 import openai
 
 from apps.core.llm.config import LLMConfig
@@ -16,6 +16,15 @@ from apps.core.llm.exceptions import LLMAPIError, LLMAuthenticationError, LLMNet
 from .base import BackendConfig, ILLMBackend, LLMResponse, LLMStreamChunk, LLMUsage
 
 logger = logging.getLogger("apps.core.llm.backends.openai_compatible")
+
+_LOG_CONTENT_PREVIEW_LIMIT = 80
+
+
+def _content_preview(content: str, limit: int = _LOG_CONTENT_PREVIEW_LIMIT) -> str:
+    """响应内容日志预览：截断，避免把全量（可能含敏感法律文书）内容写进日志。"""
+    if len(content) <= limit:
+        return content
+    return f"{content[:limit]}…(共{len(content)}字)"
 
 
 class OpenAICompatibleBackend:
@@ -29,6 +38,10 @@ class OpenAICompatibleBackend:
         self._base_url: str | None = None
         self._default_model: str | None = None
         self._timeout: int | None = None
+        # 客户端缓存：sync 按 (api_key, base_url, timeout) 复用；
+        # async 按 (事件循环, api_key, base_url, timeout) 复用
+        self._sync_clients: dict[tuple[str, str, float], openai.OpenAI] = {}
+        self._async_clients: dict[tuple[int, str, str, float], openai.AsyncOpenAI] = {}
 
     # ── 配置属性 ─────────────────────────────────────────────────────────────
 
@@ -118,23 +131,40 @@ class OpenAICompatibleBackend:
             return configured
         return self.default_model
 
-    # ── 客户端构建 ───────────────────────────────────────────────────────────
+    # ── 客户端构建（缓存复用，避免每次调用重建连接池） ───────────────────────
 
-    def _build_sync_client(self, timeout_seconds: float | None = None) -> openai.OpenAI:
+    @staticmethod
+    def _ssl_verify() -> bool:
         # SSL 验证可通过环境变量 LLM_SSL_VERIFY=false 关闭（仅用于特殊 CDN/代理环境）
         import os
 
-        ssl_verify = os.environ.get("LLM_SSL_VERIFY", "true").lower() not in ("false", "0", "no")
-        transport = httpx.HTTPTransport(verify=ssl_verify)
-        http_client = httpx.Client(transport=transport, timeout=timeout_seconds or self.timeout)
-        return openai.OpenAI(
-            api_key=self.api_key,
-            base_url=self.base_url,
-            timeout=timeout_seconds or self.timeout,
+        return os.environ.get("LLM_SSL_VERIFY", "true").lower() not in ("false", "0", "no")
+
+    def _build_sync_client(self, timeout_seconds: float | None = None) -> openai.OpenAI:
+        timeout_val = float(timeout_seconds or self.timeout)
+        api_key = self.api_key
+        base_url = self.base_url
+        cache_key = (api_key, base_url, timeout_val)
+        cached = self._sync_clients.get(cache_key)
+        if cached is not None:
+            return cached
+        transport = httpx.HTTPTransport(verify=self._ssl_verify())
+        http_client = httpx.Client(transport=transport, timeout=timeout_val)
+        client = openai.OpenAI(
+            api_key=api_key,
+            base_url=base_url,
+            timeout=timeout_val,
             http_client=http_client,
         )
+        # API key/base_url 轮换后丢弃旧配置的客户端，避免使用过期凭证
+        self._sync_clients = {k: v for k, v in self._sync_clients.items() if k[0] == api_key and k[1] == base_url}
+        self._sync_clients[cache_key] = client
+        return client
 
     async def _build_async_client(self, timeout_seconds: float | None = None) -> openai.AsyncOpenAI:
+        import asyncio
+
+        timeout_val = float(timeout_seconds or self.timeout)
         api_key = (
             self._config.api_key
             if self._config and self._config.api_key
@@ -145,18 +175,43 @@ class OpenAICompatibleBackend:
             if self._config and self._config.base_url
             else await LLMConfig.get_openai_compatible_base_url_async()
         )
-        timeout_val = timeout_seconds or await LLMConfig.get_openai_compatible_timeout_async()
-        import os
-
-        ssl_verify = os.environ.get("LLM_SSL_VERIFY", "true").lower() not in ("false", "0", "no")
-        transport = httpx.AsyncHTTPTransport(verify=ssl_verify)
+        loop_id = id(asyncio.get_running_loop())
+        cache_key = (loop_id, api_key, base_url, timeout_val)
+        cached = self._async_clients.get(cache_key)
+        if cached is not None:
+            return cached
+        transport = httpx.AsyncHTTPTransport(verify=self._ssl_verify())
         http_async_client = httpx.AsyncClient(transport=transport, timeout=timeout_val)
-        return openai.AsyncOpenAI(
+        client = openai.AsyncOpenAI(
             api_key=api_key,
             base_url=base_url,
             timeout=timeout_val,
             http_client=http_async_client,
         )
+        # 只保留当前事件循环、且配置指纹一致的客户端；旧循环已结束，其连接随循环销毁
+        self._async_clients = {
+            k: v for k, v in self._async_clients.items() if k[0] == loop_id and k[1] == api_key and k[2] == base_url
+        }
+        self._async_clients[cache_key] = client
+        return client
+
+    def close_clients(self) -> None:
+        """关闭缓存的同步客户端（进程退出或测试清理时调用）。"""
+        for client in self._sync_clients.values():
+            try:
+                client.close()
+            except Exception:
+                logger.debug("关闭同步 LLM 客户端失败", exc_info=True)
+        self._sync_clients.clear()
+
+    async def aclose_clients(self) -> None:
+        """关闭缓存中的全部异步客户端（旧事件循环的客户端不保证可关闭，尽力而为）。"""
+        for client in self._async_clients.values():
+            try:
+                await client.close()
+            except Exception:
+                logger.debug("关闭异步 LLM 客户端失败", exc_info=True)
+        self._async_clients.clear()
 
     # ── 错误映射 ─────────────────────────────────────────────────────────────
 
@@ -233,11 +288,12 @@ class OpenAICompatibleBackend:
         duration_ms = (time.time() - start_time) * 1000
         usage = self._extract_usage(getattr(response, "usage", None))
         content = self._extract_content(response)
-        logger.info(
-            "OpenAICompatible.chat 响应: model=%s, content=%r, choices=%s, usage=%s",
+        # 响应内容可能包含敏感法律文书，只记截断预览且降为 debug
+        logger.debug(
+            "OpenAICompatible.chat 响应: model=%s, content=%s, choices=%s, usage=%s",
             used_model,
-            content,
-            getattr(response, "choices", None),
+            _content_preview(content),
+            len(getattr(response, "choices", None) or []),
             usage,
         )
         return LLMResponse(
@@ -289,8 +345,6 @@ class OpenAICompatibleBackend:
                 else await LLMConfig.get_openai_compatible_base_url_async()
             )
             self._raise_mapped_error(error, request_timeout, base_url)
-        finally:
-            await async_client.close()
 
         duration_ms = (time.time() - start_time) * 1000
         usage = self._extract_usage(getattr(response, "usage", None))
@@ -394,8 +448,6 @@ class OpenAICompatibleBackend:
                 else await LLMConfig.get_openai_compatible_base_url_async()
             )
             self._raise_mapped_error(error, request_timeout, base_url)
-        finally:
-            await async_client.close()
 
     # ── 接口方法 ─────────────────────────────────────────────────────────────
 
@@ -442,8 +494,6 @@ class OpenAICompatibleBackend:
             response = await client.embeddings.create(model=used_model, input=texts)
         except Exception as error:
             self._raise_mapped_error(error, request_timeout, self.base_url)
-        finally:
-            await client.close()
 
         vectors: list[list[float]] = []
         for item in getattr(response, "data", None) or []:

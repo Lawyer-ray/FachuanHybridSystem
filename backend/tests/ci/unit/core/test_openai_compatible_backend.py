@@ -3,17 +3,12 @@ from __future__ import annotations
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import httpx
+import httpx2 as httpx
 import pytest
 
 from apps.core.llm.backends.base import BackendConfig, LLMResponse, LLMStreamChunk, LLMUsage
 from apps.core.llm.backends.openai_compatible import OpenAICompatibleBackend
-from apps.core.llm.exceptions import (
-    LLMAPIError,
-    LLMAuthenticationError,
-    LLMNetworkError,
-    LLMTimeoutError,
-)
+from apps.core.llm.exceptions import LLMAPIError, LLMAuthenticationError, LLMNetworkError, LLMTimeoutError
 
 
 def _config(**overrides):

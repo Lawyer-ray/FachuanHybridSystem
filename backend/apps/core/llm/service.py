@@ -8,6 +8,7 @@ Requirements: 1.2, 1.4, 1.5
 
 import asyncio
 import logging
+import time
 from collections.abc import AsyncIterator, Iterator
 from typing import Any, ClassVar
 
@@ -16,6 +17,7 @@ from .client import LLMClient
 from .fallback_policy import LLMFallbackPolicy
 from .router import LLMBackendRouter
 from .streaming import astream_with_fallback, stream_with_fallback
+from .tracking import arecord_llm_call, capture_caller, record_llm_call
 
 logger = logging.getLogger("apps.core.llm.service")
 
@@ -117,6 +119,7 @@ class LLMService:
         temperature: float = 0.7,
         max_tokens: int | None = None,
         fallback: bool = True,
+        caller: str | None = None,
         **kwargs: Any,
     ) -> LLMResponse:
         """简化的补全接口"""
@@ -129,6 +132,7 @@ class LLMService:
             temperature=temperature,
             max_tokens=max_tokens,
             fallback=fallback,
+            caller=caller if caller is not None else capture_caller(),
             **kwargs,
         )
 
@@ -140,6 +144,7 @@ class LLMService:
         temperature: float = 0.7,
         max_tokens: int | None = None,
         fallback: bool = True,
+        caller: str | None = None,
         **kwargs: Any,
     ) -> LLMResponse:
         """聊天接口"""
@@ -151,6 +156,7 @@ class LLMService:
             temperature=temperature,
             max_tokens=max_tokens,
             fallback=fallback,
+            caller=caller if caller is not None else capture_caller(),
             **kwargs,
         )
 
@@ -162,6 +168,7 @@ class LLMService:
         temperature: float = 0.7,
         max_tokens: int | None = None,
         fallback: bool = True,
+        caller: str | None = None,
         **kwargs: Any,
     ) -> LLMResponse:
         """异步聊天接口"""
@@ -173,6 +180,7 @@ class LLMService:
             temperature=temperature,
             max_tokens=max_tokens,
             fallback=fallback,
+            caller=caller if caller is not None else capture_caller(),
             **kwargs,
         )
 
@@ -184,18 +192,54 @@ class LLMService:
         temperature: float = 0.7,
         max_tokens: int | None = None,
         fallback: bool = True,
+        caller: str | None = None,
         **kwargs: Any,
     ) -> Iterator[LLMStreamChunk]:
-        yield from stream_with_fallback(
-            get_backend=self._get_backend,
-            get_backends_by_priority=self._get_backends_by_priority,
-            backend=backend,
-            fallback=fallback,
-            messages=messages,
-            model=model,
-            temperature=temperature,
-            max_tokens=max_tokens,
-            **kwargs,
+        caller_name = caller if caller is not None else capture_caller()
+        started_at = time.monotonic()
+        usage = None
+        model_used = model or "-"
+        backend_used = backend or "-"
+        try:
+            for chunk in stream_with_fallback(
+                get_backend=self._get_backend,
+                get_backends_by_priority=self._get_backends_by_priority,
+                backend=backend,
+                fallback=fallback,
+                messages=messages,
+                model=model,
+                temperature=temperature,
+                max_tokens=max_tokens,
+                **kwargs,
+            ):
+                if chunk.usage is not None:
+                    usage = chunk.usage
+                if chunk.model:
+                    model_used = chunk.model
+                if chunk.backend:
+                    backend_used = chunk.backend
+                yield chunk
+        except GeneratorExit:
+            return  # 调用方提前放弃，不记录
+        except Exception as error:
+            record_llm_call(
+                backend=backend_used,
+                model=model_used,
+                duration_ms=(time.monotonic() - started_at) * 1000,
+                success=False,
+                caller=caller_name,
+                error=error,
+            )
+            raise
+        record_llm_call(
+            backend=backend_used,
+            model=model_used,
+            duration_ms=(time.monotonic() - started_at) * 1000,
+            success=True,
+            caller=caller_name,
+            prompt_tokens=usage.prompt_tokens if usage else 0,
+            completion_tokens=usage.completion_tokens if usage else 0,
+            total_tokens=usage.total_tokens if usage else 0,
         )
 
     async def astream(
@@ -206,20 +250,55 @@ class LLMService:
         temperature: float = 0.7,
         max_tokens: int | None = None,
         fallback: bool = True,
+        caller: str | None = None,
         **kwargs: Any,
     ) -> AsyncIterator[LLMStreamChunk]:
-        async for chunk in astream_with_fallback(
-            get_backend=self._get_backend,
-            get_backends_by_priority=self._get_backends_by_priority,
-            backend=backend,
-            fallback=fallback,
-            messages=messages,
-            model=model,
-            temperature=temperature,
-            max_tokens=max_tokens,
-            **kwargs,
-        ):
-            yield chunk
+        caller_name = caller if caller is not None else capture_caller()
+        started_at = time.monotonic()
+        usage = None
+        model_used = model or "-"
+        backend_used = backend or "-"
+        try:
+            async for chunk in astream_with_fallback(
+                get_backend=self._get_backend,
+                get_backends_by_priority=self._get_backends_by_priority,
+                backend=backend,
+                fallback=fallback,
+                messages=messages,
+                model=model,
+                temperature=temperature,
+                max_tokens=max_tokens,
+                **kwargs,
+            ):
+                if chunk.usage is not None:
+                    usage = chunk.usage
+                if chunk.model:
+                    model_used = chunk.model
+                if chunk.backend:
+                    backend_used = chunk.backend
+                yield chunk
+        except GeneratorExit:
+            return  # 调用方提前放弃，不记录
+        except Exception as error:
+            await arecord_llm_call(
+                backend=backend_used,
+                model=model_used,
+                duration_ms=(time.monotonic() - started_at) * 1000,
+                success=False,
+                caller=caller_name,
+                error=error,
+            )
+            raise
+        await arecord_llm_call(
+            backend=backend_used,
+            model=model_used,
+            duration_ms=(time.monotonic() - started_at) * 1000,
+            success=True,
+            caller=caller_name,
+            prompt_tokens=usage.prompt_tokens if usage else 0,
+            completion_tokens=usage.completion_tokens if usage else 0,
+            total_tokens=usage.total_tokens if usage else 0,
+        )
 
     def embed_texts(
         self,
@@ -227,6 +306,7 @@ class LLMService:
         backend: str | None = None,
         model: str | None = None,
         fallback: bool = True,
+        caller: str | None = None,
         **kwargs: Any,
     ) -> list[list[float]]:
         return self._client.embed_texts(
@@ -235,6 +315,7 @@ class LLMService:
             backend=backend,
             model=model,
             fallback=fallback,
+            caller=caller if caller is not None else capture_caller(),
             **kwargs,
         )
 
@@ -244,6 +325,7 @@ class LLMService:
         backend: str | None = None,
         model: str | None = None,
         fallback: bool = True,
+        caller: str | None = None,
         **kwargs: Any,
     ) -> list[list[float]]:
         return await self._client.aembed_texts(
@@ -252,6 +334,7 @@ class LLMService:
             backend=backend,
             model=model,
             fallback=fallback,
+            caller=caller if caller is not None else capture_caller(),
             **kwargs,
         )
 

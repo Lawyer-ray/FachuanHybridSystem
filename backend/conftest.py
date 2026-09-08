@@ -107,6 +107,52 @@ def pytest_configure(config: Any) -> None:
             )
 
 
+@pytest.fixture(autouse=True)
+def _sync_first_user_setup_deferred_init(monkeypatch: Any) -> Any:
+    """测试环境将 FirstUserSetupService 的 deferred 初始化从后台线程改为同步执行。
+
+    背景：注册流程创建首个用户（每次 flush 后用户表为空，第一个建用户的测试）
+    会触发 FirstUserSetupService._run_deferred_init() 启动 daemon 线程
+    "first-user-setup"，在线程里跑文书模板目录/模板/代理事项规则的初始化
+    （ProxyMatterRuleInitService.initialize_defaults 为 @transaction.atomic）。
+    测试结束后该线程仍在写库、事务未提交，导致后续 TransactionTestCase
+    （transaction=True）teardown 的 flush TRUNCATE 拿不到表锁，
+    被 pytest-timeout 以 "Timeout (>30.0s)" 报 ERROR
+    （典型表现：test_async_conversation_service 全量跑必挂、单跑通过）。
+    改为同步执行后时序确定，初始化数据对测试自身可见。
+    """
+    from apps.organization.services.setup.first_user_setup_service import FirstUserSetupService
+
+    monkeypatch.setattr(
+        FirstUserSetupService,
+        "_run_deferred_init",
+        lambda self: self._deferred_worker(),
+    )
+    yield
+
+
+@pytest.fixture(autouse=True)
+def _close_asgiref_executor_db_connections() -> Any:
+    """测试结束后关闭 asgiref 固定执行器线程上泄漏的 Django DB 连接。
+
+    背景：pytest-asyncio 环境下没有 ThreadSensitiveContext，Django async ORM
+    （acreate/adelete 等）经 sync_to_async 回退到 SyncToAsync.single_thread_executor
+    这个类级固定单线程执行；该线程上打开的 DB 连接存于其 threading.local，
+    测试结束后不会关闭。残留连接会让 TransactionTestCase 的 flush 与测试库
+    drop 撞上 PostgreSQL 的 "database is being accessed by other users"。
+    连接对象归属执行器线程（Django 连接按线程隔离），只有把 close_all()
+    提交到该线程自己执行才能真正关闭。
+    """
+    yield
+    try:
+        from asgiref.sync import SyncToAsync
+        from django.db import connections
+
+        SyncToAsync.single_thread_executor.submit(connections.close_all).result(timeout=5)
+    except Exception:
+        pass
+
+
 @pytest.fixture
 def api_client() -> Any:
     """提供 API 测试客户端"""

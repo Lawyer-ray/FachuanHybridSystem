@@ -287,7 +287,7 @@ class TestAchat:
 
     @pytest.mark.asyncio
     async def test_achat_error(self) -> None:
-        import httpx
+        import httpx2 as httpx
 
         from apps.core.llm.backends.openai_compatible import OpenAICompatibleBackend
 
@@ -374,7 +374,7 @@ class TestAstream:
 
     @pytest.mark.asyncio
     async def test_astream_error(self) -> None:
-        import httpx
+        import httpx2 as httpx
 
         from apps.core.llm.backends.openai_compatible import OpenAICompatibleBackend
 
@@ -397,7 +397,7 @@ class TestAstream:
 
 class TestStreamHttpxErrors:
     def test_stream_httpx_timeout_error(self) -> None:
-        import httpx
+        import httpx2 as httpx
 
         from apps.core.llm.backends.openai_compatible import OpenAICompatibleBackend
 
@@ -412,7 +412,7 @@ class TestStreamHttpxErrors:
                 list(backend.stream([{"role": "user", "content": "test"}]))
 
     def test_stream_httpx_connect_error(self) -> None:
-        import httpx
+        import httpx2 as httpx
 
         from apps.core.llm.backends.openai_compatible import OpenAICompatibleBackend
 

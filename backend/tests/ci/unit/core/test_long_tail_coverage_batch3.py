@@ -637,7 +637,7 @@ class TestOpenAICompatibleBackend:
             b._raise_mapped_error(err, 30, "http://test")
 
     def test_raise_mapped_error_timeout(self):
-        import httpx
+        import httpx2 as httpx
 
         b = self._make_backend()
         from apps.core.llm.exceptions import LLMTimeoutError
@@ -647,7 +647,7 @@ class TestOpenAICompatibleBackend:
             b._raise_mapped_error(err, 30, "http://test")
 
     def test_raise_mapped_error_connection(self):
-        import httpx
+        import httpx2 as httpx
 
         b = self._make_backend()
         from apps.core.llm.exceptions import LLMNetworkError

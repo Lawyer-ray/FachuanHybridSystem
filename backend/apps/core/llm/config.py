@@ -12,6 +12,7 @@ Requirements: 2.1, 2.2, 2.3, 2.5, 5.1, 5.3, 5.4
 """
 
 import logging
+import time
 from typing import TYPE_CHECKING, Any, ClassVar, cast
 
 from django.conf import settings
@@ -50,7 +51,9 @@ class LLMConfig:
     DEFAULT_OPENAI_COMPATIBLE_TIMEOUT = 120
 
     # 跨调用缓存（async 预热后 sync 调用可复用，避免 SynchronousOnlyOperation）
-    _config_cache: ClassVar[dict[str, str]] = {}
+    # 值为 (配置值, 写入时间戳)，TTL 过期后自动重新读库
+    _config_cache: ClassVar[dict[str, tuple[str, float]]] = {}
+    _CONFIG_CACHE_TTL_SECONDS: ClassVar[float] = 300.0
 
     DEFAULT_AVAILABLE_MODELS: ClassVar[list[str]] = [
         # Kimi26 (vLLM self-hosted)
@@ -117,14 +120,38 @@ class LLMConfig:
         return fallback_value
 
     @classmethod
+    def _cache_lookup(cls, key: str) -> str | None:
+        """读取缓存条目，TTL 过期视为未命中（需重新读库）。"""
+        entry = cls._config_cache.get(key)
+        if entry is None:
+            return None
+        value, cached_at = entry
+        if time.monotonic() - cached_at > cls._CONFIG_CACHE_TTL_SECONDS:
+            return None
+        return value
+
+    @classmethod
+    def _cache_store(cls, key: str, value: str) -> None:
+        cls._config_cache[key] = (value, time.monotonic())
+
+    @classmethod
+    def invalidate_cache(cls) -> None:
+        """清空配置缓存。
+
+        Admin 修改 SystemConfig 中的 LLM 配置后可调用使改动立即生效；
+        未调用时改动也会在 TTL（默认 300 秒）后自动生效。
+        """
+        cls._config_cache.clear()
+
+    @classmethod
     def _get_system_config(cls, key: str, default: str = "") -> str:
         """
         从统一系统配置获取配置值
 
-        优先级: 缓存 > SystemConfigService(带缓存) > Django settings > 默认值
+        优先级: 缓存(带TTL) > SystemConfigService(带缓存) > Django settings > 默认值
         """
         # 先查缓存（async 预热后可直接命中）
-        cached = cls._config_cache.get(key)
+        cached = cls._cache_lookup(key)
         if cached is not None:
             return cached
 
@@ -132,12 +159,12 @@ class LLMConfig:
         # 注意: 此方法不应在 async 上下文中被直接调用，请使用 _get_system_config_async
         try:
             import asyncio
+
             asyncio.get_running_loop()
             # 在 async 上下文中，检测到 event loop
             # 尝试从缓存和 settings 获取，DB 查询应走 _get_system_config_async
             logger.debug(
-                "[LLMConfig] _get_system_config 在 async 上下文中被调用 (key=%s), "
-                "建议使用 _get_system_config_async",
+                "[LLMConfig] _get_system_config 在 async 上下文中被调用 (key=%s), 建议使用 _get_system_config_async",
                 key,
             )
             fallback_value = cls._get_django_settings_fallback(key, default)
@@ -152,7 +179,7 @@ class LLMConfig:
                 raw_value = config_service.get_value(key, default="")
                 value = raw_value if isinstance(raw_value, str) else ("" if raw_value is None else str(raw_value))
                 if value:
-                    cls._config_cache[key] = value
+                    cls._cache_store(key, value)
                     return value
             except (KeyError, AttributeError, TypeError):
                 logger.warning("[LLMConfig] SystemConfigService 读取失败", extra={"key": key})
@@ -169,7 +196,7 @@ class LLMConfig:
         """
         异步版本:从统一系统配置获取配置值
 
-        优先级: 缓存 > SystemConfigService(带缓存,用 sync_to_async 包装) > Django settings > 默认值
+        优先级: 缓存(带TTL) > SystemConfigService(带缓存,用 sync_to_async 包装) > Django settings > 默认值
 
         Args:
             key: 配置键名
@@ -179,7 +206,7 @@ class LLMConfig:
             配置值
         """
         # 先查缓存（sync 预热后可直接命中）
-        cached = cls._config_cache.get(key)
+        cached = cls._cache_lookup(key)
         if cached is not None:
             return cached
 
@@ -195,7 +222,7 @@ class LLMConfig:
 
                 value = await get_value_sync()
                 if value:
-                    cls._config_cache[key] = value
+                    cls._cache_store(key, value)
                     return value
             except (KeyError, AttributeError, TypeError):
                 logger.warning("[LLMConfig] 异步 SystemConfigService 读取失败", extra={"key": key})

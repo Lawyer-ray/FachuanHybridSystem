@@ -20,6 +20,11 @@ class LLMCallRecord(models.Model):
 
     id: int
     model = models.CharField(max_length=100, verbose_name="模型")
+    backend = models.CharField(max_length=50, blank=True, default="", verbose_name="后端")
+    caller = models.CharField(max_length=200, blank=True, default="", verbose_name="调用方")
+    success = models.BooleanField(default=True, verbose_name="是否成功")
+    error_type = models.CharField(max_length=100, blank=True, default="", verbose_name="错误类型")
+    error_summary = models.TextField(blank=True, default="", verbose_name="错误摘要")
     prompt_tokens = models.IntegerField(verbose_name="输入 Token")
     completion_tokens = models.IntegerField(verbose_name="输出 Token")
     total_tokens = models.IntegerField(verbose_name="总 Token")
@@ -32,6 +37,7 @@ class LLMCallRecord(models.Model):
         indexes: ClassVar = [
             models.Index(fields=["created_at"], name="core_llmcal_created_830747_idx"),
             models.Index(fields=["model"], name="core_llmcal_model_df0279_idx"),
+            models.Index(fields=["success"]),
         ]
 
     def __str__(self) -> str:
