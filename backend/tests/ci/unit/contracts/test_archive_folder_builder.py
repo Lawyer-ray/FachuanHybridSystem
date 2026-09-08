@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import Any
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, PropertyMock, patch
 
 import pytest
 
@@ -19,6 +19,7 @@ from apps.contracts.services.archive.generation.folder_builder import (
     _compile_final_archive_pdf,
     _write_template_doc_to_folder,
     generate_archive_folder,
+    resolve_latest_final_archive_file,
 )
 
 
@@ -121,3 +122,52 @@ class TestCompileFinalArchivePdf:
         result = _compile_final_archive_pdf(contract, tmp_path, case_materials_pdf_exists=False)
         assert result["written"] is False
         assert result["skipped"] is True
+
+
+class TestResolveLatestFinalArchiveFile:
+    def _binding(self, folder_path: str) -> MagicMock:
+        binding = MagicMock()
+        binding.folder_path = folder_path
+        binding.storage_type = "local"
+        return binding
+
+    def test_no_folder_binding(self) -> None:
+        from apps.contracts.models.folder_binding import ContractFolderBinding
+
+        contract = _make_contract()
+        type(contract).folder_binding = PropertyMock(side_effect=ContractFolderBinding.DoesNotExist)
+        assert resolve_latest_final_archive_file(contract) is None
+
+    def test_empty_folder_path(self) -> None:
+        contract = _make_contract()
+        contract.folder_binding = self._binding("")
+        assert resolve_latest_final_archive_file(contract) is None
+
+    def test_local_folder_not_exists(self, tmp_path: Path) -> None:
+        contract = _make_contract()
+        contract.folder_binding = self._binding(str(tmp_path))
+        assert resolve_latest_final_archive_file(contract) is None
+
+    def test_local_no_final_material(self, tmp_path: Path) -> None:
+        archive_dir = tmp_path / "归档文件夹"
+        archive_dir.mkdir(parents=True)
+        (archive_dir / "其他文件.txt").write_bytes(b"x")
+        contract = _make_contract()
+        contract.folder_binding = self._binding(str(tmp_path))
+        assert resolve_latest_final_archive_file(contract) is None
+
+    def test_local_returns_newest(self, tmp_path: Path) -> None:
+        import os
+
+        archive_dir = tmp_path / "归档文件夹"
+        archive_dir.mkdir(parents=True)
+        old = archive_dir / "5-Final案卷材料（A）_20260101.pdf"
+        new = archive_dir / "5-Final案卷材料（A）_20260102.pdf"
+        old.write_bytes(b"old")
+        new.write_bytes(b"new")
+        os.utime(old, (1_000, 1_000))
+        os.utime(new, (2_000, 2_000))
+
+        contract = _make_contract()
+        contract.folder_binding = self._binding(str(tmp_path))
+        assert resolve_latest_final_archive_file(contract) == new

@@ -48,8 +48,12 @@ class ArchiveAdapter(Protocol):
         credential: Any,
         oa_case_number: str,
         description: str,
+        file_paths: list[str] | None = None,
     ) -> None:
-        """打开 OA 归档页面，填写案件编号和小结，保持浏览器打开。"""
+        """打开 OA 归档页面，填写案件编号和小结，保持浏览器打开。
+
+        file_paths 非空时，选完案件后将对应文件上传到"案件业务卷宗"。
+        """
         ...
 
     async def open_invoice_page(

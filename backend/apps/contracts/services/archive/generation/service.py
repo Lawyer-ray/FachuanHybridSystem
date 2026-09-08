@@ -60,6 +60,10 @@ class ArchiveGenerationService:
     def generate_archive_folder(self, contract: Contract) -> dict[str, Any]:
         return folder_builder.generate_archive_folder(contract)
 
+    def resolve_latest_final_archive_file(self, contract: Contract) -> Path | None:
+        """解析归档文件夹中最新的 "5-Final案卷材料" 本地路径（无则 None）。"""
+        return folder_builder.resolve_latest_final_archive_file(contract)
+
     async def agenerate_archive_folder(self, contract: Contract) -> dict[str, Any]:
         """异步版归档文件夹生成（CPU 密集，卸载到线程池）。"""
         return await asyncio.to_thread(folder_builder.generate_archive_folder, contract)

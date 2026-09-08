@@ -221,12 +221,16 @@ class JTNAdapter(FilingAdapter, StampAdapter, ArchiveAdapter, CaseImportAdapter,
         credential: Any,
         oa_case_number: str,
         description: str,
+        file_paths: list[str] | None = None,
     ) -> None:
-        """打开 OA 归档页面，填写案件编号和小结，保持浏览器打开。"""
+        """打开 OA 归档页面，填写案件编号和小结，保持浏览器打开。
+
+        file_paths 非空时，选完案件后将对应文件上传到"案件业务卷宗"。
+        """
         from apps.oa_filing.services.oa_scripts.jtn.archive import JtnArchiveScript
 
         script = JtnArchiveScript(account=str(credential.account), password=str(credential.password))
-        playwright, browser = await script.open_page(oa_case_number, description)
+        playwright, browser = await script.open_page(oa_case_number, description, file_paths or [])
         _cleanup_stale_sessions()
         _active_browser_sessions.append((playwright, browser))
 
