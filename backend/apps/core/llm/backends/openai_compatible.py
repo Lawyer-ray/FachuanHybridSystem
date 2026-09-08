@@ -17,6 +17,15 @@ from .base import BackendConfig, ILLMBackend, LLMResponse, LLMStreamChunk, LLMUs
 
 logger = logging.getLogger("apps.core.llm.backends.openai_compatible")
 
+_LOG_CONTENT_PREVIEW_LIMIT = 80
+
+
+def _content_preview(content: str, limit: int = _LOG_CONTENT_PREVIEW_LIMIT) -> str:
+    """响应内容日志预览：截断，避免把全量（可能含敏感法律文书）内容写进日志。"""
+    if len(content) <= limit:
+        return content
+    return f"{content[:limit]}…(共{len(content)}字)"
+
 
 class OpenAICompatibleBackend:
     """Generic backend for OpenAI-compatible providers (Moonshot/Kimi/DeepSeek etc.)."""
@@ -233,11 +242,12 @@ class OpenAICompatibleBackend:
         duration_ms = (time.time() - start_time) * 1000
         usage = self._extract_usage(getattr(response, "usage", None))
         content = self._extract_content(response)
-        logger.info(
-            "OpenAICompatible.chat 响应: model=%s, content=%r, choices=%s, usage=%s",
+        # 响应内容可能包含敏感法律文书，只记截断预览且降为 debug
+        logger.debug(
+            "OpenAICompatible.chat 响应: model=%s, content=%s, choices=%s, usage=%s",
             used_model,
-            content,
-            getattr(response, "choices", None),
+            _content_preview(content),
+            len(getattr(response, "choices", None) or []),
             usage,
         )
         return LLMResponse(
