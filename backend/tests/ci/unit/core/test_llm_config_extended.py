@@ -20,13 +20,13 @@ Covers:
 
 from __future__ import annotations
 
+import time
 from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
 
 from apps.core.llm.config import LLMConfig
-
 
 # ---------------------------------------------------------------------------
 # Fixtures / helpers
@@ -117,7 +117,7 @@ class TestDjangoSettingsFallback:
 
 class TestGetSystemConfig:
     def test_cached_value(self) -> None:
-        LLMConfig._config_cache["KEY"] = "cached"
+        LLMConfig._config_cache["KEY"] = ("cached", time.monotonic())
         result = LLMConfig._get_system_config("KEY", "default")
         assert result == "cached"
 
@@ -127,7 +127,7 @@ class TestGetSystemConfig:
         LLMConfig._config_service = mock_service
         result = LLMConfig._get_system_config("KEY", "default")
         assert result == "from_service"
-        assert LLMConfig._config_cache["KEY"] == "from_service"
+        assert LLMConfig._config_cache["KEY"][0] == "from_service"
 
     def test_system_config_service_empty_falls_through(self) -> None:
         mock_service = MagicMock()
