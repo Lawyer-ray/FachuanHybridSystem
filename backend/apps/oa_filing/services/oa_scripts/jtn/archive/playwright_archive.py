@@ -119,43 +119,32 @@ class PlaywrightArchiveMixin:  # pragma: no cover
 
         # 3. 等待 iframe 内容加载完成，再操作 DOM
         await popup_frame.wait_for_selector("#project_no", timeout=10_000)
-        await popup_frame.evaluate(f"""() => {{
-            const el = document.getElementById("project_no");
-            el.removeAttribute("readonly");
-            el.value = "{case_no}";
-        }}""")
-        await asyncio.sleep(SHORT_WAIT)
 
-        await popup_frame.evaluate(IFRAME_SEARCH_FN)
+        # 3.5 优先：目标案件已出现在弹窗初始列表时，直接选中，跳过"查找"。
+        #     个别案件一打开弹窗就已带出（且可能被系统默认选中），此时再执行
+        #     查询会重置选中状态，导致后续点"选择"时提示"请选择对应的案件信息"。
+        if await self._select_case_in_current_list(popup_frame, case_no):
+            logger.info("目标案件已在选择弹窗列表，直接选中（跳过查询）: %s", case_no)
+        else:
+            # 填号并执行查询
+            await popup_frame.evaluate(f"""() => {{
+                const el = document.getElementById("project_no");
+                el.removeAttribute("readonly");
+                el.value = "{case_no}";
+            }}""")
+            await asyncio.sleep(SHORT_WAIT)
+            await popup_frame.evaluate(IFRAME_SEARCH_FN)
 
-        # 4. 轮询等待搜索结果中出现目标案件编号，校验后选择匹配行
-        import time as _time
+            # 4. 轮询等待搜索结果中出现目标案件编号，校验后选择匹配行
+            import time as _time
 
-        deadline = _time.monotonic() + 30
-        while True:
-            matched = await popup_frame.evaluate(
-                """(expected) => {{
-                const radios = document.querySelectorAll('input[type="radio"]');
-                for (const radio of radios) {{
-                    const row = radio.closest('tr');
-                    if (!row) continue;
-                    const tds = row.querySelectorAll('td');
-                    if (tds.length < 2) continue;
-                    const caseNo = tds[1].textContent.trim();
-                    if (caseNo === expected) {{
-                        radio.click();
-                        return true;
-                    }}
-                }}
-                return false;
-            }}""",
-                case_no,
-            )
-            if matched:
-                break
-            if _time.monotonic() > deadline:
-                raise RuntimeError(f"搜索结果中未找到案件: {case_no}")
-            await asyncio.sleep(1)
+            deadline = _time.monotonic() + 30
+            while True:
+                if await self._select_case_in_current_list(popup_frame, case_no):
+                    break
+                if _time.monotonic() > deadline:
+                    raise RuntimeError(f"搜索结果中未找到案件: {case_no}")
+                await asyncio.sleep(1)
 
         await asyncio.sleep(SHORT_WAIT)
         logger.info("已选择案件: %s", case_no)
@@ -171,6 +160,35 @@ class PlaywrightArchiveMixin:  # pragma: no cover
         }""")
         await asyncio.sleep(POPUP_WAIT)
         logger.info("案件已回填到主页面")
+
+    async def _select_case_in_current_list(self: Any, popup_frame: Any, case_no: str) -> bool:
+        """若目标案件已出现在弹窗当前列表中，选中其 radio 并返回 True，否则返回 False。
+
+        列表来源不区分（初始加载或查询结果），仅按案件编号匹配。选中后校验
+        checked 状态，未生效则强制设置并派发 change 事件，避免出现"找到了案件
+        却选不中"的情况。
+        """
+        selected = await popup_frame.evaluate(
+            """(expected) => {
+                const radios = document.querySelectorAll('input[type="radio"]');
+                for (const radio of radios) {
+                    const row = radio.closest('tr');
+                    if (!row) continue;
+                    const tds = row.querySelectorAll('td');
+                    if (tds.length < 2) continue;
+                    const caseNo = tds[1].textContent.trim();
+                    if (caseNo === expected) {
+                        if (!radio.checked) radio.click();
+                        if (!radio.checked) radio.checked = true;
+                        radio.dispatchEvent(new Event('change', { bubbles: true }));
+                        return true;
+                    }
+                }
+                return false;
+            }""",
+            case_no,
+        )
+        return bool(selected)
 
     async def _find_popup_frame(self: Any, page: Page) -> Any:  # pragma: no cover
         """查找案件搜索弹窗的 iframe。"""
