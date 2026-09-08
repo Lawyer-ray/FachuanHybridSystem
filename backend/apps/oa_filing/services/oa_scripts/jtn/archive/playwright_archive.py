@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from playwright.async_api import Page
+from playwright.async_api import TimeoutError as PlaywrightTimeoutError
 
 from apps.core.services.browser import BrowserProfile, create_browser_async
 
@@ -119,43 +120,32 @@ class PlaywrightArchiveMixin:  # pragma: no cover
 
         # 3. 等待 iframe 内容加载完成，再操作 DOM
         await popup_frame.wait_for_selector("#project_no", timeout=10_000)
-        await popup_frame.evaluate(f"""() => {{
-            const el = document.getElementById("project_no");
-            el.removeAttribute("readonly");
-            el.value = "{case_no}";
-        }}""")
-        await asyncio.sleep(SHORT_WAIT)
 
-        await popup_frame.evaluate(IFRAME_SEARCH_FN)
+        # 3.5 优先：目标案件已出现在弹窗初始列表时，直接选中，跳过"查找"。
+        #     个别案件一打开弹窗就已带出（且可能被系统默认选中），此时再执行
+        #     查询会重置选中状态，导致后续点"选择"时提示"请选择对应的案件信息"。
+        if await self._select_case_in_current_list(popup_frame, case_no):
+            logger.info("目标案件已在选择弹窗列表，直接选中（跳过查询）: %s", case_no)
+        else:
+            # 填号并执行查询
+            await popup_frame.evaluate(f"""() => {{
+                const el = document.getElementById("project_no");
+                el.removeAttribute("readonly");
+                el.value = "{case_no}";
+            }}""")
+            await asyncio.sleep(SHORT_WAIT)
+            await popup_frame.evaluate(IFRAME_SEARCH_FN)
 
-        # 4. 轮询等待搜索结果中出现目标案件编号，校验后选择匹配行
-        import time as _time
+            # 4. 轮询等待搜索结果中出现目标案件编号，校验后选择匹配行
+            import time as _time
 
-        deadline = _time.monotonic() + 30
-        while True:
-            matched = await popup_frame.evaluate(
-                """(expected) => {{
-                const radios = document.querySelectorAll('input[type="radio"]');
-                for (const radio of radios) {{
-                    const row = radio.closest('tr');
-                    if (!row) continue;
-                    const tds = row.querySelectorAll('td');
-                    if (tds.length < 2) continue;
-                    const caseNo = tds[1].textContent.trim();
-                    if (caseNo === expected) {{
-                        radio.click();
-                        return true;
-                    }}
-                }}
-                return false;
-            }}""",
-                case_no,
-            )
-            if matched:
-                break
-            if _time.monotonic() > deadline:
-                raise RuntimeError(f"搜索结果中未找到案件: {case_no}")
-            await asyncio.sleep(1)
+            deadline = _time.monotonic() + 30
+            while True:
+                if await self._select_case_in_current_list(popup_frame, case_no):
+                    break
+                if _time.monotonic() > deadline:
+                    raise RuntimeError(f"搜索结果中未找到案件: {case_no}")
+                await asyncio.sleep(1)
 
         await asyncio.sleep(SHORT_WAIT)
         logger.info("已选择案件: %s", case_no)
@@ -171,6 +161,35 @@ class PlaywrightArchiveMixin:  # pragma: no cover
         }""")
         await asyncio.sleep(POPUP_WAIT)
         logger.info("案件已回填到主页面")
+
+    async def _select_case_in_current_list(self: Any, popup_frame: Any, case_no: str) -> bool:
+        """若目标案件已出现在弹窗当前列表中，选中其 radio 并返回 True，否则返回 False。
+
+        列表来源不区分（初始加载或查询结果），仅按案件编号匹配。选中后校验
+        checked 状态，未生效则强制设置并派发 change 事件，避免出现"找到了案件
+        却选不中"的情况。
+        """
+        selected = await popup_frame.evaluate(
+            """(expected) => {
+                const radios = document.querySelectorAll('input[type="radio"]');
+                for (const radio of radios) {
+                    const row = radio.closest('tr');
+                    if (!row) continue;
+                    const tds = row.querySelectorAll('td');
+                    if (tds.length < 2) continue;
+                    const caseNo = tds[1].textContent.trim();
+                    if (caseNo === expected) {
+                        if (!radio.checked) radio.click();
+                        if (!radio.checked) radio.checked = true;
+                        radio.dispatchEvent(new Event('change', { bubbles: true }));
+                        return true;
+                    }
+                }
+                return false;
+            }""",
+            case_no,
+        )
+        return bool(selected)
 
     async def _find_popup_frame(self: Any, page: Page) -> Any:  # pragma: no cover
         """查找案件搜索弹窗的 iframe。"""
@@ -199,21 +218,28 @@ class PlaywrightArchiveMixin:  # pragma: no cover
     async def _upload_files(self: Any, page: Page, file_paths: list[str]) -> None:  # pragma: no cover
         """上传归档文件到归档文件区域。
 
-        归档文件区域在 #tblFiles 表格中：
-        - 第一行（案件业务卷宗）：默认选中，name="pfile"
-        - 第二行（请选择）：附加文件类型，name="pfile"
+        归档文件区域在 #tblFiles 表格中（无 thead，tbody 首列为表头）：
+        - 第 2 行（tbody/tr[2]，案件业务卷宗，F001 必传）：首个 file input
+          （即 //*[@id="tblFiles"]/tbody/tr[2]/td[2]/input）
+        - 第 3 行（tbody/tr[3]，请选择）：附加文件行，可选
 
-        注意：页面顶层有一个隐藏的 file input（display:none），
-        必须用 #tblFiles input[type=file] 限定范围，跳过隐藏的。
+        注意：
+        - 页面顶层有一个隐藏的 file input（display:none），必须用
+          #tblFiles input[type=file] 限定范围，跳过隐藏的。
+        - #tblFiles 由案件选择成功后 AJAX 异步渲染，上传前必须先等待其出现，
+          否则 count() 会因时序问题误判为 0。
         """
         if not file_paths:
             raise RuntimeError("没有要上传的文件")
 
+        # 等待归档文件上传区域（#tblFiles）及其 file input 渲染完成
+        try:
+            await page.wait_for_selector('#tblFiles input[type="file"]', timeout=30_000)
+        except PlaywrightTimeoutError:
+            raise RuntimeError("等待归档文件上传区域 (#tblFiles) 超时，请确认案件是否已成功选择") from None
+
         # 限定在 #tblFiles 表格中，避免匹配到页面顶层的隐藏 file input
         file_inputs = page.locator('#tblFiles input[type="file"]')
-        fi_count = await file_inputs.count()
-        if fi_count < 1:
-            raise RuntimeError("未找到归档文件上传区域 (#tblFiles)")
 
         # 上传第一个文件到"案件业务卷宗"行
         first_path = file_paths[0]
@@ -222,7 +248,7 @@ class PlaywrightArchiveMixin:  # pragma: no cover
         await asyncio.sleep(MEDIUM_WAIT)
 
         # 如果有多个文件，通过"请选择"行上传第二个文件
-        if len(file_paths) > 1 and fi_count >= 2:
+        if len(file_paths) > 1 and await file_inputs.count() >= 2:
             second_path = file_paths[1]
             logger.info("上传文件: %s → 请选择行", Path(second_path).name)
             await file_inputs.nth(1).set_input_files(second_path)
@@ -251,8 +277,13 @@ class PlaywrightArchiveMixin:  # pragma: no cover
         await asyncio.sleep(MEDIUM_WAIT)
         logger.info("删除按钮已点击")
 
-    async def _open_page(self: Any, oa_case_number: str, description: str = "详见卷宗") -> tuple[Any, Any]:
-        """打开归档页面，填写案件编号和小结，返回 (playwright, browser) 保持浏览器打开。"""
+    async def _open_page(
+        self: Any,
+        oa_case_number: str,
+        description: str = "详见卷宗",
+        file_paths: list[str] | None = None,
+    ) -> tuple[Any, Any]:
+        """打开归档页面，填写案件编号和小结，若提供 file_paths 则在最后一步将对应文件上传到"案件业务卷宗"，返回 (playwright, browser) 保持浏览器打开。"""
         from playwright.async_api import async_playwright
 
         playwright = await async_playwright().start()
@@ -278,6 +309,9 @@ class PlaywrightArchiveMixin:  # pragma: no cover
 
             await self._fill_description(page, description)
             await self._click_delete_button(page)
+
+            if file_paths:
+                await self._upload_files(page, file_paths)
 
             logger.info("归档页面已打开并填写完成")
             return playwright, browser

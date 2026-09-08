@@ -216,8 +216,13 @@ class ScriptExecutorService:
     def open_oa_page(
         self, contract_id: int, user: Any, description: str = "详见卷宗", site_name: str = "金诚同达OA"
     ) -> None:
-        """打开 OA 归档页面，填写案件编号和小结，保持浏览器打开。"""
+        """打开 OA 归档页面，填写案件编号和小结，保持浏览器打开。
+
+        若归档文件夹中已生成 "5-Final案卷材料"，附带其路径，最后一步自动上传到
+        "案件业务卷宗"；否则保持原样，不上传。
+        """
         from apps.contracts.models import Contract
+        from apps.contracts.services.archive.generation.service import ArchiveGenerationService
 
         credential = self._find_credential(user, site_name)
         if credential is None:
@@ -226,12 +231,26 @@ class ScriptExecutorService:
         contract = Contract.objects.filter(pk=contract_id).first()
         oa_case_number = contract.law_firm_oa_case_number if contract else ""
 
+        final_file = (
+            ArchiveGenerationService().resolve_latest_final_archive_file(contract) if contract is not None else None
+        )
+        file_paths = [str(final_file)] if final_file is not None else []
+        if file_paths:
+            logger.info(
+                "打开 OA 自动上传归档材料: %s",
+                file_paths[0],
+                extra={"contract_id": contract_id},
+            )
+        else:
+            logger.info("未找到 5-Final案卷材料，打开 OA 跳过自动上传", extra={"contract_id": contract_id})
+
         _executor.submit(
             self._run_open_oa_in_thread,
             site_name,
             credential,
             oa_case_number,
             description,
+            file_paths,
         )
 
     def _run_open_oa_in_thread(
@@ -240,11 +259,12 @@ class ScriptExecutorService:
         credential: Any,
         oa_case_number: str,
         description: str,
+        file_paths: list[str],
     ) -> None:
         os.environ["DJANGO_ALLOW_ASYNC_UNSAFE"] = "true"
         try:
             adapter = create_adapter(site_name, str(credential.account), str(credential.password))
-            asyncio.run(adapter.open_oa_page(credential, oa_case_number, description))
+            asyncio.run(adapter.open_oa_page(credential, oa_case_number, description, file_paths))
             logger.info("OA 页面已打开")
         except Exception as exc:
             logger.error("打开 OA 页面失败: %s", exc, exc_info=True)

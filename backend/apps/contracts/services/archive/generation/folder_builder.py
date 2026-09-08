@@ -350,3 +350,75 @@ def _compile_final_archive_pdf(
             with contextlib.suppress(OSError):
                 tmp.unlink(missing_ok=True)
                 logger.info("已清理中间PDF: %s", tmp.name)
+
+
+def resolve_latest_final_archive_file(contract: Contract) -> Path | None:
+    """定位归档文件夹中最新的 "5-Final案卷材料*.pdf"，返回可读取的本地路径。
+
+    本地存储直接返回归档目录内最新文件；云存储先下载到临时文件返回。
+    未找到时返回 None，调用方应保持不加材料。归档材料即最终需提交到律所 OA 的
+    "5-Final案卷材料"，打开 OA 的最后一步据此自动上传。
+    """
+    import os
+    import tempfile
+
+    from apps.contracts.models.folder_binding import ContractFolderBinding
+
+    try:
+        binding = contract.folder_binding
+    except ContractFolderBinding.DoesNotExist:
+        return None
+
+    if not binding or not binding.folder_path:
+        return None
+
+    storage_type = getattr(binding, "storage_type", "local")
+    if storage_type == "local":
+        archive_dir = Path(binding.folder_path) / ARCHIVE_FOLDER_NAME
+        if not archive_dir.is_dir():
+            return None
+        finals = sorted(
+            (p for p in archive_dir.glob("5-Final案卷材料*.pdf")),
+            key=lambda p: p.stat().st_mtime,
+            reverse=True,
+        )
+        return finals[0] if finals else None
+
+    from apps.cloud_storage.factory import create_provider_for_binding
+
+    provider = create_provider_for_binding(binding)
+    archive_path = f"{binding.folder_path.rstrip('/')}/{ARCHIVE_FOLDER_NAME}"
+    try:
+        items = provider.list_directory(archive_path)
+    except Exception:
+        logger.warning(
+            "resolve_final_archive_cloud_list_failed",
+            extra={"contract_id": contract.id, "path": archive_path},
+        )
+        return None
+
+    finals = [
+        it for it in items if not it.is_dir and it.name.startswith("5-Final案卷材料") and it.name.endswith(".pdf")
+    ]
+    if not finals:
+        return None
+
+    best = max(finals, key=lambda it: it.modified_at or 0)
+    try:
+        content = provider.read_file(best.path)
+    except Exception:
+        logger.warning(
+            "resolve_final_archive_cloud_read_failed",
+            extra={"contract_id": contract.id, "path": best.path},
+        )
+        return None
+
+    fd, tmp_path = tempfile.mkstemp(prefix="fc_final_archive_", suffix=".pdf")
+    os.close(fd)
+    Path(tmp_path).write_bytes(content)
+    logger.info(
+        "云存储归档Final案卷材料已下载到临时路径: %s",
+        tmp_path,
+        extra={"contract_id": contract.id, "cloud_path": best.path},
+    )
+    return Path(tmp_path)

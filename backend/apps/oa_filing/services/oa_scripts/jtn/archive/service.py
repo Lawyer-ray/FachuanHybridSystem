@@ -20,6 +20,8 @@ class JtnArchiveScript(PlaywrightArchiveMixin):
         """执行归档材料提交全流程。"""
         await self._run_archive_submission(form_data)
 
-    async def open_page(self, oa_case_number: str, description: str = "详见卷宗") -> tuple:
+    async def open_page(
+        self, oa_case_number: str, description: str = "详见卷宗", file_paths: list[str] | None = None
+    ) -> tuple:
         """打开归档页面并填写，返回 (playwright, browser)。"""
-        return await self._open_page(oa_case_number, description)
+        return await self._open_page(oa_case_number, description, file_paths or [])
