@@ -7,7 +7,7 @@ import time
 from typing import Any, cast
 
 from .backends import ILLMBackend, LLMResponse
-from .tracking import record_llm_call
+from .tracking import arecord_llm_call, record_llm_call
 
 logger = logging.getLogger(__name__)
 
@@ -56,6 +56,41 @@ class LLMClient:
             success=False,
             caller=caller,
             error=error,
+        )
+
+    @staticmethod
+    async def _arecord_success(response: LLMResponse, caller: str) -> None:
+        """异步成功审计（配套 achat/aembed，走 acreate 避免 SynchronousOnlyOperation）。"""
+        await arecord_llm_call(
+            backend=response.backend,
+            model=response.model,
+            duration_ms=response.duration_ms,
+            success=True,
+            caller=caller,
+            prompt_tokens=response.prompt_tokens,
+            completion_tokens=response.completion_tokens,
+            total_tokens=response.total_tokens,
+        )
+
+    @staticmethod
+    async def _arecord_failure(backend: str, model: str, started_at: float, caller: str, error: BaseException) -> None:
+        await arecord_llm_call(
+            backend=backend,
+            model=model or "-",
+            duration_ms=(time.monotonic() - started_at) * 1000,
+            success=False,
+            caller=caller,
+            error=error,
+        )
+
+    @staticmethod
+    async def _arecord_embed_success(backend_name: str, model: str, started_at: float, caller: str) -> None:
+        await arecord_llm_call(
+            backend=backend_name,
+            model=model or "-",
+            duration_ms=(time.monotonic() - started_at) * 1000,
+            success=True,
+            caller=caller,
         )
 
     def complete(
@@ -142,9 +177,9 @@ class LLMClient:
                 await fallback_policy.execute_async(operation=operation, backend=backend_name, fallback=fallback),
             )
         except Exception as error:
-            self._record_failure(backend_name, model or "-", started_at, caller, error)
+            await self._arecord_failure(backend_name, model or "-", started_at, caller, error)
             raise
-        self._record_success(response, caller)
+        await self._arecord_success(response, caller)
         return response
 
     def embed_texts(
@@ -161,7 +196,7 @@ class LLMClient:
         def operation(b: ILLMBackend) -> list[list[float]]:
             return b.embed_texts(texts=texts, model=model, **kwargs)
 
-        backend_name = backend or self._default_backend
+        backend_name = self._resolve_backend(backend, model, self._default_backend)
         started_at = time.monotonic()
         try:
             result = cast(
@@ -202,13 +237,7 @@ class LLMClient:
                 await fallback_policy.execute_async(operation=operation, backend=backend_name, fallback=fallback),
             )
         except Exception as error:
-            self._record_failure(backend_name, model or "-", started_at, caller, error)
+            await self._arecord_failure(backend_name, model or "-", started_at, caller, error)
             raise
-        record_llm_call(
-            backend=backend_name,
-            model=model or "-",
-            duration_ms=(time.monotonic() - started_at) * 1000,
-            success=True,
-            caller=caller,
-        )
+        await self._arecord_embed_success(backend_name, model or "-", started_at, caller)
         return result

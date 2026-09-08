@@ -17,9 +17,28 @@ def _make_config():
     from apps.core.llm.backends.base import BackendConfig
 
     return BackendConfig(
-        name="test", enabled=True, priority=1,
-        default_model="gpt-4", base_url="https://api.test/v1",
-        api_key="sk-test", timeout=30,
+        name="test",
+        enabled=True,
+        priority=1,
+        default_model="gpt-4",
+        base_url="https://api.test/v1",
+        api_key="sk-test",
+        timeout=30,
+        embedding_model="text-embedding-ada-002",
+    )
+
+
+def _make_config_with_key(api_key: str, base_url: str):
+    from apps.core.llm.backends.base import BackendConfig
+
+    return BackendConfig(
+        name="test",
+        enabled=True,
+        priority=1,
+        default_model="gpt-4",
+        base_url=base_url,
+        api_key=api_key,
+        timeout=30,
         embedding_model="text-embedding-ada-002",
     )
 
@@ -114,9 +133,7 @@ class TestNoPerCallClose:
     async def test_aembed_does_not_close_client_on_success(self):
         backend = _make_backend()
         mock_client = AsyncMock()
-        mock_client.embeddings.create = AsyncMock(
-            return_value=MagicMock(data=[MagicMock(embedding=[0.1, 0.2])])
-        )
+        mock_client.embeddings.create = AsyncMock(return_value=MagicMock(data=[MagicMock(embedding=[0.1, 0.2])]))
 
         with patch.object(backend, "_build_async_client", return_value=mock_client):
             await backend.aembed_texts(texts=["a"])
@@ -132,8 +149,8 @@ class TestExplicitClose:
         backend = _make_backend()
         mock_client = AsyncMock()
         mock_client2 = AsyncMock()
-        backend._async_clients[(123, 30.0)] = mock_client
-        backend._async_clients[(456, 30.0)] = mock_client2
+        backend._async_clients[("loop-a", "sk-a", "https://a/v1", 30.0)] = mock_client
+        backend._async_clients[("loop-b", "sk-b", "https://b/v1", 30.0)] = mock_client2
 
         await backend.aclose_clients()
 
@@ -144,9 +161,53 @@ class TestExplicitClose:
     def test_close_clients_closes_and_clears_sync(self):
         backend = _make_backend()
         mock_client = MagicMock()
-        backend._sync_clients[30.0] = mock_client
+        backend._sync_clients[("sk-a", "https://a/v1", 30.0)] = mock_client
 
         backend.close_clients()
 
         mock_client.close.assert_called_once()
         assert backend._sync_clients == {}
+
+
+class TestConfigFingerprintCache:
+    """配置（api_key/base_url/timeout）轮换后客户端缓存自动失效。"""
+
+    def test_sync_client_invalidates_on_config_change(self):
+        backend = _make_backend()
+
+        with (
+            patch("apps.core.llm.backends.openai_compatible.httpx.HTTPTransport"),
+            patch("apps.core.llm.backends.openai_compatible.httpx.Client"),
+            patch("apps.core.llm.backends.openai_compatible.openai.OpenAI") as mock_openai_cls,
+        ):
+            backend._build_sync_client()
+
+            backend._config = _make_config_with_key("sk-new", "https://api.test/v2")
+            backend._api_key = None
+            backend._base_url = None
+
+            backend._build_sync_client()
+
+        assert mock_openai_cls.call_count == 2  # 配置变化后重建客户端
+        assert len(backend._sync_clients) == 1  # 旧配置客户端被清掉
+        assert ("sk-new", "https://api.test/v2", 30.0) in backend._sync_clients
+
+    @pytest.mark.asyncio
+    async def test_async_client_invalidates_on_config_change(self):
+        backend = _make_backend()
+
+        with (
+            patch("apps.core.llm.backends.openai_compatible.httpx.AsyncHTTPTransport"),
+            patch("apps.core.llm.backends.openai_compatible.httpx.AsyncClient"),
+            patch("apps.core.llm.backends.openai_compatible.openai.AsyncOpenAI") as mock_openai_cls,
+        ):
+            await backend._build_async_client()
+            await backend._build_async_client()  # 同配置命中缓存，不重建
+
+            backend._config = _make_config_with_key("sk-new", "https://api.test/v2")
+
+            await backend._build_async_client()
+
+        assert mock_openai_cls.call_count == 2  # 缓存命中后仅配置变化触发一次重建
+        assert len(backend._async_clients) == 1
+        assert any(k[1] == "sk-new" and k[2] == "https://api.test/v2" for k in backend._async_clients)

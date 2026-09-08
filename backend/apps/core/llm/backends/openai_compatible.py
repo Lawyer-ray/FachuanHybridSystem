@@ -38,9 +38,10 @@ class OpenAICompatibleBackend:
         self._base_url: str | None = None
         self._default_model: str | None = None
         self._timeout: int | None = None
-        # 客户端缓存：sync 按 timeout 复用；async 按 (事件循环, timeout) 复用
-        self._sync_clients: dict[float, openai.OpenAI] = {}
-        self._async_clients: dict[tuple[int, float], openai.AsyncOpenAI] = {}
+        # 客户端缓存：sync 按 (api_key, base_url, timeout) 复用；
+        # async 按 (事件循环, api_key, base_url, timeout) 复用
+        self._sync_clients: dict[tuple[str, str, float], openai.OpenAI] = {}
+        self._async_clients: dict[tuple[int, str, str, float], openai.AsyncOpenAI] = {}
 
     # ── 配置属性 ─────────────────────────────────────────────────────────────
 
@@ -141,29 +142,29 @@ class OpenAICompatibleBackend:
 
     def _build_sync_client(self, timeout_seconds: float | None = None) -> openai.OpenAI:
         timeout_val = float(timeout_seconds or self.timeout)
-        cached = self._sync_clients.get(timeout_val)
+        api_key = self.api_key
+        base_url = self.base_url
+        cache_key = (api_key, base_url, timeout_val)
+        cached = self._sync_clients.get(cache_key)
         if cached is not None:
             return cached
         transport = httpx.HTTPTransport(verify=self._ssl_verify())
         http_client = httpx.Client(transport=transport, timeout=timeout_val)
         client = openai.OpenAI(
-            api_key=self.api_key,
-            base_url=self.base_url,
+            api_key=api_key,
+            base_url=base_url,
             timeout=timeout_val,
             http_client=http_client,
         )
-        self._sync_clients[timeout_val] = client
+        # API key/base_url 轮换后丢弃旧配置的客户端，避免使用过期凭证
+        self._sync_clients = {k: v for k, v in self._sync_clients.items() if k[0] == api_key and k[1] == base_url}
+        self._sync_clients[cache_key] = client
         return client
 
     async def _build_async_client(self, timeout_seconds: float | None = None) -> openai.AsyncOpenAI:
         import asyncio
 
         timeout_val = float(timeout_seconds or self.timeout)
-        loop_id = id(asyncio.get_running_loop())
-        cache_key = (loop_id, timeout_val)
-        cached = self._async_clients.get(cache_key)
-        if cached is not None:
-            return cached
         api_key = (
             self._config.api_key
             if self._config and self._config.api_key
@@ -174,6 +175,11 @@ class OpenAICompatibleBackend:
             if self._config and self._config.base_url
             else await LLMConfig.get_openai_compatible_base_url_async()
         )
+        loop_id = id(asyncio.get_running_loop())
+        cache_key = (loop_id, api_key, base_url, timeout_val)
+        cached = self._async_clients.get(cache_key)
+        if cached is not None:
+            return cached
         transport = httpx.AsyncHTTPTransport(verify=self._ssl_verify())
         http_async_client = httpx.AsyncClient(transport=transport, timeout=timeout_val)
         client = openai.AsyncOpenAI(
@@ -182,8 +188,10 @@ class OpenAICompatibleBackend:
             timeout=timeout_val,
             http_client=http_async_client,
         )
-        # 只保留当前事件循环的客户端；旧循环已结束，其连接随循环销毁
-        self._async_clients = {k: v for k, v in self._async_clients.items() if k[0] == loop_id}
+        # 只保留当前事件循环、且配置指纹一致的客户端；旧循环已结束，其连接随循环销毁
+        self._async_clients = {
+            k: v for k, v in self._async_clients.items() if k[0] == loop_id and k[1] == api_key and k[2] == base_url
+        }
         self._async_clients[cache_key] = client
         return client
 

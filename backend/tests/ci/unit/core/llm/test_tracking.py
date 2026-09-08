@@ -120,3 +120,100 @@ class TestCaptureCaller:
 
     def test_depth_overflow_returns_empty(self) -> None:
         assert tracking.capture_caller(depth=999) == ""
+
+
+class _StubFallbackPolicy:
+    """只回放预设响应的最小 fallback 策略，用于隔离 client 层。"""
+
+    def __init__(self, response: Any = None, error: Exception | None = None) -> None:
+        self._response = response
+        self._error = error
+
+    async def execute_async(self, *, operation: Any, backend: str, fallback: bool) -> Any:
+        if self._error is not None:
+            raise self._error
+        return self._response
+
+
+class TestClientAsyncAuditIntegration:
+    """LLMClient.achat/aembed_texts 在真实事件循环 + 真实 DB 下写入审计。
+
+    回归保护：异步路径必须走 acreate，否则在事件循环里调用同步
+    objects.create 会抛 SynchronousOnlyOperation 且被吞掉，导致审计静默丢失。
+    """
+
+    def _make_response(self) -> Any:
+        from apps.core.llm.backends import LLMResponse
+
+        return LLMResponse(
+            content="ok",
+            model="kimi26",
+            prompt_tokens=10,
+            completion_tokens=5,
+            total_tokens=15,
+            duration_ms=3.2,
+            backend="openai_compatible",
+        )
+
+    async def _run_achat(self, policy: _StubFallbackPolicy) -> None:
+        from apps.core.llm.client import LLMClient
+
+        client = LLMClient(default_backend="openai_compatible")
+        await client.achat(
+            fallback_policy=policy,
+            messages=[{"role": "user", "content": "hi"}],
+            caller="test.client_async",
+        )
+
+    @pytest.mark.asyncio
+    @pytest.mark.django_db(transaction=True)
+    async def test_achat_success_writes_record(self) -> None:
+        from asgiref.sync import sync_to_async
+
+        from apps.core.models import LLMCallRecord
+
+        await self._run_achat(_StubFallbackPolicy(response=self._make_response()))
+
+        record = await sync_to_async(LLMCallRecord.objects.get)()
+        assert record.success is True
+        assert record.model == "kimi26"
+        assert record.backend == "openai_compatible"
+        assert record.caller == "test.client_async"
+        assert record.total_tokens == 15
+
+    @pytest.mark.asyncio
+    @pytest.mark.django_db(transaction=True)
+    async def test_achat_failure_records_error(self) -> None:
+        from asgiref.sync import sync_to_async
+
+        from apps.core.llm.exceptions import LLMTimeoutError
+        from apps.core.models import LLMCallRecord
+
+        error = LLMTimeoutError(message="超时", timeout_seconds=120)
+        with pytest.raises(LLMTimeoutError):
+            await self._run_achat(_StubFallbackPolicy(error=error))
+
+        record = await sync_to_async(LLMCallRecord.objects.get)()
+        assert record.success is False
+        assert record.error_type == "LLMTimeoutError"
+
+    @pytest.mark.asyncio
+    @pytest.mark.django_db(transaction=True)
+    async def test_aembed_success_writes_record(self) -> None:
+        from asgiref.sync import sync_to_async
+
+        from apps.core.llm.client import LLMClient
+        from apps.core.models import LLMCallRecord
+
+        client = LLMClient(default_backend="openai_compatible")
+        result = await client.aembed_texts(
+            fallback_policy=_StubFallbackPolicy(response=[[0.1, 0.2]]),
+            texts=["a"],
+            model="kimi26",
+            caller="test.client_async",
+        )
+
+        assert result == [[0.1, 0.2]]
+        record = await sync_to_async(LLMCallRecord.objects.get)()
+        assert record.success is True
+        assert record.model == "kimi26"
