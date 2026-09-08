@@ -7,7 +7,7 @@ import time
 from collections.abc import AsyncIterator, Iterator
 from typing import TYPE_CHECKING, Any
 
-import httpx
+import httpx2 as httpx
 import openai
 
 from apps.core.llm.config import LLMConfig
