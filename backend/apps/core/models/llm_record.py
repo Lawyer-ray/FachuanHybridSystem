@@ -25,6 +25,7 @@ class LLMCallRecord(models.Model):
     success = models.BooleanField(default=True, verbose_name="是否成功")
     error_type = models.CharField(max_length=100, blank=True, default="", verbose_name="错误类型")
     error_summary = models.TextField(blank=True, default="", verbose_name="错误摘要")
+    version = models.CharField(max_length=20, blank=True, default="", verbose_name="审计版本")
     prompt_tokens = models.IntegerField(verbose_name="输入 Token")
     completion_tokens = models.IntegerField(verbose_name="输出 Token")
     total_tokens = models.IntegerField(verbose_name="总 Token")

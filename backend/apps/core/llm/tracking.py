@@ -15,6 +15,9 @@ logger = logging.getLogger("apps.core.llm.tracking")
 
 _TRACKING_ENABLED_KEY = "LLM_TRACKING_ENABLED"
 
+# 审计记录格式版本:随字段/语义变更递增,用于区分不同部署下的记录格式
+AUDIT_VERSION = "1"
+
 
 def is_tracking_enabled() -> bool:
     from .config import LLMConfig
@@ -76,6 +79,7 @@ def record_llm_call(
             model=model or "-",
             backend=backend,
             caller=caller[:200],
+            version=AUDIT_VERSION,
             success=success,
             error_type=type(error).__name__ if error else "",
             error_summary=str(error)[:2000] if error else "",
@@ -108,6 +112,7 @@ async def arecord_llm_call(
             model=model or "-",
             backend=backend,
             caller=caller[:200],
+            version=AUDIT_VERSION,
             success=success,
             error_type=type(error).__name__ if error else "",
             error_summary=str(error)[:2000] if error else "",
