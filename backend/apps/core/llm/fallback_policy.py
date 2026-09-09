@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
+import time
 from collections.abc import Awaitable, Callable
 from typing import Any, TypeVar
 
 from .backends import ILLMBackend
+from .circuit_breaker import CircuitBreaker
 from .exceptions import (
     LLMAPIError,
     LLMAuthenticationError,
@@ -95,8 +98,59 @@ def _diagnose_unavailable(name: str, backend: ILLMBackend) -> str:
 
 
 class LLMFallbackPolicy:
-    def __init__(self, *, router: LLMBackendRouter) -> None:
+    """按优先级尝试后端,集成熔断与指数退避重试增强可靠性。
+
+    - 熔断:超过连续失败阈值的后端进入短路冷却,冷却期内被跳过;
+    - 退避:对可重试错误(超时/网络/API)在同一后端做有限次指数退避重试;
+    - 默认 ``max_retries=0`` 不引入额外重试,保持既有“失败即切换”语义。
+    """
+
+    def __init__(
+        self,
+        *,
+        router: LLMBackendRouter,
+        breaker: CircuitBreaker | None = None,
+        max_retries: int = 0,
+        backoff_base: float = 1.0,
+        backoff_factor: float = 2.0,
+        sleep: Callable[[float], None] = time.sleep,
+    ) -> None:
+        if max_retries < 0:
+            raise ValueError("max_retries 必须 >= 0")
+        if backoff_base < 0:
+            raise ValueError("backoff_base 必须 >= 0")
         self.router = router
+        self.breaker = breaker or CircuitBreaker()
+        self.max_retries = max_retries
+        self.backoff_base = backoff_base
+        self.backoff_factor = backoff_factor
+        self.sleep = sleep
+
+    def _run_with_retry(self, name: str, backend: ILLMBackend, operation: Callable[[ILLMBackend], TResult]) -> TResult:
+        """在同一后端对可重试错误做指数退避重试,并同步熔断器状态。"""
+        attempt = 0
+        while True:
+            try:
+                result = operation(backend)
+                self.breaker.record_success(name)
+                return result
+            except LLMAuthenticationError:
+                # 认证错误为配置性问题,不可重试也不计入熔断
+                raise
+            except Exception as e:
+                if not isinstance(e, _RETRIABLE_ERRORS):
+                    self.breaker.record_failure(name)
+                    raise
+                self.breaker.record_failure(name)
+                if attempt >= self.max_retries:
+                    raise
+                attempt += 1
+                delay = self.backoff_base * (self.backoff_factor ** (attempt - 1))
+                logger.warning(
+                    "后端调用失败,退避后重试",
+                    extra={"backend": name, "error": str(e), "attempt": attempt, "delay_sec": delay},
+                )
+                self.sleep(delay)
 
     def execute(
         self,
@@ -106,13 +160,17 @@ class LLMFallbackPolicy:
         fallback: bool = True,
     ) -> TResult:
         if backend and not fallback:
-            return operation(self.router.get_backend(backend))
+            return self._run_with_retry(backend, self.router.get_backend(backend), operation)
 
         backends_to_try = _resolve_backends_from_router(self.router, backend, fallback)
         errors: list[tuple[str, Exception]] = []
         skipped: list[tuple[str, str]] = []
 
         for name, backend_instance in backends_to_try:
+            if self.breaker.is_tripped(name):
+                logger.info("后端短路冷却,跳过: backend=%s", name)
+                skipped.append((name, "熔断冷却中"))
+                continue
             if not backend_instance.is_available():
                 reason = _diagnose_unavailable(name, backend_instance)
                 logger.info("后端不可用,跳过: backend=%s, reason=%s", name, reason)
@@ -120,7 +178,7 @@ class LLMFallbackPolicy:
                 continue
             try:
                 logger.info("尝试使用后端: %s", name)
-                return operation(backend_instance)
+                return self._run_with_retry(name, backend_instance, operation)
             except LLMAuthenticationError:
                 raise
             except Exception as e:
@@ -131,6 +189,36 @@ class LLMFallbackPolicy:
         _raise_all_unavailable(errors, skipped)
         raise AssertionError  # unreachable
 
+    async def _arun_with_retry(
+        self,
+        name: str,
+        backend: ILLMBackend,
+        operation: Callable[[ILLMBackend], Awaitable[TResult]],
+    ) -> TResult:
+        """异步版:`_run_with_retry``,重试间隙用 ``asyncio.sleep``。"""
+        attempt = 0
+        while True:
+            try:
+                result = await operation(backend)
+                self.breaker.record_success(name)
+                return result
+            except LLMAuthenticationError:
+                raise
+            except Exception as e:
+                if not isinstance(e, _RETRIABLE_ERRORS):
+                    self.breaker.record_failure(name)
+                    raise
+                self.breaker.record_failure(name)
+                if attempt >= self.max_retries:
+                    raise
+                attempt += 1
+                delay = self.backoff_base * (self.backoff_factor ** (attempt - 1))
+                logger.warning(
+                    "后端调用失败,退避后重试",
+                    extra={"backend": name, "error": str(e), "attempt": attempt, "delay_sec": delay},
+                )
+                await asyncio.sleep(delay)
+
     async def execute_async(
         self,
         *,
@@ -139,13 +227,17 @@ class LLMFallbackPolicy:
         fallback: bool = True,
     ) -> TResult:
         if backend and not fallback:
-            return await operation(self.router.get_backend(backend))
+            return await self._arun_with_retry(backend, self.router.get_backend(backend), operation)
 
         backends_to_try = _resolve_backends_from_router(self.router, backend, fallback)
         errors: list[tuple[str, Exception]] = []
         skipped: list[tuple[str, str]] = []
 
         for name, backend_instance in backends_to_try:
+            if self.breaker.is_tripped(name):
+                logger.warning("后端短路冷却,跳过", extra={"backend": name})
+                skipped.append((name, "熔断冷却中"))
+                continue
             if not backend_instance.is_available():
                 reason = _diagnose_unavailable(name, backend_instance)
                 logger.warning("后端不可用,跳过", extra={"backend": name, "reason": reason})
@@ -153,7 +245,7 @@ class LLMFallbackPolicy:
                 continue
             try:
                 logger.debug("异步尝试使用后端", extra={"backend": name})
-                return await operation(backend_instance)
+                return await self._arun_with_retry(name, backend_instance, operation)
             except LLMAuthenticationError:
                 raise
             except Exception as e:
