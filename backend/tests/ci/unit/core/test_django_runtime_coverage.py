@@ -256,9 +256,7 @@ class TestResolveSecurityConfig:
         result = resolve_security_config(
             dev_secret_key=_TEST_DEV_SECRET_KEY, default_allowed_hosts_dev=["*"], default_allowed_hosts_prod=["localhost"]
         )
-        assert "api.example.com" in result.allowed_hosts
-        assert "admin.example.com" in result.allowed_hosts
-        assert "*" not in result.allowed_hosts
+        assert result.allowed_hosts == ["api.example.com", "admin.example.com"]
 
     @patch.dict(
         os.environ,
