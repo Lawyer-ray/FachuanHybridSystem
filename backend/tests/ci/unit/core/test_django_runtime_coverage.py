@@ -269,9 +269,8 @@ class TestResolveSecurityConfig:
             dev_secret_key=_TEST_DEV_SECRET_KEY, default_allowed_hosts_dev=["*"], default_allowed_hosts_prod=["localhost"]
         )
         assert "*" not in result.allowed_hosts
-        assert "192.168.31.230" in result.allowed_hosts
-        assert "localhost" in result.allowed_hosts
-        assert ".ts.net" in result.allowed_hosts
+        # LAN 主机 + Tailnet 后缀条目精确匹配（CodeQL: 避免子串断言）
+        assert set(result.allowed_hosts) == {"192.168.31.230", "localhost", "127.0.0.1", ".ts.net"}
 
     @patch.dict(os.environ, {"DJANGO_ALLOW_LAN": "True", "DJANGO_LAN_ALLOWED_HOSTS": ""})
     def test_allow_lan_without_lan_hosts_raises(self) -> None:

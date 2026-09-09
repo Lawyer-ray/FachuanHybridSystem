@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from apps.core.llm.costs import DEFAULT_PRICING, aaggregate_costs, aggregate_costs, estimate_cost, price_for_model
+from apps.core.llm.costs import aaggregate_costs, aggregate_costs, estimate_cost, price_for_model
 
 
 class TestPriceForModel:
