@@ -135,7 +135,7 @@ def parse_model_content(text: str, model_cls: type[TModel]) -> TModel:
         raise StructuredValidationError(
             "LLM response failed schema validation",
             raw_text=text,
-            errors=e.errors(),
+            errors=[dict(err) for err in e.errors()],
         ) from e
 
 
