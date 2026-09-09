@@ -12,6 +12,9 @@ from typing import Any
 from django.db import models
 from django.utils import timezone
 
+from apps.core.models import ConversationHistory
+from apps.core.repositories.conversation_repository import ConversationHistoryRepository
+
 
 @dataclass
 class _HumanMessage:  # pragma: no cover
@@ -31,9 +34,6 @@ class _SystemMessage:  # pragma: no cover
 HumanMessage = _HumanMessage
 AIMessage = _AIMessage
 SystemMessage = _SystemMessage
-
-from apps.core.models import ConversationHistory
-from apps.core.repositories.conversation_repository import ConversationHistoryRepository
 
 
 class _SimpleChatMemory:  # pragma: no cover
@@ -133,7 +133,9 @@ class ConversationService:  # pragma: no cover
             # 添加到记忆中
             self._memory.chat_memory.add_message(message)
 
-    def add_user_message(self, content: str, metadata: dict[str, Any] | None = None) -> ConversationHistory:  # pragma: no cover
+    def add_user_message(
+        self, content: str, metadata: dict[str, Any] | None = None
+    ) -> ConversationHistory:  # pragma: no cover
         """
         添加用户消息
 
@@ -158,7 +160,9 @@ class ConversationService:  # pragma: no cover
 
         return record
 
-    def add_assistant_message(self, content: str, metadata: dict[str, Any] | None = None) -> ConversationHistory:  # pragma: no cover
+    def add_assistant_message(
+        self, content: str, metadata: dict[str, Any] | None = None
+    ) -> ConversationHistory:  # pragma: no cover
         """
         添加助手消息
 
@@ -183,7 +187,9 @@ class ConversationService:  # pragma: no cover
 
         return record
 
-    def add_system_message(self, content: str, metadata: dict[str, Any] | None = None) -> ConversationHistory:  # pragma: no cover
+    def add_system_message(
+        self, content: str, metadata: dict[str, Any] | None = None
+    ) -> ConversationHistory:  # pragma: no cover
         """
         添加系统消息
 
@@ -228,7 +234,9 @@ class ConversationService:  # pragma: no cover
 
         return messages
 
-    async def aadd_user_message(self, content: str, metadata: dict[str, Any] | None = None) -> ConversationHistory:  # pragma: no cover
+    async def aadd_user_message(
+        self, content: str, metadata: dict[str, Any] | None = None
+    ) -> ConversationHistory:  # pragma: no cover
         """异步添加用户消息"""
         record = await self._repository.acreate(
             session_id=self.session_id,
@@ -241,7 +249,9 @@ class ConversationService:  # pragma: no cover
         self.memory.chat_memory.add_user_message(content)
         return record
 
-    async def aadd_assistant_message(self, content: str, metadata: dict[str, Any] | None = None) -> ConversationHistory:  # pragma: no cover
+    async def aadd_assistant_message(
+        self, content: str, metadata: dict[str, Any] | None = None
+    ) -> ConversationHistory:  # pragma: no cover
         """异步添加助手消息"""
         record = await self._repository.acreate(
             session_id=self.session_id,
@@ -254,7 +264,9 @@ class ConversationService:  # pragma: no cover
         self.memory.chat_memory.add_ai_message(content)
         return record
 
-    async def aadd_system_message(self, content: str, metadata: dict[str, Any] | None = None) -> ConversationHistory:  # pragma: no cover
+    async def aadd_system_message(
+        self, content: str, metadata: dict[str, Any] | None = None
+    ) -> ConversationHistory:  # pragma: no cover
         """异步添加系统消息"""
         record = await self._repository.acreate(
             session_id=self.session_id,
@@ -284,9 +296,7 @@ class ConversationService:  # pragma: no cover
 
         history = [
             (record.role, record.content)
-            async for record in self._repository.get_by_session_id(
-                self.session_id
-            ).order_by("created_at")[:20]
+            async for record in self._repository.get_by_session_id(self.session_id).order_by("created_at")[:20]
         ]
 
         for role, content in history:

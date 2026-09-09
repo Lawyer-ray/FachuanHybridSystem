@@ -221,10 +221,10 @@ class JsonFormatter:
 
     def format(self, record: Any) -> str:
         import traceback
-        from datetime import datetime
+        from datetime import UTC, datetime
 
         log_data: dict[str, Any] = {
-            "timestamp": datetime.utcnow().isoformat() + "Z",
+            "timestamp": datetime.now(UTC).isoformat().replace("+00:00", "Z"),
             "level": record.levelname,
             "logger": record.name,
             "module": record.module,
