@@ -238,11 +238,17 @@ class CaseNumberExtractorService:
 
             for i, case_number in enumerate(case_numbers):
                 normalized = self._normalize_single(case_number, i, case_number_svc)
-                if normalized and normalized not in seen:
-                    valid_numbers.append(normalized)
-                    seen.add(normalized)
-                elif normalized:
+                if not normalized:
+                    continue
+                if normalized in seen:
                     logger.debug(f"案号重复，跳过: {normalized}")
+                    continue
+                # 简式案号若已有对应的带年份完整案号，则视为重复，保留完整版
+                if self._is_yearless_subset(normalized, seen):
+                    logger.debug(f"简式案号已有完整年份版本，跳过: {normalized}")
+                    continue
+                valid_numbers.append(normalized)
+                seen.add(normalized)
 
             logger.info(f"案号验证完成: 输入 {len(case_numbers)} 个，有效 {len(valid_numbers)} 个")
             return valid_numbers
@@ -250,6 +256,17 @@ class CaseNumberExtractorService:
         except Exception as e:
             logger.error(f"案号验证和规范化失败: {e!s}")
             return []
+
+    def _is_yearless_subset(self, candidate: str, existing: set[str]) -> bool:
+        """判断候选简式案号是否已存在其带年份的完整版本。"""
+        if "（" in candidate or "(" in candidate:
+            return False
+        # 完整版去掉年份前缀后应包含该简式（简式可能缺省省市前缀字符）
+        for num in existing:
+            m = re.match(r"^[（(]\d{4}[）)](.+)$", num)
+            if m and m.group(1).endswith(candidate):
+                return True
+        return False
 
     def _normalize_single(self, case_number: str, idx: int, case_number_svc: Any) -> str | None:
         """规范化单个案号，返回规范化结果或 None"""
@@ -265,6 +282,11 @@ class CaseNumberExtractorService:
             if not original:
                 return None
 
+            # 极大文本不可能是案号，直接截断拒绝（防正则贪婪匹配误吞整段）
+            if len(original) > 60:
+                logger.warning(f"案号过长，跳过: 长度={len(original)}，开头={original[:40]}...")
+                return None
+
             try:
                 normalized = case_number_svc.normalize_case_number(original)
             except Exception as e:
@@ -275,8 +297,15 @@ class CaseNumberExtractorService:
                 logger.warning(f"案号规范化后为空，跳过: {original}")
                 return None
 
+            # 规范化后再检查长度（换行会被压缩，仍需保护）
+            if len(normalized) > 60:
+                logger.warning(f"案号过长，跳过: 长度={len(normalized)}，开头={normalized[:40]}...")
+                return None
+
             try:
-                is_valid = re.match(standard_pattern, normalized) or re.match(simple_pattern, normalized)
+                is_valid = (re.match(standard_pattern, normalized) or re.match(simple_pattern, normalized)) and (
+                    len(re.findall(r"\d+", normalized)) >= 2
+                )
             except re.error as e:
                 logger.warning(f"案号格式验证失败: {normalized}, 正则错误: {e!s}")
                 return None
@@ -405,22 +434,16 @@ class CaseNumberExtractorService:
     def _regex_extract_numbers(self, text: str) -> list[str]:
         """使用正则从文本中提取候选案号"""
         patterns = [
-            # 匹配全角括号（2026）粤0606民初7856号
-            r"[（](\d{4})[）]([^）]*?\w+\d+[^0-9]*?\d+号)",
-            # 匹配半角括号 (2026)粤0606民初7856号
-            r"\((\d{4})\)([^)]*?\w+\d+[^0-9]*?\d+号)",
-            # 匹配无括号的案号 粤0606民初7856号
-            r"([^（）()\s]*?[0-9]+[^0-9]*?[0-9]+号)",
-            r"(\w*\d+\w*\d+号)",
+            # 标准格式：(2026)粤0606民初88888号  —— 精确锚定数字+号，避免贪吃后续文字
+            r"[（(](\d{4})[）)][^（()\n]{2,40}?\d{1,7}号",
+            # 简化格式（无年份）：粤0606民初88888号 —— 法院代码数字组+案由字+序号数字组，紧凑捕获
+            r"\d{2,5}[^0-9（）()\s]{1,15}\d{1,7}号",
         ]
         found: list[str] = []
         for i, pattern in enumerate(patterns):
             try:
-                for match in re.findall(pattern, text):
-                    if isinstance(match, tuple):
-                        case_number = f"（{match[0]}）{match[1]}" if len(match) == 2 else match[0]
-                    else:
-                        case_number = match
+                for match in re.finditer(pattern, text):
+                    case_number = match.group(0)
                     if case_number and case_number.strip():
                         found.append(case_number.strip())
                 logger.debug(f"正则模式 {i + 1} 匹配到 {len(found)} 个结果")

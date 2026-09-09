@@ -83,6 +83,10 @@ class TokenRateLimitMiddleware:
 
     @staticmethod
     async def _async_check_rate(bucket_key: str) -> int:
+        # NOTE: Redis 后端下 aget/aset 分两步执行，无原子比较-递增。
+        # 生产优先使用 Redis（见 infrastructure.cache.get_cache_config），
+        # 在 Gunicorn 多 worker / 多实例下绕过窗口比同步版更大。
+        # 如需严格原子性，应改用 Redis INCR + 过期策略。
         try:
             if await cache.aget(bucket_key) is None:
                 await cache.aset(bucket_key, 1, timeout=_TOKEN_RATE_WINDOW + 5)

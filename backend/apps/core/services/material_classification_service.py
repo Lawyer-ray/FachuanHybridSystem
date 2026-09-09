@@ -922,8 +922,8 @@ class MaterialClassificationService:
         for part in p.parent.parts:
             # 去掉编号前缀：1- / 2_ / 3. 等
             cleaned = re.sub(r"^[\d]+[\s.\-_]*[\)）]?\s*", "", part).strip()
-            if (cleaned and cleaned != part) or len(cleaned) > 0:
-                parts.append(cleaned if cleaned else part)
+            if cleaned:
+                parts.append(cleaned)
         return parts
 
     def _get_archive_item_name(self, archive_category: str, code: str) -> str:

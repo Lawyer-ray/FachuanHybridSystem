@@ -117,6 +117,9 @@ class AdminImportExportMixin:  # pragma: no cover
 
     def _extract_files(self, zf: zipfile.ZipFile) -> None:  # pragma: no cover
         """把 ZIP 内 files/ 目录下的文件写入 MEDIA_ROOT。"""
+        from django.core.files.base import ContentFile
+        from django.core.files.storage import default_storage
+
         from apps.core.services.storage_service import _get_media_root
 
         media_root = _get_media_root()
@@ -126,22 +129,24 @@ class AdminImportExportMixin:  # pragma: no cover
         for name in zf.namelist():
             if not name.startswith("files/") or name.endswith("/"):
                 continue
-            rel = name[len("files/") :]  # 去掉 files/ 前缀
-            dest = (root / rel).resolve()
+            # rel 为相对 MEDIA_ROOT 的 storage 键（zip 内统一使用 / 分隔符）
+            rel = name[len("files/") :]
             # 防止 Zip Slip 路径遍历攻击（relative_to 抛异常即拒绝）
             try:
-                dest.relative_to(root)
+                (root / rel).resolve().relative_to(root)
             except ValueError:
                 logger.warning("跳过可疑路径", extra={"path": name})
                 continue
-            dest.parent.mkdir(parents=True, exist_ok=True)
-            if not dest.exists():  # 已存在则不覆盖
-                dest.write_bytes(zf.read(name))
-                logger.info("还原文件", extra={"path": str(dest)})
+            if default_storage.exists(rel):  # 已存在则不覆盖
+                continue
+            default_storage.save(rel, ContentFile(zf.read(name)))
+            logger.info("还原文件", extra={"path": rel})
 
     # ── 导出 actions ──────────────────────────────────────────────
 
-    def export_selected_as_json(self, request: HttpRequest, queryset: QuerySet[Any]) -> HttpResponse:  # pragma: no cover
+    def export_selected_as_json(
+        self, request: HttpRequest, queryset: QuerySet[Any]
+    ) -> HttpResponse:  # pragma: no cover
         count = queryset.count()
         filename = f"{self.export_model_name}_selected_{count}_export_{date.today().strftime('%Y%m%d')}.zip"
         return self._build_zip_response(queryset, filename)
