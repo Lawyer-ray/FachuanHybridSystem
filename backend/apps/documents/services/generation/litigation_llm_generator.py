@@ -8,7 +8,7 @@ from typing import Any, TypeVar
 from pydantic import BaseModel, ValidationError
 
 from apps.core.exceptions import ValidationException
-from apps.core.llm.structured_output import parse_model_content
+from apps.core.llm.structured_output import StructuredValidationError, parse_model_content
 
 from .outputs import ComplaintOutput, DefenseOutput
 from .prompts import PromptSpec, get_complaint_prompt, get_defense_prompt
@@ -94,7 +94,7 @@ class LitigationLLMGenerator:
             result = self._invoke_structured(prompt=prompt, case_data=case_data, output_model=ComplaintOutput)
             logger.info("起诉状生成成功")
             return result
-        except ValidationError as e:
+        except (ValidationError, StructuredValidationError) as e:
             logger.error(
                 "起诉状结构验证失败",
                 extra={"error": str(e), "error_type": "ValidationError"},
@@ -122,7 +122,7 @@ class LitigationLLMGenerator:
             result = self._invoke_structured(prompt=prompt, case_data=case_data, output_model=DefenseOutput)
             logger.info("答辩状生成成功")
             return result
-        except ValidationError as e:
+        except (ValidationError, StructuredValidationError) as e:
             logger.error(
                 "答辩状结构验证失败",
                 extra={"error": str(e), "error_type": "ValidationError"},
@@ -151,7 +151,7 @@ class LitigationLLMGenerator:
             result = await self._ainvoke_structured(prompt=prompt, case_data=case_data, output_model=ComplaintOutput)
             logger.info("起诉状生成成功(异步)")
             return result
-        except ValidationError as e:
+        except (ValidationError, StructuredValidationError) as e:
             logger.error(
                 "起诉状结构验证失败",
                 extra={"error": str(e), "error_type": "ValidationError"},
@@ -180,7 +180,7 @@ class LitigationLLMGenerator:
             result = await self._ainvoke_structured(prompt=prompt, case_data=case_data, output_model=DefenseOutput)
             logger.info("答辩状生成成功(异步)")
             return result
-        except ValidationError as e:
+        except (ValidationError, StructuredValidationError) as e:
             logger.error(
                 "答辩状结构验证失败",
                 extra={"error": str(e), "error_type": "ValidationError"},
