@@ -31,6 +31,7 @@ document.addEventListener('DOMContentLoaded', function() {
 <script defer src="{% static 'admin/js/alpine.js' %}"></script>
 {% endblock %}
 <script defer src="{% static 'core/js/csrf.js' %}"></script>
+<script defer src="{% static 'admin/js/mobile_nav_drawer.js' %}"></script>
 {% endblock %}
 
 {% block extrastyle %}
@@ -285,12 +286,27 @@ document.addEventListener('DOMContentLoaded', function() {
         display: none;
     }
 </style>
+<!-- 移动端抽屉侧边栏：须在原生 nav_sidebar.css 之后引入以覆盖其隐藏规则 -->
+<link rel="stylesheet" href="{% static 'admin/css/mobile_nav_drawer.css' %}">
 {% endblock %}
 
 
 
 {% block branding %}
 <div style="display:flex;align-items:center;gap:12px;">
+    <button
+        type="button"
+        id="fc-mobile-nav-toggle"
+        aria-label="打开导航菜单"
+        aria-expanded="false"
+        aria-controls="nav-sidebar"
+    >
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+            <line x1="3" y1="6" x2="21" y2="6"></line>
+            <line x1="3" y1="12" x2="21" y2="12"></line>
+            <line x1="3" y1="18" x2="21" y2="18"></line>
+        </svg>
+    </button>
     <h1 id="site-name" style="margin:0;">
         <a href="{% url 'admin:index' %}">{{ site_header|default:"法穿AI Copilot" }}</a>
     </h1>

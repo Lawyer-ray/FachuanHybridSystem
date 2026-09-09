@@ -1,0 +1,168 @@
+/*
+ * 法穿 AI — Django Admin 移动端抽屉式侧边栏
+ *
+ * 背景：
+ *   Django 原生 nav_sidebar.css 在 ≤767px 时直接 display:none 隐藏侧边栏，
+ *   设计假设是移动端用户通过 Admin 首页导航。但本项目把 /admin/ 重定向到
+ *   提醒日历，导致移动端用户被"锁死"在日历页，无法进入案件/合同等菜单。
+ *
+ * 方案：
+ *   仅在 ≤767px 生效（桌面端零影响）：
+ *   1. header 左侧显示汉堡按钮（#fc-mobile-nav-toggle）
+ *   2. 覆盖原生隐藏规则，把 #nav-sidebar 变成遮罩式抽屉
+ *   3. 由 mobile_nav_drawer.js 控制 body.fc-mobile-nav-open 开合
+ *
+ * 注意：
+ *   本文件通过 base_site.html 在原生 nav_sidebar.css 之后引入，
+ *   选择器优先级需保证覆盖 @media (max-width: 767px) 下的 display:none。
+ */
+
+/* ============================================================
+   汉堡按钮（仅移动端显示）
+   ============================================================ */
+#fc-mobile-nav-toggle {
+  display: none;
+}
+
+/* ============================================================
+   ≤767px：移动端抽屉模式
+   ============================================================ */
+@media (max-width: 767px) {
+  /* —— 汉堡按钮 —— */
+  #fc-mobile-nav-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 36px;
+    height: 36px;
+    margin-right: 10px;
+    padding: 0;
+    border: 1px solid var(--hairline-color, #ccc);
+    border-radius: 6px;
+    background: transparent;
+    color: var(--header-link-color, #fff);
+    cursor: pointer;
+    font-size: 18px;
+    line-height: 1;
+  }
+
+  #fc-mobile-nav-toggle:focus-visible {
+    outline: 2px solid var(--fc-primary, #417690);
+    outline-offset: 1px;
+  }
+
+  /* —— 抽屉本体：覆盖原生 display:none —— */
+  #nav-sidebar,
+  #toggle-nav-sidebar {
+    display: block;
+  }
+
+  #nav-sidebar {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 10001;
+    width: 280px;
+    max-width: 82vw;
+    margin: 0;
+    padding-bottom: 16px;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    visibility: visible;
+    background-color: var(--body-bg, #fff);
+    border-top: 0;
+    box-shadow: var(--fc-shadow-dropdown, 0 4px 16px rgba(0, 0, 0, 0.18));
+    transform: translateX(-105%);
+    transition: transform 0.22s ease;
+  }
+
+  [dir="rtl"] #nav-sidebar {
+    left: auto;
+    right: 0;
+    transform: translateX(105%);
+  }
+
+  /* 抽屉打开 */
+  body.fc-mobile-nav-open #nav-sidebar {
+    transform: translateX(0);
+  }
+
+  body.fc-mobile-nav-open [dir="rtl"] #nav-sidebar {
+    transform: translateX(0);
+  }
+
+  /* 遮罩 */
+  .fc-mobile-nav-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 10000;
+    background: var(--fc-overlay-bg, rgba(0, 0, 0, 0.55));
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.22s ease, visibility 0.22s ease;
+  }
+
+  body.fc-mobile-nav-open .fc-mobile-nav-backdrop {
+    opacity: 1;
+    visibility: visible;
+  }
+
+  /* 打开抽屉时锁住页面滚动 */
+  body.fc-mobile-nav-open {
+    overflow: hidden;
+  }
+
+  /* —— 原生窄条按钮（#toggle-nav-sidebar）在移动端继续隐藏 —— */
+  #toggle-nav-sidebar {
+    display: none !important;
+  }
+
+  /* Django responsive.css 会在窄屏把 header 改为纵向堆叠，
+     这里恢复横向单行，保证汉堡按钮 + 标题 + 用户链接同行紧凑排列 */
+  #header {
+    flex-direction: row;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0 12px;
+    padding: 10px 15px;
+  }
+
+  #branding {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+  }
+
+  #site-name {
+    margin: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  #user-tools {
+    margin: 0 0 0 auto;
+    text-align: right;
+    line-height: 1.4;
+  }
+
+  /* —— 抽屉内部间距微调（触控友好） —— */
+  #nav-sidebar #nav-filter {
+    margin: 10px 10px 5px;
+    width: calc(100% - 20px);
+    box-sizing: border-box;
+    font-size: 16px; /* ≥16px 避免 iOS 聚焦自动放大 */
+  }
+
+  #nav-sidebar .module {
+    margin: 10px;
+  }
+
+  #nav-sidebar .module th,
+  #nav-sidebar .module td {
+    padding-top: 8px;
+    padding-bottom: 8px;
+  }
+}
