@@ -4,9 +4,10 @@ from __future__ import annotations
 
 import json
 import re
+from collections.abc import Awaitable, Callable
 from typing import Any, TypeVar, cast
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
 TModel = TypeVar("TModel", bound=BaseModel)
 
@@ -85,10 +86,101 @@ def parse_json_content(text: str) -> Any:
     return json.loads(payload)
 
 
+class StructuredValidationError(ValueError):
+    """结构化解析/校验失败,携带原始文本与错误明细以便上层重试或降级。
+
+    ``ValueError`` 子类,兼容既有 ``except ValueError`` 调用方。
+    """
+
+    def __init__(
+        self,
+        message: str,
+        *,
+        raw_text: str,
+        errors: list[dict[str, Any]] | None = None,
+        error_map: dict[str, str] | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.raw_text = raw_text
+        self.errors = list(errors or [])
+        self.error_map = dict(error_map or {})
+
+    @property
+    def feedback_message(self) -> str:
+        """面向模型的反馈文案:把校验错误拼成可回注的重试指令。"""
+        parts = ["上次输出未通过校验，请仅输出符合 JSON Schema 的 JSON，并按以下问题修正："]
+        for key, detail in self.error_map.items():
+            parts.append(f"- {key}: {detail}")
+        for err in self.errors:
+            loc = ".".join(str(p) for p in err.get("loc", [])) or "(root)"
+            parts.append(f"- {loc}: {err.get('msg', '')}")
+        if self.raw_text:
+            parts.append(f"（原输出片段：{self.raw_text[:500]}）")
+        return "\n".join(parts)
+
+
 def parse_model_content(text: str, model_cls: type[TModel]) -> TModel:
     """Parse and validate structured model output from model response text."""
-    parsed = parse_json_content(text)
-    return model_cls.model_validate(parsed)
+    try:
+        parsed = parse_json_content(text)
+    except ValueError as e:
+        raise StructuredValidationError(
+            "LLM response does not contain valid JSON",
+            raw_text=text,
+            error_map={"parse": str(e)},
+        ) from e
+    try:
+        return model_cls.model_validate(parsed)
+    except ValidationError as e:
+        raise StructuredValidationError(
+            "LLM response failed schema validation",
+            raw_text=text,
+            errors=[dict(err) for err in e.errors()],
+        ) from e
+
+
+def retry_structured(
+    *,
+    model_cls: type[TModel],
+    responder: Callable[[StructuredValidationError | None], str],
+    max_attempts: int = 3,
+) -> TModel:
+    """受控输出:解析/校验失败时把错误反馈给 responder 重新生成,至多 ``max_attempts`` 次。
+
+    ``responder`` 接收上一次的校验错误(首次为 ``None``),应基于其
+    ``feedback_message`` 重新调用 LLM 并返回新的响应文本。
+    """
+    if max_attempts < 1:
+        raise ValueError("max_attempts 必须 >= 1")
+    last_err: StructuredValidationError | None = None
+    for _ in range(max_attempts):
+        text = responder(last_err)
+        try:
+            return parse_model_content(text, model_cls)
+        except StructuredValidationError as e:
+            last_err = e
+    assert last_err is not None
+    raise last_err
+
+
+async def aretry_structured(
+    *,
+    model_cls: type[TModel],
+    responder: Callable[[StructuredValidationError | None], Awaitable[str]],
+    max_attempts: int = 3,
+) -> TModel:
+    """异步版 ``retry_structured``,``responder`` 为协程函数。"""
+    if max_attempts < 1:
+        raise ValueError("max_attempts 必须 >= 1")
+    last_err: StructuredValidationError | None = None
+    for _ in range(max_attempts):
+        text = await responder(last_err)
+        try:
+            return parse_model_content(text, model_cls)
+        except StructuredValidationError as e:
+            last_err = e
+    assert last_err is not None
+    raise last_err
 
 
 def json_schema_instructions(model_cls: type[BaseModel]) -> str:

@@ -12,6 +12,9 @@ from cryptography.fernet import Fernet
 
 _TRUE_VALUES = ("true", "1", "yes", "y", "on")
 
+# Tailscale MagicDNS 域名统一以 .ts.net 结尾，开启 LAN 访问时一并放行，避免每台 Tailnet 设备都需手写进 DJANGO_LAN_ALLOWED_HOSTS
+_LAN_TAILNET_HOST_SUFFIXES = (".ts.net",)
+
 
 def _env_bool(name: str, default: bool = False) -> bool:
     value = os.environ.get(name)
@@ -110,7 +113,9 @@ def resolve_security_config(
         if not lan_allowed_hosts_env:
             raise RuntimeError("启用 DJANGO_ALLOW_LAN 必须同时设置 DJANGO_LAN_ALLOWED_HOSTS(逗号分隔)")
         lan_hosts = _split_csv(lan_allowed_hosts_env)
-        allowed_hosts = sorted(set([h for h in allowed_hosts if h != "*"] + lan_hosts))
+        allowed_hosts = sorted(
+            set([h for h in allowed_hosts if h != "*"] + lan_hosts + list(_LAN_TAILNET_HOST_SUFFIXES))
+        )
 
     return DjangoSecurityConfig(
         is_production=is_production,

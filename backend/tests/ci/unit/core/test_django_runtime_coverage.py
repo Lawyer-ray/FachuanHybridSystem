@@ -6,6 +6,7 @@ import os
 from unittest.mock import patch
 
 import pytest
+from cryptography.fernet import Fernet
 
 from apps.core.config.django_runtime import (
     DjangoSecurityConfig,
@@ -23,6 +24,10 @@ from apps.core.config.django_runtime import (
     resolve_redis_url,
     resolve_security_config,
 )
+
+# 测试专用占位密钥（非真实密钥，dev 模式下仅验证解析逻辑）
+_TEST_DEV_SECRET_KEY = "test-only-dev-secret-key"  # pragma: allowlist secret
+_TEST_FAKE_FERNET_KEY = Fernet.generate_key().decode()
 
 
 class TestEnvBool:
@@ -77,12 +82,12 @@ class TestResolveSecretKey:
         # In dev mode with no env var, uses dev_secret_key
         assert isinstance(result, str)
 
-    @patch.dict(os.environ, {"DJANGO_SECRET_KEY": "a-very-long-secret-key-that-is-at-least-50-characters-long!!"})
+    @patch.dict(os.environ, {"DJANGO_SECRET_KEY": "a-very-long-secret-key-that-is-at-least-50-characters-long!!"})  # pragma: allowlist secret
     def test_production_valid_key(self) -> None:
         result = _resolve_secret_key(True, "dev-secret")
         assert "long-secret" in result
 
-    @patch.dict(os.environ, {"DJANGO_SECRET_KEY": "short"}, clear=False)
+    @patch.dict(os.environ, {"DJANGO_SECRET_KEY": "short"}, clear=False)  # pragma: allowlist secret
     def test_production_short_key_raises(self) -> None:
         with pytest.raises(RuntimeError, match="DJANGO_SECRET_KEY"):
             _resolve_secret_key(True, "dev-secret")
@@ -211,6 +216,73 @@ class TestResolveCorsAndCsrf:
     def test_allow_lan_no_origins_raises(self) -> None:
         with pytest.raises(RuntimeError, match="DJANGO_ALLOW_LAN"):
             resolve_cors_and_csrf(debug=False, allow_lan=True, safe_cors_origins=[])
+
+
+class TestResolveSecurityConfig:
+    @patch.dict(os.environ, {"DJANGO_ALLOW_LAN": "False"})
+    def test_dev_mode_uses_default_allowed_hosts(self) -> None:
+        result = resolve_security_config(
+            dev_secret_key=_TEST_DEV_SECRET_KEY, default_allowed_hosts_dev=["*"], default_allowed_hosts_prod=["prod.example"]
+        )
+        assert result.debug is True
+        assert result.allowed_hosts == ["*"]
+
+    @patch.dict(os.environ, {"DJANGO_ALLOW_LAN": "False"})
+    def test_prod_mode_uses_default_prod_hosts(self) -> None:
+        result = resolve_security_config(
+            dev_secret_key=_TEST_DEV_SECRET_KEY, default_allowed_hosts_dev=["*"], default_allowed_hosts_prod=["prod.example"]
+        )
+        assert result.debug is True
+
+    @patch.dict(
+        os.environ,
+        {
+            "DJANGO_DEBUG": "False",
+            "DJANGO_ALLOW_LAN": "False",
+            "DJANGO_SECRET_KEY": "x" * 50,
+            "CREDENTIAL_ENCRYPTION_KEY": _TEST_FAKE_FERNET_KEY,
+        },
+    )
+    def test_production_defaults_and_debug_off(self) -> None:
+        result = resolve_security_config(
+            dev_secret_key=_TEST_DEV_SECRET_KEY, default_allowed_hosts_dev=["*"], default_allowed_hosts_prod=["localhost", "127.0.0.1"]
+        )
+        assert result.is_production is True
+        assert result.debug is False
+        assert "localhost" in result.allowed_hosts
+
+    @patch.dict(os.environ, {"DJANGO_ALLOWED_HOSTS": "api.example.com,admin.example.com", "DJANGO_ALLOW_LAN": "False"})
+    def test_env_allowed_hosts_overrides_defaults(self) -> None:
+        result = resolve_security_config(
+            dev_secret_key=_TEST_DEV_SECRET_KEY, default_allowed_hosts_dev=["*"], default_allowed_hosts_prod=["localhost"]
+        )
+        assert result.allowed_hosts == ["api.example.com", "admin.example.com"]
+
+    @patch.dict(
+        os.environ,
+        {"DJANGO_ALLOW_LAN": "True", "DJANGO_LAN_ALLOWED_HOSTS": "192.168.31.230,localhost,127.0.0.1"},
+    )
+    def test_allow_lan_adds_lan_hosts_and_tailnet(self) -> None:
+        result = resolve_security_config(
+            dev_secret_key=_TEST_DEV_SECRET_KEY, default_allowed_hosts_dev=["*"], default_allowed_hosts_prod=["localhost"]
+        )
+        assert "*" not in result.allowed_hosts
+        # LAN 主机 + Tailnet 后缀条目精确匹配（CodeQL: 避免子串断言）
+        assert set(result.allowed_hosts) == {"192.168.31.230", "localhost", "127.0.0.1", ".ts.net"}
+
+    @patch.dict(os.environ, {"DJANGO_ALLOW_LAN": "True", "DJANGO_LAN_ALLOWED_HOSTS": ""})
+    def test_allow_lan_without_lan_hosts_raises(self) -> None:
+        with pytest.raises(RuntimeError, match="DJANGO_LAN_ALLOWED_HOSTS"):
+            resolve_security_config(
+                dev_secret_key=_TEST_DEV_SECRET_KEY, default_allowed_hosts_dev=["*"], default_allowed_hosts_prod=["localhost"]
+            )
+
+    @patch.dict(os.environ, {"DJANGO_DEBUG": "False", "DJANGO_ALLOW_LAN": "True"})
+    def test_allow_lan_in_production_raises(self) -> None:
+        with pytest.raises(RuntimeError, match="生产环境"):
+            resolve_security_config(
+                dev_secret_key=_TEST_DEV_SECRET_KEY, default_allowed_hosts_dev=["*"], default_allowed_hosts_prod=["localhost"]
+            )
 
 
 class TestResolveContractFolderBrowseRoots:

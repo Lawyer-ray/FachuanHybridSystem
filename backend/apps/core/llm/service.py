@@ -72,7 +72,7 @@ class LLMService:
 
             self._default_backend = LLMConfig.get_default_backend()
         self._router = LLMBackendRouter(backend_configs=backend_configs)
-        self._fallback_policy = LLMFallbackPolicy(router=self._router)
+        self._fallback_policy = LLMFallbackPolicy(router=self._router, max_retries=1)
         self._client = LLMClient(default_backend=self._default_backend)
 
     @classmethod

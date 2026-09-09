@@ -5,10 +5,10 @@ description = "法穿AI Copilot - Backend"
 requires-python = ">=3.12"
 dependencies = [
     # --- Django 核心 ---
-    "django==6.1.0",
+    "django==6.1.1",
     "django-cors-headers==4.9.0",
     "django-nested-admin==4.1.6",
-    "django-ninja==1.6.3",
+    "django-ninja==1.7.0",
     "django-ninja-jwt==5.4.5",
     "django-ninja-extra==0.31.7",
     # 运行时补丁：给 ModelForm/ModelAdmin/Field 等加 __class_getitem__，支撑泛型下标写法（生产 --no-dev 也必须安装）
@@ -22,7 +22,7 @@ dependencies = [
     "channels-redis==4.3.0",
     "valkey==6.1.1",
     # --- 数据库 ---
-    "psycopg[binary]==3.3.4",
+    "psycopg[binary]==3.3.5",
     # --- HTTP 客户端 ---
     "httpx[http2]==0.28.1",
     "h2>=4.4.1",
@@ -36,7 +36,7 @@ dependencies = [
     "python-docx==1.2.0",
     "reportlab==5.0.1",
     "pdfplumber==0.11.10",
-    "pikepdf==10.12.0",
+    "pikepdf==10.13.0.post1",
     "pymupdf==1.28.2",
     "openpyxl==3.1.5",
     "xlrd>=2.0.1",
@@ -53,7 +53,7 @@ dependencies = [
     "cloakbrowser>=0.5.4",
     # --- 数据处理 ---
     "pandas==3.0.5",
-    "pydantic==2.13.4",
+    "pydantic==2.13.5",
     "pydantic-ai>=2.26.0",
     "python-dateutil==2.9.0.post0",
     "pyyaml==6.0.3",
@@ -100,7 +100,7 @@ dev = [
     # --- 代码格式化 ---
     "black==26.5.1",
     "isort==9.0.1",
-    "ruff==0.16.5",
+    "ruff==0.16.6",
     # --- 类型检查 ---
     "mypy==2.3.1",
     "django-stubs==6.1.0",
@@ -122,11 +122,12 @@ test = [
     "pytest-xdist==3.8.0",
     "pytest-timeout==2.4.0",
     # --- Property-Based Testing ---
-    "hypothesis==6.165.10",
+    "hypothesis==6.167.1",
     # --- 测试工厂 ---
     "factory-boy==3.3.3",
     # --- Temporal workflow 测试 ---
     "temporalio>=1.27.0",
+    "pytest-playwright>=0.8.0",
 ]
 
 [tool.uv]
