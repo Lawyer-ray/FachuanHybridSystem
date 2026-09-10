@@ -32,8 +32,7 @@ class TianyanchaResponseAdapter:
                 return text
         return ""
 
-    @staticmethod
-    def _split_table_cells(line: str) -> list[str]:
+    def _split_table_cells(self, line: str) -> list[str]:
         stripped = str(line or "").strip()
         if not (stripped.startswith("|") and stripped.endswith("|")):
             return []
@@ -90,12 +89,11 @@ class TianyanchaResponseAdapter:
             break
         return results
 
-    @staticmethod
-    def _pick_cell(record: dict[str, str], keys: tuple[str, ...]) -> str:
+    def _pick_cell(self, record: dict[str, str], keys: tuple[str, ...]) -> str:
         for key in keys:
             for header, value in record.items():
                 if header == key or key in header or header in key:
-                    cleaned = TianyanchaResponseAdapter._clean_markdown_value(value)
+                    cleaned = self._clean_markdown_value(value)
                     if cleaned:
                         return cleaned
         return ""
@@ -270,8 +268,7 @@ class TianyanchaResponseAdapter:
         )
         return profile if has_meaningful_fields else {}
 
-    @staticmethod
-    def _apply_profile_field(profile: dict[str, Any], key: str, value: str) -> None:
+    def _apply_profile_field(self, profile: dict[str, Any], key: str, value: str) -> None:
         if key == "企业ID":
             profile["company_id"] = value
         elif key == "企业名称":
