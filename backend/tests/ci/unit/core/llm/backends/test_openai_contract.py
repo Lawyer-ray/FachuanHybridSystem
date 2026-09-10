@@ -74,7 +74,11 @@ class _Recorder:
 def _sync_client(recorder: _Recorder) -> openai.OpenAI:
     transport = httpx2.MockTransport(recorder.handler)
     http_client = httpx2.Client(transport=transport, timeout=10)
-    return openai.OpenAI(api_key="sk-test", base_url="http://mocked.local/v1", http_client=http_client)  # pragma: allowlist secret
+    return openai.OpenAI(
+        api_key="sk-test",  # pragma: allowlist secret
+        base_url="http://mocked.local/v1",
+        http_client=http_client,
+    )
 
 
 def _async_client(recorder: _Recorder) -> openai.AsyncOpenAI:
@@ -82,17 +86,21 @@ def _async_client(recorder: _Recorder) -> openai.AsyncOpenAI:
 
     transport = httpx2.MockTransport(recorder.handler)
     http_client = httpx2.AsyncClient(transport=transport, timeout=10)
-    return openai.AsyncOpenAI(api_key="sk-test", base_url="http://mocked.local/v1", http_client=http_client)  # pragma: allowlist secret
+    return openai.AsyncOpenAI(
+        api_key="sk-test",  # pragma: allowlist secret
+        base_url="http://mocked.local/v1",
+        http_client=http_client,
+    )
 
 
 def _patch_sync(monkeypatch, recorder: _Recorder) -> None:
     monkeypatch.setattr(
-        OpenAICompatibleBackend, "_build_sync_client", lambda self, timeout_seconds=None: _sync_client(recorder)
+        OpenAICompatibleBackend, "_build_sync_client", lambda self, *args, **kwargs: _sync_client(recorder)
     )
 
 
 def _patch_async(monkeypatch, recorder: _Recorder) -> None:
-    async def _build(self, timeout_seconds=None):
+    async def _build(self, *args, **kwargs):
         return _async_client(recorder)
 
     monkeypatch.setattr(OpenAICompatibleBackend, "_build_async_client", _build)

@@ -90,10 +90,13 @@ class LLMService:
         if not default_backend and not backend_configs:
             default_backend = await LLMConfig.get_default_backend_async()
 
-        # 预热缓存：async 获取所有后端配置，写入 _config_cache
+        # 预热缓存：async 获取所有后端配置与 AI 平台配置，写入缓存
+        from apps.core.services.llm_provider_service import LLMProviderService
+
         await asyncio.gather(
             LLMConfig.get_openai_compatible_api_key_async(),
             LLMConfig.get_openai_compatible_base_url_async(),
+            LLMProviderService.aget_providers(),
         )
 
         return cls(backend_configs=backend_configs, default_backend=default_backend)

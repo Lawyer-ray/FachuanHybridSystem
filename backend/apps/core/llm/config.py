@@ -20,7 +20,7 @@ from django.conf import settings
 logger = logging.getLogger("apps.core.llm")
 
 if TYPE_CHECKING:
-    from apps.core.llm.backends.base import BackendConfig
+    from apps.core.llm.backends.base import BackendConfig, OpenAIProviderConfig
     from apps.core.services.system_config_service import SystemConfigService
 
 
@@ -439,6 +439,28 @@ class LLMConfig:
         return "openai_compatible"
 
     @classmethod
+    def _get_llm_providers(cls) -> list[OpenAIProviderConfig]:
+        """读取启用中的 AI 平台（LLMProvider）配置，带 TTL 缓存。"""
+        try:
+            from apps.core.services.llm_provider_service import LLMProviderService
+
+            return LLMProviderService.get_providers()
+        except Exception:
+            logger.warning("[LLMConfig] 读取 AI 平台配置失败", exc_info=True)
+            return []
+
+    @classmethod
+    async def _aget_llm_providers(cls) -> list[OpenAIProviderConfig]:
+        """异步版本: 读取启用中的 AI 平台（LLMProvider）配置。"""
+        try:
+            from apps.core.services.llm_provider_service import LLMProviderService
+
+            return await LLMProviderService.aget_providers()
+        except Exception:
+            logger.warning("[LLMConfig] 异步读取 AI 平台配置失败", exc_info=True)
+            return []
+
+    @classmethod
     def get_backend_configs(cls) -> dict[str, BackendConfig]:
         from apps.core.llm.backends.base import BackendConfig
 
@@ -485,6 +507,7 @@ class LLMConfig:
                     api_key=cls.get_openai_compatible_api_key(),
                     timeout=cls.get_openai_compatible_timeout(),
                     embedding_model=cls.get_openai_compatible_embedding_model(),
+                    providers=cls._get_llm_providers(),
                 )
         return configs
 
@@ -565,6 +588,19 @@ class LLMConfig:
                         "backend": backend_name,
                     }
                 )
+
+        # 各 AI 平台（LLMProvider）注册的模型
+        for provider in cls._get_llm_providers():
+            for model_id in provider.all_models:
+                if model_id and model_id not in seen:
+                    seen.add(model_id)
+                    models.append(
+                        {
+                            "id": model_id,
+                            "name": model_id.split("/")[-1].split(":")[-1],
+                            "backend": "openai_compatible",
+                        }
+                    )
 
         return models
 

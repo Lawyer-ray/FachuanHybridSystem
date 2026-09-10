@@ -120,6 +120,11 @@ class ModelListService:
             if default_model:
                 _add(default_model)
 
+        # 3. 各 AI 平台（LLMProvider）注册的模型
+        for provider in LLMConfig._get_llm_providers():
+            for model_id in provider.all_models:
+                _add(model_id)
+
         return merged + api_models
 
     @staticmethod
@@ -147,6 +152,11 @@ class ModelListService:
         ]:
             if default_model:
                 _add(default_model)
+
+        # 3. 各 AI 平台（LLMProvider）注册的模型
+        for provider in await LLMConfig._aget_llm_providers():
+            for model_id in provider.all_models:
+                _add(model_id)
 
         return merged + api_models
 
