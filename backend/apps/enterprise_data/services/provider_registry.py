@@ -63,9 +63,9 @@ class EnterpriseProviderRegistry:
             config = self._build_provider_config(
                 provider_name=provider_name,
                 base_url_key="TIANYANCHA_MCP_BASE_URL",
-                base_url_default="https://mcp-service.tianyancha.com/mcp",
+                base_url_default="https://mcp.tianyancha.com/mcp",
                 sse_url_key="TIANYANCHA_MCP_SSE_URL",
-                sse_url_default="https://mcp-service.tianyancha.com/sse",
+                sse_url_default="https://mcp.tianyancha.com/sse",
                 api_key_key="TIANYANCHA_MCP_API_KEY",  # pragma: allowlist secret
             )
             return TianyanchaMcpProvider(config=config)
