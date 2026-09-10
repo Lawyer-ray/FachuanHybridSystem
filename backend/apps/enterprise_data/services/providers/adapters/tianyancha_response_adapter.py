@@ -19,6 +19,7 @@ class TianyanchaResponseAdapter:
     _MARKDOWN_TABLE_ROW_RE = re.compile(r"^\|\s*\*\*(?P<key>[^*]+)\*\*\s*\|\s*(?P<value>.*?)\s*\|\s*$")
     _MARKDOWN_COMPANY_HEADER_RE = re.compile(r"^##\s+\d+\.\s+(?P<name>.+?)\s*$")
     _MARKDOWN_PROFILE_HEADER_RE = re.compile(r"^#\s+🏢\s+(?P<name>.+?)\s*$")
+    _MARKDOWN_TABLE_SEPARATOR_RE = re.compile(r"^[-:]+$")
 
     @staticmethod
     def pick_str(obj: dict[str, Any], keys: tuple[str, ...]) -> str:
@@ -29,6 +30,72 @@ class TianyanchaResponseAdapter:
             text = str(value).strip()
             if text:
                 return text
+        return ""
+
+    def _split_table_cells(self, line: str) -> list[str]:
+        stripped = str(line or "").strip()
+        if not (stripped.startswith("|") and stripped.endswith("|")):
+            return []
+        return [cell.strip() for cell in stripped.strip().strip("|").split("|")]
+
+    def _extract_markdown_tables(self, markdown: str) -> list[list[list[str]]]:
+        """提取 markdown 中的管道表格，返回 [ [表头行, 数据行...], ... ]。"""
+        tables: list[list[list[str]]] = []
+        current: list[list[str]] | None = None
+        for raw_line in (markdown or "").splitlines():
+            cells = self._split_table_cells(raw_line)
+            if not cells:
+                if current:
+                    tables.append(current)
+                    current = None
+                continue
+            if all(self._MARKDOWN_TABLE_SEPARATOR_RE.fullmatch(cell) for cell in cells):
+                continue
+            if current is None:
+                current = []
+            current.append(cells)
+        if current:
+            tables.append(current)
+        return [table for table in tables if len(table) >= 2 and len(table[0]) >= 2]
+
+    def parse_search_companies_table(self, payload: Any) -> list[dict[str, str]]:
+        markdown = self._extract_markdown_result(payload)
+        if not markdown:
+            return []
+
+        results: list[dict[str, str]] = []
+        tables = self._extract_markdown_tables(markdown)
+        for table in tables:
+            header = table[0]
+            data_rows = table[1:]
+            if not any("企业名称" in key or "名称" in key for key in header):
+                continue
+            for row in data_rows:
+                if len(row) != len(header):
+                    continue
+                record = {header[i]: row[i] for i in range(len(header))}
+                item = {
+                    "company_id": self._pick_cell(record, ("企业ID", "企业id", "ID", "id")),
+                    "company_name": self._pick_cell(record, ("企业名称", "名称", "公司名称")),
+                    "unified_social_credit_code": self._pick_cell(record, ("统一社会信用代码", "统一信用代码")),
+                    "legal_person": self._pick_cell(record, ("法定代表人", "法定代表人姓名")),
+                    "status": self._pick_cell(record, ("登记状态", "经营状态")),
+                    "establish_date": self._pick_cell(record, ("成立日期", "成立时间")),
+                    "registered_capital": self._pick_cell(record, ("注册资本",)),
+                    "phone": self._pick_cell(record, ("联系电话", "联系方式")),
+                }
+                if item.get("company_id") or item.get("company_name"):
+                    results.append(item)
+            break
+        return results
+
+    def _pick_cell(self, record: dict[str, str], keys: tuple[str, ...]) -> str:
+        for key in keys:
+            for header, value in record.items():
+                if header == key or key in header or header in key:
+                    cleaned = self._clean_markdown_value(value)
+                    if cleaned:
+                        return cleaned
         return ""
 
     def extract_items(self, payload: Any) -> list[dict[str, Any]]:
@@ -174,6 +241,19 @@ class TianyanchaResponseAdapter:
             elif key == "联系电话":
                 profile["phone"] = value
 
+        for table in self._extract_markdown_tables(markdown):
+            header = table[0]
+            if len(header) < 2 or not any("字段" in h or "key" in h.lower() for h in header):
+                continue
+            for row in table[1:]:
+                if len(row) < 2:
+                    continue
+                field_key = self._clean_markdown_value(row[0])
+                field_value = self._clean_markdown_value(row[1])
+                if not field_value:
+                    continue
+                self._apply_profile_field(profile, field_key, field_value)
+
         scope_match = re.search(
             r"##\s*📄\s*经营范围\s*\n(?P<scope>.*?)(?:\n\*\*关于企业更多信息|$)",
             markdown,
@@ -187,6 +267,28 @@ class TianyanchaResponseAdapter:
             profile.get(field) for field in ("company_name", "unified_social_credit_code", "legal_person", "address")
         )
         return profile if has_meaningful_fields else {}
+
+    def _apply_profile_field(self, profile: dict[str, Any], key: str, value: str) -> None:
+        if key == "企业ID":
+            profile["company_id"] = value
+        elif key == "企业名称":
+            profile["company_name"] = value
+        elif key == "统一社会信用代码":
+            profile["unified_social_credit_code"] = value
+        elif key in ("法定代表人", "法定代表人姓名"):
+            profile["legal_person"] = value
+        elif key in ("登记状态", "经营状态"):
+            profile["status"] = value
+        elif key in ("成立日期", "成立时间"):
+            profile["establish_date"] = value
+        elif key == "注册资本":
+            profile["registered_capital"] = value
+        elif key == "注册地址":
+            profile["address"] = value
+        elif key == "联系电话":
+            profile["phone"] = value
+        elif key == "经营范围":
+            profile["business_scope"] = value
 
     def _extract_markdown_result(self, payload: Any) -> str:
         if isinstance(payload, str):

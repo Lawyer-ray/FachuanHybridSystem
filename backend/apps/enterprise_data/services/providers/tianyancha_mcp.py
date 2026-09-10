@@ -14,7 +14,7 @@ class TianyanchaMcpProvider:
     name = "tianyancha"
 
     TOOL_SEARCH_COMPANIES = "search_companies"
-    TOOL_GET_COMPANY_INFO = "get_company_info"
+    TOOL_GET_COMPANY_INFO = "get_company_basic_profile"
     TOOL_GET_COMPANY_SHAREHOLDERS = "get_company_shareholders"
     TOOL_GET_COMPANY_PERSONNEL = "get_company_personnel"
     TOOL_GET_PERSON_PROFILE = "get_person_profile"
@@ -73,12 +73,14 @@ class TianyanchaMcpProvider:
         )
 
     def search_companies(self, *, keyword: str) -> ProviderResponse:
-        result = self._client.call_tool(tool_name=self.TOOL_SEARCH_COMPANIES, arguments={"keyword": keyword})
+        result = self._client.call_tool(tool_name=self.TOOL_SEARCH_COMPANIES, arguments={"query": keyword})
         items = self._adapter.extract_items(result["payload"])
         normalized_items = [self._adapter.normalize_company_summary(item) for item in items]
         normalized_items = [item for item in normalized_items if item.get("company_id") or item.get("company_name")]
         if not normalized_items:
             normalized_items = self._adapter.parse_search_companies_markdown(result["payload"])
+        if not normalized_items:
+            normalized_items = self._adapter.parse_search_companies_table(result["payload"])
         data = {"items": normalized_items, "total": len(normalized_items)}
         return ProviderResponse(
             data=data,
@@ -88,12 +90,14 @@ class TianyanchaMcpProvider:
         )
 
     async def asearch_companies(self, *, keyword: str) -> ProviderResponse:
-        result = await self._client.acall_tool(tool_name=self.TOOL_SEARCH_COMPANIES, arguments={"keyword": keyword})
+        result = await self._client.acall_tool(tool_name=self.TOOL_SEARCH_COMPANIES, arguments={"query": keyword})
         items = self._adapter.extract_items(result["payload"])
         normalized_items = [self._adapter.normalize_company_summary(item) for item in items]
         normalized_items = [item for item in normalized_items if item.get("company_id") or item.get("company_name")]
         if not normalized_items:
             normalized_items = self._adapter.parse_search_companies_markdown(result["payload"])
+        if not normalized_items:
+            normalized_items = self._adapter.parse_search_companies_table(result["payload"])
         data = {"items": normalized_items, "total": len(normalized_items)}
         return ProviderResponse(
             data=data,
@@ -126,7 +130,9 @@ class TianyanchaMcpProvider:
         )
 
     async def aget_company_profile(self, *, company_id: str) -> ProviderResponse:
-        result = await self._client.acall_tool(tool_name=self.TOOL_GET_COMPANY_INFO, arguments={"company_id": company_id})
+        result = await self._client.acall_tool(
+            tool_name=self.TOOL_GET_COMPANY_INFO, arguments={"company_id": company_id}
+        )
         item = self._adapter.extract_primary_dict(result["payload"])
         data = self._adapter.normalize_company_profile(item)
         has_key_fields = bool(
