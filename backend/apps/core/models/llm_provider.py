@@ -15,34 +15,28 @@ class LLMProvider(models.Model):
     id: int
 
     name = models.CharField(max_length=50, unique=True, verbose_name="平台名称")
-    base_url = models.CharField(
-        max_length=500, verbose_name="API 地址", help_text="OpenAI-compatible 接口地址，如 https://api.example.com/v1"
-    )
+    base_url = models.CharField(max_length=500, verbose_name="API 地址")
     api_keys = models.TextField(
         blank=True,
         default="",
         verbose_name="API Keys",
-        help_text="每行一个 Key；留空表示无需鉴权（本地 vLLM 等）。配置多个 Key 可提升并发上限",
+        help_text="每行一个 Key；留空免鉴权",
     )
-    default_model = models.CharField(max_length=100, verbose_name="默认模型", help_text="未指定模型时使用的模型名称")
+    default_model = models.CharField(max_length=100, verbose_name="默认模型")
     extra_models = models.TextField(
         blank=True,
         default="",
         verbose_name="模型列表",
-        help_text="该平台提供的模型名称，逗号分隔；留空则仅注册默认模型。用于「模型 → 平台」自动路由",
+        help_text="逗号分隔；留空仅注册默认模型",
     )
-    embedding_model = models.CharField(
-        max_length=100, blank=True, default="", verbose_name="向量模型", help_text="留空沿用默认模型"
-    )
+    embedding_model = models.CharField(max_length=100, blank=True, default="", verbose_name="向量模型")
     timeout = models.PositiveIntegerField(default=120, verbose_name="超时（秒）")
     concurrency_per_key = models.PositiveIntegerField(
         default=0,
         verbose_name="每 Key 并发上限",
-        help_text="单个 Key 同时进行的请求数上限；0 表示不限制。配合多 Key 可精细控制并发",
+        help_text="0 表示不限制",
     )
-    priority = models.PositiveIntegerField(
-        default=10, verbose_name="优先级", help_text="数字越小越优先；模型未匹配任何平台时使用优先级最高的平台"
-    )
+    priority = models.PositiveIntegerField(default=10, verbose_name="优先级", help_text="数字越小越优先")
     enabled = models.BooleanField(default=True, verbose_name="启用")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="更新时间")
