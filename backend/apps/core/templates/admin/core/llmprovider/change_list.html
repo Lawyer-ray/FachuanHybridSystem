@@ -14,16 +14,23 @@
 {% block extrahead %}{{ block.super }}
 <script>
 (function () {
-    var form = document.getElementById("init-ai-form");
-    var link = document.getElementById("init-ai-link");
-    if (form && link) {
-        link.addEventListener("click", function (event) {
-            event.preventDefault();
-            if (!window.confirm("初始化 AI 服务基础数据？仅当尚无任何平台时写入一条默认平台，已存在则不覆盖。")) {
-                return;
-            }
-            form.submit();
-        });
+    function init() {
+        var form = document.getElementById("init-ai-form");
+        var link = document.getElementById("init-ai-link");
+        if (form && link) {
+            link.addEventListener("click", function (event) {
+                event.preventDefault();
+                if (!window.confirm("初始化 AI 服务基础数据？仅当尚无任何平台时写入一条默认平台，已存在则不覆盖。")) {
+                    return;
+                }
+                form.submit();
+            });
+        }
+    }
+    if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", init);
+    } else {
+        init();
     }
 })();
 </script>
