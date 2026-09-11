@@ -45,7 +45,6 @@ class LLMProviderAdmin(admin.ModelAdmin):
     )
     list_filter = ("enabled",)
     search_fields = ("name", "base_url", "default_model", "api_keys")
-    list_editable = ("enabled", "priority")
     ordering = ("priority", "name")
     fieldsets = (
         ("基本信息", {"fields": ("name", "enabled", "priority")}),

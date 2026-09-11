@@ -4,13 +4,27 @@
 {% block object-tools-items %}
     {% if show_initialize_button %}
     <li>
-        <form method="post" action="{% url 'admin:core_llmprovider_initialize_default' %}"
-              style="display: inline; margin-right: 4px;"
-              onsubmit="return confirm('初始化 AI 服务基础数据？仅当尚无任何平台时写入一条默认平台，已存在则不覆盖。');">
-            {% csrf_token %}
-            <button type="submit" class="button">{% trans "初始化 AI 服务" %}</button>
-        </form>
+        <form id="init-ai-form" method="post" action="{% url 'admin:core_llmprovider_initialize_default' %}">{% csrf_token %}</form>
+        <a href="#" id="init-ai-link">{% trans "初始化 AI 服务" %}</a>
     </li>
     {% endif %}
     {{ block.super }}
+{% endblock %}
+
+{% block extrahead %}{{ block.super }}
+<script>
+(function () {
+    var form = document.getElementById("init-ai-form");
+    var link = document.getElementById("init-ai-link");
+    if (form && link) {
+        link.addEventListener("click", function (event) {
+            event.preventDefault();
+            if (!window.confirm("初始化 AI 服务基础数据？仅当尚无任何平台时写入一条默认平台，已存在则不覆盖。")) {
+                return;
+            }
+            form.submit();
+        });
+    }
+})();
+</script>
 {% endblock %}
