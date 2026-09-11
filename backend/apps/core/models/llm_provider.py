@@ -16,27 +16,13 @@ class LLMProvider(models.Model):
 
     name = models.CharField(max_length=50, unique=True, verbose_name="平台名称")
     base_url = models.CharField(max_length=500, verbose_name="API 地址")
-    api_keys = models.TextField(
-        blank=True,
-        default="",
-        verbose_name="API Keys",
-        help_text="每行一个 Key；留空免鉴权",
-    )
+    api_keys = models.TextField(blank=True, default="", verbose_name="API Keys")
     default_model = models.CharField(max_length=100, verbose_name="默认模型")
-    extra_models = models.TextField(
-        blank=True,
-        default="",
-        verbose_name="模型列表",
-        help_text="逗号分隔；留空仅注册默认模型",
-    )
+    extra_models = models.TextField(blank=True, default="", verbose_name="模型列表")
     embedding_model = models.CharField(max_length=100, blank=True, default="", verbose_name="向量模型")
     timeout = models.PositiveIntegerField(default=120, verbose_name="超时（秒）")
-    concurrency_per_key = models.PositiveIntegerField(
-        default=0,
-        verbose_name="每 Key 并发上限",
-        help_text="0 表示不限制",
-    )
-    priority = models.PositiveIntegerField(default=10, verbose_name="优先级", help_text="数字越小越优先")
+    concurrency_per_key = models.PositiveIntegerField(default=0, verbose_name="每 Key 并发上限")
+    priority = models.PositiveIntegerField(default=10, verbose_name="优先级")
     enabled = models.BooleanField(default=True, verbose_name="启用")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="更新时间")
