@@ -232,3 +232,19 @@ class TestEmbedWithProviders:
             assert mock_build.call_args.kwargs["api_key"] in ("k1", "k2")
             assert mock_build.call_args.kwargs["base_url"] == "http://law/v1"
             assert mock_client.embeddings.create.call_args.kwargs["model"] == "embed-v3"
+
+    def test_embed_without_embedding_model_raises(self) -> None:
+        from apps.core.llm.exceptions import LLMAPIError
+
+        # 平台未配置向量模型：不再回退默认模型，直接报错
+        backend = OpenAICompatibleBackend(config=_cfg([_provider()]))
+        with pytest.raises(LLMAPIError, match="未配置向量模型"):
+            backend.embed_texts(["文本"])
+
+    @pytest.mark.asyncio
+    async def test_aembed_without_embedding_model_raises(self) -> None:
+        from apps.core.llm.exceptions import LLMAPIError
+
+        backend = OpenAICompatibleBackend(config=_cfg([_provider()]))
+        with pytest.raises(LLMAPIError, match="未配置向量模型"):
+            await backend.aembed_texts(["文本"])

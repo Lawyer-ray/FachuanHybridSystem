@@ -16,9 +16,9 @@ _PLACEHOLDERS: dict[str, str] = {
     "api_keys": "每行一个 Key，留空免鉴权",  # pragma: allowlist secret
     "default_model": "如：kimi26",
     "extra_models": "逗号分隔，如：kimi26,kimi26-128k",
-    "embedding_model": "留空沿用默认模型",
+    "embedding_model": "留空不启用向量模型",
     "timeout": "如：120",
-    "concurrency_per_key": "0 表示不限制",
+    "concurrency_per_key": "如：3",
     "priority": "数字越小越优先",
 }
 
@@ -59,6 +59,8 @@ class LLMProviderAdmin(admin.ModelAdmin):
 
     def formfield_for_dbfield(self, db_field: models.Field, request: Any, **kwargs: Any) -> Any:
         field = super().formfield_for_dbfield(db_field, request, **kwargs)
+        if field is None:
+            return field
         placeholder = _PLACEHOLDERS.get(db_field.name)
         if placeholder and isinstance(field.widget, (forms.TextInput, forms.NumberInput, forms.Textarea)):
             field.widget.attrs["placeholder"] = placeholder

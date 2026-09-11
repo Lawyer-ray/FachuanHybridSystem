@@ -148,7 +148,7 @@ class TestResolveEmbeddingModel:
         assert backend._resolve_embedding_model() == "embed-from-settings"
 
     @patch("apps.core.llm.backends.openai_compatible.LLMConfig")
-    def test_fallback_to_default_model(self, mock_cfg):
+    def test_unconfigured_returns_empty(self, mock_cfg):
         from apps.core.llm.backends.openai_compatible import OpenAICompatibleBackend
 
         mock_cfg.get_openai_compatible_api_key.return_value = "k"
@@ -157,7 +157,8 @@ class TestResolveEmbeddingModel:
         mock_cfg.get_openai_compatible_embedding_model.return_value = ""
         mock_cfg.get_openai_compatible_timeout.return_value = 30
         backend = OpenAICompatibleBackend()
-        assert backend._resolve_embedding_model() == "gpt-4o"
+        # 未配置向量模型：返回空字符串（不启用向量能力），不再回退默认模型
+        assert backend._resolve_embedding_model() == ""
 
 
 # ── _raise_mapped_error ───────────────────────────────────────────

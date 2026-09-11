@@ -21,7 +21,7 @@ class LLMProvider(models.Model):
     extra_models = models.TextField(blank=True, default="", verbose_name="模型列表")
     embedding_model = models.CharField(max_length=100, blank=True, default="", verbose_name="向量模型")
     timeout = models.PositiveIntegerField(default=120, verbose_name="超时（秒）")
-    concurrency_per_key = models.PositiveIntegerField(default=0, verbose_name="每 Key 并发上限")
+    concurrency_per_key = models.PositiveIntegerField(default=3, verbose_name="每 Key 并发上限")
     priority = models.PositiveIntegerField(default=10, verbose_name="优先级")
     enabled = models.BooleanField(default=True, verbose_name="启用")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")

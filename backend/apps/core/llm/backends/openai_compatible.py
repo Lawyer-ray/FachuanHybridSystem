@@ -239,14 +239,19 @@ class OpenAICompatibleBackend:
         return str(content)
 
     def _resolve_embedding_model(self, model: str | None = None) -> str:
+        """解析向量模型；未配置返回空字符串（表示不启用向量能力）。"""
         if model and model.strip():
             return model.strip()
         if self._config and self._config.embedding_model and self._config.embedding_model.strip():
             return self._config.embedding_model.strip()
-        configured = LLMConfig.get_openai_compatible_embedding_model().strip()
-        if configured:
-            return configured
-        return self.default_model
+        return LLMConfig.get_openai_compatible_embedding_model().strip()
+
+    @staticmethod
+    def _raise_embedding_not_configured() -> NoReturn:
+        raise LLMAPIError(
+            message="未配置向量模型，无法进行向量化",
+            errors={"detail": "embedding model not configured"},
+        )
 
     def _build_payload(
         self,
@@ -679,12 +684,14 @@ class OpenAICompatibleBackend:
         provider = self._resolve_provider(None)
         if provider is not None:
             base_url = provider.base_url
-            used_model = (model or "").strip() or (provider.embedding_model or provider.default_model or "").strip()
+            used_model = (model or "").strip() or (provider.embedding_model or "").strip()
             default_timeout = float(provider.timeout)
         else:
             base_url = self.base_url
             used_model = self._resolve_embedding_model(model)
             default_timeout = float(self.timeout)
+        if not used_model:
+            self._raise_embedding_not_configured()
         request_timeout = float(kwargs.pop("timeout_seconds", default_timeout))
 
         def _embed_once(api_key: str) -> list[list[float]]:
@@ -727,12 +734,14 @@ class OpenAICompatibleBackend:
         provider = await self._aresolve_provider(None)
         if provider is not None:
             base_url = provider.base_url
-            used_model = (model or "").strip() or (provider.embedding_model or provider.default_model or "").strip()
+            used_model = (model or "").strip() or (provider.embedding_model or "").strip()
             default_timeout = float(provider.timeout)
         else:
             base_url = self.base_url
             used_model = self._resolve_embedding_model(model)
             default_timeout = float(self.timeout)
+        if not used_model:
+            self._raise_embedding_not_configured()
         request_timeout = float(kwargs.pop("timeout_seconds", default_timeout))
 
         async def _aembed_once(api_key: str) -> list[list[float]]:
