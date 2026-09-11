@@ -8,11 +8,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from apps.core.llm.config import LLMConfig
-from apps.core.services.court_api_client import (
-    CourtApiClient,
-    CauseItem,
-    CourtItem,
-)
+from apps.core.services.court_api_client import CauseItem, CourtApiClient, CourtItem
 
 
 # ===========================================================================
@@ -131,8 +127,9 @@ class TestLLMConfigMisc:
         assert LLMConfig.get_openai_compatible_timeout() == LLMConfig.DEFAULT_OPENAI_COMPATIBLE_TIMEOUT
 
     @patch.object(LLMConfig, "_get_system_config", return_value="300")
-    def test_get_timeout_valid(self, mock_sc):
-        assert LLMConfig.get_openai_compatible_timeout() == 300
+    def test_get_timeout_unconfigured(self, mock_sc):
+        # 超时只读 AI 平台配置；systemconfig 不再兜底
+        assert LLMConfig.get_openai_compatible_timeout() == LLMConfig.DEFAULT_OPENAI_COMPATIBLE_TIMEOUT
 
     @patch.object(LLMConfig, "_get_system_config", return_value="bad_float")
     def test_get_temperature_invalid(self, mock_sc):
@@ -151,12 +148,14 @@ class TestLLMConfigMisc:
         assert LLMConfig.get_max_tokens() == 4000
 
     @patch.object(LLMConfig, "_get_system_config", return_value="")
-    def test_get_default_model_fallback(self, mock_sc):
-        assert LLMConfig.get_openai_compatible_model() == LLMConfig.DEFAULT_OPENAI_COMPATIBLE_MODEL
+    def test_get_default_model_unconfigured(self, mock_sc):
+        # 默认模型只读 AI 平台配置；无平台返回空
+        assert LLMConfig.get_openai_compatible_model() == ""
 
     @patch.object(LLMConfig, "_get_system_config", return_value="custom-model")
-    def test_get_default_model_custom(self, mock_sc):
-        assert LLMConfig.get_openai_compatible_model() == "custom-model"
+    def test_get_default_model_unconfigured_no_systemconfig(self, mock_sc):
+        # systemconfig 旧字段不再兜底
+        assert LLMConfig.get_openai_compatible_model() == ""
 
 
 # ===========================================================================

@@ -18,8 +18,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from apps.core.llm.backends.openai_compatible import OpenAICompatibleBackend
 from apps.core.llm.backends.base import BackendConfig, LLMUsage
+from apps.core.llm.backends.openai_compatible import OpenAICompatibleBackend
 from apps.core.llm.exceptions import LLMAPIError, LLMAuthenticationError, LLMNetworkError, LLMTimeoutError
 
 
@@ -132,12 +132,13 @@ class TestResolveEmbeddingModel:
         backend = OpenAICompatibleBackend(config=config)
         assert backend._resolve_embedding_model() == "config-model"
 
-    def test_fallback_to_default_model(self):
+    def test_unconfigured_returns_empty(self):
+        # 未配置向量模型时不回退对话模型，返回空表示不启用向量能力
         backend = OpenAICompatibleBackend()
         with patch("apps.core.llm.backends.openai_compatible.LLMConfig") as mock_config:
             mock_config.get_openai_compatible_embedding_model.return_value = ""
             backend._default_model = "default-model"
-            assert backend._resolve_embedding_model() == "default-model"
+            assert backend._resolve_embedding_model() == ""
 
 
 class TestBuildExtraBody:
@@ -209,23 +210,23 @@ class TestProperties:
         assert backend._api_key is None
 
     def test_init_with_config(self):
-        config = BackendConfig(name="test", enabled=True, priority=1, api_key="test-key", base_url="http://test", default_model="m1", timeout=60)
+        config = BackendConfig(name="test", enabled=True, priority=1, api_key="test-key", base_url="http://test", default_model="m1", timeout=60)  # pragma: allowlist secret
         backend = OpenAICompatibleBackend(config=config)
-        assert backend.api_key == "test-key"
+        assert backend.api_key == "test-key"  # pragma: allowlist secret
         assert backend.base_url == "http://test"
         assert backend.default_model == "m1"
         assert backend.timeout == 60
 
     def test_api_key_from_config(self):
-        config = BackendConfig(name="test", enabled=True, priority=1, api_key="config-key", default_model="m")
+        config = BackendConfig(name="test", enabled=True, priority=1, api_key="config-key", default_model="m")  # pragma: allowlist secret
         backend = OpenAICompatibleBackend(config=config)
-        assert backend.api_key == "config-key"
+        assert backend.api_key == "config-key"  # pragma: allowlist secret
 
     def test_api_key_from_env(self):
         backend = OpenAICompatibleBackend()
         with patch("apps.core.llm.backends.openai_compatible.LLMConfig") as mock_config:
-            mock_config.get_openai_compatible_api_key.return_value = "env-key"
-            assert backend.api_key == "env-key"
+            mock_config.get_openai_compatible_api_key.return_value = "env-key"  # pragma: allowlist secret
+            assert backend.api_key == "env-key"  # pragma: allowlist secret
 
     def test_base_url_from_config(self):
         config = BackendConfig(name="test", enabled=True, priority=1, base_url="http://configured", default_model="m")

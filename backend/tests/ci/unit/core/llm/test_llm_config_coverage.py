@@ -94,50 +94,51 @@ class TestGetOllamaEmbeddingModel:
 
 
 class TestGetOpenAICompatibleApiKey:
-    def test_from_system_config(self):
+    def test_unconfigured_returns_empty(self):
+        # 不再读取 systemconfig 旧字段：无 AI 平台时返回空
         with patch.object(LLMConfig, "_get_system_config", return_value="Bearer sk-test"):
-            assert LLMConfig.get_openai_compatible_api_key() == "sk-test"
+            assert LLMConfig.get_openai_compatible_api_key() == ""
 
 
 class TestGetOpenAICompatibleBaseUrl:
-    def test_from_system_config(self):
+    def test_unconfigured_returns_empty(self):
         with patch.object(LLMConfig, "_get_system_config", return_value="http://custom/v1/"):
-            assert LLMConfig.get_openai_compatible_base_url() == "http://custom/v1"
+            assert LLMConfig.get_openai_compatible_base_url() == ""
 
-    def test_fallback_default(self):
+    def test_unconfigured_no_default_fallback(self):
         with patch.object(LLMConfig, "_get_system_config", return_value=""):
-            assert LLMConfig.get_openai_compatible_base_url() == LLMConfig.DEFAULT_OPENAI_COMPATIBLE_BASE_URL
+            assert LLMConfig.get_openai_compatible_base_url() == ""
 
 
 class TestGetOpenAICompatibleModel:
-    def test_from_system_config(self):
+    def test_unconfigured_returns_empty(self):
         with patch.object(LLMConfig, "_get_system_config", return_value="custom-model"):
-            assert LLMConfig.get_openai_compatible_model() == "custom-model"
+            assert LLMConfig.get_openai_compatible_model() == ""
 
-    def test_fallback_default(self):
+    def test_unconfigured_no_default_fallback(self):
         with patch.object(LLMConfig, "_get_system_config", return_value=""):
-            assert LLMConfig.get_openai_compatible_model() == LLMConfig.DEFAULT_OPENAI_COMPATIBLE_MODEL
+            assert LLMConfig.get_openai_compatible_model() == ""
 
     def test_whitespace_only(self):
         with patch.object(LLMConfig, "_get_system_config", return_value="   "):
-            assert LLMConfig.get_openai_compatible_model() == LLMConfig.DEFAULT_OPENAI_COMPATIBLE_MODEL
+            assert LLMConfig.get_openai_compatible_model() == ""
 
 
 class TestGetOpenAICompatibleEmbeddingModel:
-    def test_from_system_config(self):
+    def test_unconfigured_returns_empty(self):
         with patch.object(LLMConfig, "_get_system_config", return_value="emb-oc"):
-            assert LLMConfig.get_openai_compatible_embedding_model() == "emb-oc"
+            assert LLMConfig.get_openai_compatible_embedding_model() == ""
 
-    def test_fallback_to_oc_model(self):
+    def test_unconfigured_no_model_fallback(self):
         with patch.object(LLMConfig, "_get_system_config", return_value=""):
             with patch.object(LLMConfig, "get_openai_compatible_model", return_value="fallback"):
-                assert LLMConfig.get_openai_compatible_embedding_model() == "fallback"
+                assert LLMConfig.get_openai_compatible_embedding_model() == ""
 
 
 class TestGetOpenAICompatibleTimeout:
-    def test_from_system_config(self):
+    def test_unconfigured_returns_default(self):
         with patch.object(LLMConfig, "_get_system_config", return_value="90"):
-            assert LLMConfig.get_openai_compatible_timeout() == 90
+            assert LLMConfig.get_openai_compatible_timeout() == LLMConfig.DEFAULT_OPENAI_COMPATIBLE_TIMEOUT
 
     def test_empty_value(self):
         with patch.object(LLMConfig, "_get_system_config", return_value=""):

@@ -195,11 +195,12 @@ class TestResolveEmbeddingModel:
         b = OpenAICompatibleBackend(config=_config(embedding_model="emb-config"))
         assert b._resolve_embedding_model() == "emb-config"
 
-    def test_falls_back_to_default_model(self):
+    def test_unconfigured_returns_empty(self):
+        # 向量模型未配置时不回退默认对话模型，返回空表示不启用向量能力
         b = OpenAICompatibleBackend(config=_config(default_model="gpt-4", embedding_model=None))
         with patch("apps.core.llm.backends.openai_compatible.LLMConfig") as mock_cfg:
             mock_cfg.get_openai_compatible_embedding_model.return_value = ""
-            assert b._resolve_embedding_model() == "gpt-4"
+            assert b._resolve_embedding_model() == ""
 
 
 # ── _build_extra_body ────────────────────────────────────────────────────────

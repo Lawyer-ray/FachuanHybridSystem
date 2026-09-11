@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock, PropertyMock, patch
 
 import pytest
 
@@ -149,20 +149,19 @@ class TestLLMConfigDefaults:
         with patch.object(LLMConfig, "_get_system_config", return_value="abc"):
             assert LLMConfig.get_ollama_timeout() == LLMConfig.DEFAULT_OLLAMA_TIMEOUT
 
-    def test_openai_compatible_timeout_invalid(self):
+    def test_openai_compatible_timeout_default(self):
         from apps.core.llm.config import LLMConfig
-        with patch.object(LLMConfig, "_get_system_config", return_value="abc"):
-            assert LLMConfig.get_openai_compatible_timeout() == LLMConfig.DEFAULT_OPENAI_COMPATIBLE_TIMEOUT
+        assert LLMConfig.get_openai_compatible_timeout() == LLMConfig.DEFAULT_OPENAI_COMPATIBLE_TIMEOUT
 
-    def test_openai_compatible_model_default(self):
+    def test_openai_compatible_model_unconfigured(self):
         from apps.core.llm.config import LLMConfig
-        with patch.object(LLMConfig, "_get_system_config", return_value=""):
-            assert LLMConfig.get_openai_compatible_model() == LLMConfig.DEFAULT_OPENAI_COMPATIBLE_MODEL
 
-    def test_openai_compatible_base_url_default(self):
+        # 无 AI 平台（LLMProvider）时不返回默认常量，返回空表示未配置
+        assert LLMConfig.get_openai_compatible_model() == ""
+
+    def test_openai_compatible_base_url_unconfigured(self):
         from apps.core.llm.config import LLMConfig
-        with patch.object(LLMConfig, "_get_system_config", return_value=""):
-            assert LLMConfig.get_openai_compatible_base_url() == LLMConfig.DEFAULT_OPENAI_COMPATIBLE_BASE_URL
+        assert LLMConfig.get_openai_compatible_base_url() == ""
 
     def test_ollama_embedding_model_fallback_to_model(self):
         from apps.core.llm.config import LLMConfig
@@ -171,10 +170,11 @@ class TestLLMConfigDefaults:
                 mock_s.OLLAMA = {}
                 assert LLMConfig.get_ollama_embedding_model() == LLMConfig.get_ollama_model()
 
-    def test_openai_compatible_embedding_fallback_to_model(self):
+    def test_openai_compatible_embedding_unconfigured(self):
         from apps.core.llm.config import LLMConfig
-        with patch.object(LLMConfig, "_get_system_config", return_value=""):
-            assert LLMConfig.get_openai_compatible_embedding_model() == LLMConfig.get_openai_compatible_model()
+
+        # 向量模型只读 AI 平台配置；无平台返回空（不启用向量），不再回退对话模型
+        assert LLMConfig.get_openai_compatible_embedding_model() == ""
 
 
 class TestLLMConfigGetDefaultBackend:
