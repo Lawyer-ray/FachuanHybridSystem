@@ -39,8 +39,8 @@ class DocumentParseProvider(models.Model):
 
     class Meta:
         ordering = ["priority", "name"]
-        verbose_name = "解析平台"
-        verbose_name_plural = "解析平台"
+        verbose_name = "文档解析平台"
+        verbose_name_plural = "文档解析平台"
 
     def __str__(self) -> str:
         return self.name
