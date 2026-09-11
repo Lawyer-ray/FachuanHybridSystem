@@ -341,17 +341,38 @@ class LLMConfig:
         return v
 
     @classmethod
+    def _get_primary_provider(cls) -> OpenAIProviderConfig | None:
+        """返回优先级最高的启用 AI 平台（LLMProvider），无可用平台时返回 None。"""
+        providers = cls._get_llm_providers()
+        return providers[0] if providers else None
+
+    @classmethod
+    async def _aget_primary_provider(cls) -> OpenAIProviderConfig | None:
+        """异步版本: 返回优先级最高的启用 AI 平台（LLMProvider）。"""
+        providers = await cls._aget_llm_providers()
+        return providers[0] if providers else None
+
+    @classmethod
     def get_openai_compatible_api_key(cls) -> str:
+        provider = cls._get_primary_provider()
+        if provider is not None and provider.api_keys:
+            return cls._normalize_api_key(provider.api_keys[0])
         raw = cls._get_system_config("OPENAI_COMPATIBLE_API_KEY", "")
         return cls._normalize_api_key(raw)
 
     @classmethod
     async def get_openai_compatible_api_key_async(cls) -> str:
+        provider = await cls._aget_primary_provider()
+        if provider is not None and provider.api_keys:
+            return cls._normalize_api_key(provider.api_keys[0])
         raw = await cls._get_system_config_async("OPENAI_COMPATIBLE_API_KEY", "")
         return cls._normalize_api_key(raw)
 
     @classmethod
     def get_openai_compatible_base_url(cls) -> str:
+        provider = cls._get_primary_provider()
+        if provider is not None and provider.base_url:
+            return cls._normalize_base_url(provider.base_url)
         raw = cls._get_system_config("OPENAI_COMPATIBLE_BASE_URL", "")
         if raw:
             return cls._normalize_base_url(raw)
@@ -359,6 +380,9 @@ class LLMConfig:
 
     @classmethod
     async def get_openai_compatible_base_url_async(cls) -> str:
+        provider = await cls._aget_primary_provider()
+        if provider is not None and provider.base_url:
+            return cls._normalize_base_url(provider.base_url)
         raw = await cls._get_system_config_async("OPENAI_COMPATIBLE_BASE_URL", "")
         if raw:
             return cls._normalize_base_url(raw)
@@ -366,23 +390,45 @@ class LLMConfig:
 
     @classmethod
     def get_openai_compatible_model(cls) -> str:
+        provider = cls._get_primary_provider()
+        if provider is not None and provider.default_model:
+            return provider.default_model
         raw = cls._get_system_config("OPENAI_COMPATIBLE_DEFAULT_MODEL", "")
         return (raw or "").strip() or cls.DEFAULT_OPENAI_COMPATIBLE_MODEL
 
     @classmethod
     async def get_openai_compatible_model_async(cls) -> str:
+        provider = await cls._aget_primary_provider()
+        if provider is not None and provider.default_model:
+            return provider.default_model
         raw = await cls._get_system_config_async("OPENAI_COMPATIBLE_DEFAULT_MODEL", "")
         return (raw or "").strip() or cls.DEFAULT_OPENAI_COMPATIBLE_MODEL
 
     @classmethod
     def get_openai_compatible_embedding_model(cls) -> str:
+        provider = cls._get_primary_provider()
+        if provider is not None and provider.embedding_model:
+            return provider.embedding_model
         raw = cls._get_system_config("OPENAI_COMPATIBLE_EMBEDDING_MODEL", "")
         if raw and raw.strip():
             return raw.strip()
         return cls.get_openai_compatible_model()
 
     @classmethod
+    async def get_openai_compatible_embedding_model_async(cls) -> str:
+        provider = await cls._aget_primary_provider()
+        if provider is not None and provider.embedding_model:
+            return provider.embedding_model
+        raw = await cls._get_system_config_async("OPENAI_COMPATIBLE_EMBEDDING_MODEL", "")
+        if raw and raw.strip():
+            return raw.strip()
+        return await cls.get_openai_compatible_model_async()
+
+    @classmethod
     def get_openai_compatible_timeout(cls) -> int:
+        provider = cls._get_primary_provider()
+        if provider is not None and provider.timeout:
+            return int(provider.timeout)
         timeout_str = cls._get_system_config("OPENAI_COMPATIBLE_TIMEOUT", "")
         if timeout_str:
             try:
@@ -393,6 +439,9 @@ class LLMConfig:
 
     @classmethod
     async def get_openai_compatible_timeout_async(cls) -> int:
+        provider = await cls._aget_primary_provider()
+        if provider is not None and provider.timeout:
+            return int(provider.timeout)
         timeout_str = await cls._get_system_config_async("OPENAI_COMPATIBLE_TIMEOUT", "")
         if timeout_str:
             try:

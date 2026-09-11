@@ -298,7 +298,9 @@ class ConversationFlowService:  # pragma: no cover
         await sync_to_async(self.update_step, thread_sensitive=True)(context.session_id, ConversationStep.GENERATING)
         await self.handle_generation(context, send_callback)
 
-    async def handle_generation(self, context: FlowContext, send_callback: Callable[..., Any]) -> None:  # pragma: no cover
+    async def handle_generation(
+        self, context: FlowContext, send_callback: Callable[..., Any]
+    ) -> None:  # pragma: no cover
         session = await self.session_repo.get_session_or_raise(context.session_id)
         metadata = session.metadata or {}
         litigation_goal = metadata.get("litigation_goal", "") or (metadata.get("goal_raw", "") or "")
@@ -355,10 +357,10 @@ class ConversationFlowService:  # pragma: no cover
                     [
                         "⚠️ 大模型鉴权失败(401 Invalid token),已中断生成.",
                         "",
-                        "请到 /admin/core/systemconfig/ 检查以下配置是否正确且启用:",
-                        "- OPENAI_COMPATIBLE_API_KEY:不要保存成 'Bearer xxx',只填 token 本体;也不要填 **** 掩码",
-                        f"- OPENAI_COMPATIBLE_BASE_URL:当前读取值为 {base_url}",
-                        f"- OPENAI_COMPATIBLE_DEFAULT_MODEL:当前读取值为 {default_model}",
+                        "请到 /admin/core/llmprovider/（AI 平台管理页）检查当前平台的 API Key 是否正确:",
+                        f"- 当前平台 Base URL: {base_url}",
+                        f"- 当前默认模型: {default_model}",
+                        "- Key 不要保存成 'Bearer xxx'，只填 token 本体",
                         "",
                         "修复后可回复「重试」或再次回复「无」继续生成.",
                     ]
@@ -447,7 +449,9 @@ class ConversationFlowService:  # pragma: no cover
             "system",
         )
 
-    async def handle_confirm_generate(self, context: FlowContext, send_callback: Callable[..., Any]) -> None:  # pragma: no cover
+    async def handle_confirm_generate(
+        self, context: FlowContext, send_callback: Callable[..., Any]
+    ) -> None:  # pragma: no cover
         await self._send(
             send_callback,
             {"type": "system_message", "content": "请在页面点击「生成文档」按钮生成并下载.", "metadata": {}},

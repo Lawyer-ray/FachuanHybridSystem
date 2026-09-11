@@ -23,7 +23,9 @@ class DocumentTypeParseChain:  # pragma: no cover
         self._model = model
 
     async def arun(self, *, user_input: str, allowed_types: list[str]) -> DocumentTypeParseResult:  # pragma: no cover
-        if not (await LLMConfig.get_openai_compatible_api_key_async() or "").strip():
+        from apps.core.services.llm_provider_service import LLMProviderService
+
+        if not await LLMProviderService.aget_providers():
             return self._fallback_parse(user_input=user_input, allowed_types=allowed_types, notes="llm_api_key_missing")
 
         system_prompt = await self._get_system_prompt()
@@ -78,7 +80,9 @@ class DocumentTypeParseChain:  # pragma: no cover
             ]
         )
 
-    def _fallback_parse(self, *, user_input: str, allowed_types: list[str], notes: str) -> DocumentTypeParseResult:  # pragma: no cover
+    def _fallback_parse(
+        self, *, user_input: str, allowed_types: list[str], notes: str
+    ) -> DocumentTypeParseResult:  # pragma: no cover
         text = (user_input or "").strip()
         if not text:
             return DocumentTypeParseResult(document_type="", confidence=0.0, notes=f"{notes}:empty")
