@@ -80,7 +80,51 @@ class BackendConfig:
     api_key: str | None = None
     timeout: int = 60
     embedding_model: str | None = None
+    providers: list["OpenAIProviderConfig"] = field(default_factory=list)
     extra_options: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class OpenAIProviderConfig:
+    """
+    OpenAI-compatible 平台（供应商）配置数据类
+
+    一个平台对应一个 OpenAI-compatible API 服务（律所自建 vLLM、小米、Moonshot 等），
+    支持多个 API Key 轮询与每 Key 并发上限。
+
+    Attributes:
+        name: 平台名称
+        base_url: API 基础 URL
+        api_keys: API Key 列表（可为空，表示无需鉴权）
+        default_model: 默认模型名称
+        extra_models: 该平台提供的其他模型列表
+        embedding_model: 向量模型名称
+        timeout: 请求超时时间(秒)
+        concurrency_per_key: 每个 Key 的并发上限,0 表示不限制
+        priority: 平台优先级,数字越小越优先
+        enabled: 是否启用
+    """
+
+    name: str
+    base_url: str = ""
+    api_keys: list[str] = field(default_factory=list)
+    default_model: str = ""
+    extra_models: list[str] = field(default_factory=list)
+    embedding_model: str = ""
+    timeout: int = 120
+    concurrency_per_key: int = 0
+    priority: int = 10
+    enabled: bool = True
+
+    @property
+    def all_models(self) -> list[str]:
+        """平台提供的全部模型（默认模型 + 额外模型），保持顺序并去重。"""
+        seen: list[str] = []
+        for mid in [self.default_model, *self.extra_models]:
+            mid = (mid or "").strip()
+            if mid and mid not in seen:
+                seen.append(mid)
+        return seen
 
 
 @runtime_checkable

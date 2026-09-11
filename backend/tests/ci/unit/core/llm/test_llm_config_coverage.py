@@ -94,50 +94,51 @@ class TestGetOllamaEmbeddingModel:
 
 
 class TestGetOpenAICompatibleApiKey:
-    def test_from_system_config(self):
+    def test_unconfigured_returns_empty(self):
+        # 不再读取 systemconfig 旧字段：无 AI 平台时返回空
         with patch.object(LLMConfig, "_get_system_config", return_value="Bearer sk-test"):
-            assert LLMConfig.get_openai_compatible_api_key() == "sk-test"
+            assert LLMConfig.get_openai_compatible_api_key() == ""
 
 
 class TestGetOpenAICompatibleBaseUrl:
-    def test_from_system_config(self):
+    def test_unconfigured_returns_empty(self):
         with patch.object(LLMConfig, "_get_system_config", return_value="http://custom/v1/"):
-            assert LLMConfig.get_openai_compatible_base_url() == "http://custom/v1"
+            assert LLMConfig.get_openai_compatible_base_url() == ""
 
-    def test_fallback_default(self):
+    def test_unconfigured_no_default_fallback(self):
         with patch.object(LLMConfig, "_get_system_config", return_value=""):
-            assert LLMConfig.get_openai_compatible_base_url() == LLMConfig.DEFAULT_OPENAI_COMPATIBLE_BASE_URL
+            assert LLMConfig.get_openai_compatible_base_url() == ""
 
 
 class TestGetOpenAICompatibleModel:
-    def test_from_system_config(self):
+    def test_unconfigured_returns_empty(self):
         with patch.object(LLMConfig, "_get_system_config", return_value="custom-model"):
-            assert LLMConfig.get_openai_compatible_model() == "custom-model"
+            assert LLMConfig.get_openai_compatible_model() == ""
 
-    def test_fallback_default(self):
+    def test_unconfigured_no_default_fallback(self):
         with patch.object(LLMConfig, "_get_system_config", return_value=""):
-            assert LLMConfig.get_openai_compatible_model() == LLMConfig.DEFAULT_OPENAI_COMPATIBLE_MODEL
+            assert LLMConfig.get_openai_compatible_model() == ""
 
     def test_whitespace_only(self):
         with patch.object(LLMConfig, "_get_system_config", return_value="   "):
-            assert LLMConfig.get_openai_compatible_model() == LLMConfig.DEFAULT_OPENAI_COMPATIBLE_MODEL
+            assert LLMConfig.get_openai_compatible_model() == ""
 
 
 class TestGetOpenAICompatibleEmbeddingModel:
-    def test_from_system_config(self):
+    def test_unconfigured_returns_empty(self):
         with patch.object(LLMConfig, "_get_system_config", return_value="emb-oc"):
-            assert LLMConfig.get_openai_compatible_embedding_model() == "emb-oc"
+            assert LLMConfig.get_openai_compatible_embedding_model() == ""
 
-    def test_fallback_to_oc_model(self):
+    def test_unconfigured_no_model_fallback(self):
         with patch.object(LLMConfig, "_get_system_config", return_value=""):
             with patch.object(LLMConfig, "get_openai_compatible_model", return_value="fallback"):
-                assert LLMConfig.get_openai_compatible_embedding_model() == "fallback"
+                assert LLMConfig.get_openai_compatible_embedding_model() == ""
 
 
 class TestGetOpenAICompatibleTimeout:
-    def test_from_system_config(self):
+    def test_unconfigured_returns_default(self):
         with patch.object(LLMConfig, "_get_system_config", return_value="90"):
-            assert LLMConfig.get_openai_compatible_timeout() == 90
+            assert LLMConfig.get_openai_compatible_timeout() == LLMConfig.DEFAULT_OPENAI_COMPATIBLE_TIMEOUT
 
     def test_empty_value(self):
         with patch.object(LLMConfig, "_get_system_config", return_value=""):
@@ -230,16 +231,18 @@ class TestParseInt:
 
 class TestGetBackendConfigs:
     def test_returns_dict(self):
-        with patch.object(LLMConfig, "_get_system_config", return_value=""), \
-             patch.object(LLMConfig, "get_ollama_model", return_value="qwen3:0.6b"), \
-             patch.object(LLMConfig, "get_ollama_base_url", return_value="http://localhost:11434"), \
-             patch.object(LLMConfig, "get_ollama_timeout", return_value=300), \
-             patch.object(LLMConfig, "get_ollama_embedding_model", return_value="emb"), \
-             patch.object(LLMConfig, "get_openai_compatible_model", return_value="kimi26"), \
-             patch.object(LLMConfig, "get_openai_compatible_base_url", return_value="http://x"), \
-             patch.object(LLMConfig, "get_openai_compatible_api_key", return_value=""), \
-             patch.object(LLMConfig, "get_openai_compatible_timeout", return_value=120), \
-             patch.object(LLMConfig, "get_openai_compatible_embedding_model", return_value="emb2"):
+        with (
+            patch.object(LLMConfig, "_get_system_config", return_value=""),
+            patch.object(LLMConfig, "get_ollama_model", return_value="qwen3:0.6b"),
+            patch.object(LLMConfig, "get_ollama_base_url", return_value="http://localhost:11434"),
+            patch.object(LLMConfig, "get_ollama_timeout", return_value=300),
+            patch.object(LLMConfig, "get_ollama_embedding_model", return_value="emb"),
+            patch.object(LLMConfig, "get_openai_compatible_model", return_value="kimi26"),
+            patch.object(LLMConfig, "get_openai_compatible_base_url", return_value="http://x"),
+            patch.object(LLMConfig, "get_openai_compatible_api_key", return_value=""),
+            patch.object(LLMConfig, "get_openai_compatible_timeout", return_value=120),
+            patch.object(LLMConfig, "get_openai_compatible_embedding_model", return_value="emb2"),
+        ):
             result = LLMConfig.get_backend_configs()
             assert "ollama" in result
             assert "openai_compatible" in result
@@ -248,6 +251,7 @@ class TestGetBackendConfigs:
 
     def test_oc_auto_enabled_when_base_url_set(self):
         """openai_compatible auto-enables when base_url is set but enabled not explicitly."""
+
         def fake_get_config(key: str, default: str = "") -> str:
             mapping = {
                 "LLM_BACKEND_OLLAMA_ENABLED": "false",
@@ -258,16 +262,63 @@ class TestGetBackendConfigs:
             }
             return mapping.get(key, default)
 
-        with patch.object(LLMConfig, "_get_system_config", side_effect=fake_get_config), \
-             patch.object(LLMConfig, "get_ollama_model", return_value="m"), \
-             patch.object(LLMConfig, "get_ollama_base_url", return_value=""), \
-             patch.object(LLMConfig, "get_ollama_timeout", return_value=300), \
-             patch.object(LLMConfig, "get_ollama_embedding_model", return_value=""), \
-             patch.object(LLMConfig, "get_openai_compatible_model", return_value="kimi"), \
-             patch.object(LLMConfig, "get_openai_compatible_base_url", return_value="http://custom-v1"), \
-             patch.object(LLMConfig, "get_openai_compatible_api_key", return_value=""), \
-             patch.object(LLMConfig, "get_openai_compatible_timeout", return_value=120), \
-             patch.object(LLMConfig, "get_openai_compatible_embedding_model", return_value=""):
+        with (
+            patch.object(LLMConfig, "_get_system_config", side_effect=fake_get_config),
+            patch.object(LLMConfig, "get_ollama_model", return_value="m"),
+            patch.object(LLMConfig, "get_ollama_base_url", return_value=""),
+            patch.object(LLMConfig, "get_ollama_timeout", return_value=300),
+            patch.object(LLMConfig, "get_ollama_embedding_model", return_value=""),
+            patch.object(LLMConfig, "get_openai_compatible_model", return_value="kimi"),
+            patch.object(LLMConfig, "get_openai_compatible_base_url", return_value="http://custom-v1"),
+            patch.object(LLMConfig, "get_openai_compatible_api_key", return_value=""),
+            patch.object(LLMConfig, "get_openai_compatible_timeout", return_value=120),
+            patch.object(LLMConfig, "get_openai_compatible_embedding_model", return_value=""),
+        ):
             result = LLMConfig.get_backend_configs()
             assert result["ollama"].enabled is False
             assert result["openai_compatible"].enabled is True
+
+    def test_openai_compatible_attaches_llm_providers(self):
+        """get_backend_configs 将 AI 平台（LLMProvider）配置挂到 openai_compatible 后端。"""
+        from apps.core.llm.backends.base import OpenAIProviderConfig
+        from apps.core.services.llm_provider_service import LLMProviderService
+
+        fake_provider = OpenAIProviderConfig(name="law", base_url="http://law/v1", default_model="kimi26")
+        with (
+            patch.object(LLMConfig, "_get_system_config", return_value=""),
+            patch.object(LLMConfig, "get_ollama_model", return_value="m"),
+            patch.object(LLMConfig, "get_ollama_base_url", return_value=""),
+            patch.object(LLMConfig, "get_ollama_timeout", return_value=300),
+            patch.object(LLMConfig, "get_ollama_embedding_model", return_value=""),
+            patch.object(LLMConfig, "get_openai_compatible_model", return_value="kimi"),
+            patch.object(LLMConfig, "get_openai_compatible_base_url", return_value=""),
+            patch.object(LLMConfig, "get_openai_compatible_api_key", return_value=""),
+            patch.object(LLMConfig, "get_openai_compatible_timeout", return_value=120),
+            patch.object(LLMConfig, "get_openai_compatible_embedding_model", return_value=""),
+            patch.object(LLMProviderService, "get_providers", return_value=[fake_provider]),
+        ):
+            result = LLMConfig.get_backend_configs()
+            assert len(result["openai_compatible"].providers) == 1
+            assert result["openai_compatible"].providers[0].name == "law"
+
+    def test_get_available_models_includes_provider_models(self):
+        """get_available_models 并入各 AI 平台注册的模型。"""
+        from apps.core.llm.backends.base import OpenAIProviderConfig
+        from apps.core.services.llm_provider_service import LLMProviderService
+
+        fake_provider = OpenAIProviderConfig(
+            name="xiaomi",
+            base_url="http://xm/v1",
+            default_model="mimo-v1",
+            extra_models=["mimo-v2"],
+        )
+        with (
+            patch.object(LLMConfig, "_get_system_config", return_value=""),
+            patch.object(LLMConfig, "get_ollama_model", return_value=""),
+            patch.object(LLMConfig, "get_openai_compatible_model", return_value=""),
+            patch.object(LLMProviderService, "get_providers", return_value=[fake_provider]),
+        ):
+            models = LLMConfig.get_available_models()
+            model_ids = {m["id"] for m in models}
+            assert "mimo-v1" in model_ids
+            assert "mimo-v2" in model_ids

@@ -350,3 +350,9 @@ skills/**/*.png
 skills/**/*.gif
 skills/**/*.pdf
 skills/**/draft_log.txt
+
+# frontend_2027（新一代前端，开发中，暂不入库）
+frontend_2027/
+
+# AI 助手工作目录（项目记忆等，不入库）
+.workbuddy-ai/

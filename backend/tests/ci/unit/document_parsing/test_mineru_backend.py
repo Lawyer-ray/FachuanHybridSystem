@@ -47,6 +47,14 @@ def _make_zip_bytes(files: dict[str, str]) -> bytes:
 # ── __init__ ─────────────────────────────────────────────────────
 
 
+def _mock_provider(creds: list[str], concurrency: int = 3, name: str = "MinerU"):
+    provider = MagicMock()
+    provider.name = name
+    provider.parsed_credentials.return_value = creds
+    provider.concurrency_per_key = concurrency
+    return provider
+
+
 class TestInit:
     def test_api_key_from_param(self) -> None:
         with patch(f"{_PATCH_PREFIX}.get_sync_http_client"):
@@ -55,18 +63,27 @@ class TestInit:
 
     def test_api_key_from_config(self) -> None:
         with patch(f"{_PATCH_PREFIX}.get_sync_http_client"), patch(
-            f"{_PATCH_PREFIX}._config_service"
-        ) as mock_cfg:
-            mock_cfg.get_value_internal.return_value = "cfg-key"  # pragma: allowlist secret
+            "apps.core.services.document_parse_provider_service.ParseProviderService.get_provider",
+            return_value=_mock_provider(["cfg-key-1", "cfg-key-2"]),
+        ):
             backend = MineruBackend()
-        assert backend.api_key == "cfg-key"  # pragma: allowlist secret
+        assert backend.api_key == "cfg-key-1"  # pragma: allowlist secret
+        assert len(backend._pool.credentials) == 2
 
-    def test_no_api_key_raises(self) -> None:
+    def test_no_provider_raises(self) -> None:
         with patch(f"{_PATCH_PREFIX}.get_sync_http_client"), patch(
-            f"{_PATCH_PREFIX}._config_service"
-        ) as mock_cfg:
-            mock_cfg.get_value_internal.return_value = None
-            with pytest.raises(ValueError, match="未配置 MinerU API Key"):
+            "apps.core.services.document_parse_provider_service.ParseProviderService.get_provider",
+            return_value=None,
+        ):
+            with pytest.raises(ValueError, match="未配置 MinerU 解析平台"):
+                MineruBackend()
+
+    def test_provider_no_credentials_raises(self) -> None:
+        with patch(f"{_PATCH_PREFIX}.get_sync_http_client"), patch(
+            "apps.core.services.document_parse_provider_service.ParseProviderService.get_provider",
+            return_value=_mock_provider([]),
+        ):
+            with pytest.raises(ValueError, match="未填写凭证"):
                 MineruBackend()
 
     def test_custom_timeout(self) -> None:

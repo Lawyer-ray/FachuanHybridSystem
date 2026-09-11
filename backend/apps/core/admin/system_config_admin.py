@@ -59,7 +59,6 @@ class SystemConfigAdmin(admin.ModelAdmin):  # pragma: no cover
             "enterprise_data": "#0f766e",
             "scraper": "#ff9800",
             "ocr": "#009688",
-            "document_parsing": "#795548",  # 棕色，代表文档解析
             "email": "#2196f3",
             "cloud_storage": "#1565c0",
             "general": "#607d8b",
@@ -157,11 +156,13 @@ class SystemConfigAdmin(admin.ModelAdmin):  # pragma: no cover
         self._clear_config_cache(obj.key, previous_key=previous_key)
 
     def init_defaults_view(self, request: Any) -> HttpResponseRedirect:  # pragma: no cover
-        """初始化默认配置项"""
+        """初始化默认配置项（AI 服务由「AI 平台」管理页负责、文档解析由「解析平台」管理页负责，此处跳过）"""
         defaults = self._get_default_configs()
         created_count = 0
 
         for config in defaults:
+            if config.get("category") in ("ai", "document_parsing"):
+                continue
             _, created = SystemConfig.objects.get_or_create(
                 key=config["key"],
                 defaults={

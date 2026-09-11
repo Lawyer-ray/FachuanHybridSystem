@@ -26,6 +26,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from apps.core.llm.backends.base import OpenAIProviderConfig
 from apps.core.llm.config import LLMConfig
 
 # ---------------------------------------------------------------------------
@@ -287,38 +288,38 @@ class TestOpenAICompatibleConfig:
         assert LLMConfig._normalize_base_url("") == ""
         assert LLMConfig._normalize_base_url(None) == ""
 
-    def test_get_api_key(self) -> None:
+    def test_get_api_key_unconfigured(self) -> None:
         with patch.object(LLMConfig, "_get_system_config", return_value="sk-key"):
-            assert LLMConfig.get_openai_compatible_api_key() == "sk-key"
+            assert LLMConfig.get_openai_compatible_api_key() == ""
 
-    def test_get_base_url_from_service(self) -> None:
+    def test_get_base_url_unconfigured(self) -> None:
         with patch.object(LLMConfig, "_get_system_config", return_value="http://api/v1"):
-            assert LLMConfig.get_openai_compatible_base_url() == "http://api/v1"
+            assert LLMConfig.get_openai_compatible_base_url() == ""
 
-    def test_get_base_url_default(self) -> None:
+    def test_get_base_url_no_default_fallback(self) -> None:
         with patch.object(LLMConfig, "_get_system_config", return_value=""):
-            assert LLMConfig.get_openai_compatible_base_url() == "http://116.196.92.175:8001/v1"
+            assert LLMConfig.get_openai_compatible_base_url() == ""
 
-    def test_get_model_from_service(self) -> None:
+    def test_get_model_unconfigured(self) -> None:
         with patch.object(LLMConfig, "_get_system_config", return_value="gpt-4"):
-            assert LLMConfig.get_openai_compatible_model() == "gpt-4"
+            assert LLMConfig.get_openai_compatible_model() == ""
 
-    def test_get_model_default(self) -> None:
+    def test_get_model_no_default_fallback(self) -> None:
         with patch.object(LLMConfig, "_get_system_config", return_value=""):
-            assert LLMConfig.get_openai_compatible_model() == "kimi26"
+            assert LLMConfig.get_openai_compatible_model() == ""
 
-    def test_get_embedding_model_from_service(self) -> None:
+    def test_get_embedding_model_unconfigured(self) -> None:
         with patch.object(LLMConfig, "_get_system_config", return_value="text-embed"):
-            assert LLMConfig.get_openai_compatible_embedding_model() == "text-embed"
+            assert LLMConfig.get_openai_compatible_embedding_model() == ""
 
-    def test_get_embedding_model_fallback(self) -> None:
+    def test_get_embedding_model_no_model_fallback(self) -> None:
         with patch.object(LLMConfig, "_get_system_config", return_value=""):
             with patch.object(LLMConfig, "get_openai_compatible_model", return_value="kimi26"):
-                assert LLMConfig.get_openai_compatible_embedding_model() == "kimi26"
+                assert LLMConfig.get_openai_compatible_embedding_model() == ""
 
-    def test_get_timeout_valid(self) -> None:
+    def test_get_timeout_unconfigured(self) -> None:
         with patch.object(LLMConfig, "_get_system_config", return_value="240"):
-            assert LLMConfig.get_openai_compatible_timeout() == 240
+            assert LLMConfig.get_openai_compatible_timeout() == 120
 
     def test_get_timeout_invalid(self) -> None:
         with patch.object(LLMConfig, "_get_system_config", return_value="abc"):
@@ -336,18 +337,17 @@ class TestOpenAICompatibleConfig:
 
 class TestAsyncMethods:
     @pytest.mark.asyncio
-    async def test_get_api_key_async_with_service(self) -> None:
-        """Test async config read with service raising exception (falls through to Django)."""
+    async def test_get_api_key_async_without_provider(self) -> None:
+        """AI 配置只读 LLMProvider；无平台时返回空（不再读 systemconfig / Django settings 兜底）。"""
         mock_service = MagicMock()
         mock_service.get_value.side_effect = KeyError("not found")
         LLMConfig._config_service = mock_service
-        # When service raises, should fall through to Django settings fallback
         with patch("apps.core.llm.config.settings") as ms:
             ms.LLM = {}
             ms.OPENAI_COMPATIBLE = {"API_KEY": "Bearer fallback-key"}
             ms.OLLAMA = {}
             result = await LLMConfig.get_openai_compatible_api_key_async()
-        assert result == "fallback-key"
+        assert result == ""
 
     @pytest.mark.asyncio
     async def test_get_base_url_async_no_service(self) -> None:
@@ -442,7 +442,24 @@ class TestGetBackendConfigs:
         assert "ollama" in configs
         assert configs["ollama"].name == "ollama"
 
-    def test_openai_auto_enable_when_base_url_set(self) -> None:
+    def test_openai_auto_enable_when_provider_exists(self) -> None:
+        # 配置了 AI 平台（LLMProvider）但未显式设置 enabled 时自动启用；systemconfig 不再参与
+        with patch.object(LLMConfig, "_get_system_config", return_value=""):
+            with patch.object(LLMConfig, "_parse_bool", return_value=False):
+                with patch.object(LLMConfig, "_parse_int", return_value=1):
+                    with patch.object(LLMConfig, "_get_llm_providers", return_value=[OpenAIProviderConfig(
+                        name="law", base_url="http://api/v1", default_model="kimi26"
+                    )]):
+                        with patch.object(LLMConfig, "get_openai_compatible_model", return_value="kimi26"):
+                            with patch.object(LLMConfig, "get_openai_compatible_base_url", return_value="http://api/v1"):
+                                with patch.object(LLMConfig, "get_openai_compatible_api_key", return_value=""):
+                                    with patch.object(LLMConfig, "get_openai_compatible_timeout", return_value=120):
+                                        with patch.object(LLMConfig, "get_openai_compatible_embedding_model", return_value=""):
+                                            configs = LLMConfig.get_backend_configs()
+        assert configs["openai_compatible"].enabled is True
+
+    def test_openai_not_auto_enabled_without_provider(self) -> None:
+        # 无平台且 systemconfig 配了 base_url：不再自动启用（AI 配置只认 LLMProvider）
         def _side_effect(key, default=""):
             if key == "OPENAI_COMPATIBLE_BASE_URL":
                 return "http://api/v1"
@@ -450,13 +467,14 @@ class TestGetBackendConfigs:
         with patch.object(LLMConfig, "_get_system_config", side_effect=_side_effect):
             with patch.object(LLMConfig, "_parse_bool", return_value=False):
                 with patch.object(LLMConfig, "_parse_int", return_value=1):
-                    with patch.object(LLMConfig, "get_openai_compatible_model", return_value="kimi26"):
-                        with patch.object(LLMConfig, "get_openai_compatible_base_url", return_value="http://api/v1"):
-                            with patch.object(LLMConfig, "get_openai_compatible_api_key", return_value=""):
-                                with patch.object(LLMConfig, "get_openai_compatible_timeout", return_value=120):
-                                    with patch.object(LLMConfig, "get_openai_compatible_embedding_model", return_value="kimi26"):
-                                        configs = LLMConfig.get_backend_configs()
-        assert configs["openai_compatible"].enabled is True
+                    with patch.object(LLMConfig, "_get_llm_providers", return_value=[]):
+                        with patch.object(LLMConfig, "get_openai_compatible_model", return_value=""):
+                            with patch.object(LLMConfig, "get_openai_compatible_base_url", return_value=""):
+                                with patch.object(LLMConfig, "get_openai_compatible_api_key", return_value=""):
+                                    with patch.object(LLMConfig, "get_openai_compatible_timeout", return_value=120):
+                                        with patch.object(LLMConfig, "get_openai_compatible_embedding_model", return_value=""):
+                                            configs = LLMConfig.get_backend_configs()
+        assert configs["openai_compatible"].enabled is False
 
 
 # ===========================================================================

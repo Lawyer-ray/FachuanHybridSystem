@@ -4,40 +4,42 @@
 
 | 后端 | 标识 | 类型 | 支持格式 | 说明 |
 |------|------|------|----------|------|
-| MinerU | `mineru` | 云端 | PDF/DOC/PPT/Excel/图片 | 通过 MinerU 云 API 解析，默认后端 |
+| MinerU | `mineru` | 云端 | PDF/DOC/PPT/Excel/图片 | 通过 MinerU 云 API 解析 |
 | TextinParse | `textin` | 云端 | PDF/DOC/图片/OFD/RTF/HTML/CSV/TXT | 通过 TextinParse 云 API（xparse-client SDK）解析，格式覆盖更广 |
 | 本地 | `local` | 本地 | PDF | 使用 PyMuPDF + RapidOCR，无网络依赖 |
 
 云端后端（`mineru` / `textin`）含 HTTP 上传 + 轮询，阻塞时间长，API 层会自动走异步路径（通过后端 `requires_async_execution` 属性判断）。
 
-## 初始配置步骤
+## 配置入口
 
-### 1. 初始化 SystemConfig
+文档解析平台统一由后台「文档解析平台」管理页（`http://127.0.0.1:8002/admin/core/documentparseprovider/`）管理，**不再使用「系统配置」下的解析服务项**。
 
-```bash
-cd /Users/huangsong21/Downloads/Coding/AI/FachuanHybridSystem/backend
-source .venv/bin/activate
-python apiSystem/manage.py init_system_config
-```
+每个平台是一份供应商配置，支持多凭证并发：
 
-将创建以下配置项（在 http://127.0.0.1:8002/admin/core/systemconfig/ 中可见）：
+| 字段 | 说明 |
+|------|------|
+| 平台名称 | 任意可辨识名称，唯一 |
+| 解析服务 | `textin`（TextinParse）或 `mineru`（MinerU） |
+| 凭证 | 每行一个凭证；TextinParse 每行 `app_id\|secret_code`（管道符分隔），MinerU 每行一个 API Key |
+| 每凭证并发上限 | 单个凭证同时进行的解析数上限；`0` 表示不限制 |
+| 优先级 | 数字越小越优先；`backend="auto"` 时选择最高优先级的启用平台 |
+| 启用 | 停用即不再参与解析 |
 
-| 配置项 | 默认值 | 说明 |
-|--------|--------|------|
-| `DOCUMENT_PARSING_BACKEND` | `mineru` | 默认解析后端（mineru / textin / local） |
-| `MINERU_API_KEY` | (空) | MinerU API Key（**使用 mineru 时必须配置**） |
-| `TEXTIN_APP_ID` | (空) | TextinParse App ID（**使用 textin 时必须配置**） |
-| `TEXTIN_SECRET_CODE` | (空) | TextinParse Secret Code（**使用 textin 时必须配置**） |
+## 首次配置步骤
 
-> 注：MinerU 的 API URL、模型版本、轮询间隔、超时时间等均为后端内部固定常量，无需在 SystemConfig 中配置。
+### 1. 迁移旧配置（升级场景）
+
+从旧版本升级时运行 `manage.py migrate` 会自动完成：将系统配置里的 `MINERU_API_KEY`、`TEXTIN_APP_ID`、`TEXTIN_SECRET_CODE`、`DOCUMENT_PARSING_BACKEND` 播种为「文档解析平台」记录，并删除旧键。
 
 ### 2. 在 Admin 界面配置凭证
 
-1. 访问 http://127.0.0.1:8002/admin/core/systemconfig/
-2. 根据选择的后端，编辑对应的凭证配置项：
-   - MinerU：`MINERU_API_KEY`
-   - TextinParse：`TEXTIN_APP_ID` 和 `TEXTIN_SECRET_CODE`
+1. 访问 http://127.0.0.1:8002/admin/core/documentparseprovider/
+2. 新增或编辑平台记录：
+   - MinerU：在「凭证」中每行填一个 API Key
+   - TextinParse：在「凭证」中每行填一组 `app_id|secret_code`
 3. 保存
+
+> 多凭证自动轮询分配：失败凭证进入 30 秒冷却并自动切换下一个；配合「每凭证并发上限」精细控制并发。
 
 ### 3. 验证配置
 
@@ -53,12 +55,12 @@ python apiSystem/manage.py shell
 
 ## 使用示例
 
-### 方式 1：自动读取配置（推荐）
+### 方式 1：自动选择（推荐）
 
 ```python
 from apps.document_parsing.services import get_document_parser
 
-# 自动从 SystemConfig 读取 DOCUMENT_PARSING_BACKEND
+# auto：按优先级选择最高优先级的启用解析平台；未配置任何平台时回退本地 local
 parser = get_document_parser(backend="auto")
 
 result = parser.parse_document(
@@ -77,7 +79,7 @@ print(f"Markdown:\n{result.markdown[:500]}...")
 ```python
 from apps.document_parsing.services import get_document_parser
 
-# 指定 textin 后端（凭证从 SystemConfig 自动读取）
+# 指定 textin 后端（凭证从「文档解析平台」自动读取）
 parser = get_document_parser(backend="textin")
 result = parser.parse_document("/path/to/document.pdf")
 
@@ -104,46 +106,51 @@ curl http://localhost:8002/api/v1/document-parsing/task/{task_id} \
 
 ## 配置管理
 
-### 修改配置
+### 修改配置 / 切换默认解析服务
 
-1. 访问 http://127.0.0.1:8002/admin/core/systemconfig/
-2. 找到要修改的配置项
-3. 点击编辑，修改值
-4. 保存
+- 修改凭证或并发上限：在「文档解析平台」编辑对应记录后保存，进程内缓存 300 秒自动失效即生效
+- **切换默认后端**：调整各平台记录的「优先级」——`backend="auto"` 始终选择**优先级最小**的启用平台；若某服务需停用，取消勾选「启用」即可
+- 若删除所有平台，`auto` 会自动回退到本地解析（`local`）
 
-**注意**：修改配置后，新创建的解析器会自动使用新配置。已创建的解析器实例不受影响（配置在初始化时读取）。
+### 多凭证并发
 
-### 切换默认后端
-
-将 `DOCUMENT_PARSING_BACKEND` 改为 `textin` / `mineru` / `local`，之后所有 `backend="auto"` 的调用都会使用新后端。
+- MinerU：每行一个 API Key，多 Key 自动轮询，总并发 ≈ Key 数 × 每凭证并发上限
+- TextinParse：每行一组 `app_id|secret_code`，多组凭证共同提升并发，总并发 ≈ 凭证组数 × 每凭证并发上限
 
 ## 故障排除
 
 ### 未配置凭证
 
 ```
-ValueError: 未配置 MinerU API Key。请在 SystemConfig 中设置 MINERU_API_KEY
-ValueError: 未配置 TextinParse 凭证。请在 SystemConfig 中设置 TEXTIN_APP_ID 和 TEXTIN_SECRET_CODE
+ValueError: 未配置 MinerU 解析平台。
+ValueError: TextinParse 解析平台未填写有效凭证。
 ```
 
-按错误提示在 SystemConfig 中配置对应凭证。
+在「文档解析平台」管理页填写对应平台的凭证（确保格式正确：MinerU 每行一个 Key，TextinParse 每行 `app_id|secret_code`）。
+
+### 所有凭证失败冷却中
+
+```
+TextinAPIError / MinerU 错误：所有凭证仍在失败冷却中。
+```
+
+代表平台下所有凭证近期均调用失败，自动进入 30 秒冷却。检查凭证是否过期、网络是否可达对应服务。
 
 ### API 调用失败
 
 **检查项**：
-1. 凭证是否正确
+1. 凭证是否正确、是否仍在有效期内
 2. 网络是否可访问对应服务（mineru.net / textin 云端）
 3. 文件格式是否在 `get_supported_formats()` 返回的列表中
 
 ## 凭证安全
 
-- API Key / App ID / Secret Code 均存储在 SystemConfig 中，标记为 `is_secret=True`
-- 在 Admin 界面中显示为密码字段（隐藏）
-- 不会在日志或错误信息中暴露
-- 建议定期轮换凭证
+- 平台 `credentials` 字段以 `is_secret=True` / SecretCodec 加密存储，Admin 中显示为密码字段（隐藏）
+- 不会在日志或错误信息中暴露明文凭证
+- 建议定期轮换凭证（修改后保存即生效）
 
 ## 相关文档
 
 - MinerU 官网：https://mineru.net
 - MinerU API 文档：https://mineru.net/apiManage/docs
-- SystemConfig Admin：http://127.0.0.1:8002/admin/core/systemconfig/
+- 「文档解析平台」Admin：http://127.0.0.1:8002/admin/core/documentparseprovider/

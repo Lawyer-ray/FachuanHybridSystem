@@ -32,7 +32,9 @@ API_MODEL_OBJECTS_RATCHET = 55
 # Service layer using @staticmethod
 # 2026-09-07 重校准：d93103c43 设立基线时实际已 251（同 commit 引入的
 # automation 60 文件被漏数），后续 finance/client/oa_filing 增长至 254。
-SERVICE_STATIC_METHOD_RATCHET = 254
+# 2026-09-11 抬至 257：document_parsing ParserFactory（create_parser/_resolve_auto_backend/
+# _load_backend_class/_instantiate）与 ParseProviderService.get_provider 属纯工厂/工具函数。
+SERVICE_STATIC_METHOD_RATCHET = 257
 
 
 def _scan_api_model_objects() -> list[tuple[str, int, str]]:

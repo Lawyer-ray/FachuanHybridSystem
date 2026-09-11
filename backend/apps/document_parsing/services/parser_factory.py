@@ -3,11 +3,10 @@
 import logging
 from typing import Any
 
-from apps.core.services.system_config_service import SystemConfigService
+from apps.core.services.document_parse_provider_service import ParseProviderService
 from apps.document_parsing.protocols.document_parser_protocol import IDocumentParserProtocol
 
 logger = logging.getLogger(__name__)
-_config_service = SystemConfigService()
 
 
 class ParserFactory:
@@ -39,14 +38,14 @@ class ParserFactory:
                 - "mineru": MinerU API（云端）
                 - "textin": TextinParse API（云端，xparse-client SDK）
                 - "local": 本地 PyMuPDF + OCR
-                - "auto": 根据 SystemConfig 自动选择
-            **kwargs: 传递给后端的参数（如 timeout）
+                - "auto": 根据「解析平台」管理页按优先级自动选择
+            **kwargs: 传递给后端的参数（如 timeout、provider）
 
         Returns:
             IDocumentParserProtocol 解析器实例
         """
-        if backend == "auto":
-            backend = _config_service.get_value_internal("DOCUMENT_PARSING_BACKEND", "mineru")
+        if backend in (None, "", "auto"):
+            backend = ParserFactory._resolve_auto_backend()
 
         class_path = ParserFactory._BACKEND_REGISTRY.get(backend)
         if class_path is None:
@@ -54,6 +53,22 @@ class ParserFactory:
 
         backend_cls = ParserFactory._load_backend_class(class_path)
         return ParserFactory._instantiate(backend_cls, **kwargs)
+
+    @staticmethod
+    def _resolve_auto_backend() -> str:
+        """auto 模式：选择优先级最高的启用解析平台；未配置任何平台时回退 local。
+
+        DocumentParseProvider.provider_type 与 _BACKEND_REGISTRY 的键一致
+        （textin / mineru），无需额外映射。
+        """
+        providers = ParseProviderService.get_providers()
+        if not providers:
+            logger.info("未配置任何解析平台，auto 回退到 local")
+            return "local"
+        providers = sorted(providers, key=lambda p: (p.priority, p.pk))
+        best = str(providers[0].provider_type)
+        logger.info("auto 选择解析平台: %s (%s)", providers[0].name, best)
+        return best
 
     @staticmethod
     def _load_backend_class(class_path: str) -> type:
@@ -67,14 +82,5 @@ class ParserFactory:
 
     @staticmethod
     def _instantiate(backend_cls: type, **kwargs: Any) -> IDocumentParserProtocol:
-        """实例化后端，统一处理 timeout 参数
-
-        云端后端（MinerU/TextinParse）只接收 timeout 关键字；
-        本地后端（LocalBackend）接收 **kwargs。
-        """
-        timeout = kwargs.get("timeout")
-        if timeout is not None:
-            instance: IDocumentParserProtocol = backend_cls(timeout=timeout)
-            return instance
-        instance = backend_cls()
-        return instance
+        """实例化后端，透传所有 kwargs（timeout、显式凭证、provider 等）。"""
+        return backend_cls(**kwargs)  # type: ignore[no-any-return]

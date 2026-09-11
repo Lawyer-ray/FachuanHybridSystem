@@ -68,8 +68,8 @@ class TestAsyncClientCache:
             patch("apps.core.llm.backends.openai_compatible.httpx.AsyncClient") as mock_http,
             patch("apps.core.llm.backends.openai_compatible.openai.AsyncOpenAI") as mock_openai_cls,
         ):
-            first = await backend._build_async_client()
-            second = await backend._build_async_client()
+            first = await backend._build_async_client("sk-test", "https://api.test/v1", 30.0)
+            second = await backend._build_async_client("sk-test", "https://api.test/v1", 30.0)
 
         assert first is second
         assert mock_http.call_count == 1
@@ -84,8 +84,8 @@ class TestAsyncClientCache:
             patch("apps.core.llm.backends.openai_compatible.httpx.AsyncClient"),
             patch("apps.core.llm.backends.openai_compatible.openai.AsyncOpenAI") as mock_openai_cls,
         ):
-            await backend._build_async_client()
-            await backend._build_async_client(timeout_seconds=999)
+            await backend._build_async_client("sk-test", "https://api.test/v1", 30.0)
+            await backend._build_async_client("sk-test", "https://api.test/v1", timeout_seconds=999)
 
         assert mock_openai_cls.call_count == 2
 
@@ -180,13 +180,13 @@ class TestConfigFingerprintCache:
             patch("apps.core.llm.backends.openai_compatible.httpx.Client"),
             patch("apps.core.llm.backends.openai_compatible.openai.OpenAI") as mock_openai_cls,
         ):
-            backend._build_sync_client()
+            backend._build_sync_client("sk-test", "https://api.test/v1", 30.0)
 
             backend._config = _make_config_with_key("sk-new", "https://api.test/v2")
             backend._api_key = None
             backend._base_url = None
 
-            backend._build_sync_client()
+            backend._build_sync_client("sk-new", "https://api.test/v2", 30.0)
 
         assert mock_openai_cls.call_count == 2  # 配置变化后重建客户端
         assert len(backend._sync_clients) == 1  # 旧配置客户端被清掉
@@ -201,12 +201,12 @@ class TestConfigFingerprintCache:
             patch("apps.core.llm.backends.openai_compatible.httpx.AsyncClient"),
             patch("apps.core.llm.backends.openai_compatible.openai.AsyncOpenAI") as mock_openai_cls,
         ):
-            await backend._build_async_client()
-            await backend._build_async_client()  # 同配置命中缓存，不重建
+            await backend._build_async_client("sk-test", "https://api.test/v1", 30.0)
+            await backend._build_async_client("sk-test", "https://api.test/v1", 30.0)  # 同配置命中缓存，不重建
 
             backend._config = _make_config_with_key("sk-new", "https://api.test/v2")
 
-            await backend._build_async_client()
+            await backend._build_async_client("sk-new", "https://api.test/v2", 30.0)
 
         assert mock_openai_cls.call_count == 2  # 缓存命中后仅配置变化触发一次重建
         assert len(backend._async_clients) == 1

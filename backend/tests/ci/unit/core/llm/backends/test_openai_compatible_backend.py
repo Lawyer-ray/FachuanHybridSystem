@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch, AsyncMock, PropertyMock
 from typing import Any
+from unittest.mock import AsyncMock, MagicMock, PropertyMock, patch
 
 import pytest
 
@@ -18,6 +18,7 @@ def _cfg(**kwargs: Any) -> BackendConfig:
 
 
 # ── _build_extra_body ─────────────────────────────────────────────
+
 
 class TestBuildExtraBody:
     def test_kimi_model_disables_thinking(self):
@@ -52,22 +53,23 @@ class TestBuildExtraBody:
 
 # ── Properties ────────────────────────────────────────────────────
 
+
 class TestProperties:
     @patch("apps.core.llm.backends.openai_compatible.LLMConfig")
     def test_api_key_from_config(self, mock_cfg):
         from apps.core.llm.backends.openai_compatible import OpenAICompatibleBackend
 
-        config = _cfg(api_key="sk-test-key")
+        config = _cfg(api_key="sk-test-key")  # pragma: allowlist secret
         backend = OpenAICompatibleBackend(config=config)
-        assert backend.api_key == "sk-test-key"
+        assert backend.api_key == "sk-test-key"  # pragma: allowlist secret
 
     @patch("apps.core.llm.backends.openai_compatible.LLMConfig")
     def test_api_key_from_settings(self, mock_cfg):
         from apps.core.llm.backends.openai_compatible import OpenAICompatibleBackend
 
-        mock_cfg.get_openai_compatible_api_key.return_value = "sk-from-settings"
+        mock_cfg.get_openai_compatible_api_key.return_value = "sk-from-settings"  # pragma: allowlist secret
         backend = OpenAICompatibleBackend()
-        assert backend.api_key == "sk-from-settings"
+        assert backend.api_key == "sk-from-settings"  # pragma: allowlist secret
 
     def test_base_url_from_config(self):
         from apps.core.llm.backends.openai_compatible import OpenAICompatibleBackend
@@ -117,6 +119,7 @@ class TestProperties:
 
 # ── _resolve_embedding_model ──────────────────────────────────────
 
+
 class TestResolveEmbeddingModel:
     def test_explicit_model(self):
         from apps.core.llm.backends.openai_compatible import OpenAICompatibleBackend
@@ -145,7 +148,7 @@ class TestResolveEmbeddingModel:
         assert backend._resolve_embedding_model() == "embed-from-settings"
 
     @patch("apps.core.llm.backends.openai_compatible.LLMConfig")
-    def test_fallback_to_default_model(self, mock_cfg):
+    def test_unconfigured_returns_empty(self, mock_cfg):
         from apps.core.llm.backends.openai_compatible import OpenAICompatibleBackend
 
         mock_cfg.get_openai_compatible_api_key.return_value = "k"
@@ -154,10 +157,12 @@ class TestResolveEmbeddingModel:
         mock_cfg.get_openai_compatible_embedding_model.return_value = ""
         mock_cfg.get_openai_compatible_timeout.return_value = 30
         backend = OpenAICompatibleBackend()
-        assert backend._resolve_embedding_model() == "gpt-4o"
+        # 未配置向量模型：返回空字符串（不启用向量能力），不再回退默认模型
+        assert backend._resolve_embedding_model() == ""
 
 
 # ── _raise_mapped_error ───────────────────────────────────────────
+
 
 class TestRaiseMappedError:
     def test_authentication_error(self):
@@ -217,6 +222,7 @@ class TestRaiseMappedError:
 
 
 # ── chat (sync) ───────────────────────────────────────────────────
+
 
 class TestChat:
     def test_chat_success(self):
@@ -297,6 +303,7 @@ class TestChat:
 
 
 # ── stream ────────────────────────────────────────────────────────
+
 
 class TestStream:
     def test_stream_yields_chunks(self):
@@ -423,6 +430,7 @@ class TestStream:
 
 # ── _build_sync_client ────────────────────────────────────────────
 
+
 class TestBuildSyncClient:
     @patch.dict("os.environ", {"LLM_SSL_VERIFY": "false"})
     def test_ssl_verify_disabled(self):
@@ -430,7 +438,7 @@ class TestBuildSyncClient:
 
         config = _cfg(api_key="sk-test", base_url="http://test")
         backend = OpenAICompatibleBackend(config=config)
-        client = backend._build_sync_client(timeout_seconds=30)
+        client = backend._build_sync_client(api_key="sk-test", base_url="http://test", timeout_seconds=30)
         assert client is not None
 
     @patch.dict("os.environ", {"LLM_SSL_VERIFY": "true"})
@@ -439,5 +447,5 @@ class TestBuildSyncClient:
 
         config = _cfg(api_key="sk-test", base_url="http://test")
         backend = OpenAICompatibleBackend(config=config)
-        client = backend._build_sync_client()
+        client = backend._build_sync_client(api_key="sk-test", base_url="http://test", timeout_seconds=30)
         assert client is not None

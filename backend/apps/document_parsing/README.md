@@ -41,13 +41,13 @@ print(f"Markdown:\n{result.markdown}")
 ```python
 from apps.document_parsing.services import ParserFactory
 
-# 方式 1：自动选择后端（根据 SystemConfig）
+# 方式 1：自动选择后端（按「文档解析平台」优先级，未配置时回退 local）
 parser = ParserFactory.create_parser(backend="auto")
 
-# 方式 2：指定 MinerU
+# 方式 2：指定 MinerU（凭证从「文档解析平台」自动读取，亦可在 provider 中显式传入）
 parser = ParserFactory.create_parser(
     backend="mineru",
-    api_key="your_api_key",  # pragma: allowlist secret
+    provider=my_provider,  # DocumentParseProvider 实例；省略时按解析服务自动查找启用平台
     model_version="vlm",
 )
 
@@ -83,17 +83,13 @@ curl -X POST http://localhost:8002/api/v1/document-parsing/extract-text \
 
 ## 配置
 
-在 SystemConfig 中添加以下配置：
+解析平台统一在后台「文档解析平台」管理页（`/admin/core/documentparseprovider/`）配置，**不再使用 SystemConfig**：
 
-```python
-# 文档解析后端选择
-DOCUMENT_PARSING_BACKEND = "mineru"  # mineru | local | auto
-
-# MinerU API 配置
-MINERU_API_KEY = "your_api_key_here"  # pragma: allowlist secret
-MINERU_API_URL = "https://mineru.net/api/v4/extract/task"
-MINERU_MODEL_VERSION = "vlm"  # vlm | MinerU-HTML
-```
+- 每行一个凭证，**多凭证自动轮询并发**，失败凭证自动 30 秒冷却并切换
+- TextinParse 凭证格式：每行 `app_id|secret_code`（管道符分隔）
+- MinerU 凭证格式：每行一个 API Key
+- 每凭证并发上限：控制单个凭证同时进行的解析数（`0` 表示不限制）
+- `backend="auto"` 按平台优先级自动选择启用解析服务；未配置任何平台时回退本地 `local`
 
 ## 在其他 App 中集成
 
@@ -145,8 +141,8 @@ class TextExtractionService:
 
 ## TODO
 
-- [ ] 添加 PaddleOCR 后端
-- [ ] 实现异步批量解析任务
+- [x] 添加 PaddleOCR 本地后端（local 内集成 PyMuPDF + RapidOCR）
+- [x] 实现异步批量解析任务
 - [ ] 添加调用次数和延迟监控
 - [ ] 实现文件缓存机制
-- [ ] 添加 SystemConfig 配置管理界面
+- [x] 文档解析平台管理界面（多凭证并发）

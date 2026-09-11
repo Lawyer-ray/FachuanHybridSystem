@@ -23,7 +23,9 @@ class UserChoiceParseChain:  # pragma: no cover
         primary_document_type: str,
         optional_document_types: list[str],
     ) -> UserChoiceResult:
-        if not (await LLMConfig.get_openai_compatible_api_key_async() or "").strip():
+        from apps.core.services.llm_provider_service import LLMProviderService
+
+        if not await LLMProviderService.aget_providers():
             return self._fallback_parse(
                 user_input=user_input,
                 primary_document_type=primary_document_type,

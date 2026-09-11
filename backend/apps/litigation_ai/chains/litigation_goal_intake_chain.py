@@ -17,8 +17,12 @@ class LitigationGoalIntakeChain:  # pragma: no cover
     def __init__(self, model: str | None = None) -> None:  # pragma: no cover
         self._model = model
 
-    async def arun(self, *, case_info: dict[str, Any], document_type: str, user_input: str) -> GoalIntakeResult:  # pragma: no cover
-        if not (await LLMConfig.get_openai_compatible_api_key_async() or "").strip():
+    async def arun(
+        self, *, case_info: dict[str, Any], document_type: str, user_input: str
+    ) -> GoalIntakeResult:  # pragma: no cover
+        from apps.core.services.llm_provider_service import LLMProviderService
+
+        if not await LLMProviderService.aget_providers():
             return self._fallback_intake(
                 document_type=document_type, user_input=user_input, notes="llm_api_key_missing"
             )
@@ -82,7 +86,9 @@ class LitigationGoalIntakeChain:  # pragma: no cover
             ]
         )
 
-    def _fallback_intake(self, *, document_type: str, user_input: str, notes: str) -> GoalIntakeResult:  # pragma: no cover
+    def _fallback_intake(
+        self, *, document_type: str, user_input: str, notes: str
+    ) -> GoalIntakeResult:  # pragma: no cover
         text = (user_input or "").strip()
         if not text:
             return GoalIntakeResult(

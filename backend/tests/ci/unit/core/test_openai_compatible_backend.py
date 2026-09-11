@@ -30,7 +30,6 @@ def _config(**overrides):
 
 
 class TestInit:
-
     def test_default_state(self):
         b = OpenAICompatibleBackend()
         assert b._config is None
@@ -45,7 +44,6 @@ class TestInit:
 
 
 class TestProperties:
-
     def test_api_key_from_config(self):
         b = OpenAICompatibleBackend(config=_config(api_key="cfg-key"))
         assert b.api_key == "cfg-key"
@@ -91,10 +89,13 @@ class TestProperties:
 
 
 class TestNormalizeMessages:
-
     def test_valid_roles(self):
         b = OpenAICompatibleBackend(config=_config())
-        msgs = [{"role": "system", "content": "hi"}, {"role": "user", "content": "q"}, {"role": "assistant", "content": "a"}]
+        msgs = [
+            {"role": "system", "content": "hi"},
+            {"role": "user", "content": "q"},
+            {"role": "assistant", "content": "a"},
+        ]
         result = b._normalize_messages(msgs)
         assert len(result) == 3
         assert result[0]["role"] == "system"
@@ -119,7 +120,6 @@ class TestNormalizeMessages:
 
 
 class TestExtractUsage:
-
     def test_none_usage(self):
         b = OpenAICompatibleBackend(config=_config())
         usage = b._extract_usage(None)
@@ -154,7 +154,6 @@ class TestExtractUsage:
 
 
 class TestExtractContent:
-
     def test_normal_content(self):
         b = OpenAICompatibleBackend(config=_config())
         msg = SimpleNamespace(content="hello", reasoning_content=None)
@@ -188,7 +187,6 @@ class TestExtractContent:
 
 
 class TestResolveEmbeddingModel:
-
     def test_explicit_model(self):
         b = OpenAICompatibleBackend(config=_config())
         assert b._resolve_embedding_model("custom-model") == "custom-model"
@@ -197,18 +195,18 @@ class TestResolveEmbeddingModel:
         b = OpenAICompatibleBackend(config=_config(embedding_model="emb-config"))
         assert b._resolve_embedding_model() == "emb-config"
 
-    def test_falls_back_to_default_model(self):
+    def test_unconfigured_returns_empty(self):
+        # 向量模型未配置时不回退默认对话模型，返回空表示不启用向量能力
         b = OpenAICompatibleBackend(config=_config(default_model="gpt-4", embedding_model=None))
         with patch("apps.core.llm.backends.openai_compatible.LLMConfig") as mock_cfg:
             mock_cfg.get_openai_compatible_embedding_model.return_value = ""
-            assert b._resolve_embedding_model() == "gpt-4"
+            assert b._resolve_embedding_model() == ""
 
 
 # ── _build_extra_body ────────────────────────────────────────────────────────
 
 
 class TestBuildExtraBody:
-
     def test_kimi_model(self):
         b = OpenAICompatibleBackend(config=_config())
         result = b._build_extra_body("kimi26")
@@ -232,7 +230,6 @@ class TestBuildExtraBody:
 
 
 class TestRaiseMappedError:
-
     def test_auth_error(self):
         b = OpenAICompatibleBackend(config=_config())
         import openai
@@ -295,7 +292,6 @@ class TestRaiseMappedError:
 
 
 class TestChat:
-
     def test_successful_chat(self):
         b = OpenAICompatibleBackend(config=_config())
         mock_resp = SimpleNamespace(
@@ -350,7 +346,6 @@ class TestChat:
 
 
 class TestStream:
-
     def test_yields_content_chunks(self):
         b = OpenAICompatibleBackend(config=_config())
         chunk1 = SimpleNamespace(
@@ -396,7 +391,6 @@ class TestStream:
 
 
 class TestEmbedTexts:
-
     def test_empty_texts(self):
         b = OpenAICompatibleBackend(config=_config())
         assert b.embed_texts([]) == []
@@ -426,7 +420,6 @@ class TestEmbedTexts:
 
 
 class TestIsAvailable:
-
     def test_available(self):
         b = OpenAICompatibleBackend(config=_config())
         assert b.is_available() is True
@@ -452,7 +445,6 @@ class TestIsAvailable:
 
 
 class TestGetters:
-
     def test_get_default_model(self):
         b = OpenAICompatibleBackend(config=_config(default_model="mymodel"))
         assert b.get_default_model() == "mymodel"
@@ -466,10 +458,9 @@ class TestGetters:
 
 
 class TestBuildSyncClient:
-
     def test_builds_client(self):
         b = OpenAICompatibleBackend(config=_config())
-        client = b._build_sync_client(timeout_seconds=15)
+        client = b._build_sync_client("sk-test", "https://api.test/v1", timeout_seconds=15)
         assert client is not None
 
 
@@ -478,7 +469,6 @@ class TestBuildSyncClient:
 
 @pytest.mark.asyncio
 class TestAchat:
-
     async def test_successful_achat(self):
         b = OpenAICompatibleBackend(config=_config())
         mock_resp = SimpleNamespace(

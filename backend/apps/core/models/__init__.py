@@ -8,6 +8,8 @@ Core 模块数据模型
 from .cause_of_action import CauseOfAction
 from .conversation import ConversationHistory
 from .court import Court
+from .document_parse_provider import DocumentParseProvider
+from .llm_provider import LLMProvider
 from .llm_record import LLMCallRecord
 from .prompt_template import PromptTemplate
 from .system_config import SystemConfig
@@ -17,7 +19,9 @@ __all__ = [
     "CauseOfAction",
     "ConversationHistory",
     "Court",
+    "DocumentParseProvider",
     "LLMCallRecord",
+    "LLMProvider",
     "PromptTemplate",
     "SystemConfig",
     "ToolFavorite",

@@ -20,7 +20,7 @@ from django.conf import settings
 logger = logging.getLogger("apps.core.llm")
 
 if TYPE_CHECKING:
-    from apps.core.llm.backends.base import BackendConfig
+    from apps.core.llm.backends.base import BackendConfig, OpenAIProviderConfig
     from apps.core.services.system_config_service import SystemConfigService
 
 
@@ -341,64 +341,85 @@ class LLMConfig:
         return v
 
     @classmethod
+    def _get_primary_provider(cls) -> OpenAIProviderConfig | None:
+        """返回优先级最高的启用 AI 平台（LLMProvider），无可用平台时返回 None。"""
+        providers = cls._get_llm_providers()
+        return providers[0] if providers else None
+
+    @classmethod
+    async def _aget_primary_provider(cls) -> OpenAIProviderConfig | None:
+        """异步版本: 返回优先级最高的启用 AI 平台（LLMProvider）。"""
+        providers = await cls._aget_llm_providers()
+        return providers[0] if providers else None
+
+    @classmethod
     def get_openai_compatible_api_key(cls) -> str:
-        raw = cls._get_system_config("OPENAI_COMPATIBLE_API_KEY", "")
-        return cls._normalize_api_key(raw)
+        provider = cls._get_primary_provider()
+        if provider is not None and provider.api_keys:
+            return cls._normalize_api_key(provider.api_keys[0])
+        return ""
 
     @classmethod
     async def get_openai_compatible_api_key_async(cls) -> str:
-        raw = await cls._get_system_config_async("OPENAI_COMPATIBLE_API_KEY", "")
-        return cls._normalize_api_key(raw)
+        provider = await cls._aget_primary_provider()
+        if provider is not None and provider.api_keys:
+            return cls._normalize_api_key(provider.api_keys[0])
+        return ""
 
     @classmethod
     def get_openai_compatible_base_url(cls) -> str:
-        raw = cls._get_system_config("OPENAI_COMPATIBLE_BASE_URL", "")
-        if raw:
-            return cls._normalize_base_url(raw)
-        return cls.DEFAULT_OPENAI_COMPATIBLE_BASE_URL
+        provider = cls._get_primary_provider()
+        if provider is not None and provider.base_url:
+            return cls._normalize_base_url(provider.base_url)
+        return ""
 
     @classmethod
     async def get_openai_compatible_base_url_async(cls) -> str:
-        raw = await cls._get_system_config_async("OPENAI_COMPATIBLE_BASE_URL", "")
-        if raw:
-            return cls._normalize_base_url(raw)
-        return cls.DEFAULT_OPENAI_COMPATIBLE_BASE_URL
+        provider = await cls._aget_primary_provider()
+        if provider is not None and provider.base_url:
+            return cls._normalize_base_url(provider.base_url)
+        return ""
 
     @classmethod
     def get_openai_compatible_model(cls) -> str:
-        raw = cls._get_system_config("OPENAI_COMPATIBLE_DEFAULT_MODEL", "")
-        return (raw or "").strip() or cls.DEFAULT_OPENAI_COMPATIBLE_MODEL
+        provider = cls._get_primary_provider()
+        if provider is not None and provider.default_model:
+            return provider.default_model
+        return ""
 
     @classmethod
     async def get_openai_compatible_model_async(cls) -> str:
-        raw = await cls._get_system_config_async("OPENAI_COMPATIBLE_DEFAULT_MODEL", "")
-        return (raw or "").strip() or cls.DEFAULT_OPENAI_COMPATIBLE_MODEL
+        provider = await cls._aget_primary_provider()
+        if provider is not None and provider.default_model:
+            return provider.default_model
+        return ""
 
     @classmethod
     def get_openai_compatible_embedding_model(cls) -> str:
-        raw = cls._get_system_config("OPENAI_COMPATIBLE_EMBEDDING_MODEL", "")
-        if raw and raw.strip():
-            return raw.strip()
-        return cls.get_openai_compatible_model()
+        provider = cls._get_primary_provider()
+        if provider is not None and provider.embedding_model:
+            return provider.embedding_model
+        return ""
+
+    @classmethod
+    async def get_openai_compatible_embedding_model_async(cls) -> str:
+        provider = await cls._aget_primary_provider()
+        if provider is not None and provider.embedding_model:
+            return provider.embedding_model
+        return ""
 
     @classmethod
     def get_openai_compatible_timeout(cls) -> int:
-        timeout_str = cls._get_system_config("OPENAI_COMPATIBLE_TIMEOUT", "")
-        if timeout_str:
-            try:
-                return int(timeout_str)
-            except (ValueError, TypeError):
-                return cls.DEFAULT_OPENAI_COMPATIBLE_TIMEOUT
+        provider = cls._get_primary_provider()
+        if provider is not None and provider.timeout:
+            return int(provider.timeout)
         return cls.DEFAULT_OPENAI_COMPATIBLE_TIMEOUT
 
     @classmethod
     async def get_openai_compatible_timeout_async(cls) -> int:
-        timeout_str = await cls._get_system_config_async("OPENAI_COMPATIBLE_TIMEOUT", "")
-        if timeout_str:
-            try:
-                return int(timeout_str)
-            except (ValueError, TypeError):
-                return cls.DEFAULT_OPENAI_COMPATIBLE_TIMEOUT
+        provider = await cls._aget_primary_provider()
+        if provider is not None and provider.timeout:
+            return int(provider.timeout)
         return cls.DEFAULT_OPENAI_COMPATIBLE_TIMEOUT
 
     # ============================================================
@@ -439,6 +460,28 @@ class LLMConfig:
         return "openai_compatible"
 
     @classmethod
+    def _get_llm_providers(cls) -> list[OpenAIProviderConfig]:
+        """读取启用中的 AI 平台（LLMProvider）配置，带 TTL 缓存。"""
+        try:
+            from apps.core.services.llm_provider_service import LLMProviderService
+
+            return LLMProviderService.get_providers()
+        except Exception:
+            logger.warning("[LLMConfig] 读取 AI 平台配置失败", exc_info=True)
+            return []
+
+    @classmethod
+    async def _aget_llm_providers(cls) -> list[OpenAIProviderConfig]:
+        """异步版本: 读取启用中的 AI 平台（LLMProvider）配置。"""
+        try:
+            from apps.core.services.llm_provider_service import LLMProviderService
+
+            return await LLMProviderService.aget_providers()
+        except Exception:
+            logger.warning("[LLMConfig] 异步读取 AI 平台配置失败", exc_info=True)
+            return []
+
+    @classmethod
     def get_backend_configs(cls) -> dict[str, BackendConfig]:
         from apps.core.llm.backends.base import BackendConfig
 
@@ -456,10 +499,9 @@ class LLMConfig:
             enabled_raw = cls._get_system_config(enabled_key(name), "")
             enabled = cls._parse_bool(enabled_raw, default_enabled[name])
 
-            # openai_compatible: 如果配置了 base_url 但未显式设置 enabled，自动启用
+            # openai_compatible: 配置了 AI 平台（LLMProvider）但未显式设置 enabled，自动启用
             if name == "openai_compatible" and not enabled and not enabled_raw:
-                base_url = cls._get_system_config("OPENAI_COMPATIBLE_BASE_URL", "")
-                if base_url:
+                if cls._get_llm_providers():
                     enabled = True
 
             priority_raw = cls._get_system_config(priority_key(name), "")
@@ -485,6 +527,7 @@ class LLMConfig:
                     api_key=cls.get_openai_compatible_api_key(),
                     timeout=cls.get_openai_compatible_timeout(),
                     embedding_model=cls.get_openai_compatible_embedding_model(),
+                    providers=cls._get_llm_providers(),
                 )
         return configs
 
@@ -565,6 +608,19 @@ class LLMConfig:
                         "backend": backend_name,
                     }
                 )
+
+        # 各 AI 平台（LLMProvider）注册的模型
+        for provider in cls._get_llm_providers():
+            for model_id in provider.all_models:
+                if model_id and model_id not in seen:
+                    seen.add(model_id)
+                    models.append(
+                        {
+                            "id": model_id,
+                            "name": model_id.split("/")[-1].split(":")[-1],
+                            "backend": "openai_compatible",
+                        }
+                    )
 
         return models
 
