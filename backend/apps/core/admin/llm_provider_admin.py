@@ -1,14 +1,18 @@
 """AI 平台（LLMProvider）Admin 管理页。"""
 
+import logging
 from typing import Any
 
 from django import forms
-from django.contrib import admin
+from django.contrib import admin, messages
 from django.db import models
-from django.http import HttpRequest
+from django.http import HttpRequest, HttpResponseRedirect
+from django.urls import path, reverse
 
 from apps.core.models import LLMProvider
 from apps.core.services.llm_provider_service import LLMProviderService
+
+logger = logging.getLogger("apps.core.admin.llm_provider")
 
 _PLACEHOLDERS: dict[str, str] = {
     "name": "如：律所 kimi",
@@ -26,6 +30,8 @@ _PLACEHOLDERS: dict[str, str] = {
 @admin.register(LLMProvider)
 class LLMProviderAdmin(admin.ModelAdmin):
     """AI 平台配置：多平台、多 Key、每 Key 并发上限、模型路由。"""
+
+    change_list_template = "admin/core/llmprovider/change_list.html"
 
     list_display = (
         "name",
@@ -69,6 +75,42 @@ class LLMProviderAdmin(admin.ModelAdmin):
     @admin.display(description="Key 数量")
     def key_count(self, obj: LLMProvider) -> int:
         return len(obj.parsed_api_keys())
+
+    def get_urls(self) -> list[Any]:
+        urls = super().get_urls()
+        custom_urls = [
+            path(
+                "initialize-default/",
+                self.admin_site.admin_view(self.initialize_default_view),
+                name="core_llmprovider_initialize_default",
+            ),
+        ]
+        return custom_urls + urls
+
+    def changelist_view(self, request: Any, extra_context: Any = None) -> Any:
+        extra_context = extra_context or {}
+        extra_context["show_initialize_button"] = True
+        return super().changelist_view(request, extra_context=extra_context)
+
+    def initialize_default_view(self, request: HttpRequest) -> HttpResponseRedirect:
+        """初始化基础 AI 平台数据（幂等：表为空时写入一条默认平台）。"""
+        if request.method != "POST":
+            messages.error(request, "仅支持 POST 请求")
+            return HttpResponseRedirect(reverse("admin:core_llmprovider_changelist"))
+        if not self.has_add_permission(request) or not self.has_change_permission(request):
+            messages.error(request, "无权限执行初始化")
+            return HttpResponseRedirect(reverse("admin:core_llmprovider_changelist"))
+        try:
+            created, skipped = LLMProviderService.initialize_default()
+        except Exception as exc:
+            logger.exception("初始化 AI 服务失败")
+            messages.error(request, f"初始化失败：{exc}")
+        else:
+            if created:
+                messages.success(request, "AI 平台初始化成功，已写入基础平台配置")
+            else:
+                messages.info(request, "已存在平台配置，跳过初始化（不覆盖已有数据）")
+        return HttpResponseRedirect(reverse("admin:core_llmprovider_changelist"))
 
     def save_model(self, request: HttpRequest, obj: Any, form: Any, change: bool) -> None:
         super().save_model(request, obj, form, change)

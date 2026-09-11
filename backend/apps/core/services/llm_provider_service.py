@@ -90,3 +90,28 @@ class LLMProviderService:
             )
         providers.sort(key=lambda p: (p.priority, p.name))
         return providers
+
+    @classmethod
+    def initialize_default(cls) -> tuple[int, int]:
+        """初始化基础 AI 平台数据（律所 kimi 默认平台模板）。
+
+        幂等：仅当表为空时写入一条基础平台；已存在任何平台则跳过。
+        返回 (created, skipped)。
+        """
+        from apps.core.llm.config import LLMConfig
+        from apps.core.models import LLMProvider
+
+        if LLMProvider.objects.exists():
+            return (0, 1)
+        LLMProvider.objects.create(
+            name="律所 kimi",
+            base_url=LLMConfig.DEFAULT_OPENAI_COMPATIBLE_BASE_URL,
+            api_keys="",
+            default_model=LLMConfig.DEFAULT_OPENAI_COMPATIBLE_MODEL,
+            embedding_model="",
+            priority=10,
+            concurrency_per_key=3,
+            enabled=True,
+        )
+        cls.invalidate_cache()
+        return (1, 0)

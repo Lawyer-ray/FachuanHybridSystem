@@ -1,0 +1,16 @@
+{% extends "admin/change_list.html" %}
+{% load i18n %}
+
+{% block object-tools-items %}
+    {% if show_initialize_button %}
+    <li>
+        <form method="post" action="{% url 'admin:core_llmprovider_initialize_default' %}"
+              style="display: inline; margin-right: 4px;"
+              onsubmit="return confirm('初始化 AI 服务基础数据？仅当尚无任何平台时写入一条默认平台，已存在则不覆盖。');">
+            {% csrf_token %}
+            <button type="submit" class="button">{% trans "初始化 AI 服务" %}</button>
+        </form>
+    </li>
+    {% endif %}
+    {{ block.super }}
+{% endblock %}

@@ -157,11 +157,13 @@ class SystemConfigAdmin(admin.ModelAdmin):  # pragma: no cover
         self._clear_config_cache(obj.key, previous_key=previous_key)
 
     def init_defaults_view(self, request: Any) -> HttpResponseRedirect:  # pragma: no cover
-        """初始化默认配置项"""
+        """初始化默认配置项（AI 服务配置由「AI 平台」管理页负责，此处跳过）"""
         defaults = self._get_default_configs()
         created_count = 0
 
         for config in defaults:
+            if config.get("category") == "ai":
+                continue
             _, created = SystemConfig.objects.get_or_create(
                 key=config["key"],
                 defaults={

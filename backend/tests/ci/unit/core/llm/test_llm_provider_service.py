@@ -78,3 +78,49 @@ class TestLLMProviderService:
 
         monkeypatch.setattr(LLMProviderService, "_load_from_db", staticmethod(boom))
         assert LLMProviderService.get_providers() == []
+
+
+class TestInitializeDefault:
+    def teardown_method(self) -> None:
+        LLMProviderService.invalidate_cache()
+
+    @pytest.mark.django_db
+    def test_initializes_default_when_empty(self) -> None:
+        result = LLMProviderService.initialize_default()
+
+        assert result == (1, 0)
+        row = LLMProvider.objects.get()
+        assert row.name == "律所 kimi"
+        assert row.default_model == "kimi26"
+        assert row.concurrency_per_key == 3
+        assert row.enabled is True
+        assert row.parsed_api_keys() == []
+
+    @pytest.mark.django_db
+    def test_skips_when_provider_exists(self) -> None:
+        LLMProvider.objects.create(
+            name="律所",
+            base_url="http://law/v1",
+            default_model="kimi-2.6",
+            api_keys="sk-old",  # pragma: allowlist secret
+            enabled=True,
+        )
+
+        result = LLMProviderService.initialize_default()
+
+        assert result == (0, 1)
+        assert LLMProvider.objects.count() == 1
+        assert LLMProvider.objects.get().name == "律所"  # 不覆盖已有数据
+
+    @pytest.mark.django_db
+    def test_initialize_invalidates_cache(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        calls = {"n": 0}
+
+        def fake_load() -> list[OpenAIProviderConfig]:
+            calls["n"] += 1
+            return [OpenAIProviderConfig(name="律所 kimi", base_url="http://law/v1", default_model="kimi26")]
+
+        monkeypatch.setattr(LLMProviderService, "_load_from_db", staticmethod(fake_load))
+        LLMProviderService.initialize_default()
+        LLMProviderService.get_providers()
+        assert calls["n"] == 1
