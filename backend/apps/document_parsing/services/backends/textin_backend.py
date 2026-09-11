@@ -292,6 +292,9 @@ class TextinBackend:
             TextinAPIError: 任务创建失败
             FileFormatNotSupportedError: 不支持的文件格式
         """
+        client = self._client
+        if client is None:
+            raise TextinAPIError("TextinParse 客户端未初始化，请先通过 parse_document 解析")
         try:
             # 构建 Capabilities 配置
             capabilities = xc.Capabilities(
@@ -301,7 +304,7 @@ class TextinBackend:
             config = xc.ParseConfig(capabilities=capabilities)
 
             with open(file_path, "rb") as f:
-                job_response = self._client.parse.create_job(
+                job_response = client.parse.create_job(
                     file=f,
                     filename=file_path.name,
                     config=config,
@@ -334,6 +337,9 @@ class TextinBackend:
             ParsingTimeoutError: 轮询超时
             TextinAPIError: 任务失败
         """
+        client = self._client
+        if client is None:
+            raise TextinAPIError("TextinParse 客户端未初始化，请先通过 parse_document 解析")
         start_time = time.time()
 
         while True:
@@ -342,7 +348,7 @@ class TextinBackend:
                 raise ParsingTimeoutError(f"任务超时 ({self.POLL_TIMEOUT}秒): job_id={job_id}")
 
             try:
-                result = self._client.parse.get_job(job_id=job_id)
+                result = client.parse.get_job(job_id=job_id)
             except xc.XParseClientError as e:
                 raise self._wrap_sdk_error(e) from e
 

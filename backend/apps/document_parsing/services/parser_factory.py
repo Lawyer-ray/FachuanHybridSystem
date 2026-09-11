@@ -83,4 +83,4 @@ class ParserFactory:
     @staticmethod
     def _instantiate(backend_cls: type, **kwargs: Any) -> IDocumentParserProtocol:
         """实例化后端，透传所有 kwargs（timeout、显式凭证、provider 等）。"""
-        return backend_cls(**kwargs)  # type: ignore[call-arg]
+        return backend_cls(**kwargs)  # type: ignore[no-any-return]

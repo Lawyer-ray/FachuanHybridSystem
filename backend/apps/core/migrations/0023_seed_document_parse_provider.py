@@ -8,6 +8,7 @@ DOCUMENT_PARSING_BACKEND）不再使用。
 """
 
 import re
+from typing import Any
 
 from django.db import migrations
 
@@ -19,7 +20,7 @@ _LEGACY_KEYS = [
 ]
 
 
-def _decrypt_secret(codec, value: str) -> str:
+def _decrypt_secret(codec: Any, value: str) -> str:
     if codec.is_encrypted(value):
         value = codec.decrypt(value)
     return value or ""
@@ -36,7 +37,7 @@ def _split_keys(raw: str) -> list[str]:
     return seen
 
 
-def seed_and_cleanup(apps, schema_editor):
+def seed_and_cleanup(apps: Any, schema_editor: Any) -> None:
     from apps.core.security.secret_codec import SecretCodec
 
     SystemConfig = apps.get_model("core", "SystemConfig")
