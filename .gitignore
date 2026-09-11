@@ -350,3 +350,6 @@ skills/**/*.png
 skills/**/*.gif
 skills/**/*.pdf
 skills/**/draft_log.txt
+
+# frontend_2027（新一代前端，开发中，暂不入库）
+frontend_2027/
