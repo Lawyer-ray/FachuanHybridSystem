@@ -3,7 +3,6 @@
 import logging
 import re
 import tempfile
-import threading
 import time
 import zipfile
 from pathlib import Path
@@ -13,7 +12,7 @@ from uuid import uuid4
 import httpx
 
 from apps.core.http.httpx_clients import get_sync_http_client
-from apps.core.services.system_config_service import SystemConfigService
+from apps.core.services.document_parse_provider_service import ParseProviderService
 from apps.document_parsing.exceptions import MineruAPIError, ParsingTimeoutError
 from apps.document_parsing.protocols.document_parser_protocol import ParsedDocument, TextExtractionResult
 from apps.document_parsing.services.backends._page_artifacts import (
@@ -21,16 +20,21 @@ from apps.document_parsing.services.backends._page_artifacts import (
     collect_header_texts,
     normalize_text,
 )
+from apps.document_parsing.services.credential_pool import CredentialPool, get_credential_pool
 
 logger = logging.getLogger(__name__)
-_config_service = SystemConfigService()
 
 
 class MineruBackend:
     """MinerU API 后端
 
     通过 MinerU 云服务解析文档，支持 PDF、DOC、PPT、Excel、图片等格式。
+    凭证来自「解析平台」管理页（DocumentParseProvider），多凭证自动轮询、
+    每凭证并发上限 + 失败冷却（见 credential_pool）。
     """
+
+    # 本后端对应的平台服务类型（DocumentParseProvider.ProviderType）
+    provider_type: str = "mineru"
 
     # 固定的配置（不需要用户管理）
     API_URL = "https://mineru.net/api/v4/extract/task"
@@ -44,43 +48,53 @@ class MineruBackend:
     # 后端能力声明：云端后端含 HTTP 上传 + 轮询，阻塞时间长，需异步执行
     requires_async_execution: bool = True
 
-    # 类级别 key 列表与轮转索引（Django-Q 多进程各自独立维护）
-    # 注：不使用 ClassVar 泛型注解，避免 typing_extensions/某些序列化路径的兼容性错误。
-    _key_list: list[str] | None = None
-    _key_index: int = 0
-    _key_lock: threading.Lock = threading.Lock()
-
     def __init__(
         self,
         api_key: str | None = None,
         timeout: int = 30,
+        provider: Any = None,
     ):
         """初始化 MinerU 后端
 
         Args:
-            api_key: MinerU API Key（Bearer Token）。
-                     支持逗号/换行/空格分隔的多 key，系统将轮询使用。
-                     如果未提供，从 SystemConfig 的 MINERU_API_KEY 读取。
+            api_key: 显式提供的 API Key（Bearer Token），支持逗号/换行/空格分隔的多 key。
+                     仅用于显式覆盖；日常应由「解析平台」管理页配置。
             timeout: HTTP 请求超时时间（秒）
+            provider: DocumentParseProvider 实例；不传时按类型自动选择优先级最高的启用平台。
         """
-        raw = api_key or _config_service.get_value_internal("MINERU_API_KEY")
-        if not raw:
-            raise ValueError(
-                "未配置 MinerU API Key。"
-                "请在 SystemConfig 中设置 MINERU_API_KEY（http://127.0.0.1:8002/admin/core/systemconfig/）"
+        if api_key:
+            keys = [k.strip() for k in re.split(r"[,\s\r\n]+", str(api_key)) if k.strip()]
+            if not keys:
+                raise ValueError("MinerU API Key 解析后为空，请检查配置内容。")
+            self._pool: CredentialPool = CredentialPool(keys, 0)
+            provider_name = "__explicit_mineru"
+        else:
+            resolved = provider or ParseProviderService.get_provider(self.provider_type)
+            if resolved is None:
+                raise ValueError(
+                    "未配置 MinerU 解析平台。"
+                    "请在「解析平台」管理页新增 MinerU 平台并填写凭证"
+                    "（http://127.0.0.1:8002/admin/core/documentparseprovider/）"
+                )
+            creds = [k for k in resolved.parsed_credentials() if k]
+            if not creds:
+                raise ValueError("MinerU 解析平台未填写凭证，请先补充 API Key。")
+            self._pool = get_credential_pool(
+                provider_key=str(resolved.name),
+                credentials=creds,
+                concurrency_per_key=resolved.concurrency_per_key,
             )
-
-        # 解析逗号/换行/空格分隔的多 key
-        self._api_keys = [k.strip() for k in re.split(r"[,\s\r\n]+", raw) if k.strip()]
-        if not self._api_keys:
-            raise ValueError("MINERU_API_KEY 解析后为空，请检查配置内容。")
+            provider_name = str(resolved.name)
 
         self.timeout = timeout
         self._active_key: str | None = None  # 由 parse_document 设置
+        self._provider_name = provider_name
 
         logger.info(
-            "初始化 MinerU 后端: keys=%d timeout=%ds",
-            len(self._api_keys),
+            "初始化 MinerU 后端: provider=%s keys=%d limit=%d timeout=%ds",
+            self._provider_name,
+            len(self._pool.credentials),
+            self._pool.limit,
             self.timeout,
         )
 
@@ -89,21 +103,22 @@ class MineruBackend:
         """返回当前使用的 API key（兼容单 key 场景）。"""
         if self._active_key is not None:
             return self._active_key
-        return self._api_keys[0]
+        return self._pool.credentials[0] if self._pool.credentials else ""
 
-    def _next_api_key(self) -> str:
-        """线程安全地轮转返回下一个 API key。
+    def _acquire_key(self) -> tuple[str, int]:
+        """从凭证池占用一个 API key。
 
-        注意：_key_index 是类级别 int（不可变），必须用 __class__ 显式修改，
-        否则 self._key_index += 1 会退化为实例属性，类属性永远为 0，导致每个
-        实例永远取 key 列表中的第 0 个。
+        Returns:
+            (key, idx)：idx 用于事后释放。
         """
-        with self._key_lock:
-            idx = self.__class__._key_index % len(self._api_keys)
-            key = self._api_keys[idx]
-            self.__class__._key_index += 1
-            logger.debug("MinerU key rotation: idx=%d", idx)
-            return key
+        idx = self._pool.acquire()
+        if idx is None:
+            raise MineruAPIError("MinerU 所有凭证仍在失败冷却中，请稍后重试")
+        return self._pool.credentials[idx], idx
+
+    def _release_key(self, idx: int | None, *, success: bool) -> None:
+        if idx is not None:
+            self._pool.release(idx, success=success)
 
     def parse_document(
         self,
@@ -134,10 +149,10 @@ class MineruBackend:
         start_time = time.time()
         logger.info("开始 MinerU 解析: %s", file_path)
 
+        # 每次解析任务占用一个 key，"_upload_file" 与 "_poll_batch_result" 共用该 key
+        self._active_key, idx = self._acquire_key()
+        success = False
         try:
-            # 每次解析任务取一个 key，"_upload_file" 与 "_poll_batch_result" 共用该 key
-            self._active_key = self._next_api_key()
-
             # 1. 上传文件到 MinerU（上传后 MinerU 自动创建解析任务）
             batch_id = self._upload_file(file_path)
 
@@ -159,6 +174,7 @@ class MineruBackend:
                 len(parsed.text),
             )
 
+            success = True
             return parsed
 
         except (MineruAPIError, ParsingTimeoutError):
@@ -166,6 +182,8 @@ class MineruBackend:
         except Exception as e:
             logger.error("MinerU 解析失败: %s - %s", file_path, str(e))
             raise MineruAPIError(f"MinerU 解析失败: {e}") from e
+        finally:
+            self._release_key(idx, success=success)
 
     def extract_text(
         self,

@@ -18,7 +18,8 @@ from typing import Any
 import httpx
 import xparse_client as xc
 
-from apps.core.services.system_config_service import SystemConfigService
+from apps.core.models import DocumentParseProvider
+from apps.core.services.document_parse_provider_service import ParseProviderService
 from apps.document_parsing.exceptions import (
     DocumentParsingError,
     FileFormatNotSupportedError,
@@ -31,9 +32,9 @@ from apps.document_parsing.services.backends._page_artifacts import (
     collect_header_texts,
     strip_markdown_emphasis,
 )
+from apps.document_parsing.services.credential_pool import CredentialPool, get_credential_pool
 
 logger = logging.getLogger(__name__)
-_config_service = SystemConfigService()
 
 
 class TextinBackend:
@@ -41,7 +42,12 @@ class TextinBackend:
 
     通过 TextinParse 云服务（xparse-client SDK）解析文档，支持
     PDF / DOC / DOCX / PPT / PPTX / XLS / XLSX / 图片 / OFD / RTF / HTML / CSV / TXT 等格式。
+    凭证来自「解析平台」管理页（DocumentParseProvider），多凭证自动轮询、
+    每凭证并发上限 + 失败冷却（见 credential_pool）。
     """
+
+    # 本后端对应的平台服务类型（DocumentParseProvider.ProviderType）
+    provider_type: str = "textin"
 
     # 固定的配置（不需要用户管理）
     POLL_INTERVAL = 2  # 轮询间隔（秒）
@@ -58,36 +64,67 @@ class TextinBackend:
         secret_code: str | None = None,
         *,
         timeout: int = HTTP_TIMEOUT,
+        provider: Any = None,
     ):
         """初始化 TextinParse 后端
 
         Args:
-            app_id: TextinParse App ID。如果未提供，从 SystemConfig 读取
-            secret_code: TextinParse Secret Code。如果未提供，从 SystemConfig 读取
+            app_id: 显式提供的 TextinParse App ID（与 secret_code 配套）。
+            secret_code: 显式提供的 TextinParse Secret Code。
             timeout: SDK HTTP 请求超时时间（秒）
+            provider: DocumentParseProvider 实例；不传时按类型自动选择优先级最高的启用平台。
         """
-        self.app_id = app_id or _config_service.get_value_internal("TEXTIN_APP_ID")
-        self.secret_code = secret_code or _config_service.get_value_internal("TEXTIN_SECRET_CODE")
-
-        if not self.app_id or not self.secret_code:
-            raise ValueError(
-                "未配置 TextinParse 凭证。"
-                "请在 SystemConfig 中设置 TEXTIN_APP_ID 和 TEXTIN_SECRET_CODE"
-                "（http://127.0.0.1:8002/admin/core/systemconfig/）"
+        if app_id and secret_code:
+            # 显式覆盖：单凭证直用
+            self._pool: CredentialPool = CredentialPool([f"{app_id}|{secret_code}"], 0)
+            provider_name = "__explicit_textin"
+        else:
+            resolved = provider or ParseProviderService.get_provider(self.provider_type)
+            if resolved is None:
+                raise ValueError(
+                    "未配置 TextinParse 解析平台。"
+                    "请在「解析平台」管理页新增 TextinParse 平台并填写凭证"
+                    "（http://127.0.0.1:8002/admin/core/documentparseprovider/）"
+                )
+            valid_creds: list[str] = []
+            for cred in resolved.parsed_credentials():
+                if DocumentParseProvider.split_textin_credential(cred):
+                    valid_creds.append(cred)
+            if not valid_creds:
+                raise ValueError("TextinParse 解析平台未填写有效凭证。每行格式：app_id|secret_code（管道符分隔）")
+            self._pool = get_credential_pool(
+                provider_key=str(resolved.name),
+                credentials=valid_creds,
+                concurrency_per_key=resolved.concurrency_per_key,
             )
+            provider_name = str(resolved.name)
 
         self.timeout = timeout
+        self._client: xc.XParseClient | None = None  # 由 parse_document 按占用凭证构建
+        self._provider_name = provider_name
 
+        logger.info(
+            "初始化 TextinParse 后端: provider=%s keys=%d limit=%d timeout=%ds",
+            self._provider_name,
+            len(self._pool.credentials),
+            self._pool.limit,
+            self.timeout,
+        )
+
+    def _build_client(self, app_id: str, secret_code: str) -> xc.XParseClient:
+        """用指定凭证构建 SDK 客户端。
+
+        Raises:
+            TextinAPIError: SDK 初始化失败
+        """
         try:
-            self._client = xc.XParseClient(
-                app_id=self.app_id,
-                secret_code=self.secret_code,
+            return xc.XParseClient(
+                app_id=app_id,
+                secret_code=secret_code,
                 timeout=float(self.timeout),
             )
         except xc.XParseClientError as e:
             raise TextinAPIError(f"初始化 TextinParse SDK 失败: {e}") from e
-
-        logger.info("初始化 TextinParse 后端: timeout=%ds", self.timeout)
 
     def parse_document(
         self,
@@ -118,6 +155,19 @@ class TextinBackend:
         start_time = time.time()
         logger.info("开始 TextinParse 解析: %s", file_path)
 
+        # 每次解析任务占用一个凭证（app_id|secret_code），构建对应 SDK 客户端
+        idx = self._pool.acquire()
+        if idx is None:
+            raise TextinAPIError("TextinParse 所有凭证仍在失败冷却中，请稍后重试")
+        credential = self._pool.credentials[idx]
+        pair = DocumentParseProvider.split_textin_credential(credential)
+        if pair is None:
+            self._pool.release(idx, success=False)
+            raise TextinAPIError(f"TextinParse 凭证格式不合法（应为 app_id|secret_code）: {credential!r}")
+        app_id, secret_code = pair
+
+        success = False
+        self._client = self._build_client(app_id, secret_code)
         try:
             # 1. 创建异步解析任务
             job_id = self._create_job(file_path_obj, extract_tables=extract_tables)
@@ -140,6 +190,7 @@ class TextinBackend:
                 len(parsed.text),
             )
 
+            success = True
             return parsed
 
         except (TextinAPIError, ParsingTimeoutError, FileFormatNotSupportedError):
@@ -150,6 +201,9 @@ class TextinBackend:
         except Exception as e:
             logger.error("TextinParse 解析失败: %s - %s", file_path, str(e))
             raise TextinAPIError(f"TextinParse 解析失败: {e}") from e
+        finally:
+            self._client = None
+            self._pool.release(idx, success=success)
 
     def extract_text(
         self,

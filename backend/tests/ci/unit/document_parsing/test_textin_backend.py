@@ -22,12 +22,22 @@ def _make_backend(
     *,
     timeout: int = 30,
 ) -> tuple[TextinBackend, MagicMock]:
-    """构造一个 mock 掉 SDK 的 TextinBackend，返回 (backend, mock_client)。"""
-    with patch(f"{_PATCH_PREFIX}.xc.XParseClient") as mock_client_cls:
-        mock_client = MagicMock()
-        mock_client_cls.return_value = mock_client
-        backend = TextinBackend(app_id=app_id, secret_code=secret_code, timeout=timeout)
+    """构造显式凭证的 TextinBackend，并让 parse_document 构建客户端时返回 mock_client。"""
+    backend = TextinBackend(app_id=app_id, secret_code=secret_code, timeout=timeout)
+    mock_client = MagicMock()
+    # 客户端现在按占用凭证在 parse_document 内构建，改为返回 mock；
+    # 直接调用 _create_job/_poll_job 的测试也依赖 self._client，这里一并补齐
+    patch.object(backend, "_build_client", return_value=mock_client).start()
+    backend._client = mock_client
     return backend, mock_client
+
+
+def _mock_provider(creds: list[str], concurrency: int = 3, name: str = "Textin"):
+    provider = MagicMock()
+    provider.name = name
+    provider.parsed_credentials.return_value = creds
+    provider.concurrency_per_key = concurrency
+    return provider
 
 
 def _make_job_response(
@@ -67,26 +77,30 @@ def _mock_httpx_response(
 class TestInit:
     def test_credentials_from_param(self) -> None:
         backend, _ = _make_backend(app_id="my-app", secret_code="my-secret")  # pragma: allowlist secret
-        assert backend.app_id == "my-app"
-        assert backend.secret_code == "my-secret"  # pragma: allowlist secret
+        assert backend._pool.credentials == ["my-app|my-secret"]  # pragma: allowlist secret
 
     def test_credentials_from_config(self) -> None:
-        with patch(f"{_PATCH_PREFIX}.xc.XParseClient"), patch(f"{_PATCH_PREFIX}._config_service") as mock_cfg:
-            mock_cfg.get_value_internal.side_effect = ["cfg-app", "cfg-secret"]  # pragma: allowlist secret
+        with patch(
+            "apps.core.services.document_parse_provider_service.ParseProviderService.get_provider",
+            return_value=_mock_provider(["cfg-app|cfg-secret"]),
+        ):
             backend = TextinBackend()
-        assert backend.app_id == "cfg-app"
-        assert backend.secret_code == "cfg-secret"  # pragma: allowlist secret
+        assert backend._pool.credentials == ["cfg-app|cfg-secret"]  # pragma: allowlist secret
 
-    def test_missing_app_id_raises(self) -> None:
-        with patch(f"{_PATCH_PREFIX}.xc.XParseClient"), patch(f"{_PATCH_PREFIX}._config_service") as mock_cfg:
-            mock_cfg.get_value_internal.return_value = None
-            with pytest.raises(ValueError, match="未配置 TextinParse 凭证"):
+    def test_no_provider_raises(self) -> None:
+        with patch(
+            "apps.core.services.document_parse_provider_service.ParseProviderService.get_provider",
+            return_value=None,
+        ):
+            with pytest.raises(ValueError, match="未配置 TextinParse 解析平台"):
                 TextinBackend()
 
-    def test_missing_secret_code_raises(self) -> None:
-        with patch(f"{_PATCH_PREFIX}.xc.XParseClient"), patch(f"{_PATCH_PREFIX}._config_service") as mock_cfg:
-            mock_cfg.get_value_internal.side_effect = ["has-app", None]
-            with pytest.raises(ValueError, match="未配置 TextinParse 凭证"):
+    def test_provider_invalid_credentials_raises(self) -> None:
+        with patch(
+            "apps.core.services.document_parse_provider_service.ParseProviderService.get_provider",
+            return_value=_mock_provider(["invalid_cred_without_pipe"]),
+        ):
+            with pytest.raises(ValueError, match="未填写有效凭证"):
                 TextinBackend()
 
     def test_custom_timeout(self) -> None:
@@ -94,9 +108,10 @@ class TestInit:
         assert backend.timeout == 90
 
     def test_sdk_init_failure_raises_textin_error(self) -> None:
+        backend = TextinBackend(app_id="a", secret_code="s")
         with patch(f"{_PATCH_PREFIX}.xc.XParseClient", side_effect=xc.XParseClientError("boom")):
             with pytest.raises(TextinAPIError, match="初始化 TextinParse SDK 失败"):
-                TextinBackend(app_id="a", secret_code="s")
+                backend._build_client("a", "s")
 
     def test_requires_async_execution_flag(self) -> None:
         backend, _ = _make_backend()

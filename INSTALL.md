@@ -462,3 +462,42 @@ uv run python manage.py runserver 0.0.0.0:8002
 
 - 旧环境曾用「系统配置」下的 `OPENAI_COMPATIBLE_API_KEY / BASE_URL / DEFAULT_MODEL` 等项配置 AI 服务；现已移除，统一由「AI 平台」管理。
 
+## 6. 文档解析平台配置（多凭证并发）
+
+系统通过后台「解析平台」管理页（`/admin/core/documentparseprovider/`）支持 **多个解析服务、每个服务多个凭证** 自动轮询并发，用于提升文档解析吞吐。文档解析配置已统一在「解析平台」页管理，不再使用「系统配置」下的解析服务项。
+
+在「解析平台」列表页新增一条记录：
+
+| 字段 | 示例 | 说明 |
+| --- | --- | --- |
+| 平台名称 | MinerU-1 | 任意可辨识名称，唯一 |
+| 服务类型 | `mineru` / `textin` | 支持的解析服务类型（MinerU / TextinParse） |
+| 凭证 | 每行一个 | TextinParse 每行格式 `app_id|secret_code`（管道符分隔）；MinerU 每行一个 API Key |
+| 每 Key 并发上限 | `3`（默认）或数字 | 单个凭证同时进行的解析数上限；`0` 表示不限制 |
+| 优先级 | `5` | 数字越小越优先；`backend="auto"` 调用时选择最高优先级启用平台 |
+| 启用 | 勾选 | 停用即不再参与解析 |
+
+### 6.1 TextinParse 多凭证
+
+TextinParse 一个 `app_id` 对应一个 `secret_code`，每行填一行 `app_id|secret_code` 即可支持多组凭证并发：
+
+```text
+app-1|secret-1
+app-2|secret-2
+```
+
+每个凭证独立占用一个并发额度，配合「每 Key 并发上限」可精细控制。
+
+### 6.2 MinerU 多 Key
+
+MinerU 每行一个 API Key：
+
+```text
+key-111111
+key-222222
+```
+
+### 6.3 自动选择后端
+
+调用方传 `backend="auto"`（默认）时，系统按优先级选择最高优先级的启用解析平台；未配置任何平台时自动回退到本地解析（`local`，PyMuPDF + OCR）。
+
