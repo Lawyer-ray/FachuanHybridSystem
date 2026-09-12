@@ -74,6 +74,19 @@ class ArchiveAdapter(Protocol):
 
 
 @runtime_checkable
+class ConflictCheckAdapter(Protocol):
+    """利益冲突信息预检适配器协议。"""
+
+    async def open_conflict_check_page(
+        self,
+        credential: Any,
+        keyword: str,
+    ) -> None:
+        """打开 OA 利益冲突信息预检页面，填入当事人名称并搜索，保持浏览器打开。"""
+        ...
+
+
+@runtime_checkable
 class CaseImportAdapter(Protocol):
     """案件导入适配器协议。"""
 

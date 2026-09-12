@@ -332,3 +332,34 @@ class ScriptExecutorService:
             logger.info("盖章页面已打开")
         except Exception as exc:
             logger.error("打开盖章页面失败: %s", exc, exc_info=True)
+
+    # ------------------------------------------------------------------
+    # 利益冲突信息预检
+    # ------------------------------------------------------------------
+
+    def open_conflict_check_page(
+        self,
+        keyword: str,
+        user: Any,
+        site_name: str = "金诚同达OA",
+    ) -> None:
+        """打开 OA 利益冲突信息预检页面，填入当事人名称并搜索，保持浏览器打开。"""
+        credential = self._find_credential(user, site_name)
+        if credential is None:
+            raise RuntimeError(f"未找到匹配凭证: 站点名称={site_name}")
+
+        _executor.submit(self._run_open_conflict_check_in_thread, site_name, credential, keyword)
+
+    def _run_open_conflict_check_in_thread(
+        self,
+        site_name: str,
+        credential: Any,
+        keyword: str,
+    ) -> None:
+        os.environ["DJANGO_ALLOW_ASYNC_UNSAFE"] = "true"
+        try:
+            adapter = create_adapter(site_name, str(credential.account), str(credential.password))
+            asyncio.run(adapter.open_conflict_check_page(credential, keyword))
+            logger.info("利冲检查页面已打开")
+        except Exception as exc:
+            logger.error("打开利冲检查页面失败: %s", exc, exc_info=True)

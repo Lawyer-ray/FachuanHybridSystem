@@ -33,9 +33,9 @@ def _get_gsxt_report_task_model() -> type[Any]:
     return django_apps.get_model("automation", "GsxtReportTask")
 
 
-class GsxtReportTaskInlineForm(forms.ModelForm[Any]):  # type: ignore[misc]  # pragma: no cover
+class GsxtReportTaskInlineForm(forms.ModelForm[Any]):  # pragma: no cover
     class Meta:  # pragma: no cover
-        model = None  # type: ignore[misc]
+        model = None
         fields: list[str] = []
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:  # pragma: no cover
@@ -53,13 +53,13 @@ class GsxtReportTaskInline(admin.TabularInline[Any]):  # type: ignore[type-arg] 
     form = GsxtReportTaskInlineForm
     extra = 0
     can_delete = True
-    fields = ("created_at", "status", "error_message", "inbox_link")  # type: ignore[assignment]
-    readonly_fields = ("created_at", "status", "error_message", "inbox_link")  # type: ignore[assignment]
+    fields = ("created_at", "status", "error_message", "inbox_link")
+    readonly_fields = ("created_at", "status", "error_message", "inbox_link")
     ordering = ("-created_at",)
     verbose_name = "企业信用报告任务"
     verbose_name_plural = "企业信用报告任务"
 
-    def get_model(self) -> type[Any]:  # type: ignore[override]  # pragma: no cover
+    def get_model(self) -> type[Any]:  # pragma: no cover
         """延迟获取模型。"""
         return _get_gsxt_report_task_model()
 
@@ -145,8 +145,8 @@ class ClientIdentityDocInline(admin.TabularInline[ClientIdentityDoc]):  # type: 
     model = ClientIdentityDoc
     form = ClientIdentityDocInlineForm
     extra = 1
-    fields = ("doc_type", "file_link", "upload")  # type: ignore[assignment]
-    readonly_fields = ("file_link",)  # type: ignore[assignment]
+    fields = ("doc_type", "file_link", "upload")
+    readonly_fields = ("file_link",)
 
     def file_link(self, obj: ClientIdentityDoc) -> str:  # pragma: no cover
         url = obj.media_url
@@ -160,7 +160,7 @@ class ClientIdentityDocInline(admin.TabularInline[ClientIdentityDoc]):  # type: 
 class PropertyClueInline(admin.TabularInline[PropertyClue]):  # type: ignore[type-arg]  # pragma: no cover
     model = PropertyClue
     extra = 1
-    fields = ("clue_type", "content")  # type: ignore[assignment]
+    fields = ("clue_type", "content")
     verbose_name = "财产线索"
     verbose_name_plural = "财产线索"
 
@@ -188,16 +188,16 @@ class ClientAdminForm(forms.ModelForm[Client]):  # pragma: no cover
 
 @admin.register(Client)
 class ClientAdmin(SimpleHistoryAdmin, AdminImportExportMixin, admin.ModelAdmin):  # pragma: no cover
-    list_display = ("id", "name", "client_type", "is_our_client", "phone", "legal_representative")  # type: ignore[assignment]
+    list_display = ("id", "name", "client_type", "is_our_client", "phone", "legal_representative")
     list_per_page = 50
-    search_fields = ("name", "phone", "id_number")  # type: ignore[assignment]
-    list_filter = ("client_type", "is_our_client")  # type: ignore[assignment]
-    ordering = ("-pk",)  # type: ignore[assignment]
+    search_fields = ("name", "phone", "id_number")
+    list_filter = ("client_type", "is_our_client")
+    ordering = ("-pk",)
     form = ClientAdminForm
-    inlines: list[type[Any]] = []  # type: ignore[assignment,misc]
+    inlines: list[type[Any]] = []  # type: ignore[misc]
     export_model_name = "client"
     import_required_fields = ("name",)
-    actions = ["export_selected_as_json", "export_all_as_json"]  # type: ignore[assignment]
+    actions = ["export_selected_as_json", "export_all_as_json"]
 
     def get_urls(self) -> list[Any]:  # pragma: no cover
         from django.urls import path
@@ -213,6 +213,11 @@ class ClientAdmin(SimpleHistoryAdmin, AdminImportExportMixin, admin.ModelAdmin):
                 "<int:client_id>/upload-gsxt-report/<int:task_id>/",
                 self.admin_site.admin_view(self._upload_gsxt_report_view),
                 name="client_client_upload_gsxt_report",
+            ),
+            path(
+                "<int:client_id>/conflict-check/",
+                self.admin_site.admin_view(self._conflict_check_view),
+                name="client_client_conflict_check",
             ),
             path(
                 "check-oa-credential/",
@@ -346,6 +351,35 @@ class ClientAdmin(SimpleHistoryAdmin, AdminImportExportMixin, admin.ModelAdmin):
 
         return JsonResponse({"has_credential": credential})
 
+    def _conflict_check_view(self, request: HttpRequest, client_id: int) -> Any:  # pragma: no cover
+        """利益冲突检查：复用 OA 登录打开利冲预检页面，填入当事人名称并搜索，保持浏览器让律师查看。"""
+        from django.shortcuts import redirect
+
+        from apps.oa_filing.services.script_executor_service import ScriptExecutorService
+
+        client = Client.objects.get(pk=client_id)
+        keyword = client.name or ""
+
+        try:
+            ScriptExecutorService().open_conflict_check_page(
+                keyword=keyword,
+                user=request.user,
+            )
+        except RuntimeError as e:
+            self.message_user(
+                request,
+                f"利益冲突检查开启失败：{e}（请先在账号密码管理中配置金诚同达OA凭证）",
+                messages.ERROR,
+            )
+            return redirect(f"../../{client_id}/change/")
+
+        self.message_user(
+            request,
+            f"浏览器已打开 OA 利益冲突信息预检页，并填入当事人名称「{keyword}」搜索，请在打开的浏览器中查看结果",
+            messages.SUCCESS,
+        )
+        return redirect(f"../../{client_id}/change/")
+
     def get_queryset(self, request: HttpRequest) -> QuerySet[Client]:  # pragma: no cover
         return super().get_queryset(request).prefetch_related("identity_docs", "property_clues__attachments")
 
@@ -358,7 +392,9 @@ class ClientAdmin(SimpleHistoryAdmin, AdminImportExportMixin, admin.ModelAdmin):
             inlines.append(GsxtReportTaskInline)
         return inlines
 
-    def save_formset(self, request: HttpRequest, form: ModelForm[Client], formset: Any, change: bool) -> None:  # pragma: no cover
+    def save_formset(
+        self, request: HttpRequest, form: ModelForm[Client], formset: Any, change: bool
+    ) -> None:  # pragma: no cover
         # 收集需要处理的上传文件信息（在 save 之前）
         upload_info: list[dict[str, Any]] = []
         for f in formset.forms:

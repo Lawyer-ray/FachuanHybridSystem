@@ -26,6 +26,7 @@ from apps.oa_filing.services.base_firm_adapter import (
     ArchiveAdapter,
     CaseImportAdapter,
     ClientImportAdapter,
+    ConflictCheckAdapter,
     FilingAdapter,
     StampAdapter,
 )
@@ -34,7 +35,14 @@ from apps.oa_filing.services.exceptions import ScriptExecutionError
 logger = logging.getLogger("apps.oa_filing.jtn_adapter")
 
 
-class JTNAdapter(FilingAdapter, StampAdapter, ArchiveAdapter, CaseImportAdapter, ClientImportAdapter):
+class JTNAdapter(
+    FilingAdapter,
+    StampAdapter,
+    ArchiveAdapter,
+    ConflictCheckAdapter,
+    CaseImportAdapter,
+    ClientImportAdapter,
+):
     """金诚同达 OA 适配器。"""
 
     def __init__(self, account: str, password: str) -> None:
@@ -257,6 +265,23 @@ class JTNAdapter(FilingAdapter, StampAdapter, ArchiveAdapter, CaseImportAdapter,
 
         script = JtnStampScript(account=str(credential.account), password=str(credential.password))
         playwright, browser = await script.open_page(oa_case_number)
+        _cleanup_stale_sessions()
+        _active_browser_sessions.append((playwright, browser))
+
+    # ==================================================================
+    # ConflictCheckAdapter
+    # ==================================================================
+
+    async def open_conflict_check_page(
+        self,
+        credential: Any,
+        keyword: str,
+    ) -> None:
+        """打开 OA 利益冲突信息预检页面，填入当事人名称并搜索，保持浏览器打开。"""
+        from apps.oa_filing.services.oa_scripts.jtn.conflict_check import JtnConflictCheckScript
+
+        script = JtnConflictCheckScript(account=str(credential.account), password=str(credential.password))
+        playwright, browser = await script.open_page(keyword)
         _cleanup_stale_sessions()
         _active_browser_sessions.append((playwright, browser))
 

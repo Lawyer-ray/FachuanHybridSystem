@@ -344,6 +344,15 @@
         </a>
     </li>
     {% endif %}
+    {% if original %}
+    <li>
+        <a href="{% url 'admin:client_client_conflict_check' original.pk %}"
+           class="historylink"
+           onclick="return confirm('将打开金诚同达OA利益冲突信息预检页，并自动填入当事人名称搜索。继续？')">
+            🚨 {% trans "利冲检查" %}
+        </a>
+    </li>
+    {% endif %}
 {% endblock %}
 
 {% block form_top %}
