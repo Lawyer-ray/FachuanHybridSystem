@@ -215,6 +215,11 @@ class ClientAdmin(SimpleHistoryAdmin, AdminImportExportMixin, admin.ModelAdmin):
                 name="client_client_upload_gsxt_report",
             ),
             path(
+                "<int:client_id>/conflict-check/",
+                self.admin_site.admin_view(self._conflict_check_view),
+                name="client_client_conflict_check",
+            ),
+            path(
                 "check-oa-credential/",
                 self.admin_site.admin_view(self._check_oa_credential_view),
                 name="client_client_check_oa_credential",
@@ -346,6 +351,35 @@ class ClientAdmin(SimpleHistoryAdmin, AdminImportExportMixin, admin.ModelAdmin):
 
         return JsonResponse({"has_credential": credential})
 
+    def _conflict_check_view(self, request: HttpRequest, client_id: int) -> Any:  # pragma: no cover
+        """利益冲突检查：复用 OA 登录打开利冲预检页面，填入当事人名称并搜索，保持浏览器让律师查看。"""
+        from django.shortcuts import redirect
+
+        from apps.oa_filing.services.script_executor_service import ScriptExecutorService
+
+        client = Client.objects.get(pk=client_id)
+        keyword = client.name or ""
+
+        try:
+            ScriptExecutorService().open_conflict_check_page(
+                keyword=keyword,
+                user=request.user,
+            )
+        except RuntimeError as e:
+            self.message_user(
+                request,
+                f"利益冲突检查开启失败：{e}（请先在账号密码管理中配置金诚同达OA凭证）",
+                messages.ERROR,
+            )
+            return redirect(f"../../{client_id}/change/")
+
+        self.message_user(
+            request,
+            f"浏览器已打开 OA 利益冲突信息预检页，并填入当事人名称「{keyword}」搜索，请在打开的浏览器中查看结果",
+            messages.SUCCESS,
+        )
+        return redirect(f"../../{client_id}/change/")
+
     def get_queryset(self, request: HttpRequest) -> QuerySet[Client]:  # pragma: no cover
         return super().get_queryset(request).prefetch_related("identity_docs", "property_clues__attachments")
 
@@ -358,7 +392,9 @@ class ClientAdmin(SimpleHistoryAdmin, AdminImportExportMixin, admin.ModelAdmin):
             inlines.append(GsxtReportTaskInline)
         return inlines
 
-    def save_formset(self, request: HttpRequest, form: ModelForm[Client], formset: Any, change: bool) -> None:  # pragma: no cover
+    def save_formset(
+        self, request: HttpRequest, form: ModelForm[Client], formset: Any, change: bool
+    ) -> None:  # pragma: no cover
         # 收集需要处理的上传文件信息（在 save 之前）
         upload_info: list[dict[str, Any]] = []
         for f in formset.forms:
