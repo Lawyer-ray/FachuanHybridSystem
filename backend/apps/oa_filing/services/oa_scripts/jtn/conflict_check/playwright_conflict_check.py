@@ -91,9 +91,26 @@ class PlaywrightConflictCheckMixin:
         logger.info("已进入利冲预检页面: %s", page.url)
 
     async def _search_by_name(self: Any, page: Page, keyword: str) -> None:  # pragma: no cover
-        """在关键词输入框填入当事人名称并点击搜索。"""
+        """在关键词输入框填入当事人名称并点击搜索。
+
+        该输入框是 OA 联想组件（readonly + _ims_acprev），playwright fill() 拒绝写只读元素，
+        需用 JS 移除 readonly 后写入 value 并派发 input/change 事件。
+        """
         logger.info("利冲预检关键词: %s", keyword)
-        await page.fill(KEYWORD_SELECTOR, keyword)
+        found = await page.evaluate(
+            """({ sel, value }) => {
+                const el = document.querySelector(sel);
+                if (!el) return false;
+                el.removeAttribute("readonly");
+                el.value = value;
+                el.dispatchEvent(new Event("input", { bubbles: true }));
+                el.dispatchEvent(new Event("change", { bubbles: true }));
+                return true;
+            }""",
+            {"sel": KEYWORD_SELECTOR, "value": keyword},
+        )
+        if not found:
+            raise RuntimeError(f"未找到利冲预检关键词输入框: {KEYWORD_SELECTOR}")
         await asyncio.sleep(SHORT_WAIT)
         await page.click(SEARCH_BTN_SELECTOR)
         await asyncio.sleep(SEARCH_WAIT)
