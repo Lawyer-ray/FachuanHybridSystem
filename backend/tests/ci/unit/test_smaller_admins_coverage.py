@@ -117,14 +117,14 @@ class TestOaFilingAdmin:
 @pytest.mark.django_db
 class TestMessageHubAdmin:
     def test_inbox_message_admin_list_display(self):
-        from plugins.message_hub.admin import InboxMessageAdmin
+        from apps.message_hub.admin import InboxMessageAdmin
         from apps.message_hub.models import InboxMessage
 
         admin_obj = InboxMessageAdmin(InboxMessage, AdminSite())
         assert len(admin_obj.list_display) > 0
 
     def test_message_source_admin_list_display(self):
-        from plugins.message_hub.admin import MessageSourceAdmin
+        from apps.message_hub.admin import MessageSourceAdmin
         from apps.message_hub.models import MessageSource
 
         admin_obj = MessageSourceAdmin(MessageSource, AdminSite())

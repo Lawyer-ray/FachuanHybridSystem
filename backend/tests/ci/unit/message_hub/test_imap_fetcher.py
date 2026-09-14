@@ -17,7 +17,7 @@ except ImportError:
 pytestmark = pytest.mark.skipif(not _HAS_MH, reason="message_hub plugin not installed")
 
 if _HAS_MH:
-    from plugins.message_hub.services.imap.imap_fetcher import (
+    from apps.message_hub.services.imap.imap_fetcher import (
         ImapFetcher,
         _build_imap_host_candidates,
         _decode_header_value,
@@ -27,8 +27,7 @@ if _HAS_MH:
         _parse_date,
         _parse_filter_lines,
         _sender_allowed,
-
-)
+    )
 
 class TestDecodeHeaderValue:
     def test_decode_plain_ascii(self):
@@ -127,7 +126,7 @@ class TestSenderFilter:
         assert result == ["line1", "line2", "line3"]
 
 class TestImapFetcherConnect:
-    @patch("plugins.message_hub.services.imap.imap_fetcher.imaplib.IMAP4_SSL")
+    @patch("apps.message_hub.services.imap.imap_fetcher.imaplib.IMAP4_SSL")
     def test_connect_success(self, mock_imap):
         mock_conn = MagicMock()
         mock_imap.return_value = mock_conn
@@ -135,7 +134,7 @@ class TestImapFetcherConnect:
         source = MagicMock()
         source.imap_account = "user@example.com"
         source.credential.account = "user@example.com"
-        source.credential.password = "pass"
+        source.credential.password = "pass"  # pragma: allowlist secret
         source.imap_host = "imap.example.com"
         source.credential.url = ""
         source.credential.site_name = ""
@@ -145,7 +144,7 @@ class TestImapFetcherConnect:
         assert result == mock_conn
         mock_conn.login.assert_called_once()
 
-    @patch("plugins.message_hub.services.imap.imap_fetcher.imaplib.IMAP4_SSL")
+    @patch("apps.message_hub.services.imap.imap_fetcher.imaplib.IMAP4_SSL")
     def test_connect_login_failure(self, mock_imap):
         import imaplib
 
@@ -154,7 +153,7 @@ class TestImapFetcherConnect:
         source = MagicMock()
         source.imap_account = "user@example.com"
         source.credential.account = "user@example.com"
-        source.credential.password = "wrong"
+        source.credential.password = "wrong"  # pragma: allowlist secret
         source.imap_host = "imap.example.com"
         source.credential.url = ""
         source.credential.site_name = ""

@@ -211,12 +211,12 @@ class TestMessageHubServices:
     """消息中心服务测试"""
 
     def test_base_importable(self) -> None:
-        from plugins.message_hub.services import base
+        from apps.message_hub.services import base
 
         assert base is not None
 
     def test_inbox_query_importable(self) -> None:
-        from plugins.message_hub.services import inbox_query
+        from apps.message_hub.services import inbox_query
 
         assert inbox_query is not None
 
@@ -231,7 +231,7 @@ class TestMessageHubServices:
         assert court_schedule_fetcher is not None
 
     def test_imap_fetcher_importable(self) -> None:
-        from plugins.message_hub.services.imap import imap_fetcher
+        from apps.message_hub.services.imap import imap_fetcher
 
         assert imap_fetcher is not None
 

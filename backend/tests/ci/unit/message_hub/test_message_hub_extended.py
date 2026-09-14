@@ -18,13 +18,13 @@ pytestmark = pytest.mark.skipif(not _HAS_MH, reason="message_hub plugin not inst
 
 class TestInboxQuery:
     def test_import(self):
-        from plugins.message_hub.services.inbox_query import (
-            get_base_queryset,
-            get_message_or_none,
-            list_sources,
-            get_source_or_none,
+        from apps.message_hub.services.inbox_query import (
             create_source,
+            get_base_queryset,
             get_enabled_sources,
+            get_message_or_none,
+            get_source_or_none,
+            list_sources,
         )
         assert callable(get_base_queryset)
         assert callable(get_message_or_none)
@@ -36,7 +36,7 @@ class TestInboxQuery:
 
 class TestMessageHubBase:
     def test_import_base(self):
-        from plugins.message_hub.services import base
+        from apps.message_hub.services import base
 
         assert base is not None
 

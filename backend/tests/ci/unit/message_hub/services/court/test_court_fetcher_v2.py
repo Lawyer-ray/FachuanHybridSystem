@@ -379,7 +379,7 @@ class TestCourtInboxFetcherDownloadAttachment:
         real_file.write_bytes(b"content")
 
         with patch(self._PATCH_INBOX) as MockInbox, patch(
-            "plugins.message_hub.services.base.settings"
+            "apps.message_hub.services.base.settings"
         ) as mock_settings:
             mock_settings.MEDIA_ROOT = tmp_path
             mock_msg = MagicMock()
@@ -401,7 +401,7 @@ class TestCourtInboxFetcherDownloadAttachment:
         (sub / "f.pdf").write_bytes(b"legacy-content")
 
         with patch(self._PATCH_INBOX) as MockInbox, patch(
-            "plugins.message_hub.services.base.settings"
+            "apps.message_hub.services.base.settings"
         ) as mock_settings:
             mock_settings.MEDIA_ROOT = tmp_path
             mock_msg = MagicMock()
