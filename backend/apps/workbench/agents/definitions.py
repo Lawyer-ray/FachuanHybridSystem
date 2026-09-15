@@ -17,18 +17,19 @@ import logging
 import sys
 from contextvars import ContextVar
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
-import httpx
+import httpx2
 import tenacity
 from fastmcp.client import Client
 from pydantic_ai import Agent, ConcurrencyLimiter, RunContext, Tool, limit_model_concurrency
 from pydantic_ai.capabilities.instrumentation import Instrumentation
 from pydantic_ai.mcp import MCPToolset, StdioTransport
+from pydantic_ai.models import Model
 from pydantic_ai.models.openai import OpenAIChatModel
 from pydantic_ai.profiles.openai import OpenAIModelProfile
 from pydantic_ai.providers.openai import OpenAIProvider
-from pydantic_ai.retries import AsyncTenacityTransport, RetryConfig, wait_retry_after
+from pydantic_ai.retries import AsyncHTTPX2TenacityTransport, RetryConfig, wait_retry_after
 
 from apps.core.llm.config import LLMConfig
 
@@ -42,10 +43,10 @@ logger = logging.getLogger(__name__)
 BACKEND_DIR = str(Path(__file__).resolve().parents[3])
 
 # ─── HTTP 客户端生命周期管理 ─────────────────────────────────────────────────
-# build_model 创建的 httpx.AsyncClient 需要在进程退出时清理，
+# build_model 创建的 httpx2.AsyncClient 需要在进程退出时清理，
 # 避免 "Event loop is closed" 警告和资源泄漏。
 
-_active_http_clients: list[httpx.AsyncClient] = []
+_active_http_clients: list[httpx2.AsyncClient] = []
 
 
 def _cleanup_http_clients() -> None:
@@ -163,7 +164,7 @@ _model_limiter = ConcurrencyLimiter(max_running=10, max_queued=20)
 _retry_config: RetryConfig = {
     "wait": wait_retry_after(),
     "stop": tenacity.stop_after_attempt(3),
-    "retry": tenacity.retry_if_exception_type(httpx.HTTPStatusError),
+    "retry": tenacity.retry_if_exception_type(httpx2.HTTPStatusError),
     "reraise": True,
 }
 
@@ -193,8 +194,8 @@ def build_model(model_name: str) -> OpenAIChatModel:
         logger.warning("LLM API Key 未配置，backend=%s", backend)
 
     # 带重试的 HTTP 客户端
-    http_client = httpx.AsyncClient(
-        transport=AsyncTenacityTransport(config=_retry_config),
+    http_client = httpx2.AsyncClient(
+        transport=AsyncHTTPX2TenacityTransport(config=_retry_config),
     )
     _active_http_clients.append(http_client)
 
@@ -328,7 +329,7 @@ async def _handoff_to_case(ctx: RunContext[WorkbenchDeps], query: str) -> str:
         query,
         deps=ctx.deps,
         message_history=ctx.messages,
-        model=ctx.model,
+        model=cast("Model[Any] | None", ctx.model),
     )
     return result.output
 
@@ -343,7 +344,7 @@ async def _handoff_to_contract(ctx: RunContext[WorkbenchDeps], query: str) -> st
         query,
         deps=ctx.deps,
         message_history=ctx.messages,
-        model=ctx.model,
+        model=cast("Model[Any] | None", ctx.model),
     )
     return result.output
 
@@ -358,7 +359,7 @@ async def _handoff_to_research(ctx: RunContext[WorkbenchDeps], query: str) -> st
         query,
         deps=ctx.deps,
         message_history=ctx.messages,
-        model=ctx.model,
+        model=cast("Model[Any] | None", ctx.model),
     )
     return result.output
 
