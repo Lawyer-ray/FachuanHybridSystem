@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router'
-import { Eye, EyeOff, Loader2 } from 'lucide-react'
+import { Eye, EyeOff, Loader2, Lock, User } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useAuth } from './store'
@@ -36,37 +36,45 @@ export function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4">
-      <div className="w-full max-w-sm">
-        <div className="mb-8 flex items-center gap-2">
-          <span className="text-lg font-semibold tracking-tight">
-            法穿 <span className="font-medium text-foreground/70">AI Copilot</span>
+    <div className="flex min-h-screen items-center justify-center bg-background px-4 py-10">
+      <div className="w-full max-w-[360px]">
+        <div className="mb-8 flex flex-col items-center gap-4">
+          <span className="grid h-11 w-11 place-items-center rounded-xl bg-foreground text-lg font-bold text-background shadow-sm">
+            法
           </span>
+          <div className="text-center">
+            <h1 className="text-[17px] font-semibold tracking-tight">法穿 AI Copilot</h1>
+            <p className="mt-0.5 text-[12.5px] text-muted-foreground">律师的材料预处理工作台</p>
+          </div>
         </div>
+
         <div className="rounded-2xl border bg-card p-6 shadow-sm">
-          <h1 className="text-base font-semibold">登录</h1>
-          <p className="mt-1 text-xs text-muted-foreground">材料预处理前，先登录后端收件箱</p>
-          <form onSubmit={submit} className="mt-5 space-y-3">
-            <Input
-              placeholder="用户名"
-              autoComplete="username"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-            />
+          <form onSubmit={submit} className="space-y-3">
             <div className="relative">
+              <User className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="用户名"
+                autoComplete="username"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+            <div className="relative">
+              <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 type={show ? 'text' : 'password'}
                 placeholder="密码"
                 autoComplete="current-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="pr-10"
+                className="pl-9 pr-10"
               />
               <button
                 type="button"
                 tabIndex={-1}
                 onClick={() => setShow((v) => !v)}
-                className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-muted-foreground hover:text-foreground"
+                className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-muted-foreground hover:text-foreground"
                 aria-label={show ? '隐藏密码' : '显示密码'}
               >
                 {show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -75,10 +83,14 @@ export function LoginPage() {
             {error && <p className="text-xs text-destructive">{error}</p>}
             <Button type="submit" className="w-full" disabled={loading}>
               {loading && <Loader2 className="h-4 w-4 animate-spin" />}
-              登录
+              {loading ? '登录中…' : '登录'}
             </Button>
           </form>
         </div>
+
+        <p className="mt-6 text-center text-[11.5px] text-muted-foreground">
+          材料预处理前，先登录后端收件箱
+        </p>
       </div>
     </div>
   )
