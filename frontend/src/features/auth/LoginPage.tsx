@@ -38,14 +38,11 @@ export function LoginPage() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4 py-10">
       <div className="w-full max-w-[360px]">
-        <div className="mb-8 flex flex-col items-center gap-4">
-          <span className="grid h-11 w-11 place-items-center rounded-xl bg-foreground text-lg font-bold text-background shadow-sm">
-            法
-          </span>
-          <div className="text-center">
-            <h1 className="text-[17px] font-semibold tracking-tight">法穿 AI Copilot</h1>
-            <p className="mt-0.5 text-[12.5px] text-muted-foreground">律师的材料预处理工作台</p>
-          </div>
+        <div className="mb-8 text-center">
+          <h1 className="text-[19px] font-semibold tracking-tight">
+            法穿 <span className="font-medium text-foreground/70">AI Copilot</span>
+          </h1>
+          <p className="mt-1 text-[12.5px] text-muted-foreground">一站式律师办案协同平台</p>
         </div>
 
         <div className="rounded-2xl border bg-card p-6 shadow-sm">
@@ -87,10 +84,6 @@ export function LoginPage() {
             </Button>
           </form>
         </div>
-
-        <p className="mt-6 text-center text-[11.5px] text-muted-foreground">
-          材料预处理前，先登录后端收件箱
-        </p>
       </div>
     </div>
   )
