@@ -101,7 +101,7 @@ backend/apiSystem/.coverage
 # Test output (generated docx files from LLM contract tests)
 backend/test_output/
 # Coverage reports (Jest/Istanbul)
-frontend/coverage/
+frontend_2026/coverage/
 # detect-secrets temporary artifact
 *.secrets.baseline.new
 .secrets.baseline
@@ -162,11 +162,11 @@ backend/apps/models/
 MacOS_FC/
 
 # Frontend: track source, ignore dependencies/build/env files
-frontend/node_modules/
-frontend/dist/
-frontend/dist-ssr/
-frontend/.env
-frontend/.env.*
+frontend_2026/node_modules/
+frontend_2026/dist/
+frontend_2026/dist-ssr/
+frontend_2026/.env
+frontend_2026/.env.*
 backend/deploy/*
 !backend/deploy/docker/
 backend/deploy/docker/*
@@ -288,9 +288,9 @@ rfcs/
 playwright-report/
 backend/tests/e2e/state.json
 backend/tests/e2e/test-results/
-frontend/e2e/state.json
-frontend/e2e/test-results/
-frontend/e2e/playwright-report/
+frontend_2026/e2e/state.json
+frontend_2026/e2e/test-results/
+frontend_2026/e2e/playwright-report/
 
 # Claude Code
 .claude/
@@ -355,6 +355,8 @@ skills/**/draft_log.txt
 
 # frontend_2027（新一代前端，开发中，暂不入库）
 frontend_2027/
+# frontend_2026（原 frontend，已移出仓库，本地维护）
+frontend_2026/
 
 # AI 助手工作目录（项目记忆等，不入库）
 .workbuddy-ai/
