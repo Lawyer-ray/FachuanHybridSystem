@@ -353,8 +353,9 @@ skills/**/*.gif
 skills/**/*.pdf
 skills/**/draft_log.txt
 
-# frontend_2027（新一代前端，开发中，暂不入库）
-frontend_2027/
+# frontend（新一代前端，收录 README 与后续代码；设计稿与原型不入库）
+frontend/design/
+frontend/prototype/
 # frontend_2026（原 frontend，已移出仓库，本地维护）
 frontend_2026/
 
