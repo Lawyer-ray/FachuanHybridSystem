@@ -253,10 +253,10 @@ export function Reader() {
 
   const railWrapCls = narrow
     ? cn('fixed inset-y-0 left-0 z-40 w-[268px] overflow-y-auto border-r border-border bg-card transition-transform duration-300', railOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full')
-    : 'flex-none'
+    : 'h-full flex-none'
   const metaWrapCls = narrow
     ? cn('fixed inset-y-0 right-0 z-40 w-[296px] overflow-y-auto border-l border-border bg-card transition-transform duration-300', metaOpen ? 'translate-x-0 shadow-2xl' : 'translate-x-full')
-    : 'flex-none'
+    : 'h-full flex-none'
 
   const ocrFrom = ocrPending ? `${matLabel(draft.mats, ocrPending.mi)} P${ocrPending.p}` : ''
   const ocrTo = pickInfo >= 0 && draft.infos[pickInfo] ? draft.infos[pickInfo].k : ''

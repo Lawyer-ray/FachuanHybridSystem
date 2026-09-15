@@ -27,7 +27,7 @@ export function MetaPanel({
   const libRest = FIELD_LIB.filter((f) => !unavailable.has(f.k))
 
   return (
-    <aside className="flex w-[296px] flex-none flex-col gap-3 overflow-y-auto border-l border-border bg-card p-3">
+    <aside className="flex h-full w-[296px] flex-none flex-col gap-3 overflow-y-auto border-l border-border bg-card p-3">
       <div className="px-1">
         <h4 className="flex items-center justify-between text-sm font-medium">
           材料信息
