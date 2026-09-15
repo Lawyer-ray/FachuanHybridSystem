@@ -25,13 +25,19 @@ def _cleanup(message: InboxMessage) -> None:
 
 @pytest.mark.django_db
 def test_create_manual_message_lands_in_inbox() -> None:
+    from apps.organization.models import LawFirm, Lawyer
+
+    firm = LawFirm.objects.create(name="消息测试律所")
+    lawyer = Lawyer.objects.create_user(username="uploader", real_name="上传律师", law_firm=firm)
     poa = SimpleUploadedFile("POA.pdf", b"%PDF-1.4 test", content_type="application/pdf")
     id_image = SimpleUploadedFile("id_card.png", b"\x89PNG\r\n\x1a\nabc", content_type="image/png")
 
-    msg = create_manual_message([poa, id_image], subject="张先生 民间借贷材料")
+    msg = create_manual_message([poa, id_image], subject="张先生 民间借贷材料", uploaded_by=lawyer)
 
     assert msg.source.source_type == SourceType.MANUAL_UPLOAD
     assert msg.source.credential is None
+    assert msg.uploaded_by_id == lawyer.pk
+    assert msg.uploaded_by.real_name == "上传律师"
     assert msg.has_attachments is True
     assert len(msg.attachments_meta) == 2
     assert msg.subject == "张先生 民间借贷材料"

@@ -82,7 +82,8 @@ def upload_messages(  # pragma: no cover
         from django.core.exceptions import ValidationError
 
         raise ValidationError("没有收到文件")
-    msg = create_manual_message(list(files), subject)
+    uploader = request.user if request.user and request.user.is_authenticated else None
+    msg = create_manual_message(list(files), subject, uploaded_by=uploader)
     return 201, msg
 
 

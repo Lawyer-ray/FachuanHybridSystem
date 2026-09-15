@@ -55,11 +55,12 @@ def get_or_create_manual_source() -> MessageSource:
     return source
 
 
-def create_manual_message(files: list[Any], subject: str = "") -> InboxMessage:
+def create_manual_message(files: list[Any], subject: str = "", uploaded_by: Any = None) -> InboxMessage:
     """把前端上传的文件落盘为一条收件箱消息，返回消息实例。
 
     files 为 UploadedFile 列表；附件落到 message_hub/manual/ 暂存路径，
     元数据记录相对 MEDIA_ROOT 的 local_path，与 IMAP 附件同一存储协议。
+    uploaded_by 为当前登录律师，记录上传人。
     """
     source = get_or_create_manual_source()
     attachment_metas: list[dict[str, Any]] = []
@@ -94,6 +95,7 @@ def create_manual_message(files: list[Any], subject: str = "") -> InboxMessage:
         has_attachments=bool(attachment_metas),
         attachments_meta=attachment_metas,
         draft_state={},
+        uploaded_by=uploaded_by,
     )
     logger.info("手动上传生成收件箱消息 id=%s，附件 %d 份", message.pk, len(attachment_metas))
     return message

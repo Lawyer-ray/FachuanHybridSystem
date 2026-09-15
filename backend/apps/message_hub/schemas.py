@@ -33,6 +33,8 @@ class InboxMessageOut(SchemaMixin, Schema):
     received_at: str
     has_attachments: bool
     attachment_count: int
+    uploaded_by_id: int | None
+    uploaded_by_name: str
     created_at: str
 
     @staticmethod
@@ -47,6 +49,16 @@ class InboxMessageOut(SchemaMixin, Schema):
     def resolve_recipient(obj: InboxMessage) -> str:
         account: str = obj.source.credential.account if obj.source.credential else ""
         return account
+
+    @staticmethod
+    def resolve_uploaded_by_id(obj: InboxMessage) -> int | None:
+        return obj.uploaded_by_id if obj.uploaded_by_id else None
+
+    @staticmethod
+    def resolve_uploaded_by_name(obj: InboxMessage) -> str:
+        if not obj.uploaded_by:
+            return ""
+        return str(obj.uploaded_by.real_name or obj.uploaded_by.username or "")
 
     @staticmethod
     def resolve_received_at(obj: InboxMessage) -> str:

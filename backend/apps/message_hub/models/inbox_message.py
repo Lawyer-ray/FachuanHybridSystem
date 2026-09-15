@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any, ClassVar
 
+from django.conf import settings
 from django.db import models
 
 
@@ -40,6 +41,16 @@ class InboxMessage(models.Model):
 
     # 前端材料预处理进行中的拆分草稿（纯 UI 状态，语义由前端定义）
     draft_state = models.JSONField(default=dict, blank=True, verbose_name="拆分草稿")
+
+    # 手动上传来源记录上传律师；外部拉取消息无上传人
+    uploaded_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="uploaded_inbox_messages",
+        verbose_name="上传人",
+    )
 
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="入库时间")
 
