@@ -107,7 +107,7 @@ class TestSyncAllSources:
 
         with (
             patch("apps.message_hub.models.MessageSource") as MockSource,
-            patch("django_q.tasks.async_task") as mock_async_task,
+            patch("apps.core.tasking.submit_task") as mock_submit_task,
         ):
             mock_qs = MagicMock()
             mock_qs.values_list.return_value = [1, 2, 3]
@@ -115,9 +115,9 @@ class TestSyncAllSources:
 
             sync_all_sources()
 
-            assert mock_async_task.call_count == 3
-            mock_async_task.assert_any_call(
-                "apps.message_hub.tasks.sync_source_by_id", 1, q_options={"group": "message_hub"}
+            assert mock_submit_task.call_count == 3
+            mock_submit_task.assert_any_call(
+                "apps.message_hub.tasks.sync_source_by_id", 1, group="message_hub"
             )
 
     def test_handles_not_implemented_source(self, db):

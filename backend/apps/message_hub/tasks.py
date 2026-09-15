@@ -56,13 +56,13 @@ def sync_all_sources(*_args: object) -> None:  # pragma: no cover
     if not sources:
         return
 
-    from django_q.tasks import async_task
+    from apps.core.tasking import submit_task
 
     for source_id in sources:
-        async_task(
+        submit_task(
             "apps.message_hub.tasks.sync_source_by_id",
             source_id,
-            q_options={"group": "message_hub"},
+            group="message_hub",
         )
     logger.info("已为 %d 个消息来源提交同步任务", len(sources))
 
