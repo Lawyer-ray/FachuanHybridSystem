@@ -253,7 +253,7 @@ export function DeskPage() {
         {/* 页签 + 快捷键提示 */}
         <div className="mb-5 flex flex-wrap items-end gap-4">
           <div className="flex items-center gap-1.5">
-            <div className="flex items-center gap-0.5">
+            <div className="flex items-center gap-0.5 rounded-[9px] bg-secondary p-[3px]">
               {TABS.map((t) => (
                 <button
                   key={t.key}
@@ -263,14 +263,14 @@ export function DeskPage() {
                     setSel(0)
                   }}
                   className={cn(
-                    'flex h-8 items-center gap-1.5 rounded-[8px] px-3 text-[13px] font-medium transition-colors',
+                    'flex items-center gap-[6px] rounded-[7px] px-[13px] py-[6px] text-[13px] transition-colors',
                     tab === t.key
-                      ? 'bg-secondary text-foreground'
-                      : 'text-secondary-foreground hover:bg-secondary/60',
+                      ? 'bg-card font-medium text-foreground shadow-sm'
+                      : 'text-secondary-foreground hover:text-foreground',
                   )}
                 >
                   {t.label}
-                  <span className="rounded-full bg-zinc-200/80 px-1.5 text-[10.5px] tabular-nums text-secondary-foreground">
+                  <span className={cn('text-[11.5px] tabular-nums', tab === t.key ? 'text-secondary-foreground' : 'text-muted-foreground')}>
                     {counts[t.key]}
                   </span>
                 </button>
@@ -281,6 +281,8 @@ export function DeskPage() {
               <kbd className="rounded border border-border bg-card px-1 py-0.5 font-sans">↑↓←→</kbd> 选择
               <kbd className="rounded border border-border bg-card px-1 py-0.5 font-sans">空格</kbd> 打开
               <kbd className="rounded border border-border bg-card px-1 py-0.5 font-sans">X</kbd> 不接
+              <span className="text-zinc-300">|</span>
+              全部材料都靠手划，机器不猜
             </div>
           </div>
           <div className="ml-auto">

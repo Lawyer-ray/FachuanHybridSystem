@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react'
 import {
   ArrowLeft,
   CheckCircle2,
-  Columns3,
   FolderCheck,
   Loader2,
   Minus,
@@ -53,6 +52,11 @@ function useMediaQuery(query: string): boolean {
 const ZOOM_MIN = 0.6
 const ZOOM_MAX = 2.2
 const ZOOM_STEP = 0.1
+
+/** 原型 .pbtn：描边按钮，浅色主题下 hover 填充 */
+const PBTN =
+  'flex h-[30px] flex-none items-center gap-1 rounded-[7px] border border-border bg-transparent px-[13px] text-[12.5px] font-medium text-secondary-foreground transition-colors hover:bg-secondary hover:text-foreground hover:border-zinc-300'
+const PBTN_ON = 'bg-secondary text-foreground border-zinc-300'
 
 export function Reader() {
   const { openId, detail, draft, status } = useReader()
@@ -306,8 +310,8 @@ export function Reader() {
         </div>
       </div>
 
-      {/* 预处理工具条 */}
-      <div className="flex h-[46px] flex-none flex-wrap items-center gap-1.5 border-b border-border bg-card px-4 text-[12.5px]">
+      {/* 预处理工具条（对齐原型 rd-pre：左进度、右操作，统一 pbtn 描边样式） */}
+      <div className="flex h-[56px] flex-none flex-wrap items-center gap-2 border-b border-border bg-card px-4 text-[12.5px]">
         {narrow ? (
           <>
             <button
@@ -316,7 +320,7 @@ export function Reader() {
                 setRailOpen((v) => !v)
                 setMetaOpen(false)
               }}
-              className={cn('rounded-md px-2 py-1', railOpen ? 'bg-secondary font-medium text-foreground' : 'text-secondary-foreground hover:bg-secondary')}
+              className={cn(PBTN, railOpen && PBTN_ON)}
             >
               材料
             </button>
@@ -326,21 +330,26 @@ export function Reader() {
                 setMetaOpen((v) => !v)
                 setRailOpen(false)
               }}
-              className={cn('rounded-md px-2 py-1', metaOpen ? 'bg-secondary font-medium text-foreground' : 'text-secondary-foreground hover:bg-secondary')}
+              className={cn(PBTN, metaOpen && PBTN_ON)}
             >
               信息
             </button>
           </>
         ) : null}
-        <span className="hidden items-center text-secondary-foreground md:inline-flex">{pages} 页</span>
+        <span className="flex-none rounded-[4px] bg-secondary px-[7px] py-[2px] text-[10px] font-bold uppercase tracking-wide text-secondary-foreground">
+          进度
+        </span>
+        <span className="hidden text-[12px] text-secondary-foreground sm:inline">
+          {draft.mats.length} 个源文件 · {pages} 页
+        </span>
 
-        <span className="mx-1 h-4 w-px bg-border" />
+        <span className="flex-1" />
 
         <button
           type="button"
           onClick={() => st.toggleSelMode()}
           title="选页模式：点一张选中，⇧+点 选区间（或随时 ⌘/Ctrl+点）"
-          className={cn('rounded-md px-2.5 py-1 transition-colors', selMode ? 'bg-blue-50 font-medium text-blue-700' : 'text-secondary-foreground hover:bg-secondary')}
+          className={cn(PBTN, selMode && PBTN_ON)}
         >
           选页
         </button>
@@ -348,42 +357,39 @@ export function Reader() {
           type="button"
           onClick={() => addInputRef.current?.click()}
           title="点这里选文件，或把文件直接拖到这儿"
-          className="flex items-center gap-1 rounded-md px-2.5 py-1 text-secondary-foreground hover:bg-secondary"
+          className={PBTN}
         >
           <Plus className="h-3.5 w-3.5" />
           + 追加材料
         </button>
 
-        <span className="mx-1 h-4 w-px bg-border" />
+        <span className="h-4 w-px bg-border" />
 
-        <div className="flex items-center gap-0.5 rounded-md border border-border px-1 py-0.5">
-          <button type="button" onClick={zoomOut} title="缩小画布" className="grid h-6 w-6 place-items-center rounded hover:bg-secondary">
-            <Minus className="h-3.5 w-3.5" />
-          </button>
-          <button
-            type="button"
-            onClick={() => st.setZoom(1)}
-            title="点击回到 100%"
-            className="rounded px-1.5 tabular-nums hover:bg-secondary"
-          >
-            {zoomVal}%
-          </button>
-          <button type="button" onClick={zoomIn} title="放大画布" className="grid h-6 w-6 place-items-center rounded hover:bg-secondary">
-            <Plus className="h-3.5 w-3.5" />
-          </button>
-        </div>
+        <button type="button" onClick={zoomOut} title="缩小画布" className={cn(PBTN, 'w-[30px] justify-center px-0')}>
+          <Minus className="h-3.5 w-3.5" />
+        </button>
+        <button
+          type="button"
+          onClick={() => st.setZoom(1)}
+          title="点击回到 100%"
+          className={cn(PBTN, 'min-w-[52px] justify-center px-[8px] tabular-nums')}
+        >
+          {zoomVal}%
+        </button>
+        <button type="button" onClick={zoomIn} title="放大画布" className={cn(PBTN, 'w-[30px] justify-center px-0')}>
+          <Plus className="h-3.5 w-3.5" />
+        </button>
 
         <button
           type="button"
           onClick={changeCols}
           title="并排列数"
-          className="flex items-center gap-1 rounded-md px-2 py-1 tabular-nums text-secondary-foreground hover:bg-secondary"
+          className={cn(PBTN, 'tabular-nums')}
         >
-          <Columns3 className="h-3.5 w-3.5" />
-          列数:{cols}
+          列数：{cols}
         </button>
 
-        <span className="mx-1 h-4 w-px bg-border" />
+        <span className="h-4 w-px bg-border" />
 
         <button
           type="button"
@@ -394,7 +400,7 @@ export function Reader() {
               toast('已恢复初始分段 —— 每个源文件各一份')
             })()
           }}
-          className="rounded-md px-2 py-1 text-secondary-foreground hover:bg-secondary"
+          className={PBTN}
         >
           恢复初始分段
         </button>
