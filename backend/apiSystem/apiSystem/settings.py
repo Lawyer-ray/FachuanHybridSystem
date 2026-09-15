@@ -392,7 +392,7 @@ FRONTEND_BASE_URL = os.environ.get("FRONTEND_BASE_URL", "http://localhost:5173")
 # CORS 配置
 # ============================================================
 
-# 安全的 CORS 默认白名单（仅本地访问）
+# 安全的 CORS 默认白名单（仅本地访问；DJANGO_ALLOW_LAN 时以 .env 的 CORS_ALLOWED_ORIGINS 为准）
 _SAFE_CORS_ORIGINS = [
     "http://localhost:5173",
     "http://localhost:3000",
