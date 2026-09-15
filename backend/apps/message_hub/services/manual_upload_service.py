@@ -6,6 +6,7 @@ import logging
 from datetime import datetime
 from pathlib import Path
 from typing import Any
+from uuid import uuid4
 
 from django.core.files.storage import default_storage
 from django.utils import timezone
@@ -86,7 +87,7 @@ def create_manual_message(files: list[Any], subject: str = "", uploaded_by: Any 
     effective_subject = subject.strip() or f"{MANUAL_SOURCE_DISPLAY_NAME}材料"
     message = InboxMessage.objects.create(
         source=source,
-        message_id=f"manual-{ts}-{source.pk}",
+        message_id=f"manual-{ts}-{uuid4().hex[:8]}",
         subject=effective_subject,
         sender="",
         received_at=timezone.now(),
