@@ -2,11 +2,9 @@ import { useEffect, useRef, useState } from 'react'
 import {
   ArrowLeft,
   CheckCircle2,
-  FolderCheck,
   Loader2,
   Minus,
   Plus,
-  ThumbsDown,
   X,
 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -283,27 +281,37 @@ export function Reader() {
           </div>
         </div>
         <div className="ml-auto flex flex-none items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
+          <button
+            type="button"
             onClick={() => {
               st.setStatus('filed')
               toast('已归档留痕，未建案')
               st.close()
             }}
+            className="flex h-8 flex-none items-center gap-1.5 rounded-lg border border-transparent bg-transparent px-2 text-[13px] font-medium text-secondary-foreground transition-colors hover:border-border hover:bg-secondary"
+            title="不接：已归档留痕，未建案"
           >
-            <ThumbsDown className="h-4 w-4" />
             不接
-          </Button>
-          <Button size="sm" onClick={() => setShowAssign(true)}>
-            <FolderCheck className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            disabled={!allClassified}
+            onClick={() => setShowAssign(true)}
+            title={allClassified ? '归案：绑定案件后进入办案流程' : '先完成拆分与归类'}
+            className={cn(
+              'flex h-8 flex-none items-center gap-1.5 rounded-lg px-2 text-[13px] font-medium transition-colors',
+              allClassified
+                ? 'bg-foreground text-background hover:bg-zinc-700'
+                : 'cursor-not-allowed border border-transparent bg-transparent text-muted-foreground',
+            )}
+          >
             归案
-          </Button>
+          </button>
           <button
             type="button"
             onClick={close}
             className="grid h-8 w-8 place-items-center rounded-lg text-secondary-foreground hover:bg-secondary"
-            title="关闭"
+            title="关闭 (Esc)"
           >
             <X className="h-4 w-4" />
           </button>

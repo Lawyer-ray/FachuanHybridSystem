@@ -71,7 +71,6 @@ export function Flow({
             <SegmentHeader
               seg={seg}
               si={si}
-              draft={draft}
               color={color}
               onSetType={(t) => onOp.setSegType(si, t)}
               onRename={(name) => onOp.renameSeg(si, name)}

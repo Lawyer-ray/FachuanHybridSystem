@@ -1,14 +1,12 @@
 import { useState } from 'react'
 import { ChevronDown, PencilLine, Scissors, Split } from 'lucide-react'
 import { SEGMENT_TYPES } from '../../constants'
-import type { DraftState, Segment } from '../../types'
-import { segMats } from '../../draft'
+import type { Segment } from '../../types'
 import { cn } from '@/lib/utils'
 
 export function SegmentHeader({
   seg,
   si,
-  draft,
   color,
   onSetType,
   onRename,
@@ -17,7 +15,6 @@ export function SegmentHeader({
 }: {
   seg: Segment
   si: number
-  draft: DraftState
   color: string
   onSetType: (t: string) => void
   onRename: (name: string) => void
@@ -28,12 +25,13 @@ export function SegmentHeader({
   const [editingName, setEditingName] = useState(false)
   const [nameDraft, setNameDraft] = useState(seg.fn)
 
-  const srcLabels = segMats(seg)
-    .map((mi) => {
-      const m = draft.mats[mi]
-      return m ? `${m.customName || m.n}` : `材料${mi + 1}`
-    })
-    .join(' · ')
+  const first = seg.refs[0]
+  const last = seg.refs[seg.refs.length - 1]
+  let rangeText = `${seg.refs.length} 页`
+  if (first && last) {
+    if (first.mi === last.mi) rangeText = `P${first.p}–${last.p} · ${seg.refs.length} 页`
+    else rangeText = `${seg.refs.length} 页 · 跨源`
+  }
 
   const startNameEdit = () => {
     setNameDraft(seg.fn)
@@ -46,10 +44,10 @@ export function SegmentHeader({
 
   return (
     <div
-      className="flex items-center gap-2 rounded-[9px] border border-border bg-secondary/60 px-3 py-2"
+      className="relative flex items-center gap-2 rounded-[9px] border border-transparent bg-transparent py-2 pl-4 pr-3 transition-colors hover:border-zinc-200 hover:bg-[#fafafa]"
       style={{ width: '100%' }}
     >
-      <span className="h-5 w-1 flex-none rounded-full" style={{ background: color }} />
+      <span className="absolute left-0 top-2 bottom-2 w-[4px] flex-none rounded-full" style={{ background: color }} />
 
       {/* 类型胶囊 */}
       {pickingType ? (
@@ -111,8 +109,8 @@ export function SegmentHeader({
         </span>
       )}
 
-      {/* 来源 */}
-      <span className="hidden flex-none text-[11.5px] text-muted-foreground xl:inline">{srcLabels}</span>
+      {/* 页码范围（原型 rg） */}
+      <span className="hidden flex-none text-[11.5px] tabular-nums text-muted-foreground lg:inline">{rangeText}</span>
 
       <button
         type="button"
