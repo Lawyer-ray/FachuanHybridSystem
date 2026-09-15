@@ -38,6 +38,9 @@ class InboxMessage(models.Model):
     # [{"filename": "xxx.pdf", "original_filename": "xxx.pdf", "custom_filename": "新名字.pdf", "size": 12345, "content_type": "application/pdf", "part_index": 0}]
     attachments_meta = models.JSONField(default=list, verbose_name="附件元信息")
 
+    # 前端材料预处理进行中的拆分草稿（纯 UI 状态，语义由前端定义）
+    draft_state = models.JSONField(default=dict, blank=True, verbose_name="拆分草稿")
+
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="入库时间")
 
     class Meta:

@@ -45,7 +45,7 @@ class InboxMessageOut(SchemaMixin, Schema):
 
     @staticmethod
     def resolve_recipient(obj: InboxMessage) -> str:
-        account: str = obj.source.credential.account
+        account: str = obj.source.credential.account if obj.source.credential else ""
         return account
 
     @staticmethod
@@ -67,7 +67,12 @@ class InboxMessageDetailOut(InboxMessageOut):
     body_text: str
     body_html: str
     attachments: list[AttachmentMeta]
+    draft_state: dict = {}
 
     @staticmethod
     def resolve_attachments(obj: InboxMessage) -> list[dict[str, Any]]:
         return obj.get_public_attachments_meta()
+
+    @staticmethod
+    def resolve_draft_state(obj: InboxMessage) -> dict[str, Any]:
+        return obj.draft_state or {}

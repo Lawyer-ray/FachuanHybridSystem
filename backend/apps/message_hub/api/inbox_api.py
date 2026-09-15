@@ -6,7 +6,7 @@ import logging
 from typing import Any
 
 from django.http import FileResponse, HttpRequest
-from ninja import Query, Router, Schema
+from ninja import Form, Query, Router, Schema
 
 from apps.core.exceptions import NotFoundError
 from apps.message_hub.models import InboxMessage
@@ -44,6 +44,7 @@ def _get_message_or_404(pk: int) -> InboxMessage:
 def list_messages(  # pragma: no cover
     request: HttpRequest,
     source_id: int | None = None,
+    source_type: str | None = None,
     has_attachments: bool | None = None,
     search: str | None = None,
 ) -> Any:
@@ -52,6 +53,8 @@ def list_messages(  # pragma: no cover
 
     if source_id is not None:
         qs = qs.filter(source_id=source_id)
+    if source_type is not None:
+        qs = qs.filter(source__source_type=source_type)
     if has_attachments is not None:
         qs = qs.filter(has_attachments=has_attachments)
     if search:
@@ -60,6 +63,37 @@ def list_messages(  # pragma: no cover
         qs = qs.filter(Q(subject__icontains=search) | Q(sender__icontains=search) | Q(body_text__icontains=search))
 
     return qs
+
+
+class DraftIn(Schema):
+    draft: dict = {}
+
+
+@router.post("/messages/upload", response={201: InboxMessageDetailOut})
+def upload_messages(  # pragma: no cover
+    request: HttpRequest,
+    subject: str = Form(""),
+) -> tuple[int, InboxMessage]:
+    """前端材料预处理上传：多文件（multipart 每次一个 files 字段）收进收件箱。"""
+    from apps.message_hub.services.manual_upload_service import create_manual_message
+
+    files = request.FILES.getlist("files")
+    if not files:
+        from django.core.exceptions import ValidationError
+
+        raise ValidationError("没有收到文件")
+    msg = create_manual_message(list(files), subject)
+    return 201, msg
+
+
+@router.put("/messages/{message_id}/draft")
+def update_draft(request: HttpRequest, message_id: int, payload: DraftIn) -> dict[str, Any]:
+    """保存某条收件箱消息的拆分草稿。"""
+    from apps.message_hub.services.manual_upload_service import save_draft
+
+    msg = _get_message_or_404(message_id)
+    save_draft(msg.pk, payload.draft)
+    return {"ok": True, "message_id": msg.pk}
 
 
 @router.get("/messages/{message_id}", response=InboxMessageDetailOut)

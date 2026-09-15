@@ -9,6 +9,7 @@ from django.db import models
 
 class SourceType(models.TextChoices):
     IMAP = "imap", "IMAP 邮箱"
+    MANUAL_UPLOAD = "manual_upload", "前端手动上传"
     COURT_INBOX = "court_inbox", "一张网收件箱"
     COURT_SCHEDULE = "court_schedule", "一张网庭审日程"
 
@@ -26,7 +27,10 @@ class MessageSource(models.Model):
         "organization.AccountCredential",
         on_delete=models.CASCADE,
         related_name="message_sources",
+        null=True,
+        blank=True,
         verbose_name="账号凭证",
+        help_text="手动上传来源无外部账号，可留空",
     )
     source_type = models.CharField(
         max_length=32,
