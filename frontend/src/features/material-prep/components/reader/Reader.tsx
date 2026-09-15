@@ -432,7 +432,7 @@ export function Reader() {
       </div>
 
       {/* 三栏主体 */}
-      <div className="relative flex min-h-0 flex-1 bg-background">
+      <div className="relative flex min-h-0 flex-1 bg-[#f1f1f3]">
         {narrow && (railOpen || metaOpen) && (
           <div
             className="fixed inset-0 z-30 bg-black/20"
@@ -589,5 +589,5 @@ export function Reader() {
 }
 
 function FixedReader({ children }: { children: React.ReactNode }) {
-  return <div className="fixed inset-0 z-[80] flex flex-col bg-background">{children}</div>
+  return <div className="fixed inset-0 z-[80] flex flex-col bg-[#f1f1f3]">{children}</div>
 }

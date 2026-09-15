@@ -110,13 +110,21 @@ export const PageCell = memo(function PageCell({
       onClick={onClick}
       onDragStart={stopProp}
       className={cn(
-        'relative select-text rounded-[7px] border bg-card text-[12.5px] leading-[1.9] text-foreground shadow-[0_1px_3px_rgba(0,0,0,0.05),0_10px_26px_rgba(0,0,0,0.04)]',
+        'relative select-text rounded-[7px] border bg-card text-[12.5px] leading-[1.9] text-foreground shadow-[0_1px_3px_rgba(0,0,0,0.05),0_10px_26px_rgba(0,0,0,0.04)] transition-opacity',
         pickActive ? 'cursor-crosshair select-none' : selModeActive ? 'cursor-pointer' : 'cursor-default',
-        selected && 'border-blue-500 ring-2 ring-blue-500/70',
+        selected && 'border-zinc-800 ring-2 ring-zinc-800/80',
+        selModeActive && !selected && 'opacity-35',
         pickActive && !selected && 'border-amber-300/70 ring-1 ring-amber-300/50',
       )}
     >
       <PageBody messageId={messageId} p={p} mat={mat} />
+
+      {/* 选页已选：右上角黑圆勾（原型 .rp.picked::after） */}
+      {selected && (
+        <span className="pointer-events-none absolute right-3 top-3 grid h-[22px] w-[22px] place-items-center rounded-full bg-zinc-900 text-[13px] font-bold leading-none text-white">
+          ✓
+        </span>
+      )}
 
       <div className="flex items-center justify-between gap-2 rounded-b-[7px] border-t border-border/60 bg-card px-3 py-1.5 text-[11px] text-muted-foreground">
         <span className="truncate">{mat.customName || mat.n}</span>
