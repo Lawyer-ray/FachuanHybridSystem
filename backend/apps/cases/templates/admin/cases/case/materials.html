@@ -333,6 +333,13 @@
                     </div>
 
                     <div class="cm-filters-actions">
+                        <button type="button"
+                                class="button cm-btn-danger"
+                                x-show="selectedIds.length > 0"
+                                :disabled="isDeleting"
+                                @click="deleteSelectedAttachments()">
+                            {% trans "删除选中" %}（<span x-text="selectedIds.length"></span>）
+                        </button>
                         <button type="button" class="button" @click="resetFilters()">{% trans "清空" %}</button>
                         <div class="cm-count">
                             {% trans "显示" %} <strong x-text="filteredRows.length"></strong> / <span x-text="rows.length"></span>

@@ -11,7 +11,6 @@ from apps.client.models import Client
 from apps.contracts.models import Contract
 from apps.organization.models import LawFirm, Lawyer
 
-
 # ---------------------------------------------------------------------------
 # helpers
 # ---------------------------------------------------------------------------
@@ -374,6 +373,57 @@ def test_delete_log(authenticated_client):
     resp = authenticated_client.delete(f"/api/v1/cases/logs/{log.id}/")
     assert resp.status_code == 200
     assert not CaseLog.objects.filter(id=log.id).exists()
+
+
+@pytest.mark.django_db
+def test_delete_unbound_attachments_batch(authenticated_client):
+    from django.core.files.uploadedfile import SimpleUploadedFile
+
+    from apps.cases.models import CaseLogAttachment
+
+    case = _make_case()
+    user = Lawyer.objects.get(username="testuser")
+    log = CaseLog.objects.create(case=case, content="上传材料", actor=user)
+    att = CaseLogAttachment.objects.create(
+        log=log,
+        file=SimpleUploadedFile("批量删除测试.pdf", b"test-content", content_type="application/pdf"),
+    )
+    resp = authenticated_client.delete(
+        f"/api/v1/cases/{case.id}/materials/attachments",
+        data=json.dumps({"attachment_ids": [att.id]}),
+        content_type="application/json",
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["deleted_count"] == 1
+    assert data["deleted_ids"] == [att.id]
+    assert not CaseLogAttachment.objects.filter(id=att.id).exists()
+
+
+@pytest.mark.django_db
+def test_delete_attachments_skips_bound_material(authenticated_client):
+    from django.core.files.uploadedfile import SimpleUploadedFile
+
+    from apps.cases.models import CaseLogAttachment, CaseMaterial
+
+    case = _make_case()
+    user = Lawyer.objects.get(username="testuser")
+    log = CaseLog.objects.create(case=case, content="上传材料", actor=user)
+    att = CaseLogAttachment.objects.create(
+        log=log,
+        file=SimpleUploadedFile("已绑定文件.pdf", b"bound-content", content_type="application/pdf"),
+    )
+    CaseMaterial.objects.create(case=case, category="party", source_attachment=att)
+    resp = authenticated_client.delete(
+        f"/api/v1/cases/{case.id}/materials/attachments",
+        data=json.dumps({"attachment_ids": [att.id]}),
+        content_type="application/json",
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["deleted_count"] == 0
+    assert data["skipped_ids"] == [att.id]
+    assert CaseLogAttachment.objects.filter(id=att.id).exists()
 
 
 @pytest.mark.django_db

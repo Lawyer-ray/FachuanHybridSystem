@@ -236,3 +236,45 @@ class TestCaseMaterialServiceReplaceFile:
             MockMat.objects.select_related().get.return_value = mock_mat
             with pytest.raises(ValidationException, match="新附件与当前附件相同"):
                 svc.replace_material_file(case_id=1, material_id=1, new_attachment_id=5)
+
+
+class TestCaseMaterialServiceDeleteAttachments:
+    @patch("apps.cases.services.material.case_material_service.transaction")
+    def test_delete_attachments_empty_ids_raises(self, mock_tx):
+        svc = _make_service()
+        with pytest.raises(ValidationException, match="请选择要删除的文件"):
+            svc.delete_attachments(case_id=1, attachment_ids=[])
+
+    @patch("apps.cases.services.material.case_material_service.transaction")
+    def test_delete_attachments_deletes_physical_file_and_record(self, mock_tx):
+        svc = _make_service()
+        att = MagicMock()
+        att.id = 10
+        att.file = MagicMock()
+        with patch("apps.cases.services.material.case_material_service.CaseLogAttachment") as MockAtt:
+            MockAtt.objects.filter.return_value = [att]
+            result = svc.delete_attachments(case_id=1, attachment_ids=[10])
+        assert result == {"deleted_count": 1, "deleted_ids": [10], "skipped_ids": []}
+        att.file.delete.assert_called_once_with(save=False)
+        att.delete.assert_called_once()
+
+    @patch("apps.cases.services.material.case_material_service.transaction")
+    def test_delete_attachments_skips_absent_or_bound(self, mock_tx):
+        svc = _make_service()
+        att = MagicMock()
+        att.id = 10
+        att.file = None
+        with patch("apps.cases.services.material.case_material_service.CaseLogAttachment") as MockAtt:
+            MockAtt.objects.filter.return_value = [att]
+            result = svc.delete_attachments(case_id=1, attachment_ids=[10, 99])
+        assert result["deleted_count"] == 1
+        assert result["deleted_ids"] == [10]
+        assert result["skipped_ids"] == [99]
+
+    @patch("apps.cases.services.material.case_material_service.transaction")
+    def test_delete_attachments_verifies_case_access(self, mock_tx):
+        svc = _make_service()
+        with patch("apps.cases.services.material.case_material_service.CaseLogAttachment") as MockAtt:
+            MockAtt.objects.filter.return_value = []
+            svc.delete_attachments(case_id=1, attachment_ids=[1])
+        svc._case_service.get_case.assert_called_once()

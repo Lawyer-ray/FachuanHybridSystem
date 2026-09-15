@@ -68,7 +68,7 @@ class CaseMaterialQueryService:
                 {
                     "attachment_id": att.id,
                     "file_name": att.original_filename or (getattr(att.file, "name", "") or "").rsplit("/", 1)[-1],
-                    "file_url": getattr(att.file, "url", "") or "",
+                    "file_url": (att.file.url if att.file.name else "") or "",
                     "uploaded_at": att.uploaded_at,
                     "log_id": att.log_id,
                     "log_created_at": getattr(att.log, "created_at", None),

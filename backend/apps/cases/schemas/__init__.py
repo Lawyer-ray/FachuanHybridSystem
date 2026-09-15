@@ -47,6 +47,8 @@ from .log_schemas import (
     CaseLogVersionOut,
 )
 from .material_schemas import (
+    CaseMaterialAttachmentsDeleteIn,
+    CaseMaterialAttachmentsDeleteOut,
     CaseMaterialBindCandidateOut,
     CaseMaterialBindIn,
     CaseMaterialBindingOut,
@@ -116,6 +118,8 @@ __all__ = [
     "CaseMaterialDeleteAllIn",
     "CaseMaterialDeleteAllOut",
     "CaseMaterialDeleteOut",
+    "CaseMaterialAttachmentsDeleteIn",
+    "CaseMaterialAttachmentsDeleteOut",
     "CaseMaterialGroupOrderIn",
     "CaseMaterialGroupRenameIn",
     "CaseMaterialGroupRenameOut",

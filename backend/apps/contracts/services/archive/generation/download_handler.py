@@ -155,6 +155,9 @@ def _read_material_file(material: FinalizedMaterial) -> dict[str, Any]:
     """读取单个材料文件的内容。"""
     from django.conf import settings as django_settings
 
+    if not material.file_path:
+        return {"error": f"文件路径缺失: {material.original_filename}"}
+
     file_path = Path(material.file_path)
     if not file_path.is_absolute():
         file_path = Path(django_settings.MEDIA_ROOT) / file_path
@@ -193,6 +196,10 @@ def _merge_materials_to_pdf(
         from apps.documents.services.infrastructure.pdf_merge_utils import resolve_material_to_temp_pdf
 
         for material in materials:
+            if not material.file_path:
+                logger.warning("合并时文件路径缺失: %s", material.original_filename)
+                continue
+
             file_path = Path(material.file_path)
             if not file_path.is_absolute():
                 file_path = Path(django_settings.MEDIA_ROOT) / file_path
