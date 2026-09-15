@@ -104,6 +104,20 @@ class CaseMaterialDeleteAllOut(Schema):
     deleted_count: int
 
 
+class CaseMaterialAttachmentsDeleteIn(Schema):
+    """批量删除附件（未绑定材料）请求"""
+
+    attachment_ids: list[int]
+
+
+class CaseMaterialAttachmentsDeleteOut(Schema):
+    """批量删除附件响应"""
+
+    deleted_count: int
+    deleted_ids: list[int]
+    skipped_ids: list[int]
+
+
 __all__: list[str] = [
     "CaseMaterialBindCandidateOut",
     "CaseMaterialBindIn",
@@ -112,6 +126,8 @@ __all__: list[str] = [
     "CaseMaterialDeleteAllIn",
     "CaseMaterialDeleteAllOut",
     "CaseMaterialDeleteOut",
+    "CaseMaterialAttachmentsDeleteIn",
+    "CaseMaterialAttachmentsDeleteOut",
     "CaseMaterialGroupOrderIn",
     "CaseMaterialGroupRenameIn",
     "CaseMaterialGroupRenameOut",

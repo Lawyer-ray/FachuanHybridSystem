@@ -420,6 +420,47 @@ class CaseMaterialService:
 
         return {"type_id": type_id, "old_type_name": old_type_name, "new_type_name": new_type_name}
 
+    def delete_attachments(
+        self,
+        case_id: int,
+        attachment_ids: Sequence[int],
+        user: Any | None = None,
+        org_access: dict[str, Any] | None = None,
+        perm_open_access: bool = False,
+    ) -> dict[str, Any]:
+        """批量删除未绑定材料的附件（含物理文件）。
+
+        仅允许删除未绑定 CaseMaterial 的附件；已绑定 / 不存在 / 其他案件的附件跳过。
+        """
+        self._case_service.get_case(case_id, user=user, org_access=org_access, perm_open_access=perm_open_access)
+
+        ids = [int(x) for x in (attachment_ids or []) if x]
+        if not ids:
+            raise ValidationException(message=_("请选择要删除的文件"), errors={"attachment_ids": ids})
+
+        attachments = list(
+            CaseLogAttachment.objects.filter(id__in=ids, log__case_id=case_id, bound_material__isnull=True)
+        )
+
+        deleted_ids: list[int] = []
+        with transaction.atomic():
+            for att in attachments:
+                att_id = att.id
+                attachment_file = getattr(att, "file", None)
+                if attachment_file:
+                    try:
+                        attachment_file.delete(save=False)
+                    except Exception:
+                        logger.warning("删除附件物理文件失败: attachment_id=%s", att_id)
+                att.delete()
+                deleted_ids.append(att_id)
+
+        deleted_set = set(deleted_ids)
+        skipped_ids = sorted(set(ids) - deleted_set)
+
+        logger.info("批量删除附件完成: case_id=%s, deleted=%s, skipped=%s", case_id, len(deleted_ids), len(skipped_ids))
+        return {"deleted_count": len(deleted_ids), "deleted_ids": deleted_ids, "skipped_ids": skipped_ids}
+
     def delete_material(
         self,
         case_id: int,

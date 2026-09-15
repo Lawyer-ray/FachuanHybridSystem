@@ -3,12 +3,15 @@
 from __future__ import annotations
 
 import asyncio
-from typing import Any
+from typing import Any, cast
 
+from asgiref.sync import sync_to_async
 from django.http import HttpRequest
 from ninja import Router
 
 from apps.cases.schemas import (
+    CaseMaterialAttachmentsDeleteIn,
+    CaseMaterialAttachmentsDeleteOut,
     CaseMaterialBindCandidateOut,
     CaseMaterialBindIn,
     CaseMaterialDeleteAllIn,
@@ -52,7 +55,9 @@ async def list_bind_candidates(request: HttpRequest, case_id: int) -> Any:  # pr
 
 @router.post("/{case_id}/materials/bind")
 @rate_limit_from_settings("TASK", by_user=True)
-async def bind_materials(request: HttpRequest, case_id: int, payload: CaseMaterialBindIn) -> dict[str, int]:  # pragma: no cover
+async def bind_materials(
+    request: HttpRequest, case_id: int, payload: CaseMaterialBindIn
+) -> dict[str, int]:  # pragma: no cover
     service = _get_case_material_service()
     ctx = get_request_access_context(request)
     items: list[dict[str, Any]] = [x.model_dump() for x in payload.items]
@@ -69,7 +74,9 @@ async def bind_materials(request: HttpRequest, case_id: int, payload: CaseMateri
 
 @router.post("/{case_id}/materials/group-order")
 @rate_limit_from_settings("TASK", by_user=True)
-async def save_group_order(request: HttpRequest, case_id: int, payload: CaseMaterialGroupOrderIn) -> dict[str, bool]:  # pragma: no cover
+async def save_group_order(
+    request: HttpRequest, case_id: int, payload: CaseMaterialGroupOrderIn
+) -> dict[str, bool]:  # pragma: no cover
     service = _get_case_material_service()
     ctx = get_request_access_context(request)
     await asyncio.to_thread(
@@ -140,7 +147,9 @@ async def replace_material_file(  # pragma: no cover
     response=CaseMaterialGroupRenameOut,
 )
 @rate_limit_from_settings("TASK", by_user=True)
-async def rename_group(request: HttpRequest, case_id: int, payload: CaseMaterialGroupRenameIn) -> dict[str, Any]:  # pragma: no cover
+async def rename_group(
+    request: HttpRequest, case_id: int, payload: CaseMaterialGroupRenameIn
+) -> dict[str, Any]:  # pragma: no cover
     """重命名材料分组。"""
     service = _get_case_material_service()
     ctx = get_request_access_context(request)
@@ -154,6 +163,33 @@ async def rename_group(request: HttpRequest, case_id: int, payload: CaseMaterial
         org_access=ctx.org_access,
         perm_open_access=ctx.perm_open_access,
     )
+
+
+@router.delete(
+    "/{case_id}/materials/attachments",
+    response=CaseMaterialAttachmentsDeleteOut,
+)
+@rate_limit_from_settings("TASK", by_user=True)
+async def delete_attachments(
+    request: HttpRequest, case_id: int, payload: CaseMaterialAttachmentsDeleteIn
+) -> dict[str, Any]:  # pragma: no cover
+    """批量删除未绑定材料的附件（含物理文件）。"""
+    service = _get_case_material_service()
+    ctx = get_request_access_context(request)
+
+    def _delete() -> dict[str, Any]:
+        return cast(
+            dict[str, Any],
+            service.delete_attachments(
+                case_id=case_id,
+                attachment_ids=payload.attachment_ids,
+                user=ctx.user,
+                org_access=ctx.org_access,
+                perm_open_access=ctx.perm_open_access,
+            ),
+        )
+
+    return await sync_to_async(_delete)()
 
 
 @router.delete(
@@ -180,7 +216,9 @@ async def delete_material(request: HttpRequest, case_id: int, material_id: int) 
     response=CaseMaterialDeleteAllOut,
 )
 @rate_limit_from_settings("TASK", by_user=True)
-async def delete_all_materials(request: HttpRequest, case_id: int, payload: CaseMaterialDeleteAllIn) -> dict[str, Any]:  # pragma: no cover
+async def delete_all_materials(
+    request: HttpRequest, case_id: int, payload: CaseMaterialDeleteAllIn
+) -> dict[str, Any]:  # pragma: no cover
     """按分类删除案件下的所有材料。"""
     service = _get_case_material_service()
     ctx = get_request_access_context(request)

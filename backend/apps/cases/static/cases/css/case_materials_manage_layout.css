@@ -129,6 +129,23 @@
   min-width: 96px;
 }
 
+.cm-btn-danger {
+  background: #dc2626;
+  border-color: #dc2626;
+  color: #fff;
+}
+
+.cm-btn-danger:hover {
+  background: #b91c1c;
+  border-color: #b91c1c;
+  color: #fff;
+}
+
+.cm-btn-danger[disabled] {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .cm-dropzone {
   margin-top: 12px;
   position: relative;

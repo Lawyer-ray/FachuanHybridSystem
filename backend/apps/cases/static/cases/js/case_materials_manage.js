@@ -30,8 +30,9 @@
 
         rows: [],
         isLoading: false,
-        isUploading: false,
         isSaving: false,
+        isDeleting: false,
+        isUploading: false,
         isDragging: false,
         flashDropzone: false,
         recentUploadedCount: 0,
@@ -417,6 +418,36 @@
           this.filterAuthorityId = '';
           this.onlyUnfinished = false;
           this.onlyUnbound = false;
+        },
+
+        deleteSelectedAttachments() {
+          const ids = Array.from(this.selectedIds || []).map((v) => Number(v)).filter(Boolean);
+          if (!ids.length) return;
+          if (!window.confirm(`确定删除选中的 ${ids.length} 个文件吗？删除后不可恢复。`)) return;
+          this.isDeleting = true;
+          return fetch(`/api/v1/cases/${this.caseId}/materials/attachments`, {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrfToken() },
+            body: JSON.stringify({ attachment_ids: ids }),
+          })
+            .then((resp) => {
+              if (!resp.ok) throw new Error('delete failed');
+              return resp.json();
+            })
+            .then((data) => {
+              const removed = new Set((data.deleted_ids || []).map(String));
+              this.rows = (this.rows || []).filter((row) => !removed.has(String(row.attachmentId)));
+              this.selectedIds = [];
+              const skipped = (data.skipped_ids || []).length;
+              const msg = skipped
+                ? `已删除 ${data.deleted_count} 个文件，${skipped} 个已绑定无法删除`
+                : `已删除 ${data.deleted_count} 个文件`;
+              this.showMessage(msg, 'success');
+            })
+            .catch(() => this.showMessage('删除失败，请重试', 'error'))
+            .finally(() => {
+              this.isDeleting = false;
+            });
         },
 
         onFilePick(event) {
