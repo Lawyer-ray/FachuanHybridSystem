@@ -19,27 +19,27 @@ except ImportError:
 pytestmark = pytest.mark.skipif(not _HAS_MH, reason="message_hub plugin not installed")
 
 if _HAS_MH:
-    from plugins.message_hub.services.imap.imap_fetcher import (
+    from apps.message_hub.services.imap.imap_fetcher import (
+        _build_imap_host_candidates,
         _decode_header_value,
         _extract_body,
+        _extract_imap_host,
+        _looks_like_valid_host,
         _parse_date,
         _parse_filter_lines,
         _sender_allowed,
-        _looks_like_valid_host,
-        _extract_imap_host,
-        _build_imap_host_candidates,
-
-)
+    )
 if _HAS_MH:
+    from plugins.message_hub.services.court.court_schedule_fetcher import _extract_name_from_segment
     from plugins.message_hub.services.court.court_schedule_fetcher import (
-        _parse_datetime as court_parse_datetime,
         _extract_party_names as court_extract_party_names,
+    )
+    from plugins.message_hub.services.court.court_schedule_fetcher import _is_valid_party_name
+    from plugins.message_hub.services.court.court_schedule_fetcher import _parse_datetime as court_parse_datetime
+    from plugins.message_hub.services.court.court_schedule_fetcher import _split_by_comma
+    from plugins.message_hub.services.court.court_schedule_fetcher import (
         _strip_case_cause_suffix as court_strip_case_cause_suffix,
-        _split_by_comma,
-        _is_valid_party_name,
-        _extract_name_from_segment,
-
-)
+    )
 
 # ---------------------------------------------------------------------------
 # IMAP Helpers

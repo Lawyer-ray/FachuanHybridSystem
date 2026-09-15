@@ -178,13 +178,6 @@ try:
         _TEMPLATE_DIRS.append(os.path.join(BASE_DIR, "..", "plugins", "doc_convert", "templates"))
 except ImportError:
     pass
-try:
-    from plugins import has_message_hub_plugin as _has_mh_tpl  # type: ignore[attr-defined]
-
-    if _has_mh_tpl():
-        _TEMPLATE_DIRS.append(os.path.join(BASE_DIR, "..", "plugins", "message_hub", "templates"))
-except ImportError:
-    pass
 
 TEMPLATES = [
     {
@@ -201,19 +194,6 @@ TEMPLATES = [
         },
     },
 ]
-
-# Plugin 静态文件目录（plugins 不在 INSTALLED_APPS 中，需要显式声明）
-_STATICFILES_EXTRA: list[str] = []
-try:
-    from plugins import has_message_hub_plugin as _has_mh  # type: ignore[attr-defined]
-
-    if _has_mh():
-        _STATICFILES_EXTRA.append(os.path.join(BASE_DIR, "..", "plugins", "message_hub", "static"))
-except ImportError:
-    pass
-
-if _STATICFILES_EXTRA:
-    STATICFILES_DIRS = _STATICFILES_EXTRA
 
 WSGI_APPLICATION = "apiSystem.wsgi.application"
 

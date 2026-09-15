@@ -153,19 +153,13 @@ _OTHER_TOOLS_APPS = [
     {"app_label": "workbench", "name": _("工作台"), "url": "/admin/workbench/"},
     {"app_label": "workflow", "name": _("工作流引擎"), "url": "/admin/workflow/"},
     {"app_label": "labor_arbitration", "name": _("劳动仲裁文书"), "url": "/admin/labor_arbitration/"},
+    {"app_label": "message_hub", "name": _("信息中转站"), "url": "/admin/message_hub/"},
 ]
 
 
 def _build_other_tools_list() -> list[dict[str, Any]]:
     """构建「其他工具」列表，按 plugin 可用性动态追加条目。"""
     tools = list(_OTHER_TOOLS_APPS)
-    try:
-        from plugins import has_message_hub_plugin  # type: ignore[attr-defined]
-
-        if has_message_hub_plugin():
-            tools.append({"app_label": "message_hub", "name": _("信息中转站"), "url": "/admin/message_hub/"})
-    except ImportError:
-        pass
     return tools
 
 
@@ -549,16 +543,6 @@ admin.site.index = admin.site.admin_view(_admin_index_redirect)  # type: ignore[
 # Plugin admin 注册（admin_customization.py 在 Django ready 之后导入，可安全使用）
 # ============================================================
 
-_has_message_hub_plugin = False
-try:
-    from plugins import has_message_hub_plugin as _check_mh  # type: ignore[attr-defined]
-
-    if _check_mh():
-        _has_message_hub_plugin = True
-        import plugins.message_hub.admin
-except ImportError:
-    pass
-
 _has_court_token_admin = False
 try:
     from plugins import has_court_login_plugin as _check_cl  # type: ignore[attr-defined]
@@ -589,7 +573,6 @@ _original_each_context = admin.site.__class__.each_context
 
 def _each_context_with_plugins(self: admin.AdminSite, request: HttpRequest) -> dict[str, Any]:
     context = _original_each_context(self, request)
-    context["has_message_hub_plugin"] = _has_message_hub_plugin
     context["has_court_login_plugin"] = _has_court_token_admin
     return context
 

@@ -47,7 +47,7 @@ class TestMessageHub:
         assert ms_mod is not None
 
     def test_schemas_module(self):
-        from plugins.message_hub import schemas
+        from apps.message_hub import schemas
 
         assert schemas is not None
 
@@ -81,9 +81,7 @@ class TestImageRotation:
         assert models is not None
 
     def test_services_modules(self):
-        from apps.image_rotation.services import facade
-        from apps.image_rotation.services import validation
-        from apps.image_rotation.services import storage
+        from apps.image_rotation.services import facade, storage, validation
 
         assert facade is not None
         assert validation is not None
@@ -102,9 +100,7 @@ class TestPdfSplitting:
         assert models is not None
 
     def test_services_modules(self):
-        from apps.pdf_splitting.services import job_service
-        from apps.pdf_splitting.services import storage
-        from apps.pdf_splitting.services import template_registry
+        from apps.pdf_splitting.services import job_service, storage, template_registry
 
         assert job_service is not None
         assert storage is not None
@@ -123,9 +119,7 @@ class TestInvoiceRecognition:
         assert models is not None
 
     def test_services_modules(self):
-        from apps.invoice_recognition.services import invoice_parser
-        from apps.invoice_recognition.services import recognition_result
-        from apps.invoice_recognition.services import wiring
+        from apps.invoice_recognition.services import invoice_parser, recognition_result, wiring
 
         assert invoice_parser is not None
         assert recognition_result is not None
@@ -139,17 +133,14 @@ class TestLegalSolution:
     """legal_solution 模块测试"""
 
     def test_models_modules(self):
-        from apps.legal_solution.models import task as task_mod
         from apps.legal_solution.models import section as section_mod
+        from apps.legal_solution.models import task as task_mod
 
         assert task_mod is not None
         assert section_mod is not None
 
     def test_services_modules(self):
-        from apps.legal_solution.services import task_service
-        from apps.legal_solution.services import prompts
-        from apps.legal_solution.services import html_renderer
-        from apps.legal_solution.services import pdf_exporter
+        from apps.legal_solution.services import html_renderer, pdf_exporter, prompts, task_service
 
         assert task_service is not None
         assert prompts is not None
@@ -174,8 +165,7 @@ class TestBatchPrinting:
         assert schemas is not None
 
     def test_services_modules(self):
-        from apps.batch_printing.services import storage
-        from apps.batch_printing.services import wiring
+        from apps.batch_printing.services import storage, wiring
 
         assert storage is not None
         assert wiring is not None
@@ -193,8 +183,7 @@ class TestStoryViz:
         assert story_animation is not None
 
     def test_schemas_modules(self):
-        from apps.story_viz.schemas import extracted_facts
-        from apps.story_viz.schemas import animation_script
+        from apps.story_viz.schemas import animation_script, extracted_facts
 
         assert extracted_facts is not None
         assert animation_script is not None
@@ -217,9 +206,7 @@ class TestDocConverter:
         assert schemas is not None
 
     def test_services_modules(self):
-        from apps.doc_converter.services import converter_service
-        from apps.doc_converter.services import engine
-        from apps.doc_converter.services import storage
+        from apps.doc_converter.services import converter_service, engine, storage
 
         assert converter_service is not None
         assert engine is not None
@@ -244,8 +231,7 @@ class TestFinance:
 
     def test_services_modules(self):
         from apps.finance.services.calculator import interest_calculator
-        from apps.finance.services.lpr import rate_service
-        from apps.finance.services.lpr import sync_service
+        from apps.finance.services.lpr import rate_service, sync_service
 
         assert interest_calculator is not None
         assert rate_service is not None
@@ -269,9 +255,7 @@ class TestEvidenceSorting:
         assert schemas is not None
 
     def test_services_modules(self):
-        from apps.evidence_sorting.services import classifier
-        from apps.evidence_sorting.services import reconciler
-        from apps.evidence_sorting.services import exporter
+        from apps.evidence_sorting.services import classifier, exporter, reconciler
 
         assert classifier is not None
         assert reconciler is not None
@@ -300,8 +284,7 @@ class TestDocConvert:
         assert exceptions is not None
 
     def test_services_modules(self):
-        from apps.doc_convert.services import doc_convert_service
-        from apps.doc_convert.services import znszj_loader
+        from apps.doc_convert.services import doc_convert_service, znszj_loader
 
         assert doc_convert_service is not None
         assert znszj_loader is not None

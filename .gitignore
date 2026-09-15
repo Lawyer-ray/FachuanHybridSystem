@@ -44,6 +44,8 @@ backend/venv312/
 .settings/
 # Kiro IDE
 .kiro/
+# IWE 本地会话状态（数据库/工作区文件，不入库）
+**/.iwe/
 # Config snapshots
 .config_snapshots/
 # Django

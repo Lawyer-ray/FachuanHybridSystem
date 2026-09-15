@@ -1,0 +1,209 @@
+/* 隐藏包含 JavaScript 的字段集 */
+.hidden-fieldset {
+  display: none !important;
+}
+
+.field-body_preview,
+.field-attachments_actions,
+.field-submit_to_sms_button {
+  grid-template-columns: minmax(0, 1fr) !important;
+}
+
+.field-body_preview > div,
+.field-body_preview .flex-container,
+.field-body_preview .readonly,
+.field-attachments_actions > div,
+.field-attachments_actions .flex-container,
+.field-attachments_actions .readonly,
+.field-submit_to_sms_button > div,
+.field-submit_to_sms_button .flex-container,
+.field-submit_to_sms_button .readonly {
+  grid-column: 1 / -1 !important;
+  width: 100% !important;
+  max-width: none !important;
+  margin-left: 0 !important;
+}
+
+.field-body_preview > label,
+.field-body_preview .flex-container > label,
+.field-attachments_actions > label,
+.field-attachments_actions .flex-container > label,
+.field-submit_to_sms_button > label,
+.field-submit_to_sms_button .flex-container > label {
+  display: none !important;
+}
+
+.field-body_preview iframe {
+  width: 100% !important;
+  height: min(60vh, 750px) !important;
+}
+
+.field-body_preview .readonly > div {
+  width: 100% !important;
+  max-width: none !important;
+  max-height: min(60vh, 750px) !important;
+}
+
+.mh-attachments-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.mh-attachment-card {
+  padding: 14px 16px;
+  border: 1px solid var(--fc-border);
+  border-radius: 12px;
+  background: linear-gradient(180deg, var(--fc-bg-card) 0%, var(--fc-bg-muted) 100%);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+}
+
+.mh-attachment-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.mh-attachment-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.mh-attachment-name {
+  color: var(--fc-text-heading);
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.5;
+  word-break: break-all;
+}
+
+.mh-attachment-size {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: var(--fc-bg-muted-light);
+  color: var(--fc-text-secondary);
+  font-size: 12px;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.mh-attachment-effective {
+  color: var(--fc-text-muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.mh-attachment-effective strong {
+  color: var(--fc-text-heading);
+  font-weight: 600;
+  word-break: break-all;
+}
+
+.mh-attachment-editor {
+  display: grid;
+  grid-template-columns: minmax(280px, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  margin-top: 12px;
+}
+
+.mh-attachment-input {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1px solid var(--fc-border-input);
+  border-radius: 10px;
+  background: var(--fc-bg-card);
+  color: var(--fc-text-heading);
+  font-size: 14px;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.mh-attachment-input:focus {
+  border-color: var(--fc-primary);
+  outline: none;
+  box-shadow: 0 0 0 3px var(--fc-primary-ring);
+}
+
+.mh-attachment-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.mh-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  min-height: 38px;
+  padding: 0 14px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1;
+  text-decoration: none;
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
+}
+
+.mh-btn:hover {
+  opacity: 0.94;
+  box-shadow: 0 6px 14px rgba(15, 23, 42, 0.08);
+}
+
+.mh-btn[disabled] {
+  opacity: 0.65;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.mh-btn-primary {
+  background: var(--fc-primary);
+  color: var(--fc-text-on-primary);
+}
+
+.mh-btn-secondary {
+  border-color: var(--fc-border-input);
+  background: var(--fc-bg-card);
+  color: var(--fc-text-secondary);
+}
+
+.mh-btn-info {
+  background: var(--fc-primary-subtle);
+  color: var(--fc-primary-dark);
+}
+
+.mh-btn-success {
+  background: var(--fc-success-bg);
+  color: var(--fc-success-text);
+}
+
+.mh-attachment-msg {
+  min-height: 18px;
+  margin-top: 8px;
+  color: var(--fc-text-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+@media (max-width: 960px) {
+  .mh-attachment-editor {
+    grid-template-columns: 1fr;
+  }
+
+  .mh-attachment-actions {
+    justify-content: flex-start;
+  }
+}

@@ -20,10 +20,10 @@ from django.test import RequestFactory
 from django.utils import timezone
 
 if _HAS_MH:
-    from plugins.message_hub.admin.inbox_message_admin import InboxMessageAdmin
+    from apps.message_hub.admin.inbox_message_admin import InboxMessageAdmin
 
 if _HAS_MH:
-    from plugins.message_hub.admin.message_source_admin import MessageSourceAdmin
+    from apps.message_hub.admin.message_source_admin import MessageSourceAdmin
 
 from apps.message_hub.models import InboxMessage, MessageSource
 from apps.organization.models import AccountCredential, LawFirm, Lawyer
@@ -41,7 +41,7 @@ def _create_message_source() -> tuple[AccountCredential, MessageSource]:
     firm = LawFirm.objects.create(name="消息测试律所")
     lawyer = Lawyer.objects.create_user(username="msg_lawyer", real_name="消息律师", law_firm=firm)
     cred = AccountCredential.objects.create(
-        lawyer=lawyer, site_name="imap_site", account="msg_account", password="test_pass"  # allowlist secret
+        lawyer=lawyer, site_name="imap_site", account="msg_account", password="test_pass"  # pragma: allowlist secret
     )
     source = MessageSource.objects.create(
         credential=cred,

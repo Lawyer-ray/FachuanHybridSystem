@@ -314,10 +314,8 @@ document.addEventListener('DOMContentLoaded', function() {
 {% endblock %}
 
 {% block userlinks %}
-{% if has_message_hub_plugin %}
 <a href="{% url 'admin:message_hub_inboxmessage_changelist' %}">收件箱</a> /
 <a href="{% url 'admin:message_hub_messagesource_changelist' %}">消息来源</a> /
-{% endif %}
 <a href="{% url 'admin:cases_caselog_changelist' %}">日志</a> /
 <a href="{% url 'admin:documents_documenttemplate_changelist' %}">文件模板</a> /
 <a href="{% url 'admin:core_systemconfig_changelist' %}">系统配置</a> /
