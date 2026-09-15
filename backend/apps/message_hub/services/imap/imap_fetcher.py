@@ -112,6 +112,7 @@ class ImapFetcher(MessageFetcher):  # pragma: no cover
         import ssl
 
         cred = source.credential
+        assert cred is not None, "IMAP 消息来源必须绑定账号凭证"
         account = source.imap_account or cred.account
         hosts = _build_imap_host_candidates(source.imap_host, cred.url or cred.site_name)
         if not hosts:

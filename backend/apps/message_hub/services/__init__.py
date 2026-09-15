@@ -16,6 +16,11 @@ def get_fetcher(source_type: str) -> MessageFetcher:
     if source_type == SourceType.IMAP:
         return ImapFetcher()
 
+    if source_type == SourceType.MANUAL_UPLOAD:
+        from apps.message_hub.services.manual_upload_service import ManualUploadFetcher
+
+        return ManualUploadFetcher()
+
     # 一张网适配器位于 plugins（独立子模块），按需懒加载
     from plugins.message_hub.services.court.court_fetcher import CourtInboxFetcher
     from plugins.message_hub.services.court.court_schedule_fetcher import CourtScheduleFetcher

@@ -365,7 +365,7 @@ class InboxMessageAdmin(admin.ModelAdmin):  # pragma: no cover
 
     @admin.display(description="收件人")
     def recipient_display(self, obj: InboxMessage) -> str:  # pragma: no cover
-        account: str = obj.source.credential.account
+        account: str = obj.source.credential.account if obj.source.credential else ""
         return account
 
     @admin.display(description="主题")
