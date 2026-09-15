@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import io
 import logging
 from typing import Any
 
+from django.core.exceptions import ValidationError
 from django.http import FileResponse, HttpRequest
 from ninja import Form, Query, Router, Schema
 
@@ -123,6 +125,111 @@ def preview_attachment(  # pragma: no cover
     """预览附件（inline）。"""
     msg = _get_message_or_404(message_id)
     return _serve_attachment(msg, part_index, inline=True)
+
+
+@router.post("/messages/{message_id}/attachments", response={201: InboxMessageDetailOut})
+def append_attachments(  # pragma: no cover
+    request: HttpRequest,
+    message_id: int,
+    subject: str = Form(""),
+) -> tuple[int, InboxMessage]:
+    """往现有材料包追加附件（multipart 每次一个 files 字段），返回更新后的详情。"""
+    from apps.message_hub.services.manual_upload_service import append_manual_attachments
+
+    files = request.FILES.getlist("files")
+    if not files:
+        raise ValidationError("没有收到文件")
+    msg = _get_message_or_404(message_id)
+    append_manual_attachments(msg, files)
+    return 201, _get_message_or_404(msg.pk)
+
+
+class OcrBlockOut(Schema):
+    x: float
+    y: float
+    w: float
+    h: float
+    text: str = ""
+    score: float = 0.0
+
+
+class OcrResultOut(Schema):
+    width: int
+    height: int
+    blocks: list[OcrBlockOut] = []
+
+
+@router.post("/ocr", response=OcrResultOut)
+def ocr_recognize(request: HttpRequest) -> OcrResultOut:  # pragma: no cover
+    """前端框选取字：接收一张页面图片，RapidOCR 识别后返回归一化文字块坐标。"""
+    up = request.FILES.get("file")
+    if not up:
+        raise ValidationError("没有收到图片")
+    data = up.read()
+
+    width = height = 0
+    try:
+        from PIL import Image
+
+        img = Image.open(io.BytesIO(data)).convert("RGB")
+        width, height = img.size
+    except Exception:
+        width = height = 0
+
+    try:
+        from apps.core.interfaces import ServiceLocator
+
+        service = ServiceLocator.get_ocr_service()
+        result = service.recognize_raw(data)
+    except Exception as e:
+        logger.warning("RapidOCR 识别失败，返回空结果: %s", e)
+        result = None
+
+    return OcrResultOut(width=width, height=height, blocks=_normalize_ocr_blocks(result, width, height))
+
+
+def _normalize_ocr_blocks(result: Any, width: int, height: int) -> list[OcrBlockOut]:
+    """把 RapidOCR 原始结果（4 角点像素框）归一化成 0-1 相对坐标矩形。"""
+    if result is None or getattr(result, "boxes", None) is None:
+        return []
+    if width <= 0 or height <= 0:
+        return []
+    try:
+        boxes = result.boxes.tolist()
+    except Exception:
+        boxes = getattr(result, "boxes", None)
+    if not boxes:
+        return []
+    txts = getattr(result, "txts", None) or []
+    scores = getattr(result, "scores", None)
+    out: list[OcrBlockOut] = []
+    for i, box in enumerate(boxes):
+        try:
+            pts = [[float(p[0]), float(p[1])] for p in box]
+        except Exception:
+            continue
+        if not pts:
+            continue
+        xs = [p[0] for p in pts]
+        ys = [p[1] for p in pts]
+        score = 0.0
+        if scores is not None and i < len(scores):
+            try:
+                score = float(scores[i])
+            except Exception:
+                score = 0.0
+        text = str(txts[i]) if i < len(txts) else ""
+        out.append(
+            OcrBlockOut(
+                x=round(min(xs) / width, 4) if width else 0,
+                y=round(min(ys) / height, 4) if height else 0,
+                w=round((max(xs) - min(xs)) / width, 4) if width else 0,
+                h=round((max(ys) - min(ys)) / height, 4) if height else 0,
+                text=text.strip(),
+                score=score,
+            )
+        )
+    return out
 
 
 class RenameAttachmentIn(Schema):

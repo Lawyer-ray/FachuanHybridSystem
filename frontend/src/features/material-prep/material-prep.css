@@ -1,0 +1,120 @@
+/* 材料预处理专用动效。配合 Tailwind 其它工具类使用。 */
+
+/* ---- 卡片：已归案印章敲入 ---- */
+.mp-stamp {
+  opacity: 0;
+  transform: rotate(-14deg) scale(1.7);
+}
+.mp-packet.stamped .mp-stamp {
+  animation: mp-stamp-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation-delay: 0.05s;
+}
+@keyframes mp-stamp-in {
+  to {
+    opacity: 1;
+    transform: rotate(-14deg) scale(1);
+  }
+}
+
+/* ---- 卡片：不接(左) / 归案(右) 离场 ---- */
+.mp-packet.leave-left {
+  animation: mp-leave-left 0.46s cubic-bezier(0.4, 0, 0.6, 1) forwards;
+}
+.mp-packet.leave-right {
+  animation: mp-leave-right 0.46s cubic-bezier(0.4, 0, 0.6, 1) forwards;
+}
+@keyframes mp-leave-left {
+  40% {
+    transform: translateX(-18px) rotate(-2deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(-130%) rotate(-5deg);
+    opacity: 0.15;
+  }
+}
+@keyframes mp-leave-right {
+  40% {
+    transform: translateX(18px) rotate(2deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(130%) rotate(5deg);
+    opacity: 0.15;
+  }
+}
+
+/* ---- 卡片：新包落地 ---- */
+.mp-packet.land {
+  animation: mp-land 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes mp-land {
+  0% {
+    transform: translateY(-6px);
+    opacity: 0.4;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+.mp-packet.fresh .thumbband {
+  outline: 2px solid rgba(37, 99, 235, 0.25);
+  outline-offset: -2px;
+}
+@keyframes mp-fresh-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(37, 99, 235, 0);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(37, 99, 235, 0.12);
+  }
+}
+.mp-packet.fresh {
+  animation: mp-fresh-pulse 2.2s ease-out;
+}
+
+/* ---- ring：键盘导航的高亮框 ---- */
+.mp-ring {
+  position: absolute;
+  pointer-events: none;
+  border: 2px solid #2563eb;
+  border-radius: 13px;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.18);
+  transition:
+    width 0.12s ease,
+    height 0.12s ease,
+    transform 0.12s ease;
+  opacity: 0;
+}
+.mp-ring.on {
+  opacity: 1;
+}
+
+/* ---- 已归案印章本体 ---- */
+.mp-stamp-mark {
+  position: absolute;
+  right: 15px;
+  top: 16px;
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  width: 96px;
+  height: 96px;
+  border: 3px solid rgba(239, 68, 68, 0.85);
+  border-radius: 14px;
+  color: rgba(239, 68, 68, 0.85);
+  font-weight: 700;
+  font-size: 17px;
+  letter-spacing: 2px;
+  text-align: center;
+  line-height: 1.2;
+  pointer-events: none;
+  -webkit-mask-image: radial-gradient(
+    circle,
+    rgba(0, 0, 0, 0.7) 0%,
+    rgba(0, 0, 0, 0.7) 78%,
+    transparent 79%
+  );
+}

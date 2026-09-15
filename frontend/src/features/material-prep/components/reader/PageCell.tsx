@@ -5,51 +5,156 @@ import { fetchAttachmentBytes } from '../../api'
 import type { BundleMat } from '../../types'
 import { cn } from '@/lib/utils'
 
-/**
- * 单个页面。PDF 用 pdf.js 真渲染到 canvas，图片用 blob 直显，office 画占位卡。
- * 用 React.memo + 稳定 props，避免整段状态变化时重渲每页。
- */
+export interface PageRect {
+  x: number
+  y: number
+  w: number
+  h: number
+}
+
+const MIN_DRAG = 0.018
+
 export const PageCell = memo(function PageCell({
   messageId,
   mi,
   p,
   mat,
-  focused,
+  pickActive,
+  selModeActive,
+  selected,
+  marks = [],
+  ocrRect,
   onPickPage,
+  onOcrBox,
+  onToggleSel,
 }: {
   messageId: number
   mi: number
   p: number
   mat: BundleMat
-  focused: boolean
+  pickActive?: boolean
+  selModeActive?: boolean
+  selected?: boolean
+  marks?: { fi: number; rect: PageRect; label: string }[]
+  ocrRect?: PageRect | null
   onPickPage?: (mi: number, p: number) => void
+  onOcrBox?: (mi: number, p: number, rect: PageRect) => void
+  onToggleSel?: (mi: number, p: number, shift: boolean) => void
 }) {
+  const boxRef = useRef<HTMLDivElement>(null)
+  const dragRef = useRef<{ x: number; y: number } | null>(null)
+  const movedRef = useRef(false)
+  const [dragRect, setDragRect] = useState<PageRect | null>(null)
+
+  const stopProp = (e: React.SyntheticEvent) => e.stopPropagation()
+
+  const onPointerDown = (e: React.PointerEvent) => {
+    if (!pickActive || e.button !== 0) return
+    const r = boxRef.current?.getBoundingClientRect()
+    if (!r) return
+    dragRef.current = { x: (e.clientX - r.left) / r.width, y: (e.clientY - r.top) / r.height }
+    movedRef.current = false
+    setDragRect(null)
+    try {
+      e.currentTarget.setPointerCapture(e.pointerId)
+    } catch {
+      /* noop */
+    }
+  }
+
+  const onPointerMove = (e: React.PointerEvent) => {
+    if (!dragRef.current || !pickActive) return
+    const r = boxRef.current?.getBoundingClientRect()
+    if (!r) return
+    const cur = { x: (e.clientX - r.left) / r.width, y: (e.clientY - r.top) / r.height }
+    const a = dragRef.current
+    const rect: PageRect = {
+      x: Math.min(a.x, cur.x),
+      y: Math.min(a.y, cur.y),
+      w: Math.abs(cur.x - a.x),
+      h: Math.abs(cur.y - a.y),
+    }
+    if (rect.w > MIN_DRAG || rect.h > MIN_DRAG) movedRef.current = true
+    setDragRect(rect)
+  }
+
+  const onPointerUp = () => {
+    if (!dragRef.current || !pickActive) return
+    dragRef.current = null
+    const rect = dragRect
+    setDragRect(null)
+    if (rect && (rect.w > MIN_DRAG || rect.h > MIN_DRAG)) {
+      onOcrBox?.(mi, p, rect)
+    } else if (!rect) {
+      onPickPage?.(mi, p)
+    }
+  }
+
+  const onClick = (e: React.MouseEvent) => {
+    if (pickActive || movedRef.current) return
+    const mod = e.metaKey || e.ctrlKey
+    if (selModeActive || mod || e.shiftKey) {
+      e.preventDefault()
+      onToggleSel?.(mi, p, e.shiftKey)
+    }
+  }
+
   return (
     <div
+      ref={boxRef}
       data-mi={mi}
       data-p={p}
-      role="button"
-      tabIndex={onPickPage ? 0 : -1}
-      onClick={() => onPickPage?.(mi, p)}
-      onKeyDown={(e) => {
-        if (onPickPage && (e.key === 'Enter' || e.key === ' ')) {
-          e.preventDefault()
-          onPickPage(mi, p)
-        }
-      }}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+      onClick={onClick}
+      onDragStart={stopProp}
       className={cn(
-        'relative rounded-[7px] border border-border/70 bg-card text-[12.5px] leading-[1.9] text-foreground shadow-[0_1px_3px_rgba(0,0,0,0.05),0_10px_26px_rgba(0,0,0,0.04)]',
-        onPickPage && 'cursor-crosshair ring-amber-300',
-        focused && 'ring-2 ring-amber-400',
+        'relative select-text rounded-[7px] border bg-card text-[12.5px] leading-[1.9] text-foreground shadow-[0_1px_3px_rgba(0,0,0,0.05),0_10px_26px_rgba(0,0,0,0.04)]',
+        pickActive ? 'cursor-crosshair select-none' : selModeActive ? 'cursor-pointer' : 'cursor-default',
+        selected && 'border-blue-500 ring-2 ring-blue-500/70',
+        pickActive && !selected && 'border-amber-300/70 ring-1 ring-amber-300/50',
       )}
     >
       <PageBody messageId={messageId} p={p} mat={mat} />
-      <div className="flex items-center justify-between gap-2 px-3 py-1.5 text-[11px] text-muted-foreground">
+
+      <div className="flex items-center justify-between gap-2 rounded-b-[7px] border-t border-border/60 bg-card px-3 py-1.5 text-[11px] text-muted-foreground">
         <span className="truncate">{mat.customName || mat.n}</span>
         <span className="tabular-nums">
           第 {p} / {mat.pages} 页
         </span>
       </div>
+
+      {/* 来源标注：采纳后的绿框 */}
+      {marks.map((m) => (
+        <div
+          key={m.fi}
+          className="pointer-events-auto absolute rounded-[3px] border-[1.5px] border-green-500/80"
+          style={{ left: `${m.rect.x * 100}%`, top: `${m.rect.y * 100}%`, width: `${m.rect.w * 100}%`, height: `${m.rect.h * 100}%` }}
+        >
+          <span className="absolute -top-5 left-0 whitespace-nowrap rounded bg-green-600 px-1 text-[10px] leading-4 text-white">
+            {m.label}
+          </span>
+        </div>
+      ))}
+
+      {/* OCR 拖出的框 */}
+      {dragRect && (
+        <div
+          className="pointer-events-none absolute rounded-[3px] border-2 border-blue-500/90 bg-blue-500/10"
+          style={{ left: `${dragRect.x * 100}%`, top: `${dragRect.y * 100}%`, width: `${dragRect.w * 100}%`, height: `${dragRect.h * 100}%` }}
+        />
+      )}
+
+      {/* 待确认的 OCR 框 */}
+      {ocrRect && (
+        <div
+          className="pointer-events-none absolute rounded-[3px] border-2 border-green-500 bg-blue-500/10"
+          style={{ left: `${ocrRect.x * 100}%`, top: `${ocrRect.y * 100}%`, width: `${ocrRect.w * 100}%`, height: `${ocrRect.h * 100}%` }}
+        >
+          <span className="absolute -top-5 left-0 whitespace-nowrap rounded bg-zinc-800 px-1 text-[10px] leading-4 text-white opacity-0" />
+        </div>
+      )}
     </div>
   )
 })
@@ -100,9 +205,13 @@ function PdfPageView({ messageId, partIndex, pageNum }: { messageId: number; par
   )
 }
 
+// react-hooks lint shim (avoid rename churn)
+// eslint-disable-next-line react-hooks/rules-of-hooks
+import { useEffect as useEffect0 } from 'react'
+
 function PhotoPageView({ messageId, partIndex }: { messageId: number; partIndex: number }) {
   const [url, setUrl] = useState<string | null>(null)
-  useEffect(() => {
+  useEffect0(() => {
     let alive = true
     let objectUrl: string | null = null
     fetchAttachmentBytes(messageId, partIndex)

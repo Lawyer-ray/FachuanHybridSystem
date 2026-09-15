@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { listMaterialPacks, uploadPack } from '../api'
-import type { InboxMessage } from '../types'
+import { listMaterialPacks, setPackStatusRemote, uploadPack } from '../api'
+import type { AssignInfo, InboxMessage, PackStatus } from '../types'
 
 export const PACKS_KEY = ['inbox', 'material-packs']
 
@@ -9,6 +9,7 @@ export function useMaterialPacks() {
     queryKey: PACKS_KEY,
     queryFn: listMaterialPacks,
     staleTime: 30_000,
+    refetchOnWindowFocus: false,
   })
 }
 
@@ -21,6 +22,20 @@ export function useCreatePack() {
       throw e
     },
   })
+}
+
+export function useJudgePack() {
+  const qc = useQueryClient()
+  const invalidate = () => qc.invalidateQueries({ queryKey: PACKS_KEY })
+  const mut = useMutation({
+    mutationFn: (v: { id: number; status: PackStatus; assign?: AssignInfo }) =>
+      setPackStatusRemote(v.id, v.status, v.assign),
+    onSuccess: invalidate,
+    onError: (e) => {
+      throw e
+    },
+  })
+  return { ...mut, invalidate }
 }
 
 export function upsertPackLocal(list: InboxMessage[] | undefined, id: number): InboxMessage[] {

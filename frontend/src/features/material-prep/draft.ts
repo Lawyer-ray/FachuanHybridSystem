@@ -1,6 +1,17 @@
 import { detectMaterialKind, loadPdfDocument } from '@/lib/pdf'
 import { fetchAttachmentBytes } from './api'
-import type { AttachmentMeta, BundleMat, DraftState, InboxMessageDetail, InfoField, PageKey, Segment } from './types'
+import { SEG_COLORS } from './constants'
+import type {
+  AssignInfo,
+  AttachmentMeta,
+  BundleMat,
+  DraftState,
+  InboxMessageDetail,
+  InfoField,
+  PageKey,
+  PackStatus,
+  Segment,
+} from './types'
 
 /** 每个附件算出一个源素材，并解析真实页数（PDF 需要载入文档取页数）。 */
 export async function resolveMats(msg: InboxMessageDetail): Promise<BundleMat[]> {
@@ -195,4 +206,180 @@ export function isWholeMat(d: DraftState, si: number): boolean {
   for (let p = 1; p <= m.pages; p++) full.add(p)
   const have = new Set(sg.refs.map((r) => r.p))
   return full.size === have.size && [...have].every((p) => full.has(p))
+}
+
+// ---------------------------------------------------------------------------
+// 选页 → 独立 / 合并
+// ---------------------------------------------------------------------------
+
+/** 段色：按段序取色盘，稳定不闪 */
+export function segColorOf(si: number): string {
+  return SEG_COLORS[si % SEG_COLORS.length]
+}
+
+/** 页面唯一键（用于选中集合） */
+export const selKeyOf = (r: PageKey): string => `${r.mi}:${r.p}`
+
+/** 全量页面扁平列表（按段依序展开），选页区间 / 连续性判定都基于它 */
+export interface FlatRef {
+  si: number
+  k: number
+  ref: PageKey
+}
+
+export function flatRefs(d: DraftState): FlatRef[] {
+  const flat: FlatRef[] = []
+  d.segs.forEach((sg, si) => sg.refs.forEach((r, k) => flat.push({ si, k, ref: r })))
+  return flat
+}
+
+export function pageIndexOf(d: DraftState, mi: number, p: number): number {
+  return flatRefs(d).findIndex((f) => f.ref.mi === mi && f.ref.p === p)
+}
+
+export function pageKeyOf(mi: number, p: number): string {
+  return `${mi}:${p}`
+}
+
+/** 页码区间的人类可读标签：单源 "P1–3,P5"，跨源 "甲.pdf P1,2 + 乙.pdf P3" */
+export function rangeLabel(mats: BundleMat[], refs: PageKey[]): string {
+  const byM: Record<number, number[]> = {}
+  refs.forEach((r) => {
+    ;(byM[r.mi] = byM[r.mi] || []).push(r.p)
+  })
+  const single = Object.keys(byM).length === 1
+  return Object.keys(byM)
+    .map((k) => {
+      const mi = Number(k)
+      const ps = (byM[mi] || []).slice().sort((a, b) => a - b)
+      const parts: string[] = []
+      let st = ps[0]
+      let prev = ps[0]
+      for (let i = 1; i <= ps.length; i++) {
+        if (i < ps.length && ps[i] === prev + 1) {
+          prev = ps[i]
+          continue
+        }
+        parts.push(st === prev ? `P${st}` : `P${st}–${prev}`)
+        if (i < ps.length) st = prev = ps[i]
+      }
+      return (single ? '' : matLabel(mats, mi) + ' ') + parts.join(',')
+    })
+    .join(' + ')
+}
+
+/** 新段默认名：单源用源文件名当底，跨源用当前段名；带起始页，切第二次不叠后缀 */
+function splitBase(sg: Segment, mats: BundleMat[]): string {
+  const mis = segMats(sg)
+  const name = mis.length === 1 ? matLabel(mats, mis[0]) : sg.fn
+  return name.replace(/\.[^.]+$/, '')
+}
+function splitExt(sg: Segment): string {
+  return (sg.fn.match(/\.[^.]+$/) || ['.pdf'])[0]
+}
+
+/**
+ * 把选中的若干页从所在段里「切出来」独立成一份新材料。
+ * 选中页必须在顺序上是连续的（由调用方保证）。
+ */
+export function splitOutPages(d: DraftState, picked: PageKey[]): DraftState {
+  if (!picked.length) return d
+  const flat = flatRefs(d)
+  const idx = picked
+    .map((o) => flat.findIndex((f) => f.ref.mi === o.mi && f.ref.p === o.p))
+    .filter((i) => i >= 0)
+    .sort((a, b) => a - b)
+  if (!idx.length) return d
+  const a = idx[0]
+  const b = idx[idx.length - 1]
+  if (b - a + 1 !== idx.length) return d // 不连续
+  const slice = flat.slice(a, b + 1)
+  const si = slice[0].si
+  const sg = d.segs[si]
+  const k0 = slice[0].k
+  const k1 = slice[slice.length - 1].k
+  if (k0 === 0 && k1 === sg.refs.length - 1) return d // 这就是整份材料
+  const parts: Segment[] = []
+  if (k0 > 0)
+    parts.push({ t: sg.t, fn: sg.fn, refs: sg.refs.slice(0, k0), manual: sg.manual })
+  parts.push({
+    t: '',
+    fn: splitBase(sg, d.mats) + '-P' + picked[0].p + splitExt(sg),
+    refs: picked,
+    manual: true,
+  })
+  if (k1 < sg.refs.length - 1)
+    parts.push({ t: sg.t, fn: sg.fn, refs: sg.refs.slice(k1 + 1), manual: sg.manual })
+  const segs = [...d.segs.slice(0, si), ...parts, ...d.segs.slice(si + 1)]
+  return { ...d, segs }
+}
+
+/** 把选中页并成一份新的跨源材料，并从原段移除这些页（空段被清掉）。 */
+export function mergePagesIntoNew(d: DraftState, picked: PageKey[]): DraftState {
+  if (!picked.length) return d
+  const taken = new Set(picked.map((r) => `${r.mi}:${r.p}`))
+  const segs: Segment[] = []
+  for (const sg of d.segs) {
+    const refs = sg.refs.filter((r) => !taken.has(`${r.mi}:${r.p}`))
+    if (refs.length) segs.push({ ...sg, refs })
+  }
+  segs.push({ t: '', fn: '合并材料.pdf', refs: picked, manual: true })
+  return { ...d, segs }
+}
+
+/**
+ * 合并应用选中页：全部来自同一段 → 切出独立材料；跨段 → 并成一份跨源材料。
+ * 返回新的 draft（未选中不产生任何变化）。
+ */
+export function applyPageSelection(d: DraftState, selPages: PageKey[]): DraftState {
+  if (!selPages.length) return d
+  const flat = flatRefs(d)
+  const idx = selPages
+    .map((o) => flat.findIndex((f) => f.ref.mi === o.mi && f.ref.p === o.p))
+    .filter((i) => i >= 0)
+    .sort((a, b) => a - b)
+  if (!idx.length) return d
+  const slice = flat.slice(idx[0], idx[idx.length - 1] + 1)
+  const involved = new Set(slice.map((f) => f.si))
+  if (involved.size === 1) return splitOutPages(d, selPages)
+  return mergePagesIntoNew(d, selPages)
+}
+
+/**
+ * 选中页是否在顺序上连续（跨段 / 乱序都不算；允许跨源但在扁平序上相邻）。
+ */
+export function isSelectionContiguous(d: DraftState, selPages: PageKey[]): boolean {
+  if (!selPages.length) return false
+  const idx = selPages
+    .map((o) => pageIndexOf(d, o.mi, o.p))
+    .filter((i) => i >= 0)
+    .sort((a, b) => a - b)
+  if (!idx.length || idx.length !== selPages.length) return false
+  return idx[idx.length - 1] - idx[0] + 1 === idx.length
+}
+
+// ---------------------------------------------------------------------------
+// 材料包状态 / 归案信息（持久化到 draft_state）
+// ---------------------------------------------------------------------------
+
+export function setPackStatus(d: DraftState, status: PackStatus): DraftState {
+  if (d.status === status) return d
+  return { ...d, status }
+}
+
+export function setPackAssign(d: DraftState, assign: AssignInfo): DraftState {
+  return { ...d, assign, status: 'done' }
+}
+
+export function appendMatsToDraft(d: DraftState, added: BundleMat[]): DraftState {
+  if (!added.length) return d
+  const mats = [...d.mats, ...added]
+  const segs = [...d.segs]
+  added.forEach((m, idx) => {
+    const mi = d.mats.length + idx
+    const refs: PageKey[] = []
+    for (let p = 1; p <= m.pages; p++) refs.push({ mi, p })
+    segs.push({ t: '', fn: m.n, refs, manual: false })
+  })
+  return { ...d, mats, segs }
 }

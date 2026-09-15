@@ -1,5 +1,13 @@
 import { createApiClient } from '@/lib/api'
-import type { InboxMessage, InboxMessageDetail, DraftState } from './types'
+import type {
+  AssignInfo,
+  CaseRow,
+  InboxMessage,
+  InboxMessageDetail,
+  DraftState,
+  OcrResult,
+  PackStatus,
+} from './types'
 
 /**
  * 材料预处理对接的是后端收件箱（/api/v1/inbox）。
@@ -27,9 +35,47 @@ export async function uploadPack(files: File[], subject?: string): Promise<Inbox
     .json<InboxMessageDetail>()
 }
 
+/** 阅读器内追加材料：往现有材料包再收一批文件，返回更新后的详情 */
+export async function appendPackFiles(id: number, files: File[]): Promise<InboxMessageDetail> {
+  return inboxApi
+    .post(`messages/${id}/attachments`, {
+      body: toFormData(files),
+    })
+    .json<InboxMessageDetail>()
+}
+
 /** 保存拆分草稿 */
 export async function saveDraft(id: number, draft: DraftState): Promise<void> {
   await inboxApi.put(`messages/${id}/draft`, { json: { draft } }).json()
+}
+
+/** 只打标材料包状态（不接归档 / 归案），保留已有 draft_state 的拆分内容 */
+export async function setPackStatusRemote(
+  id: number,
+  status: PackStatus,
+  assign?: AssignInfo,
+): Promise<void> {
+  const detail = await getPackDetail(id)
+  const draft = detail.draft_state ?? {}
+  await saveDraft(id, {
+    ...draft,
+    status,
+    ...(assign ? { assign } : {}),
+  })
+}
+
+/** 框选取字：把页面图片交给 RapidOCR，返回归一化文字块 */
+export async function ocrImage(image: Blob): Promise<OcrResult> {
+  const fd = new FormData()
+  fd.append('file', image, 'page.png')
+  return inboxApi.post('ocr', { body: fd }).json<OcrResult>()
+}
+
+/** 搜索真实案件（归案 modal 用） */
+export async function searchCases(q: string): Promise<CaseRow[]> {
+  if (!q.trim()) return []
+  const base = createApiClient() // prefix = API_BASE_URL(/api/v1)
+  return base.get('cases/search', { searchParams: { q, limit: '10' } }).json<CaseRow[]>()
 }
 
 const bytesCache = new Map<string, Promise<ArrayBuffer>>()

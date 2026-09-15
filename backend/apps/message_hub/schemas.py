@@ -36,6 +36,79 @@ class InboxMessageOut(SchemaMixin, Schema):
     uploaded_by_id: int | None
     uploaded_by_name: str
     created_at: str
+    status: str = "todo"
+    segs: int = 0
+    named: int = 0
+    pages: int = 0
+    mats: int = 0
+    types: list[str] = []
+    compose: str = ""
+
+    @staticmethod
+    def resolve_status(obj: InboxMessage) -> str:
+        ds = obj.draft_state or {}
+        status = str(ds.get("status") or "todo")
+        return status if status in {"todo", "done", "filed"} else "todo"
+
+    @staticmethod
+    def resolve_segs(obj: InboxMessage) -> int:
+        return len((obj.draft_state or {}).get("segs") or [])
+
+    @staticmethod
+    def resolve_named(obj: InboxMessage) -> int:
+        segs = (obj.draft_state or {}).get("segs") or []
+        return sum(1 for s in segs if str(s.get("t") or "").strip())
+
+    @staticmethod
+    def resolve_pages(obj: InboxMessage) -> int:
+        mats = (obj.draft_state or {}).get("mats") or []
+        return sum(int(m.get("pages") or 0) for m in mats)
+
+    @staticmethod
+    def resolve_mats(obj: InboxMessage) -> int:
+        draft_mats = (obj.draft_state or {}).get("mats") or []
+        if draft_mats:
+            return len(draft_mats)
+        return len(obj.attachments_meta or [])
+
+    @staticmethod
+    def resolve_types(obj: InboxMessage) -> list[str]:
+        segs = (obj.draft_state or {}).get("segs") or []
+        seen: list[str] = []
+        for s in segs:
+            t = str(s.get("t") or "").strip()
+            if t and t not in seen:
+                seen.append(t)
+            if len(seen) >= 3:
+                break
+        return seen
+
+    @staticmethod
+    def _kind_label(content_type: str | None) -> str:
+        ct = (content_type or "").lower()
+        if ct.startswith("image/"):
+            return "图片"
+        if "pdf" in ct:
+            return "文档"
+        # Word/Excel 等统一归到"文档"
+        return "文档"
+
+    @staticmethod
+    def resolve_compose(obj: InboxMessage) -> str:
+        mats = (obj.draft_state or {}).get("mats") or []
+        if not mats:
+            group: dict[str, int] = {}
+            for att in obj.attachments_meta or []:
+                label = InboxMessageOut._kind_label(att.get("content_type"))
+                group[label] = group.get(label, 0) + 1
+            return "、".join(f"{n} 个{v}" for v, n in group.items()) if group else ""
+        group: dict[str, int] = {}
+        for m in mats:
+            k = str(m.get("k") or "office")
+            label = "图片" if k == "photo" else "文档"
+            group[label] = group.get(label, 0) + 1
+        bits = [f"{n} 个{v}" for v, n in group.items()]
+        return " · ".join(bits) if bits else "尚未拆分"
 
     @staticmethod
     def resolve_source_name(obj: InboxMessage) -> str:

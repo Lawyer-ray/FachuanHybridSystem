@@ -1,8 +1,26 @@
 import { create } from 'zustand'
 import { toast } from 'sonner'
-import { getPackDetail, saveDraft } from './api'
-import { buildInitialDraft, resolveMats } from './draft'
-import type { BundleMat, DraftState, InboxMessageDetail } from './types'
+import { appendPackFiles, getPackDetail, saveDraft } from './api'
+import {
+  applyPageSelection,
+  appendMatsToDraft,
+  buildInitialDraft,
+  flatRefs,
+  isSelectionContiguous,
+  pageIndexOf,
+  resolveMats,
+  setPackAssign,
+  setPackStatus,
+} from './draft'
+import type {
+  AssignInfo,
+  BundleMat,
+  DraftState,
+  InboxMessageDetail,
+  OcrPending,
+  PackStatus,
+  PageKey,
+} from './types'
 
 interface ReaderState {
   openId: number | null
@@ -14,6 +32,16 @@ interface ReaderState {
   pickInfo: number
   /** 画布缩放倍数（1 = 适应宽度） */
   zoom: number
+  /** 并排列数 */
+  cols: number
+  /** 选页模式：平时点页面不做任何事，靠 ⌘/⇧ 或此模式 */
+  selMode: boolean
+  /** 当前选中的页 */
+  selPages: PageKey[]
+  /** 区间锚点（扁平序 index） */
+  lastAnchor: number
+  /** OCR 框选取字：当前待确认的框（民警未确认前由面板接管） */
+  ocrPending: OcrPending | null
 
   open: (id: number) => Promise<void>
   close: () => void
@@ -21,7 +49,19 @@ interface ReaderState {
   update: (fn: (d: DraftState) => DraftState) => void
   setPickInfo: (i: number) => void
   setZoom: (z: number) => void
+  setCols: (n: number) => void
+  toggleSelMode: () => void
+  /** ⌘/Ctrl 单击切换 / ⇧ 单击选区间（shift=true 用锚点） */
+  toggleSel: (mi: number, p: number, shift: boolean) => void
+  clearSel: () => void
+  applySel: () => void
+  setOcrPending: (p: OcrPending | null) => void
+  /** 打标材料包状态（不接归档 / 拆分归类完成等） */
+  setStatus: (s: PackStatus) => void
+  setAssign: (a: AssignInfo) => void
   renameMatInDraft: (mi: number, n: string) => void
+  /** 阅读器内追加材料：上传后并回 draft_state（不改已拆内容） */
+  appendFiles: (files: File[]) => Promise<void>
 }
 
 let saveTimer: ReturnType<typeof setTimeout> | null = null
@@ -29,23 +69,31 @@ let latestDraft: DraftState | null = null
 let latestId = 0
 let forceSave = false
 
-function scheduleSave(draft: DraftState, id: number, immediate = false): void {
+function scheduleSave(draft: DraftState, id: number, immediate = false): Promise<void> | null {
   latestDraft = draft
   latestId = id
   if (immediate && saveTimer) {
     clearTimeout(saveTimer)
     saveTimer = null
   }
-  if (saveTimer) return
+  if (saveTimer) return null
   forceSave = immediate
-  saveTimer = setTimeout(() => {
-    saveTimer = null
-    const d = latestDraft
-    const mid = latestId
-    if (!d) return
-    saveDraft(mid, d)
-      .catch(() => toast.error('拆分草稿保存失败，请检查后端连接'))
-  }, forceSave ? 0 : 450)
+  return new Promise((resolve, reject) => {
+    latestDraft = draft
+    latestId = id
+    saveTimer = setTimeout(() => {
+      saveTimer = null
+      const d = latestDraft
+      const mid = latestId
+      if (!d) return resolve()
+      saveDraft(mid, d)
+        .then(() => resolve())
+        .catch((e) => {
+          toast.error('拆分草稿保存失败，请检查后端连接')
+          reject(e)
+        })
+    }, forceSave ? 0 : 450)
+  })
 }
 
 export const useReader = create<ReaderState>((set, get) => ({
@@ -56,9 +104,25 @@ export const useReader = create<ReaderState>((set, get) => ({
   error: '',
   pickInfo: -1,
   zoom: 1,
+  cols: 1,
+  selMode: false,
+  selPages: [],
+  lastAnchor: -1,
+  ocrPending: null,
 
   open: async (id) => {
-    set({ status: 'loading', error: '', openId: id, pickInfo: -1, zoom: 1 })
+    set({
+      status: 'loading',
+      error: '',
+      openId: id,
+      pickInfo: -1,
+      zoom: 1,
+      cols: 1,
+      selMode: false,
+      selPages: [],
+      lastAnchor: -1,
+      ocrPending: null,
+    })
     try {
       const detail = await getPackDetail(id)
       let mats: BundleMat[] = []
@@ -82,8 +146,21 @@ export const useReader = create<ReaderState>((set, get) => ({
 
   close: () => {
     const { openId, draft } = get()
+    if (openId && draft) forceSave = true
     if (openId && draft) scheduleSave(draft, openId, true)
-    set({ openId: null, detail: null, draft: null, status: 'idle', pickInfo: -1, zoom: 1 })
+    set({
+      openId: null,
+      detail: null,
+      draft: null,
+      status: 'idle',
+      pickInfo: -1,
+      zoom: 1,
+      cols: 1,
+      selMode: false,
+      selPages: [],
+      lastAnchor: -1,
+      ocrPending: null,
+    })
   },
 
   update: (fn) => {
@@ -95,8 +172,71 @@ export const useReader = create<ReaderState>((set, get) => ({
     if (get().openId) scheduleSave(next, get().openId as number)
   },
 
-  setPickInfo: (i) => set({ pickInfo: i }),
+  setPickInfo: (i) => {
+    set({ pickInfo: i, selPages: [], ocrPending: null })
+    if (i >= 0) set({ selMode: false })
+  },
   setZoom: (z) => set({ zoom: z }),
+  setCols: (n) => set({ cols: n }),
+  toggleSelMode: () => {
+    const next = !get().selMode
+    set({ selMode: next, selPages: next ? get().selPages : [], pickInfo: next ? -1 : get().pickInfo })
+  },
+
+  toggleSel: (mi, p, shift) => {
+    const { draft } = get()
+    if (!draft) return
+    const idx = pageIndexOf(draft, mi, p)
+    if (shift && get().lastAnchor >= 0) {
+      const flat = flatRefs(draft)
+      const lo = Math.max(0, Math.min(get().lastAnchor, idx))
+      const hi = Math.min(flat.length - 1, Math.max(get().lastAnchor, idx))
+      set({ selPages: flat.slice(lo, hi + 1).map((f) => ({ mi: f.ref.mi, p: f.ref.p })) })
+      return
+    }
+    set({ lastAnchor: idx })
+    const cur = get().selPages
+    const hit = cur.find((x) => x.mi === mi && x.p === p)
+    set({
+      selPages: hit
+        ? cur.filter((x) => !(x.mi === mi && x.p === p))
+        : [...cur, { mi, p }],
+    })
+  },
+
+  clearSel: () => set({ selPages: [], lastAnchor: -1 }),
+
+  applySel: () => {
+    const { draft, selPages } = get()
+    if (!draft || !selPages.length) return
+    if (!isSelectionContiguous(draft, selPages)) {
+      toast('请选顺序上连续的页')
+      return
+    }
+    get().update((d) => applyPageSelection(d, selPages))
+    get().clearSel()
+    toast('已处理选中页 —— 新段记得归类')
+  },
+
+  setOcrPending: (p) => set({ ocrPending: p }),
+
+  setStatus: (s) => {
+    const { openId } = get()
+    get().update((d) => setPackStatus(d, s))
+    if (openId) {
+      const d = get().draft
+      if (d) scheduleSave(d, openId, true)
+    }
+  },
+
+  setAssign: (a) => {
+    const { openId } = get()
+    get().update((d) => setPackAssign(d, a))
+    if (openId) {
+      const d = get().draft
+      if (d) scheduleSave(d, openId, true)
+    }
+  },
 
   renameMatInDraft: (mi, n) => {
     get().update((d) => {
@@ -110,5 +250,27 @@ export const useReader = create<ReaderState>((set, get) => ({
       )
       return { ...d, mats, segs }
     })
+  },
+
+  appendFiles: async (files) => {
+    const { openId, draft } = get()
+    if (!openId || !draft) return
+    if (!files.length) return
+    try {
+      const updated = await appendPackFiles(openId, files)
+      const added = await resolveMats(updated)
+      const known = new Set(draft.mats.map((m) => m.partIndex))
+      const fresh = added.filter((m) => !known.has(m.partIndex))
+      if (!fresh.length) {
+        toast('没有新增材料')
+        set({ detail: updated })
+        return
+      }
+      set({ detail: updated })
+      get().update((d) => appendMatsToDraft(d, fresh))
+      toast.success(`已追加 ${fresh.length} 份材料`)
+    } catch {
+      toast.error('追加材料失败，请检查后端连接')
+    }
   },
 }))
