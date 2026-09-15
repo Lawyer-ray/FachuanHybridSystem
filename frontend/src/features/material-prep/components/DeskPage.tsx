@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react'
+import { useNavigate } from 'react-router'
 import { Loader2, LogOut, PackagePlus, Plus } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -10,6 +11,7 @@ import { Reader } from './reader/Reader'
 import { cn } from '@/lib/utils'
 
 export function DeskPage() {
+  const navigate = useNavigate()
   const { data: packs, isLoading, error } = useMaterialPacks()
   const createPack = useCreatePack()
   const { user, logout } = useAuth()
@@ -79,10 +81,16 @@ export function DeskPage() {
           {user?.username ? (
             <span className="hidden text-xs text-secondary-foreground sm:inline">{user.username}</span>
           ) : null}
-          <Button size="sm" onClick={() => logout()}>
-            <LogOut className="h-4 w-4" />
-            <span className="hidden sm:inline">退出</span>
-          </Button>
+          <Button
+                    size="sm"
+                    onClick={() => {
+                      logout()
+                      navigate('/login', { replace: true })
+                    }}
+                  >
+                    <LogOut className="h-4 w-4" />
+                    <span className="hidden sm:inline">退出</span>
+                  </Button>
         </div>
       </header>
 
