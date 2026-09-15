@@ -27,7 +27,7 @@ ci-backend-full: ## 仅后端 CI（完整模式，需要 PostgreSQL）
 # ============================================================
 
 frontend: ## 启动前端开发服务器（Vite，热重载，端口 5173）
-	cd frontend && pnpm dev
+	cd frontend_2026 && pnpm dev
 
 backend: ## 启动后端开发服务器（Uvicorn，热重载，默认端口 8002，可用 PORT=8003 覆盖）
 	cd backend && $(MAKE) run-dev

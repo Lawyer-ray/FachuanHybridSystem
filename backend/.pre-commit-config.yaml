@@ -17,7 +17,7 @@ repos:
         args: ['--maxkb=1000']
         exclude: ^backend/\.secrets\.baseline$
       - id: check-json
-        exclude: ^frontend/tsconfig\.(app|node)\.json$
+        exclude: ^frontend_2026/tsconfig\.(app|node)\.json$
       - id: check-toml
       - id: check-merge-conflict
       - id: debug-statements
