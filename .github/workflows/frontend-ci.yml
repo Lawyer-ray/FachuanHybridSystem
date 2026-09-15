@@ -16,6 +16,9 @@ on:
 
 jobs:
   frontend:
+    # frontend_2026 不入库，目录不存在时跳过（避免 workflow 自身变更触发后必然失败）；
+    # 未来若目录重新入库，此条件自动恢复生效
+    if: hashFiles('frontend_2026/package.json') != ''
     runs-on: ubuntu-latest
     timeout-minutes: 10
     defaults:
