@@ -412,7 +412,7 @@
 
         resetFilters() {
           this.searchKeyword = '';
-          this.filterCategory = this.defaultCategory || 'all';
+          this.filterCategory = 'all';
           this.filterSide = '';
           this.filterAuthorityId = '';
           this.onlyUnfinished = false;
