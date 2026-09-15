@@ -146,7 +146,9 @@ async def learn_archive_rules(request: HttpRequest) -> Any:  # pragma: no cover
 
 
 @router.get("/{contract_id}/archive/download-item/{archive_item_code}")
-async def download_archive_item(request: HttpRequest, contract_id: int, archive_item_code: str) -> Any:  # pragma: no cover
+async def download_archive_item(
+    request: HttpRequest, contract_id: int, archive_item_code: str
+) -> Any:  # pragma: no cover
     """下载归档检查项材料（多文件自动合并为 PDF）"""
     from apps.contracts.services.archive.archive_query_service import get_contract_or_none
 
@@ -394,7 +396,9 @@ async def reorder_archive_materials(request: HttpRequest, contract_id: int, body
 
 
 @router.post("/{contract_id}/archive/materials/{material_id}/move", response=SuccessOut)
-async def move_archive_material(request: HttpRequest, contract_id: int, material_id: int, body: MoveIn) -> Any:  # pragma: no cover
+async def move_archive_material(
+    request: HttpRequest, contract_id: int, material_id: int, body: MoveIn
+) -> Any:  # pragma: no cover
     """移动归档材料到另一个清单项"""
     from apps.contracts.services.archive.archive_query_service import get_material_or_none, move_material
 
@@ -424,6 +428,9 @@ async def preview_archive_material(request: HttpRequest, contract_id: int, mater
     material = await sync_to_async(get_material_or_none)(material_id, contract_id)
 
     if not material:
+        return HttpResponse(status=404)
+
+    if not material.file_path:
         return HttpResponse(status=404)
 
     file_path = Path(material.file_path)

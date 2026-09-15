@@ -50,6 +50,10 @@ def scale_pages_to_a4(contract: Contract) -> dict[str, Any]:  # pragma: no cover
     errors: list[str] = []
 
     for material in pdf_materials:
+        if not material.file_path:
+            errors.append(f"{material.original_filename}: 文件路径缺失")
+            continue
+
         file_path = Path(material.file_path)
         if not file_path.is_absolute():
             file_path = Path(django_settings.MEDIA_ROOT) / file_path
@@ -216,6 +220,10 @@ def merge_materials_to_single_pdf(materials: list[FinalizedMaterial]) -> dict[st
 
     try:
         for material in materials:
+            if not material.file_path:
+                logger.warning("合并时文件路径缺失: %s", material.original_filename)
+                continue
+
             file_path = Path(material.file_path)
             if not file_path.is_absolute():
                 file_path = Path(django_settings.MEDIA_ROOT) / file_path
@@ -316,6 +324,10 @@ def compile_case_materials_pdf(
         from apps.documents.services.infrastructure.pdf_merge_utils import resolve_material_to_temp_pdf
 
         for material in materials_to_merge:
+            if not material.file_path:
+                logger.warning("案卷材料文件路径缺失: %s", material.original_filename)
+                continue
+
             file_path = Path(material.file_path)
             if not file_path.is_absolute():
                 file_path = Path(django_settings.MEDIA_ROOT) / file_path

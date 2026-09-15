@@ -257,6 +257,32 @@ class TestReadMaterialFile:
             result = _read_material_file(material)
             assert result["content_type"] == "application/octet-stream"
 
+    @pytest.mark.parametrize("file_path", ["", None])
+    def test_file_path_missing(self, file_path):
+        from apps.contracts.services.archive.generation.download_handler import _read_material_file
+
+        material = MagicMock()
+        material.file_path = file_path
+        material.original_filename = "test.pdf"
+
+        result = _read_material_file(material)
+        assert "error" in result
+        assert "文件路径缺失" in result["error"]
+
+    def test_merge_skips_material_without_path(self):
+        from apps.contracts.services.archive.generation.download_handler import _merge_materials_to_pdf
+
+        material = MagicMock()
+        material.file_path = None
+        material.original_filename = "test.pdf"
+
+        with patch("pymupdf.open") as mock_open:
+            mock_doc = MagicMock()
+            mock_doc.__len__ = lambda self: 0
+            mock_open.return_value = mock_doc
+            result = _merge_materials_to_pdf([material], "lt_5")
+        assert "error" in result
+
 
 # ── download_handler: _apply_subitem_sort ─────────────────────────
 

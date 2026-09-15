@@ -187,6 +187,9 @@ class ContractArchiveMixin:  # pragma: no cover
             if not material:
                 return JsonResponse({"success": False, "error": "材料不存在"}, status=404)
 
+            if not material.file_path:
+                return JsonResponse({"success": False, "error": "文件路径缺失"}, status=404)
+
             from pathlib import Path
 
             from django.conf import settings as django_settings
@@ -213,7 +216,7 @@ class ContractArchiveMixin:  # pragma: no cover
             encoded_filename = urllib.parse.quote(material.original_filename.encode("utf-8"))
             response["Content-Disposition"] = f"inline; filename*=UTF-8''{encoded_filename}"
             return response
-        except (OSError, ValueError) as e:
+        except (OSError, ValueError, TypeError) as e:
             logger.exception("预览归档材料失败: material_id=%s", material_id)
             return JsonResponse({"success": False, "error": str(e)}, status=500)
 
