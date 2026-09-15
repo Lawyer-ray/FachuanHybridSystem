@@ -101,7 +101,7 @@ async def upload_materials(request: HttpRequest, case_id: int) -> dict[str, Any]
     files = request.FILES.getlist("files") if hasattr(request, "FILES") else []
 
     def _do_upload() -> dict[str, Any]:
-        log = service.create_log(  # type: ignore[call-arg]
+        log = service.create_log(
             case_id=case_id,
             content="上传材料",
             user=ctx.user,
@@ -115,7 +115,7 @@ async def upload_materials(request: HttpRequest, case_id: int) -> dict[str, Any]
             org_access=ctx.org_access,
             perm_open_access=ctx.perm_open_access,
         )
-        return {"log_id": log.id, "attachment_ids": [x.id for x in created]}  # type: ignore[attr-defined]
+        return {"log_id": log.id, "attachment_ids": [x.id for x in created]}
 
     return await asyncio.to_thread(_do_upload)
 

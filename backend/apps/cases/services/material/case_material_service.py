@@ -201,7 +201,7 @@ class CaseMaterialService:
                 output_field=models.IntegerField(),
             )
         )
-        t = qs.first()  # type: ignore
+        t = qs.first()
         if t:
             return t
 
