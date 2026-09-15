@@ -50,9 +50,11 @@
                         <div class="timeline-attachments">
                             <span class="attachments-label">{% trans "附件" %}：</span>
                             {% for attachment in log.attachments.all %}
+                            {% if attachment.file %}
                             <a href="{{ attachment.file.url }}" target="_blank" class="attachment-link">
                                 {{ attachment.file.name|cut:"case_logs/" }}
                             </a>
+                            {% endif %}
                             {% endfor %}
                         </div>
                         {% endif %}

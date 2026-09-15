@@ -214,7 +214,11 @@ class CaseMaterialQueryService:
         file_name = (getattr(att, "original_filename", "") if att else "") or (
             getattr(getattr(att, "file", None), "name", "") if att else ""
         )
-        url = getattr(getattr(att, "file", None), "url", "") if att else ""
+        url = ""
+        if att:
+            field_file = getattr(att, "file", None)
+            if field_file and field_file.name:
+                url = field_file.url
         uploaded_at = getattr(att, "uploaded_at", None)
         party_labels = []
         for p in m.parties.all():
