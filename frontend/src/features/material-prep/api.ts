@@ -5,7 +5,7 @@ import type { InboxMessage, InboxMessageDetail, DraftState } from './types'
  * 材料预处理对接的是后端收件箱（/api/v1/inbox）。
  * 每次上传（可多文件）会生成一条 manual_upload 来源的消息，即一个「材料包」。
  */
-export const inboxApi = createApiClient({ prefix: `/inbox` })
+export const inboxApi = createApiClient({ prefix: '/api/v1/inbox' })
 
 export async function listMaterialPacks(): Promise<InboxMessage[]> {
   return inboxApi
