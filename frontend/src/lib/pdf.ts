@@ -9,6 +9,7 @@ export { pdfjsLib }
 export const PDF_RENDER_WIDTH = 900
 
 let cachedDoc: pdfjsLib.PDFDocumentProxy | null = null
+let cachedTask: pdfjsLib.PDFDocumentLoadingTask | null = null
 let cachedDocKey = ''
 
 /**
@@ -17,14 +18,16 @@ let cachedDocKey = ''
  */
 export async function loadPdfDocument(key: string, data: ArrayBuffer): Promise<pdfjsLib.PDFDocumentProxy> {
   if (cachedDoc && cachedDocKey === key) return cachedDoc
-  if (cachedDoc) {
+  if (cachedTask) {
     try {
-      await cachedDoc.destroy()
+      await cachedTask.destroy()
     } catch {
       /* noop */
     }
   }
-  const doc = await pdfjsLib.getDocument({ data }).promise
+  const task = pdfjsLib.getDocument({ data })
+  const doc = await task.promise
+  cachedTask = task
   cachedDoc = doc
   cachedDocKey = key
   return doc
@@ -45,7 +48,7 @@ export async function renderPdfPage(
   canvas.height = Math.floor(viewport.height)
   const ctx = canvas.getContext('2d')
   if (!ctx) throw new Error('无法创建 canvas 2d 上下文')
-  await page.render({ canvasContext: ctx, viewport }).promise
+  await page.render({ canvas, viewport }).promise
   return canvas
 }
 

@@ -80,7 +80,6 @@ export function AssignModal({
     (target === 'existing' && !pickCase) ||
     (target === 'new' && contract === 'none' && !ctWho.trim())
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   void resetter
 
   const confirm = () => {

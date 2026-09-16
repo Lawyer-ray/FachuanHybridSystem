@@ -225,7 +225,6 @@ function PdfPageView({ messageId, partIndex, pageNum }: { messageId: number; par
 }
 
 // react-hooks lint shim (avoid rename churn)
-// eslint-disable-next-line react-hooks/rules-of-hooks
 import { useEffect as useEffect0 } from 'react'
 
 function PhotoPageView({ messageId, partIndex }: { messageId: number; partIndex: number }) {
