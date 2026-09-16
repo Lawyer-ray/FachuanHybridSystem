@@ -1,10 +1,27 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router'
-import { Loader2, LogOut, PackagePlus, Plus } from 'lucide-react'
+import { FolderOpen, Loader2, LogOut, PackagePlus, Plus, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+} from '@/components/ui/context-menu'
 import { useAuth } from '@/features/auth/store'
-import { useMaterialPacks, useCreatePack, useJudgePack } from '../hooks/use-inbox'
+import { useMaterialPacks, useCreatePack, useJudgePack, useDeletePack } from '../hooks/use-inbox'
 import { useReader } from '../store'
 import { PackCard } from './PackCard'
 import { Reader } from './reader/Reader'
@@ -27,6 +44,7 @@ export function DeskPage() {
   const { data: packs, isLoading, error } = useMaterialPacks()
   const createPack = useCreatePack()
   const judgePack = useJudgePack()
+  const deletePack = useDeletePack()
   const { user, logout } = useAuth()
   const openPack = useReader((s) => s.open)
   const openId = useReader((s) => s.openId)
@@ -37,6 +55,8 @@ export function DeskPage() {
   const [sel, setSel] = useState(0)
   const [leaving, setLeaving] = useState<Record<number, 'left' | 'right'>>({})
   const [assigning, setAssigning] = useState<InboxMessage | null>(null)
+  // 待确认删除的材料包（破坏性操作，右键后先经 AlertDialog 确认）
+  const [deleteTarget, setDeleteTarget] = useState<InboxMessage | null>(null)
 
   const fileInputRef = useRef<HTMLInputElement>(null)
   const gridRef = useRef<HTMLDivElement>(null)
@@ -328,15 +348,32 @@ export function DeskPage() {
           <div className="relative" ref={wrapRef}>
             <div ref={gridRef} className="grid grid-cols-[repeat(auto-fill,minmax(min(300px,100%),1fr))] gap-4">
               {visible.map((p, i) => (
-                <div key={p.id} data-pack-idx={i} className={cn(leaving[p.id] === 'right' && 'leave-right', leaving[p.id] === 'left' && 'leave-left')}>
-                  <PackCard
-                    pack={p}
-                    finished={p.segs > 0 && p.named === p.segs}
-                    leaving={leaving[p.id] ?? null}
-                    onOpen={() => openAt(i)}
-                    onReject={() => judge(p, 'filed')}
-                    onAccept={() => setAssigning(p)}
-                  />
+                <div
+                  key={p.id}
+                  data-pack-idx={i}
+                  className={cn(leaving[p.id] === 'right' && 'leave-right', leaving[p.id] === 'left' && 'leave-left')}
+                >
+                  <ContextMenu>
+                    <ContextMenuTrigger className="block">
+                      <PackCard
+                        pack={p}
+                        finished={p.segs > 0 && p.named === p.segs}
+                        leaving={leaving[p.id] ?? null}
+                        onOpen={() => openAt(i)}
+                        onReject={() => judge(p, 'filed')}
+                        onAccept={() => setAssigning(p)}
+                      />
+                    </ContextMenuTrigger>
+                    <ContextMenuContent className="w-44">
+                      <ContextMenuItem onSelect={() => openAt(i)}>
+                        <FolderOpen /> 打开材料包
+                      </ContextMenuItem>
+                      <ContextMenuSeparator />
+                      <ContextMenuItem variant="destructive" onSelect={() => setDeleteTarget(p)}>
+                        <Trash2 /> 删除材料包
+                      </ContextMenuItem>
+                    </ContextMenuContent>
+                  </ContextMenu>
                 </div>
               ))}
 
@@ -406,6 +443,38 @@ export function DeskPage() {
           }}
         />
       )}
+
+      {/* 删除材料包：破坏性操作，右键菜单点击后先二次确认 */}
+      <AlertDialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>删除「{deleteTarget?.subject}」？</AlertDialogTitle>
+            <AlertDialogDescription>
+              将删除该材料包及其全部附件文件，不可恢复。已归案 / 归档关联不会被动，仅移除收件箱里的拆分草稿。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-white hover:bg-destructive/90"
+              disabled={deletePack.isPending}
+              onClick={() => {
+                const p = deleteTarget
+                if (!p) return
+                deletePack
+                  .mutateAsync(p.id)
+                  .then(() => {
+                    toast(`${p.subject} 已删除`)
+                    setDeleteTarget(null)
+                  })
+                  .catch(() => toast.error('删除失败，请重试'))
+              }}
+            >
+              {deletePack.isPending ? '删除中…' : '删除'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

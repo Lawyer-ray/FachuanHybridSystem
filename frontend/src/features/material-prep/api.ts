@@ -27,6 +27,11 @@ export async function getPackDetail(id: number): Promise<InboxMessageDetail> {
   return inboxApi.get(`messages/${id}`).json<InboxMessageDetail>()
 }
 
+/** 删除材料包（收件箱消息）：后端先清理附件物理文件，再删 DB 记录 */
+export async function deletePack(id: number): Promise<{ ok: boolean; message_id: number }> {
+  return inboxApi.delete(`messages/${id}`).json()
+}
+
 export async function uploadPack(files: File[], subject?: string): Promise<InboxMessageDetail> {
   return inboxApi
     .post('messages/upload', {

@@ -11,6 +11,7 @@ from uuid import uuid4
 from django.core.files.storage import default_storage
 from django.utils import timezone
 
+from apps.core.services.storage_service import delete_media_file
 from apps.message_hub.models import InboxMessage, MessageSource, SourceType
 from apps.message_hub.services.base import MessageFetcher, resolve_media_attachment_path
 
@@ -141,3 +142,21 @@ def save_draft(message_id: int, draft: dict[str, Any]) -> InboxMessage:
     message.draft_state = draft or {}
     message.save(update_fields=["draft_state"])
     return message
+
+
+def delete_manual_message(message: InboxMessage) -> int:
+    """硬删一条收件箱消息，并清理其附件物理文件。返回清理的附件数。
+
+    附件落在 message_hub/manual/ 暂存目录，不走 Material 体系，
+    删除 DB 记录前须先按 local_path 用 delete_media_file() 清掉物理文件，避免留垃圾。
+    """
+    metas = message.attachments_meta or []
+    deleted = 0
+    for att in metas:
+        local_path = str(att.get("local_path", "") or "")
+        if local_path and delete_media_file(local_path):
+            deleted += 1
+    pk = message.pk
+    message.delete()
+    logger.info("删除收件箱消息 id=%s，清理附件 %d 份", pk, deleted)
+    return deleted

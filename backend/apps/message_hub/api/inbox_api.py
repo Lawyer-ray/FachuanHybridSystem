@@ -105,6 +105,16 @@ def get_message(request: HttpRequest, message_id: int) -> Any:  # pragma: no cov
     return _get_message_or_404(message_id)
 
 
+@router.delete("/messages/{message_id}")
+def delete_message(request: HttpRequest, message_id: int) -> dict[str, Any]:  # pragma: no cover
+    """删除收件箱消息（材料包）：先清理附件物理文件，再删 DB 记录（破坏性，前端需二次确认）。"""
+    from apps.message_hub.services.manual_upload_service import delete_manual_message
+
+    msg = _get_message_or_404(message_id)
+    delete_manual_message(msg)
+    return {"ok": True, "message_id": message_id}
+
+
 @router.get("/messages/{message_id}/attachments/{part_index}/download")
 def download_attachment(  # pragma: no cover
     request: HttpRequest,
