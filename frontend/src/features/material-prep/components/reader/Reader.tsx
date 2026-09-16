@@ -2,6 +2,16 @@ import { useEffect, useRef, useState } from 'react'
 import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { useReader } from '../../store'
 import {
   addInfoField,
@@ -32,7 +42,7 @@ import { useReaderOcr } from './use-ocr'
 import { useElementWidth } from '../../hooks/use-element-width'
 import { COL_MIN_W, COL_GAP } from './Flow'
 import { ZOOM_MAX, ZOOM_MIN, ZOOM_STEP } from './ui'
-import type { InfoField } from '../../types'
+import type { InfoField, PageKey } from '../../types'
 import { cn } from '@/lib/utils'
 
 export function Reader() {
@@ -47,6 +57,8 @@ export function Reader() {
   const [showAssign, setShowAssign] = useState(false)
   const [railOpen, setRailOpen] = useState(false)
   const [metaOpen, setMetaOpen] = useState(false)
+  // 待确认删除的页（破坏性操作必须先经 AlertDialog 二次确认）
+  const [deleteTarget, setDeleteTarget] = useState<PageKey[] | null>(null)
   const addInputRef = useRef<HTMLInputElement>(null)
   const narrow = useMediaQuery('(max-width:1100px)')
   const [flowWrapRef, flowWrapW] = useElementWidth<HTMLDivElement>()
@@ -299,10 +311,7 @@ export function Reader() {
             }}
             onToggleSel={onToggleSel}
             onOcrBox={onOcrBox}
-            onDeletePages={(picked) => {
-              const n = st.deleteSelected(picked)
-              if (n > 0) toast(`已删除 ${n} 页 —— 从材料拆分中移除`)
-            }}
+            onRequestDelete={(picked) => setDeleteTarget(picked)}
           />
         </div>
 
@@ -372,6 +381,33 @@ export function Reader() {
           }}
         />
       )}
+
+      {/* 删除所选页：破坏性操作，右键菜单点击后先二次确认 */}
+      <AlertDialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>确认删除所选 {deleteTarget?.length ?? 0} 页？</AlertDialogTitle>
+            <AlertDialogDescription>
+              将从材料拆分中移除这些页并清空空段，仅影响拆分草稿，不影响原始文件。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>取消</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-white hover:bg-destructive/90"
+              onClick={() => {
+                if (deleteTarget?.length) {
+                  st.deleteSelected(deleteTarget)
+                  toast(`已删除 ${deleteTarget.length} 页 —— 从材料拆分中移除`)
+                }
+                setDeleteTarget(null)
+              }}
+            >
+              删除
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </FixedReader>
   )
 }

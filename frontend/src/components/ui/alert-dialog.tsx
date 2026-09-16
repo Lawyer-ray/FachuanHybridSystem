@@ -4,6 +4,10 @@ import * as AlertDialogPrimitive from "@radix-ui/react-alert-dialog"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 
+/**
+ * 全站统一的破坏性/关键操作确认对话框（Radix AlertDialog 封装）。
+ * 约定：删除、覆盖、不可逆操作必须先经此二次确认。
+ */
 function AlertDialog({
   ...props
 }: React.ComponentProps<typeof AlertDialogPrimitive.Root>) {

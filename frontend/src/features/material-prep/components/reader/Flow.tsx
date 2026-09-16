@@ -30,7 +30,7 @@ export function Flow({
   onOp,
   onToggleSel,
   onOcrBox,
-  onDeletePages,
+  onRequestDelete,
 }: {
   draft: DraftState
   messageId: number
@@ -51,7 +51,7 @@ export function Flow({
   }
   onToggleSel: (mi: number, p: number, shift: boolean) => void
   onOcrBox: (mi: number, p: number, rect: PageRect) => void
-  onDeletePages: (picked: PageKey[]) => void
+  onRequestDelete: (picked: PageKey[]) => void
 }) {
   const { segs, mats, infos } = draft
   const picking = pickInfo >= 0
@@ -218,7 +218,7 @@ export function Flow({
           count={menuInSel ? selPages.length : 1}
           onDelete={() => {
             const target = menuInSel ? selPages : [{ mi: menu.mi, p: menu.p }]
-            onDeletePages(target)
+            onRequestDelete(target)
             setMenu(null)
           }}
           onClose={() => setMenu(null)}
