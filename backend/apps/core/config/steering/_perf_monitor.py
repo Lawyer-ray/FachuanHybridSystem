@@ -4,6 +4,7 @@ Steering 性能监控器
 SteeringPerformanceMonitor 主类及工厂函数。
 """
 
+import atexit
 import json
 import logging
 import threading
@@ -33,7 +34,9 @@ class SteeringPerformanceMonitor:
         self.data_collector = PerformanceDataCollector(max_history_size=config.get("max_history_size", 1000))
         self.analyzer = PerformanceAnalyzer(self.data_collector, self.thresholds)
         self.alert_callbacks: list[Callable[[PerformanceAlert], None]] = []
+        self._stop_event = threading.Event()
         self._start_periodic_checks()
+        atexit.register(self.shutdown)
 
     def monitor_loading(self, spec_path: str, loading_func: Callable[..., Any]) -> Any:
         """监控规范加载"""
@@ -184,9 +187,8 @@ class SteeringPerformanceMonitor:
         """启动定期检查"""
 
         def periodic_check() -> None:
-            while True:
+            while not self._stop_event.wait(60):  # 每60秒检查一次；置位后立即退出
                 try:
-                    time.sleep(60)
                     stats = self.data_collector.get_loading_statistics()
                     cache_hit_rate = stats.get("cache_hit_rate", 1.0)
 
@@ -231,9 +233,10 @@ class SteeringPerformanceMonitor:
         threading.Thread(target=periodic_check, daemon=True).start()
 
     def shutdown(self) -> None:
-        """关闭性能监控器"""
+        """关闭性能监控器，停止后台线程（atexit 时调用，静默，避免写已关闭的日志流）"""
         if self.enabled:
-            logger.info("Steering 性能监控器已关闭")
+            self._stop_event.set()
+            self.data_collector.shutdown()
 
 
 def create_performance_monitor_from_config(config: dict[str, Any]) -> SteeringPerformanceMonitor:
