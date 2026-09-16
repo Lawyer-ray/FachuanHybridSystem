@@ -21,6 +21,7 @@ export const SEG_COLORS = ['#2563eb', '#22c55e', '#eab308', '#7c3aed', '#ef4444'
 export const FIELD_LIB: InfoField[] = [
   { k: '委托人', v: '', src: '', srcRef: null, ph: '姓名或单位' },
   { k: '对方当事人', v: '', src: '', srcRef: null, ph: '姓名或单位', hint: '多个用、分隔' },
+  { k: '受益人', v: '', src: '', srcRef: null, ph: '姓名或单位' },
   { k: '标的额', v: '', src: '', srcRef: null, ph: '如 120000' },
   { k: '关键日期', v: '', src: '', srcRef: null, ph: '如 2024-03-12' },
   { k: '事项 / 案由', v: '', src: '', srcRef: null, ph: '民间借贷 · 专项法律顾问' },
