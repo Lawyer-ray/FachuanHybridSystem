@@ -78,14 +78,25 @@ async def list_clients(  # pragma: no cover
 
 
 @router.get("/parties/search", response=list[PartyListOut])
-async def search_parties(request: Any, keyword: str = "") -> list[PartyListOut]:
-    """按关键字模糊检索当事人（仅返回检索填报所需的精简字段，不携带证件文档）。"""
+async def search_parties(
+    request: Any,
+    keyword: str = "",
+    is_our_client: bool | None = None,
+) -> list[PartyListOut]:
+    """按关键字模糊检索当事人（仅返回检索填报所需的精简字段，不携带证件文档）。
+
+    is_our_client 用于区分检索范围：委托人传 true（我方当事人）、对方当事人传 false。
+    """
     facade = _get_query_facade()
     user = getattr(request, "auth", None) or extract_request_context(request).user
 
     @sync_to_async
     def _fetch() -> list[dict]:
-        qs = facade.list_clients(search=keyword or None, user=user)
+        qs = facade.list_clients(
+            search=keyword or None,
+            is_our_client=is_our_client,
+            user=user,
+        )
         return [
             PartyListOut(
                 id=c.id,

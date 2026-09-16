@@ -35,3 +35,31 @@ def test_search_parties_survives_client_with_identity_docs(authenticated_client,
     assert hit is not None
     assert "identity_docs" not in hit
     assert resp.content.decode().find("identity_docs") == -1
+
+
+@pytest.mark.django_db
+def test_search_parties_filters_our_client(authenticated_client, db) -> None:
+    from apps.client.models import Client
+
+    Client.objects.create(name="我方客户主体", client_type=Client.NATURAL, is_our_client=True)
+    Client.objects.create(name="对方法务顾问", client_type=Client.NATURAL, is_our_client=False)
+
+    # 委托人：仅返回我方当事人
+    ours = authenticated_client.get(
+        "/api/v1/client/parties/search",
+        {"keyword": "方", "is_our_client": "true"},
+    )
+    assert ours.status_code == 200
+    ours_names = [i["name"] for i in ours.json()]
+    assert "我方客户主体" in ours_names
+    assert "对方法务顾问" not in ours_names
+
+    # 对方当事人：仅返回非我方当事人
+    theirs = authenticated_client.get(
+        "/api/v1/client/parties/search",
+        {"keyword": "方", "is_our_client": "false"},
+    )
+    assert theirs.status_code == 200
+    theirs_names = [i["name"] for i in theirs.json()]
+    assert "对方法务顾问" in theirs_names
+    assert "我方客户主体" not in theirs_names
