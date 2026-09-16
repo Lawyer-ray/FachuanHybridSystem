@@ -24,7 +24,7 @@
   }
 }
 
-/* ---- 阅读器入场：整体淡入（原型 .rd 0.24s ease） ---- */
+/* ---- 阅读器入场/退场：整体淡入淡出（原型 .rd 0.24s ease） ---- */
 .mp-reader {
   animation: mp-reader-in 0.24s cubic-bezier(0.16, 1, 0.3, 1);
 }
@@ -34,6 +34,17 @@
   }
   to {
     opacity: 1;
+  }
+}
+.mp-reader.closing {
+  animation: mp-reader-out 0.24s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+@keyframes mp-reader-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
   }
 }
 

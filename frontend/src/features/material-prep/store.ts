@@ -28,6 +28,8 @@ interface ReaderState {
   draft: DraftState | null
   status: 'idle' | 'loading' | 'ready' | 'error'
   error: string
+  /** 退出过渡中（阅读器先淡出再卸载） */
+  closing: boolean
   /** 正在「标来源」的信息便签序号（-1 = 未在取字） */
   pickInfo: number
   /** 画布缩放倍数（1 = 适应宽度） */
@@ -102,6 +104,7 @@ export const useReader = create<ReaderState>((set, get) => ({
   draft: null,
   status: 'idle',
   error: '',
+  closing: false,
   pickInfo: -1,
   zoom: 1,
   cols: 1,
@@ -114,6 +117,7 @@ export const useReader = create<ReaderState>((set, get) => ({
     set({
       status: 'loading',
       error: '',
+      closing: false,
       openId: id,
       pickInfo: -1,
       zoom: 1,
@@ -148,19 +152,26 @@ export const useReader = create<ReaderState>((set, get) => ({
     const { openId, draft } = get()
     if (openId && draft) forceSave = true
     if (openId && draft) scheduleSave(draft, openId, true)
-    set({
-      openId: null,
-      detail: null,
-      draft: null,
-      status: 'idle',
-      pickInfo: -1,
-      zoom: 1,
-      cols: 1,
-      selMode: false,
-      selPages: [],
-      lastAnchor: -1,
-      ocrPending: null,
-    })
+    // 先淡出，动画完成后再彻底卸载；期间若重新 open，则取消本次退场
+    set({ closing: true })
+    setTimeout(() => {
+      const s = useReader.getState()
+      if (!s.closing || !s.openId) return
+      set({
+        openId: null,
+        detail: null,
+        draft: null,
+        status: 'idle',
+        closing: false,
+        pickInfo: -1,
+        zoom: 1,
+        cols: 1,
+        selMode: false,
+        selPages: [],
+        lastAnchor: -1,
+        ocrPending: null,
+      })
+    }, 240)
   },
 
   update: (fn) => {

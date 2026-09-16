@@ -57,7 +57,7 @@ const PBTN =
 const PBTN_ON = 'bg-secondary text-foreground border-zinc-300'
 
 export function Reader() {
-  const { openId, detail, draft, status } = useReader()
+  const { openId, detail, draft, status, closing } = useReader()
   const pickInfo = useReader((s) => s.pickInfo)
   const zoom = useReader((s) => s.zoom)
   const cols = useReader((s) => s.cols)
@@ -262,7 +262,7 @@ export function Reader() {
   const ocrTo = pickInfo >= 0 && draft.infos[pickInfo] ? draft.infos[pickInfo].k : ''
 
   return (
-    <FixedReader>
+    <FixedReader closing={closing}>
       {/* 顶栏 */}
       <div className="flex h-[54px] flex-none items-center gap-3 border-b border-border bg-card px-4">
         <button
@@ -599,6 +599,10 @@ export function Reader() {
   )
 }
 
-function FixedReader({ children }: { children: React.ReactNode }) {
-  return <div className="mp-reader fixed inset-0 z-[80] flex flex-col bg-[#f1f1f3]">{children}</div>
+function FixedReader({ children, closing = false }: { children: React.ReactNode; closing?: boolean }) {
+  return (
+    <div className={cn('mp-reader fixed inset-0 z-[80] flex flex-col bg-[#f1f1f3]', closing && 'closing')}>
+      {children}
+    </div>
+  )
 }
