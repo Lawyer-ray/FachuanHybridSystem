@@ -1,12 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import {
-  ArrowLeft,
-  CheckCircle2,
-  Loader2,
-  Minus,
-  Plus,
-  X,
-} from 'lucide-react'
+import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { useReader } from '../../store'
@@ -20,41 +13,25 @@ import {
   removeInfoField,
   renameSegment,
   resetSegments,
-  setInfoSource,
   setInfoValue,
   setSegmentType,
   splitSegment,
 } from '../../draft'
-import { canvasToBlob, imageRegionBlob, loadPdfDocument, renderPdfPageRegion } from '@/lib/pdf'
-import { fetchAttachmentBytes, ocrImage } from '../../api'
+import { useMediaQuery } from '../../hooks/use-media'
+import { ReaderTopBar } from './ReaderTopBar'
+import { ReaderToolbar } from './ReaderToolbar'
+import { HintBar } from './HintBar'
+import { SelectionBar } from './SelectionBar'
+import { KeyHintsBar } from './KeyHintsBar'
 import { Rail } from './Rail'
 import { Flow } from './Flow'
 import { MetaPanel } from './MetaPanel'
 import { OcrPanel } from './OcrPanel'
 import { AssignModal } from './AssignModal'
-import type { PageRect } from './PageCell'
+import { useReaderOcr } from './use-ocr'
+import { ZOOM_MAX, ZOOM_MIN, ZOOM_STEP } from './ui'
 import type { InfoField } from '../../types'
 import { cn } from '@/lib/utils'
-
-function useMediaQuery(query: string): boolean {
-  const [match, setMatch] = useState(() => window.matchMedia(query).matches)
-  useEffect(() => {
-    const mq = window.matchMedia(query)
-    const on = () => setMatch(mq.matches)
-    mq.addEventListener('change', on)
-    return () => mq.removeEventListener('change', on)
-  }, [query])
-  return match
-}
-
-const ZOOM_MIN = 0.6
-const ZOOM_MAX = 2.2
-const ZOOM_STEP = 0.1
-
-/** 原型 .pbtn：描边按钮，浅色主题下 hover 填充 */
-const PBTN =
-  'flex h-[30px] flex-none items-center gap-1 rounded-[7px] border border-border bg-transparent px-[13px] text-[12.5px] font-medium text-secondary-foreground transition-colors hover:bg-secondary hover:text-foreground hover:border-zinc-300'
-const PBTN_ON = 'bg-secondary text-foreground border-zinc-300'
 
 export function Reader() {
   const { openId, detail, draft, status, closing } = useReader()
@@ -70,6 +47,7 @@ export function Reader() {
   const [metaOpen, setMetaOpen] = useState(false)
   const addInputRef = useRef<HTMLInputElement>(null)
   const narrow = useMediaQuery('(max-width:1100px)')
+  const { pickPage, onOcrBox, ocrOk } = useReaderOcr()
 
   const st = useReader.getState()
 
@@ -158,75 +136,7 @@ export function Reader() {
     })
   }
 
-  const pickPage = (mi: number, p: number) => {
-    const pi = useReader.getState().pickInfo
-    if (pi < 0) return
-    const label = `${matLabel(draft.mats, mi)} 第 ${p} 页`
-    st.update((d) => setInfoSource(d, pi, label, { mi, p }))
-    st.setPickInfo(-1)
-    toast.success(`已记来源：${label}`)
-  }
-
-  const runOcr = async (mi: number, p: number, rect: PageRect) => {
-    const s = useReader.getState()
-    const d = s.draft
-    if (!d) return
-    const m = d.mats[mi]
-    if (!m) {
-      s.setOcrPending(null)
-      return
-    }
-    s.setOcrPending({ mi, p, rect, text: '', loading: true })
-    try {
-      let text = ''
-      if (m.k === 'pdf') {
-        const bytes = await fetchAttachmentBytes(s.openId as number, m.partIndex)
-        const doc = await loadPdfDocument(`${s.openId}:${m.partIndex}`, bytes)
-        const canvas = await renderPdfPageRegion(doc, p, rect)
-        const blob = await canvasToBlob(canvas)
-        const res = await ocrImage(blob)
-        text = res.blocks.map((b) => b.text).filter(Boolean).join('\n')
-      } else if (m.k === 'photo') {
-        const bytes = await fetchAttachmentBytes(s.openId as number, m.partIndex)
-        const blob = await imageRegionBlob(bytes, rect)
-        const res = await ocrImage(blob)
-        text = res.blocks.map((b) => b.text).filter(Boolean).join(' ')
-      } else {
-        toast('Word / Excel 暂不支持逐页取字，已在右栏记下来源页码')
-        s.setOcrPending({ mi, p, rect, text: '', loading: false })
-        return
-      }
-      s.setOcrPending({ mi, p, rect, text, loading: false })
-    } catch {
-      s.setOcrPending({ mi, p, rect, text: '', loading: false })
-      toast.error('OCR 识别失败，可重框或手打')
-    }
-  }
-
-  const onOcrBox = (mi: number, p: number, rect: PageRect) => {
-    if (useReader.getState().pickInfo < 0) return
-    void runOcr(mi, p, rect)
-  }
-
   const onToggleSel = (mi: number, p: number, shift: boolean) => st.toggleSel(mi, p, shift)
-
-  const ocrOk = () => {
-    const s = useReader.getState()
-    const pend = s.ocrPending
-    if (!pend) return
-    const di = s.pickInfo
-    s.setOcrPending(null)
-    s.setPickInfo(-1)
-    if (di < 0) return
-    const fieldName = s.draft?.infos[di]?.k || '字段'
-    const label = `${matLabel(draft.mats, pend.mi)} 第 ${pend.p} 页`
-    s.update((d) => {
-      let nd = setInfoSource(d, di, label, { mi: pend.mi, p: pend.p, rect: pend.rect })
-      if (pend.text.trim()) nd = setInfoValue(nd, di, pend.text.trim())
-      return nd
-    })
-    toast.success(`已填入「${fieldName}」`)
-  }
 
   // 选页信息
   const selDetail = (() => {
@@ -252,203 +162,85 @@ export function Reader() {
   const zoomVal = Math.round(zoom * 100)
 
   const railWrapCls = narrow
-    ? cn('fixed inset-y-0 left-0 z-40 w-[268px] overflow-y-auto border-r border-border bg-card transition-transform duration-300', railOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full')
+    ? cn(
+        'fixed inset-y-0 left-0 z-40 w-[268px] overflow-y-auto border-r border-border bg-card transition-transform duration-300',
+        railOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full',
+      )
     : 'h-full flex-none'
   const metaWrapCls = narrow
-    ? cn('fixed inset-y-0 right-0 z-40 w-[296px] overflow-y-auto border-l border-border bg-card transition-transform duration-300', metaOpen ? 'translate-x-0 shadow-2xl' : 'translate-x-full')
+    ? cn(
+        'fixed inset-y-0 right-0 z-40 w-[296px] overflow-y-auto border-l border-border bg-card transition-transform duration-300',
+        metaOpen ? 'translate-x-0 shadow-2xl' : 'translate-x-full',
+      )
     : 'h-full flex-none'
 
   const ocrFrom = ocrPending ? `${matLabel(draft.mats, ocrPending.mi)} P${ocrPending.p}` : ''
   const ocrTo = pickInfo >= 0 && draft.infos[pickInfo] ? draft.infos[pickInfo].k : ''
+  const hintField = pickInfo >= 0 && draft.infos[pickInfo] ? draft.infos[pickInfo].k : ''
+
+  const onComplete = () => {
+    if (!allClassified) {
+      const first = draft.segs.findIndex((s) => !s.t)
+      if (first >= 0) focusSeg(first)
+      toast.info('还有未归类的段，先点段头的类型胶囊选一下')
+      return
+    }
+    st.update((d) => ({ ...d, segs: d.segs.map((s) => ({ ...s, done: true })) }))
+    toast.success(`拆分与归类完成 —— 共 ${draft.segs.length} 份材料`)
+  }
+
+  const onResetSegments = () => {
+    st.update((d) => resetSegments(d))
+    focusSeg(0)
+    toast('已恢复初始分段 —— 每个源文件各一份')
+  }
+
+  const onReject = () => {
+    st.setStatus('filed')
+    toast('已归档留痕，未建案')
+    st.close()
+  }
 
   return (
     <FixedReader closing={closing}>
-      {/* 顶栏 */}
-      <div className="flex h-[54px] flex-none items-center gap-3 border-b border-border bg-card px-4">
-        <button
-          type="button"
-          onClick={close}
-          className="flex h-8 flex-none items-center gap-1.5 rounded-lg px-2 text-[13px] font-medium text-secondary-foreground hover:bg-secondary"
-          title="返回列表 (Esc)"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          材料预处理
-        </button>
-        <div className="min-w-0">
-          <div className="truncate text-[13.5px] font-semibold">{detail.subject || '材料包'}</div>
-          <div className="truncate text-[11px] text-muted-foreground">
-            {draft.mats.length} 个源文件 · {pages} 页 · {draft.segs.length} 份材料 · {unclassified} 段未归类
-          </div>
-        </div>
-        <div className="ml-auto flex flex-none items-center gap-2">
-          <button
-            type="button"
-            onClick={() => {
-              st.setStatus('filed')
-              toast('已归档留痕，未建案')
-              st.close()
-            }}
-            className="flex h-8 flex-none items-center gap-1.5 rounded-lg border border-transparent bg-transparent px-2 text-[13px] font-medium text-secondary-foreground transition-colors hover:border-border hover:bg-secondary"
-            title="不接：已归档留痕，未建案"
-          >
-            不接
-          </button>
-          <button
-            type="button"
-            disabled={!allClassified}
-            onClick={() => setShowAssign(true)}
-            title={allClassified ? '归案：绑定案件后进入办案流程' : '先完成拆分与归类'}
-            className={cn(
-              'flex h-8 flex-none items-center gap-1.5 rounded-lg px-2 text-[13px] font-medium transition-colors',
-              allClassified
-                ? 'bg-foreground text-background hover:bg-zinc-700'
-                : 'cursor-not-allowed border border-transparent bg-transparent text-muted-foreground',
-            )}
-          >
-            归案
-          </button>
-          <button
-            type="button"
-            onClick={close}
-            className="grid h-8 w-8 place-items-center rounded-lg text-secondary-foreground hover:bg-secondary"
-            title="关闭 (Esc)"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-      </div>
+      <ReaderTopBar
+        title={detail.subject || '材料包'}
+        subtitle={`${draft.mats.length} 个源文件 · ${pages} 页 · ${draft.segs.length} 份材料 · ${unclassified} 段未归类`}
+        allClassified={allClassified}
+        onBack={close}
+        onReject={onReject}
+        onAssign={() => setShowAssign(true)}
+        onClose={close}
+      />
 
-      {/* 预处理工具条（对齐原型 rd-pre：左进度、右操作，统一 pbtn 描边样式） */}
-      <div className="flex h-[56px] flex-none flex-wrap items-center gap-2 border-b border-border bg-card px-4 text-[12.5px]">
-        {narrow ? (
-          <>
-            <button
-              type="button"
-              onClick={() => {
-                setRailOpen((v) => !v)
-                setMetaOpen(false)
-              }}
-              className={cn(PBTN, railOpen && PBTN_ON)}
-            >
-              材料
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setMetaOpen((v) => !v)
-                setRailOpen(false)
-              }}
-              className={cn(PBTN, metaOpen && PBTN_ON)}
-            >
-              信息
-            </button>
-          </>
-        ) : null}
-        <span className="flex-none rounded-[4px] bg-secondary px-[7px] py-[2px] text-[10px] font-bold uppercase tracking-wide text-secondary-foreground">
-          进度
-        </span>
-        <span className="hidden text-[12px] text-secondary-foreground sm:inline">
-          {draft.mats.length} 个源文件 · {pages} 页
-        </span>
+      <ReaderToolbar
+        narrow={narrow}
+        railOpen={railOpen}
+        metaOpen={metaOpen}
+        onToggleRail={() => {
+          setRailOpen((v) => !v)
+          setMetaOpen(false)
+        }}
+        onToggleMeta={() => {
+          setMetaOpen((v) => !v)
+          setRailOpen(false)
+        }}
+        progressText={`${draft.mats.length} 个源文件 · ${pages} 页`}
+        selMode={selMode}
+        onToggleSelMode={() => st.toggleSelMode()}
+        onAddFiles={() => addInputRef.current?.click()}
+        zoomVal={zoomVal}
+        onZoomIn={zoomIn}
+        onZoomOut={zoomOut}
+        onZoomReset={() => st.setZoom(1)}
+        cols={cols}
+        onChangeCols={changeCols}
+        onResetSegments={onResetSegments}
+        onComplete={onComplete}
+      />
 
-        <span className="flex-1" />
-
-        <button
-          type="button"
-          onClick={() => st.toggleSelMode()}
-          title="选页模式：点一张选中，⇧+点 选区间（或随时 ⌘/Ctrl+点）"
-          className={cn(PBTN, selMode && PBTN_ON)}
-        >
-          选页
-        </button>
-        <button
-          type="button"
-          onClick={() => addInputRef.current?.click()}
-          title="点这里选文件，或把文件直接拖到这儿"
-          className={PBTN}
-        >
-          <Plus className="h-3.5 w-3.5" />
-          + 追加材料
-        </button>
-
-        <span className="h-4 w-px bg-border" />
-
-        <button type="button" onClick={zoomOut} title="缩小画布" className={cn(PBTN, 'w-[30px] justify-center px-0')}>
-          <Minus className="h-3.5 w-3.5" />
-        </button>
-        <button
-          type="button"
-          onClick={() => st.setZoom(1)}
-          title="点击回到 100%"
-          className={cn(PBTN, 'min-w-[52px] justify-center px-[8px] tabular-nums')}
-        >
-          {zoomVal}%
-        </button>
-        <button type="button" onClick={zoomIn} title="放大画布" className={cn(PBTN, 'w-[30px] justify-center px-0')}>
-          <Plus className="h-3.5 w-3.5" />
-        </button>
-
-        <button
-          type="button"
-          onClick={changeCols}
-          title="并排列数"
-          className={cn(PBTN, 'tabular-nums')}
-        >
-          列数：{cols}
-        </button>
-
-        <span className="h-4 w-px bg-border" />
-
-        <button
-          type="button"
-          onClick={() => {
-            void (async () => {
-              st.update((d) => resetSegments(d))
-              focusSeg(0)
-              toast('已恢复初始分段 —— 每个源文件各一份')
-            })()
-          }}
-          className={PBTN}
-        >
-          恢复初始分段
-        </button>
-        <Button
-          size="sm"
-          className="ml-1"
-          onClick={() => {
-            if (!allClassified) {
-              const first = draft.segs.findIndex((s) => !s.t)
-              if (first >= 0) focusSeg(first)
-              toast.info('还有未归类的段，先点段头的类型胶囊选一下')
-              return
-            }
-            st.update((d) => ({ ...d, segs: d.segs.map((s) => ({ ...s, done: true })) }))
-            toast.success(`拆分与归类完成 —— 共 ${draft.segs.length} 份材料`)
-          }}
-        >
-          <CheckCircle2 className="h-4 w-4" />
-          完成拆分与归类
-        </Button>
-      </div>
-
-      {/* 取字 / 选页 顶部提示横条（原型 .pickhint：琥珀底 + Esc 取消） */}
-      {(pickInfo >= 0 || selMode) && (
-        <div className="flex h-[34px] flex-none items-center gap-2.5 border-b border-amber-200 bg-amber-50 px-4 text-[12px] text-amber-800">
-          {pickInfo >= 0 ? (
-            <>
-              <span>给「{draft.infos[pickInfo]?.k || '字段'}」取字：在页面上按住拖一个框 → RapidOCR 识别；只点一下则只记页码</span>
-              <span className="flex-1" />
-              <span className="rounded border border-amber-200 bg-white px-1.5 py-px text-[11px] text-amber-700">Esc 取消</span>
-            </>
-          ) : (
-            <>
-              <span>选页：点一张选中，⇧+点 选区间，S 把选中的页合成一份，Esc 退出</span>
-              <span className="flex-1" />
-              <span className="rounded border border-amber-200 bg-white px-1.5 py-px text-[11px] text-amber-700">Esc 退出</span>
-            </>
-          )}
-        </div>
-      )}
+      {/* 取字 / 选页 顶部提示横条（原型 .pickhint：琥珀底 + Esc） */}
+      {(pickInfo >= 0 || selMode) && <HintBar mode={pickInfo >= 0 ? 'pick' : 'sel'} field={hintField} />}
 
       {/* 三栏主体 */}
       <div className="relative flex min-h-0 flex-1 bg-[#f1f1f3]">
@@ -515,41 +307,11 @@ export function Reader() {
 
       {/* 选页汇总条 */}
       {selPages.length > 0 && (
-        <div className="fixed bottom-[62px] left-1/2 z-[60] flex -translate-x-1/2 items-center gap-3 rounded-xl border border-border bg-card px-4 py-2 shadow-2xl">
-          <span className="text-[13px] font-medium tabular-nums">{selDetail.count} 页</span>
-          <span className="text-[12px] text-muted-foreground">{selDetail.cross ? '来自多份材料，将合并为一份' : '来自同一份，将独立成一页新材料'}</span>
-          <button type="button" onClick={() => st.clearSel()} className="text-[12px] text-secondary-foreground hover:underline">
-            取消选择
-          </button>
-          <button
-            type="button"
-            onClick={() => st.applySel()}
-            className="rounded-md bg-zinc-900 px-3 py-1.5 text-[12.5px] font-medium text-white hover:bg-zinc-700"
-          >
-            {selDetail.cross ? '合并为一份材料' : '独立成一份材料'}
-          </button>
-        </div>
+        <SelectionBar count={selDetail.count} cross={selDetail.cross} onClear={() => st.clearSel()} onApply={() => st.applySel()} />
       )}
 
       {/* 底栏：键位提示 + 进度 */}
-      <div className="flex h-[42px] flex-none items-center gap-3 border-t border-border bg-card px-4 text-[12px] text-muted-foreground">
-        <span>点页间「在此切开」 = 切开</span>
-        <span className="hidden sm:inline">
-          <b>⌘</b> 点页 选页 · <b>⌘⇧</b> 选区间 · <b>S</b> 合并
-        </span>
-        <span className="ml-auto flex items-center gap-1.5">
-          {allClassified ? (
-            <>
-              <CheckCircle2 className="h-4 w-4 text-green-600" />
-              <span className="text-green-700">全部已归类，可以归案了</span>
-            </>
-          ) : (
-            <span className="text-amber-700">还有 {unclassified} 段没归类</span>
-          )}
-          <span className="mx-1 h-3 w-px bg-zinc-300" />
-          <span>Esc 逐级退出</span>
-        </span>
-      </div>
+      <KeyHintsBar allClassified={allClassified} unclassified={unclassified} />
 
       {/* 追加材料文件选择 */}
       <input
