@@ -600,5 +600,5 @@ export function Reader() {
 }
 
 function FixedReader({ children }: { children: React.ReactNode }) {
-  return <div className="fixed inset-0 z-[80] flex flex-col bg-[#f1f1f3]">{children}</div>
+  return <div className="mp-reader fixed inset-0 z-[80] flex flex-col bg-[#f1f1f3]">{children}</div>
 }

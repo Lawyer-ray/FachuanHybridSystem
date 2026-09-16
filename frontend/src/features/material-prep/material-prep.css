@@ -24,6 +24,19 @@
   }
 }
 
+/* ---- 阅读器入场：整体淡入（原型 .rd 0.24s ease） ---- */
+.mp-reader {
+  animation: mp-reader-in 0.24s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes mp-reader-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
 /* ---- 卡片：不接(左) / 归案(右) 离场 ---- */
 .mp-packet.leave-left {
   animation: mp-leave-left 0.46s cubic-bezier(0.4, 0, 0.6, 1) forwards;
