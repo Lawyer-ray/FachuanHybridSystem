@@ -27,6 +27,7 @@ export const PageCell = memo(function PageCell({
   onPickPage,
   onOcrBox,
   onToggleSel,
+  onContextMenu,
 }: {
   messageId: number
   mi: number
@@ -40,6 +41,7 @@ export const PageCell = memo(function PageCell({
   onPickPage?: (mi: number, p: number) => void
   onOcrBox?: (mi: number, p: number, rect: PageRect) => void
   onToggleSel?: (mi: number, p: number, shift: boolean) => void
+  onContextMenu?: (e: React.MouseEvent, mi: number, p: number) => void
 }) {
   const boxRef = useRef<HTMLDivElement>(null)
   const dragRef = useRef<{ x: number; y: number } | null>(null)
@@ -109,6 +111,11 @@ export const PageCell = memo(function PageCell({
       onPointerUp={onPointerUp}
       onClick={onClick}
       onDragStart={stopProp}
+      onContextMenu={(e) => {
+        e.preventDefault()
+        e.stopPropagation()
+        onContextMenu?.(e, mi, p)
+      }}
       className={cn(
         'relative select-text rounded-[7px] border bg-card text-[12.5px] leading-[1.9] text-foreground shadow-[0_1px_3px_rgba(0,0,0,0.05),0_10px_26px_rgba(0,0,0,0.04)] transition-opacity',
         pickActive ? 'cursor-crosshair select-none' : selModeActive ? 'cursor-pointer' : 'cursor-default',

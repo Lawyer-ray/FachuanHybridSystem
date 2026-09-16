@@ -1,10 +1,11 @@
-import type { CSSProperties } from 'react'
+import { useState, type CSSProperties } from 'react'
 import { Scissors } from 'lucide-react'
 import { SEG_COLORS } from '../../constants'
 import { useElementWidth } from '../../hooks/use-element-width'
 import type { DraftState, OcrPending, PageKey } from '../../types'
 import { selKeyOf } from '../../draft'
 import { PageCell, type PageRect } from './PageCell'
+import { PageContextMenu } from './PageContextMenu'
 import { SegmentHeader } from './SegmentHeader'
 import { cn } from '@/lib/utils'
 
@@ -29,6 +30,7 @@ export function Flow({
   onOp,
   onToggleSel,
   onOcrBox,
+  onDeletePages,
 }: {
   draft: DraftState
   messageId: number
@@ -49,10 +51,13 @@ export function Flow({
   }
   onToggleSel: (mi: number, p: number, shift: boolean) => void
   onOcrBox: (mi: number, p: number, rect: PageRect) => void
+  onDeletePages: (picked: PageKey[]) => void
 }) {
   const { segs, mats, infos } = draft
   const picking = pickInfo >= 0
   const [flowRef, flowWidth] = useElementWidth<HTMLDivElement>()
+  // 右键菜单：记录落点页码；右键非选中页时单删，右键选中页时按当前选区批量删
+  const [menu, setMenu] = useState<{ x: number; y: number; mi: number; p: number } | null>(null)
 
   // —— 列数 / 页宽：原型 sgrid 模型（固定页宽，窄窗保护，缩放联动） ——
   const maxColsAllowed = Math.max(1, Math.floor((flowWidth + COL_GAP) / (COL_MIN_W + COL_GAP)))
@@ -73,6 +78,14 @@ export function Flow({
         return { fi, rect: sr.rect, label: f.k }
       })
       .filter((x): x is { fi: number; rect: PageRect; label: string } => x !== null)
+
+  const openMenu = (e: React.MouseEvent, mi: number, p: number) => {
+    setMenu({ x: e.clientX, y: e.clientY, mi, p })
+  }
+  const menuInSel = menu ? selPages.some((k) => selKeyOf(k) === `${menu.mi}:${menu.p}`) : false
+  const menuTitle = menu
+    ? `${mats[menu.mi]?.customName || mats[menu.mi]?.n || ''} · 第 ${menu.p} 页`
+    : ''
 
   return (
     <div
@@ -144,6 +157,7 @@ export function Flow({
                         onPickPage={picking ? onOp.pickPage : undefined}
                         onOcrBox={picking ? onOcrBox : undefined}
                         onToggleSel={onToggleSel}
+                        onContextMenu={openMenu}
                       />
                     </div>
                   )
@@ -172,6 +186,7 @@ export function Flow({
                         onPickPage={picking ? onOp.pickPage : undefined}
                         onOcrBox={picking ? onOcrBox : undefined}
                         onToggleSel={onToggleSel}
+                        onContextMenu={openMenu}
                       />
                       {ri < seg.refs.length - 1 && (
                         <button
@@ -194,6 +209,21 @@ export function Flow({
           </section>
         )
       })}
+
+      {menu && (
+        <PageContextMenu
+          x={menu.x}
+          y={menu.y}
+          title={menuTitle}
+          count={menuInSel ? selPages.length : 1}
+          onDelete={() => {
+            const target = menuInSel ? selPages : [{ mi: menu.mi, p: menu.p }]
+            onDeletePages(target)
+            setMenu(null)
+          }}
+          onClose={() => setMenu(null)}
+        />
+      )}
     </div>
   )
 }

@@ -358,6 +358,20 @@ export function isSelectionContiguous(d: DraftState, selPages: PageKey[]): boole
   return idx[idx.length - 1] - idx[0] + 1 === idx.length
 }
 
+/**
+ * 删除选中页面：从所有段里移除这些页的引用，空段一并清理。
+ * 只影响拆分草稿（后续不再引用被删页），物理 PDF 文件不动。
+ */
+export function removePages(d: DraftState, picked: PageKey[]): DraftState {
+  if (!picked.length) return d
+  const gone = new Set(picked.map((r) => `${r.mi}:${r.p}`))
+  const segs = d.segs
+    .map((sg) => ({ ...sg, refs: sg.refs.filter((r) => !gone.has(`${r.mi}:${r.p}`)) }))
+    .filter((sg) => sg.refs.length > 0)
+  if (segs.length === d.segs.length && segs.every((sg, i) => sg === d.segs[i])) return d
+  return { ...d, segs }
+}
+
 // ---------------------------------------------------------------------------
 // 材料包状态 / 归案信息（持久化到 draft_state）
 // ---------------------------------------------------------------------------

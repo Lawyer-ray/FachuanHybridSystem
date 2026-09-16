@@ -299,6 +299,10 @@ export function Reader() {
             }}
             onToggleSel={onToggleSel}
             onOcrBox={onOcrBox}
+            onDeletePages={(picked) => {
+              const n = st.deleteSelected(picked)
+              if (n > 0) toast(`已删除 ${n} 页 —— 从材料拆分中移除`)
+            }}
           />
         </div>
 

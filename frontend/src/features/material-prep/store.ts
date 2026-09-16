@@ -8,6 +8,7 @@ import {
   flatRefs,
   isSelectionContiguous,
   pageIndexOf,
+  removePages,
   resolveMats,
   setPackAssign,
   setPackStatus,
@@ -57,6 +58,8 @@ interface ReaderState {
   toggleSel: (mi: number, p: number, shift: boolean) => void
   clearSel: () => void
   applySel: () => void
+  /** 删除页（缺省删当前选中，传 target 删指定页），返回被删页数 */
+  deleteSelected: (target?: PageKey[]) => number
   setOcrPending: (p: OcrPending | null) => void
   /** 打标材料包状态（不接归档 / 拆分归类完成等） */
   setStatus: (s: PackStatus) => void
@@ -227,6 +230,17 @@ export const useReader = create<ReaderState>((set, get) => ({
     get().update((d) => applyPageSelection(d, selPages))
     get().clearSel()
     toast('已处理选中页 —— 新段记得归类')
+  },
+
+  /** 删除页：缺省删当前选中；传 target 则删指定页（右键未选中页时用）。 */
+  deleteSelected: (target?: PageKey[]) => {
+    const { draft, selPages } = get()
+    const picked = target ?? selPages
+    if (!draft || !picked.length) return 0
+    const n = picked.length
+    get().update((d) => removePages(d, picked))
+    get().clearSel()
+    return n
   },
 
   setOcrPending: (p) => set({ ocrPending: p }),
