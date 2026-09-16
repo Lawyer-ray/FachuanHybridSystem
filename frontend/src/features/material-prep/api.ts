@@ -32,6 +32,11 @@ export async function deletePack(id: number): Promise<{ ok: boolean; message_id:
   return inboxApi.delete(`messages/${id}`).json()
 }
 
+/** 重命名材料包标题（收件箱消息 subject） */
+export async function renamePack(id: number, subject: string): Promise<{ ok: boolean; message_id: number; subject: string }> {
+  return inboxApi.put(`messages/${id}`, { json: { subject } }).json()
+}
+
 export async function uploadPack(files: File[], subject?: string): Promise<InboxMessageDetail> {
   return inboxApi
     .post('messages/upload', {

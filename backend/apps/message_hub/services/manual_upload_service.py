@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
+from django.core.exceptions import ValidationError
 from django.core.files.storage import default_storage
 from django.utils import timezone
 
@@ -141,6 +142,19 @@ def save_draft(message_id: int, draft: dict[str, Any]) -> InboxMessage:
     message = InboxMessage.objects.get(pk=message_id)
     message.draft_state = draft or {}
     message.save(update_fields=["draft_state"])
+    return message
+
+
+def rename_manual_message(message: InboxMessage, subject: str) -> InboxMessage:
+    """重命名材料包（收件箱消息标题）。subject 去首尾空白后必须非空。"""
+    name = subject.strip()
+    if not name:
+        raise ValidationError("材料包名称不能为空")
+    if len(name) > 512:
+        name = name[:512]
+    message.subject = name
+    message.save(update_fields=["subject"])
+    logger.info("材料包 %s 重命名为 %s", message.pk, name)
     return message
 
 

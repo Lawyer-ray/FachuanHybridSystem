@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router'
-import { FolderOpen, Loader2, LogOut, PackagePlus, Plus, Trash2 } from 'lucide-react'
+import { FolderOpen, Loader2, LogOut, PackagePlus, Pencil, Plus, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import {
@@ -24,6 +24,7 @@ import { useAuth } from '@/features/auth/store'
 import { useMaterialPacks, useCreatePack, useJudgePack, useDeletePack } from '../hooks/use-inbox'
 import { useReader } from '../store'
 import { PackCard } from './PackCard'
+import { RenamePackDialog } from './RenamePackDialog'
 import { Reader } from './reader/Reader'
 import { AssignModal } from './reader/AssignModal'
 import { cn } from '@/lib/utils'
@@ -57,6 +58,8 @@ export function DeskPage() {
   const [assigning, setAssigning] = useState<InboxMessage | null>(null)
   // 待确认删除的材料包（破坏性操作，右键后先经 AlertDialog 确认）
   const [deleteTarget, setDeleteTarget] = useState<InboxMessage | null>(null)
+  // 待重命名的材料包（右键菜单打开），null 时关闭
+  const [renameTarget, setRenameTarget] = useState<InboxMessage | null>(null)
 
   const fileInputRef = useRef<HTMLInputElement>(null)
   const gridRef = useRef<HTMLDivElement>(null)
@@ -368,6 +371,9 @@ export function DeskPage() {
                       <ContextMenuItem onSelect={() => openAt(i)}>
                         <FolderOpen /> 打开材料包
                       </ContextMenuItem>
+                      <ContextMenuItem onSelect={() => setRenameTarget(p)}>
+                        <Pencil /> 重命名材料包
+                      </ContextMenuItem>
                       <ContextMenuSeparator />
                       <ContextMenuItem variant="destructive" onSelect={() => setDeleteTarget(p)}>
                         <Trash2 /> 删除材料包
@@ -475,6 +481,9 @@ export function DeskPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* 重命名材料包：右键菜单打开 */}
+      <RenamePackDialog open={!!renameTarget} onOpenChange={(o) => !o && setRenameTarget(null)} pack={renameTarget} />
     </div>
   )
 }

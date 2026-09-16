@@ -1,4 +1,4 @@
-import { ArrowLeft, X } from 'lucide-react'
+import { ArrowLeft, Pencil, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 /** 阅读器顶栏（原型 rd-bar）：返回 + 标题/副标题 + 不接/归案/关闭 */
@@ -10,6 +10,7 @@ export function ReaderTopBar({
   onReject,
   onAssign,
   onClose,
+  onRename,
 }: {
   title: string
   subtitle: string
@@ -18,6 +19,7 @@ export function ReaderTopBar({
   onReject: () => void
   onAssign: () => void
   onClose: () => void
+  onRename: () => void
 }) {
   return (
     <div className="flex h-[54px] flex-none items-center gap-3 border-b border-border bg-card px-4">
@@ -30,8 +32,18 @@ export function ReaderTopBar({
         <ArrowLeft className="h-4 w-4" />
         材料预处理
       </button>
-      <div className="min-w-0">
-        <div className="truncate text-[13.5px] font-semibold">{title}</div>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-1.5">
+          <span className="truncate text-[13.5px] font-semibold">{title}</span>
+          <button
+            type="button"
+            onClick={onRename}
+            className="grid h-[18px] w-[18px] flex-none place-items-center rounded text-secondary-foreground opacity-70 transition-colors hover:bg-secondary hover:opacity-100"
+            title="重命名材料包"
+          >
+            <Pencil className="h-3 w-3" />
+          </button>
+        </div>
         <div className="truncate text-[11px] text-muted-foreground">{subtitle}</div>
       </div>
       <div className="ml-auto flex flex-none items-center gap-2">
