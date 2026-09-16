@@ -5,12 +5,28 @@
 # 跳过: git push --no-verify
 #
 # 行为:
-#   - 默认 --quick（lint + typecheck，约 30 秒）
+#   - 纯删除操作（删除分支 / tag）时本地 sha 全为 0，无新代码可检查，直接放行
+#   - 其余推送默认 --quick（lint + typecheck，约 30 秒）
 #   - 完整测试（28000+ 用例）留给 CI，手动: bash scripts/ci-local.sh --full
 
 set -euo pipefail
 
 GIT_ROOT="$(git rev-parse --show-toplevel)"
+
+# pre-push 标准输入格式: <local ref> <local sha1> <remote ref> <remote sha1>
+# 纯删除（分支 / tag）时 local sha 为 40 个 0；空串按无推送处理
+HAS_PUSH="0"
+while read -r _local_ref local_sha _remote_ref _remote_sha; do
+  if [ -n "$local_sha" ] && [[ ! "$local_sha" =~ ^0+$ ]]; then
+    HAS_PUSH="1"
+    break
+  fi
+done < /dev/stdin
+
+if [[ "$HAS_PUSH" != "1" ]]; then
+  echo "▶ pre-push: 本次推送仅含删除操作（分支 / tag），跳过本地 CI"
+  exit 0
+fi
 
 # pre-push 默认 quick 模式
 # macOS 25+ 禁用 xdist 并行（FD 3 EXC_GUARD），28000+ 测试串行需 20+ 分钟
