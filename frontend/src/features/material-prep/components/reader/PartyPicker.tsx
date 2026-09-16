@@ -16,10 +16,13 @@ export function PartyPicker({
   value,
   onChange,
   placeholder,
+  isOurClient,
 }: {
   value: string
   onChange: (v: string) => void
   placeholder?: string
+  /** 检索范围：委托人为我方当事人(true)，对方当事人(false) */
+  isOurClient: boolean
 }) {
   const [q, setQ] = useState('')
   const [hits, setHits] = useState<ClientHit[]>([])
@@ -63,7 +66,7 @@ export function PartyPicker({
     setOpen(true)
     timer.current = setTimeout(async () => {
       try {
-        const list = await searchClients(t)
+        const list = await searchClients(t, isOurClient)
         setHits(list.slice(0, 12))
       } catch {
         setHits([])

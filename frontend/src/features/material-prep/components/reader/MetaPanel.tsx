@@ -90,7 +90,12 @@ export function MetaPanel({
               className="resize-none text-[13px]"
             />
           ) : f.k === '委托人' || f.k === '对方当事人' ? (
-            <PartyPicker value={f.v} onChange={(v) => ops.setValue(di, v)} placeholder={f.ph} />
+            <PartyPicker
+              value={f.v}
+              onChange={(v) => ops.setValue(di, v)}
+              placeholder={f.ph}
+              isOurClient={f.k === '委托人'}
+            />
           ) : (
             <Input
               placeholder={f.ph}
