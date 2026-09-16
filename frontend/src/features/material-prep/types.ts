@@ -110,6 +110,15 @@ export interface CaseRow {
   case_numbers?: { number?: string }[]
 }
 
+/** 后端 /clients 检索命中的当事人（客户库），用于委托人/对方当事人填入 */
+export interface ClientHit {
+  id: number
+  name: string
+  is_our_client: boolean
+  client_type?: string | null
+  phone?: string | null
+}
+
 /** 收件箱附件元信息（来自后端 AttachmentMeta） */
 export interface AttachmentMeta {
   filename: string

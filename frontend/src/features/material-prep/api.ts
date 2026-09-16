@@ -2,6 +2,7 @@ import { createApiClient } from '@/lib/api'
 import type {
   AssignInfo,
   CaseRow,
+  ClientHit,
   InboxMessage,
   InboxMessageDetail,
   DraftState,
@@ -14,6 +15,14 @@ import type {
  * 每次上传（可多文件）会生成一条 manual_upload 来源的消息，即一个「材料包」。
  */
 export const inboxApi = createApiClient({ prefix: '/api/v1/inbox' })
+
+/** 客户/当事人检索（/api/v1/clients） */
+export const clientApi = createApiClient({ prefix: '/api/v1/clients' })
+
+/** 按关键字模糊检索当事人（客户库，后端按 name/phone/id_number 做 icontains），用于委托人/对方当事人填入 */
+export async function searchClients(keyword: string): Promise<ClientHit[]> {
+  return clientApi.get('', { searchParams: { search: keyword } }).json<ClientHit[]>()
+}
 
 export async function listMaterialPacks(): Promise<InboxMessage[]> {
   return inboxApi
