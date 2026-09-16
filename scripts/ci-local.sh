@@ -45,6 +45,7 @@ NC='\033[0m'
 MODE="quick"
 RUN_BACKEND=true
 RUN_FRONTEND=true
+AUTO_SCOPE=false
 
 for arg in "$@"; do
   case "$arg" in
@@ -52,6 +53,7 @@ for arg in "$@"; do
     --quick)   MODE="quick" ;;
     --backend) RUN_FRONTEND=false ;;
     --frontend) RUN_BACKEND=false ;;
+    --auto) AUTO_SCOPE=true ;;
     -h|--help)
       echo "用法: $0 [--quick|--full|--backend|--frontend]"
       echo ""
@@ -59,6 +61,7 @@ for arg in "$@"; do
       echo "  --full       完整检查（需要 PostgreSQL）"
       echo "  --backend    仅后端检查"
       echo "  --frontend   仅前端检查"
+      echo "  --auto       按改动范围自动裁剪后端/前端（pre-push 使用）"
       exit 0
       ;;
     *)
@@ -72,7 +75,7 @@ done
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 BACKEND_DIR="$ROOT_DIR/backend"
-FRONTEND_DIR="$ROOT_DIR/frontend_2026"
+FRONTEND_DIR="$ROOT_DIR/frontend"
 
 # ── 计数器 ─────────────────────────────────────────────────────
 PASSED=0
@@ -102,6 +105,28 @@ compute_base() {
 }
 
 BASE_MERGE=$(compute_base)
+
+# ── 按改动范围自动裁剪后端/前端（--auto，pre-push 使用）────────
+apply_auto_scope() {
+  [ "$AUTO_SCOPE" = true ] || return 0
+  [ -n "$BASE_MERGE" ] || return 0
+  local changed has_backend="" has_frontend=""
+  changed=$(git -C "$ROOT_DIR" diff --name-only "$BASE_MERGE" HEAD 2>/dev/null || true)
+  if echo "$changed" | grep -q '^backend/'; then has_backend=1; fi
+  if echo "$changed" | grep -q '^frontend/'; then has_frontend=1; fi
+  if [ -n "$has_backend" ] && [ -z "$has_frontend" ]; then
+    RUN_FRONTEND=false
+    echo -e "${YELLOW}  [auto] 仅后端改动，跳过前端检查${NC}"
+  elif [ -z "$has_backend" ] && [ -n "$has_frontend" ]; then
+    RUN_BACKEND=false
+    echo -e "${YELLOW}  [auto] 仅前端改动，跳过后端检查${NC}"
+  elif [ -z "$has_backend" ] && [ -z "$has_frontend" ]; then
+    RUN_BACKEND=false
+    RUN_FRONTEND=false
+    echo -e "${YELLOW}  [auto] 未检出 backend/ 或 frontend/ 改动，跳过全部检查${NC}"
+  fi
+}
+apply_auto_scope
 
 # ── DB 环境变量（full 模式需要）────────────────────────────────
 export DJANGO_DEBUG=1
@@ -337,10 +362,26 @@ if [ "$RUN_BACKEND" = true ]; then
   # 忽略列表与 .github/workflows/backend-ci.yml 保持同步；末尾 PYSEC-2026-3721 / PYSEC-2026-3447
   # 是本地 TRAE 污染 python 底盘的构建工具漏洞，CI 干净环境扫不到，保留以放行本地 push
   header "14/22" "依赖安全审计 (pip-audit)"
-  if $BACKEND_PYTHON -m pip_audit --ignore-vuln CVE-2026-3219 --ignore-vuln CVE-2026-6357 --ignore-vuln CVE-2026-42304 --ignore-vuln CVE-2026-46678 --ignore-vuln PYSEC-2026-89 --ignore-vuln PYSEC-2026-161 --ignore-vuln PYSEC-2025-183 --ignore-vuln PYSEC-2026-175 --ignore-vuln PYSEC-2026-177 --ignore-vuln PYSEC-2026-178 --ignore-vuln PYSEC-2026-179 --ignore-vuln PYSEC-2026-196 --ignore-vuln CVE-2026-54911 --ignore-vuln GHSA-6v7p-g79w-8964 --ignore-vuln GHSA-4xgf-cpjx-pc3j --ignore-vuln CVE-2026-48990 --ignore-vuln CVE-2026-49452 --ignore-vuln CVE-2026-49477 --ignore-vuln CVE-2026-49476 --ignore-vuln PYSEC-2026-3444 --ignore-vuln PYSEC-2026-3072 --ignore-vuln PYSEC-2026-3071 --ignore-vuln PYSEC-2026-3412 --ignore-vuln CVE-2026-52870 --ignore-vuln CVE-2026-52869 --ignore-vuln CVE-2026-59950 --ignore-vuln CVE-2026-59881 --ignore-vuln CVE-2026-69243 --ignore-vuln CVE-2026-69244 --ignore-vuln CVE-2026-69248 --ignore-vuln CVE-2026-69247 --ignore-vuln CVE-2026-69249 --ignore-vuln PYSEC-2026-3482 --ignore-vuln PYSEC-2026-3483 --ignore-vuln PYSEC-2026-3481 --ignore-vuln PYSEC-2026-3721 --ignore-vuln PYSEC-2026-3447 2>&1; then
+  # 仅当本次有依赖文件变更时才扫描，避免每次 push 白跑网络请求；网络抖动自动重试一次
+  _pip_audit_invoke() {
+    $BACKEND_PYTHON -m pip_audit --ignore-vuln CVE-2026-3219 --ignore-vuln CVE-2026-6357 --ignore-vuln CVE-2026-42304 --ignore-vuln CVE-2026-46678 --ignore-vuln PYSEC-2026-89 --ignore-vuln PYSEC-2026-161 --ignore-vuln PYSEC-2025-183 --ignore-vuln PYSEC-2026-175 --ignore-vuln PYSEC-2026-177 --ignore-vuln PYSEC-2026-178 --ignore-vuln PYSEC-2026-179 --ignore-vuln PYSEC-2026-196 --ignore-vuln CVE-2026-54911 --ignore-vuln GHSA-6v7p-g79w-8964 --ignore-vuln GHSA-4xgf-cpjx-pc3j --ignore-vuln CVE-2026-48990 --ignore-vuln CVE-2026-49452 --ignore-vuln CVE-2026-49477 --ignore-vuln CVE-2026-49476 --ignore-vuln PYSEC-2026-3444 --ignore-vuln PYSEC-2026-3072 --ignore-vuln PYSEC-2026-3071 --ignore-vuln PYSEC-2026-3412 --ignore-vuln CVE-2026-52870 --ignore-vuln CVE-2026-52869 --ignore-vuln CVE-2026-59950 --ignore-vuln CVE-2026-59881 --ignore-vuln CVE-2026-69243 --ignore-vuln CVE-2026-69244 --ignore-vuln CVE-2026-69248 --ignore-vuln CVE-2026-69247 --ignore-vuln CVE-2026-69249 --ignore-vuln PYSEC-2026-3482 --ignore-vuln PYSEC-2026-3483 --ignore-vuln PYSEC-2026-3481 --ignore-vuln PYSEC-2026-3721 --ignore-vuln PYSEC-2026-3447 2>&1
+  }
+  DEP_CHANGED=false
+  if [ -n "$BASE_MERGE" ]; then
+    if git -C "$ROOT_DIR" diff --name-only "$BASE_MERGE" HEAD 2>/dev/null \
+      | grep -qE '(^|/)(pyproject\.toml|uv\.lock|requirements[^/]*\.(txt|pip)|Pipfile(\..*)?)$'; then
+      DEP_CHANGED=true
+    fi
+  else
+    DEP_CHANGED=true
+  fi
+  if [ "$DEP_CHANGED" = false ]; then
+    skip "pip-audit（无依赖文件变更）"
+  elif _pip_audit_invoke; then
     pass "pip-audit"
   else
-    fail "pip-audit"
+    echo "  pip-audit 失败（疑似网络抖动），重试一次..."
+    if _pip_audit_invoke; then pass "pip-audit"; else fail "pip-audit"; fi
   fi
 
   # [15] Bandit（对齐 backend job 的 Static security scan step）
