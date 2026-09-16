@@ -126,7 +126,11 @@ export const PackCard = memo(function PackCard({
           ) : (
             <>
               <div className="flex items-center">
-                {Array.from({ length: shown }).map((_, idx) => docPage(idx))}
+                {Array.from({ length: shown }).map((_, idx) => (
+                  <div key={idx} className={idx > 0 ? '-ml-10 transition-[margin] duration-200 group-hover:-ml-[30px]' : ''}>
+                    {docPage(idx)}
+                  </div>
+                ))}
               </div>
               {(pack.mats ?? 0) > 3 && (
                 <span className="ml-[10px] flex-none rounded-full border border-border bg-card px-[9px] py-[3px] text-[11.5px] font-medium text-secondary-foreground shadow-sm">

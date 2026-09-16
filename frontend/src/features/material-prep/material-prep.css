@@ -78,6 +78,9 @@
 /* ---- ring：键盘导航的高亮框（原型主色黑） ---- */
 .mp-ring {
   position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 5;
   pointer-events: none;
   border: 1.5px solid #18181b;
   border-radius: 13px;
