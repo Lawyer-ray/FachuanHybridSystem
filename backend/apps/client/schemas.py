@@ -23,6 +23,15 @@ class ClientIdentityDocOut(Schema):
     media_url: str | None = None
 
 
+class PartyListOut(Schema):
+    """当事人检索精简输出（仅供检索填报，不携带证件文档，规避证件序列化缺陷）"""
+
+    id: int
+    name: str
+    phone: str | None = None
+    is_our_client: bool = False
+
+
 class IdentityDocDetailOut(Schema):
     """证件文档详情输出 Schema"""
 

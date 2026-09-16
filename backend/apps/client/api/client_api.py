@@ -12,7 +12,7 @@ from ninja import File, Router, Status
 from ninja.files import UploadedFile
 from pydantic import BaseModel
 
-from apps.client.schemas import ClientIn, ClientOut, ClientUpdateIn, OACredentialCheckOut, RelatedItemsOut
+from apps.client.schemas import ClientIn, ClientOut, ClientUpdateIn, OACredentialCheckOut, PartyListOut, RelatedItemsOut
 from apps.client.services.text_parser import parse_client_text as _parse_client
 from apps.client.services.text_parser import parse_multiple_clients_text as _parse_multi
 from apps.core.dto.request_context import extract_request_context
@@ -75,6 +75,28 @@ async def list_clients(  # pragma: no cover
         return [ClientOut.from_orm(c).model_dump() for c in qs]
 
     return cast(list[ClientOut], await _fetch())
+
+
+@router.get("/parties/search", response=list[PartyListOut])
+async def search_parties(request: Any, keyword: str = "") -> list[PartyListOut]:
+    """按关键字模糊检索当事人（仅返回检索填报所需的精简字段，不携带证件文档）。"""
+    facade = _get_query_facade()
+    user = getattr(request, "auth", None) or extract_request_context(request).user
+
+    @sync_to_async
+    def _fetch() -> list[dict]:
+        qs = facade.list_clients(search=keyword or None, user=user)
+        return [
+            PartyListOut(
+                id=c.id,
+                name=c.name,
+                phone=getattr(c, "phone", None),
+                is_our_client=getattr(c, "is_our_client", False),
+            ).model_dump()
+            for c in qs
+        ]
+
+    return cast(list[PartyListOut], await _fetch())
 
 
 @router.post("/clients/parse-text")
