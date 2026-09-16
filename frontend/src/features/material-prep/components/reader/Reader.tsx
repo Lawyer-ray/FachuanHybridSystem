@@ -266,7 +266,7 @@ export function Reader() {
           />
         </div>
 
-        <div className="relative min-w-0 flex-1 overflow-y-auto">
+        <div className="relative min-w-0 flex-1 overflow-auto">
           <Flow
             draft={draft}
             messageId={openId}

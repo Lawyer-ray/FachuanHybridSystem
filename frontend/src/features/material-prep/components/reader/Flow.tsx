@@ -1,9 +1,20 @@
+import type { CSSProperties } from 'react'
 import { Scissors } from 'lucide-react'
 import { SEG_COLORS } from '../../constants'
+import { useElementWidth } from '../../hooks/use-element-width'
 import type { DraftState, OcrPending, PageKey } from '../../types'
 import { selKeyOf } from '../../draft'
 import { PageCell, type PageRect } from './PageCell'
 import { SegmentHeader } from './SegmentHeader'
+import { cn } from '@/lib/utils'
+
+/** 原型多列模型参数：
+ *  100% = 适应宽度，页宽 = min(960, 可用均分)；
+ *  每列至少 MIN_COL_W 才有资格并排；缩放用倍率乘在页宽上（非 CSS zoom）。 */
+export const COL_GAP = 18
+export const PAGE_MAX_W = 960
+export const COL_MIN_W = 360
+export const PAGE_MIN_W = 140
 
 export function Flow({
   draft,
@@ -41,7 +52,15 @@ export function Flow({
 }) {
   const { segs, mats, infos } = draft
   const picking = pickInfo >= 0
-  const nCols = Math.max(1, cols)
+  const [flowRef, flowWidth] = useElementWidth<HTMLDivElement>()
+
+  // —— 列数 / 页宽：原型 sgrid 模型（固定页宽，窄窗保护，缩放联动） ——
+  const maxColsAllowed = Math.max(1, Math.floor((flowWidth + COL_GAP) / (COL_MIN_W + COL_GAP)))
+  const nCols = Math.max(1, Math.min(cols, maxColsAllowed))
+  const fit = Math.min(PAGE_MAX_W, (flowWidth - (nCols - 1) * COL_GAP) / nCols)
+  const pageW = Math.max(PAGE_MIN_W, Math.round(fit * zoom))
+  const rowW = nCols * pageW + (nCols - 1) * COL_GAP
+  const zwide = rowW > flowWidth
 
   // 每页的来源绿框（采纳了带框的标来源）
   const marksOf = (mi: number, p: number) =>
@@ -55,8 +74,17 @@ export function Flow({
 
   return (
     <div
-      className="mx-auto flex flex-col gap-5 px-5 py-6"
-      style={{ maxWidth: 1180, zoom }}
+      ref={flowRef}
+      className={cn('mp-flow flex flex-col gap-5 px-5 py-6', zwide && 'mp-flow-zwide')}
+      style={
+        {
+          width: '100%',
+          '--mp-cols': nCols,
+          '--mp-cw': `${pageW}px`,
+          '--mp-gap': `${COL_GAP}px`,
+          '--mp-rw': `${rowW}px`,
+        } as CSSProperties
+      }
     >
       {segs.map((seg, si) => {
         const color = SEG_COLORS[si % SEG_COLORS.length]
@@ -66,7 +94,7 @@ export function Flow({
           <section
             key={si}
             id={`seg-${si}`}
-            className={`flex flex-col gap-1.5 transition-opacity ${focused ? '' : 'opacity-95'}`}
+            className={`mp-seg flex flex-col gap-1.5 transition-opacity ${focused ? '' : 'opacity-95'}`}
           >
             <SegmentHeader
               seg={seg}
@@ -85,7 +113,7 @@ export function Flow({
             )}
 
             {nCols > 1 ? (
-              <div className="grid items-start gap-4" style={{ gridTemplateColumns: `repeat(${nCols}, minmax(0,1fr))` }}>
+              <div className="mp-grid">
                 {seg.refs.map((ref, ri) => {
                   const mat = mats[ref.mi]
                   if (!mat) return null
@@ -120,12 +148,15 @@ export function Flow({
                 })}
               </div>
             ) : (
-              <div className="flex flex-col items-center gap-1.5">
+              <div className={cn('flex flex-col items-center gap-1.5', zwide && 'items-start')}>
                 {seg.refs.map((ref, ri) => {
                   const mat = mats[ref.mi]
                   if (!mat) return null
                   return (
-                    <div key={ref.mi + '-' + ref.p} className="flex w-full flex-col items-center gap-1.5">
+                    <div
+                      key={ref.mi + '-' + ref.p}
+                      className="flex w-[var(--mp-cw)] flex-col items-center gap-1.5"
+                    >
                       <PageCell
                         messageId={messageId}
                         mi={ref.mi}

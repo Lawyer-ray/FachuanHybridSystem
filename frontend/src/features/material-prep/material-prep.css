@@ -136,3 +136,38 @@
   padding: 3px 9px;
   pointer-events: none;
 }
+
+/* ============================================================
+   阅读器画布：原型 .seg / .sgrid 多列模型
+   toc 段头跨满整行（--mp-rw），段内页面按固定页宽（--mp-cw）流式排满整行。
+   --mp-cols / --mp-cw / --mp-gap / --mp-rw 由 Flow.tsx 依容器宽 + 缩放计算。
+   ============================================================ */
+.mp-flow {
+  width: 100%;
+}
+
+.mp-seg {
+  width: var(--mp-rw, 100%);
+}
+
+.mp-grid {
+  display: grid;
+  align-items: start;
+  justify-content: center;
+  column-gap: var(--mp-gap, 18px);
+  row-gap: var(--mp-gap, 18px);
+  width: 100%;
+  /* 固定页宽：缩放联动时 --mp-cw 已被翻倍，页距写真纸比例 */
+  grid-template-columns: repeat(var(--mp-cols, 1), minmax(0, var(--mp-cw, 960px)));
+}
+
+/* 放大到比画布还宽时必须靠左 —— 居中会让左端永远滚不到 */
+.mp-flow-zwide {
+  align-items: flex-start;
+}
+.mp-flow-zwide .mp-seg {
+  align-items: flex-start;
+}
+.mp-flow-zwide .mp-grid {
+  justify-content: start;
+}
