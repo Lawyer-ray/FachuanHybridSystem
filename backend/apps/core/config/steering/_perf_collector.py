@@ -39,6 +39,9 @@ class PerformanceDataCollector:
         self._load_times: list[float] = []
         self._memory_samples: deque[Any] = deque(maxlen=100)
 
+        # 停止事件：解释器关闭时置位，避免后台线程写入已关闭的日志流
+        self._stop_event = threading.Event()
+
         # 启动内存监控
         self._start_memory_monitoring()
 
@@ -200,14 +203,17 @@ class PerformanceDataCollector:
         """启动内存监控"""
 
         def monitor_memory() -> None:
-            while True:
+            while not self._stop_event.wait(5):  # 每5秒采样一次；置位后立即退出
                 try:
                     memory_usage = self._get_current_memory_usage()
                     self._memory_samples.append(memory_usage)
-                    time.sleep(5)  # 每5秒采样一次
                 except (OSError, ValueError, RuntimeError) as e:
                     logger.error(f"内存监控失败: {e}")
-                    time.sleep(10)
+                    self._stop_event.wait(10)
 
         monitor_thread = threading.Thread(target=monitor_memory, daemon=True)
         monitor_thread.start()
+
+    def shutdown(self) -> None:
+        """停止后台监控线程，避免解释器关闭时线程写已关闭的日志流"""
+        self._stop_event.set()

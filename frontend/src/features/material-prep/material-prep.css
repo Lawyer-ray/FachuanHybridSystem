@@ -1,0 +1,178 @@
+/* 材料预处理专用动效。配合 Tailwind 其它工具类使用。 */
+
+/* ---- 卡片：已归案印章敲入（小绿章，结束直立） ---- */
+.mp-stamp {
+  opacity: 0;
+  transform: scale(1.5) rotate(-8deg);
+}
+.mp-packet.stamped .mp-stamp {
+  animation: mp-stamp-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  animation-delay: 0.05s;
+}
+@keyframes mp-stamp-in {
+  0% {
+    opacity: 0;
+    transform: scale(1.5) rotate(-8deg);
+  }
+  55% {
+    opacity: 1;
+    transform: scale(0.97) rotate(0);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* ---- 阅读器入场/退场：整体淡入淡出（原型 .rd 0.24s ease） ---- */
+.mp-reader {
+  animation: mp-reader-in 0.24s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes mp-reader-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+.mp-reader.closing {
+  animation: mp-reader-out 0.24s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+@keyframes mp-reader-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+/* ---- 卡片：不接(左) / 归案(右) 离场 ---- */
+.mp-packet.leave-left {
+  animation: mp-leave-left 0.46s cubic-bezier(0.4, 0, 0.6, 1) forwards;
+}
+.mp-packet.leave-right {
+  animation: mp-leave-right 0.46s cubic-bezier(0.4, 0, 0.6, 1) forwards;
+}
+@keyframes mp-leave-left {
+  40% {
+    transform: translateX(-18px) rotate(-2deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(-130%) rotate(-5deg);
+    opacity: 0.15;
+  }
+}
+@keyframes mp-leave-right {
+  40% {
+    transform: translateX(18px) rotate(2deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(130%) rotate(5deg);
+    opacity: 0.15;
+  }
+}
+
+/* ---- 卡片：新包落地（新收进来的包=琥珀色高亮，原型 .pack.fresh） ---- */
+.mp-packet.land {
+  animation: mp-land 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+@keyframes mp-land {
+  0% {
+    transform: translateY(-6px);
+    opacity: 0.4;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+.mp-packet.fresh {
+  border-color: #eab308;
+  box-shadow: 0 0 0 3px rgba(234, 179, 8, 0.18);
+}
+.mp-packet.fresh:hover {
+  border-color: #eab308;
+  box-shadow: 0 0 0 3px rgba(234, 179, 8, 0.18);
+}
+
+/* ---- ring：键盘导航的高亮框（原型主色黑） ---- */
+.mp-ring {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 5;
+  pointer-events: none;
+  border: 1.5px solid #18181b;
+  border-radius: 13px;
+  box-shadow: 0 0 0 2px rgba(24, 24, 27, 0.12);
+  transition:
+    width 0.26s cubic-bezier(0.16, 1, 0.3, 1),
+    height 0.26s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.26s cubic-bezier(0.16, 1, 0.3, 1),
+    opacity 0.18s ease;
+  opacity: 0;
+}
+.mp-ring.on {
+  opacity: 1;
+}
+
+/* ---- 已归案印章：小号绿色徽章（原型 stamp） ---- */
+.mp-stamp-mark {
+  position: absolute;
+  right: 14px;
+  top: 14px;
+  z-index: 6;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: #15803d;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 6px;
+  padding: 3px 9px;
+  pointer-events: none;
+}
+
+/* ============================================================
+   阅读器画布：原型 .seg / .sgrid 多列模型
+   toc 段头跨满整行（--mp-rw），段内页面按固定页宽（--mp-cw）流式排满整行。
+   --mp-cols / --mp-cw / --mp-gap / --mp-rw 由 Flow.tsx 依容器宽 + 缩放计算。
+   ============================================================ */
+.mp-flow {
+  width: 100%;
+  /* 比画布窄的段（页行）在画布内水平居中；zwide 放大超宽时下方改靠左 */
+  align-items: center;
+}
+
+.mp-seg {
+  width: var(--mp-rw, 100%);
+  /* 段（页行）在画布内水平居中；当缩放超宽放不下时 margin:auto 自动贴左，
+     左端仍可滚动到达，不会像 align-items:center 那样截断左侧 */
+  margin-inline: auto;
+}
+
+.mp-grid {
+  display: grid;
+  align-items: start;
+  justify-content: center;
+  column-gap: var(--mp-gap, 18px);
+  row-gap: var(--mp-gap, 18px);
+  width: 100%;
+  /* 固定页宽：缩放联动时 --mp-cw 已被翻倍，页距写真纸比例 */
+  grid-template-columns: repeat(var(--mp-cols, 1), minmax(0, var(--mp-cw, 960px)));
+}
+
+/* 放大到比画布还宽时必须靠左 —— 居中会让左端永远滚不到 */
+.mp-flow-zwide {
+  align-items: flex-start;
+}
+.mp-flow-zwide .mp-seg {
+  align-items: flex-start;
+}
+.mp-flow-zwide .mp-grid {
+  justify-content: start;
+}

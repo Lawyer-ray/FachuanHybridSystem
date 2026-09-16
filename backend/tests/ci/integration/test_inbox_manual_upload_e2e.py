@@ -144,3 +144,49 @@ def test_upload_without_files_rejected(authenticated_client, tmp_path, settings)
     assert resp.status_code in (400, 422, 500)
     assert not InboxMessage.objects.filter(subject="无文件").exists()
     _cleanup_manual_files()
+
+
+@pytest.mark.django_db
+def test_append_attachments_and_status(authenticated_client, tmp_path, settings):
+    """阅读器内追加材料：part_index 接着排，列表/草稿 status 全程联动。"""
+    settings.MEDIA_ROOT = str(tmp_path)
+    first = _upload(
+        authenticated_client,
+        [SimpleUploadedFile("a.pdf", b"%PDF-a", content_type="application/pdf")],
+        "追加测试",
+    )
+    assert first.status_code == 201
+    message_id = first.json()["id"]
+
+    appended = authenticated_client.post(
+        f"/api/v1/inbox/messages/{message_id}/attachments",
+        data={
+            "files": [
+                SimpleUploadedFile("b.pdf", b"%PDF-b", content_type="application/pdf"),
+                SimpleUploadedFile("c.png", b"\x89PNG\r\n\x1a\nc", content_type="image/png"),
+            ]
+        },
+    )
+    assert appended.status_code == 201, appended.content
+    body = appended.json()
+    assert body["attachment_count"] == 3
+    parts = [a["part_index"] for a in body["attachments"]]
+    assert parts == [0, 1, 2]  # 新附件接在原 part_index 之后
+
+    # 未归案/未归档时列表 status 默认 todo
+    listed = authenticated_client.get("/api/v1/inbox/messages", {"source_type": SourceType.MANUAL_UPLOAD})
+    row = next(i for i in listed.json() if i["id"] == message_id)
+    assert row["status"] == "todo"
+
+    # 归案归档：status 写进 draft_state，列表读到 done
+    saved = authenticated_client.put(
+        f"/api/v1/inbox/messages/{message_id}/draft",
+        data=__import__("json").dumps({"draft": {"status": "done", "assign": {"case_no": "xxx"}}}),
+        content_type="application/json",
+    )
+    assert saved.status_code == 200
+    listed = authenticated_client.get("/api/v1/inbox/messages", {"source_type": SourceType.MANUAL_UPLOAD})
+    row = next(i for i in listed.json() if i["id"] == message_id)
+    assert row["status"] == "done"
+
+    _cleanup_manual_files()

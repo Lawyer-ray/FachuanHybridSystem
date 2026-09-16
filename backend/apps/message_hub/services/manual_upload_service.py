@@ -11,6 +11,7 @@ from uuid import uuid4
 from django.core.files.storage import default_storage
 from django.utils import timezone
 
+from apps.core.services.storage_service import delete_media_file
 from apps.message_hub.models import InboxMessage, MessageSource, SourceType
 from apps.message_hub.services.base import MessageFetcher, resolve_media_attachment_path
 
@@ -102,9 +103,60 @@ def create_manual_message(files: list[Any], subject: str = "", uploaded_by: Any 
     return message
 
 
+def append_manual_attachments(message: InboxMessage, files: list[Any]) -> InboxMessage:
+    """往现有材料包（manual_upload 消息）追加附件。
+
+    新附件沿用与 create_manual_message 相同的落盘协议，part_index 接着现有最大值排，
+    不触碰拆分草稿（新素材由前端拉详情后并入 draft_state）。
+    """
+    metas = list(message.attachments_meta or [])
+    last_pi = max((int(a.get("part_index", -1)) for a in metas), default=-1)
+    ts = datetime.now().strftime("%Y%m%d%H%M%S")
+    for idx, uploaded in enumerate(files):
+        pi = last_pi + 1 + idx
+        safe_name = Path(uploaded.name).name or f"attachment_{pi}"
+        rel_path = f"message_hub/manual/{message.source_id}/{ts}/{pi}_{safe_name}"
+        saved = default_storage.save(rel_path, uploaded)
+        metas.append(
+            {
+                "filename": safe_name,
+                "original_filename": safe_name,
+                "custom_filename": "",
+                "content_type": uploaded.content_type or "application/octet-stream",
+                "size": uploaded.size,
+                "part_index": pi,
+                "local_path": saved,
+            }
+        )
+        uploaded.seek(0)
+    message.attachments_meta = metas
+    message.has_attachments = bool(metas)
+    message.save(update_fields=["attachments_meta", "has_attachments"])
+    logger.info("材料包 %s 追加附件 %d 份", message.pk, len(files))
+    return message
+
+
 def save_draft(message_id: int, draft: dict[str, Any]) -> InboxMessage:
     """保存拆分草稿到收件箱消息。"""
     message = InboxMessage.objects.get(pk=message_id)
     message.draft_state = draft or {}
     message.save(update_fields=["draft_state"])
     return message
+
+
+def delete_manual_message(message: InboxMessage) -> int:
+    """硬删一条收件箱消息，并清理其附件物理文件。返回清理的附件数。
+
+    附件落在 message_hub/manual/ 暂存目录，不走 Material 体系，
+    删除 DB 记录前须先按 local_path 用 delete_media_file() 清掉物理文件，避免留垃圾。
+    """
+    metas = message.attachments_meta or []
+    deleted = 0
+    for att in metas:
+        local_path = str(att.get("local_path", "") or "")
+        if local_path and delete_media_file(local_path):
+            deleted += 1
+    pk = message.pk
+    message.delete()
+    logger.info("删除收件箱消息 id=%s，清理附件 %d 份", pk, deleted)
+    return deleted
