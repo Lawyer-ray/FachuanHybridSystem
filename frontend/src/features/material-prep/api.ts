@@ -16,12 +16,14 @@ import type {
  */
 export const inboxApi = createApiClient({ prefix: '/api/v1/inbox' })
 
-/** 客户/当事人检索（/api/v1/client/clients） */
+/** 客户/当事人检索（/api/v1/client/parties/search，精简字段，兼容证件档案为空的客户） */
 export const clientApi = createApiClient({ prefix: '/api/v1/client' })
 
 /** 按关键字模糊检索当事人（客户库，后端按 name/phone/id_number 做 icontains），用于委托人/对方当事人填入 */
 export async function searchClients(keyword: string): Promise<ClientHit[]> {
-  return clientApi.get('clients', { searchParams: { search: keyword } }).json<ClientHit[]>()
+  return clientApi
+    .get('parties/search', { searchParams: { keyword } })
+    .json<ClientHit[]>()
 }
 
 export async function listMaterialPacks(): Promise<InboxMessage[]> {
