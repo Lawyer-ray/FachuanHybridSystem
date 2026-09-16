@@ -102,12 +102,12 @@ class InboxMessageOut(SchemaMixin, Schema):
                 label = InboxMessageOut._kind_label(att.get("content_type"))
                 group[label] = group.get(label, 0) + 1
             return "、".join(f"{n} 个{v}" for v, n in group.items()) if group else ""
-        group: dict[str, int] = {}
+        agg: dict[str, int] = {}
         for m in mats:
             k = str(m.get("k") or "office")
             label = "图片" if k == "photo" else "文档"
-            group[label] = group.get(label, 0) + 1
-        bits = [f"{n} 个{v}" for v, n in group.items()]
+            agg[label] = agg.get(label, 0) + 1
+        bits = [f"{n} 个{v}" for v, n in agg.items()]
         return " · ".join(bits) if bits else "尚未拆分"
 
     @staticmethod
