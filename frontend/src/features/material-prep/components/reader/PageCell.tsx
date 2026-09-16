@@ -189,6 +189,10 @@ function PdfPageView({ messageId, partIndex, pageNum }: { messageId: number; par
         if (cancelled) return
         const host = hostRef.current
         if (!host) return
+        // 页宽随列数/缩放收缩时，canvas 必须跟随容器等比缩放；
+        // 否则固定 900px 内禀宽会把窄列撑爆，造成文字被横向压缩变形（"挤压"）
+        canvas.style.width = '100%'
+        canvas.style.height = 'auto'
         host.innerHTML = ''
         host.appendChild(canvas)
         setState('ready')

@@ -19,6 +19,7 @@ export function ReaderToolbar({
   onZoomOut,
   onZoomReset,
   cols,
+  colsDisabled,
   onChangeCols,
   onResetSegments,
   onComplete,
@@ -37,6 +38,7 @@ export function ReaderToolbar({
   onZoomOut: () => void
   onZoomReset: () => void
   cols: number
+  colsDisabled: boolean
   onChangeCols: () => void
   onResetSegments: () => void
   onComplete: () => void
@@ -80,7 +82,13 @@ export function ReaderToolbar({
         <Plus className="h-3.5 w-3.5" />
       </button>
 
-      <button type="button" onClick={onChangeCols} title="并排列数" className={cn(PBTN, 'tabular-nums')}>
+      <button
+        type="button"
+        onClick={onChangeCols}
+        disabled={colsDisabled}
+        title={colsDisabled ? '窗口还不够宽 —— 并排至少要有每列 360px' : '并排列数：点一下在 1 列和多列之间切换'}
+        className={cn(PBTN, 'tabular-nums disabled:cursor-not-allowed disabled:opacity-40')}
+      >
         列数：{cols}
       </button>
 

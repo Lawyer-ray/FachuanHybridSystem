@@ -29,6 +29,8 @@ import { MetaPanel } from './MetaPanel'
 import { OcrPanel } from './OcrPanel'
 import { AssignModal } from './AssignModal'
 import { useReaderOcr } from './use-ocr'
+import { useElementWidth } from '../../hooks/use-element-width'
+import { COL_MIN_W, COL_GAP } from './Flow'
 import { ZOOM_MAX, ZOOM_MIN, ZOOM_STEP } from './ui'
 import type { InfoField } from '../../types'
 import { cn } from '@/lib/utils'
@@ -47,9 +49,14 @@ export function Reader() {
   const [metaOpen, setMetaOpen] = useState(false)
   const addInputRef = useRef<HTMLInputElement>(null)
   const narrow = useMediaQuery('(max-width:1100px)')
+  const [flowWrapRef, flowWrapW] = useElementWidth<HTMLDivElement>()
   const { pickPage, onOcrBox, ocrOk } = useReaderOcr()
 
   const st = useReader.getState()
+
+  // 当前窗口最多能并排几列（每列至少 COL_MIN_W，与 Flow 内 maxColsAllowed 同一口径）
+  const maxColsAllowed = Math.max(1, Math.floor((flowWrapW + COL_GAP) / (COL_MIN_W + COL_GAP)))
+  const effCols = Math.max(1, Math.min(cols, maxColsAllowed))
 
   useEffect(() => {
     setFocusedSeg(0)
@@ -148,7 +155,10 @@ export function Reader() {
   })()
 
   const changeCols = () => {
-    const next = cols >= 3 ? 1 : cols + 1
+    // 窗口不够宽就点不动（列数按钮已禁用）
+    if (maxColsAllowed <= 1) return
+    // 原型行为：在「1 列」和「当前窗口上限」之间循环，而不是写死上到 3
+    const next = effCols >= maxColsAllowed ? 1 : effCols + 1
     st.setCols(next)
     // 多列时收起侧栏，让页面更宽敞
     if (next > 1) {
@@ -233,7 +243,8 @@ export function Reader() {
         onZoomIn={zoomIn}
         onZoomOut={zoomOut}
         onZoomReset={() => st.setZoom(1)}
-        cols={cols}
+        cols={effCols}
+        colsDisabled={maxColsAllowed <= 1}
         onChangeCols={changeCols}
         onResetSegments={onResetSegments}
         onComplete={onComplete}
@@ -266,14 +277,14 @@ export function Reader() {
           />
         </div>
 
-        <div className="relative min-w-0 flex-1 overflow-auto">
+        <div ref={flowWrapRef} className="relative min-w-0 flex-1 overflow-auto">
           <Flow
             draft={draft}
             messageId={openId}
             pickInfo={pickInfo}
             focusedSeg={focusedSeg}
             zoom={zoom}
-            cols={narrow ? 1 : cols}
+            cols={effCols}
             selMode={selMode}
             selPages={selPages}
             ocrPending={ocrPending}
