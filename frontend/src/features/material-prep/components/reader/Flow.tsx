@@ -58,7 +58,9 @@ export function Flow({
   const maxColsAllowed = Math.max(1, Math.floor((flowWidth + COL_GAP) / (COL_MIN_W + COL_GAP)))
   const nCols = Math.max(1, Math.min(cols, maxColsAllowed))
   const fit = Math.min(PAGE_MAX_W, (flowWidth - (nCols - 1) * COL_GAP) / nCols)
-  const pageW = Math.max(PAGE_MIN_W, Math.round(fit * zoom))
+  // floor 而非 round：保证页行宽度 ≤ 画布宽，100% 缩放下不越界、恒居中；
+  // 仅当缩放 >100% 时行宽才会超画布，由 margin-inline:auto 贴左并允许横向滚动
+  const pageW = Math.max(PAGE_MIN_W, Math.floor(fit * zoom))
   const rowW = nCols * pageW + (nCols - 1) * COL_GAP
   const zwide = rowW > flowWidth
 
@@ -75,7 +77,7 @@ export function Flow({
   return (
     <div
       ref={flowRef}
-      className={cn('mp-flow flex flex-col gap-5 px-5 py-6', zwide && 'mp-flow-zwide')}
+      className={cn('mp-flow flex flex-col gap-5 py-6', zwide && 'mp-flow-zwide')}
       style={
         {
           width: '100%',

@@ -144,10 +144,15 @@
    ============================================================ */
 .mp-flow {
   width: 100%;
+  /* 比画布窄的段（页行）在画布内水平居中；zwide 放大超宽时下方改靠左 */
+  align-items: center;
 }
 
 .mp-seg {
   width: var(--mp-rw, 100%);
+  /* 段（页行）在画布内水平居中；当缩放超宽放不下时 margin:auto 自动贴左，
+     左端仍可滚动到达，不会像 align-items:center 那样截断左侧 */
+  margin-inline: auto;
 }
 
 .mp-grid {
