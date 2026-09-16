@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate } from 'react-router'
+import { useNavigate, useParams } from 'react-router'
 import { Loader2, LogOut, PackagePlus, Plus } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -23,12 +23,15 @@ const TABS: { key: Tab; label: string }[] = [
 
 export function DeskPage() {
   const navigate = useNavigate()
+  const { id } = useParams()
   const { data: packs, isLoading, error } = useMaterialPacks()
   const createPack = useCreatePack()
   const judgePack = useJudgePack()
   const { user, logout } = useAuth()
   const openPack = useReader((s) => s.open)
   const openId = useReader((s) => s.openId)
+  // 记录是否曾打开过详情：从打开态退到未打开时（关阅读器）回退到列表 URL
+  const wasOpenRef = useRef(false)
 
   const [tab, setTab] = useState<Tab>('todo')
   const [sel, setSel] = useState(0)
@@ -103,10 +106,30 @@ export function DeskPage() {
   const openAt = useCallback(
     (index: number) => {
       const p = visible[index]
-      if (p) openPack(p.id)
+      if (p) {
+        openPack(p.id)
+        navigate(`/material-prep/${p.id}`)
+      }
     },
-    [visible, openPack],
+    [visible, openPack, navigate],
   )
+
+  // 详情路由：路径里带 :id 时自动打开对应材料包（刷新 / 前进后退 / 分享直达）
+  useEffect(() => {
+    if (id == null) return
+    if (useReader.getState().openId === Number(id)) return
+    openPack(Number(id))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id])
+
+  // 关阅读器：从打开态回退到列表 URL，避免 URL 停留在 :id
+  useEffect(() => {
+    const open = openId != null
+    if (wasOpenRef.current && !open && id != null) {
+      navigate('/material-prep', { replace: true })
+    }
+    if (open) wasOpenRef.current = true
+  }, [openId, id, navigate])
 
   // 键盘导航：←→ 移、↑↓ 换行、Space/Enter 打开、X 不接
   useEffect(() => {

@@ -363,7 +363,14 @@ export function Reader() {
 
 function FixedReader({ children, closing = false }: { children: React.ReactNode; closing?: boolean }) {
   return (
-    <div className={cn('mp-reader fixed inset-0 z-[80] flex flex-col bg-[#f1f1f3]', closing && 'closing')}>
+    <div
+      className={cn('mp-reader fixed inset-0 z-[80] flex flex-col bg-[#f1f1f3]', closing && 'closing')}
+      // 鼠标点按钮不夺焦：否则焦点停在按钮上，随后按空格/回车会重新触发该按钮，导致界面跳动（“闪烁”）
+      onMouseDown={(e) => {
+        const t = e.target as HTMLElement
+        if (t && t.closest && t.closest('button')) e.preventDefault()
+      }}
+    >
       {children}
     </div>
   )
