@@ -71,6 +71,10 @@ class DraftIn(Schema):
     draft: dict = {}
 
 
+class RenameMessageIn(Schema):
+    subject: str = ""
+
+
 @router.post("/messages/upload", response={201: InboxMessageDetailOut})
 def upload_messages(  # pragma: no cover
     request: HttpRequest,
@@ -97,6 +101,16 @@ def update_draft(request: HttpRequest, message_id: int, payload: DraftIn) -> dic
     msg = _get_message_or_404(message_id)
     save_draft(msg.pk, payload.draft)
     return {"ok": True, "message_id": msg.pk}
+
+
+@router.put("/messages/{message_id}")
+def rename_message(request: HttpRequest, message_id: int, payload: RenameMessageIn) -> dict[str, Any]:
+    """重命名材料包标题（收件箱消息 subject）。"""
+    from apps.message_hub.services.manual_upload_service import rename_manual_message
+
+    msg = _get_message_or_404(message_id)
+    updated = rename_manual_message(msg, payload.subject)
+    return {"ok": True, "message_id": updated.pk, "subject": updated.subject}
 
 
 @router.get("/messages/{message_id}", response=InboxMessageDetailOut)

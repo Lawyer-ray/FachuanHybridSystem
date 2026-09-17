@@ -38,6 +38,7 @@ import { Flow } from './Flow'
 import { MetaPanel } from './MetaPanel'
 import { OcrPanel } from './OcrPanel'
 import { AssignModal } from './AssignModal'
+import { RenamePackDialog } from '../RenamePackDialog'
 import { useReaderOcr } from './use-ocr'
 import { useElementWidth } from '../../hooks/use-element-width'
 import { COL_MIN_W, COL_GAP } from './Flow'
@@ -55,6 +56,7 @@ export function Reader() {
   const ocrPending = useReader((s) => s.ocrPending)
   const [focusedSeg, setFocusedSeg] = useState(0)
   const [showAssign, setShowAssign] = useState(false)
+  const [renaming, setRenaming] = useState(false)
   const [railOpen, setRailOpen] = useState(false)
   const [metaOpen, setMetaOpen] = useState(false)
   // 待确认删除的页（破坏性操作必须先经 AlertDialog 二次确认）
@@ -233,6 +235,7 @@ export function Reader() {
         onReject={onReject}
         onAssign={() => setShowAssign(true)}
         onClose={close}
+        onRename={() => setRenaming(true)}
       />
 
       <ReaderToolbar
@@ -408,6 +411,9 @@ export function Reader() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* 重命名材料包标题：标题栏铅笔按钮打开 */}
+      {detail && <RenamePackDialog open={renaming} onOpenChange={setRenaming} pack={detail} />}
     </FixedReader>
   )
 }

@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { deletePack, listMaterialPacks, setPackStatusRemote, uploadPack } from '../api'
+import { deletePack, listMaterialPacks, renamePack, setPackStatusRemote, uploadPack } from '../api'
 import type { AssignInfo, InboxMessage, PackStatus } from '../types'
 
 export const PACKS_KEY = ['inbox', 'material-packs']
@@ -47,6 +47,19 @@ export function useDeletePack() {
       throw e
     },
   })
+}
+
+export function useRenamePack() {
+  const qc = useQueryClient()
+  const invalidate = () => qc.invalidateQueries({ queryKey: PACKS_KEY })
+  const mut = useMutation({
+    mutationFn: (v: { id: number; subject: string }) => renamePack(v.id, v.subject),
+    onSuccess: invalidate,
+    onError: (e) => {
+      throw e
+    },
+  })
+  return { ...mut, invalidate }
 }
 
 export function upsertPackLocal(list: InboxMessage[] | undefined, id: number): InboxMessage[] {

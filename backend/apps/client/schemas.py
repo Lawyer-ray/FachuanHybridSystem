@@ -18,9 +18,18 @@ class ClientIdentityDocOut(Schema):
 
     id: int
     doc_type: str
-    file_path: str
+    file_path: str | None = None
     uploaded_at: datetime
     media_url: str | None = None
+
+
+class PartyListOut(Schema):
+    """当事人检索精简输出（仅供检索填报，不携带证件文档，规避证件序列化缺陷）"""
+
+    id: int
+    name: str
+    phone: str | None = None
+    is_our_client: bool = False
 
 
 class IdentityDocDetailOut(Schema):
@@ -29,7 +38,7 @@ class IdentityDocDetailOut(Schema):
     id: int
     client_id: int
     doc_type: str
-    file_path: str
+    file_path: str | None = None
     uploaded_at: datetime
     media_url: str | None = None
 
@@ -184,7 +193,7 @@ class PropertyClueAttachmentOut(Schema):
     """财产线索附件输出 Schema"""
 
     id: int
-    file_path: str
+    file_path: str | None = None
     file_name: str
     uploaded_at: datetime
     media_url: str | None = None

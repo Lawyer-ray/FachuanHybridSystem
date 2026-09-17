@@ -65,6 +65,8 @@ interface ReaderState {
   setStatus: (s: PackStatus) => void
   setAssign: (a: AssignInfo) => void
   renameMatInDraft: (mi: number, n: string) => void
+  /** 重命名材料包标题（同步已打开的阅读器标题） */
+  renameSubject: (id: number, title: string) => void
   /** 阅读器内追加材料：上传后并回 draft_state（不改已拆内容） */
   appendFiles: (files: File[]) => Promise<void>
 }
@@ -275,6 +277,13 @@ export const useReader = create<ReaderState>((set, get) => ({
       )
       return { ...d, mats, segs }
     })
+  },
+
+  renameSubject: (id, title) => {
+    const st = get()
+    if (st.detail && st.detail.id === id && st.detail.subject !== title) {
+      set({ detail: { ...st.detail, subject: title } })
+    }
   },
 
   appendFiles: async (files) => {

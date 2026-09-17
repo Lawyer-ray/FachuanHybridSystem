@@ -2,6 +2,7 @@ import { createApiClient } from '@/lib/api'
 import type {
   AssignInfo,
   CaseRow,
+  ClientHit,
   InboxMessage,
   InboxMessageDetail,
   DraftState,
@@ -14,6 +15,21 @@ import type {
  * 每次上传（可多文件）会生成一条 manual_upload 来源的消息，即一个「材料包」。
  */
 export const inboxApi = createApiClient({ prefix: '/api/v1/inbox' })
+
+/** 客户/当事人检索（/api/v1/client/parties/search，精简字段，兼容证件档案为空的客户） */
+export const clientApi = createApiClient({ prefix: '/api/v1/client' })
+
+/**
+ * 按关键字模糊检索当事人。
+ * isOurClient 限定范围：委托人传 true（我方当事人）、对方当事人传 false。
+ */
+export async function searchClients(keyword: string, isOurClient: boolean): Promise<ClientHit[]> {
+  return clientApi
+    .get('parties/search', {
+      searchParams: { keyword, is_our_client: isOurClient ? 'true' : 'false' },
+    })
+    .json<ClientHit[]>()
+}
 
 export async function listMaterialPacks(): Promise<InboxMessage[]> {
   return inboxApi
@@ -30,6 +46,11 @@ export async function getPackDetail(id: number): Promise<InboxMessageDetail> {
 /** 删除材料包（收件箱消息）：后端先清理附件物理文件，再删 DB 记录 */
 export async function deletePack(id: number): Promise<{ ok: boolean; message_id: number }> {
   return inboxApi.delete(`messages/${id}`).json()
+}
+
+/** 重命名材料包标题（收件箱消息 subject） */
+export async function renamePack(id: number, subject: string): Promise<{ ok: boolean; message_id: number; subject: string }> {
+  return inboxApi.put(`messages/${id}`, { json: { subject } }).json()
 }
 
 export async function uploadPack(files: File[], subject?: string): Promise<InboxMessageDetail> {

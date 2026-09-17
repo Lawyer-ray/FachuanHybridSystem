@@ -5,6 +5,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { FIELD_LIB } from '../../constants'
 import type { DraftState, InfoField } from '../../types'
 import { cn } from '@/lib/utils'
+import { PartyPicker } from './PartyPicker'
 
 export function MetaPanel({
   draft,
@@ -87,6 +88,13 @@ export function MetaPanel({
               value={f.v}
               onChange={(e) => ops.setValue(di, e.target.value)}
               className="resize-none text-[13px]"
+            />
+          ) : f.k === '委托人' || f.k === '对方当事人' || f.k === '受益人' ? (
+            <PartyPicker
+              value={f.v}
+              onChange={(v) => ops.setValue(di, v)}
+              placeholder={f.ph}
+              isOurClient={f.k !== '对方当事人'}
             />
           ) : (
             <Input
