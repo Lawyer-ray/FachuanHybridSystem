@@ -50,10 +50,7 @@ class MessageSourceAdmin(admin.ModelAdmin):  # pragma: no cover
         ),
         (
             "发件人过滤",
-            {
-                "fields": ("sender_whitelist", "sender_blacklist"),
-                "description": "可输入邮箱地址或发件人名称，每行一个，大小写不敏感。白名单优先于黑名单。",
-            },
+            {"fields": ("sender_whitelist", "sender_blacklist")},
         ),
         ("IMAP 配置", {"fields": ("imap_host", "imap_account"), "classes": ("collapse",)}),
         (
