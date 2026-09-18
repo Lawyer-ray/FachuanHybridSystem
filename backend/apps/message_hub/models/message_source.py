@@ -47,13 +47,11 @@ class MessageSource(models.Model):
         max_length=255,
         blank=True,
         verbose_name="IMAP 主机",
-        help_text="留空则从凭证 URL 自动推断，如 mail.jtn.com",
     )
     imap_account = models.CharField(
         max_length=255,
         blank=True,
         verbose_name="IMAP 账号",
-        help_text="留空则使用凭证账号，如需覆盖填写完整邮箱地址",
     )
     last_synced_uid = models.PositiveIntegerField(null=True, blank=True, verbose_name="最后同步 UID")
 
