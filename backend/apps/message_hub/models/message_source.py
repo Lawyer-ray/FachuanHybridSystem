@@ -30,7 +30,6 @@ class MessageSource(models.Model):
         null=True,
         blank=True,
         verbose_name="账号凭证",
-        help_text="手动上传来源无外部账号，可留空",
     )
     source_type = models.CharField(
         max_length=32,
@@ -62,12 +61,10 @@ class MessageSource(models.Model):
     sender_whitelist = models.TextField(
         blank=True,
         verbose_name="只同步这些发件人",
-        help_text="每行一个邮箱或名称，留空则不限制",
     )
     sender_blacklist = models.TextField(
         blank=True,
         verbose_name="不同步这些发件人",
-        help_text="每行一个邮箱或名称，留空则不排除",
     )
 
     last_sync_at = models.DateTimeField(null=True, blank=True, verbose_name="最后同步时间")
