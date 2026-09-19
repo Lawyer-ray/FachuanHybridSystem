@@ -161,7 +161,7 @@
     </li>
     {% endif %}
 
-    {{ block.super }}
+    {# 不渲染默认 add 入口：配置由代码/平台页定义，手敲 key 无消费方，隐去避免误造无效配置 #}
 {% endblock %}
 
 {% block result_list %}
