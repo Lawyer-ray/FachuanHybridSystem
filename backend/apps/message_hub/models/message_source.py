@@ -30,7 +30,6 @@ class MessageSource(models.Model):
         null=True,
         blank=True,
         verbose_name="账号凭证",
-        help_text="手动上传来源无外部账号，可留空",
     )
     source_type = models.CharField(
         max_length=32,
@@ -48,13 +47,11 @@ class MessageSource(models.Model):
         max_length=255,
         blank=True,
         verbose_name="IMAP 主机",
-        help_text="留空则从凭证 URL 自动推断，如 mail.jtn.com",
     )
     imap_account = models.CharField(
         max_length=255,
         blank=True,
         verbose_name="IMAP 账号",
-        help_text="留空则使用凭证账号，如需覆盖填写完整邮箱地址",
     )
     last_synced_uid = models.PositiveIntegerField(null=True, blank=True, verbose_name="最后同步 UID")
 
@@ -62,12 +59,10 @@ class MessageSource(models.Model):
     sender_whitelist = models.TextField(
         blank=True,
         verbose_name="只同步这些发件人",
-        help_text="每行一个邮箱或名称，留空则不限制",
     )
     sender_blacklist = models.TextField(
         blank=True,
         verbose_name="不同步这些发件人",
-        help_text="每行一个邮箱或名称，留空则不排除",
     )
 
     last_sync_at = models.DateTimeField(null=True, blank=True, verbose_name="最后同步时间")

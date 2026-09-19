@@ -24,9 +24,16 @@ class InboxMessageAdmin(admin.ModelAdmin):  # pragma: no cover
     class Media:  # pragma: no cover
         css = {"all": ("admin/css/inbox_message_admin.css",)}
 
-    list_display = ["subject_display", "source_badge", "recipient_display", "received_at", "attachments_display"]
+    list_display = [
+        "subject_display",
+        "source_badge",
+        "uploader_display",
+        "recipient_display",
+        "received_at",
+        "attachments_display",
+    ]
     list_display_links = ["subject_display"]
-    list_filter: ClassVar = ["source", "has_attachments", "received_at"]
+    list_filter: ClassVar = ["source", "uploaded_by", "has_attachments", "received_at"]
     search_fields: ClassVar = ("subject", "sender")
     readonly_fields: ClassVar = [
         "source",
@@ -35,16 +42,17 @@ class InboxMessageAdmin(admin.ModelAdmin):  # pragma: no cover
         "received_at",
         "has_attachments",
         "created_at",
+        "uploaded_by",
         "body_preview",
         "attachments_actions",
     ]
     date_hierarchy = "received_at"
     list_per_page = 50
     ordering: ClassVar = ["-received_at"]
-    list_select_related: ClassVar = ["source", "source__credential"]
+    list_select_related: ClassVar = ["source", "source__credential", "uploaded_by"]
 
     fieldsets: ClassVar = (
-        ("基本信息", {"fields": ("source", "message_id", "sender", "received_at", "created_at")}),
+        ("基本信息", {"fields": ("source", "uploaded_by", "message_id", "sender", "received_at", "created_at")}),
         ("正文", {"fields": ("body_preview",)}),
         (
             "附件",
@@ -367,6 +375,12 @@ class InboxMessageAdmin(admin.ModelAdmin):  # pragma: no cover
     def recipient_display(self, obj: InboxMessage) -> str:  # pragma: no cover
         account: str = obj.source.credential.account if obj.source.credential else ""
         return account
+
+    @admin.display(description="上传人")
+    def uploader_display(self, obj: InboxMessage) -> str:  # pragma: no cover
+        if not obj.uploaded_by:
+            return "—"
+        return str(obj.uploaded_by.real_name or obj.uploaded_by.username or obj.uploaded_by)
 
     @admin.display(description="主题")
     def subject_display(self, obj: InboxMessage) -> SafeString:  # pragma: no cover

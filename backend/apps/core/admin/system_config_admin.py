@@ -1,10 +1,8 @@
-"""
-系统配置 Admin
+"""系统配置 Admin
 
 提供 Django Admin 界面来管理系统配置项，包括飞书、钉钉等第三方服务配置。
 """
 
-import os
 from typing import Any, ClassVar, cast
 
 from django.contrib import admin, messages
@@ -16,7 +14,7 @@ from django.utils.html import format_html
 from apps.core.models import SystemConfig
 from apps.core.security.secret_codec import SecretCodec
 
-from ._system_config_data import get_default_configs, get_env_mappings
+from ._system_config_data import get_default_configs
 from .forms import SystemConfigAdminForm
 
 
@@ -98,7 +96,6 @@ class SystemConfigAdmin(admin.ModelAdmin):  # pragma: no cover
                 self.admin_site.admin_view(self.init_defaults_view),
                 name="core_systemconfig_init_defaults",
             ),
-            path("sync-env/", self.admin_site.admin_view(self.sync_env_view), name="core_systemconfig_sync_env"),
             path(
                 "clear-cache/",
                 self.admin_site.admin_view(self.clear_cache_view),
@@ -117,7 +114,6 @@ class SystemConfigAdmin(admin.ModelAdmin):  # pragma: no cover
         extra_context = extra_context or {}
 
         extra_context["show_init_button"] = True
-        extra_context["show_sync_button"] = True
         extra_context["show_clear_cache_button"] = True
         extra_context["has_add_permission"] = self.has_add_permission(request)
 
@@ -182,36 +178,6 @@ class SystemConfigAdmin(admin.ModelAdmin):  # pragma: no cover
 
         return HttpResponseRedirect(reverse("admin:core_systemconfig_changelist"))
 
-    def sync_env_view(self, request: Any) -> HttpResponseRedirect:  # pragma: no cover
-        """从环境变量同步配置"""
-        env_mappings = self._get_env_mappings()
-        synced_count = 0
-
-        for env_key, config_info in env_mappings.items():
-            env_value = os.environ.get(env_key)
-            if env_value:
-                stored_value = env_value
-                if config_info.get("is_secret", False):
-                    stored_value = SecretCodec().encrypt(env_value)
-                SystemConfig.objects.update_or_create(
-                    key=config_info["key"],
-                    defaults={
-                        "value": stored_value,
-                        "category": config_info["category"],
-                        "description": config_info["description"],
-                        "is_secret": config_info.get("is_secret", False),
-                    },
-                )
-                self._clear_config_cache(config_info["key"])
-                synced_count += 1
-
-        if synced_count > 0:
-            messages.success(request, f"成功从环境变量同步 {synced_count} 个配置项")
-        else:
-            messages.info(request, "没有找到可同步的环境变量")
-
-        return HttpResponseRedirect(reverse("admin:core_systemconfig_changelist"))
-
     def clear_cache_view(self, request: Any) -> HttpResponseRedirect:  # pragma: no cover
         """清除配置缓存"""
         cache.delete("system_config:all")
@@ -251,10 +217,6 @@ class SystemConfigAdmin(admin.ModelAdmin):  # pragma: no cover
     def _get_default_configs(self) -> list[dict[str, Any]]:  # pragma: no cover
         """委托给模块级函数"""
         return get_default_configs()
-
-    def _get_env_mappings(self) -> dict[str, dict[str, Any]]:  # pragma: no cover
-        """委托给模块级函数"""
-        return get_env_mappings()
 
     def _mask_secret_value(self, value: str) -> str:  # pragma: no cover
         plain_value = value

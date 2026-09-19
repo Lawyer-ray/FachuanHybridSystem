@@ -280,6 +280,13 @@ document.addEventListener('DOMContentLoaded', function() {
         row-gap: 2px;
     }
 
+    /* Django 6.1: datetime 控件（日期时间字段）label 被 widgets.css 改为 block，
+       导致 "日期:" "时间:" 标签与输入框各占一行竖向堆叠。恢复内联排列 */
+    .aligned p.datetime label {
+        display: inline;
+        padding: 0;
+    }
+
     /* Django 6.1: 隐藏空 content-title 且不包含 object-tools 的容器
        自定义页面通常覆盖 content_title 为空，但 .titles-and-tools flex 容器仍会占位 */
     .titles-and-tools:has(.content-title:empty):not(:has(.object-tools)) {
