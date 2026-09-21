@@ -62,8 +62,8 @@ class LLMProviderService:
         cls._cache = (providers, time.monotonic())
         return providers
 
-    @staticmethod
-    def _load_from_db() -> list[OpenAIProviderConfig]:
+    @classmethod
+    def _load_from_db(cls) -> list[OpenAIProviderConfig]:
         try:
             from apps.core.models import LLMProvider
 
