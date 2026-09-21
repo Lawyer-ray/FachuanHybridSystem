@@ -5,10 +5,6 @@
 
 from __future__ import annotations
 
-# Document DTOs
-# Contract DTOs
-# Case DTOs
-# DTOs
 from apps.core.dto import (
     AccountCredentialDTO,
     CaseDTO,
@@ -34,15 +30,6 @@ from apps.core.dto import (
     TeamDTO,
     TokenAcquisitionResult,
 )
-
-# Case Extended Protocols
-# Document Generation Protocols
-# Common Protocols (跨模块依赖所需)
-# Organization Protocols
-# Automation Protocols
-# Document Protocols
-# Contract Protocols
-# Case Protocols
 from apps.core.protocols import (
     IAccountSelectionStrategy,
     IAutoLoginService,
@@ -100,8 +87,8 @@ from apps.core.protocols import (
 )
 from apps.core.protocols.ocr_types import OCRTextResult
 
-# Service Locator and Event Bus
-from .service_locator import EventBus, Events, ServiceLocator
+# Service Locator
+from .service_locator import ServiceLocator
 
 __all__ = [
     # DTOs
@@ -193,8 +180,6 @@ __all__ = [
     "ILLMService",
     "IConversationHistoryService",
     "IEvidenceListPlaceholderService",
-    # Service Locator and Event Bus
+    # Service Locator
     "ServiceLocator",
-    "EventBus",
-    "Events",
 ]

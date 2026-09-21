@@ -10,7 +10,7 @@ check: lint typecheck ## 运行所有检查
 # Mypy 门禁文件列表（与远端 CI curated gate / strict gate / extra gate 同步）
 MYPY_CURATED_GATE = \
 	apps/core/services/wiring.py \
-	apps/core/protocols/common_protocols.py \
+	apps/core/protocols/common/__init__.py \
 	apps/core/dto/auth.py \
 	apps/core/infrastructure/throttling.py \
 	apps/core/exceptions/handlers.py \
@@ -27,7 +27,7 @@ MYPY_EXTRA_GATE = \
 	apps/core/middleware/request_id.py \
 	apps/core/middleware/security.py \
 	apps/organization/services/auth/auth_service.py \
-	apps/automation/services/token/cache_manager.py \
+	plugins/court_automation/token/cache_manager.py \
 	apps/automation/utils/logging_mixins/common.py
 
 ci-check: ## 完整镜像 GitHub CI backend job（推送前必跑，覆盖远端全部检查）
@@ -287,7 +287,7 @@ RUFF_RATCHET_PATHS = \
 	apps/automation/models/token.py \
 	apps/automation/services/automation_service_adapter.py \
 	apps/automation/services/scraper/core/token_service.py \
-	apps/automation/services/token/cache_manager.py \
+	plugins/court_automation/token/cache_manager.py \
 	apps/automation/services/token/history_recorder.py \
 	apps/automation/services/token/token_acquisition_orchestrator.py \
 	apps/automation/services/token/trigger_reasons.py \
@@ -325,7 +325,7 @@ typecheck-ratchet: ## 类型检查（仅棘轮路径）
 		apps/core/exceptions_handlers.py \
 		apps/core/httpx_clients.py \
 		apps/core/config/django_runtime.py \
-		apps/core/protocols/common_protocols.py \
+		apps/core/protocols/common/__init__.py \
 		apps/core/dto/auth.py \
 		apps/core/llm/config.py \
 		apps/core/llm/service.py \

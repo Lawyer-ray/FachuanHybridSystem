@@ -19,28 +19,45 @@
 
 ```
 core/
-├── api.py              # API 全局配置
-├── cache.py            # 缓存管理
-├── config.py           # 配置管理
-├── exceptions.py       # 异常定义
-├── health.py           # 健康检查
-├── interfaces.py       # 接口定义（Protocol）
-├── logging.py          # 日志配置
-├── middleware.py       # 中间件
-├── monitoring.py       # 性能监控
-├── schemas.py          # 通用 Schemas
-├── throttling.py       # API 限流
-├── validators.py       # 数据验证器
-└── management/         # Django 管理命令
-    └── commands/
-        ├── analyze_performance.py      # 性能分析
-        └── check_db_performance.py     # 数据库性能检查
+├── api/                 # Ninja API 端点（system-config 等）
+├── admin/               # Django Admin 配置
+├── config/              # 统一配置管理（schema/providers/steering 子模块）
+├── dependencies/        # 依赖注入工厂（build_*_service）
+├── dto/                 # 跨模块 DTO
+├── exceptions/          # 统一异常体系
+├── filesystem/          # 文件系统 / 文件夹绑定
+├── http/                # HTTP 客户端（httpx 连接池、流式）
+├── infrastructure/      # 基础设施（cache/logging/monitoring/health/service_locator/...）
+├── interfaces/          # 跨模块接口聚合（Protocol + DTO + ServiceLocator 出口）
+├── llm/                 # LLM 抽象（backends/prompts/router/...）
+├── management/          # Django 管理命令
+│   └── commands/
+│       ├── analyze_performance.py            # 性能分析
+│       ├── check_db_performance.py           # 数据库性能检查
+│       ├── encrypt_system_config_secrets.py  # 加密系统配置密钥
+│       ├── export_seed_data.py               # 导出发件数据
+│       ├── init_system_config.py             # 初始化系统配置
+│       ├── load_seed_data.py                 # 加载种子数据
+│       └── scan_orphan_files.py              # 扫描孤儿文件
+├── middleware/          # 中间件（request_id/security/token_rate_limit）
+├── migrations/          # 数据库迁移
+├── model_fields/        # 自定义模型字段（加密字段）
+├── models/              # 模型定义
+├── protocols/           # Protocol 接口定义（真实定义处）
+├── repositories/        # 数据访问层
+├── security/            # 安全（auth/permissions/secret_codec/scrub）
+├── service_locator_mixins/  # ServiceLocator 的 mixin 实现
+├── services/            # 业务服务层
+├── static/  templates/  # 静态文件 / 模板
+├── tasking/             # 任务队列（Django-Q / Redis）
+├── telemetry/           # 指标采集上报
+└── utils/               # 工具函数
 ```
 
 ## 🔑 核心功能
 
 ### 配置管理
-- ✅ 集中配置管理（config.py）
+- ✅ 集中配置管理（config/）
 - ✅ 环境变量支持
 - ✅ 配置验证
 - ✅ 配置热更新
@@ -374,13 +391,12 @@ python -m pytest tests/property/test_core_properties/ -v
 
 ## 📝 相关文档
 
-- **[config.py](config.py)** - 配置管理
-- **[exceptions.py](exceptions.py)** - 异常定义
-- **[interfaces.py](interfaces.py)** - 接口定义
-- **[validators.py](validators.py)** - 数据验证器
-- **[cache.py](cache.py)** - 缓存管理
-- **[logging.py](logging.py)** - 日志配置
-- **[monitoring.py](monitoring.py)** - 性能监控
+- **[config/](config/)** - 统一配置管理
+- **[exceptions/](exceptions/)** - 异常定义
+- **[interfaces/](interfaces/)** - 跨模块接口聚合（Protocol + DTO + ServiceLocator 出口）
+- **[protocols/](protocols/)** - Protocol 接口真实定义
+- **[utils/](utils/)** - 工具函数
+- **[infrastructure/](infrastructure/)** - 基础设施（cache/logging/monitoring/health）
 - **[PERFORMANCE_MONITORING.md](PERFORMANCE_MONITORING.md)** - 性能监控文档
 
 ## 🔗 依赖模块
@@ -439,13 +455,13 @@ logger.info(f"用户 {user_id} 操作成功")
 ## 🐛 常见问题
 
 ### Q1: 如何添加新的配置项？
-**A**: 在 `config.py` 的相应配置类中添加字段，并提供默认值。
+**A**: 在 `config/schema/` 的相应 `_registry_*.py` 中注册 `ConfigField`，并提供默认值。
 
 ### Q2: 如何自定义异常？
 **A**: 继承 `BusinessException` 基类，定义新的异常类型。
 
 ### Q3: 如何定义新的接口？
-**A**: 在 `interfaces.py` 中使用 `Protocol` 定义接口。
+**A**: 在 `protocols/` 目录下用 `Protocol` 定义接口，再由 `interfaces/__init__.py` 统一对外导出。
 
 ## 📈 性能优化
 

@@ -62,6 +62,9 @@ class SystemConfigRepository:
     async def aget_by_key(self, key: str) -> SystemConfig | None:
         return await SystemConfig.objects.filter(key=key).afirst()
 
+    async def aget_active_by_key(self, key: str) -> SystemConfig | None:
+        return await SystemConfig.objects.filter(key=key, is_active=True).afirst()
+
     async def aget_by_id(self, config_id: int) -> SystemConfig | None:
         return await SystemConfig.objects.filter(id=config_id).afirst()
 

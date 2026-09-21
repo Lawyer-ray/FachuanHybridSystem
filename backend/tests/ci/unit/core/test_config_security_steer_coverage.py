@@ -1,10 +1,12 @@
 """
-Tests for core/config/ - schema, field, safe_expression_evaluator, registry, steering modules.
+Tests for core/config/ - schema, field, safe_expression_evaluator, registry.
 Also core/security/auth.py.
 """
+
 from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
+
 import pytest
 
 
@@ -205,27 +207,6 @@ class TestConfigRegistry:
             assert field.name == key
 
 
-class TestSteeringPerfModels:
-    def test_performance_metric(self):
-        from apps.core.config.steering._perf_models import PerformanceMetric
-
-        metric = PerformanceMetric(name="test_metric", value=42.0, unit="ms", timestamp=1.0)
-        assert metric.name == "test_metric"
-        assert metric.value == 42.0
-
-    def test_alert_level_enum(self):
-        from apps.core.config.steering._perf_models import AlertLevel
-
-        assert AlertLevel.INFO is not None
-        assert AlertLevel.WARNING is not None
-
-    def test_performance_thresholds(self):
-        from apps.core.config.steering._perf_models import PerformanceThresholds
-
-        thresholds = PerformanceThresholds(config={"warn_ms": 100, "error_ms": 500})
-        assert thresholds is not None
-
-
 class TestSessionAuth:
     def test_authenticate_authenticated_user(self):
         from apps.core.security.auth import SessionAuth
@@ -347,5 +328,3 @@ class TestJWTOrSessionAuth:
         with patch.object(auth._jwt_auth, "authenticate", return_value=None):
             result = auth.authenticate(request, "token")
             assert result is None
-
-

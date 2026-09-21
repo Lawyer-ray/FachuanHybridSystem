@@ -284,7 +284,7 @@ if [ "$RUN_BACKEND" = true ]; then
   header "8/22" "Mypy 检查 (curated gate)"
   MYPY_CURATED=(
     apps/core/services/wiring.py
-    apps/core/protocols/common_protocols.py
+    apps/core/protocols/common/__init__.py
     apps/core/dto/auth.py
     apps/core/infrastructure/throttling.py
     apps/core/exceptions/handlers.py

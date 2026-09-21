@@ -206,7 +206,7 @@ class ModelListService:
         except (httpx.ConnectError, httpx.TimeoutException):
             return []
         except Exception:
-            pass
+            logger.warning("获取 Ollama 模型 context_window 失败: %s", ollama_model, exc_info=True)
 
         return [_make_model(ollama_model, ctx_window)]
 

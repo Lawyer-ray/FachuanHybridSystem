@@ -32,7 +32,7 @@ logger = logging.getLogger(__name__)
 if TYPE_CHECKING:
     from django.db.models.fields.related_descriptors import RelatedManager
 
-    from .evidence import EvidenceList
+    from apps.evidence.models import EvidenceList
 
 
 class DocumentTemplate(LifecycleModel):

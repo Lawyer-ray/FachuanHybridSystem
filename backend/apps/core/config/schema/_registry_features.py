@@ -275,34 +275,3 @@ def register_feature_configs(registry: dict[str, ConfigField]) -> None:
         max_value=20,
         description="调试截图收集数量限制",
     )
-    # Steering
-    registry["steering.conditional_loading.enabled"] = ConfigField(
-        name="steering.conditional_loading.enabled",
-        type=bool,
-        default=True,
-        description="是否启用条件加载",
-    )
-    registry["steering.conditional_loading.cache_ttl"] = ConfigField(
-        name="steering.conditional_loading.cache_ttl",
-        type=int,
-        default=3600,
-        min_value=60,
-        max_value=86400,
-        description="条件加载缓存 TTL（秒）",
-    )
-    registry["steering.performance.load_threshold_ms"] = ConfigField(
-        name="steering.performance.load_threshold_ms",
-        type=int,
-        default=100,
-        min_value=1,
-        max_value=10000,
-        description="加载性能阈值（毫秒）",
-    )
-    registry["steering.performance.warn_threshold_ms"] = ConfigField(
-        name="steering.performance.warn_threshold_ms",
-        type=int,
-        default=500,
-        min_value=1,
-        max_value=10000,
-        description="性能警告阈值（毫秒）",
-    )

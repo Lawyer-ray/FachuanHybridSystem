@@ -255,7 +255,7 @@ jobs:
         run: |
           uv run mypy --config-file=mypy.ini --follow-imports=silent \
             apps/core/services/wiring.py \
-            apps/core/protocols/common_protocols.py \
+            apps/core/protocols/common/__init__.py \
             apps/core/dto/auth.py \
             apps/core/infrastructure/throttling.py \
             apps/core/exceptions/handlers.py \

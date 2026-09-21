@@ -354,16 +354,6 @@ production:
     text_extraction_limit: 10000
     max_text_extraction_limit: 100000
     screenshot_limit: 10
-
-  steering:
-    conditional_loading:
-      enabled: true
-      cache_ttl: 7200  # 2小时缓存
-
-    performance:
-      load_threshold_ms: 50  # 生产环境更严格的性能要求
-      warn_threshold_ms: 200
-
 # ============================================================
 # 高可用生产环境配置示例 (High Availability Production)
 # ============================================================

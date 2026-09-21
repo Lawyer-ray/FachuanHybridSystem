@@ -58,8 +58,8 @@ class ParseProviderService:
             return None
         return min(candidates, key=lambda p: (p.priority, p.pk))
 
-    @staticmethod
-    def _load_from_db() -> list[DocumentParseProvider]:
+    @classmethod
+    def _load_from_db(cls) -> list[DocumentParseProvider]:
         try:
             rows = list(DocumentParseProvider.objects.filter(enabled=True))
         except Exception:

@@ -92,9 +92,9 @@ class Command(BaseCommand):
         removed_count = 0
         if cleanup:
             stale_configs: list[SystemConfig] = list(SystemConfig.objects.exclude(key__in=default_keys))
-            for config in stale_configs:  # type: ignore[assignment]
-                self.stdout.write(f"  清理废弃配置: {config.key}")  # type: ignore[attr-defined]
-                config.delete()  # type: ignore[attr-defined]
+            for config in stale_configs:
+                self.stdout.write(f"  清理废弃配置: {config.key}")
+                config.delete()
                 removed_count += 1
 
         summary = f"\n完成！创建 {created_count} 个，更新 {updated_count} 个"
