@@ -1,4 +1,5 @@
 """Long-tail coverage tests for multiple core modules."""
+
 from __future__ import annotations
 
 import io
@@ -11,7 +12,6 @@ from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 
 # ---------------------------------------------------------------------------
 # tests for apps.core.tasking.runtime (41 missing)
@@ -55,9 +55,9 @@ class TestTaskRunContext:
         assert ctx.is_past_soft_deadline() is False
 
     def test_is_past_soft_deadline_true(self):
-        from apps.core.tasking.runtime import TaskRunContext
-
         import time as _time
+
+        from apps.core.tasking.runtime import TaskRunContext
 
         now = _time.monotonic()
         ctx = TaskRunContext(
@@ -348,9 +348,14 @@ class TestResourceMonitor:
 
         monitor = ResourceMonitor()
         usage = ResourceUsage(
-            cpu_percent=10, memory_percent=30, memory_used_mb=1000,
-            memory_total_mb=8000, disk_percent=50, disk_used_gb=100,
-            disk_total_gb=500, timestamp=datetime.now(),
+            cpu_percent=10,
+            memory_percent=30,
+            memory_used_mb=1000,
+            memory_total_mb=8000,
+            disk_percent=50,
+            disk_used_gb=100,
+            disk_total_gb=500,
+            timestamp=datetime.now(),
         )
         with patch.object(monitor, "get_current_usage", return_value=usage):
             result = monitor.check_resource_health()
@@ -361,9 +366,14 @@ class TestResourceMonitor:
 
         monitor = ResourceMonitor()
         usage = ResourceUsage(
-            cpu_percent=10, memory_percent=85, memory_used_mb=5000,
-            memory_total_mb=8000, disk_percent=50, disk_used_gb=100,
-            disk_total_gb=500, timestamp=datetime.now(),
+            cpu_percent=10,
+            memory_percent=85,
+            memory_used_mb=5000,
+            memory_total_mb=8000,
+            disk_percent=50,
+            disk_used_gb=100,
+            disk_total_gb=500,
+            timestamp=datetime.now(),
         )
         with patch.object(monitor, "get_current_usage", return_value=usage):
             result = monitor.check_resource_health()
@@ -374,9 +384,14 @@ class TestResourceMonitor:
 
         monitor = ResourceMonitor()
         usage = ResourceUsage(
-            cpu_percent=10, memory_percent=95, memory_used_mb=7000,
-            memory_total_mb=8000, disk_percent=50, disk_used_gb=100,
-            disk_total_gb=500, timestamp=datetime.now(),
+            cpu_percent=10,
+            memory_percent=95,
+            memory_used_mb=7000,
+            memory_total_mb=8000,
+            disk_percent=50,
+            disk_used_gb=100,
+            disk_total_gb=500,
+            timestamp=datetime.now(),
         )
         with patch.object(monitor, "get_current_usage", return_value=usage):
             result = monitor.check_resource_health()
@@ -387,9 +402,14 @@ class TestResourceMonitor:
 
         monitor = ResourceMonitor()
         usage = ResourceUsage(
-            cpu_percent=85, memory_percent=50, memory_used_mb=3000,
-            memory_total_mb=8000, disk_percent=50, disk_used_gb=100,
-            disk_total_gb=500, timestamp=datetime.now(),
+            cpu_percent=85,
+            memory_percent=50,
+            memory_used_mb=3000,
+            memory_total_mb=8000,
+            disk_percent=50,
+            disk_used_gb=100,
+            disk_total_gb=500,
+            timestamp=datetime.now(),
         )
         with patch.object(monitor, "get_current_usage", return_value=usage):
             result = monitor.check_resource_health()
@@ -400,9 +420,14 @@ class TestResourceMonitor:
 
         monitor = ResourceMonitor()
         usage = ResourceUsage(
-            cpu_percent=10, memory_percent=30, memory_used_mb=1000,
-            memory_total_mb=8000, disk_percent=90, disk_used_gb=400,
-            disk_total_gb=500, timestamp=datetime.now(),
+            cpu_percent=10,
+            memory_percent=30,
+            memory_used_mb=1000,
+            memory_total_mb=8000,
+            disk_percent=90,
+            disk_used_gb=400,
+            disk_total_gb=500,
+            timestamp=datetime.now(),
         )
         with patch.object(monitor, "get_current_usage", return_value=usage):
             result = monitor.check_resource_health()
@@ -413,9 +438,14 @@ class TestResourceMonitor:
 
         monitor = ResourceMonitor()
         usage = ResourceUsage(
-            cpu_percent=10, memory_percent=30, memory_used_mb=1000,
-            memory_total_mb=8000, disk_percent=97, disk_used_gb=490,
-            disk_total_gb=500, timestamp=datetime.now(),
+            cpu_percent=10,
+            memory_percent=30,
+            memory_used_mb=1000,
+            memory_total_mb=8000,
+            disk_percent=97,
+            disk_used_gb=490,
+            disk_total_gb=500,
+            timestamp=datetime.now(),
         )
         with patch.object(monitor, "get_current_usage", return_value=usage):
             result = monitor.check_resource_health()
@@ -456,9 +486,14 @@ class TestResourceMonitor:
         monitor = ResourceMonitor()
         monitor.auto_restart_enabled = True
         usage = ResourceUsage(
-            cpu_percent=10, memory_percent=98, memory_used_mb=7000,
-            memory_total_mb=8000, disk_percent=50, disk_used_gb=100,
-            disk_total_gb=500, timestamp=datetime.now(),
+            cpu_percent=10,
+            memory_percent=98,
+            memory_used_mb=7000,
+            memory_total_mb=8000,
+            disk_percent=50,
+            disk_used_gb=100,
+            disk_total_gb=500,
+            timestamp=datetime.now(),
         )
         with patch.object(monitor, "get_current_usage", return_value=usage):
             should, reason = monitor.should_trigger_restart()
@@ -470,9 +505,14 @@ class TestResourceMonitor:
         monitor = ResourceMonitor()
         monitor.auto_restart_enabled = True
         usage = ResourceUsage(
-            cpu_percent=10, memory_percent=50, memory_used_mb=4000,
-            memory_total_mb=8000, disk_percent=50, disk_used_gb=100,
-            disk_total_gb=500, timestamp=datetime.now(),
+            cpu_percent=10,
+            memory_percent=50,
+            memory_used_mb=4000,
+            memory_total_mb=8000,
+            disk_percent=50,
+            disk_used_gb=100,
+            disk_total_gb=500,
+            timestamp=datetime.now(),
         )
         with patch.object(monitor, "get_current_usage", return_value=usage):
             should, reason = monitor.should_trigger_restart()
@@ -499,9 +539,14 @@ class TestResourceMonitor:
 
         monitor = ResourceMonitor()
         usage = ResourceUsage(
-            cpu_percent=10, memory_percent=50, memory_used_mb=4000,
-            memory_total_mb=8000, disk_percent=50, disk_used_gb=100,
-            disk_total_gb=500, timestamp=datetime.now(),
+            cpu_percent=10,
+            memory_percent=50,
+            memory_used_mb=4000,
+            memory_total_mb=8000,
+            disk_percent=50,
+            disk_used_gb=100,
+            disk_total_gb=500,
+            timestamp=datetime.now(),
         )
         with patch.object(monitor, "get_current_usage", return_value=usage):
             result = monitor.get_resource_recommendations()
@@ -512,9 +557,14 @@ class TestResourceMonitor:
 
         monitor = ResourceMonitor()
         usage = ResourceUsage(
-            cpu_percent=90, memory_percent=50, memory_used_mb=4000,
-            memory_total_mb=8000, disk_percent=50, disk_used_gb=100,
-            disk_total_gb=500, timestamp=datetime.now(),
+            cpu_percent=90,
+            memory_percent=50,
+            memory_used_mb=4000,
+            memory_total_mb=8000,
+            disk_percent=50,
+            disk_used_gb=100,
+            disk_total_gb=500,
+            timestamp=datetime.now(),
         )
         with patch.object(monitor, "get_current_usage", return_value=usage):
             result = monitor.get_resource_recommendations()
@@ -525,9 +575,14 @@ class TestResourceMonitor:
 
         monitor = ResourceMonitor()
         usage = ResourceUsage(
-            cpu_percent=50, memory_percent=50, memory_used_mb=4000,
-            memory_total_mb=8000, disk_percent=90, disk_used_gb=400,
-            disk_total_gb=500, timestamp=datetime.now(),
+            cpu_percent=50,
+            memory_percent=50,
+            memory_used_mb=4000,
+            memory_total_mb=8000,
+            disk_percent=90,
+            disk_used_gb=400,
+            disk_total_gb=500,
+            timestamp=datetime.now(),
         )
         with patch.object(monitor, "get_current_usage", return_value=usage):
             result = monitor.get_resource_recommendations()
@@ -538,9 +593,14 @@ class TestResourceMonitor:
 
         monitor = ResourceMonitor()
         usage = ResourceUsage(
-            cpu_percent=50, memory_percent=30, memory_used_mb=2000,
-            memory_total_mb=8000, disk_percent=50, disk_used_gb=100,
-            disk_total_gb=500, timestamp=datetime.now(),
+            cpu_percent=50,
+            memory_percent=30,
+            memory_used_mb=2000,
+            memory_total_mb=8000,
+            disk_percent=50,
+            disk_used_gb=100,
+            disk_total_gb=500,
+            timestamp=datetime.now(),
         )
         with patch.object(monitor, "get_current_usage", return_value=usage):
             result = monitor.get_resource_recommendations()
@@ -551,9 +611,14 @@ class TestResourceMonitor:
 
         monitor = ResourceMonitor()
         usage = ResourceUsage(
-            cpu_percent=50, memory_percent=85, memory_used_mb=6000,
-            memory_total_mb=8000, disk_percent=50, disk_used_gb=100,
-            disk_total_gb=500, timestamp=datetime.now(),
+            cpu_percent=50,
+            memory_percent=85,
+            memory_used_mb=6000,
+            memory_total_mb=8000,
+            disk_percent=50,
+            disk_used_gb=100,
+            disk_total_gb=500,
+            timestamp=datetime.now(),
         )
         with patch.object(monitor, "get_current_usage", return_value=usage):
             result = monitor.get_resource_recommendations()
@@ -608,6 +673,7 @@ class TestResourceMonitor:
             with patch.object(monitor, "should_trigger_restart", return_value=(False, "")):
                 monitor.start_monitoring(interval=0)
                 import time as _time
+
                 _time.sleep(0.1)
                 monitor.stop_monitoring()
 
@@ -757,156 +823,3 @@ class TestLoggingMixinsCommon:
         result = normalize_cache_key_component("!!!")
         # cleaned becomes 'x' + hash
         assert result.startswith("x-")
-
-
-# ---------------------------------------------------------------------------
-# tests for apps.core.config.steering._perf_monitor (36 missing)
-# ---------------------------------------------------------------------------
-
-
-class TestSteeringPerformanceMonitor:
-    def _make_monitor(self, enabled=True):
-        from apps.core.config.steering._perf_monitor import SteeringPerformanceMonitor
-
-        return SteeringPerformanceMonitor({"enabled": enabled, "max_history_size": 10})
-
-    def test_disabled_monitor(self):
-        monitor = self._make_monitor(enabled=False)
-        assert monitor.enabled is False
-
-    def test_monitor_loading_disabled(self):
-        monitor = self._make_monitor(enabled=False)
-        result = monitor.monitor_loading("test.py", lambda: 42)
-        assert result == 42
-
-    def test_monitor_loading_success(self):
-        monitor = self._make_monitor()
-        result = monitor.monitor_loading("test.py", lambda: "ok")
-        assert result == "ok"
-
-    def test_monitor_loading_failure(self):
-        monitor = self._make_monitor()
-        with pytest.raises(ValueError, match="boom"):
-            monitor.monitor_loading("test.py", lambda: (_ for _ in ()).throw(ValueError("boom")))
-
-    def test_monitor_cached_loading_disabled(self):
-        monitor = self._make_monitor(enabled=False)
-        result = monitor.monitor_cached_loading("test.py", lambda: 99, cache_hit=True)
-        assert result == 99
-
-    def test_monitor_cached_loading_cache_hit(self):
-        monitor = self._make_monitor()
-        result = monitor.monitor_cached_loading("test.py", lambda: "cached", cache_hit=True)
-        assert result == "cached"
-
-    def test_monitor_cached_loading_failure(self):
-        monitor = self._make_monitor()
-
-        def bad():
-            raise RuntimeError("cache load failed")
-
-        with pytest.raises(RuntimeError, match="cache load failed"):
-            monitor.monitor_cached_loading("test.py", bad, cache_hit=False)
-
-    def test_check_performance_thresholds_all_levels(self):
-        from apps.core.config.steering._perf_models import AlertLevel, LoadingPerformanceData
-
-        monitor = self._make_monitor()
-        alerts: list = []
-        monitor.add_alert_callback(lambda a: alerts.append(a))
-
-        def _make_data(**kwargs):
-            defaults = {
-                "spec_path": "test.py", "start_time": 0.0, "end_time": 0.0,
-                "duration_ms": 0, "success": True, "cache_hit": False, "memory_usage_mb": 0.0,
-            }
-            defaults.update(kwargs)
-            return LoadingPerformanceData(**defaults)
-
-        # WARNING level
-        monitor._check_performance_thresholds(_make_data(
-            duration_ms=monitor.thresholds.load_time_warning_ms + 10,
-        ))
-        assert any(a.level == AlertLevel.WARNING for a in alerts)
-
-        # ERROR level
-        alerts.clear()
-        monitor._check_performance_thresholds(_make_data(
-            duration_ms=monitor.thresholds.load_time_error_ms + 10,
-        ))
-        assert any(a.level == AlertLevel.ERROR for a in alerts)
-
-        # CRITICAL level
-        alerts.clear()
-        monitor._check_performance_thresholds(_make_data(
-            duration_ms=monitor.thresholds.load_time_critical_ms + 10,
-        ))
-        assert any(a.level == AlertLevel.CRITICAL for a in alerts)
-
-        # CRITICAL memory
-        alerts.clear()
-        monitor._check_performance_thresholds(_make_data(
-            memory_usage_mb=monitor.thresholds.memory_usage_critical_mb + 100,
-        ))
-        assert any(a.level == AlertLevel.CRITICAL for a in alerts)
-
-    def test_trigger_alert_callback_error(self):
-        from apps.core.config.steering._perf_models import AlertLevel, PerformanceAlert
-
-        monitor = self._make_monitor()
-
-        def bad_callback(alert):
-            raise RuntimeError("bad")
-
-        monitor.add_alert_callback(bad_callback)
-        alert = PerformanceAlert(
-            level=AlertLevel.WARNING,
-            message="test",
-            metric_name="test",
-            threshold=0,
-            actual_value=0,
-            timestamp=0,
-        )
-        monitor._trigger_alert(alert)  # should not raise
-
-    def test_get_performance_report_disabled(self):
-        monitor = self._make_monitor(enabled=False)
-        assert monitor.get_performance_report() == {"enabled": False}
-
-    def test_get_performance_report_enabled(self):
-        monitor = self._make_monitor()
-        report = monitor.get_performance_report()
-        assert report["enabled"] is True
-        assert "statistics" in report
-        assert "analysis" in report
-
-    def test_export_performance_data_disabled(self):
-        monitor = self._make_monitor(enabled=False)
-        monitor.export_performance_data("/tmp/test.json")  # no-op
-
-    def test_export_performance_data_success(self, tmp_path):
-        import json
-
-        monitor = self._make_monitor()
-        path = str(tmp_path / "report.json")
-        monitor.export_performance_data(path)
-        data = json.loads(path and open(path).read())
-        assert data["enabled"] is True
-
-    def test_export_performance_data_oserror(self, tmp_path):
-        monitor = self._make_monitor()
-        monitor.export_performance_data("/nonexistent/dir/report.json")  # should not raise
-
-    def test_shutdown(self):
-        monitor = self._make_monitor()
-        monitor.shutdown()
-
-    def test_shutdown_disabled(self):
-        monitor = self._make_monitor(enabled=False)
-        monitor.shutdown()
-
-    def test_create_performance_monitor_from_config(self):
-        from apps.core.config.steering._perf_monitor import create_performance_monitor_from_config
-
-        monitor = create_performance_monitor_from_config({"enabled": False})
-        assert monitor.enabled is False

@@ -12,7 +12,6 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-
 # =====================================================================
 # RequestIdMiddleware
 # =====================================================================
@@ -24,6 +23,7 @@ class TestRequestIdMiddleware:
     def test_generate_request_id_is_short_hex(self) -> None:
         """生成的 request_id 应为 8 位 hex 字符串。"""
         from apps.core.infrastructure.request_context import generate_request_id
+
         rid = generate_request_id()
         assert isinstance(rid, str)
         assert len(rid) == 8
@@ -32,32 +32,35 @@ class TestRequestIdMiddleware:
     def test_generate_request_id_unique(self) -> None:
         """连续生成应不同。"""
         from apps.core.infrastructure.request_context import generate_request_id
+
         ids = {generate_request_id() for _ in range(100)}
         assert len(ids) == 100
 
     def test_middleware_calls_set_request_context(self) -> None:
         """中间件应调用 set_request_context。"""
         from apps.core.middleware.request_id import RequestIdMiddleware
+
         middleware = RequestIdMiddleware(MagicMock())
         request = MagicMock()
         request.headers = {"X-Request-ID": "valid-id-123"}
         request.META = {}
 
         with patch("apps.core.middleware.request_id.set_request_context") as mock_set:
-            with patch("apps.core.middleware.request_id.get_current_trace_ids", return_value=("", "")):
+            with patch("apps.core.middleware.request_id.get_trace_ids", return_value=("", "")):
                 middleware(request)
                 mock_set.assert_called_once()
 
     def test_middleware_rejects_invalid_xff(self) -> None:
         """包含空格的 X-Request-ID 应被拒绝。"""
         from apps.core.middleware.request_id import RequestIdMiddleware
+
         middleware = RequestIdMiddleware(MagicMock())
         request = MagicMock()
         request.headers = {"X-Request-ID": "invalid id with spaces!"}
         request.META = {}
 
         with patch("apps.core.middleware.request_id.set_request_context") as mock_set:
-            with patch("apps.core.middleware.request_id.get_current_trace_ids", return_value=("", "")):
+            with patch("apps.core.middleware.request_id.get_trace_ids", return_value=("", "")):
                 middleware(request)
                 kwargs = mock_set.call_args[1]
                 assert kwargs["request_id"] != "invalid id with spaces!"
@@ -73,14 +76,20 @@ class TestSensitiveDataFilter:
 
     def _make_record(self, msg: str) -> logging.LogRecord:
         record = logging.LogRecord(
-            name="test", level=logging.INFO, pathname="", lineno=0,
-            msg=msg, args=None, exc_info=None,
+            name="test",
+            level=logging.INFO,
+            pathname="",
+            lineno=0,
+            msg=msg,
+            args=None,
+            exc_info=None,
         )
         return record
 
     def test_scrubs_bearer_token(self) -> None:
         """Authorization: Bearer token 应被脱敏。"""
         from apps.core.infrastructure.logging import SensitiveDataFilter
+
         flt = SensitiveDataFilter()
         record = self._make_record("Authorization: Bearer FAKE_TOKEN_FOR_TESTING")  # pragma: allowlist secret
         flt.filter(record)
@@ -90,6 +99,7 @@ class TestSensitiveDataFilter:
     def test_scrubs_sk_api_key(self) -> None:
         """sk- 开头的 API key 应被脱敏。"""
         from apps.core.infrastructure.logging import SensitiveDataFilter
+
         flt = SensitiveDataFilter()
         record = self._make_record("using key sk-abcdefghijklmnopqrstuvwxyz1234")
         flt.filter(record)
@@ -98,6 +108,7 @@ class TestSensitiveDataFilter:
     def test_scrubs_token_equals_sk(self) -> None:
         """token=sk-xxx 格式应被脱敏。"""
         from apps.core.infrastructure.logging import SensitiveDataFilter
+
         flt = SensitiveDataFilter()
         record = self._make_record("token=sk-FAKE_FOR_TESTING")
         flt.filter(record)
@@ -106,6 +117,7 @@ class TestSensitiveDataFilter:
     def test_normal_message_unchanged(self) -> None:
         """普通日志消息不应被修改。"""
         from apps.core.infrastructure.logging import SensitiveDataFilter
+
         flt = SensitiveDataFilter()
         msg = "Case 123 processed successfully in 2.5s"
         record = self._make_record(msg)
@@ -124,10 +136,16 @@ class TestRequestContextFilter:
     def test_filter_stamps_attributes(self) -> None:
         """filter 应添加 request_id、trace_id、span_id。"""
         from apps.core.infrastructure.logging import RequestContextFilter
+
         flt = RequestContextFilter()
         record = logging.LogRecord(
-            name="test", level=logging.INFO, pathname="", lineno=0,
-            msg="test", args=None, exc_info=None,
+            name="test",
+            level=logging.INFO,
+            pathname="",
+            lineno=0,
+            msg="test",
+            args=None,
+            exc_info=None,
         )
         with patch("apps.core.infrastructure.request_context.request_id_var") as mock_var:
             mock_var.get.return_value = "req-123"
@@ -155,6 +173,7 @@ class TestRequestContextDTO:
     def test_extract_with_org_access(self) -> None:
         """从 request 构建应包含 org_access。"""
         from apps.core.dto.request_context import extract_request_context
+
         request = MagicMock()
         request.user = SimpleNamespace(id=1)
         request.org_access = {"lawyers": {1, 2, 3}}
@@ -168,6 +187,7 @@ class TestRequestContextDTO:
     def test_extract_without_org_access(self) -> None:
         """无 org_access 时应为 None。"""
         from apps.core.dto.request_context import extract_request_context
+
         request = MagicMock(spec=[])  # 空 spec，getattr 返回 None
         ctx = extract_request_context(request)
         assert ctx.user is None
@@ -184,8 +204,13 @@ class TestJsonFormatter:
 
     def _make_record(self, msg: str = "test message", level: int = logging.INFO) -> logging.LogRecord:
         record = logging.LogRecord(
-            name="test.logger", level=level, pathname="test.py", lineno=42,
-            msg=msg, args=None, exc_info=None,
+            name="test.logger",
+            level=level,
+            pathname="test.py",
+            lineno=42,
+            msg=msg,
+            args=None,
+            exc_info=None,
         )
         record.request_id = "req-001"
         record.trace_id = "trace-001"
@@ -196,6 +221,7 @@ class TestJsonFormatter:
     def test_output_is_valid_json(self) -> None:
         """输出应为合法 JSON。"""
         from apps.core.infrastructure.logging import JsonFormatter
+
         formatter = JsonFormatter()
         record = self._make_record()
         output = formatter.format(record)
@@ -205,6 +231,7 @@ class TestJsonFormatter:
     def test_contains_required_fields(self) -> None:
         """输出应包含 timestamp、level、message 等关键字段。"""
         from apps.core.infrastructure.logging import JsonFormatter
+
         formatter = JsonFormatter()
         record = self._make_record(msg="hello world")
         data = json.loads(formatter.format(record))
@@ -217,6 +244,7 @@ class TestJsonFormatter:
     def test_error_level(self) -> None:
         """ERROR 级别应正确标记。"""
         from apps.core.infrastructure.logging import JsonFormatter
+
         formatter = JsonFormatter()
         record = self._make_record(msg="error!", level=logging.ERROR)
         data = json.loads(formatter.format(record))
@@ -225,6 +253,7 @@ class TestJsonFormatter:
     def test_empty_request_id_excluded(self) -> None:
         """空 request_id 不应出现在输出中。"""
         from apps.core.infrastructure.logging import JsonFormatter
+
         formatter = JsonFormatter()
         record = self._make_record()
         record.request_id = ""

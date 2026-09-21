@@ -12,8 +12,12 @@ from typing import Any, cast
 
 from django.http import HttpRequest, HttpResponse
 
-from apps.core.infrastructure.request_context import clear_request_context, generate_request_id, set_request_context
-from apps.core.infrastructure.tracing import get_current_trace_ids
+from apps.core.infrastructure.request_context import (
+    clear_request_context,
+    generate_request_id,
+    get_trace_ids,
+    set_request_context,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +38,7 @@ class RequestIdMiddleware:
 
     def __call__(self, request: HttpRequest) -> Any:
         request_id = self._extract_request_id(request)
-        trace_id, span_id = get_current_trace_ids()
+        trace_id, span_id = get_trace_ids()
 
         set_request_context(
             request_id=request_id,

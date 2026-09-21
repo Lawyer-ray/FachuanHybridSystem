@@ -24,7 +24,6 @@ from .automation_protocols import (
     IPreservationQuoteService,
     ITokenService,
 )
-from .ocr_types import OCRTextResult
 from .case_assignment_protocols import ICaseAssignmentService
 from .case_material_protocols import ICaseMaterialService
 from .case_protocols import (
@@ -36,7 +35,7 @@ from .case_protocols import (
     ILitigationFeeCalculatorService,
 )
 from .client_protocols import IClientService
-from .common_protocols import (
+from .common import (
     IAccountSelectionStrategy,
     IBusinessConfigService,
     ICaseChatService,
@@ -66,6 +65,7 @@ from .document_protocols import (
     IGenerationTaskService,
     ISupplementaryAgreementGenerationService,
 )
+from .ocr_types import OCRTextResult
 from .organization_protocols import ILawFirmService, ILawyerService, IOrganizationService
 
 __all__ = [

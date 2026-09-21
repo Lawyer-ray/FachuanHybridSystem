@@ -2,13 +2,13 @@
 
 覆盖: auth.py, request_context.py, 以及其他 DTO 类
 """
+
 from __future__ import annotations
 
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
-
 
 # ============================================================
 # auth.py - LoginAttemptResult / TokenAcquisitionResult
@@ -62,8 +62,12 @@ class TestTokenAcquisitionResult:
         from apps.core.dto.auth import LoginAttemptResult, TokenAcquisitionResult
 
         attempt = LoginAttemptResult(
-            success=True, token="t", account="a", error_message=None,
-            attempt_duration=1.0, retry_count=0,
+            success=True,
+            token="t",
+            account="a",
+            error_message=None,
+            attempt_duration=1.0,
+            retry_count=0,
         )
         result = TokenAcquisitionResult(
             success=True,
@@ -148,19 +152,3 @@ class TestExtractRequestContext:
         assert ctx.user is None
         assert ctx.org_access is None
         assert ctx.perm_open_access is False
-
-
-# ============================================================
-# events.py - Events 常量
-# ============================================================
-
-
-class TestEvents:
-    """测试 Events 事件常量"""
-
-    def test_case_events(self) -> None:
-        from apps.core.infrastructure.events import Events
-
-        assert Events.CASE_CREATED == "case.created"
-        assert Events.CASE_UPDATED == "case.updated"
-        assert Events.CASE_DELETED == "case.deleted"

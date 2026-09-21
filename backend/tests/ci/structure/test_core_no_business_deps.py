@@ -38,7 +38,6 @@ FROZEN_VIOLATIONS: dict[str, set[str]] = {
     "apps/core/dependencies/business_organization.py": {"organization", "reminders"},
     "apps/core/dependencies/documents_generation.py": {"documents"},
     "apps/core/dependencies/documents_query.py": {"documents", "evidence"},
-    "apps/core/dependencies/oa_filing.py": {"oa_filing"},
     "apps/core/dto/cases.py": {"cases"},
     "apps/core/dto/client.py": {"client"},
     "apps/core/dto/contracts.py": {"contracts"},

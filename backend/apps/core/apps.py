@@ -23,9 +23,6 @@ class CoreConfig(AppConfig):
         except Exception:
             logger.debug("django-q spawn patch 跳过（未就绪）")
 
-        # 恢复因 runserver auto-reload 中断的 OAuth device code 轮询
-        # （cloud_storage 已拆为独立 app，恢复逻辑迁至 apps/cloud_storage/apps.py）
-
         # 注册文件清理定时任务
         try:
             from .tasking.cleanup_tasks import _register_schedules

@@ -1,19 +1,19 @@
 """测试 core.infrastructure 子模块
 
 覆盖: service_locator_base, throttling, monitoring, resource_monitor, cache,
-      event_bus, subprocess_runner, logging, request_context, tracing
+      subprocess_runner, logging, request_context
 """
+
 from __future__ import annotations
 
-import time
 import threading
+import time
 from types import SimpleNamespace
-from unittest.mock import MagicMock, patch, PropertyMock
+from unittest.mock import MagicMock, PropertyMock, patch
 
 import pytest
 
 from apps.core.exceptions import ExternalServiceError, RateLimitError
-
 
 # ============================================================
 # service_locator_base.py
@@ -118,9 +118,7 @@ class TestRateLimiter:
         from apps.core.infrastructure.throttling import RateLimiter
 
         limiter = RateLimiter()
-        request = SimpleNamespace(
-            META={"REMOTE_ADDR": "10.0.0.1", "HTTP_X_FORWARDED_FOR": None}
-        )
+        request = SimpleNamespace(META={"REMOTE_ADDR": "10.0.0.1", "HTTP_X_FORWARDED_FOR": None})
         assert limiter.get_client_ip(request) == "10.0.0.1"
 
     def test_get_client_ip_unknown(self) -> None:
@@ -144,9 +142,7 @@ class TestRateLimitDecorator:
         def my_view(request):  # type: ignore[no-untyped-def]
             return "ok"
 
-        request = SimpleNamespace(
-            path="/test", META={"REMOTE_ADDR": "1.2.3.4", "HTTP_X_FORWARDED_FOR": None}
-        )
+        request = SimpleNamespace(path="/test", META={"REMOTE_ADDR": "1.2.3.4", "HTTP_X_FORWARDED_FOR": None})
         result = my_view(request)
         assert result == "ok"
 
@@ -439,46 +435,6 @@ class TestNormalizeKeyComponent:
 
 
 # ============================================================
-# event_bus.py
-# ============================================================
-
-
-class TestEventBus:
-    """测试 EventBus"""
-
-    def test_subscribe_and_publish(self) -> None:
-        from apps.core.infrastructure.event_bus import EventBus
-
-        received: list[dict] = []
-
-        def handler(payload: dict) -> None:
-            received.append(payload)
-
-        EventBus.subscribe("test.event", handler)
-        EventBus.publish("test.event", {"key": "value"})
-        assert len(received) == 1
-        assert received[0]["key"] == "value"
-
-    def test_publish_no_payload(self) -> None:
-        from apps.core.infrastructure.event_bus import EventBus
-
-        received: list[dict] = []
-
-        def handler(payload: dict) -> None:
-            received.append(payload)
-
-        EventBus.subscribe("test.empty", handler)
-        EventBus.publish("test.empty")
-        assert received == [{}]
-
-    def test_publish_no_subscribers(self) -> None:
-        from apps.core.infrastructure.event_bus import EventBus
-
-        # 不应该抛异常
-        EventBus.publish("no.subscribers", {"data": 1})
-
-
-# ============================================================
 # subprocess_runner.py
 # ============================================================
 
@@ -634,8 +590,13 @@ class TestJsonFormatter:
 
         formatter = JsonFormatter()
         record = logging.LogRecord(
-            name="test", level=logging.INFO, pathname="test.py",
-            lineno=10, msg="Hello %s", args=("world",), exc_info=None
+            name="test",
+            level=logging.INFO,
+            pathname="test.py",
+            lineno=10,
+            msg="Hello %s",
+            args=("world",),
+            exc_info=None,
         )
         output = formatter.format(record)
         parsed = json.loads(output)
@@ -672,10 +633,7 @@ class TestRequestContext:
         clear_request_context()
 
     def test_get_request_id_auto_generate(self) -> None:
-        from apps.core.infrastructure.request_context import (
-            clear_request_context,
-            get_request_id,
-        )
+        from apps.core.infrastructure.request_context import clear_request_context, get_request_id
 
         clear_request_context()
         rid = get_request_id(fallback_generate=True)
@@ -683,41 +641,17 @@ class TestRequestContext:
         assert len(rid) == 8
 
     def test_get_request_id_no_generate(self) -> None:
-        from apps.core.infrastructure.request_context import (
-            clear_request_context,
-            get_request_id,
-        )
+        from apps.core.infrastructure.request_context import clear_request_context, get_request_id
 
         clear_request_context()
         assert get_request_id(fallback_generate=False) is None
 
     def test_clear_request_context(self) -> None:
-        from apps.core.infrastructure.request_context import (
-            clear_request_context,
-            get_request_id,
-            set_request_context,
-        )
+        from apps.core.infrastructure.request_context import clear_request_context, get_request_id, set_request_context
 
         set_request_context(request_id="test123")
         clear_request_context()
         assert get_request_id(fallback_generate=False) is None
-
-
-# ============================================================
-# tracing.py
-# ============================================================
-
-
-class TestTracing:
-    """测试 tracing 模块"""
-
-    def test_get_current_trace_ids_no_opentelemetry(self) -> None:
-        from apps.core.infrastructure.tracing import get_current_trace_ids
-
-        with patch.dict("sys.modules", {"opentelemetry": None}):
-            trace_id, span_id = get_current_trace_ids()
-            assert trace_id is None
-            assert span_id is None
 
 
 # ============================================================
@@ -734,13 +668,14 @@ class TestRequestContextFilter:
         from apps.core.infrastructure.logging import RequestContextFilter
 
         record = logging.LogRecord(
-            name="test", level=logging.INFO, pathname="t.py",
-            lineno=1, msg="test", args=(), exc_info=None
+            name="test", level=logging.INFO, pathname="t.py", lineno=1, msg="test", args=(), exc_info=None
         )
 
-        with patch("apps.core.infrastructure.request_context.get_request_id", return_value="rid123"), \
-             patch("apps.core.infrastructure.request_context.get_trace_ids", return_value=("tid", "sid")), \
-             patch("apps.core.infrastructure.request_context.get_task_name", return_value="task1"):
+        with (
+            patch("apps.core.infrastructure.request_context.get_request_id", return_value="rid123"),
+            patch("apps.core.infrastructure.request_context.get_trace_ids", return_value=("tid", "sid")),
+            patch("apps.core.infrastructure.request_context.get_task_name", return_value="task1"),
+        ):
             result = RequestContextFilter().filter(record)
             assert result is True
             assert record.request_id == "rid123"
