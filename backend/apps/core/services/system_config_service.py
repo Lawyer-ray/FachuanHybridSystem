@@ -171,7 +171,9 @@ class SystemConfigService:
     @classmethod
     async def aget_value(cls, key: str, default: str = "") -> str:  # pragma: no cover
         """异步获取配置值 — 使用 async ORM"""
-        config = await SystemConfig.objects.filter(key=key, is_active=True).afirst()
+        # classmethod 无实例状态,仓库本身无状态,直接实例化走 repo 保持与其他方法一致的数据访问路径
+        repository = SystemConfigRepository()
+        config = await repository.aget_active_by_key(key)
         if config is None:
             return default
         value: str = config.value
@@ -183,7 +185,9 @@ class SystemConfigService:
                 value = codec.decrypt(value)
         return value
 
-    def warm_cache(self, keys: Iterable[str], timeout: int | None = _DEFAULT_CACHE_TIMEOUT_SECONDS) -> dict[str, str]:  # pragma: no cover
+    def warm_cache(
+        self, keys: Iterable[str], timeout: int | None = _DEFAULT_CACHE_TIMEOUT_SECONDS
+    ) -> dict[str, str]:  # pragma: no cover
         requested = [str(k) for k in keys if str(k)]
         if not requested:
             return {}
@@ -207,6 +211,28 @@ class SystemConfigService:
     def get_value_internal(self, key: str, default: str = "") -> str:
         """获取配置值(内部方法,与 get_value 相同)"""
         return self.get_value(key, default)
+
+    def get_all_active_configs(self) -> list[SystemConfig]:
+        """获取所有启用的系统配置
+
+        Returns:
+            启用的 SystemConfig 列表
+        """
+        return self._repository.get_all_active()
+
+    def get_config_by_key(self, key: str) -> SystemConfig | None:
+        """按配置键获取系统配置
+
+        与 get_value 不同,本方法直接返回模型实例(含敏感标志等元数据),
+        供调用方做存在性判断或读取非值字段,不存在时返回 None 而不抛异常。
+
+        Args:
+            key: 配置键
+
+        Returns:
+            SystemConfig 实例,不存在时返回 None
+        """
+        return self._repository.get_by_key(key)
 
     def get_category_configs(self, category: str) -> dict[str, str]:
         """获取某分类下的所有配置
