@@ -10,7 +10,7 @@ from typing import Any
 from django.utils import timezone
 
 from apps.automation.models import TokenAcquisitionHistory, TokenAcquisitionStatus
-from apps.core.exceptions import ValidationError
+from apps.core.exceptions import ValidationException
 from apps.core.interfaces import IAutomationService
 
 logger = logging.getLogger("apps.automation")
@@ -23,7 +23,9 @@ class AutomationServiceAdapter(IAutomationService):
     实现IAutomationService接口，提供自动化模块的核心功能
     """
 
-    def create_token_acquisition_history_internal(self, history_data: dict[str, Any]) -> TokenAcquisitionHistory:  # pragma: no cover
+    def create_token_acquisition_history_internal(
+        self, history_data: dict[str, Any]
+    ) -> TokenAcquisitionHistory:  # pragma: no cover
         """
         创建Token获取历史记录（内部方法）
 
@@ -34,7 +36,7 @@ class AutomationServiceAdapter(IAutomationService):
             创建的历史记录对象
 
         Raises:
-            ValidationError: 数据验证失败
+            ValidationException: 数据验证失败
         """
         logger.info(
             "创建Token获取历史记录",
@@ -51,7 +53,7 @@ class AutomationServiceAdapter(IAutomationService):
             required_fields = ["site_name", "account", "credential_id", "status", "trigger_reason"]
             for field in required_fields:
                 if field not in history_data:
-                    raise ValidationError(  # type: ignore
+                    raise ValidationException(
                         message=f"缺少必需字段: {field}", code="MISSING_REQUIRED_FIELD", errors={field: "此字段为必需"}
                     )
 
@@ -63,7 +65,7 @@ class AutomationServiceAdapter(IAutomationService):
 
             status = status_mapping.get(history_data["status"])
             if status is None:
-                raise ValidationError(  # type: ignore
+                raise ValidationException(
                     message=f"无效的状态值: {history_data['status']}",
                     code="INVALID_STATUS",
                     errors={"status": f"状态必须是 {list(status_mapping.keys())} 之一"},
@@ -99,7 +101,7 @@ class AutomationServiceAdapter(IAutomationService):
 
             return history
 
-        except ValidationError:  # type: ignore
+        except ValidationException:
             # 重新抛出验证错误
             raise
         except Exception as e:
@@ -113,7 +115,7 @@ class AutomationServiceAdapter(IAutomationService):
                 },
                 exc_info=True,
             )
-            raise ValidationError(  # type: ignore
+            raise ValidationException(
                 message=f"创建Token获取历史记录失败: {e!s}",
                 code="CREATE_HISTORY_FAILED",
                 errors={"internal_error": str(e)},
