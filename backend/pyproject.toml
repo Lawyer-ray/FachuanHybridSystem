@@ -8,21 +8,21 @@ dependencies = [
     "django==6.1.1",
     "django-cors-headers==4.9.0",
     "django-nested-admin==4.1.6",
-    "django-ninja==1.7.0",
+    "django-ninja==1.7.1",
     "django-ninja-jwt==5.4.5",
     "django-ninja-extra==0.31.7",
     # 运行时补丁：给 ModelForm/ModelAdmin/Field 等加 __class_getitem__，支撑泛型下标写法（生产 --no-dev 也必须安装）
-    "django-stubs-ext==6.1.0",
+    "django-stubs-ext==6.1.1",
     "joserfc>=1.7.4",  # CVE-2026-49852
     "django-q2==1.11.1",
     "django-lifecycle==1.3.0",
     # --- ASGI / WebSocket ---
-    "uvicorn[standard]==0.52.4",
+    "uvicorn[standard]==0.53.0",
     "channels==4.3.2",
     "channels-redis==4.3.0",
     "valkey==6.1.1",
     # --- 数据库 ---
-    "psycopg[binary]==3.3.5",
+    "psycopg[binary]==3.3.6",
     # --- HTTP 客户端 ---
     "httpx[http2]==0.28.1",
     "h2>=4.4.1",
@@ -48,11 +48,11 @@ dependencies = [
     "onnxruntime>=1.28.0",
     "ddddocr>=1.6.0",
     # --- 浏览器自动化 ---
-    "playwright==1.62.0",
+    "playwright==1.63.0",
     "nest-asyncio>=1.6.0",
     "cloakbrowser>=0.5.4",
     # --- 数据处理 ---
-    "pandas==3.0.5",
+    "pandas==3.0.6",
     "pydantic==2.13.5",
     "pydantic-ai>=2.26.0",
     "python-dateutil==2.9.0.post0",
@@ -100,10 +100,10 @@ dev = [
     # --- 代码格式化 ---
     "black==26.5.1",
     "isort==9.0.1",
-    "ruff==0.16.7",
+    "ruff==0.16.8",
     # --- 类型检查 ---
     "mypy==2.3.1",
-    "django-stubs==6.1.0",
+    "django-stubs==6.1.1",
     "types-python-dateutil",
     "types-requests",
     # --- 安全扫描 ---
