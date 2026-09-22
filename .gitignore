@@ -311,6 +311,9 @@ backend/cookies.txt
 videos/
 .handbook/
 
+# 论文草稿（投稿工作稿，不入库）
+/论文草稿/
+
 # ML training (not part of the application)
 ml-training/
 
@@ -361,3 +364,6 @@ frontend_2026/
 
 # AI 助手工作目录（项目记忆等，不入库）
 .workbuddy-ai/
+
+# 培训材料（本地客户交付物，不入库）
+/培训材料/
