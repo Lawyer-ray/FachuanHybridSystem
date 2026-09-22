@@ -311,6 +311,9 @@ backend/cookies.txt
 videos/
 .handbook/
 
+# 论文草稿（投稿工作稿，不入库）
+/论文草稿/
+
 # ML training (not part of the application)
 ml-training/
 
