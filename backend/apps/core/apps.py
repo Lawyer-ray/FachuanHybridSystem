@@ -17,11 +17,13 @@ class CoreConfig(AppConfig):
         from apps.core.utils.startup_db import allow_startup_db
 
         try:
+            from .tasking.qcluster_shutdown import patch_django_q_cluster_stop_for_macos
             from .tasking.qcluster_spawn import patch_django_q_mp_context_for_macos
 
             patch_django_q_mp_context_for_macos()
+            patch_django_q_cluster_stop_for_macos()
         except Exception:
-            logger.debug("django-q spawn patch 跳过（未就绪）")
+            logger.debug("django-q spawn/shutdown patch 跳过（未就绪）")
 
         # 注册文件清理定时任务
         try:
