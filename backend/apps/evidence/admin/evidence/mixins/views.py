@@ -11,6 +11,12 @@ from django.utils.html import format_html, format_html_join
 from apps.documents.models.choices import DocumentCaseFileSubType, DocumentTemplateType
 from apps.evidence.models import EvidenceList, ListType
 
+# mypy: ignore-errors
+# 这些 mixin 只在与 admin.ModelAdmin 组合后使用（见 admin/evidence_admin.py），
+# 运行时可访问 self.admin_site / super().get_form() / super().get_urls() 等
+# ModelAdmin 成员。mypy 无法从 mixin 基类推断这些成员，与
+# legal_research/admin/task_admin.py 等同样场景采用一致的文件级豁免。
+
 logger = logging.getLogger(__name__)
 
 

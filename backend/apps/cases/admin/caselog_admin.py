@@ -26,7 +26,7 @@ class CaseLogAttachmentInline(BaseTabularInline):  # pragma: no cover
 
 
 class ReminderInline(BaseTabularInline):  # pragma: no cover
-    model = CaseLog.reminders.rel.related_model  # type: ignore[assignment]  # Reminder
+    model = CaseLog.reminders.rel.related_model  # Reminder
     extra = 0
     fields = ("reminder_type", "content", "due_at")
     verbose_name = "重要日期提醒"

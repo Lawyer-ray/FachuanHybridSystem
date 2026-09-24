@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 from types import SimpleNamespace
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -204,45 +205,84 @@ class TestSummarizeEvidence:
 
 
 class TestApplyArrangement:
-    @pytest.mark.asyncio
-    async def test_updates_order(self):
-        mock_model = MagicMock()
-        mock_model.objects.filter.return_value.aupdate = AsyncMock(return_value=1)
+    """apply_arrangement 把材料排列写入 CaseMaterialGroupOrder（经 save_group_order）。"""
 
-        with patch.dict(
-            "sys.modules",
-            {
-                "apps.cases.models": MagicMock(CaseMaterial=mock_model),
-            },
+    @staticmethod
+    def _queryset(materials: list[Any]) -> MagicMock:
+        """构造支持 `async for` 的假 queryset，且可链 .only()。"""
+
+        async def _aiter(*_args: Any, **_kwargs: Any):
+            for m in materials:
+                yield m
+
+        qs = MagicMock()
+        qs.only.return_value = _aiter()
+        return qs
+
+    @pytest.mark.asyncio
+    async def test_writes_group_order_via_service(self):
+        """两个不同分组的材料应各自触发一次 save_group_order。"""
+        m1 = SimpleNamespace(id=1, category="party", side="our", supervising_authority_id=None, type_id=10)
+        m2 = SimpleNamespace(id=2, category="party", side="our", supervising_authority_id=None, type_id=20)
+        m3 = SimpleNamespace(id=3, category="non_party", side=None, supervising_authority_id=5, type_id=30)
+
+        with (
+            patch("apps.cases.models.CaseMaterial.objects.filter", return_value=self._queryset([m1, m2, m3])),
+            patch("apps.cases.services.material.wiring.build_case_material_service") as mock_build,
         ):
+            mock_service = MagicMock()
+            mock_build.return_value = mock_service
             from apps.workflow.temporal.activities import apply_arrangement
 
             arrangement = [
                 {"id": 1, "name": "A", "reason": "first"},
                 {"id": 2, "name": "B", "reason": "second"},
+                {"id": 3, "name": "C", "reason": "third"},
             ]
             await _fn(apply_arrangement)(case_id=1, arrangement=arrangement)
-            assert mock_model.objects.filter.call_count == 2
+
+            assert mock_service.save_group_order.call_count == 2
+            calls = {
+                c.kwargs["category"]: c.kwargs["ordered_type_ids"] for c in mock_service.save_group_order.call_args_list
+            }
+            assert calls["party"] == [10, 20]
+            assert calls["non_party"] == [30]
 
     @pytest.mark.asyncio
     async def test_skips_items_without_id(self):
-        mock_model = MagicMock()
-        mock_model.objects.filter.return_value.aupdate = AsyncMock(return_value=1)
-
-        with patch.dict(
-            "sys.modules",
-            {
-                "apps.cases.models": MagicMock(CaseMaterial=mock_model),
-            },
+        """全部条目都无有效 id 时不应查库、更不应写排序。"""
+        with (
+            patch("apps.cases.models.CaseMaterial.objects.filter") as mock_filter,
+            patch("apps.cases.services.material.wiring.build_case_material_service") as mock_build,
         ):
+            mock_service = MagicMock()
+            mock_build.return_value = mock_service
             from apps.workflow.temporal.activities import apply_arrangement
 
-            arrangement = [
-                {"id": 0, "name": "A"},  # id=0 is falsy, will be skipped
-                {"name": "B"},  # no id key
-            ]
+            arrangement = [{"id": 0, "name": "A"}, {"name": "B"}]
             await _fn(apply_arrangement)(case_id=1, arrangement=arrangement)
-            assert mock_model.objects.filter.call_count == 0
+
+            mock_filter.assert_not_called()
+            mock_service.save_group_order.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_deduplicates_material_ids(self):
+        """同一 type 在排列中重复出现只记一次，保持首次出现的顺序。"""
+        m1 = SimpleNamespace(id=1, category="party", side="our", supervising_authority_id=None, type_id=10)
+
+        with (
+            patch("apps.cases.models.CaseMaterial.objects.filter", return_value=self._queryset([m1])),
+            patch("apps.cases.services.material.wiring.build_case_material_service") as mock_build,
+        ):
+            mock_service = MagicMock()
+            mock_build.return_value = mock_service
+            from apps.workflow.temporal.activities import apply_arrangement
+
+            arrangement = [{"id": 1}, {"id": 1}, {"id": 1}]
+            await _fn(apply_arrangement)(case_id=1, arrangement=arrangement)
+
+            assert mock_service.save_group_order.call_count == 1
+            assert mock_service.save_group_order.call_args.kwargs["ordered_type_ids"] == [10]
 
 
 # ---------------------------------------------------------------------------

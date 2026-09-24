@@ -211,13 +211,81 @@ async def suggest_arrangement(summary: dict) -> list[dict]:
 
 @activity.defn
 async def apply_arrangement(case_id: int, arrangement: list[dict]) -> None:
-    """应用证据排列顺序"""
+    """应用证据排列顺序。
+
+    LLM（``suggest_arrangement``）返回的是「案件材料」的扁平排列，每项含
+    ``id``（``CaseMaterial.id``）。但排序的持久载体不是 CaseMaterial 本身
+    （该模型没有排序字段），而是 ``CaseMaterialGroupOrder``——按
+    ``(category, side/supervising_authority)`` 分组、组内按 ``type_id`` 排。
+
+    因此这里先把材料按分组键聚合，再在每组内按其在排列中的先后顺序调用
+    ``save_group_order`` 写入 ``sort_index``。
+    """
+    import asyncio
+    from collections import OrderedDict
+
     from apps.cases.models import CaseMaterial
 
-    for i, item in enumerate(arrangement):
-        mat_id = item.get("id")
-        if mat_id:
-            await CaseMaterial.objects.filter(pk=mat_id, case_id=case_id).aupdate(order=i)
+    # 1. 取出排列中出现的材料 id（保序、去重、只认本案件的）
+    ordered_mat_ids: list[int] = []
+    for item in arrangement:
+        raw = item.get("id")
+        if not raw:
+            continue
+        try:
+            mat_id = int(raw)
+        except (TypeError, ValueError):
+            continue
+        if mat_id not in ordered_mat_ids:
+            ordered_mat_ids.append(mat_id)
+    if not ordered_mat_ids:
+        return
+
+    # 2. 一次性查回这些材料，取分组键与 type_id
+    materials = [
+        m
+        async for m in CaseMaterial.objects.filter(case_id=case_id, pk__in=ordered_mat_ids).only(
+            "id", "category", "side", "supervising_authority_id", "type_id"
+        )
+    ]
+    if not materials:
+        return
+
+    # 3. 按 (category, side, supervising_authority) 分组，组内按材料在排列中的顺序收集 type_id
+    groups: OrderedDict[tuple[str, str | None, int | None], list[int]] = OrderedDict()
+    seen_types: dict[tuple[str, str | None, int | None], set[int]] = {}
+    for mat_id in ordered_mat_ids:
+        mat = next((m for m in materials if m.id == mat_id), None)
+        if mat is None or mat.type_id is None:
+            continue
+        key = (mat.category, mat.side, mat.supervising_authority_id)
+        if key not in groups:
+            groups[key] = []
+            seen_types[key] = set()
+        if mat.type_id in seen_types[key]:
+            continue
+        seen_types[key].add(mat.type_id)
+        groups[key].append(mat.type_id)
+
+    if not groups:
+        return
+
+    # 4. 逐组写排序（同步 ORM + 事务，放线程池避免阻塞事件循环）
+    from apps.cases.services.material.wiring import build_case_material_service
+
+    service = build_case_material_service()
+
+    def _save_all() -> None:
+        for (category, side, supervising_authority_id), ordered_type_ids in groups.items():
+            service.save_group_order(
+                case_id=case_id,
+                category=category,
+                ordered_type_ids=ordered_type_ids,
+                side=side,
+                supervising_authority_id=supervising_authority_id,
+            )
+
+    await asyncio.to_thread(_save_all)
 
 
 # ── 起诉状生成 ────────────────────────────────────────────
