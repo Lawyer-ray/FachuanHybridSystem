@@ -8,23 +8,24 @@ Covers:
   - _build_mcp_kwargs (template resolution, previous_step, non-string values)
   - INTERNAL_ACTIVITY_MAP / MCP_TOOL_MAP contents
 """
+
 from __future__ import annotations
 
 from typing import Any
 
 import pytest
 
+from apps.workflow.temporal.activities import _HAS_COURT_FILING
 from apps.workflow.temporal.workflows import (
-    GateResult,
     INTERNAL_ACTIVITY_MAP,
     MCP_TOOL_MAP,
+    GateResult,
     SimpleWorkflowInput,
     _build_mcp_kwargs,
     _build_step_args,
     _eval_condition,
     _resolve_dotted,
 )
-from apps.workflow.temporal.activities import _HAS_COURT_FILING
 
 
 class TestSimpleWorkflowInput:
@@ -264,8 +265,6 @@ class TestInternalActivityMap:
             "review_complaint_quality",
             "download_litigation_document",
         }
-        if _HAS_COURT_FILING:
-            expected_keys.add("execute_court_filing")
         assert expected_keys.issubset(set(INTERNAL_ACTIVITY_MAP.keys()))
 
 

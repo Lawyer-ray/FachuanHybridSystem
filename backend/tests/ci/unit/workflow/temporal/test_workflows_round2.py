@@ -17,8 +17,6 @@ from apps.workflow.temporal.workflows import (
     _eval_condition,
     _resolve_dotted,
 )
-from apps.workflow.temporal.activities import _HAS_COURT_FILING
-
 
 # ── _resolve_dotted ──
 
@@ -125,20 +123,29 @@ class TestBuildMcpKwargsExtended:
 class TestMapsCompleteness:
     def test_internal_activity_map_keys(self):
         expected = {
-            "collect_case_facts", "list_case_materials", "analyze_single_evidence",
-            "summarize_evidence", "suggest_arrangement", "apply_arrangement",
-            "build_litigation_context", "generate_complaint_simple",
-            "generate_complaint", "review_complaint_quality",
+            "collect_case_facts",
+            "list_case_materials",
+            "analyze_single_evidence",
+            "summarize_evidence",
+            "suggest_arrangement",
+            "apply_arrangement",
+            "build_litigation_context",
+            "generate_complaint_simple",
+            "generate_complaint",
+            "review_complaint_quality",
             "download_litigation_document",
         }
-        if _HAS_COURT_FILING:
-            expected.add("execute_court_filing")
         assert expected.issubset(set(INTERNAL_ACTIVITY_MAP.keys()))
 
     def test_mcp_tool_map_keys(self):
         expected = {
-            "collect_case_facts", "list_case_materials", "create_case_log",
-            "generate_complaint", "generate_defense", "download_litigation_document",
-            "search_companies", "calculate_litigation_fee",
+            "collect_case_facts",
+            "list_case_materials",
+            "create_case_log",
+            "generate_complaint",
+            "generate_defense",
+            "download_litigation_document",
+            "search_companies",
+            "calculate_litigation_fee",
         }
         assert expected.issubset(set(MCP_TOOL_MAP.keys()))

@@ -1,7 +1,8 @@
 """Tests for workflow/management/commands/start_temporal_worker.py (0% coverage).
 
-Covers: Command.add_arguments, Command._setup_logging, Command.handle.
+Covers: Command.add_arguments, Command._temporal_sandbox_logging, Command.handle.
 """
+
 from __future__ import annotations
 
 import logging
@@ -38,26 +39,62 @@ class TestStartTemporalWorkerAddArguments:
         assert calls["--max-activities"]["default"] == 5
 
 
-class TestStartTemporalWorkerSetupLogging:
-    def test_setup_logging_no_mod(self):
+class TestStartTemporalWorkerSandboxLogging:
+    def test_no_module_loaded_does_not_raise(self):
         from apps.workflow.management.commands.start_temporal_worker import Command
 
         cmd = Command()
-        # Should not raise even if module is not loaded
+        # 模块未加载时不应抛异常
         with patch.dict(sys.modules, {"apps.core.infrastructure.logging": None}):
-            cmd._setup_logging()
+            with cmd._temporal_sandbox_logging():
+                pass
 
-    def test_setup_logging_with_request_context_filter(self):
+    def test_does_not_mutate_filter_class(self):
+        """关键回归测试：绝不能改动 RequestContextFilter 类本身。
+
+        历史 bug：worker 命令用 `cls.filter = lambda ...` 做进程级 monkeypatch，
+        污染同进程内其它测试对该 filter 的断言（见 core 的
+        TestRequestContextFilter）。
+        """
+        from apps.core.infrastructure.logging import RequestContextFilter
         from apps.workflow.management.commands.start_temporal_worker import Command
 
+        original = RequestContextFilter.filter
         cmd = Command()
-        mock_filter_cls = MagicMock()
-        mock_filter_cls.filter = MagicMock()
-        mock_mod = MagicMock(RequestContextFilter=mock_filter_cls)
-        with patch.dict(sys.modules, {"apps.core.infrastructure.logging": mock_mod}):
-            cmd._setup_logging()
-            # After setup, the filter should be replaced with a lambda
-            assert callable(mock_filter_cls.filter)
+        with cmd._temporal_sandbox_logging():
+            pass
+        assert RequestContextFilter.filter is original
+
+    def test_removes_and_restores_filters_on_root_logger(self):
+        """运行期间从 root logger 摘除 RequestContextFilter 实例，退出后恢复。"""
+        from apps.core.infrastructure.logging import RequestContextFilter
+        from apps.workflow.management.commands.start_temporal_worker import Command
+
+        root = logging.getLogger()
+        marker = RequestContextFilter()
+        root.addFilter(marker)
+        saved = list(root.filters)
+        cmd = Command()
+        try:
+            with cmd._temporal_sandbox_logging():
+                assert marker not in root.filters
+            assert root.filters == saved
+            assert marker in root.filters
+        finally:
+            root.removeFilter(marker)
+
+    def test_get_request_context_filter_types_returns_type(self):
+        from apps.core.infrastructure.logging import RequestContextFilter
+        from apps.workflow.management.commands.start_temporal_worker import Command
+
+        types = Command._get_request_context_filter_types()
+        assert RequestContextFilter in types
+
+    def test_get_request_context_filter_types_empty_when_missing(self):
+        from apps.workflow.management.commands.start_temporal_worker import Command
+
+        with patch.dict(sys.modules, {"apps.core.infrastructure.logging": None}):
+            assert Command._get_request_context_filter_types() == ()
 
 
 class TestStartTemporalWorkerHandle:

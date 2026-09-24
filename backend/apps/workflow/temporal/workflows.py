@@ -59,8 +59,6 @@ INTERNAL_ACTIVITY_MAP: dict[str, Any] = {
     "review_complaint_quality": act.review_complaint_quality,
     "download_litigation_document": act.download_litigation_document,
 }
-if act._HAS_COURT_FILING:
-    INTERNAL_ACTIVITY_MAP["execute_court_filing"] = act.execute_court_filing
 
 # 有 mcp_tool 的步骤 → MCP 工具名（DynamicWorkflow 走 execute_mcp_tool）
 MCP_TOOL_MAP: dict[str, str] = {
@@ -147,7 +145,10 @@ class SalesContractDisputeWorkflow:
         await workflow.execute_activity(
             act.record_step,
             args=(
-                run_id, "confirm_facts", "确认事实", "gate",
+                run_id,
+                "confirm_facts",
+                "确认事实",
+                "gate",
                 "success" if gate.approved else "failed",
                 {"comment": gate.comment},
             ),
@@ -212,7 +213,10 @@ class SalesContractDisputeWorkflow:
         await workflow.execute_activity(
             act.record_step,
             args=(
-                run_id, "review_complaint", "审批起诉状", "gate",
+                run_id,
+                "review_complaint",
+                "审批起诉状",
+                "gate",
                 "success" if gate.approved else "failed",
                 {"comment": gate.comment},
             ),
@@ -286,7 +290,7 @@ def _eval_condition(step: dict, context: dict) -> bool:
 
     # 支持 previous_step.result.xxx 路径解析
     if field_path.startswith("previous_step."):
-        sub_path = field_path[len("previous_step."):]
+        sub_path = field_path[len("previous_step.") :]
         # 从 step_outputs 中找到上一个已执行步骤的输出
         step_outputs = context.get("step_outputs", {})
         prev_output = context.get("_last_output", {})
@@ -326,10 +330,12 @@ def _build_step_args(step: dict, context: dict, case_id: int, run_id: int) -> li
 
     def _resolve_template(val: str) -> str:
         """解析 {{variable.path}} 模板"""
+
         def _replace(m: re.Match) -> str:
             path = m.group(1).strip()
             result = _resolve_dotted(context, path)
             return str(result) if result is not None else ""
+
         return re.sub(r"\{\{(.+?)\}\}", _replace, val)
 
     if step_type == "llm":
@@ -673,7 +679,11 @@ class DynamicWorkflow:
             if internal_act is None:
                 raise ValueError(f"步骤 {step_id} 无 mcp_tool 且无 internal activity 映射")
             args = _build_step_args(step, context, case_id, run_id)
-            timeout = LLM_TIMEOUT if step_id in ("generate_complaint", "generate_defense", "review_complaint_quality") else QUICK_TIMEOUT
+            timeout = (
+                LLM_TIMEOUT
+                if step_id in ("generate_complaint", "generate_defense", "review_complaint_quality")
+                else QUICK_TIMEOUT
+            )
             result = await workflow.execute_activity(
                 internal_act,
                 args=tuple(args),
@@ -690,7 +700,12 @@ class DynamicWorkflow:
         return result  # type: ignore[no-any-return]
 
     async def _execute_gate(
-        self, step_id: str, step_name: str, run_id: int, context: dict, timeout_hours: float,
+        self,
+        step_id: str,
+        step_name: str,
+        run_id: int,
+        context: dict,
+        timeout_hours: float,
     ) -> dict:
         """执行 gate（人工审批门）步骤"""
         await workflow.execute_activity(
@@ -719,7 +734,10 @@ class DynamicWorkflow:
         await workflow.execute_activity(
             act.record_step,
             args=(
-                run_id, step_id, step_name, "gate",
+                run_id,
+                step_id,
+                step_name,
+                "gate",
                 "success" if gate.approved else "failed",
                 {"comment": gate.comment},
             ),
@@ -738,7 +756,12 @@ class DynamicWorkflow:
         return {"approved": gate.approved, "comment": gate.comment}
 
     async def _execute_wait(
-        self, step_id: str, step_name: str, run_id: int, context: dict, timeout_hours: float,
+        self,
+        step_id: str,
+        step_name: str,
+        run_id: int,
+        context: dict,
+        timeout_hours: float,
     ) -> dict:
         """执行 wait（等待外部事件）步骤"""
         cfg = {}
@@ -841,11 +864,12 @@ def _build_mcp_kwargs(step: dict, context: dict, case_id: int, run_id: int) -> d
         def _replace(m: re.Match) -> str:
             path = m.group(1).strip()
             if path.startswith("previous_step."):
-                sub_path = path[len("previous_step."):]
+                sub_path = path[len("previous_step.") :]
                 result = _resolve_dotted(prev_output, sub_path)
             else:
                 result = _resolve_dotted(context, path)
             return str(result) if result is not None else ""
+
         return re.sub(r"\{\{(.+?)\}\}", _replace, val)
 
     for key, val in cfg.items():

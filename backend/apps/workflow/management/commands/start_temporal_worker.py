@@ -50,22 +50,40 @@ class Command(BaseCommand):
         )
 
     def handle(self, *args: Any, **options: Any) -> None:
-        self._setup_logging()
-        asyncio.run(self._run(options))
+        with self._temporal_sandbox_logging():
+            asyncio.run(self._run(options))
 
-    def _setup_logging(self) -> None:
-        """禁用 Django 自定义 logging filter（会触发 Temporal sandbox 受限导入）
+    @contextlib.contextmanager
+    def _temporal_sandbox_logging(self) -> Any:
+        """在 worker 运行期间禁用 Django 自定义 logging filter。
 
-        使用 getattr 安全访问，避免触发额外导入。
+        filter 会在 Temporal sandbox 里触发受限导入，需要临时旁路。
+
+        注意：只在 worker 自己的 logger 实例上摘除 filter，并且**绝不改动
+        RequestContextFilter 类本身**——类级 monkeypatch 是进程全局且不可逆的，
+        会污染同一进程内其它代码对该 filter 的使用（例如测试进程）。退出时
+        恢复原有 filters，保证不留副作用。
         """
+        root = logging.getLogger()
+        saved: list[Any] = list(root.filters)
+        blocklist = self._get_request_context_filter_types()
+        if blocklist:
+            root.filters = [f for f in saved if not isinstance(f, blocklist)]
+        try:
+            yield
+        finally:
+            root.filters = saved
+
+    @staticmethod
+    def _get_request_context_filter_types() -> tuple[type, ...]:
+        """从已加载模块中取 RequestContextFilter 类型；取不到则返回空元组。"""
         import sys
 
-        # 直接从已加载的模块中获取 RequestContextFilter
         logging_mod = sys.modules.get("apps.core.infrastructure.logging")
-        if logging_mod:
-            cls = getattr(logging_mod, "RequestContextFilter", None)
-            if cls:
-                cls.filter = lambda self, record: True
+        if not logging_mod:
+            return ()
+        cls = getattr(logging_mod, "RequestContextFilter", None)
+        return (cls,) if isinstance(cls, type) else ()
 
     async def _run(self, options: dict[str, Any]) -> None:
         from temporalio.client import Client
@@ -124,10 +142,6 @@ class Command(BaseCommand):
             generic_code_exec,
             execute_mcp_tool,
         ]
-        if _HAS_COURT_FILING:
-            from apps.workflow.temporal.activities import execute_court_filing
-
-            activities_list.append(execute_court_filing)
 
         w = Worker(
             client,
