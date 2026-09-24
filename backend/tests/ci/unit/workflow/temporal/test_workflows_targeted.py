@@ -12,13 +12,13 @@ import pytest
 from apps.workflow.temporal.activities import _HAS_COURT_FILING
 from apps.workflow.temporal.workflows import (
     INTERNAL_ACTIVITY_MAP,
-    MCP_TOOL_MAP,
-    QUICK_RETRY,
-    QUICK_TIMEOUT,
     LLM_RETRY,
     LLM_TIMEOUT,
     LONG_RETRY,
     LONG_TIMEOUT,
+    MCP_TOOL_MAP,
+    QUICK_RETRY,
+    QUICK_TIMEOUT,
     DynamicWorkflow,
     GateResult,
     SalesContractDisputeWorkflow,
@@ -29,8 +29,8 @@ from apps.workflow.temporal.workflows import (
     _resolve_dotted,
 )
 
-
 # ── Timeout / Retry constants ─────────────────────────────────────────────────
+
 
 def test_quick_timeout():
     assert timedelta(seconds=30) == QUICK_TIMEOUT
@@ -58,6 +58,7 @@ def test_long_retry():
 
 # ── INTERNAL_ACTIVITY_MAP ─────────────────────────────────────────────────────
 
+
 def test_internal_activity_map_keys():
     expected_keys = {
         "collect_case_facts",
@@ -72,24 +73,32 @@ def test_internal_activity_map_keys():
         "review_complaint_quality",
         "download_litigation_document",
     }
-    if _HAS_COURT_FILING:
-        expected_keys.add("execute_court_filing")
     assert set(INTERNAL_ACTIVITY_MAP.keys()) == expected_keys
 
 
 # ── MCP_TOOL_MAP ──────────────────────────────────────────────────────────────
 
+
 def test_mcp_tool_map_values_are_strings():
     for k, v in MCP_TOOL_MAP.items():
         assert isinstance(v, str), f"MCP_TOOL_MAP[{k}] should be str"
 
+
 def test_mcp_tool_map_has_all_expected():
     expected_tools = {
-        "collect_case_facts", "list_case_materials", "create_case_log",
-        "generate_complaint", "generate_defense", "download_litigation_document",
-        "submit_court_sms", "search_companies",
-        "calculate_litigation_fee", "calculate_interest", "auto_namer",
-        "process_document", "convert_document",
+        "collect_case_facts",
+        "list_case_materials",
+        "create_case_log",
+        "generate_complaint",
+        "generate_defense",
+        "download_litigation_document",
+        "submit_court_sms",
+        "search_companies",
+        "calculate_litigation_fee",
+        "calculate_interest",
+        "auto_namer",
+        "process_document",
+        "convert_document",
     }
     if _HAS_COURT_FILING:
         expected_tools.add("execute_court_filing")
@@ -97,6 +106,7 @@ def test_mcp_tool_map_has_all_expected():
 
 
 # ── _resolve_dotted more branches ────────────────────────────────────────────
+
 
 def test_resolve_dotted_deeply_nested():
     ctx = {"a": {"b": {"c": {"d": 42}}}}
@@ -114,6 +124,7 @@ def test_resolve_dotted_list_value():
 
 
 # ── _eval_condition more branches ────────────────────────────────────────────
+
 
 def test_eval_condition_eq_int():
     step = {"config": {"field": "count", "operator": "eq", "value": "5"}}
@@ -161,6 +172,7 @@ def test_eval_condition_exists_missing():
 
 # ── _build_step_args more branches ───────────────────────────────────────────
 
+
 def test_build_step_args_llm_no_template():
     step = {"type": "llm", "config": {"system_prompt": "sys", "user_prompt_template": "plain"}}
     args = _build_step_args(step, {}, case_id=1, run_id=2)
@@ -207,6 +219,7 @@ def test_build_step_args_llm_template_with_none_value():
 
 
 # ── _build_mcp_kwargs more branches ──────────────────────────────────────────
+
 
 def test_build_mcp_kwargs_string_template():
     step = {"config": {"name": "Case {{case_id}}"}}
@@ -263,6 +276,7 @@ def test_build_mcp_kwargs_context_variable():
 
 # ── GateResult ────────────────────────────────────────────────────────────────
 
+
 def test_gate_result_repr():
     g = GateResult(approved=True, comment="ok")
     d = g.__dict__
@@ -272,6 +286,7 @@ def test_gate_result_repr():
 
 # ── SimpleWorkflowInput ──────────────────────────────────────────────────────
 
+
 def test_simple_workflow_input_equality():
     a = SimpleWorkflowInput(case_id=1, run_id=2)
     b = SimpleWorkflowInput(case_id=1, run_id=2)
@@ -279,6 +294,7 @@ def test_simple_workflow_input_equality():
 
 
 # ── SalesContractDisputeWorkflow signals and query ────────────────────────────
+
 
 class TestSalesContractDisputeWorkflowInit:
     def test_init_gate_none(self):
@@ -312,6 +328,7 @@ class TestSalesContractDisputeWorkflowInit:
 
 # ── DynamicWorkflow signals and query ────────────────────────────────────────
 
+
 class TestDynamicWorkflowInit:
     def test_init_state(self):
         wf = DynamicWorkflow()
@@ -343,6 +360,7 @@ class TestDynamicWorkflowInit:
 
 
 # ── _build_step_args edge cases ──────────────────────────────────────────────
+
 
 def test_build_step_args_delay_zero():
     step = {"type": "delay", "config": {"duration_minutes": 0}}

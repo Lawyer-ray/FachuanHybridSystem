@@ -14,6 +14,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from apps.workflow.temporal.activities import _HAS_COURT_FILING
 from apps.workflow.temporal.workflows import (
     INTERNAL_ACTIVITY_MAP,
     MCP_TOOL_MAP,
@@ -24,8 +25,6 @@ from apps.workflow.temporal.workflows import (
     _eval_condition,
     _resolve_dotted,
 )
-from apps.workflow.temporal.activities import _HAS_COURT_FILING
-
 
 # ---------------------------------------------------------------------------
 # _resolve_dotted — list at intermediate path
@@ -203,8 +202,6 @@ class TestInternalActivityMapFull:
             "review_complaint_quality",
             "download_litigation_document",
         }
-        if _HAS_COURT_FILING:
-            expected.add("execute_court_filing")
         assert set(INTERNAL_ACTIVITY_MAP.keys()) == expected
 
     def test_values_are_callable(self):

@@ -328,20 +328,6 @@ except ImportError:
 
 
 @activity.defn
-async def execute_court_filing(case_id: int, feedback: str | None = None) -> dict:
-    """执行网上立案（需要 court_automation 插件）"""
-    if not _HAS_COURT_FILING:
-        from temporalio.exceptions import ApplicationError
-
-        raise ApplicationError("Court filing plugin not installed", non_retryable=True)
-
-    from apps.automation.services.litigation.filing_service import CourtFilingService
-
-    service = CourtFilingService()
-    return await service.execute(case_id)  # type: ignore[no-any-return]
-
-
-@activity.defn
 async def download_litigation_document(document_id: int) -> dict:
     """下载已生成的诉讼文书
 
