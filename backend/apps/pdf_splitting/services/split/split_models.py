@@ -36,6 +36,7 @@ class PageDescriptor:
     source_method: str
     ocr_failed: bool
     top_candidates: list[dict[str, Any]]
+    layout: dict[str, Any] | None = None
 
 
 @dataclass
@@ -64,3 +65,4 @@ class OCRPageResult:
     text: str
     source_method: str
     ocr_failed: bool
+    layout: dict[str, Any] | None = None

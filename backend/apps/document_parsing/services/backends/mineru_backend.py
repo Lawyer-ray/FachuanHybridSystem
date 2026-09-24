@@ -1,10 +1,12 @@
 """MinerU API 后端实现"""
 
+import json
 import logging
 import re
 import tempfile
 import time
 import zipfile
+from html import unescape
 from pathlib import Path
 from typing import Any
 from uuid import uuid4
@@ -41,7 +43,8 @@ class MineruBackend:
     BATCH_URL = "https://mineru.net/api/v4/file-urls/batch"
     MODEL_VERSION = "vlm"
     POLL_INTERVAL = 1  # 轮询间隔（秒）
-    POLL_TIMEOUT = 60  # 超时时间（秒）
+    POLL_TIMEOUT = 360  # 6 分钟，为解析任务轮询和结果下载预留队列时间
+    RESULT_DOWNLOAD_ATTEMPTS = 3
 
     BATCH_RESULTS_URL = "https://mineru.net/api/v4/extract-results/batch"
 
@@ -387,9 +390,24 @@ class MineruBackend:
         client = get_sync_http_client()
 
         try:
-            # 下载 ZIP
-            response = client.get(zip_url, timeout=self.timeout)
-            response.raise_for_status()
+            # 结果文件服务偶发断开连接；只重试幂等的下载请求。
+            response = None
+            for attempt in range(1, self.RESULT_DOWNLOAD_ATTEMPTS + 1):
+                try:
+                    response = client.get(zip_url, timeout=max(self.timeout, 60))
+                    response.raise_for_status()
+                    break
+                except httpx.HTTPError:
+                    if attempt == self.RESULT_DOWNLOAD_ATTEMPTS:
+                        raise
+                    logger.warning(
+                        "MinerU 结果下载失败，准备重试 (%d/%d)",
+                        attempt,
+                        self.RESULT_DOWNLOAD_ATTEMPTS,
+                    )
+                    time.sleep(attempt)
+            if response is None:
+                raise MineruAPIError("MinerU 结果下载失败：没有收到响应")
 
             # 解析 ZIP
             with tempfile.TemporaryDirectory() as tmp_dir:
@@ -419,8 +437,10 @@ class MineruBackend:
 
                 # 提取文本
                 text = ""
+                layout = None
                 if content_list_file:
                     text = self._extract_text_from_content_list(content_list_file)
+                    layout = self._extract_page_layout_from_content_list(content_list_file)
                 elif md_file:
                     # fallback 到 markdown，需清理页眉页码
                     text = clean_page_artifacts(md_file.read_text(encoding="utf-8"), exclude_lines=header_texts)
@@ -440,6 +460,7 @@ class MineruBackend:
                     "task_id": None,  # 会在上层设置
                     "has_images": len(image_files) > 0,
                     "image_count": len(image_files),
+                    "page_count": (layout or {}).get("page_count", 0),
                 }
 
                 return ParsedDocument(
@@ -448,6 +469,7 @@ class MineruBackend:
                     images=images,
                     metadata=metadata,
                     parse_method="mineru",
+                    layout=layout,
                 )
 
         except zipfile.BadZipFile as e:
@@ -468,8 +490,6 @@ class MineruBackend:
         Returns:
             提取的文本（不含页眉页脚）
         """
-        import json
-
         try:
             with open(content_list_path, encoding="utf-8") as f:
                 content_list = json.load(f)
@@ -500,6 +520,63 @@ class MineruBackend:
             logger.warning("解析 content_list.json 失败: %s", e)
             return ""
 
+    def _extract_page_layout_from_content_list(self, content_list_path: Path) -> dict[str, Any]:
+        """保留 MinerU 内容块的原始页码、版面框与表格数据。"""
+        try:
+            content_list = json.loads(content_list_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            logger.warning("读取 MinerU content_list 版面失败: %s", exc)
+            return {"page_count": 0, "pages": []}
+
+        raw_page_indices = [
+            int(block["page_idx"])
+            for block in content_list
+            if isinstance(block, dict) and str(block.get("page_idx", "")).lstrip("-").isdigit()
+        ]
+        zero_based = 0 in raw_page_indices
+        page_map: dict[int, dict[str, Any]] = {}
+        for block in content_list:
+            if not isinstance(block, dict):
+                continue
+            raw_page_idx = block.get("page_idx")
+            try:
+                page_idx = int(str(raw_page_idx))
+            except (TypeError, ValueError):
+                continue
+            page_no = page_idx + 1 if zero_based else page_idx
+            if page_no < 1:
+                continue
+
+            block_type = str(block.get("type") or "")
+            block_text = str(block.get("text") or "").strip()
+            table_body = str(block.get("table_body") or "").strip()
+            if block_type == "table" and table_body:
+                block_text = unescape(re.sub(r"<[^>]+>", " ", table_body))
+                block_text = re.sub(r"\s+", " ", block_text).strip()
+            if not block_text:
+                captions = block.get("table_caption") or []
+                footnotes = block.get("table_footnote") or []
+                if isinstance(captions, str):
+                    captions = [captions]
+                if isinstance(footnotes, str):
+                    footnotes = [footnotes]
+                block_text = " ".join(str(item).strip() for item in captions + footnotes if str(item).strip())
+
+            page = page_map.setdefault(page_no, {"page_no": page_no, "blocks": [], "text": ""})
+            page["blocks"].append(
+                {
+                    "type": block_type,
+                    "text": block_text,
+                    "bbox": block.get("bbox") or block.get("box"),
+                    "table_body": table_body or None,
+                }
+            )
+            if block_type not in {"header", "footer", "page_number"} and block_text:
+                page["text"] = f"{page['text']}\n{block_text}".strip()
+
+        pages = [page_map[page_no] for page_no in sorted(page_map)]
+        return {"page_count": max(page_map, default=0), "pages": pages, "page_index_base": 0 if zero_based else 1}
+
     def _collect_header_texts_from_content_list(self, content_list_path: Path) -> list[str]:
         """从 content_list.json 收集 header 类型的文本（用于清理 markdown）
 
@@ -512,8 +589,6 @@ class MineruBackend:
         Returns:
             页眉文本列表（去重）
         """
-        import json
-
         try:
             with open(content_list_path, encoding="utf-8") as f:
                 content_list = json.load(f)

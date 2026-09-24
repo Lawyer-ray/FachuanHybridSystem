@@ -54,6 +54,7 @@ class TextinBackend:
     POLL_TIMEOUT = 300  # 轮询总超时（秒）
     HTTP_TIMEOUT = 30  # 单次 HTTP 请求超时（秒）
     RESULT_DOWNLOAD_TIMEOUT = 60  # 结果文件下载超时（秒）
+    RESULT_DOWNLOAD_ATTEMPTS = 3
 
     # 后端能力声明：云端后端含 HTTP 上传 + 轮询，阻塞时间长，需异步执行
     requires_async_execution: bool = True
@@ -299,7 +300,9 @@ class TextinBackend:
             # 构建 Capabilities 配置
             capabilities = xc.Capabilities(
                 include_table_structure=extract_tables,
+                pages=True,
                 title_tree=True,
+                table_view="markdown",
             )
             config = xc.ParseConfig(capabilities=capabilities)
 
@@ -406,11 +409,22 @@ class TextinBackend:
 
         try:
             # 下载结果 JSON（ParseResponse 结构）
-            response = httpx.get(
-                job_result.result_url,
-                timeout=self.RESULT_DOWNLOAD_TIMEOUT,
-            )
-            response.raise_for_status()
+            response = None
+            for attempt in range(1, self.RESULT_DOWNLOAD_ATTEMPTS + 1):
+                try:
+                    response = httpx.get(
+                        job_result.result_url,
+                        timeout=self.RESULT_DOWNLOAD_TIMEOUT,
+                    )
+                    response.raise_for_status()
+                    break
+                except httpx.HTTPError:
+                    if attempt == self.RESULT_DOWNLOAD_ATTEMPTS:
+                        raise
+                    logger.warning("TextinParse 结果下载失败，准备重试 (%d/%d)", attempt, self.RESULT_DOWNLOAD_ATTEMPTS)
+                    time.sleep(attempt)
+            if response is None:
+                raise TextinAPIError("TextinParse 结果下载失败：没有收到响应")
             result_data = response.json()
 
         except httpx.HTTPError as e:
@@ -422,6 +436,7 @@ class TextinBackend:
         markdown = result_data.get("markdown", "") or ""
         elements = result_data.get("elements", []) or []
         metadata = result_data.get("metadata", {}) or {}
+        pages = result_data.get("pages", []) or []
         success_count = result_data.get("success_count", 0) or 0
 
         # 清理 markdown：删除 HTML 注释、独立数字行（页码）和已知页眉文本
@@ -449,6 +464,7 @@ class TextinBackend:
             and any(el.get("type") in ("image", "inline_object") for el in elements if isinstance(el, dict)),
             "element_count": len(elements),
         }
+        layout = self._build_page_layout(elements=elements, pages=pages, page_count=parsed_metadata["page_count"])
 
         return ParsedDocument(
             text=text,
@@ -456,7 +472,96 @@ class TextinBackend:
             images=None,  # TextinParse 当前不导出本地图片文件
             metadata=parsed_metadata,
             parse_method="textin",
+            layout=layout,
         )
+
+    def _build_page_layout(self, *, elements: list[Any], pages: list[Any], page_count: Any) -> dict[str, Any]:
+        """保留 Textin 元素的页码、坐标和表格结构，供逐页拆分使用。"""
+        page_map: dict[int, dict[str, Any]] = {}
+        element_page_map: dict[str, int] = {}
+        for page in pages:
+            if not isinstance(page, dict):
+                continue
+            page_no = self._positive_page_number(page.get("page_number"))
+            if page_no is None:
+                continue
+            page_map[page_no] = {
+                "page_no": page_no,
+                "width": page.get("page_width"),
+                "height": page.get("page_height"),
+                "blocks": [],
+                "text": "",
+            }
+            for element_id in page.get("element_ids") or []:
+                element_page_map[str(element_id)] = page_no
+
+        for element in elements:
+            if not isinstance(element, dict):
+                continue
+            page_no = self._positive_page_number(element.get("page_number"))
+            if page_no is None:
+                element_metadata = element.get("metadata")
+                if isinstance(element_metadata, dict):
+                    page_no = self._positive_page_number(element_metadata.get("page_number"))
+            if page_no is None:
+                page_no = element_page_map.get(str(element.get("element_id") or ""))
+            if page_no is None:
+                continue
+
+            page = page_map.setdefault(
+                page_no, {"page_no": page_no, "width": None, "height": None, "blocks": [], "text": ""}
+            )
+            element_type = str(element.get("type") or "")
+            element_text = self._get_element_text(element)
+            block = {
+                "type": element_type,
+                "text": element_text,
+                "bbox": element.get("coordinates") or (element.get("metadata") or {}).get("coordinates"),
+                "table_structure": element.get("table_structure"),
+            }
+            page["blocks"].append(block)
+            if element_type not in self._EXCLUDED_ELEMENT_TYPES and element_text:
+                page["text"] = f"{page['text']}\n{element_text}".strip()
+
+        total_pages = int(page_count or 0)
+        for page_no in range(1, total_pages + 1):
+            page_map.setdefault(page_no, {"page_no": page_no, "width": None, "height": None, "blocks": [], "text": ""})
+
+        return {"page_count": total_pages or len(page_map), "pages": [page_map[key] for key in sorted(page_map)]}
+
+    @staticmethod
+    def _positive_page_number(value: Any) -> int | None:
+        try:
+            page_no = int(value)
+        except (TypeError, ValueError):
+            return None
+        return page_no if page_no > 0 else None
+
+    @classmethod
+    def _get_element_text(cls, element: dict[str, Any]) -> str:
+        text = str(element.get("text") or "").strip()
+        if text:
+            return strip_markdown_emphasis(text)
+        table_structure = element.get("table_structure")
+        if not isinstance(table_structure, dict):
+            return ""
+        values: list[str] = []
+
+        def collect(value: Any) -> None:
+            if isinstance(value, str):
+                if value.strip():
+                    values.append(value.strip())
+                return
+            if isinstance(value, dict):
+                for nested in value.values():
+                    collect(nested)
+                return
+            if isinstance(value, list):
+                for nested in value:
+                    collect(nested)
+
+        collect(table_structure)
+        return " ".join(values)
 
     # 正文类型：NarrativeText（正文段落）、Title（标题）
     # 明确排除：Footer（页脚/页码）、Header（页眉）等非正文类型

@@ -81,9 +81,12 @@ class PdfSplitService:
             return
 
         runtime_profile = self._ocr_handler.resolve_runtime_profile(job.ocr_profile)
+        cloud_backend = self._ocr_handler.resolve_cloud_backend()
+        cloud_cache_profile = f"{runtime_profile.key}_{cloud_backend}_v1" if cloud_backend else runtime_profile.key
         pdf_hash = self._ocr_handler.sha256_file(storage.source_pdf_path)
         resolved_pages = 0
         cache_hit_count = 0
+        cloud_cache_hit_count = 0
 
         with fitz.open(storage.source_pdf_path) as doc:
             total_pages = int(doc.page_count)
@@ -116,8 +119,17 @@ class PdfSplitService:
                     continue
 
                 cached = self._ocr_handler.read_ocr_cache(
-                    pdf_hash=pdf_hash, profile_key=runtime_profile.key, page_no=page_no
+                    pdf_hash=pdf_hash,
+                    profile_key=cloud_cache_profile,
+                    page_no=page_no,
                 )
+                cached_from_cloud = cached is not None and cloud_backend is not None
+                if cached is None and cloud_backend is None:
+                    cached = self._ocr_handler.read_ocr_cache(
+                        pdf_hash=pdf_hash,
+                        profile_key=runtime_profile.key,
+                        page_no=page_no,
+                    )
                 if cached is not None:
                     descriptors[page_index] = self._build_descriptor(
                         page_no=page_no,
@@ -125,21 +137,69 @@ class PdfSplitService:
                         source_method="ocr_cache" if cached.text else "ocr_failed_cache",
                         ocr_failed=cached.ocr_failed,
                         template_key=template.key,
+                        layout=cached.layout,
                     )
                     resolved_pages += 1
                     cache_hit_count += 1
+                    cloud_cache_hit_count += int(cached_from_cloud)
                     self._update_progress(job_id=job.id, resolved_pages=resolved_pages, total_pages=total_pages)
                     continue
 
                 pending_page_numbers.append(page_no)
 
             if pending_page_numbers:
+                cloud_results: dict[int, Any] = {}
+                cloud_error = ""
+                if cloud_backend:
+                    try:
+                        cloud_results = self._ocr_handler.parse_cloud_pages(
+                            pdf_path=storage.source_pdf_path,
+                            backend=cloud_backend,
+                        )
+                    except Exception as exc:
+                        logger.exception(
+                            "pdf_split_cloud_ocr_failed",
+                            extra={"job_id": str(job.id), "provider": cloud_backend},
+                        )
+                        cloud_error = f"{type(exc).__name__}: {str(exc).replace(storage.source_pdf_path.as_posix(), '[source PDF]')[:400]}"
+
+                cloud_page_numbers = [page_no for page_no in pending_page_numbers if cloud_results.get(page_no)]
+                for page_no in cloud_page_numbers:
+                    if self._should_check_cancel(page_no):
+                        job.refresh_from_db(fields=["cancel_requested"])
+                    if job.cancel_requested:
+                        PdfSplitJob.objects.filter(id=job.id).update(
+                            status=PdfSplitJobStatus.CANCELLED,
+                            finished_at=timezone.now(),
+                        )
+                        return
+
+                    result = cloud_results[page_no]
+                    if not result.text:
+                        continue
+                    self._ocr_handler.write_ocr_cache(
+                        pdf_hash=pdf_hash,
+                        profile_key=cloud_cache_profile,
+                        result=result,
+                    )
+                    descriptors[page_no - 1] = self._build_descriptor(
+                        page_no=page_no,
+                        text=result.text,
+                        source_method=result.source_method,
+                        ocr_failed=False,
+                        template_key=template.key,
+                        layout=result.layout,
+                    )
+                    resolved_pages += 1
+                    self._update_progress(job_id=job.id, resolved_pages=resolved_pages, total_pages=total_pages)
+
+                local_fallback_pages = [page_no for page_no in pending_page_numbers if descriptors[page_no - 1] is None]
                 ocr_results = self._ocr_handler.parallel_ocr(
                     pdf_path=storage.source_pdf_path,
-                    page_numbers=pending_page_numbers,
+                    page_numbers=local_fallback_pages,
                     runtime_profile=runtime_profile,
                 )
-                for page_no in pending_page_numbers:
+                for page_no in local_fallback_pages:
                     if self._should_check_cancel(page_no):
                         job.refresh_from_db(fields=["cancel_requested"])
                     if job.cancel_requested:
@@ -170,6 +230,7 @@ class PdfSplitService:
                         source_method=result.source_method,
                         ocr_failed=result.ocr_failed,
                         template_key=template.key,
+                        layout=result.layout,
                     )
                     resolved_pages += 1
                     self._update_progress(job_id=job.id, resolved_pages=resolved_pages, total_pages=total_pages)
@@ -184,6 +245,10 @@ class PdfSplitService:
                 runtime_profile=runtime_profile,
                 cache_hit_count=cache_hit_count,
                 pending_ocr_count=len(pending_page_numbers),
+                cloud_backend=cloud_backend,
+                cloud_cache_profile=cloud_cache_profile,
+                cloud_cache_hit_count=cloud_cache_hit_count,
+                cloud_error=cloud_error if pending_page_numbers and cloud_backend else "",
             )
 
     def export_job(self, job: PdfSplitJob) -> None:  # pragma: no cover
@@ -255,6 +320,7 @@ class PdfSplitService:
         source_method: str,
         ocr_failed: bool,
         template_key: str,
+        layout: dict[str, Any] | None = None,
     ) -> PageDescriptor:
         normalized_text = self._segment_detector.normalize_text(text)
         head_text = normalized_text[:240]
@@ -269,6 +335,7 @@ class PdfSplitService:
             source_method=source_method,
             ocr_failed=ocr_failed,
             top_candidates=top_candidates,
+            layout=layout,
         )
 
     def _build_page_split_drafts(self, *, total_pages: int, source_name: str) -> list[SegmentDraft]:
@@ -299,6 +366,10 @@ class PdfSplitService:
         runtime_profile: Any,
         cache_hit_count: int,
         pending_ocr_count: int,
+        cloud_backend: str | None,
+        cloud_cache_profile: str,
+        cloud_cache_hit_count: int,
+        cloud_error: str,
     ) -> None:  # pragma: no cover
         storage.write_json(storage.pages_json_path, [asdict(item) for item in descriptors])
         storage.write_json(storage.segments_json_path, [asdict(item) for item in drafts])
@@ -337,6 +408,10 @@ class PdfSplitService:
                 "ocr_workers": runtime_profile.workers,
                 "ocr_cache_hit_count": int(max(cache_hit_count, 0)),
                 "ocr_miss_count": int(max(pending_ocr_count, 0)),
+                "ocr_provider": cloud_backend or "local",
+                "ocr_cloud_cache_profile": cloud_cache_profile if cloud_backend else "",
+                "ocr_cloud_cache_hit_count": int(max(cloud_cache_hit_count, 0)),
+                "ocr_fallback_reason": cloud_error,
                 "segment_count": len(drafts),
                 "recognized_count": len(
                     [item for item in drafts if item.segment_type != PdfSplitSegmentType.UNRECOGNIZED]
