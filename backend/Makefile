@@ -149,7 +149,7 @@ RUN_DEV_FORCE_POLLING ?= true
 RUN_DEV_POLL_DELAY_MS ?= 300
 QCLUSTER_DEV_FORCE_POLLING ?= true
 QCLUSTER_DEV_POLL_DELAY_MS ?= 300
-QCLUSTER_WATCH_PATHS ?= apps apiSystem
+QCLUSTER_WATCH_PATHS ?= apps apiSystem plugins
 
 # 数据库配置（默认 PostgreSQL，可通过 DB_ENGINE=sqlite 切换）
 DB_ENGINE ?= postgresql
