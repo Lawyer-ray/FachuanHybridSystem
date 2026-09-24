@@ -48,7 +48,9 @@ class CaseLogAdmin(BaseModelAdmin):  # pragma: no cover
     change_list_template = "admin/cases/caselog/change_list.html"
     change_form_template = "admin/cases/caselog/change_form.html"
 
-    def changelist_view(self, request: HttpRequest, extra_context: dict[str, Any] | None = None) -> Any:  # pragma: no cover
+    def changelist_view(
+        self, request: HttpRequest, extra_context: dict[str, Any] | None = None
+    ) -> Any:  # pragma: no cover
         """覆写 changelist：批量预填充 reminder 缓存，消除每行 2 次 DB 查询的 N+1。"""
         response = super().changelist_view(request, extra_context)
 
@@ -61,7 +63,7 @@ class CaseLogAdmin(BaseModelAdmin):  # pragma: no cover
         if not case_log_ids:
             return response
 
-        from apps.core.service_locator import ServiceLocator
+        from apps.core.interfaces import ServiceLocator
 
         svc = ServiceLocator.get_reminder_service()
         batch = svc.export_case_log_reminders_batch_internal(case_log_ids=case_log_ids)

@@ -72,7 +72,7 @@ class EvidenceListAdminViewsMixin(EvidenceListAdminServiceMixin):  # pragma: no 
         if field.queryset.filter(pk=obj.export_template_id).exists():
             return form
 
-        from apps.evidence.models import DocumentTemplate
+        from apps.documents.models import DocumentTemplate
 
         field.queryset = field.queryset | DocumentTemplate.objects.filter(pk=obj.export_template_id)
         return form

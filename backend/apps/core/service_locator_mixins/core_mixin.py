@@ -38,12 +38,6 @@ class CoreServiceLocatorMixin(_ServiceLocatorStub):
         return cls.get_or_create("llm_service", build_llm_service)
 
     @classmethod
-    def get_prompt_template_service(cls) -> Any:
-        from apps.core.dependencies import build_prompt_template_service  # type: ignore[attr-defined]
-
-        return cls.get_or_create("prompt_template_service", build_prompt_template_service)
-
-    @classmethod
     def get_conversation_service(cls, session_id: str | None = None, user_id: str | None = None) -> Any:
         from apps.core.services.conversation_service import ConversationService
 

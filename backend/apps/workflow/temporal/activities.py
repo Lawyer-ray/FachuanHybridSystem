@@ -145,9 +145,11 @@ async def list_case_materials(case_id: int) -> list[dict]:
 @activity.defn
 async def analyze_single_evidence(material: dict) -> dict:
     """LLM 分析单份证据"""
-    from apps.documents.services.text_extractor import extract_text
+    import asyncio
 
-    text = await extract_text(material["file_path"])
+    from apps.core.services.pdf_utils import extract_text
+
+    text = await asyncio.to_thread(extract_text, material["file_path"])
     if not text:
         text = material.get("name", "")
 
