@@ -33,16 +33,32 @@ Deliberate scope decisions (each verified against the real tree)
 from __future__ import annotations
 
 import ast
+import importlib
 import importlib.util
+import sys
 from pathlib import Path
 
 import pytest
+
+_MODULE = sys.modules[__name__]
 
 _BACKEND_ROOT = Path(__file__).resolve().parents[3]
 _SCAN_ROOTS = ("apps", "plugins")
 
 # 这些目录不参与扫描：历史迁移引用创建时的模型快照，不代表当前代码状态
 _SKIP_DIR_PARTS = {"__pycache__", "migrations"}
+
+
+def _plugins_available() -> bool:
+    """plugins 子模块是否可用。
+
+    ``plugins`` 是 git 子模块，CI 的 ``actions/checkout`` 没有开
+    ``submodules: true``（本地 ``scripts/ci-local.sh`` 也不初始化），
+    所以 CI 环境里根本没有 ``backend/plugins`` 目录。此时所有
+    ``from plugins.xxx import`` 都不可解析——这是环境差异，不是代码缺陷。
+    故 plugins 不可用时跳过对 ``plugins.*`` 导入的检查。
+    """
+    return importlib.util.find_spec("plugins") is not None
 
 
 def _in_type_checking(node: ast.AST, tree: ast.AST) -> bool:
@@ -80,6 +96,8 @@ def _module_exists(module: str) -> bool:
 
 def _collect_unresolvable() -> list[tuple[str, int, str]]:
     """返回 (相对路径, 行号, 模块名) 列表：绝对导入但模块不存在的。"""
+    importlib.invalidate_caches()
+    check_plugins = _plugins_available()
     violations: list[tuple[str, int, str]] = []
     for py in _iter_python_files():
         try:
@@ -91,6 +109,10 @@ def _collect_unresolvable() -> list[tuple[str, int, str]]:
                 continue
             # 只看绝对导入；相对导入的 module 不是可解析路径
             if not node.module.startswith(_SCAN_ROOTS):
+                continue
+            # plugins 子模块未初始化（如 CI）时，plugins.* 一律不可解析，属环境差异
+            # 覆盖 "plugins" 与 "plugins.xxx" 两种写法
+            if not check_plugins and (node.module == "plugins" or node.module.startswith("plugins.")):
                 continue
             if _in_type_checking(node, tree):
                 continue
@@ -145,3 +167,33 @@ if TYPE_CHECKING:
             caught.append(node.module)
 
     assert caught == ["apps.definitely_not_a_real_pkg.xxx"], f"守卫自检失败：应只抓到 1 个坏 import，实得 {caught}"
+
+
+def test_plugins_import_skipped_when_submodule_absent(monkeypatch: pytest.MonkeyPatch) -> None:
+    """plugins 子模块未初始化时，不得把 ``plugins.*`` 导入报成违规。
+
+    CI 的 ``actions/checkout`` 没开 ``submodules: true``，CI 环境里没有
+    ``backend/plugins`` 目录，所有 ``plugins.*`` 导入都不可解析——这是环境
+    差异而非代码缺陷。曾因漏掉这条，守卫在 CI 上报了 47 个假阳性。
+    """
+    monkeypatch.setattr(_MODULE, "_plugins_available", lambda: False)
+
+    sample = """\
+from plugins.court_automation.token_admin import TokenAcquisitionHistoryAdminService
+from apps.definitely_not_a_real_pkg.xxx import Thing
+"""
+    tree = ast.parse(sample)
+    caught: list[str] = []
+    check_plugins = _plugins_available()
+    assert check_plugins is False, "monkeypatch 未生效"
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.ImportFrom) or not node.module:
+            continue
+        if not node.module.startswith(_SCAN_ROOTS):
+            continue
+        if not check_plugins and node.module.startswith("plugins."):
+            continue
+        if not _module_exists(node.module):
+            caught.append(node.module)
+
+    assert caught == ["apps.definitely_not_a_real_pkg.xxx"], f"plugins 不可用时仍抓到 {caught}"
