@@ -50,15 +50,36 @@ _SKIP_DIR_PARTS = {"__pycache__", "migrations"}
 
 
 def _plugins_available() -> bool:
-    """plugins 子模块是否可用。
+    """plugins 子模块是否可用（已初始化并有实际内容）。
 
     ``plugins`` 是 git 子模块，CI 的 ``actions/checkout`` 没有开
     ``submodules: true``（本地 ``scripts/ci-local.sh`` 也不初始化），
-    所以 CI 环境里根本没有 ``backend/plugins`` 目录。此时所有
-    ``from plugins.xxx import`` 都不可解析——这是环境差异，不是代码缺陷。
-    故 plugins 不可用时跳过对 ``plugins.*`` 导入的检查。
+    所以 CI 环境里 ``backend/plugins`` 要么不存在、要么是**空目录**。
+
+    两种情况下 ``find_spec("plugins")`` 都不好使：
+    - 目录不存在 → spec 为 None
+    - **空目录** → Python 3.12 会给出 namespace package spec，
+      ``loader`` 是 ``NamespaceLoader``（**不是 None**），光看
+      ``spec is not None`` 或 ``loader is not None`` 都会误判成可用
+
+    而空目录下的 ``from plugins.xxx import`` 依然 ModuleNotFoundError。
+    这是环境差异，不是代码缺陷，故此时跳过对 ``plugins.*`` 导入的检查。
+
+    判据：spec 存在、loader 不是 NamespaceLoader，且包目录里确有
+    ``__init__.py``（真正的包才有）。
     """
-    return importlib.util.find_spec("plugins") is not None
+    try:
+        spec = importlib.util.find_spec("plugins")
+    except (ImportError, AttributeError, ValueError):
+        return False
+    if spec is None or spec.loader is None:
+        return False
+    if type(spec.loader).__name__ == "NamespaceLoader":
+        return False
+    # 真正的包必然有 __init__.py
+    return bool(spec.submodule_search_locations) and any(
+        (Path(loc) / "__init__.py").exists() for loc in spec.submodule_search_locations
+    )
 
 
 def _in_type_checking(node: ast.AST, tree: ast.AST) -> bool:
