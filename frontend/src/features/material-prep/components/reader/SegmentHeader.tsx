@@ -85,6 +85,15 @@ export function SegmentHeader({
         </button>
       )}
 
+      {seg.reviewFlag === 'low_confidence' || seg.reviewFlag === 'unrecognized' ? (
+        <span
+          className="flex-none rounded-full bg-amber-100 px-2 py-1 text-[10px] font-medium text-amber-800"
+          title={`自动识别置信度 ${Math.round((seg.confidence ?? 0) * 100)}%，请核对页段边界和材料名称`}
+        >
+          建议复核
+        </span>
+      ) : null}
+
       {/* 段名 */}
       {editingName ? (
         <input

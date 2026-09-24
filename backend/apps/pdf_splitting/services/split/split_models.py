@@ -37,6 +37,7 @@ class PageDescriptor:
     ocr_failed: bool
     top_candidates: list[dict[str, Any]]
     layout: dict[str, Any] | None = None
+    layout_title: str = ""
 
 
 @dataclass

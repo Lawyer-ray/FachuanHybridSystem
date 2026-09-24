@@ -323,7 +323,8 @@ class PdfSplitService:
         layout: dict[str, Any] | None = None,
     ) -> PageDescriptor:
         normalized_text = self._segment_detector.normalize_text(text)
-        head_text = normalized_text[:240]
+        head_text = self._segment_detector.normalize_text(text[:240])
+        layout_title = self._extract_layout_title(layout)
         top_candidates = self._segment_detector.score_page(
             head_text=head_text, normalized_text=normalized_text, template_key=template_key
         )
@@ -336,7 +337,40 @@ class PdfSplitService:
             ocr_failed=ocr_failed,
             top_candidates=top_candidates,
             layout=layout,
+            layout_title=layout_title,
         )
+
+    @staticmethod
+    def _extract_layout_title(layout: dict[str, Any] | None) -> str:
+        """取解析器标记为标题的短文本块，用于开放集材料命名和边界提示。"""
+        if not layout:
+            return ""
+        blocks = layout.get("blocks")
+        if not isinstance(blocks, list):
+            return ""
+
+        title_types = {"title", "text_level_title", "heading", "标题"}
+        candidates: list[tuple[float, int, str]] = []
+        for block in blocks:
+            if not isinstance(block, dict):
+                continue
+            block_type = str(block.get("type") or "").strip().lower()
+            is_title = block_type in title_types or block.get("text_level") not in (None, "", 0, "0")
+            text = " ".join(str(block.get("text") or "").split()).strip(" #\t\r\n")
+            if not is_title or not text or len(text) > 48:
+                continue
+            bbox = block.get("bbox")
+            y = 0.0
+            if isinstance(bbox, (list, tuple)) and len(bbox) >= 4:
+                try:
+                    y = float(bbox[1])
+                except (TypeError, ValueError):
+                    y = 0.0
+            candidates.append((y, -len(text), text))
+        if not candidates:
+            return ""
+        candidates.sort()
+        return candidates[0][2]
 
     def _build_page_split_drafts(self, *, total_pages: int, source_name: str) -> list[SegmentDraft]:
         base_name = sanitize_upload_filename(Path(source_name or "document").stem) or "document"

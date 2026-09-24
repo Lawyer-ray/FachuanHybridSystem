@@ -387,15 +387,15 @@ class MineruBackend:
         Returns:
             ParsedDocument 解析结果
         """
-        client = get_sync_http_client()
-
         try:
             # 结果文件服务偶发断开连接；只重试幂等的下载请求。
             response = None
             for attempt in range(1, self.RESULT_DOWNLOAD_ATTEMPTS + 1):
                 try:
-                    response = client.get(zip_url, timeout=max(self.timeout, 60))
-                    response.raise_for_status()
+                    # 每次重试新建连接池，避免复用已经被对象存储关闭的 TLS keep-alive 连接。
+                    with httpx.Client(timeout=max(self.timeout, 60), follow_redirects=True) as download_client:
+                        response = download_client.get(zip_url)
+                        response.raise_for_status()
                     break
                 except httpx.HTTPError:
                     if attempt == self.RESULT_DOWNLOAD_ATTEMPTS:
@@ -566,6 +566,7 @@ class MineruBackend:
             page["blocks"].append(
                 {
                     "type": block_type,
+                    "text_level": block.get("text_level"),
                     "text": block_text,
                     "bbox": block.get("bbox") or block.get("box"),
                     "table_body": table_body or None,
