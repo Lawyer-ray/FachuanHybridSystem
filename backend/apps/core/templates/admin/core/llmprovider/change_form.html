@@ -11,7 +11,7 @@
     <span id="llm-fetch-status" style="font-size:12px;color:#666;"></span>
   </div>
   <div style="margin-top:6px;font-size:12px;color:#666;">
-    {% trans "按上方 API 地址与 Key 逐个探测网关（如 LiteLLM）的授权模型，可直接回填「模型列表」与 Key 的模型白名单。" %}
+    {% trans "按上方 API 地址与 Key 逐个探测网关（如 LiteLLM）的授权模型，并逐个校验对话能力；非对话模型（向量、重排、OCR）会标注且默认不勾选。可直接回填「模型列表」与 Key 的模型白名单。" %}
   </div>
   <div id="llm-fetch-result" style="display:none;margin-top:12px;"></div>
 </div>
@@ -129,8 +129,12 @@
         var perKey = data.per_key || [];
         var models = data.models || [];
         var common = data.common_models || [];
+        var chatModels = data.chat_models || [];
+
+        function isChat(model) { return chatModels.indexOf(model) !== -1; }
+
         resultEl.appendChild(el("div",
-            "共 " + models.length + " 个模型，其中 " + common.length + " 个所有 Key 均支持",
+            "共 " + models.length + " 个模型：所有 Key 均支持 " + common.length + " 个，支持对话 " + chatModels.length + " 个",
             "font-size:13px;font-weight:500;margin-bottom:6px;"));
         renderPerKey(resultEl, perKey);
 
@@ -140,13 +144,16 @@
             var row = el("label", "", "display:flex;align-items:center;gap:8px;padding:3px 4px;font-size:13px;cursor:pointer;");
             var box = document.createElement("input");
             box.type = "checkbox";
-            box.checked = true;
+            box.checked = isChat(model);
             box.value = model;
             box.setAttribute("data-model", model);
             box.addEventListener("change", syncSelected);
             boxes[model] = box;
             row.appendChild(box);
             row.appendChild(el("span", model, "font-family:monospace;"));
+            if (!isChat(model)) {
+                row.appendChild(el("span", "非对话模型", "font-size:11px;color:#A32D2D;border:1px solid #A32D2D;border-radius:3px;padding:0 4px;"));
+            }
             row.appendChild(el("span", "Key " + keysFor(model, perKey).join(" "),
                 "font-size:11px;color:#888;margin-left:auto;"));
             table.appendChild(row);
@@ -172,6 +179,15 @@
             syncSelected();
         });
 
+        var chatBtn = document.createElement("button");
+        chatBtn.type = "button";
+        chatBtn.className = "button";
+        chatBtn.textContent = "仅选对话模型";
+        chatBtn.addEventListener("click", function () {
+            models.forEach(function (m) { boxes[m].checked = isChat(m); });
+            syncSelected();
+        });
+
         var writeModelsBtn = document.createElement("button");
         writeModelsBtn.type = "button";
         writeModelsBtn.className = "button";
@@ -185,6 +201,7 @@
         writeScopesBtn.addEventListener("click", function () { writeKeyScopes(perKey); });
 
         actions.appendChild(allBtn);
+        actions.appendChild(chatBtn);
         actions.appendChild(commonBtn);
         actions.appendChild(writeModelsBtn);
         actions.appendChild(writeScopesBtn);
@@ -192,7 +209,12 @@
 
         function syncSelected() {
             selected = models.filter(function (m) { return boxes[m].checked; });
-            setStatus("已勾选 " + selected.length + " / " + models.length + " 个模型", false);
+            var risky = selected.filter(function (m) { return !isChat(m); });
+            var text = "已勾选 " + selected.length + " / " + models.length + " 个模型";
+            if (risky.length) {
+                text += "；其中 " + risky.length + " 个不支持对话，写入「模型列表」后调用会报错";
+            }
+            setStatus(text, risky.length > 0);
         }
         syncSelected();
         resultEl.style.display = "";

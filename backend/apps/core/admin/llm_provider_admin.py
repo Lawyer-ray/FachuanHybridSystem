@@ -151,6 +151,7 @@ class LLMProviderAdmin(admin.ModelAdmin):
                 "url": result.url,
                 "models": result.models,
                 "common_models": result.common_models,
+                "chat_models": result.chat_models,
                 "per_key": [
                     {"index": item.index, "ok": item.ok, "models": item.models, "error": item.error}
                     for item in result.per_key

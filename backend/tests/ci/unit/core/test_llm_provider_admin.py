@@ -38,6 +38,7 @@ def _fake_result(base_url: str, api_keys: list[str] | None = None) -> RemoteMode
         per_key=[RemoteKeyModels(index=1, ok=True, models=["m1", "m2"])],
         models=["m1", "m2"],
         common_models=["m1"],
+        chat_models=["m1"],
     )
 
 
@@ -92,6 +93,7 @@ class TestFetchModelsView:
         assert body["ok"] is True
         assert body["models"] == ["m1", "m2"]
         assert body["common_models"] == ["m1"]
+        assert body["chat_models"] == ["m1"]
         assert body["per_key"] == [{"index": 1, "ok": True, "models": ["m1", "m2"], "error": ""}]
 
     @pytest.mark.django_db

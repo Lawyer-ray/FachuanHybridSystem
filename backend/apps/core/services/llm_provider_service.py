@@ -43,14 +43,16 @@ class RemoteModelList:
     Attributes:
         url: 实际请求的地址。
         per_key: 每个 Key 的单独结果。
-        models: 所有成功 Key 的模型并集（保序）。
+        models: 所有成功 Key 的模型并集（保序），含向量/重排等**非对话模型**。
         common_models: 所有成功 Key 的模型交集——即「任意 Key 都能跑」的模型。
+        chat_models: 经探测确认支持 ``/chat/completions`` 的模型（未探测时为空）。
     """
 
     url: str = ""
     per_key: list[RemoteKeyModels] = field(default_factory=list)
     models: list[str] = field(default_factory=list)
     common_models: list[str] = field(default_factory=list)
+    chat_models: list[str] = field(default_factory=list)
 
     @property
     def ok(self) -> bool:
@@ -86,6 +88,7 @@ class LLMProviderService:
 
     _CACHE_TTL_SECONDS: ClassVar[float] = 300.0
     _MODELS_TIMEOUT_SECONDS: ClassVar[float] = 15.0
+    _CHAT_PROBE_TIMEOUT_SECONDS: ClassVar[float] = 10.0
     _cache: ClassVar[tuple[list[OpenAIProviderConfig], float] | None] = None
 
     @classmethod
@@ -168,6 +171,8 @@ class LLMProviderService:
         base_url: str,
         api_keys: list[str] | None = None,
         timeout: float | None = None,
+        *,
+        probe_chat: bool = True,
     ) -> RemoteModelList:
         """拉取 OpenAI-compatible 网关的模型列表，**逐个 Key** 请求后聚合。
 
@@ -175,17 +180,22 @@ class LLMProviderService:
         因此逐 Key 请求才能暴露「哪些 Key 支持哪些模型」。未配置 Key 时按匿名
         请求一次（兼容本地免鉴权 vLLM）。
 
+        该接口会把**非对话模型**（向量、重排、OCR 等）一并列出，因此默认再用一次
+        最小 ``/chat/completions`` 请求逐个探测对话能力，结果放在 ``chat_models``；
+        只有 ``chat_models`` 才适合写入平台的「模型列表」（`extra_models`）。
+
         Args:
             base_url: 平台 API 地址，需已包含版本前缀（如 ``http://host:4000/v1``）。
             api_keys: 待探测的 Key 列表；为空时匿名请求一次。
             timeout: 单次请求超时秒数，默认 15 秒。
+            probe_chat: 是否探测对话能力（每个模型额外一次最小请求）。
 
         Returns:
-            :class:`RemoteModelList`，含每 Key 结果、并集与交集。
+            :class:`RemoteModelList`，含每 Key 结果、并集、交集与对话模型。
         """
         normalized = (base_url or "").strip().rstrip("/")
         if not normalized:
-            return RemoteModelList(url="", per_key=[], models=[], common_models=[])
+            return RemoteModelList()
 
         url = f"{normalized}/models"
         request_timeout = float(timeout or cls._MODELS_TIMEOUT_SECONDS)
@@ -195,11 +205,13 @@ class LLMProviderService:
             cls._fetch_models_once(url, api_key=key, timeout=request_timeout, index=index)
             for index, key in enumerate(targets, 1)
         ]
+        union = cls._union_models(per_key)
         return RemoteModelList(
             url=url,
             per_key=per_key,
-            models=cls._union_models(per_key),
+            models=union,
             common_models=cls._common_models(per_key),
+            chat_models=cls._probe_chat_models(normalized, per_key, targets, union) if probe_chat else [],
         )
 
     @staticmethod
@@ -216,6 +228,53 @@ class LLMProviderService:
             logger.warning("[LLMProviderService] 拉取远端模型列表失败", extra={"url": url}, exc_info=True)
             return RemoteKeyModels(index=index, ok=False, error=type(exc).__name__)
         return RemoteKeyModels(index=index, ok=True, models=_extract_model_ids(payload))
+
+    @classmethod
+    def _probe_chat_models(
+        cls,
+        base_url: str,
+        per_key: list[RemoteKeyModels],
+        targets: list[str | None],
+        models: list[str],
+    ) -> list[str]:
+        """逐个模型探测 ``/chat/completions`` 能力，返回确认可用的模型（保序）。
+
+        无法判定（网络异常 / 超时 / 5xx）的模型按「支持」处理，避免探测抖动把可用
+        模型漏掉；只有明确的 4xx 才判定为不支持。
+        """
+        owner: dict[str, str | None] = {}
+        for item, api_key in zip(per_key, targets, strict=False):
+            if not item.ok:
+                continue
+            for model_id in item.models:
+                owner.setdefault(model_id, api_key)
+
+        probe_timeout = min(float(cls._MODELS_TIMEOUT_SECONDS), cls._CHAT_PROBE_TIMEOUT_SECONDS)
+        return [
+            model_id
+            for model_id in models
+            if cls._probe_chat_once(base_url, model_id, owner.get(model_id), probe_timeout) is not False
+        ]
+
+    @staticmethod
+    def _probe_chat_once(base_url: str, model: str, api_key: str | None, timeout: float) -> bool | None:
+        """探测单个模型是否支持对话。
+
+        Returns:
+            True 支持；False 明确不支持（4xx）；None 无法判定。
+        """
+        headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
+        payload = {"model": model, "messages": [{"role": "user", "content": "hi"}], "max_tokens": 1}
+        try:
+            response = httpx.post(f"{base_url}/chat/completions", headers=headers, json=payload, timeout=timeout)
+        except Exception:
+            logger.debug("[LLMProviderService] 对话能力探测未完成", extra={"model": model}, exc_info=True)
+            return None
+        if response.status_code == 200:
+            return True
+        if 400 <= response.status_code < 500:
+            return False
+        return None
 
     @staticmethod
     def _union_models(per_key: list[RemoteKeyModels]) -> list[str]:
