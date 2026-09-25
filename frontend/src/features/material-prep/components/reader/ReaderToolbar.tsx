@@ -73,7 +73,7 @@ export function ReaderToolbar({
       </button>
       <button type="button" onClick={onAddFiles} title="点这里选文件，或把文件直接拖到这儿" className={PBTN}>
         <Plus className="h-3.5 w-3.5" />
-        + 追加材料
+        追加材料
       </button>
 
       <span className="h-4 w-px bg-border" />
