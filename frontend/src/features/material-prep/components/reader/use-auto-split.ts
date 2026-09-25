@@ -15,11 +15,16 @@ export function useAutoSplit() {
     const { openId, draft } = useReader.getState()
     if (!openId || !draft || running) return
 
-    const targets = draft.mats
+    const pdfMats = draft.mats
       .map((mat, mi) => ({ mat, mi }))
-      .filter(({ mat, mi }) => mat.k === 'pdf' && canAutoSplitMat(draft, mi))
+      .filter(({ mat }) => mat.k === 'pdf')
+    const targets = pdfMats.filter(({ mi }) => canAutoSplitMat(draft, mi))
     if (targets.length === 0) {
-      toast.info('没有可自动识别的 PDF；含人工拆分或跨源合并的材料会保留原样')
+      if (pdfMats.length === 0) {
+        toast.info('材料包里没有 PDF —— 云端识别只支持 PDF，图片 / Word 等请人工归类')
+      } else {
+        toast.info('这些 PDF 都已人工拆分或跨源合并，为免覆盖你的操作已跳过；需要重来可点「恢复初始分段」')
+      }
       return
     }
 

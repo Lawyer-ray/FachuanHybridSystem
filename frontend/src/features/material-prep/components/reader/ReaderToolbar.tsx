@@ -1,4 +1,4 @@
-import { CheckCircle2, Loader2, Minus, Plus, Sparkles } from 'lucide-react'
+import { CheckCircle2, Loader2, Minus, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { PBTN, PBTN_ON } from './ui'
 import { cn } from '@/lib/utils'
@@ -101,7 +101,7 @@ export function ReaderToolbar({
       <span className="h-4 w-px bg-border" />
 
       <Button size="sm" variant="outline" onClick={onAutoSplit} disabled={autoSplitRunning} title={autoSplitProgress || '调用 MinerU / Textin 逐页识别并生成分段建议'}>
-        {autoSplitRunning ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+        {autoSplitRunning && <Loader2 className="h-4 w-4 animate-spin" />}
         {autoSplitRunning ? autoSplitProgress || '识别中…' : '云端内容识别'}
       </Button>
       <button type="button" onClick={onResetSegments} className={PBTN}>
