@@ -139,7 +139,14 @@ export async function searchCases(q: string): Promise<CaseRow[]> {
 
 const bytesCache = new Map<string, Promise<ArrayBuffer>>()
 
-/** 取附件字节（带鉴权），按 messageId:partIndex 缓存。供 PDF.js 渲染。 */
+/**
+ * 取附件字节（带鉴权），按 messageId:partIndex 缓存。供 PDF.js 渲染、OCR 取字、云端识别上传。
+ *
+ * 返回的是缓存的 buffer 本体（调用方会反复复用：每页渲染、OCR、识别上传各取一次）。
+ * 若某个调用方会把 buffer **transfer** 给 worker 导致它被 detach（PDF.js 的
+ * getDocument({ data }) 就是），请在该调用方内部先拷贝再传——不要在这里拷，
+ * 否则 92 页的材料会凭空多拷 92 次。详见 lib/pdf.ts 的 loadPdfDocument。
+ */
 export function fetchAttachmentBytes(messageId: number, partIndex: number): Promise<ArrayBuffer> {
   const key = `${messageId}:${partIndex}`
   const hit = bytesCache.get(key)

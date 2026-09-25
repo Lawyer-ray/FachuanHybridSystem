@@ -15,6 +15,11 @@ let cachedDocKey = ''
 /**
  * 加载一份 PDF 文档并按 key 缓存（同一附件只加载一次）。
  * data 由调用方通过带鉴权的请求取回。
+ *
+ * 注意：pdf.js 会把 getDocument({ data }) 里的 ArrayBuffer **transfer** 给 worker
+ * （pdf.mjs: sendWithPromise("GetDocRequest", docParams, [data.buffer])），被 transfer 的
+ * buffer 会 detach、byteLength 归零。调用方（material-prep 的 fetchAttachmentBytes）会把同一份
+ * buffer 反复拿去渲染/OCR/上传，直接传本体就会把它废掉——所以这里必须传副本，本体留给别人用。
  */
 export async function loadPdfDocument(key: string, data: ArrayBuffer): Promise<pdfjsLib.PDFDocumentProxy> {
   if (cachedDoc && cachedDocKey === key) return cachedDoc
@@ -25,7 +30,8 @@ export async function loadPdfDocument(key: string, data: ArrayBuffer): Promise<p
       /* noop */
     }
   }
-  const task = pdfjsLib.getDocument({ data })
+  // 副本给 pdf.js：它会把副本 transfer 给 worker，data 本体保持可用
+  const task = pdfjsLib.getDocument({ data: data.slice(0) })
   const doc = await task.promise
   cachedTask = task
   cachedDoc = doc
