@@ -114,7 +114,11 @@ class TestRegisterProfile:
     def test_register_and_get(self) -> None:
         custom = BrowserProfile(name="my_custom", headless=False, slow_mo=100)
         register_profile(custom)
-        p = get_profile("my_custom")
+        # get_profile 会用 SystemConfig PLAYWRIGHT_HEADED 覆盖 headless，而该配置的
+        # 读取结果经 Redis 缓存在进程间/测试间泄漏（数据库事务回滚不会清缓存），
+        # 使断言随运行顺序波动。按本文件既有做法屏蔽覆盖，只验证注册/查找语义。
+        with patch("apps.core.services.browser.profiles._apply_headless_override", lambda p: p):
+            p = get_profile("my_custom")
         assert p.name == "my_custom"
         assert p.headless is False
         assert p.slow_mo == 100

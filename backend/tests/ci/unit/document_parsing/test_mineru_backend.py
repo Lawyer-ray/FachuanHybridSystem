@@ -3,6 +3,7 @@
 import json
 import tempfile
 import zipfile
+from contextlib import contextmanager
 from pathlib import Path
 from unittest.mock import MagicMock, PropertyMock, patch
 
@@ -42,6 +43,23 @@ def _make_zip_bytes(files: dict[str, str]) -> bytes:
         for name, content in files.items():
             zf.writestr(name, content)
     return buf.getvalue()
+
+
+@contextmanager
+def _patch_http(mock_client):
+    """同时 patch API 客户端工厂与结果 ZIP 下载所用的独立 ``httpx.Client``。
+
+    ``_parse_result_zip`` 的结果下载刻意每次新建连接池（规避对象存储关闭的
+    TLS keep-alive 连接），因此**不走** ``get_sync_http_client``。若不一并
+    patch，测试会真实请求 ``https://example.com/result.zip`` 并拿到 404。
+    """
+    client_cls = MagicMock()
+    client_cls.return_value.__enter__.return_value = mock_client
+    with (
+        patch(f"{_PATCH_PREFIX}.get_sync_http_client", return_value=mock_client),
+        patch(f"{_PATCH_PREFIX}.httpx.Client", client_cls),
+    ):
+        yield mock_client
 
 
 # ── __init__ ─────────────────────────────────────────────────────
@@ -335,7 +353,7 @@ class TestParseResultZip:
         mock_client = MagicMock()
         mock_client.get.return_value = _mock_response(200, content=zip_bytes)
 
-        with patch(f"{_PATCH_PREFIX}.get_sync_http_client", return_value=mock_client):
+        with _patch_http(mock_client):
             result = backend._parse_result_zip("https://example.com/result.zip")
 
         assert isinstance(result, ParsedDocument)
@@ -352,7 +370,7 @@ class TestParseResultZip:
         mock_client = MagicMock()
         mock_client.get.return_value = _mock_response(200, content=zip_bytes)
 
-        with patch(f"{_PATCH_PREFIX}.get_sync_http_client", return_value=mock_client):
+        with _patch_http(mock_client):
             result = backend._parse_result_zip(
                 "https://example.com/result.zip",
                 return_markdown=True,
@@ -372,7 +390,7 @@ class TestParseResultZip:
         mock_client = MagicMock()
         mock_client.get.return_value = _mock_response(200, content=zip_bytes)
 
-        with patch(f"{_PATCH_PREFIX}.get_sync_http_client", return_value=mock_client):
+        with _patch_http(mock_client):
             result = backend._parse_result_zip(
                 "https://example.com/result.zip",
                 extract_images=True,
@@ -390,7 +408,7 @@ class TestParseResultZip:
         mock_client = MagicMock()
         mock_client.get.return_value = _mock_response(200, content=zip_bytes)
 
-        with patch(f"{_PATCH_PREFIX}.get_sync_http_client", return_value=mock_client):
+        with _patch_http(mock_client):
             result = backend._parse_result_zip(
                 "https://example.com/result.zip",
                 extract_images=False,
@@ -403,7 +421,7 @@ class TestParseResultZip:
         mock_client = MagicMock()
         mock_client.get.return_value = _mock_response(200, content=b"not a zip")
 
-        with patch(f"{_PATCH_PREFIX}.get_sync_http_client", return_value=mock_client):
+        with _patch_http(mock_client):
             with pytest.raises(MineruAPIError, match="ZIP 文件损坏"):
                 backend._parse_result_zip("https://example.com/result.zip")
 
@@ -414,7 +432,7 @@ class TestParseResultZip:
         mock_client = MagicMock()
         mock_client.get.return_value = _mock_response(200, content=zip_bytes)
 
-        with patch(f"{_PATCH_PREFIX}.get_sync_http_client", return_value=mock_client):
+        with _patch_http(mock_client):
             result = backend._parse_result_zip("https://example.com/result.zip")
 
         assert result.text == ""
@@ -560,8 +578,7 @@ class TestParseDocument:
 
         mock_client.get.side_effect = get_side_effect
 
-        with patch(f"{_PATCH_PREFIX}.get_sync_http_client", return_value=mock_client), \
-             patch(f"{_PATCH_PREFIX}.time.sleep"):
+        with _patch_http(mock_client), patch(f"{_PATCH_PREFIX}.time.sleep"):
             result = backend.parse_document(str(pdf), return_markdown=True)
 
         assert "解析成功" in result.text

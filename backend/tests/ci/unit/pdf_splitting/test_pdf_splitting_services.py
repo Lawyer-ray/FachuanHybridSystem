@@ -8,7 +8,6 @@ from unittest.mock import MagicMock
 
 import pytest
 
-
 # ============================================================
 # TemplateRegistry 测试
 # ============================================================
@@ -57,7 +56,9 @@ class TestTemplateRegistry:
     def test_filing_materials_rules_count(self) -> None:
         from apps.pdf_splitting.services.template_registry import FILING_MATERIALS_V1
 
-        assert len(FILING_MATERIALS_V1.rules) == 7
+        # 14 = 立案材料类 7 条 + 贷款/利息/买卖类 7 条（借款合同、放款凭证、银行流水、
+        # 利息计算表、送货单、收货单、发票）。此断言用于防止规则被误删。
+        assert len(FILING_MATERIALS_V1.rules) == 14
 
     def test_segment_rule_has_keywords(self) -> None:
         from apps.pdf_splitting.services.template_registry import FILING_MATERIALS_V1
@@ -212,8 +213,8 @@ class TestSegmentDetectorExtended:
         assert detector.is_effective_text("短") is False
 
     def test_fill_unrecognized_gaps(self):
+        from apps.pdf_splitting.models import PdfSplitReviewFlag, PdfSplitSegmentType
         from apps.pdf_splitting.services.split.split_models import SegmentDraft
-        from apps.pdf_splitting.models import PdfSplitSegmentType, PdfSplitReviewFlag
         detector = self._make_detector()
         segments = [
             SegmentDraft(
@@ -231,8 +232,8 @@ class TestSegmentDetectorExtended:
         assert filled[-1].page_end == 10
 
     def test_merge_adjacent_pack_segments(self):
+        from apps.pdf_splitting.models import PdfSplitReviewFlag, PdfSplitSegmentType
         from apps.pdf_splitting.services.split.split_models import SegmentDraft
-        from apps.pdf_splitting.models import PdfSplitSegmentType, PdfSplitReviewFlag
         detector = self._make_detector()
         segments = [
             SegmentDraft(order=1, page_start=1, page_end=2, segment_type=PdfSplitSegmentType.PARTY_IDENTITY,
@@ -246,8 +247,8 @@ class TestSegmentDetectorExtended:
         assert merged[0].page_end == 4
 
     def test_merge_different_types_no_merge(self):
+        from apps.pdf_splitting.models import PdfSplitReviewFlag, PdfSplitSegmentType
         from apps.pdf_splitting.services.split.split_models import SegmentDraft
-        from apps.pdf_splitting.models import PdfSplitSegmentType, PdfSplitReviewFlag
         detector = self._make_detector()
         segments = [
             SegmentDraft(order=1, page_start=1, page_end=2, segment_type=PdfSplitSegmentType.PARTY_IDENTITY,
