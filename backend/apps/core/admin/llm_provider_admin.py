@@ -61,11 +61,9 @@ class LLMProviderAdmin(admin.ModelAdmin):
                     "concurrency_per_key",
                 ),
                 "description": (
-                    "<b>API Keys</b>：每行一个 Key，留空表示网关免鉴权。<br>"
-                    "若网关按 Key 授权不同模型（如 LiteLLM），写成 "
-                    "<code>sk-xxx|模型1,模型2</code> 声明该 Key 的可用模型；"
-                    "不带 <code>|</code> 的 Key 视为不限模型。<br>"
-                    "不知道哪个 Key 支持哪些模型时，用下方「获取远端模型列表」按钮自动探测。"
+                    "<b>API Keys</b>：每行一个 Key，可逐行声明该 Key 可用的模型；"
+                    "留空表示网关免鉴权。不知道哪个 Key 支持哪些模型时，"
+                    "用每行的「获取模型」按钮自动探测。"
                 ),
             },
         ),
@@ -144,7 +142,11 @@ class LLMProviderAdmin(admin.ModelAdmin):
             return JsonResponse({"ok": False, "error": "请先填写 API 地址"}, status=400)
 
         api_keys = [key for key, _ in parse_key_entries(keys_raw)]
-        result = LLMProviderService.fetch_remote_models(base_url, api_keys)
+        result = LLMProviderService.fetch_remote_models(
+            base_url,
+            api_keys,
+            probe_chat=self._parse_flag(payload.get("probe_chat"), default=True),
+        )
         return JsonResponse(
             {
                 "ok": result.ok,
@@ -158,6 +160,15 @@ class LLMProviderAdmin(admin.ModelAdmin):
                 ],
             }
         )
+
+    @staticmethod
+    def _parse_flag(raw: Any, *, default: bool) -> bool:
+        """把前端传来的开关值解析为布尔；缺省或无法识别时取 ``default``。"""
+        if raw is None:
+            return default
+        if isinstance(raw, bool):
+            return raw
+        return str(raw).strip().lower() in {"1", "true", "yes", "on"}
 
     def _resolve_fetch_inputs(self, request: HttpRequest, object_id: str, payload: dict[str, Any]) -> tuple[str, str]:
         """取探测用的 ``base_url`` / ``api_keys``：优先表单提交值，缺项回落库中已存值。"""
