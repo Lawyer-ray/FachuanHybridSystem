@@ -72,7 +72,10 @@ class TestFetchModelsView:
         captured: dict[str, Any] = {}
 
         def fake_fetch(
-            base_url: str, api_keys: list[str] | None = None, timeout: float | None = None
+            base_url: str,
+            api_keys: list[str] | None = None,
+            timeout: float | None = None,
+            probe_chat: bool = True,
         ) -> RemoteModelList:
             captured["base_url"] = base_url
             captured["api_keys"] = api_keys
@@ -107,7 +110,10 @@ class TestFetchModelsView:
         captured: dict[str, Any] = {}
 
         def fake_fetch(
-            base_url: str, api_keys: list[str] | None = None, timeout: float | None = None
+            base_url: str,
+            api_keys: list[str] | None = None,
+            timeout: float | None = None,
+            probe_chat: bool = True,
         ) -> RemoteModelList:
             captured["base_url"] = base_url
             captured["api_keys"] = api_keys
@@ -125,7 +131,7 @@ class TestFetchModelsView:
         monkeypatch.setattr(
             LLMProviderService,
             "fetch_remote_models",
-            lambda base_url, api_keys=None, timeout=None: _fake_result(base_url, api_keys),
+            lambda base_url, api_keys=None, timeout=None, probe_chat=True: _fake_result(base_url, api_keys),
         )
         factory = RequestFactory()
         request = factory.post(
@@ -144,7 +150,7 @@ class TestFetchModelsView:
         monkeypatch.setattr(
             LLMProviderService,
             "fetch_remote_models",
-            lambda base_url, api_keys=None, timeout=None: RemoteModelList(
+            lambda base_url, api_keys=None, timeout=None, probe_chat=True: RemoteModelList(
                 url=f"{base_url}/models",
                 per_key=[RemoteKeyModels(index=1, ok=False, error="HTTP 403")],
                 models=[],
