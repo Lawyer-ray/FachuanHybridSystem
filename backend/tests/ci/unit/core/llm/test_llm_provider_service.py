@@ -2,11 +2,72 @@
 
 from __future__ import annotations
 
+from typing import Any
+
+import httpx
 import pytest
 
 from apps.core.llm.backends.base import OpenAIProviderConfig
 from apps.core.models import LLMProvider
+from apps.core.models.llm_provider import parse_key_entries
+from apps.core.services import llm_provider_service as service_module
 from apps.core.services.llm_provider_service import LLMProviderService
+
+
+class TestParseKeyEntries:
+    def test_legacy_lines_split_by_comma_and_semicolon(self) -> None:
+        assert parse_key_entries("sk-1\nsk-2,sk-3; Bearer sk-4\n\n sk-1 ") == [
+            ("sk-1", []),
+            ("sk-2", []),
+            ("sk-3", []),
+            ("sk-4", []),
+        ]
+
+    def test_empty_input(self) -> None:
+        assert parse_key_entries("") == []
+
+    def test_key_with_model_scope(self) -> None:
+        assert parse_key_entries("sk-a|kimi-2.6,glm53\nsk-b") == [
+            ("sk-a", ["kimi-2.6", "glm53"]),
+            ("sk-b", []),
+        ]
+
+    def test_pipe_line_does_not_split_key_on_comma(self) -> None:
+        # 含 | 的行，逗号只用于分隔模型，不再拆 Key
+        assert parse_key_entries("sk-a|m1,m2") == [("sk-a", ["m1", "m2"])]
+
+    def test_scope_models_dedup_and_whitespace(self) -> None:
+        assert parse_key_entries("sk-a| m1 , m2 ; m1 ") == [("sk-a", ["m1", "m2"])]
+
+    def test_empty_scope_means_unrestricted(self) -> None:
+        assert parse_key_entries("sk-a|") == [("sk-a", [])]
+
+    def test_bearer_prefix_stripped_with_scope(self) -> None:
+        assert parse_key_entries("Bearer sk-a|m1") == [("sk-a", ["m1"])]
+
+
+class TestProviderKeyModelScopes:
+    def test_models_for_key_defaults_to_empty(self) -> None:
+        provider = OpenAIProviderConfig(name="law", api_keys=["k1"])
+        assert provider.models_for_key("k1") == []
+        assert provider.models_for_key("missing") == []
+
+    def test_keys_for_model_filters_scoped_keys(self) -> None:
+        provider = OpenAIProviderConfig(
+            name="law",
+            api_keys=["k1", "k2", "k3"],
+            key_model_scopes={"k1": ["a"], "k3": ["b"]},
+        )
+        assert provider.keys_for_model("a") == ["k1", "k2"]
+        assert provider.keys_for_model("b") == ["k2", "k3"]
+
+    def test_keys_for_model_with_empty_model_returns_all(self) -> None:
+        provider = OpenAIProviderConfig(
+            name="law",
+            api_keys=["k1", "k2"],
+            key_model_scopes={"k1": ["a"]},
+        )
+        assert provider.keys_for_model("") == ["k1", "k2"]
 
 
 class TestLLMProviderModelParsing:
@@ -23,6 +84,16 @@ class TestLLMProviderModelParsing:
         provider = LLMProvider(name="local", base_url="http://local/v1", api_keys="", default_model="m")
         assert provider.parsed_api_keys() == []
 
+    def test_parsed_key_model_scopes_skips_unrestricted_keys(self) -> None:
+        provider = LLMProvider(
+            name="law",
+            base_url="http://law/v1",
+            api_keys="sk-a|kimi-2.6,glm53\nsk-b",  # pragma: allowlist secret
+            default_model="kimi-2.6",
+        )
+        assert provider.parsed_key_entries() == [("sk-a", ["kimi-2.6", "glm53"]), ("sk-b", [])]
+        assert provider.parsed_key_model_scopes() == {"sk-a": ["kimi-2.6", "glm53"]}
+
     def test_parsed_models_dedup(self) -> None:
         provider = LLMProvider(
             name="xiaomi",
@@ -31,6 +102,107 @@ class TestLLMProviderModelParsing:
             extra_models="mimo-v1\nmimo-v2,mimo-v1",
         )
         assert provider.parsed_models() == ["mimo-v1", "mimo-v2"]
+
+
+class _FakeResponse:
+    """httpx.Response 的最小替身。"""
+
+    def __init__(self, payload: Any = None, status_code: int = 200) -> None:
+        self._payload = payload
+        self.status_code = status_code
+
+    def raise_for_status(self) -> None:
+        if self.status_code >= 400:
+            request = httpx.Request("GET", "http://gw/v1/models")
+            response = httpx.Response(self.status_code, request=request)
+            raise httpx.HTTPStatusError("boom", request=request, response=response)
+
+    def json(self) -> Any:
+        return self._payload
+
+
+class TestFetchRemoteModels:
+    def test_aggregates_union_and_intersection_per_key(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        payloads = {
+            "k1": {"data": [{"id": "m1"}, {"id": "m2"}]},
+            "k2": {"data": [{"id": "m2"}, {"id": "m3"}]},
+        }
+        seen_headers: list[dict[str, str]] = []
+
+        def fake_get(url: str, headers: dict[str, str] | None = None, timeout: float | None = None) -> _FakeResponse:
+            seen_headers.append(headers or {})
+            token = str((headers or {}).get("Authorization", "")).removeprefix("Bearer ")
+            return _FakeResponse(payloads[token])
+
+        monkeypatch.setattr(service_module.httpx, "get", fake_get)
+
+        result = LLMProviderService.fetch_remote_models("http://gw/v1/", ["k1", "k2"])
+
+        assert result.url == "http://gw/v1/models"
+        assert result.ok is True
+        assert [item.index for item in result.per_key] == [1, 2]
+        assert result.models == ["m1", "m2", "m3"]
+        assert result.common_models == ["m2"]
+        assert seen_headers[0]["Authorization"] == "Bearer k1"
+
+    def test_without_keys_requests_anonymously_once(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        calls: list[dict[str, str]] = []
+
+        def fake_get(url: str, headers: dict[str, str] | None = None, timeout: float | None = None) -> _FakeResponse:
+            calls.append(headers or {})
+            return _FakeResponse({"data": [{"id": "m1"}]})
+
+        monkeypatch.setattr(service_module.httpx, "get", fake_get)
+
+        result = LLMProviderService.fetch_remote_models("http://gw/v1", [])
+
+        assert len(calls) == 1
+        assert "Authorization" not in calls[0]
+        assert result.models == ["m1"]
+        assert result.common_models == ["m1"]
+
+    def test_http_error_is_reported_per_key(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        def fake_get(url: str, headers: dict[str, str] | None = None, timeout: float | None = None) -> _FakeResponse:
+            return _FakeResponse(status_code=403)
+
+        monkeypatch.setattr(service_module.httpx, "get", fake_get)
+
+        result = LLMProviderService.fetch_remote_models("http://gw/v1", ["k1"])
+
+        assert result.ok is False
+        assert result.models == []
+        assert result.common_models == []
+        assert result.per_key[0].error == "HTTP 403"
+
+    def test_accepts_plain_string_data(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(service_module.httpx, "get", lambda *a, **kw: _FakeResponse({"data": ["m1", "m1", "m2"]}))
+
+        result = LLMProviderService.fetch_remote_models("http://gw/v1", ["k1"])
+
+        assert result.models == ["m1", "m2"]
+
+    def test_blank_base_url_skips_requests(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        def boom(*args: Any, **kwargs: Any) -> Any:
+            raise AssertionError("不应发起请求")
+
+        monkeypatch.setattr(service_module.httpx, "get", boom)
+
+        result = LLMProviderService.fetch_remote_models("  ", ["k1"])
+
+        assert result.url == ""
+        assert result.per_key == []
+        assert result.ok is False
+
+    def test_transport_error_is_reported_per_key(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        def fake_get(url: str, headers: dict[str, str] | None = None, timeout: float | None = None) -> _FakeResponse:
+            raise httpx.ConnectError("refused")
+
+        monkeypatch.setattr(service_module.httpx, "get", fake_get)
+
+        result = LLMProviderService.fetch_remote_models("http://gw/v1", ["k1"])
+
+        assert result.ok is False
+        assert result.per_key[0].error == "ConnectError"
 
 
 class TestLLMProviderService:

@@ -1,0 +1,224 @@
+{% extends "admin/change_form.html" %}
+{% load i18n %}
+
+{% block after_field_sets %}
+{{ block.super }}
+<div id="llm-fetch-panel"
+     data-fetch-url="{% if original %}{% url 'admin:core_llmprovider_fetch_models' original.pk %}{% else %}{% url 'admin:core_llmprovider_fetch_models' 'add' %}{% endif %}"
+     style="margin-top:16px;padding:12px;border:1px solid var(--hairline-color,#e0e0e0);border-radius:6px;">
+  <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+    <button type="button" class="button" id="llm-fetch-btn">{% trans "获取远端模型列表" %}</button>
+    <span id="llm-fetch-status" style="font-size:12px;color:#666;"></span>
+  </div>
+  <div style="margin-top:6px;font-size:12px;color:#666;">
+    {% trans "按上方 API 地址与 Key 逐个探测网关（如 LiteLLM）的授权模型，可直接回填「模型列表」与 Key 的模型白名单。" %}
+  </div>
+  <div id="llm-fetch-result" style="display:none;margin-top:12px;"></div>
+</div>
+{% endblock %}
+
+{% block extrahead %}{{ block.super }}
+<script>
+(function () {
+    var panel = document.getElementById("llm-fetch-panel");
+    if (!panel) return;
+
+    var btn = document.getElementById("llm-fetch-btn");
+    var statusEl = document.getElementById("llm-fetch-status");
+    var resultEl = document.getElementById("llm-fetch-result");
+    var endpoint = panel.getAttribute("data-fetch-url") || "";
+    var selected = [];
+
+    function field(id) { return document.getElementById(id); }
+
+    function setStatus(text, isError) {
+        if (!statusEl) return;
+        statusEl.textContent = text || "";
+        statusEl.style.color = isError ? "#A32D2D" : "#666";
+    }
+
+    function csrfToken() {
+        var el = document.querySelector('input[name="csrfmiddlewaretoken"]');
+        return el ? el.value : "";
+    }
+
+    function el(tag, text, style) {
+        var node = document.createElement(tag);
+        if (text) node.textContent = text;
+        if (style) node.setAttribute("style", style);
+        return node;
+    }
+
+    function keysFor(model, perKey) {
+        var out = [];
+        perKey.forEach(function (item) {
+            if (item.ok && item.models.indexOf(model) !== -1) out.push("#" + item.index);
+        });
+        return out;
+    }
+
+    function splitList(raw) {
+        return String(raw || "").split(/[\n,]/).map(function (s) { return s.trim(); }).filter(Boolean);
+    }
+
+    function writeExtraModels(models) {
+        var area = field("id_extra_models");
+        if (!area) { setStatus("找不到「模型列表」字段", true); return; }
+        var merged = splitList(area.value);
+        models.forEach(function (m) { if (merged.indexOf(m) === -1) merged.push(m); });
+        area.value = merged.join(",");
+        setStatus("已写入模型列表：" + models.length + " 个", false);
+    }
+
+    function parseKeyLines(raw) {
+        return String(raw || "").split("\n").map(function (line) { return line.trim(); })
+            .filter(Boolean)
+            .map(function (line) {
+                var i = line.indexOf("|");
+                if (i === -1) return { key: line.trim(), models: [] };
+                return {
+                    key: line.slice(0, i).trim(),
+                    models: line.slice(i + 1).split(",").map(function (s) { return s.trim(); }).filter(Boolean)
+                };
+            });
+    }
+
+    function writeKeyScopes(perKey) {
+        var area = field("id_api_keys");
+        if (!area) { setStatus("找不到「API Keys」字段", true); return; }
+        var entries = parseKeyLines(area.value);
+        var scopeByIndex = {};
+        perKey.forEach(function (item) { if (item.ok) scopeByIndex[item.index] = item.models; });
+
+        if (entries.length !== perKey.length) {
+            if (!window.confirm("当前有 " + entries.length + " 行 Key，探测到 " + perKey.length + " 个 Key，行数与探测结果不一致（可能同一行写了多个 Key）。仍按行序写入？")) {
+                return;
+            }
+        }
+        var out = entries.map(function (entry, idx) {
+            var models = scopeByIndex[idx + 1];
+            if (!models || !models.length) return entry.key;
+            return entry.key + "|" + models.join(",");
+        });
+        area.value = out.join("\n");
+        setStatus("已写入 Key 模型白名单：" + out.length + " 行", false);
+    }
+
+    function renderPerKey(container, perKey) {
+        var list = el("div", "", "font-size:12px;color:#666;margin-bottom:8px;");
+        perKey.forEach(function (item) {
+            var label = item.ok
+                ? "Key #" + item.index + "：" + item.models.length + " 个模型"
+                : "Key #" + item.index + "：拉取失败（" + (item.error || "未知错误") + "）";
+            list.appendChild(el("div", label));
+        });
+        container.appendChild(list);
+    }
+
+    function render(data) {
+        resultEl.textContent = "";
+        if (!data || !data.ok) {
+            var msg = (data && data.error) ? data.error : "所有 Key 均拉取失败";
+            resultEl.appendChild(el("div", msg, "color:#A32D2D;font-size:13px;margin-bottom:8px;"));
+            if (data && data.per_key) renderPerKey(resultEl, data.per_key);
+            resultEl.style.display = "";
+            setStatus("拉取失败", true);
+            return;
+        }
+
+        var perKey = data.per_key || [];
+        var models = data.models || [];
+        var common = data.common_models || [];
+        resultEl.appendChild(el("div",
+            "共 " + models.length + " 个模型，其中 " + common.length + " 个所有 Key 均支持",
+            "font-size:13px;font-weight:500;margin-bottom:6px;"));
+        renderPerKey(resultEl, perKey);
+
+        var table = el("div", "", "border:1px solid #e0e0e0;border-radius:4px;max-height:280px;overflow:auto;padding:6px;");
+        var boxes = {};
+        models.forEach(function (model) {
+            var row = el("label", "", "display:flex;align-items:center;gap:8px;padding:3px 4px;font-size:13px;cursor:pointer;");
+            var box = document.createElement("input");
+            box.type = "checkbox";
+            box.checked = true;
+            box.value = model;
+            box.setAttribute("data-model", model);
+            box.addEventListener("change", syncSelected);
+            boxes[model] = box;
+            row.appendChild(box);
+            row.appendChild(el("span", model, "font-family:monospace;"));
+            row.appendChild(el("span", "Key " + keysFor(model, perKey).join(" "),
+                "font-size:11px;color:#888;margin-left:auto;"));
+            table.appendChild(row);
+        });
+        resultEl.appendChild(table);
+
+        var actions = el("div", "", "margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;");
+        var allBtn = document.createElement("button");
+        allBtn.type = "button";
+        allBtn.className = "button";
+        allBtn.textContent = "全选";
+        allBtn.addEventListener("click", function () {
+            models.forEach(function (m) { boxes[m].checked = true; });
+            syncSelected();
+        });
+
+        var commonBtn = document.createElement("button");
+        commonBtn.type = "button";
+        commonBtn.className = "button";
+        commonBtn.textContent = "仅选公共模型";
+        commonBtn.addEventListener("click", function () {
+            models.forEach(function (m) { boxes[m].checked = common.indexOf(m) !== -1; });
+            syncSelected();
+        });
+
+        var writeModelsBtn = document.createElement("button");
+        writeModelsBtn.type = "button";
+        writeModelsBtn.className = "button";
+        writeModelsBtn.textContent = "写入模型列表";
+        writeModelsBtn.addEventListener("click", function () { writeExtraModels(selected); });
+
+        var writeScopesBtn = document.createElement("button");
+        writeScopesBtn.type = "button";
+        writeScopesBtn.className = "button";
+        writeScopesBtn.textContent = "写入 Key 模型白名单";
+        writeScopesBtn.addEventListener("click", function () { writeKeyScopes(perKey); });
+
+        actions.appendChild(allBtn);
+        actions.appendChild(commonBtn);
+        actions.appendChild(writeModelsBtn);
+        actions.appendChild(writeScopesBtn);
+        resultEl.appendChild(actions);
+
+        function syncSelected() {
+            selected = models.filter(function (m) { return boxes[m].checked; });
+            setStatus("已勾选 " + selected.length + " / " + models.length + " 个模型", false);
+        }
+        syncSelected();
+        resultEl.style.display = "";
+    }
+
+    function load() {
+        var baseUrl = field("id_base_url");
+        var keys = field("id_api_keys");
+        if (!baseUrl || !keys) return;
+        if (!baseUrl.value.trim()) { setStatus("请先填写 API 地址", true); return; }
+
+        setStatus("正在拉取…", false);
+        resultEl.style.display = "none";
+        resultEl.textContent = "";
+
+        fetch(endpoint, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "X-CSRFToken": csrfToken() },
+            body: JSON.stringify({ base_url: baseUrl.value, api_keys: keys.value })
+        })
+            .then(function (resp) { return resp.json(); })
+            .then(render)
+            .catch(function () { setStatus("拉取失败：网络或服务异常", true); });
+    }
+
+    if (btn) btn.addEventListener("click", load);
+})();
+</script>
+{% endblock %}

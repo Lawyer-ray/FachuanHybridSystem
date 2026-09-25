@@ -29,67 +29,94 @@ def _content_preview(content: str, limit: int = _LOG_CONTENT_PREVIEW_LIMIT) -> s
 
 
 def _pick_provider(providers: list[OpenAIProviderConfig], model: str) -> OpenAIProviderConfig | None:
-    """按模型名匹配平台；未匹配时返回优先级最高的启用平台。"""
+    """按模型名匹配平台；未匹配时返回优先级最高的启用平台（并记录告警）。"""
     enabled = [p for p in providers if p.enabled]
     if not enabled:
         return None
+    fallback = min(enabled, key=lambda p: (p.priority, p.name))
     used = (model or "").strip()
-    if used:
-        for p in enabled:
-            if used in p.all_models:
-                return p
-    return min(enabled, key=lambda p: (p.priority, p.name))
+    if not used:
+        return fallback
+    for p in enabled:
+        if used in p.all_models:
+            return p
+    logger.warning(
+        "模型未被任何平台声明支持，回退到最高优先级平台",
+        extra={"model": used, "fallback_provider": fallback.name},
+    )
+    return fallback
 
 
 class _KeyPool:
-    """单平台多 Key 槽位管理：轮询分配、每 Key 并发上限、失败冷却。
+    """单平台多 Key 槽位管理：按模型过滤候选、轮询分配、每 Key 并发上限、失败冷却。
 
     - 并发上限为 0 表示不限制；
-    - 全部 Key 处于并发上限时超限使用（保证请求可用）；
-    - 失败后的 Key 进入 30 秒冷却，避免反复打到失效 Key。
+    - 全部候选 Key 处于并发上限时超限使用（保证请求可用）；
+    - 失败后的 ``(Key, 模型)`` 组合进入 30 秒冷却。冷却**按组合而非按 Key** 记账，
+      避免某模型的无权限 403 误伤同一 Key 对其他模型的正常请求；
+    - ``scopes`` 为 ``{key: [model, ...]}``，未出现的 Key 表示不限模型。
     """
 
     COOLDOWN_SECONDS = 30.0
 
-    def __init__(self, keys: list[str], concurrency_per_key: int = 0) -> None:
+    def __init__(
+        self,
+        keys: list[str],
+        concurrency_per_key: int = 0,
+        scopes: dict[str, list[str]] | None = None,
+    ) -> None:
         self.keys = list(keys)
         self.limit = max(0, int(concurrency_per_key or 0))
+        self.scopes: dict[str, list[str]] = {key: list(models) for key, models in (scopes or {}).items()}
         self._active = [0] * len(self.keys)
-        self._failed_until = [0.0] * len(self.keys)
+        self._failed_until: dict[tuple[int, str], float] = {}
         self._cursor = 0
         self._lock = threading.Lock()
 
-    def acquire(self) -> int | None:
-        """选中一个可用 Key 下标并占用；全部 Key 冷却中返回 None。"""
+    def _eligible(self, model: str) -> list[int]:
+        """返回可用于该模型的 Key 下标（未声明白名单的 Key 视为不限模型）。"""
+        used = (model or "").strip()
+        if not used:
+            return list(range(len(self.keys)))
+        return [i for i, key in enumerate(self.keys) if not self.scopes.get(key) or used in self.scopes[key]]
+
+    def has_key_for(self, model: str = "") -> bool:
+        """是否存在可用于该模型的 Key（不校验并发与冷却状态）。"""
+        return bool(self._eligible(model))
+
+    def acquire(self, model: str = "") -> int | None:
+        """在可用于该模型的 Key 中选中一个下标并占用；无候选或全部冷却时返回 None。"""
+        used = (model or "").strip()
         with self._lock:
-            n = len(self.keys)
-            if n == 0:
+            candidates = self._eligible(used)
+            total = len(candidates)
+            if total == 0:
                 return None
             now = time.monotonic()
-            for _ in range(n):
-                idx = self._cursor % n
+            for _ in range(total):
+                idx = candidates[self._cursor % total]
                 self._cursor += 1
-                if self._failed_until[idx] > now:
+                if self._failed_until.get((idx, used), 0.0) > now:
                     continue
                 if self.limit and self._active[idx] >= self.limit:
                     continue
                 self._active[idx] += 1
                 return idx
             # 全部处于并发上限：超限使用下一个未冷却的 Key，保证请求可用
-            for _ in range(n):
-                idx = self._cursor % n
+            for _ in range(total):
+                idx = candidates[self._cursor % total]
                 self._cursor += 1
-                if self._failed_until[idx] <= now:
+                if self._failed_until.get((idx, used), 0.0) <= now:
                     self._active[idx] += 1
                     return idx
             return None
 
-    def release(self, idx: int, *, success: bool) -> None:
+    def release(self, idx: int, *, success: bool, model: str = "") -> None:
         with self._lock:
             if 0 <= idx < len(self._active):
                 self._active[idx] = max(0, self._active[idx] - 1)
                 if not success:
-                    self._failed_until[idx] = time.monotonic() + self.COOLDOWN_SECONDS
+                    self._failed_until[(idx, (model or "").strip())] = time.monotonic() + self.COOLDOWN_SECONDS
 
 
 class OpenAICompatibleBackend:
@@ -182,11 +209,24 @@ class OpenAICompatibleBackend:
 
     def _key_pool(self, provider: OpenAIProviderConfig) -> _KeyPool:
         limit = provider.concurrency_per_key or 0
+        scopes = provider.key_model_scopes
         pool = self._key_pools.get(provider.name)
-        if pool is None or pool.keys != provider.api_keys or pool.limit != limit:
-            pool = _KeyPool(provider.api_keys, limit)
+        if pool is None or pool.keys != provider.api_keys or pool.limit != limit or pool.scopes != scopes:
+            pool = _KeyPool(provider.api_keys, limit, scopes)
             self._key_pools[provider.name] = pool
         return pool
+
+    @staticmethod
+    def _raise_no_key_for_model(provider: OpenAIProviderConfig, model: str) -> NoReturn:
+        """平台内没有任何 Key 被授权访问该模型：快速失败，避免逐个撞 403。"""
+        logger.warning(
+            "OpenAI-compatible 平台内无 Key 被授权访问该模型",
+            extra={"provider": provider.name, "model": model},
+        )
+        raise LLMAPIError(
+            message=f"平台「{provider.name}」没有任何 API Key 被授权访问模型 {model}",
+            errors={"detail": "no api key authorized for model", "provider": provider.name, "model": model},
+        )
 
     def _raise_no_key_available(self, last_error: Exception | None, timeout: float, base_url: str) -> NoReturn:
         if last_error is None:
@@ -429,17 +469,19 @@ class OpenAICompatibleBackend:
             return self._chat_sync_once(api_key, base_url, request_timeout, payload, used_model)
 
         pool = self._key_pool(provider)
+        if not pool.has_key_for(used_model):
+            self._raise_no_key_for_model(provider, used_model)
         last_error: Exception | None = None
         for _ in range(max(1, len(pool.keys))):
-            idx = pool.acquire()
+            idx = pool.acquire(used_model)
             if idx is None:
                 break
             try:
                 result = self._chat_sync_once(pool.keys[idx], provider.base_url, request_timeout, payload, used_model)
-                pool.release(idx, success=True)
+                pool.release(idx, success=True, model=used_model)
                 return result
             except Exception as error:
-                pool.release(idx, success=False)
+                pool.release(idx, success=False, model=used_model)
                 last_error = error
                 logger.warning(
                     "OpenAI-compatible Key 调用失败，切换下一个 Key",
@@ -505,19 +547,21 @@ class OpenAICompatibleBackend:
             return await self._chat_async_once(api_key, base_url, request_timeout, payload, used_model)
 
         pool = self._key_pool(provider)
+        if not pool.has_key_for(used_model):
+            self._raise_no_key_for_model(provider, used_model)
         last_error: Exception | None = None
         for _ in range(max(1, len(pool.keys))):
-            idx = pool.acquire()
+            idx = pool.acquire(used_model)
             if idx is None:
                 break
             try:
                 result = await self._chat_async_once(
                     pool.keys[idx], provider.base_url, request_timeout, payload, used_model
                 )
-                pool.release(idx, success=True)
+                pool.release(idx, success=True, model=used_model)
                 return result
             except Exception as error:
-                pool.release(idx, success=False)
+                pool.release(idx, success=False, model=used_model)
                 last_error = error
                 logger.warning(
                     "OpenAI-compatible Key 调用失败，切换下一个 Key",
@@ -586,15 +630,17 @@ class OpenAICompatibleBackend:
             return
 
         pool = self._key_pool(provider)
+        if not pool.has_key_for(used_model):
+            self._raise_no_key_for_model(provider, used_model)
         last_error: Exception | None = None
         for _ in range(max(1, len(pool.keys))):
-            idx = pool.acquire()
+            idx = pool.acquire(used_model)
             if idx is None:
                 break
             try:
                 stream_obj = self._create_sync_stream(pool.keys[idx], provider.base_url, request_timeout, payload)
             except Exception as error:
-                pool.release(idx, success=False)
+                pool.release(idx, success=False, model=used_model)
                 last_error = error
                 continue
             ok = False
@@ -604,7 +650,7 @@ class OpenAICompatibleBackend:
             except Exception as error:
                 self._raise_mapped_error(error, request_timeout, provider.base_url)
             finally:
-                pool.release(idx, success=ok)
+                pool.release(idx, success=ok, model=used_model)
             return
         self._raise_no_key_available(last_error, request_timeout, provider.base_url)
 
@@ -640,9 +686,11 @@ class OpenAICompatibleBackend:
             return
 
         pool = self._key_pool(provider)
+        if not pool.has_key_for(used_model):
+            self._raise_no_key_for_model(provider, used_model)
         last_error: Exception | None = None
         for _ in range(max(1, len(pool.keys))):
-            idx = pool.acquire()
+            idx = pool.acquire(used_model)
             if idx is None:
                 break
             try:
@@ -650,7 +698,7 @@ class OpenAICompatibleBackend:
                     pool.keys[idx], provider.base_url, request_timeout, payload
                 )
             except Exception as error:
-                pool.release(idx, success=False)
+                pool.release(idx, success=False, model=used_model)
                 last_error = error
                 continue
             ok = False
@@ -661,7 +709,7 @@ class OpenAICompatibleBackend:
             except Exception as error:
                 self._raise_mapped_error(error, request_timeout, provider.base_url)
             finally:
-                pool.release(idx, success=ok)
+                pool.release(idx, success=ok, model=used_model)
             return
         self._raise_no_key_available(last_error, request_timeout, provider.base_url)
 
@@ -707,17 +755,19 @@ class OpenAICompatibleBackend:
 
         if provider is not None and provider.api_keys:
             pool = self._key_pool(provider)
+            if not pool.has_key_for(used_model):
+                self._raise_no_key_for_model(provider, used_model)
             last_error: Exception | None = None
             for _ in range(max(1, len(pool.keys))):
-                idx = pool.acquire()
+                idx = pool.acquire(used_model)
                 if idx is None:
                     break
                 try:
                     result = _embed_once(pool.keys[idx])
-                    pool.release(idx, success=True)
+                    pool.release(idx, success=True, model=used_model)
                     return result
                 except Exception as error:
-                    pool.release(idx, success=False)
+                    pool.release(idx, success=False, model=used_model)
                     last_error = error
             self._raise_no_key_available(last_error, request_timeout, base_url)
         return _embed_once("")
@@ -757,17 +807,19 @@ class OpenAICompatibleBackend:
 
         if provider is not None and provider.api_keys:
             pool = self._key_pool(provider)
+            if not pool.has_key_for(used_model):
+                self._raise_no_key_for_model(provider, used_model)
             last_error: Exception | None = None
             for _ in range(max(1, len(pool.keys))):
-                idx = pool.acquire()
+                idx = pool.acquire(used_model)
                 if idx is None:
                     break
                 try:
                     result = await _aembed_once(pool.keys[idx])
-                    pool.release(idx, success=True)
+                    pool.release(idx, success=True, model=used_model)
                     return result
                 except Exception as error:
-                    pool.release(idx, success=False)
+                    pool.release(idx, success=False, model=used_model)
                     last_error = error
             self._raise_no_key_available(last_error, request_timeout, base_url)
         return await _aembed_once("")

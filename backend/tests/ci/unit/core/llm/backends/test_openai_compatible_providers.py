@@ -9,7 +9,7 @@ import pytest
 
 from apps.core.llm.backends.base import BackendConfig, OpenAIProviderConfig
 from apps.core.llm.backends.openai_compatible import OpenAICompatibleBackend, _KeyPool, _pick_provider
-from apps.core.llm.exceptions import LLMAuthenticationError
+from apps.core.llm.exceptions import LLMAPIError, LLMAuthenticationError
 
 
 def _provider(**kwargs: Any) -> OpenAIProviderConfig:
@@ -105,7 +105,75 @@ class TestKeyPool:
         pool.release(1, success=True)
 
 
+# ── Key 模型白名单（网关按 Key 授权不同模型） ────────────────────
+
+
+class TestKeyPoolModelScopes:
+    def test_scoped_key_excluded_for_other_model(self) -> None:
+        pool = _KeyPool(["k1", "k2"], scopes={"k1": ["a"]})  # pragma: allowlist secret
+        assert pool.has_key_for("a") is True
+        assert pool.acquire("a") == 0
+        pool.release(0, success=True, model="a")
+        # k1 未授权 b，只剩未限模型的 k2
+        assert pool.acquire("b") == 1
+
+    def test_unscoped_key_matches_every_model(self) -> None:
+        pool = _KeyPool(["k1", "k2"], scopes={"k1": ["a"]})  # pragma: allowlist secret
+        assert pool.has_key_for("unknown-model") is True
+
+    def test_no_authorized_key(self) -> None:
+        pool = _KeyPool(["k1"], scopes={"k1": ["a"]})  # pragma: allowlist secret
+        assert pool.has_key_for("b") is False
+        assert pool.acquire("b") is None
+
+    def test_cooldown_is_isolated_per_model(self) -> None:
+        pool = _KeyPool(["k1"])  # pragma: allowlist secret
+        assert pool.acquire("a") == 0
+        pool.release(0, success=False, model="a")
+        # a 冷却中，但同一 Key 访问 b 不受影响
+        assert pool.acquire("a") is None
+        assert pool.acquire("b") == 0
+
+    def test_empty_scope_list_is_treated_as_unrestricted(self) -> None:
+        pool = _KeyPool(["k1"], scopes={"k1": []})  # pragma: allowlist secret
+        assert pool.has_key_for("anything") is True
+
+
 # ── 多 Key 调用（sync） ──────────────────────────────────────────
+
+
+class TestChatWithModelScopes:
+    def test_only_authorized_key_is_used(self) -> None:
+        provider = _provider(
+            api_keys=["k1", "k2"],  # pragma: allowlist secret
+            key_model_scopes={"k1": ["kimi26"], "k2": ["glm53"]},
+        )
+        backend = OpenAICompatibleBackend(config=_cfg([provider]))
+        used: list[str] = []
+
+        def fake_build(api_key: str, base_url: str, timeout_seconds: float) -> MagicMock:
+            used.append(api_key)
+            mock_client = MagicMock()
+            mock_client.chat.completions.create.return_value = _mock_response("OK")
+            return mock_client
+
+        with patch.object(backend, "_build_sync_client", side_effect=fake_build):
+            result = backend.chat([{"role": "user", "content": "Hi"}], model="glm53")
+
+        assert result.content == "OK"
+        assert used == ["k2"]  # k1 未授权 glm53，直接跳过，不再撞 403
+
+    def test_chat_without_authorized_key_fails_fast(self) -> None:
+        provider = _provider(
+            api_keys=["k1"],  # pragma: allowlist secret
+            key_model_scopes={"k1": ["kimi26"]},
+        )
+        backend = OpenAICompatibleBackend(config=_cfg([provider]))
+
+        with patch.object(backend, "_build_sync_client") as mock_build:
+            with pytest.raises(LLMAPIError, match="没有任何 API Key 被授权访问模型"):
+                backend.chat([{"role": "user", "content": "Hi"}], model="glm53")
+            mock_build.assert_not_called()
 
 
 class TestChatWithProviders:
