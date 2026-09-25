@@ -214,8 +214,8 @@ class LLMProviderService:
             chat_models=cls._probe_chat_models(normalized, per_key, targets, union) if probe_chat else [],
         )
 
-    @staticmethod
-    def _fetch_models_once(url: str, *, api_key: str | None, timeout: float, index: int) -> RemoteKeyModels:
+    @classmethod
+    def _fetch_models_once(cls, url: str, *, api_key: str | None, timeout: float, index: int) -> RemoteKeyModels:
         """请求一次 ``/models`` 并解析结果；失败原因只保留状态码或异常类型。"""
         headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
         try:
@@ -256,8 +256,8 @@ class LLMProviderService:
             if cls._probe_chat_once(base_url, model_id, owner.get(model_id), probe_timeout) is not False
         ]
 
-    @staticmethod
-    def _probe_chat_once(base_url: str, model: str, api_key: str | None, timeout: float) -> bool | None:
+    @classmethod
+    def _probe_chat_once(cls, base_url: str, model: str, api_key: str | None, timeout: float) -> bool | None:
         """探测单个模型是否支持对话。
 
         Returns:
@@ -276,8 +276,8 @@ class LLMProviderService:
             return False
         return None
 
-    @staticmethod
-    def _union_models(per_key: list[RemoteKeyModels]) -> list[str]:
+    @classmethod
+    def _union_models(cls, per_key: list[RemoteKeyModels]) -> list[str]:
         """所有成功 Key 的模型并集（保序）。"""
         union: list[str] = []
         for result in per_key:
@@ -288,15 +288,13 @@ class LLMProviderService:
                     union.append(model_id)
         return union
 
-    @staticmethod
-    def _common_models(per_key: list[RemoteKeyModels]) -> list[str]:
+    @classmethod
+    def _common_models(cls, per_key: list[RemoteKeyModels]) -> list[str]:
         """所有成功 Key 都能访问的模型（交集，保序）。"""
         ok_sets = [set(result.models) for result in per_key if result.ok]
         if not ok_sets:
             return []
-        return [
-            model_id for model_id in LLMProviderService._union_models(per_key) if all(model_id in s for s in ok_sets)
-        ]
+        return [model_id for model_id in cls._union_models(per_key) if all(model_id in s for s in ok_sets)]
 
     @classmethod
     def initialize_default(cls) -> tuple[int, int]:
