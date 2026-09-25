@@ -14,7 +14,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import threading
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 from typing import Any, NoReturn
@@ -27,7 +26,7 @@ from pydantic_ai.settings import ModelSettings
 
 from apps.core.llm.backends.base import OpenAIProviderConfig
 from apps.core.llm.exceptions import LLMAPIError
-from apps.core.llm.key_pool import KeyPool
+from apps.core.llm.key_pool import KeyPool, shared_pool
 
 logger = logging.getLogger(__name__)
 
@@ -151,32 +150,26 @@ class MultiKeyOpenAIModel(WrapperModel):
         self._raise_no_key(last_error)
 
 
-# ─── 进程级 Key 池 ───────────────────────────────────────────────────────────
-
-_pool_cache: dict[tuple[Any, ...], KeyPool] = {}
-_pool_cache_lock = threading.Lock()
+# ─── Key 池与并发容量 ────────────────────────────────────────────────────────
 
 #: 平台未声明「每 Key 并发上限」时，Agent 路径沿用的默认全局并发
 DEFAULT_AGENT_CONCURRENCY = 10
 
 
 def shared_key_pool(provider: OpenAIProviderConfig) -> KeyPool:
-    """返回该平台在进程内共享的 Key 池；Key 列表 / 上限 / 白名单变化时重建。
+    """返回该平台在进程内共享的 Key 池。
 
-    ``build_model`` 是**每次请求**都会调用的，若每次都新建池，每 Key 并发上限
-    会随请求数被无限放大，等于没有限制。因此按配置内容寻址复用。
+    池注册表在 :mod:`apps.core.llm.key_pool`，**与服务路径共用同一个实例**——
+    两条路径若各记一份账，「每 Key 并发上限」会被放大成两倍而顶穿网关限额。
+    同时 ``build_model`` 是每次请求都会调用的，池按配置内容寻址复用，
+    否则上限会随请求数无限放大。
     """
-    scope_key = tuple(sorted((key, tuple(models)) for key, models in provider.key_model_scopes.items()))
-    cache_key = (provider.name, tuple(provider.api_keys), int(provider.concurrency_per_key or 0), scope_key)
-    with _pool_cache_lock:
-        pool = _pool_cache.get(cache_key)
-        if pool is None:
-            # 同平台的旧配置池已失效，顺手清掉，避免长期堆积
-            for stale in [k for k in _pool_cache if k[0] == provider.name]:
-                del _pool_cache[stale]
-            pool = KeyPool(provider.api_keys, provider.concurrency_per_key, provider.key_model_scopes)
-            _pool_cache[cache_key] = pool
-        return pool
+    return shared_pool(
+        provider.name,
+        provider.api_keys,
+        provider.concurrency_per_key,
+        provider.key_model_scopes,
+    )
 
 
 def agent_concurrency_capacity(provider: OpenAIProviderConfig | None) -> int:

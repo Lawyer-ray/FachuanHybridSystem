@@ -259,6 +259,30 @@ class TestSharedKeyPool:
 
         assert shared_key_pool(provider).active_counts == [1]
 
+    def test_service_path_and_agent_path_share_one_pool(self) -> None:
+        """两条路径必须拿到同一个池，否则每 Key 并发上限会被放大成两倍。"""
+        from apps.core.llm.backends.base import BackendConfig
+        from apps.core.llm.backends.openai_compatible import OpenAICompatibleBackend
+
+        provider = OpenAIProviderConfig(name="pool-cross-path", api_keys=["a"], concurrency_per_key=1)
+        config = BackendConfig(
+            name="oai",
+            enabled=True,
+            priority=1,
+            default_model="m",
+            providers=[provider],
+        )
+        backend = OpenAICompatibleBackend(config=config)
+
+        # _key_pool 是「哪条路径取哪个池」的接缝，正是本用例要验证的点
+        assert backend._key_pool(provider) is shared_key_pool(provider)
+
+    def test_shared_pool_registry_is_reset_between_tests(self) -> None:
+        """conftest 的 autouse fixture 必须让每个用例从空注册表开始。"""
+        provider = OpenAIProviderConfig(name="pool-fresh", api_keys=["a"], concurrency_per_key=1)
+
+        assert shared_key_pool(provider).active_counts == [0]
+
 
 class TestAgentConcurrencyCapacity:
     @pytest.mark.parametrize(

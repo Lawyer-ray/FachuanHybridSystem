@@ -13,6 +13,7 @@ import openai
 from apps.core.llm.config import LLMConfig
 from apps.core.llm.exceptions import LLMAPIError, LLMAuthenticationError, LLMError, LLMNetworkError, LLMTimeoutError
 from apps.core.llm.key_pool import KeyPool as _KeyPool
+from apps.core.llm.key_pool import shared_pool
 
 from .base import BackendConfig, ILLMBackend, LLMResponse, LLMStreamChunk, LLMUsage, OpenAIProviderConfig
 
@@ -66,7 +67,6 @@ class OpenAICompatibleBackend:
         # async 按 (事件循环, api_key, base_url, timeout) 复用
         self._sync_clients: dict[tuple[str, str, float], openai.OpenAI] = {}
         self._async_clients: dict[tuple[int, str, str, float], openai.AsyncOpenAI] = {}
-        self._key_pools: dict[str, _KeyPool] = {}
 
     # ── 配置属性 ─────────────────────────────────────────────────────────────
 
@@ -136,13 +136,12 @@ class OpenAICompatibleBackend:
         return self.base_url, self.api_key
 
     def _key_pool(self, provider: OpenAIProviderConfig) -> _KeyPool:
-        limit = provider.concurrency_per_key or 0
-        scopes = provider.key_model_scopes
-        pool = self._key_pools.get(provider.name)
-        if pool is None or pool.keys != provider.api_keys or pool.limit != limit or pool.scopes != scopes:
-            pool = _KeyPool(provider.api_keys, limit, scopes)
-            self._key_pools[provider.name] = pool
-        return pool
+        """取该平台的 Key 池。
+
+        池是**进程级**的（按配置内容寻址），与 Agent 路径共用同一个实例，
+        否则两条路径各自记账，「每 Key 并发上限」会被放大成两倍。
+        """
+        return shared_pool(provider.name, provider.api_keys, provider.concurrency_per_key, provider.key_model_scopes)
 
     @staticmethod
     def _raise_no_key_for_model(provider: OpenAIProviderConfig, model: str) -> NoReturn:

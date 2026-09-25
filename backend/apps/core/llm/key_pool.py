@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import threading
 import time
+from typing import Any
 
 
 class KeyPool:
@@ -93,3 +94,59 @@ class KeyPool:
         """各 Key 当前占用的槽位数（只读快照，供日志与监控观察池饱和度）。"""
         with self._lock:
             return list(self._active)
+
+
+# ─── 进程级池注册表 ──────────────────────────────────────────────────────────
+
+_shared_pools: dict[tuple[Any, ...], KeyPool] = {}
+_shared_pools_lock = threading.Lock()
+
+
+def _pool_cache_key(
+    name: str,
+    keys: list[str],
+    concurrency_per_key: int,
+    scopes: dict[str, list[str]] | None,
+) -> tuple[Any, ...]:
+    """池的内容寻址键：配置变了就换池，配置没变就复用同一个池。"""
+    return (
+        name,
+        tuple(keys),
+        max(0, int(concurrency_per_key or 0)),
+        tuple(sorted((key, tuple(models)) for key, models in (scopes or {}).items())),
+    )
+
+
+def shared_pool(
+    name: str,
+    keys: list[str],
+    concurrency_per_key: int = 0,
+    scopes: dict[str, list[str]] | None = None,
+) -> KeyPool:
+    """返回进程内共享的 Key 池，按配置内容寻址。
+
+    **两条路径必须共用同一个池**：服务路径与 Agent 路径若各持一份，
+    「每 Key 并发上限」会被放大成两倍，直接顶穿网关限额。同时 Agent 路径的
+    ``build_model`` 是每请求调用一次，若每次新建池，上限会随请求数无限放大。
+
+    同平台的旧配置池在重建时一并清理，避免反复调整配置时堆积。
+    """
+    cache_key = _pool_cache_key(name, keys, concurrency_per_key, scopes)
+    with _shared_pools_lock:
+        pool = _shared_pools.get(cache_key)
+        if pool is None:
+            for stale in [k for k in _shared_pools if k[0] == name]:
+                del _shared_pools[stale]
+            pool = KeyPool(keys, concurrency_per_key, scopes)
+            _shared_pools[cache_key] = pool
+        return pool
+
+
+def reset_shared_pools() -> None:
+    """清空进程级池注册表。
+
+    仅供测试在用例间隔离失败冷却与在途计数——池是跨用例共享的进程级状态，
+    前一个用例把 ``(Key, 模型)`` 打进 30 秒冷却后，后一个用例会选不到该 Key。
+    """
+    with _shared_pools_lock:
+        _shared_pools.clear()

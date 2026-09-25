@@ -99,6 +99,20 @@ class TestFetchModelsViewGuards:
         assert response.status_code == 400
         assert response.json()["error"] == "请先填写 API 地址"
 
+    @pytest.mark.django_db
+    def test_malformed_json_body_is_tolerated(
+        self, client: Any, provider: LLMProvider, admin_user: Any
+    ) -> None:
+        """非法 JSON 视为空 payload，缺 base_url 时返回 400 而非 500。"""
+        provider.base_url = ""
+        provider.save(update_fields=["base_url"])
+        client.force_login(admin_user)
+
+        response = client.post(_url(provider), data=b"{not-json", content_type="application/json")
+
+        assert response.status_code == 400
+        assert response.json()["error"] == "请先填写 API 地址"
+
 
 class TestFetchModelsPayload:
     """入参解析与响应结构。"""
@@ -200,6 +214,28 @@ class TestFetchModelsPayload:
             {"index": 1, "ok": True, "models": ["kimi-2.6"], "error": ""},
             {"index": 2, "ok": False, "models": [], "error": "HTTP 403"},
         ]
+
+    @pytest.mark.django_db
+    def test_all_keys_failed_reports_not_ok(
+        self, client: Any, provider: LLMProvider, admin_user: Any, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """全部 Key 失败时整体 ok 为 False，且逐个 Key 的错误原样透出。"""
+        result = _fake_result(
+            per_key=[RemoteKeyModels(index=1, ok=False, error="HTTP 403")],
+            models=[],
+            common_models=[],
+            chat_models=[],
+        )
+        monkeypatch.setattr(LLMProviderService, "fetch_remote_models", classmethod(lambda cls, *a, **k: result))
+        client.force_login(admin_user)
+
+        response = client.post(_url(provider), data="{}", content_type="application/json")
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["ok"] is False
+        assert body["models"] == []
+        assert body["per_key"] == [{"index": 1, "ok": False, "models": [], "error": "HTTP 403"}]
 
 
 class TestParseFlag:
