@@ -35,6 +35,7 @@ from apps.core.llm.config import LLMConfig
 
 from .approval import HIGH_RISK_TOOLS, approval_manager, process_tool_call_with_approval
 from .deps import WorkbenchDeps
+from .multi_key_model import DEFAULT_AGENT_CONCURRENCY, MultiKeyOpenAIModel, agent_concurrency_capacity, shared_key_pool
 
 logger = logging.getLogger(__name__)
 
@@ -157,9 +158,6 @@ async def _process_tool_call(ctx: Any, call_tool: Any, name: str, tool_args: dic
 
 # ─── Model 构建 ──────────────────────────────────────────────────────────────
 
-# 全局并发限制器（所有模型共享，防止压爆 LLM provider rate limit）
-_model_limiter = ConcurrencyLimiter(max_running=10, max_queued=20)
-
 # HTTP 重试配置：429/500/503 自动重试，尊重 Retry-After header
 _retry_config: RetryConfig = {
     "wait": wait_retry_after(),
@@ -168,8 +166,58 @@ _retry_config: RetryConfig = {
     "reraise": True,
 }
 
+# 全局并发限制器（所有模型共享，防止压爆 LLM provider rate limit）。
+# 容量随平台配置（Key 数 × 每 Key 上限）变化时重建，见 _get_model_limiter。
+_model_limiter: ConcurrencyLimiter | None = None
+_model_limiter_capacity: int | None = None
 
-def build_model(model_name: str) -> OpenAIChatModel:
+
+def _get_model_limiter(capacity: int) -> ConcurrencyLimiter:
+    """返回全局并发限制器，容量变化时重建。
+
+    容量取「Key 数 × 每 Key 上限」，与 Key 池的实际吞吐对齐；再往上加并发只会
+    触发 Key 池的超限兜底（用延迟换成功率），卡在容量点排队更划算。
+
+    重建只影响后续 ``build_model`` 调用拿到的限制器，已经在跑的请求仍持有旧实例，
+    因此不会打断进行中的会话。
+    """
+    global _model_limiter, _model_limiter_capacity
+    if _model_limiter is None or _model_limiter_capacity != capacity:
+        _model_limiter = ConcurrencyLimiter(max_running=capacity, max_queued=20)
+        _model_limiter_capacity = capacity
+        logger.info("Agent 模型并发上限设为 %s", capacity)
+    return _model_limiter
+
+
+def _build_http_client() -> httpx2.AsyncClient:
+    """创建带重试的 HTTP 客户端（同一平台的多 Key 共用，避免连接池翻倍）。"""
+    client = httpx2.AsyncClient(
+        transport=AsyncHTTPX2TenacityTransport(config=_retry_config),
+    )
+    _active_http_clients.append(client)
+    return client
+
+
+def _build_openai_model(
+    model_name: str,
+    base_url: str,
+    api_key: str,
+    http_client: httpx2.AsyncClient,
+) -> OpenAIChatModel:
+    return OpenAIChatModel(
+        model_name,
+        provider=OpenAIProvider(
+            base_url=base_url,
+            api_key=api_key,
+            http_client=http_client,
+        ),
+        profile=OpenAIModelProfile(
+            openai_supports_strict_tool_definition=False,
+        ),
+    )
+
+
+def build_model(model_name: str) -> Model:
     """根据模型名动态构建 Pydantic AI Model
 
     复用已有的 LLMConfig 后端路由逻辑：
@@ -178,40 +226,50 @@ def build_model(model_name: str) -> OpenAIChatModel:
 
     自动附加：
     - HTTP 重试（429/500/503，最多 3 次，尊重 Retry-After）
-    - 并发限制（最多 10 个并发请求）
+    - 并发限制（容量 = Key 数 × 每 Key 并发上限）
+
+    OpenAI-compatible 平台下按模型名解析平台配置，并为每个 Key 各建一个模型，
+    由 ``MultiKeyOpenAIModel`` 轮询——这样网关的「每 Key 并发上限」才能真正用上。
     """
     backend = LLMConfig.resolve_backend_for_model(model_name)
 
     if backend == "ollama":
-        base_url = LLMConfig.get_ollama_base_url()
-        api_key = "ollama"  # pragma: allowlist secret
-    else:
-        # 默认 openai_compatible
+        model = _build_openai_model(
+            model_name,
+            LLMConfig.get_ollama_base_url(),
+            "ollama",  # pragma: allowlist secret
+            _build_http_client(),
+        )
+        return limit_model_concurrency(model, _get_model_limiter(DEFAULT_AGENT_CONCURRENCY))
+
+    provider = LLMConfig.get_openai_compatible_provider(model_name)
+    if provider is None or not provider.api_keys:
+        # 未配置平台（或平台无 Key）：沿用单 Key 配置，兼容本地免鉴权 vLLM
         api_key = LLMConfig.get_openai_compatible_api_key()
-        base_url = LLMConfig.get_openai_compatible_base_url()
+        if not api_key:
+            logger.warning("LLM API Key 未配置，backend=%s", backend)
+        model = _build_openai_model(
+            model_name,
+            LLMConfig.get_openai_compatible_base_url(),
+            api_key or "ollama",  # pragma: allowlist secret
+            _build_http_client(),
+        )
+        return limit_model_concurrency(model, _get_model_limiter(DEFAULT_AGENT_CONCURRENCY))
 
-    if backend != "ollama" and not api_key:
-        logger.warning("LLM API Key 未配置，backend=%s", backend)
+    pool = shared_key_pool(provider)
+    if not pool.has_key_for(model_name):
+        logger.warning(
+            "平台「%s」没有 API Key 被授权访问模型 %s，Agent 调用将直接失败",
+            provider.name,
+            model_name,
+        )
 
-    # 带重试的 HTTP 客户端
-    http_client = httpx2.AsyncClient(
-        transport=AsyncHTTPX2TenacityTransport(config=_retry_config),
-    )
-    _active_http_clients.append(http_client)
-
-    model = OpenAIChatModel(
-        model_name,
-        provider=OpenAIProvider(
-            base_url=base_url,
-            api_key=api_key or "ollama",
-            http_client=http_client,
-        ),
-        profile=OpenAIModelProfile(
-            openai_supports_strict_tool_definition=False,
-        ),
-    )
-
-    return limit_model_concurrency(model, _model_limiter)  # type: ignore[return-value]
+    http_client = _build_http_client()
+    keyed_models: list[Model] = [
+        _build_openai_model(model_name, provider.base_url, key, http_client) for key in provider.api_keys
+    ]
+    rotating: Model = MultiKeyOpenAIModel(keyed_models, pool, model_name)
+    return limit_model_concurrency(rotating, _get_model_limiter(agent_concurrency_capacity(provider)))
 
 
 # ─── MCP Server（共享实例，带审批回调） ───────────────────────────────────────

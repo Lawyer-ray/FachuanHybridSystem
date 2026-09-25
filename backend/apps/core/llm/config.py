@@ -381,6 +381,25 @@ class LLMConfig:
         return ""
 
     @classmethod
+    def get_openai_compatible_provider(cls, model: str = "") -> OpenAIProviderConfig | None:
+        """按模型名解析负责该模型的 AI 平台配置；无可用平台时返回 None。
+
+        复用后端层的 ``_pick_provider``，使 Agent 路径与服务路径选中同一平台
+        （否则按模型声明了不同 ``base_url`` 的平台时，两条路径会打到不同网关）。
+        未匹配到任何平台声明的模型时回落到优先级最高的启用平台。
+
+        Args:
+            model: 模型名称；为空时直接取优先级最高的启用平台。
+
+        Returns:
+            平台配置（含 ``api_keys`` / ``key_model_scopes`` / ``concurrency_per_key``）。
+        """
+        # 局部导入：config 被 backends 反向依赖，模块级导入会形成循环。
+        from apps.core.llm.backends.openai_compatible import _pick_provider
+
+        return _pick_provider(cls._get_llm_providers(), model)
+
+    @classmethod
     def get_openai_compatible_model(cls) -> str:
         provider = cls._get_primary_provider()
         if provider is not None and provider.default_model:

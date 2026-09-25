@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-import threading
 import time
 from collections.abc import AsyncIterator, Iterator
 from typing import TYPE_CHECKING, Any, NoReturn
@@ -13,6 +12,7 @@ import openai
 
 from apps.core.llm.config import LLMConfig
 from apps.core.llm.exceptions import LLMAPIError, LLMAuthenticationError, LLMError, LLMNetworkError, LLMTimeoutError
+from apps.core.llm.key_pool import KeyPool as _KeyPool
 
 from .base import BackendConfig, ILLMBackend, LLMResponse, LLMStreamChunk, LLMUsage, OpenAIProviderConfig
 
@@ -45,78 +45,6 @@ def _pick_provider(providers: list[OpenAIProviderConfig], model: str) -> OpenAIP
         extra={"model": used, "fallback_provider": fallback.name},
     )
     return fallback
-
-
-class _KeyPool:
-    """单平台多 Key 槽位管理：按模型过滤候选、轮询分配、每 Key 并发上限、失败冷却。
-
-    - 并发上限为 0 表示不限制；
-    - 全部候选 Key 处于并发上限时超限使用（保证请求可用）；
-    - 失败后的 ``(Key, 模型)`` 组合进入 30 秒冷却。冷却**按组合而非按 Key** 记账，
-      避免某模型的无权限 403 误伤同一 Key 对其他模型的正常请求；
-    - ``scopes`` 为 ``{key: [model, ...]}``，未出现的 Key 表示不限模型。
-    """
-
-    COOLDOWN_SECONDS = 30.0
-
-    def __init__(
-        self,
-        keys: list[str],
-        concurrency_per_key: int = 0,
-        scopes: dict[str, list[str]] | None = None,
-    ) -> None:
-        self.keys = list(keys)
-        self.limit = max(0, int(concurrency_per_key or 0))
-        self.scopes: dict[str, list[str]] = {key: list(models) for key, models in (scopes or {}).items()}
-        self._active = [0] * len(self.keys)
-        self._failed_until: dict[tuple[int, str], float] = {}
-        self._cursor = 0
-        self._lock = threading.Lock()
-
-    def _eligible(self, model: str) -> list[int]:
-        """返回可用于该模型的 Key 下标（未声明白名单的 Key 视为不限模型）。"""
-        used = (model or "").strip()
-        if not used:
-            return list(range(len(self.keys)))
-        return [i for i, key in enumerate(self.keys) if not self.scopes.get(key) or used in self.scopes[key]]
-
-    def has_key_for(self, model: str = "") -> bool:
-        """是否存在可用于该模型的 Key（不校验并发与冷却状态）。"""
-        return bool(self._eligible(model))
-
-    def acquire(self, model: str = "") -> int | None:
-        """在可用于该模型的 Key 中选中一个下标并占用；无候选或全部冷却时返回 None。"""
-        used = (model or "").strip()
-        with self._lock:
-            candidates = self._eligible(used)
-            total = len(candidates)
-            if total == 0:
-                return None
-            now = time.monotonic()
-            for _ in range(total):
-                idx = candidates[self._cursor % total]
-                self._cursor += 1
-                if self._failed_until.get((idx, used), 0.0) > now:
-                    continue
-                if self.limit and self._active[idx] >= self.limit:
-                    continue
-                self._active[idx] += 1
-                return idx
-            # 全部处于并发上限：超限使用下一个未冷却的 Key，保证请求可用
-            for _ in range(total):
-                idx = candidates[self._cursor % total]
-                self._cursor += 1
-                if self._failed_until.get((idx, used), 0.0) <= now:
-                    self._active[idx] += 1
-                    return idx
-            return None
-
-    def release(self, idx: int, *, success: bool, model: str = "") -> None:
-        with self._lock:
-            if 0 <= idx < len(self._active):
-                self._active[idx] = max(0, self._active[idx] - 1)
-                if not success:
-                    self._failed_until[(idx, (model or "").strip())] = time.monotonic() + self.COOLDOWN_SECONDS
 
 
 class OpenAICompatibleBackend:
