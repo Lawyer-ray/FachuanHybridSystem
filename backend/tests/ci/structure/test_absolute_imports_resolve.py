@@ -28,6 +28,25 @@ Deliberate scope decisions (each verified against the real tree)
   且会被 ``X as Y`` 别名、``__all__`` re-export 等情况误伤（本守卫开发过程中
   就因别名产生过 3 个假阳性）。
 * 迁移目录（``migrations/``）不扫描——历史迁移按设计引用当时的模型状态。
+
+Performance note (2026-09-25)
+----------------------------
+守卫在 ~2260 个文件上原本耗时 33s+，已逼近 ``pytest-timeout`` 的 30s
+预算并开始间歇性超时（本地两次 CI 一次过、一次挂）。profiling 显示两处
+热点，均已修掉：
+
+1. **每个 import 都重扫整棵树**（占 50s / 93s）：原 ``_in_type_checking``
+   对每个 ``ImportFrom`` 节点都 ``ast.walk`` 整棵树，还要对每个 ``If``
+   节点 ``ast.dump`` 一次测试表达式。改为 ``_iter_target_imports`` 的
+   **单趟遍历**，遍历时携带 "是否在 TYPE_CHECKING 块内" 标记。
+2. **``find_spec`` 重复解析同一模块**（占 25s+）：同一 ``apps.*`` 模块在
+   全仓库被成百上千处导入，而 ``find_spec`` 会真正 import 父包、执行
+   ``__init__``。改为先去重收集模块名、只解析一次（实测 distinct 解析
+   仅 5.8s），结果按模块名 memoize。
+
+修复后本用例从 33.7s 降到 10.3s。守卫语义未变：已通过「新旧实现在真实
+代码树上逐条比对一致」「注入坏 import（含函数体懒导入）仍能被抓」
+两项验证。
 """
 
 from __future__ import annotations
@@ -77,21 +96,49 @@ def _plugins_available() -> bool:
     if type(spec.loader).__name__ == "NamespaceLoader":
         return False
     # 真正的包必然有 __init__.py
-    return bool(spec.submodule_search_locations) and any(
-        (Path(loc) / "__init__.py").exists() for loc in spec.submodule_search_locations
-    )
+    locations = spec.submodule_search_locations
+    return bool(locations) and any((Path(loc) / "__init__.py").exists() for loc in locations or [])
 
 
-def _in_type_checking(node: ast.AST, tree: ast.AST) -> bool:
-    """判断 import 节点是否位于 ``if TYPE_CHECKING:`` 块内。"""
-    for parent in ast.walk(tree):
-        if not isinstance(parent, ast.If):
-            continue
-        if "TYPE_CHECKING" not in ast.dump(parent.test):
-            continue
-        if any(child is node for child in ast.walk(parent)):
-            return True
+def _is_type_checking_test(node: ast.AST) -> bool:
+    """判断 ``if X:`` 的条件是否是 ``TYPE_CHECKING``。
+
+    原来用 ``ast.dump(parent.test)`` 找 "TYPE_CHECKING" 子串，每个 If 节点都要
+    序列化一遍整棵测试表达式子树；改成只认三种真实写法（``TYPE_CHECKING``、
+    ``typing.TYPE_CHECKING``、``T.TYPE_CHECKING``），省掉那趟序列化。
+    """
+    if isinstance(node, ast.Name):
+        return node.id == "TYPE_CHECKING"
+    if isinstance(node, ast.Attribute):
+        return node.attr == "TYPE_CHECKING"
+    if isinstance(node, ast.Call):
+        return _is_type_checking_test(node.func)
     return False
+
+
+def _iter_target_imports(tree: ast.AST) -> list[ast.ImportFrom]:
+    """单次遍历取「需要检查的绝对 apps.* / plugins.* 导入」，跳过 TYPE_CHECKING 块。
+
+    这是守卫性能的核心：**只走一趟 AST**。原来对每个 import 节点都调一次
+    ``_in_type_checking``，而它内部又把整棵树走一遍再 ``ast.dump`` 每个 If——
+    于是每棵文件的成本是 O(imports × nodes)。实测这一项在原实现里占了
+    50s / 93s，是超时的第一主因。
+    """
+    found: list[ast.ImportFrom] = []
+    todo: list[tuple[ast.AST, bool]] = [(tree, False)]
+    while todo:
+        node, type_checking = todo.pop()
+        if not type_checking and isinstance(node, ast.If) and _is_type_checking_test(node.test):
+            # 整个 if 块（含 elif/else 子树）都是仅类型注解，不入栈检查
+            type_checking = True
+        if not type_checking and isinstance(node, ast.ImportFrom):
+            module = node.module
+            # 只看绝对导入；相对导入的 module 不是可解析路径
+            if module and module.startswith(_SCAN_ROOTS):
+                found.append(node)
+        for child in ast.iter_child_nodes(node):
+            todo.append((child, type_checking))
+    return found
 
 
 def _iter_python_files() -> list[Path]:
@@ -107,40 +154,58 @@ def _iter_python_files() -> list[Path]:
     return files
 
 
+# 按模块名 memoize find_spec 结果：全仓库 ~2260 个文件里同一个 apps.* 模块被
+# 成百上千处重复导入，而 find_spec 对「父包不存在」的路径会逐级重走 import
+# machinery，实测去重前后差 4 倍以上（这是超时的第二主因）。
+_MODULE_EXISTS_CACHE: dict[str, bool] = {}
+
+
 def _module_exists(module: str) -> bool:
     """问解释器这模块是否真的存在。find_spec 可能抛异常（坏父包），一律算不存在。"""
-    try:
-        return importlib.util.find_spec(module) is not None
-    except (ImportError, AttributeError, ValueError):
-        return False
+    cached = _MODULE_EXISTS_CACHE.get(module)
+    if cached is None:
+        try:
+            cached = importlib.util.find_spec(module) is not None
+        except (ImportError, AttributeError, ValueError):
+            cached = False
+        _MODULE_EXISTS_CACHE[module] = cached
+    return cached
 
 
 def _collect_unresolvable() -> list[tuple[str, int, str]]:
-    """返回 (相对路径, 行号, 模块名) 列表：绝对导入但模块不存在的。"""
+    """返回 (相对路径, 行号, 模块名) 列表：绝对导入但模块不存在的。
+
+    分两步：先扫 AST 收集**候选导入**与「去重后的模块名集合」，
+    再只对这些去重模块做一次 ``find_spec``。AST 是纯内存操作、
+    可重复走；``find_spec`` 会真正触发 import machinery（import 父包、
+    读 ``__init__``），必须把重复调用降到最低。
+    """
     importlib.invalidate_caches()
+    _MODULE_EXISTS_CACHE.clear()
     check_plugins = _plugins_available()
-    violations: list[tuple[str, int, str]] = []
+
+    # (相对路径, 行号, 模块名) 与去重模块集合
+    candidates: list[tuple[str, int, str]] = []
+    modules: set[str] = set()
     for py in _iter_python_files():
         try:
             tree = ast.parse(py.read_text(encoding="utf-8"))
         except (SyntaxError, UnicodeDecodeError, OSError):
             continue
-        for node in ast.walk(tree):
-            if not isinstance(node, ast.ImportFrom) or not node.module:
-                continue
-            # 只看绝对导入；相对导入的 module 不是可解析路径
-            if not node.module.startswith(_SCAN_ROOTS):
-                continue
+        for node in _iter_target_imports(tree):
+            module = node.module
+            assert module is not None  # _iter_target_imports 已过滤空 module
             # plugins 子模块未初始化（如 CI）时，plugins.* 一律不可解析，属环境差异
             # 覆盖 "plugins" 与 "plugins.xxx" 两种写法
-            if not check_plugins and (node.module == "plugins" or node.module.startswith("plugins.")):
+            if not check_plugins and (module == "plugins" or module.startswith("plugins.")):
                 continue
-            if _in_type_checking(node, tree):
-                continue
-            if not _module_exists(node.module):
-                rel = py.relative_to(_BACKEND_ROOT)
-                violations.append((str(rel), node.lineno, node.module))
-    return sorted(violations)
+            candidates.append((str(py.relative_to(_BACKEND_ROOT)), node.lineno, module))
+            modules.add(module)
+
+    for module in modules:
+        _module_exists(module)
+
+    return sorted((rel, lineno, module) for rel, lineno, module in candidates if not _module_exists(module))
 
 
 def test_absolute_app_imports_resolve() -> None:
@@ -176,16 +241,7 @@ if TYPE_CHECKING:
     from apps.also_not_real.type_only import Hint          # 应跳过
 """
     tree = ast.parse(sample)
-    caught: list[str] = []
-    for node in ast.walk(tree):
-        if not isinstance(node, ast.ImportFrom) or not node.module:
-            continue
-        if not node.module.startswith(_SCAN_ROOTS):
-            continue
-        if _in_type_checking(node, tree):
-            continue
-        if not _module_exists(node.module):
-            caught.append(node.module)
+    caught = [node.module for node in _iter_target_imports(tree) if node.module and not _module_exists(node.module)]
 
     assert caught == ["apps.definitely_not_a_real_pkg.xxx"], f"守卫自检失败：应只抓到 1 个坏 import，实得 {caught}"
 
