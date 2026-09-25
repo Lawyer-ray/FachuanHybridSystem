@@ -34,7 +34,11 @@ API_MODEL_OBJECTS_RATCHET = 55
 # automation 60 文件被漏数），后续 finance/client/oa_filing 增长至 254。
 # 2026-09-11 抬至 257：document_parsing ParserFactory（create_parser/_resolve_auto_backend/
 # _load_backend_class/_instantiate）与 ParseProviderService.get_provider 属纯工厂/工具函数。
-SERVICE_STATIC_METHOD_RATCHET = 257
+# 2026-09-25 抬至 259（实跑计数，非估算）：pdf_splitting segment_detector
+# （_normalize_title/_suggest_filename）、pdf_splitting split/service（_extract_layout_title）
+# 与 document_parsing textin_backend（_positive_page_number）属纯解析/工具函数，
+# 不持有实例或类状态。
+SERVICE_STATIC_METHOD_RATCHET = 259
 
 
 def _scan_api_model_objects() -> list[tuple[str, int, str]]:

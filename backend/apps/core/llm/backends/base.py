@@ -96,6 +96,8 @@ class OpenAIProviderConfig:
         name: 平台名称
         base_url: API 基础 URL
         api_keys: API Key 列表（可为空，表示无需鉴权）
+        key_model_scopes: 每个 Key 的模型白名单 ``{key: [model, ...]}``；
+            未出现的 Key 表示不限模型（网关按 Key 授权不同模型时使用）
         default_model: 默认模型名称
         extra_models: 该平台提供的其他模型列表
         embedding_model: 向量模型名称
@@ -108,6 +110,7 @@ class OpenAIProviderConfig:
     name: str
     base_url: str = ""
     api_keys: list[str] = field(default_factory=list)
+    key_model_scopes: dict[str, list[str]] = field(default_factory=dict)
     default_model: str = ""
     extra_models: list[str] = field(default_factory=list)
     embedding_model: str = ""
@@ -125,6 +128,26 @@ class OpenAIProviderConfig:
             if mid and mid not in seen:
                 seen.append(mid)
         return seen
+
+    def models_for_key(self, key: str) -> list[str]:
+        """返回该 Key 的模型白名单；空列表表示不限模型。"""
+        return list(self.key_model_scopes.get(key, []))
+
+    def keys_for_model(self, model: str) -> list[str]:
+        """返回可用于指定模型的 Key 列表（按 ``api_keys`` 原顺序）。
+
+        Args:
+            model: 目标模型名；为空表示不限定模型，返回全部 Key。
+
+        Returns:
+            可用的 Key 列表；白名单不含该模型且未声明「不限」的 Key 会被排除。
+        """
+        used = (model or "").strip()
+        if not used:
+            return list(self.api_keys)
+        return [
+            key for key in self.api_keys if not self.key_model_scopes.get(key) or used in self.key_model_scopes[key]
+        ]
 
 
 @runtime_checkable

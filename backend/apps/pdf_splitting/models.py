@@ -43,6 +43,13 @@ class PdfSplitSegmentType(models.TextChoices):
     AUTHORIZATION_MATERIALS = "authorization_materials", "授权委托材料"
     DELIVERY_ADDRESS_CONFIRMATION = "delivery_address_confirmation", "送达地址确认书"
     REFUND_ACCOUNT_CONFIRMATION = "refund_account_confirmation", "诉讼费用退费账户确认书"
+    LOAN_CONTRACT = "loan_contract", "借款合同"
+    LOAN_DISBURSEMENT_RECORD = "loan_disbursement_record", "放款凭证"
+    BANK_STATEMENT = "bank_statement", "银行流水"
+    INTEREST_CALCULATION = "interest_calculation", "利息计算表"
+    DELIVERY_NOTE = "delivery_note", "送货单"
+    GOODS_RECEIPT = "goods_receipt", "收货单"
+    INVOICE = "invoice", "发票"
     UNRECOGNIZED = "unrecognized", "未识别材料"
 
 

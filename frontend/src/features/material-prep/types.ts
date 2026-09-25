@@ -28,6 +28,19 @@ export interface Segment {
   refs: PageKey[]
   manual: boolean
   done?: boolean
+  reviewFlag?: string
+  confidence?: number
+}
+
+/** 后端 PDF 拆分接口返回的页段候选。 */
+export interface PdfSplitSegmentSuggestion {
+  page_start: number
+  page_end: number
+  segment_type: string
+  segment_label: string
+  filename: string
+  confidence: number
+  review_flag: string
 }
 
 /** 标来源：页码（可选框选矩形，归一化 0-1） */

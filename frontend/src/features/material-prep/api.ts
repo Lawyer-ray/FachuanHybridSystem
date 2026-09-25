@@ -18,6 +18,39 @@ export const inboxApi = createApiClient({ prefix: '/api/v1/inbox' })
 
 /** 客户/当事人检索（/api/v1/client/parties/search，精简字段，兼容证件档案为空的客户） */
 export const clientApi = createApiClient({ prefix: '/api/v1/client' })
+const pdfSplitApi = createApiClient({ prefix: '/api/v1/pdf-splitting' })
+
+export interface PdfSplitSegmentSuggestion {
+  page_start: number
+  page_end: number
+  segment_type: string
+  segment_label: string
+  filename: string
+  confidence: number
+  review_flag: string
+}
+
+interface PdfSplitJobPayload {
+  job_id: string
+  status: string
+  progress: number
+  segments: PdfSplitSegmentSuggestion[]
+  error_message: string
+}
+
+export async function createPdfSplitJob(file: File): Promise<string> {
+  const body = new FormData()
+  body.append('file', file, file.name)
+  body.append('template_key', 'filing_materials_v1')
+  body.append('split_mode', 'content_analysis')
+  body.append('ocr_profile', 'accurate')
+  const result = await pdfSplitApi.post('jobs', { body }).json<{ job_id: string }>()
+  return result.job_id
+}
+
+export async function getPdfSplitJob(jobId: string): Promise<PdfSplitJobPayload> {
+  return pdfSplitApi.get(`jobs/${jobId}`).json<PdfSplitJobPayload>()
+}
 
 /**
  * 按关键字模糊检索当事人。

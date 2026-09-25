@@ -79,10 +79,7 @@ class TestContextVars:
         assert _current_user_id.get() == 42
 
     def test_set_event_queue_none(self):
-        from apps.workbench.agents.definitions import (
-            _current_event_queue,
-            set_event_queue,
-        )
+        from apps.workbench.agents.definitions import _current_event_queue, set_event_queue
 
         set_event_queue(None)
         assert _current_event_queue.get() is None
@@ -162,8 +159,8 @@ class TestProcessToolCall:
     @pytest.mark.asyncio
     async def test_with_queue_and_handoff(self):
         from apps.workbench.agents.definitions import (
-            _current_event_queue,
             _current_agent_name,
+            _current_event_queue,
             _current_user_id,
             _process_tool_call,
             set_event_queue,
@@ -194,11 +191,7 @@ class TestProcessToolCall:
 
     @pytest.mark.asyncio
     async def test_non_handoff_tool_no_handoff_event(self):
-        from apps.workbench.agents.definitions import (
-            _current_event_queue,
-            _process_tool_call,
-            set_event_queue,
-        )
+        from apps.workbench.agents.definitions import _current_event_queue, _process_tool_call, set_event_queue
 
         queue = asyncio.Queue()
         set_event_queue(queue, agent_name="triage", user_id=1)
@@ -234,24 +227,14 @@ class TestModuleConstants:
 
 class TestAgentInstances:
     def test_agents_are_created(self):
-        from apps.workbench.agents.definitions import (
-            case_agent,
-            contract_agent,
-            research_agent,
-            triage_agent,
-        )
+        from apps.workbench.agents.definitions import case_agent, contract_agent, research_agent, triage_agent
         assert case_agent is not None
         assert contract_agent is not None
         assert research_agent is not None
         assert triage_agent is not None
 
     def test_agent_names(self):
-        from apps.workbench.agents.definitions import (
-            case_agent,
-            contract_agent,
-            research_agent,
-            triage_agent,
-        )
+        from apps.workbench.agents.definitions import case_agent, contract_agent, research_agent, triage_agent
         assert case_agent.name == "案件管理助手"
         assert contract_agent.name == "合同管理助手"
         assert research_agent.name == "法律检索助手"
@@ -303,11 +286,69 @@ class TestBuildModel:
         assert model is not None
 
     @patch("apps.workbench.agents.definitions.LLMConfig")
-    def test_openai_compatible_backend(self, mock_config):
+    def test_openai_compatible_single_key_fallback(self, mock_config):
+        """平台未配置（或平台无 Key）时沿用单 Key 配置，兼容本地免鉴权 vLLM。"""
         from apps.workbench.agents.definitions import build_model
 
         mock_config.resolve_backend_for_model.return_value = "openai_compatible"
+        mock_config.get_openai_compatible_provider.return_value = None
         mock_config.get_openai_compatible_api_key.return_value = "sk-test"
         mock_config.get_openai_compatible_base_url.return_value = "https://api.openai.com/v1"
         model = build_model("gpt-4")
         assert model is not None
+
+    @patch("apps.workbench.agents.definitions.LLMConfig")
+    def test_openai_compatible_multi_key_builds_rotating_model(self, mock_config):
+        """平台配置了多 Key 时，按 Key 数构建轮询模型。"""
+        from pydantic_ai.models.concurrency import ConcurrencyLimitedModel
+
+        from apps.core.llm.backends.base import OpenAIProviderConfig
+        from apps.workbench.agents.definitions import build_model
+        from apps.workbench.agents.multi_key_model import MultiKeyOpenAIModel
+
+        mock_config.resolve_backend_for_model.return_value = "openai_compatible"
+        mock_config.get_openai_compatible_provider.return_value = OpenAIProviderConfig(
+            name="build-model-multi",
+            base_url="http://law/v1",
+            api_keys=["k1", "k2", "k3"],
+            concurrency_per_key=3,
+        )
+        model = build_model("kimi-2.6")
+
+        assert isinstance(model, ConcurrencyLimitedModel)
+        assert isinstance(model.wrapped, MultiKeyOpenAIModel)
+        assert model.wrapped.key_count == 3
+
+    @patch("apps.workbench.agents.definitions.LLMConfig")
+    def test_openai_compatible_without_authorized_key_still_builds(self, mock_config):
+        """无 Key 被授权访问该模型时只告警，不阻断构建（错误在调用时暴露）。"""
+        from apps.core.llm.backends.base import OpenAIProviderConfig
+        from apps.workbench.agents.definitions import build_model
+
+        mock_config.resolve_backend_for_model.return_value = "openai_compatible"
+        mock_config.get_openai_compatible_provider.return_value = OpenAIProviderConfig(
+            name="build-model-scoped",
+            base_url="http://law/v1",
+            api_keys=["k1"],
+            key_model_scopes={"k1": ["other-model"]},
+            concurrency_per_key=3,
+        )
+        model = build_model("kimi-2.6")
+        assert model is not None
+
+
+class TestModelLimiter:
+    def test_limiter_is_reused_for_same_capacity(self):
+        from apps.workbench.agents.definitions import _get_model_limiter
+
+        assert _get_model_limiter(9) is _get_model_limiter(9)
+        assert _get_model_limiter(9).max_running == 9
+
+    def test_limiter_rebuilds_when_capacity_changes(self):
+        from apps.workbench.agents.definitions import _get_model_limiter
+
+        first = _get_model_limiter(3)
+        second = _get_model_limiter(15)
+
+        assert first is not second
+        assert second.max_running == 15

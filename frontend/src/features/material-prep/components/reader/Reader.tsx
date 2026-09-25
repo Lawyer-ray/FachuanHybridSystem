@@ -40,6 +40,7 @@ import { OcrPanel } from './OcrPanel'
 import { AssignModal } from './AssignModal'
 import { RenamePackDialog } from '../RenamePackDialog'
 import { useReaderOcr } from './use-ocr'
+import { useAutoSplit } from './use-auto-split'
 import { useElementWidth } from '../../hooks/use-element-width'
 import { COL_MIN_W, COL_GAP } from './Flow'
 import { ZOOM_MAX, ZOOM_MIN, ZOOM_STEP } from './ui'
@@ -65,6 +66,7 @@ export function Reader() {
   const narrow = useMediaQuery('(max-width:1100px)')
   const [flowWrapRef, flowWrapW] = useElementWidth<HTMLDivElement>()
   const { pickPage, onOcrBox, ocrOk } = useReaderOcr()
+  const autoSplit = useAutoSplit()
 
   const st = useReader.getState()
 
@@ -262,6 +264,9 @@ export function Reader() {
         colsDisabled={maxColsAllowed <= 1}
         onChangeCols={changeCols}
         onResetSegments={onResetSegments}
+        onAutoSplit={() => void autoSplit.run()}
+        autoSplitRunning={autoSplit.running}
+        autoSplitProgress={autoSplit.progress}
         onComplete={onComplete}
       />
 

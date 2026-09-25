@@ -71,6 +71,47 @@ def _ocr_pages_worker(
 class OCRHandler:
     """OCR 子系统的入口，封装并行识别、缓存、配置解析。"""
 
+    def resolve_cloud_backend(self) -> str | None:
+        """按文档解析平台优先级选择已启用的云端识别后端。"""
+        from apps.document_parsing.services.parser_factory import ParserFactory
+
+        backend = ParserFactory._resolve_auto_backend()
+        return backend if backend in {"mineru", "textin"} else None
+
+    def parse_cloud_pages(self, *, pdf_path: Path, backend: str) -> dict[int, OCRPageResult]:
+        """一次解析整份 PDF，并恢复各解析块对应的原始页码。"""
+        from apps.document_parsing.services import get_document_parser
+
+        parsed = get_document_parser(backend=backend).parse_document(
+            file_path=pdf_path.as_posix(),
+            file_type="pdf",
+            extract_tables=True,
+            extract_images=False,
+            return_markdown=False,
+        )
+        layout = parsed.layout or {}
+        results: dict[int, OCRPageResult] = {}
+        for page in layout.get("pages", []):
+            if not isinstance(page, dict):
+                continue
+            try:
+                page_no = int(str(page.get("page_no")))
+            except (TypeError, ValueError):
+                continue
+            if page_no < 1:
+                continue
+            text = str(page.get("text") or "")
+            results[page_no] = OCRPageResult(
+                page_no=page_no,
+                text=text,
+                source_method=f"{backend}_ocr" if text else f"{backend}_empty",
+                ocr_failed=not bool(text),
+                layout=page,
+            )
+        if not results:
+            raise ValueError(f"{backend} returned no page-indexed PDF results")
+        return results
+
     def resolve_runtime_profile(self, profile_key: str) -> OCRRuntimeProfile:
         normalized = str(profile_key or "").strip().lower()
         cpu = max(1, os.cpu_count() or 1)
@@ -183,6 +224,7 @@ class OCRHandler:
                 text=text,
                 source_method="ocr_cache" if text else "ocr_failed_cache",
                 ocr_failed=ocr_failed,
+                layout=payload.get("layout") if isinstance(payload.get("layout"), dict) else None,
             )
         except (json.JSONDecodeError, OSError):
             logger.exception("pdf_split_ocr_cache_read_failed", extra={"cache_file": rel_path})
@@ -194,6 +236,7 @@ class OCRHandler:
             "text": result.text,
             "ocr_failed": result.ocr_failed,
             "source_method": result.source_method,
+            "layout": result.layout,
         }
         default_storage.save(rel_path, ContentFile(json.dumps(payload, ensure_ascii=False).encode("utf-8")))
 

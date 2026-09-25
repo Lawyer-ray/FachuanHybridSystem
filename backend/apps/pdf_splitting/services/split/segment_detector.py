@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from apps.core.services.storage_service import sanitize_upload_filename
 from apps.pdf_splitting.models import PdfSplitReviewFlag, PdfSplitSegmentType
 from apps.pdf_splitting.services.template_registry import (
     SegmentTemplateRule,
@@ -103,6 +104,9 @@ class SegmentDetector:
                 if hit:
                     matched_strong.append(kw)
                     strong_score += (0.4 + 0.18) * decay
+                    head_hit, _head_decay = self.fuzzy_contains_keyword(head_text, kw)
+                    if head_hit:
+                        strong_score += 0.15 * decay
             score += min(0.75, strong_score)
 
             for kw in rule.weak_keywords:
@@ -150,16 +154,48 @@ class SegmentDetector:
     def detect_segments(self, pages: list[PageDescriptor], *, template_key: str) -> list[SegmentDraft]:
         template = get_template_definition(template_key)
         start_candidates: list[dict[str, Any]] = []
+        previous_layout_title = ""
+        previous_page_type = ""
+        previous_page_title = ""
         for page in pages:
-            if not page.top_candidates:
+            if page.top_candidates:
+                top = page.top_candidates[0]
+                current_type = str(top["segment_type"])
+                current_title = self._normalize_title(page.layout_title)
+                repeated_continuation = (
+                    current_type == previous_page_type
+                    and page.page_no > 1
+                    and (not current_title or current_title == previous_page_title)
+                )
+                if not repeated_continuation:
+                    start_candidates.append(
+                        {
+                            "page_no": page.page_no,
+                            "segment_type": top["segment_type"],
+                            "score": float(top["score"]),
+                            "weak_only": bool(top.get("weak_only", False)),
+                        }
+                    )
+                previous_page_type = current_type
+                previous_page_title = current_title
+                if page.layout_title:
+                    previous_layout_title = self._normalize_title(page.layout_title)
                 continue
-            top = page.top_candidates[0]
+            previous_page_type = ""
+            previous_page_title = ""
+            title = self._normalize_title(page.layout_title)
+            if not title:
+                continue
+            if title == previous_layout_title:
+                continue
+            previous_layout_title = title
             start_candidates.append(
                 {
                     "page_no": page.page_no,
-                    "segment_type": top["segment_type"],
-                    "score": float(top["score"]),
-                    "weak_only": bool(top.get("weak_only", False)),
+                    "segment_type": PdfSplitSegmentType.UNRECOGNIZED,
+                    "score": 0.5,
+                    "weak_only": True,
+                    "layout_title": page.layout_title,
                 }
             )
 
@@ -193,7 +229,11 @@ class SegmentDetector:
             source_method = "rule"
             confidence = start["score"]
 
-            if start.get("weak_only"):
+            if start.get("layout_title"):
+                review_flag = PdfSplitReviewFlag.LOW_CONFIDENCE
+                source_method = "layout_title"
+                confidence = float(start["score"])
+            elif start.get("weak_only"):
                 review_flag = PdfSplitReviewFlag.LOW_CONFIDENCE
                 source_method = "rule_weak_only"
 
@@ -210,7 +250,7 @@ class SegmentDetector:
                     page_start=start["page_no"],
                     page_end=max(start["page_no"], end_page),
                     segment_type=start["segment_type"],
-                    filename=f"{get_default_filename(start['segment_type'])}.pdf",
+                    filename=self._suggest_filename(start),
                     confidence=round(confidence, 3),
                     source_method=source_method,
                     review_flag=review_flag,
@@ -219,6 +259,17 @@ class SegmentDetector:
 
         merged_segments = self._merge_adjacent_pack_segments(segments)
         return self.fill_unrecognized_gaps(segments=merged_segments, total_pages=len(pages))
+
+    @staticmethod
+    def _normalize_title(value: str) -> str:
+        return "".join(char for char in (value or "").casefold() if char.isalnum() or "\u4e00" <= char <= "\u9fff")
+
+    @staticmethod
+    def _suggest_filename(candidate: dict[str, Any]) -> str:
+        title = sanitize_upload_filename(str(candidate.get("layout_title") or "").strip())
+        if title:
+            return f"{title}.pdf"
+        return f"{get_default_filename(candidate['segment_type'])}.pdf"
 
     # ------------------------------------------------------------------
     # 内部辅助
