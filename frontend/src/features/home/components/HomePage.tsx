@@ -92,16 +92,6 @@ export function HomePage() {
     [goPack],
   )
 
-  const handleInboxAction = useCallback(
-    (item: InboxItem) => {
-      if (item.kind === 'mat') {
-        goPack(item.id)
-        return
-      }
-      toast.info(`「${item.title}」→ ${item.action}：收件箱操作正在开发中`)
-    },
-    [goPack],
-  )
 
   const handleAdd = useCallback(() => {
     toast.info('新增安排：请用「快速记一笔」，写具体日期即可（如 2026-09-28 09:30 开庭 …）')
@@ -150,7 +140,7 @@ export function HomePage() {
             {/* 右：今日 + 待处理 */}
             <div className="flex min-w-0 flex-col gap-5">
               <TodayCard events={todayEvents} loading={calendarQuery.isLoading} onOpenEvent={handleOpenEvent} />
-              <InboxCard onOpen={handleInboxOpen} onAction={handleInboxAction} />
+              <InboxCard onOpen={handleInboxOpen} />
             </div>
           </div>
         </main>

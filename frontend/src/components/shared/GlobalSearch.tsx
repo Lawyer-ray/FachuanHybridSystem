@@ -1,0 +1,216 @@
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { Link } from 'react-router'
+import { FileText, Landmark, Mail, Paperclip, Search, Users } from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
+import { createApiClient } from '@/lib/api'
+import { Dialog, DialogContent } from '@/components/ui/dialog'
+import { cn } from '@/lib/utils'
+
+/**
+ * 全局检索（⌘K）。
+ *
+ * 后端已有现成接口：GET /api/v1/search?q=，跨 6 类实体并发搜索
+ * （客户 / 案件 / 合同 / 收件箱 / 法院短信 / 联系人），每类最多 10 条。
+ * 这里做命令面板：⌘K 唤起、输入即搜（防抖 250ms）、↑↓ 选、回车跳、
+ * Esc 关。跳转目标只指向已存在的页面，未实现的类别点选后给明确提示。
+ */
+
+const searchApi = createApiClient({ prefix: '/api/v1/search' })
+
+interface Hit {
+  category: string
+  id: number
+  title: string
+  subtitle: string
+}
+
+/**
+ * 各类别 → 展示名 / 图标 / 点击后的去处。
+ *
+ * to 只对**已存在**的路由给出（目前只有 /material-prep/:id）。
+ * 案件 / 客户 / 合同这些页还没做，若硬链过去会命中 App.tsx 的通配
+ * 重定向、静默跳回首页——比明确说"还没做"更糟。所以它们不给 to，
+ * 点选时由调用方弹提示。
+ */
+const CATEGORIES: Record<string, { label: string; icon: typeof Users; to?: (id: number) => string }> = {
+  cases: { label: '案件', icon: FileText },
+  clients: { label: '客户', icon: Users },
+  contracts: { label: '合同', icon: FileText },
+  inbox: { label: '收件箱', icon: Mail, to: (id) => `/material-prep/${id}` },
+  court_sms: { label: '法院短信', icon: Landmark },
+  contacts: { label: '联系人', icon: Paperclip },
+}
+
+const CATEGORY_ORDER = ['cases', 'clients', 'contracts', 'inbox', 'court_sms', 'contacts']
+
+async function runSearch(q: string): Promise<Hit[]> {
+  const res = await searchApi.get('', { searchParams: { q, limit: 8 } }).json<Record<string, { id: number; title: string; subtitle: string }[]>>()
+  const out: Hit[] = []
+  for (const cat of CATEGORY_ORDER) {
+    for (const it of res[cat] ?? []) {
+      out.push({ category: cat, id: it.id, title: it.title, subtitle: it.subtitle })
+    }
+  }
+  return out
+}
+
+export function GlobalSearch({
+  open,
+  onOpenChange,
+  onPickUnavailable,
+}: {
+  open: boolean
+  onOpenChange: (v: boolean) => void
+  /** 点到还没建详情页的类别时触发（给 toast 提示） */
+  onPickUnavailable?: (label: string) => void
+}) {
+  const [q, setQ] = useState('')
+  const [cursor, setCursor] = useState(0)
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  // 打开时聚焦输入框，关闭时清空（下次打开是干净的）
+  useEffect(() => {
+    if (open) {
+      const t = window.setTimeout(() => inputRef.current?.focus(), 30)
+      return () => window.clearTimeout(t)
+    }
+    setQ('')
+    setCursor(0)
+  }, [open])
+
+  const trimmed = q.trim()
+  const { data = [], isFetching } = useQuery({
+    queryKey: ['global-search', trimmed],
+    queryFn: () => runSearch(trimmed),
+    enabled: open && trimmed.length >= 1,
+    staleTime: 30_000,
+  })
+
+  // 新结果回来时把光标移回第一项
+  useEffect(() => setCursor(0), [trimmed])
+
+  const groups = useMemo(() => {
+    const map = new Map<string, Hit[]>()
+    for (const h of data) {
+      const list = map.get(h.category)
+      if (list) list.push(h)
+      else map.set(h.category, [h])
+    }
+    return map
+  }, [data])
+
+  const flat = useMemo(() => data, [data])
+
+  const onKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      setCursor((c) => (flat.length ? (c + 1) % flat.length : 0))
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      setCursor((c) => (flat.length ? (c - 1 + flat.length) % flat.length : 0))
+    } else if (e.key === 'Enter') {
+      e.preventDefault()
+      const hit = flat[cursor]
+      if (!hit) return
+      const meta = CATEGORIES[hit.category]
+      onOpenChange(false)
+      if (!meta?.to) onPickUnavailable?.(meta?.label ?? hit.category)
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="top-[14%] max-w-[560px] translate-y-0 gap-0 p-0" showCloseButton={false}>
+        {/* 搜索框 */}
+        <div className="flex items-center gap-2.5 border-b border-border px-4">
+          <Search className="h-4 w-4 flex-none text-muted-foreground" />
+          <input
+            ref={inputRef}
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            onKeyDown={onKeyDown}
+            placeholder="搜案件 / 客户 / 合同 / 收件箱 / 法院短信 / 联系人"
+            className="h-12 flex-1 border-none bg-transparent text-[13.5px] outline-none placeholder:text-muted-foreground"
+          />
+          {isFetching && <span className="flex-none text-[11px] text-muted-foreground">搜索中…</span>}
+          <kbd className="flex-none rounded border border-input bg-secondary px-1.5 py-0.5 text-[10px] text-muted-foreground">
+            Esc
+          </kbd>
+        </div>
+
+        {/* 结果 */}
+        <div className="max-h-[52vh] overflow-y-auto px-2 py-2">
+          {trimmed.length === 0 && (
+            <div className="px-3 py-8 text-center text-[12.5px] text-muted-foreground">
+              输入关键词开始搜索
+            </div>
+          )}
+          {trimmed.length > 0 && flat.length === 0 && !isFetching && (
+            <div className="px-3 py-8 text-center text-[12.5px] text-muted-foreground">
+              没有匹配「{trimmed}」的结果
+            </div>
+          )}
+          {CATEGORY_ORDER.filter((c) => groups.has(c)).map((cat) => {
+            const meta = CATEGORIES[cat]
+            const Icon = meta.icon
+            const hits = groups.get(cat) ?? []
+            return (
+              <div key={cat} className="mb-1.5 last:mb-0">
+                <div className="px-2 py-1 text-[10.5px] font-semibold text-muted-foreground">{meta.label}</div>
+                {hits.map((h) => {
+                  const idx = flat.indexOf(h)
+                  const to = meta.to?.(h.id)
+                  const Row = (
+                    <>
+                      <Icon className="h-3.5 w-3.5 flex-none text-muted-foreground" />
+                      <span className="min-w-0 flex-1 truncate text-[12.5px]">{h.title}</span>
+                      {h.subtitle && (
+                        <span className="max-w-[140px] flex-none truncate text-[10.5px] text-muted-foreground">{h.subtitle}</span>
+                      )}
+                    </>
+                  )
+                  return to ? (
+                    <Link
+                      key={`${cat}-${h.id}`}
+                      to={to}
+                      onClick={() => onOpenChange(false)}
+                      className={cn(
+                        'flex w-full items-center gap-2.5 rounded-[7px] px-2 py-[7px] no-underline transition-colors',
+                        idx === cursor ? 'bg-secondary text-foreground' : 'text-secondary-foreground hover:bg-secondary/60',
+                      )}
+                    >
+                      {Row}
+                    </Link>
+                  ) : (
+                    <button
+                      key={`${cat}-${h.id}`}
+                      type="button"
+                      onClick={() => {
+                        onOpenChange(false)
+                        onPickUnavailable?.(meta.label)
+                      }}
+                      className={cn(
+                        'flex w-full items-center gap-2.5 rounded-[7px] px-2 py-[7px] text-left text-secondary-foreground transition-colors',
+                        idx === cursor ? 'bg-secondary' : 'hover:bg-secondary/60',
+                      )}
+                    >
+                      {Row}
+                      <span className="flex-none text-[10px] text-muted-foreground">未建页</span>
+                    </button>
+                  )
+                })}
+              </div>
+            )
+          })}
+        </div>
+
+        {/* 底部快捷键提示 */}
+        <div className="flex items-center gap-3 border-t border-border px-4 py-2 text-[10.5px] text-muted-foreground">
+          <span>↑↓ 选择</span>
+          <span>↵ 打开</span>
+          <span>Esc 关闭</span>
+        </div>
+      </DialogContent>
+    </Dialog>
+  )
+}

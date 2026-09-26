@@ -1,9 +1,27 @@
-import { useState } from 'react'
-import { Link, useLocation } from 'react-router'
-import { LogOut, Menu, Plus, Search } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { Link, useLocation, useNavigate } from 'react-router'
+import { LogOut, Menu, Plus, Search, User } from 'lucide-react'
 
 import { useAuth } from '@/features/auth/store'
+import { api } from '@/lib/api'
 import { Button } from '@/components/ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { GlobalSearch } from './GlobalSearch'
 
 /**
  * 全局顶层导航（全站唯一一套，首页 / 材料预处理等所有页面共用）。
@@ -26,14 +44,53 @@ const NOT_READY: Record<string, string> = {
 
 export function AppNavbar({ onNotify, onLogout }: AppNavbarProps) {
   const [menuOpen, setMenuOpen] = useState(false)
+  const [searchOpen, setSearchOpen] = useState(false)
+  const [logoutOpen, setLogoutOpen] = useState(false)
   const { pathname } = useLocation()
   const user = useAuth((s) => s.user)
+  const setUser = useAuth((s) => s.setUser)
   const logout = useAuth((s) => s.logout)
+  const navigate = useNavigate()
+
+  // auth store 在刷新页面（init 路径）时只放了 {id:0, username:''} 占位，
+  // 拿不到真实用户名。navbar 又得显示用户名，所以这里补拉一次
+  // /organization/me（登录时也拉过，属幂等只读）。
+  // 只在没有用户名时拉，避免每次挂载都请求。
+  useEffect(() => {
+    if (user?.username) return
+    let alive = true
+    api
+      .get('organization/me')
+      .json<{ id: number; username: string }>()
+      .then((u) => {
+        if (alive && u?.username) setUser?.({ id: u.id, username: u.username })
+      })
+      .catch(() => {
+        /* 拿不到就保持现状，不打扰用户 */
+      })
+    return () => {
+      alive = false
+    }
+  }, [user?.username, setUser])
 
   const notify = (msg: string) => onNotify?.(msg)
 
+  // ⌘K / Ctrl+K 唤起全局检索。dialog 已打开时不再重复触发。
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault()
+        setSearchOpen(true)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
+
   const handleLogout = () => {
+    setLogoutOpen(false)
     logout()
+    navigate('/login', { replace: true })
     onLogout?.()
   }
 
@@ -86,7 +143,7 @@ export function AppNavbar({ onNotify, onLogout }: AppNavbarProps) {
       <button
         type="button"
         className="ml-auto hidden h-8 items-center gap-[7px] rounded-[8px] border border-border bg-secondary px-2.5 text-[12.5px] text-muted-foreground transition-colors hover:border-input hover:bg-card sm:flex"
-        onClick={() => notify('全局检索（跨案件 / 材料 / 当事人）正在开发中')}
+        onClick={() => setSearchOpen(true)}
       >
         <Search className="h-[13px] w-[13px]" />
         <span>检索</span>
@@ -102,19 +159,65 @@ export function AppNavbar({ onNotify, onLogout }: AppNavbarProps) {
         新建案件
       </button>
 
-      {/* 用户区：头像 + 退出 */}
-      <div className="ml-1 flex flex-none items-center gap-1.5">
-        <span
-          className="flex h-7 w-7 items-center justify-center rounded-full bg-foreground text-[11px] font-semibold text-background"
-          title={user?.username || '个人中心'}
-        >
-          {(user?.username || '我').trim().slice(0, 1) || '我'}
-        </span>
-        <Button size="sm" variant="ghost" onClick={handleLogout} title="退出登录">
-          <LogOut className="h-4 w-4" />
-          <span className="hidden sm:inline">退出</span>
-        </Button>
-      </div>
+      {/* 用户区：点头像开菜单；退出走确认弹窗——不能点一下就登出 */}
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button
+            type="button"
+            className="ml-1 flex flex-none items-center gap-1.5 rounded-full py-[2px] pr-2 pl-[2px] transition-colors hover:bg-secondary"
+            aria-label="用户菜单"
+          >
+            <span className="flex h-7 w-7 items-center justify-center rounded-full bg-foreground text-background">
+              <User className="h-3.5 w-3.5" />
+            </span>
+            <span className="hidden max-w-[88px] truncate text-[12.5px] font-medium md:inline">
+              {user?.username || '我的账号'}
+            </span>
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-48">
+          <DropdownMenuLabel className="truncate font-normal text-muted-foreground">
+            {user?.username || '我的账号'}
+          </DropdownMenuLabel>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={() => notify('个人中心正在开发中')}>个人中心</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => setSearchOpen(true)}>
+            <Search className="h-3.5 w-3.5" />
+            全局检索
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem variant="destructive" onSelect={() => setLogoutOpen(true)}>
+            <LogOut className="h-3.5 w-3.5" />
+            退出登录
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      {/* 全局检索（⌘K） */}
+      <GlobalSearch
+        open={searchOpen}
+        onOpenChange={setSearchOpen}
+        onPickUnavailable={(label) => notify(`${label}详情页正在开发中`)}
+      />
+
+      {/* 退出确认：破坏性操作，明确告知后果再执行 */}
+      <Dialog open={logoutOpen} onOpenChange={setLogoutOpen}>
+        <DialogContent className="max-w-[360px]">
+          <DialogHeader>
+            <DialogTitle>确认退出登录？</DialogTitle>
+            <DialogDescription>退出后需要重新输入账号密码。当前未保存的编辑会丢失。</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setLogoutOpen(false)}>
+              取消
+            </Button>
+            <Button variant="destructive" onClick={handleLogout}>
+              退出登录
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
     </header>
   )
 }

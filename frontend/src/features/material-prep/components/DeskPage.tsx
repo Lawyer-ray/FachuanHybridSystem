@@ -268,10 +268,8 @@ export function DeskPage() {
       }}
     >
       {/* 顶部导航：与首页共用同一套（components/shared/AppNavbar） */}
-      <AppNavbar
-        onLogout={() => navigate('/login', { replace: true })}
-        onNotify={(m) => toast.info(m)}
-      />
+      {/* 退出登录由 AppNavbar 内部统一处理（含确认弹窗与跳转），这里只接提示 */}
+      <AppNavbar onNotify={(m) => toast.info(m)} />
 
       {/* 内容区包一层入场过渡：navbar 不变，只有下面这部分播动画 */}
       <PageFade>

@@ -66,6 +66,31 @@ def launch_browser(p, headed: bool):
         return p.chromium.launch(headless=False)
 
 
+def run_global_search(page) -> tuple[bool, str]:
+    """⌘K 唤起全局检索，输入关键词，断言有结果或明确空态，Esc 可关。"""
+    try:
+        page.keyboard.press("Meta+k")
+        page.wait_for_timeout(700)
+        dlg = page.locator("[role=dialog]")
+        if dlg.count() == 0:
+            return False, "⌘K 没唤起检索面板"
+        page.get_by_placeholder("搜案件", exact=False).fill("测试")
+        # 后端并发搜 6 类实体，给足时间
+        page.wait_for_timeout(3000)
+        text = dlg.first.inner_text()
+        page.keyboard.press("Escape")
+        page.wait_for_timeout(400)
+        closed = page.locator("[role=dialog]").count() == 0
+        if "没有匹配" in text:
+            return closed, "检索正常返回空结果" + ("" if closed else "，但 Esc 关不掉")
+        has_rows = any(k in text for k in ("案件", "客户", "合同", "收件箱", "法院短信", "联系人"))
+        if not has_rows:
+            return False, f"检索面板既无结果也无分类：{text[:80]!r}"
+        return closed, "有结果" + ("" if closed else "，但 Esc 关不掉")
+    except Exception as e:  # noqa: BLE001
+        return False, f"{type(e).__name__}: {str(e)[:160]}"
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--headed", action="store_true")
@@ -156,14 +181,14 @@ def main() -> int:
         options = sel.locator("option").count()
         check("要素式转换模板已加载", options > 1, f"{options} 个 option")
 
-        # 8. 右栏「待处理」拉到收件箱（同样在页面内带 token 访问）
+        # 8. 右栏「收件箱」拉到最近消息（同样在页面内带 token 访问）
         inbox_rows = fetch_in_page(page, '/api/v1/inbox/messages')
         msgs = inbox_rows.get("data") or []
         check("inbox/messages 在页面内鉴权访问成功", inbox_rows.get("status") == 200, f"status={inbox_rows.get('status')}")
         check("后端 inbox/messages 有数据", isinstance(msgs, list) and len(msgs) > 0, f"{len(msgs)} 条")
-        # 「待处理」卡应至少渲染出一条真实消息标题
+        # 「收件箱」卡应至少渲染出一条真实消息标题
         check(
-            "待处理栏渲染出真实消息标题",
+            "收件箱渲染出真实消息标题",
             any((m.get("subject") or "")[:8] in page_hint for m in msgs[:10]),
         )
 
@@ -187,6 +212,10 @@ def main() -> int:
         # 跳回当月：后续日历检查都默认看本月，否则会停留在刚切过去的月份
         page.get_by_title("回到今天").click()
         page.wait_for_timeout(1200)
+
+        # 10b. 全局检索：⌘K 唤起 → 输入 → 有结果（后端 GET /search，跨 6 类实体）
+        search_ok, search_detail = run_global_search(page)
+        check("全局检索可唤起并返回结果", search_ok, search_detail)
 
         # 11. toast（sonner 挂 portal，不在 main 里，所以要查 body）
         page.get_by_role("button", name="办案").click()

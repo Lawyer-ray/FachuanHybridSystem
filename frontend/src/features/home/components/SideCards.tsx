@@ -1,6 +1,6 @@
-import { useCallback, useState } from 'react'
+import { useState } from 'react'
 import { Check, Landmark, Loader2, Mail, Paperclip, Sparkles } from 'lucide-react'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { toast } from 'sonner'
 
 import { createReminder, listInbox, parseReminder } from '../api'
@@ -88,73 +88,65 @@ export function TodayCard({ events, loading, onOpenEvent }: TodayProps) {
   )
 }
 
-/* ============================================================ 待处理流入 */
+/* ============================================================ 收件箱流入 */
 
 interface InboxProps {
   onOpen: (item: InboxItem) => void
-  onAction: (item: InboxItem) => void
 }
 
-/** 右栏「待处理」：收件箱流（法院短信 / 材料包 / 邮件） */
-export function InboxCard({ onOpen, onAction }: InboxProps) {
-  const queryClient = useQueryClient()
+/**
+ * 右栏「收件箱」：最近流入的消息（法院短信 / 一张网通知书 / 邮件 / 材料包）。
+ *
+ * 这里刻意**不**叫「待处理」、也不给每条配一个动作按钮。原因（实测数据）：
+ * 收件箱 338 条里 court_inbox 121 条、imap 215 条、manual_upload 仅 2 条；
+ * 而 status（todo/done/filed）只对 manual_upload 有意义——它是写在
+ * draft_state 里的、由材料预处理页维护。也就是说其余 336 条的 status 恒为
+ * todo，「待处理 N 条」这个计数没有信息量。
+ * 更何况「归案 / 解析」这些动作目前都还没实现，摆一排点不动的按钮只是噪音。
+ *
+ * 所以：只做「最近流入」的信息展示，点整行进材料预处理（材料包）或提示
+ * （其他来源）。等后台真做了收件箱处理流，再把状态和动作加回来。
+ */
+export function InboxCard({ onOpen }: InboxProps) {
   const { data = [], isLoading } = useQuery({
     queryKey: ['home-inbox'],
     queryFn: () => listInbox(6),
     staleTime: 30_000,
   })
-  const todoCount = data.filter((x) => x.status === '待处理').length
-
-  // 让别处（如提交法院短信后）能刷新这里
-  const refresh = useCallback(() => queryClient.invalidateQueries({ queryKey: ['home-inbox'] }), [queryClient])
 
   return (
     <section className={`${PANEL} overflow-hidden`}>
-      <CardHead title="待处理" count={`${todoCount} 条`} action="收件箱 →" />
+      <CardHead title="收件箱" count={data.length ? `${data.length} 条` : ''} action="全部 →" />
       <div className="px-2.5 pt-1.5 pb-2.5">
         {isLoading && <div className="px-2 py-6 text-center text-[12.5px] text-muted-foreground">正在载入…</div>}
         {!isLoading && data.length === 0 && (
-          <div className="px-2 py-6 text-center text-[12.5px] text-muted-foreground">暂无待处理消息</div>
+          <div className="px-2 py-6 text-center text-[12.5px] text-muted-foreground">收件箱是空的</div>
         )}
         {data.map((x) => (
-          <div key={x.id} className="flex items-center gap-[11px] rounded-[10px] px-2 py-[10px] transition-colors hover:bg-secondary/50">
+          <button
+            key={x.id}
+            type="button"
+            onClick={() => onOpen(x)}
+            className="flex w-full items-center gap-[11px] rounded-[10px] px-2 py-[10px] text-left transition-colors hover:bg-secondary/50"
+          >
             <div
               className={cn(
                 'flex h-8 w-8 flex-none items-center justify-center rounded-[9px] border',
-                x.hot ? 'border-status-red/30 bg-status-red-bg text-status-red' : 'border-border bg-secondary text-secondary-foreground',
+                x.hot
+                  ? 'border-status-red/30 bg-status-red-bg text-status-red'
+                  : 'border-border bg-secondary text-secondary-foreground',
               )}
             >
               <KindIcon kind={x.kind} />
             </div>
-            <button type="button" className="min-w-0 flex-1 text-left" onClick={() => onOpen(x)}>
+            <div className="min-w-0 flex-1">
               <div className="truncate text-[12.5px] leading-[1.4] font-semibold">{x.title}</div>
               <div className="mt-[1px] truncate text-[10.5px] text-muted-foreground">
-                {x.sourceLabel} · {x.who} · {x.at}
+                {x.sourceLabel} · {x.who}
               </div>
-            </button>
-            <div className="flex flex-none flex-col items-end gap-[5px]">
-              <span
-                className={cn(
-                  'rounded-[99px] border px-2 py-[2px] text-[9.5px] font-semibold whitespace-nowrap',
-                  x.status === '待处理'
-                    ? 'border-status-red/30 bg-status-red-bg text-status-red'
-                    : 'border-border bg-secondary text-muted-foreground',
-                )}
-              >
-                {x.status}
-              </span>
-              <button
-                type="button"
-                className="rounded-[7px] border border-input bg-secondary px-2.5 py-[3px] text-[10.5px] font-semibold whitespace-nowrap text-foreground transition-colors hover:bg-foreground hover:text-background"
-                onClick={() => {
-                  onAction(x)
-                  refresh()
-                }}
-              >
-                {x.action}
-              </button>
             </div>
-          </div>
+            <span className="flex-none text-[10.5px] whitespace-nowrap text-muted-foreground">{x.at}</span>
+          </button>
         ))}
       </div>
     </section>
