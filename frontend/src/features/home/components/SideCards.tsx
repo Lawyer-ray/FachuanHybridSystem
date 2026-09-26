@@ -5,6 +5,7 @@ import { toast } from 'sonner'
 
 import { createReminder, listInbox, parseReminder } from '../api'
 import { KIND_BADGE, KIND_LABEL, isKeyKind } from '../constants'
+import { rangeLabel, summaryLine } from '../domain'
 import type { DayEvent, InboxItem } from '../types'
 import { BTN_PRIMARY, COUNT_PILL, PANEL } from '../ui'
 import { cn } from '@/lib/utils'
@@ -40,6 +41,10 @@ export function TodayCard({ events, loading, onOpenEvent }: TodayProps) {
         )}
         {events.map((e) => {
           const isDone = done.has(e.id)
+          // 今日卡的副标题：时段（若与开始时刻不同）+ 地点/律师 摘要
+          const range = rangeLabel(e)
+          const meta = summaryLine(e)
+          const eventMeta = [range && range !== e.time ? range : '', meta].filter(Boolean).join(' · ')
           return (
             <div
               key={e.id}
@@ -59,7 +64,7 @@ export function TodayCard({ events, loading, onOpenEvent }: TodayProps) {
               <span className="min-w-[38px] pt-[1px] text-[10.5px] font-semibold tabular-nums text-secondary-foreground">{e.time}</span>
               <button type="button" className="min-w-0 flex-1 text-left" onClick={() => onOpenEvent(e)}>
                 <div className={cn('text-[12.5px] leading-[1.4] font-semibold', isDone && 'line-through')}>{e.title}</div>
-                {e.subtitle && <div className="mt-[1px] truncate text-[10.5px] text-muted-foreground">{e.subtitle}</div>}
+                {eventMeta && <div className="mt-[1px] truncate text-[10.5px] text-muted-foreground">{eventMeta}</div>}
                 <div className="mt-1.5 flex items-center gap-1.5">
                   <span className={cn('rounded-[5px] border px-[7px] py-[2px] text-[9.5px] font-semibold', KIND_BADGE[e.kind])}>
                     {KIND_LABEL[e.kind]}

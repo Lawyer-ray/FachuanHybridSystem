@@ -3,7 +3,7 @@ import { CalendarPlus, ChevronLeft, ChevronRight } from 'lucide-react'
 
 import { KIND_ROW, WEEKDAYS, isKeyKind } from '../constants'
 import type { DayEvent } from '../types'
-import { buildMonthGrid, formatCN, parseKey } from '../domain'
+import { buildMonthGrid, briefLine, formatCN, parseKey, summaryLine } from '../domain'
 import type { DeskStats } from '../domain'
 import { BTN, BTN_ICON, PANEL } from '../ui'
 import { cn } from '@/lib/utils'
@@ -177,7 +177,7 @@ function DayCellView({ cell, today, selected, events, maxRows, onPick, onOpenEve
       )}
       onClick={() => onPick(cell.key as string)}
     >
-      <div className="mb-[5px] flex items-center justify-center">
+      <div className="mb-[5px] flex items-center justify-center gap-[3px]">
         <span
           className={cn(
             'flex h-[22px] w-[22px] items-center justify-center rounded-full text-[12px] leading-none font-medium tabular-nums',
@@ -186,26 +186,43 @@ function DayCellView({ cell, today, selected, events, maxRows, onPick, onOpenEve
         >
           {cell.day}
         </span>
+        {/* 当日条数角标：与 admin 日历的 reminder-day-count 一致 */}
+        {events.length > 0 && (
+          <span className="rounded-full border border-border bg-secondary px-[5px] py-[1px] text-[9px] font-semibold tabular-nums text-muted-foreground">
+            {events.length}
+          </span>
+        )}
       </div>
 
       <div className={cn('flex flex-col gap-[2px]', 'max-[760px]:hidden')}>
-        {shown.map((e) => (
-          <div
-            key={e.id}
-            className={cn(
-              'flex min-h-[20px] items-center gap-1.5 rounded-[5px] px-1.5 py-[2px] text-[11.5px] transition-[filter] hover:brightness-95',
-              KIND_ROW[e.kind],
-              !isKeyKind(e.kind) && 'bg-secondary/70',
-            )}
-            onClick={(ev) => {
-              ev.stopPropagation()
-              onOpenEvent(e)
-            }}
-          >
-            <span className="w-[30px] flex-none text-[10px] font-semibold tabular-nums opacity-80">{e.time}</span>
-            <span className="truncate font-medium">{e.title}</span>
-          </div>
-        ))}
+        {shown.map((e) => {
+          const meta = briefLine(e)
+          return (
+            <div
+              key={e.id}
+              className={cn(
+                'flex min-h-[20px] flex-col justify-center gap-[2px] rounded-[5px] px-1.5 py-[2px] text-[11.5px] transition-[filter] hover:brightness-95',
+                KIND_ROW[e.kind],
+                !isKeyKind(e.kind) && 'bg-secondary/70',
+              )}
+              onClick={(ev) => {
+                ev.stopPropagation()
+                onOpenEvent(e)
+              }}
+            >
+              <span className="flex items-center gap-1.5">
+                <span className="w-[30px] flex-none text-[10px] font-semibold tabular-nums opacity-80">{e.time}</span>
+                <span className="truncate font-medium">{e.title}</span>
+              </span>
+              {meta && (
+                <span className="flex items-center gap-1.5">
+                  <span className="w-[30px] flex-none" />
+                  <span className="truncate text-[9.5px] opacity-70">{meta}</span>
+                </span>
+              )}
+            </div>
+          )
+        })}
         {hidden > 0 && (
           <span className="mt-[1px] self-start rounded-[6px] border border-input bg-secondary px-2 py-[2px] text-[10.5px] font-semibold text-secondary-foreground">
             + {hidden} 更多
@@ -233,7 +250,7 @@ function DayCellView({ cell, today, selected, events, maxRows, onPick, onOpenEve
             <div key={e.id} className="flex items-baseline gap-[7px]">
               <span className="w-8 flex-none text-[10px] text-background/60 tabular-nums">{e.time}</span>
               <span className="truncate font-medium">{e.title}</span>
-              <span className="max-w-[110px] truncate text-[10.5px] text-background/50">{e.subtitle}</span>
+              <span className="max-w-[110px] truncate text-[10.5px] text-background/50">{summaryLine(e)}</span>
             </div>
           ))}
         </div>

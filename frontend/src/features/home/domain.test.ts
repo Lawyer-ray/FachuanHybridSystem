@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  rangeLabel,
+  summaryLine,
   buildMonthGrid,
   computeStats,
   dateKey,
@@ -116,19 +118,183 @@ describe('事件归一化', () => {
     expect(e.kind).toBe('follow')
   })
 
-  it('副标题从 metadata 抽取（法庭 + 案号）', () => {
+  it('从 metadata 抽取法庭/时段/律师/案号', () => {
     const [e] = toDayEvents(
       [
         reminder({
           due_at: '2026-10-16T10:00:00+08:00',
           reminder_type: 'hearing',
           content: '某买卖合同案',
-          metadata: { courtroom: '佛山禅城法院 第三审判庭', ajbs: '259820260301031696' },
+          metadata: {
+            courtroom: '佛山禅城法院 第三审判庭',
+            ajbs: '259820260301031696',
+            time_range: '10:00-12:00',
+            lawyer_name: '房长波',
+            hearing_type: '线下开庭',
+          },
         }),
       ],
       today,
     )
-    expect(e.subtitle).toBe('佛山禅城法院 第三审判庭 · 259820260301031696')
+    expect(e.place).toBe('佛山禅城法院 第三审判庭')
+    expect(e.caseNo).toBe('259820260301031696')
+    expect(e.timeRange).toBe('10:00-12:00')
+    expect(e.person).toBe('房长波')
+    expect(e.hearingType).toBe('线下开庭')
+    // 摘要优先「人名 · 地点」，与 admin 的 event-meta 口径一致
+    expect(summaryLine(e)).toBe('房长波 · 佛山禅城法院 第三审判庭')
+    // 时段起点与开始时刻相同 → rangeLabel 仍返回完整区间，由 UI 决定是否展示
+    expect(rangeLabel(e)).toBe('10:00-12:00')
+  })
+
+  it('无 source_id 的庭审按「同日同时刻同标题同地点」合并', () => {
+    const evs = toDayEvents(
+      [
+        reminder({
+          id: 1,
+          due_at: '2026-09-21T09:30:00+08:00',
+          reminder_type: 'hearing',
+          content: '同一庭',
+          metadata: { courtroom: 'A 法庭', lawyer_name: '房长波' },
+        }),
+        reminder({
+          id: 2,
+          due_at: '2026-09-21T09:30:00+08:00',
+          reminder_type: 'hearing',
+          content: '同一庭',
+          metadata: { courtroom: 'A 法庭', lawyer_name: '黄崧' },
+        }),
+        reminder({
+          id: 3,
+          due_at: '2026-09-21T14:00:00+08:00',
+          reminder_type: 'hearing',
+          content: '同一庭',
+          metadata: { courtroom: 'A 法庭' },
+        }),
+      ],
+      today,
+    )
+    // 前两条合并，第三条时刻不同不合并
+    expect(evs).toHaveLength(2)
+    expect(evs[0].person).toBe('房长波、黄崧')
+    expect(evs[0].time).toBe('09:30')
+    expect(evs[1].time).toBe('14:00')
+  })
+
+  it('同一庭、不同 source_id / 案号 / 案名也合并（键用同时刻同法庭）', () => {
+    // 真实数据 2026-09-09：4 条记录、2 个案号、2 种案名，其实是同一个庭
+    const evs = toDayEvents(
+      [
+        reminder({
+          id: 71,
+          due_at: '2026-09-09T06:30:00+00:00',
+          reminder_type: 'hearing',
+          content: '甲公司与A幕墙公司,王铁鑫房屋租赁合同纠纷一案',
+          metadata: { source_id: 'srcA', ajbs: '...8996', courtroom: '高明法院 杨和法庭', time_range: '14:30-15:00', lawyer_name: '黄崧' },
+        }),
+        reminder({
+          id: 72,
+          due_at: '2026-09-09T06:30:00+00:00',
+          reminder_type: 'hearing',
+          content: '甲公司与王铁鑫房屋租赁合同纠纷一案',
+          metadata: { source_id: 'srcB', ajbs: '...8997', courtroom: '高明法院 杨和法庭', time_range: '14:30-15:00', lawyer_name: '房长波' },
+        }),
+        reminder({
+          id: 73,
+          due_at: '2026-09-09T06:30:00+00:00',
+          reminder_type: 'hearing',
+          content: '甲公司与王铁鑫房屋租赁合同纠纷一案',
+          metadata: { source_id: 'srcB', ajbs: '...8997', courtroom: '高明法院 杨和法庭', time_range: '14:30-15:00', lawyer_name: '黄崧' },
+        }),
+      ],
+      today,
+    )
+    expect(evs).toHaveLength(1)
+    expect(evs[0].person).toBe('黄崧、房长波')   // 两位律师都出现，且去重有序
+    expect(evs[0].place).toBe('高明法院 杨和法庭')
+  })
+
+  it('没有法庭信息的手工庭不合并（否则同时刻的手工庭会被并成一条）', () => {
+    const evs = toDayEvents(
+      [
+        reminder({ id: 1, due_at: '2026-09-24T09:00:00+08:00', reminder_type: 'hearing', content: '开庭 A 案' }),
+        reminder({ id: 2, due_at: '2026-09-24T09:00:00+08:00', reminder_type: 'hearing', content: '开庭 B 案' }),
+      ],
+      today,
+    )
+    // metadata 为空 → 拿不到法庭 → 不该合并，宁可重复也不能丢掉一件事
+    expect(evs).toHaveLength(2)
+  })
+
+  it('同时刻同法庭但不同日不合并', () => {
+    const evs = toDayEvents(
+      [
+        reminder({
+          id: 1,
+          due_at: '2026-09-09T06:30:00+00:00',
+          reminder_type: 'hearing',
+          content: '某庭',
+          metadata: { courtroom: 'A 法庭', time_range: '14:30-15:00' },
+        }),
+        reminder({
+          id: 2,
+          due_at: '2026-09-10T06:30:00+00:00',
+          reminder_type: 'hearing',
+          content: '某庭',
+          metadata: { courtroom: 'A 法庭', time_range: '14:30-15:00' },
+        }),
+      ],
+      today,
+    )
+    expect(evs).toHaveLength(2)
+  })
+
+  it('非庭审（期限/日程）不做合并', () => {
+    const evs = toDayEvents(
+      [
+        reminder({
+          id: 1,
+          due_at: '2026-09-22T23:59:00+08:00',
+          reminder_type: 'evidence_deadline',
+          content: '举证截止',
+          metadata: { source_id: 'same-source' },
+        }),
+        reminder({
+          id: 2,
+          due_at: '2026-09-22T23:59:00+08:00',
+          reminder_type: 'evidence_deadline',
+          content: '举证截止',
+          metadata: { source_id: 'same-source' },
+        }),
+      ],
+      today,
+    )
+    // reminder_type 不是 hearing，即使 source_id 相同也不合并
+    expect(evs).toHaveLength(2)
+  })
+
+  it('同一 source_id 但不同日不合并', () => {
+    const evs = toDayEvents(
+      [
+        reminder({
+          id: 1,
+          due_at: '2026-09-21T09:30:00+08:00',
+          reminder_type: 'hearing',
+          content: '某庭',
+          metadata: { source_id: 'abc' },
+        }),
+        reminder({
+          id: 2,
+          due_at: '2026-09-28T09:30:00+08:00',
+          reminder_type: 'hearing',
+          content: '某庭',
+          metadata: { source_id: 'abc' },
+        }),
+      ],
+      today,
+    )
+    // admin 的合并索引按 day 分桶，这里也必须按天分桶（否则跨天误合并）
+    expect(evs).toHaveLength(2)
   })
 
   it('dueToday 只在当天为 true', () => {

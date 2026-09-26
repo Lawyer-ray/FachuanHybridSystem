@@ -10,7 +10,7 @@
 /** 安排类别。前两类为「紧要」，其余为「常规」——对应原型图例的红/灰两色 */
 export type EventKind = 'court' | 'deadline' | 'meeting' | 'follow'
 
-/** 日历上的一天安排（由 Reminder 归一化） */
+/** 日历上的一天安排（由 Reminder 归一化，同一庭审的多条同步已合并） */
 export interface DayEvent {
   /** 稳定 key：reminder id（同一来源去重/勾选用） */
   id: string
@@ -20,14 +20,22 @@ export interface DayEvent {
   /** HH:mm，来自 due_at；没有具体时分则给全天占位 */
   time: string
   title: string
-  /** 副标题：案件/当事人/案号等摘要 */
-  subtitle: string
-  /** 原始 reminder 类型值，用于跳到详情/编辑 */
-  reminderType: string
+  /** 法庭 / 地点（庭审取 metadata.courtroom，同步日程取 location） */
+  place: string
+  /** 时段区间，如 10:00-12:00（metadata.time_range） */
+  timeRange: string
+  /** 代理律师 / 承办法官；同一庭审多人时用「、」聚合 */
+  person: string
+  /** 案号 */
+  caseNo: string
+  /** 庭审方式：线下开庭 / 网上开庭 */
+  hearingType: string
   /** 关联案件 id（有则可跳案件） */
   caseId: number | null
   /** 是否今天截止（用于强调） */
   dueToday: boolean
+  /** 关联对象名（案件 / 合同） */
+  targetName: string
 }
 
 /** 待处理流入项（来自收件箱 /inbox/messages） */

@@ -2,7 +2,7 @@ import { X } from 'lucide-react'
 
 import { KIND_BADGE, KIND_LABEL } from '../constants'
 import type { DayEvent } from '../types'
-import { formatCN, parseKey } from '../domain'
+import { formatCN, parseKey, rangeLabel } from '../domain'
 
 interface Props {
   /** dateKey；null 表示关闭 */
@@ -53,28 +53,42 @@ export function DaySheet({ day, today, events, onClose, onOpenEvent, onAdd }: Pr
         </div>
         <div className="overflow-y-auto px-[18px] pb-5">
           {events.length === 0 && <div className="py-[30px] text-center text-[12.5px] text-muted-foreground">这一天没有安排，点「＋ 新增」记一笔</div>}
-          {events.map((e) => (
-            <button
-              key={e.id}
-              type="button"
-              className="flex w-full cursor-pointer items-start gap-3 border-b border-border py-[13px] text-left last:border-b-0"
-              onClick={() => onOpenEvent(e)}
-            >
-              <span className="w-[42px] flex-none pt-[2px] text-right text-[12px] font-semibold tabular-nums text-secondary-foreground">
-                {e.time}
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block text-[13.5px] font-medium">{e.title}</span>
-                {e.subtitle && <span className="mt-[2px] block text-[11.5px] text-secondary-foreground">{e.subtitle}</span>}
-                <span className="mt-1.5 flex items-center gap-[7px]">
-                  <span className={`rounded-[5px] border px-[7px] py-[2px] text-[9.5px] font-semibold ${KIND_BADGE[e.kind]}`}>
-                    {KIND_LABEL[e.kind]}
-                  </span>
-                  <span className="text-[11px] text-muted-foreground">→ 打开案件 / 材料</span>
+          {events.map((e) => {
+            const range = rangeLabel(e)
+            return (
+              <button
+                key={e.id}
+                type="button"
+                className="flex w-full cursor-pointer items-start gap-3 border-b border-border py-[13px] text-left last:border-b-0"
+                onClick={() => onOpenEvent(e)}
+              >
+                <span className="w-[42px] flex-none pt-[2px] text-right text-[12px] font-semibold tabular-nums text-secondary-foreground">
+                  {e.time}
                 </span>
-              </span>
-            </button>
-          ))}
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[13.5px] font-medium">{e.title}</span>
+                  {/* 时段：与开始时刻不同才显示，避免「10:00 · 10:00-12:00」 */}
+                  {range && range !== e.time && (
+                    <span className="mt-[2px] block text-[11.5px] tabular-nums text-secondary-foreground">{range}</span>
+                  )}
+                  {e.place && <span className="mt-[2px] block text-[11.5px] text-secondary-foreground">{e.place}</span>}
+                  {e.person && <span className="mt-[2px] block text-[11.5px] text-muted-foreground">律师：{e.person}</span>}
+                  {e.hearingType && (
+                    <span className="mt-[2px] block text-[11.5px] text-muted-foreground">{e.hearingType}</span>
+                  )}
+                  {e.caseNo && (
+                    <span className="mt-[2px] block font-mono text-[10.5px] text-muted-foreground">{e.caseNo}</span>
+                  )}
+                  <span className="mt-1.5 flex items-center gap-[7px]">
+                    <span className={`rounded-[5px] border px-[7px] py-[2px] text-[9.5px] font-semibold ${KIND_BADGE[e.kind]}`}>
+                      {KIND_LABEL[e.kind]}
+                    </span>
+                    <span className="text-[11px] text-muted-foreground">→ 打开案件 / 材料</span>
+                  </span>
+                </span>
+              </button>
+            )
+          })}
         </div>
       </div>
     </>
