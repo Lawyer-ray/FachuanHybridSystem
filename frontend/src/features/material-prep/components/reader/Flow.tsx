@@ -4,18 +4,11 @@ import { SEG_COLORS } from '../../constants'
 import { useElementWidth } from '../../hooks/use-element-width'
 import type { DraftState, OcrPending, PageKey } from '../../types'
 import { selKeyOf } from '../../draft'
+import { COL_GAP, fitPageWidth, maxColsAllowed, rowWidth } from './layout'
 import { PageCell, type PageRect } from './PageCell'
 import { PageContextMenu } from './PageContextMenu'
 import { SegmentHeader } from './SegmentHeader'
 import { cn } from '@/lib/utils'
-
-/** 原型多列模型参数：
- *  100% = 适应宽度，页宽 = min(960, 可用均分)；
- *  每列至少 MIN_COL_W 才有资格并排；缩放用倍率乘在页宽上（非 CSS zoom）。 */
-export const COL_GAP = 18
-export const PAGE_MAX_W = 960
-export const COL_MIN_W = 360
-export const PAGE_MIN_W = 140
 
 export function Flow({
   draft,
@@ -60,13 +53,10 @@ export function Flow({
   const [menu, setMenu] = useState<{ x: number; y: number; mi: number; p: number } | null>(null)
 
   // —— 列数 / 页宽：原型 sgrid 模型（固定页宽，窄窗保护，缩放联动） ——
-  const maxColsAllowed = Math.max(1, Math.floor((flowWidth + COL_GAP) / (COL_MIN_W + COL_GAP)))
-  const nCols = Math.max(1, Math.min(cols, maxColsAllowed))
-  const fit = Math.min(PAGE_MAX_W, (flowWidth - (nCols - 1) * COL_GAP) / nCols)
-  // floor 而非 round：保证页行宽度 ≤ 画布宽，100% 缩放下不越界、恒居中；
-  // 仅当缩放 >100% 时行宽才会超画布，由 margin-inline:auto 贴左并允许横向滚动
-  const pageW = Math.max(PAGE_MIN_W, Math.floor(fit * zoom))
-  const rowW = nCols * pageW + (nCols - 1) * COL_GAP
+  const maxCols = maxColsAllowed(flowWidth)
+  const nCols = Math.max(1, Math.min(cols, maxCols))
+  const pageW = fitPageWidth(flowWidth, nCols, zoom)
+  const rowW = rowWidth(pageW, nCols)
   const zwide = rowW > flowWidth
 
   // 每页的来源绿框（采纳了带框的标来源）

@@ -6,7 +6,8 @@ import { Input } from '@/components/ui/input'
 import { useAuth } from './store'
 
 export function LoginPage() {
-  const { login, init } = useAuth()
+  const login = useAuth((s) => s.login)
+  const init = useAuth((s) => s.init)
   const navigate = useNavigate()
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')

@@ -1,8 +1,8 @@
 import { Navigate, Route, Routes } from 'react-router'
 import { hasToken } from '@/lib/token'
-import { LoginPage } from '@/features/auth/LoginPage'
+import { LoginPage } from '@/features/auth'
 import { HomePage } from '@/features/home'
-import { DeskPage } from '@/features/material-prep/components/DeskPage'
+import { DeskPage } from '@/features/material-prep'
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   if (!hasToken()) return <Navigate to="/login" replace />

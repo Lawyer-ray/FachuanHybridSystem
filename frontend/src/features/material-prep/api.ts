@@ -3,11 +3,12 @@ import type {
   AssignInfo,
   CaseRow,
   ClientHit,
+  DraftState,
   InboxMessage,
   InboxMessageDetail,
-  DraftState,
   OcrResult,
   PackStatus,
+  PdfSplitSegmentSuggestion,
 } from './types'
 
 /**
@@ -19,16 +20,6 @@ export const inboxApi = createApiClient({ prefix: '/api/v1/inbox' })
 /** 客户/当事人检索（/api/v1/client/parties/search，精简字段，兼容证件档案为空的客户） */
 export const clientApi = createApiClient({ prefix: '/api/v1/client' })
 const pdfSplitApi = createApiClient({ prefix: '/api/v1/pdf-splitting' })
-
-export interface PdfSplitSegmentSuggestion {
-  page_start: number
-  page_end: number
-  segment_type: string
-  segment_label: string
-  filename: string
-  confidence: number
-  review_flag: string
-}
 
 interface PdfSplitJobPayload {
   job_id: string

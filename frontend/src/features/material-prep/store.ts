@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { toast } from 'sonner'
-import { appendPackFiles, getPackDetail, saveDraft } from './api'
+import { appendPackFiles, getPackDetail, saveDraft, clearBytesCache } from './api'
 import { clearPdfDocuments } from '@/lib/pdf'
 import {
   applyPageSelection,
@@ -10,6 +10,7 @@ import {
   isSelectionContiguous,
   pageIndexOf,
   removePages,
+  renameMat,
   resolveMats,
   setPackAssign,
   setPackStatus,
@@ -123,6 +124,7 @@ export const useReader = create<ReaderState>((set, get) => ({
     // 切到新包先释放上一个包的 PDF 文档/worker，避免跨包累积占内存；
     // 此时上一个包的页卡已随 openId 变化卸载，销毁其文档是安全的
     clearPdfDocuments()
+    clearBytesCache()
     set({
       status: 'loading',
       error: '',
@@ -168,6 +170,7 @@ export const useReader = create<ReaderState>((set, get) => ({
       if (!s.closing || !s.openId) return
       // 阅读器已彻底关闭，释放该包的 PDF 文档/worker（关掉后不重开时也得回收，别等下次 open）
       clearPdfDocuments()
+      clearBytesCache()
       set({
         openId: null,
         detail: null,
@@ -272,17 +275,7 @@ export const useReader = create<ReaderState>((set, get) => ({
   },
 
   renameMatInDraft: (mi, n) => {
-    get().update((d) => {
-      const name = n.trim()
-      if (!name) return d
-      const mats = d.mats.map((m, i) =>
-        i === mi ? { ...m, customName: name !== m.n ? name : undefined } : m
-      )
-      const segs = d.segs.map((sg) =>
-        sg.fn === (d.mats[mi]?.n || '') && sg.refs.every((r) => r.mi === mi) ? { ...sg, fn: name } : sg
-      )
-      return { ...d, mats, segs }
-    })
+    get().update((d) => renameMat(d, mi, n))
   },
 
   renameSubject: (id, title) => {
