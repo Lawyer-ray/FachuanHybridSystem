@@ -212,7 +212,7 @@ function DayCellView({ cell, today, selected, events, maxRows, onPick, onOpenDet
               key={e.id}
               data-calendar-event={e.id}
               className={cn(
-                'flex min-h-[20px] flex-col justify-center gap-[2px] rounded-[5px] px-1.5 py-[2px] text-[11.5px] transition-[filter] hover:brightness-95',
+                'flex flex-col justify-center gap-px rounded-[5px] px-[6px] py-[3px] text-[11.5px] transition-[filter] hover:brightness-95',
                 KIND_ROW[e.kind],
                 !isKeyKind(e.kind) && 'bg-secondary/70',
               )}
@@ -221,19 +221,21 @@ function DayCellView({ cell, today, selected, events, maxRows, onPick, onOpenDet
                 onOpenDetail(e)
               }}
             >
-              <span className="flex items-center gap-1.5">
-                <span className="w-[30px] flex-none text-[10px] font-semibold tabular-nums opacity-80">{e.time}</span>
+              {/* 第一行：时间 + 标题。用 grid 固定时间列宽，
+                  这样副标题行能用同一列起点对齐，不必塞空白 span 占位 */}
+              <span className="grid grid-cols-[30px_minmax(0,1fr)] items-baseline gap-x-1">
+                <span className="text-[10px] font-semibold tabular-nums opacity-80">{e.time}</span>
                 <span className="truncate font-medium">{e.title}</span>
               </span>
               {meta.primary && (
-                <span className="flex items-center gap-1.5">
-                  <span className="w-[30px] flex-none" />
-                  <span className="truncate text-[9.5px] font-medium opacity-80">{meta.primary}</span>
+                <span className="grid grid-cols-[30px_minmax(0,1fr)] items-baseline gap-x-1">
+                  <span />
+                  <span className="truncate text-[9.5px] opacity-75">{meta.primary}</span>
                 </span>
               )}
               {meta.secondary && (
-                <span className="flex items-center gap-1.5">
-                  <span className="w-[30px] flex-none" />
+                <span className="grid grid-cols-[30px_minmax(0,1fr)] items-baseline gap-x-1">
+                  <span />
                   <span className="truncate text-[9.5px] opacity-60">{meta.secondary}</span>
                 </span>
               )}

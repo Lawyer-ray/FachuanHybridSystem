@@ -15,9 +15,12 @@ export const KIND_BADGE: Record<string, string> = {
 }
 
 /** 类别 → 日历事件行的 tailwind 类名 */
+// 紧要事项（庭期/期限）用近黑底白字：原先用 status-red 实底白字，
+// 在浅色主题下字显得发虚、不清晰。深底白字对比度更高，也和 navbar 的
+// 「新建案件」按钮、深色主按钮同一套语言。左侧仍用红色圆点标示紧要。
 export const KIND_ROW: Record<string, string> = {
-  court: 'bg-status-red text-white',
-  deadline: 'bg-status-red text-white',
+  court: 'bg-foreground text-background',
+  deadline: 'bg-foreground text-background',
   meeting: 'text-foreground',
   follow: 'text-foreground',
 }

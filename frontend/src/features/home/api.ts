@@ -40,6 +40,7 @@ export interface CalendarEvent {
   time_range: string
   place: string
   person: string
+  /** 真实案号（后端取自案件的 CaseNumber），如 （2026）粤0608民初8233号 */
   case_no: string
   hearing_type: string
   target_type: string

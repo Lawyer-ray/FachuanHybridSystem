@@ -63,6 +63,7 @@ class CalendarMonthService:
 
         return (
             Reminder.objects.select_related("contract", "case", "case_log", "case_log__case")
+            .prefetch_related("case__case_numbers")  # 案号要读 CaseNumber，预取避免 N+1
             .filter(
                 due_at__gte=timezone.make_aware(datetime.combine(month_start, datetime.min.time()), self._tz),
                 due_at__lt=timezone.make_aware(datetime.combine(next_month_start, datetime.min.time()), self._tz),
@@ -77,6 +78,7 @@ class CalendarMonthService:
         end = timezone.make_aware(datetime.combine(today, datetime.min.time()), self._tz) + timedelta(days=days_ahead)
         return (
             Reminder.objects.select_related("contract", "case", "case_log", "case_log__case")
+            .prefetch_related("case__case_numbers")
             .filter(due_at__gte=start, due_at__lt=end)
             .order_by("due_at", "id")
         )

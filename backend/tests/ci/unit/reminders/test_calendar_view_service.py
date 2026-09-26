@@ -33,11 +33,18 @@ def make_reminder(
     contract_id: int | None = None,
     case_log_id: int | None = None,
     case_name: str | None = None,
+    case_ref: str | None = None,
     contract_name: str | None = None,
     case_log: object | None = None,
     metadata: dict | None = None,
 ) -> SimpleNamespace:
     """造一个够用的 Reminder 替身（只带 to_event_item 会读到的属性）。"""
+    # 案件的案号在 Case.case_numbers（CaseNumber.number），
+    # service 里用 case.case_numbers.values_list("number", flat=True) 读，
+    # 这里给个同名替身。
+    case_obj = SimpleNamespace(name=case_name) if case_name else None
+    if case_obj is not None:
+        case_obj.case_numbers = SimpleNamespace(values_list=lambda *a, **kw: [case_ref] if case_ref else [])
     return SimpleNamespace(
         id=reminder_id,
         # 带偏移量的保持原样；naive 的按 TZ 解释（与 Django make_aware 语义一致）
@@ -48,7 +55,7 @@ def make_reminder(
         case_id=case_id,
         contract_id=contract_id,
         case_log_id=case_log_id,
-        case=SimpleNamespace(name=case_name) if case_name else None,
+        case=case_obj,
         contract=SimpleNamespace(name=contract_name) if contract_name else None,
         case_log=case_log,
     )
@@ -432,10 +439,12 @@ class TestFieldExtraction:
                 due_at="2026-10-16T10:00:00+08:00",
                 case_id=351,
                 case_name="某买卖合同案",
+                case_ref="（2026）粤0604民初2931号",
                 metadata={
                     "courtroom": "佛山禅城中央法务区第三审判庭",
                     "time_range": "10:00-12:00",
                     "lawyer_name": "房长波",
+                    # 一张网的内部案件标识：不应被当成案号展示
                     "ajbs": "259820260301031696",
                     "hearing_type": "线下开庭",
                 },
@@ -445,7 +454,9 @@ class TestFieldExtraction:
         assert e.place == "佛山禅城中央法务区第三审判庭"
         assert e.time_range == "10:00-12:00"
         assert e.person == "房长波"
-        assert e.case_no == "259820260301031696"
+        # 案号取案件的 CaseNumber，完全不读 ajbs（那是内部标识，不是案号）
+        assert e.case_no == "（2026）粤0604民初2931号"
+        assert e.case_no != "259820260301031696"
         assert e.hearing_type == "线下开庭"
         assert e.day == "2026-10-16"
         assert e.time == "10:00"

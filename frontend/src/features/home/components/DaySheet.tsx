@@ -78,7 +78,7 @@ export function DaySheet({ day, today, events, onClose, onOpenEvent, onAdd }: Pr
                     <span className="mt-[2px] block text-[11.5px] text-muted-foreground">{e.hearing_type}</span>
                   )}
                   {e.case_no && (
-                    <span className="mt-[2px] block font-mono text-[10.5px] text-muted-foreground">{e.case_no}</span>
+                    <span className="mt-[2px] block font-mono text-[10.5px] text-muted-foreground">案号 {e.case_no}</span>
                   )}
                   <span className="mt-1.5 flex items-center gap-[7px]">
                     <span className={`rounded-[5px] border px-[7px] py-[2px] text-[9.5px] font-semibold ${KIND_BADGE[e.kind]}`}>

@@ -75,6 +75,7 @@ class CalendarEventItem:
     time_range: str
     place: str
     person: str
+    #: 真实案号（取自案件的 CaseNumber），如 （2026）粤0608民初8233号
     case_no: str
     hearing_type: str
     target_type: str
@@ -120,6 +121,27 @@ class _Raw:
 def _text(value: Any) -> str:
     """metadata 取值：只认非空字符串。"""
     return value.strip() if isinstance(value, str) and value.strip() else ""
+
+
+def _case_number_of(case: Any) -> str:
+    """案件的真实案号，如 （2026）粤0608民初8233号。
+
+    取自 Case.case_numbers（CaseNumber.number，verbose_name 就是「案号」）。
+    不用 metadata.ajbs——那是一张网的内部案件标识（拼音缩写，旁边还有
+    rcdd/jssj/sj/lx 这类字段），不是法律意义上的案号，不能当案号展示。
+    一个案件可能有多个案号，取第一个（一般也只有一个）。
+    """
+    if case is None:
+        return ""
+    try:
+        numbers = list(case.case_numbers.values_list("number", flat=True))
+    except Exception:  # pragma: no cover - 替身对象没有 ORM 管理器时
+        return ""
+    for n in numbers:
+        cleaned = _text(n)
+        if cleaned:
+            return cleaned
+    return ""
 
 
 def _target_of(reminder: Any) -> tuple[str, str]:
@@ -184,7 +206,9 @@ def to_event_item(
         time_range=time_range,
         place=place,
         person=_text(metadata.get("lawyer_name")) or _text(metadata.get("judge_name")),
-        case_no=_text(metadata.get("ajbs")) or _text(metadata.get("ah")) or _text(metadata.get("case_no")),
+        # 案号从关联案件的 CaseNumber.number 取（如 （2026）粤0608民初8233号）。
+        # 不读 metadata.ajbs——那是一张网的内部案件标识，不是案号。
+        case_no=_case_number_of(getattr(reminder, "case", None)),
         hearing_type=_text(metadata.get("hearing_type")),
         target_type=target_type,
         target_name=target_name,
@@ -206,7 +230,7 @@ def merge_events(raws: Iterable[_Raw]) -> list[CalendarEventItem]:
     """合并同一庭审的多条记录。
 
     - 保留首条的展示字段，律师姓名按出现顺序去重后用「、」聚合
-    - 后续记录补首条缺失的字段（place / case_no / 案名 / case_id）
+    - 后续记录补首条缺失的字段（place / 案号 / 案名 / case_id）
     - member_ids 累积全部原始 id，members 记条数
     """
     merged: list[CalendarEventItem] = []

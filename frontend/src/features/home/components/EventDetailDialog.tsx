@@ -6,7 +6,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { KIND_BADGE, KIND_LABEL } from '../constants'
+import { KIND_LABEL } from '../constants'
 import type { CalendarEvent } from '../api'
 import { formatCN, parseKey } from '../domain'
 import { cn } from '@/lib/utils'
@@ -51,12 +51,8 @@ export function EventDetailDialog({ event, onClose, onOpenCase }: Props) {
             </div>
             <DialogTitle className="mt-1 text-[15px] leading-snug font-semibold">{event.title}</DialogTitle>
           </div>
-          <span
-            className={cn(
-              'mt-[2px] flex-none rounded-[6px] border px-[8px] py-[2px] text-[10px] font-semibold',
-              KIND_BADGE[event.kind],
-            )}
-          >
+          {/* 类别只用一行小字，不用彩色胶囊——弹窗头部不需要第二个视觉焦点 */}
+          <span className="mt-[3px] flex-none text-[11px] font-medium text-muted-foreground">
             {event.kind_label || KIND_LABEL[event.kind]}
           </span>
           <button
