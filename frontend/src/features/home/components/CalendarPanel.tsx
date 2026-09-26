@@ -221,24 +221,18 @@ function DayCellView({ cell, today, selected, events, maxRows, onPick, onOpenDet
                 onOpenDetail(e)
               }}
             >
-              {/* 第一行：时间 + 标题。用 grid 固定时间列宽，
-                  这样副标题行能用同一列起点对齐，不必塞空白 span 占位 */}
-              <span className="grid grid-cols-[30px_minmax(0,1fr)] items-baseline gap-x-1">
+              {/* 时间独占第一行，正文全部左对齐顶格开始。
+                  以前把时间做成固定 30px 的前导列，导致律师/地点两行要缩进
+                  到 30px 起，左侧白费一条——格子本来就窄，不能再浪费宽度。 */}
+              <span className="flex items-baseline gap-1">
                 <span className="text-[10px] font-semibold tabular-nums opacity-80">{e.time}</span>
-                <span className="truncate font-medium">{e.title}</span>
+                {e.time_range && e.time_range !== e.time && (
+                  <span className="truncate text-[9px] tabular-nums opacity-55">-{e.time_range.split('-')[1]}</span>
+                )}
               </span>
-              {meta.primary && (
-                <span className="grid grid-cols-[30px_minmax(0,1fr)] items-baseline gap-x-1">
-                  <span />
-                  <span className="truncate text-[9.5px] opacity-75">{meta.primary}</span>
-                </span>
-              )}
-              {meta.secondary && (
-                <span className="grid grid-cols-[30px_minmax(0,1fr)] items-baseline gap-x-1">
-                  <span />
-                  <span className="truncate text-[9.5px] opacity-60">{meta.secondary}</span>
-                </span>
-              )}
+              <span className="truncate font-medium leading-tight">{e.title}</span>
+              {meta.primary && <span className="truncate text-[9.5px] opacity-75">{meta.primary}</span>}
+              {meta.secondary && <span className="truncate text-[9.5px] opacity-60">{meta.secondary}</span>}
             </div>
           )
         })}

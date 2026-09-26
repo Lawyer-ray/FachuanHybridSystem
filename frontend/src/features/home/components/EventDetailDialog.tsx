@@ -6,7 +6,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { KIND_LABEL } from '../constants'
 import type { CalendarEvent } from '../api'
 import { formatCN, parseKey } from '../domain'
 import { cn } from '@/lib/utils'
@@ -42,7 +41,8 @@ export function EventDetailDialog({ event, onClose, onOpenCase }: Props) {
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-w-[440px] gap-0 p-0" showCloseButton={false}>
-        {/* 头部：日期 + 类别胶囊 + 关闭 */}
+        {/* 头部：日期时间 + 标题 + 关闭。不显示「庭期」这类类别词——
+            所有开庭提醒都是庭期，等于废话；真有混合类型时看详情行也够 */}
         <DialogHeader className="flex-row items-start gap-3 border-b border-border px-5 py-4">
           <div className="min-w-0 flex-1">
             <div className="text-[11.5px] text-muted-foreground">
@@ -51,10 +51,6 @@ export function EventDetailDialog({ event, onClose, onOpenCase }: Props) {
             </div>
             <DialogTitle className="mt-1 text-[15px] leading-snug font-semibold">{event.title}</DialogTitle>
           </div>
-          {/* 类别只用一行小字，不用彩色胶囊——弹窗头部不需要第二个视觉焦点 */}
-          <span className="mt-[3px] flex-none text-[11px] font-medium text-muted-foreground">
-            {event.kind_label || KIND_LABEL[event.kind]}
-          </span>
           <button
             type="button"
             onClick={onClose}
