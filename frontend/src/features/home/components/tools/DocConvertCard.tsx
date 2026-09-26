@@ -50,7 +50,12 @@ export function DocConvertCard() {
   return (
     <ToolShell icon={<FileText className="h-3.5 w-3.5" />} title="要素式转换" endpoint={TOOL_ENDPOINT.docConvert}>
       <div className="flex flex-1 flex-col gap-[7px]">
-        <select className={FIELD} value={mbid} onChange={(e) => setMbid(e.target.value)} disabled={isLoading}>
+        <select
+          className={FIELD}
+          value={mbid}
+          onChange={(e) => setMbid(e.target.value)}
+          disabled={isLoading || busy}
+        >
           <option value="">{isLoading ? '正在加载文书模板…' : '选择文书类型…'}</option>
           {groups.map((g) => (
             <optgroup key={g.category} label={g.category}>
@@ -63,16 +68,34 @@ export function DocConvertCard() {
           ))}
         </select>
 
-        <label className="flex cursor-pointer items-center gap-2 rounded-[8px] border border-dashed border-input bg-secondary/30 px-[9px] py-[6px] transition-colors hover:border-ring/40 hover:bg-card">
-          <input type="file" accept=".doc,.docx,.pdf" className="hidden" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
+        <label
+          className={`flex items-center gap-2 rounded-[8px] border border-dashed border-input bg-secondary/30 px-[9px] py-[6px] transition-colors ${
+            busy ? 'cursor-not-allowed opacity-60' : 'cursor-pointer hover:border-ring/40 hover:bg-card'
+          }`}
+        >
+          <input
+            type="file"
+            accept=".doc,.docx,.pdf"
+            className="hidden"
+            disabled={busy}
+            onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+          />
           <span className="text-[11px] font-medium whitespace-nowrap text-secondary-foreground">选择文书</span>
           <span className="truncate text-[10.5px] text-muted-foreground">{file ? file.name : '.doc / .docx / .pdf ≤ 20MB'}</span>
         </label>
 
+        {/* 转换中给个明确反馈：后端这一步通常要几秒到几十秒，别让用户以为卡死 */}
+        {busy && (
+          <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+            <Spinner />
+            <span>正在提取要素并生成要素式文书，大文件可能要等一会儿…</span>
+          </div>
+        )}
+
         <div className="mt-auto flex items-center gap-2">
           <button type="button" className={BTN_PRIMARY} onClick={submit} disabled={busy}>
             {busy && <Spinner />}
-            转换
+            {busy ? '转换中' : '转换'}
           </button>
           <span className="flex-1 truncate text-right text-[10.5px] text-muted-foreground">→ 要素式文书</span>
         </div>

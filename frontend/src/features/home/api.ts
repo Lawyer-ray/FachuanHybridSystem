@@ -134,6 +134,9 @@ export interface ConvertResult {
   filename: string
 }
 
+/** 要素式转换超时：后端 httpx 客户端是 60s，前端多等一会儿再放弃，别抢在后端前面断 */
+export const DOC_CONVERT_TIMEOUT_MS = 90_000
+
 /**
  * 要素式转换：multipart 传 file + mbid，返回转换后文书。
  * 注意：响应是二进制（docx/blob），这里以 blob 形式取回，由调用方触发下载。
@@ -142,7 +145,7 @@ export async function convertDocument(mbid: string, file: File): Promise<Convert
   const body = new FormData()
   body.append('file', file, file.name)
   body.append('mbid', mbid)
-  const res = await docConvertApi.post('convert', { body })
+  const res = await docConvertApi.post('convert', { body, timeout: DOC_CONVERT_TIMEOUT_MS })
   const blob = await res.blob()
   const disposition = res.headers.get('content-disposition') || ''
   const matched = /filename\*?=(?:UTF-8'')?"?([^";]+)"?/i.exec(disposition)
