@@ -120,7 +120,7 @@ export function GlobalSearch({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="top-[14%] max-w-[560px] translate-y-0 gap-0 p-0" showCloseButton={false}>
+      <DialogContent className="top-[14%] max-w-[880px] translate-y-0 gap-0 p-0 sm:max-w-[880px]" showCloseButton={false}>
         {/* 搜索框 */}
         <div className="flex items-center gap-2.5 border-b border-border px-4">
           <Search className="h-4 w-4 flex-none text-muted-foreground" />

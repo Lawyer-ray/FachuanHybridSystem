@@ -181,10 +181,6 @@ export function AppNavbar({ onNotify, onLogout }: AppNavbarProps) {
           </DropdownMenuLabel>
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={() => notify('个人中心正在开发中')}>个人中心</DropdownMenuItem>
-          <DropdownMenuItem onClick={() => setSearchOpen(true)}>
-            <Search className="h-3.5 w-3.5" />
-            全局检索
-          </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem variant="destructive" onSelect={() => setLogoutOpen(true)}>
             <LogOut className="h-3.5 w-3.5" />
