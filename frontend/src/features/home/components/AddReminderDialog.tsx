@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Loader2, X } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { toast } from 'sonner'
@@ -7,6 +7,15 @@ import { createReminder, listReminderTypes, searchTargetOptions, type TargetOpti
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { formatCN, parseKey } from '../domain'
+import { cn } from '@/lib/utils'
+
+/** 关联对象分类 tab。'all' = 全部 */
+const TABS: { key: string; label: string }[] = [
+  { key: 'all', label: '全部' },
+  { key: 'contract', label: '合同' },
+  { key: 'case', label: '案件' },
+  { key: 'case_log', label: '日志' },
+]
 
 interface Props {
   /** 目标日期 YYYY-MM-DD；null 表示关闭 */
@@ -40,6 +49,8 @@ export function AddReminderDialog({ day, defaultTime, onClose, onSaved }: Props)
   const [options, setOptions] = useState<TargetOption[]>([])
   const [picked, setPicked] = useState<TargetOption | null>(null)
   const [searching, setSearching] = useState(false)
+  // 候选分类筛选：'all' / contract / case / case_log
+  const [tab, setTab] = useState('all')
 
   const { data: types = [] } = useQuery({
     queryKey: ['reminder-types'],
@@ -58,6 +69,7 @@ export function AddReminderDialog({ day, defaultTime, onClose, onSaved }: Props)
       setOptions([])
       setPicked(null)
       setSearching(false)
+      setTab('all')
     }
   }, [day, defaultTime])
 
@@ -83,6 +95,12 @@ export function AddReminderDialog({ day, defaultTime, onClose, onSaved }: Props)
     return () => window.clearTimeout(debounce.current)
   }, [kw, picked])
 
+  // 当前 tab 下可见的候选
+  const visibleOptions = useMemo(
+    () => (tab === 'all' ? options : options.filter((o) => o.target_type === tab)),
+    [options, tab],
+  )
+
   const trimmed = content.trim()
   const canSave = trimmed.length > 0 && /^\d{2}:\d{2}$/.test(time) && !busy
 
@@ -99,7 +117,7 @@ export function AddReminderDialog({ day, defaultTime, onClose, onSaved }: Props)
         target_id: picked?.id ?? null,
       })
       toast.success(
-        `已添加到 ${formatCN(parseKey(day))} ${time}${picked ? ` · ${picked.target_type_label}：${picked.name}` : ''}`,
+        `已添加到 ${formatCN(parseKey(day))} ${time}${picked ? ` · ${picked.target_type_label}：${picked.title}` : ''}`,
       )
       onSaved()
       onClose()
@@ -163,7 +181,7 @@ export function AddReminderDialog({ day, defaultTime, onClose, onSaved }: Props)
                 <span className="flex-none rounded bg-secondary px-1.5 py-[1px] text-[10px] font-semibold text-secondary-foreground">
                   {picked.target_type_label}
                 </span>
-                <span className="min-w-0 flex-1 truncate text-[12.5px]">{picked.name}</span>
+                <span className="min-w-0 flex-1 truncate text-[12.5px]">{picked.title}</span>
               </div>
             ) : (
               <div className="relative">
@@ -171,40 +189,71 @@ export function AddReminderDialog({ day, defaultTime, onClose, onSaved }: Props)
                   className="h-9 w-full rounded-[8px] border border-input bg-background px-2.5 text-[12.5px] outline-none focus:border-ring/40"
                   value={kw}
                   onChange={(e) => setKw(e.target.value)}
-                  placeholder={searching ? '搜索中…' : '输入关键字，如当事人名称 / 案号'}
+                  placeholder={searching ? '搜索中…' : '输入当事人名称 / 案号搜索'}
                 />
+
                 {options.length > 0 && (
                   <>
                     {/* 兜底层：点别处收起候选 */}
                     <div className="fixed inset-0 z-40" onClick={() => setOptions([])} aria-hidden />
-                    {/* 候选列表**向上**展开：输入框在表单中部，向下会顶出视口
-                        （实测 24 条候选 + 下拉会让 item 落到视口外，点不到）。
-                        列表自身限高可滚，不把弹窗撑高。 */}
-                    <div className="absolute inset-x-0 bottom-[calc(100%+4px)] z-50 max-h-[190px] overflow-y-auto rounded-[8px] border border-border bg-card py-1 shadow-[0_8px_24px_rgba(0,0,0,.12)]">
-                      {options.map((o) => (
-                        <button
-                          key={`${o.target_type}-${o.id}`}
-                          type="button"
-                          className="flex w-full items-center gap-2 px-2.5 py-[7px] text-left transition-colors hover:bg-secondary"
-                          onClick={() => {
-                            setPicked(o)
-                            setKw('')
-                            setOptions([])
-                          }}
-                        >
-                          <span className="flex-none rounded bg-secondary px-1.5 py-[1px] text-[10px] font-semibold text-secondary-foreground">
-                            {o.target_type_label}
-                          </span>
-                          <span className="min-w-0 flex-1 truncate text-[12px]">{o.name}</span>
-                        </button>
-                      ))}
+                    {/* 候选面板**向上**展开：输入框在弹窗中部，向下会顶出视口。
+                        自身限高可滚，不把弹窗撑高。 */}
+                    <div className="absolute inset-x-0 bottom-[calc(100%+4px)] z-50 max-h-[228px] overflow-hidden rounded-[10px] border border-border bg-card shadow-[0_10px_28px_rgba(0,0,0,.14)]">
+                      {/* 分类筛选 tab：合同 / 案件 / 案件日志，点一下只看这类 */}
+                      <div className="flex items-center gap-1 border-b border-border px-1.5 py-1.5">
+                        {TABS.filter((t) => t.key === 'all' || options.some((o) => o.target_type === t.key)).map(
+                          (t) => {
+                            const n = t.key === 'all' ? options.length : options.filter((o) => o.target_type === t.key).length
+                            return (
+                              <button
+                                key={t.key}
+                                type="button"
+                                onClick={() => setTab(t.key)}
+                                className={cn(
+                                  'flex-none rounded-[6px] px-2 py-[3px] text-[11px] font-medium transition-colors',
+                                  tab === t.key
+                                    ? 'bg-foreground text-background'
+                                    : 'text-muted-foreground hover:bg-secondary hover:text-foreground',
+                                )}
+                              >
+                                {t.label}
+                                <span className="ml-1 tabular-nums opacity-60">{n}</span>
+                              </button>
+                            )
+                          },
+                        )}
+                      </div>
+                      {/* 结果列表 */}
+                      <div className="max-h-[184px] overflow-y-auto py-1">
+                        {visibleOptions.map((o) => (
+                          <button
+                            key={`${o.target_type}-${o.id}`}
+                            type="button"
+                            className="flex w-full items-center gap-2 px-2.5 py-[7px] text-left transition-colors hover:bg-secondary"
+                            onClick={() => {
+                              setPicked(o)
+                              setKw('')
+                              setOptions([])
+                            }}
+                          >
+                            <span className="flex-none rounded bg-secondary px-1.5 py-[1px] text-[10px] font-semibold text-secondary-foreground">
+                              {o.target_type_label}
+                            </span>
+                            <span className="min-w-0 flex-1 truncate text-[12px]">{o.title}</span>
+                            {o.hint && (
+                              <span className="max-w-[110px] flex-none truncate text-[10px] text-muted-foreground">
+                                {o.hint}
+                              </span>
+                            )}
+                          </button>
+                        ))}
+                      </div>
                     </div>
                   </>
                 )}
+
                 {kw.trim() && !searching && options.length === 0 && (
-                  <p className="mt-1 text-[10.5px] text-muted-foreground">
-                    没有匹配的关联对象，也可以留空（不绑定）
-                  </p>
+                  <p className="mt-1 text-[10.5px] text-muted-foreground">没有匹配的关联对象，也可以留空不绑定</p>
                 )}
               </div>
             )}

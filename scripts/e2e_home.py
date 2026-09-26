@@ -378,6 +378,22 @@ EVENT_ROW_JS = """() => {
         return { id: el.getAttribute('data-calendar-event'), lines };
     });
 }"""
+def picked_badge(page) -> str | None:
+    """读取新增弹窗里已绑定那一栏的类型徽章文本（合同/案件/案件日志）。"""
+    try:
+        return page.evaluate(
+            """() => {
+                const d = document.querySelector('[role=dialog]');
+                if (!d) return null;
+                // 绑定态那一行的徽章：文案是「合同」「案件」「案件日志」之一
+                const spans = [...d.querySelectorAll('span')];
+                const hit = spans.find(x => ['合同', '案件', '案件日志'].includes(x.textContent.trim()));
+                return hit ? hit.textContent.trim() : null;
+            }"""
+        )
+    except Exception:  # noqa: BLE001
+        return None
+
 
 def run_add_reminder(page) -> tuple[bool, str]:
     """点空白日期格 → 填新增弹窗 → 保存，断言写进 reminders 且日历出现。
@@ -456,7 +472,7 @@ def run_add_reminder(page) -> tuple[bool, str]:
         # 关联对象：打关键字 → 选中第一个候选（合同/案件/案件日志之一）。
         # 不做关联的话 admin 日历里会显示成"独立提醒"，等于白建，
         # 所以这条用例必须验证真绑上了。
-        page.get_by_placeholder("输入关键字", exact=False).fill("升平")
+        page.get_by_placeholder("输入当事人名称", exact=False).fill("升平")
         bound_type = pick_target_option(page)
         if not bound_type:
             return False, "关键字联想没有可选结果，无法验证关联绑定"
@@ -502,16 +518,19 @@ def pick_target_option(page) -> str | None:
     会误匹配。这里直接用候选列表容器（div.z-50）里的按钮定位。
     """
     try:
-        page.wait_for_selector("[role=dialog] div.z-50 button", timeout=8000)
-        opts = page.locator("[role=dialog] div.z-50 button")
+        # 候选面板结构：div.z-50 > [tabs] + .overflow-y-auto > buttons
+        # 输入有 300ms 防抖 + 一次请求，多等一会儿
+        page.wait_for_timeout(800)
+        page.wait_for_selector("[role=dialog] div.z-50 .overflow-y-auto button", timeout=10000)
+        opts = page.locator("[role=dialog] div.z-50 .overflow-y-auto button")
         if opts.count() == 0:
             return None
-        label = opts.first.evaluate(
-            "el => (el.querySelector('span') || {}).textContent || ''"
-        )
+        # 第一个 span 是类型徽章（合同/案件/案件日志）
+        label = opts.first.evaluate("el => (el.querySelector('span') || {}).textContent || ''")
         opts.first.click()
-        page.wait_for_timeout(400)
-        return label.strip() or None
+        page.wait_for_timeout(600)
+        result = (picked_badge(page) or label).strip()
+        return result or None
     except Exception:  # noqa: BLE001
         return None
 

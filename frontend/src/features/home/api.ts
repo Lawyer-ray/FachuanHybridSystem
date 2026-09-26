@@ -82,23 +82,60 @@ export async function fetchCalendarMonth(year: number, month: number): Promise<C
 /** 关联对象类型（提醒可绑定 合同 / 案件 / 案件日志 三选一） */
 export type TargetType = 'contract' | 'case' | 'case_log'
 
-/** 关联对象候选项（GET /reminders/target-options） */
+/**
+ * 关联对象候选项（GET /reminders/target-options）。
+ *
+ * 后端 name 字段是**给 admin 的组合标签**，格式不统一：
+ *   - contract / case：`案件或合同名`
+ *   - case_log：`#{id} {案件名}｜{日志摘要}`（见 target_query.py:48）
+ * searchTargetOptions 会把它拆成 title / hint 两个字段，前端按各自版式排版。
+ * 不改后端——那个标签格式 admin 也在用。
+ */
 export interface TargetOption {
   id: number
-  name: string
   target_type: TargetType
   target_type_label: string
+  /** 主展示名：案件名 / 合同名（已去掉 `#id` 前缀） */
+  title: string
+  /** 次级说明：案件日志的内容摘要，其它类型为空 */
+  hint: string
+}
+
+/** 后端原始 name 标签 → title + hint */
+function splitTargetName(targetType: TargetType, rawName: string): { title: string; hint: string } {
+  const name = rawName.trim()
+  if (targetType !== 'case_log') return { title: name, hint: '' }
+  // case_log：「#123 案件名｜日志摘要」→ 丢掉 `#id ` 前缀，再按｜拆开
+  const withoutId = /^#\d+\s+(.*)$/.exec(name)?.[1] ?? name
+  const sep = withoutId.indexOf('｜')
+  if (sep < 0) return { title: withoutId, hint: '' }
+  return { title: withoutId.slice(0, sep).trim(), hint: withoutId.slice(sep + 1).trim() }
 }
 
 /**
  * 按关键字联想关联对象（合同 / 案件 / 案件日志）。
- * 与 admin 提醒日历用的是同一个接口。
+ * 与 admin 提醒日历用的是同一个接口，返回已拆好 title/hint 的结果。
  */
 export async function searchTargetOptions(q: string): Promise<TargetOption[]> {
-  const res = await remindersApi
-    .get('target-options', { searchParams: { q } })
-    .json<{ items?: TargetOption[] }>()
-  return res.items ?? []
+  const res = await remindersApi.get('target-options', { searchParams: { q } }).json<{ items?: RawTargetOption[] }>()
+  return (res.items ?? []).map((raw) => {
+    const { title, hint } = splitTargetName(raw.target_type, raw.name ?? '')
+    return {
+      id: raw.id,
+      target_type: raw.target_type,
+      target_type_label: raw.target_type_label,
+      title,
+      hint,
+    }
+  })
+}
+
+/** wire 上的原始字段 */
+interface RawTargetOption {
+  id: number
+  name: string
+  target_type: TargetType
+  target_type_label: string
 }
 
 /** 提醒类型选项（GET /reminders/types），用于新增安排弹窗的下拉 */

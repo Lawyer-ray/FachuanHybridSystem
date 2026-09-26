@@ -106,11 +106,15 @@ export function GlobalSearch({
     placeholderData: (prev) => prev,
   })
 
-  // 当前是否"在检索"：输入框非空才算。
-  // 删空关键词时不算检索——此时必须只显示引导文案，不能残留旧结果/旧标签，
-  // 否则会出现「引导语 + 旧标签 + 旧结果」三份内容同时在场、高度反复横跳。
-  const searching = trimmed.length > 0
-  const hits = useMemo(() => (searching ? (data ?? EMPTY_HITS) : EMPTY_HITS), [data, searching])
+  // 是否"在检索"，以及当前该显示哪批结果，都跟 debounced（已用于请求的那个词）
+  // 保持一致，不能跟 trimmed：trimmed 输入即变，data 还是上一个词的结果，
+  // 两者错开就会闪（新关键词 + 旧结果同时在场）。
+  // 删空关键词时同样只显示引导文案，不残留旧结果/旧标签。
+  const searching = debounced.length > 0
+  const hits = useMemo(() => {
+    if (!searching) return EMPTY_HITS
+    return data ?? EMPTY_HITS
+  }, [data, searching])
 
   // 新结果回来 / 切换筛选时把光标移回第一项（跟着 debounced，不跟 trimmed）
   useEffect(() => setCursor(0), [debounced, activeCat])
