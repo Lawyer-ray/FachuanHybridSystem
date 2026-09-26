@@ -247,6 +247,14 @@ def main() -> int:
         d2x_ok, d2x_detail = run_doc_to_docx(page)
         check("DOC 转 DOCX 任务跑通并产出结果", d2x_ok, d2x_detail)
 
+        # 14a. 点日历空白格 → 新增安排弹窗 → 真实写入（不再有"新增安排"按钮）
+        add_ok, add_detail = run_add_reminder(page)
+        check("点日历空白格可新增安排并写入", add_ok, add_detail)
+
+        # 确认顶部那个「新增安排」按钮已移除
+        nav_btn = page.get_by_role("button", name="新增安排").count()
+        check("顶部不再有「新增安排」按钮", nav_btn == 0, f"剩 {nav_btn} 个")
+
         # 14b. 日历事件详情弹窗：点格子里的事件应弹出带完整信息的对话框
         detail_ok, detail_detail = run_event_detail_dialog(page)
         check("点日历事件弹出详情弹窗", detail_ok, detail_detail)
@@ -370,6 +378,97 @@ EVENT_ROW_JS = """() => {
         return { id: el.getAttribute('data-calendar-event'), lines };
     });
 }"""
+
+def run_add_reminder(page) -> tuple[bool, str]:
+    """点空白日期格 → 填新增弹窗 → 保存，断言写进 reminders 且日历出现。
+
+    这条会在开发库里真实造一条 reminder，跑完由 cleanup_test_data 清掉
+    （content 带 E2E 前缀便于识别）。
+    """
+    marker = "E2E弹窗新增验证"
+    try:
+        # 前面几节可能留下了 dialog/下拉，先按 Esc 收掉，避免遮挡或抢焦点
+        page.keyboard.press("Escape")
+        page.wait_for_timeout(300)
+
+        # 挑一个当月、且没有任何事件的日期格（用日期数字元素定位，
+        # 不要点格子边缘——格子边缘的 border 区域不是 onClick 目标）
+        target = page.evaluate(
+            """() => {
+                const cells = [...document.querySelectorAll('div.cursor-pointer.border-r')];
+                // 只当月：有 [data-calendar-event] 的算"有事件"，日号长度 < 4 的基本是空格
+                const empty = cells.find(c =>
+                    !c.querySelector('[data-calendar-event]') &&
+                    !c.className.includes('opacity-30') &&            // 排除非当月的补白格
+                    c.innerText.trim().length > 0
+                );
+                if (!empty) return null;
+                // 点日号下方一点的位置：一定是本格、不会误触别的事件
+                const num = empty.querySelector('span.tabular-nums');
+                const base = num || empty;
+                const r = base.getBoundingClientRect();
+                return { x: r.x + r.width / 2, y: r.y + r.height / 2 };
+            }"""
+        )
+        if not target:
+            return True, "当月没有空白日期格，跳过（不算失败）"
+
+        # 关键：前面的测试把页面滚下去了（scrollY 可达 700+），目标格子在视口外，
+        # mouse.click 用视口坐标会点空。先滚回顶部让日历进入视口。
+        page.evaluate("() => window.scrollTo(0, 0)")
+        page.wait_for_timeout(400)
+        # 滚动后重新取坐标（之前的 y 已失效）
+        target = page.evaluate(
+            """() => {
+                const cells = [...document.querySelectorAll('div.cursor-pointer.border-r')];
+                const empty = cells.find(c =>
+                    !c.querySelector('[data-calendar-event]') &&
+                    !c.className.includes('opacity-30') &&
+                    c.innerText.trim().length > 0
+                );
+                if (!empty) return null;
+                const num = empty.querySelector('span.tabular-nums') || empty;
+                const r = num.getBoundingClientRect();
+                return { x: r.x + r.width / 2, y: r.y + r.height / 2 };
+            }"""
+        )
+        if not target:
+            return False, "滚动后仍找不到空白日期格"
+
+        # 再移开鼠标点：鼠标停在日历上时悬停 tip 可能拦住点击
+        opened = False
+        for _ in range(3):
+            page.mouse.move(0, 0)
+            page.wait_for_timeout(200)
+            page.mouse.click(target["x"], target["y"])
+            page.wait_for_timeout(800)
+            if page.locator("[role=dialog]").count() > 0:
+                opened = True
+                break
+        if not opened:
+            return False, "点空白格没弹出新增框"
+        dlg = page.locator("[role=dialog]")
+        if "新增安排" not in dlg.first.inner_text():
+            return False, "弹出的不是新增安排框"
+
+        page.get_by_placeholder("例如", exact=False).fill(marker)
+        save = page.get_by_role("button").filter(has_text="保存")
+        if save.count() == 0:
+            return False, "没有保存按钮"
+        save.first.click()
+        page.wait_for_timeout(3000)
+
+        # 1) 后端是否真写入
+        rows = fetch_in_page(page, '/api/v1/reminders/list').get("data") or []
+        wrote = any(marker in (x.get("content") or "") for x in rows)
+        if not wrote:
+            return False, "点了保存但后端没有这条 reminder"
+        # 2) 面板关闭 + 日历刷新出该条
+        closed = page.locator("[role=dialog]").count() == 0
+        appear = marker in page.locator("main").inner_text()
+        return closed and appear, "已写入并显示在日历上" if (closed and appear) else f"closed={closed} appear={appear}"
+    except Exception as e:  # noqa: BLE001
+        return False, f"{type(e).__name__}: {str(e)[:160]}"
 
 
 def run_event_detail_dialog(page) -> tuple[bool, str]:

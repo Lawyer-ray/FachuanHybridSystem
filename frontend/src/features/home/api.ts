@@ -79,6 +79,16 @@ export async function fetchCalendarMonth(year: number, month: number): Promise<C
     .json<CalendarMonth>()
 }
 
+/** 提醒类型选项（GET /reminders/types），用于新增安排弹窗的下拉 */
+export interface ReminderTypeOption {
+  value: string
+  label: string
+}
+
+export async function listReminderTypes(): Promise<ReminderTypeOption[]> {
+  return remindersApi.get('types').json<ReminderTypeOption[]>()
+}
+
 export interface ParsedReminder {
   content: string
   reminder_type: string

@@ -93,9 +93,10 @@ export function HomePage() {
   )
 
 
-  const handleAdd = useCallback(() => {
-    toast.info('新增安排：请用「快速记一笔」，写具体日期即可（如 2026-09-28 09:30 开庭 …）')
-  }, [])
+  // 新增安排保存成功后刷新日历（日历弹窗自己负责收集输入并调 create）
+  const handleAdded = useCallback(() => {
+    void queryClient.invalidateQueries({ queryKey: ['home-calendar'] })
+  }, [queryClient])
 
   return (
     <div className="min-h-screen bg-background">
@@ -132,7 +133,7 @@ export function HomePage() {
                 loading={calendarQuery.isLoading}
                 onSelectDay={handleSelectDay}
                 onOpenEvent={handleOpenEvent}
-                onAdd={handleAdd}
+                onAdd={handleAdded}
               />
               <ToolDock />
             </div>
@@ -153,7 +154,7 @@ export function HomePage() {
         events={sheetDay ? (eventsByDay[sheetDay] ?? []) : []}
         onClose={() => setSheetDay(null)}
         onOpenEvent={handleOpenEvent}
-        onAdd={handleAdd}
+        onAdd={handleAdded}
       />
     </div>
   )

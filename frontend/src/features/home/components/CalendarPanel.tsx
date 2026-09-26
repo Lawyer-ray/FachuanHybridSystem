@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { CalendarPlus, ChevronLeft, ChevronRight } from 'lucide-react'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 
 import { KIND_ROW, WEEKDAYS } from '../constants'
 import { isKeyKind } from '../api-meta'
@@ -7,6 +7,7 @@ import type { CalendarEvent } from '../api'
 import { buildMonthGrid, formatCN, parseKey } from '../domain'
 import { briefLine, cellMetaLines } from '../api-meta'
 import type { CalendarStats } from '../api'
+import { AddReminderDialog } from './AddReminderDialog'
 import { EventDetailDialog } from './EventDetailDialog'
 import { BTN, BTN_ICON, PANEL } from '../ui'
 import { cn } from '@/lib/utils'
@@ -38,6 +39,8 @@ export function CalendarPanel({ today, eventsByDay, stats, loading, onSelectDay,
   const [maxRows, setMaxRows] = useState(maxRowsPerDay)
   // 详情弹窗：点日历格里的事件打开
   const [detail, setDetail] = useState<CalendarEvent | null>(null)
+  // 新增安排：点日历格空白处打开（day=目标日期，time=默认时刻）
+  const [adding, setAdding] = useState<{ day: string; time: string } | null>(null)
 
   // 窗口尺寸变化时重新计算每格行数（与原型一致，带防抖）
   useEffect(() => {
@@ -74,6 +77,16 @@ export function CalendarPanel({ today, eventsByDay, stats, loading, onSelectDay,
     onSelectDay(key)
   }
 
+  // 点日历格空白处 → 新增该日安排。默认时刻取"现在"（点今天）或 09:00
+  const openAdd = (key: string) => {
+    const now = new Date()
+    const isToday = key === today
+    const time = isToday
+      ? `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
+      : '09:00'
+    setAdding({ day: key, time })
+  }
+
   return (
     <section className={PANEL}>
       {/* 头部：月份导航 + 统计 */}
@@ -89,10 +102,6 @@ export function CalendarPanel({ today, eventsByDay, stats, loading, onSelectDay,
         </div>
         <button type="button" className={BTN} onClick={goToday} title="回到今天">
           今天
-        </button>
-        <button type="button" className={BTN + ' ml-2'} onClick={onAdd}>
-          <CalendarPlus className="h-3.5 w-3.5" />
-          新增安排
         </button>
 
         <div className="ml-auto flex gap-4 text-[11.5px] whitespace-nowrap text-muted-foreground">
@@ -130,6 +139,7 @@ export function CalendarPanel({ today, eventsByDay, stats, loading, onSelectDay,
             onPick={pickDay}
             onOpenEvent={onOpenEvent}
             onOpenDetail={setDetail}
+            onOpenAdd={openAdd}
           />
         ))}
         {loading && (
@@ -141,6 +151,14 @@ export function CalendarPanel({ today, eventsByDay, stats, loading, onSelectDay,
 
       {/* 事件详情弹窗 */}
       <EventDetailDialog event={detail} onClose={() => setDetail(null)} onOpenCase={onOpenEvent} />
+
+      {/* 新增安排弹窗（点日历空白格打开） */}
+      <AddReminderDialog
+        day={adding?.day ?? null}
+        defaultTime={adding?.time ?? '09:00'}
+        onClose={() => setAdding(null)}
+        onSaved={onAdd}
+      />
 
       {/* 图例 */}
       <div className="flex gap-[18px] px-4 pb-[13px] text-[10.5px] text-muted-foreground">
@@ -168,9 +186,11 @@ interface CellProps {
   onPick: (key: string) => void
   onOpenEvent: (e: CalendarEvent) => void
   onOpenDetail: (e: CalendarEvent) => void
+  /** 点本格空白处 → 新增该日安排 */
+  onOpenAdd: (key: string) => void
 }
 
-function DayCellView({ cell, today, selected, events, maxRows, onPick, onOpenDetail }: CellProps) {
+function DayCellView({ cell, today, selected, events, maxRows, onPick, onOpenAdd, onOpenDetail }: CellProps) {
   if (!cell.key || cell.day == null) return <div className="min-h-[clamp(132px,12vw,208px)] border-r border-b border-border-light" />
 
   const isToday = cell.key === today
@@ -185,7 +205,16 @@ function DayCellView({ cell, today, selected, events, maxRows, onPick, onOpenDet
         selected && 'bg-secondary/60',
         isToday && 'bg-status-red-bg/40',
       )}
-      onClick={() => onPick(cell.key as string)}
+      onClick={(ev) => {
+        // 点在事件行 / +N 更多 / 悬停 tip 上不算"点空白处"
+        const target = ev.target as HTMLElement
+        if (target.closest('[data-calendar-event]') || target.closest('.group-hover\\:visible')) {
+          onPick(cell.key as string)
+          return
+        }
+        onOpenAdd(cell.key as string)
+      }}
+      title="点空白处新增该日安排"
     >
       <div className="mb-[5px] flex items-center justify-center gap-[3px]">
         <span
