@@ -15,8 +15,10 @@ from __future__ import annotations
 
 import argparse
 import os
+import shutil
 import sys
-import time
+import tempfile
+from pathlib import Path
 
 from playwright.sync_api import sync_playwright
 
@@ -71,7 +73,9 @@ def main() -> int:
 
     with sync_playwright() as p:
         browser = launch_browser(p, args.headed)
-        page = browser.new_page(viewport={"width": 1600, "height": 1000})
+        # accept_downloads=True：要素式转换会触发浏览器下载，必须开
+        context = browser.new_context(viewport={"width": 1600, "height": 1000}, accept_downloads=True)
+        page = context.new_page()
 
         console_errors: list[str] = []
         page.on("console", lambda m: console_errors.append(m.text) if m.type == "error" else None)
@@ -189,6 +193,15 @@ def main() -> int:
         sms_ok = "短信已提交" in page.locator("body").inner_text()
         check("提交法院短信成功", sms_ok)
 
+        # 13b. 要素式转换：真实选文件 → 提交 → 浏览器真的下载一个 docx
+        #      （只断言"卡片渲染"不等于功能可用，必须验证完整链路）
+        conv_ok, conv_detail = run_doc_convert(page)
+        check("要素式转换真实转换并下载 docx", conv_ok, conv_detail)
+
+        # 13c. DOC 转 DOCX：真实提交 → 轮询 job 有终态 → 下载地址可达
+        d2x_ok, d2x_detail = run_doc_to_docx(page)
+        check("DOC 转 DOCX 任务跑通并产出结果", d2x_ok, d2x_detail)
+
         # 14. 手机端：窄视口点某天应弹出底部抽屉
         page.set_viewport_size({"width": 420, "height": 900})
         page.wait_for_timeout(700)
@@ -275,6 +288,107 @@ def get_auth_jwt() -> str | None:
     except Exception as e:  # pragma: no cover
         out("取 JWT 失败：", e)
         return None
+
+
+FIXTURE = Path(__file__).resolve().parent / "fixtures" / "sample-complaint.docx"
+
+
+def _tool_card(page, title: str):
+    """按卡片标题定位一张工具卡（卡片标题在 .th 里的 .tn）。
+    不能用端点注释文本定位——它被 CSS truncate 了，has_text 匹配不到。"""
+    return page.locator(
+        f"xpath=//div[contains(@class,'flex flex-col')][.//div[normalize-space(text())='{title}']]"
+    ).last
+
+
+def run_doc_convert(page) -> tuple[bool, str]:
+    """要素式转换：选真实 docx → 点转换 → 捕获浏览器下载 → 校验是合法 docx。
+    返回 (是否通过, 说明)。"""
+    if not FIXTURE.exists():
+        return False, f"缺少测试夹具 {FIXTURE}（应随仓库提交）"
+    try:
+        card = _tool_card(page, "要素式转换")
+        card.locator("select").first.select_option("mjjdqsz")  # 民间借贷起诉状
+        card.locator("input[type=file]").set_input_files(str(FIXTURE))
+        # 转换是同步返回二进制（后端约 6s），成功后前端触发 <a download>
+        with page.expect_download(timeout=120_000) as dl:
+            card.get_by_role("button", name="转换").click()
+        download = dl.value
+        name = download.suggested_filename
+        tmp = Path(tempfile.mkdtemp(prefix="e2e-convert-")) / name
+        download.save_as(str(tmp))
+        size = tmp.stat().st_size
+        magic = tmp.read_bytes()[:2]
+        # 合法 docx = zip 容器（PK），且不能是空壳
+        ok = magic == b"PK" and size > 2000 and name.endswith(".docx")
+        # 中文名能否正确从 RFC5987 头解出
+        detail = f"下载 {name}（{size} 字节）"
+        if not ok:
+            detail = f"下载物异常：name={name} size={size} magic={magic!r}"
+        return ok, detail
+    except Exception as e:  # noqa: BLE001 —— E2E 需要把任何失败转成可读结论
+        return False, f"{type(e).__name__}: {str(e)[:160]}"
+
+
+def run_doc_to_docx(page) -> tuple[bool, str]:
+    """DOC 转 DOCX：提交一个 docx 改名的 .doc 交给 LibreOffice → 轮询 job → 校验终态。
+    本机装有 LibreOffice（/Applications/LibreOffice.app），应能真正转成功；
+    若全失败也如实报出来（例如环境缺 LibreOffice），不当成静默通过。"""
+    if not FIXTURE.exists():
+        return False, f"缺少测试夹具 {FIXTURE}"
+    try:
+        card = _tool_card(page, "DOC 转 DOCX")
+        tmpdir = Path(tempfile.mkdtemp(prefix="e2e-d2x-"))
+        fake_doc = tmpdir / "sample.doc"
+        shutil.copyfile(FIXTURE, fake_doc)
+
+        # 抓提交时产生的 job_id（POST /doc-converter/jobs 的响应体）
+        job_id: list[str] = []
+
+        def on_response(resp) -> None:
+            if "/api/v1/doc-converter/jobs" in resp.url and resp.request.method == "POST":
+                try:
+                    body = resp.json()
+                    if body.get("job_id"):
+                        job_id.append(body["job_id"])
+                except Exception:
+                    pass
+
+        page.on("response", on_response)
+        try:
+            card.locator("input[type=file]").set_input_files(str(fake_doc))
+            card.get_by_role("button", name="开始转换").click()
+            # 等 job_id 出现
+            deadline = 30
+            while not job_id and deadline > 0:
+                page.wait_for_timeout(500)
+                deadline -= 1
+        finally:
+            page.remove_listener("response", on_response)
+
+        if not job_id:
+            return False, "没抓到 doc-converter job_id（提交可能失败）"
+
+        # 轮询 job 状态（在页面内带 token 请求，和前端同一套鉴权）
+        job = None
+        for _ in range(40):
+            page.wait_for_timeout(1500)
+            job = fetch_in_page(page, f'/api/v1/doc-converter/jobs/{job_id[0]}').get("data")
+            if job:
+                j = job.get("job") or {}
+                total, done, failed = j.get("total_files", 0), j.get("converted_files", 0), j.get("failed_files", 0)
+                if j.get("status") in ("completed", "failed") or (total > 0 and done + failed >= total):
+                    job = {"status": j.get("status"), "done": done, "failed": failed, "total": total}
+                    break
+        if not job:
+            return False, "轮询 60s 仍未拿到 job 终态"
+        # 有文件真的转成功才算跑通：status 到达终态只证明任务没卡死，
+        # 全失败（如 LibreOffice 缺失/源文件坏）必须判失败，否则这是假绿
+        ok = job["done"] >= 1 and job["failed"] == 0
+        detail = f"status={job['status']} done={job['done']} failed={job['failed']} total={job['total']}"
+        return ok, detail if ok else f"没有成功转换的文件——{detail}"
+    except Exception as e:  # noqa: BLE001 —— E2E 需要把任何失败转成可读结论
+        return False, f"{type(e).__name__}: {str(e)[:160]}"
 
 
 def cleanup_test_data() -> None:
