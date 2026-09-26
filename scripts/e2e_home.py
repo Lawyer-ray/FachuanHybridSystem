@@ -218,6 +218,19 @@ def main() -> int:
                 break
         check("手机端点日期弹出当日安排抽屉", sheet_ok)
 
+        # 15. 图标压扁检查：把视口恢复宽屏，扫「内容区容不下自己图标」的按钮。
+        #     这类 bug 视觉上表现为图标消失/只剩空方块，但控制台不报错、功能也正常，
+        #     纯看代码 grep 不出来（根因可能是 padding/width/flex/border 任一种），
+        #     所以直接读浏览器计算样式：内容区宽 < 图标宽即视为被压扁。
+        page.set_viewport_size({"width": 1600, "height": 1000})
+        page.wait_for_timeout(600)
+        squashed = find_squashed_icons(page)
+        check(
+            "无图标被容器压扁（内容区容纳不下）",
+            not squashed,
+            "；".join(squashed[:4]) or "全部正常",
+        )
+
         # 清理本次造的数据（E2E 只在本地跑，别留脏数据）
         cleanup_test_data()
 
@@ -291,6 +304,69 @@ def get_auth_jwt() -> str | None:
 
 
 FIXTURE = Path(__file__).resolve().parent / "fixtures" / "sample-complaint.docx"
+
+
+def find_squashed_icons(page) -> list[str]:
+    """扫出「图标被容器压扁」的可交互元素，返回可读描述列表。
+
+    判据：图标按自己的 Tailwind 尺寸类**应该**渲染多宽，对比实际渲染宽度。
+    lucide 的 svg 永远带 width="24" 属性——别拿它当应有尺寸，真实尺寸由
+    Tailwind 类决定（如 h-3.5 w-3.5 → 14px），所以必须解析类名。
+
+    两种都算压扁：
+      a) 图标实渲宽度 ≈ 0（被完全压没，视觉上正是"图标丢了/只剩空方块"）
+      b) 元件内容区比图标的应显宽度还小（图标被挤压）
+
+    前两版的教训（都实测过，别再退回去）：
+      - 比"实渲宽度 vs 内容区"：bug 在位时 content=2px 而 svgW=0，恰好
+        不满足小于关系，检查却报"全部正常"，漏掉最严重的情况。
+      - 把 svg 的 width 属性（恒为 24）当应有尺寸：正常图标全被判异常。
+    现在按类名解析应有尺寸，再与实渲宽度比。
+
+    典型根因：拼接的类没覆盖掉基础类的 padding（BTN 自带 px-[13px]，又拼
+    px-0 想覆盖，但 Tailwind 不保证后拼者优先），28px 按钮内容区只剩 2px。
+    这类问题控制台无报错、功能也正常，只能靠读计算样式发现。
+    """
+    # JS-SIDE 计算逻辑放在单独文件里，避免 Python 字符串转义互相纠缠
+    return page.evaluate(SQUASH_DETECT_JS) or []
+
+
+SQUASH_DETECT_JS = r"""() => {
+    // Tailwind 间距刻度 → px（这里只会用到小值）
+    const SCALE = {0: 0, px: 1, 0.5: 2, 1: 4, 1.5: 6, 2: 8, 2.5: 10, 3: 12, 3.5: 14, 4: 16, 5: 20, 6: 24};
+    function wantPx(cls, axis) {
+        const any = new RegExp('(?:^|\\s)' + axis + '-\\[([\\d.]+)px\\]').exec(cls);
+        if (any) return parseFloat(any[1]);
+        const sc = new RegExp('(?:^|\\s)' + axis + '-([\\d.]+|px)(?:\\s|$)').exec(cls);
+        if (sc && sc[1] in SCALE) return SCALE[sc[1]];
+        return 0;
+    }
+    const bad = [];
+    document.querySelectorAll('button, a, input, select, textarea, label').forEach(el => {
+        const cs = getComputedStyle(el);
+        const r = el.getBoundingClientRect();
+        if (r.width === 0 || r.height === 0) return;              // 隐藏元素跳过
+        const content = r.width
+            - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight)
+            - parseFloat(cs.borderLeftWidth) - parseFloat(cs.borderRightWidth);
+        // 找本元素内"应显尺寸最大"的 svg，同时记下它的实渲宽度
+        let want = 0, got = 0;
+        el.querySelectorAll('svg').forEach(s => {
+            const cls = s.getAttribute('class') || '';
+            const w = wantPx(cls, 'w'), h = wantPx(cls, 'h');
+            const size = (w && h) ? Math.min(w, h) : (w || h);
+            if (size > want) { want = size; got = s.getBoundingClientRect().width; }
+        });
+        if (want === 0) return;                                   // 没有带尺寸类的图标
+        const label = (el.innerText || el.getAttribute('title')
+                       || el.getAttribute('aria-label') || '').trim().slice(0, 18);
+        const desc = '<' + el.tagName.toLowerCase() + '> ' + (label || '(无标签)')
+            + ' 内容区' + Math.round(content) + 'px / 应显示' + Math.round(want) + 'px'
+            + ' / 实渲' + Math.round(got) + 'px';
+        if (got < 1 || content < want - 1) bad.push(desc);
+    });
+    return bad;
+}"""
 
 
 def _tool_card(page, title: str):
