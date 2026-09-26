@@ -43,6 +43,9 @@ const CATEGORIES: Record<string, { label: string; icon: typeof Users; to?: (id: 
 
 const CATEGORY_ORDER = ['cases', 'clients', 'contracts', 'inbox', 'court_sms', 'contacts']
 
+/** 输入防抖间隔（ms）：输入即搜，但请求攒一撮再发，避免每次按键都重排结果列表 */
+const DEBOUNCE_MS = 250
+
 async function runSearch(q: string): Promise<Hit[]> {
   const res = await searchApi.get('', { searchParams: { q, limit: 8 } }).json<Record<string, { id: number; title: string; subtitle: string }[]>>()
   const out: Hit[] = []
@@ -82,15 +85,26 @@ export function GlobalSearch({
   }, [open])
 
   const trimmed = q.trim()
+  // 输入防抖：输入框即时响应，但请求延迟 DEBOUNCE_MS 触发。
+  // 否则每敲一个字就发一次请求，结果列表反复涨落导致弹窗高度/内容不停跳（"闪烁"）。
+  const [debounced, setDebounced] = useState(trimmed)
+  useEffect(() => {
+    if (trimmed === debounced) return
+    const t = window.setTimeout(() => setDebounced(trimmed), DEBOUNCE_MS)
+    return () => window.clearTimeout(t)
+  }, [trimmed, debounced])
+
   const { data = [], isFetching } = useQuery({
-    queryKey: ['global-search', trimmed],
-    queryFn: () => runSearch(trimmed),
-    enabled: open && trimmed.length >= 1,
+    queryKey: ['global-search', debounced],
+    queryFn: () => runSearch(debounced),
+    enabled: open && debounced.length >= 1,
     staleTime: 30_000,
+    // 保留上一次结果，别在换关键词时先清空再填充（少了这一下空白，就不闪）
+    placeholderData: (prev) => prev,
   })
 
-  // 新结果回来 / 切换筛选时把光标移回第一项
-  useEffect(() => setCursor(0), [trimmed, activeCat])
+  // 新结果回来 / 切换筛选时把光标移回第一项（跟着 debounced，不跟 trimmed）
+  useEffect(() => setCursor(0), [debounced, activeCat])
 
   /** 每个类别的命中数（用于筛选标签上的计数，含全部） */
   const counts = useMemo(() => {
@@ -137,7 +151,12 @@ export function GlobalSearch({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="top-[14%] max-w-[880px] translate-y-0 gap-0 p-0 sm:max-w-[880px]" showCloseButton={false}>
+      {/* 宽度：只在 sm(≥640px) 以上放宽到 880px，小屏保持基类的 max-w-[calc(100%-2rem)]
+          留边距。若写成无限定的 max-w-[880px]，会覆盖掉窄屏的留边规则导致横向溢出 */}
+      <DialogContent
+        className="top-[14%] translate-y-0 gap-0 p-0 sm:max-w-[880px]"
+        showCloseButton={false}
+      >
         {/* 搜索框 */}
         <div className="flex items-center gap-2.5 border-b border-border px-4">
           <Search className="h-4 w-4 flex-none text-muted-foreground" />
@@ -149,7 +168,17 @@ export function GlobalSearch({
             placeholder="搜案件 / 客户 / 合同 / 收件箱 / 法院短信 / 联系人"
             className="h-12 flex-1 border-none bg-transparent text-[13.5px] outline-none placeholder:text-muted-foreground"
           />
-          {isFetching && <span className="flex-none text-[11px] text-muted-foreground">搜索中…</span>}
+          {/* 常驻占位不塌陷：若用 {isFetching && ...} 条件渲染，出现/消失会把输入框宽度
+              挤来挤去，打字时观感就是"闪" */}
+          <span
+            className={cn(
+              'flex-none text-[11px] transition-opacity',
+              isFetching ? 'opacity-100' : 'pointer-events-none opacity-0',
+            )}
+            aria-hidden={!isFetching}
+          >
+            搜索中…
+          </span>
           <kbd className="flex-none rounded border border-input bg-secondary px-1.5 py-0.5 text-[10px] text-muted-foreground">
             Esc
           </kbd>
