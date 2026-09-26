@@ -66,6 +66,8 @@ export function GlobalSearch({
 }) {
   const [q, setQ] = useState('')
   const [cursor, setCursor] = useState(0)
+  // 当前筛选类别：'all' = 全部；否则为 CATEGORY_ORDER 里的某个 category key
+  const [activeCat, setActiveCat] = useState('all')
   const inputRef = useRef<HTMLInputElement>(null)
 
   // 打开时聚焦输入框，关闭时清空（下次打开是干净的）
@@ -76,6 +78,7 @@ export function GlobalSearch({
     }
     setQ('')
     setCursor(0)
+    setActiveCat('all')
   }, [open])
 
   const trimmed = q.trim()
@@ -86,20 +89,37 @@ export function GlobalSearch({
     staleTime: 30_000,
   })
 
-  // 新结果回来时把光标移回第一项
-  useEffect(() => setCursor(0), [trimmed])
+  // 新结果回来 / 切换筛选时把光标移回第一项
+  useEffect(() => setCursor(0), [trimmed, activeCat])
 
-  const groups = useMemo(() => {
-    const map = new Map<string, Hit[]>()
-    for (const h of data) {
-      const list = map.get(h.category)
-      if (list) list.push(h)
-      else map.set(h.category, [h])
-    }
-    return map
+  /** 每个类别的命中数（用于筛选标签上的计数，含全部） */
+  const counts = useMemo(() => {
+    const m = new Map<string, number>()
+    for (const h of data) m.set(h.category, (m.get(h.category) ?? 0) + 1)
+    return m
   }, [data])
 
-  const flat = useMemo(() => data, [data])
+  /** 按当前筛选过滤后的结果；↑↓ / Enter 都以它为准 */
+  const flat = useMemo(
+    () => (activeCat === 'all' ? data : data.filter((h) => h.category === activeCat)),
+    [data, activeCat],
+  )
+
+  const groups = useMemo(() => {
+    const m = new Map<string, Hit[]>()
+    for (const h of flat) {
+      const list = m.get(h.category)
+      if (list) list.push(h)
+      else m.set(h.category, [h])
+    }
+    return m
+  }, [flat])
+
+  const pick = (hit: Hit) => {
+    const meta = CATEGORIES[hit.category]
+    onOpenChange(false)
+    if (!meta?.to) onPickUnavailable?.(meta?.label ?? hit.category)
+  }
 
   const onKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'ArrowDown') {
@@ -111,10 +131,7 @@ export function GlobalSearch({
     } else if (e.key === 'Enter') {
       e.preventDefault()
       const hit = flat[cursor]
-      if (!hit) return
-      const meta = CATEGORIES[hit.category]
-      onOpenChange(false)
-      if (!meta?.to) onPickUnavailable?.(meta?.label ?? hit.category)
+      if (hit) pick(hit)
     }
   }
 
@@ -137,6 +154,27 @@ export function GlobalSearch({
             Esc
           </kbd>
         </div>
+
+        {/* 筛选标签：有多少类命中才显示哪些 + 固定「全部」，纯前端过滤（后端一次已返回全部类别） */}
+        {data.length > 0 && (
+          <div className="flex items-center gap-1.5 overflow-x-auto border-b border-border px-3 py-2">
+            <FilterTab
+              label="全部"
+              count={data.length}
+              active={activeCat === 'all'}
+              onClick={() => setActiveCat('all')}
+            />
+            {CATEGORY_ORDER.filter((c) => (counts.get(c) ?? 0) > 0).map((cat) => (
+              <FilterTab
+                key={cat}
+                label={CATEGORIES[cat].label}
+                count={counts.get(cat) ?? 0}
+                active={activeCat === cat}
+                onClick={() => setActiveCat(cat)}
+              />
+            ))}
+          </div>
+        )}
 
         {/* 结果 */}
         <div className="max-h-[52vh] overflow-y-auto px-2 py-2">
@@ -185,10 +223,7 @@ export function GlobalSearch({
                     <button
                       key={`${cat}-${h.id}`}
                       type="button"
-                      onClick={() => {
-                        onOpenChange(false)
-                        onPickUnavailable?.(meta.label)
-                      }}
+                      onClick={() => pick(h)}
                       className={cn(
                         'flex w-full items-center gap-2.5 rounded-[7px] px-2 py-[7px] text-left text-secondary-foreground transition-colors',
                         idx === cursor ? 'bg-secondary' : 'hover:bg-secondary/60',
@@ -212,5 +247,34 @@ export function GlobalSearch({
         </div>
       </DialogContent>
     </Dialog>
+  )
+}
+
+/** 筛选标签：类名 + 命中数；选中态用高亮底 */
+function FilterTab({
+  label,
+  count,
+  active,
+  onClick,
+}: {
+  label: string
+  count: number
+  active: boolean
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        'flex flex-none items-center gap-1 rounded-full border px-2.5 py-[3px] text-[11.5px] whitespace-nowrap transition-colors',
+        active
+          ? 'border-transparent bg-foreground font-medium text-background'
+          : 'border-border text-secondary-foreground hover:bg-secondary',
+      )}
+    >
+      {label}
+      <span className={cn('tabular-nums', active ? 'opacity-70' : 'text-muted-foreground')}>{count}</span>
+    </button>
   )
 }
