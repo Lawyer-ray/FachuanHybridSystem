@@ -3,7 +3,8 @@ import { Plus, Trash2, Link2 } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { FIELD_LIB } from '../../constants'
-import type { DraftState, InfoField } from '../../types'
+import type { DraftState } from '../../types'
+import type { MetaOps } from './reader-ops'
 import { cn } from '@/lib/utils'
 import { PartyPicker } from './PartyPicker'
 
@@ -16,11 +17,7 @@ export function MetaPanel({
   draft: DraftState
   pickInfo: number
   onSetPickInfo: (i: number) => void
-  ops: {
-    addInfo: (field: InfoField) => void
-    removeInfo: (di: number) => void
-    setValue: (di: number, v: string) => void
-  }
+  ops: MetaOps
 }) {
   const [showLib, setShowLib] = useState(false)
   const [armDel, setArmDel] = useState<number>(-1)

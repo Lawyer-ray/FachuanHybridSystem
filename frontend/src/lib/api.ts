@@ -20,25 +20,8 @@ export function getApiBaseUrl(): string {
   return localStorage.getItem('api_base_url') || import.meta.env.VITE_API_BASE_URL || 'http://localhost:8002/api/v1'
 }
 
-/**
- * 获取后端根地址（localStorage 优先，fallback 到环境变量）
- */
-export function getBackendUrl(): string {
-  return localStorage.getItem('backend_url') || import.meta.env.VITE_BACKEND_URL || 'http://localhost:8002'
-}
-
 /** 模块级缓存，避免每次调用都读 localStorage */
 export const API_BASE_URL = getApiBaseUrl()
-export const BACKEND_URL = getBackendUrl()
-
-/**
- * 将后端返回的相对路径转为完整 URL
- */
-export function resolveMediaUrl(url: string | null): string | null {
-  if (!url) return null
-  if (url.startsWith('http')) return url
-  return `${BACKEND_URL}${url}`
-}
 
 /**
  * Token 刷新响应
@@ -150,13 +133,5 @@ export function createApiClient(options?: Options): KyInstance {
  * 默认 API 客户端实例
  */
 export const api = createApiClient()
-
-/**
- * 创建模块级 API 客户端（自动拼接 prefixUrl）
- * @param prefix 模块路径前缀，如 "cases"、"contracts"
- */
-export function createFeatureApiClient(prefix: string): KyInstance {
-  return createApiClient({ prefix: `${API_BASE_URL}/${prefix}` })
-}
 
 export default api

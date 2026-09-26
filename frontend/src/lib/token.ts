@@ -96,7 +96,7 @@ export function hasToken(): boolean {
 /**
  * 解析 JWT token payload（不验证签名）
  */
-export function parseJwtPayload(token: string): Record<string, unknown> | null {
+function parseJwtPayload(token: string): Record<string, unknown> | null {
   try {
     const base64Url = token.split('.')[1]
     const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/')

@@ -6,7 +6,9 @@ import { defineConfig } from "vitest/config"
 export default defineConfig({
   test: {
     globals: true,
-    environment: 'jsdom',
+    // 仓库当前未装 jsdom（此前无用例所以没暴露）。纯逻辑用例用 node 环境即可；
+    // 需要 DOM 的组件测试请先 `pnpm add -D jsdom` 再改回 'jsdom'。
+    environment: 'node',
     setupFiles: ['./src/test-setup.ts'],
     include: ['src/**/*.test.{ts,tsx}'],
     coverage: {

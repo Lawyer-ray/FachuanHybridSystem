@@ -4,7 +4,7 @@ import { BrowserRouter } from 'react-router'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Toaster } from '@/components/ui/sonner'
 import App from './App'
-import { useAuth } from '@/features/auth/store'
+import { useAuth } from '@/features/auth'
 import './index.css'
 
 useAuth.getState().init()

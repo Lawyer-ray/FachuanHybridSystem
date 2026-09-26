@@ -143,3 +143,53 @@ class TargetOptionGroup(Schema):
 class TargetOptionsOut(Schema):
     items: list[TargetOptionItem]
     groups: list[TargetOptionGroup]
+
+
+# ─── 日历视图 ───────────────────────────────────────────────────────────────
+
+
+class CalendarEventItemOut(Schema):
+    """日历上的一条事件（同一庭审的多条同步已合并成一条）。"""
+
+    id: int
+    kind: str
+    kind_label: str
+    #: 主标题：优先关联对象名，取不到才退回 content
+    title: str
+    #: content 原文（title 用了案名时仍保留，便于核对）
+    content: str
+    day: str
+    time: str
+    time_range: str
+    place: str
+    person: str
+    #: 真实案号（取自案件的 CaseNumber），如 （2026）粤0608民初8233号
+    case_no: str
+    hearing_type: str
+    target_type: str
+    target_name: str
+    case_id: int | None = None
+    is_today: bool = False
+    is_overdue: bool = False
+    #: 合并了几条原始 reminder（同一庭审被多次同步时 >1）
+    members: int = 1
+    #: 合并前各 reminder 的 id
+    member_ids: list[int] = Field(default_factory=list)
+
+
+class CalendarStatsOut(Schema):
+    """工作台头部统计（基于合并后口径）。"""
+
+    today: int = 0
+    deadline_in_7days: int = 0
+    month_court: int = 0
+
+
+class CalendarMonthOut(Schema):
+    """一个月的日历视图。"""
+
+    year: int
+    month: int
+    stats: CalendarStatsOut = Field(default_factory=CalendarStatsOut)
+    #: YYYY-MM-DD → 当日事件（已合并、已排序）
+    days: dict[str, list[CalendarEventItemOut]] = Field(default_factory=dict)

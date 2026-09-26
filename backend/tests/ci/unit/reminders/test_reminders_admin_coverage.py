@@ -618,33 +618,26 @@ class TestReminderAdminCalendarViewMethods:
     def test_group_events_by_day_hearing_merge(self):
         admin = _make_admin()
         now = timezone.now()
-        r1 = MagicMock()
-        r1.id = 1
-        r1.due_at = now
-        r1.contract_id = None
-        r1.contract = None
-        r1.case_id = 1
-        r1.case = MagicMock()
-        r1.case.name = "案件"
-        r1.case_log_id = None
-        r1.case_log = None
-        r1.reminder_type = "hearing"
-        r1.content = "庭审"
-        r1.metadata = {"source_id": "S001", "lawyer_name": "张三"}
 
-        r2 = MagicMock()
-        r2.id = 2
-        r2.due_at = now
-        r2.contract_id = None
-        r2.contract = None
-        r2.case_id = 1
-        r2.case = MagicMock()
-        r2.case.name = "案件"
-        r2.case_log_id = None
-        r2.case_log = None
-        r2.reminder_type = "hearing"
-        r2.content = "庭审"
-        r2.metadata = {"source_id": "S001", "lawyer_name": "李四"}
+        # 注意：合并键现在是「日 + 时段 + 法庭」，metadata 里必须带 courtroom，
+        # 否则没有法庭信息的手工庭会被判为不可合并（见 calendar_view_service 注释）。
+        def _mk(rid: int, lawyer: str) -> MagicMock:
+            r = MagicMock()
+            r.id = rid
+            r.due_at = now
+            r.contract_id = None
+            r.contract = None
+            r.case_id = 1
+            r.case = MagicMock()
+            r.case.name = "案件"
+            r.case_log_id = None
+            r.case_log = None
+            r.reminder_type = "hearing"
+            r.content = "庭审"
+            r.metadata = {"source_id": "S001", "lawyer_name": lawyer, "courtroom": "A 法庭"}
+            return r
+
+        r1, r2 = _mk(1, "张三"), _mk(2, "李四")
 
         with patch("apps.reminders.admin.reminder_admin.reverse", return_value="/admin/change/1/"):
             events = admin._group_events_by_day(reminders=[r1, r2])
@@ -653,6 +646,31 @@ class TestReminderAdminCalendarViewMethods:
             assert len(events[day]) == 1
             assert "张三" in events[day][0]["lawyer_name"]
             assert "李四" in events[day][0]["lawyer_name"]
+
+    def test_group_events_by_day_no_courtroom_not_merged(self):
+        """没有法庭信息的手工庭不合并——否则同时刻的不同案子会被并成一条。"""
+        admin = _make_admin()
+        now = timezone.now()
+
+        def _mk(rid: int, content: str) -> MagicMock:
+            r = MagicMock()
+            r.id = rid
+            r.due_at = now
+            r.contract_id = None
+            r.contract = None
+            r.case_id = None
+            r.case = None
+            r.case_log_id = None
+            r.case_log = None
+            r.reminder_type = "hearing"
+            r.content = content
+            r.metadata = {"source_id": "S001"}
+            return r
+
+        with patch("apps.reminders.admin.reminder_admin.reverse", return_value="/admin/change/1/"):
+            events = admin._group_events_by_day(reminders=[_mk(1, "开庭 A 案"), _mk(2, "开庭 B 案")])
+            day = timezone.localtime(now).day
+            assert len(events[day]) == 2
 
     def test_query_month_reminders_filters(self):
         admin = _make_admin()

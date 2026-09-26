@@ -3,11 +3,12 @@ import type {
   AssignInfo,
   CaseRow,
   ClientHit,
+  DraftState,
   InboxMessage,
   InboxMessageDetail,
-  DraftState,
   OcrResult,
   PackStatus,
+  PdfSplitSegmentSuggestion,
 } from './types'
 
 /**
@@ -19,16 +20,6 @@ export const inboxApi = createApiClient({ prefix: '/api/v1/inbox' })
 /** 客户/当事人检索（/api/v1/client/parties/search，精简字段，兼容证件档案为空的客户） */
 export const clientApi = createApiClient({ prefix: '/api/v1/client' })
 const pdfSplitApi = createApiClient({ prefix: '/api/v1/pdf-splitting' })
-
-export interface PdfSplitSegmentSuggestion {
-  page_start: number
-  page_end: number
-  segment_type: string
-  segment_label: string
-  filename: string
-  confidence: number
-  review_flag: string
-}
 
 interface PdfSplitJobPayload {
   job_id: string
@@ -139,7 +130,14 @@ export async function searchCases(q: string): Promise<CaseRow[]> {
 
 const bytesCache = new Map<string, Promise<ArrayBuffer>>()
 
-/** 取附件字节（带鉴权），按 messageId:partIndex 缓存。供 PDF.js 渲染。 */
+/**
+ * 取附件字节（带鉴权），按 messageId:partIndex 缓存。供 PDF.js 渲染、OCR 取字、云端识别上传。
+ *
+ * 返回的是缓存的 buffer 本体（调用方会反复复用：每页渲染、OCR、识别上传各取一次）。
+ * 若某个调用方会把 buffer **transfer** 给 worker 导致它被 detach（PDF.js 的
+ * getDocument({ data }) 就是），请在该调用方内部先拷贝再传——不要在这里拷，
+ * 否则 92 页的材料会凭空多拷 92 次。详见 lib/pdf.ts 的 loadPdfDocument。
+ */
 export function fetchAttachmentBytes(messageId: number, partIndex: number): Promise<ArrayBuffer> {
   const key = `${messageId}:${partIndex}`
   const hit = bytesCache.get(key)

@@ -70,21 +70,20 @@ export const PackCard = memo(function PackCard({
 
   return (
     <article
-      role="button"
-      tabIndex={0}
-      onClick={onOpen}
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault()
-          onOpen()
-        }
-      }}
       className={cn(
-        'mp-packet group cursor-pointer overflow-hidden rounded-[13px] border border-border bg-card transition-all hover:-translate-y-px hover:border-zinc-300 hover:shadow-md',
+        'mp-packet group relative overflow-hidden rounded-[13px] border border-border bg-card transition-all hover:-translate-y-px hover:border-zinc-300 hover:shadow-md',
         leaving === 'right' && 'leave-right',
         leaving === 'left' && 'leave-left',
       )}
     >
+      {/* 打开材料包的拉伸点击层：覆盖整卡、承担键盘可达，避免在 role=button 上嵌交互按钮 */}
+      <button
+        type="button"
+        onClick={onOpen}
+        aria-label={`打开材料包：${pack.subject || `材料包 ${pack.id}`}`}
+        className="absolute inset-0 z-[1] cursor-pointer"
+      />
+
       {/* 已归案印章 */}
       {pack.status === 'done' && stamp()}
 
@@ -189,10 +188,9 @@ export const PackCard = memo(function PackCard({
         </div>
       </div>
 
-      {/* 底部元信息 + 操作 */}
+      {/* 底部元信息 + 操作（z 抬到拉伸点击层之上，否则按钮点不到） */}
       <div
-        className="flex items-center gap-2 px-4 pb-[14px] pt-[13px] text-[11.5px] text-muted-foreground"
-        onClick={(e) => e.stopPropagation()}
+        className="relative z-[2] flex items-center gap-2 px-4 pb-[14px] pt-[13px] text-[11.5px] text-muted-foreground"
       >
         <span className="min-w-0 truncate tabular-nums">{metaText(pack)}</span>
         <span className="ml-auto flex flex-none items-center gap-[6px]">

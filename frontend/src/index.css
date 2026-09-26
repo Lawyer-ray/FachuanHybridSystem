@@ -255,3 +255,19 @@
   from { opacity: 0; transform: scale(0.92) translateX(-8px); }
   to { opacity: 1; transform: scale(1) translateX(0); }
 }
+
+/* 页面切换入场过渡（components/shared/PageFade.tsx 使用）。
+   用 animation 而非 transition：同一渲染周期内连续改状态时 transition 可能被
+   浏览器跳过，animation 由 key 重挂载触发，稳定可靠。
+   幅度刻意很小（6px + 淡入）——只是让"换页"有个落点，不抢内容注意力；
+   prefers-reduced-motion 下完全不播。 */
+@keyframes app-page-enter {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.app-page-enter {
+  animation: app-page-enter 0.22s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .app-page-enter { animation: none; }
+}

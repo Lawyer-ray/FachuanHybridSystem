@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { toast } from 'sonner'
-import { appendPackFiles, getPackDetail, saveDraft } from './api'
+import { appendPackFiles, getPackDetail, saveDraft, clearBytesCache } from './api'
+import { clearPdfDocuments } from '@/lib/pdf'
 import {
   applyPageSelection,
   appendMatsToDraft,
@@ -9,6 +10,7 @@ import {
   isSelectionContiguous,
   pageIndexOf,
   removePages,
+  renameMat,
   resolveMats,
   setPackAssign,
   setPackStatus,
@@ -74,20 +76,17 @@ interface ReaderState {
 let saveTimer: ReturnType<typeof setTimeout> | null = null
 let latestDraft: DraftState | null = null
 let latestId = 0
-let forceSave = false
 
 function scheduleSave(draft: DraftState, id: number, immediate = false): Promise<void> | null {
   latestDraft = draft
   latestId = id
+  // 立即保存：取消待执行的防抖，马上落一次盘
   if (immediate && saveTimer) {
     clearTimeout(saveTimer)
     saveTimer = null
   }
   if (saveTimer) return null
-  forceSave = immediate
   return new Promise((resolve, reject) => {
-    latestDraft = draft
-    latestId = id
     saveTimer = setTimeout(() => {
       saveTimer = null
       const d = latestDraft
@@ -99,7 +98,7 @@ function scheduleSave(draft: DraftState, id: number, immediate = false): Promise
           toast.error('拆分草稿保存失败，请检查后端连接')
           reject(e)
         })
-    }, forceSave ? 0 : 450)
+    }, immediate ? 0 : 450)
   })
 }
 
@@ -119,6 +118,10 @@ export const useReader = create<ReaderState>((set, get) => ({
   ocrPending: null,
 
   open: async (id) => {
+    // 切到新包先释放上一个包的 PDF 文档/worker，避免跨包累积占内存；
+    // 此时上一个包的页卡已随 openId 变化卸载，销毁其文档是安全的
+    clearPdfDocuments()
+    clearBytesCache()
     set({
       status: 'loading',
       error: '',
@@ -141,12 +144,7 @@ export const useReader = create<ReaderState>((set, get) => ({
         mats = []
       }
       const hasStored = detail.draft_state && detail.draft_state.segs?.length
-      const draft = hasStored
-        ? detail.draft_state
-        : {
-            ...buildInitialDraft(detail, mats),
-            segs: buildInitialDraft(detail, mats).segs,
-          }
+      const draft = hasStored ? detail.draft_state : buildInitialDraft(detail, mats)
       set({ detail, draft, status: 'ready' })
     } catch (e) {
       set({ status: 'error', error: e instanceof Error ? e.message : '打开失败' })
@@ -155,13 +153,15 @@ export const useReader = create<ReaderState>((set, get) => ({
 
   close: () => {
     const { openId, draft } = get()
-    if (openId && draft) forceSave = true
     if (openId && draft) scheduleSave(draft, openId, true)
     // 先淡出，动画完成后再彻底卸载；期间若重新 open，则取消本次退场
     set({ closing: true })
     setTimeout(() => {
       const s = useReader.getState()
       if (!s.closing || !s.openId) return
+      // 阅读器已彻底关闭，释放该包的 PDF 文档/worker（关掉后不重开时也得回收，别等下次 open）
+      clearPdfDocuments()
+      clearBytesCache()
       set({
         openId: null,
         detail: null,
@@ -266,17 +266,7 @@ export const useReader = create<ReaderState>((set, get) => ({
   },
 
   renameMatInDraft: (mi, n) => {
-    get().update((d) => {
-      const name = n.trim()
-      if (!name) return d
-      const mats = d.mats.map((m, i) =>
-        i === mi ? { ...m, customName: name !== m.n ? name : undefined } : m
-      )
-      const segs = d.segs.map((sg) =>
-        sg.fn === (d.mats[mi]?.n || '') && sg.refs.every((r) => r.mi === mi) ? { ...sg, fn: name } : sg
-      )
-      return { ...d, mats, segs }
-    })
+    get().update((d) => renameMat(d, mi, n))
   },
 
   renameSubject: (id, title) => {
