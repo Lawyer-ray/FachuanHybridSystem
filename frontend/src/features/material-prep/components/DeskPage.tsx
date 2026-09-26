@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useNavigate, useParams } from 'react-router'
+import { Link, useNavigate, useParams } from 'react-router'
 import { FolderOpen, Loader2, LogOut, PackagePlus, Pencil, Plus, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -275,6 +275,12 @@ export function DeskPage() {
           </span>
         </div>
         <nav className="flex flex-1 items-center gap-0.5">
+          <Link
+            to="/"
+            className="rounded-[7px] px-3 py-1.5 text-[13.5px] font-medium text-secondary-foreground no-underline transition-colors hover:bg-secondary hover:text-foreground"
+          >
+            首页
+          </Link>
           <span className="rounded-[7px] bg-secondary px-3 py-1.5 text-[13.5px] font-medium text-foreground">
             材料预处理
           </span>
