@@ -118,7 +118,7 @@ export function CalendarPanel({ today, eventsByDay, stats, loading, onSelectDay,
       </div>
 
       {/* 日期网格：6 行 42 格，避免切月时高度抖动 */}
-      <div className="relative grid grid-cols-7 px-2.5 py-1">
+      <div className="relative grid grid-cols-7 px-2.5 py-1 [&>div:nth-last-child(-n+7)]:border-b-0">
         {cells.map((cell) => (
           <DayCellView
             key={cell.key ?? `blank-${cell.day}`}

@@ -118,9 +118,16 @@ def main() -> int:
         h1 = page.locator("h1")
         check("渲染问候标题", h1.count() >= 1 and "月" in (h1.first.inner_text() or ""))
 
-        # 3. 日历网格：42 格 + 星期标题
-        grid_cells = page.locator(".grid-cols-7 > div")
-        check("日历网格 42 格", grid_cells.count() == 42, f"实际 {grid_cells.count()}")
+        # 3. 日历网格行数按当月实际需要（不固定 6 行 42 格）
+        #    当年有 9 个月只需 5 行，固定 6 行会多渲染一整行下月空白格
+        grid_cells = page.locator("div.cursor-pointer.border-r")
+        cell_count = grid_cells.count()
+        rows = cell_count / 7
+        check(
+            "日历网格行数按当月实际（非固定 6 行）",
+            cell_count > 0 and cell_count % 7 == 0 and 4 <= rows <= 6,
+            f"{cell_count} 格 / {rows} 行",
+        )
 
         # 4. 真实庭期渲染成事件行。注意：page.request 是独立上下文、不带浏览器里的
         #    Authorization 头，会被后端判未登录。所以在页面内用 fetch 打接口，

@@ -44,9 +44,35 @@ describe('日期工具', () => {
 })
 
 describe('月历网格', () => {
-  it('固定 42 格（6 行），避免切月高度抖动', () => {
-    expect(buildMonthGrid(2026, 8)).toHaveLength(42)
-    expect(buildMonthGrid(2026, 1)).toHaveLength(42)
+  it('行数按实际需要，不固定 6 行', () => {
+    // 2026-09：1 号是周二 → 补 1 白 + 30 天 = 31 格 → 5 行（35 格）
+    expect(buildMonthGrid(2026, 8)).toHaveLength(35)
+    // 2026-03：1 号是周日 → 补 6 白 + 31 天 = 37 格 → 6 行（42 格）
+    expect(buildMonthGrid(2026, 2)).toHaveLength(42)
+    // 2026-02：1 号是周日 → 补 6 白 + 28 天 = 34 格 → 5 行
+    expect(buildMonthGrid(2026, 1)).toHaveLength(35)
+  })
+
+  it('全年只有 3 个月需要 6 行，其余 5 行（2026）', () => {
+    const rows: Record<number, number> = {}
+    for (let m = 0; m < 12; m++) {
+      rows[m] = buildMonthGrid(2026, m).length / 7
+    }
+    const six = Object.values(rows).filter((r) => r === 6).length
+    const five = Object.values(rows).filter((r) => r === 5).length
+    expect(six).toBe(3)   // 3 / 8 / 11 月
+    expect(five).toBe(9)
+    // 每种行数的格子数都必须是 7 的整数倍
+    Object.values(rows).forEach((r) => expect(Number.isInteger(r)).toBe(true))
+  })
+
+  it('当月日期全部覆盖，且顺序连续', () => {
+    const cells = buildMonthGrid(2026, 8)
+    const inMonth = cells.filter((c) => c.inMonth)
+    expect(inMonth).toHaveLength(30)                 // 9 月 30 天
+    expect(inMonth.map((c) => c.day)).toEqual(Array.from({ length: 30 }, (_, i) => i + 1))
+    // 首行补白 + 当月 + 末尾补白 = 总数
+    expect(cells.length % 7).toBe(0)
   })
 
   it('首行按周一起点补白：2026-09-01 是周二 → 1 个补白', () => {

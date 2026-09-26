@@ -62,12 +62,17 @@ export interface DayCell {
 }
 
 /**
- * 生成某月的周一起点日历网格（固定 6 行 42 格，保持布局不跳动）。
+ * 生成某月的周一起点日历网格。
+ *
+ * 行数按实际需要算（首行补白 + 当月天数，向上取整到整周），不固定 6 行：
+ * 2026 年 12 个月里有 9 个月只需 5 行，固定 6 行等于大多数时间都多渲染
+ * 一整行下月空白格。
  */
 export function buildMonthGrid(year: number, month: number): DayCell[] {
   const first = new Date(year, month, 1)
   const lead = weekdayColumn(first)
   const daysInMonth = new Date(year, month + 1, 0).getDate()
+  const rows = Math.ceil((lead + daysInMonth) / 7)
   const cells: DayCell[] = []
   // 上月补白
   const prevDays = new Date(year, month, 0).getDate()
@@ -77,9 +82,9 @@ export function buildMonthGrid(year: number, month: number): DayCell[] {
   for (let d = 1; d <= daysInMonth; d++) {
     cells.push({ key: dateKey(new Date(year, month, d)), day: d, inMonth: true })
   }
-  // 下月补白到 42 格
+  // 下月补白到整周（只补到最后一行结束，不再多补一行）
   let next = 1
-  while (cells.length < 42) {
+  while (cells.length < rows * 7) {
     cells.push({ key: dateKey(new Date(year, month + 1, next)), day: next, inMonth: false })
     next += 1
   }
