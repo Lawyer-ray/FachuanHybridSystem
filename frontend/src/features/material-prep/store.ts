@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { toast } from 'sonner'
 import { appendPackFiles, getPackDetail, saveDraft } from './api'
+import { clearPdfDocuments } from '@/lib/pdf'
 import {
   applyPageSelection,
   appendMatsToDraft,
@@ -119,6 +120,9 @@ export const useReader = create<ReaderState>((set, get) => ({
   ocrPending: null,
 
   open: async (id) => {
+    // 切到新包先释放上一个包的 PDF 文档/worker，避免跨包累积占内存；
+    // 此时上一个包的页卡已随 openId 变化卸载，销毁其文档是安全的
+    clearPdfDocuments()
     set({
       status: 'loading',
       error: '',
@@ -162,6 +166,8 @@ export const useReader = create<ReaderState>((set, get) => ({
     setTimeout(() => {
       const s = useReader.getState()
       if (!s.closing || !s.openId) return
+      // 阅读器已彻底关闭，释放该包的 PDF 文档/worker（关掉后不重开时也得回收，别等下次 open）
+      clearPdfDocuments()
       set({
         openId: null,
         detail: null,
