@@ -79,6 +79,28 @@ export async function fetchCalendarMonth(year: number, month: number): Promise<C
     .json<CalendarMonth>()
 }
 
+/** 关联对象类型（提醒可绑定 合同 / 案件 / 案件日志 三选一） */
+export type TargetType = 'contract' | 'case' | 'case_log'
+
+/** 关联对象候选项（GET /reminders/target-options） */
+export interface TargetOption {
+  id: number
+  name: string
+  target_type: TargetType
+  target_type_label: string
+}
+
+/**
+ * 按关键字联想关联对象（合同 / 案件 / 案件日志）。
+ * 与 admin 提醒日历用的是同一个接口。
+ */
+export async function searchTargetOptions(q: string): Promise<TargetOption[]> {
+  const res = await remindersApi
+    .get('target-options', { searchParams: { q } })
+    .json<{ items?: TargetOption[] }>()
+  return res.items ?? []
+}
+
 /** 提醒类型选项（GET /reminders/types），用于新增安排弹窗的下拉 */
 export interface ReminderTypeOption {
   value: string
@@ -111,16 +133,28 @@ export interface CreateReminderIn {
   content: string
   /** ISO 字符串，如 2026-09-28T09:30:00 */
   due_at: string
-  case_id?: number | null
+  /**
+   * 关联对象。后端 ReminderIn 用 contract_id / case_id / case_log_id
+   * 三个独立字段，且三者最多绑一个（模型上有 CheckConstraint）。
+   * 这里统一用 target_type + target_id 表达，发送时再拆开。
+   */
+  target_type?: TargetType | null
+  target_id?: number | null
 }
 
 export async function createReminder(payload: CreateReminderIn): Promise<void> {
+  const field = {
+    contract: 'contract_id',
+    case: 'case_id',
+    case_log: 'case_log_id',
+  }[String(payload.target_type)] as string | undefined
   await remindersApi.post('create', {
     json: {
       reminder_type: payload.reminder_type,
       content: payload.content,
       due_at: payload.due_at,
-      case_id: payload.case_id ?? null,
+      // 只填对应的那一个 id，其余保持缺省（后端要求三者最多一个）
+      [field || 'case_id']: payload.target_type ? (payload.target_id ?? null) : null,
     },
   })
 }

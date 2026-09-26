@@ -1,9 +1,9 @@
-import { useEffect, useMemo, useState } from 'react'
-import { Loader2 } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { Loader2, X } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { toast } from 'sonner'
 
-import { createReminder, listReminderTypes } from '../api'
+import { createReminder, listReminderTypes, searchTargetOptions, type TargetOption } from '../api'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { formatCN, parseKey } from '../domain'
@@ -20,15 +20,26 @@ interface Props {
 /**
  * 新增安排弹窗（点日历空白格打开）。
  *
- * 只收集后端必填的三项：类型 + 内容 + 时间。关联案件/合同不做——那需要
- * 一个带检索的选择器，放在这个高频入口里太重；要挂案子的话在 admin 的
- * 提醒日历里建更合适。
+ * 收集：类型 + 内容 + 时刻（后端必填三项），外加**关联对象**（可选）。
+ *
+ * 关联对象很关键：不绑定的提醒在 admin 日历里会显示成"独立提醒"，
+ * 也拿不到案件名当标题——等于白建。所以这里做了个轻量的关键字联想
+ * 输入框（打关键字 → 调 /reminders/target-options 出候选 → 选中即绑定），
+ * 和 admin 提醒日历里那套交互一致，只是做成了弹窗内的紧凑版。
+ *
+ * 后端 ReminderIn 的 contract_id / case_id / case_log_id 三者最多绑一个
+ * （模型 CheckConstraint），所以选中一个就够，不做多选。
  */
 export function AddReminderDialog({ day, defaultTime, onClose, onSaved }: Props) {
   const [type, setType] = useState('other')
   const [content, setContent] = useState('')
   const [time, setTime] = useState(defaultTime)
   const [busy, setBusy] = useState(false)
+  // 关联对象：kw=输入框文本，picked=已选中的候选（null 表示未选）
+  const [kw, setKw] = useState('')
+  const [options, setOptions] = useState<TargetOption[]>([])
+  const [picked, setPicked] = useState<TargetOption | null>(null)
+  const [searching, setSearching] = useState(false)
 
   const { data: types = [] } = useQuery({
     queryKey: ['reminder-types'],
@@ -43,8 +54,34 @@ export function AddReminderDialog({ day, defaultTime, onClose, onSaved }: Props)
       setContent('')
       setTime(defaultTime)
       setBusy(false)
+      setKw('')
+      setOptions([])
+      setPicked(null)
+      setSearching(false)
     }
   }, [day, defaultTime])
+
+  // 关键字联想：输入停止 300ms 后打接口（避开逐字符请求）
+  const debounce = useRef(0)
+  useEffect(() => {
+    const q = kw.trim()
+    window.clearTimeout(debounce.current)
+    if (!q || picked) {
+      setOptions([])
+      return
+    }
+    debounce.current = window.setTimeout(async () => {
+      setSearching(true)
+      try {
+        setOptions(await searchTargetOptions(q))
+      } catch {
+        setOptions([])
+      } finally {
+        setSearching(false)
+      }
+    }, 300)
+    return () => window.clearTimeout(debounce.current)
+  }, [kw, picked])
 
   const trimmed = content.trim()
   const canSave = trimmed.length > 0 && /^\d{2}:\d{2}$/.test(time) && !busy
@@ -58,8 +95,12 @@ export function AddReminderDialog({ day, defaultTime, onClose, onSaved }: Props)
         content: trimmed,
         // 后端要 date-time；本地时间拼接后不带时区，Django 按当前时区解释
         due_at: `${day}T${time}:00`,
+        target_type: picked?.target_type ?? null,
+        target_id: picked?.id ?? null,
       })
-      toast.success(`已添加到 ${formatCN(parseKey(day))} ${time}`)
+      toast.success(
+        `已添加到 ${formatCN(parseKey(day))} ${time}${picked ? ` · ${picked.target_type_label}：${picked.name}` : ''}`,
+      )
       onSaved()
       onClose()
     } catch (e) {
@@ -71,8 +112,6 @@ export function AddReminderDialog({ day, defaultTime, onClose, onSaved }: Props)
       setBusy(false)
     }
   }
-
-  const labelFor = useMemo(() => types.find((t) => t.value === type)?.label ?? '其他', [types, type])
 
   return (
     <Dialog open={day != null} onOpenChange={(open) => !open && onClose()}>
@@ -100,6 +139,76 @@ export function AddReminderDialog({ day, defaultTime, onClose, onSaved }: Props)
               ))}
             </select>
           </label>
+
+          {/* 关联对象：可选。不绑的话 admin 日历里会显示成"独立提醒" */}
+          <div className="flex flex-col gap-1.5">
+            <div className="flex items-center justify-between">
+              <span className="text-[12px] font-medium">关联案件 / 合同</span>
+              {picked && (
+                <button
+                  type="button"
+                  className="flex items-center gap-1 text-[11px] text-muted-foreground transition-colors hover:text-foreground"
+                  onClick={() => {
+                    setPicked(null)
+                    setKw('')
+                  }}
+                >
+                  <X className="h-3 w-3" />
+                  清除
+                </button>
+              )}
+            </div>
+            {picked ? (
+              <div className="flex h-9 items-center gap-2 rounded-[8px] border border-input bg-secondary/40 px-2.5">
+                <span className="flex-none rounded bg-secondary px-1.5 py-[1px] text-[10px] font-semibold text-secondary-foreground">
+                  {picked.target_type_label}
+                </span>
+                <span className="min-w-0 flex-1 truncate text-[12.5px]">{picked.name}</span>
+              </div>
+            ) : (
+              <div className="relative">
+                <input
+                  className="h-9 w-full rounded-[8px] border border-input bg-background px-2.5 text-[12.5px] outline-none focus:border-ring/40"
+                  value={kw}
+                  onChange={(e) => setKw(e.target.value)}
+                  placeholder={searching ? '搜索中…' : '输入关键字，如当事人名称 / 案号'}
+                />
+                {options.length > 0 && (
+                  <>
+                    {/* 兜底层：点别处收起候选 */}
+                    <div className="fixed inset-0 z-40" onClick={() => setOptions([])} aria-hidden />
+                    {/* 候选列表**向上**展开：输入框在表单中部，向下会顶出视口
+                        （实测 24 条候选 + 下拉会让 item 落到视口外，点不到）。
+                        列表自身限高可滚，不把弹窗撑高。 */}
+                    <div className="absolute inset-x-0 bottom-[calc(100%+4px)] z-50 max-h-[190px] overflow-y-auto rounded-[8px] border border-border bg-card py-1 shadow-[0_8px_24px_rgba(0,0,0,.12)]">
+                      {options.map((o) => (
+                        <button
+                          key={`${o.target_type}-${o.id}`}
+                          type="button"
+                          className="flex w-full items-center gap-2 px-2.5 py-[7px] text-left transition-colors hover:bg-secondary"
+                          onClick={() => {
+                            setPicked(o)
+                            setKw('')
+                            setOptions([])
+                          }}
+                        >
+                          <span className="flex-none rounded bg-secondary px-1.5 py-[1px] text-[10px] font-semibold text-secondary-foreground">
+                            {o.target_type_label}
+                          </span>
+                          <span className="min-w-0 flex-1 truncate text-[12px]">{o.name}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
+                {kw.trim() && !searching && options.length === 0 && (
+                  <p className="mt-1 text-[10.5px] text-muted-foreground">
+                    没有匹配的关联对象，也可以留空（不绑定）
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
 
           <label className="flex flex-col gap-1.5">
             <span className="text-[12px] font-medium">内容</span>
@@ -133,7 +242,7 @@ export function AddReminderDialog({ day, defaultTime, onClose, onSaved }: Props)
           </Button>
           <Button onClick={() => void submit()} disabled={!canSave}>
             {busy && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-            保存（{labelFor}）
+            保存
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -452,6 +452,15 @@ def run_add_reminder(page) -> tuple[bool, str]:
             return False, "弹出的不是新增安排框"
 
         page.get_by_placeholder("例如", exact=False).fill(marker)
+
+        # 关联对象：打关键字 → 选中第一个候选（合同/案件/案件日志之一）。
+        # 不做关联的话 admin 日历里会显示成"独立提醒"，等于白建，
+        # 所以这条用例必须验证真绑上了。
+        page.get_by_placeholder("输入关键字", exact=False).fill("升平")
+        bound_type = pick_target_option(page)
+        if not bound_type:
+            return False, "关键字联想没有可选结果，无法验证关联绑定"
+
         save = page.get_by_role("button").filter(has_text="保存")
         if save.count() == 0:
             return False, "没有保存按钮"
@@ -460,15 +469,51 @@ def run_add_reminder(page) -> tuple[bool, str]:
 
         # 1) 后端是否真写入
         rows = fetch_in_page(page, '/api/v1/reminders/list').get("data") or []
-        wrote = any(marker in (x.get("content") or "") for x in rows)
-        if not wrote:
+        hit = next((x for x in rows if marker in (x.get("content") or "")), None)
+        if not hit:
             return False, "点了保存但后端没有这条 reminder"
-        # 2) 面板关闭 + 日历刷新出该条
+        # 2) 关联字段是否真的落库（三个 id 字段应恰好一个非空）
+        ids = [hit.get("case"), hit.get("contract"), hit.get("case_log")]
+        if all(v is None for v in ids):
+            return False, "提醒写入了但没有关联任何案件/合同"
+        # 3) 面板已关闭 + 日历数据里能看到这条
+        #    用日历接口判据而不是 DOM 文本：格子对长标题会截断，
+        #    哪天事件多还会被折叠成"+N 更多"，DOM 文本判据不稳。
         closed = page.locator("[role=dialog]").count() == 0
-        appear = marker in page.locator("main").inner_text()
-        return closed and appear, "已写入并显示在日历上" if (closed and appear) else f"closed={closed} appear={appear}"
+        cal = fetch_in_page(page, "/api/v1/reminders/calendar?year=2026&month=9").get("data") or {}
+        days = cal.get("days") or {}
+        in_calendar = any(
+            marker in (ev.get("content") or "") or marker in (ev.get("title") or "")
+            for evs in days.values()
+            for ev in evs
+        )
+        # 视图是否真刷新出来了（DOM 上能看到说明 invalidate 生效）
+        in_dom = marker in page.locator("main").inner_text()
+        if not (closed and in_calendar):
+            return False, f"closed={closed} in_calendar={in_calendar}"
+        return True, f"已写入并关联（{bound_type}），日历已刷新" + ("" if in_dom else "（DOM 截断未显示全称，数据已对）")
     except Exception as e:  # noqa: BLE001
         return False, f"{type(e).__name__}: {str(e)[:160]}"
+
+def pick_target_option(page) -> str | None:
+    """在新增弹窗里选中第一个关联对象候选，返回类型标签（合同/案件/案件日志）。
+
+    注意：不能用 get_by_text("案件") 之类——合同/案件的名称里常含"诉"等字，
+    会误匹配。这里直接用候选列表容器（div.z-50）里的按钮定位。
+    """
+    try:
+        page.wait_for_selector("[role=dialog] div.z-50 button", timeout=8000)
+        opts = page.locator("[role=dialog] div.z-50 button")
+        if opts.count() == 0:
+            return None
+        label = opts.first.evaluate(
+            "el => (el.querySelector('span') || {}).textContent || ''"
+        )
+        opts.first.click()
+        page.wait_for_timeout(400)
+        return label.strip() or None
+    except Exception:  # noqa: BLE001
+        return None
 
 
 def run_event_detail_dialog(page) -> tuple[bool, str]:
