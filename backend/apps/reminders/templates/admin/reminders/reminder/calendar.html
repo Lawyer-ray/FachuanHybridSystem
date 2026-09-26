@@ -231,6 +231,18 @@
         white-space: nowrap;
         opacity: 0.92;
     }
+    .reminder-event-members {
+        flex: none;
+        margin-left: 6px;
+        padding: 1px 6px;
+        border-radius: 99px;
+        font-size: 10px;
+        font-weight: 600;
+        line-height: 1.5;
+        background: var(--fc-primary-subtle, #eef2ff);
+        color: var(--fc-primary-dark, #3730a3);
+        cursor: help;
+    }
     .reminder-empty {
         font-size: 12px;
         color: var(--fc-text-disabled);
@@ -788,6 +800,7 @@
                         <span class="reminder-event-top">
                             <span class="reminder-event-time">{{ event.time }}</span>
                             <span class="reminder-event-title">{{ event.title }}</span>
+                            {% if event.members > 1 %}<span class="reminder-event-members" title="同一庭审合并了 {{ event.members }} 条同步记录">{{ event.members }} 条合并</span>{% endif %}
                         </span>
                         {% if event.lawyer_name or event.courtroom or event.location %}
                         <span class="reminder-event-meta">{% if event.lawyer_name %}{{ event.lawyer_name }}{% if event.courtroom or event.location %} · {% endif %}{% endif %}{% if event.courtroom %}{{ event.courtroom }}{% elif event.location %}{{ event.location }}{% endif %}</span>
