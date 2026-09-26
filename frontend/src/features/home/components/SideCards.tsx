@@ -4,26 +4,28 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 
 import { createReminder, listInbox, parseReminder } from '../api'
-import { KIND_BADGE, KIND_LABEL, isKeyKind } from '../constants'
-import { rangeLabel, summaryLine } from '../domain'
-import type { DayEvent, InboxItem } from '../types'
+import { KIND_BADGE, KIND_LABEL } from '../constants'
+import { isKeyKind } from '../api-meta'
+import { rangeLabel, summaryLine } from '../api-meta'
+import type { CalendarEvent } from '../api'
+import type { InboxItem } from '../types'
 import { BTN_PRIMARY, COUNT_PILL, PANEL } from '../ui'
 import { cn } from '@/lib/utils'
 
 /* ============================================================ 今日安排 */
 
 interface TodayProps {
-  events: DayEvent[]
+  events: CalendarEvent[]
   loading: boolean
-  onOpenEvent: (e: DayEvent) => void
+  onOpenEvent: (e: CalendarEvent) => void
 }
 
 /** 右栏「今日」：可勾选完成，显示完成计数 */
 export function TodayCard({ events, loading, onOpenEvent }: TodayProps) {
-  const [done, setDone] = useState<Set<string>>(new Set())
+  const [done, setDone] = useState<Set<number>>(new Set())
   const total = events.length
 
-  const toggle = (id: string) =>
+  const toggle = (id: number) =>
     setDone((prev) => {
       const next = new Set(prev)
       if (next.has(id)) next.delete(id)

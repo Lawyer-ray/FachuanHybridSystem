@@ -1,16 +1,17 @@
 import { X } from 'lucide-react'
 
 import { KIND_BADGE, KIND_LABEL } from '../constants'
-import type { DayEvent } from '../types'
-import { formatCN, parseKey, rangeLabel } from '../domain'
+import type { CalendarEvent } from '../api'
+import { formatCN, parseKey } from '../domain'
+import { rangeLabel } from '../api-meta'
 
 interface Props {
   /** dateKey；null 表示关闭 */
   day: string | null
   today: string
-  events: DayEvent[]
+  events: CalendarEvent[]
   onClose: () => void
-  onOpenEvent: (e: DayEvent) => void
+  onOpenEvent: (e: CalendarEvent) => void
   onAdd: () => void
 }
 
@@ -73,11 +74,11 @@ export function DaySheet({ day, today, events, onClose, onOpenEvent, onAdd }: Pr
                   )}
                   {e.place && <span className="mt-[2px] block text-[11.5px] text-secondary-foreground">{e.place}</span>}
                   {e.person && <span className="mt-[2px] block text-[11.5px] text-muted-foreground">律师：{e.person}</span>}
-                  {e.hearingType && (
-                    <span className="mt-[2px] block text-[11.5px] text-muted-foreground">{e.hearingType}</span>
+                  {e.hearing_type && (
+                    <span className="mt-[2px] block text-[11.5px] text-muted-foreground">{e.hearing_type}</span>
                   )}
-                  {e.caseNo && (
-                    <span className="mt-[2px] block font-mono text-[10.5px] text-muted-foreground">{e.caseNo}</span>
+                  {e.case_no && (
+                    <span className="mt-[2px] block font-mono text-[10.5px] text-muted-foreground">{e.case_no}</span>
                   )}
                   <span className="mt-1.5 flex items-center gap-[7px]">
                     <span className={`rounded-[5px] border px-[7px] py-[2px] text-[9.5px] font-semibold ${KIND_BADGE[e.kind]}`}>

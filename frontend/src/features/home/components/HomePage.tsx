@@ -2,14 +2,15 @@ import { useCallback, useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 
-import { listReminders } from '../api'
-import { computeStats, formatCN, formatWeekdayCN, groupByDay, parseKey, todayKey, toDayEvents } from '../domain'
+import { fetchCalendarMonth } from '../api'
+import { formatCN, formatWeekdayCN, parseKey, todayKey } from '../domain'
 import { CalendarPanel } from './CalendarPanel'
 import { ToolDock } from './ToolDock'
 import { AppNavbar } from '@/components/shared/AppNavbar'
 import { InboxCard, QuickAdd, TodayCard } from './SideCards'
 import { DaySheet } from './DaySheet'
-import type { DayEvent, InboxItem } from '../types'
+import type { CalendarEvent } from '../api'
+import type { InboxItem } from '../types'
 
 /** 手机端展开抽屉的宽度阈值（与原型一致） */
 const MOBILE_MAX = 760
@@ -27,23 +28,29 @@ export function HomePage() {
   const today = useMemo(() => todayKey(), [])
   const [sheetDay, setSheetDay] = useState<string | null>(null)
 
-  /* 日程 / 庭期 / 期限 */
-  const remindersQuery = useQuery({
-    queryKey: ['home-reminders'],
-    queryFn: listReminders,
+  const todayParts = useMemo(() => {
+    const [y, m] = today.split('-').map(Number)
+    return { year: y, month: m }
+  }, [today])
+
+  /* 日历视图：合并 / 统计都由后端算好，前端只负责渲染 */
+  const calendarQuery = useQuery({
+    queryKey: ['home-calendar', todayParts.year, todayParts.month],
+    queryFn: () => fetchCalendarMonth(todayParts.year, todayParts.month),
     staleTime: 60_000,
   })
 
-  const events = useMemo(() => toDayEvents(remindersQuery.data ?? [], today), [remindersQuery.data, today])
-  const eventsByDay = useMemo(() => groupByDay(events), [events])
-  const stats = useMemo(() => computeStats(events, today), [events, today])
-  const todayEvents = useMemo(
-    () => (eventsByDay.get(today) ?? []).slice().sort((a, b) => a.time.localeCompare(b.time)),
-    [eventsByDay, today],
+  const calendar = calendarQuery.data
+  const eventsByDay = useMemo(() => calendar?.days ?? {}, [calendar])
+  const stats = useMemo(
+    () => calendar?.stats ?? { today: 0, deadline_in_7days: 0, month_court: 0 },
+    [calendar],
   )
+  // 后端已按「时间升序 + 紧要排前」排好，直接取
+  const todayEvents = useMemo(() => eventsByDay[today] ?? [], [eventsByDay, today])
 
   const refresh = useCallback(() => {
-    void queryClient.invalidateQueries({ queryKey: ['home-reminders'] })
+    void queryClient.invalidateQueries({ queryKey: ['home-calendar'] })
   }, [queryClient])
 
   const notify = useCallback((msg: string) => toast.info(msg), [])
@@ -53,9 +60,9 @@ export function HomePage() {
     if (isMobile()) setSheetDay(key)
   }, [])
 
-  const handleOpenEvent = useCallback((e: DayEvent) => {
-    if (e.caseId) {
-      toast.info(`打开案件 #${e.caseId}：${e.title}`)
+  const handleOpenEvent = useCallback((e: CalendarEvent) => {
+    if (e.case_id) {
+      toast.info(`打开案件 #${e.case_id}：${e.title}`)
       return
     }
     toast.info('这条安排还没关联案件，可到「案件台账」里查看')
@@ -96,9 +103,9 @@ export function HomePage() {
               </span>
             </h1>
             <div className="mt-[3px] text-[12.5px] text-secondary-foreground">
-              今天 <b className="font-semibold text-status-red">{stats.todayCount}</b> 件事 ·{' '}
-              <b className="font-semibold text-status-red">{stats.deadlineIn7}</b> 件紧要事项 7 日内到期 · 本月还有{' '}
-              <b className="font-semibold">{stats.courtThisMonth}</b> 个庭期
+              今天 <b className="font-semibold text-status-red">{stats.today}</b> 件事 ·{' '}
+              <b className="font-semibold text-status-red">{stats.deadline_in_7days}</b> 件紧要事项 7 日内到期 · 本月还有{' '}
+              <b className="font-semibold">{stats.month_court}</b> 个庭期
             </div>
           </div>
           <QuickAdd onAdded={refresh} />
@@ -111,7 +118,7 @@ export function HomePage() {
               today={today}
               eventsByDay={eventsByDay}
               stats={stats}
-              loading={remindersQuery.isLoading}
+              loading={calendarQuery.isLoading}
               onSelectDay={handleSelectDay}
               onOpenEvent={handleOpenEvent}
               onAdd={handleAdd}
@@ -121,7 +128,7 @@ export function HomePage() {
 
           {/* 右：今日 + 待处理 */}
           <div className="flex min-w-0 flex-col gap-5">
-            <TodayCard events={todayEvents} loading={remindersQuery.isLoading} onOpenEvent={handleOpenEvent} />
+            <TodayCard events={todayEvents} loading={calendarQuery.isLoading} onOpenEvent={handleOpenEvent} />
             <InboxCard onOpen={handleInboxOpen} onAction={handleInboxAction} />
           </div>
         </div>
@@ -131,7 +138,7 @@ export function HomePage() {
       <DaySheet
         day={sheetDay}
         today={today}
-        events={sheetDay ? (eventsByDay.get(sheetDay) ?? []) : []}
+        events={sheetDay ? (eventsByDay[sheetDay] ?? []) : []}
         onClose={() => setSheetDay(null)}
         onOpenEvent={handleOpenEvent}
         onAdd={handleAdd}

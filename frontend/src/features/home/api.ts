@@ -6,7 +6,7 @@ import type { ConvertTemplate, InboxItem, LprResult } from './types'
  *
  * 全部路径已按 frontend/CLAUDE.md「对接后端接口纪律」核对过后端 OpenAPI
  * （http://127.0.0.1:8002/api/v1/openapi.json）与真实返回：
- *   - 日程/庭期/期限 = GET  /reminders/list        （ReminderOut[]，按 due_at）
+ *   - 日历视图        = GET  /reminders/calendar     （合并/统计都在后端算好）
  *   - 快速记一笔解析 = POST /reminders/parse       （仅能识别"绝对日期"文本）
  *   - 新建安排       = POST /reminders/create
  *   - 待处理流入     = GET  /inbox/messages        （收件箱，按收到时间倒序）
@@ -26,23 +26,56 @@ export const lprApi = createApiClient({ prefix: '/api/v1/lpr' })
 
 /* ------------------------------------------------------------------ 日程 / 庭期 */
 
-/** 后端 ReminderOut（/reminders/list）——只声明前端用到的字段 */
-export interface ReminderOut {
+/** 日历上的一条事件（GET /reminders/calendar）。同一庭审的多条同步已由后端合并。 */
+export interface CalendarEvent {
   id: number
-  contract: number | null
-  case: number | null
-  case_log: number | null
-  reminder_type: string
-  reminder_type_label: string
+  kind: string
+  kind_label: string
+  /** 主标题：后端优先取关联对象名，取不到才退回 content */
+  title: string
+  /** content 原文 */
   content: string
-  metadata: Record<string, unknown>
-  due_at: string
-  created_at: string
-  updated_at: string
+  day: string
+  time: string
+  time_range: string
+  place: string
+  person: string
+  case_no: string
+  hearing_type: string
+  target_type: string
+  target_name: string
+  case_id: number | null
+  is_today: boolean
+  is_overdue: boolean
+  /** 合并了几条原始 reminder（同一庭审被多次同步时 >1） */
+  members: number
+  member_ids: number[]
 }
 
-export async function listReminders(): Promise<ReminderOut[]> {
-  return remindersApi.get('list').json<ReminderOut[]>()
+/** 工作台统计（后端按合并后口径算好，前端不要再自己数） */
+export interface CalendarStats {
+  today: number
+  deadline_in_7days: number
+  month_court: number
+}
+
+/** GET /reminders/calendar 的响应 */
+export interface CalendarMonth {
+  year: number
+  month: number
+  stats: CalendarStats
+  /** YYYY-MM-DD → 当日事件（已合并、已排序） */
+  days: Record<string, CalendarEvent[]>
+}
+
+/**
+ * 取某月日历视图。合并、归一化、统计都在后端做——
+ * 首页与 Django admin 日历共用同一个 service，避免两边口径不一致。
+ */
+export async function fetchCalendarMonth(year: number, month: number): Promise<CalendarMonth> {
+  return remindersApi
+    .get('calendar', { searchParams: { year, month } })
+    .json<CalendarMonth>()
 }
 
 export interface ParsedReminder {

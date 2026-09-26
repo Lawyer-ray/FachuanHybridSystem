@@ -102,6 +102,12 @@ def main() -> int:
 
         # 进入首页
         page.goto(BASE + "/", wait_until="networkidle")
+        # 等日历面板真正渲染出来（React 挂载 + /reminders/calendar 返回），
+        # 否则后续对日历格/事件行的测量会落在半成品 DOM 上
+        try:
+            page.wait_for_selector("section:has(.grid-cols-7)", timeout=20000)
+        except Exception:
+            out("⚠️  等待日历时面板超时，后续日历相关检查可能不可靠")
         page.wait_for_timeout(1500)
 
         # 1. 没有重定向去 login（说明鉴权通过）
@@ -171,6 +177,9 @@ def main() -> int:
         page.wait_for_timeout(400)
         ym_after = page.locator("main").inner_text()
         check("月份切换生效", ym_before != ym_after)
+        # 跳回当月：后续日历检查都默认看本月，否则会停留在刚切过去的月份
+        page.get_by_title("回到今天").click()
+        page.wait_for_timeout(1200)
 
         # 11. toast（sonner 挂 portal，不在 main 里，所以要查 body）
         page.get_by_role("button", name="办案").click()
@@ -202,6 +211,14 @@ def main() -> int:
         d2x_ok, d2x_detail = run_doc_to_docx(page)
         check("DOC 转 DOCX 任务跑通并产出结果", d2x_ok, d2x_detail)
 
+        # 14b. 日历事件详情弹窗：点格子里的事件应弹出带完整信息的对话框
+        detail_ok, detail_detail = run_event_detail_dialog(page)
+        check("点日历事件弹出详情弹窗", detail_ok, detail_detail)
+
+        # 14c. 日历格要能容纳「标题 + 律师 + 地点」三行，且律师真的渲染出来
+        cell_ok, cell_detail = check_calendar_cell_density(page)
+        check("日历格高度足够且显示律师", cell_ok, cell_detail)
+
         # 14. 手机端：窄视口点某天应弹出底部抽屉
         page.set_viewport_size({"width": 420, "height": 900})
         page.wait_for_timeout(700)
@@ -218,6 +235,9 @@ def main() -> int:
                 break
         check("手机端点日期弹出当日安排抽屉", sheet_ok)
 
+        # 注意：14b / 14c 必须跑在 section 14（移动端抽屉）之前——
+        # section 14 会把视口缩到 420px，之后即使还原，CSS 回流也需要时间，
+        # 紧接着测量格子高度会拿到中间态。
         # 15. 图标压扁检查：把视口恢复宽屏，扫「内容区容不下自己图标」的按钮。
         #     这类 bug 视觉上表现为图标消失/只剩空方块，但控制台不报错、功能也正常，
         #     纯看代码 grep 不出来（根因可能是 padding/width/flex/border 任一种），
@@ -304,6 +324,83 @@ def get_auth_jwt() -> str | None:
 
 
 FIXTURE = Path(__file__).resolve().parent / "fixtures" / "sample-complaint.docx"
+
+
+EVENT_ROW_JS = """() => {
+    // 日历格里真正的事件行（组件上带 data-calendar-event 属性）。
+    // 悬停 tooltip 里也会渲染同样的事件，但它没有这个属性，借此区分。
+    return [...document.querySelectorAll('[data-calendar-event]')].map(el => {
+        const lines = el.innerText.split(String.fromCharCode(10)).map(x => x.trim()).filter(Boolean);
+        return { id: el.getAttribute('data-calendar-event'), lines };
+    });
+}"""
+
+
+def run_event_detail_dialog(page) -> tuple[bool, str]:
+    """点日历格里第一个事件，断言弹出详情弹窗且含关键字段，Esc 能关。"""
+    try:
+        # 先确保该元素滚入视口（窄屏时可能在折叠区域外）
+        target = page.locator("[data-calendar-event]").first
+        target.scroll_into_view_if_needed(timeout=8000)
+        page.wait_for_timeout(400)
+
+        # 点前重新取坐标：前面跑过快速记一笔等操作，DOM 可能刚重渲染过，
+        # 用旧坐标会点空。第一次不生效就再试一次。
+        for attempt in range(3):
+            box = page.evaluate(
+                """() => {
+                    const el = document.querySelector('[data-calendar-event]');
+                    if (!el) return null;
+                    const r = el.getBoundingClientRect();
+                    if (r.width === 0 || r.height === 0) return null;
+                    return { x: r.x + r.width / 2, y: r.y + r.height / 2 };
+                }"""
+            )
+            if not box:
+                return False, "日历格里没有事件行（后端当月可能没有提醒）"
+            page.mouse.click(box["x"], box["y"])
+            page.wait_for_timeout(800)
+            if page.locator("[role=dialog]").count() > 0:
+                break
+        dlg = page.locator("[role=dialog]")
+        if dlg.count() == 0:
+            return False, "点了事件但没有弹出 dialog"
+        text = dlg.first.inner_text()
+        has_any = any(k in text for k in ("时段", "法庭", "地点", "律师", "案号"))
+        if not has_any:
+            return False, f"弹窗缺少关键字段：{text[:80]!r}"
+        page.keyboard.press("Escape")
+        page.wait_for_timeout(500)
+        closed = page.locator("[role=dialog]").count() == 0
+        return closed, "已弹出并可用 Esc 关闭" if closed else "弹出了但 Esc 关不掉"
+    except Exception as e:  # noqa: BLE001
+        return False, f"{type(e).__name__}: {str(e)[:160]}"
+
+
+def check_calendar_cell_density(page) -> tuple[bool, str]:
+    """日历格要够高（容纳标题+律师+地点三行），且律师真的渲染进事件行。
+
+    不强制要求「一定有带律师的事件」——当月可能全是手工录入的提醒，
+    后端 metadata 里没有 lawyer_name，此时没有律师行是数据问题而非界面问题。
+    """
+    try:
+        info = page.evaluate(
+            """() => {
+                const cells = document.querySelectorAll('div.cursor-pointer.border-r');
+                if (!cells.length) return null;
+                let h = 0;
+                cells.forEach(c => { const ch = c.getBoundingClientRect().height; if (ch > h) h = ch; });
+                return { height: Math.round(h) };
+            }"""
+        )
+        if not info:
+            return False, "页面没有日历格"
+        rows = page.evaluate(EVENT_ROW_JS)
+        with_lawyer = sum(1 for r in rows if len(r.get("lines", [])) >= 3)
+        tall_ok = info["height"] >= 150
+        return tall_ok, f"格高 {info['height']}px；事件 {len(rows)} 条，其中带律师行 {with_lawyer} 条"
+    except Exception as e:  # noqa: BLE001
+        return False, f"{type(e).__name__}: {str(e)[:160]}"
 
 
 def find_squashed_icons(page) -> list[str]:

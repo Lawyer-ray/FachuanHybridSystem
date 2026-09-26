@@ -1,22 +1,25 @@
 import { useEffect, useMemo, useState } from 'react'
 import { CalendarPlus, ChevronLeft, ChevronRight } from 'lucide-react'
 
-import { KIND_ROW, WEEKDAYS, isKeyKind } from '../constants'
-import type { DayEvent } from '../types'
-import { buildMonthGrid, briefLine, formatCN, parseKey, summaryLine } from '../domain'
-import type { DeskStats } from '../domain'
+import { KIND_ROW, WEEKDAYS } from '../constants'
+import { isKeyKind } from '../api-meta'
+import type { CalendarEvent } from '../api'
+import { buildMonthGrid, formatCN, parseKey } from '../domain'
+import { briefLine, cellMetaLines } from '../api-meta'
+import type { CalendarStats } from '../api'
+import { EventDetailDialog } from './EventDetailDialog'
 import { BTN, BTN_ICON, PANEL } from '../ui'
 import { cn } from '@/lib/utils'
 
 interface Props {
   today: string
-  eventsByDay: Map<string, DayEvent[]>
-  stats: DeskStats
+  eventsByDay: Record<string, CalendarEvent[]>
+  stats: CalendarStats
   loading: boolean
   /** 选中某天（桌面端高亮 / 移动端开抽屉由调用方决定） */
   onSelectDay: (key: string) => void
   /** 打开某条安排（跳案件/详情；未实现的给提示） */
-  onOpenEvent: (e: DayEvent) => void
+  onOpenEvent: (e: CalendarEvent) => void
   /** 新增安排 */
   onAdd: () => void
 }
@@ -24,7 +27,7 @@ interface Props {
 /** 每天最多显示几行事件（超出折叠成「+N 更多」），按窗口宽度自适应 */
 function maxRowsPerDay(): number {
   const w = window.innerWidth
-  return w >= 2400 ? 6 : w >= 1600 ? 5 : w >= 1100 ? 4 : 3
+  return w >= 2400 ? 5 : w >= 1600 ? 4 : w >= 1100 ? 3 : 3
 }
 
 /** 大日历面板：月份切换 + 周一起点月历 + 事件行 + 悬停摘要 + 统计 */
@@ -33,6 +36,8 @@ export function CalendarPanel({ today, eventsByDay, stats, loading, onSelectDay,
   const [view, setView] = useState({ year: todayDate.getFullYear(), month: todayDate.getMonth() })
   const [selected, setSelected] = useState(today)
   const [maxRows, setMaxRows] = useState(maxRowsPerDay)
+  // 详情弹窗：点日历格里的事件打开
+  const [detail, setDetail] = useState<CalendarEvent | null>(null)
 
   // 窗口尺寸变化时重新计算每格行数（与原型一致，带防抖）
   useEffect(() => {
@@ -82,7 +87,7 @@ export function CalendarPanel({ today, eventsByDay, stats, loading, onSelectDay,
         <div className="text-[16px] font-semibold tracking-[-0.01em]">
           {view.month + 1} 月<span className="ml-[7px] text-[12px] font-normal text-muted-foreground">{view.year}</span>
         </div>
-        <button type="button" className={BTN} onClick={goToday}>
+        <button type="button" className={BTN} onClick={goToday} title="回到今天">
           今天
         </button>
         <button type="button" className={BTN + ' ml-2'} onClick={onAdd}>
@@ -92,13 +97,13 @@ export function CalendarPanel({ today, eventsByDay, stats, loading, onSelectDay,
 
         <div className="ml-auto flex gap-4 text-[11.5px] whitespace-nowrap text-muted-foreground">
           <span className="flex items-baseline gap-1">
-            今日 <b className="tabular-nums font-semibold text-status-red">{stats.todayCount}</b> 件
+            今日 <b className="tabular-nums font-semibold text-status-red">{stats.today}</b> 件
           </span>
           <span>
-            7 日内 <b className="tabular-nums font-semibold text-foreground">{stats.deadlineIn7}</b> 件到期
+            7 日内 <b className="tabular-nums font-semibold text-foreground">{stats.deadline_in_7days}</b> 件到期
           </span>
           <span>
-            本月 <b className="tabular-nums font-semibold text-foreground">{stats.courtThisMonth}</b> 个庭
+            本月 <b className="tabular-nums font-semibold text-foreground">{stats.month_court}</b> 个庭
           </span>
         </div>
       </div>
@@ -120,10 +125,11 @@ export function CalendarPanel({ today, eventsByDay, stats, loading, onSelectDay,
             cell={cell}
             today={today}
             selected={cell.key === selected}
-            events={cell.key ? (eventsByDay.get(cell.key) ?? []) : []}
+            events={cell.key ? (eventsByDay[cell.key] ?? []) : []}
             maxRows={maxRows}
             onPick={pickDay}
             onOpenEvent={onOpenEvent}
+            onOpenDetail={setDetail}
           />
         ))}
         {loading && (
@@ -132,6 +138,9 @@ export function CalendarPanel({ today, eventsByDay, stats, loading, onSelectDay,
           </div>
         )}
       </div>
+
+      {/* 事件详情弹窗 */}
+      <EventDetailDialog event={detail} onClose={() => setDetail(null)} onOpenCase={onOpenEvent} />
 
       {/* 图例 */}
       <div className="flex gap-[18px] px-4 pb-[13px] text-[10.5px] text-muted-foreground">
@@ -154,14 +163,15 @@ interface CellProps {
   cell: { key: string | null; day: number | null; inMonth: boolean }
   today: string
   selected: boolean
-  events: DayEvent[]
+  events: CalendarEvent[]
   maxRows: number
   onPick: (key: string) => void
-  onOpenEvent: (e: DayEvent) => void
+  onOpenEvent: (e: CalendarEvent) => void
+  onOpenDetail: (e: CalendarEvent) => void
 }
 
-function DayCellView({ cell, today, selected, events, maxRows, onPick, onOpenEvent }: CellProps) {
-  if (!cell.key || cell.day == null) return <div className="min-h-[clamp(116px,9.2vw,172px)] border-r border-b border-border-light" />
+function DayCellView({ cell, today, selected, events, maxRows, onPick, onOpenDetail }: CellProps) {
+  if (!cell.key || cell.day == null) return <div className="min-h-[clamp(132px,12vw,208px)] border-r border-b border-border-light" />
 
   const isToday = cell.key === today
   const shown = events.slice(0, maxRows)
@@ -170,7 +180,7 @@ function DayCellView({ cell, today, selected, events, maxRows, onPick, onOpenEve
   return (
     <div
       className={cn(
-        'group relative min-h-[clamp(116px,9.2vw,172px)] cursor-pointer border-r border-b border-border-light p-[7px] transition-colors last:border-r-0',
+        'group relative min-h-[clamp(132px,12vw,208px)] cursor-pointer border-r border-b border-border-light p-[7px] transition-colors last:border-r-0',
         !cell.inMonth && 'opacity-30',
         selected && 'bg-secondary/60',
         isToday && 'bg-status-red-bg/40',
@@ -196,10 +206,11 @@ function DayCellView({ cell, today, selected, events, maxRows, onPick, onOpenEve
 
       <div className={cn('flex flex-col gap-[2px]', 'max-[760px]:hidden')}>
         {shown.map((e) => {
-          const meta = briefLine(e)
+          const meta = cellMetaLines(e)
           return (
             <div
               key={e.id}
+              data-calendar-event={e.id}
               className={cn(
                 'flex min-h-[20px] flex-col justify-center gap-[2px] rounded-[5px] px-1.5 py-[2px] text-[11.5px] transition-[filter] hover:brightness-95',
                 KIND_ROW[e.kind],
@@ -207,17 +218,23 @@ function DayCellView({ cell, today, selected, events, maxRows, onPick, onOpenEve
               )}
               onClick={(ev) => {
                 ev.stopPropagation()
-                onOpenEvent(e)
+                onOpenDetail(e)
               }}
             >
               <span className="flex items-center gap-1.5">
                 <span className="w-[30px] flex-none text-[10px] font-semibold tabular-nums opacity-80">{e.time}</span>
                 <span className="truncate font-medium">{e.title}</span>
               </span>
-              {meta && (
+              {meta.primary && (
                 <span className="flex items-center gap-1.5">
                   <span className="w-[30px] flex-none" />
-                  <span className="truncate text-[9.5px] opacity-70">{meta}</span>
+                  <span className="truncate text-[9.5px] font-medium opacity-80">{meta.primary}</span>
+                </span>
+              )}
+              {meta.secondary && (
+                <span className="flex items-center gap-1.5">
+                  <span className="w-[30px] flex-none" />
+                  <span className="truncate text-[9.5px] opacity-60">{meta.secondary}</span>
                 </span>
               )}
             </div>
@@ -250,7 +267,7 @@ function DayCellView({ cell, today, selected, events, maxRows, onPick, onOpenEve
             <div key={e.id} className="flex items-baseline gap-[7px]">
               <span className="w-8 flex-none text-[10px] text-background/60 tabular-nums">{e.time}</span>
               <span className="truncate font-medium">{e.title}</span>
-              <span className="max-w-[110px] truncate text-[10.5px] text-background/50">{summaryLine(e)}</span>
+              <span className="max-w-[110px] truncate text-[10.5px] text-background/50">{briefLine(e)}</span>
             </div>
           ))}
         </div>

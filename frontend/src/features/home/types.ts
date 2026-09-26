@@ -1,42 +1,10 @@
 /**
- * 首页 · 今日工作台数据模型。
+ * 首页 · 今日工作台的本地类型。
  *
- * 事件（日程/庭期/期限）以「某一天 → 若干条安排」组织，底层来自后端 Reminder
- * （/reminders/list）：每条提醒有 reminder_type + due_at（ISO 时间）+ content，
- * 庭期类还在 metadata 里带 court/时间区间/案号等。这里的 DayEvent 是前端展示态：
- * 从 Reminder 归一化而来，便于日历直接按日期取用。
+ * 日历事件本身用 api.ts 里的 CalendarEvent（直接对应后端 GET /reminders/calendar
+ * 的返回）。以前这里放 DayEvent 并前端自己做归一化 / 合并 / 统计，现在这些都移到
+ * 后端（与 Django admin 日历共用同一 service），两份定义必然漂移，故删除。
  */
-
-/** 安排类别。前两类为「紧要」，其余为「常规」——对应原型图例的红/灰两色 */
-export type EventKind = 'court' | 'deadline' | 'meeting' | 'follow'
-
-/** 日历上的一天安排（由 Reminder 归一化，同一庭审的多条同步已合并） */
-export interface DayEvent {
-  /** 稳定 key：reminder id（同一来源去重/勾选用） */
-  id: string
-  /** 归属日期 YYYY-MM-DD（本地），由 due_at 换算 */
-  day: string
-  kind: EventKind
-  /** HH:mm，来自 due_at；没有具体时分则给全天占位 */
-  time: string
-  title: string
-  /** 法庭 / 地点（庭审取 metadata.courtroom，同步日程取 location） */
-  place: string
-  /** 时段区间，如 10:00-12:00（metadata.time_range） */
-  timeRange: string
-  /** 代理律师 / 承办法官；同一庭审多人时用「、」聚合 */
-  person: string
-  /** 案号 */
-  caseNo: string
-  /** 庭审方式：线下开庭 / 网上开庭 */
-  hearingType: string
-  /** 关联案件 id（有则可跳案件） */
-  caseId: number | null
-  /** 是否今天截止（用于强调） */
-  dueToday: boolean
-  /** 关联对象名（案件 / 合同） */
-  targetName: string
-}
 
 /** 待处理流入项（来自收件箱 /inbox/messages） */
 export interface InboxItem {
