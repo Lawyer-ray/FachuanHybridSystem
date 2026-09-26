@@ -48,11 +48,8 @@ export function AppNavbar({ onNotify, onLogout }: AppNavbarProps) {
         <Menu className="h-[18px] w-[18px]" />
       </button>
 
-      {/* 品牌：黑底「法」字 + 产品名 */}
-      <Link to="/" className="flex flex-none items-center gap-[9px] pr-1.5 no-underline">
-        <span className="flex h-[26px] w-[26px] items-center justify-center rounded-[7px] bg-foreground text-[13px] font-bold text-background">
-          法
-        </span>
+      {/* 品牌：产品名（点击回首页） */}
+      <Link to="/" className="flex flex-none items-center pr-1.5 no-underline">
         <span className="text-[14px] font-bold whitespace-nowrap tracking-[-0.01em] text-foreground">
           法穿 <span className="text-[12.5px] font-medium text-muted-foreground">AI Copilot</span>
         </span>
