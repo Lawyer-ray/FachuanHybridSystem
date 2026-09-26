@@ -5,7 +5,7 @@ import { KIND_ROW, WEEKDAYS, isKeyKind } from '../constants'
 import type { DayEvent } from '../types'
 import { buildMonthGrid, formatCN, parseKey } from '../domain'
 import type { DeskStats } from '../domain'
-import { BTN, PANEL } from '../ui'
+import { BTN, BTN_ICON, PANEL } from '../ui'
 import { cn } from '@/lib/utils'
 
 interface Props {
@@ -73,10 +73,10 @@ export function CalendarPanel({ today, eventsByDay, stats, loading, onSelectDay,
     <section className={PANEL}>
       {/* 头部：月份导航 + 统计 */}
       <div className="flex flex-wrap items-center gap-2 px-4 pb-3 pt-4">
-        <button type="button" className={BTN + ' w-[28px] justify-center px-0'} onClick={() => shiftMonth(-1)} title="上个月">
+        <button type="button" className={BTN_ICON} onClick={() => shiftMonth(-1)} title="上个月" aria-label="上个月">
           <ChevronLeft className="h-3.5 w-3.5" />
         </button>
-        <button type="button" className={BTN + ' w-[28px] justify-center px-0'} onClick={() => shiftMonth(1)} title="下个月">
+        <button type="button" className={BTN_ICON} onClick={() => shiftMonth(1)} title="下个月" aria-label="下个月">
           <ChevronRight className="h-3.5 w-3.5" />
         </button>
         <div className="text-[16px] font-semibold tracking-[-0.01em]">
