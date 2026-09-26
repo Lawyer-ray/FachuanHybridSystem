@@ -1,12 +1,12 @@
 import { cn } from '@/lib/utils'
-import { maxColsAllowed } from './layout'
+import { effectiveCols, maxColsAllowed } from './layout'
 
 /**
  * 阅读器列宽与抽屉样式派生：
  *   - maxCols：当前容器宽度下最多能并排几列
  *   - effCols：用户选择 cols 与 maxCols 的较小值
  *   - railWrapCls / metaWrapCls：左右抽屉在窄屏（fixed 抽屉）与宽屏（inline）两套 class
- * 列数口径统一走 layout.ts，和 Flow 内部同一套数学。
+ * 列数口径统一走 layout.ts 的 effectiveCols，和 Flow 内部同一套数学。
  */
 export function useReaderWidths(params: {
   cols: number
@@ -18,7 +18,7 @@ export function useReaderWidths(params: {
   const { cols, flowWrapW, narrow, railOpen, metaOpen } = params
 
   const maxCols = maxColsAllowed(flowWrapW)
-  const effCols = Math.max(1, Math.min(cols, maxCols))
+  const effCols = effectiveCols(cols, flowWrapW)
 
   const railWrapCls = narrow
     ? cn(

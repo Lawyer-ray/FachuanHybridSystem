@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
 import { fetchAttachmentBytes, createPdfSplitJob, getPdfSplitJob } from '../../api'
 import { applyAutoSplit, canAutoSplitMat } from '../../draft'
@@ -10,6 +10,14 @@ const POLL_LIMIT = 420
 export function useAutoSplit() {
   const [running, setRunning] = useState(false)
   const [progress, setProgress] = useState('')
+  // 卸载后取消：轮询每 2s 一次、最长约 14 分钟，组件卸载了就别再打请求
+  const cancelled = useRef(false)
+  useEffect(() => {
+    cancelled.current = false
+    return () => {
+      cancelled.current = true
+    }
+  }, [])
 
   const run = async () => {
     const { openId, draft } = useReader.getState()
@@ -44,13 +52,15 @@ export function useAutoSplit() {
       let finished = 0
       const settled = await Promise.allSettled(
         jobs.map(async ({ mi, jobId }) => {
-          const result = await pollJob(jobId)
+          const result = await pollJob(jobId, () => cancelled.current)
           finished += 1
           setProgress(`云端识别完成 ${finished}/${jobs.length}`)
           return { mi, segments: result.segments }
         }),
       )
 
+      // 轮询期间组件可能已卸载（关掉阅读器）：不再回写 store
+      if (cancelled.current) return
       const results = settled.flatMap((item) => (item.status === 'fulfilled' ? [item.value] : []))
       const failures = settled.filter((item) => item.status === 'rejected')
       if (results.length === 0) {
@@ -72,6 +82,8 @@ export function useAutoSplit() {
         toast.success(`云端识别完成，已将 ${count} 个候选分段写入草稿；未识别材料仍需人工归类`)
       }
     } catch (error) {
+      // 组件已卸载（关掉阅读器）导致的取消：静默返回，不弹错误
+      if (cancelled.current) return
       toast.error(error instanceof Error ? error.message : '云端材料识别失败')
     } finally {
       setRunning(false)
@@ -82,8 +94,9 @@ export function useAutoSplit() {
   return { run, running, progress }
 }
 
-async function pollJob(jobId: string) {
+async function pollJob(jobId: string, isCancelled: () => boolean) {
   for (let attempt = 0; attempt < POLL_LIMIT; attempt++) {
+    if (isCancelled()) throw new Error('已取消')
     const job = await getPdfSplitJob(jobId)
     if (job.status === 'review_required' || job.status === 'completed') return job
     if (job.status === 'failed' || job.status === 'cancelled') {

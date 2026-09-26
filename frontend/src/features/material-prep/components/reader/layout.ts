@@ -7,13 +7,18 @@
  *  100% = 适应宽度，页宽 = min(960, 可用均分)；
  *  每列至少 COL_MIN_W 才有资格并排；缩放用倍率乘在页宽上（非 CSS zoom）。 */
 export const COL_GAP = 18
-export const PAGE_MAX_W = 960
 export const COL_MIN_W = 360
-export const PAGE_MIN_W = 140
+const PAGE_MAX_W = 960
+const PAGE_MIN_W = 140
 
 /** 当前容器宽度下最多能并排几列（每列至少 COL_MIN_W）。 */
 export function maxColsAllowed(width: number): number {
   return Math.max(1, Math.floor((width + COL_GAP) / (COL_MIN_W + COL_GAP)))
+}
+
+/** 实际生效列数：用户选择 cols 与当前容器允许上限取较小。 */
+export function effectiveCols(cols: number, width: number): number {
+  return Math.max(1, Math.min(cols, maxColsAllowed(width)))
 }
 
 /**

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -27,7 +27,12 @@ import { cn } from '@/lib/utils'
 /** 阅读器：阅读器顶层编排。状态、loading/error 分支、三栏布局组合，
  *  具体的 ops / 键位 / 列宽 / 弹窗各自下沉到子模块。 */
 export function Reader() {
-  const { openId, detail, draft, status, closing } = useReader()
+  // 按字段 selector 订阅，避免 store 任一字段变化触发 Reader 整树重渲染
+  const openId = useReader((s) => s.openId)
+  const detail = useReader((s) => s.detail)
+  const draft = useReader((s) => s.draft)
+  const status = useReader((s) => s.status)
+  const closing = useReader((s) => s.closing)
   const pickInfo = useReader((s) => s.pickInfo)
   const zoom = useReader((s) => s.zoom)
   const cols = useReader((s) => s.cols)
@@ -73,6 +78,11 @@ export function Reader() {
       setMetaOpen(false)
     }
   }, [pickInfo])
+
+  // ops 稳定化：让 Flow → PageCell 的 memo 真正命中（st.update / pickPage 都是稳定引用）。
+  // 放 early return 之前（不依赖 draft），符合 Rules of Hooks
+  const flowOps = useMemo(() => buildFlowOps(st.update, pickPage), [st.update, pickPage])
+  const metaOps = useMemo(() => buildMetaOps(st.update), [st.update])
 
   if (!openId || !detail) return null
 
@@ -133,9 +143,6 @@ export function Reader() {
   const ocrFrom = ocrPending ? `${matLabel(draft.mats, ocrPending.mi)} P${ocrPending.p}` : ''
   const ocrTo = pickInfo >= 0 && draft.infos[pickInfo] ? draft.infos[pickInfo].k : ''
   const hintField = pickInfo >= 0 && draft.infos[pickInfo] ? draft.infos[pickInfo].k : ''
-
-  const flowOps = buildFlowOps(st.update, pickPage)
-  const metaOps = buildMetaOps(st.update)
 
   const onComplete = () => {
     if (!allClassified) {
@@ -298,7 +305,9 @@ export function Reader() {
         ocrPending={ocrPending}
         ocrFrom={ocrFrom}
         ocrTo={ocrTo}
-        onOcrText={(v) => st.setOcrPending({ ...ocrPending!, text: v })}
+        onOcrText={(v) => {
+          if (ocrPending) st.setOcrPending({ ...ocrPending, text: v })
+        }}
         onOcrRedo={() => st.setOcrPending(null)}
         onOcrCancel={() => {
           st.setOcrPending(null)

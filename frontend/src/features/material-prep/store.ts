@@ -76,20 +76,17 @@ interface ReaderState {
 let saveTimer: ReturnType<typeof setTimeout> | null = null
 let latestDraft: DraftState | null = null
 let latestId = 0
-let forceSave = false
 
 function scheduleSave(draft: DraftState, id: number, immediate = false): Promise<void> | null {
   latestDraft = draft
   latestId = id
+  // 立即保存：取消待执行的防抖，马上落一次盘
   if (immediate && saveTimer) {
     clearTimeout(saveTimer)
     saveTimer = null
   }
   if (saveTimer) return null
-  forceSave = immediate
   return new Promise((resolve, reject) => {
-    latestDraft = draft
-    latestId = id
     saveTimer = setTimeout(() => {
       saveTimer = null
       const d = latestDraft
@@ -101,7 +98,7 @@ function scheduleSave(draft: DraftState, id: number, immediate = false): Promise
           toast.error('拆分草稿保存失败，请检查后端连接')
           reject(e)
         })
-    }, forceSave ? 0 : 450)
+    }, immediate ? 0 : 450)
   })
 }
 
@@ -147,12 +144,7 @@ export const useReader = create<ReaderState>((set, get) => ({
         mats = []
       }
       const hasStored = detail.draft_state && detail.draft_state.segs?.length
-      const draft = hasStored
-        ? detail.draft_state
-        : {
-            ...buildInitialDraft(detail, mats),
-            segs: buildInitialDraft(detail, mats).segs,
-          }
+      const draft = hasStored ? detail.draft_state : buildInitialDraft(detail, mats)
       set({ detail, draft, status: 'ready' })
     } catch (e) {
       set({ status: 'error', error: e instanceof Error ? e.message : '打开失败' })
@@ -161,7 +153,6 @@ export const useReader = create<ReaderState>((set, get) => ({
 
   close: () => {
     const { openId, draft } = get()
-    if (openId && draft) forceSave = true
     if (openId && draft) scheduleSave(draft, openId, true)
     // 先淡出，动画完成后再彻底卸载；期间若重新 open，则取消本次退场
     set({ closing: true })

@@ -1,3 +1,4 @@
+import { useCallback } from 'react'
 import { toast } from 'sonner'
 import { canvasToBlob, imageRegionBlob, loadPdfDocument, renderPdfPageRegion } from '@/lib/pdf'
 import { fetchAttachmentBytes, ocrImage } from '../../api'
@@ -7,7 +8,8 @@ import type { PageRect } from './PageCell'
 
 /** 标来源 ⇒ 框选 ⇒ RapidOCR 的完整流程：点页记来源、拖框取字、确认填入 */
 export function useReaderOcr() {
-  const pickPage = (mi: number, p: number) => {
+  // 固化回调引用：让 Flow → PageCell 的 memo 命中（内部直读 getState，无外部依赖）
+  const pickPage = useCallback((mi: number, p: number) => {
     const s = useReader.getState()
     const pi = s.pickInfo
     if (pi < 0) return
@@ -15,7 +17,7 @@ export function useReaderOcr() {
     s.update((d) => setInfoSource(d, pi, label, { mi, p }))
     s.setPickInfo(-1)
     toast.success(`已记来源：${label}`)
-  }
+  }, [])
 
   const runOcr = async (mi: number, p: number, rect: PageRect) => {
     const s = useReader.getState()
@@ -53,12 +55,12 @@ export function useReaderOcr() {
     }
   }
 
-  const onOcrBox = (mi: number, p: number, rect: PageRect) => {
+  const onOcrBox = useCallback((mi: number, p: number, rect: PageRect) => {
     if (useReader.getState().pickInfo < 0) return
     void runOcr(mi, p, rect)
-  }
+  }, [])
 
-  const ocrOk = () => {
+  const ocrOk = useCallback(() => {
     const s = useReader.getState()
     const pend = s.ocrPending
     if (!pend) return
@@ -74,7 +76,7 @@ export function useReaderOcr() {
       return nd
     })
     toast.success(`已填入「${fieldName}」`)
-  }
+  }, [])
 
   return { pickPage, onOcrBox, ocrOk }
 }

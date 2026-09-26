@@ -28,10 +28,15 @@ export function AssignModal({
   const [cases, setCases] = useState<CaseRow[]>([])
   const [loading, setLoading] = useState(false)
   const [pickCase, setPickCase] = useState<CaseRow | null>(null)
-  const [resetter, setResetter] = useState(0)
 
   const who = infos.find((f) => f.k === '委托人')?.v || ''
-  const [ctWho, setCtWho] = useState(who)
+  // 生成委托合同要用的字段：委托人不填不能提交，另两个可空
+  const [fields, setFields] = useState<Record<string, string>>({
+    委托人: '',
+    对方当事人: '',
+    标的额: '',
+  })
+  const setField = (k: string, v: string) => setFields((prev) => ({ ...prev, [k]: v }))
 
   useEffect(() => {
     if (!open) return
@@ -40,7 +45,11 @@ export function AssignModal({
     setQ('')
     setCases([])
     setPickCase(null)
-    setCtWho(infos.find((f) => f.k === '委托人')?.v || '')
+    setFields({
+      委托人: infos.find((f) => f.k === '委托人')?.v || '',
+      对方当事人: infos.find((f) => f.k === '对方当事人')?.v || '',
+      标的额: infos.find((f) => f.k === '标的额')?.v || '',
+    })
   }, [open]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
@@ -53,10 +62,7 @@ export function AssignModal({
     const t = setTimeout(() => {
       setLoading(true)
       searchCases(q)
-        .then((rows) => {
-          setCases(rows)
-          setResetter((n) => n + 1)
-        })
+        .then((rows) => setCases(rows))
         .catch(() => toast.error('案件搜索失败，请检查后端'))
         .finally(() => setLoading(false))
     }, 220)
@@ -71,16 +77,14 @@ export function AssignModal({
         ? '将追加到所选案件'
         : '先在上面选一个案件'
       : contract === 'none'
-        ? ctWho.trim()
+        ? fields['委托人'].trim()
           ? '将据此生成委托合同'
           : '写个委托人就能生成合同'
         : '不用再填别的，直接建案'
 
   const okDisabled =
     (target === 'existing' && !pickCase) ||
-    (target === 'new' && contract === 'none' && !ctWho.trim())
-
-  void resetter
+    (target === 'new' && contract === 'none' && !fields['委托人'].trim())
 
   const confirm = () => {
     if (okDisabled) return
@@ -95,7 +99,12 @@ export function AssignModal({
     } else if (target === 'new' && contract === 'has') {
       assign = { target: 'new' }
     } else {
-      assign = { target: 'new', contractFields: { 委托人: ctWho.trim() } }
+      // 只带上非空字段，别把空串塞给后端
+      const contractFields: Record<string, string> = {}
+      for (const [k, v] of Object.entries(fields)) {
+        if (v.trim()) contractFields[k] = v.trim()
+      }
+      assign = { target: 'new', contractFields }
     }
     onConfirm(assign)
   }
@@ -113,7 +122,7 @@ export function AssignModal({
         </div>
 
         <div className="px-5 py-2 text-[12.5px] text-muted-foreground">
-          {count} 份材料 · {who && <>委托人 {who} · </>}还没记委托人
+          {count} 份材料{who && <> · 委托人 {who}</>}
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-4">
@@ -201,20 +210,17 @@ export function AssignModal({
               {contract === 'none' && (
                 <div className="mt-2 rounded-lg border border-border p-3">
                   <div className="mb-2 text-[12px] text-muted-foreground">生成委托合同要用到这些 —— 在这儿补就行，右栏没记也没关系。</div>
-                  {['委托人', '对方当事人', '标的额'].map((k) => {
-                    const val = k === '委托人' ? ctWho : infos.find((f) => f.k === k)?.v || ''
-                    return (
-                      <label key={k} className="mb-2 flex items-center gap-2 text-[12.5px]">
-                        <span className="w-[72px] flex-none">{k}</span>
-                        <input
-                          value={val}
-                          placeholder={k === '委托人' ? '姓名或单位' : '可以空'}
-                          onChange={(e) => (k === '委托人' ? setCtWho(e.target.value) : undefined)}
-                          className="h-8 flex-1 rounded-md border border-input bg-background px-2 text-[13px] outline-none focus:border-blue-300"
-                        />
-                      </label>
-                    )
-                  })}
+                  {['委托人', '对方当事人', '标的额'].map((k) => (
+                    <label key={k} className="mb-2 flex items-center gap-2 text-[12.5px]">
+                      <span className="w-[72px] flex-none">{k}</span>
+                      <input
+                        value={fields[k] ?? ''}
+                        placeholder={k === '委托人' ? '姓名或单位' : '可以空'}
+                        onChange={(e) => setField(k, e.target.value)}
+                        className="h-8 flex-1 rounded-md border border-input bg-background px-2 text-[13px] outline-none focus:border-blue-300"
+                      />
+                    </label>
+                  ))}
                 </div>
               )}
             </div>

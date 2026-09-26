@@ -1,13 +1,14 @@
-import { useState, type CSSProperties } from 'react'
+import { useCallback, useMemo, useState, type CSSProperties } from 'react'
 import { Scissors } from 'lucide-react'
 import { SEG_COLORS } from '../../constants'
 import { useElementWidth } from '../../hooks/use-element-width'
 import type { DraftState, OcrPending, PageKey } from '../../types'
 import { selKeyOf } from '../../draft'
-import { COL_GAP, fitPageWidth, maxColsAllowed, rowWidth } from './layout'
+import { COL_GAP, effectiveCols, fitPageWidth, rowWidth } from './layout'
 import { PageCell, type PageRect } from './PageCell'
 import { PageContextMenu } from './PageContextMenu'
 import { SegmentHeader } from './SegmentHeader'
+import type { FlowOps } from './reader-ops'
 import { cn } from '@/lib/utils'
 
 export function Flow({
@@ -34,14 +35,7 @@ export function Flow({
   selMode: boolean
   selPages: PageKey[]
   ocrPending: OcrPending | null
-  onOp: {
-    setSegType: (si: number, t: string) => void
-    renameSeg: (si: number, name: string) => void
-    mergeSeg: (si: number) => void
-    toggleDone: (si: number) => void
-    splitSeg: (si: number, k: number) => void
-    pickPage: (mi: number, p: number) => void
-  }
+  onOp: FlowOps
   onToggleSel: (mi: number, p: number, shift: boolean) => void
   onOcrBox: (mi: number, p: number, rect: PageRect) => void
   onRequestDelete: (picked: PageKey[]) => void
@@ -53,26 +47,38 @@ export function Flow({
   const [menu, setMenu] = useState<{ x: number; y: number; mi: number; p: number } | null>(null)
 
   // —— 列数 / 页宽：原型 sgrid 模型（固定页宽，窄窗保护，缩放联动） ——
-  const maxCols = maxColsAllowed(flowWidth)
-  const nCols = Math.max(1, Math.min(cols, maxCols))
+  // 列数口径与 Reader 统一走 layout.ts 的 effectiveCols，两处同一套数学
+  const nCols = effectiveCols(cols, flowWidth)
   const pageW = fitPageWidth(flowWidth, nCols, zoom)
   const rowW = rowWidth(pageW, nCols)
   const zwide = rowW > flowWidth
 
-  // 每页的来源绿框（采纳了带框的标来源）
-  const marksOf = (mi: number, p: number) =>
-    infos
-      .map((f, fi) => {
-        const sr = f.srcRef
-        if (!sr || sr.mi !== mi || sr.p !== p || !sr.rect) return null
-        return { fi, rect: sr.rect, label: f.k }
-      })
-      .filter((x): x is { fi: number; rect: PageRect; label: string } => x !== null)
+  // 每页的来源绿框：一次性预算成 "mi:p" → marks[]，避免每格每渲染重复 O(N×M)，
+  // 也让 PageCell 的 marks prop 在 infos 未变时保持引用稳定（memo 才命中得了）
+  const marksByPage = useMemo(() => {
+    const m = new Map<string, { fi: number; rect: PageRect; label: string }[]>()
+    infos.forEach((f, fi) => {
+      const sr = f.srcRef
+      if (!sr || !sr.rect) return
+      const key = selKeyOf({ mi: sr.mi, p: sr.p })
+      const list = m.get(key) ?? []
+      list.push({ fi, rect: sr.rect, label: f.k })
+      m.set(key, list)
+    })
+    return m
+  }, [infos])
+  const marksOf = useCallback(
+    (mi: number, p: number) => marksByPage.get(selKeyOf({ mi, p })),
+    [marksByPage],
+  )
 
-  const openMenu = (e: React.MouseEvent, mi: number, p: number) => {
+  const selKeys = useMemo(() => new Set(selPages.map(selKeyOf)), [selPages])
+
+  const openMenu = useCallback((e: React.MouseEvent, mi: number, p: number) => {
     setMenu({ x: e.clientX, y: e.clientY, mi, p })
-  }
-  const menuInSel = menu ? selPages.some((k) => selKeyOf(k) === `${menu.mi}:${menu.p}`) : false
+  }, [])
+  const closeMenu = useCallback(() => setMenu(null), [])
+  const menuInSel = menu ? selKeys.has(`${menu.mi}:${menu.p}`) : false
   const menuTitle = menu
     ? `${mats[menu.mi]?.customName || mats[menu.mi]?.n || ''} · 第 ${menu.p} 页`
     : ''
@@ -141,7 +147,7 @@ export function Flow({
                         mat={mat}
                         pickActive={picking}
                         selModeActive={selMode}
-                        selected={selPages.some((k) => selKeyOf(k) === `${ref.mi}:${ref.p}`)}
+                        selected={selKeys.has(`${ref.mi}:${ref.p}`)}
                         marks={marksOf(ref.mi, ref.p)}
                         ocrRect={ocrPending && ocrPending.mi === ref.mi && ocrPending.p === ref.p ? ocrPending.rect : null}
                         onPickPage={picking ? onOp.pickPage : undefined}
@@ -170,7 +176,7 @@ export function Flow({
                         mat={mat}
                         pickActive={picking}
                         selModeActive={selMode}
-                        selected={selPages.some((k) => selKeyOf(k) === `${ref.mi}:${ref.p}`)}
+                        selected={selKeys.has(`${ref.mi}:${ref.p}`)}
                         marks={marksOf(ref.mi, ref.p)}
                         ocrRect={ocrPending && ocrPending.mi === ref.mi && ocrPending.p === ref.p ? ocrPending.rect : null}
                         onPickPage={picking ? onOp.pickPage : undefined}
@@ -211,7 +217,7 @@ export function Flow({
             onRequestDelete(target)
             setMenu(null)
           }}
-          onClose={() => setMenu(null)}
+          onClose={closeMenu}
         />
       )}
     </div>

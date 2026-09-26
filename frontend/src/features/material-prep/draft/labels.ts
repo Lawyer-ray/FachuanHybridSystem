@@ -1,4 +1,3 @@
-import { SEG_COLORS } from '../constants'
 import type { BundleMat, DraftState, PageKey, Segment } from '../types'
 
 /**
@@ -13,26 +12,8 @@ export function segMats(sg: Segment): number[] {
   return [...new Set(sg.refs.map((r) => r.mi))]
 }
 
-export function isCross(sg: Segment): boolean {
-  return segMats(sg).length > 1
-}
-
-/** 单页人类可读标签，如「甲.pdf P3」 */
-export function pageLabel(mats: BundleMat[], raw: PageKey): string {
-  return `${matLabel(mats, raw.mi)} P${raw.p}`
-}
-
-/** 段色：按段序取色盘，稳定不闪 */
-export function segColorOf(si: number): string {
-  return SEG_COLORS[si % SEG_COLORS.length]
-}
-
 /** 页面唯一键（用于选中集合） */
 export const selKeyOf = (r: PageKey): string => `${r.mi}:${r.p}`
-
-export function pageKeyOf(mi: number, p: number): string {
-  return `${mi}:${p}`
-}
 
 /** 页码区间的人类可读标签：单源 "P1–3,P5"，跨源 "甲.pdf P1,2 + 乙.pdf P3" */
 export function rangeLabel(mats: BundleMat[], refs: PageKey[]): string {
@@ -63,14 +44,6 @@ export function rangeLabel(mats: BundleMat[], refs: PageKey[]): string {
 
 export function countUnclassified(d: DraftState): number {
   return d.segs.filter((s) => !s.t).length
-}
-
-export function isAllClassified(d: DraftState): boolean {
-  return d.segs.length > 0 && d.segs.every((s) => s.t)
-}
-
-export function totalPagesOfMats(mats: BundleMat[]): number {
-  return mats.reduce((sum, m) => sum + m.pages, 0)
 }
 
 /** 段是否覆盖整个单一源文件（用于左栏「整份」行） */

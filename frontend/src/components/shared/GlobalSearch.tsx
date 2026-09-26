@@ -3,7 +3,7 @@ import { Link } from 'react-router'
 import { FileText, Landmark, Mail, Paperclip, Search, Users } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { createApiClient } from '@/lib/api'
-import { Dialog, DialogContent } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog'
 import { cn } from '@/lib/utils'
 
 /**
@@ -170,6 +170,8 @@ export function GlobalSearch({
         className="top-[14%] translate-y-0 gap-0 p-0 sm:max-w-[880px]"
         showCloseButton={false}
       >
+        {/* 可访问名称：命令面板无可见标题，给屏幕阅读器一个 DialogTitle */}
+        <DialogTitle className="sr-only">全局检索</DialogTitle>
         {/* 搜索框 */}
         <div className="flex items-center gap-2.5 border-b border-border px-4">
           <Search className="h-4 w-4 flex-none text-muted-foreground" />

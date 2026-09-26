@@ -120,8 +120,8 @@ export function DeskPage() {
     [visible, openPack, navigate],
   )
 
-  useDeskKeyboard({ visible, openId, sel, setSel, openAt, judge })
-  useDeskRing({ sel, dep: [visible, tab] as unknown, gridRef, wrapRef, ringRef })
+  useDeskKeyboard({ visible, openId, sel, setSel, openAt, judge, gridRef })
+  useDeskRing({ sel, visible, tab, gridRef, wrapRef, ringRef })
 
   const confirmDelete = useCallback(() => {
     const p = deleteTarget

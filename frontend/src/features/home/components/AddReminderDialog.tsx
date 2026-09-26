@@ -5,7 +5,7 @@ import { toast } from 'sonner'
 
 import { createReminder, listReminderTypes, searchTargetOptions, type TargetOption } from '../api'
 import { Button } from '@/components/ui/button'
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { formatCN, parseKey } from '../domain'
 import { cn } from '@/lib/utils'
 
@@ -136,9 +136,9 @@ export function AddReminderDialog({ day, defaultTime, onClose, onSaved }: Props)
       <DialogContent className="max-w-[380px]">
         <DialogHeader>
           <DialogTitle className="text-[15px]">新增安排</DialogTitle>
-          <p className="mt-0.5 text-[12px] text-muted-foreground">
+          <DialogDescription className="mt-0.5 text-[12px] text-muted-foreground">
             {day ? `${formatCN(parseKey(day))} ${time}` : ''}
-          </p>
+          </DialogDescription>
         </DialogHeader>
 
         <div className="flex flex-col gap-3">

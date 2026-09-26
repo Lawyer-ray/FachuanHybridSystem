@@ -1,7 +1,7 @@
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
 import { OcrPanel } from './OcrPanel'
 import { AssignModal } from './AssignModal'
 import { RenamePackDialog } from '../RenamePackDialog'
+import { ConfirmDeleteDialog } from '../ConfirmDeleteDialog'
 import type { AssignInfo, DraftState, InboxMessageDetail, OcrPending, PageKey } from '../../types'
 
 /**
@@ -71,26 +71,14 @@ export function ReaderDialogs({
         />
       )}
 
-      {/* 删除所选页：破坏性操作，右键菜单点击后先二次确认 */}
-      <AlertDialog open={!!deleteTarget} onOpenChange={(o) => !o && onDeleteCancel()}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>确认删除所选 {deleteTarget?.length ?? 0} 页？</AlertDialogTitle>
-            <AlertDialogDescription>
-              将从材料拆分中移除这些页并清空空段，仅影响拆分草稿，不影响原始文件。
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>取消</AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-destructive text-white hover:bg-destructive/90"
-              onClick={onDeleteConfirm}
-            >
-              删除
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {/* 删除所选页：破坏性操作，二次确认（与删材料包共用 ConfirmDeleteDialog） */}
+      <ConfirmDeleteDialog
+        open={!!deleteTarget}
+        onOpenChange={(o) => !o && onDeleteCancel()}
+        title={`确认删除所选 ${deleteTarget?.length ?? 0} 页？`}
+        description="将从材料拆分中移除这些页并清空空段，仅影响拆分草稿，不影响原始文件。"
+        onConfirm={onDeleteConfirm}
+      />
 
       {/* 重命名材料包标题：标题栏铅笔按钮打开 */}
       <RenamePackDialog

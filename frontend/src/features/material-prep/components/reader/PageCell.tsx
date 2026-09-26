@@ -224,12 +224,9 @@ function PdfPageView({ messageId, partIndex, pageNum }: { messageId: number; par
   )
 }
 
-// react-hooks lint shim (avoid rename churn)
-import { useEffect as useEffect0 } from 'react'
-
 function PhotoPageView({ messageId, partIndex }: { messageId: number; partIndex: number }) {
   const [url, setUrl] = useState<string | null>(null)
-  useEffect0(() => {
+  useEffect(() => {
     let alive = true
     let objectUrl: string | null = null
     fetchAttachmentBytes(messageId, partIndex)

@@ -3,6 +3,7 @@ import { ExternalLink, X } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
@@ -45,10 +46,10 @@ export function EventDetailDialog({ event, onClose, onOpenCase }: Props) {
             所有开庭提醒都是庭期，等于废话；真有混合类型时看详情行也够 */}
         <DialogHeader className="flex-row items-start gap-3 border-b border-border px-5 py-4">
           <div className="min-w-0 flex-1">
-            <div className="text-[11.5px] text-muted-foreground">
+            <DialogDescription className="text-[11.5px] text-muted-foreground">
               {formatCN(parseKey(event.day))} {event.time}
               {event.is_today ? ' · 今天' : ''}
-            </div>
+            </DialogDescription>
             <DialogTitle className="mt-1 text-[15px] leading-snug font-semibold">{event.title}</DialogTitle>
           </div>
           <button

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router'
 import { LogOut, Menu, Plus, Search, User } from 'lucide-react'
 
-import { useAuth } from '@/features/auth/store'
+import { useAuth } from '@/features/auth'
 import { api } from '@/lib/api'
 import { Button } from '@/components/ui/button'
 import {

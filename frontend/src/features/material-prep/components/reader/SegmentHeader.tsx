@@ -108,14 +108,15 @@ export function SegmentHeader({
           className="h-7 min-w-0 flex-1 rounded-md border border-zinc-400 bg-white px-2 text-[13px] outline-none"
         />
       ) : (
-        <span
+        <button
+          type="button"
           onClick={startNameEdit}
           title="点一下改名"
-          className="flex min-w-0 flex-1 items-center gap-1 truncate text-[13.5px] font-medium"
+          className="flex min-w-0 flex-1 items-center gap-1 truncate text-left text-[13.5px] font-medium"
         >
           <span className="truncate">{seg.fn}</span>
           <PencilLine className="h-3.5 w-3.5 flex-none text-muted-foreground/70" />
-        </span>
+        </button>
       )}
 
       {/* 页码范围（原型 rg） */}

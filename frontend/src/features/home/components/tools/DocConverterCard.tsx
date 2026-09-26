@@ -14,19 +14,29 @@ export function DocConverterCard() {
   const [busy, setBusy] = useState(false)
   const [job, setJob] = useState<ConverterJob | null>(null)
   const timer = useRef(0)
+  // 卸载后取消：轮询在飞时若组件卸载，就不该再排下一轮 / window.open
+  const cancelled = useRef(false)
 
   const stop = () => {
     window.clearTimeout(timer.current)
     setBusy(false)
   }
 
-  // 卸载时清理轮询定时器，避免离开页面还在打接口
-  useEffect(() => () => window.clearTimeout(timer.current), [])
+  // 卸载时停止轮询，避免离开页面还在打接口
+  useEffect(() => {
+    cancelled.current = false
+    return () => {
+      cancelled.current = true
+      window.clearTimeout(timer.current)
+    }
+  }, [])
 
   const poll = (jobId: string) => {
     const tick = async () => {
+      if (cancelled.current) return
       try {
         const j = await getConverterJob(jobId)
+        if (cancelled.current) return
         setJob(j)
         const settled = j.total > 0 && j.done + j.failed >= j.total
         if (j.status === 'completed' || j.status === 'failed' || settled) {
@@ -41,6 +51,7 @@ export function DocConverterCard() {
           timer.current = window.setTimeout(tick, 2000)
         }
       } catch {
+        if (cancelled.current) return
         stop()
         toast.error('查询转换进度失败')
       }

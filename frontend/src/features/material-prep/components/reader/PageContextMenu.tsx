@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 import { Trash2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -19,6 +19,13 @@ export function PageContextMenu({
   onClose: () => void
 }) {
   const ref = useRef<HTMLDivElement>(null)
+  // 用 ref 存最新 onClose，"点外部关闭"订阅只挂一次（onClose 每次渲染常是新引用）。
+  // 写 ref 放 effect 里，不放 render 主体（React 19 react-hooks/refs 规则）
+  const onCloseRef = useRef(onClose)
+  useEffect(() => {
+    onCloseRef.current = onClose
+  }, [onClose])
+  const handleClose = useCallback(() => onCloseRef.current(), [])
 
   // 定位要贴近右键点，同时别被画布边缘裁掉：改用 fixed，超界时夹回视口内
   useEffect(() => {
@@ -37,20 +44,20 @@ export function PageContextMenu({
   // 点击菜单外部或按 Esc 关闭
   useEffect(() => {
     const onDown = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) onClose()
+      if (ref.current && !ref.current.contains(e.target as Node)) handleClose()
     }
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
+      if (e.key === 'Escape') handleClose()
     }
     window.addEventListener('mousedown', onDown)
     window.addEventListener('keydown', onKey)
-    window.addEventListener('blur', onClose)
+    window.addEventListener('blur', handleClose)
     return () => {
       window.removeEventListener('mousedown', onDown)
       window.removeEventListener('keydown', onKey)
-      window.removeEventListener('blur', onClose)
+      window.removeEventListener('blur', handleClose)
     }
-  }, [onClose])
+  }, [handleClose])
 
   return (
     <div
