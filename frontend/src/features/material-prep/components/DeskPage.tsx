@@ -4,6 +4,7 @@ import { FolderOpen, Loader2, PackagePlus, Pencil, Plus, Trash2 } from 'lucide-r
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { AppNavbar } from '@/components/shared/AppNavbar'
+import { PageFade } from '@/components/shared/PageFade'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -272,121 +273,124 @@ export function DeskPage() {
         onNotify={(m) => toast.info(m)}
       />
 
-      <main className="relative px-7 pb-24 pt-6">
-        {/* 页签 + 快捷键提示 */}
-        <div className="mb-5 flex flex-wrap items-end gap-4">
-          <div className="flex items-center gap-1.5">
-            <div className="flex items-center gap-0.5 rounded-[9px] bg-secondary p-[3px]">
-              {TABS.map((t) => (
-                <button
-                  key={t.key}
-                  type="button"
-                  onClick={() => {
-                    setTab(t.key)
-                    setSel(0)
-                  }}
-                  className={cn(
-                    'flex items-center gap-[6px] rounded-[7px] px-[13px] py-[6px] text-[13px] transition-colors',
-                    tab === t.key
-                      ? 'bg-card font-medium text-foreground shadow-sm'
-                      : 'text-secondary-foreground hover:text-foreground',
-                  )}
-                >
-                  {t.label}
-                  <span className={cn('text-[11.5px] tabular-nums', tab === t.key ? 'text-secondary-foreground' : 'text-muted-foreground')}>
-                    {counts[t.key]}
-                  </span>
-                </button>
-              ))}
+      {/* 内容区包一层入场过渡：navbar 不变，只有下面这部分播动画 */}
+      <PageFade>
+        <main className="relative px-7 pb-24 pt-6">
+          {/* 页签 + 快捷键提示 */}
+          <div className="mb-5 flex flex-wrap items-end gap-4">
+            <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-0.5 rounded-[9px] bg-secondary p-[3px]">
+                {TABS.map((t) => (
+                  <button
+                    key={t.key}
+                    type="button"
+                    onClick={() => {
+                      setTab(t.key)
+                      setSel(0)
+                    }}
+                    className={cn(
+                      'flex items-center gap-[6px] rounded-[7px] px-[13px] py-[6px] text-[13px] transition-colors',
+                      tab === t.key
+                        ? 'bg-card font-medium text-foreground shadow-sm'
+                        : 'text-secondary-foreground hover:text-foreground',
+                    )}
+                  >
+                    {t.label}
+                    <span className={cn('text-[11.5px] tabular-nums', tab === t.key ? 'text-secondary-foreground' : 'text-muted-foreground')}>
+                      {counts[t.key]}
+                    </span>
+                  </button>
+                ))}
+              </div>
+              <span className="mx-2 hidden h-[18px] w-px bg-zinc-300 sm:block" />
+              <div className="hidden items-center gap-2 text-[11.5px] text-muted-foreground sm:flex">
+                <kbd className="rounded border border-border bg-card px-1 py-0.5 font-sans">↑↓←→</kbd> 选择
+                <kbd className="rounded border border-border bg-card px-1 py-0.5 font-sans">空格</kbd> 打开
+                <kbd className="rounded border border-border bg-card px-1 py-0.5 font-sans">X</kbd> 不接
+                <span className="text-zinc-300">|</span>
+                全部材料都靠手划，机器不猜
+              </div>
             </div>
-            <span className="mx-2 hidden h-[18px] w-px bg-zinc-300 sm:block" />
-            <div className="hidden items-center gap-2 text-[11.5px] text-muted-foreground sm:flex">
-              <kbd className="rounded border border-border bg-card px-1 py-0.5 font-sans">↑↓←→</kbd> 选择
-              <kbd className="rounded border border-border bg-card px-1 py-0.5 font-sans">空格</kbd> 打开
-              <kbd className="rounded border border-border bg-card px-1 py-0.5 font-sans">X</kbd> 不接
-              <span className="text-zinc-300">|</span>
-              全部材料都靠手划，机器不猜
+            <div className="ml-auto">
+              <Button onClick={() => fileInputRef.current?.click()} disabled={uploading} size="sm">
+                {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <PackagePlus className="h-4 w-4" />}
+                新建材料包
+              </Button>
             </div>
           </div>
-          <div className="ml-auto">
-            <Button onClick={() => fileInputRef.current?.click()} disabled={uploading} size="sm">
-              {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <PackagePlus className="h-4 w-4" />}
-              新建材料包
-            </Button>
-          </div>
-        </div>
 
-        {isLoading ? (
-          <div className="flex items-center gap-2 py-20 text-sm text-secondary-foreground">
-            <Loader2 className="h-4 w-4 animate-spin" /> 加载材料包…
-          </div>
-        ) : error ? (
-          <div className="rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-6 text-sm text-destructive">
-            无法加载材料包：{error instanceof Error ? error.message : '未知错误'}
-          </div>
-        ) : (
-          <div className="relative" ref={wrapRef}>
-            <div ref={gridRef} className="grid grid-cols-[repeat(auto-fill,minmax(min(300px,100%),1fr))] gap-4">
-              {visible.map((p, i) => (
-                <div
-                  key={p.id}
-                  data-pack-idx={i}
-                  className={cn(leaving[p.id] === 'right' && 'leave-right', leaving[p.id] === 'left' && 'leave-left')}
-                >
-                  <ContextMenu>
-                    <ContextMenuTrigger className="block">
-                      <PackCard
-                        pack={p}
-                        finished={p.segs > 0 && p.named === p.segs}
-                        leaving={leaving[p.id] ?? null}
-                        onOpen={() => openAt(i)}
-                        onReject={() => judge(p, 'filed')}
-                        onAccept={() => setAssigning(p)}
-                      />
-                    </ContextMenuTrigger>
-                    <ContextMenuContent className="w-44">
-                      <ContextMenuItem onSelect={() => openAt(i)}>
-                        <FolderOpen /> 打开材料包
-                      </ContextMenuItem>
-                      <ContextMenuItem onSelect={() => setRenameTarget(p)}>
-                        <Pencil /> 重命名材料包
-                      </ContextMenuItem>
-                      <ContextMenuSeparator />
-                      <ContextMenuItem variant="destructive" onSelect={() => setDeleteTarget(p)}>
-                        <Trash2 /> 删除材料包
-                      </ContextMenuItem>
-                    </ContextMenuContent>
-                  </ContextMenu>
-                </div>
-              ))}
-
-              {/* 虚线槽：第二个新建入口 */}
-              {tab === 'todo' && (
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="flex min-h-[280px] cursor-pointer flex-col items-center justify-center gap-2.5 rounded-[13px] border-[1.5px] border-dashed border-zinc-300 text-secondary-foreground transition-colors hover:border-zinc-400 hover:bg-card hover:text-foreground"
-                >
-                  <span className="grid h-[34px] w-[34px] place-items-center rounded-[9px] bg-secondary text-secondary-foreground">
-                    <Plus className="h-4 w-4" />
-                  </span>
-                  <span className="text-sm">
-                    {visible.length === 0 ? '全部处理完了，拖入新材料，或点这里' : '拖入材料，或点这里选文件'}
-                  </span>
-                  <span className="text-[11.5px] text-muted-foreground">PDF · Word · 图片 · 视频，混着来都行</span>
-                </button>
-              )}
-
-              {visible.length === 0 && tab !== 'todo' && (
-                <div className="col-span-full flex flex-col items-center gap-2 rounded-[13px] border border-dashed border-zinc-300 py-16 text-sm text-secondary-foreground">
-                  这里还没有{tab === 'done' ? '已归案' : '归档'}的材料包
-                </div>
-              )}
+          {isLoading ? (
+            <div className="flex items-center gap-2 py-20 text-sm text-secondary-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" /> 加载材料包…
             </div>
-            <div ref={ringRef} className="mp-ring" />
-          </div>
-        )}
-      </main>
+          ) : error ? (
+            <div className="rounded-xl border border-destructive/30 bg-destructive/5 px-4 py-6 text-sm text-destructive">
+              无法加载材料包：{error instanceof Error ? error.message : '未知错误'}
+            </div>
+          ) : (
+            <div className="relative" ref={wrapRef}>
+              <div ref={gridRef} className="grid grid-cols-[repeat(auto-fill,minmax(min(300px,100%),1fr))] gap-4">
+                {visible.map((p, i) => (
+                  <div
+                    key={p.id}
+                    data-pack-idx={i}
+                    className={cn(leaving[p.id] === 'right' && 'leave-right', leaving[p.id] === 'left' && 'leave-left')}
+                  >
+                    <ContextMenu>
+                      <ContextMenuTrigger className="block">
+                        <PackCard
+                          pack={p}
+                          finished={p.segs > 0 && p.named === p.segs}
+                          leaving={leaving[p.id] ?? null}
+                          onOpen={() => openAt(i)}
+                          onReject={() => judge(p, 'filed')}
+                          onAccept={() => setAssigning(p)}
+                        />
+                      </ContextMenuTrigger>
+                      <ContextMenuContent className="w-44">
+                        <ContextMenuItem onSelect={() => openAt(i)}>
+                          <FolderOpen /> 打开材料包
+                        </ContextMenuItem>
+                        <ContextMenuItem onSelect={() => setRenameTarget(p)}>
+                          <Pencil /> 重命名材料包
+                        </ContextMenuItem>
+                        <ContextMenuSeparator />
+                        <ContextMenuItem variant="destructive" onSelect={() => setDeleteTarget(p)}>
+                          <Trash2 /> 删除材料包
+                        </ContextMenuItem>
+                      </ContextMenuContent>
+                    </ContextMenu>
+                  </div>
+                ))}
+
+                {/* 虚线槽：第二个新建入口 */}
+                {tab === 'todo' && (
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="flex min-h-[280px] cursor-pointer flex-col items-center justify-center gap-2.5 rounded-[13px] border-[1.5px] border-dashed border-zinc-300 text-secondary-foreground transition-colors hover:border-zinc-400 hover:bg-card hover:text-foreground"
+                  >
+                    <span className="grid h-[34px] w-[34px] place-items-center rounded-[9px] bg-secondary text-secondary-foreground">
+                      <Plus className="h-4 w-4" />
+                    </span>
+                    <span className="text-sm">
+                      {visible.length === 0 ? '全部处理完了，拖入新材料，或点这里' : '拖入材料，或点这里选文件'}
+                    </span>
+                    <span className="text-[11.5px] text-muted-foreground">PDF · Word · 图片 · 视频，混着来都行</span>
+                  </button>
+                )}
+
+                {visible.length === 0 && tab !== 'todo' && (
+                  <div className="col-span-full flex flex-col items-center gap-2 rounded-[13px] border border-dashed border-zinc-300 py-16 text-sm text-secondary-foreground">
+                    这里还没有{tab === 'done' ? '已归案' : '归档'}的材料包
+                  </div>
+                )}
+              </div>
+              <div ref={ringRef} className="mp-ring" />
+            </div>
+          )}
+        </main>
+      </PageFade>
 
       {/* 拖放遮罩 */}
       {dragging && (

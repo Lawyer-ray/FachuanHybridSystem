@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useNavigate } from 'react-router'
 import { toast } from 'sonner'
 
 import { fetchCalendarMonth } from '../api'
@@ -7,6 +8,7 @@ import { formatCN, formatWeekdayCN, parseKey, todayKey } from '../domain'
 import { CalendarPanel } from './CalendarPanel'
 import { ToolDock } from './ToolDock'
 import { AppNavbar } from '@/components/shared/AppNavbar'
+import { PageFade } from '@/components/shared/PageFade'
 import { InboxCard, QuickAdd, TodayCard } from './SideCards'
 import { DaySheet } from './DaySheet'
 import type { CalendarEvent } from '../api'
@@ -68,21 +70,38 @@ export function HomePage() {
     toast.info('这条安排还没关联案件，可到「案件台账」里查看')
   }, [])
 
-  const handleInboxOpen = useCallback((item: InboxItem) => {
-    if (item.kind === 'mat') {
-      window.location.assign(`/material-prep/${item.id}`)
-      return
-    }
-    toast.info(`${item.title} —— 详情页正在开发中`)
-  }, [])
+  // 待处理里的材料包 → 跳到材料预处理详情。
+  // 用 navigate 做 SPA 跳转，别用 window.location.assign（那是整页刷新，
+  // 既丢状态也播不了过渡动画）。
+  const navigate = useNavigate()
+  const goPack = useCallback(
+    (id: number) => {
+      navigate(`/material-prep/${id}`)
+    },
+    [navigate],
+  )
 
-  const handleInboxAction = useCallback((item: InboxItem) => {
-    if (item.kind === 'mat') {
-      window.location.assign(`/material-prep/${item.id}`)
-      return
-    }
-    toast.info(`「${item.title}」→ ${item.action}：收件箱操作正在开发中`)
-  }, [])
+  const handleInboxOpen = useCallback(
+    (item: InboxItem) => {
+      if (item.kind === 'mat') {
+        goPack(item.id)
+        return
+      }
+      toast.info(`${item.title} —— 详情页正在开发中`)
+    },
+    [goPack],
+  )
+
+  const handleInboxAction = useCallback(
+    (item: InboxItem) => {
+      if (item.kind === 'mat') {
+        goPack(item.id)
+        return
+      }
+      toast.info(`「${item.title}」→ ${item.action}：收件箱操作正在开发中`)
+    },
+    [goPack],
+  )
 
   const handleAdd = useCallback(() => {
     toast.info('新增安排：请用「快速记一笔」，写具体日期即可（如 2026-09-28 09:30 开庭 …）')
@@ -92,47 +111,50 @@ export function HomePage() {
     <div className="min-h-screen bg-background">
       <AppNavbar onNotify={notify} />
 
-      <main className="mx-auto max-w-[1920px] px-[32px] pt-[26px] pb-20 max-[760px]:px-[14px] max-[760px]:pt-[18px]">
-        {/* 问候 + 快速记一笔 */}
-        <div className="mb-5 flex flex-wrap items-end gap-[18px]">
-          <div className="min-w-0">
-            <h1 className="text-[26px] leading-[1.2] font-bold tracking-[-0.025em] max-[760px]:text-[21px]">
-              {formatCN(parseKey(today))}{' '}
-              <span className="text-[19px] font-normal text-secondary-foreground max-[760px]:text-[17px]">
-                {formatWeekdayCN(parseKey(today))}
-              </span>
-            </h1>
-            <div className="mt-[3px] text-[12.5px] text-secondary-foreground">
-              今天 <b className="font-semibold text-status-red">{stats.today}</b> 件事 ·{' '}
-              <b className="font-semibold text-status-red">{stats.deadline_in_7days}</b> 件紧要事项 7 日内到期 · 本月还有{' '}
-              <b className="font-semibold">{stats.month_court}</b> 个庭期
+      {/* 内容区包一层入场过渡：navbar 不变，只有下面这部分播动画 */}
+      <PageFade>
+        <main className="mx-auto max-w-[1920px] px-[32px] pt-[26px] pb-20 max-[760px]:px-[14px] max-[760px]:pt-[18px]">
+          {/* 问候 + 快速记一笔 */}
+          <div className="mb-5 flex flex-wrap items-end gap-[18px]">
+            <div className="min-w-0">
+              <h1 className="text-[26px] leading-[1.2] font-bold tracking-[-0.025em] max-[760px]:text-[21px]">
+                {formatCN(parseKey(today))}{' '}
+                <span className="text-[19px] font-normal text-secondary-foreground max-[760px]:text-[17px]">
+                  {formatWeekdayCN(parseKey(today))}
+                </span>
+              </h1>
+              <div className="mt-[3px] text-[12.5px] text-secondary-foreground">
+                今天 <b className="font-semibold text-status-red">{stats.today}</b> 件事 ·{' '}
+                <b className="font-semibold text-status-red">{stats.deadline_in_7days}</b> 件紧要事项 7 日内到期 · 本月还有{' '}
+                <b className="font-semibold">{stats.month_court}</b> 个庭期
+              </div>
+            </div>
+            <QuickAdd onAdded={refresh} />
+          </div>
+
+          <div className="grid grid-cols-1 items-start gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
+            {/* 左：日历 + 工具 */}
+            <div className="min-w-0">
+              <CalendarPanel
+                today={today}
+                eventsByDay={eventsByDay}
+                stats={stats}
+                loading={calendarQuery.isLoading}
+                onSelectDay={handleSelectDay}
+                onOpenEvent={handleOpenEvent}
+                onAdd={handleAdd}
+              />
+              <ToolDock />
+            </div>
+
+            {/* 右：今日 + 待处理 */}
+            <div className="flex min-w-0 flex-col gap-5">
+              <TodayCard events={todayEvents} loading={calendarQuery.isLoading} onOpenEvent={handleOpenEvent} />
+              <InboxCard onOpen={handleInboxOpen} onAction={handleInboxAction} />
             </div>
           </div>
-          <QuickAdd onAdded={refresh} />
-        </div>
-
-        <div className="grid grid-cols-1 items-start gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
-          {/* 左：日历 + 工具 */}
-          <div className="min-w-0">
-            <CalendarPanel
-              today={today}
-              eventsByDay={eventsByDay}
-              stats={stats}
-              loading={calendarQuery.isLoading}
-              onSelectDay={handleSelectDay}
-              onOpenEvent={handleOpenEvent}
-              onAdd={handleAdd}
-            />
-            <ToolDock />
-          </div>
-
-          {/* 右：今日 + 待处理 */}
-          <div className="flex min-w-0 flex-col gap-5">
-            <TodayCard events={todayEvents} loading={calendarQuery.isLoading} onOpenEvent={handleOpenEvent} />
-            <InboxCard onOpen={handleInboxOpen} onAction={handleInboxAction} />
-          </div>
-        </div>
-      </main>
+        </main>
+      </PageFade>
 
       {/* 手机端当日安排抽屉 */}
       <DaySheet
