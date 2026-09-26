@@ -24,6 +24,9 @@ interface Hit {
   subtitle: string
 }
 
+/** 空结果集：固定引用，避免每次渲染都是新数组导致下游 useMemo 抖动 */
+const EMPTY_HITS: Hit[] = []
+
 /**
  * 各类别 → 展示名 / 图标 / 点击后的去处。
  *
@@ -94,7 +97,7 @@ export function GlobalSearch({
     return () => window.clearTimeout(t)
   }, [trimmed, debounced])
 
-  const { data = [], isFetching } = useQuery({
+  const { data, isFetching } = useQuery({
     queryKey: ['global-search', debounced],
     queryFn: () => runSearch(debounced),
     enabled: open && debounced.length >= 1,
@@ -103,20 +106,26 @@ export function GlobalSearch({
     placeholderData: (prev) => prev,
   })
 
+  // 当前是否"在检索"：输入框非空才算。
+  // 删空关键词时不算检索——此时必须只显示引导文案，不能残留旧结果/旧标签，
+  // 否则会出现「引导语 + 旧标签 + 旧结果」三份内容同时在场、高度反复横跳。
+  const searching = trimmed.length > 0
+  const hits = useMemo(() => (searching ? (data ?? EMPTY_HITS) : EMPTY_HITS), [data, searching])
+
   // 新结果回来 / 切换筛选时把光标移回第一项（跟着 debounced，不跟 trimmed）
   useEffect(() => setCursor(0), [debounced, activeCat])
 
   /** 每个类别的命中数（用于筛选标签上的计数，含全部） */
   const counts = useMemo(() => {
     const m = new Map<string, number>()
-    for (const h of data) m.set(h.category, (m.get(h.category) ?? 0) + 1)
+    for (const h of hits) m.set(h.category, (m.get(h.category) ?? 0) + 1)
     return m
-  }, [data])
+  }, [hits])
 
   /** 按当前筛选过滤后的结果；↑↓ / Enter 都以它为准 */
   const flat = useMemo(
-    () => (activeCat === 'all' ? data : data.filter((h) => h.category === activeCat)),
-    [data, activeCat],
+    () => (activeCat === 'all' ? hits : hits.filter((h) => h.category === activeCat)),
+    [hits, activeCat],
   )
 
   const groups = useMemo(() => {
@@ -185,11 +194,11 @@ export function GlobalSearch({
         </div>
 
         {/* 筛选标签：有多少类命中才显示哪些 + 固定「全部」，纯前端过滤（后端一次已返回全部类别） */}
-        {data.length > 0 && (
+        {hits.length > 0 && (
           <div className="flex items-center gap-1.5 overflow-x-auto border-b border-border px-3 py-2">
             <FilterTab
               label="全部"
-              count={data.length}
+              count={hits.length}
               active={activeCat === 'all'}
               onClick={() => setActiveCat('all')}
             />
@@ -207,12 +216,12 @@ export function GlobalSearch({
 
         {/* 结果 */}
         <div className="max-h-[52vh] overflow-y-auto px-2 py-2">
-          {trimmed.length === 0 && (
+          {!searching && (
             <div className="px-3 py-8 text-center text-[12.5px] text-muted-foreground">
               输入关键词开始搜索
             </div>
           )}
-          {trimmed.length > 0 && flat.length === 0 && !isFetching && (
+          {searching && flat.length === 0 && !isFetching && (
             <div className="px-3 py-8 text-center text-[12.5px] text-muted-foreground">
               没有匹配「{trimmed}」的结果
             </div>
