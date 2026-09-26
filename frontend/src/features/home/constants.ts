@@ -53,11 +53,5 @@ export const TOOL_ENDPOINT = {
   lpr: 'POST /lpr/calculate',
 } as const
 
-/** 顶部导航（首页 + 已存在的其它页面） */
-export const NAV_ITEMS = [
-  { label: '首页', to: '/' },
-  { label: '材料预处理', to: '/material-prep' },
-] as const
-
 /** 周一起始的星期标题 */
 export const WEEKDAYS = ['一', '二', '三', '四', '五', '六', '日'] as const

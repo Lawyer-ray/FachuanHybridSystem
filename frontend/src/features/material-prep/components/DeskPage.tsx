@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router'
-import { FolderOpen, Loader2, LogOut, PackagePlus, Pencil, Plus, Trash2 } from 'lucide-react'
+import { useNavigate, useParams } from 'react-router'
+import { FolderOpen, Loader2, PackagePlus, Pencil, Plus, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
+import { AppNavbar } from '@/components/shared/AppNavbar'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -20,7 +21,6 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from '@/components/ui/context-menu'
-import { useAuth } from '@/features/auth/store'
 import { useMaterialPacks, useCreatePack, useJudgePack, useDeletePack } from '../hooks/use-inbox'
 import { useReader } from '../store'
 import { PackCard } from './PackCard'
@@ -46,7 +46,6 @@ export function DeskPage() {
   const createPack = useCreatePack()
   const judgePack = useJudgePack()
   const deletePack = useDeletePack()
-  const { user, logout } = useAuth()
   const openPack = useReader((s) => s.open)
   const openId = useReader((s) => s.openId)
   // 记录是否曾打开过详情：从打开态退到未打开时（关阅读器）回退到列表 URL
@@ -267,39 +266,11 @@ export function DeskPage() {
         handleFiles(e.dataTransfer.files)
       }}
     >
-      {/* 顶部导航 */}
-      <header className="sticky top-0 z-20 flex h-[54px] items-center gap-6 border-b border-border bg-card px-7">
-        <div className="flex flex-none items-center gap-2.5">
-          <span className="text-[13.5px] font-semibold tracking-tight">
-            法穿 <span className="font-medium">AI Copilot</span>
-          </span>
-        </div>
-        <nav className="flex flex-1 items-center gap-0.5">
-          <Link
-            to="/"
-            className="rounded-[7px] px-3 py-1.5 text-[13.5px] font-medium text-secondary-foreground no-underline transition-colors hover:bg-secondary hover:text-foreground"
-          >
-            首页
-          </Link>
-          <span className="rounded-[7px] bg-secondary px-3 py-1.5 text-[13.5px] font-medium text-foreground">
-            材料预处理
-          </span>
-        </nav>
-        <div className="flex flex-none items-center gap-2">
-          {user?.username ? <span className="hidden text-xs text-secondary-foreground sm:inline">{user.username}</span> : null}
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => {
-              logout()
-              navigate('/login', { replace: true })
-            }}
-          >
-            <LogOut className="h-4 w-4" />
-            <span className="hidden sm:inline">退出</span>
-          </Button>
-        </div>
-      </header>
+      {/* 顶部导航：与首页共用同一套（components/shared/AppNavbar） */}
+      <AppNavbar
+        onLogout={() => navigate('/login', { replace: true })}
+        onNotify={(m) => toast.info(m)}
+      />
 
       <main className="relative px-7 pb-24 pt-6">
         {/* 页签 + 快捷键提示 */}

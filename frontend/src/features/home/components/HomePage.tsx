@@ -6,9 +6,9 @@ import { listReminders } from '../api'
 import { computeStats, formatCN, formatWeekdayCN, groupByDay, parseKey, todayKey, toDayEvents } from '../domain'
 import { CalendarPanel } from './CalendarPanel'
 import { ToolDock } from './ToolDock'
+import { AppNavbar } from '@/components/shared/AppNavbar'
 import { InboxCard, QuickAdd, TodayCard } from './SideCards'
 import { DaySheet } from './DaySheet'
-import { TopNav } from './TopNav'
 import type { DayEvent, InboxItem } from '../types'
 
 /** 手机端展开抽屉的宽度阈值（与原型一致） */
@@ -83,7 +83,7 @@ export function HomePage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <TopNav onNotify={notify} />
+      <AppNavbar onNotify={notify} />
 
       <main className="mx-auto max-w-[1920px] px-[32px] pt-[26px] pb-20 max-[760px]:px-[14px] max-[760px]:pt-[18px]">
         {/* 问候 + 快速记一笔 */}
