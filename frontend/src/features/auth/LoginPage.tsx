@@ -56,21 +56,7 @@ export function LoginPage() {
         <LoginBrandPanel />
 
         <main className="fc-form">
-          {/* 大幅衬线品牌字符当背景水印：杂志封面常用手法，给表单底加深层次 */}
-          <div aria-hidden className="fc-form__watermark">
-            法穿
-          </div>
-
-          {/* 顶部章节带：填表单上方留白，建立「这是第几章」的编辑感 */}
-          <header className="fc-form__topband">
-            <span className="fc-form__chapter">§ 02 · ACCESS</span>
-            <span className="fc-form__status">
-              <span aria-hidden className="fc-form__dot" />
-              ONLINE
-            </span>
-          </header>
-
-          {/* 中段：竖直居中，确保不同高度内容都能稳在视觉中线上 */}
+          {/* 表单竖直居中：不同高度的内容都能稳在视觉中线上 */}
           <div className="fc-form__middle">
             <div className="fc-form__inner">
               {/* 窄屏没有品牌栏，标识在这里补一行 */}
@@ -102,12 +88,6 @@ export function LoginPage() {
               </p>
             </div>
           </div>
-
-          {/* 底部章节带：填表单下方留白，给页面一个明确的「封底」 */}
-          <footer className="fc-form__botband">
-            <span className="fc-form__caption">MEMBER LOGIN</span>
-            <span className="fc-form__version">v 2026.09.27</span>
-          </footer>
         </main>
       </div>
 
