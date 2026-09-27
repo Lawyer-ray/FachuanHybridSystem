@@ -20,7 +20,7 @@
  * `/settings/api/v1/...`，被 SPA fallback 返回 index.html，报 JSON 解析失败。
  */
 import ky, { type KyInstance } from 'ky'
-import { getAccessToken } from '@/lib/token'
+import { getAccessToken, setTokens } from '@/lib/token'
 
 /** 未登录即可用的客户端：不带 JWT，但要带 cookie（state 在 session 里）。 */
 const socialClient: KyInstance = ky.create({
@@ -116,7 +116,17 @@ export const socialAuthApi = {
    * 业务错误是 HTTP 200 + { success: false, message }，需在此 throw 让上层处理。
    */
   async exchangeToken(code: string): Promise<SocialTokenExchangeResponse> {
-    return socialClient.post('/api/v1/social/token-exchange', { json: { code } }).json<SocialTokenExchangeResponse>()
+    const data = await socialClient
+      .post('/api/v1/social/token-exchange', { json: { code } })
+      .json<SocialTokenExchangeResponse>()
+
+    // token 落 localStorage 是 API 层的责任（与 authApi.login 同一约定）。
+    // 漏了这步，回调页跳回受保护路由时 RequireAuth 只看 hasToken()，会把刚
+    // 登录成功的用户立刻打回登录页——表现就是「扫码后闪回登录页」。
+    if (data.success && data.access && data.refresh) {
+      setTokens({ access: data.access, refresh: data.refresh })
+    }
+    return data
   },
 }
 
