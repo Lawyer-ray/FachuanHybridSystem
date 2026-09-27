@@ -101,4 +101,51 @@ def get_social_auth_configs() -> list[dict[str, Any]]:
             "value": "true",
             "is_secret": False,
         },
+        # ============ Google 登录 ============
+        {
+            "key": "SOCIAL_AUTH_GOOGLE_APP_ID",
+            "category": "social_auth",
+            "description": (
+                "Google OAuth 2.0 客户端 ID。在 Google Cloud Console → Google Auth Platform → 客户端"
+                "创建，应用类型必须选「Web 应用」；未配置则登录页不显示 Google 入口"
+            ),
+            "value": "",
+            "is_secret": False,
+        },
+        {
+            "key": "SOCIAL_AUTH_GOOGLE_APP_SECRET",
+            "category": "social_auth",
+            "description": "Google OAuth 2.0 客户端密钥（创建客户端时弹窗内显示一次，请勿泄露）",
+            "value": "",
+            "is_secret": True,
+        },
+        {
+            "key": "SOCIAL_AUTH_GOOGLE_REDIRECT_URI",
+            "category": "social_auth",
+            "description": (
+                "Google 授权回调地址。必须与 Console 里「已获授权的重定向 URI」**完全一致**"
+                "（精确匹配、不支持通配符，含协议与结尾斜杠），且为后端可达地址。"
+                "本地开发填 http://127.0.0.1:8002/social/google/callback/；"
+                "正式域名必须使用 HTTPS（Google 仅对 localhost/127.0.0.1 放行 http）。"
+            ),
+            "value": "http://127.0.0.1:8002/social/google/callback/",
+            "is_secret": False,
+        },
+        {
+            "key": "SOCIAL_AUTH_GOOGLE_SCOPE",
+            "category": "social_auth",
+            "description": (
+                "授权范围，空格分隔，必须以 openid 开头。默认 openid email profile 可取到 "
+                "sub（账号唯一标识）、邮箱、昵称、头像，均属非敏感范围，无需 Google 审核"
+            ),
+            "value": "openid email profile",
+            "is_secret": False,
+        },
+        {
+            "key": "SOCIAL_AUTH_GOOGLE_ENABLED",
+            "category": "social_auth",
+            "description": "是否启用 Google 登录（填 false 可临时下线该登录方式）",
+            "value": "true",
+            "is_secret": False,
+        },
     ]

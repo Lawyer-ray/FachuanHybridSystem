@@ -523,6 +523,85 @@ class TestRegisteredProviders:
         assert "secret" not in client_config
         assert client_config["app_id"] == "cli_abc"
 
+    def test_google_registered_as_redirect(self) -> None:
+        from apps.social_auth.providers.google import GoogleProvider
+
+        # 整页跳转授权：前端按 login_mode 派发到 SocialRedirectPanel
+        assert GoogleProvider.login_mode == LoginMode.REDIRECT
+
+    def test_google_endpoints(self) -> None:
+        from apps.social_auth.providers.google import GoogleProvider
+
+        endpoints = GoogleProvider.ENDPOINTS
+        assert endpoints["authorize"] == "https://accounts.google.com/o/oauth2/v2/auth"
+        assert endpoints["token"] == "https://oauth2.googleapis.com/token"
+        assert endpoints["userinfo"] == "https://openidconnect.googleapis.com/v1/userinfo"
+
+    def test_google_authorization_url_encodes_scope_and_redirect(self) -> None:
+        """scope 含空格、redirect_uri 含斜杠，都必须编码后拼进 URL。
+
+        裸空格会让 Google 授权页直接报错（飞书 scope 是单值所以历史上没暴露这个问题）。
+        """
+        from apps.social_auth.providers.google import GoogleProvider
+
+        redirect_uri = "http://127.0.0.1:8002/social/google/callback/"
+        provider = GoogleProvider(
+            ProviderConfig(
+                name="google",
+                display_name="Google",
+                client_id="cid.apps.googleusercontent.com",
+                client_secret="fake-secret-placeholder",
+                extra={"redirect_uri": redirect_uri},
+            )
+        )
+        url = provider.get_authorization_url(
+            AuthorizationRequest(provider="google", state="st-123", redirect_uri=redirect_uri)
+        )
+
+        assert " " not in url
+        assert "scope=openid%20email%20profile" in url
+        assert "redirect_uri=http%3A%2F%2F127.0.0.1%3A8002%2Fsocial%2Fgoogle%2Fcallback%2F" in url
+        assert "response_type=code" in url
+        assert "state=st-123" in url
+
+    def test_google_authorization_url_omits_offline_access(self) -> None:
+        """只要身份，不申请离线访问：传了会多要权限并强制每次弹同意页。"""
+        from apps.social_auth.providers.google import GoogleProvider
+
+        provider = GoogleProvider(
+            ProviderConfig(
+                name="google",
+                display_name="Google",
+                client_id="cid.apps.googleusercontent.com",
+                client_secret="fake-secret-placeholder",
+                extra={"redirect_uri": "http://127.0.0.1:8002/social/google/callback/"},
+            )
+        )
+        url = provider.get_authorization_url(
+            AuthorizationRequest(provider="google", state="s", redirect_uri="http://127.0.0.1:8002/social/google/callback/")
+        )
+
+        assert "access_type" not in url
+        assert "prompt=" not in url
+        # 授权 URL 会进浏览器地址栏，绝不能带出密钥
+        assert "fake-secret-placeholder" not in url
+
+    def test_google_scope_falls_back_to_default(self) -> None:
+        from apps.social_auth.providers.google import GoogleProvider
+
+        provider = GoogleProvider(
+            ProviderConfig(name="google", display_name="Google", client_id="cid", client_secret="sec")
+        )
+        assert provider._scope() == "openid email profile"
+
+    def test_google_scope_from_extra(self) -> None:
+        from apps.social_auth.providers.google import GoogleProvider
+
+        provider = GoogleProvider(
+            ProviderConfig(name="google", display_name="Google", client_id="cid", client_secret="sec", extra={"scope": "openid email"})
+        )
+        assert provider._scope() == "openid email"
+
 
 class TestModels:
     @pytest.mark.django_db
