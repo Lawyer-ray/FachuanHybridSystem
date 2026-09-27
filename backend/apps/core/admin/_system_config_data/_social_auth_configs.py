@@ -123,12 +123,12 @@ def get_social_auth_configs() -> list[dict[str, Any]]:
             "key": "SOCIAL_AUTH_GOOGLE_REDIRECT_URI",
             "category": "social_auth",
             "description": (
-                "Google 授权回调地址。必须与 Console 里「已获授权的重定向 URI」**完全一致**"
-                "（精确匹配、不支持通配符，含协议与结尾斜杠），且为后端可达地址。"
-                "host 必须与「浏览器访问前端的 host」一致 —— cookie 不区分端口但区分 host，"
-                "前端在 localhost:5090 就必须用 localhost，否则回调读不到 session 报 invalid_session"
-                "（本项默认值与上面飞书的写法保持一致）。"
-                "正式域名必须使用 HTTPS（Google 仅对 localhost/127.0.0.1 放行 http）。"
+                # 注意：SystemConfig.description 是 varchar(255)，必须控制在 255 字符内。
+                # 超了会在「初始化默认配置」时 DataError: value too long（2026-09-27 踩过）
+                "Google 授权回调地址。必须与 Console 里「已获授权的重定向 URI」完全一致"
+                "（精确匹配、无通配符），且为后端可达地址。host 需与浏览器访问前端的 host 一致"
+                "（cookie 区分 host），前端用 localhost:5090 时回调须为 "
+                "http://localhost:8002/social/google/callback/。正式域名必须 HTTPS。"
             ),
             "value": "http://localhost:8002/social/google/callback/",
             "is_secret": False,
