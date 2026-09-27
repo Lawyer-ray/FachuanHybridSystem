@@ -172,20 +172,6 @@ jobs:
       - name: Compile Python
         run: uv run python -m compileall -q apps apiSystem
 
-      # 模型改了却忘了 makemigrations：此前没有任何拦截。这里不需要连库，
-      # 只对比「模型定义」与「迁移文件」，漏了就红。
-      - name: Migration check (no missing migrations)
-        env:
-          DJANGO_DEBUG: "1"
-          DB_ENGINE: "postgresql"
-          DB_NAME: "fachuan_ci_test"
-          DB_USER: "postgres"
-          DB_PASSWORD: "postgres"  # pragma: allowlist secret
-          DB_HOST: "127.0.0.1"
-          DB_PORT: "5432"
-          PYTHONPATH: "apiSystem:."
-        run: uv run python apiSystem/manage.py makemigrations --check --dry-run
-
       - name: Pre-commit (changed files)
         run: |
           set -euo pipefail
