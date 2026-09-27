@@ -5,10 +5,12 @@
 """
 from __future__ import annotations
 
+import time
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from asgiref.sync import async_to_sync
 from django.test import RequestFactory
 
 from apps.social_auth.providers.base import AuthorizationRequest, LoginMode, ProviderConfig
@@ -256,6 +258,82 @@ class TestAuthorizationSession:
         # 断言只关心「落到前端回调页」和「错误码原样透传」，不锁参数顺序
         assert "/social-callback?" in url
         assert "error=invalid_state" in url
+
+
+class TestCallbackLoginFlow:
+    """登录回调全链路：已绑定身份 → 建 TempAuth → 带 code 跳回前端。
+
+    回归：``TempAuth.token`` 是主键却长期没有 ``default``，而回调只调
+    ``acreate(user=user)``，于是每次扫码登录都在这行炸 IntegrityError
+    （null value in column "token"）。因为在此之前没人真正走通过登录流程
+    （未绑定时直接拒绝），这个坑一直没暴露。
+    """
+
+    def _request(self, state: str) -> Any:
+        from django.contrib.sessions.backends.cache import SessionStore
+
+        req = RequestFactory().get(
+            "/social/feishu/callback/",
+            {"code": "feishu-code", "state": state},
+            HTTP_HOST="127.0.0.1:8002",
+        )
+        req.session = SessionStore()
+        req.session["oauth"] = AuthorizationRequest(
+            provider="feishu",
+            state=state,
+            redirect_uri="http://127.0.0.1:8002/social/feishu/callback/",
+            next_url="/",
+            created_at=time.time(),
+        ).to_session()
+        return req
+
+    @pytest.mark.django_db
+    def test_creates_tempauth_and_redirects_with_code(self) -> None:
+        from apps.organization.models import LawFirm, Lawyer
+        from apps.social_auth.models import SocialAccount, TempAuth
+        from apps.social_auth.providers.base import SocialProfile, TokenResponse
+        from apps.social_auth.views import SocialCallbackView
+
+        firm = LawFirm.objects.create(name="回调测试律所")
+        lawyer = Lawyer.objects.create_user(username="cb_lawyer", password="x", law_firm=firm)
+        SocialAccount.objects.create(user=lawyer, provider="feishu", provider_uid="ou_cb")
+
+        provider_cls = MagicMock()
+        provider_cls.return_value.aexchange_code = AsyncMock(return_value=TokenResponse(access_token="t"))
+        provider_cls.return_value.aget_profile = AsyncMock(
+            return_value=SocialProfile(
+                provider="feishu",
+                provider_user_id="ou_cb",
+                email=None,
+                display_name="张三",
+                avatar_url=None,
+            )
+        )
+
+        state = "ST-callback"
+        request = self._request(state)
+
+        with patch("apps.social_auth.views.ProviderRegistry") as registry:
+            registry.get.return_value = provider_cls
+            registry.get_config.return_value = ProviderConfig(
+                name="feishu",
+                display_name="飞书",
+                client_id="cli",
+                client_secret="s",
+                extra={"redirect_uri": "http://127.0.0.1:8002/social/feishu/callback/"},
+            )
+            response = async_to_sync(SocialCallbackView().get)(request, provider="feishu")
+
+        assert response.status_code == 302
+        location = response["Location"]
+        assert "/social-callback?" in location
+
+        temp = TempAuth.objects.get()
+        assert temp.user_id == lawyer.pk
+        assert temp.token is not None
+        assert str(temp.token) in location
+        # 用完即弃：state 不能留在 session 里被复用
+        assert "oauth" not in request.session
 
 
 class TestTokenExchangeApi:
