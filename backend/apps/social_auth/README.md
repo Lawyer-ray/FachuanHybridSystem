@@ -13,6 +13,7 @@
 | `providers/base.py` | `SocialProvider` 协议、`ProviderConfig`、`SocialProfile`、`LoginMode` 枚举 |
 | `providers/feishu.py` | 飞书自建应用（`embedded_qr`：授权页内嵌二维码） |
 | `providers/wechat.py` | 微信开放平台（`redirect`：整页跳转授权） |
+| `providers/google.py` | Google（`redirect`：整页跳转授权，OAuth 2.0 授权码 / OIDC） |
 | `providers/__init__.py` | `ProviderRegistry` 注册表，import 时注册内置 Provider |
 | `models/social_account.py` | `SocialAccount`：一条记录 = 一个「律师 ↔ 某平台身份」绑定 |
 | `models/temp_auth.py` | `TempAuth`：一次性授权码，5 分钟过期，用完即删 |
@@ -79,7 +80,7 @@
 | 模式 | 表现 | 代表 |
 |---|---|---|
 | `embedded_qr` | 授权页内嵌在登录卡里显示二维码 | 飞书 |
-| `redirect` | 整页跳转到第三方授权页 | 微信、后续的谷歌 |
+| `redirect` | 整页跳转到第三方授权页 | 微信、Google |
 
 新增 Provider 只需实现 `SocialProvider` 协议 + 在 `providers/__init__.py` 注册；
 前端按 `login_mode` 自动派发到 `SocialQrPanel` / `SocialRedirectPanel`，**不需要改前端分支结构**。
@@ -117,6 +118,10 @@
 | `SOCIAL_AUTH_FEISHU_SCOPE` | 最小集 `contact:user.base:readonly` |
 | `SOCIAL_AUTH_FEISHU_ENABLED` | 填 `false` 可临时下线该登录方式 |
 | `SOCIAL_AUTH_WECHAT_*` | 同上，微信未配置则登录页不显示微信入口 |
+| `SOCIAL_AUTH_GOOGLE_APP_ID` / `_APP_SECRET` | Google Cloud Console → Google Auth Platform → 客户端创建，应用类型必须选「Web 应用」。**Google 没有可借的共用凭证，必须在本分类填**（留空则该入口自动隐藏） |
+| `SOCIAL_AUTH_GOOGLE_REDIRECT_URI` | 必须与 Console 里「已获授权的重定向 URI」**完全一致**（精确匹配、不支持通配符、含结尾斜杠）：`http://127.0.0.1:8002/social/google/callback/`。正式域名必须 HTTPS（Google 仅对 `localhost` / `127.0.0.1` 放行 http） |
+| `SOCIAL_AUTH_GOOGLE_SCOPE` | `openid email profile`，空格分隔且必须以 `openid` 开头。全为非敏感范围，无需 Google 审核 |
+| `SOCIAL_AUTH_GOOGLE_ENABLED` | 同飞书 |
 
 另需在 `backend/.env` 配 `FRONTEND_BASE_URL`（默认 `http://localhost:5090`），用于拼回调跳转地址与 CORS/CSRF 白名单。
 
@@ -176,6 +181,31 @@ violates not-null constraint`。
 ### 5. 改完 `vite.config.ts` 必须重启 dev server
 
 配置不热更新。改了代理却只刷新页面，会误判成「改了没用」。
+
+### 6. Google：`scope` 必须编码，且后端进程要能出网
+
+`scope` 是空格分隔的多值（`openid email profile`），**裸空格会让授权页直接报错**。
+飞书的 scope 是单值，这坑到接 Google 才暴露。
+
+更硬的门槛在网络——Google 端点在国内**直连超时**（实测 `oauth2.googleapis.com`
+直连 10s 超时、经代理 0.58s 通；对照飞书直连 0.28s 通）。涉及两条独立链路：
+
+1. **后端进程**要能访问 `oauth2.googleapis.com` / `openidconnect.googleapis.com`。
+   `httpx` 默认 `trust_env=True` 会读 `HTTPS_PROXY`，所以**启动后端的那个终端
+   必须先 `proxy_on`**，否则授权成功、回调却报 `exchange_failed`。
+2. **用户浏览器**要能打开 `accounts.google.com` 授权页。
+
+推论：**部署在无出口代理的国内服务器上，Google 登录必然失效**，上线前要先定出网方案。
+
+### 7. Google：身份唯一键必须用 `sub`，不能用 `email`
+
+Google 官方明文警告：
+
+> 在实现账号管理系统时，**不应**使用 ID 令牌中的 `email` 字段作为用户的唯一标识符。
+> 请始终使用 `sub` 字段，因为即使电子邮件地址发生更改，该字段对于 Google 账号也是唯一的。
+
+邮箱可变，且 Google Workspace 域内可被管理员回收后重新分配给他人——拿它当唯一键
+存在账号接管风险。这与本文开头「扫码进来的到底是谁」的唯一答案来源是同一条原则。
 
 ---
 
