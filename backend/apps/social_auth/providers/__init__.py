@@ -137,9 +137,12 @@ class ProviderRegistry:
             suffix.lower(): rows[f"{prefix}{suffix}"] for suffix in spec["extra_keys"] if rows.get(f"{prefix}{suffix}")
         }
 
-        # 凭证：本分类没填时，回落到共用分类（如 IM 群聊的飞书应用）
+        # 凭证：本分类没填时，回落到共用分类（如 IM 群聊的飞书应用）。
+        # 必须解密后再判断——Admin 保存 is_secret 项时会加密（见
+        # SystemConfigAdminForm.clean_value），库里存的是密文，若直接当密钥发出去
+        # 会得到 invalid_client，且现象隐蔽：授权页能打开、回调才失败。
         client_id = rows.get(f"{prefix}APP_ID", "")
-        client_secret = rows.get(f"{prefix}APP_SECRET", "")
+        client_secret = cls._decrypt_secret(rows.get(f"{prefix}APP_SECRET", ""))
         if not client_id or not client_secret:
             borrowed_id, borrowed_secret = cls._borrow_credentials(spec)
             client_id = client_id or borrowed_id
@@ -157,7 +160,31 @@ class ProviderRegistry:
         )
 
     @staticmethod
-    def _borrow_credentials(spec: dict[str, Any]) -> tuple[str, str]:
+    def _decrypt_secret(value: str) -> str:
+        """解密 SystemConfig 中可能被 Admin 表单加密的 secret。
+
+        **读取侧必须调用**：Admin 保存 ``is_secret=True`` 的配置项时会走
+        ``SecretCodec.encrypt``（见 ``SystemConfigAdminForm.clean_value``），
+        库里落的是密文。直接把密文当密钥发给 Provider 会得到 ``invalid_client``，
+        而且现象隐蔽——授权页能正常打开，直到回调换 token 才失败。
+
+        未加密的值原样返回；解密失败返回空串（视为「未配置」），绝不把密文当密钥用。
+        """
+        if not value:
+            return ""
+        try:
+            from apps.core.security.secret_codec import SecretCodec
+
+            codec = SecretCodec()
+            if not codec.is_encrypted(value):
+                return value
+            return codec.try_decrypt(value)
+        except Exception as exc:  # pragma: no cover - 兜底，不该影响主流程
+            logger.warning("解密 SystemConfig secret 失败: %s", exc)
+            return ""
+
+    @classmethod
+    def _borrow_credentials(cls, spec: dict[str, Any]) -> tuple[str, str]:
         """从共用分类借凭证（飞书扫码登录复用 IM 群聊的飞书应用）。
 
         借用失败不能影响登录功能本身，静默返回空串交由上层判定「未配置」。
@@ -175,22 +202,7 @@ class ProviderRegistry:
             logger.warning("读取共用飞书凭证失败: %s", exc)
             return "", ""
 
-        client_id = rows.get("FEISHU_APP_ID", "")
-        client_secret = rows.get("FEISHU_APP_SECRET", "")
-
-        # 共用分类里的 secret 可能是密文（admin 表单保存时会加密），需解密
-        if client_secret:
-            try:
-                from apps.core.security.secret_codec import SecretCodec
-
-                codec = SecretCodec()
-                if codec.is_encrypted(client_secret):
-                    client_secret = codec.try_decrypt(client_secret)
-            except Exception as exc:  # pragma: no cover
-                logger.warning("解密共用飞书 App Secret 失败: %s", exc)
-                return client_id, ""
-
-        return client_id, client_secret
+        return rows.get("FEISHU_APP_ID", ""), cls._decrypt_secret(rows.get("FEISHU_APP_SECRET", ""))
 
     @classmethod
     def get_config(cls, name: str) -> ProviderConfig:

@@ -299,6 +299,44 @@ class TestProviderRegistry:
             SystemConfig.objects.filter(category="feishu").delete()
 
     @pytest.mark.django_db
+    def test_own_secret_is_decrypted(self) -> None:
+        """本分类的 App Secret 由 Admin 表单加密存储，读取侧必须解密。
+
+        Admin 保存 is_secret 项时走 SecretCodec.encrypt（SystemConfigAdminForm.clean_value），
+        库里落的是密文。若读取侧不解密就会把密文当密钥发给 Provider，得到
+        invalid_client；且现象隐蔽——授权页能正常打开，回调换 token 才失败）。
+        故必须由单测兜住，不能只靠联调发现。
+        """
+        from apps.core.models import SystemConfig
+        from apps.core.security.secret_codec import SecretCodec
+        from apps.social_auth.providers import PROVIDER_SPECS, ProviderRegistry
+
+        ProviderRegistry.register("google")(self._make_provider("google"))
+        prefix = PROVIDER_SPECS["google"]["prefix"]
+
+        plaintext = "GOCSPX-plain-text-secret"
+        encrypted = SecretCodec().encrypt(plaintext)
+        assert encrypted != plaintext
+
+        SystemConfig.objects.bulk_create([
+            SystemConfig(
+                key=f"{prefix}APP_ID", value="cid.apps.googleusercontent.com", category="social_auth", is_active=True
+            ),
+            SystemConfig(
+                key=f"{prefix}APP_SECRET", value=encrypted, category="social_auth", is_active=True, is_secret=True
+            ),
+            SystemConfig(key=f"{prefix}ENABLED", value="true", category="social_auth", is_active=True),
+        ])
+        try:
+            config = ProviderRegistry._build_config("google")
+            assert config is not None
+            assert config.client_secret == plaintext
+            assert config.client_secret != encrypted
+            assert config.is_enabled is True
+        finally:
+            SystemConfig.objects.filter(key__startswith=prefix).delete()
+
+    @pytest.mark.django_db
     def test_build_config_no_credentials_anywhere_is_disabled(self) -> None:
         """本分类和共用分类都没有 App ID → 视为未配置完成，不暴露给前端。"""
         from apps.core.models import SystemConfig

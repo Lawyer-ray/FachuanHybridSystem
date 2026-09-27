@@ -207,6 +207,19 @@ Google 官方明文警告：
 邮箱可变，且 Google Workspace 域内可被管理员回收后重新分配给他人——拿它当唯一键
 存在账号接管风险。这与本文开头「扫码进来的到底是谁」的唯一答案来源是同一条原则。
 
+### 8. 本分类的 App Secret 存的是密文，读取侧必须解密
+
+`SystemConfigAdminForm.clean_value` 对 `is_secret=True` 的值做 `SecretCodec.encrypt`，
+所以**后台填进去的 secret 在库里是密文**。而 `_build_config` 一度只对「借用共用分类」
+的凭证解密，本分类的 `client_secret` 直接取 `row.value`——等于把密文当密钥发给 Provider。
+
+症状隐蔽：**授权页能正常打开，回调换 token 才失败**。飞书长期没暴露是因为它的凭证走
+borrowed 路径（有解密）；微信从未配置过；Google 必须用本分类凭证，才首次触发。
+
+现已统一走 `ProviderRegistry._decrypt_secret`（未加密的值原样返回、解密失败返回空串，
+绝不把密文当密钥用），`_build_config` 与 `_borrow_credentials` 共用，单测
+`test_own_secret_is_decrypted` 兜住。**新增 Provider 若使用本分类凭证，勿绕过这条路径。**
+
 ---
 
 ## 八、本地自测清单
