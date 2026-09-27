@@ -13,6 +13,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { socialBindingsApi, type SocialProviderInfo } from '../social-api'
+import '../auth.css'
 import { SocialQrPanel } from './SocialQrPanel'
 import { SocialRedirectPanel } from './SocialRedirectPanel'
 

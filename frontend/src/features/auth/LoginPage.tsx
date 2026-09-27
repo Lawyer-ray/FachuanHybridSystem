@@ -1,9 +1,12 @@
 /**
  * 登录页。
  *
- * 结构：左侧品牌栏 + 右侧登录卡（窄屏单列）。右侧的登录方式由 login-methods
- * 注册表驱动——账号密码只是其中一种，扫码 / 网页授权都按 kind 派发到对应
- * 渲染器，因此以后新增登录方式不需要改这里的分支结构。
+ * 视觉：编辑 / 时装杂志风（近黑画布 + 单色 + 黄铜点缀），样式集中在 auth.css，
+ * 刻意不用模糊光斑与玻璃拟态。本页固定深色，不跟随全局明暗主题。
+ *
+ * 结构：品牌栏 + 表单栏（窄屏单列）+ 底部走马灯。表单栏的登录方式由
+ * login-methods 注册表驱动——账号密码只是其中一种，扫码 / 网页授权都按 kind
+ * 派发到对应渲染器，因此以后新增登录方式不需要改这里的分支结构。
  */
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router'
@@ -16,6 +19,9 @@ import { LoginMethodSwitch } from './components/LoginMethodSwitch'
 import { PasswordLoginForm } from './components/PasswordLoginForm'
 import { SocialQrPanel } from './components/SocialQrPanel'
 import { SocialRedirectPanel } from './components/SocialRedirectPanel'
+
+/** 底部走马灯内容：能力关键词，纯装饰 */
+const TICKER = ['案件管理', '文书生成', '合同审查', '材料预处理', '法律检索', 'OA 立案', '财务台账']
 
 export function LoginPage() {
   const init = useAuth((s) => s.init)
@@ -41,20 +47,24 @@ export function LoginPage() {
   const active = methods.find((m) => m.id === activeId) ?? methods[0]
 
   return (
-    <div className="relative flex min-h-screen bg-background">
-      <LoginBrandPanel />
+    <div className="fc-auth">
+      <div aria-hidden className="fc-grain" />
 
-      <div className="au-wash flex flex-1 items-center justify-center px-4 py-10">
-        <div className="au-rise w-full max-w-[380px]">
-          {/* 窄屏没有左栏，品牌信息在卡片上方补一份 */}
-          <div className="mb-6 text-center lg:hidden">
-            <h1 className="text-[19px] font-semibold tracking-tight">
-              法穿 <span className="font-medium text-foreground/70">AI Copilot</span>
-            </h1>
-            <p className="mt-1 text-[12.5px] text-muted-foreground">一站式律师办案协同平台</p>
-          </div>
+      <div className="fc-body">
+        <LoginBrandPanel />
 
-          <div className="au-glass rounded-2xl p-6">
+        <main className="fc-form">
+          <div className="fc-form__inner">
+            {/* 窄屏没有品牌栏，标识在这里补一行 */}
+            <div className="fc-form__mobile-mark">
+              <span className="fc-mark">法穿</span>
+              <span className="fc-mark__meta">AI Copilot</span>
+            </div>
+
+            <p className="fc-eyebrow">登录 / Sign in</p>
+            <h2 className="fc-form__title">欢迎回来</h2>
+            <p className="fc-form__sub">使用账号密码，或已绑定的社交身份登录。</p>
+
             {methods.length > 1 && (
               <LoginMethodSwitch methods={methods} activeId={active.id} onChange={setActiveId} />
             )}
@@ -68,7 +78,24 @@ export function LoginPage() {
             {active.kind === 'redirect' && active.provider && (
               <SocialRedirectPanel provider={active.provider} />
             )}
+
+            <p className="fc-form__legal">
+              仅限授权用户使用。扫码登录需先在「账号绑定」中完成社交身份绑定。
+            </p>
           </div>
+        </main>
+      </div>
+
+      {/* 走马灯：内容渲染两遍，配合 translateX(-50%) 无缝循环 */}
+      <div aria-hidden className="fc-ticker">
+        <div className="fc-ticker__track">
+          {[0, 1].map((copy) => (
+            <div className="fc-ticker__item" key={copy}>
+              {TICKER.map((word) => (
+                <span key={word}>{word}</span>
+              ))}
+            </div>
+          ))}
         </div>
       </div>
     </div>

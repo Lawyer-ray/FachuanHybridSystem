@@ -5,8 +5,6 @@
  * 授权后由后端 302 回 /social-callback。谷歌网页登录等后续方式走这条路。
  */
 import { useState } from 'react'
-import { Loader2 } from 'lucide-react'
-import { Button } from '@/components/ui/button'
 import type { SocialProviderInfo, SocialSession } from '../social-api'
 import { socialAuthApi } from '../social-api'
 
@@ -33,15 +31,14 @@ export function SocialRedirectPanel({ provider, createSession }: Props) {
   }
 
   return (
-    <div className="flex flex-col items-center gap-3 py-1">
-      <Button type="button" className="w-full" disabled={loading} onClick={() => void start()}>
-        {loading && <Loader2 className="h-4 w-4 animate-spin" />}
-        使用{provider.display_name}登录
-      </Button>
+    <div className="fc-redirect">
+      <button type="button" className="fc-btn" disabled={loading} onClick={() => void start()}>
+        {loading ? '正在跳转…' : `使用${provider.display_name}登录`}
+      </button>
       {error ? (
-        <p className="text-xs text-destructive">{error}</p>
+        <p className="fc-hint fc-hint--error">{error}</p>
       ) : (
-        <p className="text-[11px] text-muted-foreground">将跳转到{provider.display_name}完成授权</p>
+        <p className="fc-hint">将跳转到{provider.display_name}完成授权</p>
       )}
     </div>
   )

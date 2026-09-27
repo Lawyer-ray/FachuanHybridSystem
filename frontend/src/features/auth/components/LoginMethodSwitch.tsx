@@ -14,7 +14,7 @@ interface Props {
 
 export function LoginMethodSwitch({ methods, activeId, onChange }: Props) {
   return (
-    <div role="tablist" aria-label="登录方式" className="mb-5 flex gap-1 rounded-[10px] bg-secondary p-1">
+    <div role="tablist" aria-label="登录方式" className="fc-tabs">
       {methods.map((method) => {
         const active = method.id === activeId
         return (
@@ -24,9 +24,7 @@ export function LoginMethodSwitch({ methods, activeId, onChange }: Props) {
             role="tab"
             aria-selected={active}
             onClick={() => onChange(method.id)}
-            className={`flex-1 cursor-pointer rounded-[7px] px-2 py-[7px] text-[12.5px] font-medium whitespace-nowrap transition-colors ${
-              active ? 'au-tab-active' : 'text-muted-foreground hover:text-foreground'
-            }`}
+            className={`fc-tab${active ? ' fc-tab--on' : ''}`}
           >
             {method.label}
           </button>

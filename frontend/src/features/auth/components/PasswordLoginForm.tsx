@@ -3,11 +3,11 @@
  *
  * 从 LoginPage 抽出：错误提示是表单自己的事，不该占用登录页的共享错误位
  * （否则切到扫码方式时会把上一次的密码错误带过去）。
+ *
+ * 这里用原生 input / button 而非 ui/ 里的 Input、Button：登录页是独立视觉面
+ * （只有一条底线的字段、直角黄铜按钮），套用基础组件的圆角边框反而要层层覆盖。
  */
 import { useState } from 'react'
-import { Eye, EyeOff, Loader2, Lock, User } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { useAuth } from '../store'
 
 interface Props {
@@ -41,42 +41,54 @@ export function PasswordLoginForm({ onLoggedIn }: Props) {
   }
 
   return (
-    <form onSubmit={submit} className="space-y-3">
-      <div className="relative">
-        <User className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          placeholder="用户名"
-          autoComplete="username"
-          value={username}
-          onChange={(e) => setUsername(e.target.value)}
-          className="pl-9"
-        />
+    <form className="fc-fields" onSubmit={submit}>
+      <div className="fc-field">
+        <label className="fc-field__label" htmlFor="fc-username">
+          用户名 / Username
+        </label>
+        <div className="fc-field__row">
+          <input
+            id="fc-username"
+            className="fc-input"
+            placeholder="请输入用户名"
+            autoComplete="username"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+          />
+        </div>
       </div>
-      <div className="relative">
-        <Lock className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          type={show ? 'text' : 'password'}
-          placeholder="密码"
-          autoComplete="current-password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          className="pl-9 pr-10"
-        />
-        <button
-          type="button"
-          tabIndex={-1}
-          onClick={() => setShow((v) => !v)}
-          className="absolute top-1/2 right-2 -translate-y-1/2 cursor-pointer rounded-md p-1 text-muted-foreground hover:text-foreground"
-          aria-label={show ? '隐藏密码' : '显示密码'}
-        >
-          {show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-        </button>
+
+      <div className="fc-field">
+        <label className="fc-field__label" htmlFor="fc-password">
+          密码 / Password
+        </label>
+        <div className="fc-field__row">
+          <input
+            id="fc-password"
+            type={show ? 'text' : 'password'}
+            className="fc-input"
+            placeholder="请输入密码"
+            autoComplete="current-password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
+          <button
+            type="button"
+            tabIndex={-1}
+            onClick={() => setShow((v) => !v)}
+            className="fc-field__toggle"
+            aria-label={show ? '隐藏密码' : '显示密码'}
+          >
+            {show ? '隐藏' : '显示'}
+          </button>
+        </div>
       </div>
-      {error && <p className="text-xs text-destructive">{error}</p>}
-      <Button type="submit" className="au-cta w-full" disabled={loading}>
-        {loading && <Loader2 className="h-4 w-4 animate-spin" />}
+
+      {error && <p className="fc-error">{error}</p>}
+
+      <button type="submit" className="fc-btn" disabled={loading}>
         {loading ? '登录中…' : '登录'}
-      </Button>
+      </button>
     </form>
   )
 }

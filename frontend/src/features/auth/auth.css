@@ -1,233 +1,655 @@
 /* ============================================================
-   登录页视觉层
-   极光色斑 + 玻璃卡片。仅登录页使用，故随 feature 就近放置；
-   颜色令牌仍走 index.css，这里只做本页专属的渐变与动画。
+   登录页视觉层 —— 编辑 / 时装杂志风
+
+   设计取向：近黑画布 + 单色体系 + 单一黄铜强调色，靠「极端字号对比」
+   （大标题 ↔ 10px 等宽小标签）与极细分割线建立层级。
+
+   刻意不用模糊光斑、玻璃拟态、彩虹渐变——那套是最典型的「AI 味」。
+   本页是独立视觉面：颜色自持，不跟随全局明暗主题（登录页固定深色）。
    ============================================================ */
 
-/* 色斑容器：放进深色品牌栏，由父级 overflow:hidden 收边 */
-.au-aurora {
-  position: absolute;
+.fc-auth {
+  /* 画布 */
+  --ink: #0b0b0c;
+  --ink-2: #101013;
+  /* 文字：暖白，比纯白更有「纸感」 */
+  --bone: #edeae4;
+  --bone-dim: rgb(237 234 228 / 0.56);
+  --bone-faint: rgb(237 234 228 / 0.3);
+  /* 分割线 */
+  --rule: rgb(237 234 228 / 0.14);
+  --rule-soft: rgb(237 234 228 / 0.07);
+  /* 唯一强调色：黄铜（律所的老派质感，非霓虹） */
+  --brass: #c8a45c;
+  --brass-hi: #e6d19b;
+  /* 仅用于「接缝」的次要色，制造克制的色彩流动 */
+  --jade: #6e8f7e;
+  --alert: #e0796f;
+
+  --sans:
+    -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Hiragino Sans GB', 'Noto Sans SC',
+    'Microsoft YaHei', sans-serif;
+  --serif: Georgia, 'Times New Roman', 'Songti SC', SimSun, serif;
+  --mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background: var(--ink);
+  color: var(--bone);
+  font-family: var(--sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.fc-auth ::selection {
+  background: var(--brass);
+  color: var(--ink);
+}
+
+/* ---------- 颗粒：给纯色面一点印刷质感，替代模糊光斑 ---------- */
+.fc-grain {
+  position: fixed;
   inset: 0;
-  overflow: hidden;
+  z-index: 0;
   pointer-events: none;
+  opacity: 0.06;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='g'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23g)'/%3E%3C/svg%3E");
+  animation: fc-grain 7s steps(1, end) infinite;
 }
 
-.au-aurora span {
-  position: absolute;
-  display: block;
-  border-radius: 999px;
-  filter: blur(70px);
-  opacity: 0.55;
-  will-change: transform;
-}
-
-.au-aurora span:nth-child(1) {
-  width: 62%;
-  height: 62%;
-  left: -18%;
-  top: -20%;
-  background: radial-gradient(circle, #4f46e5 0%, rgba(79, 70, 229, 0) 70%);
-  animation: au-drift-1 20s ease-in-out infinite alternate;
-}
-
-.au-aurora span:nth-child(2) {
-  width: 56%;
-  height: 56%;
-  right: -16%;
-  top: 4%;
-  background: radial-gradient(circle, #7c3aed 0%, rgba(124, 58, 237, 0) 70%);
-  animation: au-drift-2 26s ease-in-out infinite alternate;
-}
-
-.au-aurora span:nth-child(3) {
-  width: 54%;
-  height: 54%;
-  left: 2%;
-  bottom: -24%;
-  background: radial-gradient(circle, #06b6d4 0%, rgba(6, 182, 212, 0) 70%);
-  animation: au-drift-3 24s ease-in-out infinite alternate;
-}
-
-.au-aurora span:nth-child(4) {
-  width: 38%;
-  height: 38%;
-  right: 6%;
-  bottom: -12%;
-  opacity: 0.35;
-  background: radial-gradient(circle, #db2777 0%, rgba(219, 39, 119, 0) 70%);
-  animation: au-drift-2 30s ease-in-out infinite alternate-reverse;
-}
-
-@keyframes au-drift-1 {
-  from {
-    transform: translate3d(0, 0, 0) scale(1);
+@keyframes fc-grain {
+  0% {
+    background-position: 0 0;
   }
-  to {
-    transform: translate3d(14%, 12%, 0) scale(1.18);
+  25% {
+    background-position: -16px 9px;
+  }
+  50% {
+    background-position: 11px -13px;
+  }
+  75% {
+    background-position: -9px -7px;
+  }
+  100% {
+    background-position: 0 0;
   }
 }
 
-@keyframes au-drift-2 {
-  from {
-    transform: translate3d(0, 0, 0) scale(1.05);
-  }
-  to {
-    transform: translate3d(-13%, 10%, 0) scale(0.94);
-  }
+/* ---------- 主体双栏 ---------- */
+.fc-body {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  flex: 1;
+  grid-template-columns: minmax(0, 1fr);
 }
 
-@keyframes au-drift-3 {
-  from {
-    transform: translate3d(0, 0, 0) scale(0.95);
-  }
-  to {
-    transform: translate3d(11%, -13%, 0) scale(1.2);
+@media (min-width: 1024px) {
+  .fc-body {
+    grid-template-columns: minmax(0, 1.12fr) minmax(400px, 0.88fr);
   }
 }
 
-/* 细网格：给渐变一点结构，避免糊成一片 */
-.au-grid {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background-image:
-    linear-gradient(rgba(255, 255, 255, 0.055) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255, 255, 255, 0.055) 1px, transparent 1px);
-  background-size: 44px 44px;
-  mask-image: radial-gradient(circle at 28% 18%, #000 0%, transparent 76%);
+/* ---------- 品牌栏 ---------- */
+.fc-brand {
+  position: relative;
+  display: none;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 3rem;
+  padding: 3.25rem 3.5rem 2.75rem;
 }
 
-/* 斜向扫光，缓慢掠过品牌栏 */
-.au-sheen::after {
-  content: "";
-  position: absolute;
-  inset: -40%;
-  pointer-events: none;
-  background: linear-gradient(115deg, transparent 42%, rgba(255, 255, 255, 0.1) 50%, transparent 58%);
-  animation: au-sheen 9s ease-in-out infinite;
+@media (min-width: 1024px) {
+  .fc-brand {
+    display: flex;
+  }
 }
 
-@keyframes au-sheen {
+.fc-brand__head {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+}
+
+.fc-mark {
+  font-size: 1.0625rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.fc-mark__meta {
+  font-family: var(--mono);
+  font-size: 0.625rem;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--bone-faint);
+}
+
+.fc-brand__est {
+  margin-left: auto;
+  font-family: var(--mono);
+  font-size: 0.625rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--bone-faint);
+}
+
+.fc-eyebrow {
+  font-family: var(--mono);
+  font-size: 0.625rem;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--bone-faint);
+}
+
+/* 主张：全页最大的字，极端字号对比的「大」端 */
+.fc-display {
+  margin-top: 1.5rem;
+  font-size: clamp(2.75rem, 5.4vw, 4.5rem);
+  font-weight: 600;
+  line-height: 1.08;
+  letter-spacing: -0.035em;
+}
+
+/* 黄铜高光缓慢横向流动：唯一的「色彩变换」，不做彩虹 */
+.fc-display__accent {
+  background-image: linear-gradient(
+    96deg,
+    var(--brass) 0%,
+    var(--brass-hi) 38%,
+    var(--brass) 72%,
+    var(--brass-hi) 100%
+  );
+  background-size: 240% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: fc-shimmer 11s ease-in-out infinite;
+}
+
+@keyframes fc-shimmer {
   0%,
   100% {
-    transform: translate3d(-38%, 0, 0);
-    opacity: 0;
+    background-position: 0% 0;
   }
-  45% {
-    opacity: 1;
-  }
-  60% {
-    transform: translate3d(38%, 0, 0);
-    opacity: 0;
+  50% {
+    background-position: 100% 0;
   }
 }
 
-/* 右侧极淡色晕，与左栏呼应；不干扰卡片可读性 */
-.au-wash {
-  background-image:
-    radial-gradient(58% 44% at 88% 6%, rgba(99, 102, 241, 0.16), transparent 70%),
-    radial-gradient(52% 40% at 6% 94%, rgba(6, 182, 212, 0.13), transparent 70%);
+.fc-lede {
+  max-width: 26rem;
+  margin-top: 1.75rem;
+  font-size: 0.9375rem;
+  line-height: 1.9;
+  color: var(--bone-dim);
 }
 
-/* 玻璃卡片 */
-.au-glass {
+/* 衬线斜体：编辑风里「衬线 + 无衬线」的配对信号 */
+.fc-lede__serif {
+  display: block;
+  margin-top: 0.875rem;
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 1.0625rem;
+  letter-spacing: 0.01em;
+  color: var(--bone-faint);
+}
+
+/* 索引条 + 页脚成组贴底 */
+.fc-brand__tail {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+/* 编号索引条：像杂志目录，给页面一条基线 */
+.fc-index {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  border-top: 1px solid var(--rule);
+}
+
+.fc-index > li {
+  padding: 1.125rem 1rem 0 0;
+}
+
+.fc-index > li + li {
+  padding-left: 1rem;
+  border-left: 1px solid var(--rule-soft);
+}
+
+.fc-index__no {
+  display: block;
+  font-family: var(--mono);
+  font-size: 0.625rem;
+  letter-spacing: 0.2em;
+  color: var(--brass);
+}
+
+.fc-index__name {
+  display: block;
+  margin-top: 0.5rem;
+  font-size: 0.8125rem;
+  color: var(--bone-dim);
+}
+
+.fc-brand__foot {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  font-family: var(--mono);
+  font-size: 0.625rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--bone-faint);
+}
+
+/* ---------- 表单栏 ---------- */
+.fc-form {
   position: relative;
-  background: color-mix(in oklab, var(--card) 80%, transparent);
-  backdrop-filter: blur(18px) saturate(1.3);
-  border: 1px solid color-mix(in oklab, var(--border) 72%, transparent);
-  box-shadow:
-    0 24px 60px -26px rgba(15, 23, 42, 0.4),
-    0 2px 8px -3px rgba(15, 23, 42, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2.5rem 1.5rem;
+  background: var(--ink-2);
 }
 
-/* 顶部渐变发丝线 */
-.au-glass::before {
-  content: "";
-  position: absolute;
-  inset: 0 0 auto 0;
-  height: 1px;
-  border-radius: inherit;
-  background: linear-gradient(
-    90deg,
-    transparent,
-    rgba(99, 102, 241, 0.75) 26%,
-    rgba(6, 182, 212, 0.75) 66%,
-    transparent
-  );
+@media (min-width: 1024px) {
+  .fc-form {
+    padding: 3.5rem;
+  }
+
+  /* 接缝：1px 的线，黄铜↔青玉缓慢上下流动 */
+  .fc-form::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: 1px;
+    opacity: 0.45;
+    background-image: linear-gradient(
+      180deg,
+      transparent 0%,
+      var(--brass) 20%,
+      var(--jade) 50%,
+      var(--brass) 80%,
+      transparent 100%
+    );
+    background-size: 100% 240%;
+    animation: fc-seam 16s ease-in-out infinite;
+  }
 }
 
-/* 主按钮：流动渐变（用 background-image 覆盖 Button 变体的 background-color） */
-.au-cta {
+@keyframes fc-seam {
+  0%,
+  100% {
+    background-position: 0 0;
+  }
+  50% {
+    background-position: 0 100%;
+  }
+}
+
+.fc-form__inner {
+  width: 100%;
+  max-width: 22.5rem;
+}
+
+/* 窄屏没有品牌栏，用一行精简标识顶上 */
+.fc-form__mobile-mark {
+  display: flex;
+  align-items: baseline;
+  gap: 0.625rem;
+  margin-bottom: 2.25rem;
+}
+
+@media (min-width: 1024px) {
+  .fc-form__mobile-mark {
+    display: none;
+  }
+}
+
+.fc-form__title {
+  margin-top: 1rem;
+  font-size: 1.75rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.fc-form__sub {
+  margin-top: 0.5rem;
+  font-size: 0.8125rem;
+  line-height: 1.7;
+  color: var(--bone-dim);
+}
+
+/* ---------- 登录方式：下划线标签页 ---------- */
+.fc-tabs {
+  display: flex;
+  gap: 1.75rem;
+  margin-top: 2.25rem;
+  border-bottom: 1px solid var(--rule-soft);
+}
+
+.fc-tab {
+  position: relative;
+  padding: 0 0 0.75rem;
   border: 0;
-  color: #fff;
-  background-image: linear-gradient(120deg, #4f46e5 0%, #7c3aed 46%, #0891b2 100%);
-  background-size: 190% 100%;
-  background-position: 0 0;
-  box-shadow: 0 10px 24px -10px rgba(79, 70, 229, 0.75);
+  background: none;
+  cursor: pointer;
+  font-family: var(--mono);
+  font-size: 0.6875rem;
+  letter-spacing: 0.16em;
+  color: var(--bone-faint);
+  transition: color 0.25s ease;
+}
+
+.fc-tab:hover {
+  color: var(--bone-dim);
+}
+
+.fc-tab--on {
+  color: var(--bone);
+}
+
+.fc-tab--on::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  bottom: -1px;
+  left: 0;
+  height: 1px;
+  background: var(--brass);
+  transform-origin: left;
+  animation: fc-underline 0.36s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@keyframes fc-underline {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+/* ---------- 字段：只有一条底线，聚焦时变黄铜 ---------- */
+.fc-fields {
+  margin-top: 2rem;
+}
+
+.fc-field + .fc-field {
+  margin-top: 1.75rem;
+}
+
+.fc-field__label {
+  display: block;
+  font-family: var(--mono);
+  font-size: 0.625rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--bone-faint);
+}
+
+.fc-field__row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  border-bottom: 1px solid var(--rule);
+  transition: border-color 0.3s ease;
+}
+
+.fc-field__row:focus-within {
+  border-bottom-color: var(--brass);
+}
+
+.fc-input {
+  flex: 1;
+  min-width: 0;
+  padding: 0.75rem 0;
+  border: 0;
+  background: transparent;
+  color: var(--bone);
+  font-family: inherit;
+  font-size: 0.9375rem;
+  outline: none;
+}
+
+.fc-input::placeholder {
+  color: var(--bone-faint);
+}
+
+/* 浏览器自动填充会在下划线输入框里糊出一块实色方块，用内阴影盖掉；
+   超长过渡是配合 Chrome 的 autofill 背景动画，避免它把内阴影覆盖回去。 */
+.fc-input:-webkit-autofill,
+.fc-input:-webkit-autofill:hover,
+.fc-input:-webkit-autofill:focus {
+  -webkit-text-fill-color: var(--bone);
+  -webkit-box-shadow: 0 0 0 1000px var(--ink-2) inset;
+  caret-color: var(--bone);
+  transition: background-color 9999s ease-out;
+}
+
+.fc-field__toggle {
+  flex: none;
+  padding: 0.25rem 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  font-family: var(--mono);
+  font-size: 0.625rem;
+  letter-spacing: 0.14em;
+  color: var(--bone-faint);
+  transition: color 0.2s ease;
+}
+
+.fc-field__toggle:hover {
+  color: var(--brass);
+}
+
+/* 以下三个类同时用于「账号绑定」弹窗（浅色底），所以不能依赖 --bone 之类的
+   深色令牌：文字与描边一律相对 currentColor 取色，明暗两种底都能自适应。 */
+.fc-error {
+  margin-top: 1.25rem;
+  font-size: 0.75rem;
+  line-height: 1.6;
+  color: var(--alert, #e0796f);
+}
+
+.fc-hint {
+  text-align: center;
+  font-size: 0.6875rem;
+  line-height: 1.6;
+  color: color-mix(in oklab, currentColor 58%, transparent);
+}
+
+.fc-hint--error {
+  color: var(--alert, #e0796f);
+}
+
+/* ---------- 按钮：直角 + 黄铜，悬停掠过一道高光 ---------- */
+.fc-btn {
+  position: relative;
+  overflow: hidden;
+  width: 100%;
+  padding: 1rem 1.25rem;
+  border: 0;
+  border-radius: 2px;
+  background: var(--brass, #c8a45c);
+  color: #141210;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
   transition:
-    background-position 0.55s ease,
-    box-shadow 0.3s ease,
-    transform 0.15s ease;
+    background-color 0.3s ease,
+    color 0.3s ease,
+    transform 0.18s ease;
 }
 
-.au-cta:hover:not(:disabled) {
-  background-position: 100% 0;
-  box-shadow: 0 14px 30px -10px rgba(124, 58, 237, 0.8);
-  transform: translateY(-1px);
+.fc-btn::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 38%;
+  background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.4), transparent);
+  transform: translateX(-160%) skewX(-18deg);
+  transition: transform 0.7s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.au-cta:active:not(:disabled) {
-  transform: translateY(0);
+.fc-btn:hover:not(:disabled) {
+  background: var(--brass-hi, #e6d19b);
 }
 
-.au-cta:disabled {
-  opacity: 0.72;
+.fc-btn:hover:not(:disabled)::after {
+  transform: translateX(320%) skewX(-18deg);
 }
 
-/* 登录方式切换的选中态：渐变药丸 */
-.au-tab-active {
-  color: #fff;
-  background-image: linear-gradient(120deg, #4f46e5 0%, #7c3aed 55%, #0e7490 100%);
-  box-shadow: 0 6px 16px -8px rgba(79, 70, 229, 0.8);
+.fc-btn:active:not(:disabled) {
+  transform: translateY(1px);
 }
 
-/* 入场：卡片轻微上浮 */
-.au-rise {
-  animation: au-rise 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+.fc-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
 }
 
-@keyframes au-rise {
+/* 表单里的主按钮与上方字段拉开距离；二维码 / 跳转面板自带 gap，不重复加 */
+.fc-fields .fc-btn {
+  margin-top: 2rem;
+}
+
+/* 次级动作：只留一圈细边（同样明暗自适应） */
+.fc-btn--ghost {
+  border: 1px solid color-mix(in oklab, currentColor 24%, transparent);
+  background: transparent;
+  color: inherit;
+}
+
+.fc-btn--ghost::after {
+  display: none;
+}
+
+.fc-btn--ghost:hover:not(:disabled) {
+  border-color: var(--brass, #c8a45c);
+  background: transparent;
+  color: var(--brass, #c8a45c);
+}
+
+/* ---------- 二维码：必须落在浅色底板上才扫得出来 ---------- */
+.fc-qr {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 2rem;
+}
+
+.fc-qr__plate {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  border-radius: 2px;
+  background: #f4f1ea;
+  line-height: 0;
+}
+
+.fc-redirect {
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+  margin-top: 2rem;
+}
+
+.fc-form__legal {
+  margin-top: 2.25rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--rule-soft);
+  font-size: 0.6875rem;
+  line-height: 1.7;
+  color: var(--bone-faint);
+}
+
+/* ---------- 底部走马灯 ---------- */
+.fc-ticker {
+  position: relative;
+  z-index: 1;
+  flex: none;
+  overflow: hidden;
+  border-top: 1px solid var(--rule-soft);
+  background: var(--ink);
+}
+
+.fc-ticker__track {
+  display: flex;
+  width: max-content;
+  animation: fc-marquee 46s linear infinite;
+}
+
+@keyframes fc-marquee {
   from {
-    opacity: 0;
-    transform: translateY(14px);
+    transform: translateX(0);
   }
   to {
-    opacity: 1;
-    transform: none;
+    transform: translateX(-50%);
   }
 }
 
-/* 品牌栏内容延迟入场，与卡片错开 */
-.au-fade {
-  animation: au-fade 0.7s ease both;
+.fc-ticker__item {
+  display: flex;
+  align-items: center;
+  padding: 0.6875rem 0;
+  font-family: var(--mono);
+  font-size: 0.625rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--bone-faint);
+  white-space: nowrap;
 }
 
-@keyframes au-fade {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
+.fc-ticker__item > span {
+  display: flex;
+  align-items: center;
+  gap: 1.75rem;
+  padding-right: 1.75rem;
 }
 
+.fc-ticker__item > span::after {
+  content: '';
+  flex: none;
+  width: 3px;
+  height: 3px;
+  border-radius: 999px;
+  background: var(--brass);
+  opacity: 0.55;
+}
+
+/* ---------- 降低动效偏好 ---------- */
 @media (prefers-reduced-motion: reduce) {
-  .au-aurora span,
-  .au-sheen::after,
-  .au-rise,
-  .au-fade {
+  .fc-grain,
+  .fc-display__accent,
+  .fc-tab--on::after,
+  .fc-ticker__track {
     animation: none !important;
+  }
+
+  .fc-btn::after {
+    display: none;
+  }
+}
+
+@media (min-width: 1024px) {
+  @media (prefers-reduced-motion: reduce) {
+    .fc-form::before {
+      animation: none !important;
+    }
   }
 }

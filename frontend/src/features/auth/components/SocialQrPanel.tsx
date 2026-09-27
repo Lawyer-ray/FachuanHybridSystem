@@ -10,8 +10,7 @@
  * 3. state 由后端生成并存 session，前端只透传，不参与生成。
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Loader2, QrCode, RefreshCw } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import { Loader2 } from 'lucide-react'
 import { socialAuthApi, type SocialProviderInfo, type SocialSession } from '../social-api'
 
 /** 飞书扫二维码登录 SDK（官方固定 CDN 地址） */
@@ -159,39 +158,38 @@ export function SocialQrPanel({ provider, onError, createSession, containerId = 
 
   if (state === 'error') {
     return (
-      <div className="flex flex-col items-center gap-2 py-3">
-        <p className="text-xs text-destructive">{error || '二维码加载失败'}</p>
-        <Button type="button" variant="ghost" size="sm" onClick={() => void boot()}>
-          <RefreshCw className="size-3" />
+      <div className="fc-qr">
+        <p className="fc-hint fc-hint--error">{error || '二维码加载失败'}</p>
+        <button type="button" className="fc-btn fc-btn--ghost" onClick={() => void boot()}>
           重新加载
-        </Button>
+        </button>
       </div>
     )
   }
 
   return (
-    <div className="flex flex-col items-center gap-1.5">
-      {/* 二维码挂载点：id 供 QRLogin 使用。
-          注意：容器内部完全交给飞书 SDK 的 innerHTML 操作，React 不得在其内部渲染
-          任何子节点——否则 SDK 清空容器后，React 再尝试卸载自己渲染的旧节点时会
-          因为该节点已被直接移除而抛出 removeChild NotFoundError，导致整棵树崩溃、
-          页面白屏（这里没有 Error Boundary 兜底）。加载态改为绝对定位的同级元素。 */}
-      <div className="relative flex min-h-[168px] min-w-[168px] items-center justify-center">
-        <div
-          id={containerId}
-          ref={containerRef}
-          className="flex min-h-[168px] min-w-[168px] items-center justify-center"
-          aria-label={`${provider.display_name}扫码登录`}
-        />
-        {state === 'loading' && (
-          <Loader2 className="absolute size-5 animate-spin text-muted-foreground" />
-        )}
+    <div className="fc-qr">
+      {/* 二维码必须落在浅色底板上才扫得出来，深色画布上不能直接放 */}
+      <div className="fc-qr__plate">
+        {/* 二维码挂载点：id 供 QRLogin 使用。
+            注意：容器内部完全交给飞书 SDK 的 innerHTML 操作，React 不得在其内部渲染
+            任何子节点——否则 SDK 清空容器后，React 再尝试卸载自己渲染的旧节点时会
+            因为该节点已被直接移除而抛出 removeChild NotFoundError，导致整棵树崩溃、
+            页面白屏（这里没有 Error Boundary 兜底）。加载态改为绝对定位的同级元素。 */}
+        <div className="relative flex min-h-[168px] min-w-[168px] items-center justify-center">
+          <div
+            id={containerId}
+            ref={containerRef}
+            className="flex min-h-[168px] min-w-[168px] items-center justify-center"
+            aria-label={`${provider.display_name}扫码登录`}
+          />
+          {state === 'loading' && (
+            <Loader2 className="absolute size-5 animate-spin text-[#8b8578]" />
+          )}
+        </div>
       </div>
       {state === 'ready' && (
-        <p className="flex items-center gap-1 text-[11px] text-muted-foreground">
-          <QrCode className="size-3" />
-          打开{provider.display_name}扫一扫登录
-        </p>
+        <p className="fc-hint">打开 {provider.display_name} 扫一扫登录</p>
       )}
     </div>
   )
