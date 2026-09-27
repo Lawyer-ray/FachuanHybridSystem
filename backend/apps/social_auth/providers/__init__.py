@@ -30,6 +30,11 @@ PROVIDER_SPECS: dict[str, dict[str, Any]] = {
         "prefix": "SOCIAL_AUTH_FEISHU_",
         "enabled_key": "SOCIAL_AUTH_FEISHU_ENABLED",
         "extra_keys": ("REDIRECT_URI", "SCOPE"),
+        # 扫码登录与 IM 群聊共用同一个飞书自建应用，凭证直接复用「飞书配置」
+        # 分类下的 FEISHU_APP_ID / FEISHU_APP_SECRET，避免同一个密钥填两遍、
+        # 改的时候漏一边。填了 SOCIAL_AUTH_FEISHU_APP_ID 则优先用它
+        # （应对将来扫码改用独立应用的场景）。
+        "fallback_credentials": {"FEISHU_APP_ID": "client_id", "FEISHU_APP_SECRET": "client_secret"},
     },
     "wechat": {
         "display_name": "微信",
@@ -116,9 +121,6 @@ class ProviderRegistry:
         if not rows:
             return None
 
-        client_id = rows.get(f"{prefix}APP_ID", "")
-        client_secret = rows.get(f"{prefix}APP_SECRET", "")
-
         # enabled 显式配成 false 才下线，缺失视为启用
         enabled_raw = rows.get(spec["enabled_key"], "true").strip().lower()
         is_enabled = enabled_raw not in ("false", "0", "no", "off")
@@ -126,6 +128,14 @@ class ProviderRegistry:
         extra = {
             suffix.lower(): rows[f"{prefix}{suffix}"] for suffix in spec["extra_keys"] if rows.get(f"{prefix}{suffix}")
         }
+
+        # 凭证：本分类没填时，回落到共用分类（如 IM 群聊的飞书应用）
+        client_id = rows.get(f"{prefix}APP_ID", "")
+        client_secret = rows.get(f"{prefix}APP_SECRET", "")
+        if not client_id or not client_secret:
+            borrowed_id, borrowed_secret = cls._borrow_credentials(spec)
+            client_id = client_id or borrowed_id
+            client_secret = client_secret or borrowed_secret
 
         # 缺 app_id 视为未配置完成，从前端列表隐藏（is_enabled=False 也能隐藏，
         # 但那样 admin 里看不出是「没填」还是「主动关掉」）
@@ -137,6 +147,42 @@ class ProviderRegistry:
             is_enabled=is_enabled and bool(client_id),
             extra=extra,
         )
+
+    @staticmethod
+    def _borrow_credentials(spec: dict[str, Any]) -> tuple[str, str]:
+        """从共用分类借凭证（飞书扫码登录复用 IM 群聊的飞书应用）。
+
+        借用失败不能影响登录功能本身，静默返回空串交由上层判定「未配置」。
+        """
+        mapping = spec.get("fallback_credentials") or {}
+        if not mapping:
+            return "", ""
+
+        try:
+            rows = {
+                str(row.key): str(row.value or "")
+                for row in SystemConfig.objects.filter(key__in=list(mapping), is_active=True).exclude(category=CATEGORY)
+            }
+        except Exception as exc:  # pragma: no cover - 兜底，不该影响主流程
+            logger.warning("读取共用飞书凭证失败: %s", exc)
+            return "", ""
+
+        client_id = rows.get("FEISHU_APP_ID", "")
+        client_secret = rows.get("FEISHU_APP_SECRET", "")
+
+        # 共用分类里的 secret 可能是密文（admin 表单保存时会加密），需解密
+        if client_secret:
+            try:
+                from apps.core.security.secret_codec import SecretCodec
+
+                codec = SecretCodec()
+                if codec.is_encrypted(client_secret):
+                    client_secret = codec.try_decrypt(client_secret)
+            except Exception as exc:  # pragma: no cover
+                logger.warning("解密共用飞书 App Secret 失败: %s", exc)
+                return client_id, ""
+
+        return client_id, client_secret
 
     @classmethod
     def get_config(cls, name: str) -> ProviderConfig:

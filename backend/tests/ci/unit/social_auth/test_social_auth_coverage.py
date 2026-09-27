@@ -208,12 +208,99 @@ class TestProviderRegistry:
             assert config.display_name == "飞书"
             assert config.extra["redirect_uri"] == "http://127.0.0.1:8002/social/feishu/callback/"
         finally:
-            SystemConfig.objects.filter(key__startswith=prefix).delete()
+            SystemConfig.objects.filter(category="social_auth").delete()
+            SystemConfig.objects.filter(category="feishu").delete()
             ProviderRegistry.clear_configs()
 
     @pytest.mark.django_db
-    def test_build_config_missing_app_id_is_disabled(self) -> None:
-        """App ID 未填 → 视为未配置完成，不暴露给前端。"""
+    def test_borrows_feishu_credentials_from_chat_category(self) -> None:
+        """扫码登录复用 IM 群聊的飞书应用：本分类不填凭证时读取 FEISHU_APP_ID/SECRET。"""
+        from apps.core.models import SystemConfig
+        from apps.social_auth.providers import PROVIDER_SPECS, ProviderRegistry
+
+        ProviderRegistry.register("feishu")(self._make_provider("feishu"))
+        prefix = PROVIDER_SPECS["feishu"]["prefix"]
+
+        # 只配 enabled + redirect_uri，不填 App ID/Secret
+        SystemConfig.objects.bulk_create([
+            SystemConfig(key=f"{prefix}ENABLED", value="true", category="social_auth", is_active=True),
+            SystemConfig(
+                key=f"{prefix}REDIRECT_URI",
+                value="http://127.0.0.1:8002/social/feishu/callback/",
+                category="social_auth",
+                is_active=True,
+            ),
+            # 共用分类里的凭证（IM 群聊用）
+            SystemConfig(key="FEISHU_APP_ID", value="cli_shared", category="feishu", is_active=True),
+            SystemConfig(
+                key="FEISHU_APP_SECRET", value="shared-secret-placeholder", category="feishu", is_active=True
+            ),
+        ])
+        try:
+            config = ProviderRegistry._build_config("feishu")
+            assert config is not None
+            assert config.client_id == "cli_shared"
+            assert config.client_secret == "shared-secret-placeholder"
+            assert config.is_enabled is True
+        finally:
+            SystemConfig.objects.filter(category="social_auth").delete()
+            SystemConfig.objects.filter(category="feishu").delete()
+
+    @pytest.mark.django_db
+    def test_own_credentials_override_borrowed(self) -> None:
+        """本分类填了凭证时优先用自己的，不读共用分类。"""
+        from apps.core.models import SystemConfig
+        from apps.social_auth.providers import PROVIDER_SPECS, ProviderRegistry
+
+        ProviderRegistry.register("feishu")(self._make_provider("feishu"))
+        prefix = PROVIDER_SPECS["feishu"]["prefix"]
+
+        SystemConfig.objects.bulk_create([
+            SystemConfig(key=f"{prefix}APP_ID", value="cli_own", category="social_auth", is_active=True),
+            SystemConfig(key=f"{prefix}APP_SECRET", value="own-secret-placeholder", category="social_auth", is_active=True),
+            SystemConfig(key=f"{prefix}ENABLED", value="true", category="social_auth", is_active=True),
+            SystemConfig(key="FEISHU_APP_ID", value="cli_shared", category="feishu", is_active=True),
+            SystemConfig(key="FEISHU_APP_SECRET", value="shared-secret-placeholder", category="feishu", is_active=True),
+        ])
+        try:
+            config = ProviderRegistry._build_config("feishu")
+            assert config is not None
+            assert config.client_id == "cli_own"
+            assert config.client_secret == "own-secret-placeholder"
+        finally:
+            SystemConfig.objects.filter(category="social_auth").delete()
+            SystemConfig.objects.filter(category="feishu").delete()
+
+    @pytest.mark.django_db
+    def test_borrowed_secret_decrypted(self) -> None:
+        """共用分类的 App Secret 若是密文（admin 保存时会加密），需解密后使用。"""
+        from apps.core.models import SystemConfig
+        from apps.core.security.secret_codec import SecretCodec
+        from apps.social_auth.providers import PROVIDER_SPECS, ProviderRegistry
+
+        ProviderRegistry.register("feishu")(self._make_provider("feishu"))
+        prefix = PROVIDER_SPECS["feishu"]["prefix"]
+
+        plaintext = "shared-secret-plain-text"
+        encrypted = SecretCodec().encrypt(plaintext)
+        SystemConfig.objects.bulk_create([
+            SystemConfig(key=f"{prefix}ENABLED", value="true", category="social_auth", is_active=True),
+            SystemConfig(key="FEISHU_APP_ID", value="cli_shared", category="feishu", is_active=True),
+            SystemConfig(
+                key="FEISHU_APP_SECRET", value=encrypted, category="feishu", is_active=True, is_secret=True
+            ),
+        ])
+        try:
+            config = ProviderRegistry._build_config("feishu")
+            assert config is not None
+            assert config.client_secret == plaintext
+        finally:
+            SystemConfig.objects.filter(category="social_auth").delete()
+            SystemConfig.objects.filter(category="feishu").delete()
+
+    @pytest.mark.django_db
+    def test_build_config_no_credentials_anywhere_is_disabled(self) -> None:
+        """本分类和共用分类都没有 App ID → 视为未配置完成，不暴露给前端。"""
         from apps.core.models import SystemConfig
         from apps.social_auth.providers import PROVIDER_SPECS, ProviderRegistry
 

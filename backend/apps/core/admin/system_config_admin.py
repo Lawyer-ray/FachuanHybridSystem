@@ -255,16 +255,25 @@ class SystemConfigAdmin(admin.ModelAdmin):  # pragma: no cover
 
     @staticmethod
     def _invalidate_social_auth(key: str, *, previous_key: str = "") -> None:  # pragma: no cover
-        """社交登录配置改动后清掉 ProviderRegistry 缓存。"""
+        """社交登录配置改动后清掉 ProviderRegistry 缓存。
+
+        除了本分类的 ``SOCIAL_AUTH_*``，还要关注被借用的共用凭证
+        （如「飞书配置」的 FEISHU_APP_ID/SECRET）——扫码登录复用它们，
+        改了同样要失效缓存。
+        """
         touched = {key, previous_key} - {""}
-        if not any(candidate.startswith("SOCIAL_AUTH_") for candidate in touched):
-            return
         try:
             from apps.social_auth.providers import PROVIDER_SPECS, ProviderRegistry
 
+            borrowed: set[str] = set()
+            for spec in PROVIDER_SPECS.values():
+                borrowed.update((spec.get("fallback_credentials") or {}).keys())
+
             for name, spec in PROVIDER_SPECS.items():
                 prefix = str(spec["prefix"])
-                if any(candidate.startswith(prefix) for candidate in touched):
+                matched = any(candidate.startswith(prefix) for candidate in touched)
+                matched = matched or bool(touched & borrowed)
+                if matched:
                     ProviderRegistry.clear_configs(name)
         except Exception as exc:  # 清缓存失败不该阻塞 admin 保存
             logger.warning("清理社交登录配置缓存失败: %s", exc)

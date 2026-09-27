@@ -4,6 +4,9 @@
 - 每个 Provider 一个配置分组，键名统一加 ``SOCIAL_AUTH_`` 前缀。
   ``SystemConfig.key`` 是全局唯一的，不能和 IM 群聊分类（``feishu``）下的
   ``FEISHU_APP_ID`` 重名，所以这里用 ``SOCIAL_AUTH_FEISHU_*``。
+- **凭证复用**：扫码登录与 IM 群聊共用同一个飞书自建应用，因此
+  ``SOCIAL_AUTH_FEISHU_APP_ID`` / ``APP_SECRET`` 留空即自动读取「飞书配置」
+  分类下的同名凭证，不需要重复填写。仅当扫码要改用独立应用时才在这里填。
 - ``redirect_uri`` 必须在飞书开发者后台「安全设置」中精确登记（``?``/``#`` 后缀会被忽略），
   否则授权页直接返回 ``{"code": 2000, "message": "redirect_uri unmatch"}``。
 - 扫描完二维码由飞书 302 打回该地址，所以它必须是**后端**可达地址（含协议+Host+路径），
@@ -22,14 +25,19 @@ def get_social_auth_configs() -> list[dict[str, Any]]:
         {
             "key": "SOCIAL_AUTH_FEISHU_APP_ID",
             "category": "social_auth",
-            "description": "飞书自建应用 App ID（开发者后台「凭证与基础信息」页获取）",
+            "description": (
+                "飞书应用 App ID。留空则复用「飞书配置」里的 FEISHU_APP_ID"
+                "（扫码登录与案件群聊共用同一应用，通常无需在此重复填写）"
+            ),
             "value": "",
             "is_secret": False,
         },
         {
             "key": "SOCIAL_AUTH_FEISHU_APP_SECRET",
             "category": "social_auth",
-            "description": "飞书自建应用 App Secret（请勿泄露）",
+            "description": (
+                "飞书应用 App Secret。留空则复用「飞书配置」里的 FEISHU_APP_SECRET；仅当扫码改用独立应用时才填"
+            ),
             "value": "",
             "is_secret": True,
         },
