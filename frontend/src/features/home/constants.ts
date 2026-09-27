@@ -30,7 +30,7 @@ export const TOOL_ENDPOINT = {
   courtSms: 'POST /automation/court-sms',
   docConvert: 'POST /doc-convert/convert',
   docConverter: 'POST /doc-converter/jobs',
-  lpr: 'POST /lpr/calculate',
+  docParse: 'POST /document-parsing/parse',
 } as const
 
 /** 周一起始的星期标题 */

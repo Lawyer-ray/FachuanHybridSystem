@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import uuid
 from datetime import timedelta
 
 from django.db import models
@@ -13,7 +14,9 @@ TEMP_AUTH_EXPIRE_MINUTES = 5
 class TempAuth(models.Model):
     """临时授权码，5 分钟过期，用完即删。"""
 
-    token = models.UUIDField(primary_key=True, editable=False)
+    # 必须带 default：这是主键，调用方 create() 时不会传 token，
+    # 没有 default 会直接违反 NOT NULL（曾导致回调 500）。
+    token = models.UUIDField(primary_key=True, editable=False, default=uuid.uuid4)
     user = models.ForeignKey(
         "organization.Lawyer",
         on_delete=models.CASCADE,

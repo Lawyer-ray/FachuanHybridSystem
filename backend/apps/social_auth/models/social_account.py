@@ -26,7 +26,13 @@ class SocialAccount(models.Model):
     class Meta:
         verbose_name = "社交账号"
         verbose_name_plural = "社交账号"
+        # 一个平台身份只能属于一位律师：否则同一个飞书号会解析出两个律师
         unique_together = [("provider", "provider_uid")]
+        constraints = [
+            # 一位律师在每个平台只能绑一个账号。换绑 = 先解绑再绑，
+            # 避免后台出现「这个律师怎么有两个飞书」而无法判断该用哪个登录。
+            models.UniqueConstraint(fields=["user", "provider"], name="uniq_social_account_user_provider"),
+        ]
 
     def __str__(self) -> str:
         return f"{self.provider}:{self.provider_uid} → {self.user}"

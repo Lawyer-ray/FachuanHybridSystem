@@ -42,6 +42,16 @@ export default defineConfig({
         target: 'http://127.0.0.1:8002',
         changeOrigin: true,
       },
+      // 社交登录：授权页/回调走 Django View，需与后端同源才能带 session cookie
+      // （state 存 session，跨域下 SameSite=Lax 不发送，回调会报 invalid_session）
+      //
+      // 必须带尾斜杠（匹配 /social/feishu/callback/ 这类后端路径）：Vite 的字符串
+      // key 是**前缀匹配**，写成 '/social' 会把前端路由 /social-callback 也转发给
+      // Django，导致回调页 404。
+      '^/social/': {
+        target: 'http://127.0.0.1:8002',
+        changeOrigin: true,
+      },
     },
   },
   build: {

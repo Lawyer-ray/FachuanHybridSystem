@@ -371,22 +371,13 @@ if (not DEBUG) and ALLOW_FIRST_USER_SUPERUSER and (not BOOTSTRAP_ADMIN_TOKEN):
     raise RuntimeError("ALLOW_FIRST_USER_SUPERUSER=true 时必须配置 BOOTSTRAP_ADMIN_TOKEN")
 
 # ============================================================
-# 社交登录 Provider 配置
+# 社交登录
 # ============================================================
+# Provider 配置（App ID / Secret / 回调地址 / scope / 开关）统一维护在
+# SystemConfig（分类 social_auth），见 admin/systemconfig/。
+# 不在这里配置：密钥会落进环境变量，且改动要重启进程才生效。
 
-SOCIAL_AUTH_PROVIDERS = {
-    "wechat": {
-        "display_name": "微信",
-        "client_id": os.environ.get("WECHAT_APP_ID", ""),
-        "client_secret": os.environ.get("WECHAT_APP_SECRET", ""),
-        "is_enabled": bool(os.environ.get("WECHAT_APP_ID", "")),
-        "extra": {
-            "redirect_uri": os.environ.get("WECHAT_REDIRECT_URI", ""),
-        },
-    },
-}
-
-FRONTEND_BASE_URL = os.environ.get("FRONTEND_BASE_URL", "http://localhost:5173")
+FRONTEND_BASE_URL = os.environ.get("FRONTEND_BASE_URL", "http://localhost:5090")
 
 # ============================================================
 # CORS 配置
@@ -394,9 +385,9 @@ FRONTEND_BASE_URL = os.environ.get("FRONTEND_BASE_URL", "http://localhost:5173")
 
 # 安全的 CORS 默认白名单（仅本地访问）
 _SAFE_CORS_ORIGINS = [
-    "http://localhost:5173",
+    "http://localhost:5090",
     "http://localhost:3000",
-    "http://127.0.0.1:5173",
+    "http://127.0.0.1:5090",
     "http://127.0.0.1:3000",
     "http://localhost:8000",
     "http://127.0.0.1:8000",

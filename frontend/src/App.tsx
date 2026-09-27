@@ -1,6 +1,6 @@
 import { Navigate, Route, Routes } from 'react-router'
 import { hasToken } from '@/lib/token'
-import { LoginPage } from '@/features/auth'
+import { BindingsPage, LoginPage, SocialCallbackPage } from '@/features/auth'
 import { HomePage } from '@/features/home'
 import { DeskPage } from '@/features/material-prep'
 
@@ -13,6 +13,8 @@ export default function App() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
+      {/* 社交登录回调：飞书/微信授权后由后端 302 到此，用一次性码换 JWT */}
+      <Route path="/social-callback" element={<SocialCallbackPage />} />
       {/* 首页 · 今日工作台 */}
       <Route
         path="/"
@@ -36,6 +38,15 @@ export default function App() {
         element={
           <RequireAuth>
             <DeskPage />
+          </RequireAuth>
+        }
+      />
+      {/* 个人设置 · 账号绑定：登录只放行已绑定的社交身份，绑定入口在这里 */}
+      <Route
+        path="/settings/bindings"
+        element={
+          <RequireAuth>
+            <BindingsPage />
           </RequireAuth>
         }
       />

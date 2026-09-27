@@ -9,4 +9,4 @@ class SocialAuthConfig(AppConfig):
     verbose_name = "社交登录"
 
     def ready(self) -> None:  # pragma: no cover
-        from . import providers
+        from . import providers, signals  # 触发 Provider 注册与信号接线
