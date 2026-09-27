@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import logging
 
-from django.conf import settings
 from django.http import HttpRequest
 from ninja import Router
 
@@ -12,40 +11,29 @@ from apps.core.infrastructure.throttling import rate_limit_from_settings
 from apps.social_auth.models import TempAuth
 from apps.social_auth.providers import ProviderRegistry
 
-from .social_auth_schemas import (
-    ProvidersListOut,
-    ProviderOut,
-    TokenExchangeIn,
-    TokenExchangeOut,
-)
+from .social_auth_schemas import ProviderOut, ProvidersListOut, TokenExchangeIn, TokenExchangeOut
 
 logger = logging.getLogger(__name__)
 
 router = Router()
 
-_loaded = False
-
-
-def _ensure_loaded() -> None:  # pragma: no cover
-    global _loaded
-    if not _loaded:
-        ProviderRegistry.load_configs(
-            getattr(settings, "SOCIAL_AUTH_PROVIDERS", {})
-        )
-        _loaded = True
-
 
 @router.get("/providers", response=ProvidersListOut, auth=None)
 def list_providers(request: HttpRequest) -> ProvidersListOut:  # pragma: no cover
-    _ensure_loaded()
-    items = ProviderRegistry.enabled_list()
+    """列出已启用的登录方式，供登录页渲染二维码 / 按钮。"""
+    if not ProviderRegistry._configs:
+        ProviderRegistry.load_configs()
+
     providers = []
-    for p in items:
+    for item in ProviderRegistry.enabled_list():
+        client_config = item.get("client_config") or {}
+        # login_mode 由 registry 注入，前端据此决定跳转还是渲染二维码
         providers.append(
             ProviderOut(
-                name=str(p["name"]),
-                display_name=str(p["display_name"]),
-                client_config=p["client_config"],  # type: ignore[arg-type]
+                name=str(item["name"]),
+                display_name=str(item["display_name"]),
+                login_mode=str(client_config.get("login_mode", "redirect")),
+                client_config={k: v for k, v in client_config.items() if k != "login_mode"},
             )
         )
     return ProvidersListOut(providers=providers)
@@ -54,6 +42,11 @@ def list_providers(request: HttpRequest) -> ProvidersListOut:  # pragma: no cove
 @router.post("/token-exchange", response=TokenExchangeOut, auth=None)
 @rate_limit_from_settings("AUTH")
 async def token_exchange(request: HttpRequest, payload: TokenExchangeIn) -> TokenExchangeOut:  # pragma: no cover
+    """用回调页拿到的一次性码换取 JWT。
+
+    code 是 TempAuth 的 UUID（不是 Provider 的授权码）——Provider 授权码
+    已在回调时用过并作废，这里避免把真 token 放进 URL。
+    """
     try:
         temp = await TempAuth.objects.select_related("user").aget(token=payload.code)
     except TempAuth.DoesNotExist:

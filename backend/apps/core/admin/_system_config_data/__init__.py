@@ -13,6 +13,7 @@ from ._service_configs import (
     get_ocr_configs,
     get_scraper_configs,
 )
+from ._social_auth_configs import get_social_auth_configs
 
 __all__ = ["get_default_configs"]
 
@@ -29,5 +30,6 @@ def get_default_configs() -> list[dict[str, Any]]:
         + get_ocr_configs()
         + get_email_configs()
         + get_filename_template_configs()
+        + get_social_auth_configs()
     )
     return configs

@@ -3,6 +3,7 @@
 提供 Django Admin 界面来管理系统配置项，包括飞书、钉钉等第三方服务配置。
 """
 
+import logging
 from typing import Any, ClassVar, cast
 
 from django.contrib import admin, messages
@@ -16,6 +17,8 @@ from apps.core.security.secret_codec import SecretCodec
 
 from ._system_config_data import get_default_configs
 from .forms import SystemConfigAdminForm
+
+logger = logging.getLogger(__name__)
 
 
 @admin.register(SystemConfig)
@@ -59,7 +62,9 @@ class SystemConfigAdmin(admin.ModelAdmin):  # pragma: no cover
             "ocr": "#009688",
             "email": "#2196f3",
             "cloud_storage": "#1565c0",
+            "docspace": "#5c6bc0",
             "general": "#607d8b",
+            "social_auth": "#00b42a",
         }
         color = colors.get(obj.category, "#607d8b")
         return format_html(
@@ -150,6 +155,8 @@ class SystemConfigAdmin(admin.ModelAdmin):  # pragma: no cover
             previous_key = str(previous.key or "") if previous else ""
         super().save_model(request, obj, form, change)
         self._clear_config_cache(obj.key, previous_key=previous_key)
+        # 社交登录 Provider 配置改完立即生效，无需重启进程
+        self._invalidate_social_auth(obj.key, previous_key=previous_key)
 
     def init_defaults_view(self, request: Any) -> HttpResponseRedirect:  # pragma: no cover
         """初始化默认配置项（AI 服务由「AI 平台」管理页负责、文档解析由「解析平台」管理页负责，此处跳过）"""
@@ -245,6 +252,22 @@ class SystemConfigAdmin(admin.ModelAdmin):  # pragma: no cover
         if previous_key and previous_key != key:
             cache.delete(f"system_config:{previous_key}")
         cache.delete(f"system_config:{key}")
+
+    @staticmethod
+    def _invalidate_social_auth(key: str, *, previous_key: str = "") -> None:  # pragma: no cover
+        """社交登录配置改动后清掉 ProviderRegistry 缓存。"""
+        touched = {key, previous_key} - {""}
+        if not any(candidate.startswith("SOCIAL_AUTH_") for candidate in touched):
+            return
+        try:
+            from apps.social_auth.providers import PROVIDER_SPECS, ProviderRegistry
+
+            for name, spec in PROVIDER_SPECS.items():
+                prefix = str(spec["prefix"])
+                if any(candidate.startswith(prefix) for candidate in touched):
+                    ProviderRegistry.clear_configs(name)
+        except Exception as exc:  # 清缓存失败不该阻塞 admin 保存
+            logger.warning("清理社交登录配置缓存失败: %s", exc)
 
     @staticmethod
     def _get_system_update_service() -> Any:  # pragma: no cover

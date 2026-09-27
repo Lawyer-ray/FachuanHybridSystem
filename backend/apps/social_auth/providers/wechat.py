@@ -5,39 +5,46 @@ import logging
 import httpx
 
 from . import ProviderRegistry
-from .base import SocialProfile, SocialProvider, TokenResponse
+from .base import AuthorizationRequest, LoginMode, SocialProfile, SocialProvider, TokenResponse
 
 logger = logging.getLogger(__name__)
+
+_TIMEOUT = 10
 
 
 @ProviderRegistry.register("wechat")
 class WeChatProvider(SocialProvider):  # pragma: no cover
     """微信开放平台 — 网站应用 OAuth2.0 扫码登录"""
 
-    def get_authorization_url(self, state: str) -> str:  # pragma: no cover
-        redirect_uri = self.config.extra["redirect_uri"]
+    login_mode = LoginMode.REDIRECT
+    ENDPOINTS = {
+        "authorize": "https://open.weixin.qq.com/connect/qrconnect",
+        "access_token": "https://api.weixin.qq.com/sns/oauth2/access_token",
+        "userinfo": "https://api.weixin.qq.com/sns/userinfo",
+    }
+
+    def get_authorization_url(self, request: AuthorizationRequest) -> str:  # pragma: no cover
         return (
-            "https://open.weixin.qq.com/connect/qrconnect"
+            f"{self.endpoint('authorize')}"
             f"?appid={self.config.client_id}"
-            f"&redirect_uri={redirect_uri}"
+            f"&redirect_uri={self.config.extra['redirect_uri']}"
             "&response_type=code"
             "&scope=snsapi_login"
-            f"&state={state}"
+            f"&state={request.state}"
             "#wechat_redirect"
         )
 
-    def exchange_code(self, code: str, state: str) -> TokenResponse:  # pragma: no cover
-        resp = httpx.get(
-            "https://api.weixin.qq.com/sns/oauth2/access_token",
+    def exchange_code(self, code: str, request: AuthorizationRequest) -> TokenResponse:  # pragma: no cover
+        data = httpx.get(
+            self.endpoint("access_token"),
             params={
                 "appid": self.config.client_id,
                 "secret": self.config.client_secret,
                 "code": code,
                 "grant_type": "authorization_code",
             },
-            timeout=10,
-        )
-        data = resp.json()
+            timeout=_TIMEOUT,
+        ).json()
         if "errcode" in data and data["errcode"] != 0:
             logger.warning("WeChat token exchange failed: %s", data)
             raise ValueError(f"微信授权失败: {data.get('errmsg', 'unknown')}")
@@ -50,16 +57,15 @@ class WeChatProvider(SocialProvider):  # pragma: no cover
 
     def get_profile(self, token_response: TokenResponse) -> SocialProfile:  # pragma: no cover
         openid = token_response.raw["openid"]
-        resp = httpx.get(
-            "https://api.weixin.qq.com/sns/userinfo",
+        data = httpx.get(
+            self.endpoint("userinfo"),
             params={
                 "access_token": token_response.access_token,
                 "openid": openid,
                 "lang": "zh_CN",
             },
-            timeout=10,
-        )
-        data = resp.json()
+            timeout=_TIMEOUT,
+        ).json()
         if "errcode" in data and data["errcode"] != 0:
             logger.warning("WeChat get profile failed: %s", data)
             raise ValueError(f"获取微信用户信息失败: {data.get('errmsg', 'unknown')}")
@@ -72,11 +78,11 @@ class WeChatProvider(SocialProvider):  # pragma: no cover
             raw_data=data,
         )
 
-    async def aexchange_code(self, code: str, state: str) -> TokenResponse:  # pragma: no cover
+    async def aexchange_code(self, code: str, request: AuthorizationRequest) -> TokenResponse:  # pragma: no cover
         """异步版本。"""
-        async with httpx.AsyncClient(timeout=10) as client:
+        async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
             resp = await client.get(
-                "https://api.weixin.qq.com/sns/oauth2/access_token",
+                self.endpoint("access_token"),
                 params={
                     "appid": self.config.client_id,
                     "secret": self.config.client_secret,
@@ -98,9 +104,9 @@ class WeChatProvider(SocialProvider):  # pragma: no cover
     async def aget_profile(self, token_response: TokenResponse) -> SocialProfile:  # pragma: no cover
         """异步版本。"""
         openid = token_response.raw["openid"]
-        async with httpx.AsyncClient(timeout=10) as client:
+        async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
             resp = await client.get(
-                "https://api.weixin.qq.com/sns/userinfo",
+                self.endpoint("userinfo"),
                 params={
                     "access_token": token_response.access_token,
                     "openid": openid,
