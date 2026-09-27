@@ -84,6 +84,9 @@ export function BindingsPage() {
   }, [bindingsQuery.data, catalogQuery.data])
 
   const loading = bindingsQuery.isLoading || catalogQuery.isLoading
+  // 接口失败必须显式报错：否则空列表会被当成「暂无可绑定的登录方式」，
+  // 把请求路径写错这类问题藏起来（曾经就把 /settings/bindings 下的路径解析错误盖住了）
+  const failed = bindingsQuery.isError || catalogQuery.isError
 
   return (
     <div className="min-h-screen bg-background">
@@ -105,11 +108,29 @@ export function BindingsPage() {
               </div>
             )}
 
-            {!loading && rows.length === 0 && (
+            {!loading && failed && (
+              <div className="flex flex-col items-center gap-3 py-10">
+                <p className="text-[12.5px] text-muted-foreground">加载绑定信息失败，请检查网络后重试</p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    void bindingsQuery.refetch()
+                    void catalogQuery.refetch()
+                  }}
+                >
+                  重新加载
+                </Button>
+              </div>
+            )}
+
+            {!loading && !failed && rows.length === 0 && (
               <p className="py-10 text-center text-[12.5px] text-muted-foreground">暂无可绑定的登录方式</p>
             )}
 
             {!loading &&
+              !failed &&
               rows.map(({ provider, account }, index) => {
                 // client_config 为 null 表示平台尚未配置启用，只展示灰态，不给绑定入口
                 const available = provider.client_config !== null

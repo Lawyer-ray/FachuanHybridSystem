@@ -11,9 +11,13 @@
  * - DELETE /api/v1/social/{provider}/bind              解绑（需登录）
  *
  * 同源约定：授权会话的 state 存在 Django session cookie 里，而 SameSite=Lax 的
- * cookie 不会随跨域 XHR 发送。因此这里一律用**相对路径**，让请求经 Vite 代理
- * （见 vite.config.ts）与后端同源；若直连后端 origin，回调时 Django 读不到
- * state 会判 invalid_session。
+ * cookie 不会随跨域 XHR 发送。因此这里一律用**以 / 开头的同源路径**，让请求经
+ * Vite 代理（见 vite.config.ts）与后端同源；若直连后端 origin，回调时 Django
+ * 读不到 state 会判 invalid_session。
+ *
+ * 前导斜杠不能省：ky 按「当前文档目录」解析相对路径，`api/v1/...` 在
+ * `/login`（单段）下恰好落到 `/api/v1/...`，但在 `/settings/bindings` 下会变成
+ * `/settings/api/v1/...`，被 SPA fallback 返回 index.html，报 JSON 解析失败。
  */
 import ky, { type KyInstance } from 'ky'
 import { getAccessToken } from '@/lib/token'
@@ -93,7 +97,7 @@ async function requestSession(client: KyInstance, path: string): Promise<SocialS
 export const socialAuthApi = {
   async listProviders(): Promise<SocialProviderInfo[]> {
     try {
-      const data = await socialClient.get('api/v1/social/providers').json<{ providers: SocialProviderInfo[] }>()
+      const data = await socialClient.get('/api/v1/social/providers').json<{ providers: SocialProviderInfo[] }>()
       return data.providers ?? []
     } catch {
       // 拉不到登录方式不应阻塞账密登录，静默降级
@@ -104,7 +108,7 @@ export const socialAuthApi = {
   /** 生成授权 URL（内嵌二维码用）。未配置该登录方式时后端返回 200 + success:false。 */
   async createSession(provider: string): Promise<SocialSession> {
     // 不带尾斜杠：后端 ApiTrailingSlashMiddleware 会剥掉 /api/ 的尾斜杠
-    return requestSession(socialClient, `api/v1/social/${provider}/session`)
+    return requestSession(socialClient, `/api/v1/social/${provider}/session`)
   },
 
   /**
@@ -112,21 +116,21 @@ export const socialAuthApi = {
    * 业务错误是 HTTP 200 + { success: false, message }，需在此 throw 让上层处理。
    */
   async exchangeToken(code: string): Promise<SocialTokenExchangeResponse> {
-    return socialClient.post('api/v1/social/token-exchange', { json: { code } }).json<SocialTokenExchangeResponse>()
+    return socialClient.post('/api/v1/social/token-exchange', { json: { code } }).json<SocialTokenExchangeResponse>()
   },
 }
 
 export const socialBindingsApi = {
   /** 当前用户已绑定的社交账号。 */
   async list(): Promise<BoundAccount[]> {
-    const data = await authedSocialClient.get('api/v1/social/bindings').json<{ accounts: BoundAccount[] }>()
+    const data = await authedSocialClient.get('/api/v1/social/bindings').json<{ accounts: BoundAccount[] }>()
     return data.accounts ?? []
   },
 
   /** 全部已知 Provider：client_config 为 null 表示平台未启用，前端显示灰态。 */
   async catalog(): Promise<SocialProviderInfo[]> {
     const data = await authedSocialClient
-      .get('api/v1/social/provider-catalog')
+      .get('/api/v1/social/provider-catalog')
       .json<{ providers: SocialProviderInfo[] }>()
     return data.providers ?? []
   },
@@ -135,12 +139,12 @@ export const socialBindingsApi = {
   async createBindSession(provider: string, redirect = '/settings/bindings'): Promise<SocialSession> {
     return requestSession(
       authedSocialClient,
-      `api/v1/social/${provider}/bind-session?redirect=${encodeURIComponent(redirect)}`,
+      `/api/v1/social/${provider}/bind-session?redirect=${encodeURIComponent(redirect)}`,
     )
   },
 
   /** 解绑。未绑定该平台时后端返回 success:false。 */
   async unbind(provider: string): Promise<{ success: boolean; message?: string }> {
-    return authedSocialClient.delete(`api/v1/social/${provider}/bind`).json()
+    return authedSocialClient.delete(`/api/v1/social/${provider}/bind`).json()
   },
 }
