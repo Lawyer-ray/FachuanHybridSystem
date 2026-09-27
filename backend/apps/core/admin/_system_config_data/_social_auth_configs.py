@@ -125,10 +125,12 @@ def get_social_auth_configs() -> list[dict[str, Any]]:
             "description": (
                 "Google 授权回调地址。必须与 Console 里「已获授权的重定向 URI」**完全一致**"
                 "（精确匹配、不支持通配符，含协议与结尾斜杠），且为后端可达地址。"
-                "本地开发填 http://127.0.0.1:8002/social/google/callback/；"
+                "host 必须与「浏览器访问前端的 host」一致 —— cookie 不区分端口但区分 host，"
+                "前端在 localhost:5090 就必须用 localhost，否则回调读不到 session 报 invalid_session"
+                "（本项默认值与上面飞书的写法保持一致）。"
                 "正式域名必须使用 HTTPS（Google 仅对 localhost/127.0.0.1 放行 http）。"
             ),
-            "value": "http://127.0.0.1:8002/social/google/callback/",
+            "value": "http://localhost:8002/social/google/callback/",
             "is_secret": False,
         },
         {

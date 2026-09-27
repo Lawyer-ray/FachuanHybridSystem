@@ -119,7 +119,7 @@
 | `SOCIAL_AUTH_FEISHU_ENABLED` | 填 `false` 可临时下线该登录方式 |
 | `SOCIAL_AUTH_WECHAT_*` | 同上，微信未配置则登录页不显示微信入口 |
 | `SOCIAL_AUTH_GOOGLE_APP_ID` / `_APP_SECRET` | Google Cloud Console → Google Auth Platform → 客户端创建，应用类型必须选「Web 应用」。**Google 没有可借的共用凭证，必须在本分类填**（留空则该入口自动隐藏） |
-| `SOCIAL_AUTH_GOOGLE_REDIRECT_URI` | 必须与 Console 里「已获授权的重定向 URI」**完全一致**（精确匹配、不支持通配符、含结尾斜杠）：`http://127.0.0.1:8002/social/google/callback/`。正式域名必须 HTTPS（Google 仅对 `localhost` / `127.0.0.1` 放行 http） |
+| `SOCIAL_AUTH_GOOGLE_REDIRECT_URI` | 必须与 Console 里「已获授权的重定向 URI」**完全一致**（精确匹配、不支持通配符、含结尾斜杠）：`http://localhost:8002/social/google/callback/`。**host 必须与「浏览器访问前端的 host」一致**——cookie 区分 host、不区分端口，本项目其余配置统一用 `localhost`。正式域名必须 HTTPS（Google 仅对 `localhost` / `127.0.0.1` 放行 http） |
 | `SOCIAL_AUTH_GOOGLE_SCOPE` | `openid email profile`，空格分隔且必须以 `openid` 开头。全为非敏感范围，无需 Google 审核 |
 | `SOCIAL_AUTH_GOOGLE_ENABLED` | 同飞书 |
 
