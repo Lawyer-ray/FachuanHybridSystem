@@ -16,11 +16,6 @@ class ProvidersListOut(Schema):
     providers: list[ProviderOut]
 
 
-class SessionCreateIn(Schema):
-    # 登录成功后要跳转的站内地址，后端会做安全校验，非法值回落首页
-    redirect: str = "/"
-
-
 class SessionOut(Schema):
     success: bool = True
     # 授权页地址；前端拼上 tmp_code 后整页导航过去

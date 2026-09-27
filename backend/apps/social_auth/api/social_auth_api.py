@@ -18,14 +18,7 @@ from apps.social_auth.models import TempAuth
 from apps.social_auth.providers import ProviderRegistry
 from apps.social_auth.views import STATE_TTL_SECONDS, build_authorization_session, sanitize_next_url
 
-from .social_auth_schemas import (
-    ProviderOut,
-    ProvidersListOut,
-    SessionCreateIn,
-    SessionOut,
-    TokenExchangeIn,
-    TokenExchangeOut,
-)
+from .social_auth_schemas import ProviderOut, ProvidersListOut, SessionOut, TokenExchangeIn, TokenExchangeOut
 
 logger = logging.getLogger(__name__)
 
@@ -55,11 +48,19 @@ def list_providers(request: HttpRequest) -> ProvidersListOut:  # pragma: no cove
 
 @router.post("/{provider}/session", response=SessionOut, auth=None)
 @rate_limit_from_settings("AUTH")
-def create_session(request: HttpRequest, provider: str, payload: SessionCreateIn) -> SessionOut:  # pragma: no cover
+def create_session(
+    request: HttpRequest,
+    provider: str,
+    redirect: str = "/",
+) -> SessionOut:  # pragma: no cover
     """为内嵌二维码登录生成授权 URL。
 
     前端拿到 goto 后交给 JS SDK 渲染二维码，不跳页；扫码后由前端拼上 tmp_code
     再整页导航到 goto，飞书 302 打回 redirect_uri 完成授权。
+
+    ``redirect`` 用 query 参数且不要求 body：这个端点只需要 provider 名和
+    跳转意图，让前端裸 POST 即可。若声明 Schema 参数（哪怕是空 Schema），
+    Ninja 也会要求 body 必须存在，导致无 body 的请求 422。
     """
     if not ProviderRegistry._configs:
         ProviderRegistry.load_configs()
@@ -67,7 +68,7 @@ def create_session(request: HttpRequest, provider: str, payload: SessionCreateIn
     session = build_authorization_session(
         request,
         provider,
-        next_url=sanitize_next_url(payload.redirect or "/"),
+        next_url=sanitize_next_url(redirect),
     )
     if session is None:
         return SessionOut(success=False, message="该登录方式暂不可用，请刷新页面后重试")

@@ -267,3 +267,74 @@ class TestTokenExchangeApi:
         result = await token_exchange(request, payload)
         assert result.success is False
         assert result.message
+
+
+class TestCreateSessionApi:
+    """session 端点的入参约定。
+
+    回归：曾因签名里声明了 Schema 参数（哪怕是空 Schema），Ninja 要求 body
+    必须存在，而前端是裸 POST，导致 422「登录方式暂不可用」。
+    """
+
+    def test_signature_has_no_schema_body_param(self) -> None:
+        import inspect
+
+        from ninja import Schema
+
+        from apps.social_auth.api.social_auth_api import create_session
+
+        params = inspect.signature(create_session).parameters
+        schema_params = [p for p in params.values() if isinstance(p.annotation, type) and issubclass(p.annotation, Schema)]
+        assert schema_params == [], "session 端点不应要求 body，否则裸 POST 会 422"
+
+    @pytest.mark.django_db
+    def test_bare_post_generates_goto(self) -> None:
+        """无 body、无 query 也要能生成授权 URL（前端就是这么调的）。"""
+        from django.test import RequestFactory
+
+        from apps.core.models import SystemConfig
+        from apps.social_auth.api.social_auth_api import create_session
+        from apps.social_auth.providers import PROVIDER_SPECS, ProviderRegistry
+        from apps.social_auth.providers.base import LoginMode, SocialProfile, SocialProvider, TokenResponse
+
+        ProviderRegistry.register("feishu")(
+            type(
+                "FeishuProvider",
+                (SocialProvider,),
+                {
+                    "ENDPOINTS": {"authorize": "https://passport.feishu.cn/suite/passport/oauth/authorize"},
+                    "login_mode": LoginMode.EMBEDDED_QR,
+                    "get_authorization_url": lambda self, req: f"https://passport.feishu.cn/x?state={req.state}",
+                    "exchange_code": lambda self, code, req: TokenResponse(access_token=""),
+                    "get_profile": lambda self, tr: SocialProfile(
+                        provider="feishu", provider_user_id="1", email=None, display_name=None, avatar_url=None
+                    ),
+                },
+            )
+        )
+        prefix = PROVIDER_SPECS["feishu"]["prefix"]
+        SystemConfig.objects.bulk_create([
+            SystemConfig(key=f"{prefix}APP_ID", value="cli_abc", category="social_auth"),
+            SystemConfig(key=f"{prefix}ENABLED", value="true", category="social_auth"),
+            SystemConfig(
+                key=f"{prefix}REDIRECT_URI",
+                value="http://127.0.0.1:8002/social/feishu/callback/",
+                category="social_auth",
+            ),
+            SystemConfig(key="FEISHU_APP_ID", value="cli_shared", category="feishu"),
+            SystemConfig(key="FEISHU_APP_SECRET", value="borrowed-secret-placeholder", category="feishu"),
+        ])
+        try:
+            ProviderRegistry.clear_configs()
+            req = RequestFactory().post("/api/v1/social/feishu/session", HTTP_HOST="127.0.0.1:8002")
+            from django.contrib.sessions.backends.cache import SessionStore
+
+            req.session = SessionStore()
+            result = create_session(req, "feishu")
+            assert result.success is True
+            assert result.state
+            assert result.goto
+        finally:
+            SystemConfig.objects.filter(category="social_auth").delete()
+            SystemConfig.objects.filter(category="feishu").delete()
+            ProviderRegistry.clear_configs()
