@@ -25,15 +25,3 @@ export interface ConvertTemplate {
   mbid: string
   name: string
 }
-
-/** LPR 计算结果（/lpr/calculate 的响应节选） */
-export interface LprResult {
-  success: boolean
-  totalInterest: string
-  totalDays: number | null
-  startDate: string | null
-  endDate: string | null
-  message: string | null
-  /** 分档明细概要：如「3.10% × 19 天」 */
-  summary: string
-}

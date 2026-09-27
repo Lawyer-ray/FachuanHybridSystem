@@ -1,12 +1,11 @@
 import { createApiClient } from '@/lib/api'
-import type { ConvertTemplate, LprResult } from '../types'
+import type { ConvertTemplate } from '../types'
 
-/** 快捷工具资源：法院短信、要素式转换、DOC→DOCX、LPR 计息。 */
+/** 快捷工具资源：法院短信、要素式转换、DOC→DOCX。 */
 
 export const automationApi = createApiClient({ prefix: '/api/v1/automation' })
 export const docConvertApi = createApiClient({ prefix: '/api/v1/doc-convert' })
 export const docConverterApi = createApiClient({ prefix: '/api/v1/doc-converter' })
-export const lprApi = createApiClient({ prefix: '/api/v1/lpr' })
 
 /** 收法院短信：POST /automation/court-sms，返回状态由轮询/列表体现 */
 export async function submitCourtSms(content: string): Promise<void> {
@@ -85,51 +84,4 @@ export async function getConverterJob(jobId: string): Promise<ConverterJob> {
 /** 转换完成后的下载地址（后端有独立 download 端点，返回 zip） */
 export function converterDownloadUrl(jobId: string): string {
   return `/api/v1/doc-converter/jobs/${jobId}/download`
-}
-
-export interface LprCalculateIn {
-  principal: number
-  startDate: string
-  endDate: string
-  rateMode: 'lpr' | 'custom'
-  /** LPR 模式：1y / 5y */
-  rateType: '1y' | '5y'
-  /** 自定义模式 */
-  customRateValue?: number
-  customRateUnit?: 'percent' | 'permille' | 'permyriad'
-}
-
-/** 分档明细概要：如「3.10% × 19 天」列表压缩成一行（最多 3 段） */
-function summarizePeriods(periods: Record<string, unknown>[]): string {
-  if (periods.length === 0) return ''
-  const parts = periods.slice(0, 3).map((p) => `${p.rate ?? '?'}% × ${p.days ?? '?'} 天`)
-  const suffix = periods.length > 3 ? ` 等 ${periods.length} 段` : ''
-  return parts.join('，') + suffix
-}
-
-/** LPR 计息：后端按央行报价分档计算， periods 为分段明细 */
-export async function calculateInterest(payload: LprCalculateIn): Promise<LprResult> {
-  const json: Record<string, unknown> = {
-    principal: payload.principal,
-    start_date: payload.startDate,
-    end_date: payload.endDate,
-    rate_mode: payload.rateMode,
-  }
-  if (payload.rateMode === 'lpr') {
-    json.rate_type = payload.rateType
-  } else {
-    json.custom_rate_value = payload.customRateValue
-    json.custom_rate_unit = payload.customRateUnit ?? 'percent'
-  }
-  const res = await lprApi.post('calculate', { json }).json<Record<string, unknown>>()
-  const periods = Array.isArray(res.periods) ? (res.periods as Record<string, unknown>[]) : []
-  return {
-    success: Boolean(res.success),
-    totalInterest: res.total_interest == null ? '' : String(res.total_interest),
-    totalDays: res.total_days == null ? null : Number(res.total_days),
-    startDate: res.start_date == null ? null : String(res.start_date),
-    endDate: res.end_date == null ? null : String(res.end_date),
-    message: res.message == null ? null : String(res.message),
-    summary: summarizePeriods(periods),
-  }
 }
