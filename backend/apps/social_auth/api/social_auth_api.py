@@ -47,7 +47,10 @@ def list_providers(request: HttpRequest) -> ProvidersListOut:  # pragma: no cove
 
 
 @router.post("/{provider}/session", response=SessionOut, auth=None)
-@rate_limit_from_settings("AUTH")
+# 用 EXPORT 档而非 AUTH 档：AUTH 是 5 次/60 秒，按「账密登录防爆破」设的，
+# 而本端点只发放授权 URL、不校验任何凭据，正常用户也会因二维码过期反复刷新，
+# 套 AUTH 档会把真人挡在门外。20 次/60 秒仍能拦住脚本刷授权 URL。
+@rate_limit_from_settings("EXPORT")
 def create_session(
     request: HttpRequest,
     provider: str,

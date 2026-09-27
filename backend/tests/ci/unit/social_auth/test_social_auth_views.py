@@ -287,6 +287,21 @@ class TestCreateSessionApi:
         schema_params = [p for p in params.values() if isinstance(p.annotation, type) and issubclass(p.annotation, Schema)]
         assert schema_params == [], "session 端点不应要求 body，否则裸 POST 会 422"
 
+    def test_uses_lenient_rate_limit_tier(self) -> None:
+        """限流档位必须是 EXPORT 而非 AUTH。
+
+        AUTH 是 5 次/60 秒（按账密防爆破设的），而本端点只发放授权 URL、
+        不校验凭据，正常用户也会因二维码过期反复刷新——用 AUTH 会把真人挡门外
+        （实测前几次刷新就 429）。
+        """
+        import inspect
+
+        from apps.social_auth.api.social_auth_api import create_session
+
+        decorators = inspect.getsource(create_session).split("def create_session")[0]
+        assert 'rate_limit_from_settings("EXPORT")' in decorators
+        assert 'rate_limit_from_settings("AUTH")' not in decorators
+
     @pytest.mark.django_db
     def test_bare_post_generates_goto(self) -> None:
         """无 body、无 query 也要能生成授权 URL（前端就是这么调的）。"""
