@@ -63,8 +63,9 @@ class ProviderRegistry:
 
     _providers: dict[str, type[Any]] = {}
 
-    # 配置缓存：provider 名 → ProviderConfig。
-    # 由 load_configs() 填充，SystemConfig 保存时由外部调用 clear_configs() 失效。
+    # 配置缓存：provider 名 → ProviderConfig，**只装已启用的**。
+    # 正因如此，「缓存非空」不等于「已完整加载」——按名局部失效会让两者不一致，
+    # 所以 clear_configs() 一律整体清空（见该方法注释）。
     _configs: dict[str, ProviderConfig] = {}
 
     @classmethod
@@ -90,12 +91,19 @@ class ProviderRegistry:
         return name in cls._providers
 
     @classmethod
-    def clear_configs(cls, name: str | None = None) -> None:
-        """清除配置缓存。admin 改完 SystemConfig 后调用。"""
-        if name is None:
-            cls._configs.clear()
-            return
-        cls._configs.pop(name, None)
+    def clear_configs(cls) -> None:
+        """清除配置缓存。**一律整体清空，不做按名局部失效。**
+
+        ``_configs`` 只装**已启用**的 Provider，所以按名 pop 会让该名字从缓存里
+        消失；而读取方（``enabled_list`` / provider-catalog 端点）是以「缓存是否
+        为空」判断要不要重建的 —— 缓存里还有别的 Provider 时就不重建，新启用的
+        Provider 于是永远缺席。
+
+        实测（2026-09-27）：运行中填入 Google 凭证后，绑定页始终显示「该登录方式
+        暂未开放」，必须重启后端才恢复。整体失效的代价只是下一次读取多几次查询
+        （Provider 只有个位数）。
+        """
+        cls._configs.clear()
 
     @classmethod
     def load_configs(cls, provider_configs: dict[str, dict] | None = None) -> None:

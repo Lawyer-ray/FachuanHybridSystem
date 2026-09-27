@@ -170,14 +170,62 @@ class TestProviderRegistry:
         ProviderRegistry._configs["fake"] = config
         assert ProviderRegistry.get_config("fake") is config
 
-    def test_clear_configs_single(self) -> None:
+    def test_clear_configs_clears_all(self) -> None:
+        """一律整体清空，不做按名局部失效。
+
+        局部失效与「缓存为空才重建」这个判断天然矛盾，会让新启用的 Provider 在
+        列表接口长期缺席（回归见 test_newly_enabled_provider_appears_after_invalidation）。
+        """
         from apps.social_auth.providers import ProviderRegistry
 
         ProviderRegistry._configs["a"] = ProviderConfig(name="a", display_name="A", client_id="", client_secret="")
         ProviderRegistry._configs["b"] = ProviderConfig(name="b", display_name="B", client_id="", client_secret="")
-        ProviderRegistry.clear_configs("a")
-        assert "a" not in ProviderRegistry._configs
-        assert "b" in ProviderRegistry._configs
+        ProviderRegistry.clear_configs()
+        assert ProviderRegistry._configs == {}
+
+    @pytest.mark.django_db
+    def test_newly_enabled_provider_appears_after_invalidation(self) -> None:
+        """运行中启用新 Provider 后，列表接口必须立刻能看到它。
+
+        回归（2026-09-27 实测）：缓存里已有 feishu 时，按名清掉 google 后缓存仍非空，
+        列表接口便不再重建，绑定页一直显示「该登录方式暂未开放」，必须重启后端。
+        这里走真实的失效入口 invalidate_provider_configs，而不是直接调 clear_configs。
+        """
+        from apps.core.models import SystemConfig
+        from apps.social_auth.providers import PROVIDER_SPECS, ProviderRegistry
+        from apps.social_auth.signals import invalidate_provider_configs
+
+        ProviderRegistry.register("feishu")(self._make_provider("feishu"))
+        ProviderRegistry.register("google")(self._make_provider("google"))
+
+        feishu_prefix = PROVIDER_SPECS["feishu"]["prefix"]
+        SystemConfig.objects.bulk_create([
+            SystemConfig(key=f"{feishu_prefix}APP_ID", value="cli_f", category="social_auth", is_active=True),
+            SystemConfig(key=f"{feishu_prefix}APP_SECRET", value="sec-f", category="social_auth", is_active=True),
+            SystemConfig(key=f"{feishu_prefix}ENABLED", value="true", category="social_auth", is_active=True),
+        ])
+        try:
+            ProviderRegistry.load_configs()
+            assert [item["name"] for item in ProviderRegistry.enabled_list()] == ["feishu"]
+
+            # 运行中补上 Google 凭证（等同在 admin 里填完保存），走真实失效入口
+            google_prefix = PROVIDER_SPECS["google"]["prefix"]
+            SystemConfig.objects.bulk_create([
+                SystemConfig(
+                    key=f"{google_prefix}APP_ID",
+                    value="cid.apps.googleusercontent.com",
+                    category="social_auth",
+                    is_active=True,
+                ),
+                SystemConfig(key=f"{google_prefix}APP_SECRET", value="sec-g", category="social_auth", is_active=True),
+                SystemConfig(key=f"{google_prefix}ENABLED", value="true", category="social_auth", is_active=True),
+            ])
+            invalidate_provider_configs("SOCIAL_AUTH_GOOGLE_APP_ID")
+
+            assert "google" in [item["name"] for item in ProviderRegistry.enabled_list()]
+        finally:
+            SystemConfig.objects.filter(category="social_auth").delete()
+            ProviderRegistry.clear_configs()
 
     @pytest.mark.django_db
     def test_load_configs_reads_system_config(self) -> None:

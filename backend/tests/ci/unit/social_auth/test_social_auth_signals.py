@@ -37,12 +37,17 @@ def _refill() -> None:
 
 @pytest.mark.django_db
 class TestProviderConfigInvalidation:
-    def test_social_auth_key_clears_that_provider(self, cached_providers: None) -> None:
+    def test_social_auth_key_invalidates_cache(self, cached_providers: None) -> None:
+        """本分类键变更 → 缓存整体失效。
+
+        刻意**不是**「只清单个平台」：``_configs`` 只装已启用的 Provider，局部清除
+        会让该名字从缓存消失，而读取方以「缓存是否为空」判断要不要重建 —— 缓存里
+        还有别的平台时就不重建，新启用的 Provider 会长期缺席。回归见
+        ``test_social_auth_coverage.py::TestProviderRegistry::test_newly_enabled_provider_appears_after_invalidation``。
+        """
         SystemConfig.objects.create(key="SOCIAL_AUTH_FEISHU_APP_ID", value="cli_x", category="social_auth")
 
-        assert "feishu" not in _cached()
-        # 其它平台不受影响
-        assert "wechat" in _cached()
+        assert _cached() == set()
 
     def test_borrowed_shared_credential_clears_providers(self, cached_providers: None) -> None:
         """扫码登录复用 IM 群聊的飞书应用凭证，改共用键同样要失效。"""

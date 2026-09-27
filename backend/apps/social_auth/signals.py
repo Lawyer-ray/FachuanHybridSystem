@@ -31,20 +31,26 @@ def _borrowed_keys() -> set[str]:
 
 
 def invalidate_provider_configs(*keys: str) -> None:
-    """按受影响的配置键清掉对应 Provider 的缓存。
+    """配置变更后失效 Provider 配置缓存。
 
     除了本分类的 ``SOCIAL_AUTH_*``，还要关注被借用的共用凭证——扫码登录复用
     它们，改了同样要失效缓存。
+
+    **一律整体失效**，不按名局部清除：``_configs`` 只装已启用的 Provider，局部
+    清除后该名字从缓存消失，而读取方以「缓存是否为空」判断要不要重建，缓存非空
+    就不再重建 —— 运行中新启用一个 Provider 后，登录页与绑定页会长期看不到它，
+    必须重启后端才恢复。
     """
     touched = {key for key in keys if key}
     if not touched:
         return
 
-    borrowed = _borrowed_keys()
-    for name, spec in PROVIDER_SPECS.items():
-        prefix = str(spec["prefix"])
-        if any(key.startswith(prefix) for key in touched) or (touched & borrowed):
-            ProviderRegistry.clear_configs(name)
+    prefixes = [str(spec["prefix"]) for spec in PROVIDER_SPECS.values()]
+    affects_providers = bool(touched & _borrowed_keys()) or any(
+        key.startswith(prefix) for key in touched for prefix in prefixes
+    )
+    if affects_providers:
+        ProviderRegistry.clear_configs()
 
 
 @receiver(pre_save, sender=SystemConfig)
