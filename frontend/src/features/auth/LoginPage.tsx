@@ -1,110 +1,73 @@
-import { useCallback, useEffect, useState } from 'react'
+/**
+ * 登录页。
+ *
+ * 结构：左侧品牌栏 + 右侧登录卡（窄屏单列）。右侧的登录方式由 login-methods
+ * 注册表驱动——账号密码只是其中一种，扫码 / 网页授权都按 kind 派发到对应
+ * 渲染器，因此以后新增登录方式不需要改这里的分支结构。
+ */
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router'
-import { Eye, EyeOff, Loader2, Lock, User } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { useAuth } from './store'
-import { socialAuthApi, type SocialProviderInfo } from './social-api'
+import { socialAuthApi } from './social-api'
+import { buildLoginMethods, PASSWORD_METHOD_ID, type LoginMethod } from './login-methods'
+import { LoginBrandPanel } from './components/LoginBrandPanel'
+import { LoginMethodSwitch } from './components/LoginMethodSwitch'
+import { PasswordLoginForm } from './components/PasswordLoginForm'
 import { SocialQrPanel } from './components/SocialQrPanel'
+import { SocialRedirectPanel } from './components/SocialRedirectPanel'
 
 export function LoginPage() {
-  const login = useAuth((s) => s.login)
   const init = useAuth((s) => s.init)
   const navigate = useNavigate()
-  const [username, setUsername] = useState('')
-  const [password, setPassword] = useState('')
-  const [show, setShow] = useState(false)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
-  // 内嵌二维码登录方式（如飞书）。没有配置时该区块整体隐藏，不影响账密登录
-  const [qrProvider, setQrProvider] = useState<SocialProviderInfo | null>(null)
+  const [methods, setMethods] = useState<LoginMethod[]>(() => buildLoginMethods([]))
+  const [activeId, setActiveId] = useState(PASSWORD_METHOD_ID)
 
   useEffect(() => {
     init()
   }, [init])
 
+  // 已启用的登录方式由后端下发；拉不到就只留账密，不影响登录
   useEffect(() => {
     let alive = true
     void socialAuthApi.listProviders().then((list) => {
-      if (!alive) return
-      setQrProvider(list.find((p) => p.login_mode === 'embedded_qr') ?? null)
+      if (alive) setMethods(buildLoginMethods(list))
     })
     return () => {
       alive = false
     }
   }, [])
 
-  const onSocialError = useCallback((message: string) => {
-    setError(message)
-  }, [])
-
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!username || !password) {
-      setError('请输入用户名和密码')
-      return
-    }
-    setLoading(true)
-    setError('')
-    const res = await login(username, password)
-    setLoading(false)
-    if (res.ok) {
-      navigate('/', { replace: true })
-    } else {
-      setError(res.message || '登录失败')
-    }
-  }
+  const active = methods.find((m) => m.id === activeId) ?? methods[0]
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4 py-10">
-      <div className="w-full max-w-[360px]">
-        <div className="mb-8 text-center">
-          <h1 className="text-[19px] font-semibold tracking-tight">
-            法穿 <span className="font-medium text-foreground/70">AI Copilot</span>
-          </h1>
-          <p className="mt-1 text-[12.5px] text-muted-foreground">一站式律师办案协同平台</p>
-        </div>
+    <div className="flex min-h-screen bg-background">
+      <LoginBrandPanel />
 
-        <div className="rounded-2xl border bg-card p-6 shadow-sm">
-          {qrProvider && <SocialQrPanel provider={qrProvider} onError={onSocialError} />}
+      <div className="flex flex-1 items-center justify-center px-4 py-10">
+        <div className="w-full max-w-[380px]">
+          {/* 窄屏没有左栏，品牌信息在卡片上方补一份 */}
+          <div className="mb-6 text-center lg:hidden">
+            <h1 className="text-[19px] font-semibold tracking-tight">
+              法穿 <span className="font-medium text-foreground/70">AI Copilot</span>
+            </h1>
+            <p className="mt-1 text-[12.5px] text-muted-foreground">一站式律师办案协同平台</p>
+          </div>
 
-          <form onSubmit={submit} className="space-y-3">
-            <div className="relative">
-              <User className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder="用户名"
-                autoComplete="username"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                className="pl-9"
-              />
-            </div>
-            <div className="relative">
-              <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                type={show ? 'text' : 'password'}
-                placeholder="密码"
-                autoComplete="current-password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="pl-9 pr-10"
-              />
-              <button
-                type="button"
-                tabIndex={-1}
-                onClick={() => setShow((v) => !v)}
-                className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1 text-muted-foreground hover:text-foreground"
-                aria-label={show ? '隐藏密码' : '显示密码'}
-              >
-                {show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-              </button>
-            </div>
-            {error && <p className="text-xs text-destructive">{error}</p>}
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading && <Loader2 className="h-4 w-4 animate-spin" />}
-              {loading ? '登录中…' : '登录'}
-            </Button>
-          </form>
+          <div className="rounded-2xl border bg-card p-6 shadow-sm">
+            {methods.length > 1 && (
+              <LoginMethodSwitch methods={methods} activeId={active.id} onChange={setActiveId} />
+            )}
+
+            {active.kind === 'password' && (
+              <PasswordLoginForm onLoggedIn={() => navigate('/', { replace: true })} />
+            )}
+            {active.kind === 'embedded_qr' && active.provider && (
+              <SocialQrPanel provider={active.provider} />
+            )}
+            {active.kind === 'redirect' && active.provider && (
+              <SocialRedirectPanel provider={active.provider} />
+            )}
+          </div>
         </div>
       </div>
     </div>

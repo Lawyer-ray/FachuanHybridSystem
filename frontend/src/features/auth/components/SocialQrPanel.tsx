@@ -59,9 +59,13 @@ interface Props {
   provider: SocialProviderInfo
   /** 登录成功后由回调页负责跳转，这里只在出错时通知外层 */
   onError?: (message: string) => void
+  /** 授权会话来源：登录页用默认（登录 session），绑定页传 bind-session */
+  createSession?: (provider: string) => Promise<SocialSession>
+  /** 二维码容器 id：同一页面可能同时存在多个面板，必须唯一 */
+  containerId?: string
 }
 
-export function SocialQrPanel({ provider, onError }: Props) {
+export function SocialQrPanel({ provider, onError, createSession, containerId = 'feishu-qr-container' }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
   const qrInstanceRef = useRef<QrLoginInstance | null>(null)
   const gotoRef = useRef<string>('')
@@ -87,9 +91,9 @@ export function SocialQrPanel({ provider, onError }: Props) {
 
     let session: SocialSession
     try {
-      session = await socialAuthApi.createSession(provider.name)
-    } catch {
-      fail('登录方式暂不可用，请稍后再试或联系管理员')
+      session = await (createSession ?? socialAuthApi.createSession)(provider.name)
+    } catch (err) {
+      fail(err instanceof Error ? err.message : '登录方式暂不可用，请稍后再试或联系管理员')
       return
     }
 
@@ -118,7 +122,7 @@ export function SocialQrPanel({ provider, onError }: Props) {
       height: provider.client_config?.height ?? '260',
     })
     setState('ready')
-  }, [provider, fail])
+  }, [provider, fail, createSession])
 
   useEffect(() => {
     void boot()
@@ -167,14 +171,21 @@ export function SocialQrPanel({ provider, onError }: Props) {
 
   return (
     <div className="flex flex-col items-center gap-1.5">
-      {/* 二维码挂载点：id 供 QRLogin 使用 */}
-      <div
-        id="feishu-qr-container"
-        ref={containerRef}
-        className="flex min-h-[168px] min-w-[168px] items-center justify-center"
-        aria-label={`${provider.display_name}扫码登录`}
-      >
-        {state === 'loading' && <Loader2 className="size-5 animate-spin text-muted-foreground" />}
+      {/* 二维码挂载点：id 供 QRLogin 使用。
+          注意：容器内部完全交给飞书 SDK 的 innerHTML 操作，React 不得在其内部渲染
+          任何子节点——否则 SDK 清空容器后，React 再尝试卸载自己渲染的旧节点时会
+          因为该节点已被直接移除而抛出 removeChild NotFoundError，导致整棵树崩溃、
+          页面白屏（这里没有 Error Boundary 兜底）。加载态改为绝对定位的同级元素。 */}
+      <div className="relative flex min-h-[168px] min-w-[168px] items-center justify-center">
+        <div
+          id={containerId}
+          ref={containerRef}
+          className="flex min-h-[168px] min-w-[168px] items-center justify-center"
+          aria-label={`${provider.display_name}扫码登录`}
+        />
+        {state === 'loading' && (
+          <Loader2 className="absolute size-5 animate-spin text-muted-foreground" />
+        )}
       </div>
       {state === 'ready' && (
         <p className="flex items-center gap-1 text-[11px] text-muted-foreground">

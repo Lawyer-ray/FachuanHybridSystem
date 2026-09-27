@@ -20,3 +20,18 @@ export function resolveCallbackError(error: string | null): string {
   const code = (error in SOCIAL_LOGIN_ERROR_TEXT ? error : 'exchange_failed') as SocialLoginErrorCode
   return SOCIAL_LOGIN_ERROR_TEXT[code]
 }
+
+/**
+ * 在站内路径上追加查询参数，保留原有 query。
+ *
+ * 回调页拿到的是 redirect=/settings/bindings，而绑定成功的标记（bound=feishu）
+ * 得一起带给落地页，否则落地页无法区分「刚绑定成功」和「直接进来看看」。
+ */
+export function withQuery(path: string, params: Record<string, string>): string {
+  const [base, search = ''] = path.split('?')
+  const query = new URLSearchParams(search)
+  for (const [key, value] of Object.entries(params)) {
+    query.set(key, value)
+  }
+  return `${base}?${query.toString()}`
+}

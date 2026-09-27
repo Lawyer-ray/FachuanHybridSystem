@@ -377,7 +377,7 @@ if (not DEBUG) and ALLOW_FIRST_USER_SUPERUSER and (not BOOTSTRAP_ADMIN_TOKEN):
 # SystemConfig（分类 social_auth），见 admin/systemconfig/。
 # 不在这里配置：密钥会落进环境变量，且改动要重启进程才生效。
 
-FRONTEND_BASE_URL = os.environ.get("FRONTEND_BASE_URL", "http://localhost:5173")
+FRONTEND_BASE_URL = os.environ.get("FRONTEND_BASE_URL", "http://localhost:5090")
 
 # ============================================================
 # CORS 配置
@@ -385,9 +385,9 @@ FRONTEND_BASE_URL = os.environ.get("FRONTEND_BASE_URL", "http://localhost:5173")
 
 # 安全的 CORS 默认白名单（仅本地访问）
 _SAFE_CORS_ORIGINS = [
-    "http://localhost:5173",
+    "http://localhost:5090",
     "http://localhost:3000",
-    "http://127.0.0.1:5173",
+    "http://127.0.0.1:5090",
     "http://127.0.0.1:3000",
     "http://localhost:8000",
     "http://127.0.0.1:8000",

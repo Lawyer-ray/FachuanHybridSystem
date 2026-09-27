@@ -252,7 +252,10 @@ class TestAuthorizationSession:
         from apps.social_auth.views import _frontend_callback_url
 
         url = _frontend_callback_url("invalid_state")
-        assert url.endswith("/social-callback?error=invalid_state")
+        # 失败回调与成功回调共用 _frontend_redirect_url，因此还会带上 redirect=/；
+        # 断言只关心「落到前端回调页」和「错误码原样透传」，不锁参数顺序
+        assert "/social-callback?" in url
+        assert "error=invalid_state" in url
 
 
 class TestTokenExchangeApi:

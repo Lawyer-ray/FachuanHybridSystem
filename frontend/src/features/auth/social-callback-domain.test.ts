@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { resolveCallbackError, sanitizeRedirect } from './social-callback-domain'
+import { resolveCallbackError, sanitizeRedirect, withQuery } from './social-callback-domain'
 import { SOCIAL_LOGIN_ERROR_TEXT } from './social-types'
 
 describe('sanitizeRedirect', () => {
@@ -53,5 +53,19 @@ describe('resolveCallbackError', () => {
     for (const [code, text] of Object.entries(SOCIAL_LOGIN_ERROR_TEXT)) {
       expect(text.length, code).toBeGreaterThan(0)
     }
+  })
+})
+
+describe('withQuery', () => {
+  it('无 query 的路径直接追加参数', () => {
+    expect(withQuery('/settings/bindings', { bound: 'feishu' })).toBe('/settings/bindings?bound=feishu')
+  })
+
+  it('保留原有 query，不覆盖无关参数', () => {
+    expect(withQuery('/search?q=a&sort=desc', { bound: 'feishu' })).toBe('/search?q=a&sort=desc&bound=feishu')
+  })
+
+  it('同名参数以新值为准', () => {
+    expect(withQuery('/settings/bindings?bound=wechat', { bound: 'feishu' })).toBe('/settings/bindings?bound=feishu')
   })
 })

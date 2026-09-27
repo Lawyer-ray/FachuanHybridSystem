@@ -1,0 +1,48 @@
+/**
+ * 整页跳转型登录方式（redirect）的按钮面板。
+ *
+ * 与内嵌二维码相对：拿不到可渲染的二维码，只能整页导航到平台授权页，
+ * 授权后由后端 302 回 /social-callback。谷歌网页登录等后续方式走这条路。
+ */
+import { useState } from 'react'
+import { Loader2 } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import type { SocialProviderInfo, SocialSession } from '../social-api'
+import { socialAuthApi } from '../social-api'
+
+interface Props {
+  provider: SocialProviderInfo
+  /** 授权会话来源：登录页用默认（登录 session），绑定页传 bind-session */
+  createSession?: (provider: string) => Promise<SocialSession>
+}
+
+export function SocialRedirectPanel({ provider, createSession }: Props) {
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+
+  const start = async () => {
+    setLoading(true)
+    setError('')
+    try {
+      const session = await (createSession ?? socialAuthApi.createSession)(provider.name)
+      window.location.href = session.goto
+    } catch (err) {
+      setLoading(false)
+      setError(err instanceof Error ? err.message : '该登录方式暂不可用，请稍后再试')
+    }
+  }
+
+  return (
+    <div className="flex flex-col items-center gap-3 py-1">
+      <Button type="button" className="w-full" disabled={loading} onClick={() => void start()}>
+        {loading && <Loader2 className="h-4 w-4 animate-spin" />}
+        使用{provider.display_name}登录
+      </Button>
+      {error ? (
+        <p className="text-xs text-destructive">{error}</p>
+      ) : (
+        <p className="text-[11px] text-muted-foreground">将跳转到{provider.display_name}完成授权</p>
+      )}
+    </div>
+  )
+}

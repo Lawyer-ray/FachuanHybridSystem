@@ -4,7 +4,8 @@
  */
 
 export { LoginPage } from './LoginPage'
+export { BindingsPage } from './BindingsPage'
 export { SocialCallbackPage } from './SocialCallbackPage'
 export { useAuth } from './store'
-export { socialAuthApi } from './social-api'
+export { socialAuthApi, socialBindingsApi } from './social-api'
 export type { LoginMode, SocialProvider, SocialSession, SocialLoginErrorCode } from './social-types'

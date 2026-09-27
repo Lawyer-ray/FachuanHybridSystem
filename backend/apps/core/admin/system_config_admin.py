@@ -3,7 +3,6 @@
 提供 Django Admin 界面来管理系统配置项，包括飞书、钉钉等第三方服务配置。
 """
 
-import logging
 from typing import Any, ClassVar, cast
 
 from django.contrib import admin, messages
@@ -17,8 +16,6 @@ from apps.core.security.secret_codec import SecretCodec
 
 from ._system_config_data import get_default_configs
 from .forms import SystemConfigAdminForm
-
-logger = logging.getLogger(__name__)
 
 
 @admin.register(SystemConfig)
@@ -155,8 +152,6 @@ class SystemConfigAdmin(admin.ModelAdmin):  # pragma: no cover
             previous_key = str(previous.key or "") if previous else ""
         super().save_model(request, obj, form, change)
         self._clear_config_cache(obj.key, previous_key=previous_key)
-        # 社交登录 Provider 配置改完立即生效，无需重启进程
-        self._invalidate_social_auth(obj.key, previous_key=previous_key)
 
     def init_defaults_view(self, request: Any) -> HttpResponseRedirect:  # pragma: no cover
         """初始化默认配置项（AI 服务由「AI 平台」管理页负责、文档解析由「解析平台」管理页负责，此处跳过）"""
@@ -252,31 +247,6 @@ class SystemConfigAdmin(admin.ModelAdmin):  # pragma: no cover
         if previous_key and previous_key != key:
             cache.delete(f"system_config:{previous_key}")
         cache.delete(f"system_config:{key}")
-
-    @staticmethod
-    def _invalidate_social_auth(key: str, *, previous_key: str = "") -> None:  # pragma: no cover
-        """社交登录配置改动后清掉 ProviderRegistry 缓存。
-
-        除了本分类的 ``SOCIAL_AUTH_*``，还要关注被借用的共用凭证
-        （如「飞书配置」的 FEISHU_APP_ID/SECRET）——扫码登录复用它们，
-        改了同样要失效缓存。
-        """
-        touched = {key, previous_key} - {""}
-        try:
-            from apps.social_auth.providers import PROVIDER_SPECS, ProviderRegistry
-
-            borrowed: set[str] = set()
-            for spec in PROVIDER_SPECS.values():
-                borrowed.update((spec.get("fallback_credentials") or {}).keys())
-
-            for name, spec in PROVIDER_SPECS.items():
-                prefix = str(spec["prefix"])
-                matched = any(candidate.startswith(prefix) for candidate in touched)
-                matched = matched or bool(touched & borrowed)
-                if matched:
-                    ProviderRegistry.clear_configs(name)
-        except Exception as exc:  # 清缓存失败不该阻塞 admin 保存
-            logger.warning("清理社交登录配置缓存失败: %s", exc)
 
     @staticmethod
     def _get_system_update_service() -> Any:  # pragma: no cover

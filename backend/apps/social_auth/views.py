@@ -13,17 +13,25 @@ import re
 import secrets
 import time
 from dataclasses import dataclass
+from urllib.parse import urlencode
 
 from django.conf import settings
 from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
 from django.shortcuts import redirect
 from django.views import View
 
+from apps.organization.models import Lawyer
 from apps.social_auth.models import TempAuth
 from apps.social_auth.providers import ProviderRegistry
 from apps.social_auth.providers.base import AuthorizationRequest
 
-from .services import link_or_create_user
+from .services import (
+    SocialAccountConflictError,
+    SocialAccountNotBoundError,
+    SocialAccountProviderOccupiedError,
+    bind_social_account_to_user,
+    resolve_user_by_social_profile,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +43,10 @@ _SAFE_REDIRECT_PATTERN = re.compile(r"^/[a-zA-Z0-9/_\-.?=&%+]*$")
 # 只放行已知 Provider 的错误参数名，避免把任意 query 透给前端跳转链接
 _PROVIDER_ERROR_PARAMS = ("error", "error_code", "error_description", "errmsg")
 
+# 发起「个人设置 → 绑定账号」流程时，写进 AuthorizationRequest.extra 的键名，
+# 用来在回调时判断这是登录流程还是绑定流程（不能新建 Lawyer）。
+_BIND_USER_ID_KEY = "bind_user_id"
+
 
 def sanitize_next_url(next_url: str | None) -> str:
     """只允许站内相对路径，拒绝 ``//evil.com`` 这类开放重定向。"""
@@ -43,9 +55,15 @@ def sanitize_next_url(next_url: str | None) -> str:
     return next_url
 
 
+def _frontend_redirect_url(next_url: str, **params: str) -> str:
+    """拼出跳回前端 ``/social-callback`` 的 URL，附带任意查询参数。"""
+    frontend_base = getattr(settings, "FRONTEND_BASE_URL", "http://localhost:5090")
+    query = urlencode({**params, "redirect": next_url})
+    return f"{frontend_base}/social-callback?{query}"
+
+
 def _frontend_callback_url(message: str) -> str:
-    frontend_base = getattr(settings, "FRONTEND_BASE_URL", "http://localhost:5173")
-    return f"{frontend_base}/social-callback?error={message}"
+    return _frontend_redirect_url("/", error=message)
 
 
 @dataclass(frozen=True)
@@ -62,11 +80,15 @@ def build_authorization_session(
     provider: str,
     *,
     next_url: str = "/",
+    bind_user_id: int | None = None,
 ) -> AuthorizationSession | None:
     """生成授权 URL 并把 state 写入 session。
 
     返回 None 表示该登录方式不可用（未注册、未配置、未启用或缺少回调地址）。
     调用方应把 None 当成「不给用户看细节」的通用失败处理，具体原因记在日志里。
+
+    ``bind_user_id``：仅「个人设置 → 绑定账号」流程传入，标记这次授权完成后
+    要把 Provider 身份关联到这个已登录用户，而不是走登录逻辑。
     """
     try:
         provider_cls = ProviderRegistry.get(provider)
@@ -82,12 +104,17 @@ def build_authorization_session(
         logger.warning("社交登录 provider %s 未配置回调地址", provider)
         return None
 
+    extra: dict[str, str] = {}
+    if bind_user_id is not None:
+        extra[_BIND_USER_ID_KEY] = str(bind_user_id)
+
     auth_request = AuthorizationRequest(
         provider=provider,
         state=secrets.token_urlsafe(32),
         redirect_uri=redirect_uri,
         next_url=next_url,
         created_at=time.time(),
+        extra=extra,
     )
 
     request.session["oauth"] = auth_request.to_session()
@@ -152,16 +179,44 @@ class SocialCallbackView(View):
         try:
             token_response = await instance.aexchange_code(code, saved)
             profile = await instance.aget_profile(token_response)
-            user = await link_or_create_user(profile)
         except Exception as exc:
             logger.warning("Social auth failed for %s: %s", provider, exc)
             return HttpResponseRedirect(_frontend_callback_url("exchange_failed"))
 
-        temp = await TempAuth.objects.acreate(user=user)
+        bind_user_id_raw = saved.extra.get(_BIND_USER_ID_KEY, "")
 
         if "oauth" in request.session:
             del request.session["oauth"]
             request.session.modified = True
 
-        frontend_base = getattr(settings, "FRONTEND_BASE_URL", "http://localhost:5173")
-        return HttpResponseRedirect(f"{frontend_base}/social-callback?code={temp.token}&redirect={saved.next_url}")
+        # 绑定流程：只关联到已登录用户，绝不新建 Lawyer
+        if bind_user_id_raw:
+            try:
+                bind_user = await Lawyer.objects.aget(pk=int(bind_user_id_raw))
+            except (Lawyer.DoesNotExist, ValueError):
+                return HttpResponseRedirect(_frontend_redirect_url(saved.next_url, error="not_bound"))
+
+            try:
+                await bind_social_account_to_user(profile, bind_user)
+            except SocialAccountConflictError:
+                return HttpResponseRedirect(_frontend_redirect_url(saved.next_url, error="already_bound"))
+            except SocialAccountProviderOccupiedError:
+                return HttpResponseRedirect(_frontend_redirect_url(saved.next_url, error="provider_occupied"))
+            except Exception as exc:
+                logger.warning("Social bind failed for %s: %s", provider, exc)
+                return HttpResponseRedirect(_frontend_redirect_url(saved.next_url, error="exchange_failed"))
+
+            return HttpResponseRedirect(_frontend_redirect_url(saved.next_url, bound=provider))
+
+        # 登录流程：只放行已绑定的社交身份。未绑定就拒绝，不再自动建号——
+        # 自动建出的 soc_xxx 账号对应不上真实律师，后台无法判断是谁。
+        try:
+            user = await resolve_user_by_social_profile(profile)
+        except SocialAccountNotBoundError:
+            return HttpResponseRedirect(_frontend_redirect_url(saved.next_url, error="unbound"))
+        except Exception as exc:
+            logger.warning("Social auth failed for %s: %s", provider, exc)
+            return HttpResponseRedirect(_frontend_callback_url("exchange_failed"))
+
+        temp = await TempAuth.objects.acreate(user=user)
+        return HttpResponseRedirect(_frontend_redirect_url(saved.next_url, code=str(temp.token)))

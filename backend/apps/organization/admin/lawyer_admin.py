@@ -11,6 +11,7 @@ from apps.core.admin.mixins import AdminImportExportMixin
 from apps.organization.models import AccountCredential, Lawyer, Team
 from apps.organization.models.team import TeamType
 from apps.organization.services.lawyer_import_service import LawyerImportService
+from apps.social_auth.models import SocialAccount
 
 
 def _get_lawyer_import_service() -> LawyerImportService:
@@ -114,13 +115,49 @@ class AccountCredentialInline(admin.TabularInline[AccountCredential, AccountCred
         return 1 if not obj or not obj.credentials.exists() else 0
 
 
+class SocialAccountInline(admin.TabularInline[SocialAccount, SocialAccount]):  # pragma: no cover
+    """只读展示扫码登录绑定，用于确认「这个飞书身份是哪位律师」。
+
+    只读是刻意的：绑定关系只能由律师本人在「个人设置 → 账号绑定」扫码产生，
+    后台编辑会造出指向错误律师的记录。需要解绑换号时走社交账号后台。
+    """
+
+    model = SocialAccount
+    extra = 0
+    can_delete = False
+    fields = ("provider", "display_name", "provider_uid", "avatar_url", "created_at")
+    readonly_fields = fields
+    verbose_name = "社交账号"
+    verbose_name_plural = "社交账号（扫码登录绑定）"
+
+    def has_add_permission(self, request: Any, obj: Any = None) -> bool:
+        return False
+
+
+class SocialLoginFilter(admin.SimpleListFilter):  # pragma: no cover
+    """按「是否绑定了扫码登录」筛律师，快速找出还没绑定的账号。"""
+
+    title = "登录方式"
+    parameter_name = "social_login"
+
+    def lookups(self, request: Any, model_admin: Any) -> list[tuple[str, str]]:
+        return [("yes", "已绑定扫码登录"), ("no", "仅账密登录")]
+
+    def queryset(self, request: Any, queryset: Any) -> Any:
+        if self.value() == "yes":
+            return queryset.filter(social_accounts__isnull=False).distinct()
+        if self.value() == "no":
+            return queryset.filter(social_accounts__isnull=True)
+        return queryset
+
+
 @admin.register(Lawyer)
 class LawyerAdmin(AdminImportExportMixin, admin.ModelAdmin):  # pragma: no cover
     form = LawyerAdminForm
-    list_display = ("id", "username", "real_name", "phone", "is_admin", "is_active")
+    list_display = ("id", "username", "real_name", "phone", "is_admin", "is_active", "social_bindings")
     search_fields = ("username", "real_name", "phone")
-    list_filter = ("is_admin", "is_active")
-    inlines: ClassVar[list[type[admin.TabularInline]]] = [AccountCredentialInline]  # type: ignore[assignment]
+    list_filter = ("is_admin", "is_active", SocialLoginFilter)
+    inlines: ClassVar[list[type[admin.TabularInline]]] = [AccountCredentialInline, SocialAccountInline]  # type: ignore[assignment]
     export_model_name = "lawyer"
     actions: ClassVar = ["export_selected_as_json", "export_all_as_json"]  # type: ignore[misc]
     fieldsets: ClassVar = (
@@ -141,6 +178,17 @@ class LawyerAdmin(AdminImportExportMixin, admin.ModelAdmin):  # pragma: no cover
         bt = getattr(form, "_pending_biz_team", None)
         obj.lawyer_teams.set([lt] if lt else [])
         obj.biz_teams.set([bt] if bt else [])
+
+    def get_queryset(self, request: Any) -> Any:
+        # 列表页要显示 social_bindings 一列，预先取回绑定关系避免 N+1
+        return super().get_queryset(request).prefetch_related("social_accounts")
+
+    @admin.display(description="扫码登录绑定")
+    def social_bindings(self, obj: Lawyer) -> str:
+        accounts = list(obj.social_accounts.all())
+        if not accounts:
+            return "—"
+        return "、".join(f"{a.provider}:{a.display_name or a.provider_uid[:10]}" for a in accounts)
 
     def get_file_paths(self, queryset: Any) -> list[str]:  # pragma: no cover
         return [str(obj.license_pdf) for obj in queryset if obj.license_pdf]

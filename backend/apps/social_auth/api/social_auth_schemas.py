@@ -36,3 +36,21 @@ class TokenExchangeOut(Schema):
     user_id: int | None = None
     username: str = ""
     message: str = ""
+
+
+class BoundAccountOut(Schema):
+    """当前用户已绑定的一个社交账号，供「个人设置 → 账号绑定」页展示。"""
+
+    provider: str
+    display_name: str
+    avatar_url: str = ""
+    bound_at: str = ""
+
+
+class BoundAccountsOut(Schema):
+    accounts: list[BoundAccountOut]
+
+
+class UnbindOut(Schema):
+    success: bool
+    message: str = ""

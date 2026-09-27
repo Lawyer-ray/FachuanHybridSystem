@@ -1,6 +1,6 @@
 import { Navigate, Route, Routes } from 'react-router'
 import { hasToken } from '@/lib/token'
-import { LoginPage, SocialCallbackPage } from '@/features/auth'
+import { BindingsPage, LoginPage, SocialCallbackPage } from '@/features/auth'
 import { HomePage } from '@/features/home'
 import { DeskPage } from '@/features/material-prep'
 
@@ -38,6 +38,15 @@ export default function App() {
         element={
           <RequireAuth>
             <DeskPage />
+          </RequireAuth>
+        }
+      />
+      {/* 个人设置 · 账号绑定：登录只放行已绑定的社交身份，绑定入口在这里 */}
+      <Route
+        path="/settings/bindings"
+        element={
+          <RequireAuth>
+            <BindingsPage />
           </RequireAuth>
         }
       />

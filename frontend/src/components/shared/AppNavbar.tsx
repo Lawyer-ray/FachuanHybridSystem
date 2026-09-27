@@ -180,7 +180,7 @@ export function AppNavbar({ onNotify, onLogout }: AppNavbarProps) {
             {user?.username || '我的账号'}
           </DropdownMenuLabel>
           <DropdownMenuSeparator />
-          <DropdownMenuItem onClick={() => notify('个人中心正在开发中')}>个人中心</DropdownMenuItem>
+          <DropdownMenuItem onClick={() => navigate('/settings/bindings')}>账号绑定</DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem variant="destructive" onSelect={() => setLogoutOpen(true)}>
             <LogOut className="h-3.5 w-3.5" />

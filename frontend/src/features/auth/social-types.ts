@@ -49,6 +49,11 @@ export type SocialLoginErrorCode =
   | 'network_error'
   | 'missing_code'
   | 'expired_code'
+  // 绑定流程专用：登录只放行已绑定身份，绑定冲突也在这里反馈
+  | 'unbound'
+  | 'not_bound'
+  | 'already_bound'
+  | 'provider_occupied'
 
 export const SOCIAL_LOGIN_ERROR_TEXT: Record<SocialLoginErrorCode, string> = {
   no_session: '登录会话已失效，请重新扫码',
@@ -62,4 +67,8 @@ export const SOCIAL_LOGIN_ERROR_TEXT: Record<SocialLoginErrorCode, string> = {
   network_error: '网络异常，请检查连接后重试',
   missing_code: '回调参数缺失，请重新扫码',
   expired_code: '授权码已过期，请重新扫码',
+  unbound: '该社交账号尚未绑定律师，请先用账号密码登录，再到「账号绑定」完成绑定',
+  not_bound: '绑定失败：登录状态已失效，请重新登录后再绑定',
+  already_bound: '该社交账号已绑定其他律师，请先让其解绑',
+  provider_occupied: '你已绑定该平台的另一个账号，请先解绑再绑定新账号',
 }

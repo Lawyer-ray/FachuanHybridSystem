@@ -1,9 +1,10 @@
 /**
  * 社交登录回调页 — 飞书/微信等授权后由后端 302 到此。
  *
- * URL 形如 /social-callback?code=<TempAuth>&redirect=/material-prep
- * 其中 code 是一次性 UUID（不是 Provider 授权码，那个已在后端回调时用过并作废）。
- * 这里用它在 /token-exchange 换 JWT，然后跳 redirect。
+ * 三种落点，由 query 参数区分：
+ * - `code=<TempAuth>`：登录流程，用一次性码换 JWT 再跳 redirect
+ * - `bound=<provider>`：绑定流程，用户已登录、没有码可换，带标记跳回绑定页
+ * - `error=<code>`：失败，映射成可读文案
  */
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router'
@@ -11,7 +12,7 @@ import { Loader2 } from 'lucide-react'
 import { useAuth } from './store'
 import { socialAuthApi } from './social-api'
 import { SOCIAL_LOGIN_ERROR_TEXT } from './social-types'
-import { resolveCallbackError, sanitizeRedirect } from './social-callback-domain'
+import { resolveCallbackError, sanitizeRedirect, withQuery } from './social-callback-domain'
 
 export function SocialCallbackPage() {
   const navigate = useNavigate()
@@ -26,6 +27,7 @@ export function SocialCallbackPage() {
 
     const params = new URLSearchParams(window.location.search)
     const error = params.get('error')
+    const bound = params.get('bound')
     const code = params.get('code')
     const redirect = sanitizeRedirect(params.get('redirect'))
 
@@ -33,6 +35,13 @@ export function SocialCallbackPage() {
       setMessage(resolveCallbackError(error))
       return
     }
+
+    // 绑定流程：身份已在后端关联到当前用户，这里没有码要换，直接回落地页
+    if (bound) {
+      navigate(withQuery(redirect, { bound }), { replace: true })
+      return
+    }
+
     if (!code) {
       setMessage(SOCIAL_LOGIN_ERROR_TEXT.missing_code)
       return
