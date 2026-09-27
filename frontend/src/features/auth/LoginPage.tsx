@@ -80,7 +80,7 @@ export function LoginPage() {
             )}
 
             <p className="fc-form__legal">
-              仅限授权用户使用。扫码登录需先在「账号绑定」中完成社交身份绑定。
+              仅限授权用户使用。社交登录需先在「账号绑定」中完成身份绑定。
             </p>
           </div>
         </main>

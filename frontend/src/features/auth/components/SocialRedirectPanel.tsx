@@ -7,6 +7,7 @@
 import { useState } from 'react'
 import type { SocialProviderInfo, SocialSession } from '../social-api'
 import { socialAuthApi } from '../social-api'
+import { spacedBrand } from '../social-format'
 
 interface Props {
   provider: SocialProviderInfo
@@ -33,12 +34,12 @@ export function SocialRedirectPanel({ provider, createSession }: Props) {
   return (
     <div className="fc-redirect">
       <button type="button" className="fc-btn" disabled={loading} onClick={() => void start()}>
-        {loading ? '正在跳转…' : `使用${provider.display_name}登录`}
+        {loading ? '正在跳转…' : spacedBrand('使用', provider.display_name, '登录')}
       </button>
       {error ? (
         <p className="fc-hint fc-hint--error">{error}</p>
       ) : (
-        <p className="fc-hint">将跳转到{provider.display_name}完成授权</p>
+        <p className="fc-hint">{spacedBrand('将跳转到', provider.display_name, '完成授权')}</p>
       )}
     </div>
   )
