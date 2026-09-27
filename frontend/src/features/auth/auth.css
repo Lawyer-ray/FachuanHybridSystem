@@ -543,6 +543,22 @@
   color: var(--brass, #c8a45c);
 }
 
+/* 带品牌标的按钮（Google 等）：彩色 logo 必须落在浅底上才看得见
+   （Google 黄 #FBBC05 在黄铜底上对比度约 1.3:1，等于隐形）。
+   直角、内距与主按钮保持一致，只换底色与字色，避免表单里出现两种按钮形状。 */
+.fc-btn--brand {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.625rem;
+  background: #ffffff;
+  color: #1f1f1f;
+}
+
+.fc-btn--brand:hover:not(:disabled) {
+  background: #f1f0ec;
+}
+
 /* ---------- 二维码：必须落在浅色底板上才扫得出来 ---------- */
 .fc-qr {
   display: flex;
