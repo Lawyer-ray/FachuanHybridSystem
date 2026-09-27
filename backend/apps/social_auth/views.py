@@ -1,22 +1,21 @@
 """通用社交登录 Django View — 处理 Provider 授权跳转和回调。
 
-两类入口共用同一套 session 逻辑：
+只有 REDIRECT 型 Provider（微信等）需要整页跳转，走 Django View；
+EMBEDDED_QR 型（飞书）由前端拿 Ninja 下发的授权 URL 渲染二维码，见 api/。
 
-- ``GET  /social/{provider}/login/``    整页跳转（REDIRECT 型 Provider）
-- ``POST /api/v1/social/{provider}/session/``  前端内嵌二维码（EMBEDDED_QR 型）
-  拿 goto URL 后由 JS SDK 在页面内渲染二维码，不跳页。
+这里的授权请求构建逻辑同时被 api/ 复用，因此抽成模块级函数。
 """
 
 from __future__ import annotations
 
-import json
 import logging
 import re
 import secrets
 import time
+from dataclasses import dataclass
 
 from django.conf import settings
-from django.http import HttpRequest, HttpResponse, HttpResponseBadRequest, HttpResponseRedirect
+from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
 from django.shortcuts import redirect
 from django.views import View
 
@@ -37,7 +36,7 @@ _SAFE_REDIRECT_PATTERN = re.compile(r"^/[a-zA-Z0-9/_\-.?=&%+]*$")
 _PROVIDER_ERROR_PARAMS = ("error", "error_code", "error_description", "errmsg")
 
 
-def _sanitize_next_url(next_url: str) -> str:
+def sanitize_next_url(next_url: str | None) -> str:
     """只允许站内相对路径，拒绝 ``//evil.com`` 这类开放重定向。"""
     if not next_url or not _SAFE_REDIRECT_PATTERN.match(next_url) or next_url.startswith("//"):
         return "/"
@@ -49,27 +48,39 @@ def _frontend_callback_url(message: str) -> str:
     return f"{frontend_base}/social-callback?error={message}"
 
 
-def _build_authorization_request(
-    provider: str, next_url: str
-) -> tuple[AuthorizationRequest | None, HttpResponse | None]:
-    """生成授权请求并写入 session。
+@dataclass(frozen=True)
+class AuthorizationSession:
+    """一次成功创建的授权会话。"""
 
-    返回 (request, None) 或 (None, 错误响应)。分离出来是为了让
-    整页跳转视图与 API 视图复用同一段 state 生成逻辑。
+    goto: str
+    state: str
+    auth_request: AuthorizationRequest
+
+
+def build_authorization_session(
+    request: HttpRequest,
+    provider: str,
+    *,
+    next_url: str = "/",
+) -> AuthorizationSession | None:
+    """生成授权 URL 并把 state 写入 session。
+
+    返回 None 表示该登录方式不可用（未注册、未配置、未启用或缺少回调地址）。
+    调用方应把 None 当成「不给用户看细节」的通用失败处理，具体原因记在日志里。
     """
     try:
         provider_cls = ProviderRegistry.get(provider)
         config = ProviderRegistry.get_config(provider)
     except KeyError:
-        return None, HttpResponseBadRequest(f"未知或未启用的登录方式: {provider}")
-
-    instance = provider_cls(config)
+        logger.info("社交登录请求了不可用的 provider: %s", provider)
+        return None
 
     # redirect_uri 用 Provider 配置里的值（SystemConfig 维护），
     # 不回落到当前请求 host——否则后台配的地址与飞书登记的不一致必然 unmatch。
     redirect_uri = config.extra.get("redirect_uri", "")
     if not redirect_uri:
-        return None, HttpResponseBadRequest(f"登录方式 {provider} 未配置回调地址，请联系管理员")
+        logger.warning("社交登录 provider %s 未配置回调地址", provider)
+        return None
 
     auth_request = AuthorizationRequest(
         provider=provider,
@@ -78,7 +89,15 @@ def _build_authorization_request(
         next_url=next_url,
         created_at=time.time(),
     )
-    return auth_request, None
+
+    request.session["oauth"] = auth_request.to_session()
+    request.session.modified = True
+
+    return AuthorizationSession(
+        goto=provider_cls(config).get_authorization_url(auth_request),
+        state=auth_request.state,
+        auth_request=auth_request,
+    )
 
 
 class SocialLoginView(View):
@@ -88,65 +107,22 @@ class SocialLoginView(View):
         if not ProviderRegistry._configs:
             ProviderRegistry.load_configs()
 
-        auth_request, error = _build_authorization_request(
-            provider, _sanitize_next_url(request.GET.get("redirect", "/"))
+        session = build_authorization_session(
+            request,
+            provider,
+            next_url=sanitize_next_url(request.GET.get("redirect")),
         )
-        if error is not None or auth_request is None:
-            return error or HttpResponseBadRequest("登录失败")
+        if session is None:
+            return HttpResponseRedirect(_frontend_callback_url("unknown_provider"))
 
-        request.session["oauth"] = auth_request.to_session()
-        request.session.modified = True
-
-        provider_cls = ProviderRegistry.get(provider)
-        config = ProviderRegistry.get_config(provider)
-        auth_url = provider_cls(config).get_authorization_url(auth_request)
-        return redirect(auth_url)
-
-
-class SocialSessionView(View):
-    """POST /api/v1/social/{provider}/session/ — 为内嵌二维码生成授权 URL。
-
-    前端不跳页，拿到 URL 后交给二维码 SDK 渲染。PUT/DELETE 等一律拒绝。
-    """
-
-    def post(self, request: HttpRequest, provider: str) -> HttpResponse:  # pragma: no cover
-        if not ProviderRegistry._configs:
-            ProviderRegistry.load_configs()
-
-        # 二维码登录同样是登录入口，复用同一套 next_url 安全校验
-        next_url = _sanitize_next_url(request.GET.get("redirect", "/"))
-        auth_request, error = _build_authorization_request(provider, next_url)
-        if error is not None or auth_request is None:
-            return error or HttpResponseBadRequest("登录失败")
-
-        provider_cls = ProviderRegistry.get(provider)
-        config = ProviderRegistry.get_config(provider)
-        instance = provider_cls(config)
-
-        request.session["oauth"] = auth_request.to_session()
-        request.session.modified = True
-
-        return HttpResponse(
-            json.dumps(
-                {
-                    "goto": instance.get_authorization_url(auth_request),
-                    "state": auth_request.state,
-                    "expires_in": STATE_TTL_SECONDS,
-                }
-            ),
-            content_type="application/json",
-        )
+        return redirect(session.goto)
 
 
 class SocialCallbackView(View):
     """GET /social/{provider}/callback/ — 接收 Provider 回调（302 落点）。"""
 
     async def get(self, request: HttpRequest, provider: str) -> HttpResponse:  # pragma: no cover
-        raw = request.session.get("oauth", {})
-        if not raw:
-            return HttpResponseRedirect(_frontend_callback_url("no_session"))
-
-        saved = AuthorizationRequest.from_session(raw)
+        saved = AuthorizationRequest.from_session(request.session.get("oauth", {}))
         if saved is None or saved.provider != provider:
             return HttpResponseRedirect(_frontend_callback_url("invalid_session"))
 

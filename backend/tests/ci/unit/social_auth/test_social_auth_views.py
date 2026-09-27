@@ -5,6 +5,7 @@
 """
 from __future__ import annotations
 
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -172,48 +173,80 @@ class TestWeChatProvider:
         assert profile.display_name == "昵称"
 
 
-class TestCallbackView:
-    """回调视图的 state / 安全分支。"""
+class TestAuthorizationSession:
+    """授权会话构建与 open redirect 防护。"""
 
-    def _factory(self) -> RequestFactory:
-        return RequestFactory()
+    def _request(self) -> Any:
+        rf = RequestFactory()
+        req = rf.post("/api/v1/social/feishu/session", HTTP_HOST="127.0.0.1:8002")
+        # 用真实 SessionStore，验证 modified 标记等行为
+        from django.contrib.sessions.backends.cache import SessionStore
 
-    def test_build_authorization_request_rejects_unknown_provider(self) -> None:
-        from apps.social_auth.views import _build_authorization_request
+        req.session = SessionStore()
+        return req
 
-        request, error = _build_authorization_request("does_not_exist", "/")
-        assert request is None
-        assert error is not None
-        assert error.status_code == 400
+    def test_unknown_provider_returns_none(self) -> None:
+        from apps.social_auth.views import build_authorization_session
 
-    def test_build_authorization_request_requires_redirect_uri(self) -> None:
-        """未配置回调地址必须给可读错误，而不是 KeyError 500。"""
-        from apps.social_auth.views import _build_authorization_request
+        with patch("apps.social_auth.views.ProviderRegistry") as registry:
+            registry.get.side_effect = KeyError("nope")
+            assert build_authorization_session(self._request(), "does_not_exist") is None
 
-        with patch("apps.social_auth.views.ProviderRegistry") as mock_registry:
-            mock_registry.get.return_value = MagicMock()
-            mock_registry.get_config.return_value = ProviderConfig(
+    def test_missing_redirect_uri_returns_none(self) -> None:
+        """未配置回调地址必须安全失败，而不是 KeyError 500。"""
+        from apps.social_auth.views import build_authorization_session
+
+        with patch("apps.social_auth.views.ProviderRegistry") as registry:
+            registry.get.return_value = MagicMock()
+            registry.get_config.return_value = ProviderConfig(
                 name="feishu", display_name="飞书", client_id="cli", client_secret="s", extra={}
             )
-            request, error = _build_authorization_request("feishu", "/")
-        assert request is None
-        assert error is not None
-        assert "回调地址" in error.content.decode()
+            assert build_authorization_session(self._request(), "feishu") is None
+
+    def test_success_writes_session(self) -> None:
+        from apps.social_auth.views import build_authorization_session
+
+        with patch("apps.social_auth.views.ProviderRegistry") as registry:
+            provider_cls = MagicMock()
+            provider_cls.return_value.get_authorization_url.return_value = "https://passport.feishu.cn/x"
+            registry.get.return_value = provider_cls
+            registry.get_config.return_value = ProviderConfig(
+                name="feishu",
+                display_name="飞书",
+                client_id="cli_abc",
+                client_secret="s",
+                extra={"redirect_uri": "http://127.0.0.1:8002/social/feishu/callback/"},
+            )
+            req = self._request()
+            session = build_authorization_session(req, "feishu", next_url="/material-prep")
+
+        assert session is not None
+        assert session.goto == "https://passport.feishu.cn/x"
+        assert session.state
+        # state 必须落 session，回调时才能比对
+        saved = req.session.get("oauth", {})
+        assert saved["state"] == session.state
+        assert saved["provider"] == "feishu"
+        assert saved["next_url"] == "/material-prep"
+        assert saved["redirect_uri"] == "http://127.0.0.1:8002/social/feishu/callback/"
+        # created_at 是 Unix 时间戳，用于回调时判断 state 是否过期
+        assert saved["created_at"] > 0
 
     def test_sanitize_next_url(self) -> None:
-        from apps.social_auth.views import _sanitize_next_url
+        from apps.social_auth.views import sanitize_next_url
 
-        assert _sanitize_next_url("/material-prep") == "/material-prep"
-        assert _sanitize_next_url("/a/b?c=1&d=2") == "/a/b?c=1&d=2"
+        assert sanitize_next_url("/material-prep") == "/material-prep"
+        assert sanitize_next_url("/a/b?c=1&d=2") == "/a/b?c=1&d=2"
 
     def test_sanitize_next_url_blocks_open_redirect(self) -> None:
-        from apps.social_auth.views import _sanitize_next_url
+        from apps.social_auth.views import sanitize_next_url
 
         # 协议相对 URL 会被浏览器当绝对地址，必须拦
-        assert _sanitize_next_url("//evil.com") == "/"
-        assert _sanitize_next_url("https://evil.com") == "/"
-        assert _sanitize_next_url("javascript:alert(1)") == "/"
-        assert _sanitize_next_url("") == "/"
+        assert sanitize_next_url("//evil.com") == "/"
+        assert sanitize_next_url("https://evil.com") == "/"
+        assert sanitize_next_url("javascript:alert(1)") == "/"
+        assert sanitize_next_url("") == "/"
+        assert sanitize_next_url(None) == "/"
 
     def test_frontend_callback_url(self) -> None:
         from apps.social_auth.views import _frontend_callback_url

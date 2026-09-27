@@ -42,6 +42,12 @@ export default defineConfig({
         target: 'http://127.0.0.1:8002',
         changeOrigin: true,
       },
+      // 社交登录：授权页/回调走 Django View，需与后端同源才能带 session cookie
+      // （state 存 session，跨域下 SameSite=Lax 不发送，回调会报 invalid_session）
+      '/social': {
+        target: 'http://127.0.0.1:8002',
+        changeOrigin: true,
+      },
     },
   },
   build: {

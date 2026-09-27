@@ -1,9 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { Eye, EyeOff, Loader2, Lock, User } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useAuth } from './store'
+import { socialAuthApi, type SocialProviderInfo } from './social-api'
+import { SocialQrPanel } from './components/SocialQrPanel'
 
 export function LoginPage() {
   const login = useAuth((s) => s.login)
@@ -14,10 +16,27 @@ export function LoginPage() {
   const [show, setShow] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  // 内嵌二维码登录方式（如飞书）。没有配置时该区块整体隐藏，不影响账密登录
+  const [qrProvider, setQrProvider] = useState<SocialProviderInfo | null>(null)
 
   useEffect(() => {
     init()
   }, [init])
+
+  useEffect(() => {
+    let alive = true
+    void socialAuthApi.listProviders().then((list) => {
+      if (!alive) return
+      setQrProvider(list.find((p) => p.login_mode === 'embedded_qr') ?? null)
+    })
+    return () => {
+      alive = false
+    }
+  }, [])
+
+  const onSocialError = useCallback((message: string) => {
+    setError(message)
+  }, [])
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -47,6 +66,8 @@ export function LoginPage() {
         </div>
 
         <div className="rounded-2xl border bg-card p-6 shadow-sm">
+          {qrProvider && <SocialQrPanel provider={qrProvider} onError={onSocialError} />}
+
           <form onSubmit={submit} className="space-y-3">
             <div className="relative">
               <User className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />

@@ -43,10 +43,14 @@ async def link_or_create_user(profile: SocialProfile) -> Lawyer:  # pragma: no c
     3. 创建 SocialAccount 关联记录
     """
     async with transaction.atomic():  # type: ignore[attr-defined]
-        existing = await SocialAccount.objects.select_related("user").filter(
-            provider=profile.provider,
-            provider_uid=profile.provider_user_id,
-        ).afirst()
+        existing = (
+            await SocialAccount.objects.select_related("user")
+            .filter(
+                provider=profile.provider,
+                provider_uid=profile.provider_user_id,
+            )
+            .afirst()
+        )
         if existing:
             if profile.display_name:
                 existing.display_name = profile.display_name

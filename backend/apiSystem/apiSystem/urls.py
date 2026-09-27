@@ -15,7 +15,7 @@ from django.shortcuts import render
 from django.urls import include, path
 
 from apps.organization.views import register
-from apps.social_auth.views import SocialCallbackView, SocialLoginView, SocialSessionView
+from apps.social_auth.views import SocialCallbackView, SocialLoginView
 
 # Admin 界面自定义（侧边栏排序、Hub 页、工具收藏等）
 # 导入即执行 monkey-patch，无需额外调用
@@ -70,8 +70,6 @@ urlpatterns = [
     # 社交登录（放在 api/v1/ 之前，避免被 Ninja 路由匹配）
     path("social/<str:provider>/login/", SocialLoginView.as_view(), name="social_login"),
     path("social/<str:provider>/callback/", SocialCallbackView.as_view(), name="social_callback"),
-    # 内嵌二维码登录：前端拿授权 URL 后交给 JS SDK 渲染，不跳页
-    path("api/v1/social/<str:provider>/session/", SocialSessionView.as_view(), name="social_session"),
     path("api/v1/", api_v1.urls),
     path("api/", api_redirect),
     path("favicon.ico", favicon_view, name="favicon"),

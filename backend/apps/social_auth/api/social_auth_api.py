@@ -1,4 +1,10 @@
-"""社交登录 API 端点 — 供前端 SPA 调用。"""
+"""社交登录 API 端点 — 供前端 SPA 调用。
+
+全部走 Ninja（而非 Django View）：Ninja 的 operation 默认 csrf_exempt，
+与 /social/providers、/social/token-exchange 行为一致。若混用 Django View，
+同一个 /api/v1/social 前缀下会出现「有的要 CSRF token、有的不要」的分裂，
+前端难以统一处理。
+"""
 
 from __future__ import annotations
 
@@ -10,8 +16,16 @@ from ninja import Router
 from apps.core.infrastructure.throttling import rate_limit_from_settings
 from apps.social_auth.models import TempAuth
 from apps.social_auth.providers import ProviderRegistry
+from apps.social_auth.views import STATE_TTL_SECONDS, build_authorization_session, sanitize_next_url
 
-from .social_auth_schemas import ProviderOut, ProvidersListOut, TokenExchangeIn, TokenExchangeOut
+from .social_auth_schemas import (
+    ProviderOut,
+    ProvidersListOut,
+    SessionCreateIn,
+    SessionOut,
+    TokenExchangeIn,
+    TokenExchangeOut,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +51,33 @@ def list_providers(request: HttpRequest) -> ProvidersListOut:  # pragma: no cove
             )
         )
     return ProvidersListOut(providers=providers)
+
+
+@router.post("/{provider}/session", response=SessionOut, auth=None)
+@rate_limit_from_settings("AUTH")
+def create_session(request: HttpRequest, provider: str, payload: SessionCreateIn) -> SessionOut:  # pragma: no cover
+    """为内嵌二维码登录生成授权 URL。
+
+    前端拿到 goto 后交给 JS SDK 渲染二维码，不跳页；扫码后由前端拼上 tmp_code
+    再整页导航到 goto，飞书 302 打回 redirect_uri 完成授权。
+    """
+    if not ProviderRegistry._configs:
+        ProviderRegistry.load_configs()
+
+    session = build_authorization_session(
+        request,
+        provider,
+        next_url=sanitize_next_url(payload.redirect or "/"),
+    )
+    if session is None:
+        return SessionOut(success=False, message="该登录方式暂不可用，请刷新页面后重试")
+
+    return SessionOut(
+        success=True,
+        goto=session.goto,
+        state=session.state,
+        expires_in=STATE_TTL_SECONDS,
+    )
 
 
 @router.post("/token-exchange", response=TokenExchangeOut, auth=None)

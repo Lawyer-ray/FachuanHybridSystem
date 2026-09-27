@@ -4,4 +4,7 @@
  */
 
 export { LoginPage } from './LoginPage'
+export { SocialCallbackPage } from './SocialCallbackPage'
 export { useAuth } from './store'
+export { socialAuthApi } from './social-api'
+export type { LoginMode, SocialProvider, SocialSession, SocialLoginErrorCode } from './social-types'
