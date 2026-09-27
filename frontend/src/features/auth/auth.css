@@ -648,12 +648,206 @@
   opacity: 0.55;
 }
 
+/* ---------- 品牌栏顶部元信息带（填眉头下空白） ---------- */
+.fc-brand__head-block {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.fc-brand__meta {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--rule-soft);
+  font-family: var(--mono);
+  font-size: 0.625rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--bone-faint);
+}
+
+.fc-brand__meta-item {
+  color: var(--bone-dim);
+}
+
+.fc-brand__meta-sep {
+  color: var(--brass);
+  opacity: 0.55;
+}
+
+/* ---------- 编辑部引言：杂志风的核心「重型」装饰 ---------- */
+.fc-pullquote {
+  max-width: 28rem;
+  margin: 2.5rem 0 0;
+}
+
+.fc-pullquote blockquote {
+  margin: 0;
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 1.1875rem;
+  line-height: 1.55;
+  color: var(--bone);
+}
+
+.fc-pullquote__mark {
+  display: block;
+  margin-bottom: 0.375rem;
+  font-family: var(--serif);
+  font-size: 2.75rem;
+  line-height: 0.8;
+  color: var(--brass);
+  opacity: 0.8;
+}
+
+.fc-pullquote figcaption {
+  margin-top: 0.875rem;
+  font-family: var(--mono);
+  font-size: 0.625rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--bone-faint);
+}
+
+/* 矮视口下品牌栏纵向放不下，引言是装饰里最重的，优先让位 */
+@media (max-height: 760px) {
+  .fc-pullquote {
+    display: none;
+  }
+}
+
+/* ---------- 索引条升级：编号 + 标题 + 一行描述 ---------- */
+.fc-index__desc {
+  display: block;
+  margin-top: 0.5rem;
+  font-size: 0.6875rem;
+  line-height: 1.7;
+  letter-spacing: 0.02em;
+  color: var(--bone-faint);
+}
+
+/* ---------- 表单栏：顶部章节带（填表单上方空白） ---------- */
+.fc-form__topband,
+.fc-form__botband {
+  position: relative;
+  z-index: 2;
+  display: none;
+  align-items: center;
+  justify-content: space-between;
+  font-family: var(--mono);
+  font-size: 0.625rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--bone-faint);
+}
+
+.fc-form__topband {
+  padding-bottom: 1.5rem;
+  margin-bottom: 2rem;
+  border-bottom: 1px solid var(--rule);
+}
+
+.fc-form__botband {
+  padding-top: 1.5rem;
+  margin-top: 2rem;
+  border-top: 1px solid var(--rule);
+}
+
+/* 章节带两侧文字必须各占一行，整体保持编辑节奏 */
+.fc-form__chapter,
+.fc-form__status,
+.fc-form__caption,
+.fc-form__version {
+  flex: none;
+  white-space: nowrap;
+}
+
+@media (min-width: 1280px) {
+  .fc-form__topband,
+  .fc-form__botband {
+    display: flex;
+  }
+}
+
+.fc-form__status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--bone-dim);
+}
+
+.fc-form__dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: #8db87f;
+  box-shadow: 0 0 8px rgba(141, 184, 127, 0.5);
+  animation: fc-pulse 2.6s ease-in-out infinite;
+}
+
+@keyframes fc-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+/* ---------- 表单栏：背景水印（杂志封面式大幅品牌字符） ---------- */
+.fc-form__watermark {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 0;
+  display: none;
+  pointer-events: none;
+  user-select: none;
+  font-family: var(--serif);
+  font-weight: 700;
+  font-size: clamp(14rem, 22vw, 26rem);
+  line-height: 1;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+  color: var(--brass);
+  opacity: 0.04;
+  transform: translate(-50%, -50%);
+}
+
+@media (min-width: 1024px) {
+  .fc-form__watermark {
+    display: block;
+  }
+}
+
+/* 表单中央容器：竖直居中、浮在水印之上 */
+.fc-form__middle {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  position: relative;
+  z-index: 1;
+}
+
+.fc-form__inner {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 22.5rem;
+  margin: 0 auto;
+}
+
 /* ---------- 降低动效偏好 ---------- */
 @media (prefers-reduced-motion: reduce) {
   .fc-grain,
   .fc-display__accent,
   .fc-tab--on::after,
-  .fc-ticker__track {
+  .fc-ticker__track,
+  .fc-form__dot {
     animation: none !important;
   }
 
