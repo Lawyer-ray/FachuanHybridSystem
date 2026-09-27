@@ -583,13 +583,21 @@ class TestRegisteredProviders:
         assert WeChatProvider.login_mode == LoginMode.REDIRECT
 
     def test_feishu_uses_multi_host_endpoints(self) -> None:
+        """飞书的接口散在三个域名下，不能假设只有一个 BASE_URL。
+
+        断言比 urlparse 的 hostname 而不是 startswith —— 后者会把
+        ``https://passport.feishu.cn.evil.example`` 也判为通过
+        （CodeQL 的 incomplete-url-substring-sanitization 规则会报这一点）。
+        """
+        from urllib.parse import urlparse
+
         from apps.social_auth.providers.feishu import FeishuProvider
 
         endpoints = FeishuProvider.ENDPOINTS
         # 授权页走旧域名（二维码 SDK 只支持旧流程），token 走 v3 域名
-        assert endpoints["authorize"].startswith("https://passport.feishu.cn")
+        assert urlparse(endpoints["authorize"]).hostname == "passport.feishu.cn"
         assert endpoints["token"] == "https://accounts.feishu.cn/oauth/v3/token"
-        assert endpoints["user_info"].startswith("https://open.feishu.cn")
+        assert urlparse(endpoints["user_info"]).hostname == "open.feishu.cn"
 
     def test_feishu_client_config_hides_secret(self) -> None:
         from apps.social_auth.providers.feishu import FeishuProvider

@@ -55,6 +55,19 @@ def sanitize_next_url(next_url: str | None) -> str:
     return next_url
 
 
+# provider 直接取自 URL 路径，属用户可控。不转义时攻击者可以塞入 \n 在日志里
+# 伪造额外行（log injection）；CodeQL 的 py/log-injection 规则也会报这一点。
+_LOG_UNSAFE_CHARS = str.maketrans({"\n": "\\n", "\r": "\\r", "\t": "\\t"})
+
+
+def safe_for_log(value: object) -> str:
+    """转义日志值里的换行与制表符。
+
+    只转义、不截断——日志仍保留完整内容，排查时不丢信息。
+    """
+    return str(value).translate(_LOG_UNSAFE_CHARS)
+
+
 def _frontend_redirect_url(next_url: str, **params: str) -> str:
     """拼出跳回前端 ``/social-callback`` 的 URL，附带任意查询参数。"""
     frontend_base = getattr(settings, "FRONTEND_BASE_URL", "http://localhost:5090")
@@ -94,14 +107,14 @@ def build_authorization_session(
         provider_cls = ProviderRegistry.get(provider)
         config = ProviderRegistry.get_config(provider)
     except KeyError:
-        logger.info("社交登录请求了不可用的 provider: %s", provider)
+        logger.info("社交登录请求了不可用的 provider: %s", safe_for_log(provider))
         return None
 
     # redirect_uri 用 Provider 配置里的值（SystemConfig 维护），
     # 不回落到当前请求 host——否则后台配的地址与飞书登记的不一致必然 unmatch。
     redirect_uri = config.extra.get("redirect_uri", "")
     if not redirect_uri:
-        logger.warning("社交登录 provider %s 未配置回调地址", provider)
+        logger.warning("社交登录 provider %s 未配置回调地址", safe_for_log(provider))
         return None
 
     extra: dict[str, str] = {}
@@ -180,7 +193,7 @@ class SocialCallbackView(View):
             token_response = await instance.aexchange_code(code, saved)
             profile = await instance.aget_profile(token_response)
         except Exception as exc:
-            logger.warning("Social auth failed for %s: %s", provider, exc)
+            logger.warning("Social auth failed for %s: %s", safe_for_log(provider), safe_for_log(exc))
             return HttpResponseRedirect(_frontend_callback_url("exchange_failed"))
 
         bind_user_id_raw = saved.extra.get(_BIND_USER_ID_KEY, "")
@@ -203,7 +216,7 @@ class SocialCallbackView(View):
             except SocialAccountProviderOccupiedError:
                 return HttpResponseRedirect(_frontend_redirect_url(saved.next_url, error="provider_occupied"))
             except Exception as exc:
-                logger.warning("Social bind failed for %s: %s", provider, exc)
+                logger.warning("Social bind failed for %s: %s", safe_for_log(provider), safe_for_log(exc))
                 return HttpResponseRedirect(_frontend_redirect_url(saved.next_url, error="exchange_failed"))
 
             return HttpResponseRedirect(_frontend_redirect_url(saved.next_url, bound=provider))
@@ -215,7 +228,7 @@ class SocialCallbackView(View):
         except SocialAccountNotBoundError:
             return HttpResponseRedirect(_frontend_redirect_url(saved.next_url, error="unbound"))
         except Exception as exc:
-            logger.warning("Social auth failed for %s: %s", provider, exc)
+            logger.warning("Social auth failed for %s: %s", safe_for_log(provider), safe_for_log(exc))
             return HttpResponseRedirect(_frontend_callback_url("exchange_failed"))
 
         temp = await TempAuth.objects.acreate(user=user)
