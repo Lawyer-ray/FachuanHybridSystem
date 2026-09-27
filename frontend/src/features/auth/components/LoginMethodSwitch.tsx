@@ -25,7 +25,7 @@ export function LoginMethodSwitch({ methods, activeId, onChange }: Props) {
             aria-selected={active}
             onClick={() => onChange(method.id)}
             className={`flex-1 cursor-pointer rounded-[7px] px-2 py-[7px] text-[12.5px] font-medium whitespace-nowrap transition-colors ${
-              active ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+              active ? 'au-tab-active' : 'text-muted-foreground hover:text-foreground'
             }`}
           >
             {method.label}

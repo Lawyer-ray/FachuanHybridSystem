@@ -7,6 +7,7 @@
  */
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router'
+import './auth.css'
 import { useAuth } from './store'
 import { socialAuthApi } from './social-api'
 import { buildLoginMethods, PASSWORD_METHOD_ID, type LoginMethod } from './login-methods'
@@ -40,11 +41,11 @@ export function LoginPage() {
   const active = methods.find((m) => m.id === activeId) ?? methods[0]
 
   return (
-    <div className="flex min-h-screen bg-background">
+    <div className="relative flex min-h-screen bg-background">
       <LoginBrandPanel />
 
-      <div className="flex flex-1 items-center justify-center px-4 py-10">
-        <div className="w-full max-w-[380px]">
+      <div className="au-wash flex flex-1 items-center justify-center px-4 py-10">
+        <div className="au-rise w-full max-w-[380px]">
           {/* 窄屏没有左栏，品牌信息在卡片上方补一份 */}
           <div className="mb-6 text-center lg:hidden">
             <h1 className="text-[19px] font-semibold tracking-tight">
@@ -53,7 +54,7 @@ export function LoginPage() {
             <p className="mt-1 text-[12.5px] text-muted-foreground">一站式律师办案协同平台</p>
           </div>
 
-          <div className="rounded-2xl border bg-card p-6 shadow-sm">
+          <div className="au-glass rounded-2xl p-6">
             {methods.length > 1 && (
               <LoginMethodSwitch methods={methods} activeId={active.id} onChange={setActiveId} />
             )}
