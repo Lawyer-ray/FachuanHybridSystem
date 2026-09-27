@@ -559,8 +559,11 @@
   background: #f1f0ec;
 }
 
-/* ---------- 二维码：必须落在浅色底板上才扫得出来 ---------- */
+/* ---------- 二维码：编辑风框选 + 章节带 + 双行指引 ---------- */
 .fc-qr {
+  /* 共享宽度：底板 + 角标 + 章节带都按这个对齐 */
+  --fc-qr-w: 18.75rem;
+
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -568,14 +571,165 @@
   margin-top: 2rem;
 }
 
+/* 章节带：上下两条，与表单栏章节带同款节奏 */
+.fc-qr__band {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  max-width: var(--fc-qr-w);
+  font-family: var(--mono);
+  font-size: 0.625rem;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--bone-faint);
+}
+
+.fc-qr__band--top {
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--rule);
+}
+
+.fc-qr__band--bottom {
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--rule);
+}
+
+.fc-qr__band-label {
+  color: var(--bone-dim);
+}
+
+.fc-qr__band-status,
+.fc-qr__band-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--bone-dim);
+}
+
+.fc-qr__band-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: #8db87f;
+  box-shadow: 0 0 8px rgba(141, 184, 127, 0.5);
+  animation: fc-pulse 2.6s ease-in-out infinite;
+}
+
+/* 框选层：黄铜 L 形角标 */
+.fc-qr__frame {
+  position: relative;
+  width: 100%;
+  max-width: var(--fc-qr-w);
+  padding: 1.125rem;
+}
+
+.fc-qr__corner {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  pointer-events: none;
+}
+
+.fc-qr__corner::before,
+.fc-qr__corner::after {
+  content: '';
+  position: absolute;
+  background: var(--brass);
+}
+
+.fc-qr__corner::before {
+  width: 100%;
+  height: 1.5px;
+}
+
+.fc-qr__corner::after {
+  width: 1.5px;
+  height: 100%;
+}
+
+.fc-qr__corner--tl {
+  top: 0;
+  left: 0;
+}
+.fc-qr__corner--tl::before {
+  top: 0;
+  left: 0;
+}
+.fc-qr__corner--tl::after {
+  top: 0;
+  left: 0;
+}
+
+.fc-qr__corner--tr {
+  top: 0;
+  right: 0;
+}
+.fc-qr__corner--tr::before {
+  top: 0;
+  right: 0;
+}
+.fc-qr__corner--tr::after {
+  top: 0;
+  right: 0;
+}
+
+.fc-qr__corner--bl {
+  bottom: 0;
+  left: 0;
+}
+.fc-qr__corner--bl::before {
+  bottom: 0;
+  left: 0;
+}
+.fc-qr__corner--bl::after {
+  bottom: 0;
+  left: 0;
+}
+
+.fc-qr__corner--br {
+  bottom: 0;
+  right: 0;
+}
+.fc-qr__corner--br::before {
+  bottom: 0;
+  right: 0;
+}
+.fc-qr__corner--br::after {
+  bottom: 0;
+  right: 0;
+}
+
+/* 底板：必须落在浅色面上才扫得出来，深色画布上不能直接放 */
 .fc-qr__plate {
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 1rem;
-  border-radius: 2px;
   background: #f4f1ea;
   line-height: 0;
+}
+
+/* 双行指引：第一行亮、名字黄铜高亮，副行小一号且更暗 */
+.fc-qr__guide {
+  width: 100%;
+  max-width: var(--fc-qr-w);
+  margin-top: 0.25rem;
+  text-align: center;
+  font-size: 0.8125rem;
+  line-height: 1.65;
+  color: var(--bone);
+}
+
+.fc-qr__guide strong {
+  color: var(--brass);
+  font-weight: 600;
+}
+
+.fc-qr__guide-sub {
+  margin-top: 0.25rem;
+  font-size: 0.6875rem;
+  color: var(--bone-faint);
 }
 
 .fc-redirect {
@@ -847,7 +1001,8 @@
   .fc-display__accent,
   .fc-tab--on::after,
   .fc-ticker__track,
-  .fc-form__dot {
+  .fc-form__dot,
+  .fc-qr__band-dot {
     animation: none !important;
   }
 

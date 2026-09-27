@@ -169,27 +169,56 @@ export function SocialQrPanel({ provider, onError, createSession, containerId = 
 
   return (
     <div className="fc-qr">
-      {/* 二维码必须落在浅色底板上才扫得出来，深色画布上不能直接放 */}
-      <div className="fc-qr__plate">
-        {/* 二维码挂载点：id 供 QRLogin 使用。
-            注意：容器内部完全交给飞书 SDK 的 innerHTML 操作，React 不得在其内部渲染
-            任何子节点——否则 SDK 清空容器后，React 再尝试卸载自己渲染的旧节点时会
-            因为该节点已被直接移除而抛出 removeChild NotFoundError，导致整棵树崩溃、
-            页面白屏（这里没有 Error Boundary 兜底）。加载态改为绝对定位的同级元素。 */}
-        <div className="relative flex min-h-[168px] min-w-[168px] items-center justify-center">
-          <div
-            id={containerId}
-            ref={containerRef}
-            className="flex min-h-[168px] min-w-[168px] items-center justify-center"
-            aria-label={`${provider.display_name}扫码登录`}
-          />
-          {state === 'loading' && (
-            <Loader2 className="absolute size-5 animate-spin text-[#8b8578]" />
-          )}
+      {/* 顶部章节带：与表单栏节奏对齐，给二维码一个「开始扫描」的起点 */}
+      <div className="fc-qr__band fc-qr__band--top">
+        <span className="fc-qr__band-label">§ 02.01 · SCAN</span>
+        <span className="fc-qr__band-status">
+          <span aria-hidden className="fc-qr__band-dot" />
+          READY
+        </span>
+      </div>
+
+      {/* 框选层：黄铜 L 形角标落在浅色底板外沿，编辑风的「扫描区」 */}
+      <div className="fc-qr__frame">
+        <span aria-hidden className="fc-qr__corner fc-qr__corner--tl" />
+        <span aria-hidden className="fc-qr__corner fc-qr__corner--tr" />
+        <span aria-hidden className="fc-qr__corner fc-qr__corner--bl" />
+        <span aria-hidden className="fc-qr__corner fc-qr__corner--br" />
+
+        <div className="fc-qr__plate">
+          {/* 二维码挂载点：id 供 QRLogin 使用。
+              注意：容器内部完全交给飞书 SDK 的 innerHTML 操作，React 不得在其内部渲染
+              任何子节点——否则 SDK 清空容器后，React 再尝试卸载自己渲染的旧节点时会
+              因为该节点已被直接移除而抛出 removeChild NotFoundError，导致整棵树崩溃、
+              页面白屏（这里没有 Error Boundary 兜底）。加载态改为绝对定位的同级元素。 */}
+          <div className="relative flex min-h-[168px] min-w-[168px] items-center justify-center">
+            <div
+              id={containerId}
+              ref={containerRef}
+              className="flex min-h-[168px] min-w-[168px] items-center justify-center"
+              aria-label={`${provider.display_name}扫码登录`}
+            />
+            {state === 'loading' && (
+              <Loader2 className="absolute size-5 animate-spin text-[#8b8578]" />
+            )}
+          </div>
         </div>
       </div>
+
+      {/* 底部章节带：标识「谁在登录」 */}
+      <div className="fc-qr__band fc-qr__band--bottom">
+        <span className="fc-qr__band-label">{provider.display_name} · 二维码</span>
+        <span className="fc-qr__band-meta">SCAN TO LOGIN</span>
+      </div>
+
+      {/* 双行指引：第一行亮，名字黄铜；副行小一号且暗 */}
       {state === 'ready' && (
-        <p className="fc-hint">打开 {provider.display_name} 扫一扫登录</p>
+        <div className="fc-qr__guide">
+          <p>
+            打开 <strong>{provider.display_name}</strong> APP 扫一扫
+          </p>
+          <p className="fc-qr__guide-sub">在手机上确认后即完成登录</p>
+        </div>
       )}
     </div>
   )
