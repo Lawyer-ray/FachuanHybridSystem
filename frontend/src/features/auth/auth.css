@@ -9,19 +9,22 @@
    ============================================================ */
 
 .fc-auth {
-  /* 画布 */
-  --ink: #0b0b0c;
-  --ink-2: #101013;
-  /* 文字：暖白，比纯白更有「纸感」 */
-  --bone: #edeae4;
-  --bone-dim: rgb(237 234 228 / 0.56);
-  --bone-faint: rgb(237 234 228 / 0.3);
-  /* 分割线 */
-  --rule: rgb(237 234 228 / 0.14);
-  --rule-soft: rgb(237 234 228 / 0.07);
-  /* 唯一强调色：黄铜（律所的老派质感，非霓虹） */
-  --brass: #c8a45c;
-  --brass-hi: #e6d19b;
+  /* 画布：不再用近黑（#0b0b0c 的大面积近黑会显得昏暗压抑）。提到深灰，并让
+     表单栏明显亮一档 —— 原来两者只差 5%，双栏根本看不出层次，整页糊成一团。 */
+  --ink: #16161a;
+  --ink-2: #1e1e23;
+  /* 文字：暖白，比纯白更有「纸感」。
+     次要层级不再靠压低不透明度实现：0.3 的白在深底上对比度只有约 2:1
+     （WCAG AA 要求 4.5:1），小标签与说明文字会灰得看不清。 */
+  --bone: #f0ede7;
+  --bone-dim: rgb(240 237 231 / 0.7);
+  --bone-faint: rgb(240 237 231 / 0.5);
+  /* 分割线：底色提亮后同步调高，否则结构线会消失 */
+  --rule: rgb(240 237 231 / 0.18);
+  --rule-soft: rgb(240 237 231 / 0.13);
+  /* 唯一强调色：黄铜（律所的老派质感，非霓虹）。随底色一起微调，避免发闷 */
+  --brass: #d4b06a;
+  --brass-hi: #eeddae;
   /* 仅用于「接缝」的次要色，制造克制的色彩流动 */
   --jade: #6e8f7e;
   --alert: #e0796f;
@@ -480,7 +483,7 @@
   padding: 1rem 1.25rem;
   border: 0;
   border-radius: 2px;
-  background: var(--brass, #c8a45c);
+  background: var(--brass, #d4b06a);
   color: #141210;
   cursor: pointer;
   font-family: inherit;
@@ -505,7 +508,7 @@
 }
 
 .fc-btn:hover:not(:disabled) {
-  background: var(--brass-hi, #e6d19b);
+  background: var(--brass-hi, #eeddae);
 }
 
 .fc-btn:hover:not(:disabled)::after {
@@ -538,9 +541,9 @@
 }
 
 .fc-btn--ghost:hover:not(:disabled) {
-  border-color: var(--brass, #c8a45c);
+  border-color: var(--brass, #d4b06a);
   background: transparent;
-  color: var(--brass, #c8a45c);
+  color: var(--brass, #d4b06a);
 }
 
 /* 带品牌标的按钮（Google 等）：彩色 logo 必须落在浅底上才看得见
@@ -882,64 +885,10 @@
   color: var(--bone-faint);
 }
 
-/* ---------- 表单栏：顶部章节带（填表单上方空白） ---------- */
-.fc-form__topband,
-.fc-form__botband {
-  position: relative;
-  z-index: 2;
-  display: none;
-  align-items: center;
-  justify-content: space-between;
-  font-family: var(--mono);
-  font-size: 0.625rem;
-  letter-spacing: 0.22em;
-  text-transform: uppercase;
-  color: var(--bone-faint);
-}
-
-.fc-form__topband {
-  padding-bottom: 1.5rem;
-  margin-bottom: 2rem;
-  border-bottom: 1px solid var(--rule);
-}
-
-.fc-form__botband {
-  padding-top: 1.5rem;
-  margin-top: 2rem;
-  border-top: 1px solid var(--rule);
-}
-
-/* 章节带两侧文字必须各占一行，整体保持编辑节奏 */
-.fc-form__chapter,
-.fc-form__status,
-.fc-form__caption,
-.fc-form__version {
-  flex: none;
-  white-space: nowrap;
-}
-
-@media (min-width: 1280px) {
-  .fc-form__topband,
-  .fc-form__botband {
-    display: flex;
-  }
-}
-
-.fc-form__status {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-  color: var(--bone-dim);
-}
-
-.fc-form__dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 999px;
-  background: #8db87f;
-  box-shadow: 0 0 8px rgba(141, 184, 127, 0.5);
-  animation: fc-pulse 2.6s ease-in-out infinite;
-}
+/* ---------- 表单栏章节带（已移除） ---------- */
+/* 原先表单上方 § 02 · ACCESS / ONLINE、下方 MEMBER LOGIN / v 2026.09.27
+   两条章节带用于填留白，但用户反馈「输入框之后放这些不干净」，已删除。
+   表单栏现在只留居中内容，节奏由 grain 颗粒 + 底部 ticker + 接缝撑住。 */
 
 @keyframes fc-pulse {
   0%,
@@ -951,61 +900,10 @@
   }
 }
 
-/* ---------- 表单栏：背景水印（杂志封面式大幅品牌字符） ---------- */
-.fc-form__watermark {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  z-index: 0;
-  display: none;
-  pointer-events: none;
-  user-select: none;
-  font-family: var(--serif);
-  font-weight: 700;
-  font-size: clamp(14rem, 22vw, 26rem);
-  line-height: 1;
-  letter-spacing: 0.05em;
-  white-space: nowrap;
-  color: var(--brass);
-  opacity: 0;
-  transform: translate(-50%, -50%);
-  animation:
-    fc-watermark-fade 1.4s ease-out 0.6s forwards,
-    fc-watermark-drift 24s ease-in-out 2s infinite;
-}
-
-@media (min-width: 1024px) {
-  .fc-form__watermark {
-    display: block;
-  }
-}
-
-/* 漂移：上下左右 30px 内慢慢呼吸，避免视觉死板 */
-@keyframes fc-watermark-drift {
-  0%,
-  100% {
-    transform: translate(-50%, -50%);
-  }
-  25% {
-    transform: translate(calc(-50% + 26px), calc(-50% - 10px));
-  }
-  50% {
-    transform: translate(-50%, calc(-50% - 16px));
-  }
-  75% {
-    transform: translate(calc(-50% - 26px), calc(-50% - 10px));
-  }
-}
-
-/* 水印的进场淡入到 0.04（不能用 fc-enter-fade，那个到 1） */
-@keyframes fc-watermark-fade {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 0.04;
-  }
-}
+/* ---------- 表单栏：右侧无大字水印，避开与表单内容争视觉 ---------- */
+/* 此前在 .fc-form 内居中放大幅衬线字符「法穿」，但与表单字段 / 章节带
+   重叠严重，深色画布下笔画粗、4% 透明度仍显得「乱」。
+   删掉后改由上下章节带 + grain 颗粒 + ticker 撑住节奏，不再补装饰。 */
 
 /* 表单中央容器：竖直居中、浮在水印之上 */
 .fc-form__middle {
