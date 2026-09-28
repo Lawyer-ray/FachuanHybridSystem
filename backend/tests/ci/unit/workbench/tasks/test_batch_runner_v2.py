@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import concurrent.futures
 import time
-from unittest.mock import MagicMock, patch, AsyncMock
+from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
 import pytest
@@ -95,8 +95,8 @@ class TestSyncLlmChat:
             mock_llm.chat.assert_called_once()
 
     def test_retryable_error_retries(self):
-        from apps.workbench.tasks.batch_runner import _sync_llm_chat
         from apps.core.llm.exceptions import LLMTimeoutError
+        from apps.workbench.tasks.batch_runner import _sync_llm_chat
 
         mock_llm = MagicMock()
         mock_llm.chat.side_effect = [
@@ -135,8 +135,8 @@ class TestSyncLlmChat:
                 )
 
     def test_all_retries_exhausted(self):
-        from apps.workbench.tasks.batch_runner import _sync_llm_chat
         from apps.core.llm.exceptions import LLMTimeoutError
+        from apps.workbench.tasks.batch_runner import _sync_llm_chat
 
         mock_llm = MagicMock()
         mock_llm.chat.side_effect = LLMTimeoutError("always timeout")
@@ -394,7 +394,10 @@ class TestRunBatchAsync:
             MockJob.DoesNotExist = type("DoesNotExist", (Exception,), {})
 
             with patch(f"{_MOD}.BatchJobItem") as MockItem:
-                MockItem.objects.filter.return_value.__aiter__ = MagicMock(return_value=iter([]))
+                # __aiter__ 必须用内建魔法的文档式配置；替换成
+                # MagicMock(return_value=iter([])) 的话返回的是同步 list_iterator，
+                # async for 一进循环就 TypeError，把用例整个带偏到异常分支
+                MockItem.objects.filter.return_value.__aiter__.return_value = []
 
                 with patch(f"{_MOD}.task_registry") as mock_registry:
                     with patch(f"{_MOD}.DocTextExtractor") as MockExtractor:
@@ -455,7 +458,10 @@ class TestRunBatchRetryAsync:
             MockJob.objects.filter.return_value.__aiter__ = MagicMock(return_value=iter([]))
 
             with patch(f"{_MOD}.BatchJobItem") as MockItem:
-                MockItem.objects.filter.return_value.__aiter__ = MagicMock(return_value=iter([]))
+                # __aiter__ 必须用内建魔法的文档式配置；替换成
+                # MagicMock(return_value=iter([])) 的话返回的是同步 list_iterator，
+                # async for 一进循环就 TypeError，把用例整个带偏到异常分支
+                MockItem.objects.filter.return_value.__aiter__.return_value = []
 
                 with patch(f"{_MOD}.DocTextExtractor") as MockExtractor:
                     MockExtractor.return_value.cleanup = MagicMock()
