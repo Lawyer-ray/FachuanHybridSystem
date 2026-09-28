@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { FileText, Loader2, TriangleAlert } from 'lucide-react'
+import { ExternalLink, FileText, Loader2, TriangleAlert } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { confirmDates, revokeDate } from '../api'
-import { rowsFromTask, selectedPendingRows, selectedTextRows, type CandidateRow } from '../domain'
+import { resolveMediaUrl, rowsFromTask, selectedPendingRows, selectedTextRows, type CandidateRow } from '../domain'
 import { useRecognize } from '../hooks/use-recognize'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -12,6 +12,7 @@ import { cn } from '@/lib/utils'
 
 import { CaseBindingSection } from './CaseBindingSection'
 import { DateCandidateList } from './DateCandidateList'
+import { DocumentPreview } from './DocumentPreview'
 import { RecognitionProgress } from './RecognitionProgress'
 import { RecognitionSummary } from './RecognitionSummary'
 
@@ -145,10 +146,14 @@ export function RecognizeDialog({ open, onClose, onSaved, file, textRows, onConf
     }
   }
 
+  const previewUrl = isFileMode && task?.file_url ? resolveMediaUrl(task.file_url) : ''
+  const hasPreview = Boolean(previewUrl)
+  const fileUrl = hasPreview ? previewUrl : isFileMode && task?.file_url ? task.file_url : ''
+
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-h-[85vh] gap-0 overflow-x-hidden overflow-y-auto sm:max-w-[560px]">
-        <DialogHeader className="pb-2">
+      <DialogContent className="flex max-h-[88vh] w-full flex-col gap-0 overflow-x-hidden overflow-y-auto p-6 sm:max-w-[560px] lg:h-[88vh] lg:max-w-[1120px] lg:overflow-hidden">
+        <DialogHeader className="shrink-0 pb-2">
           <DialogTitle className="flex min-w-0 items-start gap-2 text-[15px]">
             <FileText className="mt-0.5 h-4 w-4 flex-none text-muted-foreground" />
             <span className="min-w-0 break-all">{file ? file.name : '文字记一笔 · 确认日期'}</span>
@@ -177,46 +182,67 @@ export function RecognizeDialog({ open, onClose, onSaved, file, textRows, onConf
         )}
 
         {contentReady && (
-          <div className="flex animate-in fade-in duration-300 flex-col gap-3.5 pt-1">
-            {isFileMode && task && recognition && <RecognitionSummary task={task} recognition={recognition} />}
+          // lg 双栏：左文书原文（独立滚动）/ 右确认步骤；窄屏单栏整体滚动
+          <div className="grid min-h-0 flex-1 gap-3.5 pt-1 lg:grid-cols-[minmax(0,44%)_minmax(0,1fr)] lg:overflow-hidden">
+            {hasPreview && <DocumentPreview url={previewUrl} className="hidden animate-in fade-in slide-in-from-left-2 duration-300 lg:flex" />}
 
-            {isFileMode && task && <CaseBindingSection task={task} onBound={refresh} />}
+            <div
+              className={cn(
+                'flex animate-in fade-in flex-col gap-3.5 duration-300 lg:min-h-0 lg:overflow-y-auto lg:pr-1',
+                !hasPreview && 'w-full',
+              )}
+            >
+              {isFileMode && task && recognition && <RecognitionSummary task={task} recognition={recognition} />}
 
-            <div className="flex flex-col gap-2">
-              <div className="flex items-center justify-between">
-                <span className="text-[13px] font-semibold">
-                  {isFileMode ? '第 2 步 · 确认关键日期' : '确认日期'}
-                </span>
-                {rows.length > 0 && (
-                  <span className="text-[11px] text-muted-foreground">
-                    {rows.filter((r) => r.status === 'confirmed').length}/{rows.length} 已确认
+              {isFileMode && task && <CaseBindingSection task={task} onBound={refresh} />}
+
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[13px] font-semibold">
+                    {isFileMode ? '第 2 步 · 确认关键日期' : '确认日期'}
                   </span>
+                  {rows.length > 0 && (
+                    <span className="text-[11px] text-muted-foreground">
+                      {rows.filter((r) => r.status === 'confirmed').length}/{rows.length} 已确认
+                    </span>
+                  )}
+                </div>
+                <DateCandidateList
+                  rows={rows}
+                  interactive={isFileMode}
+                  busy={busy}
+                  onToggle={(key) => {
+                    const row = rows.find((r) => r.key === key)
+                    if (row) setOverrides((prev) => ({ ...prev, [key]: { checked: !row.checked } }))
+                  }}
+                  onPatch={(key, patch) => setOverrides((prev) => patchRowWithOverride(prev, key, patch))}
+                  onSkip={doSkip}
+                  onRevoke={doRevoke}
+                />
+                {rows.length > 0 && rows.every((r) => r.status !== 'pending') && (
+                  <span className="text-center text-[11.5px] text-status-green">全部处理完成</span>
                 )}
               </div>
-              <DateCandidateList
-                rows={rows}
-                interactive={isFileMode}
-                busy={busy}
-                onToggle={(key) => {
-                  const row = rows.find((r) => r.key === key)
-                  if (row) setOverrides((prev) => ({ ...prev, [key]: { checked: !row.checked } }))
-                }}
-                onPatch={(key, patch) => setOverrides((prev) => patchRowWithOverride(prev, key, patch))}
-                onSkip={doSkip}
-                onRevoke={doRevoke}
-              />
-              {rows.length > 0 && rows.every((r) => r.status !== 'pending') && (
-                <span className="text-center text-[11.5px] text-status-green">全部处理完成</span>
-              )}
             </div>
           </div>
         )}
 
         {contentReady && (
-          <DialogFooter className="mt-3 gap-2 border-t border-border pt-3">
+          <DialogFooter className="mt-3 shrink-0 gap-2 border-t border-border pt-3">
             <span className="mr-auto text-[11px] text-muted-foreground">
               {isFileMode && task && !task.binding?.success ? '未关联案件，将创建独立提醒' : ''}
             </span>
+            {!hasPreview && fileUrl && (
+              <a
+                href={fileUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 text-[11.5px] text-muted-foreground transition-colors hover:text-foreground"
+              >
+                <ExternalLink className="h-3 w-3" />
+                查看文书
+              </a>
+            )}
             <Button variant="outline" onClick={onClose} disabled={busy}>
               关闭
             </Button>

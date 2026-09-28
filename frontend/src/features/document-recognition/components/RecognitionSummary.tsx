@@ -1,7 +1,7 @@
 import { ExternalLink, MapPin, TriangleAlert, UserRound } from 'lucide-react'
 
 import { DOC_TYPE_LABELS, EXTRACTION_METHOD_LABELS } from '../constants'
-import { formatContacts } from '../domain'
+import { formatContacts, resolveMediaUrl } from '../domain'
 import type { RecognitionInfo, TaskOut } from '../types'
 import { cn } from '@/lib/utils'
 
@@ -18,6 +18,7 @@ const DOC_TYPE_STYLES: Record<string, string> = {
 /** 识别结果摘要卡：类型/案号/置信度/引擎 + 联系人/地址 + 文书预览。 */
 export function RecognitionSummary({ task, recognition }: Props) {
   const contactsText = formatContacts(task.contacts ?? [])
+  const fileUrl = resolveMediaUrl(task.file_url)
   const methodLabel = recognition.extraction_method
     ? EXTRACTION_METHOD_LABELS[recognition.extraction_method] ?? recognition.extraction_method
     : null
@@ -53,9 +54,9 @@ export function RecognitionSummary({ task, recognition }: Props) {
             降级识别·建议核对
           </span>
         )}
-        {task.file_url && (
+        {fileUrl && (
           <a
-            href={task.file_url}
+            href={fileUrl}
             target="_blank"
             rel="noopener noreferrer"
             className="ml-auto inline-flex items-center gap-1 rounded-[6px] border border-border px-2 py-[3px] text-[11px] text-muted-foreground transition-colors hover:border-ring/40 hover:text-foreground"

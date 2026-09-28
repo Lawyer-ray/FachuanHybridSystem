@@ -92,6 +92,20 @@ export function formatContacts(contacts: ContactInfo[]): string {
     .join('；')
 }
 
+/** 后端 media 相对链接（/media/...）→ 可渲染的绝对 URL。
+ *  绝对地址原样返回；相对地址按 API base 的 origin 解析（dev 走 Vite 同源代理，
+ *  生产同源部署；localStorage api_base_url 为绝对地址的宿主环境也能正确拼）。 */
+export function resolveMediaUrl(url: string | null | undefined, origin?: string): string {
+  if (!url) return ''
+  if (/^https?:/i.test(url)) return url
+  let resolvedOrigin = origin
+  if (!resolvedOrigin && typeof window !== 'undefined') {
+    const base = localStorage.getItem('api_base_url') || import.meta.env.VITE_API_BASE_URL || ''
+    resolvedOrigin = base.startsWith('http') ? new URL(base).origin : window.location.origin
+  }
+  return resolvedOrigin ? `${resolvedOrigin}${url}` : url
+}
+
 /** 文字解析候选 → 行（全部可编辑，逐条走 /reminders/create） */
 export function rowsFromParsed(parsed: ParsedCandidate[]): CandidateRow[] {
   return parsed.map((p, i) => ({

@@ -41,6 +41,12 @@ export default defineConfig({
         target: 'http://127.0.0.1:8002',
         changeOrigin: true,
       },
+      // 后端 media（文书识别预览等）：相对链接 /media/... 由前端渲染（iframe/img），
+      // 不代理会打到 Vite SPA 兜底路由被重定向回首页
+      '/media': {
+        target: 'http://127.0.0.1:8002',
+        changeOrigin: true,
+      },
       // 社交登录：授权页/回调走 Django View，需与后端同源才能带 session cookie
       // （state 存 session，跨域下 SameSite=Lax 不发送，回调会报 invalid_session）
       //

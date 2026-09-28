@@ -6,6 +6,7 @@ import {
   formatDueLocal,
   patchRow,
   pickAutoRecommendation,
+  resolveMediaUrl,
   rowsFromParsed,
   rowsFromTask,
   selectedPendingRows,
@@ -204,5 +205,17 @@ describe('formatContacts（联系人展示串）', () => {
 
   it('空数组返回空串', () => {
     expect(formatContacts([])).toBe('')
+  })
+})
+
+describe('resolveMediaUrl（media 链接解析）', () => {
+  it('相对链接按显式 origin 拼接', () => {
+    expect(resolveMediaUrl('/media/a.pdf', 'http://127.0.0.1:8002')).toBe('http://127.0.0.1:8002/media/a.pdf')
+  })
+
+  it('绝对地址原样返回，空值返回空串', () => {
+    expect(resolveMediaUrl('https://x.cn/media/a.pdf')).toBe('https://x.cn/media/a.pdf')
+    expect(resolveMediaUrl(null)).toBe('')
+    expect(resolveMediaUrl('')).toBe('')
   })
 })
