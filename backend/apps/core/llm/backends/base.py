@@ -101,6 +101,7 @@ class OpenAIProviderConfig:
         default_model: 默认模型名称
         extra_models: 该平台提供的其他模型列表
         embedding_model: 向量模型名称
+        vision_model: 视觉（多模态）模型名称，空表示未配置
         timeout: 请求超时时间(秒)
         concurrency_per_key: 每个 Key 的并发上限,0 表示不限制
         priority: 平台优先级,数字越小越优先
@@ -114,6 +115,7 @@ class OpenAIProviderConfig:
     default_model: str = ""
     extra_models: list[str] = field(default_factory=list)
     embedding_model: str = ""
+    vision_model: str = ""
     timeout: int = 120
     concurrency_per_key: int = 0
     priority: int = 10
@@ -163,7 +165,7 @@ class ILLMBackend(Protocol):
 
     def chat(
         self,
-        messages: list[dict[str, str]],
+        messages: list[dict[str, Any]],
         model: str | None = None,
         temperature: float = 0.7,
         max_tokens: int | None = None,
@@ -192,7 +194,7 @@ class ILLMBackend(Protocol):
 
     async def achat(
         self,
-        messages: list[dict[str, str]],
+        messages: list[dict[str, Any]],
         model: str | None = None,
         temperature: float = 0.7,
         max_tokens: int | None = None,
@@ -221,7 +223,7 @@ class ILLMBackend(Protocol):
 
     def stream(
         self,
-        messages: list[dict[str, str]],
+        messages: list[dict[str, Any]],
         model: str | None = None,
         temperature: float = 0.7,
         max_tokens: int | None = None,
@@ -230,7 +232,7 @@ class ILLMBackend(Protocol):
 
     async def astream(
         self,
-        messages: list[dict[str, str]],
+        messages: list[dict[str, Any]],
         model: str | None = None,
         temperature: float = 0.7,
         max_tokens: int | None = None,

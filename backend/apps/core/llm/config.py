@@ -343,6 +343,14 @@ class LLMConfig:
         return ""
 
     @classmethod
+    def get_vision_model(cls) -> str:
+        """视觉（多模态）模型名；空表示未配置，视觉转写档自动禁用。"""
+        provider = cls._get_primary_provider()
+        if provider is not None and provider.vision_model:
+            return provider.vision_model
+        return ""
+
+    @classmethod
     async def get_openai_compatible_embedding_model_async(cls) -> str:
         provider = await cls._aget_primary_provider()
         if provider is not None and provider.embedding_model:

@@ -139,7 +139,7 @@ class LLMService:
 
     def chat(
         self,
-        messages: list[dict[str, str]],
+        messages: list[dict[str, Any]],
         backend: str | None = None,
         model: str | None = None,
         temperature: float = 0.7,
@@ -163,7 +163,7 @@ class LLMService:
 
     async def achat(
         self,
-        messages: list[dict[str, str]],
+        messages: list[dict[str, Any]],
         backend: str | None = None,
         model: str | None = None,
         temperature: float = 0.7,
@@ -187,7 +187,7 @@ class LLMService:
 
     def stream(
         self,
-        messages: list[dict[str, str]],
+        messages: list[dict[str, Any]],
         backend: str | None = None,
         model: str | None = None,
         temperature: float = 0.7,
@@ -245,7 +245,7 @@ class LLMService:
 
     async def astream(
         self,
-        messages: list[dict[str, str]],
+        messages: list[dict[str, Any]],
         backend: str | None = None,
         model: str | None = None,
         temperature: float = 0.7,

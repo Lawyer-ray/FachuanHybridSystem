@@ -472,7 +472,7 @@ function showResult() {
     ct.textContent = pct + '%'; cf.style.width = pct + '%';
     ct.className = 'tag ' + (conf >= 0.8 ? 'tag-green' : conf >= 0.5 ? 'tag-yellow' : 'tag-red');
     cf.className = 'confidence-fill ' + (conf >= 0.8 ? 'confidence-high' : conf >= 0.5 ? 'confidence-medium' : 'confidence-low');
-    var methods = { 'regex': '正则表达式', 'ollama': 'AI模型', 'ocr': 'OCR识别', 'pdf_direct': 'PDF直接提取', 'text_extraction': '文本提取' };
+    var methods = { 'regex': '正则表达式', 'ollama': 'AI模型', 'ocr': 'OCR识别', 'vlm': 'AI视觉转写', 'pdf_direct': 'PDF直接提取', 'text_extraction': '文本提取' };
     document.getElementById('extractionMethod').textContent = methods[rec.extraction_method] || '未知';
     var engine = rec.llm_model ? rec.llm_model + '（' + (rec.llm_backend || 'llm') + '）' : '关键词+正则（未用 LLM）';
     if (rec.degraded) engine += ' ⚠ 降级';

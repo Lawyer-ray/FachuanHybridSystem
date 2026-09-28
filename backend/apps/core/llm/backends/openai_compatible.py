@@ -167,7 +167,7 @@ class OpenAICompatibleBackend:
 
     # ── 工具方法 ─────────────────────────────────────────────────────────────
 
-    def _normalize_messages(self, messages: list[dict[str, str]]) -> list[dict[str, str]]:
+    def _normalize_messages(self, messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
         normalized: list[dict[str, str]] = []
         for msg in messages:
             role = msg.get("role", "user")
@@ -223,7 +223,7 @@ class OpenAICompatibleBackend:
     def _build_payload(
         self,
         model: str,
-        messages: list[dict[str, str]],
+        messages: list[dict[str, Any]],
         temperature: float,
         max_tokens: int | None,
         *,
@@ -380,7 +380,7 @@ class OpenAICompatibleBackend:
 
     def chat(
         self,
-        messages: list[dict[str, str]],
+        messages: list[dict[str, Any]],
         model: str | None = None,
         temperature: float = 0.7,
         max_tokens: int | None = None,
@@ -450,7 +450,7 @@ class OpenAICompatibleBackend:
 
     async def achat(
         self,
-        messages: list[dict[str, str]],
+        messages: list[dict[str, Any]],
         model: str | None = None,
         temperature: float = 0.7,
         max_tokens: int | None = None,
@@ -536,7 +536,7 @@ class OpenAICompatibleBackend:
 
     def stream(
         self,
-        messages: list[dict[str, str]],
+        messages: list[dict[str, Any]],
         model: str | None = None,
         temperature: float = 0.7,
         max_tokens: int | None = None,
@@ -583,7 +583,7 @@ class OpenAICompatibleBackend:
 
     async def astream(
         self,
-        messages: list[dict[str, str]],
+        messages: list[dict[str, Any]],
         model: str | None = None,
         temperature: float = 0.7,
         max_tokens: int | None = None,

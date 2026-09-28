@@ -23,6 +23,7 @@ _PLACEHOLDERS: dict[str, str] = {
     "default_model": "如：kimi26",
     "extra_models": "逗号分隔，如：kimi26,kimi26-128k",
     "embedding_model": "留空不启用向量模型",
+    "vision_model": "如：kimi-2.6（留空走本地 OCR）",
     "timeout": "如：120",
     "concurrency_per_key": "如：3",
     "priority": "数字越小越优先",
@@ -67,7 +68,13 @@ class LLMProviderAdmin(admin.ModelAdmin):
                 ),
             },
         ),
-        ("模型配置", {"fields": ("default_model", "extra_models", "embedding_model")}),
+        (
+            "模型配置",
+            {
+                "fields": ("default_model", "extra_models", "embedding_model", "vision_model"),
+                "description": "视觉模型：多模态模型名（如 kimi-2.6），用于文书扫描件视觉转写；留空走本地 OCR。",
+            },
+        ),
     )
 
     def formfield_for_dbfield(self, db_field: models.Field, request: Any, **kwargs: Any) -> Any:
