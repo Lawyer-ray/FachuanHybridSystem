@@ -26,7 +26,8 @@ class ClientIdentityDocLiteOut(Schema):
     def from_model(cls, obj: Any) -> "ClientIdentityDocLiteOut":
         return cls(
             doc_type=getattr(obj, "doc_type", ""),
-            file_path=getattr(obj, "file_path", ""),
+            # 存量表 cases_clientidentitydoc.file_path 列可空（历史遗留），对外契约保持 str，NULL 归一为空串
+            file_path=getattr(obj, "file_path", "") or "",
             uploaded_at=obj.uploaded_at,
             media_url=obj.media_url if hasattr(obj, "media_url") else None,
         )
