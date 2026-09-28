@@ -7,7 +7,7 @@ import logging
 import time
 from typing import Any
 
-from playwright.async_api import FrameLocator, Page
+from playwright.async_api import Frame, Page
 
 from .constants import (
     _AJAX_WAIT,
@@ -206,6 +206,25 @@ class PlaywrightHelpersMixin:  # pragma: no cover
         logger.warning("等待客户弹窗 iframe 超时，当前页面 iframe 列表: %s", iframes)
         return None
 
+    async def _resolve_client_frame(self: Any, page: Page, iframe_xpath: str) -> Frame:  # pragma: no cover
+        """把客户弹窗 iframe 解析为真正的 Frame 对象。
+
+        必须用 Frame 而不是 ``page.frame_locator()``：FrameLocator 的 locator 会拼成
+        ``frame >> internal:control=enter-frame >> inner`` 链式选择器，而 CloakBrowser
+        的 humanize 层在隔离世界里只用原生 DOM API 解析选择器，遇到 ``>>`` 直接抛
+        ``UnsupportedHumanizeSelectorError``（立案报错即源于此）。换成 Frame 后选择器
+        在子 frame 自己的 document 里解析，humanize 走 frame 级补丁，既可用又保留
+        拟人化点击/输入。
+        """
+        handle = await page.query_selector(f"xpath={iframe_xpath}")
+        if handle is None:
+            raise RuntimeError(f"客户搜索弹窗 iframe 未找到: {iframe_xpath}")
+        frame = await handle.content_frame()
+        if frame is None:
+            raise RuntimeError(f"无法进入客户搜索弹窗 iframe: {iframe_xpath}")
+        logger.info("客户弹窗 frame 就绪: %s", frame.url)
+        return frame
+
     async def _get_latest_iframe_id(self: Any, page: Page) -> str:  # pragma: no cover
         """获取当前最新弹窗 iframe 的 id。"""
         return (
@@ -227,7 +246,7 @@ class PlaywrightHelpersMixin:  # pragma: no cover
     # 客户搜索 / 选择 / 创建
     # ------------------------------------------------------------------
 
-    async def _try_select_client(self: Any, page: Page, iframe: FrameLocator) -> bool:  # pragma: no cover
+    async def _try_select_client(self: Any, page: Page, iframe: Frame) -> bool:  # pragma: no cover
         """尝试在搜索结果中选中第一个客户并确认。
 
         layui table radio 选中需通过内部缓存 LAY_CHECKED 标志，
@@ -269,7 +288,7 @@ class PlaywrightHelpersMixin:  # pragma: no cover
 
     async def _create_new_client(  # pragma: no cover
         self: Any,
-        iframe: FrameLocator,
+        iframe: Frame,
         client: ClientInfo,
     ) -> None:
         """点击创建新客户，进入二级 iframe 并填充所有必填字段。
