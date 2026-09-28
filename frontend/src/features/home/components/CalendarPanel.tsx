@@ -18,6 +18,7 @@ function maxRowsPerDay(): number {
 
 export interface CalendarView {
   year: number
+  /** 0-based 月（JS Date 口径：0 = 一月）；头部显示与查询边界各自 +1 */
   month: number
 }
 

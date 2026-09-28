@@ -46,14 +46,21 @@ export function HomePage() {
 
   const todayParts = useMemo(() => {
     const [y, m] = today.split('-').map(Number)
-    return { year: y, month: m }
+    return { year: y, month: m } // month 为 1-based（后端 calendar 接口契约）
   }, [today])
-  const [view, setView] = useState<CalendarView>(todayParts)
+  // 日历视图月：0-based（JS Date 口径，与 CalendarPanel 的 buildMonthGrid / 头部显示一致）。
+  // 注意别把上面 1-based 的 todayParts 直接当 view 用——两者差 1，混用会把 9 月渲染成 10 月。
+  const [view, setView] = useState<CalendarView>(() => {
+    const d = parseKey(today)
+    return { year: d.getFullYear(), month: d.getMonth() }
+  })
 
-  /* 视图月日历（CalendarPanel 渲染 + 手机抽屉数据源）；今日月日历（统计 + 今日卡） */
+  /* 视图月日历（CalendarPanel 渲染 + 手机抽屉数据源）；今日月日历（统计 + 今日卡）。
+     后端 month 参数是 1-based：view 的 0-based 月在查询边界 +1；view 与今天同月时
+     两个 query key 相同，react-query 自动去重为一次请求。 */
   const viewQuery = useQuery({
-    queryKey: calendarKeys.month(view.year, view.month),
-    queryFn: () => fetchCalendarMonth(view.year, view.month),
+    queryKey: calendarKeys.month(view.year, view.month + 1),
+    queryFn: () => fetchCalendarMonth(view.year, view.month + 1),
     staleTime: 60_000,
     placeholderData: keepPreviousData, // 切月时保留上月格子，避免整版闪空
   })

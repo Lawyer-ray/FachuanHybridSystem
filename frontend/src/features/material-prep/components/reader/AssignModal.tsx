@@ -52,6 +52,23 @@ export function AssignModal({
     })
   }, [open]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Esc 关闭本弹窗（capture 阶段拦截）。本弹窗是手写 DOM 层，不在 Radix
+  // DismissableLayer 体系内：搜索框又 autoFocus，焦点落在 input 上时
+  // use-reader-keys 的输入框守卫会直接吞掉 Esc。这里在 capture 阶段拦下并
+  // stopPropagation，既保证弹窗内任何焦点位置按 Esc 都能关闭，又不会落进
+  // use-reader-keys 的冒泡监听把整个阅读器关掉。
+  useEffect(() => {
+    if (!open) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return
+      e.preventDefault()
+      e.stopPropagation()
+      onCancel()
+    }
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
+  }, [open, onCancel])
+
   useEffect(() => {
     if (!open || target !== 'existing') return
     if (!q.trim()) {
