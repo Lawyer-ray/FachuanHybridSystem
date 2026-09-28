@@ -2,8 +2,10 @@ import { describe, expect, it } from 'vitest'
 
 import {
   fileRejectReason,
+  formatContacts,
   formatDueLocal,
   patchRow,
+  pickAutoRecommendation,
   rowsFromParsed,
   rowsFromTask,
   selectedPendingRows,
@@ -11,7 +13,7 @@ import {
   toLocalInputValue,
   type CandidateRow,
 } from './domain'
-import type { TaskOut } from './types'
+import type { CaseRecommendation, TaskOut } from './types'
 
 describe('toLocalInputValue', () => {
   it('带时区偏移的 ISO 转成本地 datetime-local 值', () => {
@@ -145,5 +147,62 @@ describe('fileRejectReason', () => {
     expect(fileRejectReason(new File([], 'a.docx'))).toContain('不支持的格式')
     const big = new File([new ArrayBuffer(21 * 1024 * 1024)], 'a.pdf')
     expect(fileRejectReason(big)).toContain('超过')
+  })
+})
+
+describe('shouldDefaultCheck（默认勾选策略）', () => {
+  it('高置信与缺失置信度默认勾选，低置信默认不勾', () => {
+    const t = {
+      task_id: 2,
+      status: 'success',
+      recognition: null,
+      binding: null,
+      recommendations: [],
+      binding_mode: 'standalone',
+      date_confirmation_status: 'pending',
+      date_candidates: [
+        { id: 21, due_at: '2026-10-15T01:30:00+00:00', reminder_type: 'hearing', reminder_type_label: '开庭', context_text: '', source: 'llm', confidence: 0.9, status: 'pending', reminder_id: null, confirmed_at: null },
+        { id: 22, due_at: '2026-10-20T00:00:00+00:00', reminder_type: 'other', reminder_type_label: '其他', context_text: '', source: 'regex', confidence: null, status: 'pending', reminder_id: null, confirmed_at: null },
+        { id: 23, due_at: '2026-11-01T00:00:00+00:00', reminder_type: 'other', reminder_type_label: '其他', context_text: '', source: 'llm', confidence: 0.3, status: 'pending', reminder_id: null, confirmed_at: null },
+      ],
+    } as unknown as TaskOut
+    const rows = rowsFromTask(t)
+    expect(rows.map((r) => r.checked)).toEqual([true, true, false])
+  })
+})
+
+describe('pickAutoRecommendation（推荐预选）', () => {
+  const reco = (score: number, id = 1): CaseRecommendation => ({
+    case_id: id, case_name: `案件${id}`, score, reasons: [], case_numbers: [], parties: [], status: 'active',
+  })
+
+  it('唯一高分（≥80）预选', () => {
+    expect(pickAutoRecommendation([reco(92)])?.case_id).toBe(1)
+  })
+
+  it('首位高分且明显领先次位（≥15 分）才预选', () => {
+    expect(pickAutoRecommendation([reco(95, 1), reco(80, 2)])?.case_id).toBe(1)
+    expect(pickAutoRecommendation([reco(90, 1), reco(85, 2)])).toBeNull()
+  })
+
+  it('首位低于 80 分不预选，空列表返回 null', () => {
+    expect(pickAutoRecommendation([reco(70)])).toBeNull()
+    expect(pickAutoRecommendation([])).toBeNull()
+  })
+})
+
+describe('formatContacts（联系人展示串）', () => {
+  it('姓名+电话组合，顿号多人、分号分组，过滤空条目', () => {
+    expect(
+      formatContacts([
+        { role: '联系人', name: '张三', phone: '0757-1234567' },
+        { role: '联系人', name: '李四', phone: null },
+        { role: '联系电话', name: '', phone: '13900000000' },
+      ]),
+    ).toBe('张三（0757-1234567）；李四；13900000000')
+  })
+
+  it('空数组返回空串', () => {
+    expect(formatContacts([])).toBe('')
   })
 })

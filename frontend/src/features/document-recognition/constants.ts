@@ -35,3 +35,15 @@ export const DOC_TYPE_LABELS: Record<string, string> = {
   execution: '执行裁定书',
   other: '其他文书',
 }
+
+/** 提取方式展示（与后端 extraction_method 对齐） */
+export const EXTRACTION_METHOD_LABELS: Record<string, string> = {
+  vlm: 'AI 视觉',
+  ocr: 'OCR',
+  pdf_direct: 'PDF 直读',
+  regex: '规则',
+  text_extraction: '文本提取',
+}
+
+/** 候选默认勾选的置信度阈值：低于此值默认不勾，交人工判断 */
+export const DEFAULT_CHECK_CONFIDENCE = 0.5

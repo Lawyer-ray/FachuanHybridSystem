@@ -22,22 +22,26 @@ const SOURCE_LABELS: Record<string, string> = {
   text: '文字',
 }
 
-/** 关键日期候选列表：每行 = 勾选 + 时间 + 类型 + 原文摘录 + 状态。 */
+/** 关键日期候选列表：每行 = 勾选 + 时间 + 类型 + 原文摘录 + 状态。
+ *  低置信度行虚线边框 + 默认不勾，提示人工核对。 */
 export function DateCandidateList({ rows, interactive, busy, onToggle, onPatch, onSkip, onRevoke }: Props) {
   if (rows.length === 0) {
     return <div className="py-4 text-center text-[12px] text-muted-foreground">未识别到关键日期</div>
   }
   return (
     <div className="flex flex-col gap-2">
-      {rows.map((r) => {
+      {rows.map((r, i) => {
         const editable = r.status === 'pending' && !busy
+        const lowConfidence = r.status === 'pending' && r.confidence != null && r.confidence < 0.5
         return (
           <div
             key={r.key}
+            style={{ animationDelay: `${Math.min(i, 8) * 55}ms` }}
             className={cn(
-              'rounded-[10px] border border-border bg-card px-3 py-2.5',
+              'animate-in fade-in slide-in-from-bottom-1 duration-300 rounded-[10px] border bg-card px-3 py-2.5 transition-colors',
               r.status === 'confirmed' && 'border-status-green/40 bg-status-green-bg',
               r.status === 'skipped' && 'opacity-55',
+              lowConfidence && 'border-dashed border-status-yellow/50',
             )}
           >
             <div className="flex flex-wrap items-center gap-2">
@@ -48,7 +52,7 @@ export function DateCandidateList({ rows, interactive, busy, onToggle, onPatch, 
                   disabled={busy}
                   title={r.checked ? '取消写入' : '勾选写入'}
                   className={cn(
-                    'flex h-[16px] w-[16px] flex-none items-center justify-center rounded-[4px] border-[1.5px] transition-colors',
+                    'flex h-[16px] w-[16px] flex-none items-center justify-center rounded-[4px] border-[1.5px] transition-all duration-150 active:scale-90',
                     r.checked
                       ? 'border-foreground bg-foreground text-background'
                       : 'border-input text-transparent hover:border-ring/50',
@@ -91,6 +95,11 @@ export function DateCandidateList({ rows, interactive, busy, onToggle, onPatch, 
               {r.source in SOURCE_LABELS && (
                 <span className="rounded-[5px] border border-border bg-secondary px-[6px] py-[1px] text-[9.5px] font-semibold text-secondary-foreground">
                   {SOURCE_LABELS[r.source]}
+                </span>
+              )}
+              {lowConfidence && (
+                <span className="rounded-[5px] border border-status-yellow/50 bg-status-yellow-bg px-[6px] py-[1px] text-[9.5px] font-semibold text-status-yellow">
+                  低置信·请核对
                 </span>
               )}
               {r.confidence != null && (

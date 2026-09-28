@@ -1,7 +1,7 @@
 /** 纯领域逻辑：候选行归一化与不可变更新（vitest 单测点）。 */
 
-import { ACCEPT_EXTENSIONS, MAX_FILE_MB } from './constants'
-import type { DateCandidate, TaskOut } from './types'
+import { ACCEPT_EXTENSIONS, DEFAULT_CHECK_CONFIDENCE, MAX_FILE_MB } from './constants'
+import type { CaseRecommendation, ContactInfo, DateCandidate, TaskOut } from './types'
 
 /** 文字路径（/reminders/parse）产出的候选，与识别候选共用确认 UI */
 export interface ParsedCandidate {
@@ -50,12 +50,18 @@ export function formatDueLocal(value: string): string {
   return `${md}日 ${time}`
 }
 
-/** 识别任务的候选 → 行（pending 行默认勾选、可编辑） */
+/** 候选默认勾选策略：置信度缺失（规则/合并路径，已过确定性规则）默认勾；
+ *  置信度低于阈值（LLM 低置信）默认不勾，交人工判断。 */
+export function shouldDefaultCheck(confidence: number | null): boolean {
+  return confidence == null || confidence >= DEFAULT_CHECK_CONFIDENCE
+}
+
+/** 识别任务的候选 → 行（按 shouldDefaultCheck 决定初始勾选、可编辑） */
 export function rowsFromTask(task: TaskOut): CandidateRow[] {
   return (task.date_candidates ?? []).map((c: DateCandidate) => ({
     key: `c-${c.id}`,
     candidateId: c.id,
-    checked: c.status === 'pending',
+    checked: c.status === 'pending' && shouldDefaultCheck(c.confidence),
     dueLocal: toLocalInputValue(c.due_at),
     reminderType: c.reminder_type,
     label: c.reminder_type_label,
@@ -66,6 +72,24 @@ export function rowsFromTask(task: TaskOut): CandidateRow[] {
     status: c.status,
     reminderId: c.reminder_id,
   }))
+}
+
+/** 推荐案件自动预选：首位高分（≥80）且明显领先次位（≥15 分）时预选，
+ *  用户仍可一键换选——预选只省点击，不替人做决定。 */
+export function pickAutoRecommendation(recos: CaseRecommendation[]): CaseRecommendation | null {
+  const first = recos[0]
+  if (!first || first.score < 80) return null
+  const second = recos[1]
+  if (second && first.score - second.score < 15) return null
+  return first
+}
+
+/** 联系人展示串："张三（0757-1234567）；李四" */
+export function formatContacts(contacts: ContactInfo[]): string {
+  return contacts
+    .map((c) => (c.name && c.phone ? `${c.name}（${c.phone}）` : c.name || c.phone || ''))
+    .filter(Boolean)
+    .join('；')
 }
 
 /** 文字解析候选 → 行（全部可编辑，逐条走 /reminders/create） */

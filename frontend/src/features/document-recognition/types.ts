@@ -54,13 +54,24 @@ export interface CaseRecommendation {
   status: string
 }
 
+/** 文书联系人（后端读时从原文提取） */
+export interface ContactInfo {
+  role: string
+  name: string
+  phone: string | null
+}
+
 export interface TaskOut {
   task_id: number
   status: 'pending' | 'processing' | 'success' | 'failed'
   file_path: string | null
+  /** 文书预览 URL（media，新窗口打开；可能为空——文件不在 MEDIA_ROOT 下时） */
+  file_url: string | null
   recognition: RecognitionInfo | null
   binding: BindingInfo | null
   date_candidates: DateCandidate[]
+  contacts: ContactInfo[]
+  address: string | null
   recommendations: CaseRecommendation[]
   binding_mode: 'standalone' | 'pipeline'
   date_confirmation_status: string | null

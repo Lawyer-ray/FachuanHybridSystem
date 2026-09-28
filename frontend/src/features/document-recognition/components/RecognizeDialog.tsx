@@ -3,7 +3,6 @@ import { FileText, Loader2, TriangleAlert } from 'lucide-react'
 import { toast } from 'sonner'
 
 import { confirmDates, revokeDate } from '../api'
-import { DOC_TYPE_LABELS } from '../constants'
 import { rowsFromTask, selectedPendingRows, selectedTextRows, type CandidateRow } from '../domain'
 import { useRecognize } from '../hooks/use-recognize'
 import { Button } from '@/components/ui/button'
@@ -13,6 +12,8 @@ import { cn } from '@/lib/utils'
 
 import { CaseBindingSection } from './CaseBindingSection'
 import { DateCandidateList } from './DateCandidateList'
+import { RecognitionProgress } from './RecognitionProgress'
+import { RecognitionSummary } from './RecognitionSummary'
 
 interface Props {
   open: boolean
@@ -158,10 +159,11 @@ export function RecognizeDialog({ open, onClose, onSaved, file, textRows, onConf
         </DialogHeader>
 
         {showProgress && (
-          <div className="flex flex-col items-center gap-3 py-10">
-            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-            <span className="text-[12.5px] text-muted-foreground">{hint}</span>
-          </div>
+          <RecognitionProgress
+            phase={phase === 'submitting' ? 'submitting' : 'polling'}
+            fileName={file?.name ?? '文书'}
+            hint={hint}
+          />
         )}
 
         {showError && (
@@ -175,24 +177,8 @@ export function RecognizeDialog({ open, onClose, onSaved, file, textRows, onConf
         )}
 
         {contentReady && (
-          <div className="flex flex-col gap-3.5 pt-1">
-            {isFileMode && task && recognition && (
-              <div className="flex flex-wrap items-center gap-1.5 text-[12px]">
-                <span className="rounded-[6px] border border-border bg-secondary px-2 py-[3px] font-semibold">
-                  {DOC_TYPE_LABELS[recognition.document_type ?? ''] ?? '文书'}
-                </span>
-                {recognition.case_number && (
-                  <span className="rounded-[6px] bg-secondary/60 px-2 py-[3px] tabular-nums">{recognition.case_number}</span>
-                )}
-                {recognition.confidence != null && (
-                  <span className="tabular-nums text-muted-foreground">置信度 {Math.round(recognition.confidence * 100)}%</span>
-                )}
-                <span className="text-muted-foreground">
-                  {recognition.llm_model ?? '关键词+规则'}
-                  {recognition.degraded ? '（降级）' : ''}
-                </span>
-              </div>
-            )}
+          <div className="flex animate-in fade-in duration-300 flex-col gap-3.5 pt-1">
+            {isFileMode && task && recognition && <RecognitionSummary task={task} recognition={recognition} />}
 
             {isFileMode && task && <CaseBindingSection task={task} onBound={refresh} />}
 
