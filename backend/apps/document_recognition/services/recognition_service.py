@@ -61,6 +61,8 @@ class CourtDocumentRecognitionService:
         # 观测性取「最近一次」outcome 而非缓存首个，避免跨任务串扰。
         self._analysis_cache: dict[str, Any] = {}
         self._last_outcome: Any = None
+        # 本次 run 指定的模型（用户上传时选择；None 走统一 LLM 层默认）
+        self._run_llm_model: str | None = None
 
     def _reset_run_state(self) -> None:
         """每次识别入口复位观测性游标。
@@ -71,6 +73,7 @@ class CourtDocumentRecognitionService:
         per-call 构造保证（见 adapter.py）。
         """
         self._last_outcome = None
+        self._run_llm_model = None
 
     def _analysis_lookup(self, text: str) -> Any:
         """按原文 memoize 的共享结构化分析（document_analyzer）。"""
@@ -78,7 +81,7 @@ class CourtDocumentRecognitionService:
             return self._analysis_cache[text]
         from .document_analyzer import analyze_document
 
-        outcome = analyze_document(text)
+        outcome = analyze_document(text, model=self._run_llm_model)
         self._analysis_cache[text] = outcome
         self._last_outcome = outcome
         return outcome
@@ -253,6 +256,7 @@ class CourtDocumentRecognitionService:
         *,
         prebound_case_id: int | None = None,
         prebound_case_log_id: int | None = None,
+        llm_model: str | None = None,
     ) -> RecognitionResponse:
         """识别文书并绑定案件
 
@@ -261,6 +265,7 @@ class CourtDocumentRecognitionService:
             user: 当前用户
             prebound_case_id: 管线预绑定的案件 ID（法院短信入口，可选）
             prebound_case_log_id: 管线预绑定的案件日志 ID（提醒锚点，可选）
+            llm_model: 指定识别模型（可选，None 走统一 LLM 层默认）
 
         Requirements: 4.5, 4.6, 4.7, 6.2, 8.1, 8.2, 8.3, 8.4
         """
@@ -271,9 +276,11 @@ class CourtDocumentRecognitionService:
                 "file_path": file_path,
                 "user_id": getattr(user, "id", None) if user else None,
                 "prebound": prebound_case_log_id is not None,
+                "llm_model": llm_model,
             },
         )
         self._reset_run_state()
+        self._run_llm_model = llm_model
 
         try:
             extraction_result = self.text_extraction.extract_text(file_path)
@@ -369,7 +376,7 @@ class CourtDocumentRecognitionService:
             )
             raise
 
-    def recognize_document_from_text(self, text: str) -> RecognitionResult:
+    def recognize_document_from_text(self, text: str, *, llm_model: str | None = None) -> RecognitionResult:
         """
         从已提取的文本识别文书
 
@@ -393,6 +400,7 @@ class CourtDocumentRecognitionService:
             )
 
         logger.info("文本识别开始", extra={"action": "recognize_document_from_text", "text_length": len(text)})
+        self._run_llm_model = llm_model
         self._reset_run_state()
 
         try:

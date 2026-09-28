@@ -296,6 +296,7 @@ async def recognize_document(
     request: Any,
     file: UploadedFile = File(...),
     source_court_sms_id: int | None = Form(None),
+    llm_model: str | None = Form(None),
 ) -> TaskSubmitResponseSchema:  # pragma: no cover
     """
     提交文书识别任务（异步）
@@ -305,6 +306,8 @@ async def recognize_document(
 
     source_court_sms_id（管线模式，可选）：来自法院短信管线的文书，
     案件已由短信第一轮绑定，识别只做提取+日期候选，不重复建日志/通知。
+    llm_model（可选）：指定识别模型，须在可用模型列表内（GET /llm/models），
+    缺省走系统默认模型。
     """
     from apps.core.tasking import submit_task
 
@@ -313,6 +316,11 @@ async def recognize_document(
 
     # 1. 验证文件格式
     _validate_file_format(filename)
+
+    # 1.1 验证用户指定模型在可用列表内（列表不可得时放行，交给 LLM 层降级）
+    requested_model = (llm_model or "").strip() or None
+    if requested_model:
+        requested_model = await sync_to_async(_validate_llm_model)(requested_model)
 
     # 2. 保存文件
     file_path = await sync_to_async(_save_uploaded_file)(file)
@@ -330,6 +338,7 @@ async def recognize_document(
             source_court_sms_id=source_court_sms_id,
             case_id=prebound["case_id"] if prebound else None,
             case_log_id=prebound["case_log_id"] if prebound else None,
+            llm_model=requested_model,
         )
         submit_task(
             "apps.document_recognition.tasks.execute_document_recognition_task",
@@ -344,6 +353,20 @@ async def recognize_document(
     logger.info("文书识别任务已提交: task_id=%s", task_id)
 
     return TaskSubmitResponseSchema(task_id=task_id, status="pending", message="任务已提交，正在后台处理")
+
+
+def _validate_llm_model(model: str) -> str:  # pragma: no cover
+    """校验用户指定的模型在可用列表内（列表不可得时放行，交给 LLM 层降级）。"""
+    from apps.core.llm.model_list_service import ModelListService
+
+    models = ModelListService().get_models()
+    if models and model not in {str(m.get("id", "")) for m in models}:
+        raise ValidationException(
+            message="不支持的识别模型",
+            code="UNKNOWN_LLM_MODEL",
+            errors={"llm_model": f"模型 {model} 不在可用模型列表中"},
+        )
+    return model[:100]
 
 
 def _load_pipeline_prebinding(source_court_sms_id: int) -> dict[str, int | None]:  # pragma: no cover

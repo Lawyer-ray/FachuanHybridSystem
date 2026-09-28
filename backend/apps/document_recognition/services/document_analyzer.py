@@ -107,6 +107,7 @@ def analyze_document(
     *,
     llm_service: Any | None = None,
     max_attempts: int = 2,
+    model: str | None = None,
 ) -> DocumentAnalysisOutcome:
     """单次结构化 LLM 调用完成分类 + 提取。
 
@@ -114,6 +115,7 @@ def analyze_document(
         text: 文书全文（超长自动截断）
         llm_service: 可注入的 LLM 服务（默认 ServiceLocator）
         max_attempts: 输出解析失败时带反馈重试的总次数
+        model: 指定模型（None 走统一 LLM 层默认模型）
 
     Returns:
         DocumentAnalysisOutcome；永不抛异常——LLM 不可用/超时/解析失败都
@@ -144,6 +146,7 @@ def analyze_document(
             messages=[{"role": "user", "content": content}],
             temperature=0.1,
             timeout_seconds=ANALYSIS_TIMEOUT_SECONDS,
+            model=model,
             caller="document_recognition.analyze_document",
         )
         captured["model"] = getattr(response, "model", None)

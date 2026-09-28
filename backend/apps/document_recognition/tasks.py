@@ -38,6 +38,7 @@ def execute_document_recognition_task(task_id: int) -> dict[str, Any] | None:  #
             user=None,
             prebound_case_id=prebound_case_id,
             prebound_case_log_id=prebound_case_log_id,
+            llm_model=task.llm_model,
         )
 
         recognition = result.recognition

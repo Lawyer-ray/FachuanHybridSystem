@@ -25,6 +25,7 @@ class DocumentRecognitionTaskService:
         source_court_sms_id: int | None = None,
         case_id: int | None = None,
         case_log_id: int | None = None,
+        llm_model: str | None = None,
     ) -> Any:  # pragma: no cover
         """创建识别任务记录
 
@@ -34,6 +35,7 @@ class DocumentRecognitionTaskService:
             source_court_sms_id: 来源法院短信 ID（管线模式：案件已由短信第一轮绑定）
             case_id: 管线预绑定的案件 ID（与 case_log_id 配套，跳过识别期匹配）
             case_log_id: 管线预绑定的案件日志 ID（日期确认的提醒锚点）
+            llm_model: 用户指定的识别模型（None 走默认；识别完成后被实际模型覆盖）
 
         Returns:
             DocumentRecognitionTask 实例
@@ -47,12 +49,17 @@ class DocumentRecognitionTaskService:
             source_court_sms_id=source_court_sms_id,
             case_id=case_id,
             case_log_id=case_log_id,
+            llm_model=llm_model,
             binding_success=True if case_log_id else None,
             binding_message="案件已由来源管线（法院短信）绑定" if case_log_id else None,
         )
         logger.info(
             "创建文书识别任务",
-            extra={"source_court_sms_id": source_court_sms_id, "prebound_case_log_id": case_log_id},
+            extra={
+                "source_court_sms_id": source_court_sms_id,
+                "prebound_case_log_id": case_log_id,
+                "llm_model": llm_model,
+            },
         )
         return task
 
