@@ -147,11 +147,11 @@ export function RecognizeDialog({ open, onClose, onSaved, file, textRows, onConf
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-h-[85vh] gap-0 overflow-y-auto sm:max-w-[560px]">
+      <DialogContent className="max-h-[85vh] gap-0 overflow-x-hidden overflow-y-auto sm:max-w-[560px]">
         <DialogHeader className="pb-2">
-          <DialogTitle className="flex items-center gap-2 text-[15px]">
-            <FileText className="h-4 w-4 text-muted-foreground" />
-            {file ? file.name : '文字记一笔 · 确认日期'}
+          <DialogTitle className="flex min-w-0 items-start gap-2 text-[15px]">
+            <FileText className="mt-0.5 h-4 w-4 flex-none text-muted-foreground" />
+            <span className="min-w-0 break-all">{file ? file.name : '文字记一笔 · 确认日期'}</span>
           </DialogTitle>
           <DialogDescription className="text-[12px]">
             只有确认过的日期才会写入重要日期提醒

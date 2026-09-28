@@ -144,49 +144,62 @@ export function CaseBindingSection({ task, onBound }: Props) {
         </div>
       )}
 
-      <div className="flex items-center gap-1.5">
-        <div className="flex h-[34px] min-w-0 flex-1 items-center gap-1.5 rounded-[9px] border border-input bg-card px-2.5 focus-within:border-ring/40">
-          <Search className="h-3.5 w-3.5 flex-none text-muted-foreground" />
-          <input
-            className="min-w-0 flex-1 border-none bg-transparent text-[12.5px] outline-none placeholder:text-muted-foreground"
-            placeholder="搜索案号 / 案件名 / 当事人"
-            value={picked ? `${picked.number} · ${picked.name}` : kw}
-            onChange={(e) => {
-              setPicked(null)
-              setAutoPicked(false)
-              setKw(e.target.value)
-            }}
-          />
-          {searching && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
-        </div>
-        <button
-          type="button"
-          className="h-[34px] flex-none rounded-[9px] bg-primary px-3 text-[12.5px] font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
-          disabled={!picked || binding}
-          onClick={doBind}
-        >
-          {binding ? '绑定中…' : '绑定案件'}
-        </button>
-      </div>
-
-      {results.length > 0 && !picked && (
-        <div className="animate-in fade-in slide-in-from-top-1 duration-200 flex flex-col overflow-hidden rounded-[10px] border border-border">
-          {results.map((c) => (
-            <button
-              key={c.id}
-              type="button"
-              onClick={() => {
+      {/* 搜索区：结果为绝对定位浮层（不挤压下方内容；grid item 需 min-w-0 才能让 truncate 生效） */}
+      <div
+        className="relative min-w-0"
+        onBlur={(e) => {
+          if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setResults([])
+        }}
+      >
+        <div className="flex items-center gap-1.5">
+          <div className="flex h-[34px] min-w-0 flex-1 items-center gap-1.5 rounded-[9px] border border-input bg-card px-2.5 focus-within:border-ring/40">
+            <Search className="h-3.5 w-3.5 flex-none text-muted-foreground" />
+            <input
+              className="min-w-0 flex-1 border-none bg-transparent text-[12.5px] outline-none placeholder:text-muted-foreground"
+              placeholder="搜索案号 / 案件名 / 当事人"
+              value={picked ? `${picked.number} · ${picked.name}` : kw}
+              onChange={(e) => {
+                setPicked(null)
                 setAutoPicked(false)
-                setPicked(c)
+                setKw(e.target.value)
               }}
-              className="border-b border-border px-3 py-2 text-left transition-colors last:border-b-0 hover:bg-secondary/60"
-            >
-              <span className="block truncate text-[12px] font-semibold">{c.number}</span>
-              <span className="block truncate text-[10.5px] text-muted-foreground">{c.name}</span>
-            </button>
-          ))}
+            />
+            {searching && <Loader2 className="h-3.5 w-3.5 flex-none animate-spin text-muted-foreground" />}
+          </div>
+          <button
+            type="button"
+            className="h-[34px] flex-none rounded-[9px] bg-primary px-3 text-[12.5px] font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
+            disabled={!picked || binding}
+            onClick={doBind}
+          >
+            {binding ? '绑定中…' : '绑定案件'}
+          </button>
         </div>
-      )}
+
+        {results.length > 0 && !picked && (
+          <div className="animate-in fade-in slide-in-from-top-1 duration-200 absolute inset-x-0 top-full z-20 mt-1 flex max-h-[248px] flex-col overflow-y-auto rounded-[10px] border border-border bg-card shadow-lg">
+            <span className="border-b border-border bg-secondary/50 px-3 py-1.5 text-[10.5px] font-semibold text-muted-foreground">
+              找到 {results.length} 个案件
+            </span>
+            {results.map((c) => (
+              <button
+                key={c.id}
+                type="button"
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => {
+                  setAutoPicked(false)
+                  setPicked(c)
+                  setResults([])
+                }}
+                className="min-w-0 border-b border-border px-3 py-2 text-left transition-colors last:border-b-0 hover:bg-secondary/60"
+              >
+                <span className="block truncate text-[12px] font-semibold">{c.number}</span>
+                <span className="block truncate text-[10.5px] text-muted-foreground">{c.name}</span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
 
       <span className="text-[10.5px] text-muted-foreground">
         可暂不关联案件：下方确认的日期将创建独立提醒，后续仍可在后台绑定案件。
