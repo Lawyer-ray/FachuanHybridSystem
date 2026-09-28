@@ -1,4 +1,5 @@
 import { createApiClient } from '@/lib/api'
+import { MANUAL_SOURCE_TYPE } from './constants'
 import type {
   AssignInfo,
   CaseRow,
@@ -58,7 +59,7 @@ export async function searchClients(keyword: string, isOurClient: boolean): Prom
 export async function listMaterialPacks(): Promise<InboxMessage[]> {
   return inboxApi
     .get('messages', {
-      searchParams: { source_type: 'manual_upload', has_attachments: 'true' },
+      searchParams: { source_type: MANUAL_SOURCE_TYPE, has_attachments: 'true' },
     })
     .json<InboxMessage[]>()
 }
@@ -106,7 +107,9 @@ export async function setPackStatusRemote(
   assign?: AssignInfo,
 ): Promise<void> {
   const detail = await getPackDetail(id)
-  const draft = detail.draft_state ?? {}
+  // draft_state 在未拆分过的包上是 {}（见 InboxMessageDetail 注释）；把它当整份草稿
+  // 原样回写，后端按不透明 JSON 存储，语义与此前一致
+  const draft = detail.draft_state as DraftState
   await saveDraft(id, {
     ...draft,
     status,
@@ -121,11 +124,12 @@ export async function ocrImage(image: Blob): Promise<OcrResult> {
   return inboxApi.post('ocr', { body: fd }).json<OcrResult>()
 }
 
-/** 搜索真实案件（归案 modal 用） */
+/** 搜索真实案件（归案 modal 用）；模块级建一次客户端，避免每次检索重复 create */
+const coreApi = createApiClient() // prefix = API_BASE_URL(/api/v1)
+
 export async function searchCases(q: string): Promise<CaseRow[]> {
   if (!q.trim()) return []
-  const base = createApiClient() // prefix = API_BASE_URL(/api/v1)
-  return base.get('cases/search', { searchParams: { q, limit: '10' } }).json<CaseRow[]>()
+  return coreApi.get('cases/search', { searchParams: { q, limit: '10' } }).json<CaseRow[]>()
 }
 
 const bytesCache = new Map<string, Promise<ArrayBuffer>>()

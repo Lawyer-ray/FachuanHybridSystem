@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -6,6 +6,7 @@ import { AppNavbar } from '@/components/shared/AppNavbar'
 import { PageFade } from '@/components/shared/PageFade'
 import { useMaterialPacks, useCreatePack, useJudgePack, useDeletePack } from '../hooks/use-inbox'
 import { useReader } from '../store'
+import { PACK_LEAVE_REMOVAL_MS } from '../constants'
 import { useDeskKeyboard } from '../hooks/use-desk-keyboard'
 import { useDeskRing } from '../hooks/use-desk-ring'
 import { useDeskRouteSync } from '../hooks/use-desk-route-sync'
@@ -47,10 +48,20 @@ export function DeskPage() {
   const wrapRef = useRef<HTMLDivElement>(null)
   const ringRef = useRef<HTMLDivElement>(null)
   const dragDepth = useRef(0)
+  const leaveTimersRef = useRef<Set<ReturnType<typeof setTimeout>>>(new Set())
   const [dragging, setDragging] = useState(false)
   const [uploading, setUploading] = useState(false)
 
   useDeskRouteSync()
+
+  // 卸载时清掉所有离场清理定时器，避免卸载后仍 setState
+  useEffect(() => {
+    const timers = leaveTimersRef.current
+    return () => {
+      timers.forEach((t) => window.clearTimeout(t))
+      timers.clear()
+    }
+  }, [])
 
   // 按页签过滤，正在离场的卡片留在本轮内做动画（但仍按原状态归属其所在分页列表）
   const visible = useMemo(() => {
@@ -98,13 +109,15 @@ export function DeskPage() {
       } catch {
         toast.error('状态更新失败，请重试')
       }
-      setTimeout(() => {
+      const t = setTimeout(() => {
+        leaveTimersRef.current.delete(t)
         setLeaving((prev) => {
           const n = { ...prev }
           delete n[pack.id]
           return n
         })
-      }, 540)
+      }, PACK_LEAVE_REMOVAL_MS)
+      leaveTimersRef.current.add(t)
     },
     [judgePack, leaving],
   )

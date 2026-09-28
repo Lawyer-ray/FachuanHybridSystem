@@ -18,14 +18,15 @@
  * barrel re-export，消费方继续 `from '../api'` / `from '../../api'` 不变。
  */
 
-export { remindersApi, fetchCalendarMonth, searchTargetOptions, listReminderTypes, parseReminder, createReminder } from './reminders'
+export { remindersApi, fetchCalendarMonth, calendarKeys, REMINDER_TYPES_KEY, searchTargetOptions, listReminderTypes, parseReminder, createReminder } from './reminders'
 export type { CalendarEvent, CalendarStats, CalendarMonth, TargetType, TargetOption, ReminderTypeOption, ParsedReminder, CreateReminderIn } from './reminders'
 
 export { inboxApi, listInbox, formatRelative } from './inbox'
 export type { InboxMessageOut } from './inbox'
 
 export { automationApi, docConvertApi, docConverterApi } from './tools'
-export { submitCourtSms, listConvertTemplates, convertDocument, createConverterJob, getConverterJob, converterDownloadUrl, DOC_CONVERT_TIMEOUT_MS } from './tools'
+export { submitCourtSms, listConvertTemplates, convertDocument, createConverterJob, getConverterJob, converterDownloadUrl, DOC_CONVERT_TIMEOUT_MS, CONVERT_TEMPLATES_KEY } from './tools'
+export { HOME_INBOX_KEY } from './inbox'
 export type { ConvertTemplateGroup, ConvertResult, ConverterJob } from './tools'
 
 export {

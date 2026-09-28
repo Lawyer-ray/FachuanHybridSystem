@@ -1,17 +1,17 @@
 import { useCallback, useMemo, useState } from 'react'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router'
 import { toast } from 'sonner'
 
-import { fetchCalendarMonth } from '../api'
+import { calendarKeys, fetchCalendarMonth } from '../api'
 import { formatCN, formatWeekdayCN, parseKey, todayKey } from '../domain'
-import { CalendarPanel } from './CalendarPanel'
+import { CalendarPanel, type CalendarView } from './CalendarPanel'
 import { ToolDock } from './ToolDock'
 import { AppNavbar } from '@/components/shared/AppNavbar'
 import { PageFade } from '@/components/shared/PageFade'
 import { InboxCard, QuickAdd, TodayCard } from './SideCards'
+import { AddReminderDialog } from './AddReminderDialog'
 import { DaySheet } from './DaySheet'
-import type { CalendarEvent } from '../api'
 import type { InboxItem } from '../types'
 
 /** 手机端展开抽屉的宽度阈值（与原型一致） */
@@ -21,39 +21,74 @@ function isMobile(): boolean {
   return typeof window !== 'undefined' && window.innerWidth < MOBILE_MAX
 }
 
+/** 点新增时的默认时刻：点今天取"现在"，点其他日期取 09:00 */
+function defaultTimeFor(day: string, today: string): string {
+  if (day !== today) return '09:00'
+  const now = new Date()
+  return `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
+}
+
 /**
  * 首页 · 今日工作台。
  * 布局：左栏（大日历 + 快捷工具坞）、右栏（今日 + 待处理），窄屏单列。
+ *
+ * 日历视图月（view）在这里持有：CalendarPanel 只负责展示，切月由 view 变化
+ * 驱动 useQuery 真正请求那个月——此前视图月困在 CalendarPanel 内部，翻月
+ * 永远是空日历。今日相关数据（统计 / 今日卡 / 抽屉）固定用「今天所在月」
+ * 的查询；view 与今天同月时两个 query 共享同一个 key，react-query 自动去重。
  */
 export function HomePage() {
   const queryClient = useQueryClient()
   const today = useMemo(() => todayKey(), [])
   const [sheetDay, setSheetDay] = useState<string | null>(null)
+  // 新增安排弹窗（day=null 关闭）；由日历空白格与手机抽屉「＋新增」共同打开
+  const [adding, setAdding] = useState<{ day: string; time: string } | null>(null)
 
   const todayParts = useMemo(() => {
     const [y, m] = today.split('-').map(Number)
-    return { year: y, month: m }
+    return { year: y, month: m } // month 为 1-based（后端 calendar 接口契约）
   }, [today])
+  // 日历视图月：0-based（JS Date 口径，与 CalendarPanel 的 buildMonthGrid / 头部显示一致）。
+  // 注意别把上面 1-based 的 todayParts 直接当 view 用——两者差 1，混用会把 9 月渲染成 10 月。
+  const [view, setView] = useState<CalendarView>(() => {
+    const d = parseKey(today)
+    return { year: d.getFullYear(), month: d.getMonth() }
+  })
 
-  /* 日历视图：合并 / 统计都由后端算好，前端只负责渲染 */
-  const calendarQuery = useQuery({
-    queryKey: ['home-calendar', todayParts.year, todayParts.month],
+  /* 视图月日历（CalendarPanel 渲染 + 手机抽屉数据源）；今日月日历（统计 + 今日卡）。
+     后端 month 参数是 1-based：view 的 0-based 月在查询边界 +1；view 与今天同月时
+     两个 query key 相同，react-query 自动去重为一次请求。 */
+  const viewQuery = useQuery({
+    queryKey: calendarKeys.month(view.year, view.month + 1),
+    queryFn: () => fetchCalendarMonth(view.year, view.month + 1),
+    staleTime: 60_000,
+    placeholderData: keepPreviousData, // 切月时保留上月格子，避免整版闪空
+  })
+  const todayQuery = useQuery({
+    queryKey: calendarKeys.month(todayParts.year, todayParts.month),
     queryFn: () => fetchCalendarMonth(todayParts.year, todayParts.month),
     staleTime: 60_000,
   })
 
-  const calendar = calendarQuery.data
-  const eventsByDay = useMemo(() => calendar?.days ?? {}, [calendar])
+  const viewEventsByDay = useMemo(() => viewQuery.data?.days ?? {}, [viewQuery.data])
+  const todayEventsByDay = useMemo(() => todayQuery.data?.days ?? {}, [todayQuery.data])
   const stats = useMemo(
-    () => calendar?.stats ?? { today: 0, deadline_in_7days: 0, month_court: 0 },
-    [calendar],
+    () => todayQuery.data?.stats ?? { today: 0, deadline_in_7days: 0, month_court: 0 },
+    [todayQuery.data],
   )
   // 后端已按「时间升序 + 紧要排前」排好，直接取
-  const todayEvents = useMemo(() => eventsByDay[today] ?? [], [eventsByDay, today])
+  const todayEvents = useMemo(() => todayEventsByDay[today] ?? [], [todayEventsByDay, today])
 
-  const refresh = useCallback(() => {
-    void queryClient.invalidateQueries({ queryKey: ['home-calendar'] })
+  const invalidateCalendar = useCallback(() => {
+    void queryClient.invalidateQueries({ queryKey: calendarKeys.all })
   }, [queryClient])
+
+  const openAddDialog = useCallback(
+    (day: string) => {
+      setAdding({ day, time: defaultTimeFor(day, today) })
+    },
+    [today],
+  )
 
   const notify = useCallback((msg: string) => toast.info(msg), [])
 
@@ -62,7 +97,7 @@ export function HomePage() {
     if (isMobile()) setSheetDay(key)
   }, [])
 
-  const handleOpenEvent = useCallback((e: CalendarEvent) => {
+  const handleOpenEvent = useCallback((e: import('../api').CalendarEvent) => {
     if (e.case_id) {
       toast.info(`打开案件 #${e.case_id}：${e.title}`)
       return
@@ -92,11 +127,18 @@ export function HomePage() {
     [goPack],
   )
 
+  const shiftMonth = useCallback((delta: number) => {
+    setView((v) => {
+      const m = v.month + delta
+      if (m < 0) return { year: v.year - 1, month: 11 }
+      if (m > 11) return { year: v.year + 1, month: 0 }
+      return { year: v.year, month: m }
+    })
+  }, [])
 
-  // 新增安排保存成功后刷新日历（日历弹窗自己负责收集输入并调 create）
-  const handleAdded = useCallback(() => {
-    void queryClient.invalidateQueries({ queryKey: ['home-calendar'] })
-  }, [queryClient])
+  const goToday = useCallback(() => {
+    setView(todayParts)
+  }, [todayParts])
 
   return (
     <div className="min-h-screen bg-background">
@@ -120,7 +162,7 @@ export function HomePage() {
                 <b className="font-semibold">{stats.month_court}</b> 个庭期
               </div>
             </div>
-            <QuickAdd onAdded={refresh} />
+            <QuickAdd onAdded={invalidateCalendar} />
           </div>
 
           <div className="grid grid-cols-1 items-start gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
@@ -128,19 +170,22 @@ export function HomePage() {
             <div className="min-w-0">
               <CalendarPanel
                 today={today}
-                eventsByDay={eventsByDay}
+                view={view}
+                onShiftMonth={shiftMonth}
+                onGoToday={goToday}
+                eventsByDay={viewEventsByDay}
                 stats={stats}
-                loading={calendarQuery.isLoading}
+                loading={viewQuery.isLoading}
                 onSelectDay={handleSelectDay}
                 onOpenEvent={handleOpenEvent}
-                onAdd={handleAdded}
+                onOpenAdd={openAddDialog}
               />
               <ToolDock />
             </div>
 
             {/* 右：今日 + 待处理 */}
             <div className="flex min-w-0 flex-col gap-5">
-              <TodayCard events={todayEvents} loading={calendarQuery.isLoading} onOpenEvent={handleOpenEvent} />
+              <TodayCard events={todayEvents} loading={todayQuery.isLoading} onOpenEvent={handleOpenEvent} />
               <InboxCard onOpen={handleInboxOpen} />
             </div>
           </div>
@@ -151,10 +196,18 @@ export function HomePage() {
       <DaySheet
         day={sheetDay}
         today={today}
-        events={sheetDay ? (eventsByDay[sheetDay] ?? []) : []}
+        events={sheetDay ? (viewEventsByDay[sheetDay] ?? []) : []}
         onClose={() => setSheetDay(null)}
         onOpenEvent={handleOpenEvent}
-        onAdd={handleAdded}
+        onAdd={() => sheetDay && openAddDialog(sheetDay)}
+      />
+
+      {/* 新增安排弹窗：日历空白格 / 手机抽屉「＋新增」共用 */}
+      <AddReminderDialog
+        day={adding?.day ?? null}
+        defaultTime={adding?.time ?? '09:00'}
+        onClose={() => setAdding(null)}
+        onSaved={invalidateCalendar}
       />
     </div>
   )

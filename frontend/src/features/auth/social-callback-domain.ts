@@ -5,7 +5,7 @@
  * 只测纯函数）。
  */
 
-import { SOCIAL_LOGIN_ERROR_TEXT, type SocialLoginErrorCode } from './social-types'
+import { SOCIAL_LOGIN_ERROR_TEXT, type SocialLoginErrorCode } from './constants'
 
 /** 只允许站内相对路径，拒绝 //evil.com 这类开放重定向 */
 export function sanitizeRedirect(raw: string | null): string {

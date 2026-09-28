@@ -13,7 +13,7 @@
 |---|---|
 | 框架 | React 19 + TypeScript ~6.0（strict） |
 | 构建 | Vite 8（`@vitejs/plugin-react-swc`） |
-| 路由 | react-router v7 |
+| 路由 | react-router v8 |
 | 服务端状态 | @tanstack/react-query v5 |
 | 客户端状态 | Zustand v5 |
 | UI 基础 | @radix-ui（shadcn 风格，`components/ui/`）+ lucide-react |
@@ -23,7 +23,7 @@
 | 通知 | sonner |
 | 日期 | date-fns |
 | PDF | pdfjs-dist |
-| 测试 | vitest v4 |
+| 测试 | vitest v5 |
 
 ## 快速开始
 
@@ -73,10 +73,9 @@ src/
 
 | 变量 | 默认值 | 说明 |
 |---|---|---|
-| `VITE_API_BASE_URL` | `http://localhost:8002/api/v1` | API 基址 |
-| `VITE_BACKEND_URL` | `http://localhost:8002` | 后端地址（登录跳转等） |
+| `VITE_API_BASE_URL` | `/api/v1`（相对路径，dev 由 Vite 代理到 `127.0.0.1:8002`，生产按同源部署） | API 基址 |
 
-运行时也支持 `localStorage` 的 `api_base_url` / `backend_url` 覆盖（优先于环境变量）。
+运行时也支持 `localStorage` 的 `api_base_url` 覆盖（优先于环境变量）。
 
 ## 开发约定（摘要）
 

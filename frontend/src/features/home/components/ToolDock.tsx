@@ -17,8 +17,6 @@ export function ToolDock() {
       <div className="flex items-center gap-2.5 py-[13px]">
         <b className="text-[13.5px] font-semibold">快捷工具</b>
         <span className="text-[11px] text-muted-foreground">收案 · 文书 · 解析，不用进后台</span>
-        <span className="flex-1" />
-        <span className="rounded-[7px] px-[9px] py-[3px] text-[11px] text-muted-foreground">全部工具 →</span>
       </div>
       <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
         <CourtSmsCard />

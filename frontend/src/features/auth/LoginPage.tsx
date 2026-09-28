@@ -10,10 +10,10 @@
  *   表单栏里再细分：登录方式由 login-methods 派发到 PasswordForm / QrPanel / RedirectPanel，
  *   因此新增登录方式不需要改这里的分支结构。
  */
-import { useEffect, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router'
+import { useQuery } from '@tanstack/react-query'
 import './auth.css'
-import { useAuth } from './store'
 import { socialAuthApi } from './social-api'
 import { buildLoginMethods, PASSWORD_METHOD_ID, type LoginMethod } from './login-methods'
 import { LoginBrandPanel } from './components/LoginBrandPanel'
@@ -26,25 +26,17 @@ import { SocialRedirectPanel } from './components/SocialRedirectPanel'
 const TICKER = ['案件管理', '文书生成', '合同审查', '材料预处理', '法律检索', 'OA 立案', '财务台账']
 
 export function LoginPage() {
-  const init = useAuth((s) => s.init)
   const navigate = useNavigate()
-  const [methods, setMethods] = useState<LoginMethod[]>(() => buildLoginMethods([]))
   const [activeId, setActiveId] = useState(PASSWORD_METHOD_ID)
 
-  useEffect(() => {
-    init()
-  }, [init])
-
-  // 已启用的登录方式由后端下发；拉不到就只留账密，不影响登录
-  useEffect(() => {
-    let alive = true
-    void socialAuthApi.listProviders().then((list) => {
-      if (alive) setMethods(buildLoginMethods(list))
-    })
-    return () => {
-      alive = false
-    }
-  }, [])
+  // 已启用的登录方式由后端下发；走 react-query 带缓存（此前手写 effect，
+  // 每次进登录页都重新请求且无失败痕迹）。拉不到就只留账密，不影响登录。
+  const { data: providers = [] } = useQuery({
+    queryKey: ['social-providers'],
+    queryFn: socialAuthApi.listProviders,
+    staleTime: 5 * 60_000,
+  })
+  const methods = useMemo<LoginMethod[]>(() => buildLoginMethods(providers), [providers])
 
   const active = methods.find((m) => m.id === activeId) ?? methods[0]
 

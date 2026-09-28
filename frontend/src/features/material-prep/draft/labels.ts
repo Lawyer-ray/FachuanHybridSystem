@@ -15,33 +15,6 @@ export function segMats(sg: Segment): number[] {
 /** 页面唯一键（用于选中集合） */
 export const selKeyOf = (r: PageKey): string => `${r.mi}:${r.p}`
 
-/** 页码区间的人类可读标签：单源 "P1–3,P5"，跨源 "甲.pdf P1,2 + 乙.pdf P3" */
-export function rangeLabel(mats: BundleMat[], refs: PageKey[]): string {
-  const byM: Record<number, number[]> = {}
-  refs.forEach((r) => {
-    ;(byM[r.mi] = byM[r.mi] || []).push(r.p)
-  })
-  const single = Object.keys(byM).length === 1
-  return Object.keys(byM)
-    .map((k) => {
-      const mi = Number(k)
-      const ps = (byM[mi] || []).slice().sort((a, b) => a - b)
-      const parts: string[] = []
-      let st = ps[0]
-      let prev = ps[0]
-      for (let i = 1; i <= ps.length; i++) {
-        if (i < ps.length && ps[i] === prev + 1) {
-          prev = ps[i]
-          continue
-        }
-        parts.push(st === prev ? `P${st}` : `P${st}–${prev}`)
-        if (i < ps.length) st = prev = ps[i]
-      }
-      return (single ? '' : matLabel(mats, mi) + ' ') + parts.join(',')
-    })
-    .join(' + ')
-}
-
 export function countUnclassified(d: DraftState): number {
   return d.segs.filter((s) => !s.t).length
 }

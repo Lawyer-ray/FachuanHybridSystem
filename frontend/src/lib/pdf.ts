@@ -77,18 +77,6 @@ export async function renderPdfPage(
   return canvas
 }
 
-/** 把 PDF 的一页渲染成 PNG Blob（供 OCR 框选取字上传）。 */
-export async function renderPdfPageBlob(
-  pdf: pdfjsLib.PDFDocumentProxy,
-  pageNum: number,
-  targetWidth = PDF_RENDER_WIDTH,
-): Promise<Blob> {
-  const canvas = await renderPdfPage(pdf, pageNum, targetWidth)
-  return new Promise((resolve, reject) => {
-    canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error('PNG 编码失败'))), 'image/png')
-  })
-}
-
 /** 0-1 归一化矩形（OCR 框取字） */
 export interface NormRect {
   x: number
@@ -157,18 +145,4 @@ export function canvasToBlob(canvas: HTMLCanvasElement): Promise<Blob> {
   return new Promise((resolve, reject) => {
     canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error('PNG 编码失败'))), 'image/png')
   })
-}
-
-/** 根据附件 content_type / 文件名推断素材类型 */
-export function detectMaterialKind(contentType: string | undefined, filename: string): 'pdf' | 'photo' | 'office' {
-  const ct = (contentType || '').toLowerCase()
-  const name = filename.toLowerCase()
-  if (ct.includes('pdf') || name.endsWith('.pdf')) return 'pdf'
-  if (
-    ct.startsWith('image/') ||
-    /\.(jpe?g|png|gif|webp|bmp|heic|heif|tiff?)$/.test(name)
-  ) {
-    return 'photo'
-  }
-  return 'office'
 }

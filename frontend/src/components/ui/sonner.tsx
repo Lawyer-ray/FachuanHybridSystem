@@ -7,15 +7,15 @@ import {
   OctagonXIcon,
   TriangleAlertIcon,
 } from "lucide-react"
-import { useTheme } from "next-themes"
 import { Toaster as Sonner, type ToasterProps } from "sonner"
 
+// 当前应用为纯亮色（暗色令牌保留在 index.css 但未接入），toast 固定 light，
+// 避免依赖 next-themes 时「系统暗色 → toast 变暗、页面仍亮」的割裂。
+// 接入暗色模式时在这里改为 useTheme() 即可。
 const Toaster = ({ ...props }: ToasterProps) => {
-  const { theme = "system" } = useTheme()
-
   return (
     <Sonner
-      theme={theme as ToasterProps["theme"]}
+      theme="light"
       className="toaster group"
       icons={{
         success: <CircleCheckIcon className="size-4" />,

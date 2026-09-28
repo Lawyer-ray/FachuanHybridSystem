@@ -3,7 +3,7 @@ import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { useReader } from '../../store'
-import { countUnclassified, matLabel, resetSegments } from '../../draft'
+import { countUnclassified, markAllSegsDone, matLabel, resetSegments } from '../../draft'
 import { useMediaQuery } from '../../hooks/use-media'
 import { ReaderTopBar } from './ReaderTopBar'
 import { ReaderToolbar } from './ReaderToolbar'
@@ -39,8 +39,12 @@ export function Reader() {
   const selMode = useReader((s) => s.selMode)
   const selPages = useReader((s) => s.selPages)
   const ocrPending = useReader((s) => s.ocrPending)
+  const assignOpen = useReader((s) => s.assignOpen)
+  const setAssignOpen = useReader((s) => s.setAssignOpen)
+  const error = useReader((s) => s.error)
   const [focusedSeg, setFocusedSeg] = useState(0)
-  const [showAssign, setShowAssign] = useState(false)
+  // 待重命名的源文件（左栏重命名入口打开），null = 关闭
+  const [renameMat, setRenameMat] = useState<{ mi: number; initial: string } | null>(null)
   const [renaming, setRenaming] = useState(false)
   const [railOpen, setRailOpen] = useState(false)
   const [metaOpen, setMetaOpen] = useState(false)
@@ -68,8 +72,9 @@ export function Reader() {
     setFocusedSeg(0)
     setRailOpen(false)
     setMetaOpen(false)
-    setShowAssign(false)
-  }, [openId])
+    setRenameMat(null)
+    setAssignOpen(false)
+  }, [openId, setAssignOpen])
 
   // 框选取字必须看得见页面 —— 抽屉让开
   useEffect(() => {
@@ -102,7 +107,7 @@ export function Reader() {
     return (
       <FixedReader>
         <div className="flex flex-1 flex-col items-center justify-center gap-3 text-sm">
-          <p className="text-destructive">{useReader.getState().error}</p>
+          <p className="text-destructive">{error}</p>
           <Button onClick={close}>返回</Button>
         </div>
       </FixedReader>
@@ -141,8 +146,8 @@ export function Reader() {
   const zoomVal = Math.round(zoom * 100)
 
   const ocrFrom = ocrPending ? `${matLabel(draft.mats, ocrPending.mi)} P${ocrPending.p}` : ''
-  const ocrTo = pickInfo >= 0 && draft.infos[pickInfo] ? draft.infos[pickInfo].k : ''
-  const hintField = pickInfo >= 0 && draft.infos[pickInfo] ? draft.infos[pickInfo].k : ''
+  // 取字目标字段：HintBar 提示与 OCR 确认面板共用同一表达式，只算一遍
+  const pickField = pickInfo >= 0 && draft.infos[pickInfo] ? draft.infos[pickInfo].k : ''
 
   const onComplete = () => {
     if (!allClassified) {
@@ -151,7 +156,7 @@ export function Reader() {
       toast.info('还有未归类的段，先点段头的类型胶囊选一下')
       return
     }
-    st.update((d) => ({ ...d, segs: d.segs.map((s) => ({ ...s, done: true })) }))
+    st.update((d) => markAllSegsDone(d))
     toast.success(`拆分与归类完成 —— 共 ${draft.segs.length} 份材料`)
   }
 
@@ -183,7 +188,7 @@ export function Reader() {
         allClassified={allClassified}
         onBack={close}
         onReject={onReject}
-        onAssign={() => setShowAssign(true)}
+        onAssign={() => setAssignOpen(true)}
         onClose={close}
         onRename={() => setRenaming(true)}
       />
@@ -219,7 +224,7 @@ export function Reader() {
       />
 
       {/* 取字 / 选页 顶部提示横条（原型 .pickhint：琥珀底 + Esc） */}
-      {(pickInfo >= 0 || selMode) && <HintBar mode={pickInfo >= 0 ? 'pick' : 'sel'} field={hintField} />}
+      {(pickInfo >= 0 || selMode) && <HintBar mode={pickInfo >= 0 ? 'pick' : 'sel'} field={pickField} />}
 
       {/* 三栏主体 */}
       <div className="relative flex min-h-0 flex-1 bg-[#f1f1f3]">
@@ -239,8 +244,7 @@ export function Reader() {
             onFocusSeg={focusSeg}
             onRenameMat={(mi) => {
               const m = draft.mats[mi]
-              const name = prompt('源文件名', m.customName || m.n)
-              if (name) st.renameMatInDraft(mi, name)
+              setRenameMat({ mi, initial: m.customName || m.n })
             }}
           />
         </div>
@@ -304,7 +308,7 @@ export function Reader() {
         detail={detail}
         ocrPending={ocrPending}
         ocrFrom={ocrFrom}
-        ocrTo={ocrTo}
+        ocrTo={pickField}
         onOcrText={(v) => {
           if (ocrPending) st.setOcrPending({ ...ocrPending, text: v })
         }}
@@ -314,10 +318,10 @@ export function Reader() {
           st.setPickInfo(-1)
         }}
         onOcrOk={ocrOk}
-        showAssign={showAssign}
-        onAssignCancel={() => setShowAssign(false)}
+        showAssign={assignOpen}
+        onAssignCancel={() => setAssignOpen(false)}
         onAssignConfirm={(assign) => {
-          setShowAssign(false)
+          setAssignOpen(false)
           st.setAssign(assign)
           toast('已归案')
           st.close()
@@ -327,6 +331,8 @@ export function Reader() {
         onDeleteConfirm={confirmDelete}
         renaming={renaming}
         onRenamingChange={setRenaming}
+        renameMat={renameMat}
+        onRenameMatClose={() => setRenameMat(null)}
       />
     </FixedReader>
   )

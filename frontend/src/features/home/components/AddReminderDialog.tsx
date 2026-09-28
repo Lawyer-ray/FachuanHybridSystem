@@ -3,10 +3,11 @@ import { Loader2, X } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { toast } from 'sonner'
 
-import { createReminder, listReminderTypes, searchTargetOptions, type TargetOption } from '../api'
+import { createReminder, listReminderTypes, searchTargetOptions, REMINDER_TYPES_KEY, type TargetOption } from '../api'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { formatCN, parseKey } from '../domain'
+import { errMessage } from '@/lib/errors'
 import { cn } from '@/lib/utils'
 
 /** 关联对象分类 tab。'all' = 全部 */
@@ -53,7 +54,7 @@ export function AddReminderDialog({ day, defaultTime, onClose, onSaved }: Props)
   const [tab, setTab] = useState('all')
 
   const { data: types = [] } = useQuery({
-    queryKey: ['reminder-types'],
+    queryKey: REMINDER_TYPES_KEY,
     queryFn: listReminderTypes,
     staleTime: 10 * 60_000,
   })
@@ -122,11 +123,7 @@ export function AddReminderDialog({ day, defaultTime, onClose, onSaved }: Props)
       onSaved()
       onClose()
     } catch (e) {
-      const msg =
-        e && typeof e === 'object' && 'data' in e
-          ? ((e as { data?: { message?: string } }).data?.message ?? '')
-          : ''
-      toast.error(msg || '新增失败，请稍后重试')
+      toast.error(errMessage(e, '新增失败，请稍后重试'))
       setBusy(false)
     }
   }

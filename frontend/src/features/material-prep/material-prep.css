@@ -5,7 +5,8 @@
   opacity: 0;
   transform: scale(1.5) rotate(-8deg);
 }
-.mp-packet.stamped .mp-stamp {
+/* stamped 标在印章 span 自身（PackCard 的 stamp()），不再要求 .mp-packet 祖先配合 */
+.mp-stamp.stamped {
   animation: mp-stamp-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
   animation-delay: 0.05s;
 }

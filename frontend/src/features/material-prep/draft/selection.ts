@@ -22,6 +22,14 @@ export function pageIndexOf(d: DraftState, mi: number, p: number): number {
   return flatRefs(d).findIndex((f) => f.ref.mi === mi && f.ref.p === p)
 }
 
+/** 一组页在扁平序中的下标（找不到的页剔除），升序返回 */
+function flatIndexesOf(flat: FlatRef[], picked: PageKey[]): number[] {
+  return picked
+    .map((o) => flat.findIndex((f) => f.ref.mi === o.mi && f.ref.p === o.p))
+    .filter((i) => i >= 0)
+    .sort((a, b) => a - b)
+}
+
 /** 新段默认名：单源用源文件名当底，跨源用当前段名；带起始页，切第二次不叠后缀 */
 function splitBase(sg: Segment, mats: DraftState['mats']): string {
   const mis = segMats(sg)
@@ -39,10 +47,7 @@ function splitExt(sg: Segment): string {
 export function splitOutPages(d: DraftState, picked: PageKey[]): DraftState {
   if (!picked.length) return d
   const flat = flatRefs(d)
-  const idx = picked
-    .map((o) => flat.findIndex((f) => f.ref.mi === o.mi && f.ref.p === o.p))
-    .filter((i) => i >= 0)
-    .sort((a, b) => a - b)
+  const idx = flatIndexesOf(flat, picked)
   if (!idx.length) return d
   const a = idx[0]
   const b = idx[idx.length - 1]
@@ -88,10 +93,7 @@ export function mergePagesIntoNew(d: DraftState, picked: PageKey[]): DraftState 
 export function applyPageSelection(d: DraftState, selPages: PageKey[]): DraftState {
   if (!selPages.length) return d
   const flat = flatRefs(d)
-  const idx = selPages
-    .map((o) => flat.findIndex((f) => f.ref.mi === o.mi && f.ref.p === o.p))
-    .filter((i) => i >= 0)
-    .sort((a, b) => a - b)
+  const idx = flatIndexesOf(flat, selPages)
   if (!idx.length) return d
   const slice = flat.slice(idx[0], idx[idx.length - 1] + 1)
   const involved = new Set(slice.map((f) => f.si))
@@ -104,10 +106,7 @@ export function applyPageSelection(d: DraftState, selPages: PageKey[]): DraftSta
  */
 export function isSelectionContiguous(d: DraftState, selPages: PageKey[]): boolean {
   if (!selPages.length) return false
-  const idx = selPages
-    .map((o) => pageIndexOf(d, o.mi, o.p))
-    .filter((i) => i >= 0)
-    .sort((a, b) => a - b)
+  const idx = flatIndexesOf(flatRefs(d), selPages)
   if (!idx.length || idx.length !== selPages.length) return false
   return idx[idx.length - 1] - idx[0] + 1 === idx.length
 }

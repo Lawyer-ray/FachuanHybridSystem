@@ -3,13 +3,14 @@ import { Check, Landmark, Loader2, Mail, Paperclip, Sparkles } from 'lucide-reac
 import { useQuery } from '@tanstack/react-query'
 import { toast } from 'sonner'
 
-import { createReminder, listInbox, parseReminder } from '../api'
+import { createReminder, listInbox, parseReminder, HOME_INBOX_KEY } from '../api'
 import { KIND_BADGE, KIND_LABEL } from '../constants'
 import { isKeyKind } from '../api-meta'
 import { rangeLabel, summaryLine } from '../api-meta'
 import type { CalendarEvent } from '../api'
 import type { InboxItem } from '../types'
 import { BTN_PRIMARY, COUNT_PILL, PANEL } from '../ui'
+import { errMessage } from '@/lib/errors'
 import { cn } from '@/lib/utils'
 
 /* ============================================================ 今日安排 */
@@ -35,7 +36,7 @@ export function TodayCard({ events, loading, onOpenEvent }: TodayProps) {
 
   return (
     <section className={`${PANEL} overflow-hidden`}>
-      <CardHead title="今日" count={`${total} 件`} action="全部日程 →" />
+      <CardHead title="今日" count={`${total} 件`} />
       <div className="px-2.5 pt-2 pb-3">
         {loading && <div className="px-2 py-6 text-center text-[12.5px] text-muted-foreground">正在载入…</div>}
         {!loading && total === 0 && (
@@ -109,14 +110,14 @@ interface InboxProps {
  */
 export function InboxCard({ onOpen }: InboxProps) {
   const { data = [], isLoading } = useQuery({
-    queryKey: ['home-inbox'],
+    queryKey: HOME_INBOX_KEY,
     queryFn: () => listInbox(6),
     staleTime: 30_000,
   })
 
   return (
     <section className={`${PANEL} overflow-hidden`}>
-      <CardHead title="收件箱" count={data.length ? `${data.length} 条` : ''} action="全部 →" />
+      <CardHead title="收件箱" count={data.length ? `${data.length} 条` : ''} />
       <div className="px-2.5 pt-1.5 pb-2.5">
         {isLoading && <div className="px-2 py-6 text-center text-[12.5px] text-muted-foreground">正在载入…</div>}
         {!isLoading && data.length === 0 && (
@@ -172,16 +173,15 @@ interface QuickAddProps {
 export function QuickAdd({ onAdded }: QuickAddProps) {
   const [text, setText] = useState('')
   const [busy, setBusy] = useState(false)
-  const [parsing, setParsing] = useState(false)
 
   const submit = async () => {
+    if (busy) return // 回车与按钮共用防重入闸：按钮 disabled 拦不住回车
     const v = text.trim()
     if (!v) {
       toast.info('先写一句，比如「2026-09-28 09:30 开庭 张某诉李某 借贷纠纷」')
       return
     }
     setBusy(true)
-    setParsing(true)
     try {
       const parsed = await parseReminder(v)
       if (parsed.length === 0) {
@@ -197,17 +197,16 @@ export function QuickAdd({ onAdded }: QuickAddProps) {
       setText('')
       toast.success(`已加入日历：${p.reminder_type_label} · ${p.due_at.replace('T', ' ')}`)
       onAdded()
-    } catch {
-      toast.error('记一笔失败，请稍后重试')
+    } catch (e) {
+      toast.error(errMessage(e, '记一笔失败，请稍后重试'))
     } finally {
       setBusy(false)
-      setParsing(false)
     }
   }
 
   return (
     <div className="flex h-[42px] min-w-[320px] max-w-[480px] flex-1 items-center gap-[7px] rounded-[11px] border border-input bg-card py-0 pr-[5px] pl-[13px] shadow-[0_1px_2px_rgba(0,0,0,.03)] transition-colors focus-within:border-ring/40 md:ml-auto">
-      {parsing ? <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" /> : <Sparkles className="h-3.5 w-3.5 text-muted-foreground" />}
+      {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" /> : <Sparkles className="h-3.5 w-3.5 text-muted-foreground" />}
       <input
         className="min-w-0 flex-1 border-none bg-transparent text-[13px] text-foreground outline-none placeholder:text-muted-foreground"
         value={text}
@@ -227,15 +226,11 @@ export function QuickAdd({ onAdded }: QuickAddProps) {
 
 /* ============================================================ 面板标题 */
 
-function CardHead({ title, count, action }: { title: string; count: string; action: string }) {
+function CardHead({ title, count }: { title: string; count: string }) {
   return (
     <div className="flex items-center gap-2.5 px-4 pt-[15px] pb-1">
       <b className="text-[13.5px] font-semibold">{title}</b>
       <span className={COUNT_PILL}>{count}</span>
-      <span className="flex-1" />
-      <span className="cursor-pointer rounded-[7px] px-[9px] py-[3px] text-[11px] text-muted-foreground transition-colors hover:bg-secondary">
-        {action}
-      </span>
     </div>
   )
 }

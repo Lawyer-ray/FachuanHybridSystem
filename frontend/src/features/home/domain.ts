@@ -24,12 +24,6 @@ export function todayKey(now: Date = new Date()): string {
   return dateKey(now)
 }
 
-/** 把 HH:mm 从 ISO 串中取出；没有时分则返回 '全天' */
-export function timeOfDay(iso: string): string {
-  const m = /T(\d{2}):(\d{2})/.exec(iso)
-  return m ? `${m[1]}:${m[2]}` : '全天'
-}
-
 /** YYYY-MM-DD → 本地 Date */
 export function parseKey(key: string): Date {
   const [y, m, d] = key.split('-').map(Number)

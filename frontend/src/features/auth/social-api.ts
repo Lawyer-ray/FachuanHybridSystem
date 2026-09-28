@@ -94,6 +94,28 @@ async function requestSession(client: KyInstance, path: string): Promise<SocialS
   return data
 }
 
+/**
+ * in-flight 的授权会话请求去重。
+ *
+ * 后端把 state 存在 Django session 的**单槽**键里（views.py 的 session["oauth"]），
+ * 新请求直接覆盖旧值。若同一浏览器并发发两次 session 请求（React StrictMode 双挂载
+ * 是必然发生的），两个响应的渲染顺序与后端写入顺序一旦颠倒，屏幕上二维码携带的
+ * state 就和 session 里最后写入的不一致——扫码回调必然 invalid_state（「安全校验
+ * 失败，请重新扫码」）。并发调用共享同一 promise 后，只有一个 state 被写入和渲染，
+ * 天然一致；in-flight 结束后清除，后续刷新二维码（合法的重新挂载）仍拿新 state。
+ */
+const sessionInflight = new Map<string, Promise<SocialSession>>()
+
+function shareInflightSession(key: string, run: () => Promise<SocialSession>): Promise<SocialSession> {
+  const existing = sessionInflight.get(key)
+  if (existing) return existing
+  const p = run().finally(() => {
+    if (sessionInflight.get(key) === p) sessionInflight.delete(key)
+  })
+  sessionInflight.set(key, p)
+  return p
+}
+
 export const socialAuthApi = {
   async listProviders(): Promise<SocialProviderInfo[]> {
     try {
@@ -108,7 +130,9 @@ export const socialAuthApi = {
   /** 生成授权 URL（内嵌二维码用）。未配置该登录方式时后端返回 200 + success:false。 */
   async createSession(provider: string): Promise<SocialSession> {
     // 不带尾斜杠：后端 ApiTrailingSlashMiddleware 会剥掉 /api/ 的尾斜杠
-    return requestSession(socialClient, `/api/v1/social/${provider}/session`)
+    return shareInflightSession(`login:${provider}`, () =>
+      requestSession(socialClient, `/api/v1/social/${provider}/session`),
+    )
   },
 
   /**
@@ -147,9 +171,12 @@ export const socialBindingsApi = {
 
   /** 发起绑定授权。授权完成后后端把身份关联到当前登录用户，不新建律师账号。 */
   async createBindSession(provider: string, redirect = '/settings/bindings'): Promise<SocialSession> {
-    return requestSession(
-      authedSocialClient,
-      `/api/v1/social/${provider}/bind-session?redirect=${encodeURIComponent(redirect)}`,
+    // 与登录会话同样的单槽覆盖问题（bind_user_id 不同也不该并发），key 里带 redirect 归组
+    return shareInflightSession(`bind:${provider}:${redirect}`, () =>
+      requestSession(
+        authedSocialClient,
+        `/api/v1/social/${provider}/bind-session?redirect=${encodeURIComponent(redirect)}`,
+      ),
     )
   },
 

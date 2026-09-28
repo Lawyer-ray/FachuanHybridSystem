@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router'
+import { useQuery } from '@tanstack/react-query'
 import { LogOut, Menu, Plus, Search, User } from 'lucide-react'
 
 import { useAuth } from '@/features/auth'
@@ -54,24 +55,19 @@ export function AppNavbar({ onNotify, onLogout }: AppNavbarProps) {
 
   // auth store 在刷新页面（init 路径）时只放了 {id:0, username:''} 占位，
   // 拿不到真实用户名。navbar 又得显示用户名，所以这里补拉一次
-  // /organization/me（登录时也拉过，属幂等只读）。
-  // 只在没有用户名时拉，避免每次挂载都请求。
-  useEffect(() => {
-    if (user?.username) return
-    let alive = true
-    api
-      .get('organization/me')
-      .json<{ id: number; username: string }>()
-      .then((u) => {
-        if (alive && u?.username) setUser?.({ id: u.id, username: u.username })
-      })
-      .catch(() => {
-        /* 拿不到就保持现状，不打扰用户 */
-      })
-    return () => {
-      alive = false
-    }
-  }, [user?.username, setUser])
+  // /organization/me（登录时也拉过，属幂等只读）。走 react-query 带缓存，
+  // 只在没有用户名时启用，避免每次挂载都请求。
+  useQuery({
+    queryKey: ['organization-me'],
+    queryFn: async () => {
+      const u = await api.get('organization/me').json<{ id: number; username: string }>()
+      if (u?.username) setUser?.({ id: u.id, username: u.username })
+      return u
+    },
+    enabled: !user?.username,
+    staleTime: 5 * 60_000,
+    retry: false,
+  })
 
   const notify = (msg: string) => onNotify?.(msg)
 

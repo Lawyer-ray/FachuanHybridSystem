@@ -1,6 +1,6 @@
 import type { InfoField } from './types'
 
-/** 10 种材料类型（人工归类的候选集） */
+/** 人工归类的候选集（段头类型胶囊的选项） */
 export const SEGMENT_TYPES = [
   '起诉状',
   '证据清单及明细',
@@ -45,3 +45,8 @@ export const FIELD_LIB: InfoField[] = [
 ]
 
 export const MANUAL_SOURCE_TYPE = 'manual_upload'
+
+/** 阅读器退场动画时长（对应 material-prep.css `.mp-reader.closing` 的 0.24s） */
+export const READER_CLOSE_MS = 240
+/** 卡片离场动画播完后移除 leaving 标记的等待（`.mp-packet.leave-*` 0.46s + 缓冲） */
+export const PACK_LEAVE_REMOVAL_MS = 540

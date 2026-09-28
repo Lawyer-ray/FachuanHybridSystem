@@ -1,11 +1,12 @@
 import { OcrPanel } from './OcrPanel'
 import { AssignModal } from './AssignModal'
+import { RenameMatDialog } from './RenameMatDialog'
 import { RenamePackDialog } from '../RenamePackDialog'
 import { ConfirmDeleteDialog } from '../ConfirmDeleteDialog'
 import type { AssignInfo, DraftState, InboxMessageDetail, OcrPending, PageKey } from '../../types'
 
 /**
- * Reader 上的弹窗组合：OCR 取字确认面板、归案归属、删除所选页确认、重命名材料包。
+ * Reader 上的弹窗组合：OCR 取字确认面板、归案归属、删除所选页确认、重命名材料包/源文件。
  * 各自的开关与回调由父组件受控传入，本组件只负责接线与转发。
  */
 export function ReaderDialogs({
@@ -26,6 +27,8 @@ export function ReaderDialogs({
   onDeleteConfirm,
   renaming,
   onRenamingChange,
+  renameMat,
+  onRenameMatClose,
 }: {
   draft: DraftState
   detail: InboxMessageDetail
@@ -44,6 +47,8 @@ export function ReaderDialogs({
   onDeleteConfirm: () => void
   renaming: boolean
   onRenamingChange: (open: boolean) => void
+  renameMat: { mi: number; initial: string } | null
+  onRenameMatClose: () => void
 }) {
   return (
     <>
@@ -86,6 +91,9 @@ export function ReaderDialogs({
         onOpenChange={onRenamingChange}
         pack={detail}
       />
+
+      {/* 重命名源文件：左栏重命名入口打开（替代此前的原生 prompt，风格与其他弹窗统一） */}
+      <RenameMatDialog target={renameMat} onClose={onRenameMatClose} />
     </>
   )
 }

@@ -46,6 +46,10 @@ export const PageCell = memo(function PageCell({
   const boxRef = useRef<HTMLDivElement>(null)
   const dragRef = useRef<{ x: number; y: number } | null>(null)
   const movedRef = useRef(false)
+  // 拖框矩形走 ref 供 pointerup 判定（state 只管渲染蓝色框）：
+  // pointermove 与 pointerup 可能同帧批处理，读 state 闭包会拿到旧值，
+  // 把一次有效拖框误判成「只点了一下记页码」——这正是规范「高频路径用 ref」的场景
+  const rectRef = useRef<PageRect | null>(null)
   const [dragRect, setDragRect] = useState<PageRect | null>(null)
 
   const stopProp = (e: React.SyntheticEvent) => e.stopPropagation()
@@ -56,6 +60,7 @@ export const PageCell = memo(function PageCell({
     if (!r) return
     dragRef.current = { x: (e.clientX - r.left) / r.width, y: (e.clientY - r.top) / r.height }
     movedRef.current = false
+    rectRef.current = null
     setDragRect(null)
     try {
       e.currentTarget.setPointerCapture(e.pointerId)
@@ -77,13 +82,15 @@ export const PageCell = memo(function PageCell({
       h: Math.abs(cur.y - a.y),
     }
     if (rect.w > MIN_DRAG || rect.h > MIN_DRAG) movedRef.current = true
+    rectRef.current = rect
     setDragRect(rect)
   }
 
   const onPointerUp = () => {
     if (!dragRef.current || !pickActive) return
     dragRef.current = null
-    const rect = dragRect
+    const rect = rectRef.current
+    rectRef.current = null
     setDragRect(null)
     if (rect && (rect.w > MIN_DRAG || rect.h > MIN_DRAG)) {
       onOcrBox?.(mi, p, rect)
@@ -233,6 +240,7 @@ function PhotoPageView({ messageId, partIndex }: { messageId: number; partIndex:
       .then((bytes) => {
         objectUrl = URL.createObjectURL(new Blob([bytes]))
         if (alive) setUrl(objectUrl)
+        else URL.revokeObjectURL(objectUrl) // 卸载后才回来：别漏 revoke
       })
       .catch(() => {})
     return () => {

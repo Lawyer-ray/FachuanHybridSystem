@@ -5,6 +5,9 @@ import type { InboxItem } from '../types'
 
 export const inboxApi = createApiClient({ prefix: '/api/v1/inbox' })
 
+/** 首页收件箱卡的 query key（InboxCard 订阅，court-sms 提交后 invalidate） */
+export const HOME_INBOX_KEY = ['home-inbox'] as const
+
 /** 后端 InboxMessageOut（/inbox/messages）——只声明前端用到的字段 */
 export interface InboxMessageOut {
   id: number
@@ -16,7 +19,6 @@ export interface InboxMessageOut {
   received_at: string
   has_attachments: boolean
   attachment_count: number
-  status: string
   segs: number
   named: number
   pages: number
@@ -34,28 +36,16 @@ const INBOX_ICON: Record<string, InboxItem['kind']> = {
 }
 
 /**
- * 收件箱条目的处理状态。
- *
- * 注意：InboxMessage 模型**没有** status 字段——它来自 draft_state 这个
- * JSONField 里的 status 键（backend/apps/message_hub/schemas.py 的
- * resolve_status）。后端把 draft_state 当不透明数据，语义由前端定义；
- * 写入方是材料预处理页（右键「已归案 / 归档留痕」）。
- *
- * 所以：
- *   - 只有 manual_upload（材料包）会被真正标成 done/filed
- *   - 法院短信 / 邮件这些非材料包来源没有拆分流程，status 恒为 todo
- *   - 展示时按来源分别给文案，别把「归案」安到法院短信头上
+ * 收件箱条目的 status 说明（保留给未来处理流参考）：
+ * InboxMessage 模型没有 status 字段——它来自 draft_state 这个 JSONField 里的
+ * status 键，只有材料预处理页（manual_upload）会写 done/filed，其余来源恒为 todo。
+ * 首页收件箱卡刻意只做「最近流入」展示，不消费 status / 动作按钮（实测 338 条里
+ * 336 条恒为 todo，计数与按钮都没有信息量），故 toInboxItem 不再组装这些字段。
  */
-const PACK_STATUS_LABEL: Record<string, string> = {
-  todo: '待处理',
-  done: '已归案',
-  filed: '不接归档',
-}
 
-/** 收件箱条目 → 待处理流入展示态（含类型、状态、操作按钮） */
+/** 收件箱条目 → 最近流入展示态（类型 + 来源 + 时间） */
 function toInboxItem(m: InboxMessageOut): InboxItem {
   const kind = INBOX_ICON[m.source_type] ?? 'mat'
-  const hot = kind === 'sms'
   return {
     id: m.id,
     kind,
@@ -63,10 +53,7 @@ function toInboxItem(m: InboxMessageOut): InboxItem {
     who: m.sender,
     title: m.subject,
     at: formatRelative(m.received_at),
-    status: PACK_STATUS_LABEL[m.status] ?? m.status,
-    // 动作按来源给：材料包才能解析，法院短信是归案，邮件/其他是打开
-    action: kind === 'mat' ? '解析' : hot ? '归案' : '打开',
-    hot,
+    hot: kind === 'sms',
   }
 }
 
